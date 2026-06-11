@@ -193,6 +193,26 @@ class FlagSyncServiceTest {
     class CondstoreEarlyReturnAndFallback {
 
         @Test
+        @DisplayName("First CONDSTORE cycle (no baseline) -> bounded local sweep, never CHANGEDSINCE 0")
+        void firstCondstoreCycleUsesBoundedSweepInsteadOfFullFolderFetch() throws Exception {
+            // CHANGEDSINCE 0 would stream the flags of EVERY message in the server
+            // folder while we mirror only a window — the first cycle must instead
+            // sweep the local UIDs and just record the HIGHESTMODSEQ baseline.
+            org.eclipse.angus.mail.imap.IMAPFolder imapFolder = org.mockito.Mockito
+                    .mock(org.eclipse.angus.mail.imap.IMAPFolder.class);
+            when(imapFolder.getHighestModSeq()).thenReturn(77L);
+            syncState.setLastKnownModseq(null);
+            FolderSyncContext imapCtx = new FolderSyncContext(ctx.account(), FOLDER, imapFolder, uidFolder, syncState);
+            when(messageRepository.findUidsByAccountAndFolder(ACCOUNT_ID, FOLDER)).thenReturn(List.of());
+
+            service.syncMessageFlagsCondstore(imapCtx);
+
+            verify(imapFolder, never()).doCommand(any());
+            verify(syncStateService).updateLastKnownModseq(SYNC_STATE_ID, 77L);
+            assertThat(syncState.getLastKnownModseq()).isEqualTo(77L);
+        }
+
+        @Test
         @DisplayName("Non-IMAPFolder ctx -> fall back to full sweep (syncMessageFlagsBatched)")
         void nonImapFolderFallsBackToBatched() throws Exception {
             // The folder mock is not an IMAPFolder, so it should hit the fallback branch.

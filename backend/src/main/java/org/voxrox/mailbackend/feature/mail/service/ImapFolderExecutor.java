@@ -77,7 +77,12 @@ public class ImapFolderExecutor {
                 throw e;
 
             } catch (MessagingException e) {
-                log.error("{} IMAP error in folder {}: {}", LogCategory.IMAP, folderName, e.getMessage());
+                /*
+                 * Log with the full stack trace — the exception is converted into a
+                 * MailOperationException below (whose constructor carries no cause), so this is
+                 * the last place the original stack is visible.
+                 */
+                log.error("{} IMAP error in folder {}: {}", LogCategory.IMAP, folderName, e.getMessage(), e);
 
                 /*
                  * Best-effort classification from the server message. JavaMail does not expose

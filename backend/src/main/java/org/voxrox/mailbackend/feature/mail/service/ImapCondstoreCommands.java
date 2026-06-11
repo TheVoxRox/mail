@@ -80,6 +80,9 @@ final class ImapCondstoreCommands {
         args.writeArgument(changedSince);
 
         Response[] responses = protocol.command("UID FETCH", args);
+        if (responses.length == 0) {
+            throw new ProtocolException("Empty response to UID FETCH ... CHANGEDSINCE");
+        }
         List<FlagChange> changes = new ArrayList<>();
         for (int i = 0; i < responses.length - 1; i++) {
             Response r = responses[i];
@@ -103,6 +106,9 @@ final class ImapCondstoreCommands {
         args.writeArgument(attrs);
 
         Response[] responses = protocol.command("UID FETCH", args);
+        if (responses.length == 0) {
+            throw new ProtocolException("Empty response to UID FETCH 1:* (UID)");
+        }
         Set<Long> uids = new HashSet<>();
         for (int i = 0; i < responses.length - 1; i++) {
             Response r = responses[i];

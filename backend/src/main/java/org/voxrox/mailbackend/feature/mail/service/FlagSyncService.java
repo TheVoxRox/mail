@@ -100,7 +100,27 @@ public class FlagSyncService {
             return;
         }
 
-        long sinceForFetch = (since != null) ? since : 0L;
+        Long syncStateId = ctx.syncState().getId();
+
+        if (since == null) {
+            /*
+             * First CONDSTORE cycle for this folder — no MODSEQ baseline yet. CHANGEDSINCE
+             * 0 would make the server stream the flags of EVERY message in the folder,
+             * while we mirror only a recency window of it (on a 50k mailbox that is
+             * megabytes of FETCH responses plus a no-op UPDATE storm, all under the
+             * per-account connection lock). Run one sweep bounded to the local UIDs instead
+             * and start the incremental protocol from the HIGHESTMODSEQ observed BEFORE the
+             * sweep — a change racing the sweep is simply re-fetched (idempotently) in the
+             * next cycle.
+             */
+            syncMessageFlagsBatched(ctx);
+            transactionTemplate.executeWithoutResult(
+                    status -> syncStateService.updateLastKnownModseq(syncStateId, serverHighestModseq));
+            ctx.syncState().setLastKnownModseq(serverHighestModseq);
+            return;
+        }
+
+        long sinceForFetch = since;
         log.debug("{} CONDSTORE flag sync in folder {}: CHANGEDSINCE {} -> HIGHESTMODSEQ {}", LogCategory.SYNC,
                 ctx.folderName(), sinceForFetch, serverHighestModseq);
 
@@ -113,7 +133,6 @@ public class FlagSyncService {
             transactionTemplate.executeWithoutResult(status -> applyFlagChanges(ctx, changes));
         }
 
-        Long syncStateId = ctx.syncState().getId();
         transactionTemplate.executeWithoutResult(
                 status -> syncStateService.updateLastKnownModseq(syncStateId, serverHighestModseq));
         ctx.syncState().setLastKnownModseq(serverHighestModseq);
@@ -174,7 +193,7 @@ public class FlagSyncService {
                     messageRepository.updateFlagsIfChanged(ctx.getAccountId(), ctx.folderName(), uid, sSeen, sFlagged,
                             sAnswered);
                 } catch (MessagingException e) {
-                    log.warn("{} Error reading flags for UID {}", LogCategory.SYNC, uid);
+                    log.warn("{} Error reading flags for UID {}: {}", LogCategory.SYNC, uid, e.getMessage());
                 }
             }
         }
