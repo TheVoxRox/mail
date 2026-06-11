@@ -20,6 +20,10 @@
 		<jsoup.version>1.22.2</jsoup.version>
 		<springdoc.version>3.0.2</springdoc.version>
 		<wiremock.version>3.9.2</wiremock.version>
+		<error-prone.version>2.50.0</error-prone.version>
+		<nullaway.version>0.13.6</nullaway.version>
+		<archunit.version>1.4.1</archunit.version>
+		<greenmail.version>2.1.3</greenmail.version>
 	</properties>
 
 	<dependencies>
@@ -106,6 +110,30 @@
 			<version>${wiremock.version}</version>
 			<scope>test</scope>
 		</dependency>
+		<dependency>
+			<!-- Nullness annotations for NullAway. Spring Framework 7 already uses
+			     JSpecify internally, so this only pins the version we annotate with. -->
+			<groupId>org.jspecify</groupId>
+			<artifactId>jspecify</artifactId>
+			<version>1.0.0</version>
+		</dependency>
+		<dependency>
+			<!-- Architecture conventions as executable tests (ArchitectureTest):
+			     layering, lock/IMAP access contracts, logging discipline. -->
+			<groupId>com.tngtech.archunit</groupId>
+			<artifactId>archunit-junit5</artifactId>
+			<version>${archunit.version}</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<!-- Embedded IMAP/SMTP server for integration tests of the sync layer —
+			     covers protocol edge paths that Mockito-based unit tests cannot
+			     (UIDVALIDITY, flag sync, deletes against a live folder). -->
+			<groupId>com.icegreen</groupId>
+			<artifactId>greenmail-junit5</artifactId>
+			<version>${greenmail.version}</version>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 
 	<build>
@@ -138,6 +166,72 @@
 			</plugins>
 		</pluginManagement>
 		<plugins>
+			<plugin>
+				<!--
+					Error Prone + NullAway — compile-time static analysis focused on the
+					bug classes this project has actually hit (concurrency misuse, API
+					misuse, silent null propagation). Error Prone bug patterns at their
+					default severities fail the build on ERROR-level findings; NullAway
+					runs at WARN until the codebase is annotated with JSpecify @Nullable,
+					then gets promoted to ERROR (burn-down documented in
+					docs/STATIC_ANALYSIS.md).
+
+					NullAway is disabled for test sources: Mockito mocks and @BeforeEach
+					initialization would produce noise without adding safety.
+
+					ExcludedPaths skips everything under target/ — Spring AOT (-Paot)
+					generates sources that are not ours to fix.
+
+					Error Prone runs in-process; the jdk.compiler add-exports/add-opens
+					flags it needs live in .mvn/jvm.config (forked javac swallows its own
+					diagnostics on Windows, so fork is deliberately NOT used).
+				-->
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<configuration>
+					<annotationProcessorPaths>
+						<path>
+							<groupId>com.google.errorprone</groupId>
+							<artifactId>error_prone_core</artifactId>
+							<version>${error-prone.version}</version>
+						</path>
+						<path>
+							<groupId>com.uber.nullaway</groupId>
+							<artifactId>nullaway</artifactId>
+							<version>${nullaway.version}</version>
+						</path>
+					</annotationProcessorPaths>
+				</configuration>
+				<executions>
+					<execution>
+						<id>default-compile</id>
+						<configuration>
+							<compilerArgs>
+								<arg>-XDcompilePolicy=simple</arg>
+								<arg>--should-stop=ifError=FLOW</arg>
+								<!--
+									JavaTimeDefaultTimeZone is OFF by policy: this is a single-user
+									desktop app, timestamps (last_sync_at, received_at) are stored
+									and displayed in the machine's local wall-clock time by design.
+									Migrating to Instant/UTC is a schema + product decision tracked
+									in docs/STATIC_ANALYSIS.md, not something to silence per call.
+								-->
+								<arg>-Xplugin:ErrorProne -XepExcludedPaths:.*[\\/]target[\\/].* -Xep:JavaTimeDefaultTimeZone:OFF -Xep:NullAway:WARN -XepOpt:NullAway:AnnotatedPackages=org.voxrox</arg>
+							</compilerArgs>
+						</configuration>
+					</execution>
+					<execution>
+						<id>default-testCompile</id>
+						<configuration>
+							<compilerArgs>
+								<arg>-XDcompilePolicy=simple</arg>
+								<arg>--should-stop=ifError=FLOW</arg>
+								<arg>-Xplugin:ErrorProne -XepExcludedPaths:.*[\\/]target[\\/].* -Xep:JavaTimeDefaultTimeZone:OFF -Xep:NullAway:OFF</arg>
+							</compilerArgs>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
 			<plugin>
 				<!--
 					target/sidecar/ is produced by scripts/package-sidecar-windows.ps1
