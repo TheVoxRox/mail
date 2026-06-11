@@ -1,5 +1,6 @@
 package org.voxrox.mailbackend.feature.account.service;
 
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -313,8 +314,8 @@ public class AccountService {
      * </ol>
      */
     @Transactional
-    public void processExternalProviderLogin(String providerName, String email, String name, String externalId,
-            String refreshToken) {
+    public void processExternalProviderLogin(String providerName, String email, @Nullable String name,
+            String externalId, String refreshToken) {
         if (providerName == null || providerName.isBlank()) {
             throw new IllegalStateException("providerName must not be null for external provider login");
         }
@@ -363,7 +364,7 @@ public class AccountService {
     }
 
     private AccountEntity findOrCreateExternalAccount(String providerName, String email, String externalId,
-            MailProviderEntity provider, String providerLabel) {
+            @Nullable MailProviderEntity provider, String providerLabel) {
         return accountRepository.findByOauth2ProviderAndExternalId(providerName, externalId)
                 .or(() -> accountRepository.findByEmail(email)).orElseGet(() -> {
                     String maskedEmail = LogMasker.maskEmail(email);
@@ -397,7 +398,7 @@ public class AccountService {
                 });
     }
 
-    private void syncExternalAccountMetadata(AccountEntity account, String name, String providerName,
+    private void syncExternalAccountMetadata(AccountEntity account, @Nullable String name, String providerName,
             String externalId) {
         boolean changed = false;
         if (account.getOauth2Provider() == null || !account.getOauth2Provider().equals(providerName)) {

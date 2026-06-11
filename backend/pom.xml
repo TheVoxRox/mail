@@ -172,8 +172,8 @@
 					bug classes this project has actually hit (concurrency misuse, API
 					misuse, silent null propagation). Error Prone bug patterns at their
 					default severities fail the build on ERROR-level findings; NullAway
-					runs at WARN until the codebase is annotated with JSpecify @Nullable,
-					then gets promoted to ERROR (burn-down documented in
+					runs at ERROR on main sources — the codebase is annotated with
+					JSpecify @Nullable (burn-down completed 2026-06-11, history in
 					docs/STATIC_ANALYSIS.md).
 
 					NullAway is disabled for test sources: Mockito mocks and @BeforeEach
@@ -216,7 +216,7 @@
 									Migrating to Instant/UTC is a schema + product decision tracked
 									in docs/STATIC_ANALYSIS.md, not something to silence per call.
 								-->
-								<arg>-Xplugin:ErrorProne -XepExcludedPaths:.*[\\/]target[\\/].* -Xep:JavaTimeDefaultTimeZone:OFF -Xep:NullAway:WARN -XepOpt:NullAway:AnnotatedPackages=org.voxrox</arg>
+								<arg>-Xplugin:ErrorProne -XepExcludedPaths:.*[\\/]target[\\/].* -Xep:JavaTimeDefaultTimeZone:OFF -Xep:NullAway:ERROR -XepOpt:NullAway:AnnotatedPackages=org.voxrox</arg>
 							</compilerArgs>
 						</configuration>
 					</execution>

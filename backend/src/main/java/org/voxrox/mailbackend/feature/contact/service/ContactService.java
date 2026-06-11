@@ -1,5 +1,6 @@
 package org.voxrox.mailbackend.feature.contact.service;
 
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -258,7 +259,8 @@ public class ContactService {
         AccountEntity account = accountService.getAccountOrThrow(accountId);
         ContactEntity entity = getContactOrThrow(accountId, contactId);
 
-        String normalized = contactMapper.normalizeEmail(request.email());
+        // request.email() is @NotBlank-validated, so the normalized form exists.
+        String normalized = Objects.requireNonNull(contactMapper.normalizeEmail(request.email()));
         if (entity.getEmails().stream().anyMatch(e -> normalized.equals(e.getEmail()))) {
             throw new ValidationException("The contact already has the e-mail address " + normalized + ".",
                     "validation.contact.emailAlreadyOnContact", normalized);
@@ -435,7 +437,7 @@ public class ContactService {
     private record EmailToAdd(String email, EmailLabel label) {
     }
 
-    private static String mergeNotes(String targetNote, List<ContactEntity> sources) {
+    private static @Nullable String mergeNotes(@Nullable String targetNote, List<ContactEntity> sources) {
         List<String> parts = new ArrayList<>();
         if (targetNote != null && !targetNote.isBlank()) {
             parts.add(targetNote);
@@ -468,7 +470,7 @@ public class ContactService {
      * an existing record in the DB</li>
      * </ul>
      */
-    private void checkNoDuplicatesWithinAccount(Long accountId, Long excludeContactId, List<String> emails) {
+    private void checkNoDuplicatesWithinAccount(Long accountId, @Nullable Long excludeContactId, List<String> emails) {
         Set<String> seen = new HashSet<>();
         for (String email : emails) {
             if (!seen.add(email)) {
@@ -488,7 +490,8 @@ public class ContactService {
     }
 
     private List<String> normalizeEmailList(List<ContactEmailRequest> emails) {
-        return emails.stream().map(e -> contactMapper.normalizeEmail(e.email())).toList();
+        // Each e.email() is @NotBlank-validated, so the normalized forms exist.
+        return emails.stream().map(e -> Objects.requireNonNull(contactMapper.normalizeEmail(e.email()))).toList();
     }
 
     private static String primaryEmail(ContactEntity entity) {

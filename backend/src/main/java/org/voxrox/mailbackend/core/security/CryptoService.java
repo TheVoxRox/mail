@@ -3,6 +3,7 @@ package org.voxrox.mailbackend.core.security;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -67,7 +68,8 @@ public class CryptoService {
         startupTimingService.record("crypto.service-init", started);
     }
 
-    public String encrypt(String plainText, Long accountId) {
+    /** Pass-through contract: blank/null input maps to {@code null} ciphertext. */
+    public @Nullable String encrypt(@Nullable String plainText, Long accountId) {
         if (plainText == null || plainText.isBlank())
             return null;
 
@@ -82,7 +84,8 @@ public class CryptoService {
         }
     }
 
-    public String decrypt(String encryptedBase64, Long accountId) {
+    /** Pass-through contract: blank/null ciphertext maps to {@code null}. */
+    public @Nullable String decrypt(@Nullable String encryptedBase64, Long accountId) {
         if (encryptedBase64 == null || encryptedBase64.isBlank())
             return null;
 

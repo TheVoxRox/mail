@@ -1,5 +1,6 @@
 package org.voxrox.mailbackend.feature.account.service;
 
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -44,7 +45,7 @@ public class AccountCredentialService {
         boolean secretChanged = false;
         boolean secretCleared = false;
 
-        if (isUpdate) {
+        if (existing != null) {
             credentials = existing;
             usernameChanged = !java.util.Objects.equals(existing.getUsername(), username);
             authTypeChanged = !java.util.Objects.equals(existing.getAuthType(), authType);
@@ -64,17 +65,19 @@ public class AccountCredentialService {
         credentials.setAuthType(authType);
 
         /*
-         * Empty secret → null in the DB. After an auth-type switch we must not leave an
-         * old password lingering here (e.g. PASSWORD → OAUTH2 transition).
+         * Empty secret → empty string in the DB (the column is NOT NULL; blank is
+         * treated as "no secret" by all readers). After an auth-type switch we must not
+         * leave an old password lingering here (e.g. PASSWORD → OAUTH2 transition).
          */
         if (secret != null && !secret.isBlank()) {
             cryptoService.evictCache(account.getId());
-            String encrypted = cryptoService.encrypt(secret, account.getId());
+            // encrypt() returns null only for blank input, which is excluded here.
+            String encrypted = java.util.Objects.requireNonNull(cryptoService.encrypt(secret, account.getId()));
             credentials.setEncryptedPassword(encrypted);
         } else {
-            log.trace("{} Secret is empty, setting encryptedPassword to null for account id={}", LogCategory.SECURITY,
+            log.trace("{} Secret is empty, clearing encryptedPassword for account id={}", LogCategory.SECURITY,
                     account.getId());
-            credentials.setEncryptedPassword(null);
+            credentials.setEncryptedPassword("");
         }
 
         credentialRepository.save(credentials);
@@ -106,7 +109,7 @@ public class AccountCredentialService {
      * Returns the decrypted secret (password or refresh token).
      */
     @Transactional(readOnly = true)
-    public String getDecryptedSecret(Long accountId) {
+    public @Nullable String getDecryptedSecret(Long accountId) {
         return credentialRepository.findById(accountId).map(creds -> creds.getEncryptedPassword())
                 .filter(pwd -> pwd != null && !pwd.isBlank()).map(pwd -> cryptoService.decrypt(pwd, accountId))
                 .orElse(null);

@@ -1,5 +1,7 @@
 package org.voxrox.mailbackend.util;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * Masks sensitive identifiers (currently only e-mail addresses) in logs so the
  * full value never leaks. Other variants ({@code maskUsername}, {@code lazy})
@@ -14,7 +16,7 @@ public final class LogMasker {
     }
 
     /** jan.novak@seznam.cz -> j***k@seznam.cz */
-    public static String maskEmail(String email) {
+    public static String maskEmail(@Nullable String email) {
 
         if (email == null) {
             return EMPTY;
@@ -56,11 +58,11 @@ public final class LogMasker {
      * wrapper defers the computation to toString(), which SLF4J only invokes when
      * actually writing the log entry.
      */
-    public static Object lazyEmail(String email) {
+    public static Object lazyEmail(@Nullable String email) {
         return lazy(email, LogMasker::maskEmail);
     }
 
-    private static String maskUsername(String username) {
+    private static String maskUsername(@Nullable String username) {
 
         if (username == null) {
             return EMPTY;
@@ -79,7 +81,7 @@ public final class LogMasker {
         return username.charAt(0) + "***" + username.charAt(username.length() - 1);
     }
 
-    private static Object lazy(String value, java.util.function.Function<String, String> masker) {
+    private static Object lazy(@Nullable String value, java.util.function.Function<@Nullable String, String> masker) {
         return new Object() {
             @Override
             public String toString() {

@@ -87,12 +87,6 @@ Rozhodnuto: OAuth-only (viz Rozhodnuti). PKCE explicitne zapnut v [SecurityConfi
 
 ---
 
-## Kvalita kodu (prubezne)
-
-- [ ] **NullAway burn-down WARN → ERROR** — ~100 warningu na main kodu; pravidlo: kdo saha do souboru, vycisti jeho NullAway nalezy (JSpecify `@Nullable` + null-checky). Az bude 0, prepnout `-Xep:NullAway:WARN` na `ERROR` v [pom.xml](backend/pom.xml). Plan + clustery viz [backend/docs/STATIC_ANALYSIS.md](backend/docs/STATIC_ANALYSIS.md).
-
----
-
 ## Startup follow-up
 
 - [ ] Zmerit cold start pred/po do `backend/PERFORMANCE_BASELINE.md` (sekce "Startup audit 2026-05-17 before/after" + AppCDS decision gate).

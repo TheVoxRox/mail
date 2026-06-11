@@ -9,7 +9,7 @@ for the tools' configuration is [pom.xml](../pom.xml); this file records the
 | Tool | When | Gate |
 | --- | --- | --- |
 | Error Prone 2.50 | every `javac` run (main + test) | ERROR-level bug patterns fail the build |
-| NullAway 0.13 | main sources only | WARN (see burn-down below) |
+| NullAway 0.13 | main sources only | ERROR (burn-down completed, see below) |
 | SpotBugs (effort Max, threshold Medium) | `mvn verify` | fails the build |
 | Spotless (Eclipse formatter) | `mvn verify` / pre-push | fails the build |
 | JaCoCo merged check | `mvn verify` | instruction 70 % / branch 50 % / line 70 % floors |
@@ -34,29 +34,32 @@ Error Prone needs `jdk.compiler` add-exports flags; they live in
   the 2026-06 reviews showed that silent error paths are exactly where this
   project's bugs live.
 
-## NullAway burn-down
+## NullAway
 
-NullAway runs with `AnnotatedPackages=org.voxrox` at **WARN** on main sources
+NullAway runs with `AnnotatedPackages=org.voxrox` at **ERROR** on main sources
 (OFF for tests — Mockito `@Mock`/`@BeforeEach` initialization would be pure
-noise). The goal is **ERROR** once the remaining warnings reach zero.
+noise). The burn-down from ~100 warnings finished 2026-06-11; new findings now
+fail the build.
 
-Approach, in order of preference:
+Approach for new findings, in order of preference:
 
 1. If the nullability is real and intended (DTO fields, JPA associations,
    provider-dependent values), annotate with `org.jspecify.annotations.Nullable`
    (the same annotations Spring Framework 7 uses) and null-check at use sites.
 2. If the value cannot actually be null, restructure so NullAway can prove it
-   (inline null checks — NullAway does not look through helper predicates like
-   the old `hasText`).
+   (inline null checks or `Objects.requireNonNull` with a one-line comment —
+   NullAway does not look through helper predicates like the old `hasText`).
 3. `@SuppressWarnings("NullAway")` only with a one-line justification, and only
    for framework-managed lifecycle gaps (e.g. JPA no-arg construction).
 
-Remaining clusters (2026-06-11 baseline, ~100 warnings): `GlobalExceptionHandler`
-(Spring's `@Nullable` returns), `DiagnosticDumpService` / `ClientBootDiagnosticsService`
-(best-effort diagnostic payloads), JPA entities with `@MapsId`/embedded config
-(`MailServerConfig`, `AccountCredentialService`), repository default methods
-passing `null` column values, `AccountMapper`/DTO nullable fields,
-`HandshakeService.apiKey` lazy init.
+Conventions established during the burn-down:
 
-Rule of thumb when touching any of these files: clear that file's NullAway
-warnings as part of the change.
+- JPA entity columns that are nullable in the schema carry `@Nullable` on the
+  field, the getter *and* the setter parameter — annotating only one of them
+  trips the assignment/return checks.
+- A bidirectional unlink helper (`MessageEntity.removeAttachment`) may null a
+  `nullable = false` association transiently; the field is `@Nullable` with a
+  comment, the column constraint is unaffected because orphanRemoval deletes
+  the row.
+- `account_credentials.password` is NOT NULL by schema; "no secret" is stored
+  as an empty string (all readers treat blank as absent), never as null.

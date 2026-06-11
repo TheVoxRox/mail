@@ -10,6 +10,7 @@ import org.eclipse.angus.mail.imap.IMAPFolder;
 import org.eclipse.angus.mail.imap.protocol.FetchResponse;
 import org.eclipse.angus.mail.imap.protocol.IMAPProtocol;
 import org.eclipse.angus.mail.imap.protocol.UID;
+import org.jspecify.annotations.Nullable;
 
 import module java.base;
 
@@ -124,7 +125,7 @@ final class ImapCondstoreCommands {
         return uids;
     }
 
-    private static FlagChange parseFlagChange(FetchResponse fr) {
+    private static @Nullable FlagChange parseFlagChange(FetchResponse fr) {
         UID uidItem = fr.getItem(UID.class);
         org.eclipse.angus.mail.imap.protocol.FLAGS flagsItem = fr
                 .getItem(org.eclipse.angus.mail.imap.protocol.FLAGS.class);

@@ -10,6 +10,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.MigrationInfo;
 import org.flywaydb.core.api.MigrationVersion;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -62,7 +63,7 @@ public class HandshakeService {
      * loopback port changes too), so persisting this across restarts would add no
      * value and only enlarge the attack surface.
      */
-    private volatile String apiKey;
+    private volatile @Nullable String apiKey;
 
     public HandshakeService(Environment environment, FileSystemService fileSystemService, ObjectMapper objectMapper,
             Flyway flyway, DatabaseBackupService databaseBackupService, ApplicationVersion applicationVersion,
@@ -91,11 +92,13 @@ public class HandshakeService {
     }
 
     public synchronized String getOrCreateApiKey() {
-        if (apiKey == null) {
-            apiKey = generateApiKey();
+        String key = apiKey;
+        if (key == null) {
+            key = generateApiKey();
+            apiKey = key;
             log.info("{} Generated new in-memory handshake API key for this sidecar process.", LogCategory.SECURITY);
         }
-        return apiKey;
+        return key;
     }
 
     private static String generateApiKey() {

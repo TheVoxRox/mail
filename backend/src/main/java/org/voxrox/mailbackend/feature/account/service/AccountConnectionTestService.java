@@ -1,5 +1,6 @@
 package org.voxrox.mailbackend.feature.account.service;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Service;
@@ -93,6 +94,6 @@ public class AccountConnectionTestService {
     private record ServerConfig(MailServerSettings imap, MailServerSettings smtp) {
     }
 
-    private record CredentialSnapshot(String secret, AuthType authType, String oauth2Provider) {
+    private record CredentialSnapshot(@Nullable String secret, AuthType authType, @Nullable String oauth2Provider) {
     }
 }

@@ -2,6 +2,8 @@ package org.voxrox.mailbackend.feature.account;
 
 import java.util.Map;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -15,7 +17,7 @@ public final class AccountLastErrorJson {
     private AccountLastErrorJson() {
     }
 
-    public static String write(Map<String, String> args) {
+    public static @Nullable String write(@Nullable Map<String, String> args) {
         if (args == null || args.isEmpty()) {
             return null;
         }
@@ -26,7 +28,7 @@ public final class AccountLastErrorJson {
         }
     }
 
-    public static Map<String, String> read(String json) {
+    public static Map<String, String> read(@Nullable String json) {
         if (json == null || json.isBlank()) {
             return Map.of();
         }

@@ -1,5 +1,6 @@
 package org.voxrox.mailbackend.core.diagnostic;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -129,14 +130,16 @@ public class DiagnosticDumpService {
                 startupTimingService.snapshots());
     }
 
-    private ServerDump toServerDump(MailServerConfig config) {
+    private @Nullable ServerDump toServerDump(@Nullable MailServerConfig config) {
         if (config == null) {
             return null;
         }
         return new ServerDump(config.getHost(), config.getPort(), config.isUseSsl());
     }
 
-    private void addJson(ZipOutputStream zip, String entryName, Object payload) throws IOException {
+    // payload may be null (e.g. client-boot.json before the client reports) —
+    // Jackson serializes it as a JSON null literal.
+    private void addJson(ZipOutputStream zip, String entryName, @Nullable Object payload) throws IOException {
         zip.putNextEntry(new ZipEntry(entryName));
         zip.write(objectMapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(payload));
         zip.closeEntry();
@@ -150,7 +153,7 @@ public class DiagnosticDumpService {
         return DateTimeFormatter.ISO_INSTANT.format(Instant.now());
     }
 
-    private String format(LocalDateTime value) {
+    private @Nullable String format(@Nullable LocalDateTime value) {
         return value != null ? value.toString() : null;
     }
 
@@ -164,17 +167,18 @@ public class DiagnosticDumpService {
     }
 
     private record AccountDump(Long id, String maskedEmail, boolean active, boolean requiresReauth, String providerName,
-            String authType, ServerDump imap, ServerDump smtp, String lastSyncAt, boolean lastErrorPresent) {
+            @Nullable String authType, @Nullable ServerDump imap, @Nullable ServerDump smtp,
+            @Nullable String lastSyncAt, boolean lastErrorPresent) {
     }
 
     private record ServerDump(String host, Integer port, boolean useSsl) {
     }
 
-    private record FolderStateDump(Long accountId, String folderName, String role, Long lastKnownUid, Long uidValidity,
-            String lastSyncAt) {
+    private record FolderStateDump(@Nullable Long accountId, String folderName, @Nullable String role,
+            Long lastKnownUid, @Nullable Long uidValidity, @Nullable String lastSyncAt) {
     }
 
-    private record MessageCountDump(Long accountId, String folderName, long messages) {
+    private record MessageCountDump(@Nullable Long accountId, String folderName, long messages) {
     }
 
     private record RuntimeDump(String generatedAt, String dataDir, String dbDir, String logsDir, String serverAddress,

@@ -3,6 +3,7 @@ package org.voxrox.mailbackend.feature.mail.service;
 import jakarta.mail.Folder;
 import jakarta.mail.MessagingException;
 
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -33,7 +34,7 @@ public class ImapFolderService {
         this.messageRepository = messageRepository;
     }
 
-    public <R> R executeInFolder(Long accountId, String folderName, int mode, ImapFolderAction<R> action) {
+    public <R> @Nullable R executeInFolder(Long accountId, String folderName, int mode, ImapFolderAction<R> action) {
         if (mode == Folder.READ_WRITE) {
             return imapFolderExecutor.executeReadWrite(accountId, folderName, action);
         } else {
@@ -42,7 +43,9 @@ public class ImapFolderService {
     }
 
     public List<FolderResponse> getFolders(Long accountId) {
-        return imapConnectionManager.executeWithLock(accountId, store -> {
+        // The action always returns a (possibly empty) list or throws — it never
+        // yields null, so the nullable executor result can be required here.
+        return java.util.Objects.requireNonNull(imapConnectionManager.executeWithLock(accountId, store -> {
             log.debug("{} Listing folders for account {}", LogCategory.IMAP, accountId);
             Folder defaultFolder = store.getDefaultFolder();
             Folder[] listed = defaultFolder.list("*");
@@ -87,7 +90,7 @@ public class ImapFolderService {
                 result.add(buildResponse(folder, accountId, role));
             }
             return result;
-        });
+        }));
     }
 
     private boolean isSelectable(Folder folder) {

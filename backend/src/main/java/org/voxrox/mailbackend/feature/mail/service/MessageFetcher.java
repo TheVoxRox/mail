@@ -7,6 +7,7 @@ import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
 import jakarta.mail.internet.MimeUtility;
 
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -140,7 +141,7 @@ public class MessageFetcher {
                 threadId);
     }
 
-    private String joinAddresses(Address[] addresses) {
+    private @Nullable String joinAddresses(@Nullable Address[] addresses) {
         if (addresses == null || addresses.length == 0)
             return null;
         return String.join(", ", Arrays.stream(addresses).map(MessageFetcher::formatAddress).toArray(String[]::new));
@@ -158,7 +159,7 @@ public class MessageFetcher {
      * clean — round-tripping through RFC 5322 isn't a concern, this is a display
      * label.
      */
-    static String formatAddress(Address addr) {
+    static @Nullable String formatAddress(@Nullable Address addr) {
         if (addr == null) {
             return null;
         }
@@ -180,7 +181,7 @@ public class MessageFetcher {
         }
     }
 
-    private String tryReadHeader(Message msg, String headerName, long uid, String folderName) {
+    private @Nullable String tryReadHeader(Message msg, String headerName, long uid, String folderName) {
         try {
             return getHeader(msg, headerName);
         } catch (MessagingException e) {
@@ -190,7 +191,7 @@ public class MessageFetcher {
         }
     }
 
-    private String getHeader(Message msg, String headerName) throws MessagingException {
+    private @Nullable String getHeader(Message msg, String headerName) throws MessagingException {
         String[] headers = msg.getHeader(headerName);
         if (headers != null && headers.length > 0) {
             return headers[0];

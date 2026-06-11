@@ -10,6 +10,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.ReentrantLock;
 
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.ParameterizedTypeReference;
@@ -144,10 +145,21 @@ public abstract class OAuth2TokenService {
      * Entry point for both IMAP and SMTP. Called per connection; the cache ensures
      * that the actual HTTP call happens only ~once per hour.
      */
-    public final String getAccessToken(Long accountId, String refreshToken, String email) {
+    public final String getAccessToken(Long accountId, @Nullable String refreshToken, String email) {
         Optional<CachedToken> cached = tokenCache.get(accountId);
         if (cached.isPresent() && cached.get().isFresh()) {
             return cached.get().accessToken();
+        }
+
+        /*
+         * No stored refresh token (cleared secret / inconsistent credentials row) —
+         * refreshing is impossible, only a new OAuth login can fix this. Fail with the
+         * re-auth error instead of sending refresh_token= to the provider.
+         */
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new MailOperationException(ErrorCode.MAIL_ACCOUNT_REQUIRES_REAUTH,
+                    providerDisplayName() + " account has no stored refresh token; sign in again.",
+                    HttpStatus.UNAUTHORIZED);
         }
 
         ReentrantLock refreshLock = refreshLocks.computeIfAbsent(accountId, id -> new ReentrantLock());
@@ -198,7 +210,7 @@ public abstract class OAuth2TokenService {
      *            when {@code null}, this is the initial login flow (the account may
      *            not yet be persisted / there is no point marking it)
      */
-    private CachedToken doRefresh(Long accountId, String refreshToken, String email) {
+    private CachedToken doRefresh(@Nullable Long accountId, String refreshToken, String email) {
         MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
         body.add("client_id", clientId());
         body.add("refresh_token", refreshToken);
@@ -294,7 +306,7 @@ public abstract class OAuth2TokenService {
         return new MailOperationException(ErrorCode.INTERNAL_ERROR, "Access token refresh failed: " + e.getMessage());
     }
 
-    private static long parseExpiresIn(Object raw) {
+    private static long parseExpiresIn(@Nullable Object raw) {
         if (raw instanceof Number n) {
             return n.longValue();
         }

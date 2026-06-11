@@ -5,6 +5,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -99,7 +100,7 @@ public class ThreadingService {
      * Step 1 + 2 of the algorithm — find a parent message in the same account that
      * this message links to.
      */
-    private MessageEntity resolveParent(MessageEntity msg, AccountEntity account) {
+    private @Nullable MessageEntity resolveParent(MessageEntity msg, AccountEntity account) {
         // Step 1 — direct In-Reply-To match
         String inReplyTo = trimToNull(msg.getInReplyTo());
         if (inReplyTo != null) {
@@ -137,7 +138,7 @@ public class ThreadingService {
      * every copy carries the same {@code threadId} by construction, so the first
      * row is authoritative.
      */
-    private MessageEntity findFirstThreadedByMessageId(Long accountId, String messageId) {
+    private @Nullable MessageEntity findFirstThreadedByMessageId(Long accountId, String messageId) {
         List<MessageEntity> hits = messageRepository.findByAccountIdAndMessageId(accountId, messageId);
         for (MessageEntity hit : hits) {
             if (hit.getThreadId() != null) {
@@ -243,7 +244,7 @@ public class ThreadingService {
         }
     }
 
-    private static String trimToNull(String value) {
+    private static @Nullable String trimToNull(@Nullable String value) {
         if (value == null) {
             return null;
         }

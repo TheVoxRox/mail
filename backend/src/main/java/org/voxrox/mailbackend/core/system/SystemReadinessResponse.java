@@ -1,5 +1,7 @@
 package org.voxrox.mailbackend.core.system;
 
+import org.jspecify.annotations.Nullable;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 
 public record SystemReadinessResponse(
@@ -10,5 +12,5 @@ public record SystemReadinessResponse(
         @Schema(description = "API contract version.", example = "1.0.0") String apiVersion,
         @Schema(description = "Minimum supported frontend version.", example = "0.0.1") String minClientVersion,
         @Schema(description = "Current Flyway DB schema version.", example = "1") String dbSchemaVersion,
-        @Schema(description = "Safe user-facing reason when ready=false.", nullable = true) String reason) {
+        @Schema(description = "Safe user-facing reason when ready=false.", nullable = true) @Nullable String reason) {
 }

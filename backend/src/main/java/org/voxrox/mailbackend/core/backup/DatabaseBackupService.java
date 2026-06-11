@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -61,7 +62,7 @@ public class DatabaseBackupService {
      *         (fresh install) or the backup for this version was already created
      *         earlier.
      */
-    public Path createPreMigrationBackup() {
+    public @Nullable Path createPreMigrationBackup() {
         Path dbFile = resolveDbFile();
         if (!Files.exists(dbFile)) {
             log.info("{} DB file {} does not exist (fresh install), backup skipped.", LogCategory.DATABASE, dbFile);
@@ -82,7 +83,8 @@ public class DatabaseBackupService {
             AuditLog.success("db_backup_created", "system", "file=" + backupFile.getFileName());
         } catch (IOException e) {
             log.error("{} Failed to create pre-migration DB backup", LogCategory.DATABASE, e);
-            AuditLog.failure("db_backup_failed", "system", e.getMessage());
+            AuditLog.failure("db_backup_failed", "system",
+                    e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
             throw new UncheckedIOException("Failed to create pre-migration DB backup", e);
         }
 
@@ -138,7 +140,7 @@ public class DatabaseBackupService {
      * version the user upgraded from. {@code null} = first run or all backups
      * deleted.
      */
-    public String previousAppVersion() {
+    public @Nullable String previousAppVersion() {
         return listBackups(storageProperties.getDbPath()).stream()
                 .max(Comparator.comparingLong(DatabaseBackupService::lastModifiedMillis))
                 .map(p -> p.getFileName().toString().substring(BACKUP_PREFIX.length())).orElse(null);

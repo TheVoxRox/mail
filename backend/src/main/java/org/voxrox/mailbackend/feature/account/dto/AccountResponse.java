@@ -3,6 +3,7 @@ package org.voxrox.mailbackend.feature.account.dto;
 import java.time.LocalDateTime;
 import java.util.Map;
 
+import org.jspecify.annotations.Nullable;
 import org.voxrox.mailbackend.feature.auth.dto.AuthType;
 
 /**
@@ -11,19 +12,21 @@ import org.voxrox.mailbackend.feature.auth.dto.AuthType;
  * accounts. The frontend uses it on {@code requiresReauth=true} to pick the
  * correct re-login flow ("Sign in again with Microsoft/Google").
  */
-public record AccountResponse(Long id, String accountName, String email, String displayName,
+public record AccountResponse(Long id, String accountName, String email, @Nullable String displayName,
 
-        Long providerId, String providerName,
+        @Nullable Long providerId, @Nullable String providerName,
 
         String imapHost, Integer imapPort, boolean imapUseSsl, String smtpHost, Integer smtpPort, boolean smtpUseSsl,
 
-        String username, AuthType authType, String oauth2Provider, boolean active, boolean requiresReauth,
-        LocalDateTime lastSyncAt, String lastError, String lastErrorCode, Map<String, String> lastErrorArgs) {
+        @Nullable String username, @Nullable AuthType authType, @Nullable String oauth2Provider, boolean active,
+        boolean requiresReauth, @Nullable LocalDateTime lastSyncAt, @Nullable String lastError,
+        @Nullable String lastErrorCode, @Nullable Map<String, String> lastErrorArgs) {
 
-    public AccountResponse(Long id, String accountName, String email, String displayName, Long providerId,
-            String providerName, String imapHost, Integer imapPort, boolean imapUseSsl, String smtpHost,
-            Integer smtpPort, boolean smtpUseSsl, String username, AuthType authType, String oauth2Provider,
-            boolean active, boolean requiresReauth, LocalDateTime lastSyncAt, String lastError) {
+    public AccountResponse(Long id, String accountName, String email, @Nullable String displayName,
+            @Nullable Long providerId, @Nullable String providerName, String imapHost, Integer imapPort,
+            boolean imapUseSsl, String smtpHost, Integer smtpPort, boolean smtpUseSsl, @Nullable String username,
+            @Nullable AuthType authType, @Nullable String oauth2Provider, boolean active, boolean requiresReauth,
+            @Nullable LocalDateTime lastSyncAt, @Nullable String lastError) {
         this(id, accountName, email, displayName, providerId, providerName, imapHost, imapPort, imapUseSsl, smtpHost,
                 smtpPort, smtpUseSsl, username, authType, oauth2Provider, active, requiresReauth, lastSyncAt, lastError,
                 null, Map.of());

@@ -87,28 +87,28 @@ class AccountCredentialServiceTest {
         }
 
         @Test
-        @DisplayName("blank secret stores null encryptedPassword (no crypto call)")
-        void blankSecretStoresNull() {
+        @DisplayName("blank secret stores empty encryptedPassword (no crypto call; the column is NOT NULL)")
+        void blankSecretStoresEmpty() {
             when(credentialRepository.findById(42L)).thenReturn(Optional.empty());
 
             service.saveCredentials(account, "u", "   ", AuthType.OAUTH2);
 
             ArgumentCaptor<AccountCredentialEntity> captor = ArgumentCaptor.forClass(AccountCredentialEntity.class);
             verify(credentialRepository).save(captor.capture());
-            assertThat(captor.getValue().getEncryptedPassword()).isNull();
+            assertThat(captor.getValue().getEncryptedPassword()).isEmpty();
             verify(cryptoService, never()).encrypt(org.mockito.ArgumentMatchers.anyString(), eq(42L));
         }
 
         @Test
-        @DisplayName("null secret stores null encryptedPassword (no crypto call)")
-        void nullSecretStoresNull() {
+        @DisplayName("null secret stores empty encryptedPassword (no crypto call; the column is NOT NULL)")
+        void nullSecretStoresEmpty() {
             when(credentialRepository.findById(42L)).thenReturn(Optional.empty());
 
             service.saveCredentials(account, "u", null, AuthType.OAUTH2);
 
             ArgumentCaptor<AccountCredentialEntity> captor = ArgumentCaptor.forClass(AccountCredentialEntity.class);
             verify(credentialRepository).save(captor.capture());
-            assertThat(captor.getValue().getEncryptedPassword()).isNull();
+            assertThat(captor.getValue().getEncryptedPassword()).isEmpty();
             verify(cryptoService, never()).encrypt(org.mockito.ArgumentMatchers.anyString(), eq(42L));
         }
     }
@@ -149,7 +149,7 @@ class AccountCredentialServiceTest {
             service.saveCredentials(account, "old-user", "", AuthType.OAUTH2);
 
             assertThat(existing.getAuthType()).isEqualTo(AuthType.OAUTH2);
-            assertThat(existing.getEncryptedPassword()).isNull();
+            assertThat(existing.getEncryptedPassword()).isEmpty();
             verify(cryptoService, never()).encrypt(org.mockito.ArgumentMatchers.anyString(), eq(42L));
         }
 
@@ -171,12 +171,12 @@ class AccountCredentialServiceTest {
             service.saveCredentials(account, "old-user", null, AuthType.PASSWORD);
 
             // Still saved — the service does not gate the write on change detection
-            // (only the audit log entry is gated). EncryptedPassword set to null
-            // because the new secret is null/blank, leaving us in a weird state:
-            // the old password is lost. The current design accepts this (the
-            // caller is responsible for not calling with a blank secret if they
-            // want to keep the password).
-            assertThat(existing.getEncryptedPassword()).isNull();
+            // (only the audit log entry is gated). EncryptedPassword is cleared to
+            // an empty string (the column is NOT NULL) because the new secret is
+            // null/blank, leaving us in a weird state: the old password is lost.
+            // The current design accepts this (the caller is responsible for not
+            // calling with a blank secret if they want to keep the password).
+            assertThat(existing.getEncryptedPassword()).isEmpty();
             verify(credentialRepository).save(existing);
         }
     }

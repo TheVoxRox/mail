@@ -7,6 +7,7 @@ import jakarta.mail.Folder;
 import jakarta.mail.MessagingException;
 import jakarta.mail.UIDFolder;
 
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -27,14 +28,14 @@ public class ImapFolderExecutor {
     /**
      * Runs the action on a folder in read-only mode.
      */
-    public <R> R executeReadOnly(Long accountId, String folderName, ImapFolderAction<R> action) {
+    public <R> @Nullable R executeReadOnly(Long accountId, String folderName, ImapFolderAction<R> action) {
         return execute(accountId, folderName, Folder.READ_ONLY, action);
     }
 
     /**
      * Runs the action on a folder in read-write mode.
      */
-    public <R> R executeReadWrite(Long accountId, String folderName, ImapFolderAction<R> action) {
+    public <R> @Nullable R executeReadWrite(Long accountId, String folderName, ImapFolderAction<R> action) {
         return execute(accountId, folderName, Folder.READ_WRITE, action);
     }
 
@@ -43,7 +44,7 @@ public class ImapFolderExecutor {
      * and handling errors. The lambda (store) -> { ... } now matches the
      * StoreAction interface in ImapConnectionManager.
      */
-    private <R> R execute(Long accountId, String folderName, int mode, ImapFolderAction<R> action) {
+    private <R> @Nullable R execute(Long accountId, String folderName, int mode, ImapFolderAction<R> action) {
         return connectionManager.executeWithLock(accountId, store -> {
             Folder folder = null;
             try {

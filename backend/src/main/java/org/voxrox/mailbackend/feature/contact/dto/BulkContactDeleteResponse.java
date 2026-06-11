@@ -2,9 +2,12 @@ package org.voxrox.mailbackend.feature.contact.dto;
 
 import java.util.List;
 
+import org.jspecify.annotations.Nullable;
+
 public record BulkContactDeleteResponse(int total, int deleted, int failed, List<BulkContactDeleteResult> results) {
 
-    public record BulkContactDeleteResult(Long id, Status status, String errorCode, String errorMessage) {
+    public record BulkContactDeleteResult(Long id, Status status, @Nullable String errorCode,
+            @Nullable String errorMessage) {
 
         public enum Status {
             DELETED, FAILED

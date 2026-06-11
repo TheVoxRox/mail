@@ -8,6 +8,7 @@ import jakarta.persistence.*;
 
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
+import org.jspecify.annotations.Nullable;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 
 @Entity
@@ -34,7 +35,7 @@ public class ContactEntity {
     private String surname;
 
     @Column(name = "note", length = 1000)
-    private String note;
+    private @Nullable String note;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
@@ -112,11 +113,11 @@ public class ContactEntity {
         this.surname = surname;
     }
 
-    public String getNote() {
+    public @Nullable String getNote() {
         return note;
     }
 
-    public void setNote(String note) {
+    public void setNote(@Nullable String note) {
         this.note = note;
     }
 

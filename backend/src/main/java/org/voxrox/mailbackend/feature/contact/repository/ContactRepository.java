@@ -4,6 +4,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -32,7 +33,7 @@ public interface ContactRepository extends JpaRepository<ContactEntity, Long> {
               AND (:label IS NULL OR EXISTS (SELECT 1 FROM ContactEmailEntity le
                                               WHERE le.contact = c AND le.label = :label))
             """)
-    Page<ContactEntity> findByAccountId(@Param("accountId") Long accountId, @Param("label") EmailLabel label,
+    Page<ContactEntity> findByAccountId(@Param("accountId") Long accountId, @Param("label") @Nullable EmailLabel label,
             Pageable pageable);
 
     /**
@@ -53,7 +54,7 @@ public interface ContactRepository extends JpaRepository<ContactEntity, Long> {
                                               WHERE le.contact = c AND le.label = :label))
             """)
     Page<ContactEntity> searchByAccountId(@Param("accountId") Long accountId, @Param("q") String q,
-            @Param("label") EmailLabel label, Pageable pageable);
+            @Param("label") @Nullable EmailLabel label, Pageable pageable);
 
     /**
      * Finds contacts in the given account that have {@code email} among their email

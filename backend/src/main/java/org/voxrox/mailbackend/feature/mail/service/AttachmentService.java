@@ -76,8 +76,10 @@ public class AttachmentService {
     }
 
     private Path downloadToTempFile(MessageEntity entity, String partPath, String stableId) {
-        return folderExecutor.executeReadOnly(entity.getAccount().getId(), entity.getFolderName(),
-                (folder, uidFolder) -> {
+        // The action either returns a written temp file or throws — it never
+        // yields null, so the nullable executor result can be required here.
+        return java.util.Objects.requireNonNull(folderExecutor.executeReadOnly(entity.getAccount().getId(),
+                entity.getFolderName(), (folder, uidFolder) -> {
                     Path tempFile = null;
                     try {
                         jakarta.mail.Message msg = uidFolder.getMessageByUID(entity.getUid());
@@ -130,7 +132,7 @@ public class AttachmentService {
                         throw new MailOperationException(ErrorCode.INTERNAL_ERROR,
                                 "Error while downloading the attachment: " + e.getMessage());
                     }
-                });
+                }));
     }
 
     /**

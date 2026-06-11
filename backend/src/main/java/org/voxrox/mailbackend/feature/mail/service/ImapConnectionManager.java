@@ -6,6 +6,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import jakarta.mail.*;
 
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -72,6 +73,8 @@ public class ImapConnectionManager {
 
     @FunctionalInterface
     public interface StoreAction<R> {
+        /** Nullable by contract — side-effect-only actions return {@code null}. */
+        @Nullable
         R execute(Store store) throws MessagingException, IOException;
     }
 
@@ -99,7 +102,7 @@ public class ImapConnectionManager {
      * if auth still fails with a fresh token, the problem is persistent (revoked
      * refresh token, wrong scopes) and propagates outwards.
      */
-    public <R> R executeWithLock(Long accountId, StoreAction<R> action) {
+    public <R> @Nullable R executeWithLock(Long accountId, StoreAction<R> action) {
         /*
          * Fail-fast for accounts after a rejected OAuth refresh token or a permanent
          * IMAP auth failure. Without this guard every FE click would run through the

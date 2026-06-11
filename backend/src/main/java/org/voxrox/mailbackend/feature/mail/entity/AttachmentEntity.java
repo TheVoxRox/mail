@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
+import org.jspecify.annotations.Nullable;
 
 @Entity
 @Table(name = "attachments", indexes = {@Index(name = "idx_attachments_message_id", columnList = "message_id")})
@@ -13,10 +14,15 @@ public class AttachmentEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /**
+     * Nullable only transiently: {@code MessageEntity.removeAttachment} unlinks the
+     * bidirectional association before orphanRemoval deletes the row — a null is
+     * never flushed to the NOT NULL column.
+     */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "message_id", nullable = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
-    private MessageEntity message;
+    private @Nullable MessageEntity message;
 
     @Column(name = "part_path", nullable = false)
     private String partPath;
@@ -40,11 +46,11 @@ public class AttachmentEntity {
         this.id = id;
     }
 
-    public MessageEntity getMessage() {
+    public @Nullable MessageEntity getMessage() {
         return message;
     }
 
-    public void setMessage(MessageEntity message) {
+    public void setMessage(@Nullable MessageEntity message) {
         this.message = message;
     }
 

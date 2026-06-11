@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -75,14 +76,15 @@ public interface AccountRepository extends JpaRepository<AccountEntity, Long> {
     @Transactional
     @Query("UPDATE AccountEntity a SET a.lastError = :error, a.lastErrorCode = :code, "
             + "a.lastErrorArgs = :argsJson, a.lastSyncAt = :timestamp WHERE a.id = :id")
-    void updateLastErrorFields(@Param("id") Long id, @Param("error") String error, @Param("code") String code,
-            @Param("argsJson") String argsJson, @Param("timestamp") LocalDateTime timestamp);
+    void updateLastErrorFields(@Param("id") Long id, @Param("error") @Nullable String error,
+            @Param("code") @Nullable String code, @Param("argsJson") @Nullable String argsJson,
+            @Param("timestamp") LocalDateTime timestamp);
 
     default void updateLastError(Long id, String error, LocalDateTime timestamp) {
         updateLastErrorFields(id, error, null, null, timestamp);
     }
 
-    default void updateLastError(Long id, AccountLastError error, LocalDateTime timestamp) {
+    default void updateLastError(Long id, @Nullable AccountLastError error, LocalDateTime timestamp) {
         if (error == null) {
             updateLastErrorFields(id, null, null, null, timestamp);
             return;

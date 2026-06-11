@@ -8,6 +8,7 @@ import jakarta.persistence.*;
 
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
+import org.jspecify.annotations.Nullable;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.util.LogMasker;
 
@@ -46,20 +47,20 @@ public class MessageEntity {
     private Long uidValidity;
 
     @Column(length = 500)
-    private String subject;
+    private @Nullable String subject;
 
     @Column(length = 255)
-    private String sender;
+    private @Nullable String sender;
 
     @Column(name = "recipients_to", columnDefinition = "TEXT")
-    private String recipientsTo;
+    private @Nullable String recipientsTo;
 
     @Column(name = "recipients_cc", columnDefinition = "TEXT")
-    private String recipientsCc;
+    private @Nullable String recipientsCc;
 
     @Lob
     @Column(columnDefinition = "TEXT")
-    private String content;
+    private @Nullable String content;
 
     @Column(name = "received_at", nullable = false)
     private LocalDateTime receivedAt;
@@ -74,13 +75,13 @@ public class MessageEntity {
     private boolean answered;
 
     @Column(name = "message_id", length = 255)
-    private String messageId;
+    private @Nullable String messageId;
 
     @Column(name = "in_reply_to", length = 255)
-    private String inReplyTo;
+    private @Nullable String inReplyTo;
 
     @Column(name = "reply_references", columnDefinition = "TEXT")
-    private String references;
+    private @Nullable String references;
 
     @Column(name = "has_attachments", nullable = false)
     private boolean hasAttachments;
@@ -102,7 +103,7 @@ public class MessageEntity {
      * arrival is discovered to be the missing root.
      */
     @Column(name = "thread_root_message_id", length = 255)
-    private String threadRootMessageId;
+    private @Nullable String threadRootMessageId;
 
     /**
      * Ordinal position within the thread, ascending by {@code receivedAt}, starting
@@ -210,43 +211,43 @@ public class MessageEntity {
         this.uidValidity = uidValidity;
     }
 
-    public String getSubject() {
+    public @Nullable String getSubject() {
         return subject;
     }
 
-    public void setSubject(String subject) {
+    public void setSubject(@Nullable String subject) {
         this.subject = subject;
     }
 
-    public String getSender() {
+    public @Nullable String getSender() {
         return sender;
     }
 
-    public void setSender(String sender) {
+    public void setSender(@Nullable String sender) {
         this.sender = sender;
     }
 
-    public String getRecipientsTo() {
+    public @Nullable String getRecipientsTo() {
         return recipientsTo;
     }
 
-    public void setRecipientsTo(String recipientsTo) {
+    public void setRecipientsTo(@Nullable String recipientsTo) {
         this.recipientsTo = recipientsTo;
     }
 
-    public String getRecipientsCc() {
+    public @Nullable String getRecipientsCc() {
         return recipientsCc;
     }
 
-    public void setRecipientsCc(String recipientsCc) {
+    public void setRecipientsCc(@Nullable String recipientsCc) {
         this.recipientsCc = recipientsCc;
     }
 
-    public String getContent() {
+    public @Nullable String getContent() {
         return content;
     }
 
-    public void setContent(String content) {
+    public void setContent(@Nullable String content) {
         this.content = content;
     }
 
@@ -282,27 +283,27 @@ public class MessageEntity {
         this.answered = answered;
     }
 
-    public String getMessageId() {
+    public @Nullable String getMessageId() {
         return messageId;
     }
 
-    public void setMessageId(String messageId) {
+    public void setMessageId(@Nullable String messageId) {
         this.messageId = messageId;
     }
 
-    public String getInReplyTo() {
+    public @Nullable String getInReplyTo() {
         return inReplyTo;
     }
 
-    public void setInReplyTo(String inReplyTo) {
+    public void setInReplyTo(@Nullable String inReplyTo) {
         this.inReplyTo = inReplyTo;
     }
 
-    public String getReferences() {
+    public @Nullable String getReferences() {
         return references;
     }
 
-    public void setReferences(String references) {
+    public void setReferences(@Nullable String references) {
         this.references = references;
     }
 
@@ -330,11 +331,11 @@ public class MessageEntity {
         this.threadId = threadId;
     }
 
-    public String getThreadRootMessageId() {
+    public @Nullable String getThreadRootMessageId() {
         return threadRootMessageId;
     }
 
-    public void setThreadRootMessageId(String threadRootMessageId) {
+    public void setThreadRootMessageId(@Nullable String threadRootMessageId) {
         this.threadRootMessageId = threadRootMessageId;
     }
 

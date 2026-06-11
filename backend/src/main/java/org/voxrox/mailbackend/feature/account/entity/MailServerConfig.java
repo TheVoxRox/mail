@@ -21,6 +21,12 @@ public class MailServerConfig implements Serializable {
 
     private boolean useSsl = true;
 
+    /**
+     * JPA-required no-arg constructor; Hibernate populates the fields right after
+     * instantiation, so the "uninitialized" window never escapes the persistence
+     * layer (hence the NullAway.Init suppression).
+     */
+    @SuppressWarnings("NullAway.Init")
     public MailServerConfig() {
     }
 

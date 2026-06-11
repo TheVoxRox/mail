@@ -1,5 +1,6 @@
 package org.voxrox.mailbackend.core.diagnostic;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 
 import module java.base;
@@ -14,7 +15,7 @@ public class ClientBootDiagnosticsService {
 
     private final AtomicReference<ClientBootDiagnosticsSnapshot> latest = new AtomicReference<>();
 
-    public void update(ClientBootDiagnosticsRequest request) {
+    public void update(@Nullable ClientBootDiagnosticsRequest request) {
         if (request == null) {
             return;
         }
@@ -23,11 +24,12 @@ public class ClientBootDiagnosticsService {
                 sanitizeText(request.userAgent()), sanitizeText(request.language()), sanitizeRoute(request.route())));
     }
 
-    public ClientBootDiagnosticsSnapshot latest() {
+    /** {@code null} until the client reports its first boot diagnostics. */
+    public @Nullable ClientBootDiagnosticsSnapshot latest() {
         return latest.get();
     }
 
-    private String parseInstant(String value) {
+    private String parseInstant(@Nullable String value) {
         if (value == null || value.isBlank()) {
             return now();
         }
@@ -38,7 +40,7 @@ public class ClientBootDiagnosticsService {
         }
     }
 
-    private Map<String, Long> sanitizeTimings(Map<String, Long> timings) {
+    private Map<String, Long> sanitizeTimings(@Nullable Map<String, Long> timings) {
         Map<String, Long> result = new LinkedHashMap<>();
         if (timings == null) {
             return result;
@@ -52,7 +54,7 @@ public class ClientBootDiagnosticsService {
         return result;
     }
 
-    private String sanitizeText(String value) {
+    private @Nullable String sanitizeText(@Nullable String value) {
         if (value == null) {
             return null;
         }
@@ -63,7 +65,7 @@ public class ClientBootDiagnosticsService {
         return stripped.length() > MAX_TEXT_LENGTH ? stripped.substring(0, MAX_TEXT_LENGTH) : stripped;
     }
 
-    private String sanitizeRoute(String value) {
+    private @Nullable String sanitizeRoute(@Nullable String value) {
         String route = sanitizeText(value);
         if (route == null) {
             return null;
@@ -81,7 +83,7 @@ public class ClientBootDiagnosticsService {
         return Instant.now().toString();
     }
 
-    public record ClientBootDiagnosticsSnapshot(String reportedAt, String phase, String slowLevel,
-            Map<String, Long> timings, String userAgent, String language, String route) {
+    public record ClientBootDiagnosticsSnapshot(String reportedAt, @Nullable String phase, @Nullable String slowLevel,
+            Map<String, Long> timings, @Nullable String userAgent, @Nullable String language, @Nullable String route) {
     }
 }

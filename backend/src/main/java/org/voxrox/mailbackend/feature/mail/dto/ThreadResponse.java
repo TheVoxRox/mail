@@ -2,6 +2,8 @@ package org.voxrox.mailbackend.feature.mail.dto;
 
 import java.util.List;
 
+import org.jspecify.annotations.Nullable;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
@@ -21,7 +23,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
  */
 public record ThreadResponse(
         @Schema(description = "Stable thread identifier shared by every message of the conversation.") String threadId,
-        @Schema(nullable = true, description = "RFC 5322 Message-ID of the oldest message in the thread. Null when the root message has no Message-ID.") String rootMessageId,
+        @Schema(nullable = true, description = "RFC 5322 Message-ID of the oldest message in the thread. Null when the root message has no Message-ID.") @Nullable String rootMessageId,
         @Schema(description = "Number of messages in the thread.") int participantsTotal,
         @Schema(description = "Number of messages in the thread that are not yet marked as seen.") int unreadCount,
         @Schema(description = "Thread members in ascending threadPosition order.") List<MailSummaryResponse> messages) {

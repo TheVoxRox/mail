@@ -2,7 +2,9 @@ package org.voxrox.mailbackend.feature.contact.mapper;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.contact.dto.ContactCreateRequest;
@@ -57,7 +59,8 @@ public class ContactMapper {
             ContactEmailRequest req = emailRequests.get(i);
             ContactEmailEntity emailEntity = new ContactEmailEntity();
             emailEntity.setContact(entity);
-            emailEntity.setEmail(normalizeEmail(req.email()));
+            // req.email() is @NotBlank-validated, so the normalized form exists.
+            emailEntity.setEmail(Objects.requireNonNull(normalizeEmail(req.email())));
             emailEntity.setLabel(req.label());
             emailEntity.setPrimary(i == 0);
             entity.getEmails().add(emailEntity);
@@ -69,7 +72,11 @@ public class ContactMapper {
         addEmails(entity, emailRequests);
     }
 
-    public String normalizeEmail(String email) {
+    /**
+     * Null-tolerant canonical form: pass-through {@code null}, else trim +
+     * lowercase.
+     */
+    public @Nullable String normalizeEmail(@Nullable String email) {
         if (email == null)
             return null;
         return email.trim().toLowerCase(Locale.ROOT);

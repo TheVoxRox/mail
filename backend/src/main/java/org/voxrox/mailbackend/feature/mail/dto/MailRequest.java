@@ -7,11 +7,13 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+import org.jspecify.annotations.Nullable;
+
 public record MailRequest(@NotBlank(message = "{validation.mail.recipientRequired}") String to,
 
-        String cc,
+        @Nullable String cc,
 
-        String bcc,
+        @Nullable String bcc,
 
         @NotBlank(message = "{validation.mail.subjectRequired}") @Size(max = 500, message = "{validation.mail.subjectTooLong}") String subject,
 
@@ -19,7 +21,7 @@ public record MailRequest(@NotBlank(message = "{validation.mail.recipientRequire
 
         List<@Valid AttachmentRequest> attachments,
 
-        String inReplyTo, String references) {
+        @Nullable String inReplyTo, @Nullable String references) {
     public MailRequest {
         if (attachments == null) {
             attachments = Collections.emptyList();

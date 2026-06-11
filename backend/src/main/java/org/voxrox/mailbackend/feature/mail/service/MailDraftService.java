@@ -6,6 +6,7 @@ import jakarta.mail.internet.InternetAddress;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Document.OutputSettings;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -23,8 +24,10 @@ public class MailDraftService {
     public MailRequest createReplyDraft(MessageEntity original, String content, boolean replyAll) {
         String myEmail = original.getAccount().getEmail();
 
-        String subject = original.getSubject();
-        if (subject != null && !subject.toLowerCase(Locale.ROOT).startsWith("re:")) {
+        // A subject-less original still gets the "Re: " prefill — the send-side
+        // validation requires a non-blank subject anyway.
+        String subject = original.getSubject() != null ? original.getSubject() : "";
+        if (!subject.toLowerCase(Locale.ROOT).startsWith("re:")) {
             subject = "Re: " + subject;
         }
 
@@ -60,8 +63,8 @@ public class MailDraftService {
     }
 
     public MailRequest createForwardDraft(MessageEntity original, String content) {
-        String subject = original.getSubject();
-        if (subject != null && !subject.toLowerCase(Locale.ROOT).startsWith("fwd:")) {
+        String subject = original.getSubject() != null ? original.getSubject() : "";
+        if (!subject.toLowerCase(Locale.ROOT).startsWith("fwd:")) {
             subject = "Fwd: " + subject;
         }
 
@@ -93,7 +96,7 @@ public class MailDraftService {
         return org.jsoup.parser.Parser.unescapeEntities(text, false).replace("\\n", "\n").trim();
     }
 
-    private Set<String> extractEmails(String rawAddresses, String myEmail) {
+    private Set<String> extractEmails(@Nullable String rawAddresses, String myEmail) {
         Set<String> emails = new LinkedHashSet<>();
         if (rawAddresses == null || rawAddresses.isBlank())
             return emails;

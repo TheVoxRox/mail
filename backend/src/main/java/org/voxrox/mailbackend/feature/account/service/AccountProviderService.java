@@ -1,5 +1,6 @@
 package org.voxrox.mailbackend.feature.account.service;
 
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -40,7 +41,7 @@ public class AccountProviderService {
      * must not fall through to auto-detection.
      */
     @Transactional(readOnly = true)
-    public MailProviderEntity resolveProvider(String email, Long explicitProviderId) {
+    public @Nullable MailProviderEntity resolveProvider(String email, @Nullable Long explicitProviderId) {
         if (explicitProviderId != null) {
             return providerRepository.findById(explicitProviderId)
                     .orElseThrow(() -> ProviderNotFoundException.byId(explicitProviderId));

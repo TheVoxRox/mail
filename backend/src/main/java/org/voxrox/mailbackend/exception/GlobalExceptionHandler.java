@@ -11,6 +11,7 @@ import java.util.stream.Collectors;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSource;
@@ -230,7 +231,8 @@ public class GlobalExceptionHandler {
         return problem;
     }
 
-    private String resolveMessage(String key, Object[] args, String fallback, HttpServletRequest request) {
+    private @Nullable String resolveMessage(@Nullable String key, Object[] args, @Nullable String fallback,
+            HttpServletRequest request) {
         if (key == null) {
             return fallback;
         }
@@ -266,7 +268,8 @@ public class GlobalExceptionHandler {
                 error.getCode());
     }
 
-    private ValidationViolation violation(String field, String message, String messageKey, String code) {
+    private ValidationViolation violation(@Nullable String field, @Nullable String message, @Nullable String messageKey,
+            @Nullable String code) {
         return new ValidationViolation(field, message, messageKey, code);
     }
 
@@ -274,22 +277,22 @@ public class GlobalExceptionHandler {
         return violations.stream().map(v -> v.field() + ": " + v.message()).collect(Collectors.joining(", "));
     }
 
-    private static String safeDefaultMessage(String message) {
+    private static String safeDefaultMessage(@Nullable String message) {
         return message == null ? "Invalid value" : message;
     }
 
-    private static String messageKey(String messageTemplate) {
+    private static @Nullable String messageKey(@Nullable String messageTemplate) {
         if (messageTemplate == null || !messageTemplate.startsWith("{") || !messageTemplate.endsWith("}")) {
             return null;
         }
         return messageTemplate.substring(1, messageTemplate.length() - 1);
     }
 
-    private static String firstCode(String[] codes) {
+    private static @Nullable String firstCode(String @Nullable [] codes) {
         return codes == null || codes.length == 0 ? null : codes[0];
     }
 
-    private static String constraintCode(jakarta.validation.ConstraintViolation<?> violation) {
+    private static @Nullable String constraintCode(jakarta.validation.ConstraintViolation<?> violation) {
         if (violation.getConstraintDescriptor() == null
                 || violation.getConstraintDescriptor().getAnnotation() == null) {
             return null;
@@ -297,7 +300,8 @@ public class GlobalExceptionHandler {
         return violation.getConstraintDescriptor().getAnnotation().annotationType().getSimpleName();
     }
 
-    private record ValidationViolation(String field, String message, String messageKey, String code) {
+    private record ValidationViolation(@Nullable String field, @Nullable String message, @Nullable String messageKey,
+            @Nullable String code) {
         private ValidationViolation {
             field = field == null || field.isBlank() ? "value" : field;
         }

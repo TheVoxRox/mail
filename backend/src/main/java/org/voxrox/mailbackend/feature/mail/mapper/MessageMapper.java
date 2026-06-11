@@ -1,7 +1,9 @@
 package org.voxrox.mailbackend.feature.mail.mapper;
 
+import java.util.Objects;
 import java.util.UUID;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Component;
@@ -39,8 +41,10 @@ public class MessageMapper {
         entity.setRecipientsCc(dto.recipientsCc());
         entity.setContent(dto.body()); // Usually null during sync; the body is fetched separately.
 
-        // Flags and timestamps
-        entity.setReceivedAt(dto.receivedAt());
+        // Flags and timestamps. The column is NOT NULL; MessageFetcher already
+        // defaults a missing Date header to now(), this mirrors that for any
+        // other producer of the DTO.
+        entity.setReceivedAt(Objects.requireNonNullElse(dto.receivedAt(), java.time.LocalDateTime.now()));
         entity.setSeen(dto.seen());
         entity.setFlagged(dto.flagged());
         entity.setAnswered(dto.answered());
@@ -67,7 +71,7 @@ public class MessageMapper {
         return entity;
     }
 
-    public MailDetailResponse toDto(MessageEntity entity, String content) {
+    public MailDetailResponse toDto(MessageEntity entity, @Nullable String content) {
         return toDto(entity, content, null);
     }
 
@@ -76,7 +80,7 @@ public class MessageMapper {
      * typically holds the cached version from the DB (may be null) and the client
      * is informed about the issue via {@code contentError}.
      */
-    public MailDetailResponse toDto(MessageEntity entity, String content, String contentError) {
+    public MailDetailResponse toDto(MessageEntity entity, @Nullable String content, @Nullable String contentError) {
         return new MailDetailResponse(entity.getStableId(), entity.getUid(), displaySubject(entity.getSubject()),
                 displaySender(entity.getSender()), entity.getRecipientsTo(), entity.getRecipientsCc(), content,
                 entity.getReceivedAt(), entity.isSeen(), entity.isFlagged(), entity.isAnswered(), entity.getMessageId(),
@@ -92,14 +96,14 @@ public class MessageMapper {
                 entity.isHasAttachments(), entity.getThreadId(), entity.getUid());
     }
 
-    private String displaySubject(String subject) {
+    private String displaySubject(@Nullable String subject) {
         if (subject == null || subject.isBlank()) {
             return messageSource.getMessage("mail.message.noSubject", new Object[0], LocaleContextHolder.getLocale());
         }
         return subject;
     }
 
-    private String displaySender(String sender) {
+    private String displaySender(@Nullable String sender) {
         if (sender == null || sender.isBlank()) {
             return messageSource.getMessage("mail.message.unknownSender", new Object[0],
                     LocaleContextHolder.getLocale());
@@ -107,7 +111,7 @@ public class MessageMapper {
         return sender;
     }
 
-    private static String blankToNull(String value) {
+    private static @Nullable String blankToNull(@Nullable String value) {
         return value == null || value.isBlank() ? null : value;
     }
 }

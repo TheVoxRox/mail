@@ -3,6 +3,7 @@ package org.voxrox.mailbackend.feature.mail.repository;
 import java.util.List;
 import java.util.Optional;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -195,7 +196,7 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
     @Query("UPDATE MessageEntity m " + "SET m.threadId = :newThreadId, m.threadRootMessageId = :newRootMessageId "
             + "WHERE m.account.id = :accId AND m.threadId IN :oldThreadIds")
     int reassignThreads(@Param("accId") Long accountId, @Param("oldThreadIds") List<String> oldThreadIds,
-            @Param("newThreadId") String newThreadId, @Param("newRootMessageId") String newRootMessageId);
+            @Param("newThreadId") String newThreadId, @Param("newRootMessageId") @Nullable String newRootMessageId);
 
     /**
      * Streaming backfill — every message of an account in ascending

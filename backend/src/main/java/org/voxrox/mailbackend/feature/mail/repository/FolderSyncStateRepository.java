@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -68,7 +69,7 @@ public interface FolderSyncStateRepository extends JpaRepository<FolderSyncState
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE FolderSyncStateEntity s SET s.lastKnownModseq = :modseq WHERE s.id = :id")
-    void updateLastKnownModseq(@Param("id") Long id, @Param("modseq") Long modseq);
+    void updateLastKnownModseq(@Param("id") Long id, @Param("modseq") @Nullable Long modseq);
 
     /**
      * Resets the folder after a server-side UIDValidity change: new UIDValidity +

@@ -1,5 +1,6 @@
 package org.voxrox.mailbackend.core.init;
 
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContextInitializer;
@@ -99,7 +100,10 @@ public class StorageContextInitializer implements ApplicationContextInitializer<
         boolean hasConfiguredSalt = hasConcreteText(configuredSalt);
 
         if (hasConfiguredKey && hasConfiguredSalt) {
-            verifyConfiguredCrypto(dataDir, configuredKey, configuredSalt);
+            // hasConcreteText implies non-null, but NullAway cannot see through
+            // the helper predicate.
+            verifyConfiguredCrypto(dataDir, java.util.Objects.requireNonNull(configuredKey),
+                    java.util.Objects.requireNonNull(configuredSalt));
             return;
         }
         if (hasConfiguredKey != hasConfiguredSalt) {
@@ -132,7 +136,7 @@ public class StorageContextInitializer implements ApplicationContextInitializer<
         ensureCryptoFingerprint(dataDir.resolve(CRYPTO_FINGERPRINT_FILE), configuredKey, configuredSalt);
     }
 
-    private String resolveLenient(ConfigurableEnvironment env, String propertyName) {
+    private @Nullable String resolveLenient(ConfigurableEnvironment env, String propertyName) {
         try {
             return env.getProperty(propertyName);
         } catch (IllegalArgumentException ignored) {
@@ -140,7 +144,7 @@ public class StorageContextInitializer implements ApplicationContextInitializer<
         }
     }
 
-    private boolean hasConcreteText(String value) {
+    private boolean hasConcreteText(@Nullable String value) {
         return value != null && !value.isBlank() && !value.contains("${");
     }
 

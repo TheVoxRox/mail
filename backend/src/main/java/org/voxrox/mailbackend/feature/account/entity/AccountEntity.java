@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 
 import jakarta.persistence.*;
 
+import org.jspecify.annotations.Nullable;
+
 @Entity
 @Table(name = "accounts")
 public class AccountEntity {
@@ -18,7 +20,7 @@ public class AccountEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "provider_id")
-    private MailProviderEntity provider;
+    private @Nullable MailProviderEntity provider;
 
     @Embedded
     @AttributeOverrides({@AttributeOverride(name = "host", column = @Column(name = "imap_host")),
@@ -60,13 +62,13 @@ public class AccountEntity {
     private LocalDateTime lastSyncAt;
 
     @Column(name = "last_error")
-    private String lastError;
+    private @Nullable String lastError;
 
     @Column(name = "last_error_code")
-    private String lastErrorCode;
+    private @Nullable String lastErrorCode;
 
     @Column(name = "last_error_args")
-    private String lastErrorArgs;
+    private @Nullable String lastErrorArgs;
 
     @OneToOne(mappedBy = "account", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private AccountCredentialEntity credentials;
@@ -128,11 +130,11 @@ public class AccountEntity {
         this.displayName = displayName;
     }
 
-    public MailProviderEntity getProvider() {
+    public @Nullable MailProviderEntity getProvider() {
         return provider;
     }
 
-    public void setProvider(MailProviderEntity provider) {
+    public void setProvider(@Nullable MailProviderEntity provider) {
         this.provider = provider;
     }
 
@@ -192,27 +194,27 @@ public class AccountEntity {
         this.lastSyncAt = lastSyncAt;
     }
 
-    public String getLastError() {
+    public @Nullable String getLastError() {
         return lastError;
     }
 
-    public void setLastError(String lastError) {
+    public void setLastError(@Nullable String lastError) {
         this.lastError = lastError;
     }
 
-    public String getLastErrorCode() {
+    public @Nullable String getLastErrorCode() {
         return lastErrorCode;
     }
 
-    public void setLastErrorCode(String lastErrorCode) {
+    public void setLastErrorCode(@Nullable String lastErrorCode) {
         this.lastErrorCode = lastErrorCode;
     }
 
-    public String getLastErrorArgs() {
+    public @Nullable String getLastErrorArgs() {
         return lastErrorArgs;
     }
 
-    public void setLastErrorArgs(String lastErrorArgs) {
+    public void setLastErrorArgs(@Nullable String lastErrorArgs) {
         this.lastErrorArgs = lastErrorArgs;
     }
 

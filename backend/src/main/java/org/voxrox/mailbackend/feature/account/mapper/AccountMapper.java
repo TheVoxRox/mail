@@ -3,6 +3,7 @@ package org.voxrox.mailbackend.feature.account.mapper;
 import java.util.Locale;
 import java.util.Map;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Component;
@@ -51,15 +52,17 @@ public class AccountMapper {
                 entity.getLastErrorCode(), lastErrorArgs);
     }
 
-    private String providerName(MailProviderEntity provider) {
+    private String providerName(@Nullable MailProviderEntity provider) {
         if (provider != null) {
             return provider.getName();
         }
         Locale locale = LocaleContextHolder.getLocale();
-        return messageSource.getMessage("account.provider.custom", new Object[0], "Custom", locale);
+        String resolved = messageSource.getMessage("account.provider.custom", new Object[0], "Custom", locale);
+        return resolved != null ? resolved : "Custom";
     }
 
-    private String localizedLastError(String code, Map<String, String> args, String fallback) {
+    private @Nullable String localizedLastError(@Nullable String code, Map<String, String> args,
+            @Nullable String fallback) {
         return AccountLastErrorCode.fromCode(code).map(errorCode -> {
             Locale locale = LocaleContextHolder.getLocale();
             return messageSource.getMessage(errorCode.messageKey(), errorCode.messageArgs(args), fallback, locale);

@@ -66,7 +66,8 @@ public class ContactBulkService {
                 results.add(BulkContactCreateResult.success(i, contact));
                 created++;
             } catch (AppException e) {
-                results.add(BulkContactCreateResult.failure(i, e.getCode().name(), e.getMessage()));
+                results.add(BulkContactCreateResult.failure(i, e.getCode().name(),
+                        e.getMessage() != null ? e.getMessage() : e.getCode().name()));
                 failed++;
             }
         }
@@ -95,7 +96,8 @@ public class ContactBulkService {
                 results.add(BulkContactDeleteResult.success(id));
                 deleted++;
             } catch (AppException e) {
-                results.add(BulkContactDeleteResult.failure(id, e.getCode().name(), e.getMessage()));
+                results.add(BulkContactDeleteResult.failure(id, e.getCode().name(),
+                        e.getMessage() != null ? e.getMessage() : e.getCode().name()));
                 failed++;
             }
         }

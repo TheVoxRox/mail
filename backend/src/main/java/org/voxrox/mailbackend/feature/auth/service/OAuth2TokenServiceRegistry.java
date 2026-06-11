@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 import org.voxrox.mailbackend.exception.ErrorCode;
 import org.voxrox.mailbackend.exception.MailOperationException;
@@ -31,10 +32,13 @@ public class OAuth2TokenServiceRegistry {
      * @throws MailOperationException
      *             when no implementation exists for the given provider — typically
      *             a mismatch between {@code accounts.oauth2_provider} and the
-     *             registered {@code @Service} beans.
+     *             registered {@code @Service} beans. A {@code null} provider (an
+     *             OAUTH2 account without {@code oauth2_provider} set) is the same
+     *             data mismatch, just reported here instead of as an NPE — the
+     *             backing immutable map rejects null keys.
      */
-    public OAuth2TokenService resolve(String providerName) {
-        OAuth2TokenService svc = byProvider.get(providerName);
+    public OAuth2TokenService resolve(@Nullable String providerName) {
+        OAuth2TokenService svc = providerName != null ? byProvider.get(providerName) : null;
         if (svc == null) {
             throw new MailOperationException(ErrorCode.INTERNAL_ERROR,
                     "No implementation is registered for OAuth2 provider '" + providerName + "'.");

@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * Stable account-level error codes persisted in DB. Localized text is derived
  * at render time from {@link #messageKey()} and stored argument values.
@@ -38,7 +40,7 @@ public enum AccountLastErrorCode {
         return argNames.stream().map(name -> args.getOrDefault(name, "")).toArray();
     }
 
-    public static Optional<AccountLastErrorCode> fromCode(String code) {
+    public static Optional<AccountLastErrorCode> fromCode(@Nullable String code) {
         if (code == null || code.isBlank()) {
             return Optional.empty();
         }

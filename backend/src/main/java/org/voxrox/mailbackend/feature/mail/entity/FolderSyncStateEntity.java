@@ -7,6 +7,7 @@ import jakarta.persistence.*;
 
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
+import org.jspecify.annotations.Nullable;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
 
@@ -48,7 +49,7 @@ public class FolderSyncStateEntity {
      * UID sweep.
      */
     @Column(name = "last_known_modseq")
-    private Long lastKnownModseq;
+    private @Nullable Long lastKnownModseq;
 
     @Column(name = "last_sync_at")
     private LocalDateTime lastSyncAt;
@@ -135,11 +136,11 @@ public class FolderSyncStateEntity {
         this.uidValidity = uidValidity;
     }
 
-    public Long getLastKnownModseq() {
+    public @Nullable Long getLastKnownModseq() {
         return lastKnownModseq;
     }
 
-    public void setLastKnownModseq(Long lastKnownModseq) {
+    public void setLastKnownModseq(@Nullable Long lastKnownModseq) {
         this.lastKnownModseq = lastKnownModseq;
     }
 

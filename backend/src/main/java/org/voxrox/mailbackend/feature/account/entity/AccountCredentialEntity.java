@@ -83,7 +83,10 @@ public class AccountCredentialEntity {
         return password;
     }
 
-    /** Encryption must happen in the service layer. */
+    /**
+     * Encryption must happen in the service layer. The column is NOT NULL — "no
+     * secret" is stored as an empty string, never as {@code null}.
+     */
     public void setEncryptedPassword(String encryptedPassword) {
         this.password = encryptedPassword;
     }

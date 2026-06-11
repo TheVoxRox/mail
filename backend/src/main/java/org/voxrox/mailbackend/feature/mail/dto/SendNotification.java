@@ -1,5 +1,7 @@
 package org.voxrox.mailbackend.feature.mail.dto;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * Outcome of an asynchronous SMTP send, broadcast over the SSE notification
  * stream so the client can resolve its pending "sending…" indicator into a
@@ -12,7 +14,8 @@ package org.voxrox.mailbackend.feature.mail.dto;
  * {@code errorCode} is set only for {@link #TYPE_FAILED} and mirrors the
  * account {@code lastError} code.
  */
-public record SendNotification(String type, String sendId, Long accountId, String errorCode) implements SseEvent {
+public record SendNotification(String type, String sendId, Long accountId,
+        @Nullable String errorCode) implements SseEvent {
 
     public static final String TYPE_COMPLETED = "send_completed";
     public static final String TYPE_FAILED = "send_failed";
