@@ -1,6 +1,7 @@
 package org.voxrox.mailbackend.feature.account.repository;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -93,6 +94,21 @@ public interface AccountRepository extends JpaRepository<AccountEntity, Long> {
     default void clearLastError(Long id, LocalDateTime timestamp) {
         updateLastErrorFields(id, null, null, null, timestamp);
     }
+
+    /**
+     * Clears {@code last_error} only when the standing error carries one of the
+     * given codes. The slot is account-scoped and shared between the sync and the
+     * send/draft pipelines — a successful SEND may clear a previous send failure,
+     * but must not erase an unrelated standing SYNC error (the same masking class
+     * as the per-folder clear fixed in {@code MailSyncService}). Unlike
+     * {@link #clearLastError} this deliberately does not touch
+     * {@code last_sync_at}: sending is not a sync.
+     */
+    @Modifying
+    @Transactional
+    @Query("UPDATE AccountEntity a SET a.lastError = null, a.lastErrorCode = null, a.lastErrorArgs = null "
+            + "WHERE a.id = :id AND a.lastErrorCode IN :codes")
+    void clearLastErrorIfCodeIn(@Param("id") Long id, @Param("codes") Collection<String> codes);
 
     /**
      * Atomic update of the reauth flag — written from async threads (token refresh

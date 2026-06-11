@@ -31,6 +31,17 @@ public class SmtpMessageService {
 
     private static final Logger log = LoggerFactory.getLogger(SmtpMessageService.class);
 
+    /*
+     * last_error is a single account-scoped slot shared with the sync pipeline. A
+     * successful send may only clear errors this pipeline could have written —
+     * never a standing sync failure (the same masking class as the per-folder clear
+     * in MailSyncService: the user would lose the diagnostic for a persistently
+     * failing INBOX just because one e-mail went out).
+     */
+    private static final List<String> SEND_PIPELINE_ERROR_CODES = List.of(AccountLastErrorCode.SMTP_SEND_FAILED.name(),
+            AccountLastErrorCode.DRAFT_SAVE_FAILED.name(), AccountLastErrorCode.DRAFT_SEND_FAILED.name(),
+            AccountLastErrorCode.DRAFT_NOT_FOUND_ON_SERVER.name());
+
     private final AccountService accountService;
     private final AccountConnectionDetailsService connectionDetailsService;
     private final AccountRepository accountRepository;
@@ -83,7 +94,7 @@ public class SmtpMessageService {
 
             appendService.appendByRole(accountId, FolderRole.SENT, message, true);
 
-            accountRepository.clearLastError(accountId, LocalDateTime.now());
+            accountRepository.clearLastErrorIfCodeIn(accountId, SEND_PIPELINE_ERROR_CODES);
             sseNotificationService.broadcast(SendNotification.completed(sendId, accountId));
 
         } catch (Exception e) {
@@ -170,7 +181,7 @@ public class SmtpMessageService {
                 }
             }
 
-            accountRepository.clearLastError(accountId, LocalDateTime.now());
+            accountRepository.clearLastErrorIfCodeIn(accountId, SEND_PIPELINE_ERROR_CODES);
         } catch (Exception e) {
             log.error("{} Draft save failed for account ID {}", LogCategory.SMTP, accountId, e);
             AuditLog.failure("draft_save", "account=" + accountId, e.getClass().getSimpleName());
@@ -286,7 +297,7 @@ public class SmtpMessageService {
                         draftFolder, cleanupEx.getMessage());
             }
 
-            accountRepository.clearLastError(accountId, LocalDateTime.now());
+            accountRepository.clearLastErrorIfCodeIn(accountId, SEND_PIPELINE_ERROR_CODES);
             sseNotificationService.broadcast(SendNotification.completed(sendId, accountId));
         } catch (Exception e) {
             outcome = MailMetrics.OUTCOME_FAILURE;

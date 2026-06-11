@@ -278,7 +278,7 @@ class SmtpMessageServiceTest {
             ArgumentCaptor<AccountLastError> err = ArgumentCaptor.forClass(AccountLastError.class);
             verify(accountRepository).updateLastError(eq(ACCOUNT_ID), err.capture(), any(LocalDateTime.class));
             assertThat(err.getValue().code()).isEqualTo(AccountLastErrorCode.DRAFT_SAVE_FAILED);
-            verify(accountRepository, never()).clearLastError(anyLong(), any(LocalDateTime.class));
+            verify(accountRepository, never()).clearLastErrorIfCodeIn(anyLong(), any());
         }
 
         @Test
@@ -294,7 +294,9 @@ class SmtpMessageServiceTest {
 
             verify(imapActionService).hardDelete(ACCOUNT_ID, "Drafts", 100L);
             verify(messageService).deleteByStableId(STABLE_ID);
-            verify(accountRepository).clearLastError(eq(ACCOUNT_ID), any(LocalDateTime.class));
+            // Conditional clear scoped to send-pipeline codes — a successful draft
+            // save must not wipe a standing sync error (shared last_error slot).
+            verify(accountRepository).clearLastErrorIfCodeIn(eq(ACCOUNT_ID), any());
             verify(accountRepository, never()).updateLastError(anyLong(), any(AccountLastError.class),
                     any(LocalDateTime.class));
         }
