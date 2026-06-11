@@ -148,10 +148,14 @@ Smoke flow:
 ## 8. Long run
 
 - [ ] Nechat aplikaci běžet 24 h se zapnutým syncem.
+- [ ] Spustit běh s JFR: `-XX:StartFlightRecording=duration=24h,filename=soak.jfr,settings=profile` (u sidecaru přidat do `--java-options` v package skriptu, u dev běhu do `JAVA_TOOL_OPTIONS`).
+- [ ] Vyhodnotit `soak.jfr` v JDK Mission Control: lock contention (Java Monitor Blocked / Park) na `accountLocks`/`refreshLocks`, počty výjimek, růst vláken (leak executorů).
+- [ ] Na konci běhu sebrat thread dump (`jcmd <pid> Thread.print`) — žádná osiřelá/parkovaná vlákna mimo známé pooly.
 - [ ] Zkontrolovat paměťovou stopu.
 - [ ] Zkontrolovat růst SQLite DB/WAL.
 - [ ] Zkontrolovat, že IMAP pool nerecykluje chybně mrtvá spojení.
 - [ ] Zkontrolovat, že opakované syncy nevytvářejí duplicitní zprávy.
+- [ ] Log-scan gate po každém smoke/long runu: `Select-String -Path logs\mail.log -Pattern "ERROR|WARN"` a každý nález buď vysvětlit, nebo založit issue — tichá chybová cesta je přesně třída chyb z review 2026-06.
 
 ## 9. Release decision
 
