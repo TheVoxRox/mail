@@ -116,7 +116,7 @@ public class ThreadingService {
         // is the closest ancestor we can reach.
         String references = trimToNull(msg.getReferences());
         if (references != null) {
-            String[] refs = references.split("\\s+");
+            String[] refs = references.split("\\s+", -1);
             int limit = Math.min(refs.length, MAX_REFERENCES_WALK);
             for (int i = 0; i < limit; i++) {
                 String ref = trimToNull(refs[i]);

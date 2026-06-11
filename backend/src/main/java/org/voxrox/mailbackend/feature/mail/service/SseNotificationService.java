@@ -42,14 +42,19 @@ public class SseNotificationService {
             return;
         }
 
+        // Dead emitters are collected and removed after the loop — removing
+        // inside the iteration trips ModifyCollectionInEnhancedForLoop, and
+        // removeIf would hold the copy-on-write lock across blocking sends.
+        List<SseEmitter> dead = new ArrayList<>();
         for (SseEmitter emitter : emitters) {
             try {
                 emitter.send(SseEmitter.event().name(notification.type()).data(notification));
             } catch (IOException | IllegalStateException e) {
-                emitters.remove(emitter);
+                dead.add(emitter);
                 log.debug("{} SSE emitter removed (send failed): {}", LogCategory.SYNC, e.getMessage());
             }
         }
+        emitters.removeAll(dead);
     }
 
     @Scheduled(fixedRateString = "${mail.client.sync.sse-heartbeat-interval:PT30S}")
@@ -58,14 +63,16 @@ public class SseNotificationService {
             return;
         }
 
+        List<SseEmitter> dead = new ArrayList<>();
         for (SseEmitter emitter : emitters) {
             try {
                 emitter.send(SseEmitter.event().comment("heartbeat"));
             } catch (IOException | IllegalStateException e) {
-                emitters.remove(emitter);
+                dead.add(emitter);
                 log.debug("{} SSE emitter removed during heartbeat: {}", LogCategory.SYNC, e.getMessage());
             }
         }
+        emitters.removeAll(dead);
     }
 
     int getActiveEmitterCount() {

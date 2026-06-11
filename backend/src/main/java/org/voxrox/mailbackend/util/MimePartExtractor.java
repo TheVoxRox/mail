@@ -128,7 +128,9 @@ public final class MimePartExtractor {
 
         String contentType = "application/octet-stream";
         if (part.getContentType() != null) {
-            contentType = part.getContentType().split(";")[0].toLowerCase(Locale.ROOT).trim();
+            // Only the media type before the first ';' matters; limit 2 skips
+            // splitting the parameter list.
+            contentType = part.getContentType().split(";", 2)[0].toLowerCase(Locale.ROOT).trim();
         }
 
         long size = part.getSize();

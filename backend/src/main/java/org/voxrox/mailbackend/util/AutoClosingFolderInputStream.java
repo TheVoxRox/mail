@@ -63,7 +63,10 @@ public class AutoClosingFolderInputStream extends FilterInputStream {
     private void closeSilently() {
         try {
             close();
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            // Best-effort cleanup on the error path — the original read
+            // exception is already propagating to the caller.
+            log.debug("{} Secondary close after stream error failed: {}", LogCategory.IMAP, e.getMessage());
         }
     }
 
