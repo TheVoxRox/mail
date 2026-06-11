@@ -89,7 +89,8 @@ Rozhodnuto: OAuth-only (viz Rozhodnuti). PKCE explicitne zapnut v [SecurityConfi
 
 ## Startup follow-up
 
-- [ ] Zmerit cold start pred/po do `backend/PERFORMANCE_BASELINE.md` (sekce "Startup audit 2026-05-17 before/after" + AppCDS decision gate).
+Backend (headless) cast zmerena a uzavrena — sekce "Startup audit — mereni 2026-06-11" v [backend/PERFORMANCE_BASELINE.md](backend/PERFORMANCE_BASELINE.md) (AppCDS/AOT decision gate rozhodnut uz 2026-06-03). Zbyva jen GUI:
+
 - [ ] Manualni startup smoke checklist v `tauri:dev` (rychly) a `tauri:build` (uplny) — viz archive pro detailni kroky.
 - [ ] Tauri release smoke s AOT cache — `npm run tauri:build:with-sidecar` s `$EnableAotCache=$true`, zmerit desktop `appReady` cold start.
 
