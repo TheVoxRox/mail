@@ -1,0 +1,56 @@
+#!/usr/bin/env sh
+#
+# Pre-commit gate - fast, deterministic checks that catch working-tree drift
+# before it lands: formatting, i18n key parity (cs/en), and un-whitelisted
+# Czech text in source. These are the cheap checks that previously drifted
+# between sessions because nothing enforced them on commit.
+#
+# Heavier checks (eslint, svelte-check, unit tests) run in the pre-push hook,
+# not here, so commits stay fast.
+#
+# Activate once per clone:  git config core.hooksPath .githooks
+# Bypass once (escape hatch):  git commit --no-verify
+#
+# The repo is a polyglot monorepo; npm scripts live in frontend/. This hook
+# only runs when the commit touches frontend/.
+
+# Only pay the cost when frontend files are staged.
+if ! git diff --cached --name-only | grep -q '^frontend/'; then
+	exit 0
+fi
+
+if ! command -v npm >/dev/null 2>&1; then
+	echo "pre-commit: npm is not on PATH - cannot run the frontend gate." >&2
+	echo "            Fix PATH, or bypass once with: git commit --no-verify" >&2
+	exit 1
+fi
+
+cd frontend || exit 1
+
+if [ ! -x ./node_modules/.bin/prettier ]; then
+	echo "pre-commit: frontend dependencies missing. Run: cd frontend && npm ci" >&2
+	exit 1
+fi
+
+echo "pre-commit: frontend fast gate (prettier, i18n keys, translations)..."
+
+if ! ./node_modules/.bin/prettier --check . ; then
+	echo "" >&2
+	echo "pre-commit: formatting issues above. Fix with: cd frontend && npm run format" >&2
+	exit 1
+fi
+
+if ! npm run --silent check:i18n ; then
+	echo "pre-commit: cs/en i18n keys are out of sync (see above)." >&2
+	exit 1
+fi
+
+if ! npm run --silent check:translations:strict ; then
+	echo "" >&2
+	echo "pre-commit: a source file has Czech text that is not whitelisted." >&2
+	echo "            Translate it to English, or add it to" >&2
+	echo "            frontend/docs/translation-whitelist.txt with a justification." >&2
+	exit 1
+fi
+
+echo "pre-commit: OK"

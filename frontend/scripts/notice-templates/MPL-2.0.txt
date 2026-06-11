@@ -1,0 +1,18 @@
+Mozilla Public License Version 2.0
+==================================
+
+The Mozilla Public License 2.0 covers components in this distribution. The
+full license text is available at:
+
+    https://www.mozilla.org/en-US/MPL/2.0/
+
+Under MPL 2.0, file-level copyleft applies: any modifications to a
+covered Source Code Form must be made available under MPL 2.0 (or a
+compatible license — see §3.3). Binary distributions (such as this
+installer) satisfy the License by either including the original Source
+Code Form or by providing a written, prominently published offer to
+make it available.
+
+Source code for every MPL 2.0 covered component listed below is
+available at the upstream repository URLs printed beside the package
+name. None of these components are modified in this distribution.

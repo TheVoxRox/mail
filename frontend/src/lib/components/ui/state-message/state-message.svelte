@@ -1,0 +1,49 @@
+<script lang="ts" module>
+	import { cn } from '$lib/utils.js';
+	import type { Snippet } from 'svelte';
+	import type { HTMLAttributes } from 'svelte/elements';
+	import { type VariantProps, tv } from 'tailwind-variants';
+
+	export const stateMessageVariants = tv({
+		base: 'text-sm',
+		variants: {
+			variant: {
+				muted: 'text-muted-foreground',
+				error: 'text-destructive',
+				default: 'text-foreground'
+			},
+			padding: {
+				none: '',
+				sm: 'p-3',
+				default: 'p-4',
+				lg: 'p-6'
+			}
+		},
+		defaultVariants: {
+			variant: 'muted',
+			padding: 'default'
+		}
+	});
+
+	export type StateMessageVariant = VariantProps<typeof stateMessageVariants>['variant'];
+	export type StateMessagePadding = VariantProps<typeof stateMessageVariants>['padding'];
+	export type StateMessageProps = HTMLAttributes<HTMLParagraphElement> & {
+		children?: Snippet;
+		variant?: StateMessageVariant;
+		padding?: StateMessagePadding;
+	};
+</script>
+
+<script lang="ts">
+	let {
+		class: className,
+		children,
+		variant = 'muted',
+		padding = 'default',
+		...restProps
+	}: StateMessageProps = $props();
+</script>
+
+<p class={cn(stateMessageVariants({ variant, padding }), className)} {...restProps}>
+	{@render children?.()}
+</p>

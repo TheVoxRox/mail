@@ -1,0 +1,98 @@
+name: Bug report
+description: Something works incorrectly in VoxRox Mail.
+labels: ["bug", "triage"]
+title: "[bug] "
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to file a bug. Please complete every
+        section so we can reproduce the problem quickly.
+
+        **Security issues:** if the bug exposes credentials, leaks data, or
+        bypasses authentication, please **do not** open a public issue —
+        follow the disclosure process in [SECURITY.md](../SECURITY.md).
+
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: From `Help → About` or the `appVersion` field in `session.json`.
+      placeholder: e.g. 0.1.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows 11
+        - Windows 10
+        - macOS
+        - Linux
+        - Other (describe in steps)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Mail provider involved
+      multiple: true
+      options:
+        - Gmail (OAuth)
+        - Outlook / Microsoft 365 (OAuth)
+        - Seznam.cz (IMAP/SMTP)
+        - Other IMAP/SMTP server
+        - Not related to a specific provider
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Minimal numbered list. If the bug requires a specific account state, mention it.
+      placeholder: |
+        1. Open the compose window.
+        2. Paste a contact list with semicolons.
+        3. Click Send.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: Include the exact error message you saw, and a screenshot if it helps.
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        Relevant excerpt from `%LOCALAPPDATA%\VoxRox\Mail\logs\mail.log` (Windows) or
+        `~/.voxrox/mail/logs/mail.log`. **Redact passwords, OAuth tokens, and email
+        addresses other than yours.** Wrap in a fenced code block.
+      render: text
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmations
+      options:
+        - label: I have searched existing issues and this is not a duplicate.
+          required: true
+        - label: I have redacted secrets and PII from any pasted logs.
+          required: true

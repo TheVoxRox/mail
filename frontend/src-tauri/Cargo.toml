@@ -1,0 +1,37 @@
+[package]
+name = "app"
+version = "0.1.0"
+description = "A Tauri App"
+authors = ["you"]
+license-file = "../../LICENSE"
+repository = ""
+edition = "2021"
+rust-version = "1.77.2"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.6.0", features = [] }
+
+[dependencies]
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+log = "0.4"
+dirs = "5"
+tauri = { version = "2.11.0", features = [] }
+tauri-plugin-log = "2"
+tauri-plugin-fs = "2.5.1"
+# default-features without "cookies": the in-app HTTP client only talks to the
+# localhost backend (API-key header, no cookies) and OAuth runs in an external
+# browser via plugin-shell. A cookies jar would otherwise create a rogue
+# %LOCALAPPDATA%\<bundle-identifier>\.cookies directory outside our
+# VoxRox\Mail[suffix] data root, because tauri-plugin-http uses app_cache_dir()
+# (= identifier), which cannot be overridden with a custom path and does not
+# respect MAIL_DATA_SUFFIX.
+tauri-plugin-http = { version = "2", default-features = false, features = ["rustls-tls", "http2", "charset", "macos-system-configuration"] }
+tauri-plugin-shell = "2"
+tauri-plugin-updater = "2"

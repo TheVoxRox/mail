@@ -1,0 +1,46 @@
+#!/usr/bin/env sh
+#
+# Pre-push gate - the fuller frontend gate, run before code leaves the machine.
+# Mirrors the CONTRIBUTING.md pre-push checklist for the frontend.
+#
+# Deliberately NOT run here (too slow to force on every push; they belong in
+# CI / a manual pre-release pass):
+#   - Playwright e2e (test:functional:stable, test:a11y:stable)
+#   - backend `mvn verify`
+#   - Tauri `cargo check` / `cargo clippy`
+#
+# Activate once per clone:  git config core.hooksPath .githooks
+# Bypass once (escape hatch):  git push --no-verify
+
+if ! command -v npm >/dev/null 2>&1; then
+	echo "pre-push: npm is not on PATH - cannot run the frontend gate." >&2
+	echo "          Fix PATH, or bypass once with: git push --no-verify" >&2
+	exit 1
+fi
+
+cd frontend || exit 1
+
+if [ ! -d ./node_modules ]; then
+	echo "pre-push: frontend dependencies missing. Run: cd frontend && npm ci" >&2
+	exit 1
+fi
+
+echo "pre-push: frontend gate (lint, check, translations, knip, unit tests)..."
+
+run() {
+	echo "pre-push: > $*"
+	if ! npm run --silent "$@" ; then
+		echo "" >&2
+		echo "pre-push: '$*' failed (see above). Push aborted." >&2
+		echo "          Bypass once with: git push --no-verify" >&2
+		exit 1
+	fi
+}
+
+run lint
+run check:translations:strict
+run check
+run knip
+run test:unit
+
+echo "pre-push: OK"

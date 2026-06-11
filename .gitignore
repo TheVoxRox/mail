@@ -1,0 +1,54 @@
+# =============================================================================
+# Top-level .gitignore for the mail monorepo. Module-specific entries live in
+# the individual modules (backend/.gitignore, frontend/.gitignore).
+# =============================================================================
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+
+# Claude Code agent local config (per-machine, per-user)
+.claude/
+
+# Secrets / local runtime config
+.env
+.env.*
+*.env
+!.env.example
+!**/.env.example
+!**/.env.test
+!**/.env.e2e
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+*.ed25519
+
+# Dev session artifacts (one-off diff captures, scratch scripts)
+*.patch
+_tmp_*
+
+# Logs / local data
+*.log
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+logs/
+data/
+
+# Editor swap/backup
+*.swp
+*.swo
+*~

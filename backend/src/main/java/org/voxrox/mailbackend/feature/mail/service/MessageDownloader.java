@@ -1,0 +1,247 @@
+package org.voxrox.mailbackend.feature.mail.service;
+
+import jakarta.mail.*;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.voxrox.mailbackend.core.config.MailClientProperties;
+import org.voxrox.mailbackend.feature.mail.dto.MailDetailResponse;
+import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
+import org.voxrox.mailbackend.feature.mail.mapper.MessageMapper;
+import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
+import org.voxrox.mailbackend.util.LogCategory;
+
+import module java.base;
+
+/**
+ * Responsible for downloading messages from the server and persisting them to
+ * the DB.
+ */
+@Service
+public class MessageDownloader {
+
+    private static final Logger log = LoggerFactory.getLogger(MessageDownloader.class);
+    private static final long UID_INCREMENT = 1L;
+    private static final long UID_INITIAL = 0L;
+
+    private final MessageRepository messageRepository;
+    private final MessageFetcher messageFetcher;
+    private final SyncStateService syncStateService;
+    private final TransactionTemplate transactionTemplate;
+    private final MailClientProperties mailProps;
+    private final MessageMapper messageMapper;
+    private final ThreadingService threadingService;
+
+    public MessageDownloader(MessageRepository messageRepository, MessageFetcher messageFetcher,
+            SyncStateService syncStateService, TransactionTemplate transactionTemplate, MailClientProperties mailProps,
+            MessageMapper messageMapper, ThreadingService threadingService) {
+        this.messageRepository = messageRepository;
+        this.messageFetcher = messageFetcher;
+        this.syncStateService = syncStateService;
+        this.transactionTemplate = transactionTemplate;
+        this.mailProps = mailProps;
+        this.messageMapper = messageMapper;
+        this.threadingService = threadingService;
+    }
+
+    /**
+     * Downloads new messages and stores them in the DB. Returns the count of
+     * downloaded messages.
+     *
+     * <p>
+     * Two paths:
+     * <ul>
+     * <li><b>Initial sync</b> ({@code lastKnownUid <= 0}) — the window is selected
+     * via message sequence numbers ({@code 1..messageCount}), not via the UID
+     * range. The UID space can have holes (historically moved/deleted messages
+     * leave a high {@code UIDNEXT} above the actual UIDs in the mailbox), so a
+     * window of {@code UIDNEXT - N .. UIDNEXT-1} could miss everything and we would
+     * download nothing on the first run — see the Seznam.cz INBOX scenario where
+     * {@code UIDNEXT=58871} but real messages have UIDs under 1000.</li>
+     * <li><b>Incremental sync</b> ({@code lastKnownUid > 0}) — continues via a UID
+     * range above {@code lastKnownUid}. After every cycle (even an empty one) we
+     * advance {@code lastKnownUid} to the observed {@code UIDNEXT-1} so empty gaps
+     * do not loop forever when messages get moved on the server in the
+     * meantime.</li>
+     * </ul>
+     */
+    public int syncNewMessages(FolderSyncContext ctx) throws MessagingException {
+        long lastUid = ctx.syncState().getLastKnownUid();
+        long maxUid = getLatestUidFromServer(ctx.folder(), ctx.uidFolder());
+
+        if (maxUid <= lastUid) {
+            return 0;
+        }
+
+        int downloaded;
+        if (lastUid <= UID_INITIAL) {
+            downloaded = downloadInitialWindowBySequence(ctx);
+        } else {
+            long startUid = lastUid + UID_INCREMENT;
+            log.info("{} Detected new messages in {}: UID {} -> {}", LogCategory.SYNC, ctx.folderName(), startUid,
+                    maxUid);
+            downloaded = downloadRangeInternal(ctx, startUid, maxUid);
+        }
+
+        advanceLastKnownUidIfNeeded(ctx, maxUid);
+        return downloaded;
+    }
+
+    /**
+     * Downloads the most recent {@code windowSize} messages by their order in the
+     * folder (RFC 3501 sequence numbers {@code 1..MESSAGES}). Regardless of where
+     * their UIDs sit in the UID space — sequence numbers are, unlike UIDs, always
+     * dense and contiguous.
+     */
+    private int downloadInitialWindowBySequence(FolderSyncContext ctx) throws MessagingException {
+        int count = ctx.folder().getMessageCount();
+        if (count <= 0) {
+            log.info("{} Initial sync of folder {}: folder is empty, nothing to download.", LogCategory.SYNC,
+                    ctx.folderName());
+            return 0;
+        }
+
+        int windowSize = mailProps.sync().windowSize();
+        int startSeq = Math.max(1, count - windowSize + 1);
+        log.info("{} Initial sync of folder {}: downloading the last {} messages (seq {} -> {}, total in folder {}).",
+                LogCategory.SYNC, ctx.folderName(), count - startSeq + 1, startSeq, count, count);
+
+        Message[] messages = ctx.folder().getMessages(startSeq, count);
+        if (messages == null || messages.length == 0) {
+            return 0;
+        }
+
+        List<MailDetailResponse> dtos = messageFetcher.fetchBatch(messages, ctx.uidFolder(), ctx.folderName());
+        saveMessagesBatchAtomic(dtos, ctx, messages);
+        return dtos.size();
+    }
+
+    /**
+     * Advances {@code lastKnownUid} to {@code observedMaxUid} when the downloaded
+     * batch has not already moved it higher.
+     *
+     * <p>
+     * Without this step sync would loop when {@code UIDNEXT - 1 > lastKnownUid}
+     * (the server reports new UIDs) but {@code getMessagesByUID(...)} returns an
+     * empty array (messages in that range have been deleted/moved in the meantime).
+     * Without the advance the same empty range would be retried forever and every
+     * sync tick would end with "0 new messages" even though we have evidently seen
+     * the UID space move.
+     */
+    private void advanceLastKnownUidIfNeeded(FolderSyncContext ctx, long observedMaxUid) {
+        if (observedMaxUid > ctx.syncState().getLastKnownUid()) {
+            ctx.syncState().setLastKnownUid(observedMaxUid);
+            syncStateService.updateLastKnownUid(ctx.syncState().getId(), observedMaxUid);
+        }
+    }
+
+    /**
+     * Downloads messages within the given UID range (used for historical backfill).
+     */
+    public int downloadRange(FolderSyncContext ctx, long startUid, long endUid) throws MessagingException {
+        return downloadRangeInternal(ctx, startUid, endUid);
+    }
+
+    /**
+     * Lazy-fetch path: downloads the messages at the given IMAP sequence positions
+     * (1-indexed; sequence 1 = oldest, {@code folder.getMessageCount()} = newest).
+     * Used by the read path when the user navigates to a page that falls below the
+     * locally cached recency window, so we can serve any page of any folder without
+     * mirroring the whole mailbox up front.
+     * <p>
+     * Saves through the same batched-atomic write as the initial sync, which
+     * advances {@code lastKnownUid} only upward — backfilled / lazy-fetched older
+     * UIDs never regress the forward sync cursor.
+     */
+    public int downloadSequenceRange(FolderSyncContext ctx, int startSeq, int endSeq) throws MessagingException {
+        if (endSeq < startSeq) {
+            return 0;
+        }
+        log.info("{} Lazy page fetch in {}: sequence {} -> {}.", LogCategory.SYNC, ctx.folderName(), startSeq, endSeq);
+        Message[] messages = ctx.folder().getMessages(startSeq, endSeq);
+        if (messages == null || messages.length == 0) {
+            return 0;
+        }
+        List<MailDetailResponse> dtos = messageFetcher.fetchBatch(messages, ctx.uidFolder(), ctx.folderName());
+        saveMessagesBatchAtomic(dtos, ctx, messages);
+        return dtos.size();
+    }
+
+    private int downloadRangeInternal(FolderSyncContext ctx, long startUid, long endUid) throws MessagingException {
+        int windowSize = mailProps.sync().windowSize();
+        int totalDownloaded = 0;
+
+        for (long currentEnd = endUid; currentEnd >= startUid; currentEnd -= windowSize) {
+            long currentStart = Math.max(currentEnd - windowSize + UID_INCREMENT, startUid);
+            Message[] messages = ctx.uidFolder().getMessagesByUID(currentStart, currentEnd);
+
+            if (messages != null && messages.length > 0) {
+                List<MailDetailResponse> dtos = messageFetcher.fetchBatch(messages, ctx.uidFolder(), ctx.folderName());
+                saveMessagesBatchAtomic(dtos, ctx, messages);
+                totalDownloaded += dtos.size();
+            }
+        }
+        return totalDownloaded;
+    }
+
+    private void saveMessagesBatchAtomic(List<MailDetailResponse> dtos, FolderSyncContext ctx, Message[] messages) {
+        transactionTemplate.executeWithoutResult(status -> {
+            List<MessageEntity> entities = dtos.stream().map(dto -> messageMapper.toEntity(dto, ctx.account(),
+                    ctx.folderName(), ctx.syncState().getUidValidity())).toList();
+            if (!entities.isEmpty()) {
+                List<MessageEntity> saved = messageRepository.saveAll(entities);
+                /*
+                 * Threading is assigned AFTER persistence so each entity has a DB-generated id
+                 * and the JPA persistence context can see this message via
+                 * findByAccountIdAndMessageId for any sibling that arrives later in the same
+                 * batch. The batch order is by IMAP UID (descending in the fetch loop,
+                 * ascending within a single getMessagesByUID call) — neither order is
+                 * guaranteed to match receivedAt, so a later message of the thread can
+                 * occasionally land before its parent in the same batch. That is exactly what
+                 * ThreadingService.reconcileLateArrivingParent handles: when the parent finally
+                 * lands it merges the orphan chain.
+                 *
+                 * Per design (THREADING_DESIGN.md) the call has zero effect on lastKnownUid
+                 * updates — it operates purely on the threading columns.
+                 */
+                for (MessageEntity entity : saved) {
+                    threadingService.assignThread(entity, ctx.account());
+                }
+            }
+
+            long highestUid = getHighestUid(messages, ctx.uidFolder());
+            if (highestUid > ctx.syncState().getLastKnownUid()) {
+                ctx.syncState().setLastKnownUid(highestUid);
+                /*
+                 * Targeted UPDATE instead of save() on a detached entity — sync persists state
+                 * across several independent transactions in a row, merge would end with
+                 * StaleObjectStateException (the DB version advances while the detached entity
+                 * holds the old one).
+                 */
+                syncStateService.updateLastKnownUid(ctx.syncState().getId(), highestUid);
+            }
+        });
+    }
+
+    public long getLatestUidFromServer(Folder folder, UIDFolder uidFolder) throws MessagingException {
+        long nextUid = uidFolder.getUIDNext();
+        if (nextUid > UID_INCREMENT)
+            return nextUid - UID_INCREMENT;
+        int count = folder.getMessageCount();
+        return (count > 0) ? uidFolder.getUID(folder.getMessage(count)) : UID_INITIAL;
+    }
+
+    private long getHighestUid(Message[] messages, UIDFolder uidFolder) {
+        if (messages == null || messages.length == 0) {
+            return UID_INITIAL;
+        }
+        try {
+            return uidFolder.getUID(messages[messages.length - 1]);
+        } catch (Exception e) {
+            log.warn("{} Failed to read the highest UID from the message batch: {}", LogCategory.SYNC, e.getMessage());
+            return UID_INITIAL;
+        }
+    }
+}

@@ -1,0 +1,253 @@
+package org.voxrox.mailbackend.feature.mail.service;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.UUID;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
+import org.voxrox.mailbackend.feature.mail.dto.ThreadUpdated;
+import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
+import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
+import org.voxrox.mailbackend.util.LogCategory;
+
+/**
+ * Materializes conversation membership at sync time using a JWZ-light algorithm
+ * (see {@code backend/docs/THREADING_DESIGN.md}). Scope is per-account.
+ *
+ * <p>
+ * The service expects to be called from {@code
+ * MessageDownloader.saveMessagesBatchAtomic} after each {@link MessageEntity}
+ * has been persisted by the mapper (so it has a database-generated {@code id})
+ * but before the transaction commits.
+ *
+ * <p>
+ * The algorithm has four steps:
+ *
+ * <ol>
+ * <li><b>Direct parent</b> via {@code In-Reply-To} — if the message points at a
+ * known {@code Message-ID} in the same account, inherit its thread.</li>
+ * <li><b>References walk</b> oldest-to-newest — the first reference that
+ * matches a known message wins (matches Gmail's behaviour and JWZ §3.4).</li>
+ * <li><b>New thread</b> if neither step found a parent — generate a fresh UUID
+ * and use the message's own {@code Message-ID} as the root.</li>
+ * <li><b>Late-arriving parent reconciliation</b> — if an earlier orphan thread
+ * directly replies to this message's own {@code Message-ID} (its children
+ * arrived first) or is a cross-folder duplicate rooted at it, merge those
+ * threads into this message's thread, re-root and renumber the result, and
+ * broadcast a {@code thread_updated} SSE event per affected thread.</li>
+ * </ol>
+ *
+ * Subject-based clustering (JWZ §5) is deliberately skipped — false positives
+ * on common subjects ({@code "Re: Hi"}) outweigh the recall gain given that
+ * modern providers all populate the threading headers.
+ */
+@Service
+public class ThreadingService {
+
+    private static final Logger log = LoggerFactory.getLogger(ThreadingService.class);
+
+    /**
+     * Hard cap on the References chain walk — defense against a malicious /
+     * malformed References header. The published JWZ algorithm has no upper bound;
+     * {@code MAX_DEPTH = 20} is the precedent set by {@code MimePartExtractor}. We
+     * use {@code 50} here because References lists are linear (no fan-out) and 50
+     * is well above the practical length of any real conversation chain.
+     */
+    private static final int MAX_REFERENCES_WALK = 50;
+
+    private final MessageRepository messageRepository;
+    private final SseNotificationService sseNotificationService;
+
+    public ThreadingService(MessageRepository messageRepository, SseNotificationService sseNotificationService) {
+        this.messageRepository = messageRepository;
+        this.sseNotificationService = sseNotificationService;
+    }
+
+    /**
+     * Assigns thread membership to {@code msg}. Mutates the entity (sets
+     * {@code threadId}, {@code threadRootMessageId}, {@code threadPosition}) and
+     * may broadcast {@code thread_updated} SSE events as a side effect if
+     * late-arriving-parent reconciliation merges orphan threads.
+     *
+     * <p>
+     * Callers must invoke this within a JPA transaction so the orphan
+     * reconciliation update sees the just-persisted message and the UPDATE
+     * statement is part of the same unit of work.
+     *
+     * @param msg
+     *            the newly persisted message (must have a non-null {@code id})
+     * @param account
+     *            the owning account
+     */
+    @Transactional
+    public void assignThread(MessageEntity msg, AccountEntity account) {
+        MessageEntity parent = resolveParent(msg, account);
+        if (parent != null) {
+            attachToExistingThread(msg, account, parent);
+        } else {
+            startNewThread(msg);
+        }
+        reconcileLateArrivingParent(msg, account);
+    }
+
+    /**
+     * Step 1 + 2 of the algorithm — find a parent message in the same account that
+     * this message links to.
+     */
+    private MessageEntity resolveParent(MessageEntity msg, AccountEntity account) {
+        // Step 1 — direct In-Reply-To match
+        String inReplyTo = trimToNull(msg.getInReplyTo());
+        if (inReplyTo != null) {
+            MessageEntity hit = findFirstThreadedByMessageId(account.getId(), inReplyTo);
+            if (hit != null) {
+                return hit;
+            }
+        }
+
+        // Step 2 — walk References oldest-to-newest. The references header
+        // is a whitespace-separated list of Message-IDs ordered from the
+        // chain root to the immediate predecessor; the first known match
+        // is the closest ancestor we can reach.
+        String references = trimToNull(msg.getReferences());
+        if (references != null) {
+            String[] refs = references.split("\\s+");
+            int limit = Math.min(refs.length, MAX_REFERENCES_WALK);
+            for (int i = 0; i < limit; i++) {
+                String ref = trimToNull(refs[i]);
+                if (ref == null) {
+                    continue;
+                }
+                MessageEntity hit = findFirstThreadedByMessageId(account.getId(), ref);
+                if (hit != null) {
+                    return hit;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Looks up a candidate parent by Message-ID. Gmail and similar providers can
+     * store the same Message-ID across multiple folders (e.g. INBOX + All Mail) —
+     * every copy carries the same {@code threadId} by construction, so the first
+     * row is authoritative.
+     */
+    private MessageEntity findFirstThreadedByMessageId(Long accountId, String messageId) {
+        List<MessageEntity> hits = messageRepository.findByAccountIdAndMessageId(accountId, messageId);
+        for (MessageEntity hit : hits) {
+            if (hit.getThreadId() != null) {
+                return hit;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Step 1 / Step 2 success — inherit thread membership from the parent and
+     * append to the end of the thread.
+     */
+    private void attachToExistingThread(MessageEntity msg, AccountEntity account, MessageEntity parent) {
+        msg.setThreadId(parent.getThreadId());
+        msg.setThreadRootMessageId(parent.getThreadRootMessageId());
+        int maxPosition = messageRepository.findMaxThreadPosition(account.getId(), parent.getThreadId());
+        msg.setThreadPosition(maxPosition + 1);
+
+        // Notify subscribers that the thread gained a message. This may fire
+        // many events during a bulk initial sync; SSE clients are expected
+        // to coalesce.
+        sseNotificationService.broadcast(ThreadUpdated.of(msg.getThreadId(), account.getId()));
+    }
+
+    /**
+     * Step 3 — this message is the first member of its conversation. Generate a
+     * stable identifier and root the thread at our own Message-ID (or null if the
+     * message has no Message-ID at all).
+     */
+    private void startNewThread(MessageEntity msg) {
+        msg.setThreadId(UUID.randomUUID().toString());
+        msg.setThreadRootMessageId(msg.getMessageId());
+        msg.setThreadPosition(1);
+    }
+
+    /**
+     * Step 4 — orphan chain reconciliation. When an earlier orphan thread links to
+     * this message's own Message-ID (a child replied to it via {@code In-Reply-To}
+     * before it arrived, or a cross-folder duplicate is rooted at it), merge those
+     * orphan threads into the thread this message belongs to.
+     *
+     * <p>
+     * The absorbed rows are re-pointed to this message's {@code threadId} and
+     * re-rooted to the thread's true root ({@code msg.threadRootMessageId} — which
+     * equals this message's id when it started a fresh thread, or its inherited
+     * ancestor root when it attached to an older one), then the whole merged thread
+     * is renumbered.
+     *
+     * <p>
+     * The merge is bounded: at most one inbound message can collapse all its orphan
+     * children in a single call. Subsequent late arrivals are handled by their own
+     * invocation.
+     */
+    private void reconcileLateArrivingParent(MessageEntity msg, AccountEntity account) {
+        String selfMessageId = trimToNull(msg.getMessageId());
+        if (selfMessageId == null) {
+            return; // Without a Message-ID we cannot be discovered as a parent.
+        }
+        List<String> orphanThreadIds = messageRepository.findMergeableOrphanThreadIds(account.getId(), selfMessageId,
+                msg.getThreadId());
+        if (orphanThreadIds.isEmpty()) {
+            return;
+        }
+        // Re-root the absorbed rows to the thread's true root, not blindly to this
+        // message: when this message itself attached to an older thread, that older
+        // thread's root is the real conversation root, so a flat selfMessageId would
+        // split thread_root_message_id across the merged thread.
+        String mergedRoot = msg.getThreadRootMessageId();
+        int moved = messageRepository.reassignThreads(account.getId(), orphanThreadIds, msg.getThreadId(), mergedRoot);
+        // The absorbed rows keep their original intra-orphan thread_position, so the
+        // merged thread now has colliding ordinals (every former orphan root sat at
+        // position 1, alongside this message). Renumber the whole thread so
+        // thread_position stays the dense, ascending ordinal the detail endpoint and
+        // THREADING_DESIGN.md promise — otherwise getThread() would order the root
+        // behind its own children (they have lower ids because they arrived first).
+        renumberThreadPositions(account.getId(), msg.getThreadId());
+        log.info("{} Reconciled {} orphan thread(s) ({} message rows) onto thread {} (root {}) for account {}.",
+                LogCategory.SYNC, orphanThreadIds.size(), moved, msg.getThreadId(), mergedRoot, account.getId());
+        // One thread_updated event per affected thread keeps the wire format
+        // simple — the merged thread inherits the inbound message's id, the
+        // orphans no longer exist as standalone aggregates.
+        sseNotificationService.broadcast(ThreadUpdated.of(msg.getThreadId(), account.getId()));
+    }
+
+    /**
+     * Recomputes dense, 1-based {@code thread_position} ordinals for every member
+     * of {@code threadId}, ordered by {@code (receivedAt, id)}. Called after an
+     * orphan merge, where the absorbed rows would otherwise keep their original
+     * per-orphan positions and collide. The members are managed entities loaded
+     * inside the active transaction, so the position writes flush on commit. The
+     * fetched list is copied into a mutable list because the repository may hand
+     * back an immutable view.
+     */
+    private void renumberThreadPositions(Long accountId, String threadId) {
+        List<MessageEntity> members = new ArrayList<>(
+                messageRepository.findByAccountIdAndThreadId(accountId, threadId));
+        members.sort(Comparator.comparing(MessageEntity::getReceivedAt, Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(MessageEntity::getId, Comparator.nullsLast(Comparator.naturalOrder())));
+        int position = 1;
+        for (MessageEntity member : members) {
+            member.setThreadPosition(position++);
+        }
+    }
+
+    private static String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+}

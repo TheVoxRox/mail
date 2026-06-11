@@ -1,0 +1,75 @@
+{
+	"$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+	"productName": "VoxRox Mail",
+	"version": "0.1.0",
+	"identifier": "org.voxrox.mail",
+	"build": {
+		"frontendDist": "../build",
+		"devUrl": "http://localhost:5173",
+		"beforeDevCommand": "npm run dev",
+		"beforeBuildCommand": "npm run build"
+	},
+	"app": {
+		"windows": [],
+		"security": {
+			"csp": {
+				"default-src": "'self' customprotocol: asset:",
+				"connect-src": "'self' ipc: http://ipc.localhost http://localhost:* http://127.0.0.1:*",
+				"img-src": "'self' asset: http://asset.localhost data:",
+				"style-src": "'self' 'unsafe-inline'",
+				"object-src": "'none'",
+				"base-uri": "'none'",
+				"form-action": "'none'",
+				"frame-src": "'self' about:"
+			},
+			"devCsp": {
+				"default-src": "'self' customprotocol: asset:",
+				"connect-src": "'self' ipc: http://ipc.localhost http://localhost:* http://127.0.0.1:*",
+				"img-src": "'self' asset: http://asset.localhost data:",
+				"style-src": "'self' 'unsafe-inline'",
+				"object-src": "'none'",
+				"base-uri": "'none'",
+				"form-action": "'none'",
+				"frame-src": "'self' about:"
+			}
+		}
+	},
+	"bundle": {
+		"active": true,
+		"targets": "nsis",
+		"externalBin": ["binaries/mail"],
+		"resources": {
+			"binaries/app": "app",
+			"binaries/runtime": "runtime",
+			"resources/NOTICE.txt": "NOTICE.txt"
+		},
+		"windows": {
+			"allowDowngrades": false,
+			"nsis": {
+				"template": "windows/nsis-installer.nsi",
+				"installMode": "perMachine",
+				"languages": ["English", "Czech"],
+				"customLanguageFiles": {
+					"Czech": "windows/Czech.nsh"
+				},
+				"displayLanguageSelector": false,
+				"startMenuFolder": "VoxRox",
+				"installerIcon": "icons/icon.ico",
+				"uninstallerIcon": "icons/icon.ico"
+			}
+		},
+		"icon": [
+			"icons/32x32.png",
+			"icons/128x128.png",
+			"icons/128x128@2x.png",
+			"icons/icon.icns",
+			"icons/icon.ico"
+		]
+	},
+	"plugins": {
+		"updater": {
+			"endpoints": ["https://github.com/TheVoxRox/mail/releases/latest/download/latest.json"],
+			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDYzMzRBRThDOUQ4NDk1RkUKUldUK2xZU2RqSzQwWTFDNkl3NXNNMCtLQ1JzenkzakUwS1VFYU5vWU15cWU5QzE4bVJ6TzRkQzkK"
+		}
+	}
+}

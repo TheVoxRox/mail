@@ -1,0 +1,448 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>4.0.6</version>
+		<relativePath/>
+	</parent>
+	<groupId>org.voxrox</groupId>
+	<artifactId>mail-backend</artifactId>
+	<version>0.1.0</version>
+	<name>mail-backend</name>
+	<description>Backend service for the Mail application</description>
+
+	<properties>
+		<java.version>25</java.version>
+		<spring-retry.version>2.0.12</spring-retry.version>
+		<jsoup.version>1.22.2</jsoup.version>
+		<springdoc.version>3.0.2</springdoc.version>
+		<wiremock.version>3.9.2</wiremock.version>
+	</properties>
+
+	<dependencies>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-validation</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-mail</artifactId>
+		</dependency>
+		<dependency>
+			<!-- spring-boot-starter-mail only pulls angus-mail as runtime; we need compile
+			     scope for IMAPFolder.moveMessages (RFC 6851 MOVE) and IMAPFolder.expunge(Message[])
+			     (RFC 4315 UID EXPUNGE) in ImapActionService. -->
+			<groupId>org.eclipse.angus</groupId>
+			<artifactId>angus-mail</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.xerial</groupId>
+			<artifactId>sqlite-jdbc</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.hibernate.orm</groupId>
+			<artifactId>hibernate-community-dialects</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-oauth2-client</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-flyway</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-actuator</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.jsoup</groupId>
+			<artifactId>jsoup</artifactId>
+			<version>${jsoup.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.retry</groupId>
+			<artifactId>spring-retry</artifactId>
+			<version>${spring-retry.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springdoc</groupId>
+			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+			<version>${springdoc.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<!-- Boot 4.x split the test slice modules; @WebMvcTest + MockMvc live in this artifact. -->
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-webmvc-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<!-- Boot 4.x: @DataJpaTest + @AutoConfigureTestDatabase live here. -->
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-data-jpa-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.wiremock</groupId>
+			<artifactId>wiremock-standalone</artifactId>
+			<version>${wiremock.version}</version>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<pluginManagement>
+			<plugins>
+				<plugin>
+					<groupId>org.eclipse.m2e</groupId>
+					<artifactId>lifecycle-mapping</artifactId>
+					<version>1.0.0</version>
+					<configuration>
+						<lifecycleMappingMetadata>
+							<pluginExecutions>
+								<pluginExecution>
+									<pluginExecutionFilter>
+										<groupId>com.github.spotbugs</groupId>
+										<artifactId>spotbugs-maven-plugin</artifactId>
+										<versionRange>[4.9.8.3,)</versionRange>
+										<goals>
+											<goal>check</goal>
+										</goals>
+									</pluginExecutionFilter>
+									<action>
+										<ignore/>
+									</action>
+								</pluginExecution>
+							</pluginExecutions>
+						</lifecycleMappingMetadata>
+					</configuration>
+				</plugin>
+			</plugins>
+		</pluginManagement>
+		<plugins>
+			<plugin>
+				<!--
+					target/sidecar/ is produced by scripts/package-sidecar-windows.ps1
+					(jpackage app-image), not by Maven. On Windows the freshly built
+					sidecar .exe is briefly locked by Defender's real-time scan, so the
+					default `clean` intermittently fails with "Failed to delete ...exe"
+					(the plugin's own retry window is too short for the scan). Exclude
+					sidecar/** from clean — the packaging script owns that directory and
+					deletes it (with retry) before each rebuild. All real Maven output
+					under target/ is still cleaned.
+				-->
+				<artifactId>maven-clean-plugin</artifactId>
+				<configuration>
+					<excludeDefaultDirectories>true</excludeDefaultDirectories>
+					<filesets>
+						<fileset>
+							<directory>${project.build.directory}</directory>
+							<excludes>
+								<exclude>sidecar/**</exclude>
+							</excludes>
+						</fileset>
+					</filesets>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+				<configuration>
+					<!--
+						Springdoc je v produkcnim sidecaru zbytecny — docs endpointy
+						jsou vypnute (springdoc.api-docs.enabled=false). Vylouceni
+						z fat jar setri cca 200-500 ms cold startu (Spring uz nemusi
+						skenovat springdoc auto-configuration classes) a snizuje
+						velikost binarky o ~3 MB. Dev `mvn spring-boot:run` pouziva
+						compile classpath, kde springdoc dal je — Swagger UI pri
+						vyvoji funguje normalne. Pro fat jar s docs viz profile `openapi`.
+					-->
+					<excludes>
+						<exclude>
+							<groupId>org.springdoc</groupId>
+						</exclude>
+					</excludes>
+				</configuration>
+				<executions>
+					<execution>
+						<goals>
+							<goal>build-info</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<!-- CycloneDX SBOM. The release pipeline generates the SBOM
+				     explicitly via `mvn cyclonedx:makeAggregateBom` (wrapped by the
+				     `npm run regen:sbom:backend` script). Output: target/bom.json
+				     in CycloneDX 1.5 JSON, attached as an artifact in CI. -->
+				<groupId>org.cyclonedx</groupId>
+				<artifactId>cyclonedx-maven-plugin</artifactId>
+				<version>2.9.1</version>
+				<configuration>
+					<projectType>application</projectType>
+					<schemaVersion>1.5</schemaVersion>
+					<includeBomSerialNumber>true</includeBomSerialNumber>
+					<includeCompileScope>true</includeCompileScope>
+					<includeProvidedScope>false</includeProvidedScope>
+					<includeRuntimeScope>true</includeRuntimeScope>
+					<includeSystemScope>false</includeSystemScope>
+					<includeTestScope>false</includeTestScope>
+					<outputFormat>json</outputFormat>
+					<outputName>bom</outputName>
+				</configuration>
+				<executions>
+					<!--
+						spring-boot-starter-parent binds makeAggregateBom to
+						generate-resources (execution id "default", emitting an in-jar
+						SBOM at META-INF/sbom/application.cdx.json). We do not consume
+						that embedded SBOM (the actuator sbom endpoint is disabled) and
+						generate release SBOMs explicitly instead, so unbind it with
+						phase=none. This keeps `mvn verify`/`package` cheap and resolves
+						the Eclipse m2e "Plugin execution not covered by lifecycle
+						configuration" marker. The goal still runs on direct
+						`mvn cyclonedx:makeAggregateBom` invocation (regen:sbom:backend).
+					-->
+					<execution>
+						<id>default</id>
+						<phase>none</phase>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>com.github.spotbugs</groupId>
+				<artifactId>spotbugs-maven-plugin</artifactId>
+				<version>4.9.8.3</version>
+				<configuration>
+					<effort>Max</effort>
+					<threshold>Medium</threshold>
+					<failOnError>true</failOnError>
+					<xmlOutput>true</xmlOutput>
+					<excludeFilterFile>spotbugs-exclude.xml</excludeFilterFile>
+				</configuration>
+				<!-- Bind to `verify` so `mvn verify` runs SpotBugs together with the
+				     test suite. Without this binding spotbugs:check only fires when
+				     called explicitly, which means a local `mvn verify` would silently
+				     skip a gate the CI workflow enforces. -->
+				<executions>
+					<execution>
+						<id>spotbugs-check</id>
+						<phase>verify</phase>
+						<goals>
+							<goal>check</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-failsafe-plugin</artifactId>
+				<executions>
+					<execution>
+						<goals>
+							<goal>integration-test</goal>
+							<goal>verify</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.jacoco</groupId>
+				<artifactId>jacoco-maven-plugin</artifactId>
+				<version>0.8.14</version>
+				<executions>
+					<execution>
+						<id>prepare-agent</id>
+						<goals>
+							<goal>prepare-agent</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>prepare-agent-integration</id>
+						<goals>
+							<goal>prepare-agent-integration</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>report</id>
+						<phase>test</phase>
+						<goals>
+							<goal>report</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>merge</id>
+						<phase>verify</phase>
+						<goals>
+							<goal>merge</goal>
+						</goals>
+						<configuration>
+							<destFile>${project.build.directory}/jacoco-merged.exec</destFile>
+							<fileSets>
+								<fileSet>
+									<directory>${project.build.directory}</directory>
+									<includes>
+										<include>jacoco.exec</include>
+										<include>jacoco-it.exec</include>
+									</includes>
+								</fileSet>
+							</fileSets>
+						</configuration>
+					</execution>
+					<execution>
+						<id>report-merged</id>
+						<phase>verify</phase>
+						<goals>
+							<goal>report</goal>
+						</goals>
+						<configuration>
+							<dataFile>${project.build.directory}/jacoco-merged.exec</dataFile>
+							<outputDirectory>${project.build.directory}/site/jacoco-merged</outputDirectory>
+						</configuration>
+					</execution>
+					<execution>
+						<id>check-merged</id>
+						<phase>verify</phase>
+						<goals>
+							<goal>check</goal>
+						</goals>
+						<configuration>
+							<dataFile>${project.build.directory}/jacoco-merged.exec</dataFile>
+							<excludes>
+								<exclude>**/*SpringCGLIB*</exclude>
+								<exclude>**/*Accessor_*</exclude>
+								<exclude>**/MailBackendApplication.class</exclude>
+							</excludes>
+							<rules>
+								<rule>
+									<element>BUNDLE</element>
+									<limits>
+										<!-- Floors are ~7 points below the 2026-06-02 baseline (77%/59%/77%).
+										     Tighten incrementally; do not lower without team consensus. -->
+										<limit>
+											<counter>INSTRUCTION</counter>
+											<value>COVEREDRATIO</value>
+											<minimum>0.70</minimum>
+										</limit>
+										<limit>
+											<counter>BRANCH</counter>
+											<value>COVEREDRATIO</value>
+											<minimum>0.50</minimum>
+										</limit>
+										<limit>
+											<counter>LINE</counter>
+											<value>COVEREDRATIO</value>
+											<minimum>0.70</minimum>
+										</limit>
+									</limits>
+								</rule>
+							</rules>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>com.diffplug.spotless</groupId>
+				<artifactId>spotless-maven-plugin</artifactId>
+				<version>3.4.0</version>
+				<configuration>
+					<lineEndings>UNIX</lineEndings>
+					<java>
+						<includes>
+							<include>src/main/java/**/*.java</include>
+							<include>src/test/java/**/*.java</include>
+						</includes>
+						<eclipse>
+							<version>4.37</version>
+							<file>${basedir}/eclipse-formatter.xml</file>
+						</eclipse>
+						<!-- removeUnusedImports does not yet support JEP 511 'import module'. -->
+						<importOrder>
+							<order>java,javax,jakarta,org,com,</order>
+						</importOrder>
+						<trimTrailingWhitespace/>
+						<endWithNewline/>
+						<!--
+							Spotless toggleOffOn lets us turn formatting off for sections
+							where the local layout outranks the global rules (typically
+							enum constants with arguments, lookup tables, ASCII art in JavaDoc).
+							Usage: // spotless:off ... // spotless:on
+						-->
+						<toggleOffOn/>
+					</java>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+
+	<profiles>
+		<!--
+			Spring AOT mode pro produkcni sidecar build. Generuje AOT artefakty
+			(reflection metadata, optimalizovany bean factory) do jar. Pri behu
+			je aktivuje JVM option -Dspring.aot.enabled=true (viz
+			backend/scripts/package-sidecar-windows.ps1). Default mvn package /
+			mvn test profil tohle NEspousti, aby se nezpomalil dev build a
+			nezatezovaly testy, ktere process-aot interne spousti AppContext.
+			Aktivace: mvn -Paot package
+		-->
+		<profile>
+			<id>aot</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.springframework.boot</groupId>
+						<artifactId>spring-boot-maven-plugin</artifactId>
+						<executions>
+							<execution>
+								<id>process-aot</id>
+								<goals>
+									<goal>process-aot</goal>
+								</goals>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+		<!--
+			Volitelny profil pro fat jar S springdoc dependencies (Swagger UI
+			endpointy). Resetuje excludes z default buildu. Pouziti:
+			   mvn -Popenapi package -Dspringdoc.api-docs.enabled=true \
+			       -Dspringdoc.swagger-ui.enabled=true
+			Slouzi pro standalone debug instalace; bezny produkcni sidecar
+			docs nepotrebuje, tak default fat jar je bez springdoc.
+		-->
+		<profile>
+			<id>openapi</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.springframework.boot</groupId>
+						<artifactId>spring-boot-maven-plugin</artifactId>
+						<configuration>
+							<excludes combine.self="override"/>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
+</project>

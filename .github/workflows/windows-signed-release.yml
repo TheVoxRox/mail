@@ -1,0 +1,187 @@
+name: Windows Signed Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip-backend-tests:
+        description: "Skip backend tests while packaging the sidecar."
+        type: boolean
+        required: true
+        default: false
+      release-tag:
+        description: "GitHub Release tag to publish assets to. Required when running from a branch."
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: windows-signed-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-signed-windows:
+    name: Build signed Windows app
+    runs-on: windows-latest
+
+    env:
+      WINDOWS_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
+      WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+      WINDOWS_CERTIFICATE_THUMBPRINT: ${{ secrets.WINDOWS_CERTIFICATE_THUMBPRINT }}
+      WINDOWS_DIGEST_ALGORITHM: ${{ vars.WINDOWS_DIGEST_ALGORITHM }}
+      WINDOWS_TIMESTAMP_URL: ${{ vars.WINDOWS_TIMESTAMP_URL }}
+      TAURI_UPDATER_PUBKEY: ${{ secrets.TAURI_UPDATER_PUBKEY }}
+      TAURI_UPDATER_ENDPOINTS: ${{ vars.TAURI_UPDATER_ENDPOINTS }}
+      TAURI_UPDATER_WINDOWS_INSTALL_MODE: ${{ vars.TAURI_UPDATER_WINDOWS_INSTALL_MODE }}
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      # OAuth client identifiers baked into the sidecar launcher by
+      # package-sidecar-windows.ps1. Microsoft is a public client (no secret);
+      # Google's "Desktop app" secret is non-confidential (shipped, PKCE-protected).
+      # All three are stored as Actions secrets so they are masked in build logs.
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      MICROSOFT_OAUTH_CLIENT_ID: ${{ secrets.MICROSOFT_OAUTH_CLIENT_ID }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve release tag
+        shell: pwsh
+        run: |
+          $tag = "${{ inputs['release-tag'] }}".Trim()
+          if ([string]::IsNullOrWhiteSpace($tag)) {
+            if ("${{ github.ref_type }}" -ne "tag") {
+              throw "release-tag input is required when this workflow is not running from a tag."
+            }
+            $tag = "${{ github.ref_name }}"
+          }
+          "RELEASE_TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "Publishing release assets to tag $tag"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Package backend sidecar
+        working-directory: backend
+        shell: pwsh
+        # AOT cache is always enabled for release builds. Measured saving:
+        # ~37 % cold start (PERFORMANCE_BASELINE.md 2026-05-19). Dev sidecar
+        # builds keep the default (OFF) to avoid the ~70 s training overhead
+        # on every iteration.
+        run: |
+          $args = @("-File", "scripts/package-sidecar-windows.ps1", "-EnableAotCache")
+          if ("${{ inputs['skip-backend-tests'] }}" -eq "true") {
+            $args += "-SkipTests"
+          }
+          & pwsh @args
+
+      - name: Sync backend sidecar into Tauri bundle
+        working-directory: frontend
+        run: npm run sidecar:sync:windows -- ..\backend\target\sidecar\x86_64-pc-windows-msvc src-tauri\binaries
+
+      - name: Import Windows code signing certificate
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE_BASE64)) {
+            throw "WINDOWS_CERTIFICATE_BASE64 secret is required."
+          }
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE_PASSWORD)) {
+            throw "WINDOWS_CERTIFICATE_PASSWORD secret is required."
+          }
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE_THUMBPRINT)) {
+            throw "WINDOWS_CERTIFICATE_THUMBPRINT secret is required."
+          }
+
+          $certificatePath = Join-Path $env:RUNNER_TEMP "windows-code-signing.pfx"
+          [IO.File]::WriteAllBytes($certificatePath, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE_BASE64))
+          $password = ConvertTo-SecureString -String $env:WINDOWS_CERTIFICATE_PASSWORD -Force -AsPlainText
+          Import-PfxCertificate -FilePath $certificatePath -CertStoreLocation Cert:\CurrentUser\My -Password $password | Out-Null
+
+      - name: Prepare Tauri release config
+        working-directory: frontend
+        run: npm run tauri:release-config:windows
+
+      - name: Validate Tauri updater signing secrets
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY)) {
+            throw "TAURI_SIGNING_PRIVATE_KEY secret is required to create updater signatures."
+          }
+
+      - name: Sign backend sidecar executable
+        working-directory: frontend
+        shell: pwsh
+        run: .\scripts\sign-windows-file.ps1 -Path .\src-tauri\binaries\mail-x86_64-pc-windows-msvc.exe
+
+      - name: Build signed Tauri bundle
+        working-directory: frontend
+        run: npm run tauri:build -- --config src-tauri/tauri.release.conf.json
+
+      - name: Generate Tauri updater manifest
+        working-directory: frontend
+        run: npm run tauri:generate-latest:windows
+
+      - name: Verify signatures
+        working-directory: frontend
+        shell: pwsh
+        run: |
+          $paths = @(
+            ".\src-tauri\binaries\mail-x86_64-pc-windows-msvc.exe",
+            ".\src-tauri\target\release\bundle"
+          )
+          .\scripts\verify-windows-signatures.ps1 -Path $paths
+
+      - name: Upload signed Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mail-windows-signed-${{ github.run_number }}
+          path: |
+            frontend/src-tauri/target/release/bundle/**
+            frontend/src-tauri/target/release/latest.json
+          if-no-files-found: error
+
+      - name: Publish GitHub Release assets
+        working-directory: frontend
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $assets = @(
+            Get-ChildItem -Path ".\src-tauri\target\release\bundle" -Recurse -File |
+              Where-Object { $_.Name -match "^voxrox-mail-.+-setup\.exe(\.sig)?$" } |
+              Select-Object -ExpandProperty FullName
+          )
+          $assets += (Resolve-Path ".\src-tauri\target\release\latest.json").Path
+
+          if ($assets.Count -eq 0) {
+            throw "No release assets found."
+          }
+
+          gh release view $env:RELEASE_TAG | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $env:RELEASE_TAG --draft --title "VoxRox Mail $env:RELEASE_TAG"
+          }
+
+          gh release upload $env:RELEASE_TAG @assets --clobber

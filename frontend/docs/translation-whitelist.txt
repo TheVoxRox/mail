@@ -1,0 +1,68 @@
+# Translation whitelist (frontend)
+#
+# Files in this list may keep Czech text in comments, strings, or fixtures
+# because the Czech content is load-bearing (e.g. test assertions against a
+# Czech UI locale, mock backend data simulating Czech-language responses,
+# transliterated command palette aliases). Every entry MUST be justified.
+#
+# Format: one path per line, relative to repo root. Comments start with '#'.
+# Blank lines ignored. Reasons go after '--' on the same line.
+#
+# Lint script: frontend/scripts/check-translation-whitelist.mjs
+#
+# Policy (from todo.md "Migrace komentaru a logu do anglictiny — FRONTEND"):
+#  - Programmer text (comments, log messages, pre-i18n error strings) in
+#    frontend/src/lib/ and frontend/src/routes/**/*.{ts,svelte} MUST be
+#    English.
+#  - User-facing translated UI text lives in lib/i18n/messages/{cs,en}.json
+#    only; cs.json is the SOURCE of Czech translations, not a lint target.
+#  - E2E tests assert against real Czech UI text under mail.locale=cs;
+#    refactor to locale-agnostic selectors is a separate task.
+#  - MSW test fixtures simulate backend ProblemDetail responses with the
+#    Czech `detail` payload that the prod backend emits under
+#    Accept-Language: cs; translating them would defeat the i18n test path.
+#
+# When adding an entry: include reason on the same line after '--'. When the
+# Czech content is removed, delete the entry.
+
+# --- i18n source bundle ---
+
+frontend/src/lib/i18n/messages/cs.json -- Source of truth for Czech translations. Counterpart en.json carries the English copy.
+
+# --- E2E tests: assert against Czech UI (mail.locale = 'cs') ---
+
+frontend/src/routes/a11y.e2e.ts -- Screen-reader/a11y assertions over the Czech UI; setup pins window.localStorage 'mail.locale' = 'cs'.
+frontend/src/routes/accounts.functional.e2e.ts -- Account wizard flow asserts against Czech UI strings ("Pokračovat", "Přihlásit přes Google", etc.).
+frontend/src/routes/boot.functional.e2e.ts -- Boot/loading state assertions against Czech UI.
+frontend/src/routes/compose.functional.e2e.ts -- Compose form assertions against Czech UI (recipients, subject placeholder, attachments).
+frontend/src/routes/contacts.functional.e2e.ts -- Contact list / merge dialog assertions against Czech UI.
+frontend/src/routes/e2e-helpers.ts -- Shared Playwright helpers; sets 'mail.locale' = 'cs' for the suite.
+frontend/src/routes/mail/message-detail-actions.functional.e2e.ts -- Inline message-toolbar action assertions against Czech UI ("Akce se zprávami", "Odpovědět", reply subject) under mail.locale = 'cs'.
+frontend/src/routes/mail/sanitizer.functional.e2e.ts -- HTML sanitizer assertions reference Czech UI surrounding the message body.
+frontend/src/routes/mail/toolbar.functional.e2e.ts -- Mail toolbar action assertions ("Smazat", "Označit jako přečtené", etc.).
+frontend/src/routes/palette.functional.e2e.ts -- Command palette assertions against localized command titles.
+frontend/src/routes/performance.functional.e2e.ts -- Performance harness loads the app under cs locale for consistent labels.
+frontend/src/routes/search.functional.e2e.ts -- Search UI assertions against Czech labels.
+frontend/src/routes/settings.functional.e2e.ts -- Settings page assertions against Czech labels.
+frontend/src/routes/sync.functional.e2e.ts -- Sync status assertions against Czech labels.
+frontend/src/routes/viewport.functional.e2e.ts -- Viewport / responsive assertions against Czech UI labels.
+
+# --- MSW test fixtures: simulate backend responses under Accept-Language: cs ---
+
+frontend/src/test-fixtures/msw/handlers.ts -- Mock backend RFC 9457 ProblemDetail responses with Czech `detail` strings; mirrors what the prod backend emits for Accept-Language: cs requests. E2E and unit tests assert against these.
+frontend/src/test-fixtures/msw/fixtures.ts -- Mock message/account/folder data with Czech subjects, sender names, and folder display names; provides realistic Czech-locale fixtures consumed by unit and e2e tests.
+
+# --- Unit tests: ProblemDetail / error mapping with localized backend payload ---
+
+frontend/src/lib/api/client.test.ts -- Inline mock RFC 9457 ProblemDetail response with Czech `detail` ("Špatný požadavek"); asserts that api client surfaces the localized backend message verbatim. Same load-bearing pattern as MSW handlers, just inline.
+frontend/src/lib/api/errors.test.ts -- Inline mock ProblemDetail with Czech `detail` ("Poskytovatel pošty…"); asserts toErrorMessage() prefers the localized backend payload over the i18n fallback. Load-bearing test fixture.
+
+# --- Command palette: transliterated aliases ---
+
+frontend/src/lib/commands/workspaceCommands.ts -- Diacritic-stripped Czech aliases ('nastaveni', 'prepnout do nastaveni') let users type without diacritics. Load-bearing for command palette fuzzy matching.
+
+# --- Test fixtures that must contain diacritics ---
+
+frontend/src/lib/commands/paletteRanking.test.ts -- Two assertions verify normalizeText() strips combining diacritics from 'Příště Žluťoučký kůň' and 'Café'. Load-bearing test payloads — replacing the diacritics would defeat the test.
+frontend/src/lib/accounts/accountLabel.test.ts -- Fixtures 'Práce: info@post.cz' and 'info@post.cz - Práce' verify the label builder preserves a non-ASCII Czech free-text display name while stripping the embedded address and dangling separators; ASCII-only data would not exercise Unicode safety.
+frontend/src/lib/compose/addresses.test.ts -- Assertion isValidEmailAddress('café@münchen.de') verifies internationalised (IDN / UTF-8) e-mail addresses are accepted; the diacritics are the test payload.

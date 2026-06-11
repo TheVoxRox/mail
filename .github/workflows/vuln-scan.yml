@@ -1,0 +1,216 @@
+name: Vulnerability scan
+
+on:
+  schedule:
+    # Mon-Fri at 04:00 UTC — the NVD feed refreshes in the morning, so the scan
+    # runs on fresh data without competing with weekday push traffic.
+    - cron: '0 4 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  owasp-backend:
+    name: Backend OWASP Dependency-Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+
+      - name: Cache OWASP NVD data
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/owasp/dependency-check-data
+          key: nvd-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            nvd-${{ runner.os }}-
+
+      - name: Check NVD API key availability
+        id: nvd
+        run: |
+          if [ -n "${{ secrets.NVD_API_KEY }}" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::NVD_API_KEY secret is not set; scan will run without an API key and may hit rate limits (429)."
+          fi
+
+      - name: Run OWASP Dependency-Check
+        run: |
+          mvn --batch-mode org.owasp:dependency-check-maven:check \
+            -DnvdApiKey="${{ secrets.NVD_API_KEY }}" \
+            -DfailBuildOnCVSS=8 \
+            -DskipTests \
+            -Dformats=HTML,JSON,SARIF
+
+      - name: Upload Dependency-Check report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-vuln-report
+          path: backend/target/dependency-check-report.*
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Upload SARIF to GitHub Security
+        if: always() && hashFiles('backend/target/dependency-check-report.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: backend/target/dependency-check-report.sarif
+
+  npm-audit-frontend:
+    name: Frontend npm audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Audit (full report)
+        run: npm audit --json > npm-audit-report.json || true
+
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-npm-audit
+          path: frontend/npm-audit-report.json
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Fail on high+ severity
+        run: npm audit --audit-level=high
+
+  generate-sboms:
+    name: Generate CycloneDX SBOMs (npm / Maven / Cargo)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo-cyclonedx binary
+        id: cargo-cyclonedx-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-cyclonedx
+          key: cargo-cyclonedx-0.5.9-${{ runner.os }}
+
+      - name: Install cargo-cyclonedx
+        if: steps.cargo-cyclonedx-cache.outputs.cache-hit != 'true'
+        run: cargo install cargo-cyclonedx --version 0.5.9 --locked
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Generate frontend SBOM (npm)
+        working-directory: frontend
+        run: npm run regen:sbom
+
+      - name: Generate backend SBOM (Maven)
+        working-directory: frontend
+        run: npm run regen:sbom:backend
+
+      - name: Generate Tauri SBOM (Cargo)
+        working-directory: frontend
+        run: npm run regen:sbom:tauri
+
+      - name: Validate SBOM schema
+        working-directory: frontend
+        run: npm run check:sbom
+
+      - name: Upload SBOMs
+        uses: actions/upload-artifact@v4
+        with:
+          name: voxrox-mail-sboms
+          path: |
+            frontend/bom.json
+            backend/target/bom.json
+            frontend/src-tauri/bom.json
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Trivy SBOM scan — frontend
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: sbom
+          scan-ref: frontend/bom.json
+          format: sarif
+          output: trivy-frontend.sarif
+          severity: HIGH,CRITICAL
+          exit-code: '0'
+
+      - name: Trivy SBOM scan — backend
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: sbom
+          scan-ref: backend/target/bom.json
+          format: sarif
+          output: trivy-backend.sarif
+          severity: HIGH,CRITICAL
+          exit-code: '0'
+
+      - name: Trivy SBOM scan — Tauri
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: sbom
+          scan-ref: frontend/src-tauri/bom.json
+          format: sarif
+          output: trivy-tauri.sarif
+          severity: HIGH,CRITICAL
+          exit-code: '0'
+
+      - name: Upload Trivy SARIF to GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: .
+
+      - name: Upload Trivy raw reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-sbom-reports
+          path: trivy-*.sarif
+          retention-days: 30
+          if-no-files-found: warn

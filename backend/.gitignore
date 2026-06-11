@@ -1,0 +1,53 @@
+HELP.md
+target/
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### Local Maven repo (created by -Dmaven.repo.local=.m2repo) ###
+.m2/
+.m2repo/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+
+### Secrets ###
+.env
+.env.local
+.env.*.local
+*.env
+!.env.example
+
+### Local data (in case someone redirects the data dir into the project) ###
+*.db
+*.db-shm
+*.db-wal
+audit.log
+crypto.bin
+session.json
+data/

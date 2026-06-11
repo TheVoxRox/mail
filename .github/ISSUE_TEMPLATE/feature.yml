@@ -1,0 +1,63 @@
+name: Feature request
+description: Suggest a new capability or an improvement to an existing one.
+labels: ["enhancement", "triage"]
+title: "[feat] "
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for the suggestion. Filling in the boxes below helps us
+        decide whether the feature fits the product direction and what the
+        smallest valuable scope would be.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem this feature would solve
+      description: What is the user trying to do today, and where do they get stuck?
+      placeholder: |
+        As a screen-reader user I cannot tell whether a message in the list
+        is read or unread, because the state is conveyed only by font weight.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the smallest version of the feature that would help.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you have tried or other approaches you ruled out.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Mail reading / list / threading
+        - Compose / drafts / send
+        - Contacts
+        - Accounts / OAuth / IMAP setup
+        - Search
+        - Settings / preferences
+        - Accessibility (screen reader, keyboard, contrast)
+        - Notifications
+        - Installer / updater
+        - Other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmations
+      options:
+        - label: I have searched existing issues and discussions for similar requests.
+          required: true

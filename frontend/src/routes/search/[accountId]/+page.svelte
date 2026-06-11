@@ -1,0 +1,134 @@
+<script lang="ts">
+	import { goto } from '$app/navigation';
+	import { page as pageStore } from '$app/stores';
+	import { resolve } from '$app/paths';
+	import { accountsState, setActiveAccount } from '$lib/stores/accounts.js';
+	import { reloadSearch, runSearch, searchState } from '$lib/stores/search.js';
+	import { selectMessage, selectedMessage, clearSelection } from '$lib/stores/selectedMessage.js';
+	import MessageDetail from '$lib/components/MessageDetail.svelte';
+	import Pagination from '$lib/components/Pagination.svelte';
+	import SearchResultsGrid from '$lib/components/SearchResultsGrid.svelte';
+	import { _ } from '$lib/i18n/index.js';
+	import type { MailSummaryResponse } from '$lib/types.js';
+
+	let { data } = $props();
+
+	$effect(() => {
+		if ($accountsState.status !== 'ready') return;
+		if (!$accountsState.accounts.some((account) => account.id === data.accountId)) {
+			const fallbackId = $accountsState.accounts[0]?.id;
+			const query = data.query ? `?q=${encodeURIComponent(data.query)}` : '';
+			void goto(
+				fallbackId
+					? `${resolve('/search/[accountId]', { accountId: String(fallbackId) })}${query}`
+					: resolve('/'),
+				{ replaceState: true }
+			);
+			return;
+		}
+
+		setActiveAccount(data.accountId);
+		clearSelection();
+		if (data.query) {
+			void runSearch(data.accountId, data.query, data.page);
+		}
+	});
+
+	function handleSelect(m: MailSummaryResponse) {
+		void selectMessage(m.stableId);
+		/*
+		 * Opening a result swaps the list for the detail in place — there is no
+		 * route change, so afterNavigate (which normally moves focus to <main>)
+		 * does not fire. Move focus to the main landmark ourselves so the detail
+		 * is announced instead of focus falling back to <body> when the focused
+		 * grid cell unmounts.
+		 */
+		if (typeof window !== 'undefined') {
+			requestAnimationFrame(() => {
+				document.getElementById('main-content')?.focus({ preventScroll: true });
+			});
+		}
+	}
+
+	function navigateToPage(target: number) {
+		if ($searchState.status !== 'ready') return;
+		const lastPage = Math.max(0, $searchState.page.totalPages - 1);
+		const next = Math.min(Math.max(0, target), lastPage);
+		if (next === $searchState.context.page) return;
+		const q = $pageStore.url.searchParams.get('q') ?? '';
+		const qs = `?q=${encodeURIComponent(q)}&page=${next}`;
+		void goto(`${resolve('/search/[accountId]', { accountId: String(data.accountId) })}${qs}`);
+	}
+</script>
+
+<svelte:head>
+	<title>{$_('search.pageTitle', { values: { query: data.query } })}</title>
+</svelte:head>
+
+<div class="flex flex-1 flex-col overflow-hidden">
+	{#if $selectedMessage}
+		<MessageDetail />
+	{:else}
+		<div class="flex items-center justify-between border-b border-border px-4 py-3">
+			<h1 class="text-[0.95rem] font-semibold">
+				{$_('search.resultsTitle', { values: { query: data.query } })}
+			</h1>
+			{#if $searchState.status === 'ready'}
+				<span class="text-xs text-muted-foreground">
+					{$_('messages.totalCount', { values: { count: $searchState.page.totalElements } })}
+				</span>
+			{/if}
+		</div>
+
+		{#if !data.query}
+			<div
+				class="flex flex-1 items-center justify-center p-8 text-sm text-muted-foreground"
+				role="status"
+			>
+				{$_('search.promptEnterQuery')}
+			</div>
+		{:else if $searchState.status === 'loading' || $searchState.status === 'idle'}
+			<div
+				class="flex flex-1 items-center justify-center p-8 text-sm text-muted-foreground"
+				role="status"
+			>
+				{$_('search.searchingStatus')}
+			</div>
+		{:else if $searchState.status === 'error'}
+			<div
+				class="flex flex-1 items-center justify-center p-8 text-sm text-destructive"
+				role="alert"
+			>
+				{$_('messages.errorPrefix', { values: { message: $searchState.error.message } })}
+			</div>
+		{:else if $searchState.status === 'ready' && $searchState.page.content.length === 0}
+			<div
+				class="flex flex-1 items-center justify-center p-8 text-sm text-muted-foreground"
+				role="status"
+			>
+				{$_('search.noResults')}
+			</div>
+		{:else if $searchState.status === 'ready'}
+			{@const pageData = $searchState.page}
+			<SearchResultsGrid
+				results={pageData}
+				onSelect={handleSelect}
+				onAfterAction={() => void reloadSearch()}
+			/>
+
+			<Pagination
+				page={pageData.page}
+				totalPages={pageData.totalPages}
+				totalElements={pageData.totalElements}
+				first={pageData.first}
+				last={pageData.last}
+				onFirst={() => navigateToPage(0)}
+				onPrev={() => navigateToPage(pageData.page - 1)}
+				onNext={() => navigateToPage(pageData.page + 1)}
+				onLast={() => navigateToPage(pageData.totalPages - 1)}
+				onJump={(target) => navigateToPage(target - 1)}
+				landmarkLabel={$_('search.paginationLandmark')}
+			/>
+		{/if}
+	{/if}
+</div>

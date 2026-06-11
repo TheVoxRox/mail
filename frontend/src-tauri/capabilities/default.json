@@ -1,0 +1,61 @@
+{
+	"$schema": "../gen/schemas/desktop-schema.json",
+	"identifier": "default",
+	"description": "enables the default permissions",
+	"windows": ["main"],
+	"permissions": [
+		"core:path:default",
+		"core:window:default",
+		"fs:allow-read-text-file",
+		"fs:allow-exists",
+		"fs:allow-remove",
+		"fs:allow-watch",
+		"fs:allow-unwatch",
+		{
+			"identifier": "fs:scope",
+			"allow": [
+				{
+					"path": "$LOCALDATA/VoxRox/Mail"
+				},
+				{
+					"path": "$LOCALDATA/VoxRox/Mail/session.json"
+				},
+				{
+					"path": "$LOCALDATA/VoxRox/Mail/.ready"
+				},
+				{
+					"path": "$LOCALDATA/VoxRox/Mail.dev"
+				},
+				{
+					"path": "$LOCALDATA/VoxRox/Mail.dev/session.json"
+				},
+				{
+					"path": "$LOCALDATA/VoxRox/Mail.dev/.ready"
+				},
+				{
+					"path": "$RESOURCE/NOTICE.txt"
+				}
+			]
+		},
+		{
+			"identifier": "http:default",
+			"allow": [
+				{ "url": "http://localhost:*" },
+				{ "url": "http://localhost:*/*" },
+				{ "url": "http://127.0.0.1:*" },
+				{ "url": "http://127.0.0.1:*/*" }
+			]
+		},
+		{
+			"identifier": "shell:allow-spawn",
+			"allow": [{ "name": "binaries/mail", "sidecar": true, "args": false }]
+		},
+		{
+			"identifier": "shell:allow-kill",
+			"allow": [{ "name": "binaries/mail", "sidecar": true, "args": false }]
+		},
+		"shell:allow-open",
+		"updater:allow-check",
+		"updater:allow-download-and-install"
+	]
+}

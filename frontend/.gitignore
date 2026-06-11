@@ -1,0 +1,59 @@
+node_modules
+.npm-cache
+
+# Output
+.output
+.vercel
+.netlify
+.wrangler
+/.svelte-kit
+/build
+/target
+/playwright-report
+/src-tauri/binaries/*
+!/src-tauri/binaries/.gitkeep
+/src-tauri/target
+/src-tauri/tauri.release.conf.json
+/src-tauri/tauri.signing.conf.json
+/src-tauri/tauri.updater.conf.json
+
+# Local data (in case someone redirects the data dir into the project)
+*.db
+*.db-shm
+*.db-wal
+
+# Coverage reports
+/coverage
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors / local tools
+.claude/
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Env
+.env
+.env.*
+!.env.example
+!.env.test
+!.env.e2e
+
+# Vite
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+# Playwright
+test-results
+
+# MSW
+!static/mockServiceWorker.js
+
+# CycloneDX SBOM — regenerable from package-lock.json + Cargo.lock.
+# Human-readable license inventory lives in THIRD_PARTY_LICENSES.md
+# (committed); the JSON form is only generated for the release pipeline
+# / CVE scanners.
+bom.json
+src-tauri/bom.json
