@@ -259,27 +259,31 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
-				<configuration>
-					<!--
-						Springdoc je v produkcnim sidecaru zbytecny — docs endpointy
-						jsou vypnute (springdoc.api-docs.enabled=false). Vylouceni
-						z fat jar setri cca 200-500 ms cold startu (Spring uz nemusi
-						skenovat springdoc auto-configuration classes) a snizuje
-						velikost binarky o ~3 MB. Dev `mvn spring-boot:run` pouziva
-						compile classpath, kde springdoc dal je — Swagger UI pri
-						vyvoji funguje normalne. Pro fat jar s docs viz profile `openapi`.
-					-->
-					<excludes>
-						<exclude>
-							<groupId>org.springdoc</groupId>
-						</exclude>
-					</excludes>
-				</configuration>
 				<executions>
 					<execution>
 						<goals>
 							<goal>build-info</goal>
 						</goals>
+					</execution>
+					<execution>
+						<!--
+							Springdoc je v produkcnim sidecaru zbytecny — docs endpointy
+							jsou vypnute (springdoc.api-docs.enabled=false). Vylouceni
+							z fat jar setri cca 200-500 ms cold startu (Spring uz nemusi
+							skenovat springdoc auto-configuration classes) a snizuje
+							velikost binarky o ~3 MB.
+
+							Musi to byt excludeGroupIds — <excludes> vyzaduje groupId
+							I artifactId a varianta jen s groupId tise nematchne nic
+							(springdoc pak zustal v jaru). Konfigurace je schvalne na
+							exekuci `repackage`, ne na pluginu: `mvn spring-boot:run`
+							tak jede s compile classpath vcetne springdoc a Swagger UI
+							pri vyvoji funguje. Pro fat jar s docs viz profile `openapi`.
+						-->
+						<id>repackage</id>
+						<configuration>
+							<excludeGroupIds>org.springdoc</excludeGroupIds>
+						</configuration>
 					</execution>
 				</executions>
 			</plugin>
@@ -510,6 +514,16 @@
 								<goals>
 									<goal>process-aot</goal>
 								</goals>
+								<configuration>
+									<!--
+										Stejne vylouceni jako u repackage: bez nej by
+										process-aot vygeneroval springdoc
+										__BeanDefinitions classy, ktere by za behu
+										(spring.aot.enabled=true) odkazovaly na classy
+										chybejici ve fat jaru.
+									-->
+									<excludeGroupIds>org.springdoc</excludeGroupIds>
+								</configuration>
 							</execution>
 						</executions>
 					</plugin>
@@ -531,9 +545,22 @@
 					<plugin>
 						<groupId>org.springframework.boot</groupId>
 						<artifactId>spring-boot-maven-plugin</artifactId>
-						<configuration>
-							<excludes combine.self="override"/>
-						</configuration>
+						<executions>
+							<execution>
+								<id>repackage</id>
+								<configuration>
+									<excludeGroupIds combine.self="override"/>
+								</configuration>
+							</execution>
+							<execution>
+								<!-- Bez <goals> nic nespousti — jen resetuje exclude,
+								     kdyz je aktivni zaroven profil `aot`. -->
+								<id>process-aot</id>
+								<configuration>
+									<excludeGroupIds combine.self="override"/>
+								</configuration>
+							</execution>
+						</executions>
 					</plugin>
 				</plugins>
 			</build>

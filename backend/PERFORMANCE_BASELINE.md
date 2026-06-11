@@ -112,10 +112,13 @@ Klicove deltas (relativni k `uiStart=0`):
       okamzite po zobrazeni okna, nezustava blank screen
 - [ ] Pre-migration backup file (`db/mail.db.backup-pre-v*`) NEvznikne
       pri startu na sjednocenem schema
-- [ ] Springdoc classes v fat jaru chybi (`jar tf mail-backend-*.jar |
-      Select-String springdoc` = empty)
-- [ ] AOT artefakty v jaru pritomne (`jar tf mail-backend-*.jar |
-      Select-String "__BeanDefinitions"` non-empty)
+- [x] Springdoc classes v fat jaru chybi (`jar tf mail-backend-*.jar |
+      Select-String springdoc` = empty) — overeno 2026-06-11 po oprave
+      vylouceni (viz mereni nize; puvodni `<excludes>` jen s groupId tise
+      nefungoval a springdoc v jaru zustaval)
+- [x] AOT artefakty v jaru pritomne (`jar tf mail-backend-*.jar |
+      Select-String "__BeanDefinitions"` non-empty) — overeno 2026-06-11,
+      310 trid
 - [ ] Global bootstrap timeout: pri umelem sidecar failure (mock
       `mail.e2e.sidecarFailure=once`) frontend zobrazí chybu **do 60 s**,
       ne po polling smyckach (drive ~90 s)
@@ -204,6 +207,33 @@ a že přesun cleanup mimo boot thread nezhoršil cold start.
 **Stále vyžaduje GUI měření (nelze headless):** plný `appReady` (okno paint +
 handshake + accounts load) v Tauri bundlu — `frontend/scripts/tauri-release-startup-smoke.mjs`
 na reálném buildu, a vnímaná rychlost (shell-first placeholder, lazy sidebar/dialog timing).
+
+### Startup audit — měření 2026-06-11 (reálné vyloučení springdoc + NullAway sweep)
+
+Kontext: při ověřování checklistu výše se ukázalo, že springdoc se z fat jaru
+**nikdy nevylučoval** — `spring-boot-maven-plugin` `<excludes>` vyžaduje groupId
+i artifactId a původní zápis jen s groupId tiše nematchnul nic. Opraveno přes
+`<excludeGroupIds>org.springdoc</excludeGroupIds>` na exekucích `repackage` a
+`process-aot` (druhé je nutné, jinak AOT vygeneruje springdoc
+`__BeanDefinitions` classy odkazující na classy chybějící v jaru). Detail v
+[OPERATIONS.md](OPERATIONS.md), reset pro debug build dělá profil `openapi`.
+
+**Setup (shodný s 2026-06-03):** jar `-Paot`, JDK 25.0.3, prod JVM flagy
+(`-XX:TieredStopAtLevel=1 -Xms64m -Xmx384m -XX:+UseSerialGC
+--enable-native-access=ALL-UNNAMED -Dspring.aot.enabled=true`), dummy crypto
+klíče z env, čerstvý tmp `APP_DATA_DIR` per běh, metrika start JVM → `.ready`,
+3 běhy. Bez `-XX:AOTCache`. Stroj tentokrát nevytížený, jar čerstvě v FS cache
+— absolutní čísla nejsou 1:1 srovnatelná s 2026-06-03 (tam vytížený stroj).
+
+**Výsledky:** 3603 / 3658 / 3683 ms → **median 3658 ms** do `.ready`,
+private memory při `.ready` ~235 MB. Všechny běhy dosáhly `.ready` čistě —
+tj. AOT-enabled kontext **bootuje bez springdoc na classpath bez chyb**
+(žádné NoClassDefFoundError z AOT bean definitions; @Schema anotace na DTO
+jsou za běhu měkké reference, jejich absence ničemu nevadí).
+
+**Závěr:** springdoc exclusion je teď reálný a běh ověřený. Backend-to-`.ready`
+3,7 s na nevytíženém stroji bez JEP 483 cache; plný `appReady` v desktop
+bundlu zbývá změřit GUI smokem (viz výše).
 
 ## Windows prikazy
 

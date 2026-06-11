@@ -188,8 +188,12 @@ nespoustia, takze dev/test build neni zpomaleny `process-aot` interne
 spustenim AppContextu pri buildu.
 
 **Springdoc** (Swagger UI starter) je z fat jaru vyloucen pres
-`spring-boot-maven-plugin` `<excludes>`. Snizuje fat jar o ~3 MB a zkracuje
-classpath scan o ~200-500 ms. Pro fat jar S Swagger docs (debug build):
+`spring-boot-maven-plugin` `<excludeGroupIds>` na exekucich `repackage` a
+`process-aot` (POZOR: `<excludes>` vyzaduje groupId i artifactId — zapis jen
+s groupId tise nematchne nic; exclusion na `process-aot` je nutny, jinak AOT
+vygeneruje springdoc `__BeanDefinitions` odkazujici na classy chybejici v
+jaru). Snizuje fat jar o ~3 MB a zkracuje classpath scan o ~200-500 ms.
+Pro fat jar S Swagger docs (debug build):
 
 ```powershell
 mvn -Popenapi -Dspringdoc.api-docs.enabled=true `
