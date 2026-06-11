@@ -201,16 +201,14 @@ public class CryptoService {
     public void cleanUp() {
         if (mainSecret != null)
             Arrays.fill(mainSecret, '\0');
-        keyCache.values().forEach(key -> {
-            try {
-                byte[] encoded = key.getEncoded();
-                if (encoded != null)
-                    Arrays.fill(encoded, (byte) 0);
-            } catch (Exception e) {
-                // Best-effort zeroing during shutdown; a destroyed key may throw.
-                log.debug("Zeroing a cached key during shutdown failed: {}", e.getMessage());
-            }
-        });
+        /*
+         * Note on the cached SecretKeys: SecretKeySpec.getEncoded() returns a defensive
+         * COPY, so "zeroing" it would only wipe the copy while the real key material
+         * lives until GC — deliberately not attempted (it would be security theater).
+         * Clearing the cache drops the references; the JVM heap is inside the process
+         * boundary, which matches the threat model (DPAPI protects the at-rest secrets,
+         * not process memory).
+         */
         keyCache.clear();
     }
 }

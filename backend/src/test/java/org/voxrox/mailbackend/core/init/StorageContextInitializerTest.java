@@ -70,6 +70,21 @@ class StorageContextInitializerTest {
     }
 
     @Test
+    @DisplayName("VOXSEC1 header with a corrupted payload fails with a named recovery message, not a raw Base64 error")
+    void corruptedProtectedBootstrapFailsWithClearMessage() throws Exception {
+        Path dataDir = tempDir.resolve("data");
+        Files.createDirectories(dataDir);
+        Files.writeString(dataDir.resolve("crypto.bin"), "VOXSEC1\nnot-valid-base64!!!\n");
+
+        GenericApplicationContext context = new GenericApplicationContext();
+        context.getEnvironment().getPropertySources()
+                .addFirst(new MapPropertySource("testConfig", Map.of("app.data-dir", dataDir.toString())));
+
+        assertThatThrownBy(() -> new StorageContextInitializer().initialize(context))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("corrupted payload");
+    }
+
+    @Test
     @DisplayName("Explicit env-supplied crypto must not override an existing crypto bootstrap")
     void configuredCryptoMustMatchExistingBootstrap() throws Exception {
         Path dataDir = tempDir.resolve("data");

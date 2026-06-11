@@ -182,7 +182,19 @@ public class StorageContextInitializer implements ApplicationContextInitializer<
 
     private static byte[] decodeProtectedPayload(String fileText) {
         int newline = fileText.indexOf('\n');
-        return Base64.getDecoder().decode(fileText.substring(newline + 1).strip());
+        String payload = newline >= 0 ? fileText.substring(newline + 1).strip() : "";
+        try {
+            return Base64.getDecoder().decode(payload);
+        } catch (IllegalArgumentException e) {
+            /*
+             * A VOXSEC1 header with a mangled payload would otherwise surface as a raw
+             * "Illegal base64 character" — name the file and the recovery options instead
+             * (this is one of the documented recovery scenarios).
+             */
+            throw new IllegalStateException("crypto.bin has the protected-format header but a corrupted payload. "
+                    + "Restore the file from a backup, or delete it to generate a fresh one — existing encrypted "
+                    + "credentials will then be unreadable and accounts must be re-authenticated.", e);
+        }
     }
 
     private CryptoBootstrap parseBootstrap(String content, Path cryptoFile) throws IOException {

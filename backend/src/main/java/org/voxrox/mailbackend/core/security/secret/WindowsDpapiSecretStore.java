@@ -96,23 +96,38 @@ public final class WindowsDpapiSecretStore implements SecretStore {
 
     private static byte[] call(MethodHandle fn, byte[] input, String op) {
         try (Arena arena = Arena.ofConfined()) {
-            MemorySegment in = toBlob(arena, input);
-            MemorySegment entropy = toBlob(arena, ENTROPY);
-            MemorySegment out = arena.allocate(DATA_BLOB);
-
-            int ok = (int) fn.invokeExact(in, MemorySegment.NULL, entropy, MemorySegment.NULL, MemorySegment.NULL,
-                    CRYPTPROTECT_UI_FORBIDDEN, out);
-            if (ok == 0) {
-                throw new SecretStoreException("DPAPI " + op + " failed (CryptoAPI returned FALSE — likely a "
-                        + "crypto.bin from a different Windows user/machine, or tampered data).");
-            }
-
-            int length = (int) CB_DATA.get(out, 0L);
-            MemorySegment outData = (MemorySegment) PB_DATA.get(out, 0L);
+            MemorySegment inBuffer = arena.allocate(Math.max(1, input.length));
+            MemorySegment.copy(input, 0, inBuffer, ValueLayout.JAVA_BYTE, 0, input.length);
             try {
-                return outData.reinterpret(length).toArray(ValueLayout.JAVA_BYTE);
+                MemorySegment in = blobOver(arena, inBuffer, input.length);
+                MemorySegment entropy = toBlob(arena, ENTROPY);
+                MemorySegment out = arena.allocate(DATA_BLOB);
+
+                int ok = (int) fn.invokeExact(in, MemorySegment.NULL, entropy, MemorySegment.NULL, MemorySegment.NULL,
+                        CRYPTPROTECT_UI_FORBIDDEN, out);
+                if (ok == 0) {
+                    throw new SecretStoreException("DPAPI " + op + " failed (CryptoAPI returned FALSE — likely a "
+                            + "crypto.bin from a different Windows user/machine, or tampered data).");
+                }
+
+                int length = (int) CB_DATA.get(out, 0L);
+                MemorySegment outData = (MemorySegment) PB_DATA.get(out, 0L);
+                try {
+                    return outData.reinterpret(length).toArray(ValueLayout.JAVA_BYTE);
+                } finally {
+                    /*
+                     * On the unprotect path the LocalAlloc'd buffer holds the unprotected key
+                     * material — zero it before handing the memory back to the process heap.
+                     */
+                    outData.reinterpret(length).fill((byte) 0);
+                    MemorySegment ignored = (MemorySegment) LOCAL_FREE.invokeExact(outData);
+                }
             } finally {
-                MemorySegment ignored = (MemorySegment) LOCAL_FREE.invokeExact(outData);
+                /*
+                 * On the protect path the native copy of the input holds the plaintext — zero
+                 * it before the confined arena releases the memory.
+                 */
+                inBuffer.fill((byte) 0);
             }
         } catch (SecretStoreException e) {
             throw e;
@@ -125,8 +140,13 @@ public final class WindowsDpapiSecretStore implements SecretStore {
     private static MemorySegment toBlob(Arena arena, byte[] data) {
         MemorySegment buffer = arena.allocate(Math.max(1, data.length));
         MemorySegment.copy(data, 0, buffer, ValueLayout.JAVA_BYTE, 0, data.length);
+        return blobOver(arena, buffer, data.length);
+    }
+
+    /** Builds a {@code DATA_BLOB} struct over an already allocated buffer. */
+    private static MemorySegment blobOver(Arena arena, MemorySegment buffer, int length) {
         MemorySegment blob = arena.allocate(DATA_BLOB);
-        CB_DATA.set(blob, 0L, data.length);
+        CB_DATA.set(blob, 0L, length);
         PB_DATA.set(blob, 0L, buffer);
         return blob;
     }
