@@ -120,7 +120,10 @@ function ensureI18nInitialized(): void {
 		addMessages(value, message);
 	}
 
-	init({
+	// svelte-i18n's init returns a promise that only does async work when the
+	// initial locale loads messages lazily — ours are registered synchronously
+	// above, so fire-and-forget is safe and intentional.
+	void init({
 		fallbackLocale: DEFAULT_LOCALE,
 		initialLocale: detectInitialLocale()
 	});
@@ -136,7 +139,9 @@ export async function initI18n(): Promise<void> {
 
 /** Sets the active locale. Persistence happens via the subscribe in `initI18n`. */
 export function setLocale(next: AppLocale): void {
-	locale.set(next);
+	// locale.set resolves immediately for synchronously registered messages —
+	// see the note on init() above.
+	void locale.set(next);
 }
 
 /** Current locale as `AppLocale | null` (null before initialisation). */

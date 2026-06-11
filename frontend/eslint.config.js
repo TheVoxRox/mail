@@ -48,6 +48,21 @@ export default defineConfig(
 		}
 	},
 	{
+		// Type-aware rules for app TS code. A dropped promise rejection in the
+		// boot/sidecar path surfaces as a silent hang or an unhandled-rejection
+		// boot error (see lib/backend/sidecar.ts, lib/api/session.ts) — make
+		// "fire and forget" explicit with `void` or handle the rejection.
+		files: ['src/**/*.ts'],
+		ignores: ['**/*.svelte.ts'],
+		languageOptions: {
+			parserOptions: { projectService: true }
+		},
+		rules: {
+			'@typescript-eslint/no-floating-promises': 'error',
+			'@typescript-eslint/await-thenable': 'error'
+		}
+	},
+	{
 		rules: {
 			'svelte/button-has-type': 'error',
 			// Povolujeme dynamické goto() s query-stringy a složkové názvy ze stavu
