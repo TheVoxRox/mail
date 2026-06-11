@@ -163,12 +163,12 @@ public class ImapConnectionManager {
          * MailAuthenticationException. The raw IMAP server response (typically the
          * English "[AUTHENTICATIONFAILED] Incorrect authentication data") does not
          * belong in ProblemDetail.detail, which is rendered to the user in their chosen
-         * language — the diagnostic detail is already logged at ERROR above in
-         * executeWithLock via `cause` and in AuditLog.failure. The internal accountId
+         * language — it travels as the exception cause instead, so the original stack
+         * stays available wherever the exception ends up logged. The internal accountId
          * is also dropped from the user-facing text — the user knows which account is
          * involved from UI context.
          */
-        return new MailAuthenticationException();
+        return new MailAuthenticationException(cause);
     }
 
     /**
@@ -226,7 +226,9 @@ public class ImapConnectionManager {
                 if (store != null) {
                     try {
                         store.close();
-                    } catch (Exception ignored) {
+                    } catch (Exception e) {
+                        log.debug("{} Closing a dead pooled store for account {} failed: {}", LogCategory.IMAP,
+                                accountId, e.getMessage());
                     }
                     connectionPool.remove(accountId);
                 }
@@ -333,7 +335,9 @@ public class ImapConnectionManager {
                 store.close();
                 log.info("{} IMAP connection for account {} closed and removed from the pool.", LogCategory.IMAP,
                         accountId);
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                log.debug("{} Closing the removed IMAP connection for account {} failed: {}", LogCategory.IMAP,
+                        accountId, e.getMessage());
             }
         }
     }

@@ -17,7 +17,7 @@ public class FileSystemService {
 
     public FileSystemService(StorageProperties storageProperties) {
         this.storageProperties = storageProperties;
-        this.isWindows = System.getProperty("os.name").toLowerCase().contains("win");
+        this.isWindows = System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("win");
     }
 
     public void writeAtomic(Path target, byte[] content) throws IOException {

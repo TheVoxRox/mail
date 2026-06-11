@@ -94,7 +94,7 @@ class AccountCreateRequestSchemaTest {
                 return true;
             }
         } catch (NoSuchMethodException | NoSuchFieldException e) {
-            throw new AssertionError("Reflection failed for " + componentName, e);
+            throw new LinkageError("Reflection failed for " + componentName, e);
         }
         return false;
     }

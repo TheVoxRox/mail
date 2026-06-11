@@ -7,6 +7,8 @@ import jakarta.mail.UIDFolder;
 @FunctionalInterface
 public interface ImapFolderAction<R> {
     /**
+     * Runs the action against an already opened IMAP folder.
+     *
      * @param folder
      *            Opened folder (READ_ONLY or READ_WRITE)
      * @param uidFolder

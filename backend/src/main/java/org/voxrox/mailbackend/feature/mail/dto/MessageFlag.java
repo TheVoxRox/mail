@@ -1,5 +1,7 @@
 package org.voxrox.mailbackend.feature.mail.dto;
 
+import java.util.Locale;
+
 import org.voxrox.mailbackend.exception.ValidationException;
 
 /**
@@ -16,7 +18,7 @@ public enum MessageFlag {
             throw new ValidationException("Flag type is missing", "validation.messageFlag.required");
         }
         try {
-            return MessageFlag.valueOf(value.toUpperCase());
+            return MessageFlag.valueOf(value.toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException ex) {
             throw new ValidationException("Unknown flag type: " + value, "validation.messageFlag.unknown", value);
         }

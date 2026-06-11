@@ -33,7 +33,7 @@ class MailBackendApplicationTest {
     @Test
     @DisplayName("isPortAvailable returns false for an occupied loopback port")
     void isPortAvailableReturnsFalseForBoundPort() throws Exception {
-        try (ServerSocket socket = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
+        try (ServerSocket socket = new ServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
             assertThat(MailBackendApplication.isPortAvailable(socket.getLocalPort())).isFalse();
         }
     }

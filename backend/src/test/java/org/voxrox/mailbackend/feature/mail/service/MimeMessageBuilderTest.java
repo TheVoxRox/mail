@@ -226,9 +226,9 @@ class MimeMessageBuilderTest {
         @DisplayName("Multiple attachments — all added in order")
         void multipleAttachments() throws Exception {
             MailRequest.AttachmentRequest att1 = new MailRequest.AttachmentRequest("a.txt", "text/plain",
-                    Base64.getEncoder().encodeToString("A".getBytes()));
+                    Base64.getEncoder().encodeToString("A".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
             MailRequest.AttachmentRequest att2 = new MailRequest.AttachmentRequest("b.bin", "application/octet-stream",
-                    Base64.getEncoder().encodeToString("B".getBytes()));
+                    Base64.getEncoder().encodeToString("B".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
 
             MimeMessage msg = builder.build(session, account,
                     req("to@example.com", null, null, "s", "b", List.of(att1, att2), null, null));

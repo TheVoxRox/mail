@@ -332,7 +332,7 @@ public class AccountService {
         String providerLabel = (provider != null) ? provider.getName() : "External";
 
         AccountEntity account = findOrCreateExternalAccount(providerName, email, externalId, provider, providerLabel);
-        syncExternalAccountMetadata(account, name, providerName, externalId, providerLabel);
+        syncExternalAccountMetadata(account, name, providerName, externalId);
 
         credentialService.saveCredentials(account, email, refreshToken, AuthType.OAUTH2);
 
@@ -397,8 +397,8 @@ public class AccountService {
                 });
     }
 
-    private void syncExternalAccountMetadata(AccountEntity account, String name, String providerName, String externalId,
-            String providerLabel) {
+    private void syncExternalAccountMetadata(AccountEntity account, String name, String providerName,
+            String externalId) {
         boolean changed = false;
         if (account.getOauth2Provider() == null || !account.getOauth2Provider().equals(providerName)) {
             account.setOauth2Provider(providerName);

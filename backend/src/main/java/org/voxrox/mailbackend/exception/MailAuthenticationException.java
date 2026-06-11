@@ -7,4 +7,9 @@ public final class MailAuthenticationException extends AppException {
         super(ErrorCode.MAIL_AUTHENTICATION_FAILED, "Invalid e-mail credentials.", HttpStatus.UNAUTHORIZED,
                 "error.mail.authenticationFailed");
     }
+
+    public MailAuthenticationException(Throwable cause) {
+        super(ErrorCode.MAIL_AUTHENTICATION_FAILED, "Invalid e-mail credentials.", HttpStatus.UNAUTHORIZED, cause,
+                "error.mail.authenticationFailed");
+    }
 }

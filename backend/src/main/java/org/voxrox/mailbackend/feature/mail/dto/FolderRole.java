@@ -1,6 +1,9 @@
 package org.voxrox.mailbackend.feature.mail.dto;
 
 import java.util.Arrays;
+import java.util.Locale;
+
+import org.jspecify.annotations.Nullable;
 
 public enum FolderRole {
     INBOX("\\Inbox"), SENT("\\Sent"), TRASH("\\Trash"), DRAFTS("\\Drafts"), JUNK("\\Junk"), ARCHIVE("\\Archive"),
@@ -8,9 +11,9 @@ public enum FolderRole {
     // folder for newsletters / Hromadné — name-based detection only.
     NEWSLETTERS(null), USER(null);
 
-    private final String attribute;
+    private final @Nullable String attribute;
 
-    FolderRole(String attribute) {
+    FolderRole(@Nullable String attribute) {
         this.attribute = attribute;
     }
 
@@ -22,7 +25,7 @@ public enum FolderRole {
     public static FolderRole fromNameFallback(String name) {
         if (name == null)
             return USER;
-        String lower = name.toLowerCase();
+        String lower = name.toLowerCase(Locale.ROOT);
         return switch (lower) {
             case String s when s.contains("sent") || s.contains("odeslan") -> SENT;
             case String s when s.contains("trash") || s.contains("koš") || s.contains("bin") || s.contains("smazan") ->

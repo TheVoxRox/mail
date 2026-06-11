@@ -32,14 +32,12 @@ import org.voxrox.mailbackend.feature.auth.dto.AuthType;
  * Background: an older version of the entity set {@code id} manually in
  * {@code setAccount()} and in the constructor. Spring Data {@code save()} then
  * saw a non-null id and called {@code merge()} instead of {@code persist()},
- * which for a transient entity with
+ * which for a transient entity with {@code @MapsId} ended with
+ * {@code AssertionFailure: null identifier} (during merge Hibernate cannot
+ * derive the id from the association under relaxed OneToOne checks).
  *
- * @MapsId ended with {@code AssertionFailure: null identifier} (during merge
- *         Hibernate cannot derive the id from the association under relaxed
- *         OneToOne checks).
- *
- *         AccountCredentialService unit tests mock the repository and do not
- *         exercise this branch — hence the IT.
+ * AccountCredentialService unit tests mock the repository and do not exercise
+ * this branch — hence the IT.
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)

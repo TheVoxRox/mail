@@ -107,6 +107,6 @@ public class AccountProviderService {
             throw new ValidationException("Could not extract a domain from the invalid e-mail address.",
                     "validation.email.domainInvalid");
         }
-        return email.substring(email.lastIndexOf("@") + 1).toLowerCase().trim();
+        return email.substring(email.lastIndexOf("@") + 1).toLowerCase(Locale.ROOT).trim();
     }
 }

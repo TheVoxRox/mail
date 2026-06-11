@@ -26,6 +26,8 @@ public class OAuth2TokenServiceRegistry {
     }
 
     /**
+     * Returns the token service registered for the given provider name.
+     *
      * @throws MailOperationException
      *             when no implementation exists for the given provider — typically
      *             a mismatch between {@code accounts.oauth2_provider} and the

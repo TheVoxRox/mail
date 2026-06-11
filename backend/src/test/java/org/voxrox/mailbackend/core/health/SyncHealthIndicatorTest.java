@@ -32,9 +32,11 @@ import org.voxrox.mailbackend.feature.mail.repository.FolderSyncStateRepository;
 class SyncHealthIndicatorTest {
 
     private static final Duration SYNC_INTERVAL = Duration.ofMinutes(5);
-    // staleThreshold = 2 x interval = 10 min
-    private static final LocalDateTime RECENT = LocalDateTime.now().minusMinutes(2);
-    private static final LocalDateTime STALE = LocalDateTime.now().minusHours(1);
+    // staleThreshold = 2 x interval = 10 min. Instance fields, not static —
+    // a static initialiser would capture the class-load time and silently age
+    // across a long test run.
+    private final LocalDateTime RECENT = LocalDateTime.now().minusMinutes(2);
+    private final LocalDateTime STALE = LocalDateTime.now().minusHours(1);
 
     private AccountRepository accountRepo;
     private FolderSyncStateRepository syncStateRepo;

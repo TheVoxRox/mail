@@ -55,7 +55,7 @@ public class GlobalExceptionHandler {
 
         String detail = resolveMessage(ex.getMessageKey(), ex.getMessageArgs(), ex.getMessage(), request);
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(ex.getStatus(), detail);
-        problem.setType(ERROR_TYPE_BASE.resolve(ex.getCode().name().toLowerCase()));
+        problem.setType(ERROR_TYPE_BASE.resolve(ex.getCode().name().toLowerCase(Locale.ROOT)));
         problem.setInstance(URI.create(request.getRequestURI()));
         problem.setProperty("errorCode", ex.getCode().name());
         if (ex.getMessageKey() != null) {

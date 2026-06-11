@@ -206,7 +206,9 @@ public class CryptoService {
                 byte[] encoded = key.getEncoded();
                 if (encoded != null)
                     Arrays.fill(encoded, (byte) 0);
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                // Best-effort zeroing during shutdown; a destroyed key may throw.
+                log.debug("Zeroing a cached key during shutdown failed: {}", e.getMessage());
             }
         });
         keyCache.clear();

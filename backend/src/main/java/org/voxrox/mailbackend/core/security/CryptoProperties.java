@@ -18,6 +18,16 @@ import org.springframework.validation.annotation.Validated;
  * changing them would silently invalidate every stored credential and we have
  * no in-place migration since the {@code CryptoMigrationService} removal. Treat
  * them as part of the data format, not configuration.
+ *
+ * @param key
+ *            master key material for PBKDF2 derivation (min. 32 characters)
+ * @param salt
+ *            PBKDF2 salt
+ * @param pbkdf2Iterations
+ *            number of PBKDF2 iterations; a higher value increases brute-force
+ *            resistance
+ * @param maxCacheSize
+ *            maximum number of derived account keys kept in memory (LRU cache)
  */
 @ConfigurationProperties(prefix = "mail.crypto")
 @Validated
@@ -26,13 +36,7 @@ public record CryptoProperties(
 
         @NotBlank(message = "Encryption salt must not be blank") String salt,
 
-        /**
-         * Number of PBKDF2 iterations. A higher value increases brute-force resistance.
-         */
         @Min(value = 1000, message = "Iteration count must be at least 1000") @DefaultValue("600000") int pbkdf2Iterations,
 
-        /**
-         * Maximum number of derived account keys kept in memory (LRU cache).
-         */
         @Min(1) @DefaultValue("100") int maxCacheSize) {
 }

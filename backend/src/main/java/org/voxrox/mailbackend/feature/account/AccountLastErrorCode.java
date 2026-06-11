@@ -1,6 +1,6 @@
 package org.voxrox.mailbackend.feature.account;
 
-import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -21,11 +21,13 @@ public enum AccountLastErrorCode {
     // spotless:on
 
     private final String messageKey;
-    private final String[] argNames;
+    // List.of() below is immutable; the checker only sees the List interface.
+    @SuppressWarnings("ImmutableEnumChecker")
+    private final List<String> argNames;
 
     AccountLastErrorCode(String messageKey, String... argNames) {
         this.messageKey = messageKey;
-        this.argNames = argNames.clone();
+        this.argNames = List.of(argNames);
     }
 
     public String messageKey() {
@@ -33,7 +35,7 @@ public enum AccountLastErrorCode {
     }
 
     public Object[] messageArgs(Map<String, String> args) {
-        return Arrays.stream(argNames).map(name -> args.getOrDefault(name, "")).toArray();
+        return argNames.stream().map(name -> args.getOrDefault(name, "")).toArray();
     }
 
     public static Optional<AccountLastErrorCode> fromCode(String code) {

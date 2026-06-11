@@ -1,5 +1,7 @@
 package org.voxrox.mailbackend.feature.mail.service;
 
+import java.util.Locale;
+
 import jakarta.mail.AuthenticationFailedException;
 import jakarta.mail.Folder;
 import jakarta.mail.MessagingException;
@@ -84,7 +86,7 @@ public class ImapFolderExecutor {
                  * matching (mirrors ImapActionService); do not "improve" this by assuming a
                  * localized server reply.
                  */
-                String errorMsg = e.getMessage() == null ? "" : e.getMessage().toLowerCase();
+                String errorMsg = e.getMessage() == null ? "" : e.getMessage().toLowerCase(Locale.ROOT);
                 if (errorMsg.contains("not found") || errorMsg.contains("no such folder")) {
                     throw new ResourceNotFoundException("Folder '" + folderName + "' was not found on the server.");
                 }

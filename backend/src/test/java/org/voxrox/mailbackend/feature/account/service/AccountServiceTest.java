@@ -436,8 +436,8 @@ class AccountServiceTest {
         void shouldNotCheckDuplicateWhenEmailUnchanged() {
             AccountEntity existing = createAccountEntity();
 
-            AccountUpdateRequest request = new AccountUpdateRequest(ACCOUNT_NAME, EMAIL.toUpperCase(), DISPLAY_NAME,
-                    10L, null, null, "user", "pass", true);
+            AccountUpdateRequest request = new AccountUpdateRequest(ACCOUNT_NAME,
+                    EMAIL.toUpperCase(java.util.Locale.ROOT), DISPLAY_NAME, 10L, null, null, "user", "pass", true);
 
             when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(existing));
             stubExistingCredentials(AuthType.PASSWORD);

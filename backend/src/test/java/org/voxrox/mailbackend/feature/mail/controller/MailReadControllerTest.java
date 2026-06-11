@@ -203,7 +203,7 @@ class MailReadControllerTest {
         // does not produce it without a dispatch; we therefore verify the
         // headers set synchronously in the controller (content-type, disposition).
         when(mailFacade.getAttachment(eq("abc123"), eq("1.2")))
-                .thenReturn(new ByteArrayInputStream("PDF-DATA".getBytes()));
+                .thenReturn(new ByteArrayInputStream("PDF-DATA".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
 
         mockMvc.perform(get("/api/v1/messages/abc123/attachments/1.2").param("fileName", "report.pdf"))
                 .andExpect(status().isOk()).andExpect(header().string("Content-Type", "application/pdf"))

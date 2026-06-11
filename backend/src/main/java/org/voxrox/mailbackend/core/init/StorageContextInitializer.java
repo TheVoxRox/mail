@@ -308,7 +308,7 @@ public class StorageContextInitializer implements ApplicationContextInitializer<
      * (NTFS inherits permissions from the parent).
      */
     private void applyPrivatePermissions(Path path) {
-        boolean isWindows = System.getProperty("os.name").toLowerCase().contains("win");
+        boolean isWindows = System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("win");
         if (isWindows)
             return;
 

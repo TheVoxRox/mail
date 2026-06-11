@@ -24,7 +24,7 @@ public class MailDraftService {
         String myEmail = original.getAccount().getEmail();
 
         String subject = original.getSubject();
-        if (subject != null && !subject.toLowerCase().startsWith("re:")) {
+        if (subject != null && !subject.toLowerCase(Locale.ROOT).startsWith("re:")) {
             subject = "Re: " + subject;
         }
 
@@ -61,7 +61,7 @@ public class MailDraftService {
 
     public MailRequest createForwardDraft(MessageEntity original, String content) {
         String subject = original.getSubject();
-        if (subject != null && !subject.toLowerCase().startsWith("fwd:")) {
+        if (subject != null && !subject.toLowerCase(Locale.ROOT).startsWith("fwd:")) {
             subject = "Fwd: " + subject;
         }
 

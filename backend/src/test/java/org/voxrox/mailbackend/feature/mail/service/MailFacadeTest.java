@@ -540,7 +540,8 @@ class MailFacadeTest {
         @Test
         @DisplayName("Delegates to attachmentService and returns the stream")
         void shouldDelegateToAttachmentService() {
-            InputStream expectedStream = new ByteArrayInputStream("data".getBytes());
+            InputStream expectedStream = new ByteArrayInputStream(
+                    "data".getBytes(java.nio.charset.StandardCharsets.UTF_8));
             when(attachmentService.getAttachmentStreamByStableId(STABLE_ID, "1.2")).thenReturn(expectedStream);
 
             InputStream result = mailFacade.getAttachment(STABLE_ID, "1.2");

@@ -114,8 +114,11 @@ public class AccountCredentialService {
 
     @Transactional(readOnly = true)
     public AccountCredentialEntity getCredentials(Long accountId) {
+        // A missing credentials row for an existing account is a data-integrity
+        // breach (the row is created with the account and deleted with it), not
+        // a user-recoverable 404.
         return credentialRepository.findById(accountId)
-                .orElseThrow(() -> new RuntimeException("Credentials not found for account " + accountId));
+                .orElseThrow(() -> new IllegalStateException("Credentials not found for account " + accountId));
     }
 
     /**

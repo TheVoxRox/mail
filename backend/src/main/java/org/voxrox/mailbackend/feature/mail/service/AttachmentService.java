@@ -70,7 +70,8 @@ public class AttachmentService {
         try {
             return new DeleteOnCloseFileInputStream(tempFile.toFile());
         } catch (FileNotFoundException e) {
-            throw new RuntimeException("Temp file disappeared before the stream was opened: " + tempFile, e);
+            throw new MailOperationException(ErrorCode.INTERNAL_ERROR,
+                    "Temp file disappeared before the stream was opened: " + tempFile);
         }
     }
 
@@ -111,7 +112,9 @@ public class AttachmentService {
                         if (tempFile != null) {
                             try {
                                 Files.deleteIfExists(tempFile);
-                            } catch (IOException ignored) {
+                            } catch (IOException cleanupEx) {
+                                log.debug("{} Deleting a partial temp file failed: {}", LogCategory.ATTACHMENT,
+                                        cleanupEx.getMessage());
                             }
                         }
                         log.error("{} Failed to download attachment {}: {}", LogCategory.ATTACHMENT, stableId,
@@ -147,7 +150,9 @@ public class AttachmentService {
                 try {
                     Files.deleteIfExists(p);
                     log.debug("{} Deleted stale temp file: {}", LogCategory.ATTACHMENT, p.getFileName());
-                } catch (IOException ignored) {
+                } catch (IOException e) {
+                    log.debug("{} Deleting stale temp file {} failed: {}", LogCategory.ATTACHMENT, p.getFileName(),
+                            e.getMessage());
                 }
             });
         } catch (IOException e) {
@@ -195,7 +200,7 @@ public class AttachmentService {
         private final File file;
         private boolean closed = false;
 
-        public DeleteOnCloseFileInputStream(File file) throws FileNotFoundException {
+        DeleteOnCloseFileInputStream(File file) throws FileNotFoundException {
             super(file);
             this.file = file;
         }

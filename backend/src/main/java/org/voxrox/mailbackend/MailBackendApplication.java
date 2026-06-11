@@ -83,7 +83,7 @@ public class MailBackendApplication {
         }
         try (ServerSocket socket = new ServerSocket()) {
             socket.setReuseAddress(false);
-            socket.bind(new InetSocketAddress(InetAddress.getByName("127.0.0.1"), port), 1);
+            socket.bind(new InetSocketAddress(InetAddress.getLoopbackAddress(), port), 1);
             return true;
         } catch (IOException e) {
             return false;

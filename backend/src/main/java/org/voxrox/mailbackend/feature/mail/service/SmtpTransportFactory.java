@@ -7,6 +7,7 @@ import jakarta.mail.MessagingException;
 import jakarta.mail.Session;
 import jakarta.mail.Transport;
 
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -127,7 +128,8 @@ public class SmtpTransportFactory {
              */
             try {
                 transport.close();
-            } catch (Exception ignored) {
+            } catch (Exception closeEx) {
+                log.debug("{} Closing a half-opened SMTP transport failed: {}", LogCategory.SMTP, closeEx.getMessage());
             }
             throw e;
         }
@@ -137,7 +139,7 @@ public class SmtpTransportFactory {
      * Quiet close of the transport — swallows {@link MessagingException} and logs a
      * warning. Called from {@code finally} blocks of the orchestrator.
      */
-    public void closeQuietly(Transport transport, Long accountId) {
+    public void closeQuietly(@Nullable Transport transport, Long accountId) {
         if (transport != null) {
             try {
                 transport.close();

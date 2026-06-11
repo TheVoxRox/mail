@@ -12,6 +12,13 @@ public class StartupTimingService {
 
     private static final Logger log = LoggerFactory.getLogger(StartupTimingService.class);
     private static final long PROCESS_STARTED_NANOS = System.nanoTime();
+    /*
+     * Captured at class initialisation DELIBERATELY — this class loads in the first
+     * moments of boot, so the value approximates the process start time exposed by
+     * processStartedAt(). (TimeInStaticInitializer warns against accidental
+     * load-time capture; here it is the whole point.)
+     */
+    @SuppressWarnings("TimeInStaticInitializer")
     private static final Instant PROCESS_STARTED_AT = Instant.now();
     private static final Map<String, StartupTimingSnapshot> TIMINGS = new ConcurrentHashMap<>();
 

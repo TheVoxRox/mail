@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import jakarta.mail.*;
 import jakarta.mail.internet.MimeUtility;
@@ -127,7 +128,7 @@ public final class MimePartExtractor {
 
         String contentType = "application/octet-stream";
         if (part.getContentType() != null) {
-            contentType = part.getContentType().split(";")[0].toLowerCase().trim();
+            contentType = part.getContentType().split(";")[0].toLowerCase(Locale.ROOT).trim();
         }
 
         long size = part.getSize();

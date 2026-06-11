@@ -50,7 +50,7 @@ public class ContactService {
         if (sortKey == null || sortKey.isBlank()) {
             return DEFAULT_SORT;
         }
-        return switch (sortKey.toLowerCase()) {
+        return switch (sortKey.toLowerCase(Locale.ROOT)) {
             case "surname" -> DEFAULT_SORT;
             case "name" -> SORT_BY_NAME;
             case "recent" -> SORT_BY_RECENT;
@@ -109,7 +109,7 @@ public class ContactService {
         accountService.getAccountOrThrow(accountId);
 
         int cappedLimit = Math.min(Math.max(limit, 1), AUTOCOMPLETE_MAX_LIMIT);
-        String qLower = q.toLowerCase();
+        String qLower = q.toLowerCase(Locale.ROOT);
         String pattern = "%" + qLower + "%";
 
         Pageable pageable = PageRequest.of(0, cappedLimit, DEFAULT_SORT);
@@ -124,15 +124,15 @@ public class ContactService {
 
     private static final java.util.Comparator<AutocompleteRow> AUTOCOMPLETE_RANKING = java.util.Comparator
             .<AutocompleteRow>comparingInt(r -> r.rank)
-            .thenComparing(r -> r.response.surname() == null ? "" : r.response.surname().toLowerCase())
-            .thenComparing(r -> r.response.name() == null ? "" : r.response.name().toLowerCase())
-            .thenComparing(r -> r.response.email().toLowerCase());
+            .thenComparing(r -> r.response.surname() == null ? "" : r.response.surname().toLowerCase(Locale.ROOT))
+            .thenComparing(r -> r.response.name() == null ? "" : r.response.name().toLowerCase(Locale.ROOT))
+            .thenComparing(r -> r.response.email().toLowerCase(Locale.ROOT));
 
     private static AutocompleteRow toAutocompleteRow(ContactEntity contact, ContactEmailEntity email, String qLower) {
         int rank = 3;
-        String emailLower = email.getEmail().toLowerCase();
-        String surnameLower = contact.getSurname() == null ? "" : contact.getSurname().toLowerCase();
-        String nameLower = contact.getName() == null ? "" : contact.getName().toLowerCase();
+        String emailLower = email.getEmail().toLowerCase(Locale.ROOT);
+        String surnameLower = contact.getSurname() == null ? "" : contact.getSurname().toLowerCase(Locale.ROOT);
+        String nameLower = contact.getName() == null ? "" : contact.getName().toLowerCase(Locale.ROOT);
         if (emailLower.startsWith(qLower)) {
             rank = 0;
         } else if (!surnameLower.isEmpty() && surnameLower.startsWith(qLower)) {
@@ -156,7 +156,7 @@ public class ContactService {
                     "validation.contactQueryRequired");
         }
         accountService.getAccountOrThrow(accountId);
-        String pattern = "%" + q.toLowerCase() + "%";
+        String pattern = "%" + q.toLowerCase(Locale.ROOT) + "%";
         Pageable pageable = PageRequest.of(page, size, resolveSort(sort));
         Page<ContactEntity> contacts = contactRepository.searchByAccountId(accountId, pattern, label, pageable);
         return contacts.map(contactMapper::toResponse);
@@ -333,7 +333,7 @@ public class ContactService {
                         "E-mail with id=" + emailId + " for contact " + contactId + " not found."));
 
         for (ContactEmailEntity e : entity.getEmails()) {
-            e.setPrimary(e == target);
+            e.setPrimary(emailId.equals(e.getId()));
         }
 
         ContactEntity saved = contactRepository.save(entity);
@@ -373,13 +373,13 @@ public class ContactService {
             sources.add(getContactOrThrow(accountId, sid));
         }
 
-        Set<String> alreadyAdded = target.getEmails().stream().map(e -> e.getEmail().toLowerCase())
+        Set<String> alreadyAdded = target.getEmails().stream().map(e -> e.getEmail().toLowerCase(Locale.ROOT))
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
 
         List<EmailToAdd> toAdd = new ArrayList<>();
         for (ContactEntity src : sources) {
             for (ContactEmailEntity e : src.getEmails()) {
-                String key = e.getEmail().toLowerCase();
+                String key = e.getEmail().toLowerCase(Locale.ROOT);
                 if (alreadyAdded.add(key)) {
                     toAdd.add(new EmailToAdd(e.getEmail(), e.getLabel()));
                 }

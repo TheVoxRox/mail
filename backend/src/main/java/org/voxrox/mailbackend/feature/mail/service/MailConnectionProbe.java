@@ -7,6 +7,8 @@ import jakarta.mail.Session;
 import jakarta.mail.Store;
 import jakarta.mail.Transport;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.voxrox.mailbackend.core.config.MailClientProperties;
 import org.voxrox.mailbackend.exception.MailConnectionException;
@@ -24,6 +26,8 @@ import org.voxrox.mailbackend.feature.auth.service.OAuth2TokenServiceRegistry;
  */
 @Component
 public class MailConnectionProbe {
+
+    private static final Logger log = LoggerFactory.getLogger(MailConnectionProbe.class);
 
     private final MailClientProperties mailProperties;
     private final OAuth2TokenServiceRegistry oauth2TokenServiceRegistry;
@@ -75,7 +79,8 @@ public class MailConnectionProbe {
             if (store != null) {
                 try {
                     store.close();
-                } catch (MessagingException ignored) {
+                } catch (MessagingException e) {
+                    log.debug("Closing the IMAP test connection failed: {}", e.getMessage());
                 }
             }
         }

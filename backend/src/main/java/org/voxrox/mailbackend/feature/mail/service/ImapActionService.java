@@ -1,5 +1,7 @@
 package org.voxrox.mailbackend.feature.mail.service;
 
+import java.util.Locale;
+
 import jakarta.mail.*;
 
 import org.eclipse.angus.mail.imap.IMAPFolder;
@@ -74,7 +76,9 @@ public class ImapActionService {
                     if (dest != null && dest.isOpen()) {
                         try {
                             dest.close(false);
-                        } catch (MessagingException ignored) {
+                        } catch (MessagingException e) {
+                            log.debug("{} Closing the move destination folder failed: {}", LogCategory.IMAP,
+                                    e.getMessage());
                         }
                     }
                 }
@@ -104,7 +108,7 @@ public class ImapActionService {
                 // "MOVE not supported" from the (nullable, provider-dependent) message. Any
                 // other error is a real failure and must propagate.
                 String m = e.getMessage();
-                if (m == null || !m.toUpperCase().contains("MOVE")) {
+                if (m == null || !m.toUpperCase(Locale.ROOT).contains("MOVE")) {
                     throw e; // different IMAP error — propagate
                 }
                 log.debug("{} Server does not support MOVE ({}), falling back to COPY+EXPUNGE.", LogCategory.IMAP, m);

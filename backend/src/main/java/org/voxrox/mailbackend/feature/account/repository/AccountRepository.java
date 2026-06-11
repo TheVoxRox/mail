@@ -18,6 +18,7 @@ import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 @Repository
 public interface AccountRepository extends JpaRepository<AccountEntity, Long> {
 
+    @Override
     @EntityGraph(attributePaths = {"credentials", "provider"})
     List<AccountEntity> findAll();
 

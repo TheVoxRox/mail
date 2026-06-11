@@ -1,5 +1,6 @@
 package org.voxrox.mailbackend.core.config;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.info.BuildProperties;
@@ -18,7 +19,7 @@ public class ApplicationVersion {
         this(resolveVersion(buildPropertiesProvider.getIfAvailable()));
     }
 
-    public ApplicationVersion(String value) {
+    public ApplicationVersion(@Nullable String value) {
         this.value = normalize(value);
     }
 
@@ -26,25 +27,28 @@ public class ApplicationVersion {
         return value;
     }
 
-    private static String resolveVersion(BuildProperties buildProperties) {
-        if (buildProperties != null && hasText(buildProperties.getVersion())) {
-            return buildProperties.getVersion();
+    /*
+     * Null checks are spelled out inline (no hasText helper) so NullAway can follow
+     * the dataflow — it does not look through helper methods.
+     */
+    private static String resolveVersion(@Nullable BuildProperties buildProperties) {
+        if (buildProperties != null) {
+            String buildVersion = buildProperties.getVersion();
+            if (buildVersion != null && !buildVersion.isBlank()) {
+                return buildVersion;
+            }
         }
 
         Package appPackage = MailBackendApplication.class.getPackage();
         String implementationVersion = appPackage != null ? appPackage.getImplementationVersion() : null;
-        if (hasText(implementationVersion)) {
+        if (implementationVersion != null && !implementationVersion.isBlank()) {
             return implementationVersion;
         }
 
         return DEVELOPMENT_VERSION;
     }
 
-    private static String normalize(String value) {
-        return hasText(value) ? value : DEVELOPMENT_VERSION;
-    }
-
-    private static boolean hasText(String value) {
-        return value != null && !value.isBlank();
+    private static String normalize(@Nullable String value) {
+        return value != null && !value.isBlank() ? value : DEVELOPMENT_VERSION;
     }
 }
