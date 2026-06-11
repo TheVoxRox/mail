@@ -89,6 +89,14 @@ public class OAuth2CallbackController {
             + "endpoint directly — the entry point is /api/v1/auth/oauth2/start?provider=...")
     @GetMapping("/success")
     public String success(OAuth2AuthenticationToken authToken, @AuthenticationPrincipal OAuth2User oauth2User) {
+        /*
+         * The endpoint is permitAll (it is the post-login redirect target), so a direct
+         * anonymous GET arrives without authentication and Spring injects null for both
+         * parameters — reject cleanly instead of an NPE/500.
+         */
+        if (authToken == null || oauth2User == null) {
+            throw new ValidationException("OAuth2 callback invoked outside a completed login flow.");
+        }
         String providerName = authToken.getAuthorizedClientRegistrationId();
         OAuth2AuthorizedClient authorizedClient = authorizedClientService.loadAuthorizedClient(providerName,
                 authToken.getName());
@@ -97,6 +105,12 @@ public class OAuth2CallbackController {
                     "OAuth2 authorized client for provider '" + providerName + "' was not found in the session.");
         }
         oauth2LoginService.processLogin(providerName, oauth2User, authorizedClient);
+        /*
+         * The refresh token is persisted encrypted at this point; drop the plaintext
+         * copy Spring keeps in the in-memory authorized-client store so it does not
+         * outlive the login flow.
+         */
+        authorizedClientService.removeAuthorizedClient(providerName, authToken.getName());
         return "redirect:/auth-finished.html";
     }
 }

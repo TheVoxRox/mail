@@ -42,7 +42,33 @@ public class OAuth2LoginService {
         OAuth2ClaimsExtractor extractor = claimsExtractorRegistry.resolve(providerName);
         ExternalUserClaims claims = extractor.extract(oauth2User, authorizedClient);
 
+        /*
+         * Identity claims are mandatory. Without an e-mail we can neither match nor
+         * create an account (the column is NOT NULL — the failure would otherwise
+         * surface as an opaque 500 from the DB constraint). Without the provider's
+         * stable id (Google sub / Microsoft oid) the (oauth2_provider, external_id)
+         * identity degrades to e-mail matching and silently breaks the re-login
+         * routing. Both are standard OIDC claims; their absence means a malformed
+         * provider response — reject and let the user repeat the flow.
+         */
+        if (claims.email() == null || claims.email().isBlank()) {
+            log.warn("{} Provider {} did not return an e-mail claim — login rejected.", LogCategory.AUTH, providerName);
+            AuditLog.failure("oauth2_login", "<missing-email>", "provider=" + providerName + " missing_email");
+            throw new MailOperationException(ErrorCode.MAIL_AUTHENTICATION_FAILED,
+                    "The provider did not return an e-mail address. Repeat the sign-in.", HttpStatus.UNAUTHORIZED);
+        }
+
         String maskedEmail = LogMasker.maskEmail(claims.email());
+
+        if (claims.externalId() == null || claims.externalId().isBlank()) {
+            log.warn("{} Provider {} did not return a stable user id for {} — login rejected.", LogCategory.AUTH,
+                    providerName, maskedEmail);
+            AuditLog.failure("oauth2_login", maskedEmail, "provider=" + providerName + " missing_external_id");
+            throw new MailOperationException(ErrorCode.MAIL_AUTHENTICATION_FAILED,
+                    "The provider did not return a stable user identifier. Repeat the sign-in.",
+                    HttpStatus.UNAUTHORIZED);
+        }
+
         log.info("{} Processing OAuth2 login (provider={}) for: {}", LogCategory.AUTH, providerName, maskedEmail);
 
         /*
