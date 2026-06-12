@@ -1,7 +1,9 @@
-import { spawn, spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import http from 'node:http';
 import path from 'node:path';
 import process from 'node:process';
+import { terminateProcessTreeSync } from './lib/process-tree.mjs';
+import { run, wait } from './lib/run.mjs';
 
 const rootDir = process.cwd();
 const nodeExe = process.execPath;
@@ -16,10 +18,6 @@ const needsE2eMock = extraArgs.some(
 		arg === '--project=functional' ||
 		arg === '--project=a11y'
 );
-
-function wait(ms) {
-	return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 async function waitForServer(url, timeoutMs = 120000) {
 	const deadline = Date.now() + timeoutMs;
@@ -52,20 +50,6 @@ async function waitForServer(url, timeoutMs = 120000) {
 	throw new Error(`Preview server did not become ready at ${url} within ${timeoutMs} ms.`);
 }
 
-function terminateProcessTree(child) {
-	if (!child?.pid || child.killed) return;
-
-	if (process.platform === 'win32') {
-		spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], {
-			stdio: 'ignore',
-			windowsHide: true
-		});
-		return;
-	}
-
-	child.kill('SIGTERM');
-}
-
 async function main() {
 	const preview = spawn(nodeExe, needsE2eMock ? [previewScript, '--mode=e2e'] : [previewScript], {
 		cwd: rootDir,
@@ -73,7 +57,7 @@ async function main() {
 		windowsHide: true
 	});
 
-	const cleanup = () => terminateProcessTree(preview);
+	const cleanup = () => terminateProcessTreeSync(preview);
 	process.on('SIGINT', cleanup);
 	process.on('SIGTERM', cleanup);
 
@@ -86,27 +70,11 @@ async function main() {
 	try {
 		await waitForServer(previewUrl);
 
-		const playwright = spawn(
+		exitCode = await run(
 			nodeExe,
 			[playwrightCli, 'test', '--config=playwright.existing-server.config.ts', ...extraArgs],
-			{
-				cwd: rootDir,
-				stdio: 'inherit',
-				windowsHide: true
-			}
+			{ label: 'playwright' }
 		);
-
-		exitCode = await new Promise((resolve, reject) => {
-			playwright.on('error', (error) => reject(error));
-			playwright.on('close', (code, signal) => {
-				if (signal) {
-					resolve(1);
-					return;
-				}
-
-				resolve(code ?? 1);
-			});
-		});
 	} finally {
 		cleanup();
 	}

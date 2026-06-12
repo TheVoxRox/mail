@@ -1,8 +1,8 @@
-import { spawn } from 'node:child_process';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
+import { runOrThrow } from './lib/run.mjs';
 
 const rootDir = process.cwd();
 const schemaFile = path.join(rootDir, 'src', 'lib', 'api', 'schema.d.ts');
@@ -20,33 +20,6 @@ const openApiCliPath = path.join(rootDir, 'node_modules', 'openapi-typescript', 
 const prettierCliPath = path.join(rootDir, 'node_modules', 'prettier', 'bin', 'prettier.cjs');
 const prettierConfigPath = path.join(rootDir, '.prettierrc');
 
-function runCommand(args, label) {
-	return new Promise((resolve, reject) => {
-		const child = spawn(process.execPath, args, {
-			cwd: rootDir,
-			stdio: 'inherit',
-			windowsHide: true
-		});
-
-		child.on('error', (error) => {
-			reject(new Error(`${label} failed to start: ${error.message}`));
-		});
-		child.on('exit', (code, signal) => {
-			if (signal) {
-				reject(new Error(`${label} terminated by signal ${signal}`));
-				return;
-			}
-
-			if (code === 0) {
-				resolve();
-				return;
-			}
-
-			reject(new Error(`${label} exited with code ${code ?? -1}`));
-		});
-	});
-}
-
 function normalizeNewlines(value) {
 	return value.replace(/\r\n/g, '\n');
 }
@@ -56,10 +29,14 @@ async function main() {
 	const generatedFile = path.join(tempDir, 'schema.d.ts');
 
 	try {
-		await runCommand([openApiCliPath, snapshotFile, '-o', generatedFile], 'openapi-typescript');
-		await runCommand(
+		await runOrThrow(process.execPath, [openApiCliPath, snapshotFile, '-o', generatedFile], {
+			label: 'openapi-typescript',
+			cwd: rootDir
+		});
+		await runOrThrow(
+			process.execPath,
 			[prettierCliPath, '--config', prettierConfigPath, '--write', generatedFile],
-			'prettier'
+			{ label: 'prettier', cwd: rootDir }
 		);
 
 		const [expected, actual] = await Promise.all([

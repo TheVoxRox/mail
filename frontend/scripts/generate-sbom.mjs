@@ -13,7 +13,7 @@
  *        or `npm run regen:sbom`.
  */
 
-import { execFileSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -23,25 +23,24 @@ const outFile = path.join(frontendDir, 'bom.json');
 
 const NPM_CYCLONEDX_VERSION = '4.0.0';
 
-const args = [
-	'--yes',
+// Static command string through the shell — npx is a .cmd shim on Windows,
+// which Node refuses to spawn without one (and shell + args array is
+// deprecated, DEP0190). The output path is cwd-relative to keep the command
+// free of spaces.
+const command = [
+	'npx --yes',
 	`@cyclonedx/cyclonedx-npm@${NPM_CYCLONEDX_VERSION}`,
-	'--output-format',
-	'JSON',
-	'--spec-version',
-	'1.5',
-	'--omit',
-	'dev',
-	'--output-file',
-	outFile,
+	'--output-format JSON',
+	'--spec-version 1.5',
+	'--omit dev',
+	'--output-file bom.json',
 	'package.json'
-];
+].join(' ');
 
 console.log(`Running @cyclonedx/cyclonedx-npm@${NPM_CYCLONEDX_VERSION} ...`);
-execFileSync(process.platform === 'win32' ? 'npx.cmd' : 'npx', args, {
+execSync(command, {
 	cwd: frontendDir,
-	stdio: 'inherit',
-	shell: process.platform === 'win32'
+	stdio: 'inherit'
 });
 
 console.log(`Wrote ${path.relative(path.resolve(frontendDir, '..'), outFile)}.`);

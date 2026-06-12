@@ -28,8 +28,7 @@ const raw = execFileSync(
 	{
 		cwd: tauriDir,
 		encoding: 'utf8',
-		maxBuffer: 100 * 1024 * 1024,
-		shell: process.platform === 'win32'
+		maxBuffer: 100 * 1024 * 1024
 	}
 );
 

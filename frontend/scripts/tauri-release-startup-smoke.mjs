@@ -1,33 +1,19 @@
-import { createWriteStream } from 'node:fs';
+import { createWriteStream, existsSync } from 'node:fs';
 import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import http from 'node:http';
-import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
+import { resolveMailDataDir } from './lib/data-dirs.mjs';
+import { envForDesktopSidecar, loadBackendEnv } from './lib/dotenv.mjs';
+import { terminateProcessTree, waitForExit } from './lib/process-tree.mjs';
+import { wait } from './lib/run.mjs';
 
 const rootDir = process.cwd();
 const targetDir = path.join(rootDir, 'target');
-const backendEnvPath = path.resolve(rootDir, '..', 'backend', '.env');
 const appDataDir = resolveMailDataDir();
 const sessionPath = path.join(appDataDir, 'session.json');
 const readyPath = path.join(appDataDir, '.ready');
-
-function resolveMailDataDir() {
-	if (process.platform === 'win32') {
-		const root = process.env.LOCALAPPDATA;
-		if (!root) {
-			throw new Error('LOCALAPPDATA env var is not available on Windows.');
-		}
-		return path.join(root, 'VoxRox', 'Mail');
-	}
-	if (process.platform === 'darwin') {
-		return path.join(os.homedir(), 'Library', 'Application Support', 'VoxRox', 'Mail');
-	}
-	const xdg = process.env.XDG_DATA_HOME;
-	const base = xdg && xdg.length > 0 ? xdg : path.join(os.homedir(), '.local', 'share');
-	return path.join(base, 'VoxRox', 'Mail');
-}
 const stamp = new Date().toISOString().replace(/[:.]/g, '-');
 const reportPath = path.join(targetDir, `tauri-release-startup-${stamp}.json`);
 const stdoutPath = path.join(targetDir, `tauri-release-startup-${stamp}.stdout.log`);
@@ -48,8 +34,10 @@ const timeoutMs = positiveInt(args.get('timeout-ms'), 60_000);
 const settleMs = positiveInt(args.get('settle-ms'), 2_000);
 const exePath = path.resolve(args.get('exe') ?? resolveDefaultReleaseExe());
 const includeBackendEnvCrypto = process.argv.includes('--include-backend-env-crypto');
-const desktopFilteredEnvNames = new Set(['MAIL_CRYPTO_KEY', 'MAIL_CRYPTO_SALT']);
-const backendEnv = envForDesktopSidecar(await loadBackendEnv());
+const backendEnv = envForDesktopSidecar(
+	await loadBackendEnv('Release startup smoke needs the same backend env as tauri:dev.'),
+	includeBackendEnvCrypto
+);
 const isolateAppData = process.argv.includes('--isolate-app-data');
 
 function positiveInt(raw, fallback) {
@@ -63,57 +51,7 @@ function resolveDefaultReleaseExe() {
 		path.join(rootDir, 'src-tauri', 'target', 'release', 'mail.exe'),
 		path.join(rootDir, 'src-tauri', 'target', 'release', 'Mail.exe')
 	];
-	return candidates[0];
-}
-
-function parseDotEnv(raw) {
-	const values = {};
-
-	for (const rawLine of raw.split(/\r?\n/)) {
-		const line = rawLine.trim();
-		if (!line || line.startsWith('#')) continue;
-
-		const match = line.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
-		if (!match) continue;
-
-		const [, name, rawValue] = match;
-		let value = rawValue.trim();
-		if (
-			(value.startsWith('"') && value.endsWith('"')) ||
-			(value.startsWith("'") && value.endsWith("'"))
-		) {
-			value = value.slice(1, -1);
-		}
-		values[name] = value;
-	}
-
-	return values;
-}
-
-async function loadBackendEnv() {
-	try {
-		const raw = await readFile(backendEnvPath, 'utf8');
-		return parseDotEnv(raw);
-	} catch (error) {
-		throw new Error(
-			`backend/.env was not loaded from ${backendEnvPath}. Release startup smoke needs the same backend env as tauri:dev.`,
-			{ cause: error }
-		);
-	}
-}
-
-function envForDesktopSidecar(values) {
-	if (includeBackendEnvCrypto) {
-		return values;
-	}
-
-	return Object.fromEntries(
-		Object.entries(values).filter(([name]) => !desktopFilteredEnvNames.has(name))
-	);
-}
-
-function wait(ms) {
-	return new Promise((resolve) => setTimeout(resolve, ms));
+	return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0];
 }
 
 async function exists(filePath) {
@@ -257,48 +195,6 @@ async function waitForReadiness(session, child) {
 	throw new Error(
 		`Timed out after ${timeoutMs} ms waiting for readiness: ${lastError?.message ?? 'unknown error'}`
 	);
-}
-
-async function waitForExit(child) {
-	if (child.exitCode !== null || child.signalCode !== null) {
-		return { code: child.exitCode, signal: child.signalCode };
-	}
-
-	return new Promise((resolve, reject) => {
-		child.once('error', reject);
-		child.once('exit', (code, signal) => {
-			resolve({ code, signal });
-		});
-	});
-}
-
-async function terminateProcessTree(child) {
-	if (!child.pid || child.killed) return;
-
-	if (process.platform === 'win32') {
-		const taskkillPath = path.join(
-			process.env.SystemRoot ?? 'C:\\Windows',
-			'System32',
-			'taskkill.exe'
-		);
-		const killer = spawn(taskkillPath, ['/PID', String(child.pid), '/T', '/F'], {
-			stdio: 'ignore',
-			windowsHide: true,
-			detached: true
-		});
-		killer.once('error', () => {
-			child.kill();
-		});
-		killer.unref();
-		await wait(1_000);
-		return;
-	}
-
-	child.kill('SIGTERM');
-	await wait(5_000);
-	if (child.exitCode === null) {
-		child.kill('SIGKILL');
-	}
 }
 
 async function measureRun(index, stdout, stderr) {

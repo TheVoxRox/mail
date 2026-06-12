@@ -11,7 +11,7 @@
  * third-party deps that ship to end users.
  */
 
-import { execFileSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -20,21 +20,18 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const frontendDir = path.resolve(here, '..');
 const outFile = path.join(frontendDir, 'THIRD_PARTY_LICENSES.md');
 
-const rootName = JSON.parse(readFileSync(path.join(frontendDir, 'package.json'), 'utf8')).name;
-const rootVersion = JSON.parse(
-	readFileSync(path.join(frontendDir, 'package.json'), 'utf8')
-).version;
+const pkg = JSON.parse(readFileSync(path.join(frontendDir, 'package.json'), 'utf8'));
 
-// license-checker is invoked via npx; args are static (no user input) so
-// shell: true on Windows is safe — required because npx.cmd is a batch shim.
-const raw = execFileSync(
-	process.platform === 'win32' ? 'npx.cmd' : 'npx',
-	['license-checker', '--production', '--json', '--excludePackages', `${rootName}@${rootVersion}`],
+// Static command string through the shell — npx is a .cmd shim on Windows,
+// which Node refuses to spawn without one (and shell + args array is
+// deprecated, DEP0190). npm package names and versions cannot contain
+// spaces or shell metacharacters, so no quoting is needed.
+const raw = execSync(
+	`npx license-checker --production --json --excludePackages ${pkg.name}@${pkg.version}`,
 	{
 		cwd: frontendDir,
 		encoding: 'utf8',
-		maxBuffer: 50 * 1024 * 1024,
-		shell: process.platform === 'win32'
+		maxBuffer: 50 * 1024 * 1024
 	}
 );
 

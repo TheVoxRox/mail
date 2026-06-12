@@ -20,30 +20,16 @@
  *   - logs/
  */
 
-import { spawn, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { rm, stat } from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
+import { resolveMailDataDir } from './lib/data-dirs.mjs';
+import { run } from './lib/run.mjs';
 
 const rootDir = process.cwd();
 const tauriDevScript = path.join(rootDir, 'scripts', 'tauri-dev-with-env.mjs');
 const passThroughArgs = process.argv.slice(2);
-
-function resolveLocalAppData() {
-	if (process.platform === 'win32') {
-		const root = process.env.LOCALAPPDATA;
-		if (!root) {
-			throw new Error('LOCALAPPDATA env var is not available on Windows.');
-		}
-		return root;
-	}
-	if (process.platform === 'darwin') {
-		return path.join(os.homedir(), 'Library', 'Application Support');
-	}
-	const xdg = process.env.XDG_DATA_HOME;
-	return xdg && xdg.length > 0 ? xdg : path.join(os.homedir(), '.local', 'share');
-}
 
 async function pathExists(target) {
 	try {
@@ -66,50 +52,36 @@ async function removeIfExists(target) {
 function killWindowsTauriProcesses() {
 	if (process.platform !== 'win32') return;
 
-	const targets = [
-		// Tauri dev binary tree
-		{ name: 'app.exe', condition: 'where CommandLine like "%src-tauri\\\\target\\\\debug%"' },
-		// Backend sidecar (jpackage launcher + JVM)
-		{ name: 'mail.exe', condition: 'where CommandLine like "%src-tauri\\\\target\\\\debug%"' }
-	];
+	/*
+	 * Kill leftover dev processes (Tauri app.exe + jpackage sidecar mail.exe)
+	 * matched by command line, so only binaries started from
+	 * src-tauri\target\debug are hit — never a production install. wmic was
+	 * removed from current Windows 11 builds, so query Win32_Process through
+	 * PowerShell CIM instead; prefer pwsh and fall back to Windows PowerShell
+	 * on machines without PowerShell 7.
+	 */
+	// WQL: backslash is the escape character, so \\ matches one literal backslash.
+	const filter = 'CommandLine LIKE "%src-tauri\\\\target\\\\debug%"';
+	const psCommand = `Get-CimInstance Win32_Process -Filter '${filter}' | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`;
 
-	for (const target of targets) {
-		const result = spawnSync('wmic', ['process', target.condition, 'call', 'terminate'], {
+	for (const shell of ['pwsh', 'powershell']) {
+		const result = spawnSync(shell, ['-NoProfile', '-NonInteractive', '-Command', psCommand], {
 			stdio: 'ignore',
-			windowsHide: true,
-			encoding: 'utf8'
-		});
-		// Return code ignored — wmic returns 0 even when it finds nothing.
-		void result;
-	}
-	console.log('[dev:fresh] killed leftover Tauri dev processes (if any)');
-}
-
-function spawnTauriDev() {
-	return new Promise((resolve, reject) => {
-		const child = spawn(process.execPath, [tauriDevScript, ...passThroughArgs], {
-			cwd: rootDir,
-			stdio: 'inherit',
 			windowsHide: true
 		});
-
-		child.on('error', (error) => {
-			reject(new Error(`tauri:dev failed to start: ${error.message}`));
-		});
-		child.on('exit', (code, signal) => {
-			if (signal) {
-				reject(new Error(`tauri:dev exited with signal ${signal}`));
-				return;
-			}
-			resolve(code ?? 0);
-		});
-	});
+		if (!result.error) {
+			console.log('[dev:fresh] killed leftover Tauri dev processes (if any)');
+			return;
+		}
+	}
+	console.log(
+		'[dev:fresh] WARNING: pwsh/powershell not found; leftover dev processes were not killed.'
+	);
 }
 
 async function main() {
-	const localAppData = resolveLocalAppData();
 	const devSuffix = process.env.MAIL_DATA_SUFFIX || '.dev';
-	const devDataDir = path.join(localAppData, 'VoxRox', `Mail${devSuffix}`);
+	const devDataDir = resolveMailDataDir(devSuffix);
 	const webviewRoot = path.join(devDataDir, 'webview', 'Default');
 
 	killWindowsTauriProcesses();
@@ -120,8 +92,10 @@ async function main() {
 	await removeIfExists(path.join(devDataDir, '.ready'));
 
 	console.log('[dev:fresh] cache cleared, starting tauri:dev.');
-	const exitCode = await spawnTauriDev();
-	process.exitCode = exitCode;
+	process.exitCode = await run(process.execPath, [tauriDevScript, ...passThroughArgs], {
+		label: 'tauri:dev',
+		cwd: rootDir
+	});
 }
 
 main().catch((error) => {

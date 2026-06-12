@@ -3,6 +3,8 @@ import { mkdir } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import process from 'node:process';
+import { terminateProcessTree, waitForExit } from './lib/process-tree.mjs';
+import { wait } from './lib/run.mjs';
 
 const rootDir = process.cwd();
 const targetDir = path.join(rootDir, 'target');
@@ -15,48 +17,6 @@ const stderrPath = path.join(targetDir, `tauri-startup-smoke-${stamp}.stderr.log
 const command = process.platform === 'win32' ? (process.env.ComSpec ?? 'cmd.exe') : 'npm';
 const commandArgs =
 	process.platform === 'win32' ? ['/d', '/s', '/c', 'npm.cmd run tauri:dev'] : ['run', 'tauri:dev'];
-
-function wait(ms) {
-	return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function waitForExit(child) {
-	return new Promise((resolve, reject) => {
-		child.once('error', reject);
-		child.once('exit', (code, signal) => {
-			resolve({ code, signal });
-		});
-	});
-}
-
-async function terminateProcessTree(child) {
-	if (!child.pid || child.killed) return;
-
-	if (process.platform === 'win32') {
-		const taskkillPath = path.join(
-			process.env.SystemRoot ?? 'C:\\Windows',
-			'System32',
-			'taskkill.exe'
-		);
-		const killer = spawn(taskkillPath, ['/PID', String(child.pid), '/T', '/F'], {
-			stdio: 'ignore',
-			windowsHide: true,
-			detached: true
-		});
-		killer.once('error', () => {
-			child.kill();
-		});
-		killer.unref();
-		await wait(1000);
-		return;
-	}
-
-	child.kill('SIGTERM');
-	await wait(5000);
-	if (child.exitCode === null) {
-		child.kill('SIGKILL');
-	}
-}
 
 await mkdir(targetDir, { recursive: true });
 

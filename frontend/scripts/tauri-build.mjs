@@ -1,28 +1,19 @@
-import { spawn } from 'node:child_process';
 import { readdir, readFile, rename, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
+import { run } from './lib/run.mjs';
 
 const frontendRoot = process.cwd();
 const tauriCli = path.join(frontendRoot, 'node_modules', '@tauri-apps', 'cli', 'tauri.js');
 
-const exitCode = await run(process.execPath, [tauriCli, 'build', ...process.argv.slice(2)]);
+const exitCode = await run(process.execPath, [tauriCli, 'build', ...process.argv.slice(2)], {
+	label: 'tauri build',
+	cwd: frontendRoot
+});
 if (exitCode !== 0) {
 	process.exit(exitCode);
 }
 
 await normalizeWindowsNsisArtifacts();
-
-function run(command, args) {
-	return new Promise((resolve, reject) => {
-		const child = spawn(command, args, {
-			cwd: frontendRoot,
-			stdio: 'inherit',
-			windowsHide: true
-		});
-		child.once('error', reject);
-		child.once('exit', (code) => resolve(code ?? 1));
-	});
-}
 
 async function normalizeWindowsNsisArtifacts() {
 	const config = JSON.parse(
