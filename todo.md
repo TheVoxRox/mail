@@ -33,7 +33,7 @@ Kod je hotovy + zeleny; tohle nejde autonomne, zbyva rucni overeni v `tauri:dev`
 - [ ] **About dialog** — NOTICE.txt se nacte pres `resolveResource` do read-only textarea (fs scope `$RESOURCE/NOTICE.txt`), graceful fallback mimo Tauri.
 - [ ] **BootErrorView Retry** — po selhani backendu Retry/Restart nevyrobi druhy backend (exit 78 "already running" + osirely proces); generacni fix v [sidecar.ts](frontend/src/lib/backend/sidecar.ts) kryje unit test, rucne overit v `tauri:dev`.
 
-Pozn.: dialog "mail.exe — Failed to launch JVM" (jpackage launcher, pred startem Javy) se 2026-06-10 nepodarilo zreprodukovat — image/cfg/runtime overeny jako konzistentni; sledovat, jen pokud se vrati.
+Pozn.: dialog "mail.exe — Failed to launch JVM" (jpackage launcher, pred startem Javy) — pravdepodobna pricina nalezena 2026-06-12: jpackage launcher hleda `app\<basename-exe>.cfg`, takze primé spusteni triple-named exe (nebo castecne synchronizovany layout) selze a visi na neviditelnem error dialogu. `sync-backend-sidecar-windows.mjs` nove drzi OBA nazvy cfg vedle sebe (mail.cfg pro dev/release launcher, triple pro prime spusteni); overeno end-to-end v tauri:dev.
 
 ---
 
@@ -99,6 +99,7 @@ Backend (headless) cast zmerena a uzavrena — sekce "Startup audit — mereni 2
 ## Produktove funkce (backlog)
 
 - [ ] iCloud OAuth.
+- [ ] ThreadingService broadcastuje SSE uvnitr transakce ([ThreadingService.java:164](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/ThreadingService.java), :224) — pre-commit visibility (FE muze refetchnout pred commitem) + blokujici emitter.send v transakci. LOW: samoopravne pres sync_completed event, lokalni klient. Presunout broadcast za commit pri Threading Phase 2.
 - [ ] Threading Phase 2 (V0.2) — UI grouping toggle, thread row aria-tree, bulk akce, a11y pass. + References-only orphan reconciliation (dite linkuje parenta jen pres `References`) — vyzaduje normalizovanou junction tabulku (token match ve free-text je neindexovatelny). Detail [backend/docs/THREADING_DESIGN.md](backend/docs/THREADING_DESIGN.md).
 - [ ] Filtrovani / pravidla pro automaticke trideni zprav.
 - [ ] Full QRESYNC SELECT s VANISHED — vetsi refactor `ImapFolderExecutor`; po release, pokud bude cleanup latency bottleneck.
