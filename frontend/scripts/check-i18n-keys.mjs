@@ -88,4 +88,70 @@ if (failed) {
 	process.exit(1);
 }
 
-console.log(`[i18n] ${LOCALES.join(', ')} keys match (${baseKeys.size} keys).`);
+/*
+ * Dead-key check: every base-locale key must be referenced from the app
+ * sources, either as a string literal ('toast.sendPending') or via a dynamic
+ * template prefix (`folder.${role}` / `palette.group_${id}`). Keys consumed
+ * through property access are invisible to the literal scanner and must be
+ * listed in USED_INDIRECTLY with a justification.
+ */
+const SRC_DIR = path.join(process.cwd(), 'src');
+const SCAN_EXCLUDE = /test-fixtures|\.test\.|\.e2e\.ts$|[\\/]generated\.ts$|schema\.d\.ts$/;
+const LITERAL_KEY = /['"]([a-z][A-Za-z0-9]*(?:\.[A-Za-z0-9_]+)+)['"]/g;
+const DYNAMIC_PREFIX = /`([a-z][A-Za-z0-9]*(?:\.[A-Za-z0-9_]+)*[._])\$\{/g;
+
+const USED_INDIRECTLY = new Set([
+	// i18n/index.ts builds the locale picker labels via message.app.localeLabel
+	// property access, not a string lookup.
+	'app.localeLabel'
+]);
+
+async function collectSourceFiles(dir) {
+	const entries = await readdir(dir, { withFileTypes: true });
+	const files = [];
+	for (const entry of entries) {
+		const full = path.join(dir, entry.name);
+		if (entry.isDirectory()) {
+			files.push(...(await collectSourceFiles(full)));
+		} else if (/\.(ts|svelte)$/.test(entry.name) && !SCAN_EXCLUDE.test(full)) {
+			files.push(full);
+		}
+	}
+	return files;
+}
+
+const usedLiterals = new Set();
+const dynamicPrefixes = new Set();
+for (const file of await collectSourceFiles(SRC_DIR)) {
+	const content = await readFile(file, 'utf8');
+	for (const match of content.matchAll(LITERAL_KEY)) {
+		usedLiterals.add(match[1]);
+	}
+	for (const match of content.matchAll(DYNAMIC_PREFIX)) {
+		dynamicPrefixes.add(match[1]);
+	}
+}
+
+const prefixes = [...dynamicPrefixes];
+const unused = [...baseKeys]
+	.filter(
+		(key) =>
+			!usedLiterals.has(key) &&
+			!USED_INDIRECTLY.has(key) &&
+			!prefixes.some((prefix) => key.startsWith(prefix))
+	)
+	.sort();
+
+if (unused.length > 0) {
+	console.error(`[i18n] Unused message keys in ${BASE_LOCALE}.json (${unused.length}):`);
+	for (const key of unused) {
+		console.error(`    - ${key}`);
+	}
+	console.error(
+		'[i18n] Remove the key from every locale file, or add it to USED_INDIRECTLY ' +
+			'in scripts/check-i18n-keys.mjs with a justification.'
+	);
+	process.exit(1);
+}
+
+console.log(`[i18n] ${LOCALES.join(', ')} keys match (${baseKeys.size} keys, none unused).`);
