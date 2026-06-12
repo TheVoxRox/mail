@@ -382,7 +382,7 @@ Counts: 362 crates total. 168 MIT OR Apache-2.0, 87 MIT, 32 Apache-2.0 OR MIT, 1
 
 ## ISC (2)
 
-- **rustls-webpki** 0.103.12 — [https://github.com/rustls/webpki](https://github.com/rustls/webpki)
+- **rustls-webpki** 0.103.13 — [https://github.com/rustls/webpki](https://github.com/rustls/webpki)
 - **untrusted** 0.9.0 — [https://github.com/briansmith/untrusted](https://github.com/briansmith/untrusted)
 
 ## Unlicense/MIT (2)
