@@ -4,7 +4,6 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.voxrox.mailbackend.exception.AccountNotFoundException;
 import org.voxrox.mailbackend.exception.ValidationException;
 import org.voxrox.mailbackend.feature.account.dto.AccountConnectionDetails;
@@ -40,7 +39,14 @@ public class AccountConnectionTestService {
         this.messageSource = messageSource;
     }
 
-    @Transactional(readOnly = true)
+    /*
+     * Deliberately not @Transactional: the IMAP and SMTP probes are live network
+     * logins (full connect/read timeouts against a possibly unreachable host, plus
+     * an OAuth token fetch for OAuth2 accounts). A transaction here would pin one
+     * of the four pool connections for the whole probe duration. The DB lookups
+     * (provider template, credentials) are independent point reads with no shared
+     * consistency requirement — each runs in its own short transaction.
+     */
     public AccountConnectionTestResponse testConnection(AccountConnectionTestRequest request) {
         ServerConfig serverConfig = resolveServerConfig(request);
         CredentialSnapshot credentials = resolveCredentials(request);

@@ -101,12 +101,7 @@ public class SmtpMessageService {
             outcome = MailMetrics.OUTCOME_FAILURE;
             log.error("{} E-mail send failed from account ID {}", LogCategory.SMTP, accountId, e);
             AuditLog.failure("mail_send", "account=" + accountId, e.getClass().getSimpleName());
-            accountRepository.updateLastError(accountId,
-                    AccountLastError.of(AccountLastErrorCode.SMTP_SEND_FAILED,
-                            java.util.Map.of("detail", safeDetail(e)), "Send failed: " + safeDetail(e)),
-                    LocalDateTime.now());
-            sseNotificationService.broadcast(
-                    SendNotification.failed(sendId, accountId, AccountLastErrorCode.SMTP_SEND_FAILED.name()));
+            recordSendFailure(accountId, sendId, AccountLastErrorCode.SMTP_SEND_FAILED, "Send failed: ", e);
         } finally {
             transportFactory.closeQuietly(transport, accountId);
             metrics.recordSmtpSend(sample, outcome);
@@ -225,12 +220,7 @@ public class SmtpMessageService {
             log.error("{} Failed to load draft {} for account ID {}", LogCategory.SMTP, stableId, accountId, e);
             AuditLog.failure("mail_send", "account=" + accountId,
                     "draft=" + stableId + " " + e.getClass().getSimpleName());
-            accountRepository.updateLastError(accountId,
-                    AccountLastError.of(AccountLastErrorCode.DRAFT_SEND_FAILED,
-                            java.util.Map.of("detail", safeDetail(e)), "Draft send failed: " + safeDetail(e)),
-                    LocalDateTime.now());
-            sseNotificationService.broadcast(
-                    SendNotification.failed(sendId, accountId, AccountLastErrorCode.DRAFT_SEND_FAILED.name()));
+            recordSendFailure(accountId, sendId, AccountLastErrorCode.DRAFT_SEND_FAILED, "Draft send failed: ", e);
             return;
         }
         if (draft == null || !draft.getAccount().getId().equals(accountId)) {
@@ -304,16 +294,25 @@ public class SmtpMessageService {
             log.error("{} Failed to send draft {} from account ID {}", LogCategory.SMTP, stableId, accountId, e);
             AuditLog.failure("mail_send", "account=" + accountId,
                     "draft=" + stableId + " " + e.getClass().getSimpleName());
-            accountRepository.updateLastError(accountId,
-                    AccountLastError.of(AccountLastErrorCode.DRAFT_SEND_FAILED,
-                            java.util.Map.of("detail", safeDetail(e)), "Draft send failed: " + safeDetail(e)),
-                    LocalDateTime.now());
-            sseNotificationService.broadcast(
-                    SendNotification.failed(sendId, accountId, AccountLastErrorCode.DRAFT_SEND_FAILED.name()));
+            recordSendFailure(accountId, sendId, AccountLastErrorCode.DRAFT_SEND_FAILED, "Draft send failed: ", e);
         } finally {
             transportFactory.closeQuietly(transport, accountId);
             metrics.recordSmtpSend(sample, outcome);
         }
+    }
+
+    /**
+     * Shared failure tail of the send pipelines: records last_error with the
+     * exception detail and pushes the SSE failure notification for the send the
+     * client is watching. Log + audit stay at the call sites — their wording and
+     * context differ per pipeline step.
+     */
+    private void recordSendFailure(Long accountId, String sendId, AccountLastErrorCode code, String messagePrefix,
+            Exception e) {
+        accountRepository.updateLastError(accountId,
+                AccountLastError.of(code, java.util.Map.of("detail", safeDetail(e)), messagePrefix + safeDetail(e)),
+                LocalDateTime.now());
+        sseNotificationService.broadcast(SendNotification.failed(sendId, accountId, code.name()));
     }
 
     private static String safeDetail(Exception e) {

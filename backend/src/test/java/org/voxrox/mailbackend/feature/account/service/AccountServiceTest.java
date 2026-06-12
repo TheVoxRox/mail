@@ -23,6 +23,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.slf4j.LoggerFactory;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.voxrox.mailbackend.exception.AccountAlreadyExistsException;
 import org.voxrox.mailbackend.exception.AccountNotFoundException;
 import org.voxrox.mailbackend.exception.ProviderNotFoundException;
@@ -85,6 +87,15 @@ class AccountServiceTest {
     @Mock
     private OAuth2TokenService googleTokenService;
 
+    /*
+     * Real TransactionTemplate over a mocked manager: the callback runs inline and
+     * no transaction synchronization is active, so the after-commit helpers fall
+     * back to their inline path — the same execution shape the plain-invocation
+     * tests had before deleteAccount switched to TransactionTemplate.
+     */
+    @Mock
+    private PlatformTransactionManager transactionManager;
+
     private AccountService service;
 
     private ListAppender<ILoggingEvent> auditAppender;
@@ -93,7 +104,7 @@ class AccountServiceTest {
     @BeforeEach
     void setUp() {
         service = new AccountService(accountRepository, providerService, credentialService, imapConnectionManager,
-                accountMapper, oauth2TokenServiceRegistry);
+                accountMapper, oauth2TokenServiceRegistry, new TransactionTemplate(transactionManager));
 
         auditLogger = (Logger) LoggerFactory.getLogger("AUDIT");
         auditAppender = new ListAppender<>();

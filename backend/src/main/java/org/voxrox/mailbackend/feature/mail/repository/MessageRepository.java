@@ -23,6 +23,15 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
     Optional<MessageEntity> findByStableId(String stableId);
 
     /**
+     * Loads a message with its owning account in a single SQL query (JOIN FETCH).
+     * MailFacade hands the entity out of the loading transaction (IMAP round-trips
+     * deliberately run with no transaction open), so the lazy account association
+     * must be populated up front — a detached proxy would throw on first access.
+     */
+    @Query("SELECT m FROM MessageEntity m JOIN FETCH m.account WHERE m.stableId = :stableId")
+    Optional<MessageEntity> findByStableIdWithAccount(@Param("stableId") String stableId);
+
+    /**
      * Loads a message including attachments in a single SQL query (JOIN FETCH).
      */
     @Query("SELECT m FROM MessageEntity m LEFT JOIN FETCH m.attachments WHERE m.stableId = :stableId")
@@ -199,11 +208,22 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
             @Param("newThreadId") String newThreadId, @Param("newRootMessageId") @Nullable String newRootMessageId);
 
     /**
-     * Streaming backfill — every message of an account in ascending
-     * {@code receivedAt} order, used by
+     * One backfill batch — the oldest unthreaded messages of an account in
+     * ascending {@code receivedAt} order, used by
      * {@link org.voxrox.mailbackend.feature.mail.service.ThreadingBackfillService}.
+     * Paged on purpose: entities carry the {@code @Lob} body, so loading the whole
+     * unthreaded set at once does not fit the 384m heap on a populated account.
+     * Re-querying advances naturally — assignThread always sets {@code thread_id},
+     * so processed rows drop out of the predicate.
      */
     @Query("SELECT m FROM MessageEntity m " + "WHERE m.account.id = :accId AND m.threadId IS NULL "
             + "ORDER BY m.receivedAt ASC, m.id ASC")
-    List<MessageEntity> findUnthreadedByAccountOrderByReceivedAt(@Param("accId") Long accountId);
+    List<MessageEntity> findUnthreadedByAccountOrderByReceivedAt(@Param("accId") Long accountId, Pageable pageable);
+
+    /**
+     * Upfront count for the backfill's start log/audit entry — the batched loop
+     * itself never knows the total.
+     */
+    @Query("SELECT COUNT(m) FROM MessageEntity m WHERE m.account.id = :accId AND m.threadId IS NULL")
+    long countUnthreadedByAccount(@Param("accId") Long accountId);
 }

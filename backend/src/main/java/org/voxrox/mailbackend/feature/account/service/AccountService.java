@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.voxrox.mailbackend.exception.AccountAlreadyExistsException;
 import org.voxrox.mailbackend.exception.AccountNotFoundException;
 import org.voxrox.mailbackend.exception.ValidationException;
@@ -34,16 +35,19 @@ public class AccountService {
     private final ImapConnectionManager imapConnectionManager;
     private final AccountMapper accountMapper;
     private final OAuth2TokenServiceRegistry oauth2TokenServiceRegistry;
+    private final TransactionTemplate transactionTemplate;
 
     public AccountService(AccountRepository accountRepository, AccountProviderService providerService,
             AccountCredentialService credentialService, ImapConnectionManager imapConnectionManager,
-            AccountMapper accountMapper, OAuth2TokenServiceRegistry oauth2TokenServiceRegistry) {
+            AccountMapper accountMapper, OAuth2TokenServiceRegistry oauth2TokenServiceRegistry,
+            TransactionTemplate transactionTemplate) {
         this.accountRepository = accountRepository;
         this.providerService = providerService;
         this.credentialService = credentialService;
         this.imapConnectionManager = imapConnectionManager;
         this.accountMapper = accountMapper;
         this.oauth2TokenServiceRegistry = oauth2TokenServiceRegistry;
+        this.transactionTemplate = transactionTemplate;
     }
 
     @Transactional(readOnly = true)
@@ -208,10 +212,20 @@ public class AccountService {
     }
 
     /**
-     * Deletes an account. The logic lives in a single @Transactional method so the
-     * transactional boundary is not lost through self-invocation.
+     * Deletes an account.
+     *
+     * <p>
+     * Deliberately NOT one big {@code @Transactional} method: the best-effort
+     * OAuth2 revoke at the provider is an HTTP call with full connect/read
+     * timeouts, and holding the SQLite write transaction across it would stall
+     * every other writer in the app whenever the provider is slow. The revoke runs
+     * first with no transaction open (it must — revokeToken reads and decrypts the
+     * credentials row this method is about to delete), then both deletes commit
+     * atomically in a short {@link TransactionTemplate} block. A revoke followed by
+     * a failed delete leaves an account that needs a fresh OAuth login — the same
+     * outcome the previous revoke-inside-transaction code produced when the
+     * transaction rolled back after the revoke had already reached the provider.
      */
-    @Transactional
     public void deleteAccount(Long accountId) {
         AccountEntity account = getAccountOrThrow(accountId);
         String maskedEmail = LogMasker.maskEmail(account.getEmail());
@@ -223,17 +237,19 @@ public class AccountService {
              * Best-effort revoke at the OAuth2 provider before deleting credentials —
              * otherwise we would lose the encrypted refresh token. revokeToken has its own
              * try/catch (log.warn + AuditLog.failure), so a provider outage does not break
-             * the transaction and the delete still goes through.
+             * the delete.
              */
             AccountCredentialEntity creds = credentialService.getCredentials(accountId);
             if (creds.getAuthType() == AuthType.OAUTH2 && account.getOauth2Provider() != null) {
                 oauth2TokenServiceRegistry.resolve(account.getOauth2Provider()).revokeToken(account);
             }
 
-            credentialService.deleteCredentials(accountId);
-            accountRepository.deleteById(accountId);
+            transactionTemplate.executeWithoutResult(tx -> {
+                credentialService.deleteCredentials(accountId);
+                accountRepository.deleteById(accountId);
 
-            purgeConnectionsAfterCommit(accountId);
+                purgeConnectionsAfterCommit(accountId);
+            });
 
             log.info("{} DONE: Account id={} data removed from DB.", LogCategory.ACCOUNT, accountId);
             AuditLog.success("account_delete", maskedEmail, "id=" + accountId);
@@ -344,9 +360,19 @@ public class AccountService {
          * store would hold a session authenticated with the old token. Without this the
          * first IMAP call right after re-login would fail and create noise in the logs
          * until the auth-retry path in ImapConnectionManager self-healed the problem.
+         *
+         * Deferred until AFTER the commit, for the same reasons as
+         * purgeConnectionsAfterCommit in deleteAccount: (1) removeConnection blocks on
+         * the per-account IMAP lock, which a running sync cycle can hold for minutes —
+         * waiting here would keep the SQLite write transaction (credentials row is
+         * already written) open and stall every other writer in the app; (2)
+         * invalidating the token cache before the new refresh token is committed lets a
+         * concurrent auth-retry re-fill the cache from the OLD token still visible in
+         * the DB snapshot — and a refresh rejection on that stale token could mark
+         * requires_reauth AFTER this transaction cleared it, locking the account out
+         * despite a fresh login.
          */
-        oauth2TokenServiceRegistry.resolve(providerName).invalidate(account.getId());
-        imapConnectionManager.removeConnection(account.getId());
+        invalidateRuntimeAuthAfterCommit(providerName, account.getId());
 
         /*
          * Re-login = explicit user consent with a new refresh token. If the account was
@@ -360,6 +386,40 @@ public class AccountService {
             account.setLastErrorArgs(null);
             accountRepository.save(account);
             AuditLog.success("account_reauth_cleared", LogMasker.maskEmail(email), "id=" + account.getId());
+        }
+    }
+
+    /**
+     * Defers the token-cache invalidation and the IMAP store removal until after
+     * the commit — the full rationale sits at the call site in
+     * processExternalProviderLogin.
+     */
+    private void invalidateRuntimeAuthAfterCommit(String providerName, Long accountId) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            // No active transaction (plain unit-test invocation) — invalidate inline.
+            invalidateRuntimeAuthQuietly(providerName, accountId);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                invalidateRuntimeAuthQuietly(providerName, accountId);
+            }
+        });
+    }
+
+    /**
+     * A failure after the commit must not surface as an error of the already
+     * completed re-login — a stale cached token or IMAP store self-heals through
+     * the auth-retry path in ImapConnectionManager.
+     */
+    private void invalidateRuntimeAuthQuietly(String providerName, Long accountId) {
+        try {
+            oauth2TokenServiceRegistry.resolve(providerName).invalidate(accountId);
+            imapConnectionManager.removeConnection(accountId);
+        } catch (RuntimeException e) {
+            log.warn("{} Post-re-login auth invalidation for account {} failed: {}", LogCategory.ACCOUNT, accountId,
+                    e.getMessage());
         }
     }
 

@@ -58,7 +58,14 @@ public class MailFacade {
         this.folderCountCache = folderCountCache;
     }
 
-    @Transactional(readOnly = true)
+    /*
+     * Deliberately not @Transactional (same for prepareForward): fetchContentSafe
+     * goes to IMAP when the body is not cached locally — a network round-trip
+     * behind the per-account IMAP lock, which a running sync can hold for minutes.
+     * A transaction here would pin one of the four pool connections for that long
+     * (plus a second one for the REQUIRES_NEW content persister — a pool-deadlock
+     * recipe). The reads involved need no shared transaction.
+     */
     public MailRequest prepareReply(String stableId, boolean replyAll) {
         MessageEntity original = messageService.getByStableId(stableId)
                 .orElseThrow(() -> new ResourceNotFoundException("Message not found: " + stableId));
@@ -66,7 +73,6 @@ public class MailFacade {
         return mailDraftService.createReplyDraft(original, content, replyAll);
     }
 
-    @Transactional(readOnly = true)
     public MailRequest prepareForward(String stableId) {
         MessageEntity original = messageService.getByStableId(stableId)
                 .orElseThrow(() -> new ResourceNotFoundException("Message not found: " + stableId));
@@ -210,7 +216,13 @@ public class MailFacade {
         return new ThreadResponse(threadId, rootMessageId, members.size(), unread, summaries);
     }
 
-    @Transactional
+    /*
+     * Deliberately not @Transactional (same for moveToFolder): the folder
+     * resolution can fall back to a live IMAP LIST behind the per-account lock, and
+     * the only local write is the single-statement delete inside executeMove, which
+     * manages its own short transaction. Holding a write transaction across the
+     * IMAP wait would stall every other writer on the single-writer SQLite.
+     */
     public void moveToTrash(String stableId) {
         MessageEntity entity = messageService.getByStableId(stableId)
                 .orElseThrow(() -> new ResourceNotFoundException("Message not found for deletion: " + stableId));
@@ -232,7 +244,6 @@ public class MailFacade {
      * is supplied by the caller as an opaque folderRef chosen by the client from
      * the folder list.
      */
-    @Transactional
     public void moveToFolder(String stableId, String targetFolderRef) {
         if (targetFolderRef == null || targetFolderRef.isBlank()) {
             throw new ValidationException("Target folder must not be empty.", "validation.mail.targetFolderRequired");
@@ -262,8 +273,8 @@ public class MailFacade {
     }
 
     /**
-     * Shared path for moving a message between folders: async provider move + sync
-     * local delete + audit log. Called from {@link #moveToTrash} and
+     * Shared path for moving a message between folders: sync local delete + async
+     * provider move + audit log. Called from {@link #moveToTrash} and
      * {@link #moveToFolder}; the only difference is the audit action name.
      */
     private void executeMove(MessageEntity entity, String targetFolder, String auditAction) {
@@ -271,8 +282,15 @@ public class MailFacade {
         String sourceFolder = entity.getFolderName();
         String stableId = entity.getStableId();
 
-        imapActionService.moveOnServerAsync(accountId, sourceFolder, targetFolder, entity.getUid());
+        /*
+         * Local delete first — it commits in its own transaction, so the provider
+         * action is only dispatched once the local write has definitely succeeded. The
+         * previous order dispatched from inside a still-open transaction: a rollback
+         * after the dispatch left the server-side move running anyway and the local row
+         * resurrected.
+         */
         messageService.deleteByStableId(stableId);
+        imapActionService.moveOnServerAsync(accountId, sourceFolder, targetFolder, entity.getUid());
 
         AuditLog.success(auditAction, LogMasker.maskEmail(entity.getAccount().getEmail()),
                 "stable_id=" + stableId + " from=" + sourceFolder + " to=" + targetFolder);
@@ -280,7 +298,12 @@ public class MailFacade {
                 LogCategory.DATABASE, stableId, sourceFolder, targetFolder);
     }
 
-    @Transactional
+    /*
+     * Deliberately not @Transactional: the local flag update is a single
+     * self-committing @Modifying statement, so by the time the async server action
+     * is dispatched the local write is durable — a rollback can no longer undo it
+     * while the server-side flag change proceeds.
+     */
     public void updateMessageFlag(String stableId, MessageFlag flag, boolean value) {
         MessageEntity entity = messageService.getByStableId(stableId)
                 .orElseThrow(() -> new ResourceNotFoundException("Message not found for flag update: " + stableId));

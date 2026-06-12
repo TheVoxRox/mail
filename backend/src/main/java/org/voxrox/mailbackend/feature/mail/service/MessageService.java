@@ -31,9 +31,15 @@ public class MessageService {
         return messageRepository.fullTextSearchSummaries(ftsQuery, accountId, PageRequest.of(page, size));
     }
 
+    /**
+     * Loads a message with the owning account fetch-joined. Callers (MailFacade,
+     * SmtpMessageService) use the entity after this transaction has closed — IMAP
+     * round-trips deliberately run with no transaction open — so the lazy account
+     * association must already be populated here.
+     */
     @Transactional(readOnly = true)
     public Optional<MessageEntity> getByStableId(String stableId) {
-        return messageRepository.findByStableId(stableId);
+        return messageRepository.findByStableIdWithAccount(stableId);
     }
 
     @Transactional
