@@ -7,7 +7,7 @@
 # Format: one path per line, relative to repo root. Comments start with '#'.
 # Blank lines ignored.
 #
-# Lint script: backend/scripts/check-translation-whitelist.sh
+# Lint script: frontend/scripts/check-translation-whitelist.mjs --target=backend
 #
 # Policy (from todo.md "Migrace komentaru a logu do anglictiny"):
 #  - Programmer text (comments, log messages, internal exception messages)

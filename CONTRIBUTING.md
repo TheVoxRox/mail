@@ -85,8 +85,8 @@ than lowering global floors.
 - Unit + integration tests (Surefire + Failsafe). Baseline: **724 + 22 green**.
 - Jacoco merged unit + IT coverage report in `target/site/jacoco-merged/`.
   Threshold gate enforces ≥ 70% instructions / ≥ 50% branches / ≥ 70% lines.
-- Translation whitelist lint (`bash scripts/check-translation-whitelist.sh
-  --mode=strict`) — keeps the Java codebase in English.
+- Translation whitelist lint (`node ../frontend/scripts/check-translation-whitelist.mjs
+  --target=backend --mode=strict`) — keeps the Java codebase in English.
 
 **Frontend (`cd frontend && npm run lint && npm run check && npm test ...`)**
 
@@ -167,9 +167,9 @@ surfaces them via RFC 9457 `problem.detail` localised through the
 `Accept-Language` header.
 
 Code (comments, log messages, exception messages) is **English only**.
-The `check-translation-whitelist.sh` / `check-translation-whitelist.mjs`
-scripts enforce that; non-English files must be added to the whitelist
-with a one-line justification.
+The `frontend/scripts/check-translation-whitelist.mjs` script enforces
+that for both modules (`--target=frontend|backend`); non-English files
+must be added to the module's whitelist with a one-line justification.
 
 ## Filing Issues and PRs
 

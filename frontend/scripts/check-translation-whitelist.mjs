@@ -2,21 +2,25 @@
 /**
  * check-translation-whitelist.mjs
  *
- * Find frontend source files that still contain Czech text (diacritics) and
- * verify they are listed in frontend/docs/translation-whitelist.txt.
+ * Find source files that still contain Czech text (diacritics) and verify
+ * they are listed in the per-module translation whitelist. One
+ * implementation serves both modules (it replaced the former backend bash
+ * variant check-translation-whitelist.sh):
+ *
+ *   --target=frontend  (default) scan frontend/src against
+ *                      frontend/docs/translation-whitelist.txt
+ *   --target=backend   scan backend/src/{main,test}/java against
+ *                      backend/docs/translation-whitelist.txt
  *
  * Modes:
  *   --mode=report   List non-whitelisted offenders with counts. Exit 0.
- *                   Use during the migration to track progress.
+ *                   Use during a migration to track progress.
  *   --mode=strict   Exit 1 if any non-whitelisted file contains diacritics.
- *                   Wire into CI once Phase 5 of the translation migration
- *                   is reached.
+ *                   Wired into CI for both targets.
  *
- * Default mode is 'report'.
- *
- * Run from frontend/ directory (npm script) or repo root:
+ * Default mode is 'report'. Run from anywhere:
  *   node frontend/scripts/check-translation-whitelist.mjs
- *   node frontend/scripts/check-translation-whitelist.mjs --mode=strict
+ *   node frontend/scripts/check-translation-whitelist.mjs --target=backend --mode=strict
  */
 
 import { readdir, readFile, stat } from 'node:fs/promises';
@@ -27,11 +31,8 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
-const FRONTEND_ROOT = path.resolve(__dirname, '..');
-const WHITELIST_FILE = path.join(FRONTEND_ROOT, 'docs', 'translation-whitelist.txt');
 
 const DIACRITICS = /[áéíóúýčďěňřšťůžÁÉÍÓÚÝČĎĚŇŘŠŤŮŽ]/;
-const SCAN_EXTENSIONS = new Set(['.ts', '.svelte', '.tsx', '.js', '.mjs', '.json']);
 const IGNORED_DIRS = new Set([
 	'node_modules',
 	'.svelte-kit',
@@ -43,30 +44,57 @@ const IGNORED_DIRS = new Set([
 	'.git'
 ]);
 
+const TARGETS = {
+	frontend: {
+		whitelistFile: path.join(REPO_ROOT, 'frontend', 'docs', 'translation-whitelist.txt'),
+		extensions: new Set(['.ts', '.svelte', '.tsx', '.js', '.mjs', '.json']),
+		roots: [{ dir: path.join(REPO_ROOT, 'frontend', 'src'), label: 'frontend/src' }]
+	},
+	backend: {
+		whitelistFile: path.join(REPO_ROOT, 'backend', 'docs', 'translation-whitelist.txt'),
+		extensions: new Set(['.java']),
+		roots: [
+			{
+				dir: path.join(REPO_ROOT, 'backend', 'src', 'main', 'java'),
+				label: 'backend/src/main/java'
+			},
+			{
+				dir: path.join(REPO_ROOT, 'backend', 'src', 'test', 'java'),
+				label: 'backend/src/test/java'
+			}
+		]
+	}
+};
+
 function parseArgs(argv) {
 	let mode = 'report';
+	let target = 'frontend';
 	for (const arg of argv) {
 		if (arg === '--mode=report' || arg === '--mode=strict') {
 			mode = arg.slice('--mode='.length);
+		} else if (arg === '--target=frontend' || arg === '--target=backend') {
+			target = arg.slice('--target='.length);
 		} else if (arg === '-h' || arg === '--help') {
 			process.stdout.write(
-				'Usage: check-translation-whitelist.mjs [--mode=report|--mode=strict]\n'
+				'Usage: check-translation-whitelist.mjs [--target=frontend|--target=backend] [--mode=report|--mode=strict]\n'
 			);
 			process.exit(0);
 		} else {
-			process.stderr.write(`Unknown argument: ${arg}\nUse --mode=report or --mode=strict.\n`);
+			process.stderr.write(
+				`Unknown argument: ${arg}\nUse --target=frontend|backend and --mode=report|strict.\n`
+			);
 			process.exit(2);
 		}
 	}
-	return { mode };
+	return { mode, target };
 }
 
-async function loadWhitelist() {
+async function loadWhitelist(whitelistFile) {
 	let raw;
 	try {
-		raw = await readFile(WHITELIST_FILE, 'utf8');
+		raw = await readFile(whitelistFile, 'utf8');
 	} catch {
-		process.stderr.write(`Whitelist file not found: ${WHITELIST_FILE}\n`);
+		process.stderr.write(`Whitelist file not found: ${whitelistFile}\n`);
 		process.exit(2);
 	}
 	const entries = new Set();
@@ -107,13 +135,13 @@ function countDiacriticLines(content) {
 	return count;
 }
 
-async function scan(dir) {
+async function scan(dir, extensions) {
 	const offenders = [];
 	let totalFiles = 0;
 	let totalLines = 0;
 	for await (const file of walk(dir)) {
 		const ext = path.extname(file);
-		if (!SCAN_EXTENSIONS.has(ext)) continue;
+		if (!extensions.has(ext)) continue;
 		const content = await readFile(file, 'utf8');
 		const count = countDiacriticLines(content);
 		if (count === 0) continue;
@@ -126,38 +154,54 @@ async function scan(dir) {
 	return { offenders, totalFiles, totalLines };
 }
 
-async function main() {
-	const { mode } = parseArgs(process.argv.slice(2));
-	const whitelist = await loadWhitelist();
-	const srcDir = path.join(FRONTEND_ROOT, 'src');
-
+async function pathExists(target) {
 	try {
-		await stat(srcDir);
+		await stat(target);
+		return true;
 	} catch {
-		process.stderr.write(`Source dir not found: ${srcDir}\n`);
+		return false;
+	}
+}
+
+async function main() {
+	const { mode, target } = parseArgs(process.argv.slice(2));
+	const config = TARGETS[target];
+	const whitelist = await loadWhitelist(config.whitelistFile);
+	const whitelistRel = path.relative(REPO_ROOT, config.whitelistFile).replace(/\\/g, '/');
+
+	const roots = [];
+	for (const root of config.roots) {
+		if (await pathExists(root.dir)) roots.push(root);
+	}
+	if (roots.length === 0) {
+		process.stderr.write(`No scan roots found for target ${target}.\n`);
 		process.exit(2);
 	}
 
-	process.stdout.write(`== frontend/src ==\n`);
-	const { offenders, totalFiles, totalLines } = await scan(srcDir);
 	let offendingFiles = 0;
-	let offendingLines = 0;
-	for (const { count, rel } of offenders) {
-		if (whitelist.has(rel)) continue;
-		offendingFiles++;
-		offendingLines += count;
-		process.stdout.write(`  ${String(count).padStart(4)}  ${rel}\n`);
-	}
+	for (const root of roots) {
+		process.stdout.write(`== ${root.label} ==\n`);
+		const { offenders, totalFiles, totalLines } = await scan(root.dir, config.extensions);
+		let rootOffendingFiles = 0;
+		let rootOffendingLines = 0;
+		for (const { count, rel } of offenders) {
+			if (whitelist.has(rel)) continue;
+			rootOffendingFiles++;
+			rootOffendingLines += count;
+			process.stdout.write(`  ${String(count).padStart(4)}  ${rel}\n`);
+		}
+		offendingFiles += rootOffendingFiles;
 
-	process.stdout.write(
-		`\nfrontend summary: ${totalFiles} file(s) with diacritics, ${totalLines} line(s) total. Non-whitelisted: ${offendingFiles} file(s), ${offendingLines} line(s).\n\n`
-	);
+		process.stdout.write(
+			`\n${root.label} summary: ${totalFiles} file(s) with diacritics, ${totalLines} line(s) total. Non-whitelisted: ${rootOffendingFiles} file(s), ${rootOffendingLines} line(s).\n\n`
+		);
+	}
 
 	if (mode === 'strict') {
 		if (offendingFiles > 0) {
 			process.stderr.write(
 				`FAIL (strict): ${offendingFiles} non-whitelisted file(s) contain Czech diacritics.\n` +
-					`Either translate the file or add it to frontend/docs/translation-whitelist.txt with a justification.\n`
+					`Either translate the file or add it to ${whitelistRel} with a justification.\n`
 			);
 			process.exit(1);
 		}
