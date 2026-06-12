@@ -1,4 +1,4 @@
-import { access, cp, mkdir, rename, rm } from 'node:fs/promises';
+import { access, cp, mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -36,14 +36,22 @@ for (const item of requiredItems) {
 	await cp(path.join(source, item), target, { recursive: true, force: true });
 }
 
+/*
+ * The jpackage launcher looks for app/<exe-basename>.cfg. Both names must
+ * exist side by side: `tauri:dev` spawns the triple-named exe
+ * (mail-x86_64-pc-windows-msvc.exe), while the release bundle renames the
+ * sidecar to mail.exe. The previous rename-instead-of-copy left only mail.cfg
+ * — the dev launcher then failed to find its cfg and hung on an invisible
+ * jpackage error dialog (frontend waited for a `.ready` that never came).
+ */
 const cfgSource = path.join(destination, 'app', 'mail-x86_64-pc-windows-msvc.cfg');
 const cfgTarget = path.join(destination, 'app', 'mail.cfg');
 try {
 	await access(cfgSource);
 	await rm(cfgTarget, { force: true });
-	await rename(cfgSource, cfgTarget);
+	await cp(cfgSource, cfgTarget);
 } catch {
-	// cfg already renamed or missing
+	// cfg missing in this layout — keep whatever is present
 }
 
 console.log(`Copied backend sidecar to ${destination}`);
