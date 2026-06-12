@@ -21,7 +21,7 @@
 		"build": "vite build",
 		"preview": "vite preview",
 		"preview:test": "node scripts/playwright-preview.mjs",
-		"prepare": "playwright install && svelte-kit sync || echo ''",
+		"prepare": "svelte-kit sync",
 		"check": "npm run check:versions && npm run check:api && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"check:versions": "node scripts/check-version-sync.mjs",

@@ -11,7 +11,7 @@
  * Usage: `node backend/scripts/regen-third-party-licenses.mjs`.
  */
 
-import { execFileSync } from "node:child_process";
+import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -27,20 +27,23 @@ const thirdPartyTxt = path.join(
   "THIRD-PARTY.txt",
 );
 
-const mvnw = process.platform === "win32" ? "mvnw.cmd" : "mvnw";
-
-execFileSync(
-  path.join(backendDir, mvnw),
+// Static command string through the shell — mvn is a .cmd shim on Windows,
+// which Node refuses to spawn without one (and shell + args array is
+// deprecated, DEP0190). Do not switch to ./mvnw: the committed mvnw.cmd
+// requires legacy Windows PowerShell, which is absent on some dev machines.
+//
+// CLI properties need the license. prefix — bare -DexcludedScopes is
+// silently ignored. includedScopes is used because even
+// license.excludedScopes=test leaves transitive test deps in (plugin 2.7.0).
+execSync(
   [
-    "-B",
-    "-q",
-    "-f",
-    path.join(backendDir, "pom.xml"),
+    "mvn -B -q",
     "org.codehaus.mojo:license-maven-plugin:2.7.0:add-third-party",
-    "-DexcludedScopes=test,provided",
-    "-DexcludedTypes=pom",
-  ],
-  { cwd: backendDir, stdio: "inherit", shell: process.platform === "win32" },
+    "-Dlicense.includedScopes=compile,runtime",
+    "-Dlicense.excludedTypes=pom",
+    "-Dlicense.force=true",
+  ].join(" "),
+  { cwd: backendDir, stdio: "inherit" },
 );
 
 const raw = readFileSync(thirdPartyTxt, "utf8");

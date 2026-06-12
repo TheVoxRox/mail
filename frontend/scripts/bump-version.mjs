@@ -106,6 +106,6 @@ if (updates.length === 0) {
 	console.log(`All files already at ${newVersion}, nothing to do.`);
 } else {
 	console.log(
-		`\nNext steps:\n  - frontend: npm run check:versions\n  - backend: ./mvnw -f ../backend/pom.xml validate\n  - rust (optional): cargo check --manifest-path src-tauri/Cargo.toml\n  - review the diff and commit.`
+		`\nNext steps:\n  - frontend: npm run check:versions\n  - backend: mvn -f ../backend/pom.xml validate\n  - rust (optional): cargo check --manifest-path src-tauri/Cargo.toml\n  - review the diff and commit.`
 	);
 }

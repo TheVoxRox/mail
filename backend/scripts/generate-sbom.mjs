@@ -13,18 +13,20 @@
  *        or `npm run regen:sbom:backend` (from frontend/).
  */
 
-import { execFileSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const backendDir = path.resolve(here, '..');
 
-const mvn = process.platform === 'win32' ? 'mvn.cmd' : 'mvn';
-execFileSync(mvn, ['--batch-mode', 'cyclonedx:makeAggregateBom'], {
+// Static command string through the shell — mvn is a .cmd shim on Windows,
+// which Node refuses to spawn without one (and shell + args array is
+// deprecated, DEP0190). Do not switch to ./mvnw: the committed mvnw.cmd
+// requires legacy Windows PowerShell, which is absent on some dev machines.
+execSync('mvn --batch-mode cyclonedx:makeAggregateBom', {
 	cwd: backendDir,
-	stdio: 'inherit',
-	shell: process.platform === 'win32'
+	stdio: 'inherit'
 });
 
 console.log('Wrote backend/target/bom.json.');
