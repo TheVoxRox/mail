@@ -18,32 +18,36 @@ public class HtmlSanitizer {
 
     private static final Logger log = LoggerFactory.getLogger(HtmlSanitizer.class);
 
+    /*
+     * The backend is the canonical policy: it does not let user inline CSS or
+     * remote images through. The frontend may be stricter, but must not be the only
+     * safeguard.
+     *
+     * Static because sanitize runs per content fetch: the policy never changes
+     * after init and Jsoup's Cleaner only reads the Safelist, so sharing one
+     * instance across threads is safe. OutputSettings stays per call — Jsoup
+     * attaches it to the output Document.
+     *
+     * CID and data:image are local mail resources. http/https images are a tracking
+     * / privacy risk; any future "show remote content" action belongs in an
+     * explicit user gesture, not the default.
+     */
+    private static final Safelist SAFELIST = Safelist.relaxed().removeAttributes(":all", "style")
+            .addProtocols("a", "href", "http", "https", "mailto", "tel").removeProtocols("a", "href", "ftp")
+            .addProtocols("img", "src", "cid", "data").removeProtocols("img", "src", "http", "https")
+            .addAttributes("table", "align", "width", "bgcolor", "cellpadding", "cellspacing")
+            .addAttributes("td", "align", "valign", "width", "height");
+
     public static String sanitize(String rawHtml) {
         if (rawHtml == null || rawHtml.isBlank()) {
             return "";
         }
 
         try {
-            /*
-             * The backend is the canonical policy: it does not let user inline CSS or
-             * remote images through. The frontend may be stricter, but must not be the only
-             * safeguard.
-             */
-            Safelist safelist = Safelist.relaxed().removeAttributes(":all", "style")
-                    .addProtocols("a", "href", "http", "https", "mailto", "tel").removeProtocols("a", "href", "ftp")
-                    /*
-                     * CID and data:image are local mail resources. http/https images are a tracking
-                     * / privacy risk; any future "show remote content" action belongs in an
-                     * explicit user gesture, not the default.
-                     */
-                    .addProtocols("img", "src", "cid", "data").removeProtocols("img", "src", "http", "https")
-                    .addAttributes("table", "align", "width", "bgcolor", "cellpadding", "cellspacing")
-                    .addAttributes("td", "align", "valign", "width", "height");
-
             Document.OutputSettings settings = new Document.OutputSettings().prettyPrint(false)
                     .syntax(Document.OutputSettings.Syntax.html);
 
-            String cleaned = Jsoup.clean(rawHtml, "", safelist, settings);
+            String cleaned = Jsoup.clean(rawHtml, "", SAFELIST, settings);
 
             Document doc = Jsoup.parseBodyFragment(cleaned);
 
