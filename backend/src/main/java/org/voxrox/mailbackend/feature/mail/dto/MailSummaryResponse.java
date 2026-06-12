@@ -14,7 +14,7 @@ public record MailSummaryResponse(Long id,
         @Schema(description = "Primary recipients (To). Useful for Drafts/Sent listings where the sender is the account owner.") @Nullable String recipientsTo,
         LocalDateTime receivedAt, boolean seen, boolean flagged, boolean answered, boolean hasAttachments,
         @Schema(nullable = true, description = "Conversation identifier — every message of the same thread shares it. "
-                + "Null only for messages persisted before the V2 backfill completes "
+                + "Null only until the threading backfill has processed the message "
                 + "(see /api/internal/threading/recompute). Frontends MAY group rows by this "
                 + "id; the V0.1.0 desktop client ignores it.") String threadId,
         @JsonIgnore @Schema(hidden = true) Long uid) {

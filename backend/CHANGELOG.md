@@ -41,6 +41,7 @@ When upgrading to a new MAJOR/MINOR backend version the DB schema migrates forwa
 - Springdoc excluded from the fat jar via `spring-boot-maven-plugin`; `OpenApiConfig` is guarded by `@ConditionalOnClass`. Use the `openapi` profile to build a fat jar that includes docs.
 - JVM args in the sidecar packaging script tuned for faster startup: `-XX:TieredStopAtLevel=1`, `-Xms64m`, `-Xmx384m`, `-XX:+UseSerialGC`, `-Dspring.aot.enabled=true`.
 - Flyway migrations consolidated: the former `V2__add_modseq.sql` (`last_known_modseq` column) is folded into `V1__init.sql`. Safe before first release because the project carries no production data.
+- Flyway migrations consolidated again, same pre-release rationale: `V2__add_threading.sql` and `V3__add_in_reply_to_index.sql` folded into `V1__init.sql`. Adds the previously missing composite index `idx_messages_account_message_id` — the threading parent lookup (`findByAccountIdAndMessageId`, called for every persisted message from inside the sync write transaction) scanned the whole account without it. Existing dev databases must be recreated: the V1 checksum changed and Flyway validation rejects them.
 - All Czech programmer text in `src/main/java`, `src/test/java`, Flyway migrations and packaging scripts translated to English. Permanent whitelist entries (SMTP-bound labels, Czech IMAP folder name fixtures, UTF-8 stress fixtures) live in `backend/docs/translation-whitelist.txt`.
 
 ### Fixed

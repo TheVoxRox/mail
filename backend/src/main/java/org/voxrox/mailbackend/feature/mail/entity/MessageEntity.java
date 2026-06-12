@@ -21,6 +21,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
         @Index(name = "idx_messages_stable_id", columnList = "stable_id"),
         @Index(name = "idx_messages_account_thread", columnList = "account_id, thread_id"),
         @Index(name = "idx_messages_account_thread_root", columnList = "account_id, thread_root_message_id"),
+        @Index(name = "idx_messages_account_message_id", columnList = "account_id, message_id"),
         @Index(name = "idx_messages_account_in_reply_to", columnList = "account_id, in_reply_to")})
 public class MessageEntity {
 
@@ -90,8 +91,8 @@ public class MessageEntity {
      * Stable identifier of the conversation this message belongs to. Generated once
      * when a new thread root is detected and inherited by every subsequent message
      * that links into the thread via {@code In-Reply-To} or {@code
-     * References}. Nullable only during the V2 backfill window — see
-     * {@code ThreadingBackfillService}.
+     * References}. Nullable only until the threading backfill has processed the row
+     * — see {@code ThreadingBackfillService}.
      */
     @Column(name = "thread_id", length = 36)
     private String threadId;

@@ -1,6 +1,7 @@
 package org.voxrox.mailbackend.feature.mail.service;
 
 import java.util.List;
+import java.util.Objects;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -8,9 +9,10 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
@@ -20,8 +22,12 @@ import org.voxrox.mailbackend.util.LogCategory;
 import org.voxrox.mailbackend.util.LogMasker;
 
 /**
- * Backfills {@code thread_id} for messages persisted before the V2 migration
- * applied (every row with {@code thread_id IS NULL}).
+ * Backfills {@code thread_id} for every row that is missing it
+ * ({@code thread_id IS NULL}). On a database where every message was persisted
+ * through {@link MessageDownloader#saveMessagesBatchAtomic} this is a no-op —
+ * threading is assigned inline at persist — so the pass exists as the repair
+ * path: rows from older builds, interrupted runs, or a manual
+ * {@code /api/internal/threading/recompute}.
  *
  * <p>
  * The service runs once at {@link ApplicationReadyEvent}, asynchronously on the
@@ -56,15 +62,25 @@ public class ThreadingBackfillService {
 
     private static final Logger log = LoggerFactory.getLogger(ThreadingBackfillService.class);
 
+    /**
+     * Messages per batch transaction. Bounds both heap (entities carry the
+     * {@code @Lob} body threading never reads) and the persistence context that
+     * Hibernate dirty-checks before every parent-lookup query inside
+     * {@link ThreadingService#assignThread}.
+     */
+    private static final int BATCH_SIZE = 200;
+
     private final AccountRepository accountRepository;
     private final MessageRepository messageRepository;
     private final ThreadingService threadingService;
+    private final TransactionTemplate transactionTemplate;
 
     public ThreadingBackfillService(AccountRepository accountRepository, MessageRepository messageRepository,
-            ThreadingService threadingService) {
+            ThreadingService threadingService, TransactionTemplate transactionTemplate) {
         this.accountRepository = accountRepository;
         this.messageRepository = messageRepository;
         this.threadingService = threadingService;
+        this.transactionTemplate = transactionTemplate;
     }
 
     /**
@@ -114,21 +130,43 @@ public class ThreadingBackfillService {
      * endpoint can call it directly without going through the
      * {@code ApplicationReadyEvent} path.
      *
+     * <p>
+     * Runs in batches of {@value #BATCH_SIZE}, each in its own transaction with a
+     * fresh persistence context. The previous single-transaction pass held every
+     * unthreaded message as a managed entity — bodies included — which did not fit
+     * the 384m heap on a populated account, and Hibernate's pre-query auto-flush
+     * dirty-checked that whole context before each parent lookup, making the pass
+     * quadratic. Re-querying {@code thread_id IS NULL} advances the cursor for
+     * free: assignThread always assigns a thread_id, so processed rows drop out of
+     * the predicate and the loop terminates. A crash mid-way keeps the completed
+     * batches — re-entry safety is unchanged (the WHERE clause is the guard).
+     *
      * @return number of messages whose {@code thread_id} was newly assigned
      */
-    @Transactional
     public int backfillAccount(AccountEntity account) {
-        List<MessageEntity> messages = messageRepository.findUnthreadedByAccountOrderByReceivedAt(account.getId());
-        if (messages.isEmpty()) {
+        long unthreaded = messageRepository.countUnthreadedByAccount(account.getId());
+        if (unthreaded == 0) {
             return 0;
         }
         log.info("{} Threading backfill: assigning thread_id for {} message(s) in account {}.", LogCategory.SYNC,
-                messages.size(), account.getId());
+                unthreaded, account.getId());
         AuditLog.success("threading_backfill_started", LogMasker.maskEmail(account.getEmail()),
-                "id=" + account.getId() + " messages=" + messages.size());
-        for (MessageEntity msg : messages) {
-            threadingService.assignThread(msg, account);
+                "id=" + account.getId() + " messages=" + unthreaded);
+        int total = 0;
+        while (true) {
+            int assigned = Objects.requireNonNull(transactionTemplate.execute(status -> {
+                List<MessageEntity> batch = messageRepository.findUnthreadedByAccountOrderByReceivedAt(account.getId(),
+                        PageRequest.of(0, BATCH_SIZE));
+                for (MessageEntity msg : batch) {
+                    threadingService.assignThread(msg, account);
+                }
+                return batch.size();
+            }));
+            total += assigned;
+            if (assigned < BATCH_SIZE) {
+                break;
+            }
         }
-        return messages.size();
+        return total;
     }
 }

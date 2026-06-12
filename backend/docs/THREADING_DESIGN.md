@@ -11,9 +11,11 @@ defer search threading, minimal SSE payload, silent backfill). See the
 Backend-only ship per decision 1a — frontend types are generated but the
 v0.1.0 UI does not yet consume them. Landed:
 
-- **`V2__add_threading.sql`** adds `thread_id` / `thread_root_message_id` /
-  `thread_position` columns to `messages` plus two composite indexes
-  (`account_id, thread_id` and `account_id, thread_root_message_id`).
+- **Schema** — `thread_id` / `thread_root_message_id` / `thread_position`
+  columns on `messages` plus composite threading indexes. Originally shipped
+  as `V2__add_threading.sql` (+ `V3` for the `in_reply_to` index); folded
+  into `V1__init.sql` on 2026-06-12, pre-release with no production data —
+  same consolidation as the earlier modseq migration (see CHANGELOG).
 - **`MessageEntity`** carries the three columns with Javadoc explaining the
   rollout window where `thread_id` may be null.
 - **`MailSummaryResponse` + `MailDetailResponse`** advertise `threadId` as
@@ -229,18 +231,26 @@ Emitted when:
 
 ## DB schema delta
 
-New Flyway migration `V2__add_threading.sql`:
+Three columns + threading indexes on `messages` (today part of
+`V1__init.sql`; originally a separate `V2__add_threading.sql`, folded
+pre-release):
 
 ```sql
-ALTER TABLE messages ADD COLUMN thread_id TEXT;
-ALTER TABLE messages ADD COLUMN thread_root_message_id TEXT;
-ALTER TABLE messages ADD COLUMN thread_position INTEGER;
+thread_id              TEXT,
+thread_root_message_id TEXT,
+thread_position        INTEGER
 
 CREATE INDEX idx_messages_account_thread
   ON messages (account_id, thread_id);
 
 CREATE INDEX idx_messages_account_thread_root
   ON messages (account_id, thread_root_message_id);
+
+CREATE INDEX idx_messages_account_message_id
+  ON messages (account_id, message_id);
+
+CREATE INDEX idx_messages_account_in_reply_to
+  ON messages (account_id, in_reply_to);
 ```
 
 No backfill in the migration itself — see backfill plan below.
@@ -402,12 +412,13 @@ lookups per message via `idx_messages_account_thread_root` ≈ a few seconds.
 6. **Backfill UX.** Internal `/api/internal/threading/recompute` is the
    technical hook. Should the frontend expose a Settings button
    ("Reorganize conversations") that calls it, with a progress indicator?
-   Or run it transparently in the background on first start after the V2
-   migration?
+   Or run it transparently in the background on first start after an
+   upgrade?
 
 ## Phasing summary
 
-- **Phase 1 (V0.2 backend prep):** V2 migration, ThreadingService, API
+- **Phase 1 (V0.2 backend prep):** threading schema (now part of
+  `V1__init.sql`), ThreadingService, API
   additions (`threadId` on summary, `/threads/{id}` endpoint,
   `thread_updated` SSE event). Tests at all three layers. Frontend ignores
   threading data.

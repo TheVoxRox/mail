@@ -194,6 +194,23 @@ CREATE TABLE messages (
     in_reply_to      VARCHAR(255),
     reply_references TEXT,
     has_attachments  BOOLEAN       NOT NULL DEFAULT 0,
+    -- Conversation threading, materialized at sync time (assigned inline by
+    -- ThreadingService when the message is persisted; rows missing it are
+    -- repaired by the startup backfill / the internal /threading/recompute
+    -- endpoint, hence nullable):
+    --   thread_id              UUID shared by every message of a conversation.
+    --                          Stable across syncs — new messages inherit it
+    --                          from their parent.
+    --   thread_root_message_id RFC 5322 Message-ID of the oldest message in
+    --                          the thread. Used by late-arriving-parent
+    --                          reconciliation to merge orphan chains.
+    --   thread_position        Ordinal position within the thread (1..N) in
+    --                          ascending receivedAt order.
+    -- No separate `threads` aggregate table — the composite indexes below do
+    -- the aggregation in queries. See backend/docs/THREADING_DESIGN.md.
+    thread_id              TEXT,
+    thread_root_message_id TEXT,
+    thread_position        INTEGER,
     FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
 );
 
@@ -205,6 +222,35 @@ CREATE INDEX idx_messages_lookup_desc
 
 CREATE INDEX idx_messages_stable_id
     ON messages (stable_id);
+
+-- Threading indexes. Composite on (account_id, ...) so every thread lookup
+-- stays inside the caller's account and cross-account thread IDs cannot
+-- collide.
+
+-- Primary lookup: list the messages of a thread, or join a thread row onto
+-- a summary list.
+CREATE INDEX idx_messages_account_thread
+    ON messages (account_id, thread_id);
+
+-- Reconciliation lookup: when a new message arrives whose Message-ID
+-- matches an existing message's In-Reply-To / References (i.e. it turns
+-- out to be a parent that arrived after its children), find the orphan
+-- thread to merge into the new root.
+CREATE INDEX idx_messages_account_thread_root
+    ON messages (account_id, thread_root_message_id);
+
+-- Parent lookup: the most frequent threading query of all — every newly
+-- persisted message resolves its parent by Message-ID (1x In-Reply-To plus
+-- up to MAX_REFERENCES_WALK walks over References), inside the sync write
+-- transaction. Without this index each lookup scans the whole account.
+CREATE INDEX idx_messages_account_message_id
+    ON messages (account_id, message_id);
+
+-- Orphan lookup by In-Reply-To: children that arrived before their parent
+-- reference it by Message-ID in in_reply_to; reconciliation queries them
+-- on every arrival during a bulk sync, so the lookup must stay cheap.
+CREATE INDEX idx_messages_account_in_reply_to
+    ON messages (account_id, in_reply_to);
 
 
 -- =====================================================================

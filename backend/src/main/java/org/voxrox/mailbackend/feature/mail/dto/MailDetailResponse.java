@@ -25,5 +25,5 @@ public record MailDetailResponse(
         @Nullable String inReplyTo, @Nullable String references, boolean hasAttachments,
         List<AttachmentResponse> attachments, @Nullable String contentError,
         @Schema(nullable = true, description = "Conversation identifier shared by every message of the same thread. "
-                + "Null only during the V2 backfill window.") @Nullable String threadId) {
+                + "Null only until the threading backfill has processed the message.") @Nullable String threadId) {
 }

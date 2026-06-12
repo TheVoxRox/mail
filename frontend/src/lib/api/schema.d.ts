@@ -959,8 +959,8 @@ export interface components {
 			smtp?: components['schemas']['MailServerSettings'];
 			username: string;
 			password?: string;
-			providerOrCustomServerConfigPresent?: boolean;
 			passwordPresentForNewAccount?: boolean;
+			providerOrCustomServerConfigPresent?: boolean;
 		};
 		AccountConnectionTestResponse: {
 			imapOk?: boolean;
@@ -1062,7 +1062,7 @@ export interface components {
 			hasAttachments?: boolean;
 			attachments?: components['schemas']['AttachmentResponse'][];
 			contentError?: string;
-			/** @description Conversation identifier shared by every message of the same thread. Null only during the V2 backfill window. */
+			/** @description Conversation identifier shared by every message of the same thread. Null only until the threading backfill has processed the message. */
 			threadId?: string;
 		};
 		MailContentResponse: {
@@ -1084,7 +1084,7 @@ export interface components {
 			flagged?: boolean;
 			answered?: boolean;
 			hasAttachments?: boolean;
-			/** @description Conversation identifier — every message of the same thread shares it. Null only for messages persisted before the V2 backfill completes (see /api/internal/threading/recompute). Frontends MAY group rows by this id; the V0.1.0 desktop client ignores it. */
+			/** @description Conversation identifier — every message of the same thread shares it. Null only until the threading backfill has processed the message (see /api/internal/threading/recompute). Frontends MAY group rows by this id; the V0.1.0 desktop client ignores it. */
 			threadId?: string;
 		};
 		ThreadResponse: {
