@@ -18,6 +18,7 @@
 import { buildApiUrl } from './client.js';
 import { httpFetch } from './http.js';
 import { toError } from './errors.js';
+import { delayWithAbort } from '$lib/delay.js';
 import { invalidateSession } from '$lib/stores/session.js';
 import type { StreamNotification } from '$lib/types.js';
 
@@ -50,6 +51,16 @@ export class SseClient {
 	private listeners = new Set<Listener>();
 	private closed = false;
 	private backoff = INITIAL_BACKOFF_MS;
+	/**
+	 * Monotonic loop counter. `start()` bakes the current value into the loop it
+	 * spawns; a loop whose token no longer matches exits instead of running next
+	 * to its successor. Without it, `close()` during the reconnect backoff
+	 * followed by `start()` left the old loop sleeping — it would wake, see
+	 * `closed === false` again, and keep a SECOND stream open (duplicate
+	 * connections, every event delivered twice). Same bug class as the sidecar
+	 * process-generation race.
+	 */
+	private loopToken = 0;
 
 	constructor(private readonly options: SseClientOptions = {}) {}
 
@@ -61,7 +72,7 @@ export class SseClient {
 	start(): void {
 		if (this.abort) return;
 		this.closed = false;
-		void this.loop();
+		void this.loop(++this.loopToken);
 	}
 
 	close(): void {
@@ -70,9 +81,10 @@ export class SseClient {
 		this.abort = null;
 	}
 
-	private async loop(): Promise<void> {
-		while (!this.closed) {
-			this.abort = new AbortController();
+	private async loop(token: number): Promise<void> {
+		while (!this.closed && token === this.loopToken) {
+			const abort = new AbortController();
+			this.abort = abort;
 			try {
 				const { url, apiKey } = await buildApiUrl('/notifications/stream');
 				const response = await httpFetch(url, {
@@ -81,7 +93,7 @@ export class SseClient {
 						Accept: 'text/event-stream',
 						'X-API-KEY': apiKey
 					},
-					signal: this.abort.signal
+					signal: abort.signal
 				});
 
 				if (!response.ok || !response.body) {
@@ -95,10 +107,13 @@ export class SseClient {
 				this.backoff = INITIAL_BACKOFF_MS;
 				await this.readStream(response.body);
 			} catch (err) {
-				if (this.closed) return;
+				if (this.closed || token !== this.loopToken) return;
 				const error = toError(err);
 				this.options.onError?.(error);
-				await this.sleep(this.backoff);
+				// Abort-aware backoff: close() aborts the controller of the failed
+				// attempt, which cuts the sleep short instead of leaving a zombie
+				// sleeper behind.
+				await delayWithAbort(this.backoff, abort.signal);
 				this.backoff = Math.min(this.backoff * 2, MAX_BACKOFF_MS);
 			}
 		}
@@ -147,9 +162,5 @@ export class SseClient {
 		} catch {
 			/* ignore invalid payload */
 		}
-	}
-
-	private sleep(ms: number): Promise<void> {
-		return new Promise((resolve) => setTimeout(resolve, ms));
 	}
 }
