@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| **Version** | 1.1 |
-| **Last revised** | 2026-06-07 |
+| **Version** | 1.2 |
+| **Last revised** | 2026-06-13 |
 | **Applies to** | VoxRox Mail V0.1.0 |
 | **Status** | Active — read by PR reviewers when changes cross a trust boundary |
 
@@ -159,9 +159,9 @@ Severity uses a CVSS-light rubric:
 
 | ST | Threat | Vector | Severity | Mitigation |
 |---|---|---|---|---|
-| **T / I** | XSS in mail body | Malicious HTML in an email | **Critical** | [content-sanitizer.ts](frontend/src/lib/mail/content-sanitizer.ts) strips `<script>`, inline event handlers, `javascript:` / `data:` URLs (except whitelisted inline images), SVG `onload`, `formaction`, `srcdoc`; 29 unit tests cover the matrix (R3 audit) |
-| **E** | Untrusted page invokes a Tauri command | Hostile content reaches the IPC bridge | High | Capabilities zeroed out in [capabilities/default.json](frontend/src-tauri/capabilities/default.json) to the minimum needed (`core:path:default`, `core:window:default`, `shell:allow-open`, `updater:allow-check`, `updater:allow-download-and-install`, plus the explicit `fs:*` / `http:*` allow lists) |
-| **I** | Inline images exfiltrate via tracking pixels | Remote image as user fingerprint | Medium | Image loading off by default for unknown senders (UI toggle); CSP `img-src` allow list excludes `blob:` from the rendered body |
+| **T / I** | XSS in mail body | Malicious HTML in an email | **Critical** | [content-sanitizer.ts](frontend/src/lib/mail/content-sanitizer.ts) strips `<script>`, inline event handlers, `javascript:` / `data:` URLs (except whitelisted inline images), SVG `onload`, `formaction`, `srcdoc`; 29 unit tests cover the matrix (R3 audit). Defense-in-depth: even a missed vector cannot execute, because the body renders inside a fully sandboxed iframe (`sandbox=""`, no `allow-scripts`) carrying its own `default-src 'none'` CSP ([MessageContent.svelte](frontend/src/lib/components/message-detail/MessageContent.svelte)) |
+| **E** | Untrusted page invokes a Tauri command | Hostile content reaches the IPC bridge | High | Capabilities zeroed out in [capabilities/default.json](frontend/src-tauri/capabilities/default.json) to the minimum needed (`core:path:default`, `core:window:default`, `shell:allow-open`, `updater:allow-check`, `updater:allow-download-and-install`, plus the explicit `fs:*` / `http:*` allow lists and `shell:allow-spawn` / `shell:allow-kill` constrained to the `binaries/mail` sidecar with `args: false`). [lib.rs](frontend/src-tauri/src/lib.rs) registers **no** hand-written `#[tauri::command]` and **no** `invoke_handler` — the entire native surface is official plugins bound by these capabilities, so there is zero bespoke IPC to audit. The in-app HTTP plugin is loopback-only (`http:default` allows `localhost`/`127.0.0.1` only) and built without a cookie jar |
+| **I** | Inline images exfiltrate via tracking pixels | Remote image as user fingerprint | Medium | Remote images are unconditionally stripped by [content-sanitizer.ts](frontend/src/lib/mail/content-sanitizer.ts) — only inline `data:image/*;base64` survives `isInlineImage`; a remote `<img>` loses its `src` and is then removed. Reinforced by the body iframe's own `img-src data:` CSP and `sandbox=""` ([MessageContent.svelte](frontend/src/lib/components/message-detail/MessageContent.svelte)). There is no remote-image-loading toggle, so there is no opt-in exfil path |
 | **S / D / R** | — | Sandboxed Webview; no spoofing path from a single SPA origin. | — | — |
 
 ### Boundary 5: local filesystem
@@ -200,7 +200,7 @@ When touching code that crosses one of the boundaries above:
 
 - [ ] If the change reads or writes credentials, it goes through `CryptoService` and never logs the plaintext.
 - [ ] If the change adds a new IPC command or Tauri permission, it appears in `capabilities/default.json` with a justification.
-- [ ] If the change renders user-supplied HTML, it runs through `sanitizeMessageHtml()` (or an equivalent pure transform).
+- [ ] If the change renders user-supplied HTML, it runs through `sanitizeMailHtml()` ([content-sanitizer.ts](frontend/src/lib/mail/content-sanitizer.ts)) **and** is rendered only inside the `sandbox=""` body iframe (or an equivalent pure transform).
 - [ ] If the change adds an outbound network call from the SPA, the host appears in the CSP `connect-src` allow list and there is a reason it cannot use the existing loopback API.
 - [ ] If the change touches the OAuth flow, redirect URIs in `application.properties` match the provider registration verbatim.
 - [ ] If the change touches the boot / handshake path, stale `.ready` and `session.json` are cleared before the new sidecar starts.
@@ -211,6 +211,7 @@ When touching code that crosses one of the boundaries above:
 |---|---|---|
 | 1.0 | 2026-06-02 | Initial document — V0.1.0 baseline; covers 6 boundaries × STRIDE matrix with CVSS-light severity; Mermaid diagram; adversary model. |
 | 1.1 | 2026-06-07 | Added §5 "Accepted residual risks": formalized the plaintext mail-DB-at-rest decision (AR-1) with BitLocker as the standing mitigation and SQLCipher (drop-in `Willena/sqlite-jdbc-crypt`, DB key under DPAPI) as the documented upgrade path. |
+| 1.2 | 2026-06-13 | Tauri capability/CSP/IPC audit — trued §4 Boundary 4 to the shipping code: documented the sidecar-scoped `shell:allow-spawn`/`shell:allow-kill` (`args: false`) and the zero-custom-command finding in [lib.rs](frontend/src-tauri/src/lib.rs); corrected the tracking-pixel mitigation (remote images are unconditionally stripped — the previously documented per-sender "UI toggle" does not exist) and recorded the `sandbox=""` body-iframe + per-frame CSP as the defense-in-depth layer; fixed the stale `sanitizeMessageHtml()` reference to `sanitizeMailHtml()`. No code change — posture confirmed strong; optional global-CSP tightening (`script-src 'self'`, drop unused `customprotocol:`) deferred to the release smoke. |
 
 ## 8. References
 

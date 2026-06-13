@@ -55,6 +55,41 @@ release buildu.
 - [x] Po aktuálním lokálním installer/sidecar balení zopakovat secret scan nad distribuovaným bundlem, nejen nad backend JARem a aktuálním `src-tauri/binaries/app`.
 - [ ] Před prvním GitHub pushem rotovat lokální Google OAuth secret nalezený v ignorovaném `backend/.env`, protože už byl použit v lokálním vývoji.
 
+## Log hygiene audit (2026-06-13)
+
+Statická kontrola obou log streamů (`mail.log` + `audit.log` backendu,
+frontend `tauri-plugin-log`) na únik credentials, OAuth tokenů, těl/předmětů
+zpráv a nemaskovaného PII.
+
+- [x] Produkční log level `INFO` (`src/main/resources/application.properties`); dev profil s `DEBUG`/`show-sql` se dle hlavičky `application-dev.properties` do release JARu nedostává.
+- [x] Žádný JavaMail debug flag (`session.setDebug` / `mail.debug`) — IMAP/SMTP protokol včetně AUTH řádků a těl se nedumpuje.
+- [x] Hesla, OAuth access/refresh tokeny ani interní API klíč se nelogují; token-refresh (`OAuth2TokenService`) loguje jen maskovaný email, expiraci a scope.
+- [x] Těla ani předměty zpráv se nelogují — jediný výskyt slova „Body" (`MailContentService` ~ř. 56) loguje `uid`+`folder`, ne obsah.
+- [x] Všech 7 míst logujících email jde přes `LogMasker.maskEmail()` / `lazyEmail()`; `AuditLog` má explicitní pravidla (žádné tokeny, emaily jen maskované) a píše do odděleného `audit.log`.
+- [x] Žádný Lombok `@Data` / `@ToString` v codebase (0 výskytů) → žádný auto-toString únik přes entity.
+- [x] Diagnostika neobsahuje obsah ani nemaskované PII: `ClientBootDiagnosticsRequest` = jen timingy, `DiagnosticDumpService` = maskovaný email + počty zpráv.
+- [x] Frontend nemá console→soubor můstek (žádný `attachConsole`); `errorReporting` / `clientErrors.ts` posílá jen na loopback s `X-API-KEY`, payload truncovaný na 4000 znaků, žádný externí egress.
+- [x] **Opraveno:** `AccountEntity.toString()` a `AccountCredentialEntity.toString()` nově maskují email/username přes `LogMasker` (dřív nemaskované — latentní únik, kdyby entita vyletěla v Hibernate výjimce či budoucím log statementu; žádný aktuální caller nenalezen). Ověřeno `mvn spotless:apply compile`.
+
+Reziduum / poznámky:
+
+- Backendový sink `/internal/client-errors` zatím **neexistuje** (frontend se self-disabluje na HTTP 404); až vznikne, musí logovat bounded a bez echo PII/stacku do `audit.log`.
+- `LogMasker.maskEmail` zachovává plnou doménu (`j***k@seznam.cz`) — vědomý kompromis pro debug. `AccountEntity.toString` ponechává `displayName`/`accountName` (uživatelské labely, ne unikátní identifikátor).
+
+## cargo audit — Rust/Tauri závislosti (2026-06-13)
+
+`cargo audit` (RustSec advisory DB) nad `frontend/src-tauri/Cargo.lock`
+(597 crate dependencies).
+
+- [x] **0 vulnerabilities** (exit 0). 20 nálezů jsou jen `warning` typu `unmaintained` (17) a `unsound` (3), žádný typu `vulnerability`.
+- [x] 11 z 20 je Linux-only GTK3/glib stack (`atk*`, `gdk*`, `gtk*`, `glib`) — tranzitivní deps webkit2gtk přes Tauri. V0.1.0 je Windows-only, tyto crate se do release binárky nekompilují.
+- [x] Zbytek je tranzitivní: `proc-macro-error` (build-time proc-macro, ne v runtime binárce), `fxhash`, `unic-*` (Unicode), `rand` 0.7.3/0.8.5 (unsound jen při custom global loggeru volajícím `rand::rng()` během init — pattern, který appka nepoužívá).
+- [x] Přijaté warnings zaznamenány v `frontend/src-tauri/.cargo/audit.toml` (ignore per advisory-ID s odůvodněním) → scheduled report pak ukáže jen NOVÉ advisories. Ignore per-ID nezakryje budoucí `vulnerability` ve stejné crate (má jiné ID).
+- [x] **Zapojeno do CI** (doplňuje stávající Trivy SBOM scan, který Rust kryl jen obecnou DB, HIGH/CRITICAL a report-only):
+  - `ci.yml` job `tauri` — blokující gate per-PR (padá na `vulnerability`).
+  - `vuln-scan.yml` job `cargo-audit-tauri` — scheduled JSON report (artifact) + gate.
+  - cargo-audit pinnut na `0.22.2` a cachovaný (vzor jako `cargo-cyclonedx`).
+
 ## Použité příkazy
 
 ```powershell

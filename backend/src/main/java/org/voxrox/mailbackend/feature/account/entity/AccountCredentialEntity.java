@@ -3,6 +3,7 @@ package org.voxrox.mailbackend.feature.account.entity;
 import jakarta.persistence.*;
 
 import org.voxrox.mailbackend.feature.auth.dto.AuthType;
+import org.voxrox.mailbackend.util.LogMasker;
 
 @Entity
 @Table(name = "account_credentials")
@@ -47,8 +48,8 @@ public class AccountCredentialEntity {
 
     @Override
     public String toString() {
-        return "AccountCredentialEntity{" + "id=" + id + ", authType=" + authType + ", username='" + username + '\''
-                + ", password='[PROTECTED]'" + '}';
+        return "AccountCredentialEntity{" + "id=" + id + ", authType=" + authType + ", username='"
+                + LogMasker.maskEmail(username) + '\'' + ", password='[PROTECTED]'" + '}';
     }
 
     public Long getId() {

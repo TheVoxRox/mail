@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import jakarta.persistence.*;
 
 import org.jspecify.annotations.Nullable;
+import org.voxrox.mailbackend.util.LogMasker;
 
 @Entity
 @Table(name = "accounts")
@@ -94,8 +95,9 @@ public class AccountEntity {
 
     @Override
     public String toString() {
-        return "AccountEntity{" + "id=" + id + ", accountName='" + accountName + '\'' + ", email='" + email + '\''
-                + ", displayName='" + displayName + '\'' + ", active=" + active + ", lastSyncAt=" + lastSyncAt + '}';
+        return "AccountEntity{" + "id=" + id + ", accountName='" + accountName + '\'' + ", email='"
+                + LogMasker.maskEmail(email) + '\'' + ", displayName='" + displayName + '\'' + ", active=" + active
+                + ", lastSyncAt=" + lastSyncAt + '}';
     }
 
     public Long getId() {
