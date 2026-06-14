@@ -19,10 +19,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.retry.support.RetryTemplate;
+import org.voxrox.mailbackend.core.config.RetryConfig;
 import org.voxrox.mailbackend.exception.ErrorCode;
 import org.voxrox.mailbackend.exception.MailOperationException;
 import org.voxrox.mailbackend.exception.ResourceNotFoundException;
@@ -65,6 +70,16 @@ class MailFacadeTest {
     private MailDraftService mailDraftService;
     @Mock
     private FolderCountCache folderCountCache;
+
+    /*
+     * Real (not mocked) so the wrapped write actually runs: withDbWriteRetry
+     * delegates to this template, which executes the callback once on success. Uses
+     * the production retry policy so only TransientDataAccessException would be
+     * retried — non-transient throws from the wrapped write still propagate on the
+     * first attempt, keeping the verify(...)-once assertions valid.
+     */
+    @Spy
+    private RetryTemplate dbWriteRetryTemplate = new RetryConfig().dbWriteRetryTemplate();
 
     @InjectMocks
     private MailFacade mailFacade;
@@ -748,6 +763,65 @@ class MailFacadeTest {
 
             assertThatThrownBy(() -> mailFacade.getThread(999L, THREAD_ID))
                     .isInstanceOf(ResourceNotFoundException.class);
+        }
+    }
+
+    /**
+     * Exercises the {@code withDbWriteRetry} wrapper directly through both wrapped
+     * paths: a transient SQLITE_BUSY (modelled as
+     * {@link CannotAcquireLockException}, the exact type the SQLiteDialect→Spring
+     * chain produces) must be retried until it succeeds, while a non-transient
+     * failure must propagate on the first attempt. The {@code @Spy} real
+     * {@link RetryTemplate} runs the production policy, so these assertions reflect
+     * the actual runtime behaviour, not a stub.
+     */
+    @Nested
+    @DisplayName("withDbWriteRetry (transient SQLite write contention)")
+    class DbWriteRetry {
+
+        @Test
+        @DisplayName("Transient lock failure on the local delete is retried, then succeeds")
+        void retriesTransientLockFailureOnDelete() {
+            when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(entity));
+            when(imapFolderService.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.TRASH)).thenReturn(FOLDER_TRASH);
+            // First attempt loses the SQLite write lock; the retry wins.
+            doThrow(new CannotAcquireLockException("SQLITE_BUSY")).doNothing().when(messageService)
+                    .deleteByStableId(STABLE_ID);
+
+            mailFacade.moveToTrash(STABLE_ID);
+
+            verify(messageService, times(2)).deleteByStableId(STABLE_ID);
+            // The async provider move is dispatched only once the local write finally
+            // lands.
+            verify(imapActionService).moveOnServerAsync(ACCOUNT_ID, FOLDER_INBOX, FOLDER_TRASH, UID);
+        }
+
+        @Test
+        @DisplayName("Non-transient failure on the local delete is not retried and propagates")
+        void doesNotRetryNonTransientFailureOnDelete() {
+            when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(entity));
+            when(imapFolderService.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.TRASH)).thenReturn(FOLDER_TRASH);
+            doThrow(new DataIntegrityViolationException("constraint")).when(messageService).deleteByStableId(STABLE_ID);
+
+            assertThatThrownBy(() -> mailFacade.moveToTrash(STABLE_ID))
+                    .isInstanceOf(DataIntegrityViolationException.class);
+
+            verify(messageService, times(1)).deleteByStableId(STABLE_ID);
+            // The local write never succeeded, so the provider action must not fire.
+            verify(imapActionService, never()).moveOnServerAsync(anyLong(), anyString(), anyString(), anyLong());
+        }
+
+        @Test
+        @DisplayName("Transient lock failure on a flag update is retried, then succeeds")
+        void retriesTransientLockFailureOnFlagUpdate() {
+            when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(entity));
+            doThrow(new CannotAcquireLockException("SQLITE_BUSY")).doNothing().when(messageRepository)
+                    .updateSeenStatus(STABLE_ID, true);
+
+            mailFacade.updateMessageFlag(STABLE_ID, MessageFlag.SEEN, true);
+
+            verify(messageRepository, times(2)).updateSeenStatus(STABLE_ID, true);
+            verify(imapActionService).updateFlagsOnServerAsync(ACCOUNT_ID, FOLDER_INBOX, UID, MessageFlag.SEEN, true);
         }
     }
 

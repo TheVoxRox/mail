@@ -2,10 +2,12 @@ package org.voxrox.mailbackend.feature.mail.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.retry.support.RetryTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.voxrox.mailbackend.exception.AppException;
@@ -40,11 +42,13 @@ public class MailFacade {
     private final MessageService messageService;
     private final MailDraftService mailDraftService;
     private final FolderCountCache folderCountCache;
+    private final RetryTemplate dbWriteRetryTemplate;
 
     public MailFacade(MessageRepository messageRepository, MessageMapper mapper, MailSyncService mailSyncService,
             MailContentService mailContentService, ImapActionService imapActionService,
             ImapFolderService imapFolderService, AttachmentService attachmentService, AccountService accountService,
-            MessageService messageService, MailDraftService mailDraftService, FolderCountCache folderCountCache) {
+            MessageService messageService, MailDraftService mailDraftService, FolderCountCache folderCountCache,
+            @Qualifier("dbWriteRetryTemplate") RetryTemplate dbWriteRetryTemplate) {
         this.messageRepository = messageRepository;
         this.mapper = mapper;
         this.mailSyncService = mailSyncService;
@@ -56,6 +60,21 @@ public class MailFacade {
         this.messageService = messageService;
         this.mailDraftService = mailDraftService;
         this.folderCountCache = folderCountCache;
+        this.dbWriteRetryTemplate = dbWriteRetryTemplate;
+    }
+
+    /*
+     * Wraps a local DB write so a transient SQLITE_BUSY (a concurrent writer — a
+     * multi-select trash firing several DELETEs at once, or a user action racing
+     * the background sync) is retried instead of surfacing as a 500. Each attempt
+     * must be self-contained: the wrapped call re-invokes a @Transactional write,
+     * so a fresh transaction runs after the previous one rolled back.
+     */
+    private void withDbWriteRetry(Runnable write) {
+        dbWriteRetryTemplate.execute(ctx -> {
+            write.run();
+            return null;
+        });
     }
 
     /*
@@ -289,7 +308,7 @@ public class MailFacade {
          * after the dispatch left the server-side move running anyway and the local row
          * resurrected.
          */
-        messageService.deleteByStableId(stableId);
+        withDbWriteRetry(() -> messageService.deleteByStableId(stableId));
         imapActionService.moveOnServerAsync(accountId, sourceFolder, targetFolder, entity.getUid());
 
         AuditLog.success(auditAction, LogMasker.maskEmail(entity.getAccount().getEmail()),
@@ -308,11 +327,13 @@ public class MailFacade {
         MessageEntity entity = messageService.getByStableId(stableId)
                 .orElseThrow(() -> new ResourceNotFoundException("Message not found for flag update: " + stableId));
 
-        switch (flag) {
-            case SEEN -> messageRepository.updateSeenStatus(stableId, value);
-            case FLAGGED -> messageRepository.updateFlaggedStatus(stableId, value);
-            case ANSWERED -> messageRepository.updateAnsweredStatus(stableId, value);
-        }
+        withDbWriteRetry(() -> {
+            switch (flag) {
+                case SEEN -> messageRepository.updateSeenStatus(stableId, value);
+                case FLAGGED -> messageRepository.updateFlaggedStatus(stableId, value);
+                case ANSWERED -> messageRepository.updateAnsweredStatus(stableId, value);
+            }
+        });
 
         imapActionService.updateFlagsOnServerAsync(entity.getAccount().getId(), entity.getFolderName(), entity.getUid(),
                 flag, value);
