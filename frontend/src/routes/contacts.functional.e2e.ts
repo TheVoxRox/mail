@@ -142,14 +142,14 @@ test.describe('Contacts', () => {
 		expect(createRequests).toHaveLength(0);
 	});
 
-	test('edit jména kontaktu pošle PATCH bez emails a e-maily zůstanou', async ({ page }) => {
-		const patchBodies: unknown[] = [];
+	test('úprava jména kontaktu se uloží jedním PUT s celým kontaktem', async ({ page }) => {
+		const putBodies: unknown[] = [];
 		page.on('request', (request) => {
 			if (
-				request.method() === 'PATCH' &&
+				request.method() === 'PUT' &&
 				/\/api\/v1\/accounts\/1\/contacts\/1$/.test(request.url())
 			) {
-				patchBodies.push(request.postDataJSON());
+				putBodies.push(request.postDataJSON());
 			}
 		});
 
@@ -157,27 +157,36 @@ test.describe('Contacts', () => {
 		await waitForShell(page);
 
 		await page.getByRole('button', { name: 'Upravit' }).first().click();
+		await page.waitForURL('**/contacts/1?edit=1');
+		await expect(page.getByRole('heading', { name: 'Upravit kontakt' })).toBeVisible();
+
 		await page.getByPlaceholder('Jméno').fill('Jana Edit');
 		await page.getByRole('button', { name: 'Uložit' }).click();
 
+		await page.waitForURL('**/contacts/1');
 		await expect(page.getByText('Jana Edit Novak')).toBeVisible();
 		await expect(page.getByText('jana@example.com')).toBeVisible();
 		await expect(page.getByText('jana.home@example.com')).toBeVisible();
-		expect(patchBodies).toHaveLength(1);
-		expect(patchBodies[0]).toEqual({
+		expect(putBodies).toHaveLength(1);
+		expect(putBodies[0]).toEqual({
 			name: 'Jana Edit',
 			surname: 'Novak',
-			note: 'Projekt'
+			note: 'Projekt',
+			emails: [
+				{ email: 'jana@example.com', label: 'WORK' },
+				{ email: 'jana.home@example.com', label: 'HOME' }
+			]
 		});
 	});
 
-	test('add/remove/set-primary e-mailu volá správné endpointy a refreshuje list', async ({
-		page
-	}) => {
-		const calls: string[] = [];
+	test('úprava e-mailů (přidat, hlavní, odebrat) se uloží jedním PUT', async ({ page }) => {
+		const putBodies: unknown[] = [];
 		page.on('request', (request) => {
-			if (request.url().includes('/api/v1/accounts/1/contacts/1/emails')) {
-				calls.push(`${request.method()} ${new URL(request.url()).pathname}`);
+			if (
+				request.method() === 'PUT' &&
+				/\/api\/v1\/accounts\/1\/contacts\/1$/.test(request.url())
+			) {
+				putBodies.push(request.postDataJSON());
 			}
 		});
 
@@ -185,28 +194,80 @@ test.describe('Contacts', () => {
 		await waitForShell(page);
 
 		await page.getByRole('button', { name: 'Upravit' }).first().click();
-		const editDialog = page.getByRole('dialog', { name: /Upravit kontakt: Jana Novak/ });
-		await expect(editDialog).toBeVisible();
-		await page.locator('#contact-1-new-email').fill('jana.extra@example.com');
-		await editDialog.getByRole('button', { name: 'Přidat e-mail' }).click();
-		const extraEmailRow = editDialog.locator('li').filter({ hasText: 'jana.extra@example.com' });
-		await expect(extraEmailRow).toBeVisible();
+		await page.waitForURL('**/contacts/1?edit=1');
 
-		await editDialog
-			.locator('li')
-			.filter({ hasText: 'jana.home@example.com' })
-			.getByRole('button', { name: 'Nastavit jako hlavní' })
+		// Add a third address, then remove it again — it must not reach the PUT body.
+		await page.getByRole('button', { name: 'Přidat e-mail' }).click();
+		await page.locator('#contact-email-2').fill('jana.extra@example.com');
+
+		// Promote the second address (jana.home) to primary — it must come first in the PUT.
+		await page.locator('#contact-email-1-primary').check();
+
+		await page
+			.locator('[data-email-row="2"]')
+			.getByRole('button', { name: 'Odebrat e-mail' })
 			.click();
-		await expect(
-			page.getByRole('region', { name: 'Oznámení' }).getByText('Hlavní adresa nastavena.')
-		).toBeVisible();
+		await expect(page.locator('#contact-email-2')).toHaveCount(0);
 
-		await extraEmailRow.getByRole('button', { name: 'Odebrat e-mail' }).click();
-		await expect(page.getByText('jana.extra@example.com')).toHaveCount(0);
+		await page.getByRole('button', { name: 'Uložit' }).click();
+		await page.waitForURL('**/contacts/1');
+		await expect(page.getByText('Jana Novak')).toBeVisible();
 
-		expect(calls).toContain('POST /api/v1/accounts/1/contacts/1/emails');
-		expect(calls).toContain('PATCH /api/v1/accounts/1/contacts/1/emails/2/primary');
-		expect(calls).toContain('DELETE /api/v1/accounts/1/contacts/1/emails/3');
+		expect(putBodies).toHaveLength(1);
+		expect(putBodies[0]).toEqual({
+			name: 'Jana',
+			surname: 'Novak',
+			note: 'Projekt',
+			emails: [
+				{ email: 'jana.home@example.com', label: 'HOME' },
+				{ email: 'jana@example.com', label: 'WORK' }
+			]
+		});
+	});
+
+	test('selhání načtení editovaného kontaktu zobrazí chybu bez smyčky requestů', async ({
+		page
+	}) => {
+		let getCount = 0;
+		page.on('request', (request) => {
+			if (
+				request.method() === 'GET' &&
+				/\/api\/v1\/accounts\/1\/contacts\/999$/.test(request.url())
+			) {
+				getCount += 1;
+			}
+		});
+
+		await page.goto('/contacts/1?edit=999');
+		await waitForShell(page);
+
+		await expect(page.getByRole('alert')).toBeVisible();
+		await expect(page.locator('#contact-name')).toHaveCount(0);
+		// A refetch loop would fire many GETs — wait a beat, then assert a single call.
+		await page.waitForTimeout(500);
+		expect(getCount).toBe(1);
+	});
+
+	test('opuštění editace s neuloženými změnami vyžádá potvrzení a po potvrzení zahodí', async ({
+		page
+	}) => {
+		await page.goto('/contacts/1');
+		await waitForShell(page);
+
+		await page.getByRole('button', { name: 'Upravit' }).first().click();
+		await page.waitForURL('**/contacts/1?edit=1');
+
+		await page.getByPlaceholder('Jméno').fill('Jana Změněná');
+		await page.getByRole('button', { name: 'Zrušit' }).click();
+
+		const dialog = page.getByRole('dialog', { name: 'Neuložené změny' });
+		await expect(dialog).toBeVisible();
+		await dialog.getByRole('button', { name: 'Zahodit změny' }).click();
+
+		await page.waitForURL('**/contacts/1');
+		// The edit was never persisted — the list still shows the original name.
+		await expect(page.getByText('Jana Novak')).toBeVisible();
+		await expect(page.getByText('Jana Změněná')).toHaveCount(0);
 	});
 
 	test('bulk delete smaže vybrané kontakty přes multiselect', async ({ page }) => {

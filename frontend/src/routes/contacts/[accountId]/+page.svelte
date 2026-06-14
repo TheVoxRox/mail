@@ -5,7 +5,9 @@
 	import {
 		bulkCreateContacts,
 		createContact,
+		getContact,
 		listContacts,
+		updateContact,
 		type ContactSort
 	} from '$lib/api/contacts.js';
 	import { toError, toErrorMessage } from '$lib/api/errors.js';
@@ -34,7 +36,15 @@
 		| { status: 'ready'; page: PagedResponse<ContactResponse> }
 		| { status: 'error'; error: Error };
 
+	type EditState =
+		| { status: 'idle' }
+		| { status: 'loading' }
+		| { status: 'ready'; contact: ContactResponse }
+		| { status: 'error'; error: Error };
+
 	let listState = $state<ListState>({ status: 'idle' });
+	let editState = $state<EditState>({ status: 'idle' });
+	let loadedEditId: number | null = null;
 	let pageNumber = $state(0);
 	let lastContext = $state('');
 	// Set by pagination handlers so the next successful load announces the new
@@ -95,6 +105,9 @@
 			listState = { status: 'idle' };
 			return;
 		}
+		// Edit renders the full-page form instead of the list; loading is handled
+		// by the dedicated edit effect below.
+		if (data.edit != null) return;
 
 		const context = `${data.accountId}:${data.query}:${data.sort ?? ''}:${data.label ?? ''}`;
 		if (lastContext !== context) {
@@ -104,9 +117,34 @@
 		void load(data.accountId, data.query, pageNumber, data.sort, data.label);
 	});
 
+	$effect(() => {
+		if (data.edit == null) {
+			editState = { status: 'idle' };
+			loadedEditId = null;
+			return;
+		}
+		if ($accountsState.status !== 'ready') return;
+		// Guard purely on the id — do NOT read editState here, or the effect would
+		// re-run on every load transition and refetch in a loop after an error.
+		if (loadedEditId === data.edit) return;
+		loadedEditId = data.edit;
+		void loadEditContact(data.accountId, data.edit);
+	});
+
+	async function loadEditContact(accountId: number, contactId: number) {
+		editState = { status: 'loading' };
+		try {
+			const contact = await getContact(accountId, contactId);
+			editState = { status: 'ready', contact };
+		} catch (err) {
+			editState = { status: 'error', error: toError(err) };
+		}
+	}
+
 	function contactsHref(options?: {
 		query?: string;
 		create?: boolean;
+		edit?: number | null;
 		sort?: ContactSort | null;
 		label?: EmailLabel | null;
 	}): string {
@@ -114,6 +152,9 @@
 		const nextQuery = options?.query?.trim() ?? data.query;
 		if (nextQuery) params.set('q', nextQuery);
 		if (options?.create) params.set('create', '1');
+		if (options && 'edit' in options && options.edit != null) {
+			params.set('edit', String(options.edit));
+		}
 		const nextSort = options && 'sort' in options ? options.sort : data.sort;
 		const nextLabel = options && 'label' in options ? options.label : data.label;
 		if (nextSort) params.set('sort', nextSort);
@@ -130,6 +171,13 @@
 	async function handleCreate(payload: ContactCreateRequest) {
 		await createContact(data.accountId, payload);
 		await goto(contactsHref({ create: false }));
+		await load(data.accountId, data.query, pageNumber, data.sort, data.label);
+	}
+
+	async function handleEditSave(payload: ContactCreateRequest) {
+		if (data.edit == null) return;
+		await updateContact(data.accountId, data.edit, payload);
+		await goto(contactsHref({ edit: null }));
 		await load(data.accountId, data.query, pageNumber, data.sort, data.label);
 	}
 
@@ -175,7 +223,7 @@
 	}
 
 	function handleWindowDragOver(event: DragEvent) {
-		if (data.create) return;
+		if (data.create || data.edit != null) return;
 		if (!dragHasFiles(event)) return;
 		event.preventDefault();
 		dragActive = true;
@@ -187,7 +235,7 @@
 	}
 
 	async function handleWindowDrop(event: DragEvent) {
-		if (data.create) return;
+		if (data.create || data.edit != null) return;
 		if (!dragHasFiles(event)) return;
 		event.preventDefault();
 		dragActive = false;
@@ -236,7 +284,7 @@
 	ondrop={handleWindowDrop}
 />
 
-{#if !data.create && dragActive}
+{#if !data.create && data.edit == null && dragActive}
 	<div
 		class="fixed inset-0 z-50 flex items-center justify-center bg-background/85 backdrop-blur-sm"
 		aria-hidden="true"
@@ -256,6 +304,22 @@
 			<ContactForm onSubmit={handleCreate} onCancel={() => goto(contactsHref({ create: false }))} />
 		</div>
 	</section>
+{:else if data.edit != null}
+	<section class="flex-1 overflow-y-auto bg-background outline-none">
+		<div class="max-w-4xl space-y-4 p-6">
+			{#if editState.status === 'loading' || editState.status === 'idle'}
+				<StateMessage>{$_('contacts.loading')}</StateMessage>
+			{:else if editState.status === 'error'}
+				<StateMessage variant="error" role="alert">{editState.error.message}</StateMessage>
+			{:else if editState.status === 'ready'}
+				<ContactForm
+					contact={editState.contact}
+					onSubmit={handleEditSave}
+					onCancel={() => goto(contactsHref({ edit: null }))}
+				/>
+			{/if}
+		</div>
+	</section>
 {:else}
 	<PageShell title={$_('contacts.listHeading')} contentClass="max-w-4xl space-y-4">
 		<Surface as="section" variant="list" padding="none">
@@ -271,6 +335,7 @@
 					label={data.label}
 					onChanged={() =>
 						load(data.accountId, data.query, pageNumber, data.sort, data.label, true)}
+					onEdit={(id) => goto(contactsHref({ edit: id }))}
 					onFilterApply={handleFilterApply}
 					onPrev={prevPage}
 					onNext={nextPage}

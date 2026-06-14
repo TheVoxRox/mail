@@ -7,7 +7,6 @@
 	import { _, appLocale } from '$lib/i18n/index.js';
 	import { confirmAction } from '$lib/stores/confirmDialog.js';
 	import { pushToast } from '$lib/stores/toasts.js';
-	import ContactEditDialog from '$lib/components/ContactEditDialog.svelte';
 	import ContactMergeDialog from '$lib/components/ContactMergeDialog.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
@@ -26,6 +25,7 @@
 		sort?: ContactSort | null;
 		label?: EmailLabel | null;
 		onChanged: () => void | Promise<void>;
+		onEdit: (id: number) => void;
 		onFilterApply?: (filters: { sort: ContactSort | null; label: EmailLabel | null }) => void;
 		onPrev: () => void;
 		onNext: () => void;
@@ -40,6 +40,7 @@
 		sort = null,
 		label = null,
 		onChanged,
+		onEdit,
 		onFilterApply,
 		onPrev,
 		onNext,
@@ -68,7 +69,6 @@
 	const labelFilterDirty = $derived(pendingLabelValue !== labelValue);
 	const filtersDirty = $derived(sortFilterDirty || labelFilterDirty);
 
-	let editingId = $state<number | null>(null);
 	let selectedIds = $state<number[]>([]);
 	let bulkBusy = $state(false);
 	let bulkError = $state<string | null>(null);
@@ -83,7 +83,6 @@
 	const selectedContacts = $derived(
 		page.content.filter((contact) => selectedIds.includes(contact.id))
 	);
-	const editingContact = $derived(page.content.find((contact) => contact.id === editingId) ?? null);
 
 	function openMergeDialog(): void {
 		if (selectedVisibleIds.length < 2) return;
@@ -121,7 +120,6 @@
 	}
 
 	function handleListKeydown(event: KeyboardEvent): void {
-		if (editingId !== null) return;
 		if (rowIndexFromTarget(event.target) === null) return;
 
 		const nextIndex = computeNextRowIndex(event.key, {
@@ -231,14 +229,10 @@
 		bulkError = null;
 	}
 
-	function requestStartEdit(c: ContactResponse): void {
-		editingId = c.id;
-	}
-
 	function handleRowClick(event: MouseEvent, contact: ContactResponse): void {
 		const target = event.target as HTMLElement | null;
 		if (target?.closest('input, button, a, label')) return;
-		void requestStartEdit(contact);
+		onEdit(contact.id);
 	}
 
 	async function handleDelete(c: ContactResponse) {
@@ -408,15 +402,6 @@
 			await onChanged();
 		}}
 	/>
-	<ContactEditDialog
-		open={editingId !== null}
-		{accountId}
-		contact={editingContact}
-		onOpenChange={(next) => {
-			if (!next) editingId = null;
-		}}
-		{onChanged}
-	/>
 	{#if bulkError}
 		<div class="border-b border-border px-4 py-2">
 			<StateMessage variant="error" padding="none" role="alert">{bulkError}</StateMessage>
@@ -537,7 +522,7 @@
 								{/if}
 								<Button
 									type="button"
-									onclick={() => requestStartEdit(contact)}
+									onclick={() => onEdit(contact.id)}
 									variant="outline"
 									size="xs"
 									aria-label={$_('contacts.editContact', { values: { label } })}

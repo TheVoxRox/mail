@@ -8,11 +8,9 @@ import type {
 	BulkContactDeleteResponse,
 	ContactAutocompleteResponse,
 	ContactCreateRequest,
-	ContactEmailRequest,
-	ContactEmailResponse,
 	ContactMergeRequest,
-	ContactPatchRequest,
 	ContactResponse,
+	ContactUpdateRequest,
 	EmailLabel,
 	PagedResponse
 } from '$lib/types.js';
@@ -57,12 +55,17 @@ export function bulkCreateContacts(
 	return api.post<BulkContactCreateResponse>(`/accounts/${accountId}/contacts/bulk`, body);
 }
 
-export function patchContact(
+export function getContact(accountId: number, contactId: number): Promise<ContactResponse> {
+	return api.get<ContactResponse>(`/accounts/${accountId}/contacts/${contactId}`);
+}
+
+/** Full contact replace (PUT) — name/surname/note plus the whole e-mail list; the first e-mail becomes primary. */
+export function updateContact(
 	accountId: number,
 	contactId: number,
-	body: ContactPatchRequest
+	body: ContactUpdateRequest
 ): Promise<ContactResponse> {
-	return api.patch<ContactResponse>(`/accounts/${accountId}/contacts/${contactId}`, body);
+	return api.put<ContactResponse>(`/accounts/${accountId}/contacts/${contactId}`, body);
 }
 
 export function deleteContact(accountId: number, contactId: number): Promise<void> {
@@ -83,35 +86,6 @@ export function mergeContacts(
 	body: ContactMergeRequest
 ): Promise<ContactResponse> {
 	return api.post<ContactResponse>(`/accounts/${accountId}/contacts/${targetId}/merge`, body);
-}
-
-export function addContactEmail(
-	accountId: number,
-	contactId: number,
-	body: ContactEmailRequest
-): Promise<ContactEmailResponse> {
-	return api.post<ContactEmailResponse>(
-		`/accounts/${accountId}/contacts/${contactId}/emails`,
-		body
-	);
-}
-
-export function deleteContactEmail(
-	accountId: number,
-	contactId: number,
-	emailId: number
-): Promise<void> {
-	return api.delete<void>(`/accounts/${accountId}/contacts/${contactId}/emails/${emailId}`);
-}
-
-export function setPrimaryEmail(
-	accountId: number,
-	contactId: number,
-	emailId: number
-): Promise<ContactResponse> {
-	return api.patch<ContactResponse>(
-		`/accounts/${accountId}/contacts/${contactId}/emails/${emailId}/primary`
-	);
 }
 
 /** Downloads all account contacts as vCard 4.0 (RFC 6350). */

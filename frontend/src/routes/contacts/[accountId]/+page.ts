@@ -13,11 +13,14 @@ export const load: PageLoad = ({ params, url }) => {
 	}
 	const query = url.searchParams.get('q') ?? '';
 	const create = url.searchParams.get('create') === '1';
+	const editRaw = url.searchParams.get('edit');
+	const editId = editRaw != null && /^\d+$/.test(editRaw) ? Number(editRaw) : null;
+	const edit = editId != null && editId > 0 ? editId : null;
 	const sortRaw = url.searchParams.get('sort');
 	const labelRaw = url.searchParams.get('label');
 	const sort = (SORT_VALUES as string[]).includes(sortRaw ?? '') ? (sortRaw as ContactSort) : null;
 	const label = (LABEL_VALUES as string[]).includes(labelRaw ?? '')
 		? (labelRaw as EmailLabel)
 		: null;
-	return { accountId, query, create, sort, label };
+	return { accountId, query, create, edit, sort, label };
 };
