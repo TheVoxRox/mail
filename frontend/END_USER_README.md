@@ -32,15 +32,15 @@ souboru v releasu):
 gh attestation verify "voxrox-mail-<verze>-windows-x64-setup.exe" --repo TheVoxRox/mail
 ```
 
-Přiložený `…-setup.exe.sha512` slouží už jen jako **rychlá kontrola integrity**
+Přiložený `…-setup.exe.sha256` slouží už jen jako **rychlá kontrola integrity**
 (že se soubor nepoškodil při stahování) — sám o sobě nechrání proti úmyslné
 záměně, protože leží ve stejném releasu:
 
 ```powershell
-certutil -hashfile "voxrox-mail-<verze>-windows-x64-setup.exe" SHA512
+certutil -hashfile "voxrox-mail-<verze>-windows-x64-setup.exe" SHA256
 ```
 
-Vypsaný otisk musí odpovídat hodnotě v `…-setup.exe.sha512`.
+Vypsaný otisk musí odpovídat hodnotě v `…-setup.exe.sha256`.
 
 ## Před prvním spuštěním
 

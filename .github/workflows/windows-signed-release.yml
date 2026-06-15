@@ -204,14 +204,14 @@ jobs:
             throw "No release assets found."
           }
 
-          # Publish a SHA512 checksum next to each installer so users can verify
-          # the download's integrity (`certutil -hashfile <file> SHA512` on
-          # Windows, `sha512sum -c <file>.sha512` elsewhere). The .sig/latest.json
+          # Publish a SHA256 checksum next to each installer so users can verify
+          # the download's integrity (`certutil -hashfile <file> SHA256` on
+          # Windows, `sha256sum -c <file>.sha256` elsewhere). The .sig/latest.json
           # are updater-internal and not user-downloaded, so they are not hashed.
           foreach ($installer in @($assets | Where-Object { $_ -match "-setup\.exe$" })) {
-            $hash = (Get-FileHash -Algorithm SHA512 -LiteralPath $installer).Hash.ToLower()
+            $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $installer).Hash.ToLower()
             $name = [System.IO.Path]::GetFileName($installer)
-            $sumPath = "$installer.sha512"
+            $sumPath = "$installer.sha256"
             [System.IO.File]::WriteAllText($sumPath, "$hash *$name`n")
             $assets += $sumPath
             Write-Host "Checksum $name = $hash"
