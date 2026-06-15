@@ -141,24 +141,29 @@
 		}
 	}
 
-	function contactsHref(options?: {
-		query?: string;
-		create?: boolean;
-		edit?: number | null;
-		sort?: ContactSort | null;
-		label?: EmailLabel | null;
-	}): string {
+	function contactsHref(
+		options: {
+			query?: string;
+			create?: boolean;
+			edit?: number | null;
+			sort?: ContactSort | null;
+			label?: EmailLabel | null;
+		} = {}
+	): string {
+		// Each list param defaults to its current value unless the option is
+		// present (so passing `sort: null` clears it, while omitting it keeps the
+		// current sort); `create`/`edit` are one-shot view switches. Every param
+		// is then set only when truthy.
+		const query = (options.query ?? data.query)?.trim();
+		const sort = 'sort' in options ? options.sort : data.sort;
+		const label = 'label' in options ? options.label : data.label;
+
 		const params = new SvelteURLSearchParams();
-		const nextQuery = options?.query?.trim() ?? data.query;
-		if (nextQuery) params.set('q', nextQuery);
-		if (options?.create) params.set('create', '1');
-		if (options && 'edit' in options && options.edit != null) {
-			params.set('edit', String(options.edit));
-		}
-		const nextSort = options && 'sort' in options ? options.sort : data.sort;
-		const nextLabel = options && 'label' in options ? options.label : data.label;
-		if (nextSort) params.set('sort', nextSort);
-		if (nextLabel) params.set('label', nextLabel);
+		if (query) params.set('q', query);
+		if (options.create) params.set('create', '1');
+		if (options.edit != null) params.set('edit', String(options.edit));
+		if (sort) params.set('sort', sort);
+		if (label) params.set('label', label);
 
 		const queryString = params.toString();
 		return `${resolve('/contacts/[accountId]', { accountId: String(data.accountId) })}${queryString ? `?${queryString}` : ''}`;
@@ -170,15 +175,16 @@
 
 	async function handleCreate(payload: ContactCreateRequest) {
 		await createContact(data.accountId, payload);
+		// Returning to the list view clears `create`, which re-runs the list
+		// effect and reloads — no explicit load() here, that would fetch twice.
 		await goto(contactsHref({ create: false }));
-		await load(data.accountId, data.query, pageNumber, data.sort, data.label);
 	}
 
 	async function handleEditSave(payload: ContactCreateRequest) {
 		if (data.edit == null) return;
 		await updateContact(data.accountId, data.edit, payload);
+		// Clearing `edit` re-runs the list effect, which reloads the list.
 		await goto(contactsHref({ edit: null }));
-		await load(data.accountId, data.query, pageNumber, data.sort, data.label);
 	}
 
 	function goToPage(target: number) {

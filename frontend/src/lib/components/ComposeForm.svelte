@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { beforeNavigate, goto } from '$app/navigation';
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
 	import { get } from 'svelte/store';
@@ -34,6 +34,7 @@
 	import { invalidAddressList, parseAddressList } from '$lib/compose/addresses.js';
 	import { ComposeDraftSaveCoordinator } from '$lib/compose/draft-save.js';
 	import { confirmAction } from '$lib/stores/confirmDialog.js';
+	import { installLeaveGuard } from '$lib/leaveGuard.js';
 	import { onDestroy, onMount, tick } from 'svelte';
 
 	let to = $state('');
@@ -214,21 +215,10 @@
 		await navigateWithoutPrompt(href);
 	}
 
-	beforeNavigate((navigation) => {
-		if (bypassLeaveGuard || busy || !prefillDone || !hasUnsavedChanges) return;
-		if (navigation.type === 'leave') {
-			navigation.cancel();
-			return;
-		}
-
-		const nextUrl = navigation.to?.url;
-		if (!nextUrl) return;
-
-		const currentUrl = get(page).url;
-		if (targetHref(nextUrl) === targetHref(currentUrl)) return;
-
-		navigation.cancel();
-		openLeaveConfirmation(targetHref(nextUrl));
+	installLeaveGuard({
+		shouldGuard: () => !bypassLeaveGuard && !busy && prefillDone && hasUnsavedChanges,
+		isSameTarget: (next, current) => targetHref(next) === targetHref(current),
+		onBlocked: (target) => openLeaveConfirmation(targetHref(target))
 	});
 
 	async function handleSend() {

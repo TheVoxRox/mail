@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { beforeNavigate, goto } from '$app/navigation';
+	import { goto } from '$app/navigation';
 	import { _ } from '$lib/i18n/index.js';
 	import { toErrorMessage } from '$lib/api/errors.js';
 	import { isValidEmailAddress } from '$lib/compose/addresses.js';
 	import { confirmAction } from '$lib/stores/confirmDialog.js';
+	import { installLeaveGuard } from '$lib/leaveGuard.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Field } from '$lib/components/ui/field/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
@@ -29,45 +30,45 @@
 
 	const MAX_EMAILS = 10;
 
-	type EmailDraft = { email: string; label: EmailLabel | '' };
+	// `primary` lives on the row (single source of truth) and `id` is a stable
+	// key for the {#each}, so add/remove are plain array ops with no parallel
+	// index to keep in sync.
+	type EmailDraft = { id: number; email: string; label: EmailLabel | ''; primary: boolean };
+
+	let rowIdSeq = 0;
+	function newRow(email = '', label: EmailLabel | '' = '', primary = false): EmailDraft {
+		return { id: rowIdSeq++, email, label, primary };
+	}
 
 	let name = $state('');
 	let surname = $state('');
 	let note = $state('');
-	let emails = $state<EmailDraft[]>([{ email: '', label: '' }]);
+	let emails = $state<EmailDraft[]>([newRow('', '', true)]);
 	let emailErrors = $state<(string | null)[]>([null]);
-	let primaryIndex = $state(0);
 	let busy = $state(false);
 	let error = $state<string | null>(null);
 	let nameInputEl = $state<HTMLInputElement | null>(null);
 
 	let loadedKey: number | 'new' | null = null;
-	let originalSnapshot = '';
+	// $state so the isDirty derived recomputes when the baseline is re-seeded,
+	// not only as a side effect of the form fields changing in the same tick.
+	let originalSnapshot = $state('');
 	// Set once a save succeeds (or the user confirms discarding) so the parent's
 	// post-save navigation is not intercepted by the unsaved-changes guard.
 	let bypassLeaveGuard = false;
 
 	const isEdit = $derived(contact != null);
 
-	function snapshotOf(
-		n: string,
-		s: string,
-		nt: string,
-		rows: EmailDraft[],
-		primary: number
-	): string {
+	function snapshotOf(n: string, s: string, nt: string, rows: EmailDraft[]): string {
 		return JSON.stringify({
 			name: n,
 			surname: s,
 			note: nt,
-			emails: rows.map((r) => ({ email: r.email, label: r.label })),
-			primary
+			emails: rows.map((r) => ({ email: r.email, label: r.label, primary: r.primary }))
 		});
 	}
 
-	const isDirty = $derived(
-		snapshotOf(name, surname, note, emails, primaryIndex) !== originalSnapshot
-	);
+	const isDirty = $derived(snapshotOf(name, surname, note, emails) !== originalSnapshot);
 
 	// Re-seed the form when the bound contact changes (e.g. editing a different
 	// row reuses this component instance via SvelteKit's param navigation).
@@ -75,24 +76,28 @@
 		const key = contact ? contact.id : 'new';
 		if (loadedKey === key) return;
 		loadedKey = key;
-		if (contact) {
+		if (contact && contact.emails.length > 0) {
 			name = contact.name ?? '';
 			surname = contact.surname ?? '';
 			note = contact.note ?? '';
-			const rows = contact.emails.length > 0 ? contact.emails : [{ email: '', label: null }];
-			emails = rows.map((e) => ({ email: e.email, label: e.label ?? '' }));
+			const primaryIdx = contact.emails.findIndex((e) => e.primary);
+			const chosen = primaryIdx >= 0 ? primaryIdx : 0;
+			emails = contact.emails.map((e, i) => newRow(e.email, e.label ?? '', i === chosen));
 			emailErrors = emails.map(() => null);
-			const idx = contact.emails.findIndex((e) => e.primary);
-			primaryIndex = idx >= 0 ? idx : 0;
+		} else if (contact) {
+			name = contact.name ?? '';
+			surname = contact.surname ?? '';
+			note = contact.note ?? '';
+			emails = [newRow('', '', true)];
+			emailErrors = [null];
 		} else {
 			name = '';
 			surname = '';
 			note = '';
-			emails = [{ email: '', label: '' }];
+			emails = [newRow('', '', true)];
 			emailErrors = [null];
-			primaryIndex = 0;
 		}
-		originalSnapshot = snapshotOf(name, surname, note, emails, primaryIndex);
+		originalSnapshot = snapshotOf(name, surname, note, emails);
 	});
 
 	onMount(() => {
@@ -122,29 +127,32 @@
 		return $_('contacts.emailLabelSelection', { values: { index: index + 1, label: labelText } });
 	}
 
+	function setPrimary(index: number) {
+		for (let i = 0; i < emails.length; i++) {
+			emails[i].primary = i === index;
+		}
+	}
+
 	function addEmailRow() {
 		if (emails.length >= MAX_EMAILS) {
 			error = $_('contacts.tooManyEmails');
 			return;
 		}
-		emails = [...emails, { email: '', label: '' }];
+		emails = [...emails, newRow()];
 		emailErrors = [...emailErrors, null];
 	}
 
 	function removeEmailRow(index: number) {
+		const wasPrimary = emails[index]?.primary ?? false;
 		emails = emails.filter((_, i) => i !== index);
 		emailErrors = emailErrors.filter((_, i) => i !== index);
-		if (index === primaryIndex) {
-			primaryIndex = 0;
-		} else if (index < primaryIndex) {
-			primaryIndex -= 1;
-		}
 		if (emails.length === 0) {
-			emails = [{ email: '', label: '' }];
+			emails = [newRow('', '', true)];
 			emailErrors = [null];
-			primaryIndex = 0;
+		} else if (wasPrimary) {
+			// The primary row is gone — promote the first remaining address.
+			emails[0].primary = true;
 		}
-		if (primaryIndex > emails.length - 1) primaryIndex = 0;
 	}
 
 	function validate(): boolean {
@@ -183,10 +191,10 @@
 		// reorder the chosen primary to the front. If the primary row was left empty
 		// it drops out — fall back to the first remaining address.
 		const entries = emails
-			.map((row, index) => ({
+			.map((row) => ({
 				email: row.email.trim(),
 				label: row.label,
-				primary: index === primaryIndex
+				primary: row.primary
 			}))
 			.filter((e) => e.email.length > 0);
 		if (!entries.some((e) => e.primary)) entries[0].primary = true;
@@ -232,16 +240,9 @@
 		}
 	}
 
-	beforeNavigate((navigation) => {
-		if (bypassLeaveGuard || busy || !isDirty) return;
-		if (navigation.type === 'leave') {
-			navigation.cancel();
-			return;
-		}
-		const nextUrl = navigation.to?.url;
-		if (!nextUrl) return;
-		navigation.cancel();
-		void confirmLeaveThenNavigate(nextUrl.href);
+	installLeaveGuard({
+		shouldGuard: () => !bypassLeaveGuard && !busy && isDirty,
+		onBlocked: (target) => void confirmLeaveThenNavigate(target.href)
 	});
 </script>
 
@@ -287,7 +288,7 @@
 
 		<fieldset class="space-y-3">
 			<legend class="block text-sm font-medium text-foreground">{$_('contacts.emails')}</legend>
-			{#each emails as row, index (index)}
+			{#each emails as row, index (row.id)}
 				<div
 					class="grid gap-2 md:grid-cols-[minmax(0,1fr)_9rem_auto_auto_auto] md:items-start"
 					data-email-row={index}
@@ -337,8 +338,8 @@
 							type="radio"
 							name="contact-primary-email"
 							class="size-4 border-input bg-background text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-							checked={primaryIndex === index}
-							onchange={() => (primaryIndex = index)}
+							checked={row.primary}
+							onchange={() => setPrimary(index)}
 							disabled={busy}
 							aria-label={primaryRadioLabel(index)}
 						/>
