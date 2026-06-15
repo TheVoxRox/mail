@@ -99,7 +99,10 @@ public class MessageFetcher {
         String contentError = null;
         try {
             attachments = MimePartExtractor.extractAttachmentMetadata(message, "");
-        } catch (MessagingException | IOException e) {
+        } catch (MessagingException | IOException | RuntimeException e) {
+            // RuntimeException too: a malformed BODYSTRUCTURE can surface as an
+            // unchecked JavaMail error (e.g. getContent() not returning a Multipart),
+            // and the list must stay fail-soft — one bad message cannot break the page.
             log.warn(
                     "{} Failed to parse MIME structure for UID {} in {} ({}). "
                             + "Persisting envelope-only stub; body and attachments unavailable until next sync.",

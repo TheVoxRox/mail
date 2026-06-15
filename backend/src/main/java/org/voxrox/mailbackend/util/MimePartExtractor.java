@@ -47,7 +47,13 @@ public final class MimePartExtractor {
         }
 
         if (part.isMimeType("multipart/*")) {
-            Multipart multipart = (Multipart) part.getContent();
+            if (!(part.getContent() instanceof Multipart multipart)) {
+                // Malformed message: the Content-Type claims multipart but the body
+                // is not (JavaMail hands back the raw String). Degrade to no text
+                // rather than letting a ClassCastException escape the parser.
+                log.warn("{} Part claims multipart but content is not; no text extracted.", LogCategory.SYNC);
+                return "";
+            }
             String textFallback = null;
 
             for (int i = 0; i < multipart.getCount(); i++) {
@@ -83,7 +89,10 @@ public final class MimePartExtractor {
         }
 
         if (part.isMimeType("multipart/*")) {
-            Multipart multipart = (Multipart) part.getContent();
+            if (!(part.getContent() instanceof Multipart multipart)) {
+                log.warn("{} Part claims multipart but content is not; no attachments extracted.", LogCategory.SYNC);
+                return attachments;
+            }
             for (int i = 0; i < multipart.getCount(); i++) {
                 BodyPart bodyPart = multipart.getBodyPart(i);
                 String nextPath = currentPath.isEmpty() ? String.valueOf(i + 1) : currentPath + "." + (i + 1);
@@ -150,7 +159,10 @@ public final class MimePartExtractor {
             return false;
         }
         if (part.isMimeType("multipart/*")) {
-            Multipart multipart = (Multipart) part.getContent();
+            if (!(part.getContent() instanceof Multipart multipart)) {
+                log.warn("{} Part claims multipart but content is not; treating as no attachments.", LogCategory.SYNC);
+                return false;
+            }
             for (int i = 0; i < multipart.getCount(); i++) {
                 BodyPart bodyPart = multipart.getBodyPart(i);
                 if (isAttachment(bodyPart)) {
