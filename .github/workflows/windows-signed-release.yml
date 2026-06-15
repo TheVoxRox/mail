@@ -115,7 +115,21 @@ jobs:
         working-directory: frontend
         run: npm run tauri:smoke:sidecar-cors
 
+      # Authenticode signing is optional for this OSS build (no paid cert). When
+      # the certificate secret is absent the installer ships unsigned and
+      # authenticity rests on the build-provenance attestation + updater
+      # signature. Secrets are not readable in step `if:` conditions, so surface
+      # availability as a step output first.
+      - name: Detect signing certificate
+        id: signing
+        shell: pwsh
+        run: |
+          $available = -not [string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE_BASE64)
+          "available=$($available.ToString().ToLower())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Authenticode signing available: $available"
+
       - name: Import Windows code signing certificate
+        if: steps.signing.outputs.available == 'true'
         shell: pwsh
         run: |
           if ([string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE_BASE64)) {
@@ -145,11 +159,16 @@ jobs:
           }
 
       - name: Sign backend sidecar executable
+        if: steps.signing.outputs.available == 'true'
         working-directory: frontend
         shell: pwsh
         run: .\scripts\sign-windows-file.ps1 -Path .\src-tauri\binaries\mail-x86_64-pc-windows-msvc.exe
 
-      - name: Build signed Tauri bundle
+      # The release config omits the Authenticode block when no certificate is
+      # configured (see prepare-tauri-windows-release-config.mjs), so this signs
+      # the bundle only when a cert is present; updater .sig artifacts are always
+      # produced (TAURI_SIGNING_PRIVATE_KEY).
+      - name: Build Tauri bundle
         working-directory: frontend
         run: npm run tauri:build -- --config src-tauri/tauri.release.conf.json
 
@@ -158,6 +177,7 @@ jobs:
         run: npm run tauri:generate-latest:windows
 
       - name: Verify signatures
+        if: steps.signing.outputs.available == 'true'
         working-directory: frontend
         shell: pwsh
         run: |

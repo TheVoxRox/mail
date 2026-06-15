@@ -8,14 +8,23 @@ import {
 
 const outputPath = path.resolve(process.argv[2] ?? 'src-tauri/tauri.release.conf.json');
 
+const bundle = { createUpdaterArtifacts: true };
+
+// Authenticode signing is OPTIONAL: this is an open-source build with no paid
+// code-signing certificate. When WINDOWS_CERTIFICATE_THUMBPRINT is set the
+// installer is Authenticode-signed; otherwise the bundle ships unsigned and
+// authenticity rests on the build-provenance attestation + updater signature.
+// (The updater plugin below stays required — auto-update always needs it.)
+if (process.env.WINDOWS_CERTIFICATE_THUMBPRINT?.trim()) {
+	bundle.windows = buildWindowsSigningBundle();
+} else {
+	console.warn(
+		'WINDOWS_CERTIFICATE_THUMBPRINT not set — building an unsigned (no Authenticode) bundle.'
+	);
+}
+
 await writeTauriConfig(
 	outputPath,
-	{
-		bundle: {
-			createUpdaterArtifacts: true,
-			windows: buildWindowsSigningBundle()
-		},
-		plugins: { updater: buildUpdaterPlugin() }
-	},
+	{ bundle, plugins: { updater: buildUpdaterPlugin() } },
 	'Windows release config'
 );
