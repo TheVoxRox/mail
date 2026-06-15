@@ -58,13 +58,14 @@ Hooks live in the tracked `.githooks/` directory. Activate them once per clone
 git config core.hooksPath .githooks
 ```
 
-- **pre-commit** (fast, frontend-only): `prettier --check`, i18n key parity
-  (`check:i18n`), and the strict translation whitelist
-  (`check:translations:strict`). Runs only when the commit touches `frontend/`.
-  These are the cheap, deterministic checks that otherwise drift between
-  sessions because nothing enforced them at commit time.
-- **pre-push** (fuller): `npm run lint`, `npm run check`, strict translations,
-  `knip`, and `npm run test:unit`.
+- **pre-commit** (fast): when the commit touches `frontend/`, runs
+  `prettier --check`, i18n key parity (`check:i18n`), and the strict translation
+  whitelist (`check:translations:strict`); when it touches the backend
+  `messages*.properties` bundles, runs the backend i18n parity guard
+  (`check:i18n:backend`). These are the cheap, deterministic checks that
+  otherwise drift between sessions because nothing enforced them at commit time.
+- **pre-push** (fuller): `npm run lint`, `npm run check:i18n:backend`, strict
+  translations, `npm run check`, `knip`, and `npm run test:unit`.
 
 Bypass once with `git commit --no-verify` / `git push --no-verify`. Backend
 `mvn verify`, Playwright e2e, and Tauri `cargo` checks are intentionally left to
@@ -87,6 +88,9 @@ than lowering global floors.
   Threshold gate enforces ≥ 70% instructions / ≥ 50% branches / ≥ 70% lines.
 - Translation whitelist lint (`node ../frontend/scripts/check-translation-whitelist.mjs
   --target=backend --mode=strict`) — keeps the Java codebase in English.
+- Backend i18n key parity (`node ../frontend/scripts/check-backend-i18n-keys.mjs`) —
+  cs/en key + MessageFormat placeholder parity, and `messages.properties` stays
+  identical to the Czech base bundle.
 
 **Frontend (`cd frontend && npm run lint && npm run check && npm test ...`)**
 

@@ -12,6 +12,7 @@ what runs, at which severity, and the policy decisions behind it.
 | ESLint type-aware promise rules   | `src/**/*.ts`                  | `no-floating-promises`, `await-thenable` as errors             |
 | knip                              | `npm run knip` / pre-push      | unused files, exports, types, dependencies                     |
 | i18n key checks                   | `check:i18n` (also pre-commit) | locale parity **and** unused base-locale keys fail             |
+| backend i18n key parity           | `check:i18n:backend`           | cs/en key + placeholder parity; `messages.properties` == cs    |
 | translations whitelist            | `check:translations:strict`    | Czech diacritics outside i18n need a justified whitelist entry |
 
 Policy notes:

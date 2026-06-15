@@ -12,10 +12,29 @@
 # Bypass once (escape hatch):  git commit --no-verify
 #
 # The repo is a polyglot monorepo; npm scripts live in frontend/. This hook
-# only runs when the commit touches frontend/.
+# runs the frontend fast gate when the commit touches frontend/, and the
+# backend i18n parity guard when it touches the Spring messages bundles.
 
-# Only pay the cost when frontend files are staged.
-if ! git diff --cached --name-only | grep -q '^frontend/'; then
+staged=$(git diff --cached --name-only)
+
+# Backend messages bundles changed -> check cs/en parity + default-bundle
+# identity. The guard is a dependency-free Node script, so it needs node but
+# not the frontend node_modules.
+if printf '%s\n' "$staged" | grep -q '^backend/src/main/resources/messages.*\.properties$'; then
+	if ! command -v node >/dev/null 2>&1; then
+		echo "pre-commit: node is not on PATH - cannot run the backend i18n gate." >&2
+		echo "            Fix PATH, or bypass once with: git commit --no-verify" >&2
+		exit 1
+	fi
+	echo "pre-commit: backend i18n parity (cs/en messages.properties)..."
+	if ! node frontend/scripts/check-backend-i18n-keys.mjs ; then
+		echo "pre-commit: backend message bundles are out of sync (see above)." >&2
+		exit 1
+	fi
+fi
+
+# Only pay the frontend cost when frontend files are staged.
+if ! printf '%s\n' "$staged" | grep -q '^frontend/'; then
 	exit 0
 fi
 

@@ -135,7 +135,7 @@ npm run tauri:dev
 Pred kazdym pushem zelene:
 
 - Backend: `mvn verify`, `mvn spotless:check`, `mvn spotbugs:check`.
-- Frontend: `npm run check`, `npm run check:i18n`, `npm run check:translations:strict`, `npm run knip`, `npm audit --audit-level=high`, `npm run test:unit`, `npm run test:functional:stable`, `npm run test:a11y:stable`.
+- Frontend: `npm run check`, `npm run check:i18n`, `npm run check:i18n:backend`, `npm run check:translations:strict`, `npm run knip`, `npm audit --audit-level=high`, `npm run test:unit`, `npm run test:functional:stable`, `npm run test:a11y:stable`.
 - Po `git add .` rucne projit staged soubory.
 - Git hooky: `git config core.hooksPath .githooks` (per clone).
 

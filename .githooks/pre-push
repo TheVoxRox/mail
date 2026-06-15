@@ -38,6 +38,7 @@ run() {
 }
 
 run lint
+run check:i18n:backend
 run check:translations:strict
 run check
 run knip

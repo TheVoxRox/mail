@@ -34,6 +34,11 @@ jobs:
       - name: Translation whitelist lint
         run: node ../frontend/scripts/check-translation-whitelist.mjs --target=backend --mode=strict
 
+      # Same — no npm deps. Guards cs/en key + placeholder parity and that
+      # messages.properties stays identical to the Czech base bundle.
+      - name: Backend i18n key parity
+        run: node ../frontend/scripts/check-backend-i18n-keys.mjs
+
       # `mvn verify` runs unit + integration tests AND spotbugs:check (bound in
       # backend/pom.xml). One job step, one gate — matches what a local
       # `mvn verify` does, so a green local build means a green CI build for

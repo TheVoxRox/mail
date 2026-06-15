@@ -27,6 +27,7 @@
 		"check:versions": "node scripts/check-version-sync.mjs",
 		"bump:version": "node scripts/bump-version.mjs",
 		"check:i18n": "node scripts/check-i18n-keys.mjs",
+		"check:i18n:backend": "node scripts/check-backend-i18n-keys.mjs",
 		"check:translations": "node scripts/check-translation-whitelist.mjs",
 		"check:translations:strict": "node scripts/check-translation-whitelist.mjs --mode=strict",
 		"check:api": "node scripts/check-api-schema.mjs",
