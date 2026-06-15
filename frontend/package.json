@@ -109,9 +109,7 @@
 			"cookie": "0.7.2"
 		},
 		"postcss": "8.5.12",
-		"svelte-i18n": {
-			"esbuild": "0.28.0"
-		},
+		"esbuild": "0.28.1",
 		"openapi-typescript": {
 			"typescript": "$typescript"
 		}
