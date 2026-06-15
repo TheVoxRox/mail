@@ -157,8 +157,22 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // The loopback port is dynamic; a fixed whitelist would fail on port collision.
-        configuration.setAllowedOriginPatterns(List.of("http://localhost:[*]", "http://127.0.0.1:[*]", "file://*"));
+        /*
+         * Origins:
+         *   - http://localhost:[*] / http://127.0.0.1:[*] — `vite dev` / `tauri dev`
+         *     serve the frontend over a loopback HTTP server on a dynamic port, so a
+         *     fixed whitelist would fail on port collision.
+         *   - http://tauri.localhost — the origin of the PACKAGED Windows webview
+         *     (WebView2 serves the bundled assets from this synthetic host). Without
+         *     it Spring's CORS processor rejects EVERY request from the installed app
+         *     with 403 before the API-key filter even runs, even though the desktop
+         *     model is loopback-only. `@tauri-apps/plugin-http` forwards this Origin
+         *     header, so the server-side check still applies.
+         *   - tauri://localhost — the equivalent webview origin on macOS/Linux, kept
+         *     for parity even though V0.1.0 ships Windows-only.
+         */
+        configuration.setAllowedOriginPatterns(List.of("http://localhost:[*]", "http://127.0.0.1:[*]",
+                "http://tauri.localhost", "tauri://localhost", "file://*"));
 
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-API-KEY", "Cache-Control"));

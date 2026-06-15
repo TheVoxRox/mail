@@ -6,6 +6,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
@@ -80,6 +82,25 @@ class SecurityConfigTest {
         handler.onAuthenticationFailure(request, response, exception);
 
         assertThat(response.getRedirectedUrl()).isEqualTo("/auth-failed.html?reason=unknown");
+    }
+
+    @Test
+    @DisplayName("CORS allows the packaged Tauri webview origin (http://tauri.localhost)")
+    void corsAllowsPackagedTauriWebviewOrigin() {
+        CorsConfigurationSource source = new SecurityConfig(null).corsConfigurationSource();
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/system/readiness");
+        request.setServletPath("/api/v1/system/readiness");
+
+        CorsConfiguration configuration = source.getCorsConfiguration(request);
+
+        assertThat(configuration).isNotNull();
+        // The installed Windows app's webview reports this origin; the dev origins
+        // (loopback ports) must keep working too.
+        assertThat(configuration.checkOrigin("http://tauri.localhost")).isEqualTo("http://tauri.localhost");
+        assertThat(configuration.checkOrigin("http://localhost:5173")).isEqualTo("http://localhost:5173");
+        assertThat(configuration.checkOrigin("http://127.0.0.1:1420")).isEqualTo("http://127.0.0.1:1420");
+        // A foreign web origin must still be rejected.
+        assertThat(configuration.checkOrigin("https://evil.example")).isNull();
     }
 
     @Test
