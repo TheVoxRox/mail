@@ -13,6 +13,23 @@ IMAP/SMTP servery a poskytuje API pro uživatelské rozhraní.
 - Správa kontaktů a export kontaktů do vCard.
 - Lokální diagnostické logy pro podporu.
 
+## Instalace a ověření instalátoru
+
+Instalátor `voxrox-mail-<verze>-windows-x64-setup.exe` zatím **není podepsaný**
+code-signing certifikátem (open source projekt). Windows SmartScreen proto při
+spuštění zobrazí varování „Windows ochránil váš počítač / Neznámý vydavatel".
+Instalaci spustíte přes **Další informace → Přesto spustit**.
+
+Před spuštěním doporučujeme ověřit, že se soubor při stahování nepoškodil ani
+nezměnil. Ke každému instalátoru je v releasu přiložený soubor
+`…-setup.exe.sha256` s očekávaným SHA256 otiskem. V PowerShellu:
+
+```powershell
+certutil -hashfile "voxrox-mail-<verze>-windows-x64-setup.exe" SHA256
+```
+
+Vypsaný otisk musí odpovídat hodnotě v `…-setup.exe.sha256`.
+
 ## Před prvním spuštěním
 
 Aplikace potřebuje běžící backend. V distribučním Tauri buildu je backend

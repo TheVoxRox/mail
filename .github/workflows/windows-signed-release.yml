@@ -189,6 +189,19 @@ jobs:
             throw "No release assets found."
           }
 
+          # Publish a SHA256 checksum next to each installer so users can verify
+          # the download's integrity (`certutil -hashfile <file> SHA256` on
+          # Windows, `sha256sum -c <file>.sha256` elsewhere). The .sig/latest.json
+          # are updater-internal and not user-downloaded, so they are not hashed.
+          foreach ($installer in @($assets | Where-Object { $_ -match "-setup\.exe$" })) {
+            $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $installer).Hash.ToLower()
+            $name = [System.IO.Path]::GetFileName($installer)
+            $sumPath = "$installer.sha256"
+            [System.IO.File]::WriteAllText($sumPath, "$hash *$name`n")
+            $assets += $sumPath
+            Write-Host "Checksum $name = $hash"
+          }
+
           gh release view $env:RELEASE_TAG | Out-Null
           if ($LASTEXITCODE -ne 0) {
             gh release create $env:RELEASE_TAG --draft --title "VoxRox Mail $env:RELEASE_TAG"
