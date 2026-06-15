@@ -57,8 +57,13 @@ npm run tauri:build -- --config src-tauri/tauri.release.conf.json
 ## Generating Tauri updater keys
 
 ```powershell
-npm run tauri -- signer generate -- --write-keys .tauri\updater.key
+npm run tauri -- signer generate --write-keys .tauri\updater.key
 ```
+
+(Use a single `--`: it separates npm's own args from the `tauri` args. A second
+`--` is forwarded to the `signer generate` command, which rejects `--write-keys`
+as an unexpected argument. If npm's `.ps1` shim is blocked by the PowerShell
+execution policy, call `npm.cmd` instead.)
 
 The command prints the public key for `TAURI_UPDATER_PUBKEY`; store the private
 key content in `TAURI_SIGNING_PRIVATE_KEY`.
