@@ -5,6 +5,8 @@
 
 $ErrorActionPreference = "Stop"
 
+. (Join-Path $PSScriptRoot "scripts\lib\Import-DotEnv.ps1")
+
 $envFile = Join-Path $PSScriptRoot ".env"
 
 if (-not (Test-Path $envFile)) {
@@ -14,23 +16,7 @@ if (-not (Test-Path $envFile)) {
 }
 
 Write-Host "[run-dev] Loading variables from .env..." -ForegroundColor Cyan
-
-$loaded = 0
-Get-Content $envFile | ForEach-Object {
-    $line = $_.Trim()
-    if ($line -eq "" -or $line.StartsWith("#")) { return }
-
-    if ($line -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$') {
-        $name = $Matches[1]
-        $value = $Matches[2]
-        if ($value -match '^"(.*)"$' -or $value -match "^'(.*)'$") {
-            $value = $Matches[1]
-        }
-        [Environment]::SetEnvironmentVariable($name, $value, "Process")
-        $script:loaded++
-    }
-}
-
+$loaded = Import-DotEnv -Path $envFile
 Write-Host "[run-dev] Loaded $loaded variables." -ForegroundColor Green
 Write-Host "[run-dev] Starting mvn spring-boot:run..." -ForegroundColor Cyan
 Write-Host ""
