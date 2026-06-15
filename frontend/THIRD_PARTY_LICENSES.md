@@ -6,7 +6,7 @@ Counts: 116 packages total. 85 MIT, 14 ISC, 6 Apache-2.0, 4 MIT OR Apache-2.0, 2
 
 ## MIT (85)
 
-- **@esbuild/win32-x64** 0.28.0 — [https://github.com/evanw/esbuild](https://github.com/evanw/esbuild)
+- **@esbuild/win32-x64** 0.28.1 — [https://github.com/evanw/esbuild](https://github.com/evanw/esbuild)
 - **@floating-ui/core** 1.7.5 — [https://github.com/floating-ui/floating-ui](https://github.com/floating-ui/floating-ui)
 - **@floating-ui/dom** 1.7.6 — [https://github.com/floating-ui/floating-ui](https://github.com/floating-ui/floating-ui)
 - **@floating-ui/utils** 0.2.11 — [https://github.com/floating-ui/floating-ui](https://github.com/floating-ui/floating-ui)
@@ -47,7 +47,7 @@ Counts: 116 packages total. 85 MIT, 14 ISC, 6 Apache-2.0, 4 MIT OR Apache-2.0, 2
 - **devalue** 5.8.1 — [https://github.com/sveltejs/devalue](https://github.com/sveltejs/devalue)
 - **enhanced-resolve** 5.22.1 — [https://github.com/webpack/enhanced-resolve](https://github.com/webpack/enhanced-resolve)
 - **es6-iterator** 2.0.3 — [https://github.com/medikoo/es6-iterator](https://github.com/medikoo/es6-iterator)
-- **esbuild** 0.28.0 — [https://github.com/evanw/esbuild](https://github.com/evanw/esbuild)
+- **esbuild** 0.28.1 — [https://github.com/evanw/esbuild](https://github.com/evanw/esbuild)
 - **esm-env** 1.2.2 — [https://github.com/benmccann/esm-env](https://github.com/benmccann/esm-env)
 - **esrap** 2.2.10 — [https://github.com/sveltejs/esrap](https://github.com/sveltejs/esrap)
 - **estree-walker** 2.0.2 — [https://github.com/Rich-Harris/estree-walker](https://github.com/Rich-Harris/estree-walker)
