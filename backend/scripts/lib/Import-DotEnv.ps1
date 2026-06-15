@@ -48,8 +48,8 @@ function Import-DotEnv {
         if ($Only -and ($Only -notcontains $name)) {
             continue
         }
-        if ($NoOverride -and -not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
-            continue
+        if ($NoOverride -and $null -ne [Environment]::GetEnvironmentVariable($name)) {
+            continue # already defined in the environment (even if empty) — do not override
         }
         [Environment]::SetEnvironmentVariable($name, $value, 'Process')
         $loaded++
