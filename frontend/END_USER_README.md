@@ -20,9 +20,21 @@ code-signing certifikátem (open source projekt). Windows SmartScreen proto při
 spuštění zobrazí varování „Windows ochránil váš počítač / Neznámý vydavatel".
 Instalaci spustíte přes **Další informace → Přesto spustit**.
 
-Před spuštěním doporučujeme ověřit, že se soubor při stahování nepoškodil ani
-nezměnil. Ke každému instalátoru je v releasu přiložený soubor
-`…-setup.exe.sha256` s očekávaným SHA256 otiskem. V PowerShellu:
+### Ověření před spuštěním
+
+Protože build není podepsaný code-signing certifikátem, doporučujeme ověřit jeho
+původ. Nejsilnější je **ověření původu (build provenance)** pomocí GitHub CLI —
+potvrdí, že instalátor postavil přímo oficiální release workflow tohoto
+repozitáře (kryptograficky, přes Sigstore; nelze podvrhnout pouhou záměnou
+souboru v releasu):
+
+```powershell
+gh attestation verify "voxrox-mail-<verze>-windows-x64-setup.exe" --repo TheVoxRox/mail
+```
+
+Přiložený `…-setup.exe.sha256` slouží už jen jako **rychlá kontrola integrity**
+(že se soubor nepoškodil při stahování) — sám o sobě nechrání proti úmyslné
+záměně, protože leží ve stejném releasu:
 
 ```powershell
 certutil -hashfile "voxrox-mail-<verze>-windows-x64-setup.exe" SHA256

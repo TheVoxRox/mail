@@ -70,8 +70,17 @@ platform bundles. The workflow publishes:
 
 - `voxrox-mail-<version>-windows-x64-setup.exe` (normalized name)
 - `voxrox-mail-<version>-windows-x64-setup.exe.sig` (Tauri updater signature)
+- `voxrox-mail-<version>-windows-x64-setup.exe.sha256` (integrity checksum)
 - `latest.json` with `windows-x86_64.signature` set to the generated `.sig`
   contents
+
+The workflow also records a Sigstore-backed **build-provenance attestation** for
+the installer (`actions/attest-build-provenance`). It ties the binary to the
+workflow + commit that produced it and is the strongest free authenticity check
+for a build without a paid Authenticode certificate. Verify a downloaded
+installer with `gh attestation verify <file> --repo <owner>/<repo>`. The bare
+`.sha256` only guards against transport corruption — it shares the release
+channel with the installer, so it is not a tamper defense on its own.
 
 Windows downgrades are disabled; release rollback must follow the operational
 recovery procedure in [`../../backend/OPERATIONS.md`](../../backend/OPERATIONS.md)

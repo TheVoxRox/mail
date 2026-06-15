@@ -16,6 +16,10 @@ on:
 
 permissions:
   contents: write
+  # Required by actions/attest-build-provenance: id-token for Sigstore OIDC,
+  # attestations to record the provenance against the repository.
+  id-token: write
+  attestations: write
 
 concurrency:
   group: windows-signed-release-${{ github.ref }}
@@ -162,6 +166,17 @@ jobs:
             ".\src-tauri\target\release\bundle"
           )
           .\scripts\verify-windows-signatures.ps1 -Path $paths
+
+      # Strong, free supply-chain authenticity for an OSS build with no paid
+      # Authenticode certificate: a Sigstore-backed build-provenance attestation
+      # cryptographically ties the installer to this workflow + commit. Unlike a
+      # bare SHA256 (which an attacker who can rewrite the release rewrites too),
+      # it is verifiable out-of-band with
+      #   gh attestation verify <file> --repo ${{ github.repository }}
+      - name: Attest installer build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: frontend/src-tauri/target/release/bundle/nsis/voxrox-mail-*-setup.exe
 
       - name: Upload signed Windows artifacts
         uses: actions/upload-artifact@v4
