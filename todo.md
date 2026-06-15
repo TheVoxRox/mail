@@ -103,7 +103,6 @@ Backend (headless) cast zmerena a uzavrena — sekce "Startup audit — mereni 2
 ## Produktove funkce (backlog)
 
 - [ ] iCloud OAuth.
-- [ ] ThreadingService broadcastuje SSE uvnitr transakce ([ThreadingService.java:164](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/ThreadingService.java), :224) — pre-commit visibility (FE muze refetchnout pred commitem) + blokujici emitter.send v transakci. LOW: samoopravne pres sync_completed event, lokalni klient. Presunout broadcast za commit pri Threading Phase 2.
 - [ ] Threading Phase 2 (V0.2) — UI grouping toggle, thread row aria-tree, bulk akce, a11y pass. + References-only orphan reconciliation (dite linkuje parenta jen pres `References`) — vyzaduje normalizovanou junction tabulku (token match ve free-text je neindexovatelny). Detail [backend/docs/THREADING_DESIGN.md](backend/docs/THREADING_DESIGN.md).
 - [ ] Filtrovani / pravidla pro automaticke trideni zprav.
 - [ ] Full QRESYNC SELECT s VANISHED — vetsi refactor `ImapFolderExecutor`; po release, pokud bude cleanup latency bottleneck.

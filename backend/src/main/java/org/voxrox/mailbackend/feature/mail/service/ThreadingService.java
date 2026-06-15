@@ -10,6 +10,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.mail.dto.ThreadUpdated;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
@@ -73,7 +75,9 @@ public class ThreadingService {
      * Assigns thread membership to {@code msg}. Mutates the entity (sets
      * {@code threadId}, {@code threadRootMessageId}, {@code threadPosition}) and
      * may broadcast {@code thread_updated} SSE events as a side effect if
-     * late-arriving-parent reconciliation merges orphan threads.
+     * late-arriving-parent reconciliation merges orphan threads. The broadcasts are
+     * deferred until after the surrounding transaction commits (see
+     * {@link #broadcastThreadUpdatedAfterCommit}).
      *
      * <p>
      * Callers must invoke this within a JPA transaction so the orphan
@@ -94,6 +98,30 @@ public class ThreadingService {
             startNewThread(msg);
         }
         reconcileLateArrivingParent(msg, account);
+    }
+
+    /**
+     * Broadcasts a {@code thread_updated} event, but only after the surrounding
+     * transaction commits. {@link #assignThread} runs inside
+     * {@code MessageDownloader}'s batch transaction; firing the SSE event inline
+     * would (1) let a client refetch the thread before the rows are committed
+     * (pre-commit visibility — a stale read) and (2) hold the single-writer SQLite
+     * write transaction open across the blocking {@code emitter.send}. Deferring to
+     * {@code afterCommit} fixes both. With no active transaction (a plain unit-test
+     * invocation) we broadcast inline so behaviour is unchanged for callers outside
+     * a transaction. Mirrors {@code AccountService.purgeConnectionsAfterCommit}.
+     */
+    private void broadcastThreadUpdatedAfterCommit(ThreadUpdated event) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            sseNotificationService.broadcast(event);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                sseNotificationService.broadcast(event);
+            }
+        });
     }
 
     /**
@@ -158,10 +186,11 @@ public class ThreadingService {
         int maxPosition = messageRepository.findMaxThreadPosition(account.getId(), parent.getThreadId());
         msg.setThreadPosition(maxPosition + 1);
 
-        // Notify subscribers that the thread gained a message. This may fire
-        // many events during a bulk initial sync; SSE clients are expected
+        // Notify subscribers that the thread gained a message. Deferred to
+        // after commit so the client refetch sees the persisted row. This may
+        // fire many events during a bulk initial sync; SSE clients are expected
         // to coalesce.
-        sseNotificationService.broadcast(ThreadUpdated.of(msg.getThreadId(), account.getId()));
+        broadcastThreadUpdatedAfterCommit(ThreadUpdated.of(msg.getThreadId(), account.getId()));
     }
 
     /**
@@ -220,8 +249,9 @@ public class ThreadingService {
                 LogCategory.SYNC, orphanThreadIds.size(), moved, msg.getThreadId(), mergedRoot, account.getId());
         // One thread_updated event per affected thread keeps the wire format
         // simple — the merged thread inherits the inbound message's id, the
-        // orphans no longer exist as standalone aggregates.
-        sseNotificationService.broadcast(ThreadUpdated.of(msg.getThreadId(), account.getId()));
+        // orphans no longer exist as standalone aggregates. Deferred to after
+        // commit so the client refetch sees the reassigned rows.
+        broadcastThreadUpdatedAfterCommit(ThreadUpdated.of(msg.getThreadId(), account.getId()));
     }
 
     /**

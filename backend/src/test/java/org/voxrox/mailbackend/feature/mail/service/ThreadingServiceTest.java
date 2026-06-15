@@ -22,6 +22,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.mail.dto.ThreadUpdated;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
@@ -392,6 +394,60 @@ class ThreadingServiceTest {
             // We should have queried at most MAX_REFERENCES_WALK + 1 ids
             // (the +1 covers the In-Reply-To lookup; here it is null so 0 extra).
             verify(repo, times(50)).findByAccountIdAndMessageId(eq(ACCOUNT_ID), anyString());
+        }
+    }
+
+    @Nested
+    @DisplayName("SSE broadcast deferral")
+    class BroadcastDeferral {
+
+        /**
+         * assignThread runs inside MessageDownloader's batch transaction. The
+         * thread_updated event must not reach the wire until that transaction commits —
+         * otherwise a client could refetch the thread before the rows are visible (a
+         * stale read). With an active synchronization the broadcast is registered and
+         * only fires on afterCommit.
+         */
+        @Test
+        @DisplayName("thread_updated is held until the transaction commits, not fired inline")
+        void broadcastDeferredUntilAfterCommit() {
+            TransactionSynchronizationManager.initSynchronization();
+            try {
+                MessageEntity parent = newMessage("<p1@example.com>", null, null);
+                service.assignThread(parent, ACCOUNT); // startNewThread — no broadcast
+                register(parent);
+
+                MessageEntity child = newMessage("<c1@example.com>", "<p1@example.com>", null);
+                service.assignThread(child, ACCOUNT); // attaches — schedules a broadcast
+
+                // Inside the transaction nothing has been broadcast yet.
+                verify(sse, never()).broadcast(any(ThreadUpdated.class));
+
+                // Commit: every registered synchronization fires.
+                for (TransactionSynchronization sync : TransactionSynchronizationManager.getSynchronizations()) {
+                    sync.afterCommit();
+                }
+                verify(sse).broadcast(any(ThreadUpdated.class));
+            } finally {
+                TransactionSynchronizationManager.clearSynchronization();
+            }
+        }
+
+        /**
+         * Outside a transaction (a plain unit-test or non-transactional caller) the
+         * broadcast falls back to firing inline, so existing behaviour is preserved.
+         */
+        @Test
+        @DisplayName("Without an active transaction the broadcast fires inline")
+        void broadcastInlineWithoutTransaction() {
+            MessageEntity parent = newMessage("<p1@example.com>", null, null);
+            service.assignThread(parent, ACCOUNT);
+            register(parent);
+
+            MessageEntity child = newMessage("<c1@example.com>", "<p1@example.com>", null);
+            service.assignThread(child, ACCOUNT);
+
+            verify(sse).broadcast(any(ThreadUpdated.class));
         }
     }
 }
