@@ -10,13 +10,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.mail.dto.ThreadUpdated;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
 import org.voxrox.mailbackend.util.LogCategory;
+import org.voxrox.mailbackend.util.TransactionCallbacks;
 
 /**
  * Materializes conversation membership at sync time using a JWZ-light algorithm
@@ -109,19 +108,10 @@ public class ThreadingService {
      * write transaction open across the blocking {@code emitter.send}. Deferring to
      * {@code afterCommit} fixes both. With no active transaction (a plain unit-test
      * invocation) we broadcast inline so behaviour is unchanged for callers outside
-     * a transaction. Mirrors {@code AccountService.purgeConnectionsAfterCommit}.
+     * a transaction.
      */
     private void broadcastThreadUpdatedAfterCommit(ThreadUpdated event) {
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            sseNotificationService.broadcast(event);
-            return;
-        }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                sseNotificationService.broadcast(event);
-            }
-        });
+        TransactionCallbacks.runAfterCommit(() -> sseNotificationService.broadcast(event));
     }
 
     /**

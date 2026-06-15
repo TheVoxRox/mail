@@ -5,8 +5,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.voxrox.mailbackend.exception.AccountAlreadyExistsException;
 import org.voxrox.mailbackend.exception.AccountNotFoundException;
@@ -21,6 +19,7 @@ import org.voxrox.mailbackend.feature.mail.service.ImapConnectionManager;
 import org.voxrox.mailbackend.util.AuditLog;
 import org.voxrox.mailbackend.util.LogCategory;
 import org.voxrox.mailbackend.util.LogMasker;
+import org.voxrox.mailbackend.util.TransactionCallbacks;
 
 import module java.base;
 
@@ -269,17 +268,7 @@ public class AccountService {
      * (no-op).
      */
     private void purgeConnectionsAfterCommit(Long accountId) {
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            // No active transaction (plain unit-test invocation) — purge inline.
-            purgeConnectionsQuietly(accountId);
-            return;
-        }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                purgeConnectionsQuietly(accountId);
-            }
-        });
+        TransactionCallbacks.runAfterCommit(() -> purgeConnectionsQuietly(accountId));
     }
 
     /**
@@ -395,17 +384,7 @@ public class AccountService {
      * processExternalProviderLogin.
      */
     private void invalidateRuntimeAuthAfterCommit(String providerName, Long accountId) {
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            // No active transaction (plain unit-test invocation) — invalidate inline.
-            invalidateRuntimeAuthQuietly(providerName, accountId);
-            return;
-        }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                invalidateRuntimeAuthQuietly(providerName, accountId);
-            }
-        });
+        TransactionCallbacks.runAfterCommit(() -> invalidateRuntimeAuthQuietly(providerName, accountId));
     }
 
     /**
