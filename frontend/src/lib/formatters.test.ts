@@ -16,6 +16,10 @@ describe('formatSize', () => {
 	it('defaults to Czech when no locale is given', () => {
 		expect(formatSize(1.5 * 1024 * 1024)).toBe('1,5 MB');
 	});
+
+	it('falls back to Czech when the locale is null (unresolved app locale)', () => {
+		expect(formatSize(1.5 * 1024 * 1024, null)).toBe('1,5 MB');
+	});
 });
 
 describe('formatMediumDate', () => {

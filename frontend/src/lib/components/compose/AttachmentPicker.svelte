@@ -30,7 +30,7 @@
 			return $_('compose.attachmentTooLarge', {
 				values: {
 					name: tooLarge.name,
-					limit: formatSize($clientConfig.attachmentMaxBytes, $appLocale ?? 'cs')
+					limit: formatSize($clientConfig.attachmentMaxBytes, $appLocale)
 				}
 			});
 		}
@@ -39,7 +39,7 @@
 			attachmentTotalSize(attachments) + files.reduce((total, file) => total + file.size, 0);
 		if (nextTotal > $clientConfig.attachmentTotalMaxBytes) {
 			return $_('compose.attachmentsTooLarge', {
-				values: { limit: formatSize($clientConfig.attachmentTotalMaxBytes, $appLocale ?? 'cs') }
+				values: { limit: formatSize($clientConfig.attachmentTotalMaxBytes, $appLocale) }
 			});
 		}
 
@@ -56,7 +56,7 @@
 			description: $_('compose.largeAttachmentConfirm', {
 				values: {
 					count: largeFiles.length,
-					limit: formatSize($clientConfig.largeAttachmentWarningBytes, $appLocale ?? 'cs')
+					limit: formatSize($clientConfig.largeAttachmentWarningBytes, $appLocale)
 				}
 			}),
 			confirmLabel: $_('compose.largeAttachmentConfirmAction'),
@@ -229,7 +229,7 @@
 					class="inline-flex items-center gap-1 rounded bg-secondary px-2 py-1 text-xs text-secondary-foreground"
 				>
 					<span>{att.fileName}</span>
-					<span class="text-muted-foreground">({formatSize(att.size, $appLocale ?? 'cs')})</span>
+					<span class="text-muted-foreground">({formatSize(att.size, $appLocale)})</span>
 					<Button
 						type="button"
 						variant="ghost"

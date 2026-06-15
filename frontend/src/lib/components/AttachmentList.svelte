@@ -31,9 +31,7 @@
 					>
 						<Icon name="paperclip" size={14} />
 						<span>{attachment.fileName}</span>
-						<span class="text-muted-foreground"
-							>({formatSize(attachment.size, $appLocale ?? 'cs')})</span
-						>
+						<span class="text-muted-foreground">({formatSize(attachment.size, $appLocale)})</span>
 					</button>
 				</li>
 			{/each}

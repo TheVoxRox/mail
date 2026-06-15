@@ -1,9 +1,12 @@
-export function formatSize(bytes: number, locale = 'cs'): string {
+// `locale` accepts the app-locale store value directly, including its `null`
+// "not yet resolved" state, and falls back to Czech here so callers never have
+// to repeat the `?? 'cs'` coalescing.
+export function formatSize(bytes: number, locale: string | null | undefined = 'cs'): string {
 	if (bytes < 1024) return `${bytes} B`;
 	if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} kB`;
 	// Only the MB branch carries a fraction — localize its decimal separator
 	// (cs "1,5 MB" vs en "1.5 MB"). B/kB are integers and stay separator-free.
-	const mb = new Intl.NumberFormat(locale, {
+	const mb = new Intl.NumberFormat(locale ?? 'cs', {
 		minimumFractionDigits: 1,
 		maximumFractionDigits: 1
 	}).format(bytes / (1024 * 1024));
