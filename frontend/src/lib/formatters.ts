@@ -1,7 +1,13 @@
-export function formatSize(bytes: number): string {
+export function formatSize(bytes: number, locale = 'cs'): string {
 	if (bytes < 1024) return `${bytes} B`;
 	if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} kB`;
-	return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+	// Only the MB branch carries a fraction — localize its decimal separator
+	// (cs "1,5 MB" vs en "1.5 MB"). B/kB are integers and stay separator-free.
+	const mb = new Intl.NumberFormat(locale, {
+		minimumFractionDigits: 1,
+		maximumFractionDigits: 1
+	}).format(bytes / (1024 * 1024));
+	return `${mb} MB`;
 }
 
 export function formatTime(date: Date, locale = 'cs', includeSeconds = false): string {

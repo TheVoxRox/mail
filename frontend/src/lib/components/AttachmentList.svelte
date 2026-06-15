@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Icon from '$lib/components/Icon.svelte';
 	import { formatSize } from '$lib/formatters.js';
-	import { _ } from '$lib/i18n/index.js';
+	import { _, appLocale } from '$lib/i18n/index.js';
 	import type { AttachmentResponse } from '$lib/types.js';
 
 	interface Props {
@@ -31,7 +31,9 @@
 					>
 						<Icon name="paperclip" size={14} />
 						<span>{attachment.fileName}</span>
-						<span class="text-muted-foreground">({formatSize(attachment.size)})</span>
+						<span class="text-muted-foreground"
+							>({formatSize(attachment.size, $appLocale ?? 'cs')})</span
+						>
 					</button>
 				</li>
 			{/each}

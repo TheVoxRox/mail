@@ -4,7 +4,7 @@
 	import { formatSize } from '$lib/formatters.js';
 	import { clientConfig } from '$lib/stores/clientConfig.js';
 	import { confirmAction } from '$lib/stores/confirmDialog.js';
-	import { _ } from '$lib/i18n/index.js';
+	import { _, appLocale } from '$lib/i18n/index.js';
 	import { toErrorMessage } from '$lib/api/errors.js';
 	import type { ComposeAttachment } from '$lib/compose/request.js';
 	import { onDestroy, onMount } from 'svelte';
@@ -30,7 +30,7 @@
 			return $_('compose.attachmentTooLarge', {
 				values: {
 					name: tooLarge.name,
-					limit: formatSize($clientConfig.attachmentMaxBytes)
+					limit: formatSize($clientConfig.attachmentMaxBytes, $appLocale ?? 'cs')
 				}
 			});
 		}
@@ -39,7 +39,7 @@
 			attachmentTotalSize(attachments) + files.reduce((total, file) => total + file.size, 0);
 		if (nextTotal > $clientConfig.attachmentTotalMaxBytes) {
 			return $_('compose.attachmentsTooLarge', {
-				values: { limit: formatSize($clientConfig.attachmentTotalMaxBytes) }
+				values: { limit: formatSize($clientConfig.attachmentTotalMaxBytes, $appLocale ?? 'cs') }
 			});
 		}
 
@@ -56,7 +56,7 @@
 			description: $_('compose.largeAttachmentConfirm', {
 				values: {
 					count: largeFiles.length,
-					limit: formatSize($clientConfig.largeAttachmentWarningBytes)
+					limit: formatSize($clientConfig.largeAttachmentWarningBytes, $appLocale ?? 'cs')
 				}
 			}),
 			confirmLabel: $_('compose.largeAttachmentConfirmAction'),
@@ -229,7 +229,7 @@
 					class="inline-flex items-center gap-1 rounded bg-secondary px-2 py-1 text-xs text-secondary-foreground"
 				>
 					<span>{att.fileName}</span>
-					<span class="text-muted-foreground">({formatSize(att.size)})</span>
+					<span class="text-muted-foreground">({formatSize(att.size, $appLocale ?? 'cs')})</span>
 					<Button
 						type="button"
 						variant="ghost"

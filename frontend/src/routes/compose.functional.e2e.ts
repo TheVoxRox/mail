@@ -272,7 +272,7 @@ test.describe('Compose', () => {
 		});
 
 		await expect(
-			page.getByText('Příloha velka-priloha.bin je větší než limit 10.0 MB.')
+			page.getByText('Příloha velka-priloha.bin je větší než limit 10,0 MB.')
 		).toBeVisible();
 		await expect(page.getByText('velka-priloha.bin')).toHaveCount(1);
 		await expect(
