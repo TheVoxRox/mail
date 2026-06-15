@@ -11,7 +11,12 @@
  *   - the webview origin is accepted (2xx) and echoed back in
  *     Access-Control-Allow-Origin;
  *   - a foreign web origin is rejected (403), so the allowlist cannot silently
- *     widen to "*".
+ *     widen to "*";
+ *   - the boot endpoints the client actually calls (client-config, accounts)
+ *     answer 2xx with JSON through the webview origin. These exercise the
+ *     AOT-compiled controller + JPA + Jackson paths that only the packaged,
+ *     AOT-cached sidecar runs (dev uses the plain JIT jar) and that a
+ *     readiness-only probe never touches.
  *
  * It deliberately does NOT launch the full Tauri app: the sidecar is what
  * enforces CORS, and a headless check is deterministic on a CI runner (no
@@ -73,17 +78,20 @@ async function exists(filePath) {
 	}
 }
 
-/** GET that resolves with { status, headers } for ANY response (a 403 is an expected outcome here). */
+/** GET that resolves with { status, headers, body } for ANY response (a 403 is an expected outcome here). */
 function probe(url, { origin, apiKey, timeoutMs }) {
 	return new Promise((resolve, reject) => {
 		const headers = {};
 		if (apiKey) headers['X-API-KEY'] = apiKey;
 		if (origin) headers.Origin = origin;
 		const request = http.get(url, { headers, timeout: timeoutMs }, (response) => {
+			let body = '';
 			response.setEncoding('utf8');
-			response.on('data', () => {});
+			response.on('data', (chunk) => {
+				body += chunk;
+			});
 			response.on('end', () =>
-				resolve({ status: response.statusCode ?? 0, headers: response.headers })
+				resolve({ status: response.statusCode ?? 0, headers: response.headers, body })
 			);
 		});
 		request.on('timeout', () =>
@@ -147,6 +155,42 @@ async function assertCorsContract(session) {
 	};
 }
 
+/*
+ * Endpoints the desktop client fetches during boot (see frontend bootstrap.ts:
+ * loadClientConfig + loadAccounts). Probing them through the real webview
+ * origin proves the packaged, AOT-cached sidecar can actually serve data — not
+ * just answer the static readiness probe. Both are safe on the fresh isolated
+ * DB: client-config is static, accounts returns an empty list.
+ */
+const BOOT_ENDPOINTS = ['/v1/client-config', '/v1/accounts'];
+
+async function assertBootEndpoints(session) {
+	const results = [];
+	for (const endpoint of BOOT_ENDPOINTS) {
+		const url = `${session.baseUrl}${endpoint}`;
+		const response = await probe(url, {
+			origin: WEBVIEW_ORIGIN,
+			apiKey: session.apiKey,
+			timeoutMs: 5_000
+		});
+		if (response.status < 200 || response.status >= 300) {
+			throw new Error(
+				`${endpoint} returned HTTP ${response.status} (expected 2xx) through the packaged sidecar.`
+			);
+		}
+		try {
+			JSON.parse(response.body);
+		} catch {
+			throw new Error(
+				`${endpoint} returned a non-JSON body through the packaged sidecar ` +
+					`(AOT serialization / controller regression?).`
+			);
+		}
+		results.push(`${endpoint} → ${response.status}`);
+	}
+	return results;
+}
+
 async function removeWithRetry(dir) {
 	// The sidecar JVM briefly keeps the SQLite db handles after the process tree
 	// is torn down; one retry clears the transient lock. The dir lives under the
@@ -190,10 +234,12 @@ child.stderr?.on('data', (chunk) => {
 try {
 	const session = await waitForSession(sessionPath, child);
 	const result = await assertCorsContract(session);
+	const endpoints = await assertBootEndpoints(session);
 	console.log(
 		`OK — webview origin ${WEBVIEW_ORIGIN} → ${result.webviewStatus} ` +
 			`(Access-Control-Allow-Origin ${result.allowOriginHeader}); foreign origin → ${result.foreignStatus}.`
 	);
+	console.log(`OK - boot endpoints through ${WEBVIEW_ORIGIN}: ${endpoints.join(', ')}.`);
 } catch (error) {
 	if (stderr.trim()) {
 		console.error('--- sidecar stderr (tail) ---');
