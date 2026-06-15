@@ -10,7 +10,13 @@ param(
     # read the OPERATIONS.md section "JEP 483 AOT class cache" and verify that
     # the runtime startup does not throw exceptions from Spring AOT proxy
     # generation.
-    [switch] $EnableAotCache
+    [switch] $EnableAotCache,
+    # Fail the build if any OAuth client identifier is missing or still the
+    # non-working "mail-local-*" placeholder, instead of warning and shipping a
+    # build whose OAuth login is silently broken only in production. Release
+    # packaging (windows-signed-release.yml) passes this; a local unsigned build
+    # may omit it to package without real OAuth secrets.
+    [switch] $RequireOAuthConfig
 )
 
 $ErrorActionPreference = "Stop"
@@ -132,8 +138,17 @@ Invoke-Step "Resolving OAuth client configuration" {
 
     foreach ($envName in $oauthMappings.Keys) {
         $value = [Environment]::GetEnvironmentVariable($envName)
-        if ([string]::IsNullOrWhiteSpace($value)) {
-            Write-Warning "  $envName is not set; packaging with the placeholder for $($oauthMappings[$envName]). OAuth login will not work in this build."
+        # An env var set to the application.properties placeholder is as broken
+        # as an unset one — both leave OAuth non-functional in the shipped build.
+        $isPlaceholder = (-not [string]::IsNullOrWhiteSpace($value)) -and ($value -like "mail-local-*")
+        if ([string]::IsNullOrWhiteSpace($value) -or $isPlaceholder) {
+            $reason = if ($isPlaceholder) { "is set to the non-working placeholder '$value'" } else { "is not set" }
+            if ($RequireOAuthConfig) {
+                throw "OAuth client configuration is required for this build but $envName $reason. " +
+                    "Set GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET and MICROSOFT_OAUTH_CLIENT_ID " +
+                    "(CI secrets) before packaging a release, or omit -RequireOAuthConfig for a local build."
+            }
+            Write-Warning "  $envName $reason; $($oauthMappings[$envName]) falls back to the placeholder and OAuth login will not work in this build."
             continue
         }
         $script:oauthArgs += "--java-options"

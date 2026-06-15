@@ -91,7 +91,7 @@ jobs:
         # builds keep the default (OFF) to avoid the ~70 s training overhead
         # on every iteration.
         run: |
-          $args = @("-File", "scripts/package-sidecar-windows.ps1", "-EnableAotCache")
+          $args = @("-File", "scripts/package-sidecar-windows.ps1", "-EnableAotCache", "-RequireOAuthConfig")
           if ("${{ inputs['skip-backend-tests'] }}" -eq "true") {
             $args += "-SkipTests"
           }
