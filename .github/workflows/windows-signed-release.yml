@@ -101,6 +101,16 @@ jobs:
         working-directory: frontend
         run: npm run sidecar:sync:windows -- ..\backend\target\sidecar\x86_64-pc-windows-msvc src-tauri\binaries
 
+      # Release gate: launch the packaged sidecar headless and assert the CORS
+      # contract through the real WebView2 origin (http://tauri.localhost). A
+      # `tauri dev` run / backend-only probe cannot catch an allowlist
+      # regression because the webview origin only exists in a bundle — this is
+      # the integration counterpart to SecurityConfigTest. Runs before signing
+      # so a broken build fails fast.
+      - name: Sidecar CORS contract smoke
+        working-directory: frontend
+        run: npm run tauri:smoke:sidecar-cors
+
       - name: Import Windows code signing certificate
         shell: pwsh
         run: |

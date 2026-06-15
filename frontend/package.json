@@ -12,6 +12,7 @@
 		"tauri:build:with-sidecar": "npm run sidecar:sync:windows && npm run tauri:build",
 		"tauri:smoke:startup": "node scripts/tauri-startup-smoke.mjs",
 		"tauri:smoke:release-startup": "node scripts/tauri-release-startup-smoke.mjs",
+		"tauri:smoke:sidecar-cors": "node scripts/tauri-sidecar-cors-smoke.mjs",
 		"tauri:release-config:windows": "node scripts/prepare-tauri-windows-release-config.mjs",
 		"tauri:generate-latest:windows": "node scripts/generate-tauri-latest-windows.mjs",
 		"tauri:signing-config:windows": "node scripts/prepare-tauri-windows-signing-config.mjs",
