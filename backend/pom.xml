@@ -16,6 +16,13 @@
 
 	<properties>
 		<java.version>25</java.version>
+		<!--
+			Security override: Spring Boot 4.0.6 manages Tomcat 11.0.21, which carries
+			7 advisories (3 CRITICAL — security-constraint bypass, Digest auth bypass,
+			HTTP/2 header validation). All are fixed in 11.0.22. Remove this override
+			once the managed Tomcat version is >= 11.0.22.
+		-->
+		<tomcat.version>11.0.22</tomcat.version>
 		<spring-retry.version>2.0.12</spring-retry.version>
 		<jsoup.version>1.22.2</jsoup.version>
 		<springdoc.version>3.0.2</springdoc.version>
