@@ -204,7 +204,7 @@
 							{#each groupedCommands as group (group.groupKey)}
 								<BitsCommand.Group value={group.groupKey}>
 									<BitsCommand.GroupHeading
-										class="px-2 pb-1 pt-3 text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground first:pt-0"
+										class="px-2 pb-1 pt-3 text-caption font-semibold uppercase tracking-[0.16em] text-muted-foreground first:pt-0"
 									>
 										{group.groupLabel}
 									</BitsCommand.GroupHeading>
@@ -236,7 +236,7 @@
 												</span>
 												{#if entry.command.shortcut}
 													<span
-														class="rounded-md border border-border px-2 py-1 text-[0.7rem] text-muted-foreground"
+														class="rounded-md border border-border px-2 py-1 text-caption text-muted-foreground"
 													>
 														{entry.command.shortcut}
 													</span>

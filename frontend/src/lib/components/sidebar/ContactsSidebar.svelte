@@ -129,7 +129,7 @@
 						{$_('contacts.newContact')}
 
 						{#snippet badge()}
-							<kbd class="text-[0.68rem] font-medium text-muted-foreground">Ctrl+N</kbd>
+							<kbd class="text-caption font-medium text-muted-foreground">Ctrl+N</kbd>
 						{/snippet}
 					</SidebarNavItem>
 				</li>

@@ -130,7 +130,7 @@
 					{/if}
 					{#if compact}
 						{#if action.compactText}
-							<span class="text-[0.65rem] font-semibold uppercase">{action.compactText}</span>
+							<span class="text-caption font-semibold uppercase">{action.compactText}</span>
 						{/if}
 						<span class="sr-only">{action.label}</span>
 					{:else}

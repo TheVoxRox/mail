@@ -142,7 +142,7 @@
 				tabindex={focusedRow === rowIndex && focusedCol === COL_STATUS ? 0 : -1}
 				aria-label={statusLabel}
 				onfocus={() => handleCellFocus(rowIndex, COL_STATUS)}
-				class="row-span-2 flex items-center gap-1 rounded-sm px-2 text-[0.72rem] text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+				class="row-span-2 flex items-center gap-1 rounded-sm px-2 text-caption text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
 			>
 				<MessageFlags {message} />
 			</div>
@@ -154,7 +154,7 @@
 				tabindex={focusedRow === rowIndex && focusedCol === COL_SUBJECT ? 0 : -1}
 				onfocus={() => handleCellFocus(rowIndex, COL_SUBJECT)}
 				class={cn(
-					'col-start-2 row-start-1 truncate rounded-sm px-2 pt-3 text-[0.9rem] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50',
+					'col-start-2 row-start-1 truncate rounded-sm px-2 pt-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50',
 					!message.seen ? 'text-foreground' : 'text-muted-foreground'
 				)}
 			>
@@ -171,7 +171,7 @@
 				tabindex={focusedRow === rowIndex && focusedCol === COL_SENDER ? 0 : -1}
 				onfocus={() => handleCellFocus(rowIndex, COL_SENDER)}
 				class={cn(
-					'col-start-2 row-start-2 truncate rounded-sm px-2 pb-3 text-[0.82rem] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50',
+					'col-start-2 row-start-2 truncate rounded-sm px-2 pb-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50',
 					!message.seen ? 'text-foreground' : 'text-muted-foreground'
 				)}
 			>
@@ -184,7 +184,7 @@
 				data-col={COL_DATE}
 				tabindex={focusedRow === rowIndex && focusedCol === COL_DATE ? 0 : -1}
 				onfocus={() => handleCellFocus(rowIndex, COL_DATE)}
-				class="col-start-3 row-start-1 flex items-center justify-end rounded-sm px-3 pt-3 text-[0.72rem] text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+				class="col-start-3 row-start-1 flex items-center justify-end rounded-sm px-3 pt-3 text-caption text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
 			>
 				<time datetime={message.receivedAt}>{formattedDate}</time>
 			</div>
@@ -195,7 +195,7 @@
 				data-col={COL_FOLDER}
 				tabindex={focusedRow === rowIndex && focusedCol === COL_FOLDER ? 0 : -1}
 				onfocus={() => handleCellFocus(rowIndex, COL_FOLDER)}
-				class="col-start-3 row-start-2 flex items-center justify-end truncate rounded-sm px-3 pb-3 text-[0.72rem] text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+				class="col-start-3 row-start-2 flex items-center justify-end truncate rounded-sm px-3 pb-3 text-caption text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
 			>
 				{labelForFolderRef(message.folderName)}
 			</div>

@@ -166,7 +166,7 @@
 					{#each group.shortcuts as shortcut (shortcut.actionKey)}
 						<li class="grid gap-2 py-3 sm:grid-cols-[13rem_1fr] sm:items-start">
 							<kbd
-								class="w-fit rounded border border-border bg-muted px-2 py-1 font-mono text-[0.72rem] font-medium text-foreground shadow-xs"
+								class="w-fit rounded border border-border bg-muted px-2 py-1 font-mono text-caption font-medium text-foreground shadow-xs"
 							>
 								{shortcut.shortcut}
 							</kbd>

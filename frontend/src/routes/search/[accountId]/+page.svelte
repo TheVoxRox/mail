@@ -70,7 +70,7 @@
 		<MessageDetail />
 	{:else}
 		<div class="flex items-center justify-between border-b border-border px-4 py-3">
-			<h1 class="text-[0.95rem] font-semibold">
+			<h1 class="text-title font-semibold">
 				{$_('search.resultsTitle', { values: { query: data.query } })}
 			</h1>
 			{#if $searchState.status === 'ready'}

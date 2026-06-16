@@ -254,7 +254,7 @@
 >
 	<div class="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
 		<div class="min-w-0">
-			<h1 class="text-[0.95rem] font-semibold text-foreground">
+			<h1 class="text-title font-semibold text-foreground">
 				{isEdit ? $_('contacts.editFormHeading') : $_('contacts.formHeading')}
 			</h1>
 			<p class="mt-0.5 text-xs text-muted-foreground">{$_('contacts.formHint')}</p>

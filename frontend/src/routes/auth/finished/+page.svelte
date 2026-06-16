@@ -36,7 +36,7 @@
 	<div
 		class="max-w-md rounded-md border border-border bg-card p-6 text-center text-card-foreground"
 	>
-		<h1 class="text-[0.95rem] font-semibold">{$_('auth.heading')}</h1>
+		<h1 class="text-title font-semibold">{$_('auth.heading')}</h1>
 		<p class="mt-2 text-sm text-muted-foreground" aria-live="polite">
 			{$_('auth.description', { values: { countdown } })}
 		</p>

@@ -135,13 +135,13 @@
 				</a>
 			{:else}
 				<h1
-					class="flex min-w-0 items-baseline gap-2 px-2 text-[1.05rem] font-semibold text-foreground"
+					class="flex min-w-0 items-baseline gap-2 px-2 text-base font-semibold text-foreground"
 					aria-label={folderHeadingLabel}
 				>
 					<span class="truncate" aria-hidden="true">{folderLabel}</span>
 					{#if unreadCount > 0}
 						<span
-							class="shrink-0 min-w-5 rounded-full bg-primary/12 px-1.5 py-0.5 text-center text-[0.7rem] font-semibold text-primary"
+							class="shrink-0 min-w-5 rounded-full bg-primary/12 px-1.5 py-0.5 text-center text-caption font-semibold text-primary"
 							aria-hidden="true"
 						>
 							{unreadCount}

@@ -152,7 +152,7 @@
 					aria-live="polite"
 					aria-atomic="true"
 				>
-					<h3 class="text-sm font-medium text-foreground">
+					<h3 class="text-sm font-semibold text-foreground">
 						{$_('contacts.mergePreviewHeading', {
 							values: { count: mergedEmails.length }
 						})}
@@ -169,14 +169,14 @@
 									<span class="truncate">{entry.email}</span>
 									{#if entry.primary}
 										<span
-											class="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[0.66rem] font-medium text-primary"
+											class="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-caption font-medium text-primary"
 										>
 											{$_('contacts.emailPrimary')}
 										</span>
 									{/if}
 									{#if !entry.fromTarget}
 										<span
-											class="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[0.66rem] font-medium text-muted-foreground"
+											class="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-caption font-medium text-muted-foreground"
 										>
 											{$_('contacts.mergeFromSource')}
 										</span>

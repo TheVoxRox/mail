@@ -70,7 +70,7 @@
 		<div
 			class="max-w-md rounded-md border border-border bg-card p-6 text-center text-card-foreground"
 		>
-			<h1 class="text-[0.95rem] font-semibold">{$_('workspace.mail')}</h1>
+			<h1 class="text-title font-semibold">{$_('workspace.mail')}</h1>
 			<p class="mt-2 text-sm text-muted-foreground">{$_('accounts.none')}</p>
 			<Button autofocus class="mt-4" onclick={() => goto(resolve('/settings/accounts/new'))}>
 				{$_('accounts.addAccount')}

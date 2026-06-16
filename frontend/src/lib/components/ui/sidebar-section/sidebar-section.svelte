@@ -17,7 +17,7 @@
 <section aria-labelledby={id} class={cn('space-y-1', className)}>
 	<h3
 		{id}
-		class="px-2.5 pb-1 text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground"
+		class="px-2.5 pb-1 text-caption font-semibold uppercase tracking-[0.16em] text-muted-foreground"
 	>
 		{label}
 	</h3>

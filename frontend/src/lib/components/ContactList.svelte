@@ -476,7 +476,7 @@
 								<div
 									aria-hidden="true"
 									class={cn(
-										'flex size-7 shrink-0 select-none items-center justify-center rounded-full text-[0.72rem] font-semibold',
+										'flex size-7 shrink-0 select-none items-center justify-center rounded-full text-caption font-semibold',
 										avatarColor(contact)
 									)}
 								>

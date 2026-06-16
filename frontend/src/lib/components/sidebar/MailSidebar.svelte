@@ -71,7 +71,7 @@
 	<Button size="lg" class="mt-3 w-full justify-start shadow-sm" onclick={openCompose}>
 		<Icon name="pencil-square" />
 		<span class="flex-1 text-left">{$_('nav.compose')}</span>
-		<kbd class="text-[0.7rem] font-medium text-primary-foreground/80"> Ctrl+N </kbd>
+		<kbd class="text-caption font-medium text-primary-foreground/80"> Ctrl+N </kbd>
 	</Button>
 
 	{#if $activeAccount}
@@ -126,7 +126,7 @@
 								{#snippet badge()}
 									{#if folder.unreadCount > 0}
 										<span
-											class="min-w-5 rounded-full bg-primary/12 px-1.5 py-0.5 text-center text-[0.7rem] font-semibold text-primary"
+											class="min-w-5 rounded-full bg-primary/12 px-1.5 py-0.5 text-center text-caption font-semibold text-primary"
 											aria-label={$_('nav.unreadBadge', { values: { count: folder.unreadCount } })}
 										>
 											{folder.unreadCount}

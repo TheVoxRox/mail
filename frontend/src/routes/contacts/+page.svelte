@@ -39,7 +39,7 @@
 		<div
 			class="max-w-md rounded-md border border-border bg-card p-6 text-center text-card-foreground"
 		>
-			<h1 class="text-[0.95rem] font-semibold">{$_('contacts.noAccountHeading')}</h1>
+			<h1 class="text-title font-semibold">{$_('contacts.noAccountHeading')}</h1>
 			<p class="mt-2 text-sm text-muted-foreground">
 				{#if $accountsState.status === 'ready' && $accountsState.accounts.length === 0}
 					{$_('accounts.none')}

@@ -35,7 +35,7 @@
 	<div class="border-b border-border bg-background px-6 py-4">
 		<div class="flex items-center justify-between gap-3">
 			<div class="min-w-0">
-				<h1 class={cn('truncate text-[0.95rem] font-semibold text-foreground', titleClass)}>
+				<h1 class={cn('truncate text-title font-semibold text-foreground', titleClass)}>
 					{title}
 				</h1>
 				{#if description}

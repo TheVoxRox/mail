@@ -150,7 +150,7 @@
 											{accountTitle(account)}
 										</p>
 										<span
-											class={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium leading-4 ${accountStatusClass(account)}`}
+											class={`shrink-0 rounded-full border px-2 py-0.5 text-caption font-medium leading-4 ${accountStatusClass(account)}`}
 										>
 											{accountStatusLabel(account)}
 										</span>
