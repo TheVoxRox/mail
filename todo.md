@@ -105,6 +105,7 @@ Backend (headless) cast zmerena a uzavrena — sekce "Startup audit — mereni 2
 - [ ] iCloud OAuth.
 - [ ] Threading Phase 2 (V0.2) — UI grouping toggle, thread row aria-tree, bulk akce, a11y pass. + References-only orphan reconciliation (dite linkuje parenta jen pres `References`) — vyzaduje normalizovanou junction tabulku (token match ve free-text je neindexovatelny). Detail [backend/docs/THREADING_DESIGN.md](backend/docs/THREADING_DESIGN.md).
 - [ ] Filtrovani / pravidla pro automaticke trideni zprav.
+- [ ] Tabulka kontaktu — pri pristim refactoru zvazit odebrani sloupce "Aktualizovano" ([ContactList.svelte:507](frontend/src/lib/components/ContactList.svelte)): neinteraktivni, jen volne podklada sort `recent`, neodpovida konvenci adresaru. Odebrani umozni snizit `min-w-[58rem]` ([ContactList.svelte:411](frontend/src/lib/components/ContactList.svelte)) na ~50rem a uvolnit horizontalni rezervu (pomuze velikosti textu "Velka"). Sort `recent` v dropdownu nechat funkcni; datum pripadne presunout do detailu kontaktu.
 - [ ] Full QRESYNC SELECT s VANISHED — vetsi refactor `ImapFolderExecutor`; po release, pokud bude cleanup latency bottleneck.
 - [ ] Self-update standalone backendu (jen pokud vznikne deployment mimo Tauri bundle).
 - [ ] Dlouhodobe sledovat startup performance a velikost bundle.
