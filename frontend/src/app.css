@@ -72,6 +72,17 @@
 }
 
 @theme inline {
+	/*
+	 * Sémantická typografická škála. Velikosti písma berte JEN odsud:
+	 * text-caption (11px) → text-xs (12px) → text-sm (14px, výchozí tělo)
+	 * → text-title (15px, titulek stránky) → text-base (16px, sekce/sidebar)
+	 * → text-lg (18px, předmět zprávy).
+	 * Žádné arbitrary `text-[…rem]` — viz check:typography lint.
+	 */
+	--text-caption: 0.6875rem;
+	--text-caption--line-height: 1rem;
+	--text-title: 0.9375rem;
+	--text-title--line-height: 1.4;
 	--radius-sm: calc(var(--radius) - 4px);
 	--radius-md: calc(var(--radius) - 2px);
 	--radius-lg: var(--radius);
