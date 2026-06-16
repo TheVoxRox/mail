@@ -439,6 +439,16 @@
 					"dark": "Tmavé"
 				}
 			},
+			"textSize": {
+				"heading": "Velikost textu",
+				"hint": "Zvětší nebo zmenší celé rozhraní. Volba se projeví ihned.",
+				"label": "Velikost textu",
+				"options": {
+					"small": "Malá",
+					"medium": "Střední",
+					"large": "Velká"
+				}
+			},
 			"readingPane": {
 				"heading": "Podokno čtení",
 				"hint": "Zvolte, zda se detail zprávy zobrazuje vedle seznamu, pod ním, nebo až po otevření samostatně.",

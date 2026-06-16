@@ -439,6 +439,16 @@
 					"dark": "Dark"
 				}
 			},
+			"textSize": {
+				"heading": "Text size",
+				"hint": "Scales the whole interface up or down. Takes effect immediately.",
+				"label": "Text size",
+				"options": {
+					"small": "Small",
+					"medium": "Medium",
+					"large": "Large"
+				}
+			},
 			"readingPane": {
 				"heading": "Reading pane",
 				"hint": "Choose whether message details appear next to the list, below it, or only when opened on their own.",

@@ -20,6 +20,7 @@
 	import { _ } from '$lib/i18n/index.js';
 	import { openPalette, paletteOpen } from '$lib/stores/palette.js';
 	import { initThemeSideEffects } from '$lib/stores/theme.js';
+	import { initTextSizeSideEffects } from '$lib/stores/textSize.js';
 	import { type WorkspaceMode, workspaceHref, workspaceMode } from '$lib/stores/workspaceMode.js';
 	import { handleGlobalKeydown } from '$lib/shortcuts/globalShortcuts.js';
 	import { selectedMessage } from '$lib/stores/selectedMessage.js';
@@ -123,6 +124,7 @@
 
 	onMount(() => {
 		const cleanupTheme = initThemeSideEffects();
+		const cleanupTextSize = initTextSizeSideEffects();
 		const cleanupErrorReporting = initErrorReporting();
 
 		const exposeE2E = window.localStorage.getItem('mail.e2e') === '1';
@@ -164,6 +166,7 @@
 			}
 			cleanupErrorReporting();
 			cleanupTheme();
+			cleanupTextSize();
 		};
 	});
 
