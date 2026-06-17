@@ -77,13 +77,19 @@ jobs:
         with:
           components: clippy
 
-      # The sidecar (externalBin "binaries/mail") is a Windows-only artifact
-      # produced by the release packaging job; it does not exist on this Linux
-      # runner. Stub an empty executable for the host triple so tauri-build's
-      # sidecar existence check passes — cargo check/clippy validate the Rust
-      # crate, not the real binary.
-      - name: Stub sidecar for static checks
-        run: install -Dm755 /dev/null binaries/mail-x86_64-unknown-linux-gnu
+      # The sidecar (externalBin "binaries/mail") and the bundled resources
+      # ("binaries/app", "binaries/runtime") are Windows-only artifacts produced
+      # by the release packaging job; they do not exist on this Linux runner.
+      # tauri-build validates their existence in the build script, so stub them
+      # before cargo check — static analysis (check/clippy/audit) validates the
+      # Rust crate and never reads the stub contents. resources/NOTICE.txt is
+      # committed, so it needs no stub.
+      - name: Stub sidecar and resources for static checks
+        run: |
+          install -Dm755 /dev/null binaries/mail-x86_64-unknown-linux-gnu
+          mkdir -p binaries/app binaries/runtime
+          : > binaries/app/.stub
+          : > binaries/runtime/.stub
 
       - name: Cache Cargo
         uses: actions/cache@v4
