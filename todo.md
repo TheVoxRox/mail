@@ -52,9 +52,10 @@ Pozn.: dialog "mail.exe — Failed to launch JVM" (jpackage launcher, pred start
 
 ## Publikace (po lokalnim odladeni)
 
-- [ ] Prvni commit + push do `TheVoxRox/mail`.
-- [ ] Branch protection na `main`.
-- [ ] Po publikaci: rucne zapnout GitHub secret scanning + Dependabot alerts (CodeQL workflow [.github/workflows/codeql.yml](.github/workflows/codeql.yml) uz commitnut, spusti se sam).
+- [x] Prvni commit + push do `TheVoxRox/mail` — HOTOVO 2026-06-17.
+- [x] Branch protection na `main` — HOTOVO 2026-06-17: ruleset (block force-push/deletion, require PR, admin bypass). POZOR: required status checks musi byt nazvy JOBU (`Backend quality`, `Tauri (Rust)`, `Lint`, `Svelte check`, `Frontend unit tests`, `Functional tests`, `Accessibility tests`, `Backend build`, `Frontend build`, `Analyze (java-kotlin)`, `Analyze (javascript-typescript)`), NE nazvy workflow (`ci`/`vuln-scan` = phantom checky, blokovaly vsechny PR).
+- [x] GitHub secret scanning + Dependabot alerts — HOTOVO 2026-06-17: + push protection, private vulnerability reporting, dependabot security updates. CodeQL bezi.
+- [ ] Dependabot: 17 PR mergnuto, #13 (nullaway 0.13.7) zavren (zustava 0.13.6 — 0.13.7 prisnejsi na JPA entitach). **Drzene #2 (upload-artifact 4->7), #3 (trivy 0.28->0.36)** — vzit pri release dry-run (PR CI nevaliduje jejich non-PR cesty: release workflow / scheduled vuln-scan).
 
 ---
 
@@ -87,6 +88,7 @@ Rozhodnuto: OAuth-only (viz Rozhodnuti). PKCE explicitne zapnut v [SecurityConfi
 - [x] **Tauri capability / CSP / IPC audit** — HOTOVO 2026-06-13: posture potvrzena silna, findings narovnany do [SECURITY_THREAT_MODEL.md](SECURITY_THREAT_MODEL.md) v1.2 (§4 Boundary 4). Klicova zjisteni: zadny rucni `#[tauri::command]` ani `invoke_handler` v [lib.rs](frontend/src-tauri/src/lib.rs) (nulova vlastni IPC plocha), `shell:allow-spawn`/`allow-kill` scopovane na `binaries/mail` sidecar s `args:false`, http plugin jen loopback bez cookies, mail body v `sandbox=""` iframe s vlastnim `default-src 'none'` CSP. Opraveny 3 drifty v threat modelu (chybejici shell spawn/kill, neexistujici remote-image "UI toggle", stale `sanitizeMessageHtml()`).
 - [ ] **(volitelne) Zostrit globalni CSP** v [tauri.conf.json](frontend/src-tauri/tauri.conf.json) — pridat explicitni `script-src 'self'` (ted pada na `default-src`) a odstranit nepouzity `customprotocol:` placeholder z `default-src`/`devCsp`; overit pri smoke v `tauri:dev`/`tauri:build`, ze se SvelteKit skripty/styly stale nacitaji (CSP zmenu nejde overit autonomne, nutny vizualni smoke).
 - [x] **Log hygiene audit** — HOTOVO 2026-06-13: cisty, detaily v [backend/SECURITY_RELEASE_CHECK.md](backend/SECURITY_RELEASE_CHECK.md). Zadne credentials/tokeny/tela zprav v lozich, vsech 7 email log-site pres `LogMasker`, zadny JavaMail debug, prod `INFO`, frontend bez console->soubor mustku a egress jen loopback. Opraven latentni leak: `AccountEntity`/`AccountCredentialEntity` `toString()` ted maskuji email/username pres `LogMasker` (driv nemaskovane; build overen `mvn spotless:apply compile`). Pozn.: backend sink `/internal/client-errors` zatim neexistuje (FE self-disable na 404) — az vznikne, logovat bounded bez PII.
+- [ ] **CodeQL log-injection (72 medium)** — CR/LF z user/external hodnot (jmena IMAP slozek `ctx.folderName()`, `request.getRequestURI()`, `stableId`/UID, exception/validation msgs) jde do logu bez osetreni. `LogMasker` je privacy-only (maskuje jen emaily, CodeQL je u nich vesmes spokojeny) — tyhle NEpokryva. Plan B (~45 min): globalni Logback `%replace(%msg){'[\r\n]','_'}` encoder -> mitigace vsech sinku naraz, pak bulk-dismiss 72 alertu s oduvodnenim "mitigated globally". Alt A: `LogSanitizer.clean()` helper + obalit ~72 sinku rucne (~2-3h, CodeQL-clean cestou kodu). Plus 5 note + 2 warning (low).
 - [ ] Pred releasem zkontrolovat podpisy, updater manifest a recovery postup v `OPERATIONS.md`.
 
 ---
