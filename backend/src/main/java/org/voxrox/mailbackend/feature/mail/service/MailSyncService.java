@@ -300,7 +300,7 @@ public class MailSyncService {
      * keeps seeing whatever is cached.
      */
     public long fetchServerCountAndEnsurePageLocally(AccountEntity account, String folderName, int page, int size) {
-        long needed = (long) (page + 1) * size;
+        long needed = ((long) page + 1) * size;
 
         Long serverCount = imapFolderService.executeInFolder(account.getId(), folderName, Folder.READ_ONLY,
                 (folder, uidFolder) -> {

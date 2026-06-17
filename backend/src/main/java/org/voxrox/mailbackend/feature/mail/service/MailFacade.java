@@ -145,7 +145,7 @@ public class MailFacade {
         // matters for clickability — the alternative is a 100–500 ms round-trip per
         // page navigation.
         long localCount = messageRepository.countByAccountIdAndFolderName(accountId, folderName);
-        long needed = (long) (page + 1) * size;
+        long needed = ((long) page + 1) * size;
         OptionalLong cached = folderCountCache.get(accountId, folderName);
 
         long serverCount;
