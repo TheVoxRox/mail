@@ -29,7 +29,7 @@
 		<wiremock.version>3.9.2</wiremock.version>
 		<error-prone.version>2.50.0</error-prone.version>
 		<nullaway.version>0.13.6</nullaway.version>
-		<archunit.version>1.4.1</archunit.version>
+		<archunit.version>1.4.2</archunit.version>
 		<greenmail.version>2.1.9</greenmail.version>
 	</properties>
 
