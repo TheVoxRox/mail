@@ -457,6 +457,10 @@ Sidecar artefakt pro Windows:
 .\scripts\package-sidecar-windows.ps1
 ```
 
+> Vyžaduje reálné OAuth client id v prostředí (CI secrets) a jinak build shodí. Pro
+> lokální build použij `package-sidecar-dev-windows.ps1` (načte je z `.env`), nebo
+> přidej `-AllowPlaceholderOAuth` pro build bez funkčního OAuth loginu.
+
 Výstup:
 
 ```text

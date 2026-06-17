@@ -20,6 +20,7 @@ Tester:
 - [x] Ověřit, že build hlásí `Tests run: 568, Failures: 0, Errors: 0, Skipped: 0` nebo vyšší aktuální počet.
 - [x] Vznikl artefakt `target/mail-backend-0.1.0.jar`.
 - [x] Windows sidecar balení prošlo přes `scripts/package-sidecar-windows.ps1`.
+- [ ] Sidecar launcher `app/mail-x86_64-pc-windows-msvc.cfg` nese zapečené `...google.client-id` (ne `mail-local-*` placeholder). Signed workflow i `package-sidecar-dev-windows.ps1` to zajišťují; bare `package-sidecar-windows.ps1` bez OAuth env teď build shodí, pokud neběží s `-AllowPlaceholderOAuth`.
 - [ ] Sidecar výstup obsahuje `mail-x86_64-pc-windows-msvc.exe`, `app/` a `runtime/`.
 - [ ] Release kandidát běží na čistém Windows profilu bez systémově instalované Java/JDK/JRE.
 
@@ -75,7 +76,18 @@ Poznámky:
 
 - [ ] Přidat PASSWORD účet s předdefinovaným providerem.
 - [ ] Přidat PASSWORD účet s custom IMAP/SMTP nastavením.
-- [ ] Přidat Google OAuth účet proti reálnému účtu přes loopback redirect s aktuálním náhodným portem.
+
+### Google OAuth (Gmail)
+
+Předpoklady před smoke:
+
+- [ ] `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` v release buildu jsou *reálné produkční* hodnoty z Google Cloud Console ("Desktop app" client), ne `mail-local-*` placeholder. Bez nich Google odmítne login `Error 401: invalid_client` / "OAuth client was not found" (root cause 2026-06-17: produkční sidecar zabalený bez OAuth env → launcher `.cfg` bez `...google.client-id`; ověřit položkou v §1).
+- [ ] OAuth consent screen je publikovaný (`In production`), ne `Testing` — jinak refresh token exspiruje po 7 dnech a přihlásí se jen přidaní test users.
+- [ ] Restricted scope `https://mail.google.com/` (`application.properties`) má dokončené Google verification (CASA security assessment). Bez něj externí uživatelé dostanou "unverified app" obrazovku / limit 100 uživatelů. **Blokující bod pro produkční consumer release** (protějšek MS „verified publisher").
+
+Smoke flow:
+
+- [ ] Přidat Google OAuth účet proti reálnému účtu přes loopback redirect s aktuálním náhodným portem. **Blokující — potvrzuje, že zapečené client-id Google přijme.**
 - [ ] Revoke Google grant na straně Googlu.
 - [ ] Další sync označí účet jako `requires_reauth=true`.
 - [ ] UI ukáže výzvu k opětovnému přihlášení.

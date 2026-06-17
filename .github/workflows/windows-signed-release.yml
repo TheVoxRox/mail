@@ -95,7 +95,10 @@ jobs:
         # builds keep the default (OFF) to avoid the ~70 s training overhead
         # on every iteration.
         run: |
-          $args = @("-File", "scripts/package-sidecar-windows.ps1", "-EnableAotCache", "-RequireOAuthConfig")
+          # OAuth config is required by default (the script fails on a missing /
+          # placeholder client-id); no flag needed. -AllowPlaceholderOAuth is the
+          # local-only opt-out and must never appear here.
+          $args = @("-File", "scripts/package-sidecar-windows.ps1", "-EnableAotCache")
           if ("${{ inputs['skip-backend-tests'] }}" -eq "true") {
             $args += "-SkipTests"
           }

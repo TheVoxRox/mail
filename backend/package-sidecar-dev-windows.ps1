@@ -23,7 +23,7 @@ $oauthKeys = @('GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_SECRET', 'MICROSOF
 
 $loaded = Import-DotEnv -Path $envFile -Only $oauthKeys -NoOverride
 if ($loaded -eq 0) {
-    Write-Warning "[package-dev] No OAuth values loaded from $envFile; the build will package placeholders unless they are already in the environment."
+    Write-Warning "[package-dev] No OAuth values loaded from $envFile; packaging will fail unless they are already in the environment (or you pass -AllowPlaceholderOAuth)."
 }
 else {
     Write-Host "[package-dev] Loaded $loaded OAuth value(s) from .env." -ForegroundColor Green

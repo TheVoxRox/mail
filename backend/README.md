@@ -33,8 +33,13 @@ The backend listens on a random port and writes `session.json` + `.ready` to
 ```bash
 ./mvnw verify                                 # unit + integration tests
 ./mvnw -Paot package                          # fat jar with Spring AOT
-./scripts/package-sidecar-windows.ps1         # jpackage app-image for Tauri
+./package-sidecar-dev-windows.ps1             # jpackage app-image for Tauri (bakes OAuth from .env)
 ```
+
+> The bare `scripts/package-sidecar-windows.ps1` requires real OAuth client ids in
+> the environment (CI secrets) and fails otherwise. `package-sidecar-dev-windows.ps1`
+> sources them from `.env`; pass `-AllowPlaceholderOAuth` to package a local build
+> without a working OAuth login.
 
 ## Documentation
 

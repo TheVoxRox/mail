@@ -11,12 +11,15 @@ param(
     # the runtime startup does not throw exceptions from Spring AOT proxy
     # generation.
     [switch] $EnableAotCache,
-    # Fail the build if any OAuth client identifier is missing or still the
-    # non-working "mail-local-*" placeholder, instead of warning and shipping a
-    # build whose OAuth login is silently broken only in production. Release
-    # packaging (windows-signed-release.yml) passes this; a local unsigned build
-    # may omit it to package without real OAuth secrets.
-    [switch] $RequireOAuthConfig
+    # OAuth is required by default: the build fails if any OAuth client identifier
+    # is missing or still the non-working "mail-local-*" placeholder. Shipping such
+    # a build leaves OAuth login silently broken only in production — the
+    # placeholder is sent to Google/Microsoft as the client_id and rejected with
+    # invalid_client / "OAuth client was not found". Pass -AllowPlaceholderOAuth for
+    # a local build that does not need a working OAuth login (packaging / AOT /
+    # sidecar-lifecycle testing); it warns and ships the placeholder instead of
+    # failing. Release packaging (windows-signed-release.yml) must never pass it.
+    [switch] $AllowPlaceholderOAuth
 )
 
 $ErrorActionPreference = "Stop"
@@ -126,9 +129,10 @@ Invoke-Step "Resolving OAuth client configuration" {
     #   - Google's "Desktop app" secret is non-confidential per Google's own
     #     installed-app guidance and is required by Google's token endpoint; PKCE
     #     protects the flow. See backend application.properties for the rationale.
-    # A missing value falls back to the non-working placeholder, so an unsigned
-    # local build still packages — OAuth login just will not work until the env
-    # vars are set.
+    # By default a missing/placeholder value fails the build (see
+    # -AllowPlaceholderOAuth); this prevents shipping a launcher that silently
+    # falls back to the non-working placeholder and breaks OAuth only in
+    # production.
     $script:oauthArgs = @()
     $oauthMappings = [ordered]@{
         "GOOGLE_OAUTH_CLIENT_ID"     = "spring.security.oauth2.client.registration.google.client-id"
@@ -143,10 +147,11 @@ Invoke-Step "Resolving OAuth client configuration" {
         $isPlaceholder = (-not [string]::IsNullOrWhiteSpace($value)) -and ($value -like "mail-local-*")
         if ([string]::IsNullOrWhiteSpace($value) -or $isPlaceholder) {
             $reason = if ($isPlaceholder) { "is set to the non-working placeholder '$value'" } else { "is not set" }
-            if ($RequireOAuthConfig) {
+            if (-not $AllowPlaceholderOAuth) {
                 throw "OAuth client configuration is required for this build but $envName $reason. " +
                     "Set GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET and MICROSOFT_OAUTH_CLIENT_ID " +
-                    "(CI secrets) before packaging a release, or omit -RequireOAuthConfig for a local build."
+                    "(CI secrets, or backend/.env via package-sidecar-dev-windows.ps1) before packaging, or " +
+                    "pass -AllowPlaceholderOAuth for a local build without a working OAuth login."
             }
             Write-Warning "  $envName $reason; $($oauthMappings[$envName]) falls back to the placeholder and OAuth login will not work in this build."
             continue
@@ -227,6 +232,32 @@ Invoke-Step "Publishing sidecar image" {
 $exePath = Join-Path $sidecarDir "$sidecarName.exe"
 if (-not (Test-Path $exePath)) {
     throw "Expected sidecar executable was not created: $exePath"
+}
+
+Invoke-Step "Verifying OAuth client configuration in launcher" {
+    # Defense in depth for the silent-prod-breakage class of bug: independently of
+    # the bake step above, assert the *published* launcher .cfg actually carries a
+    # non-placeholder Google client-id before the image is shipped. Without it the
+    # runtime falls back to application.properties' "mail-local-*" placeholder and
+    # Google rejects the login with invalid_client. -AllowPlaceholderOAuth opts a
+    # local build out of this gate.
+    if ($AllowPlaceholderOAuth) {
+        Write-Host "  Skipped (-AllowPlaceholderOAuth)."
+        return
+    }
+    $cfgPath = Join-Path $sidecarDir "app\$sidecarName.cfg"
+    if (-not (Test-Path -LiteralPath $cfgPath)) {
+        throw "Launcher config not found for OAuth verification: $cfgPath"
+    }
+    $cfg = Get-Content -LiteralPath $cfgPath -Raw
+    $clientIdKey = "spring.security.oauth2.client.registration.google.client-id"
+    if ($cfg -notmatch [regex]::Escape($clientIdKey)) {
+        throw "Launcher $cfgPath does not bake $clientIdKey — OAuth login would fall back to the placeholder and fail in production. Package with the OAuth env vars set (CI secrets / package-sidecar-dev-windows.ps1)."
+    }
+    if ($cfg -match "mail-local-") {
+        throw "Launcher $cfgPath still carries a 'mail-local-*' OAuth placeholder — OAuth login would fail in production."
+    }
+    Write-Host "  Google client-id baked into the launcher; no placeholder."
 }
 
 Write-Host ""
