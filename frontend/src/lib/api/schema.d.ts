@@ -831,9 +831,9 @@ export interface components {
 			/**
 			 * @description Address label (WORK/HOME/OTHER). Optional — send null or omit when no label.
 			 * @example WORK
-			 * @enum {string}
+			 * @enum {string|null}
 			 */
-			label?: 'WORK' | 'HOME' | 'OTHER' | 'WORK' | 'HOME' | 'OTHER';
+			label?: 'WORK' | 'HOME' | 'OTHER' | 'WORK' | 'HOME' | 'OTHER' | null;
 		};
 		ContactUpdateRequest: {
 			emails: components['schemas']['ContactEmailRequest'][];
@@ -848,9 +848,9 @@ export interface components {
 			/**
 			 * @description Address label. null = the contact did not set one.
 			 * @example HOME
-			 * @enum {string}
+			 * @enum {string|null}
 			 */
-			label?: 'WORK' | 'HOME' | 'OTHER' | 'WORK' | 'HOME' | 'OTHER';
+			label?: 'WORK' | 'HOME' | 'OTHER' | 'WORK' | 'HOME' | 'OTHER' | null;
 			/** @description Exactly one e-mail of a contact is primary (is_primary=1). Used for display and audit log. */
 			primary?: boolean;
 		};
@@ -1011,7 +1011,7 @@ export interface components {
 			 */
 			dbSchemaVersion?: string;
 			/** @description Safe user-facing reason when ready=false. */
-			reason?: string;
+			reason?: string | null;
 		};
 		SyncNotification: {
 			type?: string;
@@ -1063,7 +1063,7 @@ export interface components {
 			attachments?: components['schemas']['AttachmentResponse'][];
 			contentError?: string;
 			/** @description Conversation identifier shared by every message of the same thread. Null only until the threading backfill has processed the message. */
-			threadId?: string;
+			threadId?: string | null;
 		};
 		MailContentResponse: {
 			content?: string;
@@ -1085,13 +1085,13 @@ export interface components {
 			answered?: boolean;
 			hasAttachments?: boolean;
 			/** @description Conversation identifier — every message of the same thread shares it. Null only until the threading backfill has processed the message (see /api/internal/threading/recompute). Frontends MAY group rows by this id; the V0.1.0 desktop client ignores it. */
-			threadId?: string;
+			threadId?: string | null;
 		};
 		ThreadResponse: {
 			/** @description Stable thread identifier shared by every message of the conversation. */
 			threadId?: string;
 			/** @description RFC 5322 Message-ID of the oldest message in the thread. Null when the root message has no Message-ID. */
-			rootMessageId?: string;
+			rootMessageId?: string | null;
 			/**
 			 * Format: int32
 			 * @description Number of messages in the thread.
