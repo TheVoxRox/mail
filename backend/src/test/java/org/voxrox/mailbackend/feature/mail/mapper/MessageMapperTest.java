@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -40,6 +41,13 @@ class MessageMapperTest {
         messageSource.setFallbackToSystemLocale(false);
         mapper = new MessageMapper(messageSource);
         LocaleContextHolder.setLocale(Locale.forLanguageTag("cs"));
+    }
+
+    @AfterEach
+    void tearDown() {
+        // Reset the thread-local locale so it does not leak into later tests
+        // sharing the surefire fork.
+        LocaleContextHolder.resetLocaleContext();
     }
 
     // --- Helper methods ---

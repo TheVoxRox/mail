@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import java.util.Locale;
 import java.util.Optional;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.context.support.StaticMessageSource;
 import org.voxrox.mailbackend.exception.MailConnectionException;
 import org.voxrox.mailbackend.exception.ValidationException;
@@ -53,6 +55,17 @@ class AccountConnectionTestServiceTest {
                 "IMAP and SMTP connection were verified successfully.");
         service = new AccountConnectionTestService(accountRepository, providerService, credentialService,
                 mailConnectionProbe, messageSource);
+        // The StaticMessageSource above only registers the success message under
+        // Locale.ENGLISH and the assertions check the English text, so pin the
+        // resolution locale instead of inheriting whatever the surefire fork's
+        // ambient locale happens to be (StaticMessageSource does not fall back
+        // en_US -> en).
+        LocaleContextHolder.setLocale(Locale.ENGLISH);
+    }
+
+    @AfterEach
+    void tearDown() {
+        LocaleContextHolder.resetLocaleContext();
     }
 
     @Test
