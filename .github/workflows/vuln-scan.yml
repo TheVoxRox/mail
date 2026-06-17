@@ -26,7 +26,7 @@ jobs:
           cache: maven
 
       - name: Cache OWASP NVD data
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.m2/repository/org/owasp/dependency-check-data
           key: nvd-${{ runner.os }}-${{ github.run_id }}
@@ -116,7 +116,7 @@ jobs:
 
       - name: Cache cargo-audit binary
         id: cargo-audit-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cargo/bin/cargo-audit
           key: cargo-audit-0.22.2-${{ runner.os }}
@@ -173,7 +173,7 @@ jobs:
 
       - name: Cache cargo-cyclonedx binary
         id: cargo-cyclonedx-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cargo/bin/cargo-cyclonedx
           key: cargo-cyclonedx-0.5.9-${{ runner.os }}
