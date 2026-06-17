@@ -67,7 +67,7 @@ jobs:
           Write-Host "Publishing release assets to tag $tag"
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 26
           cache: npm
