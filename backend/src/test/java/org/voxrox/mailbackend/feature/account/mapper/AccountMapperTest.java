@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.time.LocalDateTime;
 import java.util.Locale;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -39,6 +40,15 @@ class AccountMapperTest {
         messageSource.setFallbackToSystemLocale(false);
         mapper = new AccountMapper(messageSource);
         LocaleContextHolder.setLocale(Locale.forLanguageTag("cs"));
+    }
+
+    @AfterEach
+    void tearDown() {
+        // Tests here pin the thread-local locale; reset it so the chosen locale
+        // does not leak into later tests sharing the surefire fork (e.g.
+        // AccountConnectionTestServiceTest, which resolves messages under the
+        // ambient locale).
+        LocaleContextHolder.resetLocaleContext();
     }
 
     private AccountEntity createAccount() {
