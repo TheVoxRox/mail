@@ -120,7 +120,7 @@ public final class WindowsDpapiSecretStore implements SecretStore {
                      * material — zero it before handing the memory back to the process heap.
                      */
                     outData.reinterpret(length).fill((byte) 0);
-                    MemorySegment ignored = (MemorySegment) LOCAL_FREE.invokeExact(outData);
+                    var _ = (MemorySegment) LOCAL_FREE.invokeExact(outData);
                 }
             } finally {
                 /*
