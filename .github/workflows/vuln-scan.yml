@@ -47,11 +47,28 @@ jobs:
 
       - name: Run OWASP Dependency-Check
         run: |
-          mvn --batch-mode org.owasp:dependency-check-maven:check \
-            -DnvdApiKey="${{ secrets.NVD_API_KEY }}" \
-            -DfailBuildOnCVSS=8 \
-            -DskipTests \
-            -Dformats=HTML,JSON,SARIF
+          # The NVD API is intermittently flaky (503 / timeouts). Retry the whole
+          # check a few times with a pause so a transient NVD outage does not fail
+          # the scheduled scan. The NVD data downloaded on a failed attempt stays
+          # in the data dir, so retries resume incrementally instead of starting
+          # the download over. A genuine CVSS-gate failure still fails (after the
+          # retries) because it fails the same way each attempt.
+          attempt=1
+          max=3
+          until mvn --batch-mode org.owasp:dependency-check-maven:check \
+              -DnvdApiKey="${{ secrets.NVD_API_KEY }}" \
+              -DfailBuildOnCVSS=8 \
+              -DskipTests \
+              -Dformats=HTML,JSON,SARIF; do
+            status=$?
+            if [ "$attempt" -ge "$max" ]; then
+              echo "::error::dependency-check failed after $attempt attempts (exit $status)"
+              exit "$status"
+            fi
+            echo "::warning::dependency-check attempt $attempt failed (exit $status); retrying in 120s (likely transient NVD 503)"
+            attempt=$((attempt + 1))
+            sleep 120
+          done
 
       - name: Upload Dependency-Check report
         if: always()
@@ -245,30 +262,11 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: '0'
 
-      # Each SARIF must go up under its own category — GitHub no longer accepts
-      # multiple SARIF runs sharing one category in a single upload (the old
-      # `sarif_file: .` glob combined all three into one).
-      - name: Upload Trivy SARIF — frontend
-        if: always()
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: trivy-frontend.sarif
-          category: trivy-frontend
-
-      - name: Upload Trivy SARIF — backend
-        if: always()
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: trivy-backend.sarif
-          category: trivy-backend
-
-      - name: Upload Trivy SARIF — Tauri
-        if: always()
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: trivy-tauri.sarif
-          category: trivy-tauri
-
+      # NOTE: Trivy SBOM-scan results are package/dependency findings with no
+      # source artifact location, which GitHub code-scanning rejects
+      # ("expected artifact location"). They also overlap with Dependabot and the
+      # OWASP job above, so we do not push them to the Security tab — the reports
+      # are kept as build artifacts below instead.
       - name: Upload Trivy raw reports
         if: always()
         uses: actions/upload-artifact@v4
