@@ -1,9 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
 
-    <!-- Spring Boot defaults: console + main rolling file remain untouched.
-         This file only adds a dedicated appender for the AUDIT logger. -->
+    <!-- Spring Boot defaults: console + main rolling file patterns remain
+         untouched. On top of them this file (a) rebinds the message words to a
+         CR/LF-stripping converter (log-injection guard, below) and (b) adds a
+         dedicated appender for the AUDIT logger. -->
     <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <!-- CWE-117 log-injection guard: rebind the message words to a converter that
+         strips CR/LF before the line is written, so externally-influenced values
+         (IMAP folder names, request URIs, UIDs, exception/validation text, ...)
+         cannot forge log entries. Declared before the appender includes below so
+         the rule is registered before their encoders compile their patterns. -->
+    <conversionRule conversionWord="m" class="org.voxrox.mailbackend.util.CrlfSafeMessageConverter"/>
+    <conversionRule conversionWord="msg" class="org.voxrox.mailbackend.util.CrlfSafeMessageConverter"/>
+    <conversionRule conversionWord="message" class="org.voxrox.mailbackend.util.CrlfSafeMessageConverter"/>
+
     <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
     <include resource="org/springframework/boot/logging/logback/file-appender.xml"/>
 
