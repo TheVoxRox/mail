@@ -120,6 +120,7 @@ class MailConnectionProbeTest {
             assertThat(props.getProperty("mail.imaps.host")).isEqualTo("imap.example.com");
             assertThat(props.getProperty("mail.imaps.port")).isEqualTo("993");
             assertThat(props.getProperty("mail.imaps.ssl.enable")).isEqualTo("true");
+            assertThat(props.getProperty("mail.imaps.ssl.checkserveridentity")).isEqualTo("true");
             assertThat(props.getProperty("mail.imaps.timeout")).isEqualTo("60000");
             assertThat(props.getProperty("mail.imaps.connectiontimeout")).isEqualTo("30000");
             assertThat(props.getProperty("mail.imaps.auth.mechanisms")).isNull();
@@ -144,6 +145,9 @@ class MailConnectionProbeTest {
             Properties props = propsCaptor.getValue();
             assertThat(props.getProperty("mail.store.protocol")).isEqualTo("imap");
             assertThat(props.getProperty("mail.imap.ssl.enable")).isEqualTo("false");
+            // Set unconditionally; a no-op on the plaintext protocol but present so the
+            // implicit-SSL path can never regress to an unverified identity.
+            assertThat(props.getProperty("mail.imap.ssl.checkserveridentity")).isEqualTo("true");
             assertThat(props.getProperty("mail.imap.auth.mechanisms")).isNull();
         }
 

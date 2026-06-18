@@ -70,10 +70,11 @@ public class SmtpTransportFactory {
         props.put("mail.smtp.connectiontimeout", smtpConnTimeoutMs);
         props.put("mail.smtp.writetimeout", timeoutMs);
 
+        MailTlsConfig.verifyServerIdentity(props, "smtp");
         if (details.useSsl()) {
             props.put("mail.smtp.ssl.enable", "true");
         } else {
-            props.put("mail.smtp.starttls.enable", "true");
+            MailTlsConfig.requireStartTls(props, "smtp");
         }
 
         if (details.authType() == AuthType.OAUTH2) {
