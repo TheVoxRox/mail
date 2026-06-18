@@ -29,9 +29,11 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ~/.m2/repository/org/owasp/dependency-check-data
-          key: nvd-${{ runner.os }}-${{ github.run_id }}
+          # v2: bumped to discard the corrupt H2 DB that earlier 429-failed runs
+          # cached (restored as a half-initialised DB -> "connectionPool is null").
+          key: nvd-v2-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
-            nvd-${{ runner.os }}-
+            nvd-v2-${{ runner.os }}-
 
       - name: Check NVD API key availability
         id: nvd
@@ -243,11 +245,29 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: '0'
 
-      - name: Upload Trivy SARIF to GitHub Security
+      # Each SARIF must go up under its own category — GitHub no longer accepts
+      # multiple SARIF runs sharing one category in a single upload (the old
+      # `sarif_file: .` glob combined all three into one).
+      - name: Upload Trivy SARIF — frontend
         if: always()
         uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: .
+          sarif_file: trivy-frontend.sarif
+          category: trivy-frontend
+
+      - name: Upload Trivy SARIF — backend
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-backend.sarif
+          category: trivy-backend
+
+      - name: Upload Trivy SARIF — Tauri
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-tauri.sarif
+          category: trivy-tauri
 
       - name: Upload Trivy raw reports
         if: always()
