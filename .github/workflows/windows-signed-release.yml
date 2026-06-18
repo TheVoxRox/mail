@@ -208,7 +208,7 @@ jobs:
           subject-path: frontend/src-tauri/target/release/bundle/nsis/voxrox-mail-*-setup.exe
 
       - name: Upload signed Windows artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mail-windows-signed-${{ github.run_number }}
           path: |

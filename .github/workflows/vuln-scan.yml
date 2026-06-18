@@ -83,7 +83,7 @@ jobs:
 
       - name: Upload Dependency-Check report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: backend-vuln-report
           path: backend/target/dependency-check-report.*
@@ -121,7 +121,7 @@ jobs:
 
       - name: Upload audit report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: frontend-npm-audit
           path: frontend/npm-audit-report.json
@@ -161,7 +161,7 @@ jobs:
 
       - name: Upload audit report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tauri-cargo-audit
           path: frontend/src-tauri/cargo-audit-report.json
@@ -233,7 +233,7 @@ jobs:
         run: npm run check:sbom
 
       - name: Upload SBOMs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: voxrox-mail-sboms
           path: |
@@ -280,7 +280,7 @@ jobs:
       # are kept as build artifacts below instead.
       - name: Upload Trivy raw reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: trivy-sbom-reports
           path: trivy-*.sarif
