@@ -113,6 +113,8 @@
 		},
 		"postcss": "8.5.12",
 		"esbuild": "0.28.1",
+		"undici": "7.28.0",
+		"js-yaml": "4.2.0",
 		"openapi-typescript": {
 			"typescript": "$typescript"
 		}
