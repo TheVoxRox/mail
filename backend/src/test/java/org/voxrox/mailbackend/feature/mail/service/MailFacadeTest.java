@@ -267,7 +267,7 @@ class MailFacadeTest {
             assertThat(result.getContent()).isEmpty();
             assertThat(result.getTotalElements()).isEqualTo(1790L);
             verify(accountService).getAccountOrThrow(ACCOUNT_ID);
-            verify(mailSyncService).syncAndBackfillAsync(account, FOLDER_INBOX, 0, 20);
+            verify(mailSyncService).syncAndBackfillAsync(account, FOLDER_INBOX, 0);
             verify(mailSyncService).fetchServerCountAndEnsurePageLocally(account, FOLDER_INBOX, 0, 20);
             verify(messageRepository).findSummariesByAccountAndFolder(eq(ACCOUNT_ID), eq(FOLDER_INBOX),
                     any(Pageable.class));

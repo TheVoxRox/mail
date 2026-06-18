@@ -339,9 +339,9 @@ public class MailSyncService {
     }
 
     @Async("mailSyncExecutor")
-    public void syncAndBackfillAsync(AccountEntity account, String folderName, int page, int size) {
+    public void syncAndBackfillAsync(AccountEntity account, String folderName, int page) {
         try {
-            syncAndBackfill(account, folderName, page, size);
+            syncAndBackfill(account, folderName, page);
         } catch (Exception e) {
             log.error("{} Async sync/backfill of folder {} for account {} failed: {}", LogCategory.SYNC, folderName,
                     LogMasker.maskEmail(account.getEmail()), e.getMessage(), e);
@@ -352,7 +352,7 @@ public class MailSyncService {
         }
     }
 
-    public void syncAndBackfill(AccountEntity account, String folderName, int page, int size) {
+    public void syncAndBackfill(AccountEntity account, String folderName, int page) {
         performFullSyncCycle(account, folderName);
 
         if (page == 0) {
