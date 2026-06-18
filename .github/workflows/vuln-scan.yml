@@ -29,9 +29,11 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ~/.m2/repository/org/owasp/dependency-check-data
-          key: nvd-${{ runner.os }}-${{ github.run_id }}
+          # v2: bumped to discard the corrupt H2 DB that earlier 429-failed runs
+          # cached (restored as a half-initialised DB -> "connectionPool is null").
+          key: nvd-v2-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
-            nvd-${{ runner.os }}-
+            nvd-v2-${{ runner.os }}-
 
       - name: Check NVD API key availability
         id: nvd
@@ -45,11 +47,39 @@ jobs:
 
       - name: Run OWASP Dependency-Check
         run: |
-          mvn --batch-mode org.owasp:dependency-check-maven:check \
-            -DnvdApiKey="${{ secrets.NVD_API_KEY }}" \
-            -DfailBuildOnCVSS=8 \
-            -DskipTests \
-            -Dformats=HTML,JSON,SARIF
+          set +e
+          # The NVD bulk API is chronically flaky (503/timeouts). Retry a couple of
+          # times to ride over short hiccups; data downloaded on a failed attempt
+          # stays in the data dir, so retries resume incrementally.
+          attempt=1
+          max=2
+          rc=1
+          log="$RUNNER_TEMP/dependency-check.out"
+          while [ "$attempt" -le "$max" ]; do
+            mvn --batch-mode org.owasp:dependency-check-maven:check \
+              -DnvdApiKey="${{ secrets.NVD_API_KEY }}" \
+              -DfailBuildOnCVSS=8 \
+              -DskipTests \
+              -Dformats=HTML,JSON,SARIF 2>&1 | tee "$log"
+            rc=${PIPESTATUS[0]}
+            [ "$rc" -eq 0 ] && break
+            echo "::warning::dependency-check attempt $attempt failed (exit $rc)"
+            attempt=$((attempt + 1))
+            [ "$attempt" -le "$max" ] && sleep 120
+          done
+
+          if [ "$rc" -ne 0 ]; then
+            # Soft-fail only on a transient NVD data-update outage (external, not our
+            # code). A real vulnerability gate (failBuildOnCVSS) or any other error
+            # still fails the job.
+            if grep -qiE "Error updating the NVD Data|NVD Returned Status Code|Unable to continue dependency-check analysis" "$log" \
+               && ! grep -qiE "dependencies were identified with vulnerabilities|Failed conditions" "$log"; then
+              echo "::warning::NVD data update failed (transient NVD outage); scheduled scan skipped this run — CVE gating was NOT evaluated. It catches up once NVD is reachable."
+              exit 0
+            fi
+            echo "::error::dependency-check failed (exit $rc)"
+            exit "$rc"
+          fi
 
       - name: Upload Dependency-Check report
         if: always()
@@ -243,12 +273,11 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: '0'
 
-      - name: Upload Trivy SARIF to GitHub Security
-        if: always()
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: .
-
+      # NOTE: Trivy SBOM-scan results are package/dependency findings with no
+      # source artifact location, which GitHub code-scanning rejects
+      # ("expected artifact location"). They also overlap with Dependabot and the
+      # OWASP job above, so we do not push them to the Security tab — the reports
+      # are kept as build artifacts below instead.
       - name: Upload Trivy raw reports
         if: always()
         uses: actions/upload-artifact@v4
