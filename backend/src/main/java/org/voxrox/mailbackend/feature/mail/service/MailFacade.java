@@ -137,7 +137,7 @@ public class MailFacade {
 
         // Periodic sync (new mail, flag updates, optional page-0 backfill) runs in
         // the background — the user gets cached data immediately.
-        mailSyncService.syncAndBackfillAsync(account, folderName, page, size);
+        mailSyncService.syncAndBackfillAsync(account, folderName, page);
 
         // Fast path: if the cached server count is still hot AND the requested page
         // fits within the locally cached rows, serve everything from the DB without
