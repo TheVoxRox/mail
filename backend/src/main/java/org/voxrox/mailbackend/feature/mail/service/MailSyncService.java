@@ -300,7 +300,7 @@ public class MailSyncService {
      * keeps seeing whatever is cached.
      */
     public long fetchServerCountAndEnsurePageLocally(AccountEntity account, String folderName, int page, int size) {
-        long needed = (long) (page + 1) * size;
+        long needed = ((long) page + 1) * size;
 
         Long serverCount = imapFolderService.executeInFolder(account.getId(), folderName, Folder.READ_ONLY,
                 (folder, uidFolder) -> {
@@ -339,9 +339,9 @@ public class MailSyncService {
     }
 
     @Async("mailSyncExecutor")
-    public void syncAndBackfillAsync(AccountEntity account, String folderName, int page, int size) {
+    public void syncAndBackfillAsync(AccountEntity account, String folderName, int page) {
         try {
-            syncAndBackfill(account, folderName, page, size);
+            syncAndBackfill(account, folderName, page);
         } catch (Exception e) {
             log.error("{} Async sync/backfill of folder {} for account {} failed: {}", LogCategory.SYNC, folderName,
                     LogMasker.maskEmail(account.getEmail()), e.getMessage(), e);
@@ -352,7 +352,7 @@ public class MailSyncService {
         }
     }
 
-    public void syncAndBackfill(AccountEntity account, String folderName, int page, int size) {
+    public void syncAndBackfill(AccountEntity account, String folderName, int page) {
         performFullSyncCycle(account, folderName);
 
         if (page == 0) {

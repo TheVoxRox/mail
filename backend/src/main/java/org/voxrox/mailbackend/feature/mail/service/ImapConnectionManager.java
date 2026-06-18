@@ -388,6 +388,10 @@ public class ImapConnectionManager {
         props.put("mail." + protocol + ".port", String.valueOf(port));
 
         props.put("mail." + protocol + ".ssl.enable", String.valueOf(details.useSsl()));
+        // Explicit server-identity (hostname) check on the TLS handshake; a no-op on
+        // the
+        // plaintext protocol but present so the implicit-SSL path cannot regress.
+        props.put("mail." + protocol + ".ssl.checkserveridentity", "true");
 
         /*
          * JavaMail's PropUtil only reads String/Integer values from Properties — a raw

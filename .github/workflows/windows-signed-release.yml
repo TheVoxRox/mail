@@ -41,6 +41,12 @@ jobs:
       TAURI_UPDATER_WINDOWS_INSTALL_MODE: ${{ vars.TAURI_UPDATER_WINDOWS_INSTALL_MODE }}
       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      # Enable the on-startup auto-update check in released builds. Vite bakes this
+      # flag in at build time; the check only runs in PROD Tauri builds (gated in
+      # frontend/src/lib/updates.ts) and only finds anything once a release is
+      # published with latest.json at the updater endpoint. Manual "check for
+      # updates" works regardless of this flag.
+      VITE_ENABLE_AUTO_UPDATE_CHECK: '1'
       # OAuth client identifiers baked into the sidecar launcher by
       # package-sidecar-windows.ps1. Microsoft is a public client (no secret);
       # Google's "Desktop app" secret is non-confidential (shipped, PKCE-protected).
@@ -67,7 +73,7 @@ jobs:
           Write-Host "Publishing release assets to tag $tag"
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 26
           cache: npm

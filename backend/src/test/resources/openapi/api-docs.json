@@ -3239,7 +3239,7 @@
             "minLength" : 0
           },
           "label" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "description" : "Address label (WORK/HOME/OTHER). Optional — send null or omit when no label.",
             "enum" : [ "WORK", "HOME", "OTHER", "WORK", "HOME", "OTHER" ],
             "example" : "WORK"
@@ -3287,7 +3287,7 @@
             "type" : "string"
           },
           "label" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "description" : "Address label. null = the contact did not set one.",
             "enum" : [ "WORK", "HOME", "OTHER", "WORK", "HOME", "OTHER" ],
             "example" : "HOME"
@@ -3714,7 +3714,7 @@
             "example" : "1"
           },
           "reason" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "description" : "Safe user-facing reason when ready=false."
           }
         }
@@ -3850,7 +3850,7 @@
             "type" : "string"
           },
           "threadId" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "description" : "Conversation identifier shared by every message of the same thread. Null only until the threading backfill has processed the message."
           }
         }
@@ -3904,7 +3904,7 @@
             "type" : "boolean"
           },
           "threadId" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "description" : "Conversation identifier — every message of the same thread shares it. Null only until the threading backfill has processed the message (see /api/internal/threading/recompute). Frontends MAY group rows by this id; the V0.1.0 desktop client ignores it."
           }
         }
@@ -3917,7 +3917,7 @@
             "description" : "Stable thread identifier shared by every message of the conversation."
           },
           "rootMessageId" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "description" : "RFC 5322 Message-ID of the oldest message in the thread. Null when the root message has no Message-ID."
           },
           "participantsTotal" : {

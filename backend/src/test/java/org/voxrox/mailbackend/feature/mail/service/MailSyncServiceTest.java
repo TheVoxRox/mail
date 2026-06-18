@@ -249,7 +249,7 @@ class MailSyncServiceTest {
             when(messageRepository.findMinUidByAccountIdAndFolderName(ACCOUNT_ID, "INBOX"))
                     .thenReturn(Optional.of(100L));
 
-            service.syncAndBackfill(account, "INBOX", 0, 20);
+            service.syncAndBackfill(account, "INBOX", 0);
 
             // 1) performFullSyncCycle → executeInFolder
             // 2) downloadRange → executeInFolder
@@ -260,7 +260,7 @@ class MailSyncServiceTest {
         @Test
         @DisplayName("page>0 only sync, no backfill")
         void noBackfillOnLaterPages() {
-            service.syncAndBackfill(account, "INBOX", 1, 20);
+            service.syncAndBackfill(account, "INBOX", 1);
 
             verify(imapFolderService, times(1)).executeInFolder(eq(ACCOUNT_ID), eq("INBOX"),
                     eq(jakarta.mail.Folder.READ_ONLY), any());
@@ -272,7 +272,7 @@ class MailSyncServiceTest {
         void noBackfillWhenMinUidIsOne() {
             when(messageRepository.findMinUidByAccountIdAndFolderName(ACCOUNT_ID, "INBOX")).thenReturn(Optional.of(1L));
 
-            service.syncAndBackfill(account, "INBOX", 0, 20);
+            service.syncAndBackfill(account, "INBOX", 0);
 
             verify(imapFolderService, times(1)).executeInFolder(eq(ACCOUNT_ID), eq("INBOX"),
                     eq(jakarta.mail.Folder.READ_ONLY), any());
@@ -284,7 +284,7 @@ class MailSyncServiceTest {
             when(messageRepository.findMinUidByAccountIdAndFolderName(ACCOUNT_ID, "INBOX"))
                     .thenReturn(Optional.empty());
 
-            service.syncAndBackfill(account, "INBOX", 0, 20);
+            service.syncAndBackfill(account, "INBOX", 0);
 
             verify(imapFolderService, times(1)).executeInFolder(eq(ACCOUNT_ID), eq("INBOX"),
                     eq(jakarta.mail.Folder.READ_ONLY), any());
@@ -296,7 +296,7 @@ class MailSyncServiceTest {
             when(imapFolderService.executeInFolder(eq(ACCOUNT_ID), eq("INBOX"), eq(jakarta.mail.Folder.READ_ONLY),
                     any())).thenThrow(new RuntimeException("folder open failed"));
 
-            service.syncAndBackfillAsync(account, "INBOX", 0, 20);
+            service.syncAndBackfillAsync(account, "INBOX", 0);
 
             ArgumentCaptor<AccountLastError> captor = ArgumentCaptor.forClass(AccountLastError.class);
             verify(accountRepository).updateLastError(eq(ACCOUNT_ID), captor.capture(), any(LocalDateTime.class));

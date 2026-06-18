@@ -130,7 +130,7 @@ class ThreadingBackfillServiceTest {
             AccountEntity account = account(1L, "a@example.com");
             when(messageRepository.countUnthreadedByAccount(1L)).thenReturn(250L);
             when(messageRepository.findUnthreadedByAccountOrderByReceivedAt(eq(1L), any(Pageable.class)))
-                    .thenReturn(messages(BATCH_SIZE), messages(50));
+                    .thenReturn(messages(BATCH_SIZE)).thenReturn(messages(50));
 
             int assigned = service.backfillAccount(account);
 
@@ -145,7 +145,7 @@ class ThreadingBackfillServiceTest {
             AccountEntity account = account(1L, "a@example.com");
             when(messageRepository.countUnthreadedByAccount(1L)).thenReturn((long) BATCH_SIZE);
             when(messageRepository.findUnthreadedByAccountOrderByReceivedAt(eq(1L), any(Pageable.class)))
-                    .thenReturn(messages(BATCH_SIZE), List.of());
+                    .thenReturn(messages(BATCH_SIZE)).thenReturn(List.of());
 
             int assigned = service.backfillAccount(account);
 
