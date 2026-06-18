@@ -53,7 +53,10 @@ public class MailConnectionProbe {
         props.put("mail." + protocol + ".host", details.host());
         props.put("mail." + protocol + ".port", String.valueOf(details.port()));
         props.put("mail." + protocol + ".ssl.enable", String.valueOf(details.useSsl()));
-        MailTlsConfig.verifyServerIdentity(props, protocol);
+        // Explicit server-identity (hostname) check on the TLS handshake; a no-op on
+        // the
+        // plaintext protocol but present so the implicit-SSL path cannot regress.
+        props.put("mail." + protocol + ".ssl.checkserveridentity", "true");
         props.put("mail." + protocol + ".timeout", String.valueOf(mailProperties.imap().readTimeout().toMillis()));
         props.put("mail." + protocol + ".connectiontimeout",
                 String.valueOf(mailProperties.imap().connectionTimeout().toMillis()));

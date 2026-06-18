@@ -70,11 +70,20 @@ public class SmtpTransportFactory {
         props.put("mail.smtp.connectiontimeout", smtpConnTimeoutMs);
         props.put("mail.smtp.writetimeout", timeoutMs);
 
-        MailTlsConfig.verifyServerIdentity(props, "smtp");
+        // Verify the server certificate hostname on the TLS handshake (implicit SSL and
+        // STARTTLS alike), set explicitly rather than relying on the Angus Mail
+        // default.
+        // Literal property key so the static analyzer (CodeQL java/insecure-smtp-ssl)
+        // can
+        // confirm the check is in place.
+        props.put("mail.smtp.ssl.checkserveridentity", "true");
         if (details.useSsl()) {
             props.put("mail.smtp.ssl.enable", "true");
         } else {
-            MailTlsConfig.requireStartTls(props, "smtp");
+            props.put("mail.smtp.starttls.enable", "true");
+            // Require STARTTLS so a missing or stripped upgrade fails instead of silently
+            // sending credentials over plaintext (downgrade attack).
+            props.put("mail.smtp.starttls.required", "true");
         }
 
         if (details.authType() == AuthType.OAUTH2) {
