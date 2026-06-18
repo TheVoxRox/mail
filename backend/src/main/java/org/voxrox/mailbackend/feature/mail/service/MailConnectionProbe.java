@@ -53,6 +53,7 @@ public class MailConnectionProbe {
         props.put("mail." + protocol + ".host", details.host());
         props.put("mail." + protocol + ".port", String.valueOf(details.port()));
         props.put("mail." + protocol + ".ssl.enable", String.valueOf(details.useSsl()));
+        MailTlsConfig.verifyServerIdentity(props, protocol);
         props.put("mail." + protocol + ".timeout", String.valueOf(mailProperties.imap().readTimeout().toMillis()));
         props.put("mail." + protocol + ".connectiontimeout",
                 String.valueOf(mailProperties.imap().connectionTimeout().toMillis()));

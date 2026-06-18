@@ -121,6 +121,9 @@ class SmtpTransportFactoryTest {
             assertThat(session.getProperty("mail.smtp.host")).isEqualTo("smtp.gmail.com");
             assertThat(session.getProperty("mail.smtp.ssl.enable")).isEqualTo("true");
             assertThat(session.getProperty("mail.smtp.starttls.enable")).isNull();
+            // Implicit-SSL path: identity verified, no STARTTLS requirement.
+            assertThat(session.getProperty("mail.smtp.ssl.checkserveridentity")).isEqualTo("true");
+            assertThat(session.getProperty("mail.smtp.starttls.required")).isNull();
             assertThat(session.getProperty("mail.smtp.auth.mechanisms")).isEqualTo(MailAuthMechanisms.XOAUTH2);
             assertThat(session.getProperty("mail.smtp.auth.login.disable")).isEqualTo("true");
             assertThat(session.getProperty("mail.smtp.auth.plain.disable")).isEqualTo("true");
@@ -133,6 +136,10 @@ class SmtpTransportFactoryTest {
 
             assertThat(session.getProperty("mail.smtp.ssl.enable")).isNull();
             assertThat(session.getProperty("mail.smtp.starttls.enable")).isEqualTo("true");
+            // STARTTLS path: upgrade is required (no silent plaintext fallback) and the
+            // server identity is verified on the upgraded connection.
+            assertThat(session.getProperty("mail.smtp.starttls.required")).isEqualTo("true");
+            assertThat(session.getProperty("mail.smtp.ssl.checkserveridentity")).isEqualTo("true");
             assertThat(session.getProperty("mail.smtp.auth.mechanisms")).isNull();
             assertThat(session.getProperty("mail.smtp.auth.login.disable")).isNull();
             assertThat(session.getProperty("mail.smtp.auth.plain.disable")).isNull();
