@@ -72,7 +72,8 @@ Rozhodnuto: OAuth-only (viz Rozhodnuti). PKCE explicitne zapnut v [SecurityConfi
 
 ## Release & Update (Tauri updater)
 
-- [ ] Vygenerovat Tauri Ed25519 signing key + ulozit private key offline + do GitHub secrets.
+- [x] Tauri Ed25519 signing key vygenerovan + ulozen do GitHub secrets — HOTOVO 2026-06-16: keypair `6334AE8C9D8495FE` (minisign), privatni klic `~/.tauri/mail.key` (heslem chraneny). Secrety `TAURI_SIGNING_PRIVATE_KEY` + `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` + `TAURI_UPDATER_PUBKEY`, var `TAURI_UPDATER_ENDPOINTS`. Pubkey v [tauri.conf.json](frontend/src-tauri/tauri.conf.json) == lokalni `mail.key.pub`; release workflow [windows-signed-release.yml](.github/workflows/windows-signed-release.yml) klic spotrebuje a podpisy verifikuje.
+- [ ] **Offline zaloha signing key** — zkopirovat `~/.tauri/mail.key` + jeho heslo do bezpecneho offline uloziste MIMO pracovni stroj (password manager / sifrovany USB). `~/.tauri` je jen pracovni kopie; GitHub secret nelze precist zpet → lokalni soubor je jedina extrahovatelna kopie. Bez zalohy = pri havarii/ztrate disku trvala ztrata schopnosti podepisovat updaty (uzivatele by museli preinstalovat rucne).
 - [ ] Overit, ze GitHub release ma podepsany `voxrox-mail-<version>-x64-setup.exe` + `.sig` + `latest.json` na updater URL.
 - [ ] Otestovat prvni update pres Tauri updater + smoke vN-1 → vN (bez ztraty dat, bez GUI regrese).
 
