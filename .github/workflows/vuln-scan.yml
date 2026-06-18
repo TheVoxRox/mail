@@ -214,7 +214,7 @@ jobs:
           if-no-files-found: error
 
       - name: Trivy SBOM scan — frontend
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: sbom
           scan-ref: frontend/bom.json
@@ -224,7 +224,7 @@ jobs:
           exit-code: '0'
 
       - name: Trivy SBOM scan — backend
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: sbom
           scan-ref: backend/target/bom.json
@@ -234,7 +234,7 @@ jobs:
           exit-code: '0'
 
       - name: Trivy SBOM scan — Tauri
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: sbom
           scan-ref: frontend/src-tauri/bom.json
