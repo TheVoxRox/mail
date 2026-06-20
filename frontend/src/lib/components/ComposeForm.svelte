@@ -26,6 +26,12 @@
 	} from '$lib/components/compose/controller.js';
 	import { loadComposePrefill } from '$lib/compose/prefill.js';
 	import {
+		appendSignature,
+		composeKind,
+		signatureManagedForKind,
+		swapSignature
+	} from '$lib/compose/signature.js';
+	import {
 		buildMailRequest,
 		draftFingerprint,
 		type ComposeAttachment,
@@ -35,7 +41,7 @@
 	import { ComposeDraftSaveCoordinator } from '$lib/compose/draft-save.js';
 	import { confirmAction } from '$lib/stores/confirmDialog.js';
 	import { installLeaveGuard } from '$lib/leaveGuard.js';
-	import { onDestroy, onMount, tick } from 'svelte';
+	import { onDestroy, onMount, tick, untrack } from 'svelte';
 
 	let to = $state('');
 	let cc = $state('');
@@ -57,6 +63,11 @@
 	let ccErrorMessage = $state('');
 	let bccErrorMessage = $state('');
 	let lastSavedSnapshot = $state('');
+	// Signature the composer last inserted into `body`. `null` means the composer
+	// is not managing a signature for this compose kind (reply/forward/draft);
+	// a string (possibly empty) means it is, and tracks what to swap on account change.
+	let appliedSignature = $state<string | null>(null);
+	let signatureSyncedAccountId = $state<number | null>(null);
 	// Set when the composer was opened on an existing draft (?draft=). Lets us send
 	// the original MIME (attachments + threading) as-is while it stays untouched.
 	let openedDraftId = $state<string | null>(null);
@@ -109,11 +120,19 @@
 
 	onMount(async () => {
 		const searchParams = get(page).url.searchParams;
+		const kind = composeKind(searchParams);
 		const focusBodyAfterPrefill = shouldFocusComposeBody(searchParams);
 		autofocusTo = !focusBodyAfterPrefill;
 		try {
 			const prefill = await loadComposePrefill(searchParams);
 			applyPrefill(prefill);
+			if (signatureManagedForKind(kind)) {
+				// Phase 1: append the From account's signature to new messages / mailto.
+				const sig = currentFromAccount()?.signature ?? '';
+				body = appendSignature(body, sig);
+				appliedSignature = sig;
+				signatureSyncedAccountId = fromAccountId;
+			}
 		} catch (err) {
 			errorMessage = toErrorMessage(err);
 		} finally {
@@ -376,6 +395,21 @@
 		if (invalidAddressList(draft.cc).length === 0 && ccErrorMessage) ccErrorMessage = '';
 		if (invalidAddressList(draft.bcc).length === 0 && bccErrorMessage) bccErrorMessage = '';
 		autosaveScheduler.schedule(draft, prefillDone);
+	});
+
+	$effect(() => {
+		// Swap the signature when the From account changes. Only fromAccountId is
+		// tracked; untrack the rest so a body keystroke does not re-run this.
+		const accountId = fromAccountId;
+		untrack(() => {
+			if (!prefillDone || appliedSignature === null) return;
+			if (accountId === signatureSyncedAccountId) return;
+			const nextSig = availableAccounts.find((a) => a.id === accountId)?.signature ?? '';
+			const result = swapSignature(body, appliedSignature, nextSig);
+			body = result.body;
+			appliedSignature = result.appliedSignature;
+			signatureSyncedAccountId = accountId;
+		});
 	});
 
 	onDestroy(() => {

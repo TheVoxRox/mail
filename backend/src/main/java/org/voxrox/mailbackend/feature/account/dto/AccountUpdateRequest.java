@@ -11,6 +11,13 @@ public record AccountUpdateRequest(
         @Size(max = 100, message = "{validation.size.max}") String displayName,
 
         /*
+         * Optional per-account outgoing signature (RFC 3676 "-- " block). Nullable /
+         * blank = no signature. Not @NotBlank for that reason; reuses the generic size
+         * message rather than a dedicated i18n key.
+         */
+        @Size(max = 10000, message = "{validation.size.max}") String signature,
+
+        /*
          * providerId is optional — either the user picks one from the seeded catalog,
          * or supplies a custom imap/smtp. The cross-field guard is in
          * isProviderOrCustomServerConfigPresent().

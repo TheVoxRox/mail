@@ -36,6 +36,8 @@ export interface AccountResponse {
 	accountName: string;
 	email: string;
 	displayName: string | null;
+	/** Per-account outgoing signature (RFC 3676 `"-- "` block), or `null` when unset. */
+	signature: string | null;
 	providerId: number | null;
 	providerName: string | null;
 	imapHost: string;
@@ -85,6 +87,8 @@ export interface AccountUpdateRequest {
 	accountName: string;
 	email: string;
 	displayName?: string | null;
+	/** Per-account outgoing signature (RFC 3676 `"-- "` block). Null/blank clears it. */
+	signature?: string | null;
 	providerId?: number | null;
 	imap?: MailServerSettings;
 	smtp?: MailServerSettings;

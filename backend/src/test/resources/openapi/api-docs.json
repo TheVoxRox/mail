@@ -3105,6 +3105,11 @@
             "maxLength" : 100,
             "minLength" : 0
           },
+          "signature" : {
+            "type" : "string",
+            "maxLength" : 10000,
+            "minLength" : 0
+          },
           "providerId" : {
             "type" : "integer",
             "format" : "int64"
@@ -3226,6 +3231,9 @@
             "additionalProperties" : {
               "type" : "string"
             }
+          },
+          "signature" : {
+            "type" : "string"
           }
         }
       },

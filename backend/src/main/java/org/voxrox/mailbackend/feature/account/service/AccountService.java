@@ -99,6 +99,7 @@ public class AccountService {
         account.setAccountName(request.accountName());
         account.setDisplayName(request.displayName());
         account.setEmail(request.email());
+        account.setSignature(request.signature());
         account.setActive(request.active());
 
         /*

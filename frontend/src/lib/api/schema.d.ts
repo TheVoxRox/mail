@@ -779,6 +779,7 @@ export interface components {
 			/** Format: email */
 			email: string;
 			displayName?: string;
+			signature?: string;
 			/** Format: int64 */
 			providerId?: number;
 			imap?: components['schemas']['MailServerSettings'];
@@ -824,6 +825,7 @@ export interface components {
 			lastErrorArgs?: {
 				[key: string]: string;
 			};
+			signature?: string;
 		};
 		ContactEmailRequest: {
 			/** Format: email */

@@ -19,6 +19,14 @@ public class AccountEntity {
     private String email;
     private String displayName;
 
+    /**
+     * Per-account outgoing signature inserted by the frontend into the compose body
+     * (RFC 3676 {@code "-- "} block). Plain text and not secret, so an ordinary
+     * column — no DPAPI sealing. {@code null} until the user sets one.
+     */
+    @Column(name = "signature")
+    private @Nullable String signature;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "provider_id")
     private @Nullable MailProviderEntity provider;
@@ -130,6 +138,14 @@ public class AccountEntity {
 
     public void setDisplayName(String displayName) {
         this.displayName = displayName;
+    }
+
+    public @Nullable String getSignature() {
+        return signature;
+    }
+
+    public void setSignature(@Nullable String signature) {
+        this.signature = signature;
     }
 
     public @Nullable MailProviderEntity getProvider() {

@@ -359,7 +359,7 @@ class AccountServiceTest {
             MailProviderEntity gmail = createProvider();
 
             AccountUpdateRequest request = new AccountUpdateRequest("Updated Name", "new@example.com", "New Display",
-                    10L, null, null, "newuser", "newpass", false);
+                    null, 10L, null, null, "newuser", "newpass", false);
 
             when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(existing));
             stubExistingCredentials(AuthType.PASSWORD);
@@ -385,7 +385,7 @@ class AccountServiceTest {
             AccountEntity existing = createAccountEntity();
             existing.setProvider(createProvider());
 
-            AccountUpdateRequest request = new AccountUpdateRequest(ACCOUNT_NAME, EMAIL, DISPLAY_NAME, null,
+            AccountUpdateRequest request = new AccountUpdateRequest(ACCOUNT_NAME, EMAIL, DISPLAY_NAME, null, null,
                     imapCustom(), smtpCustom(), "user", "pass", true);
 
             when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(existing));
@@ -406,8 +406,8 @@ class AccountServiceTest {
         void shouldThrowProviderNotFoundExceptionForInvalidProviderId() {
             AccountEntity existing = createAccountEntity();
 
-            AccountUpdateRequest request = new AccountUpdateRequest(ACCOUNT_NAME, EMAIL, DISPLAY_NAME, 999L, null, null,
-                    "user", "pass", true);
+            AccountUpdateRequest request = new AccountUpdateRequest(ACCOUNT_NAME, EMAIL, DISPLAY_NAME, null, 999L, null,
+                    null, "user", "pass", true);
 
             when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(existing));
             stubExistingCredentials(AuthType.PASSWORD);
@@ -419,8 +419,8 @@ class AccountServiceTest {
 
         @Test
         void shouldThrowAccountNotFoundExceptionForMissingAccount() {
-            AccountUpdateRequest request = new AccountUpdateRequest(ACCOUNT_NAME, EMAIL, DISPLAY_NAME, 10L, null, null,
-                    "user", "pass", true);
+            AccountUpdateRequest request = new AccountUpdateRequest(ACCOUNT_NAME, EMAIL, DISPLAY_NAME, null, 10L, null,
+                    null, "user", "pass", true);
 
             when(accountRepository.findById(999L)).thenReturn(Optional.empty());
 
@@ -432,7 +432,7 @@ class AccountServiceTest {
             AccountEntity existing = createAccountEntity();
 
             AccountUpdateRequest request = new AccountUpdateRequest(ACCOUNT_NAME, "other@example.com", DISPLAY_NAME,
-                    10L, null, null, "user", "pass", true);
+                    null, 10L, null, null, "user", "pass", true);
 
             when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(existing));
             when(accountRepository.existsByEmailAndIdNot("other@example.com", ACCOUNT_ID)).thenReturn(true);
@@ -448,7 +448,8 @@ class AccountServiceTest {
             AccountEntity existing = createAccountEntity();
 
             AccountUpdateRequest request = new AccountUpdateRequest(ACCOUNT_NAME,
-                    EMAIL.toUpperCase(java.util.Locale.ROOT), DISPLAY_NAME, 10L, null, null, "user", "pass", true);
+                    EMAIL.toUpperCase(java.util.Locale.ROOT), DISPLAY_NAME, null, 10L, null, null, "user", "pass",
+                    true);
 
             when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(existing));
             stubExistingCredentials(AuthType.PASSWORD);
@@ -467,7 +468,7 @@ class AccountServiceTest {
             AccountEntity existing = createAccountEntity();
 
             AccountUpdateRequest request = new AccountUpdateRequest("Updated Name", "new@example.com", "New Display",
-                    10L, null, null, "newuser", null, false);
+                    null, 10L, null, null, "newuser", null, false);
 
             when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(existing));
             when(providerService.loadProviderById(10L)).thenReturn(createProvider());
@@ -485,8 +486,8 @@ class AccountServiceTest {
         void shouldNotSaveCredentialsWhenPasswordIsBlank() {
             AccountEntity existing = createAccountEntity();
 
-            AccountUpdateRequest request = new AccountUpdateRequest(ACCOUNT_NAME, EMAIL, DISPLAY_NAME, 10L, null, null,
-                    "user", "   ", true);
+            AccountUpdateRequest request = new AccountUpdateRequest(ACCOUNT_NAME, EMAIL, DISPLAY_NAME, null, 10L, null,
+                    null, "user", "   ", true);
 
             when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(existing));
             when(providerService.loadProviderById(10L)).thenReturn(createProvider());
@@ -496,6 +497,24 @@ class AccountServiceTest {
             service.updateAccount(ACCOUNT_ID, request);
 
             verify(credentialService, never()).saveCredentials(any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("PUT persists the account signature (full replacement)")
+        void shouldPersistSignatureOnUpdate() {
+            AccountEntity existing = createAccountEntity();
+
+            AccountUpdateRequest request = new AccountUpdateRequest(ACCOUNT_NAME, EMAIL, DISPLAY_NAME, "-- \nJan Novák",
+                    10L, null, null, "user", null, true);
+
+            when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(existing));
+            when(providerService.loadProviderById(10L)).thenReturn(createProvider());
+            when(accountRepository.save(existing)).thenReturn(existing);
+            when(accountMapper.toResponse(existing)).thenReturn(dummyResponse());
+
+            service.updateAccount(ACCOUNT_ID, request);
+
+            assertThat(existing.getSignature()).isEqualTo("-- \nJan Novák");
         }
     }
 
@@ -507,8 +526,8 @@ class AccountServiceTest {
         @DisplayName("PUT on an OAuth2 account with password -> ValidationException, no mutation")
         void putWithPasswordOnOAuth2RejectedWithValidationException() {
             AccountEntity existing = createAccountEntity();
-            AccountUpdateRequest request = new AccountUpdateRequest(ACCOUNT_NAME, EMAIL, DISPLAY_NAME, 10L, null, null,
-                    EMAIL, "stolenpassword", true);
+            AccountUpdateRequest request = new AccountUpdateRequest(ACCOUNT_NAME, EMAIL, DISPLAY_NAME, null, 10L, null,
+                    null, EMAIL, "stolenpassword", true);
 
             when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(existing));
             stubExistingCredentials(AuthType.OAUTH2);
@@ -527,8 +546,8 @@ class AccountServiceTest {
         void putWithoutPasswordOnOAuth2Allowed() {
             AccountEntity existing = createAccountEntity();
             existing.setProvider(createProvider());
-            AccountUpdateRequest request = new AccountUpdateRequest("Renamed", EMAIL, "New Display", 10L, null, null,
-                    EMAIL, null, true);
+            AccountUpdateRequest request = new AccountUpdateRequest("Renamed", EMAIL, "New Display", null, 10L, null,
+                    null, EMAIL, null, true);
 
             when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(existing));
             when(providerService.loadProviderById(10L)).thenReturn(createProvider());
