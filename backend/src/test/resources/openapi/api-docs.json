@@ -3110,6 +3110,9 @@
             "maxLength" : 10000,
             "minLength" : 0
           },
+          "signatureAutoInsert" : {
+            "type" : "boolean"
+          },
           "providerId" : {
             "type" : "integer",
             "format" : "int64"
@@ -3234,6 +3237,9 @@
           },
           "signature" : {
             "type" : "string"
+          },
+          "signatureAutoInsert" : {
+            "type" : "boolean"
           }
         }
       },
@@ -3631,10 +3637,10 @@
           "password" : {
             "type" : "string"
           },
-          "passwordPresentForNewAccount" : {
+          "providerOrCustomServerConfigPresent" : {
             "type" : "boolean"
           },
-          "providerOrCustomServerConfigPresent" : {
+          "passwordPresentForNewAccount" : {
             "type" : "boolean"
           }
         },

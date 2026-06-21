@@ -211,8 +211,8 @@ class AccountControllerTest {
     @Test
     @DisplayName("PUT /{id} with password on an OAuth2 account -> 400 + VALIDATION_ERROR")
     void putOnOAuth2RejectedAsValidationError() throws Exception {
-        AccountUpdateRequest req = new AccountUpdateRequest("My Acc", "a@b.cz", "Me", null, 1L, null, null, "user",
-                "stolenpassword", true);
+        AccountUpdateRequest req = new AccountUpdateRequest("My Acc", "a@b.cz", "Me", null, true, 1L, null, null,
+                "user", "stolenpassword", true);
         when(accountService.updateAccount(eq(5L), any()))
                 .thenThrow(new ValidationException("OAuth2 account cannot be updated by changing password or username. "
                         + "To change credentials, go through the Google login flow again."));

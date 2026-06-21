@@ -27,7 +27,9 @@
 	import { loadComposePrefill } from '$lib/compose/prefill.js';
 	import {
 		appendSignature,
+		autoSignature,
 		composeKind,
+		insertSignatureAt,
 		signatureManagedForKind,
 		swapSignature
 	} from '$lib/compose/signature.js';
@@ -103,6 +105,30 @@
 		return availableAccounts.find((a) => a.id === fromAccountId) ?? null;
 	}
 
+	// Show the manual "insert signature" toolbar action only when the From account
+	// actually has a signature to insert.
+	const canInsertSignature = $derived((currentFromAccount()?.signature ?? '').trim().length > 0);
+
+	/**
+	 * Inserts the From account's signature at the caret (replacing any selection),
+	 * then returns focus to the body with the caret just after the inserted block.
+	 * One-off and manual: it does not touch the swap-on-account-change tracking, so
+	 * a signature the user places in a reply/forward stays exactly where they put it.
+	 */
+	function handleInsertSignature() {
+		if (!prefillDone || busy) return;
+		const el = bodyTextarea;
+		const start = el?.selectionStart ?? body.length;
+		const end = el?.selectionEnd ?? body.length;
+		const result = insertSignatureAt(body, currentFromAccount()?.signature, start, end);
+		if (result.body === body) return;
+		body = result.body;
+		void tick().then(() => {
+			el?.focus();
+			el?.setSelectionRange(result.caret, result.caret);
+		});
+	}
+
 	function applyPrefill(prefill: Awaited<ReturnType<typeof loadComposePrefill>>) {
 		const values = mapComposePrefill(prefill);
 		if (!values) return;
@@ -127,8 +153,11 @@
 			const prefill = await loadComposePrefill(searchParams);
 			applyPrefill(prefill);
 			if (signatureManagedForKind(kind)) {
-				// Phase 1: append the From account's signature to new messages / mailto.
-				const sig = currentFromAccount()?.signature ?? '';
+				// Append the From account's signature to new messages / mailto, but only
+				// when that account opts into auto-insert. `appliedSignature` stays
+				// non-null (possibly '') so this compose keeps managing the block across
+				// later From-account switches.
+				const sig = autoSignature(currentFromAccount());
 				body = appendSignature(body, sig);
 				appliedSignature = sig;
 				signatureSyncedAccountId = fromAccountId;
@@ -404,7 +433,7 @@
 		untrack(() => {
 			if (!prefillDone || appliedSignature === null) return;
 			if (accountId === signatureSyncedAccountId) return;
-			const nextSig = availableAccounts.find((a) => a.id === accountId)?.signature ?? '';
+			const nextSig = autoSignature(availableAccounts.find((a) => a.id === accountId));
 			const result = swapSignature(body, appliedSignature, nextSig);
 			body = result.body;
 			appliedSignature = result.appliedSignature;
@@ -437,6 +466,8 @@
 		{busy}
 		{prefillDone}
 		{busyAction}
+		{canInsertSignature}
+		onInsertSignature={handleInsertSignature}
 		onDiscard={handleDiscard}
 		onSaveDraft={handleSaveDraft}
 	/>

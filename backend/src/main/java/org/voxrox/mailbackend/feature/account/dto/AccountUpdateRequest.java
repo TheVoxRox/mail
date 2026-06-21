@@ -18,6 +18,13 @@ public record AccountUpdateRequest(
         @Size(max = 10000, message = "{validation.size.max}") String signature,
 
         /*
+         * Whether new-message / mailto compose auto-inserts the signature above.
+         * Primitive boolean: PUT is a full replacement, so the client always sends the
+         * current toggle state (the form defaults it to true).
+         */
+        boolean signatureAutoInsert,
+
+        /*
          * providerId is optional — either the user picks one from the seeded catalog,
          * or supplies a custom imap/smtp. The cross-field guard is in
          * isProviderOrCustomServerConfigPresent().

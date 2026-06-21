@@ -27,6 +27,15 @@ public class AccountEntity {
     @Column(name = "signature")
     private @Nullable String signature;
 
+    /**
+     * When {@code true} (the default) the frontend auto-inserts {@link #signature}
+     * into a brand-new message / mailto compose. Replies and forwards are never
+     * auto-filled — the user inserts the signature there from the compose toolbar.
+     * Existing accounts keep the historical always-on behaviour (V3 default 1).
+     */
+    @Column(name = "signature_auto_insert", nullable = false)
+    private boolean signatureAutoInsert = true;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "provider_id")
     private @Nullable MailProviderEntity provider;
@@ -146,6 +155,14 @@ public class AccountEntity {
 
     public void setSignature(@Nullable String signature) {
         this.signature = signature;
+    }
+
+    public boolean isSignatureAutoInsert() {
+        return signatureAutoInsert;
+    }
+
+    public void setSignatureAutoInsert(boolean signatureAutoInsert) {
+        this.signatureAutoInsert = signatureAutoInsert;
     }
 
     public @Nullable MailProviderEntity getProvider() {

@@ -20,7 +20,8 @@ public record AccountResponse(Long id, String accountName, String email, @Nullab
 
         @Nullable String username, @Nullable AuthType authType, @Nullable String oauth2Provider, boolean active,
         boolean requiresReauth, @Nullable LocalDateTime lastSyncAt, @Nullable String lastError,
-        @Nullable String lastErrorCode, @Nullable Map<String, String> lastErrorArgs, @Nullable String signature) {
+        @Nullable String lastErrorCode, @Nullable Map<String, String> lastErrorArgs, @Nullable String signature,
+        boolean signatureAutoInsert) {
 
     public AccountResponse(Long id, String accountName, String email, @Nullable String displayName,
             @Nullable Long providerId, @Nullable String providerName, String imapHost, Integer imapPort,
@@ -29,7 +30,7 @@ public record AccountResponse(Long id, String accountName, String email, @Nullab
             @Nullable LocalDateTime lastSyncAt, @Nullable String lastError) {
         this(id, accountName, email, displayName, providerId, providerName, imapHost, imapPort, imapUseSsl, smtpHost,
                 smtpPort, smtpUseSsl, username, authType, oauth2Provider, active, requiresReauth, lastSyncAt, lastError,
-                null, Map.of(), null);
+                null, Map.of(), null, true);
     }
 
     public AccountResponse {
