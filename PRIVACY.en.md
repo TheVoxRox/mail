@@ -1,8 +1,7 @@
 # Privacy Policy — VoxRox Mail
 
-_Version: 2026-06-01 (draft, pre-first-release). This version is preliminary,
-has not yet been reviewed by a lawyer, and does not yet name a final support
-contact — see "Open items" at the bottom._
+_Version: 2026-06-01 (draft, pre-first-release). This version is preliminary
+and has not yet been reviewed by a lawyer — see "Open items" at the bottom._
 
 _Česká verze: [PRIVACY.md](PRIVACY.md)._
 
@@ -143,10 +142,8 @@ e-mail provider permits use by a child.
 ## Security disclosure
 
 If you discover a vulnerability or security issue in the application,
-**please do not report it publicly in the issue tracker.** The contact
-point for security reports will be confirmed before the first public
-release — until then, please use the same contact as for ordinary support
-(see below).
+**please do not report it publicly in the issue tracker.** Email
+**info@voxrox.org** (the same contact as for ordinary support).
 
 ## Changes to this policy
 
@@ -159,9 +156,8 @@ in the installation and in the project repository.
 
 These items will be filled in before this document is finalized:
 
-- [ ] Support contact (e-mail / URL) — referenced in the frontend UI and in
-      this document.
-- [ ] Security disclosure contact (responsible disclosure).
+- [x] Support contact — **info@voxrox.org** (unified with the voxrox.org site 2026-06-21).
+- [x] Security disclosure contact (responsible disclosure) — **info@voxrox.org**.
 - [ ] Specific Tauri updater endpoint URL.
 - [x] English translation of this document (this file).
 - [ ] Legal review (especially the GDPR phrasing of "data controller" for

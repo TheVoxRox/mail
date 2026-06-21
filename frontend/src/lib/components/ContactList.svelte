@@ -3,8 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { bulkDeleteContacts, deleteContact } from '$lib/api/contacts.js';
 	import { toErrorMessage } from '$lib/api/errors.js';
-	import { formatMediumDate } from '$lib/formatters.js';
-	import { _, appLocale } from '$lib/i18n/index.js';
+	import { _ } from '$lib/i18n/index.js';
 	import { confirmAction } from '$lib/stores/confirmDialog.js';
 	import { pushToast } from '$lib/stores/toasts.js';
 	import ContactMergeDialog from '$lib/components/ContactMergeDialog.svelte';
@@ -160,12 +159,6 @@
 		return unique.length > 0
 			? unique.map((value) => $_(`contacts.labelOptions.${value}`)).join(', ')
 			: $_('contacts.labelOptions.none');
-	}
-
-	function updatedLabel(c: ContactResponse): string {
-		const value = c.updatedAt ?? c.createdAt;
-		if (!value) return '';
-		return formatMediumDate(value, $appLocale ?? 'cs');
 	}
 
 	const AVATAR_PALETTE = [
@@ -408,15 +401,14 @@
 		</div>
 	{/if}
 	<div class="overflow-x-auto">
-		<table class="min-w-[58rem] table-fixed border-collapse text-sm">
+		<table class="min-w-[50rem] table-fixed border-collapse text-sm">
 			<caption class="sr-only">{$_('contacts.tableCaption')}</caption>
 			<colgroup>
 				<col class="w-11" />
-				<col class="w-[24%]" />
-				<col class="w-[25%]" />
-				<col class="w-[12%]" />
-				<col class="w-[18%]" />
-				<col class="w-[10%]" />
+				<col class="w-[26%]" />
+				<col class="w-[30%]" />
+				<col class="w-[13%]" />
+				<col class="w-[20%]" />
 				<col class="w-[11rem]" />
 			</colgroup>
 			<thead class="border-b border-border bg-muted/20 text-xs text-muted-foreground">
@@ -435,9 +427,6 @@
 					</th>
 					<th scope="col" class="px-3 py-2 text-left font-medium">
 						{$_('contacts.columnNote')}
-					</th>
-					<th scope="col" class="px-3 py-2 text-left font-medium">
-						{$_('contacts.columnUpdated')}
 					</th>
 					<th scope="col" class="px-3 py-2 text-right font-medium">
 						{$_('contacts.columnActions')}
@@ -503,9 +492,6 @@
 						</td>
 						<td class="px-3 py-3 align-top text-muted-foreground">
 							<p class="line-clamp-2">{contact.note ?? ''}</p>
-						</td>
-						<td class="px-3 py-3 align-top text-xs text-muted-foreground">
-							{updatedLabel(contact)}
 						</td>
 						<td class="px-3 py-3 align-top">
 							<div class="flex justify-end gap-1">

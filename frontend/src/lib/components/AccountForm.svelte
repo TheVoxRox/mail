@@ -14,6 +14,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Field } from '$lib/components/ui/field/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
+	import { Textarea } from '$lib/components/ui/textarea/index.js';
 	import ProviderLogo from '$lib/components/ProviderLogo.svelte';
 	import { Select } from '$lib/components/ui/select/index.js';
 	import { Surface } from '$lib/components/ui/surface/index.js';
@@ -115,6 +116,8 @@
 	let passwordInputEl = $state<HTMLInputElement | null>(null);
 	/* svelte-ignore state_referenced_locally */
 	let displayName = $state(initial?.displayName ?? '');
+	/* svelte-ignore state_referenced_locally */
+	let signature = $state(initial?.signature ?? '');
 	/* svelte-ignore state_referenced_locally */
 	let providerId = $state<number | null>(initial?.providerId ?? null);
 	/* svelte-ignore state_referenced_locally */
@@ -342,6 +345,7 @@
 					accountName,
 					email,
 					displayName: displayName || null,
+					signature: signature.trim() ? signature : null,
 					username,
 					password: password || null,
 					active,
@@ -635,6 +639,23 @@
 			autocomplete="new-password"
 		/>
 	</Field>
+
+	{#if mode === 'edit' && !compact}
+		<Field
+			for="acc-signature"
+			label={$_('accounts.form.signature')}
+			hint={$_('accounts.form.signatureHint')}
+		>
+			<Textarea
+				id="acc-signature"
+				bind:value={signature}
+				rows={4}
+				maxlength={10000}
+				disabled={busy}
+				placeholder={$_('accounts.form.signaturePlaceholder')}
+			/>
+		</Field>
+	{/if}
 
 	{#if mode === 'edit'}
 		<label

@@ -13,7 +13,8 @@
 		"windows": [],
 		"security": {
 			"csp": {
-				"default-src": "'self' customprotocol: asset:",
+				"default-src": "'self' asset:",
+				"script-src": "'self'",
 				"connect-src": "'self' ipc: http://ipc.localhost http://localhost:* http://127.0.0.1:*",
 				"img-src": "'self' asset: http://asset.localhost data:",
 				"style-src": "'self' 'unsafe-inline'",
@@ -23,7 +24,8 @@
 				"frame-src": "'self' about:"
 			},
 			"devCsp": {
-				"default-src": "'self' customprotocol: asset:",
+				"default-src": "'self' asset:",
+				"script-src": "'self'",
 				"connect-src": "'self' ipc: http://ipc.localhost http://localhost:* http://127.0.0.1:*",
 				"img-src": "'self' asset: http://asset.localhost data:",
 				"style-src": "'self' 'unsafe-inline'",

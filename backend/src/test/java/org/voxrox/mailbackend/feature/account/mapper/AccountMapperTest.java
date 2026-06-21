@@ -163,6 +163,31 @@ class AccountMapperTest {
         }
 
         @Test
+        @DisplayName("signature from entity propagates to response")
+        void signaturePropagatesToResponse() {
+            var account = createAccount();
+            account.setSignature("-- \nJan Novák\nVoxRox");
+            account.setProvider(createProvider());
+            account.setCredentials(createCredentials(account));
+
+            AccountResponse response = mapper.toResponse(account);
+
+            assertThat(response.signature()).isEqualTo("-- \nJan Novák\nVoxRox");
+        }
+
+        @Test
+        @DisplayName("account without a signature - response signature is null")
+        void withoutSignature_responseSignatureIsNull() {
+            var account = createAccount();
+            account.setProvider(createProvider());
+            account.setCredentials(createCredentials(account));
+
+            AccountResponse response = mapper.toResponse(account);
+
+            assertThat(response.signature()).isNull();
+        }
+
+        @Test
         @DisplayName("PASSWORD account - authType is PASSWORD")
         void passwordAccount_authTypeIsPassword() {
             var account = createAccount();

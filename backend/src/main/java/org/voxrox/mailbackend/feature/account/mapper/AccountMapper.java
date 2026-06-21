@@ -49,7 +49,7 @@ public class AccountMapper {
                 (p != null) ? p.getId() : null, providerName(p), imap.getHost(), imap.getPort(), imap.isUseSsl(),
                 smtp.getHost(), smtp.getPort(), smtp.isUseSsl(), username, authType, entity.getOauth2Provider(),
                 entity.isActive(), entity.isRequiresReauth(), entity.getLastSyncAt(), localizedLastError,
-                entity.getLastErrorCode(), lastErrorArgs);
+                entity.getLastErrorCode(), lastErrorArgs, entity.getSignature());
     }
 
     private String providerName(@Nullable MailProviderEntity provider) {
