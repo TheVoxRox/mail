@@ -100,6 +100,7 @@ public class AccountService {
         account.setDisplayName(request.displayName());
         account.setEmail(request.email());
         account.setSignature(request.signature());
+        account.setSignatureAutoInsert(request.signatureAutoInsert());
         account.setActive(request.active());
 
         /*

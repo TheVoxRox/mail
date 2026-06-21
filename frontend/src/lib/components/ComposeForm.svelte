@@ -27,6 +27,7 @@
 	import { loadComposePrefill } from '$lib/compose/prefill.js';
 	import {
 		appendSignature,
+		autoSignature,
 		composeKind,
 		insertSignatureAt,
 		signatureManagedForKind,
@@ -152,8 +153,11 @@
 			const prefill = await loadComposePrefill(searchParams);
 			applyPrefill(prefill);
 			if (signatureManagedForKind(kind)) {
-				// Phase 1: append the From account's signature to new messages / mailto.
-				const sig = currentFromAccount()?.signature ?? '';
+				// Append the From account's signature to new messages / mailto, but only
+				// when that account opts into auto-insert. `appliedSignature` stays
+				// non-null (possibly '') so this compose keeps managing the block across
+				// later From-account switches.
+				const sig = autoSignature(currentFromAccount());
 				body = appendSignature(body, sig);
 				appliedSignature = sig;
 				signatureSyncedAccountId = fromAccountId;
@@ -429,7 +433,7 @@
 		untrack(() => {
 			if (!prefillDone || appliedSignature === null) return;
 			if (accountId === signatureSyncedAccountId) return;
-			const nextSig = availableAccounts.find((a) => a.id === accountId)?.signature ?? '';
+			const nextSig = autoSignature(availableAccounts.find((a) => a.id === accountId));
 			const result = swapSignature(body, appliedSignature, nextSig);
 			body = result.body;
 			appliedSignature = result.appliedSignature;

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	appendSignature,
+	autoSignature,
 	composeKind,
 	insertSignatureAt,
 	signatureBlock,
@@ -69,6 +70,22 @@ describe('appendSignature', () => {
 	it('is a no-op for an empty signature', () => {
 		expect(appendSignature('Hello', '')).toBe('Hello');
 		expect(appendSignature('Hello', null)).toBe('Hello');
+	});
+});
+
+describe('autoSignature', () => {
+	it('returns the signature when auto-insert is enabled', () => {
+		expect(autoSignature({ signature: 'Jan', signatureAutoInsert: true })).toBe('Jan');
+	});
+
+	it('returns empty string when auto-insert is disabled', () => {
+		expect(autoSignature({ signature: 'Jan', signatureAutoInsert: false })).toBe('');
+	});
+
+	it('returns empty string for a null/undefined account or missing signature', () => {
+		expect(autoSignature(null)).toBe('');
+		expect(autoSignature(undefined)).toBe('');
+		expect(autoSignature({ signatureAutoInsert: true })).toBe('');
 	});
 });
 

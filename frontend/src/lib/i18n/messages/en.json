@@ -233,6 +233,7 @@
 			"signature": "Signature",
 			"signatureHint": "Added to the end of new messages. You can edit it before sending.",
 			"signaturePlaceholder": "Best regards, Jane Doe",
+			"signatureAutoInsert": "Insert the signature automatically into new messages",
 			"provider": "Provider",
 			"providerPlaceholder": "— select —",
 			"providerDetected": "Detected: {name}",

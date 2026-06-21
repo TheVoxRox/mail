@@ -233,6 +233,7 @@
 			"signature": "Podpis",
 			"signatureHint": "Vloží se na konec nové zprávy. Před odesláním ho můžete upravit.",
 			"signaturePlaceholder": "S pozdravem, Jan Novák",
+			"signatureAutoInsert": "Vkládat podpis automaticky do nových zpráv",
 			"provider": "Poskytovatel",
 			"providerPlaceholder": "— vyberte —",
 			"providerDetected": "Detekováno: {name}",

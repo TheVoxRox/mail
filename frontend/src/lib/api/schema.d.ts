@@ -780,6 +780,7 @@ export interface components {
 			email: string;
 			displayName?: string;
 			signature?: string;
+			signatureAutoInsert?: boolean;
 			/** Format: int64 */
 			providerId?: number;
 			imap?: components['schemas']['MailServerSettings'];
@@ -826,6 +827,7 @@ export interface components {
 				[key: string]: string;
 			};
 			signature?: string;
+			signatureAutoInsert?: boolean;
 		};
 		ContactEmailRequest: {
 			/** Format: email */
@@ -961,8 +963,8 @@ export interface components {
 			smtp?: components['schemas']['MailServerSettings'];
 			username: string;
 			password?: string;
-			passwordPresentForNewAccount?: boolean;
 			providerOrCustomServerConfigPresent?: boolean;
+			passwordPresentForNewAccount?: boolean;
 		};
 		AccountConnectionTestResponse: {
 			imapOk?: boolean;

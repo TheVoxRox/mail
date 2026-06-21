@@ -119,6 +119,8 @@
 	/* svelte-ignore state_referenced_locally */
 	let signature = $state(initial?.signature ?? '');
 	/* svelte-ignore state_referenced_locally */
+	let signatureAutoInsert = $state(initial?.signatureAutoInsert ?? true);
+	/* svelte-ignore state_referenced_locally */
 	let providerId = $state<number | null>(initial?.providerId ?? null);
 	/* svelte-ignore state_referenced_locally */
 	let username = $state(initial?.username ?? prefillEmail);
@@ -346,6 +348,7 @@
 					email,
 					displayName: displayName || null,
 					signature: signature.trim() ? signature : null,
+					signatureAutoInsert,
 					username,
 					password: password || null,
 					active,
@@ -655,6 +658,18 @@
 				placeholder={$_('accounts.form.signaturePlaceholder')}
 			/>
 		</Field>
+
+		<label
+			class="flex items-start gap-3 rounded-md border border-border bg-background/70 p-3 text-sm transition-colors hover:bg-muted/60"
+		>
+			<input
+				type="checkbox"
+				bind:checked={signatureAutoInsert}
+				disabled={busy}
+				class="mt-0.5 h-4 w-4 rounded border-input text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+			/>
+			<span class="min-w-0 text-sm text-foreground">{$_('accounts.form.signatureAutoInsert')}</span>
+		</label>
 	{/if}
 
 	{#if mode === 'edit'}

@@ -51,6 +51,19 @@ export function appendSignature(body: string, signature: string | null | undefin
 }
 
 /**
+ * The signature an account contributes to AUTOMATIC insertion: its signature when
+ * auto-insert is enabled, otherwise the empty string — which makes
+ * {@link appendSignature} a no-op and {@link swapSignature} remove a previously
+ * applied block. Replies and forwards never use this; there the user inserts the
+ * signature manually via {@link insertSignatureAt}.
+ */
+export function autoSignature(
+	account: { signature?: string | null; signatureAutoInsert?: boolean } | null | undefined
+): string {
+	return account?.signatureAutoInsert ? (account.signature ?? '') : '';
+}
+
+/**
  * Inserts the signature block at a selection range, replacing any selected text.
  *
  * Backs the manual "insert signature" toolbar action. Unlike the automatic

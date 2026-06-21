@@ -188,6 +188,31 @@ class AccountMapperTest {
         }
 
         @Test
+        @DisplayName("signatureAutoInsert from entity propagates to response")
+        void signatureAutoInsertPropagatesToResponse() {
+            var account = createAccount();
+            account.setSignatureAutoInsert(false);
+            account.setProvider(createProvider());
+            account.setCredentials(createCredentials(account));
+
+            AccountResponse response = mapper.toResponse(account);
+
+            assertThat(response.signatureAutoInsert()).isFalse();
+        }
+
+        @Test
+        @DisplayName("new account defaults signatureAutoInsert to true")
+        void defaultsSignatureAutoInsertToTrue() {
+            var account = createAccount();
+            account.setProvider(createProvider());
+            account.setCredentials(createCredentials(account));
+
+            AccountResponse response = mapper.toResponse(account);
+
+            assertThat(response.signatureAutoInsert()).isTrue();
+        }
+
+        @Test
         @DisplayName("PASSWORD account - authType is PASSWORD")
         void passwordAccount_authTypeIsPassword() {
             var account = createAccount();

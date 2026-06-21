@@ -151,6 +151,7 @@ function createInitialState(): E2EFixtureState {
 				email: 'tester@example.com',
 				displayName: 'Tester',
 				signature: null,
+				signatureAutoInsert: true,
 				providerId: 1,
 				providerName: 'Example Mail',
 				imapHost: 'imap.example.com',
@@ -175,6 +176,7 @@ function createInitialState(): E2EFixtureState {
 				email: 'personal@another.test',
 				displayName: null,
 				signature: null,
+				signatureAutoInsert: true,
 				providerId: 2,
 				providerName: 'Another Mail',
 				imapHost: 'imap.another.test',
@@ -438,6 +440,10 @@ export function upsertAccount(
 		email: body.email ?? existing?.email ?? 'new@example.com',
 		displayName: body.displayName ?? existing?.displayName ?? null,
 		signature: ('signature' in body ? body.signature : undefined) ?? existing?.signature ?? null,
+		signatureAutoInsert:
+			('signatureAutoInsert' in body ? body.signatureAutoInsert : undefined) ??
+			existing?.signatureAutoInsert ??
+			true,
 		providerId,
 		providerName,
 		imapHost,
