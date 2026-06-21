@@ -28,6 +28,7 @@
 	import {
 		appendSignature,
 		composeKind,
+		insertSignatureAt,
 		signatureManagedForKind,
 		swapSignature
 	} from '$lib/compose/signature.js';
@@ -101,6 +102,30 @@
 
 	function currentFromAccount(): AccountResponse | null {
 		return availableAccounts.find((a) => a.id === fromAccountId) ?? null;
+	}
+
+	// Show the manual "insert signature" toolbar action only when the From account
+	// actually has a signature to insert.
+	const canInsertSignature = $derived((currentFromAccount()?.signature ?? '').trim().length > 0);
+
+	/**
+	 * Inserts the From account's signature at the caret (replacing any selection),
+	 * then returns focus to the body with the caret just after the inserted block.
+	 * One-off and manual: it does not touch the swap-on-account-change tracking, so
+	 * a signature the user places in a reply/forward stays exactly where they put it.
+	 */
+	function handleInsertSignature() {
+		if (!prefillDone || busy) return;
+		const el = bodyTextarea;
+		const start = el?.selectionStart ?? body.length;
+		const end = el?.selectionEnd ?? body.length;
+		const result = insertSignatureAt(body, currentFromAccount()?.signature, start, end);
+		if (result.body === body) return;
+		body = result.body;
+		void tick().then(() => {
+			el?.focus();
+			el?.setSelectionRange(result.caret, result.caret);
+		});
 	}
 
 	function applyPrefill(prefill: Awaited<ReturnType<typeof loadComposePrefill>>) {
@@ -437,6 +462,8 @@
 		{busy}
 		{prefillDone}
 		{busyAction}
+		{canInsertSignature}
+		onInsertSignature={handleInsertSignature}
 		onDiscard={handleDiscard}
 		onSaveDraft={handleSaveDraft}
 	/>

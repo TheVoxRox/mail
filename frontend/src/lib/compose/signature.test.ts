@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	appendSignature,
 	composeKind,
+	insertSignatureAt,
 	signatureBlock,
 	signatureManagedForKind,
 	swapSignature
@@ -68,6 +69,37 @@ describe('appendSignature', () => {
 	it('is a no-op for an empty signature', () => {
 		expect(appendSignature('Hello', '')).toBe('Hello');
 		expect(appendSignature('Hello', null)).toBe('Hello');
+	});
+});
+
+describe('insertSignatureAt', () => {
+	it('inserts the block at the caret and returns the caret after it', () => {
+		const result = insertSignatureAt('Hello world', 'Jan', 5, 5);
+		expect(result.body).toBe('Hello\n\n-- \nJan world');
+		expect(result.caret).toBe(5 + '\n\n-- \nJan'.length);
+	});
+
+	it('appends the block when the caret is at the end', () => {
+		const result = insertSignatureAt('Hello', 'Jan', 5, 5);
+		expect(result.body).toBe('Hello\n\n-- \nJan');
+		expect(result.caret).toBe('Hello\n\n-- \nJan'.length);
+	});
+
+	it('replaces a selection with the block', () => {
+		const result = insertSignatureAt('Hello world', 'Jan', 6, 11);
+		expect(result.body).toBe('Hello \n\n-- \nJan');
+		expect(result.caret).toBe('Hello \n\n-- \nJan'.length);
+	});
+
+	it('is a no-op for a blank signature, keeping the caret at the selection end', () => {
+		expect(insertSignatureAt('Hello', '', 2, 4)).toEqual({ body: 'Hello', caret: 4 });
+		expect(insertSignatureAt('Hello', null, 2, 4)).toEqual({ body: 'Hello', caret: 4 });
+	});
+
+	it('clamps out-of-range offsets to the body bounds', () => {
+		const result = insertSignatureAt('Hi', 'Jan', -3, 99);
+		expect(result.body).toBe('\n\n-- \nJan');
+		expect(result.caret).toBe('\n\n-- \nJan'.length);
 	});
 });
 

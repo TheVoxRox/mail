@@ -1,11 +1,13 @@
 /**
  * Pure helpers for inserting a per-account signature into the compose body.
  *
- * Phase 1 scope (see todo.md "message signatures"): the signature is appended only to
- * brand-new messages and `mailto:` links — never to replies, forwards or edited
- * drafts (a draft already carries its signature, and reply/forward placement
- * around quoted text is deferred to Phase 2). The block uses the RFC 3676 §4.3
- * separator line `"-- "` so downstream clients recognise it as a signature.
+ * Automatic insertion applies only to brand-new messages and `mailto:` links —
+ * never to replies, forwards or edited drafts (a draft already carries its
+ * signature). For replies and forwards the user places the signature themselves
+ * via the toolbar "insert signature" action ({@link insertSignatureAt}), which
+ * keeps quoting / `"-- "` placement under their control. The block uses the
+ * RFC 3676 §4.3 separator line `"-- "` so downstream clients recognise it as a
+ * signature.
  *
  * Kept free of Svelte/DOM so the ComposeForm wiring stays unit-testable.
  */
@@ -46,6 +48,33 @@ export function signatureBlock(signature: string | null | undefined): string {
 /** Appends the signature block to `body`. No-op for an empty signature. */
 export function appendSignature(body: string, signature: string | null | undefined): string {
 	return body + signatureBlock(signature);
+}
+
+/**
+ * Inserts the signature block at a selection range, replacing any selected text.
+ *
+ * Backs the manual "insert signature" toolbar action. Unlike the automatic
+ * insertion (which only fires for new messages / mailto), this is available for
+ * every compose kind so the user can place their signature wherever they want in
+ * a reply or forward. It deliberately does NOT engage the {@link swapSignature}
+ * tracking: a manually inserted signature is a one-off and is never swapped or
+ * removed on a later account change.
+ *
+ * Returns the new body and the caret position just after the inserted block, so
+ * the caller can restore focus to the textarea. A blank signature is a no-op
+ * (the caret stays at the end of the selection).
+ */
+export function insertSignatureAt(
+	body: string,
+	signature: string | null | undefined,
+	selectionStart: number,
+	selectionEnd: number
+): { body: string; caret: number } {
+	const block = signatureBlock(signature);
+	const start = Math.max(0, Math.min(selectionStart, body.length));
+	const end = Math.max(start, Math.min(selectionEnd, body.length));
+	if (block.length === 0) return { body, caret: end };
+	return { body: body.slice(0, start) + block + body.slice(end), caret: start + block.length };
 }
 
 /**

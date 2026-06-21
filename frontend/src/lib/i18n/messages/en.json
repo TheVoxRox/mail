@@ -142,6 +142,7 @@
 		"formLabel": "New message",
 		"heading": "New message",
 		"pageTitle": "Mail – New message",
+		"insertSignature": "Insert signature",
 		"discard": "Discard",
 		"saveDraft": "Save draft",
 		"savingDraft": "Saving draft…",
