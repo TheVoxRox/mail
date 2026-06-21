@@ -20,8 +20,7 @@ fixes. Pre-release tags and unreleased commits are not covered.
 **Please do not open a public GitHub issue for security reports.**
 
 Instead, send an email to
-**security@voxrox.org** *(placeholder — replace before first public
-release)* with:
+**info@voxrox.org** with:
 
 - A description of the issue and how to reproduce it.
 - The affected version (`Help → About` in the desktop app or the

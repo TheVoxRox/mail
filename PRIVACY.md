@@ -1,8 +1,7 @@
 # Zásady ochrany soukromí — VoxRox Mail
 
-_Verze: 2026-06-01 (návrh před prvním vydáním). Tato verze je předběžná, ještě
-nebyla schválena právníkem ani pokrývá konečný kontaktní bod podpory — viz
-sekce „Otevřené body" na konci dokumentu._
+_Verze: 2026-06-01 (návrh před prvním vydáním). Tato verze je předběžná a ještě
+nebyla schválena právníkem — viz sekce „Otevřené body" na konci dokumentu._
 
 _English version: [PRIVACY.en.md](PRIVACY.en.md)._
 
@@ -140,9 +139,8 @@ dítětem.
 ## Bezpečnostní oznámení
 
 Pokud objevíte zranitelnost nebo bezpečnostní problém v aplikaci, **nehlaste
-ho prosím veřejně v issue trackeru.** Kontaktní bod pro bezpečnostní hlášení
-bude potvrzen před prvním veřejným vydáním — do té doby používejte stejný
-kontakt jako pro běžnou podporu (viz níže).
+ho prosím veřejně v issue trackeru.** Napište na **info@voxrox.org** (stejný
+kontakt jako pro běžnou podporu).
 
 ## Změny těchto zásad
 
@@ -154,9 +152,8 @@ aktualizujeme. Aktuální verze je vždy součástí instalace a v repozitáři 
 
 Tyto položky budou doplněny předtím, než je tento dokument finalizován:
 
-- [ ] Kontakt na podporu (e-mail / URL) — odkazovaný ve frontend UI i tomto
-      dokumentu.
-- [ ] Kontakt pro bezpečnostní hlášení (responsible disclosure).
+- [x] Kontakt na podporu — **info@voxrox.org** (sjednoceno s webem voxrox.org 2026-06-21).
+- [x] Kontakt pro bezpečnostní hlášení (responsible disclosure) — **info@voxrox.org**.
 - [ ] Konkrétní Tauri updater endpoint URL.
 - [x] Anglická verze tohoto dokumentu — [PRIVACY.en.md](PRIVACY.en.md), 2026-06-01.
 - [ ] Právní review (zejména GDPR formulace „správce dat" pro variantu, kdy
