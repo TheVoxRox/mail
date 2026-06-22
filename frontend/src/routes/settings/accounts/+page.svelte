@@ -185,7 +185,8 @@
 								<Button
 									variant="outline"
 									size="xs"
-									href={resolve('/settings/accounts/[id]', { id: String(account.id) })}
+									onclick={() =>
+										goto(resolve('/settings/accounts/[id]', { id: String(account.id) }))}
 								>
 									{$_('accounts.edit')}
 								</Button>
