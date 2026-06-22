@@ -89,26 +89,36 @@ INSERT INTO mail_providers (name, domains, imap_host, imap_port, imap_ssl, smtp_
 -- acts as a loose reference to the template in mail_providers (UI label,
 -- audit). ON DELETE SET NULL ensures that deleting the template only
 -- breaks the label — the runtime config stays valid.
+--
+-- signature / signature_auto_insert: per-account outgoing signature (RFC 3676
+-- "-- " block) that the frontend inserts into the compose body. `signature` is
+-- plain text and not secret (ordinary column, no DPAPI), NULL until the user
+-- sets one. `signature_auto_insert` controls whether a new-message / mailto
+-- compose auto-inserts it; replies and forwards are never auto-filled (the user
+-- inserts it from the compose toolbar). NOT NULL DEFAULT 1 = historical
+-- always-on behaviour for accounts created before the toggle existed.
 CREATE TABLE accounts (
-    id               INTEGER       PRIMARY KEY AUTOINCREMENT,
-    account_name     VARCHAR(255),
-    email            VARCHAR(255),
-    display_name     VARCHAR(255),
-    provider_id      INTEGER,
-    imap_host        VARCHAR(255)  NOT NULL,
-    imap_port        INTEGER       NOT NULL,
-    imap_ssl         BOOLEAN       NOT NULL DEFAULT 1,
-    smtp_host        VARCHAR(255)  NOT NULL,
-    smtp_port        INTEGER       NOT NULL,
-    smtp_ssl         BOOLEAN       NOT NULL DEFAULT 1,
-    active           BOOLEAN       NOT NULL DEFAULT 1,
-    requires_reauth  BOOLEAN       NOT NULL DEFAULT 0,
-    oauth2_provider  VARCHAR(50),
-    external_id      VARCHAR(255),
-    last_sync_at     DATETIME,
-    last_error       VARCHAR(1000),
-    last_error_code  VARCHAR(100),
-    last_error_args  TEXT,
+    id                    INTEGER       PRIMARY KEY AUTOINCREMENT,
+    account_name          VARCHAR(255),
+    email                 VARCHAR(255),
+    display_name          VARCHAR(255),
+    provider_id           INTEGER,
+    imap_host             VARCHAR(255)  NOT NULL,
+    imap_port             INTEGER       NOT NULL,
+    imap_ssl              BOOLEAN       NOT NULL DEFAULT 1,
+    smtp_host             VARCHAR(255)  NOT NULL,
+    smtp_port             INTEGER       NOT NULL,
+    smtp_ssl              BOOLEAN       NOT NULL DEFAULT 1,
+    active                BOOLEAN       NOT NULL DEFAULT 1,
+    requires_reauth       BOOLEAN       NOT NULL DEFAULT 0,
+    oauth2_provider       VARCHAR(50),
+    external_id           VARCHAR(255),
+    last_sync_at          DATETIME,
+    last_error            VARCHAR(1000),
+    last_error_code       VARCHAR(100),
+    last_error_args       TEXT,
+    signature             TEXT,
+    signature_auto_insert BOOLEAN       NOT NULL DEFAULT 1,
     FOREIGN KEY (provider_id) REFERENCES mail_providers(id) ON DELETE SET NULL
 );
 
