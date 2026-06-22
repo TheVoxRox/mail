@@ -11,7 +11,7 @@
 	import { refreshFolders } from '$lib/stores/folders.js';
 	import { registerPendingSend } from '$lib/stores/notifications.js';
 	import { _ } from '$lib/i18n/index.js';
-	import { pushToast } from '$lib/stores/toasts.js';
+	import { pushToast, announcePolite } from '$lib/stores/toasts.js';
 	import type { AccountResponse } from '$lib/types.js';
 	import AttachmentPicker from '$lib/components/compose/AttachmentPicker.svelte';
 	import ComposeActionsBar from '$lib/components/compose/ComposeActionsBar.svelte';
@@ -123,6 +123,9 @@
 		const result = insertSignatureAt(body, currentFromAccount()?.signature, start, end);
 		if (result.body === body) return;
 		body = result.body;
+		// Moving focus into the textarea only announces the field, not that a
+		// signature was just inserted — say so explicitly for screen readers.
+		announcePolite($_('compose.signatureInserted'));
 		void tick().then(() => {
 			el?.focus();
 			el?.setSelectionRange(result.caret, result.caret);
