@@ -203,7 +203,7 @@ jobs:
       # it is verifiable out-of-band with
       #   gh attestation verify <file> --repo ${{ github.repository }}
       - name: Attest installer build provenance
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: frontend/src-tauri/target/release/bundle/nsis/voxrox-mail-*-setup.exe
 
