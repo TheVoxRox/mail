@@ -143,6 +143,7 @@
 		"heading": "New message",
 		"pageTitle": "Mail – New message",
 		"insertSignature": "Insert signature",
+		"signatureInserted": "Signature inserted",
 		"discard": "Discard",
 		"saveDraft": "Save draft",
 		"savingDraft": "Saving draft…",
