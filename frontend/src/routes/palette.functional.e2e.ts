@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { waitForShell } from './e2e-helpers';
+import { waitForRootRedirect, waitForShell } from './e2e-helpers';
 
 const fixture = {
 	accountId: 1,
@@ -123,6 +123,10 @@ test.describe('Command palette', () => {
 	test('šipka dolů posune výběr jen o jeden příkaz', async ({ page }) => {
 		await page.goto('/');
 		await waitForShell(page);
+		// Let the root → mailbox redirect settle before reading the option order
+		// and pressing ArrowDown; otherwise the late re-derive can reset the
+		// active item back to the first command mid-interaction.
+		await waitForRootRedirect(page);
 
 		await openPalette(page);
 		const input = page.locator('#command-palette-input');
