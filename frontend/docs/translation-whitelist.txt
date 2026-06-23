@@ -44,6 +44,7 @@ frontend/src/routes/palette.functional.e2e.ts -- Command palette assertions agai
 frontend/src/routes/performance.functional.e2e.ts -- Performance harness loads the app under cs locale for consistent labels.
 frontend/src/routes/search.functional.e2e.ts -- Search UI assertions against Czech labels.
 frontend/src/routes/settings.functional.e2e.ts -- Settings page assertions against Czech labels.
+frontend/src/routes/signature.functional.e2e.ts -- Signature insertion flow asserts against Czech UI ("Vložit podpis", "Uložit změny", auto-insert toggle) under mail.locale = 'cs'.
 frontend/src/routes/sync.functional.e2e.ts -- Sync status assertions against Czech labels.
 frontend/src/routes/viewport.functional.e2e.ts -- Viewport / responsive assertions against Czech UI labels.
 
