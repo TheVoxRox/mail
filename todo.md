@@ -73,7 +73,7 @@ Rozhodnuto: OAuth-only (viz Rozhodnuti). PKCE explicitne zapnut v [SecurityConfi
 - [x] **Public client migrace (RFC 8252)** — HOTOVO 2026-06-10. Azure App registration `VoxRox Mail`: platforma Web → "Mobilni a klasicke aplikace", redirect URI `http://localhost/login/oauth2/code/microsoft`, "Povolit toky verejnych klientu" = Ano. Prehled ukazuje "0 web, 0 spa, 1 verejny klient". Kod uz odpovidal (`client-authentication-method=none` + PKCE), pipeline secret nepredava; `MICROSOFT_OAUTH_CLIENT_SECRET` odstranen z `.env.example` i lokalniho `backend/.env`. Zbyva jen: smoke login.
 - [x] ~~Rotace client secret do 2028-04-15~~ — odpada, public client zadny secret nepouziva (viz vyse).
 - [x] Smoke: SMTP send pres OAuth + login `@outlook` — overeno 2026-06-23 (MSA `@outlook.com`): login + token refresh + IMAP sync + SMTP send pres 587/STARTTLS (po fixu nize). Enterprise tenanty stale az po verified publisher.
-- [ ] **Merge fix `fix/ms-smtp-starttls-587`** (commit `83e3966`): MS SMTP preset 465→587/STARTTLS + `requireSslForOAuth2` session-based guard (Office 365 na 465 submission neposloucha). Unit (9/0 + StartupSmoke) + live overeno 2026-06-23. Zbyva: plny `mvn verify` gate → push → PR → merge do main.
+- [x] **MS SMTP 465→587/STARTTLS fix** — HOTOVO 2026-06-23, merged v PR [#58](https://github.com/TheVoxRox/mail/pull/58) (`e94f318`): Microsoft preset na `smtp.office365.com:587` STARTTLS + `requireSslForOAuth2` session-based guard (Office 365 na 465 submission neposloucha). Unit (9/0 + StartupSmoke) + `mvn clean verify` + live overeno.
 
 ---
 
