@@ -47,9 +47,10 @@ CREATE TABLE mail_providers (
 
 -- Seed of system templates. 'domains' format: comma-anchored (",a.cz,b.cz,")
 -- for exact LIKE '%,<domain>,%' matching in MailProviderRepository.
--- Ports 993/465 = implicit SSL/TLS (useSsl=1). STARTTLS variants (143/587)
--- are not seeded — if a provider requires them, the user configures the
--- account manually.
+-- Ports 993/465 = implicit SSL/TLS (useSsl=1); STARTTLS variants (143/587)
+-- use useSsl=0. Office 365 SMTP submission is STARTTLS-only on 587 (no
+-- implicit-SSL endpoint exists), so Microsoft is seeded smtp 587/useSsl=0;
+-- its IMAP keeps implicit SSL on 993.
 --
 -- supports_oauth2 = 1 + oauth2_registration_id signals to the frontend that
 -- the provider has a backend OAuth2 implementation (token service + Spring
@@ -59,7 +60,7 @@ CREATE TABLE mail_providers (
 INSERT INTO mail_providers (name, domains, imap_host, imap_port, imap_ssl, smtp_host, smtp_port, smtp_ssl, is_system_template, supports_oauth2, oauth2_registration_id) VALUES
     ('Google',    ',gmail.com,googlemail.com,',                    'imap.gmail.com',   993, 1, 'smtp.gmail.com',   465, 1, 1, 1, 'google'),
     ('Seznam',    ',seznam.cz,email.cz,post.cz,spoluzaci.cz,',     'imap.seznam.cz',   993, 1, 'smtp.seznam.cz',   465, 1, 1, 0, NULL),
-    ('Microsoft', ',outlook.com,hotmail.com,live.com,msn.com,',    'outlook.office365.com', 993, 1, 'smtp.office365.com', 465, 1, 1, 1, 'microsoft');
+    ('Microsoft', ',outlook.com,hotmail.com,live.com,msn.com,',    'outlook.office365.com', 993, 1, 'smtp.office365.com', 587, 0, 1, 1, 'microsoft');
 
 
 -- =====================================================================

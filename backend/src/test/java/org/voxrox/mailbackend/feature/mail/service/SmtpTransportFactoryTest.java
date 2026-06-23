@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.time.Duration;
+import java.util.Properties;
 
 import jakarta.mail.MessagingException;
 import jakarta.mail.Session;
@@ -79,33 +80,49 @@ class SmtpTransportFactoryTest {
     @DisplayName("requireSslForOAuth2 — defense-in-depth guard")
     class RequireSslForOAuth2 {
 
+        // Neither implicit SSL nor required STARTTLS -> the XOAUTH2 token would
+        // travel in cleartext. createSession never builds this, so we construct it
+        // explicitly to exercise the guard's reject path.
+        private final Session plaintextSession = Session.getInstance(new Properties());
+
         @Test
-        @DisplayName("OAuth2 + plaintext -> MailOperationException with MAIL_CONNECTION_ERROR and SSL/TLS mention")
-        void oauth2WithoutSslThrows() {
+        @DisplayName("OAuth2 + session without TLS -> MailOperationException with MAIL_CONNECTION_ERROR and STARTTLS mention")
+        void oauth2WithoutTlsThrows() {
             AccountConnectionDetails d = details(AuthType.OAUTH2, false);
 
-            assertThatThrownBy(() -> SmtpTransportFactory.requireSslForOAuth2(ACCOUNT_ID, d))
-                    .isInstanceOf(MailOperationException.class).hasMessageContaining("SSL/TLS")
+            assertThatThrownBy(() -> SmtpTransportFactory.requireSslForOAuth2(ACCOUNT_ID, plaintextSession, d))
+                    .isInstanceOf(MailOperationException.class).hasMessageContaining("STARTTLS")
                     .satisfies(ex -> assertThat(((MailOperationException) ex).getCode())
                             .isEqualTo(ErrorCode.MAIL_CONNECTION_ERROR));
         }
 
         @Test
-        @DisplayName("OAuth2 + SSL -> passes without exception")
+        @DisplayName("OAuth2 + implicit-SSL session -> passes without exception")
         void oauth2WithSslPasses() {
             AccountConnectionDetails d = details(AuthType.OAUTH2, true);
+            Session session = factory.createSession(d);
 
-            assertThatCode(() -> SmtpTransportFactory.requireSslForOAuth2(ACCOUNT_ID, d)).doesNotThrowAnyException();
+            assertThatCode(() -> SmtpTransportFactory.requireSslForOAuth2(ACCOUNT_ID, session, d))
+                    .doesNotThrowAnyException();
         }
 
         @Test
-        @DisplayName("PASSWORD account — guard does not engage, passes regardless of SSL")
-        void passwordAuthBypassesGuardRegardlessOfSsl() {
-            assertThatCode(
-                    () -> SmtpTransportFactory.requireSslForOAuth2(ACCOUNT_ID, details(AuthType.PASSWORD, false)))
+        @DisplayName("OAuth2 + mandatory-STARTTLS session (e.g. Office 365 on 587) -> passes without exception")
+        void oauth2WithStartTlsPasses() {
+            AccountConnectionDetails d = details(AuthType.OAUTH2, false);
+            Session session = factory.createSession(d);
+
+            assertThatCode(() -> SmtpTransportFactory.requireSslForOAuth2(ACCOUNT_ID, session, d))
                     .doesNotThrowAnyException();
-            assertThatCode(() -> SmtpTransportFactory.requireSslForOAuth2(ACCOUNT_ID, details(AuthType.PASSWORD, true)))
-                    .doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("PASSWORD account — guard does not engage, passes even with a plaintext session")
+        void passwordAuthBypassesGuardRegardlessOfTls() {
+            assertThatCode(() -> SmtpTransportFactory.requireSslForOAuth2(ACCOUNT_ID, plaintextSession,
+                    details(AuthType.PASSWORD, false))).doesNotThrowAnyException();
+            assertThatCode(() -> SmtpTransportFactory.requireSslForOAuth2(ACCOUNT_ID, plaintextSession,
+                    details(AuthType.PASSWORD, true))).doesNotThrowAnyException();
         }
     }
 
