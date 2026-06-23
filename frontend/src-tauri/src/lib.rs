@@ -41,10 +41,16 @@ pub fn run() {
 /// stay isolated from a production install without forking the bundle identifier.
 fn resolve_data_root() -> PathBuf {
     let suffix = std::env::var("MAIL_DATA_SUFFIX").unwrap_or_default();
-    let folder = format!("Mail{suffix}");
-    let base = dirs::data_local_dir()
-        .expect("local data directory is unavailable on this platform");
-    base.join("VoxRox").join(folder)
+    let base =
+        dirs::data_local_dir().expect("local data directory is unavailable on this platform");
+    data_root_under(base, &suffix)
+}
+
+/// Builds the `<base>/VoxRox/Mail[suffix]` data root. Split out from
+/// `resolve_data_root` so the vendor/suffix layout can be unit-tested without
+/// touching the process environment or the OS local-data directory.
+fn data_root_under(base: PathBuf, suffix: &str) -> PathBuf {
+    base.join("VoxRox").join(format!("Mail{suffix}"))
 }
 
 fn configure_log_plugin<R: tauri::Runtime>(log_dir: PathBuf) -> tauri::plugin::TauriPlugin<R> {
@@ -63,4 +69,29 @@ fn configure_log_plugin<R: tauri::Runtime>(log_dir: PathBuf) -> tauri::plugin::T
         .level(log::LevelFilter::Info)
         .targets(targets)
         .build()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::data_root_under;
+    use std::path::{Path, PathBuf};
+
+    #[test]
+    fn data_root_without_suffix_is_the_production_folder() {
+        let root = data_root_under(PathBuf::from("/base"), "");
+        assert_eq!(root, Path::new("/base").join("VoxRox").join("Mail"));
+    }
+
+    #[test]
+    fn dev_suffix_yields_an_isolated_sibling_of_production() {
+        let base = PathBuf::from("/base");
+        let prod = data_root_under(base.clone(), "");
+        let dev = data_root_under(base, ".dev");
+
+        assert_eq!(dev, Path::new("/base").join("VoxRox").join("Mail.dev"));
+        // Same parent (one vendor folder) but never the same directory, so a dev
+        // run can never read or clobber the production install's data.
+        assert_eq!(dev.parent(), prod.parent());
+        assert_ne!(dev, prod);
+    }
 }
