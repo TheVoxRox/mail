@@ -104,7 +104,7 @@ public class SmtpTransportFactory {
      */
     public Transport openTransport(Long accountId, Session session, AccountConnectionDetails details)
             throws MessagingException {
-        requireSslForOAuth2(accountId, details);
+        requireSslForOAuth2(accountId, session, details);
 
         if (details.authType() == AuthType.OAUTH2) {
             OAuth2TokenService tokenService = oauth2TokenServiceRegistry.resolve(details.oauth2Provider());
@@ -160,15 +160,27 @@ public class SmtpTransportFactory {
     }
 
     /**
-     * Defense-in-depth guard — package-private so it can be unit-tested directly
-     * without a factory instance. Stateless.
+     * Defense-in-depth guard — fail fast before the XOAUTH2 token is sent if the
+     * SMTP session would not be TLS-protected. Both implicit SSL
+     * ({@code mail.smtp.ssl.enable}) and mandatory STARTTLS
+     * ({@code mail.smtp.starttls.required}, always set by {@link #createSession}
+     * for non-SSL accounts) keep the token off the wire in cleartext; only a
+     * session with neither is rejected. Inspecting the built session rather than
+     * {@code details.useSsl()} lets STARTTLS providers (e.g. Office 365 on 587)
+     * pass while still catching a truly plaintext misconfiguration. Package-private
+     * so it can be unit-tested directly. Stateless.
      */
-    static void requireSslForOAuth2(Long accountId, AccountConnectionDetails details) {
-        if (details.authType() == AuthType.OAUTH2 && !details.useSsl()) {
+    static void requireSslForOAuth2(Long accountId, Session session, AccountConnectionDetails details) {
+        if (details.authType() != AuthType.OAUTH2) {
+            return;
+        }
+        boolean implicitSsl = "true".equals(session.getProperty("mail.smtp.ssl.enable"));
+        boolean requiredStartTls = "true".equals(session.getProperty("mail.smtp.starttls.required"));
+        if (!implicitSsl && !requiredStartTls) {
             AuditLog.critical("smtp_oauth2_plaintext_blocked", LogMasker.maskEmail(details.email()),
                     "account=" + accountId);
             throw new MailOperationException(ErrorCode.MAIL_CONNECTION_ERROR,
-                    "OAuth2 accounts require an SSL/TLS connection for SMTP (account " + accountId + ")");
+                    "OAuth2 accounts require implicit SSL or mandatory STARTTLS for SMTP (account " + accountId + ")");
         }
     }
 }
