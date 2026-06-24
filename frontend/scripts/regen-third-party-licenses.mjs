@@ -84,4 +84,14 @@ for (const license of sortedLicenses) {
 }
 
 writeFileSync(outFile, lines.join('\n'));
+
+// Format the generated markdown so it matches the repo Prettier style and the
+// pre-commit format check passes without a manual `npm run format` after every
+// regen. Prettier owns the rules we must not hand-replicate here — e.g. a
+// license literal like "MIT*" (svelte-toolbelt) is escaped to "MIT\*".
+execSync('npx prettier --write THIRD_PARTY_LICENSES.md', {
+	cwd: frontendDir,
+	stdio: 'ignore'
+});
+
 console.log(`Wrote ${outFile} — ${total} packages, ${sortedLicenses.length} license groups.`);

@@ -21,7 +21,10 @@
  *      upstream repository URL printed beside the package.
  *
  * Source of truth: the three CycloneDX SBOMs produced by `regen:sbom:all`.
- * Run `npm run regen:sbom:all && npm run regen:notice` before each release.
+ * Run `npm run regen:sbom:all && npm run regen:notice` to render this file
+ * directly, or `npm run regen:licenses:all` for the one-shot release regen
+ * (inventories + SBOMs + this notice). Either way the SBOMs must be fresh
+ * first — this script reads them, it does not build them.
  *
  * Output: `frontend/src-tauri/resources/NOTICE.txt` (overwritten).
  */
