@@ -71,22 +71,28 @@ jsou před prvním releasem vedené jako backend dependent položky.
 
 ## Aktualizace
 
-Produkční build používá Tauri updater. Aktualizace budou dostupné až po
-nastavení produkčního updater endpointu, podpisových klíčů a prvním ověřeném
-release artefaktu `voxrox-mail-<version>-windows-x64-setup.exe`. Downgrade na starší
-verzi není podporovaný běžným instalátorem; případný rollback řeší support podle
+Produkční build používá Tauri updater. Aplikace periodicky kontroluje novou
+verzi proti `https://github.com/TheVoxRox/mail/releases/latest/download/latest.json`
+a stahuje jen podepsané instalátory (Ed25519). Při této kontrole GitHub dočasně
+vidí vaši IP adresu a dotazovanou verzi — viz [PRIVACY.md](../PRIVACY.md).
+Kontrola se aktivuje, jakmile je publikovaný release. Downgrade na starší verzi
+není podporovaný běžným instalátorem; případný rollback řeší support podle
 recovery postupu.
 
 ## Soukromí a diagnostika
 
-Aplikace posílá chyby klienta na vlastní backend endpoint:
+Aplikace je připravená posílat chyby klienta na **lokální** backend endpoint na
+127.0.0.1:
 
 ```text
 POST /api/internal/client-errors
 ```
 
-Report obsahuje technická metadata o chybě, trase aplikace, jazyku, uživatelském
-agentu a verzi backendu. API klíč se do reportu neposílá.
+Tento endpoint zatím není implementovaný — klient po prvním neúspěšném pokusu
+(HTTP 404) reportování sám vypne. Až vznikne, půjde jen o loopback zápis do
+lokálních logů; report (technická metadata o chybě, trasa aplikace, jazyk, user
+agent, verze backendu — API klíč se neposílá) **nikdy neopustí vaše zařízení**.
+Podrobnosti viz [PRIVACY.md](../PRIVACY.md).
 
 Release build také zapisuje lokální data a logy aplikace. Na Windows jsou v:
 
@@ -106,6 +112,14 @@ Pokud se zařízením cestujete nebo na něm máte citlivou poštu, **zapněte
 šifrování celého disku BitLockerem** (Nastavení Windows → Soukromí a zabezpečení
 → Šifrování zařízení / BitLocker). Tím se data ochrání i při ztrátě nebo krádeži
 vypnutého počítače.
+
+## Zálohy a vaše odpovědnost
+
+Data zůstávají na vašem zařízení a VoxRox k nim nemá přístup — **za jejich
+zálohu odpovídáte vy.** Chcete-li se chránit před ztrátou nebo poškozením disku,
+zálohujte si celý adresář `%LOCALAPPDATA%\VoxRox\Mail` (bezpečný postup viz
+[OPERATIONS.md](../backend/OPERATIONS.md)). Software je poskytován „tak jak je",
+bez záruky (licence MIT).
 
 ## Licence
 

@@ -1,6 +1,6 @@
 # Privacy Policy — VoxRox Mail
 
-_Version: 2026-06-01 (draft, pre-first-release). This version is preliminary
+_Version: 2026-06-24 (draft, pre-first-release). This version is preliminary
 and has not yet been reviewed by a lawyer — see "Open items" at the bottom._
 
 _Česká verze: [PRIVACY.md](PRIVACY.md)._
@@ -9,7 +9,9 @@ VoxRox Mail is a desktop e-mail client for Windows. The application runs
 locally on your computer. Your e-mails, contacts, account credentials and
 logs stay on your device and are never sent to any VoxRox server or other
 third party — except those you choose yourself by adding an e-mail account
-(your e-mail provider, and optionally Google or Microsoft for OAuth login).
+(your e-mail provider, and optionally Google or Microsoft for OAuth login),
+and except the check for available updates on GitHub (see "What data leaves
+the device").
 
 VoxRox does not operate a backend server for this application, does not store
 your data in the cloud, and does not collect telemetry, analytics or crash
@@ -21,6 +23,13 @@ Under the GDPR you are the **data controller** for everything stored by the
 application — all data lives locally on your device under your operating
 system account. VoxRox only supplies software that processes data according
 to your instructions and has no access to your data.
+
+If an **organization** deploys the application to its employees (company
+machines, company e-mail accounts), the **organization** is the data
+controller for the personal data involved, not VoxRox. Even then the
+application sends no data to VoxRox — the organization is responsible for
+configuration, backups and informing users under its own data processing
+policies.
 
 ## What data the application stores locally
 
@@ -72,19 +81,27 @@ The application initiates network traffic only in these cases:
    on the provider's login page, receives an access token + refresh token,
    and stores them locally (encrypted, see above). It periodically obtains
    a new access token from the provider using the refresh token.
-3. **Application updates** (Tauri updater) — checking for a newer release
-   against the release endpoint and downloading the signed installer. The
-   exact URL will be confirmed before the first public release.
+3. **Application updates** (Tauri updater) — the application periodically
+   connects to
+   `https://github.com/TheVoxRox/mail/releases/latest/download/latest.json`
+   to check whether a newer signed release exists, and downloads the signed
+   installer if so. During this request GitHub (the release host) temporarily
+   sees your **IP address** and the version you are querying in its server
+   logs — just like any other download from the web. No other data is sent
+   during the update check.
 
 The application **does not send** your e-mails, contacts or activity to any
 VoxRox server or third-party analytics platform.
 
 ### Diagnostic reports from the client
 
-The frontend sends technical errors (JavaScript exceptions, failed API
-calls) to the **local** backend endpoint `POST /api/internal/client-errors`,
-which runs on 127.0.0.1 on your computer. These reports are not transmitted
-anywhere — they are written to your local logs only.
+The frontend is prepared to send technical errors (JavaScript exceptions,
+failed API calls) to the **local** backend endpoint
+`POST /api/internal/client-errors`, which runs on 127.0.0.1 on your computer.
+This endpoint is not implemented yet — on the first failed attempt (HTTP 404)
+the frontend disables reporting. Once it exists, it will still be a loopback
+write to your local logs only; the reports **never leave your device** and are
+not sent to VoxRox or any third party.
 
 If you contact support and provide a manually exported diagnostic bundle
 (`GET /api/internal/diagnostic-dump`), that bundle contains only masked
@@ -100,9 +117,10 @@ When you add an account, the following providers come into play:
   governed by their own data processing terms.
 - **Google** — if you use Gmail with OAuth ([https://policies.google.com/privacy](https://policies.google.com/privacy)).
 - **Microsoft** — if you use Outlook / Hotmail / Live with OAuth ([https://privacy.microsoft.com/](https://privacy.microsoft.com/)).
-- **GitHub** — if we decide to distribute updates via GitHub Releases in the
-  future, the application will periodically check for a new version against
-  the GitHub API ([https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement)).
+- **GitHub** — updates are distributed via GitHub Releases, so the application
+  periodically checks for a new version against GitHub (see "What data leaves
+  the device" above). GitHub sees your IP address and the queried version
+  ([https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement)).
 
 VoxRox has no data-sharing agreement with any of these providers regarding
 your data. Communication happens directly between your computer and the
@@ -132,6 +150,28 @@ respective server.
 - **Access to logs** — files under `logs/` are plain text readable in any
   editor.
 
+## Your responsibility and backups
+
+Because all data stays on your device and VoxRox has no access to it, **you are
+responsible for backing it up and securing it** (or the organization that
+deployed the application):
+
+- **Backups** — VoxRox runs no cloud backup. To protect yourself against data
+  loss, disk failure or accidental deletion, back up the entire
+  `%LOCALAPPDATA%\VoxRox\Mail\` directory (safe procedure in
+  [backend/OPERATIONS.md](backend/OPERATIONS.md)). Downloaded mail also remains
+  on your provider's server, but local drafts, contacts and settings may not.
+- **Device security** — address on-disk sensitivity with a locked Windows
+  account and full-disk encryption (BitLocker), see "What is not encrypted"
+  above.
+- **`crypto.bin`** — without this file your credentials cannot be recovered.
+  Do not back it up to unencrypted cloud storage.
+
+The software is provided "AS IS", without any warranty, to the extent
+permitted by the MIT License (see [LICENSE](LICENSE)). VoxRox is not liable for
+data loss, e-mail service outages or damages arising from use of the
+application.
+
 ## Children
 
 The application is not specifically aimed at children under 16, but does
@@ -160,9 +200,9 @@ These items will be filled in before this document is finalized:
 - [x] Security disclosure contact (responsible disclosure) — **info@voxrox.org**.
 - [x] Specific Tauri updater endpoint URL — `https://github.com/TheVoxRox/mail/releases/latest/download/latest.json` ([tauri.conf.json](frontend/src-tauri/tauri.conf.json)).
 - [x] English translation of this document (this file).
-- [ ] Legal review (especially the GDPR phrasing of "data controller" for
-      the case where the user deploys the application inside an
-      organization).
+- [ ] Legal review of the whole document (GDPR). The "data controller"
+      phrasing for organizational deployment and the "Your responsibility and
+      backups" section are drafted, but need confirmation by a lawyer.
 
 ---
 
