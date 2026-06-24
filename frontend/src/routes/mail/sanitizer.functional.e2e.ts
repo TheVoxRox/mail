@@ -20,7 +20,11 @@ test.describe('Mail HTML sanitizer', () => {
 
 		expect(srcdoc).toContain('<strong>Projektové podklady</strong>');
 		expect(srcdoc).toContain('href="https://example.com/safe"');
-		expect(srcdoc).not.toContain('<script');
+		// The srcdoc now carries exactly one trusted script — the hash-pinned key
+		// forwarder (mailFrame.ts) — so assert the hostile inline script payload is
+		// gone rather than that no <script> exists at all.
+		expect(srcdoc).not.toContain('window.__xss');
+		expect(srcdoc.split('<script>').length - 1).toBe(1);
 		expect(srcdoc).not.toContain('onclick');
 		expect(srcdoc).not.toContain('onerror');
 		expect(srcdoc).not.toContain('javascript:');

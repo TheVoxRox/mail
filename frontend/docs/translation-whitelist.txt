@@ -39,6 +39,7 @@ frontend/src/routes/contacts.functional.e2e.ts -- Contact list / merge dialog as
 frontend/src/routes/e2e-helpers.ts -- Shared Playwright helpers; sets 'mail.locale' = 'cs' for the suite.
 frontend/src/routes/mail/message-detail-actions.functional.e2e.ts -- Inline message-toolbar action assertions against Czech UI ("Akce se zprávami", "Odpovědět", reply subject) under mail.locale = 'cs'.
 frontend/src/routes/mail/sanitizer.functional.e2e.ts -- HTML sanitizer assertions reference Czech UI surrounding the message body.
+frontend/src/routes/mail/shortcuts.functional.e2e.ts -- Mail-body iframe keyboard-shortcut assertions against Czech UI ("Klávesové zkratky") under mail.locale = 'cs'.
 frontend/src/routes/mail/toolbar.functional.e2e.ts -- Mail toolbar action assertions ("Smazat", "Označit jako přečtené", etc.).
 frontend/src/routes/palette.functional.e2e.ts -- Command palette assertions against localized command titles.
 frontend/src/routes/performance.functional.e2e.ts -- Performance harness loads the app under cs locale for consistent labels.
