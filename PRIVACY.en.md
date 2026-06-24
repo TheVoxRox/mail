@@ -158,7 +158,7 @@ These items will be filled in before this document is finalized:
 
 - [x] Support contact — **info@voxrox.org** (unified with the voxrox.org site 2026-06-21).
 - [x] Security disclosure contact (responsible disclosure) — **info@voxrox.org**.
-- [ ] Specific Tauri updater endpoint URL.
+- [x] Specific Tauri updater endpoint URL — `https://github.com/TheVoxRox/mail/releases/latest/download/latest.json` ([tauri.conf.json](frontend/src-tauri/tauri.conf.json)).
 - [x] English translation of this document (this file).
 - [ ] Legal review (especially the GDPR phrasing of "data controller" for
       the case where the user deploys the application inside an

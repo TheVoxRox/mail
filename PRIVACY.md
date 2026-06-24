@@ -154,7 +154,7 @@ Tyto položky budou doplněny předtím, než je tento dokument finalizován:
 
 - [x] Kontakt na podporu — **info@voxrox.org** (sjednoceno s webem voxrox.org 2026-06-21).
 - [x] Kontakt pro bezpečnostní hlášení (responsible disclosure) — **info@voxrox.org**.
-- [ ] Konkrétní Tauri updater endpoint URL.
+- [x] Konkrétní Tauri updater endpoint URL — `https://github.com/TheVoxRox/mail/releases/latest/download/latest.json` ([tauri.conf.json](frontend/src-tauri/tauri.conf.json)).
 - [x] Anglická verze tohoto dokumentu — [PRIVACY.en.md](PRIVACY.en.md), 2026-06-01.
 - [ ] Právní review (zejména GDPR formulace „správce dat" pro variantu, kdy
       uživatel nasazuje aplikaci v rámci organizace).

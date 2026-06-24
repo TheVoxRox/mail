@@ -46,7 +46,7 @@ Pozn.: dialog "mail.exe — Failed to launch JVM" (jpackage launcher, pred start
 - [ ] Recovery scenare: sidecar kill, orphan proces, restart pocitace behem syncu, poskozena DB, obnova ze zalohy, disk full.
 - [ ] Produkcni OAuth readiness: consent screen, scopes, loopback redirect URI s nahodnym portem, support/privacy URL, realny login, revoke, `requires_reauth`, re-login.
 - [ ] Release proces: verze, tag, changelog, known issues, hashe artefaktu, draft vs public, approval.
-- [ ] Privacy/legal balicek — CZ+EN draft hotov ([PRIVACY.md](PRIVACY.md) / [PRIVACY.en.md](PRIVACY.en.md)); zbyva support email, security disclosure kontakt, Tauri updater URL, pravni review.
+- [ ] Privacy/legal balicek — CZ+EN draft hotov ([PRIVACY.md](PRIVACY.md) / [PRIVACY.en.md](PRIVACY.en.md)); support email, security disclosure kontakt ([SECURITY.md](SECURITY.md)) i Tauri updater URL doplneny. Zbyva uz jen **pravni review** (GDPR "spravce dat" pro org. nasazeni).
 - [ ] Third-party license audit — inventare + bundled NOTICE.txt + SBOM hotove; pred kazdym release regenerovat (`npm run regen:licenses:all`).
 
 ---
