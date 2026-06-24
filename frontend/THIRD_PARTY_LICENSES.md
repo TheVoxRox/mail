@@ -142,7 +142,7 @@ Counts: 117 packages total. 86 MIT, 14 ISC, 6 Apache-2.0, 4 MIT OR Apache-2.0, 2
 
 ## Apache-2.0 OR MIT (1)
 
-- **@tauri-apps/api** 2.11.0 — [https://github.com/tauri-apps/tauri](https://github.com/tauri-apps/tauri)
+- **@tauri-apps/api** 2.11.1 — [https://github.com/tauri-apps/tauri](https://github.com/tauri-apps/tauri)
 
 ## MIT\* (1)
 

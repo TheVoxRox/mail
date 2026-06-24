@@ -155,9 +155,14 @@ Many files in the repo are auto-generated — do not hand-edit them.
 | `frontend/THIRD_PARTY_LICENSES.md`                  | `npm run regen:licenses` (from `frontend/`)                                         |
 | `backend/THIRD_PARTY_LICENSES.md`                   | `node backend/scripts/regen-third-party-licenses.mjs`                               |
 | `frontend/src-tauri/THIRD_PARTY_LICENSES.md`        | `node frontend/src-tauri/scripts/regen-third-party-licenses.mjs`                    |
+| `frontend/src-tauri/resources/NOTICE.txt`           | `npm run regen:sbom:all && npm run regen:notice` (from `frontend/`)                  |
 
-All three license inventories together: `npm run regen:licenses:all`
-(from `frontend/`).
+One-shot release regen of everything above — the three license
+inventories, the three CycloneDX SBOMs, and the bundled `NOTICE.txt`
+(built from those SBOMs) — is `npm run regen:licenses:all` (from
+`frontend/`). The Tauri SBOM needs `cargo-cyclonedx`
+(`cargo install cargo-cyclonedx`); the script fails fast with that hint
+if it is missing.
 
 ## Localisation
 
