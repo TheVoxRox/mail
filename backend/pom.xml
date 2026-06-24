@@ -31,6 +31,16 @@
 		<nullaway.version>0.13.6</nullaway.version>
 		<archunit.version>1.4.2</archunit.version>
 		<greenmail.version>2.1.9</greenmail.version>
+		<!--
+			JaCoCo injects its coverage agent into these (prepare-agent ->
+			surefireArgLine, prepare-agent-integration -> failsafeArgLine). Surefire
+			and Failsafe combine them with the Mockito javaagent via @{...} late
+			evaluation. Predefined empty so a direct `surefire:test` / `failsafe:*`
+			goal invocation (no prepare-agent execution) still launches the JVM
+			instead of passing a literal "@{...}" token.
+		-->
+		<surefireArgLine></surefireArgLine>
+		<failsafeArgLine></failsafeArgLine>
 	</properties>
 
 	<dependencies>
@@ -360,11 +370,43 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-failsafe-plugin</artifactId>
+				<configuration>
+					<!-- @{failsafeArgLine}: JaCoCo IT agent (set by prepare-agent-integration).
+					     -javaagent mockito-core: load Mockito as an agent so it no longer
+					     self-attaches at runtime (self-attach is deprecated and warns on
+					     JDK 25+). The jar path is resolved by maven-dependency-plugin below. -->
+					<argLine>@{failsafeArgLine} -javaagent:${org.mockito:mockito-core:jar}</argLine>
+				</configuration>
 				<executions>
 					<execution>
 						<goals>
 							<goal>integration-test</goal>
 							<goal>verify</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<!-- Same Mockito-agent wiring as Failsafe; @{surefireArgLine} carries
+					     the JaCoCo unit-test agent. -->
+					<argLine>@{surefireArgLine} -javaagent:${org.mockito:mockito-core:jar}</argLine>
+				</configuration>
+			</plugin>
+			<plugin>
+				<!-- Resolves dependency jar paths into properties (e.g.
+				     ${org.mockito:mockito-core:jar}) so Surefire/Failsafe can load Mockito
+				     as a -javaagent. Runs in `initialize`, before the test phases. -->
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-dependency-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>resolve-test-agent-paths</id>
+						<phase>initialize</phase>
+						<goals>
+							<goal>properties</goal>
 						</goals>
 					</execution>
 				</executions>
@@ -379,12 +421,20 @@
 						<goals>
 							<goal>prepare-agent</goal>
 						</goals>
+						<!-- Write the unit-test agent into a dedicated property so Surefire can
+						     combine it with the Mockito agent (default would clobber argLine). -->
+						<configuration>
+							<propertyName>surefireArgLine</propertyName>
+						</configuration>
 					</execution>
 					<execution>
 						<id>prepare-agent-integration</id>
 						<goals>
 							<goal>prepare-agent-integration</goal>
 						</goals>
+						<configuration>
+							<propertyName>failsafeArgLine</propertyName>
+						</configuration>
 					</execution>
 					<execution>
 						<id>report</id>
