@@ -273,6 +273,61 @@ test.describe('Přístupnost', () => {
 		await expect(errorToast.getByRole('button', { name: 'Zavřít oznámení' })).toBeVisible();
 	});
 
+	test('dialog sloučení kontaktů nemá a11y porušení a preview oznamuje výsledek živě', async ({
+		page
+	}) => {
+		await page.goto(`/contacts/${mailFixture.accountId}`);
+		await waitForShell(page);
+		await page.waitForFunction(() => typeof window.__MAIL_MSW__?.reset === 'function');
+		await page.evaluate(() => window.__MAIL_MSW__?.reset());
+
+		// Default fixture has a single contact; a merge needs at least two.
+		const created = await page.evaluate(async () => {
+			const res = await fetch('/api/v1/accounts/1/contacts/bulk', {
+				method: 'POST',
+				headers: {
+					Accept: 'application/json',
+					'Content-Type': 'application/json',
+					'X-API-KEY': 'e2e-test-key'
+				},
+				body: JSON.stringify({
+					contacts: [
+						{ name: 'Jan', surname: 'Novak', emails: [{ email: 'jan@example.com', label: 'WORK' }] }
+					]
+				})
+			});
+			return res.status;
+		});
+		expect(created).toBe(200);
+
+		await page.locator('#contacts-sidebar-search').fill('example.com');
+		await page.keyboard.press('Enter');
+		await page.waitForURL('**/contacts/1?q=example.com');
+		await expect(page.getByText('Jan Novak')).toBeVisible();
+
+		await page.getByLabel('Vybrat kontakt Jana Novak').check();
+		await page.getByLabel('Vybrat kontakt Jan Novak').check();
+		await page.getByRole('button', { name: 'Sloučit' }).click();
+
+		const dialog = page.getByRole('dialog', { name: 'Sloučit kontakty' });
+		await expect(dialog).toBeVisible();
+
+		// The merge target is chosen from a labelled radio group (fieldset/legend).
+		await expect(dialog.getByRole('group', { name: 'Hlavní kontakt po sloučení' })).toBeVisible();
+
+		// The preview lives in a polite, atomic live region so a screen reader reads
+		// the whole resulting address set — and re-reads it when the target changes.
+		const preview = dialog.locator('section[aria-live="polite"][aria-atomic="true"]');
+		await expect(preview).toHaveCount(1);
+		await expect(preview.getByRole('heading', { name: /Po sloučení \(3 e-maily\)/ })).toBeVisible();
+
+		const results = await new AxeBuilder({ page })
+			.include('[role="dialog"]')
+			.withTags(['wcag2a', 'wcag2aa'])
+			.analyze();
+		expect(results.violations).toEqual([]);
+	});
+
 	test('AppRail je přítomný a aktivní tlačítko odpovídá módu', async ({ page }) => {
 		const cases = [
 			{

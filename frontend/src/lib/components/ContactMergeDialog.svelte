@@ -6,6 +6,11 @@
 	import { pushToast } from '$lib/stores/toasts.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { StateMessage } from '$lib/components/ui/state-message/index.js';
+	import {
+		MAX_EMAILS_PER_CONTACT,
+		buildMergePreview,
+		exceedsEmailLimit
+	} from '$lib/contacts/mergePreview.js';
 	import type { ContactResponse } from '$lib/types.js';
 
 	interface Props {
@@ -17,8 +22,6 @@
 	}
 
 	let { open, accountId, contacts, onOpenChange, onMerged }: Props = $props();
-
-	const MAX_EMAILS_PER_CONTACT = 10;
 
 	let targetId = $state<number | null>(null);
 	let busy = $state(false);
@@ -35,30 +38,9 @@
 	const target = $derived(contacts.find((c) => c.id === targetId) ?? null);
 	const sources = $derived(contacts.filter((c) => c.id !== targetId));
 
-	const mergedEmails = $derived.by(() => {
-		if (!target) return [] as { email: string; primary: boolean; fromTarget: boolean }[];
-		const seen: string[] = [];
-		const out: { email: string; primary: boolean; fromTarget: boolean }[] = [];
-		for (const e of target.emails) {
-			const key = e.email.toLowerCase();
-			if (!seen.includes(key)) {
-				seen.push(key);
-				out.push({ email: e.email, primary: e.primary, fromTarget: true });
-			}
-		}
-		for (const src of sources) {
-			for (const e of src.emails) {
-				const key = e.email.toLowerCase();
-				if (!seen.includes(key)) {
-					seen.push(key);
-					out.push({ email: e.email, primary: false, fromTarget: false });
-				}
-			}
-		}
-		return out;
-	});
+	const mergedEmails = $derived(buildMergePreview(target, sources));
 
-	const exceedsLimit = $derived(mergedEmails.length > MAX_EMAILS_PER_CONTACT);
+	const exceedsLimit = $derived(exceedsEmailLimit(mergedEmails.length));
 	const hasEnoughContacts = $derived(contacts.length >= 2 && target !== null);
 
 	function contactLabel(c: ContactResponse): string {
