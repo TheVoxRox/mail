@@ -8,19 +8,19 @@ attached to the component. The product itself is licensed under
 the terms of the LICENSE file shipped alongside this notice in the
 installation directory.
 
-Total third-party components: 638
+Total third-party components: 631
   npm    115
-  maven  132
-  cargo  391
+  maven  131
+  cargo  385
 
-Generated: 2026-06-02
+Generated: 2026-06-24
 
 Machine-readable CycloneDX SBOM files for each ecosystem are
 published alongside the installer on the GitHub Releases page.
 
 ------------------------------------------------------------------
 
-## MIT OR Apache-2.0  —  200 component(s)
+## MIT OR Apache-2.0  —  195 component(s)
 
 License text: see https://spdx.org/licenses/MIT%20OR%20Apache-2.0.html
 
@@ -110,17 +110,9 @@ Components and their copyright notices:
       RustCrypto Developers
       https://github.com/RustCrypto/traits
 
-  * dirs 5.0.1  [cargo]
-      Simon Ochsenreither <simon@ochsenreither.de>
-      https://github.com/soc/dirs-rs
-
   * dirs 6.0.0  [cargo]
       Simon Ochsenreither <simon@ochsenreither.de>
       https://github.com/soc/dirs-rs
-
-  * dirs-sys 0.4.1  [cargo]
-      Simon Ochsenreither <simon@ochsenreither.de>
-      https://github.com/dirs-dev/dirs-sys-rs
 
   * dirs-sys 0.5.0  [cargo]
       Simon Ochsenreither <simon@ochsenreither.de>
@@ -282,7 +274,7 @@ Components and their copyright notices:
       Amanieu d'Antras <amanieu@gmail.com>
       https://github.com/Amanieu/parking_lot
 
-  * log 0.4.29  [cargo]
+  * log 0.4.33  [cargo]
       The Rust Project Developers
       https://github.com/rust-lang/log
 
@@ -378,7 +370,7 @@ Components and their copyright notices:
       (copyright not declared)
       https://github.com/quinn-rs/quinn
 
-  * quinn-proto 0.11.14  [cargo]
+  * quinn-proto 0.11.15  [cargo]
       (copyright not declared)
       https://github.com/quinn-rs/quinn
 
@@ -494,7 +486,7 @@ Components and their copyright notices:
       Erick Tryzelaar <erick.tryzelaar@gmail.com>, David Tolnay <dtolnay@gmail.com>
       https://github.com/serde-rs/serde
 
-  * serde_json 1.0.149  [cargo]
+  * serde_json 1.0.150  [cargo]
       Erick Tryzelaar <erick.tryzelaar@gmail.com>, David Tolnay <dtolnay@gmail.com>
       https://github.com/serde-rs/json
 
@@ -670,7 +662,7 @@ Components and their copyright notices:
       (copyright not declared)
       https://github.com/toml-rs/toml
 
-  * tray-icon 0.23.1  [cargo]
+  * tray-icon 0.24.1  [cargo]
       (copyright not declared)
       https://github.com/tauri-apps/tray-icon
 
@@ -723,10 +715,6 @@ Components and their copyright notices:
       https://github.com/servo/html5ever
 
   * windows 0.61.3  [cargo]
-      Microsoft
-      https://github.com/microsoft/windows-rs
-
-  * windows_x86_64_msvc 0.48.5  [cargo]
       Microsoft
       https://github.com/microsoft/windows-rs
 
@@ -790,10 +778,6 @@ Components and their copyright notices:
       (copyright not declared)
       https://github.com/microsoft/windows-rs
 
-  * windows-sys 0.48.0  [cargo]
-      Microsoft
-      https://github.com/microsoft/windows-rs
-
   * windows-sys 0.59.0  [cargo]
       Microsoft
       https://github.com/microsoft/windows-rs
@@ -804,10 +788,6 @@ Components and their copyright notices:
 
   * windows-sys 0.61.2  [cargo]
       (copyright not declared)
-      https://github.com/microsoft/windows-rs
-
-  * windows-targets 0.48.5  [cargo]
-      Microsoft
       https://github.com/microsoft/windows-rs
 
   * windows-targets 0.52.6  [cargo]
@@ -828,7 +808,7 @@ Components and their copyright notices:
 
 ------------------------------------------------------------------
 
-## MIT  —  186 component(s)
+## MIT  —  185 component(s)
 
 License text:
 
@@ -986,7 +966,7 @@ Components and their copyright notices:
       Mariusz Nowak
       git://github.com/medikoo/es6-iterator.git
 
-  * esbuild 0.28.0  [npm]
+  * esbuild 0.28.1  [npm]
       (no author in package.json — see git+https://github.com/evanw/esbuild.git)
       git+https://github.com/evanw/esbuild.git
 
@@ -1098,7 +1078,7 @@ Components and their copyright notices:
       Jonathan Hedley
       https://github.com/jhy/jsoup
 
-  * jul-to-slf4j 2.0.17  [maven]
+  * jul-to-slf4j 2.0.18  [maven]
       QOS.ch
       https://github.com/qos-ch/slf4j/slf4j-parent/jul-to-slf4j
 
@@ -1234,10 +1214,6 @@ Components and their copyright notices:
       Steven Fackler <sfackler@gmail.com>
       https://github.com/sfackler/rust-phf
 
-  * phf_macros 0.11.3  [cargo]
-      Steven Fackler <sfackler@gmail.com>
-      https://github.com/rust-phf/rust-phf
-
   * phf_macros 0.13.1  [cargo]
       Steven Fackler <sfackler@gmail.com>
       https://github.com/rust-phf/rust-phf
@@ -1370,7 +1346,7 @@ Components and their copyright notices:
       Carl Lerche <me@carllerche.com>
       https://github.com/tokio-rs/slab
 
-  * slf4j-api 2.0.17  [maven]
+  * slf4j-api 2.0.18  [maven]
       QOS.ch
       https://github.com/qos-ch/slf4j/slf4j-parent/slf4j-api
 
@@ -1414,7 +1390,7 @@ Components and their copyright notices:
       Junior Garcia
       git+https://github.com/heroui-inc/tailwind-variants.git
 
-  * tailwindcss 4.3.0  [npm]
+  * tailwindcss 4.3.1  [npm]
       (no author in package.json — see git+https://github.com/tailwindlabs/tailwindcss.git#packages/tailwindcss)
       git+https://github.com/tailwindlabs/tailwindcss.git#packages/tailwindcss
 
@@ -1498,7 +1474,7 @@ Components and their copyright notices:
       Boshen and oxc contributors
       git+https://github.com/oxc-project/oxc.git#npm/oxc-types
 
-  * types 8.60.1  [npm]
+  * types 8.61.1  [npm]
       (no author in package.json — see git+https://github.com/typescript-eslint/typescript-eslint.git#packages/types)
       git+https://github.com/typescript-eslint/typescript-eslint.git#packages/types
 
@@ -1566,7 +1542,7 @@ Components and their copyright notices:
       (copyright not declared)
       https://github.com/wravery/webview2-rs
 
-  * win32-x64 0.28.0  [npm]
+  * win32-x64 0.28.1  [npm]
       (no author in package.json — see git+https://github.com/evanw/esbuild.git)
       git+https://github.com/evanw/esbuild.git
 
@@ -1799,14 +1775,15 @@ Components and their copyright notices:
       Near Inc <hello@nearprotocol.com>
       https://github.com/near/borsh-rs
 
-  * byte-buddy 1.17.8  [maven]
+  * byte-buddy 1.18.10  [maven]
       (copyright not declared)
+      https://github.com/raphw/byte-buddy/byte-buddy
 
   * classmate 1.7.3  [maven]
       fasterxml.com
       https://github.com/FasterXML/java-classmate
 
-  * commons-lang3 3.19.0  [maven]
+  * commons-lang3 3.20.0  [maven]
       The Apache Software Foundation
       https://gitbox.apache.org/repos/asf/commons-lang.git
 
@@ -1826,7 +1803,7 @@ Components and their copyright notices:
       Lovell Fuller
       git://github.com/lovell/detect-libc.git
 
-  * flyway-core 11.14.1  [maven]
+  * flyway-core 12.4.0  [maven]
       (copyright not declared)
       https://github.com/flyway/flyway/flyway-core
 
@@ -1834,19 +1811,19 @@ Components and their copyright notices:
       강동윤
       git+https://github.com/swc-project/swc.git#packages/helpers
 
-  * hibernate-community-dialects 7.2.12.Final  [maven]
+  * hibernate-community-dialects 7.4.1.Final  [maven]
       Hibernate.org
       https://github.com/hibernate/hibernate-orm
 
-  * hibernate-core 7.2.12.Final  [maven]
+  * hibernate-core 7.4.1.Final  [maven]
       Hibernate.org
       https://github.com/hibernate/hibernate-orm
 
-  * hibernate-models 1.0.1  [maven]
+  * hibernate-models 1.1.1  [maven]
       Hibernate.org
       https://github.com/hibernate/hibernate-models
 
-  * hibernate-validator 9.0.1.Final  [maven]
+  * hibernate-validator 9.1.0.Final  [maven]
       (copyright not declared)
       http://github.com/hibernate/hibernate-validator
 
@@ -1858,27 +1835,27 @@ Components and their copyright notices:
       FasterXML
       https://github.com/FasterXML/jackson-annotations
 
-  * jackson-core 3.1.2  [maven]
+  * jackson-core 3.1.4  [maven]
       FasterXML
       http://github.com/FasterXML/jackson-core
 
-  * jackson-core 2.21.2  [maven]
+  * jackson-core 2.21.4  [maven]
       FasterXML
       https://github.com/FasterXML/jackson-core
 
-  * jackson-databind 3.1.2  [maven]
+  * jackson-databind 3.1.4  [maven]
       FasterXML
       https://github.com/FasterXML/jackson-databind
 
-  * jackson-databind 2.21.2  [maven]
+  * jackson-databind 2.21.4  [maven]
       FasterXML
       https://github.com/FasterXML/jackson-databind
 
-  * jackson-dataformat-yaml 2.21.2  [maven]
+  * jackson-dataformat-yaml 2.21.4  [maven]
       FasterXML
       https://github.com/FasterXML/jackson-dataformats-text/jackson-dataformat-yaml
 
-  * jackson-datatype-jsr310 2.21.2  [maven]
+  * jackson-datatype-jsr310 2.21.4  [maven]
       FasterXML
       http://github.com/FasterXML/jackson-modules-java8/jackson-datatype-jsr310
 
@@ -1918,308 +1895,308 @@ Components and their copyright notices:
       The Apache Software Foundation
       https://github.com/apache/logging-log4j2
 
-  * micrometer-commons 1.16.5  [maven]
+  * micrometer-commons 1.17.0  [maven]
       (copyright not declared)
 
-  * micrometer-core 1.16.5  [maven]
+  * micrometer-core 1.17.0  [maven]
       (copyright not declared)
 
-  * micrometer-jakarta9 1.16.5  [maven]
+  * micrometer-jakarta9 1.17.0  [maven]
       (copyright not declared)
 
-  * micrometer-observation 1.16.5  [maven]
+  * micrometer-observation 1.17.0  [maven]
       (copyright not declared)
 
-  * nimbus-jose-jwt 10.4  [maven]
+  * nimbus-jose-jwt 10.9  [maven]
       Connect2id Ltd.
       https://bitbucket.org/connect2id/nimbus-jose-jwt
 
-  * oauth2-oidc-sdk 11.26.1  [maven]
+  * oauth2-oidc-sdk 11.37.2  [maven]
       Connect2id Ltd.
       https://bitbucket.org/connect2id/oauth-2.0-sdk-with-openid-connect-extensions
 
-  * snakeyaml 2.5  [maven]
+  * snakeyaml 2.6  [maven]
       (copyright not declared)
       https://bitbucket.org/snakeyaml/snakeyaml/src
 
-  * spring-aop 7.0.7  [maven]
+  * spring-aop 7.0.8  [maven]
       Spring IO
       https://github.com/spring-projects/spring-framework
 
-  * spring-aspects 7.0.7  [maven]
+  * spring-aspects 7.0.8  [maven]
       Spring IO
       https://github.com/spring-projects/spring-framework
 
-  * spring-beans 7.0.7  [maven]
+  * spring-beans 7.0.8  [maven]
       Spring IO
       https://github.com/spring-projects/spring-framework
 
-  * spring-boot 4.0.6  [maven]
+  * spring-boot 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-actuator 4.0.6  [maven]
+  * spring-boot-actuator 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-actuator-autoconfigure 4.0.6  [maven]
+  * spring-boot-actuator-autoconfigure 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-autoconfigure 4.0.6  [maven]
+  * spring-boot-autoconfigure 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-data-commons 4.0.6  [maven]
+  * spring-boot-data-commons 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-data-jpa 4.0.6  [maven]
+  * spring-boot-data-jpa 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-flyway 4.0.6  [maven]
+  * spring-boot-flyway 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-health 4.0.6  [maven]
+  * spring-boot-health 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-hibernate 4.0.6  [maven]
+  * spring-boot-hibernate 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-http-converter 4.0.6  [maven]
+  * spring-boot-http-converter 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-jackson 4.0.6  [maven]
+  * spring-boot-jackson 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-jdbc 4.0.6  [maven]
+  * spring-boot-jdbc 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-jpa 4.0.6  [maven]
+  * spring-boot-jpa 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-mail 4.0.6  [maven]
+  * spring-boot-mail 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-micrometer-metrics 4.0.6  [maven]
+  * spring-boot-micrometer-metrics 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-micrometer-observation 4.0.6  [maven]
+  * spring-boot-micrometer-observation 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-persistence 4.0.6  [maven]
+  * spring-boot-persistence 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-security 4.0.6  [maven]
+  * spring-boot-security 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-security-oauth2-client 4.0.6  [maven]
+  * spring-boot-security-oauth2-client 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-servlet 4.0.6  [maven]
+  * spring-boot-servlet 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-sql 4.0.6  [maven]
+  * spring-boot-sql 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-starter 4.0.6  [maven]
+  * spring-boot-starter 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-starter-actuator 4.0.6  [maven]
+  * spring-boot-starter-actuator 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-starter-data-jpa 4.0.6  [maven]
+  * spring-boot-starter-data-jpa 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-starter-flyway 4.0.6  [maven]
+  * spring-boot-starter-flyway 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-starter-jackson 4.0.6  [maven]
+  * spring-boot-starter-jackson 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-starter-jdbc 4.0.6  [maven]
+  * spring-boot-starter-jdbc 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-starter-logging 4.0.6  [maven]
+  * spring-boot-starter-logging 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-starter-mail 4.0.6  [maven]
+  * spring-boot-starter-mail 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-starter-micrometer-metrics 4.0.6  [maven]
+  * spring-boot-starter-micrometer-metrics 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-starter-oauth2-client 4.0.6  [maven]
+  * spring-boot-starter-oauth2-client 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-starter-security 4.0.6  [maven]
+  * spring-boot-starter-security 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-starter-tomcat 4.0.6  [maven]
+  * spring-boot-starter-tomcat 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-starter-tomcat-runtime 4.0.6  [maven]
+  * spring-boot-starter-tomcat-runtime 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-starter-validation 4.0.6  [maven]
+  * spring-boot-starter-validation 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-starter-web 4.0.6  [maven]
+  * spring-boot-starter-web 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-tomcat 4.0.6  [maven]
+  * spring-boot-tomcat 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-transaction 4.0.6  [maven]
+  * spring-boot-transaction 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-validation 4.0.6  [maven]
+  * spring-boot-validation 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-web-server 4.0.6  [maven]
+  * spring-boot-web-server 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-webmvc 4.0.6  [maven]
+  * spring-boot-webmvc 4.1.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-context 7.0.7  [maven]
+  * spring-context 7.0.8  [maven]
       Spring IO
       https://github.com/spring-projects/spring-framework
 
-  * spring-context-support 7.0.7  [maven]
+  * spring-context-support 7.0.8  [maven]
       Spring IO
       https://github.com/spring-projects/spring-framework
 
-  * spring-core 7.0.7  [maven]
+  * spring-core 7.0.8  [maven]
       Spring IO
       https://github.com/spring-projects/spring-framework
 
-  * spring-data-commons 4.0.5  [maven]
+  * spring-data-commons 4.1.0  [maven]
       Pivotal Software, Inc.
       https://github.com/spring-projects/spring-data-commons
 
-  * spring-data-jpa 4.0.5  [maven]
+  * spring-data-jpa 4.1.0  [maven]
       Pivotal Software, Inc.
       https://github.com/spring-projects/spring-data-jpa/spring-data-jpa
 
-  * spring-expression 7.0.7  [maven]
+  * spring-expression 7.0.8  [maven]
       Spring IO
       https://github.com/spring-projects/spring-framework
 
-  * spring-jdbc 7.0.7  [maven]
+  * spring-jdbc 7.0.8  [maven]
       Spring IO
       https://github.com/spring-projects/spring-framework
 
-  * spring-orm 7.0.7  [maven]
+  * spring-orm 7.0.8  [maven]
       Spring IO
       https://github.com/spring-projects/spring-framework
 
-  * spring-retry 2.0.12  [maven]
+  * spring-retry 2.0.13  [maven]
       Spring IO
       https://github.com/spring-projects/spring-retry
 
-  * spring-security-config 7.0.5  [maven]
+  * spring-security-config 7.1.0  [maven]
       Pivotal Software, Inc.
       https://github.com/spring-projects/spring-security
 
-  * spring-security-core 7.0.5  [maven]
+  * spring-security-core 7.1.0  [maven]
       Pivotal Software, Inc.
       https://github.com/spring-projects/spring-security
 
-  * spring-security-crypto 7.0.5  [maven]
+  * spring-security-crypto 7.1.0  [maven]
       Pivotal Software, Inc.
       https://github.com/spring-projects/spring-security
 
-  * spring-security-oauth2-client 7.0.5  [maven]
+  * spring-security-oauth2-client 7.1.0  [maven]
       Pivotal Software, Inc.
       https://github.com/spring-projects/spring-security
 
-  * spring-security-oauth2-core 7.0.5  [maven]
+  * spring-security-oauth2-core 7.1.0  [maven]
       Pivotal Software, Inc.
       https://github.com/spring-projects/spring-security
 
-  * spring-security-oauth2-jose 7.0.5  [maven]
+  * spring-security-oauth2-jose 7.1.0  [maven]
       Pivotal Software, Inc.
       https://github.com/spring-projects/spring-security
 
-  * spring-security-web 7.0.5  [maven]
+  * spring-security-web 7.1.0  [maven]
       Pivotal Software, Inc.
       https://github.com/spring-projects/spring-security
 
-  * spring-tx 7.0.7  [maven]
+  * spring-tx 7.0.8  [maven]
       Spring IO
       https://github.com/spring-projects/spring-framework
 
-  * spring-web 7.0.7  [maven]
+  * spring-web 7.0.8  [maven]
       Spring IO
       https://github.com/spring-projects/spring-framework
 
-  * spring-webmvc 7.0.7  [maven]
+  * spring-webmvc 7.0.8  [maven]
       Spring IO
       https://github.com/spring-projects/spring-framework
 
-  * springdoc-openapi-starter-common 3.0.2  [maven]
+  * springdoc-openapi-starter-common 3.0.3  [maven]
       (copyright not declared)
 
-  * springdoc-openapi-starter-webmvc-api 3.0.2  [maven]
+  * springdoc-openapi-starter-webmvc-api 3.0.3  [maven]
       (copyright not declared)
 
-  * springdoc-openapi-starter-webmvc-ui 3.0.2  [maven]
+  * springdoc-openapi-starter-webmvc-ui 3.0.3  [maven]
       (copyright not declared)
 
-  * sqlite-jdbc 3.50.3.0  [maven]
+  * sqlite-jdbc 3.53.2.0  [maven]
       (copyright not declared)
       https://github.com/xerial/sqlite-jdbc
 
-  * swagger-annotations-jakarta 2.2.43  [maven]
+  * swagger-annotations-jakarta 2.2.47  [maven]
       (copyright not declared)
       https://github.com/swagger-api/swagger-core/modules/swagger-annotations-jakarta
 
-  * swagger-core-jakarta 2.2.43  [maven]
+  * swagger-core-jakarta 2.2.47  [maven]
       (copyright not declared)
       https://github.com/swagger-api/swagger-core/modules/swagger-core-jakarta
 
-  * swagger-models-jakarta 2.2.43  [maven]
+  * swagger-models-jakarta 2.2.47  [maven]
       (copyright not declared)
       https://github.com/swagger-api/swagger-core/modules/swagger-models-jakarta
 
-  * swagger-ui 5.32.0  [maven]
+  * swagger-ui 5.32.2  [maven]
       (copyright not declared)
       https://github.com/swagger-api/swagger-ui
 
@@ -2231,13 +2208,13 @@ Components and their copyright notices:
       Tauri Programme within The Commons Conservancy, The winit contributors
       https://github.com/tauri-apps/tao
 
-  * tomcat-embed-core 11.0.21  [maven]
+  * tomcat-embed-core 11.0.22  [maven]
       (copyright not declared)
 
-  * tomcat-embed-el 11.0.21  [maven]
+  * tomcat-embed-el 11.0.22  [maven]
       (copyright not declared)
 
-  * tomcat-embed-websocket 11.0.21  [maven]
+  * tomcat-embed-websocket 11.0.22  [maven]
       (copyright not declared)
 
   * typescript 6.0.3  [npm]
@@ -2252,7 +2229,7 @@ License text: see https://spdx.org/licenses/Apache-2.0%20OR%20MIT.html
 
 Components and their copyright notices:
 
-  * api 2.11.0  [npm]
+  * api 2.11.1  [npm]
       (no author in package.json — see git+https://github.com/tauri-apps/tauri.git)
       git+https://github.com/tauri-apps/tauri.git
 
@@ -2328,19 +2305,19 @@ Components and their copyright notices:
       The Rust Project Developers
       https://github.com/rust-lang/rustc-hash
 
-  * tauri 2.11.0  [cargo]
+  * tauri 2.11.3  [cargo]
       Tauri Programme within The Commons Conservancy
       https://github.com/tauri-apps/tauri
 
-  * tauri-build 2.6.0  [cargo]
+  * tauri-build 2.6.3  [cargo]
       Tauri Programme within The Commons Conservancy
       https://github.com/tauri-apps/tauri
 
-  * tauri-codegen 2.6.0  [cargo]
+  * tauri-codegen 2.6.3  [cargo]
       Tauri Programme within The Commons Conservancy
       https://github.com/tauri-apps/tauri
 
-  * tauri-macros 2.6.0  [cargo]
+  * tauri-macros 2.6.3  [cargo]
       Tauri Programme within The Commons Conservancy
       https://github.com/tauri-apps/tauri
 
@@ -2368,15 +2345,15 @@ Components and their copyright notices:
       Tauri Programme within The Commons Conservancy
       https://github.com/tauri-apps/plugins-workspace
 
-  * tauri-runtime 2.11.0  [cargo]
+  * tauri-runtime 2.11.3  [cargo]
       Tauri Programme within The Commons Conservancy
       https://github.com/tauri-apps/tauri
 
-  * tauri-runtime-wry 2.11.0  [cargo]
+  * tauri-runtime-wry 2.11.3  [cargo]
       Tauri Programme within The Commons Conservancy
       https://github.com/tauri-apps/tauri
 
-  * tauri-utils 2.9.0  [cargo]
+  * tauri-utils 2.9.3  [cargo]
       Tauri Programme within The Commons Conservancy
       https://github.com/tauri-apps/tauri
 
@@ -2550,7 +2527,7 @@ Components and their copyright notices:
       Alexey Raspopov
       git+https://github.com/alexeyraspopov/picocolors.git
 
-  * rustls-webpki 0.103.12  [cargo]
+  * rustls-webpki 0.103.13  [cargo]
       (copyright not declared)
       https://github.com/rustls/webpki
 
@@ -2637,15 +2614,15 @@ Components and their copyright notices:
       Eclipse Foundation
       https://github.com/jakartaee/jaf-api
 
-  * jakarta.xml.bind-api 4.0.4  [maven]
+  * jakarta.xml.bind-api 4.0.5  [maven]
       Eclipse Foundation
       https://github.com/jakartaee/jaxb-api.git/jakarta.xml.bind-api
 
-  * jaxb-core 4.0.6  [maven]
+  * jaxb-core 4.0.9  [maven]
       Eclipse Foundation
       https://github.com/eclipse-ee4j/jaxb-ri.git/jaxb-core
 
-  * jaxb-runtime 4.0.6  [maven]
+  * jaxb-runtime 4.0.9  [maven]
       Eclipse Foundation
       https://github.com/eclipse-ee4j/jaxb-ri.git/jaxb-runtime-parent/jaxb-runtime
 
@@ -2657,7 +2634,7 @@ Components and their copyright notices:
       Isis Lovecruft <isis@patternsinthevoid.net>, Henry de Valence <hdevalence@hdevalence.ca>
       https://github.com/dalek-cryptography/subtle
 
-  * txw2 4.0.6  [maven]
+  * txw2 4.0.9  [maven]
       Eclipse Foundation
       https://github.com/eclipse-ee4j/jaxb-ri.git/jaxb-txw-parent/txw2
 
@@ -2756,11 +2733,11 @@ Components and their copyright notices:
       EE4J Community
       https://github.com/eclipse-ee4j/jta-api
 
-  * logback-classic 1.5.32  [maven]
+  * logback-classic 1.5.34  [maven]
       QOS.ch
       https://github.com/qos-ch/logback/logback-classic
 
-  * logback-core 1.5.32  [maven]
+  * logback-core 1.5.34  [maven]
       QOS.ch
       https://github.com/qos-ch/logback/logback-core
 
@@ -2831,22 +2808,6 @@ Components and their copyright notices:
   * rustls 0.23.38  [cargo]
       (copyright not declared)
       https://github.com/rustls/rustls
-
-------------------------------------------------------------------
-
-## CC0-1.0  —  2 component(s)
-
-License text: see https://spdx.org/licenses/CC0-1.0.html
-
-Components and their copyright notices:
-
-  * HdrHistogram 2.2.2  [maven]
-      (copyright not declared)
-      scm:git:git://github.com/HdrHistogram/HdrHistogram.git
-
-  * LatencyUtils 2.0.3  [maven]
-      (copyright not declared)
-      scm:git:git://github.com/LatencyUtils/LatencyUtils.git
 
 ------------------------------------------------------------------
 
@@ -2992,6 +2953,18 @@ Components and their copyright notices:
   * brotli-decompressor 5.0.0  [cargo]
       Daniel Reiter Horn <danielrh@dropbox.com>, The Brotli Authors
       https://github.com/dropbox/rust-brotli-decompressor
+
+------------------------------------------------------------------
+
+## CC0-1.0  —  1 component(s)
+
+License text: see https://spdx.org/licenses/CC0-1.0.html
+
+Components and their copyright notices:
+
+  * HdrHistogram 2.2.2  [maven]
+      (copyright not declared)
+      scm:git:git://github.com/HdrHistogram/HdrHistogram.git
 
 ------------------------------------------------------------------
 

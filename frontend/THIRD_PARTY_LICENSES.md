@@ -2,9 +2,9 @@
 
 VoxRox Mail bundles or transitively depends on the following npm packages. All listed packages are runtime / production dependencies (npm `dependencies`, not `devDependencies`). Development tooling that does not ship code to end users (vitest, playwright, eslint, etc.) is excluded.
 
-Counts: 116 packages total. 85 MIT, 14 ISC, 6 Apache-2.0, 4 MIT OR Apache-2.0, 2 BSD-3-Clause, 2 MPL-2.0, 1 0BSD, 1 Apache-2.0 OR MIT, 1 MIT\*.
+Counts: 117 packages total. 86 MIT, 14 ISC, 6 Apache-2.0, 4 MIT OR Apache-2.0, 2 BSD-3-Clause, 2 MPL-2.0, 1 0BSD, 1 Apache-2.0 OR MIT, 1 MIT\*.
 
-## MIT (85)
+## MIT (86)
 
 - **@esbuild/win32-x64** 0.28.1 — [https://github.com/evanw/esbuild](https://github.com/evanw/esbuild)
 - **@floating-ui/core** 1.7.5 — [https://github.com/floating-ui/floating-ui](https://github.com/floating-ui/floating-ui)
@@ -36,7 +36,7 @@ Counts: 116 packages total. 85 MIT, 14 ISC, 6 Apache-2.0, 4 MIT OR Apache-2.0, 2
 - **@types/estree** 1.0.9 — [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
 - **@types/node** 25.9.1 — [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
 - **@types/trusted-types** 2.0.7 — [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
-- **@typescript-eslint/types** 8.60.1 — [https://github.com/typescript-eslint/typescript-eslint](https://github.com/typescript-eslint/typescript-eslint)
+- **@typescript-eslint/types** 8.61.1 — [https://github.com/typescript-eslint/typescript-eslint](https://github.com/typescript-eslint/typescript-eslint)
 - **acorn** 8.16.0 — [https://github.com/acornjs/acorn](https://github.com/acornjs/acorn)
 - **bits-ui** 2.18.1 — [https://github.com/huntabyte/bits-ui](https://github.com/huntabyte/bits-ui)
 - **clsx** 2.1.1 — [https://github.com/lukeed/clsx](https://github.com/lukeed/clsx)
@@ -82,6 +82,7 @@ Counts: 116 packages total. 85 MIT, 14 ISC, 6 Apache-2.0, 4 MIT OR Apache-2.0, 2
 - **tailwind-merge** 3.6.0 — [https://github.com/dcastil/tailwind-merge](https://github.com/dcastil/tailwind-merge)
 - **tailwind-variants** 3.2.2 — [https://github.com/heroui-inc/tailwind-variants](https://github.com/heroui-inc/tailwind-variants)
 - **tailwindcss** 4.3.0 — [https://github.com/tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss)
+- **tailwindcss** 4.3.1 — [https://github.com/tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss)
 - **tapable** 2.3.3 — [https://github.com/webpack/tapable](https://github.com/webpack/tapable)
 - **tiny-glob** 0.2.9 — [https://github.com/terkelg/tiny-glob](https://github.com/terkelg/tiny-glob)
 - **tinyglobby** 0.2.17 — [https://github.com/SuperchupuDev/tinyglobby](https://github.com/SuperchupuDev/tinyglobby)
