@@ -26,6 +26,10 @@
 	 */
 	function mailFrame(node: HTMLIFrameElement) {
 		function onMessage(event: MessageEvent) {
+			// The frame is an opaque origin (sandbox allow-scripts, no
+			// allow-same-origin), so genuine relays arrive with origin "null";
+			// pair that with an exact source match to this frame's window.
+			if (event.origin !== 'null') return;
 			if (event.source !== node.contentWindow) return;
 			if (!isMailFrameKeyMessage(event.data)) return;
 			window.dispatchEvent(mailFrameKeyToEvent(event.data));

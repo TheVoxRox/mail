@@ -40,8 +40,10 @@ describe('buildMailFrameSrcdoc', () => {
 		const doc = buildMailFrameSrcdoc(
 			'<p onclick="steal()">hi</p><script>window.__xss=1</script><img src="https://t.test/p.png">'
 		);
-		// The only <script> in the document is the trusted forwarder.
-		expect(doc.match(/<script>/g)).toHaveLength(1);
+		// The only <script> in the document is the trusted forwarder. Counted by
+		// string split (not a tag-matching regex) — the srcdoc is built by us and
+		// the sanitizer removes script elements wholesale, so casing never varies.
+		expect(doc.split('<script>').length - 1).toBe(1);
 		expect(doc).not.toContain('window.__xss');
 		expect(doc).not.toContain('onclick');
 		expect(doc).not.toContain('https://t.test');

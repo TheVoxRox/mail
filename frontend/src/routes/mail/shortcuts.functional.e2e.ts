@@ -73,6 +73,8 @@ test('tělo zprávy: CSP zablokuje jiný než hash-připnutý skript', async ({ 
 		return await new Promise<boolean>((resolve) => {
 			let evil = false;
 			function onMessage(event: MessageEvent) {
+				// The probe is a sandboxed, allow-scripts frame → opaque origin.
+				if (event.origin !== 'null') return;
 				if (event.data === '__EVIL__') evil = true;
 			}
 			window.addEventListener('message', onMessage);
