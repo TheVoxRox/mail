@@ -1,0 +1,103 @@
+/**
+ * Builds the `srcdoc` for the message-body iframe and bridges keyboard
+ * shortcuts back out of it.
+ *
+ * The body renders in a sandboxed iframe so hostile mail HTML cannot script
+ * the app (Boundary 4 of the threat model). A pure `sandbox=""` frame, however,
+ * is a keyboard black hole: a `keydown` inside a nested browsing context never
+ * reaches the parent's global shortcut handler, so `?`, Delete, Ctrl+R, … are
+ * silently swallowed while the user reads a message.
+ *
+ * Fix without weakening isolation: the frame gets `sandbox="allow-scripts"`
+ * (scripts on, but NO `allow-same-origin` → the document stays in an opaque
+ * origin with no access to the parent, cookies, storage, or same-origin
+ * network) plus a `<meta>` CSP that allows exactly ONE script — this
+ * first-party key forwarder, pinned by hash. Every other script (i.e. anything
+ * the sanitizer ever missed in the mail body) is blocked by the hash mismatch,
+ * so the body still cannot run its own code. The forwarder relays only genuine
+ * (`isTrusted`) user keystrokes via `postMessage`; the parent re-dispatches them
+ * as synthetic keydowns so the existing `handleGlobalKeydown` reacts.
+ *
+ * The CSP hash is over the exact bytes of MAIL_FRAME_SCRIPT; mailFrame.test.ts
+ * recomputes it so any edit to the script that forgets to update the hash (which
+ * would silently break every shortcut) fails the build.
+ */
+
+import { sanitizeMailHtml } from './content-sanitizer.js';
+
+/**
+ * The only script allowed to run inside the mail-body frame. Kept on one line
+ * so its bytes — and therefore its CSP hash — are stable and easy to reproduce.
+ * Forwards real keystrokes to the parent; it can do nothing else (opaque origin,
+ * `default-src 'none'`).
+ */
+export const MAIL_FRAME_SCRIPT =
+	'window.addEventListener("keydown",function(e){if(!e.isTrusted)return;window.parent.postMessage({__voxroxMailFrameKey:true,key:e.key,code:e.code,ctrlKey:e.ctrlKey,metaKey:e.metaKey,altKey:e.altKey,shiftKey:e.shiftKey},"*");});';
+
+/** Base64 SHA-256 of MAIL_FRAME_SCRIPT — asserted in mailFrame.test.ts. */
+export const MAIL_FRAME_SCRIPT_SHA256 = 'H/XNgY8UMzgl/rtpNwZPWzexQDXuW212vj8kUGDkGkQ=';
+
+/**
+ * CSP enforced inside the frame: nothing loads by default, inline images stay
+ * (the sanitizer already restricts them to `data:`), and the only executable
+ * script is the hash-pinned forwarder above.
+ */
+export const MAIL_FRAME_CSP =
+	`default-src 'none'; img-src data:; script-src 'sha256-${MAIL_FRAME_SCRIPT_SHA256}'; ` +
+	`base-uri 'none'; form-action 'none'`;
+
+/** Wraps sanitized mail HTML into the full sandboxed document served via srcdoc. */
+export function buildMailFrameSrcdoc(rawHtml: string): string {
+	const body = sanitizeMailHtml(rawHtml);
+	return (
+		'<!doctype html><html><head><meta charset="utf-8">' +
+		`<meta http-equiv="Content-Security-Policy" content="${MAIL_FRAME_CSP}">` +
+		`<script>${MAIL_FRAME_SCRIPT}</script>` +
+		`</head><body>${body}</body></html>`
+	);
+}
+
+/** Shape of the message the frame forwarder posts to the parent. */
+export interface MailFrameKeyMessage {
+	__voxroxMailFrameKey: true;
+	key: string;
+	code: string;
+	ctrlKey: boolean;
+	metaKey: boolean;
+	altKey: boolean;
+	shiftKey: boolean;
+}
+
+/** Narrowing guard for an untrusted `MessageEvent.data`. */
+export function isMailFrameKeyMessage(data: unknown): data is MailFrameKeyMessage {
+	if (typeof data !== 'object' || data === null) return false;
+	const d = data as Record<string, unknown>;
+	return (
+		d.__voxroxMailFrameKey === true &&
+		typeof d.key === 'string' &&
+		typeof d.code === 'string' &&
+		typeof d.ctrlKey === 'boolean' &&
+		typeof d.metaKey === 'boolean' &&
+		typeof d.altKey === 'boolean' &&
+		typeof d.shiftKey === 'boolean'
+	);
+}
+
+/**
+ * Rebuilds a synthetic `keydown` from a forwarded message. Dispatched on
+ * `window` so the app's global handler treats it exactly like a keystroke that
+ * happened in the app chrome. (Synthetic events have `isTrusted === false`, so
+ * they can never loop back through the frame forwarder.)
+ */
+export function mailFrameKeyToEvent(message: MailFrameKeyMessage): KeyboardEvent {
+	return new KeyboardEvent('keydown', {
+		key: message.key,
+		code: message.code,
+		ctrlKey: message.ctrlKey,
+		metaKey: message.metaKey,
+		altKey: message.altKey,
+		shiftKey: message.shiftKey,
+		bubbles: true,
+		cancelable: true
+	});
+}
