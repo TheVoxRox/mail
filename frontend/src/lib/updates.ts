@@ -77,9 +77,12 @@ export async function checkForUpdateAndPrompt(): Promise<void> {
 		if (!update || wasDismissed(update.version)) return;
 		updatePromptState.set({ status: 'available', update });
 	} catch (err) {
-		if (supportsNativeUpdater()) {
-			showUpdateFailure(err);
-		}
+		// Background startup checks fail silently: a transient network error or a
+		// not-yet-published release must not raise an alarming dialog on every
+		// launch (it is announced to screen-reader users on each cold start). The
+		// prominent failure UI is reserved for the user-initiated
+		// checkForUpdateManually().
+		console.warn('[mail] startup update check failed', err);
 	}
 }
 
