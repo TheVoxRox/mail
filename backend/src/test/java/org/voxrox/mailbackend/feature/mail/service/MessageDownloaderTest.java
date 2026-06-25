@@ -250,8 +250,47 @@ class MessageDownloaderTest {
         }
     }
 
+    @Nested
+    @DisplayName("concurrent sync idempotency")
+    class ConcurrentSyncIdempotency {
+
+        @Test
+        @DisplayName("Skips uids a concurrent sync already persisted — inserts only the new ones")
+        void skipsAlreadyPersistedUids() throws Exception {
+            syncState.setLastKnownUid(950L);
+            Message m1 = mock(Message.class);
+            Message m2 = mock(Message.class);
+            when(uidFolder.getUIDNext()).thenReturn(1002L);
+            when(uidFolder.getMessagesByUID(951L, 1001L)).thenReturn(new Message[]{m1, m2});
+            when(uidFolder.getUID(m2)).thenReturn(1001L);
+            MailDetailResponse dto1 = newDto(1000L);
+            MailDetailResponse dto2 = newDto(1001L);
+            when(messageFetcher.fetchBatch(any(), eq(uidFolder), eq(FOLDER))).thenReturn(List.of(dto1, dto2));
+            MessageEntity e1 = entityWithUid(1000L);
+            MessageEntity e2 = entityWithUid(1001L);
+            when(messageMapper.toEntity(dto1, account, FOLDER, syncState.getUidValidity())).thenReturn(e1);
+            when(messageMapper.toEntity(dto2, account, FOLDER, syncState.getUidValidity())).thenReturn(e2);
+            // uid 1000 was already inserted by a concurrent (e.g. send-triggered) sync.
+            when(messageRepository.findExistingUids(ACCOUNT_ID, FOLDER, List.of(1000L, 1001L)))
+                    .thenReturn(List.of(1000L));
+            when(messageRepository.saveAll(List.of(e2))).thenReturn(List.of(e2));
+
+            downloader.syncNewMessages(context());
+
+            // Only the not-yet-persisted message is inserted — no (account, folder, uid)
+            // unique-constraint failure, no aborted batch.
+            verify(messageRepository).saveAll(List.of(e2));
+        }
+    }
+
     private FolderSyncContext context() {
         return new FolderSyncContext(account, FOLDER, folder, uidFolder, syncState);
+    }
+
+    private static MessageEntity entityWithUid(long uid) {
+        MessageEntity entity = new MessageEntity();
+        entity.setUid(uid);
+        return entity;
     }
 
     private Message stubSequenceDownload(int startSeq, int endSeq, long uidNext, long messageUid) throws Exception {
