@@ -6,6 +6,7 @@ import java.util.List;
 
 import jakarta.persistence.*;
 
+import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 import org.jspecify.annotations.Nullable;
@@ -24,8 +25,16 @@ public class ContactEntity {
     @OnDelete(action = OnDeleteAction.CASCADE)
     private AccountEntity account;
 
+    /*
+     * @BatchSize lets the paginated listing queries (ContactRepository) load this
+     * collection in batched IN(...) selects instead of fetch-joining it. A fetch
+     * join together with Pageable forces Hibernate to apply the limit/offset in
+     * memory (HHH90003004); batch-loading keeps pagination at the SQL level while
+     * still avoiding the N+1 during DTO mapping.
+     */
     @OneToMany(mappedBy = "contact", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("primary DESC, id ASC")
+    @BatchSize(size = 50)
     private List<ContactEmailEntity> emails = new ArrayList<>();
 
     @Column(name = "name", length = 255)
