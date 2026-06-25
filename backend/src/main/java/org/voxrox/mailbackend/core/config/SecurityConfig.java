@@ -4,6 +4,8 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
+import jakarta.servlet.DispatcherType;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
@@ -81,8 +83,21 @@ public class SecurityConfig {
                  */
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
 
-                .authorizeHttpRequests(auth -> auth.requestMatchers(PUBLIC_ENDPOINTS.toArray(String[]::new)).permitAll()
-                        .anyRequest().authenticated())
+                .authorizeHttpRequests(auth -> auth
+                        /*
+                         * ASYNC/ERROR are server-internal dispatches that continue an
+                         * already-authorized REQUEST — e.g. an SSE emitter
+                         * (/api/v1/notifications/stream) timing out after 30 min. Spring Security 6
+                         * re-runs the AuthorizationFilter on these dispatches; the X-API-KEY is not
+                         * re-applied, so the re-auth is denied and — because the SSE response is
+                         * already committed — Spring logs a noisy ERROR
+                         * ("response is already committed") every 30 min. They cannot be triggered from
+                         * outside the container, so permitting them is safe; this is the documented
+                         * Spring Security pattern for async endpoints.
+                         */
+                        .dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR).permitAll()
+                        .requestMatchers(PUBLIC_ENDPOINTS.toArray(String[]::new)).permitAll().anyRequest()
+                        .authenticated())
 
                 /*
                  * Explicit oauth2Login keeps Spring filters for the start/callback flow even
