@@ -45,6 +45,7 @@
 	let email = $state('');
 	let detectError = $state<string | null>(null);
 	let googleError = $state<string | null>(null);
+	let oauthStarting = $state(false);
 	let showAdvanced = $state(false);
 
 	let emailInputEl = $state<HTMLInputElement | null>(null);
@@ -197,7 +198,12 @@
 	}
 
 	async function handleOAuthLogin() {
-		if (step.kind !== 'oauth') return;
+		// Guard against a double trigger (e.g. a double-click in the window before the
+		// button disables). startOAuthLogin opens a system-browser auth flow; a second
+		// flow overwrites the first authorization request in the server session, so the
+		// slower callback then fails with `authorization_request_not_found` even though
+		// the account was already added. Allow only one start in flight.
+		if (step.kind !== 'oauth' || oauthStarting) return;
 		const { preset, email: oauthEmail } = step;
 		const oauthProvider = preset.oauth2RegistrationId;
 		if (!oauthProvider) {
@@ -205,12 +211,15 @@
 			return;
 		}
 		googleError = null;
+		oauthStarting = true;
 		try {
 			await startOAuthLogin(oauthProvider);
 			step = { kind: 'oauth-waiting', preset, email: oauthEmail };
 			void waitForOauthAccount(oauthEmail);
 		} catch (err) {
 			googleError = toErrorMessage(err);
+		} finally {
+			oauthStarting = false;
 		}
 	}
 
@@ -296,7 +305,13 @@
 			<p class="mb-3 text-xs text-muted-foreground">
 				{$_(`accounts.wizard.${step.preset.key}.description`)}
 			</p>
-			<Button variant="outline" size="sm" onclick={handleOAuthLogin} bind:ref={googleButtonEl}>
+			<Button
+				variant="outline"
+				size="sm"
+				onclick={handleOAuthLogin}
+				disabled={oauthStarting}
+				bind:ref={googleButtonEl}
+			>
 				{$_(`accounts.wizard.${step.preset.key}.loginButton`)}
 			</Button>
 			<button
