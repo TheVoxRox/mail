@@ -287,7 +287,7 @@
 			"oauthWaitingPageDescription": "Finish signing in in your browser — we'll pick up here when you're done.",
 			"oauthWaitingHeading": "Waiting for the browser to finish…",
 			"oauthWaitingHint": "Once you sign in to {email}, we'll add it automatically.",
-			"oauthWaitingTimeout": "The OAuth sign-in took too long. Please try again.",
+			"oauthWaitingTimeout": "OAuth sign-in is taking longer than expected. If you finished it in your browser, the account may already have been added — check the account list, or try again.",
 			"cancel": "Cancel",
 			"formPageDescription": "Review the account details and add your mail server credentials.",
 			"quick": {

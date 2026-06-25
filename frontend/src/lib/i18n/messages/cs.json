@@ -287,7 +287,7 @@
 			"oauthWaitingPageDescription": "Dokončete přihlášení v prohlížeči. Až to uděláte, vrátíme se sem.",
 			"oauthWaitingHeading": "Čekám na dokončení v prohlížeči…",
 			"oauthWaitingHint": "Až se přihlásíte k účtu {email}, automaticky ho přidáme.",
-			"oauthWaitingTimeout": "Přihlášení přes OAuth trvalo příliš dlouho. Zkuste to prosím znovu.",
+			"oauthWaitingTimeout": "Přihlášení přes OAuth trvá déle, než je obvyklé. Pokud jste ho v prohlížeči dokončili, účet už mohl být přidán — zkontrolujte seznam účtů, nebo to zkuste znovu.",
 			"cancel": "Zrušit",
 			"formPageDescription": "Zkontrolujte údaje k účtu a doplňte přihlášení k poštovnímu serveru.",
 			"quick": {
