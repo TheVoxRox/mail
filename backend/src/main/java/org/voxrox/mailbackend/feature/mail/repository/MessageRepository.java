@@ -86,6 +86,19 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
     @Query("SELECT m.uid FROM MessageEntity m WHERE m.account.id = :accId AND m.folderName = :folder ORDER BY m.uid ASC")
     List<Long> findUidsByAccountAndFolder(@Param("accId") Long accId, @Param("folder") String folderName);
 
+    /**
+     * Of the given candidate uids, the subset already present in the folder. Used
+     * by the sync to keep a batch insert idempotent: two overlapping syncs (e.g.
+     * the scheduled cycle and a send-triggered refresh) each compute their "new"
+     * uids from a {@code lastKnownUid} snapshot taken before the per-account lock,
+     * so the second can re-fetch a uid the first already persisted — inserting it
+     * again would trip the {@code (account, folder, uid)} unique constraint and
+     * abort the whole batch.
+     */
+    @Query("SELECT m.uid FROM MessageEntity m WHERE m.account.id = :accId AND m.folderName = :folder AND m.uid IN :uids")
+    List<Long> findExistingUids(@Param("accId") Long accId, @Param("folder") String folderName,
+            @Param("uids") List<Long> uids);
+
     @Modifying
     @Transactional
     @Query("UPDATE MessageEntity m SET m.seen = :seen, m.flagged = :flagged, m.answered = :answered "

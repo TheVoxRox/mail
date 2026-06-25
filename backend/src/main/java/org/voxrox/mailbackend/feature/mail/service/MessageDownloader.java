@@ -190,8 +190,9 @@ public class MessageDownloader {
         transactionTemplate.executeWithoutResult(status -> {
             List<MessageEntity> entities = dtos.stream().map(dto -> messageMapper.toEntity(dto, ctx.account(),
                     ctx.folderName(), ctx.syncState().getUidValidity())).toList();
-            if (!entities.isEmpty()) {
-                List<MessageEntity> saved = messageRepository.saveAll(entities);
+            List<MessageEntity> toInsert = dropAlreadyPersisted(entities, ctx);
+            if (!toInsert.isEmpty()) {
+                List<MessageEntity> saved = messageRepository.saveAll(toInsert);
                 /*
                  * Threading is assigned AFTER persistence so each entity has a DB-generated id
                  * and the JPA persistence context can see this message via
@@ -223,6 +224,32 @@ public class MessageDownloader {
                 syncStateService.updateLastKnownUid(ctx.syncState().getId(), highestUid);
             }
         });
+    }
+
+    /**
+     * Drops messages a concurrent sync already persisted, keeping the batch insert
+     * idempotent. Two overlapping syncs (the scheduled cycle and a send-triggered
+     * refresh) each derive their "new" uids from a {@code lastKnownUid} snapshot
+     * taken before the per-account lock, so the one that runs second can re-fetch a
+     * uid the first already inserted. This runs inside the per-account lock and the
+     * same transaction as the insert, so the first sync's committed rows are
+     * visible here and the {@code (account, folder, uid)} unique constraint is
+     * never tripped.
+     */
+    private List<MessageEntity> dropAlreadyPersisted(List<MessageEntity> entities, FolderSyncContext ctx) {
+        if (entities.isEmpty()) {
+            return entities;
+        }
+        List<Long> candidateUids = entities.stream().map(MessageEntity::getUid).toList();
+        Set<Long> existing = Set
+                .copyOf(messageRepository.findExistingUids(ctx.getAccountId(), ctx.folderName(), candidateUids));
+        if (existing.isEmpty()) {
+            return entities;
+        }
+        List<MessageEntity> kept = entities.stream().filter(e -> !existing.contains(e.getUid())).toList();
+        log.debug("{} Folder {}: skipped {} message(s) a concurrent sync already persisted.", LogCategory.SYNC,
+                ctx.folderName(), entities.size() - kept.size());
+        return kept;
     }
 
     public long getLatestUidFromServer(Folder folder, UIDFolder uidFolder) throws MessagingException {
