@@ -134,6 +134,7 @@
 		"attachmentsHeading": "Attachments:",
 		"attachmentsListLabel": "Attachments",
 		"contentLoading": "Loading content…",
+		"notFound": "This message is no longer available — it may have been moved or deleted. We've refreshed the list.",
 		"iframeTitle": "Message content",
 		"pageTitle": "Mail – Message",
 		"folderPageTitle": "Mail – {folder}"
