@@ -8,6 +8,8 @@
 	import { resolveProviderByEmail } from '$lib/api/providers.js';
 	import { loadAccounts, setActiveAccount } from '$lib/stores/accounts.js';
 	import { startOAuthLogin } from '$lib/api/googleAuth.js';
+	import { pollForOAuthAccount } from '$lib/accounts/oauthPoll.js';
+	import { delayWithAbort } from '$lib/delay.js';
 	import { isValidEmailAddress } from '$lib/compose/addresses.js';
 	import {
 		KNOWN_PRESETS,
@@ -129,7 +131,7 @@
 	}
 
 	function backToEmail() {
-		stopOauthPolling();
+		oauthAbort?.abort();
 		googleError = null;
 		detectError = null;
 		showAdvanced = false;
@@ -152,64 +154,43 @@
 		}
 	}
 
-	let oauthPollTimer: ReturnType<typeof setTimeout> | null = null;
-	let oauthPollAttempts = 0;
-	// 5 minutes total: first 15 attempts at 2s = 30s, then 5s interval × 54 ≈ 4.5 min.
-	const OAUTH_POLL_FAST_INTERVAL_MS = 2000;
-	const OAUTH_POLL_SLOW_INTERVAL_MS = 5000;
-	const OAUTH_POLL_FAST_ATTEMPTS = 15;
-	const OAUTH_POLL_MAX_ATTEMPTS = 69;
+	// Abort controller for the in-flight OAuth poll: aborting it both wakes the
+	// injected delay early and flips shouldContinue, so cancel / leaving the page
+	// stops polling immediately.
+	let oauthAbort: AbortController | null = null;
 
-	function stopOauthPolling() {
-		if (oauthPollTimer != null) {
-			clearTimeout(oauthPollTimer);
-			oauthPollTimer = null;
+	async function waitForOauthAccount(email: string) {
+		oauthAbort?.abort();
+		const controller = new AbortController();
+		oauthAbort = controller;
+
+		const match = await pollForOAuthAccount({
+			email,
+			listAccounts,
+			sleep: (ms) => delayWithAbort(ms, controller.signal),
+			shouldContinue: () => !controller.signal.aborted
+		});
+		if (controller.signal.aborted) return;
+
+		if (match) {
+			await loadAccounts();
+			setActiveAccount(match.id);
+			void triggerInitialSync(match.id);
+			await goto(resolve('/settings/accounts'));
+			return;
 		}
-		oauthPollAttempts = 0;
-	}
 
-	async function pollForOauthAccount(email: string): Promise<boolean> {
-		try {
-			const accounts = await listAccounts();
-			const target = email.toLowerCase();
-			const match = accounts.find((a) => a.email.trim().toLowerCase() === target);
-			if (match) {
-				stopOauthPolling();
-				await loadAccounts();
-				setActiveAccount(match.id);
-				void triggerInitialSync(match.id);
-				await goto(resolve('/settings/accounts'));
-				return true;
-			}
-		} catch {
-			// Network error — keep polling, the user can Cancel.
+		// Budget (plus the final reconcile) exhausted without the account
+		// appearing. The login may still have succeeded after we stopped looking,
+		// so point the user at the account list rather than implying a hard fail.
+		if (step.kind === 'oauth-waiting') {
+			googleError = $_('accounts.wizard.oauthWaitingTimeout');
+			step = { kind: 'oauth', preset: step.preset, email: step.email };
 		}
-		return false;
-	}
-
-	function scheduleNextPoll(email: string) {
-		const interval =
-			oauthPollAttempts < OAUTH_POLL_FAST_ATTEMPTS
-				? OAUTH_POLL_FAST_INTERVAL_MS
-				: OAUTH_POLL_SLOW_INTERVAL_MS;
-		oauthPollTimer = setTimeout(async () => {
-			oauthPollAttempts++;
-			const done = await pollForOauthAccount(email);
-			if (done) return;
-			if (oauthPollAttempts >= OAUTH_POLL_MAX_ATTEMPTS) {
-				stopOauthPolling();
-				if (step.kind === 'oauth-waiting') {
-					googleError = $_('accounts.wizard.oauthWaitingTimeout');
-					step = { kind: 'oauth', preset: step.preset, email: step.email };
-				}
-				return;
-			}
-			if (step.kind === 'oauth-waiting') scheduleNextPoll(email);
-		}, interval);
 	}
 
 	function cancelOauthWaiting() {
-		stopOauthPolling();
+		oauthAbort?.abort();
 		if (step.kind === 'oauth-waiting') {
 			step = { kind: 'oauth', preset: step.preset, email: step.email };
 		}
@@ -227,14 +208,13 @@
 		try {
 			await startOAuthLogin(oauthProvider);
 			step = { kind: 'oauth-waiting', preset, email: oauthEmail };
-			stopOauthPolling();
-			scheduleNextPoll(oauthEmail);
+			void waitForOauthAccount(oauthEmail);
 		} catch (err) {
 			googleError = toErrorMessage(err);
 		}
 	}
 
-	onDestroy(stopOauthPolling);
+	onDestroy(() => oauthAbort?.abort());
 </script>
 
 <svelte:head>
