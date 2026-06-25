@@ -151,7 +151,7 @@ Smoke flow:
 
 ## 7. Diagnostics
 
-- [ ] Zkontrolovat `logs/mail-backend.log` bez neočekávaných `ERROR`.
+- [ ] Zkontrolovat `logs/mail.log` bez neočekávaných `ERROR` (známé transienty — viz log-scan gate v §8).
 - [ ] Zkontrolovat `logs/audit.log` bez neočekávaných `CRITICAL`.
 - [ ] Vygenerovat `/api/internal/diagnostic-dump`.
 - [ ] ZIP obsahuje `summary.json`, `accounts.json`, `folder-sync-states.json`, `message-counts.json`, `runtime.json`.
@@ -168,6 +168,7 @@ Smoke flow:
 - [ ] Zkontrolovat, že IMAP pool nerecykluje chybně mrtvá spojení.
 - [ ] Zkontrolovat, že opakované syncy nevytvářejí duplicitní zprávy.
 - [ ] Log-scan gate po každém smoke/long runu: `Select-String -Path logs\mail.log -Pattern "ERROR|WARN"` a každý nález buď vysvětlit, nebo založit issue — tichá chybová cesta je přesně třída chyb z review 2026-06.
+- [ ] Spočítat výskyty známého přechodného hiccupu **D**: `failed to create new store connection` ([MailSyncService.java:220](src/main/java/org/voxrox/mailbackend/feature/mail/service/MailSyncService.java)) — transientní IMAP chyba, kterou další sync cyklus sám zotaví (dnes ji catch-all loguje jako `ERROR` „Critical error during folder sync" a krátce nastaví účtu `last_error`, bez retry). **≤ ~1/den = očekávaný šum, jen zaznamenat; shluk nebo > pár/den = eskalovat** na bounded retry+backoff a transient překlasifikovat na `WARN`, ať gate nešumí. Při výskytu zapsat dimenze: shlukuje se po sleep/wake nebo změně sítě? provider/složka? potvrzené zotavení v dalším cyklu?
 
 ## 9. Release decision
 
