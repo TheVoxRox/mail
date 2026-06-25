@@ -38,6 +38,15 @@ Pozn.: dialog "mail.exe — Failed to launch JVM" (jpackage launcher, pred start
 
 ---
 
+## v0.1.0 smoke — otevrene bugy (Faze B, 2026-06-25)
+
+Nalezeno pri rucnim release smoke v0.1.0 (signed build, cisty profil `%LOCALAPPDATA%\VoxRox\Mail`). Opraveno: FE update-dialog (#65), OAuth add-account poll reconcile (#66), "duch" zpravy 404 A+B (deterministicky stableId z message-id [MessageStableId.java](backend/src/main/java/org/voxrox/mailbackend/feature/mail/mapper/MessageStableId.java) + FE graceful 404 → reload seznamu [selectedMessage.ts](frontend/src/lib/stores/selectedMessage.ts)). Zde jen otevrene:
+
+- [ ] **C (log-hygiene): periodicka ERROR ~a 30 min.** `Unable to handle the Spring Security Exception because the response is already committed` + root `AuthorizationDeniedException: Access Denied` (09:14/09:44/10:37/11:07/11:37). Typicke pro dlouhoziji SSE stream notifikaci: response committed, auth check selze, Spring nemuze zapsat error. Loguje se na ERROR → kazi §7 log-scan gate. Najit SSE endpoint, bud preauth nebo error-handling, aby to nebyla ERROR.
+- [ ] **D (prechodne): jednorazova sync ERROR.** `MailSyncService: Critical error during folder sync INBOX: failed to create new store connection` (11:17). IMAP connection hiccup, sync se zotavil. Sledovat opakovani; pokud casto, retry/connection-pool.
+
+---
+
 ## First Release Gate
 
 - [ ] Projit cely `backend/RELEASE_CHECKLIST.md` pro konkretni kandidat (fresh install, account flows, mail workflows, sidecar lifecycle, diagnostics, 24h long run).

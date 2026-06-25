@@ -171,13 +171,19 @@ class MessageMapperTest {
         }
 
         @Test
-        @DisplayName("generates a non-null stableId (UUID without dashes)")
-        void generatesNonNullStableId() {
-            // Act
-            MessageEntity result = mapper.toEntity(createDto(), createAccount(), "INBOX", 1L);
+        @DisplayName("generates a deterministic 32-char hex stableId from message identity")
+        void generatesDeterministicStableId() {
+            // Same inputs → same id, so a folder re-download (new random UUID before)
+            // keeps the client's reference valid instead of 404-ing as a "ghost".
+            MessageEntity first = mapper.toEntity(createDto(), createAccount(), "INBOX", 1L);
+            MessageEntity second = mapper.toEntity(createDto(), createAccount(), "INBOX", 1L);
 
-            // Assert - stableId is a 32-char hex string (UUID without dashes)
-            assertThat(result.getStableId()).isNotNull().isNotBlank().hasSize(32).matches("[0-9a-f]{32}");
+            assertThat(first.getStableId()).isNotNull().isNotBlank().hasSize(32).matches("[0-9a-f]{32}");
+            assertThat(second.getStableId()).isEqualTo(first.getStableId());
+
+            // Same message under a different folder (e.g. a Gmail label) → distinct id.
+            MessageEntity otherFolder = mapper.toEntity(createDto(), createAccount(), "[Gmail]/All Mail", 1L);
+            assertThat(otherFolder.getStableId()).isNotEqualTo(first.getStableId());
         }
 
         @Test

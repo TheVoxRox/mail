@@ -134,6 +134,7 @@
 		"attachmentsHeading": "Přílohy:",
 		"attachmentsListLabel": "Přílohy",
 		"contentLoading": "Načítám obsah…",
+		"notFound": "Tato zpráva už není dostupná — mohla být přesunuta nebo smazána. Seznam jsme obnovili.",
 		"iframeTitle": "Obsah zprávy",
 		"pageTitle": "Pošta – Zpráva",
 		"folderPageTitle": "Pošta – {folder}"

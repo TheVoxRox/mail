@@ -124,6 +124,14 @@
 			</div>
 		{/if}
 
+		{#if state.notFound}
+			<div class="px-5 py-4">
+				<Surface variant="subtle" padding="sm">
+					<StateMessage padding="none" role="status">{$_('detail.notFound')}</StateMessage>
+				</Surface>
+			</div>
+		{/if}
+
 		{#if detail}
 			<MessageHeaderCard {detail} onBack={handleClose} />
 		{/if}

@@ -1,7 +1,6 @@
 package org.voxrox.mailbackend.feature.mail.mapper;
 
 import java.util.Objects;
-import java.util.UUID;
 
 import org.jspecify.annotations.Nullable;
 import org.springframework.context.MessageSource;
@@ -26,7 +25,10 @@ public class MessageMapper {
     public MessageEntity toEntity(MailDetailResponse dto, AccountEntity account, String folderName, Long uidValidity) {
         MessageEntity entity = new MessageEntity();
 
-        entity.setStableId(UUID.randomUUID().toString().replace("-", ""));
+        // Deterministic, identity-derived id (survives a folder re-download) instead
+        // of a random UUID — see MessageStableId for why this matters for "ghost" 404s.
+        entity.setStableId(
+                MessageStableId.compute(account.getId(), folderName, dto.messageId(), dto.uid(), uidValidity));
 
         // Message metadata
         entity.setAccount(account);

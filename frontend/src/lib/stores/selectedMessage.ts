@@ -6,7 +6,9 @@
 
 import { writable } from 'svelte/store';
 import { getMessageContent, getMessageDetail } from '$lib/api/mailRead.js';
+import { ApiError } from '$lib/api/client.js';
 import { toError } from '$lib/api/errors.js';
+import { reloadCurrentPage } from '$lib/stores/messages.js';
 import type { MailContentResponse, MailDetailResponse } from '$lib/types.js';
 
 const CACHE_LIMIT = 30;
@@ -17,6 +19,8 @@ export interface SelectedMessage {
 	content: MailContentResponse | null;
 	loading: boolean;
 	error: Error | null;
+	/** The message no longer exists under this id (404) — a "ghost" from a stale list. */
+	notFound: boolean;
 }
 
 export const selectedMessage = writable<SelectedMessage | null>(null);
@@ -60,7 +64,8 @@ export async function selectMessage(stableId: string): Promise<void> {
 		detail: detailCached,
 		content: contentCached,
 		loading: !detailCached || !contentCached,
-		error: null
+		error: null,
+		notFound: false
 	});
 
 	try {
@@ -79,6 +84,21 @@ export async function selectMessage(stableId: string): Promise<void> {
 		);
 	} catch (err) {
 		if (token !== currentToken) return;
+		// A 404 means the message no longer exists under this id — typically a
+		// "ghost" left in a stale list after the folder was re-synced. Recover
+		// gracefully instead of wedging on a raw error: drop it from the cache,
+		// reload the list so the stale row disappears, and flag notFound so the
+		// detail pane shows a friendly "no longer available" notice.
+		if (err instanceof ApiError && err.status === 404) {
+			invalidateMessage(stableId);
+			void reloadCurrentPage();
+			selectedMessage.update((s) =>
+				s && s.stableId === stableId
+					? { ...s, detail: null, content: null, error: null, notFound: true, loading: false }
+					: s
+			);
+			return;
+		}
 		const error = toError(err);
 		selectedMessage.update((s) =>
 			s && s.stableId === stableId ? { ...s, error, loading: false } : s

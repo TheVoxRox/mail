@@ -40,7 +40,8 @@ function makeSelected(stableId: string, seen: boolean): SelectedMessage {
 		detail: { seen } as unknown as SelectedMessage['detail'],
 		content: null,
 		loading: false,
-		error: null
+		error: null,
+		notFound: false
 	};
 }
 
@@ -92,7 +93,8 @@ describe('shouldMarkSelectedMessageSeen', () => {
 			detail: null,
 			content: null,
 			loading: true,
-			error: null
+			error: null,
+			notFound: false
 		};
 		expect(shouldMarkSelectedMessageSeen(msg, idleTracker)).toBe(false);
 	});
