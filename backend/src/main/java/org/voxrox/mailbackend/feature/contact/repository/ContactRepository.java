@@ -22,11 +22,14 @@ public interface ContactRepository extends JpaRepository<ContactEntity, Long> {
     /**
      * Listing with an optional filter by email label. When {@code label == null}
      * the filter is not applied and all account contacts are returned.
-     * {@code @EntityGraph(attributePaths = "emails")} loads the email collection
-     * with one extra query instead of N+1 lazy loads during response DTO mapping.
-     * (JOIN FETCH would break paging here — see HHH000104.)
+     * <p>
+     * Deliberately no {@code @EntityGraph} / JOIN FETCH on {@code emails}: fetching
+     * a collection together with {@code Pageable} makes Hibernate apply the
+     * limit/offset in memory (HHH90003004) instead of in SQL. The page query
+     * therefore selects contact roots with a real SQL {@code LIMIT}; the
+     * {@code emails} collection is batch-loaded ({@code @BatchSize} on the entity)
+     * during DTO mapping — one extra {@code IN} query per batch, not N+1.
      */
-    @EntityGraph(attributePaths = "emails")
     @Query("""
             SELECT DISTINCT c FROM ContactEntity c
             WHERE c.account.id = :accountId
@@ -41,8 +44,10 @@ public interface ContactRepository extends JpaRepository<ContactEntity, Long> {
      * surname, with an optional filter by label. A subquery instead of JOIN avoids
      * duplicates when there are multiple emails and supports paging. The caller
      * wraps {@code q} in {@code %...%}.
+     * <p>
+     * Like {@link #findByAccountId}, {@code emails} is batch-loaded rather than
+     * fetch-joined so {@code Pageable} stays a SQL-level limit (no HHH90003004).
      */
-    @EntityGraph(attributePaths = "emails")
     @Query("""
             SELECT DISTINCT c FROM ContactEntity c
             WHERE c.account.id = :accountId

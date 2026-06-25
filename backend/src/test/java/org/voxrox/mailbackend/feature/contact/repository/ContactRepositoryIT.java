@@ -16,6 +16,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
@@ -36,6 +37,11 @@ import org.voxrox.mailbackend.feature.account.repository.MailProviderRepository;
 import org.voxrox.mailbackend.feature.contact.EmailLabel;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEmailEntity;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEntity;
+
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 
 /**
  * Integration tests for the repository layer against a real SQLite + Flyway
@@ -318,6 +324,51 @@ class ContactRepositoryIT {
 
         assertThat(p.getContent()).extracting(ContactRepositoryIT.this::primaryEmail).containsExactly("a@x.cz",
                 "b@x.cz", "x@x.cz");
+    }
+
+    @Test
+    @DisplayName("findByAccountId — paginates in SQL, not in memory (no HHH90003004 collection fetch-join)")
+    void paginationDoesNotApplyLimitInMemory() {
+        // More contacts than the page size, each with several emails: a fetch-join
+        // of the emails collection together with Pageable would force Hibernate to
+        // page the result in memory and log HHH90003004. Batch fetching keeps the
+        // LIMIT in SQL while still loading the emails.
+        for (int i = 0; i < 5; i++) {
+            ContactEntity c = newContact(account, "primary" + i + "@x.cz", "Name" + i, "Surname" + i);
+            ContactEmailEntity work = new ContactEmailEntity();
+            work.setEmail("work" + i + "@x.cz");
+            work.setLabel(EmailLabel.WORK);
+            work.setPrimary(false);
+            work.setContact(c);
+            c.getEmails().add(work);
+            contactRepository.saveAndFlush(c);
+        }
+        em.clear();
+
+        Logger hibernate = (Logger) LoggerFactory.getLogger("org.hibernate");
+        Level previousLevel = hibernate.getLevel();
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        hibernate.setLevel(Level.WARN);
+        hibernate.addAppender(appender);
+        try {
+            Page<ContactEntity> page = contactRepository.findByAccountId(account.getId(), null,
+                    PageRequest.of(0, 2, Sort.by("id")));
+
+            // SQL-level pagination: the page holds exactly the requested slice while
+            // the total reflects every matching row.
+            assertThat(page.getContent()).hasSize(2);
+            assertThat(page.getTotalElements()).isEqualTo(5);
+            // Emails are still loaded (batch fetch), not dropped by removing the graph.
+            assertThat(page.getContent()).allSatisfy(c -> assertThat(c.getEmails()).hasSize(2));
+        } finally {
+            hibernate.detachAppender(appender);
+            hibernate.setLevel(previousLevel);
+        }
+
+        assertThat(appender.list).as("Hibernate must page the contact listing in SQL, not in memory (HHH90003004)")
+                .noneMatch(e -> e.getFormattedMessage().contains("applying in memory")
+                        || e.getFormattedMessage().contains("HHH90003004"));
     }
 
     @Nested
