@@ -446,7 +446,7 @@ mvn.cmd "-Dmaven.repo.local=C:\dev\java\mail\backend\.m2repo" "-Dapp.data-dir=C:
 Očekávání:
 
 ```text
-Tests run: 566, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 885, Failures: 0, Errors: 0, Skipped: 0   (nebo vyšší aktuální počet)
 target/mail-backend-0.1.0.jar existuje jako repackaged Spring Boot JAR
 StartupSmokeTest vytvoří crypto.bin, session.json, .ready a aplikuje Flyway V1
 ```
