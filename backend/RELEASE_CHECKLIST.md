@@ -42,6 +42,7 @@ Poznámky:
 2026-05-08: Windows sidecar balení prošlo po samostatném backend package přes scripts/package-sidecar-windows.ps1 -SkipTests a následně npm run sidecar:sync:windows.
 2026-05-08: npm run test:e2e prošel; wrapper spouští functional suite a a11y suite přes stable preview režim.
 2026-05-08: npm run test:a11y byl sjednocen na stable preview runner a prošel 42/42.
+2026-06-26: `mvn verify` na main (3210e1a) zelený — surefire 885 + failsafe 28 = 913 testů, 0 fail/error/skip; artefakt mail-backend-0.1.0.jar (77.9 MB). Frontend gate (3210e1a) zelený — check (1368 souborů, 0 chyb), check:i18n (570 klíčů), check:i18n:backend (82), check:translations:strict, knip, test:unit (357), build, test:functional:stable (116), test:a11y:stable (54). Log-scan gate (§7/§8) projet ručně na posledním smoke logu: bug D = 0, audit.log 0 CRITICAL; zbylé ERROR/WARN jsou pre-fix šum z buildu před #69/#70/#71 (bugy F/G/E).
 ```
 
 ## 3. Fresh install
