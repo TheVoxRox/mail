@@ -103,6 +103,15 @@ public class ImapFolderExecutor {
             } catch (ResourceNotFoundException | MailOperationException e) {
                 // AppException subtypes — pass through to GlobalExceptionHandler unchanged
                 throw e;
+            } catch (TransientImapException e) {
+                /*
+                 * A transient connectivity blip raised by the caller's action (the sync cycle).
+                 * Pass it through unchanged — mirroring the AuthenticationFailedException
+                 * pass-through above — so the caller's bounded retry loop can reconnect and
+                 * retry, instead of it being flattened into a generic MailOperationException
+                 * and logged here as an "unexpected" error.
+                 */
+                throw e;
             } catch (Exception e) {
                 log.error("{} Unexpected error: {}", LogCategory.IMAP, e.getMessage(), e);
                 throw new MailOperationException(ErrorCode.INTERNAL_ERROR, "Unexpected IMAP error: " + e.getMessage());

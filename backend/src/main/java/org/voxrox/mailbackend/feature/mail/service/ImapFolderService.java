@@ -42,6 +42,18 @@ public class ImapFolderService {
         }
     }
 
+    /**
+     * Drops the pooled IMAP connection for the account so the next operation builds
+     * a fresh one. Used by the sync retry path after a transient connectivity
+     * failure: the dead/half-open store that produced "failed to create new store
+     * connection" must be discarded before retrying, otherwise the liveness probe
+     * in {@link ImapConnectionManager#getConnectedStore(Long)} may keep handing the
+     * same broken connection back.
+     */
+    public void invalidateConnection(Long accountId) {
+        imapConnectionManager.removeConnection(accountId);
+    }
+
     public List<FolderResponse> getFolders(Long accountId) {
         // The action always returns a (possibly empty) list or throws — it never
         // yields null, so the nullable executor result can be required here.

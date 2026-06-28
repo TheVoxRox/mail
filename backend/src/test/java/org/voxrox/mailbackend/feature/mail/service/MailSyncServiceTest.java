@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -33,6 +34,7 @@ import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.voxrox.mailbackend.core.config.MailClientProperties;
+import org.voxrox.mailbackend.core.config.mail.RetryProperties;
 import org.voxrox.mailbackend.core.config.mail.SyncProperties;
 import org.voxrox.mailbackend.core.metrics.MailMetrics;
 import org.voxrox.mailbackend.exception.ResourceNotFoundException;
@@ -101,6 +103,12 @@ class MailSyncServiceTest {
         account = new AccountEntity();
         account.setId(ACCOUNT_ID);
         account.setEmail(EMAIL);
+
+        // performFullSyncCycle reads mail.client.retry.* up front for its bounded
+        // transient-retry loop. Tiny backoff keeps the retry tests fast; lenient
+        // because not every test drives a full cycle.
+        lenient().when(mailProps.retry()).thenReturn(
+                new RetryProperties(3, java.time.Duration.ofMillis(1), java.time.Duration.ofMillis(2), 2.0));
     }
 
     /**
@@ -431,6 +439,53 @@ class MailSyncServiceTest {
                     .contains("OptimisticLockingFailureException");
         }
 
+    }
+
+    @Nested
+    @DisplayName("performFullSyncCycle — transient retry (bug D)")
+    class TransientRetry {
+
+        @Test
+        @DisplayName("A transient blip is retried after reconnecting and the cycle then succeeds (no last_error)")
+        void transientBlipRetriedThenSucceeds() throws Exception {
+            stubExecuteInFolderRunCallback(mock(Folder.class));
+            stubTransactionTemplateExecuteRunCallback();
+            when(syncStateService.getOrCreateState(eq(ACCOUNT_ID), eq("INBOX"), eq(FolderRole.INBOX)))
+                    .thenReturn(new FolderSyncStateEntity());
+            when(flagSyncService.handleUidValidity(any())).thenReturn(true);
+            // First cycle hits the Angus "failed to create new store connection" blip;
+            // after reconnecting, the retried cycle succeeds.
+            when(messageDownloader.syncNewMessages(any()))
+                    .thenThrow(new MessagingException("failed to create new store connection")).thenReturn(0);
+
+            boolean result = service.performFullSyncCycle(account, "INBOX", FolderRole.INBOX);
+
+            assertThat(result).isTrue();
+            verify(imapFolderService).invalidateConnection(ACCOUNT_ID);
+            verify(accountRepository, never()).updateLastError(anyLong(), any(AccountLastError.class),
+                    any(LocalDateTime.class));
+        }
+
+        @Test
+        @DisplayName("A transient blip that never recovers is recorded once after the bounded retries are exhausted")
+        void transientBlipExhaustsRetriesThenRecorded() throws Exception {
+            stubExecuteInFolderRunCallback(mock(Folder.class));
+            stubTransactionTemplateExecuteRunCallback();
+            when(syncStateService.getOrCreateState(eq(ACCOUNT_ID), eq("INBOX"), eq(FolderRole.INBOX)))
+                    .thenReturn(new FolderSyncStateEntity());
+            when(flagSyncService.handleUidValidity(any())).thenReturn(true);
+            when(messageDownloader.syncNewMessages(any()))
+                    .thenThrow(new MessagingException("failed to create new store connection"));
+
+            boolean result = service.performFullSyncCycle(account, "INBOX", FolderRole.INBOX);
+
+            assertThat(result).isFalse();
+            // maxAttempts=3 -> two reconnect-and-retry rounds before giving up.
+            verify(imapFolderService, times(2)).invalidateConnection(ACCOUNT_ID);
+            ArgumentCaptor<AccountLastError> captor = ArgumentCaptor.forClass(AccountLastError.class);
+            verify(accountRepository).updateLastError(eq(ACCOUNT_ID), captor.capture(), any(LocalDateTime.class));
+            assertThat(captor.getValue().code()).isEqualTo(AccountLastErrorCode.MAIL_SYNC_FOLDER_FAILED);
+        }
     }
 
     @Nested
