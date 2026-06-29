@@ -46,11 +46,10 @@ Nalezeno pri rucnim release smoke v0.1.0 (signed build, cisty profil `%LOCALAPPD
 
 ## First Release Gate
 
-- [ ] Projit cely `backend/RELEASE_CHECKLIST.md` pro konkretni kandidat (fresh install, account flows, mail workflows, sidecar lifecycle, diagnostics, 24h long run).
+Kanonicky seznam *kroku* je [backend/RELEASE_CHECKLIST.md](backend/RELEASE_CHECKLIST.md): fresh install (§3/§3a), account + OAuth flows (§4), mail workflows (§5), sidecar lifecycle + recovery (§6), diagnostics (§7), long run (§8). Tady drzime jen release-mechaniku, ktera v checklistu NENI, a rozhodovaci body. Podmnozinove polozky (fresh install, produkcni OAuth readiness, recovery scenare) se uz netrackuji dvakrat — jsou v checklistu.
+
+- [ ] Projit cely `backend/RELEASE_CHECKLIST.md` pro konkretni kandidat (vc. §6 recovery a §8 long run).
 - [ ] End-to-end release dry run z cisteho checkoutu: tag / draft release, Windows signed workflow, upload artefaktu, overeni instalatoru, `latest.json`, podpisu, rucni instalace na cistem profilu.
-- [ ] Fresh install / reinstall pres stejnou verzi / uninstall + chovani dat v `%LOCALAPPDATA%\VoxRox\Mail`.
-- [ ] Recovery scenare: sidecar kill, orphan proces, restart pocitace behem syncu, poskozena DB, obnova ze zalohy, disk full.
-- [ ] Produkcni OAuth readiness: consent screen, scopes, loopback redirect URI s nahodnym portem, support/privacy URL, realny login, revoke, `requires_reauth`, re-login.
 - [ ] Release proces: verze, tag, changelog, known issues, hashe artefaktu, draft vs public, approval.
 - [ ] Privacy/legal balicek — CZ+EN draft hotov ([PRIVACY.md](PRIVACY.md) / [PRIVACY.en.md](PRIVACY.en.md)); support email, security disclosure kontakt ([SECURITY.md](SECURITY.md)) i Tauri updater URL doplneny. Zbyva uz jen **pravni review** (GDPR "spravce dat" pro org. nasazeni).
 - [ ] Third-party license audit — inventare + bundled NOTICE.txt + SBOM hotove; pred kazdym release regenerovat (`npm run regen:licenses:all`).
@@ -87,8 +86,8 @@ Rozhodnuto: OAuth-only (viz Rozhodnuti). PKCE explicitne zapnut v [SecurityConfi
 
 - [x] Tauri Ed25519 signing key vygenerovan + ulozen do GitHub secrets — HOTOVO 2026-06-16: keypair `6334AE8C9D8495FE` (minisign), privatni klic `~/.tauri/mail.key` (heslem chraneny). Secrety `TAURI_SIGNING_PRIVATE_KEY` + `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` + `TAURI_UPDATER_PUBKEY`, var `TAURI_UPDATER_ENDPOINTS`. Pubkey v [tauri.conf.json](frontend/src-tauri/tauri.conf.json) == lokalni `mail.key.pub`; release workflow [windows-signed-release.yml](.github/workflows/windows-signed-release.yml) klic spotrebuje a podpisy verifikuje.
 - [x] **Offline zaloha signing key** — HOTOVO 2026-06-20: `~/.tauri/mail.key` + heslo ulozeny v offline uloziste mimo pracovni stroj. (Bylo to jedina extrahovatelna kopie — GitHub secret nelze precist zpet, takze pri ztrate disku by jinak slo o trvalou ztratu schopnosti podepisovat updaty.)
-- [ ] Overit, ze GitHub release ma podepsany `voxrox-mail-<version>-x64-setup.exe` + `.sig` + `latest.json` na updater URL.
-- [ ] Otestovat prvni update pres Tauri updater + smoke vN-1 → vN (bez ztraty dat, bez GUI regrese).
+- [ ] Overit podepsane release artefakty na updater URL: `voxrox-mail-<version>-x64-setup.exe` + `.sig` + `latest.json` (= RELEASE_CHECKLIST §3a, tady jako updater-specificky gate).
+- [ ] Otestovat prvni update pres Tauri updater + smoke vN-1 → vN (bez ztraty dat, bez GUI regrese). **Nejdulezitejsi bod release gate — updater se neda opravit pres updater, takze rozbity updater ve verzi, kterou uz lidi maji, je neopravitelny.**
 
 ---
 
@@ -107,7 +106,7 @@ Rozhodnuto: OAuth-only (viz Rozhodnuti). PKCE explicitne zapnut v [SecurityConfi
 - [x] **Log hygiene audit** — HOTOVO 2026-06-13: cisty, detaily v [backend/SECURITY_RELEASE_CHECK.md](backend/SECURITY_RELEASE_CHECK.md). Zadne credentials/tokeny/tela zprav v lozich, vsech 7 email log-site pres `LogMasker`, zadny JavaMail debug, prod `INFO`, frontend bez console->soubor mustku a egress jen loopback. Opraven latentni leak: `AccountEntity`/`AccountCredentialEntity` `toString()` ted maskuji email/username pres `LogMasker` (driv nemaskovane; build overen `mvn spotless:apply compile`). Pozn.: backend sink `/internal/client-errors` zatim neexistuje (FE self-disable na 404) — az vznikne, logovat bounded bez PII.
 - [x] **CodeQL log-injection (72 medium)** — HOTOVO 2026-06-18, merged v PR [#24](https://github.com/TheVoxRox/mail/pull/24); vsech 72 alertu dismissnuto (0 open). Reseni: globalni Logback guard pres custom converter [CrlfSafeMessageConverter](backend/src/main/java/org/voxrox/mailbackend/util/CrlfSafeMessageConverter.java), ktery prevazuje `%m`/`%msg`/`%message` v [logback-spring.xml](backend/src/main/resources/logback-spring.xml) a stripuje CR/LF na vystupni hranici (kryje vsech ~270 sinku + budouci, console+file+audit). Zvoleno misto `%replace` (Spring Boot 4 default pattern je komplexni — `%esb`/correlation/structured — hardcode by byl krehky) i misto rucniho `LogSanitizer` u 72 sinku. Overeno: 6 unit + 1 integracni test (rebind funguje na Logback 1.5.32), StartupSmokeTest cisto, spotless/NullAway/SpotBugs/ArchitectureTest zelene. Alerty dismissnuty "won't fix — mitigated globally"; CodeQL converter nemodeluje, takze BUDOUCI log-injection alerty se objevi znovu → dismissnout stejne (viz [[reference_github_dismiss_alerts]]).
 - [x] **Mail TLS hardening (CodeQL `java/insecure-smtp-ssl`)** — HOTOVO 2026-06-18, merged v PR #25 + #26 (alert #13 → `fixed`, overeno proti post-merge scanu). SMTP [SmtpTransportFactory](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/SmtpTransportFactory.java) STARTTLS vetev nemela `starttls.required` (tichy plaintext downgrade u heslovych uctu) + `checkserveridentity` spolehalo na knihovni default. Fix: explicitni `ssl.checkserveridentity=true` + `starttls.required=true`, parita i pro IMAP [ImapConnectionManager](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/ImapConnectionManager.java) + [MailConnectionProbe](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailConnectionProbe.java). **Klicove:** CodeQL property-name queries chteji LITERAL klic (`"mail.smtp.ssl.checkserveridentity"`) — helper s konkatenaci (`"mail."+protocol+...`) je runtime-OK ale CodeQL ho nevidi (#25 helper nechal #13 open, #26 inline literal ho vyresil), viz [[reference_codeql_property_key_literals]]. Pozn.: plaintext IMAP (`useSsl=false`) zustava moznym dle designu. Zbyle low-prio CodeQL alerty (5,6,86,89,90,91) dismissnuty false-positive/won't-fix (po triáži 2026-06-18); `js/missing-origin-check` + `js/file-access-to-http` ×2 dismissnuty "used in tests". Jediny realny zbytek `java/unused-parameter` (`size` v MailSyncService) opraven v kodu.
-- [ ] Pred releasem zkontrolovat podpisy, updater manifest a recovery postup v `OPERATIONS.md`.
+- [ ] Pred releasem projit recovery postup v `OPERATIONS.md` (podpisy + updater manifest uz kryje RELEASE_CHECKLIST §3a + sekce Release & Update).
 - [ ] **jackson-databind 2.x — CVE-2026-54515 (watch + bump na 2.21.5).** Lokalni OSV scan 2026-06-26 (keyless, [[reference_local_cve_scan_osv]]) nasel na `com.fasterxml.jackson.core:jackson-databind:2.21.4` CVE-2026-54515 (GHSA-5jmj-h7xm-6q6v, **MEDIUM ~5.3, integrity-only** — case-insensitive deserializace obejde per-property `@JsonIgnoreProperties`, publikovano 2026-06-23). Je to **tranzitivni bridge dep**: Spring Boot 4.1.0 `spring-boot-jackson` → `tools.jackson:jackson-databind:3.1.4` (Jackson 3.x, primarni, uz fixed) si tahá `com.fasterxml...:2.21.4` (+ jackson-core/dataformat-yaml/datatype-jsr310 2.21.4). Spring-managed pres property `jackson-2-bom.version` (3.x je `jackson-bom.version`=3.1.4). **Fix 2.21.5 zatim NENI na Maven Central** (posledni 2.21.x = 2.21.4; overeno 2026-06-26). 2.22.0 na Central JE a OSV-cista, ale minor bump michajici se s nevalidovanym 3.1.4 bridgem — pro MEDIUM integrity-only tranzitivni nalez nestoji za to silit. **Akce:** az `com.fasterxml.jackson:jackson-bom:2.21.5` dorazi na Central (Dependabot security update zatim 0 alertu, CVE je 3 dny stare), pridat `<jackson-2-bom.version>2.21.5</jackson-2-bom.version>` do [backend/pom.xml](backend/pom.xml) properties (stejny vzor jako stavajici `tomcat.version` override) + `mvn verify`. CI OWASP DC failuje az na CVSS>=8, takze tohle gate nechytne — proto rucni watch.
 
 ---
@@ -116,8 +115,7 @@ Rozhodnuto: OAuth-only (viz Rozhodnuti). PKCE explicitne zapnut v [SecurityConfi
 
 Backend (headless) cast zmerena a uzavrena — sekce "Startup audit — mereni 2026-06-11" v [backend/PERFORMANCE_BASELINE.md](backend/PERFORMANCE_BASELINE.md) (AppCDS/AOT decision gate rozhodnut uz 2026-06-03). Zbyva jen GUI:
 
-- [ ] Manualni startup smoke checklist v `tauri:dev` (rychly) a `tauri:build` (uplny) — viz archive pro detailni kroky.
-- [ ] Tauri release smoke s AOT cache — `npm run tauri:build:with-sidecar` s `$EnableAotCache=$true`, zmerit desktop `appReady` cold start.
+- [ ] Manualni startup smoke checklist v `tauri:dev` (rychly) a `tauri:build` (uplny) — viz archive pro detailni kroky. Gate-relevantni cast je shell-first "blank screen do 500 ms" (a11y: SR uzivatel, prazdna obrazovka bez ohlaseni je realny problem); boot timings jsou nice-to-have. AOT cache mereni presunuto do backlogu (perf, ne blocker).
 
 ---
 
@@ -131,6 +129,7 @@ Backend (headless) cast zmerena a uzavrena — sekce "Startup audit — mereni 2
 - [ ] Full QRESYNC SELECT s VANISHED — vetsi refactor `ImapFolderExecutor`; po release, pokud bude cleanup latency bottleneck.
 - [ ] Self-update standalone backendu (jen pokud vznikne deployment mimo Tauri bundle).
 - [ ] Dlouhodobe sledovat startup performance a velikost bundle.
+- [ ] Tauri release smoke s AOT cache (perf, NE release blocker) — `npm run tauri:build:with-sidecar` s `$EnableAotCache=$true`, zmerit desktop `appReady` cold start a zapsat do [backend/PERFORMANCE_BASELINE.md](backend/PERFORMANCE_BASELINE.md). Backend cold start uz je v gate (3,7 s); tohle je optimalizacni cislo, ne blocker. (Presunuto ze Startup follow-up 2026-06-29.)
 
 ---
 

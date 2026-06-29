@@ -150,6 +150,9 @@ Smoke flow:
 - [ ] Restart sidecaru obnoví health a běžné API volání.
 - [ ] Restart počítače uprostřed syncu.
 - [ ] Další spuštění projde SQLite WAL recovery a aplikace pokračuje.
+- [ ] Poškozená DB (`mail.db` nebo WAL) — aplikace nastartuje do čitelného error stavu, ne do tichého pádu.
+- [ ] Obnova ze zálohy `db/mail.db.backup-pre-v*` (pre-migration snapshot) — po nahrazení DB zálohou appka nastartuje a data odpovídají snapshotu.
+- [ ] Disk full během syncu — sync selže kontrolovaně (čitelný error, žádná korupce DB), po uvolnění místa pokračuje.
 
 ## 7. Diagnostics
 
@@ -161,10 +164,12 @@ Smoke flow:
 
 ## 8. Long run
 
+**Gate (proporcionální pro v0.1.0):** nechat appku běžet hodiny až 24 h se zapnutým syncem + projet log-scan gate a kontroly růstu paměti / SQLite DB / WAL / duplicit níže. **Hloubková JFR + JDK Mission Control analýza (lock contention) je volitelný post-release deep-dive** — dělat až při reálné stížnosti na výkon nebo podezření na leak, ne jako blocker prvního releasu.
+
 - [ ] Nechat aplikaci běžet 24 h se zapnutým syncem.
-- [ ] Spustit běh s JFR: `-XX:StartFlightRecording=duration=24h,filename=soak.jfr,settings=profile` (u sidecaru přidat do `--java-options` v package skriptu, u dev běhu do `JAVA_TOOL_OPTIONS`).
-- [ ] Vyhodnotit `soak.jfr` v JDK Mission Control: lock contention (Java Monitor Blocked / Park) na `accountLocks`/`refreshLocks`, počty výjimek, růst vláken (leak executorů).
-- [ ] Na konci běhu sebrat thread dump (`jcmd <pid> Thread.print`) — žádná osiřelá/parkovaná vlákna mimo známé pooly.
+- [ ] *(Volitelné, post-release deep-dive)* Spustit běh s JFR: `-XX:StartFlightRecording=duration=24h,filename=soak.jfr,settings=profile` (u sidecaru přidat do `--java-options` v package skriptu, u dev běhu do `JAVA_TOOL_OPTIONS`).
+- [ ] *(Volitelné, post-release deep-dive)* Vyhodnotit `soak.jfr` v JDK Mission Control: lock contention (Java Monitor Blocked / Park) na `accountLocks`/`refreshLocks`, počty výjimek, růst vláken (leak executorů).
+- [ ] *(Volitelné, post-release deep-dive)* Na konci běhu sebrat thread dump (`jcmd <pid> Thread.print`) — žádná osiřelá/parkovaná vlákna mimo známé pooly.
 - [ ] Zkontrolovat paměťovou stopu.
 - [ ] Zkontrolovat růst SQLite DB/WAL.
 - [ ] Zkontrolovat, že IMAP pool nerecykluje chybně mrtvá spojení.
