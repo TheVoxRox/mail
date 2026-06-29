@@ -99,7 +99,8 @@ class ImapFolderExecutorTest {
                 () -> executor.executeReadOnly(7L, "INBOX", (f, uid) -> {
                     throw blip;
                 }));
-        // Same instance — not re-wrapped, so the original cause survives to the retry loop.
+        // Same instance — not re-wrapped, so the original cause survives to the retry
+        // loop.
         assertSame(blip, thrown);
     }
 }

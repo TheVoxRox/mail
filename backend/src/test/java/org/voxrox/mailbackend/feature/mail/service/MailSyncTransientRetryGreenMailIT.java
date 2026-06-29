@@ -41,19 +41,20 @@ import com.icegreen.greenmail.util.ServerSetup;
  *
  * <p>
  * The Mockito unit tests in {@code MailSyncServiceTest} stub
- * {@code executeInFolder} away, so they prove the retry-loop bookkeeping but not
- * that a transient failure actually propagates as a {@link TransientImapException}
- * through the real {@link ImapFolderExecutor} pass-through and is recovered by
- * dropping and rebuilding the pooled connection in {@link ImapConnectionManager}.
- * This IT closes exactly that gap — the deterministic stand-in for the live
- * {@code tauri:dev} smoke that could never summon a real blip on demand.
+ * {@code executeInFolder} away, so they prove the retry-loop bookkeeping but
+ * not that a transient failure actually propagates as a
+ * {@link TransientImapException} through the real {@link ImapFolderExecutor}
+ * pass-through and is recovered by dropping and rebuilding the pooled
+ * connection in {@link ImapConnectionManager}. This IT closes exactly that gap
+ * — the deterministic stand-in for the live {@code tauri:dev} smoke that could
+ * never summon a real blip on demand.
  *
  * <p>
  * Fault is injected at the sync seam: {@link MessageDownloader#syncNewMessages}
  * is spied so its first invocation throws the Angus "failed to create new store
  * connection" message, then delegates to the real method. Everything else —
- * connection pool, per-account lock, SQLite persistence, the live IMAP wire — is
- * real, so a clean recovery here proves the whole mechanism end to end.
+ * connection pool, per-account lock, SQLite persistence, the live IMAP wire —
+ * is real, so a clean recovery here proves the whole mechanism end to end.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         // Keep the background scheduler out of the test — the only sync run is the
@@ -109,8 +110,8 @@ class MailSyncTransientRetryGreenMailIT {
     private MailSyncService mailSyncService;
 
     /**
-     * Real {@link MessageDownloader}, spied so a single download pass can be made to
-     * fail with a transient blip while the next pass runs the real logic.
+     * Real {@link MessageDownloader}, spied so a single download pass can be made
+     * to fail with a transient blip while the next pass runs the real logic.
      */
     @MockitoSpyBean
     private MessageDownloader messageDownloader;
@@ -147,7 +148,8 @@ class MailSyncTransientRetryGreenMailIT {
 
         // Recovered: the cycle reports success and actually persisted both messages
         // over a freshly reconnected store — proving the transient escaped through the
-        // real ImapFolderExecutor pass-through and the real connection pool, not a mock.
+        // real ImapFolderExecutor pass-through and the real connection pool, not a
+        // mock.
         assertThat(succeeded).isTrue();
         assertThat(messageRepository.countByAccountIdAndFolderName(account.getId(), INBOX)).isEqualTo(2);
         // A transient blip that recovered must not leave a user-visible last_error.
