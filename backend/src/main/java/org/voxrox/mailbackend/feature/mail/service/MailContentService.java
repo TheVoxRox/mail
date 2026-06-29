@@ -49,8 +49,9 @@ public class MailContentService {
         MessageEntity messageEntity = messageRepository.findById(messageInternalId)
                 .orElseThrow(() -> new ResourceNotFoundException("Message id=" + messageInternalId + " not found."));
 
-        if (messageEntity.getContent() != null && !messageEntity.getContent().isBlank()) {
-            return messageEntity.getContent();
+        String content = messageEntity.getContent();
+        if (content != null && !content.isBlank()) {
+            return content;
         }
 
         log.info("{} Body missing. Fetching from IMAP server (uid={}, folder={})", LogCategory.SYNC,

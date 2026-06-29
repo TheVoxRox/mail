@@ -26,7 +26,8 @@ public class MailDraftService {
 
         // A subject-less original still gets the "Re: " prefill — the send-side
         // validation requires a non-blank subject anyway.
-        String subject = original.getSubject() != null ? original.getSubject() : "";
+        String originalSubject = original.getSubject();
+        String subject = originalSubject != null ? originalSubject : "";
         if (!subject.toLowerCase(Locale.ROOT).startsWith("re:")) {
             subject = "Re: " + subject;
         }
@@ -63,7 +64,8 @@ public class MailDraftService {
     }
 
     public MailRequest createForwardDraft(MessageEntity original, String content) {
-        String subject = original.getSubject() != null ? original.getSubject() : "";
+        String originalSubject = original.getSubject();
+        String subject = originalSubject != null ? originalSubject : "";
         if (!subject.toLowerCase(Locale.ROOT).startsWith("fwd:")) {
             subject = "Fwd: " + subject;
         }

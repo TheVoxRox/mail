@@ -60,8 +60,9 @@ public final class VCardWriter {
             appendEmail(sb, email);
         }
 
-        if (contact.getNote() != null && !contact.getNote().isBlank()) {
-            sb.append("NOTE:").append(escapeText(contact.getNote())).append(CRLF);
+        String note = contact.getNote();
+        if (note != null && !note.isBlank()) {
+            sb.append("NOTE:").append(escapeText(note)).append(CRLF);
         }
 
         sb.append("END:VCARD").append(CRLF);
