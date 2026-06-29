@@ -1,16 +1,20 @@
 package org.voxrox.mailbackend.feature.mail.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 import jakarta.mail.Folder;
 import jakarta.mail.MessagingException;
 import jakarta.mail.Store;
+import jakarta.mail.UIDFolder;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -70,5 +74,33 @@ class ImapFolderExecutorTest {
         ImapFolderExecutor executor = new ImapFolderExecutor(connectionManager);
 
         assertThrows(ResourceNotFoundException.class, () -> executor.executeReadOnly(7L, "INBOX", (f, uid) -> null));
+    }
+
+    @Test
+    void transientImapExceptionRaisedByActionIsPassedThroughUnchanged() throws Exception {
+        // The bounded transient-retry loop in MailSyncService.performFullSyncCycle
+        // relies on a TransientImapException raised inside the action reaching it
+        // unchanged — exactly like the AuthenticationFailedException pass-through —
+        // rather than being flattened into a generic MailOperationException by the
+        // catch-all below. If the executor swallowed it, the retry would never fire
+        // and a transient blip would surface as a hard last_error (todo.md bug D).
+        runActionAgainstStore();
+        // The real IMAPFolder implements UIDFolder; a plain Folder mock would trip
+        // the "does not support UID operations" guard before the action ever runs.
+        Folder uidCapableFolder = mock(Folder.class, withSettings().extraInterfaces(UIDFolder.class));
+        when(store.getFolder("INBOX")).thenReturn(uidCapableFolder);
+        when(uidCapableFolder.exists()).thenReturn(true);
+
+        ImapFolderExecutor executor = new ImapFolderExecutor(connectionManager);
+        TransientImapException blip = new TransientImapException("INBOX",
+                new MessagingException("failed to create new store connection"));
+
+        TransientImapException thrown = assertThrows(TransientImapException.class,
+                () -> executor.executeReadOnly(7L, "INBOX", (f, uid) -> {
+                    throw blip;
+                }));
+        // Same instance — not re-wrapped, so the original cause survives to the retry
+        // loop.
+        assertSame(blip, thrown);
     }
 }

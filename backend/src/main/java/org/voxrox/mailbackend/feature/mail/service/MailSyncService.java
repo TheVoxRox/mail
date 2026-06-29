@@ -142,96 +142,124 @@ public class MailSyncService {
      *         failure.
      */
     public boolean performFullSyncCycle(AccountEntity account, String folderName, FolderRole detectedRole) {
-        Boolean succeeded = imapFolderService.executeInFolder(account.getId(), folderName, Folder.READ_ONLY,
-                (folder, uidFolder) -> {
-                    final FolderRole role = detectedRole;
-                    FolderSyncStateEntity syncState = transactionTemplate
-                            .execute(status -> syncStateService.getOrCreateState(account.getId(), folderName, role));
+        // Bounded retry around the whole folder cycle for transient IMAP blips (todo.md
+        // bug D). Reuses the IMAP connect-retry tuning (mail.client.retry.*) as the
+        // single "transient network blip" knob. Worst case is bounded: maxAttempts here
+        // times the connect-time retry inside ImapConnectionManager — a few seconds for
+        // a background @Async sync — before the failure is recorded as last_error.
+        int maxAttempts = mailProps.retry().maxAttempts();
+        for (int attempt = 1;; attempt++) {
+            try {
+                Boolean succeeded = imapFolderService.executeInFolder(account.getId(), folderName, Folder.READ_ONLY,
+                        (folder, uidFolder) -> {
+                            final FolderRole role = detectedRole;
+                            FolderSyncStateEntity syncState = transactionTemplate.execute(
+                                    status -> syncStateService.getOrCreateState(account.getId(), folderName, role));
 
-                    FolderSyncContext ctx = new FolderSyncContext(account, folderName, folder, uidFolder, syncState);
-                    String maskedEmail = LogMasker.maskEmail(account.getEmail());
+                            FolderSyncContext ctx = new FolderSyncContext(account, folderName, folder, uidFolder,
+                                    syncState);
+                            String maskedEmail = LogMasker.maskEmail(account.getEmail());
 
-                    var sample = metrics.startSync();
-                    int totalDownloaded = 0;
-                    String outcome = MailMetrics.OUTCOME_SUCCESS;
-                    try {
-                        boolean uidValidityOk = flagSyncService.handleUidValidity(ctx);
-                        if (uidValidityOk) {
-                            totalDownloaded = messageDownloader.syncNewMessages(ctx);
-                            ImapCapabilities caps = ImapCapabilities.probe(folder.getStore());
-                            if (caps.hasCondstore()) {
+                            var sample = metrics.startSync();
+                            int totalDownloaded = 0;
+                            String outcome = MailMetrics.OUTCOME_SUCCESS;
+                            try {
+                                boolean uidValidityOk = flagSyncService.handleUidValidity(ctx);
+                                if (uidValidityOk) {
+                                    totalDownloaded = messageDownloader.syncNewMessages(ctx);
+                                    ImapCapabilities caps = ImapCapabilities.probe(folder.getStore());
+                                    if (caps.hasCondstore()) {
+                                        /*
+                                         * RFC 7162 CONDSTORE — O(changes) instead of O(folder size) for flag sync. The
+                                         * cleanup of deletions still requires UID enumeration (full QRESYNC SELECT with
+                                         * VANISHED is deferred because it requires raw IMAPProtocol access), but it
+                                         * runs over a lightweight UID-only fetch instead of metadata.
+                                         */
+                                        flagSyncService.syncMessageFlagsCondstore(ctx);
+                                        flagSyncService.cleanupDeletedViaUidEnumeration(ctx);
+                                    } else {
+                                        flagSyncService.syncMessageFlagsBatched(ctx);
+                                        flagSyncService.cleanupDeletedInWindow(ctx);
+                                    }
+                                } else {
+                                    /*
+                                     * UID validity has changed — the IMAP server has reset the mailbox state. That
+                                     * means local UIDs no longer match the server and the sync state will be
+                                     * rebuilt from scratch. Data integrity is at risk → CRITICAL.
+                                     */
+                                    AuditLog.critical("sync_uid_validity_reset", maskedEmail, "folder=" + folderName);
+                                }
+
                                 /*
-                                 * RFC 7162 CONDSTORE — O(changes) instead of O(folder size) for flag sync. The
-                                 * cleanup of deletions still requires UID enumeration (full QRESYNC SELECT with
-                                 * VANISHED is deferred because it requires raw IMAPProtocol access), but it
-                                 * runs over a lightweight UID-only fetch instead of metadata.
+                                 * Targeted UPDATE — last_sync_at is purely informational and sync is serialized
+                                 * per (account, folder) via SyncLockManager. Calling save(detached) would fail
+                                 * on the optimistic lock because the version was already bumped in
+                                 * handleUidValidity / saveMessagesBatchAtomic earlier in the cycle.
                                  */
-                                flagSyncService.syncMessageFlagsCondstore(ctx);
-                                flagSyncService.cleanupDeletedViaUidEnumeration(ctx);
-                            } else {
-                                flagSyncService.syncMessageFlagsBatched(ctx);
-                                flagSyncService.cleanupDeletedInWindow(ctx);
+                                LocalDateTime now = LocalDateTime.now();
+                                syncStateService.touchLastSyncAt(ctx.syncState().getId(), now);
+                                ctx.syncState().setLastSyncAt(now);
+
+                                maintenanceService.enforceLocalWindowLimitAsync(ctx.getAccountId(), ctx.folderName());
+
+                                eventPublisher.publishEvent(new MailSyncCompletedEvent(account.getId(), folderName,
+                                        totalDownloaded, Instant.now()));
+
+                                // Refresh the cached server count — folder is already open, getMessageCount
+                                // is cheap, and this lets the read path serve paginator totals without an
+                                // extra IMAP roundtrip for at least the cache TTL. Wrapped so a failure to
+                                // read the count does not pollute last_error after an otherwise successful
+                                // cycle.
+                                try {
+                                    folderCountCache.put(account.getId(), folderName, folder.getMessageCount());
+                                } catch (MessagingException e) {
+                                    log.debug(
+                                            "{} Failed to refresh folder count cache for {} ({}); read path will refresh next time.",
+                                            LogCategory.SYNC, folderName, e.getMessage());
+                                }
+
+                                return true;
+                            } catch (Exception e) {
+                                outcome = MailMetrics.OUTCOME_FAILURE;
+                                if (TransientMailErrors.isTransient(e)) {
+                                    /*
+                                     * A transient connectivity blip (e.g. Angus "failed to create new store
+                                     * connection" when its internal pool grows mid-cycle). Do NOT record last_error
+                                     * here — escape to the bounded retry loop in performFullSyncCycle, which drops
+                                     * the connection, backs off and retries. Only an exhausted retry becomes a
+                                     * hard, user-visible failure.
+                                     */
+                                    throw new TransientImapException(folderName, e);
+                                }
+                                /*
+                                 * Log with the full stack trace — this catch is the last place the exception is
+                                 * seen (it is converted into last_error and swallowed), so without it the root
+                                 * cause would be unrecoverable from the logs.
+                                 */
+                                log.error("{} Critical error during folder sync {}: {}", LogCategory.SYNC, folderName,
+                                        e.getMessage(), e);
+                                recordFolderSyncFailure(account, folderName, e);
+                                return false;
+                            } finally {
+                                metrics.recordSync(sample, outcome, totalDownloaded);
                             }
-                        } else {
-                            /*
-                             * UID validity has changed — the IMAP server has reset the mailbox state. That
-                             * means local UIDs no longer match the server and the sync state will be
-                             * rebuilt from scratch. Data integrity is at risk → CRITICAL.
-                             */
-                            AuditLog.critical("sync_uid_validity_reset", maskedEmail, "folder=" + folderName);
-                        }
-
-                        /*
-                         * Targeted UPDATE — last_sync_at is purely informational and sync is serialized
-                         * per (account, folder) via SyncLockManager. Calling save(detached) would fail
-                         * on the optimistic lock because the version was already bumped in
-                         * handleUidValidity / saveMessagesBatchAtomic earlier in the cycle.
-                         */
-                        LocalDateTime now = LocalDateTime.now();
-                        syncStateService.touchLastSyncAt(ctx.syncState().getId(), now);
-                        ctx.syncState().setLastSyncAt(now);
-
-                        maintenanceService.enforceLocalWindowLimitAsync(ctx.getAccountId(), ctx.folderName());
-
-                        eventPublisher.publishEvent(new MailSyncCompletedEvent(account.getId(), folderName,
-                                totalDownloaded, Instant.now()));
-
-                        // Refresh the cached server count — folder is already open, getMessageCount
-                        // is cheap, and this lets the read path serve paginator totals without an
-                        // extra IMAP roundtrip for at least the cache TTL. Wrapped so a failure to
-                        // read the count does not pollute last_error after an otherwise successful
-                        // cycle.
-                        try {
-                            folderCountCache.put(account.getId(), folderName, folder.getMessageCount());
-                        } catch (MessagingException e) {
-                            log.debug(
-                                    "{} Failed to refresh folder count cache for {} ({}); read path will refresh next time.",
-                                    LogCategory.SYNC, folderName, e.getMessage());
-                        }
-
-                        return true;
-                    } catch (Exception e) {
-                        outcome = MailMetrics.OUTCOME_FAILURE;
-                        /*
-                         * Log with the full stack trace — this catch is the last place the exception is
-                         * seen (it is converted into last_error and swallowed), so without it the root
-                         * cause would be unrecoverable from the logs.
-                         */
-                        log.error("{} Critical error during folder sync {}: {}", LogCategory.SYNC, folderName,
-                                e.getMessage(), e);
-                        String auditAction = isOptimisticLockConflict(e)
-                                ? "sync_optimistic_lock_conflict"
-                                : "sync_folder";
-                        AuditLog.failure(auditAction, maskedEmail,
-                                "folder=" + folderName + " " + e.getClass().getSimpleName());
-                        accountRepository.updateLastError(account.getId(), buildFolderSyncError(folderName, e),
-                                LocalDateTime.now());
-                        return false;
-                    } finally {
-                        metrics.recordSync(sample, outcome, totalDownloaded);
-                    }
-                });
-        return Boolean.TRUE.equals(succeeded);
+                        });
+                return Boolean.TRUE.equals(succeeded);
+            } catch (TransientImapException e) {
+                if (attempt >= maxAttempts) {
+                    log.error("{} Folder sync {} still failing after {} transient-retry attempt(s); recording it: {}",
+                            LogCategory.SYNC, folderName, attempt, e.getMessage(), e.originalCause());
+                    recordFolderSyncFailure(account, folderName, e.originalCause());
+                    return false;
+                }
+                log.warn("{} Transient IMAP error during folder sync {} (attempt {}/{}); reconnecting and retrying: {}",
+                        LogCategory.SYNC, folderName, attempt, maxAttempts, e.getMessage());
+                imapFolderService.invalidateConnection(account.getId());
+                if (!sleepBeforeRetry(attempt)) {
+                    return false;
+                }
+            }
+        }
     }
 
     /**
@@ -251,7 +279,47 @@ public class MailSyncService {
         return false;
     }
 
-    private static AccountLastError buildFolderSyncError(String folderName, Exception e) {
+    /**
+     * Audits and records a folder-sync failure into the account's
+     * {@code last_error} slot. Shared by the permanent-failure path inside the
+     * cycle and the exhausted-retry path in {@link #performFullSyncCycle} so both
+     * classify the audit action (optimistic-lock vs generic) and build the error
+     * identically.
+     */
+    private void recordFolderSyncFailure(AccountEntity account, String folderName, Throwable e) {
+        String auditAction = isOptimisticLockConflict(e) ? "sync_optimistic_lock_conflict" : "sync_folder";
+        AuditLog.failure(auditAction, LogMasker.maskEmail(account.getEmail()),
+                "folder=" + folderName + " " + e.getClass().getSimpleName());
+        accountRepository.updateLastError(account.getId(), buildFolderSyncError(folderName, e), LocalDateTime.now());
+    }
+
+    /**
+     * Jittered exponential backoff between transient sync retries, reusing the IMAP
+     * connect-retry tuning ({@code mail.client.retry.*}). Returns {@code false}
+     * when the wait was interrupted (shutdown) so the caller aborts the retry
+     * quietly.
+     */
+    private boolean sleepBeforeRetry(int attempt) {
+        var retry = mailProps.retry();
+        long capped = Math.min(retry.maxDelay().toMillis(),
+                (long) (retry.initialDelay().toMillis() * Math.pow(retry.multiplier(), (double) attempt - 1)));
+        if (capped <= 0) {
+            return true;
+        }
+        // Jitter to [capped/2, capped] so accounts recovering from the same outage do
+        // not retry in lockstep.
+        long delay = ThreadLocalRandom.current().nextLong(capped / 2 + 1, capped + 1);
+        try {
+            Thread.sleep(delay);
+            return true;
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            log.debug("{} Sync retry backoff interrupted; aborting retry.", LogCategory.SYNC);
+            return false;
+        }
+    }
+
+    private static AccountLastError buildFolderSyncError(String folderName, Throwable e) {
         String base = "Folder sync " + folderName + " failed: " + e.getClass().getSimpleName();
         if (e.getMessage() != null && !e.getMessage().isBlank()) {
             base = base + ": " + e.getMessage();
@@ -276,7 +344,7 @@ public class MailSyncService {
                 Map.of("errorClass", e.getClass().getSimpleName(), "detail", safeDetail(e)), base);
     }
 
-    private static String safeDetail(Exception e) {
+    private static String safeDetail(Throwable e) {
         return e.getMessage() == null || e.getMessage().isBlank() ? "" : e.getMessage();
     }
 
