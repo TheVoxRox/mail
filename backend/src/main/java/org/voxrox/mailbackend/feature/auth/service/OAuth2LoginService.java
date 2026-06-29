@@ -41,6 +41,9 @@ public class OAuth2LoginService {
     public void processLogin(String providerName, OAuth2User oauth2User, OAuth2AuthorizedClient authorizedClient) {
         OAuth2ClaimsExtractor extractor = claimsExtractorRegistry.resolve(providerName);
         ExternalUserClaims claims = extractor.extract(oauth2User, authorizedClient);
+        String email = claims.email();
+        String externalId = claims.externalId();
+        String refreshToken = claims.refreshToken();
 
         /*
          * Identity claims are mandatory. Without an e-mail we can neither match nor
@@ -51,16 +54,16 @@ public class OAuth2LoginService {
          * routing. Both are standard OIDC claims; their absence means a malformed
          * provider response — reject and let the user repeat the flow.
          */
-        if (claims.email() == null || claims.email().isBlank()) {
+        if (email == null || email.isBlank()) {
             log.warn("{} Provider {} did not return an e-mail claim — login rejected.", LogCategory.AUTH, providerName);
             AuditLog.failure("oauth2_login", "<missing-email>", "provider=" + providerName + " missing_email");
             throw new MailOperationException(ErrorCode.MAIL_AUTHENTICATION_FAILED,
                     "The provider did not return an e-mail address. Repeat the sign-in.", HttpStatus.UNAUTHORIZED);
         }
 
-        String maskedEmail = LogMasker.maskEmail(claims.email());
+        String maskedEmail = LogMasker.maskEmail(email);
 
-        if (claims.externalId() == null || claims.externalId().isBlank()) {
+        if (externalId == null || externalId.isBlank()) {
             log.warn("{} Provider {} did not return a stable user id for {} — login rejected.", LogCategory.AUTH,
                     providerName, maskedEmail);
             AuditLog.failure("oauth2_login", maskedEmail, "provider=" + providerName + " missing_external_id");
@@ -80,19 +83,18 @@ public class OAuth2LoginService {
          * provider should always return one; if it did not, it is an anomaly and the
          * user must repeat the flow.
          */
-        if (claims.refreshToken() == null || claims.refreshToken().isBlank()) {
+        if (refreshToken == null || refreshToken.isBlank()) {
             log.warn("{} Provider {} did not return a refresh token for {} — login rejected.", LogCategory.AUTH,
                     providerName, maskedEmail);
             AuditLog.failure("oauth2_login", maskedEmail, "provider=" + providerName + " missing_refresh_token");
-            accountService.markRequiresReauthIfExists(claims.email());
+            accountService.markRequiresReauthIfExists(email);
             throw new MailOperationException(ErrorCode.MAIL_AUTHENTICATION_FAILED,
                     "The provider did not return a refresh token. Repeat the sign-in and confirm access.",
                     HttpStatus.UNAUTHORIZED);
         }
 
         try {
-            accountService.processExternalProviderLogin(providerName, claims.email(), claims.name(),
-                    claims.externalId(), claims.refreshToken());
+            accountService.processExternalProviderLogin(providerName, email, claims.name(), externalId, refreshToken);
             AuditLog.success("oauth2_login", maskedEmail, "provider=" + providerName);
         } catch (RuntimeException e) {
             AuditLog.failure("oauth2_login", maskedEmail,

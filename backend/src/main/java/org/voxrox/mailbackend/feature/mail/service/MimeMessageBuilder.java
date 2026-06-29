@@ -53,23 +53,28 @@ public class MimeMessageBuilder {
 
         message.setFrom(new InternetAddress(account.getEmail(), account.getDisplayName(), "UTF-8"));
 
-        if (request.to() != null && !request.to().isBlank()) {
-            message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(request.to()));
+        String to = request.to();
+        if (to != null && !to.isBlank()) {
+            message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(to));
         }
-        if (request.cc() != null && !request.cc().isBlank()) {
-            message.setRecipients(Message.RecipientType.CC, InternetAddress.parse(request.cc()));
+        String cc = request.cc();
+        if (cc != null && !cc.isBlank()) {
+            message.setRecipients(Message.RecipientType.CC, InternetAddress.parse(cc));
         }
-        if (request.bcc() != null && !request.bcc().isBlank()) {
-            message.setRecipients(Message.RecipientType.BCC, InternetAddress.parse(request.bcc()));
+        String bcc = request.bcc();
+        if (bcc != null && !bcc.isBlank()) {
+            message.setRecipients(Message.RecipientType.BCC, InternetAddress.parse(bcc));
         }
 
         message.setSubject(request.subject() == null ? "" : request.subject(), "UTF-8");
 
-        if (request.inReplyTo() != null && !request.inReplyTo().isBlank()) {
-            message.setHeader("In-Reply-To", request.inReplyTo());
+        String inReplyTo = request.inReplyTo();
+        if (inReplyTo != null && !inReplyTo.isBlank()) {
+            message.setHeader("In-Reply-To", inReplyTo);
         }
-        if (request.references() != null && !request.references().isBlank()) {
-            message.setHeader("References", request.references());
+        String references = request.references();
+        if (references != null && !references.isBlank()) {
+            message.setHeader("References", references);
         }
 
         Multipart multipart = new MimeMultipart();

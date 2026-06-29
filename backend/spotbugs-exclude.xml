@@ -22,4 +22,15 @@
     <Match>
         <Class name="~.*\$\$SpringCGLIB\$\$.*"/>
     </Match>
+
+    <!-- CT_CONSTRUCTOR_THROW on JPA entities (SpotBugs 4.10+ raised this detector's
+         reach): the "finalizer attack" it guards against requires a non-final,
+         finalizable class, but Hibernate forbids making @Entity classes final
+         (it subclasses them for lazy proxies). A validating constructor that
+         throws is the idiomatic JPA pattern, so the only "fix" — marking the
+         class final — is not available to us. Suppress for entities. -->
+    <Match>
+        <Bug pattern="CT_CONSTRUCTOR_THROW"/>
+        <Class name="~org\.voxrox\.mailbackend\..*\.entity\..*"/>
+    </Match>
 </FindBugsFilter>
