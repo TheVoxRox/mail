@@ -94,8 +94,7 @@ public class OAuth2LoginService {
         }
 
         try {
-            accountService.processExternalProviderLogin(providerName, email, claims.name(),
-                    externalId, refreshToken);
+            accountService.processExternalProviderLogin(providerName, email, claims.name(), externalId, refreshToken);
             AuditLog.success("oauth2_login", maskedEmail, "provider=" + providerName);
         } catch (RuntimeException e) {
             AuditLog.failure("oauth2_login", maskedEmail,
