@@ -20,9 +20,9 @@ Tester:
 - [x] Ověřit, že build hlásí `Tests run: 568, Failures: 0, Errors: 0, Skipped: 0` nebo vyšší aktuální počet.
 - [x] Vznikl artefakt `target/mail-backend-0.1.0.jar`.
 - [x] Windows sidecar balení prošlo přes `scripts/package-sidecar-windows.ps1`.
-- [ ] Sidecar launcher `app/mail-x86_64-pc-windows-msvc.cfg` nese zapečené `...google.client-id` (ne `mail-local-*` placeholder). Signed workflow i `package-sidecar-dev-windows.ps1` to zajišťují; bare `package-sidecar-windows.ps1` bez OAuth env teď build shodí, pokud neběží s `-AllowPlaceholderOAuth`.
-- [ ] Sidecar výstup obsahuje `mail-x86_64-pc-windows-msvc.exe`, `app/` a `runtime/`.
-- [ ] Release kandidát běží na čistém Windows profilu bez systémově instalované Java/JDK/JRE.
+- [x] Sidecar launcher `app/mail-x86_64-pc-windows-msvc.cfg` nese zapečené `...google.client-id` (ne `mail-local-*` placeholder). Signed workflow i `package-sidecar-dev-windows.ps1` to zajišťují; bare `package-sidecar-windows.ps1` bez OAuth env teď build shodí, pokud neběží s `-AllowPlaceholderOAuth`. **Ověřeno 2026-06-26** (`package-sidecar-dev-windows.ps1 -SkipTests`): 3 OAuth hodnoty injektnuty, vestavěný verifikační krok hlásí „Google client-id baked into the launcher; no placeholder"; `.cfg` nese `google.client-id` + `google.client-secret` + `microsoft.client-id`, žádný `mail-local-*`.
+- [x] Sidecar výstup obsahuje `mail-x86_64-pc-windows-msvc.exe`, `app/` a `runtime/`. **Ověřeno 2026-06-26:** top-level `mail-x86_64-pc-windows-msvc.exe` (495 KB launcher) + `app/` (jar 77.9 MiB + `.cfg` + `.jpackage.xml`) + `runtime/` (123 MB bundled JRE).
+- [ ] Release kandidát běží na čistém Windows profilu bez systémově instalované Java/JDK/JRE. Pozn.: `runtime/` je strukturálně self-contained — bundled JRE `JAVA_VERSION=25.0.3` s `bin/jli.dll`, `bin/java.dll`, `bin/server/jvm.dll` (nativní launcher zavádí JVM přes JNI, samostatné `java.exe` jpackage app-image záměrně nepřibaluje). Zbývá už jen reálný běh na čistém stroji.
 
 ## 2. Frontend automation
 
@@ -43,6 +43,7 @@ Poznámky:
 2026-05-08: npm run test:e2e prošel; wrapper spouští functional suite a a11y suite přes stable preview režim.
 2026-05-08: npm run test:a11y byl sjednocen na stable preview runner a prošel 42/42.
 2026-06-26: `mvn verify` na main (3210e1a) zelený — surefire 885 + failsafe 28 = 913 testů, 0 fail/error/skip; artefakt mail-backend-0.1.0.jar (77.9 MB). Frontend gate (3210e1a) zelený — check (1368 souborů, 0 chyb), check:i18n (570 klíčů), check:i18n:backend (82), check:translations:strict, knip, test:unit (357), build, test:functional:stable (116), test:a11y:stable (54). Log-scan gate (§7/§8) projet ručně na posledním smoke logu: bug D = 0, audit.log 0 CRITICAL; zbylé ERROR/WARN jsou pre-fix šum z buildu před #69/#70/#71 (bugy F/G/E).
+2026-06-26: §1.23–24 (sidecar balení) ověřeno čerstvým `package-sidecar-dev-windows.ps1 -SkipTests` z main (3516bf5, kód beze změny od 3210e1a — od té doby jen docs commity). BUILD SUCCESS, jpackage app-image do `target/sidecar/x86_64-pc-windows-msvc/`. §1.23: vestavěný verify krok „Google client-id baked into the launcher; no placeholder", `.cfg` nese google client-id+secret + microsoft client-id, 0× `mail-local-`. §1.24: top-level exe + `app/` (jar 77.9 MiB) + `runtime/` (123 MB JRE, Java 25.0.3, jli/java/jvm.dll). §1.25 zůstává — runtime self-contained, ale reálný běh na čistém Windows profilu bez systémové Javy je ruční krok.
 ```
 
 ## 3. Fresh install
