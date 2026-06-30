@@ -11,8 +11,6 @@
 import { browser } from '$app/environment';
 import { derived, type Readable } from 'svelte/store';
 import { addMessages, init, locale } from 'svelte-i18n';
-import { isTauri } from '@tauri-apps/api/core';
-import { getCurrentWindow } from '@tauri-apps/api/window';
 
 type I18nValue = string | I18nDictionary | Array<string | I18nDictionary> | null;
 type I18nDictionary = {
@@ -81,16 +79,6 @@ function detectInitialLocale(): AppLocale {
 let initialized = false;
 let persistenceStarted = false;
 
-function syncNativeWindowTitle(value: AppLocale): void {
-	if (!isTauri()) return;
-
-	void getCurrentWindow()
-		.setTitle(APP_TITLES[value])
-		.catch(() => {
-			// Browser/e2e contexts do not have a native Tauri window to update.
-		});
-}
-
 function startLocalePersistence(): void {
 	if (!browser || persistenceStarted) return;
 	persistenceStarted = true;
@@ -103,7 +91,6 @@ function startLocalePersistence(): void {
 		if (!isSupported(value)) return;
 		document.documentElement.lang = value;
 		document.title = APP_TITLES[value];
-		syncNativeWindowTitle(value);
 		try {
 			window.localStorage.setItem(STORAGE_KEY, value);
 		} catch {

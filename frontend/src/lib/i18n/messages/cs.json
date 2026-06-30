@@ -1,6 +1,7 @@
 {
 	"app": {
 		"title": "VoxRox Mail",
+		"titleLoading": "VoxRox Mail – načítání…",
 		"localeLabel": "Čeština",
 		"skipToMain": "Přeskočit na hlavní obsah",
 		"skipToShortcuts": "Přejít na klávesové zkratky",

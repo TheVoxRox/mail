@@ -14,11 +14,8 @@ import { get } from 'svelte/store';
  */
 vi.setConfig({ testTimeout: 30000, hookTimeout: 30000 });
 
-const { browserMock, isTauriMock, setTitleMock, getCurrentWindowMock } = vi.hoisted(() => ({
-	browserMock: { value: true },
-	isTauriMock: vi.fn<() => boolean>(),
-	setTitleMock: vi.fn<(title: string) => Promise<void>>(),
-	getCurrentWindowMock: vi.fn()
+const { browserMock } = vi.hoisted(() => ({
+	browserMock: { value: true }
 }));
 
 vi.mock('$app/environment', () => ({
@@ -29,8 +26,6 @@ vi.mock('$app/environment', () => ({
 	building: false,
 	version: 'test'
 }));
-vi.mock('@tauri-apps/api/core', () => ({ isTauri: isTauriMock }));
-vi.mock('@tauri-apps/api/window', () => ({ getCurrentWindow: getCurrentWindowMock }));
 
 type I18nModule = typeof import('./index.js');
 
@@ -75,9 +70,6 @@ async function freshModule(): Promise<I18nModule> {
 
 beforeEach(() => {
 	browserMock.value = true;
-	isTauriMock.mockReturnValue(false);
-	setTitleMock.mockReset().mockResolvedValue(undefined);
-	getCurrentWindowMock.mockReset().mockReturnValue({ setTitle: setTitleMock });
 	installLocalStorageStub();
 	setNavigatorLanguage('en-US');
 	// jsdom resets document on each describe, but document.title persists per
@@ -207,37 +199,6 @@ describe('setLocale — persistence + DOM side-effects', () => {
 		mod.setLocale('en');
 
 		expect(document.title).toBeTruthy();
-	});
-});
-
-describe('syncNativeWindowTitle — Tauri-only side-effect', () => {
-	it('does not call getCurrentWindow().setTitle when not running under Tauri', async () => {
-		isTauriMock.mockReturnValue(false);
-		const mod = await freshModule();
-
-		mod.setLocale('en');
-
-		expect(setTitleMock).not.toHaveBeenCalled();
-	});
-
-	it('calls getCurrentWindow().setTitle with the localised title under Tauri', async () => {
-		isTauriMock.mockReturnValue(true);
-		const mod = await freshModule();
-
-		mod.setLocale('en');
-
-		expect(setTitleMock).toHaveBeenCalled();
-		const calledWith = setTitleMock.mock.calls.at(-1)?.[0];
-		expect(typeof calledWith).toBe('string');
-		expect(calledWith).toBeTruthy();
-	});
-
-	it('swallows a rejected setTitle (e2e / non-Tauri preview) — does not throw', async () => {
-		isTauriMock.mockReturnValue(true);
-		setTitleMock.mockRejectedValue(new Error('no window'));
-		const mod = await freshModule();
-
-		expect(() => mod.setLocale('en')).not.toThrow();
 	});
 });
 

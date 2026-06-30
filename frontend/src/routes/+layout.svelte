@@ -18,6 +18,7 @@
 	import { backendSidecarState } from '$lib/backend/sidecar.js';
 	import { watchSidecarAutoRestart } from '$lib/backend/sidecarRecovery.js';
 	import { bootState } from '$lib/stores/boot.js';
+	import { setNativeWindowTitle } from '$lib/windowTitle.js';
 	import { _ } from '$lib/i18n/index.js';
 	import { openPalette, paletteOpen } from '$lib/stores/palette.js';
 	import { initThemeSideEffects } from '$lib/stores/theme.js';
@@ -75,6 +76,19 @@
 	 * the generic landmark announcement is enough.
 	 */
 	const mainLandmarkLabel = $derived($_(`workspace.${$workspaceMode}`));
+
+	/*
+	 * Native OS window title (taskbar / Alt+Tab, and the name a screen reader
+	 * reads when the window gains focus) tracks boot readiness: a "loading" title
+	 * until the backend is up or boot fails, then the app name. The window is
+	 * created with the loading title in Rust (src-tauri/src/lib.rs) so the very
+	 * first focus — before the webview even hydrates — is already informative.
+	 * document.title (the webview/route title) is handled separately by SvelteKit.
+	 */
+	$effect(() => {
+		const settled = $bootState.phase === 'ready' || $bootState.phase === 'failed';
+		setNativeWindowTitle(settled ? $_('app.title') : $_('app.titleLoading'));
+	});
 
 	const bootPhaseTextKey = $derived.by(() => {
 		switch ($bootState.phase) {

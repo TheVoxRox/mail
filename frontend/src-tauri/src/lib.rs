@@ -21,8 +21,13 @@ pub fn run() {
             log::info!("Log directory: {}", log_dir.display());
             log::info!("WebView2 user data directory: {}", webview_dir.display());
 
+            // Created with a "loading" title (cs = default locale) so a screen
+            // reader reading the window name on focus — before the webview even
+            // hydrates — already conveys that the app is starting. The frontend
+            // ($lib/windowTitle via the root layout) switches it to the plain
+            // app name once boot reaches 'ready'/'failed'.
             WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
-                .title("VoxRox Mail")
+                .title("VoxRox Mail – načítání…")
                 .inner_size(1280.0, 800.0)
                 .min_inner_size(1024.0, 768.0)
                 .resizable(true)
