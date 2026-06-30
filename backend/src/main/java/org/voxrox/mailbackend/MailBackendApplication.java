@@ -20,7 +20,8 @@ public class MailBackendApplication {
     public static void main(String[] args) {
         // Armed only when the desktop frontend spawned us (env-gated): self-terminate
         // if the parent dies so a force-killed app can't orphan this JVM. See
-        // ParentProcessWatchdog. Started before app.run so the startup window is covered.
+        // ParentProcessWatchdog. Started before app.run so the startup window is
+        // covered.
         ParentProcessWatchdog.startIfEnabled();
 
         int port;

@@ -27,20 +27,22 @@ import org.voxrox.mailbackend.util.LogCategory;
  * the frontend's {@code beforeunload}/{@code kill()} path already handles), and
  * triggers regardless of how the process tree is nested. Without it, the
  * sidecar runs on an ephemeral port, so the single-instance guard (exit 78 in
- * {@link org.voxrox.mailbackend.MailBackendApplication}) never fires against the
- * zombie and a later launch can start a second backend over the same database.
+ * {@link org.voxrox.mailbackend.MailBackendApplication}) never fires against
+ * the zombie and a later launch can start a second backend over the same
+ * database.
  *
  * <p>
- * Gated on {@value #WATCH_PARENT_ENV}{@code =1}, set only by the frontend when it
- * spawns the sidecar (see {@code frontend/src/lib/backend/sidecar.ts}). Plain
- * {@code mvn spring-boot:run}, the test suite and the build-time AOT run never
- * set it, so the watchdog is a no-op there and never reads their stdin. Mirrors
- * the env-gated lifecycle convention of
+ * Gated on {@value #WATCH_PARENT_ENV}{@code =1}, set only by the frontend when
+ * it spawns the sidecar (see {@code frontend/src/lib/backend/sidecar.ts}).
+ * Plain {@code mvn spring-boot:run}, the test suite and the build-time AOT run
+ * never set it, so the watchdog is a no-op there and never reads their stdin.
+ * Mirrors the env-gated lifecycle convention of
  * {@link org.voxrox.mailbackend.core.init.AotTrainingExitListener}.
  *
  * <p>
- * Started from {@code main()} rather than as a Spring bean so it is armed during
- * the 2–5 s Spring startup window too, not only once the context is ready.
+ * Started from {@code main()} rather than as a Spring bean so it is armed
+ * during the 2–5 s Spring startup window too, not only once the context is
+ * ready.
  */
 public final class ParentProcessWatchdog {
 
@@ -51,9 +53,8 @@ public final class ParentProcessWatchdog {
     }
 
     /**
-     * Starts the watchdog iff {@value #WATCH_PARENT_ENV} requests it. Safe to
-     * call unconditionally from {@code main()}; a no-op outside the spawned
-     * sidecar.
+     * Starts the watchdog iff {@value #WATCH_PARENT_ENV} requests it. Safe to call
+     * unconditionally from {@code main()}; a no-op outside the spawned sidecar.
      */
     public static void startIfEnabled() {
         if (!isEnabled(System.getenv(WATCH_PARENT_ENV))) {
@@ -68,8 +69,7 @@ public final class ParentProcessWatchdog {
 
     /** Spawns the daemon watcher thread. Package-private for tests. */
     static Thread start(InputStream parentPipe, Runnable onParentExit) {
-        Thread thread = new Thread(() -> watchUntilParentExits(parentPipe, onParentExit),
-                "parent-process-watchdog");
+        Thread thread = new Thread(() -> watchUntilParentExits(parentPipe, onParentExit), "parent-process-watchdog");
         thread.setDaemon(true);
         thread.start();
         return thread;
