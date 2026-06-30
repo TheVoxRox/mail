@@ -5,6 +5,7 @@
 		"skipToMain": "Přeskočit na hlavní obsah",
 		"skipToShortcuts": "Přejít na klávesové zkratky",
 		"waitingForBackend": "Čekám na backend…",
+		"loadingApp": "Načítání aplikace VoxRox Mail…",
 		"startingBackendHint": "Při prvním spuštění to může chvíli trvat.",
 		"startingBackendVerySlow": "Stále se spouští. Můžete zkusit připojení obnovit, restartovat lokální službu nebo stáhnout diagnostiku, pokud už je backend dostupný.",
 		"bootFailed": "Nelze nastartovat aplikaci",
