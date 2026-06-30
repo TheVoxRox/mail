@@ -5,6 +5,7 @@
 		"skipToMain": "Skip to main content",
 		"skipToShortcuts": "Go to keyboard shortcuts",
 		"waitingForBackend": "Waiting for the backend…",
+		"loadingApp": "Loading VoxRox Mail…",
 		"startingBackendHint": "The first launch may take a moment.",
 		"startingBackendVerySlow": "Still starting. You can retry the connection, restart the local service, or download diagnostics once the backend is reachable.",
 		"bootFailed": "Application could not start",

@@ -18,6 +18,8 @@ import { checkForUpdateAndPrompt } from '$lib/updates.js';
 import { waitForBackendReadiness } from '$lib/api/readiness.js';
 import { reportClientBootDiagnostics } from '$lib/api/clientBootDiagnostics.js';
 import { toError } from '$lib/api/errors.js';
+import { announcePolite } from '$lib/stores/toasts.js';
+import { _ } from '$lib/i18n/index.js';
 import {
 	beginBoot,
 	bootState,
@@ -126,6 +128,16 @@ async function runBootstrap({
 	timeoutError: BootTimeoutError;
 }): Promise<void> {
 	beginBoot();
+	/*
+	 * Screen-reader-first: push one reliable polite announcement at boot start.
+	 * BootLoadingView's status is a role="status" region, which only announces
+	 * content CHANGES — its initial text is silent — so a SR user could get no
+	 * spoken feedback until the first phase transition. This guarantees an
+	 * immediate "loading" announcement; the role="status" region then announces
+	 * each subsequent phase change itself. i18n is initialised eagerly at module
+	 * import, so get(_) resolves synchronously here.
+	 */
+	announcePolite(get(_)('app.loadingApp'));
 	try {
 		const shouldRestartSidecar = restartSidecar && usesBackendSidecar();
 		registerDefaultCommands();
