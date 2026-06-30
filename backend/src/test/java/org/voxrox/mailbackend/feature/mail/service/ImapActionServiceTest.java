@@ -1,19 +1,38 @@
 package org.voxrox.mailbackend.feature.mail.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import jakarta.mail.Flags;
+import jakarta.mail.Folder;
+import jakarta.mail.Message;
+import jakarta.mail.UIDFolder;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
 import org.voxrox.mailbackend.core.metrics.MailMetrics;
 import org.voxrox.mailbackend.feature.mail.dto.MessageFlag;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+
 @ExtendWith(MockitoExtension.class)
 class ImapActionServiceTest {
+
+    private static final long ACCOUNT_ID = 7L;
+    private static final String DRAFTS = "[Gmail]/Koncepty";
+    private static final long DRAFT_UID = 176L;
 
     @Mock
     private ImapFolderExecutor folderExecutor;
@@ -53,5 +72,79 @@ class ImapActionServiceTest {
         service.moveOnServerAsync(7L, "INBOX", "Archive", 42L);
 
         verify(folderExecutor).executeReadWrite(eq(7L), eq("INBOX"), any());
+    }
+
+    /**
+     * Idempotency contract: when the draft UID is already gone (a concurrent
+     * cleanup path — e.g. the send handler's move-to-trash racing the autosave
+     * {@code replaces} delete — removed it first) the postcondition "absent from
+     * folder" already holds. So hardDelete must NOT expunge and must NOT warn — the
+     * missing UID is a no-op success, not the anomaly the old WARN implied.
+     */
+    @Test
+    void hardDeleteIsIdempotentAndDoesNotWarnWhenUidAlreadyGone() throws Exception {
+        ImapActionService service = new ImapActionService(folderExecutor, connectionManager, metrics);
+        Folder folder = mock(Folder.class);
+        UIDFolder uidFolder = mock(UIDFolder.class);
+        when(uidFolder.getMessageByUID(DRAFT_UID)).thenReturn(null);
+        stubExecutorRunsAction(folder, uidFolder);
+
+        ListAppender<ILoggingEvent> appender = attachAppender();
+        try {
+            service.hardDelete(ACCOUNT_ID, DRAFTS, DRAFT_UID);
+        } finally {
+            detachAppender(appender);
+        }
+
+        verify(folder, never()).expunge();
+        assertThat(appender.list).noneMatch(e -> e.getLevel() == Level.WARN);
+    }
+
+    @Test
+    void hardDeleteExpungesAndLogsWhenMessageIsPresent() throws Exception {
+        ImapActionService service = new ImapActionService(folderExecutor, connectionManager, metrics);
+        Folder folder = mock(Folder.class);
+        UIDFolder uidFolder = mock(UIDFolder.class);
+        Message msg = mock(Message.class);
+        when(uidFolder.getMessageByUID(DRAFT_UID)).thenReturn(msg);
+        stubExecutorRunsAction(folder, uidFolder);
+
+        ListAppender<ILoggingEvent> appender = attachAppender();
+        try {
+            service.hardDelete(ACCOUNT_ID, DRAFTS, DRAFT_UID);
+        } finally {
+            detachAppender(appender);
+        }
+
+        verify(msg).setFlag(Flags.Flag.DELETED, true);
+        verify(folder).expunge();
+        assertThat(appender.list).anyMatch(
+                e -> e.getLevel() == Level.INFO && e.getFormattedMessage().contains("Hard delete of UID " + DRAFT_UID));
+    }
+
+    /**
+     * Makes the mocked executor actually run the supplied folder action against the
+     * given mocks.
+     */
+    private void stubExecutorRunsAction(Folder folder, UIDFolder uidFolder) {
+        when(folderExecutor.executeReadWrite(eq(ACCOUNT_ID), eq(DRAFTS), any())).thenAnswer(invocation -> {
+            ImapFolderAction<?> action = invocation.getArgument(2);
+            return action.apply(folder, uidFolder);
+        });
+    }
+
+    private ListAppender<ILoggingEvent> attachAppender() {
+        Logger logger = (Logger) LoggerFactory.getLogger(ImapActionService.class);
+        logger.setLevel(Level.DEBUG);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        return appender;
+    }
+
+    private void detachAppender(ListAppender<ILoggingEvent> appender) {
+        Logger logger = (Logger) LoggerFactory.getLogger(ImapActionService.class);
+        logger.detachAppender(appender);
+        logger.setLevel(null);
     }
 }

@@ -134,15 +134,29 @@ public class ImapActionService {
     /**
      * Synchronously hard-deletes a message from the server — sets {@code \Deleted}
      * and immediately performs {@code EXPUNGE}. Used for the previous draft
-     * revision during {@code POST /drafts?replaces=...}, where we do not want the
-     * trash folder cluttered with working versions.
+     * revision during {@code POST /drafts?replaces=...} and for the sent draft in
+     * {@link SmtpMessageService#sendDraftAsync}, where we do not want the trash
+     * folder cluttered with working versions.
+     * <p>
+     * The operation is <b>idempotent</b>: its postcondition is "the message is
+     * absent from {@code folderName}". When the UID is already gone the goal is
+     * already met, so this is a no-op success — logged at DEBUG, not WARN. A draft
+     * can legitimately be removed by a concurrent cleanup path before this runs:
+     * the send handler issues a best-effort move-to-trash of the draft
+     * ({@code MailFacade.deleteMessages}) that races the autosave {@code replaces}
+     * hard-delete of the same revision, and on an eventually-consistent async
+     * pipeline either may win. Idempotency keeps that race correct instead of
+     * trying to serialise the two paths.
      */
     public void hardDelete(Long accountId, String folderName, long uid) {
         folderExecutor.executeReadWrite(accountId, folderName, (folder, uidFolder) -> {
             try {
                 Message msg = uidFolder.getMessageByUID(uid);
                 if (msg == null) {
-                    log.warn("{} hardDelete: UID {} not found in folder {}.", LogCategory.IMAP, uid, folderName);
+                    // Already gone — a concurrent cleanup path expunged or moved it first.
+                    // The desired end state already holds, so this is a no-op, not an anomaly.
+                    log.debug("{} hardDelete: UID {} already absent from folder {}, nothing to do.", LogCategory.IMAP,
+                            uid, folderName);
                     return null;
                 }
                 msg.setFlag(Flags.Flag.DELETED, true);
