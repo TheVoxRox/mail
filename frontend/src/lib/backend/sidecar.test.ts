@@ -261,7 +261,7 @@ describe('ensureBackendSidecar — env / lifecycle short-circuits', () => {
 
 		expect(mailDataDirMock).toHaveBeenCalledOnce();
 		expect(commandSidecarMock).toHaveBeenCalledWith('binaries/mail', [], {
-			env: { APP_DATA_DIR: '/data' }
+			env: { APP_DATA_DIR: '/data', MAIL_SIDECAR_WATCH_PARENT: '1' }
 		});
 		expect(handle.cmd.spawn).toHaveBeenCalledOnce();
 		expect(get(mod.backendSidecarState)).toEqual({ status: 'running', pid: 42 });

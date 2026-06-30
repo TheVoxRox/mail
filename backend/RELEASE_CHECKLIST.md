@@ -144,6 +144,8 @@ Smoke flow:
 
 - [ ] Ukončit Tauri parent proces přes Task Manager / `kill -9`.
 - [ ] Ověřit, že sidecar backend nezůstane běžet jako osiřelý Java proces.
+  - _Od 2026-06-30 to hlídá parent-death watchdog ([ParentProcessWatchdog.java](src/main/java/org/voxrox/mailbackend/core/lifecycle/ParentProcessWatchdog.java)): frontend spouští sidecar s `MAIL_SIDECAR_WATCH_PARENT=1`, backend čte `System.in` a na uzavření stdin pipe (smrt frontendu, vč. force-kill) zavolá `System.exit(0)`. Tento bod ověřuje, že to na zabaleném buildu reálně funguje — JVM `mail` má do pár sekund zmizet z Task Manageru._
+  - _Ověřeno 2026-06-30 na dev-zabaleném sidecaru přes tauri:dev: force-kill `app.exe` → oba `mail.exe` (launcher + JVM grandchild) zmizely za ~13 s, 0 orphanů (z toho ~10 s graceful timeout na visící SSE, pak čistý DB close). Na podepsaném release buildu zopakovat._
 - [ ] Ukončit jen sidecar backend.
 - [ ] UI ukáže srozumitelný error stav.
 - [ ] UI nabídne restart sidecaru.
