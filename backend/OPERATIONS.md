@@ -288,9 +288,12 @@ Manuální fallback, pokud Tauri updater selže (síťový timeout, signature mi
 # 2. Najít nejnovější zálohu
 Get-ChildItem "$env:LOCALAPPDATA\VoxRox\Mail\db\mail.db.backup-pre-v*" |
   Sort-Object LastWriteTime -Descending | Select-Object -First 1
-# 3. Přejmenovat poškozenou DB stranou
+# 3. Přejmenovat poškozenou DB stranou + odklidit její stale WAL/SHM (jinak by se
+#    starý WAL aplikoval na obnovenou DB a mohl ji poškodit)
 Move-Item "$env:LOCALAPPDATA\VoxRox\Mail\db\mail.db" `
           "$env:LOCALAPPDATA\VoxRox\Mail\db\mail.db.broken"
+Remove-Item "$env:LOCALAPPDATA\VoxRox\Mail\db\mail.db-wal", `
+            "$env:LOCALAPPDATA\VoxRox\Mail\db\mail.db-shm" -ErrorAction SilentlyContinue
 # 4. Obnovit ze zálohy (nahradit <ZALOHA> jménem souboru z kroku 2)
 Copy-Item "$env:LOCALAPPDATA\VoxRox\Mail\db\<ZALOHA>" `
           "$env:LOCALAPPDATA\VoxRox\Mail\db\mail.db"
