@@ -16,6 +16,7 @@
 	import { sessionState } from '$lib/stores/session.js';
 	import { accountsState, resolvedActiveAccountId } from '$lib/stores/accounts.js';
 	import { backendSidecarState } from '$lib/backend/sidecar.js';
+	import { watchSidecarAutoRestart } from '$lib/backend/sidecarRecovery.js';
 	import { bootState } from '$lib/stores/boot.js';
 	import { _ } from '$lib/i18n/index.js';
 	import { openPalette, paletteOpen } from '$lib/stores/palette.js';
@@ -127,6 +128,13 @@
 		const cleanupTextSize = initTextSizeSideEffects();
 		const cleanupErrorReporting = initErrorReporting();
 
+		/*
+		 * After an automatic sidecar restart the backend returns on a new port
+		 * with a new handshake key; re-handshake so requests / SSE stop hitting
+		 * the dead old port (see lib/backend/sidecarRecovery.ts).
+		 */
+		const stopSidecarAutoRestartWatch = watchSidecarAutoRestart();
+
 		const exposeE2E = window.localStorage.getItem('mail.e2e') === '1';
 		if (exposeE2E) {
 			window.__MAIL_E2E__ = {
@@ -164,6 +172,7 @@
 			if (window.__MAIL_E2E__) {
 				delete window.__MAIL_E2E__;
 			}
+			stopSidecarAutoRestartWatch();
 			cleanupErrorReporting();
 			cleanupTheme();
 			cleanupTextSize();
