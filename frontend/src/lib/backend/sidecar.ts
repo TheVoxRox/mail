@@ -207,7 +207,20 @@ async function spawnBackendSidecar(): Promise<void> {
 	 */
 	const generation = ++runtime.generation;
 
-	const command = Command.sidecar(SIDECAR_PROGRAM, [], { env: { APP_DATA_DIR: dataDir } });
+	const command = Command.sidecar(SIDECAR_PROGRAM, [], {
+		env: {
+			APP_DATA_DIR: dataDir,
+			/*
+			 * Arms the backend's parent-death watchdog. When this frontend process
+			 * goes away — including a force-kill (Task Manager, kill -9, a crash)
+			 * that skips stopBackendSidecar()/beforeunload — the OS closes the
+			 * sidecar's stdin pipe and the backend self-terminates instead of
+			 * lingering as an orphaned JVM holding the ephemeral port and the DB.
+			 * See backend core/lifecycle/ParentProcessWatchdog.java.
+			 */
+			MAIL_SIDECAR_WATCH_PARENT: '1'
+		}
+	});
 	command.stdout.on('data', (line) => console.info(`[mail] ${line}`));
 	command.stderr.on('data', (line) => console.warn(`[mail] ${line}`));
 	command.on('close', (payload) => {
