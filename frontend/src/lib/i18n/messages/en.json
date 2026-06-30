@@ -1,6 +1,7 @@
 {
 	"app": {
 		"title": "VoxRox Mail",
+		"titleLoading": "VoxRox Mail – loading…",
 		"localeLabel": "English",
 		"skipToMain": "Skip to main content",
 		"skipToShortcuts": "Go to keyboard shortcuts",
