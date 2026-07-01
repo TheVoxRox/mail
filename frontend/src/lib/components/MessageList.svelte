@@ -116,7 +116,17 @@
 			void handleSelect(message);
 			return;
 		}
-		if (event.key === 'Delete') {
+		// Plain Delete only — matches the open-message handler in globalShortcuts.ts
+		// so a modifier combo (Shift/Ctrl+Delete) behaves the same whether focus is
+		// on a list row or in the reading pane. Modified Delete falls through to the
+		// navigation branch, where computeNextCell returns null for 'Delete' → no-op.
+		if (
+			event.key === 'Delete' &&
+			!event.ctrlKey &&
+			!event.metaKey &&
+			!event.altKey &&
+			!event.shiftKey
+		) {
 			event.preventDefault();
 			void deleteMessages([message.stableId]);
 			return;
