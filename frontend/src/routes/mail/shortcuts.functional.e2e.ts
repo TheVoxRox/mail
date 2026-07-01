@@ -113,3 +113,39 @@ test('Delete s focusem na aplikaci (mimo tělo) zprávu stále smaže', async ({
 	await page.waitForURL('**/mail/1/INBOX', { timeout: 5000 });
 	expect(deleteRequests).toHaveLength(1);
 });
+
+/*
+ * Counterpart to the open-message Delete tests above: on a focused list row a
+ * MODIFIED Delete (Shift/Ctrl+Delete) must be a no-op, matching the plain-Delete
+ * guard in the open-message handler (globalShortcuts.ts). Uses two rows so the
+ * assertion is deterministic without a timeout — a plain Delete on a second row
+ * both proves the handler is wired and flushes the queued modified keystrokes.
+ */
+test('Shift/Ctrl+Delete na fokusovaném řádku seznamu zprávu nesmaže', async ({ page }) => {
+	const deletedIds: string[] = [];
+	page.on('request', (r) => {
+		const match = /\/api\/v1\/messages\/(msg-\d+)$/.exec(r.url());
+		if (r.method() === 'DELETE' && match) deletedIds.push(match[1]);
+	});
+
+	await page.goto('/mail/1/INBOX');
+	await waitForShell(page);
+
+	// Focus the row directly (a click would open the message and hand Delete to
+	// the open-message handler instead of the grid row handler under test).
+	const guarded = page.locator('[role="row"][data-stable-id="msg-02"]');
+	await expect(guarded).toBeVisible();
+	await guarded.focus();
+	await page.keyboard.press('Shift+Delete');
+	await page.keyboard.press('Control+Delete');
+
+	// Plain Delete on another row deletes it — and completing that round-trip is a
+	// deterministic signal that the earlier modified keystrokes were processed.
+	const control = page.locator('[role="row"][data-stable-id="msg-01"]');
+	await control.focus();
+	await page.keyboard.press('Delete');
+	await expect(control).toHaveCount(0);
+
+	await expect(guarded).toBeVisible();
+	expect(deletedIds).toEqual(['msg-01']);
+});
