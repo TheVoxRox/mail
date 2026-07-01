@@ -126,6 +126,9 @@ export function mailHtmlToPlainText(html: string): string {
 	if (typeof DOMParser === 'undefined') return html;
 
 	const doc = new DOMParser().parseFromString(html, 'text/html');
+	// Drop non-visible elements first — textContent would otherwise leak their
+	// source (e.g. a <script> body) into the flattened plain text.
+	doc.querySelectorAll('script, style').forEach((node) => node.remove());
 	doc.querySelectorAll('br').forEach((br) => br.replaceWith('\n'));
 	doc.querySelectorAll('p').forEach((p) => p.prepend('\n\n'));
 	doc
