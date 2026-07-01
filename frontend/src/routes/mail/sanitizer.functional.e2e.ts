@@ -31,3 +31,30 @@ test.describe('Mail HTML sanitizer', () => {
 		expect(srcdoc).not.toContain('tracker.example.test');
 	});
 });
+
+test.describe('Zobrazení těla jako prostý text', () => {
+	test.beforeEach(async ({ page }) => {
+		await page.addInitScript(() => {
+			window.localStorage.setItem('mail.messageBodyView', 'plain');
+		});
+	});
+
+	test('zploští HTML na čitelný text místo zobrazení holých značek', async ({ page }) => {
+		await page.goto('/mail/1/INBOX/msg-01');
+		await waitForShell(page);
+
+		// Plain-text view renders directly in the document — no sandboxed iframe.
+		await expect(page.getByTitle('Obsah zprávy')).toHaveCount(0);
+
+		const main = page.locator('#main-content');
+		await expect(main).toContainText('Projektové podklady');
+
+		// The content endpoint returns display HTML; the plain-text view must flatten
+		// it, not dump the raw markup (or a <script> body) into the pane.
+		const text = await main.innerText();
+		expect(text).not.toContain('<strong>');
+		expect(text).not.toContain('<div');
+		expect(text).not.toContain('<p');
+		expect(text).not.toContain('window.__xss');
+	});
+});

@@ -5,6 +5,7 @@
 		isMailFrameKeyMessage,
 		mailFrameKeyToEvent
 	} from '$lib/mail/mailFrame.js';
+	import { mailHtmlToPlainText } from '$lib/mail/content-sanitizer.js';
 	import { messageBodyView } from '$lib/stores/uiLayout.js';
 
 	type Props = {
@@ -15,6 +16,14 @@
 	let { content, looksLikeHtml }: Props = $props();
 
 	const renderAsHtml = $derived(looksLikeHtml && $messageBodyView === 'html');
+
+	/*
+	 * In plain-text view the content endpoint still returns display HTML (wrapped in
+	 * mail-content-wrapper), so flatten it to readable text — the same transform as
+	 * the reply/forward prefill — instead of dumping raw <div>/<table> tags into the
+	 * pane. Genuine plain-text bodies (not looksLikeHtml) pass through unchanged.
+	 */
+	const plainTextBody = $derived(looksLikeHtml ? mailHtmlToPlainText(content) : content);
 
 	/*
 	 * The body renders in a script-sandboxed, opaque-origin iframe whose only
@@ -54,7 +63,7 @@
 		></iframe>
 	{:else}
 		<div class="max-w-3xl whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-			{content}
+			{plainTextBody}
 		</div>
 	{/if}
 </div>

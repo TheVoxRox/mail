@@ -24,6 +24,15 @@ describe('mailHtmlToPlainText', () => {
 	it('returns empty string for empty input', () => {
 		expect(mailHtmlToPlainText('')).toBe('');
 	});
+
+	it('drops script and style bodies instead of leaking their source', () => {
+		const html = '<div>before<script>window.__x=1</script><style>.a{color:red}</style>after</div>';
+		const text = mailHtmlToPlainText(html);
+		expect(text).not.toContain('window.__x');
+		expect(text).not.toContain('color:red');
+		expect(text).toContain('before');
+		expect(text).toContain('after');
+	});
 });
 
 describe('isMailHtml', () => {
