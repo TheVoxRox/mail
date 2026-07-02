@@ -27,6 +27,7 @@ import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
 import org.voxrox.mailbackend.util.AuditLog;
 import org.voxrox.mailbackend.util.LogCategory;
 import org.voxrox.mailbackend.util.LogMasker;
+import org.voxrox.mailbackend.util.Throwables;
 
 import module java.base;
 
@@ -269,12 +270,10 @@ public class MailSyncService {
      * propagate too.
      */
     private static boolean isOptimisticLockConflict(Throwable e) {
-        Throwable cur = e;
-        while (cur != null) {
+        for (Throwable cur : Throwables.causalChain(e)) {
             if (cur instanceof OptimisticLockingFailureException || cur instanceof StaleObjectStateException) {
                 return true;
             }
-            cur = cur.getCause();
         }
         return false;
     }

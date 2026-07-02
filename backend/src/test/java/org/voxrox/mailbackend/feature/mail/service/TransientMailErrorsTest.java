@@ -66,6 +66,23 @@ class TransientMailErrorsTest {
     }
 
     @Test
+    @DisplayName("A cyclic cause chain terminates and still classifies correctly")
+    void cyclicCauseChainTerminates() {
+        // Cycle of non-transient links -> classified false, and the walk ends.
+        RuntimeException first = new RuntimeException("first");
+        RuntimeException second = new RuntimeException("second", first);
+        first.initCause(second); // first -> second -> first -> ...
+        assertThat(TransientMailErrors.isTransient(second)).isFalse();
+
+        // A transient link inside a cycle is still found.
+        RuntimeException wrapper = new RuntimeException("wrapper");
+        ConnectException refused = new ConnectException("refused");
+        wrapper.initCause(refused);
+        refused.initCause(wrapper); // wrapper -> refused -> wrapper -> ...
+        assertThat(TransientMailErrors.isTransient(wrapper)).isTrue();
+    }
+
+    @Test
     @DisplayName("Permanent / programming errors are not transient")
     void permanentErrorsAreNotTransient() {
         assertThat(TransientMailErrors.isTransient(new RuntimeException("IMAP timeout"))).isFalse();
