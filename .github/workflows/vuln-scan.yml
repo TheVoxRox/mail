@@ -11,6 +11,11 @@ jobs:
   owasp-backend:
     name: Backend OWASP Dependency-Check
     runs-on: ubuntu-latest
+    # The NVD API can degrade to the point where the full CVE pull would run
+    # past GitHub's 6h job limit (observed 2026-06-29..07-01: three runs
+    # cancelled at exactly 6h, ~75% downloaded). Fail fast and visibly instead —
+    # the Trivy SBOM gate in generate-sboms keeps CVE gating alive on such days.
+    timeout-minutes: 90
     defaults:
       run:
         working-directory: backend
@@ -56,7 +61,10 @@ jobs:
           rc=1
           log="$RUNNER_TEMP/dependency-check.out"
           while [ "$attempt" -le "$max" ]; do
-            mvn --batch-mode org.owasp:dependency-check-maven:check \
+            # Version pinned: an unpinned `:check` resolves the latest plugin on
+            # every run, and a plugin upgrade with a new DB schema silently turns
+            # the cached NVD H2 database into a full re-download.
+            mvn --batch-mode org.owasp:dependency-check-maven:12.2.2:check \
               -DnvdApiKey="${{ secrets.NVD_API_KEY }}" \
               -DfailBuildOnCVSS=8 \
               -DskipTests \
@@ -99,6 +107,7 @@ jobs:
   npm-audit-frontend:
     name: Frontend npm audit
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: frontend
@@ -134,6 +143,7 @@ jobs:
   cargo-audit-tauri:
     name: Tauri cargo audit (RustSec)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: frontend/src-tauri
@@ -177,6 +187,7 @@ jobs:
   generate-sboms:
     name: Generate CycloneDX SBOMs (npm / Maven / Cargo)
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     permissions:
       contents: read
       security-events: write
@@ -253,7 +264,14 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: '0'
 
-      - name: Trivy SBOM scan — backend
+      # GATE (exit-code 1), unlike the other two Trivy scans: the backend's
+      # primary scanner (OWASP job above) depends on the chronically flaky NVD
+      # API and can time out without evaluating anything, while frontend and
+      # Tauri always have their own gates (npm audit / cargo audit). Trivy pulls
+      # a prebuilt vulnerability DB (GHSA/OSV/NVD mirrors) in seconds, so this
+      # keeps a daily HIGH/CRITICAL gate on backend dependencies even on days
+      # the NVD API is unusable.
+      - name: Trivy SBOM scan — backend (gate)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: sbom
@@ -261,7 +279,7 @@ jobs:
           format: sarif
           output: trivy-backend.sarif
           severity: HIGH,CRITICAL
-          exit-code: '0'
+          exit-code: '1'
 
       - name: Trivy SBOM scan — Tauri
         uses: aquasecurity/trivy-action@v0.36.0
