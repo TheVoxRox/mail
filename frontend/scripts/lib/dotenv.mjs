@@ -1,8 +1,8 @@
 /**
  * Loads backend/.env for scripts that hand the backend env to the Tauri
  * sidecar (tauri-dev-with-env, tauri-release-startup-smoke). Deliberately
- * minimal — supports NAME=value lines, comments, and single/double quoted
- * values; no interpolation.
+ * minimal — supports NAME=value lines, full-line and inline comments, and
+ * single/double quoted values; no interpolation.
  */
 
 import { readFile } from 'node:fs/promises';
@@ -21,6 +21,11 @@ export const BACKEND_ENV_PATH = path.resolve(libDir, '..', '..', '..', 'backend'
  */
 const DESKTOP_FILTERED_ENV_NAMES = new Set(['MAIL_CRYPTO_KEY', 'MAIL_CRYPTO_SALT']);
 
+const isQuoted = (value) =>
+	value.length >= 2 &&
+	((value.startsWith('"') && value.endsWith('"')) ||
+		(value.startsWith("'") && value.endsWith("'")));
+
 export function parseDotEnv(raw) {
 	const values = {};
 
@@ -33,10 +38,14 @@ export function parseDotEnv(raw) {
 
 		const [, name, rawValue] = match;
 		let value = rawValue.trim();
-		if (
-			(value.startsWith('"') && value.endsWith('"')) ||
-			(value.startsWith("'") && value.endsWith("'"))
-		) {
+		// A fully quoted value keeps its content verbatim (a '#' inside quotes is
+		// data); in an unquoted value a '#' preceded by whitespace starts an inline
+		// comment. Mirrors Import-DotEnv.ps1 — both parsers read the same
+		// backend/.env and must agree.
+		if (!isQuoted(value)) {
+			value = value.split(/\s+#/, 1)[0].trimEnd();
+		}
+		if (isQuoted(value)) {
 			value = value.slice(1, -1);
 		}
 		values[name] = value;

@@ -42,6 +42,13 @@ function Import-DotEnv {
         }
         $name = $Matches[1]
         $value = $Matches[2]
+        # A fully quoted value keeps its content verbatim (a '#' inside quotes is
+        # data); in an unquoted value a '#' preceded by whitespace starts an inline
+        # comment. Mirrors parseDotEnv in frontend/scripts/lib/dotenv.mjs — both
+        # parsers read the same backend/.env and must agree.
+        if ($value -notmatch '^".*"$' -and $value -notmatch "^'.*'$") {
+            $value = ($value -split '\s+#', 2)[0].TrimEnd()
+        }
         if ($value -match '^"(.*)"$' -or $value -match "^'(.*)'$") {
             $value = $Matches[1]
         }
