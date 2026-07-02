@@ -436,10 +436,10 @@
 			"reference": "Nápověda"
 		},
 		"appearance": {
-			"intro": "Upravte motiv a rozložení čtení zpráv.",
+			"intro": "Upravte téma a rozložení čtení zpráv.",
 			"theme": {
-				"heading": "Motiv",
-				"hint": "Volba se projeví ihned. Téma se řídí nastavením operačního systému.",
+				"heading": "Téma",
+				"hint": "Volba se projeví ihned. „Podle systému\" přebírá nastavení operačního systému.",
 				"label": "Téma",
 				"options": {
 					"system": "Podle systému",
