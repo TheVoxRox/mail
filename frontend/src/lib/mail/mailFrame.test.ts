@@ -5,6 +5,8 @@ import {
 	MAIL_FRAME_CSP,
 	MAIL_FRAME_SCRIPT,
 	MAIL_FRAME_SCRIPT_SHA256,
+	MAIL_FRAME_STYLE,
+	MAIL_FRAME_STYLE_SHA256,
 	buildMailFrameSrcdoc,
 	isMailFrameKeyMessage,
 	mailFrameKeyToEvent,
@@ -27,12 +29,32 @@ describe('MAIL_FRAME_SCRIPT_SHA256', () => {
 	});
 });
 
+describe('MAIL_FRAME_STYLE_SHA256', () => {
+	it('matches the actual SHA-256 of the base stylesheet', () => {
+		// If this fails, the CSP hash no longer pins the base style and the frame
+		// would block it — mail bodies would render unstyled (default black text,
+		// no light background). Update the constant to the value below.
+		const actual = createHash('sha256').update(MAIL_FRAME_STYLE, 'utf8').digest('base64');
+		expect(actual).toBe(MAIL_FRAME_STYLE_SHA256);
+	});
+
+	it('is referenced by the frame CSP style-src', () => {
+		expect(MAIL_FRAME_CSP).toContain(`style-src 'sha256-${MAIL_FRAME_STYLE_SHA256}'`);
+	});
+
+	it('keeps the mail surface light regardless of app theme', () => {
+		expect(MAIL_FRAME_STYLE).toContain('color-scheme:light');
+		expect(MAIL_FRAME_STYLE).toContain('background:#ffffff');
+	});
+});
+
 describe('buildMailFrameSrcdoc', () => {
-	it('embeds the meta CSP and the hash-pinned forwarder', () => {
+	it('embeds the meta CSP, the hash-pinned forwarder and the base style', () => {
 		const doc = buildMailFrameSrcdoc('<p>hello</p>');
 		expect(doc).toContain('<meta http-equiv="Content-Security-Policy"');
 		expect(doc).toContain(`script-src 'sha256-${MAIL_FRAME_SCRIPT_SHA256}'`);
 		expect(doc).toContain(`<script>${MAIL_FRAME_SCRIPT}</script>`);
+		expect(doc).toContain(`<style>${MAIL_FRAME_STYLE}</style>`);
 		expect(doc).toContain('<p>hello</p>');
 	});
 

@@ -54,12 +54,17 @@
 
 <div class="flex-1 bg-background p-5">
 	{#if renderAsHtml}
+		<!--
+			bg-white (not bg-background): the srcdoc paints a fixed light surface
+			(see MAIL_FRAME_STYLE) because mail HTML assumes white; matching the
+			element background avoids a dark flash before the frame renders.
+		-->
 		<iframe
 			use:mailFrame
 			title={$_('detail.iframeTitle')}
 			sandbox="allow-scripts"
 			srcdoc={buildMailFrameSrcdoc(content)}
-			class="h-[65vh] min-h-96 w-full rounded-md border border-border bg-background"
+			class="h-[65vh] min-h-96 w-full rounded-md border border-border bg-white"
 		></iframe>
 	{:else}
 		<div class="max-w-3xl whitespace-pre-wrap text-sm leading-relaxed text-foreground">
