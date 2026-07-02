@@ -59,7 +59,7 @@
 				id: 'replyAll',
 				label: $_('toolbar.replyAll'),
 				variant: 'ghost',
-				icon: 'arrow-uturn-left',
+				icon: 'arrow-uturn-left-double',
 				ariaKeyshortcuts: 'Control+Shift+R',
 				run: (stableId) => replyToMessage(stableId, true)
 			},
@@ -67,7 +67,7 @@
 				id: 'forward',
 				label: $_('toolbar.forward'),
 				variant: 'ghost',
-				icon: 'paper-airplane',
+				icon: 'arrow-uturn-right',
 				ariaKeyshortcuts: 'Control+F',
 				run: forwardMessage
 			},
