@@ -1,12 +1,16 @@
 # cargo-audit configuration — see https://github.com/rustsec/rustsec/tree/main/cargo-audit
 #
 # Policy: the build FAILS on any `vulnerability` advisory (cargo-audit default,
-# exit code 1). The IDs listed below are `unmaintained` / `unsound` *warnings*
+# exit code 1). Most IDs listed below are `unmaintained` / `unsound` *warnings*
 # that have been reviewed and accepted for the V0.1.0 Windows release. Ignoring
 # an advisory ID only suppresses that specific notice — a future *vulnerability*
 # in the same crate has a different ID and will still fail the audit.
 #
+# A `vulnerability` may be ignored only TEMPORARILY, with the exposure analysis
+# and the removal condition written next to it (see the last section below).
+#
 # Reviewed: 2026-06-13 (cargo audit over Cargo.lock, 597 crate deps, 0 vulns).
+# Re-reviewed: 2026-07-02 (RUSTSEC-2026-0194, see below).
 # Re-review when a NEW advisory appears (the whole point of the scheduled scan).
 
 [advisories]
@@ -40,4 +44,16 @@ ignore = [
     # rand 0.7.3 + 0.8.5 (transitive). Unsound only when a custom global logger
     # itself calls rand::rng() during rand init — not a pattern this app uses.
     "RUSTSEC-2026-0097", # rand
+
+    # --- TEMPORARY vulnerability ignore (remove as soon as upstream allows) ---
+    # quick-xml 0.38.x: quadratic run time on start tags with many attributes
+    # (DoS class, no memory safety impact). Reviewed 2026-07-02: quick-xml enters
+    # the graph only via plist -> tauri-utils (Apple property-list parsing, used
+    # by tauri-build/codegen at build time); the Windows-only app never feeds
+    # attacker-controlled XML to it at runtime (mail parsing lives in the Java
+    # backend). The fix requires quick-xml >=0.41.0, but the latest plist (1.9.0)
+    # still pins the 0.39.x line, so there is no upgrade path yet.
+    # REMOVE this ignore (and `cargo update`) once plist/tauri-utils pull
+    # quick-xml >=0.41.0.
+    "RUSTSEC-2026-0194", # quick-xml
 ]
