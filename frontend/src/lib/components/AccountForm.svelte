@@ -528,11 +528,11 @@
 				</label>
 			</div>
 			{#if mode === 'edit' && isCustomAccount && serverMode === 'provider'}
-				<p class="text-xs text-chart-4" role="note">
+				<p class="text-xs text-warning-foreground" role="note">
 					{$_('accounts.form.serverModeSwitchToProviderWarning')}
 				</p>
 			{:else if mode === 'edit' && !isCustomAccount && serverMode === 'custom'}
-				<p class="text-xs text-chart-4" role="note">
+				<p class="text-xs text-warning-foreground" role="note">
 					{$_('accounts.form.serverModeSwitchToCustomWarning')}
 				</p>
 			{/if}

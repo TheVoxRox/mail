@@ -38,13 +38,30 @@ export const MAIL_FRAME_SCRIPT =
 export const MAIL_FRAME_SCRIPT_SHA256 = 'H/XNgY8UMzgl/rtpNwZPWzexQDXuW212vj8kUGDkGkQ=';
 
 /**
+ * Base stylesheet for the mail body. The sanitizer strips every style element
+ * and attribute from the mail, so this is the ONLY styling in the frame — and
+ * it deliberately stays light in both app themes: mail HTML is authored against
+ * a white background, so rendering it on the app's dark background makes
+ * default-black text unreadable. Colors are the hex equivalents of the app's
+ * light-theme tokens (foreground, primary, border, muted-foreground). Kept on
+ * one line so its bytes — and therefore its CSP hash — stay stable.
+ */
+export const MAIL_FRAME_STYLE =
+	':root{color-scheme:light}body{margin:12px;background:#ffffff;color:#0b1219;font-family:system-ui,sans-serif;font-size:14px;line-height:1.6;overflow-wrap:break-word}a{color:#00566b}img{max-width:100%;height:auto}table{max-width:100%;border-collapse:collapse}blockquote{margin:8px 0 8px 4px;padding-left:12px;border-left:3px solid #dae0e8;color:#4b5763}pre{white-space:pre-wrap}';
+
+/** Base64 SHA-256 of MAIL_FRAME_STYLE — asserted in mailFrame.test.ts. */
+export const MAIL_FRAME_STYLE_SHA256 = 'UXLUJbZ21yq1eqQCljjFZwc0mejRk10+TVL8FCWZ+C0=';
+
+/**
  * CSP enforced inside the frame: nothing loads by default, inline images stay
- * (the sanitizer already restricts them to `data:`), and the only executable
- * script is the hash-pinned forwarder above.
+ * (the sanitizer already restricts them to `data:`), the only executable
+ * script is the hash-pinned forwarder above, and the only stylesheet is the
+ * hash-pinned base style — anything the sanitizer ever missed still cannot
+ * style or script the frame.
  */
 export const MAIL_FRAME_CSP =
 	`default-src 'none'; img-src data:; script-src 'sha256-${MAIL_FRAME_SCRIPT_SHA256}'; ` +
-	`base-uri 'none'; form-action 'none'`;
+	`style-src 'sha256-${MAIL_FRAME_STYLE_SHA256}'; base-uri 'none'; form-action 'none'`;
 
 /** Wraps sanitized mail HTML into the full sandboxed document served via srcdoc. */
 export function buildMailFrameSrcdoc(rawHtml: string): string {
@@ -52,6 +69,7 @@ export function buildMailFrameSrcdoc(rawHtml: string): string {
 	return (
 		'<!doctype html><html><head><meta charset="utf-8">' +
 		`<meta http-equiv="Content-Security-Policy" content="${MAIL_FRAME_CSP}">` +
+		`<style>${MAIL_FRAME_STYLE}</style>` +
 		`<script>${MAIL_FRAME_SCRIPT}</script>` +
 		`</head><body>${body}</body></html>`
 	);
