@@ -264,14 +264,11 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: '0'
 
-      # GATE (exit-code 1), unlike the other two Trivy scans: the backend's
-      # primary scanner (OWASP job above) depends on the chronically flaky NVD
-      # API and can time out without evaluating anything, while frontend and
-      # Tauri always have their own gates (npm audit / cargo audit). Trivy pulls
-      # a prebuilt vulnerability DB (GHSA/OSV/NVD mirrors) in seconds, so this
-      # keeps a daily HIGH/CRITICAL gate on backend dependencies even on days
-      # the NVD API is unusable.
-      - name: Trivy SBOM scan — backend (gate)
+      # Report only — like the other two scans. NOTE: Trivy does NOT apply the
+      # severity filter to SARIF output (documented behavior), so this report
+      # carries all severities; the gate at the end is a separate table-format
+      # run where the filter and the exit code actually apply.
+      - name: Trivy SBOM scan — backend
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: sbom
@@ -279,7 +276,7 @@ jobs:
           format: sarif
           output: trivy-backend.sarif
           severity: HIGH,CRITICAL
-          exit-code: '1'
+          exit-code: '0'
 
       - name: Trivy SBOM scan — Tauri
         uses: aquasecurity/trivy-action@v0.36.0
@@ -290,6 +287,24 @@ jobs:
           output: trivy-tauri.sarif
           severity: HIGH,CRITICAL
           exit-code: '0'
+
+      # GATE (exit-code 1), unlike the report scans above: the backend's primary
+      # scanner (OWASP job) depends on the chronically flaky NVD API and can time
+      # out without evaluating anything, while frontend and Tauri always have
+      # their own gates (npm audit / cargo audit). Trivy pulls a prebuilt
+      # vulnerability DB (GHSA/OSV/NVD mirrors) in seconds, so this keeps a daily
+      # HIGH/CRITICAL gate on backend dependencies even on days the NVD API is
+      # unusable. Table format on purpose: the severity filter does not apply to
+      # SARIF output, and the findings land directly in the job log. Runs last so
+      # a gate failure cannot skip the report scans.
+      - name: Trivy backend gate (HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: sbom
+          scan-ref: backend/target/bom.json
+          format: table
+          severity: HIGH,CRITICAL
+          exit-code: '1'
 
       # NOTE: Trivy SBOM-scan results are package/dependency findings with no
       # source artifact location, which GitHub code-scanning rejects
