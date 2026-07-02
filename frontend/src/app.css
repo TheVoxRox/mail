@@ -19,6 +19,14 @@
 	--accent: oklch(0.94 0.022 218);
 	--accent-foreground: oklch(0.25 0.04 218);
 	--destructive: oklch(0.577 0.245 27.325);
+	/*
+	 * Amber pair for warning surfaces: --warning tints borders/backgrounds
+	 * (chart-4 hue), --warning-foreground is the matching TEXT color — dark
+	 * amber in light mode, bright amber in dark mode. Never set text in raw
+	 * --warning: at L 0.83 it lands ~1.6:1 against a light background.
+	 */
+	--warning: oklch(0.828 0.189 84.429);
+	--warning-foreground: oklch(0.45 0.105 75);
 	--border: oklch(0.905 0.012 250);
 	--input: oklch(0.88 0.014 250);
 	--ring: oklch(0.58 0.095 218);
@@ -53,6 +61,8 @@
 	--accent: oklch(0.31 0.04 218);
 	--accent-foreground: oklch(0.985 0 0);
 	--destructive: oklch(0.704 0.191 22.216);
+	--warning: oklch(0.828 0.189 84.429);
+	--warning-foreground: oklch(0.87 0.15 85);
 	--border: oklch(1 0 0 / 12%);
 	--input: oklch(1 0 0 / 16%);
 	--ring: oklch(0.72 0.11 218);
@@ -102,6 +112,8 @@
 	--color-accent: var(--accent);
 	--color-accent-foreground: var(--accent-foreground);
 	--color-destructive: var(--destructive);
+	--color-warning: var(--warning);
+	--color-warning-foreground: var(--warning-foreground);
 	--color-border: var(--border);
 	--color-input: var(--input);
 	--color-ring: var(--ring);

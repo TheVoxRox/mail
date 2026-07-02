@@ -52,7 +52,7 @@
 
 	function accountStatusClass(account: AccountResponse): string {
 		if (account.requiresReauth) {
-			return 'border-chart-4/30 bg-chart-4/10 text-chart-4';
+			return 'border-warning/30 bg-warning/10 text-warning-foreground';
 		}
 		if (!account.active) {
 			return 'border-border bg-muted text-muted-foreground';

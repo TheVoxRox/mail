@@ -13,7 +13,7 @@
 				subtle: 'border-border bg-background/80',
 				danger: 'border-destructive/30 bg-destructive/10 text-destructive',
 				success: 'border-primary/30 bg-primary/10 text-primary',
-				warning: 'border-chart-4/40 bg-chart-4/10 text-chart-4'
+				warning: 'border-warning/40 bg-warning/10 text-warning-foreground'
 			},
 			padding: {
 				none: '',
