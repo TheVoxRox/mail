@@ -352,8 +352,13 @@ test.describe('Přístupnost', () => {
 		await waitForShell(page);
 
 		await expect(page.getByRole('heading', { level: 1, name: 'Vzhled' })).toBeVisible();
-		await expect(page.getByRole('heading', { level: 2, name: 'Motiv' })).toBeVisible();
+		await expect(page.getByRole('heading', { level: 2, name: 'Téma' })).toBeVisible();
 		await expect(page.getByRole('heading', { level: 2, name: 'Podokno čtení' })).toBeVisible();
+
+		// The theme/text-size field labels are visually hidden (the card heading
+		// shows the same text), so the selects must keep their accessible names.
+		await expect(page.getByRole('combobox', { name: 'Téma' })).toHaveCount(1);
+		await expect(page.getByRole('combobox', { name: 'Velikost textu' })).toHaveCount(1);
 
 		const readingPaneSelect = page.getByRole('combobox', { name: 'Rozložení podokna čtení' });
 		await expect(readingPaneSelect).toHaveCount(1);

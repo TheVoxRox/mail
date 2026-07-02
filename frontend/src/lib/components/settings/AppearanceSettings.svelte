@@ -49,9 +49,15 @@
 <div class="max-w-2xl space-y-4">
 	<Surface as="section" class="space-y-3">
 		<h2 class="text-sm font-semibold">{$_('settings.appearance.theme.heading')}</h2>
+		<!--
+			labelClass="sr-only": the card heading already shows the same text right
+			above the select, so the field label stays screen-reader-only to avoid
+			a visible duplicate while keeping the select's accessible name.
+		-->
 		<Field
 			for="theme-select"
 			label={$_('settings.appearance.theme.label')}
+			labelClass="sr-only"
 			hint={$_('settings.appearance.theme.hint')}
 		>
 			<Select id="theme-select" value={$themePreference} onchange={handleThemeChange} width="full">
@@ -67,6 +73,7 @@
 		<Field
 			for="text-size-select"
 			label={$_('settings.appearance.textSize.label')}
+			labelClass="sr-only"
 			hint={$_('settings.appearance.textSize.hint')}
 		>
 			<Select id="text-size-select" value={$textSize} onchange={handleTextSizeChange} width="full">

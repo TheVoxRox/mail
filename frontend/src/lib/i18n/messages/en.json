@@ -439,7 +439,7 @@
 			"intro": "Adjust the theme and message reading layout.",
 			"theme": {
 				"heading": "Theme",
-				"hint": "Takes effect immediately. Theme follows the OS preference.",
+				"hint": "Takes effect immediately. \"System\" follows the OS preference.",
 				"label": "Theme",
 				"options": {
 					"system": "System",
