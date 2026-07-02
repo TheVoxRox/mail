@@ -45,15 +45,18 @@ ignore = [
     # itself calls rand::rng() during rand init — not a pattern this app uses.
     "RUSTSEC-2026-0097", # rand
 
-    # --- TEMPORARY vulnerability ignore (remove as soon as upstream allows) ---
-    # quick-xml 0.38.x: quadratic run time on start tags with many attributes
-    # (DoS class, no memory safety impact). Reviewed 2026-07-02: quick-xml enters
-    # the graph only via plist -> tauri-utils (Apple property-list parsing, used
-    # by tauri-build/codegen at build time); the Windows-only app never feeds
+    # --- TEMPORARY vulnerability ignores (remove as soon as upstream allows) ---
+    # quick-xml 0.38.x, two advisories published 2026-06-29: quadratic run time
+    # on duplicate-attribute checks (-0194) and unbounded namespace-declaration
+    # allocation in NsReader (-0195). Both are DoS class, no memory safety
+    # impact. Reviewed 2026-07-02: quick-xml enters the graph only via
+    # plist -> tauri-utils (Apple property-list parsing, used by
+    # tauri-build/codegen at build time); the Windows-only app never feeds
     # attacker-controlled XML to it at runtime (mail parsing lives in the Java
     # backend). The fix requires quick-xml >=0.41.0, but the latest plist (1.9.0)
     # still pins the 0.39.x line, so there is no upgrade path yet.
-    # REMOVE this ignore (and `cargo update`) once plist/tauri-utils pull
+    # REMOVE both ignores (and `cargo update`) once plist/tauri-utils pull
     # quick-xml >=0.41.0.
-    "RUSTSEC-2026-0194", # quick-xml
+    "RUSTSEC-2026-0194", # quick-xml — quadratic duplicate-attribute check
+    "RUSTSEC-2026-0195", # quick-xml — NsReader namespace-allocation DoS
 ]
