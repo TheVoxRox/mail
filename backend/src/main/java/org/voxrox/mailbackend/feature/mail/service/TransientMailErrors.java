@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.ConnectException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
+import java.util.List;
 import java.util.Locale;
 
 import javax.net.ssl.SSLException;
@@ -11,6 +12,8 @@ import javax.net.ssl.SSLException;
 import jakarta.mail.AuthenticationFailedException;
 import jakarta.mail.FolderClosedException;
 import jakarta.mail.StoreClosedException;
+
+import org.voxrox.mailbackend.util.Throwables;
 
 /**
  * Classifies an IMAP failure as a <em>transient</em> connectivity blip that is
@@ -53,15 +56,18 @@ final class TransientMailErrors {
      * (never transient).
      */
     static boolean isTransient(Throwable error) {
+        // Bounded walk (see Throwables.causalChain) — an undetected transient cause
+        // past the bound degrades to a recorded last_error, never to a hang.
+        List<Throwable> chain = Throwables.causalChain(error);
         // Pass 1: an auth failure anywhere in the chain is decisive — it owns the
         // refresh-token path and must not be retried with a backoff here.
-        for (Throwable cur = error; cur != null; cur = cur.getCause()) {
+        for (Throwable cur : chain) {
             if (cur instanceof AuthenticationFailedException) {
                 return false;
             }
         }
         // Pass 2: look for a genuinely transient network/connection error.
-        for (Throwable cur = error; cur != null; cur = cur.getCause()) {
+        for (Throwable cur : chain) {
             if (cur instanceof SocketTimeoutException || cur instanceof ConnectException
                     || cur instanceof UnknownHostException || cur instanceof SSLException
                     || cur instanceof StoreClosedException || cur instanceof FolderClosedException

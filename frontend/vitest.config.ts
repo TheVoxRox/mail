@@ -37,7 +37,7 @@ export default defineConfig({
 	},
 	test: {
 		environment: 'node',
-		include: ['src/**/*.test.ts'],
+		include: ['src/**/*.test.ts', 'scripts/**/*.test.mjs'],
 		exclude: ['**/node_modules/**', '**/*.e2e.ts'],
 		globals: false,
 		clearMocks: true,

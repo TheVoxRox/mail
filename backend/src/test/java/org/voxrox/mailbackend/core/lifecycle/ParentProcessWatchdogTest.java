@@ -8,6 +8,7 @@ import java.io.InputStream;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -86,5 +87,48 @@ class ParentProcessWatchdogTest {
         assertThat(exited.await(2, TimeUnit.SECONDS)).isTrue();
         watcher.join(TimeUnit.SECONDS.toMillis(2));
         assertThat(watcher.isAlive()).isFalse();
+    }
+
+    @Test
+    @DisplayName("halts the JVM when the graceful exit hangs past the timeout")
+    void haltsWhenGracefulExitHangs() throws Exception {
+        CountDownLatch halted = new CountDownLatch(1);
+        // A System.exit whose shutdown hooks never finish: blocks its caller forever.
+        Runnable hangingExit = () -> {
+            try {
+                Thread.sleep(Long.MAX_VALUE);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        };
+
+        Thread caller = new Thread(
+                () -> ParentProcessWatchdog.exitWithHaltFallback(hangingExit, halted::countDown, Duration.ofMillis(50)),
+                "test-hanging-exit");
+        caller.setDaemon(true);
+        caller.start();
+
+        assertThat(halted.await(2, TimeUnit.SECONDS)).isTrue();
+        caller.interrupt(); // release the fake hung shutdown
+    }
+
+    @Test
+    @DisplayName("does not halt before the timeout elapses")
+    void doesNotHaltBeforeTimeout() throws Exception {
+        AtomicInteger halts = new AtomicInteger();
+
+        // The real exit terminates the process; returning normally here emulates
+        // "shutdown still running" without blocking the test thread.
+        Thread halter = ParentProcessWatchdog.exitWithHaltFallback(() -> {
+        }, halts::incrementAndGet, Duration.ofSeconds(30));
+        assertThat(halter.isDaemon()).isTrue();
+
+        assertThat(halts).hasValue(0);
+
+        // Interrupting the timer (test cleanup) must abort it without halting.
+        halter.interrupt();
+        halter.join(TimeUnit.SECONDS.toMillis(2));
+        assertThat(halter.isAlive()).isFalse();
+        assertThat(halts).hasValue(0);
     }
 }

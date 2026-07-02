@@ -2,6 +2,7 @@ package org.voxrox.mailbackend.core.lifecycle;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.Duration;
 
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -47,6 +48,16 @@ import org.voxrox.mailbackend.util.LogCategory;
 public final class ParentProcessWatchdog {
 
     static final String WATCH_PARENT_ENV = "MAIL_SIDECAR_WATCH_PARENT";
+
+    /**
+     * How long the shutdown hooks get after the parent dies before the watchdog
+     * stops waiting and halts the JVM. Normal shutdown (Spring context close,
+     * SQLite checkpoint) completes in a couple of seconds; anything past this is a
+     * hung hook, and with the parent already gone there is nobody left to show an
+     * error or retry — the only remaining job is to not leave an orphan.
+     */
+    static final Duration SHUTDOWN_HALT_TIMEOUT = Duration.ofSeconds(10);
+
     private static final Logger log = LoggerFactory.getLogger(ParentProcessWatchdog.class);
 
     private ParentProcessWatchdog() {
@@ -60,7 +71,8 @@ public final class ParentProcessWatchdog {
         if (!isEnabled(System.getenv(WATCH_PARENT_ENV))) {
             return;
         }
-        start(System.in, () -> System.exit(0));
+        start(System.in, () -> exitWithHaltFallback(() -> System.exit(0), () -> Runtime.getRuntime().halt(0),
+                SHUTDOWN_HALT_TIMEOUT));
     }
 
     static boolean isEnabled(@Nullable String envValue) {
@@ -96,5 +108,49 @@ public final class ParentProcessWatchdog {
         log.warn("{} Parent process is gone (stdin closed); shutting the sidecar down to avoid an orphaned backend.",
                 LogCategory.BOOT);
         onParentExit.run();
+    }
+
+    /**
+     * Requests a graceful {@code exit} (runs the shutdown hooks) but guarantees
+     * termination: a daemon timer halts the JVM after {@code timeout} in case a
+     * hook hangs — say, a stuck Spring context close. {@code System.exit} blocks
+     * its caller for as long as the hooks run, so without the fallback a hung hook
+     * would keep the very orphan JVM alive that this watchdog exists to prevent.
+     * When shutdown completes in time the process dies and the sleeping daemon
+     * timer dies with it, so {@code halt} never fires. Skipping a hook is the
+     * lesser evil here: the app must survive an abrupt kill anyway (the parent may
+     * be force-killed at any point), while an orphan holds the database open.
+     * Package-private and parameterised so tests can fake both terminations;
+     * returns the timer thread for the same reason.
+     */
+    static Thread exitWithHaltFallback(Runnable exit, Runnable halt, Duration timeout) {
+        Thread halter = new Thread(() -> {
+            try {
+                Thread.sleep(timeout.toMillis());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+            try {
+                log.error("{} Shutdown hooks did not finish within {}; halting the JVM to avoid an orphaned backend.",
+                        LogCategory.BOOT, timeout);
+            } finally {
+                // The halt is the guarantee this method exists for — it must fire
+                // even when the logging system is already torn down or wedged by
+                // the very shutdown hook that is hanging.
+                halt.run();
+            }
+        }, "parent-process-watchdog-halt");
+        halter.setDaemon(true);
+        try {
+            halter.start();
+        } catch (RuntimeException | Error e) {
+            // Arming the fallback failed (thread limit, OutOfMemoryError). Fall
+            // through to the graceful exit anyway — an unguarded exit still beats
+            // no exit, and the throw must not kill the watcher thread before the
+            // exit runs.
+        }
+        exit.run();
+        return halter;
     }
 }

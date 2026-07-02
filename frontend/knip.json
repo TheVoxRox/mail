@@ -12,5 +12,6 @@
 	"project": ["src/**/*.{ts,svelte}", "scripts/**/*.{mjs,ts,js}"],
 	"ignore": ["src/lib/api/generated.ts", "src/test-stubs/**"],
 	"ignoreDependencies": ["openapi-typescript", "tw-animate-css"],
+	"ignoreBinaries": ["pwsh"],
 	"ignoreExportsUsedInFile": true
 }
