@@ -23,8 +23,8 @@ import {
 } from '$lib/stores/selectedMessage.js';
 import {
 	markSeenLocally,
+	patchMessageLocally,
 	removeMessageLocally,
-	reloadCurrentPage,
 	type MessagesState,
 	messagesState
 } from '$lib/stores/messages.js';
@@ -51,12 +51,6 @@ interface ExecuteBulkOptions {
 	 * (typical for delete/move).
 	 */
 	clearDetailIfAffected?: boolean;
-	/**
-	 * After any successful item reloads the current page of messages (for
-	 * flag-style changes that don't change the list contents but where we
-	 * want a cache refresh).
-	 */
-	reloadPageAfterSuccess?: boolean;
 	/** On success refreshes folder counts (for delete/move). */
 	refreshFoldersAfterSuccess?: boolean;
 	/** i18n key for the toast with {count, failed}. */
@@ -143,10 +137,6 @@ async function executeBulkMessageAction(options: ExecuteBulkOptions): Promise<Bu
 		if (accountId != null) void refreshFolders(accountId);
 	}
 
-	if (options.reloadPageAfterSuccess && result.succeeded > 0) {
-		void reloadCurrentPage();
-	}
-
 	if (options.toastKey) {
 		pushToast(
 			get(_)(options.toastKey, {
@@ -163,6 +153,14 @@ async function executeBulkMessageAction(options: ExecuteBulkOptions): Promise<Bu
 	return result;
 }
 
+/*
+ * Flag mutations patch the list row locally instead of reloading the page:
+ * after a successful PATCH the server row equals the optimistic patch, and a
+ * reload would re-hit the list endpoint (an extra request that also
+ * dispatches a background folder sync) just to redraw identical data. Less
+ * churn also keeps the screen-reader experience calm — no list re-render to
+ * re-announce.
+ */
 export async function markMessagesSeen(
 	stableIds: readonly string[],
 	seen: boolean
@@ -175,7 +173,6 @@ export async function markMessagesSeen(
 			patchSelectedMessageDetail(id, { seen });
 			invalidateMessage(id);
 		},
-		reloadPageAfterSuccess: true,
 		// Bulk call only makes sense in a multi-select context; toast only then.
 		toastKey:
 			stableIds.length > 1
@@ -191,10 +188,10 @@ async function flagMessages(stableIds: readonly string[], flagged: boolean): Pro
 		ids: stableIds,
 		perItem: async (id) => {
 			await setMessageFlag(id, 'flagged', flagged);
+			patchMessageLocally(id, { flagged });
 			patchSelectedMessageDetail(id, { flagged });
 			invalidateMessage(id);
-		},
-		reloadPageAfterSuccess: true
+		}
 	});
 }
 
