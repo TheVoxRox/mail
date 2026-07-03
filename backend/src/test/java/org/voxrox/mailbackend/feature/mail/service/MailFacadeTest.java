@@ -320,8 +320,8 @@ class MailFacadeTest {
                     LocalDateTime.now(), false, false, false, false, null, 1L);
             when(messageService.search(ACCOUNT_ID, "query", 0, 20)).thenReturn(new PageImpl<>(List.of(raw)));
 
-            MailSummaryResponse display = new MailSummaryResponse(1L, "s1", "INBOX", "(bez předmětu)",
-                    "(neznámý odesílatel)", "c@d.com", raw.receivedAt(), false, false, false, false, null, 1L);
+            MailSummaryResponse display = new MailSummaryResponse(1L, "s1", "INBOX", "(no subject)",
+                    "(unknown sender)", "c@d.com", raw.receivedAt(), false, false, false, false, null, 1L);
             when(mapper.withDisplayFallbacks(raw)).thenReturn(display);
 
             Page<MailSummaryResponse> result = mailFacade.searchEmails(ACCOUNT_ID, "query", 0, 20);
