@@ -71,6 +71,27 @@ class SyncLockManagerTest {
     }
 
     @Test
+    @DisplayName("Folder locks: first acquire wins, duplicate is rejected, release re-opens")
+    void folderLockAcquireRejectRelease() {
+        assertThat(manager.tryLockFolder(1L, "INBOX")).isTrue();
+        assertThat(manager.tryLockFolder(1L, "INBOX")).isFalse();
+        manager.unlockFolder(1L, "INBOX");
+        assertThat(manager.tryLockFolder(1L, "INBOX")).isTrue();
+    }
+
+    @Test
+    @DisplayName("Folder locks are independent per (account, folder) pair and from the account lock")
+    void folderLocksIndependent() {
+        assertThat(manager.tryLockFolder(1L, "INBOX")).isTrue();
+        // A different folder of the same account and the same folder of a
+        // different account are both free.
+        assertThat(manager.tryLockFolder(1L, "Sent")).isTrue();
+        assertThat(manager.tryLockFolder(2L, "INBOX")).isTrue();
+        // The account-level lock is a separate namespace.
+        assertThat(manager.tryLock(1L)).isTrue();
+    }
+
+    @Test
     @DisplayName("Under contention exactly one of many racing threads acquires the lock")
     void concurrentTryLockHasExactlyOneWinner() throws Exception {
         int threadCount = 64;

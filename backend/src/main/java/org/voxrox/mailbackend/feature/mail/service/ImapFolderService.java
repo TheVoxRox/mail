@@ -25,13 +25,16 @@ public class ImapFolderService {
     private final ImapFolderExecutor imapFolderExecutor;
     private final FolderSyncStateRepository folderSyncStateRepository;
     private final MessageRepository messageRepository;
+    private final FolderListCache folderListCache;
 
     public ImapFolderService(ImapConnectionManager imapConnectionManager, ImapFolderExecutor imapFolderExecutor,
-            FolderSyncStateRepository folderSyncStateRepository, MessageRepository messageRepository) {
+            FolderSyncStateRepository folderSyncStateRepository, MessageRepository messageRepository,
+            FolderListCache folderListCache) {
         this.imapConnectionManager = imapConnectionManager;
         this.imapFolderExecutor = imapFolderExecutor;
         this.folderSyncStateRepository = folderSyncStateRepository;
         this.messageRepository = messageRepository;
+        this.folderListCache = folderListCache;
     }
 
     public <R> @Nullable R executeInFolder(Long accountId, String folderName, int mode, ImapFolderAction<R> action) {
@@ -55,54 +58,69 @@ public class ImapFolderService {
     }
 
     public List<FolderResponse> getFolders(Long accountId) {
+        /*
+         * TTL cache first — a cold listing is one IMAP LIST plus one STATUS per folder,
+         * serialized behind the per-account connection lock. The sidebar refresh after
+         * sync, the post-delete/move refresh and the per-message target validation of a
+         * bulk move all land here; see FolderListCache for the freshness/invalidation
+         * contract.
+         */
+        Optional<List<FolderResponse>> cached = folderListCache.get(accountId);
+        if (cached.isPresent()) {
+            return cached.get();
+        }
+
         // The action always returns a (possibly empty) list or throws — it never
         // yields null, so the nullable executor result can be required here.
-        return java.util.Objects.requireNonNull(imapConnectionManager.executeWithLock(accountId, store -> {
-            log.debug("{} Listing folders for account {}", LogCategory.IMAP, accountId);
-            Folder defaultFolder = store.getDefaultFolder();
-            Folder[] listed = defaultFolder.list("*");
+        List<FolderResponse> fresh = java.util.Objects
+                .requireNonNull(imapConnectionManager.executeWithLock(accountId, store -> {
+                    log.debug("{} Listing folders for account {}", LogCategory.IMAP, accountId);
+                    Folder defaultFolder = store.getDefaultFolder();
+                    Folder[] listed = defaultFolder.list("*");
 
-            // Drop \Noselect containers (e.g. Gmail's "[Gmail]" parent node). They have
-            // HOLDS_FOLDERS but not HOLDS_MESSAGES — SELECT on them fails, so surfacing
-            // them in the sidebar would only lead to a click-to-error.
-            List<Folder> folders = new ArrayList<>(listed.length);
-            for (Folder folder : listed) {
-                if (isSelectable(folder)) {
-                    folders.add(folder);
-                }
-            }
-
-            /*
-             * Two-pass role detection. Pass 1 assigns the "strong" role from INBOX,
-             * NEWSLETTERS-by-name (seznam.cz quirk), or RFC 6154 SPECIAL-USE attributes —
-             * no name fallback yet. Pass 2 applies the name fallback only for roles not
-             * already claimed in pass 1, so a stray user label like "[Gmail]Koš" or
-             * "Archiv 2024" cannot impersonate the system Trash/Archive when the real one
-             * was detected via SPECIAL-USE.
-             */
-            FolderRole[] primary = new FolderRole[folders.size()];
-            EnumSet<FolderRole> claimed = EnumSet.noneOf(FolderRole.class);
-            for (int i = 0; i < folders.size(); i++) {
-                primary[i] = detectPrimaryRole(folders.get(i));
-                if (primary[i] != FolderRole.USER) {
-                    claimed.add(primary[i]);
-                }
-            }
-
-            List<FolderResponse> result = new ArrayList<>(folders.size());
-            for (int i = 0; i < folders.size(); i++) {
-                Folder folder = folders.get(i);
-                FolderRole role = primary[i];
-                if (role == FolderRole.USER) {
-                    FolderRole byName = FolderRole.fromNameFallback(folder.getFullName());
-                    if (byName != FolderRole.USER && !claimed.contains(byName)) {
-                        role = byName;
+                    // Drop \Noselect containers (e.g. Gmail's "[Gmail]" parent node). They have
+                    // HOLDS_FOLDERS but not HOLDS_MESSAGES — SELECT on them fails, so surfacing
+                    // them in the sidebar would only lead to a click-to-error.
+                    List<Folder> folders = new ArrayList<>(listed.length);
+                    for (Folder folder : listed) {
+                        if (isSelectable(folder)) {
+                            folders.add(folder);
+                        }
                     }
-                }
-                result.add(buildResponse(folder, accountId, role));
-            }
-            return result;
-        }));
+
+                    /*
+                     * Two-pass role detection. Pass 1 assigns the "strong" role from INBOX,
+                     * NEWSLETTERS-by-name (seznam.cz quirk), or RFC 6154 SPECIAL-USE attributes —
+                     * no name fallback yet. Pass 2 applies the name fallback only for roles not
+                     * already claimed in pass 1, so a stray user label like "[Gmail]Koš" or
+                     * "Archiv 2024" cannot impersonate the system Trash/Archive when the real one
+                     * was detected via SPECIAL-USE.
+                     */
+                    FolderRole[] primary = new FolderRole[folders.size()];
+                    EnumSet<FolderRole> claimed = EnumSet.noneOf(FolderRole.class);
+                    for (int i = 0; i < folders.size(); i++) {
+                        primary[i] = detectPrimaryRole(folders.get(i));
+                        if (primary[i] != FolderRole.USER) {
+                            claimed.add(primary[i]);
+                        }
+                    }
+
+                    List<FolderResponse> result = new ArrayList<>(folders.size());
+                    for (int i = 0; i < folders.size(); i++) {
+                        Folder folder = folders.get(i);
+                        FolderRole role = primary[i];
+                        if (role == FolderRole.USER) {
+                            FolderRole byName = FolderRole.fromNameFallback(folder.getFullName());
+                            if (byName != FolderRole.USER && !claimed.contains(byName)) {
+                                role = byName;
+                            }
+                        }
+                        result.add(buildResponse(folder, accountId, role));
+                    }
+                    return result;
+                }));
+        folderListCache.put(accountId, fresh);
+        return fresh;
     }
 
     private boolean isSelectable(Folder folder) {

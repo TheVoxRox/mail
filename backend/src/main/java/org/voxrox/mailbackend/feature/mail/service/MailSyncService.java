@@ -103,7 +103,23 @@ public class MailSyncService {
 
             boolean allSucceeded = true;
             for (FolderResponse f : toSync) {
-                allSucceeded &= performFullSyncCycle(account, f.folderRef(), f.role());
+                /*
+                 * Folder-level skip-if-running: a user-triggered cycle (GET /emails →
+                 * syncAndBackfillAsync) may already be syncing this folder. Skipping keeps the
+                 * scheduled pass from queuing duplicate work behind the IMAP connection lock. A
+                 * skipped folder counts as not-clean so this pass cannot clear a last_error the
+                 * concurrent cycle may be about to record — the next fully clean pass clears
+                 * it.
+                 */
+                if (!lockManager.tryLockFolder(account.getId(), f.folderRef())) {
+                    allSucceeded = false;
+                    continue;
+                }
+                try {
+                    allSucceeded &= performFullSyncCycle(account, f.folderRef(), f.role());
+                } finally {
+                    lockManager.unlockFolder(account.getId(), f.folderRef());
+                }
             }
 
             /*
@@ -420,18 +436,32 @@ public class MailSyncService {
     }
 
     public void syncAndBackfill(AccountEntity account, String folderName, int page) {
-        performFullSyncCycle(account, folderName);
+        /*
+         * Skip-if-running per (account, folder): every GET /emails dispatches this
+         * cycle, so rapid pagination or folder switching would otherwise stack
+         * identical cycles that serialize on the per-account IMAP lock and hold
+         * executor permits doing duplicate work. The already-running cycle publishes
+         * the same sync_completed event on finish, so the client still refreshes.
+         */
+        if (!lockManager.tryLockFolder(account.getId(), folderName)) {
+            return;
+        }
+        try {
+            performFullSyncCycle(account, folderName);
 
-        if (page == 0) {
-            messageRepository.findMinUidByAccountIdAndFolderName(account.getId(), folderName).ifPresent(minUid -> {
-                if (minUid > UID_INCREMENT) {
-                    int backfillCount = mailProps.sync().backfillBatchSize();
-                    long startUid = Math.max(UID_INCREMENT, minUid - backfillCount);
-                    long endUid = minUid - 1;
-                    log.info("{} Folder backfill {}: UID {}-{}", LogCategory.SYNC, folderName, startUid, endUid);
-                    downloadRange(account, folderName, startUid, endUid);
-                }
-            });
+            if (page == 0) {
+                messageRepository.findMinUidByAccountIdAndFolderName(account.getId(), folderName).ifPresent(minUid -> {
+                    if (minUid > UID_INCREMENT) {
+                        int backfillCount = mailProps.sync().backfillBatchSize();
+                        long startUid = Math.max(UID_INCREMENT, minUid - backfillCount);
+                        long endUid = minUid - 1;
+                        log.info("{} Folder backfill {}: UID {}-{}", LogCategory.SYNC, folderName, startUid, endUid);
+                        downloadRange(account, folderName, startUid, endUid);
+                    }
+                });
+            }
+        } finally {
+            lockManager.unlockFolder(account.getId(), folderName);
         }
     }
 

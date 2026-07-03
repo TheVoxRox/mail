@@ -108,6 +108,47 @@ class MessageRepositoryIT {
         assertThat(mergeable).isEmpty();
     }
 
+    /**
+     * V2 migration guard: the FTS5 reindex trigger is scoped via
+     * {@code AFTER UPDATE OF subject, sender, content, recipients_*}, and the
+     * entity carries {@code @DynamicUpdate} so flag-only flushes never mention
+     * those columns. These tests pin both directions of that contract against the
+     * real SQLite schema: a flag-only UPDATE leaves the index intact and
+     * searchable, while a content UPDATE re-tokenizes it.
+     */
+    @Test
+    @DisplayName("Flag-only UPDATE keeps the FTS index intact — the message stays searchable by its content")
+    void flagOnlyUpdateKeepsFtsIndexConsistent() {
+        AccountEntity account = newAccount("fts-flags@example.com");
+        MessageEntity message = newMessage(account, 1L, "<f@example.com>", null, "T-fts", "<f@example.com>");
+        message.setContent("unikatnislovo obsah zpravy");
+        messageRepository.saveAndFlush(message);
+
+        messageRepository.updateSeenStatus(message.getStableId(), true);
+
+        List<Number> hits = messageRepository.fullTextSearchIds("unikatnislovo*", account.getId(),
+                org.springframework.data.domain.PageRequest.of(0, 10)).getContent();
+        assertThat(hits).extracting(Number::longValue).containsExactly(message.getId());
+    }
+
+    @Test
+    @DisplayName("Content UPDATE re-tokenizes the FTS index — old term stops matching, new term matches")
+    void contentUpdateReindexesFts() {
+        AccountEntity account = newAccount("fts-content@example.com");
+        MessageEntity message = newMessage(account, 1L, "<g@example.com>", null, "T-fts2", "<g@example.com>");
+        message.setContent("staryobsah zpravy");
+        messageRepository.saveAndFlush(message);
+
+        message.setContent("novyobsah zpravy");
+        messageRepository.saveAndFlush(message);
+
+        var pageable = org.springframework.data.domain.PageRequest.of(0, 10);
+        assertThat(messageRepository.fullTextSearchIds("staryobsah*", account.getId(), pageable).getContent())
+                .isEmpty();
+        assertThat(messageRepository.fullTextSearchIds("novyobsah*", account.getId(), pageable).getContent())
+                .extracting(Number::longValue).containsExactly(message.getId());
+    }
+
     private AccountEntity newAccount(String email) {
         AccountEntity account = new AccountEntity();
         account.setAccountName("Acct " + email);
@@ -119,8 +160,8 @@ class MessageRepositoryIT {
         return accountRepository.saveAndFlush(account);
     }
 
-    private void newMessage(AccountEntity account, long uid, String messageId, String inReplyTo, String threadId,
-            String threadRootMessageId) {
+    private MessageEntity newMessage(AccountEntity account, long uid, String messageId, String inReplyTo,
+            String threadId, String threadRootMessageId) {
         MessageEntity m = new MessageEntity();
         m.setStableId(UUID.randomUUID().toString().replace("-", ""));
         m.setAccount(account);
@@ -133,6 +174,6 @@ class MessageRepositoryIT {
         m.setThreadId(threadId);
         m.setThreadRootMessageId(threadRootMessageId);
         m.setThreadPosition(1);
-        messageRepository.saveAndFlush(m);
+        return messageRepository.saveAndFlush(m);
     }
 }

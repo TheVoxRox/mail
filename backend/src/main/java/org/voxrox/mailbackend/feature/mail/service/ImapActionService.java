@@ -21,12 +21,14 @@ public class ImapActionService {
     private final ImapFolderExecutor folderExecutor;
     private final ImapConnectionManager connectionManager;
     private final MailMetrics metrics;
+    private final FolderListCache folderListCache;
 
     public ImapActionService(ImapFolderExecutor folderExecutor, ImapConnectionManager connectionManager,
-            MailMetrics metrics) {
+            MailMetrics metrics, FolderListCache folderListCache) {
         this.folderExecutor = folderExecutor;
         this.connectionManager = connectionManager;
         this.metrics = metrics;
+        this.folderListCache = folderListCache;
     }
 
     /**
@@ -67,6 +69,9 @@ public class ImapActionService {
 
                     performMove(src, dest, msg, sourceFolder, targetFolder, uid);
                     metrics.recordMove(MailMetrics.OUTCOME_SUCCESS);
+                    // The server-side counts of both folders just changed — drop the
+                    // cached folder list so the next sidebar refresh re-reads them.
+                    folderListCache.invalidate(accountId);
                 } catch (MessagingException e) {
                     log.error("{} Error moving UID {}: {}", LogCategory.IMAP, uid, e.getMessage());
                     AuditLog.failure("imap_move", "account=" + accountId,
@@ -189,6 +194,11 @@ public class ImapActionService {
                 }
                 return null;
             });
+            if (flag == MessageFlag.SEEN) {
+                // The server-side unread count changed — invalidate so the next
+                // sidebar refresh does not serve a stale badge for the TTL window.
+                folderListCache.invalidate(accountId);
+            }
         } catch (Exception e) {
             log.error("{} Async flag write {}={} for UID {} in folder {} failed: {}", LogCategory.IMAP, flag, value,
                     uid, folderName, e.getMessage(), e);

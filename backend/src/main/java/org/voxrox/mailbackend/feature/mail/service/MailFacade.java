@@ -175,7 +175,7 @@ public class MailFacade {
 
     @Transactional(readOnly = true)
     public Page<MailSummaryResponse> searchEmails(Long accountId, String query, int page, int size) {
-        return messageService.search(accountId, query, page, size).map(mapper::toSummaryDto);
+        return messageService.search(accountId, query, page, size).map(mapper::withDisplayFallbacks);
     }
 
     /**
@@ -225,14 +225,24 @@ public class MailFacade {
      *             (either the id never existed, or every member was deleted)
      */
     public ThreadResponse getThread(Long accountId, String threadId) {
-        List<MessageEntity> members = messageRepository.findByAccountIdAndThreadId(accountId, threadId);
-        if (members.isEmpty()) {
+        /*
+         * Summary projection instead of entities — thread members carry the @Lob body
+         * and a long conversation loaded as entities does not fit the 384m heap. The
+         * root Message-ID is shared by every member by construction, so it is read with
+         * a separate ordered LIMIT-1 query.
+         */
+        List<MailSummaryResponse> summaries = messageRepository.findSummariesByAccountIdAndThreadId(accountId,
+                threadId);
+        if (summaries.isEmpty()) {
             throw new ResourceNotFoundException("Thread not found: " + threadId);
         }
-        List<MailSummaryResponse> summaries = members.stream().map(mapper::toSummaryDto).toList();
-        String rootMessageId = members.get(0).getThreadRootMessageId();
-        int unread = (int) members.stream().filter(m -> !m.isSeen()).count();
-        return new ThreadResponse(threadId, rootMessageId, members.size(), unread, summaries);
+        // No Stream.findFirst() here — the single element may legitimately be null
+        // (root without a Message-ID) and findFirst() throws NPE on a null element.
+        List<String> roots = messageRepository.findThreadRootMessageIds(accountId, threadId, PageRequest.of(0, 1));
+        String rootMessageId = roots.isEmpty() ? null : roots.get(0);
+        int unread = (int) summaries.stream().filter(s -> !s.seen()).count();
+        List<MailSummaryResponse> display = summaries.stream().map(mapper::withDisplayFallbacks).toList();
+        return new ThreadResponse(threadId, rootMessageId, summaries.size(), unread, display);
     }
 
     /*

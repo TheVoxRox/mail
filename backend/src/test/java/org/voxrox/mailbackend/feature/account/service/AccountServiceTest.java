@@ -104,7 +104,8 @@ class AccountServiceTest {
     @BeforeEach
     void setUp() {
         service = new AccountService(accountRepository, providerService, credentialService, imapConnectionManager,
-                accountMapper, oauth2TokenServiceRegistry, new TransactionTemplate(transactionManager));
+                accountMapper, oauth2TokenServiceRegistry, new TransactionTemplate(transactionManager),
+                new org.voxrox.mailbackend.feature.mail.service.FolderListCache());
 
         auditLogger = (Logger) LoggerFactory.getLogger("AUDIT");
         auditAppender = new ListAppender<>();

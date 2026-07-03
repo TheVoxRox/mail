@@ -45,7 +45,8 @@ class ImapActionServiceTest {
 
     @Test
     void moveOnServerAsyncShouldRecordFailureWhenExecutorThrowsBeforeAction() {
-        ImapActionService service = new ImapActionService(folderExecutor, connectionManager, metrics);
+        ImapActionService service = new ImapActionService(folderExecutor, connectionManager, metrics,
+                new FolderListCache());
         doThrow(new RuntimeException("connection down")).when(folderExecutor).executeReadWrite(eq(7L), eq("INBOX"),
                 any());
 
@@ -56,7 +57,8 @@ class ImapActionServiceTest {
 
     @Test
     void updateFlagsOnServerAsyncShouldSwallowExecutorFailure() {
-        ImapActionService service = new ImapActionService(folderExecutor, connectionManager, metrics);
+        ImapActionService service = new ImapActionService(folderExecutor, connectionManager, metrics,
+                new FolderListCache());
         doThrow(new RuntimeException("connection down")).when(folderExecutor).executeReadWrite(eq(7L), eq("INBOX"),
                 any());
 
@@ -67,7 +69,8 @@ class ImapActionServiceTest {
 
     @Test
     void moveOnServerAsyncShouldUseReadWriteSourceFolder() {
-        ImapActionService service = new ImapActionService(folderExecutor, connectionManager, metrics);
+        ImapActionService service = new ImapActionService(folderExecutor, connectionManager, metrics,
+                new FolderListCache());
 
         service.moveOnServerAsync(7L, "INBOX", "Archive", 42L);
 
@@ -83,7 +86,8 @@ class ImapActionServiceTest {
      */
     @Test
     void hardDeleteIsIdempotentAndDoesNotWarnWhenUidAlreadyGone() throws Exception {
-        ImapActionService service = new ImapActionService(folderExecutor, connectionManager, metrics);
+        ImapActionService service = new ImapActionService(folderExecutor, connectionManager, metrics,
+                new FolderListCache());
         Folder folder = mock(Folder.class);
         UIDFolder uidFolder = mock(UIDFolder.class);
         when(uidFolder.getMessageByUID(DRAFT_UID)).thenReturn(null);
@@ -102,7 +106,8 @@ class ImapActionServiceTest {
 
     @Test
     void hardDeleteExpungesAndLogsWhenMessageIsPresent() throws Exception {
-        ImapActionService service = new ImapActionService(folderExecutor, connectionManager, metrics);
+        ImapActionService service = new ImapActionService(folderExecutor, connectionManager, metrics,
+                new FolderListCache());
         Folder folder = mock(Folder.class);
         UIDFolder uidFolder = mock(UIDFolder.class);
         Message msg = mock(Message.class);

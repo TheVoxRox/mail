@@ -314,27 +314,19 @@ class MailFacadeTest {
     class SearchEmails {
 
         @Test
-        @DisplayName("Delegates to messageService.search and maps via the mapper")
+        @DisplayName("Delegates to messageService.search and applies display fallbacks via the mapper")
         void shouldDelegateToMessageServiceAndMap() {
-            MessageEntity msg = new MessageEntity();
-            msg.setId(1L);
-            msg.setStableId("s1");
-            msg.setFolderName("INBOX");
-            msg.setSubject("Test");
-            msg.setSender("a@b.com");
-            msg.setReceivedAt(LocalDateTime.now());
-            msg.setUid(1L);
-            msg.setUidValidity(1L);
-            Page<MessageEntity> entityPage = new PageImpl<>(List.of(msg));
-            when(messageService.search(ACCOUNT_ID, "query", 0, 20)).thenReturn(entityPage);
-
-            MailSummaryResponse summaryDto = new MailSummaryResponse(1L, "s1", "INBOX", "Test", "a@b.com", "c@d.com",
+            MailSummaryResponse raw = new MailSummaryResponse(1L, "s1", "INBOX", null, null, "c@d.com",
                     LocalDateTime.now(), false, false, false, false, null, 1L);
-            when(mapper.toSummaryDto(msg)).thenReturn(summaryDto);
+            when(messageService.search(ACCOUNT_ID, "query", 0, 20)).thenReturn(new PageImpl<>(List.of(raw)));
+
+            MailSummaryResponse display = new MailSummaryResponse(1L, "s1", "INBOX", "(bez předmětu)",
+                    "(neznámý odesílatel)", "c@d.com", raw.receivedAt(), false, false, false, false, null, 1L);
+            when(mapper.withDisplayFallbacks(raw)).thenReturn(display);
 
             Page<MailSummaryResponse> result = mailFacade.searchEmails(ACCOUNT_ID, "query", 0, 20);
 
-            assertThat(result.getContent()).containsExactly(summaryDto);
+            assertThat(result.getContent()).containsExactly(display);
             verify(messageService).search(ACCOUNT_ID, "query", 0, 20);
         }
     }
@@ -711,29 +703,14 @@ class MailFacadeTest {
         @Test
         @DisplayName("Returns the full thread with summaries ordered by threadPosition and unreadCount populated")
         void shouldReturnThreadWithMembersAndUnreadCount() {
-            MessageEntity m1 = new MessageEntity();
-            m1.setId(1L);
-            m1.setThreadId(THREAD_ID);
-            m1.setThreadRootMessageId("<root@x.cz>");
-            m1.setSeen(true);
-            MessageEntity m2 = new MessageEntity();
-            m2.setId(2L);
-            m2.setThreadId(THREAD_ID);
-            m2.setThreadRootMessageId("<root@x.cz>");
-            m2.setSeen(false);
-            MessageEntity m3 = new MessageEntity();
-            m3.setId(3L);
-            m3.setThreadId(THREAD_ID);
-            m3.setThreadRootMessageId("<root@x.cz>");
-            m3.setSeen(false);
-
-            when(messageRepository.findByAccountIdAndThreadId(ACCOUNT_ID, THREAD_ID)).thenReturn(List.of(m1, m2, m3));
-            MailSummaryResponse s1 = dummySummary(1L);
-            MailSummaryResponse s2 = dummySummary(2L);
-            MailSummaryResponse s3 = dummySummary(3L);
-            when(mapper.toSummaryDto(m1)).thenReturn(s1);
-            when(mapper.toSummaryDto(m2)).thenReturn(s2);
-            when(mapper.toSummaryDto(m3)).thenReturn(s3);
+            MailSummaryResponse s1 = summaryWithSeen(1L, true);
+            MailSummaryResponse s2 = summaryWithSeen(2L, false);
+            MailSummaryResponse s3 = summaryWithSeen(3L, false);
+            when(messageRepository.findSummariesByAccountIdAndThreadId(ACCOUNT_ID, THREAD_ID))
+                    .thenReturn(List.of(s1, s2, s3));
+            when(messageRepository.findThreadRootMessageIds(eq(ACCOUNT_ID), eq(THREAD_ID),
+                    any(org.springframework.data.domain.Pageable.class))).thenReturn(List.of("<root@x.cz>"));
+            when(mapper.withDisplayFallbacks(any(MailSummaryResponse.class))).thenAnswer(inv -> inv.getArgument(0));
 
             ThreadResponse result = mailFacade.getThread(ACCOUNT_ID, THREAD_ID);
 
@@ -747,7 +724,7 @@ class MailFacadeTest {
         @Test
         @DisplayName("Throws ResourceNotFoundException when no message in the account belongs to the threadId")
         void shouldThrowWhenThreadHasNoMembers() {
-            when(messageRepository.findByAccountIdAndThreadId(ACCOUNT_ID, THREAD_ID)).thenReturn(List.of());
+            when(messageRepository.findSummariesByAccountIdAndThreadId(ACCOUNT_ID, THREAD_ID)).thenReturn(List.of());
 
             assertThatThrownBy(() -> mailFacade.getThread(ACCOUNT_ID, THREAD_ID))
                     .isInstanceOf(ResourceNotFoundException.class).hasMessageContaining(THREAD_ID);
@@ -759,10 +736,15 @@ class MailFacadeTest {
             // For account 999 the repo returns nothing — the query is correctly
             // narrowed by accountId, so we get a 404 even if account 1 has the
             // thread.
-            when(messageRepository.findByAccountIdAndThreadId(999L, THREAD_ID)).thenReturn(List.of());
+            when(messageRepository.findSummariesByAccountIdAndThreadId(999L, THREAD_ID)).thenReturn(List.of());
 
             assertThatThrownBy(() -> mailFacade.getThread(999L, THREAD_ID))
                     .isInstanceOf(ResourceNotFoundException.class);
+        }
+
+        private MailSummaryResponse summaryWithSeen(long id, boolean seen) {
+            return new MailSummaryResponse(id, "s" + id, "INBOX", "Subject " + id, "from@x.cz", "to@x.cz",
+                    LocalDateTime.of(2026, 1, 1, 10, 0), seen, false, false, false, THREAD_ID, 100L);
         }
     }
 
@@ -823,11 +805,6 @@ class MailFacadeTest {
             verify(messageRepository, times(2)).updateSeenStatus(STABLE_ID, true);
             verify(imapActionService).updateFlagsOnServerAsync(ACCOUNT_ID, FOLDER_INBOX, UID, MessageFlag.SEEN, true);
         }
-    }
-
-    private MailSummaryResponse dummySummary(long id) {
-        return new MailSummaryResponse(id, "s" + id, "INBOX", "Subject " + id, "from@x.cz", "to@x.cz",
-                LocalDateTime.of(2026, 1, 1, 10, 0), false, false, false, false, "8b4abcde-uuid", 100L);
     }
 
     private MailRequest dummyMailRequest(String subject) {

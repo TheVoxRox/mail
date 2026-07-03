@@ -15,6 +15,7 @@ import org.voxrox.mailbackend.feature.account.mapper.AccountMapper;
 import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.feature.auth.dto.AuthType;
 import org.voxrox.mailbackend.feature.auth.service.OAuth2TokenServiceRegistry;
+import org.voxrox.mailbackend.feature.mail.service.FolderListCache;
 import org.voxrox.mailbackend.feature.mail.service.ImapConnectionManager;
 import org.voxrox.mailbackend.util.AuditLog;
 import org.voxrox.mailbackend.util.LogCategory;
@@ -35,11 +36,12 @@ public class AccountService {
     private final AccountMapper accountMapper;
     private final OAuth2TokenServiceRegistry oauth2TokenServiceRegistry;
     private final TransactionTemplate transactionTemplate;
+    private final FolderListCache folderListCache;
 
     public AccountService(AccountRepository accountRepository, AccountProviderService providerService,
             AccountCredentialService credentialService, ImapConnectionManager imapConnectionManager,
             AccountMapper accountMapper, OAuth2TokenServiceRegistry oauth2TokenServiceRegistry,
-            TransactionTemplate transactionTemplate) {
+            TransactionTemplate transactionTemplate, FolderListCache folderListCache) {
         this.accountRepository = accountRepository;
         this.providerService = providerService;
         this.credentialService = credentialService;
@@ -47,6 +49,7 @@ public class AccountService {
         this.accountMapper = accountMapper;
         this.oauth2TokenServiceRegistry = oauth2TokenServiceRegistry;
         this.transactionTemplate = transactionTemplate;
+        this.folderListCache = folderListCache;
     }
 
     @Transactional(readOnly = true)
@@ -279,6 +282,9 @@ public class AccountService {
      * the latest ({@code @PreDestroy} shutdown in ImapConnectionManager).
      */
     private void purgeConnectionsQuietly(Long accountId) {
+        // Cached folder list of a deleted account is dead weight — drop it first,
+        // it cannot fail and must not depend on the connection purge succeeding.
+        folderListCache.invalidate(accountId);
         try {
             imapConnectionManager.purgeAccount(accountId);
         } catch (RuntimeException e) {

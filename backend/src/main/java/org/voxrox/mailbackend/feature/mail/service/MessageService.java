@@ -1,9 +1,11 @@
 package org.voxrox.mailbackend.feature.mail.service;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.voxrox.mailbackend.feature.mail.dto.MailSummaryResponse;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
 
@@ -18,8 +20,16 @@ public class MessageService {
         this.messageRepository = messageRepository;
     }
 
+    /**
+     * FTS5 full-text search returning summary DTOs. Two-step on purpose: the FTS
+     * MATCH is native SQL and returns just the page of matching ids; the display
+     * columns are then loaded via a JPQL constructor projection. Loading entities
+     * directly would hydrate every {@code @Lob} body of the page — with
+     * {@code api-max-page-size=200} and large HTML bodies that does not fit the
+     * production 384m heap.
+     */
     @Transactional(readOnly = true)
-    public Page<MessageEntity> search(Long accountId, String query, int page, int size) {
+    public Page<MailSummaryResponse> search(Long accountId, String query, int page, int size) {
         if (query == null || query.isBlank())
             return Page.empty();
 
@@ -28,7 +38,20 @@ public class MessageService {
             return Page.empty();
 
         String ftsQuery = sanitized.replaceAll("\\s+", "* ") + "*";
-        return messageRepository.fullTextSearchSummaries(ftsQuery, accountId, PageRequest.of(page, size));
+        PageRequest pageable = PageRequest.of(page, size);
+        Page<Number> ids = messageRepository.fullTextSearchIds(ftsQuery, accountId, pageable);
+        if (ids.isEmpty()) {
+            return new PageImpl<>(List.of(), pageable, ids.getTotalElements());
+        }
+
+        // Normalize the driver's value-sized boxes (Integer/Long) to Long — see
+        // the fullTextSearchIds javadoc — then restore the FTS page order, which
+        // the unordered IN load does not preserve.
+        List<Long> idList = ids.getContent().stream().map(Number::longValue).toList();
+        Map<Long, MailSummaryResponse> byId = messageRepository.findSummariesByIds(idList).stream()
+                .collect(Collectors.toMap(MailSummaryResponse::id, Function.identity()));
+        List<MailSummaryResponse> ordered = idList.stream().map(byId::get).filter(Objects::nonNull).toList();
+        return new PageImpl<>(ordered, pageable, ids.getTotalElements());
     }
 
     /**

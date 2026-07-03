@@ -310,30 +310,45 @@ class MessageMapperTest {
     }
 
     @Nested
-    @DisplayName("toSummaryDto")
-    class ToSummaryDto {
+    @DisplayName("withDisplayFallbacks")
+    class WithDisplayFallbacks {
+
+        private MailSummaryResponse rawSummary(String subject, String sender) {
+            return new MailSummaryResponse(100L, "abc123def456", "INBOX", subject, sender, "recipient@example.com",
+                    RECEIVED_AT, true, false, true, false, "thread-1", 42L);
+        }
 
         @Test
-        @DisplayName("maps the entity onto MailSummaryResponse")
-        void mapsEntityToSummary() {
-            // Arrange
-            var entity = createEntity();
+        @DisplayName("returns the same instance when subject and sender are present")
+        void passesThroughWhenComplete() {
+            MailSummaryResponse raw = rawSummary("Test subject", "John Doe <john@example.com>");
 
-            // Act
-            MailSummaryResponse result = mapper.toSummaryDto(entity);
+            MailSummaryResponse result = mapper.withDisplayFallbacks(raw);
 
-            // Assert
+            assertThat(result).isSameAs(raw);
+        }
+
+        @Test
+        @DisplayName("fills localized fallbacks for null subject and sender, keeping all other fields")
+        void fillsFallbacksForNullFields() {
+            MailSummaryResponse raw = rawSummary(null, null);
+
+            MailSummaryResponse result = mapper.withDisplayFallbacks(raw);
+
+            // The fallback strings come from MessageSource — assert they are
+            // non-blank and different from the raw nulls, not their exact wording.
+            assertThat(result.subject()).isNotBlank();
+            assertThat(result.sender()).isNotBlank();
             assertThat(result.id()).isEqualTo(100L);
             assertThat(result.stableId()).isEqualTo("abc123def456");
             assertThat(result.folderName()).isEqualTo("INBOX");
-            assertThat(result.subject()).isEqualTo("Test subject");
-            assertThat(result.sender()).isEqualTo("John Doe <john@example.com>");
             assertThat(result.recipientsTo()).isEqualTo("recipient@example.com");
             assertThat(result.receivedAt()).isEqualTo(RECEIVED_AT);
             assertThat(result.seen()).isTrue();
             assertThat(result.flagged()).isFalse();
             assertThat(result.answered()).isTrue();
             assertThat(result.hasAttachments()).isFalse();
+            assertThat(result.threadId()).isEqualTo("thread-1");
             assertThat(result.uid()).isEqualTo(42L);
         }
     }
