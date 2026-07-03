@@ -41,6 +41,8 @@ one of these, re-read its row first.
 | `ImapConnectionManager.connectionPool` | `ConcurrentHashMap<Long, Store>`; entries only touched under the account lock | `getConnectedStore` (create/evict), `removeConnection[Locked]`, `purgeAccount` | closed + cleared in `@PreDestroy` |
 | `ImapConnectionManager.accountLocks` | `ConcurrentHashMap<Long, ReentrantLock(fair)>` | `computeIfAbsent` on first use | never removed (rule 4); cleared only in `@PreDestroy` |
 | `SyncLockManager.activeSyncs` | `ConcurrentHashMap.newKeySet()` | `tryLock`/`unlock` around a whole account sync | skip-if-running semantics — a second sync of the same account is dropped, not queued |
+| `SyncLockManager.activeFolderSyncs` | `ConcurrentHashMap.newKeySet()` of (account, folder) | `tryLockFolder`/`unlockFolder` around one folder cycle (`syncAndBackfill` and each folder of `syncAllFolders`) | skip-if-running — every `GET /emails` dispatches a cycle, the guard drops duplicates instead of queuing them behind the IMAP lock; a skipped folder in the scheduled pass blocks `clearLastError` for that pass |
+| `FolderListCache.snapshots` | `ConcurrentHashMap`, 30 s TTL | `getFolders` (put), invalidated by `MailSyncEventListener` (before SSE broadcast), `ImapActionService` (after server move / seen-flag write), account delete purge | collapses sidebar-refresh and bulk-move-validation bursts into one IMAP LIST+STATUS per TTL window |
 | `OAuth2TokenService.refreshLocks` | `ConcurrentMap<Long, ReentrantLock>` per provider bean | `getAccessToken` (serializes `doRefresh` + double-checks `TokenCache`) | never removed (rule 4) |
 | `TokenCache.tokens` | `Collections.synchronizedMap` LRU | `put` after refresh (under refresh lock), `invalidate` from XOAUTH2-reject paths, revoke, account delete | size-bounded LRU |
 | `CryptoService.keyCache` | `synchronizedMap` LRU + explicit `synchronized` for iteration; `AtomicBoolean selfTestPassed` | key derivation, `evictCache` on credential change/delete | zeroed in `@PreDestroy` |
@@ -60,6 +62,16 @@ one of these, re-read its row first.
 Both pools can trigger an OAuth refresh for the same account concurrently —
 that is exactly why `refreshLocks` exists (see
 `GoogleTokenServiceTest.concurrentCallsWithStaleCacheShouldRefreshOnlyOnce`).
+
+Concurrency limits are enforced by `AsyncConfig.GatedTaskExecutor` (a fair
+semaphore acquired as the task's first action), NOT by
+`SimpleAsyncTaskExecutor.setConcurrencyLimit` — the built-in throttle blocks
+the *submitter* at the limit, which would hang an HTTP request thread
+(`GET /emails` dispatching a sync) or the shared scheduler thread. Submission
+always returns immediately; excess tasks park as permit-waiting virtual
+threads holding no locks. Corollary: a task must never wait for the *result*
+of another task on the same gated executor (the child may be parked behind
+the parent's permit) — fire-and-forget is fine.
 
 ## Verifying changes
 

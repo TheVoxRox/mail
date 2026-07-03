@@ -15,6 +15,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.voxrox.mailbackend.feature.mail.dto.SyncNotification;
 import org.voxrox.mailbackend.feature.mail.event.MailSyncCompletedEvent;
+import org.voxrox.mailbackend.feature.mail.service.FolderListCache;
 import org.voxrox.mailbackend.feature.mail.service.SseNotificationService;
 
 @ExtendWith(MockitoExtension.class)
@@ -23,6 +24,9 @@ class MailSyncEventListenerTest {
 
     @Mock
     private SseNotificationService sseNotificationService;
+
+    @Mock
+    private FolderListCache folderListCache;
 
     @InjectMocks
     private MailSyncEventListener listener;
@@ -38,13 +42,27 @@ class MailSyncEventListenerTest {
     }
 
     @Test
-    @DisplayName("event with 0 new messages -> broadcast not called")
+    @DisplayName("event with 0 new messages -> broadcast not called, folder cache still invalidated")
     void noBroadcastWhenNoNewMessages() {
         var event = new MailSyncCompletedEvent(1L, "INBOX", 0, Instant.now());
 
         listener.handleSyncCompleted(event);
 
         verify(sseNotificationService, never()).broadcast(any());
+        // Flag/deletion sync changes unread counts even with 0 new messages.
+        verify(folderListCache).invalidate(1L);
+    }
+
+    @Test
+    @DisplayName("folder cache is invalidated before the broadcast — the client refresh must not hit a stale entry")
+    void invalidatesCacheBeforeBroadcast() {
+        var event = new MailSyncCompletedEvent(1L, "INBOX", 3, Instant.now());
+
+        listener.handleSyncCompleted(event);
+
+        var inOrder = org.mockito.Mockito.inOrder(folderListCache, sseNotificationService);
+        inOrder.verify(folderListCache).invalidate(1L);
+        inOrder.verify(sseNotificationService).broadcast(any(SyncNotification.class));
     }
 
     @Test

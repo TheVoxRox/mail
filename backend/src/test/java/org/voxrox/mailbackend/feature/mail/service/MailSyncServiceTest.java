@@ -109,6 +109,10 @@ class MailSyncServiceTest {
         // because not every test drives a full cycle.
         lenient().when(mailProps.retry()).thenReturn(
                 new RetryProperties(3, java.time.Duration.ofMillis(1), java.time.Duration.ofMillis(2), 2.0));
+
+        // Folder-level skip-if-running guard defaults to "granted" so existing
+        // tests exercise the cycle; the skip behavior has its own tests below.
+        lenient().when(lockManager.tryLockFolder(anyLong(), any(String.class))).thenReturn(true);
     }
 
     /**
@@ -228,6 +232,36 @@ class MailSyncServiceTest {
         }
 
         @Test
+        @DisplayName("A folder whose cycle already runs elsewhere is skipped and blocks clearing last_error")
+        void skipsFolderLockedElsewhereAndDoesNotClearLastError() throws Exception {
+            when(lockManager.tryLock(ACCOUNT_ID)).thenReturn(true);
+            when(imapFolderService.getFolders(ACCOUNT_ID))
+                    .thenReturn(List.of(new FolderResponse("INBOX", "INBOX", FolderRole.INBOX),
+                            new FolderResponse("Sent", "[Gmail]/Sent", FolderRole.SENT)));
+            // INBOX is being synced by a user-triggered cycle; SENT is free.
+            when(lockManager.tryLockFolder(ACCOUNT_ID, "INBOX")).thenReturn(false);
+            when(lockManager.tryLockFolder(ACCOUNT_ID, "[Gmail]/Sent")).thenReturn(true);
+            stubExecuteInFolderRunCallback(mock(Folder.class));
+            stubTransactionTemplateExecuteRunCallback();
+            when(syncStateService.getOrCreateState(eq(ACCOUNT_ID), any(), any()))
+                    .thenReturn(new FolderSyncStateEntity());
+            when(flagSyncService.handleUidValidity(any())).thenReturn(true);
+
+            service.syncAllFolders(account);
+
+            // Only SENT ran; the skipped INBOX released nothing it never acquired.
+            verify(imapFolderService, times(1)).executeInFolder(eq(ACCOUNT_ID), eq("[Gmail]/Sent"),
+                    eq(jakarta.mail.Folder.READ_ONLY), any());
+            verify(imapFolderService, never()).executeInFolder(eq(ACCOUNT_ID), eq("INBOX"),
+                    eq(jakarta.mail.Folder.READ_ONLY), any());
+            verify(lockManager, never()).unlockFolder(ACCOUNT_ID, "INBOX");
+            verify(lockManager).unlockFolder(ACCOUNT_ID, "[Gmail]/Sent");
+            // An incomplete pass must not clear a last_error the concurrent
+            // cycle may be about to record.
+            verify(accountRepository, never()).clearLastError(anyLong(), any(LocalDateTime.class));
+        }
+
+        @Test
         @DisplayName("Duplicate roles are reduced to one (first match)")
         void duplicateRolesLimitedToFirst() {
             when(lockManager.tryLock(ACCOUNT_ID)).thenReturn(true);
@@ -296,6 +330,29 @@ class MailSyncServiceTest {
 
             verify(imapFolderService, times(1)).executeInFolder(eq(ACCOUNT_ID), eq("INBOX"),
                     eq(jakarta.mail.Folder.READ_ONLY), any());
+        }
+
+        @Test
+        @DisplayName("Skips the whole cycle when the folder lock is held (duplicate dispatch dedup)")
+        void skipsWhenFolderLockHeld() {
+            when(lockManager.tryLockFolder(ACCOUNT_ID, "INBOX")).thenReturn(false);
+
+            service.syncAndBackfill(account, "INBOX", 0);
+
+            verify(imapFolderService, never()).executeInFolder(anyLong(), any(), anyInt(), any());
+            verify(messageRepository, never()).findMinUidByAccountIdAndFolderName(anyLong(), any());
+            verify(lockManager, never()).unlockFolder(anyLong(), any());
+        }
+
+        @Test
+        @DisplayName("Releases the folder lock even when the cycle throws")
+        void releasesFolderLockOnFailure() {
+            when(imapFolderService.executeInFolder(eq(ACCOUNT_ID), eq("INBOX"), eq(jakarta.mail.Folder.READ_ONLY),
+                    any())).thenThrow(new RuntimeException("folder open failed"));
+
+            service.syncAndBackfillAsync(account, "INBOX", 1);
+
+            verify(lockManager).unlockFolder(ACCOUNT_ID, "INBOX");
         }
 
         @Test

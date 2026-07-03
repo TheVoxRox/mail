@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -46,12 +47,14 @@ class ImapFolderServiceTest {
     @Mock
     private MessageRepository messageRepository;
 
+    private FolderListCache folderListCache;
     private ImapFolderService service;
 
     @BeforeEach
     void setUp() {
+        folderListCache = new FolderListCache();
         service = new ImapFolderService(imapConnectionManager, imapFolderExecutor, folderSyncStateRepository,
-                messageRepository);
+                messageRepository, folderListCache);
     }
 
     @Nested
@@ -72,6 +75,30 @@ class ImapFolderServiceTest {
                 assertThat(response.role()).isEqualTo(FolderRole.USER);
             });
             verifyNoInteractions(messageRepository);
+        }
+
+        @Test
+        @DisplayName("Second call within the TTL is served from the cache — no second IMAP round-trip")
+        void servesRepeatCallFromCache() throws Exception {
+            mockFolderListing(folder("Projects", "Projects", 4));
+
+            List<FolderResponse> first = service.getFolders(ACCOUNT_ID);
+            List<FolderResponse> second = service.getFolders(ACCOUNT_ID);
+
+            assertThat(second).isEqualTo(first);
+            verify(imapConnectionManager, times(1)).executeWithLock(eq(ACCOUNT_ID), any());
+        }
+
+        @Test
+        @DisplayName("Invalidation forces the next call back to IMAP")
+        void invalidationForcesRefresh() throws Exception {
+            mockFolderListing(folder("Projects", "Projects", 4));
+
+            service.getFolders(ACCOUNT_ID);
+            folderListCache.invalidate(ACCOUNT_ID);
+            service.getFolders(ACCOUNT_ID);
+
+            verify(imapConnectionManager, times(2)).executeWithLock(eq(ACCOUNT_ID), any());
         }
 
         @Test

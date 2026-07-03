@@ -43,12 +43,26 @@ export function reloadCurrentPage(): Promise<void> | void {
 	return store.reload();
 }
 
-/** Optimistic mutation of the `seen` flag in the current list (callback after PATCH). */
-export function markSeenLocally(stableId: string, seen: boolean): void {
+/**
+ * Optimistic patch of flag-style fields on one row of the current list
+ * (callback after a successful PATCH). The server state equals the patch at
+ * that point, so no page reload is needed — a reload would re-hit the list
+ * endpoint (which also dispatches a background folder sync) for data we
+ * already have.
+ */
+export function patchMessageLocally(
+	stableId: string,
+	patch: Partial<Pick<MailSummaryResponse, 'seen' | 'flagged' | 'answered'>>
+): void {
 	store.mutateReadyPage((page) => ({
 		...page,
-		content: page.content.map((m) => (m.stableId === stableId ? { ...m, seen } : m))
+		content: page.content.map((m) => (m.stableId === stableId ? { ...m, ...patch } : m))
 	}));
+}
+
+/** Optimistic mutation of the `seen` flag in the current list (callback after PATCH). */
+export function markSeenLocally(stableId: string, seen: boolean): void {
+	patchMessageLocally(stableId, { seen });
 }
 
 /** Removes a message from the current list (use after DELETE). */

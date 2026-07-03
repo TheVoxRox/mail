@@ -6,6 +6,7 @@ import java.util.List;
 
 import jakarta.persistence.*;
 
+import org.hibernate.annotations.DynamicUpdate;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 import org.jspecify.annotations.Nullable;
@@ -14,6 +15,14 @@ import org.voxrox.mailbackend.util.LogMasker;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
+/*
+ * @DynamicUpdate: Hibernate emits SET only for dirty columns. Required for the
+ * V2 FTS trigger (AFTER UPDATE OF subject, sender, content, recipients_*) to
+ * be effective — a full-column UPDATE would mention `content` on every flush
+ * (e.g. ThreadingService setting thread columns right after insert) and force
+ * a pointless FTS re-tokenization of the whole body.
+ */
+@DynamicUpdate
 @Entity
 @Table(name = "messages", indexes = {
         @Index(name = "idx_messages_unique_uid", columnList = "account_id, folder_name, uid", unique = true),

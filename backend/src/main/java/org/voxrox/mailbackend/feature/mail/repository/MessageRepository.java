@@ -20,6 +20,15 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
 
     String DTO_PATH = "org.voxrox.mailbackend.feature.mail.dto.MailSummaryResponse";
 
+    /**
+     * Shared constructor-projection prefix for {@code MailSummaryResponse} — the
+     * single place that must match the record's constructor parameter order. Every
+     * summary query appends only its own WHERE/ORDER BY clause.
+     */
+    String SUMMARY_SELECT = "SELECT new " + DTO_PATH + "("
+            + "m.id, m.stableId, m.folderName, m.subject, m.sender, m.recipientsTo, m.receivedAt, "
+            + "m.seen, m.flagged, m.answered, m.hasAttachments, m.threadId, m.uid) FROM MessageEntity m ";
+
     Optional<MessageEntity> findByStableId(String stableId);
 
     /**
@@ -38,28 +47,29 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
     Optional<MessageEntity> findByStableIdWithAttachments(@Param("stableId") String stableId);
 
     /**
-     * Returns paginated message summaries (DTO) for the given folder. Uses the
-     * DTO_PATH constant, which is a valid constant expression for the annotation.
+     * Returns paginated message summaries (DTO) for the given folder. Built from
+     * the SUMMARY_SELECT constant, which is a valid constant expression for the
+     * annotation.
      */
-    @Query("SELECT new " + DTO_PATH + "("
-            + "m.id, m.stableId, m.folderName, m.subject, m.sender, m.recipientsTo, m.receivedAt, "
-            + "m.seen, m.flagged, m.answered, m.hasAttachments, m.threadId, m.uid) " + "FROM MessageEntity m "
-            + "WHERE m.account.id = :accId AND m.folderName = :folder " + "ORDER BY m.receivedAt DESC")
+    @Query(SUMMARY_SELECT + "WHERE m.account.id = :accId AND m.folderName = :folder ORDER BY m.receivedAt DESC")
     Page<MailSummaryResponse> findSummariesByAccountAndFolder(@Param("accId") Long accId,
             @Param("folder") String folderName, Pageable pageable);
 
     /**
-     * SQLite FTS5 search via the 'message_search' virtual table.
+     * SQLite FTS5 search via the 'message_search' virtual table. Returns only the
+     * matching row ids (newest first) — the FTS MATCH must stay native SQL, but
+     * hydrating full entities here would drag every {@code @Lob} body of the page
+     * into the 384m heap. The caller loads the display columns for these ids via
+     * {@link #findSummariesByIds} and keeps this order.
+     * <p>
+     * Declared as {@code Number}, not {@code Long}: the SQLite JDBC driver sizes
+     * the boxed type to the value (small ids arrive as {@code Integer}) and Spring
+     * Data does not coerce native scalar results. A {@code Page<Long>} declaration
+     * would lie at runtime and a {@code Map<Long, …>.get(Integer)} lookup would
+     * silently return null — callers must normalize via {@code longValue()}.
      */
     @Query(value = """
-            SELECT * FROM messages
-            WHERE id IN (SELECT rowid FROM message_search WHERE message_search MATCH :query)
-            ORDER BY received_at DESC
-            """, countQuery = "SELECT count(*) FROM message_search WHERE message_search MATCH :query", nativeQuery = true)
-    Page<MessageEntity> fullTextSearchSummaries(@Param("query") String query, Pageable pageable);
-
-    @Query(value = """
-            SELECT * FROM messages
+            SELECT id FROM messages
             WHERE account_id = :accountId
               AND id IN (SELECT rowid FROM message_search WHERE message_search MATCH :query)
             ORDER BY received_at DESC
@@ -68,8 +78,15 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
             WHERE account_id = :accountId
               AND id IN (SELECT rowid FROM message_search WHERE message_search MATCH :query)
             """, nativeQuery = true)
-    Page<MessageEntity> fullTextSearchSummaries(@Param("query") String query, @Param("accountId") Long accountId,
-            Pageable pageable);
+    Page<Number> fullTextSearchIds(@Param("query") String query, @Param("accountId") Long accountId, Pageable pageable);
+
+    /**
+     * Summary projection (no {@code @Lob} body) for the given ids. The IN clause
+     * returns rows in undefined order — callers re-sort by their own id order (e.g.
+     * the FTS relevance/recency order from {@link #fullTextSearchIds}).
+     */
+    @Query(SUMMARY_SELECT + "WHERE m.id IN :ids")
+    List<MailSummaryResponse> findSummariesByIds(@Param("ids") List<Long> ids);
 
     Page<MessageEntity> findByAccountIdAndFolderName(Long accountId, String folderName, Pageable pageable);
 
@@ -167,12 +184,36 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
             @Param("messageId") String messageId);
 
     /**
-     * All messages of a thread within an account, ordered by position. Drives the
-     * thread detail endpoint.
+     * All messages of a thread within an account, ordered by position. Used by
+     * {@link org.voxrox.mailbackend.feature.mail.service.ThreadingService} for
+     * position renumbering, which mutates the managed entities. The read-only
+     * thread detail endpoint uses {@link #findSummariesByAccountIdAndThreadId}
+     * instead — entities carry the {@code @Lob} body.
      */
     @Query("SELECT m FROM MessageEntity m " + "WHERE m.account.id = :accId AND m.threadId = :threadId "
             + "ORDER BY m.threadPosition ASC, m.id ASC")
     List<MessageEntity> findByAccountIdAndThreadId(@Param("accId") Long accountId, @Param("threadId") String threadId);
+
+    /**
+     * Summary projection of a thread's members (no {@code @Lob} body), ordered by
+     * position. Drives the thread detail endpoint.
+     */
+    @Query(SUMMARY_SELECT + "WHERE m.account.id = :accId AND m.threadId = :threadId "
+            + "ORDER BY m.threadPosition ASC, m.id ASC")
+    List<MailSummaryResponse> findSummariesByAccountIdAndThreadId(@Param("accId") Long accountId,
+            @Param("threadId") String threadId);
+
+    /**
+     * {@code thread_root_message_id} of the thread's first member (position order).
+     * Every member shares the root by construction; the ordered LIMIT-1 read (via
+     * {@code Pageable}) just keeps the pick deterministic while an orphan merge is
+     * mid-flight. Returns an empty list when the thread does not exist; the single
+     * element may be {@code null} for a root without a Message-ID.
+     */
+    @Query("SELECT m.threadRootMessageId FROM MessageEntity m "
+            + "WHERE m.account.id = :accId AND m.threadId = :threadId " + "ORDER BY m.threadPosition ASC, m.id ASC")
+    List<String> findThreadRootMessageIds(@Param("accId") Long accountId, @Param("threadId") String threadId,
+            Pageable pageable);
 
     /**
      * Max thread_position within a thread — used by

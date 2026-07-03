@@ -1,5 +1,7 @@
 package org.voxrox.mailbackend.core.config;
 
+import java.util.concurrent.Semaphore;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
@@ -29,11 +31,21 @@ public class AsyncConfig {
      * the HikariCP pool size and gives comfortable overlap between IMAP network
      * waits and short DB bursts.
      * <p>
+     * The limit is enforced by {@link GatedTaskExecutor}, NOT by
+     * {@code SimpleAsyncTaskExecutor.setConcurrencyLimit} — the built-in throttle
+     * blocks the <em>submitter</em> when the limit is reached. Submitters here are
+     * user-facing: {@code GET /emails} dispatches a folder cycle and the
+     * {@code @Scheduled} tick dispatches account passes; blocking either while four
+     * sync cycles run means a hung HTTP response (or a stalled scheduler thread,
+     * which also delays the SSE heartbeat). With the gate, submission always
+     * returns immediately and the spawned virtual thread parks until a permit frees
+     * — a parked virtual thread holds no locks and costs almost nothing.
+     * <p>
      * Pool-starvation safety: tasks running on this executor MUST NOT submit
-     * further {@code @Async("mailSyncExecutor")} work — that pattern deadlocks the
-     * pool (holder of the per-account IMAP lock waits for a permit, while other
-     * sync tasks holding the remaining permits wait for that lock). Downstream side
-     * effects of a sync cycle (event listeners, maintenance) must run on
+     * further {@code @Async("mailSyncExecutor")} work and then wait for its result
+     * — the child task would park for a permit the parent holds. Fire-and-forget
+     * submission is safe, but the convention stands: downstream side effects of a
+     * sync cycle (event listeners, maintenance) must run on
      * {@link #mailEventExecutor}; user-initiated actions must run on
      * {@link #userMailExecutor}.
      * <p>
@@ -43,14 +55,9 @@ public class AsyncConfig {
     @Bean(name = "mailSyncExecutor")
     public AsyncTaskExecutor mailSyncExecutor(MailClientProperties props) {
         int limit = props.sync().maxConcurrentAccounts();
-        log.info("{} Mail sync executor: virtual threads, concurrency limit={}", LogCategory.BOOT, limit);
-
-        SimpleAsyncTaskExecutor executor = new SimpleAsyncTaskExecutor("mail-sync-");
-        executor.setVirtualThreads(true);
-        executor.setConcurrencyLimit(limit);
-        executor.setTaskTerminationTimeout(10_000);
-        executor.setCancelRemainingTasksOnClose(true);
-        return executor;
+        log.info("{} Mail sync executor: virtual threads, concurrency limit={} (non-blocking submit)", LogCategory.BOOT,
+                limit);
+        return new GatedTaskExecutor(newVirtualThreadExecutor("mail-sync-"), limit);
     }
 
     /**
@@ -60,22 +67,18 @@ public class AsyncConfig {
      * clicking Send or marking a message read.
      * <p>
      * Concurrency limit of 8 is well above realistic single-user simultaneous
-     * actions (typically 1–2 in flight) and small enough that SQLite WAL contention
-     * stays bounded. Tasks here may still acquire the same per-account IMAP lock
-     * used by sync, so a few permits ensure progress even if one operation stalls
-     * on the network.
+     * actions and small enough that SQLite WAL contention stays bounded. Enforced
+     * by {@link GatedTaskExecutor} so a bulk operation (the client fires one
+     * request per selected message — 50 deletes at once) never blocks HTTP threads
+     * at dispatch: every request returns as soon as its local write commits, while
+     * the server-side IMAP actions drain through the gate in the background.
      */
     @Bean(name = "userMailExecutor")
     public AsyncTaskExecutor userMailExecutor() {
         int limit = 8;
-        log.info("{} User mail executor: virtual threads, concurrency limit={}", LogCategory.BOOT, limit);
-
-        SimpleAsyncTaskExecutor executor = new SimpleAsyncTaskExecutor("user-mail-");
-        executor.setVirtualThreads(true);
-        executor.setConcurrencyLimit(limit);
-        executor.setTaskTerminationTimeout(10_000);
-        executor.setCancelRemainingTasksOnClose(true);
-        return executor;
+        log.info("{} User mail executor: virtual threads, concurrency limit={} (non-blocking submit)", LogCategory.BOOT,
+                limit);
+        return new GatedTaskExecutor(newVirtualThreadExecutor("user-mail-"), limit);
     }
 
     /**
@@ -91,11 +94,67 @@ public class AsyncConfig {
     @Bean(name = "mailEventExecutor")
     public AsyncTaskExecutor mailEventExecutor() {
         log.info("{} Mail event executor: virtual threads, unbounded", LogCategory.BOOT);
+        return newVirtualThreadExecutor("mail-event-");
+    }
 
-        SimpleAsyncTaskExecutor executor = new SimpleAsyncTaskExecutor("mail-event-");
+    private static SimpleAsyncTaskExecutor newVirtualThreadExecutor(String threadNamePrefix) {
+        SimpleAsyncTaskExecutor executor = new SimpleAsyncTaskExecutor(threadNamePrefix);
         executor.setVirtualThreads(true);
         executor.setTaskTerminationTimeout(10_000);
         executor.setCancelRemainingTasksOnClose(true);
         return executor;
+    }
+
+    /**
+     * Bounds task <em>execution</em> concurrency without ever blocking the
+     * <em>submitter</em>: every submitted task gets its own virtual thread
+     * immediately and acquires a semaphore permit as its first action. Contrast
+     * with {@code SimpleAsyncTaskExecutor.setConcurrencyLimit}, whose
+     * {@code ConcurrencyThrottleSupport} parks the submitting thread inside
+     * {@code execute()} — for this app that submitter is an HTTP request thread or
+     * the shared scheduler thread.
+     * <p>
+     * The permit is acquired before the task body runs, so a parked task holds no
+     * application locks (folder locks, IMAP connection locks are all taken inside
+     * task bodies). Shutdown: {@code close()} delegates to the underlying
+     * {@link SimpleAsyncTaskExecutor}, whose cancel-remaining interrupt unparks
+     * waiting acquires — an interrupted task exits before running its body.
+     * <p>
+     * The semaphore is fair so cycles start roughly in submission order and a
+     * steady stream of new submissions cannot starve an old one.
+     */
+    static final class GatedTaskExecutor implements AsyncTaskExecutor, AutoCloseable {
+
+        private final SimpleAsyncTaskExecutor delegate;
+        private final Semaphore permits;
+
+        GatedTaskExecutor(SimpleAsyncTaskExecutor delegate, int concurrencyLimit) {
+            this.delegate = delegate;
+            this.permits = new Semaphore(concurrencyLimit, true);
+        }
+
+        @Override
+        public void execute(Runnable task) {
+            delegate.execute(() -> {
+                try {
+                    permits.acquire();
+                } catch (InterruptedException e) {
+                    // Shutdown interrupt while parked for a permit — exit without
+                    // running the task, matching cancelRemainingTasksOnClose.
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+                try {
+                    task.run();
+                } finally {
+                    permits.release();
+                }
+            });
+        }
+
+        @Override
+        public void close() {
+            delegate.close();
+        }
     }
 }

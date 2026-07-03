@@ -91,11 +91,22 @@ public class MessageMapper {
                 entity.getThreadId());
     }
 
-    public MailSummaryResponse toSummaryDto(MessageEntity entity) {
-        return new MailSummaryResponse(entity.getId(), entity.getStableId(), entity.getFolderName(),
-                displaySubject(entity.getSubject()), displaySender(entity.getSender()), entity.getRecipientsTo(),
-                entity.getReceivedAt(), entity.isSeen(), entity.isFlagged(), entity.isAnswered(),
-                entity.isHasAttachments(), entity.getThreadId(), entity.getUid());
+    /**
+     * Applies the localized "(no subject)" / "(unknown sender)" fallbacks to a raw
+     * summary projection. The search and thread read paths load
+     * {@link MailSummaryResponse} directly via JPQL constructor projections (no
+     * {@code @Lob} body) and re-map through this method, keeping their display
+     * behavior identical to the detail mapping in {@link #toDto}.
+     */
+    public MailSummaryResponse withDisplayFallbacks(MailSummaryResponse raw) {
+        String subject = displaySubject(raw.subject());
+        String sender = displaySender(raw.sender());
+        if (Objects.equals(subject, raw.subject()) && Objects.equals(sender, raw.sender())) {
+            return raw;
+        }
+        return new MailSummaryResponse(raw.id(), raw.stableId(), raw.folderName(), subject, sender, raw.recipientsTo(),
+                raw.receivedAt(), raw.seen(), raw.flagged(), raw.answered(), raw.hasAttachments(), raw.threadId(),
+                raw.uid());
     }
 
     private String displaySubject(@Nullable String subject) {
