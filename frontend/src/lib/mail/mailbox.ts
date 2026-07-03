@@ -173,6 +173,10 @@ export async function markMessagesSeen(
 			patchSelectedMessageDetail(id, { seen });
 			invalidateMessage(id);
 		},
+		// Multi-select bulk action resolves the selection on success, same as
+		// delete/move — the page reload that used to clear it as a side effect
+		// (messagesState leaving `ready`) is gone.
+		pruneSelection: stableIds.length > 1,
 		// Bulk call only makes sense in a multi-select context; toast only then.
 		toastKey:
 			stableIds.length > 1
@@ -191,7 +195,8 @@ async function flagMessages(stableIds: readonly string[], flagged: boolean): Pro
 			patchMessageLocally(id, { flagged });
 			patchSelectedMessageDetail(id, { flagged });
 			invalidateMessage(id);
-		}
+		},
+		pruneSelection: stableIds.length > 1
 	});
 }
 
