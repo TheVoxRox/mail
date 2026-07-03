@@ -14,7 +14,7 @@ test.describe('Compose', () => {
 		await page.goto('/mail/1/INBOX');
 		await waitForShell(page);
 
-		const sidebar = page.getByRole('navigation', { name: 'Pošta' });
+		const sidebar = page.getByRole('region', { name: 'Podokno složek' });
 		await expect(sidebar.getByRole('link', { name: /Nová zpráva/ })).toHaveCount(0);
 
 		await sidebar.getByRole('button', { name: 'Nová zpráva Ctrl+N' }).click();
@@ -116,7 +116,7 @@ test.describe('Compose', () => {
 		await waitForShell(page);
 
 		await expect(page.getByRole('form', { name: 'Nová zpráva' })).toBeVisible();
-		await expect(page.getByRole('navigation', { name: 'Pošta' })).toBeVisible();
+		await expect(page.getByRole('region', { name: 'Podokno složek' })).toBeVisible();
 
 		await page.locator('#compose-to').fill('recipient@example.com');
 		await page.locator('#compose-subject').fill('E2E odeslání');
@@ -381,7 +381,7 @@ test.describe('Compose', () => {
 		await waitForShell(page);
 
 		await expect(page.getByRole('form', { name: 'Nová zpráva' })).toBeVisible();
-		await expect(page.getByRole('navigation', { name: 'Pošta' })).toBeVisible();
+		await expect(page.getByRole('region', { name: 'Podokno složek' })).toBeVisible();
 
 		await page.locator('#compose-to').fill('draft-recipient@example.com');
 		await page.locator('#compose-subject').fill('E2E koncept');

@@ -94,14 +94,22 @@
 	</Button>
 {/snippet}
 
+<!--
+	region root + inner nav: the header hosts a search landmark, which must not
+	nest inside <nav>. The folder list is the actual navigation, so it gets its
+	own <nav> (contentNavLabel) as a sibling of the search; the SidebarSection
+	below must not double it with a region landmark of the same name.
+-->
 <SidebarShell
 	label={$_('nav.foldersLandmark')}
+	landmarkRole="region"
+	contentNavLabel={$_('nav.foldersSection')}
 	{header}
 	{footer}
 	headerClass="px-4 py-4"
 	contentClass="p-2.5"
 >
-	<SidebarSection id="mail-sidebar-folders" label={$_('nav.foldersSection')}>
+	<SidebarSection id="mail-sidebar-folders" label={$_('nav.foldersSection')} landmark={false}>
 		{#if !$activeAccount}
 			<Surface variant="subtle" padding="sm" class="border-sidebar-border bg-background/80">
 				<p class="text-sm text-muted-foreground">{$_('nav.noActiveAccount')}</p>

@@ -122,11 +122,28 @@ test.describe('Přístupnost', () => {
 		).toHaveCount(0);
 	});
 
+	test('search landmark není vnořený v navigaci (pošta i kontakty)', async ({ page }) => {
+		// Sidebar je pojmenovaný region; hledání a <nav> se seznamem složek v něm
+		// stojí vedle sebe — search uvnitř nav je sémanticky špatně.
+		await page.goto(`/mail/${mailFixture.accountId}/${encodeURIComponent(mailFixture.folderName)}`);
+		await waitForShell(page);
+		const mailPane = page.getByRole('region', { name: 'Podokno složek' });
+		await expect(mailPane.getByRole('search')).toHaveCount(1);
+		await expect(mailPane.getByRole('navigation', { name: 'Složky' })).toBeVisible();
+		await expect(page.getByRole('navigation').getByRole('search')).toHaveCount(0);
+
+		await page.goto(`/contacts/${mailFixture.accountId}`);
+		await waitForShell(page);
+		const contactsPane = page.getByRole('region', { name: 'Podokno kontaktů' });
+		await expect(contactsPane.getByRole('search')).toHaveCount(1);
+		await expect(page.getByRole('navigation').getByRole('search')).toHaveCount(0);
+	});
+
 	test('tlačítko exportu vCard je dostupné přes roli a název', async ({ page }) => {
 		await page.goto(`/contacts/${mailFixture.accountId}`);
 		await waitForShell(page);
 
-		const sidebar = page.getByRole('navigation', { name: 'Kontakty' });
+		const sidebar = page.getByRole('region', { name: 'Podokno kontaktů' });
 		const exportButton = sidebar.getByRole('button', { name: 'Exportovat vCard' });
 		await expect(exportButton).toBeAttached();
 		await expect(exportButton).toHaveAttribute('type', 'button');
@@ -555,7 +572,7 @@ test.describe('Přístupnost', () => {
 		await expect(cell(0)).toBeFocused();
 	});
 
-	test('výsledky hledání tvoří grid s navigací po buňkách a otevření vrátí fokus do hlavní oblasti', async ({
+	test('výsledky hledání tvoří grid s navigací po buňkách a otevření přesune fokus na text zprávy', async ({
 		page
 	}) => {
 		await page.goto('/search/1?q=test');
@@ -586,11 +603,18 @@ test.describe('Přístupnost', () => {
 		await expect(cell(0)).toBeFocused();
 
 		// Opening a result from a content cell swaps the list for the detail in
-		// place (no route change), so focus must move to <main> rather than fall
-		// back to <body>.
+		// place (no route change). Focus first anchors on <main> (so it cannot
+		// fall back to <body> when the focused grid cell unmounts) and then
+		// lands on the message body once it renders (MessageContent.svelte).
 		await page.keyboard.press('Enter');
-		await expect(page.locator('#main-content')).toBeFocused();
 		await expect(page.getByRole('toolbar', { name: 'Akce se zprávami' })).toBeVisible();
+		// activeElement check instead of a `:focus` locator — Chromium does not
+		// match the pseudo-class on a programmatically focused <iframe>.
+		const region = page.getByRole('region', { name: 'Text zprávy' });
+		await expect(region).toBeVisible();
+		await expect
+			.poll(() => region.evaluate((el) => el.contains(document.activeElement)))
+			.toBe(true);
 	});
 
 	test('AccountForm vystavuje per-field aria-invalid u IMAP/SMTP polí', async ({ page }) => {

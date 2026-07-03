@@ -39,7 +39,7 @@
 		"opensInNewWindow": "(otevírá se v novém okně)"
 	},
 	"nav": {
-		"foldersLandmark": "Pošta",
+		"foldersLandmark": "Podokno složek",
 		"switchAccount": "Přepnout účet",
 		"switchAccountLabel": "Vybrat aktivní účet",
 		"noActiveAccount": "Pro práci s poštou nejdřív vyberte aktivní účet.",
@@ -138,6 +138,7 @@
 		"contentLoading": "Načítám obsah…",
 		"notFound": "Tato zpráva už není dostupná — mohla být přesunuta nebo smazána. Seznam jsme obnovili.",
 		"iframeTitle": "Obsah zprávy",
+		"bodyHeading": "Text zprávy",
 		"pageTitle": "Pošta – Zpráva",
 		"folderPageTitle": "Pošta – {folder}"
 	},
@@ -662,8 +663,8 @@
 		"contacts": "Kontakty",
 		"settings": "Nastavení",
 		"railLandmark": "Přepínač prostředí",
-		"contactsSidebarLabel": "Kontakty",
-		"settingsSidebarLabel": "Nastavení"
+		"contactsSidebarLabel": "Podokno kontaktů",
+		"settingsSidebarLabel": "Podokno nastavení"
 	},
 	"railSwitch": {
 		"goToMode": "{mode} ({shortcut})"
