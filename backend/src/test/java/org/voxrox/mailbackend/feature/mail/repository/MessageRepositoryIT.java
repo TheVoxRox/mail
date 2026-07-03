@@ -109,7 +109,7 @@ class MessageRepositoryIT {
     }
 
     /**
-     * V2 migration guard: the FTS5 reindex trigger is scoped via
+     * FTS trigger guard: the V1 {@code messages_au} trigger is scoped via
      * {@code AFTER UPDATE OF subject, sender, content, recipients_*}, and the
      * entity carries {@code @DynamicUpdate} so flag-only flushes never mention
      * those columns. These tests pin both directions of that contract against the

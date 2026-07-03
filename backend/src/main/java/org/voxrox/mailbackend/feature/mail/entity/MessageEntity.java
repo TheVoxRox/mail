@@ -17,10 +17,10 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 /*
  * @DynamicUpdate: Hibernate emits SET only for dirty columns. Required for the
- * V2 FTS trigger (AFTER UPDATE OF subject, sender, content, recipients_*) to
- * be effective — a full-column UPDATE would mention `content` on every flush
- * (e.g. ThreadingService setting thread columns right after insert) and force
- * a pointless FTS re-tokenization of the whole body.
+ * scoped FTS trigger (V1 baseline: AFTER UPDATE OF subject, sender, content,
+ * recipients_*) to be effective — a full-column UPDATE would mention `content`
+ * on every flush (e.g. ThreadingService setting thread columns right after
+ * insert) and force a pointless FTS re-tokenization of the whole body.
  */
 @DynamicUpdate
 @Entity

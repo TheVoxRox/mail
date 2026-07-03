@@ -381,8 +381,14 @@ CREATE TRIGGER messages_ad AFTER DELETE ON messages BEGIN
     );
 END;
 
--- Trigger: after UPDATE in messages, reindex the row (delete + insert).
-CREATE TRIGGER messages_au AFTER UPDATE ON messages BEGIN
+-- Trigger: after UPDATE of an FTS-indexed column, reindex the row
+-- (delete + insert). Scoped via UPDATE OF on purpose: an unscoped AFTER
+-- UPDATE fired on every flag flip (seen/flagged/answered) and threading
+-- update too, re-tokenizing the whole body on the single-writer SQLite for
+-- columns the index does not cover. Pairs with @DynamicUpdate on
+-- MessageEntity (Hibernate emits SET only for dirty columns), so entity
+-- flushes that do not touch these columns skip the reindex entirely.
+CREATE TRIGGER messages_au AFTER UPDATE OF subject, sender, content, recipients_to, recipients_cc ON messages BEGIN
     INSERT INTO message_search(
         message_search, rowid, subject, sender, content, recipients_to, recipients_cc
     ) VALUES (
