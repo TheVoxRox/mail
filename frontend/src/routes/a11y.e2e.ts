@@ -129,16 +129,28 @@ test.describe('Přístupnost', () => {
 		// semantically wrong.
 		await page.goto(`/mail/${mailFixture.accountId}/${encodeURIComponent(mailFixture.folderName)}`);
 		await waitForShell(page);
-		const mailPane = page.getByRole('region', { name: 'Podokno složek' });
-		await expect(mailPane.getByRole('search')).toHaveCount(1);
+		const mailPane = page.getByRole('region', { name: 'Podokno pošty' });
+		await expect(mailPane.getByRole('search', { name: 'Hledání v poště' })).toHaveCount(1);
 		await expect(mailPane.getByRole('navigation', { name: 'Složky' })).toBeVisible();
 		await expect(page.getByRole('navigation').getByRole('search')).toHaveCount(0);
 
 		await page.goto(`/contacts/${mailFixture.accountId}`);
 		await waitForShell(page);
 		const contactsPane = page.getByRole('region', { name: 'Podokno kontaktů' });
-		await expect(contactsPane.getByRole('search')).toHaveCount(1);
+		await expect(contactsPane.getByRole('search', { name: 'Hledání v kontaktech' })).toHaveCount(1);
 		await expect(page.getByRole('navigation').getByRole('search')).toHaveCount(0);
+	});
+
+	test('podokno nastavení je region bez vnořené navigace', async ({ page }) => {
+		// The settings pane must announce like the mail and contacts panes —
+		// a named region. Its links are the pane's sole content, so there is
+		// no inner <nav>: a nested navigation landmark would only add noise.
+		await page.goto('/settings/appearance');
+		await waitForShell(page);
+		const settingsPane = page.getByRole('region', { name: 'Podokno nastavení' });
+		await expect(settingsPane).toBeVisible();
+		await expect(settingsPane.getByRole('navigation')).toHaveCount(0);
+		await expect(settingsPane.getByRole('link', { name: 'Vzhled' })).toBeVisible();
 	});
 
 	test('tlačítko exportu vCard je dostupné přes roli a název', async ({ page }) => {
@@ -157,6 +169,10 @@ test.describe('Přístupnost', () => {
 	test('formulář nového kontaktu má jednoznačně pojmenované seznamy štítků', async ({ page }) => {
 		await page.goto(`/contacts/${mailFixture.accountId}?create=1`);
 		await waitForShell(page);
+
+		// Form landmark names carry no role word ("Formulář …") — the SR
+		// appends the role itself; pattern matches compose's "Nová zpráva".
+		await expect(page.getByRole('form', { name: 'Nový kontakt' })).toBeVisible();
 
 		const firstLabelSelect = page.getByRole('combobox', { name: 'Štítek adresy 1' });
 		await expect(firstLabelSelect).toHaveCount(1);

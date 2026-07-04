@@ -39,7 +39,6 @@
 		"opensInNewWindow": "(opens in a new window)"
 	},
 	"nav": {
-		"foldersLandmark": "Folder pane",
 		"switchAccount": "Switch account",
 		"switchAccountLabel": "Select active account",
 		"noActiveAccount": "Select an active account before working with mail.",
@@ -63,7 +62,7 @@
 		}
 	},
 	"search": {
-		"landmark": "Search",
+		"landmark": "Mail search",
 		"label": "Search messages",
 		"placeholder": "Search messages…",
 		"resultsTitle": "Search results for “{query}”",
@@ -74,6 +73,7 @@
 		"resultsLandmark": "Results",
 		"columnHeaderFolder": "Folder",
 		"paginationLandmark": "Results pagination",
+		"contactsLandmark": "Contacts search",
 		"contactsLabel": "Search contacts",
 		"contactsPlaceholder": "Search by name or e-mail…"
 	},
@@ -228,7 +228,7 @@
 		"saveSubmitLabel": "Save changes",
 		"customAccountBadge": "Custom configuration",
 		"form": {
-			"label": "Account form",
+			"label": "Account",
 			"accountName": "Account name",
 			"accountNameHint": "Just for your reference, e.g. “Work” or “Personal mail”.",
 			"email": "E-mail",
@@ -322,9 +322,9 @@
 		"noAccountHeading": "No email account",
 		"sidebarActions": "Actions",
 		"cancel": "Cancel",
-		"formLabel": "New contact form",
+		"formLabel": "New contact",
 		"formHeading": "New contact",
-		"editFormLabel": "Edit contact form",
+		"editFormLabel": "Edit contact",
 		"editFormHeading": "Edit contact",
 		"formHint": "Name is optional; at least one e-mail is required.",
 		"firstName": "First name",
@@ -663,6 +663,7 @@
 		"contacts": "Contacts",
 		"settings": "Settings",
 		"railLandmark": "Workspace switcher",
+		"mailSidebarLabel": "Mail pane",
 		"contactsSidebarLabel": "Contacts pane",
 		"settingsSidebarLabel": "Settings pane"
 	},

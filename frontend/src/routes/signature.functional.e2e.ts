@@ -39,7 +39,7 @@ async function setAccountSignature(page: Page, autoInsert: boolean): Promise<voi
 async function openComposeClientSide(page: Page): Promise<void> {
 	await page.getByRole('link', { name: 'Pošta (Ctrl+1)' }).click();
 	await page
-		.getByRole('region', { name: 'Podokno složek' })
+		.getByRole('region', { name: 'Podokno pošty' })
 		.getByRole('button', { name: 'Nová zpráva Ctrl+N' })
 		.click();
 	await page.waitForURL('**/compose');

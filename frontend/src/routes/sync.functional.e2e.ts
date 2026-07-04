@@ -14,7 +14,7 @@ test.describe('Sync notifications', () => {
 		await page.goto('/mail/1/INBOX');
 		await waitForShell(page);
 
-		const folders = page.getByRole('region', { name: 'Podokno složek' });
+		const folders = page.getByRole('region', { name: 'Podokno pošty' });
 		const inbox = folders.getByRole('button', { name: /Doručené/ });
 		await expect(inbox.getByText('3')).toBeVisible();
 
@@ -46,7 +46,7 @@ test.describe('Sync notifications', () => {
 		await page.goto('/mail/1/INBOX');
 		await waitForShell(page);
 
-		const folders = page.getByRole('region', { name: 'Podokno složek' });
+		const folders = page.getByRole('region', { name: 'Podokno pošty' });
 		const inbox = folders.getByRole('button', { name: /Doručené/ });
 		await expect(inbox.getByText('3')).toBeVisible();
 
