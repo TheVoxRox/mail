@@ -568,8 +568,9 @@
 			},
 			"connection": {
 				"heading": "Application status",
-				"notifications": "Synchronization",
-				"lastSync": "Last sync",
+				"notifications": "Synchronization:",
+				"lastSync": "Last sync:",
+				"lastSyncValue": "{folder} — {count, plural, =0 {no new messages} one {{count} new message} other {{count} new messages}}",
 				"noSyncYet": "No synchronization has completed yet.",
 				"ready": "The application is connected to the mail service.",
 				"loading": "The application is connecting to the mail service…",

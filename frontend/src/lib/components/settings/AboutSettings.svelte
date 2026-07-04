@@ -27,7 +27,7 @@
 	let diagnosticBusy = $state(false);
 	let diagnosticError = $state<string | null>(null);
 	let updateCheckBusy = $state(false);
-	let updateCheckStatusKey = $state<string | null>(null);
+	let updateCheckStatus = $state<string | null>(null);
 
 	onMount(() => {
 		showTechnicalDiagnostics = dev || window.localStorage.getItem('mail.e2e') === '1';
@@ -125,10 +125,10 @@
 	async function handleCheckForUpdates() {
 		if (updateCheckBusy) return;
 		updateCheckBusy = true;
-		updateCheckStatusKey = null;
+		updateCheckStatus = null;
 		try {
 			const result = await checkForUpdateManually();
-			updateCheckStatusKey = `settings.about.versions.update.${result.status}`;
+			updateCheckStatus = result.status;
 		} finally {
 			updateCheckBusy = false;
 		}
@@ -168,15 +168,31 @@
 					? $_('settings.about.versions.checkingUpdates')
 					: $_('settings.about.versions.checkUpdates')}
 			</Button>
-			{#if updateCheckStatusKey}
-				<span class="text-xs text-muted-foreground">{$_(updateCheckStatusKey)}</span>
-			{/if}
+			<!--
+				Rendered unconditionally: a live region inserted into the DOM
+				together with its text is not reliably announced, so the status
+				element must exist before the result lands.
+			-->
+			<span
+				role="status"
+				class={`text-xs ${updateCheckStatus === 'failed' ? 'text-warning-foreground' : 'text-muted-foreground'}`}
+			>
+				{updateCheckStatus ? $_(`settings.about.versions.update.${updateCheckStatus}`) : ''}
+			</span>
 		</div>
 	</Surface>
 
 	<Surface as="section" class="space-y-3">
 		<h2 class="text-sm font-semibold">{$_('settings.about.connection.heading')}</h2>
-		<p class={`text-sm ${connectionStatus.className}`}>{$_(connectionStatus.textKey)}</p>
+		<!--
+			role="status" doubles as the polite announcement for the reconnect
+			button below: the session store drives this text through loading →
+			ready/error, so a screen reader hears the outcome without hunting
+			for it (errors additionally raise the role="alert" surfaces).
+		-->
+		<p role="status" class={`text-sm ${connectionStatus.className}`}>
+			{$_(connectionStatus.textKey)}
+		</p>
 
 		<dl class="grid grid-cols-[9rem_1fr] gap-x-3 gap-y-2 text-sm">
 			<dt class="text-muted-foreground">{$_('settings.about.connection.notifications')}</dt>
@@ -190,7 +206,12 @@
 			<dd>
 				{#if $lastSync}
 					{@const lastSyncFolder = $folders.find((f) => f.folderRef === $lastSync.folderName)}
-					{lastSyncFolder ? folderLabel(lastSyncFolder, $_) : $lastSync.folderName} +{$lastSync.newMessagesCount}
+					{$_('settings.about.connection.lastSyncValue', {
+						values: {
+							folder: lastSyncFolder ? folderLabel(lastSyncFolder, $_) : $lastSync.folderName,
+							count: $lastSync.newMessagesCount
+						}
+					})}
 				{:else}
 					<span class="text-muted-foreground">{$_('settings.about.connection.noSyncYet')}</span>
 				{/if}

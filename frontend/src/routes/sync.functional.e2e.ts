@@ -37,9 +37,9 @@ test.describe('Sync notifications', () => {
 		await page.getByRole('link', { name: 'O aplikaci' }).click();
 
 		await expect(page.getByRole('heading', { name: 'Technická diagnostika' })).toBeVisible();
-		await expect(page.getByText('Synchronizace')).toBeVisible();
+		await expect(page.getByText('Synchronizace:', { exact: true })).toBeVisible();
 		await expect(page.getByText('online')).toBeVisible();
-		await expect(page.getByText(/Doručené \+2/)).toBeVisible();
+		await expect(page.getByText('Doručené — 2 nové zprávy')).toBeVisible();
 	});
 
 	test('zpracuje sync_completed event s CRLF SSE framingem', async ({ page }) => {
