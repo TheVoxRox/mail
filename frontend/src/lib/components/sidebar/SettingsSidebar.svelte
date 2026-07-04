@@ -87,7 +87,7 @@
 >
 	<div class="space-y-4">
 		{#each groups as group (group.id)}
-			<SidebarSection id={`settings-group-${group.id}`} label={$_(group.labelKey)}>
+			<SidebarSection id={`settings-group-${group.id}`} label={$_(group.labelKey)} landmark={false}>
 				<ul role="list" class="space-y-1">
 					{#each group.items as item (item.id)}
 						{@const active = isActive(item)}

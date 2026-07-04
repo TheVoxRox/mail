@@ -84,9 +84,10 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<void> {
 	const timeoutError = new BootTimeoutError(timeoutMs);
 	const timeoutId = setTimeout(() => {
 		/*
-		 * abort(reason) propaguje BootTimeoutError do vsech polling smycek, ktere
-		 * cti signal.reason. Konkretni catch v bootstrap pak prevede signal.aborted
-		 * na failBoot() s touto chybou, takze UI ukaze citelnou hlasku.
+		 * abort(reason) propagates the BootTimeoutError into every polling loop
+		 * that reads signal.reason. The catch in bootstrap then converts
+		 * signal.aborted into failBoot() with this error, so the UI shows a
+		 * readable message.
 		 */
 		abortController.abort(timeoutError);
 	}, timeoutMs);

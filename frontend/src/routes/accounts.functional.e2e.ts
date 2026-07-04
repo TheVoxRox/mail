@@ -113,8 +113,8 @@ test.describe('Accounts', () => {
 		await page.goto('/settings/accounts/new');
 		await waitForShell(page);
 
-		// Email-first wizard: ruční setup otevře plný formulář; přepneme do provider módu
-		// a testujeme auto-resolve uvnitř formuláře, ne v krokovém wizardu.
+		// Email-first wizard: manual setup opens the full form; switch to provider
+		// mode and test auto-resolve inside the form, not in the stepped wizard.
 		await page.getByRole('button', { name: 'Nastavit ručně' }).click();
 		await expect(page.locator('#acc-email')).toBeFocused();
 		await page.getByRole('radio', { name: 'Vybrat poskytovatele' }).click();
@@ -139,15 +139,15 @@ test.describe('Accounts', () => {
 		await page.goto('/settings/accounts/new');
 		await waitForShell(page);
 
-		// Neznámá doména hostovaná u Microsoftu → wizard otevře formulář ve "Vlastní nastavení".
+		// Unknown domain hosted at Microsoft → the wizard opens the form in "Vlastní nastavení".
 		await page.locator('#wizard-email').fill('jan@firma.cz');
 		await page.getByRole('button', { name: 'Pokračovat' }).click();
 		await expect(page.getByRole('radio', { name: 'Vlastní nastavení' })).toBeChecked();
 
-		// Přepneme na výběr poskytovatele a ručně zvolíme Microsoft (Outlook OAuth flow).
+		// Switch to provider selection and pick Microsoft manually (Outlook OAuth flow).
 		await page.getByRole('radio', { name: 'Vybrat poskytovatele' }).click();
 		const providerSelect = page.locator('#acc-provider');
-		// OAuth značky se v seznamu zobrazují jako Google / Microsoft, ne Gmail / Outlook.
+		// OAuth brands show up in the list as Google / Microsoft, not Gmail / Outlook.
 		await expect(providerSelect.getByRole('option', { name: 'Google', exact: true })).toHaveCount(
 			1
 		);
@@ -160,12 +160,12 @@ test.describe('Accounts', () => {
 		);
 		await providerSelect.selectOption({ label: 'Microsoft' });
 
-		// Místo vynuceného hesla se nabídne přihlášení přes Microsoft.
+		// Instead of forcing a password, a Microsoft sign-in is offered.
 		const oauthCta = page.getByRole('button', { name: 'Přihlásit přes Microsoft' });
 		await expect(oauthCta).toBeVisible();
 		await oauthCta.click();
 
-		// Přejdeme na vyhrazený OAuth krok s aktuálně zadaným e-mailem, bez IMAP/hesla.
+		// Move on to the dedicated OAuth step with the entered e-mail, no IMAP/password.
 		await expect(
 			page.getByRole('heading', { name: 'Přihlášení k účtu jan@firma.cz' })
 		).toBeVisible();
@@ -180,12 +180,12 @@ test.describe('Accounts', () => {
 		await page.goto('/settings/accounts/new');
 		await waitForShell(page);
 
-		// Neznámá doména → wizard nás pošle rovnou do form módu s defaultně zvoleným
-		// "Vlastní nastavení" (žádná šablona neodpovídá doméně firma.cz).
+		// Unknown domain → the wizard sends us straight to form mode with
+		// "Vlastní nastavení" preselected (no template matches the firma.cz domain).
 		await page.locator('#wizard-email').fill('majitel@firma.cz');
 		await page.getByRole('button', { name: 'Pokračovat' }).click();
 
-		// Vlastní toggle musí být aktivní.
+		// The custom-settings toggle must be active.
 		await expect(page.getByRole('radio', { name: 'Vlastní nastavení' })).toBeChecked();
 		// Domain label "firma" → "Firma" (works for custom servers too, no provider needed).
 		await expect(page.locator('#acc-accountName')).toHaveValue('Firma');
@@ -196,7 +196,7 @@ test.describe('Accounts', () => {
 		await page.locator('#acc-username').fill('majitel@firma.cz');
 		await page.locator('#acc-password').fill('secret123');
 
-		// Sledujeme odchozí požadavek — ověříme XOR payload.
+		// Watch the outgoing request — verify the XOR payload.
 		const createRequest = page.waitForRequest(
 			(request) => request.url().endsWith('/api/v1/accounts') && request.method() === 'POST'
 		);
@@ -213,7 +213,7 @@ test.describe('Accounts', () => {
 		expect(body.imap).toMatchObject({ host: 'imap.firma.cz', port: 993, useSsl: true });
 		expect(body.smtp).toMatchObject({ host: 'smtp.firma.cz', port: 465, useSsl: true });
 
-		// Po úspěšném vytvoření se vracíme na výpis a nový účet je tam s "Vlastní" labelem.
+		// After a successful create we return to the list; the new account carries the "Vlastní" label.
 		await initialSyncRequest;
 		await expect(page).toHaveURL(/\/settings\/accounts$/);
 	});
@@ -272,18 +272,18 @@ test.describe('Accounts', () => {
 		await page.getByRole('button', { name: 'Nastavit ručně' }).click();
 		await page.getByRole('radio', { name: 'Vybrat poskytovatele' }).click();
 
-		// V provider módu vyplníme e-mail a auto-resolve sedne na šablonu.
+		// In provider mode fill the e-mail; auto-resolve matches a template.
 		await page.locator('#acc-email').fill('tester@example.com');
 		const providerSelect = page.locator('#acc-provider');
 		await expect(providerSelect).toHaveValue('1');
 
-		// Přepnutí na "Vlastní nastavení" převezme host/porty ze zvolené šablony.
+		// Switching to "Vlastní nastavení" takes the host/ports over from the selected template.
 		await page.getByRole('radio', { name: 'Vlastní nastavení' }).click();
 		await expect(page.locator('#acc-imap-host')).toHaveValue('imap.example.com');
 		await expect(page.locator('#acc-imap-port')).toHaveValue('993');
 		await expect(page.locator('#acc-smtp-host')).toHaveValue('smtp.example.com');
 
-		// Zpět na provider — dropdown se zase zobrazí.
+		// Back to provider mode — the dropdown shows again.
 		await page.getByRole('radio', { name: 'Vybrat poskytovatele' }).click();
 		await expect(providerSelect).toBeVisible();
 	});

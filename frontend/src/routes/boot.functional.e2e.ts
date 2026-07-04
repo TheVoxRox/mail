@@ -113,7 +113,7 @@ test.describe('MSW bootstrap', () => {
 				.getByRole('navigation', { name: 'Přepínač prostředí' })
 				.getByRole('link', { name: 'Kontakty (Ctrl+2)' })
 		).toHaveAttribute('aria-current', 'page');
-		await expect(page.getByRole('navigation', { name: 'Kontakty' })).toBeVisible();
+		await expect(page.getByRole('region', { name: 'Podokno kontaktů' })).toBeVisible();
 
 		await page.keyboard.press('Control+3');
 		await page.waitForURL('**/settings/appearance');
@@ -122,7 +122,7 @@ test.describe('MSW bootstrap', () => {
 				.getByRole('navigation', { name: 'Přepínač prostředí' })
 				.getByRole('link', { name: 'Nastavení (Ctrl+3)' })
 		).toHaveAttribute('aria-current', 'page');
-		await expect(page.getByRole('navigation', { name: 'Nastavení' })).toBeVisible();
+		await expect(page.getByRole('navigation', { name: 'Podokno nastavení' })).toBeVisible();
 
 		await page.keyboard.press('Control+1');
 		await page.waitForURL('**/mail/1/INBOX');
@@ -131,7 +131,7 @@ test.describe('MSW bootstrap', () => {
 				.getByRole('navigation', { name: 'Přepínač prostředí' })
 				.getByRole('link', { name: 'Pošta (Ctrl+1)' })
 		).toHaveAttribute('aria-current', 'page');
-		await expect(page.getByRole('navigation', { name: 'Pošta' })).toBeVisible();
+		await expect(page.getByRole('region', { name: 'Podokno složek' })).toBeVisible();
 	});
 
 	test('Gmail zkratka ? otevře přehled zkratek mimo textová pole', async ({ page }) => {
@@ -158,7 +158,7 @@ test.describe('MSW bootstrap', () => {
 		await page.waitForURL('**/mail/1/INBOX');
 
 		await expect(page.getByRole('navigation', { name: 'Přepínač prostředí' })).toBeVisible();
-		await expect(page.getByRole('navigation', { name: 'Pošta' })).toBeVisible();
+		await expect(page.getByRole('region', { name: 'Podokno složek' })).toBeVisible();
 		await expect(page.getByRole('heading', { name: 'Doručené' })).toBeVisible();
 		await expect(page.locator('[role="row"][data-stable-id="msg-01"]')).toBeVisible();
 		await expect(page.getByRole('button', { name: /Projektové podklady/ })).toBeVisible();
@@ -420,6 +420,6 @@ test.describe('MSW bootstrap', () => {
 
 		await page.waitForURL('**/mail/1/INBOX');
 		await expect(page.getByRole('heading', { name: 'Doručené' })).toBeVisible();
-		await expect(page.getByRole('navigation', { name: 'Pošta' })).toBeVisible();
+		await expect(page.getByRole('region', { name: 'Podokno složek' })).toBeVisible();
 	});
 });

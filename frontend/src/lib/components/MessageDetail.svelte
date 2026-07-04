@@ -147,7 +147,7 @@
 				</Surface>
 			</div>
 		{:else if state.content}
-			<MessageContent content={msgContent} {looksLikeHtml} />
+			<MessageContent content={msgContent} {looksLikeHtml} stableId={state.stableId} />
 		{/if}
 
 		{#if detail?.contentError}

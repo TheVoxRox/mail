@@ -10,12 +10,13 @@ const mailFixture = {
 };
 
 /**
- * Všechny obrazovky aplikace, které mají projít základní a11y kontrolou.
- * `/` není v seznamu – rovnou se přesměruje; pokrývají ho ostatní testy níže.
+ * Every screen of the app that must pass the basic a11y check.
+ * `/` is not listed — it redirects right away; the other tests below cover it.
  *
- * Trasy s parametry používají placeholder `1`; pokud backend nejede (což je
- * případ `npm run preview`), obrazovky zůstanou v error/waiting state – to je
- * pro axe scan v pořádku, jen nesmí obsahovat porušení přístupnosti.
+ * Parameterized routes use the placeholder `1`; when the backend is not
+ * running (the `npm run preview` case), the screens stay in an error/waiting
+ * state — that is fine for the axe scan, they just must not contain
+ * accessibility violations.
  */
 const routes: ReadonlyArray<{ path: string; name: string }> = [
 	{ path: '/settings/appearance', name: 'Nastavení vzhledu' },
@@ -39,8 +40,8 @@ const routes: ReadonlyArray<{ path: string; name: string }> = [
 ];
 
 /**
- * Layout renderuje `<main>` až poté, co se načte i18n. Čekání na `main`
- * eliminuje race, kdy axe skenuje jen placeholder „…".
+ * The layout renders `<main>` only after i18n has loaded. Waiting for `main`
+ * eliminates the race where axe scans just the "…" placeholder.
  */
 async function waitForShell(page: Page): Promise<void> {
 	await page.waitForSelector('main', { state: 'attached' });
@@ -122,11 +123,29 @@ test.describe('Přístupnost', () => {
 		).toHaveCount(0);
 	});
 
+	test('search landmark není vnořený v navigaci (pošta i kontakty)', async ({ page }) => {
+		// The sidebar is a named region; the search and the folder-list <nav>
+		// sit side by side inside it — a search landmark nested in nav is
+		// semantically wrong.
+		await page.goto(`/mail/${mailFixture.accountId}/${encodeURIComponent(mailFixture.folderName)}`);
+		await waitForShell(page);
+		const mailPane = page.getByRole('region', { name: 'Podokno složek' });
+		await expect(mailPane.getByRole('search')).toHaveCount(1);
+		await expect(mailPane.getByRole('navigation', { name: 'Složky' })).toBeVisible();
+		await expect(page.getByRole('navigation').getByRole('search')).toHaveCount(0);
+
+		await page.goto(`/contacts/${mailFixture.accountId}`);
+		await waitForShell(page);
+		const contactsPane = page.getByRole('region', { name: 'Podokno kontaktů' });
+		await expect(contactsPane.getByRole('search')).toHaveCount(1);
+		await expect(page.getByRole('navigation').getByRole('search')).toHaveCount(0);
+	});
+
 	test('tlačítko exportu vCard je dostupné přes roli a název', async ({ page }) => {
 		await page.goto(`/contacts/${mailFixture.accountId}`);
 		await waitForShell(page);
 
-		const sidebar = page.getByRole('navigation', { name: 'Kontakty' });
+		const sidebar = page.getByRole('region', { name: 'Podokno kontaktů' });
 		const exportButton = sidebar.getByRole('button', { name: 'Exportovat vCard' });
 		await expect(exportButton).toBeAttached();
 		await expect(exportButton).toHaveAttribute('type', 'button');
@@ -555,7 +574,7 @@ test.describe('Přístupnost', () => {
 		await expect(cell(0)).toBeFocused();
 	});
 
-	test('výsledky hledání tvoří grid s navigací po buňkách a otevření vrátí fokus do hlavní oblasti', async ({
+	test('výsledky hledání tvoří grid s navigací po buňkách a otevření přesune fokus na text zprávy', async ({
 		page
 	}) => {
 		await page.goto('/search/1?q=test');
@@ -586,11 +605,18 @@ test.describe('Přístupnost', () => {
 		await expect(cell(0)).toBeFocused();
 
 		// Opening a result from a content cell swaps the list for the detail in
-		// place (no route change), so focus must move to <main> rather than fall
-		// back to <body>.
+		// place (no route change). Focus first anchors on <main> (so it cannot
+		// fall back to <body> when the focused grid cell unmounts) and then
+		// lands on the message body once it renders (MessageContent.svelte).
 		await page.keyboard.press('Enter');
-		await expect(page.locator('#main-content')).toBeFocused();
 		await expect(page.getByRole('toolbar', { name: 'Akce se zprávami' })).toBeVisible();
+		// activeElement check instead of a `:focus` locator — Chromium does not
+		// match the pseudo-class on a programmatically focused <iframe>.
+		const region = page.getByRole('region', { name: 'Text zprávy' });
+		await expect(region).toBeVisible();
+		await expect
+			.poll(() => region.evaluate((el) => el.contains(document.activeElement)))
+			.toBe(true);
 	});
 
 	test('AccountForm vystavuje per-field aria-invalid u IMAP/SMTP polí', async ({ page }) => {

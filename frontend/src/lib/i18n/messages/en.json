@@ -39,7 +39,7 @@
 		"opensInNewWindow": "(opens in a new window)"
 	},
 	"nav": {
-		"foldersLandmark": "Mail",
+		"foldersLandmark": "Folder pane",
 		"switchAccount": "Switch account",
 		"switchAccountLabel": "Select active account",
 		"noActiveAccount": "Select an active account before working with mail.",
@@ -138,6 +138,7 @@
 		"contentLoading": "Loading content…",
 		"notFound": "This message is no longer available — it may have been moved or deleted. We've refreshed the list.",
 		"iframeTitle": "Message content",
+		"bodyHeading": "Message text",
 		"pageTitle": "Mail – Message",
 		"folderPageTitle": "Mail – {folder}"
 	},
@@ -662,8 +663,8 @@
 		"contacts": "Contacts",
 		"settings": "Settings",
 		"railLandmark": "Workspace switcher",
-		"contactsSidebarLabel": "Contacts",
-		"settingsSidebarLabel": "Settings"
+		"contactsSidebarLabel": "Contacts pane",
+		"settingsSidebarLabel": "Settings pane"
 	},
 	"railSwitch": {
 		"goToMode": "Go to {mode} ({shortcut})"

@@ -40,7 +40,7 @@ test.describe('Contacts', () => {
 		await page.goto('/contacts/1');
 		await waitForShell(page);
 
-		const sidebar = page.getByRole('navigation', { name: 'Kontakty' });
+		const sidebar = page.getByRole('region', { name: 'Podokno kontaktů' });
 		await expect(sidebar.getByRole('link', { name: /Nový kontakt/ })).toHaveCount(0);
 
 		await sidebar.getByRole('button', { name: 'Nový kontakt Ctrl+N' }).click();
@@ -493,7 +493,7 @@ test.describe('Contacts', () => {
 		await page.goto('/contacts/1');
 		await waitForShell(page);
 
-		const sidebar = page.getByRole('navigation', { name: 'Kontakty' });
+		const sidebar = page.getByRole('region', { name: 'Podokno kontaktů' });
 		await expect(sidebar.getByRole('button', { name: 'Exportovat vCard' })).toBeVisible();
 		const downloadPromise = page.waitForEvent('download');
 		await sidebar.getByRole('button', { name: 'Exportovat vCard' }).click();

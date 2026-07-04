@@ -14,7 +14,7 @@ test.describe('Sync notifications', () => {
 		await page.goto('/mail/1/INBOX');
 		await waitForShell(page);
 
-		const folders = page.getByRole('navigation', { name: 'Pošta' });
+		const folders = page.getByRole('region', { name: 'Podokno složek' });
 		const inbox = folders.getByRole('button', { name: /Doručené/ });
 		await expect(inbox.getByText('3')).toBeVisible();
 
@@ -28,7 +28,9 @@ test.describe('Sync notifications', () => {
 		});
 
 		const notifications = page.getByRole('region', { name: 'Oznámení' });
-		await expect(notifications.getByText('2 nové zprávy, tester@example.com, INBOX')).toBeVisible();
+		await expect(
+			notifications.getByText('2 nové zprávy, tester@example.com, Doručené')
+		).toBeVisible();
 		await expect(inbox.getByText('5')).toBeVisible();
 
 		await page.getByRole('link', { name: 'Nastavení (Ctrl+3)' }).click();
@@ -44,7 +46,7 @@ test.describe('Sync notifications', () => {
 		await page.goto('/mail/1/INBOX');
 		await waitForShell(page);
 
-		const folders = page.getByRole('navigation', { name: 'Pošta' });
+		const folders = page.getByRole('region', { name: 'Podokno složek' });
 		const inbox = folders.getByRole('button', { name: /Doručené/ });
 		await expect(inbox.getByText('3')).toBeVisible();
 
@@ -60,7 +62,9 @@ test.describe('Sync notifications', () => {
 		});
 
 		const notifications = page.getByRole('region', { name: 'Oznámení' });
-		await expect(notifications.getByText('4 nové zprávy, tester@example.com, INBOX')).toBeVisible();
+		await expect(
+			notifications.getByText('4 nové zprávy, tester@example.com, Doručené')
+		).toBeVisible();
 		await expect(inbox.getByText('7')).toBeVisible();
 	});
 });

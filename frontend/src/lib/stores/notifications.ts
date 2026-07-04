@@ -8,7 +8,13 @@ import { get, writable } from 'svelte/store';
 import { _ } from 'svelte-i18n';
 import { SseClient } from '$lib/api/notifications.js';
 import { ensureNotificationPermission, notifyUser } from '$lib/api/nativeNotifications.js';
-import type { SendNotification, StreamNotification, SyncNotification } from '$lib/types.js';
+import { folderLabel } from '$lib/mail/folderLabel.js';
+import type {
+	FolderResponse,
+	SendNotification,
+	StreamNotification,
+	SyncNotification
+} from '$lib/types.js';
 import { messagesState, reloadCurrentPage } from './messages.js';
 import { refreshFolders } from './folders.js';
 import { accountsState } from './accounts.js';
@@ -112,23 +118,38 @@ function handleSyncCompleted(event: SyncNotification): void {
 		void reloadCurrentPage();
 	}
 
-	void refreshFolders(event.accountId);
+	/*
+	 * The refreshed list also resolves the folder label for the announcement
+	 * below. The SSE event carries only the raw server-side name (folderRef),
+	 * and the account-scoped `folders` derived store cannot be used instead:
+	 * the event may belong to a non-active account.
+	 */
+	const refreshedFolders = refreshFolders(event.accountId).catch((): FolderResponse[] => []);
 
 	if (event.newMessagesCount > 0) {
-		const accounts = get(accountsState);
-		const accountLabel =
-			(accounts.status === 'ready'
-				? accounts.accounts.find((a) => a.id === event.accountId)?.email
-				: null) ?? `#${event.accountId}`;
-		const translate = get(_);
-		const message = translate('toast.newMessages', {
-			values: {
-				count: event.newMessagesCount,
-				account: accountLabel,
-				folder: event.folderName
-			}
-		});
-		pushToast(message, { tone: 'success', ttl: 6000 });
-		notifyUser(message, `${accountLabel}, ${event.folderName}`);
+		void announceNewMessages(event, refreshedFolders);
 	}
+}
+
+async function announceNewMessages(
+	event: SyncNotification,
+	foldersPromise: Promise<FolderResponse[]>
+): Promise<void> {
+	const folder = (await foldersPromise).find((f) => f.folderRef === event.folderName);
+	const accounts = get(accountsState);
+	const accountLabel =
+		(accounts.status === 'ready'
+			? accounts.accounts.find((a) => a.id === event.accountId)?.email
+			: null) ?? `#${event.accountId}`;
+	const translate = get(_);
+	const folderName = folder ? folderLabel(folder, translate) : event.folderName;
+	const message = translate('toast.newMessages', {
+		values: {
+			count: event.newMessagesCount,
+			account: accountLabel,
+			folder: folderName
+		}
+	});
+	pushToast(message, { tone: 'success', ttl: 6000 });
+	notifyUser(message, `${accountLabel}, ${folderName}`);
 }

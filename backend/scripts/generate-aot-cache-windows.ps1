@@ -27,7 +27,7 @@
     Path where the generated AOT cache (.aot) should be saved.
 
 .PARAMETER TempDataDir
-    Docasny adresar pro APP_DATA_DIR pri training (vytvori se prazdny).
+    Temporary directory used as APP_DATA_DIR during training (created empty).
     Default: %TEMP%\voxrox-aot-training.
 
 .EXAMPLE
@@ -45,7 +45,7 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 if (-not (Test-Path $JarPath)) {
-    throw "AOT training: jar nenalezen: $JarPath"
+    throw "AOT training: jar not found: $JarPath"
 }
 
 $resolvedJar = (Resolve-Path $JarPath).Path
@@ -55,7 +55,7 @@ if ($cacheDir -and -not (Test-Path $cacheDir)) {
 }
 $configPath = "$CachePath.config"
 
-# Cisty tmp data dir — predchozi training run mohl nechat session.json a DB
+# Clean tmp data dir — a previous training run may have left session.json and a DB
 if (Test-Path $TempDataDir) {
     Remove-Item -Recurse -Force $TempDataDir
 }
@@ -78,7 +78,7 @@ try {
     Write-Host ""
     Write-Host "    [1/2] Recording AOT configuration..."
 
-    # Args jako array kvuli PowerShell quoting bugum se znakem '=' pri space-split.
+    # Args as an array to work around PowerShell quoting bugs with '=' during space-splitting.
     $recordArgs = @(
         "-XX:AOTMode=record",
         "-XX:AOTConfiguration=$configPath",
@@ -135,9 +135,9 @@ try {
 }
 
 if (-not (Test-Path $CachePath)) {
-    throw "AOT cache nebyla vygenerovana: $CachePath."
+    throw "AOT cache was not generated: $CachePath."
 }
 
 $cacheSize = (Get-Item $CachePath).Length
 Write-Host ""
-Write-Host "AOT cache hotova: $CachePath ($([math]::Round($cacheSize/1MB, 2)) MB)"
+Write-Host "AOT cache ready: $CachePath ($([math]::Round($cacheSize/1MB, 2)) MB)"

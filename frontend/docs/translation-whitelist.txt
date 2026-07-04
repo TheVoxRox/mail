@@ -37,6 +37,7 @@ frontend/src/routes/boot.functional.e2e.ts -- Boot/loading state assertions agai
 frontend/src/routes/compose.functional.e2e.ts -- Compose form assertions against Czech UI (recipients, subject placeholder, attachments).
 frontend/src/routes/contacts.functional.e2e.ts -- Contact list / merge dialog assertions against Czech UI.
 frontend/src/routes/e2e-helpers.ts -- Shared Playwright helpers; sets 'mail.locale' = 'cs' for the suite.
+frontend/src/routes/mail/detail-focus.functional.e2e.ts -- Message-body focus and landmark assertions against Czech UI ("Text zprávy", "Obsah zprávy") under mail.locale = 'cs'.
 frontend/src/routes/mail/message-detail-actions.functional.e2e.ts -- Inline message-toolbar action assertions against Czech UI ("Akce se zprávami", "Odpovědět", reply subject) under mail.locale = 'cs'.
 frontend/src/routes/mail/sanitizer.functional.e2e.ts -- HTML sanitizer assertions reference Czech UI surrounding the message body.
 frontend/src/routes/mail/shortcuts.functional.e2e.ts -- Mail-body iframe keyboard-shortcut assertions against Czech UI ("Klávesové zkratky") under mail.locale = 'cs'.
