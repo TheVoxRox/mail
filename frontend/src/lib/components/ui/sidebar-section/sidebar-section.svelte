@@ -6,10 +6,11 @@
 		id: string;
 		label: string;
 		/**
-		 * A named section is a `region` landmark. Keep the default only for
-		 * significant sidebar content (e.g. the mail folder list); for mere
-		 * link groups pass `false` so the heading alone structures the group
-		 * without adding landmark noise.
+		 * A named section is a `region` landmark. Off by default: link and
+		 * action groups are structured by their heading alone — extra regions
+		 * nested inside a sidebar pane are landmark noise. Opt in only for
+		 * content significant enough to deserve its own landmark (no current
+		 * caller does).
 		 */
 		landmark?: boolean;
 		children?: Snippet;
@@ -18,7 +19,7 @@
 </script>
 
 <script lang="ts">
-	let { id, label, landmark = true, children, class: className }: SidebarSectionProps = $props();
+	let { id, label, landmark = false, children, class: className }: SidebarSectionProps = $props();
 </script>
 
 <section aria-labelledby={landmark ? id : undefined} class={cn('space-y-1', className)}>

@@ -24,7 +24,7 @@ async function expectShellFitsViewport(page: Page) {
 	expect(overflow.documentWidth).toBeLessThanOrEqual(overflow.viewportWidth);
 	expect(overflow.bodyWidth).toBeLessThanOrEqual(overflow.viewportWidth);
 	await expect(page.getByRole('navigation', { name: 'Přepínač prostředí' })).toBeVisible();
-	await expect(page.getByRole('region', { name: 'Podokno složek' })).toBeVisible();
+	await expect(page.getByRole('region', { name: 'Podokno pošty' })).toBeVisible();
 	await expect(page.getByRole('toolbar', { name: 'Akce se zprávami' })).toBeVisible();
 	await expect(
 		page.locator('[role="separator"][aria-orientation="vertical"][tabindex="0"]')

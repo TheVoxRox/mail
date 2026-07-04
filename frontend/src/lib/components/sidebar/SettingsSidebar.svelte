@@ -79,6 +79,12 @@
 	<h2 class="text-base font-semibold">{$_('workspace.settings')}</h2>
 {/snippet}
 
+<!--
+	Named region like the mail and contacts panes, so landmark navigation
+	announces all three sidebars consistently. No inner <nav>: the links are
+	the pane's sole content, so a nested navigation landmark would only add
+	noise (unlike mail, where the <nav> separates folders from search).
+-->
 <SidebarShell
 	label={$_('workspace.settingsSidebarLabel')}
 	{header}
@@ -87,7 +93,7 @@
 >
 	<div class="space-y-4">
 		{#each groups as group (group.id)}
-			<SidebarSection id={`settings-group-${group.id}`} label={$_(group.labelKey)} landmark={false}>
+			<SidebarSection id={`settings-group-${group.id}`} label={$_(group.labelKey)}>
 				<ul role="list" class="space-y-1">
 					{#each group.items as item (item.id)}
 						{@const active = isActive(item)}

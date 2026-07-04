@@ -93,7 +93,7 @@
 			onsubmit={handleSearch}
 			class="mt-3"
 			role="search"
-			aria-label={$_('search.contactsLabel')}
+			aria-label={$_('search.contactsLandmark')}
 		>
 			<label for="contacts-sidebar-search" class="sr-only">{$_('search.contactsLabel')}</label>
 			<Input
@@ -113,7 +113,6 @@
 -->
 <SidebarShell
 	label={$_('workspace.contactsSidebarLabel')}
-	landmarkRole="region"
 	{header}
 	headerClass="px-4 py-4"
 	contentClass="p-2.5"
@@ -123,11 +122,7 @@
 			<p class="text-sm text-muted-foreground">{$_('contacts.noActiveAccount')}</p>
 		</div>
 	{:else}
-		<SidebarSection
-			id="contacts-sidebar-actions"
-			label={$_('contacts.sidebarActions')}
-			landmark={false}
-		>
+		<SidebarSection id="contacts-sidebar-actions" label={$_('contacts.sidebarActions')}>
 			<ul role="list" class="space-y-1">
 				<li>
 					<SidebarNavItem onclick={openCreate} active={createActive}>

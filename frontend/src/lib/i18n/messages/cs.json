@@ -39,7 +39,6 @@
 		"opensInNewWindow": "(otevírá se v novém okně)"
 	},
 	"nav": {
-		"foldersLandmark": "Podokno složek",
 		"switchAccount": "Přepnout účet",
 		"switchAccountLabel": "Vybrat aktivní účet",
 		"noActiveAccount": "Pro práci s poštou nejdřív vyberte aktivní účet.",
@@ -63,7 +62,7 @@
 		}
 	},
 	"search": {
-		"landmark": "Hledání",
+		"landmark": "Hledání v poště",
 		"label": "Vyhledat zprávy",
 		"placeholder": "Hledat ve zprávách…",
 		"resultsTitle": "Výsledky vyhledávání „{query}\"",
@@ -74,6 +73,7 @@
 		"resultsLandmark": "Výsledky",
 		"columnHeaderFolder": "Složka",
 		"paginationLandmark": "Stránkování výsledků",
+		"contactsLandmark": "Hledání v kontaktech",
 		"contactsLabel": "Hledat kontakty",
 		"contactsPlaceholder": "Hledat podle jména nebo e-mailu…"
 	},
@@ -228,7 +228,7 @@
 		"saveSubmitLabel": "Uložit změny",
 		"customAccountBadge": "Vlastní konfigurace",
 		"form": {
-			"label": "Formulář účtu",
+			"label": "Účet",
 			"accountName": "Název účtu",
 			"accountNameHint": "Pro vaši orientaci, např. „Práce\" nebo „Soukromá pošta\".",
 			"email": "E-mail",
@@ -322,9 +322,9 @@
 		"noAccountHeading": "Žádný e-mailový účet",
 		"sidebarActions": "Akce",
 		"cancel": "Zrušit",
-		"formLabel": "Formulář nového kontaktu",
+		"formLabel": "Nový kontakt",
 		"formHeading": "Nový kontakt",
-		"editFormLabel": "Formulář úpravy kontaktu",
+		"editFormLabel": "Úprava kontaktu",
 		"editFormHeading": "Upravit kontakt",
 		"formHint": "Jméno je volitelné, alespoň jeden e-mail je povinný.",
 		"firstName": "Jméno",
@@ -663,6 +663,7 @@
 		"contacts": "Kontakty",
 		"settings": "Nastavení",
 		"railLandmark": "Přepínač prostředí",
+		"mailSidebarLabel": "Podokno pošty",
 		"contactsSidebarLabel": "Podokno kontaktů",
 		"settingsSidebarLabel": "Podokno nastavení"
 	},
