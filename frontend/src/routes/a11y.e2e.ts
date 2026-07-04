@@ -10,12 +10,13 @@ const mailFixture = {
 };
 
 /**
- * Všechny obrazovky aplikace, které mají projít základní a11y kontrolou.
- * `/` není v seznamu – rovnou se přesměruje; pokrývají ho ostatní testy níže.
+ * Every screen of the app that must pass the basic a11y check.
+ * `/` is not listed — it redirects right away; the other tests below cover it.
  *
- * Trasy s parametry používají placeholder `1`; pokud backend nejede (což je
- * případ `npm run preview`), obrazovky zůstanou v error/waiting state – to je
- * pro axe scan v pořádku, jen nesmí obsahovat porušení přístupnosti.
+ * Parameterized routes use the placeholder `1`; when the backend is not
+ * running (the `npm run preview` case), the screens stay in an error/waiting
+ * state — that is fine for the axe scan, they just must not contain
+ * accessibility violations.
  */
 const routes: ReadonlyArray<{ path: string; name: string }> = [
 	{ path: '/settings/appearance', name: 'Nastavení vzhledu' },
@@ -39,8 +40,8 @@ const routes: ReadonlyArray<{ path: string; name: string }> = [
 ];
 
 /**
- * Layout renderuje `<main>` až poté, co se načte i18n. Čekání na `main`
- * eliminuje race, kdy axe skenuje jen placeholder „…".
+ * The layout renders `<main>` only after i18n has loaded. Waiting for `main`
+ * eliminates the race where axe scans just the "…" placeholder.
  */
 async function waitForShell(page: Page): Promise<void> {
 	await page.waitForSelector('main', { state: 'attached' });
@@ -123,8 +124,9 @@ test.describe('Přístupnost', () => {
 	});
 
 	test('search landmark není vnořený v navigaci (pošta i kontakty)', async ({ page }) => {
-		// Sidebar je pojmenovaný region; hledání a <nav> se seznamem složek v něm
-		// stojí vedle sebe — search uvnitř nav je sémanticky špatně.
+		// The sidebar is a named region; the search and the folder-list <nav>
+		// sit side by side inside it — a search landmark nested in nav is
+		// semantically wrong.
 		await page.goto(`/mail/${mailFixture.accountId}/${encodeURIComponent(mailFixture.folderName)}`);
 		await waitForShell(page);
 		const mailPane = page.getByRole('region', { name: 'Podokno složek' });

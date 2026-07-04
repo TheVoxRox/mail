@@ -376,10 +376,10 @@ export function upsertAccount(
 			? (fixtureState.providers.find((item) => item.id === body.providerId) ?? null)
 			: null;
 
-	// Pravidla denormalizace (mirror backendu):
-	//  - body.providerId → kopie ze šablony, providerName = name šablony
-	//  - body.imap/smtp → vlastní config, providerId=null, providerName="Vlastní"
-	//  - žádné z toho (PATCH) → ponecháme existing
+	// Denormalization rules (mirror of the backend):
+	//  - body.providerId → copy from the template, providerName = template name
+	//  - body.imap/smtp → custom config, providerId=null, providerName="Vlastní"
+	//  - neither of them (PATCH) → keep existing
 	const hasCustomServer = body.imap != null || body.smtp != null;
 	const existingHasProvider = existing?.providerId != null;
 	const providerKept =

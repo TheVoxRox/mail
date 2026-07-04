@@ -83,11 +83,11 @@
 
 @theme inline {
 	/*
-	 * Sémantická typografická škála. Velikosti písma berte JEN odsud:
-	 * text-caption (11px) → text-xs (12px) → text-sm (14px, výchozí tělo)
-	 * → text-title (15px, titulek stránky) → text-base (16px, sekce/sidebar)
-	 * → text-lg (18px, předmět zprávy).
-	 * Žádné arbitrary `text-[…rem]` — viz check:typography lint.
+	 * Semantic typography scale. Take font sizes ONLY from here:
+	 * text-caption (11px) → text-xs (12px) → text-sm (14px, default body)
+	 * → text-title (15px, page title) → text-base (16px, sections/sidebar)
+	 * → text-lg (18px, message subject).
+	 * No arbitrary `text-[…rem]` — see the check:typography lint.
 	 */
 	--text-caption: 0.6875rem;
 	--text-caption--line-height: 1rem;
@@ -147,9 +147,9 @@
 }
 
 /*
- * Vizuálně skrytý text přístupný pro odečítače obrazovky.
- * Použití: class="sr-only" na elementu, který má být viditelný jen pro screen reader.
- * Třída sr-only-focusable se zobrazí při fokusu (skip-link).
+ * Visually hidden text that stays accessible to screen readers.
+ * Usage: class="sr-only" on an element meant for screen readers only.
+ * The sr-only-focusable variant becomes visible on focus (skip-link).
  */
 @utility sr-only {
 	position: absolute;

@@ -30,7 +30,7 @@ test.describe('Fokus na tělo otevřené zprávy', () => {
 		await expect(frame).toBeVisible();
 		await expect(frame).toBeFocused();
 
-		// Landmark + skrytý nadpis: v off módu je předmět <h1>, tělo <h2>.
+		// Landmark + hidden heading: in off mode the subject is <h1>, the body <h2>.
 		const region = page.getByRole('region', { name: 'Text zprávy' });
 		await expect(region).toBeVisible();
 		await expect(region.getByRole('heading', { name: 'Text zprávy', level: 2 })).toHaveCount(1);
@@ -64,7 +64,7 @@ test.describe('Fokus na tělo otevřené zprávy', () => {
 		const frame = page.getByTitle('Obsah zprávy');
 		await expect(frame).toBeFocused();
 
-		// Ve split módu je předmět <h2>, tělo tedy <h3>.
+		// In split mode the subject is <h2>, so the body heading is <h3>.
 		const region = page.getByRole('region', { name: 'Text zprávy' });
 		await expect(region.getByRole('heading', { name: 'Text zprávy', level: 3 })).toHaveCount(1);
 	});

@@ -60,9 +60,9 @@
         </section>
     </main>
     <script>
-        // Reason kód přijde v query parametru ?reason=... — zobrazíme ho jako
-        // diagnostiku pro uživatele, aby ho mohl předat developerovi. Server
-        // ho zaloguje paralelně do mail.log na úrovni WARN.
+        // The reason code arrives in the ?reason=... query parameter — show it
+        // as diagnostics the user can pass on to a developer. The server logs
+        // it in parallel to mail.log at WARN level.
         const params = new URLSearchParams(window.location.search);
         const reason = params.get('reason');
         if (reason) {

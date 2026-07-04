@@ -65,8 +65,9 @@ export default defineConfig(
 	{
 		rules: {
 			'svelte/button-has-type': 'error',
-			// Povolujeme dynamické goto() s query-stringy a složkové názvy ze stavu
-			// (`folderHref` vrací už `resolve()`-ovanou URL, rule to ale nepozná).
+			// Allow dynamic goto() with query strings and folder names taken from
+			// state (`folderHref` already returns a `resolve()`-ed URL, but the
+			// rule cannot tell).
 			'svelte/no-navigation-without-resolve': 'off'
 		}
 	}
