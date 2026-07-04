@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { downloadDiagnosticDump } from '$lib/api/diagnostics.js';
 	import { toErrorMessage } from '$lib/api/errors.js';
+	import { saveBlobAsFile } from '$lib/download.js';
 	import { sessionState, initSession } from '$lib/stores/session.js';
 	import { loadAccounts } from '$lib/stores/accounts.js';
 	import { folders } from '$lib/stores/folders.js';
@@ -107,14 +108,7 @@
 		diagnosticError = null;
 		try {
 			const { blob, filename } = await downloadDiagnosticDump();
-			const url = URL.createObjectURL(blob);
-			const link = document.createElement('a');
-			link.href = url;
-			link.download = filename;
-			document.body.append(link);
-			link.click();
-			link.remove();
-			URL.revokeObjectURL(url);
+			saveBlobAsFile(blob, filename);
 		} catch (err) {
 			diagnosticError = toErrorMessage(err);
 		} finally {

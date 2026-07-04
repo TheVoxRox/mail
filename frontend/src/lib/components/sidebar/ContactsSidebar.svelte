@@ -6,6 +6,7 @@
 	import { get } from 'svelte/store';
 	import { exportVCard } from '$lib/api/contacts.js';
 	import { toErrorMessage } from '$lib/api/errors.js';
+	import { saveBlobAsFile } from '$lib/download.js';
 	import { activeAccount, accountsState } from '$lib/stores/accounts.js';
 	import { pushToast } from '$lib/stores/toasts.js';
 	import AccountSwitcher from '$lib/components/AccountSwitcher.svelte';
@@ -62,14 +63,7 @@
 		exporting = true;
 		try {
 			const { blob, filename } = await exportVCard(account.id);
-			const url = URL.createObjectURL(blob);
-			const a = document.createElement('a');
-			a.href = url;
-			a.download = filename;
-			document.body.appendChild(a);
-			a.click();
-			a.remove();
-			URL.revokeObjectURL(url);
+			saveBlobAsFile(blob, filename);
 			pushToast($_('contacts.exportDone'), { tone: 'success' });
 		} catch (err) {
 			pushToast(toErrorMessage(err), { tone: 'error' });
