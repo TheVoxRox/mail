@@ -22,6 +22,7 @@
 			value={$appLocale ?? SUPPORTED_LOCALES[0]}
 			onchange={handleLocaleChange}
 			width="full"
+			aria-describedby="locale-select-hint"
 		>
 			{#each SUPPORTED_LOCALES as loc (loc)}
 				<option value={loc}>{LOCALE_LABELS[loc]}</option>

@@ -6,6 +6,11 @@
 		class?: string;
 		label?: string;
 		for?: string;
+		/**
+		 * Rendered with id="{for}-hint" so the control inside can reference it
+		 * via aria-describedby — without the link, screen readers skip the
+		 * hint entirely when the user tabs through the form (focus mode).
+		 */
 		hint?: string | null;
 		error?: string | null;
 		errorId?: string;
@@ -35,7 +40,7 @@
 	{@render children?.()}
 
 	{#if hint}
-		<p class="text-xs text-muted-foreground">{hint}</p>
+		<p id={forId ? `${forId}-hint` : undefined} class="text-xs text-muted-foreground">{hint}</p>
 	{/if}
 	{#if error}
 		<p id={errorId} class="text-xs text-destructive" role="alert">{error}</p>

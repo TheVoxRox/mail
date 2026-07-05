@@ -7,6 +7,7 @@
 	import { triggerAccountSync } from '$lib/api/mailAction.js';
 	import { resolveProviderByEmail } from '$lib/api/providers.js';
 	import { loadAccounts, setActiveAccount } from '$lib/stores/accounts.js';
+	import { pushToast } from '$lib/stores/toasts.js';
 	import { startOAuthLogin } from '$lib/api/googleAuth.js';
 	import { pollForOAuthAccount } from '$lib/accounts/oauthPoll.js';
 	import { delayWithAbort } from '$lib/delay.js';
@@ -43,7 +44,6 @@
 
 	let step = $state<Step>({ kind: 'email' });
 	let email = $state('');
-	let detectError = $state<string | null>(null);
 	let googleError = $state<string | null>(null);
 	let oauthStarting = $state(false);
 	let showAdvanced = $state(false);
@@ -82,7 +82,6 @@
 		event?.preventDefault();
 		if (!canSubmitEmail) return;
 		const trimmed = email.trim();
-		detectError = null;
 		step = { kind: 'detecting' };
 		try {
 			const provider = await resolveProviderByEmail(trimmed);
@@ -104,7 +103,6 @@
 	}
 
 	function chooseCustomDirectly() {
-		detectError = null;
 		step = { kind: 'form', preset: customPreset, email: email.trim(), serverMode: 'custom' };
 	}
 
@@ -127,14 +125,12 @@
 	 */
 	function handleUseOAuth(preset: ProviderPreset, oauthEmail: string) {
 		googleError = null;
-		detectError = null;
 		step = { kind: 'oauth', preset, email: oauthEmail };
 	}
 
 	function backToEmail() {
 		oauthAbort?.abort();
 		googleError = null;
-		detectError = null;
 		showAdvanced = false;
 		step = { kind: 'email' };
 	}
@@ -144,6 +140,7 @@
 		await loadAccounts();
 		setActiveAccount(created.id);
 		void triggerInitialSync(created.id);
+		pushToast($_('accounts.createdToast'), { tone: 'success' });
 		await goto(resolve('/settings/accounts'));
 	}
 
@@ -177,6 +174,7 @@
 			await loadAccounts();
 			setActiveAccount(match.id);
 			void triggerInitialSync(match.id);
+			pushToast($_('accounts.createdToast'), { tone: 'success' });
 			await goto(resolve('/settings/accounts'));
 			return;
 		}
@@ -279,10 +277,6 @@
 						{$_('accounts.wizard.manualSetup')}
 					</button>
 				</div>
-
-				{#if detectError}
-					<p class="text-xs text-destructive" role="alert">{detectError}</p>
-				{/if}
 			</form>
 		</Surface>
 	{:else if step.kind === 'oauth'}

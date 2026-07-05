@@ -220,6 +220,9 @@
 		"deleteAccount": "Delete account",
 		"deleteConfirm": "Really delete the account “{name}”?",
 		"deleteConfirmTitle": "Delete account",
+		"deletedToast": "Account removed.",
+		"savedToast": "Account changes saved.",
+		"createdToast": "Account added.",
 		"providerTemplate": {
 			"heading": "Provider template",
 			"domains": "Domains:"
@@ -465,16 +468,13 @@
 				"empty": "Select a message from the list and its detail will appear here.",
 				"options": {
 					"right": {
-						"title": "Right",
-						"hint": "The message list stays on the left and details open beside it."
+						"title": "Right"
 					},
 					"bottom": {
-						"title": "Bottom",
-						"hint": "The list stays on top and details open underneath."
+						"title": "Bottom"
 					},
 					"off": {
-						"title": "Hidden",
-						"hint": "Only the list or the detail is visible, depending on the current URL."
+						"title": "Hidden"
 					}
 				}
 			},
@@ -508,8 +508,15 @@
 			"groups": {
 				"navigation": "Navigation",
 				"mail": "Mail",
+				"list": "Message list and search",
 				"contacts": "Contacts",
 				"palette": "Command palette"
+			},
+			"keys": {
+				"upDown": "Up / Down arrow",
+				"leftRight": "Left / Right arrow",
+				"enterSpace": "Enter / Space",
+				"listNavCombo": "Arrows, Home / End, Page Up / Down"
 			},
 			"actions": {
 				"mail": "Go to Mail",
@@ -523,6 +530,15 @@
 				"markRead": "Mark as read",
 				"markUnread": "Mark as unread",
 				"deleteMessage": "Delete message",
+				"closeMessage": "Close the message and return focus to the list",
+				"listPrevNextMessage": "Previous / next message",
+				"listPrevNextCell": "Previous / next cell in the row",
+				"listRowStartEnd": "First / last cell of the row",
+				"listFirstLastMessage": "First / last message",
+				"listPage": "10 messages up / down",
+				"listOpenMessage": "Open the message",
+				"listDeleteMessage": "Delete the message on the focused row",
+				"contactsListNav": "Move through the contact list",
 				"sendMessage": "Send the draft message",
 				"saveDraft": "Save draft",
 				"discardDraft": "Discard the draft message",
@@ -538,6 +554,9 @@
 			},
 			"scopes": {
 				"global": "Works outside text fields.",
+				"globalIncludingInputs": "Works anywhere, including text fields.",
+				"messageGrid": "Works in the message list and in search results.",
+				"contactList": "Works in the contact list.",
 				"mailOrSettings": "Works outside text fields while Mail or Settings is active.",
 				"contacts": "Works outside text fields while Contacts is active.",
 				"compose": "Works while composing a new message.",
