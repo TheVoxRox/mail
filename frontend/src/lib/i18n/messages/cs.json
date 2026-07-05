@@ -220,6 +220,9 @@
 		"deleteAccount": "Smazat účet",
 		"deleteConfirm": "Opravdu smazat účet „{name}\"?",
 		"deleteConfirmTitle": "Smazat účet",
+		"deletedToast": "Účet odstraněn.",
+		"savedToast": "Změny účtu uloženy.",
+		"createdToast": "Účet přidán.",
 		"providerTemplate": {
 			"heading": "Šablona poskytovatele",
 			"domains": "Domény:"
@@ -465,16 +468,13 @@
 				"empty": "Vyberte zprávu ze seznamu a detail se otevře tady.",
 				"options": {
 					"right": {
-						"title": "Vpravo",
-						"hint": "Seznam zůstává vlevo a detail zprávy se otevře vedle něj."
+						"title": "Vpravo"
 					},
 					"bottom": {
-						"title": "Dole",
-						"hint": "Seznam je nahoře a detail se zobrazí pod ním."
+						"title": "Dole"
 					},
 					"off": {
-						"title": "Skryté",
-						"hint": "Zobrazuje se vždy jen seznam nebo detail, podle aktuální URL."
+						"title": "Skryté"
 					}
 				}
 			},
@@ -508,8 +508,15 @@
 			"groups": {
 				"navigation": "Navigace",
 				"mail": "Zprávy",
+				"list": "Seznam zpráv a hledání",
 				"contacts": "Kontakty",
 				"palette": "Paleta příkazů"
+			},
+			"keys": {
+				"upDown": "Šipka nahoru / dolů",
+				"leftRight": "Šipka vlevo / vpravo",
+				"enterSpace": "Enter / mezerník",
+				"listNavCombo": "Šipky, Home / End, Page Up / Down"
 			},
 			"actions": {
 				"mail": "Přejít na Poštu",
@@ -523,6 +530,15 @@
 				"markRead": "Označit jako přečtené",
 				"markUnread": "Označit jako nepřečtené",
 				"deleteMessage": "Smazat zprávu",
+				"closeMessage": "Zavřít zprávu a vrátit fokus do seznamu",
+				"listPrevNextMessage": "Předchozí / další zpráva",
+				"listPrevNextCell": "Předchozí / další buňka řádku",
+				"listRowStartEnd": "První / poslední buňka řádku",
+				"listFirstLastMessage": "První / poslední zpráva",
+				"listPage": "O 10 zpráv nahoru / dolů",
+				"listOpenMessage": "Otevřít zprávu",
+				"listDeleteMessage": "Smazat zprávu na aktivním řádku",
+				"contactsListNav": "Pohyb po seznamu kontaktů",
 				"sendMessage": "Odeslat rozepsanou zprávu",
 				"saveDraft": "Uložit koncept",
 				"discardDraft": "Zahodit rozepsanou zprávu",
@@ -538,6 +554,9 @@
 			},
 			"scopes": {
 				"global": "Funguje mimo textová pole.",
+				"globalIncludingInputs": "Funguje kdekoli, i v textových polích.",
+				"messageGrid": "Funguje v seznamu zpráv a ve výsledcích hledání.",
+				"contactList": "Funguje v seznamu kontaktů.",
 				"mailOrSettings": "Funguje mimo textová pole, když je aktivní Pošta nebo Nastavení.",
 				"contacts": "Funguje mimo textová pole, když jsou aktivní Kontakty.",
 				"compose": "Funguje při psaní nové zprávy.",
@@ -568,8 +587,9 @@
 			},
 			"connection": {
 				"heading": "Stav aplikace",
-				"notifications": "Synchronizace",
-				"lastSync": "Poslední sync",
+				"notifications": "Synchronizace:",
+				"lastSync": "Poslední synchronizace:",
+				"lastSyncValue": "{folder} — {count, plural, =0 {bez nových zpráv} one {{count} nová zpráva} few {{count} nové zprávy} other {{count} nových zpráv}}",
 				"noSyncYet": "Zatím neproběhla žádná synchronizace.",
 				"ready": "Aplikace je připojená ke službě pošty.",
 				"loading": "Aplikace se připojuje ke službě pošty…",

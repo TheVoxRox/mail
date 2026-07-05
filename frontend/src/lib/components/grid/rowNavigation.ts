@@ -3,6 +3,9 @@
  * (MessageList, ContactList…). Extracted so the state machine can be
  * unit-tested — the component on top only handles focus / select /
  * preventDefault.
+ *
+ * When the key handling changes here, update the user-facing overview in
+ * routes/settings/shortcuts/+page.svelte — it is a hand-maintained mirror.
  */
 
 export const ROW_NAV_PAGE_STEP = 10;

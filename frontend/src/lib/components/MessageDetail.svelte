@@ -2,6 +2,7 @@
 	import { get } from 'svelte/store';
 	import { selectedMessage } from '$lib/stores/selectedMessage.js';
 	import { downloadAttachment } from '$lib/api/mailRead.js';
+	import { saveBlobAsFile } from '$lib/download.js';
 	import { _ } from '$lib/i18n/index.js';
 	import { StateMessage } from '$lib/components/ui/state-message/index.js';
 	import { Surface } from '$lib/components/ui/surface/index.js';
@@ -91,14 +92,7 @@
 		const message = get(selectedMessage);
 		if (!message) return;
 		const blob = await downloadAttachment(message.stableId, att.partPath, att.fileName);
-		const url = URL.createObjectURL(blob);
-		const a = document.createElement('a');
-		a.href = url;
-		a.download = att.fileName;
-		document.body.appendChild(a);
-		a.click();
-		a.remove();
-		URL.revokeObjectURL(url);
+		saveBlobAsFile(blob, att.fileName);
 	}
 </script>
 

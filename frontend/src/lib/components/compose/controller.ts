@@ -59,6 +59,11 @@ export function targetHref(url: URL): string {
 	return `${url.pathname}${url.search}${url.hash}`;
 }
 
+/*
+ * Compose-scoped shortcuts (send, save, discard, focus Cc/Bcc). When a
+ * shortcut changes here, update the user-facing overview in
+ * routes/settings/shortcuts/+page.svelte — it is a hand-maintained mirror.
+ */
 export function handleComposeShortcuts(
 	event: KeyboardEvent,
 	handlers: ComposeShortcutHandlers

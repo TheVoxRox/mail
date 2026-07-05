@@ -13,6 +13,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { _ } from '$lib/i18n/index.js';
 	import { confirmAction } from '$lib/stores/confirmDialog.js';
+	import { pushToast } from '$lib/stores/toasts.js';
 	import type { AccountResponse } from '$lib/types.js';
 
 	let deletingId = $state<number | null>(null);
@@ -87,6 +88,7 @@
 		try {
 			await deleteAccount(id);
 			await loadAccounts();
+			pushToast($_('accounts.deletedToast'), { tone: 'success' });
 		} catch (err) {
 			errorMessage = toErrorMessage(err);
 		} finally {

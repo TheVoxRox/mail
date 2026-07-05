@@ -444,6 +444,7 @@
 				bind:ref={emailInputEl}
 				oninput={scheduleResolve}
 				required
+				aria-describedby="acc-email-hint"
 			/>
 		</Field>
 	{:else if email && selectedProvider}
@@ -480,7 +481,12 @@
 			label={$_('accounts.form.displayName')}
 			hint={$_('accounts.form.displayNameHint')}
 		>
-			<Input id="acc-displayName" type="text" bind:value={displayName} />
+			<Input
+				id="acc-displayName"
+				type="text"
+				bind:value={displayName}
+				aria-describedby="acc-displayName-hint"
+			/>
 		</Field>
 
 		<Field
@@ -494,6 +500,7 @@
 				bind:value={accountName}
 				oninput={handleAccountNameInput}
 				required
+				aria-describedby="acc-accountName-hint"
 			/>
 		</Field>
 	{/if}
@@ -620,7 +627,13 @@
 			label={$_('accounts.form.username')}
 			hint={$_('accounts.form.usernameHint')}
 		>
-			<Input id="acc-username" type="text" bind:value={username} required />
+			<Input
+				id="acc-username"
+				type="text"
+				bind:value={username}
+				required
+				aria-describedby="acc-username-hint"
+			/>
 		</Field>
 	{/if}
 
@@ -640,6 +653,7 @@
 			bind:ref={passwordInputEl}
 			required={mode === 'create'}
 			autocomplete="new-password"
+			aria-describedby={mode === 'edit' ? 'acc-password-hint' : undefined}
 		/>
 	</Field>
 
@@ -656,6 +670,7 @@
 				maxlength={10000}
 				disabled={busy}
 				placeholder={$_('accounts.form.signaturePlaceholder')}
+				aria-describedby="acc-signature-hint"
 			/>
 		</Field>
 

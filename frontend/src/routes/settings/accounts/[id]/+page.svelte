@@ -12,6 +12,7 @@
 	import { Surface } from '$lib/components/ui/surface/index.js';
 	import { _ } from '$lib/i18n/index.js';
 	import { confirmAction } from '$lib/stores/confirmDialog.js';
+	import { pushToast } from '$lib/stores/toasts.js';
 	import type {
 		AccountCreateRequest,
 		AccountResponse,
@@ -25,6 +26,7 @@
 	let account = $state<AccountResponse | null>(null);
 	let loadError = $state<string | null>(null);
 	let deleting = $state(false);
+	let deleteError = $state<string | null>(null);
 	let provider = $state<MailProviderResponse | null>(null);
 
 	onMount(async () => {
@@ -45,6 +47,7 @@
 	async function handleSubmit(payload: AccountCreateRequest | AccountUpdateRequest) {
 		await updateAccount(data.id, payload as AccountUpdateRequest);
 		await loadAccounts();
+		pushToast($_('accounts.savedToast'), { tone: 'success' });
 		await goto(resolve('/settings/accounts'));
 	}
 
@@ -59,10 +62,14 @@
 		});
 		if (!confirmed) return;
 		deleting = true;
+		deleteError = null;
 		try {
 			await deleteAccount(data.id);
 			await loadAccounts();
+			pushToast($_('accounts.deletedToast'), { tone: 'success' });
 			await goto(resolve('/settings/accounts'));
+		} catch (err) {
+			deleteError = toErrorMessage(err);
 		} finally {
 			deleting = false;
 		}
@@ -127,10 +134,15 @@
 					</div>
 				</dl>
 			{/if}
-			<div class="mt-4 border-t border-border pt-4">
+			<div class="mt-4 space-y-3 border-t border-border pt-4">
 				<Button variant="destructive" size="sm" onclick={handleDelete} disabled={deleting}>
 					{deleting ? $_('accounts.deleting') : $_('accounts.deleteAccount')}
 				</Button>
+				{#if deleteError}
+					<Surface variant="danger" padding="sm">
+						<p class="text-sm" role="alert">{deleteError}</p>
+					</Surface>
+				{/if}
 			</div>
 		</Surface>
 	{/if}

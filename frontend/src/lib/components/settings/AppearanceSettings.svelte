@@ -60,7 +60,13 @@
 			labelClass="sr-only"
 			hint={$_('settings.appearance.theme.hint')}
 		>
-			<Select id="theme-select" value={$themePreference} onchange={handleThemeChange} width="full">
+			<Select
+				id="theme-select"
+				value={$themePreference}
+				onchange={handleThemeChange}
+				width="full"
+				aria-describedby="theme-select-hint"
+			>
 				{#each THEME_OPTIONS as opt (opt)}
 					<option value={opt}>{$_(themeLabelKey(opt))}</option>
 				{/each}
@@ -76,7 +82,13 @@
 			labelClass="sr-only"
 			hint={$_('settings.appearance.textSize.hint')}
 		>
-			<Select id="text-size-select" value={$textSize} onchange={handleTextSizeChange} width="full">
+			<Select
+				id="text-size-select"
+				value={$textSize}
+				onchange={handleTextSizeChange}
+				width="full"
+				aria-describedby="text-size-select-hint"
+			>
 				{#each TEXT_SIZE_OPTIONS as option (option)}
 					<option value={option}>{$_(textSizeLabelKey(option))}</option>
 				{/each}
@@ -96,6 +108,7 @@
 				value={$readingPane}
 				onchange={handleReadingPaneChange}
 				width="full"
+				aria-describedby="reading-pane-select-hint"
 			>
 				{#each READING_PANE_OPTIONS as option (option)}
 					<option value={option}>{$_(paneLabelKey(option))}</option>
@@ -106,9 +119,9 @@
 
 	<Surface as="section" class="space-y-3">
 		<h2 class="text-sm font-semibold">{$_('settings.appearance.messageBody.heading')}</h2>
-		<fieldset class="space-y-3">
+		<fieldset class="space-y-3" aria-describedby="message-body-view-hint">
 			<legend class="sr-only">{$_('settings.appearance.messageBody.label')}</legend>
-			<p class="text-xs text-muted-foreground">
+			<p id="message-body-view-hint" class="text-xs text-muted-foreground">
 				{$_('settings.appearance.messageBody.hint')}
 			</p>
 			{#each MESSAGE_BODY_OPTIONS as option (option)}

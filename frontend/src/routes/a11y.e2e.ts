@@ -400,6 +400,16 @@ test.describe('Přístupnost', () => {
 		await expect(readingPaneSelect).toHaveAccessibleName('Rozložení podokna čtení');
 		await expect(readingPaneSelect).toHaveValue('right');
 		await expect(readingPaneSelect.locator('option')).toHaveText(['Vpravo', 'Dole', 'Skryté']);
+
+		// Hints must be linked via aria-describedby — an unlinked hint <p> is
+		// silent when the user tabs through the form in focus mode.
+		await expect(page.getByRole('combobox', { name: 'Téma' })).toHaveAccessibleDescription(
+			/Volba se projeví ihned/
+		);
+		await expect(readingPaneSelect).toHaveAccessibleDescription(/detail zprávy/);
+		await expect(
+			page.getByRole('group', { name: 'Výchozí zobrazení obsahu zprávy' })
+		).toHaveAccessibleDescription(/tělo zprávy/);
 	});
 
 	test('nový účet vystavuje provider/custom přepínač a chybové stavy přes role', async ({
