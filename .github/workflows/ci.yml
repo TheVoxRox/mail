@@ -27,8 +27,26 @@ jobs:
           java-version: 25
           cache: maven
 
+      # The spotless <eclipse> step provisions Eclipse JDT via P2 from
+      # download.eclipse.org. The composite-repo metadata expires from the
+      # local P2 cache (~/.m2/repository/dev/equo/p2-data), so even a warm
+      # Maven cache hits the network, and transient CDN errors (e.g.
+      # okhttp3 StreamResetException: INTERNAL_ERROR) fail the step.
+      # Retry with backoff (30 s, then 60 s) before failing the job.
       - name: Check formatting
-        run: mvn --batch-mode spotless:check
+        run: |
+          for attempt in 1 2 3; do
+            if mvn --batch-mode spotless:check; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              delay=$((attempt * 30))
+              echo "spotless:check failed (attempt $attempt/3); retrying in ${delay}s..."
+              sleep "$delay"
+            fi
+          done
+          echo "spotless:check failed after 3 attempts"
+          exit 1
 
       # Runs on the runner's preinstalled Node — the script has no npm deps.
       - name: Translation whitelist lint
