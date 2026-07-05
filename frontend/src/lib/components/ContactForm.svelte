@@ -11,7 +11,7 @@
 	import { Select } from '$lib/components/ui/select/index.js';
 	import { Surface } from '$lib/components/ui/surface/index.js';
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import type {
 		ContactCreateRequest,
 		ContactEmailRequest,
@@ -133,6 +133,15 @@
 		}
 	}
 
+	// Adding a row moves the Add button to the new last row and removing a row
+	// destroys its Remove button — either way the focused element disappears
+	// and focus would silently drop to <body>. Land it on an e-mail input
+	// instead (also announces the field, telling a screen-reader user where
+	// they ended up).
+	function focusEmailInput(index: number) {
+		void tick().then(() => document.getElementById(`contact-email-${index}`)?.focus());
+	}
+
 	function addEmailRow() {
 		if (emails.length >= MAX_EMAILS) {
 			error = $_('contacts.tooManyEmails');
@@ -140,6 +149,7 @@
 		}
 		emails = [...emails, newRow()];
 		emailErrors = [...emailErrors, null];
+		focusEmailInput(emails.length - 1);
 	}
 
 	function removeEmailRow(index: number) {
@@ -153,6 +163,7 @@
 			// The primary row is gone — promote the first remaining address.
 			emails[0].primary = true;
 		}
+		focusEmailInput(Math.min(index, emails.length - 1));
 	}
 
 	function validate(): boolean {
@@ -250,6 +261,7 @@
 	onsubmit={handleSubmit}
 	class="flex min-h-[32rem] max-w-4xl flex-col overflow-hidden rounded-lg border border-border bg-background"
 	aria-label={isEdit ? $_('contacts.editFormLabel') : $_('contacts.formLabel')}
+	aria-describedby="contact-form-hint"
 	novalidate
 >
 	<div class="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
@@ -257,7 +269,11 @@
 			<h1 class="text-title font-semibold text-foreground">
 				{isEdit ? $_('contacts.editFormHeading') : $_('contacts.formHeading')}
 			</h1>
-			<p class="mt-0.5 text-xs text-muted-foreground">{$_('contacts.formHint')}</p>
+			<!-- Linked via aria-describedby on the form — an unreferenced hint is
+			     skipped entirely when tabbing through the form in focus mode. -->
+			<p id="contact-form-hint" class="mt-0.5 text-xs text-muted-foreground">
+				{$_('contacts.formHint')}
+			</p>
 		</div>
 	</div>
 
