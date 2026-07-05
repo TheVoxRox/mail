@@ -528,6 +528,22 @@
 						<eclipse>
 							<version>4.37</version>
 							<file>${basedir}/eclipse-formatter.xml</file>
+							<!--
+								P2 provisioning of the JDT formatter normally goes to
+								download.eclipse.org, which has transient CDN outages
+								(okhttp StreamResetException in CI). Redirect all P2
+								requests to the official FAU Erlangen mirror, which
+								serves the same file tree (verified: full 4.37
+								composite repo incl. plugins). Prefix-match semantics:
+								https://download.eclipse.org/X becomes
+								https://ftp.fau.de/eclipse/X.
+							-->
+							<p2Mirrors>
+								<p2Mirror>
+									<prefix>https://download.eclipse.org/</prefix>
+									<url>https://ftp.fau.de/eclipse/</url>
+								</p2Mirror>
+							</p2Mirrors>
 						</eclipse>
 						<!-- removeUnusedImports does not yet support JEP 511 'import module'. -->
 						<importOrder>
