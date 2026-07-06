@@ -183,6 +183,15 @@ Smoke flow:
   - **Prošetřit klasifikátor:** `ERROR` „Critical error during folder sync … failed to create new store connection" ([MailSyncService.java:239](src/main/java/org/voxrox/mailbackend/feature/mail/service/MailSyncService.java)) by se pro transientní příčinu už neměl objevit; pokud ano, `TransientMailErrors` ji minul → doplnit klasifikátor.
   - Při eskalaci zapsat dimenze: shlukuje se po sleep/wake nebo změně sítě? provider/složka? potvrzené zotavení v dalším cyklu?
 
+## 8a. Docs & web sync
+
+- [ ] `npm run check` zelený — zahrnuje doc-claims lint (verze stacku a zastaralé fráze v README/CONTRIBUTING vs `pom.xml`/`package.json`/`.nvmrc`).
+- [ ] Datum verze na <https://voxrox.org/privacy/> (CS i EN) odpovídá `PRIVACY.md` / `PRIVACY.en.md` v repu.
+- [ ] Stránka <https://voxrox.org/support/> odpovídá `SECURITY.md` (podporované verze, lhůty, rozsah zranitelností).
+- [ ] `frontend/END_USER_README.md` odpovídá vydávané verzi (funkce, stav OAuth providerů, název instalátoru).
+- [ ] Status badge na <https://voxrox.org> („Ve vývoji (Beta)" apod.) odpovídá realitě vydání.
+- [ ] GitHub repo metadata: description + Website (`https://voxrox.org`) vyplněné; stránka Releases obsahuje publikovaný release (ne jen draft).
+
 ## 9. Release decision
 
 ```text
