@@ -133,6 +133,7 @@ let failNextVCardExport = false;
 let readinessDelayMs = 0;
 let readinessFailures = 0;
 let folderAuthFailure = false;
+let mailPageSizeOverride: number | null = null;
 
 export function setVCardExportDelayMs(delayMs: number): void {
 	vCardExportDelayMs = Math.max(0, delayMs);
@@ -152,6 +153,16 @@ export function setReadinessFailures(count: number): void {
 
 export function setFolderAuthFailure(enabled: boolean): void {
 	folderAuthFailure = enabled;
+}
+
+/*
+ * Shrinks `mailDefaultPageSize` in the client-config response (driven by the
+ * `mail.e2e.mailPageSize` localStorage flag). The fixture set is exactly one
+ * default page (25 messages), so pagination behaviour — page announcements,
+ * pager buttons — is untestable without a smaller page size.
+ */
+export function setMailPageSize(size: number | null): void {
+	mailPageSizeOverride = size && size > 0 ? size : null;
 }
 
 function vCardExportResponse(accountId: number, contacts: ContactResponse[]): MockResponse {
@@ -655,7 +666,7 @@ function notificationRoutes(method: string, segments: string[]): MockResponse | 
 function clientConfigRoutes(method: string, segments: string[]): MockResponse | null {
 	if (segments[0] !== 'client-config' || method !== 'GET') return null;
 	return HttpResponse.json({
-		mailDefaultPageSize: 25,
+		mailDefaultPageSize: mailPageSizeOverride ?? 25,
 		mailApiMaxPageSize: 200,
 		searchQueryMaxLength: 256,
 		contactDefaultPageSize: 25,
