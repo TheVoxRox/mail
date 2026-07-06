@@ -189,8 +189,8 @@ If you discover a vulnerability or security issue in the application,
 
 This version is preliminary. Before the first public release and on every
 material change (e.g. introducing telemetry, changing the list of third
-parties) this document is updated. The current version is always included
-in the installation and in the project repository.
+parties) this document is updated. The current version is always available
+in the project repository and at [voxrox.org/en/privacy](https://voxrox.org/en/privacy/).
 
 ## Open items before the first release
 

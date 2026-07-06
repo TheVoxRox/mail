@@ -75,7 +75,7 @@ the manual gate / CI — too slow to force on every commit or push.
 
 Every change must pass the following locally before opening a PR. CI runs the
 same set and will reject the PR if anything red. The numbers in parentheses are
-the 2026-06-02 baseline — if you regress them, set per-file thresholds rather
+the 2026-07-06 baseline — if you regress them, set per-file thresholds rather
 than lowering global floors.
 
 **Backend (`cd backend && ./mvnw verify`)**
@@ -83,7 +83,7 @@ than lowering global floors.
 - `spotless:check` — Eclipse 4.37 formatter via `spotless-maven-plugin`.
 - `spotbugs:check` — Bundled in `mvn verify`. Exclusions in
   `spotbugs-exclude.xml`.
-- Unit + integration tests (Surefire + Failsafe). Baseline: **724 + 22 green**.
+- Unit + integration tests (Surefire + Failsafe). Baseline: **917 + 31 green**.
 - Jacoco merged unit + IT coverage report in `target/site/jacoco-merged/`.
   Threshold gate enforces ≥ 70% instructions / ≥ 50% branches / ≥ 70% lines.
 - Translation whitelist lint (`node ../frontend/scripts/check-translation-whitelist.mjs
@@ -95,19 +95,19 @@ than lowering global floors.
 **Frontend (`cd frontend && npm run lint && npm run check && npm test ...`)**
 
 - `npm run lint` — Prettier check + ESLint + i18n key parity (cs.json vs
-  en.json, **551 keys**).
+  en.json, **606 keys**).
 - `npm run check` — version sync, doc-claims lint (stack versions and stale
   phrases in root + module docs vs `pom.xml`/`package.json`/`.nvmrc`), OpenAPI
-  snapshot drift, `svelte-check` (1338 files / 0 errors).
+  snapshot drift, `svelte-check` (1378 files / 0 errors).
 - `npm run knip` — dead-code analysis. Config in `knip.json`. Output must
   be empty.
 - `npm run check:translations:strict` — Czech-diacritics whitelist.
 - `npm audit --audit-level=high` — must report 0 high+ vulnerabilities.
 - `npm run test:unit:coverage` — vitest with thresholds (≥ 65% global,
   per-file 90/85/90 for `content-sanitizer.ts`, 85/80/80 for
-  `client.ts`). Baseline: **191 green**.
-- `npm run test:functional:stable` — Playwright functional (**104 green**).
-- `npm run test:a11y:stable` — Playwright a11y (**52 green**).
+  `client.ts`). Baseline: **376 green**.
+- `npm run test:functional:stable` — Playwright functional (**134 green**).
+- `npm run test:a11y:stable` — Playwright a11y (**58 green**).
 - `npm run test:performance:stable` — initial-load budget (**1 green**).
 
 **Tauri Rust (`cd frontend/src-tauri && cargo check && cargo clippy`)**
