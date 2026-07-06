@@ -12,7 +12,8 @@ body:
 
         **Security issues:** if the bug exposes credentials, leaks data, or
         bypasses authentication, please **do not** open a public issue —
-        follow the disclosure process in [SECURITY.md](../SECURITY.md).
+        follow the disclosure process in
+        [SECURITY.md](https://github.com/TheVoxRox/mail/blob/main/SECURITY.md).
 
   - type: input
     id: version
@@ -30,8 +31,8 @@ body:
       options:
         - Windows 11
         - Windows 10
-        - macOS
-        - Linux
+        - macOS (not yet supported)
+        - Linux (not yet supported)
         - Other (describe in steps)
     validations:
       required: true

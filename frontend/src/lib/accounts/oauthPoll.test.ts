@@ -7,7 +7,7 @@ import {
 
 type TestAccount = { id: number; email: string };
 
-const ACCOUNT: TestAccount = { id: 1, email: 'luke.lacina@gmail.com' };
+const ACCOUNT: TestAccount = { id: 1, email: 'test.user@gmail.com' };
 
 /** sleep is injected and resolves instantly so the ~10-min budget runs in ms. */
 function baseOptions(
@@ -15,7 +15,7 @@ function baseOptions(
 	overrides: Partial<OAuthPollOptions<TestAccount>> = {}
 ): OAuthPollOptions<TestAccount> {
 	return {
-		email: 'luke.lacina@gmail.com',
+		email: 'test.user@gmail.com',
 		listAccounts,
 		sleep: async () => {},
 		...overrides
@@ -28,12 +28,12 @@ describe('pollForOAuthAccount', () => {
 		const listAccounts = vi.fn(async () => {
 			calls += 1;
 			// Appears on the 3rd poll, with different casing than the query.
-			return calls >= 3 ? [{ id: 1, email: 'Luke.Lacina@Gmail.com' }] : [];
+			return calls >= 3 ? [{ id: 1, email: 'Test.User@Gmail.com' }] : [];
 		});
 
 		const result = await pollForOAuthAccount(baseOptions(listAccounts));
 
-		expect(result).toEqual({ id: 1, email: 'Luke.Lacina@Gmail.com' });
+		expect(result).toEqual({ id: 1, email: 'Test.User@Gmail.com' });
 		expect(calls).toBe(3);
 	});
 

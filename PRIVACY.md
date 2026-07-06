@@ -183,7 +183,8 @@ kontakt jako pro běžnou podporu).
 
 Tato verze je předběžná. Před prvním veřejným vydáním a při každé materiální
 změně (např. zapojení telemetrie, změna seznamu třetích stran) tento dokument
-aktualizujeme. Aktuální verze je vždy součástí instalace a v repozitáři projektu.
+aktualizujeme. Aktuální verze je vždy v repozitáři projektu a na
+[voxrox.org/privacy](https://voxrox.org/privacy/).
 
 ## Otevřené body před prvním vydáním
 
