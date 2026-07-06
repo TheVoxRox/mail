@@ -1,6 +1,6 @@
-# Pošta
+# VoxRox Mail
 
-Pošta je desktopový e-mailový klient pro Windows. Aplikace se připojuje k
+VoxRox Mail je desktopový e-mailový klient pro Windows. Aplikace se připojuje k
 backendové službě, která drží lokální konfiguraci účtů, komunikuje s
 IMAP/SMTP servery a poskytuje API pro uživatelské rozhraní.
 
@@ -66,8 +66,9 @@ U providerů bez OAuth může aplikace vyžadovat aplikační heslo. To je samos
 heslo vygenerované v nastavení poskytovatele e-mailu. Nepoužívejte hlavní heslo
 k účtu, pokud poskytovatel doporučuje aplikační hesla.
 
-Google OAuth je připravený pro provider flow. Microsoft OAuth a iCloud OAuth
-jsou před prvním releasem vedené jako backend dependent položky.
+Přihlášení přes OAuth je podporované pro Google (Gmail) a Microsoft
+(Outlook/Hotmail/Live). iCloud OAuth zatím podporovaný není — u iCloudu
+použijte aplikační heslo.
 
 ## Aktualizace
 
