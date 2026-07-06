@@ -10,13 +10,19 @@
 	import { folders } from '$lib/stores/folders.js';
 	import { loadPage, messagesState } from '$lib/stores/messages.js';
 	import { clearSelection } from '$lib/stores/selectedMessage.js';
+	import { announcePolite } from '$lib/stores/toasts.js';
 	import { readingPane } from '$lib/stores/uiLayout.js';
 	import { _ } from '$lib/i18n/index.js';
 	import { folderLabel as toFolderLabel } from '$lib/mail/folderLabel.js';
+	import { messagesPageInfo } from '$lib/mail/pageInfoAnnouncement.js';
 	import {
 		MESSAGE_HEADING_CONTEXT_KEY,
 		type MessageHeadingContext
 	} from '$lib/components/message-detail/messageHeadingContext.js';
+	import {
+		EFFECTIVE_READING_PANE_CONTEXT_KEY,
+		type EffectiveReadingPaneContext
+	} from '$lib/mail/readingPaneContext.js';
 	import { cn } from '$lib/utils.js';
 
 	let { children } = $props();
@@ -29,6 +35,9 @@
 		$page.params.stableId ? decodeURIComponent($page.params.stableId) : null
 	);
 
+	// One-shot bookkeeping for the folder-switch announcement, not reactive state.
+	let lastLoadedContext = '';
+
 	$effect(() => {
 		if (!Number.isInteger(accountId) || accountId <= 0 || !folderName) return;
 		if ($accountsState.status !== 'ready') return;
@@ -39,6 +48,16 @@
 
 		setActiveAccount(accountId);
 
+		/*
+		 * Switching folder/account keeps focus on the sidebar item while the
+		 * list swaps underneath, so the reload is otherwise silent for a
+		 * screen reader — announce the loaded page once. The initial load
+		 * stays quiet (route entry is already announced via focus handling).
+		 */
+		const contextKey = `${accountId}:${folderName}`;
+		const isContextSwitch = lastLoadedContext !== '' && lastLoadedContext !== contextKey;
+		lastLoadedContext = contextKey;
+
 		const state = get(messagesState);
 		if (
 			state.status === 'ready' &&
@@ -48,7 +67,16 @@
 			return;
 		}
 
-		void loadPage(accountId, folderName);
+		void loadPage(accountId, folderName).then(() => {
+			if (!isContextSwitch) return;
+			// loadPage discards stale results; only announce when the loaded
+			// page really belongs to the folder this effect run asked for.
+			const snapshot = get(messagesState);
+			if (snapshot.status !== 'ready') return;
+			if (snapshot.context.accountId !== accountId || snapshot.context.folderName !== folderName)
+				return;
+			announcePolite(messagesPageInfo(get(_), snapshot.page));
+		});
 	});
 
 	$effect(() => {
@@ -66,6 +94,15 @@
 		if ($readingPane === 'right' && innerWidth < 900) return 'off';
 		if ($readingPane === 'bottom' && innerWidth < 600) return 'off';
 		return $readingPane;
+	});
+
+	// MessageList adjusts its keyboard model to the effective pane mode (see
+	// readingPaneContext.ts) — same pattern as the message heading below.
+	const readingPaneContext = $state<EffectiveReadingPaneContext>({ pane: 'off' });
+	setContext<EffectiveReadingPaneContext>(EFFECTIVE_READING_PANE_CONTEXT_KEY, readingPaneContext);
+
+	$effect(() => {
+		readingPaneContext.pane = effectiveReadingPane;
 	});
 
 	const hasDetailRoute = $derived(Boolean(stableId));

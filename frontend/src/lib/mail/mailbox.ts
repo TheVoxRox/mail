@@ -30,14 +30,17 @@ import {
 } from '$lib/stores/messages.js';
 import { setMessageSelection } from '$lib/stores/messageSelection.js';
 import { _ } from '$lib/i18n/index.js';
+import { toErrorMessage } from '$lib/api/errors.js';
 import { folderLabel } from '$lib/mail/folderLabel.js';
-import { pushToast } from '$lib/stores/toasts.js';
+import { announcePolite, pushToast } from '$lib/stores/toasts.js';
 
 interface BulkResult {
 	succeeded: number;
 	failed: number;
 	succeededIds: string[];
 	failedIds: string[];
+	/** Rejection reason of the first failed item — error feedback for single ops. */
+	firstError?: unknown;
 }
 
 interface ExecuteBulkOptions {
@@ -108,11 +111,15 @@ async function executeBulkMessageAction(options: ExecuteBulkOptions): Promise<Bu
 	const settled = await Promise.allSettled(ids.map((id) => options.perItem(id)));
 	const succeededIds = ids.filter((_, i) => settled[i]?.status === 'fulfilled');
 	const failedIds = ids.filter((_, i) => settled[i]?.status !== 'fulfilled');
+	const firstRejection = settled.find(
+		(outcome): outcome is PromiseRejectedResult => outcome.status === 'rejected'
+	);
 	const result: BulkResult = {
 		succeeded: succeededIds.length,
 		failed: failedIds.length,
 		succeededIds,
-		failedIds
+		failedIds,
+		firstError: firstRejection?.reason
 	};
 
 	if (options.pruneSelection) {
@@ -127,6 +134,17 @@ async function executeBulkMessageAction(options: ExecuteBulkOptions): Promise<Bu
 			}
 			clearSelection();
 			await goto(currentFolderHref());
+		} else if (succeededIds.length === 1) {
+			/*
+			 * The removed row was not the open message (Delete on a list row in
+			 * off mode, or on a non-selected row next to an open reading pane).
+			 * Its cell — or its row-menu trigger — just unmounted, so without a
+			 * restore focus falls back to <body>. Hand it to a neighbouring row;
+			 * the target is null when the row was not on the current list page
+			 * (e.g. the action came from search results), so nothing to restore.
+			 */
+			const target = focusTargetsBeforeMutation.get(succeededIds[0]);
+			if (target) requestListFocusRestore(target);
 		}
 	}
 
@@ -165,7 +183,7 @@ export async function markMessagesSeen(
 	stableIds: readonly string[],
 	seen: boolean
 ): Promise<BulkResult> {
-	return executeBulkMessageAction({
+	const result = await executeBulkMessageAction({
 		ids: stableIds,
 		perItem: async (id) => {
 			await setMessageFlag(id, 'seen', seen);
@@ -185,10 +203,16 @@ export async function markMessagesSeen(
 					: 'messages.bulkMarkUnreadDone'
 				: undefined
 	});
+	announceSingleOutcome(
+		stableIds,
+		result,
+		seen ? 'messages.markedReadAnnounce' : 'messages.markedUnreadAnnounce'
+	);
+	return result;
 }
 
 async function flagMessages(stableIds: readonly string[], flagged: boolean): Promise<BulkResult> {
-	return executeBulkMessageAction({
+	const result = await executeBulkMessageAction({
 		ids: stableIds,
 		perItem: async (id) => {
 			await setMessageFlag(id, 'flagged', flagged);
@@ -198,6 +222,33 @@ async function flagMessages(stableIds: readonly string[], flagged: boolean): Pro
 		},
 		pruneSelection: stableIds.length > 1
 	});
+	announceSingleOutcome(
+		stableIds,
+		result,
+		flagged ? 'messages.flaggedAnnounce' : 'messages.unflaggedAnnounce'
+	);
+	return result;
+}
+
+/*
+ * A single flag/seen toggle changes the row visually but was inaudible: no
+ * toast (deliberate — the visual state already flips) and no live-region
+ * text. Announce the outcome politely; a failure changes nothing on screen
+ * either, so it gets a real error toast instead. Only user-invoked toggles
+ * route through here — the auto-mark-on-open path lives in message-seen.ts
+ * and stays silent by design.
+ */
+function announceSingleOutcome(
+	stableIds: readonly string[],
+	result: BulkResult,
+	successKey: string
+): void {
+	if (stableIds.length !== 1) return;
+	if (result.succeeded === 1) {
+		announcePolite(get(_)(successKey));
+	} else if (result.failed === 1) {
+		pushToast(toErrorMessage(result.firstError), { tone: 'error' });
+	}
 }
 
 export async function deleteMessages(stableIds: readonly string[]): Promise<BulkResult> {

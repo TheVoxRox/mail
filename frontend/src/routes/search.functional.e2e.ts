@@ -45,6 +45,16 @@ test.describe('Search', () => {
 		await expect(page.getByText('Jana Novak <jana@example.com>')).toBeVisible();
 	});
 
+	test('příchod výsledků hledání ohlásí počet do live regionu', async ({ page }) => {
+		await page.goto('/search/1?q=projekt');
+		await waitForShell(page);
+
+		// Focus stays in the search box while the results render below it,
+		// so the arrival of results must be announced explicitly.
+		await expect(page.getByRole('grid', { name: 'Výsledky' })).toBeVisible();
+		await expect(page.locator('#live-region')).toContainText('Nalezeno 1 zpráva.');
+	});
+
 	test('detail z výsledků hledání nabízí akce v inline toolbaru', async ({ page }) => {
 		await page.goto('/search/1?q=projekt');
 		await waitForShell(page);

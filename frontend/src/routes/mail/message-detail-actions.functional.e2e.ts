@@ -46,4 +46,26 @@ test.describe('Akce v otevřené zprávě (off mód)', () => {
 		await expect(page.getByText(fixture.sender)).toBeVisible();
 		await expect(page.locator('#compose-subject')).toHaveValue(fixture.replySubject);
 	});
+
+	test('titulek okna otevřené zprávy obsahuje předmět', async ({ page }) => {
+		await page.goto(
+			`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}/${encodeURIComponent(fixture.stableId)}`
+		);
+		await waitForShell(page);
+
+		await expect(page.getByRole('heading', { name: 'Projektové podklady' })).toBeVisible();
+		await expect(page).toHaveTitle('Pošta – Projektové podklady');
+	});
+
+	test('stažení přílohy potvrdí úspěch toastem', async ({ page }) => {
+		await page.goto(
+			`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}/${encodeURIComponent(fixture.stableId)}`
+		);
+		await waitForShell(page);
+
+		await page.getByRole('button', { name: /brief\.pdf/ }).click();
+		await expect(
+			page.getByRole('status').filter({ hasText: 'Příloha brief.pdf stažena.' })
+		).toBeVisible();
+	});
 });
