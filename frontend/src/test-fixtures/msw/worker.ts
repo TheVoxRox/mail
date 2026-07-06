@@ -5,6 +5,7 @@ import {
 	failNextVCardExportOnce,
 	handlers,
 	setFolderAuthFailure,
+	setMailPageSize,
 	setReadinessDelayMs,
 	setReadinessFailures,
 	setVCardExportDelayMs
@@ -47,6 +48,7 @@ export async function installE2EBypass(): Promise<void> {
 		setReadinessDelayMs(Number(window.localStorage.getItem('mail.e2e.readinessDelayMs') ?? 0));
 		setReadinessFailures(Number(window.localStorage.getItem('mail.e2e.readinessFailures') ?? 0));
 		setFolderAuthFailure(window.localStorage.getItem('mail.e2e.folderAuthFailure') === '1');
+		setMailPageSize(Number(window.localStorage.getItem('mail.e2e.mailPageSize') ?? 0) || null);
 		await worker.start({
 			quiet: true,
 			onUnhandledRequest: 'bypass',
@@ -74,6 +76,7 @@ export async function installE2EBypass(): Promise<void> {
 			setReadinessFailures(0);
 			setFolderAuthFailure(false);
 			setVCardExportDelayMs(0);
+			setMailPageSize(null);
 			resetFixtures();
 			worker.resetHandlers(...handlers);
 		},
@@ -98,6 +101,7 @@ export {
 	pushSyncCompletedCrLf,
 	resetFixtures,
 	setFolderAuthFailure,
+	setMailPageSize,
 	setReadinessDelayMs,
 	setReadinessFailures,
 	setVCardExportDelayMs,

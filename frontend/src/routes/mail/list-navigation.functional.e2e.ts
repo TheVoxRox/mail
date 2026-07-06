@@ -83,6 +83,32 @@ test.describe('Přepnutí složky', () => {
 	});
 });
 
+test.describe('Koncepty ve split režimu', () => {
+	test('šipka v Konceptech jen přesune fokus, composer otevře až Enter', async ({ page }) => {
+		await page.addInitScript(() => {
+			window.localStorage.setItem('mail.readingPane', 'right');
+		});
+		await page.goto('/mail/1/DRAFTS');
+		await waitForShell(page);
+
+		// Drafts open the composer, not the reading pane — a row change must
+		// not navigate even in split mode (same guard as effective off mode).
+		const firstSubject = page.locator('[role="row"][data-stable-id="draft-42"] [data-col="2"]');
+		await expect(firstSubject).toBeVisible();
+		await firstSubject.focus();
+
+		await page.keyboard.press('ArrowDown');
+
+		const secondSubject = page.locator('[role="row"][data-stable-id="draft-43"] [data-col="2"]');
+		await expect(secondSubject).toBeFocused();
+		await expect(page).toHaveURL(/\/mail\/1\/DRAFTS$/);
+
+		await page.keyboard.press('Enter');
+		await page.waitForURL('**/compose?draft=draft-43');
+		await expect(page.locator('#compose-subject')).toHaveValue('Druhý rozepsaný koncept');
+	});
+});
+
 test.describe('Seznam zpráv ve split režimu', () => {
 	test('Delete na neotevřeném řádku neztratí fokus a nechá detail otevřený', async ({ page }) => {
 		await page.addInitScript(() => {

@@ -132,6 +132,16 @@ const draftMessages: MailSummaryResponse[] = [
 		subject: 'Rozepsaný koncept',
 		seen: true,
 		hasAttachments: false
+	},
+	// A second draft so keyboard tests can exercise a row change in Drafts
+	// (arrows must not open the composer — only Enter/Space does).
+	{
+		...makeSummary(43),
+		stableId: 'draft-43',
+		folderName: 'DRAFTS',
+		subject: 'Druhý rozepsaný koncept',
+		seen: true,
+		hasAttachments: false
 	}
 ];
 const allMessages = [

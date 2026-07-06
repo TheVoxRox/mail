@@ -55,6 +55,24 @@ test.describe('Search', () => {
 		await expect(page.locator('#live-region')).toContainText('Nalezeno 1 zpráva.');
 	});
 
+	test('stránkování výsledků ohlásí novou stranu do live regionu', async ({ page }) => {
+		await page.addInitScript(() => {
+			// 25 fixture matches for "zpráva" paginate by 10 → 3 pages; the
+			// default page size (25) would leave a single page and no pager.
+			window.localStorage.setItem('mail.e2e.mailPageSize', '10');
+		});
+		await page.goto('/search/1?q=zpráva');
+		await waitForShell(page);
+
+		await expect(page.getByRole('grid', { name: 'Výsledky' })).toBeVisible();
+		await expect(page.locator('#live-region')).toContainText('Nalezeno 25 zpráv.');
+
+		const pagination = page.getByRole('navigation', { name: 'Stránkování výsledků' });
+		await pagination.getByRole('button', { name: 'Další →' }).click();
+		await page.waitForURL(/page=1/);
+		await expect(page.locator('#live-region')).toContainText('Strana 2 z 3, 25 zpráv');
+	});
+
 	test('detail z výsledků hledání nabízí akce v inline toolbaru', async ({ page }) => {
 		await page.goto('/search/1?q=projekt');
 		await waitForShell(page);

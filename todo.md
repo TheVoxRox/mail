@@ -38,6 +38,22 @@ Pozn.: dialog "mail.exe — Failed to launch JVM" (jpackage launcher, pred start
 
 ---
 
+## SR doposlech — audit Posty (vyzaduje uzivatele)
+
+Deterministicke e2e kryti existuje (live-region asserty v [list-navigation.functional.e2e.ts](frontend/src/routes/mail/list-navigation.functional.e2e.ts) a spol.) — tohle je realny NVDA doposlech, ze ohlaseni skutecne zni. Opravy z SR auditu Posty (PR #118, merged 2026-07-06).
+
+- [ ] **NVDA doposlech v `tauri:dev`** (rezim bez podokna cteni i vychozi split):
+  1. Sipky v seznamu zprav jen ctou radky, zpravu otevre az Enter ([MessageList.svelte:167](frontend/src/lib/components/MessageList.svelte)).
+  2. Delete ohlasi smazani a fokus pokracuje na sousednim radku (v off i split rezimu, i pres radkove menu).
+  3. Prepnuti slozky ohlasi "Strana X z Y, N zprav".
+  4. Tlacitko Synchronizovat ohlasi "Synchronizace zahajena.".
+  5. Hvezdicka / precteno-neprecteno ohlasi vysledek (Ctrl+Q/U i radkove menu).
+  6. Stazeni prilohy ohlasi toast "Priloha ... stazena.".
+  7. Hledani ohlasi "Nalezeno N zprav" po prichodu vysledku a "Strana X z Y" pri strankovani.
+  8. Titulek okna otevrene zpravy cte predmet ("Posta – <predmet>").
+
+---
+
 ## v0.1.0 smoke — bugy Faze B (2026-06-25, vse uzavreno)
 
 Nalezeno pri rucnim release smoke v0.1.0 (signed build, cisty profil `%LOCALAPPDATA%\VoxRox\Mail`). Opraveno: FE update-dialog (#65), OAuth add-account poll reconcile (#66), "duch" zpravy 404 A+B (deterministicky stableId z message-id [MessageStableId.java](backend/src/main/java/org/voxrox/mailbackend/feature/mail/mapper/MessageStableId.java) + FE graceful 404 → reload seznamu [selectedMessage.ts](frontend/src/lib/stores/selectedMessage.ts)), C SSE 30min ERROR (permit ASYNC/ERROR dispatch v [SecurityConfig.java](backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java)), F soubezny sync UNIQUE constraint ERROR (idempotentni insert — `findExistingUids` filtr v [MessageDownloader.java](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MessageDownloader.java)), G HHH90003004 in-memory paginace (#70 — skutecny zdroj byl contact list, NE list zprav: `@EntityGraph(emails)` + `Pageable` v [ContactRepository.java](backend/src/main/java/org/voxrox/mailbackend/feature/contact/repository/ContactRepository.java); fix = drop `@EntityGraph` z paginovanych finderu + `@BatchSize` na [ContactEntity.emails](backend/src/main/java/org/voxrox/mailbackend/feature/contact/entity/ContactEntity.java), regresni IT capturuje query logger), E duplicitni OAuth callback → matouci `auth-failed.html` i po uspesnem pridani (#71 — `oauthStarting` guard + `disabled` login tlacitko v [+page.svelte](frontend/src/routes/settings/accounts/new/+page.svelte) pusti jen jeden flow; `auth-failed.html` vedome NEzmekcen; smoke overen 2026-06-25 v tauri:dev — pridani Google uctu probehlo bez auth-failed), D prechodna jednorazova sync ERROR `failed to create new store connection` (#78 — bounded retry+backoff kolem cele folder cyklu, transient klasifikator [TransientMailErrors](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/TransientMailErrors.java) zarovnany s `RetryConfig`, deterministicky [MailSyncTransientRetryGreenMailIT](backend/src/test/java/org/voxrox/mailbackend/feature/mail/service/MailSyncTransientRetryGreenMailIT.java); reziduum = pasivni log-watch v [backend/RELEASE_CHECKLIST.md](backend/RELEASE_CHECKLIST.md) §8). Vsechny Faze B smoke bugy uzavrene.

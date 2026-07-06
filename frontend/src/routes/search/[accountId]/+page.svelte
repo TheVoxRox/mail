@@ -29,7 +29,11 @@
 		if ($searchState.status !== 'ready') return;
 		const ctx = $searchState.context;
 		// Only announce results belonging to this page's current URL state.
-		if (ctx.accountId !== data.accountId || ctx.query !== data.query) return;
+		// The page check matters after pagination: the URL change re-runs this
+		// effect while the store still holds the *previous* page, and without
+		// it the one-shot flag would fire with the stale page number.
+		if (ctx.accountId !== data.accountId || ctx.query !== data.query || ctx.page !== data.page)
+			return;
 		const key = `${ctx.accountId}:${ctx.query}`;
 		if (announcePageInfoOnReady) {
 			announcePageInfoOnReady = false;
