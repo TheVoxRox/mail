@@ -166,13 +166,41 @@ test.describe('Přístupnost', () => {
 		expect(ariaBusy === null || ariaBusy === 'false').toBe(true);
 	});
 
+	test('tlačítko importu vCard je dostupné přes roli a název', async ({ page }) => {
+		// The vCard import must not be drag-and-drop-only — a keyboard or
+		// screen-reader user reaches it through a real button that proxies a
+		// file input.
+		await page.goto(`/contacts/${mailFixture.accountId}`);
+		await waitForShell(page);
+
+		const sidebar = page.getByRole('region', { name: 'Podokno kontaktů' });
+		const importButton = sidebar.getByRole('button', { name: 'Importovat vCard' });
+		await expect(importButton).toBeAttached();
+		await expect(importButton).toHaveAttribute('type', 'button');
+		await expect(importButton).toBeEnabled();
+		const ariaBusy = await importButton.getAttribute('aria-busy');
+		expect(ariaBusy === null || ariaBusy === 'false').toBe(true);
+
+		// The proxied input only accepts vCards and never enters the tab order.
+		const fileInput = sidebar.locator('input[type="file"]');
+		await expect(fileInput).toHaveAttribute('accept', '.vcf,text/vcard,text/x-vcard');
+		await expect(fileInput).toBeHidden();
+	});
+
 	test('formulář nového kontaktu má jednoznačně pojmenované seznamy štítků', async ({ page }) => {
 		await page.goto(`/contacts/${mailFixture.accountId}?create=1`);
 		await waitForShell(page);
 
 		// Form landmark names carry no role word ("Formulář …") — the SR
 		// appends the role itself; pattern matches compose's "Nová zpráva".
-		await expect(page.getByRole('form', { name: 'Nový kontakt' })).toBeVisible();
+		const form = page.getByRole('form', { name: 'Nový kontakt' });
+		await expect(form).toBeVisible();
+		// The intro hint is linked to the form, otherwise focus-mode users
+		// never hear it.
+		await expect(form).toHaveAttribute('aria-describedby', 'contact-form-hint');
+		await expect(page.locator('#contact-form-hint')).toHaveText(
+			'Jméno je volitelné, alespoň jeden e-mail je povinný.'
+		);
 
 		const firstLabelSelect = page.getByRole('combobox', { name: 'Štítek adresy 1' });
 		await expect(firstLabelSelect).toHaveCount(1);
@@ -220,6 +248,24 @@ test.describe('Přístupnost', () => {
 		);
 	});
 
+	test('přidání a odebrání adresy v kontaktu neztratí fokus', async ({ page }) => {
+		// Both actions destroy the focused button (Add moves to the new last
+		// row, Remove disappears with its row) — focus must land on an e-mail
+		// input, not drop silently to <body>.
+		await page.goto(`/contacts/${mailFixture.accountId}?create=1`);
+		await waitForShell(page);
+
+		await page.getByRole('button', { name: 'Přidat e-mail' }).click();
+		await expect(page.locator('#contact-email-1')).toBeFocused();
+
+		await page
+			.locator('[data-email-row="1"]')
+			.getByRole('button', { name: 'Odebrat e-mail' })
+			.click();
+		await expect(page.locator('#contact-email-1')).toHaveCount(0);
+		await expect(page.locator('#contact-email-0')).toBeFocused();
+	});
+
 	test('filtr štítků v kontaktech používá standardní select s explicitním použitím', async ({
 		page
 	}) => {
@@ -241,6 +287,9 @@ test.describe('Přístupnost', () => {
 		await expect(applyFilter).toBeEnabled();
 		await applyFilter.click();
 		await page.waitForURL('**/contacts/1?label=WORK');
+		// The filtered reload keeps focus on the Apply button, so the result
+		// is announced through the persistent live region.
+		await expect(page.locator('#live-region')).toContainText('Strana 1 z 1, 1 kontakt');
 	});
 
 	test('řazení kontaktů používá standardní select s dostupným názvem a stavem', async ({

@@ -1,11 +1,12 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import { get } from 'svelte/store';
 	import { exportVCard } from '$lib/api/contacts.js';
 	import { toErrorMessage } from '$lib/api/errors.js';
+	import { importVCardFiles } from '$lib/contacts/importVCards.js';
 	import { saveBlobAsFile } from '$lib/download.js';
 	import { activeAccount, accountsState } from '$lib/stores/accounts.js';
 	import { pushToast } from '$lib/stores/toasts.js';
@@ -69,6 +70,30 @@
 			pushToast(toErrorMessage(err), { tone: 'error' });
 		} finally {
 			exporting = false;
+		}
+	}
+
+	// Keyboard/screen-reader path for the vCard import (the contacts page also
+	// accepts drag-and-drop): a visible button proxies a hidden file input.
+	let importing = $state(false);
+	let importInputEl = $state<HTMLInputElement | null>(null);
+
+	async function handleImportFiles(event: Event) {
+		const input = event.currentTarget as HTMLInputElement;
+		const files = Array.from(input.files ?? []);
+		// Reset so picking the same file again re-fires the change event.
+		input.value = '';
+		const account = get(activeAccount);
+		if (!account || files.length === 0 || importing) return;
+
+		importing = true;
+		try {
+			const imported = await importVCardFiles(account.id, files, $_);
+			// The page's list load is driven by its `data` prop — re-running the
+			// route load produces a fresh object and re-triggers the list effect.
+			if (imported) await invalidateAll();
+		} finally {
+			importing = false;
 		}
 	}
 </script>
@@ -141,6 +166,28 @@
 					</SidebarNavItem>
 				</li>
 				{#if !createActive}
+					<li>
+						<SidebarNavItem
+							onclick={() => importInputEl?.click()}
+							disabled={importing}
+							ariaLabel={$_('contacts.importVCard')}
+							ariaBusy={importing ? 'true' : 'false'}
+						>
+							{#snippet icon()}
+								<Icon name="arrow-up-tray" />
+							{/snippet}
+
+							{importing ? $_('contacts.importing') : $_('contacts.importVCard')}
+						</SidebarNavItem>
+						<input
+							bind:this={importInputEl}
+							type="file"
+							accept=".vcf,text/vcard,text/x-vcard"
+							multiple
+							hidden
+							onchange={handleImportFiles}
+						/>
+					</li>
 					<li>
 						<SidebarNavItem
 							onclick={handleExport}

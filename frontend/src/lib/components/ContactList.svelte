@@ -5,7 +5,7 @@
 	import { toErrorMessage } from '$lib/api/errors.js';
 	import { _ } from '$lib/i18n/index.js';
 	import { confirmAction } from '$lib/stores/confirmDialog.js';
-	import { pushToast } from '$lib/stores/toasts.js';
+	import { announcePolite, pushToast } from '$lib/stores/toasts.js';
 	import ContactMergeDialog from '$lib/components/ContactMergeDialog.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
@@ -140,6 +140,26 @@
 	$effect(() => {
 		const nextSelectedIds = selectedIds.filter((id) => visibleIds.includes(id));
 		if (nextSelectedIds.length !== selectedIds.length) selectedIds = nextSelectedIds;
+	});
+
+	/*
+	 * The bulk toolbar (merge / delete / clear) appears with the first selected
+	 * row, which a screen reader would miss — the conditional status span alone
+	 * is a freshly inserted live region and is not announced reliably. Announce
+	 * the availability once per selection through the persistent LiveAnnouncer
+	 * (mirrors MessageList). Plain (non-reactive) flag to avoid an effect
+	 * self-dependency.
+	 */
+	let bulkActionsAnnounced = false;
+	$effect(() => {
+		if (selectedVisibleIds.length > 0) {
+			if (!bulkActionsAnnounced) {
+				bulkActionsAnnounced = true;
+				announcePolite($_('contacts.bulkActionsAvailable'));
+			}
+		} else {
+			bulkActionsAnnounced = false;
+		}
 	});
 
 	function contactLabel(c: ContactResponse): string {

@@ -95,6 +95,7 @@ test.describe('Contacts', () => {
 			)
 		).toHaveCount(0);
 		await expect(page.getByRole('button', { name: 'Exportovat vCard' })).toHaveCount(0);
+		await expect(page.getByRole('button', { name: 'Importovat vCard' })).toHaveCount(0);
 		await expect(page.locator('#contact-name')).toBeFocused();
 
 		await page.getByPlaceholder('Jméno').fill('Marie');
@@ -104,6 +105,9 @@ test.describe('Contacts', () => {
 		await page.getByRole('button', { name: 'Uložit' }).click();
 
 		await page.waitForURL('**/contacts/1');
+		await expect(
+			page.getByRole('region', { name: 'Oznámení' }).getByText('Kontakt vytvořen.')
+		).toBeVisible();
 		await expect(page.getByText('Marie Dvorak')).toBeVisible();
 		await expect(page.getByText('marie@example.com')).toBeVisible();
 	});
@@ -164,6 +168,9 @@ test.describe('Contacts', () => {
 		await page.getByRole('button', { name: 'Uložit' }).click();
 
 		await page.waitForURL('**/contacts/1');
+		await expect(
+			page.getByRole('region', { name: 'Oznámení' }).getByText('Kontakt uložen.')
+		).toBeVisible();
 		await expect(page.getByText('Jana Edit Novak')).toBeVisible();
 		await expect(page.getByText('jana@example.com')).toBeVisible();
 		await expect(page.getByText('jana.home@example.com')).toBeVisible();
@@ -291,6 +298,12 @@ test.describe('Contacts', () => {
 		await expect(page.getByText('Bulk Delete')).toBeVisible();
 
 		await page.getByLabel('Vybrat kontakt Jana Novak').check();
+		// The first selection announces the newly revealed bulk toolbar through
+		// the persistent live region (the conditional status span alone is not
+		// announced reliably when inserted with content).
+		await expect(page.locator('#live-region')).toContainText(
+			'Hromadné akce nad seznamem: sloučit, smazat.'
+		);
 		await page.getByLabel('Vybrat kontakt Bulk Delete').check();
 		await expect(page.getByText('2 vybrané kontakty')).toBeVisible();
 		await page.getByRole('button', { name: 'Smazat vybrané' }).click();
@@ -473,6 +486,55 @@ test.describe('Contacts', () => {
 						surname: 'Drop',
 						note: null,
 						emails: [{ email: 'iva.drop@example.com', label: null }]
+					}
+				]
+			}
+		]);
+	});
+
+	test('vCard import přes tlačítko v sidebaru naimportuje kontakty bez drag-and-dropu', async ({
+		page
+	}) => {
+		const bulkBodies: unknown[] = [];
+		page.on('request', (request) => {
+			if (
+				request.method() === 'POST' &&
+				/\/api\/v1\/accounts\/1\/contacts\/bulk$/.test(request.url())
+			) {
+				bulkBodies.push(request.postDataJSON());
+			}
+		});
+
+		await page.goto('/contacts/1');
+		await waitForShell(page);
+		await expect(page.getByText('Jana Novak')).toBeVisible();
+
+		const sidebar = page.getByRole('region', { name: 'Podokno kontaktů' });
+		await expect(sidebar.getByRole('button', { name: 'Importovat vCard' })).toBeVisible();
+
+		const vcardText =
+			'BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Petra Picker\r\nN:Picker;Petra;;;\r\nEMAIL;TYPE=HOME:petra.picker@example.com\r\nEND:VCARD\r\n';
+		await sidebar.locator('input[type="file"]').setInputFiles({
+			name: 'import.vcf',
+			mimeType: 'text/vcard',
+			buffer: Buffer.from(vcardText, 'utf-8')
+		});
+
+		await expect(
+			page.getByRole('region', { name: 'Oznámení' }).getByText('Importováno: 1, selhalo: 0.')
+		).toBeVisible();
+		// The list reloads without navigation — the imported contact appears.
+		await expect(page.getByText('Petra Picker')).toBeVisible();
+		await expect(page.getByText('petra.picker@example.com')).toBeVisible();
+
+		expect(bulkBodies).toEqual([
+			{
+				contacts: [
+					{
+						name: 'Petra',
+						surname: 'Picker',
+						note: null,
+						emails: [{ email: 'petra.picker@example.com', label: 'HOME' }]
 					}
 				]
 			}

@@ -3,21 +3,20 @@
 	import { resolve } from '$app/paths';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import {
-		bulkCreateContacts,
 		createContact,
 		getContact,
 		listContacts,
 		updateContact,
 		type ContactSort
 	} from '$lib/api/contacts.js';
-	import { toError, toErrorMessage } from '$lib/api/errors.js';
+	import { toError } from '$lib/api/errors.js';
 	import { accountsState, setActiveAccount } from '$lib/stores/accounts.js';
 	import { getClientConfigSnapshot } from '$lib/stores/clientConfig.js';
 	import { _ } from '$lib/i18n/index.js';
 	import { announcePolite, pushToast } from '$lib/stores/toasts.js';
 	import ContactList from '$lib/components/ContactList.svelte';
 	import ContactForm from '$lib/components/ContactForm.svelte';
-	import { parseVCard } from '$lib/contacts/vcard.js';
+	import { dragHasFiles, importVCardFiles } from '$lib/contacts/importVCards.js';
 	import { PageShell } from '$lib/components/ui/page-shell/index.js';
 	import { StateMessage } from '$lib/components/ui/state-message/index.js';
 	import { Surface } from '$lib/components/ui/surface/index.js';
@@ -47,8 +46,9 @@
 	let loadedEditId: number | null = null;
 	let pageNumber = $state(0);
 	let lastContext = $state('');
-	// Set by pagination handlers so the next successful load announces the new
-	// page to screen-reader users (matches the Messages list behaviour). Plain
+	// Set by pagination handlers and list-context switches (search, filter,
+	// account change) so the next successful load announces the result to
+	// screen-reader users (matches the Messages list behaviour). Plain
 	// variable — it's a one-shot signal, not reactive state.
 	let announceNextLoad = false;
 
@@ -111,6 +111,10 @@
 
 		const context = `${data.accountId}:${data.query}:${data.sort ?? ''}:${data.label ?? ''}`;
 		if (lastContext !== context) {
+			// A context switch is always user-triggered (search, filter, account
+			// change) and often keeps focus in place, so the reload is otherwise
+			// silent — announce the result. The initial load stays quiet.
+			if (lastContext !== '') announceNextLoad = true;
 			lastContext = context;
 			pageNumber = 0;
 		}
@@ -175,6 +179,7 @@
 
 	async function handleCreate(payload: ContactCreateRequest) {
 		await createContact(data.accountId, payload);
+		pushToast($_('contacts.createDone'), { tone: 'success' });
 		// Returning to the list view clears `create`, which re-runs the list
 		// effect and reloads — no explicit load() here, that would fetch twice.
 		await goto(contactsHref({ create: false }));
@@ -183,6 +188,7 @@
 	async function handleEditSave(payload: ContactCreateRequest) {
 		if (data.edit == null) return;
 		await updateContact(data.accountId, data.edit, payload);
+		pushToast($_('contacts.saveDone'), { tone: 'success' });
 		// Clearing `edit` re-runs the list effect, which reloads the list.
 		await goto(contactsHref({ edit: null }));
 	}
@@ -209,25 +215,6 @@
 	let dragActive = $state(false);
 	let importing = $state(false);
 
-	function dragHasFiles(event: DragEvent): boolean {
-		const dt = event.dataTransfer;
-		if (!dt) return false;
-		if (dt.types && Array.from(dt.types).includes('Files')) return true;
-		if (dt.files && dt.files.length > 0) return true;
-		const items = dt.items;
-		if (!items) return false;
-		for (let i = 0; i < items.length; i++) {
-			if (items[i].kind === 'file') return true;
-		}
-		return false;
-	}
-
-	function looksLikeVCardFile(file: File): boolean {
-		const type = file.type.toLowerCase();
-		if (type === 'text/vcard' || type === 'text/x-vcard') return true;
-		return file.name.toLowerCase().endsWith('.vcf');
-	}
-
 	function handleWindowDragOver(event: DragEvent) {
 		if (data.create || data.edit != null) return;
 		if (!dragHasFiles(event)) return;
@@ -247,33 +234,14 @@
 		dragActive = false;
 		if (importing) return;
 
-		const files = Array.from(event.dataTransfer?.files ?? []).filter(looksLikeVCardFile);
-		if (files.length === 0) {
-			pushToast($_('contacts.vcardImportNoFiles'), { tone: 'error' });
-			return;
-		}
-
 		importing = true;
 		try {
-			const allContacts: ContactCreateRequest[] = [];
-			for (const file of files) {
-				const text = await file.text();
-				allContacts.push(...parseVCard(text));
-			}
-			if (allContacts.length === 0) {
-				pushToast($_('contacts.vcardImportEmpty'), { tone: 'error' });
-				return;
-			}
-			const result = await bulkCreateContacts(data.accountId, { contacts: allContacts });
-			pushToast(
-				$_('contacts.vcardImportDone', {
-					values: { created: result.created ?? 0, failed: result.failed ?? 0 }
-				}),
-				{ tone: (result.failed ?? 0) > 0 ? 'error' : 'success' }
+			const imported = await importVCardFiles(
+				data.accountId,
+				Array.from(event.dataTransfer?.files ?? []),
+				$_
 			);
-			await load(data.accountId, data.query, pageNumber, data.sort, data.label);
-		} catch (err) {
-			pushToast(toErrorMessage(err), { tone: 'error' });
+			if (imported) await load(data.accountId, data.query, pageNumber, data.sort, data.label);
 		} finally {
 			importing = false;
 		}
