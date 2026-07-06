@@ -23,7 +23,7 @@ inventory (`THIRD_PARTY_LICENSES.md`) and changelog where applicable.
 Requirements:
 
 - **Java 25 (Temurin)** with Maven (the wrapper `mvnw` is provided).
-- **Node 22** with `npm`.
+- **Node 26** with `npm`.
 - **Rust toolchain** (stable + clippy) — only needed for the Tauri Rust
   crate (`frontend/src-tauri/`).
 - **PowerShell** on Windows for the sidecar packaging scripts under
@@ -96,8 +96,9 @@ than lowering global floors.
 
 - `npm run lint` — Prettier check + ESLint + i18n key parity (cs.json vs
   en.json, **551 keys**).
-- `npm run check` — version sync, OpenAPI snapshot drift, `svelte-check`
-  (1338 files / 0 errors).
+- `npm run check` — version sync, doc-claims lint (stack versions and stale
+  phrases in root + module docs vs `pom.xml`/`package.json`/`.nvmrc`), OpenAPI
+  snapshot drift, `svelte-check` (1338 files / 0 errors).
 - `npm run knip` — dead-code analysis. Config in `knip.json`. Output must
   be empty.
 - `npm run check:translations:strict` — Czech-diacritics whitelist.

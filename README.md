@@ -22,7 +22,7 @@ LICENSE     MIT
 
 ## Quick start
 
-Requires Node.js 22, JDK 25, Rust toolchain (for Tauri build), Windows.
+Requires Node.js 26, JDK 25, Rust toolchain (for Tauri build), Windows.
 
 ### 1. Backend (sidecar)
 

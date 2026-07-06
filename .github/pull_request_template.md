@@ -21,6 +21,13 @@ I have run the relevant gates locally and they are **all green**:
 - [ ] `npm run test:a11y:stable` (frontend)
 - [ ] `cargo check && cargo clippy -- -D warnings` (Tauri)
 
+## Docs & Web Sync (delete if not applicable)
+
+- [ ] This PR touches `PRIVACY*.md` or `SECURITY.md` — the matching
+      [voxrox.org](https://voxrox.org) pages (`/privacy/`, `/support/`, CS + EN
+      in [TheVoxRox.github.io](https://github.com/TheVoxRox/TheVoxRox.github.io))
+      are updated, or a follow-up is filed.
+
 ## Notes for Reviewers
 
 <!--

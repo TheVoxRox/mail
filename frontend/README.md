@@ -8,7 +8,7 @@ Repo-wide overview and the full doc map live in the monorepo root [`../README.md
 
 ## Requirements
 
-- Node.js 22
+- Node.js 26
 - npm
 - Rust toolchain for Tauri builds
 - Running backend for browser mode, or packaged backend sidecar for Tauri mode
