@@ -15,7 +15,7 @@ test.describe('Sync notifications', () => {
 		await waitForShell(page);
 
 		const folders = page.getByRole('region', { name: 'Podokno pošty' });
-		const inbox = folders.getByRole('button', { name: /Doručené/ });
+		const inbox = folders.getByRole('link', { name: /Doručené/ });
 		await expect(inbox.getByText('3')).toBeVisible();
 
 		await page.waitForFunction(() => typeof window.__MAIL_MSW__?.pushSyncCompleted === 'function');
@@ -47,7 +47,7 @@ test.describe('Sync notifications', () => {
 		await waitForShell(page);
 
 		const folders = page.getByRole('region', { name: 'Podokno pošty' });
-		const inbox = folders.getByRole('button', { name: /Doručené/ });
+		const inbox = folders.getByRole('link', { name: /Doručené/ });
 		await expect(inbox.getByText('3')).toBeVisible();
 
 		await page.waitForFunction(
@@ -66,5 +66,16 @@ test.describe('Sync notifications', () => {
 			notifications.getByText('4 nové zprávy, tester@example.com, Doručené')
 		).toBeVisible();
 		await expect(inbox.getByText('7')).toBeVisible();
+	});
+
+	test('tlačítko Synchronizovat ohlásí zahájení do live regionu', async ({ page }) => {
+		await page.goto('/mail/1/INBOX');
+		await waitForShell(page);
+
+		// The endpoint replies 202 (sync continues in the background), so the
+		// truthful immediate feedback is "started" — completion with new mail
+		// is announced later by the sync_completed toast above.
+		await page.getByRole('button', { name: 'Synchronizovat' }).click();
+		await expect(page.locator('#live-region')).toContainText('Synchronizace zahájena.');
 	});
 });

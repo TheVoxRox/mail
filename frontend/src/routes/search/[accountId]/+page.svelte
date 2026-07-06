@@ -5,6 +5,8 @@
 	import { accountsState, setActiveAccount } from '$lib/stores/accounts.js';
 	import { reloadSearch, runSearch, searchState } from '$lib/stores/search.js';
 	import { selectMessage, selectedMessage, clearSelection } from '$lib/stores/selectedMessage.js';
+	import { announcePolite } from '$lib/stores/toasts.js';
+	import { messagesPageInfo } from '$lib/mail/pageInfoAnnouncement.js';
 	import MessageDetail from '$lib/components/MessageDetail.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
 	import SearchResultsGrid from '$lib/components/SearchResultsGrid.svelte';
@@ -12,6 +14,41 @@
 	import type { MailSummaryResponse } from '$lib/types.js';
 
 	let { data } = $props();
+
+	/*
+	 * Focus stays in the search box (new query) or on the pagination button
+	 * (page change) while the results swap underneath, so neither transition
+	 * is audible on its own. Announce the incoming results once per
+	 * account+query (count) and every explicit page change (page info) —
+	 * one-shot plain variables, same pattern as the contacts list.
+	 */
+	let announcePageInfoOnReady = false;
+	let lastAnnouncedResultsKey = '';
+
+	$effect(() => {
+		if ($searchState.status !== 'ready') return;
+		const ctx = $searchState.context;
+		// Only announce results belonging to this page's current URL state.
+		if (ctx.accountId !== data.accountId || ctx.query !== data.query) return;
+		const key = `${ctx.accountId}:${ctx.query}`;
+		if (announcePageInfoOnReady) {
+			announcePageInfoOnReady = false;
+			lastAnnouncedResultsKey = key;
+			announcePolite(messagesPageInfo($_, $searchState.page));
+			return;
+		}
+		if (lastAnnouncedResultsKey === key) return;
+		lastAnnouncedResultsKey = key;
+		announcePolite(
+			$_('search.resultsAnnounce', {
+				values: {
+					totalCount: $_('messages.totalCount', {
+						values: { count: $searchState.page.totalElements }
+					})
+				}
+			})
+		);
+	});
 
 	$effect(() => {
 		if ($accountsState.status !== 'ready') return;
@@ -55,6 +92,7 @@
 		const lastPage = Math.max(0, $searchState.page.totalPages - 1);
 		const next = Math.min(Math.max(0, target), lastPage);
 		if (next === $searchState.context.page) return;
+		announcePageInfoOnReady = true;
 		const q = $pageStore.url.searchParams.get('q') ?? '';
 		const qs = `?q=${encodeURIComponent(q)}&page=${next}`;
 		void goto(`${resolve('/search/[accountId]', { accountId: String(data.accountId) })}${qs}`);

@@ -35,10 +35,15 @@
 	import { messageStatusLabel } from '$lib/mail/messageStatus.js';
 	import type { FolderResponse, MailSummaryResponse } from '$lib/types.js';
 	import { deleteMessages, markMessagesSeen, moveMessages } from '$lib/mail/mailbox.js';
+	import { messagesPageInfo } from '$lib/mail/pageInfoAnnouncement.js';
+	import {
+		EFFECTIVE_READING_PANE_CONTEXT_KEY,
+		type EffectiveReadingPaneContext
+	} from '$lib/mail/readingPaneContext.js';
 	import MessageFlags from '$lib/components/MessageFlags.svelte';
 	import MessageRowActionsMenu from '$lib/components/MessageRowActionsMenu.svelte';
 	import { announcePolite } from '$lib/stores/toasts.js';
-	import { tick } from 'svelte';
+	import { getContext, tick } from 'svelte';
 	import { get } from 'svelte/store';
 
 	const COL_SELECT = 0;
@@ -88,6 +93,12 @@
 		$folders.find((folder: FolderResponse) => folder.folderRef === currentFolderName)?.role
 	);
 	const showRecipients = $derived(currentFolderRole === 'DRAFTS' || currentFolderRole === 'SENT');
+
+	// Effective pane mode from the mail layout; the `off` fallback keeps arrow
+	// keys from navigating if the list ever renders outside that layout.
+	const readingPaneCtx =
+		getContext<EffectiveReadingPaneContext>(EFFECTIVE_READING_PANE_CONTEXT_KEY) ??
+		({ pane: 'off' } satisfies EffectiveReadingPaneContext);
 
 	function messageHref(accountId: number, folderName: string, stableId: string): string {
 		return resolve('/mail/[accountId]/[folderName]/[stableId]', {
@@ -146,7 +157,18 @@
 		// A row change moves the reading-pane selection with focus; a column-only
 		// move just shifts the roving cell within the current row.
 		if (next.row !== rowIndex) {
-			selectAndFocus(next.row, next.col, items[next.row]);
+			/*
+			 * Selection may follow focus only while a reading pane is showing next
+			 * to the list. In effective `off` mode the detail route replaces the
+			 * list, and Drafts open the composer — there, navigating on a row
+			 * change would tear the user out of the list, so arrows only move
+			 * focus and the message opens on Enter/Space.
+			 */
+			if (readingPaneCtx.pane === 'off' || currentFolderRole === 'DRAFTS') {
+				setFocus(next.row, next.col);
+			} else {
+				selectAndFocus(next.row, next.col, items[next.row]);
+			}
 		} else {
 			setFocus(next.row, next.col);
 		}
@@ -294,16 +316,7 @@
 	function announcePageChange() {
 		const snapshot = get(messagesState);
 		if (snapshot.status !== 'ready') return;
-		const p = snapshot.page;
-		announcePolite(
-			$_('messages.pageInfo', {
-				values: {
-					current: p.page + 1,
-					total: Math.max(1, p.totalPages),
-					totalCount: $_('messages.totalCount', { values: { count: p.totalElements } })
-				}
-			})
-		);
+		announcePolite(messagesPageInfo($_, snapshot.page));
 	}
 </script>
 

@@ -131,8 +131,13 @@ test.describe('Přístupnost', () => {
 		await waitForShell(page);
 		const mailPane = page.getByRole('region', { name: 'Podokno pošty' });
 		await expect(mailPane.getByRole('search', { name: 'Hledání v poště' })).toHaveCount(1);
-		await expect(mailPane.getByRole('navigation', { name: 'Složky' })).toBeVisible();
+		const foldersNav = mailPane.getByRole('navigation', { name: 'Složky' });
+		await expect(foldersNav).toBeVisible();
 		await expect(page.getByRole('navigation').getByRole('search')).toHaveCount(0);
+		// Folders are navigation targets — real links with href, not buttons
+		// inside the <nav> (consistent with the app rail).
+		await expect(foldersNav.getByRole('link', { name: /Doručené/ })).toBeVisible();
+		await expect(foldersNav.getByRole('button')).toHaveCount(0);
 
 		await page.goto(`/contacts/${mailFixture.accountId}`);
 		await waitForShell(page);

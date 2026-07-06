@@ -69,6 +69,25 @@ test.describe('Mail toolbar', () => {
 		await expect(toolbar.getByRole('button', { name: 'Označit hvězdičkou' })).toBeVisible();
 	});
 
+	test('samostatné přepnutí hvězdičky a přečtení se ohlásí do live regionu', async ({ page }) => {
+		await page.goto(`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
+		await waitForShell(page);
+
+		// msg-02 is flagged in the fixtures; opening it auto-marks it read
+		// (that path is deliberately silent — only the explicit toggles talk).
+		await page.locator(`[role="row"][data-stable-id="${fixture.moveStableId}"]`).click();
+		await page.waitForURL(
+			`**/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}/${encodeURIComponent(fixture.moveStableId)}`
+		);
+
+		const toolbar = page.getByRole('toolbar', { name: 'Akce se zprávami' });
+		await toolbar.getByRole('button', { name: 'Zrušit hvězdičku' }).click();
+		await expect(page.locator('#live-region')).toContainText('Hvězdička zrušena.');
+
+		await toolbar.getByRole('button', { name: 'Označit jako nepřečtené' }).click();
+		await expect(page.locator('#live-region')).toContainText('Označeno jako nepřečtené.');
+	});
+
 	test('přesun zprávy pošle MoveRequest a refreshne zdrojový i cílový seznam', async ({ page }) => {
 		const moveBodies: unknown[] = [];
 		page.on('request', (request) => {
@@ -98,7 +117,7 @@ test.describe('Mail toolbar', () => {
 		).toHaveCount(0);
 		expect(moveBodies).toEqual([{ folderRef: 'ARCHIVE' }]);
 
-		await page.getByRole('button', { name: 'Archiv' }).click();
+		await page.getByRole('link', { name: 'Archiv' }).click();
 		await page.waitForURL(`**/mail/${fixture.accountId}/ARCHIVE`);
 		await expect(
 			page.locator(`[role="row"][data-stable-id="${fixture.moveStableId}"]`)

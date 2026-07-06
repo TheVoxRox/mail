@@ -66,6 +66,7 @@
 				</p>
 			{/if}
 			<p>
+				<span class="mr-1.5 font-medium text-foreground">{$_('detail.date')}</span>
 				{formatFullDateTime(detail.receivedAt, $appLocale ?? 'cs')}
 			</p>
 		</div>

@@ -2,7 +2,9 @@
 	import { get } from 'svelte/store';
 	import { selectedMessage } from '$lib/stores/selectedMessage.js';
 	import { downloadAttachment } from '$lib/api/mailRead.js';
+	import { toErrorMessage } from '$lib/api/errors.js';
 	import { saveBlobAsFile } from '$lib/download.js';
+	import { pushToast } from '$lib/stores/toasts.js';
 	import { _ } from '$lib/i18n/index.js';
 	import { StateMessage } from '$lib/components/ui/state-message/index.js';
 	import { Surface } from '$lib/components/ui/surface/index.js';
@@ -88,11 +90,20 @@
 		handleClose();
 	}
 
+	// Success/error toast mirrors the contacts vCard export: the save-file
+	// dialog gives no screen-reader feedback and a failure was silently lost.
 	async function handleDownload(att: AttachmentResponse) {
 		const message = get(selectedMessage);
 		if (!message) return;
-		const blob = await downloadAttachment(message.stableId, att.partPath, att.fileName);
-		saveBlobAsFile(blob, att.fileName);
+		try {
+			const blob = await downloadAttachment(message.stableId, att.partPath, att.fileName);
+			saveBlobAsFile(blob, att.fileName);
+			pushToast($_('detail.attachmentDownloadDone', { values: { name: att.fileName } }), {
+				tone: 'success'
+			});
+		} catch (err) {
+			pushToast(toErrorMessage(err), { tone: 'error' });
+		}
 	}
 </script>
 

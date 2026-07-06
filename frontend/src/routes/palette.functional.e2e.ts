@@ -249,7 +249,7 @@ test.describe('Command palette', () => {
 			page.locator(`[role="row"][data-stable-id="${fixture.moveStableId}"]`)
 		).toHaveCount(0);
 
-		await page.getByRole('button', { name: 'Archiv' }).click();
+		await page.getByRole('link', { name: 'Archiv' }).click();
 		await page.waitForURL(`**/mail/${fixture.accountId}/ARCHIVE`);
 		await expect(
 			page.locator(`[role="row"][data-stable-id="${fixture.moveStableId}"]`)

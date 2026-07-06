@@ -5,6 +5,7 @@
 	import { get } from 'svelte/store';
 	import { accountsState, activeAccount } from '$lib/stores/accounts.js';
 	import { folders, foldersState, refreshFolders } from '$lib/stores/folders.js';
+	import { announcePolite, pushToast } from '$lib/stores/toasts.js';
 	import { triggerAccountSync } from '$lib/api/mailAction.js';
 	import { toErrorMessage } from '$lib/api/errors.js';
 	import SearchBar from '$lib/components/SearchBar.svelte';
@@ -42,6 +43,12 @@
 
 	let syncing = $state(false);
 
+	/*
+	 * The endpoint returns 202 — the sync itself runs in the background and
+	 * only reports back via SSE when new mail arrived. "Started" is therefore
+	 * the strongest completion signal the client can announce truthfully; a
+	 * failure to even start was previously swallowed, hence the error toast.
+	 */
 	async function handleSync() {
 		const acc = get(activeAccount);
 		if (!acc || syncing) return;
@@ -49,6 +56,9 @@
 		try {
 			await triggerAccountSync(acc.id);
 			await refreshFolders(acc.id);
+			announcePolite($_('nav.syncStarted'));
+		} catch (err) {
+			pushToast(toErrorMessage(err), { tone: 'error' });
 		} finally {
 			syncing = false;
 		}
@@ -87,6 +97,7 @@
 		size="lg"
 		onclick={handleSync}
 		disabled={syncing || !$activeAccount}
+		aria-busy={syncing ? 'true' : 'false'}
 		class="w-full justify-start"
 	>
 		<Icon name="arrow-path" />
@@ -127,7 +138,9 @@
 					{#each $folders as folder (folder.folderRef)}
 						{@const active = isActive(folder)}
 						<li>
-							<SidebarNavItem onclick={() => goto(folderHref(folder))} {active}>
+							<!-- Folders are navigation targets, so render real links (href),
+							     consistent with the app rail — not buttons inside a <nav>. -->
+							<SidebarNavItem href={folderHref(folder)} {active}>
 								{folderLabel(folder, $_)}
 
 								{#snippet badge()}
