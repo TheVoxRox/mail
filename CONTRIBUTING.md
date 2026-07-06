@@ -182,12 +182,11 @@ must be added to the module's whitelist with a one-line justification.
 
 ## Filing Issues and PRs
 
-When the repository is published:
-
-- Bug reports use `.github/ISSUE_TEMPLATE/bug.yml` (TBD).
-- Feature requests use `.github/ISSUE_TEMPLATE/feature.yml` (TBD).
+- Bug reports use the [bug template](.github/ISSUE_TEMPLATE/bug.yml).
+- Feature requests use the [feature template](.github/ISSUE_TEMPLATE/feature.yml).
+- Security issues go to **info@voxrox.org**, never the public tracker —
+  see [SECURITY.md](SECURITY.md).
 - PRs should include a one-line summary + a checklist of which gates
   were run locally.
 
-For now (private development), see `todo.md` for the active task list
-and decision log.
+The maintainers' active task list and decision log live in `todo.md`.

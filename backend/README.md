@@ -1,6 +1,6 @@
 # VoxRox Mail — Backend (sidecar)
 
-Spring Boot 3 mail backend running on Java 25. Runs as a Tauri sidecar on
+Spring Boot 4 mail backend running on Java 25. Runs as a Tauri sidecar on
 127.0.0.1 with a random port; the frontend reads the port and an in-memory
 API key from `${app.data-dir}/session.json` after the `.ready` sentinel
 appears.
@@ -11,7 +11,7 @@ Repo-wide overview and the full doc map live in the monorepo root
 ## Stack
 
 - Java 25
-- Spring Boot 3 (Web, Data JPA, Security/OAuth2 client, Actuator)
+- Spring Boot 4 (Web, Data JPA, Security/OAuth2 client, Actuator)
 - SQLite (via `org.xerial:sqlite-jdbc`) + Flyway migrations
 - JavaMail (`org.eclipse.angus:angus-mail`) for IMAP / SMTP
 - Spring AOT (opt-in via Maven `aot` profile) + optional JEP 483 AOT class cache
