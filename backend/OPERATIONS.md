@@ -277,7 +277,7 @@ Co se děje při startu nové verze:
 
 Tauri klient přečte z handshake odpovědi `dbSchemaVersion` a zaloguje ho do diagnostic dumpu pro post-update support.
 
-Manuální fallback, pokud Tauri updater selže (síťový timeout, signature mismatch, disk full): stáhnout aktuální `voxrox-mail-<version>-x64-setup.exe` z GitHub Releases ručně a spustit „přes". Datové soubory zůstanou. Downgrade běžným instalátorem je zakázaný kvůli migracím databáze.
+Manuální fallback, pokud Tauri updater selže (síťový timeout, signature mismatch, disk full): stáhnout aktuální `voxrox-mail-<version>-windows-x64-setup.exe` z GitHub Releases ručně a spustit „přes". Datové soubory zůstanou. Downgrade běžným instalátorem je zakázaný kvůli migracím databáze.
 
 ### Update troubleshooting
 

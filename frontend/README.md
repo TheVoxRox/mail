@@ -111,9 +111,9 @@ Windows builds produce a single NSIS installer:
 src-tauri/target/release/bundle/nsis/voxrox-mail-<version>-windows-x64-setup.exe
 ```
 
-The app name shown to users is `VoxRox Mail`. The default install path is
-`%LOCALAPPDATA%\VoxRox\Mail` for current-user installs and
-`%ProgramFiles%\VoxRox\Mail` for all-users installs. All runtime data is
+The app name shown to users is `VoxRox Mail`. The installer is per-user
+(`installMode: currentUser`, no elevation), so the program binaries install
+under `%LOCALAPPDATA%\Programs\VoxRox\Mail`. All runtime data is kept separate,
 consolidated under one vendor folder:
 
 ```

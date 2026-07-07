@@ -55,7 +55,7 @@ Select-String -Path "$logs\audit.log" -Pattern 'CRITICAL'
 ## §3 Fresh install
 
 - [x] Instalace `voxrox-mail-0.1.0-windows-x64-setup.exe` na čistý profil — **2026-06-25 Phase B** (signed build, čistý `%LOCALAPPDATA%\VoxRox\Mail`).
-- [ ] Výchozí cesta current-user `%LOCALAPPDATA%\VoxRox\Mail` (✓ Phase B) **+ all-users `%ProgramFiles%\VoxRox\Mail` (NEtestováno).**
+- [ ] Výchozí cesta instalace (per-user, `installMode: currentUser`): binárky v `%LOCALAPPDATA%\Programs\VoxRox\Mail`, data oddělená v `%LOCALAPPDATA%\VoxRox\Mail`. **Znovu ověřit na currentUser buildu — Phase B testovala starší layout.**
 - [x] V instalační složce `mail-x86_64-pc-windows-msvc.exe`, `app/`, `runtime/` — sidecar balení **§1.24 ověřeno 2026-06-26**.
 - [x] Spustit klienta → sidecar auto-start — **2026-06-23 + 2026-06-25**.
 - [x] Vznikne `crypto.bin` — **2026-06-23** (čistý profil → `VOXSEC1` + DPAPI blob, žádný plaintext).
@@ -68,11 +68,11 @@ Select-String -Path "$logs\audit.log" -Pattern 'CRITICAL'
 - [x] UI bez error dialogu — **2026-06-25** (smoke po fixech #65–#71 proběhl čistě).
 - [x] (impl.) `/api/internal/health` → 200 s `X-API-KEY` — FE bez health 200 nezačne mluvit s backendem.
 
-→ Pozn.: all-users instalace do `%ProgramFiles%` neověřena — Phase B byl current-user.
+→ Pozn.: all-users (`%ProgramFiles%`) režim byl 2026-07-07 zrušen — instalace je nově výhradně per-user (`installMode: currentUser`, viz threat model AR-2), install cesta se přesunula na `%LOCALAPPDATA%\Programs\VoxRox\Mail`.
 
 ## §3a Installer / update chování
 
-- [ ] Installer nabízí current-user/per-machine (`both`). _(Phase B = current-user; volba režimu nezaznamenána.)_
+- [ ] Instalace je per-user (`installMode: currentUser`) — bez volby režimu, bez elevace (UAC). Binárky v `%LOCALAPPDATA%\Programs\VoxRox\Mail`.
 - [ ] Jazyk instalátoru automaticky CZ/EN podle systému.
 - [ ] Desktop shortcut = volitelný checkbox.
 - [ ] Start menu shortcut `VoxRox\VoxRox Mail`.
