@@ -160,24 +160,22 @@ export function createMailCommands(options: MailCommandOptions): Command[] {
 			available: () => true,
 			run: () => deleteMessages([stableId])
 		},
-		...moveTargets.map(
-			(folder): Command => ({
-				id: `mail.move.${folder.folderRef}`,
-				titleKey: 'command.moveMessageToFolder',
-				titleValues: { folder: folder.displayName },
-				groupKey: 'mail',
-				keywords: localeKeywords(
-					locale,
-					['presunout', 'slozka', folder.displayName],
-					['move', 'folder', folder.displayName]
-				),
-				icon: 'folder',
-				contexts: ['mail'],
-				routePrefixes: ['/mail/'],
-				priority: 48,
-				available: () => true,
-				run: () => moveMessages([stableId], folder.folderRef)
-			})
-		)
+		...moveTargets.map((folder): Command => ({
+			id: `mail.move.${folder.folderRef}`,
+			titleKey: 'command.moveMessageToFolder',
+			titleValues: { folder: folder.displayName },
+			groupKey: 'mail',
+			keywords: localeKeywords(
+				locale,
+				['presunout', 'slozka', folder.displayName],
+				['move', 'folder', folder.displayName]
+			),
+			icon: 'folder',
+			contexts: ['mail'],
+			routePrefixes: ['/mail/'],
+			priority: 48,
+			available: () => true,
+			run: () => moveMessages([stableId], folder.folderRef)
+		}))
 	];
 }

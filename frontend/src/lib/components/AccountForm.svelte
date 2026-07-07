@@ -364,8 +364,7 @@
 	}
 
 	type ConnectionTestError =
-		| { kind: 'message'; messageKey: string }
-		| { kind: 'field'; error: CustomFieldError };
+		{ kind: 'message'; messageKey: string } | { kind: 'field'; error: CustomFieldError };
 
 	function validateConnectionTest(): ConnectionTestError | null {
 		if (serverMode === 'provider') {
