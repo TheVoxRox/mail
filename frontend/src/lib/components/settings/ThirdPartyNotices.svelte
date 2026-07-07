@@ -91,7 +91,6 @@
 			readonly
 			aria-labelledby="about-licenses-heading"
 			class="h-80 w-full resize-y rounded-md border border-border bg-muted/30 p-3 font-mono text-xs leading-relaxed"
-			value={content}
-		></textarea>
+			value={content}></textarea>
 	{/if}
 </Surface>

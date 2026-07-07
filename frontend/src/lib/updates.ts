@@ -25,8 +25,7 @@ type UpdatePromptState =
 	| { status: 'installing'; update: AvailableUpdate };
 
 type UpdateFailureState =
-	| { status: 'hidden' }
-	| { status: 'failed'; message: string; releasesUrl: string | null };
+	{ status: 'hidden' } | { status: 'failed'; message: string; releasesUrl: string | null };
 
 type ManualUpdateCheckResult =
 	| { status: 'unsupported' }

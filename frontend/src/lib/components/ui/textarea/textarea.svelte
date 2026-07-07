@@ -44,5 +44,4 @@
 	bind:this={ref}
 	bind:value
 	class={cn(textareaVariants({ resize, size }), className)}
-	{...restProps}
-></textarea>
+	{...restProps}></textarea>
