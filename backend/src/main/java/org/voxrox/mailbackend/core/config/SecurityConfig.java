@@ -20,8 +20,11 @@ import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequest
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestRedirectFilter;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
+import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
+import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -46,10 +49,36 @@ public class SecurityConfig {
      */
     static final String OAUTH2_FAILURE_REDIRECT = "/auth-failed.html";
 
-    private final ApiKeyFilter apiKeyFilter;
+    /*
+     * Post-login redirect target wired into `oauth2SuccessHandler()`. The
+     * `/success` controller finishes persisting the account and forwards the
+     * browser to `auth-finished.html`.
+     */
+    static final String OAUTH2_SUCCESS_ENDPOINT = "/api/v1/auth/oauth2/success";
 
-    public SecurityConfig(ApiKeyFilter apiKeyFilter) {
+    /*
+     * Target for a *benign* duplicate callback (see `oauth2FailureHandler()`): the
+     * same static success page the `/success` controller ends on. Kept in sync with
+     * `OAuth2CallbackController.success()`.
+     */
+    static final String OAUTH2_SUCCESS_REDIRECT = "/auth-finished.html";
+
+    /*
+     * Spring raises this OAuth2 error code when the callback carries a `state` that
+     * is no longer in the session's authorization-request store. In a
+     * system-browser desktop flow it is almost always a harmless duplicate callback
+     * — the external browser retries / prefetches / reloads the loopback redirect,
+     * and the twin request already consumed the single-use authorization request
+     * and completed the login. See `oauth2FailureHandler()`.
+     */
+    private static final String AUTHORIZATION_REQUEST_NOT_FOUND = "authorization_request_not_found";
+
+    private final ApiKeyFilter apiKeyFilter;
+    private final OAuth2CompletedStateTracker completedStateTracker;
+
+    public SecurityConfig(ApiKeyFilter apiKeyFilter, OAuth2CompletedStateTracker completedStateTracker) {
         this.apiKeyFilter = apiKeyFilter;
+        this.completedStateTracker = completedStateTracker;
     }
 
     /*
@@ -110,11 +139,30 @@ public class SecurityConfig {
                  */
                 .oauth2Login(oauth -> oauth.authorizationEndpoint(
                         authorization -> authorization.authorizationRequestResolver(pkceAuthorizationRequestResolver))
-                        .defaultSuccessUrl("/api/v1/auth/oauth2/success", true).failureHandler(oauth2FailureHandler()))
+                        .successHandler(oauth2SuccessHandler()).failureHandler(oauth2FailureHandler()))
 
                 .addFilterBefore(apiKeyFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    /**
+     * Success handler for the OAuth2 flow. Behaves like the former
+     * {@code defaultSuccessUrl(OAUTH2_SUCCESS_ENDPOINT, true)} — always redirect to
+     * the shared success endpoint — but first records the completed flow's
+     * {@code state} in {@link OAuth2CompletedStateTracker} so
+     * {@link #oauth2FailureHandler()} can tell a benign duplicate callback (which
+     * carries the same {@code state}) from a genuine failure.
+     */
+    @Bean
+    public AuthenticationSuccessHandler oauth2SuccessHandler() {
+        SimpleUrlAuthenticationSuccessHandler delegate = new SimpleUrlAuthenticationSuccessHandler(
+                OAUTH2_SUCCESS_ENDPOINT);
+        delegate.setAlwaysUseDefaultTargetUrl(true);
+        return (request, response, authentication) -> {
+            completedStateTracker.markCompleted(request.getParameter(OAuth2ParameterNames.STATE));
+            delegate.onAuthenticationSuccess(request, response, authentication);
+        };
     }
 
     /**
@@ -125,8 +173,14 @@ public class SecurityConfig {
      *
      * {@code OAuth2AuthenticationException.getError()} carries a code per RFC 6749
      * §5.2 (e.g. {@code invalid_grant}, {@code invalid_request}) or Spring-specific
-     * codes ({@code authorization_request_not_found} — typically a stale state in
-     * the session).
+     * codes ({@code authorization_request_not_found} — a callback whose state is no
+     * longer in the authorization-request store).
+     *
+     * <p>
+     * One case of {@code authorization_request_not_found} is treated as success: a
+     * benign duplicate callback whose {@code state} names a login that already
+     * completed (recorded by {@link #oauth2SuccessHandler()} in
+     * {@link OAuth2CompletedStateTracker}) — see the inline comment.
      */
     @Bean
     public AuthenticationFailureHandler oauth2FailureHandler() {
@@ -137,6 +191,27 @@ public class SecurityConfig {
                 errorCode = oauthEx.getError().getErrorCode();
                 description = oauthEx.getError().getDescription();
             }
+
+            /*
+             * Benign duplicate callback: the code endpoint was hit a second time (browser
+             * retry / prefetch / reload of the loopback redirect) after its twin already
+             * consumed the single-use authorization request and completed the login, so
+             * Spring raises `authorization_request_not_found`. If the failed callback's
+             * `state` names a login that just completed, the account was created by the
+             * twin — send the user to the same success page instead of a scary failure
+             * page. The gate is deliberately narrow (this exact code AND a `state` proven
+             * complete): every genuine failure — expired code, denied consent, a real
+             * stale/unknown state — still lands on the error page with its reason, and a
+             * *different* account's failed login is never mistaken for a success.
+             */
+            if (AUTHORIZATION_REQUEST_NOT_FOUND.equals(errorCode)
+                    && completedStateTracker.wasCompleted(request.getParameter(OAuth2ParameterNames.STATE))) {
+                log.info("{} Duplicate OAuth2 callback for an already-completed login; "
+                        + "treating as benign and showing the success page.", LogCategory.SECURITY);
+                response.sendRedirect(OAUTH2_SUCCESS_REDIRECT);
+                return;
+            }
+
             log.warn("{} OAuth2 flow failed: errorCode={} description={} exceptionType={} message={}",
                     LogCategory.SECURITY, errorCode, description, exception.getClass().getSimpleName(),
                     exception.getMessage());

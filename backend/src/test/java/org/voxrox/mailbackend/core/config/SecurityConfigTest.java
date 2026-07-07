@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository;
@@ -43,7 +44,9 @@ import org.springframework.web.cors.CorsConfigurationSource;
  */
 class SecurityConfigTest {
 
-    private final AuthenticationFailureHandler handler = new SecurityConfig(null).oauth2FailureHandler();
+    private final OAuth2CompletedStateTracker completedStates = new OAuth2CompletedStateTracker();
+    private final SecurityConfig config = new SecurityConfig(null, completedStates);
+    private final AuthenticationFailureHandler handler = config.oauth2FailureHandler();
 
     @Test
     @DisplayName("OAuth2 error -> redirect to auth-failed.html with error code in query")
@@ -85,9 +88,84 @@ class SecurityConfigTest {
     }
 
     @Test
+    @DisplayName("Success handler records the flow's state and redirects to the success endpoint")
+    void successHandlerRecordsStateAndRedirects() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("state", "state-xyz");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        config.oauth2SuccessHandler().onAuthenticationSuccess(request, response,
+                new TestingAuthenticationToken("user", "n/a"));
+
+        assertThat(response.getRedirectedUrl()).isEqualTo("/api/v1/auth/oauth2/success");
+        assertThat(completedStates.wasCompleted("state-xyz")).isTrue();
+    }
+
+    @Test
+    @DisplayName("Duplicate callback (authorization_request_not_found) for a completed state -> success page")
+    void duplicateCallbackForCompletedStateRedirectsToSuccess() throws Exception {
+        completedStates.markCompleted("state-abc");
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("state", "state-abc");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        OAuth2AuthenticationException exception = new OAuth2AuthenticationException(
+                new OAuth2Error("authorization_request_not_found"));
+
+        handler.onAuthenticationFailure(request, response, exception);
+
+        assertThat(response.getStatus()).isEqualTo(302);
+        assertThat(response.getRedirectedUrl()).isEqualTo("/auth-finished.html");
+    }
+
+    @Test
+    @DisplayName("authorization_request_not_found for an unknown state -> real error page")
+    void authorizationRequestNotFoundForUnknownStateRedirectsToFailure() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("state", "never-completed");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        OAuth2AuthenticationException exception = new OAuth2AuthenticationException(
+                new OAuth2Error("authorization_request_not_found"));
+
+        handler.onAuthenticationFailure(request, response, exception);
+
+        assertThat(response.getRedirectedUrl()).isEqualTo("/auth-failed.html?reason=authorization_request_not_found");
+    }
+
+    @Test
+    @DisplayName("authorization_request_not_found for a *different* account's failed login -> error page (no false success)")
+    void authorizationRequestNotFoundForADifferentStateFails() throws Exception {
+        // Account A completed; account B's login genuinely fails in the same run.
+        completedStates.markCompleted("account-A-state");
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("state", "account-B-state");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        OAuth2AuthenticationException exception = new OAuth2AuthenticationException(
+                new OAuth2Error("authorization_request_not_found"));
+
+        handler.onAuthenticationFailure(request, response, exception);
+
+        assertThat(response.getRedirectedUrl()).isEqualTo("/auth-failed.html?reason=authorization_request_not_found");
+    }
+
+    @Test
+    @DisplayName("A genuine error (invalid_grant) still fails even for a completed state")
+    void genuineErrorForCompletedStateStillFails() throws Exception {
+        completedStates.markCompleted("state-x");
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("state", "state-x");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        OAuth2AuthenticationException exception = new OAuth2AuthenticationException(
+                new OAuth2Error("invalid_grant", "Authorization code expired", null));
+
+        handler.onAuthenticationFailure(request, response, exception);
+
+        assertThat(response.getRedirectedUrl()).isEqualTo("/auth-failed.html?reason=invalid_grant");
+    }
+
+    @Test
     @DisplayName("CORS allows the packaged Tauri webview origin (http://tauri.localhost)")
     void corsAllowsPackagedTauriWebviewOrigin() {
-        CorsConfigurationSource source = new SecurityConfig(null).corsConfigurationSource();
+        CorsConfigurationSource source = config.corsConfigurationSource();
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/system/readiness");
         request.setServletPath("/api/v1/system/readiness");
 
@@ -112,7 +190,7 @@ class SecurityConfigTest {
                 .redirectUri("{baseUrl}/login/oauth2/code/{registrationId}").scope("openid", "email")
                 .authorizationUri("https://login.microsoftonline.com/common/oauth2/v2.0/authorize")
                 .tokenUri("https://login.microsoftonline.com/common/oauth2/v2.0/token").build();
-        OAuth2AuthorizationRequestResolver resolver = new SecurityConfig(null)
+        OAuth2AuthorizationRequestResolver resolver = config
                 .pkceAuthorizationRequestResolver(new InMemoryClientRegistrationRepository(registration));
 
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/oauth2/authorization/microsoft");
