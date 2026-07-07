@@ -13,7 +13,7 @@ Total third-party components: 631
   maven  131
   cargo  385
 
-Generated: 2026-06-24
+Generated: 2026-07-07
 
 Machine-readable CycloneDX SBOM files for each ecosystem are
 published alongside the installer on the GitHub Releases page.
@@ -974,7 +974,7 @@ Components and their copyright notices:
       Ben McCann
       git+https://github.com/benmccann/esm-env.git
 
-  * esrap 2.2.10  [npm]
+  * esrap 2.2.13  [npm]
       (no author in package.json — see git+https://github.com/sveltejs/esrap.git)
       git+https://github.com/sveltejs/esrap.git
 
@@ -1082,7 +1082,7 @@ Components and their copyright notices:
       QOS.ch
       https://github.com/qos-ch/slf4j/slf4j-parent/jul-to-slf4j
 
-  * kit 2.62.0  [npm]
+  * kit 2.68.0  [npm]
       (no author in package.json — see git+https://github.com/sveltejs/kit.git#packages/kit)
       git+https://github.com/sveltejs/kit.git#packages/kit
 
@@ -1366,7 +1366,7 @@ Components and their copyright notices:
       Mark
       git+https://github.com/remarkablemark/style-to-object.git
 
-  * svelte 5.56.1  [npm]
+  * svelte 5.56.4  [npm]
       (no author in package.json — see git+https://github.com/sveltejs/svelte.git#packages/svelte)
       git+https://github.com/sveltejs/svelte.git#packages/svelte
 
@@ -1474,7 +1474,7 @@ Components and their copyright notices:
       Boshen and oxc contributors
       git+https://github.com/oxc-project/oxc.git#npm/oxc-types
 
-  * types 8.61.1  [npm]
+  * types 8.62.1  [npm]
       (no author in package.json — see git+https://github.com/typescript-eslint/typescript-eslint.git#packages/types)
       git+https://github.com/typescript-eslint/typescript-eslint.git#packages/types
 
