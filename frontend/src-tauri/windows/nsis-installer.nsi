@@ -63,7 +63,12 @@ ${StrLoc}
 !define UNINSTALLERSIGNCOMMAND "{{uninstaller_sign_cmd}}"
 !define ESTIMATEDSIZE "{{estimated_size}}"
 !define STARTMENUFOLDER "{{start_menu_folder}}"
-!define INSTALLDIRSUBPATH "VoxRox\Mail"
+; Per-user install lives under Programs\ so the binaries do NOT share a folder
+; with the app's runtime data (the sidecar keeps mail.db + logs in
+; %LOCALAPPDATA%\VoxRox\Mail). Keeping code and data separate mirrors the old
+; perMachine layout (Program Files vs LocalAppData) after the move to
+; installMode: currentUser.
+!define INSTALLDIRSUBPATH "Programs\VoxRox\Mail"
 
 Var PassiveMode
 Var UpdateMode

@@ -49,7 +49,7 @@
 			"allowDowngrades": false,
 			"nsis": {
 				"template": "windows/nsis-installer.nsi",
-				"installMode": "perMachine",
+				"installMode": "currentUser",
 				"languages": ["English", "Czech"],
 				"customLanguageFiles": {
 					"Czech": "windows/Czech.nsh"

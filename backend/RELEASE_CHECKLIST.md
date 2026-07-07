@@ -48,9 +48,9 @@ Poznámky:
 
 ## 3. Fresh install
 
-- [ ] Nainstalovat release kandidáta přes Windows NSIS installer `voxrox-mail-<version>-x64-setup.exe` na čistý profil bez existujícího `%LOCALAPPDATA%\VoxRox\Mail`.
-- [ ] Ověřit výchozí cestu instalace: current-user `%LOCALAPPDATA%\VoxRox\Mail`, all-users `%ProgramFiles%\VoxRox\Mail`.
-- [ ] V instalační složce jsou přibalené sidecar `mail-x86_64-pc-windows-msvc.exe`, `app/` a `runtime/`.
+- [ ] Nainstalovat release kandidáta přes Windows NSIS installer `voxrox-mail-<version>-windows-x64-setup.exe` na čistý profil bez existujícího `%LOCALAPPDATA%\VoxRox\Mail`.
+- [ ] Ověřit výchozí cestu instalace (per-user, `installMode: currentUser`): binárky v `%LOCALAPPDATA%\Programs\VoxRox\Mail`, oddělené od dat v `%LOCALAPPDATA%\VoxRox\Mail`.
+- [ ] V instalační složce `%LOCALAPPDATA%\Programs\VoxRox\Mail` jsou přibalené sidecar `mail-x86_64-pc-windows-msvc.exe`, `app/` a `runtime/`.
 - [ ] Spustit klienta.
 - [ ] Backend sidecar se auto-startne.
 - [ ] Vznikne `${app.data-dir}/crypto.bin`.
@@ -66,13 +66,15 @@ Poznámky:
 
 ## 3a. Installer and update behavior
 
-- [ ] Installer nabízí current-user/per-machine režim (`both`).
+- [ ] Instalace je per-user (`installMode: currentUser`) — installer neukazuje volbu režimu ani nevyžaduje elevaci (UAC). Binárky jdou do `%LOCALAPPDATA%\Programs\VoxRox\Mail`.
 - [ ] Jazyk instalátoru je automaticky Czech/English podle systému; ostatní locale padají na English.
 - [ ] Desktop shortcut je volitelný checkbox.
 - [ ] Start menu shortcut vznikne jako `VoxRox\VoxRox Mail`.
 - [ ] Reinstall stejné verze projde bez ztráty dat.
 - [ ] Downgrade na starší verzi je zablokovaný.
-- [ ] Signed release obsahuje `voxrox-mail-<version>-x64-setup.exe`, `.sig` a `latest.json`.
+- [ ] Signed release obsahuje `voxrox-mail-<version>-windows-x64-setup.exe`, `.sig` a `latest.json`.
+- [ ] **Shoda podpisového páru:** veřejný klíč zabalený v běžící appce odpovídá podpisovému privátnímu klíči (`TAURI_UPDATER_PUBKEY` ↔ `TAURI_SIGNING_PRIVATE_KEY`). Dokáže to úspěšný update smoke vN-1 → vN — při nesouladu updater odmítne `.sig` se „signature" chybou. **Neopravitelné po shipnutí**, proto povinný bod.
+- [ ] Release build prošel podepsaným workflow (`windows-signed-release.yml`), který aplikuje `tauri.release.conf.json` (env `TAURI_UPDATER_*`). Base `tauri.conf.json` updater blok (endpoint + pubkey) je jen dev reference — holý `npm run tauri:build` by shipnul base hodnoty bez `.sig`; ručně sestavený build nepublikovat.
 
 ## 4. Account flows
 
