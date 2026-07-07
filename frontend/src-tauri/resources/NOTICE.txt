@@ -2305,7 +2305,7 @@ Components and their copyright notices:
       The Rust Project Developers
       https://github.com/rust-lang/rustc-hash
 
-  * tauri 2.11.3  [cargo]
+  * tauri 2.11.5  [cargo]
       Tauri Programme within The Commons Conservancy
       https://github.com/tauri-apps/tauri
 
@@ -2349,7 +2349,7 @@ Components and their copyright notices:
       Tauri Programme within The Commons Conservancy
       https://github.com/tauri-apps/tauri
 
-  * tauri-runtime-wry 2.11.3  [cargo]
+  * tauri-runtime-wry 2.11.4  [cargo]
       Tauri Programme within The Commons Conservancy
       https://github.com/tauri-apps/tauri
 
