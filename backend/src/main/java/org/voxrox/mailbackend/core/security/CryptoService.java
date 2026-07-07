@@ -6,6 +6,9 @@ import jakarta.annotation.PreDestroy;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.voxrox.mailbackend.core.init.StartupTimingService;
 import org.voxrox.mailbackend.util.AuditLog;
@@ -66,6 +69,28 @@ public class CryptoService {
         this.globalSalt = cryptoProperties.salt().getBytes(StandardCharsets.UTF_8);
         log.info("{} Crypto subsystem ready. Application start sped up (lazy self-test).", LogCategory.SECURITY);
         startupTimingService.record("crypto.service-init", started);
+    }
+
+    /**
+     * Warms the one-time self-test off the request path.
+     *
+     * <p>
+     * The self-test (a PBKDF2 key derivation plus an AES/GCM round trip) is
+     * otherwise triggered lazily by the first {@link #encrypt}/{@link #decrypt} —
+     * in practice the first OAuth2 login, where it added a few seconds to the
+     * callback while the refresh token was encrypted. A slow loopback callback
+     * invites the external browser to retry the request, producing a duplicate
+     * callback and a misleading {@code authorization_request_not_found} error page
+     * even though the login succeeded. Running the self-test on
+     * {@link ApplicationReadyEvent}, off the boot thread on
+     * {@code mailEventExecutor}, keeps the lazy-init cold-start speed-up while
+     * making the first real login fast. {@link #ensureSelfTest()} is idempotent and
+     * thread-safe, so a concurrent first {@code encrypt} simply no-ops.
+     */
+    @EventListener(ApplicationReadyEvent.class)
+    @Async("mailEventExecutor")
+    public void warmUpSelfTest() {
+        ensureSelfTest();
     }
 
     /** Pass-through contract: blank/null input maps to {@code null} ciphertext. */

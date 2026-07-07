@@ -5,6 +5,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import jakarta.servlet.DispatcherType;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,6 +16,8 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestCustomizers;
@@ -23,6 +27,7 @@ import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -45,6 +50,23 @@ public class SecurityConfig {
      * the user what happened and what to do (go back to the app and click again).
      */
     static final String OAUTH2_FAILURE_REDIRECT = "/auth-failed.html";
+
+    /*
+     * Target for a *benign* duplicate callback (see `oauth2FailureHandler()`): the
+     * same static success page the `/success` controller redirects to. Kept in sync
+     * with `OAuth2CallbackController.success()`.
+     */
+    static final String OAUTH2_SUCCESS_REDIRECT = "/auth-finished.html";
+
+    /*
+     * Spring raises this OAuth2 error code when the callback carries a `state` that
+     * is no longer in the session's authorization-request store. In a
+     * system-browser desktop flow it is almost always a harmless duplicate callback
+     * — the external browser retries / prefetches / reloads the loopback redirect,
+     * and the twin request already consumed the single-use authorization request
+     * and completed the login. See `oauth2FailureHandler()`.
+     */
+    private static final String AUTHORIZATION_REQUEST_NOT_FOUND = "authorization_request_not_found";
 
     private final ApiKeyFilter apiKeyFilter;
 
@@ -125,8 +147,14 @@ public class SecurityConfig {
      *
      * {@code OAuth2AuthenticationException.getError()} carries a code per RFC 6749
      * §5.2 (e.g. {@code invalid_grant}, {@code invalid_request}) or Spring-specific
-     * codes ({@code authorization_request_not_found} — typically a stale state in
-     * the session).
+     * codes ({@code authorization_request_not_found} — a callback whose state is no
+     * longer in the session store).
+     *
+     * <p>
+     * One case of {@code authorization_request_not_found} is treated as success: a
+     * benign duplicate callback that arrives after its twin already completed the
+     * login in the same session — see the inline comment and
+     * {@link #hasCompletedOAuthLogin}.
      */
     @Bean
     public AuthenticationFailureHandler oauth2FailureHandler() {
@@ -137,12 +165,50 @@ public class SecurityConfig {
                 errorCode = oauthEx.getError().getErrorCode();
                 description = oauthEx.getError().getDescription();
             }
+
+            /*
+             * Benign duplicate callback: the code endpoint was hit a second time (browser
+             * retry / prefetch / reload of the loopback redirect) after its twin already
+             * consumed the single-use authorization request and completed the login, so
+             * Spring raises `authorization_request_not_found`. When this very session
+             * already carries a finished OAuth2 login the account was created by the first
+             * callback — send the user to the same success page instead of a scary failure
+             * page. The gate is deliberately narrow (this exact code AND an authenticated
+             * session): every genuine failure — expired code, denied consent, real stale
+             * state with no prior login — still lands on the error page with its reason.
+             */
+            if (AUTHORIZATION_REQUEST_NOT_FOUND.equals(errorCode) && hasCompletedOAuthLogin(request)) {
+                log.info("{} Duplicate OAuth2 callback after a completed login in the same session; "
+                        + "treating as benign and showing the success page.", LogCategory.SECURITY);
+                response.sendRedirect(OAUTH2_SUCCESS_REDIRECT);
+                return;
+            }
+
             log.warn("{} OAuth2 flow failed: errorCode={} description={} exceptionType={} message={}",
                     LogCategory.SECURITY, errorCode, description, exception.getClass().getSimpleName(),
                     exception.getMessage());
             String encodedReason = URLEncoder.encode(errorCode, StandardCharsets.UTF_8);
             response.sendRedirect(OAUTH2_FAILURE_REDIRECT + "?reason=" + encodedReason);
         };
+    }
+
+    /**
+     * True when the request's existing session already holds a completed OAuth2
+     * login (an authenticated {@link OAuth2AuthenticationToken}). Read straight
+     * from the persisted session attribute rather than
+     * {@code SecurityContextHolder}: the holder is per-request and, on this
+     * failed-authentication dispatch, does not carry the context the earlier
+     * successful callback saved to the session.
+     */
+    private static boolean hasCompletedOAuthLogin(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        if (session == null) {
+            return false;
+        }
+        Object context = session.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY);
+        return context instanceof SecurityContext securityContext
+                && securityContext.getAuthentication() instanceof OAuth2AuthenticationToken token
+                && token.isAuthenticated();
     }
 
     /**

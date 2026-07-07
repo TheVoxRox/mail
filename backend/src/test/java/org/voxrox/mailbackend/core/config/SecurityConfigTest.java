@@ -2,12 +2,19 @@ package org.voxrox.mailbackend.core.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
+import java.util.Map;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextImpl;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver;
@@ -16,7 +23,10 @@ import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
+import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 
@@ -82,6 +92,59 @@ class SecurityConfigTest {
         handler.onAuthenticationFailure(request, response, exception);
 
         assertThat(response.getRedirectedUrl()).isEqualTo("/auth-failed.html?reason=unknown");
+    }
+
+    @Test
+    @DisplayName("Duplicate callback (authorization_request_not_found) after login in same session -> success page")
+    void duplicateCallbackAfterLoginRedirectsToSuccess() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        // The first callback already saved an authenticated OAuth2 token to the
+        // session.
+        request.getSession(true).setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
+                authenticatedOAuthContext());
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        OAuth2AuthenticationException exception = new OAuth2AuthenticationException(
+                new OAuth2Error("authorization_request_not_found"));
+
+        handler.onAuthenticationFailure(request, response, exception);
+
+        assertThat(response.getStatus()).isEqualTo(302);
+        assertThat(response.getRedirectedUrl()).isEqualTo("/auth-finished.html");
+    }
+
+    @Test
+    @DisplayName("authorization_request_not_found with no prior login (no session) -> real error page")
+    void authorizationRequestNotFoundWithoutSessionRedirectsToFailure() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        OAuth2AuthenticationException exception = new OAuth2AuthenticationException(
+                new OAuth2Error("authorization_request_not_found"));
+
+        handler.onAuthenticationFailure(request, response, exception);
+
+        assertThat(response.getRedirectedUrl()).isEqualTo("/auth-failed.html?reason=authorization_request_not_found");
+    }
+
+    @Test
+    @DisplayName("A genuine error (invalid_grant) still fails even with an authenticated session")
+    void genuineErrorWithAuthenticatedSessionStillFails() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.getSession(true).setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
+                authenticatedOAuthContext());
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        OAuth2AuthenticationException exception = new OAuth2AuthenticationException(
+                new OAuth2Error("invalid_grant", "Authorization code expired", null));
+
+        handler.onAuthenticationFailure(request, response, exception);
+
+        assertThat(response.getRedirectedUrl()).isEqualTo("/auth-failed.html?reason=invalid_grant");
+    }
+
+    private static SecurityContext authenticatedOAuthContext() {
+        OAuth2User principal = new DefaultOAuth2User(List.of(new SimpleGrantedAuthority("ROLE_USER")),
+                Map.of("sub", "123"), "sub");
+        // The OAuth2AuthenticationToken constructor marks the token authenticated.
+        return new SecurityContextImpl(new OAuth2AuthenticationToken(principal, principal.getAuthorities(), "google"));
     }
 
     @Test
