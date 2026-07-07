@@ -13,7 +13,7 @@ Total third-party components: 631
   maven  131
   cargo  385
 
-Generated: 2026-07-06
+Generated: 2026-07-07
 
 Machine-readable CycloneDX SBOM files for each ecosystem are
 published alongside the installer on the GitHub Releases page.
@@ -1474,7 +1474,7 @@ Components and their copyright notices:
       Boshen and oxc contributors
       git+https://github.com/oxc-project/oxc.git#npm/oxc-types
 
-  * types 8.62.0  [npm]
+  * types 8.62.1  [npm]
       (no author in package.json — see git+https://github.com/typescript-eslint/typescript-eslint.git#packages/types)
       git+https://github.com/typescript-eslint/typescript-eslint.git#packages/types
 
