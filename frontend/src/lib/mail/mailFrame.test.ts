@@ -8,9 +8,11 @@ import {
 	MAIL_FRAME_STYLE,
 	MAIL_FRAME_STYLE_SHA256,
 	buildMailFrameSrcdoc,
+	countRemoteImages,
 	isMailFrameKeyMessage,
 	isMailFrameLinkMessage,
 	isOpenableMailLink,
+	mailFrameCsp,
 	mailFrameKeyToEvent,
 	type MailFrameKeyMessage,
 	type MailFrameLinkMessage
@@ -73,6 +75,48 @@ describe('buildMailFrameSrcdoc', () => {
 		expect(doc).not.toContain('onclick');
 		expect(doc).not.toContain('https://t.test');
 		expect(doc).toContain('hi');
+	});
+
+	it('carries the no-referrer meta so a loaded image leaks no referrer', () => {
+		expect(buildMailFrameSrcdoc('<p>hi</p>')).toContain(
+			'<meta name="referrer" content="no-referrer">'
+		);
+	});
+});
+
+describe('remote-image opt-in', () => {
+	const remote =
+		'<div><p>hi</p><img data-voxrox-remote-src="https://cdn.test/logo.png" alt="l"></div>';
+
+	it('CSP relaxes img-src to https only when opted in', () => {
+		expect(mailFrameCsp(false)).toContain('img-src data:;');
+		expect(mailFrameCsp(false)).not.toContain('https:');
+		expect(mailFrameCsp(true)).toContain('img-src data: https:');
+		// The rest of the policy is unchanged in both modes.
+		expect(mailFrameCsp(true)).toContain(`script-src 'sha256-${MAIL_FRAME_SCRIPT_SHA256}'`);
+		expect(mailFrameCsp(true)).toContain("default-src 'none'");
+	});
+
+	it('keeps remote images inert by default (no live src, attr preserved)', () => {
+		const doc = buildMailFrameSrcdoc(remote);
+		expect(doc).toContain('data-voxrox-remote-src="https://cdn.test/logo.png"');
+		// A live src is space-separated from the tag; the data-*-remote-src attr is not.
+		expect(doc).not.toContain(' src="https://cdn.test/logo.png"');
+		expect(doc).toContain('img-src data:;');
+	});
+
+	it('promotes remote images to a real src and relaxes CSP when opted in', () => {
+		const doc = buildMailFrameSrcdoc(remote, { loadRemoteImages: true });
+		expect(doc).toContain('src="https://cdn.test/logo.png"');
+		expect(doc).not.toContain('data-voxrox-remote-src');
+		expect(doc).toContain('img-src data: https:');
+	});
+
+	it('countRemoteImages counts preserved remote images on the sanitized body', () => {
+		expect(countRemoteImages(remote)).toBe(1);
+		expect(countRemoteImages('<p>no images</p>')).toBe(0);
+		// A live http/https src is not a preserved remote image (sanitizer drops it).
+		expect(countRemoteImages('<img src="https://cdn.test/x.png">')).toBe(0);
 	});
 });
 

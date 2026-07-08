@@ -70,6 +70,8 @@ class MailFacadeTest {
     private MailDraftService mailDraftService;
     @Mock
     private FolderCountCache folderCountCache;
+    @Mock
+    private RemoteImageAllowlistService remoteImageAllowlistService;
 
     /*
      * Real (not mocked) so the wrapped write actually runs: withDbWriteRetry

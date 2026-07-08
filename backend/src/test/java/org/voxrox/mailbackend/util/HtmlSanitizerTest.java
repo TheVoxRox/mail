@@ -148,9 +148,23 @@ class HtmlSanitizerTest {
         }
 
         @Test
-        @DisplayName("Remote http/https images are removed (tracking pixels)")
-        void stripsRemoteImages() {
-            String out = HtmlSanitizer.sanitize("<p>hi</p><img src='https://tracker.example.test/pixel.png' alt='x'>");
+        @DisplayName("Remote https image is preserved inertly (data-voxrox-remote-src, no live src)")
+        void preservesRemoteHttpsImagesInertly() {
+            String url = "https://tracker.example.test/pixel.png";
+            String out = HtmlSanitizer.sanitize("<p>hi</p><img src='" + url + "' alt='x'>");
+
+            assertThat(out).contains("<p>hi</p>");
+            assertThat(out).contains("<img").contains("data-voxrox-remote-src=\"" + url + "\"");
+            // Inert at rest: the persisted body must never carry a live remote src. A
+            // live src is always space-separated from the tag/previous attribute, so a
+            // leading space distinguishes it from the data-*-remote-src attribute.
+            assertThat(out).doesNotContain(" src=\"http");
+        }
+
+        @Test
+        @DisplayName("Remote http (cleartext) image is dropped entirely — no opt-in path")
+        void dropsRemoteHttpImages() {
+            String out = HtmlSanitizer.sanitize("<p>hi</p><img src='http://tracker.example.test/pixel.png' alt='x'>");
 
             assertThat(out).contains("<p>hi</p>");
             assertThat(out).doesNotContain("<img").doesNotContain("tracker.example.test");
@@ -197,6 +211,36 @@ class HtmlSanitizerTest {
 
             assertThat(out).contains("<a>file</a>");
             assertThat(out).doesNotContain("ftp://");
+        }
+    }
+
+    @Nested
+    @DisplayName("Plain-text bodies (F3)")
+    class PlainText {
+
+        @Test
+        @DisplayName("Literal markup-like sequences are escaped, not dropped")
+        void escapesLiteralAngleBrackets() {
+            String out = HtmlSanitizer.escapePlainText("if a<b and c>d then x&y");
+
+            assertThat(out).contains("a&lt;b and c&gt;d").contains("x&amp;y");
+            assertThat(out).startsWith("<div class='mail-content-wrapper'").contains("<pre>");
+            assertThat(out).doesNotContain("<b and");
+        }
+
+        @Test
+        @DisplayName("A tag-like line is not interpreted as HTML")
+        void doesNotDropTagLikeContent() {
+            String out = HtmlSanitizer.escapePlainText("<not-a-real-tag>keep me</not-a-real-tag>");
+
+            assertThat(out).contains("&lt;not-a-real-tag&gt;keep me&lt;/not-a-real-tag&gt;");
+        }
+
+        @Test
+        @DisplayName("null / blank -> empty string")
+        void blankReturnsEmpty() {
+            assertThat(HtmlSanitizer.escapePlainText(null)).isEmpty();
+            assertThat(HtmlSanitizer.escapePlainText("   ")).isEmpty();
         }
     }
 

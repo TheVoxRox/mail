@@ -47,6 +47,14 @@ const allowedHtmlTags = new Set([
 
 const allowedUriProtocols = new Set(['http:', 'https:', 'mailto:', 'tel:']);
 
+/**
+ * Inert attribute carrying a remote https image URL that the backend sanitizer
+ * preserved without ever making it a live `src` (see HtmlSanitizer). It stays
+ * inert here too — the mail frame only promotes it to a real `src` under the
+ * user's explicit "load remote images" gesture (content-rendering audit F2).
+ */
+export const REMOTE_IMAGE_ATTR = 'data-voxrox-remote-src';
+
 function isSafeLink(value: string, origin: string): boolean {
 	try {
 		const url = new URL(value, origin);
@@ -58,6 +66,15 @@ function isSafeLink(value: string, origin: string): boolean {
 
 function isInlineImage(value: string): boolean {
 	return /^data:image\/(?:gif|png|jpe?g|webp|bmp);base64,[a-z0-9+/=\s]+$/i.test(value);
+}
+
+/** True only for an absolute `https:` URL — the one remote scheme we ever opt into. */
+function isRemoteHttpsImage(value: string): boolean {
+	try {
+		return new URL(value).protocol === 'https:';
+	} catch {
+		return false;
+	}
 }
 
 function unwrapElement(element: Element): void {
@@ -95,6 +112,13 @@ function sanitizeElement(element: Element, origin: string): void {
 			continue;
 		}
 
+		if (tagName === 'img' && name === REMOTE_IMAGE_ATTR && isRemoteHttpsImage(value)) {
+			// Kept inert (no live src). The frame promotes it to a real src only
+			// when the user opts into loading remote images for this message.
+			element.setAttribute(REMOTE_IMAGE_ATTR, value);
+			continue;
+		}
+
 		if (tagName === 'img' && name === 'alt') {
 			element.setAttribute('alt', value);
 			continue;
@@ -105,7 +129,13 @@ function sanitizeElement(element: Element, origin: string): void {
 		}
 	}
 
-	if (tagName === 'img' && !element.hasAttribute('src')) {
+	// Drop an <img> that ended up with neither a usable inline src nor a preserved
+	// remote reference (e.g. a dropped remote/cid src) — it would render broken.
+	if (
+		tagName === 'img' &&
+		!element.hasAttribute('src') &&
+		!element.hasAttribute(REMOTE_IMAGE_ATTR)
+	) {
 		element.replaceWith(document.createTextNode(''));
 	}
 }

@@ -12,17 +12,8 @@
     "ApiKeyAuth" : [ ]
   } ],
   "tags" : [ {
-    "name" : "Client Config",
-    "description" : "Safe runtime limits and capability values for the desktop client."
-  }, {
-    "name" : "Drafts",
-    "description" : "Saving drafts into the Drafts folder (async, replaces semantics)."
-  }, {
     "name" : "Folders",
     "description" : "Account folder listing with folderRef and detected role."
-  }, {
-    "name" : "Mail Providers",
-    "description" : "Predefined provider templates and e-mail-based auto-detection."
   }, {
     "name" : "Contacts",
     "description" : "Per-account contact address book (CRUD + search)."
@@ -39,16 +30,216 @@
     "name" : "Messages — Actions",
     "description" : "Flag changes, move-to-trash, manual sync trigger."
   }, {
+    "name" : "Remote images",
+    "description" : "Per-sender allow-list for loading remote images in mail bodies."
+  }, {
     "name" : "Messages — Write",
     "description" : "Send a message and prepare reply / forward drafts."
   }, {
-    "name" : "System",
-    "description" : "Local backend state for the desktop client"
-  }, {
     "name" : "Messages — Read",
     "description" : "Paginated folder listing, search, message detail, attachment download."
+  }, {
+    "name" : "Client Config",
+    "description" : "Safe runtime limits and capability values for the desktop client."
+  }, {
+    "name" : "Drafts",
+    "description" : "Saving drafts into the Drafts folder (async, replaces semantics)."
+  }, {
+    "name" : "Mail Providers",
+    "description" : "Predefined provider templates and e-mail-based auto-detection."
+  }, {
+    "name" : "System",
+    "description" : "Local backend state for the desktop client"
   } ],
   "paths" : {
+    "/api/v1/remote-images/allowlist" : {
+      "get" : {
+        "tags" : [ "Remote images" ],
+        "summary" : "List trusted senders",
+        "description" : "Returns the sender emails allowed to load remote images for the account.",
+        "operationId" : "list",
+        "parameters" : [ {
+          "name" : "accountId",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64",
+            "exclusiveMinimum" : 0
+          }
+        } ],
+        "responses" : {
+          "503" : {
+            "description" : "IMAP/SMTP server unavailable (MAIL_CONNECTION_ERROR).",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "200" : {
+            "description" : "Allowed sender emails (may be empty).",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "type" : "string"
+                  }
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Missing or invalid X-API-KEY.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal server error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put" : {
+        "tags" : [ "Remote images" ],
+        "summary" : "Trust a sender for remote images",
+        "description" : "Adds the sender to the account's allow-list; the sender's messages then auto-load remote https images. Idempotent.",
+        "operationId" : "allow",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RemoteImageAllowlistRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "503" : {
+            "description" : "IMAP/SMTP server unavailable (MAIL_CONNECTION_ERROR).",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "204" : {
+            "description" : "Sender is allowed (added or already present)."
+          },
+          "404" : {
+            "description" : "Account not found."
+          },
+          "401" : {
+            "description" : "Missing or invalid X-API-KEY.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal server error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Invalid input (validation error).",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "Remote images" ],
+        "summary" : "Stop trusting a sender",
+        "description" : "Removes the sender from the account's allow-list. Idempotent.",
+        "operationId" : "disallow",
+        "parameters" : [ {
+          "name" : "accountId",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64",
+            "exclusiveMinimum" : 0
+          }
+        }, {
+          "name" : "senderEmail",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "email",
+            "maxLength" : 255,
+            "minLength" : 0
+          }
+        } ],
+        "responses" : {
+          "503" : {
+            "description" : "IMAP/SMTP server unavailable (MAIL_CONNECTION_ERROR).",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "204" : {
+            "description" : "Sender is no longer allowed (removed or was not present)."
+          },
+          "401" : {
+            "description" : "Missing or invalid X-API-KEY.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal server error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/accounts/{id}" : {
       "get" : {
         "tags" : [ "Accounts" ],
@@ -3086,6 +3277,26 @@
           }
         }
       },
+      "RemoteImageAllowlistRequest" : {
+        "type" : "object",
+        "properties" : {
+          "accountId" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Account the allow decision belongs to.",
+            "example" : 1
+          },
+          "senderEmail" : {
+            "type" : "string",
+            "format" : "email",
+            "description" : "Bare email address of the sender to trust, as returned by the content endpoint.",
+            "example" : "newsletter@example.com",
+            "maxLength" : 255,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "accountId", "senderEmail" ]
+      },
       "AccountUpdateRequest" : {
         "type" : "object",
         "properties" : {
@@ -3874,6 +4085,16 @@
         "properties" : {
           "content" : {
             "type" : "string"
+          },
+          "senderEmail" : {
+            "type" : "string",
+            "description" : "Bare sender email, used as the allow-list key for the remote-image opt-in.",
+            "example" : "newsletter@example.com"
+          },
+          "remoteImagesAllowedForSender" : {
+            "type" : "boolean",
+            "description" : "Whether the sender is already trusted to load remote images.",
+            "example" : false
           }
         }
       },

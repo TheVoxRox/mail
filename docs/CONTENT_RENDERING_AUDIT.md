@@ -6,7 +6,7 @@
 | **Date** | 2026-07-08 |
 | **Applies to** | VoxRox Mail V0.1.0 |
 | **Subsystem** | Untrusted email HTML rendering — Boundary 4 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md) |
-| **Verdict** | **Security: PASS** (no exploitable finding). F1 (dead links) and F2 (embedded images not rendering) both **fixed**; remote-image opt-in deferred post-beta. |
+| **Verdict** | **Security: PASS** (no exploitable finding). F1 (dead links), F2 (embedded images + remote-image opt-in) and F3 (plain-text fidelity) all **fixed**. |
 
 Per-subsystem release audit of the path **"raw IMAP body → rendered to the
 user"**. Every email is 100% attacker-controlled input, so this is the
@@ -131,17 +131,40 @@ images by default.
 - **Regression cover:** `MimePartExtractorTest` (raster inlined, SVG rejected,
   oversized skipped) + `HtmlSanitizerTest` (cid resolved from map / dropped when
   absent).
-- **Remaining (deferred post-beta):** remote images stay blocked by default with
-  **no opt-in**. The best-practice target is Outlook's model — block by default +
-  an explicit per-message "load images" gesture (+ per-sender allow-list). Filed
-  as a separate post-beta task; the safe default (blocked) ships for the beta.
+- **Remote-image opt-in — FIXED 2026-07-08:** remote images stay **blocked by
+  default** (tracking-pixel defense), now with an explicit opt-in matching
+  Outlook's model. The backend preserves a remote **https** image inertly in
+  `data-voxrox-remote-src` (never a live `src`, so stored content stays inert at
+  rest); `http` (cleartext) images are still dropped entirely. A per-message
+  banner ([MessageContent.svelte](../frontend/src/lib/components/message-detail/MessageContent.svelte))
+  offers **"Load images"** (this message only) and **"Always from this sender"**
+  (persisted per-account allow-list — `remote_image_sender` table +
+  `/api/v1/remote-images/allowlist`). Only on opt-in does
+  [mailFrame.ts](../frontend/src/lib/mail/mailFrame.ts) promote
+  `data-voxrox-remote-src` → `src` and relax the frame CSP `img-src` to
+  `data: https:`; a `no-referrer` meta keeps the load from leaking a referrer.
+  The per-sender auto-load is keyed on the (spoofable) `From` and affects **image
+  loading only** — never trust or code execution.
+  - **Regression cover:** `HtmlSanitizerTest` (https preserved inertly / http
+    dropped), `mailFrame.test.ts` + `content-sanitizer` tests (CSP variants,
+    promote, count), `RemoteImageAllowlistService`/`Controller` tests, and the
+    trusted-click e2e
+    [remote-images.functional.e2e.ts](../frontend/src/routes/mail/remote-images.functional.e2e.ts).
 
-### F3 — Low (fidelity): plain-text bodies routed through an HTML sanitizer
+### F3 — Low (fidelity): plain-text bodies routed through an HTML sanitizer — **FIXED 2026-07-08**
 
-A pure `text/plain` body is passed to `HtmlSanitizer.sanitize`, which parses
-it as HTML and wraps it in the content div. Literal `<...>` sequences (code
-snippets, `a<b and c>d`) can be interpreted as tags and dropped, mangling the
+A pure `text/plain` body was passed to `HtmlSanitizer.sanitize`, which parses it
+as HTML and wraps it in the content div. Literal `<...>` sequences (code
+snippets, `a<b and c>d`) could be interpreted as tags and dropped, mangling the
 displayed text. No security impact.
+
+- **Fix (shipped):** [MimePartExtractor](../backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java)`.extractBody`
+  now reports whether the selected body was `text/html`;
+  [MailContentService](../backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailContentService.java)
+  routes a genuine `text/plain` body through `HtmlSanitizer.escapePlainText`,
+  which HTML-escapes it and wraps it in a `<pre>` — the text is never parsed as
+  HTML, so literal markup renders verbatim. Covered by `HtmlSanitizerTest`
+  (plain-text) + `MimePartExtractorTest` (`extractBody` content-type).
 
 ### Note — remove or implement the backend `cid:` allowance
 
@@ -153,9 +176,11 @@ cid inlining (F2 fix) or drop the `cid` protocol so the policy reflects reality.
 
 - **Security:** close this subsystem as **PASS**; add a change-log pointer from
   the threat model (Boundary 4) to this audit.
-- **Release:** F1 (dead links) and F2 (embedded images) are **fixed**; both keep
-  the sandbox/CSP posture unchanged. The remote-image opt-in (Outlook model) is
-  deferred post-beta — the safe default (remote blocked) ships for the beta.
+- **Release:** F1 (dead links), F2 (embedded images + remote-image opt-in) and F3
+  (plain-text fidelity) are all **fixed**. The sandbox and default CSP are
+  unchanged; the frame CSP `img-src` relaxes to `https:` **only** under the
+  explicit per-message "load images" gesture, and stored content stays inert at
+  rest (remote URLs held in `data-voxrox-remote-src`, never a live `src`).
 - **Regression cover:** [links.functional.e2e.ts](../frontend/src/routes/mail/links.functional.e2e.ts)
   guards the link bridge; `MimePartExtractorTest` + `HtmlSanitizerTest` guard cid
   inlining; keep [sanitizer.functional.e2e.ts](../frontend/src/routes/mail/sanitizer.functional.e2e.ts)

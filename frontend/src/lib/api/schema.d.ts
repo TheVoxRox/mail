@@ -4,6 +4,34 @@
  */
 
 export interface paths {
+	'/api/v1/remote-images/allowlist': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * List trusted senders
+		 * @description Returns the sender emails allowed to load remote images for the account.
+		 */
+		get: operations['list'];
+		/**
+		 * Trust a sender for remote images
+		 * @description Adds the sender to the account's allow-list; the sender's messages then auto-load remote https images. Idempotent.
+		 */
+		put: operations['allow'];
+		post?: never;
+		/**
+		 * Stop trusting a sender
+		 * @description Removes the sender from the account's allow-list. Idempotent.
+		 */
+		delete: operations['disallow'];
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 	'/api/v1/accounts/{id}': {
 		parameters: {
 			query?: never;
@@ -774,6 +802,20 @@ export interface components {
 			 */
 			timestamp?: string;
 		};
+		RemoteImageAllowlistRequest: {
+			/**
+			 * Format: int64
+			 * @description Account the allow decision belongs to.
+			 * @example 1
+			 */
+			accountId: number;
+			/**
+			 * Format: email
+			 * @description Bare email address of the sender to trust, as returned by the content endpoint.
+			 * @example newsletter@example.com
+			 */
+			senderEmail: string;
+		};
 		AccountUpdateRequest: {
 			accountName: string;
 			/** Format: email */
@@ -1071,6 +1113,16 @@ export interface components {
 		};
 		MailContentResponse: {
 			content?: string;
+			/**
+			 * @description Bare sender email, used as the allow-list key for the remote-image opt-in.
+			 * @example newsletter@example.com
+			 */
+			senderEmail?: string;
+			/**
+			 * @description Whether the sender is already trusted to load remote images.
+			 * @example false
+			 */
+			remoteImagesAllowedForSender?: boolean;
 		};
 		MailSummaryResponse: {
 			/** Format: int64 */
@@ -1268,6 +1320,168 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+	list: {
+		parameters: {
+			query: {
+				accountId: number;
+			};
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Allowed sender emails (may be empty). */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': string[];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description IMAP/SMTP server unavailable (MAIL_CONNECTION_ERROR). */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+		};
+	};
+	allow: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['RemoteImageAllowlistRequest'];
+			};
+		};
+		responses: {
+			/** @description Sender is allowed (added or already present). */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Invalid input (validation error). */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Account not found. */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description IMAP/SMTP server unavailable (MAIL_CONNECTION_ERROR). */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+		};
+	};
+	disallow: {
+		parameters: {
+			query: {
+				accountId: number;
+				senderEmail: string;
+			};
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Sender is no longer allowed (removed or was not present). */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description IMAP/SMTP server unavailable (MAIL_CONNECTION_ERROR). */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+		};
+	};
 	getAccountById: {
 		parameters: {
 			query?: never;

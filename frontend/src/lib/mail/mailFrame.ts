@@ -31,7 +31,7 @@
  * would silently break every shortcut) fails the build.
  */
 
-import { sanitizeMailHtml } from './content-sanitizer.js';
+import { REMOTE_IMAGE_ATTR, sanitizeMailHtml } from './content-sanitizer.js';
 
 /**
  * The only script allowed to run inside the mail-body frame. Kept on one line
@@ -62,21 +62,76 @@ export const MAIL_FRAME_STYLE_SHA256 = 'UXLUJbZ21yq1eqQCljjFZwc0mejRk10+TVL8FCWZ
 
 /**
  * CSP enforced inside the frame: nothing loads by default, inline images stay
- * (the sanitizer already restricts them to `data:`), the only executable
- * script is the hash-pinned forwarder above, and the only stylesheet is the
- * hash-pinned base style — anything the sanitizer ever missed still cannot
- * style or script the frame.
+ * (the sanitizer already restricts them to `data:`), the only executable script
+ * is the hash-pinned forwarder above, and the only stylesheet is the hash-pinned
+ * base style — anything the sanitizer ever missed still cannot style or script
+ * the frame.
+ *
+ * `img-src` is the ONLY direction that relaxes, and only when the user has
+ * explicitly opted into loading remote images for the message (audit F2): it
+ * then also allows `https:` so preserved `data-voxrox-remote-src` images can
+ * load. Everything else — script/style/`default-src`, the opaque-origin sandbox
+ * — stays locked; `http` (cleartext) images are never allowed.
  */
-export const MAIL_FRAME_CSP =
-	`default-src 'none'; img-src data:; script-src 'sha256-${MAIL_FRAME_SCRIPT_SHA256}'; ` +
-	`style-src 'sha256-${MAIL_FRAME_STYLE_SHA256}'; base-uri 'none'; form-action 'none'`;
+export function mailFrameCsp(loadRemoteImages = false): string {
+	const imgSrc = loadRemoteImages ? 'img-src data: https:' : 'img-src data:';
+	return (
+		`default-src 'none'; ${imgSrc}; script-src 'sha256-${MAIL_FRAME_SCRIPT_SHA256}'; ` +
+		`style-src 'sha256-${MAIL_FRAME_STYLE_SHA256}'; base-uri 'none'; form-action 'none'`
+	);
+}
 
-/** Wraps sanitized mail HTML into the full sandboxed document served via srcdoc. */
-export function buildMailFrameSrcdoc(rawHtml: string): string {
-	const body = sanitizeMailHtml(rawHtml);
+/** Default (remote-blocked) frame CSP. */
+export const MAIL_FRAME_CSP = mailFrameCsp(false);
+
+/**
+ * Promotes each preserved remote image (`data-voxrox-remote-src`) to a real
+ * `src` on the already-sanitized body. Only called when the user has opted in;
+ * re-parsing sanitized (script-free) HTML is safe.
+ */
+function promoteRemoteImages(sanitizedHtml: string): string {
+	if (typeof DOMParser === 'undefined') return sanitizedHtml;
+	const doc = new DOMParser().parseFromString(sanitizedHtml, 'text/html');
+	doc.querySelectorAll(`img[${REMOTE_IMAGE_ATTR}]`).forEach((img) => {
+		const url = img.getAttribute(REMOTE_IMAGE_ATTR);
+		if (url) {
+			img.setAttribute('src', url);
+			img.removeAttribute(REMOTE_IMAGE_ATTR);
+		}
+	});
+	return doc.body.innerHTML;
+}
+
+/**
+ * Number of blocked remote images in the message (counted on the sanitized body
+ * so it matches exactly what the frame would show). Drives the "N blocked
+ * images" opt-in banner.
+ */
+export function countRemoteImages(rawHtml: string): number {
+	if (typeof DOMParser === 'undefined') return 0;
+	const doc = new DOMParser().parseFromString(sanitizeMailHtml(rawHtml), 'text/html');
+	return doc.querySelectorAll(`img[${REMOTE_IMAGE_ATTR}]`).length;
+}
+
+/**
+ * Wraps sanitized mail HTML into the full sandboxed document served via srcdoc.
+ * `loadRemoteImages` promotes preserved remote images to real `src`s and relaxes
+ * the frame CSP `img-src` to allow `https:`; a `no-referrer` meta keeps any such
+ * load from leaking a referrer.
+ */
+export function buildMailFrameSrcdoc(
+	rawHtml: string,
+	opts: { loadRemoteImages?: boolean } = {}
+): string {
+	const loadRemoteImages = opts.loadRemoteImages ?? false;
+	let body = sanitizeMailHtml(rawHtml);
+	if (loadRemoteImages) {
+		body = promoteRemoteImages(body);
+	}
 	return (
 		'<!doctype html><html><head><meta charset="utf-8">' +
-		`<meta http-equiv="Content-Security-Policy" content="${MAIL_FRAME_CSP}">` +
+		'<meta name="referrer" content="no-referrer">' +
+		`<meta http-equiv="Content-Security-Policy" content="${mailFrameCsp(loadRemoteImages)}">` +
 		`<style>${MAIL_FRAME_STYLE}</style>` +
 		`<script>${MAIL_FRAME_SCRIPT}</script>` +
 		`</head><body>${body}</body></html>`
