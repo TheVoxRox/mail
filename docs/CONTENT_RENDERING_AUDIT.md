@@ -166,11 +166,13 @@ displayed text. No security impact.
   HTML, so literal markup renders verbatim. Covered by `HtmlSanitizerTest`
   (plain-text) + `MimePartExtractorTest` (`extractBody` content-type).
 
-### Note — remove or implement the backend `cid:` allowance
+### Note — backend `cid:` allowance — **RESOLVED by the F2 fix**
 
 `Safelist … .addProtocols("img", "src", "cid", "data")` in HtmlSanitizer keeps
-`cid:` sources that nothing downstream can render (see F2). Either implement
-cid inlining (F2 fix) or drop the `cid` protocol so the policy reflects reality.
+`cid:` sources through `clean()`. This now reflects reality: the F2 fix gives
+them a real downstream consumer — `HtmlSanitizer.sanitize(html, inlineImages)`
+rewrites each matching `cid:` to its inlined `data:` URI and drops any unmatched
+one, so no dead `cid:` source is ever retained.
 
 ## 4. Recommendations
 
