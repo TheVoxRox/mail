@@ -4,6 +4,8 @@
 	import {
 		buildMailFrameSrcdoc,
 		isMailFrameKeyMessage,
+		isMailFrameLinkMessage,
+		isOpenableMailLink,
 		mailFrameKeyToEvent
 	} from '$lib/mail/mailFrame.js';
 	import { mailHtmlToPlainText } from '$lib/mail/content-sanitizer.js';
@@ -65,11 +67,13 @@
 
 	/*
 	 * The body renders in a script-sandboxed, opaque-origin iframe whose only
-	 * script is a hash-pinned key forwarder (see mailFrame.ts). Accept its
-	 * postMessages — strictly from THIS frame — and replay them as synthetic
-	 * keydowns on window, so global shortcuts (?, Delete, …) keep working even
-	 * while the reader's focus is inside the body. Synthetic events are
-	 * `isTrusted === false`, so the frame forwarder never re-forwards them.
+	 * script is a hash-pinned forwarder (see mailFrame.ts). Accept its
+	 * postMessages — strictly from THIS frame — and act on them: keystrokes are
+	 * replayed as synthetic keydowns on window so global shortcuts (?, Delete, …)
+	 * keep working while the reader's focus is inside the body; link clicks are
+	 * opened in the OS browser (the sandbox has no allow-popups, so the frame
+	 * cannot navigate them itself). Synthetic events are `isTrusted === false`,
+	 * so the frame forwarder never re-forwards them.
 	 */
 	function mailFrame(node: HTMLIFrameElement) {
 		function onMessage(event: MessageEvent) {
@@ -78,8 +82,13 @@
 			// pair that with an exact source match to this frame's window.
 			if (event.origin !== 'null') return;
 			if (event.source !== node.contentWindow) return;
-			if (!isMailFrameKeyMessage(event.data)) return;
-			window.dispatchEvent(mailFrameKeyToEvent(event.data));
+			if (isMailFrameKeyMessage(event.data)) {
+				window.dispatchEvent(mailFrameKeyToEvent(event.data));
+				return;
+			}
+			if (isMailFrameLinkMessage(event.data)) {
+				void openBodyLink(event.data.href);
+			}
 		}
 		window.addEventListener('message', onMessage);
 		return {
@@ -87,6 +96,22 @@
 				window.removeEventListener('message', onMessage);
 			}
 		};
+	}
+
+	/*
+	 * A mail-body link cannot navigate the opaque-origin sandbox itself (no
+	 * allow-popups), so the in-frame forwarder relays the click here. Re-validate
+	 * the protocol against the same allow-list the sanitizer enforces before
+	 * handing the URL to the OS browser via the shell:allow-open capability.
+	 */
+	async function openBodyLink(href: string): Promise<void> {
+		if (!isOpenableMailLink(href)) return;
+		try {
+			const { open } = await import('@tauri-apps/plugin-shell');
+			await open(href);
+		} catch (error) {
+			console.warn('[mail] failed to open body link', error);
+		}
 	}
 </script>
 

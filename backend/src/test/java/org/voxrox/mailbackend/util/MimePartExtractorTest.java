@@ -5,7 +5,18 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.util.Map;
+import java.util.Set;
+
+import jakarta.activation.DataHandler;
 import jakarta.mail.Part;
+import jakarta.mail.Session;
+import jakarta.mail.internet.MimeBodyPart;
+import jakarta.mail.internet.MimeMessage;
+import jakarta.mail.internet.MimeMultipart;
+import jakarta.mail.util.ByteArrayDataSource;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -57,5 +68,69 @@ class MimePartExtractorTest {
         when(part.getContent()).thenReturn("hello world");
 
         assertThat(MimePartExtractor.extractText(part)).isEqualTo("hello world");
+    }
+
+    private static MimeMessage relatedMessage(byte[] imageBytes, String imageType, String contentId) throws Exception {
+        MimeBodyPart htmlPart = new MimeBodyPart();
+        htmlPart.setContent("<p>hi</p><img src=\"cid:logo\">", "text/html; charset=utf-8");
+
+        MimeBodyPart imagePart = new MimeBodyPart();
+        imagePart.setDataHandler(new DataHandler(new ByteArrayDataSource(imageBytes, imageType)));
+        imagePart.setHeader("Content-ID", contentId);
+
+        MimeMultipart related = new MimeMultipart("related");
+        related.addBodyPart(htmlPart);
+        related.addBodyPart(imagePart);
+
+        MimeMessage message = new MimeMessage((Session) null);
+        message.setContent(related);
+        // Finalize part headers (Content-Type from the DataHandler) so isMimeType /
+        // getContentType see them, exactly as a message parsed off the wire would.
+        message.saveChanges();
+        return message;
+    }
+
+    @Test
+    @DisplayName("collectInlineImages inlines a cid: raster image as a data: URI")
+    void collectInlineImagesInlinesRaster() throws Exception {
+        byte[] png = {(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
+
+        Map<String, String> images = MimePartExtractor.collectInlineImages(relatedMessage(png, "image/png", "<logo>"),
+                Set.of("logo"));
+
+        assertThat(images).containsKey("logo");
+        String uri = images.get("logo");
+        assertThat(uri).startsWith("data:image/png;base64,");
+        byte[] decoded = Base64.getDecoder().decode(uri.substring("data:image/png;base64,".length()));
+        assertThat(decoded).isEqualTo(png);
+    }
+
+    @Test
+    @DisplayName("collectInlineImages never inlines SVG (it can carry script)")
+    void collectInlineImagesRejectsSvg() throws Exception {
+        byte[] svg = "<svg xmlns=\"http://www.w3.org/2000/svg\"/>".getBytes(StandardCharsets.UTF_8);
+
+        assertThat(
+                MimePartExtractor.collectInlineImages(relatedMessage(svg, "image/svg+xml", "<logo>"), Set.of("logo")))
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("collectInlineImages skips an image over the per-image size cap")
+    void collectInlineImagesSkipsOversized() throws Exception {
+        byte[] tooBig = new byte[2 * 1024 * 1024 + 1]; // just over the 2 MiB per-image cap
+
+        assertThat(MimePartExtractor.collectInlineImages(relatedMessage(tooBig, "image/png", "<logo>"), Set.of("logo")))
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("collectInlineImages ignores an inline image the body does not reference")
+    void collectInlineImagesSkipsUnreferenced() throws Exception {
+        byte[] png = {(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
+
+        // The part's Content-ID is <logo>, but the body references only cid:other.
+        assertThat(MimePartExtractor.collectInlineImages(relatedMessage(png, "image/png", "<logo>"), Set.of("other")))
+                .isEmpty();
     }
 }

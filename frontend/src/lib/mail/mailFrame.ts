@@ -18,6 +18,14 @@
  * (`isTrusted`) user keystrokes via `postMessage`; the parent re-dispatches them
  * as synthetic keydowns so the existing `handleGlobalKeydown` reacts.
  *
+ * The same forwarder also relays body-link clicks: an opaque-origin
+ * `sandbox="allow-scripts"` frame has no `allow-popups`, so a `target="_blank"`
+ * link is blocked by the engine and clicking it does nothing. The forwarder
+ * `preventDefault`s a genuine anchor click and posts the resolved `href` to the
+ * parent, which validates the protocol and opens it in the OS browser via
+ * `shell:allow-open` — restoring working links without granting the frame any
+ * navigation or popup capability.
+ *
  * The CSP hash is over the exact bytes of MAIL_FRAME_SCRIPT; mailFrame.test.ts
  * recomputes it so any edit to the script that forgets to update the hash (which
  * would silently break every shortcut) fails the build.
@@ -28,14 +36,14 @@ import { sanitizeMailHtml } from './content-sanitizer.js';
 /**
  * The only script allowed to run inside the mail-body frame. Kept on one line
  * so its bytes — and therefore its CSP hash — are stable and easy to reproduce.
- * Forwards real keystrokes to the parent; it can do nothing else (opaque origin,
- * `default-src 'none'`).
+ * Forwards real keystrokes and body-link clicks to the parent; it can do nothing
+ * else (opaque origin, `default-src 'none'`).
  */
 export const MAIL_FRAME_SCRIPT =
-	'window.addEventListener("keydown",function(e){if(!e.isTrusted)return;window.parent.postMessage({__voxroxMailFrameKey:true,key:e.key,code:e.code,ctrlKey:e.ctrlKey,metaKey:e.metaKey,altKey:e.altKey,shiftKey:e.shiftKey},"*");});';
+	'window.addEventListener("keydown",function(e){if(!e.isTrusted)return;window.parent.postMessage({__voxroxMailFrameKey:true,key:e.key,code:e.code,ctrlKey:e.ctrlKey,metaKey:e.metaKey,altKey:e.altKey,shiftKey:e.shiftKey},"*");});window.addEventListener("click",function(e){if(!e.isTrusted)return;var a=e.target.closest?e.target.closest("a[href]"):null;if(!a)return;e.preventDefault();window.parent.postMessage({__voxroxMailFrameLink:true,href:a.href},"*");});';
 
 /** Base64 SHA-256 of MAIL_FRAME_SCRIPT — asserted in mailFrame.test.ts. */
-export const MAIL_FRAME_SCRIPT_SHA256 = 'H/XNgY8UMzgl/rtpNwZPWzexQDXuW212vj8kUGDkGkQ=';
+export const MAIL_FRAME_SCRIPT_SHA256 = 'P0dzBplLeG9MS+sbj54Edo5FqVN4odqRclMXa+orxyM=';
 
 /**
  * Base stylesheet for the mail body. The sanitizer strips every style element
@@ -99,6 +107,37 @@ export function isMailFrameKeyMessage(data: unknown): data is MailFrameKeyMessag
 		typeof d.altKey === 'boolean' &&
 		typeof d.shiftKey === 'boolean'
 	);
+}
+
+/** Shape of the message the frame forwarder posts when a body link is clicked. */
+export interface MailFrameLinkMessage {
+	__voxroxMailFrameLink: true;
+	href: string;
+}
+
+/** Narrowing guard for an untrusted `MessageEvent.data`. */
+export function isMailFrameLinkMessage(data: unknown): data is MailFrameLinkMessage {
+	if (typeof data !== 'object' || data === null) return false;
+	const d = data as Record<string, unknown>;
+	return d.__voxroxMailFrameLink === true && typeof d.href === 'string';
+}
+
+/**
+ * Protocols the parent will hand to the OS opener. Mirrors the sanitizer's
+ * `allowedUriProtocols` (content-sanitizer.ts) so a forwarded href can only ever
+ * reach `shell:allow-open` for the same safe schemes the body was allowed to
+ * carry — never `file:`, `javascript:`, `about:srcdoc#…` fragments, or a custom
+ * scheme, even if a compromised frame posted an arbitrary href.
+ */
+const OPENABLE_LINK_PROTOCOLS = new Set(['http:', 'https:', 'mailto:', 'tel:']);
+
+/** True when a forwarded body-link href is safe to open in the OS browser. */
+export function isOpenableMailLink(href: string): boolean {
+	try {
+		return OPENABLE_LINK_PROTOCOLS.has(new URL(href).protocol);
+	} catch {
+		return false;
+	}
 }
 
 /**

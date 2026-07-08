@@ -1,14 +1,22 @@
 package org.voxrox.mailbackend.util;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
+import java.util.Base64;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 
 import jakarta.mail.*;
+import jakarta.mail.internet.ContentType;
 import jakarta.mail.internet.MimeUtility;
+import jakarta.mail.internet.ParseException;
 
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.voxrox.mailbackend.feature.mail.dto.AttachmentResponse;
@@ -16,6 +24,22 @@ import org.voxrox.mailbackend.feature.mail.dto.AttachmentResponse;
 public final class MimePartExtractor {
     private static final Logger log = LoggerFactory.getLogger(MimePartExtractor.class);
     private static final int MAX_DEPTH = 20;
+
+    /*
+     * Inline (cid:) image budget. Embedded images are inlined as data: URIs into
+     * the stored body HTML, so these caps bound how much that adds to the SQLite
+     * content column: an image over the per-image cap — or one that would push a
+     * message past the per-message total — is simply not inlined, and its <img> is
+     * then dropped by the sanitizer. Constants for now; promote to config if a
+     * tunable is ever needed.
+     */
+    private static final long MAX_INLINE_IMAGE_BYTES = 2L * 1024 * 1024;
+    private static final long MAX_TOTAL_INLINE_BYTES = 8L * 1024 * 1024;
+
+    /**
+     * Raster image subtypes safe to inline. SVG is excluded — it can carry script.
+     */
+    private static final Set<String> INLINE_IMAGE_SUBTYPES = Set.of("gif", "png", "jpeg", "webp", "bmp");
 
     private MimePartExtractor() {
     }
@@ -74,6 +98,112 @@ public final class MimePartExtractor {
             return textFallback != null ? textFallback : "";
         }
         return "";
+    }
+
+    /**
+     * Collects the embedded ({@code cid:}) images that {@code referencedCids}
+     * actually names (see {@link HtmlSanitizer#referencedCids}) as safe,
+     * size-bounded {@code data:} URIs keyed by their normalized Content-ID. The
+     * sanitizer rewrites the matching {@code cid:} references against this map, so
+     * inline logos and newsletter graphics render without any network fetch —
+     * mirroring how mature clients always show embedded images while keeping remote
+     * images blocked. Only referenced, raster ({@link #INLINE_IMAGE_SUBTYPES})
+     * parts are ever read: an unreferenced inline image never consumes an IMAP
+     * fetch or the byte budget. Per-image and per-message byte caps bound how much
+     * this adds to the stored body.
+     */
+    public static Map<String, String> collectInlineImages(Part part, Set<String> referencedCids)
+            throws MessagingException, IOException {
+        if (referencedCids.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, String> images = new HashMap<>();
+        collectInlineImagesInternal(part, 0, images, referencedCids, new long[]{MAX_TOTAL_INLINE_BYTES});
+        return images;
+    }
+
+    private static void collectInlineImagesInternal(Part part, int depth, Map<String, String> images,
+            Set<String> referencedCids, long[] remaining) throws MessagingException, IOException {
+        if (part == null || depth > MAX_DEPTH) {
+            return;
+        }
+        if (part.isMimeType("multipart/*")) {
+            if (part.getContent() instanceof Multipart multipart) {
+                for (int i = 0; i < multipart.getCount(); i++) {
+                    collectInlineImagesInternal(multipart.getBodyPart(i), depth + 1, images, referencedCids, remaining);
+                }
+            }
+            return;
+        }
+        if (part.isMimeType("message/rfc822")) {
+            if (part.getContent() instanceof Part nested) {
+                collectInlineImagesInternal(nested, depth + 1, images, referencedCids, remaining);
+            }
+            return;
+        }
+        if (part.isMimeType("image/*")) {
+            inlineImageIfSafe(part, images, referencedCids, remaining);
+        }
+    }
+
+    private static void inlineImageIfSafe(Part part, Map<String, String> images, Set<String> referencedCids,
+            long[] remaining) throws MessagingException, IOException {
+        String cid = contentIdKey(part);
+        if (cid == null || !referencedCids.contains(cid) || images.containsKey(cid) || remaining[0] <= 0) {
+            return;
+        }
+        String subtype = inlineImageSubtype(part);
+        if (subtype == null) {
+            return;
+        }
+        long perImageCap = Math.min(MAX_INLINE_IMAGE_BYTES, remaining[0]);
+        byte[] bytes = readBounded(part, perImageCap);
+        if (bytes.length > perImageCap) {
+            log.debug("{} Skipped oversized inline image cid={}", LogCategory.SYNC, cid);
+            return;
+        }
+        remaining[0] -= bytes.length;
+        images.put(cid, "data:image/" + subtype + ";base64," + Base64.getEncoder().encodeToString(bytes));
+    }
+
+    private static @Nullable String contentIdKey(Part part) throws MessagingException {
+        String[] header = part.getHeader("Content-ID");
+        if (header == null || header.length == 0 || header[0] == null) {
+            return null;
+        }
+        String id = header[0].trim();
+        if (id.length() >= 2 && id.startsWith("<") && id.endsWith(">")) {
+            id = id.substring(1, id.length() - 1);
+        }
+        return id.isBlank() ? null : id.toLowerCase(Locale.ROOT);
+    }
+
+    private static @Nullable String inlineImageSubtype(Part part) throws MessagingException {
+        String contentType = part.getContentType();
+        if (contentType == null) {
+            return null;
+        }
+        String subtype;
+        try {
+            subtype = new ContentType(contentType).getSubType().toLowerCase(Locale.ROOT);
+        } catch (ParseException e) {
+            return null;
+        }
+        if (subtype.equals("jpg")) {
+            subtype = "jpeg";
+        }
+        return INLINE_IMAGE_SUBTYPES.contains(subtype) ? subtype : null;
+    }
+
+    /**
+     * Reads up to {@code cap + 1} decoded bytes so the caller can detect (and skip)
+     * a part that exceeds the cap without buffering an unbounded image into memory.
+     */
+    private static byte[] readBounded(Part part, long cap) throws MessagingException, IOException {
+        try (InputStream in = part.getInputStream()) {
+            int limit = (int) Math.min(cap, Integer.MAX_VALUE - 1);
+            return in.readNBytes(limit + 1);
+        }
     }
 
     public static List<AttachmentResponse> extractAttachmentMetadata(Part part, String currentPath)
