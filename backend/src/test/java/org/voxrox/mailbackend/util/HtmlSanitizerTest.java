@@ -2,6 +2,8 @@ package org.voxrox.mailbackend.util;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.Map;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -155,11 +157,20 @@ class HtmlSanitizerTest {
         }
 
         @Test
-        @DisplayName("CID images from local mail attachments are preserved")
-        void keepsCidImages() {
+        @DisplayName("Unresolved CID images are dropped (no matching inline part)")
+        void dropsUnresolvedCidImages() {
             String out = HtmlSanitizer.sanitize("<img src='cid:logo-123' alt='Logo'>");
 
-            assertThat(out).contains("<img").contains("src=\"cid:logo-123\"").contains("alt=\"Logo\"");
+            assertThat(out).doesNotContain("<img").doesNotContain("cid:");
+        }
+
+        @Test
+        @DisplayName("CID images are rewritten to their inlined data: URI")
+        void resolvesCidImagesFromInlineMap() {
+            String dataUri = "data:image/png;base64,iVBORw0KGgo=";
+            String out = HtmlSanitizer.sanitize("<img src='cid:Logo-123' alt='Logo'>", Map.of("logo-123", dataUri));
+
+            assertThat(out).contains("<img").contains("src=\"" + dataUri + "\"").contains("alt=\"Logo\"");
         }
 
         @Test
@@ -201,6 +212,26 @@ class HtmlSanitizerTest {
             String out = HtmlSanitizer.sanitize(bomb);
             assertThat(out).contains("<p>");
             assertThat(out).doesNotContain("blocked for security reasons");
+        }
+    }
+
+    @Nested
+    @DisplayName("CID reference extraction")
+    class CidReferences {
+
+        @Test
+        @DisplayName("Extracts and normalizes cid: references across quote styles")
+        void extractsReferencedCids() {
+            String html = "<img src=\"cid:Logo\"><img src='cid:pic@host'><img src=cid:banner>";
+
+            assertThat(HtmlSanitizer.referencedCids(html)).containsExactlyInAnyOrder("logo", "pic@host", "banner");
+        }
+
+        @Test
+        @DisplayName("Returns empty for a body with no cid: reference")
+        void noCidReferences() {
+            assertThat(HtmlSanitizer.referencedCids("<p>hi <a href='https://x.test'>link</a></p>")).isEmpty();
+            assertThat(HtmlSanitizer.referencedCids("")).isEmpty();
         }
     }
 }

@@ -72,7 +72,14 @@ public class MailContentService {
                     }
                     try {
                         String rawText = MimePartExtractor.extractText(message);
-                        return HtmlSanitizer.sanitize(rawText);
+                        // Only walk the MIME tree when the body actually references a cid:
+                        // image — the common case (no embedded images) stays a single
+                        // extraction pass, and only referenced parts are ever read.
+                        Set<String> referencedCids = HtmlSanitizer.referencedCids(rawText);
+                        Map<String, String> inlineImages = referencedCids.isEmpty()
+                                ? Map.of()
+                                : MimePartExtractor.collectInlineImages(message, referencedCids);
+                        return HtmlSanitizer.sanitize(rawText, inlineImages);
                     } catch (IOException | RuntimeException e) {
                         // RuntimeException too: a malformed MIME structure can throw an
                         // unchecked JavaMail error. Wrap it so MailFacade surfaces a

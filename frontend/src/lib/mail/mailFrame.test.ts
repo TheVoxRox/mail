@@ -9,8 +9,11 @@ import {
 	MAIL_FRAME_STYLE_SHA256,
 	buildMailFrameSrcdoc,
 	isMailFrameKeyMessage,
+	isMailFrameLinkMessage,
+	isOpenableMailLink,
 	mailFrameKeyToEvent,
-	type MailFrameKeyMessage
+	type MailFrameKeyMessage,
+	type MailFrameLinkMessage
 } from './mailFrame.js';
 
 describe('MAIL_FRAME_SCRIPT_SHA256', () => {
@@ -97,6 +100,61 @@ describe('isMailFrameKeyMessage', () => {
 		['missing key', { ...valid, key: undefined }]
 	])('rejects %s', (_label, data) => {
 		expect(isMailFrameKeyMessage(data)).toBe(false);
+	});
+});
+
+describe('MAIL_FRAME_SCRIPT link forwarding', () => {
+	it('relays body-link clicks and blocks their default navigation', () => {
+		// The sandbox has no allow-popups, so a target="_blank" link is dead
+		// unless the forwarder preventDefaults the click and posts the href out.
+		expect(MAIL_FRAME_SCRIPT).toContain('addEventListener("click"');
+		expect(MAIL_FRAME_SCRIPT).toContain('preventDefault');
+		expect(MAIL_FRAME_SCRIPT).toContain('__voxroxMailFrameLink');
+		// Only genuine user clicks are relayed (a synthetic click can never loop).
+		expect(MAIL_FRAME_SCRIPT).toContain('e.isTrusted');
+	});
+});
+
+describe('isMailFrameLinkMessage', () => {
+	const valid: MailFrameLinkMessage = {
+		__voxroxMailFrameLink: true,
+		href: 'https://example.test/path'
+	};
+
+	it('accepts a well-formed link message', () => {
+		expect(isMailFrameLinkMessage(valid)).toBe(true);
+	});
+
+	it.each([
+		['null', null],
+		['a string', 'https://example.test'],
+		['missing marker', { href: 'https://example.test' }],
+		['wrong marker', { ...valid, __voxroxMailFrameLink: false }],
+		['non-string href', { ...valid, href: 42 }],
+		['missing href', { __voxroxMailFrameLink: true }]
+	])('rejects %s', (_label, data) => {
+		expect(isMailFrameLinkMessage(data)).toBe(false);
+	});
+});
+
+describe('isOpenableMailLink', () => {
+	it.each(['http://example.test', 'https://example.test/x', 'mailto:a@b.test', 'tel:+420123'])(
+		'allows the safe scheme %s',
+		(href) => {
+			expect(isOpenableMailLink(href)).toBe(true);
+		}
+	);
+
+	it.each([
+		'javascript:alert(1)',
+		'file:///etc/passwd',
+		'about:srcdoc#section',
+		'data:text/html,<script>alert(1)</script>',
+		'vbscript:msgbox',
+		'not a url',
+		'#fragment'
+	])('rejects the unsafe or non-openable value %s', (href) => {
+		expect(isOpenableMailLink(href)).toBe(false);
 	});
 });
 

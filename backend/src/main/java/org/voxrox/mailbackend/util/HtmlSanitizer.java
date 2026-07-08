@@ -1,7 +1,11 @@
 package org.voxrox.mailbackend.util;
 
 import java.net.URI;
+import java.util.HashSet;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.jsoup.Jsoup;
@@ -16,6 +20,11 @@ public class HtmlSanitizer {
     private static final Pattern SAFE_DATA_IMAGE = Pattern
             .compile("^data:image/(?:gif|png|jpe?g|webp|bmp);base64,[a-z0-9+/=\\s]+$", Pattern.CASE_INSENSITIVE);
 
+    /**
+     * Matches {@code cid:} references in the raw body, capturing the Content-ID.
+     */
+    private static final Pattern CID_REFERENCE = Pattern.compile("cid:([^\\s\"'<>()]+)", Pattern.CASE_INSENSITIVE);
+
     private static final Logger log = LoggerFactory.getLogger(HtmlSanitizer.class);
 
     /*
@@ -28,9 +37,11 @@ public class HtmlSanitizer {
      * instance across threads is safe. OutputSettings stays per call — Jsoup
      * attaches it to the output Document.
      *
-     * CID and data:image are local mail resources. http/https images are a tracking
-     * / privacy risk; any future "show remote content" action belongs in an
-     * explicit user gesture, not the default.
+     * cid: is kept through clean() so a matching embedded image can be rewritten to
+     * its inlined data: URI below (an unmatched cid: is then dropped). data:image
+     * is a local inline resource. http/https images are a tracking / privacy risk;
+     * any future "show remote content" action belongs in an explicit user gesture,
+     * not the default.
      */
     private static final Safelist SAFELIST = Safelist.relaxed().removeAttributes(":all", "style")
             .addProtocols("a", "href", "http", "https", "mailto", "tel").removeProtocols("a", "href", "ftp")
@@ -38,7 +49,22 @@ public class HtmlSanitizer {
             .addAttributes("table", "align", "width", "bgcolor", "cellpadding", "cellspacing")
             .addAttributes("td", "align", "valign", "width", "height");
 
+    /**
+     * Sanitizes with no embedded images — any {@code cid:} reference is dropped.
+     */
     public static String sanitize(String rawHtml) {
+        return sanitize(rawHtml, Map.of());
+    }
+
+    /**
+     * @param inlineImages
+     *            normalized Content-ID → {@code data:} URI for embedded images, as
+     *            collected by {@link MimePartExtractor#collectInlineImages}. A
+     *            {@code cid:} reference is rewritten to its data URI when present
+     *            here and dropped otherwise, so no unresolved {@code cid:} ever
+     *            reaches the client.
+     */
+    public static String sanitize(String rawHtml, Map<String, String> inlineImages) {
         if (rawHtml == null || rawHtml.isBlank()) {
             return "";
         }
@@ -71,11 +97,20 @@ public class HtmlSanitizer {
             }
 
             /*
-             * Only local images (cid:) or inline data:image are kept. Remote http/https
+             * Embedded cid: images are rewritten to their inlined data: URI (or dropped
+             * when we have no matching part); inline data:image is kept; remote http/https
              * sources are dropped to defeat tracking pixels and avoid leaking IP/UA.
              */
             for (Element image : doc.select("img")) {
-                if (!isSafeImageSrc(image.attr("src"))) {
+                String src = image.attr("src").trim();
+                if (src.regionMatches(true, 0, "cid:", 0, 4)) {
+                    String dataUri = inlineImages.get(normalizeCid(src.substring(4)));
+                    if (dataUri != null) {
+                        image.attr("src", dataUri);
+                    } else {
+                        image.remove();
+                    }
+                } else if (!isSafeImageSrc(src)) {
                     image.remove();
                 }
             }
@@ -113,11 +148,44 @@ public class HtmlSanitizer {
         }
     }
 
+    /**
+     * cid: is resolved separately (see the img loop); this gates only inline
+     * data:image.
+     */
     private static boolean isSafeImageSrc(String rawSrc) {
         if (rawSrc == null || rawSrc.isBlank()) {
             return false;
         }
-        String src = rawSrc.trim();
-        return src.regionMatches(true, 0, "cid:", 0, 4) || SAFE_DATA_IMAGE.matcher(src).matches();
+        return SAFE_DATA_IMAGE.matcher(rawSrc.trim()).matches();
+    }
+
+    /**
+     * Normalizes a {@code cid:} reference body to match a collected Content-ID key.
+     */
+    private static String normalizeCid(String raw) {
+        String cid = raw.trim();
+        if (cid.length() >= 2 && cid.startsWith("<") && cid.endsWith(">")) {
+            cid = cid.substring(1, cid.length() - 1);
+        }
+        return cid.toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * Extracts the normalized Content-IDs that the raw body actually references via
+     * {@code cid:}. Callers pass this to
+     * {@link MimePartExtractor#collectInlineImages} so only referenced parts are
+     * read and inlined — unreferenced inline images never consume the byte budget
+     * or an IMAP fetch.
+     */
+    public static Set<String> referencedCids(String rawHtml) {
+        if (rawHtml == null || rawHtml.isBlank()) {
+            return Set.of();
+        }
+        Set<String> cids = new HashSet<>();
+        Matcher matcher = CID_REFERENCE.matcher(rawHtml);
+        while (matcher.find()) {
+            cids.add(normalizeCid(matcher.group(1)));
+        }
+        return cids;
     }
 }
