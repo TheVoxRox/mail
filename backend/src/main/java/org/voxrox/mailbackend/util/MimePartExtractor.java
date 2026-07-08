@@ -85,7 +85,9 @@ public final class MimePartExtractor {
 
         if (part.isMimeType("message/rfc822")) {
             Object content = part.getContent();
-            return content instanceof Part nestedPart ? extractBodyInternal(nestedPart, depth + 1) : ExtractedBody.EMPTY;
+            return content instanceof Part nestedPart
+                    ? extractBodyInternal(nestedPart, depth + 1)
+                    : ExtractedBody.EMPTY;
         }
 
         if (part.isMimeType("multipart/*")) {

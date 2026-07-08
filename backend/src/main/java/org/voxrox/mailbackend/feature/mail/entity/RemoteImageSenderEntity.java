@@ -13,8 +13,8 @@ import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
  * A sender the user has explicitly allowed to load remote (https) images from.
  * Remote images are blocked by default as a tracking-pixel defense; a row here
  * opts the given sender's messages into auto-loading their remote images (see
- * docs/CONTENT_RENDERING_AUDIT.md finding F2). Account-scoped: the allow decision
- * is isolated per account and cleaned up when the account is deleted.
+ * docs/CONTENT_RENDERING_AUDIT.md finding F2). Account-scoped: the allow
+ * decision is isolated per account and cleaned up when the account is deleted.
  *
  * <p>
  * {@code senderEmail} is stored normalized (lowercase) by

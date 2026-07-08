@@ -29,8 +29,8 @@ public class HtmlSanitizer {
      * Inert attribute that carries a remote {@code https} image URL through the
      * sanitizer WITHOUT it ever being a live {@code src}. The stored body is thus
      * "inert at rest" — no tracking pixel can fire from persisted content — while
-     * the client can still promote it to a real {@code src} under an explicit
-     * "load remote images" gesture (content-rendering audit finding F2).
+     * the client can still promote it to a real {@code src} under an explicit "load
+     * remote images" gesture (content-rendering audit finding F2).
      */
     private static final String REMOTE_SRC_ATTR = "data-voxrox-remote-src";
 
@@ -50,9 +50,10 @@ public class HtmlSanitizer {
      * its inlined data: URI below (an unmatched cid: is then dropped). data:image
      * is a local inline resource. Remote images are a tracking / privacy risk, so a
      * live http/https src is never allowed through clean(); a remote https URL is
-     * instead carried inertly in {@link #REMOTE_SRC_ATTR} (see preserveRemoteImages)
-     * so the client can offer an explicit opt-in without the default ever loading
-     * it. http (cleartext) and other schemes stay dropped entirely.
+     * instead carried inertly in {@link #REMOTE_SRC_ATTR} (see
+     * preserveRemoteImages) so the client can offer an explicit opt-in without the
+     * default ever loading it. http (cleartext) and other schemes stay dropped
+     * entirely.
      */
     private static final Safelist SAFELIST = Safelist.relaxed().removeAttributes(":all", "style")
             .addProtocols("a", "href", "http", "https", "mailto", "tel").removeProtocols("a", "href", "ftp")
@@ -87,9 +88,10 @@ public class HtmlSanitizer {
 
             /*
              * Pre-pass before clean(): move each remote https <img src> into the inert
-             * REMOTE_SRC_ATTR so its URL survives (clean() strips http/https from img
-             * src) while never being a live src. clean() keeps REMOTE_SRC_ATTR (allowed
-             * attribute) and still drops any leftover live remote src (belt-and-suspenders).
+             * REMOTE_SRC_ATTR so its URL survives (clean() strips http/https from img src)
+             * while never being a live src. clean() keeps REMOTE_SRC_ATTR (allowed
+             * attribute) and still drops any leftover live remote src
+             * (belt-and-suspenders).
              */
             String prepared = preserveRemoteImages(rawHtml);
 
@@ -161,11 +163,16 @@ public class HtmlSanitizer {
 
     /**
      * Wraps a genuine {@code text/plain} body for display WITHOUT parsing it as
-     * HTML. The text is HTML-escaped and placed in a {@code <pre>} so literal
-     * markup-like sequences (code snippets, {@code a<b and c>d}) render verbatim
-     * instead of being silently dropped as bogus tags by the HTML sanitizer
-     * (content-rendering audit finding F3). Same wrapper as {@link #sanitize} so
-     * the client renders it through the identical content path.
+     * HTML. The text is HTML-escaped and placed in a {@code
+     *
+     *
+
+    <pre>
+     * } so literal markup-like sequences (code snippets, {@code a<b and c>d})
+     * render verbatim instead of being silently dropped as bogus tags by the HTML
+     * sanitizer (content-rendering audit finding F3). Same wrapper as
+     * {@link #sanitize} so the client renders it through the identical content
+     * path.
      */
     public static String escapePlainText(String rawText) {
         if (rawText == null || rawText.isBlank()) {
@@ -176,10 +183,11 @@ public class HtmlSanitizer {
     }
 
     /**
-     * Moves every remote {@code https} {@code <img src>} into {@link #REMOTE_SRC_ATTR}
-     * (removing the live {@code src}) before the safelist clean runs, so the URL is
-     * preserved without ever being loadable from stored content. {@code http}
-     * (cleartext) and other schemes are left untouched and get dropped by clean().
+     * Moves every remote {@code https} {@code <img src>} into
+     * {@link #REMOTE_SRC_ATTR} (removing the live {@code src}) before the safelist
+     * clean runs, so the URL is preserved without ever being loadable from stored
+     * content. {@code http} (cleartext) and other schemes are left untouched and
+     * get dropped by clean().
      */
     private static String preserveRemoteImages(String rawHtml) {
         Document doc = Jsoup.parseBodyFragment(rawHtml);
@@ -194,8 +202,9 @@ public class HtmlSanitizer {
     }
 
     /**
-     * True for an absolute {@code https://} URL. A prefix check (not URI parsing) so
-     * real-world image URLs with unencoded query characters are still recognized.
+     * True for an absolute {@code https://} URL. A prefix check (not URI parsing)
+     * so real-world image URLs with unencoded query characters are still
+     * recognized.
      */
     private static boolean isRemoteHttpsSrc(String src) {
         return src.regionMatches(true, 0, "https://", 0, 8);

@@ -22,10 +22,10 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 /**
- * REST API for the per-sender remote-image allow-list. Remote images in HTML mail
- * bodies are blocked by default (tracking-pixel defense); trusting a sender here
- * makes that sender's messages auto-load their remote https images. See
- * docs/CONTENT_RENDERING_AUDIT.md finding F2.
+ * REST API for the per-sender remote-image allow-list. Remote images in HTML
+ * mail bodies are blocked by default (tracking-pixel defense); trusting a
+ * sender here makes that sender's messages auto-load their remote https images.
+ * See docs/CONTENT_RENDERING_AUDIT.md finding F2.
  */
 @Tag(name = "Remote images", description = "Per-sender allow-list for loading remote images in mail bodies.")
 @RestController
@@ -54,8 +54,7 @@ public class RemoteImageAllowlistController {
     @Operation(summary = "Stop trusting a sender", description = "Removes the sender from the account's allow-list. Idempotent.")
     @ApiResponse(responseCode = "204", description = "Sender is no longer allowed (removed or was not present).")
     @DeleteMapping
-    public ResponseEntity<Void> disallow(
-            @RequestParam @Positive(message = "{validation.positive}") Long accountId,
+    public ResponseEntity<Void> disallow(@RequestParam @Positive(message = "{validation.positive}") Long accountId,
             @RequestParam @NotBlank(message = "{validation.email.required}") @Email(message = "{validation.email.invalid}") @Size(max = 255, message = "{validation.size.max}") String senderEmail) {
         log.info("{} Disallowing remote images for a sender on account {}.", LogCategory.API, accountId);
         service.disallow(accountId, senderEmail);

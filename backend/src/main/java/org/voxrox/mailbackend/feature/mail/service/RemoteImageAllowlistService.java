@@ -14,16 +14,17 @@ import org.voxrox.mailbackend.feature.mail.repository.RemoteImageSenderRepositor
 import org.voxrox.mailbackend.util.LogCategory;
 
 /**
- * Manages the per-sender remote-image allow-list (content-rendering audit finding
- * F2). Remote images are blocked by default as a tracking-pixel defense; a sender
- * listed here has its messages' remote https images auto-loaded on open.
+ * Manages the per-sender remote-image allow-list (content-rendering audit
+ * finding F2). Remote images are blocked by default as a tracking-pixel
+ * defense; a sender listed here has its messages' remote https images
+ * auto-loaded on open.
  *
  * <p>
- * Sender emails are normalized (trimmed + lowercased) on every write and read so
- * a lookup matches regardless of the casing an IMAP server reports in the From
- * header. The allow decision affects <em>image loading only</em> — never trust or
- * code execution — and is keyed on the (spoofable) From address by design, the
- * same convenience trade-off mature clients make.
+ * Sender emails are normalized (trimmed + lowercased) on every write and read
+ * so a lookup matches regardless of the casing an IMAP server reports in the
+ * From header. The allow decision affects <em>image loading only</em> — never
+ * trust or code execution — and is keyed on the (spoofable) From address by
+ * design, the same convenience trade-off mature clients make.
  */
 @Service
 public class RemoteImageAllowlistService {
@@ -38,7 +39,9 @@ public class RemoteImageAllowlistService {
         this.accountService = accountService;
     }
 
-    /** Idempotently allows remote images from {@code senderEmail} for the account. */
+    /**
+     * Idempotently allows remote images from {@code senderEmail} for the account.
+     */
     @Transactional
     public void allow(Long accountId, String senderEmail) {
         String normalized = normalize(senderEmail);

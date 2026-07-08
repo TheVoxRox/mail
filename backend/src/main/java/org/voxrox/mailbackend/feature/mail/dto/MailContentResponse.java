@@ -13,8 +13,9 @@ import io.swagger.v3.oas.annotations.media.Schema;
  *            the bare sender address, used as the key when the user chooses to
  *            always trust this sender's remote images.
  * @param remoteImagesAllowedForSender
- *            {@code true} when the sender is already on the account's allow-list,
- *            so the client can auto-load remote images for this message.
+ *            {@code true} when the sender is already on the account's
+ *            allow-list, so the client can auto-load remote images for this
+ *            message.
  */
 public record MailContentResponse(String content,
 
