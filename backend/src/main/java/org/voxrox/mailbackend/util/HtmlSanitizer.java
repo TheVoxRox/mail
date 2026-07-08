@@ -25,6 +25,15 @@ public class HtmlSanitizer {
      */
     private static final Pattern CID_REFERENCE = Pattern.compile("cid:([^\\s\"'<>()]+)", Pattern.CASE_INSENSITIVE);
 
+    /**
+     * Inert attribute that carries a remote {@code https} image URL through the
+     * sanitizer WITHOUT it ever being a live {@code src}. The stored body is thus
+     * "inert at rest" — no tracking pixel can fire from persisted content — while
+     * the client can still promote it to a real {@code src} under an explicit
+     * "load remote images" gesture (content-rendering audit finding F2).
+     */
+    private static final String REMOTE_SRC_ATTR = "data-voxrox-remote-src";
+
     private static final Logger log = LoggerFactory.getLogger(HtmlSanitizer.class);
 
     /*
@@ -39,13 +48,16 @@ public class HtmlSanitizer {
      *
      * cid: is kept through clean() so a matching embedded image can be rewritten to
      * its inlined data: URI below (an unmatched cid: is then dropped). data:image
-     * is a local inline resource. http/https images are a tracking / privacy risk;
-     * any future "show remote content" action belongs in an explicit user gesture,
-     * not the default.
+     * is a local inline resource. Remote images are a tracking / privacy risk, so a
+     * live http/https src is never allowed through clean(); a remote https URL is
+     * instead carried inertly in {@link #REMOTE_SRC_ATTR} (see preserveRemoteImages)
+     * so the client can offer an explicit opt-in without the default ever loading
+     * it. http (cleartext) and other schemes stay dropped entirely.
      */
     private static final Safelist SAFELIST = Safelist.relaxed().removeAttributes(":all", "style")
             .addProtocols("a", "href", "http", "https", "mailto", "tel").removeProtocols("a", "href", "ftp")
             .addProtocols("img", "src", "cid", "data").removeProtocols("img", "src", "http", "https")
+            .addAttributes("img", REMOTE_SRC_ATTR)
             .addAttributes("table", "align", "width", "bgcolor", "cellpadding", "cellspacing")
             .addAttributes("td", "align", "valign", "width", "height");
 
@@ -73,7 +85,15 @@ public class HtmlSanitizer {
             Document.OutputSettings settings = new Document.OutputSettings().prettyPrint(false)
                     .syntax(Document.OutputSettings.Syntax.html);
 
-            String cleaned = Jsoup.clean(rawHtml, "", SAFELIST, settings);
+            /*
+             * Pre-pass before clean(): move each remote https <img src> into the inert
+             * REMOTE_SRC_ATTR so its URL survives (clean() strips http/https from img
+             * src) while never being a live src. clean() keeps REMOTE_SRC_ATTR (allowed
+             * attribute) and still drops any leftover live remote src (belt-and-suspenders).
+             */
+            String prepared = preserveRemoteImages(rawHtml);
+
+            String cleaned = Jsoup.clean(prepared, "", SAFELIST, settings);
 
             Document doc = Jsoup.parseBodyFragment(cleaned);
 
@@ -98,8 +118,9 @@ public class HtmlSanitizer {
 
             /*
              * Embedded cid: images are rewritten to their inlined data: URI (or dropped
-             * when we have no matching part); inline data:image is kept; remote http/https
-             * sources are dropped to defeat tracking pixels and avoid leaking IP/UA.
+             * when we have no matching part); inline data:image is kept; a remote https
+             * image kept inertly in REMOTE_SRC_ATTR survives with no live src (client
+             * opt-in only); everything else (http, non-image data:, junk) is dropped.
              */
             for (Element image : doc.select("img")) {
                 String src = image.attr("src").trim();
@@ -110,7 +131,13 @@ public class HtmlSanitizer {
                     } else {
                         image.remove();
                     }
-                } else if (!isSafeImageSrc(src)) {
+                } else if (isSafeImageSrc(src)) {
+                    // inline data:image — keep as-is
+                    continue;
+                } else if (image.hasAttr(REMOTE_SRC_ATTR)) {
+                    // inert remote https placeholder — keep the element, never a live src
+                    image.removeAttr("src");
+                } else {
                     image.remove();
                 }
             }
@@ -130,6 +157,48 @@ public class HtmlSanitizer {
             return "<div style='color: red; padding: 10px; border: 1px solid red; font-family: sans-serif;'>"
                     + "Email content was blocked for security reasons.</div>";
         }
+    }
+
+    /**
+     * Wraps a genuine {@code text/plain} body for display WITHOUT parsing it as
+     * HTML. The text is HTML-escaped and placed in a {@code <pre>} so literal
+     * markup-like sequences (code snippets, {@code a<b and c>d}) render verbatim
+     * instead of being silently dropped as bogus tags by the HTML sanitizer
+     * (content-rendering audit finding F3). Same wrapper as {@link #sanitize} so
+     * the client renders it through the identical content path.
+     */
+    public static String escapePlainText(String rawText) {
+        if (rawText == null || rawText.isBlank()) {
+            return "";
+        }
+        String escaped = rawText.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+        return "<div class='mail-content-wrapper' style='all: revert;'><pre>" + escaped + "</pre></div>";
+    }
+
+    /**
+     * Moves every remote {@code https} {@code <img src>} into {@link #REMOTE_SRC_ATTR}
+     * (removing the live {@code src}) before the safelist clean runs, so the URL is
+     * preserved without ever being loadable from stored content. {@code http}
+     * (cleartext) and other schemes are left untouched and get dropped by clean().
+     */
+    private static String preserveRemoteImages(String rawHtml) {
+        Document doc = Jsoup.parseBodyFragment(rawHtml);
+        for (Element image : doc.select("img[src]")) {
+            String src = image.attr("src").trim();
+            if (isRemoteHttpsSrc(src)) {
+                image.removeAttr("src");
+                image.attr(REMOTE_SRC_ATTR, src);
+            }
+        }
+        return doc.body().html();
+    }
+
+    /**
+     * True for an absolute {@code https://} URL. A prefix check (not URI parsing) so
+     * real-world image URLs with unencoded query characters are still recognized.
+     */
+    private static boolean isRemoteHttpsSrc(String src) {
+        return src.regionMatches(true, 0, "https://", 0, 8);
     }
 
     private static boolean isSafeLink(String rawHref) {

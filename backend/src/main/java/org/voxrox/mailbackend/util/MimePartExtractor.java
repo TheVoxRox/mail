@@ -44,30 +44,48 @@ public final class MimePartExtractor {
     private MimePartExtractor() {
     }
 
-    public static String extractText(Part part) throws MessagingException, IOException {
-        return extractTextInternal(part, 0);
+    /**
+     * The selected body plus whether it came from a {@code text/html} part. The
+     * flag lets the caller escape a genuine {@code text/plain} body instead of
+     * parsing it as HTML (content-rendering audit finding F3).
+     */
+    public record ExtractedBody(String text, boolean isHtml) {
+        private static final ExtractedBody EMPTY = new ExtractedBody("", false);
     }
 
-    private static String extractTextInternal(Part part, int depth) throws MessagingException, IOException {
+    /**
+     * Backwards-compatible thin wrapper: returns only the body text. Callers that
+     * flatten to plain text (drafts, reply/forward) use this; the content path uses
+     * {@link #extractBody} to learn the content type.
+     */
+    public static String extractText(Part part) throws MessagingException, IOException {
+        return extractBody(part).text();
+    }
+
+    public static ExtractedBody extractBody(Part part) throws MessagingException, IOException {
+        return extractBodyInternal(part, 0);
+    }
+
+    private static ExtractedBody extractBodyInternal(Part part, int depth) throws MessagingException, IOException {
         if (part == null || depth > MAX_DEPTH) {
             if (depth > MAX_DEPTH) {
                 log.warn("{} Maximum MIME recursion depth exceeded.", LogCategory.SYNC);
             }
-            return "";
+            return ExtractedBody.EMPTY;
         }
 
         if (part.isMimeType("text/plain") && part.getFileName() == null) {
             Object content = part.getContent();
-            return content != null ? content.toString() : "";
+            return new ExtractedBody(content != null ? content.toString() : "", false);
         }
         if (part.isMimeType("text/html") && part.getFileName() == null) {
             Object content = part.getContent();
-            return content != null ? content.toString() : "";
+            return new ExtractedBody(content != null ? content.toString() : "", true);
         }
 
         if (part.isMimeType("message/rfc822")) {
             Object content = part.getContent();
-            return content instanceof Part nestedPart ? extractTextInternal(nestedPart, depth + 1) : "";
+            return content instanceof Part nestedPart ? extractBodyInternal(nestedPart, depth + 1) : ExtractedBody.EMPTY;
         }
 
         if (part.isMimeType("multipart/*")) {
@@ -76,28 +94,28 @@ public final class MimePartExtractor {
                 // is not (JavaMail hands back the raw String). Degrade to no text
                 // rather than letting a ClassCastException escape the parser.
                 log.warn("{} Part claims multipart but content is not; no text extracted.", LogCategory.SYNC);
-                return "";
+                return ExtractedBody.EMPTY;
             }
-            String textFallback = null;
+            ExtractedBody textFallback = null;
 
             for (int i = 0; i < multipart.getCount(); i++) {
                 Part bodyPart = multipart.getBodyPart(i);
                 if (part.isMimeType("multipart/alternative")) {
                     if (bodyPart.isMimeType("text/plain") && bodyPart.getFileName() == null) {
-                        textFallback = extractTextInternal(bodyPart, depth + 1);
+                        textFallback = extractBodyInternal(bodyPart, depth + 1);
                     } else if (bodyPart.isMimeType("text/html") && bodyPart.getFileName() == null) {
-                        return extractTextInternal(bodyPart, depth + 1);
+                        return extractBodyInternal(bodyPart, depth + 1);
                     }
                 } else {
-                    String extractedText = extractTextInternal(bodyPart, depth + 1);
-                    if (extractedText != null && !extractedText.isEmpty()) {
-                        return extractedText;
+                    ExtractedBody extracted = extractBodyInternal(bodyPart, depth + 1);
+                    if (!extracted.text().isEmpty()) {
+                        return extracted;
                     }
                 }
             }
-            return textFallback != null ? textFallback : "";
+            return textFallback != null ? textFallback : ExtractedBody.EMPTY;
         }
-        return "";
+        return ExtractedBody.EMPTY;
     }
 
     /**

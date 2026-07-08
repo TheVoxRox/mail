@@ -149,7 +149,14 @@
 		"bodyHeading": "Text zprávy",
 		"pageTitle": "Pošta – Zpráva",
 		"pageTitleWithSubject": "Pošta – {subject}",
-		"folderPageTitle": "Pošta – {folder}"
+		"folderPageTitle": "Pošta – {folder}",
+		"remoteImages": {
+			"blocked": "Vzdálené obrázky blokovány ({count})",
+			"load": "Načíst obrázky",
+			"alwaysAllow": "Vždy od tohoto odesílatele",
+			"allowError": "Odesílatele se nepodařilo přidat mezi důvěryhodné. Zkuste to znovu.",
+			"regionLabel": "Blokované vzdálené obrázky"
+		}
 	},
 	"compose": {
 		"formLabel": "Nová zpráva",

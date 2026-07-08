@@ -148,6 +148,25 @@ describe('sanitizeMailHtml — XSS hardening', () => {
 		expect(result).not.toContain('svg+xml');
 	});
 
+	it('preserves a remote https image inertly (data-voxrox-remote-src, no live src)', () => {
+		const result = sanitizeMailHtml(
+			'<img data-voxrox-remote-src="https://cdn.test/logo.png" alt="logo">'
+		);
+		expect(result).toContain('data-voxrox-remote-src="https://cdn.test/logo.png"');
+		expect(result).toContain('alt="logo"');
+		// A live src is space-separated from the tag; the data-*-remote-src attr is not.
+		expect(result).not.toContain(' src="https://cdn.test/logo.png"');
+	});
+
+	it('drops a non-https remote reference (http / javascript are never opted into)', () => {
+		expect(
+			sanitizeMailHtml('<img data-voxrox-remote-src="http://cdn.test/logo.png">')
+		).not.toContain('<img');
+		expect(sanitizeMailHtml('<img data-voxrox-remote-src="javascript:alert(1)">')).not.toContain(
+			'<img'
+		);
+	});
+
 	it('strips srcset, srcdoc, formaction and other unknown attributes', () => {
 		const result = sanitizeMailHtml(
 			'<a srcset="x" srcdoc="<script>alert(1)</script>" formaction="javascript:alert(1)">click</a>'

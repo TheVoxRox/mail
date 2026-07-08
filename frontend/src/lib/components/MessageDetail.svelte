@@ -12,6 +12,7 @@
 	import MessageContent from '$lib/components/message-detail/MessageContent.svelte';
 	import MessageHeaderCard from '$lib/components/message-detail/MessageHeaderCard.svelte';
 	import { isMailHtml } from '$lib/mail/content-sanitizer.js';
+	import { resolvedActiveAccountId } from '$lib/stores/accounts.js';
 	import {
 		markMessageSeen,
 		resetSeenTrackerForSelection,
@@ -152,7 +153,14 @@
 				</Surface>
 			</div>
 		{:else if state.content}
-			<MessageContent content={msgContent} {looksLikeHtml} stableId={state.stableId} />
+			<MessageContent
+				content={msgContent}
+				{looksLikeHtml}
+				stableId={state.stableId}
+				senderEmail={state.content.senderEmail}
+				accountId={$resolvedActiveAccountId ?? 0}
+				remoteImagesAllowedForSender={state.content.remoteImagesAllowedForSender}
+			/>
 		{/if}
 
 		{#if detail?.contentError}

@@ -70,6 +70,54 @@ class MimePartExtractorTest {
         assertThat(MimePartExtractor.extractText(part)).isEqualTo("hello world");
     }
 
+    @Test
+    @DisplayName("extractBody reports isHtml=false for a text/plain part")
+    void extractBodyFlagsPlainText() throws Exception {
+        Part part = mock(Part.class);
+        when(part.isMimeType("text/plain")).thenReturn(true);
+        when(part.getFileName()).thenReturn(null);
+        when(part.getContent()).thenReturn("a<b and c>d");
+
+        MimePartExtractor.ExtractedBody body = MimePartExtractor.extractBody(part);
+        assertThat(body.isHtml()).isFalse();
+        assertThat(body.text()).isEqualTo("a<b and c>d");
+    }
+
+    @Test
+    @DisplayName("extractBody reports isHtml=true for a text/html part")
+    void extractBodyFlagsHtml() throws Exception {
+        Part part = mock(Part.class);
+        lenient().when(part.isMimeType("text/plain")).thenReturn(false);
+        when(part.isMimeType("text/html")).thenReturn(true);
+        when(part.getFileName()).thenReturn(null);
+        when(part.getContent()).thenReturn("<p>hi</p>");
+
+        MimePartExtractor.ExtractedBody body = MimePartExtractor.extractBody(part);
+        assertThat(body.isHtml()).isTrue();
+        assertThat(body.text()).isEqualTo("<p>hi</p>");
+    }
+
+    @Test
+    @DisplayName("extractBody prefers the text/html alternative and flags it as HTML")
+    void extractBodyPrefersHtmlAlternative() throws Exception {
+        MimeBodyPart plain = new MimeBodyPart();
+        plain.setText("plain body", "utf-8");
+        MimeBodyPart html = new MimeBodyPart();
+        html.setContent("<p>html body</p>", "text/html; charset=utf-8");
+
+        MimeMultipart alternative = new MimeMultipart("alternative");
+        alternative.addBodyPart(plain);
+        alternative.addBodyPart(html);
+
+        MimeMessage message = new MimeMessage((Session) null);
+        message.setContent(alternative);
+        message.saveChanges();
+
+        MimePartExtractor.ExtractedBody body = MimePartExtractor.extractBody(message);
+        assertThat(body.isHtml()).isTrue();
+        assertThat(body.text()).contains("<p>html body</p>");
+    }
+
     private static MimeMessage relatedMessage(byte[] imageBytes, String imageType, String contentId) throws Exception {
         MimeBodyPart htmlPart = new MimeBodyPart();
         htmlPart.setContent("<p>hi</p><img src=\"cid:logo\">", "text/html; charset=utf-8");

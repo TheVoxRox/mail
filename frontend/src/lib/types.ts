@@ -199,6 +199,10 @@ export interface MailDetailResponse {
 
 export interface MailContentResponse {
 	content: string;
+	/** Bare sender email — the allow-list key for the remote-image opt-in. */
+	senderEmail: string;
+	/** Whether the sender is already trusted to load remote images. */
+	remoteImagesAllowedForSender: boolean;
 }
 
 export type MailFlagType = 'seen' | 'flagged' | 'answered';

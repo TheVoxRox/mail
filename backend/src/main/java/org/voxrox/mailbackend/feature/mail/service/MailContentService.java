@@ -71,7 +71,14 @@ public class MailContentService {
                         return null; // signal to outer code: the message is no longer on the server
                     }
                     try {
-                        String rawText = MimePartExtractor.extractText(message);
+                        MimePartExtractor.ExtractedBody body = MimePartExtractor.extractBody(message);
+                        if (!body.isHtml()) {
+                            // A genuine text/plain body is escaped and wrapped, never parsed
+                            // as HTML, so literal <...> sequences (code snippets, a<b and c>d)
+                            // render verbatim instead of being dropped as bogus tags (F3).
+                            return HtmlSanitizer.escapePlainText(body.text());
+                        }
+                        String rawText = body.text();
                         // Only walk the MIME tree when the body actually references a cid:
                         // image — the common case (no embedded images) stays a single
                         // extraction pass, and only referenced parts are ever read.

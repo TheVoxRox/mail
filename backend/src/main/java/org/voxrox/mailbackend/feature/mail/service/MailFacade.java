@@ -42,12 +42,14 @@ public class MailFacade {
     private final MessageService messageService;
     private final MailDraftService mailDraftService;
     private final FolderCountCache folderCountCache;
+    private final RemoteImageAllowlistService remoteImageAllowlistService;
     private final RetryTemplate dbWriteRetryTemplate;
 
     public MailFacade(MessageRepository messageRepository, MessageMapper mapper, MailSyncService mailSyncService,
             MailContentService mailContentService, ImapActionService imapActionService,
             ImapFolderService imapFolderService, AttachmentService attachmentService, AccountService accountService,
             MessageService messageService, MailDraftService mailDraftService, FolderCountCache folderCountCache,
+            RemoteImageAllowlistService remoteImageAllowlistService,
             @Qualifier("dbWriteRetryTemplate") RetryTemplate dbWriteRetryTemplate) {
         this.messageRepository = messageRepository;
         this.mapper = mapper;
@@ -60,6 +62,7 @@ public class MailFacade {
         this.messageService = messageService;
         this.mailDraftService = mailDraftService;
         this.folderCountCache = folderCountCache;
+        this.remoteImageAllowlistService = remoteImageAllowlistService;
         this.dbWriteRetryTemplate = dbWriteRetryTemplate;
     }
 
@@ -363,7 +366,11 @@ public class MailFacade {
         MessageEntity entity = messageService.getByStableId(stableId)
                 .orElseThrow(() -> new ResourceNotFoundException("Message not found: " + stableId));
         String content = mailContentService.getOrFetchMessageContent(entity.getId());
-        return new MailContentResponse(content);
+        // Metadata for the remote-image opt-in (audit F2): the bare sender is the
+        // allow-list key, and whether it is already trusted lets the client auto-load.
+        String senderEmail = entity.getFromEmailOnly();
+        boolean allowed = remoteImageAllowlistService.isAllowed(entity.getAccount().getId(), senderEmail);
+        return new MailContentResponse(content, senderEmail, allowed);
     }
 
     /**

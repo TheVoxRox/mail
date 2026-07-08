@@ -295,7 +295,11 @@ function createInitialState(): E2EFixtureState {
 					content:
 						message.stableId === 'msg-01'
 							? `<div><p onclick="window.__xss=1">HTML obsah pro <strong>${message.subject}</strong>.</p><script>window.__xss=1</script><img src="https://tracker.example.test/pixel.png" onerror="window.__xss=1" alt="tracker"><a href="javascript:alert(1)">nebezpečný odkaz</a><a href="https://example.com/safe">bezpečný odkaz</a></div>`
-							: `<p>HTML obsah pro <strong>${message.subject}</strong>.</p>`
+							: message.stableId === 'msg-02'
+								? `<div><p>Newsletter pro <strong>${message.subject}</strong>.</p><img data-voxrox-remote-src="https://cdn.example.test/logo.png" alt="logo"></div>`
+								: `<p>HTML obsah pro <strong>${message.subject}</strong>.</p>`,
+					senderEmail: 'newsletter@example.com',
+					remoteImagesAllowedForSender: false
 				}
 			])
 		),
@@ -572,7 +576,9 @@ export function draftToSummary(
 		hasAttachments: Boolean(body.attachments?.length)
 	};
 	fixtureState.messageContents[stableId] = {
-		content: body.body ?? ''
+		content: body.body ?? '',
+		senderEmail: 'me@example.com',
+		remoteImagesAllowedForSender: false
 	};
 	return summary;
 }

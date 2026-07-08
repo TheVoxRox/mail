@@ -149,7 +149,14 @@
 		"bodyHeading": "Message text",
 		"pageTitle": "Mail – Message",
 		"pageTitleWithSubject": "Mail – {subject}",
-		"folderPageTitle": "Mail – {folder}"
+		"folderPageTitle": "Mail – {folder}",
+		"remoteImages": {
+			"blocked": "Remote images blocked ({count})",
+			"load": "Load images",
+			"alwaysAllow": "Always from this sender",
+			"allowError": "Could not add the sender to your trusted list. Please try again.",
+			"regionLabel": "Blocked remote images"
+		}
 	},
 	"compose": {
 		"formLabel": "New message",
