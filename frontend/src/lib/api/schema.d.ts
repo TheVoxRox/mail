@@ -1005,8 +1005,8 @@ export interface components {
 			smtp?: components['schemas']['MailServerSettings'];
 			username: string;
 			password?: string;
-			providerOrCustomServerConfigPresent?: boolean;
 			passwordPresentForNewAccount?: boolean;
+			providerOrCustomServerConfigPresent?: boolean;
 		};
 		AccountConnectionTestResponse: {
 			imapOk?: boolean;
