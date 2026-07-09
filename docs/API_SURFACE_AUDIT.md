@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Version** | 1.0 |
+| **Version** | 1.1 |
 | **Date** | 2026-07-09 |
 | **Applies to** | VoxRox Mail V0.1.0 |
 | **Subsystem** | Sidecar REST API — Boundary 3 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md) |
@@ -12,9 +12,9 @@ Per-subsystem release audit of the **loopback HTTP API** the Tauri WebView calls
 authentication (`X-API-KEY`), request authorization, input validation on every
 controller, error-response hygiene, attachment streaming (path traversal), and
 the diagnostic/data-exposure endpoints. Method: static trace of the Spring
-Security filter chain, enumeration of all 12 `@RestController`s and their
-request DTOs, and a data-flow check of the two highest-risk paths (attachment
-download, diagnostic dump).
+Security filter chain, enumeration of all 15 `@RestController`s (12 public +
+the 3 `/api/internal` ones) and their request DTOs, and a data-flow check of
+the two highest-risk paths (attachment download, diagnostic dump).
 
 Scope is Boundary 3 (sidecar ↔ WebView, loopback + `X-API-KEY`). The
 WebView↔SPA / mail-content boundary is Boundary 4, covered separately by
@@ -53,9 +53,13 @@ audit pass (see the threat-model change log).
 
 ## 2. Input validation (confirmed)
 
-Every controller is `@Validated`; path/query params carry `@Positive`,
-`@NotBlank`, `@Size`, `@Min`, and request bodies are `@Valid @RequestBody` with
-per-field constraints on the DTOs. Pagination is capped server-side
+Ten of the 15 controllers are `@Validated` — every one that declares
+constrained parameters. The five without it give bean validation nothing to
+enforce: four expose parameterless endpoints (system readiness, client-config,
+diagnostic-dump, the SSE notification stream) and the fifth, client-boot,
+sanitizes its DTO field-by-field in the service instead (§7). Path/query params
+carry `@Positive`, `@NotBlank`, `@Size`, `@Min`, and request bodies are
+`@Valid @RequestBody` with per-field constraints on the DTOs. Pagination is capped server-side
 (`apiMaxPageSize`), search queries are length-bounded (`searchQueryMaxLength`),
 enum params (`EmailLabel`, `MessageFlag`) reject unknown values with 400. Bulk
 contact operations are capped at 100 items; contact merge at 9 sources / 10
@@ -165,3 +169,11 @@ reads them) if the boundary is ever hardened toward a lower-trust caller.
 - [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md) — Boundary 3 STRIDE matrix.
 - [CONTENT_RENDERING_AUDIT.md](CONTENT_RENDERING_AUDIT.md) — Boundary 4 companion audit.
 - [backend/SECURITY_RELEASE_CHECK.md](../backend/SECURITY_RELEASE_CHECK.md) — per-release security gate.
+
+## 9. Change log
+
+- **1.1** (2026-07-09) — corrected the controller enumeration (15 total: 12
+  public + 3 `/api/internal`, previously misstated as 12) and the `@Validated`
+  claim (10 of 15 carry it; the five without have no constrained parameters).
+  No change to any verdict.
+- **1.0** (2026-07-09) — initial audit.
