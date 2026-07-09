@@ -68,6 +68,7 @@ sekci s podsekcemi podle artefaktu.
 ### Migrace / DB
 
 - `V2__add_modseq.sql` (CONDSTORE `last_known_modseq` column) sloučena zpět do `V1__init.sql`. Bezpečné pře prvním release — projekt nemá produkční data.
+- `V2__remote_image_allowlist.sql` (tabulka `remote_image_sender`, per-sender opt-in pro remote obrázky z nálezu F2) sloučena zpět do `V1__init.sql`, DDL beze změny. Existující dev DB je potřeba znovu vytvořit — checksum V1 se změnil a Flyway validace je odmítne.
 
 ### Bezpečnost a OAuth
 
