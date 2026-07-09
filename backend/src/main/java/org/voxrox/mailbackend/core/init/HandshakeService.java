@@ -79,8 +79,8 @@ public class HandshakeService {
     }
 
     /**
-     * Shape of session.json — contract with the parent launcher (Electron / desktop
-     * app), which reads this file at startup to know where to call the backend.
+     * Shape of session.json — contract with the parent launcher (the Tauri desktop
+     * shell), which reads this file at startup to know where to call the backend.
      */
     private record SessionPayload(String appName, String appVersion, String apiVersion, String minClientVersion,
             String dbSchemaVersion, int port, String apiKey, String baseUrl) {

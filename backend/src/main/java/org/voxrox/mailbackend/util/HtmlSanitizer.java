@@ -163,13 +163,9 @@ public class HtmlSanitizer {
 
     /**
      * Wraps a genuine {@code text/plain} body for display WITHOUT parsing it as
-     * HTML. The text is HTML-escaped and placed in a {@code
-     *
-     *
-
-    <pre>
-     * } so literal markup-like sequences (code snippets, {@code a<b and c>d})
-     * render verbatim instead of being silently dropped as bogus tags by the HTML
+     * HTML. The text is HTML-escaped and wrapped in a {@code pre} element so
+     * literal markup-like sequences (code snippets, {@code a<b and c>d}) render
+     * verbatim instead of being silently dropped as bogus tags by the HTML
      * sanitizer (content-rendering audit finding F3). Same wrapper as
      * {@link #sanitize} so the client renders it through the identical content
      * path.
