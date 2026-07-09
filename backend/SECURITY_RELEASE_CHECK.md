@@ -49,11 +49,14 @@ release buildu.
 
 ## Otevřené před releasem
 
-- [ ] Spustit vulnerability scan nad `target/bom.json` nebo přímo Maven dependency tree v nástroji s aktuální CVE databází.
+- [x] Spustit vulnerability scan nad `target/bom.json` nebo přímo Maven dependency tree v nástroji s aktuální CVE databází.
   - 2026-05-08: OWASP Dependency-Check lokálně nedoběhl kvůli NVD API 429 bez API key; SBOM `target/bom.json` byl znovu vygenerován.
-- [ ] Rozhodnout, jestli se OWASP Dependency-Check zapojí do CI buildu. Doporučení: zapojit spíš v CI/release pipeline s NVD API key, ne jako povinný lokální build krok.
+  - Vyřešeno scheduled workflow `vuln-scan.yml` (OWASP Dependency-Check s `NVD_API_KEY` + retry na flaky NVD, Trivy SBOM gate, cargo/npm audit); box odškrtnut při doc-truing pass 2026-07-09.
+- [x] Rozhodnout, jestli se OWASP Dependency-Check zapojí do CI buildu. Doporučení: zapojit spíš v CI/release pipeline s NVD API key, ne jako povinný lokální build krok.
+  - Rozhodnuto a zapojeno přesně dle doporučení: scheduled `vuln-scan.yml` (po-pá 04:00 UTC) s NVD API key, ne povinný lokální krok; box odškrtnut při doc-truing pass 2026-07-09.
 - [x] Po aktuálním lokálním installer/sidecar balení zopakovat secret scan nad distribuovaným bundlem, nejen nad backend JARem a aktuálním `src-tauri/binaries/app`.
-- [ ] Před prvním GitHub pushem rotovat lokální Google OAuth secret nalezený v ignorovaném `backend/.env`, protože už byl použit v lokálním vývoji.
+- [x] Před prvním GitHub pushem rotovat lokální Google OAuth secret nalezený v ignorovaném `backend/.env`, protože už byl použit v lokálním vývoji.
+  - Rotace proběhla — potvrzeno vlastníkem 2026-07-09 při doc-truing pass. Gitleaks scan git historie hlásil 0 úniků, takže šlo o defense-in-depth opatření.
 
 ## Log hygiene audit (2026-06-13)
 
@@ -97,7 +100,7 @@ Per-subsystem audit sidecar REST API (loopback + `X-API-KEY`), plný zápis v
 
 - [x] Autentizace: `ApiKeyFilter` = constant-time compare (SHA-256 + `MessageDigest.isEqual`), fail-fast 401 + `AuditLog.failure`; klíč per-JVM, in-memory, jen v `session.json`.
 - [x] Autorizace: `anyRequest().authenticated()`; `PUBLIC_ENDPOINTS` minimální (OAuth + static auth pages + springdoc vypnutý v prod); `/api/internal/**` (dump, threading, client-boot, actuator health) za klíčem. IDOR vědomě mimo model (single-user, jeden klíč).
-- [x] Input validation: všech 12 controllerů `@Validated`, DTO `@Valid` s per-field constraints; pagination/search/bulk capy.
+- [x] Input validation: 10 z 15 controllerů `@Validated` — všechny, které deklarují constrainované parametry (zbylých 5 nemá bean-validaci co vynucovat: 4 bezparametrické endpointy + client-boot sanitizuje DTO ve service); DTO `@Valid` s per-field constraints; pagination/search/bulk capy.
 - [x] Error hygiene: catch-all vrací fixní lokalizovanou hlášku, `include-message/stacktrace=never`; žádný leak zprávy/stacku/SQL.
 - [x] Attachment download: `partPath` = MIME index (`Integer.parseInt` per segment), ne FS cesta → žádný path traversal; temp soubor až po DB lookupu, unlink na close; `Content-Disposition` filename sanitizován.
 - [x] Diagnostic dump: bez credentials/tokenů/těl/předmětů; email maskovaný, `lastError` jen boolean; `ClientBootDiagnosticsService` allow-list klíčů + cap 512 znaků.

@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| **Version** | 1.0 |
-| **Date** | 2026-07-08 |
+| **Version** | 1.1 |
+| **Date** | 2026-07-09 |
 | **Applies to** | VoxRox Mail V0.1.0 |
 | **Subsystem** | Untrusted email HTML rendering — Boundary 4 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md) |
 | **Verdict** | **Security: PASS** (no exploitable finding). F1 (dead links), F2 (embedded images + remote-image opt-in) and F3 (plain-text fidelity) all **fixed**. |
@@ -25,8 +25,10 @@ IMAP raw body
 ```
 
 1. **Backend — canonical policy.** [HtmlSanitizer.java](../backend/src/main/java/org/voxrox/mailbackend/util/HtmlSanitizer.java):
-   `Safelist.relaxed()` minus `style`; remote `http(s)` `<img>` sources
-   dropped (tracking-pixel defense); every safe `<a>` gets
+   `Safelist.relaxed()` minus `style`; a remote `<img>` never keeps a live
+   `src` (tracking-pixel defense) — cleartext `http` is dropped entirely,
+   `https` is preserved only as the inert `data-voxrox-remote-src` attribute
+   consumed by the opt-in flow (§3 F2); every safe `<a>` gets
    `rel="nofollow noopener noreferrer"` + `target="_blank"`; wraps output in
    `<div class="mail-content-wrapper">`. **Fail-closed**: any parser/sanitizer
    exception returns a "content blocked" placeholder, never raw HTML. Invoked
@@ -37,7 +39,9 @@ IMAP raw body
    independent tag/attribute allow-list; unknown tags are unwrapped (children
    kept, attributes dropped); `style` stripped entirely; `<a href>` limited to
    `http/https/mailto/tel`; `<img src>` limited to inline `data:image/*;base64`
-   (remote and `cid:` dropped); `colspan/rowspan` coerced to digits. Forces
+   (a live remote or `cid:` `src` is dropped; the inert `data-voxrox-remote-src`
+   carrier is re-validated as remote `https` and kept for the opt-in flow);
+   `colspan/rowspan` coerced to digits. Forces
    `target="_blank"` + `rel="noopener noreferrer nofollow"` on kept links.
 
 3. **Frame — defense in depth.** [mailFrame.ts](../frontend/src/lib/mail/mailFrame.ts)
@@ -70,9 +74,13 @@ IMAP raw body
 - [x] **Compose path is plain-text** — reply/forward/draft flatten the body via
       `mailHtmlToPlainText` / backend `MailDraftService.htmlToPlainText`
       (Jsoup `Safelist.none()`) into the plain-text composer, never HTML.
-- [x] **Tracking pixels** — remote `<img>` src dropped at **both** layers +
-      `img-src data:` in the frame CSP. No "load remote content" toggle, so no
-      opt-in exfil path.
+- [x] **Tracking pixels** — no remote image loads by default: a live remote
+      `src` is dropped at **both** layers (an `https` URL survives only as the
+      inert `data-voxrox-remote-src` attribute) and the frame CSP stays
+      `img-src data:`. Remote loading happens **only** under the explicit
+      per-message / per-sender opt-in gesture (§3 F2), which promotes the inert
+      attribute to `src` and relaxes the frame CSP to `img-src data: https:`
+      with a `no-referrer` meta — a user-initiated, image-only exposure.
 - [x] **Reverse tabnabbing** — `rel="noopener noreferrer nofollow"` at both layers.
 - [x] **DoS** — MIME recursion capped at `MAX_DEPTH=20`
       ([MimePartExtractor.java](../backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java)).
@@ -230,3 +238,12 @@ bridge restores working links without changing the sandbox.
 - Chokepoints: [HtmlSanitizer.java](../backend/src/main/java/org/voxrox/mailbackend/util/HtmlSanitizer.java),
   [content-sanitizer.ts](../frontend/src/lib/mail/content-sanitizer.ts),
   [mailFrame.ts](../frontend/src/lib/mail/mailFrame.ts).
+
+## 7. Change log
+
+- **1.1** (2026-07-09) — trued §1/§2 to the shipped F2 remote-image opt-in
+  (same-day drift): the default posture is unchanged (blocked by default), but
+  an `https` URL is preserved inertly in `data-voxrox-remote-src` rather than
+  dropped, and the "no load-remote-content toggle" claim no longer held once
+  the §3 F2 opt-in shipped. No change to the verdict.
+- **1.0** (2026-07-08) — initial audit.
