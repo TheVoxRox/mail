@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Version** | 1.9 |
+| **Version** | 2.0 |
 | **Last revised** | 2026-07-09 |
 | **Applies to** | VoxRox Mail V0.1.0 |
 | **Status** | Active — read by PR reviewers when changes cross a trust boundary |
@@ -136,6 +136,9 @@ Severity uses a CVSS-light rubric:
 
 ### Boundary 2: OAuth handshake
 
+Audited 2026-07-09 (focused tier, verified against `d55b753`) — verdict
+**PASS**, see [docs/OAUTH_AUDIT.md](docs/OAUTH_AUDIT.md).
+
 | ST | Threat | Vector | Severity | Mitigation |
 |---|---|---|---|---|
 | **S** | Stolen authorization code | Attacker redeems an intercepted code | High | PKCE (`code_challenge_method=S256`) for both Google and Microsoft (Spring Security default); state nonce |
@@ -166,6 +169,9 @@ Severity uses a CVSS-light rubric:
 | **S / D / R** | — | Sandboxed Webview; no spoofing path from a single SPA origin. | — | — |
 
 ### Boundary 5: local filesystem
+
+Audited 2026-07-09 (focused tier, verified against `d55b753`) — verdict
+**PASS**, see [docs/CRYPTO_STORAGE_AUDIT.md](docs/CRYPTO_STORAGE_AUDIT.md).
 
 | ST | Threat | Vector | Severity | Mitigation |
 |---|---|---|---|---|
@@ -220,6 +226,7 @@ When touching code that crosses one of the boundaries above:
 | 1.6 | 2026-07-08 | Boundary 4 — remote-image **opt-in** shipped (audit F2 remaining), plus F3 plain-text fidelity. Remote images stay **blocked by default**; a remote **https** URL is now preserved inertly in `data-voxrox-remote-src` (never a live `src` in stored content — inert at rest), while `http` (cleartext) images are still dropped entirely. The frame `img-src` relaxes from `data:` to `data: https:` **only** under an explicit per-message "load images" gesture ([MessageContent.svelte](frontend/src/lib/components/message-detail/MessageContent.svelte) banner → [mailFrame.ts](frontend/src/lib/mail/mailFrame.ts) promotes `data-voxrox-remote-src` → `src`); a `no-referrer` meta prevents referrer leakage on load. `script-src`/`style-src`/`default-src`, the opaque-origin sandbox, and the hash-pinned forwarder are **unchanged**. A per-account allow-list (`remote_image_sender` + `/api/v1/remote-images/allowlist`) supports "always trust this sender" — keyed on the **spoofable** `From` and affecting **image loading only**, never trust or code execution (accepted convenience trade-off, same as mature clients). F3: genuine `text/plain` bodies are now HTML-escaped and `<pre>`-wrapped (`HtmlSanitizer.escapePlainText`) instead of parsed as HTML, so literal `<...>` renders verbatim. Covered by `HtmlSanitizerTest`, `mailFrame.test.ts`, `content-sanitizer` tests, `RemoteImageAllowlist*` tests and [remote-images.functional.e2e.ts](frontend/src/routes/mail/remote-images.functional.e2e.ts). |
 | 1.7 | 2026-07-09 | Boundary 3 (sidecar HTTP API) audited pre-V0.1.0 — verdict **PASS**, see [docs/API_SURFACE_AUDIT.md](docs/API_SURFACE_AUDIT.md). Confirmed: constant-time `X-API-KEY` chokepoint + `anyRequest().authenticated()` default-deny (`/api/internal/**` behind the key); comprehensive input validation across the 15 controllers — every parameter-taking one is `@Validated` (count corrected in v1.9; the audit doc's v1.1 change log has the detail); catch-all error handler leaks no message/stack (`include-message/stacktrace=never`); attachment `partPath` is a MIME index (no filesystem path / traversal), temp files unlinked on close; diagnostic dump carries no credentials/tokens/bodies (email masked, `lastError` reduced to a boolean). Fixed finding **A1** (Low, defense-in-depth): the JSON `send`/`draft` endpoints had no `body` length or attachment-count cap, and the per-attachment `@Size` runs only post-Jackson — added `body` ≤ 10 MiB + ≤ 50 attachments caps on `MailRequest`/`DraftRequest` (regression-tested); pre-deserialization aggregate bound documented as an accepted residual (loopback + authenticated + client 25 MB cap). Added the corresponding Boundary 3 `D` row. |
 | 1.8 | 2026-07-09 | Boundary 6 (Tauri auto-updater) audited pre-V0.1.0 — verdict **PASS**, no code change, see [docs/UPDATER_AUDIT.md](docs/UPDATER_AUDIT.md). Confirmed: Ed25519 verification is native in the Rust plugin (no JS-side bypass; only `check` + `download-and-install` capabilities granted); the release build fail-closes on a missing `TAURI_UPDATER_PUBKEY` (`requireEnv`) or `TAURI_SIGNING_PRIVATE_KEY`, transport is HTTPS-only (`dangerousInsecureTransportProtocol` opt-in and unset), `allowDowngrades:false`; the manifest generator only picks a signed artifact and throws on an empty `.sig`; a hijacked `latest.json` cannot install a forged binary (signature mismatch aborts) and its `notes`/`version` fields are never rendered as markup (no `{@html}`, version is i18n text-escaped); startup check fails silently, manual check surfaces a failure UI with a releases-page fallback. Two procedural notes (base-config updater block is a dev reference guarded only by RELEASE_CHECKLIST; a CI lint could assert `dangerousInsecureTransportProtocol` is never set). Added the audit reference to the Boundary 6 `T` row. |
+| 2.0 | 2026-07-09 | **All six trust boundaries now carry a recorded audit verdict.** Boundaries 2 (OAuth) and 5 (crypto/filesystem) received focused verification audits — every STRIDE-row mitigation traced to code plus one end-to-end data-flow each (refresh token to disk; `crypto.bin` to an AES/GCM operation): [docs/OAUTH_AUDIT.md](docs/OAUTH_AUDIT.md) and [docs/CRYPTO_STORAGE_AUDIT.md](docs/CRYPTO_STORAGE_AUDIT.md), both **PASS**, verified against `d55b753`. The audit process itself is codified in [docs/AUDIT_GUIDE.md](docs/AUDIT_GUIDE.md) (full vs. focused tiers, audited-commit pinning, reproducible enumerations, independent verification pass, ASVS-derived coverage checklist) — the process gaps behind the v1.9 corrections. Existing audit docs (B3/B4/B6) now pin the audited commit in their headers. |
 | 1.9 | 2026-07-09 | Documentation truing pass (no threat or mitigation changes): Boundary 4 `I` row updated to the shipped remote-image opt-in posture (v1.6) — the pre-F2 "no toggle / no opt-in exfil path" wording no longer described the code; v1.7 entry's controller count corrected (15 controllers = 12 public + 3 `/api/internal`, every parameter-taking one `@Validated` — detail in [docs/API_SURFACE_AUDIT.md](docs/API_SURFACE_AUDIT.md) v1.1 change log); change-log rows reordered chronologically. Companion doc updates: CONTENT_RENDERING_AUDIT.md v1.1 (§1/§2 trued to F2), API_SURFACE_AUDIT.md v1.2 (Boundary 2/5 coverage claim corrected), SECURITY_RELEASE_CHECK.md (controller count + resolved SBOM-scan items ticked). |
 
 ## 8. References

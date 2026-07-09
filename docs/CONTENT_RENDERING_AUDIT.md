@@ -2,9 +2,10 @@
 
 | | |
 |---|---|
-| **Version** | 1.1 |
+| **Version** | 1.2 |
 | **Date** | 2026-07-09 |
 | **Applies to** | VoxRox Mail V0.1.0 |
+| **Audited commit** | `d55b753` (claims re-verified 2026-07-09) |
 | **Subsystem** | Untrusted email HTML rendering — Boundary 4 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md) |
 | **Verdict** | **Security: PASS** (no exploitable finding). F1 (dead links), F2 (embedded images + remote-image opt-in) and F3 (plain-text fidelity) all **fixed**. |
 
@@ -241,6 +242,8 @@ bridge restores working links without changing the sandbox.
 
 ## 7. Change log
 
+- **1.2** (2026-07-09) — added the audited-commit header row (`d55b753`,
+  claims re-verified during the truing pass). No content change.
 - **1.1** (2026-07-09) — trued §1/§2 to the shipped F2 remote-image opt-in
   (same-day drift): the default posture is unchanged (blocked by default), but
   an `https` URL is preserved inertly in `data-voxrox-remote-src` rather than

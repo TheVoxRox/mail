@@ -2,9 +2,10 @@
 
 | | |
 |---|---|
-| **Version** | 1.2 |
+| **Version** | 1.3 |
 | **Date** | 2026-07-09 |
 | **Applies to** | VoxRox Mail V0.1.0 |
+| **Audited commit** | `d55b753` (claims re-verified 2026-07-09) |
 | **Subsystem** | Sidecar REST API — Boundary 3 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md) |
 | **Verdict** | **Security: PASS** (no exploitable finding). One Low defense-in-depth finding (**A1** — unbounded JSON write-body) **fixed**; informational notes recorded. |
 
@@ -20,11 +21,10 @@ Scope is Boundary 3 (sidecar ↔ WebView, loopback + `X-API-KEY`). The
 WebView↔SPA / mail-content boundary is Boundary 4, covered separately by
 [CONTENT_RENDERING_AUDIT.md](CONTENT_RENDERING_AUDIT.md), and the updater
 (Boundary 6) by [UPDATER_AUDIT.md](UPDATER_AUDIT.md). OAuth (Boundary 2) and
-crypto/filesystem (Boundary 5) have **no dedicated audit document**: their
-posture is recorded in the threat-model STRIDE rows and the hardening records
-(PKCE-for-all-clients resolver, DPAPI-sealed `crypto.bin` + fail-closed
-fingerprint check in [OPERATIONS.md](../backend/OPERATIONS.md)), Boundary 1 in
-the TLS-hardening PRs and the 2026-06-06 IMAP sync/write review.
+crypto/filesystem (Boundary 5) have focused verification audits —
+[OAUTH_AUDIT.md](OAUTH_AUDIT.md) / [CRYPTO_STORAGE_AUDIT.md](CRYPTO_STORAGE_AUDIT.md);
+Boundary 1 is covered by the TLS-hardening PRs and the 2026-06-06 IMAP
+sync/write review (see the audit map in [AUDIT_GUIDE.md](AUDIT_GUIDE.md)).
 
 ## 1. Authentication & authorization (confirmed)
 
@@ -176,6 +176,9 @@ reads them) if the boundary is ever hardened toward a lower-trust caller.
 
 ## 9. Change log
 
+- **1.3** (2026-07-09) — added the audited-commit header row (`d55b753`,
+  claims re-verified during the truing pass); boundary-coverage paragraph now
+  points at the new B2/B5 focused audits and the audit map in AUDIT_GUIDE.md.
 - **1.2** (2026-07-09) — corrected the boundary-coverage claim: Boundaries 2
   (OAuth) and 5 (crypto/filesystem) do **not** have dedicated audit documents
   (the previous wording said they "each have their own audit pass"); their
