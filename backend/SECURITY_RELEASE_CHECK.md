@@ -90,6 +90,33 @@ Reziduum / poznámky:
   - `vuln-scan.yml` job `cargo-audit-tauri` — scheduled JSON report (artifact) + gate.
   - cargo-audit pinnut na `0.22.2` a cachovaný (vzor jako `cargo-cyclonedx`).
 
+## API surface audit — Boundary 3 (2026-07-09)
+
+Per-subsystem audit sidecar REST API (loopback + `X-API-KEY`), plný zápis v
+[docs/API_SURFACE_AUDIT.md](../docs/API_SURFACE_AUDIT.md). Verdikt **PASS**.
+
+- [x] Autentizace: `ApiKeyFilter` = constant-time compare (SHA-256 + `MessageDigest.isEqual`), fail-fast 401 + `AuditLog.failure`; klíč per-JVM, in-memory, jen v `session.json`.
+- [x] Autorizace: `anyRequest().authenticated()`; `PUBLIC_ENDPOINTS` minimální (OAuth + static auth pages + springdoc vypnutý v prod); `/api/internal/**` (dump, threading, client-boot, actuator health) za klíčem. IDOR vědomě mimo model (single-user, jeden klíč).
+- [x] Input validation: všech 12 controllerů `@Validated`, DTO `@Valid` s per-field constraints; pagination/search/bulk capy.
+- [x] Error hygiene: catch-all vrací fixní lokalizovanou hlášku, `include-message/stacktrace=never`; žádný leak zprávy/stacku/SQL.
+- [x] Attachment download: `partPath` = MIME index (`Integer.parseInt` per segment), ne FS cesta → žádný path traversal; temp soubor až po DB lookupu, unlink na close; `Content-Disposition` filename sanitizován.
+- [x] Diagnostic dump: bez credentials/tokenů/těl/předmětů; email maskovaný, `lastError` jen boolean; `ClientBootDiagnosticsService` allow-list klíčů + cap 512 znaků.
+- [x] **Opraveno (A1, Low, defense-in-depth):** JSON `send`/`draft` endpointy neměly cap na délku `body` ani počet příloh (multipart limit se na JSON `@RequestBody` nevztahuje); doplněn `@Size` `body` ≤ 10 MiB + ≤ 50 příloh na `MailRequest`/`DraftRequest`, regresní testy `MailWriteControllerTest.sendBodyTooLong` / `sendTooManyAttachments`. Pre-deserializační agregátní bound = přijaté reziduum (loopback + auth + klient 25 MB).
+
+## Auto-updater audit — Boundary 6 (2026-07-09)
+
+Per-subsystem audit Tauri auto-updateru (GitHub release → signature-verified
+install), plný zápis v [docs/UPDATER_AUDIT.md](../docs/UPDATER_AUDIT.md).
+Verdikt **PASS**, bez zásahu do kódu.
+
+- [x] Ed25519 verifikace je nativní v Rust pluginu — frontend ([updates.ts](../frontend/src/lib/updates.ts)) s podpisem nikdy nepracuje; grantnuté jen `updater:allow-check` + `updater:allow-download-and-install`.
+- [x] Build fail-closed: `buildUpdaterPlugin()` v [lib/tauri-config.mjs](../frontend/scripts/lib/tauri-config.mjs) hodí chybu na prázdném `TAURI_UPDATER_PUBKEY` (žádný placeholder key ≠ analogie OAuth `invalid_client`) a bez ≥1 endpointu; workflow padá bez `TAURI_SIGNING_PRIVATE_KEY`; manifest generator bere jen podepsaný artefakt a padá na prázdném `.sig`.
+- [x] Transport HTTPS-only (`dangerousInsecureTransportProtocol` opt-in, nezapnutý), `allowDowngrades:false`; updater fetch je nativní, takže nerozšiřuje WebView `connect-src` (zůstává loopback + `ipc:`).
+- [x] Hijacknutý `latest.json` nespustí kód (signature mismatch → install abort); pole `notes`/`version` se nerenderují jako markup ([UpdatePromptDialog.svelte](../frontend/src/lib/components/UpdatePromptDialog.svelte) ukazuje jen i18n-escaped `version`, `notes` vůbec).
+- [x] Fail handling: startup check ([bootstrap.ts](../frontend/src/lib/bootstrap.ts)) tiše (console.warn), manual check ([AboutSettings.svelte](../frontend/src/lib/components/settings/AboutSettings.svelte)) s failure UI + fallback na releases; pokryto `updates.test.ts`.
+- [x] Defense-in-depth: Sigstore build-provenance attestation + SHA-256 checksum u každého instalátoru.
+- [ ] Poznámka (procedurální, ne kód): base `tauri.conf.json` updater blok je dev reference; bare `npm run tauri:build` nevyrobí `.sig`, takže není validní release — guard je jen v RELEASE_CHECKLIST. Volitelné budoucí zpřísnění: CI lint že `dangerousInsecureTransportProtocol` není nikdy `true`.
+
 ## Použité příkazy
 
 ```powershell
