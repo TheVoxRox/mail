@@ -111,7 +111,7 @@ skipping silently.
 
 | Boundary | Audit | Tier |
 |---|---|---|
-| B1 external mail server | TLS-hardening PRs (#25/#26) + IMAP sync/write review 2026-06-06 | informal |
+| B1 external mail server | [IMAP_SMTP_AUDIT.md](IMAP_SMTP_AUDIT.md) | full |
 | B2 OAuth handshake | [OAUTH_AUDIT.md](OAUTH_AUDIT.md) | focused |
 | B3 sidecar HTTP API | [API_SURFACE_AUDIT.md](API_SURFACE_AUDIT.md) | full |
 | B4 WebView ↔ SPA | [CONTENT_RENDERING_AUDIT.md](CONTENT_RENDERING_AUDIT.md) | full |
