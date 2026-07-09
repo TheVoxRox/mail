@@ -1,14 +1,17 @@
 package org.voxrox.mailbackend.core.backup;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+
+import javax.sql.DataSource;
 
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -37,18 +40,20 @@ public class DatabaseBackupService {
     private final StorageProperties storageProperties;
     private final BackupProperties backupProperties;
     private final ApplicationVersion applicationVersion;
+    private final DataSource dataSource;
 
     @Autowired
     public DatabaseBackupService(StorageProperties storageProperties, BackupProperties backupProperties,
-            ApplicationVersion applicationVersion) {
+            ApplicationVersion applicationVersion, DataSource dataSource) {
         this.storageProperties = storageProperties;
         this.backupProperties = backupProperties;
         this.applicationVersion = applicationVersion;
+        this.dataSource = dataSource;
     }
 
     public DatabaseBackupService(StorageProperties storageProperties, BackupProperties backupProperties,
-            String appVersion) {
-        this(storageProperties, backupProperties, new ApplicationVersion(appVersion));
+            String appVersion, DataSource dataSource) {
+        this(storageProperties, backupProperties, new ApplicationVersion(appVersion), dataSource);
     }
 
     /**
@@ -78,18 +83,48 @@ public class DatabaseBackupService {
         }
 
         try {
-            Files.copy(dbFile, backupFile, StandardCopyOption.COPY_ATTRIBUTES);
+            vacuumInto(backupFile);
             log.info("{} Pre-migration backup created: {}", LogCategory.DATABASE, backupFile.getFileName());
             AuditLog.success("db_backup_created", "system", "file=" + backupFile.getFileName());
-        } catch (IOException e) {
+        } catch (SQLException e) {
             log.error("{} Failed to create pre-migration DB backup", LogCategory.DATABASE, e);
             AuditLog.failure("db_backup_failed", "system",
                     e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
-            throw new UncheckedIOException("Failed to create pre-migration DB backup", e);
+            deletePartialBackup(backupFile);
+            throw new IllegalStateException("Failed to create pre-migration DB backup", e);
         }
 
         pruneOldBackups();
         return backupFile;
+    }
+
+    /**
+     * Snapshots the live database with {@code VACUUM INTO}, which writes a
+     * transactionally consistent, self-contained copy. Unlike a plain file copy of
+     * the main {@code .db}, it includes committed rows that still live in the
+     * uncheckpointed {@code -wal} file (WAL journal mode) — so a backup taken after
+     * an unclean shutdown captures the most recent transactions instead of silently
+     * dropping them. The target must not already exist, which the caller's
+     * idempotency check (existing-backup no-op) guarantees.
+     */
+    private void vacuumInto(Path backupFile) throws SQLException {
+        // The VACUUM INTO target is an SQL expression, so the path binds as an
+        // ordinary parameter — no string literal to escape (quotes in the path,
+        // e.g. C:\Users\O'Brien, arrive verbatim).
+        try (Connection connection = dataSource.getConnection();
+                PreparedStatement statement = connection.prepareStatement("VACUUM INTO ?")) {
+            statement.setString(1, backupFile.toString());
+            statement.execute();
+        }
+    }
+
+    private void deletePartialBackup(Path backupFile) {
+        try {
+            Files.deleteIfExists(backupFile);
+        } catch (IOException cleanupEx) {
+            log.warn("{} Failed to delete a partial backup {}: {}", LogCategory.DATABASE, backupFile.getFileName(),
+                    cleanupEx.getMessage());
+        }
     }
 
     private void pruneOldBackups() {

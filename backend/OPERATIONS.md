@@ -269,7 +269,7 @@ Aktualizace přicházejí jako celý Tauri bundle (frontend + backend sidecar sp
 Co se děje při startu nové verze:
 
 1. Backend se spustí ze stejného `${app.data-dir}` jako předchozí verze; data dir installer nemaže.
-2. Před `flyway.migrate()` zapíše `DatabaseBackupService` snapshot DB jako `db/mail.db.backup-pre-v<currentAppVersion>` (idempotentní — pokud už pro danou verzi existuje, no-op).
+2. Před `flyway.migrate()` zapíše `DatabaseBackupService` konzistentní snapshot DB přes `VACUUM INTO` jako `db/mail.db.backup-pre-v<currentAppVersion>` (idempotentní — pokud už pro danou verzi existuje, no-op). `VACUUM INTO` dělá transakčně konzistentní self-contained kopii **včetně committnutých dat, která ještě leží v necheckpointnutém `-wal`** — prostá file-copy hlavního `.db` by po nečistém shutdownu (crash / kill sidecaru) poslední transakce z WAL tiše vynechala a restore point by byl neúplný.
 3. Promaže staré zálohy mimo retention okno (default 3 nejnovější, viz `mail.backup.retention-count`).
 4. Aplikuje kumulativní Flyway migrace (V2, V3, ...).
 5. `verifySqlitePragmas` ověří `PRAGMA quick_check`. Selhání → fail-fast s recovery zprávou + audit `startup_health_gate_failed`.

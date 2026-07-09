@@ -27,6 +27,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.core.env.Environment;
 import org.springframework.mock.env.MockEnvironment;
+import org.sqlite.SQLiteDataSource;
 import org.voxrox.mailbackend.core.backup.BackupProperties;
 import org.voxrox.mailbackend.core.backup.DatabaseBackupService;
 import org.voxrox.mailbackend.core.config.ApplicationVersion;
@@ -57,8 +58,12 @@ class HandshakeServiceTest {
 
         StorageProperties storageProperties = new StorageProperties(tempDir.toString());
         FileSystemService fileSystemService = new NoopPermissionsFileSystemService(storageProperties);
+        // HandshakeService only calls backupService.previousAppVersion() (lists files),
+        // so the DataSource is never dereferenced here — a bare instance is enough.
+        SQLiteDataSource backupDataSource = new SQLiteDataSource();
+        backupDataSource.setUrl("jdbc:sqlite:" + tempDir.resolve("db").resolve("mail.db"));
         DatabaseBackupService backupService = new DatabaseBackupService(storageProperties, new BackupProperties(3),
-                TEST_VERSION);
+                TEST_VERSION, backupDataSource);
         service = new HandshakeService(environment, fileSystemService, new ObjectMapper(), stubFlyway("1"),
                 backupService, new ApplicationVersion(TEST_VERSION), new StartupTimingService(), tempDir.toString());
     }

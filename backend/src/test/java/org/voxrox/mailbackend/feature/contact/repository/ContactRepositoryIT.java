@@ -1,7 +1,10 @@
 package org.voxrox.mailbackend.feature.contact.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -34,9 +37,12 @@ import org.voxrox.mailbackend.feature.account.entity.MailProviderEntity;
 import org.voxrox.mailbackend.feature.account.entity.MailServerConfig;
 import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.feature.account.repository.MailProviderRepository;
+import org.voxrox.mailbackend.feature.account.service.AccountService;
 import org.voxrox.mailbackend.feature.contact.EmailLabel;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEmailEntity;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEntity;
+import org.voxrox.mailbackend.feature.contact.mapper.ContactMapper;
+import org.voxrox.mailbackend.feature.contact.service.ContactService;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
@@ -213,6 +219,51 @@ class ContactRepositoryIT {
         assertThat(bySecondary).hasSize(1);
         assertThat(bySecondary.get(0).getId()).isEqualTo(byPrimary.get(0).getId());
         assertThat(byOtherAccount).isEmpty();
+    }
+
+    @Test
+    @DisplayName("setPrimaryEmail promoting a lower-id email must not violate the one-primary index")
+    void setPrimaryEmailPromotesLowerId() {
+        // Two emails; the CURRENT primary is the higher-id one. 'low' is inserted
+        // first so it gets the lower AUTOINCREMENT id. A single-pass flag swap would
+        // flush the lower-id promote (->primary) before the higher-id demote
+        // (->non-primary), producing a transient two-primaries state that the partial
+        // unique index ux_contact_emails_contact_primary rejects.
+        ContactEntity c = new ContactEntity();
+        c.setAccount(account);
+        LocalDateTime now = LocalDateTime.now();
+        c.setCreatedAt(now);
+        c.setUpdatedAt(now);
+        ContactEmailEntity low = new ContactEmailEntity();
+        low.setEmail("low@x.cz");
+        low.setPrimary(false);
+        low.setContact(c);
+        ContactEmailEntity high = new ContactEmailEntity();
+        high.setEmail("high@x.cz");
+        high.setPrimary(true);
+        high.setContact(c);
+        c.getEmails().add(low);
+        c.getEmails().add(high);
+        ContactEntity saved = contactRepository.saveAndFlush(c);
+        Long contactId = saved.getId();
+        Long lowId = saved.getEmails().stream().filter(e -> "low@x.cz".equals(e.getEmail())).findFirst().orElseThrow()
+                .getId();
+        em.clear();
+
+        AccountService accountService = mock(AccountService.class);
+        when(accountService.getAccountOrThrow(account.getId())).thenReturn(account);
+        ContactService service = new ContactService(contactRepository, accountService, new ContactMapper());
+
+        // Called directly (no @Transactional proxy), so setPrimaryEmail joins the
+        // test's transaction and its final change flushes here rather than on commit.
+        // The flush is where a single-pass swap would trip the partial unique index.
+        assertThatCode(() -> {
+            service.setPrimaryEmail(account.getId(), contactId, lowId);
+            em.flush();
+        }).doesNotThrowAnyException();
+
+        em.clear();
+        assertThat(primaryEmail(contactRepository.findById(contactId).orElseThrow())).isEqualTo("low@x.cz");
     }
 
     @Test

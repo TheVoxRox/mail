@@ -5,6 +5,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
@@ -12,6 +16,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.sqlite.SQLiteDataSource;
 import org.voxrox.mailbackend.core.config.StorageProperties;
 
 class DatabaseBackupServiceTest {
@@ -19,6 +24,7 @@ class DatabaseBackupServiceTest {
     private Path tempDir;
     private Path dbDir;
     private Path dbFile;
+    private SQLiteDataSource dataSource;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -28,6 +34,8 @@ class DatabaseBackupServiceTest {
         dbDir = tempDir.resolve("db");
         Files.createDirectories(dbDir);
         dbFile = dbDir.resolve("mail.db");
+        dataSource = new SQLiteDataSource();
+        dataSource.setUrl("jdbc:sqlite:" + dbFile);
     }
 
     @AfterEach
@@ -58,21 +66,44 @@ class DatabaseBackupServiceTest {
     }
 
     @Test
-    @DisplayName("First run of a new version creates a backup with a matching name")
+    @DisplayName("First run of a new version creates a valid SQLite backup with the DB contents")
     void firstRunOfNewVersionCreatesBackup() throws Exception {
-        Files.writeString(dbFile, "fake-db-content");
+        seedDatabase();
 
         Path result = service("0.2.0").createPreMigrationBackup();
 
         assertThat(result).isNotNull();
         assertThat(result.getFileName().toString()).isEqualTo("mail.db.backup-pre-v0.2.0");
-        assertThat(Files.readString(result)).isEqualTo("fake-db-content");
+        // The backup is a self-contained SQLite database carrying the seeded rows,
+        // not an opaque byte copy — open it and read them back.
+        assertThat(readNotes(result)).containsExactly("seed");
+    }
+
+    @Test
+    @DisplayName("Backup captures committed rows still sitting in the uncheckpointed WAL")
+    void backupIncludesUncheckpointedWalData() throws Exception {
+        // Put the DB in WAL mode and disable autocheckpoint so the committed row stays
+        // in the -wal file and never reaches the main .db — the exact state an unclean
+        // shutdown leaves behind. A plain file copy of mail.db would miss it; VACUUM
+        // INTO reads through the WAL and must not. Keep `writer` open across the backup
+        // so SQLite does not checkpoint on close.
+        try (Connection writer = dataSource.getConnection(); Statement st = writer.createStatement()) {
+            st.execute("PRAGMA journal_mode=WAL");
+            st.execute("PRAGMA wal_autocheckpoint=0");
+            st.execute("CREATE TABLE note(id INTEGER PRIMARY KEY, body TEXT)");
+            st.execute("INSERT INTO note(body) VALUES('wal-only')");
+
+            Path backup = service("0.2.0").createPreMigrationBackup();
+
+            assertThat(backup).isNotNull();
+            assertThat(readNotes(backup)).containsExactly("wal-only");
+        }
     }
 
     @Test
     @DisplayName("Restart of the same version does not overwrite the existing backup (idempotent)")
     void restartOfSameVersionIsNoop() throws Exception {
-        Files.writeString(dbFile, "current-content");
+        seedDatabase();
         Path backupFile = dbDir.resolve("mail.db.backup-pre-v0.2.0");
         Files.writeString(backupFile, "original-backup-content");
 
@@ -85,8 +116,8 @@ class DatabaseBackupServiceTest {
     @Test
     @DisplayName("Retention removes old backups and keeps only the N most recent")
     void retentionPrunesOldBackups() throws Exception {
-        Files.writeString(dbFile, "current");
-        // Five backups, each with increasing lastModified — the new '0.6.0' backup
+        seedDatabase();
+        // Five backups, each with increasing lastModified — the new '1.6.0' backup
         // is added as the 6th.
         createBackup("1.1.0", 1_000L);
         createBackup("1.2.0", 2_000L);
@@ -122,8 +153,36 @@ class DatabaseBackupServiceTest {
     }
 
     private DatabaseBackupService service(String appVersion) {
-        return new DatabaseBackupService(new StorageProperties(tempDir.toString()), new BackupProperties(3),
-                appVersion);
+        return new DatabaseBackupService(new StorageProperties(tempDir.toString()), new BackupProperties(3), appVersion,
+                dataSource);
+    }
+
+    /**
+     * Creates a real SQLite database at {@link #dbFile} with a single seeded row.
+     */
+    private void seedDatabase() throws Exception {
+        try (Connection c = dataSource.getConnection(); Statement st = c.createStatement()) {
+            st.execute("CREATE TABLE note(id INTEGER PRIMARY KEY, body TEXT)");
+            st.execute("INSERT INTO note(body) VALUES('seed')");
+        }
+    }
+
+    /**
+     * Opens the given file as a SQLite database and reads the {@code note.body}
+     * column.
+     */
+    private List<String> readNotes(Path db) throws Exception {
+        SQLiteDataSource ds = new SQLiteDataSource();
+        ds.setUrl("jdbc:sqlite:" + db);
+        List<String> rows = new ArrayList<>();
+        try (Connection c = ds.getConnection();
+                Statement st = c.createStatement();
+                ResultSet rs = st.executeQuery("SELECT body FROM note ORDER BY id")) {
+            while (rs.next()) {
+                rows.add(rs.getString(1));
+            }
+        }
+        return rows;
     }
 
     private void createBackup(String version, long lastModifiedMillis) throws Exception {

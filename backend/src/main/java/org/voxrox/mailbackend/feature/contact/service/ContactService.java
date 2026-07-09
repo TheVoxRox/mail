@@ -334,9 +334,24 @@ public class ContactService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "E-mail with id=" + emailId + " for contact " + contactId + " not found."));
 
+        // Demote the current primary and flush first, so the DB briefly holds zero
+        // primaries, before promoting the target. A single-pass flag swap lets
+        // Hibernate flush the promote (->primary) UPDATE ahead of the demote
+        // (->non-primary) UPDATE when the promoted row sorts first by id, producing a
+        // transient two-primaries state that trips the partial unique index
+        // ux_contact_emails_contact_primary (see
+        // ContactRepositoryIT#promoteLowerIdEmailToPrimary).
+        boolean demotedAny = false;
         for (ContactEmailEntity e : entity.getEmails()) {
-            e.setPrimary(emailId.equals(e.getId()));
+            if (e.isPrimary() && !emailId.equals(e.getId())) {
+                e.setPrimary(false);
+                demotedAny = true;
+            }
         }
+        if (demotedAny) {
+            contactRepository.saveAndFlush(entity);
+        }
+        target.setPrimary(true);
 
         ContactEntity saved = contactRepository.save(entity);
 
