@@ -14,8 +14,10 @@ import org.voxrox.mailbackend.feature.mail.dto.MailRequest.AttachmentRequest;
  * subject or body.
  */
 public record DraftRequest(String to, String cc, String bcc,
-        @Size(max = 500, message = "{validation.mail.subjectTooLong}") String subject, String body,
-        List<@Valid AttachmentRequest> attachments, String inReplyTo, String references) {
+        @Size(max = 500, message = "{validation.mail.subjectTooLong}") String subject,
+        @Size(max = 10 * 1024 * 1024, message = "{validation.mail.bodyTooLong}") String body,
+        @Size(max = 50, message = "{validation.mail.tooManyAttachments}") List<@Valid AttachmentRequest> attachments,
+        String inReplyTo, String references) {
 
     public DraftRequest {
         if (attachments == null) {

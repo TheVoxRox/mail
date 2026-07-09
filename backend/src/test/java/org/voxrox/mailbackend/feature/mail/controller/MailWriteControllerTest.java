@@ -101,6 +101,31 @@ class MailWriteControllerTest {
     }
 
     @Test
+    @DisplayName("POST send — body over the size cap -> 400 (payload bound)")
+    void sendBodyTooLong() throws Exception {
+        String hugeBody = "a".repeat(10 * 1024 * 1024 + 1);
+        MailRequest bad = new MailRequest("to@x.cz", null, null, "subj", hugeBody, List.of(), null, null);
+
+        mockMvc.perform(post("/api/v1/messages/account/7/send").contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(bad))).andExpect(status().isBadRequest());
+
+        verifyNoInteractions(smtpService);
+    }
+
+    @Test
+    @DisplayName("POST send — more than 50 attachments -> 400 (attachment-count bound)")
+    void sendTooManyAttachments() throws Exception {
+        List<MailRequest.AttachmentRequest> many = java.util.stream.IntStream.rangeClosed(1, 51)
+                .mapToObj(i -> new MailRequest.AttachmentRequest("f" + i + ".txt", "text/plain", "ZGF0YQ==")).toList();
+        MailRequest bad = new MailRequest("to@x.cz", null, null, "subj", "body", many, null, null);
+
+        mockMvc.perform(post("/api/v1/messages/account/7/send").contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(bad))).andExpect(status().isBadRequest());
+
+        verifyNoInteractions(smtpService);
+    }
+
+    @Test
     @DisplayName("POST send — invalid attachment (empty fileName) -> 400")
     void sendInvalidAttachment() throws Exception {
         MailRequest.AttachmentRequest badAtt = new MailRequest.AttachmentRequest("", "application/pdf", "ZGF0YQ==");

@@ -17,9 +17,10 @@ public record MailRequest(@NotBlank(message = "{validation.mail.recipientRequire
 
         @NotBlank(message = "{validation.mail.subjectRequired}") @Size(max = 500, message = "{validation.mail.subjectTooLong}") String subject,
 
-        @NotBlank(message = "{validation.mail.bodyRequired}") String body,
+        @NotBlank(message = "{validation.mail.bodyRequired}") @Size(max = 10 * 1024
+                * 1024, message = "{validation.mail.bodyTooLong}") String body,
 
-        List<@Valid AttachmentRequest> attachments,
+        @Size(max = 50, message = "{validation.mail.tooManyAttachments}") List<@Valid AttachmentRequest> attachments,
 
         @Nullable String inReplyTo, @Nullable String references) {
     public MailRequest {
@@ -34,9 +35,14 @@ public record MailRequest(@NotBlank(message = "{validation.mail.recipientRequire
             @NotBlank(message = "{validation.attachment.contentTypeRequired}") @Size(max = 255, message = "{validation.attachment.contentTypeTooLong}") String contentType,
 
             /*
-             * 70 MB cap = ~52 MB binary after base64 decoding (aligned with
-             * spring.servlet.multipart.max-file-size=50MB). Without the cap the client
-             * could send hundreds of MB in a single JSON body and exhaust the heap.
+             * Per-attachment cap: 70 MB base64 ~= 52 MB binary after decoding. NOTE: the
+             * send/draft endpoints consume a JSON request body (not multipart), so the
+             * spring.servlet.multipart.* limits do NOT apply here — these bean-validation
+             * size caps (plus the attachment-count and body-length caps on the enclosing
+             * MailRequest) are the payload bound. They run after Jackson deserialization;
+             * the pre-deserialization aggregate bound is a documented residual (Boundary 3
+             * is loopback + X-API-KEY, and the client enforces a 25 MB total). See
+             * docs/API_SURFACE_AUDIT.md.
              */
             @NotBlank(message = "{validation.attachment.dataRequired}") @Size(max = 70 * 1024
                     * 1024, message = "{validation.attachment.dataTooLarge}") String base64Data) {

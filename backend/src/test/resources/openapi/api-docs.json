@@ -3609,13 +3609,16 @@
           },
           "body" : {
             "type" : "string",
-            "minLength" : 1
+            "maxLength" : 10485760,
+            "minLength" : 0
           },
           "attachments" : {
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/AttachmentRequest"
-            }
+            },
+            "maxItems" : 50,
+            "minItems" : 0
           },
           "inReplyTo" : {
             "type" : "string"
@@ -3698,13 +3701,17 @@
             "minLength" : 0
           },
           "body" : {
-            "type" : "string"
+            "type" : "string",
+            "maxLength" : 10485760,
+            "minLength" : 0
           },
           "attachments" : {
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/AttachmentRequest"
-            }
+            },
+            "maxItems" : 50,
+            "minItems" : 0
           },
           "inReplyTo" : {
             "type" : "string"
@@ -3848,10 +3855,10 @@
           "password" : {
             "type" : "string"
           },
-          "providerOrCustomServerConfigPresent" : {
+          "passwordPresentForNewAccount" : {
             "type" : "boolean"
           },
-          "passwordPresentForNewAccount" : {
+          "providerOrCustomServerConfigPresent" : {
             "type" : "boolean"
           }
         },
