@@ -55,7 +55,8 @@ release buildu.
 - [x] Rozhodnout, jestli se OWASP Dependency-Check zapojí do CI buildu. Doporučení: zapojit spíš v CI/release pipeline s NVD API key, ne jako povinný lokální build krok.
   - Rozhodnuto a zapojeno přesně dle doporučení: scheduled `vuln-scan.yml` (po-pá 04:00 UTC) s NVD API key, ne povinný lokální krok; box odškrtnut při doc-truing pass 2026-07-09.
 - [x] Po aktuálním lokálním installer/sidecar balení zopakovat secret scan nad distribuovaným bundlem, nejen nad backend JARem a aktuálním `src-tauri/binaries/app`.
-- [ ] Před prvním GitHub pushem rotovat lokální Google OAuth secret nalezený v ignorovaném `backend/.env`, protože už byl použit v lokálním vývoji.
+- [x] Před prvním GitHub pushem rotovat lokální Google OAuth secret nalezený v ignorovaném `backend/.env`, protože už byl použit v lokálním vývoji.
+  - Rotace proběhla — potvrzeno vlastníkem 2026-07-09 při doc-truing pass. Gitleaks scan git historie hlásil 0 úniků, takže šlo o defense-in-depth opatření.
 
 ## Log hygiene audit (2026-06-13)
 
