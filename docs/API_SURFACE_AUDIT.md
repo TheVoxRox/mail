@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Version** | 1.1 |
+| **Version** | 1.2 |
 | **Date** | 2026-07-09 |
 | **Applies to** | VoxRox Mail V0.1.0 |
 | **Subsystem** | Sidecar REST API — Boundary 3 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md) |
@@ -18,9 +18,13 @@ the two highest-risk paths (attachment download, diagnostic dump).
 
 Scope is Boundary 3 (sidecar ↔ WebView, loopback + `X-API-KEY`). The
 WebView↔SPA / mail-content boundary is Boundary 4, covered separately by
-[CONTENT_RENDERING_AUDIT.md](CONTENT_RENDERING_AUDIT.md). OAuth (Boundary 2),
-crypto/filesystem (Boundary 5) and the updater (Boundary 6) each have their own
-audit pass (see the threat-model change log).
+[CONTENT_RENDERING_AUDIT.md](CONTENT_RENDERING_AUDIT.md), and the updater
+(Boundary 6) by [UPDATER_AUDIT.md](UPDATER_AUDIT.md). OAuth (Boundary 2) and
+crypto/filesystem (Boundary 5) have **no dedicated audit document**: their
+posture is recorded in the threat-model STRIDE rows and the hardening records
+(PKCE-for-all-clients resolver, DPAPI-sealed `crypto.bin` + fail-closed
+fingerprint check in [OPERATIONS.md](../backend/OPERATIONS.md)), Boundary 1 in
+the TLS-hardening PRs and the 2026-06-06 IMAP sync/write review.
 
 ## 1. Authentication & authorization (confirmed)
 
@@ -172,6 +176,11 @@ reads them) if the boundary is ever hardened toward a lower-trust caller.
 
 ## 9. Change log
 
+- **1.2** (2026-07-09) — corrected the boundary-coverage claim: Boundaries 2
+  (OAuth) and 5 (crypto/filesystem) do **not** have dedicated audit documents
+  (the previous wording said they "each have their own audit pass"); their
+  coverage lives in the threat-model STRIDE rows and hardening records. No
+  change to any Boundary 3 verdict.
 - **1.1** (2026-07-09) — corrected the controller enumeration (15 total: 12
   public + 3 `/api/internal`, previously misstated as 12) and the `@Validated`
   claim (10 of 15 carry it; the five without have no constrained parameters).
