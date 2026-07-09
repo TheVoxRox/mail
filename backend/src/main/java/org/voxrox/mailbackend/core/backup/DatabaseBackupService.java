@@ -5,8 +5,8 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -108,12 +108,13 @@ public class DatabaseBackupService {
      * idempotency check (existing-backup no-op) guarantees.
      */
     private void vacuumInto(Path backupFile) throws SQLException {
-        // Single-quoted SQL string literal: SQLite does not treat backslash as an
-        // escape, so normalise to forward slashes (accepted by the Windows VFS) and
-        // double any embedded single quote (e.g. a data dir under C:\Users\O'Brien).
-        String target = backupFile.toString().replace('\\', '/').replace("'", "''");
-        try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
-            statement.execute("VACUUM INTO '" + target + "'");
+        // The VACUUM INTO target is an SQL expression, so the path binds as an
+        // ordinary parameter — no string literal to escape (quotes in the path,
+        // e.g. C:\Users\O'Brien, arrive verbatim).
+        try (Connection connection = dataSource.getConnection();
+                PreparedStatement statement = connection.prepareStatement("VACUUM INTO ?")) {
+            statement.setString(1, backupFile.toString());
+            statement.execute();
         }
     }
 
