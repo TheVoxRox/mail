@@ -2,9 +2,10 @@
 
 | | |
 |---|---|
-| **Version** | 1.0 |
+| **Version** | 1.1 |
 | **Date** | 2026-07-09 |
 | **Applies to** | VoxRox Mail V0.1.0 |
+| **Audited commit** | `d55b753` (claims re-verified 2026-07-09) |
 | **Subsystem** | Tauri auto-updater — Boundary 6 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md) |
 | **Verdict** | **Security: PASS** — no exploitable finding, **no code change**. Two procedural/informational notes recorded. |
 
@@ -115,3 +116,9 @@ sanitizer is needed because no untrusted markup reaches the DOM.
 - [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md) — Boundary 6 STRIDE matrix + AR-2.
 - [API_SURFACE_AUDIT.md](API_SURFACE_AUDIT.md) / [CONTENT_RENDERING_AUDIT.md](CONTENT_RENDERING_AUDIT.md) — companion boundary audits.
 - [backend/SECURITY_RELEASE_CHECK.md](../backend/SECURITY_RELEASE_CHECK.md) — per-release security gate.
+
+## 8. Change log
+
+- **1.1** (2026-07-09) — added the audited-commit header row (`d55b753`,
+  claims re-verified during the truing pass). No content change.
+- **1.0** (2026-07-09) — initial audit.

@@ -120,6 +120,30 @@ Verdikt **PASS**, bez zásahu do kódu.
 - [x] Defense-in-depth: Sigstore build-provenance attestation + SHA-256 checksum u každého instalátoru.
 - [ ] Poznámka (procedurální, ne kód): base `tauri.conf.json` updater blok je dev reference; bare `npm run tauri:build` nevyrobí `.sig`, takže není validní release — guard je jen v RELEASE_CHECKLIST. Volitelné budoucí zpřísnění: CI lint že `dangerousInsecureTransportProtocol` není nikdy `true`.
 
+## OAuth handshake audit — Boundary 2 (2026-07-09)
+
+Focused audit (ověření STRIDE mitigací + data-flow refresh tokenu), plný zápis
+v [docs/OAUTH_AUDIT.md](../docs/OAUTH_AUDIT.md). Verdikt **PASS**, bez zásahu
+do kódu. Ověřeno proti `d55b753`.
+
+- [x] PKCE (S256) vynuceno pro oba providery přes custom resolver (Spring default kryje jen public klienty; Google je confidential). Microsoft = public client bez secretu (`client-authentication-method=none`).
+- [x] State nonce + úzká brána pro benigní duplicate callback (`OAuth2CompletedStateTracker` — jen přesný error code A prokazatelně dokončený state).
+- [x] Failure handler: WARN log server-side, redirect jen s URL-encoded error kódem — žádný reflected provider text.
+- [x] Scopes hardcoded per provider, redirect URI loopback; refresh token at rest AES/GCM přes `CryptoService` (per-account klíč + AAD), access tokeny jen v bounded in-memory `TokenCache`.
+- [x] `invalid_grant` → `requires_reauth` (scheduler stop, wizard); duplicate callback flag nečistí.
+
+## Crypto & storage audit — Boundary 5 (2026-07-09)
+
+Focused audit (ověření STRIDE mitigací + data-flow klíčového materiálu), plný
+zápis v [docs/CRYPTO_STORAGE_AUDIT.md](../docs/CRYPTO_STORAGE_AUDIT.md).
+Verdikt **PASS**, bez zásahu do kódu. Ověřeno proti `d55b753`.
+
+- [x] `crypto.bin`: DPAPI USER scope + app entropy, `UI_FORBIDDEN`; cizí user/machine → fail-stop s recovery hláškou; FFM implementace zeruje nativní buffery na obou cestách; atomic write + private permissions; in-place migrace legacy plaintext formátu.
+- [x] Fingerprint gate: constant-time compare, mismatch → hard stop; env-override pár se ověřuje proti existujícímu `crypto.bin` (žádný tichý re-key), poloviční konfigurace (key bez salt) odmítne boot.
+- [x] Šifrování credentials: AES/GCM-256, random 12B IV per operaci, PBKDF2-HmacSHA256 600k iterací, per-account salt, `accountId` jako AAD (ciphertext nelze přehodit mezi účty); AEAD tag mismatch → CRITICAL audit event.
+- [x] Self-test fail-stop před prvním použitím; main secret zerován při shutdownu.
+- [x] AR-1 (plaintext `mail.db`) potvrzeno jako vědomé reziduum s BitLocker mitigací a SQLCipher upgrade path.
+
 ## Použité příkazy
 
 ```powershell
