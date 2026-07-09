@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
  * XSS / UI-redressing audit for {@link HtmlSanitizer}.
  *
  * Each test documents one concrete attack vector. If any of them passes
- * through, the backend ships potentially malicious HTML to the Electron client.
+ * through, the backend ships potentially malicious HTML to the desktop client.
  */
 class HtmlSanitizerTest {
 
