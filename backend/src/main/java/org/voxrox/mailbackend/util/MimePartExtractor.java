@@ -3,6 +3,8 @@ package org.voxrox.mailbackend.util;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
@@ -36,6 +38,15 @@ public final class MimePartExtractor {
     private static final long MAX_INLINE_IMAGE_BYTES = 2L * 1024 * 1024;
     private static final long MAX_TOTAL_INLINE_BYTES = 8L * 1024 * 1024;
 
+    /*
+     * Body budget (IMAP/SMTP audit finding B1-1). The selected text part is read
+     * through the same bounded stream as inline images, so a hostile server
+     * declaring a multi-hundred-MB body cannot exhaust the heap: a part over the
+     * cap yields ExtractedBody.OVERSIZE and the caller serves a placeholder instead
+     * of the content.
+     */
+    private static final long MAX_BODY_BYTES = 8L * 1024 * 1024;
+
     /**
      * Raster image subtypes safe to inline. SVG is excluded — it can carry script.
      */
@@ -47,16 +58,22 @@ public final class MimePartExtractor {
     /**
      * The selected body plus whether it came from a {@code text/html} part. The
      * flag lets the caller escape a genuine {@code text/plain} body instead of
-     * parsing it as HTML (content-rendering audit finding F3).
+     * parsing it as HTML (content-rendering audit finding F3). {@code oversize}
+     * marks a body part whose transfer-decoded size exceeded
+     * {@link #MAX_BODY_BYTES} (audit B1-1) — {@code text} is then intentionally
+     * empty and the caller substitutes a placeholder.
      */
-    public record ExtractedBody(String text, boolean isHtml) {
-        private static final ExtractedBody EMPTY = new ExtractedBody("", false);
+    public record ExtractedBody(String text, boolean isHtml, boolean oversize) {
+        private static final ExtractedBody EMPTY = new ExtractedBody("", false, false);
+        private static final ExtractedBody OVERSIZE = new ExtractedBody("", false, true);
     }
 
     /**
      * Backwards-compatible thin wrapper: returns only the body text. Callers that
      * flatten to plain text (drafts, reply/forward) use this; the content path uses
-     * {@link #extractBody} to learn the content type.
+     * {@link #extractBody} to learn the content type. An oversized body (B1-1)
+     * flattens to an empty string here — use {@link #extractBody} when the caller
+     * must distinguish oversize from genuinely empty.
      */
     public static String extractText(Part part) throws MessagingException, IOException {
         return extractBody(part).text();
@@ -75,12 +92,10 @@ public final class MimePartExtractor {
         }
 
         if (part.isMimeType("text/plain") && part.getFileName() == null) {
-            Object content = part.getContent();
-            return new ExtractedBody(content != null ? content.toString() : "", false);
+            return readBodyText(part, false);
         }
         if (part.isMimeType("text/html") && part.getFileName() == null) {
-            Object content = part.getContent();
-            return new ExtractedBody(content != null ? content.toString() : "", true);
+            return readBodyText(part, true);
         }
 
         if (part.isMimeType("message/rfc822")) {
@@ -98,26 +113,91 @@ public final class MimePartExtractor {
                 log.warn("{} Part claims multipart but content is not; no text extracted.", LogCategory.SYNC);
                 return ExtractedBody.EMPTY;
             }
-            ExtractedBody textFallback = null;
-
+            if (part.isMimeType("multipart/alternative")) {
+                return selectAlternative(multipart, depth);
+            }
             for (int i = 0; i < multipart.getCount(); i++) {
-                Part bodyPart = multipart.getBodyPart(i);
-                if (part.isMimeType("multipart/alternative")) {
-                    if (bodyPart.isMimeType("text/plain") && bodyPart.getFileName() == null) {
-                        textFallback = extractBodyInternal(bodyPart, depth + 1);
-                    } else if (bodyPart.isMimeType("text/html") && bodyPart.getFileName() == null) {
-                        return extractBodyInternal(bodyPart, depth + 1);
-                    }
-                } else {
-                    ExtractedBody extracted = extractBodyInternal(bodyPart, depth + 1);
-                    if (!extracted.text().isEmpty()) {
-                        return extracted;
-                    }
+                ExtractedBody extracted = extractBodyInternal(multipart.getBodyPart(i), depth + 1);
+                if (!extracted.text().isEmpty() || extracted.oversize()) {
+                    return extracted;
                 }
             }
-            return textFallback != null ? textFallback : ExtractedBody.EMPTY;
+            return ExtractedBody.EMPTY;
         }
         return ExtractedBody.EMPTY;
+    }
+
+    /**
+     * Picks the body from a {@code multipart/alternative}: the richest renderable
+     * part wins. A rich alternative is {@code text/html} or a nested multipart
+     * (typically {@code multipart/related} = HTML plus inline images, the Apple
+     * Mail layout); {@code text/plain} is kept as the fallback. Deliberately
+     * order-agnostic: an oversized (B1-1) rich part falls back to a plain-text
+     * sibling that fits whether or not the sender emitted plain-first (RFC 2046
+     * recommends it, hostile or sloppy senders do not comply), and the oversize
+     * marker survives only when no sibling is displayable.
+     */
+    private static ExtractedBody selectAlternative(Multipart multipart, int depth)
+            throws MessagingException, IOException {
+        ExtractedBody textFallback = null;
+        ExtractedBody oversizeRich = null;
+        for (int i = 0; i < multipart.getCount(); i++) {
+            Part bodyPart = multipart.getBodyPart(i);
+            if (bodyPart.isMimeType("text/plain") && bodyPart.getFileName() == null) {
+                textFallback = extractBodyInternal(bodyPart, depth + 1);
+            } else if ((bodyPart.isMimeType("text/html") && bodyPart.getFileName() == null)
+                    || bodyPart.isMimeType("multipart/*")) {
+                ExtractedBody rich = extractBodyInternal(bodyPart, depth + 1);
+                if (rich.oversize()) {
+                    oversizeRich = rich;
+                } else if (!rich.text().isEmpty()) {
+                    return rich;
+                }
+            }
+        }
+        if (textFallback != null && !textFallback.oversize() && !textFallback.text().isEmpty()) {
+            return textFallback;
+        }
+        if (oversizeRich != null) {
+            return oversizeRich;
+        }
+        return textFallback != null ? textFallback : ExtractedBody.EMPTY;
+    }
+
+    /**
+     * Reads a text body part with the transfer-decoded bytes capped at
+     * {@link #MAX_BODY_BYTES} (audit B1-1) — {@code getContent()} would buffer the
+     * entire, attacker-sized part on the heap. Charset decoding happens here for
+     * the same reason; unlike {@code getContent()}, an unknown charset degrades to
+     * a UTF-8 decode with replacement characters instead of failing the message.
+     */
+    private static ExtractedBody readBodyText(Part part, boolean isHtml) throws MessagingException, IOException {
+        byte[] bytes = readBounded(part, MAX_BODY_BYTES);
+        if (bytes.length > MAX_BODY_BYTES) {
+            log.warn("{} Text body part exceeds the {}-byte cap; returning the oversize marker.", LogCategory.SYNC,
+                    MAX_BODY_BYTES);
+            return ExtractedBody.OVERSIZE;
+        }
+        return new ExtractedBody(new String(bytes, charsetOf(part)), isHtml, false);
+    }
+
+    /**
+     * Charset declared by the part's Content-Type. Falls back to UTF-8 — an ASCII
+     * superset covering the RFC 2046 {@code us-ascii} default — when the parameter
+     * is missing, unmappable or malformed; {@code new String(bytes, charset)} then
+     * substitutes replacement characters rather than dropping the body.
+     */
+    private static Charset charsetOf(Part part) {
+        try {
+            String contentType = part.getContentType();
+            if (contentType == null) {
+                return StandardCharsets.UTF_8;
+            }
+            String name = new ContentType(contentType).getParameter("charset");
+            return name == null ? StandardCharsets.UTF_8 : Charset.forName(MimeUtility.javaCharset(name));
+        } catch (MessagingException | IllegalArgumentException e) {
+            return StandardCharsets.UTF_8;
+        }
     }
 
     /**
@@ -217,7 +297,7 @@ public final class MimePartExtractor {
 
     /**
      * Reads up to {@code cap + 1} decoded bytes so the caller can detect (and skip)
-     * a part that exceeds the cap without buffering an unbounded image into memory.
+     * a part that exceeds the cap without buffering an unbounded part into memory.
      */
     private static byte[] readBounded(Part part, long cap) throws MessagingException, IOException {
         try (InputStream in = part.getInputStream()) {

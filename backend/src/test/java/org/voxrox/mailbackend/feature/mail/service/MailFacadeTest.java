@@ -125,7 +125,7 @@ class MailFacadeTest {
         void shouldReturnReplyDraftWhenMessageExists() {
             // Setup: message found, content fetched from IMAP
             when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(entity));
-            when(mailContentService.getOrFetchMessageContent(MESSAGE_ID)).thenReturn("<p>Hello</p>");
+            when(mailContentService.getOrFetchQuotableContent(MESSAGE_ID)).thenReturn("<p>Hello</p>");
             MailRequest expectedDraft = dummyMailRequest("Re: Test subject");
             when(mailDraftService.createReplyDraft(entity, "<p>Hello</p>", false)).thenReturn(expectedDraft);
 
@@ -139,7 +139,7 @@ class MailFacadeTest {
         @DisplayName("replyAll=true is forwarded into createReplyDraft")
         void shouldPassReplyAllFlag() {
             when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(entity));
-            when(mailContentService.getOrFetchMessageContent(MESSAGE_ID)).thenReturn("content");
+            when(mailContentService.getOrFetchQuotableContent(MESSAGE_ID)).thenReturn("content");
             MailRequest expectedDraft = dummyMailRequest("Re: Test subject");
             when(mailDraftService.createReplyDraft(entity, "content", true)).thenReturn(expectedDraft);
 
@@ -161,7 +161,7 @@ class MailFacadeTest {
         @DisplayName("On content-fetch failure, falls back to cached content")
         void shouldFallbackToCachedContentOnMailOperationException() {
             when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(entity));
-            when(mailContentService.getOrFetchMessageContent(MESSAGE_ID))
+            when(mailContentService.getOrFetchQuotableContent(MESSAGE_ID))
                     .thenThrow(new MailOperationException(ErrorCode.MAIL_CONNECTION_ERROR, "IMAP down"));
             MailRequest expectedDraft = dummyMailRequest("Re: Test subject");
             when(mailDraftService.createReplyDraft(entity, "Cached content", false)).thenReturn(expectedDraft);
@@ -178,7 +178,7 @@ class MailFacadeTest {
         void shouldFallbackToEmptyStringWhenCachedContentIsNull() {
             entity.setContent(null);
             when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(entity));
-            when(mailContentService.getOrFetchMessageContent(MESSAGE_ID))
+            when(mailContentService.getOrFetchQuotableContent(MESSAGE_ID))
                     .thenThrow(new ResourceNotFoundException("Content not found"));
             MailRequest expectedDraft = dummyMailRequest("Re: Test subject");
             when(mailDraftService.createReplyDraft(entity, "", false)).thenReturn(expectedDraft);
@@ -198,7 +198,7 @@ class MailFacadeTest {
         @DisplayName("Returns a forward draft when the message exists")
         void shouldReturnForwardDraftWhenMessageExists() {
             when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(entity));
-            when(mailContentService.getOrFetchMessageContent(MESSAGE_ID)).thenReturn("<p>Original</p>");
+            when(mailContentService.getOrFetchQuotableContent(MESSAGE_ID)).thenReturn("<p>Original</p>");
             MailRequest expectedDraft = dummyMailRequest("Fwd: Test subject");
             when(mailDraftService.createForwardDraft(entity, "<p>Original</p>")).thenReturn(expectedDraft);
 
@@ -221,7 +221,7 @@ class MailFacadeTest {
         @DisplayName("On IMAP failure, falls back to cached content")
         void shouldFallbackToCachedContentOnError() {
             when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(entity));
-            when(mailContentService.getOrFetchMessageContent(MESSAGE_ID))
+            when(mailContentService.getOrFetchQuotableContent(MESSAGE_ID))
                     .thenThrow(new MailOperationException(ErrorCode.MAIL_CONNECTION_ERROR, "timeout"));
             MailRequest expectedDraft = dummyMailRequest("Fwd: Test subject");
             when(mailDraftService.createForwardDraft(entity, "Cached content")).thenReturn(expectedDraft);

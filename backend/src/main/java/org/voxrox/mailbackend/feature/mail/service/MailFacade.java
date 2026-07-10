@@ -360,7 +360,10 @@ public class MailFacade {
      * All-or-nothing endpoint for the message content itself. On failure the
      * exception propagates — the caller (controller) lets it fall through to
      * {@code GlobalExceptionHandler}, which returns a ProblemDetail with
-     * {@code errorCode}. No fallback strings in the {@code content} field.
+     * {@code errorCode}. No error-fallback strings in the {@code content} field;
+     * the one deliberate substitution is the B1-1 oversize placeholder, which
+     * {@link MailContentService} serves as the canonical content of a body over the
+     * byte cap.
      */
     public MailContentResponse getMessageContentOnly(String stableId) {
         MessageEntity entity = messageService.getByStableId(stableId)
@@ -377,14 +380,16 @@ public class MailFacade {
      * Per-item isolation for reply/forward drafts: if the current content cannot be
      * loaded, the draft is not abandoned — it uses the cached DB version or an
      * empty string. The caller (UI) may surface a user-friendly hint, but the draft
-     * is functional.
+     * is functional. An oversized body (B1-1) quotes as empty — never as the
+     * "message too large" placeholder (see
+     * {@link MailContentService#getOrFetchQuotableContent}).
      * <p>
      * The failure is logged loudly with a full stack trace — this is not a "silent
      * fallback".
      */
     private String fetchContentSafe(MessageEntity entity) {
         try {
-            return mailContentService.getOrFetchMessageContent(entity.getId());
+            return mailContentService.getOrFetchQuotableContent(entity.getId());
         } catch (MailOperationException | ResourceNotFoundException e) {
             log.warn("{} Unable to load content for draft (message {}, {}): {}", LogCategory.SYNC, entity.getStableId(),
                     e.getCode(), e.getMessage(), e);

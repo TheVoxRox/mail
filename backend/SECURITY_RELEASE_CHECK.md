@@ -149,7 +149,8 @@ Verdikt **PASS**, bez zásahu do kódu. Ověřeno proti `d55b753`.
 Full audit protokolové vrstvy (transport, fetch→parse→persist, hlavičky,
 attachment download, SMTP send), plný zápis v
 [docs/IMAP_SMTP_AUDIT.md](../docs/IMAP_SMTP_AUDIT.md). Verdikt **PASS** — jeden
-Medium DoS nález (B1-1) jako přijaté reziduum AR-3. Ověřeno proti `35a06f3`.
+Medium DoS nález (B1-1) přijat jako reziduum AR-3 a následně **opraven v kódu
+2026-07-10** (viz poslední položka). Ověřeno proti `35a06f3`.
 
 - [x] Hostname verification `ssl.checkserveridentity=true` explicitně na IMAP store, SMTP transportu i credential probe.
 - [x] OAuth2 token nikdy v cleartextu — fail-closed na OBOU protokolech: SMTP `requireSslForOAuth2`, IMAP CRITICAL `imap_oauth2_plaintext_blocked`; STARTTLS `required=true`.
@@ -157,7 +158,7 @@ Medium DoS nález (B1-1) jako přijaté reziduum AR-3. Ověřeno proti `35a06f3`
 - [x] Strukturální DoS bounded: MIME depth 20, References walk 50, inline images 2 MiB/image + 8 MiB/zpráva (`readBounded`); malformed BODYSTRUCTURE → envelope-only stub (fail-soft).
 - [x] `From` je display-only data (RFC 2047 decode), do DB/FTS jako data, nikdy do body iframe; jediná security-load cesta (remote-image allowlist) je keyed na spoofovatelný From, ovlivní jen načtení obrázků (parametrizované dotazy). UIDVALIDITY cross-check resetuje sync state.
 - [x] Attachment download streamovaný na disk (`Files.copy`, konstantní heap) + empty-download integrity check + stale-temp sweep.
-- [ ] **B1-1 (Medium, AR-3):** tělo zprávy se načítá `getContent().toString()` bez size capu → nepřátelský server může velkým tělem vyčerpat heap při otevření zprávy. Přijaté reziduum V0.1.0 (self-inflicted local DoS, recoverable, vyžaduje user interakci, žádná perzistence). Doporučený fix: bounded body read + "message too large — download original" placeholder.
+- [x] **B1-1 (Medium, dříve AR-3) — FIXED 2026-07-10:** tělo zprávy se nově čte přes bounded `getInputStream()` s capem 8 MiB (stejný `readBounded` vzor jako inline obrázky; `mail.<proto>.partialfetch=true` explicitně připnutý, aby streaming garance nemohla zregresovat). Příliš velké tělo se nikdy nebufferuje ani neukládá — best-effort se persistuje příznak `messages.body_oversize`, detail vrací lokalizovaný placeholder (`mail.message.bodyTooLarge`) a další otevření už na IMAP nesahá; reply/forward cituje prázdné tělo, ne placeholder. `multipart/alternative` při oversized rich části degraduje na textovou alternativu bez ohledu na pořadí částí. AR-3 odstraněno z threat modelu (change log 2.2); pokryto `MimePartExtractorTest` + `MailContentServiceTest`.
 
 ## Použité příkazy
 
