@@ -262,7 +262,10 @@ public class ContactService {
         // request.email() is @NotBlank-validated, so the normalized form exists.
         String normalized = Objects.requireNonNull(contactMapper.normalizeEmail(request.email()));
         if (entity.getEmails().stream().anyMatch(e -> normalized.equals(e.getEmail()))) {
-            throw new ValidationException("The contact already has the e-mail address " + normalized + ".",
+            // Internal message is log-bound (GlobalExceptionHandler) -> masked;
+            // the localized client response carries the raw argument.
+            throw new ValidationException(
+                    "The contact already has the e-mail address " + LogMasker.maskEmail(normalized) + ".",
                     "validation.contact.emailAlreadyOnContact", normalized);
         }
         contactRepository.findByAccountIdAndAnyEmail(accountId, normalized).stream()
@@ -489,7 +492,11 @@ public class ContactService {
         Set<String> seen = new HashSet<>();
         for (String email : emails) {
             if (!seen.add(email)) {
-                throw new ValidationException("E-mail " + email + " appears more than once in the list.",
+                // Internal message is log-bound (GlobalExceptionHandler, bulk
+                // results) -> masked; the localized client response carries the
+                // raw argument.
+                throw new ValidationException(
+                        "E-mail " + LogMasker.maskEmail(email) + " appears more than once in the list.",
                         "validation.contact.emailDuplicateInRequest", email);
             }
         }
