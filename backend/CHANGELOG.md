@@ -24,6 +24,7 @@ When upgrading to a new MAJOR/MINOR backend version the DB schema migrates forwa
 - Startup health gate: a failing `PRAGMA quick_check` raises `IllegalStateException` with a recovery message pointing to `OPERATIONS.md` and emits the audit event `startup_health_gate_failed`.
 - Translation whitelist lint (`backend/scripts/check-translation-whitelist.sh`) wired into CI; non-whitelisted Czech text in `backend/src/main/java` is a build failure.
 - JEP 483 AOT cache opt-in via `backend/scripts/package-sidecar-windows.ps1 -EnableAotCache` (cold start −37 % on a plain `java -jar` baseline, see `PERFORMANCE_BASELINE.md`).
+- Hostile-content IMAP harness (`MailContentGreenMailIT`): the B1-1 bounded body fetch, order-agnostic alternative selection, `multipart/related` alternative rendering and both charset paths are now exercised end-to-end over a live in-process IMAP server through the production Angus client stack (partial fetch included) — the dynamic complement to the static Boundary 1 audit. GreenMail 2.1.9 fidelity bugs found en route (empty `BODY[TEXT]` for single-part messages; partial-fetch response without the RFC 3501 origin-octet marker) are documented in the test javadoc; those two shapes stay unit-covered.
 - Spring AOT activated via Maven profile `aot` (`mvn -Paot package`).
 
 ### Changed
