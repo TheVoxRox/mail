@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| **Version** | 1.0 |
-| **Date** | 2026-07-09 |
+| **Version** | 1.2 |
+| **Date** | 2026-07-10 |
 | **Applies to** | VoxRox Mail V0.1.0 |
 | **Audited commit** | `35a06f3` |
 | **Auditor** | Claude (Fable 5) + owner review |
@@ -19,7 +19,9 @@ persist pipeline, the threading header walk, the attachment download path, and
 the SMTP send path; data-flow of the two riskiest inputs (message body, `From`
 header). Enumeration anchor — the mail service classes:
 `rg -l "class .*(Imap|Smtp|Mail|Message|Mime|Folder|Sync|Flag)" backend/src/main/java/org/voxrox/mailbackend/feature/mail/service backend/src/main/java/org/voxrox/mailbackend/util`.
-Method is static-only (no live hostile-server harness) — see
+Method was static-only at 1.0; since 1.2 the fetch → parse → persist path also
+has a dynamic hostile-content harness (`MailContentGreenMailIT`, see §4) —
+transport/TLS and SMTP-send claims remain static-plus-unit-tests, see
 [AUDIT_GUIDE.md](AUDIT_GUIDE.md).
 
 ## 1. Transport & authentication (confirmed)
@@ -170,6 +172,20 @@ short-circuit). The truncate-and-offer-original UX remains a possible future
 enhancement; the placeholder points the user at their mail provider for the
 full message.
 
+**Dynamic verification (added 2026-07-10).** `MailContentGreenMailIT` exercises
+the fix over a live in-process IMAP server through the full production client
+stack (Angus partial fetch included): an 8 MiB+ body delivered to GreenMail
+opens as the localized placeholder with the flag persisted and — proven by
+deleting the message server-side between opens — is never re-fetched; the
+order-agnostic alternative fallback, the `multipart/related` alternative
+selection and both charset paths (declared ISO-8859-2, unknown-charset UTF-8
+fallback) are verified over the wire as well. Two GreenMail 2.1.9 fidelity
+bugs found while building the harness bound its coverage (documented in the
+test's javadoc with raw-protocol evidence): `BODY[TEXT]` of a single-part
+message serves an empty literal, and partial-fetch responses omit the RFC 3501
+origin-octet marker — so the single-part body shape and wire-level cid
+inlining stay covered at the unit level (`MimePartExtractorTest`).
+
 ## 5. Informational note (no change required)
 
 - **Attachment download is disk-bounded, not memory-bounded.**
@@ -190,6 +206,13 @@ full message.
 
 ## 7. Change log
 
+- **1.2** (2026-07-10) — dynamic hostile-content harness added
+  (`MailContentGreenMailIT`): the §4 fix and the fetch→parse pipeline claims
+  are now exercised over a live IMAP server through the production client
+  stack, closing part of the static-only limitation recorded at 1.0. GreenMail
+  fidelity limits (empty `BODY[TEXT]` for single-part messages; partial-fetch
+  response without the origin-octet marker) keep the single-part shape and
+  wire-level cid inlining unit-covered only.
 - **1.1** (2026-07-10) — finding B1-1 **fixed**: body reads bounded at 8 MiB
   via the inline-image `readBounded` pattern, oversized bodies replaced by a
   localized placeholder behind the persisted `messages.body_oversize` flag
