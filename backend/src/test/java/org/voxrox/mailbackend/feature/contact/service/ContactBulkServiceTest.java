@@ -149,7 +149,10 @@ class ContactBulkServiceTest {
         assertThat(failed.status()).isEqualTo(BulkContactCreateResult.Status.FAILED);
         assertThat(failed.errorCode()).isEqualTo("CONTACT_DUPLICATE");
         assertThat(failed.contact()).isNull();
-        assertThat(failed.errorMessage()).contains("dup@x.cz");
+        // The per-item message is the exception's internal (log-bound) text, so
+        // the address is masked (log hygiene re-audit 2026-07-10); the item is
+        // identified by index + errorCode.
+        assertThat(failed.errorMessage()).contains("d***p@x.cz").doesNotContain("dup@x.cz");
     }
 
     @Test

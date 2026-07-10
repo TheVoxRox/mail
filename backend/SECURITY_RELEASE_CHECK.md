@@ -79,6 +79,29 @@ Reziduum / poznámky:
 - Backendový sink `/internal/client-errors` zatím **neexistuje** (frontend se self-disabluje na HTTP 404); až vznikne, musí logovat bounded a bez echo PII/stacku do `audit.log`.
 - `LogMasker.maskEmail` zachovává plnou doménu (`j***k@seznam.cz`) — vědomý kompromis pro debug. `AccountEntity.toString` ponechává `displayName`/`accountName` (uživatelské labely, ne unikátní identifikátor).
 
+## Log hygiene re-audit (2026-07-10)
+
+Re-audit obou log streamů proti `2a1c865` (main po B1-1 fixu #139 a
+hostile-content harnessu #141). Enumerace (reprodukovatelné):
+287 log míst v 62 souborech (`rg -c "log\.(trace|debug|info|warn|error)\("
+backend/src/main/java`), 68 AuditLog volání ve 21 souborech
+(`rg "AuditLog\.(success|failure|critical)\("`), 68 callerů
+`LogMasker.maskEmail/lazyEmail` ve 24 souborech.
+
+- [x] **CWE-117 řešeno strukturálně:** `logback-spring.xml` přepíná `%m`/`%msg`/`%message` na `CrlfSafeMessageConverter` (CR/LF strip) — platí pro všechny appendery včetně `audit.log`, takže attacker-influenced hodnoty (IMAP folder names, URI, exception texty) nemohou forgovat log řádky. Chokepoint, ne per-místo kázeň.
+- [x] Prod level INFO (`org.hibernate.SQL=ERROR`), dev DEBUG jen pod dev profilem. Rotace: `mail.log` 10 MB/7 dní/100 MB cap; `audit.log` 10 MB/365 dní/500 MB cap, `additivity=false`. Oba pod `${app.data-dir}/logs` (privátní ACL data adresáře — viz B5 audit).
+- [x] Žádný `session.setDebug`/`mail.debug` (0 výskytů) — IMAP/SMTP protokol včetně AUTH a těl se nedumpuje.
+- [x] Obsah zpráv se nedostává do logu: search loguje jen **počet znaků** dotazu (`MailReadController`), remote-image allowlist záměrně neloguje sender („allowed for a sender on account {}"), B1-1 oversize cesta loguje jen uid + limit, `MimePartExtractor` loguje jen cid/limity. Entity toString v log statementech: 0 výskytů (multiline grep).
+- [x] Audit stream (68 eventů) drží pravidla `AuditLog`: actor = `account=<id>` / `system` / maskovaný email; detail = event kódy, ID a `getClass().getSimpleName()` — žádné tokeny, žádné raw emaily, žádná těla.
+- [x] Frontend: `tauri-plugin-log` v prod píše jen do `logs/mail-frontend*` a Rust strana loguje 4 statické cesty (start, data root, log dir, WebView2 dir); **žádný `attachConsole`** → JS konzole se nikam nepersistuje. `clientErrors.ts`: truncace 4000, jen loopback s `X-API-KEY`, self-disable na 404/501; sink `/internal/client-errors` stále neexistuje (reziduum z 2026-06-13 trvá).
+- [x] **Opraveno (L1, Low): raw e-mail v interních textech výjimek.** `GlobalExceptionHandler` loguje `ex.getMessage()` na WARN a `ContactBulkService` vrací/loguje per-item `e.getMessage()` — čtyři interní texty nesly nemaskovaný e-mail a obcházely tak masker: `AccountAlreadyExistsException`, `DuplicateContactException`, `ContactService.addEmail` (adresa už na kontaktu) a `ContactService.checkNoDuplicatesWithinAccount` (duplicita v requestu). Interní texty nově maskují přes `LogMasker.maskEmail`; lokalizovaná odpověď klientovi (messageKey + raw argument) beze změny. Vedlejší efekt: bulk-create per-item message nese maskovaný e-mail — položku dál jednoznačně určuje `index` + `errorCode`.
+
+Reziduum / poznámky:
+
+- `db_backup_failed` je jediný audit event s raw `e.getMessage()` (SQLite) — lokální původ (vlastní DB, ne attacker-controlled), CRLF-safe, ponecháno kvůli diagnostice obnovy.
+- Jackson „unreadable JSON" neechuje payload do logu — source-in-location je v Jackson 3 default vypnuté; spoléháme na default (bez explicitního testu).
+- Upgrade path: maskování e-mailových vzorů přímo v `CrlfSafeMessageConverter` by pravidlo „žádný raw e-mail v logu" vynutilo chokepointem i pro budoucí log místa; dnes je pravidlo drženo per-místo kázní + tímto re-auditem.
+
 ## cargo audit — Rust/Tauri závislosti (2026-06-13)
 
 `cargo audit` (RustSec advisory DB) nad `frontend/src-tauri/Cargo.lock`
