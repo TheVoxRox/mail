@@ -2,10 +2,10 @@
 
 | | |
 |---|---|
-| **Version** | 1.2 |
-| **Date** | 2026-07-09 |
+| **Version** | 1.3 |
+| **Date** | 2026-07-10 |
 | **Applies to** | VoxRox Mail V0.1.0 |
-| **Audited commit** | `d55b753` (claims re-verified 2026-07-09) |
+| **Audited commit** | `d55b753` (claims re-verified 2026-07-10 against `fc71cb4`) |
 | **Subsystem** | Untrusted email HTML rendering — Boundary 4 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md) |
 | **Verdict** | **Security: PASS** (no exploitable finding). F1 (dead links), F2 (embedded images + remote-image opt-in) and F3 (plain-text fidelity) all **fixed**. |
 
@@ -34,7 +34,10 @@ IMAP raw body
    `<div class="mail-content-wrapper">`. **Fail-closed**: any parser/sanitizer
    exception returns a "content blocked" placeholder, never raw HTML. Invoked
    from [MailContentService.getOrFetchMessageContent](../backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailContentService.java)
-   and persisted, so the stored body is already sanitized.
+   and persisted, so the stored body is already sanitized. The one body served
+   *without* persistence is the B1-1 oversize placeholder — a first-party
+   localized string routed through the same `escapePlainText` wrapper, never
+   attacker-controlled (see [IMAP_SMTP_AUDIT.md](IMAP_SMTP_AUDIT.md) §4).
 
 2. **Frontend — stricter re-sanitize.** [content-sanitizer.ts](../frontend/src/lib/mail/content-sanitizer.ts):
    independent tag/attribute allow-list; unknown tags are unwrapped (children
@@ -83,8 +86,13 @@ IMAP raw body
       attribute to `src` and relaxes the frame CSP to `img-src data: https:`
       with a `no-referrer` meta — a user-initiated, image-only exposure.
 - [x] **Reverse tabnabbing** — `rel="noopener noreferrer nofollow"` at both layers.
-- [x] **DoS** — MIME recursion capped at `MAX_DEPTH=20`
-      ([MimePartExtractor.java](../backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java)).
+- [x] **DoS** — every read in
+      [MimePartExtractor.java](../backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java)
+      is bounded: MIME recursion capped at `MAX_DEPTH=20`, inline images at
+      2 MiB/image + 8 MiB/message, and — since the B1-1 fix (2026-07-10) — the
+      body text itself at 8 MiB via a bounded `getInputStream()` read; an
+      oversized body renders as a localized placeholder
+      ([IMAP_SMTP_AUDIT.md](IMAP_SMTP_AUDIT.md) §4).
 - [x] **Fail-closed** — sanitizer error returns a placeholder, not raw HTML.
 
 The shipping code matches Boundary 4 of the threat model. No exploitable
@@ -242,6 +250,15 @@ bridge restores working links without changing the sandbox.
 
 ## 7. Change log
 
+- **1.3** (2026-07-10) — claims re-verified against `fc71cb4` after the B1-1
+  bounded-body-fetch fix landed upstream of layer [1] (bounded 8 MiB body read,
+  order-agnostic `selectAlternative` that also renders `multipart/related`
+  alternatives, un-persisted localized oversize placeholder, reply/forward
+  quoting oversize as empty). All new content paths flow through the existing
+  `sanitize`/`escapePlainText` chokepoint — the verdict and both frontend
+  layers are unchanged (re-checked: no `{@html}`/DOM sinks, `sanitizeMailHtml`
+  consumed only by the frame builder, `<pre>` allow-listed). §1 notes the
+  placeholder nuance; §2 DoS row trued to the full set of byte caps.
 - **1.2** (2026-07-09) — added the audited-commit header row (`d55b753`,
   claims re-verified during the truing pass). No content change.
 - **1.1** (2026-07-09) — trued §1/§2 to the shipped F2 remote-image opt-in
