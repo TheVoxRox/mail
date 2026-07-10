@@ -45,4 +45,18 @@ public class MessageContentPersister {
             return content;
         }).orElse(content);
     }
+
+    /**
+     * Marks the message body as oversized (IMAP/SMTP audit finding B1-1) in its own
+     * transaction. Nothing is cached in {@code content} — the flag alone stops
+     * every later open from re-fetching the oversized body from IMAP.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void markBodyOversize(Long id) {
+        messageRepository.findById(id).ifPresent(entity -> {
+            entity.setBodyOversize(true);
+            messageRepository.save(entity);
+            log.debug("{} Body marked oversize for id={}", LogCategory.SYNC, id);
+        });
+    }
 }

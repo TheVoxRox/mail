@@ -6,10 +6,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.Locale;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -19,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.MessageSource;
 import org.voxrox.mailbackend.exception.ResourceNotFoundException;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
@@ -29,13 +32,15 @@ import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
  *
  * Mocks: - {@link ImapFolderExecutor} — IMAP communication -
  * {@link MessageRepository} — DB access - {@link MessageContentPersister} —
- * cache writer with @Transactional(REQUIRES_NEW).
+ * cache writer with @Transactional(REQUIRES_NEW) - {@link MessageSource} — the
+ * localized oversize placeholder.
  *
  * Covers: - Cache hit: content already in DB -> returned directly, no IMAP call
  * - Cache miss: content missing -> fetched from IMAP, saved, returned - Entity
  * not found -> ResourceNotFoundException - IMAP message null (deleted on the
  * server) -> ResourceNotFoundException - Blank content -> behaves like a cache
- * miss.
+ * miss - Oversized body (audit B1-1): flag persisted, placeholder served, no
+ * IMAP re-fetch on later opens.
  */
 @ExtendWith(MockitoExtension.class)
 class MailContentServiceTest {
@@ -56,11 +61,14 @@ class MailContentServiceTest {
     @Mock
     private MessageContentPersister contentPersister;
 
+    @Mock
+    private MessageSource messageSource;
+
     private MailContentService service;
 
     @BeforeEach
     void setUp() {
-        service = new MailContentService(folderExecutor, messageRepository, contentPersister);
+        service = new MailContentService(folderExecutor, messageRepository, contentPersister, messageSource);
     }
 
     // ---- helpers ----
@@ -118,10 +126,10 @@ class MailContentServiceTest {
                 when(messageRepository.findById(MESSAGE_ID)).thenReturn(Optional.of(entity));
 
                 // Because MimePartExtractor and HtmlSanitizer are static utilities, we let
-                // executeReadOnly return FETCHED_CONTENT directly — we verify the logic
+                // executeReadOnly return the sanitized body directly — we verify the logic
                 // around the cache-miss path, not MIME parsing.
                 when(folderExecutor.executeReadOnly(eq(ACCOUNT_ID), eq(FOLDER_NAME), any()))
-                        .thenReturn(FETCHED_CONTENT);
+                        .thenReturn(new MailContentService.FetchedBody(FETCHED_CONTENT, false));
                 when(contentPersister.updateLocalCache(MESSAGE_ID, FETCHED_CONTENT)).thenReturn(FETCHED_CONTENT);
 
                 // Act
@@ -141,7 +149,7 @@ class MailContentServiceTest {
                 when(messageRepository.findById(MESSAGE_ID)).thenReturn(Optional.of(entity));
 
                 when(folderExecutor.executeReadOnly(eq(ACCOUNT_ID), eq(FOLDER_NAME), any()))
-                        .thenReturn(FETCHED_CONTENT);
+                        .thenReturn(new MailContentService.FetchedBody(FETCHED_CONTENT, false));
                 when(contentPersister.updateLocalCache(MESSAGE_ID, FETCHED_CONTENT)).thenReturn(FETCHED_CONTENT);
 
                 // Act
@@ -186,6 +194,94 @@ class MailContentServiceTest {
                 assertThatThrownBy(() -> service.getOrFetchMessageContent(MESSAGE_ID))
                         .isInstanceOf(ResourceNotFoundException.class).hasMessageContaining(String.valueOf(UID));
 
+                verify(contentPersister, never()).updateLocalCache(anyLong(), anyString());
+            }
+        }
+
+        @Nested
+        @DisplayName("Oversized body (audit B1-1)")
+        class OversizedBody {
+
+            private static final String PLACEHOLDER_TEXT = "Message is too large to display.";
+
+            private void stubPlaceholderMessage() {
+                when(messageSource.getMessage(eq("mail.message.bodyTooLarge"), any(), any(Locale.class)))
+                        .thenReturn(PLACEHOLDER_TEXT);
+            }
+
+            @Test
+            @DisplayName("An oversized fetch persists the flag and returns the placeholder, nothing is cached")
+            void oversizedFetchPersistsFlagAndReturnsPlaceholder() {
+                MessageEntity entity = createMessageEntity(null);
+                when(messageRepository.findById(MESSAGE_ID)).thenReturn(Optional.of(entity));
+                when(folderExecutor.executeReadOnly(eq(ACCOUNT_ID), eq(FOLDER_NAME), any()))
+                        .thenReturn(new MailContentService.FetchedBody("", true));
+                stubPlaceholderMessage();
+
+                String result = service.getOrFetchMessageContent(MESSAGE_ID);
+
+                // The placeholder goes through the same wrapper as a real body.
+                assertThat(result).contains(PLACEHOLDER_TEXT).contains("mail-content-wrapper");
+                verify(contentPersister).markBodyOversize(MESSAGE_ID);
+                verify(contentPersister, never()).updateLocalCache(anyLong(), anyString());
+            }
+
+            @Test
+            @DisplayName("A persisted oversize flag short-circuits: placeholder served, IMAP never called")
+            void persistedFlagShortCircuitsImap() {
+                MessageEntity entity = createMessageEntity(null);
+                entity.setBodyOversize(true);
+                when(messageRepository.findById(MESSAGE_ID)).thenReturn(Optional.of(entity));
+                stubPlaceholderMessage();
+
+                String result = service.getOrFetchMessageContent(MESSAGE_ID);
+
+                assertThat(result).contains(PLACEHOLDER_TEXT);
+                verify(folderExecutor, never()).executeReadOnly(anyLong(), anyString(), any());
+                verify(contentPersister, never()).updateLocalCache(anyLong(), anyString());
+            }
+
+            @Test
+            @DisplayName("A failed flag persist still serves the placeholder (flag is an optimization)")
+            void failedFlagPersistStillServesPlaceholder() {
+                MessageEntity entity = createMessageEntity(null);
+                when(messageRepository.findById(MESSAGE_ID)).thenReturn(Optional.of(entity));
+                when(folderExecutor.executeReadOnly(eq(ACCOUNT_ID), eq(FOLDER_NAME), any()))
+                        .thenReturn(new MailContentService.FetchedBody("", true));
+                doThrow(new RuntimeException("db locked")).when(contentPersister).markBodyOversize(MESSAGE_ID);
+                stubPlaceholderMessage();
+
+                String result = service.getOrFetchMessageContent(MESSAGE_ID);
+
+                assertThat(result).contains(PLACEHOLDER_TEXT);
+                verify(contentPersister, never()).updateLocalCache(anyLong(), anyString());
+            }
+
+            @Test
+            @DisplayName("Quotable content is empty for an oversize-flagged message, never the placeholder")
+            void quotableContentIsEmptyForFlaggedMessage() {
+                MessageEntity entity = createMessageEntity(null);
+                entity.setBodyOversize(true);
+                when(messageRepository.findById(MESSAGE_ID)).thenReturn(Optional.of(entity));
+
+                String result = service.getOrFetchQuotableContent(MESSAGE_ID);
+
+                assertThat(result).isEmpty();
+                verify(folderExecutor, never()).executeReadOnly(anyLong(), anyString(), any());
+            }
+
+            @Test
+            @DisplayName("Quotable content is empty when the oversize is detected during the fetch")
+            void quotableContentIsEmptyWhenOversizeDetectedOnFetch() {
+                MessageEntity entity = createMessageEntity(null);
+                when(messageRepository.findById(MESSAGE_ID)).thenReturn(Optional.of(entity));
+                when(folderExecutor.executeReadOnly(eq(ACCOUNT_ID), eq(FOLDER_NAME), any()))
+                        .thenReturn(new MailContentService.FetchedBody("", true));
+
+                String result = service.getOrFetchQuotableContent(MESSAGE_ID);
+
+                assertThat(result).isEmpty();
+                verify(contentPersister).markBodyOversize(MESSAGE_ID);
                 verify(contentPersister, never()).updateLocalCache(anyLong(), anyString());
             }
         }

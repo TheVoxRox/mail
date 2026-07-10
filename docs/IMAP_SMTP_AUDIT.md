@@ -8,7 +8,7 @@
 | **Audited commit** | `35a06f3` |
 | **Auditor** | Claude (Fable 5) + owner review |
 | **Subsystem** | External mail server ↔ sidecar — Boundary 1 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md) |
-| **Verdict** | **Security: PASS** — no exploitable finding. One Medium DoS gap (**B1-1**, unbounded body fetch) documented as an accepted residual with a recommended fix; one Low informational note. |
+| **Verdict** | **Security: PASS** — no exploitable finding. One Medium DoS gap (**B1-1**, unbounded body fetch) documented as an accepted residual at audit time and **fixed in code on 2026-07-10** (§4); one Low informational note. |
 
 Full per-subsystem audit of the path **"raw IMAP/SMTP wire → parsed → stored /
 sent"**. After the mail body (Boundary 4), this is the second-largest
@@ -103,7 +103,7 @@ Method is static-only (no live hostile-server harness) — see
   renumbers its mailbox (or an active-MITM UID desync, B1-T) cannot silently
   map local rows onto different server messages.
 
-## 4. Finding B1-1 (Medium) — unbounded message-body fetch
+## 4. Finding B1-1 (Medium) — unbounded message-body fetch — **FIXED**
 
 **What.** [MailContentService.getOrFetchMessageContent](../backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailContentService.java)
 → `MimePartExtractor.extractBody` reads the selected `text/plain` / `text/html`
@@ -135,10 +135,40 @@ larger follow-up. Deliberately **not** implemented autonomously because a naïve
 truncation mangles legitimate large newsletters and needs a product decision on
 the fallback UX.
 
-**Residual (accepted for V0.1.0).** The gap is a self-inflicted local DoS by a
-server the user has chosen to connect to, recoverable by restart, requiring
-user interaction, and leaving no persistent damage. Accepted for the initial
-release with the fix tracked as the upgrade path.
+**Residual (accepted for V0.1.0 — since closed by the fix below).** The gap is
+a self-inflicted local DoS by a server the user has chosen to connect to,
+recoverable by restart, requiring user interaction, and leaving no persistent
+damage. Accepted for the initial release with the fix tracked as the upgrade
+path.
+
+**Fix (shipped 2026-07-10).** `MimePartExtractor` now reads every selected
+`text/plain` / `text/html` body part through the same bounded stream as inline
+images (`readBounded` over `getInputStream()`), capped at
+`MAX_BODY_BYTES = 8 MiB` of transfer-decoded bytes. The streaming guarantee the
+cap depends on — Angus IMAP serving the part in 16 KiB partial fetches — is now
+pinned explicitly (`mail.<proto>.partialfetch=true` in
+`ImapConnectionManager`), matching how `checkserveridentity` is pinned rather
+than trusted to the library default. Charset decoding happens after the cap; an
+unknown or malformed charset degrades to a UTF-8 decode with replacement
+characters instead of failing the message. A part over the cap yields
+`ExtractedBody.OVERSIZE`; `multipart/alternative` selection is order-agnostic —
+an oversized rich part falls back to any plain-text sibling that fits, whether
+or not the sender emitted RFC 2046 plain-first order (a nested
+`multipart/related` alternative, the Apple Mail HTML+inline-images layout, now
+also renders instead of being skipped). On an oversized body,
+`MailContentService` persists the new `messages.body_oversize` flag —
+best-effort, and `content` stays NULL so the FTS index never sees placeholder
+text — and serves a localized "message too large" placeholder
+(`mail.message.bodyTooLarge`) through the standard plain-text wrapper.
+Subsequent opens short-circuit on the flag, so the oversized body costs at most
+one bounded fetch. Reply/forward drafts quote an oversized original as an empty
+body (`getOrFetchQuotableContent`), never as the placeholder. Covered by
+`MimePartExtractorTest` (cap, charset decode, order-agnostic alternative
+fallback, related-alternative rendering) and `MailContentServiceTest` (flag
+persistence incl. persist-failure resilience, placeholder, quotable-empty, IMAP
+short-circuit). The truncate-and-offer-original UX remains a possible future
+enhancement; the placeholder points the user at their mail provider for the
+full message.
 
 ## 5. Informational note (no change required)
 
@@ -160,6 +190,12 @@ release with the fix tracked as the upgrade path.
 
 ## 7. Change log
 
+- **1.1** (2026-07-10) — finding B1-1 **fixed**: body reads bounded at 8 MiB
+  via the inline-image `readBounded` pattern, oversized bodies replaced by a
+  localized placeholder behind the persisted `messages.body_oversize` flag
+  (no re-fetch, no FTS pollution), `multipart/alternative` falls back to a
+  fitting plain-text part. Accepted residual AR-3 removed from the threat
+  model. §4 records the fix; the informational note in §5 is unchanged.
 - **1.0** (2026-07-09) — initial full audit; all Boundary 1 STRIDE mitigations
   verified against `35a06f3`. Finding B1-1 (unbounded body fetch) recorded as
   an accepted residual with a recommended fix.

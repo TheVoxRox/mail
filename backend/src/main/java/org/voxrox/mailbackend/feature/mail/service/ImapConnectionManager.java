@@ -394,6 +394,15 @@ public class ImapConnectionManager {
         props.put("mail." + protocol + ".ssl.checkserveridentity", "true");
 
         /*
+         * Pin partial fetch ON (the Angus default) rather than trusting it: the B1-1
+         * bounded body read (MimePartExtractor.readBounded) only bounds the heap
+         * because getInputStream() streams the part in fetchsize chunks — with
+         * partialfetch off, Angus buffers the entire (attacker-sized) part before the
+         * cap ever runs.
+         */
+        props.put("mail." + protocol + ".partialfetch", "true");
+
+        /*
          * JavaMail's PropUtil only reads String/Integer values from Properties — a raw
          * Duration object is silently ignored, leaving the connection with no effective
          * timeout. Always pass String.valueOf(...).toMillis(), matching what

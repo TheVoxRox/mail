@@ -197,6 +197,10 @@ CREATE TABLE messages (
     recipients_to    TEXT,
     recipients_cc    TEXT,
     content          TEXT,
+    -- Set when the body exceeded the extractor's byte cap (audit B1-1):
+    -- content stays NULL, the API serves a localized placeholder and never
+    -- re-fetches the oversized body from IMAP.
+    body_oversize    BOOLEAN       NOT NULL DEFAULT 0,
     received_at      DATETIME      NOT NULL,
     seen             BOOLEAN       NOT NULL DEFAULT 0,
     flagged          BOOLEAN       NOT NULL DEFAULT 0,

@@ -72,6 +72,15 @@ public class MessageEntity {
     @Column(columnDefinition = "TEXT")
     private @Nullable String content;
 
+    /**
+     * Set when the message body exceeded the extractor's byte cap (IMAP/SMTP audit
+     * finding B1-1). {@code content} then stays {@code null} — the API serves a
+     * localized placeholder instead, and the flag short-circuits any further IMAP
+     * re-fetch of the oversized body.
+     */
+    @Column(name = "body_oversize", nullable = false)
+    private boolean bodyOversize;
+
     @Column(name = "received_at", nullable = false)
     private LocalDateTime receivedAt;
 
@@ -259,6 +268,14 @@ public class MessageEntity {
 
     public void setContent(@Nullable String content) {
         this.content = content;
+    }
+
+    public boolean isBodyOversize() {
+        return bodyOversize;
+    }
+
+    public void setBodyOversize(boolean bodyOversize) {
+        this.bodyOversize = bodyOversize;
     }
 
     public LocalDateTime getReceivedAt() {
