@@ -55,8 +55,6 @@
 			"identifier": "shell:allow-kill",
 			"allow": [{ "name": "binaries/mail", "sidecar": true, "args": false }]
 		},
-		"shell:allow-open",
-		"updater:allow-check",
-		"updater:allow-download-and-install"
+		"shell:allow-open"
 	]
 }

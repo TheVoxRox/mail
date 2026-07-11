@@ -599,6 +599,14 @@
 				"backendUnavailable": "unavailable",
 				"checkUpdates": "Check for updates",
 				"checkingUpdates": "Checking…",
+				"channel": {
+					"label": "Update channel",
+					"hint": "Beta receives new versions earlier, for testing before the stable release. The choice takes effect on the next update check.",
+					"options": {
+						"stable": "Stable (recommended)",
+						"beta": "Beta"
+					}
+				},
 				"update": {
 					"unsupported": "Update checks are available in the desktop app.",
 					"none": "You are using the latest version.",

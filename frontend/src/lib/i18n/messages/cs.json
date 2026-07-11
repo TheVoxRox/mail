@@ -599,6 +599,14 @@
 				"backendUnavailable": "nedostupná",
 				"checkUpdates": "Zkontrolovat aktualizace",
 				"checkingUpdates": "Kontroluji…",
+				"channel": {
+					"label": "Kanál aktualizací",
+					"hint": "Beta dostává nové verze dříve, na otestování před stabilním vydáním. Volba se projeví při příští kontrole aktualizací.",
+					"options": {
+						"stable": "Stabilní (doporučeno)",
+						"beta": "Beta"
+					}
+				},
 				"update": {
 					"unsupported": "Kontrola aktualizací je dostupná v desktopové aplikaci.",
 					"none": "Používáte aktuální verzi.",
