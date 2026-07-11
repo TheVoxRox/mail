@@ -38,6 +38,11 @@ jobs:
       WINDOWS_TIMESTAMP_URL: ${{ vars.WINDOWS_TIMESTAMP_URL }}
       TAURI_UPDATER_PUBKEY: ${{ secrets.TAURI_UPDATER_PUBKEY }}
       TAURI_UPDATER_ENDPOINTS: ${{ vars.TAURI_UPDATER_ENDPOINTS }}
+      # Optional override of the beta-channel manifest URL compiled into the
+      # app (option_env! in frontend/src-tauri/src/lib.rs). Unset ⇒ the
+      # hardcoded default releases/download/beta/latest.json applies, so the
+      # Actions var only exists if the URL ever needs to move.
+      TAURI_UPDATER_BETA_ENDPOINT: ${{ vars.TAURI_UPDATER_BETA_ENDPOINT }}
       TAURI_UPDATER_WINDOWS_INSTALL_MODE: ${{ vars.TAURI_UPDATER_WINDOWS_INSTALL_MODE }}
       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
@@ -69,6 +74,15 @@ jobs:
             }
             $tag = "${{ github.ref_name }}"
           }
+
+          # latest.json embeds a download URL built from this tag while its
+          # version field comes from tauri.conf.json — a mismatch ships a
+          # manifest whose installer URL 404s. Fail fast instead.
+          $version = (Get-Content -Raw frontend/src-tauri/tauri.conf.json | ConvertFrom-Json).version
+          if (($tag -replace '^v', '') -ne $version) {
+            throw "Release tag $tag does not match app version $version (tauri.conf.json)."
+          }
+
           "RELEASE_TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           Write-Host "Publishing release assets to tag $tag"
 
@@ -248,7 +262,15 @@ jobs:
 
           gh release view $env:RELEASE_TAG | Out-Null
           if ($LASTEXITCODE -ne 0) {
-            gh release create $env:RELEASE_TAG --draft --title "VoxRox Mail $env:RELEASE_TAG"
+            $createArgs = @("release", "create", $env:RELEASE_TAG, "--draft", "--title", "VoxRox Mail $env:RELEASE_TAG")
+            # A prerelease-suffixed version ships to the beta channel only:
+            # the flag keeps it out of the releases/latest redirect (stable
+            # channel) once published. beta-channel.yml then refreshes the
+            # moving beta manifest on publish.
+            if ($env:RELEASE_TAG -match '^v?\d+\.\d+\.\d+-') {
+              $createArgs += "--prerelease"
+            }
+            gh @createArgs
           }
 
           gh release upload $env:RELEASE_TAG @assets --clobber
