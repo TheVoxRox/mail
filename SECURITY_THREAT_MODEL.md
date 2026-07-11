@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| **Version** | 2.1 |
-| **Last revised** | 2026-07-09 |
+| **Version** | 2.3 |
+| **Last revised** | 2026-07-11 |
 | **Applies to** | VoxRox Mail V0.1.0 |
 | **Status** | Active — read by PR reviewers when changes cross a trust boundary |
 
@@ -192,9 +192,9 @@ Audited 2026-07-09 (focused tier, verified against `d55b753`) — verdict
 
 | ST | Threat | Vector | Severity | Mitigation |
 |---|---|---|---|---|
-| **T** | Tampered installer | Modified `voxrox-mail-*-setup.exe` served from a hostile host | **Critical** | Tauri Ed25519 signature verification (public key bundled in the running app); Authenticode signature on the installer for OS-level reputation; `latest.json` over HTTPS. Audited 2026-07-09 — [docs/UPDATER_AUDIT.md](docs/UPDATER_AUDIT.md): verification is native (no JS bypass), the build fail-closes on a missing pubkey/signing key, and the attacker-shapeable `latest.json` `notes`/`version` fields are never rendered as markup |
+| **T** | Tampered installer | Modified `voxrox-mail-*-setup.exe` served from a hostile host | **Critical** | Tauri Ed25519 signature verification (public key bundled in the running app); Authenticode signature on the installer for OS-level reputation; `latest.json` over HTTPS. Audited 2026-07-09, re-verified for release channels 2026-07-11 — [docs/UPDATER_AUDIT.md](docs/UPDATER_AUDIT.md) v1.2: verification is native (no JS bypass), the build fail-closes on a missing pubkey/signing key, the attacker-shapeable `latest.json` `notes`/`version` fields are never rendered as markup, and the beta-channel manifest is verified against the **same pinned pubkey** (channel choice never changes the trust anchor) |
 | **E** | Malicious package replaces the sidecar | Hostile installer, or same-user malware overwriting the installed binary | **Critical** | Update packages carry the Ed25519 update signature + Sigstore build-provenance attestation (+ Authenticode when a cert is present). Under `installMode: currentUser` the installed sidecar sits in a user-writable dir, so same-user malware can replace it **without elevation** — accepted as **AR-2**: a same-user attacker already reads the unencrypted `mail.db` in the same profile (AR-1), so gating the binary behind elevation adds little, and it was traded for elevation-free auto-updates |
-| **D** | Bad release published | Updater fetches a broken build | Medium | `allowDowngrades: false` plus the manual override path in OPERATIONS.md |
+| **D** | Bad release published | Updater fetches a broken build | Medium | `allowDowngrades: false` plus the manual override path in OPERATIONS.md; beta→stable release channels limit a bad ship's blast radius to opt-in beta users, with a halt/re-point runbook (OPERATIONS.md "Release channels") |
 | **S / I / R** | — | Update channel is signed and observable. | — | — |
 
 ## 5. Accepted residual risks
@@ -224,6 +224,7 @@ When touching code that crosses one of the boundaries above:
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.3 | 2026-07-11 | Boundary 6 re-verified after the release-channels change (stable/beta) — verdict stays **PASS**, see [docs/UPDATER_AUDIT.md](docs/UPDATER_AUDIT.md) v1.2. The WebView no longer holds **any** updater plugin permissions (`updater:allow-check` / `updater:allow-download-and-install` dropped from [capabilities/default.json](frontend/src-tauri/capabilities/default.json)); update check/install now go through two app-defined shell commands (`check_for_update` / `install_pending_update` in [lib.rs](frontend/src-tauri/src/lib.rs)) that accept only the channel **names** `stable`/`beta` — a compromised renderer can pick between two pinned endpoints but can never supply a URL or install path. The beta endpoint is a compile-time constant (build-time `TAURI_UPDATER_BETA_ENDPOINT` override only), HTTPS `github.com`, verified against the same pinned pubkey. Boundary 6 `T`/`D` rows updated (channels also shrink a bad ship's blast radius to opt-in beta users). Also fixed the stale header version (said 2.1 while the log already had 2.2). |
 | 2.2 | 2026-07-10 | Accepted residual **AR-3** (B1-1, unbounded message-body fetch) **closed in code** and removed from §5: the body text is now read through the same bounded stream as inline images (8 MiB transfer-decoded cap in `MimePartExtractor`; Angus partial fetch keeps the transfer chunked), an oversized body persists the `messages.body_oversize` flag instead of any content (nothing enters the DB or the FTS index) and the API serves a localized "message too large" placeholder, with later opens short-circuiting IMAP entirely. `multipart/alternative` degrades to a fitting plain-text part before falling back to the placeholder. Boundary 1 second `D` row updated; audit record in [docs/IMAP_SMTP_AUDIT.md](docs/IMAP_SMTP_AUDIT.md) v1.1. |
 | 1.0 | 2026-06-02 | Initial document — V0.1.0 baseline; covers 6 boundaries × STRIDE matrix with CVSS-light severity; Mermaid diagram; adversary model. |
 | 1.1 | 2026-06-07 | Added §5 "Accepted residual risks": formalized the plaintext mail-DB-at-rest decision (AR-1) with BitLocker as the standing mitigation and SQLCipher (drop-in `Willena/sqlite-jdbc-crypt`, DB key under DPAPI) as the documented upgrade path. |

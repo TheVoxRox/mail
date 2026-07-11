@@ -84,11 +84,14 @@ The application initiates network traffic only in these cases:
 3. **Application updates** (Tauri updater) — the application periodically
    connects to
    `https://github.com/TheVoxRox/mail/releases/latest/download/latest.json`
-   to check whether a newer signed release exists, and downloads the signed
-   installer if so. During this request GitHub (the release host) temporarily
-   sees your **IP address** and the version you are querying in its server
-   logs — just like any other download from the web. No other data is sent
-   during the update check.
+   (stable channel), or to
+   `https://github.com/TheVoxRox/mail/releases/download/beta/latest.json` if
+   you opt into the beta channel in Settings → About, to check whether a newer
+   signed release exists, and downloads the signed installer if so. During
+   this request GitHub (the release host) temporarily sees your **IP address**
+   and the version you are querying in its server logs — just like any other
+   download from the web. No other data is sent during the update check (the
+   channel choice is stored locally only).
 
 The application **does not send** your e-mails, contacts or activity to any
 VoxRox server or third-party analytics platform.
@@ -198,7 +201,7 @@ These items will be filled in before this document is finalized:
 
 - [x] Support contact — **info@voxrox.org** (unified with the voxrox.org site 2026-06-21).
 - [x] Security disclosure contact (responsible disclosure) — **info@voxrox.org**.
-- [x] Specific Tauri updater endpoint URL — `https://github.com/TheVoxRox/mail/releases/latest/download/latest.json` ([tauri.conf.json](frontend/src-tauri/tauri.conf.json)).
+- [x] Specific Tauri updater endpoint URL — `https://github.com/TheVoxRox/mail/releases/latest/download/latest.json` (stable channel, [tauri.conf.json](frontend/src-tauri/tauri.conf.json)); beta channel `https://github.com/TheVoxRox/mail/releases/download/beta/latest.json` ([lib.rs](frontend/src-tauri/src/lib.rs)).
 - [x] English translation of this document (this file).
 - [ ] Legal review of the whole document (GDPR). The "data controller"
       phrasing for organizational deployment and the "Your responsibility and

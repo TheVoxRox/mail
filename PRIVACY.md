@@ -81,12 +81,15 @@ Aplikace zahájí síťovou komunikaci jen v těchto případech:
    token a uloží je lokálně (šifrované, viz výše). Pravidelně si od
    poskytovatele bere nový access token přes refresh token.
 3. **Aktualizace aplikace** (Tauri updater) — aplikace se periodicky připojuje
-   na `https://github.com/TheVoxRox/mail/releases/latest/download/latest.json`,
-   aby zjistila, zda existuje novější podepsaná verze, a případně stáhla
-   podepsaný instalátor. Při tomto požadavku GitHub (hosting releasů) dočasně
-   uvidí ve svých server lozích vaši **IP adresu** a verzi, na kterou se
-   dotazujete — stejně jako při jakémkoli jiném stažení z webu. Žádná jiná data
-   se při kontrole aktualizací neodesílají.
+   na `https://github.com/TheVoxRox/mail/releases/latest/download/latest.json`
+   (stabilní kanál), resp. na
+   `https://github.com/TheVoxRox/mail/releases/download/beta/latest.json`,
+   pokud si v Nastavení → O aplikaci zvolíte beta kanál, aby zjistila, zda
+   existuje novější podepsaná verze, a případně stáhla podepsaný instalátor.
+   Při tomto požadavku GitHub (hosting releasů) dočasně uvidí ve svých server
+   lozích vaši **IP adresu** a verzi, na kterou se dotazujete — stejně jako při
+   jakémkoli jiném stažení z webu. Žádná jiná data se při kontrole aktualizací
+   neodesílají (volba kanálu zůstává uložená jen lokálně).
 
 Aplikace **neposílá** vaše e-maily, kontakty ani aktivitu na servery VoxRox
 ani na žádnou analytickou platformu třetí strany.
@@ -192,7 +195,7 @@ Tyto položky budou doplněny předtím, než je tento dokument finalizován:
 
 - [x] Kontakt na podporu — **info@voxrox.org** (sjednoceno s webem voxrox.org 2026-06-21).
 - [x] Kontakt pro bezpečnostní hlášení (responsible disclosure) — **info@voxrox.org**.
-- [x] Konkrétní Tauri updater endpoint URL — `https://github.com/TheVoxRox/mail/releases/latest/download/latest.json` ([tauri.conf.json](frontend/src-tauri/tauri.conf.json)).
+- [x] Konkrétní Tauri updater endpoint URL — `https://github.com/TheVoxRox/mail/releases/latest/download/latest.json` (stabilní kanál, [tauri.conf.json](frontend/src-tauri/tauri.conf.json)); beta kanál `https://github.com/TheVoxRox/mail/releases/download/beta/latest.json` ([lib.rs](frontend/src-tauri/src/lib.rs)).
 - [x] Anglická verze tohoto dokumentu — [PRIVACY.en.md](PRIVACY.en.md), 2026-06-01.
 - [ ] Právní review celého dokumentu (GDPR). Formulace „správce dat" pro
       firemní nasazení i sekce „Vaše odpovědnost a zálohy" jsou předběžně

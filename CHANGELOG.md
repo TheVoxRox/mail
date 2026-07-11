@@ -62,12 +62,14 @@ sekci s podsekcemi podle artefaktu.
 - ToastRegion: visual toast má `role="status"` / `role="alert"` podle tónu, separátní `LiveAnnouncer` zajišťuje spolehlivé NVDA/JAWS čtení (bez double-announce díky `aria-live="off"` na visual nodu).
 - YAGNI sweep (5 fází, A–E): 4 dead-code odstranění, 57 over-exportovaných symbolů sjednoceno jako interní, 48 dead i18n klíčů (601 → 553 per jazyk), inline 7 thin wrapperů v `mail/actions.ts`.
 - Programmer text v Svelte + TypeScript zdrojích migrován do angličtiny. Strict lint v CI gate. Pre-i18n boot error hlášky (`SessionLoadError`, `BackendReadinessError`, sidecar exit-code) přepnuty na EN.
+- Nastavení → O aplikaci: volba kanálu aktualizací Stabilní / Beta (`updateChannel` store, `localStorage`). Kontrola aktualizací jde nově přes Tauri shell commandy `check_for_update` / `install_pending_update` místo přímého JS API plugin-updateru — webview předává jen jméno kanálu, nikdy endpoint URL.
 
 ### Tauri / Release
 
 - NSIS odinstalátor už nezobrazuje dialog výběru jazyka — jazyk se auto-detekuje z Windows locale stejně jako u instalátoru. (`MUI_UNGETLANGUAGE` se nově vkládá jen při `displayLanguageSelector: true`; bez selektoru se volba jazyka nikdy neukládá do registru, takže dialog vyskakoval při každé odinstalaci.)
 - Checkbox „smazat data aplikace" v odinstalátoru nově maže i WebView2 profil `%LOCALAPPDATA%\org.voxrox.mail` (+ `%APPDATA%\org.voxrox.mail`) a prázdnou rodičovskou složku `%LOCALAPPDATA%\VoxRox`. Dříve po odinstalaci zůstával EBWebView profil v `C:\Users\...`.
 - Doplněn český překlad vlastních Tauri hlášek instalátoru (`windows/Czech.nsh`, UTF-8 bez BOM — bundler soubor renderuje přes handlebars a BOM by pronikl do obsahu; zapojeno přes `customLanguageFiles`) — checkbox mazání dat, reinstall/downgrade stránka a WebView2 hlášky se v české lokalizaci už nezobrazují anglicky. Standardní MUI2 stránky byly česky už dřív (vestavěné překlady NSIS).
+- Release channels (beta → stable): Tauri shell mapuje kanál na updater endpoint (`check_for_update`; beta = pohyblivý release `beta` s `latest.json`, stable = `releases/latest` redirect, který prereleasy ignoruje). Nový workflow `.github/workflows/beta-channel.yml` obnovuje beta manifest při každém publish; guard `frontend/scripts/beta-channel-guard.mjs` odmítá downgrade manifestu (přepis jen s `force=true` = HALT postup). Release workflow nově fail-fastuje na neshodě tag ↔ verze v `tauri.conf.json` a prerelease-suffixované tagy zakládá s `--prerelease`. Runbook: `backend/OPERATIONS.md` „Release channels".
 
 ### Migrace / DB
 

@@ -80,6 +80,13 @@ Kontrola se aktivuje, jakmile je publikovaný release. Downgrade na starší ver
 není podporovaný běžným instalátorem; případný rollback řeší support podle
 recovery postupu.
 
+V Nastavení → O aplikaci si můžete zvolit kanál aktualizací: **Stabilní**
+(výchozí) nebo **Beta**. Beta kanál dostává nové verze dříve, na otestování
+před stabilním vydáním — kontroluje se proti
+`https://github.com/TheVoxRox/mail/releases/download/beta/latest.json` a platí
+pro něj stejné ověření podpisu. Beta verze mohou obsahovat chyby; budeme rádi
+za jejich nahlášení na **info@voxrox.org**.
+
 ## Soukromí a diagnostika
 
 Aplikace je připravená posílat chyby klienta na **lokální** backend endpoint na

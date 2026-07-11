@@ -75,6 +75,7 @@ Poznámky:
 - [ ] Signed release obsahuje `voxrox-mail-<version>-windows-x64-setup.exe`, `.sig` a `latest.json`.
 - [ ] **Shoda podpisového páru:** veřejný klíč zabalený v běžící appce odpovídá podpisovému privátnímu klíči (`TAURI_UPDATER_PUBKEY` ↔ `TAURI_SIGNING_PRIVATE_KEY`). Dokáže to úspěšný update smoke vN-1 → vN — při nesouladu updater odmítne `.sig` se „signature" chybou. **Neopravitelné po shipnutí**, proto povinný bod.
 - [ ] Release build prošel podepsaným workflow (`windows-signed-release.yml`), který aplikuje `tauri.release.conf.json` (env `TAURI_UPDATER_*`). Base `tauri.conf.json` updater blok (endpoint + pubkey) je jen dev reference — holý `npm run tauri:build` by shipnul base hodnoty bez `.sig`; ručně sestavený build nepublikovat.
+- [ ] Release channels: tag odpovídá verzi v `tauri.conf.json` (workflow jinak spadne); prerelease-suffixovaný tag (`vX.Y.Z-…`) vznikl jako GitHub **prerelease** (mimo `releases/latest` redirect = mimo stabilní kanál); po Publish doběhl `beta-channel.yml` a `releases/download/beta/latest.json` nese publikovanou verzi. Halt/re-point postup: [OPERATIONS.md](OPERATIONS.md) „Release channels".
 
 ## 4. Account flows
 
