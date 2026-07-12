@@ -129,17 +129,18 @@ Per-subsystem audit sidecar REST API (loopback + `X-API-KEY`), plný zápis v
 - [x] Diagnostic dump: bez credentials/tokenů/těl/předmětů; email maskovaný, `lastError` jen boolean; `ClientBootDiagnosticsService` allow-list klíčů + cap 512 znaků.
 - [x] **Opraveno (A1, Low, defense-in-depth):** JSON `send`/`draft` endpointy neměly cap na délku `body` ani počet příloh (multipart limit se na JSON `@RequestBody` nevztahuje); doplněn `@Size` `body` ≤ 10 MiB + ≤ 50 příloh na `MailRequest`/`DraftRequest`, regresní testy `MailWriteControllerTest.sendBodyTooLong` / `sendTooManyAttachments`. Pre-deserializační agregátní bound = přijaté reziduum (loopback + auth + klient 25 MB).
 
-## Auto-updater audit — Boundary 6 (2026-07-09)
+## Auto-updater audit — Boundary 6 (2026-07-09, re-verifikováno 2026-07-11 pro release channels)
 
 Per-subsystem audit Tauri auto-updateru (GitHub release → signature-verified
-install), plný zápis v [docs/UPDATER_AUDIT.md](../docs/UPDATER_AUDIT.md).
-Verdikt **PASS**, bez zásahu do kódu.
+install), plný zápis v [docs/UPDATER_AUDIT.md](../docs/UPDATER_AUDIT.md) (v1.2).
+Verdikt **PASS**.
 
-- [x] Ed25519 verifikace je nativní v Rust pluginu — frontend ([updates.ts](../frontend/src/lib/updates.ts)) s podpisem nikdy nepracuje; grantnuté jen `updater:allow-check` + `updater:allow-download-and-install`.
+- [x] Ed25519 verifikace je nativní v Rust pluginu — frontend ([updates.ts](../frontend/src/lib/updates.ts)) s podpisem nikdy nepracuje. Webview od zavedení kanálů (2026-07-11) nemá **žádné** updater plugin permission ([capabilities/default.json](../frontend/src-tauri/capabilities/default.json)); check/install jdou výhradně přes app commandy `check_for_update(channel)` / `install_pending_update` v [lib.rs](../frontend/src-tauri/src/lib.rs) — kanál se předává jen jménem (`stable`/`beta`), URL ani instalační cesta nikdy.
+- [x] Release channels: beta endpoint (`releases/download/beta/latest.json`) je compile-time konstanta (override jen build-time env `TAURI_UPDATER_BETA_ENDPOINT`), HTTPS `github.com`, manifest ověřovaný **stejným** pinned pubkey — přepnutí kanálu nemění trust anchor. Beta manifest obnovuje [beta-channel.yml](../.github/workflows/beta-channel.yml) s guardem proti version regresi ([beta-channel-guard.mjs](../frontend/scripts/beta-channel-guard.mjs)); halt/re-point runbook v [OPERATIONS.md](OPERATIONS.md) „Release channels".
 - [x] Build fail-closed: `buildUpdaterPlugin()` v [lib/tauri-config.mjs](../frontend/scripts/lib/tauri-config.mjs) hodí chybu na prázdném `TAURI_UPDATER_PUBKEY` (žádný placeholder key ≠ analogie OAuth `invalid_client`) a bez ≥1 endpointu; workflow padá bez `TAURI_SIGNING_PRIVATE_KEY`; manifest generator bere jen podepsaný artefakt a padá na prázdném `.sig`.
 - [x] Transport HTTPS-only (`dangerousInsecureTransportProtocol` opt-in, nezapnutý), `allowDowngrades:false`; updater fetch je nativní, takže nerozšiřuje WebView `connect-src` (zůstává loopback + `ipc:`).
 - [x] Hijacknutý `latest.json` nespustí kód (signature mismatch → install abort); pole `notes`/`version` se nerenderují jako markup ([UpdatePromptDialog.svelte](../frontend/src/lib/components/UpdatePromptDialog.svelte) ukazuje jen i18n-escaped `version`, `notes` vůbec).
-- [x] Fail handling: startup check ([bootstrap.ts](../frontend/src/lib/bootstrap.ts)) tiše (console.warn), manual check ([AboutSettings.svelte](../frontend/src/lib/components/settings/AboutSettings.svelte)) s failure UI + fallback na releases; pokryto `updates.test.ts`.
+- [x] Fail handling: startup check ([bootstrap.ts](../frontend/src/lib/bootstrap.ts)) tiše (console.warn), manual check ([AboutSettings.svelte](../frontend/src/lib/components/settings/AboutSettings.svelte)) s failure UI + fallback na releases; pokryto `updates.test.ts` (vč. channel routingu stable/beta).
 - [x] Defense-in-depth: Sigstore build-provenance attestation + SHA-256 checksum u každého instalátoru.
 - [ ] Poznámka (procedurální, ne kód): base `tauri.conf.json` updater blok je dev reference; bare `npm run tauri:build` nevyrobí `.sig`, takže není validní release — guard je jen v RELEASE_CHECKLIST. Volitelné budoucí zpřísnění: CI lint že `dangerousInsecureTransportProtocol` není nikdy `true`.
 

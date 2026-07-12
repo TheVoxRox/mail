@@ -303,7 +303,35 @@ Copy-Item "$env:LOCALAPPDATA\VoxRox\Mail\db\<ZALOHA>" `
 
 `db_backup_failed` v audit logu při startu → zkontrolovat volné místo na disku a oprávnění k `${app.data-dir}/db/`. Backup nemůže selhat tichá — pokud ano, Flyway migrate se vůbec nespustí a uživatel zůstává na předchozí verzi schémat.
 
-`Update notifikace se nezobrazuje` (Tauri klient nehlásí novou verzi) → zkontrolovat `tauri.conf.json` `bundle.updater.endpoints` URL, manifest signing key shoda s `pubkey`.
+`Update notifikace se nezobrazuje` (Tauri klient nehlásí novou verzi) → zkontrolovat `tauri.conf.json` `bundle.updater.endpoints` URL, manifest signing key shoda s `pubkey`. U beta kanálu navíc ověřit, že release `beta` drží čerstvý `latest.json` (viz Release channels níže).
+
+## Release channels
+
+Updater má dva kanály. Volbu drží každá instalace v Nastavení → O aplikaci (výchozí Stabilní; webview `localStorage` klíč `mail.updateChannel`). Kanál mapuje na manifest URL Tauri shell (`check_for_update` v `frontend/src-tauri/src/lib.rs`) — webview nikdy nepředává URL, jen jméno kanálu.
+
+| Kanál | Manifest | Kdo ho plní |
+| --- | --- | --- |
+| Stabilní | `releases/latest/download/latest.json` (GitHub redirect; prereleasy ignoruje) | publikace plného release |
+| Beta | `releases/download/beta/latest.json` (pohyblivý prerelease `beta`) | workflow `.github/workflows/beta-channel.yml` při každém publish |
+
+### Ship beta buildu
+
+1. Nastavit prerelease verzi (`0.2.0-beta.1`) v `tauri.conf.json`/`package.json`/`version.ts` a tagnout `v0.2.0-beta.1`. Release workflow kontroluje shodu tag ↔ verze a prerelease-suffixovaný tag založí release s `--prerelease`; pokud release už existuje (předdraftované poznámky, částečný předchozí běh), workflow flag doplní přes `gh release edit` — bez něj by publish předal beta build do `releases/latest` redirectu stabilního kanálu.
+2. Po ručním Publish releasu `beta-channel.yml` přepíše `beta/latest.json`. Stabilní kanál build nevidí — redirect `releases/latest` prereleasy přeskakuje.
+
+### Promotion na stable
+
+Vydat plnou verzi (bez suffixu) běžným release procesem. Publish spustí `beta-channel.yml` i tady, takže beta uživatelé konvergují na stejný stable build (SemVer: `0.2.0` > `0.2.0-beta.1`) a beta kanál nikdy nezaostává za stable.
+
+### HALT — stažení vadné bety
+
+1. Vadný prerelease v GitHub Releases přepnout zpět na draft (nebo smazat) — ruční stažení instalátoru tím končí.
+2. Re-point beta manifestu na poslední dobrou verzi: Actions → „Beta Channel Manifest" → Run workflow s `tag=<poslední dobrý tag>` a `force=true`. Guard (`frontend/scripts/beta-channel-guard.mjs`) jinak downgrade manifestu odmítne — `force` je vyhrazený přesně pro tento krok.
+3. Kdo už vadnou betu nainstaloval, downgrade nedostane (`allowDowngrades: false` + DB migrace) — pro ně platí roll-forward níže.
+
+### Roll-forward (oprava už nainstalované vadné verze)
+
+Rollback binárky neexistuje: downgrade blokuje updater i instalátor kvůli DB migracím. Oprava se vydává jako NOVÁ vyšší verze (revert/fix kódu, verze o patch výš — např. vadná `0.2.0-beta.1` → oprava `0.2.0-beta.2`; vadná stable `0.2.0` → `0.2.1`). Pokud vadná verze poškodila data, restore z pre-migration zálohy viz „Update troubleshooting" výše.
 
 ## Reset uctu
 

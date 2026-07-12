@@ -9,10 +9,18 @@
 	import { _ } from '$lib/i18n/index.js';
 	import { folderLabel } from '$lib/mail/folderLabel.js';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import { Field } from '$lib/components/ui/field/index.js';
+	import { Select } from '$lib/components/ui/select/index.js';
 	import { StateMessage } from '$lib/components/ui/state-message/index.js';
 	import { Surface } from '$lib/components/ui/surface/index.js';
 	import ThirdPartyNotices from '$lib/components/settings/ThirdPartyNotices.svelte';
 	import { checkForUpdateManually } from '$lib/updates.js';
+	import {
+		setUpdateChannel,
+		UPDATE_CHANNELS,
+		updateChannel,
+		type UpdateChannel
+	} from '$lib/stores/updateChannel.js';
 	import { CLIENT_VERSION } from '$lib/version.js';
 	import { dev } from '$app/environment';
 	import { onMount } from 'svelte';
@@ -127,6 +135,17 @@
 			updateCheckBusy = false;
 		}
 	}
+
+	const channelLabelKey = (option: UpdateChannel) =>
+		`settings.about.versions.channel.options.${option}`;
+
+	function handleUpdateChannelChange(event: Event) {
+		const value = (event.target as HTMLSelectElement).value as UpdateChannel;
+		setUpdateChannel(value);
+		// A stale result line ("You are using the latest version.") would silently
+		// refer to the previous channel once the preference changes.
+		updateCheckStatus = null;
+	}
 </script>
 
 <div class="max-w-2xl space-y-4">
@@ -149,6 +168,26 @@
 				{/if}
 			</dd>
 		</dl>
+
+		<div class="border-t border-border pt-3">
+			<Field
+				for="update-channel-select"
+				label={$_('settings.about.versions.channel.label')}
+				hint={$_('settings.about.versions.channel.hint')}
+			>
+				<Select
+					id="update-channel-select"
+					value={$updateChannel}
+					onchange={handleUpdateChannelChange}
+					width="full"
+					aria-describedby="update-channel-select-hint"
+				>
+					{#each UPDATE_CHANNELS as option (option)}
+						<option value={option}>{$_(channelLabelKey(option))}</option>
+					{/each}
+				</Select>
+			</Field>
+		</div>
 
 		<div class="flex flex-wrap items-center gap-2 border-t border-border pt-3">
 			<Button

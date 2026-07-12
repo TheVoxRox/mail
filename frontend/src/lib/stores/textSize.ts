@@ -10,12 +10,10 @@
  */
 
 import { browser } from '$app/environment';
-import { writable } from 'svelte/store';
+import { persistedStore } from './persisted.js';
 
-export type TextSize = 'small' | 'medium' | 'large';
-
-const STORAGE_KEY = 'mail.textSize';
-const DEFAULT_PREF: TextSize = 'medium';
+export const TEXT_SIZES = ['small', 'medium', 'large'] as const;
+export type TextSize = (typeof TEXT_SIZES)[number];
 
 /** Root font-size per step. `medium` matches the browser default (16px). */
 const ROOT_FONT_SIZE: Record<TextSize, string> = {
@@ -24,28 +22,10 @@ const ROOT_FONT_SIZE: Record<TextSize, string> = {
 	large: '18px'
 };
 
-function readInitial(): TextSize {
-	if (!browser) return DEFAULT_PREF;
-	try {
-		const stored = window.localStorage.getItem(STORAGE_KEY);
-		if (stored === 'small' || stored === 'medium' || stored === 'large') return stored;
-	} catch {
-		// localStorage unavailable – private mode etc.
-	}
-	return DEFAULT_PREF;
-}
-
-export const textSize = writable<TextSize>(readInitial());
+export const textSize = persistedStore<TextSize>('mail.textSize', TEXT_SIZES, 'medium');
 
 export function setTextSize(next: TextSize): void {
 	textSize.set(next);
-	if (browser) {
-		try {
-			window.localStorage.setItem(STORAGE_KEY, next);
-		} catch {
-			// ignore
-		}
-	}
 }
 
 /**

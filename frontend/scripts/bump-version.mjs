@@ -1,8 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
-
-const SEMVER_RE = /^(\d+)\.(\d+)\.(\d+)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+import { SEMVER_RE } from './lib/semver.mjs';
 
 const rootDir = process.cwd();
 const newVersion = process.argv[2];

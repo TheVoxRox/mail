@@ -68,9 +68,9 @@ test.describe('Settings – appearance', () => {
 
 		const select = page.locator('#reading-pane-select');
 		await expect(select).toHaveValue('off');
-		await expect
-			.poll(() => page.evaluate(() => window.localStorage.getItem('mail.readingPane')))
-			.toBe('off');
+		// Default se do localStorage nezapisuje: kdo si podokno nikdy nenastavil,
+		// převezme případný nový default při upgradu (viz stores/persisted.ts).
+		expect(await page.evaluate(() => window.localStorage.getItem('mail.readingPane'))).toBeNull();
 	});
 
 	test('rozbalovací seznam motivu se otevře šipkou dolů', async ({ page }) => {

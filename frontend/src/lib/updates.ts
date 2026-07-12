@@ -1,23 +1,31 @@
 import { browser } from '$app/environment';
-import { isTauri } from '@tauri-apps/api/core';
-import type { DownloadEvent, Update as TauriUpdate } from '@tauri-apps/plugin-updater';
+import { invoke, isTauri } from '@tauri-apps/api/core';
 import { get, writable } from 'svelte/store';
 import { RELEASES_URL } from '$lib/version.js';
 import { toErrorMessage } from '$lib/api/errors.js';
+import { updateChannel } from '$lib/stores/updateChannel.js';
 
 const DISMISSED_UPDATE_VERSION_KEY = 'mail.update.dismissedVersion';
 const AUTO_UPDATE_CHECK_ENABLED = import.meta.env.VITE_ENABLE_AUTO_UPDATE_CHECK === '1';
 
-interface AvailableUpdate {
+/** Shape returned by the Tauri `check_for_update` command (lib.rs). */
+interface UpdateMetadata {
 	version: string;
 	currentVersion: string;
 	date?: string;
 	body?: string;
-	rawJson: Record<string, unknown>;
-	update: TauriUpdate;
 }
 
-type UpdateDownloadHandler = (event: DownloadEvent) => void;
+interface AvailableUpdate extends UpdateMetadata {
+	/**
+	 * Installs the update found by the check that produced this object. The
+	 * Tauri shell holds the pending update in managed state and refuses to
+	 * install any other version than the one named here, so the install can
+	 * never silently target a build the prompt did not show; a later check
+	 * that finds nothing hides the prompt (see hideStalePrompt).
+	 */
+	install: () => Promise<void>;
+}
 
 type UpdatePromptState =
 	| { status: 'hidden' }
@@ -47,25 +55,27 @@ function shouldCheckForUpdatesOnStartup(): boolean {
 async function checkForUpdate(): Promise<AvailableUpdate | null> {
 	if (!supportsNativeUpdater()) return null;
 
-	const { check } = await import('@tauri-apps/plugin-updater');
-	const update = await check();
-	if (!update) return null;
+	const metadata = await invoke<UpdateMetadata | null>('check_for_update', {
+		channel: get(updateChannel)
+	});
+	if (!metadata) return null;
 
 	return {
-		version: update.version,
-		currentVersion: update.currentVersion,
-		date: update.date,
-		body: update.body,
-		rawJson: update.rawJson,
-		update
+		...metadata,
+		install: () => invoke('install_pending_update', { expectedVersion: metadata.version })
 	};
 }
 
-async function installUpdate(
-	available: AvailableUpdate,
-	onDownloadEvent?: UpdateDownloadHandler
-): Promise<void> {
-	await available.update.downloadAndInstall(onDownloadEvent);
+/**
+ * Every check replaces the shell's pending-update slot, so after a check that
+ * found nothing an open "update available" prompt would offer an update the
+ * shell can no longer install. An in-flight install is left alone — it works
+ * on its own handle.
+ */
+function hideStalePrompt(): void {
+	if (get(updatePromptState).status === 'available') {
+		updatePromptState.set({ status: 'hidden' });
+	}
 }
 
 export async function checkForUpdateAndPrompt(): Promise<void> {
@@ -73,7 +83,11 @@ export async function checkForUpdateAndPrompt(): Promise<void> {
 
 	try {
 		const update = await checkForUpdate();
-		if (!update || wasDismissed(update.version)) return;
+		if (!update) {
+			hideStalePrompt();
+			return;
+		}
+		if (wasDismissed(update.version)) return;
 		updatePromptState.set({ status: 'available', update });
 	} catch (err) {
 		// Background startup checks fail silently: a transient network error or a
@@ -90,7 +104,10 @@ export async function checkForUpdateManually(): Promise<ManualUpdateCheckResult>
 
 	try {
 		const update = await checkForUpdate();
-		if (!update) return { status: 'none' };
+		if (!update) {
+			hideStalePrompt();
+			return { status: 'none' };
+		}
 		updatePromptState.set({ status: 'available', update });
 		return { status: 'available', update };
 	} catch (err) {
@@ -109,7 +126,7 @@ export async function installPromptedUpdate(): Promise<void> {
 	const { update } = state;
 	updatePromptState.set({ status: 'installing', update });
 	try {
-		await installUpdate(update);
+		await update.install();
 		updatePromptState.set({ status: 'hidden' });
 	} catch (err) {
 		updatePromptState.set({ status: 'available', update });
@@ -133,26 +150,16 @@ export function showMockUpdateForTests(
 	version = '9.9.9',
 	options: { failInstall?: boolean } = {}
 ): void {
-	const update = {
-		version,
-		currentVersion: '0.1.0',
-		rawJson: {},
-		async downloadAndInstall() {
-			if (options.failInstall) {
-				throw new Error('Mock update install failed');
-			}
-		}
-	} as TauriUpdate;
-
 	updatePromptState.set({
 		status: 'available',
 		update: {
-			version: update.version,
-			currentVersion: update.currentVersion,
-			date: update.date,
-			body: update.body,
-			rawJson: update.rawJson,
-			update
+			version,
+			currentVersion: '0.1.0',
+			async install() {
+				if (options.failInstall) {
+					throw new Error('Mock update install failed');
+				}
+			}
 		}
 	});
 }

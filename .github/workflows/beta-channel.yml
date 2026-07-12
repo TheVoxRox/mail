@@ -1,0 +1,142 @@
+name: Beta Channel Manifest
+
+# Keeps the moving `beta` release's latest.json pointing at the newest
+# published version. The beta update channel (frontend/src-tauri/src/lib.rs
+# BETA_UPDATER_ENDPOINT) polls releases/download/beta/latest.json; the stable
+# channel uses GitHub's releases/latest redirect and needs no maintenance here.
+# Fires on every published release — prerelease (beta ship) and full release
+# (stable promotion) alike — so beta users always track the newest version
+# overall and converge onto stable builds.
+#
+# workflow_dispatch with force=true is the HALT path: re-point the beta
+# channel at a previous good tag after a bad beta ships. Runbook:
+# backend/OPERATIONS.md "Release channels".
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag whose latest.json becomes the beta channel manifest."
+        type: string
+        required: true
+      force:
+        description: "Allow re-pointing the beta channel to an OLDER version (halt/re-point only)."
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: write
+
+# Serialize refreshes: two releases published back-to-back must not interleave
+# their download/guard/upload steps.
+concurrency:
+  group: beta-channel
+  cancel-in-progress: false
+
+jobs:
+  refresh-beta-manifest:
+    name: Refresh beta channel manifest
+    runs-on: ubuntu-latest
+
+    env:
+      GH_TOKEN: ${{ github.token }}
+      # Tag of the moving release that carries the beta channel manifest. Also
+      # the loop-guard sentinel in "Resolve source tag" — publishing this
+      # release fires the workflow too.
+      BETA_POINTER_TAG: beta
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          # The job only runs the dependency-free guard script; skip the rest
+          # of the monorepo.
+          sparse-checkout: frontend/scripts
+
+      - name: Resolve source tag
+        id: source
+        run: |
+          TAG="${{ inputs.tag || github.event.release.tag_name }}"
+          if [ -z "$TAG" ]; then
+            echo "No source tag resolved." >&2
+            exit 1
+          fi
+          if [ "$TAG" = "$BETA_POINTER_TAG" ]; then
+            # Creating/publishing the moving beta release fires this workflow
+            # too; copying the manifest onto itself is pointless and would loop.
+            echo "Tag '$TAG' is the channel release itself; skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Download candidate manifest
+        id: candidate
+        if: steps.source.outputs.skip != 'true'
+        env:
+          SOURCE_TAG: ${{ steps.source.outputs.tag }}
+        run: |
+          # A missing release is an operator error (workflow_dispatch typo) and
+          # fails via the API 404; a release without latest.json is a non-app
+          # release (e.g. a source-only tag) and is skipped quietly. Once the
+          # asset is known to exist the download itself must succeed — a
+          # transient failure must not be mistaken for "nothing to do".
+          #
+          # Downstream steps are gated on the single `proceed` output instead
+          # of each re-stating every skip condition.
+          has_manifest=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$SOURCE_TAG" \
+            --jq '.assets | any(.name == "latest.json")')
+          if [ "$has_manifest" = "true" ]; then
+            mkdir -p candidate
+            gh release download "$SOURCE_TAG" --pattern latest.json --dir candidate
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Release $SOURCE_TAG has no latest.json asset; nothing to do."
+          fi
+
+      - name: Download current beta manifest
+        if: steps.candidate.outputs.proceed == 'true'
+        run: |
+          # Only two outcomes may leave current/ empty: no beta release yet, or
+          # a beta release without a manifest (first run half-done). A failed
+          # download or API error must fail loudly — otherwise the regression
+          # guard sees "no current manifest" and waves a downgrade through.
+          mkdir -p current
+          if has_manifest=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$BETA_POINTER_TAG" \
+              --jq '.assets | any(.name == "latest.json")' 2>api-error.txt); then
+            if [ "$has_manifest" = "true" ]; then
+              gh release download "$BETA_POINTER_TAG" --pattern latest.json --dir current
+            else
+              echo "Beta release exists but holds no latest.json yet."
+            fi
+          elif grep -q 'HTTP 404' api-error.txt; then
+            echo "No beta release yet; it will be created before upload."
+          else
+            echo "Could not verify beta channel release state:" >&2
+            cat api-error.txt >&2
+            exit 1
+          fi
+
+      - name: Guard against version regression
+        if: steps.candidate.outputs.proceed == 'true'
+        run: |
+          node frontend/scripts/beta-channel-guard.mjs \
+            --new candidate/latest.json \
+            --current current/latest.json \
+            --force "${{ inputs.force || 'false' }}"
+
+      - name: Upload manifest to beta release
+        if: steps.candidate.outputs.proceed == 'true'
+        run: |
+          if ! gh release view "$BETA_POINTER_TAG" --json tagName >/dev/null 2>&1; then
+            # --prerelease is mandatory: a full 'beta' release would become the
+            # newest non-prerelease and capture the releases/latest redirect,
+            # feeding the beta manifest to the STABLE channel.
+            gh release create "$BETA_POINTER_TAG" --prerelease \
+              --title "Beta channel" \
+              --notes "Moving release holding only latest.json for the beta update channel. Do not download installers from here; use the versioned releases."
+          fi
+          gh release upload "$BETA_POINTER_TAG" candidate/latest.json --clobber
+          echo "Beta channel now serves $(node -p 'JSON.parse(require("fs").readFileSync("candidate/latest.json","utf8")).version')."
