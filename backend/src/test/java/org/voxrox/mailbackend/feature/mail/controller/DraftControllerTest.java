@@ -1,9 +1,11 @@
 package org.voxrox.mailbackend.feature.mail.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -34,6 +36,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.voxrox.mailbackend.core.config.MailClientProperties;
 import org.voxrox.mailbackend.core.config.mail.SyncProperties;
 import org.voxrox.mailbackend.core.security.InternalApiKeyProvider;
+import org.voxrox.mailbackend.exception.ValidationException;
 import org.voxrox.mailbackend.feature.mail.dto.DraftRequest;
 import org.voxrox.mailbackend.feature.mail.dto.MailSummaryResponse;
 import org.voxrox.mailbackend.feature.mail.service.MailFacade;
@@ -164,12 +167,26 @@ class DraftControllerTest {
     }
 
     @Test
-    @DisplayName("POST draft/{stableId}/send → 202 with sendId, sendDraftAsync is invoked")
+    @DisplayName("POST draft/{stableId}/send → 202 with sendId, verified then sendDraftAsync is invoked")
     void sendDraftOk() throws Exception {
         mockMvc.perform(post("/api/v1/accounts/7/drafts/abc123/send")).andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.sendId").isNotEmpty());
 
+        // The draft is validated synchronously before the async send is dispatched.
+        verify(mailFacade).verifyDraftForSend(7L, "abc123");
         verify(smtpService).sendDraftAsync(eq(7L), eq("abc123"), anyString());
+    }
+
+    @Test
+    @DisplayName("POST draft/{stableId}/send — stableId is not a draft -> 400, no async send")
+    void sendDraftRejectsNonDraft() throws Exception {
+        when(mailFacade.verifyDraftForSend(7L, "abc123")).thenThrow(new ValidationException(
+                "Message abc123 is not in the Drafts folder", "validation.draft.notInDrafts", "abc123"));
+
+        mockMvc.perform(post("/api/v1/accounts/7/drafts/abc123/send")).andExpect(status().isBadRequest());
+
+        // A wrong stableId must not reach the async path that re-sends and expunges it.
+        verify(smtpService, never()).sendDraftAsync(anyLong(), anyString(), anyString());
     }
 
     @Test

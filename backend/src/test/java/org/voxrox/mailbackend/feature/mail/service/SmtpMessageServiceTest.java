@@ -72,6 +72,8 @@ class SmtpMessageServiceTest {
     @Mock
     private ImapAppendService appendService;
     @Mock
+    private ImapFolderService imapFolderService;
+    @Mock
     private MailMetrics mailMetrics;
     @Mock
     private MimeMessageBuilder mimeMessageBuilder;
@@ -266,6 +268,7 @@ class SmtpMessageServiceTest {
             MessageEntity old = oldDraft();
             when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(old));
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(old.getAccount());
+            when(imapFolderService.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.DRAFTS)).thenReturn("Drafts");
             when(mimeMessageBuilder.build(any(), any(), any())).thenReturn(mock(MimeMessage.class));
             when(appendService.appendByRole(eq(ACCOUNT_ID), eq(FolderRole.DRAFTS), any(), eq(false))).thenReturn(false);
 
@@ -287,6 +290,7 @@ class SmtpMessageServiceTest {
             MessageEntity old = oldDraft();
             when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(old));
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(old.getAccount());
+            when(imapFolderService.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.DRAFTS)).thenReturn("Drafts");
             when(mimeMessageBuilder.build(any(), any(), any())).thenReturn(mock(MimeMessage.class));
             when(appendService.appendByRole(eq(ACCOUNT_ID), eq(FolderRole.DRAFTS), any(), eq(false))).thenReturn(true);
 
@@ -299,6 +303,48 @@ class SmtpMessageServiceTest {
             verify(accountRepository).clearLastErrorIfCodeIn(eq(ACCOUNT_ID), any());
             verify(accountRepository, never()).updateLastError(anyLong(), any(AccountLastError.class),
                     any(LocalDateTime.class));
+        }
+
+        @Test
+        @DisplayName("replaces points at a message NOT in Drafts -> new revision saved, target NOT expunged")
+        void replaceTargetInOtherFolderIsNotDeleted() throws Exception {
+            MessageEntity notADraft = oldDraft();
+            notADraft.setFolderName("INBOX");
+            when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(notADraft));
+            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(notADraft.getAccount());
+            when(imapFolderService.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.DRAFTS)).thenReturn("Drafts");
+            when(mimeMessageBuilder.build(any(), any(), any())).thenReturn(mock(MimeMessage.class));
+            when(appendService.appendByRole(eq(ACCOUNT_ID), eq(FolderRole.DRAFTS), any(), eq(false))).thenReturn(true);
+
+            service.saveDraftAsync(ACCOUNT_ID, draftRequest(), STABLE_ID);
+
+            // A wrong replaces id must never expunge received mail.
+            verify(imapActionService, never()).hardDelete(anyLong(), anyString(), anyLong());
+            verify(messageService, never()).deleteByStableId(anyString());
+            verify(accountRepository).clearLastErrorIfCodeIn(eq(ACCOUNT_ID), any());
+        }
+
+        @Test
+        @DisplayName("replaces points at another account's message -> new revision saved, target NOT expunged")
+        void replaceTargetOtherAccountIsNotDeleted() throws Exception {
+            AccountEntity otherAccount = new AccountEntity();
+            otherAccount.setId(OTHER_ACCOUNT_ID);
+            MessageEntity foreign = oldDraft();
+            foreign.setAccount(otherAccount);
+            AccountEntity ownAccount = new AccountEntity();
+            ownAccount.setId(ACCOUNT_ID);
+
+            when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(foreign));
+            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(ownAccount);
+            when(mimeMessageBuilder.build(any(), any(), any())).thenReturn(mock(MimeMessage.class));
+            when(appendService.appendByRole(eq(ACCOUNT_ID), eq(FolderRole.DRAFTS), any(), eq(false))).thenReturn(true);
+
+            service.saveDraftAsync(ACCOUNT_ID, draftRequest(), STABLE_ID);
+
+            // The ownership check fails first, so the Drafts folder is never resolved
+            // and the other account's message is left untouched.
+            verify(imapActionService, never()).hardDelete(anyLong(), anyString(), anyLong());
+            verify(messageService, never()).deleteByStableId(anyString());
         }
     }
 

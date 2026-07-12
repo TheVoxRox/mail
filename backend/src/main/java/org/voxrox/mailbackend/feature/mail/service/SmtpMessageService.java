@@ -48,6 +48,7 @@ public class SmtpMessageService {
     private final MessageService messageService;
     private final ImapActionService imapActionService;
     private final ImapAppendService appendService;
+    private final ImapFolderService imapFolderService;
     private final MailMetrics metrics;
     private final MimeMessageBuilder mimeMessageBuilder;
     private final SmtpTransportFactory transportFactory;
@@ -55,14 +56,16 @@ public class SmtpMessageService {
 
     public SmtpMessageService(AccountService accountService, AccountConnectionDetailsService connectionDetailsService,
             AccountRepository accountRepository, MessageService messageService, ImapActionService imapActionService,
-            ImapAppendService appendService, MailMetrics metrics, MimeMessageBuilder mimeMessageBuilder,
-            SmtpTransportFactory transportFactory, SseNotificationService sseNotificationService) {
+            ImapAppendService appendService, ImapFolderService imapFolderService, MailMetrics metrics,
+            MimeMessageBuilder mimeMessageBuilder, SmtpTransportFactory transportFactory,
+            SseNotificationService sseNotificationService) {
         this.accountService = accountService;
         this.connectionDetailsService = connectionDetailsService;
         this.accountRepository = accountRepository;
         this.messageService = messageService;
         this.imapActionService = imapActionService;
         this.appendService = appendService;
+        this.imapFolderService = imapFolderService;
         this.metrics = metrics;
         this.mimeMessageBuilder = mimeMessageBuilder;
         this.transportFactory = transportFactory;
@@ -88,14 +91,21 @@ public class SmtpMessageService {
             MimeMessage message = mimeMessageBuilder.build(session, account, request);
             transport.sendMessage(message, message.getAllRecipients());
 
-            log.info("{} E-mail sent successfully from account ID: {}", LogCategory.SMTP, accountId);
-            AuditLog.success("mail_send", LogMasker.maskEmail(account.getEmail()),
-                    "to=" + LogMasker.maskEmail(request.to()));
-
-            appendService.appendByRole(accountId, FolderRole.SENT, message, true);
-
-            accountRepository.clearLastErrorIfCodeIn(accountId, SEND_PIPELINE_ERROR_CODES);
+            // Delivered. From here the send has happened, so nothing below may report a
+            // send failure — that would make the user re-send and double-deliver. Resolve
+            // the client's pending state on the fact of delivery, then do best-effort
+            // bookkeeping whose failure is logged, not surfaced as a failed send.
             sseNotificationService.broadcast(SendNotification.completed(sendId, accountId));
+            try {
+                log.info("{} E-mail sent successfully from account ID: {}", LogCategory.SMTP, accountId);
+                AuditLog.success("mail_send", LogMasker.maskEmail(account.getEmail()),
+                        "to=" + LogMasker.maskEmail(request.to()));
+                appendService.appendByRole(accountId, FolderRole.SENT, message, true);
+                accountRepository.clearLastErrorIfCodeIn(accountId, SEND_PIPELINE_ERROR_CODES);
+            } catch (Exception bookkeepingEx) {
+                log.warn("{} Post-send bookkeeping failed for account {} after a successful send: {}", LogCategory.SMTP,
+                        accountId, bookkeepingEx.getMessage());
+            }
 
         } catch (Exception e) {
             outcome = MailMetrics.OUTCOME_FAILURE;
@@ -136,6 +146,14 @@ public class SmtpMessageService {
                 if (old == null) {
                     log.warn("{} replaces: draft {} not found, continuing without deleting the old one.",
                             LogCategory.SMTP, replacesStableId);
+                } else if (!isReplaceableDraft(accountId, old)) {
+                    /*
+                     * The replaces target is only ever hard-deleted (IMAP expunge) if it is this
+                     * account's own message in the Drafts folder. A wrong stableId (client bug)
+                     * must never expunge received mail or another account's message — keep it.
+                     */
+                    log.warn("{} replaces: {} is not a Drafts message of account {}; keeping it.", LogCategory.SMTP,
+                            replacesStableId, accountId);
                 } else {
                     oldFolder = old.getFolderName();
                     oldUid = old.getUid();
@@ -269,26 +287,26 @@ public class SmtpMessageService {
 
             transport = transportFactory.openTransport(accountId, session, details);
             transport.sendMessage(detached, detached.getAllRecipients());
+
+            // Delivered. Everything below is post-send bookkeeping whose failure must not
+            // be reported as a send failure — worse still here than in sendEmailAsync,
+            // since a re-send has no draft to launch from once the delete below runs.
+            sseNotificationService.broadcast(SendNotification.completed(sendId, accountId));
             log.info("{} Draft {} sent successfully from account ID: {}", LogCategory.SMTP, stableId, accountId);
             AuditLog.success("mail_send", maskedAccountEmail, "draft=" + stableId);
-
-            appendService.appendByRole(accountId, FolderRole.SENT, detached, true);
-
-            /*
-             * Hard-delete the old draft from Drafts. A failure does not abort the whole
-             * operation — the message has already been sent and a duplicate is a smaller
-             * evil than a false 500.
-             */
             try {
+                appendService.appendByRole(accountId, FolderRole.SENT, detached, true);
+                /*
+                 * Hard-delete the old draft from Drafts. The message has already been sent, so
+                 * a duplicate is a smaller evil than a false failure.
+                 */
                 imapActionService.hardDelete(accountId, draftFolder, draftUid);
                 messageService.deleteByStableId(stableId);
-            } catch (Exception cleanupEx) {
-                log.warn("{} Failed to delete sent draft {} (UID {} in {}): {}", LogCategory.SMTP, stableId, draftUid,
-                        draftFolder, cleanupEx.getMessage());
+                accountRepository.clearLastErrorIfCodeIn(accountId, SEND_PIPELINE_ERROR_CODES);
+            } catch (Exception bookkeepingEx) {
+                log.warn("{} Post-send bookkeeping failed for sent draft {} (UID {} in {}): {}", LogCategory.SMTP,
+                        stableId, draftUid, draftFolder, bookkeepingEx.getMessage());
             }
-
-            accountRepository.clearLastErrorIfCodeIn(accountId, SEND_PIPELINE_ERROR_CODES);
-            sseNotificationService.broadcast(SendNotification.completed(sendId, accountId));
         } catch (Exception e) {
             outcome = MailMetrics.OUTCOME_FAILURE;
             log.error("{} Failed to send draft {} from account ID {}", LogCategory.SMTP, stableId, accountId, e);
@@ -309,10 +327,38 @@ public class SmtpMessageService {
      */
     private void recordSendFailure(Long accountId, String sendId, AccountLastErrorCode code, String messagePrefix,
             Exception e) {
-        accountRepository.updateLastError(accountId,
-                AccountLastError.of(code, java.util.Map.of("detail", safeDetail(e)), messagePrefix + safeDetail(e)),
-                LocalDateTime.now());
+        // The client's pending indicator is resolved only by the SSE event, so the
+        // broadcast must run even if persisting last_error fails — otherwise a DB error
+        // while recording the failure would leave the send "sending…" forever.
+        try {
+            accountRepository.updateLastError(accountId,
+                    AccountLastError.of(code, java.util.Map.of("detail", safeDetail(e)), messagePrefix + safeDetail(e)),
+                    LocalDateTime.now());
+        } catch (Exception dbEx) {
+            log.error("{} Failed to persist last_error for account {} while recording a send failure: {}",
+                    LogCategory.SMTP, accountId, dbEx.getMessage());
+        }
         sseNotificationService.broadcast(SendNotification.failed(sendId, accountId, code.name()));
+    }
+
+    /**
+     * A {@code replaces} / draft target may only be hard-deleted if it is this
+     * account's own message and actually lives in the Drafts folder. Fails closed:
+     * if the Drafts folder cannot be resolved we cannot prove the target is a
+     * draft, so we refuse the delete rather than risk expunging received mail.
+     */
+    private boolean isReplaceableDraft(Long accountId, MessageEntity candidate) {
+        if (candidate.getAccount() == null || !accountId.equals(candidate.getAccount().getId())) {
+            return false;
+        }
+        try {
+            String draftsFolder = imapFolderService.findFolderNameByRoleOrThrow(accountId, FolderRole.DRAFTS);
+            return draftsFolder.equals(candidate.getFolderName());
+        } catch (Exception e) {
+            log.warn("{} Could not resolve the Drafts folder for account {} while validating a replace target: {}",
+                    LogCategory.SMTP, accountId, e.getMessage());
+            return false;
+        }
     }
 
     private static String safeDetail(Exception e) {

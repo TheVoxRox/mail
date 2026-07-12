@@ -75,6 +75,15 @@ public class DraftController {
     public ResponseEntity<SendAcceptedResponse> sendDraft(
             @PathVariable @Positive(message = "{validation.positive}") Long accountId,
             @PathVariable @NotBlank(message = "{validation.notBlank}") @Size(max = 128, message = "{validation.size.max}") String stableId) {
+        /*
+         * Synchronously validate that the stableId is this account's own draft (exists,
+         * owned, actually in the Drafts folder) BEFORE dispatching the async send.
+         * Without this the async path re-sends and then hard-deletes whatever message
+         * the stableId points at — a wrong id would SMTP-resend a received INBOX
+         * message to its original recipients and expunge it. A bad id is rejected here
+         * as 400/404, not accepted.
+         */
+        mailFacade.verifyDraftForSend(accountId, stableId);
         String sendId = UUID.randomUUID().toString();
         log.info("{} Sending draft {} for account {} (sendId={})", LogCategory.API, stableId, accountId, sendId);
         smtpService.sendDraftAsync(accountId, stableId, sendId);
