@@ -103,6 +103,20 @@ describe('checkForUpdateAndPrompt (startup, background)', () => {
 		expect(get(mod.updatePromptState).status).toBe('available');
 		expect(get(mod.updateFailureState)).toEqual({ status: 'hidden' });
 	});
+
+	it('hides a stale prompt when it finds nothing', async () => {
+		invokeMock
+			.mockResolvedValueOnce({ version: '9.9.9', currentVersion: '0.1.0' })
+			.mockResolvedValueOnce(null);
+
+		const mod = await freshModule();
+		await mod.checkForUpdateManually();
+		await mod.checkForUpdateAndPrompt();
+
+		// The second check replaced the shell's pending slot with "nothing";
+		// the old prompt would offer an update the shell refuses to install.
+		expect(get(mod.updatePromptState)).toEqual({ status: 'hidden' });
+	});
 });
 
 describe('checkForUpdateManually (user-initiated)', () => {
@@ -114,6 +128,47 @@ describe('checkForUpdateManually (user-initiated)', () => {
 
 		expect(result.status).toBe('failed');
 		expect(get(mod.updateFailureState).status).toBe('failed');
+	});
+
+	it('hides a stale prompt when a later check finds nothing', async () => {
+		invokeMock
+			.mockResolvedValueOnce({ version: '9.9.9', currentVersion: '0.1.0' })
+			.mockResolvedValueOnce(null);
+
+		const mod = await freshModule();
+		await mod.checkForUpdateManually();
+		expect(get(mod.updatePromptState).status).toBe('available');
+
+		const result = await mod.checkForUpdateManually();
+
+		expect(result.status).toBe('none');
+		expect(get(mod.updatePromptState)).toEqual({ status: 'hidden' });
+	});
+
+	it('does not touch an in-flight install when a later check finds nothing', async () => {
+		let resolveInstall!: () => void;
+		invokeMock
+			.mockResolvedValueOnce({ version: '9.9.9', currentVersion: '0.1.0' })
+			.mockImplementationOnce(
+				() =>
+					new Promise<void>((resolve) => {
+						resolveInstall = resolve;
+					})
+			)
+			.mockResolvedValueOnce(null);
+
+		const mod = await freshModule();
+		await mod.checkForUpdateManually();
+		const install = mod.installPromptedUpdate();
+		await mod.checkForUpdateManually();
+
+		// The install works on its own handle; yanking the dialog away under
+		// the user mid-download would be worse than the stale prompt.
+		expect(get(mod.updatePromptState).status).toBe('installing');
+
+		resolveInstall();
+		await install;
+		expect(get(mod.updatePromptState)).toEqual({ status: 'hidden' });
 	});
 });
 
@@ -147,7 +202,11 @@ describe('update channel routing', () => {
 		await mod.checkForUpdateManually();
 		await mod.installPromptedUpdate();
 
-		expect(invokeMock).toHaveBeenLastCalledWith('install_pending_update');
+		// expectedVersion pins the install to what the prompt showed — the
+		// shell refuses to install anything else from its pending slot.
+		expect(invokeMock).toHaveBeenLastCalledWith('install_pending_update', {
+			expectedVersion: '9.9.9'
+		});
 		expect(get(mod.updatePromptState)).toEqual({ status: 'hidden' });
 	});
 });

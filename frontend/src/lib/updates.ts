@@ -19,9 +19,10 @@ interface UpdateMetadata {
 interface AvailableUpdate extends UpdateMetadata {
 	/**
 	 * Installs the update found by the check that produced this object. The
-	 * Tauri shell holds the pending update in managed state, so the install
-	 * targets exactly what the prompt showed — a later check (including after
-	 * a channel switch) replaces it together with the prompt.
+	 * Tauri shell holds the pending update in managed state and refuses to
+	 * install any other version than the one named here, so the install can
+	 * never silently target a build the prompt did not show; a later check
+	 * that finds nothing hides the prompt (see hideStalePrompt).
 	 */
 	install: () => Promise<void>;
 }
@@ -61,8 +62,20 @@ async function checkForUpdate(): Promise<AvailableUpdate | null> {
 
 	return {
 		...metadata,
-		install: () => invoke('install_pending_update')
+		install: () => invoke('install_pending_update', { expectedVersion: metadata.version })
 	};
+}
+
+/**
+ * Every check replaces the shell's pending-update slot, so after a check that
+ * found nothing an open "update available" prompt would offer an update the
+ * shell can no longer install. An in-flight install is left alone — it works
+ * on its own handle.
+ */
+function hideStalePrompt(): void {
+	if (get(updatePromptState).status === 'available') {
+		updatePromptState.set({ status: 'hidden' });
+	}
 }
 
 export async function checkForUpdateAndPrompt(): Promise<void> {
@@ -70,7 +83,11 @@ export async function checkForUpdateAndPrompt(): Promise<void> {
 
 	try {
 		const update = await checkForUpdate();
-		if (!update || wasDismissed(update.version)) return;
+		if (!update) {
+			hideStalePrompt();
+			return;
+		}
+		if (wasDismissed(update.version)) return;
 		updatePromptState.set({ status: 'available', update });
 	} catch (err) {
 		// Background startup checks fail silently: a transient network error or a
@@ -87,7 +104,10 @@ export async function checkForUpdateManually(): Promise<ManualUpdateCheckResult>
 
 	try {
 		const update = await checkForUpdate();
-		if (!update) return { status: 'none' };
+		if (!update) {
+			hideStalePrompt();
+			return { status: 'none' };
+		}
 		updatePromptState.set({ status: 'available', update });
 		return { status: 'available', update };
 	} catch (err) {

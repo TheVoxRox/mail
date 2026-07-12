@@ -119,13 +119,27 @@ async fn check_for_update(
 }
 
 #[tauri::command]
-async fn install_pending_update(pending: tauri::State<'_, PendingUpdate>) -> Result<(), String> {
+async fn install_pending_update(
+    pending: tauri::State<'_, PendingUpdate>,
+    expected_version: String,
+) -> Result<(), String> {
     let update = pending
         .0
         .lock()
         .unwrap_or_else(|err| err.into_inner())
         .clone()
         .ok_or_else(|| "no update is pending installation".to_string())?;
+
+    // The webview names the version its prompt showed. The pending slot is
+    // replaced by every check (cleared on a no-update result), so without
+    // this pin a stale prompt could install a different build than the one
+    // the user approved — failing is better.
+    if update.version != expected_version {
+        return Err(format!(
+            "pending update is {}, but the prompt offered {}",
+            update.version, expected_version
+        ));
+    }
 
     update
         .download_and_install(|_, _| {}, || {})
