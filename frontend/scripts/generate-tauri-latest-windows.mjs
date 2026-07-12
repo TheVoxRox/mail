@@ -1,6 +1,7 @@
 import { readFile, readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseArgs } from './lib/cli-args.mjs';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const frontendRoot = path.resolve(scriptDir, '..');
@@ -88,26 +89,4 @@ async function listFiles(dir) {
 		})
 	);
 	return files.flat();
-}
-
-function parseArgs(argv) {
-	const parsed = {};
-	for (let i = 0; i < argv.length; i += 1) {
-		const item = argv[i];
-		if (!item.startsWith('--')) {
-			throw new Error(`Unexpected argument: ${item}`);
-		}
-
-		const [rawKey, inlineValue] = item.slice(2).split('=', 2);
-		const value = inlineValue ?? argv[++i];
-		if (!rawKey || value === undefined) {
-			throw new Error(`Missing value for argument: ${item}`);
-		}
-		parsed[toCamelCase(rawKey)] = value;
-	}
-	return parsed;
-}
-
-function toCamelCase(value) {
-	return value.replace(/-([a-z])/g, (_, char) => char.toUpperCase());
 }
