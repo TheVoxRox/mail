@@ -316,7 +316,7 @@ Updater má dva kanály. Volbu drží každá instalace v Nastavení → O aplik
 
 ### Ship beta buildu
 
-1. Nastavit prerelease verzi (`0.2.0-beta.1`) v `tauri.conf.json`/`package.json`/`version.ts` a tagnout `v0.2.0-beta.1`. Release workflow kontroluje shodu tag ↔ verze a prerelease-suffixovaný tag založí release s `--prerelease`.
+1. Nastavit prerelease verzi (`0.2.0-beta.1`) v `tauri.conf.json`/`package.json`/`version.ts` a tagnout `v0.2.0-beta.1`. Release workflow kontroluje shodu tag ↔ verze a prerelease-suffixovaný tag založí release s `--prerelease`; pokud release už existuje (předdraftované poznámky, částečný předchozí běh), workflow flag doplní přes `gh release edit` — bez něj by publish předal beta build do `releases/latest` redirectu stabilního kanálu.
 2. Po ručním Publish releasu `beta-channel.yml` přepíše `beta/latest.json`. Stabilní kanál build nevidí — redirect `releases/latest` prereleasy přeskakuje.
 
 ### Promotion na stable

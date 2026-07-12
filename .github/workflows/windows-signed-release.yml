@@ -260,17 +260,32 @@ jobs:
             Write-Host "Checksum $name = $hash"
           }
 
+          # A prerelease-suffixed version ships to the beta channel only:
+          # the flag keeps it out of the releases/latest redirect (stable
+          # channel) once published. beta-channel.yml then refreshes the
+          # moving beta manifest on publish.
+          #
+          # PowerShell cannot import frontend/scripts/lib/semver.mjs, so this
+          # regex re-states "has a prerelease suffix" from SEMVER_RE there —
+          # keep the two in sync if the tag grammar ever changes.
+          $isPrerelease = $env:RELEASE_TAG -match '^v?\d+\.\d+\.\d+-'
+
           gh release view $env:RELEASE_TAG | Out-Null
           if ($LASTEXITCODE -ne 0) {
             $createArgs = @("release", "create", $env:RELEASE_TAG, "--draft", "--title", "VoxRox Mail $env:RELEASE_TAG")
-            # A prerelease-suffixed version ships to the beta channel only:
-            # the flag keeps it out of the releases/latest redirect (stable
-            # channel) once published. beta-channel.yml then refreshes the
-            # moving beta manifest on publish.
-            if ($env:RELEASE_TAG -match '^v?\d+\.\d+\.\d+-') {
+            if ($isPrerelease) {
               $createArgs += "--prerelease"
             }
             gh @createArgs
+          }
+          elseif ($isPrerelease) {
+            # The release can pre-exist without the flag (operator-drafted
+            # notes, or a prior partial run) — enforce it, or publishing would
+            # hand the stable channel's releases/latest redirect to this build.
+            gh release edit $env:RELEASE_TAG --prerelease
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to mark pre-existing release $env:RELEASE_TAG as prerelease."
+            }
           }
 
           gh release upload $env:RELEASE_TAG @assets --clobber

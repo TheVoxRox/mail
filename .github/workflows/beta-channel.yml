@@ -43,10 +43,18 @@ jobs:
 
     env:
       GH_TOKEN: ${{ github.token }}
+      # Tag of the moving release that carries the beta channel manifest. Also
+      # the loop-guard sentinel in "Resolve source tag" — publishing this
+      # release fires the workflow too.
+      BETA_POINTER_TAG: beta
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          # The job only runs the dependency-free guard script; skip the rest
+          # of the monorepo.
+          sparse-checkout: frontend/scripts
 
       - name: Resolve source tag
         id: source
@@ -56,10 +64,10 @@ jobs:
             echo "No source tag resolved." >&2
             exit 1
           fi
-          if [ "$TAG" = "beta" ]; then
+          if [ "$TAG" = "$BETA_POINTER_TAG" ]; then
             # Creating/publishing the moving beta release fires this workflow
             # too; copying the manifest onto itself is pointless and would loop.
-            echo "Tag 'beta' is the channel release itself; skipping."
+            echo "Tag '$TAG' is the channel release itself; skipping."
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
@@ -67,30 +75,52 @@ jobs:
       - name: Download candidate manifest
         id: candidate
         if: steps.source.outputs.skip != 'true'
+        env:
+          SOURCE_TAG: ${{ steps.source.outputs.tag }}
         run: |
           # A missing release is an operator error (workflow_dispatch typo) and
-          # fails; a release without latest.json is a non-app release (e.g. a
-          # source-only tag) and is skipped quietly.
-          gh release view "${{ steps.source.outputs.tag }}" --json tagName >/dev/null
-          mkdir -p candidate
-          if ! gh release download "${{ steps.source.outputs.tag }}" --pattern latest.json --dir candidate; then
-            echo "Release ${{ steps.source.outputs.tag }} has no latest.json asset; nothing to do."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
+          # fails via the API 404; a release without latest.json is a non-app
+          # release (e.g. a source-only tag) and is skipped quietly. Once the
+          # asset is known to exist the download itself must succeed — a
+          # transient failure must not be mistaken for "nothing to do".
+          #
+          # Downstream steps are gated on the single `proceed` output instead
+          # of each re-stating every skip condition.
+          has_manifest=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$SOURCE_TAG" \
+            --jq '.assets | any(.name == "latest.json")')
+          if [ "$has_manifest" = "true" ]; then
+            mkdir -p candidate
+            gh release download "$SOURCE_TAG" --pattern latest.json --dir candidate
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Release $SOURCE_TAG has no latest.json asset; nothing to do."
           fi
 
       - name: Download current beta manifest
-        if: steps.source.outputs.skip != 'true' && steps.candidate.outputs.skip != 'true'
+        if: steps.candidate.outputs.proceed == 'true'
         run: |
+          # Only two outcomes may leave current/ empty: no beta release yet, or
+          # a beta release without a manifest (first run half-done). A failed
+          # download or API error must fail loudly — otherwise the regression
+          # guard sees "no current manifest" and waves a downgrade through.
           mkdir -p current
-          if gh release view beta --json tagName >/dev/null 2>&1; then
-            # Tolerate a beta release without a manifest (first run half-done).
-            gh release download beta --pattern latest.json --dir current || true
-          else
+          if has_manifest=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$BETA_POINTER_TAG" \
+              --jq '.assets | any(.name == "latest.json")' 2>api-error.txt); then
+            if [ "$has_manifest" = "true" ]; then
+              gh release download "$BETA_POINTER_TAG" --pattern latest.json --dir current
+            else
+              echo "Beta release exists but holds no latest.json yet."
+            fi
+          elif grep -q 'HTTP 404' api-error.txt; then
             echo "No beta release yet; it will be created before upload."
+          else
+            echo "Could not verify beta channel release state:" >&2
+            cat api-error.txt >&2
+            exit 1
           fi
 
       - name: Guard against version regression
-        if: steps.source.outputs.skip != 'true' && steps.candidate.outputs.skip != 'true'
+        if: steps.candidate.outputs.proceed == 'true'
         run: |
           node frontend/scripts/beta-channel-guard.mjs \
             --new candidate/latest.json \
@@ -98,15 +128,15 @@ jobs:
             --force "${{ inputs.force || 'false' }}"
 
       - name: Upload manifest to beta release
-        if: steps.source.outputs.skip != 'true' && steps.candidate.outputs.skip != 'true'
+        if: steps.candidate.outputs.proceed == 'true'
         run: |
-          if ! gh release view beta --json tagName >/dev/null 2>&1; then
+          if ! gh release view "$BETA_POINTER_TAG" --json tagName >/dev/null 2>&1; then
             # --prerelease is mandatory: a full 'beta' release would become the
             # newest non-prerelease and capture the releases/latest redirect,
             # feeding the beta manifest to the STABLE channel.
-            gh release create beta --prerelease \
+            gh release create "$BETA_POINTER_TAG" --prerelease \
               --title "Beta channel" \
               --notes "Moving release holding only latest.json for the beta update channel. Do not download installers from here; use the versioned releases."
           fi
-          gh release upload beta candidate/latest.json --clobber
+          gh release upload "$BETA_POINTER_TAG" candidate/latest.json --clobber
           echo "Beta channel now serves $(node -p 'JSON.parse(require("fs").readFileSync("candidate/latest.json","utf8")).version')."
