@@ -7,34 +7,24 @@
  * never handles endpoint URLs itself.
  */
 
-import { browser } from '$app/environment';
-import { writable } from 'svelte/store';
+import { persistedStore } from './persisted.js';
 
-export type UpdateChannel = 'stable' | 'beta';
+/**
+ * Single source of truth for the channel set: the type, the persisted-value
+ * validation, and the Settings dropdown all derive from this list. The Rust
+ * side (beta_endpoint_override in lib.rs) still validates independently —
+ * that match is the IPC trust boundary and must not widen just because the
+ * webview learned a new name.
+ */
+export const UPDATE_CHANNELS = ['stable', 'beta'] as const;
+export type UpdateChannel = (typeof UPDATE_CHANNELS)[number];
 
-const STORAGE_KEY = 'mail.updateChannel';
-const DEFAULT_CHANNEL: UpdateChannel = 'stable';
-
-function readInitial(): UpdateChannel {
-	if (!browser) return DEFAULT_CHANNEL;
-	try {
-		const stored = window.localStorage.getItem(STORAGE_KEY);
-		if (stored === 'stable' || stored === 'beta') return stored;
-	} catch {
-		// localStorage unavailable – private mode etc.
-	}
-	return DEFAULT_CHANNEL;
-}
-
-export const updateChannel = writable<UpdateChannel>(readInitial());
+export const updateChannel = persistedStore<UpdateChannel>(
+	'mail.updateChannel',
+	UPDATE_CHANNELS,
+	'stable'
+);
 
 export function setUpdateChannel(next: UpdateChannel): void {
 	updateChannel.set(next);
-	if (browser) {
-		try {
-			window.localStorage.setItem(STORAGE_KEY, next);
-		} catch {
-			// ignore
-		}
-	}
 }

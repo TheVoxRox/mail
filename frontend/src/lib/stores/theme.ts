@@ -7,30 +7,22 @@
  */
 
 import { browser } from '$app/environment';
-import { writable, type Readable, derived } from 'svelte/store';
+import { type Readable, derived } from 'svelte/store';
+import { persistedStore } from './persisted.js';
 
-export type ThemePreference = 'light' | 'dark' | 'system';
-
-const STORAGE_KEY = 'mail.theme';
-const DEFAULT_PREF: ThemePreference = 'system';
-
-function readInitial(): ThemePreference {
-	if (!browser) return DEFAULT_PREF;
-	try {
-		const stored = window.localStorage.getItem(STORAGE_KEY);
-		if (stored === 'light' || stored === 'dark' || stored === 'system') return stored;
-	} catch {
-		// localStorage unavailable – private mode etc.
-	}
-	return DEFAULT_PREF;
-}
+export const THEME_PREFERENCES = ['light', 'dark', 'system'] as const;
+export type ThemePreference = (typeof THEME_PREFERENCES)[number];
 
 function prefersDark(): boolean {
 	if (!browser) return false;
 	return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
 }
 
-export const themePreference = writable<ThemePreference>(readInitial());
+export const themePreference = persistedStore<ThemePreference>(
+	'mail.theme',
+	THEME_PREFERENCES,
+	'system'
+);
 
 /** Actual theme after evaluating `system`. */
 const resolvedTheme: Readable<'light' | 'dark'> = derived(
@@ -53,13 +45,6 @@ const resolvedTheme: Readable<'light' | 'dark'> = derived(
 
 export function setThemePreference(next: ThemePreference): void {
 	themePreference.set(next);
-	if (browser) {
-		try {
-			window.localStorage.setItem(STORAGE_KEY, next);
-		} catch {
-			// ignore
-		}
-	}
 }
 
 /**

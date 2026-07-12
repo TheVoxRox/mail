@@ -17,6 +17,7 @@
 	import { checkForUpdateManually } from '$lib/updates.js';
 	import {
 		setUpdateChannel,
+		UPDATE_CHANNELS,
 		updateChannel,
 		type UpdateChannel
 	} from '$lib/stores/updateChannel.js';
@@ -135,7 +136,6 @@
 		}
 	}
 
-	const UPDATE_CHANNEL_OPTIONS: ReadonlyArray<UpdateChannel> = ['stable', 'beta'];
 	const channelLabelKey = (option: UpdateChannel) =>
 		`settings.about.versions.channel.options.${option}`;
 
@@ -182,7 +182,7 @@
 					width="full"
 					aria-describedby="update-channel-select-hint"
 				>
-					{#each UPDATE_CHANNEL_OPTIONS as option (option)}
+					{#each UPDATE_CHANNELS as option (option)}
 						<option value={option}>{$_(channelLabelKey(option))}</option>
 					{/each}
 				</Select>
