@@ -1,6 +1,7 @@
 package org.voxrox.mailbackend.feature.mail.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
@@ -12,6 +13,7 @@ import java.util.Properties;
 import jakarta.mail.Address;
 import jakarta.mail.BodyPart;
 import jakarta.mail.Message;
+import jakarta.mail.MessagingException;
 import jakarta.mail.Multipart;
 import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
@@ -266,6 +268,48 @@ class MimeMessageBuilderTest {
             assertThat(msgNull.getHeader("References")).isNull();
             assertThat(msgBlank.getHeader("In-Reply-To")).isNull();
             assertThat(msgBlank.getHeader("References")).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("Header injection guard (CR/LF)")
+    class HeaderInjectionGuard {
+
+        @Test
+        @DisplayName("CR/LF in subject -> MessagingException, no header split")
+        void crlfInSubjectRejected() {
+            assertThatThrownBy(() -> builder.build(session, account,
+                    req("to@example.com", null, null, "Hi\r\nX-Injected: 1", "b", List.of(), null, null)))
+                    .isInstanceOf(MessagingException.class);
+        }
+
+        @Test
+        @DisplayName("CR/LF in In-Reply-To -> MessagingException")
+        void crlfInInReplyToRejected() {
+            assertThatThrownBy(
+                    () -> builder.build(session, account,
+                            req("to@example.com", null, null, "s", "b", List.of(),
+                                    "<x@y>\r\nReply-To: attacker@evil.com", null)))
+                    .isInstanceOf(MessagingException.class);
+        }
+
+        @Test
+        @DisplayName("CR/LF in References -> MessagingException")
+        void crlfInReferencesRejected() {
+            assertThatThrownBy(() -> builder.build(session, account,
+                    req("to@example.com", null, null, "s", "b", List.of(), null, "<x@y>\r\nBcc: a@b")))
+                    .isInstanceOf(MessagingException.class);
+        }
+
+        @Test
+        @DisplayName("CR/LF in attachment content type -> MessagingException")
+        void crlfInContentTypeRejected() {
+            MailRequest.AttachmentRequest att = new MailRequest.AttachmentRequest("a.txt",
+                    "text/plain\r\nX-Injected: 1",
+                    Base64.getEncoder().encodeToString("A".getBytes(StandardCharsets.UTF_8)));
+            assertThatThrownBy(() -> builder.build(session, account,
+                    req("to@example.com", null, null, "s", "b", List.of(att), null, null)))
+                    .isInstanceOf(MessagingException.class);
         }
     }
 

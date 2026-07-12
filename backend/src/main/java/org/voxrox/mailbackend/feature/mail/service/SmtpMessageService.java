@@ -249,15 +249,18 @@ public class SmtpMessageService {
             return;
         }
 
-        String draftFolder = draft.getFolderName();
-        long draftUid = draft.getUid();
-        String maskedAccountEmail = LogMasker.maskEmail(draft.getAccount().getEmail());
-
         Transport transport = null;
         var sample = metrics.startSmtpSend();
         String outcome = MailMetrics.OUTCOME_SUCCESS;
 
         try {
+            // Read inside the try: getUid() unboxes a Long, so a corrupt draft row with a
+            // null UID would NPE. Outside the try that NPE escapes the @Async method with
+            // no send_failed broadcast, leaving the client's "sending…" indicator hung.
+            String draftFolder = draft.getFolderName();
+            long draftUid = draft.getUid();
+            String maskedAccountEmail = LogMasker.maskEmail(draft.getAccount().getEmail());
+
             AccountConnectionDetails details = connectionDetailsService.getSmtpConnectionDetails(accountId);
 
             Session session = transportFactory.createSession(details);

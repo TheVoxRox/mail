@@ -111,6 +111,30 @@ class SmtpMessageServiceTest {
         }
 
         @Test
+        @DisplayName("Draft row with null UID -> send_failed broadcast, not a hung client")
+        void shouldBroadcastFailureWhenDraftUidIsNull() {
+            AccountEntity account = new AccountEntity();
+            account.setId(ACCOUNT_ID);
+
+            MessageEntity draft = new MessageEntity();
+            draft.setStableId(STABLE_ID);
+            draft.setAccount(account);
+            draft.setFolderName("Drafts");
+            draft.setUid(null); // corrupt / partially-synced row
+
+            when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(draft));
+
+            // The NPE from unboxing a null UID must be caught and reported, so the client's
+            // pending indicator resolves instead of hanging.
+            service.sendDraftAsync(ACCOUNT_ID, STABLE_ID, SEND_ID);
+
+            ArgumentCaptor<SendNotification> sent = ArgumentCaptor.forClass(SendNotification.class);
+            verify(sseNotificationService).broadcast(sent.capture());
+            assertThat(sent.getValue().type()).isEqualTo(SendNotification.TYPE_FAILED);
+            assertThat(sent.getValue().sendId()).isEqualTo(SEND_ID);
+        }
+
+        @Test
         @DisplayName("Draft belongs to a different account -> no-op (protection against cross-account operation)")
         void shouldNoopWhenDraftBelongsToOtherAccount() {
             AccountEntity otherAccount = new AccountEntity();

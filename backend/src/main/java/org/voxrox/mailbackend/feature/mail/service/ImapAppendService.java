@@ -24,11 +24,14 @@ import org.voxrox.mailbackend.util.LogCategory;
  *
  * <p>
  * Best-effort contract: {@link #appendByRole} never throws — it returns
- * {@code false} on any failure instead. For the Sent archive a failure is
- * harmless (the next sync reconciles the missing copy, and a false 500 would be
- * worse). For a draft <em>replace</em> the caller MUST gate the delete of the
- * previous revision on a {@code true} return — otherwise a failed append would
- * destroy the only remaining copy of the user's content.
+ * {@code false} on any failure instead. For the Sent archive a failed append is
+ * tolerated because a false 500 on an already-delivered message would be worse;
+ * note this leaves NO server-side copy of the sent mail (sync cannot reconcile
+ * a copy that was never appended), so callers should at least log it. On
+ * providers that auto-file SMTP-submitted mail into Sent (e.g. Gmail) the copy
+ * still exists regardless. For a draft <em>replace</em> the caller MUST gate
+ * the delete of the previous revision on a {@code true} return — otherwise a
+ * failed append would destroy the only remaining copy of the user's content.
  */
 @Component
 public class ImapAppendService {

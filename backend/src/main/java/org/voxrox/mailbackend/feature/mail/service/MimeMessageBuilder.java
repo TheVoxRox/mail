@@ -66,15 +66,15 @@ public class MimeMessageBuilder {
             message.setRecipients(Message.RecipientType.BCC, InternetAddress.parse(bcc));
         }
 
-        message.setSubject(request.subject() == null ? "" : request.subject(), "UTF-8");
+        message.setSubject(request.subject() == null ? "" : requireSingleLine(request.subject(), "subject"), "UTF-8");
 
         String inReplyTo = request.inReplyTo();
         if (inReplyTo != null && !inReplyTo.isBlank()) {
-            message.setHeader("In-Reply-To", inReplyTo);
+            message.setHeader("In-Reply-To", requireSingleLine(inReplyTo, "In-Reply-To"));
         }
         String references = request.references();
         if (references != null && !references.isBlank()) {
-            message.setHeader("References", references);
+            message.setHeader("References", requireSingleLine(references, "References"));
         }
 
         Multipart multipart = new MimeMultipart();
@@ -86,7 +86,8 @@ public class MimeMessageBuilder {
         for (MailRequest.AttachmentRequest att : request.attachments()) {
             MimeBodyPart attachPart = new MimeBodyPart();
             byte[] data = Base64.getDecoder().decode(att.base64Data());
-            ByteArrayDataSource ds = new ByteArrayDataSource(data, att.contentType());
+            ByteArrayDataSource ds = new ByteArrayDataSource(data,
+                    requireSingleLine(att.contentType(), "content type"));
             attachPart.setDataHandler(new DataHandler(ds));
             attachPart.setFileName(MimeUtility.encodeText(att.fileName()));
             multipart.addBodyPart(attachPart);
@@ -95,5 +96,20 @@ public class MimeMessageBuilder {
         message.setContent(multipart);
         message.setSentDate(Date.from(Instant.now()));
         return message;
+    }
+
+    /**
+     * Guards a user-supplied value that is written verbatim into a MIME header
+     * (subject, In-Reply-To, References, a part's Content-Type). Jakarta Mail does
+     * not strip CR/LF, so a raw line break would inject an arbitrary header into
+     * the outgoing message. A legitimate client never sends a line break in these
+     * fields (and inbound Message-IDs are CR/LF-free after IMAP header unfolding),
+     * so we fail closed rather than silently rewrite what the user is sending.
+     */
+    private static String requireSingleLine(String value, String field) throws MessagingException {
+        if (value.indexOf('\r') >= 0 || value.indexOf('\n') >= 0) {
+            throw new MessagingException("Illegal line break in " + field);
+        }
+        return value;
     }
 }
