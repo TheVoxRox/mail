@@ -65,11 +65,15 @@ class DraftControllerTest {
     @MockitoBean
     private InternalApiKeyProvider apiKeyProvider;
 
+    private static final SmtpMessageService.DraftIdentity IDENTITY = new SmtpMessageService.DraftIdentity(
+            "<uuid@voxrox.org>", "Drafts", "deadbeefdeadbeefdeadbeefdeadbeef");
+
     @BeforeEach
     void stubProps() {
         SyncProperties sync = new SyncProperties(100, 200, Duration.ofMinutes(5), Duration.ofSeconds(10), 50, 30, 300,
                 4, 256, 200, Duration.ofMinutes(30), Duration.ofSeconds(30));
         when(mailProps.sync()).thenReturn(sync);
+        when(smtpService.prepareDraftIdentity(anyLong())).thenReturn(IDENTITY);
     }
 
     private DraftRequest emptyDraft() {
@@ -77,14 +81,16 @@ class DraftControllerTest {
     }
 
     @Test
-    @DisplayName("POST draft → 202, saveDraftAsync s replaces=null")
+    @DisplayName("POST draft → 202 with the pre-resolved stableId, saveDraftAsync with replaces=null")
     void saveDraftOk() throws Exception {
         DraftRequest req = new DraftRequest("to@x.cz", null, null, "Subj", "Body", List.of(), null, null);
 
         mockMvc.perform(post("/api/v1/accounts/7/drafts").contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(req))).andExpect(status().isAccepted());
+                .content(objectMapper.writeValueAsString(req))).andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.stableId").value(IDENTITY.stableId()));
 
-        verify(smtpService).saveDraftAsync(eq(7L), any(DraftRequest.class), isNull());
+        // The async save runs under the same identity the 202 body carries.
+        verify(smtpService).saveDraftAsync(eq(7L), any(DraftRequest.class), isNull(), eq(IDENTITY));
     }
 
     @Test
@@ -92,9 +98,9 @@ class DraftControllerTest {
     void saveDraftReplaces() throws Exception {
         mockMvc.perform(post("/api/v1/accounts/7/drafts").param("replaces", "abc123")
                 .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(emptyDraft())))
-                .andExpect(status().isAccepted());
+                .andExpect(status().isAccepted()).andExpect(jsonPath("$.stableId").value(IDENTITY.stableId()));
 
-        verify(smtpService).saveDraftAsync(eq(7L), any(DraftRequest.class), eq("abc123"));
+        verify(smtpService).saveDraftAsync(eq(7L), any(DraftRequest.class), eq("abc123"), eq(IDENTITY));
     }
 
     @Test

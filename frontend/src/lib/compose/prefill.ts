@@ -90,7 +90,7 @@ export async function loadComposePrefill(params: URLSearchParams): Promise<Compo
 		return {
 			to: detail.recipientsTo ?? '',
 			cc: detail.recipientsCc ?? '',
-			bcc: '',
+			bcc: detail.recipientsBcc ?? '',
 			subject: detail.subject ?? '',
 			body,
 			inReplyTo: detail.inReplyTo || null,

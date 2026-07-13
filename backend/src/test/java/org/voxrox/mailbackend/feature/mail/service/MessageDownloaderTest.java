@@ -307,7 +307,7 @@ class MessageDownloaderTest {
 
     private static MailDetailResponse newDto(long uid) {
         return new MailDetailResponse("stable-" + uid, uid, "Subject", "from@example.com", "to@example.com", null, null,
-                LocalDateTime.of(2026, 1, 1, 10, 0), false, false, false, null, null, null, false, List.of(), null,
-                null);
+                null, LocalDateTime.of(2026, 1, 1, 10, 0), false, false, false, null, null, null, false, List.of(),
+                null, null);
     }
 }

@@ -15,6 +15,7 @@ import org.voxrox.mailbackend.core.config.MailClientProperties;
 import org.voxrox.mailbackend.core.dto.PagedResponse;
 import org.voxrox.mailbackend.exception.ValidationException;
 import org.voxrox.mailbackend.feature.mail.dto.DraftRequest;
+import org.voxrox.mailbackend.feature.mail.dto.DraftSaveAcceptedResponse;
 import org.voxrox.mailbackend.feature.mail.dto.MailSummaryResponse;
 import org.voxrox.mailbackend.feature.mail.dto.SendAcceptedResponse;
 import org.voxrox.mailbackend.feature.mail.service.MailFacade;
@@ -29,11 +30,13 @@ import module java.base;
 /**
  * REST API for drafts. Saving runs asynchronously via
  * {@link SmtpMessageService#saveDraftAsync}; the endpoint returns 202 Accepted
- * immediately and the draft's stableId appears after the next folder sync.
+ * immediately, carrying the deterministic stableId the draft persists under
+ * (the Message-ID is assigned before dispatch, see
+ * {@link SmtpMessageService#prepareDraftIdentity}).
  *
  * Updating an existing draft = {@code POST ?replaces={stableId}}: after the new
  * revision is saved, the old one is removed. PUT is deliberately not exposed
- * because the provider may return a new stable resource after the save.
+ * because each revision is a new IMAP message with a new identity.
  */
 @Tag(name = "Drafts", description = "Saving drafts into the Drafts folder (async, replaces semantics).")
 @RestController
@@ -55,15 +58,19 @@ public class DraftController {
 
     @Operation(summary = "Save draft (async)", description = "Asynchronously saves the draft into the Drafts folder. "
             + "With the replaces={stableId} parameter, the old revision is deleted after a successful save. "
-            + "Returns 202 Accepted immediately — the draft's stableId becomes available after the next sync.")
-    @ApiResponse(responseCode = "202", description = "Draft save request accepted; processing continues asynchronously.")
+            + "Returns 202 Accepted immediately with the deterministic stableId the draft persists under — "
+            + "valid right away for replaces= chaining and ?draft= reopen.")
+    @ApiResponse(responseCode = "202", description = "Draft save request accepted; the body carries the stableId the draft persists under.")
     @PostMapping
-    public ResponseEntity<Void> saveDraft(@PathVariable @Positive(message = "{validation.positive}") Long accountId,
+    public ResponseEntity<DraftSaveAcceptedResponse> saveDraft(
+            @PathVariable @Positive(message = "{validation.positive}") Long accountId,
             @RequestParam(required = false) @Size(max = 128, message = "{validation.size.max}") String replaces,
             @Valid @RequestBody DraftRequest request) {
-        log.info("{} Saving draft for account {} (replaces={})", LogCategory.API, accountId, replaces);
-        smtpService.saveDraftAsync(accountId, request, replaces);
-        return ResponseEntity.accepted().build();
+        SmtpMessageService.DraftIdentity identity = smtpService.prepareDraftIdentity(accountId);
+        log.info("{} Saving draft for account {} (replaces={}, stableId={})", LogCategory.API, accountId, replaces,
+                identity.stableId());
+        smtpService.saveDraftAsync(accountId, request, replaces, identity);
+        return ResponseEntity.accepted().body(new DraftSaveAcceptedResponse(identity.stableId()));
     }
 
     @Operation(summary = "Send draft (async)", description = "Asynchronously sends an existing draft over SMTP: the original "

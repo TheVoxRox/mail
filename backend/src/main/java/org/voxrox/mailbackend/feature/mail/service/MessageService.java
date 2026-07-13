@@ -69,4 +69,21 @@ public class MessageService {
     public void deleteByStableId(String stableId) {
         messageRepository.deleteByStableId(stableId);
     }
+
+    /**
+     * Inserts the row unless one with the same stableId already exists. Used by the
+     * draft-save pipeline to make an appended draft addressable immediately; the
+     * next folder sync reconciles the same message under the same deterministic
+     * stableId, so a pre-existing row means there is nothing to do.
+     *
+     * @return {@code true} when the row was inserted.
+     */
+    @Transactional
+    public boolean insertIfAbsent(MessageEntity entity) {
+        if (messageRepository.findByStableIdWithAccount(entity.getStableId()).isPresent()) {
+            return false;
+        }
+        messageRepository.save(entity);
+        return true;
+    }
 }

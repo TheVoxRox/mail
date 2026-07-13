@@ -44,17 +44,21 @@ public class MailWriteController {
         this.smtpService = smtpService;
     }
 
-    @Operation(summary = "Send message (async)", description = "Asynchronously sends a message from the given account. Returns 202 Accepted with a sendId — the client tracks the outcome via the send_completed / send_failed notification stream event.")
+    @Operation(summary = "Send message (async)", description = "Asynchronously sends a message from the given account. "
+            + "Returns 202 Accepted with a sendId — the client tracks the outcome via the send_completed / send_failed "
+            + "notification stream event. With supersedesDraftId={stableId}, the draft the message was edited from is "
+            + "hard-deleted only AFTER successful delivery; the client must not delete it itself on the 202.")
     @ApiResponse(responseCode = "202", description = "Send request accepted; outcome is delivered via the notification stream.")
     @PostMapping("/account/{accountId}/send")
     public ResponseEntity<SendAcceptedResponse> sendEmail(
             @PathVariable @Positive(message = "{validation.positive}") Long accountId,
+            @RequestParam(required = false) @Size(max = 128, message = "{validation.size.max}") String supersedesDraftId,
             @Valid @RequestBody MailRequest request) {
 
         String sendId = UUID.randomUUID().toString();
-        log.info("{} Sending from account {} (sendId={}): {}", LogCategory.API, accountId, sendId,
-                LogMasker.maskEmail(request.to()));
-        smtpService.sendEmailAsync(accountId, request, sendId);
+        log.info("{} Sending from account {} (sendId={}, supersedes={}): {}", LogCategory.API, accountId, sendId,
+                supersedesDraftId, LogMasker.maskEmail(request.to()));
+        smtpService.sendEmailAsync(accountId, request, sendId, supersedesDraftId);
         return ResponseEntity.accepted().body(new SendAcceptedResponse(sendId));
     }
 

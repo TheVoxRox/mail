@@ -814,7 +814,7 @@ class MailFacadeTest {
     }
 
     private MailDetailResponse dummyDetailResponse(String contentError) {
-        return new MailDetailResponse(STABLE_ID, UID, "Test subject", "Alice <alice@example.com>", null, null,
+        return new MailDetailResponse(STABLE_ID, UID, "Test subject", "Alice <alice@example.com>", null, null, null,
                 "body content", LocalDateTime.of(2026, 1, 15, 10, 0), false, false, false, null, null, null, false,
                 List.of(), contentError, null);
     }

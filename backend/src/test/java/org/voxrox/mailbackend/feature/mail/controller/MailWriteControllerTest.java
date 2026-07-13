@@ -3,6 +3,7 @@ package org.voxrox.mailbackend.feature.mail.controller;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -67,7 +68,27 @@ class MailWriteControllerTest {
                 .content(objectMapper.writeValueAsString(req))).andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.sendId").isNotEmpty());
 
-        verify(smtpService).sendEmailAsync(eq(7L), any(MailRequest.class), anyString());
+        verify(smtpService).sendEmailAsync(eq(7L), any(MailRequest.class), anyString(), isNull());
+    }
+
+    @Test
+    @DisplayName("POST send?supersedesDraftId=abc — the draft id is passed through to the async send")
+    void sendSupersedesDraft() throws Exception {
+        mockMvc.perform(post("/api/v1/messages/account/7/send").param("supersedesDraftId", "abc123")
+                .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(validRequest())))
+                .andExpect(status().isAccepted());
+
+        verify(smtpService).sendEmailAsync(eq(7L), any(MailRequest.class), anyString(), eq("abc123"));
+    }
+
+    @Test
+    @DisplayName("POST send — supersedesDraftId over 128 characters -> 400")
+    void sendSupersedesDraftIdTooLong() throws Exception {
+        mockMvc.perform(post("/api/v1/messages/account/7/send").param("supersedesDraftId", "a".repeat(129))
+                .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(validRequest())))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(smtpService);
     }
 
     @Test
