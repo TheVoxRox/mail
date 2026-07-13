@@ -1,5 +1,10 @@
 import { HttpResponse } from 'msw';
-import { fixtureState, incrementFolderUnreadCount } from './fixtures.js';
+import {
+	draftToSummary,
+	fixtureState,
+	incrementFolderUnreadCount,
+	removeMessageEverywhere
+} from './fixtures.js';
 import type { SendNotification, SyncNotification } from '$lib/types.js';
 
 type StreamController = ReadableStreamDefaultController<Uint8Array>;
@@ -48,14 +53,19 @@ export function pushSyncCompletedCrLf(
 	}
 }
 
-function pushSendOutcome(type: SendNotification['type'], errorCode: string | null): void {
+function pushSendOutcome(
+	type: SendNotification['type'],
+	errorCode: string | null,
+	recoveryDraftStableId: string | null = null
+): void {
 	const sendId = fixtureState.lastSendId;
 	if (!sendId) return;
 	const payload: SendNotification = {
 		type,
 		sendId,
 		accountId: fixtureState.lastSendAccountId ?? 1,
-		errorCode
+		errorCode,
+		recoveryDraftStableId
 	};
 	const chunk = encoder.encode(
 		[`event: ${type}`, `data: ${JSON.stringify(payload)}`, '', ''].join('\n')
@@ -66,11 +76,26 @@ function pushSendOutcome(type: SendNotification['type'], errorCode: string | nul
 }
 
 export function pushSendCompleted(): void {
+	// Mirror of the backend contract: the superseded draft (or the sent draft
+	// itself for a draft-send) is hard-deleted only after successful delivery.
+	const superseded = fixtureState.lastSendSupersedesDraftId;
+	if (superseded) {
+		removeMessageEverywhere(superseded);
+		fixtureState.lastSendSupersedesDraftId = null;
+	}
 	pushSendOutcome('send_completed', null);
 }
 
 export function pushSendFailed(errorCode = 'SMTP_SEND_FAILED'): void {
-	pushSendOutcome('send_failed', errorCode);
+	// B2: a failed send of a brand-new message (no superseding draft) parks the
+	// content as a recovery draft and announces its id with the outcome.
+	let recoveryDraftStableId: string | null = null;
+	const accountId = fixtureState.lastSendAccountId ?? 1;
+	if (fixtureState.lastSendSupersedesDraftId == null && fixtureState.lastSendMailRequest) {
+		recoveryDraftStableId = draftToSummary(accountId, fixtureState.lastSendMailRequest).stableId;
+	}
+	fixtureState.lastSendMailRequest = null;
+	pushSendOutcome('send_failed', errorCode, recoveryDraftStableId);
 }
 
 export function openSyncStream(): Response {

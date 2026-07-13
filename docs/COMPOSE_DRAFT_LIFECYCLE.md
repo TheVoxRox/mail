@@ -1,6 +1,6 @@
 # Compose draft lifecycle — redesign (send review, batch 3)
 
-Status: **DECIDED 2026-07-13** — discard deletes the draft; no local mirror (server-side recovery instead); two PRs (backend contract first). Ready for PR-A.
+Status: **IMPLEMENTED 2026-07-13** — PR-A (backend contract, commit `04266c1`) and PR-B (frontend, branch `feat/draft-lifecycle-frontend`) landed. Discard deletes the draft; no local mirror (server-side recovery instead). Full unit + functional + a11y e2e green.
 Scope: the eight interacting findings from the send-path review ([PR #145](https://github.com/TheVoxRox/mail/pull/145) "Remaining → Batch 3"), plus two small items deferred from the batch-2 tail review.
 
 ## 1. Findings being addressed

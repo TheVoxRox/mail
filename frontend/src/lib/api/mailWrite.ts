@@ -6,8 +6,19 @@
 import { api } from './client.js';
 import type { MailRequest, SendAcceptedResponse } from '$lib/types.js';
 
-export function sendMail(accountId: number, body: MailRequest): Promise<SendAcceptedResponse> {
-	return api.post<SendAcceptedResponse>(`/messages/account/${accountId}/send`, body);
+/**
+ * With `supersedesDraftId`, the draft the message was edited from is
+ * hard-deleted by the backend only AFTER successful delivery — the client
+ * must not delete it itself on the 202 (a failed send keeps the draft).
+ */
+export function sendMail(
+	accountId: number,
+	body: MailRequest,
+	supersedesDraftId?: string
+): Promise<SendAcceptedResponse> {
+	return api.post<SendAcceptedResponse>(`/messages/account/${accountId}/send`, body, {
+		params: supersedesDraftId ? { supersedesDraftId } : undefined
+	});
 }
 
 export function prepareReply(stableId: string, all = false): Promise<MailRequest> {

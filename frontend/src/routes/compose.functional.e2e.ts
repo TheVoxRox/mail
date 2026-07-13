@@ -187,10 +187,10 @@ test.describe('Compose', () => {
 
 		await page.keyboard.press('Escape');
 		await expect(suggestions).toHaveCount(0);
-		await expect(page.getByRole('dialog', { name: 'Máte neuložené změny' })).toHaveCount(0);
+		await expect(page.getByRole('dialog', { name: 'Zahodit rozepsanou zprávu?' })).toHaveCount(0);
 
 		await page.keyboard.press('Escape');
-		await expect(page.getByRole('dialog', { name: 'Máte neuložené změny' })).toBeVisible();
+		await expect(page.getByRole('dialog', { name: 'Zahodit rozepsanou zprávu?' })).toBeVisible();
 	});
 
 	test('přílohu lze přidat a odebrat přístupným tlačítkem', async ({ page }) => {
@@ -506,8 +506,9 @@ test.describe('Compose', () => {
 		);
 		await page.locator('#compose-body').fill('Text k zahození.');
 		await page.keyboard.press('Control+Shift+D');
-		await expect(page.getByRole('dialog', { name: 'Máte neuložené změny' })).toBeVisible();
-		await page.getByRole('button', { name: 'Zahodit změny' }).click();
+		const dialog = page.getByRole('dialog', { name: 'Zahodit rozepsanou zprávu?' });
+		await expect(dialog).toBeVisible();
+		await dialog.getByRole('button', { name: 'Zahodit' }).click();
 
 		await page.waitForURL('**/mail/1/INBOX');
 		await expect(page.getByRole('heading', { name: 'Doručené' })).toBeVisible();
@@ -520,7 +521,7 @@ test.describe('Compose', () => {
 		await page.locator('#compose-body').fill('Text k ověření Escape.');
 		await page.keyboard.press('Escape');
 
-		await expect(page.getByRole('dialog', { name: 'Máte neuložené změny' })).toBeVisible();
+		await expect(page.getByRole('dialog', { name: 'Zahodit rozepsanou zprávu?' })).toBeVisible();
 		await page.getByRole('button', { name: 'Zůstat' }).click();
 		await expect(page.locator('#compose-body')).toHaveValue('Text k ověření Escape.');
 	});
@@ -596,5 +597,110 @@ test.describe('Compose', () => {
 
 		expect(new URL(draftPosts[0]).searchParams.has('replaces')).toBe(false);
 		expect(new URL(draftPosts[1]).searchParams.get('replaces')).toMatch(/^draft-/);
+	});
+
+	test('Zahodit smaže koncept, který se mezitím autosavnul', async ({ page }) => {
+		let savedStableId: string | null = null;
+		const deletedIds: string[] = [];
+		page.on('response', async (response) => {
+			const request = response.request();
+			if (
+				request.method() === 'POST' &&
+				/\/api\/v1\/accounts\/1\/drafts(\?|$)/.test(response.url())
+			) {
+				const body = (await response.json().catch(() => null)) as { stableId?: string } | null;
+				if (body?.stableId) savedStableId = body.stableId;
+			}
+		});
+		page.on('request', (request) => {
+			const match = request.url().match(/\/api\/v1\/messages\/([^/?]+)$/);
+			if (request.method() === 'DELETE' && match) deletedIds.push(decodeURIComponent(match[1]));
+		});
+
+		await page.goto('/compose');
+		await waitForShell(page);
+
+		await page.locator('#compose-to').fill('smazat@example.com');
+		await page.locator('#compose-subject').fill('Koncept k zahození');
+		await page.locator('#compose-body').fill('Tento koncept se autosavne a pak zahodí.');
+
+		await expect.poll(() => savedStableId, { timeout: 8000 }).not.toBeNull();
+		const draftId = savedStableId!;
+
+		await page.getByRole('button', { name: 'Zahodit', exact: true }).click();
+		const dialog = page.getByRole('dialog', { name: 'Zahodit rozepsanou zprávu?' });
+		await expect(dialog).toBeVisible();
+		await expect(dialog).toContainText('Koncept bude smazán.');
+		await dialog.getByRole('button', { name: 'Zahodit' }).click();
+
+		await page.waitForURL('**/mail/1/INBOX');
+		// The delete runs in the session module, which outlives the composer.
+		await expect.poll(() => deletedIds, { timeout: 8000 }).toContain(draftId);
+	});
+
+	test('Zahodit smaže otevřený koncept a potvrzení to říká', async ({ page }) => {
+		const deletedIds: string[] = [];
+		page.on('request', (request) => {
+			const match = request.url().match(/\/api\/v1\/messages\/([^/?]+)$/);
+			if (request.method() === 'DELETE' && match) deletedIds.push(decodeURIComponent(match[1]));
+		});
+
+		await page.goto('/compose?draft=draft-42');
+		await waitForShell(page);
+		await expect(page.locator('#compose-subject')).toHaveValue('Rozepsaný koncept');
+
+		await page.getByRole('button', { name: 'Zahodit', exact: true }).click();
+		const dialog = page.getByRole('dialog', { name: 'Zahodit rozepsanou zprávu?' });
+		await expect(dialog).toBeVisible();
+		await expect(dialog).toContainText('Koncept bude smazán.');
+		await dialog.getByRole('button', { name: 'Zahodit' }).click();
+
+		await page.waitForURL('**/mail/1/INBOX');
+		await expect.poll(() => deletedIds, { timeout: 8000 }).toContain('draft-42');
+	});
+
+	test('po send_failed s obnoveným konceptem toast odkáže na Rozepsané', async ({ page }) => {
+		await page.goto('/compose');
+		await waitForShell(page);
+
+		await page.locator('#compose-to').fill('recovery@example.com');
+		await page.locator('#compose-subject').fill('Selhání s obnovou');
+		await page.locator('#compose-body').fill('Obsah, který se má dát obnovit.');
+		await page.getByRole('button', { name: 'Odeslat' }).click();
+
+		await page.waitForURL('**/mail/1/INBOX');
+		const notifications = page.getByRole('region', { name: 'Oznámení' });
+		await expect(notifications.getByText('Odesílá se příjemci recovery@example.com')).toBeVisible();
+
+		await page.waitForFunction(() => typeof window.__MAIL_MSW__?.pushSendFailed === 'function');
+		await page.evaluate(() => window.__MAIL_MSW__?.pushSendFailed());
+
+		await expect(
+			notifications.getByText(
+				'Zprávu se nepodařilo odeslat příjemci recovery@example.com. Obsah je uložen ve složce Rozepsané.'
+			)
+		).toBeVisible();
+	});
+
+	test('Bcc přežije uložení konceptu a jeho znovuotevření', async ({ page }) => {
+		await page.goto('/compose');
+		await waitForShell(page);
+
+		await page.locator('#compose-to').fill('viditelny@example.com');
+		await page.locator('#compose-bcc').fill('skryta-kopie@example.com');
+		await page.locator('#compose-subject').fill('Koncept se skrytou kopií');
+		await page.locator('#compose-body').fill('Tělo konceptu s Bcc.');
+		await page.getByRole('button', { name: 'Uložit koncept' }).click();
+		await page.waitForURL('**/mail/1/INBOX');
+
+		// Reopen the runtime-created draft via in-app (SPA) navigation — a full
+		// page.goto would reload the MSW worker and reset its fixtures, wiping it.
+		await page.getByRole('link', { name: 'Rozepsané' }).click();
+		await page.waitForURL('**/mail/1/DRAFTS');
+		await page.getByText('Koncept se skrytou kopií').click();
+		await page.waitForURL(/\/compose\?draft=/);
+
+		// Reopened recipients render as token chips (the input itself is empty).
+		await expect(page.getByText('skryta-kopie@example.com')).toBeVisible();
 	});
 });

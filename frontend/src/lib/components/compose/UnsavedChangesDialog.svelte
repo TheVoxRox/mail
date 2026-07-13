@@ -6,12 +6,33 @@
 	type Props = {
 		open: boolean;
 		busy: boolean;
+		/**
+		 * 'leave' = blocked navigation (discard abandons only the in-memory
+		 * edits); 'discard' = explicit Zahodit (deletes the whole draft).
+		 */
+		intent: 'leave' | 'discard';
+		/** Discard intent with a persisted draft: the copy must say it is deleted. */
+		draftWillBeDeleted: boolean;
 		onStay: () => void;
 		onSave: () => void;
 		onDiscard: () => void;
 	};
 
-	let { open, busy, onStay, onSave, onDiscard }: Props = $props();
+	let { open, busy, intent, draftWillBeDeleted, onStay, onSave, onDiscard }: Props = $props();
+
+	const title = $derived(
+		intent === 'discard' ? $_('compose.discardDialog.title') : $_('compose.unsavedDialog.title')
+	);
+	const description = $derived(
+		intent === 'discard'
+			? draftWillBeDeleted
+				? $_('compose.discardDialog.descriptionDraftDeleted')
+				: $_('compose.discardDialog.description')
+			: $_('compose.unsavedDialog.description')
+	);
+	const discardLabel = $derived(
+		intent === 'discard' ? $_('compose.discardDialog.discard') : $_('compose.unsavedDialog.discard')
+	);
 </script>
 
 <Dialog.Root {open} onOpenChange={(nextOpen) => !nextOpen && onStay()}>
@@ -22,13 +43,13 @@
 			aria-describedby="compose-unsaved-description"
 		>
 			<Dialog.Title class="text-base font-semibold">
-				{$_('compose.unsavedDialog.title')}
+				{title}
 			</Dialog.Title>
 			<Dialog.Description
 				id="compose-unsaved-description"
 				class="mt-2 text-sm text-muted-foreground"
 			>
-				{$_('compose.unsavedDialog.description')}
+				{description}
 			</Dialog.Description>
 
 			<div class="mt-5 flex flex-wrap justify-end gap-2">
@@ -39,7 +60,7 @@
 					{$_('compose.unsavedDialog.save')}
 				</Button>
 				<Button variant="destructive" onclick={onDiscard}>
-					{$_('compose.unsavedDialog.discard')}
+					{discardLabel}
 				</Button>
 			</div>
 		</Dialog.Content>

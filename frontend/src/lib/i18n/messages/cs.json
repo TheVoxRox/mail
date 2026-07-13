@@ -171,7 +171,6 @@
 		"sending": "Odesílám…",
 		"autosaving": "Ukládám koncept…",
 		"autosaveFailed": "Koncept se nepodařilo uložit.",
-		"draftIdentityPending": "Koncept se synchronizuje. Další změny zůstanou v editoru, dokud bude možné bezpečně navázat na uložený koncept.",
 		"autosavedAt": "Koncept uložen {time}",
 		"draftSaved": "Koncept uložen.",
 		"unsavedDialog": {
@@ -180,6 +179,12 @@
 			"stay": "Zůstat",
 			"save": "Uložit koncept",
 			"discard": "Zahodit změny"
+		},
+		"discardDialog": {
+			"title": "Zahodit rozepsanou zprávu?",
+			"description": "Rozepsaná zpráva bude zahozena.",
+			"descriptionDraftDeleted": "Rozepsaná zpráva bude zahozena. Koncept bude smazán.",
+			"discard": "Zahodit"
 		},
 		"fieldFrom": "Od:",
 		"fieldTo": "Komu:",
@@ -747,6 +752,8 @@
 		"newMessages": "{count, plural, one {{count} nová zpráva} few {{count} nové zprávy} other {{count} nových zpráv}}, {account}, {folder}",
 		"sendPending": "Odesílá se příjemci {recipient}…",
 		"sendCompleted": "Zpráva odeslána příjemci {recipient}.",
-		"sendFailed": "Zprávu se nepodařilo odeslat příjemci {recipient}."
+		"sendFailed": "Zprávu se nepodařilo odeslat příjemci {recipient}.",
+		"sendFailedRecoveryDraft": "Zprávu se nepodařilo odeslat příjemci {recipient}. Obsah je uložen ve složce Rozepsané.",
+		"sendUnverified": "Výsledek odeslání příjemci {recipient} se nepodařilo ověřit — zkontrolujte složku Odeslané."
 	}
 }

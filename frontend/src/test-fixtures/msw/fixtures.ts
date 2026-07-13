@@ -31,6 +31,14 @@ export interface E2EFixtureState {
 	/** sendId of the most recent async send, so the SSE bridge can echo its outcome. */
 	lastSendId: string | null;
 	lastSendAccountId: number | null;
+	/**
+	 * `supersedesDraftId` of the most recent send (or the draft id itself for a
+	 * draft-send). Mirrors the backend contract: the SSE bridge deletes it on
+	 * `send_completed` and keeps it on `send_failed`.
+	 */
+	lastSendSupersedesDraftId: string | null;
+	/** Body of the most recent `POST .../send`, for the B2 recovery draft on failure. */
+	lastSendMailRequest: MailRequest | null;
 }
 
 const now = new Date('2026-04-21T08:00:00.000Z');
@@ -329,7 +337,9 @@ function createInitialState(): E2EFixtureState {
 			'msg-01:2': new Blob(['fixture attachment'], { type: 'application/pdf' })
 		},
 		lastSendId: null,
-		lastSendAccountId: null
+		lastSendAccountId: null,
+		lastSendSupersedesDraftId: null,
+		lastSendMailRequest: null
 	};
 }
 
@@ -571,6 +581,7 @@ export function draftToSummary(
 		...makeDetail(summary),
 		recipientsTo: body.to ?? '',
 		recipientsCc: body.cc ?? '',
+		recipientsBcc: body.bcc ?? '',
 		body: body.body ?? '',
 		inReplyTo: body.inReplyTo ?? '',
 		references: body.references ?? '',
@@ -582,6 +593,26 @@ export function draftToSummary(
 		remoteImagesAllowedForSender: false
 	};
 	return summary;
+}
+
+/**
+ * Removes a message from every fixture index (folders, drafts listing,
+ * detail/content). Used by DELETE /messages/{id} and by the SSE bridge when a
+ * `send_completed` supersedes a draft.
+ */
+export function removeMessageEverywhere(stableId: string): void {
+	for (const [key, messages] of Object.entries(fixtureState.messagesByFolder)) {
+		fixtureState.messagesByFolder[key] = messages.filter(
+			(message) => message.stableId !== stableId
+		);
+	}
+	for (const [accountId, drafts] of Object.entries(fixtureState.draftsByAccount)) {
+		fixtureState.draftsByAccount[Number(accountId)] = drafts.filter(
+			(draft) => draft.stableId !== stableId
+		);
+	}
+	delete fixtureState.messageDetails[stableId];
+	delete fixtureState.messageContents[stableId];
 }
 
 export function replyFor(stableId: string, all: boolean): MailRequest {
