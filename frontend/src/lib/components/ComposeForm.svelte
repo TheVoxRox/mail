@@ -41,7 +41,6 @@
 	} from '$lib/compose/request.js';
 	import { invalidAddressList, parseAddressList } from '$lib/compose/addresses.js';
 	import { ComposeDraftSaveCoordinator } from '$lib/compose/draft-save.js';
-	import { confirmAction } from '$lib/stores/confirmDialog.js';
 	import { installLeaveGuard } from '$lib/leaveGuard.js';
 	import { onDestroy, onMount, tick, untrack } from 'svelte';
 
@@ -65,6 +64,7 @@
 	let recipientErrorMessage = $state('');
 	let ccErrorMessage = $state('');
 	let bccErrorMessage = $state('');
+	let subjectErrorMessage = $state('');
 	let lastSavedSnapshot = $state('');
 	// Signature the composer last inserted into `body`. `null` means the composer
 	// is not managing a signature for this compose kind (reply/forward/draft);
@@ -82,6 +82,7 @@
 	const recipientErrorId = 'compose-to-error';
 	const ccErrorId = 'compose-cc-error';
 	const bccErrorId = 'compose-bcc-error';
+	const subjectErrorId = 'compose-subject-error';
 	let busyAction = $state<'send' | 'save' | null>(null);
 
 	let bypassLeaveGuard = false;
@@ -215,10 +216,11 @@
 		return $_('compose.invalidAddress', { values: { address: value } });
 	}
 
-	function validateRecipientFields(): boolean {
+	function validateSendFields(): boolean {
 		recipientErrorMessage = '';
 		ccErrorMessage = '';
 		bccErrorMessage = '';
+		subjectErrorMessage = '';
 
 		if (parseAddressList(to).length === 0) {
 			recipientErrorMessage = $_('compose.errorNoRecipient');
@@ -244,6 +246,14 @@
 		if (invalidBcc) {
 			bccErrorMessage = invalidAddressMessage(invalidBcc);
 			formElement?.querySelector<HTMLInputElement>('#compose-bcc')?.focus();
+			return false;
+		}
+
+		// Product decision: the backend rejects a blank subject (@NotBlank), so
+		// the UI requires it instead of offering a doomed "send anyway".
+		if (!subject.trim()) {
+			subjectErrorMessage = $_('compose.errorNoSubject');
+			formElement?.querySelector<HTMLInputElement>('#compose-subject')?.focus();
 			return false;
 		}
 
@@ -294,22 +304,11 @@
 			errorMessage = $_('compose.errorNoActiveAccount');
 			return;
 		}
-		if (!validateRecipientFields()) {
+		if (!validateSendFields()) {
 			errorMessage = '';
 			return;
 		}
 		if (blockedByAttachmentRead()) return;
-		if (!subject.trim()) {
-			const confirmed = await confirmAction({
-				title: $_('compose.noSubjectConfirmTitle'),
-				description: $_('compose.noSubjectConfirm'),
-				confirmLabel: $_('compose.noSubjectConfirmAction'),
-				cancelLabel: $_('common.cancel')
-			});
-			if (!confirmed) return;
-			// A paste/drop can start a new read while the dialog was open.
-			if (blockedByAttachmentRead()) return;
-		}
 		busy = true;
 		busyAction = 'send';
 		errorMessage = '';
@@ -450,6 +449,7 @@
 		}
 		if (invalidAddressList(draft.cc).length === 0 && ccErrorMessage) ccErrorMessage = '';
 		if (invalidAddressList(draft.bcc).length === 0 && bccErrorMessage) bccErrorMessage = '';
+		if (draft.subject.trim() && subjectErrorMessage) subjectErrorMessage = '';
 		autosaveScheduler.schedule(draft, prefillDone);
 	});
 
@@ -513,6 +513,8 @@
 		{ccErrorId}
 		bccError={bccErrorMessage}
 		{bccErrorId}
+		subjectError={subjectErrorMessage}
+		{subjectErrorId}
 		{autofocusTo}
 	/>
 

@@ -346,7 +346,9 @@ test.describe('Compose', () => {
 		).toHaveCount(0);
 	});
 
-	test('odeslání bez předmětu vyžaduje potvrzení', async ({ page }) => {
+	test('odeslání bez předmětu zobrazí chybu u pole Předmět a zůstane na compose', async ({
+		page
+	}) => {
 		await page.goto('/compose');
 		await waitForShell(page);
 
@@ -355,11 +357,19 @@ test.describe('Compose', () => {
 
 		await page.getByRole('button', { name: 'Odeslat' }).click();
 
-		const dialog = page.getByRole('dialog', { name: 'Zpráva bez předmětu' });
-		await expect(dialog).toBeVisible();
-		await expect(dialog).toContainText('Zpráva nemá předmět. Odeslat přesto?');
-		await dialog.getByRole('button', { name: 'Odeslat přesto' }).click();
+		await page.waitForURL('**/compose');
+		await expect(page.locator('#compose-subject')).toBeFocused();
+		await expect(page.locator('#compose-subject')).toHaveAttribute('aria-invalid', 'true');
+		await expect(page.locator('#compose-subject')).toHaveAttribute(
+			'aria-describedby',
+			'compose-subject-error'
+		);
+		await expect(page.locator('#compose-subject-error')).toContainText('Vyplňte předmět zprávy.');
 
+		// Po doplnění předmětu chyba zmizí a odeslání projde.
+		await page.locator('#compose-subject').fill('Doplněný předmět');
+		await expect(page.locator('#compose-subject-error')).toHaveCount(0);
+		await page.getByRole('button', { name: 'Odeslat' }).click();
 		await page.waitForURL('**/mail/1/INBOX');
 		await expect(page.getByRole('heading', { name: 'Doručené' })).toBeVisible();
 	});

@@ -203,9 +203,7 @@
 		"prefillLoading": "Načítám rozepsanou zprávu…",
 		"errorNoActiveAccount": "Není aktivní účet.",
 		"errorNoRecipient": "Vyplňte adresu příjemce.",
-		"noSubjectConfirm": "Zpráva nemá předmět. Odeslat přesto?",
-		"noSubjectConfirmTitle": "Zpráva bez předmětu",
-		"noSubjectConfirmAction": "Odeslat přesto",
+		"errorNoSubject": "Vyplňte předmět zprávy.",
 		"removeAddress": "Odebrat {address}",
 		"invalidAddress": "Neplatná adresa: {address}",
 		"suggestionsLabel": "Návrhy kontaktů"
