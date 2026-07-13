@@ -199,6 +199,7 @@
 		"largeAttachmentConfirmTitle": "Velká příloha",
 		"largeAttachmentConfirmAction": "Připojit",
 		"attachmentReading": "Načítám přílohu {name}…",
+		"errorAttachmentStillReading": "Příloha se ještě načítá. Počkejte na dokončení a zkuste to znovu.",
 		"prefillLoading": "Načítám rozepsanou zprávu…",
 		"errorNoActiveAccount": "Není aktivní účet.",
 		"errorNoRecipient": "Vyplňte adresu příjemce.",

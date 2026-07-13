@@ -51,6 +51,7 @@
 	let subject = $state('');
 	let body = $state('');
 	let attachments = $state<ComposeAttachment[]>([]);
+	let attachmentReading = $state(false);
 	let inReplyTo = $state<string | null>(null);
 	let references = $state<string | null>(null);
 	let fromAccountId = $state<number | null>(get(activeAccountId));
@@ -267,10 +268,23 @@
 	}
 
 	installLeaveGuard({
-		shouldGuard: () => !bypassLeaveGuard && !busy && prefillDone && hasUnsavedChanges,
+		// attachmentReading counts as unsaved work: the in-flight file is not in
+		// `attachments` yet, so the fingerprint alone would let it leave silently.
+		shouldGuard: () =>
+			!bypassLeaveGuard && !busy && prefillDone && (hasUnsavedChanges || attachmentReading),
 		isSameTarget: (next, current) => targetHref(next) === targetHref(current),
 		onBlocked: (target) => openLeaveConfirmation(targetHref(target))
 	});
+
+	/**
+	 * Sending or saving while the picker is still reading a file would build the
+	 * request without it — the in-flight file is not in `attachments` yet.
+	 */
+	function blockedByAttachmentRead(silent = false): boolean {
+		if (!attachmentReading) return false;
+		if (!silent) errorMessage = $_('compose.errorAttachmentStillReading');
+		return true;
+	}
 
 	async function handleSend() {
 		if (busy || !prefillDone) return;
@@ -284,6 +298,7 @@
 			errorMessage = '';
 			return;
 		}
+		if (blockedByAttachmentRead()) return;
 		if (!subject.trim()) {
 			const confirmed = await confirmAction({
 				title: $_('compose.noSubjectConfirmTitle'),
@@ -292,6 +307,8 @@
 				cancelLabel: $_('common.cancel')
 			});
 			if (!confirmed) return;
+			// A paste/drop can start a new read while the dialog was open.
+			if (blockedByAttachmentRead()) return;
 		}
 		busy = true;
 		busyAction = 'send';
@@ -336,6 +353,7 @@
 		const { silent = false, navigateAfterSave = !silent } = options;
 		if (busy && !silent) return false;
 		if (!prefillDone) return false;
+		if (blockedByAttachmentRead(silent)) return false;
 		const acc = currentFromAccount();
 		if (!acc) {
 			if (!silent) errorMessage = $_('compose.errorNoActiveAccount');
@@ -384,7 +402,7 @@
 
 	function handleDiscard() {
 		if (!prefillDone) return;
-		if (!hasUnsavedChanges) {
+		if (!hasUnsavedChanges && !attachmentReading) {
 			void navigateWithoutPrompt(resolve('/'));
 			return;
 		}
@@ -393,7 +411,13 @@
 
 	async function handleSaveBeforeLeave() {
 		const saved = await saveDraftNow({ navigateAfterSave: false });
-		if (!saved) return;
+		if (!saved) {
+			// The reason renders as the form-level alert, which the modal overlay
+			// would cover — close the dialog and drop the pending navigation so
+			// the message is visible (and announced) on the composer.
+			handleStay();
+			return;
+		}
 		await continuePendingNavigation();
 	}
 
@@ -494,6 +518,7 @@
 
 	<AttachmentPicker
 		bind:attachments
+		bind:reading={attachmentReading}
 		disabled={!prefillDone || busy}
 		onSelectStart={() => (errorMessage = '')}
 		onError={(message) => (errorMessage = message)}

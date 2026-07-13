@@ -199,6 +199,7 @@
 		"largeAttachmentConfirmTitle": "Large attachment",
 		"largeAttachmentConfirmAction": "Attach",
 		"attachmentReading": "Loading attachment {name}…",
+		"errorAttachmentStillReading": "An attachment is still loading. Wait for it to finish and try again.",
 		"prefillLoading": "Loading draft content…",
 		"errorNoActiveAccount": "No active account.",
 		"errorNoRecipient": "Please enter a recipient address.",

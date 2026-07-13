@@ -175,6 +175,24 @@ test.describe('Compose', () => {
 		await expect(page.locator('#compose-to')).toHaveValue('');
 	});
 
+	test('Escape v poli adresátů zavře jen našeptávač, další Escape teprve zahazuje', async ({
+		page
+	}) => {
+		await page.goto('/compose');
+		await waitForShell(page);
+
+		await page.locator('#compose-to').fill('jana');
+		const suggestions = page.getByRole('listbox', { name: 'Návrhy kontaktů' });
+		await expect(suggestions).toBeVisible();
+
+		await page.keyboard.press('Escape');
+		await expect(suggestions).toHaveCount(0);
+		await expect(page.getByRole('dialog', { name: 'Máte neuložené změny' })).toHaveCount(0);
+
+		await page.keyboard.press('Escape');
+		await expect(page.getByRole('dialog', { name: 'Máte neuložené změny' })).toBeVisible();
+	});
+
 	test('přílohu lze přidat a odebrat přístupným tlačítkem', async ({ page }) => {
 		await page.goto('/compose');
 		await waitForShell(page);
@@ -188,6 +206,54 @@ test.describe('Compose', () => {
 		await expect(page.getByText('poznamka.txt')).toBeVisible();
 		await page.getByRole('button', { name: 'Odebrat přílohu poznamka.txt' }).click();
 		await expect(page.getByText('poznamka.txt')).toHaveCount(0);
+	});
+
+	test('odeslání během načítání přílohy se zablokuje, ať se příloha neztratí', async ({ page }) => {
+		// Čtení souboru drží otevřená brána — test ji uvolní, žádné časování.
+		await page.addInitScript(() => {
+			const original = FileReader.prototype.readAsDataURL;
+			const gate = new Promise<void>((resolve) => {
+				(window as { __releaseFileRead?: () => void }).__releaseFileRead = resolve;
+			});
+			FileReader.prototype.readAsDataURL = function (blob: Blob) {
+				void gate.then(() => original.call(this, blob));
+			};
+		});
+		const sendBodies: unknown[] = [];
+		page.on('request', (request) => {
+			if (request.method() === 'POST' && request.url().includes('/messages/account/1/send')) {
+				sendBodies.push(request.postDataJSON());
+			}
+		});
+
+		await page.goto('/compose');
+		await waitForShell(page);
+
+		await page.locator('#compose-to').fill('recipient@example.com');
+		await page.locator('#compose-subject').fill('Zpráva s pomalou přílohou');
+		await page.locator('input[type="file"]').setInputFiles({
+			name: 'pomala-priloha.txt',
+			mimeType: 'text/plain',
+			buffer: Buffer.from('Obsah pomalé přílohy')
+		});
+
+		await page.getByRole('button', { name: 'Odeslat' }).click();
+		await expect(
+			page.getByText('Příloha se ještě načítá. Počkejte na dokončení a zkuste to znovu.')
+		).toBeVisible();
+		expect(sendBodies).toHaveLength(0);
+
+		// Uvolni čtení; příloha se objeví v seznamu a odeslání už projde — i s přílohou.
+		await page.evaluate(() => (window as { __releaseFileRead?: () => void }).__releaseFileRead?.());
+		await expect(
+			page.getByRole('list', { name: 'Přílohy' }).getByText('pomala-priloha.txt')
+		).toBeVisible();
+		await page.getByRole('button', { name: 'Odeslat' }).click();
+		await page.waitForURL('**/mail/1/INBOX');
+		expect(sendBodies).toHaveLength(1);
+		expect(sendBodies[0]).toMatchObject({
+			attachments: [expect.objectContaining({ fileName: 'pomala-priloha.txt' })]
+		});
 	});
 
 	test('přílohu lze přidat přetažením souboru do compose', async ({ page }) => {
