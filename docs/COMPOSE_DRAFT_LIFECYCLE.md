@@ -32,7 +32,7 @@ All eight findings trace to three structural decisions:
 
 ### B1 — Mint the draft identity at save time (backend)
 
-`stableId` is already deterministic: `MessageStableId.compute` = SHA-256 of `accountId + " mid " + folder + " " + Message-ID` when a Message-ID exists. Drafts appended today _lack_ a Message-ID (only the send path calls `saveChanges()`; `Folder.appendMessages` does not generate one), which is the only reason the identity cannot be known up front.
+`stableId` is already deterministic: `MessageStableId.compute` = SHA-256 of `accountId + " mid " + folder + " " + Message-ID` when a Message-ID exists. Drafts appended today _do_ get a Message-ID — but only implicitly, deep inside the append (`writeTo` → `saveChanges()` → `updateMessageID`), long after the 202 has been returned. The identity exists; it is just minted too late to hand to the client. The fix is to assign it explicitly before dispatch.
 
 Changes:
 

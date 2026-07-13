@@ -82,6 +82,7 @@ function makeDetail(summary: MailSummaryResponse): MailDetailResponse {
 		sender: summary.sender,
 		recipientsTo: 'tester@example.com',
 		recipientsCc: '',
+		recipientsBcc: '',
 		body: `Text zprávy ${summary.subject}`,
 		receivedAt: summary.receivedAt,
 		seen: summary.seen,

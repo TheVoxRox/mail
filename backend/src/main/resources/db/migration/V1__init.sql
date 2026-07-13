@@ -196,6 +196,9 @@ CREATE TABLE messages (
     sender           VARCHAR(255),
     recipients_to    TEXT,
     recipients_cc    TEXT,
+    -- Bcc exists only on the user's own draft/sent copies (received mail never
+    -- carries the header). Deliberately NOT indexed in message_search.
+    recipients_bcc   TEXT,
     content          TEXT,
     -- Set when the body exceeded the extractor's byte cap (audit B1-1):
     -- content stays NULL, the API serves a localized placeholder and never

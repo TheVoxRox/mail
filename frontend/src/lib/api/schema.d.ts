@@ -143,7 +143,7 @@ export interface paths {
 		put?: never;
 		/**
 		 * Send message (async)
-		 * @description Asynchronously sends a message from the given account. Returns 202 Accepted with a sendId — the client tracks the outcome via the send_completed / send_failed notification stream event.
+		 * @description Asynchronously sends a message from the given account. Returns 202 Accepted with a sendId — the client tracks the outcome via the send_completed / send_failed notification stream event. With supersedesDraftId={stableId}, the draft the message was edited from is hard-deleted only AFTER successful delivery; the client must not delete it itself on the 202.
 		 */
 		post: operations['sendEmail'];
 		delete?: never;
@@ -191,7 +191,7 @@ export interface paths {
 		put?: never;
 		/**
 		 * Save draft (async)
-		 * @description Asynchronously saves the draft into the Drafts folder. With the replaces={stableId} parameter, the old revision is deleted after a successful save. Returns 202 Accepted immediately — the draft's stableId becomes available after the next sync.
+		 * @description Asynchronously saves the draft into the Drafts folder. With the replaces={stableId} parameter, the old revision is deleted after a successful save. Returns 202 Accepted immediately with the deterministic stableId the draft persists under — valid right away for replaces= chaining and ?draft= reopen.
 		 */
 		post: operations['saveDraft'];
 		delete?: never;
@@ -964,6 +964,10 @@ export interface components {
 			inReplyTo?: string;
 			references?: string;
 		};
+		DraftSaveAcceptedResponse: {
+			/** @description Stable identifier the saved draft persists under. Valid immediately for replaces= chaining; the row itself appears as soon as the async append completes. */
+			stableId?: string;
+		};
 		ContactCreateRequest: {
 			emails: components['schemas']['ContactEmailRequest'][];
 			name?: string;
@@ -1005,8 +1009,8 @@ export interface components {
 			smtp?: components['schemas']['MailServerSettings'];
 			username: string;
 			password?: string;
-			passwordPresentForNewAccount?: boolean;
 			providerOrCustomServerConfigPresent?: boolean;
+			passwordPresentForNewAccount?: boolean;
 		};
 		AccountConnectionTestResponse: {
 			imapOk?: boolean;
@@ -1075,6 +1079,7 @@ export interface components {
 			/** Format: int64 */
 			accountId?: number;
 			errorCode?: string;
+			recoveryDraftStableId?: string;
 		};
 		ThreadUpdated: {
 			type?: string;
@@ -1096,6 +1101,8 @@ export interface components {
 			sender?: string;
 			recipientsTo?: string;
 			recipientsCc?: string;
+			/** @description Only ever present on the user's own draft/sent copies; received mail never carries the header. */
+			recipientsBcc?: string;
 			body?: string;
 			/** Format: date-time */
 			receivedAt?: string;
@@ -1991,7 +1998,9 @@ export interface operations {
 	};
 	sendEmail: {
 		parameters: {
-			query?: never;
+			query?: {
+				supersedesDraftId?: string;
+			};
 			header?: never;
 			path: {
 				accountId: number;
@@ -2223,12 +2232,14 @@ export interface operations {
 			};
 		};
 		responses: {
-			/** @description Draft save request accepted; processing continues asynchronously. */
+			/** @description Draft save request accepted; the body carries the stableId the draft persists under. */
 			202: {
 				headers: {
 					[name: string]: unknown;
 				};
-				content?: never;
+				content: {
+					'*/*': components['schemas']['DraftSaveAcceptedResponse'];
+				};
 			};
 			/** @description Invalid input (validation error). */
 			400: {

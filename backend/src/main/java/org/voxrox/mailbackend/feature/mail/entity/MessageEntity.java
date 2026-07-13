@@ -68,6 +68,13 @@ public class MessageEntity {
     @Column(name = "recipients_cc", columnDefinition = "TEXT")
     private @Nullable String recipientsCc;
 
+    /**
+     * Only the user's own draft/sent copies ever carry a Bcc header; received mail
+     * never does. Kept out of the message_search FTS index on purpose.
+     */
+    @Column(name = "recipients_bcc", columnDefinition = "TEXT")
+    private @Nullable String recipientsBcc;
+
     @Lob
     @Column(columnDefinition = "TEXT")
     private @Nullable String content;
@@ -260,6 +267,14 @@ public class MessageEntity {
 
     public void setRecipientsCc(@Nullable String recipientsCc) {
         this.recipientsCc = recipientsCc;
+    }
+
+    public @Nullable String getRecipientsBcc() {
+        return recipientsBcc;
+    }
+
+    public void setRecipientsBcc(@Nullable String recipientsBcc) {
+        this.recipientsBcc = recipientsBcc;
     }
 
     public @Nullable String getContent() {
