@@ -6,7 +6,6 @@
 	import { accountsState, activeAccountId } from '$lib/stores/accounts.js';
 	import { sendMail } from '$lib/api/mailWrite.js';
 	import { sendDraft } from '$lib/api/drafts.js';
-	import { deleteMessage } from '$lib/api/mailAction.js';
 	import { toErrorMessage } from '$lib/api/errors.js';
 	import { refreshFolders } from '$lib/stores/folders.js';
 	import { registerPendingSend } from '$lib/stores/notifications.js';
@@ -18,9 +17,9 @@
 	import RecipientFields from '$lib/components/compose/RecipientFields.svelte';
 	import UnsavedChangesDialog from '$lib/components/compose/UnsavedChangesDialog.svelte';
 	import {
-		createComposeAutosaveScheduler,
 		handleComposeShortcuts,
 		mapComposePrefill,
+		resolveComposeFromAccount,
 		shouldFocusComposeBody,
 		targetHref
 	} from '$lib/components/compose/controller.js';
@@ -35,12 +34,11 @@
 	} from '$lib/compose/signature.js';
 	import {
 		buildMailRequest,
-		draftFingerprint,
 		type ComposeAttachment,
 		type ComposeDraft
 	} from '$lib/compose/request.js';
 	import { invalidAddressList, parseAddressList } from '$lib/compose/addresses.js';
-	import { ComposeDraftSaveCoordinator } from '$lib/compose/draft-save.js';
+	import { composeSession, composeSnapshotFingerprint } from '$lib/compose/session.js';
 	import { installLeaveGuard } from '$lib/leaveGuard.js';
 	import { onDestroy, onMount, tick, untrack } from 'svelte';
 
@@ -55,17 +53,13 @@
 	let references = $state<string | null>(null);
 	let fromAccountId = $state<number | null>(get(activeAccountId));
 	let errorMessage = $state('');
-	let autosaveError = $state('');
 	let busy = $state(false);
-	let autoSavedAt = $state<Date | null>(null);
-	let autosaving = $state(false);
 	let prefillDone = $state(false);
 	let autofocusTo = $state(true);
 	let recipientErrorMessage = $state('');
 	let ccErrorMessage = $state('');
 	let bccErrorMessage = $state('');
 	let subjectErrorMessage = $state('');
-	let lastSavedSnapshot = $state('');
 	// Signature the composer last inserted into `body`. `null` means the composer
 	// is not managing a signature for this compose kind (reply/forward/draft);
 	// a string (possibly empty) means it is, and tracks what to swap on account change.
@@ -74,8 +68,18 @@
 	// Set when the composer was opened on an existing draft (?draft=). Lets us send
 	// the original MIME (attachments + threading) as-is while it stays untouched.
 	let openedDraftId = $state<string | null>(null);
-	const hasUnsavedChanges = $derived(prefillDone && currentDraftSnapshot() !== lastSavedSnapshot);
+	// Unsaved work worth guarding = edits that differ from BOTH the regenerable
+	// prefill baseline and whatever was last persisted. An untouched reply
+	// (== baseline) or content already autosaved (== saved) is safe to leave.
+	const hasUnsavedChanges = $derived.by(() => {
+		if (!prefillDone) return false;
+		const snap = currentDraftSnapshot();
+		return (
+			snap !== $composeSession.baselineFingerprint && snap !== $composeSession.savedFingerprint
+		);
+	});
 	let confirmLeaveOpen = $state(false);
+	let dialogIntent = $state<'leave' | 'discard'>('leave');
 	let pendingNavigationHref = $state<string | null>(null);
 	let formElement = $state<HTMLFormElement | null>(null);
 	let bodyTextarea = $state<HTMLTextAreaElement | null>(null);
@@ -84,23 +88,23 @@
 	const bccErrorId = 'compose-bcc-error';
 	const subjectErrorId = 'compose-subject-error';
 	let busyAction = $state<'send' | 'save' | null>(null);
+	// The lifecycle state (draft identity, save queue, fingerprint) lives in the
+	// composeSession module so it survives this component (async send outcome,
+	// a save still in flight during navigation).
+	const autosaving = $derived($composeSession.saving && busyAction !== 'save');
+	const autoSavedAt = $derived($composeSession.savedAt);
+	const autosaveError = $derived(errorMessage ? '' : ($composeSession.saveError ?? ''));
 
 	let bypassLeaveGuard = false;
-	const draftSaveCoordinator = new ComposeDraftSaveCoordinator();
-	const autosaveScheduler = createComposeAutosaveScheduler({
-		delayMs: 3000,
-		isBusy: () => busy,
-		onAutosave: () => saveDraftNow({ silent: true })
-	});
 
 	let availableAccounts = $state<AccountResponse[]>([]);
 	const unsubscribeAccounts = accountsState.subscribe((state) => {
 		availableAccounts = state.status === 'ready' ? state.accounts : [];
-		if (fromAccountId != null && !availableAccounts.some((a) => a.id === fromAccountId)) {
-			fromAccountId = availableAccounts[0]?.id ?? null;
-		} else if (fromAccountId == null && availableAccounts.length > 0) {
-			fromAccountId = availableAccounts[0].id;
-		}
+		fromAccountId = resolveComposeFromAccount(
+			fromAccountId,
+			availableAccounts,
+			get(activeAccountId)
+		);
 	});
 
 	function currentFromAccount(): AccountResponse | null {
@@ -146,7 +150,6 @@
 		inReplyTo = values.inReplyTo;
 		references = values.references;
 		openedDraftId = values.replacesDraftId;
-		draftSaveCoordinator.setReplacesDraftId(values.replacesDraftId);
 	}
 
 	onMount(async () => {
@@ -170,8 +173,13 @@
 		} catch (err) {
 			errorMessage = toErrorMessage(err);
 		} finally {
+			composeSession.begin({
+				accountId: fromAccountId,
+				draft: currentDraft(),
+				draftStableId: openedDraftId,
+				isSuspended: () => busy
+			});
 			prefillDone = true;
-			lastSavedSnapshot = currentDraftSnapshot();
 			if (focusBodyAfterPrefill) {
 				await tick();
 				bodyTextarea?.focus();
@@ -193,14 +201,7 @@
 	}
 
 	function currentDraftSnapshot(): string {
-		return JSON.stringify({
-			fromAccountId,
-			draft: draftFingerprint(currentDraft())
-		});
-	}
-
-	function draftIdentityPendingMessage(): string {
-		return $_('compose.draftIdentityPending');
+		return composeSnapshotFingerprint(fromAccountId, currentDraft());
 	}
 
 	async function navigateWithoutPrompt(href: string): Promise<void> {
@@ -260,7 +261,8 @@
 		return true;
 	}
 
-	function openLeaveConfirmation(href: string) {
+	function openLeaveConfirmation(href: string, intent: 'leave' | 'discard' = 'leave') {
+		dialogIntent = intent;
 		pendingNavigationHref = href;
 		confirmLeaveOpen = true;
 	}
@@ -283,16 +285,17 @@
 		shouldGuard: () =>
 			!bypassLeaveGuard && !busy && prefillDone && (hasUnsavedChanges || attachmentReading),
 		isSameTarget: (next, current) => targetHref(next) === targetHref(current),
-		onBlocked: (target) => openLeaveConfirmation(targetHref(target))
+		onBlocked: (target) => openLeaveConfirmation(targetHref(target), 'leave')
 	});
 
 	/**
-	 * Sending or saving while the picker is still reading a file would build the
-	 * request without it — the in-flight file is not in `attachments` yet.
+	 * Sending while the picker is still reading a file would build the request
+	 * without it — the in-flight file is not in `attachments` yet. (Saving is
+	 * guarded inside the session queue, which retries once reading settles.)
 	 */
-	function blockedByAttachmentRead(silent = false): boolean {
+	function blockedByAttachmentRead(): boolean {
 		if (!attachmentReading) return false;
-		if (!silent) errorMessage = $_('compose.errorAttachmentStillReading');
+		errorMessage = $_('compose.errorAttachmentStillReading');
 		return true;
 	}
 
@@ -313,29 +316,28 @@
 		busyAction = 'send';
 		errorMessage = '';
 		recipientErrorMessage = '';
-		autosaveError = '';
 		try {
-			const currentDraftId = draftSaveCoordinator.replacesDraftId;
+			// Stop the autosave queue and pin the draft identity: the backend
+			// deletes the superseded draft only after successful delivery (B2),
+			// so a failed send keeps it as the recovery copy.
+			const supersedesDraftId = await composeSession.prepareForSend();
 			let accepted;
-			if (openedDraftId != null && currentDraftId === openedDraftId && !hasUnsavedChanges) {
+			if (openedDraftId != null && supersedesDraftId === openedDraftId && !hasUnsavedChanges) {
 				// Untouched draft: send the original MIME as-is. The backend re-sends
 				// it (keeping attachments + threading) and hard-deletes the draft.
 				accepted = await sendDraft(acc.id, openedDraftId);
 			} else {
 				// New message, or an edited draft: rebuild the MIME from the fields.
-				accepted = await sendMail(acc.id, buildMailRequest(currentDraft()));
-				if (currentDraftId) {
-					// Best-effort: drop the now-superseded draft so it does not linger.
-					try {
-						await deleteMessage(currentDraftId);
-					} catch {
-						// Sending succeeded; a stale draft is reconciled on the next sync.
-					}
-				}
+				accepted = await sendMail(
+					acc.id,
+					buildMailRequest(currentDraft()),
+					supersedesDraftId ?? undefined
+				);
 			}
 			// Delivery runs async on the backend; show a pending indicator and let the
 			// real outcome arrive over the notification stream (send_completed / failed).
 			registerPendingSend(accepted.sendId, to.trim());
+			composeSession.end();
 			void refreshFolders(acc.id);
 			await navigateWithoutPrompt(resolve('/'));
 		} catch (err) {
@@ -346,52 +348,40 @@
 		}
 	}
 
-	async function saveDraftNow(
-		options: { silent?: boolean; navigateAfterSave?: boolean } = {}
-	): Promise<boolean> {
-		const { silent = false, navigateAfterSave = !silent } = options;
-		if (busy && !silent) return false;
-		if (!prefillDone) return false;
-		if (blockedByAttachmentRead(silent)) return false;
+	async function saveDraftNow(options: { navigateAfterSave?: boolean } = {}): Promise<boolean> {
+		const { navigateAfterSave = true } = options;
+		if (busy || !prefillDone) return false;
 		const acc = currentFromAccount();
 		if (!acc) {
-			if (!silent) errorMessage = $_('compose.errorNoActiveAccount');
+			errorMessage = $_('compose.errorNoActiveAccount');
 			return false;
 		}
-		if (!silent) busy = true;
-		if (!silent) busyAction = 'save';
-		autosaving = silent;
-		autosaveError = '';
-		if (!silent) errorMessage = '';
+		busy = true;
+		busyAction = 'save';
+		errorMessage = '';
 		try {
-			const result = await draftSaveCoordinator.saveDraft(acc.id, currentDraft(), { silent });
-			if (result === 'identity-pending') {
-				const message = draftIdentityPendingMessage();
-				if (silent) autosaveError = message;
-				else errorMessage = message;
+			const outcome = await composeSession.flush();
+			if (outcome === 'blocked') {
+				errorMessage = $_('compose.errorAttachmentStillReading');
 				return false;
 			}
-
-			lastSavedSnapshot = currentDraftSnapshot();
-			autoSavedAt = new Date();
-			if (!silent && navigateAfterSave) {
-				pushToast($_('compose.draftSaved'), { tone: 'success' });
+			if (outcome === 'failed') {
+				errorMessage = $composeSession.saveError ?? $_('compose.autosaveFailed');
+				return false;
+			}
+			// 'skipped' with no draft = an empty compose the floor refused to save;
+			// don't claim a save happened. A real draft (saved now or by autosave)
+			// gets the confirmation toast.
+			const draftExists = $composeSession.draftStableId != null;
+			if (navigateAfterSave) {
+				if (draftExists) pushToast($_('compose.draftSaved'), { tone: 'success' });
 				void refreshFolders(acc.id);
 				await navigateWithoutPrompt(resolve('/'));
 			}
 			return true;
-		} catch (err) {
-			const message = toErrorMessage(err);
-			if (!silent) {
-				errorMessage = message;
-			} else {
-				autosaveError = message;
-			}
-			return false;
 		} finally {
-			if (!silent) busy = false;
-			if (!silent) busyAction = null;
-			autosaving = false;
+			busy = false;
+			busyAction = null;
 		}
 	}
 
@@ -401,11 +391,14 @@
 
 	function handleDiscard() {
 		if (!prefillDone) return;
-		if (!hasUnsavedChanges && !attachmentReading) {
+		const hasPersistedDraft = $composeSession.draftStableId != null;
+		if (!hasUnsavedChanges && !attachmentReading && !hasPersistedDraft) {
 			void navigateWithoutPrompt(resolve('/'));
 			return;
 		}
-		openLeaveConfirmation(resolve('/'));
+		// A persisted draft (autosaved or opened) always confirms: discard
+		// deletes it, and the dialog copy says so.
+		openLeaveConfirmation(resolve('/'), 'discard');
 	}
 
 	async function handleSaveBeforeLeave() {
@@ -421,7 +414,19 @@
 	}
 
 	async function handleDiscardConfirmed() {
-		lastSavedSnapshot = currentDraftSnapshot();
+		if (dialogIntent === 'discard') {
+			const acc = currentFromAccount();
+			// Deletes the whole draft chain (decided). Runs in the session module,
+			// so navigating away immediately is safe.
+			void composeSession.discard().then((deletedId) => {
+				if (deletedId != null && acc) void refreshFolders(acc.id);
+			});
+		} else {
+			// Leaving discards only the in-memory edits; the autosaved draft stays
+			// (server-side crash recovery). Stop the pending autosave of the
+			// abandoned changes.
+			composeSession.detach();
+		}
 		await continuePendingNavigation();
 	}
 
@@ -437,9 +442,10 @@
 	}
 
 	$effect(() => {
-		// Depend on every draft field — currentDraft() reads to/cc/bcc/subject/body/attachments/fromAccountId.
+		// Depend on every draft field — currentDraft() reads to/cc/bcc/subject/body/attachments,
+		// plus fromAccountId. Mirrors the change into the session (debounced autosave).
 		const draft = currentDraft();
-		autosaveError = '';
+		const accountId = fromAccountId;
 		if (
 			parseAddressList(draft.to).length > 0 &&
 			invalidAddressList(draft.to).length === 0 &&
@@ -450,7 +456,11 @@
 		if (invalidAddressList(draft.cc).length === 0 && ccErrorMessage) ccErrorMessage = '';
 		if (invalidAddressList(draft.bcc).length === 0 && bccErrorMessage) bccErrorMessage = '';
 		if (draft.subject.trim() && subjectErrorMessage) subjectErrorMessage = '';
-		autosaveScheduler.schedule(draft, prefillDone);
+		if (prefillDone) composeSession.noteChange(accountId, draft);
+	});
+
+	$effect(() => {
+		composeSession.setAttachmentReading(attachmentReading);
 	});
 
 	$effect(() => {
@@ -469,7 +479,8 @@
 	});
 
 	onDestroy(() => {
-		autosaveScheduler.clear();
+		// Future autosaves stop; a save already in flight finishes in the session.
+		composeSession.detach();
 		unsubscribeAccounts();
 	});
 </script>
@@ -556,6 +567,8 @@
 <UnsavedChangesDialog
 	open={confirmLeaveOpen}
 	{busy}
+	intent={dialogIntent}
+	draftWillBeDeleted={dialogIntent === 'discard' && $composeSession.draftStableId != null}
 	onStay={handleStay}
 	onSave={handleSaveBeforeLeave}
 	onDiscard={handleDiscardConfirmed}

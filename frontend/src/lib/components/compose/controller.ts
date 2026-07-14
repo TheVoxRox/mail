@@ -1,5 +1,6 @@
 import type { loadComposePrefill } from '$lib/compose/prefill.js';
-import type { ComposeAttachment, ComposeDraft } from '$lib/compose/request.js';
+import type { ComposeAttachment } from '$lib/compose/request.js';
+import type { AccountResponse } from '$lib/types.js';
 
 export type ComposePrefill = Awaited<ReturnType<typeof loadComposePrefill>>;
 
@@ -22,18 +23,6 @@ type ComposeShortcutHandlers = {
 	onDiscard: () => void;
 	onFocusField: (fieldId: 'compose-cc' | 'compose-bcc') => void;
 };
-
-type ComposeAutosaveSchedulerOptions = {
-	delayMs: number;
-	isBusy: () => boolean;
-	onAutosave: () => Promise<unknown> | void;
-};
-
-function hasComposeContent(draft: ComposeDraft): boolean {
-	return Boolean(
-		draft.to || draft.cc || draft.bcc || draft.subject || draft.body || draft.attachments.length > 0
-	);
-}
 
 export function mapComposePrefill(prefill: ComposePrefill): ComposePrefillValues | null {
 	if (!prefill) return null;
@@ -110,29 +99,18 @@ export function handleComposeShortcuts(
 	}
 }
 
-export function createComposeAutosaveScheduler(options: ComposeAutosaveSchedulerOptions) {
-	const { delayMs, isBusy, onAutosave } = options;
-	let timer: ReturnType<typeof setTimeout> | null = null;
-
-	function clear(): void {
-		if (!timer) return;
-		clearTimeout(timer);
-		timer = null;
-	}
-
-	function schedule(draft: ComposeDraft, prefillDone: boolean): void {
-		if (!prefillDone) return;
-		clear();
-		if (!hasComposeContent(draft)) return;
-		timer = setTimeout(() => {
-			timer = null;
-			if (isBusy()) return;
-			void onAutosave();
-		}, delayMs);
-	}
-
-	return {
-		schedule,
-		clear
-	};
+/**
+ * From-account resolution for the composer (F4): when the account list
+ * (re)settles, keep a still-valid selection; otherwise prefer the account the
+ * user was viewing (active) over the first in the list. The active id may be
+ * unset or stale (e.g. the account was just removed) — fall back then.
+ */
+export function resolveComposeFromAccount(
+	current: number | null,
+	accounts: AccountResponse[],
+	activeId: number | null
+): number | null {
+	if (current != null && accounts.some((account) => account.id === current)) return current;
+	if (activeId != null && accounts.some((account) => account.id === activeId)) return activeId;
+	return accounts[0]?.id ?? null;
 }

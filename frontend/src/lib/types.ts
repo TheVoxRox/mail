@@ -245,6 +245,15 @@ export interface DraftRequest {
 	references?: string | null;
 }
 
+/**
+ * Body of the 202 returned by the async draft save. The stableId is minted
+ * before the append is dispatched, so it is valid immediately for
+ * `replaces=` chaining and `?draft=` reopen.
+ */
+export interface DraftSaveAcceptedResponse {
+	stableId: string;
+}
+
 // ─── Contacts ──────────────────────────────────────────────────────────────
 
 export type EmailLabel = NonNullable<GeneratedContactEmailRequest['label']>;
@@ -347,6 +356,12 @@ export interface SendNotification {
 	accountId: number;
 	/** Set only for `send_failed`; mirrors the account lastError code. */
 	errorCode: string | null;
+	/**
+	 * Set on a failed send of a brand-new message whose content the backend
+	 * parked as a recovery draft (the composer is typically unmounted by the
+	 * time the outcome arrives, so the toast points the user at Drafts).
+	 */
+	recoveryDraftStableId: string | null;
 }
 
 /**

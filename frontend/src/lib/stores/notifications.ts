@@ -61,8 +61,12 @@ export function handleStreamNotification(event: StreamNotification): void {
 /*
  * Pending sends are tracked outside any component (the compose view unmounts
  * right after the request) so the eventual SSE outcome can resolve the right
- * "sending…" toast. The fallback timer drops the entry if the outcome event
- * never arrives (e.g. SSE was disconnected) so the indicator cannot get stuck.
+ * "sending…" toast. An outcome that arrives before the composer managed to
+ * register (the 202 response and the SSE event race) is parked for a short
+ * TTL and resolved immediately at registration. If the outcome never arrives
+ * (e.g. SSE was disconnected), the fallback timer flips the pending toast to
+ * a visible warning instead of silently dropping it — the user must not be
+ * left believing the message went out.
  */
 interface PendingSend {
 	toastId: number;
@@ -70,10 +74,25 @@ interface PendingSend {
 	timer: ReturnType<typeof setTimeout>;
 }
 
+interface ParkedOutcome {
+	event: SendNotification;
+	timer: ReturnType<typeof setTimeout>;
+}
+
 const PENDING_SEND_FALLBACK_MS = 60_000;
+const PARKED_OUTCOME_TTL_MS = 30_000;
 const pendingSends = new Map<string, PendingSend>();
+const parkedOutcomes = new Map<string, ParkedOutcome>();
 
 export function registerPendingSend(sendId: string, recipient: string): void {
+	const parked = parkedOutcomes.get(sendId);
+	if (parked) {
+		// The outcome beat the registration — resolve it now, no pending toast.
+		clearTimeout(parked.timer);
+		parkedOutcomes.delete(sendId);
+		renderSendOutcome(parked.event, recipient);
+		return;
+	}
 	const translate = get(_);
 	const toastId = pushToast(translate('toast.sendPending', { values: { recipient } }), {
 		tone: 'info',
@@ -82,21 +101,28 @@ export function registerPendingSend(sendId: string, recipient: string): void {
 	const timer = setTimeout(() => {
 		pendingSends.delete(sendId);
 		dismissToast(toastId);
+		pushToast(translate('toast.sendUnverified', { values: { recipient } }), {
+			tone: 'error',
+			ttl: 0
+		});
 	}, PENDING_SEND_FALLBACK_MS);
 	pendingSends.set(sendId, { toastId, recipient, timer });
 }
 
-function resolvePendingSend(sendId: string): string {
-	const pending = pendingSends.get(sendId);
-	if (!pending) return '';
+function handleSendOutcome(event: SendNotification): void {
+	const pending = pendingSends.get(event.sendId);
+	if (!pending) {
+		const timer = setTimeout(() => parkedOutcomes.delete(event.sendId), PARKED_OUTCOME_TTL_MS);
+		parkedOutcomes.set(event.sendId, { event, timer });
+		return;
+	}
 	clearTimeout(pending.timer);
 	dismissToast(pending.toastId);
-	pendingSends.delete(sendId);
-	return pending.recipient;
+	pendingSends.delete(event.sendId);
+	renderSendOutcome(event, pending.recipient);
 }
 
-function handleSendOutcome(event: SendNotification): void {
-	const recipient = resolvePendingSend(event.sendId);
+function renderSendOutcome(event: SendNotification, recipient: string): void {
 	const translate = get(_);
 	if (event.type === 'send_completed') {
 		pushToast(translate('toast.sendCompleted', { values: { recipient } }), {
@@ -105,7 +131,11 @@ function handleSendOutcome(event: SendNotification): void {
 		});
 		return;
 	}
-	const message = translate('toast.sendFailed', { values: { recipient } });
+	// A brand-new compose whose content the backend parked as a recovery draft
+	// (B2) gets a message pointing at Drafts — the composer is long unmounted.
+	const message = event.recoveryDraftStableId
+		? translate('toast.sendFailedRecoveryDraft', { values: { recipient } })
+		: translate('toast.sendFailed', { values: { recipient } });
 	pushToast(message, { tone: 'error', ttl: 0 });
 	notifyUser(message, recipient);
 }

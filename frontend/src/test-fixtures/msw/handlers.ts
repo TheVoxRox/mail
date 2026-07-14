@@ -5,6 +5,7 @@ import {
 	forwardFor,
 	getFolderMessages,
 	listPage,
+	removeMessageEverywhere,
 	replaceFolderMessages,
 	replyFor,
 	upsertAccount,
@@ -24,6 +25,7 @@ import type {
 	ContactUpdateRequest,
 	DraftRequest,
 	MailFlagType,
+	MailRequest,
 	MoveRequest
 } from '$lib/types.js';
 
@@ -281,6 +283,18 @@ function accountRoutes(
 			);
 		if (method === 'POST' && segments[4] === 'send') {
 			// POST /accounts/{id}/drafts/{stableId}/send — async draft send (no body).
+			// Mirrors verifyDraftForSend: a stableId that is not a draft of this
+			// account is rejected up front instead of blindly accepting.
+			const stableId = decodeSegment(segments[3]);
+			const draft = (fixtureState.draftsByAccount[accountId] ?? []).find(
+				(item) => item.stableId === stableId
+			);
+			if (!draft) {
+				return problem(404, 'Koncept nenalezen.', 'MESSAGE_NOT_FOUND');
+			}
+			// The backend hard-deletes the sent draft only after delivery.
+			fixtureState.lastSendSupersedesDraftId = stableId;
+			fixtureState.lastSendMailRequest = null;
 			return acceptedSend(accountId);
 		}
 		if (method === 'POST') {
@@ -289,8 +303,13 @@ function accountRoutes(
 				if (draft.subject === '__FAIL_DRAFT__') {
 					return problem(500, 'Koncept se nepodařilo uložit.', 'DRAFT_SAVE_FAILED');
 				}
-				draftToSummary(accountId, draft, new URL(request.url).searchParams.get('replaces'));
-				return accepted();
+				const summary = draftToSummary(
+					accountId,
+					draft,
+					new URL(request.url).searchParams.get('replaces')
+				);
+				// B1 contract: the 202 carries the stableId the draft persists under.
+				return HttpResponse.json({ stableId: summary.stableId }, { status: 202 });
 			});
 		}
 	}
@@ -538,7 +557,14 @@ function messageRoutes(
 		const accountId = Number(segments[2]);
 		if (segments[3] === 'sync' && method === 'POST') return accepted();
 		if (segments[3] === 'send' && method === 'POST')
-			return request.json().then(() => acceptedSend(accountId));
+			return request.json().then((body) => {
+				// Recorded so the SSE bridge can mirror the backend contract: delete
+				// the superseded draft on send_completed, park a recovery draft on a
+				// send_failed with no supersede (B2).
+				fixtureState.lastSendMailRequest = body as MailRequest;
+				fixtureState.lastSendSupersedesDraftId = url.searchParams.get('supersedesDraftId');
+				return acceptedSend(accountId);
+			});
 		if (segments[3] === 'folder' && method === 'GET') {
 			const folderName = url.searchParams.get('folderRef') ?? decodeSegment(segments[4]);
 			return HttpResponse.json(listPage(getFolderMessages(accountId, folderName), url));
@@ -562,13 +588,7 @@ function messageRoutes(
 	if (segments.length === 2) {
 		if (method === 'GET') return HttpResponse.json(detail);
 		if (method === 'DELETE') {
-			for (const [key, messages] of Object.entries(fixtureState.messagesByFolder)) {
-				fixtureState.messagesByFolder[key] = messages.filter(
-					(message) => message.stableId !== stableId
-				);
-			}
-			delete fixtureState.messageDetails[stableId];
-			delete fixtureState.messageContents[stableId];
+			removeMessageEverywhere(stableId);
 			return noContent();
 		}
 	}

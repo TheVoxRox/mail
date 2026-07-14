@@ -171,7 +171,6 @@
 		"sending": "Sending…",
 		"autosaving": "Saving draft…",
 		"autosaveFailed": "Could not save the draft.",
-		"draftIdentityPending": "The draft is synchronising. Further changes will stay in the editor until the saved draft can be updated safely.",
 		"autosavedAt": "Draft saved at {time}",
 		"draftSaved": "Draft saved.",
 		"unsavedDialog": {
@@ -180,6 +179,12 @@
 			"stay": "Stay",
 			"save": "Save draft",
 			"discard": "Discard changes"
+		},
+		"discardDialog": {
+			"title": "Discard the message?",
+			"description": "The message you are writing will be discarded.",
+			"descriptionDraftDeleted": "The message you are writing will be discarded. Its draft will be deleted.",
+			"discard": "Discard"
 		},
 		"fieldFrom": "From:",
 		"fieldTo": "To:",
@@ -747,6 +752,8 @@
 		"newMessages": "{count, plural, one {{count} new message} other {{count} new messages}}, {account}, {folder}",
 		"sendPending": "Sending to {recipient}…",
 		"sendCompleted": "Message sent to {recipient}.",
-		"sendFailed": "Couldn’t send the message to {recipient}."
+		"sendFailed": "Couldn’t send the message to {recipient}.",
+		"sendFailedRecoveryDraft": "Couldn’t send the message to {recipient}. The content is saved in Drafts.",
+		"sendUnverified": "Couldn’t verify the send outcome for {recipient} — check the Sent folder."
 	}
 }
