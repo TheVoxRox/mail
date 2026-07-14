@@ -38,8 +38,14 @@ public class FolderSyncStateEntity {
     @Column(name = "last_known_uid")
     private Long lastKnownUid;
 
+    /**
+     * Folder UIDVALIDITY as last seen from the server. NULL until the first sync
+     * cycle resolves it — {@code FlagSyncService.handleUidValidity} persists the
+     * server value on the first pass and resets the local cache whenever it
+     * changes.
+     */
     @Column(name = "uid_validity")
-    private Long uidValidity;
+    private @Nullable Long uidValidity;
 
     /**
      * Folder HIGHESTMODSEQ from the last CONDSTORE-aware synchronization. NULL =
@@ -51,8 +57,9 @@ public class FolderSyncStateEntity {
     @Column(name = "last_known_modseq")
     private @Nullable Long lastKnownModseq;
 
+    /** NULL until the folder completes its first sync cycle. */
     @Column(name = "last_sync_at")
-    private LocalDateTime lastSyncAt;
+    private @Nullable LocalDateTime lastSyncAt;
 
     @Version
     private Integer version;
@@ -128,7 +135,7 @@ public class FolderSyncStateEntity {
         this.lastKnownUid = lastKnownUid;
     }
 
-    public Long getUidValidity() {
+    public @Nullable Long getUidValidity() {
         return uidValidity;
     }
 
@@ -144,7 +151,7 @@ public class FolderSyncStateEntity {
         this.lastKnownModseq = lastKnownModseq;
     }
 
-    public LocalDateTime getLastSyncAt() {
+    public @Nullable LocalDateTime getLastSyncAt() {
         return lastSyncAt;
     }
 

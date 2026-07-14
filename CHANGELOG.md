@@ -33,6 +33,8 @@ sekci s podsekcemi podle artefaktu.
 - Odeslání vlastní úklid konceptu (draft lifecycle, PR-A): `POST /messages/account/{id}/send?supersedesDraftId=` — koncept, ze kterého zpráva vznikla, maže backend až PO doručení (se stejným ownership/folder guardem jako `replaces`); klient ho už nemá mazat po 202, protože async selhání by nechalo obsah bez jediné kopie. Při selhání odeslání nové zprávy (bez supersede) se obsah best-effort uloží jako recovery koncept do Rozepsaných a `send_failed` notifikace nese jeho `recoveryDraftStableId`.
 - Bcc přežije znovuotevření konceptu (draft lifecycle, PR-A): nový sloupec `recipients_bcc` (V1 in-place, mimo FTS index), `MessageFetcher` čte `RecipientType.BCC`, `MailDetailResponse.recipientsBcc` a compose prefill ho vrací do pole Skrytá kopie — dřív se Bcc při reopenu tiše zahodilo.
 
+- Statická analýza: NullAway 0.13.7 (z 0.13.6) nově hlásí init warningy i pro JPA konstruktory s argumenty. Pole spravovaná Hibernate (`@Id`, `@GeneratedValue`, `@Version`) jsou vyjmuta přes `ExcludedFieldAnnotations` — jsou null jen v transientním okně před `save()`. Dva skutečně nullable sloupce `folder_sync_state` (`uid_validity`, `last_sync_at`) jsou nově poctivě `@Nullable`: kód je tak už dávno četl (`FlagSyncService.handleUidValidity` na ně testuje null), jen to typ nepřiznával. `MessageDownloader` invariant „UIDVALIDITY je vyřešená před stahováním" nově explicitně ověřuje místo aby null tiše protekl do `NOT NULL` sloupce `messages.uid_validity` a do `MessageStableId`.
+
 ### Backend — threading / konverzace (Phase 1, backend-only)
 
 - V2 Flyway migrace `add_threading.sql` přidává `thread_id` / `thread_root_message_id` / `thread_position` sloupce na `messages` + 2 composite indexy.

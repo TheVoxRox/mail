@@ -36,7 +36,7 @@
 		<springdoc.version>3.0.3</springdoc.version>
 		<wiremock.version>3.13.2</wiremock.version>
 		<error-prone.version>2.50.0</error-prone.version>
-		<nullaway.version>0.13.6</nullaway.version>
+		<nullaway.version>0.13.7</nullaway.version>
 		<archunit.version>1.4.2</archunit.version>
 		<greenmail.version>2.1.9</greenmail.version>
 		<!--
@@ -207,6 +207,17 @@
 					ExcludedPaths skips everything under target/ — Spring AOT (-Paot)
 					generates sources that are not ours to fix.
 
+					ExcludedFieldAnnotations covers JPA fields whose lifecycle belongs to
+					Hibernate, not to our constructors: @Id / @GeneratedValue are assigned
+					on persist, @Version on the first flush. They are null only in the
+					transient window before save(); declaring them @Nullable would push
+					meaningless null checks into every call site that reads the id of an
+					already-managed entity. NullAway 0.13.7 started reporting these (release
+					note "Report init warnings for JPA constructors with arguments"), which
+					is why only the three entities with an argument-taking constructor were
+					flagged. Columns that are genuinely nullable are annotated @Nullable
+					instead — see FolderSyncStateEntity.
+
 					Error Prone runs in-process; the jdk.compiler add-exports/add-opens
 					flags it needs live in .mvn/jvm.config (forked javac swallows its own
 					diagnostics on Windows, so fork is deliberately NOT used).
@@ -241,7 +252,7 @@
 									Migrating to Instant/UTC is a schema + product decision tracked
 									in docs/STATIC_ANALYSIS.md, not something to silence per call.
 								-->
-								<arg>-Xplugin:ErrorProne -XepExcludedPaths:.*[\\/]target[\\/].* -Xep:JavaTimeDefaultTimeZone:OFF -Xep:NullAway:ERROR -XepOpt:NullAway:AnnotatedPackages=org.voxrox</arg>
+								<arg>-Xplugin:ErrorProne -XepExcludedPaths:.*[\\/]target[\\/].* -Xep:JavaTimeDefaultTimeZone:OFF -Xep:NullAway:ERROR -XepOpt:NullAway:AnnotatedPackages=org.voxrox -XepOpt:NullAway:ExcludedFieldAnnotations=jakarta.persistence.Id,jakarta.persistence.GeneratedValue,jakarta.persistence.Version</arg>
 							</compilerArgs>
 						</configuration>
 					</execution>
