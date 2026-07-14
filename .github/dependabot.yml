@@ -1,3 +1,12 @@
+# Dependabot configuration.
+#
+# Grouping policy: minor + patch updates are bundled into a small number of
+# grouped PRs per ecosystem (production vs development where the ecosystem
+# distinguishes them) to cut weekly PR volume and keep related tooling moving
+# together. MAJOR updates are deliberately left OUT of every group so each one
+# lands as its own PR for manual review — a lone major that outruns its peers
+# (e.g. typescript ahead of typescript-eslint) is exactly the kind of
+# breaking/peer-conflict change that must not be auto-bundled.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -8,6 +17,17 @@ updates:
       time: '08:00'
       timezone: Europe/Prague
     open-pull-requests-limit: 5
+    groups:
+      npm-production:
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+      npm-development:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: cargo
     directory: /frontend/src-tauri
@@ -17,6 +37,11 @@ updates:
       time: '08:30'
       timezone: Europe/Prague
     open-pull-requests-limit: 5
+    groups:
+      cargo-minor-patch:
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: maven
     directory: /backend
@@ -26,6 +51,17 @@ updates:
       time: '08:45'
       timezone: Europe/Prague
     open-pull-requests-limit: 5
+    groups:
+      maven-production:
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+      maven-development:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: github-actions
     directory: /
@@ -35,3 +71,8 @@ updates:
       time: '09:00'
       timezone: Europe/Prague
     open-pull-requests-limit: 5
+    groups:
+      github-actions-minor-patch:
+        update-types:
+          - minor
+          - patch
