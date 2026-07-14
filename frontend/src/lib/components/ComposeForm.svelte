@@ -41,7 +41,6 @@
 	} from '$lib/compose/request.js';
 	import { invalidAddressList, parseAddressList } from '$lib/compose/addresses.js';
 	import { ComposeDraftSaveCoordinator } from '$lib/compose/draft-save.js';
-	import { confirmAction } from '$lib/stores/confirmDialog.js';
 	import { installLeaveGuard } from '$lib/leaveGuard.js';
 	import { onDestroy, onMount, tick, untrack } from 'svelte';
 
@@ -51,6 +50,7 @@
 	let subject = $state('');
 	let body = $state('');
 	let attachments = $state<ComposeAttachment[]>([]);
+	let attachmentReading = $state(false);
 	let inReplyTo = $state<string | null>(null);
 	let references = $state<string | null>(null);
 	let fromAccountId = $state<number | null>(get(activeAccountId));
@@ -64,6 +64,7 @@
 	let recipientErrorMessage = $state('');
 	let ccErrorMessage = $state('');
 	let bccErrorMessage = $state('');
+	let subjectErrorMessage = $state('');
 	let lastSavedSnapshot = $state('');
 	// Signature the composer last inserted into `body`. `null` means the composer
 	// is not managing a signature for this compose kind (reply/forward/draft);
@@ -81,6 +82,7 @@
 	const recipientErrorId = 'compose-to-error';
 	const ccErrorId = 'compose-cc-error';
 	const bccErrorId = 'compose-bcc-error';
+	const subjectErrorId = 'compose-subject-error';
 	let busyAction = $state<'send' | 'save' | null>(null);
 
 	let bypassLeaveGuard = false;
@@ -214,10 +216,11 @@
 		return $_('compose.invalidAddress', { values: { address: value } });
 	}
 
-	function validateRecipientFields(): boolean {
+	function validateSendFields(): boolean {
 		recipientErrorMessage = '';
 		ccErrorMessage = '';
 		bccErrorMessage = '';
+		subjectErrorMessage = '';
 
 		if (parseAddressList(to).length === 0) {
 			recipientErrorMessage = $_('compose.errorNoRecipient');
@@ -246,6 +249,14 @@
 			return false;
 		}
 
+		// Product decision: the backend rejects a blank subject (@NotBlank), so
+		// the UI requires it instead of offering a doomed "send anyway".
+		if (!subject.trim()) {
+			subjectErrorMessage = $_('compose.errorNoSubject');
+			formElement?.querySelector<HTMLInputElement>('#compose-subject')?.focus();
+			return false;
+		}
+
 		return true;
 	}
 
@@ -267,10 +278,23 @@
 	}
 
 	installLeaveGuard({
-		shouldGuard: () => !bypassLeaveGuard && !busy && prefillDone && hasUnsavedChanges,
+		// attachmentReading counts as unsaved work: the in-flight file is not in
+		// `attachments` yet, so the fingerprint alone would let it leave silently.
+		shouldGuard: () =>
+			!bypassLeaveGuard && !busy && prefillDone && (hasUnsavedChanges || attachmentReading),
 		isSameTarget: (next, current) => targetHref(next) === targetHref(current),
 		onBlocked: (target) => openLeaveConfirmation(targetHref(target))
 	});
+
+	/**
+	 * Sending or saving while the picker is still reading a file would build the
+	 * request without it — the in-flight file is not in `attachments` yet.
+	 */
+	function blockedByAttachmentRead(silent = false): boolean {
+		if (!attachmentReading) return false;
+		if (!silent) errorMessage = $_('compose.errorAttachmentStillReading');
+		return true;
+	}
 
 	async function handleSend() {
 		if (busy || !prefillDone) return;
@@ -280,19 +304,11 @@
 			errorMessage = $_('compose.errorNoActiveAccount');
 			return;
 		}
-		if (!validateRecipientFields()) {
+		if (!validateSendFields()) {
 			errorMessage = '';
 			return;
 		}
-		if (!subject.trim()) {
-			const confirmed = await confirmAction({
-				title: $_('compose.noSubjectConfirmTitle'),
-				description: $_('compose.noSubjectConfirm'),
-				confirmLabel: $_('compose.noSubjectConfirmAction'),
-				cancelLabel: $_('common.cancel')
-			});
-			if (!confirmed) return;
-		}
+		if (blockedByAttachmentRead()) return;
 		busy = true;
 		busyAction = 'send';
 		errorMessage = '';
@@ -336,6 +352,7 @@
 		const { silent = false, navigateAfterSave = !silent } = options;
 		if (busy && !silent) return false;
 		if (!prefillDone) return false;
+		if (blockedByAttachmentRead(silent)) return false;
 		const acc = currentFromAccount();
 		if (!acc) {
 			if (!silent) errorMessage = $_('compose.errorNoActiveAccount');
@@ -384,7 +401,7 @@
 
 	function handleDiscard() {
 		if (!prefillDone) return;
-		if (!hasUnsavedChanges) {
+		if (!hasUnsavedChanges && !attachmentReading) {
 			void navigateWithoutPrompt(resolve('/'));
 			return;
 		}
@@ -393,7 +410,13 @@
 
 	async function handleSaveBeforeLeave() {
 		const saved = await saveDraftNow({ navigateAfterSave: false });
-		if (!saved) return;
+		if (!saved) {
+			// The reason renders as the form-level alert, which the modal overlay
+			// would cover — close the dialog and drop the pending navigation so
+			// the message is visible (and announced) on the composer.
+			handleStay();
+			return;
+		}
 		await continuePendingNavigation();
 	}
 
@@ -426,6 +449,7 @@
 		}
 		if (invalidAddressList(draft.cc).length === 0 && ccErrorMessage) ccErrorMessage = '';
 		if (invalidAddressList(draft.bcc).length === 0 && bccErrorMessage) bccErrorMessage = '';
+		if (draft.subject.trim() && subjectErrorMessage) subjectErrorMessage = '';
 		autosaveScheduler.schedule(draft, prefillDone);
 	});
 
@@ -489,11 +513,14 @@
 		{ccErrorId}
 		bccError={bccErrorMessage}
 		{bccErrorId}
+		subjectError={subjectErrorMessage}
+		{subjectErrorId}
 		{autofocusTo}
 	/>
 
 	<AttachmentPicker
 		bind:attachments
+		bind:reading={attachmentReading}
 		disabled={!prefillDone || busy}
 		onSelectStart={() => (errorMessage = '')}
 		onError={(message) => (errorMessage = message)}

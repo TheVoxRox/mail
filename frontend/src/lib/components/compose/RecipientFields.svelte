@@ -18,6 +18,8 @@
 		ccErrorId?: string;
 		bccError?: string;
 		bccErrorId?: string;
+		subjectError?: string;
+		subjectErrorId?: string;
 		autofocusTo?: boolean;
 	}
 
@@ -35,6 +37,8 @@
 		ccErrorId = 'compose-cc-error',
 		bccError = '',
 		bccErrorId = 'compose-bcc-error',
+		subjectError = '',
+		subjectErrorId = 'compose-subject-error',
 		autofocusTo = true
 	}: Props = $props();
 
@@ -101,7 +105,18 @@
 			type="text"
 			bind:value={subject}
 			{disabled}
+			aria-invalid={subjectError ? 'true' : undefined}
+			aria-describedby={subjectError ? subjectErrorId : undefined}
 			class="flex-1 border-0 bg-transparent py-2.5 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
 		/>
 	</div>
+	{#if subjectError}
+		<div
+			id={subjectErrorId}
+			class="border-t border-border px-4 py-2 text-xs text-destructive"
+			role="alert"
+		>
+			<span class="ml-20 block">{subjectError}</span>
+		</div>
+	{/if}
 </div>

@@ -39,12 +39,23 @@ export function startNotifications(): void {
 	client.start();
 }
 
-function handleStreamNotification(event: StreamNotification): void {
+export function handleStreamNotification(event: StreamNotification): void {
 	if (event.type === 'send_completed' || event.type === 'send_failed') {
 		handleSendOutcome(event as SendNotification);
 		return;
 	}
-	handleSyncCompleted(event as SyncNotification);
+	if (event.type === 'sync_completed') {
+		handleSyncCompleted(event as SyncNotification);
+		return;
+	}
+	/*
+	 * Any other whitelisted event (currently only `thread_updated`) has no
+	 * V0.1.0 consumer. Ignore it — previously it fell through to
+	 * handleSyncCompleted, which set `lastSync` to a payload with an undefined
+	 * folder/count (breaking the "last sync" render) and fired a spurious
+	 * refreshFolders on every thread-membership change. The V0.2 conversation
+	 * UI will subscribe here.
+	 */
 }
 
 /*

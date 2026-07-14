@@ -11,14 +11,30 @@
 
 	interface Props {
 		attachments: ComposeAttachment[];
+		/**
+		 * True while selected files are still being read into memory. The parent
+		 * must not build a mail/draft request from `attachments` in that window —
+		 * the in-flight files are not in the array yet and would be silently lost.
+		 */
+		reading?: boolean;
 		onSelectStart?: () => void;
 		onError?: (message: string) => void;
 		disabled?: boolean;
 	}
 
-	let { attachments = $bindable(), onSelectStart, onError, disabled = false }: Props = $props();
+	let {
+		attachments = $bindable(),
+		reading = $bindable(false),
+		onSelectStart,
+		onError,
+		disabled = false
+	}: Props = $props();
 	let readingFileName = $state('');
 	let dragActive = $state(false);
+	// addFiles can overlap (file dialog, drop and document-level paste are all
+	// live during a read), so `reading` must clear only when the LAST batch
+	// settles — a plain boolean would be cleared by whichever finishes first.
+	let readingBatches = 0;
 
 	function attachmentTotalSize(list: ComposeAttachment[]): number {
 		return list.reduce((total, item) => total + item.size, 0);
@@ -91,8 +107,12 @@
 			onError?.(validationError);
 			return;
 		}
-		if (!(await confirmLargeFiles(files))) return;
+		// The flag goes up before the large-file confirm: the files are already
+		// selected, so a snapshot of `attachments` is incomplete from here on.
+		readingBatches += 1;
+		reading = true;
 		try {
+			if (!(await confirmLargeFiles(files))) return;
 			const added: ComposeAttachment[] = [];
 			for (const [index, file] of files.entries()) {
 				const fileName = options.clipboard ? clipboardFileName(file, index) : file.name;
@@ -110,7 +130,11 @@
 		} catch (err) {
 			onError?.(toErrorMessage(err));
 		} finally {
-			readingFileName = '';
+			readingBatches -= 1;
+			if (readingBatches === 0) {
+				reading = false;
+				readingFileName = '';
+			}
 		}
 	}
 
@@ -245,7 +269,7 @@
 			{/each}
 		</ul>
 	{/if}
-	{#if readingFileName}
+	{#if reading && readingFileName}
 		<p class="text-xs text-muted-foreground" role="status">
 			{$_('compose.attachmentReading', { values: { name: readingFileName } })}
 		</p>

@@ -147,6 +147,9 @@
 		}
 		if (event.key === 'Escape' && suggestions.length > 0) {
 			event.preventDefault();
+			// Closing the suggestion popup must not bubble to the compose-level
+			// Escape shortcut, which would open the discard dialog on top of it.
+			event.stopPropagation();
 			suggestions = [];
 			return;
 		}

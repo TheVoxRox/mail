@@ -72,6 +72,8 @@ class SmtpMessageServiceTest {
     @Mock
     private ImapAppendService appendService;
     @Mock
+    private ImapFolderService imapFolderService;
+    @Mock
     private MailMetrics mailMetrics;
     @Mock
     private MimeMessageBuilder mimeMessageBuilder;
@@ -102,6 +104,30 @@ class SmtpMessageServiceTest {
                     connectionDetailsService, mailMetrics, transportFactory);
 
             // The client still gets an outcome so its pending indicator resolves.
+            ArgumentCaptor<SendNotification> sent = ArgumentCaptor.forClass(SendNotification.class);
+            verify(sseNotificationService).broadcast(sent.capture());
+            assertThat(sent.getValue().type()).isEqualTo(SendNotification.TYPE_FAILED);
+            assertThat(sent.getValue().sendId()).isEqualTo(SEND_ID);
+        }
+
+        @Test
+        @DisplayName("Draft row with null UID -> send_failed broadcast, not a hung client")
+        void shouldBroadcastFailureWhenDraftUidIsNull() {
+            AccountEntity account = new AccountEntity();
+            account.setId(ACCOUNT_ID);
+
+            MessageEntity draft = new MessageEntity();
+            draft.setStableId(STABLE_ID);
+            draft.setAccount(account);
+            draft.setFolderName("Drafts");
+            draft.setUid(null); // corrupt / partially-synced row
+
+            when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(draft));
+
+            // The NPE from unboxing a null UID must be caught and reported, so the client's
+            // pending indicator resolves instead of hanging.
+            service.sendDraftAsync(ACCOUNT_ID, STABLE_ID, SEND_ID);
+
             ArgumentCaptor<SendNotification> sent = ArgumentCaptor.forClass(SendNotification.class);
             verify(sseNotificationService).broadcast(sent.capture());
             assertThat(sent.getValue().type()).isEqualTo(SendNotification.TYPE_FAILED);
@@ -266,6 +292,7 @@ class SmtpMessageServiceTest {
             MessageEntity old = oldDraft();
             when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(old));
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(old.getAccount());
+            when(imapFolderService.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.DRAFTS)).thenReturn("Drafts");
             when(mimeMessageBuilder.build(any(), any(), any())).thenReturn(mock(MimeMessage.class));
             when(appendService.appendByRole(eq(ACCOUNT_ID), eq(FolderRole.DRAFTS), any(), eq(false))).thenReturn(false);
 
@@ -287,6 +314,7 @@ class SmtpMessageServiceTest {
             MessageEntity old = oldDraft();
             when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(old));
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(old.getAccount());
+            when(imapFolderService.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.DRAFTS)).thenReturn("Drafts");
             when(mimeMessageBuilder.build(any(), any(), any())).thenReturn(mock(MimeMessage.class));
             when(appendService.appendByRole(eq(ACCOUNT_ID), eq(FolderRole.DRAFTS), any(), eq(false))).thenReturn(true);
 
@@ -299,6 +327,48 @@ class SmtpMessageServiceTest {
             verify(accountRepository).clearLastErrorIfCodeIn(eq(ACCOUNT_ID), any());
             verify(accountRepository, never()).updateLastError(anyLong(), any(AccountLastError.class),
                     any(LocalDateTime.class));
+        }
+
+        @Test
+        @DisplayName("replaces points at a message NOT in Drafts -> new revision saved, target NOT expunged")
+        void replaceTargetInOtherFolderIsNotDeleted() throws Exception {
+            MessageEntity notADraft = oldDraft();
+            notADraft.setFolderName("INBOX");
+            when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(notADraft));
+            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(notADraft.getAccount());
+            when(imapFolderService.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.DRAFTS)).thenReturn("Drafts");
+            when(mimeMessageBuilder.build(any(), any(), any())).thenReturn(mock(MimeMessage.class));
+            when(appendService.appendByRole(eq(ACCOUNT_ID), eq(FolderRole.DRAFTS), any(), eq(false))).thenReturn(true);
+
+            service.saveDraftAsync(ACCOUNT_ID, draftRequest(), STABLE_ID);
+
+            // A wrong replaces id must never expunge received mail.
+            verify(imapActionService, never()).hardDelete(anyLong(), anyString(), anyLong());
+            verify(messageService, never()).deleteByStableId(anyString());
+            verify(accountRepository).clearLastErrorIfCodeIn(eq(ACCOUNT_ID), any());
+        }
+
+        @Test
+        @DisplayName("replaces points at another account's message -> new revision saved, target NOT expunged")
+        void replaceTargetOtherAccountIsNotDeleted() throws Exception {
+            AccountEntity otherAccount = new AccountEntity();
+            otherAccount.setId(OTHER_ACCOUNT_ID);
+            MessageEntity foreign = oldDraft();
+            foreign.setAccount(otherAccount);
+            AccountEntity ownAccount = new AccountEntity();
+            ownAccount.setId(ACCOUNT_ID);
+
+            when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(foreign));
+            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(ownAccount);
+            when(mimeMessageBuilder.build(any(), any(), any())).thenReturn(mock(MimeMessage.class));
+            when(appendService.appendByRole(eq(ACCOUNT_ID), eq(FolderRole.DRAFTS), any(), eq(false))).thenReturn(true);
+
+            service.saveDraftAsync(ACCOUNT_ID, draftRequest(), STABLE_ID);
+
+            // The ownership check fails first, so the Drafts folder is never resolved
+            // and the other account's message is left untouched.
+            verify(imapActionService, never()).hardDelete(anyLong(), anyString(), anyLong());
+            verify(messageService, never()).deleteByStableId(anyString());
         }
     }
 
