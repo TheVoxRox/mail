@@ -35,6 +35,8 @@ sekci s podsekcemi podle artefaktu.
 
 - Statická analýza: NullAway 0.13.7 (z 0.13.6) nově hlásí init warningy i pro JPA konstruktory s argumenty. Pole spravovaná Hibernate (`@Id`, `@GeneratedValue`, `@Version`) jsou vyjmuta přes `ExcludedFieldAnnotations` — jsou null jen v transientním okně před `save()`. Dva skutečně nullable sloupce `folder_sync_state` (`uid_validity`, `last_sync_at`) jsou nově poctivě `@Nullable`: kód je tak už dávno četl (`FlagSyncService.handleUidValidity` na ně testuje null), jen to typ nepřiznával. `MessageDownloader` invariant „UIDVALIDITY je vyřešená před stahováním" nově explicitně ověřuje místo aby null tiše protekl do `NOT NULL` sloupce `messages.uid_validity` a do `MessageStableId`.
 
+- Uzavřen nález „Gmail Sent duplicita" z review odesílací cesty: append do Sent zůstává vědomě bez provider gatingu. Ověřeno živě proti reálnému Gmail účtu (2026-07-14) — přímý send i draft-send nechají v Odeslané právě jednu kopii, protože Gmail náš append sloučí se svou vlastní kopií podle Message-ID; v logu přitom není žádné selhání appendu (to by hlásilo WARN). Gating by hlídal neexistující problém. Zjištění i podmínky pro přehodnocení zapsány do javadocu `ImapAppendService`.
+
 ### Backend — threading / konverzace (Phase 1, backend-only)
 
 - V2 Flyway migrace `add_threading.sql` přidává `thread_id` / `thread_root_message_id` / `thread_position` sloupce na `messages` + 2 composite indexy.

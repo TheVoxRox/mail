@@ -35,6 +35,15 @@ import org.voxrox.mailbackend.util.LogCategory;
  * still exists regardless. For a draft <em>replace</em> the caller MUST gate
  * the delete of the previous revision on a {@code true} return — otherwise a
  * failed append would destroy the only remaining copy of the user's content.
+ *
+ * <p>
+ * The Sent append is deliberately NOT gated per provider. Auto-filing providers
+ * would suggest a duplicate, but Gmail collapses our append into its own copy
+ * by Message-ID, so gating would guard a problem that does not exist. Measured
+ * live on 2026-07-14 against a real Gmail account: both the direct send and the
+ * draft-send path left exactly one copy in Sent, with no append failure in the
+ * log (a failure would WARN below). Re-check before claiming the same for a
+ * provider that auto-files but does not dedupe.
  */
 @Component
 public class ImapAppendService {
