@@ -49,6 +49,28 @@ export function refreshFolders(accountId: number): Promise<FolderResponse[]> {
 	return loadFolders(accountId);
 }
 
+/**
+ * Optimistically shifts a folder's unread count in the active-account cache.
+ * Used after a delete/move whose server-side effect is async: a folder
+ * re-fetch here would still read the pre-move count (the IMAP move has not
+ * landed yet), so the heading badge would stay stale. The next sync reconciles
+ * the real value. No-op when the folder is not currently cached.
+ */
+export function adjustFolderUnread(accountId: number, folderRef: string, delta: number): void {
+	if (delta === 0) return;
+	foldersByAccount.update((map) => {
+		const list = map[accountId];
+		if (!list) return map;
+		let changed = false;
+		const next = list.map((folder) => {
+			if (folder.folderRef !== folderRef) return folder;
+			changed = true;
+			return { ...folder, unreadCount: Math.max(0, folder.unreadCount + delta) };
+		});
+		return changed ? { ...map, [accountId]: next } : map;
+	});
+}
+
 resolvedActiveAccountId.subscribe((id) => {
 	if (id == null) return;
 	const cached = get(foldersByAccount)[id];

@@ -12,10 +12,9 @@ import { resolve } from '$app/paths';
 import { get } from 'svelte/store';
 import { deleteMessage, moveMessage, setMessageFlag } from '$lib/api/mailAction.js';
 import { getMessageDetail } from '$lib/api/mailRead.js';
-import { folders as folderList, refreshFolders } from '$lib/stores/folders.js';
+import { folders as folderList, adjustFolderUnread } from '$lib/stores/folders.js';
 import { searchState } from '$lib/stores/search.js';
 import { confirmAction } from '$lib/stores/confirmDialog.js';
-import { resolvedActiveAccountId } from '$lib/stores/accounts.js';
 import {
 	clearSelection,
 	invalidateMessage,
@@ -56,8 +55,13 @@ interface ExecuteBulkOptions {
 	 * (typical for delete/move).
 	 */
 	clearDetailIfAffected?: boolean;
-	/** On success refreshes folder counts (for delete/move). */
-	refreshFoldersAfterSuccess?: boolean;
+	/**
+	 * On success optimistically decrements the source folder's unread count by
+	 * the number of unread messages removed (for delete/move). The server-side
+	 * op is async, so a folder re-fetch here would read the stale pre-op count
+	 * and clobber the heading badge; the next sync reconciles the real value.
+	 */
+	adjustSourceFolderUnread?: boolean;
 	/** i18n key for the toast with {count, failed}. */
 	toastKey?: string;
 	/** Extra values for the toast (e.g. folder). */
@@ -66,6 +70,17 @@ interface ExecuteBulkOptions {
 
 function currentMessagesState(): MessagesState {
 	return get(messagesState);
+}
+
+/** Subject of a list row for outcome announcements; falls back when empty. */
+function messageSubjectLabel(stableId: string): string {
+	const fallback = get(_)('messages.noSubject');
+	const state = currentMessagesState();
+	if (state.status !== 'ready') return fallback;
+	const subject = state.page.content
+		.find((message) => message.stableId === stableId)
+		?.subject?.trim();
+	return subject ? subject : fallback;
 }
 
 function currentFolderHref(): string {
@@ -110,6 +125,26 @@ async function executeBulkMessageAction(options: ExecuteBulkOptions): Promise<Bu
 		}
 	}
 
+	// Snapshot which ids were unread and where — before the mutation, while the
+	// rows are still in the list — for the optimistic folder-unread adjustment.
+	let unreadBefore: { accountId: number; folderName: string; ids: Set<string> } | null = null;
+	if (options.adjustSourceFolderUnread) {
+		const state = currentMessagesState();
+		if (state.status === 'ready') {
+			const unread = new Set(
+				ids.filter((id) => {
+					const message = state.page.content.find((m) => m.stableId === id);
+					return message != null && !message.seen;
+				})
+			);
+			unreadBefore = {
+				accountId: state.context.accountId,
+				folderName: state.context.folderName,
+				ids: unread
+			};
+		}
+	}
+
 	const settled = await Promise.allSettled(ids.map((id) => options.perItem(id)));
 	const succeededIds = ids.filter((_, i) => settled[i]?.status === 'fulfilled');
 	const failedIds = ids.filter((_, i) => settled[i]?.status !== 'fulfilled');
@@ -150,11 +185,10 @@ async function executeBulkMessageAction(options: ExecuteBulkOptions): Promise<Bu
 		}
 	}
 
-	if (options.refreshFoldersAfterSuccess && result.succeeded > 0) {
-		const state = currentMessagesState();
-		const accountId =
-			state.status === 'idle' ? get(resolvedActiveAccountId) : state.context.accountId;
-		if (accountId != null) void refreshFolders(accountId);
+	if (unreadBefore && result.succeeded > 0) {
+		const ctx = unreadBefore;
+		const removedUnread = succeededIds.filter((id) => ctx.ids.has(id)).length;
+		adjustFolderUnread(ctx.accountId, ctx.folderName, -removedUnread);
 	}
 
 	if (options.toastKey) {
@@ -290,7 +324,12 @@ export async function deleteMessages(stableIds: readonly string[]): Promise<Bulk
 			return { succeeded: 0, failed: 0, succeededIds: [], failedIds: [] };
 		}
 	}
-	return executeBulkMessageAction({
+	const single = stableIds.length === 1;
+	// Capture the subject before the row is removed locally, so a single delete
+	// can name which message was deleted — screen-reader feedback for an
+	// otherwise-silent destructive action.
+	const subject = single ? messageSubjectLabel(stableIds[0]) : undefined;
+	const result = await executeBulkMessageAction({
 		ids: stableIds,
 		perItem: async (id) => {
 			await deleteMessage(id);
@@ -299,9 +338,20 @@ export async function deleteMessages(stableIds: readonly string[]): Promise<Bulk
 		},
 		pruneSelection: stableIds.length > 1,
 		clearDetailIfAffected: true,
-		refreshFoldersAfterSuccess: true,
-		toastKey: stableIds.length > 1 ? 'messages.bulkDeleteDone' : 'toolbar.deleteDone'
+		adjustSourceFolderUnread: true,
+		// Single delete gets a named toast below; bulk keeps the count summary.
+		toastKey: single ? undefined : 'messages.bulkDeleteDone'
 	});
+	if (single) {
+		if (result.succeeded === 1) {
+			pushToast(get(_)('toolbar.deleteDoneNamed', { values: { subject: subject ?? '' } }), {
+				tone: 'success'
+			});
+		} else if (result.failed === 1) {
+			pushToast(toErrorMessage(result.firstError), { tone: 'error' });
+		}
+	}
+	return result;
 }
 
 export async function moveMessages(
@@ -320,7 +370,7 @@ export async function moveMessages(
 		},
 		pruneSelection: stableIds.length > 1,
 		clearDetailIfAffected: true,
-		refreshFoldersAfterSuccess: true,
+		adjustSourceFolderUnread: true,
 		toastKey: stableIds.length > 1 ? 'messages.bulkMoveDone' : 'toolbar.moveDone',
 		toastValues: { folder: targetFolderLabel }
 	});
