@@ -97,6 +97,29 @@ Ed25519 signing key + offline zaloha klice — **hotove** (2026-06-16/20), detai
 
 ---
 
+## Koncept s rozepsanou adresou nejde ulozit (nalez z ziveho testu 2026-07-14)
+
+Objeveno pri jinem testu (Gmail Sent duplicita) v `tauri:dev` na realnem uctu. **Neni to jen hlucny log** — je to ztrata obsahu.
+
+**Co se deje:** `MimeMessageBuilder` je sdileny mezi odeslanim a ulozenim konceptu a parsuje adresy striktne ([MimeMessageBuilder.java:58](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MimeMessageBuilder.java) — `InternetAddress.parse(to)`). U odeslani spravne, u konceptu ne: koncept je z definice rozdelana prace. Kdyz autosave chytne rozepsanou adresu (`luke.lacina@` bez domeny), `AddressException` probubla do catch v [SmtpMessageService.java:248](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/SmtpMessageService.java) a udela tri veci: ERROR log se stack trace, `AuditLog.failure("draft_save")` a `updateLastError(DRAFT_SAVE_FAILED)` na uctu (= probliknuti chyby v UI, dalsi uspesny save ji smaze pres `clearLastErrorIfCodeIn`). **Koncept se neulozi vubec** → kdyz uzivatel v tu chvili zavre compose, prijde o text. Nasledny `?replaces=` pak hlasi `draft not found`, protoze predchozi revize nikdy nevznikla.
+
+**Repro:** compose → do pole Komu napsat `neco@` (bez domeny) → pockat na autosave → `%LOCALAPPDATA%\VoxRox\Mail.dev\logs\mail.log` obsahuje `[SMTP] Draft save failed`.
+
+**Zmereno (Jakarta Mail 2.1.5 / angus-mail 2.0.5), NEHADAT znovu:**
+- `InternetAddress.parse(s)` → `AddressException: Missing domain`
+- `InternetAddress.parse(s, false)` → **taky hodi** stejnou vyjimku (lenient flag NEpomaha — to je ta past)
+- `InternetAddress.parseHeader(s, false)` → **projde**, vrati adresu `luke.lacina@`
+- Existuje i session property `mail.mime.address.strict=false`
+
+**Plan:**
+1. Lenient adresy jen pro draft-save cestu (`parseHeader(s, false)` nebo session property); odeslani zustava striktni.
+2. Selhani validace u konceptu nesmi delat ERROR + `AuditLog.failure` + `last_error` — to jsou reakce na chybu systemu, ne na nedopsanou adresu.
+3. Testy (`MimeMessageBuilderTest`, `SmtpMessageServiceTest`) + changelog bullet.
+
+**Nejdriv overit (blokuje rozsah):** je zranitelna i cteci cesta? `MessageFetcher.java:80` vola `message.getRecipients(RecipientType.TO)` a to v testu nad `MimeMessage` ze streamu **hodi** `AddressException` — pak by koncept s rozbitou adresou (klidne ulozeny pres Gmail web) shodil sync Konceptu. **ALE** IMAP pouziva `IMAPMessage`, ktery cte adresy z ENVELOPE jinou cestou a nejspis je tolerantni → netvrdit bez overeni. Pokud je cteni zranitelne, je to vetsi nalez nez puvodni log a patri do stejneho PR.
+
+---
+
 ## Startup follow-up
 
 Backend (headless) cast zmerena a uzavrena — sekce "Startup audit — mereni 2026-06-11" v [backend/PERFORMANCE_BASELINE.md](backend/PERFORMANCE_BASELINE.md). Zbyva jen GUI:
