@@ -142,7 +142,10 @@ public class AttachmentService {
     private void cleanupStaleTempFiles() {
         try (var stream = Files.list(privateTempDir)) {
             long cutoff = System.currentTimeMillis() - 3600_000L; // 1 hour
-            stream.filter(p -> p.getFileName().toString().startsWith("attach_")).filter(p -> {
+            stream.filter(p -> {
+                Path name = p.getFileName();
+                return name != null && name.toString().startsWith("attach_");
+            }).filter(p -> {
                 try {
                     return Files.getLastModifiedTime(p).toMillis() < cutoff;
                 } catch (IOException e) {

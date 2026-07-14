@@ -178,7 +178,10 @@ public class DatabaseBackupService {
     public @Nullable String previousAppVersion() {
         return listBackups(storageProperties.getDbPath()).stream()
                 .max(Comparator.comparingLong(DatabaseBackupService::lastModifiedMillis))
-                .map(p -> p.getFileName().toString().substring(BACKUP_PREFIX.length())).orElse(null);
+                // Optional.map short-circuits to empty if getFileName() is null (a root
+                // path) — a backup file always has a name, but the guard keeps the deref
+                // provably null-safe for the static analyzer.
+                .map(Path::getFileName).map(name -> name.toString().substring(BACKUP_PREFIX.length())).orElse(null);
     }
 
     public String appVersion() {
