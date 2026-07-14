@@ -47,8 +47,14 @@ public class RemoteImageSenderEntity {
     public RemoteImageSenderEntity(AccountEntity account, String senderEmail) {
         this.account = account;
         this.senderEmail = senderEmail;
+        this.createdAt = LocalDateTime.now();
     }
 
+    /**
+     * Safety net for the no-arg constructor path (Hibernate instantiation): rows
+     * created through the argument-taking constructor already carry their creation
+     * time, and the column is NOT NULL.
+     */
     @PrePersist
     void onCreate() {
         if (createdAt == null) {

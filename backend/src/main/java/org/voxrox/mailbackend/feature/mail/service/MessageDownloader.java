@@ -187,9 +187,18 @@ public class MessageDownloader {
     }
 
     private void saveMessagesBatchAtomic(List<MailDetailResponse> dtos, FolderSyncContext ctx, Message[] messages) {
+        /*
+         * FlagSyncService.handleUidValidity runs before any download and resolves the
+         * folder's UIDVALIDITY (persisting the server value on the first pass), so it
+         * is non-null by the time we map messages. The column messages.uid_validity is
+         * NOT NULL and the value feeds MessageStableId — fail loudly here rather than
+         * write a broken identity if that call order is ever changed.
+         */
+        Long uidValidity = Objects.requireNonNull(ctx.syncState().getUidValidity(),
+                "UIDValidity must be resolved before messages are downloaded");
         transactionTemplate.executeWithoutResult(status -> {
-            List<MessageEntity> entities = dtos.stream().map(dto -> messageMapper.toEntity(dto, ctx.account(),
-                    ctx.folderName(), ctx.syncState().getUidValidity())).toList();
+            List<MessageEntity> entities = dtos.stream()
+                    .map(dto -> messageMapper.toEntity(dto, ctx.account(), ctx.folderName(), uidValidity)).toList();
             List<MessageEntity> toInsert = dropAlreadyPersisted(entities, ctx);
             if (!toInsert.isEmpty()) {
                 List<MessageEntity> saved = messageRepository.saveAll(toInsert);
