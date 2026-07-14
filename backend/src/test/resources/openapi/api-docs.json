@@ -839,7 +839,7 @@
       "post" : {
         "tags" : [ "Messages — Write" ],
         "summary" : "Send message (async)",
-        "description" : "Asynchronously sends a message from the given account. Returns 202 Accepted with a sendId — the client tracks the outcome via the send_completed / send_failed notification stream event.",
+        "description" : "Asynchronously sends a message from the given account. Returns 202 Accepted with a sendId — the client tracks the outcome via the send_completed / send_failed notification stream event. With supersedesDraftId={stableId}, the draft the message was edited from is hard-deleted only AFTER successful delivery; the client must not delete it itself on the 202.",
         "operationId" : "sendEmail",
         "parameters" : [ {
           "name" : "accountId",
@@ -849,6 +849,15 @@
             "type" : "integer",
             "format" : "int64",
             "exclusiveMinimum" : 0
+          }
+        }, {
+          "name" : "supersedesDraftId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "maxLength" : 128,
+            "minLength" : 0
           }
         } ],
         "requestBody" : {
@@ -1102,7 +1111,7 @@
       "post" : {
         "tags" : [ "Drafts" ],
         "summary" : "Save draft (async)",
-        "description" : "Asynchronously saves the draft into the Drafts folder. With the replaces={stableId} parameter, the old revision is deleted after a successful save. Returns 202 Accepted immediately — the draft's stableId becomes available after the next sync.",
+        "description" : "Asynchronously saves the draft into the Drafts folder. With the replaces={stableId} parameter, the old revision is deleted after a successful save. Returns 202 Accepted immediately with the deterministic stableId the draft persists under — valid right away for replaces= chaining and ?draft= reopen.",
         "operationId" : "saveDraft",
         "parameters" : [ {
           "name" : "accountId",
@@ -1145,7 +1154,14 @@
             }
           },
           "202" : {
-            "description" : "Draft save request accepted; processing continues asynchronously."
+            "description" : "Draft save request accepted; the body carries the stableId the draft persists under.",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DraftSaveAcceptedResponse"
+                }
+              }
+            }
           },
           "401" : {
             "description" : "Missing or invalid X-API-KEY.",
@@ -3721,6 +3737,15 @@
           }
         }
       },
+      "DraftSaveAcceptedResponse" : {
+        "type" : "object",
+        "properties" : {
+          "stableId" : {
+            "type" : "string",
+            "description" : "Stable identifier the saved draft persists under. Valid immediately for replaces= chaining; the row itself appears as soon as the async append completes."
+          }
+        }
+      },
       "ContactCreateRequest" : {
         "type" : "object",
         "properties" : {
@@ -3855,10 +3880,10 @@
           "password" : {
             "type" : "string"
           },
-          "passwordPresentForNewAccount" : {
+          "providerOrCustomServerConfigPresent" : {
             "type" : "boolean"
           },
-          "providerOrCustomServerConfigPresent" : {
+          "passwordPresentForNewAccount" : {
             "type" : "boolean"
           }
         },
@@ -3989,6 +4014,9 @@
           },
           "errorCode" : {
             "type" : "string"
+          },
+          "recoveryDraftStableId" : {
+            "type" : "string"
           }
         }
       },
@@ -4043,6 +4071,10 @@
           },
           "recipientsCc" : {
             "type" : "string"
+          },
+          "recipientsBcc" : {
+            "type" : "string",
+            "description" : "Only ever present on the user's own draft/sent copies; received mail never carries the header."
           },
           "body" : {
             "type" : "string"

@@ -184,6 +184,8 @@ export interface MailDetailResponse {
 	sender: string;
 	recipientsTo: string;
 	recipientsCc: string;
+	/** Only present on the user's own draft/sent copies; received mail never carries Bcc. */
+	recipientsBcc: string;
 	body: string | null;
 	receivedAt: string;
 	seen: boolean;

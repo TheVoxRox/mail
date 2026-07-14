@@ -6,6 +6,7 @@ import java.util.List;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
 
+import org.jspecify.annotations.Nullable;
 import org.voxrox.mailbackend.feature.mail.dto.MailRequest.AttachmentRequest;
 
 /**
@@ -13,11 +14,11 @@ import org.voxrox.mailbackend.feature.mail.dto.MailRequest.AttachmentRequest;
  * optional — the user may save a work-in-progress message without a recipient,
  * subject or body.
  */
-public record DraftRequest(String to, String cc, String bcc,
-        @Size(max = 500, message = "{validation.mail.subjectTooLong}") String subject,
-        @Size(max = 10 * 1024 * 1024, message = "{validation.mail.bodyTooLong}") String body,
-        @Size(max = 50, message = "{validation.mail.tooManyAttachments}") List<@Valid AttachmentRequest> attachments,
-        String inReplyTo, String references) {
+public record DraftRequest(@Nullable String to, @Nullable String cc, @Nullable String bcc,
+        @Size(max = 500, message = "{validation.mail.subjectTooLong}") @Nullable String subject,
+        @Size(max = 10 * 1024 * 1024, message = "{validation.mail.bodyTooLong}") @Nullable String body,
+        @Size(max = 50, message = "{validation.mail.tooManyAttachments}") @Nullable List<@Valid AttachmentRequest> attachments,
+        @Nullable String inReplyTo, @Nullable String references) {
 
     public DraftRequest {
         if (attachments == null) {
@@ -30,7 +31,9 @@ public record DraftRequest(String to, String cc, String bcc,
      * {@code @Valid}), so direct construction with empty fields is legal.
      */
     public MailRequest toMailRequest() {
+        // The compact constructor normalizes attachments to an empty list; the
+        // re-check only proves it to the static nullability analysis.
         return new MailRequest(to == null ? "" : to, cc, bcc, subject == null ? "" : subject, body == null ? "" : body,
-                attachments, inReplyTo, references);
+                attachments == null ? Collections.emptyList() : attachments, inReplyTo, references);
     }
 }

@@ -41,6 +41,7 @@ public class MessageMapper {
         entity.setSender(blankToNull(dto.sender()));
         entity.setRecipientsTo(dto.recipientsTo());
         entity.setRecipientsCc(dto.recipientsCc());
+        entity.setRecipientsBcc(dto.recipientsBcc());
         entity.setContent(dto.body()); // Usually null during sync; the body is fetched separately.
 
         // Flags and timestamps. The column is NOT NULL; MessageFetcher already
@@ -84,9 +85,10 @@ public class MessageMapper {
      */
     public MailDetailResponse toDto(MessageEntity entity, @Nullable String content, @Nullable String contentError) {
         return new MailDetailResponse(entity.getStableId(), entity.getUid(), displaySubject(entity.getSubject()),
-                displaySender(entity.getSender()), entity.getRecipientsTo(), entity.getRecipientsCc(), content,
-                entity.getReceivedAt(), entity.isSeen(), entity.isFlagged(), entity.isAnswered(), entity.getMessageId(),
-                entity.getInReplyTo(), entity.getReferences(), entity.isHasAttachments(),
+                displaySender(entity.getSender()), entity.getRecipientsTo(), entity.getRecipientsCc(),
+                entity.getRecipientsBcc(), content, entity.getReceivedAt(), entity.isSeen(), entity.isFlagged(),
+                entity.isAnswered(), entity.getMessageId(), entity.getInReplyTo(), entity.getReferences(),
+                entity.isHasAttachments(),
                 entity.getAttachments().stream().map(AttachmentResponse::fromEntity).toList(), contentError,
                 entity.getThreadId());
     }

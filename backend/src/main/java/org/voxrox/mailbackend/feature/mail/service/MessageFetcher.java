@@ -79,6 +79,9 @@ public class MessageFetcher {
 
         String to = joinAddresses(message.getRecipients(Message.RecipientType.TO));
         String cc = joinAddresses(message.getRecipients(Message.RecipientType.CC));
+        // Present only on the user's own draft/sent copies — received mail never
+        // carries the header. Needed so a reopened draft round-trips its Bcc.
+        String bcc = joinAddresses(message.getRecipients(Message.RecipientType.BCC));
 
         Date date = (message.getReceivedDate() != null) ? message.getReceivedDate() : message.getSentDate();
         LocalDateTime receivedAt = (date != null)
@@ -139,7 +142,7 @@ public class MessageFetcher {
         String stableId = null;
         String threadId = null;
 
-        return new MailDetailResponse(stableId, uid, safeSubject, sender, to, cc, null, receivedAt, seen, flagged,
+        return new MailDetailResponse(stableId, uid, safeSubject, sender, to, cc, bcc, null, receivedAt, seen, flagged,
                 answered, messageId, inReplyTo, references, !attachments.isEmpty(), attachments, contentError,
                 threadId);
     }

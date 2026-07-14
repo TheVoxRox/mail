@@ -11,6 +11,9 @@ import jakarta.mail.MessagingException;
 import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
 
+import org.eclipse.angus.mail.imap.AppendUID;
+import org.eclipse.angus.mail.imap.IMAPFolder;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -88,6 +91,62 @@ public class ImapAppendService {
             log.warn("{} Failed to store the message in the folder for role {} on account {}", LogCategory.SMTP, role,
                     accountId, e);
             return false;
+        }
+    }
+
+    /**
+     * Result of a draft append. {@code uid}/{@code uidValidity} come from the
+     * UIDPLUS APPENDUID response and are {@code null} when the server does not
+     * advertise them — the caller then skips the local upsert and the row appears
+     * with the next sync, exactly as before.
+     */
+    public record DraftAppendOutcome(boolean appended, @Nullable Long uid, @Nullable Long uidValidity) {
+
+        static DraftAppendOutcome failed() {
+            return new DraftAppendOutcome(false, null, null);
+        }
+    }
+
+    /**
+     * Appends a draft to the given (pre-resolved) folder, requesting the UIDPLUS
+     * APPENDUID so the caller can persist the local row immediately. Same
+     * best-effort contract as {@link #appendByRole}: never throws, and a caller
+     * that deletes prior state on success MUST gate it on {@code appended()}.
+     */
+    public DraftAppendOutcome appendDraft(Long accountId, String folderName, MimeMessage message) {
+        try {
+            DraftAppendOutcome outcome = imapConnectionManager.executeWithLock(accountId, store -> {
+                Folder folder = store.getFolder(folderName);
+                if (!folder.exists()) {
+                    log.warn("{} Drafts folder {} does not exist.", LogCategory.SMTP, folderName);
+                    return DraftAppendOutcome.failed();
+                }
+                folder.open(Folder.READ_WRITE);
+                try {
+                    if (folder instanceof IMAPFolder imapFolder) {
+                        AppendUID[] uids = imapFolder.appendUIDMessages(new Message[]{message});
+                        AppendUID appendUid = (uids != null && uids.length > 0) ? uids[0] : null;
+                        log.debug("{} Draft stored in {} (APPENDUID: {}).", LogCategory.SMTP, folderName,
+                                appendUid != null ? appendUid.uid : "unsupported");
+                        if (appendUid != null && appendUid.uid >= 0) {
+                            return new DraftAppendOutcome(true, appendUid.uid, appendUid.uidvalidity);
+                        }
+                        return new DraftAppendOutcome(true, null, null);
+                    }
+                    folder.appendMessages(new Message[]{message});
+                    log.debug("{} Draft stored in {} (no UIDPLUS).", LogCategory.SMTP, folderName);
+                    return new DraftAppendOutcome(true, null, null);
+                } finally {
+                    if (folder.isOpen()) {
+                        folder.close(false);
+                    }
+                }
+            });
+            return outcome != null ? outcome : DraftAppendOutcome.failed();
+        } catch (Exception e) {
+            log.warn("{} Failed to store the draft in folder {} on account {}", LogCategory.SMTP, folderName, accountId,
+                    e);
+            return DraftAppendOutcome.failed();
         }
     }
 
