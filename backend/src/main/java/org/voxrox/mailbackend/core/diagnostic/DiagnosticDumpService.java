@@ -91,13 +91,17 @@ public class DiagnosticDumpService {
     }
 
     private AccountDump toAccountDump(AccountEntity account) {
+        // Read the nullable getters into locals: a second call inside the same
+        // expression is a fresh return value the static analyzer treats as possibly
+        // null even after the first != null check.
+        var provider = account.getProvider();
+        var credentials = account.getCredentials();
+        String lastError = account.getLastError();
         return new AccountDump(account.getId(), LogMasker.maskEmail(account.getEmail()), account.isActive(),
-                account.isRequiresReauth(), account.getProvider() != null ? account.getProvider().getName() : "Vlastni",
-                account.getCredentials() != null && account.getCredentials().getAuthType() != null
-                        ? account.getCredentials().getAuthType().name()
-                        : null,
+                account.isRequiresReauth(), provider != null ? provider.getName() : "Vlastni",
+                credentials != null && credentials.getAuthType() != null ? credentials.getAuthType().name() : null,
                 toServerDump(account.getImapConfig()), toServerDump(account.getSmtpConfig()),
-                format(account.getLastSyncAt()), account.getLastError() != null && !account.getLastError().isBlank());
+                format(account.getLastSyncAt()), lastError != null && !lastError.isBlank());
     }
 
     private FolderStateDump toFolderStateDump(FolderSyncStateEntity state) {
