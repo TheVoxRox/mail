@@ -38,6 +38,8 @@ sekci s podsekcemi podle artefaktu.
 
 - Uzavřen nález „Gmail Sent duplicita" z review odesílací cesty: append do Sent zůstává vědomě bez provider gatingu. Ověřeno živě proti reálnému Gmail účtu (2026-07-14) — přímý send i draft-send nechají v Odeslané právě jednu kopii, protože Gmail náš append sloučí se svou vlastní kopií podle Message-ID; v logu přitom není žádné selhání appendu (to by hlásilo WARN). Gating by hlídal neexistující problém. Zjištění i podmínky pro přehodnocení zapsány do javadocu `ImapAppendService`.
 
+- Koncept s rozepsanou adresou se nově uloží (nález z živého testu 2026-07-14): `MimeMessageBuilder` dostal explicitní `AddressPolicy` — odeslání parsuje adresy striktně jako dřív (STRICT: tichý výpadek příjemce nesmí nastat), ale draft-save (DRAFT) nedokončený token (`luke.lacina@`) z hlavičky vynechá, místo aby celé uložení spadlo s `AddressException` (ERROR log, `AuditLog.failure`, probliknutí chyby v UI — a při zavření compose ztráta textu, protože se neuložila žádná revize). Nedokončený token se záměrně nezapisuje na drát: malformovaný addr-spec rozbije IMAP ENVELOPE a takový koncept by se ze serveru už nedal přečíst (`MessageFetcher` zprávu s nečitelnou envelope přeskakuje); raw text pole přitom zůstává v lokálním řádku, takže composer ho dál zobrazuje. Ověřeno end-to-end v `DraftLifecycleGreenMailIT` (nová fáze 4: uložení s rozepsanou adresou + čitelný re-sync ze serveru).
+
 ### Backend — threading / konverzace (Phase 1, backend-only)
 
 - V2 Flyway migrace `add_threading.sql` přidává `thread_id` / `thread_root_message_id` / `thread_position` sloupce na `messages` + 2 composite indexy.

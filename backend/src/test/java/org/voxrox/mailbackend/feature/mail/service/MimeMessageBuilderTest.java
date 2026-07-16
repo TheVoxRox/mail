@@ -53,6 +53,15 @@ class MimeMessageBuilderTest {
         return new MailRequest(to, cc, bcc, subject, body, attachments, inReplyTo, references);
     }
 
+    /** The send path's policy — the default for every case not about drafts. */
+    private MimeMessage buildSend(MailRequest request) throws Exception {
+        return builder.build(session, account, request, MimeMessageBuilder.AddressPolicy.STRICT);
+    }
+
+    private MimeMessage buildDraft(MailRequest request) throws Exception {
+        return builder.build(session, account, request, MimeMessageBuilder.AddressPolicy.DRAFT);
+    }
+
     @Nested
     @DisplayName("From header")
     class FromHeader {
@@ -60,8 +69,7 @@ class MimeMessageBuilderTest {
         @Test
         @DisplayName("Email and display name with diacritics — display name encoded as UTF-8 (RFC 2047)")
         void includesEmailAndUtf8DisplayName() throws Exception {
-            MimeMessage msg = builder.build(session, account,
-                    req("to@example.com", null, null, "s", "b", List.of(), null, null));
+            MimeMessage msg = buildSend(req("to@example.com", null, null, "s", "b", List.of(), null, null));
 
             Address[] from = msg.getFrom();
             assertThat(from).hasSize(1);
@@ -78,8 +86,7 @@ class MimeMessageBuilderTest {
         void worksWithNullDisplayName() throws Exception {
             account.setDisplayName(null);
 
-            MimeMessage msg = builder.build(session, account,
-                    req("to@example.com", null, null, "s", "b", List.of(), null, null));
+            MimeMessage msg = buildSend(req("to@example.com", null, null, "s", "b", List.of(), null, null));
 
             Address[] from = msg.getFrom();
             assertThat(from).hasSize(1);
@@ -94,8 +101,7 @@ class MimeMessageBuilderTest {
         @Test
         @DisplayName("Single TO recipient — sets one recipient, CC and BCC not set when null")
         void singleToOnly() throws Exception {
-            MimeMessage msg = builder.build(session, account,
-                    req("bob@example.com", null, null, "s", "b", List.of(), null, null));
+            MimeMessage msg = buildSend(req("bob@example.com", null, null, "s", "b", List.of(), null, null));
 
             assertThat(msg.getRecipients(Message.RecipientType.TO)).extracting(Object::toString)
                     .containsExactly("bob@example.com");
@@ -106,7 +112,7 @@ class MimeMessageBuilderTest {
         @Test
         @DisplayName("Multiple TO recipients separated by comma — all added")
         void multipleToCommaSeparated() throws Exception {
-            MimeMessage msg = builder.build(session, account,
+            MimeMessage msg = buildSend(
                     req("bob@example.com, carol@example.com", null, null, "s", "b", List.of(), null, null));
 
             assertThat(msg.getRecipients(Message.RecipientType.TO)).extracting(Object::toString)
@@ -116,14 +122,100 @@ class MimeMessageBuilderTest {
         @Test
         @DisplayName("CC and BCC populated — both set; blank TO not set (draft scenario)")
         void ccAndBccSetWhenPresent() throws Exception {
-            MimeMessage msg = builder.build(session, account,
-                    req("", "cc@example.com", "bcc@example.com", "s", "b", List.of(), null, null));
+            MimeMessage msg = buildSend(req("", "cc@example.com", "bcc@example.com", "s", "b", List.of(), null, null));
 
             assertThat(msg.getRecipients(Message.RecipientType.TO)).isNull();
             assertThat(msg.getRecipients(Message.RecipientType.CC)).extracting(Object::toString)
                     .containsExactly("cc@example.com");
             assertThat(msg.getRecipients(Message.RecipientType.BCC)).extracting(Object::toString)
                     .containsExactly("bcc@example.com");
+        }
+    }
+
+    /**
+     * The recipient field of a draft is work in progress, so an address the user
+     * has not finished typing must not fail the save — but it must not reach the
+     * header either. {@code luke.lacina@} is not a legal addr-spec, and a message
+     * carrying one is malformed on the wire: GreenMail cannot build an IMAP
+     * ENVELOPE for it and every later read throws, so the draft would be stranded
+     * in the mailbox unreadable (proven end-to-end in
+     * {@code DraftLifecycleGreenMailIT}).
+     */
+    @Nested
+    @DisplayName("Address policy")
+    class AddressPolicyRules {
+
+        private static final String HALF_TYPED = "luke.lacina@";
+
+        @Test
+        @DisplayName("STRICT: a half-typed recipient fails the build — a send must never silently drop a recipient")
+        void strictRejectsHalfTypedRecipient() {
+            assertThatThrownBy(() -> buildSend(req(HALF_TYPED, null, null, "s", "b", List.of(), null, null)))
+                    .isInstanceOf(MessagingException.class);
+        }
+
+        @Test
+        @DisplayName("STRICT: one half-typed token rejects the whole field, valid siblings included")
+        void strictRejectsWholeFieldOverOneToken() {
+            assertThatThrownBy(
+                    () -> buildSend(req("bob@example.com, " + HALF_TYPED, null, null, "s", "b", List.of(), null, null)))
+                    .isInstanceOf(MessagingException.class);
+        }
+
+        @Test
+        @DisplayName("DRAFT: a half-typed recipient saves, and is left out of the header")
+        void draftDropsHalfTypedRecipient() throws Exception {
+            MimeMessage msg = buildDraft(req(HALF_TYPED, null, null, "s", "b", List.of(), null, null));
+
+            assertThat(msg.getRecipients(Message.RecipientType.TO)).isNull();
+            assertThat(msg.getHeader("To")).isNull();
+        }
+
+        @Test
+        @DisplayName("DRAFT: keeps the complete recipients and drops only the unfinished one")
+        void draftKeepsCompleteRecipients() throws Exception {
+            MimeMessage msg = buildDraft(
+                    req("bob@example.com, " + HALF_TYPED, null, null, "s", "b", List.of(), null, null));
+
+            assertThat(msg.getRecipients(Message.RecipientType.TO)).extracting(Object::toString)
+                    .containsExactly("bob@example.com");
+        }
+
+        @Test
+        @DisplayName("DRAFT: a display-name recipient stays intact next to an unfinished one")
+        void draftKeepsDisplayNameRecipient() throws Exception {
+            MimeMessage msg = buildDraft(
+                    req("Bob Novák <bob@example.com>, " + HALF_TYPED, null, null, "s", "b", List.of(), null, null));
+
+            assertThat(msg.getRecipients(Message.RecipientType.TO)).hasSize(1);
+            assertThat(msg.getRecipients(Message.RecipientType.TO)[0].toString()).contains("bob@example.com");
+        }
+
+        @Test
+        @DisplayName("DRAFT: the policy covers Cc and Bcc, not just To")
+        void draftAppliesToCcAndBcc() throws Exception {
+            MimeMessage msg = buildDraft(
+                    req("bob@example.com", HALF_TYPED, HALF_TYPED, "s", "b", List.of(), null, null));
+
+            assertThat(msg.getRecipients(Message.RecipientType.TO)).hasSize(1);
+            assertThat(msg.getRecipients(Message.RecipientType.CC)).isNull();
+            assertThat(msg.getRecipients(Message.RecipientType.BCC)).isNull();
+        }
+
+        @Test
+        @DisplayName("DRAFT: a recipient with no @ at all is dropped rather than failing the save")
+        void draftDropsBareLocalPart() throws Exception {
+            MimeMessage msg = buildDraft(req("luke.lacina", null, null, "s", "b", List.of(), null, null));
+
+            assertThat(msg.getRecipients(Message.RecipientType.TO)).isNull();
+        }
+
+        @Test
+        @DisplayName("DRAFT: an unparseable field yields no recipients instead of throwing")
+        void draftSurvivesUnparseableField() throws Exception {
+            MimeMessage msg = buildDraft(req("\"unbalanced <bob@", null, null, "s", "b", List.of(), null, null));
+
+            assertThat(msg.getRecipients(Message.RecipientType.TO)).isNull();
         }
     }
 
@@ -134,8 +226,7 @@ class MimeMessageBuilderTest {
         @Test
         @DisplayName("Null subject -> empty string (a draft without subject is legal)")
         void nullSubjectFallsBackToEmpty() throws Exception {
-            MimeMessage msg = builder.build(session, account,
-                    req("to@example.com", null, null, null, "b", List.of(), null, null));
+            MimeMessage msg = buildSend(req("to@example.com", null, null, null, "b", List.of(), null, null));
 
             assertThat(msg.getSubject()).isEqualTo("");
         }
@@ -145,8 +236,7 @@ class MimeMessageBuilderTest {
         void utf8SubjectIsPreserved() throws Exception {
             String subject = "Žluťoučký kůň úpěl ďábelské ódy";
 
-            MimeMessage msg = builder.build(session, account,
-                    req("to@example.com", null, null, subject, "b", List.of(), null, null));
+            MimeMessage msg = buildSend(req("to@example.com", null, null, subject, "b", List.of(), null, null));
 
             // getSubject() internally decodes RFC 2047 — we should get the original
             // diacritics back.
@@ -161,8 +251,7 @@ class MimeMessageBuilderTest {
         @Test
         @DisplayName("Null body -> empty content (draft without body is legal)")
         void nullBodyFallsBackToEmptyContent() throws Exception {
-            MimeMessage msg = builder.build(session, account,
-                    req("to@example.com", null, null, "s", null, List.of(), null, null));
+            MimeMessage msg = buildSend(req("to@example.com", null, null, "s", null, List.of(), null, null));
 
             Multipart mp = (Multipart) msg.getContent();
             BodyPart text = mp.getBodyPart(0);
@@ -177,8 +266,7 @@ class MimeMessageBuilderTest {
         @DisplayName("HTML-like body from compose — content-type is text/plain with charset=UTF-8")
         void plainBodyHasUtf8ContentType() throws Exception {
             String body = "<b>x</b>\n<script>alert('x')</script>";
-            MimeMessage msg = builder.build(session, account,
-                    req("to@example.com", null, null, "s", body, List.of(), null, null));
+            MimeMessage msg = buildSend(req("to@example.com", null, null, "s", body, List.of(), null, null));
 
             // Jakarta Mail finalizes content-type only on writeTo()/saveChanges() —
             // we test it via the serialized MIME representation that an SMTP server would
@@ -204,8 +292,7 @@ class MimeMessageBuilderTest {
 
             MailRequest.AttachmentRequest att = new MailRequest.AttachmentRequest("report.txt", "text/plain", b64);
 
-            MimeMessage msg = builder.build(session, account,
-                    req("to@example.com", null, null, "s", "b", List.of(att), null, null));
+            MimeMessage msg = buildSend(req("to@example.com", null, null, "s", "b", List.of(att), null, null));
 
             Multipart mp = (Multipart) msg.getContent();
             assertThat(mp.getCount()).isEqualTo(2); // body + 1 attachment
@@ -232,8 +319,7 @@ class MimeMessageBuilderTest {
             MailRequest.AttachmentRequest att2 = new MailRequest.AttachmentRequest("b.bin", "application/octet-stream",
                     Base64.getEncoder().encodeToString("B".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
 
-            MimeMessage msg = builder.build(session, account,
-                    req("to@example.com", null, null, "s", "b", List.of(att1, att2), null, null));
+            MimeMessage msg = buildSend(req("to@example.com", null, null, "s", "b", List.of(att1, att2), null, null));
 
             Multipart mp = (Multipart) msg.getContent();
             assertThat(mp.getCount()).isEqualTo(3); // body + 2 attachments
@@ -249,8 +335,8 @@ class MimeMessageBuilderTest {
         @Test
         @DisplayName("inReplyTo + references populated — headers set exactly")
         void headersSetWhenPresent() throws Exception {
-            MimeMessage msg = builder.build(session, account, req("to@example.com", null, null, "s", "b", List.of(),
-                    "<original@example.com>", "<root@example.com> <original@example.com>"));
+            MimeMessage msg = buildSend(req("to@example.com", null, null, "s", "b", List.of(), "<original@example.com>",
+                    "<root@example.com> <original@example.com>"));
 
             assertThat(msg.getHeader("In-Reply-To")).containsExactly("<original@example.com>");
             assertThat(msg.getHeader("References")).containsExactly("<root@example.com> <original@example.com>");
@@ -259,10 +345,8 @@ class MimeMessageBuilderTest {
         @Test
         @DisplayName("inReplyTo and references null/blank — headers are not added at all")
         void headersSkippedWhenBlank() throws Exception {
-            MimeMessage msgNull = builder.build(session, account,
-                    req("to@example.com", null, null, "s", "b", List.of(), null, null));
-            MimeMessage msgBlank = builder.build(session, account,
-                    req("to@example.com", null, null, "s", "b", List.of(), "  ", "\t"));
+            MimeMessage msgNull = buildSend(req("to@example.com", null, null, "s", "b", List.of(), null, null));
+            MimeMessage msgBlank = buildSend(req("to@example.com", null, null, "s", "b", List.of(), "  ", "\t"));
 
             assertThat(msgNull.getHeader("In-Reply-To")).isNull();
             assertThat(msgNull.getHeader("References")).isNull();
@@ -278,7 +362,7 @@ class MimeMessageBuilderTest {
         @Test
         @DisplayName("CR/LF in subject -> MessagingException, no header split")
         void crlfInSubjectRejected() {
-            assertThatThrownBy(() -> builder.build(session, account,
+            assertThatThrownBy(() -> buildSend(
                     req("to@example.com", null, null, "Hi\r\nX-Injected: 1", "b", List.of(), null, null)))
                     .isInstanceOf(MessagingException.class);
         }
@@ -286,18 +370,15 @@ class MimeMessageBuilderTest {
         @Test
         @DisplayName("CR/LF in In-Reply-To -> MessagingException")
         void crlfInInReplyToRejected() {
-            assertThatThrownBy(
-                    () -> builder.build(session, account,
-                            req("to@example.com", null, null, "s", "b", List.of(),
-                                    "<x@y>\r\nReply-To: attacker@evil.com", null)))
-                    .isInstanceOf(MessagingException.class);
+            assertThatThrownBy(() -> buildSend(req("to@example.com", null, null, "s", "b", List.of(),
+                    "<x@y>\r\nReply-To: attacker@evil.com", null))).isInstanceOf(MessagingException.class);
         }
 
         @Test
         @DisplayName("CR/LF in References -> MessagingException")
         void crlfInReferencesRejected() {
-            assertThatThrownBy(() -> builder.build(session, account,
-                    req("to@example.com", null, null, "s", "b", List.of(), null, "<x@y>\r\nBcc: a@b")))
+            assertThatThrownBy(
+                    () -> buildSend(req("to@example.com", null, null, "s", "b", List.of(), null, "<x@y>\r\nBcc: a@b")))
                     .isInstanceOf(MessagingException.class);
         }
 
@@ -307,8 +388,7 @@ class MimeMessageBuilderTest {
             MailRequest.AttachmentRequest att = new MailRequest.AttachmentRequest("a.txt",
                     "text/plain\r\nX-Injected: 1",
                     Base64.getEncoder().encodeToString("A".getBytes(StandardCharsets.UTF_8)));
-            assertThatThrownBy(() -> builder.build(session, account,
-                    req("to@example.com", null, null, "s", "b", List.of(att), null, null)))
+            assertThatThrownBy(() -> buildSend(req("to@example.com", null, null, "s", "b", List.of(att), null, null)))
                     .isInstanceOf(MessagingException.class);
         }
     }
@@ -318,8 +398,7 @@ class MimeMessageBuilderTest {
     void sentDateIsRecent() throws Exception {
         Instant before = Instant.now().minusSeconds(5);
 
-        MimeMessage msg = builder.build(session, account,
-                req("to@example.com", null, null, "s", "b", List.of(), null, null));
+        MimeMessage msg = buildSend(req("to@example.com", null, null, "s", "b", List.of(), null, null));
 
         Instant after = Instant.now().plusSeconds(5);
         assertThat(msg.getSentDate().toInstant()).isAfterOrEqualTo(before).isBeforeOrEqualTo(after);

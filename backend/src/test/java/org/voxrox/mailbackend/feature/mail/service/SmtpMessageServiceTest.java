@@ -298,7 +298,7 @@ class SmtpMessageServiceTest {
             when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(old));
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(old.getAccount());
             when(imapFolderService.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.DRAFTS)).thenReturn("Drafts");
-            when(mimeMessageBuilder.build(any(), any(), any())).thenReturn(mock(MimeMessage.class));
+            when(mimeMessageBuilder.build(any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
             when(appendService.appendDraft(eq(ACCOUNT_ID), eq(IDENTITY.draftsFolder()), any()))
                     .thenReturn(ImapAppendService.DraftAppendOutcome.failed());
 
@@ -321,7 +321,7 @@ class SmtpMessageServiceTest {
             when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(old));
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(old.getAccount());
             when(imapFolderService.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.DRAFTS)).thenReturn("Drafts");
-            when(mimeMessageBuilder.build(any(), any(), any())).thenReturn(mock(MimeMessage.class));
+            when(mimeMessageBuilder.build(any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
             when(appendService.appendDraft(eq(ACCOUNT_ID), eq(IDENTITY.draftsFolder()), any()))
                     .thenReturn(new ImapAppendService.DraftAppendOutcome(true, null, null));
 
@@ -344,7 +344,7 @@ class SmtpMessageServiceTest {
             when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(notADraft));
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(notADraft.getAccount());
             when(imapFolderService.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.DRAFTS)).thenReturn("Drafts");
-            when(mimeMessageBuilder.build(any(), any(), any())).thenReturn(mock(MimeMessage.class));
+            when(mimeMessageBuilder.build(any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
             when(appendService.appendDraft(eq(ACCOUNT_ID), eq(IDENTITY.draftsFolder()), any()))
                     .thenReturn(new ImapAppendService.DraftAppendOutcome(true, null, null));
 
@@ -368,7 +368,7 @@ class SmtpMessageServiceTest {
 
             when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(foreign));
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(ownAccount);
-            when(mimeMessageBuilder.build(any(), any(), any())).thenReturn(mock(MimeMessage.class));
+            when(mimeMessageBuilder.build(any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
             when(appendService.appendDraft(eq(ACCOUNT_ID), eq(IDENTITY.draftsFolder()), any()))
                     .thenReturn(new ImapAppendService.DraftAppendOutcome(true, null, null));
 
@@ -409,7 +409,7 @@ class SmtpMessageServiceTest {
             AccountEntity account = new AccountEntity();
             account.setId(ACCOUNT_ID);
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
-            when(mimeMessageBuilder.build(any(), any(), any())).thenReturn(mock(MimeMessage.class));
+            when(mimeMessageBuilder.build(any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
             when(appendService.appendDraft(eq(ACCOUNT_ID), eq(IDENTITY.draftsFolder()), any()))
                     .thenReturn(new ImapAppendService.DraftAppendOutcome(true, 42L, 7L));
             MessageEntity mapped = new MessageEntity();
@@ -428,7 +428,7 @@ class SmtpMessageServiceTest {
             AccountEntity account = new AccountEntity();
             account.setId(ACCOUNT_ID);
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
-            when(mimeMessageBuilder.build(any(), any(), any())).thenReturn(mock(MimeMessage.class));
+            when(mimeMessageBuilder.build(any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
             when(appendService.appendDraft(eq(ACCOUNT_ID), eq(IDENTITY.draftsFolder()), any()))
                     .thenReturn(new ImapAppendService.DraftAppendOutcome(true, 42L, 7L));
             MessageEntity mapped = new MessageEntity();
@@ -447,7 +447,7 @@ class SmtpMessageServiceTest {
             AccountEntity account = new AccountEntity();
             account.setId(ACCOUNT_ID);
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
-            when(mimeMessageBuilder.build(any(), any(), any())).thenReturn(mock(MimeMessage.class));
+            when(mimeMessageBuilder.build(any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
             when(appendService.appendDraft(eq(ACCOUNT_ID), eq(IDENTITY.draftsFolder()), any()))
                     .thenReturn(new ImapAppendService.DraftAppendOutcome(true, null, null));
 
@@ -469,7 +469,7 @@ class SmtpMessageServiceTest {
             account.setEmail("me@example.com");
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
             MimeMessage message = mock(MimeMessage.class);
-            when(mimeMessageBuilder.build(any(), any(), any())).thenReturn(message);
+            when(mimeMessageBuilder.build(any(), any(), any(), any())).thenReturn(message);
             when(transportFactory.openTransport(eq(ACCOUNT_ID), any(), any()))
                     .thenReturn(mock(jakarta.mail.Transport.class));
             return message;
@@ -527,7 +527,7 @@ class SmtpMessageServiceTest {
             when(connectionDetailsService.getSmtpConnectionDetails(ACCOUNT_ID))
                     .thenThrow(new RuntimeException("SMTP down"));
             when(imapFolderService.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.DRAFTS)).thenReturn("Drafts");
-            when(mimeMessageBuilder.build(any(), any(), any())).thenReturn(mock(MimeMessage.class));
+            when(mimeMessageBuilder.build(any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
             when(appendService.appendDraft(eq(ACCOUNT_ID), eq("Drafts"), any()))
                     .thenReturn(new ImapAppendService.DraftAppendOutcome(true, null, null));
 

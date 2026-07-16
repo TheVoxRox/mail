@@ -44,9 +44,11 @@ import com.icegreen.greenmail.util.ServerSetup;
  * MIME body.
  *
  * <p>
- * Three phases share one Drafts folder and DB (like
+ * Four phases share one Drafts folder and DB (like
  * {@code MailSyncGreenMailIT}): a single mailbox walked through the lifecycle
- * the redesign targets ({@code docs/COMPOSE_DRAFT_LIFECYCLE.md} §5).
+ * the redesign targets ({@code docs/COMPOSE_DRAFT_LIFECYCLE.md} §5). They run
+ * in one test method because each builds on the state the previous one leaves
+ * behind.
  *
  * <ol>
  * <li><b>B1 identity at save time.</b> A save appends via
@@ -63,6 +65,13 @@ import com.icegreen.greenmail.util.ServerSetup;
  * MIME: it proves {@code MimeMessageBuilder} wrote the Bcc header, it survived
  * serialization, {@code MessageFetcher} reads {@code RecipientType.BCC}, and
  * the wire-derived stableId matches the save-time one (the drift guard).</li>
+ * <li><b>Half-typed recipient.</b> An autosave fires while an address is still
+ * mid-token. The save must succeed (strict parsing used to abort it), and the
+ * draft must re-sync back readable — the reason the incomplete token is dropped
+ * from the header rather than written raw, since a malformed {@code addr-spec}
+ * costs GreenMail the whole ENVELOPE and {@code MessageFetcher} then skips the
+ * message. Only a live server proves that; the unit tests in
+ * {@code MimeMessageBuilderTest} can only inspect the header.</li>
  * </ol>
  *
  * <p>
@@ -89,6 +98,8 @@ class DraftLifecycleGreenMailIT {
     private static final String PASSWORD = "draft-password";
     private static final String DRAFTS = "Drafts";
     private static final String BCC_ADDRESS = "hidden@greenmail.local";
+    /** One finished recipient, one still being typed (no domain yet). */
+    private static final String HALF_TYPED_TO = "to@greenmail.local, luke.lacina@";
 
     /**
      * Async draft saves run on a real virtual-thread executor; poll their side
@@ -157,7 +168,8 @@ class DraftLifecycleGreenMailIT {
     }
 
     @Test
-    @DisplayName("Draft lifecycle over live IMAP: APPENDUID upsert -> replaces chain collapses -> Bcc round-trips")
+    @DisplayName("Draft lifecycle over live IMAP: APPENDUID upsert -> replaces chain collapses -> Bcc round-trips"
+            + " -> half-typed recipient saves and re-syncs readable")
     void draftLifecycleOverLiveImap() throws Exception {
         Long accountId = account.getId();
 
@@ -200,6 +212,36 @@ class DraftLifecycleGreenMailIT {
         MessageEntity reSynced = messageService.getByStableId(id3.stableId()).orElseThrow();
         assertThat(reSynced.getRecipientsBcc()).contains(BCC_ADDRESS);
         assertThat(messageRepository.countByAccountIdAndFolderName(accountId, DRAFTS)).isEqualTo(1);
+
+        // --- Phase 4: a recipient the user has not finished typing ------------------
+        SmtpMessageService.DraftIdentity id4 = smtpService.prepareDraftIdentity(accountId);
+        smtpService.saveDraftAsync(accountId, halfTypedDraft(), "", id4);
+
+        // The save completes at all: strict address parsing used to abort it with an
+        // AddressException before anything reached the server, so autosaving while
+        // the address was mid-token could not store the draft.
+        await(() -> messageService.getByStableId(id4.stableId()).isPresent());
+        assertThat(messageRepository.countByAccountIdAndFolderName(accountId, DRAFTS)).isEqualTo(2);
+
+        // The local row keeps the raw text verbatim — the composer reopens on it, so
+        // the unfinished token is still in front of the user.
+        MessageEntity halfTypedRow = messageService.getByStableId(id4.stableId()).orElseThrow();
+        assertThat(halfTypedRow.getRecipientsTo()).isEqualTo(HALF_TYPED_TO);
+
+        // The point of the phase: rebuild the row from the server MIME alone. An
+        // invalid addr-spec in To: makes GreenMail fail to build the IMAP ENVELOPE,
+        // and MessageFetcher drops a message whose envelope will not load — so
+        // writing the raw token would have stranded a draft that exists on the
+        // server but can never be read back. It has to survive the round trip.
+        messageService.deleteByStableId(id4.stableId());
+        assertThat(mailSyncService.performFullSyncCycle(account, DRAFTS)).isTrue();
+
+        MessageEntity halfTypedReSynced = messageService.getByStableId(id4.stableId()).orElseThrow();
+        assertThat(halfTypedReSynced.getSubject()).isEqualTo("Half-typed recipient");
+        // The finished recipient survived; only the incomplete token stayed off the
+        // wire.
+        assertThat(halfTypedReSynced.getRecipientsTo()).contains("to@greenmail.local");
+        assertThat(halfTypedReSynced.getRecipientsTo()).doesNotContain("luke.lacina");
     }
 
     // ---- helpers --------------------------------------------------------
@@ -207,6 +249,15 @@ class DraftLifecycleGreenMailIT {
     /** A draft carrying a Bcc, distinguished only by subject/body per revision. */
     private DraftRequest draft(String subject) {
         return new DraftRequest("to@greenmail.local", null, BCC_ADDRESS, subject, subject + " body", null, null, null);
+    }
+
+    /**
+     * A draft as an autosave sees it mid-typing: one finished recipient, one the
+     * user is still in the middle of. Both must be handled — keep the first, do not
+     * put the second on the wire.
+     */
+    private DraftRequest halfTypedDraft() {
+        return new DraftRequest(HALF_TYPED_TO, null, null, "Half-typed recipient", "body", null, null, null);
     }
 
     /**
