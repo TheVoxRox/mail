@@ -128,7 +128,8 @@ public class SmtpMessageService {
             Session session = transportFactory.createSession(details);
             transport = transportFactory.openTransport(accountId, session, details);
 
-            MimeMessage message = mimeMessageBuilder.build(session, account, request);
+            MimeMessage message = mimeMessageBuilder.build(session, account, request,
+                    MimeMessageBuilder.AddressPolicy.STRICT);
             transport.sendMessage(message, message.getAllRecipients());
 
             // Delivered. From here the send has happened, so nothing below may report a
@@ -259,11 +260,18 @@ public class SmtpMessageService {
      * Shared append tail of the draft-save and recovery-draft pipelines: builds the
      * MIME under the pre-assigned identity, appends it to the Drafts folder and
      * indexes the local row.
+     *
+     * <p>
+     * Addresses are parsed under {@link MimeMessageBuilder.AddressPolicy#DRAFT}:
+     * neither pipeline may fail over a recipient the user has not finished typing —
+     * autosave fires mid-token, and the recovery pipeline exists precisely to
+     * salvage content whose send already failed.
      */
     private boolean appendDraftMessage(AccountEntity account, DraftIdentity identity, DraftRequest request)
             throws MessagingException, java.io.UnsupportedEncodingException {
         Session session = Session.getInstance(new Properties());
-        MimeMessage message = mimeMessageBuilder.build(session, account, request.toMailRequest());
+        MimeMessage message = mimeMessageBuilder.build(session, account, request.toMailRequest(),
+                MimeMessageBuilder.AddressPolicy.DRAFT);
         message.setFlag(Flags.Flag.DRAFT, true);
         message.setSentDate(Date.from(Instant.now()));
         /*
