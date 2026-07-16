@@ -423,8 +423,8 @@ export interface paths {
 		put?: never;
 		post?: never;
 		/**
-		 * Move message to trash
-		 * @description Moves the message to the trash (soft delete). For permanent deletion the trash needs to be emptied.
+		 * Delete message
+		 * @description Moves the message to the trash (soft delete). A message already in the trash is deleted permanently (server-side expunge).
 		 */
 		delete: operations['deleteMessage'];
 		options?: never;
@@ -3023,7 +3023,7 @@ export interface operations {
 		};
 		requestBody?: never;
 		responses: {
-			/** @description Message moved to trash. */
+			/** @description Message moved to trash, or permanently deleted when it already was in the trash. */
 			204: {
 				headers: {
 					[name: string]: unknown;

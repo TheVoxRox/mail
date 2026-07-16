@@ -2134,8 +2134,8 @@
       },
       "delete" : {
         "tags" : [ "Messages — Actions" ],
-        "summary" : "Move message to trash",
-        "description" : "Moves the message to the trash (soft delete). For permanent deletion the trash needs to be emptied.",
+        "summary" : "Delete message",
+        "description" : "Moves the message to the trash (soft delete). A message already in the trash is deleted permanently (server-side expunge).",
         "operationId" : "deleteMessage",
         "parameters" : [ {
           "name" : "stableId",
@@ -2159,7 +2159,7 @@
             }
           },
           "204" : {
-            "description" : "Message moved to trash."
+            "description" : "Message moved to trash, or permanently deleted when it already was in the trash."
           },
           "401" : {
             "description" : "Missing or invalid X-API-KEY.",

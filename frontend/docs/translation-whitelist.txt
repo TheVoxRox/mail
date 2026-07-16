@@ -45,6 +45,7 @@ frontend/src/routes/mail/remote-images.functional.e2e.ts -- Remote-image opt-in 
 frontend/src/routes/mail/sanitizer.functional.e2e.ts -- HTML sanitizer assertions reference Czech UI surrounding the message body.
 frontend/src/routes/mail/shortcuts.functional.e2e.ts -- Mail-body iframe keyboard-shortcut assertions against Czech UI ("Klávesové zkratky") under mail.locale = 'cs'.
 frontend/src/routes/mail/toolbar.functional.e2e.ts -- Mail toolbar action assertions ("Smazat", "Označit jako přečtené", etc.).
+frontend/src/routes/mail/trash-delete.functional.e2e.ts -- Trash permanent-delete confirm dialog assertions against Czech UI ("Trvalé smazání", "Smazat trvale", "Zrušit") under mail.locale = 'cs'.
 frontend/src/routes/palette.functional.e2e.ts -- Command palette assertions against localized command titles.
 frontend/src/routes/performance.functional.e2e.ts -- Performance harness loads the app under cs locale for consistent labels.
 frontend/src/routes/search.functional.e2e.ts -- Search UI assertions against Czech labels.

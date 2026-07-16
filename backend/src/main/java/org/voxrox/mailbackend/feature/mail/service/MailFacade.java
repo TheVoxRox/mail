@@ -263,7 +263,38 @@ public class MailFacade {
 
         String trashFolderName = imapFolderService.findFolderNameByRoleOrThrow(accountId, FolderRole.TRASH);
 
+        /*
+         * A message already sitting in the trash cannot be "moved to trash" again — a
+         * trash→trash IMAP MOVE is a server-side no-op, so the message survives on the
+         * server and the next folder sync resurrects the locally deleted row. Delete in
+         * trash therefore means permanent delete (\Deleted + EXPUNGE).
+         */
+        if (trashFolderName.equals(entity.getFolderName())) {
+            executePurge(entity);
+            return;
+        }
+
         executeMove(entity, trashFolderName, "mail_trash");
+    }
+
+    /**
+     * Permanent delete for a message already in the trash folder: sync local delete
+     * + async server expunge + audit log. Same local-write-first ordering as
+     * {@link #executeMove} — the provider action is dispatched only once the local
+     * delete has committed.
+     */
+    private void executePurge(MessageEntity entity) {
+        Long accountId = entity.getAccount().getId();
+        String folderName = entity.getFolderName();
+        String stableId = entity.getStableId();
+
+        withDbWriteRetry(() -> messageService.deleteByStableId(stableId));
+        imapActionService.hardDeleteAsync(accountId, folderName, entity.getUid());
+
+        AuditLog.success("mail_purge", LogMasker.maskEmail(entity.getAccount().getEmail()),
+                "stable_id=" + stableId + " folder=" + folderName);
+        log.info("{} Message {} permanently deleted from {} (deleted locally, provider expunge dispatched).",
+                LogCategory.DATABASE, stableId, folderName);
     }
 
     /**

@@ -94,12 +94,15 @@ class ImapActionServiceTest {
         stubExecutorRunsAction(folder, uidFolder);
 
         ListAppender<ILoggingEvent> appender = attachAppender();
+        boolean result;
         try {
-            service.hardDelete(ACCOUNT_ID, DRAFTS, DRAFT_UID);
+            result = service.hardDelete(ACCOUNT_ID, DRAFTS, DRAFT_UID);
         } finally {
             detachAppender(appender);
         }
 
+        // The postcondition "absent from folder" already holds — a no-op success.
+        assertThat(result).isTrue();
         verify(folder, never()).expunge();
         assertThat(appender.list).noneMatch(e -> e.getLevel() == Level.WARN);
     }
@@ -115,16 +118,65 @@ class ImapActionServiceTest {
         stubExecutorRunsAction(folder, uidFolder);
 
         ListAppender<ILoggingEvent> appender = attachAppender();
+        boolean result;
         try {
-            service.hardDelete(ACCOUNT_ID, DRAFTS, DRAFT_UID);
+            result = service.hardDelete(ACCOUNT_ID, DRAFTS, DRAFT_UID);
         } finally {
             detachAppender(appender);
         }
 
+        assertThat(result).isTrue();
         verify(msg).setFlag(Flags.Flag.DELETED, true);
         verify(folder).expunge();
         assertThat(appender.list).anyMatch(
                 e -> e.getLevel() == Level.INFO && e.getFormattedMessage().contains("Hard delete of UID " + DRAFT_UID));
+    }
+
+    @Test
+    void hardDeleteAsyncRecordsSuccessAndInvalidatesFolderListOnPurge() throws Exception {
+        FolderListCache folderListCache = mock(FolderListCache.class);
+        ImapActionService service = new ImapActionService(folderExecutor, connectionManager, metrics, folderListCache);
+        Folder folder = mock(Folder.class);
+        UIDFolder uidFolder = mock(UIDFolder.class);
+        Message msg = mock(Message.class);
+        when(uidFolder.getMessageByUID(DRAFT_UID)).thenReturn(msg);
+        stubExecutorRunsAction(folder, uidFolder);
+
+        service.hardDeleteAsync(ACCOUNT_ID, DRAFTS, DRAFT_UID);
+
+        verify(folder).expunge();
+        verify(metrics).recordPurge(MailMetrics.OUTCOME_SUCCESS);
+        verify(folderListCache).invalidate(ACCOUNT_ID);
+    }
+
+    @Test
+    void hardDeleteAsyncRecordsFailureWhenExpungeFails() throws Exception {
+        FolderListCache folderListCache = mock(FolderListCache.class);
+        ImapActionService service = new ImapActionService(folderExecutor, connectionManager, metrics, folderListCache);
+        Folder folder = mock(Folder.class);
+        UIDFolder uidFolder = mock(UIDFolder.class);
+        Message msg = mock(Message.class);
+        when(uidFolder.getMessageByUID(DRAFT_UID)).thenReturn(msg);
+        doThrow(new jakarta.mail.MessagingException("EXPUNGE failed")).when(folder).expunge();
+        stubExecutorRunsAction(folder, uidFolder);
+
+        service.hardDeleteAsync(ACCOUNT_ID, DRAFTS, DRAFT_UID);
+
+        verify(metrics).recordPurge(MailMetrics.OUTCOME_FAILURE);
+        verify(folderListCache, never()).invalidate(ACCOUNT_ID);
+    }
+
+    @Test
+    void hardDeleteAsyncRecordsFailureWhenExecutorThrows() {
+        FolderListCache folderListCache = mock(FolderListCache.class);
+        ImapActionService service = new ImapActionService(folderExecutor, connectionManager, metrics, folderListCache);
+        doThrow(new RuntimeException("connection down")).when(folderExecutor).executeReadWrite(eq(ACCOUNT_ID),
+                eq(DRAFTS), any());
+
+        service.hardDeleteAsync(ACCOUNT_ID, DRAFTS, DRAFT_UID);
+
+        verify(metrics).recordPurge(MailMetrics.OUTCOME_FAILURE);
+        verify(folderListCache, never()).invalidate(ACCOUNT_ID);
     }
 
     /**

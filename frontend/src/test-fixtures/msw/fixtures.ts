@@ -153,12 +153,35 @@ const draftMessages: MailSummaryResponse[] = [
 		hasAttachments: false
 	}
 ];
+// Two messages so the trash permanent-delete flow can exercise both the
+// single-row Delete and the select-all bulk path.
+const trashMessages: MailSummaryResponse[] = [
+	{
+		...makeSummary(51),
+		stableId: 'trash-01',
+		folderName: 'TRASH',
+		// "e-mail", not "zpráva" — the search e2e counts fixture matches for
+		// the query "zpráva" and trash rows must stay out of that result set.
+		subject: 'Smazaný e-mail 1',
+		seen: true,
+		hasAttachments: false
+	},
+	{
+		...makeSummary(52),
+		stableId: 'trash-02',
+		folderName: 'TRASH',
+		subject: 'Smazaný e-mail 2',
+		seen: true,
+		hasAttachments: false
+	}
+];
 const allMessages = [
 	...inboxMessages,
 	...archiveMessages,
 	...junkMessages,
 	...sentMessages,
-	...draftMessages
+	...draftMessages,
+	...trashMessages
 ];
 
 function createInitialState(): E2EFixtureState {
@@ -282,7 +305,8 @@ function createInitialState(): E2EFixtureState {
 				{ displayName: 'Odeslané', folderRef: 'SENT', unreadCount: 0, role: 'SENT' },
 				{ displayName: 'Koncepty', folderRef: 'DRAFTS', unreadCount: 0, role: 'DRAFTS' },
 				{ displayName: 'Spam', folderRef: 'JUNK', unreadCount: 0, role: 'JUNK' },
-				{ displayName: 'Archiv', folderRef: 'ARCHIVE', unreadCount: 0, role: 'ARCHIVE' }
+				{ displayName: 'Archiv', folderRef: 'ARCHIVE', unreadCount: 0, role: 'ARCHIVE' },
+				{ displayName: 'Koš', folderRef: 'TRASH', unreadCount: 0, role: 'TRASH' }
 			],
 			2: [{ displayName: 'Doručené', folderRef: 'INBOX', unreadCount: 0, role: 'INBOX' }]
 		},
@@ -292,6 +316,7 @@ function createInitialState(): E2EFixtureState {
 			[folderKey(1, 'JUNK')]: junkMessages.map((message) => ({ ...message })),
 			[folderKey(1, 'SENT')]: sentMessages.map((message) => ({ ...message })),
 			[folderKey(1, 'DRAFTS')]: draftMessages.map((message) => ({ ...message })),
+			[folderKey(1, 'TRASH')]: trashMessages.map((message) => ({ ...message })),
 			[folderKey(2, 'INBOX')]: []
 		},
 		messageDetails: Object.fromEntries(
