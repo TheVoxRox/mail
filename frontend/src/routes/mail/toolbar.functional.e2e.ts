@@ -271,4 +271,43 @@ test.describe('Mail toolbar', () => {
 			flagRequests.every((url) => url.includes('type=seen') && url.includes('value=false'))
 		).toBe(true);
 	});
+
+	test('smazání jedné zprávy klávesou Delete ohlásí její předmět', async ({ page }) => {
+		await page.goto(`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
+		await waitForShell(page);
+
+		const row = page.locator(`[role="row"][data-stable-id="${fixture.stableId}"]`);
+		await expect(row).toBeVisible();
+		await row.focus();
+		await row.press('Delete');
+
+		// The single-delete outcome names which message was deleted, so a
+		// screen-reader user hears what just disappeared (not a bare "deleted").
+		await expect(
+			page.getByRole('status').filter({ hasText: 'Zpráva smazána: Projektové podklady' })
+		).toBeVisible();
+		await expect(page.locator(`[role="row"][data-stable-id="${fixture.stableId}"]`)).toHaveCount(0);
+	});
+
+	test('hromadné smazání nepřečtených aktualizuje počet v nadpisu složky', async ({ page }) => {
+		await page.goto(`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
+		await waitForShell(page);
+
+		// INBOX starts with 3 unread (msg-01/02/03) in the fixtures.
+		const heading = page.getByRole('heading', { level: 1 });
+		await expect(heading).toHaveAccessibleName(/3 nepřečten/);
+
+		// Deleting two unread messages must drop the heading badge immediately —
+		// the trash move is async, so a server re-fetch would leave it stale.
+		await page.getByRole('checkbox', { name: 'Vybrat zprávu Projektové podklady' }).check();
+		await page
+			.getByRole('checkbox', { name: 'Vybrat zprávu Testovací zpráva 2', exact: true })
+			.check();
+		await page.getByRole('button', { name: 'Smazat vybrané' }).click();
+
+		await expect(
+			page.getByRole('status').filter({ hasText: 'Smazáno: 2, selhalo: 0.' })
+		).toBeVisible();
+		await expect(heading).toHaveAccessibleName(/1 nepřečten/);
+	});
 });

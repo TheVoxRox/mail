@@ -317,6 +317,18 @@ public class SmtpMessageService {
         }
     }
 
+    /*
+     * The draft-save that minted this stableId runs on its own async task. When the
+     * user hits Send right after an autosave, the send can reach the post-delivery
+     * supersede before that task has appended the draft and upserted its local row
+     * — so a single getByStableId would miss it and the draft would survive the
+     * send. Poll briefly to let the row appear (mirrors the client-side discard
+     * retry, ComposeSession#discard). Cheap on the virtual-thread executor and it
+     * only runs post-delivery, after the client already got send_completed.
+     */
+    private static final int SUPERSEDE_DRAFT_LOOKUP_ATTEMPTS = 3;
+    private static final Duration SUPERSEDE_DRAFT_LOOKUP_DELAY = Duration.ofMillis(400);
+
     /**
      * Post-delivery removal of the draft the sent message was edited from. Same
      * ownership/folder guard as the {@code replaces} flow — a wrong id must never
@@ -326,9 +338,10 @@ public class SmtpMessageService {
      */
     private void deleteSupersededDraft(Long accountId, String stableId) {
         try {
-            MessageEntity draft = messageService.getByStableId(stableId).orElse(null);
+            MessageEntity draft = awaitSupersededDraft(stableId);
             if (draft == null) {
-                log.warn("{} supersedes: draft {} not found; nothing to delete.", LogCategory.SMTP, stableId);
+                log.warn("{} supersedes: draft {} not found (after {} attempts); nothing to delete.", LogCategory.SMTP,
+                        stableId, SUPERSEDE_DRAFT_LOOKUP_ATTEMPTS);
                 return;
             }
             if (!isReplaceableDraft(accountId, draft)) {
@@ -342,6 +355,30 @@ public class SmtpMessageService {
             log.warn("{} Failed to delete superseded draft {} after a successful send: {}", LogCategory.SMTP, stableId,
                     e.getMessage());
         }
+    }
+
+    /**
+     * Resolves the draft row for the supersede, retrying briefly to close the race
+     * with the still-running draft-save append/upsert. Returns {@code null} only
+     * when the row is still absent after every attempt (or the wait was
+     * interrupted).
+     */
+    private @Nullable MessageEntity awaitSupersededDraft(String stableId) {
+        for (int attempt = 0; attempt < SUPERSEDE_DRAFT_LOOKUP_ATTEMPTS; attempt++) {
+            MessageEntity draft = messageService.getByStableId(stableId).orElse(null);
+            if (draft != null) {
+                return draft;
+            }
+            if (attempt < SUPERSEDE_DRAFT_LOOKUP_ATTEMPTS - 1) {
+                try {
+                    Thread.sleep(SUPERSEDE_DRAFT_LOOKUP_DELAY.toMillis());
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return null;
+                }
+            }
+        }
+        return null;
     }
 
     /**

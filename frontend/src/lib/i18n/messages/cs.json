@@ -670,7 +670,7 @@
 		"delete": "Smazat",
 		"move": "Přesunout",
 		"moveDone": "Zpráva přesunuta do složky {folder}.",
-		"deleteDone": "Zpráva smazána.",
+		"deleteDoneNamed": "Zpráva smazána: {subject}",
 		"moving": "Přesouvám…",
 		"more": "Více"
 	},

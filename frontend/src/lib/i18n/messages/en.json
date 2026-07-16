@@ -670,7 +670,7 @@
 		"delete": "Delete",
 		"move": "Move",
 		"moveDone": "Message moved to {folder}.",
-		"deleteDone": "Message deleted.",
+		"deleteDoneNamed": "Message deleted: {subject}",
 		"moving": "Moving…",
 		"more": "More"
 	},
