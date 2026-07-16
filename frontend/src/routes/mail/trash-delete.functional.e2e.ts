@@ -90,9 +90,9 @@ test.describe('Trvalé mazání v koši', () => {
 		await page.getByRole('button', { name: 'Smazat vybrané' }).click();
 
 		// No confirmation dialog outside the trash; the delete fires directly.
-		// A single-item bulk action reports via the single-message toast.
+		// A single-item bulk action reports via the named single-message toast.
 		await expect(
-			page.getByRole('region', { name: 'Oznámení' }).getByText('Zpráva smazána.')
+			page.getByRole('region', { name: 'Oznámení' }).getByText('Zpráva smazána: Testovací zpráva 3')
 		).toBeVisible();
 		await expect(page.getByRole('dialog', { name: 'Trvalé smazání' })).toHaveCount(0);
 		await expect(row).toHaveCount(0);

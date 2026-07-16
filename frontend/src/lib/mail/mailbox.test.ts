@@ -22,7 +22,7 @@ vi.mock('$lib/stores/folders.js', async () => {
 	const { writable } = await import('svelte/store');
 	return {
 		folders: writable([]),
-		refreshFolders: vi.fn().mockResolvedValue([])
+		adjustFolderUnread: vi.fn()
 	};
 });
 
