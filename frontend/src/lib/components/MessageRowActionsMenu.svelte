@@ -78,6 +78,16 @@
 		data-col={col}
 		tabindex={focused ? 0 : -1}
 		onfocus={onCellFocus}
+		onkeydown={(e: KeyboardEvent) => {
+			/*
+			 * The trigger sits in a grid cell, where arrows move focus between
+			 * cells — they must not double as menubutton open keys (bits-ui opens
+			 * on ArrowDown). preventDefault makes the merged internal handler skip
+			 * (composeHandlers contract); the event still bubbles to the row's
+			 * grid navigation. The menu opens with Enter/Space only.
+			 */
+			if (e.key === 'ArrowDown') e.preventDefault();
+		}}
 		aria-label={triggerLabel}
 		class={cn(
 			'inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring data-[state=open]:bg-muted data-[state=open]:text-foreground'

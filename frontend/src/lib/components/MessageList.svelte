@@ -260,7 +260,13 @@
 		if (idx < 0) return;
 
 		const frame = requestAnimationFrame(() => {
-			setFocus(idx, focusedCol);
+			/*
+			 * Never park restored focus on the actions column: after a row-menu
+			 * delete the restore target is a *different* message's menu trigger,
+			 * and a screen reader would announce that button instead of the row
+			 * the focus moved on to. The subject cell is the row's reading anchor.
+			 */
+			setFocus(idx, focusedCol === COL_ACTIONS ? COL_SUBJECT : focusedCol);
 			clearListFocusRestore();
 		});
 
