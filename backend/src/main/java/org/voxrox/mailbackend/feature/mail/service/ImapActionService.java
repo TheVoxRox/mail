@@ -152,9 +152,12 @@ public class ImapActionService {
      * hard-delete of the same revision, and on an eventually-consistent async
      * pipeline either may win. Idempotency keeps that race correct instead of
      * trying to serialise the two paths.
+     *
+     * @return {@code true} when the postcondition holds (expunged now or already
+     *         absent), {@code false} when the IMAP operation failed
      */
-    public void hardDelete(Long accountId, String folderName, long uid) {
-        folderExecutor.executeReadWrite(accountId, folderName, (folder, uidFolder) -> {
+    public boolean hardDelete(Long accountId, String folderName, long uid) {
+        Boolean expunged = folderExecutor.executeReadWrite(accountId, folderName, (folder, uidFolder) -> {
             try {
                 Message msg = uidFolder.getMessageByUID(uid);
                 if (msg == null) {
@@ -162,17 +165,48 @@ public class ImapActionService {
                     // The desired end state already holds, so this is a no-op, not an anomaly.
                     log.debug("{} hardDelete: UID {} already absent from folder {}, nothing to do.", LogCategory.IMAP,
                             uid, folderName);
-                    return null;
+                    return true;
                 }
                 msg.setFlag(Flags.Flag.DELETED, true);
                 folder.expunge();
                 log.info("{} Hard delete of UID {} from folder {} completed.", LogCategory.IMAP, uid, folderName);
+                return true;
             } catch (MessagingException e) {
                 log.error("{} Error during hard delete of UID {} from folder {}: {}", LogCategory.IMAP, uid, folderName,
                         e.getMessage());
+                return false;
             }
-            return null;
         });
+        return Boolean.TRUE.equals(expunged);
+    }
+
+    /**
+     * Asynchronously and permanently deletes a message from the server — the
+     * user-initiated variant of {@link #hardDelete} for a delete issued in the
+     * trash folder. A trash→trash "move" would be a server-side no-op and the next
+     * sync would resurrect the locally deleted row, so delete-in-trash purges
+     * instead. Mirrors {@link #moveOnServerAsync} in error handling: audit + metric
+     * on failure, folder-list cache invalidation on success.
+     */
+    @Async("userMailExecutor")
+    public void hardDeleteAsync(Long accountId, String folderName, long uid) {
+        try {
+            if (hardDelete(accountId, folderName, uid)) {
+                metrics.recordPurge(MailMetrics.OUTCOME_SUCCESS);
+                // The server-side trash count just changed — drop the cached
+                // folder list so the next sidebar refresh re-reads it.
+                folderListCache.invalidate(accountId);
+            } else {
+                AuditLog.failure("imap_purge", "account=" + accountId, "folder=" + folderName + " uid=" + uid);
+                metrics.recordPurge(MailMetrics.OUTCOME_FAILURE);
+            }
+        } catch (Exception e) {
+            log.error("{} Async hard delete of UID {} from folder {} failed: {}", LogCategory.IMAP, uid, folderName,
+                    e.getMessage(), e);
+            AuditLog.failure("imap_purge", "account=" + accountId,
+                    "folder=" + folderName + " uid=" + uid + " " + e.getClass().getSimpleName());
+            metrics.recordPurge(MailMetrics.OUTCOME_FAILURE);
+        }
     }
 
     /**

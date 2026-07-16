@@ -45,6 +45,7 @@ public class MailMetrics {
     private static final String METRIC_IMAP_POOL_SIZE = "mail.imap.pool.size";
     private static final String METRIC_OAUTH_REFRESH = "mail.oauth.refresh";
     private static final String METRIC_IMAP_MOVE = "mail.imap.move";
+    private static final String METRIC_IMAP_PURGE = "mail.imap.purge";
 
     private final MeterRegistry registry;
     private final Counter syncMessagesDownloaded;
@@ -121,6 +122,16 @@ public class MailMetrics {
     public void recordMove(String outcome) {
         Counter.builder(METRIC_IMAP_MOVE)
                 .description("IMAP move of a message between folders (COPY + EXPUNGE). Outcome: success | failure.")
+                .tag("outcome", outcome).register(registry).increment();
+    }
+
+    /**
+     * Counter for a user-initiated permanent delete (delete-in-trash purge:
+     * {@code \Deleted} + EXPUNGE on the server).
+     */
+    public void recordPurge(String outcome) {
+        Counter.builder(METRIC_IMAP_PURGE)
+                .description("IMAP permanent delete of a message (\\Deleted + EXPUNGE). Outcome: success | failure.")
                 .tag("outcome", outcome).register(registry).increment();
     }
 

@@ -13,6 +13,8 @@ import { get } from 'svelte/store';
 import { deleteMessage, moveMessage, setMessageFlag } from '$lib/api/mailAction.js';
 import { getMessageDetail } from '$lib/api/mailRead.js';
 import { folders as folderList, refreshFolders } from '$lib/stores/folders.js';
+import { searchState } from '$lib/stores/search.js';
+import { confirmAction } from '$lib/stores/confirmDialog.js';
 import { resolvedActiveAccountId } from '$lib/stores/accounts.js';
 import {
 	clearSelection,
@@ -251,7 +253,43 @@ function announceSingleOutcome(
 	}
 }
 
+/**
+ * True when any of the targeted messages sits in the trash folder — there a
+ * delete is permanent (server-side expunge), not a move to trash, so it needs
+ * an explicit confirmation. The folder of each message is resolved from the
+ * summaries the UI is showing (folder list page or search results); the
+ * message detail does not carry a folder, so an unresolvable id counts as
+ * not-in-trash.
+ */
+function anyMessageInTrash(stableIds: readonly string[]): boolean {
+	const trashRef = get(folderList).find((folder) => folder.role === 'TRASH')?.folderRef;
+	if (!trashRef) return false;
+	const folderOf = new Map<string, string>();
+	const messages = currentMessagesState();
+	if (messages.status === 'ready') {
+		for (const message of messages.page.content) folderOf.set(message.stableId, message.folderName);
+	}
+	const search = get(searchState);
+	if (search.status === 'ready') {
+		for (const message of search.page.content) folderOf.set(message.stableId, message.folderName);
+	}
+	return stableIds.some((id) => folderOf.get(id) === trashRef);
+}
+
 export async function deleteMessages(stableIds: readonly string[]): Promise<BulkResult> {
+	if (anyMessageInTrash(stableIds)) {
+		const t = get(_);
+		const confirmed = await confirmAction({
+			title: t('messages.permanentDeleteConfirmTitle'),
+			description: t('messages.permanentDeleteConfirm', { values: { count: stableIds.length } }),
+			confirmLabel: t('messages.permanentDeleteConfirmAction'),
+			cancelLabel: t('common.cancel'),
+			tone: 'destructive'
+		});
+		if (!confirmed) {
+			return { succeeded: 0, failed: 0, succeededIds: [], failedIds: [] };
+		}
+	}
 	return executeBulkMessageAction({
 		ids: stableIds,
 		perItem: async (id) => {

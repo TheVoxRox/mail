@@ -67,8 +67,8 @@ public class MailActionController {
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "Move message to trash", description = "Moves the message to the trash (soft delete). For permanent deletion the trash needs to be emptied.")
-    @ApiResponse(responseCode = "204", description = "Message moved to trash.")
+    @Operation(summary = "Delete message", description = "Moves the message to the trash (soft delete). A message already in the trash is deleted permanently (server-side expunge).")
+    @ApiResponse(responseCode = "204", description = "Message moved to trash, or permanently deleted when it already was in the trash.")
     @DeleteMapping("/{stableId}")
     public ResponseEntity<Void> deleteMessage(
             @PathVariable @NotBlank(message = "{validation.notBlank}") @Size(max = 128, message = "{validation.size.max}") String stableId) {

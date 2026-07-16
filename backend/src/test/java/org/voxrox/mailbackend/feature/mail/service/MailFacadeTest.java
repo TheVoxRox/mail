@@ -407,6 +407,36 @@ class MailFacadeTest {
         }
 
         @Test
+        @DisplayName("A message already in the trash is purged — server expunge instead of a trash-to-trash move")
+        void shouldPurgeWhenMessageAlreadyInTrash() {
+            entity.setFolderName(FOLDER_TRASH);
+            when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(entity));
+            when(imapFolderService.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.TRASH)).thenReturn(FOLDER_TRASH);
+
+            mailFacade.moveToTrash(STABLE_ID);
+
+            verify(messageService).deleteByStableId(STABLE_ID);
+            verify(imapActionService).hardDeleteAsync(ACCOUNT_ID, FOLDER_TRASH, UID);
+            // A trash-to-trash move is a server no-op that resurrects the row on
+            // the next sync — it must never be dispatched.
+            verify(imapActionService, never()).moveOnServerAsync(anyLong(), anyString(), anyString(), anyLong());
+        }
+
+        @Test
+        @DisplayName("Purge dispatches the server expunge only after the local delete succeeds")
+        void shouldNotDispatchPurgeWhenLocalDeleteFails() {
+            entity.setFolderName(FOLDER_TRASH);
+            when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(entity));
+            when(imapFolderService.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.TRASH)).thenReturn(FOLDER_TRASH);
+            doThrow(new DataIntegrityViolationException("constraint")).when(messageService).deleteByStableId(STABLE_ID);
+
+            assertThatThrownBy(() -> mailFacade.moveToTrash(STABLE_ID))
+                    .isInstanceOf(DataIntegrityViolationException.class);
+
+            verify(imapActionService, never()).hardDeleteAsync(anyLong(), anyString(), anyLong());
+        }
+
+        @Test
         @DisplayName("Throws ResourceNotFoundException when the message does not exist")
         void shouldThrowWhenMessageNotFound() {
             when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.empty());
