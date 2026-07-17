@@ -195,6 +195,17 @@ Smoke flow:
 - [ ] Status badge na <https://voxrox.org> („Ve vývoji (Beta)" apod.) odpovídá realitě vydání.
 - [ ] GitHub repo metadata: description + Website (`https://voxrox.org`) vyplněné; stránka Releases obsahuje publikovaný release (ne jen draft).
 
+## 8b. Trvalá pravidla od publikace release (revize #170)
+
+Časované procesní bomby z revize 2026-07-17 (issue #170). První dva body nejsou jednorázové kontroly — dnem publikace prvního release se z nich stávají trvalá pravidla.
+
+- [ ] **V1 migrace je dnem publikace zmražená.** Pre-release pravidlo „edituj `V1__init.sql` in place + resetni dev DB" končí prvním nainstalovaným release. Každá další změna schématu = nová `V2+` migrace. `application.properties` Flyway validaci nevypíná (default `validate-on-migrate=true`) — instalace se zapsaným checksumem V1 by po updatu s editovanou V1 spadla na `Migration checksum mismatch` a sidecar nenastartuje (projeví se jako záhadný crash při startu u uživatele).
+- [ ] **Každý publikovaný release = plný podepsaný build.** Stabilní kanál čte `releases/latest/download/latest.json` (`frontend/src-tauri/tauri.conf.json`) a signed workflow zapíná `VITE_ENABLE_AUTO_UPDATE_CHECK=1`, takže **cokoli** publikovaného v repu se stává „latest" a všechny instalace to kontrolují při každém startu. Release publikovaný bez `latest.json` + `.sig` (třeba jen tag s poznámkami) = chyba update checku při každém startu všech instalací. Poznámky, částečné buildy apod. držet jako **draft** nebo **prerelease** (prereleasy `releases/latest` redirect přeskakuje — viz OPERATIONS.md „Release channels").
+- [ ] **Revize dočasných pinů a výjimek** (při každém release + při každém bumpu dotčené závislosti zkontrolovat removal conditions):
+  - jackson override `<jackson-2-bom.version>2.21.5</jackson-2-bom.version>` v `backend/pom.xml` — odstranit, až Spring Boot managed `jackson-2-bom.version` >= 2.21.5 (SB 4.1.0 = 2.21.4).
+  - quick-xml výjimka ve vuln-scanu — removal conditions u výjimky.
+  - dependabot ignore TypeScript 7.x (typescript-eslint cap < 6.1.0, viz #147).
+
 ## 9. Release decision
 
 ```text
