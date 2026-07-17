@@ -325,3 +325,74 @@ jobs:
           path: trivy-*.sarif
           retention-days: 30
           if-no-files-found: warn
+
+  # A scheduled scan runs where nobody looks: it is not a required check and not
+  # on any PR, and GitHub only weakly emails the workflow's last editor on a
+  # failed cron run. So a red scan can sit unnoticed for weeks (it did — see the
+  # Tomcat 11.0.22 finding that surfaced only on a manual dig). These two jobs
+  # turn each scheduled outcome into a single self-healing tracking issue:
+  # failure/timeout opens or comments on it, a green run closes it. Only on
+  # `schedule` — a human already watches manual `workflow_dispatch` runs.
+  report-failure:
+    name: Track scan failure
+    needs: [owasp-backend, npm-audit-frontend, cargo-audit-tauri, generate-sboms]
+    if: ${{ always() && github.event_name == 'schedule' && (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) }}
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update tracking issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          OWASP: ${{ needs.owasp-backend.result }}
+          NPM: ${{ needs.npm-audit-frontend.result }}
+          CARGO: ${{ needs.cargo-audit-tauri.result }}
+          SBOM: ${{ needs.generate-sboms.result }}
+        run: |
+          set -euo pipefail
+          label="vuln-scan-failure"
+          gh label create "$label" --color B60205 \
+            --description "Nightly vulnerability scan is failing" 2>/dev/null || true
+
+          body=$(printf '%s\n' \
+            "Scheduled vulnerability scan did not pass ($(date -u +%Y-%m-%d))." \
+            "" \
+            "- OWASP backend: $OWASP" \
+            "- npm audit (frontend): $NPM" \
+            "- cargo audit (Tauri): $CARGO" \
+            "- SBOM + Trivy backend gate: $SBOM" \
+            "" \
+            "Run: $RUN_URL" \
+            "" \
+            "cancelled = the OWASP NVD pull hit the 90-min timeout (the Trivy SBOM job still gated the backend that day); failure = a gate tripped or a step errored — open the run to see which. This issue auto-closes once a scheduled scan passes.")
+
+          existing=$(gh issue list --state open --label "$label" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create --title "Nightly vulnerability scan is failing" \
+              --label "$label" --body "$body"
+          fi
+
+  close-failure-issue:
+    name: Close tracking issue on green scan
+    needs: [owasp-backend, npm-audit-frontend, cargo-audit-tauri, generate-sboms]
+    if: ${{ success() && github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Close any open tracking issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          label="vuln-scan-failure"
+          for n in $(gh issue list --state open --label "$label" --json number --jq '.[].number'); do
+            gh issue comment "$n" --body "Scheduled vulnerability scan passed ($(date -u +%Y-%m-%d)) — $RUN_URL. Closing."
+            gh issue close "$n"
+          done
