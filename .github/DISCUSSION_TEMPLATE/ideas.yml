@@ -1,0 +1,31 @@
+title: "[idea] "
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for sharing an idea. A few sentences about the problem it
+        solves help everyone judge it, and upvotes tell us what to look at
+        first. Please search existing ideas before posting a new one.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem this idea would solve
+      description: What are you trying to do today, and where do you get stuck?
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+      description: What should VoxRox Mail do differently? Rough sketches welcome.
+    validations:
+      required: true
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Examples elsewhere
+      description: Apps that already do this well, screenshots, links.

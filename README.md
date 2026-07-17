@@ -4,6 +4,11 @@ Desktop email client for Windows, built as a monorepo: Spring Boot backend (side
 
 Project website: [voxrox.org](https://voxrox.org) (Czech/English) — includes the [support](https://voxrox.org/support/) and [privacy policy](https://voxrox.org/privacy/) pages.
 
+Have an idea for the app? Start a discussion in
+[Ideas](https://github.com/TheVoxRox/mail/discussions/categories/ideas) rather
+than opening an issue — upvotes there help us prioritise. Bug reports go
+through [Issues](https://github.com/TheVoxRox/mail/issues/new/choose).
+
 The backend runs as a local Tauri sidecar bound to 127.0.0.1 on a random port. The frontend discovers the port and an in-memory API key via a handshake file (`session.json`) the backend writes on startup. Single ship artifact, single user, all data on disk under `%LOCALAPPDATA%\VoxRox\Mail`.
 
 ## Stack

@@ -1,6 +1,6 @@
 name: Feature request
 description: Suggest a new capability or an improvement to an existing one.
-labels: ["enhancement", "triage"]
+labels: ["enhancement", "needs-triage"]
 title: "[feat] "
 
 body:
@@ -10,6 +10,10 @@ body:
         Thank you for the suggestion. Filling in the boxes below helps us
         decide whether the feature fits the product direction and what the
         smallest valuable scope would be.
+
+        Not sure the feature fits the product yet? Start a discussion in
+        [Ideas](https://github.com/TheVoxRox/mail/discussions/categories/ideas)
+        instead — upvotes there help us prioritise.
 
   - type: textarea
     id: problem

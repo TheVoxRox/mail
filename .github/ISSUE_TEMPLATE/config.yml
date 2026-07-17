@@ -3,6 +3,9 @@ contact_links:
   - name: Security vulnerability disclosure
     url: https://github.com/TheVoxRox/mail/security/policy
     about: Report security issues privately — do not open a public issue. See SECURITY.md.
+  - name: Feature ideas — GitHub Discussions
+    url: https://github.com/TheVoxRox/mail/discussions/categories/ideas
+    about: Not sure the feature fits yet? Browse and upvote existing ideas, or start a new one.
   - name: Contributing guide
     url: https://github.com/TheVoxRox/mail/blob/main/CONTRIBUTING.md
     about: Local setup, pre-push gate, and commit conventions before opening a PR.
