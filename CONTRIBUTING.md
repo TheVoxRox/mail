@@ -183,8 +183,12 @@ must be added to the module's whitelist with a one-line justification.
 
 ## Filing Issues and PRs
 
+- Raw feature ideas start in
+  [Discussions → Ideas](https://github.com/TheVoxRox/mail/discussions/categories/ideas);
+  once accepted they are converted to issues. Concrete, well-scoped feature
+  requests may use the [feature template](.github/ISSUE_TEMPLATE/feature.yml)
+  directly.
 - Bug reports use the [bug template](.github/ISSUE_TEMPLATE/bug.yml).
-- Feature requests use the [feature template](.github/ISSUE_TEMPLATE/feature.yml).
 - Security issues go to **info@voxrox.org**, never the public tracker —
   see [SECURITY.md](SECURITY.md).
 - PRs should include a one-line summary + a checklist of which gates
