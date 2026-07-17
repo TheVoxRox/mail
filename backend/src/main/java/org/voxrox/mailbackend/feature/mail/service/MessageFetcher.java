@@ -142,9 +142,9 @@ public class MessageFetcher {
         String stableId = null;
         String threadId = null;
 
-        return new MailDetailResponse(stableId, uid, safeSubject, sender, to, cc, bcc, null, receivedAt, seen, flagged,
-                answered, messageId, inReplyTo, references, !attachments.isEmpty(), attachments, contentError,
-                threadId);
+        return new MailDetailResponse(stableId, uid, folderName, safeSubject, sender, to, cc, bcc, null, receivedAt,
+                seen, flagged, answered, messageId, inReplyTo, references, !attachments.isEmpty(), attachments,
+                contentError, threadId);
     }
 
     private @Nullable String joinAddresses(@Nullable Address[] addresses) {

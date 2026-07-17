@@ -73,6 +73,35 @@ test.describe('Trvalé mazání v koši', () => {
 		expect(deleteRequests).toHaveLength(2);
 	});
 
+	test('smazání otevřené zprávy z toolbaru detailu v koši vyžádá potvrzení', async ({ page }) => {
+		const deleteRequests: string[] = [];
+		page.on('request', (request) => {
+			if (request.method() === 'DELETE' && /\/api\/v1\/messages\/[^/]+$/.test(request.url())) {
+				deleteRequests.push(request.url());
+			}
+		});
+
+		await page.goto(`/mail/${fixture.accountId}/${fixture.trashFolder}`);
+		await waitForShell(page);
+
+		const row = page.locator(`[role="row"][data-stable-id="${fixture.trashIds[0]}"]`);
+		await expect(row).toBeVisible();
+		await row.click();
+		await page.waitForURL(
+			`**/mail/${fixture.accountId}/${fixture.trashFolder}/${fixture.trashIds[0]}`
+		);
+
+		const toolbar = page.getByRole('toolbar', { name: 'Akce se zprávami' });
+		await toolbar.getByRole('button', { name: 'Smazat', exact: true }).click();
+
+		const dialog = page.getByRole('dialog', { name: 'Trvalé smazání' });
+		await expect(dialog).toBeVisible();
+		await dialog.getByRole('button', { name: 'Smazat trvale' }).click();
+
+		await expect(row).toHaveCount(0);
+		expect(deleteRequests).toHaveLength(1);
+	});
+
 	test('smazání v doručené poště se nepotvrzuje — rovnou přesun do koše', async ({ page }) => {
 		const deleteRequests: string[] = [];
 		page.on('request', (request) => {

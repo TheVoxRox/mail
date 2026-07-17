@@ -19,8 +19,11 @@ import io.swagger.v3.oas.annotations.media.Schema;
  */
 public record MailDetailResponse(
         @Schema(description = "Stable message identifier for the REST API. The client sends it to the detail, content and action endpoints.") @Nullable String stableId,
-        @JsonIgnore @Schema(hidden = true) Long uid, @Nullable String subject, @Nullable String sender,
-        @Nullable String recipientsTo, @Nullable String recipientsCc,
+        @JsonIgnore @Schema(hidden = true) Long uid,
+        @Schema(description = "Folder the message lives in (folderRef). Lets the client warn before DELETE on a message"
+                + " whose folder has the TRASH role — there the delete is permanent (server-side expunge), not a move"
+                + " to trash.") String folderName,
+        @Nullable String subject, @Nullable String sender, @Nullable String recipientsTo, @Nullable String recipientsCc,
         @Schema(description = "Only ever present on the user's own draft/sent copies; received mail never carries the header.") @Nullable String recipientsBcc,
         @Nullable String body, @Nullable LocalDateTime receivedAt, boolean seen, boolean flagged, boolean answered,
         @Nullable String messageId, @Nullable String inReplyTo, @Nullable String references, boolean hasAttachments,

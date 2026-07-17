@@ -84,11 +84,11 @@ public class MessageMapper {
      * is informed about the issue via {@code contentError}.
      */
     public MailDetailResponse toDto(MessageEntity entity, @Nullable String content, @Nullable String contentError) {
-        return new MailDetailResponse(entity.getStableId(), entity.getUid(), displaySubject(entity.getSubject()),
-                displaySender(entity.getSender()), entity.getRecipientsTo(), entity.getRecipientsCc(),
-                entity.getRecipientsBcc(), content, entity.getReceivedAt(), entity.isSeen(), entity.isFlagged(),
-                entity.isAnswered(), entity.getMessageId(), entity.getInReplyTo(), entity.getReferences(),
-                entity.isHasAttachments(),
+        return new MailDetailResponse(entity.getStableId(), entity.getUid(), entity.getFolderName(),
+                displaySubject(entity.getSubject()), displaySender(entity.getSender()), entity.getRecipientsTo(),
+                entity.getRecipientsCc(), entity.getRecipientsBcc(), content, entity.getReceivedAt(), entity.isSeen(),
+                entity.isFlagged(), entity.isAnswered(), entity.getMessageId(), entity.getInReplyTo(),
+                entity.getReferences(), entity.isHasAttachments(),
                 entity.getAttachments().stream().map(AttachmentResponse::fromEntity).toList(), contentError,
                 entity.getThreadId());
     }

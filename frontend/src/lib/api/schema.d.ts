@@ -1009,8 +1009,8 @@ export interface components {
 			smtp?: components['schemas']['MailServerSettings'];
 			username: string;
 			password?: string;
-			providerOrCustomServerConfigPresent?: boolean;
 			passwordPresentForNewAccount?: boolean;
+			providerOrCustomServerConfigPresent?: boolean;
 		};
 		AccountConnectionTestResponse: {
 			imapOk?: boolean;
@@ -1097,6 +1097,8 @@ export interface components {
 		MailDetailResponse: {
 			/** @description Stable message identifier for the REST API. The client sends it to the detail, content and action endpoints. */
 			stableId?: string;
+			/** @description Folder the message lives in (folderRef). Lets the client warn before DELETE on a message whose folder has the TRASH role — there the delete is permanent (server-side expunge), not a move to trash. */
+			folderName?: string;
 			subject?: string;
 			sender?: string;
 			recipientsTo?: string;

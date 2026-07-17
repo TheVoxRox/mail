@@ -290,10 +290,14 @@ function announceSingleOutcome(
 /**
  * True when any of the targeted messages sits in the trash folder — there a
  * delete is permanent (server-side expunge), not a move to trash, so it needs
- * an explicit confirmation. The folder of each message is resolved from the
- * summaries the UI is showing (folder list page or search results); the
- * message detail does not carry a folder, so an unresolvable id counts as
- * not-in-trash.
+ * an explicit confirmation. The folder of each message is resolved from what
+ * the UI is showing: the current list page, the search results and — only for
+ * an id neither of them shows — the open message detail (its `folderName`
+ * exists for exactly this check, but it can be served from a stale cache, so
+ * fresh rows win). An id none of them can resolve falls back to the folder
+ * the list is browsing, which is known even while the list is still loading
+ * or errored — the safe direction: a false positive costs one extra dialog,
+ * a false negative permanently deletes without asking.
  */
 function anyMessageInTrash(stableIds: readonly string[]): boolean {
 	const trashRef = get(folderList).find((folder) => folder.role === 'TRASH')?.folderRef;
@@ -307,7 +311,12 @@ function anyMessageInTrash(stableIds: readonly string[]): boolean {
 	if (search.status === 'ready') {
 		for (const message of search.page.content) folderOf.set(message.stableId, message.folderName);
 	}
-	return stableIds.some((id) => folderOf.get(id) === trashRef);
+	const selected = get(selectedMessage);
+	if (selected?.detail && !folderOf.has(selected.stableId)) {
+		folderOf.set(selected.stableId, selected.detail.folderName);
+	}
+	const contextFolder = messages.status !== 'idle' ? messages.context.folderName : undefined;
+	return stableIds.some((id) => (folderOf.get(id) ?? contextFolder) === trashRef);
 }
 
 export async function deleteMessages(stableIds: readonly string[]): Promise<BulkResult> {

@@ -3880,10 +3880,10 @@
           "password" : {
             "type" : "string"
           },
-          "providerOrCustomServerConfigPresent" : {
+          "passwordPresentForNewAccount" : {
             "type" : "boolean"
           },
-          "passwordPresentForNewAccount" : {
+          "providerOrCustomServerConfigPresent" : {
             "type" : "boolean"
           }
         },
@@ -4059,6 +4059,10 @@
           "stableId" : {
             "type" : "string",
             "description" : "Stable message identifier for the REST API. The client sends it to the detail, content and action endpoints."
+          },
+          "folderName" : {
+            "type" : "string",
+            "description" : "Folder the message lives in (folderRef). Lets the client warn before DELETE on a message whose folder has the TRASH role — there the delete is permanent (server-side expunge), not a move to trash."
           },
           "subject" : {
             "type" : "string"
