@@ -95,12 +95,14 @@ import { folders } from '$lib/stores/folders.js';
 import { searchState } from '$lib/stores/search.js';
 import { confirmAction } from '$lib/stores/confirmDialog.js';
 import { messagesState } from '$lib/stores/messages.js';
+import { selectedMessage } from '$lib/stores/selectedMessage.js';
 import type { Writable } from 'svelte/store';
 import type { Mock } from 'vitest';
 
 const foldersStore = folders as unknown as Writable<unknown>;
 const messagesStore = messagesState as unknown as Writable<unknown>;
 const searchStore = searchState as unknown as Writable<unknown>;
+const selectedStore = selectedMessage as unknown as Writable<unknown>;
 const confirmActionMock = confirmAction as Mock;
 const deleteMessageMock = deleteMessage as Mock;
 
@@ -132,6 +134,7 @@ describe('deleteMessages – permanent-delete confirmation in trash', () => {
 		foldersStore.set(folderList());
 		messagesStore.set({ status: 'idle' });
 		searchStore.set({ status: 'idle' });
+		selectedStore.set(null);
 	});
 
 	it('deletes without confirmation outside the trash folder', async () => {
@@ -196,6 +199,89 @@ describe('deleteMessages – permanent-delete confirmation in trash', () => {
 		messagesStore.set(readyMessages(TRASH_REF, ['m1']));
 
 		await deleteMessages(['m1']);
+
+		expect(confirmActionMock).not.toHaveBeenCalled();
+		expect(deleteMessageMock).toHaveBeenCalledTimes(1);
+	});
+
+	it('resolves the folder from the open message detail when no list row shows it', async () => {
+		// Detail open, list elsewhere (e.g. paged away) — the detail's own
+		// folderName is the only source and must still trigger the confirmation.
+		messagesStore.set(readyMessages('INBOX', ['other']));
+		selectedStore.set({
+			stableId: 'd1',
+			detail: { folderName: TRASH_REF },
+			content: null,
+			loading: false,
+			error: null,
+			notFound: false
+		});
+		confirmActionMock.mockResolvedValue(false);
+
+		const result = await deleteMessages(['d1']);
+
+		expect(confirmActionMock).toHaveBeenCalledOnce();
+		expect(deleteMessageMock).not.toHaveBeenCalled();
+		expect(result.succeeded).toBe(0);
+	});
+
+	it('lets a fresh trash list row win over a stale cached detail', async () => {
+		// The detail cache is not invalidated by background syncs, so a message
+		// moved into the trash elsewhere can still carry its old folder in the
+		// open detail; the freshly fetched list row must win, otherwise the
+		// purge would skip the confirmation.
+		messagesStore.set(readyMessages(TRASH_REF, ['m1']));
+		selectedStore.set({
+			stableId: 'm1',
+			detail: { folderName: 'INBOX' },
+			content: null,
+			loading: false,
+			error: null,
+			notFound: false
+		});
+		confirmActionMock.mockResolvedValue(false);
+
+		const result = await deleteMessages(['m1']);
+
+		expect(confirmActionMock).toHaveBeenCalledOnce();
+		expect(deleteMessageMock).not.toHaveBeenCalled();
+		expect(result.succeeded).toBe(0);
+	});
+
+	it('uses the browsed folder even while the trash list is still loading', async () => {
+		// Deep-link onto a trash message: the detail toolbar's Delete is live
+		// before either the list or the detail resolves, and the loading state
+		// already knows which folder it is fetching.
+		messagesStore.set({
+			status: 'loading',
+			context: { accountId: 1, folderName: TRASH_REF, page: 0, size: 50 }
+		});
+		confirmActionMock.mockResolvedValue(false);
+
+		const result = await deleteMessages(['d1']);
+
+		expect(confirmActionMock).toHaveBeenCalledOnce();
+		expect(deleteMessageMock).not.toHaveBeenCalled();
+		expect(result.succeeded).toBe(0);
+	});
+
+	it('falls back to the browsed folder for an id nothing on screen resolves', async () => {
+		// Browsing the trash, deleting an id the current page no longer shows:
+		// unresolvable must fail safe — confirm rather than purge silently.
+		messagesStore.set(readyMessages(TRASH_REF, ['m1']));
+		confirmActionMock.mockResolvedValue(false);
+
+		const result = await deleteMessages(['paged-away']);
+
+		expect(confirmActionMock).toHaveBeenCalledOnce();
+		expect(deleteMessageMock).not.toHaveBeenCalled();
+		expect(result.succeeded).toBe(0);
+	});
+
+	it('does not use the fallback outside the trash folder', async () => {
+		messagesStore.set(readyMessages('INBOX', ['m1']));
+
+		await deleteMessages(['unknown-id']);
 
 		expect(confirmActionMock).not.toHaveBeenCalled();
 		expect(deleteMessageMock).toHaveBeenCalledTimes(1);

@@ -180,6 +180,12 @@ export interface AttachmentResponse {
 
 export interface MailDetailResponse {
 	stableId: string;
+	/**
+	 * Folder the message lives in (folderRef). Lets the delete flow warn before
+	 * deleting a message whose folder has the TRASH role — there the delete is
+	 * permanent, not a move to trash.
+	 */
+	folderName: string;
 	subject: string;
 	sender: string;
 	recipientsTo: string;

@@ -86,6 +86,7 @@ function makeDetail(summary: MailSummaryResponse): MailDetailResponse {
 
 	return {
 		stableId: summary.stableId,
+		folderName: summary.folderName,
 		subject: summary.subject,
 		sender: summary.sender,
 		recipientsTo: 'tester@example.com',
