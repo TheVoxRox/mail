@@ -28,7 +28,12 @@ test.describe('Fokus na tělo otevřené zprávy', () => {
 
 		const frame = page.getByTitle('Obsah zprávy');
 		await expect(frame).toBeVisible();
-		await expect(frame).toBeFocused();
+		// activeElement poll instead of toBeFocused() — the matcher additionally
+		// requires document.hasFocus(), which headless Chromium reports false on
+		// the outer document while the programmatically focused sandbox <iframe>
+		// holds focus (flaky in CI). Same workaround as the search test in
+		// a11y.e2e.ts.
+		await expect.poll(() => frame.evaluate((el) => el === document.activeElement)).toBe(true);
 
 		// Landmark + hidden heading: in off mode the subject is <h1>, the body <h2>.
 		const region = page.getByRole('region', { name: 'Text zprávy' });
@@ -62,7 +67,9 @@ test.describe('Fokus na tělo otevřené zprávy', () => {
 		await page.waitForURL('**/mail/1/INBOX/msg-01');
 
 		const frame = page.getByTitle('Obsah zprávy');
-		await expect(frame).toBeFocused();
+		// Same activeElement poll as above — toBeFocused() on the sandbox
+		// <iframe> is flaky in headless CI (document.hasFocus() dependency).
+		await expect.poll(() => frame.evaluate((el) => el === document.activeElement)).toBe(true);
 
 		// In split mode the subject is <h2>, so the body heading is <h3>.
 		const region = page.getByRole('region', { name: 'Text zprávy' });
