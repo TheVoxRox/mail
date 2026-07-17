@@ -16,6 +16,12 @@ jobs:
     # cancelled at exactly 6h, ~75% downloaded). Fail fast and visibly instead —
     # the Trivy SBOM gate in generate-sboms keeps CVE gating alive on such days.
     timeout-minutes: 90
+    # The SARIF upload step needs security-events: write; without an explicit
+    # block the job runs with the repo's default read-only token and the upload
+    # dies with "Resource not accessible by integration".
+    permissions:
+      contents: read
+      security-events: write
     defaults:
       run:
         working-directory: backend
