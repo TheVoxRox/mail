@@ -17,12 +17,15 @@
 	<properties>
 		<java.version>25</java.version>
 		<!--
-			Security override: Spring Boot 4.0.6 manages Tomcat 11.0.21, which carries
-			7 advisories (3 CRITICAL — security-constraint bypass, Digest auth bypass,
-			HTTP/2 header validation). All are fixed in 11.0.22. Remove this override
-			once the managed Tomcat version is >= 11.0.22.
+			Security override: Spring Boot manages an older Tomcat 11.0.x that carries
+			known advisories. 11.0.22 (our previous pin) is itself affected by
+			CVE-2026-55276, CVE-2026-53434 (fixed 11.0.23) and CVE-2026-59083,
+			CVE-2026-59084 (fixed 11.0.24). Apache rates all four Low; NVD scores them
+			9.1, which trips the vuln-scan failBuildOnCVSS=8 gate — hence the bump to
+			the patched release. Remove this override once the managed Tomcat version
+			is >= 11.0.24.
 		-->
-		<tomcat.version>11.0.22</tomcat.version>
+		<tomcat.version>11.0.24</tomcat.version>
 		<!--
 			Security override: Spring Boot 4.1.0 manages the Jackson 2 bridge bom at
 			2.21.4, which is affected by CVE-2026-54515 (case-insensitive deserialization
