@@ -34,6 +34,15 @@
 			override once the managed jackson-2-bom version is >= 2.21.5.
 		-->
 		<jackson-2-bom.version>2.21.5</jackson-2-bom.version>
+		<!--
+			Security override: Spring Boot manages Log4j2 2.25.4, whose log4j-api is
+			flagged by CVE-2026-49844 (malformed JSON from MapMessage with non-finite
+			floats). Not reachable here — log4j-core is absent (SLF4J/Logback is the
+			logging impl; log4j-api is only the log4j-to-slf4j bridge), so no Log4j2
+			layout renders MapMessage JSON. Bumped anyway to keep the scan clean.
+			Fixed in 2.25.5. Remove once the managed log4j2.version is >= 2.25.5.
+		-->
+		<log4j2.version>2.25.5</log4j2.version>
 		<spring-retry.version>2.0.13</spring-retry.version>
 		<jsoup.version>1.22.2</jsoup.version>
 		<springdoc.version>3.0.3</springdoc.version>
@@ -113,6 +122,21 @@
 			<groupId>org.springdoc</groupId>
 			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
 			<version>${springdoc.version}</version>
+		</dependency>
+		<dependency>
+			<!--
+				Security override: springdoc 3.0.3 bundles swagger-ui 5.32.2, which ships
+				DOMPurify 3.3.2 with a DOM-XSS bypass (CVE-2026-49978 et al., fixed in
+				DOMPurify 3.4.7; swagger-ui carries the patched build from 5.32.7). Not
+				exposed in production — both springdoc.api-docs.enabled and
+				springdoc.swagger-ui.enabled default to false (only turned on for OpenAPI
+				snapshot generation in dev/CI). Pinning the webjar explicitly is the
+				springdoc-recommended way to override the bundled version. Drop this once
+				springdoc's managed swagger-ui is >= 5.32.7.
+			-->
+			<groupId>org.webjars</groupId>
+			<artifactId>swagger-ui</artifactId>
+			<version>5.32.8</version>
 		</dependency>
 
 		<dependency>
