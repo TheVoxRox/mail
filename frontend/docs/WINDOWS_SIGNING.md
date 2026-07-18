@@ -7,6 +7,14 @@ sidecar executable, builds the Tauri bundle with Windows signing and updater
 artifacts enabled, generates `latest.json`, verifies the resulting signatures,
 and uploads the signed bundle artifacts to the target GitHub Release.
 
+> **Current posture (decided 2026-07-18):** official releases ship **without**
+> an Authenticode signature — the `WINDOWS_CERTIFICATE_*` secrets are
+> intentionally not set (a paid cert is not justified for the open-source
+> project; recorded as accepted residual **AR-4** in
+> [`SECURITY_THREAT_MODEL.md`](../../SECURITY_THREAT_MODEL.md)). The workflow
+> picks up signing automatically if the secrets are ever added. The Tauri
+> updater Ed25519 keys are independent and **are** configured.
+
 ## Required GitHub secrets
 
 - `WINDOWS_CERTIFICATE_BASE64`: base64-encoded `.pfx` code-signing certificate.
