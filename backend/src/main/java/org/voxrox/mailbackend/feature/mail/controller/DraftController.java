@@ -18,6 +18,7 @@ import org.voxrox.mailbackend.feature.mail.dto.DraftRequest;
 import org.voxrox.mailbackend.feature.mail.dto.DraftSaveAcceptedResponse;
 import org.voxrox.mailbackend.feature.mail.dto.MailSummaryResponse;
 import org.voxrox.mailbackend.feature.mail.dto.SendAcceptedResponse;
+import org.voxrox.mailbackend.feature.mail.service.DraftPersistenceService;
 import org.voxrox.mailbackend.feature.mail.service.MailFacade;
 import org.voxrox.mailbackend.feature.mail.service.SmtpMessageService;
 import org.voxrox.mailbackend.util.LogCategory;
@@ -29,10 +30,11 @@ import module java.base;
 
 /**
  * REST API for drafts. Saving runs asynchronously via
- * {@link SmtpMessageService#saveDraftAsync}; the endpoint returns 202 Accepted
- * immediately, carrying the deterministic stableId the draft persists under
- * (the Message-ID is assigned before dispatch, see
- * {@link SmtpMessageService#prepareDraftIdentity}).
+ * {@link DraftPersistenceService#saveDraftAsync}; the endpoint returns 202
+ * Accepted immediately, carrying the deterministic stableId the draft persists
+ * under (the Message-ID is assigned before dispatch, see
+ * {@link DraftPersistenceService#prepareDraftIdentity}). Sending an existing
+ * draft over SMTP runs via {@link SmtpMessageService#sendDraftAsync}.
  *
  * Updating an existing draft = {@code POST ?replaces={stableId}}: after the new
  * revision is saved, the old one is removed. PUT is deliberately not exposed
@@ -46,11 +48,14 @@ public class DraftController {
 
     private static final Logger log = LoggerFactory.getLogger(DraftController.class);
 
+    private final DraftPersistenceService draftPersistenceService;
     private final SmtpMessageService smtpService;
     private final MailFacade mailFacade;
     private final MailClientProperties mailProps;
 
-    public DraftController(SmtpMessageService smtpService, MailFacade mailFacade, MailClientProperties mailProps) {
+    public DraftController(DraftPersistenceService draftPersistenceService, SmtpMessageService smtpService,
+            MailFacade mailFacade, MailClientProperties mailProps) {
+        this.draftPersistenceService = draftPersistenceService;
         this.smtpService = smtpService;
         this.mailFacade = mailFacade;
         this.mailProps = mailProps;
@@ -66,10 +71,10 @@ public class DraftController {
             @PathVariable @Positive(message = "{validation.positive}") Long accountId,
             @RequestParam(required = false) @Size(max = 128, message = "{validation.size.max}") String replaces,
             @Valid @RequestBody DraftRequest request) {
-        SmtpMessageService.DraftIdentity identity = smtpService.prepareDraftIdentity(accountId);
+        DraftPersistenceService.DraftIdentity identity = draftPersistenceService.prepareDraftIdentity(accountId);
         log.info("{} Saving draft for account {} (replaces={}, stableId={})", LogCategory.API, accountId, replaces,
                 identity.stableId());
-        smtpService.saveDraftAsync(accountId, request, replaces, identity);
+        draftPersistenceService.saveDraftAsync(accountId, request, replaces, identity);
         return ResponseEntity.accepted().body(new DraftSaveAcceptedResponse(identity.stableId()));
     }
 
