@@ -8,7 +8,7 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import org.voxrox.mailbackend.exception.ErrorCode;
 import org.voxrox.mailbackend.exception.MailOperationException;
-import org.voxrox.mailbackend.feature.account.service.AccountService;
+import org.voxrox.mailbackend.feature.account.service.ExternalProviderLoginService;
 import org.voxrox.mailbackend.util.AuditLog;
 import org.voxrox.mailbackend.util.LogCategory;
 import org.voxrox.mailbackend.util.LogMasker;
@@ -21,20 +21,21 @@ import org.voxrox.mailbackend.util.LogMasker;
  *
  * <p>
  * Per-provider claim mapping is handled by {@link OAuth2ClaimsExtractor};
- * account and credential persistence is handled by {@link AccountService}. This
- * class orchestrates the fail-fast guard on a missing refresh token and the
- * audit trail.
+ * account and credential persistence is handled by
+ * {@link ExternalProviderLoginService}. This class orchestrates the fail-fast
+ * guard on a missing refresh token and the audit trail.
  */
 @Service
 public class OAuth2LoginService {
 
     private static final Logger log = LoggerFactory.getLogger(OAuth2LoginService.class);
 
-    private final AccountService accountService;
+    private final ExternalProviderLoginService externalProviderLoginService;
     private final OAuth2ClaimsExtractorRegistry claimsExtractorRegistry;
 
-    public OAuth2LoginService(AccountService accountService, OAuth2ClaimsExtractorRegistry claimsExtractorRegistry) {
-        this.accountService = accountService;
+    public OAuth2LoginService(ExternalProviderLoginService externalProviderLoginService,
+            OAuth2ClaimsExtractorRegistry claimsExtractorRegistry) {
+        this.externalProviderLoginService = externalProviderLoginService;
         this.claimsExtractorRegistry = claimsExtractorRegistry;
     }
 
@@ -87,14 +88,15 @@ public class OAuth2LoginService {
             log.warn("{} Provider {} did not return a refresh token for {} — login rejected.", LogCategory.AUTH,
                     providerName, maskedEmail);
             AuditLog.failure("oauth2_login", maskedEmail, "provider=" + providerName + " missing_refresh_token");
-            accountService.markRequiresReauthIfExists(email);
+            externalProviderLoginService.markRequiresReauthIfExists(email);
             throw new MailOperationException(ErrorCode.MAIL_AUTHENTICATION_FAILED,
                     "The provider did not return a refresh token. Repeat the sign-in and confirm access.",
                     HttpStatus.UNAUTHORIZED);
         }
 
         try {
-            accountService.processExternalProviderLogin(providerName, email, claims.name(), externalId, refreshToken);
+            externalProviderLoginService.processExternalProviderLogin(providerName, email, claims.name(), externalId,
+                    refreshToken);
             AuditLog.success("oauth2_login", maskedEmail, "provider=" + providerName);
         } catch (RuntimeException e) {
             AuditLog.failure("oauth2_login", maskedEmail,
