@@ -32,12 +32,9 @@ import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.feature.account.service.AccountConnectionDetailsService;
 import org.voxrox.mailbackend.feature.account.service.AccountService;
-import org.voxrox.mailbackend.feature.mail.dto.DraftRequest;
-import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
 import org.voxrox.mailbackend.feature.mail.dto.MailRequest;
 import org.voxrox.mailbackend.feature.mail.dto.SendNotification;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
-import org.voxrox.mailbackend.feature.mail.mapper.MessageMapper;
 
 /**
  * Unit tests for {@link SmtpMessageService}.
@@ -59,8 +56,6 @@ class SmtpMessageServiceTest {
     private static final Long OTHER_ACCOUNT_ID = 22L;
     private static final String STABLE_ID = "draft-stable-id";
     private static final String SEND_ID = "send-id-123";
-    private static final SmtpMessageService.DraftIdentity IDENTITY = new SmtpMessageService.DraftIdentity(
-            "<test-draft@voxrox.org>", "Drafts", "stable-new-revision");
 
     @Mock
     private AccountService accountService;
@@ -75,8 +70,6 @@ class SmtpMessageServiceTest {
     @Mock
     private ImapAppendService appendService;
     @Mock
-    private ImapFolderService imapFolderService;
-    @Mock
     private MailMetrics mailMetrics;
     @Mock
     private MimeMessageBuilder mimeMessageBuilder;
@@ -85,7 +78,7 @@ class SmtpMessageServiceTest {
     @Mock
     private SseNotificationService sseNotificationService;
     @Mock
-    private MessageMapper messageMapper;
+    private DraftPersistenceService draftPersistenceService;
 
     @InjectMocks
     private SmtpMessageService service;
@@ -255,293 +248,65 @@ class SmtpMessageServiceTest {
             assertThat(sent.getValue().type()).isEqualTo(SendNotification.TYPE_FAILED);
             assertThat(sent.getValue().sendId()).isEqualTo(SEND_ID);
         }
-
-        @Test
-        @DisplayName("saveDraftAsync: exception while loading the draft being replaced -> updateLastError")
-        void saveDraftReplaceLookupFailureShouldRecordLastError() {
-            when(messageService.getByStableId(STABLE_ID)).thenThrow(new RuntimeException("DB unavailable"));
-
-            service.saveDraftAsync(ACCOUNT_ID, new org.voxrox.mailbackend.feature.mail.dto.DraftRequest(
-                    "to@example.com", null, null, "subj", "body", null, null, null), STABLE_ID, IDENTITY);
-
-            ArgumentCaptor<AccountLastError> err = ArgumentCaptor.forClass(AccountLastError.class);
-            verify(accountRepository).updateLastError(eq(ACCOUNT_ID), err.capture(), any(LocalDateTime.class));
-            assertThat(err.getValue().code()).isEqualTo(AccountLastErrorCode.DRAFT_SAVE_FAILED);
-            assertThat(err.getValue().fallbackMessage()).startsWith("Draft save failed:").contains("DB unavailable");
-            verifyNoInteractions(mailMetrics, transportFactory, appendService, imapActionService);
-        }
     }
 
     @Nested
-    @DisplayName("saveDraftAsync — replace guard (data-loss prevention)")
-    class SaveDraftReplaceGuard {
-
-        private MessageEntity oldDraft() {
-            AccountEntity account = new AccountEntity();
-            account.setId(ACCOUNT_ID);
-            MessageEntity old = new MessageEntity();
-            old.setStableId(STABLE_ID);
-            old.setAccount(account);
-            old.setFolderName("Drafts");
-            old.setUid(100L);
-            return old;
-        }
-
-        private DraftRequest draftRequest() {
-            return new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null);
-        }
-
-        @Test
-        @DisplayName("Append of the new revision fails -> old draft kept, DRAFT_SAVE_FAILED, lastError not cleared")
-        void appendFailureKeepsOldDraft() throws Exception {
-            MessageEntity old = oldDraft();
-            when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(old));
-            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(old.getAccount());
-            when(imapFolderService.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.DRAFTS)).thenReturn("Drafts");
-            when(mimeMessageBuilder.build(any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
-            when(appendService.appendDraft(eq(ACCOUNT_ID), eq(IDENTITY.draftsFolder()), any()))
-                    .thenReturn(ImapAppendService.DraftAppendOutcome.failed());
-
-            service.saveDraftAsync(ACCOUNT_ID, draftRequest(), STABLE_ID, IDENTITY);
-
-            // The only surviving copy must NOT be deleted.
-            verify(imapActionService, never()).hardDelete(anyLong(), anyString(), anyLong());
-            verify(messageService, never()).deleteByStableId(anyString());
-            // Failure is surfaced; success is not falsely signalled.
-            ArgumentCaptor<AccountLastError> err = ArgumentCaptor.forClass(AccountLastError.class);
-            verify(accountRepository).updateLastError(eq(ACCOUNT_ID), err.capture(), any(LocalDateTime.class));
-            assertThat(err.getValue().code()).isEqualTo(AccountLastErrorCode.DRAFT_SAVE_FAILED);
-            verify(accountRepository, never()).clearLastErrorIfCodeIn(anyLong(), any());
-        }
-
-        @Test
-        @DisplayName("Append of the new revision succeeds -> old draft deleted, lastError cleared")
-        void appendSuccessDeletesOldDraft() throws Exception {
-            MessageEntity old = oldDraft();
-            when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(old));
-            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(old.getAccount());
-            when(imapFolderService.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.DRAFTS)).thenReturn("Drafts");
-            when(mimeMessageBuilder.build(any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
-            when(appendService.appendDraft(eq(ACCOUNT_ID), eq(IDENTITY.draftsFolder()), any()))
-                    .thenReturn(new ImapAppendService.DraftAppendOutcome(true, null, null));
-
-            service.saveDraftAsync(ACCOUNT_ID, draftRequest(), STABLE_ID, IDENTITY);
-
-            verify(imapActionService).hardDelete(ACCOUNT_ID, "Drafts", 100L);
-            verify(messageService).deleteByStableId(STABLE_ID);
-            // Conditional clear scoped to send-pipeline codes — a successful draft
-            // save must not wipe a standing sync error (shared last_error slot).
-            verify(accountRepository).clearLastErrorIfCodeIn(eq(ACCOUNT_ID), any());
-            verify(accountRepository, never()).updateLastError(anyLong(), any(AccountLastError.class),
-                    any(LocalDateTime.class));
-        }
-
-        @Test
-        @DisplayName("replaces points at a message NOT in Drafts -> new revision saved, target NOT expunged")
-        void replaceTargetInOtherFolderIsNotDeleted() throws Exception {
-            MessageEntity notADraft = oldDraft();
-            notADraft.setFolderName("INBOX");
-            when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(notADraft));
-            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(notADraft.getAccount());
-            when(imapFolderService.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.DRAFTS)).thenReturn("Drafts");
-            when(mimeMessageBuilder.build(any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
-            when(appendService.appendDraft(eq(ACCOUNT_ID), eq(IDENTITY.draftsFolder()), any()))
-                    .thenReturn(new ImapAppendService.DraftAppendOutcome(true, null, null));
-
-            service.saveDraftAsync(ACCOUNT_ID, draftRequest(), STABLE_ID, IDENTITY);
-
-            // A wrong replaces id must never expunge received mail.
-            verify(imapActionService, never()).hardDelete(anyLong(), anyString(), anyLong());
-            verify(messageService, never()).deleteByStableId(anyString());
-            verify(accountRepository).clearLastErrorIfCodeIn(eq(ACCOUNT_ID), any());
-        }
-
-        @Test
-        @DisplayName("replaces points at another account's message -> new revision saved, target NOT expunged")
-        void replaceTargetOtherAccountIsNotDeleted() throws Exception {
-            AccountEntity otherAccount = new AccountEntity();
-            otherAccount.setId(OTHER_ACCOUNT_ID);
-            MessageEntity foreign = oldDraft();
-            foreign.setAccount(otherAccount);
-            AccountEntity ownAccount = new AccountEntity();
-            ownAccount.setId(ACCOUNT_ID);
-
-            when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(foreign));
-            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(ownAccount);
-            when(mimeMessageBuilder.build(any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
-            when(appendService.appendDraft(eq(ACCOUNT_ID), eq(IDENTITY.draftsFolder()), any()))
-                    .thenReturn(new ImapAppendService.DraftAppendOutcome(true, null, null));
-
-            service.saveDraftAsync(ACCOUNT_ID, draftRequest(), STABLE_ID, IDENTITY);
-
-            // The ownership check fails first, so the Drafts folder is never resolved
-            // and the other account's message is left untouched.
-            verify(imapActionService, never()).hardDelete(anyLong(), anyString(), anyLong());
-            verify(messageService, never()).deleteByStableId(anyString());
-        }
-    }
-
-    @Nested
-    @DisplayName("Draft identity — deterministic stableId minted before the async append")
-    class DraftIdentityContract {
-
-        @Test
-        @DisplayName("prepareDraftIdentity: stableId matches what MessageMapper derives from the same Message-ID")
-        void identityMatchesMapperDerivation() {
-            AccountEntity account = new AccountEntity();
-            account.setId(ACCOUNT_ID);
-            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
-            when(imapFolderService.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.DRAFTS)).thenReturn("Drafts");
-
-            SmtpMessageService.DraftIdentity identity = service.prepareDraftIdentity(ACCOUNT_ID);
-
-            assertThat(identity.draftsFolder()).isEqualTo("Drafts");
-            assertThat(identity.messageId()).startsWith("<").endsWith("@voxrox.org>");
-            // The load-bearing invariant: the id returned in the 202 is the id the
-            // sync/upsert derivation produces for the same Message-ID.
-            assertThat(identity.stableId()).isEqualTo(org.voxrox.mailbackend.feature.mail.mapper.MessageStableId
-                    .compute(ACCOUNT_ID, "Drafts", identity.messageId(), null, null));
-        }
-
-        @Test
-        @DisplayName("Append with APPENDUID -> local row inserted under the identity's stableId")
-        void appendWithUidUpsertsLocalRow() throws Exception {
-            AccountEntity account = new AccountEntity();
-            account.setId(ACCOUNT_ID);
-            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
-            when(mimeMessageBuilder.build(any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
-            when(appendService.appendDraft(eq(ACCOUNT_ID), eq(IDENTITY.draftsFolder()), any()))
-                    .thenReturn(new ImapAppendService.DraftAppendOutcome(true, 42L, 7L));
-            MessageEntity mapped = new MessageEntity();
-            mapped.setStableId(IDENTITY.stableId());
-            when(messageMapper.toEntity(any(), eq(account), eq(IDENTITY.draftsFolder()), eq(7L))).thenReturn(mapped);
-
-            service.saveDraftAsync(ACCOUNT_ID,
-                    new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null, IDENTITY);
-
-            verify(messageService).insertIfAbsent(mapped);
-        }
-
-        @Test
-        @DisplayName("Mapper derives a DIFFERENT stableId -> row NOT inserted (contract-drift guard)")
-        void mismatchedIdentitySkipsUpsert() throws Exception {
-            AccountEntity account = new AccountEntity();
-            account.setId(ACCOUNT_ID);
-            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
-            when(mimeMessageBuilder.build(any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
-            when(appendService.appendDraft(eq(ACCOUNT_ID), eq(IDENTITY.draftsFolder()), any()))
-                    .thenReturn(new ImapAppendService.DraftAppendOutcome(true, 42L, 7L));
-            MessageEntity mapped = new MessageEntity();
-            mapped.setStableId("some-other-id");
-            when(messageMapper.toEntity(any(), eq(account), eq(IDENTITY.draftsFolder()), eq(7L))).thenReturn(mapped);
-
-            service.saveDraftAsync(ACCOUNT_ID,
-                    new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null, IDENTITY);
-
-            verify(messageService, never()).insertIfAbsent(any());
-        }
-
-        @Test
-        @DisplayName("Append without APPENDUID -> no local row (defers to the next sync)")
-        void appendWithoutUidSkipsUpsert() throws Exception {
-            AccountEntity account = new AccountEntity();
-            account.setId(ACCOUNT_ID);
-            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
-            when(mimeMessageBuilder.build(any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
-            when(appendService.appendDraft(eq(ACCOUNT_ID), eq(IDENTITY.draftsFolder()), any()))
-                    .thenReturn(new ImapAppendService.DraftAppendOutcome(true, null, null));
-
-            service.saveDraftAsync(ACCOUNT_ID,
-                    new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null, IDENTITY);
-
-            verify(messageService, never()).insertIfAbsent(any());
-            verifyNoInteractions(messageMapper);
-        }
-    }
-
-    @Nested
-    @DisplayName("sendEmailAsync — superseded draft and recovery draft")
+    @DisplayName("sendEmailAsync — superseded draft and recovery draft delegation")
     class SendSupersedeAndRecovery {
 
-        private MimeMessage stubDeliveredSend() throws Exception {
+        private void stubDeliveredSend() throws Exception {
             AccountEntity account = new AccountEntity();
             account.setId(ACCOUNT_ID);
             account.setEmail("me@example.com");
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
-            MimeMessage message = mock(MimeMessage.class);
-            when(mimeMessageBuilder.build(any(), any(), any(), any())).thenReturn(message);
+            when(mimeMessageBuilder.build(any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
             when(transportFactory.openTransport(eq(ACCOUNT_ID), any(), any()))
                     .thenReturn(mock(jakarta.mail.Transport.class));
-            return message;
-        }
-
-        private MessageEntity ownDraft() {
-            AccountEntity account = new AccountEntity();
-            account.setId(ACCOUNT_ID);
-            MessageEntity draft = new MessageEntity();
-            draft.setStableId(STABLE_ID);
-            draft.setAccount(account);
-            draft.setFolderName("Drafts");
-            draft.setUid(100L);
-            return draft;
         }
 
         @Test
-        @DisplayName("Delivered with supersedesDraftId -> the edited-from draft is hard-deleted")
-        void deliveredSendDeletesSupersededDraft() throws Exception {
+        @DisplayName("Delivered with supersedesDraftId -> delegates the post-delivery delete to DraftPersistenceService")
+        void deliveredSendDelegatesSupersedeDelete() throws Exception {
             stubDeliveredSend();
-            when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(ownDraft()));
-            when(imapFolderService.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.DRAFTS)).thenReturn("Drafts");
 
             service.sendEmailAsync(ACCOUNT_ID,
                     new MailRequest("to@example.com", null, null, "subj", "body", null, null, null), SEND_ID,
                     STABLE_ID);
 
-            verify(imapActionService).hardDelete(ACCOUNT_ID, "Drafts", 100L);
-            verify(messageService).deleteByStableId(STABLE_ID);
+            verify(draftPersistenceService).deleteSupersededDraft(ACCOUNT_ID, STABLE_ID);
         }
 
         @Test
-        @DisplayName("supersedesDraftId points outside Drafts -> target kept (delivered mail untouched)")
-        void deliveredSendKeepsNonDraftSupersedeTarget() throws Exception {
+        @DisplayName("Delivered without supersedesDraftId -> no supersede delete")
+        void deliveredSendWithoutSupersedeDoesNotDelete() throws Exception {
             stubDeliveredSend();
-            MessageEntity notADraft = ownDraft();
-            notADraft.setFolderName("INBOX");
-            when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(notADraft));
-            when(imapFolderService.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.DRAFTS)).thenReturn("Drafts");
-
-            service.sendEmailAsync(ACCOUNT_ID,
-                    new MailRequest("to@example.com", null, null, "subj", "body", null, null, null), SEND_ID,
-                    STABLE_ID);
-
-            verify(imapActionService, never()).hardDelete(anyLong(), anyString(), anyLong());
-            verify(messageService, never()).deleteByStableId(anyString());
-        }
-
-        @Test
-        @DisplayName("Failed send of a brand-new message -> content parked as recovery draft, id in the notification")
-        void failedNewSendParksRecoveryDraft() throws Exception {
-            AccountEntity account = new AccountEntity();
-            account.setId(ACCOUNT_ID);
-            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
-            when(connectionDetailsService.getSmtpConnectionDetails(ACCOUNT_ID))
-                    .thenThrow(new RuntimeException("SMTP down"));
-            when(imapFolderService.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.DRAFTS)).thenReturn("Drafts");
-            when(mimeMessageBuilder.build(any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
-            when(appendService.appendDraft(eq(ACCOUNT_ID), eq("Drafts"), any()))
-                    .thenReturn(new ImapAppendService.DraftAppendOutcome(true, null, null));
 
             service.sendEmailAsync(ACCOUNT_ID,
                     new MailRequest("to@example.com", null, null, "subj", "body", null, null, null), SEND_ID, null);
 
-            ArgumentCaptor<SendNotification> sent = ArgumentCaptor.forClass(SendNotification.class);
-            verify(sseNotificationService).broadcast(sent.capture());
-            assertThat(sent.getValue().type()).isEqualTo(SendNotification.TYPE_FAILED);
-            assertThat(sent.getValue().recoveryDraftStableId()).isNotBlank();
+            verify(draftPersistenceService, never()).deleteSupersededDraft(anyLong(), anyString());
         }
 
         @Test
-        @DisplayName("Failed send of an edited draft -> no recovery append (the draft still exists)")
+        @DisplayName("Failed send of a brand-new message -> parks a recovery draft and carries its id in the notification")
+        void failedNewSendParksRecoveryDraft() {
+            when(connectionDetailsService.getSmtpConnectionDetails(ACCOUNT_ID))
+                    .thenThrow(new RuntimeException("SMTP down"));
+            when(draftPersistenceService.saveRecoveryDraft(eq(ACCOUNT_ID), any(MailRequest.class)))
+                    .thenReturn("recovery-stable-id");
+
+            service.sendEmailAsync(ACCOUNT_ID,
+                    new MailRequest("to@example.com", null, null, "subj", "body", null, null, null), SEND_ID, null);
+
+            verify(draftPersistenceService).saveRecoveryDraft(eq(ACCOUNT_ID), any(MailRequest.class));
+            ArgumentCaptor<SendNotification> sent = ArgumentCaptor.forClass(SendNotification.class);
+            verify(sseNotificationService).broadcast(sent.capture());
+            assertThat(sent.getValue().type()).isEqualTo(SendNotification.TYPE_FAILED);
+            assertThat(sent.getValue().recoveryDraftStableId()).isEqualTo("recovery-stable-id");
+        }
+
+        @Test
+        @DisplayName("Failed send of an edited draft -> no recovery draft (the original draft still exists)")
         void failedEditedSendDoesNotParkRecoveryDraft() {
             when(connectionDetailsService.getSmtpConnectionDetails(ACCOUNT_ID))
                     .thenThrow(new RuntimeException("SMTP down"));
@@ -550,7 +315,7 @@ class SmtpMessageServiceTest {
                     new MailRequest("to@example.com", null, null, "subj", "body", null, null, null), SEND_ID,
                     STABLE_ID);
 
-            verifyNoInteractions(appendService);
+            verify(draftPersistenceService, never()).saveRecoveryDraft(anyLong(), any());
             ArgumentCaptor<SendNotification> sent = ArgumentCaptor.forClass(SendNotification.class);
             verify(sseNotificationService).broadcast(sent.capture());
             assertThat(sent.getValue().recoveryDraftStableId()).isNull();

@@ -39,6 +39,7 @@ import org.voxrox.mailbackend.core.security.InternalApiKeyProvider;
 import org.voxrox.mailbackend.exception.ValidationException;
 import org.voxrox.mailbackend.feature.mail.dto.DraftRequest;
 import org.voxrox.mailbackend.feature.mail.dto.MailSummaryResponse;
+import org.voxrox.mailbackend.feature.mail.service.DraftPersistenceService;
 import org.voxrox.mailbackend.feature.mail.service.MailFacade;
 import org.voxrox.mailbackend.feature.mail.service.SmtpMessageService;
 
@@ -57,6 +58,8 @@ class DraftControllerTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @MockitoBean
+    private DraftPersistenceService draftPersistenceService;
+    @MockitoBean
     private SmtpMessageService smtpService;
     @MockitoBean
     private MailFacade mailFacade;
@@ -65,7 +68,7 @@ class DraftControllerTest {
     @MockitoBean
     private InternalApiKeyProvider apiKeyProvider;
 
-    private static final SmtpMessageService.DraftIdentity IDENTITY = new SmtpMessageService.DraftIdentity(
+    private static final DraftPersistenceService.DraftIdentity IDENTITY = new DraftPersistenceService.DraftIdentity(
             "<uuid@voxrox.org>", "Drafts", "deadbeefdeadbeefdeadbeefdeadbeef");
 
     @BeforeEach
@@ -73,7 +76,7 @@ class DraftControllerTest {
         SyncProperties sync = new SyncProperties(100, 200, Duration.ofMinutes(5), Duration.ofSeconds(10), 50, 30, 300,
                 4, 256, 200, Duration.ofMinutes(30), Duration.ofSeconds(30));
         when(mailProps.sync()).thenReturn(sync);
-        when(smtpService.prepareDraftIdentity(anyLong())).thenReturn(IDENTITY);
+        when(draftPersistenceService.prepareDraftIdentity(anyLong())).thenReturn(IDENTITY);
     }
 
     private DraftRequest emptyDraft() {
@@ -90,7 +93,7 @@ class DraftControllerTest {
                 .andExpect(jsonPath("$.stableId").value(IDENTITY.stableId()));
 
         // The async save runs under the same identity the 202 body carries.
-        verify(smtpService).saveDraftAsync(eq(7L), any(DraftRequest.class), isNull(), eq(IDENTITY));
+        verify(draftPersistenceService).saveDraftAsync(eq(7L), any(DraftRequest.class), isNull(), eq(IDENTITY));
     }
 
     @Test
@@ -100,7 +103,7 @@ class DraftControllerTest {
                 .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(emptyDraft())))
                 .andExpect(status().isAccepted()).andExpect(jsonPath("$.stableId").value(IDENTITY.stableId()));
 
-        verify(smtpService).saveDraftAsync(eq(7L), any(DraftRequest.class), eq("abc123"), eq(IDENTITY));
+        verify(draftPersistenceService).saveDraftAsync(eq(7L), any(DraftRequest.class), eq("abc123"), eq(IDENTITY));
     }
 
     @Test
@@ -119,7 +122,7 @@ class DraftControllerTest {
                 .content(objectMapper.writeValueAsString(bad))).andExpect(status().isBadRequest())
                 .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON));
 
-        verifyNoInteractions(smtpService);
+        verifyNoInteractions(draftPersistenceService, smtpService);
     }
 
     @Test
