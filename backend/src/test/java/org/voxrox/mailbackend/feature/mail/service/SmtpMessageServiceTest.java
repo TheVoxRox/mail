@@ -99,7 +99,7 @@ class SmtpMessageServiceTest {
             // check, so "draft disappeared between request and async" is not counted as a
             // send attempt.
             verifyNoInteractions(appendService, imapActionService, accountRepository, accountService,
-                    connectionDetailsService, mailMetrics, transportFactory);
+                    connectionDetailsService, mailMetrics, transportFactory, draftPersistenceService);
 
             // The client still gets an outcome so its pending indicator resolves.
             ArgumentCaptor<SendNotification> sent = ArgumentCaptor.forClass(SendNotification.class);
@@ -149,7 +149,7 @@ class SmtpMessageServiceTest {
             service.sendDraftAsync(ACCOUNT_ID, STABLE_ID, SEND_ID);
 
             verifyNoInteractions(appendService, imapActionService, accountRepository, accountService,
-                    connectionDetailsService, mailMetrics, transportFactory);
+                    connectionDetailsService, mailMetrics, transportFactory, draftPersistenceService);
 
             ArgumentCaptor<SendNotification> sent = ArgumentCaptor.forClass(SendNotification.class);
             verify(sseNotificationService).broadcast(sent.capture());
@@ -241,7 +241,8 @@ class SmtpMessageServiceTest {
             verify(accountRepository).updateLastError(eq(ACCOUNT_ID), err.capture(), any(LocalDateTime.class));
             assertThat(err.getValue().code()).isEqualTo(AccountLastErrorCode.DRAFT_SEND_FAILED);
             assertThat(err.getValue().fallbackMessage()).startsWith("Draft send failed:").contains("DB unavailable");
-            verifyNoInteractions(mailMetrics, transportFactory, appendService, imapActionService);
+            verifyNoInteractions(mailMetrics, transportFactory, appendService, imapActionService,
+                    draftPersistenceService);
 
             ArgumentCaptor<SendNotification> sent = ArgumentCaptor.forClass(SendNotification.class);
             verify(sseNotificationService).broadcast(sent.capture());
