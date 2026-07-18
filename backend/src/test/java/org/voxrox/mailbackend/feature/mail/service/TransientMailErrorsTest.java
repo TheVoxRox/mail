@@ -20,8 +20,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Unit tests for {@link TransientMailErrors} — the classifier that decides
- * which IMAP failures the sync retry loop reconnects-and-retries (todo.md bug
- * D) versus which it records as a hard {@code last_error}.
+ * which IMAP failures the sync retry loop reconnects-and-retries (bug D, #78)
+ * versus which it records as a hard {@code last_error}.
  */
 class TransientMailErrorsTest {
 

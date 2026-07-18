@@ -83,7 +83,7 @@ class ImapFolderExecutorTest {
         // unchanged — exactly like the AuthenticationFailedException pass-through —
         // rather than being flattened into a generic MailOperationException by the
         // catch-all below. If the executor swallowed it, the retry would never fire
-        // and a transient blip would surface as a hard last_error (todo.md bug D).
+        // and a transient blip would surface as a hard last_error (bug D, #78).
         runActionAgainstStore();
         // The real IMAPFolder implements UIDFolder; a plain Folder mock would trip
         // the "does not support UID operations" guard before the action ever runs.

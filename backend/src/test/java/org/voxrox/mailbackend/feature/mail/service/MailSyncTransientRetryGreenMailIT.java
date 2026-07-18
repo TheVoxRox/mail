@@ -35,7 +35,7 @@ import com.icegreen.greenmail.util.GreenMailUtil;
 import com.icegreen.greenmail.util.ServerSetup;
 
 /**
- * Integration test for the transient-blip retry (todo.md bug D) against a real
+ * Integration test for the transient-blip retry (bug D, #78) against a real
  * IMAP server (GreenMail) and the full service graph.
  *
  * <p>
@@ -137,7 +137,7 @@ class MailSyncTransientRetryGreenMailIT {
         deliver("Second message", "body two");
 
         // First download pass hits the Angus "failed to create new store connection"
-        // blip (todo.md bug D); the retried pass — after performFullSyncCycle drops the
+        // blip (bug D, #78); the retried pass — after performFullSyncCycle drops the
         // pooled connection and reconnects to the live server — delegates to the real
         // method and downloads both messages.
         doThrow(new MessagingException("failed to create new store connection")).doCallRealMethod()
