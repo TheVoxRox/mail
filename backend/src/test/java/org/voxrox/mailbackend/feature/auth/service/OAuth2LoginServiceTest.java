@@ -17,7 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.voxrox.mailbackend.exception.MailOperationException;
-import org.voxrox.mailbackend.feature.account.service.AccountService;
+import org.voxrox.mailbackend.feature.account.service.ExternalProviderLoginService;
 
 /**
  * Guard tests for {@link OAuth2LoginService}. The identity claims (e-mail,
@@ -36,7 +36,7 @@ class OAuth2LoginServiceTest {
     private static final String REFRESH_TOKEN = "rt-abc";
 
     @Mock
-    private AccountService accountService;
+    private ExternalProviderLoginService externalProviderLoginService;
     @Mock
     private OAuth2ClaimsExtractorRegistry registry;
     @Mock
@@ -49,7 +49,7 @@ class OAuth2LoginServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new OAuth2LoginService(accountService, registry);
+        service = new OAuth2LoginService(externalProviderLoginService, registry);
         when(registry.resolve(PROVIDER)).thenReturn(extractor);
     }
 
@@ -65,7 +65,8 @@ class OAuth2LoginServiceTest {
 
         service.processLogin(PROVIDER, oauth2User, authorizedClient);
 
-        verify(accountService).processExternalProviderLogin(PROVIDER, EMAIL, "User Name", EXTERNAL_ID, REFRESH_TOKEN);
+        verify(externalProviderLoginService).processExternalProviderLogin(PROVIDER, EMAIL, "User Name", EXTERNAL_ID,
+                REFRESH_TOKEN);
     }
 
     @Test
@@ -76,8 +77,9 @@ class OAuth2LoginServiceTest {
         assertThatThrownBy(() -> service.processLogin(PROVIDER, oauth2User, authorizedClient))
                 .isInstanceOf(MailOperationException.class).hasMessageContaining("e-mail");
 
-        verify(accountService, never()).processExternalProviderLogin(anyString(), any(), any(), any(), any());
-        verify(accountService, never()).markRequiresReauthIfExists(any());
+        verify(externalProviderLoginService, never()).processExternalProviderLogin(anyString(), any(), any(), any(),
+                any());
+        verify(externalProviderLoginService, never()).markRequiresReauthIfExists(any());
     }
 
     @Test
@@ -88,7 +90,8 @@ class OAuth2LoginServiceTest {
         assertThatThrownBy(() -> service.processLogin(PROVIDER, oauth2User, authorizedClient))
                 .isInstanceOf(MailOperationException.class).hasMessageContaining("identifier");
 
-        verify(accountService, never()).processExternalProviderLogin(anyString(), any(), any(), any(), any());
+        verify(externalProviderLoginService, never()).processExternalProviderLogin(anyString(), any(), any(), any(),
+                any());
     }
 
     @Test
@@ -99,7 +102,8 @@ class OAuth2LoginServiceTest {
         assertThatThrownBy(() -> service.processLogin(PROVIDER, oauth2User, authorizedClient))
                 .isInstanceOf(MailOperationException.class).hasMessageContaining("refresh token");
 
-        verify(accountService).markRequiresReauthIfExists(EMAIL);
-        verify(accountService, never()).processExternalProviderLogin(anyString(), any(), any(), any(), any());
+        verify(externalProviderLoginService).markRequiresReauthIfExists(EMAIL);
+        verify(externalProviderLoginService, never()).processExternalProviderLogin(anyString(), any(), any(), any(),
+                any());
     }
 }

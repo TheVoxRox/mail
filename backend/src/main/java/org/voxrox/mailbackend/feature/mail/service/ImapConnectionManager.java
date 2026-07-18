@@ -109,7 +109,8 @@ public class ImapConnectionManager {
          * whole IMAP connect cycle (token refresh + double XOAUTH2 attempt), generate
          * traffic against the Google API and return a confusing "Invalid credentials"
          * instead of a clear "sign in again" instruction. The flag is cleared only by a
-         * successful re-login in AccountService#processExternalProviderLogin.
+         * successful re-login in
+         * ExternalProviderLoginService#processExternalProviderLogin.
          */
         if (accountRepository.isRequiresReauth(accountId).orElse(false)) {
             throw new MailOperationException(ErrorCode.MAIL_ACCOUNT_REQUIRES_REAUTH,
