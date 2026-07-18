@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
@@ -274,6 +275,7 @@ class DraftPersistenceServiceTest {
                     new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null, IDENTITY);
 
             verify(messageService, never()).insertIfAbsent(any());
+            verifyNoInteractions(messageMapper);
         }
     }
 

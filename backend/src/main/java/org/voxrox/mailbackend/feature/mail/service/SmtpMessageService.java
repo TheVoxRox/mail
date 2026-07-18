@@ -31,17 +31,6 @@ public class SmtpMessageService {
 
     private static final Logger log = LoggerFactory.getLogger(SmtpMessageService.class);
 
-    /*
-     * last_error is a single account-scoped slot shared with the sync pipeline. A
-     * successful send may only clear errors this pipeline could have written —
-     * never a standing sync failure (the same masking class as the per-folder clear
-     * in MailSyncService: the user would lose the diagnostic for a persistently
-     * failing INBOX just because one e-mail went out).
-     */
-    private static final List<String> SEND_PIPELINE_ERROR_CODES = List.of(AccountLastErrorCode.SMTP_SEND_FAILED.name(),
-            AccountLastErrorCode.DRAFT_SAVE_FAILED.name(), AccountLastErrorCode.DRAFT_SEND_FAILED.name(),
-            AccountLastErrorCode.DRAFT_NOT_FOUND_ON_SERVER.name());
-
     private final AccountService accountService;
     private final AccountConnectionDetailsService connectionDetailsService;
     private final AccountRepository accountRepository;
@@ -114,7 +103,7 @@ public class SmtpMessageService {
                 if (supersedesDraftId != null && !supersedesDraftId.isBlank()) {
                     draftPersistenceService.deleteSupersededDraft(accountId, supersedesDraftId);
                 }
-                accountRepository.clearLastErrorIfCodeIn(accountId, SEND_PIPELINE_ERROR_CODES);
+                accountRepository.clearLastErrorIfCodeIn(accountId, AccountLastErrorCode.SEND_PIPELINE_CODES);
             } catch (Exception bookkeepingEx) {
                 log.warn("{} Post-send bookkeeping failed for account {} after a successful send: {}", LogCategory.SMTP,
                         accountId, bookkeepingEx.getMessage());
@@ -241,7 +230,7 @@ public class SmtpMessageService {
                  */
                 imapActionService.hardDelete(accountId, draftFolder, draftUid);
                 messageService.deleteByStableId(stableId);
-                accountRepository.clearLastErrorIfCodeIn(accountId, SEND_PIPELINE_ERROR_CODES);
+                accountRepository.clearLastErrorIfCodeIn(accountId, AccountLastErrorCode.SEND_PIPELINE_CODES);
             } catch (Exception bookkeepingEx) {
                 log.warn("{} Post-send bookkeeping failed for sent draft {} (UID {} in {}): {}", LogCategory.SMTP,
                         stableId, draftUid, draftFolder, bookkeepingEx.getMessage());

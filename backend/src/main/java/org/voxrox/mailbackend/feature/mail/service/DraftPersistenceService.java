@@ -47,15 +47,6 @@ public class DraftPersistenceService {
 
     private static final Logger log = LoggerFactory.getLogger(DraftPersistenceService.class);
 
-    /*
-     * Mirrors SmtpMessageService.SEND_PIPELINE_ERROR_CODES: the mail-write-pipeline
-     * last_error codes a successful write (send or draft save) may clear, without
-     * touching a standing sync failure.
-     */
-    private static final List<String> SEND_PIPELINE_ERROR_CODES = List.of(AccountLastErrorCode.SMTP_SEND_FAILED.name(),
-            AccountLastErrorCode.DRAFT_SAVE_FAILED.name(), AccountLastErrorCode.DRAFT_SEND_FAILED.name(),
-            AccountLastErrorCode.DRAFT_NOT_FOUND_ON_SERVER.name());
-
     private final AccountService accountService;
     private final ImapFolderService imapFolderService;
     private final MessageService messageService;
@@ -175,7 +166,7 @@ public class DraftPersistenceService {
                 }
             }
 
-            accountRepository.clearLastErrorIfCodeIn(accountId, SEND_PIPELINE_ERROR_CODES);
+            accountRepository.clearLastErrorIfCodeIn(accountId, AccountLastErrorCode.SEND_PIPELINE_CODES);
         } catch (Exception e) {
             log.error("{} Draft save failed for account ID {}", LogCategory.SMTP, accountId, e);
             AuditLog.failure("draft_save", "account=" + accountId, e.getClass().getSimpleName());
