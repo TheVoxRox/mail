@@ -34,8 +34,10 @@ import org.voxrox.mailbackend.feature.account.entity.MailServerConfig;
  * server config (host/port/SSL) on the account stays valid and the NOT NULL
  * constraint must not fail.
  * <p>
- * Acceptance criterion from the "Custom provider" plan (section "Implementation
- * plan: Custom provider" in `todo.md`).
+ * Acceptance criterion for the custom-provider feature: removing a custom mail
+ * provider must never invalidate an account already bound to it — the label
+ * link degrades to {@code NULL} while the account's embedded server config
+ * keeps it fully functional.
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)

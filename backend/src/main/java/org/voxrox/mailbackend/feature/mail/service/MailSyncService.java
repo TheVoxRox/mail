@@ -159,8 +159,8 @@ public class MailSyncService {
      *         failure.
      */
     public boolean performFullSyncCycle(AccountEntity account, String folderName, FolderRole detectedRole) {
-        // Bounded retry around the whole folder cycle for transient IMAP blips (todo.md
-        // bug D). Reuses the IMAP connect-retry tuning (mail.client.retry.*) as the
+        // Bounded retry around the whole folder cycle for transient IMAP blips (bug D,
+        // #78). Reuses the IMAP connect-retry tuning (mail.client.retry.*) as the
         // single "transient network blip" knob. Worst case is bounded: maxAttempts here
         // times the connect-time retry inside ImapConnectionManager — a few seconds for
         // a background @Async sync — before the failure is recorded as last_error.

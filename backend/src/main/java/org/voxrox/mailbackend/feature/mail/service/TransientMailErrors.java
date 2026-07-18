@@ -28,9 +28,9 @@ import org.voxrox.mailbackend.util.Throwables;
  * so a network blip <em>during</em> folder operations (fetch, flag sync)
  * escapes the connect-time retry and surfaces as the
  * {@code MessagingException("failed
- * to create new store connection")} seen in the v0.1.0 smoke (todo.md bug D).
- * This helper lets {@link MailSyncService} catch that class at the folder-sync
- * seam and retry it instead of recording it as a hard {@code last_error}.
+ * to create new store connection")} seen in the v0.1.0 smoke (bug D, #78). This
+ * helper lets {@link MailSyncService} catch that class at the folder-sync seam
+ * and retry it instead of recording it as a hard {@code last_error}.
  *
  * <p>
  * {@link AuthenticationFailedException} is never transient — it has a dedicated
