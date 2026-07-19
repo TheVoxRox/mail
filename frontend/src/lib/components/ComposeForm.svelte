@@ -38,6 +38,8 @@
 		type ComposeDraft
 	} from '$lib/compose/request.js';
 	import { invalidAddressList, parseAddressList } from '$lib/compose/addresses.js';
+	import { mentionsAttachment } from '$lib/compose/attachmentReminder.js';
+	import { confirmAction } from '$lib/stores/confirmDialog.js';
 	import { composeSession, composeSnapshotFingerprint } from '$lib/compose/session.js';
 	import { installLeaveGuard } from '$lib/leaveGuard.js';
 	import { onDestroy, onMount, tick, untrack } from 'svelte';
@@ -299,8 +301,13 @@
 		return true;
 	}
 
+	// Guards handleSend re-entry while the attachment-reminder dialog is open
+	// (`busy` is still false there so the composer stays editable on cancel);
+	// a second confirmAction would orphan the first dialog's resolver.
+	let confirmingSend = false;
+
 	async function handleSend() {
-		if (busy || !prefillDone) return;
+		if (busy || confirmingSend || !prefillDone) return;
 		const acc = currentFromAccount();
 		if (!acc) {
 			recipientErrorMessage = '';
@@ -312,6 +319,23 @@
 			return;
 		}
 		if (blockedByAttachmentRead()) return;
+		// After the attachment-read guard: an in-flight file lands in
+		// `attachments` once reading settles, so it must not count as missing.
+		if (attachments.length === 0 && mentionsAttachment(body)) {
+			confirmingSend = true;
+			let sendAnyway: boolean;
+			try {
+				sendAnyway = await confirmAction({
+					title: $_('compose.attachmentReminder.title'),
+					description: $_('compose.attachmentReminder.description'),
+					confirmLabel: $_('compose.attachmentReminder.sendAnyway'),
+					cancelLabel: $_('common.cancel')
+				});
+			} finally {
+				confirmingSend = false;
+			}
+			if (!sendAnyway) return;
+		}
 		busy = true;
 		busyAction = 'send';
 		errorMessage = '';
