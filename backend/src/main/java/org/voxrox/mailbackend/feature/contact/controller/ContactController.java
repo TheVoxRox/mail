@@ -27,6 +27,7 @@ import org.voxrox.mailbackend.feature.contact.dto.BulkContactCreateResponse;
 import org.voxrox.mailbackend.feature.contact.dto.BulkContactDeleteRequest;
 import org.voxrox.mailbackend.feature.contact.dto.BulkContactDeleteResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactAutocompleteResponse;
+import org.voxrox.mailbackend.feature.contact.dto.ContactCountsResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactCreateRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactEmailRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactEmailResponse;
@@ -95,6 +96,13 @@ public class ContactController {
             return PagedResponse.from(contactService.searchContacts(accountId, q, finalPage, finalSize, sort, label));
         }
         return PagedResponse.from(contactService.listContacts(accountId, finalPage, finalSize, sort, label));
+    }
+
+    @Operation(summary = "Contact counts", description = "Returns the total number of contacts of the account plus per-label counts (WORK/HOME/OTHER). "
+            + "A contact is counted for a label when at least one of its e-mail addresses bears it — consistent with the `label` filter of the list endpoint.")
+    @GetMapping("/counts")
+    public ContactCountsResponse getCounts(@PathVariable @Positive(message = "{validation.positive}") Long accountId) {
+        return contactService.getCounts(accountId);
     }
 
     @Operation(summary = "Compose-window autocomplete", description = "Returns a flat list of addresses (contact x email) for typeahead. Ranking: prefix-email > prefix-surname > prefix-name > substring. Default limit 10, hard cap 20.")

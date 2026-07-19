@@ -2958,6 +2958,59 @@
         }
       }
     },
+    "/api/v1/accounts/{accountId}/contacts/counts" : {
+      "get" : {
+        "tags" : [ "Contacts" ],
+        "summary" : "Contact counts",
+        "description" : "Returns the total number of contacts of the account plus per-label counts (WORK/HOME/OTHER). A contact is counted for a label when at least one of its e-mail addresses bears it — consistent with the `label` filter of the list endpoint.",
+        "operationId" : "getCounts",
+        "parameters" : [ {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64",
+            "exclusiveMinimum" : 0
+          }
+        } ],
+        "responses" : {
+          "503" : {
+            "description" : "Service Unavailable"
+          },
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ContactCountsResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Missing or invalid X-API-KEY.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal server error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/accounts/{accountId}/contacts/autocomplete" : {
       "get" : {
         "tags" : [ "Contacts" ],
@@ -3880,10 +3933,10 @@
           "password" : {
             "type" : "string"
           },
-          "passwordPresentForNewAccount" : {
+          "providerOrCustomServerConfigPresent" : {
             "type" : "boolean"
           },
-          "providerOrCustomServerConfigPresent" : {
+          "passwordPresentForNewAccount" : {
             "type" : "boolean"
           }
         },
@@ -4367,6 +4420,28 @@
           },
           "last" : {
             "type" : "boolean"
+          }
+        }
+      },
+      "ContactCountsResponse" : {
+        "type" : "object",
+        "description" : "Contact counts for the sidebar: the account total plus per-label counts. A contact is counted for a label when at least one of its e-mail addresses bears it, so each figure matches the size of the list filtered by the same label.",
+        "properties" : {
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "work" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "home" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "other" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },

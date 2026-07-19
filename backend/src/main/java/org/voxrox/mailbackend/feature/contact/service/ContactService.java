@@ -17,6 +17,7 @@ import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.account.service.AccountService;
 import org.voxrox.mailbackend.feature.contact.EmailLabel;
 import org.voxrox.mailbackend.feature.contact.dto.ContactAutocompleteResponse;
+import org.voxrox.mailbackend.feature.contact.dto.ContactCountsResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactCreateRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactEmailRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactEmailResponse;
@@ -27,6 +28,7 @@ import org.voxrox.mailbackend.feature.contact.dto.ContactUpdateRequest;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEmailEntity;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEntity;
 import org.voxrox.mailbackend.feature.contact.mapper.ContactMapper;
+import org.voxrox.mailbackend.feature.contact.repository.ContactLabelCount;
 import org.voxrox.mailbackend.feature.contact.repository.ContactRepository;
 import org.voxrox.mailbackend.util.AuditLog;
 import org.voxrox.mailbackend.util.LogCategory;
@@ -78,6 +80,16 @@ public class ContactService {
         Pageable pageable = PageRequest.of(page, size, resolveSort(sort));
         Page<ContactEntity> contacts = contactRepository.findByAccountId(accountId, label, pageable);
         return contacts.map(contactMapper::toResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public ContactCountsResponse getCounts(Long accountId) {
+        accountService.getAccountOrThrow(accountId);
+        long total = contactRepository.countByAccountId(accountId);
+        Map<EmailLabel, Long> byLabel = contactRepository.countByAccountIdGroupedByLabel(accountId).stream()
+                .collect(Collectors.toMap(ContactLabelCount::label, ContactLabelCount::contacts));
+        return new ContactCountsResponse(total, byLabel.getOrDefault(EmailLabel.WORK, 0L),
+                byLabel.getOrDefault(EmailLabel.HOME, 0L), byLabel.getOrDefault(EmailLabel.OTHER, 0L));
     }
 
     /**

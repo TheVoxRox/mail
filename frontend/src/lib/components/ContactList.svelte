@@ -51,8 +51,8 @@
 	const DEFAULT_SORT: ContactSort = 'surname';
 	const LABEL_FILTER_OPTIONS = [
 		{ value: '', label: 'contacts.labelFilterAny' },
-		{ value: 'WORK', label: 'contacts.labelOptions.WORK' },
 		{ value: 'HOME', label: 'contacts.labelOptions.HOME' },
+		{ value: 'WORK', label: 'contacts.labelOptions.WORK' },
 		{ value: 'OTHER', label: 'contacts.labelOptions.OTHER' }
 	] as const;
 	const SORT_OPTIONS = [
@@ -175,7 +175,12 @@
 		const labels = c.emails
 			.map((email) => email.label)
 			.filter((value): value is EmailLabel => value != null);
-		const unique = [...new Set(labels)];
+		// Canonical order (sidebar / filter / form), not the contact's email order.
+		const unique = [...new Set(labels)].sort(
+			(a, b) =>
+				LABEL_FILTER_OPTIONS.findIndex((option) => option.value === a) -
+				LABEL_FILTER_OPTIONS.findIndex((option) => option.value === b)
+		);
 		return unique.length > 0
 			? unique.map((value) => $_(`contacts.labelOptions.${value}`)).join(', ')
 			: $_('contacts.labelOptions.none');
@@ -359,7 +364,11 @@
 
 {#if page.content.length === 0}
 	<StateMessage padding="lg">
-		{label ? $_('contacts.emptyFiltered') : $_('contacts.empty')}
+		{label
+			? $_('contacts.emptyLabeled', {
+					values: { label: $_(`contacts.labelOptions.${label}`) }
+				})
+			: $_('contacts.empty')}
 	</StateMessage>
 {:else}
 	<div

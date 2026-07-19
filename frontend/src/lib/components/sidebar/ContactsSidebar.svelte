@@ -9,14 +9,17 @@
 	import { importVCardFiles } from '$lib/contacts/importVCards.js';
 	import { saveBlobAsFile } from '$lib/download.js';
 	import { activeAccount, accountsState } from '$lib/stores/accounts.js';
+	import { contactCounts } from '$lib/stores/contactCounts.js';
 	import { pushToast } from '$lib/stores/toasts.js';
 	import AccountSwitcher from '$lib/components/AccountSwitcher.svelte';
+	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { SidebarNavItem } from '$lib/components/ui/sidebar-nav-item/index.js';
 	import { SidebarSection } from '$lib/components/ui/sidebar-section/index.js';
 	import { SidebarShell } from '$lib/components/ui/sidebar-shell/index.js';
 	import Icon from '$lib/components/Icon.svelte';
 	import { _ } from '$lib/i18n/index.js';
+	import type { EmailLabel } from '$lib/types.js';
 
 	let query = $derived($page.url.searchParams.get('q') ?? '');
 	let exporting = $state(false);
@@ -49,13 +52,34 @@
 		void goto(href);
 	}
 
-	function resetContacts() {
-		const href = buildContactsHref();
-		if (!href) return;
-		void goto(href);
+	const createActive = $derived($page.url.searchParams.get('create') === '1');
+	const currentLabel = $derived($page.url.searchParams.get('label'));
+
+	/**
+	 * Sidebar view links deliberately drop `q` (and sort): like a mail folder
+	 * click, choosing a view starts fresh instead of carrying the search over.
+	 */
+	function viewHref(label?: EmailLabel): string | undefined {
+		if (!$activeAccount) return undefined;
+		const params = new SvelteURLSearchParams();
+		if (label) params.set('label', label);
+		const queryString = params.toString();
+		return `${resolve('/contacts/[accountId]', {
+			accountId: String($activeAccount.id)
+		})}${queryString ? `?${queryString}` : ''}`;
 	}
 
-	const createActive = $derived($page.url.searchParams.get('create') === '1');
+	const labelItems = $derived(
+		(['HOME', 'WORK', 'OTHER'] as const).map((label) => ({
+			label,
+			count:
+				$contactCounts == null
+					? 0
+					: { WORK: $contactCounts.work, HOME: $contactCounts.home, OTHER: $contactCounts.other }[
+							label
+						]
+		}))
+	);
 
 	async function handleExport() {
 		const account = get(activeAccount);
@@ -108,6 +132,12 @@
 	{/if}
 
 	{#if $activeAccount}
+		<Button size="lg" class="mt-3 w-full justify-start shadow-sm" onclick={openCreate}>
+			<Icon name="plus" />
+			<span class="flex-1 text-left">{$_('contacts.newContact')}</span>
+			<kbd class="text-caption font-medium text-primary-foreground/80">Ctrl+N</kbd>
+		</Button>
+
 		<form
 			onsubmit={handleSearch}
 			class="mt-3"
@@ -126,9 +156,21 @@
 	{/if}
 {/snippet}
 
+{#snippet countBadge(count: number, showZero: boolean)}
+	{#if showZero || count > 0}
+		<span
+			class="min-w-5 rounded-full bg-primary/12 px-1.5 py-0.5 text-center text-caption font-semibold text-primary"
+			aria-label={$_('contacts.totalCount', { values: { count } })}
+		>
+			{count}
+		</span>
+	{/if}
+{/snippet}
+
 <!--
-	region root (not nav): the header hosts a search landmark and the content
-	is action buttons, not navigation.
+	region root: the header hosts a search landmark, so the view links get their
+	own <nav> as its sibling (mail-pane pattern). The import/export actions stay
+	outside the nav — they are buttons, not navigation.
 -->
 <SidebarShell
 	label={$_('workspace.contactsSidebarLabel')}
@@ -141,31 +183,60 @@
 			<p class="text-sm text-muted-foreground">{$_('contacts.noActiveAccount')}</p>
 		</div>
 	{:else}
-		<SidebarSection id="contacts-sidebar-actions" label={$_('contacts.sidebarActions')}>
+		<nav aria-label={$_('contacts.viewsNav')}>
 			<ul role="list" class="space-y-1">
 				<li>
-					<SidebarNavItem onclick={openCreate} active={createActive}>
-						{#snippet icon()}
-							<Icon name="user-circle" />
-						{/snippet}
-
-						{$_('contacts.newContact')}
-
-						{#snippet badge()}
-							<kbd class="text-caption font-medium text-muted-foreground">Ctrl+N</kbd>
-						{/snippet}
-					</SidebarNavItem>
-				</li>
-				<li>
-					<SidebarNavItem onclick={resetContacts} active={!createActive}>
+					<SidebarNavItem href={viewHref()} active={!createActive && !currentLabel}>
 						{#snippet icon()}
 							<Icon name="book-open" />
 						{/snippet}
 
-						{$_('contacts.allContacts')}
+						{$_('contacts.contactsList')}
+
+						{#snippet badge()}
+							<!-- Total 0 renders (an empty address book is meaningful);
+							     no badge means the counts have not loaded. -->
+							{@render countBadge($contactCounts?.total ?? 0, $contactCounts != null)}
+						{/snippet}
 					</SidebarNavItem>
 				</li>
-				{#if !createActive}
+			</ul>
+
+			<SidebarSection
+				id="contacts-sidebar-labels"
+				label={$_('contacts.labelsSection')}
+				class="mt-4"
+			>
+				<ul role="list" class="space-y-1">
+					{#each labelItems as item (item.label)}
+						<li>
+							<SidebarNavItem
+								href={viewHref(item.label)}
+								active={!createActive && currentLabel === item.label}
+							>
+								{#snippet icon()}
+									<Icon name="tag" />
+								{/snippet}
+
+								{$_(`contacts.labelOptions.${item.label}`)}
+
+								{#snippet badge()}
+									{@render countBadge(item.count, false)}
+								{/snippet}
+							</SidebarNavItem>
+						</li>
+					{/each}
+				</ul>
+			</SidebarSection>
+		</nav>
+
+		{#if !createActive}
+			<SidebarSection
+				id="contacts-sidebar-actions"
+				label={$_('contacts.sidebarActions')}
+				class="mt-4"
+			>
+				<ul role="list" class="space-y-1">
 					<li>
 						<SidebarNavItem
 							onclick={() => importInputEl?.click()}
@@ -202,8 +273,8 @@
 							{exporting ? $_('contacts.exporting') : $_('contacts.exportVCard')}
 						</SidebarNavItem>
 					</li>
-				{/if}
-			</ul>
-		</SidebarSection>
+				</ul>
+			</SidebarSection>
+		{/if}
 	{/if}
 </SidebarShell>

@@ -60,6 +60,60 @@ test.describe('Contacts', () => {
 		await expect(page.getByRole('heading', { name: 'Nový kontakt' })).toBeVisible();
 	});
 
+	test('sidebar zobrazení jsou odkazy s počty a filtrují podle štítku', async ({ page }) => {
+		await page.goto('/contacts/1');
+		await waitForShell(page);
+
+		const sidebar = page.getByRole('region', { name: 'Podokno kontaktů' });
+		const nav = sidebar.getByRole('navigation', { name: 'Zobrazení kontaktů' });
+
+		// Fixture: 1 kontakt (Jana Novak) se štítky Práce + Domov. Accessible
+		// name odkazu zahrnuje aria-label badge s počtem.
+		const allLink = nav.getByRole('link', { name: 'Kontakty 1 kontakt' });
+		await expect(allLink).toHaveAttribute('aria-current', 'page');
+
+		// Jiný nemá žádný kontakt — badge se nevykresluje vůbec (vzor pošty).
+		await expect(nav.getByRole('link', { name: 'Jiný' })).toBeVisible();
+
+		await nav.getByRole('link', { name: 'Práce 1 kontakt' }).click();
+		await page.waitForURL('**/contacts/1?label=WORK');
+		await expect(nav.getByRole('link', { name: 'Práce 1 kontakt' })).toHaveAttribute(
+			'aria-current',
+			'page'
+		);
+		await expect(page.getByText('Jana Novak')).toBeVisible();
+		// Nadpis stránky i titulek okna nesou aktivní pohled.
+		await expect(page.getByRole('heading', { level: 1, name: 'Práce' })).toBeVisible();
+		await expect(page).toHaveTitle('Pošta – Kontakty – Práce');
+
+		// Prázdný štítek jmenuje sám sebe místo obecné hlášky.
+		await nav.getByRole('link', { name: 'Jiný' }).click();
+		await page.waitForURL('**/contacts/1?label=OTHER');
+		await expect(page.getByRole('heading', { level: 1, name: 'Jiný' })).toBeVisible();
+		await expect(page.getByText(/Žádný kontakt se štítkem Jiný/)).toBeVisible();
+
+		await allLink.click();
+		await page.waitForURL('**/contacts/1');
+		await expect(allLink).toHaveAttribute('aria-current', 'page');
+		await expect(page.getByRole('heading', { level: 1, name: 'Kontakty' })).toBeVisible();
+	});
+
+	test('řazení je persistovaná preference a přežije klik v sidebaru', async ({ page }) => {
+		await page.goto('/contacts/1');
+		await waitForShell(page);
+
+		await page.getByRole('combobox', { name: 'Řadit podle' }).selectOption('recent');
+		await page.getByRole('button', { name: 'Použít filtr' }).click();
+		await page.waitForURL('**/contacts/1?sort=recent');
+
+		// Sidebar odkaz vede na čistou URL bez sortu — řazení se doplní z
+		// persistované preference, ne z URL.
+		const nav = page.getByRole('navigation', { name: 'Zobrazení kontaktů' });
+		await nav.getByRole('link', { name: 'Práce 1 kontakt' }).click();
+		await page.waitForURL('**/contacts/1?label=WORK');
+		await expect(page.getByRole('combobox', { name: 'Řadit podle' })).toHaveValue('recent');
+	});
+
 	test('rail otevře Kontakty i bez účtu a nezůstane v Nastavení', async ({ page }) => {
 		await page.addInitScript(() => {
 			window.localStorage.setItem('mail.e2e.noAccounts', '1');
@@ -575,7 +629,7 @@ test.describe('Contacts', () => {
 		await waitForShell(page);
 
 		await page.waitForURL('**/contacts/1');
-		await expect(page.getByRole('heading', { level: 1, name: 'Všechny kontakty' })).toBeVisible();
+		await expect(page.getByRole('heading', { level: 1, name: 'Kontakty' })).toBeVisible();
 		await expect(page.getByText('Jana Novak')).toBeVisible();
 	});
 });

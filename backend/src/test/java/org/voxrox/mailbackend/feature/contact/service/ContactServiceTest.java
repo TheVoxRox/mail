@@ -32,6 +32,7 @@ import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.account.service.AccountService;
 import org.voxrox.mailbackend.feature.contact.EmailLabel;
 import org.voxrox.mailbackend.feature.contact.dto.ContactAutocompleteResponse;
+import org.voxrox.mailbackend.feature.contact.dto.ContactCountsResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactCreateRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactEmailRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactEmailResponse;
@@ -42,6 +43,7 @@ import org.voxrox.mailbackend.feature.contact.dto.ContactUpdateRequest;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEmailEntity;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEntity;
 import org.voxrox.mailbackend.feature.contact.mapper.ContactMapper;
+import org.voxrox.mailbackend.feature.contact.repository.ContactLabelCount;
 import org.voxrox.mailbackend.feature.contact.repository.ContactRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -111,6 +113,27 @@ class ContactServiceTest {
         when(accountService.getAccountOrThrow(999L)).thenThrow(new AccountNotFoundException(999L));
         assertThatThrownBy(() -> service.listContacts(999L, 0, 20, null, null))
                 .isInstanceOf(AccountNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("getCounts — total plus per-label counts, missing labels default to zero")
+    void getCountsMapsLabels() {
+        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
+        when(contactRepository.countByAccountId(ACCOUNT_ID)).thenReturn(5L);
+        when(contactRepository.countByAccountIdGroupedByLabel(ACCOUNT_ID)).thenReturn(
+                List.of(new ContactLabelCount(EmailLabel.WORK, 3L), new ContactLabelCount(EmailLabel.OTHER, 1L)));
+
+        ContactCountsResponse counts = service.getCounts(ACCOUNT_ID);
+
+        assertThat(counts).isEqualTo(new ContactCountsResponse(5L, 3L, 0L, 1L));
+    }
+
+    @Test
+    @DisplayName("getCounts — unknown account -> AccountNotFoundException")
+    void getCountsMissingAccount() {
+        when(accountService.getAccountOrThrow(999L)).thenThrow(new AccountNotFoundException(999L));
+        assertThatThrownBy(() -> service.getCounts(999L)).isInstanceOf(AccountNotFoundException.class);
+        verify(contactRepository, never()).countByAccountId(anyLong());
     }
 
     @Test
