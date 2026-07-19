@@ -94,6 +94,24 @@ public interface ContactRepository extends JpaRepository<ContactEntity, Long> {
 
     Optional<ContactEntity> findByIdAndAccountId(Long id, Long accountId);
 
+    long countByAccountId(Long accountId);
+
+    /**
+     * Contact counts per e-mail label. {@code COUNT(DISTINCT contact)} mirrors the
+     * EXISTS filter of {@link #findByAccountId}: a contact counts toward a label
+     * once, no matter how many of its addresses bear it, so each count equals the
+     * total of the list filtered by that label. Labels with no match are absent
+     * from the result.
+     */
+    @Query("""
+            SELECT new org.voxrox.mailbackend.feature.contact.repository.ContactLabelCount(
+                le.label, COUNT(DISTINCT le.contact.id))
+            FROM ContactEmailEntity le
+            WHERE le.contact.account.id = :accountId AND le.label IS NOT NULL
+            GROUP BY le.label
+            """)
+    List<ContactLabelCount> countByAccountIdGroupedByLabel(@Param("accountId") Long accountId);
+
     /**
      * Loads all contacts of an account for export (vCard, future backup).
      * {@code @EntityGraph} prevents N+1 through {@code c.emails}. Without paging —

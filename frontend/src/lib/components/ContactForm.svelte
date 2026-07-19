@@ -340,8 +340,8 @@
 							disabled={busy}
 						>
 							<option value="">{$_('contacts.labelOptions.none')}</option>
-							<option value="WORK">{$_('contacts.labelOptions.WORK')}</option>
 							<option value="HOME">{$_('contacts.labelOptions.HOME')}</option>
+							<option value="WORK">{$_('contacts.labelOptions.WORK')}</option>
 							<option value="OTHER">{$_('contacts.labelOptions.OTHER')}</option>
 						</Select>
 						<span id={emailLabelStatusId(index)} class="sr-only" role="status" aria-atomic="true">

@@ -69,6 +69,8 @@ sekci s podsekcemi podle artefaktu.
 
 ### Frontend
 
+- Sidebar kontaktů podle vzoru Google Contacts a seznamu složek pošty: „Nový kontakt" je primární tlačítko v hlavičce (jako „Nový e-mail" v poště), místo záložky „Všechny" skutečné odkazy v pojmenované navigaci — „Kontakty" s badge celkového počtu a sekce Štítky (Domov/Práce/Jiný) s počty per štítek (badge s aria-label „N kontaktů"). Nadpis seznamu sjednocen na „Kontakty". Počty servíruje nový backend endpoint `GET /accounts/{id}/contacts/counts` (kontakt se počítá ke štítku, má-li aspoň jeden e-mail s tím štítkem — konzistentní s `label` filtrem seznamu) a frontend store je obnovuje při každém reloadu seznamu (create/edit/delete/merge/import/filtry).
+- Kontakty — orientace v pohledech: nadpis stránky, titulek okna i SR oznámení po přefiltrování nesou aktivní štítek („Práce" místo obecného „Kontakty"); řazení je persistovaná preference (`mail.contactSort`), takže ho klik na pohled v sidebaru neresetuje; badge celkového počtu ukazuje i nulu (prázdný adresář ≠ nenačtené počty) a prázdný štítkový pohled jmenuje štítek s nápovědou, jak se štítky přiřazují; pořadí štítků je jednotné napříč UI (Domov/Práce/Jiný — sidebar, filtr seznamu i výběr štítku ve formuláři kontaktu).
 - Přidán boot/readiness orchestrator s konkrétními fázemi startu a recovery akcemi.
 - Paralelizovaný bootstrap (`loadClientConfig` + `loadAccounts` přes `Promise.all`) a globální 60s timeout.
 - Shell-first rendering — místo blank screenu se ihned vykreslí AppRail + sidebar placeholder.

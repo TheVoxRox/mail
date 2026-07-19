@@ -307,6 +307,14 @@ export interface ContactResponse {
 	updatedAt: string;
 }
 
+/** Sidebar counts — a contact counts toward a label when at least one of its e-mails bears it. */
+export interface ContactCountsResponse {
+	total: number;
+	work: number;
+	home: number;
+	other: number;
+}
+
 export interface ContactAutocompleteResponse {
 	contactId: number;
 	emailId: number;

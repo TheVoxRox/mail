@@ -49,6 +49,7 @@ import org.voxrox.mailbackend.feature.contact.dto.BulkContactDeleteRequest;
 import org.voxrox.mailbackend.feature.contact.dto.BulkContactDeleteResponse;
 import org.voxrox.mailbackend.feature.contact.dto.BulkContactDeleteResponse.BulkContactDeleteResult;
 import org.voxrox.mailbackend.feature.contact.dto.ContactAutocompleteResponse;
+import org.voxrox.mailbackend.feature.contact.dto.ContactCountsResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactCreateRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactEmailRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactEmailResponse;
@@ -117,6 +118,23 @@ class ContactControllerTest {
                 .andExpect(jsonPath("$.content[0].emails[0].primary").value(true))
                 .andExpect(jsonPath("$.page").value(0)).andExpect(jsonPath("$.totalElements").value(2))
                 .andExpect(jsonPath("$.first").value(true)).andExpect(jsonPath("$.last").value(true));
+    }
+
+    @Test
+    @DisplayName("GET /counts → 200 with total and per-label counts")
+    void getCounts() throws Exception {
+        when(contactService.getCounts(ACCOUNT_ID)).thenReturn(new ContactCountsResponse(7L, 3L, 2L, 0L));
+
+        mockMvc.perform(get("/api/v1/accounts/{aid}/contacts/counts", ACCOUNT_ID)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(7)).andExpect(jsonPath("$.work").value(3))
+                .andExpect(jsonPath("$.home").value(2)).andExpect(jsonPath("$.other").value(0));
+    }
+
+    @Test
+    @DisplayName("GET /counts with non-positive accountId → 400")
+    void getCountsInvalidAccountId() throws Exception {
+        mockMvc.perform(get("/api/v1/accounts/{aid}/contacts/counts", 0L)).andExpect(status().isBadRequest());
+        verify(contactService, never()).getCounts(any());
     }
 
     @Test

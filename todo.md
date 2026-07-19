@@ -105,6 +105,14 @@ Ed25519 signing key + offline zaloha klice — **hotove** (2026-06-16/20), detai
 
 ---
 
+## Neviditelne server-only zpravy v lokalnim zrcadle (nalez 2026-07-18)
+
+Zprava, ktera existuje na serveru, ale chybi v lokalni DB uprostred UID rozsahu, je pro uzivatele neviditelna: sync bere jen `uid > last_known_uid` ([MessageDownloader.java:70](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MessageDownloader.java)), cleanup lokalni radky jen maze, nikdy nedoplnuje ([FlagSyncService.java:212](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/FlagSyncService.java)) a backfill predpoklada, ze chybi jen nejstarsi sekvence. Unread badge slozky ji ale pocita — bere server STATUS UNSEEN ([ImapFolderService.java:208](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/ImapFolderService.java)). Realny pripad: kos (Deleted) po vyprazdneni hlasil "1 neprectena" — UID 5+8 zustaly na serveru po trash→trash delete chovani z 15.7. (pricina uz opravena purge cestou, tohle je zbyle strukturalni slepe misto; plati pro vsechny slozky, ne jen kos).
+
+- [ ] Reconciliace server-only UID: `cleanupDeletedViaUidEnumeration` uz ma k dispozici mnozinu vsech server UID i lokalnich UID → server-only zpravy stahnout (envelope), nebo zajistit, ze je pokryje lazy fetch. Pozor na vykon (enumerace bezi kazdy sync cyklus). IT po vzoru [MailSyncGreenMailIT.java](backend/src/test/java/org/voxrox/mailbackend/feature/mail/service/MailSyncGreenMailIT.java).
+
+---
+
 ## Startup follow-up
 
 Backend (headless) cast zmerena a uzavrena — sekce "Startup audit — mereni 2026-06-11" v [backend/PERFORMANCE_BASELINE.md](backend/PERFORMANCE_BASELINE.md). Zbyva jen GUI:
@@ -118,6 +126,7 @@ Backend (headless) cast zmerena a uzavrena — sekce "Startup audit — mereni 2
 Hotove: **Podpisy zprav — Faze 1** (auto-insert + From-swap + manualni tlacitko + per-ucet prepinac, smoke 2026-06-23) a **Tabulka kontaktu** (sloupec Aktualizovano odebran) — detail v [todo-archive.md](todo-archive.md).
 
 - [ ] iCloud OAuth.
+- [ ] **Vlastni stitky kontaktu (Google model):** dnes fixni enum WORK/HOME/OTHER — pridat uzivatelske stitky („Rodina", „Klienti"…). Vyzaduje tabulku stitku misto enumu (backend + migrace + rozsireni `GET /contacts/counts`), spravu stitku v UI a dynamicke polozky v sidebaru — [ContactsSidebar.svelte](frontend/src/lib/components/sidebar/ContactsSidebar.svelte) uz polozky generuje ze seznamu, struktura je pripravena.
 - [ ] Threading Phase 2 (V0.2) — UI grouping toggle, thread row aria-tree, bulk akce, a11y pass. + References-only orphan reconciliation (dite linkuje parenta jen pres `References`) — vyzaduje normalizovanou junction tabulku (token match ve free-text je neindexovatelny). Detail [backend/docs/THREADING_DESIGN.md](backend/docs/THREADING_DESIGN.md).
 - [ ] **Podpisy zprav — Faze 2 (po release):** reply/forward placement vyreseno manualnim tlacitkem (Faze 1) — zbyva uz jen HTML-compose: az vznikne HTML editor, podpis sanitizovat na renderu (reuse [content-sanitizer](frontend/src/lib/mail/content-sanitizer.ts)). Vazba na [[project_desktop_app]] + HTML-compose polozku.
 - [ ] **Interactive IMAP lane — druhe spojeni na ucet pro uzivatelske cteni.** Rozhodovaci gate: implementovat az kdyz beta feedback ukaze "otevreni zpravy/prilohy obcas visi behem syncu" — po fixech z 2026-07-03 (folder-lock dedup, neblokujici dispatch, FolderListCache) je to posledni zdroj cekani na cteci ceste. **Problem:** jeden pooled `Store` na ucet + fair lock ([ImapConnectionManager.java:105](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/ImapConnectionManager.java)); sync drzi zamek po celou folder cyklu ([MailSyncService.java:170](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailSyncService.java) — cely `executeInFolder` = download + flag sweep + cleanup, i desitky sekund), takze prvni fetch tela (`MailContentService.getOrFetchMessageContent`) a stazeni prilohy ([AttachmentService.java:78](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/AttachmentService.java) — cely transfer pod zamkem) cekaji ve FIFO fronte za nim. **Plan:**

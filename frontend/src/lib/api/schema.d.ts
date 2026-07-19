@@ -672,6 +672,26 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
+	'/api/v1/accounts/{accountId}/contacts/counts': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * Contact counts
+		 * @description Returns the total number of contacts of the account plus per-label counts (WORK/HOME/OTHER). A contact is counted for a label when at least one of its e-mail addresses bears it — consistent with the `label` filter of the list endpoint.
+		 */
+		get: operations['getCounts'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 	'/api/v1/accounts/{accountId}/contacts/autocomplete': {
 		parameters: {
 			query?: never;
@@ -1009,8 +1029,8 @@ export interface components {
 			smtp?: components['schemas']['MailServerSettings'];
 			username: string;
 			password?: string;
-			passwordPresentForNewAccount?: boolean;
 			providerOrCustomServerConfigPresent?: boolean;
+			passwordPresentForNewAccount?: boolean;
 		};
 		AccountConnectionTestResponse: {
 			imapOk?: boolean;
@@ -1267,6 +1287,17 @@ export interface components {
 			totalElements?: number;
 			first?: boolean;
 			last?: boolean;
+		};
+		/** @description Contact counts for the sidebar: the account total plus per-label counts. A contact is counted for a label when at least one of its e-mail addresses bears it, so each figure matches the size of the list filtered by the same label. */
+		ContactCountsResponse: {
+			/** Format: int64 */
+			total?: number;
+			/** Format: int64 */
+			work?: number;
+			/** Format: int64 */
+			home?: number;
+			/** Format: int64 */
+			other?: number;
 		};
 		ContactAutocompleteResponse: {
 			/** Format: int64 */
@@ -3631,6 +3662,53 @@ export interface operations {
 				};
 				content: {
 					'text/vcard;charset=UTF-8': string;
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	getCounts: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				accountId: number;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ContactCountsResponse'];
 				};
 			};
 			/** @description Missing or invalid X-API-KEY. */

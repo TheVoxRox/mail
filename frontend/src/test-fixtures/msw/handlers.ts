@@ -333,13 +333,17 @@ function contactRoutes(
 	if (segments.length === 0) {
 		if (method === 'GET') {
 			const q = (url.searchParams.get('q') ?? '').toLowerCase();
-			const filtered = q
+			const label = url.searchParams.get('label');
+			const matchedByQuery = q
 				? contacts.filter((contact) =>
 						[contact.name, contact.surname, ...contact.emails.map((email) => email.email)].some(
 							(value) => value?.toLowerCase().includes(q)
 						)
 					)
 				: contacts;
+			const filtered = label
+				? matchedByQuery.filter((contact) => contact.emails.some((email) => email.label === label))
+				: matchedByQuery;
 			return HttpResponse.json(listPage(filtered, url));
 		}
 		if (method === 'POST') {
@@ -349,6 +353,17 @@ function contactRoutes(
 					HttpResponse.json(upsertContact(accountId, body as ContactCreateRequest), { status: 201 })
 				);
 		}
+	}
+
+	if (segments[0] === 'counts' && method === 'GET') {
+		const countFor = (label: string): number =>
+			contacts.filter((contact) => contact.emails.some((email) => email.label === label)).length;
+		return HttpResponse.json({
+			total: contacts.length,
+			work: countFor('WORK'),
+			home: countFor('HOME'),
+			other: countFor('OTHER')
+		});
 	}
 
 	if (segments[0] === 'bulk') {

@@ -7,6 +7,7 @@ import type {
 	BulkContactDeleteRequest,
 	BulkContactDeleteResponse,
 	ContactAutocompleteResponse,
+	ContactCountsResponse,
 	ContactCreateRequest,
 	ContactMergeRequest,
 	ContactResponse,
@@ -29,6 +30,10 @@ export function listContacts(
 	if (options.sort) params.sort = options.sort;
 	if (options.label) params.label = options.label;
 	return api.get(`/accounts/${accountId}/contacts`, { params });
+}
+
+export function getContactCounts(accountId: number): Promise<ContactCountsResponse> {
+	return api.get<ContactCountsResponse>(`/accounts/${accountId}/contacts/counts`);
 }
 
 export function autocompleteContacts(

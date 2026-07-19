@@ -221,6 +221,58 @@ class ContactRepositoryIT {
         assertThat(byOtherAccount).isEmpty();
     }
 
+    @Nested
+    @DisplayName("Contact counts")
+    class Counts {
+
+        private void addEmail(ContactEntity c, String email, EmailLabel label) {
+            ContactEmailEntity e = new ContactEmailEntity();
+            e.setEmail(email);
+            e.setLabel(label);
+            e.setPrimary(false);
+            e.setContact(c);
+            c.getEmails().add(e);
+        }
+
+        @Test
+        @DisplayName("countByAccountId counts only the account's own contacts")
+        void totalIsAccountScoped() {
+            contactRepository.saveAndFlush(newContact(account, "a@x.cz", null, null));
+            contactRepository.saveAndFlush(newContact(account, "b@x.cz", null, null));
+            contactRepository.saveAndFlush(newContact(otherAccount, "c@x.cz", null, null));
+
+            assertThat(contactRepository.countByAccountId(account.getId())).isEqualTo(2);
+            assertThat(contactRepository.countByAccountId(otherAccount.getId())).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("label counts are DISTINCT per contact and skip unlabeled emails and foreign accounts")
+        void labelCountsDistinctPerContact() {
+            // A contact with two WORK addresses must count once for WORK — the
+            // grouped count has to match the size of the label-filtered list.
+            ContactEntity doubleWork = newContact(account, "w1@x.cz", "A", null);
+            doubleWork.getEmails().get(0).setLabel(EmailLabel.WORK);
+            addEmail(doubleWork, "w2@x.cz", EmailLabel.WORK);
+            addEmail(doubleWork, "h@x.cz", EmailLabel.HOME);
+            contactRepository.saveAndFlush(doubleWork);
+
+            ContactEntity work2 = newContact(account, "w3@x.cz", "B", null);
+            work2.getEmails().get(0).setLabel(EmailLabel.WORK);
+            addEmail(work2, "plain@x.cz", null);
+            contactRepository.saveAndFlush(work2);
+
+            ContactEntity foreign = newContact(otherAccount, "f@x.cz", "C", null);
+            foreign.getEmails().get(0).setLabel(EmailLabel.WORK);
+            contactRepository.saveAndFlush(foreign);
+            em.clear();
+
+            List<ContactLabelCount> counts = contactRepository.countByAccountIdGroupedByLabel(account.getId());
+
+            assertThat(counts).containsExactlyInAnyOrder(new ContactLabelCount(EmailLabel.WORK, 2L),
+                    new ContactLabelCount(EmailLabel.HOME, 1L));
+        }
+    }
+
     @Test
     @DisplayName("setPrimaryEmail promoting a lower-id email must not violate the one-primary index")
     void setPrimaryEmailPromotesLowerId() {

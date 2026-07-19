@@ -11,6 +11,8 @@
 	} from '$lib/api/contacts.js';
 	import { toError } from '$lib/api/errors.js';
 	import { accountsState, setActiveAccount } from '$lib/stores/accounts.js';
+	import { refreshContactCounts } from '$lib/stores/contactCounts.js';
+	import { contactSortPreference } from '$lib/stores/contactSort.js';
 	import { getClientConfigSnapshot } from '$lib/stores/clientConfig.js';
 	import { _ } from '$lib/i18n/index.js';
 	import { announcePolite, pushToast } from '$lib/stores/toasts.js';
@@ -61,6 +63,11 @@
 		preserveCurrent = false
 	) {
 		if (!preserveCurrent) listState = { status: 'loading' };
+		// Every list reload — mutation callbacks (create/edit/delete/merge/import
+		// all funnel into onChanged → load), filters, pagination — also refreshes
+		// the sidebar count badges. Fire-and-forget: badge staleness must never
+		// block or fail the list itself.
+		void refreshContactCounts(accountId);
 		try {
 			const result = await listContacts(accountId, {
 				q: query || undefined,
@@ -72,14 +79,21 @@
 			listState = { status: 'ready', page: result };
 			if (announceNextLoad) {
 				announceNextLoad = false;
+				const info = $_('contacts.pageInfo', {
+					values: {
+						current: result.page + 1,
+						total: Math.max(1, result.totalPages),
+						totalCount: $_('contacts.totalCount', { values: { count: result.totalElements } })
+					}
+				});
+				// With a label filter the reload is otherwise indistinguishable from
+				// the unfiltered list for a screen-reader user — name the view.
 				announcePolite(
-					$_('contacts.pageInfo', {
-						values: {
-							current: result.page + 1,
-							total: Math.max(1, result.totalPages),
-							totalCount: $_('contacts.totalCount', { values: { count: result.totalElements } })
-						}
-					})
+					label == null
+						? info
+						: $_('contacts.pageInfoLabeled', {
+								values: { label: $_(`contacts.labelOptions.${label}`), info }
+							})
 				);
 			}
 		} catch (err) {
@@ -174,6 +188,9 @@
 	}
 
 	function handleFilterApply(filters: { sort: ContactSort | null; label: EmailLabel | null }) {
+		// Remember the sort as a view preference so sidebar view links (clean
+		// URLs) do not reset it; null means the 'surname' default.
+		contactSortPreference.set(filters.sort ?? 'surname');
 		void goto(contactsHref(filters), { keepFocus: true, noScroll: true });
 	}
 
@@ -212,6 +229,15 @@
 		goToPage(listState.page.totalPages - 1);
 	}
 
+	// The list heading, window title and reload announcement all carry the
+	// active label so the view is identifiable without inspecting the filter UI.
+	const activeLabelName = $derived(data.label ? $_(`contacts.labelOptions.${data.label}`) : null);
+	const windowTitle = $derived(
+		activeLabelName
+			? $_('contacts.pageTitleLabeled', { values: { label: activeLabelName } })
+			: $_('contacts.pageTitle')
+	);
+
 	let dragActive = $state(false);
 	let importing = $state(false);
 
@@ -249,7 +275,7 @@
 </script>
 
 <svelte:head>
-	<title>{$_('contacts.pageTitle')}</title>
+	<title>{windowTitle}</title>
 </svelte:head>
 
 <svelte:window
@@ -295,7 +321,10 @@
 		</div>
 	</section>
 {:else}
-	<PageShell title={$_('contacts.listHeading')} contentClass="max-w-4xl space-y-4">
+	<PageShell
+		title={activeLabelName ?? $_('contacts.listHeading')}
+		contentClass="max-w-4xl space-y-4"
+	>
 		<Surface as="section" variant="list" padding="none">
 			{#if listState.status === 'loading'}
 				<StateMessage>{$_('contacts.loading')}</StateMessage>

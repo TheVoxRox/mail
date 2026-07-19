@@ -144,6 +144,13 @@ test.describe('Přístupnost', () => {
 		const contactsPane = page.getByRole('region', { name: 'Podokno kontaktů' });
 		await expect(contactsPane.getByRole('search', { name: 'Hledání v kontaktech' })).toHaveCount(1);
 		await expect(page.getByRole('navigation').getByRole('search')).toHaveCount(0);
+		// Contact views mirror the mail folder list: real links inside a named
+		// <nav>; the import/export actions stay buttons outside of it.
+		const contactsNav = contactsPane.getByRole('navigation', { name: 'Zobrazení kontaktů' });
+		await expect(contactsNav).toBeVisible();
+		await expect(contactsNav.getByRole('link', { name: /^Kontakty/ })).toBeVisible();
+		await expect(contactsNav.getByRole('button')).toHaveCount(0);
+		await expect(contactsPane.getByRole('button', { name: 'Importovat vCard' })).toBeVisible();
 	});
 
 	test('podokno nastavení je region bez vnořené navigace', async ({ page }) => {

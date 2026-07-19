@@ -1,6 +1,6 @@
 import type { ContactCreateRequest, EmailLabel } from '$lib/types.js';
 
-const KNOWN_LABELS: readonly EmailLabel[] = ['WORK', 'HOME', 'OTHER'];
+const KNOWN_LABELS: readonly EmailLabel[] = ['HOME', 'WORK', 'OTHER'];
 
 function unfoldLines(text: string): string[] {
 	return text.replace(/\r?\n[ \t]/g, '').split(/\r?\n/);
