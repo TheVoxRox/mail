@@ -75,3 +75,8 @@ frontend/src/lib/commands/paletteRanking.test.ts -- Two assertions verify normal
 frontend/src/lib/accounts/accountLabel.test.ts -- Fixtures 'Práce: info@post.cz' and 'info@post.cz - Práce' verify the label builder preserves a non-ASCII Czech free-text display name while stripping the embedded address and dangling separators; ASCII-only data would not exercise Unicode safety.
 frontend/src/lib/compose/addresses.test.ts -- Assertion isValidEmailAddress('café@münchen.de') verifies internationalised (IDN / UTF-8) e-mail addresses are accepted; the diacritics are the test payload.
 frontend/src/lib/stores/notifications.test.ts -- Asserts the send-outcome toasts (pending / completed / failed / recovery-draft / unverified-fallback) render the exact cs.json strings; the Czech text is the load-bearing expected value against the real locale bundle.
+
+# --- Attachment reminder: Czech keyword heuristic ---
+
+frontend/src/lib/compose/attachmentReminder.ts -- Comments document the Czech phrasings each diacritic-stripped keyword stem covers (příloha/přiložil/přikládám vs. the "příklad" collision) and the backend's exact quote-header literal ("---------- Původní zpráva ----------"); the Czech words are the specification of the heuristic, not programmer prose.
+frontend/src/lib/compose/attachmentReminder.test.ts -- Czech bodies ("Posílám fakturu v příloze.", "Uvedu příklad z praxe.") are the load-bearing inputs of the detection heuristic; ASCII-only data would not exercise diacritic normalization or the příklad/přikládám disambiguation.

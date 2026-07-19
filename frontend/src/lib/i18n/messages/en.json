@@ -189,6 +189,11 @@
 			"descriptionDraftDeleted": "The message you are writing will be discarded. Its draft will be deleted.",
 			"discard": "Discard"
 		},
+		"attachmentReminder": {
+			"title": "Send without an attachment?",
+			"description": "The message mentions an attachment, but none is attached.",
+			"sendAnyway": "Send without attachment"
+		},
 		"fieldFrom": "From:",
 		"fieldTo": "To:",
 		"fieldCc": "Cc:",

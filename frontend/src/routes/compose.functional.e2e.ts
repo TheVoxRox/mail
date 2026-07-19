@@ -127,6 +127,60 @@ test.describe('Compose', () => {
 		await expect(page.getByRole('heading', { name: 'Doručené' })).toBeVisible();
 	});
 
+	test('zmínka přílohy bez přílohy otevře potvrzení: Zrušit neodešle, potvrzení odešle', async ({
+		page
+	}) => {
+		let sendRequests = 0;
+		page.on('request', (request) => {
+			if (request.method() === 'POST' && request.url().includes('/send')) sendRequests += 1;
+		});
+
+		await page.goto('/compose');
+		await waitForShell(page);
+
+		await page.locator('#compose-to').fill('recipient@example.com');
+		await page.locator('#compose-subject').fill('Faktura');
+		await page.locator('#compose-body').fill('Posílám fakturu v příloze.');
+		await page.getByRole('button', { name: 'Odeslat' }).click();
+
+		const dialog = page.getByRole('dialog', { name: 'Odeslat bez přílohy?' });
+		await expect(dialog).toBeVisible();
+		await dialog.getByRole('button', { name: 'Zrušit' }).click();
+		await expect(dialog).toHaveCount(0);
+
+		// Cancel keeps the composer intact and nothing was sent.
+		await expect(page.getByRole('form', { name: 'Nová zpráva' })).toBeVisible();
+		await expect(page.locator('#compose-body')).toHaveValue('Posílám fakturu v příloze.');
+		expect(sendRequests).toBe(0);
+
+		await page.getByRole('button', { name: 'Odeslat' }).click();
+		await expect(dialog).toBeVisible();
+		await dialog.getByRole('button', { name: 'Odeslat bez přílohy' }).click();
+
+		await page.waitForURL('**/mail/1/INBOX');
+		expect(sendRequests).toBe(1);
+	});
+
+	test('zpráva s připojenou přílohou se odešle bez potvrzovacího dialogu', async ({ page }) => {
+		await page.goto('/compose');
+		await waitForShell(page);
+
+		await page.locator('#compose-to').fill('recipient@example.com');
+		await page.locator('#compose-subject').fill('Faktura');
+		await page.locator('#compose-body').fill('Posílám fakturu v příloze.');
+		await page.locator('input[type="file"]').setInputFiles({
+			name: 'faktura.txt',
+			mimeType: 'text/plain',
+			buffer: Buffer.from('Obsah faktury')
+		});
+		await expect(page.getByText('faktura.txt')).toBeVisible();
+
+		await page.getByRole('button', { name: 'Odeslat' }).click();
+
+		await page.waitForURL('**/mail/1/INBOX');
+		await expect(page.getByRole('dialog', { name: 'Odeslat bez přílohy?' })).toHaveCount(0);
+	});
+
 	test('odeslání bez příjemce zobrazí chybu u pole Komu a zůstane na compose', async ({ page }) => {
 		await page.goto('/compose');
 		await waitForShell(page);

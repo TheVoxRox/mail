@@ -189,6 +189,11 @@
 			"descriptionDraftDeleted": "Rozepsaná zpráva bude zahozena. Koncept bude smazán.",
 			"discard": "Zahodit"
 		},
+		"attachmentReminder": {
+			"title": "Odeslat bez přílohy?",
+			"description": "Zpráva zmiňuje přílohu, ale žádná není připojena.",
+			"sendAnyway": "Odeslat bez přílohy"
+		},
 		"fieldFrom": "Od:",
 		"fieldTo": "Komu:",
 		"fieldCc": "Kopie:",
