@@ -226,7 +226,7 @@
 					default severities fail the build on ERROR-level findings; NullAway
 					runs at ERROR on main sources — the codebase is annotated with
 					JSpecify @Nullable (burn-down completed 2026-06-11, history in
-					docs/STATIC_ANALYSIS.md).
+					../docs/STATIC_ANALYSIS.md).
 
 					NullAway is disabled for test sources: Mockito mocks and @BeforeEach
 					initialization would produce noise without adding safety.
@@ -277,7 +277,7 @@
 									desktop app, timestamps (last_sync_at, received_at) are stored
 									and displayed in the machine's local wall-clock time by design.
 									Migrating to Instant/UTC is a schema + product decision tracked
-									in docs/STATIC_ANALYSIS.md, not something to silence per call.
+									in ../docs/STATIC_ANALYSIS.md, not something to silence per call.
 								-->
 								<arg>-Xplugin:ErrorProne -XepExcludedPaths:.*[\\/]target[\\/].* -Xep:JavaTimeDefaultTimeZone:OFF -Xep:NullAway:ERROR -XepOpt:NullAway:AnnotatedPackages=org.voxrox -XepOpt:NullAway:ExcludedFieldAnnotations=jakarta.persistence.Id,jakarta.persistence.GeneratedValue,jakarta.persistence.Version</arg>
 							</compilerArgs>

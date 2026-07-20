@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| **Version** | 2.4 |
-| **Last revised** | 2026-07-18 |
+| **Version** | 2.5 |
+| **Last revised** | 2026-07-20 |
 | **Applies to** | VoxRox Mail V0.1.0 |
 | **Status** | Active — read by PR reviewers when changes cross a trust boundary |
 
@@ -223,8 +223,15 @@ When touching code that crosses one of the boundaries above:
 
 ## 7. Change log
 
+Convention (since v2.5): an entry recording a subsystem audit is a **one-liner**
+— verdict, audited commit, link. The full audit summary lives in the audit
+doc's own change log ([docs/AUDIT_GUIDE.md](docs/AUDIT_GUIDE.md) §5); repeating
+it here created a third copy that had to be kept in sync. Entries describing
+changes to *this document's* threats/mitigations stay as detailed as needed.
+
 | Version | Date | Summary |
 |---|---|---|
+| 2.5 | 2026-07-20 | Docs consolidation — no threat or mitigation changes. [backend/SECURITY_RELEASE_CHECK.md](backend/SECURITY_RELEASE_CHECK.md) v2.0 replaced its per-boundary audit summaries with a verdict index, so an audit claim now lives in 2 places (audit doc + this model) instead of 3+. Adopted the one-line convention above for future audit entries; removed the duplicate SECURITY_RELEASE_CHECK reference in §8. |
 | 2.4 | 2026-07-18 | Trued the signing posture to reality (#170 finding 5): the repo has no `WINDOWS_CERTIFICATE_BASE64` secret, so shipped installers carry **no Authenticode signature** — and this is now a **decision** (2026-07-18: a paid cert is not justified for the open-source project), not a pending item. Removed the Authenticode claims from the §1 adversary table, the data-flow diagram and the Boundary 6 `T`/`E` rows (the Ed25519 update path never depended on it); recorded the unsigned **first install** as new accepted residual **AR-4** (SmartScreen "Unknown publisher"; manual verification via the Sigstore build-provenance attestation + `.sha256`, per END_USER_README / WINDOWS_SIGNING.md). AR-3 stays retired (closed in code, v2.2 — the number is not reused). |
 | 2.3 | 2026-07-11 | Boundary 6 re-verified after the release-channels change (stable/beta) — verdict stays **PASS**, see [docs/UPDATER_AUDIT.md](docs/UPDATER_AUDIT.md) v1.2. The WebView no longer holds **any** updater plugin permissions (`updater:allow-check` / `updater:allow-download-and-install` dropped from [capabilities/default.json](frontend/src-tauri/capabilities/default.json)); update check/install now go through two app-defined shell commands (`check_for_update` / `install_pending_update` in [lib.rs](frontend/src-tauri/src/lib.rs)) that accept only the channel **names** `stable`/`beta` — a compromised renderer can pick between two pinned endpoints but can never supply a URL or install path. The beta endpoint is a compile-time constant (build-time `TAURI_UPDATER_BETA_ENDPOINT` override only), HTTPS `github.com`, verified against the same pinned pubkey. Boundary 6 `T`/`D` rows updated (channels also shrink a bad ship's blast radius to opt-in beta users). Also fixed the stale header version (said 2.1 while the log already had 2.2). |
 | 2.2 | 2026-07-10 | Accepted residual **AR-3** (B1-1, unbounded message-body fetch) **closed in code** and removed from §5: the body text is now read through the same bounded stream as inline images (8 MiB transfer-decoded cap in `MimePartExtractor`; Angus partial fetch keeps the transfer chunked), an oversized body persists the `messages.body_oversize` flag instead of any content (nothing enters the DB or the FTS index) and the API serves a localized "message too large" placeholder, with later opens short-circuiting IMAP entirely. `multipart/alternative` degrades to a fitting plain-text part before falling back to the placeholder. Boundary 1 second `D` row updated; audit record in [docs/IMAP_SMTP_AUDIT.md](docs/IMAP_SMTP_AUDIT.md) v1.1. |
@@ -244,7 +251,7 @@ When touching code that crosses one of the boundaries above:
 ## 8. References
 
 - [SECURITY.md](SECURITY.md) — disclosure process for vulnerabilities.
-- [backend/SECURITY_RELEASE_CHECK.md](backend/SECURITY_RELEASE_CHECK.md) — per-release security audit checklist.
+- [backend/SECURITY_RELEASE_CHECK.md](backend/SECURITY_RELEASE_CHECK.md) — pre-release security gate: audit verdict index + cross-cutting checks (secret scan, log hygiene, dependency audits).
+- [docs/AUDIT_GUIDE.md](docs/AUDIT_GUIDE.md) — how subsystem audits are produced; map of the six per-boundary audit docs.
 - [PRIVACY.md](PRIVACY.md) / [PRIVACY.en.md](PRIVACY.en.md) — what data is stored where.
 - [OPERATIONS.md](backend/OPERATIONS.md) — recovery procedures (backup restore, crypto rotation).
-- [SECURITY_RELEASE_CHECK.md](backend/SECURITY_RELEASE_CHECK.md) — pre-release security gate.

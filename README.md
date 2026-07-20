@@ -60,6 +60,11 @@ npm run dev
 
 ## Documentation
 
+Every doc is one of three kinds: **living** (kept current; the security-relevant
+ones carry a version header + change log), **snapshot** (a dated record that is
+no longer updated — marked with a banner in the file), or **worksheet** (filled
+in per release candidate). Unmarked entries below are living.
+
 Module-level entry points:
 
 - [`backend/README.md`](backend/README.md) — backend stack, quick start, operations TOC
@@ -69,16 +74,25 @@ Module-level entry points:
 Operations and release:
 
 - [`backend/OPERATIONS.md`](backend/OPERATIONS.md) — operations runbook (data directory, logs, recovery)
-- [`backend/RELEASE_CHECKLIST.md`](backend/RELEASE_CHECKLIST.md) — release checklist
-- [`backend/SECURITY_RELEASE_CHECK.md`](backend/SECURITY_RELEASE_CHECK.md) — pre-release security review
-- [`backend/PERFORMANCE_BASELINE.md`](backend/PERFORMANCE_BASELINE.md) — cold-start and runtime baselines
+- [`backend/RELEASE_CHECKLIST.md`](backend/RELEASE_CHECKLIST.md) — release checklist + per-candidate smoke worksheet appendix (worksheet)
+- [`backend/PERFORMANCE_BASELINE.md`](backend/PERFORMANCE_BASELINE.md) — cold-start and runtime baselines (worksheet)
 - [`frontend/docs/WINDOWS_SIGNING.md`](frontend/docs/WINDOWS_SIGNING.md) — Windows code signing + Tauri updater setup
 
 Contributing and security:
 
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — contributor guide: local setup, quality gates, commit conventions
 - [`SECURITY.md`](SECURITY.md) — security policy: supported versions, how to report vulnerabilities
-- [`SECURITY_THREAT_MODEL.md`](SECURITY_THREAT_MODEL.md) — security threat model
+- [`SECURITY_THREAT_MODEL.md`](SECURITY_THREAT_MODEL.md) — security threat model (single source for boundaries, STRIDE, accepted risks)
+- [`docs/AUDIT_GUIDE.md`](docs/AUDIT_GUIDE.md) — how subsystem security audits are produced; includes the map of the six per-boundary audit docs in `docs/`
+- [`backend/SECURITY_RELEASE_CHECK.md`](backend/SECURITY_RELEASE_CHECK.md) — pre-release security gate: audit verdict index + cross-cutting checks (secret scan, log hygiene, dependency audits)
+
+Engineering records:
+
+- [`docs/STATIC_ANALYSIS.md`](docs/STATIC_ANALYSIS.md) — static-analysis policy, backend + frontend
+- [`backend/docs/CONCURRENCY.md`](backend/docs/CONCURRENCY.md) — shared-mutable-state inventory and locking rules
+- [`backend/docs/THREADING_DESIGN.md`](backend/docs/THREADING_DESIGN.md) — threading/conversations design rationale (snapshot)
+- [`backend/docs/OPENAPI_AUDIT.md`](backend/docs/OPENAPI_AUDIT.md) — OpenAPI surface audit, 2026-06-01 (snapshot)
+- [`docs/COMPOSE_DRAFT_LIFECYCLE.md`](docs/COMPOSE_DRAFT_LIFECYCLE.md) — compose/draft lifecycle redesign record (snapshot)
 
 History:
 

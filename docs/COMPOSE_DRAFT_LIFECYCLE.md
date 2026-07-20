@@ -1,5 +1,10 @@
 # Compose draft lifecycle — redesign (send review, batch 3)
 
+> **HISTORICAL SNAPSHOT.** Redesign record, implemented 2026-07-13 and not
+> updated since. The findings table below describes **pre-fix** behavior
+> ("verified against current code" meant the code *before* the fix landed) —
+> it does not describe current code.
+
 Status: **IMPLEMENTED 2026-07-13** — PR-A (backend contract, commit `04266c1`) and PR-B (frontend, branch `feat/draft-lifecycle-frontend`) landed. Discard deletes the draft; no local mirror (server-side recovery instead). Full unit + functional + a11y e2e green.
 Scope: the eight interacting findings from the send-path review ([PR #145](https://github.com/TheVoxRox/mail/pull/145) "Remaining → Batch 3"), plus two small items deferred from the batch-2 tail review.
 
