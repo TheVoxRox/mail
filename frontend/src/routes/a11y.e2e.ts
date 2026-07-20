@@ -552,6 +552,19 @@ test.describe('Přístupnost', () => {
 			page.locator(`[role="row"][data-stable-id="${mailFixture.stableId}"]`)
 		).toHaveAttribute('aria-current', 'page');
 
+		// The aria-current row only proves the list hydrated. The Esc handler
+		// (MessageDetail) no-ops until selectedMessage resolves from the API,
+		// and MessageContent then moves focus into the body iframe — so an
+		// Escape pressed too early is either ignored or lands inside the
+		// iframe document and never reaches the window listener. Wait for the
+		// loaded body and for the focus move to settle before focusing <main>.
+		const bodyRegion = page.getByRole('region', { name: 'Text zprávy' });
+		await expect(bodyRegion).toBeVisible();
+		const frame = page.getByTitle('Obsah zprávy');
+		// activeElement poll instead of toBeFocused() — same headless-Chromium
+		// workaround as in detail-focus.functional.e2e.ts.
+		await expect.poll(() => frame.evaluate((el) => el === document.activeElement)).toBe(true);
+
 		await page.locator('main').focus();
 		await page.keyboard.press('Escape');
 
