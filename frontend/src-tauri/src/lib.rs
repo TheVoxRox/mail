@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use tauri::{WebviewUrl, WebviewWindowBuilder};
+use tauri::{LogicalSize, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_log::{Target, TargetKind};
 use tauri_plugin_updater::UpdaterExt;
 
@@ -28,6 +28,21 @@ pub fn run() {
             log::info!("Log directory: {}", log_dir.display());
             log::info!("WebView2 user data directory: {}", webview_dir.display());
 
+            let work_area = app.primary_monitor().ok().flatten().map(|monitor| {
+                monitor
+                    .work_area()
+                    .size
+                    .to_logical::<f64>(monitor.scale_factor())
+            });
+            let (restore_size, min_size) = window_sizes_for(work_area);
+            log::info!(
+                "Window sizing (logical px): restore {}x{}, min {}x{}",
+                restore_size.width,
+                restore_size.height,
+                min_size.width,
+                min_size.height
+            );
+
             // Created with a "loading" title (cs = default locale) so a screen
             // reader reading the window name on focus — before the webview even
             // hydrates — already conveys that the app is starting. The frontend
@@ -35,9 +50,10 @@ pub fn run() {
             // app name once boot reaches 'ready'/'failed'.
             WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
                 .title("VoxRox Mail – načítání…")
-                .inner_size(1280.0, 800.0)
-                .min_inner_size(1024.0, 768.0)
+                .inner_size(restore_size.width, restore_size.height)
+                .min_inner_size(min_size.width, min_size.height)
                 .resizable(true)
+                .maximized(true)
                 .data_directory(webview_dir.clone())
                 .build()?;
 
@@ -45,6 +61,40 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+/// Restored (un-maximized) and minimum inner window size in logical px,
+/// clamped to the monitor's work area. The 1280×800 / 1024×768 defaults
+/// mirror the layout baselines in `viewport.functional.e2e.ts`, but they are
+/// logical pixels: at 150–200 % display scaling (typical low-vision setups)
+/// the 1024×768 minimum exceeds the whole screen, so an un-maximized window
+/// would overflow past the taskbar with no way to shrink it. `None` (no
+/// primary monitor detected) keeps the defaults.
+fn window_sizes_for(work_area: Option<LogicalSize<f64>>) -> (LogicalSize<f64>, LogicalSize<f64>) {
+    const RESTORE: LogicalSize<f64> = LogicalSize {
+        width: 1280.0,
+        height: 800.0,
+    };
+    const MIN: LogicalSize<f64> = LogicalSize {
+        width: 1024.0,
+        height: 768.0,
+    };
+
+    let Some(area) = work_area else {
+        return (RESTORE, MIN);
+    };
+
+    // The work area bounds the *outer* frame; keep room for the title bar and
+    // resize borders (Win11 ≈ 40 logical px vertically, 16 horizontally). The
+    // floor guards against nonsensical monitor info.
+    let max_inner_width = (area.width - 16.0).max(320.0);
+    let max_inner_height = (area.height - 40.0).max(240.0);
+
+    let clamp = |size: LogicalSize<f64>| LogicalSize {
+        width: size.width.min(max_inner_width),
+        height: size.height.min(max_inner_height),
+    };
+    (clamp(RESTORE), clamp(MIN))
 }
 
 /// The `Update` found by the last `check_for_update`, held so that
@@ -185,8 +235,9 @@ fn configure_log_plugin<R: tauri::Runtime>(log_dir: PathBuf) -> tauri::plugin::T
 
 #[cfg(test)]
 mod tests {
-    use super::{beta_endpoint_override, data_root_under, UpdateMetadata};
+    use super::{beta_endpoint_override, data_root_under, window_sizes_for, UpdateMetadata};
     use std::path::{Path, PathBuf};
+    use tauri::LogicalSize;
 
     #[test]
     fn stable_channel_keeps_the_baked_endpoints() {
@@ -221,6 +272,81 @@ mod tests {
         assert_eq!(value["version"], "0.2.0-beta.1");
         assert_eq!(value["currentVersion"], "0.1.0");
         assert!(value["date"].is_null());
+    }
+
+    #[test]
+    fn window_sizes_keep_defaults_on_a_large_work_area() {
+        let (restore, min) = window_sizes_for(Some(LogicalSize {
+            width: 1904.0,
+            height: 1040.0,
+        }));
+        assert_eq!(
+            restore,
+            LogicalSize {
+                width: 1280.0,
+                height: 800.0
+            }
+        );
+        assert_eq!(
+            min,
+            LogicalSize {
+                width: 1024.0,
+                height: 768.0
+            }
+        );
+    }
+
+    #[test]
+    fn window_sizes_keep_defaults_without_a_monitor() {
+        assert_eq!(
+            window_sizes_for(None),
+            window_sizes_for(Some(LogicalSize {
+                width: 4000.0,
+                height: 4000.0,
+            }))
+        );
+    }
+
+    #[test]
+    fn window_sizes_clamp_restore_height_on_a_125_percent_1080p_display() {
+        // 1920×1080 at 125 % scaling: logical work area ≈ 1536×824 with the
+        // taskbar deducted. Only the restored height overflows (by ~16 px).
+        let (restore, min) = window_sizes_for(Some(LogicalSize {
+            width: 1536.0,
+            height: 824.0,
+        }));
+        assert_eq!(
+            restore,
+            LogicalSize {
+                width: 1280.0,
+                height: 784.0
+            }
+        );
+        assert_eq!(
+            min,
+            LogicalSize {
+                width: 1024.0,
+                height: 768.0
+            }
+        );
+    }
+
+    #[test]
+    fn window_sizes_clamp_everything_on_a_200_percent_1080p_display() {
+        // 1920×1080 at 200 % scaling: logical work area ≈ 960×516 — smaller
+        // than the 1024×768 minimum in both axes.
+        let (restore, min) = window_sizes_for(Some(LogicalSize {
+            width: 960.0,
+            height: 516.0,
+        }));
+        assert_eq!(
+            restore,
+            LogicalSize {
+                width: 944.0,
+                height: 476.0
+            }
+        );
+        assert_eq!(min, restore);
     }
 
     #[test]
