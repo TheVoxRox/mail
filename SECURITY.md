@@ -6,14 +6,25 @@ available.
 
 ## Supported Versions
 
-VoxRox Mail is in active development. Only the latest released installer
-(distributed via the GitHub Releases page) is supported with security
-fixes. Pre-release tags and unreleased commits are not covered.
+VoxRox Mail is in active development. Only the newest build on each
+update channel is supported with security fixes:
 
-| Version  | Supported              |
-| -------- | ---------------------- |
-| `latest` | Yes — current release  |
-| Older    | No — please update     |
+- **Stable channel** — the latest release published on the GitHub
+  Releases page.
+- **Beta channel** (opt-in via Settings → About) — the latest beta
+  prerelease. Security fixes reach beta installs as the next beta or
+  stable release, whichever ships first; every stable publish also
+  updates the beta channel manifest, so the beta channel never lags
+  behind stable.
+
+Older releases, superseded beta builds and unreleased commits are not
+covered.
+
+| Version                               | Supported                                      |
+| ------------------------------------- | ---------------------------------------------- |
+| `latest` (stable channel)             | Yes — current release                          |
+| Latest beta prerelease (beta channel) | Yes — until the next beta or stable build      |
+| Older or superseded builds            | No — please update                             |
 
 ## Reporting a Vulnerability
 
