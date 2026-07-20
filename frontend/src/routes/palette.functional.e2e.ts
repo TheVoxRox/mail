@@ -231,6 +231,60 @@ test.describe('Command palette', () => {
 		await expect(page.locator('#compose-subject')).toHaveValue(fixture.replyPrefill.subject);
 	});
 
+	test('najde příkaz i při přehozeném pořadí slov dotazu', async ({ page }) => {
+		await page.goto(
+			`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}/${encodeURIComponent(fixture.stableId)}`
+		);
+		await waitForShell(page);
+		await expect(page.getByRole('heading', { name: 'Projektové podklady' })).toBeVisible();
+
+		await openPalette(page);
+		await page.locator('#command-palette-input').fill('všem odpovědět');
+		await expect(page.getByRole('option', { name: /Odpovědět všem/ })).toBeVisible();
+	});
+
+	test('toggle příkaz vrátí fokus na prvek fokusovaný před otevřením palety', async ({ page }) => {
+		await page.goto(
+			`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}/${encodeURIComponent(fixture.stableId)}`
+		);
+		await waitForShell(page);
+		await expect(page.getByRole('heading', { name: 'Projektové podklady' })).toBeVisible();
+
+		const archiveLink = page.getByRole('link', { name: 'Archiv' });
+		await archiveLink.focus();
+		await expect(archiveLink).toBeFocused();
+
+		await openPalette(page);
+		await page.locator('#command-palette-input').fill('hvězdičkou');
+		await expect(page.getByRole('option', { name: /Označit hvězdičkou/ })).toBeVisible();
+		await page.keyboard.press('Enter');
+
+		await expect(page.getByRole('dialog', { name: 'Příkazy' })).toBeHidden();
+		await expect(archiveLink).toBeFocused();
+	});
+
+	test('dvojité Ctrl+K nerozbije obnovu fokusu po Escape', async ({ page }) => {
+		await page.goto('/');
+		await waitForShell(page);
+		// The global keydown listener attaches on hydration; the E2E hook
+		// appearing proves the layout has mounted.
+		await page.waitForFunction(() => typeof window.__MAIL_E2E__?.openPalette === 'function');
+
+		const archiveLink = page.getByRole('link', { name: 'Archiv' });
+		await archiveLink.focus();
+		await expect(archiveLink).toBeFocused();
+
+		await page.keyboard.press('Control+k');
+		await expect(page.getByRole('dialog', { name: 'Příkazy' })).toBeVisible();
+		await expect(page.locator('#command-palette-input')).toBeFocused();
+		await page.keyboard.press('Control+k');
+		await expect(page.getByRole('dialog', { name: 'Příkazy' })).toBeVisible();
+
+		await page.keyboard.press('Escape');
+		await expect(page.getByRole('dialog', { name: 'Příkazy' })).toBeHidden();
+		await expect(archiveLink).toBeFocused();
+	});
+
 	test('na detailu nabídne command pro přesun zprávy do složky', async ({ page }) => {
 		await page.goto(
 			`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}/${encodeURIComponent(fixture.moveStableId)}`

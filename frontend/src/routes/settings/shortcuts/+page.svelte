@@ -2,6 +2,7 @@
 	import { PageShell } from '$lib/components/ui/page-shell/index.js';
 	import { Surface } from '$lib/components/ui/surface/index.js';
 	import { _ } from '$lib/i18n/index.js';
+	import { SHORTCUT_LABELS } from '$lib/shortcuts/shortcutLabels.js';
 
 	type Shortcut = {
 		/** Literal key name rendered as-is (Ctrl+1, Delete, …). */
@@ -18,31 +19,33 @@
 	};
 
 	/*
-	 * Hand-maintained mirror of the real handlers — keep in sync with
-	 * lib/shortcuts/globalShortcuts.ts, lib/components/compose/controller.ts
-	 * and lib/components/grid/rowNavigation.ts (each carries a reminder).
+	 * Scope/action rows are a hand-maintained mirror of the real handlers —
+	 * keep in sync with lib/shortcuts/globalShortcuts.ts,
+	 * lib/components/compose/controller.ts and
+	 * lib/components/grid/rowNavigation.ts (each carries a reminder). Labels
+	 * of the global shortcuts come from lib/shortcuts/shortcutLabels.ts.
 	 */
 	const groups: ShortcutGroup[] = [
 		{
 			headingKey: 'settings.shortcuts.groups.navigation',
 			shortcuts: [
 				{
-					shortcut: 'Ctrl+1',
+					shortcut: SHORTCUT_LABELS.workspaceMail,
 					actionKey: 'settings.shortcuts.actions.mail',
 					scopeKey: 'settings.shortcuts.scopes.global'
 				},
 				{
-					shortcut: 'Ctrl+2',
+					shortcut: SHORTCUT_LABELS.workspaceContacts,
 					actionKey: 'settings.shortcuts.actions.contacts',
 					scopeKey: 'settings.shortcuts.scopes.global'
 				},
 				{
-					shortcut: 'Ctrl+3',
+					shortcut: SHORTCUT_LABELS.workspaceSettings,
 					actionKey: 'settings.shortcuts.actions.settings',
 					scopeKey: 'settings.shortcuts.scopes.global'
 				},
 				{
-					shortcut: '?',
+					shortcut: SHORTCUT_LABELS.shortcutHelp,
 					actionKey: 'settings.shortcuts.actions.shortcutHelp',
 					scopeKey: 'settings.shortcuts.scopes.global'
 				}
@@ -52,42 +55,42 @@
 			headingKey: 'settings.shortcuts.groups.mail',
 			shortcuts: [
 				{
-					shortcut: 'Ctrl+N',
+					shortcut: SHORTCUT_LABELS.newItem,
 					actionKey: 'settings.shortcuts.actions.newMessage',
 					scopeKey: 'settings.shortcuts.scopes.mailOrSettings'
 				},
 				{
-					shortcut: 'Ctrl+R',
+					shortcut: SHORTCUT_LABELS.reply,
 					actionKey: 'settings.shortcuts.actions.reply',
 					scopeKey: 'settings.shortcuts.scopes.openMessage'
 				},
 				{
-					shortcut: 'Ctrl+Shift+R',
+					shortcut: SHORTCUT_LABELS.replyAll,
 					actionKey: 'settings.shortcuts.actions.replyAll',
 					scopeKey: 'settings.shortcuts.scopes.openMessage'
 				},
 				{
-					shortcut: 'Ctrl+F',
+					shortcut: SHORTCUT_LABELS.forward,
 					actionKey: 'settings.shortcuts.actions.forward',
 					scopeKey: 'settings.shortcuts.scopes.openMessage'
 				},
 				{
-					shortcut: 'Ctrl+Shift+G',
+					shortcut: SHORTCUT_LABELS.toggleFlag,
 					actionKey: 'settings.shortcuts.actions.flag',
 					scopeKey: 'settings.shortcuts.scopes.openMessage'
 				},
 				{
-					shortcut: 'Ctrl+Q',
+					shortcut: SHORTCUT_LABELS.markRead,
 					actionKey: 'settings.shortcuts.actions.markRead',
 					scopeKey: 'settings.shortcuts.scopes.openMessage'
 				},
 				{
-					shortcut: 'Ctrl+U',
+					shortcut: SHORTCUT_LABELS.markUnread,
 					actionKey: 'settings.shortcuts.actions.markUnread',
 					scopeKey: 'settings.shortcuts.scopes.openMessage'
 				},
 				{
-					shortcut: 'Delete',
+					shortcut: SHORTCUT_LABELS.deleteMessage,
 					actionKey: 'settings.shortcuts.actions.deleteMessage',
 					scopeKey: 'settings.shortcuts.scopes.openMessage'
 				},
@@ -172,7 +175,7 @@
 			headingKey: 'settings.shortcuts.groups.contacts',
 			shortcuts: [
 				{
-					shortcut: 'Ctrl+N',
+					shortcut: SHORTCUT_LABELS.newItem,
 					actionKey: 'settings.shortcuts.actions.newContact',
 					scopeKey: 'settings.shortcuts.scopes.contacts'
 				},
@@ -187,7 +190,7 @@
 			headingKey: 'settings.shortcuts.groups.palette',
 			shortcuts: [
 				{
-					shortcut: 'Ctrl+K',
+					shortcut: SHORTCUT_LABELS.palette,
 					actionKey: 'settings.shortcuts.actions.palette',
 					scopeKey: 'settings.shortcuts.scopes.globalIncludingInputs'
 				},

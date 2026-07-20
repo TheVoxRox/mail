@@ -22,6 +22,19 @@ export function normalizeText(value: string): string {
 	return value.normalize('NFD').replace(COMBINING_DIACRITICS, '').toLowerCase();
 }
 
+export function tokenizeQuery(normalizedQuery: string): string[] {
+	return normalizedQuery.split(/\s+/).filter((token) => token.length > 0);
+}
+
+/**
+ * Word-order-independent match: every query token must appear somewhere in
+ * the entry's search text. In-order phrases still rank higher because
+ * `textMatchScore` scores the query as a whole string.
+ */
+export function matchesAllTokens(entry: VisibleCommand, tokens: string[]): boolean {
+	return tokens.every((token) => entry.searchText.includes(token));
+}
+
 export function routeMatches(pathname: string, prefix: string): boolean {
 	if (prefix.endsWith('/')) return pathname.startsWith(prefix);
 	return pathname === prefix || pathname.startsWith(`${prefix}/`);

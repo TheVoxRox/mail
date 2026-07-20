@@ -9,16 +9,20 @@
 	import { toErrorMessage } from '$lib/api/errors.js';
 	import { _ } from '$lib/i18n/index.js';
 	import {
+		matchesAllTokens,
 		normalizeText,
 		sortByRelevance,
+		tokenizeQuery,
 		type VisibleCommand
 	} from '$lib/commands/paletteRanking.js';
 	import type { CommandGroup } from '$lib/commands/shared.js';
 
+	type PositionedCommand = VisibleCommand & { position: number };
+
 	type CommandGroupView = {
 		groupKey: CommandGroup;
 		groupLabel: string;
-		entries: VisibleCommand[];
+		entries: PositionedCommand[];
 	};
 
 	let query = $state('');
@@ -48,8 +52,9 @@
 		const pathname = $page.url.pathname;
 		if (!normalizedQuery) return sortByRelevance(visibleCommands, normalizedQuery, pathname);
 
+		const tokens = tokenizeQuery(normalizedQuery);
 		return sortByRelevance(
-			visibleCommands.filter((entry) => entry.searchText.includes(normalizedQuery)),
+			visibleCommands.filter((entry) => matchesAllTokens(entry, tokens)),
 			normalizedQuery,
 			pathname
 		);
@@ -58,18 +63,19 @@
 	const groupedCommands = $derived.by<CommandGroupView[]>(() => {
 		const groups: CommandGroupView[] = [];
 
-		for (const entry of filteredCommands) {
+		filteredCommands.forEach((entry, index) => {
+			const positioned = { ...entry, position: index + 1 };
 			const lastGroup = groups[groups.length - 1];
 			if (lastGroup?.groupKey === entry.command.groupKey) {
-				lastGroup.entries.push(entry);
+				lastGroup.entries.push(positioned);
 			} else {
 				groups.push({
 					groupKey: entry.command.groupKey,
 					groupLabel: entry.groupLabel,
-					entries: [entry]
+					entries: [positioned]
 				});
 			}
-		}
+		});
 
 		return groups;
 	});
@@ -131,7 +137,7 @@
 		executionError = '';
 		try {
 			await command.run();
-			closePalette({ restoreFocus: false });
+			closePalette({ restoreFocus: command.restoreFocus ?? false });
 		} catch (err) {
 			const detail = toErrorMessage(err);
 			const message = $_('palette.commandFailed', { values: { message: detail } });
@@ -214,7 +220,7 @@
 												id={commandOptionId(entry.command)}
 												value={entry.command.id}
 												keywords={entry.command.keywords ?? []}
-												aria-posinset={filteredCommands.indexOf(entry) + 1}
+												aria-posinset={entry.position}
 												aria-setsize={filteredCommands.length}
 												onSelect={() => void execute(entry.command)}
 												class="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-left hover:bg-muted/70 data-[selected]:bg-muted"
