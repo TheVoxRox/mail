@@ -183,6 +183,11 @@
 					shortcutKey: 'settings.shortcuts.keys.listNavCombo',
 					actionKey: 'settings.shortcuts.actions.contactsListNav',
 					scopeKey: 'settings.shortcuts.scopes.contactList'
+				},
+				{
+					shortcut: 'Escape',
+					actionKey: 'settings.shortcuts.actions.cancelContactForm',
+					scopeKey: 'settings.shortcuts.scopes.contactForm'
 				}
 			]
 		},

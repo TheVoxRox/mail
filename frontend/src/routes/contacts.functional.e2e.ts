@@ -331,6 +331,38 @@ test.describe('Contacts', () => {
 		await expect(page.getByText('Jana Změněná')).toHaveCount(0);
 	});
 
+	test('Escape zruší vytváření kontaktu; s neuloženými změnami až po potvrzení', async ({
+		page
+	}) => {
+		await page.goto('/contacts/1?create=1');
+		await waitForShell(page);
+		// The onMount autofocus proves the form is hydrated (the Esc handler is a
+		// window listener attached on mount).
+		await expect(page.locator('#contact-name')).toBeFocused();
+
+		// Pristine form: Esc leaves immediately, no confirmation.
+		await page.keyboard.press('Escape');
+		await page.waitForURL('**/contacts/1');
+		await expect(page.getByRole('heading', { level: 1, name: 'Kontakty' })).toBeVisible();
+
+		// Dirty form: Esc must not discard silently — the leave guard asks first.
+		await page
+			.getByRole('region', { name: 'Podokno kontaktů' })
+			.getByRole('button', { name: 'Nový kontakt Ctrl+N' })
+			.click();
+		await page.waitForURL('**/contacts/1?create=1');
+		await expect(page.locator('#contact-name')).toBeFocused();
+		await page.getByPlaceholder('Jméno').fill('Nedokončený');
+		await page.keyboard.press('Escape');
+
+		const dialog = page.getByRole('dialog', { name: 'Neuložené změny' });
+		await expect(dialog).toBeVisible();
+		await dialog.getByRole('button', { name: 'Zahodit změny' }).click();
+
+		await page.waitForURL('**/contacts/1');
+		await expect(page.getByText('Nedokončený')).toHaveCount(0);
+	});
+
 	test('bulk delete smaže vybrané kontakty přes multiselect', async ({ page }) => {
 		const deleteBodies: unknown[] = [];
 		page.on('request', (request) => {

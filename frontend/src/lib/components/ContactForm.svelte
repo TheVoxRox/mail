@@ -48,6 +48,7 @@
 	let busy = $state(false);
 	let error = $state<string | null>(null);
 	let nameInputEl = $state<HTMLInputElement | null>(null);
+	let formEl = $state<HTMLFormElement | null>(null);
 
 	let loadedKey: number | 'new' | null = null;
 	// $state so the isDirty derived recomputes when the baseline is re-seeded,
@@ -255,9 +256,29 @@
 		shouldGuard: () => !bypassLeaveGuard && !busy && isDirty,
 		onBlocked: (target) => void confirmLeaveThenNavigate(target.href)
 	});
+
+	/*
+	 * Esc mirrors the Cancel button (Outlook closes an item window on Esc). The
+	 * cancel navigation still runs through the leave guard, so a dirty form gets
+	 * the discard confirmation instead of silently losing data. Scoped to events
+	 * originating inside the form — the confirm dialog lives outside it, so its
+	 * own Esc handling is unaffected. When this shortcut changes, update the
+	 * overview in routes/settings/shortcuts/+page.svelte — a hand-maintained
+	 * mirror.
+	 */
+	function handleWindowKeydown(event: KeyboardEvent) {
+		if (event.key !== 'Escape' || event.defaultPrevented) return;
+		if (!onCancel || busy) return;
+		if (!formEl || !(event.target instanceof Node) || !formEl.contains(event.target)) return;
+		event.preventDefault();
+		onCancel();
+	}
 </script>
 
+<svelte:window onkeydown={handleWindowKeydown} />
+
 <form
+	bind:this={formEl}
 	onsubmit={handleSubmit}
 	class="flex min-h-[32rem] max-w-4xl flex-col overflow-hidden rounded-lg border border-border bg-background"
 	aria-label={isEdit ? $_('contacts.editFormLabel') : $_('contacts.formLabel')}
