@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
 	contextScore,
 	groupOrder,
+	matchesAllTokens,
 	normalizeText,
 	routeMatches,
 	sortByRelevance,
 	textMatchScore,
+	tokenizeQuery,
 	type VisibleCommand
 } from './paletteRanking.js';
 import type { Command, CommandGroup } from './shared.js';
@@ -62,6 +64,35 @@ describe('normalizeText', () => {
 	it('strips diacritics (NFD + combining marks)', () => {
 		expect(normalizeText('Příště Žluťoučký kůň')).toBe('priste zlutoucky kun');
 		expect(normalizeText('Café')).toBe('cafe');
+	});
+});
+
+describe('tokenizeQuery', () => {
+	it('splits on whitespace and drops empty tokens', () => {
+		expect(tokenizeQuery('odpovedet vsem')).toEqual(['odpovedet', 'vsem']);
+		expect(tokenizeQuery('  a   b ')).toEqual(['a', 'b']);
+		expect(tokenizeQuery('')).toEqual([]);
+	});
+});
+
+describe('matchesAllTokens', () => {
+	const e = entry({ id: 'a', title: 'Odpovědět všem', group: 'mail', keywords: 'reply all' });
+
+	it('matches regardless of word order', () => {
+		expect(matchesAllTokens(e, tokenizeQuery('odpovedet vsem'))).toBe(true);
+		expect(matchesAllTokens(e, tokenizeQuery('vsem odpovedet'))).toBe(true);
+	});
+
+	it('mixes title and keyword tokens', () => {
+		expect(matchesAllTokens(e, tokenizeQuery('all odpovedet'))).toBe(true);
+	});
+
+	it('rejects when any token is missing', () => {
+		expect(matchesAllTokens(e, tokenizeQuery('odpovedet nikomu'))).toBe(false);
+	});
+
+	it('empty token list matches everything', () => {
+		expect(matchesAllTokens(e, [])).toBe(true);
 	});
 });
 

@@ -6,8 +6,9 @@
  * The layout supplies callbacks (open the palette, navigate); this module
  * just wires them to specific key combinations.
  *
- * When a shortcut changes here, update the user-facing overview in
- * routes/settings/shortcuts/+page.svelte — it is a hand-maintained mirror.
+ * When a shortcut changes here, update its label in `shortcutLabels.ts`
+ * (rendered by Settings › Shortcuts and the command palette) and the
+ * hand-maintained scope rows in routes/settings/shortcuts/+page.svelte.
  */
 import type { WorkspaceMode } from '$lib/stores/workspaceMode.js';
 

@@ -13,6 +13,7 @@ import {
 	toggleMessageSeen
 } from '$lib/mail/mailbox.js';
 import { localeKeywords, type Command } from '$lib/commands/shared.js';
+import { SHORTCUT_LABELS } from '$lib/shortcuts/shortcutLabels.js';
 import type { FolderResponse } from '$lib/types.js';
 
 type MessageCommandDetail = {
@@ -79,6 +80,7 @@ export function createMailCommands(options: MailCommandOptions): Command[] {
 			contexts: ['mail'],
 			routePrefixes: ['/mail/', '/search/'],
 			priority: 18,
+			restoreFocus: true,
 			available: () => activeAccountId != null,
 			run: () => syncCurrentAccount()
 		}
@@ -93,6 +95,7 @@ export function createMailCommands(options: MailCommandOptions): Command[] {
 			titleKey: 'command.reply',
 			groupKey: 'mail',
 			keywords: localeKeywords(locale, ['odpovedet'], ['reply']),
+			shortcut: SHORTCUT_LABELS.reply,
 			icon: 'arrow-uturn-left',
 			contexts: ['mail'],
 			routePrefixes: ['/mail/'],
@@ -105,6 +108,7 @@ export function createMailCommands(options: MailCommandOptions): Command[] {
 			titleKey: 'command.replyAll',
 			groupKey: 'mail',
 			keywords: localeKeywords(locale, ['odpovedet vsem'], ['reply all']),
+			shortcut: SHORTCUT_LABELS.replyAll,
 			icon: 'arrow-uturn-left-double',
 			contexts: ['mail'],
 			routePrefixes: ['/mail/'],
@@ -117,6 +121,7 @@ export function createMailCommands(options: MailCommandOptions): Command[] {
 			titleKey: 'command.forward',
 			groupKey: 'mail',
 			keywords: localeKeywords(locale, ['preposlat'], ['forward']),
+			shortcut: SHORTCUT_LABELS.forward,
 			icon: 'arrow-uturn-right',
 			contexts: ['mail'],
 			routePrefixes: ['/mail/'],
@@ -129,10 +134,12 @@ export function createMailCommands(options: MailCommandOptions): Command[] {
 			titleKey: selectedDetail?.flagged ? 'command.unflag' : 'command.flag',
 			groupKey: 'mail',
 			keywords: localeKeywords(locale, ['hvezdicka', 'oznacit'], ['star', 'flag']),
+			shortcut: SHORTCUT_LABELS.toggleFlag,
 			icon: selectedDetail?.flagged ? 'star' : 'star-outline',
 			contexts: ['mail'],
 			routePrefixes: ['/mail/'],
 			priority: 64,
+			restoreFocus: true,
 			available: () => true,
 			run: () => toggleMessageFlag(stableId)
 		},
@@ -141,10 +148,12 @@ export function createMailCommands(options: MailCommandOptions): Command[] {
 			titleKey: selectedDetail?.seen ? 'command.markUnread' : 'command.markRead',
 			groupKey: 'mail',
 			keywords: localeKeywords(locale, ['precteno', 'neprecteno'], ['read', 'unread']),
+			shortcut: selectedDetail?.seen ? SHORTCUT_LABELS.markUnread : SHORTCUT_LABELS.markRead,
 			icon: 'inbox',
 			contexts: ['mail'],
 			routePrefixes: ['/mail/'],
 			priority: 60,
+			restoreFocus: true,
 			available: () => true,
 			run: () => toggleMessageSeen(stableId)
 		},
@@ -153,6 +162,7 @@ export function createMailCommands(options: MailCommandOptions): Command[] {
 			titleKey: 'command.deleteMessage',
 			groupKey: 'mail',
 			keywords: localeKeywords(locale, ['smazat'], ['delete', 'remove']),
+			shortcut: SHORTCUT_LABELS.deleteMessage,
 			icon: 'trash',
 			contexts: ['mail'],
 			routePrefixes: ['/mail/'],

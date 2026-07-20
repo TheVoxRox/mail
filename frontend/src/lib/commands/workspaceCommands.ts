@@ -1,6 +1,7 @@
 import { goToWorkspaceMode } from '$lib/mail/actions.js';
 import type { AppLocale } from '$lib/i18n/index.js';
 import { localeKeywords, type Command } from '$lib/commands/shared.js';
+import { SHORTCUT_LABELS } from '$lib/shortcuts/shortcutLabels.js';
 
 export function createWorkspaceCommands(locale: AppLocale | null): Command[] {
 	return [
@@ -9,7 +10,7 @@ export function createWorkspaceCommands(locale: AppLocale | null): Command[] {
 			titleKey: 'command.workspaceMail',
 			groupKey: 'nav',
 			keywords: localeKeywords(locale, ['posta', 'prepnout na postu'], ['mail', 'switch to mail']),
-			shortcut: 'Ctrl+1',
+			shortcut: SHORTCUT_LABELS.workspaceMail,
 			icon: 'inbox',
 			priority: 90,
 			available: () => true,
@@ -24,7 +25,7 @@ export function createWorkspaceCommands(locale: AppLocale | null): Command[] {
 				['kontakty', 'prepnout na kontakty'],
 				['contacts', 'switch to contacts']
 			),
-			shortcut: 'Ctrl+2',
+			shortcut: SHORTCUT_LABELS.workspaceContacts,
 			icon: 'book-open',
 			priority: 90,
 			available: () => true,
@@ -39,7 +40,7 @@ export function createWorkspaceCommands(locale: AppLocale | null): Command[] {
 				['nastaveni', 'prepnout do nastaveni'],
 				['settings', 'switch to settings']
 			),
-			shortcut: 'Ctrl+3',
+			shortcut: SHORTCUT_LABELS.workspaceSettings,
 			icon: 'cog',
 			priority: 90,
 			available: () => true,

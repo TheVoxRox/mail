@@ -15,6 +15,14 @@ export interface Command {
 	contexts?: WorkspaceMode[];
 	routePrefixes?: string[];
 	priority?: number;
+	/**
+	 * Restore focus to the pre-palette element after this command succeeds.
+	 * Set on commands that only change state in place (toggles, sync);
+	 * navigation commands and commands that manage focus themselves (delete,
+	 * move) leave it unset, otherwise the restore would fight their own
+	 * focus handling.
+	 */
+	restoreFocus?: boolean;
 	available: () => boolean;
 	run: () => void | Promise<unknown>;
 }

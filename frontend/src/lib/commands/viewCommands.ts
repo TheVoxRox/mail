@@ -12,6 +12,7 @@ const languageCommands: Command[] = SUPPORTED_LOCALES.map((targetLocale) => ({
 	contexts: ['settings'],
 	routePrefixes: ['/settings/language'],
 	priority: 22,
+	restoreFocus: true,
 	available: () => true,
 	run: () => switchLanguage(targetLocale)
 }));
@@ -30,6 +31,7 @@ export function createViewCommands(
 			contexts: ['settings'],
 			routePrefixes: ['/settings/appearance'],
 			priority: 28,
+			restoreFocus: true,
 			available: () => true,
 			run: () => cycleTheme(themePreference)
 		},
@@ -46,6 +48,7 @@ export function createViewCommands(
 			contexts: ['mail', 'settings'],
 			routePrefixes: ['/mail/', '/settings/appearance'],
 			priority: 14,
+			restoreFocus: true,
 			available: () => true,
 			run: () => setReadingPaneMode('right')
 		},
@@ -61,6 +64,7 @@ export function createViewCommands(
 			contexts: ['mail', 'settings'],
 			routePrefixes: ['/mail/', '/settings/appearance'],
 			priority: 13,
+			restoreFocus: true,
 			available: () => true,
 			run: () => setReadingPaneMode('bottom')
 		},
@@ -76,6 +80,7 @@ export function createViewCommands(
 			contexts: ['mail', 'settings'],
 			routePrefixes: ['/mail/', '/settings/appearance'],
 			priority: 12,
+			restoreFocus: true,
 			available: () => true,
 			run: () => setReadingPaneMode('off')
 		}
