@@ -571,6 +571,42 @@ test.describe('Contacts', () => {
 		expect(deletedIds).toEqual([1]);
 	});
 
+	test('smazání kontaktu vrátí fokus na sousední řádek', async ({ page }) => {
+		await page.goto('/contacts/1');
+		await waitForShell(page);
+		await bulkCreateContacts(page, [
+			{ name: 'Karel', surname: 'Druhy', emails: [{ email: 'karel@example.com' }] }
+		]);
+		await page.locator('#contacts-sidebar-search').fill('example.com');
+		await page.keyboard.press('Enter');
+		await page.waitForURL('**/contacts/1?q=example.com');
+		await expect(page.locator('tbody tr[data-contact-id]')).toHaveCount(2);
+
+		// The Delete button and the confirm dialog's trigger both vanish with the
+		// row, so without a restore focus falls to <body>.
+		await page.getByRole('button', { name: 'Smazat kontakt Jana Novak' }).click();
+		const dialog = page.getByRole('dialog', { name: 'Smazat kontakt' });
+		await dialog.getByRole('button', { name: 'Smazat' }).click();
+
+		await expect(page.getByText('Jana Novak')).toHaveCount(0);
+		await expect(page.locator('tbody [data-row-index="0"] [data-col="1"]')).toBeFocused();
+	});
+
+	test('návrat z úpravy kontaktu vrátí fokus na jeho řádek', async ({ page }) => {
+		await page.goto('/contacts/1');
+		await waitForShell(page);
+
+		await page.getByRole('button', { name: 'Upravit kontakt Jana Novak' }).click();
+		await page.waitForURL('**/contacts/1?edit=1');
+		await expect(page.locator('#contact-name')).toBeFocused();
+
+		// The form replaced the list, so the roving position is gone — Esc (like
+		// Cancel and Save) has to hand focus back to the contact's row.
+		await page.keyboard.press('Escape');
+		await page.waitForURL((url) => url.pathname === '/contacts/1' && !url.searchParams.has('edit'));
+		await expect(page.locator('tbody tr[data-contact-id="1"] [data-col="1"]')).toBeFocused();
+	});
+
 	test('vCard drag-and-drop naimportuje kontakty přes bulk endpoint', async ({ page }) => {
 		const bulkBodies: unknown[] = [];
 		page.on('request', (request) => {

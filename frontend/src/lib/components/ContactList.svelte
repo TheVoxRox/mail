@@ -35,6 +35,14 @@
 		onFirst: () => void;
 		onLast: () => void;
 		onJump: (page: number) => void;
+		/**
+		 * Contact to put the roving focus on once the list renders — the one the
+		 * user just came back from editing. The list unmounts while the form is
+		 * open, so the position cannot survive inside it.
+		 */
+		restoreFocusContactId?: number | null;
+		/** Fired once the restore above was attempted, so the caller can clear it. */
+		onFocusRestored?: () => void;
 	}
 
 	let {
@@ -49,7 +57,9 @@
 		onNext,
 		onFirst,
 		onLast,
-		onJump
+		onJump,
+		restoreFocusContactId = null,
+		onFocusRestored
 	}: Props = $props();
 
 	const DEFAULT_SORT: ContactSort = 'surname';
@@ -144,6 +154,70 @@
 		focusedRowIndex = rowIndex;
 		focusedCol = col;
 	}
+
+	/**
+	 * Puts the roving focus on `contactId`'s name cell — the row's reading
+	 * anchor. When that contact is gone (it was the one deleted), falls back to
+	 * whichever row now sits at `fallbackIndex`, clamped to the page. Returns
+	 * false when this render has no such row to give focus to.
+	 */
+	function focusContactRowNow(contactId: number | null, fallbackIndex: number): boolean {
+		const known = contactId == null ? -1 : page.content.findIndex((c) => c.id === contactId);
+		const target = known >= 0 ? known : Math.min(fallbackIndex, page.content.length - 1);
+		if (target < 0) return false;
+		const cell = tableBodyElement
+			?.querySelector(`[data-row-index="${target}"]`)
+			?.querySelector<HTMLElement>(`[data-cell-target][data-col="${COL_NAME}"]`);
+		if (!cell) return false;
+		focusedRowIndex = target;
+		focusedCol = COL_NAME;
+		cell.focus();
+		return true;
+	}
+
+	/**
+	 * Attempts the restore and reports back only once focus actually moved. A
+	 * frame late on purpose: the confirm dialog that triggered the action
+	 * restores focus to its own trigger on close, and that trigger left the DOM
+	 * with the row it belonged to. The success signal matters because the list
+	 * remounts on the way back from the contact form — an attempt made by an
+	 * instance that is about to be torn down must leave the request standing
+	 * for the instance that replaces it.
+	 */
+	function scheduleRowFocus(
+		contactId: number | null,
+		fallbackIndex: number,
+		onApplied?: () => void
+	): void {
+		requestAnimationFrame(() => {
+			void tick().then(() => {
+				if (focusContactRowNow(contactId, fallbackIndex)) onApplied?.();
+			});
+		});
+	}
+
+	/*
+	 * An action that removes rows (delete, bulk delete, merge) destroys the
+	 * control that invoked it, so focus would drop to <body>. The target is
+	 * captured before the mutation, while the rows are still on the page, and
+	 * applied once the reloaded page arrives — the parent reloads in place, so
+	 * this component survives and the reload is what re-runs the effect.
+	 */
+	let pendingFocus: { contactId: number | null; fallbackIndex: number } | null = null;
+
+	$effect(() => {
+		// Tracks the reload: the parent hands over a new page object each time.
+		const content = page.content;
+		const pending = pendingFocus;
+		if (!pending || content.length === 0) return;
+		scheduleRowFocus(pending.contactId, pending.fallbackIndex, () => (pendingFocus = null));
+	});
+
+	$effect(() => {
+		const contactId = restoreFocusContactId;
+		if (contactId == null) return;
+		scheduleRowFocus(contactId, 0, () => onFocusRestored?.());
+	});
 
 	function handleRowKeydown(
 		event: KeyboardEvent,
@@ -296,9 +370,12 @@
 			tone: 'destructive'
 		});
 		if (!confirmed) return;
+		const index = page.content.findIndex((contact) => contact.id === c.id);
+		const neighbour = page.content[index + 1]?.id ?? page.content[index - 1]?.id ?? null;
 		try {
 			await deleteContact(accountId, c.id);
 			pushToast($_('contacts.deleteDone'), { tone: 'success' });
+			pendingFocus = { contactId: neighbour, fallbackIndex: Math.max(0, index) };
 			await onChanged();
 		} catch (err) {
 			pushToast(toErrorMessage(err), { tone: 'error' });
@@ -317,6 +394,12 @@
 		});
 		if (!confirmed) return;
 
+		// The bulk toolbar disappears with the selection it acts on, so focus has
+		// to move to the list — the row that ends up where the first deleted one
+		// was.
+		const firstIndex = Math.min(
+			...ids.map((id) => page.content.findIndex((contact) => contact.id === id))
+		);
 		bulkBusy = true;
 		bulkError = null;
 		try {
@@ -328,6 +411,7 @@
 				{ tone: (result.failed ?? 0) > 0 ? 'error' : 'success' }
 			);
 			selectedIds = [];
+			pendingFocus = { contactId: null, fallbackIndex: Math.max(0, firstIndex) };
 			await onChanged();
 		} catch (err) {
 			bulkError = toErrorMessage(err);
@@ -452,8 +536,11 @@
 		{accountId}
 		contacts={selectedContacts}
 		onOpenChange={(next) => (mergeDialogOpen = next)}
-		onMerged={async () => {
+		onMerged={async (targetId) => {
 			selectedIds = [];
+			// The merged-away rows are gone; the surviving target is where the
+			// user's attention belongs.
+			pendingFocus = { contactId: targetId, fallbackIndex: 0 };
 			await onChanged();
 		}}
 	/>

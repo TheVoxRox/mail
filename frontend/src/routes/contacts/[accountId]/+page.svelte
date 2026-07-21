@@ -194,9 +194,17 @@
 		void goto(contactsHref(filters), { keepFocus: true, noScroll: true });
 	}
 
+	/*
+	 * The form replaces the list, so the roving focus cannot survive in the
+	 * grid — coming back, focus would land on <main> and the user would have to
+	 * find their contact again. The list takes the row to return to from here.
+	 */
+	let restoreFocusContactId = $state<number | null>(null);
+
 	async function handleCreate(payload: ContactCreateRequest) {
-		await createContact(data.accountId, payload);
+		const created = await createContact(data.accountId, payload);
 		pushToast($_('contacts.createDone'), { tone: 'success' });
+		restoreFocusContactId = created.id;
 		// Returning to the list view clears `create`, which re-runs the list
 		// effect and reloads — no explicit load() here, that would fetch twice.
 		await goto(contactsHref({ create: false }));
@@ -207,6 +215,16 @@
 		await updateContact(data.accountId, data.edit, payload);
 		pushToast($_('contacts.saveDone'), { tone: 'success' });
 		// Clearing `edit` re-runs the list effect, which reloads the list.
+		await leaveEditForm();
+	}
+
+	/**
+	 * Back to the list from the edit form. The target is remembered *before*
+	 * navigating: a dirty form routes the navigation through the leave guard
+	 * inside ContactForm, which never comes back through here.
+	 */
+	async function leaveEditForm() {
+		restoreFocusContactId = data.edit;
 		await goto(contactsHref({ edit: null }));
 	}
 
@@ -315,7 +333,7 @@
 				<ContactForm
 					contact={editState.contact}
 					onSubmit={handleEditSave}
-					onCancel={() => goto(contactsHref({ edit: null }))}
+					onCancel={() => void leaveEditForm()}
 				/>
 			{/if}
 		</div>
@@ -345,6 +363,8 @@
 					onFirst={() => goToPage(0)}
 					onLast={lastPage}
 					onJump={(target) => goToPage(target - 1)}
+					{restoreFocusContactId}
+					onFocusRestored={() => (restoreFocusContactId = null)}
 				/>
 			{/if}
 		</Surface>
