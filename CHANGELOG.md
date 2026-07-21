@@ -126,6 +126,7 @@ sekci s podsekcemi podle artefaktu.
 ### Repo
 
 - Doplněn pre-push report a release/security checklist pro první publikaci repozitáře.
+- Do `todo.md` zapsána otevřená otázka z ladění zkratek: myší klik na řádek seznamu posadí fokus do iframu s tělem zprávy (záměr dle kódu, ale liší se od Outlooku ve split režimu) — rozhodnout po NVDA doposlechu.
 - Programmer text v `backend/src/{main,test}/java` a `frontend/src/{lib,routes}/**/*.{ts,svelte}` migrován do angličtiny; load-bearing CZ fixtures (SMTP-bound labely, IMAP folder name testy, UTF-8 stress fixtures) explicitně whitelistovány. CI lint gate aktivní.
 - Třetí strany — third-party license audit pro npm (`frontend/THIRD_PARTY_LICENSES.md`, 116 prod deps), Maven (`backend/THIRD_PARTY_LICENSES.md`, 132 compile/runtime artefaktů) a Cargo + bundled OpenJDK (`frontend/src-tauri/THIRD_PARTY_LICENSES.md`, 362 crates). Veškeré licence jsou permissive nebo weak-copyleft s linking exception; žádný GPL/AGPL/SSPL.
 - Návrh `PRIVACY.md` (CZ) a `PRIVACY.en.md` (EN) v rootu repa pokrývající lokální data layout, šifrování, síťovou komunikaci, OAuth provider revoke postupy a kompletní data removal.
