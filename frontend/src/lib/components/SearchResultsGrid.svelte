@@ -120,26 +120,33 @@
 		if (focusedRow > max) focusedRow = Math.max(0, max);
 	});
 
-	/** Moves the roving focus onto `stableId`'s subject cell, if it is on the page. */
-	function focusRowSubject(stableId: string): void {
+	/**
+	 * Moves the roving focus onto `stableId`'s subject cell. Reports back
+	 * whether it happened — the row may not be on this page (a stale request
+	 * after the query changed), and the caller must only retire a request that
+	 * was actually honoured.
+	 */
+	function focusRowSubject(stableId: string): boolean {
 		const idx = results.content.findIndex((message) => message.stableId === stableId);
-		if (idx < 0) return;
-		setFocus(idx, COL_SUBJECT);
+		if (idx < 0) return false;
+		if (!focusGridCell(gridElement, idx, COL_SUBJECT)) return false;
+		focusedRow = idx;
+		focusedCol = COL_SUBJECT;
+		return true;
 	}
 
 	/*
-	 * Coming back from a result's detail: the grid mounts fresh, so focus would
-	 * start over at the first row (or fall to <body>). Deferred a frame so the
-	 * move lands after the page finished swapping the detail out.
+	 * Coming back from a result's detail, or from a row action that removed a
+	 * row: the grid mounts fresh, so focus would start over at the first row
+	 * (or fall to <body>). Deferred a frame so the move lands after the page
+	 * finished swapping the detail out.
 	 */
 	$effect(() => {
 		const stableId = restoreFocusStableId;
 		if (!stableId) return;
-		const frame = requestAnimationFrame(() => {
-			focusRowSubject(stableId);
-			onFocusRestored?.();
+		requestAnimationFrame(() => {
+			if (focusRowSubject(stableId)) onFocusRestored?.();
 		});
-		return () => cancelAnimationFrame(frame);
 	});
 </script>
 

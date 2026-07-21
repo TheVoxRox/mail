@@ -75,14 +75,20 @@ export function computeNextCell(
 
 /**
  * Focuses the cell marked `[data-cell-target][data-col="{col}"]` inside the row
- * `[data-row-index="{rowIndex}"]` within `gridEl`. No-op when the grid or the
- * target cell is not (yet) in the DOM. Shared by the roving-cell grids
- * (MessageList, SearchResultsGrid, ContactList) so the cell lookup stays
+ * `[data-row-index="{rowIndex}"]` within `gridEl`. Shared by the roving-cell
+ * grids (MessageList, SearchResultsGrid, ContactList) so the cell lookup stays
  * identical.
+ *
+ * Returns whether focus actually moved: false means the grid or the cell is not
+ * (yet) in the DOM — the caller may be a component instance about to be torn
+ * down, and a one-shot focus request must survive that to be honoured by the
+ * instance that replaces it.
  */
-export function focusGridCell(gridEl: HTMLElement | null, rowIndex: number, col: number): void {
-	gridEl
+export function focusGridCell(gridEl: HTMLElement | null, rowIndex: number, col: number): boolean {
+	const cell = gridEl
 		?.querySelector<HTMLElement>(`[data-row-index="${rowIndex}"]`)
-		?.querySelector<HTMLElement>(`[data-cell-target][data-col="${col}"]`)
-		?.focus();
+		?.querySelector<HTMLElement>(`[data-cell-target][data-col="${col}"]`);
+	if (!cell) return false;
+	cell.focus();
+	return true;
 }

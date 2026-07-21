@@ -72,6 +72,10 @@
 
 		setActiveAccount(data.accountId);
 		clearSelection();
+		// A new query throws away any pending focus restore: it points at a row
+		// of the previous result set, which must not grab focus if the same
+		// message happens to match again.
+		restoreFocusStableId = null;
 		if (data.query) {
 			void runSearch(data.accountId, data.query, data.page);
 		}

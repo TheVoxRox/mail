@@ -84,7 +84,8 @@ export async function closeCurrentMessageDetail(options?: {
 	 * changes, which with a split reading pane (list already mounted next to
 	 * the detail) happens *before* this navigation settles — SvelteKit's own
 	 * post-navigation focus reset would then drop focus back on <body> and the
-	 * layout's afterNavigate would park it on <main>.
+	 * layout's afterNavigate would park it on <main>. Measured: without the
+	 * flag, Esc on a message the roving selection opened ends on <main>.
 	 */
 	await goto(currentFolderHref(), { keepFocus: true });
 }

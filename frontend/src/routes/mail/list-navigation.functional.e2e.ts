@@ -198,19 +198,49 @@ test.describe('Seznam zpráv ve split režimu', () => {
 		await page.goto('/mail/1/INBOX');
 		await waitForShell(page);
 
+		const first = page.locator('[role="row"][data-stable-id="msg-01"] [data-col="2"]');
+		await expect(first).toBeVisible();
+		await first.focus();
+
+		// Reached by the roving selection, which is the case that breaks: the
+		// list is already mounted, so the restore fires before the navigation
+		// settles and only survives if the close keeps focus (without it this
+		// ends on <main>; an Enter-opened message happens to survive either way).
+		await page.keyboard.press('ArrowDown');
+		await page.waitForURL('**/mail/1/INBOX/msg-02');
+		const second = page.locator('[role="row"][data-stable-id="msg-02"] [data-col="2"]');
+		await expect.poll(() => second.evaluate((el) => el === document.activeElement)).toBe(true);
+
+		await page.keyboard.press('Escape');
+		await page.waitForURL((url) => url.pathname === '/mail/1/INBOX');
+		await expect(second).toBeFocused();
+	});
+
+	test('smazání otevřené zprávy vrátí fokus na sousední řádek', async ({ page }) => {
+		await page.addInitScript(() => {
+			window.localStorage.setItem('mail.readingPane', 'right');
+		});
+		await page.goto('/mail/1/INBOX');
+		await waitForShell(page);
+
 		const subject = page.locator('[role="row"][data-stable-id="msg-02"] [data-col="2"]');
 		await expect(subject).toBeVisible();
 		await subject.focus();
 		await page.keyboard.press('Enter');
 		await page.waitForURL('**/mail/1/INBOX/msg-02');
-		const frame = page.getByTitle('Obsah zprávy');
-		await expect.poll(() => frame.evaluate((el) => el === document.activeElement)).toBe(true);
 
-		// With the list mounted next to the detail the restore fires before the
-		// navigation settles, so it only survives if the close keeps focus.
-		await page.keyboard.press('Escape');
-		await page.waitForURL((url) => url.pathname === '/mail/1/INBOX');
-		await expect(subject).toBeFocused();
+		// Deleting from the detail toolbar closes the detail and navigates back
+		// to the folder; the message that was open is gone, so focus belongs on
+		// the row that took its place.
+		await page
+			.getByRole('toolbar', { name: 'Akce se zprávami' })
+			.getByRole('button', { name: 'Smazat' })
+			.click();
+
+		await expect(page.locator('[role="row"][data-stable-id="msg-02"]')).toHaveCount(0);
+		await expect(
+			page.locator('[role="row"][data-stable-id="msg-03"] [data-col="2"]')
+		).toBeFocused();
 	});
 
 	test('odkaz zpět do složky vrátí fokus na řádek zprávy', async ({ page }) => {

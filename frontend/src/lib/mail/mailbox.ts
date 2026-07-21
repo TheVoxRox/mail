@@ -170,9 +170,13 @@ async function executeBulkMessageAction(options: ExecuteBulkOptions): Promise<Bu
 				requestListFocusRestore(focusTargetsBeforeMutation.get(succeededIds[0]) ?? null);
 			}
 			clearSelection();
-			// keepFocus — same reason as closeCurrentMessageDetail: with a split
-			// reading pane the row restore fires before this navigation settles,
-			// and SvelteKit's focus reset would undo it.
+			/*
+			 * keepFocus mirrors closeCurrentMessageDetail. There the reset
+			 * demonstrably ate the restore; here the list re-renders (the row is
+			 * gone) which gives the restore a second, later attempt, so it lands
+			 * either way — the flag keeps this path from depending on that
+			 * ordering.
+			 */
 			await goto(currentFolderHref(), { keepFocus: true });
 		} else if (succeededIds.length === 1) {
 			/*

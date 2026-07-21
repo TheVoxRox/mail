@@ -165,13 +165,9 @@
 		const known = contactId == null ? -1 : page.content.findIndex((c) => c.id === contactId);
 		const target = known >= 0 ? known : Math.min(fallbackIndex, page.content.length - 1);
 		if (target < 0) return false;
-		const cell = tableBodyElement
-			?.querySelector(`[data-row-index="${target}"]`)
-			?.querySelector<HTMLElement>(`[data-cell-target][data-col="${COL_NAME}"]`);
-		if (!cell) return false;
+		if (!focusGridCell(tableBodyElement, target, COL_NAME)) return false;
 		focusedRowIndex = target;
 		focusedCol = COL_NAME;
-		cell.focus();
 		return true;
 	}
 
@@ -209,7 +205,14 @@
 		// Tracks the reload: the parent hands over a new page object each time.
 		const content = page.content;
 		const pending = pendingFocus;
-		if (!pending || content.length === 0) return;
+		if (!pending) return;
+		// Deleting the last contact leaves nothing to focus (the empty-state
+		// message replaces the table) — drop the request instead of letting it
+		// fire at whatever a later reload brings in.
+		if (content.length === 0) {
+			pendingFocus = null;
+			return;
+		}
 		scheduleRowFocus(pending.contactId, pending.fallbackIndex, () => (pendingFocus = null));
 	});
 
@@ -691,7 +694,8 @@
 									Always rendered, and aria-disabled rather than disabled when
 									the contact has no address: a `disabled` button leaves the
 									focus order, which would punch a hole in the roving cell
-									sequence of that one row.
+									sequence of that one row. It still has to *look* unavailable,
+									hence the dimming.
 								-->
 								<Button
 									type="button"
@@ -702,6 +706,7 @@
 									onclick={() => handleCompose(contact)}
 									variant="outline"
 									size="xs"
+									class={composeTarget ? undefined : 'cursor-not-allowed opacity-50'}
 									aria-disabled={composeTarget ? undefined : 'true'}
 									aria-label={$_('contacts.composeContact', { values: { label } })}
 								>

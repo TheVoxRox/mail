@@ -142,7 +142,8 @@
 	);
 
 	function handleBackToFolder(event: MouseEvent) {
-		// Modifier clicks keep the browser's own link handling.
+		// A modified click is not the plain "go back" gesture this handler is
+		// for; leave those to the default link handling.
 		if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey)
 			return;
 		event.preventDefault();
