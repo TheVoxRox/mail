@@ -140,6 +140,36 @@ test.describe('Search', () => {
 		).toBeFocused();
 	});
 
+	test('smazání otevřeného výsledku zůstane v hledání a vrátí fokus do gridu', async ({ page }) => {
+		// The optimistic pipeline closes the detail itself when the open message
+		// is removed. On the mail route that means navigating to the folder; from
+		// search it must close in place, or the results and the query are gone.
+		await page.goto('/search/1?q=zpráva');
+		await waitForShell(page);
+
+		const rows = page
+			.getByRole('grid', { name: 'Výsledky' })
+			.locator('[role="row"][data-stable-id]');
+		const firstId = await rows.nth(0).getAttribute('data-stable-id');
+		const secondId = await rows.nth(1).getAttribute('data-stable-id');
+		if (!firstId || !secondId) throw new Error('Výsledky hledání neobsahují data-stable-id.');
+
+		await rows.nth(0).locator('[data-col="1"]').click();
+		await expect(page.getByRole('toolbar', { name: 'Akce se zprávami' })).toBeVisible();
+
+		await page
+			.getByRole('toolbar', { name: 'Akce se zprávami' })
+			.getByRole('button', { name: 'Smazat' })
+			.click();
+
+		await expect(page).toHaveURL(/\/search\/1\?q=zpr/);
+		await expect(page.getByRole('grid', { name: 'Výsledky' })).toBeVisible();
+		await expect(page.locator(`[role="row"][data-stable-id="${firstId}"]`)).toHaveCount(0);
+		await expect(
+			page.locator(`[role="row"][data-stable-id="${secondId}"] [data-col="1"]`)
+		).toBeFocused();
+	});
+
 	test('smazání posledního výsledku přesune fokus na hlášku bez výsledků', async ({ page }) => {
 		// A single match, so the grid disappears with it — focus has to land on
 		// the message that replaces it instead of falling to <body>.

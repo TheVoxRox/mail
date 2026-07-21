@@ -34,6 +34,7 @@ import {
 import { setMessageSelection } from '$lib/stores/messageSelection.js';
 import { _ } from '$lib/i18n/index.js';
 import { toErrorMessage } from '$lib/api/errors.js';
+import { closeOpenDetail } from '$lib/mail/detailHost.js';
 import { folderLabel } from '$lib/mail/folderLabel.js';
 import { announcePolite, pushToast } from '$lib/stores/toasts.js';
 
@@ -186,15 +187,25 @@ async function executeBulkMessageAction(options: ExecuteBulkOptions): Promise<Bu
 			if (succeededIds.length === 1) {
 				requestFocusTarget(focusTargetsBeforeMutation.get(succeededIds[0]));
 			}
-			clearSelection();
 			/*
+			 * Closing goes through whoever is showing the detail (see
+			 * mail/detailHost.ts): on the mail route that means back to the
+			 * folder list, while the search screen closes in place — navigating
+			 * to a mail folder from there would drop the user in the inbox with
+			 * the results and the query gone. The fallback keeps the mail
+			 * behaviour for a selection with no detail mounted.
+			 *
 			 * keepFocus mirrors closeCurrentMessageDetail. There the reset
 			 * demonstrably ate the restore; here the list re-renders (the row is
 			 * gone) which gives the restore a second, later attempt, so it lands
 			 * either way — the flag keeps this path from depending on that
 			 * ordering.
 			 */
-			await goto(currentFolderHref(), { keepFocus: true });
+			const handled = await closeOpenDetail({ removedStableId: selected.stableId });
+			if (!handled) {
+				clearSelection();
+				await goto(currentFolderHref(), { keepFocus: true });
+			}
 		} else if (succeededIds.length === 1) {
 			/*
 			 * The removed row was not the open message (Delete on a list row in
