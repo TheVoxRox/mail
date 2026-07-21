@@ -110,6 +110,46 @@ test.describe('Koncepty ve split režimu', () => {
 });
 
 test.describe('Seznam zpráv ve split režimu', () => {
+	test('šipky drží fokus v seznamu, do těla zprávy pustí až Enter', async ({ page }) => {
+		await page.addInitScript(() => {
+			window.localStorage.setItem('mail.readingPane', 'right');
+		});
+		await page.goto('/mail/1/INBOX');
+		await waitForShell(page);
+
+		const activeCell = () =>
+			page.evaluate(() => ({
+				stableId:
+					document.activeElement?.closest('[data-stable-id]')?.getAttribute('data-stable-id') ??
+					null,
+				col: document.activeElement?.getAttribute('data-col') ?? null
+			}));
+
+		const firstSubject = page.locator('[role="row"][data-stable-id="msg-01"] [data-col="2"]');
+		await expect(firstSubject).toBeVisible();
+		await firstSubject.focus();
+
+		// A row change follows focus with the selection, so the message opens in
+		// the pane — but focus must stay on the roving grid cell. The body loads
+		// asynchronously, so re-check after it rendered: it must not pull focus
+		// out of the list once it arrives.
+		await page.keyboard.press('ArrowDown');
+		await page.waitForURL('**/mail/1/INBOX/msg-02');
+		await expect(page.getByTitle('Obsah zprávy')).toBeVisible();
+		await expect.poll(activeCell).toEqual({ stableId: 'msg-02', col: '2' });
+
+		// Focus still in the grid means the next Arrow key keeps navigating.
+		await page.keyboard.press('ArrowDown');
+		await page.waitForURL('**/mail/1/INBOX/msg-03');
+		await expect.poll(activeCell).toEqual({ stableId: 'msg-03', col: '2' });
+
+		// Enter is the deliberate open — that one does move the reading cursor
+		// into the body of the message already showing in the pane.
+		await page.keyboard.press('Enter');
+		const frame = page.getByTitle('Obsah zprávy');
+		await expect.poll(() => frame.evaluate((el) => el === document.activeElement)).toBe(true);
+	});
+
 	test('Delete na neotevřeném řádku neztratí fokus a nechá detail otevřený', async ({ page }) => {
 		await page.addInitScript(() => {
 			window.localStorage.setItem('mail.readingPane', 'right');

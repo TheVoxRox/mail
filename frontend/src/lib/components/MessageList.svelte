@@ -34,6 +34,7 @@
 	import { folderLabel } from '$lib/mail/folderLabel.js';
 	import { messageStatusLabel } from '$lib/mail/messageStatus.js';
 	import type { FolderResponse, MailSummaryResponse } from '$lib/types.js';
+	import { requestBodyFocus, suppressBodyFocus } from '$lib/mail/bodyFocus.js';
 	import { deleteMessages, markMessagesSeen, moveMessages } from '$lib/mail/mailbox.js';
 	import { messagesPageInfo } from '$lib/mail/pageInfoAnnouncement.js';
 	import {
@@ -108,7 +109,17 @@
 		});
 	}
 
-	async function handleSelect(message: MailSummaryResponse): Promise<void> {
+	/**
+	 * Opens `message`. `focusBody` marks a deliberate open (Enter/Space, click)
+	 * — only then does the reading cursor move into the message body. A row
+	 * change that follows the roving focus in a split pane opens the message
+	 * with the opposite intent, so focus stays on the grid cell and the next
+	 * Arrow key keeps navigating the list (see mail/bodyFocus.ts).
+	 */
+	async function handleSelect(
+		message: MailSummaryResponse,
+		options: { focusBody?: boolean } = {}
+	): Promise<void> {
 		if ($messagesState.status !== 'ready') return;
 		const { accountId, folderName } = $messagesState.context;
 		// Drafts open in the composer (with a Send button), not the read-only viewer.
@@ -117,6 +128,8 @@
 			await goto(`${resolve('/compose')}?draft=${encodeURIComponent(message.stableId)}`);
 			return;
 		}
+		if (options.focusBody) requestBodyFocus(message.stableId);
+		else suppressBodyFocus(message.stableId);
 		await goto(messageHref(accountId, folderName, message.stableId));
 	}
 
@@ -124,7 +137,7 @@
 		if (event.key === 'Enter' || event.key === ' ') {
 			if (focusedCol === COL_SELECT || focusedCol === COL_ACTIONS) return;
 			event.preventDefault();
-			void handleSelect(message);
+			void handleSelect(message, { focusBody: true });
 			return;
 		}
 		// Plain Delete only — matches the open-message handler in globalShortcuts.ts
@@ -177,7 +190,7 @@
 	function handleRowClick(event: MouseEvent, message: MailSummaryResponse): void {
 		const target = event.target as HTMLElement | null;
 		if (target?.closest('input, button, a')) return;
-		void handleSelect(message);
+		void handleSelect(message, { focusBody: true });
 	}
 
 	function handleCellFocus(rowIndex: number, col: number): void {

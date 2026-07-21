@@ -6,6 +6,7 @@
 	import { reloadSearch, runSearch, searchState } from '$lib/stores/search.js';
 	import { selectMessage, selectedMessage, clearSelection } from '$lib/stores/selectedMessage.js';
 	import { announcePolite } from '$lib/stores/toasts.js';
+	import { requestBodyFocus } from '$lib/mail/bodyFocus.js';
 	import { messagesPageInfo } from '$lib/mail/pageInfoAnnouncement.js';
 	import MessageDetail from '$lib/components/MessageDetail.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
@@ -76,6 +77,10 @@
 	});
 
 	function handleSelect(m: MailSummaryResponse) {
+		// Opening a result is always deliberate here (Enter or a click) — the
+		// results grid has no reading pane that could follow focus, so the
+		// reading cursor moves into the body (see mail/bodyFocus.ts).
+		requestBodyFocus(m.stableId);
 		void selectMessage(m.stableId);
 		/*
 		 * Opening a result swaps the list for the detail in place — there is no

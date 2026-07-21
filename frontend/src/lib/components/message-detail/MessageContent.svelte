@@ -9,6 +9,7 @@
 		isOpenableMailLink,
 		mailFrameKeyToEvent
 	} from '$lib/mail/mailFrame.js';
+	import { bodyFocusIntent, clearBodyFocusIntent } from '$lib/mail/bodyFocus.js';
 	import { mailHtmlToPlainText } from '$lib/mail/content-sanitizer.js';
 	import { allowSenderRemoteImages } from '$lib/api/remoteImages.js';
 	import { pushToast } from '$lib/stores/toasts.js';
@@ -91,22 +92,35 @@
 	let textElement = $state<HTMLElement | null>(null);
 
 	/*
-	 * Screen-reader guidance: opening a message moves focus to the start of
-	 * the body (the Outlook model; Esc already restores it to the list row),
-	 * so the reading cursor lands on the text instead of the top of the page.
-	 * Guarded per stableId so a background content refresh cannot re-steal
-	 * focus, and deferred a frame so it lands after SvelteKit's own
-	 * post-navigation focus reset (content can render mid-navigation on an
-	 * LRU cache hit in selectedMessage).
+	 * Screen-reader guidance: deliberately opening a message moves focus to the
+	 * start of the body (the Outlook model; Esc already restores it to the list
+	 * row), so the reading cursor lands on the text instead of the top of the
+	 * page. A row change that follows focus in a split pane says so (see
+	 * mail/bodyFocus.ts) and leaves the user in the list. Deferred a frame so
+	 * the move lands after SvelteKit's own post-navigation focus reset (content
+	 * can render mid-navigation on an LRU cache hit in selectedMessage).
 	 */
 	let focusedStableId: string | null = null;
 
 	$effect(() => {
 		const target = renderAsHtml ? frameElement : textElement;
-		if (!target || focusedStableId === stableId) return;
+		if (!target) return;
+		const intent = $bodyFocusIntent?.stableId === stableId ? $bodyFocusIntent.mode : null;
+		const firstRender = focusedStableId !== stableId;
 		focusedStableId = stableId;
-		const frame = requestAnimationFrame(() => target.focus());
-		return () => cancelAnimationFrame(frame);
+		// An explicit open wins even on a re-render (Enter on the row whose
+		// message the pane already shows); otherwise only the first render of a
+		// message moves focus, and never one the roving selection dragged in.
+		if (intent !== 'open' && (!firstRender || intent === 'follow')) return;
+		// Consumed here rather than after the frame: the intent is single-use.
+		// The effect deliberately has no cleanup — clearing the store re-runs
+		// it, and a cleanup would cancel the frame it just scheduled; the
+		// isConnected check covers the unmount case instead (same guard as the
+		// palette focus restore).
+		clearBodyFocusIntent();
+		requestAnimationFrame(() => {
+			if (target.isConnected) target.focus();
+		});
 	});
 
 	/*
