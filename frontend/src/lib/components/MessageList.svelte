@@ -13,7 +13,7 @@
 	} from '$lib/stores/messageSelection.js';
 	import {
 		clearListFocusRestore,
-		restoreListFocusStableId,
+		listFocusRestore,
 		selectedMessage
 	} from '$lib/stores/selectedMessage.js';
 	import { _, appLocale } from '$lib/i18n/index.js';
@@ -57,6 +57,7 @@
 	const PAGE_KEY_STEP = ROW_NAV_PAGE_STEP;
 
 	let gridElement = $state<HTMLDivElement | null>(null);
+	let emptyStateElement = $state<HTMLParagraphElement | null>(null);
 	let moveMenuOpen = $state(false);
 	let seenMenuOpen = $state(false);
 	let bulkAction = $state<'read' | 'unread' | 'delete' | 'move' | null>(null);
@@ -265,11 +266,27 @@
 	}
 
 	$effect(() => {
-		const stableId = $restoreListFocusStableId;
-		if (!stableId || !gridElement) return;
-		if ($messagesState.status !== 'ready') return;
+		const restore = $listFocusRestore;
+		if (!restore || $messagesState.status !== 'ready') return;
 
-		const idx = $messagesState.page.content.findIndex((m) => m.stableId === stableId);
+		/*
+		 * The mutation took the last row with it: the grid is gone and the
+		 * empty-state message is the only thing left to receive focus. Without
+		 * this focus falls to <body> — the deletion would be silent and the
+		 * reading cursor would be nowhere.
+		 */
+		if (restore.kind === 'emptied') {
+			if (!emptyStateElement) return;
+			const target = emptyStateElement;
+			const frame = requestAnimationFrame(() => {
+				target.focus();
+				clearListFocusRestore();
+			});
+			return () => cancelAnimationFrame(frame);
+		}
+
+		if (!gridElement) return;
+		const idx = $messagesState.page.content.findIndex((m) => m.stableId === restore.stableId);
 		if (idx < 0) return;
 
 		const frame = requestAnimationFrame(() => {
@@ -361,7 +378,10 @@
 {:else if $messagesState.page.content.length === 0}
 	<div class="flex flex-1 items-center justify-center bg-background p-6">
 		<Surface variant="subtle" padding="lg" class="max-w-sm text-center">
-			<StateMessage padding="none" role="status">{$_('messages.empty')}</StateMessage>
+			<!-- Focus target after the last row was removed (see the restore effect). -->
+			<StateMessage bind:ref={emptyStateElement} padding="none" role="status" tabindex={-1}>
+				{$_('messages.empty')}
+			</StateMessage>
 		</Surface>
 	</div>
 {:else}

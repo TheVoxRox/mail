@@ -26,6 +26,7 @@
 	let announcePageInfoOnReady = false;
 	let lastAnnouncedResultsKey = '';
 	let restoreFocusStableId = $state<string | null>(null);
+	let emptyResultsElement = $state<HTMLDivElement | null>(null);
 
 	$effect(() => {
 		if ($searchState.status !== 'ready') return;
@@ -144,7 +145,16 @@
 		// The row survived (flag / mark read) — the menu already returned focus
 		// to its own trigger, which is still mounted.
 		if ($searchState.page.content.some((row) => row.stableId === pending.stableId)) return;
-		restoreFocusStableId = pending.neighbour;
+		if (pending.neighbour) {
+			restoreFocusStableId = pending.neighbour;
+			return;
+		}
+		/*
+		 * That was the last result: the grid is replaced by the "no results"
+		 * message, so focus goes there instead of falling to <body>.
+		 */
+		const target = emptyResultsElement;
+		if (target) requestAnimationFrame(() => target.focus());
 	});
 
 	function navigateToPage(target: number) {
@@ -200,8 +210,11 @@
 				{$_('messages.errorPrefix', { values: { message: $searchState.error.message } })}
 			</div>
 		{:else if $searchState.status === 'ready' && $searchState.page.content.length === 0}
+			<!-- Focus target after the last result was removed by a row action. -->
 			<div
-				class="flex flex-1 items-center justify-center p-8 text-sm text-muted-foreground"
+				bind:this={emptyResultsElement}
+				tabindex="-1"
+				class="flex flex-1 items-center justify-center p-8 text-sm text-muted-foreground outline-none"
 				role="status"
 			>
 				{$_('search.noResults')}

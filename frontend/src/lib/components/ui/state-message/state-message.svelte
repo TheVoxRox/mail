@@ -31,6 +31,12 @@
 		children?: Snippet;
 		variant?: StateMessageVariant;
 		padding?: StateMessagePadding;
+		/**
+		 * Bindable element. An empty-state message is a focus target: when the
+		 * last row of a list is removed, the control that removed it is gone and
+		 * focus has to land somewhere that says what happened.
+		 */
+		ref?: HTMLParagraphElement | null;
 	};
 </script>
 
@@ -40,10 +46,11 @@
 		children,
 		variant = 'muted',
 		padding = 'default',
+		ref = $bindable(null),
 		...restProps
 	}: StateMessageProps = $props();
 </script>
 
-<p class={cn(stateMessageVariants({ variant, padding }), className)} {...restProps}>
+<p bind:this={ref} class={cn(stateMessageVariants({ variant, padding }), className)} {...restProps}>
 	{@render children?.()}
 </p>

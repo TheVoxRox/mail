@@ -139,4 +139,22 @@ test.describe('Search', () => {
 			page.locator(`[role="row"][data-stable-id="${secondId}"] [data-col="1"]`)
 		).toBeFocused();
 	});
+
+	test('smazání posledního výsledku přesune fokus na hlášku bez výsledků', async ({ page }) => {
+		// A single match, so the grid disappears with it — focus has to land on
+		// the message that replaces it instead of falling to <body>.
+		await page.goto('/search/1?q=projekt');
+		await waitForShell(page);
+
+		const rows = page
+			.getByRole('grid', { name: 'Výsledky' })
+			.locator('[role="row"][data-stable-id]');
+		await expect(rows).toHaveCount(1);
+		await rows.locator('[data-col="5"]').click();
+		await page.getByRole('menuitem', { name: 'Smazat' }).click();
+
+		const empty = page.getByRole('status').filter({ hasText: 'Žádné zprávy neodpovídají dotazu' });
+		await expect(empty).toBeVisible();
+		await expect(empty).toBeFocused();
+	});
 });

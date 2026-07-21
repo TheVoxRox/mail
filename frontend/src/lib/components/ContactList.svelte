@@ -122,6 +122,7 @@
 
 	let selectAllInput = $state<HTMLInputElement | null>(null);
 	let tableBodyElement = $state<HTMLTableSectionElement | null>(null);
+	let emptyStateElement = $state<HTMLParagraphElement | null>(null);
 	let focusedRowIndex = $state(0);
 	let focusedCol = $state(COL_NAME);
 
@@ -206,11 +207,15 @@
 		const content = page.content;
 		const pending = pendingFocus;
 		if (!pending) return;
-		// Deleting the last contact leaves nothing to focus (the empty-state
-		// message replaces the table) — drop the request instead of letting it
-		// fire at whatever a later reload brings in.
+		/*
+		 * Deleting the last contact replaces the table with the empty-state
+		 * message, so that message is where focus belongs — the button that
+		 * triggered the delete went away with the row it sat in.
+		 */
 		if (content.length === 0) {
 			pendingFocus = null;
+			const target = emptyStateElement;
+			if (target) requestAnimationFrame(() => target.focus());
 			return;
 		}
 		scheduleRowFocus(pending.contactId, pending.fallbackIndex, () => (pendingFocus = null));
@@ -483,7 +488,8 @@
 </div>
 
 {#if page.content.length === 0}
-	<StateMessage padding="lg">
+	<!-- Focus target after the last contact was deleted (see the pending-focus effect). -->
+	<StateMessage bind:ref={emptyStateElement} padding="lg" role="status" tabindex={-1}>
 		{label
 			? $_('contacts.emptyLabeled', {
 					values: { label: $_(`contacts.labelOptions.${label}`) }

@@ -84,6 +84,22 @@ test.describe('Seznam zpráv v režimu bez podokna čtení', () => {
 			page.locator('[role="row"][data-stable-id="msg-03"] [data-col="2"]')
 		).toBeFocused();
 	});
+
+	test('smazání poslední zprávy přesune fokus na hlášku prázdné složky', async ({ page }) => {
+		// The grid goes away with the row, so there is no cell left to receive
+		// focus — without a target it falls to <body> and the deletion is silent.
+		await page.goto('/mail/1/SENT');
+		await waitForShell(page);
+
+		const only = page.locator('[role="row"][data-stable-id]');
+		await expect(only).toHaveCount(1);
+		await only.locator('[data-col="2"]').focus();
+		await page.keyboard.press('Delete');
+
+		const empty = page.getByRole('status').filter({ hasText: 'Žádné zprávy' });
+		await expect(empty).toBeVisible();
+		await expect(empty).toBeFocused();
+	});
 });
 
 test.describe('Přepnutí složky', () => {

@@ -19,8 +19,10 @@ import {
 	clearSelection,
 	invalidateMessage,
 	patchSelectedMessageDetail,
+	requestEmptyListFocus,
 	requestListFocusRestore,
-	selectedMessage
+	selectedMessage,
+	type ListFocusRestore
 } from '$lib/stores/selectedMessage.js';
 import {
 	markSeenLocally,
@@ -94,12 +96,27 @@ function currentFolderHref(): string {
 	});
 }
 
-function focusTargetAfterRemoving(stableId: string): string | null {
+/**
+ * Where focus goes once `stableId` leaves the list. `null` means the row is
+ * not on the page the list is showing (the action came from search results, or
+ * from another page), so this list has no say; `emptied` means it was the last
+ * row and only the empty state is left to receive focus.
+ */
+function focusTargetAfterRemoving(stableId: string): ListFocusRestore | null {
 	const state = currentMessagesState();
 	if (state.status !== 'ready') return null;
 	const index = state.page.content.findIndex((message) => message.stableId === stableId);
 	if (index < 0) return null;
-	return state.page.content[index + 1]?.stableId ?? state.page.content[index - 1]?.stableId ?? null;
+	const neighbour =
+		state.page.content[index + 1]?.stableId ?? state.page.content[index - 1]?.stableId ?? null;
+	return neighbour ? { kind: 'row', stableId: neighbour } : { kind: 'emptied' };
+}
+
+/** Applies a target from `focusTargetAfterRemoving`; a null target asks for nothing. */
+function requestFocusTarget(target: ListFocusRestore | null | undefined): void {
+	if (!target) return;
+	if (target.kind === 'row') requestListFocusRestore(target.stableId);
+	else requestEmptyListFocus();
 }
 
 async function ensureMessageDetail(stableId: string) {
@@ -118,7 +135,7 @@ async function executeBulkMessageAction(options: ExecuteBulkOptions): Promise<Bu
 
 	// Compute the focus target before the mutation — after removeMessageLocally
 	// the message is no longer in the list and findIndex would return -1.
-	const focusTargetsBeforeMutation = new Map<string, string | null>();
+	const focusTargetsBeforeMutation = new Map<string, ListFocusRestore | null>();
 	if (options.clearDetailIfAffected) {
 		for (const id of ids) {
 			focusTargetsBeforeMutation.set(id, focusTargetAfterRemoving(id));
@@ -167,7 +184,7 @@ async function executeBulkMessageAction(options: ExecuteBulkOptions): Promise<Bu
 		const selected = get(selectedMessage);
 		if (selected && succeededIds.includes(selected.stableId)) {
 			if (succeededIds.length === 1) {
-				requestListFocusRestore(focusTargetsBeforeMutation.get(succeededIds[0]) ?? null);
+				requestFocusTarget(focusTargetsBeforeMutation.get(succeededIds[0]));
 			}
 			clearSelection();
 			/*
@@ -183,12 +200,12 @@ async function executeBulkMessageAction(options: ExecuteBulkOptions): Promise<Bu
 			 * The removed row was not the open message (Delete on a list row in
 			 * off mode, or on a non-selected row next to an open reading pane).
 			 * Its cell — or its row-menu trigger — just unmounted, so without a
-			 * restore focus falls back to <body>. Hand it to a neighbouring row;
-			 * the target is null when the row was not on the current list page
-			 * (e.g. the action came from search results), so nothing to restore.
+			 * restore focus falls back to <body>. Hand it to a neighbouring row —
+			 * or, when that was the last row, to the empty state. The target is
+			 * null when the row was not on the current list page (e.g. the action
+			 * came from search results), so nothing to restore.
 			 */
-			const target = focusTargetsBeforeMutation.get(succeededIds[0]);
-			if (target) requestListFocusRestore(target);
+			requestFocusTarget(focusTargetsBeforeMutation.get(succeededIds[0]));
 		}
 	}
 
