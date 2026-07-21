@@ -24,7 +24,16 @@ export interface SelectedMessage {
 }
 
 export const selectedMessage = writable<SelectedMessage | null>(null);
-export const restoreListFocusStableId = writable<string | null>(null);
+
+/**
+ * Where the message list should put focus after a mutation took away the
+ * control the user was on. `row` names the message to land on; `emptied` says
+ * the list has no rows left, so the empty-state message is the only place
+ * focus can go — without it focus would fall to `<body>`.
+ */
+export type ListFocusRestore = { kind: 'row'; stableId: string } | { kind: 'emptied' };
+
+export const listFocusRestore = writable<ListFocusRestore | null>(null);
 
 const detailCache = new Map<string, MailDetailResponse>();
 const contentCache = new Map<string, MailContentResponse>();
@@ -46,12 +55,17 @@ export function clearSelection(): void {
 	selectedMessage.set(null);
 }
 
-export function requestListFocusRestore(stableId: string | null): void {
-	restoreListFocusStableId.set(stableId);
+export function requestListFocusRestore(stableId: string): void {
+	listFocusRestore.set({ kind: 'row', stableId });
+}
+
+/** The mutation removed the last row — focus belongs on the empty state. */
+export function requestEmptyListFocus(): void {
+	listFocusRestore.set({ kind: 'emptied' });
 }
 
 export function clearListFocusRestore(): void {
-	restoreListFocusStableId.set(null);
+	listFocusRestore.set(null);
 }
 
 export async function selectMessage(stableId: string): Promise<void> {

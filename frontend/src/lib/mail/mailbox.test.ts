@@ -51,7 +51,8 @@ vi.mock('$lib/stores/selectedMessage.js', async () => {
 		clearSelection: vi.fn(),
 		invalidateMessage: vi.fn(),
 		patchSelectedMessageDetail: vi.fn(),
-		requestListFocusRestore: vi.fn()
+		requestListFocusRestore: vi.fn(),
+		requestEmptyListFocus: vi.fn()
 	};
 });
 

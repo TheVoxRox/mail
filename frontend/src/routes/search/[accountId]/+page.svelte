@@ -7,6 +7,7 @@
 	import { selectMessage, selectedMessage, clearSelection } from '$lib/stores/selectedMessage.js';
 	import { announcePolite } from '$lib/stores/toasts.js';
 	import { requestBodyFocus } from '$lib/mail/bodyFocus.js';
+	import type { DetailCloseContext } from '$lib/mail/detailHost.js';
 	import { messagesPageInfo } from '$lib/mail/pageInfoAnnouncement.js';
 	import MessageDetail from '$lib/components/MessageDetail.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
@@ -26,6 +27,7 @@
 	let announcePageInfoOnReady = false;
 	let lastAnnouncedResultsKey = '';
 	let restoreFocusStableId = $state<string | null>(null);
+	let emptyResultsElement = $state<HTMLDivElement | null>(null);
 
 	$effect(() => {
 		if ($searchState.status !== 'ready') return;
@@ -108,9 +110,19 @@
 	 * search results gone, so this screen closes on its own terms and hands the
 	 * roving focus back to the row the result was opened from.
 	 */
-	function handleDetailClose() {
-		restoreFocusStableId = $selectedMessage?.stableId ?? null;
+	function handleDetailClose(context: DetailCloseContext) {
+		const openStableId = $selectedMessage?.stableId ?? null;
 		clearSelection();
+		if (!context.removedStableId) {
+			restoreFocusStableId = openStableId;
+			return;
+		}
+		/*
+		 * The open result was deleted or moved away: it must disappear from the
+		 * results too, and focus belongs on whatever takes its place — the same
+		 * bookkeeping a row action does, so it reuses it.
+		 */
+		noteRowRemoval(context.removedStableId);
 	}
 
 	/*
@@ -123,17 +135,21 @@
 	 */
 	let pendingRowRemoval: { stableId: string; neighbour: string | null } | null = null;
 
-	function handleAfterRowAction(message: MailSummaryResponse) {
+	function noteRowRemoval(stableId: string) {
 		const content = $searchState.status === 'ready' ? $searchState.page.content : [];
-		const idx = content.findIndex((row) => row.stableId === message.stableId);
+		const idx = content.findIndex((row) => row.stableId === stableId);
 		pendingRowRemoval =
 			idx < 0
 				? null
 				: {
-						stableId: message.stableId,
+						stableId,
 						neighbour: content[idx + 1]?.stableId ?? content[idx - 1]?.stableId ?? null
 					};
 		void reloadSearch();
+	}
+
+	function handleAfterRowAction(message: MailSummaryResponse) {
+		noteRowRemoval(message.stableId);
 	}
 
 	$effect(() => {
@@ -144,7 +160,16 @@
 		// The row survived (flag / mark read) — the menu already returned focus
 		// to its own trigger, which is still mounted.
 		if ($searchState.page.content.some((row) => row.stableId === pending.stableId)) return;
-		restoreFocusStableId = pending.neighbour;
+		if (pending.neighbour) {
+			restoreFocusStableId = pending.neighbour;
+			return;
+		}
+		/*
+		 * That was the last result: the grid is replaced by the "no results"
+		 * message, so focus goes there instead of falling to <body>.
+		 */
+		const target = emptyResultsElement;
+		if (target) requestAnimationFrame(() => target.focus());
 	});
 
 	function navigateToPage(target: number) {
@@ -200,8 +225,11 @@
 				{$_('messages.errorPrefix', { values: { message: $searchState.error.message } })}
 			</div>
 		{:else if $searchState.status === 'ready' && $searchState.page.content.length === 0}
+			<!-- Focus target after the last result was removed by a row action. -->
 			<div
-				class="flex flex-1 items-center justify-center p-8 text-sm text-muted-foreground"
+				bind:this={emptyResultsElement}
+				tabindex="-1"
+				class="flex flex-1 items-center justify-center p-8 text-sm text-muted-foreground outline-none"
 				role="status"
 			>
 				{$_('search.noResults')}

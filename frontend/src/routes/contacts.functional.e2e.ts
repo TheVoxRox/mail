@@ -592,6 +592,25 @@ test.describe('Contacts', () => {
 		await expect(page.locator('tbody [data-row-index="0"] [data-col="1"]')).toBeFocused();
 	});
 
+	test('smazání posledního kontaktu přesune fokus na hlášku prázdného seznamu', async ({
+		page
+	}) => {
+		// The fixture holds a single contact, so the whole grid goes away with
+		// it and there is no row left to hand focus to.
+		await page.goto('/contacts/1');
+		await waitForShell(page);
+
+		await page.getByRole('button', { name: 'Smazat kontakt Jana Novak' }).click();
+		await page
+			.getByRole('dialog', { name: 'Smazat kontakt' })
+			.getByRole('button', { name: 'Smazat' })
+			.click();
+
+		const empty = page.getByRole('status').filter({ hasText: 'Žádné kontakty' });
+		await expect(empty).toBeVisible();
+		await expect(empty).toBeFocused();
+	});
+
 	test('návrat z úpravy kontaktu vrátí fokus na jeho řádek', async ({ page }) => {
 		await page.goto('/contacts/1');
 		await waitForShell(page);

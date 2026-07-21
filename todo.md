@@ -113,12 +113,6 @@ Zprava, ktera existuje na serveru, ale chybi v lokalni DB uprostred UID rozsahu,
 
 ---
 
-## Mazani otevrene zpravy z vysledku hledani odhodi do Posty (nalez z fokus auditu 2026-07-21)
-
-- [ ] **Smazat/Presunout v toolbaru detailu otevreneho z vysledku hledani odhodi uzivatele do slozky Posty.** `executeBulkMessageAction` s `clearDetailIfAffected` vola `goto(currentFolderHref())` z `messagesState` ([mailbox.ts:173](frontend/src/lib/mail/mailbox.ts)) — to je posledni prochazena slozka POSTY, takze z hledani zmizi vysledky i dotaz. Stejna trida chyby jako Esc na detailu vysledku (opraveno pres `onClose` prop v [MessageDetail.svelte](frontend/src/lib/components/MessageDetail.svelte)), ale tohle je navigacni chovani optimistickeho pipeline, ne fokus — chce to kontext zavirani predat az do `mailbox.ts` (napr. callback `onDetailClosed`), aby hledani mohlo zavrit in-place a znovu spustit dotaz.
-
----
-
 ## Startup follow-up
 
 Backend (headless) cast zmerena a uzavrena — sekce "Startup audit — mereni 2026-06-11" v [backend/PERFORMANCE_BASELINE.md](backend/PERFORMANCE_BASELINE.md). Zbyva jen GUI:
