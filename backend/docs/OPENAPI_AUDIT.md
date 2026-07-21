@@ -1,5 +1,10 @@
 # OpenAPI surface audit — 2026-06-01
 
+> **HISTORICAL SNAPSHOT.** Point-in-time audit record from 2026-06-01 with its
+> resolution log; the file is no longer updated and does not describe current
+> code. The current API contract lives in the OpenAPI snapshot under
+> `backend/src/test/resources/openapi/`.
+
 _Snapshot used: `backend/src/test/resources/openapi/api-docs.json` (35 paths,
 46 operations, 39 schemas). All findings below are **before** any fix._
 

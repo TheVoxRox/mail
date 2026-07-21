@@ -59,11 +59,15 @@ Informational notes are kept separate from findings.
 A **different session/agent than the author** re-checks every factual claim
 against the audited commit. The 2026-07-09 pass caught three false claims that
 the original audits shipped with. Then apply the **propagation rule**: an
-audit claim usually lives in 3+ places — grep the key phrase across
-`docs/*AUDIT*.md`, `SECURITY_THREAT_MODEL.md` and
-`backend/SECURITY_RELEASE_CHECK.md` and correct every occurrence in one
-commit. Record the verdict in the threat model change log and a summary
-section in SECURITY_RELEASE_CHECK.
+audit claim lives in exactly two places — the audit doc and the threat
+model's STRIDE rows (since 2026-07-20; SECURITY_RELEASE_CHECK no longer
+restates claims). Grep the key phrase across `docs/*AUDIT*.md` and
+`SECURITY_THREAT_MODEL.md` and correct every occurrence in one commit.
+Record the verdict as a **one-line** entry in the threat model change log
+(verdict + audited commit + link — the full summary belongs to the audit
+doc's own change log) and update the audit's row in the verdict index in
+`backend/SECURITY_RELEASE_CHECK.md` (tier, version, date, commit, verdict —
+never claim details).
 
 ## 6. Coverage checklist (ASVS-derived, right-sized for this app)
 

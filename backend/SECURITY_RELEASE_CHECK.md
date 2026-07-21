@@ -1,11 +1,41 @@
 # Security release check
 
-Stav z 2026-04-30 pro aktuální backend artefakt a frontend dependency strom.
+| | |
+|---|---|
+| **Version** | 2.0 |
+| **Date** | 2026-07-20 |
+| **Applies to** | VoxRox Mail V0.1.0 |
+| **Role** | Průřezový pre-release security gate: index verdiktů per-subsystem auditů + primární záznamy průřezových kontrol (secret/artefakt scan, log hygiene, dependency audity) |
 
-Aktualizace 2026-05-08: zopakovaný lokální pre-release secret audit po Tauri
-release buildu.
+Detailní tvrzení jednotlivých auditů žijí **výhradně** v auditních dokumentech
+(`docs/*_AUDIT.md`, proces v [docs/AUDIT_GUIDE.md](../docs/AUDIT_GUIDE.md));
+tenhle soubor je neduplikuje. Průřezové kontroly níže (secret scan, log
+hygiene, cargo audit) tady naopak mají svůj primární záznam — každá sekce je
+datovaný snapshot konkrétního běhu.
 
-## Ověřeno
+## Index verdiktů per-subsystem auditů
+
+| Boundary | Audit | Tier | Verze | Datum | Audited commit | Verdikt |
+|---|---|---|---|---|---|---|
+| B1 external mail server | [IMAP_SMTP_AUDIT.md](../docs/IMAP_SMTP_AUDIT.md) | full | 1.2 | 2026-07-10 | `35a06f3` | **PASS** — B1-1 (Medium DoS) opraven v kódu 2026-07-10 |
+| B2 OAuth handshake | [OAUTH_AUDIT.md](../docs/OAUTH_AUDIT.md) | focused | 1.0 | 2026-07-09 | `d55b753` | **PASS** — bez zásahu do kódu |
+| B3 sidecar HTTP API | [API_SURFACE_AUDIT.md](../docs/API_SURFACE_AUDIT.md) | full | 1.3 | 2026-07-09 | `d55b753` | **PASS** — A1 (Low, defense-in-depth) opraven |
+| B4 WebView ↔ SPA | [CONTENT_RENDERING_AUDIT.md](../docs/CONTENT_RENDERING_AUDIT.md) | full | 1.3 | 2026-07-10 | `d55b753` (re-verifikováno proti `fc71cb4`) | **PASS** — F1/F2/F3 opraveny |
+| B5 crypto + filesystem | [CRYPTO_STORAGE_AUDIT.md](../docs/CRYPTO_STORAGE_AUDIT.md) | focused | 1.0 | 2026-07-09 | `d55b753` | **PASS** — bez zásahu do kódu |
+| B6 Tauri updater | [UPDATER_AUDIT.md](../docs/UPDATER_AUDIT.md) | full | 1.2 | 2026-07-11 | `e2b8d8d` | **PASS** — re-verifikováno pro release channels |
+
+Verdikt + odkaz drží také change log
+[SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md) §7; při aktualizaci
+auditu se mění (a) audit sám, (b) řádek tady, (c) jednořádkový záznam v change
+logu threat modelu.
+
+## Secret & artefakt scan — snapshot 2026-04-30 (aktualizace 2026-05-08)
+
+Datovaný záznam pre-release secret/artefakt auditu; konkrétní čísla (počty
+testů, komponent SBOM) platí k datu běhu. Zopakovaný lokální secret audit po
+Tauri release buildu proběhl 2026-05-08.
+
+### Ověřeno
 
 - [x] Backend build prošel: `mvn package`
 - [x] Testy prošly: `Tests run: 568, Failures: 0, Errors: 0, Skipped: 0`
@@ -47,7 +77,7 @@ release buildu.
   - `svelte-i18n -> esbuild` override na `0.28.0` kvůli GHSA-67mh-4wv8-2f99.
 - [x] Frontend ověření po hardeningu: `npm run check`, `npm run build`, `npm ls svelte-i18n esbuild postcss cookie`.
 
-## Otevřené před releasem
+### Původně otevřené položky (všechny uzavřeny)
 
 - [x] Spustit vulnerability scan nad `target/bom.json` nebo přímo Maven dependency tree v nástroji s aktuální CVE databází.
   - 2026-05-08: OWASP Dependency-Check lokálně nedoběhl kvůli NVD API 429 bez API key; SBOM `target/bom.json` byl znovu vygenerován.
@@ -57,6 +87,20 @@ release buildu.
 - [x] Po aktuálním lokálním installer/sidecar balení zopakovat secret scan nad distribuovaným bundlem, nejen nad backend JARem a aktuálním `src-tauri/binaries/app`.
 - [x] Před prvním GitHub pushem rotovat lokální Google OAuth secret nalezený v ignorovaném `backend/.env`, protože už byl použit v lokálním vývoji.
   - Rotace proběhla — potvrzeno vlastníkem 2026-07-09 při doc-truing pass. Gitleaks scan git historie hlásil 0 úniků, takže šlo o defense-in-depth opatření.
+
+### Použité příkazy
+
+```powershell
+mvn -Dmaven.repo.local=C:\dev\java\mail-backend\.m2repo -Dapp.data-dir=C:\dev\java\mail-backend\target\test-data package
+mvn -Dmaven.repo.local=C:\dev\java\mail-backend\.m2repo -Dapp.data-dir=C:\dev\java\mail-backend\target\test-data -DskipTests cyclonedx:makeAggregateBom
+mvn -Dmaven.repo.local=.m2repo -Dapp.data-dir=target/test-data -DskipTests org.owasp:dependency-check-maven:check
+mvn -Dmaven.repo.local=C:\dev\java\mail-backend\.m2repo dependency:tree
+jar tf target\mail-backend-0.1.0.jar
+npm audit --json
+npm run check
+npm run build
+npm ls svelte-i18n esbuild postcss cookie
+```
 
 ## Log hygiene audit (2026-06-13)
 
@@ -116,84 +160,9 @@ Reziduum / poznámky:
   - `vuln-scan.yml` job `cargo-audit-tauri` — scheduled JSON report (artifact) + gate.
   - cargo-audit pinnut na `0.22.2` a cachovaný (vzor jako `cargo-cyclonedx`).
 
-## API surface audit — Boundary 3 (2026-07-09)
+## Change log
 
-Per-subsystem audit sidecar REST API (loopback + `X-API-KEY`), plný zápis v
-[docs/API_SURFACE_AUDIT.md](../docs/API_SURFACE_AUDIT.md). Verdikt **PASS**.
-
-- [x] Autentizace: `ApiKeyFilter` = constant-time compare (SHA-256 + `MessageDigest.isEqual`), fail-fast 401 + `AuditLog.failure`; klíč per-JVM, in-memory, jen v `session.json`.
-- [x] Autorizace: `anyRequest().authenticated()`; `PUBLIC_ENDPOINTS` minimální (OAuth + static auth pages + springdoc vypnutý v prod); `/api/internal/**` (dump, threading, client-boot, actuator health) za klíčem. IDOR vědomě mimo model (single-user, jeden klíč).
-- [x] Input validation: 10 z 15 controllerů `@Validated` — všechny, které deklarují constrainované parametry (zbylých 5 nemá bean-validaci co vynucovat: 4 bezparametrické endpointy + client-boot sanitizuje DTO ve service); DTO `@Valid` s per-field constraints; pagination/search/bulk capy.
-- [x] Error hygiene: catch-all vrací fixní lokalizovanou hlášku, `include-message/stacktrace=never`; žádný leak zprávy/stacku/SQL.
-- [x] Attachment download: `partPath` = MIME index (`Integer.parseInt` per segment), ne FS cesta → žádný path traversal; temp soubor až po DB lookupu, unlink na close; `Content-Disposition` filename sanitizován.
-- [x] Diagnostic dump: bez credentials/tokenů/těl/předmětů; email maskovaný, `lastError` jen boolean; `ClientBootDiagnosticsService` allow-list klíčů + cap 512 znaků.
-- [x] **Opraveno (A1, Low, defense-in-depth):** JSON `send`/`draft` endpointy neměly cap na délku `body` ani počet příloh (multipart limit se na JSON `@RequestBody` nevztahuje); doplněn `@Size` `body` ≤ 10 MiB + ≤ 50 příloh na `MailRequest`/`DraftRequest`, regresní testy `MailWriteControllerTest.sendBodyTooLong` / `sendTooManyAttachments`. Pre-deserializační agregátní bound = přijaté reziduum (loopback + auth + klient 25 MB).
-
-## Auto-updater audit — Boundary 6 (2026-07-09, re-verifikováno 2026-07-11 pro release channels)
-
-Per-subsystem audit Tauri auto-updateru (GitHub release → signature-verified
-install), plný zápis v [docs/UPDATER_AUDIT.md](../docs/UPDATER_AUDIT.md) (v1.2).
-Verdikt **PASS**.
-
-- [x] Ed25519 verifikace je nativní v Rust pluginu — frontend ([updates.ts](../frontend/src/lib/updates.ts)) s podpisem nikdy nepracuje. Webview od zavedení kanálů (2026-07-11) nemá **žádné** updater plugin permission ([capabilities/default.json](../frontend/src-tauri/capabilities/default.json)); check/install jdou výhradně přes app commandy `check_for_update(channel)` / `install_pending_update` v [lib.rs](../frontend/src-tauri/src/lib.rs) — kanál se předává jen jménem (`stable`/`beta`), URL ani instalační cesta nikdy.
-- [x] Release channels: beta endpoint (`releases/download/beta/latest.json`) je compile-time konstanta (override jen build-time env `TAURI_UPDATER_BETA_ENDPOINT`), HTTPS `github.com`, manifest ověřovaný **stejným** pinned pubkey — přepnutí kanálu nemění trust anchor. Beta manifest obnovuje [beta-channel.yml](../.github/workflows/beta-channel.yml) s guardem proti version regresi ([beta-channel-guard.mjs](../frontend/scripts/beta-channel-guard.mjs)); halt/re-point runbook v [OPERATIONS.md](OPERATIONS.md) „Release channels".
-- [x] Build fail-closed: `buildUpdaterPlugin()` v [lib/tauri-config.mjs](../frontend/scripts/lib/tauri-config.mjs) hodí chybu na prázdném `TAURI_UPDATER_PUBKEY` (žádný placeholder key ≠ analogie OAuth `invalid_client`) a bez ≥1 endpointu; workflow padá bez `TAURI_SIGNING_PRIVATE_KEY`; manifest generator bere jen podepsaný artefakt a padá na prázdném `.sig`.
-- [x] Transport HTTPS-only (`dangerousInsecureTransportProtocol` opt-in, nezapnutý), `allowDowngrades:false`; updater fetch je nativní, takže nerozšiřuje WebView `connect-src` (zůstává loopback + `ipc:`).
-- [x] Hijacknutý `latest.json` nespustí kód (signature mismatch → install abort); pole `notes`/`version` se nerenderují jako markup ([UpdatePromptDialog.svelte](../frontend/src/lib/components/UpdatePromptDialog.svelte) ukazuje jen i18n-escaped `version`, `notes` vůbec).
-- [x] Fail handling: startup check ([bootstrap.ts](../frontend/src/lib/bootstrap.ts)) tiše (console.warn), manual check ([AboutSettings.svelte](../frontend/src/lib/components/settings/AboutSettings.svelte)) s failure UI + fallback na releases; pokryto `updates.test.ts` (vč. channel routingu stable/beta).
-- [x] Defense-in-depth: Sigstore build-provenance attestation + SHA-256 checksum u každého instalátoru.
-- [ ] Poznámka (procedurální, ne kód): base `tauri.conf.json` updater blok je dev reference; bare `npm run tauri:build` nevyrobí `.sig`, takže není validní release — guard je jen v RELEASE_CHECKLIST. Volitelné budoucí zpřísnění: CI lint že `dangerousInsecureTransportProtocol` není nikdy `true`.
-
-## OAuth handshake audit — Boundary 2 (2026-07-09)
-
-Focused audit (ověření STRIDE mitigací + data-flow refresh tokenu), plný zápis
-v [docs/OAUTH_AUDIT.md](../docs/OAUTH_AUDIT.md). Verdikt **PASS**, bez zásahu
-do kódu. Ověřeno proti `d55b753`.
-
-- [x] PKCE (S256) vynuceno pro oba providery přes custom resolver (Spring default kryje jen public klienty; Google je confidential). Microsoft = public client bez secretu (`client-authentication-method=none`).
-- [x] State nonce + úzká brána pro benigní duplicate callback (`OAuth2CompletedStateTracker` — jen přesný error code A prokazatelně dokončený state).
-- [x] Failure handler: WARN log server-side, redirect jen s URL-encoded error kódem — žádný reflected provider text.
-- [x] Scopes hardcoded per provider, redirect URI loopback; refresh token at rest AES/GCM přes `CryptoService` (per-account klíč + AAD), access tokeny jen v bounded in-memory `TokenCache`.
-- [x] `invalid_grant` → `requires_reauth` (scheduler stop, wizard); duplicate callback flag nečistí.
-
-## Crypto & storage audit — Boundary 5 (2026-07-09)
-
-Focused audit (ověření STRIDE mitigací + data-flow klíčového materiálu), plný
-zápis v [docs/CRYPTO_STORAGE_AUDIT.md](../docs/CRYPTO_STORAGE_AUDIT.md).
-Verdikt **PASS**, bez zásahu do kódu. Ověřeno proti `d55b753`.
-
-- [x] `crypto.bin`: DPAPI USER scope + app entropy, `UI_FORBIDDEN`; cizí user/machine → fail-stop s recovery hláškou; FFM implementace zeruje nativní buffery na obou cestách; atomic write + private permissions; in-place migrace legacy plaintext formátu.
-- [x] Fingerprint gate: constant-time compare, mismatch → hard stop; env-override pár se ověřuje proti existujícímu `crypto.bin` (žádný tichý re-key), poloviční konfigurace (key bez salt) odmítne boot.
-- [x] Šifrování credentials: AES/GCM-256, random 12B IV per operaci, PBKDF2-HmacSHA256 600k iterací, per-account salt, `accountId` jako AAD (ciphertext nelze přehodit mezi účty); AEAD tag mismatch → CRITICAL audit event.
-- [x] Self-test fail-stop před prvním použitím; main secret zerován při shutdownu.
-- [x] AR-1 (plaintext `mail.db`) potvrzeno jako vědomé reziduum s BitLocker mitigací a SQLCipher upgrade path.
-
-## IMAP/SMTP protocol audit — Boundary 1 (2026-07-09)
-
-Full audit protokolové vrstvy (transport, fetch→parse→persist, hlavičky,
-attachment download, SMTP send), plný zápis v
-[docs/IMAP_SMTP_AUDIT.md](../docs/IMAP_SMTP_AUDIT.md). Verdikt **PASS** — jeden
-Medium DoS nález (B1-1) přijat jako reziduum AR-3 a následně **opraven v kódu
-2026-07-10** (viz poslední položka). Ověřeno proti `35a06f3`.
-
-- [x] Hostname verification `ssl.checkserveridentity=true` explicitně na IMAP store, SMTP transportu i credential probe.
-- [x] OAuth2 token nikdy v cleartextu — fail-closed na OBOU protokolech: SMTP `requireSslForOAuth2`, IMAP CRITICAL `imap_oauth2_plaintext_blocked`; STARTTLS `required=true`.
-- [x] Timeouty reálné (IMAP 30s/60s, SMTP connect 30s), předané jako millis stringy; retry jen na transientní chyby, auth failure short-circuit na refresh.
-- [x] Strukturální DoS bounded: MIME depth 20, References walk 50, inline images 2 MiB/image + 8 MiB/zpráva (`readBounded`); malformed BODYSTRUCTURE → envelope-only stub (fail-soft).
-- [x] `From` je display-only data (RFC 2047 decode), do DB/FTS jako data, nikdy do body iframe; jediná security-load cesta (remote-image allowlist) je keyed na spoofovatelný From, ovlivní jen načtení obrázků (parametrizované dotazy). UIDVALIDITY cross-check resetuje sync state.
-- [x] Attachment download streamovaný na disk (`Files.copy`, konstantní heap) + empty-download integrity check + stale-temp sweep.
-- [x] **B1-1 (Medium, dříve AR-3) — FIXED 2026-07-10:** tělo zprávy se nově čte přes bounded `getInputStream()` s capem 8 MiB (stejný `readBounded` vzor jako inline obrázky; `mail.<proto>.partialfetch=true` explicitně připnutý, aby streaming garance nemohla zregresovat). Příliš velké tělo se nikdy nebufferuje ani neukládá — best-effort se persistuje příznak `messages.body_oversize`, detail vrací lokalizovaný placeholder (`mail.message.bodyTooLarge`) a další otevření už na IMAP nesahá; reply/forward cituje prázdné tělo, ne placeholder. `multipart/alternative` při oversized rich části degraduje na textovou alternativu bez ohledu na pořadí částí. AR-3 odstraněno z threat modelu (change log 2.2); pokryto `MimePartExtractorTest` + `MailContentServiceTest`.
-
-## Použité příkazy
-
-```powershell
-mvn -Dmaven.repo.local=C:\dev\java\mail-backend\.m2repo -Dapp.data-dir=C:\dev\java\mail-backend\target\test-data package
-mvn -Dmaven.repo.local=C:\dev\java\mail-backend\.m2repo -Dapp.data-dir=C:\dev\java\mail-backend\target\test-data -DskipTests cyclonedx:makeAggregateBom
-mvn -Dmaven.repo.local=.m2repo -Dapp.data-dir=target/test-data -DskipTests org.owasp:dependency-check-maven:check
-mvn -Dmaven.repo.local=C:\dev\java\mail-backend\.m2repo dependency:tree
-jar tf target\mail-backend-0.1.0.jar
-npm audit --json
-npm run check
-npm run build
-npm ls svelte-i18n esbuild postcss cookie
-```
+| Version | Date | Summary |
+|---|---|---|
+| 2.0 | 2026-07-20 | Restrukturalizace (konsolidace dokumentace): pět per-boundary souhrnných sekcí nahrazeno indexem verdiktů — detailní tvrzení žijí jen v `docs/*_AUDIT.md`, čímž se propagace auditního tvrzení zkracuje na 2 místa (audit + threat model). Doplněna verzní hlavička; datované průřezové sekce označeny jako snapshoty konkrétních běhů. Obsahově se žádné tvrzení nemění. |
+| — | 2026-04-30 až 2026-07-12 | Append-only éra bez verzní hlavičky (hlavička tvrdila „stav z 2026-04-30", obsah rostl do 2026-07-11) — plná historie v gitu. |

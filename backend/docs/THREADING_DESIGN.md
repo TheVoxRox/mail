@@ -1,5 +1,9 @@
 # Threading / Conversations — design proposal
 
+> **HISTORICAL SNAPSHOT.** Design proposal whose Phase 1 shipped 2026-06-01;
+> kept as the design-rationale record and not updated since. The shipping
+> code, not this document, is authoritative for current behavior.
+
 _Status: **Phase 1 implemented 2026-06-01.** Decisions on the six open
 questions at the bottom of this document have been resolved as the
 recommended defaults (1a backend-only, skip subject clustering, per-account,
