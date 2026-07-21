@@ -274,12 +274,15 @@
 
 		const frame = requestAnimationFrame(() => {
 			/*
-			 * Never park restored focus on the actions column: after a row-menu
-			 * delete the restore target is a *different* message's menu trigger,
-			 * and a screen reader would announce that button instead of the row
-			 * the focus moved on to. The subject cell is the row's reading anchor.
+			 * Restored focus always lands on a content cell: the actions column
+			 * would announce a *different* message's menu trigger, and the select
+			 * column its checkbox ("Select message X") — after a delete the
+			 * selection is gone and the checkbox says nothing about where focus
+			 * moved. The subject cell is the row's reading anchor.
 			 */
-			setFocus(idx, focusedCol === COL_ACTIONS ? COL_SUBJECT : focusedCol);
+			const anchorCol =
+				focusedCol === COL_ACTIONS || focusedCol === COL_SELECT ? COL_SUBJECT : focusedCol;
+			setFocus(idx, anchorCol);
 			clearListFocusRestore();
 		});
 

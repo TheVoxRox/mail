@@ -67,6 +67,23 @@ test.describe('Seznam zpráv v režimu bez podokna čtení', () => {
 		const thirdSubject = page.locator('[role="row"][data-stable-id="msg-03"] [data-col="2"]');
 		await expect(thirdSubject).toBeFocused();
 	});
+
+	test('hromadné smazání vrátí fokus na předmět sousedního řádku', async ({ page }) => {
+		await page.goto('/mail/1/INBOX');
+		await waitForShell(page);
+
+		// Ticking the box parks the roving cell on the select column, and that
+		// row then disappears — the restore must land on a content cell. A
+		// checkbox would announce "Select message X" and say nothing about where
+		// focus actually went.
+		await page.locator('[role="row"][data-stable-id="msg-02"] input[type="checkbox"]').check();
+		await page.getByRole('button', { name: 'Smazat vybrané' }).click();
+
+		await expect(page.locator('[role="row"][data-stable-id="msg-02"]')).toHaveCount(0);
+		await expect(
+			page.locator('[role="row"][data-stable-id="msg-03"] [data-col="2"]')
+		).toBeFocused();
+	});
 });
 
 test.describe('Přepnutí složky', () => {
@@ -172,5 +189,44 @@ test.describe('Seznam zpráv ve split režimu', () => {
 		// The open message was not the deleted one — the detail must stay.
 		await expect(page.getByRole('heading', { name: 'Projektové podklady' })).toBeVisible();
 		await expect(page).toHaveURL(/\/mail\/1\/INBOX\/msg-01$/);
+	});
+
+	test('Esc na otevřené zprávě vrátí fokus na její řádek', async ({ page }) => {
+		await page.addInitScript(() => {
+			window.localStorage.setItem('mail.readingPane', 'right');
+		});
+		await page.goto('/mail/1/INBOX');
+		await waitForShell(page);
+
+		const subject = page.locator('[role="row"][data-stable-id="msg-02"] [data-col="2"]');
+		await expect(subject).toBeVisible();
+		await subject.focus();
+		await page.keyboard.press('Enter');
+		await page.waitForURL('**/mail/1/INBOX/msg-02');
+		const frame = page.getByTitle('Obsah zprávy');
+		await expect.poll(() => frame.evaluate((el) => el === document.activeElement)).toBe(true);
+
+		// With the list mounted next to the detail the restore fires before the
+		// navigation settles, so it only survives if the close keeps focus.
+		await page.keyboard.press('Escape');
+		await page.waitForURL((url) => url.pathname === '/mail/1/INBOX');
+		await expect(subject).toBeFocused();
+	});
+
+	test('odkaz zpět do složky vrátí fokus na řádek zprávy', async ({ page }) => {
+		// Off mode replaces the detail's Back button with the breadcrumb link in
+		// the top bar — the visible way back must restore focus like Esc does.
+		await page.goto('/mail/1/INBOX');
+		await waitForShell(page);
+
+		const subject = page.locator('[role="row"][data-stable-id="msg-02"] [data-col="2"]');
+		await expect(subject).toBeVisible();
+		await subject.focus();
+		await page.keyboard.press('Enter');
+		await page.waitForURL('**/mail/1/INBOX/msg-02');
+
+		await page.getByRole('link', { name: 'Zpět do složky Doručené' }).click();
+		await page.waitForURL((url) => url.pathname === '/mail/1/INBOX');
+		await expect(subject).toBeFocused();
 	});
 });

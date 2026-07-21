@@ -9,6 +9,7 @@
 	import { accountsState, setActiveAccount } from '$lib/stores/accounts.js';
 	import { folders } from '$lib/stores/folders.js';
 	import { loadPage, messagesState } from '$lib/stores/messages.js';
+	import { closeCurrentMessageDetail } from '$lib/mail/actions.js';
 	import { clearSelection } from '$lib/stores/selectedMessage.js';
 	import { announcePolite } from '$lib/stores/toasts.js';
 	import { readingPane } from '$lib/stores/uiLayout.js';
@@ -140,6 +141,14 @@
 		})
 	);
 
+	function handleBackToFolder(event: MouseEvent) {
+		// Modifier clicks keep the browser's own link handling.
+		if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey)
+			return;
+		event.preventDefault();
+		void closeCurrentMessageDetail({ restoreFocus: true });
+	}
+
 	function panePlaceholderClass() {
 		return cn(
 			'flex items-center justify-center p-8 text-sm text-muted-foreground',
@@ -162,8 +171,16 @@
 	<div class="flex items-center gap-3 border-b border-border bg-muted/35 px-3 py-2">
 		<div class="flex min-w-0 shrink-0 items-center pr-1">
 			{#if detailIsOffMode}
+				<!--
+					Same closing path as Esc and the split-mode Back button, so the
+					visible way back restores focus to the row the message was
+					opened from instead of dropping the user on <main>. The href
+					stays real (semantics, SSR, middle-click safety) — the handler
+					only takes over the in-app case.
+				-->
 				<a
 					href={folderHref}
+					onclick={handleBackToFolder}
 					class="inline-flex min-w-0 items-center gap-1 truncate rounded-md px-2 py-1 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
 					aria-label={$_('detail.backToFolder', { values: { folder: folderLabel } })}
 				>

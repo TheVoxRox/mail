@@ -170,7 +170,10 @@ async function executeBulkMessageAction(options: ExecuteBulkOptions): Promise<Bu
 				requestListFocusRestore(focusTargetsBeforeMutation.get(succeededIds[0]) ?? null);
 			}
 			clearSelection();
-			await goto(currentFolderHref());
+			// keepFocus — same reason as closeCurrentMessageDetail: with a split
+			// reading pane the row restore fires before this navigation settles,
+			// and SvelteKit's focus reset would undo it.
+			await goto(currentFolderHref(), { keepFocus: true });
 		} else if (succeededIds.length === 1) {
 			/*
 			 * The removed row was not the open message (Delete on a list row in

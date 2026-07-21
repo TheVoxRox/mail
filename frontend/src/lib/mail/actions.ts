@@ -79,7 +79,14 @@ export async function closeCurrentMessageDetail(options?: {
 	}
 
 	clearSelection();
-	await goto(currentFolderHref());
+	/*
+	 * keepFocus: the restore above lands on the list row as soon as the store
+	 * changes, which with a split reading pane (list already mounted next to
+	 * the detail) happens *before* this navigation settles — SvelteKit's own
+	 * post-navigation focus reset would then drop focus back on <body> and the
+	 * layout's afterNavigate would park it on <main>.
+	 */
+	await goto(currentFolderHref(), { keepFocus: true });
 }
 
 export async function replyToMessage(stableId: string, all = false): Promise<void> {
