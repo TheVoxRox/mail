@@ -92,4 +92,51 @@ test.describe('Search', () => {
 		await toolbar.getByRole('button', { name: 'Odpovědět', exact: true }).click();
 		await page.waitForURL(/\/compose\?reply=msg-01/);
 	});
+
+	test('Esc na detailu výsledku vrátí zpět do výsledků a na jeho řádek', async ({ page }) => {
+		// The detail renders in place of the results here, so the mail route's
+		// closing path (back to the last browsed folder) would throw the user
+		// into the inbox and lose the results entirely.
+		await page.goto('/search/1?q=projekt');
+		await waitForShell(page);
+
+		const subject = page.locator('[role="row"][data-stable-id="msg-01"] [data-col="1"]');
+		await expect(subject).toBeVisible();
+		await subject.focus();
+		await page.keyboard.press('Enter');
+
+		await expect(page.getByRole('heading', { name: 'Projektové podklady' })).toBeVisible();
+		const frame = page.getByTitle('Obsah zprávy');
+		await expect.poll(() => frame.evaluate((el) => el === document.activeElement)).toBe(true);
+
+		await page.locator('main').focus();
+		await page.keyboard.press('Escape');
+
+		await expect(page.getByRole('grid', { name: 'Výsledky' })).toBeVisible();
+		await expect(page).toHaveURL(/\/search\/1\?q=projekt$/);
+		await expect(subject).toBeFocused();
+	});
+
+	test('smazání výsledku z řádkového menu vrátí fokus na sousední řádek', async ({ page }) => {
+		await page.goto('/search/1?q=zpráva');
+		await waitForShell(page);
+
+		const grid = page.getByRole('grid', { name: 'Výsledky' });
+		await expect(grid).toBeVisible();
+		const rows = grid.locator('[role="row"][data-stable-id]');
+		const firstId = await rows.nth(0).getAttribute('data-stable-id');
+		const secondId = await rows.nth(1).getAttribute('data-stable-id');
+		if (!firstId || !secondId) throw new Error('Výsledky hledání neobsahují data-stable-id.');
+
+		// The row menu trigger unmounts with its row — without a restore of its
+		// own (messagesState knows nothing about search results) focus would
+		// drop to <body>.
+		await page.locator(`[role="row"][data-stable-id="${firstId}"] [data-col="5"]`).click();
+		await page.getByRole('menuitem', { name: 'Smazat' }).click();
+
+		await expect(page.locator(`[role="row"][data-stable-id="${firstId}"]`)).toHaveCount(0);
+		await expect(
+			page.locator(`[role="row"][data-stable-id="${secondId}"] [data-col="1"]`)
+		).toBeFocused();
+	});
 });

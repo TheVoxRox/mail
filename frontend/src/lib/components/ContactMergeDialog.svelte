@@ -18,7 +18,8 @@
 		accountId: number;
 		contacts: ContactResponse[];
 		onOpenChange: (open: boolean) => void;
-		onMerged: () => void | Promise<void>;
+		/** Receives the surviving contact, so the caller can put focus on its row. */
+		onMerged: (targetId: number) => void | Promise<void>;
 	}
 
 	let { open, accountId, contacts, onOpenChange, onMerged }: Props = $props();
@@ -64,7 +65,7 @@
 			});
 			pushToast($_('contacts.mergeDone'), { tone: 'success' });
 			onOpenChange(false);
-			await onMerged();
+			await onMerged(target.id);
 		} catch (err) {
 			serverError = toErrorMessage(err);
 		} finally {

@@ -57,7 +57,7 @@ Deterministicke e2e kryti existuje (live-region asserty v [list-navigation.funct
 
 ## First Release Gate
 
-Kanonicky seznam *kroku* je [backend/RELEASE_CHECKLIST.md](backend/RELEASE_CHECKLIST.md): fresh install (§3/§3a), account + OAuth flows (§4), mail workflows (§5), sidecar lifecycle + recovery (§6), diagnostics (§7), long run (§8). Tady drzime jen release-mechaniku, ktera v checklistu NENI, a rozhodovaci body.
+Kanonicky seznam _kroku_ je [backend/RELEASE_CHECKLIST.md](backend/RELEASE_CHECKLIST.md): fresh install (§3/§3a), account + OAuth flows (§4), mail workflows (§5), sidecar lifecycle + recovery (§6), diagnostics (§7), long run (§8). Tady drzime jen release-mechaniku, ktera v checklistu NENI, a rozhodovaci body.
 
 - [ ] Projit cely `backend/RELEASE_CHECKLIST.md` pro konkretni kandidat (vc. §6 recovery a §8 long run).
 - [ ] End-to-end release dry run z cisteho checkoutu: tag / draft release, Windows signed workflow, upload artefaktu, overeni instalatoru, `latest.json`, podpisu, rucni instalace na cistem profilu.
@@ -110,6 +110,12 @@ Ed25519 signing key + offline zaloha klice — **hotove** (2026-06-16/20), detai
 Zprava, ktera existuje na serveru, ale chybi v lokalni DB uprostred UID rozsahu, je pro uzivatele neviditelna: sync bere jen `uid > last_known_uid` ([MessageDownloader.java:70](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MessageDownloader.java)), cleanup lokalni radky jen maze, nikdy nedoplnuje ([FlagSyncService.java:212](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/FlagSyncService.java)) a backfill predpoklada, ze chybi jen nejstarsi sekvence. Unread badge slozky ji ale pocita — bere server STATUS UNSEEN ([ImapFolderService.java:208](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/ImapFolderService.java)). Realny pripad: kos (Deleted) po vyprazdneni hlasil "1 neprectena" — UID 5+8 zustaly na serveru po trash→trash delete chovani z 15.7. (pricina uz opravena purge cestou, tohle je zbyle strukturalni slepe misto; plati pro vsechny slozky, ne jen kos).
 
 - [ ] Reconciliace server-only UID: `cleanupDeletedViaUidEnumeration` uz ma k dispozici mnozinu vsech server UID i lokalnich UID → server-only zpravy stahnout (envelope), nebo zajistit, ze je pokryje lazy fetch. Pozor na vykon (enumerace bezi kazdy sync cyklus). IT po vzoru [MailSyncGreenMailIT.java](backend/src/test/java/org/voxrox/mailbackend/feature/mail/service/MailSyncGreenMailIT.java).
+
+---
+
+## Mazani otevrene zpravy z vysledku hledani odhodi do Posty (nalez z fokus auditu 2026-07-21)
+
+- [ ] **Smazat/Presunout v toolbaru detailu otevreneho z vysledku hledani odhodi uzivatele do slozky Posty.** `executeBulkMessageAction` s `clearDetailIfAffected` vola `goto(currentFolderHref())` z `messagesState` ([mailbox.ts:173](frontend/src/lib/mail/mailbox.ts)) — to je posledni prochazena slozka POSTY, takze z hledani zmizi vysledky i dotaz. Stejna trida chyby jako Esc na detailu vysledku (opraveno pres `onClose` prop v [MessageDetail.svelte](frontend/src/lib/components/MessageDetail.svelte)), ale tohle je navigacni chovani optimistickeho pipeline, ne fokus — chce to kontext zavirani predat az do `mailbox.ts` (napr. callback `onDetailClosed`), aby hledani mohlo zavrit in-place a znovu spustit dotaz.
 
 ---
 

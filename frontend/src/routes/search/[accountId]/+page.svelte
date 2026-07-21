@@ -6,6 +6,7 @@
 	import { reloadSearch, runSearch, searchState } from '$lib/stores/search.js';
 	import { selectMessage, selectedMessage, clearSelection } from '$lib/stores/selectedMessage.js';
 	import { announcePolite } from '$lib/stores/toasts.js';
+	import { requestBodyFocus } from '$lib/mail/bodyFocus.js';
 	import { messagesPageInfo } from '$lib/mail/pageInfoAnnouncement.js';
 	import MessageDetail from '$lib/components/MessageDetail.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
@@ -24,6 +25,7 @@
 	 */
 	let announcePageInfoOnReady = false;
 	let lastAnnouncedResultsKey = '';
+	let restoreFocusStableId = $state<string | null>(null);
 
 	$effect(() => {
 		if ($searchState.status !== 'ready') return;
@@ -70,12 +72,20 @@
 
 		setActiveAccount(data.accountId);
 		clearSelection();
+		// A new query throws away any pending focus restore: it points at a row
+		// of the previous result set, which must not grab focus if the same
+		// message happens to match again.
+		restoreFocusStableId = null;
 		if (data.query) {
 			void runSearch(data.accountId, data.query, data.page);
 		}
 	});
 
 	function handleSelect(m: MailSummaryResponse) {
+		// Opening a result is always deliberate here (Enter or a click) — the
+		// results grid has no reading pane that could follow focus, so the
+		// reading cursor moves into the body (see mail/bodyFocus.ts).
+		requestBodyFocus(m.stableId);
 		void selectMessage(m.stableId);
 		/*
 		 * Opening a result swaps the list for the detail in place — there is no
@@ -90,6 +100,52 @@
 			});
 		}
 	}
+
+	/*
+	 * Closing a result's detail returns to the results, in place. The default
+	 * closing path (mail/actions.ts) navigates to the folder the *mail* list
+	 * last browsed — from here that means being dumped into the inbox with the
+	 * search results gone, so this screen closes on its own terms and hands the
+	 * roving focus back to the row the result was opened from.
+	 */
+	function handleDetailClose() {
+		restoreFocusStableId = $selectedMessage?.stableId ?? null;
+		clearSelection();
+	}
+
+	/*
+	 * A row action can remove the row it was invoked from (delete, move) — its
+	 * menu trigger unmounts with it and focus drops to <body>. The mail list
+	 * gets its restore from `messagesState`, which knows nothing about search
+	 * results, so this screen tracks the neighbour itself. It has to live here
+	 * rather than in the grid: the reload takes the search state through
+	 * `loading`, which unmounts the grid and with it any state it held.
+	 */
+	let pendingRowRemoval: { stableId: string; neighbour: string | null } | null = null;
+
+	function handleAfterRowAction(message: MailSummaryResponse) {
+		const content = $searchState.status === 'ready' ? $searchState.page.content : [];
+		const idx = content.findIndex((row) => row.stableId === message.stableId);
+		pendingRowRemoval =
+			idx < 0
+				? null
+				: {
+						stableId: message.stableId,
+						neighbour: content[idx + 1]?.stableId ?? content[idx - 1]?.stableId ?? null
+					};
+		void reloadSearch();
+	}
+
+	$effect(() => {
+		if ($searchState.status !== 'ready') return;
+		const pending = pendingRowRemoval;
+		if (!pending) return;
+		pendingRowRemoval = null;
+		// The row survived (flag / mark read) — the menu already returned focus
+		// to its own trigger, which is still mounted.
+		if ($searchState.page.content.some((row) => row.stableId === pending.stableId)) return;
+		restoreFocusStableId = pending.neighbour;
+	});
 
 	function navigateToPage(target: number) {
 		if ($searchState.status !== 'ready') return;
@@ -109,7 +165,7 @@
 
 <div class="flex flex-1 flex-col overflow-hidden">
 	{#if $selectedMessage}
-		<MessageDetail />
+		<MessageDetail onClose={handleDetailClose} />
 	{:else}
 		<div class="flex items-center justify-between border-b border-border px-4 py-3">
 			<h1 class="text-title font-semibold">
@@ -155,7 +211,9 @@
 			<SearchResultsGrid
 				results={pageData}
 				onSelect={handleSelect}
-				onAfterAction={() => void reloadSearch()}
+				onAfterAction={handleAfterRowAction}
+				{restoreFocusStableId}
+				onFocusRestored={() => (restoreFocusStableId = null)}
 			/>
 
 			<Pagination

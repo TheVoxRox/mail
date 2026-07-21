@@ -170,7 +170,14 @@ async function executeBulkMessageAction(options: ExecuteBulkOptions): Promise<Bu
 				requestListFocusRestore(focusTargetsBeforeMutation.get(succeededIds[0]) ?? null);
 			}
 			clearSelection();
-			await goto(currentFolderHref());
+			/*
+			 * keepFocus mirrors closeCurrentMessageDetail. There the reset
+			 * demonstrably ate the restore; here the list re-renders (the row is
+			 * gone) which gives the restore a second, later attempt, so it lands
+			 * either way — the flag keeps this path from depending on that
+			 * ordering.
+			 */
+			await goto(currentFolderHref(), { keepFocus: true });
 		} else if (succeededIds.length === 1) {
 			/*
 			 * The removed row was not the open message (Delete on a list row in

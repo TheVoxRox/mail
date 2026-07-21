@@ -18,11 +18,30 @@
 	interface Props {
 		results: PagedResponse<MailSummaryResponse>;
 		onSelect: (message: MailSummaryResponse) => void;
-		/** Re-run the search after a row action mutates a result (move/delete/flag/seen). */
-		onAfterAction: () => void;
+		/**
+		 * Re-run the search after a row action mutated a result
+		 * (move/delete/flag/seen). Carries the row it was invoked on so the
+		 * caller can hand focus to a neighbour if that row is now gone.
+		 */
+		onAfterAction: (message: MailSummaryResponse) => void;
+		/**
+		 * Row to put focus back on once the grid renders — the result whose
+		 * detail was just closed, or the neighbour of a row an action removed.
+		 * The grid unmounts both while the detail shows and while the search
+		 * reloads, so a roving position cannot survive inside it.
+		 */
+		restoreFocusStableId?: string | null;
+		/** Fired once the restore above was attempted, so the caller can clear it. */
+		onFocusRestored?: () => void;
 	}
 
-	let { results, onSelect, onAfterAction }: Props = $props();
+	let {
+		results,
+		onSelect,
+		onAfterAction,
+		restoreFocusStableId = null,
+		onFocusRestored
+	}: Props = $props();
 
 	/*
 	 * Search results reuse the same ARIA grid + roving cell navigation as the
@@ -99,6 +118,35 @@
 	$effect(() => {
 		const max = results.content.length - 1;
 		if (focusedRow > max) focusedRow = Math.max(0, max);
+	});
+
+	/**
+	 * Moves the roving focus onto `stableId`'s subject cell. Reports back
+	 * whether it happened — the row may not be on this page (a stale request
+	 * after the query changed), and the caller must only retire a request that
+	 * was actually honoured.
+	 */
+	function focusRowSubject(stableId: string): boolean {
+		const idx = results.content.findIndex((message) => message.stableId === stableId);
+		if (idx < 0) return false;
+		if (!focusGridCell(gridElement, idx, COL_SUBJECT)) return false;
+		focusedRow = idx;
+		focusedCol = COL_SUBJECT;
+		return true;
+	}
+
+	/*
+	 * Coming back from a result's detail, or from a row action that removed a
+	 * row: the grid mounts fresh, so focus would start over at the first row
+	 * (or fall to <body>). Deferred a frame so the move lands after the page
+	 * finished swapping the detail out.
+	 */
+	$effect(() => {
+		const stableId = restoreFocusStableId;
+		if (!stableId) return;
+		requestAnimationFrame(() => {
+			if (focusRowSubject(stableId)) onFocusRestored?.();
+		});
 	});
 </script>
 
@@ -213,7 +261,7 @@
 					focused={focusedRow === rowIndex && focusedCol === COL_ACTIONS}
 					onCellFocus={() => handleCellFocus(rowIndex, COL_ACTIONS)}
 					currentFolderRef={message.folderName}
-					{onAfterAction}
+					onAfterAction={() => onAfterAction(message)}
 				/>
 			</div>
 		</div>

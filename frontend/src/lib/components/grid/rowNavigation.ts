@@ -10,39 +10,6 @@
 
 export const ROW_NAV_PAGE_STEP = 10;
 
-interface RowNavOptions {
-	/** `rowCount - 1`. If < 0, the helper returns null. */
-	maxIndex: number;
-	currentIndex: number;
-	/** Step for PageUp/PageDown. Default 10. */
-	pageStep?: number;
-}
-
-/**
- * Returns the next row index for the given key, or `null` if the key is
- * not a navigation key (or the list is empty).
- */
-export function computeNextRowIndex(key: string, options: RowNavOptions): number | null {
-	if (options.maxIndex < 0) return null;
-	const step = options.pageStep ?? ROW_NAV_PAGE_STEP;
-	switch (key) {
-		case 'ArrowDown':
-			return Math.min(options.maxIndex, options.currentIndex + 1);
-		case 'ArrowUp':
-			return Math.max(0, options.currentIndex - 1);
-		case 'Home':
-			return 0;
-		case 'End':
-			return options.maxIndex;
-		case 'PageDown':
-			return Math.min(options.maxIndex, options.currentIndex + step);
-		case 'PageUp':
-			return Math.max(0, options.currentIndex - step);
-		default:
-			return null;
-	}
-}
-
 interface CellNavOptions {
 	/** Currently focused cell. */
 	row: number;
@@ -108,26 +75,20 @@ export function computeNextCell(
 
 /**
  * Focuses the cell marked `[data-cell-target][data-col="{col}"]` inside the row
- * `[data-row-index="{rowIndex}"]` within `gridEl`. No-op when the grid or the
- * target cell is not (yet) in the DOM. Shared by the roving-cell grids
- * (MessageList, SearchResultsGrid) so the cell lookup stays identical.
+ * `[data-row-index="{rowIndex}"]` within `gridEl`. Shared by the roving-cell
+ * grids (MessageList, SearchResultsGrid, ContactList) so the cell lookup stays
+ * identical.
+ *
+ * Returns whether focus actually moved: false means the grid or the cell is not
+ * (yet) in the DOM — the caller may be a component instance about to be torn
+ * down, and a one-shot focus request must survive that to be honoured by the
+ * instance that replaces it.
  */
-export function focusGridCell(gridEl: HTMLElement | null, rowIndex: number, col: number): void {
-	gridEl
+export function focusGridCell(gridEl: HTMLElement | null, rowIndex: number, col: number): boolean {
+	const cell = gridEl
 		?.querySelector<HTMLElement>(`[data-row-index="${rowIndex}"]`)
-		?.querySelector<HTMLElement>(`[data-cell-target][data-col="${col}"]`)
-		?.focus();
-}
-
-/**
- * Returns the row index from the `data-row-index` attribute on the nearest
- * ancestor element, or null if no such ancestor exists / the attribute is
- * not an integer.
- */
-export function rowIndexFromTarget(target: EventTarget | null): number | null {
-	if (!(target instanceof Element)) return null;
-	const row = target.closest<HTMLElement>('[data-row-index]');
-	if (!row) return null;
-	const idx = Number(row.dataset.rowIndex);
-	return Number.isInteger(idx) ? idx : null;
+		?.querySelector<HTMLElement>(`[data-cell-target][data-col="${col}"]`);
+	if (!cell) return false;
+	cell.focus();
+	return true;
 }
