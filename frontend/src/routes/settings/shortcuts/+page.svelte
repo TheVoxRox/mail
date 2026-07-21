@@ -32,17 +32,17 @@
 				{
 					shortcut: SHORTCUT_LABELS.workspaceMail,
 					actionKey: 'settings.shortcuts.actions.mail',
-					scopeKey: 'settings.shortcuts.scopes.global'
+					scopeKey: 'settings.shortcuts.scopes.globalIncludingInputs'
 				},
 				{
 					shortcut: SHORTCUT_LABELS.workspaceContacts,
 					actionKey: 'settings.shortcuts.actions.contacts',
-					scopeKey: 'settings.shortcuts.scopes.global'
+					scopeKey: 'settings.shortcuts.scopes.globalIncludingInputs'
 				},
 				{
 					shortcut: SHORTCUT_LABELS.workspaceSettings,
 					actionKey: 'settings.shortcuts.actions.settings',
-					scopeKey: 'settings.shortcuts.scopes.global'
+					scopeKey: 'settings.shortcuts.scopes.globalIncludingInputs'
 				},
 				{
 					shortcut: SHORTCUT_LABELS.shortcutHelp,

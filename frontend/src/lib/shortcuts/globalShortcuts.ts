@@ -50,11 +50,10 @@ export function isEditableTarget(target: EventTarget | null): boolean {
  * Global keydown handler. Hierarchy:
  *  1) Ctrl/Cmd+K opens the palette (even in inputs).
  *  2) Palette open → handler hands the key to the palette component.
- *  3) Cursor in an editable element → handler stays out.
- *  4) `?` (no modifiers) → Settings › Shortcuts.
- *  5) Outlook-style actions on the open message (reply, forward, flag, …).
- *  6) Ctrl+N → new message / new contact depending on the workspace mode.
- *  7) Ctrl+1/2/3 → switch the workspace mode.
+ *  3) Ctrl+1/2/3 (workspace) and Ctrl+N (new item) — also in inputs.
+ *  4) Cursor in an editable element → handler stays out.
+ *  5) `?` (no modifiers) → Settings › Shortcuts.
+ *  6) Outlook-style actions on the open message (reply, forward, flag, …).
  */
 export function handleGlobalKeydown(event: KeyboardEvent, handlers: GlobalShortcutHandlers): void {
 	if (
@@ -69,6 +68,17 @@ export function handleGlobalKeydown(event: KeyboardEvent, handlers: GlobalShortc
 	}
 
 	if (handlers.isPaletteOpen()) return;
+
+	/*
+	 * Workspace switching and "new item" are window-level commands in Outlook:
+	 * they work wherever the cursor is, and neither combination types or edits
+	 * text. So — like Ctrl+K above — they run before the editable-target bail;
+	 * otherwise a cursor parked in the search box, a settings field or a compose
+	 * field silently swallowed the keystroke and the app stayed put. Leaving a
+	 * half-written message this way is still guarded by the compose leave guard.
+	 */
+	if (handleWorkspaceShortcut(event, handlers)) return;
+
 	if (isEditableTarget(event.target)) return;
 
 	const isShortcutHelpKey = event.key === '?' || (event.shiftKey && event.code === 'Slash');
@@ -91,13 +101,20 @@ export function handleGlobalKeydown(event: KeyboardEvent, handlers: GlobalShortc
 		const messageCtx = handlers.getMessageShortcutContext();
 		if (messageCtx && handleMessageShortcut(event, messageCtx, handlers)) return;
 	}
+}
 
-	if (!event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return;
+/**
+ * Ctrl+N and Ctrl+1/2/3. Returns true when the keystroke was consumed. `code`
+ * (not `key`) keeps these working on layouts whose top-row digits type letters
+ * instead — see the Czech layout case in boot.functional.e2e.ts.
+ */
+function handleWorkspaceShortcut(event: KeyboardEvent, handlers: GlobalShortcutHandlers): boolean {
+	if (!event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return false;
 
 	if (event.code === 'KeyN') {
 		event.preventDefault();
 		void handlers.goToPrimaryNewAction();
-		return;
+		return true;
 	}
 
 	switch (event.code) {
@@ -105,17 +122,19 @@ export function handleGlobalKeydown(event: KeyboardEvent, handlers: GlobalShortc
 		case 'Numpad1':
 			event.preventDefault();
 			void handlers.goToWorkspace('mail');
-			break;
+			return true;
 		case 'Digit2':
 		case 'Numpad2':
 			event.preventDefault();
 			void handlers.goToWorkspace('contacts');
-			break;
+			return true;
 		case 'Digit3':
 		case 'Numpad3':
 			event.preventDefault();
 			void handlers.goToWorkspace('settings');
-			break;
+			return true;
+		default:
+			return false;
 	}
 }
 

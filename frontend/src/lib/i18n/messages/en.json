@@ -596,8 +596,8 @@
 				"messageGrid": "Works in the message list and in search results.",
 				"contactList": "Works in the contact list.",
 				"contactForm": "Works in the contact form; asks first when there are unsaved changes.",
-				"mailOrSettings": "Works outside text fields while Mail or Settings is active.",
-				"contacts": "Works outside text fields while Contacts is active.",
+				"mailOrSettings": "Works anywhere, including text fields, while Mail or Settings is active.",
+				"contacts": "Works anywhere, including text fields, while Contacts is active.",
 				"compose": "Works while composing a new message.",
 				"openMessage": "Works while a message is open.",
 				"palette": "Works while the command palette is open."
