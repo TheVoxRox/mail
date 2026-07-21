@@ -22,6 +22,19 @@
 	import { closeCurrentMessageDetail } from '$lib/mail/actions.js';
 	import MailToolbar from '$lib/components/MailToolbar.svelte';
 
+	type Props = {
+		/**
+		 * How to close the detail (Esc, Back). Defaults to the mail route's own
+		 * closing path — back to the folder list with focus on the message's
+		 * row. The search results render this component in place instead, and
+		 * navigating to a mail folder there would throw the user out of their
+		 * results, so that screen passes its own handler.
+		 */
+		onClose?: () => void;
+	};
+
+	let { onClose }: Props = $props();
+
 	const msgContent = $derived($selectedMessage?.content?.content ?? '');
 	const looksLikeHtml = $derived(isMailHtml(msgContent));
 
@@ -66,6 +79,10 @@
 	});
 
 	function handleClose() {
+		if (onClose) {
+			onClose();
+			return;
+		}
 		void closeCurrentMessageDetail({ restoreFocus: true });
 	}
 

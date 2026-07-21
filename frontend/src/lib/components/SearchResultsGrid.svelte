@@ -18,11 +18,30 @@
 	interface Props {
 		results: PagedResponse<MailSummaryResponse>;
 		onSelect: (message: MailSummaryResponse) => void;
-		/** Re-run the search after a row action mutates a result (move/delete/flag/seen). */
-		onAfterAction: () => void;
+		/**
+		 * Re-run the search after a row action mutated a result
+		 * (move/delete/flag/seen). Carries the row it was invoked on so the
+		 * caller can hand focus to a neighbour if that row is now gone.
+		 */
+		onAfterAction: (message: MailSummaryResponse) => void;
+		/**
+		 * Row to put focus back on once the grid renders — the result whose
+		 * detail was just closed, or the neighbour of a row an action removed.
+		 * The grid unmounts both while the detail shows and while the search
+		 * reloads, so a roving position cannot survive inside it.
+		 */
+		restoreFocusStableId?: string | null;
+		/** Fired once the restore above was attempted, so the caller can clear it. */
+		onFocusRestored?: () => void;
 	}
 
-	let { results, onSelect, onAfterAction }: Props = $props();
+	let {
+		results,
+		onSelect,
+		onAfterAction,
+		restoreFocusStableId = null,
+		onFocusRestored
+	}: Props = $props();
 
 	/*
 	 * Search results reuse the same ARIA grid + roving cell navigation as the
@@ -99,6 +118,28 @@
 	$effect(() => {
 		const max = results.content.length - 1;
 		if (focusedRow > max) focusedRow = Math.max(0, max);
+	});
+
+	/** Moves the roving focus onto `stableId`'s subject cell, if it is on the page. */
+	function focusRowSubject(stableId: string): void {
+		const idx = results.content.findIndex((message) => message.stableId === stableId);
+		if (idx < 0) return;
+		setFocus(idx, COL_SUBJECT);
+	}
+
+	/*
+	 * Coming back from a result's detail: the grid mounts fresh, so focus would
+	 * start over at the first row (or fall to <body>). Deferred a frame so the
+	 * move lands after the page finished swapping the detail out.
+	 */
+	$effect(() => {
+		const stableId = restoreFocusStableId;
+		if (!stableId) return;
+		const frame = requestAnimationFrame(() => {
+			focusRowSubject(stableId);
+			onFocusRestored?.();
+		});
+		return () => cancelAnimationFrame(frame);
 	});
 </script>
 
@@ -213,7 +254,7 @@
 					focused={focusedRow === rowIndex && focusedCol === COL_ACTIONS}
 					onCellFocus={() => handleCellFocus(rowIndex, COL_ACTIONS)}
 					currentFolderRef={message.folderName}
-					{onAfterAction}
+					onAfterAction={() => onAfterAction(message)}
 				/>
 			</div>
 		</div>
