@@ -166,16 +166,67 @@ test.describe('Contacts', () => {
 		await expect(page.getByText('marie@example.com')).toBeVisible();
 	});
 
-	test('kontakty se zobrazují jako přístupná tabulka', async ({ page }) => {
+	test('kontakty se zobrazují jako přístupný grid', async ({ page }) => {
 		await page.goto('/contacts/1');
 		await waitForShell(page);
 
-		const table = page.getByRole('table', { name: 'Seznam kontaktů' });
-		await expect(table).toBeVisible();
-		await expect(table.getByRole('columnheader', { name: 'Jméno' })).toBeVisible();
-		await expect(table.getByRole('columnheader', { name: 'E-mail' })).toBeVisible();
-		await expect(table.getByRole('columnheader', { name: 'Štítky' })).toBeVisible();
-		await expect(table.getByRole('row', { name: /Jana Novak/ })).toBeVisible();
+		// A grid, not a plain table: the rows carry interactive controls and are
+		// navigated with arrows under a roving tabindex.
+		const grid = page.getByRole('grid', { name: 'Seznam kontaktů' });
+		await expect(grid).toBeVisible();
+		await expect(grid.getByRole('columnheader', { name: 'Jméno' })).toBeVisible();
+		await expect(grid.getByRole('columnheader', { name: 'E-mail' })).toBeVisible();
+		await expect(grid.getByRole('columnheader', { name: 'Štítky' })).toBeVisible();
+		await expect(grid.getByRole('row', { name: /Jana Novak/ })).toBeVisible();
+	});
+
+	test('seznam kontaktů je jeden tab stop a šipky chodí po buňkách', async ({ page }) => {
+		await page.goto('/contacts/1');
+		await waitForShell(page);
+		await bulkCreateContacts(page, [
+			{ name: 'Karel', surname: 'Druhy', emails: [{ email: 'karel@example.com' }] }
+		]);
+		// Re-query through the app so the freshly seeded contact joins the list.
+		await page.locator('#contacts-sidebar-search').fill('example.com');
+		await page.keyboard.press('Enter');
+		await page.waitForURL('**/contacts/1?q=example.com');
+
+		const rows = page.locator('tbody tr[data-contact-id]');
+		await expect(rows).toHaveCount(2);
+
+		// Every row used to contribute four tab stops (checkbox + three action
+		// buttons); the grid exposes exactly one for the whole list.
+		const tabbable = await page.evaluate(
+			() =>
+				document.querySelectorAll(
+					'tbody [data-cell-target]:not([tabindex="-1"]), tbody button:not([tabindex="-1"])'
+				).length
+		);
+		expect(tabbable).toBe(1);
+
+		const cell = (row: number, col: number) =>
+			page.locator(`tbody [data-row-index="${row}"] [data-cell-target][data-col="${col}"]`);
+
+		await cell(0, 1).focus();
+		await page.keyboard.press('ArrowRight');
+		await expect(cell(0, 2)).toBeFocused();
+
+		// The action buttons are cells of the row like any other.
+		await page.keyboard.press('End');
+		await expect(cell(0, 7)).toBeFocused();
+		await expect(cell(0, 7)).toHaveAccessibleName('Smazat kontakt Jana Novak');
+
+		await page.keyboard.press('ArrowDown');
+		await expect(cell(1, 7)).toBeFocused();
+
+		await page.keyboard.press('Home');
+		await expect(cell(1, 0)).toBeFocused();
+
+		// Enter on a content cell opens the contact, like clicking the row.
+		await page.keyboard.press('ArrowRight');
+		await expect(cell(1, 1)).toBeFocused();
+		await page.keyboard.press('Enter');
+		await page.waitForURL(/\/contacts\/1\?.*edit=\d+/);
 	});
 
 	test('create bez e-mailu zobrazí inline chybu a neodešle request', async ({ page }) => {

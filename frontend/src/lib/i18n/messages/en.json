@@ -553,7 +553,7 @@
 				"upDown": "Up / Down arrow",
 				"leftRight": "Left / Right arrow",
 				"enterSpace": "Enter / Space",
-				"listNavCombo": "Arrows, Home / End, Page Up / Down"
+				"listNavCombo": "Arrows, Home / End, Ctrl+Home / Ctrl+End, Page Up / Down"
 			},
 			"actions": {
 				"mail": "Go to Mail",
@@ -575,7 +575,7 @@
 				"listPage": "10 messages up / down",
 				"listOpenMessage": "Open the message",
 				"listDeleteMessage": "Delete the message on the focused row",
-				"contactsListNav": "Move through the contact list",
+				"contactsListNav": "Move between contact list cells (action buttons included)",
 				"cancelContactForm": "Cancel creating or editing a contact",
 				"sendMessage": "Send the draft message",
 				"saveDraft": "Save draft",

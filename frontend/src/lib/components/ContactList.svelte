@@ -12,7 +12,11 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Select } from '$lib/components/ui/select/index.js';
 	import { StateMessage } from '$lib/components/ui/state-message/index.js';
-	import { computeNextRowIndex, rowIndexFromTarget } from '$lib/components/grid/rowNavigation.js';
+	import {
+		computeNextCell,
+		focusGridCell,
+		ROW_NAV_PAGE_STEP
+	} from '$lib/components/grid/rowNavigation.js';
 	import type { ContactResponse, EmailLabel, PagedResponse } from '$lib/types.js';
 	import type { ContactSort } from '$lib/api/contacts.js';
 	import { cn } from '$lib/utils.js';
@@ -88,9 +92,28 @@
 		mergeDialogOpen = true;
 	}
 
+	/*
+	 * The list is an ARIA grid with a roving tabindex, the same keyboard model
+	 * as the message list: one tab stop for the whole table, arrows move
+	 * between cells. Without it every row contributed four tab stops (checkbox
+	 * + three action buttons), so reaching the pagination below a full page
+	 * meant tabbing through ~80 controls. The action buttons are cells of the
+	 * row like any other — arrows reach them, Enter/Space activates them.
+	 */
+	const COL_SELECT = 0;
+	const COL_NAME = 1;
+	const COL_EMAIL = 2;
+	const COL_LABELS = 3;
+	const COL_NOTE = 4;
+	const COL_COMPOSE = 5;
+	const COL_EDIT = 6;
+	const COL_DELETE = 7;
+	const MAX_COL = COL_DELETE;
+
 	let selectAllInput = $state<HTMLInputElement | null>(null);
 	let tableBodyElement = $state<HTMLTableSectionElement | null>(null);
 	let focusedRowIndex = $state(0);
+	let focusedCol = $state(COL_NAME);
 
 	$effect(() => {
 		if (selectAllInput) selectAllInput.indeterminate = someVisibleSelected;
@@ -101,6 +124,7 @@
 		pendingLabelValue = labelValue;
 	});
 
+	// Keep the roving row inside the page when the list shrinks (delete, filter).
 	$effect(() => {
 		const max = page.content.length - 1;
 		if (max < 0) {
@@ -110,31 +134,40 @@
 		if (focusedRowIndex > max) focusedRowIndex = max;
 	});
 
-	function focusRowCheckbox(rowIndex: number): void {
-		void tick().then(() => {
-			tableBodyElement
-				?.querySelector<HTMLInputElement>(`[data-row-index="${rowIndex}"] input[type="checkbox"]`)
-				?.focus();
-		});
+	function setFocus(rowIndex: number, col: number): void {
+		focusedRowIndex = rowIndex;
+		focusedCol = col;
+		void tick().then(() => focusGridCell(tableBodyElement, rowIndex, col));
 	}
 
-	function handleListKeydown(event: KeyboardEvent): void {
-		if (rowIndexFromTarget(event.target) === null) return;
+	function handleCellFocus(rowIndex: number, col: number): void {
+		focusedRowIndex = rowIndex;
+		focusedCol = col;
+	}
 
-		const nextIndex = computeNextRowIndex(event.key, {
-			maxIndex: page.content.length - 1,
-			currentIndex: focusedRowIndex
+	function handleRowKeydown(
+		event: KeyboardEvent,
+		contact: ContactResponse,
+		rowIndex: number
+	): void {
+		if (event.key === 'Enter' || event.key === ' ') {
+			// The checkbox and the action buttons own their own activation.
+			if (focusedCol >= COL_COMPOSE || focusedCol === COL_SELECT) return;
+			event.preventDefault();
+			onEdit(contact.id);
+			return;
+		}
+		const next = computeNextCell(event.key, {
+			row: rowIndex,
+			col: focusedCol,
+			maxRow: page.content.length - 1,
+			maxCol: MAX_COL,
+			ctrl: event.ctrlKey,
+			pageStep: ROW_NAV_PAGE_STEP
 		});
-		if (nextIndex === null || nextIndex === focusedRowIndex) return;
-
+		if (!next) return;
 		event.preventDefault();
-		focusedRowIndex = nextIndex;
-		focusRowCheckbox(nextIndex);
-	}
-
-	function handleListFocusIn(event: FocusEvent): void {
-		const idx = rowIndexFromTarget(event.target);
-		if (idx !== null && idx !== focusedRowIndex) focusedRowIndex = idx;
+		setFocus(next.row, next.col);
 	}
 
 	$effect(() => {
@@ -430,7 +463,18 @@
 		</div>
 	{/if}
 	<div class="overflow-x-auto">
-		<table class="min-w-[50rem] table-fixed border-collapse text-sm">
+		<!--
+			role="grid" (not a plain table): the rows carry interactive controls,
+			so the list is navigated with arrows under a roving tabindex rather
+			than read cell by cell in browse mode. Native table markup keeps the
+			row/column semantics; the roles are stated explicitly because a grid's
+			children must not fall back to plain table cells.
+		-->
+		<table
+			role="grid"
+			aria-rowcount={page.totalElements + 1}
+			class="min-w-[50rem] table-fixed border-collapse text-sm"
+		>
 			<caption class="sr-only">{$_('contacts.tableCaption')}</caption>
 			<colgroup>
 				<col class="w-11" />
@@ -441,45 +485,48 @@
 				<col class="w-[11rem]" />
 			</colgroup>
 			<thead class="border-b border-border bg-muted/20 text-xs text-muted-foreground">
-				<tr>
-					<th scope="col" class="px-3 py-2 text-left font-medium">
+				<tr aria-rowindex={1}>
+					<th role="columnheader" scope="col" class="px-3 py-2 text-left font-medium">
 						<span class="sr-only">{$_('contacts.columnSelect')}</span>
 					</th>
-					<th scope="col" class="px-3 py-2 text-left font-medium">
+					<th role="columnheader" scope="col" class="px-3 py-2 text-left font-medium">
 						{$_('contacts.columnName')}
 					</th>
-					<th scope="col" class="px-3 py-2 text-left font-medium">
+					<th role="columnheader" scope="col" class="px-3 py-2 text-left font-medium">
 						{$_('contacts.columnEmail')}
 					</th>
-					<th scope="col" class="px-3 py-2 text-left font-medium">
+					<th role="columnheader" scope="col" class="px-3 py-2 text-left font-medium">
 						{$_('contacts.columnLabels')}
 					</th>
-					<th scope="col" class="px-3 py-2 text-left font-medium">
+					<th role="columnheader" scope="col" class="px-3 py-2 text-left font-medium">
 						{$_('contacts.columnNote')}
 					</th>
-					<th scope="col" class="px-3 py-2 text-right font-medium">
+					<th role="columnheader" scope="col" class="px-3 py-2 text-right font-medium">
 						{$_('contacts.columnActions')}
 					</th>
 				</tr>
 			</thead>
-			<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-			<tbody
-				bind:this={tableBodyElement}
-				onkeydown={handleListKeydown}
-				onfocusin={handleListFocusIn}
-				class="divide-y divide-border"
-			>
+			<tbody bind:this={tableBodyElement} class="divide-y divide-border">
 				{#each page.content as contact, rowIndex (contact.id)}
 					{@const label = contactLabel(contact)}
 					{@const composeTarget = primaryEmail(contact)}
+					{@const cellTabindex = (col: number) =>
+						focusedRowIndex === rowIndex && focusedCol === col ? 0 : -1}
 					<tr
 						data-row-index={rowIndex}
+						data-contact-id={contact.id}
+						aria-rowindex={page.page * page.size + rowIndex + 2}
 						class="cursor-pointer transition-colors hover:bg-muted/35 focus-within:bg-muted/35"
 						onclick={(event: MouseEvent) => handleRowClick(event, contact)}
+						onkeydown={(event: KeyboardEvent) => handleRowKeydown(event, contact, rowIndex)}
 					>
-						<td class="px-3 py-3 align-top">
+						<td role="gridcell" class="px-3 py-3 align-top">
 							<input
 								type="checkbox"
+								data-cell-target
+								data-col={COL_SELECT}
+								tabindex={cellTabindex(COL_SELECT)}
+								onfocus={() => handleCellFocus(rowIndex, COL_SELECT)}
 								class="mt-0.5 size-4 rounded border-input bg-background text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
 								checked={selectedIds.includes(contact.id)}
 								onchange={(event) => toggleSelected(contact.id, event.currentTarget.checked)}
@@ -489,7 +536,15 @@
 								})}
 							/>
 						</td>
-						<th scope="row" class="px-3 py-3 text-left align-top font-normal">
+						<th
+							role="rowheader"
+							scope="row"
+							data-cell-target
+							data-col={COL_NAME}
+							tabindex={cellTabindex(COL_NAME)}
+							onfocus={() => handleCellFocus(rowIndex, COL_NAME)}
+							class="px-3 py-3 text-left align-top font-normal outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+						>
 							<div class="flex min-w-0 items-center gap-2">
 								<div
 									aria-hidden="true"
@@ -506,7 +561,14 @@
 								</span>
 							</div>
 						</th>
-						<td class="px-3 py-3 align-top text-muted-foreground">
+						<td
+							role="gridcell"
+							data-cell-target
+							data-col={COL_EMAIL}
+							tabindex={cellTabindex(COL_EMAIL)}
+							onfocus={() => handleCellFocus(rowIndex, COL_EMAIL)}
+							class="px-3 py-3 align-top text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+						>
 							<ul class="m-0 list-none space-y-1 p-0">
 								{#each contact.emails as email (email.id)}
 									<li class="flex min-w-0 items-center gap-1.5">
@@ -516,27 +578,54 @@
 								{/each}
 							</ul>
 						</td>
-						<td class="px-3 py-3 align-top text-muted-foreground">
+						<td
+							role="gridcell"
+							data-cell-target
+							data-col={COL_LABELS}
+							tabindex={cellTabindex(COL_LABELS)}
+							onfocus={() => handleCellFocus(rowIndex, COL_LABELS)}
+							class="px-3 py-3 align-top text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+						>
 							{emailLabelSummary(contact)}
 						</td>
-						<td class="px-3 py-3 align-top text-muted-foreground">
+						<td
+							role="gridcell"
+							data-cell-target
+							data-col={COL_NOTE}
+							tabindex={cellTabindex(COL_NOTE)}
+							onfocus={() => handleCellFocus(rowIndex, COL_NOTE)}
+							class="px-3 py-3 align-top text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+						>
 							<p class="line-clamp-2">{contact.note ?? ''}</p>
 						</td>
-						<td class="px-3 py-3 align-top">
+						<td role="gridcell" class="px-3 py-3 align-top">
 							<div class="flex justify-end gap-1">
-								{#if composeTarget}
-									<Button
-										type="button"
-										onclick={() => handleCompose(contact)}
-										variant="outline"
-										size="xs"
-										aria-label={$_('contacts.composeContact', { values: { label } })}
-									>
-										{$_('contacts.compose')}
-									</Button>
-								{/if}
+								<!--
+									Always rendered, and aria-disabled rather than disabled when
+									the contact has no address: a `disabled` button leaves the
+									focus order, which would punch a hole in the roving cell
+									sequence of that one row.
+								-->
 								<Button
 									type="button"
+									data-cell-target
+									data-col={COL_COMPOSE}
+									tabindex={cellTabindex(COL_COMPOSE)}
+									onfocus={() => handleCellFocus(rowIndex, COL_COMPOSE)}
+									onclick={() => handleCompose(contact)}
+									variant="outline"
+									size="xs"
+									aria-disabled={composeTarget ? undefined : 'true'}
+									aria-label={$_('contacts.composeContact', { values: { label } })}
+								>
+									{$_('contacts.compose')}
+								</Button>
+								<Button
+									type="button"
+									data-cell-target
+									data-col={COL_EDIT}
+									tabindex={cellTabindex(COL_EDIT)}
+									onfocus={() => handleCellFocus(rowIndex, COL_EDIT)}
 									onclick={() => onEdit(contact.id)}
 									variant="outline"
 									size="xs"
@@ -546,6 +635,10 @@
 								</Button>
 								<Button
 									type="button"
+									data-cell-target
+									data-col={COL_DELETE}
+									tabindex={cellTabindex(COL_DELETE)}
+									onfocus={() => handleCellFocus(rowIndex, COL_DELETE)}
 									onclick={() => handleDelete(contact)}
 									variant="destructive"
 									size="xs"

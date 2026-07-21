@@ -553,7 +553,7 @@
 				"upDown": "Šipka nahoru / dolů",
 				"leftRight": "Šipka vlevo / vpravo",
 				"enterSpace": "Enter / mezerník",
-				"listNavCombo": "Šipky, Home / End, Page Up / Down"
+				"listNavCombo": "Šipky, Home / End, Ctrl+Home / Ctrl+End, Page Up / Down"
 			},
 			"actions": {
 				"mail": "Přejít na Poštu",
@@ -575,7 +575,7 @@
 				"listPage": "O 10 zpráv nahoru / dolů",
 				"listOpenMessage": "Otevřít zprávu",
 				"listDeleteMessage": "Smazat zprávu na aktivním řádku",
-				"contactsListNav": "Pohyb po seznamu kontaktů",
+				"contactsListNav": "Pohyb po buňkách seznamu kontaktů (včetně tlačítek akcí)",
 				"cancelContactForm": "Zrušit vytváření nebo úpravu kontaktu",
 				"sendMessage": "Odeslat rozepsanou zprávu",
 				"saveDraft": "Uložit koncept",
