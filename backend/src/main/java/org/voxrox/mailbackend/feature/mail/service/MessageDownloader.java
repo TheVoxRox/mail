@@ -169,6 +169,59 @@ public class MessageDownloader {
         return dtos.size();
     }
 
+    /**
+     * Re-downloads server messages whose UID sits inside the locally mirrored UID
+     * window but has no local row — structural holes detected by the deletion
+     * cleanup ({@link FlagSyncService#cleanupDeletedViaUidEnumeration}). Without
+     * this such a message stays invisible forever: {@link #syncNewMessages} only
+     * fetches UIDs above {@code lastKnownUid}, cleanup only deletes local rows, and
+     * page-0 backfill assumes the missing run is the oldest tail — yet the folder's
+     * unread badge still counts it (it reads the server STATUS UNSEEN), so a folder
+     * can report "1 unread" with nothing to show. Filling the hole makes the local
+     * mirror contiguous again.
+     * <p>
+     * Only the UIDs the caller passes are fetched — a targeted {@code UID FETCH} of
+     * exactly those holes, not a range — so the cost stays proportional to the
+     * number of holes, which is normally zero. Persisted through the same
+     * batched-atomic write as every other download, so
+     * {@link #dropAlreadyPersisted} keeps it idempotent and {@code lastKnownUid}
+     * only ever advances upward (an interior hole never regresses the forward
+     * cursor).
+     *
+     * @return the number of messages actually re-downloaded
+     */
+    public int reconcileServerOnlyUids(FolderSyncContext ctx, List<Long> holeUids) throws MessagingException {
+        if (holeUids.isEmpty()) {
+            return 0;
+        }
+        int batchSize = mailProps.sync().batchSize();
+        int total = 0;
+        for (List<Long> batch : holeUids.stream().gather(Gatherers.windowFixed(batchSize)).toList()) {
+            long[] uids = batch.stream().mapToLong(Long::longValue).toArray();
+            Message[] fetched = ctx.uidFolder().getMessagesByUID(uids);
+            if (fetched == null) {
+                continue;
+            }
+            /*
+             * getMessagesByUID(long[]) can return null entries for UIDs the server no
+             * longer has (a message expunged between the enumeration and this fetch); drop
+             * them so the envelope fetch / mapping never dereferences a null.
+             */
+            Message[] messages = Arrays.stream(fetched).filter(Objects::nonNull).toArray(Message[]::new);
+            if (messages.length == 0) {
+                continue;
+            }
+            List<MailDetailResponse> dtos = messageFetcher.fetchBatch(messages, ctx.uidFolder(), ctx.folderName());
+            saveMessagesBatchAtomic(dtos, ctx, messages);
+            total += dtos.size();
+        }
+        if (total > 0) {
+            log.info("{} Reconciled {} server-only message(s) missing from the local mirror in {}.", LogCategory.SYNC,
+                    total, ctx.folderName());
+        }
+        return total;
+    }
+
     private int downloadRangeInternal(FolderSyncContext ctx, long startUid, long endUid) throws MessagingException {
         int windowSize = mailProps.sync().windowSize();
         int totalDownloaded = 0;

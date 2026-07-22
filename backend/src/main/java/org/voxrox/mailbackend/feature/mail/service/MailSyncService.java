@@ -212,6 +212,7 @@ public class MailSyncService {
             if (uidValidityOk) {
                 totalDownloaded = messageDownloader.syncNewMessages(ctx);
                 ImapCapabilities caps = ImapCapabilities.probe(folder.getStore());
+                List<Long> serverOnlyHoles;
                 if (caps.hasCondstore()) {
                     /*
                      * RFC 7162 CONDSTORE — O(changes) instead of O(folder size) for flag sync. The
@@ -220,11 +221,19 @@ public class MailSyncService {
                      * runs over a lightweight UID-only fetch instead of metadata.
                      */
                     flagSyncService.syncMessageFlagsCondstore(ctx);
-                    flagSyncService.cleanupDeletedViaUidEnumeration(ctx);
+                    serverOnlyHoles = flagSyncService.cleanupDeletedViaUidEnumeration(ctx);
                 } else {
                     flagSyncService.syncMessageFlagsBatched(ctx);
-                    flagSyncService.cleanupDeletedInWindow(ctx);
+                    serverOnlyHoles = flagSyncService.cleanupDeletedInWindow(ctx);
                 }
+                /*
+                 * The cleanup's UID set also reveals server-only messages sitting in a hole
+                 * inside the mirrored window — invisible to the user otherwise (forward sync
+                 * only fetches above lastKnownUid, cleanup only deletes), yet counted by the
+                 * folder's unread badge. Re-download them so the mirror is contiguous; they
+                 * count as downloaded so the completion event refreshes the client.
+                 */
+                totalDownloaded += messageDownloader.reconcileServerOnlyUids(ctx, serverOnlyHoles);
             } else {
                 /*
                  * UID validity has changed — the IMAP server has reset the mailbox state. That

@@ -99,14 +99,6 @@ Ed25519 signing key + offline zaloha klice — **hotove** (2026-06-16/20), detai
 
 ---
 
-## Neviditelne server-only zpravy v lokalnim zrcadle (nalez 2026-07-18)
-
-Zprava, ktera existuje na serveru, ale chybi v lokalni DB uprostred UID rozsahu, je pro uzivatele neviditelna: sync bere jen `uid > last_known_uid` ([MessageDownloader.java:70](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MessageDownloader.java)), cleanup lokalni radky jen maze, nikdy nedoplnuje ([FlagSyncService.java:212](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/FlagSyncService.java)) a backfill predpoklada, ze chybi jen nejstarsi sekvence. Unread badge slozky ji ale pocita — bere server STATUS UNSEEN ([ImapFolderService.java:208](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/ImapFolderService.java)). Realny pripad: kos (Deleted) po vyprazdneni hlasil "1 neprectena" — UID 5+8 zustaly na serveru po trash→trash delete chovani z 15.7. (pricina uz opravena purge cestou, tohle je zbyle strukturalni slepe misto; plati pro vsechny slozky, ne jen kos).
-
-- [ ] Reconciliace server-only UID: `cleanupDeletedViaUidEnumeration` uz ma k dispozici mnozinu vsech server UID i lokalnich UID → server-only zpravy stahnout (envelope), nebo zajistit, ze je pokryje lazy fetch. Pozor na vykon (enumerace bezi kazdy sync cyklus). IT po vzoru [MailSyncGreenMailIT.java](backend/src/test/java/org/voxrox/mailbackend/feature/mail/service/MailSyncGreenMailIT.java).
-
----
-
 ## Startup follow-up
 
 Backend (headless) cast zmerena a uzavrena — sekce "Startup audit — mereni 2026-06-11" v [backend/PERFORMANCE_BASELINE.md](backend/PERFORMANCE_BASELINE.md). Zbyva jen GUI:

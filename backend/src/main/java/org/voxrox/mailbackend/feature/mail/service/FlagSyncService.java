@@ -208,18 +208,26 @@ public class FlagSyncService {
      * efficient (the server sends only deleted UIDs instead of all of them), but
      * requires raw access to the SELECT command outside the {@code folder.open()}
      * flow, which is out of scope today.
+     * <p>
+     * The same UID set that detects server-side deletions also reveals the reverse:
+     * server-only UIDs sitting in a hole inside the mirrored window. Those are
+     * returned (never fetched here) so the caller can re-download them — see
+     * {@link #detectServerOnlyHolesInWindow} and
+     * {@code MessageDownloader.reconcileServerOnlyUids}.
+     *
+     * @return server-only UIDs inside the mirrored window that the caller should
+     *         re-download; empty when the mirror is contiguous
      */
-    public void cleanupDeletedViaUidEnumeration(FolderSyncContext ctx) throws MessagingException {
+    public List<Long> cleanupDeletedViaUidEnumeration(FolderSyncContext ctx) throws MessagingException {
         if (!(ctx.folder() instanceof IMAPFolder imapFolder)) {
             log.warn("{} Cleanup requires IMAPFolder, falling back to legacy path ({}).", LogCategory.SYNC,
                     ctx.folderName());
-            cleanupDeletedInWindow(ctx);
-            return;
+            return cleanupDeletedInWindow(ctx);
         }
 
         List<Long> localUids = messageRepository.findUidsByAccountAndFolder(ctx.getAccountId(), ctx.folderName());
         if (localUids.isEmpty())
-            return;
+            return List.of();
 
         Set<Long> serverUids = ImapCondstoreCommands.fetchAllServerUids(imapFolder);
 
@@ -230,17 +238,28 @@ public class FlagSyncService {
             transactionTemplate.executeWithoutResult(status -> messageRepository
                     .deleteAllByAccountIdAndFolderNameAndUidIn(ctx.getAccountId(), ctx.folderName(), toDelete));
         }
+
+        return detectServerOnlyHolesInWindow(localUids, serverUids);
     }
 
     /**
      * Legacy fallback for servers where UID enumeration via raw command is not
      * available either (e.g. non-Angus IMAPFolder implementations). Compares local
      * UIDs with the server range-fetched metadata.
+     * <p>
+     * Here the server UID set is fetched over exactly the local window range
+     * {@code [min, max]}, so every server-only UID it reveals is inside the window
+     * by construction — same reconciliation contract as
+     * {@link #cleanupDeletedViaUidEnumeration}.
+     *
+     * @return server-only UIDs inside the mirrored window that the caller should
+     *         re-download; empty when the mirror is contiguous (or when the
+     *         fail-safe aborts this cycle)
      */
-    public void cleanupDeletedInWindow(FolderSyncContext ctx) throws MessagingException {
+    public List<Long> cleanupDeletedInWindow(FolderSyncContext ctx) throws MessagingException {
         List<Long> localUids = messageRepository.findUidsByAccountAndFolder(ctx.getAccountId(), ctx.folderName());
         if (localUids.isEmpty())
-            return;
+            return List.of();
 
         Message[] serverMessages = ctx.uidFolder().getMessagesByUID(localUids.getFirst(), localUids.getLast());
 
@@ -253,14 +272,15 @@ public class FlagSyncService {
                  * Fail-safe: if we cannot obtain the UID of even a single server message we
                  * cannot safely determine what is missing on the server — a UID absent from
                  * serverUids would incorrectly mark the local message as deleted and the
-                 * cleanup would drop it even though it still exists on the server. Skip the
-                 * whole window in this cycle; the next cycle will retry.
+                 * cleanup would drop it even though it still exists on the server. The same
+                 * unreliable set would also fabricate phantom "holes" and trigger needless
+                 * re-downloads. Skip the whole window in this cycle; the next cycle will retry.
                  */
                 log.warn(
                         "{} Unable to obtain UID of a server message in folder {} — "
                                 + "skipping cleanup deletion in this cycle (fail-safe).",
                         LogCategory.SYNC, ctx.folderName(), e);
-                return;
+                return List.of();
             }
         }
 
@@ -272,5 +292,38 @@ public class FlagSyncService {
             transactionTemplate.executeWithoutResult(status -> messageRepository
                     .deleteAllByAccountIdAndFolderNameAndUidIn(ctx.getAccountId(), ctx.folderName(), toDelete));
         }
+
+        return detectServerOnlyHolesInWindow(localUids, serverUids);
+    }
+
+    /**
+     * Server-only UIDs that fall strictly inside the locally mirrored window
+     * {@code (min(localUids), max(localUids))} yet have no local row — structural
+     * holes the caller re-downloads (see
+     * {@code MessageDownloader.reconcileServerOnlyUids}). A message stuck in such a
+     * hole is otherwise invisible forever: forward sync only fetches UIDs above
+     * {@code lastKnownUid}, this cleanup only deletes, and page-0 backfill assumes
+     * the missing run is the oldest tail — but the folder unread badge still counts
+     * it (it reads the server STATUS UNSEEN), so the folder can read "1 unread"
+     * with nothing to show.
+     * <p>
+     * Restricted to the window interior on purpose: server UIDs BELOW the window
+     * are the not-yet-backfilled older tail, served on demand by lazy page fetch —
+     * treating them as holes would re-download the whole mailbox every sync cycle.
+     * The rare top-edge case (a hole newer than {@code max(localUids)} but at or
+     * below {@code lastKnownUid}) stays out of scope here; healing it would mean
+     * rewinding the forward cursor, a larger change than this reconcile.
+     * <p>
+     * {@code localUids} is ascending ({@code findUidsByAccountAndFolder} orders by
+     * uid), so first = min and last = max. The endpoints are always present
+     * locally, so the {@code !localSet.contains} filter already excludes them — the
+     * strict bounds just document that only interior holes qualify.
+     */
+    private static List<Long> detectServerOnlyHolesInWindow(List<Long> localUids, Set<Long> serverUids) {
+        long minLocal = localUids.getFirst();
+        long maxLocal = localUids.getLast();
+        Set<Long> localSet = Set.copyOf(localUids);
+        return serverUids.stream().filter(uid -> uid > minLocal && uid < maxLocal && !localSet.contains(uid)).sorted()
+                .toList();
     }
 }

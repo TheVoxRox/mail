@@ -283,6 +283,58 @@ class MessageDownloaderTest {
         }
     }
 
+    @Nested
+    @DisplayName("reconcileServerOnlyUids (server-only holes)")
+    class ReconcileServerOnlyUids {
+
+        @Test
+        @DisplayName("Empty hole list is a no-op — no server round-trip")
+        void emptyHolesIsNoop() throws Exception {
+            int reconciled = downloader.reconcileServerOnlyUids(context(), List.of());
+
+            assertThat(reconciled).isZero();
+            verify(uidFolder, never()).getMessagesByUID(any(long[].class));
+        }
+
+        @Test
+        @DisplayName("Fetches exactly the hole UIDs, persists them, and never regresses lastKnownUid")
+        void reconcilesInteriorHole() throws Exception {
+            // An interior hole sits below the forward cursor by construction, so the
+            // reconcile must fill it without moving lastKnownUid.
+            syncState.setLastKnownUid(20L);
+            Message m = mock(Message.class);
+            when(uidFolder.getMessagesByUID(new long[]{11L})).thenReturn(new Message[]{m});
+            when(uidFolder.getUID(m)).thenReturn(11L);
+            MailDetailResponse dto = newDto(11L);
+            when(messageFetcher.fetchBatch(any(), eq(uidFolder), eq(FOLDER))).thenReturn(List.of(dto));
+            MessageEntity entity = entityWithUid(11L);
+            when(messageMapper.toEntity(dto, account, FOLDER, syncState.getUidValidity())).thenReturn(entity);
+            when(messageRepository.saveAll(List.of(entity))).thenReturn(List.of(entity));
+
+            int reconciled = downloader.reconcileServerOnlyUids(context(), List.of(11L));
+
+            assertThat(reconciled).isEqualTo(1);
+            verify(uidFolder).getMessagesByUID(new long[]{11L});
+            verify(messageRepository).saveAll(List.of(entity));
+            // Filling an interior hole must not advance the forward cursor.
+            verify(syncStateService, never()).updateLastKnownUid(any(), any());
+            assertThat(syncState.getLastKnownUid()).isEqualTo(20L);
+        }
+
+        @Test
+        @DisplayName("Null entries (UID expunged between enumeration and fetch) are dropped")
+        void dropsNullEntriesFromServer() throws Exception {
+            syncState.setLastKnownUid(20L);
+            // The server no longer has UID 11 (expunged in the meantime) -> null slot.
+            when(uidFolder.getMessagesByUID(new long[]{11L})).thenReturn(new Message[]{null});
+
+            int reconciled = downloader.reconcileServerOnlyUids(context(), List.of(11L));
+
+            assertThat(reconciled).isZero();
+            verify(messageFetcher, never()).fetchBatch(any(), any(), any());
+        }
+    }
+
     private FolderSyncContext context() {
         return new FolderSyncContext(account, FOLDER, folder, uidFolder, syncState);
     }
