@@ -19,11 +19,13 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.describe('Fokus na tělo otevřené zprávy', () => {
-	test('otevření HTML zprávy přesune fokus na iframe s tělem', async ({ page }) => {
+	test('dvojklik na HTML zprávu přesune fokus na iframe s tělem', async ({ page }) => {
 		await page.goto('/mail/1/INBOX');
 		await waitForShell(page);
 
-		await page.locator('[role="row"][data-stable-id="msg-01"]').click();
+		// Off mode: the deliberate open is a double-click (Enter's mouse twin);
+		// a single click would only move the roving focus.
+		await page.locator('[role="row"][data-stable-id="msg-01"]').dblclick();
 		await page.waitForURL('**/mail/1/INBOX/msg-01');
 
 		const frame = page.getByTitle('Obsah zprávy');
