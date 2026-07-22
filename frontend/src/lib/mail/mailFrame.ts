@@ -5,7 +5,7 @@
  * The body renders in a sandboxed iframe so hostile mail HTML cannot script
  * the app (Boundary 4 of the threat model). A pure `sandbox=""` frame, however,
  * is a keyboard black hole: a `keydown` inside a nested browsing context never
- * reaches the parent's global shortcut handler, so `?`, Delete, Ctrl+R, … are
+ * reaches the parent's global shortcut handler, so Delete, Ctrl+R, … are
  * silently swallowed while the user reads a message.
  *
  * Fix without weakening isolation: the frame gets `sandbox="allow-scripts"`

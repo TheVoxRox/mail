@@ -500,7 +500,7 @@
 			},
 			"readingPane": {
 				"heading": "Reading pane",
-				"hint": "Choose whether message details appear next to the list, below it, or only when opened on their own.",
+				"hint": "Choose whether message details appear next to the list, below it, or stay hidden until you open a message.",
 				"label": "Reading pane layout",
 				"empty": "Select a message from the list and its detail will appear here.",
 				"options": {
@@ -584,14 +584,12 @@
 				"focusBcc": "Move to the Bcc field",
 				"newContact": "New contact",
 				"palette": "Open command palette",
-				"shortcutHelp": "Open keyboard shortcuts overview",
 				"runCommand": "Run the selected command",
 				"closePalette": "Close the command palette",
 				"keepFocus": "Move to the next item in the palette",
 				"keepFocusBack": "Move to the previous item in the palette"
 			},
 			"scopes": {
-				"global": "Works outside text fields.",
 				"globalIncludingInputs": "Works anywhere, including text fields.",
 				"messageGrid": "Works in the message list and in search results.",
 				"contactList": "Works in the contact list.",
