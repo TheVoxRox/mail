@@ -34,6 +34,7 @@ import org.voxrox.mailbackend.core.config.MailClientProperties;
 import org.voxrox.mailbackend.core.config.mail.SyncProperties;
 import org.voxrox.mailbackend.core.security.InternalApiKeyProvider;
 import org.voxrox.mailbackend.exception.ResourceNotFoundException;
+import org.voxrox.mailbackend.feature.mail.dto.ConversationSummaryResponse;
 import org.voxrox.mailbackend.feature.mail.dto.MailContentResponse;
 import org.voxrox.mailbackend.feature.mail.dto.MailDetailResponse;
 import org.voxrox.mailbackend.feature.mail.dto.MailSummaryResponse;
@@ -136,6 +137,44 @@ class MailReadControllerTest {
     void listMessagesZeroSize() throws Exception {
         mockMvc.perform(get("/api/v1/messages/account/7/folder").param("folderRef", "INBOX").param("size", "0"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("GET conversations -> 200 with grouped rows (representative + counts)")
+    void listConversationsOk() throws Exception {
+        Page<ConversationSummaryResponse> page = new PageImpl<>(
+                List.of(new ConversationSummaryResponse("t-1", summary(2, "Re: Hello"), 3, 1),
+                        new ConversationSummaryResponse("t-2", summary(5, "Standalone"), 1, 0)),
+                PageRequest.of(0, 50), 2);
+        when(mailFacade.getConversations(7L, "INBOX", 0, 50)).thenReturn(page);
+
+        mockMvc.perform(get("/api/v1/messages/account/7/folder/conversations").param("folderRef", "INBOX"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content.length()").value(2))
+                .andExpect(jsonPath("$.content[0].threadId").value("t-1"))
+                .andExpect(jsonPath("$.content[0].latest.subject").value("Re: Hello"))
+                .andExpect(jsonPath("$.content[0].messageCount").value(3))
+                .andExpect(jsonPath("$.content[0].unreadCount").value(1))
+                .andExpect(jsonPath("$.content[0].latest.uid").doesNotExist())
+                .andExpect(jsonPath("$.totalElements").value(2));
+    }
+
+    @Test
+    @DisplayName("GET conversations with custom page/size honors the parameters")
+    void listConversationsWithParams() throws Exception {
+        when(mailFacade.getConversations(7L, "INBOX", 2, 10))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(2, 10), 0));
+
+        mockMvc.perform(get("/api/v1/messages/account/7/folder/conversations").param("folderRef", "INBOX")
+                .param("page", "2").param("size", "10")).andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET conversations — size over apiMaxPageSize -> 400 (ValidationException)")
+    void listConversationsSizeTooBig() throws Exception {
+        mockMvc.perform(
+                get("/api/v1/messages/account/7/folder/conversations").param("folderRef", "INBOX").param("size", "500"))
+                .andExpect(status().isBadRequest()).andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"));
     }
 
     @Test

@@ -176,6 +176,51 @@ public class MailFacade {
         return new PageImpl<>(localPage.getContent(), pageable, serverCount);
     }
 
+    /**
+     * Conversation-grouped folder listing (Threading Phase 2): one row per
+     * conversation in the folder, represented by its newest message plus the
+     * folder-scoped message / unread counts. Like {@link #getEmails} it kicks off a
+     * background sync so new mail flows in, but it is a purely local-DB view — the
+     * paginator total is the number of conversations mirrored locally and it does
+     * NOT lazy-fetch older messages (grouping the not-yet-mirrored tail is
+     * impossible without holding the whole thread). The flat {@link #getEmails}
+     * listing stays the path that pulls older history into the local window; once
+     * mirrored, those messages fold into their conversations here.
+     */
+    public Page<ConversationSummaryResponse> getConversations(Long accountId, String folderName, int page, int size) {
+        AccountEntity account = accountService.getAccountOrThrow(accountId);
+        mailSyncService.syncAndBackfillAsync(account, folderName, page);
+
+        long offset = (long) page * size;
+        List<Object[]> rows = messageRepository.findConversationRepresentatives(accountId, folderName, size, offset);
+        long total = messageRepository.countConversationsByAccountAndFolder(accountId, folderName);
+        Pageable pageable = PageRequest.of(page, size);
+
+        if (rows.isEmpty()) {
+            return new PageImpl<>(List.of(), pageable, total);
+        }
+
+        // Load the representatives' summaries in one query (undefined order) and
+        // re-attach them to the count-row order that carries the pagination sort.
+        List<Long> repIds = rows.stream().map(r -> ((Number) r[0]).longValue()).toList();
+        Map<Long, MailSummaryResponse> byId = messageRepository.findSummariesByIds(repIds).stream()
+                .collect(Collectors.toMap(MailSummaryResponse::id, mapper::withDisplayFallbacks));
+
+        List<ConversationSummaryResponse> content = new ArrayList<>(rows.size());
+        for (Object[] r : rows) {
+            MailSummaryResponse latest = byId.get(((Number) r[0]).longValue());
+            if (latest == null) {
+                // A concurrent delete dropped the representative between the two reads —
+                // skip it; the next load reflects the new state.
+                continue;
+            }
+            int messageCount = ((Number) r[1]).intValue();
+            int unreadCount = ((Number) r[2]).intValue();
+            content.add(new ConversationSummaryResponse(latest.threadId(), latest, messageCount, unreadCount));
+        }
+        return new PageImpl<>(content, pageable, total);
+    }
+
     @Transactional(readOnly = true)
     public Page<MailSummaryResponse> searchEmails(Long accountId, String query, int page, int size) {
         return messageService.search(accountId, query, page, size).map(mapper::withDisplayFallbacks);

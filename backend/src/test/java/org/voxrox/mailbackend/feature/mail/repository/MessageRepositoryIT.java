@@ -149,6 +149,90 @@ class MessageRepositoryIT {
                 .extracting(Number::longValue).containsExactly(message.getId());
     }
 
+    @Test
+    @DisplayName("Conversation grouping: newest representative per thread, folder-scoped counts, newest-first order")
+    void conversationGroupingReturnsRepresentativesAndCounts() {
+        AccountEntity account = newAccount("conv@example.com");
+        LocalDateTime base = LocalDateTime.of(2026, 1, 1, 10, 0);
+        // Thread A (INBOX): two messages, the newer one unread.
+        newConversationMessage(account, 1L, "INBOX", "TA", base.plusMinutes(1), true);
+        MessageEntity aLatest = newConversationMessage(account, 2L, "INBOX", "TA", base.plusMinutes(5), false);
+        // Thread B (INBOX): one read message.
+        MessageEntity bOnly = newConversationMessage(account, 3L, "INBOX", "TB", base.plusMinutes(3), true);
+        // Unthreaded singleton (thread_id NULL) — must group on its own stable id.
+        MessageEntity singleton = newConversationMessage(account, 4L, "INBOX", null, base.plusMinutes(2), false);
+        // Same thread A but a different folder — must not leak into the INBOX view.
+        newConversationMessage(account, 5L, "Archive", "TA", base.plusMinutes(9), false);
+
+        List<Object[]> rows = messageRepository.findConversationRepresentatives(account.getId(), "INBOX", 10, 0L);
+        long total = messageRepository.countConversationsByAccountAndFolder(account.getId(), "INBOX");
+
+        assertThat(total).isEqualTo(3L);
+        assertThat(rows).hasSize(3);
+        // Ordered by representative received_at DESC: A (+5), B (+3), singleton (+2).
+        assertConversationRow(rows.get(0), aLatest.getId(), 2, 1);
+        assertConversationRow(rows.get(1), bOnly.getId(), 1, 0);
+        assertConversationRow(rows.get(2), singleton.getId(), 1, 1);
+    }
+
+    @Test
+    @DisplayName("Conversation grouping: LIMIT/OFFSET paginate conversations, not raw rows")
+    void conversationGroupingPaginates() {
+        AccountEntity account = newAccount("conv-page@example.com");
+        LocalDateTime base = LocalDateTime.of(2026, 1, 1, 10, 0);
+        newConversationMessage(account, 1L, "INBOX", "TA", base.plusMinutes(1), false);
+        newConversationMessage(account, 2L, "INBOX", "TA", base.plusMinutes(5), false); // A newest
+        newConversationMessage(account, 3L, "INBOX", "TB", base.plusMinutes(3), false); // B
+        newConversationMessage(account, 4L, "INBOX", "TC", base.plusMinutes(2), false); // C
+
+        // Order by newest representative: A(+5), B(+3), C(+2).
+        List<Object[]> page0 = messageRepository.findConversationRepresentatives(account.getId(), "INBOX", 2, 0L);
+        List<Object[]> page1 = messageRepository.findConversationRepresentatives(account.getId(), "INBOX", 2, 2L);
+
+        assertThat(page0).hasSize(2);
+        assertThat(page1).hasSize(1);
+        assertThat(messageRepository.countConversationsByAccountAndFolder(account.getId(), "INBOX")).isEqualTo(3L);
+    }
+
+    @Test
+    @DisplayName("Conversation grouping: two unthreaded rows stay separate (COALESCE key never merges NULLs)")
+    void unthreadedMessagesDoNotMerge() {
+        AccountEntity account = newAccount("conv-null@example.com");
+        LocalDateTime base = LocalDateTime.of(2026, 1, 1, 10, 0);
+        newConversationMessage(account, 1L, "INBOX", null, base.plusMinutes(1), false);
+        newConversationMessage(account, 2L, "INBOX", null, base.plusMinutes(2), false);
+
+        List<Object[]> rows = messageRepository.findConversationRepresentatives(account.getId(), "INBOX", 10, 0L);
+
+        assertThat(messageRepository.countConversationsByAccountAndFolder(account.getId(), "INBOX")).isEqualTo(2L);
+        assertThat(rows).hasSize(2);
+        // Each unthreaded row is its own singleton conversation of exactly one message.
+        assertThat(rows).allSatisfy(r -> assertThat(((Number) r[1]).intValue()).isEqualTo(1));
+    }
+
+    private static void assertConversationRow(Object[] row, Long representativeId, int messageCount, int unreadCount) {
+        assertThat(((Number) row[0]).longValue()).isEqualTo(representativeId);
+        assertThat(((Number) row[1]).intValue()).isEqualTo(messageCount);
+        assertThat(((Number) row[2]).intValue()).isEqualTo(unreadCount);
+    }
+
+    private MessageEntity newConversationMessage(AccountEntity account, long uid, String folder, String threadId,
+            LocalDateTime receivedAt, boolean seen) {
+        MessageEntity m = new MessageEntity();
+        m.setStableId(UUID.randomUUID().toString().replace("-", ""));
+        m.setAccount(account);
+        m.setFolderName(folder);
+        m.setUid(uid);
+        m.setUidValidity(1L);
+        m.setReceivedAt(receivedAt);
+        m.setMessageId("<" + uid + "@example.com>");
+        m.setThreadId(threadId);
+        m.setThreadRootMessageId(threadId);
+        m.setThreadPosition(1);
+        m.setSeen(seen);
+        return messageRepository.saveAndFlush(m);
+    }
+
     private AccountEntity newAccount(String email) {
         AccountEntity account = new AccountEntity();
         account.setAccountName("Acct " + email);

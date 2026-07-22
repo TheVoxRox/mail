@@ -312,6 +312,86 @@ class MailFacadeTest {
     }
 
     @Nested
+    @DisplayName("getConversations")
+    class GetConversations {
+
+        @Test
+        @DisplayName("Maps count rows to DTOs in query order, re-attaching the unordered summaries by id")
+        void mapsRowsInOrderAndReattachesSummaries() {
+            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
+            // [representativeId, messageCount, unreadCount]; A newer than B.
+            Object[] rowA = new Object[]{2L, 3, 1};
+            Object[] rowB = new Object[]{5L, 1, 0};
+            when(messageRepository.findConversationRepresentatives(ACCOUNT_ID, FOLDER_INBOX, 50, 0L))
+                    .thenReturn(List.of(rowA, rowB));
+            when(messageRepository.countConversationsByAccountAndFolder(ACCOUNT_ID, FOLDER_INBOX)).thenReturn(2L);
+            MailSummaryResponse s2 = summaryWithThread(2L, "t-A");
+            MailSummaryResponse s5 = summaryWithThread(5L, "t-B");
+            // Returned in a different order than the rows — proves the facade re-orders.
+            when(messageRepository.findSummariesByIds(List.of(2L, 5L))).thenReturn(List.of(s5, s2));
+            when(mapper.withDisplayFallbacks(any(MailSummaryResponse.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            Page<ConversationSummaryResponse> page = mailFacade.getConversations(ACCOUNT_ID, FOLDER_INBOX, 0, 50);
+
+            assertThat(page.getTotalElements()).isEqualTo(2L);
+            assertThat(page.getContent()).hasSize(2);
+            ConversationSummaryResponse first = page.getContent().get(0);
+            assertThat(first.threadId()).isEqualTo("t-A");
+            assertThat(first.latest()).isEqualTo(s2);
+            assertThat(first.messageCount()).isEqualTo(3);
+            assertThat(first.unreadCount()).isEqualTo(1);
+            ConversationSummaryResponse second = page.getContent().get(1);
+            assertThat(second.threadId()).isEqualTo("t-B");
+            assertThat(second.messageCount()).isEqualTo(1);
+            assertThat(second.unreadCount()).isZero();
+            verify(mailSyncService).syncAndBackfillAsync(account, FOLDER_INBOX, 0);
+        }
+
+        @Test
+        @DisplayName("Representative deleted between the two reads -> that row is skipped, total unchanged")
+        void skipsRepresentativeMissingFromSummaries() {
+            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
+            Object[] rowA = new Object[]{2L, 2, 0};
+            Object[] rowB = new Object[]{5L, 1, 0}; // representative 5 vanished concurrently
+            when(messageRepository.findConversationRepresentatives(ACCOUNT_ID, FOLDER_INBOX, 50, 0L))
+                    .thenReturn(List.of(rowA, rowB));
+            when(messageRepository.countConversationsByAccountAndFolder(ACCOUNT_ID, FOLDER_INBOX)).thenReturn(2L);
+            MailSummaryResponse s2 = summaryWithThread(2L, "t-A");
+            when(messageRepository.findSummariesByIds(List.of(2L, 5L))).thenReturn(List.of(s2));
+            when(mapper.withDisplayFallbacks(any(MailSummaryResponse.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            Page<ConversationSummaryResponse> page = mailFacade.getConversations(ACCOUNT_ID, FOLDER_INBOX, 0, 50);
+
+            assertThat(page.getContent()).hasSize(1);
+            assertThat(page.getContent().get(0).threadId()).isEqualTo("t-A");
+            // PageImpl normalizes the last-page total down to what is actually present
+            // (offset + pageSize > total, content non-empty), so the skipped row is
+            // reflected honestly rather than the raw count of 2.
+            assertThat(page.getTotalElements()).isEqualTo(1L);
+        }
+
+        @Test
+        @DisplayName("No conversations -> empty page with the count total, no summary lookup")
+        void emptyFolderReturnsEmptyPage() {
+            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
+            when(messageRepository.findConversationRepresentatives(ACCOUNT_ID, FOLDER_INBOX, 50, 0L))
+                    .thenReturn(List.of());
+            when(messageRepository.countConversationsByAccountAndFolder(ACCOUNT_ID, FOLDER_INBOX)).thenReturn(0L);
+
+            Page<ConversationSummaryResponse> page = mailFacade.getConversations(ACCOUNT_ID, FOLDER_INBOX, 0, 50);
+
+            assertThat(page.getContent()).isEmpty();
+            assertThat(page.getTotalElements()).isZero();
+            verify(messageRepository, never()).findSummariesByIds(any());
+        }
+
+        private MailSummaryResponse summaryWithThread(long id, String threadId) {
+            return new MailSummaryResponse(id, "s" + id, FOLDER_INBOX, "Subject " + id, "from@x.cz", "to@x.cz",
+                    LocalDateTime.of(2026, 1, 1, 10, 0), false, false, false, false, threadId, 100L);
+        }
+    }
+
+    @Nested
     @DisplayName("searchEmails")
     class SearchEmails {
 
