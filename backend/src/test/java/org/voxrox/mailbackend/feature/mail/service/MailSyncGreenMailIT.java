@@ -163,7 +163,7 @@ class MailSyncGreenMailIT {
         assertThat(messageRepository.countByAccountIdAndFolderName(account.getId(), INBOX)).isEqualTo(3);
 
         // Punch a hole in the middle of the local mirror while the server keeps the
-        // message — the state a purge/trash bug leaves behind (nález 2026-07-18). The
+        // message — the state a purge/trash bug leaves behind (finding 2026-07-18). The
         // middle UID is whatever findUidsByAccountAndFolder returns as the median of
         // the three local rows; it is strictly between the min and max, so it is an
         // interior hole and the forward cursor (already advanced past it) can never
