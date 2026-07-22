@@ -244,6 +244,69 @@ class FlagSyncServiceTest {
         }
     }
 
+    /**
+     * The UID-enumeration path is the one real providers take: Gmail, Outlook,
+     * Seznam and iCloud all advertise CONDSTORE, so {@code MailSyncService} routes
+     * them through {@link FlagSyncService#cleanupDeletedViaUidEnumeration}. Unlike
+     * the window fallback (whose server set is range-fetched over
+     * {@code [min, max]} and is interior by construction), here
+     * {@code fetchAllServerUids} returns the WHOLE server UID set — so the interior
+     * restriction has to actively drop the below-window backfill tail. GreenMail
+     * does not advertise CONDSTORE, so the integration test only exercises the
+     * fallback; these cover the production path.
+     */
+    @Nested
+    @DisplayName("Cleanup deleted — UID enumeration (IMAPFolder / CONDSTORE)")
+    class CleanupEnumeration {
+
+        private FolderSyncContext imapCtx;
+        private org.eclipse.angus.mail.imap.IMAPFolder imapFolder;
+
+        @BeforeEach
+        void setUpImapFolder() {
+            imapFolder = org.mockito.Mockito.mock(org.eclipse.angus.mail.imap.IMAPFolder.class);
+            imapCtx = new FolderSyncContext(ctx.account(), FOLDER, imapFolder, uidFolder, syncState);
+        }
+
+        @Test
+        @DisplayName("Only interior holes reported; below-window server UIDs (backfill tail) excluded")
+        void reportsOnlyInteriorHolesFromFullServerSet() throws Exception {
+            // Local mirror {10, 12}. The server's full UID set spans the whole
+            // mailbox: 8 (below the window = not-yet-backfilled tail), 10, 11 (the
+            // interior hole), 12. fetchAllServerUids returns whatever doCommand yields.
+            when(messageRepository.findUidsByAccountAndFolder(ACCOUNT_ID, FOLDER)).thenReturn(List.of(10L, 12L));
+            when(imapFolder.doCommand(any())).thenReturn(java.util.Set.of(8L, 10L, 11L, 12L));
+
+            List<Long> holes = service.cleanupDeletedViaUidEnumeration(imapCtx);
+
+            // 8 is below min(local)=10 -> the backfill tail (served by lazy fetch), not
+            // a hole; only the interior 11 is reconciled.
+            assertThat(holes).containsExactly(11L);
+            // Every local UID still exists on the server -> nothing deleted.
+            verify(messageRepository, never()).deleteAllByAccountIdAndFolderNameAndUidIn(anyLong(), anyString(), any());
+        }
+
+        @Test
+        @DisplayName("Same pass deletes server-removed UIDs and reports interior holes")
+        void deletesAndReconcilesInOnePass() throws Exception {
+            // Local {10, 11, 12, 15}; server {8, 10, 12, 13, 15}. 11 vanished on the
+            // server (delete), 13 is a server-only interior hole (reconcile), 8 is the
+            // below-window tail (ignored).
+            when(messageRepository.findUidsByAccountAndFolder(ACCOUNT_ID, FOLDER))
+                    .thenReturn(List.of(10L, 11L, 12L, 15L));
+            when(imapFolder.doCommand(any())).thenReturn(java.util.Set.of(8L, 10L, 12L, 13L, 15L));
+
+            List<Long> holes = service.cleanupDeletedViaUidEnumeration(imapCtx);
+
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<List<Long>> captor = ArgumentCaptor.forClass(List.class);
+            verify(messageRepository).deleteAllByAccountIdAndFolderNameAndUidIn(eq(ACCOUNT_ID), eq(FOLDER),
+                    captor.capture());
+            assertThat(captor.getValue()).containsExactly(11L);
+            assertThat(holes).containsExactly(13L);
+        }
+    }
+
     @Nested
     @DisplayName("syncMessageFlagsBatched")
     class SyncFlags {
