@@ -101,14 +101,38 @@ describe('handleGlobalKeydown', () => {
 		expect(h.goToWorkspace).not.toHaveBeenCalled();
 	});
 
-	it('editable target: handler exits', () => {
+	it('editable target: Ctrl+1/2/3 still switches the workspace', () => {
 		const h = makeHandlers();
 		const input = document.createElement('textarea');
 		document.body.appendChild(input);
 		const ev = makeEvent({ key: '1', ctrlKey: true, code: 'Digit1' });
 		Object.defineProperty(ev, 'target', { value: input });
+		const prevent = vi.spyOn(ev, 'preventDefault');
 		handleGlobalKeydown(ev, h);
-		expect(h.goToWorkspace).not.toHaveBeenCalled();
+		expect(h.goToWorkspace).toHaveBeenCalledWith('mail');
+		expect(prevent).toHaveBeenCalled();
+		document.body.removeChild(input);
+	});
+
+	it('editable target: Ctrl+N still triggers the primary new action', () => {
+		const h = makeHandlers();
+		const input = document.createElement('input');
+		document.body.appendChild(input);
+		const ev = makeEvent({ key: 'n', ctrlKey: true, code: 'KeyN' });
+		Object.defineProperty(ev, 'target', { value: input });
+		handleGlobalKeydown(ev, h);
+		expect(h.goToPrimaryNewAction).toHaveBeenCalledOnce();
+		document.body.removeChild(input);
+	});
+
+	it('editable target: `?` stays out (it types a character)', () => {
+		const h = makeHandlers();
+		const input = document.createElement('input');
+		document.body.appendChild(input);
+		const ev = makeEvent({ key: '?' });
+		Object.defineProperty(ev, 'target', { value: input });
+		handleGlobalKeydown(ev, h);
+		expect(h.goToShortcuts).not.toHaveBeenCalled();
 		document.body.removeChild(input);
 	});
 

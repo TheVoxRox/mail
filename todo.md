@@ -113,6 +113,14 @@ Zprava, ktera existuje na serveru, ale chybi v lokalni DB uprostred UID rozsahu,
 
 ---
 
+## Klik mysi na radek posadi fokus do tela zpravy (otazka z ladeni 2026-07-21)
+
+Vyplavalo pri ladeni globalnich zkratek (PR #200): po kliku na bunku v seznamu je `document.activeElement` = `IFRAME` s telem zpravy. Neni to nedopatreni — klik je vedome brany jako "deliberate open" ([MessageList.svelte:191](frontend/src/lib/components/MessageList.svelte) vola `handleSelect(message, { focusBody: true })`, telo si fokus vezme v [MessageContent.svelte:121](frontend/src/lib/components/message-detail/MessageContent.svelte)). Sporny je jen ten **mysi** klik: Outlook v split rezimu necha fokus v seznamu a telo otevre az Enter / dvojklik, kdezto zmena vyberu sipkami u nas fokus spravne nechava na radku (`suppressBodyFocus`).
+
+- [ ] Rozhodnout, jestli ma mysi klik posouvat fokus do tela, nebo predat `focusBody: false` a telo otevirat jen Enterem/dvojklikem. Navaznosti k overeni: Esc obnovuje fokus na radek; zkratky se z iframu preposilaji postMessage forwarderem ([mailFrame.ts](frontend/src/lib/mail/mailFrame.ts)), takze zmena ovlivni i to, co NVDA rekne hned po kliku. Rozhodnout az po doposlechu, ne od stolu.
+
+---
+
 ## Startup follow-up
 
 Backend (headless) cast zmerena a uzavrena — sekce "Startup audit — mereni 2026-06-11" v [backend/PERFORMANCE_BASELINE.md](backend/PERFORMANCE_BASELINE.md). Zbyva jen GUI:

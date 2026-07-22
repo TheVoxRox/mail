@@ -102,6 +102,7 @@ test.describe('MSW bootstrap', () => {
 				.getByRole('navigation', { name: 'Přepínač prostředí' })
 				.getByRole('link', { name: 'Kontakty (Ctrl+2)' })
 		).toHaveAttribute('aria-current', 'page');
+		await expect(page.getByRole('main', { name: 'Kontakty' })).toBeFocused();
 
 		await page.keyboard.press('Control+3');
 		await page.waitForURL('**/settings/appearance');
@@ -114,6 +115,7 @@ test.describe('MSW bootstrap', () => {
 				.getByRole('link', { name: 'Kontakty (Ctrl+2)' })
 		).toHaveAttribute('aria-current', 'page');
 		await expect(page.getByRole('region', { name: 'Podokno kontaktů' })).toBeVisible();
+		await expect(page.getByRole('main', { name: 'Kontakty' })).toBeFocused();
 
 		await page.keyboard.press('Control+3');
 		await page.waitForURL('**/settings/appearance');
@@ -123,6 +125,7 @@ test.describe('MSW bootstrap', () => {
 				.getByRole('link', { name: 'Nastavení (Ctrl+3)' })
 		).toHaveAttribute('aria-current', 'page');
 		await expect(page.getByRole('region', { name: 'Podokno nastavení' })).toBeVisible();
+		await expect(page.getByRole('main', { name: 'Nastavení' })).toBeFocused();
 
 		await page.keyboard.press('Control+1');
 		await page.waitForURL('**/mail/1/INBOX');
@@ -132,6 +135,31 @@ test.describe('MSW bootstrap', () => {
 				.getByRole('link', { name: 'Pošta (Ctrl+1)' })
 		).toHaveAttribute('aria-current', 'page');
 		await expect(page.getByRole('region', { name: 'Podokno pošty' })).toBeVisible();
+		/*
+		 * Switching workspaces must land focus on <main> (afterNavigate in
+		 * +layout.svelte), never on <body> — otherwise a keyboard user tabs
+		 * through the whole rail and sidebar before reaching the content.
+		 */
+		await expect(page.getByRole('main', { name: 'Pošta' })).toBeFocused();
+	});
+
+	test('Ctrl+2 přepne prostředí i s kurzorem v hledacím poli', async ({ page }) => {
+		await page.goto('/mail/1/INBOX');
+		await waitForShell(page);
+		await expect(page.getByRole('region', { name: 'Podokno pošty' })).toBeVisible();
+
+		/*
+		 * The editable-target bail used to swallow Ctrl+1/2/3 and Ctrl+N: with the
+		 * cursor in search (or a compose / settings field) nothing happened at all,
+		 * and focus stayed in the field.
+		 */
+		const search = page.getByRole('searchbox').first();
+		await search.focus();
+		await expect(search).toBeFocused();
+
+		await page.keyboard.press('Control+2');
+		await page.waitForURL('**/contacts/1');
+		await expect(page.getByRole('main', { name: 'Kontakty' })).toBeFocused();
 	});
 
 	test('Gmail zkratka ? otevře přehled zkratek mimo textová pole', async ({ page }) => {

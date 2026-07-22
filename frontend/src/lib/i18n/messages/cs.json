@@ -596,8 +596,8 @@
 				"messageGrid": "Funguje v seznamu zpráv a ve výsledcích hledání.",
 				"contactList": "Funguje v seznamu kontaktů.",
 				"contactForm": "Funguje ve formuláři kontaktu; při neuložených změnách se zeptá.",
-				"mailOrSettings": "Funguje mimo textová pole, když je aktivní Pošta nebo Nastavení.",
-				"contacts": "Funguje mimo textová pole, když jsou aktivní Kontakty.",
+				"mailOrSettings": "Funguje kdekoli, i v textových polích, když je aktivní Pošta nebo Nastavení.",
+				"contacts": "Funguje kdekoli, i v textových polích, když jsou aktivní Kontakty.",
 				"compose": "Funguje při psaní nové zprávy.",
 				"openMessage": "Funguje v otevřené zprávě.",
 				"palette": "Funguje při otevřené paletě příkazů."
