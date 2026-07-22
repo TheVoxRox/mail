@@ -56,6 +56,10 @@ sekci s podsekcemi podle artefaktu.
 - SSE `oneOf` rozšířen o `thread_updated` event — emitován při novém append do existujícího threadu nebo merge orphan chain.
 - `MailSummaryResponse` + `MailDetailResponse` advertizují `threadId` (nullable). V0.1.0 frontend nepoužívá — typy připravené pro V0.2 UI.
 
+### Backend — threading / konverzace (Phase 2, backend enabler)
+
+- Nový endpoint `GET /api/v1/messages/account/{accountId}/folder/conversations` vrací konverzacemi seskupený výpis složky: jeden řádek na konverzaci (`ConversationSummaryResponse` = reprezentant `latest` + `messageCount` + `unreadCount`), stránkovaný, řazený nejnovější konverzací první (stejně jako plochý výpis). Odblokovává UI grouping toggle chystaný do Phase 2. Seskupovací klíč je `COALESCE(thread_id, stable_id)` přes SQLite window funkce (`ROW_NUMBER`/`COUNT`/`SUM OVER PARTITION`) v jednom průchodu — zpráva, kterou threading backfill ještě nezpracoval (`thread_id IS NULL`), se COALESCE-uje na vlastní stable id, takže netvoří slepenec s ostatními nezthreadovanými řádky. Grouping je folder-scoped (counts počítají jen členy v dané složce; celá cross-folder konverzace zůstává na `/threads/{threadId}`) a je to čistě lokální DB pohled — paginátor `total` je počet lokálně zrcadlených konverzací, bez lazy-fetch starší historie (tu dál dotahuje plochý výpis, načež se zprávy do konverzací složí). Pokrytí: `MessageRepositoryIT` (grouping SQL proti reálnému SQLite — reprezentant, folder scope, NULL-thread singletony, stránkování), `MailFacadeTest` (assembly + skip souběžně smazaného reprezentanta), `MailReadControllerTest` (endpoint + validace).
+
 ### Backend — audit fáze 6.11–6.18 (cleanup před prvním release)
 
 - Smazán `feature/config/settings` subsystem — handshake API klíč nově in-memory only (regeneruje se při každém startu sidecaru). Příslušná SQL sekce odstraněna z `V1__init.sql`.

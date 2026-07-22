@@ -93,6 +93,58 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
     long countByAccountIdAndFolderName(Long accountId, String folderName);
 
     /**
+     * One page of the conversation-grouped folder listing (Threading Phase 2).
+     * Collapses the folder's messages into conversations keyed by
+     * {@code COALESCE(thread_id, stable_id)} — a message the backfill has not
+     * threaded yet ({@code thread_id IS NULL}) falls back to its own stable id, so
+     * it forms a singleton group instead of merging with every other unthreaded
+     * row. For each conversation it returns the newest message as the
+     * representative plus whole-partition counts, all in one pass via window
+     * aggregates.
+     * <p>
+     * Each row is {@code [representativeId, messageCount, unreadCount]}; SQLite
+     * sizes the boxed numerics to the value, so callers must normalize via
+     * {@link Number}. Ordered newest-conversation first (by the representative's
+     * {@code received_at}, id as the deterministic tie-break) to match the flat
+     * listing's ordering. Grouping is folder-scoped: the counts reflect only the
+     * members present in this folder, not the whole cross-folder thread.
+     * <p>
+     * Window functions require SQLite &gt;= 3.25 (2018); the bundled driver is well
+     * past that.
+     */
+    @Query(value = """
+            SELECT id, cnt, unread FROM (
+              SELECT id, received_at,
+                     ROW_NUMBER() OVER (PARTITION BY COALESCE(thread_id, stable_id)
+                                        ORDER BY received_at DESC, id DESC) AS rn,
+                     COUNT(*) OVER (PARTITION BY COALESCE(thread_id, stable_id)) AS cnt,
+                     SUM(CASE WHEN seen = 0 THEN 1 ELSE 0 END)
+                       OVER (PARTITION BY COALESCE(thread_id, stable_id)) AS unread
+              FROM messages
+              WHERE account_id = :accId AND folder_name = :folder
+            )
+            WHERE rn = 1
+            ORDER BY received_at DESC, id DESC
+            LIMIT :size OFFSET :offset
+            """, nativeQuery = true)
+    List<Object[]> findConversationRepresentatives(@Param("accId") Long accountId, @Param("folder") String folderName,
+            @Param("size") int size, @Param("offset") long offset);
+
+    /**
+     * Number of distinct conversations in the folder — the paginator total for the
+     * conversation-grouped listing. Same grouping key as
+     * {@link #findConversationRepresentatives}.
+     */
+    @Query(value = """
+            SELECT COUNT(*) FROM (
+              SELECT 1 FROM messages
+              WHERE account_id = :accId AND folder_name = :folder
+              GROUP BY COALESCE(thread_id, stable_id)
+            )
+            """, nativeQuery = true)
+    long countConversationsByAccountAndFolder(@Param("accId") Long accountId, @Param("folder") String folderName);
+
+    /**
      * Number of messages in the folder that do not yet have {@code seen=true}. Used
      * for {@code unreadCount} in the folder listing; reflects the state in the
      * local DB, so it matches what the user sees in the UI (IMAP flags are

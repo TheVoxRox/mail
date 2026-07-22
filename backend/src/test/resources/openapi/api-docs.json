@@ -2702,6 +2702,93 @@
         }
       }
     },
+    "/api/v1/messages/account/{accountId}/folder/conversations" : {
+      "get" : {
+        "tags" : [ "Messages — Read" ],
+        "summary" : "List conversations in folder",
+        "description" : "Returns a paginated, conversation-grouped view of the folder: one row per conversation (thread), each represented by its newest message plus folder-scoped message and unread counts. This is a purely local-DB view — the paginator total is the number of conversations mirrored locally and it does not lazy-fetch older history the way the flat listing does. The default size is taken from MailClientProperties; the cap is apiMaxPageSize.",
+        "operationId" : "getConversationsByFolder",
+        "parameters" : [ {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64",
+            "exclusiveMinimum" : 0
+          }
+        }, {
+          "name" : "folderRef",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "maxLength" : 255,
+            "minLength" : 0
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "minimum" : 1
+          }
+        } ],
+        "responses" : {
+          "503" : {
+            "description" : "IMAP/SMTP server unavailable (MAIL_CONNECTION_ERROR).",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PagedResponseConversationSummaryResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Missing or invalid X-API-KEY.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal server error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/client-config" : {
       "get" : {
         "tags" : [ "Client Config" ],
@@ -3933,10 +4020,10 @@
           "password" : {
             "type" : "string"
           },
-          "providerOrCustomServerConfigPresent" : {
+          "passwordPresentForNewAccount" : {
             "type" : "boolean"
           },
-          "passwordPresentForNewAccount" : {
+          "providerOrCustomServerConfigPresent" : {
             "type" : "boolean"
           }
         },
@@ -4277,6 +4364,62 @@
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/MailSummaryResponse"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "first" : {
+            "type" : "boolean"
+          },
+          "last" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "ConversationSummaryResponse" : {
+        "type" : "object",
+        "properties" : {
+          "threadId" : {
+            "type" : [ "string", "null" ],
+            "description" : "Conversation identifier shared by every message of the thread. Null only for a message the threading backfill has not processed yet; such a row is a singleton (messageCount = 1) and cannot be expanded via the thread endpoint."
+          },
+          "latest" : {
+            "$ref" : "#/components/schemas/MailSummaryResponse",
+            "description" : "Newest message of the conversation in this folder — the row's representative."
+          },
+          "messageCount" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Number of messages of this conversation present in the folder (>= 1)."
+          },
+          "unreadCount" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Number of those messages that are not yet marked as seen."
+          }
+        }
+      },
+      "PagedResponseConversationSummaryResponse" : {
+        "type" : "object",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ConversationSummaryResponse"
             }
           },
           "page" : {

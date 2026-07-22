@@ -572,6 +572,26 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
+	'/api/v1/messages/account/{accountId}/folder/conversations': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * List conversations in folder
+		 * @description Returns a paginated, conversation-grouped view of the folder: one row per conversation (thread), each represented by its newest message plus folder-scoped message and unread counts. This is a purely local-DB view — the paginator total is the number of conversations mirrored locally and it does not lazy-fetch older history the way the flat listing does. The default size is taken from MailClientProperties; the cap is apiMaxPageSize.
+		 */
+		get: operations['getConversationsByFolder'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 	'/api/v1/client-config': {
 		parameters: {
 			query?: never;
@@ -1029,8 +1049,8 @@ export interface components {
 			smtp?: components['schemas']['MailServerSettings'];
 			username: string;
 			password?: string;
-			providerOrCustomServerConfigPresent?: boolean;
 			passwordPresentForNewAccount?: boolean;
+			providerOrCustomServerConfigPresent?: boolean;
 		};
 		AccountConnectionTestResponse: {
 			imapOk?: boolean;
@@ -1192,6 +1212,35 @@ export interface components {
 		};
 		PagedResponseMailSummaryResponse: {
 			content?: components['schemas']['MailSummaryResponse'][];
+			/** Format: int32 */
+			page?: number;
+			/** Format: int32 */
+			size?: number;
+			/** Format: int32 */
+			totalPages?: number;
+			/** Format: int64 */
+			totalElements?: number;
+			first?: boolean;
+			last?: boolean;
+		};
+		ConversationSummaryResponse: {
+			/** @description Conversation identifier shared by every message of the thread. Null only for a message the threading backfill has not processed yet; such a row is a singleton (messageCount = 1) and cannot be expanded via the thread endpoint. */
+			threadId?: string | null;
+			/** @description Newest message of the conversation in this folder — the row's representative. */
+			latest?: components['schemas']['MailSummaryResponse'];
+			/**
+			 * Format: int32
+			 * @description Number of messages of this conversation present in the folder (>= 1).
+			 */
+			messageCount?: number;
+			/**
+			 * Format: int32
+			 * @description Number of those messages that are not yet marked as seen.
+			 */
+			unreadCount?: number;
+		};
+		PagedResponseConversationSummaryResponse: {
+			content?: components['schemas']['ConversationSummaryResponse'][];
 			/** Format: int32 */
 			page?: number;
 			/** Format: int32 */
@@ -3427,6 +3476,59 @@ export interface operations {
 				};
 				content: {
 					'*/*': components['schemas']['PagedResponseMailSummaryResponse'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description IMAP/SMTP server unavailable (MAIL_CONNECTION_ERROR). */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+		};
+	};
+	getConversationsByFolder: {
+		parameters: {
+			query: {
+				folderRef: string;
+				page?: number;
+				size?: number;
+			};
+			header?: never;
+			path: {
+				accountId: number;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['PagedResponseConversationSummaryResponse'];
 				};
 			};
 			/** @description Missing or invalid X-API-KEY. */

@@ -17,6 +17,7 @@ import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBo
 import org.voxrox.mailbackend.core.config.MailClientProperties;
 import org.voxrox.mailbackend.core.dto.PagedResponse;
 import org.voxrox.mailbackend.exception.ValidationException;
+import org.voxrox.mailbackend.feature.mail.dto.ConversationSummaryResponse;
 import org.voxrox.mailbackend.feature.mail.dto.MailContentResponse;
 import org.voxrox.mailbackend.feature.mail.dto.MailDetailResponse;
 import org.voxrox.mailbackend.feature.mail.dto.MailSummaryResponse;
@@ -74,6 +75,27 @@ public class MailReadController {
                 finalPage, finalSize);
 
         return PagedResponse.from(mailFacade.getEmails(accountId, folderRef, finalPage, finalSize));
+    }
+
+    @Operation(summary = "List conversations in folder", description = "Returns a paginated, conversation-grouped view of the folder: one row per conversation (thread), "
+            + "each represented by its newest message plus folder-scoped message and unread counts. This is a "
+            + "purely local-DB view — the paginator total is the number of conversations mirrored locally and it "
+            + "does not lazy-fetch older history the way the flat listing does. The default size is taken from "
+            + "MailClientProperties; the cap is apiMaxPageSize.")
+    @GetMapping("/account/{accountId}/folder/conversations")
+    public PagedResponse<ConversationSummaryResponse> getConversationsByFolder(
+            @PathVariable @Positive(message = "{validation.positive}") Long accountId,
+            @RequestParam @NotBlank(message = "{validation.notBlank}") @Size(max = 255, message = "{validation.size.max}") String folderRef,
+            @RequestParam(required = false) @Min(value = 0, message = "{validation.min}") Integer page,
+            @RequestParam(required = false) @Min(value = 1, message = "{validation.min}") Integer size) {
+        int finalPage = Objects.requireNonNullElse(page, 0);
+        int finalSize = Objects.requireNonNullElse(size, mailProps.sync().defaultPageSize());
+        ensurePageSizeWithinLimit(finalSize);
+
+        log.debug("{} Loading conversations: account {}, folder {}, page {}, size {}", LogCategory.API, accountId,
+                folderRef, finalPage, finalSize);
+
+        return PagedResponse.from(mailFacade.getConversations(accountId, folderRef, finalPage, finalSize));
     }
 
     @Operation(summary = "Fulltext message search", description = "Searches messages of an account across folders by the given query (subject/from/body). The query must not be empty and is capped at searchQueryMaxLength characters.")
