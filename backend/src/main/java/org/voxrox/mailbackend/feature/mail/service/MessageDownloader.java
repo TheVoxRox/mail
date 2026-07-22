@@ -172,20 +172,21 @@ public class MessageDownloader {
     /**
      * Re-downloads server messages whose UID sits inside the locally mirrored UID
      * window but has no local row — structural holes detected by the deletion
-     * cleanup ({@link FlagSyncService#cleanupDeletedViaUidEnumeration}). Without this
-     * such a message stays invisible forever: {@link #syncNewMessages} only fetches
-     * UIDs above {@code lastKnownUid}, cleanup only deletes local rows, and page-0
-     * backfill assumes the missing run is the oldest tail — yet the folder's unread
-     * badge still counts it (it reads the server STATUS UNSEEN), so a folder can
-     * report "1 unread" with nothing to show. Filling the hole makes the local
+     * cleanup ({@link FlagSyncService#cleanupDeletedViaUidEnumeration}). Without
+     * this such a message stays invisible forever: {@link #syncNewMessages} only
+     * fetches UIDs above {@code lastKnownUid}, cleanup only deletes local rows, and
+     * page-0 backfill assumes the missing run is the oldest tail — yet the folder's
+     * unread badge still counts it (it reads the server STATUS UNSEEN), so a folder
+     * can report "1 unread" with nothing to show. Filling the hole makes the local
      * mirror contiguous again.
      * <p>
      * Only the UIDs the caller passes are fetched — a targeted {@code UID FETCH} of
      * exactly those holes, not a range — so the cost stays proportional to the
      * number of holes, which is normally zero. Persisted through the same
-     * batched-atomic write as every other download, so {@link #dropAlreadyPersisted}
-     * keeps it idempotent and {@code lastKnownUid} only ever advances upward (an
-     * interior hole never regresses the forward cursor).
+     * batched-atomic write as every other download, so
+     * {@link #dropAlreadyPersisted} keeps it idempotent and {@code lastKnownUid}
+     * only ever advances upward (an interior hole never regresses the forward
+     * cursor).
      *
      * @return the number of messages actually re-downloaded
      */

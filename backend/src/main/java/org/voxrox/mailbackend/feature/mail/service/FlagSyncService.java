@@ -253,8 +253,8 @@ public class FlagSyncService {
      * {@link #cleanupDeletedViaUidEnumeration}.
      *
      * @return server-only UIDs inside the mirrored window that the caller should
-     *         re-download; empty when the mirror is contiguous (or when the fail-safe
-     *         aborts this cycle)
+     *         re-download; empty when the mirror is contiguous (or when the
+     *         fail-safe aborts this cycle)
      */
     public List<Long> cleanupDeletedInWindow(FolderSyncContext ctx) throws MessagingException {
         List<Long> localUids = messageRepository.findUidsByAccountAndFolder(ctx.getAccountId(), ctx.folderName());
@@ -304,20 +304,20 @@ public class FlagSyncService {
      * hole is otherwise invisible forever: forward sync only fetches UIDs above
      * {@code lastKnownUid}, this cleanup only deletes, and page-0 backfill assumes
      * the missing run is the oldest tail — but the folder unread badge still counts
-     * it (it reads the server STATUS UNSEEN), so the folder can read "1 unread" with
-     * nothing to show.
+     * it (it reads the server STATUS UNSEEN), so the folder can read "1 unread"
+     * with nothing to show.
      * <p>
-     * Restricted to the window interior on purpose: server UIDs BELOW the window are
-     * the not-yet-backfilled older tail, served on demand by lazy page fetch —
+     * Restricted to the window interior on purpose: server UIDs BELOW the window
+     * are the not-yet-backfilled older tail, served on demand by lazy page fetch —
      * treating them as holes would re-download the whole mailbox every sync cycle.
      * The rare top-edge case (a hole newer than {@code max(localUids)} but at or
      * below {@code lastKnownUid}) stays out of scope here; healing it would mean
      * rewinding the forward cursor, a larger change than this reconcile.
      * <p>
      * {@code localUids} is ascending ({@code findUidsByAccountAndFolder} orders by
-     * uid), so first = min and last = max. The endpoints are always present locally,
-     * so the {@code !localSet.contains} filter already excludes them — the strict
-     * bounds just document that only interior holes qualify.
+     * uid), so first = min and last = max. The endpoints are always present
+     * locally, so the {@code !localSet.contains} filter already excludes them — the
+     * strict bounds just document that only interior holes qualify.
      */
     private static List<Long> detectServerOnlyHolesInWindow(List<Long> localUids, Set<Long> serverUids) {
         long minLocal = localUids.getFirst();
