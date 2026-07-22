@@ -5,9 +5,11 @@ import { waitForShell } from '../e2e-helpers';
  * Off-mode list keyboard model (SR audit findings 1+2): with the reading pane
  * off there is no pane that could follow the selection — a row change on
  * Arrow/Page keys must only move the roving focus, and only Enter/Space (or a
- * click) opens the message. Without this, arrowing through the list tears a
- * screen-reader user out of the list into the detail route. Delete must hand
- * focus to a neighbouring row instead of dropping it on <body>.
+ * double-click) opens the message. The mouse mirrors the keyboard: a single
+ * click selects the row like an Arrow key, a double click opens like Enter.
+ * Without this, arrowing through the list tears a screen-reader user out of the
+ * list into the detail route. Delete must hand focus to a neighbouring row
+ * instead of dropping it on <body>.
  */
 
 test.beforeEach(async ({ page }) => {
@@ -35,6 +37,34 @@ test.describe('Seznam zpráv v režimu bez podokna čtení', () => {
 
 		await page.keyboard.press('Enter');
 		await page.waitForURL('**/mail/1/INBOX/msg-02');
+	});
+
+	test('jednoklik jen vybere řádek, neotevře zprávu', async ({ page }) => {
+		await page.goto('/mail/1/INBOX');
+		await waitForShell(page);
+
+		const firstSubject = page.locator('[role="row"][data-stable-id="msg-01"] [data-col="2"]');
+		await expect(firstSubject).toBeVisible();
+
+		// A single click is the mouse twin of an Arrow key: it moves the roving
+		// focus onto the row but must not open the message (there is no pane to
+		// show it in) — the double-click opens.
+		await firstSubject.click();
+		await expect(firstSubject).toBeFocused();
+
+		// A would-be open navigates to the message route and swaps the list for the
+		// detail. Proving that non-event needs a settle: an open takes well under
+		// this budget (measured ~280 ms), so after it the folder URL must still
+		// hold and no detail heading may have appeared.
+		await page.waitForTimeout(700);
+		await expect(page).toHaveURL(/\/mail\/1\/INBOX$/);
+		await expect(page.getByRole('heading', { name: 'Projektové podklady' })).toHaveCount(0);
+
+		// Focus is still on the row, so the next Arrow key keeps navigating the list.
+		await page.keyboard.press('ArrowDown');
+		await expect(
+			page.locator('[role="row"][data-stable-id="msg-02"] [data-col="2"]')
+		).toBeFocused();
 	});
 
 	test('PageDown a Home v seznamu neotevírají zprávy', async ({ page }) => {
@@ -179,6 +209,41 @@ test.describe('Seznam zpráv ve split režimu', () => {
 		// Enter is the deliberate open — that one does move the reading cursor
 		// into the body of the message already showing in the pane.
 		await page.keyboard.press('Enter');
+		const frame = page.getByTitle('Obsah zprávy');
+		await expect.poll(() => frame.evaluate((el) => el === document.activeElement)).toBe(true);
+	});
+
+	test('jednoklik ukáže zprávu v podokně, fokus nechá na řádku; dvojklik pustí do těla', async ({
+		page
+	}) => {
+		await page.addInitScript(() => {
+			window.localStorage.setItem('mail.readingPane', 'right');
+		});
+		await page.goto('/mail/1/INBOX');
+		await waitForShell(page);
+
+		const activeCell = () =>
+			page.evaluate(() => ({
+				stableId:
+					document.activeElement?.closest('[data-stable-id]')?.getAttribute('data-stable-id') ??
+					null,
+				col: document.activeElement?.getAttribute('data-col') ?? null
+			}));
+
+		const subject = page.locator('[role="row"][data-stable-id="msg-01"] [data-col="2"]');
+		await expect(subject).toBeVisible();
+
+		// A single click mirrors an Arrow row change: the message opens in the
+		// reading pane, but focus stays on the clicked grid cell — it must not be
+		// dragged into the body once that renders asynchronously.
+		await subject.click();
+		await page.waitForURL('**/mail/1/INBOX/msg-01');
+		await expect(page.getByTitle('Obsah zprávy')).toBeVisible();
+		await expect.poll(activeCell).toEqual({ stableId: 'msg-01', col: '2' });
+
+		// The double click is the deliberate open — like Enter it moves the
+		// reading cursor into the body of the message already in the pane.
+		await subject.dblclick();
 		const frame = page.getByTitle('Obsah zprávy');
 		await expect.poll(() => frame.evaluate((el) => el === document.activeElement)).toBe(true);
 	});

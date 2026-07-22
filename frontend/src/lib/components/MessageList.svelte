@@ -188,10 +188,29 @@
 		}
 	}
 
-	function handleRowClick(event: MouseEvent, message: MailSummaryResponse): void {
+	/*
+	 * The mouse mirrors the keyboard (see handleKeydown): a single click selects
+	 * the row like an Arrow key — in a split pane the message follows into the
+	 * reading pane but focus stays on the row, in off mode / Drafts it only moves
+	 * the roving focus — and a double click opens like Enter, moving the reading
+	 * cursor into the body. `event.detail` is the click count, so 2 marks the
+	 * second click of a double-click.
+	 */
+	function handleRowClick(event: MouseEvent, message: MailSummaryResponse, rowIndex: number): void {
 		const target = event.target as HTMLElement | null;
 		if (target?.closest('input, button, a')) return;
-		void handleSelect(message, { focusBody: true });
+		if (event.detail >= 2) {
+			// Double click = Enter: invalidate any refocus the first click's
+			// selectAndFocus queued, so the body wins, then open deliberately.
+			selectToken += 1;
+			void handleSelect(message, { focusBody: true });
+			return;
+		}
+		if (readingPaneCtx.pane === 'off' || currentFolderRole === 'DRAFTS') {
+			setFocus(rowIndex, focusedCol);
+		} else {
+			selectAndFocus(rowIndex, focusedCol, message);
+		}
 	}
 
 	function handleCellFocus(rowIndex: number, col: number): void {
@@ -548,7 +567,7 @@
 						multiSelected && !selected && 'bg-primary/5',
 						!message.seen && 'font-semibold'
 					)}
-					onclick={(e) => handleRowClick(e, message)}
+					onclick={(e) => handleRowClick(e, message, rowIndex)}
 					onkeydown={(e) => handleKeydown(e, message, rowIndex)}
 				>
 					<!-- svelte-ignore a11y_click_events_have_key_events -->

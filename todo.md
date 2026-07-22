@@ -115,9 +115,7 @@ Zprava, ktera existuje na serveru, ale chybi v lokalni DB uprostred UID rozsahu,
 
 ## Klik mysi na radek posadi fokus do tela zpravy (otazka z ladeni 2026-07-21)
 
-Vyplavalo pri ladeni globalnich zkratek (PR #200): po kliku na bunku v seznamu je `document.activeElement` = `IFRAME` s telem zpravy. Neni to nedopatreni — klik je vedome brany jako "deliberate open" ([MessageList.svelte:191](frontend/src/lib/components/MessageList.svelte) vola `handleSelect(message, { focusBody: true })`, telo si fokus vezme v [MessageContent.svelte:121](frontend/src/lib/components/message-detail/MessageContent.svelte)). Sporny je jen ten **mysi** klik: Outlook v split rezimu necha fokus v seznamu a telo otevre az Enter / dvojklik, kdezto zmena vyberu sipkami u nas fokus spravne nechava na radku (`suppressBodyFocus`).
-
-- [ ] Rozhodnout, jestli ma mysi klik posouvat fokus do tela, nebo predat `focusBody: false` a telo otevirat jen Enterem/dvojklikem. Navaznosti k overeni: Esc obnovuje fokus na radek; zkratky se z iframu preposilaji postMessage forwarderem ([mailFrame.ts](frontend/src/lib/mail/mailFrame.ts)), takze zmena ovlivni i to, co NVDA rekne hned po kliku. Rozhodnout az po doposlechu, ne od stolu.
+**Hotovo 2026-07-22** — rozhodnuto: mys zrcadli klavesnici (uzivatel: mys musi zustat plnohodnotna). Jednoklik = sipka (split rezim ukaze zpravu v podokne cteni, ale fokus nechava na radku; off rezim / Koncepty jen posunou roving fokus a zpravu neotviraji), dvojklik = Enter (deliberate open, fokus do tela). Vetveno pres `event.detail` v `handleRowClick` ([MessageList.svelte:191](frontend/src/lib/components/MessageList.svelte)) — deleguje na `selectAndFocus` / `setFocus` / `handleSelect(focusBody)`. Testy: nove e2e v [list-navigation.functional.e2e.ts](frontend/src/routes/mail/list-navigation.functional.e2e.ts) (off jednoklik neotevre; split jednoklik drzi fokus + dvojklik do tela), off-rezim otevreni prepnuto na dvojklik v [detail-focus.functional.e2e.ts](frontend/src/routes/mail/detail-focus.functional.e2e.ts) a [message-detail-actions.functional.e2e.ts](frontend/src/routes/mail/message-detail-actions.functional.e2e.ts).
 
 ---
 
