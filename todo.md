@@ -99,23 +99,11 @@ Ed25519 signing key + offline zaloha klice — **hotove** (2026-06-16/20), detai
 
 ---
 
-## Koncept s rozepsanou adresou nejde ulozit (nalez z ziveho testu 2026-07-14)
-
-**Hotovo 2026-07-16** — `MimeMessageBuilder.AddressPolicy` STRICT (send, beze zmeny) / DRAFT (draft-save vynecha nedokonceny token z hlavicky pres `parseHeader` + per-token `validate()`; raw text zustava v lokalnim radku). Scope-blocker overen: cteci cesta je fail-soft (`MessageFetcher` zpravu s necitelnou ENVELOPE preskoci) — proto se token vynechava a nezapisuje raw. Testy: `MimeMessageBuilderTest` (Address policy), `DraftLifecycleGreenMailIT` faze 4 (round-trip pres livy IMAP). Detail v changelogu + commitu.
-
----
-
 ## Neviditelne server-only zpravy v lokalnim zrcadle (nalez 2026-07-18)
 
 Zprava, ktera existuje na serveru, ale chybi v lokalni DB uprostred UID rozsahu, je pro uzivatele neviditelna: sync bere jen `uid > last_known_uid` ([MessageDownloader.java:70](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MessageDownloader.java)), cleanup lokalni radky jen maze, nikdy nedoplnuje ([FlagSyncService.java:212](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/FlagSyncService.java)) a backfill predpoklada, ze chybi jen nejstarsi sekvence. Unread badge slozky ji ale pocita — bere server STATUS UNSEEN ([ImapFolderService.java:208](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/ImapFolderService.java)). Realny pripad: kos (Deleted) po vyprazdneni hlasil "1 neprectena" — UID 5+8 zustaly na serveru po trash→trash delete chovani z 15.7. (pricina uz opravena purge cestou, tohle je zbyle strukturalni slepe misto; plati pro vsechny slozky, ne jen kos).
 
 - [ ] Reconciliace server-only UID: `cleanupDeletedViaUidEnumeration` uz ma k dispozici mnozinu vsech server UID i lokalnich UID → server-only zpravy stahnout (envelope), nebo zajistit, ze je pokryje lazy fetch. Pozor na vykon (enumerace bezi kazdy sync cyklus). IT po vzoru [MailSyncGreenMailIT.java](backend/src/test/java/org/voxrox/mailbackend/feature/mail/service/MailSyncGreenMailIT.java).
-
----
-
-## Klik mysi na radek posadi fokus do tela zpravy (otazka z ladeni 2026-07-21)
-
-**Hotovo 2026-07-22** — rozhodnuto: mys zrcadli klavesnici (uzivatel: mys musi zustat plnohodnotna). Jednoklik = sipka (split rezim ukaze zpravu v podokne cteni, ale fokus nechava na radku; off rezim / Koncepty jen posunou roving fokus a zpravu neotviraji), dvojklik = Enter (deliberate open, fokus do tela). Vetveno pres `event.detail` v `handleRowClick` ([MessageList.svelte:191](frontend/src/lib/components/MessageList.svelte)) — deleguje na `selectAndFocus` / `setFocus` / `handleSelect(focusBody)`. Testy: nove e2e v [list-navigation.functional.e2e.ts](frontend/src/routes/mail/list-navigation.functional.e2e.ts) (off jednoklik neotevre; split jednoklik drzi fokus + dvojklik do tela), off-rezim otevreni prepnuto na dvojklik v [detail-focus.functional.e2e.ts](frontend/src/routes/mail/detail-focus.functional.e2e.ts) a [message-detail-actions.functional.e2e.ts](frontend/src/routes/mail/message-detail-actions.functional.e2e.ts).
 
 ---
 
