@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Properties;
 
 import jakarta.mail.Flags;
@@ -118,7 +119,7 @@ class MailSyncGreenMailIT {
     }
 
     @Test
-    @DisplayName("Full sync lifecycle over live IMAP: download -> flag change -> server-side delete")
+    @DisplayName("Full sync lifecycle over live IMAP: download -> flag change -> delete -> reconcile server-only hole")
     void fullSyncLifecycle() throws Exception {
         // --- Phase 1: initial download -------------------------------------
         deliver("First message", "body one");
@@ -152,6 +153,35 @@ class MailSyncGreenMailIT {
         assertThat(mailSyncService.performFullSyncCycle(account, INBOX)).isTrue();
 
         assertThat(messageRepository.countByAccountIdAndFolderName(account.getId(), INBOX)).isEqualTo(1);
+
+        // --- Phase 4: a server-only message sits in a hole inside the window --
+        // Deliver two more messages so the mirror spans a range with an interior.
+        deliver("Third message", "body three");
+        deliver("Fourth message", "body four");
+
+        assertThat(mailSyncService.performFullSyncCycle(account, INBOX)).isTrue();
+        assertThat(messageRepository.countByAccountIdAndFolderName(account.getId(), INBOX)).isEqualTo(3);
+
+        // Punch a hole in the middle of the local mirror while the server keeps the
+        // message — the state a purge/trash bug leaves behind (nález 2026-07-18). The
+        // middle UID is whatever findUidsByAccountAndFolder returns as the median of
+        // the three local rows; it is strictly between the min and max, so it is an
+        // interior hole and the forward cursor (already advanced past it) can never
+        // re-fetch it.
+        List<Long> localUids = messageRepository.findUidsByAccountAndFolder(account.getId(), INBOX);
+        assertThat(localUids).hasSize(3);
+        long holeUid = localUids.get(1);
+        messageRepository.deleteAllByAccountIdAndFolderNameAndUidIn(account.getId(), INBOX, List.of(holeUid));
+        assertThat(messageRepository.countByAccountIdAndFolderName(account.getId(), INBOX)).isEqualTo(2);
+        assertThat(messageRepository.findUidsByAccountAndFolder(account.getId(), INBOX)).doesNotContain(holeUid);
+
+        // A plain sync must heal the hole: deletion cleanup detects the server-only
+        // interior UID and the reconcile re-downloads it, so the mirror is contiguous
+        // again and the message is visible.
+        assertThat(mailSyncService.performFullSyncCycle(account, INBOX)).isTrue();
+
+        assertThat(messageRepository.countByAccountIdAndFolderName(account.getId(), INBOX)).isEqualTo(3);
+        assertThat(messageRepository.findUidsByAccountAndFolder(account.getId(), INBOX)).contains(holeUid);
     }
 
     private void deliver(String subject, String body) {

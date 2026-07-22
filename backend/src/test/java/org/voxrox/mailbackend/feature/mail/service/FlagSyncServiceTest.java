@@ -408,9 +408,93 @@ class FlagSyncServiceTest {
             when(uidFolder.getUID(m10)).thenReturn(10L);
             when(uidFolder.getUID(m11broken)).thenThrow(new MessagingException("uid read failed"));
 
-            service.cleanupDeletedInWindow(ctx);
+            List<Long> holes = service.cleanupDeletedInWindow(ctx);
 
             verify(messageRepository, never()).deleteAllByAccountIdAndFolderNameAndUidIn(anyLong(), anyString(), any());
+            // The unreliable server set must not fabricate phantom holes either.
+            assertThat(holes).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("server-only hole detection (reconcile input)")
+    class ServerOnlyHoles {
+
+        @Test
+        @DisplayName("Server-only UID inside the window is returned as a hole to reconcile")
+        void interiorServerOnlyUidIsReportedAsHole() throws Exception {
+            // Local mirror {10, 12}; the server still has 11 sitting in the gap. 11 is
+            // invisible to the user (forward sync only fetches above lastKnownUid,
+            // cleanup only deletes) -> it must be reported for re-download.
+            when(messageRepository.findUidsByAccountAndFolder(ACCOUNT_ID, FOLDER)).thenReturn(List.of(10L, 12L));
+
+            Message m10 = mockMessageOnly();
+            Message m11 = mockMessageOnly();
+            Message m12 = mockMessageOnly();
+            when(uidFolder.getMessagesByUID(10L, 12L)).thenReturn(new Message[]{m10, m11, m12});
+            when(uidFolder.getUID(m10)).thenReturn(10L);
+            when(uidFolder.getUID(m11)).thenReturn(11L);
+            when(uidFolder.getUID(m12)).thenReturn(12L);
+
+            List<Long> holes = service.cleanupDeletedInWindow(ctx);
+
+            assertThat(holes).containsExactly(11L);
+            // Everything local still exists on the server -> nothing to delete.
+            verify(messageRepository, never()).deleteAllByAccountIdAndFolderNameAndUidIn(anyLong(), anyString(), any());
+        }
+
+        @Test
+        @DisplayName("Contiguous mirror -> no holes")
+        void contiguousMirrorHasNoHoles() throws Exception {
+            when(messageRepository.findUidsByAccountAndFolder(ACCOUNT_ID, FOLDER)).thenReturn(List.of(10L, 11L, 12L));
+
+            Message m10 = mockMessageOnly();
+            Message m11 = mockMessageOnly();
+            Message m12 = mockMessageOnly();
+            when(uidFolder.getMessagesByUID(10L, 12L)).thenReturn(new Message[]{m10, m11, m12});
+            when(uidFolder.getUID(m10)).thenReturn(10L);
+            when(uidFolder.getUID(m11)).thenReturn(11L);
+            when(uidFolder.getUID(m12)).thenReturn(12L);
+
+            assertThat(service.cleanupDeletedInWindow(ctx)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("Server UID below the window is the backfill tail, not a hole")
+        void serverUidBelowWindowIsNotAHole() throws Exception {
+            // detectServerOnlyHolesInWindow is shared with the UID-enumeration path,
+            // where the server set spans the whole mailbox. Only the interior qualifies:
+            // a UID below min(local) is the not-yet-backfilled older tail served on
+            // demand by lazy page fetch — re-downloading it here would pull the whole
+            // mailbox every cycle.
+            when(messageRepository.findUidsByAccountAndFolder(ACCOUNT_ID, FOLDER)).thenReturn(List.of(10L, 12L));
+
+            Message m8 = mockMessageOnly(); // below the window
+            Message m10 = mockMessageOnly();
+            Message m11 = mockMessageOnly(); // interior hole
+            Message m12 = mockMessageOnly();
+            when(uidFolder.getMessagesByUID(10L, 12L)).thenReturn(new Message[]{m8, m10, m11, m12});
+            when(uidFolder.getUID(m8)).thenReturn(8L);
+            when(uidFolder.getUID(m10)).thenReturn(10L);
+            when(uidFolder.getUID(m11)).thenReturn(11L);
+            when(uidFolder.getUID(m12)).thenReturn(12L);
+
+            // 8 is below min(local)=10 -> excluded; only the interior hole 11 remains.
+            assertThat(service.cleanupDeletedInWindow(ctx)).containsExactly(11L);
+            // 8 is server-only (not local), so it must not be deleted either.
+            verify(messageRepository, never()).deleteAllByAccountIdAndFolderNameAndUidIn(anyLong(), anyString(), any());
+        }
+
+        @Test
+        @DisplayName("A single local message has no interior -> no holes")
+        void singleLocalMessageHasNoHoles() throws Exception {
+            when(messageRepository.findUidsByAccountAndFolder(ACCOUNT_ID, FOLDER)).thenReturn(List.of(10L));
+
+            Message m10 = mockMessageOnly();
+            when(uidFolder.getMessagesByUID(10L, 10L)).thenReturn(new Message[]{m10});
+            when(uidFolder.getUID(m10)).thenReturn(10L);
+
+            assertThat(service.cleanupDeletedInWindow(ctx)).isEmpty();
         }
     }
 
