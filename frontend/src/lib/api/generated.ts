@@ -29,6 +29,7 @@ export type ThreadUpdated = Schema<'ThreadUpdated'>;
 
 // Conversation detail endpoint shape.
 export type ThreadResponse = Schema<'ThreadResponse'>;
+export type ConversationSummaryResponse = Schema<'ConversationSummaryResponse'>;
 
 export type ContactEmailRequest = Schema<'ContactEmailRequest'>;
 export type ContactEmailResponse = Schema<'ContactEmailResponse'>;
@@ -45,4 +46,5 @@ export type BulkContactDeleteResponse = Schema<'BulkContactDeleteResponse'>;
 export type BulkContactDeleteResult = Schema<'BulkContactDeleteResult'>;
 
 export type PagedMailSummaryResponse = Schema<'PagedResponseMailSummaryResponse'>;
+export type PagedConversationSummaryResponse = Schema<'PagedResponseConversationSummaryResponse'>;
 export type PagedContactResponse = Schema<'PagedResponseContactResponse'>;

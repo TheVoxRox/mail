@@ -116,6 +116,11 @@
 		"columnHeaderStatus": "Flags",
 		"columnHeaderDate": "Date",
 		"columnHeaderActions": "Actions",
+		"grouping": {
+			"listLabel": "Conversation list",
+			"threadSize": "{count, plural, one {conversation, {count} message} other {conversation, {count} messages}}",
+			"threadUnread": "{count, plural, one {{count} unread} other {{count} unread}}"
+		},
 		"rowActions": {
 			"trigger": "Actions for message {subject}"
 		},
@@ -518,6 +523,19 @@
 			"splitPane": {
 				"vertical": "Resize the message list and detail panes",
 				"horizontal": "Resize the message list and detail panes vertically"
+			},
+			"grouping": {
+				"heading": "Mail grouping",
+				"label": "Group messages in a folder",
+				"hint": "Choose whether messages appear individually or grouped into conversations (one row per thread).",
+				"options": {
+					"flat": {
+						"title": "Individual messages"
+					},
+					"grouped": {
+						"title": "Group by conversation"
+					}
+				}
 			},
 			"messageBody": {
 				"heading": "Message body rendering",
