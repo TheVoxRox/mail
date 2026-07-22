@@ -162,24 +162,6 @@ test.describe('MSW bootstrap', () => {
 		await expect(page.getByRole('main', { name: 'Kontakty' })).toBeFocused();
 	});
 
-	test('Gmail zkratka ? otevře přehled zkratek mimo textová pole', async ({ page }) => {
-		await page.goto('/mail/1/INBOX');
-		await waitForShell(page);
-
-		await page.keyboard.press('Shift+/');
-		await page.waitForURL('**/settings/shortcuts');
-		await expect(page.locator('main h1')).toHaveText('Klávesové zkratky');
-		await expect(page.getByText('Otevřít přehled klávesových zkratek')).toBeVisible();
-
-		await page.goto('/compose');
-		await waitForShell(page);
-		await page.locator('#compose-subject').focus();
-		await page.keyboard.press('Shift+/');
-
-		await expect(page).toHaveURL(/\/compose$/);
-		await expect(page.locator('#compose-subject')).toHaveValue('/');
-	});
-
 	test('nastartuje aplikaci bez backendu a přesměruje na aktivní inbox', async ({ page }) => {
 		await page.goto('/');
 		await waitForShell(page);

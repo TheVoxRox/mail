@@ -5,8 +5,8 @@ import { waitForShell } from '../e2e-helpers';
  * Regression cover for the message-body iframe key bridge (lib/mail/mailFrame.ts).
  * The body renders in a script-sandboxed, opaque-origin iframe; a keydown inside
  * it never reaches the parent's global shortcut handler on its own. A hash-pinned
- * forwarder postMessages real keystrokes out so `?`, Delete, … keep working even
- * while the reader's focus is inside the message body.
+ * forwarder postMessages real keystrokes out so Delete, Ctrl+R, … keep working
+ * even while the reader's focus is inside the message body.
  */
 
 test.beforeEach(async ({ page }) => {
@@ -45,16 +45,6 @@ test('Delete s focusem uvnitř těla zprávy smaže otevřenou zprávu', async (
 
 	await page.waitForURL('**/mail/1/INBOX', { timeout: 5000 });
 	expect(deleteRequests).toHaveLength(1);
-});
-
-test('? s focusem uvnitř těla zprávy otevře přehled klávesových zkratek', async ({ page }) => {
-	const frame = await openHtmlMessage(page);
-	await frame.focus();
-
-	await page.keyboard.press('Shift+/');
-
-	await page.waitForURL('**/settings/shortcuts', { timeout: 5000 });
-	await expect(page.locator('main h1')).toHaveText('Klávesové zkratky');
 });
 
 test('tělo zprávy: CSP zablokuje jiný než hash-připnutý skript', async ({ page }) => {

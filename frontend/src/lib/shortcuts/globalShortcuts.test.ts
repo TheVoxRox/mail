@@ -10,7 +10,6 @@ function makeHandlers(overrides: Partial<GlobalShortcutHandlers> = {}): GlobalSh
 	return {
 		openPalette: vi.fn(),
 		isPaletteOpen: () => false,
-		goToShortcuts: vi.fn(),
 		goToPrimaryNewAction: vi.fn(),
 		goToWorkspace: vi.fn(),
 		// No open message by default — message-action tests opt in via overrides.
@@ -125,29 +124,6 @@ describe('handleGlobalKeydown', () => {
 		document.body.removeChild(input);
 	});
 
-	it('editable target: `?` stays out (it types a character)', () => {
-		const h = makeHandlers();
-		const input = document.createElement('input');
-		document.body.appendChild(input);
-		const ev = makeEvent({ key: '?' });
-		Object.defineProperty(ev, 'target', { value: input });
-		handleGlobalKeydown(ev, h);
-		expect(h.goToShortcuts).not.toHaveBeenCalled();
-		document.body.removeChild(input);
-	});
-
-	it('? (no modifiers) navigates to shortcuts', () => {
-		const h = makeHandlers();
-		handleGlobalKeydown(makeEvent({ key: '?' }), h);
-		expect(h.goToShortcuts).toHaveBeenCalledOnce();
-	});
-
-	it('Shift+/ (US layout for `?`) navigates to shortcuts', () => {
-		const h = makeHandlers();
-		handleGlobalKeydown(makeEvent({ key: '/', shiftKey: true, code: 'Slash' }), h);
-		expect(h.goToShortcuts).toHaveBeenCalledOnce();
-	});
-
 	it('Ctrl+N triggers primary new action', () => {
 		const h = makeHandlers();
 		handleGlobalKeydown(makeEvent({ key: 'n', ctrlKey: true, code: 'KeyN' }), h);
@@ -174,7 +150,6 @@ describe('handleGlobalKeydown', () => {
 		const h = makeHandlers();
 		handleGlobalKeydown(makeEvent({ key: 'a' }), h);
 		expect(h.openPalette).not.toHaveBeenCalled();
-		expect(h.goToShortcuts).not.toHaveBeenCalled();
 		expect(h.goToPrimaryNewAction).not.toHaveBeenCalled();
 		expect(h.goToWorkspace).not.toHaveBeenCalled();
 	});

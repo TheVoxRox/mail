@@ -21,7 +21,6 @@ export interface MessageShortcutContext {
 export interface GlobalShortcutHandlers {
 	openPalette: () => void;
 	isPaletteOpen: () => boolean;
-	goToShortcuts: () => Promise<void> | void;
 	goToPrimaryNewAction: () => Promise<void> | void;
 	goToWorkspace: (mode: WorkspaceMode) => Promise<void> | void;
 	/** Returns the open-message context, or null when no message is open. */
@@ -52,8 +51,7 @@ export function isEditableTarget(target: EventTarget | null): boolean {
  *  2) Palette open → handler hands the key to the palette component.
  *  3) Ctrl+1/2/3 (workspace) and Ctrl+N (new item) — also in inputs.
  *  4) Cursor in an editable element → handler stays out.
- *  5) `?` (no modifiers) → Settings › Shortcuts.
- *  6) Outlook-style actions on the open message (reply, forward, flag, …).
+ *  5) Outlook-style actions on the open message (reply, forward, flag, …).
  */
 export function handleGlobalKeydown(event: KeyboardEvent, handlers: GlobalShortcutHandlers): void {
 	if (
@@ -80,13 +78,6 @@ export function handleGlobalKeydown(event: KeyboardEvent, handlers: GlobalShortc
 	if (handleWorkspaceShortcut(event, handlers)) return;
 
 	if (isEditableTarget(event.target)) return;
-
-	const isShortcutHelpKey = event.key === '?' || (event.shiftKey && event.code === 'Slash');
-	if (!event.ctrlKey && !event.metaKey && !event.altKey && isShortcutHelpKey) {
-		event.preventDefault();
-		void handlers.goToShortcuts();
-		return;
-	}
 
 	/*
 	 * Outlook-style actions on the open message. They run only when a message

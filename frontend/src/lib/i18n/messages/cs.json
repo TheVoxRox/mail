@@ -500,7 +500,7 @@
 			},
 			"readingPane": {
 				"heading": "Podokno čtení",
-				"hint": "Zvolte, zda se detail zprávy zobrazuje vedle seznamu, pod ním, nebo až po otevření samostatně.",
+				"hint": "Zvolte, zda se detail zprávy zobrazuje vedle seznamu, pod ním, nebo je skryté, dokud zprávu neotevřete.",
 				"label": "Rozložení podokna čtení",
 				"empty": "Vyberte zprávu ze seznamu a detail se otevře tady.",
 				"options": {
@@ -584,14 +584,12 @@
 				"focusBcc": "Přejít na pole Skrytá kopie",
 				"newContact": "Nový kontakt",
 				"palette": "Otevřít paletu příkazů",
-				"shortcutHelp": "Otevřít přehled klávesových zkratek",
 				"runCommand": "Spustit vybraný příkaz",
 				"closePalette": "Zavřít paletu příkazů",
 				"keepFocus": "Přejít na další prvek v paletě",
 				"keepFocusBack": "Přejít na předchozí prvek v paletě"
 			},
 			"scopes": {
-				"global": "Funguje mimo textová pole.",
 				"globalIncludingInputs": "Funguje kdekoli, i v textových polích.",
 				"messageGrid": "Funguje v seznamu zpráv a ve výsledcích hledání.",
 				"contactList": "Funguje v seznamu kontaktů.",

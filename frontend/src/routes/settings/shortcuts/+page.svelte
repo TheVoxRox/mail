@@ -43,11 +43,6 @@
 					shortcut: SHORTCUT_LABELS.workspaceSettings,
 					actionKey: 'settings.shortcuts.actions.settings',
 					scopeKey: 'settings.shortcuts.scopes.globalIncludingInputs'
-				},
-				{
-					shortcut: SHORTCUT_LABELS.shortcutHelp,
-					actionKey: 'settings.shortcuts.actions.shortcutHelp',
-					scopeKey: 'settings.shortcuts.scopes.global'
 				}
 			]
 		},

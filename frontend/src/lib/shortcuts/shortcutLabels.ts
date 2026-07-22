@@ -7,7 +7,6 @@
  */
 export const SHORTCUT_LABELS = {
 	palette: 'Ctrl+K',
-	shortcutHelp: '?',
 	newItem: 'Ctrl+N',
 	workspaceMail: 'Ctrl+1',
 	workspaceContacts: 'Ctrl+2',

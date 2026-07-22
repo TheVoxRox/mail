@@ -234,10 +234,6 @@
 		await goto(resolve('/compose'));
 	}
 
-	async function goToShortcuts() {
-		await goto(resolve('/settings/shortcuts'));
-	}
-
 	async function goToNewContact() {
 		const accountId = $resolvedActiveAccountId ?? Number($page.params.accountId);
 		if (!accountId) return;
@@ -278,7 +274,6 @@
 		handleGlobalKeydown(event, {
 			openPalette,
 			isPaletteOpen: () => $paletteOpen,
-			goToShortcuts,
 			goToPrimaryNewAction,
 			goToWorkspace,
 			getMessageShortcutContext: () => {
