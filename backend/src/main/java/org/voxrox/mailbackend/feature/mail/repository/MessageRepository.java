@@ -288,11 +288,13 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
      * arrival during a bulk sync.
      * <p>
      * A child that links to {@code messageId} only through {@code References} (no
-     * {@code In-Reply-To}) is deliberately not back-reconciled here: a token match
-     * inside the free-text references column is unindexable and would turn bulk
-     * sync into an O(n^2) scan. The forward {@code References} walk in
-     * {@link org.voxrox.mailbackend.feature.mail.service.ThreadingService} still
-     * threads those messages when their ancestor is already present.
+     * {@code In-Reply-To}) is <em>not</em> matched here — a token match inside the
+     * free-text references column is unindexable and would turn bulk sync into an
+     * O(n^2) scan. That case is covered separately by
+     * {@link MessageReferenceRepository#findOrphanThreadIdsReferencing} against the
+     * normalized {@code message_reference} index (V2);
+     * {@code ThreadingService.reconcileLateArrivingParent} merges the two result
+     * sets.
      */
     @Query("SELECT DISTINCT m.threadId FROM MessageEntity m " + "WHERE m.account.id = :accId "
             + "AND (m.threadRootMessageId = :messageId OR m.inReplyTo = :messageId) " + "AND m.threadId IS NOT NULL "
@@ -332,4 +334,26 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
      */
     @Query("SELECT COUNT(m) FROM MessageEntity m WHERE m.account.id = :accId AND m.threadId IS NULL")
     long countUnthreadedByAccount(@Param("accId") Long accountId);
+
+    /**
+     * One References-index backfill batch — messages of an account that carry a
+     * References header but have no {@code message_reference} rows yet, ordered by
+     * id ascending after {@code afterId}. Used by
+     * {@link org.voxrox.mailbackend.feature.mail.service.ThreadingBackfillService}
+     * to populate the V2 index for rows that predate it (rows synced after V2 are
+     * indexed inline by {@code ThreadingService.assignThread}).
+     *
+     * <p>
+     * Cursor by id, not the {@code NOT EXISTS} predicate alone: a References header
+     * that tokenizes to nothing (whitespace only) yields no index rows and would
+     * otherwise re-match forever. Advancing {@code afterId} past every processed
+     * row guarantees the pass terminates in one sweep. A native projection keeps
+     * the {@code @Lob} body out of the batch.
+     */
+    @Query(value = "SELECT m.id AS id, m.reply_references AS refs FROM messages m "
+            + "WHERE m.account_id = :accId AND m.reply_references IS NOT NULL AND m.id > :afterId "
+            + "AND NOT EXISTS (SELECT 1 FROM message_reference r WHERE r.message_id = m.id) "
+            + "ORDER BY m.id ASC LIMIT :batch", nativeQuery = true)
+    List<MessageReferenceBackfillRow> findMessagesNeedingReferenceIndex(@Param("accId") Long accountId,
+            @Param("afterId") Long afterId, @Param("batch") int batch);
 }

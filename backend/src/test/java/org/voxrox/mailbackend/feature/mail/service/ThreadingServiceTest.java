@@ -22,11 +22,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.mail.dto.ThreadUpdated;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
+import org.voxrox.mailbackend.feature.mail.entity.MessageReferenceEntity;
+import org.voxrox.mailbackend.feature.mail.repository.MessageReferenceRepository;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
 
 /**
@@ -41,6 +44,7 @@ class ThreadingServiceTest {
     private static final AccountEntity ACCOUNT = newAccount();
 
     private MessageRepository repo;
+    private MessageReferenceRepository refRepo;
     private SseNotificationService sse;
     private ThreadingService service;
     private Map<String, List<MessageEntity>> messagesByMessageId;
@@ -49,8 +53,9 @@ class ThreadingServiceTest {
     @BeforeEach
     void setUp() {
         repo = mock(MessageRepository.class);
+        refRepo = mock(MessageReferenceRepository.class);
         sse = mock(SseNotificationService.class);
-        service = new ThreadingService(repo, sse);
+        service = new ThreadingService(repo, refRepo, sse);
         messagesByMessageId = new HashMap<>();
         maxPositionByThreadId = new HashMap<>();
 
@@ -59,6 +64,7 @@ class ThreadingServiceTest {
         when(repo.findMaxThreadPosition(eq(ACCOUNT_ID), anyString()))
                 .thenAnswer(inv -> maxPositionByThreadId.getOrDefault(inv.<String>getArgument(1), 0));
         when(repo.findMergeableOrphanThreadIds(eq(ACCOUNT_ID), anyString(), anyString())).thenReturn(List.of());
+        when(refRepo.findOrphanThreadIdsReferencing(eq(ACCOUNT_ID), anyString(), anyString())).thenReturn(List.of());
     }
 
     private static AccountEntity newAccount() {
@@ -448,6 +454,79 @@ class ThreadingServiceTest {
             service.assignThread(child, ACCOUNT);
 
             verify(sse).broadcast(any(ThreadUpdated.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("References-only reconciliation (V2 message_reference index)")
+    class ReferencesOnlyReconciliation {
+
+        @Test
+        @DisplayName("Orphan referencing the parent only via References merges when the parent arrives")
+        void referencesOnlyOrphanMergesOnParentArrival() {
+            // A child references <late-parent> only through References — no
+            // In-Reply-To — and arrives first, so it starts its own orphan thread.
+            MessageEntity orphan = newMessage("<c1@example.com>", null, "<late-parent@example.com>");
+            orphan.setId(10L);
+            service.assignThread(orphan, ACCOUNT);
+            register(orphan);
+            String orphanThreadId = orphan.getThreadId();
+
+            // The in_reply_to / thread_root lookup finds nothing (the orphan has no
+            // In-Reply-To); the message_reference index is what surfaces it.
+            when(refRepo.findOrphanThreadIdsReferencing(eq(ACCOUNT_ID), eq("<late-parent@example.com>"), anyString()))
+                    .thenReturn(List.of(orphanThreadId));
+
+            MessageEntity parent = newMessage("<late-parent@example.com>", null, null);
+            service.assignThread(parent, ACCOUNT);
+
+            verify(repo).reassignThreads(eq(ACCOUNT_ID), eq(List.of(orphanThreadId)), anyString(),
+                    eq("<late-parent@example.com>"));
+            verify(sse, atLeastOnce()).broadcast(any(ThreadUpdated.class));
+        }
+
+        @Test
+        @DisplayName("An orphan found by both lookups is reassigned once (deduplicated)")
+        void orphanFoundByBothLookupsIsReassignedOnce() {
+            when(repo.findMergeableOrphanThreadIds(eq(ACCOUNT_ID), eq("<p@example.com>"), anyString()))
+                    .thenReturn(List.of("orphan-thread"));
+            when(refRepo.findOrphanThreadIdsReferencing(eq(ACCOUNT_ID), eq("<p@example.com>"), anyString()))
+                    .thenReturn(List.of("orphan-thread"));
+
+            MessageEntity parent = newMessage("<p@example.com>", null, null);
+            parent.setId(1L);
+            service.assignThread(parent, ACCOUNT);
+
+            verify(repo).reassignThreads(eq(ACCOUNT_ID), eq(List.of("orphan-thread")), anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("indexReferences records distinct References tokens for the message row")
+        void indexReferencesRecordsDistinctTokens() {
+            MessageEntity msg = newMessage("<m@example.com>", "<a@example.com>",
+                    "<a@example.com> <b@example.com> <a@example.com>");
+            msg.setId(42L);
+
+            service.assignThread(msg, ACCOUNT);
+
+            verify(refRepo).deleteByMessageId(42L);
+            ArgumentCaptor<MessageReferenceEntity> captor = ArgumentCaptor.forClass(MessageReferenceEntity.class);
+            verify(refRepo, times(2)).save(captor.capture());
+            assertThat(captor.getAllValues()).extracting(MessageReferenceEntity::getReferencedMessageId)
+                    .containsExactly("<a@example.com>", "<b@example.com>");
+            assertThat(captor.getAllValues()).allSatisfy(entity -> assertThat(entity.getMessageId()).isEqualTo(42L));
+        }
+
+        @Test
+        @DisplayName("A message with no row id (out-of-transaction) is not reference-indexed")
+        void noRowIdSkipsIndexing() {
+            MessageEntity msg = newMessage("<m@example.com>", null, "<a@example.com>");
+            // id left null — an out-of-transaction unit call cannot be indexed.
+
+            service.assignThread(msg, ACCOUNT);
+
+            verify(refRepo, never()).deleteByMessageId(anyLong());
+            verify(refRepo, never()).save(any());
         }
     }
 }
