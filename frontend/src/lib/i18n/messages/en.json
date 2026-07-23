@@ -125,7 +125,9 @@
 			"loading": "Loading conversation…",
 			"loadError": "Could not load the conversation.",
 			"revealed": "{count, plural, one {Showing {count} more message} other {Showing {count} more messages}}",
-			"collapsed": "Conversation collapsed"
+			"collapsed": "Conversation collapsed",
+			"selectConversation": "Select conversation {subject}",
+			"selectedConversations": "{count, plural, one {{count} conversation selected} other {{count} conversations selected}}"
 		},
 		"rowActions": {
 			"trigger": "Actions for message {subject}"
