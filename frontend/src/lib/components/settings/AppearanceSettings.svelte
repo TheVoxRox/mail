@@ -7,10 +7,13 @@
 	import { textSize, setTextSize, type TextSize } from '$lib/stores/textSize.js';
 	import {
 		messageBodyView,
+		messageGrouping,
 		readingPane,
 		setMessageBodyView,
+		setMessageGrouping,
 		setReadingPane,
 		type MessageBodyView,
+		type MessageGrouping,
 		type ReadingPane
 	} from '$lib/stores/uiLayout.js';
 
@@ -18,6 +21,9 @@
 	const TEXT_SIZE_OPTIONS: ReadonlyArray<TextSize> = ['small', 'medium', 'large'];
 	const READING_PANE_OPTIONS: ReadonlyArray<ReadingPane> = ['right', 'bottom', 'off'];
 	const MESSAGE_BODY_OPTIONS: ReadonlyArray<MessageBodyView> = ['html', 'plain'];
+	const GROUPING_OPTIONS: ReadonlyArray<MessageGrouping> = ['flat', 'grouped'];
+	const groupingLabelKey = (option: MessageGrouping) =>
+		`settings.appearance.grouping.options.${option}.title`;
 	const themeLabelKey = (option: ThemePreference) => `settings.appearance.theme.options.${option}`;
 	const textSizeLabelKey = (option: TextSize) => `settings.appearance.textSize.options.${option}`;
 	const paneLabelKey = (option: ReadingPane) =>
@@ -43,6 +49,11 @@
 
 	function handleMessageBodyChange(value: MessageBodyView) {
 		setMessageBodyView(value);
+	}
+
+	function handleGroupingChange(event: Event) {
+		const value = (event.target as HTMLSelectElement).value as MessageGrouping;
+		setMessageGrouping(value);
 	}
 </script>
 
@@ -112,6 +123,28 @@
 			>
 				{#each READING_PANE_OPTIONS as option (option)}
 					<option value={option}>{$_(paneLabelKey(option))}</option>
+				{/each}
+			</Select>
+		</Field>
+	</Surface>
+
+	<Surface as="section" class="space-y-3">
+		<h2 class="text-sm font-semibold">{$_('settings.appearance.grouping.heading')}</h2>
+		<Field
+			for="message-grouping-select"
+			label={$_('settings.appearance.grouping.label')}
+			labelClass="sr-only"
+			hint={$_('settings.appearance.grouping.hint')}
+		>
+			<Select
+				id="message-grouping-select"
+				value={$messageGrouping}
+				onchange={handleGroupingChange}
+				width="full"
+				aria-describedby="message-grouping-select-hint"
+			>
+				{#each GROUPING_OPTIONS as option (option)}
+					<option value={option}>{$_(groupingLabelKey(option))}</option>
 				{/each}
 			</Select>
 		</Field>

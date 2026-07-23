@@ -8,6 +8,7 @@ import type {
 	ContactPatchRequest,
 	ContactResponse,
 	ContactUpdateRequest,
+	ConversationSummaryResponse,
 	DraftRequest,
 	FolderResponse,
 	MailContentResponse,
@@ -394,6 +395,41 @@ export function listPage<T>(items: T[], url: URL): PagedResponse<T> {
 
 export function getFolderMessages(accountId: number, folderName: string): MailSummaryResponse[] {
 	return fixtureState.messagesByFolder[folderKey(accountId, folderName)] ?? [];
+}
+
+/**
+ * Collapses a folder's messages into conversations for the grouped listing
+ * mock. The real backend groups by `thread_id`; fixtures carry no thread ids,
+ * so this stand-in groups by normalized subject (strips Re:/Fwd: prefixes) —
+ * enough to exercise multi-message rows and the count badge. Newest message is
+ * the representative; conversations are ordered newest-first.
+ */
+export function conversationsOf(messages: MailSummaryResponse[]): ConversationSummaryResponse[] {
+	const groups = new Map<string, MailSummaryResponse[]>();
+	for (const message of messages) {
+		const key = normalizeSubject(message.subject);
+		const bucket = groups.get(key);
+		if (bucket) bucket.push(message);
+		else groups.set(key, [message]);
+	}
+	return [...groups.values()]
+		.map((members) => {
+			const latest = [...members].sort((a, b) => b.receivedAt.localeCompare(a.receivedAt))[0];
+			return {
+				threadId: `thread-${latest.stableId}`,
+				latest,
+				messageCount: members.length,
+				unreadCount: members.filter((m) => !m.seen).length
+			} satisfies ConversationSummaryResponse;
+		})
+		.sort((a, b) => b.latest.receivedAt.localeCompare(a.latest.receivedAt));
+}
+
+function normalizeSubject(subject: string): string {
+	return subject
+		.replace(/^((re|fwd?|fw)\s*:\s*)+/i, '')
+		.trim()
+		.toLowerCase();
 }
 
 export function replaceFolderMessages(
