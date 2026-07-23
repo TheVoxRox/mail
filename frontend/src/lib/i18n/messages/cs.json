@@ -125,7 +125,9 @@
 			"loading": "Načítání konverzace…",
 			"loadError": "Konverzaci se nepodařilo načíst.",
 			"revealed": "{count, plural, one {Zobrazena {count} další zpráva} few {Zobrazeny {count} další zprávy} other {Zobrazeno {count} dalších zpráv}}",
-			"collapsed": "Konverzace sbalena"
+			"collapsed": "Konverzace sbalena",
+			"selectConversation": "Vybrat konverzaci {subject}",
+			"selectedConversations": "{count, plural, one {{count} vybraná konverzace} few {{count} vybrané konverzace} other {{count} vybraných konverzací}}"
 		},
 		"rowActions": {
 			"trigger": "Akce pro zprávu {subject}"
