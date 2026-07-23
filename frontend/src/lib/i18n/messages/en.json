@@ -119,7 +119,13 @@
 		"grouping": {
 			"listLabel": "Conversation list",
 			"threadSize": "{count, plural, one {conversation, {count} message} other {conversation, {count} messages}}",
-			"threadUnread": "{count, plural, one {{count} unread} other {{count} unread}}"
+			"threadUnread": "{count, plural, one {{count} unread} other {{count} unread}}",
+			"expand": "Expand conversation",
+			"collapse": "Collapse conversation",
+			"loading": "Loading conversation…",
+			"loadError": "Could not load the conversation.",
+			"revealed": "{count, plural, one {Showing {count} more message} other {Showing {count} more messages}}",
+			"collapsed": "Conversation collapsed"
 		},
 		"rowActions": {
 			"trigger": "Actions for message {subject}"

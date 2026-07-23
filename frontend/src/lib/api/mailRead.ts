@@ -9,7 +9,8 @@ import type {
 	MailContentResponse,
 	MailDetailResponse,
 	MailSummaryResponse,
-	PagedResponse
+	PagedResponse,
+	ThreadResponse
 } from '$lib/types.js';
 
 export interface PageParams {
@@ -48,6 +49,15 @@ export function listConversations(
 	return api.get(`/messages/account/${accountId}/folder/conversations`, {
 		params: { folderRef: folderName, ...paramsFromPage(page) }
 	});
+}
+
+/**
+ * Fetches a whole conversation by its thread id — members account-wide (all
+ * folders), ascending threadPosition order. The grouped list filters them to
+ * the folder in view when expanding a collapsed row.
+ */
+export function getThread(accountId: number, threadId: string): Promise<ThreadResponse> {
+	return api.get(`/messages/account/${accountId}/threads/${encodeURIComponent(threadId)}`);
 }
 
 /** Full-text search across folders (subject/from/body). */
