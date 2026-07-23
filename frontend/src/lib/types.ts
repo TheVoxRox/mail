@@ -187,6 +187,24 @@ export interface ConversationSummaryResponse {
 	unreadCount: number;
 }
 
+/**
+ * Full conversation fetched on demand when a grouped row is expanded (threading
+ * Phase 2). Members are account-wide (all folders) and ordered oldest-first by
+ * threadPosition; the grouped list filters them to the folder in view so the
+ * expanded rows match the collapsed row's folder-scoped count.
+ */
+export interface ThreadResponse {
+	threadId: string;
+	/** RFC 5322 Message-ID of the oldest message, or null when the root has none. */
+	rootMessageId: string | null;
+	/** Total messages in the thread across all folders. */
+	participantsTotal: number;
+	/** How many of those are not yet seen. */
+	unreadCount: number;
+	/** Thread members in ascending threadPosition order. */
+	messages: MailSummaryResponse[];
+}
+
 export interface AttachmentResponse {
 	partPath: string;
 	fileName: string;

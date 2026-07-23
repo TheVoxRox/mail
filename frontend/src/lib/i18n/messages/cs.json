@@ -119,7 +119,13 @@
 		"grouping": {
 			"listLabel": "Seznam konverzací",
 			"threadSize": "{count, plural, one {konverzace, {count} zpráva} few {konverzace, {count} zprávy} other {konverzace, {count} zpráv}}",
-			"threadUnread": "{count, plural, one {{count} nepřečtená} few {{count} nepřečtené} other {{count} nepřečtených}}"
+			"threadUnread": "{count, plural, one {{count} nepřečtená} few {{count} nepřečtené} other {{count} nepřečtených}}",
+			"expand": "Rozbalit konverzaci",
+			"collapse": "Sbalit konverzaci",
+			"loading": "Načítání konverzace…",
+			"loadError": "Konverzaci se nepodařilo načíst.",
+			"revealed": "{count, plural, one {Zobrazena {count} další zpráva} few {Zobrazeny {count} další zprávy} other {Zobrazeno {count} dalších zpráv}}",
+			"collapsed": "Konverzace sbalena"
 		},
 		"rowActions": {
 			"trigger": "Akce pro zprávu {subject}"
