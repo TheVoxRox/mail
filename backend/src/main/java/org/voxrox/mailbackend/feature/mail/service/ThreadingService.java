@@ -2,7 +2,9 @@ package org.voxrox.mailbackend.feature.mail.service;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import org.jspecify.annotations.Nullable;
@@ -13,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.mail.dto.ThreadUpdated;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
+import org.voxrox.mailbackend.feature.mail.entity.MessageReferenceEntity;
+import org.voxrox.mailbackend.feature.mail.repository.MessageReferenceRepository;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
 import org.voxrox.mailbackend.util.LogCategory;
 import org.voxrox.mailbackend.util.TransactionCallbacks;
@@ -63,10 +67,13 @@ public class ThreadingService {
     private static final int MAX_REFERENCES_WALK = 50;
 
     private final MessageRepository messageRepository;
+    private final MessageReferenceRepository messageReferenceRepository;
     private final SseNotificationService sseNotificationService;
 
-    public ThreadingService(MessageRepository messageRepository, SseNotificationService sseNotificationService) {
+    public ThreadingService(MessageRepository messageRepository, MessageReferenceRepository messageReferenceRepository,
+            SseNotificationService sseNotificationService) {
         this.messageRepository = messageRepository;
+        this.messageReferenceRepository = messageReferenceRepository;
         this.sseNotificationService = sseNotificationService;
     }
 
@@ -97,6 +104,47 @@ public class ThreadingService {
             startNewThread(msg);
         }
         reconcileLateArrivingParent(msg, account);
+        // Record this message's References tokens so a future arrival of one of its
+        // ancestors can reconcile it via the indexed message_reference lookup — the
+        // References-only case the in_reply_to / thread_root lookup cannot reach.
+        indexReferences(msg.getId(), account.getId(), msg.getReferences());
+    }
+
+    /**
+     * Populates the normalized {@code message_reference} index (V2) for a message
+     * row: one row per distinct RFC 5322 Message-ID token in its References header,
+     * capped at {@value #MAX_REFERENCES_WALK}. Delete-then-insert so the call is
+     * idempotent (a re-thread or a backfill re-run replaces cleanly rather than
+     * duplicating). Also invoked directly by the References backfill for rows that
+     * predate the index. A message with no row id yet (an out-of-transaction unit
+     * call) cannot be indexed and is skipped.
+     */
+    public void indexReferences(@Nullable Long messageRowId, Long accountId, @Nullable String referencesHeader) {
+        if (messageRowId == null) {
+            return;
+        }
+        messageReferenceRepository.deleteByMessageId(messageRowId);
+        String references = trimToNull(referencesHeader);
+        if (references == null) {
+            return;
+        }
+        Set<String> distinct = new LinkedHashSet<>();
+        for (String token : references.split("\\s+", -1)) {
+            String trimmed = trimToNull(token);
+            if (trimmed != null) {
+                distinct.add(trimmed);
+            }
+            if (distinct.size() >= MAX_REFERENCES_WALK) {
+                break;
+            }
+        }
+        for (String reference : distinct) {
+            MessageReferenceEntity entity = new MessageReferenceEntity();
+            entity.setMessageId(messageRowId);
+            entity.setAccountId(accountId);
+            entity.setReferencedMessageId(reference);
+            messageReferenceRepository.save(entity);
+        }
     }
 
     /**
@@ -196,9 +244,11 @@ public class ThreadingService {
 
     /**
      * Step 4 — orphan chain reconciliation. When an earlier orphan thread links to
-     * this message's own Message-ID (a child replied to it via {@code In-Reply-To}
-     * before it arrived, or a cross-folder duplicate is rooted at it), merge those
-     * orphan threads into the thread this message belongs to.
+     * this message's own Message-ID — a child replied to it via {@code In-Reply-To}
+     * before it arrived, a cross-folder duplicate is rooted at it, or a child
+     * references it only through {@code References} (the indexed
+     * {@code message_reference} lookup, V2) — merge those orphan threads into the
+     * thread this message belongs to.
      *
      * <p>
      * The absorbed rows are re-pointed to this message's {@code threadId} and
@@ -217,11 +267,18 @@ public class ThreadingService {
         if (selfMessageId == null) {
             return; // Without a Message-ID we cannot be discovered as a parent.
         }
-        List<String> orphanThreadIds = messageRepository.findMergeableOrphanThreadIds(account.getId(), selfMessageId,
-                msg.getThreadId());
-        if (orphanThreadIds.isEmpty()) {
+        // Two indexed lookups, unioned: the in_reply_to / thread_root match on
+        // `messages`, plus the References-only match on the normalized
+        // `message_reference` index (children that referenced this id but never set
+        // In-Reply-To). Distinct so a child found by both is reassigned once.
+        Set<String> merged = new LinkedHashSet<>(
+                messageRepository.findMergeableOrphanThreadIds(account.getId(), selfMessageId, msg.getThreadId()));
+        merged.addAll(messageReferenceRepository.findOrphanThreadIdsReferencing(account.getId(), selfMessageId,
+                msg.getThreadId()));
+        if (merged.isEmpty()) {
             return;
         }
+        List<String> orphanThreadIds = new ArrayList<>(merged);
         // Re-root the absorbed rows to the thread's true root, not blindly to this
         // message: when this message itself attached to an older thread, that older
         // thread's root is the real conversation root, so a flat selfMessageId would

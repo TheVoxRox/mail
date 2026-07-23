@@ -1,5 +1,6 @@
 package org.voxrox.mailbackend.feature.mail.service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -16,6 +17,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
+import org.voxrox.mailbackend.feature.mail.repository.MessageReferenceBackfillRow;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
 import org.voxrox.mailbackend.util.AuditLog;
 import org.voxrox.mailbackend.util.LogCategory;
@@ -126,24 +128,35 @@ public class ThreadingBackfillService {
     }
 
     /**
-     * Per-account backfill. Public so the internal {@code /threading/recompute}
-     * endpoint can call it directly without going through the
-     * {@code ApplicationReadyEvent} path.
+     * Per-account backfill — assigns missing {@code thread_id}s and populates the
+     * {@code message_reference} index (V2). Public so the internal
+     * {@code /threading/recompute} endpoint can call it directly without going
+     * through the {@code ApplicationReadyEvent} path. The References pass always
+     * runs, even when no {@code thread_id} was missing, because rows synced before
+     * V2 are fully threaded yet carry no index rows.
      *
-     * <p>
-     * Runs in batches of {@value #BATCH_SIZE}, each in its own transaction with a
-     * fresh persistence context. The previous single-transaction pass held every
-     * unthreaded message as a managed entity — bodies included — which did not fit
-     * the 384m heap on a populated account, and Hibernate's pre-query auto-flush
-     * dirty-checked that whole context before each parent lookup, making the pass
-     * quadratic. Re-querying {@code thread_id IS NULL} advances the cursor for
-     * free: assignThread always assigns a thread_id, so processed rows drop out of
-     * the predicate and the loop terminates. A crash mid-way keeps the completed
-     * batches — re-entry safety is unchanged (the WHERE clause is the guard).
-     *
-     * @return number of messages whose {@code thread_id} was newly assigned
+     * @return number of messages whose {@code thread_id} was newly assigned (the
+     *         References-index count is logged separately, not returned)
      */
     public int backfillAccount(AccountEntity account) {
+        int threaded = backfillThreadIds(account);
+        backfillReferences(account);
+        return threaded;
+    }
+
+    /**
+     * Assigns {@code thread_id} for every {@code thread_id IS NULL} row in batches
+     * of {@value #BATCH_SIZE}, each in its own transaction with a fresh persistence
+     * context. The previous single-transaction pass held every unthreaded message
+     * as a managed entity — bodies included — which did not fit the 384m heap on a
+     * populated account, and Hibernate's pre-query auto-flush dirty-checked that
+     * whole context before each parent lookup, making the pass quadratic.
+     * Re-querying {@code thread_id IS NULL} advances the cursor for free:
+     * assignThread always assigns a thread_id, so processed rows drop out of the
+     * predicate and the loop terminates. A crash mid-way keeps the completed
+     * batches — re-entry safety is unchanged (the WHERE clause is the guard).
+     */
+    private int backfillThreadIds(AccountEntity account) {
         long unthreaded = messageRepository.countUnthreadedByAccount(account.getId());
         if (unthreaded == 0) {
             return 0;
@@ -166,6 +179,52 @@ public class ThreadingBackfillService {
             if (assigned < BATCH_SIZE) {
                 break;
             }
+        }
+        return total;
+    }
+
+    /**
+     * Populates the {@code message_reference} index (V2) for rows that predate it —
+     * fully threaded messages with a References header but no index rows. Rows
+     * synced after V2 are indexed inline by {@link ThreadingService#assignThread}.
+     *
+     * <p>
+     * Batched by an ascending id cursor (not the {@code NOT EXISTS} predicate
+     * alone, which a whitespace-only References header would re-match forever):
+     * advancing {@code afterId} past every processed row guarantees the sweep
+     * terminates. A native projection keeps the {@code @Lob} body out of each
+     * batch. On a database already fully indexed the first query returns empty, so
+     * the pass is a cheap no-op on every subsequent restart.
+     */
+    private int backfillReferences(AccountEntity account) {
+        int total = 0;
+        long afterId = 0;
+        while (true) {
+            final long cursor = afterId;
+            List<Long> processed = Objects.requireNonNull(transactionTemplate.execute(status -> {
+                List<MessageReferenceBackfillRow> batch = messageRepository
+                        .findMessagesNeedingReferenceIndex(account.getId(), cursor, BATCH_SIZE);
+                List<Long> ids = new ArrayList<>(batch.size());
+                for (MessageReferenceBackfillRow row : batch) {
+                    threadingService.indexReferences(row.getId(), account.getId(), row.getRefs());
+                    ids.add(row.getId());
+                }
+                return ids;
+            }));
+            if (processed.isEmpty()) {
+                break;
+            }
+            afterId = processed.get(processed.size() - 1);
+            total += processed.size();
+            if (processed.size() < BATCH_SIZE) {
+                break;
+            }
+        }
+        if (total > 0) {
+            log.info("{} References backfill: indexed {} message(s) in account {}.", LogCategory.SYNC, total,
+                    account.getId());
+            AuditLog.success("threading_references_backfill", LogMasker.maskEmail(account.getEmail()),
+                    "id=" + account.getId() + " messages=" + total);
         }
         return total;
     }
