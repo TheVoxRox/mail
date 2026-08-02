@@ -186,7 +186,8 @@ public class ThreadingBackfillService {
     /**
      * Populates the {@code message_reference} index for rows that predate this
      * feature — fully threaded messages with a References header but no index rows.
-     * Rows persisted afterwards are indexed inline by {@link ThreadingService#assignThread}.
+     * Rows persisted afterwards are indexed inline by
+     * {@link ThreadingService#assignThread}.
      *
      * <p>
      * Batched by an ascending id cursor (not the {@code NOT EXISTS} predicate

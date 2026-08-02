@@ -111,8 +111,8 @@ public class ThreadingService {
     }
 
     /**
-     * Populates the normalized {@code message_reference} index for a message
-     * row: one row per distinct RFC 5322 Message-ID token in its References header,
+     * Populates the normalized {@code message_reference} index for a message row:
+     * one row per distinct RFC 5322 Message-ID token in its References header,
      * capped at {@value #MAX_REFERENCES_WALK}. Delete-then-insert so the call is
      * idempotent (a re-thread or a backfill re-run replaces cleanly rather than
      * duplicating). Also invoked directly by the References backfill for rows that
