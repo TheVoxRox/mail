@@ -292,7 +292,7 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
      * free-text references column is unindexable and would turn bulk sync into an
      * O(n^2) scan. That case is covered separately by
      * {@link MessageReferenceRepository#findOrphanThreadIdsReferencing} against the
-     * normalized {@code message_reference} index (V2);
+     * normalized {@code message_reference} index;
      * {@code ThreadingService.reconcileLateArrivingParent} merges the two result
      * sets.
      */
@@ -340,8 +340,8 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
      * References header but have no {@code message_reference} rows yet, ordered by
      * id ascending after {@code afterId}. Used by
      * {@link org.voxrox.mailbackend.feature.mail.service.ThreadingBackfillService}
-     * to populate the V2 index for rows that predate it (rows synced after V2 are
-     * indexed inline by {@code ThreadingService.assignThread}).
+     * to populate the index for rows that predate this feature (rows are otherwise
+     * indexed inline by {@code ThreadingService.assignThread} at persist).
      *
      * <p>
      * Cursor by id, not the {@code NOT EXISTS} predicate alone: a References header

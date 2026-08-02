@@ -129,11 +129,11 @@ public class ThreadingBackfillService {
 
     /**
      * Per-account backfill — assigns missing {@code thread_id}s and populates the
-     * {@code message_reference} index (V2). Public so the internal
+     * {@code message_reference} index. Public so the internal
      * {@code /threading/recompute} endpoint can call it directly without going
      * through the {@code ApplicationReadyEvent} path. The References pass always
-     * runs, even when no {@code thread_id} was missing, because rows synced before
-     * V2 are fully threaded yet carry no index rows.
+     * runs, even when no {@code thread_id} was missing, because rows persisted by
+     * builds before this feature are fully threaded yet carry no index rows.
      *
      * @return number of messages whose {@code thread_id} was newly assigned (the
      *         References-index count is logged separately, not returned)
@@ -184,9 +184,9 @@ public class ThreadingBackfillService {
     }
 
     /**
-     * Populates the {@code message_reference} index (V2) for rows that predate it —
-     * fully threaded messages with a References header but no index rows. Rows
-     * synced after V2 are indexed inline by {@link ThreadingService#assignThread}.
+     * Populates the {@code message_reference} index for rows that predate this
+     * feature — fully threaded messages with a References header but no index rows.
+     * Rows persisted afterwards are indexed inline by {@link ThreadingService#assignThread}.
      *
      * <p>
      * Batched by an ascending id cursor (not the {@code NOT EXISTS} predicate

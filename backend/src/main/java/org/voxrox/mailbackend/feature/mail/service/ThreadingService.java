@@ -111,7 +111,7 @@ public class ThreadingService {
     }
 
     /**
-     * Populates the normalized {@code message_reference} index (V2) for a message
+     * Populates the normalized {@code message_reference} index for a message
      * row: one row per distinct RFC 5322 Message-ID token in its References header,
      * capped at {@value #MAX_REFERENCES_WALK}. Delete-then-insert so the call is
      * idempotent (a re-thread or a backfill re-run replaces cleanly rather than
@@ -247,7 +247,7 @@ public class ThreadingService {
      * this message's own Message-ID — a child replied to it via {@code In-Reply-To}
      * before it arrived, a cross-folder duplicate is rooted at it, or a child
      * references it only through {@code References} (the indexed
-     * {@code message_reference} lookup, V2) — merge those orphan threads into the
+     * {@code message_reference} lookup) — merge those orphan threads into the
      * thread this message belongs to.
      *
      * <p>

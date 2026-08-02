@@ -458,7 +458,7 @@ class ThreadingServiceTest {
     }
 
     @Nested
-    @DisplayName("References-only reconciliation (V2 message_reference index)")
+    @DisplayName("References-only reconciliation (message_reference index)")
     class ReferencesOnlyReconciliation {
 
         @Test

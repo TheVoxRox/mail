@@ -10,7 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.voxrox.mailbackend.feature.mail.entity.MessageReferenceEntity;
 
 /**
- * Access to the normalized {@code message_reference} index (V2). Used only by
+ * Access to the normalized {@code message_reference} index. Used only by
  * threading: population is write-once per message, and the reconciliation
  * lookup finds orphan children that reference a freshly-arrived Message-ID.
  * Native queries throughout — the table joins to {@code messages} by row id,

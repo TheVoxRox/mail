@@ -15,7 +15,7 @@ import jakarta.persistence.*;
  * The {@code messageId} column is a foreign key to {@code messages.id} (the row
  * id), not the RFC Message-ID; {@code referencedMessageId} holds the RFC
  * Message-ID token. The FK carries {@code ON DELETE CASCADE} in the Flyway
- * schema (V2), so rows disappear with their message and account.
+ * schema (V1__init.sql), so rows disappear with their message and account.
  */
 @Entity
 @Table(name = "message_reference", indexes = {

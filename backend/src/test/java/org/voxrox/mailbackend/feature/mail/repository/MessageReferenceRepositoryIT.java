@@ -25,7 +25,7 @@ import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 import org.voxrox.mailbackend.feature.mail.entity.MessageReferenceEntity;
 
 /**
- * Integration tests for the V2 {@code message_reference} index against a real
+ * Integration tests for the {@code message_reference} index against a real
  * SQLite + Flyway schema — the References-only reconciliation path. They cover
  * what the mock-based {@code ThreadingServiceTest} structurally cannot: the
  * actual native SQL of
