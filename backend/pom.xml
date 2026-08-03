@@ -357,7 +357,7 @@
 				     in CycloneDX 1.5 JSON, attached as an artifact in CI. -->
 				<groupId>org.cyclonedx</groupId>
 				<artifactId>cyclonedx-maven-plugin</artifactId>
-				<version>2.9.2</version>
+				<version>2.9.3</version>
 				<configuration>
 					<projectType>application</projectType>
 					<schemaVersion>1.5</schemaVersion>
@@ -563,7 +563,7 @@
 			<plugin>
 				<groupId>com.diffplug.spotless</groupId>
 				<artifactId>spotless-maven-plugin</artifactId>
-				<version>3.8.0</version>
+				<version>3.9.0</version>
 				<configuration>
 					<lineEndings>UNIX</lineEndings>
 					<java>
