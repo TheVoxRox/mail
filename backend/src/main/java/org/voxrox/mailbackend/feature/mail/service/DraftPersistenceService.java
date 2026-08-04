@@ -23,7 +23,6 @@ import org.voxrox.mailbackend.feature.mail.mapper.MessageMapper;
 import org.voxrox.mailbackend.feature.mail.mapper.MessageStableId;
 import org.voxrox.mailbackend.util.AuditLog;
 import org.voxrox.mailbackend.util.LogCategory;
-import org.voxrox.mailbackend.util.LogMasker;
 import org.voxrox.mailbackend.util.MimePartExtractor;
 
 import module java.base;
