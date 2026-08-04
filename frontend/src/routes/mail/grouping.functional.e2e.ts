@@ -33,7 +33,9 @@ test.describe('Konverzační seskupení', () => {
 		await expect(firstRow).toBeVisible();
 		const stableId = await firstRow.getAttribute('data-stable-id');
 		// Deliberate open = double click, mirroring the flat list (single click is
-		// the mouse twin of an Arrow key).
+		// the mouse twin of an Arrow key). Target the subject cell rather than the
+		// row: a row-centre click can land between cells, where the roving focus
+		// the assertions below check would not settle.
 		await firstRow.locator('[data-cell-target][data-col="1"]').dblclick();
 
 		await page.waitForURL(
