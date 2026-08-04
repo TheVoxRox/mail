@@ -33,8 +33,10 @@ test.describe('Konverzační seskupení', () => {
 		await expect(firstRow).toBeVisible();
 		const stableId = await firstRow.getAttribute('data-stable-id');
 		// Deliberate open = double click, mirroring the flat list (single click is
-		// the mouse twin of an Arrow key).
-		await firstRow.dblclick();
+		// the mouse twin of an Arrow key). Target the subject cell rather than the
+		// row: a row-centre click can land between cells, where the roving focus
+		// the assertions below check would not settle.
+		await firstRow.locator('[data-cell-target][data-col="1"]').dblclick();
 
 		await page.waitForURL(
 			`**/mail/${accountId}/${encodeURIComponent(folderName)}/${encodeURIComponent(stableId ?? '')}`
@@ -51,11 +53,12 @@ test.describe('Konverzační seskupení', () => {
 		const grid = page.getByRole('grid', { name: 'Seznam konverzací' });
 		const firstRow = grid.locator('[role="row"][data-stable-id]').first();
 		await expect(firstRow).toBeVisible();
-		await firstRow.click();
+		const subjectCell = firstRow.locator('[data-cell-target][data-col="1"]');
+		await subjectCell.click();
 
 		// No pane to preview into, so the click only moves the roving focus onto
 		// the subject cell — the conversation opens on Enter or a double click.
-		await expect(firstRow.locator('[data-col="1"]')).toBeFocused();
+		await expect(subjectCell).toBeFocused();
 		await expect(page).toHaveURL(new RegExp(`/mail/${accountId}/${folderName}$`));
 		await expect(grid).toBeVisible();
 	});
@@ -71,13 +74,14 @@ test.describe('Konverzační seskupení', () => {
 		const firstRow = grid.locator('[role="row"][data-stable-id]').first();
 		await expect(firstRow).toBeVisible();
 		const stableId = await firstRow.getAttribute('data-stable-id');
-		await firstRow.click();
+		const subjectCell = firstRow.locator('[data-cell-target][data-col="1"]');
+		await subjectCell.click();
 
 		await page.waitForURL(
 			`**/mail/${accountId}/${encodeURIComponent(folderName)}/${encodeURIComponent(stableId ?? '')}`
 		);
 		// Selection followed the click into the reading pane, but the reading
 		// cursor stays in the list so the next Arrow key keeps navigating.
-		await expect(firstRow.locator('[data-col="1"]')).toBeFocused();
+		await expect(subjectCell).toBeFocused();
 	});
 });
