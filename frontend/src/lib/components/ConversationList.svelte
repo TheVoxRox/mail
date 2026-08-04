@@ -18,7 +18,11 @@
 	import { formatMessageListDate } from '$lib/formatters.js';
 	import { messageStatusLabel } from '$lib/mail/messageStatus.js';
 	import { messagesPageInfo } from '$lib/mail/pageInfoAnnouncement.js';
-	import { requestBodyFocus } from '$lib/mail/bodyFocus.js';
+	import { requestBodyFocus, suppressBodyFocus } from '$lib/mail/bodyFocus.js';
+	import {
+		EFFECTIVE_READING_PANE_CONTEXT_KEY,
+		type EffectiveReadingPaneContext
+	} from '$lib/mail/readingPaneContext.js';
 	import MessageFlags from '$lib/components/MessageFlags.svelte';
 	import { announcePolite } from '$lib/stores/toasts.js';
 	import type {
@@ -26,7 +30,7 @@
 		FolderResponse,
 		MailSummaryResponse
 	} from '$lib/types.js';
-	import { tick } from 'svelte';
+	import { getContext, tick } from 'svelte';
 	import { get } from 'svelte/store';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
@@ -54,7 +58,13 @@
 	const expanded = new SvelteSet<string>();
 	const members = new SvelteMap<string, MailSummaryResponse[]>();
 	const loadingThreads = new SvelteSet<string>();
+	// In-flight member fetches, so concurrent callers share one request.
+	const memberRequests = new SvelteMap<string, Promise<MailSummaryResponse[] | null>>();
 	let viewKey = '';
+	// Identity of the page the cached members were derived from. Every load
+	// returns a fresh page object, so a changed reference means the folder was
+	// refetched (sync_completed, a bulk action) and the cache is stale.
+	let membersPage: unknown = null;
 
 	const currentFolderName = $derived(
 		$conversationsState.status === 'idle' ? '' : $conversationsState.context.folderName
@@ -64,6 +74,12 @@
 	);
 	// In Drafts/Sent the sender is always the account owner, so show the recipient.
 	const showRecipients = $derived(currentFolderRole === 'DRAFTS' || currentFolderRole === 'SENT');
+
+	// Effective pane mode from the mail layout; the `off` fallback keeps arrow
+	// keys from navigating if the list ever renders outside that layout.
+	const readingPaneCtx =
+		getContext<EffectiveReadingPaneContext>(EFFECTIVE_READING_PANE_CONTEXT_KEY) ??
+		({ pane: 'off' } satisfies EffectiveReadingPaneContext);
 
 	type VisibleRow =
 		| { kind: 'conversation'; conversation: ConversationSummaryResponse }
@@ -97,8 +113,18 @@
 		});
 	}
 
-	/** Opens a message in the current folder (draft folders open the composer). */
-	async function openMessage(stableId: string): Promise<void> {
+	/**
+	 * Opens a message in the current folder (draft folders open the composer).
+	 * `focusBody` marks a deliberate open (Enter/Space, double click) — only then
+	 * does the reading cursor move into the message body. A row change that
+	 * follows the roving focus in a split pane opens with the opposite intent, so
+	 * focus stays on the grid cell and the next Arrow key keeps navigating
+	 * (mail/bodyFocus.ts).
+	 */
+	async function openMessage(
+		stableId: string,
+		options: { focusBody?: boolean } = {}
+	): Promise<void> {
 		if ($conversationsState.status !== 'ready') return;
 		const { accountId, folderName } = $conversationsState.context;
 		const folder = $folders.find((f: FolderResponse) => f.folderRef === folderName);
@@ -106,13 +132,17 @@
 			await goto(`${resolve('/compose')}?draft=${encodeURIComponent(stableId)}`);
 			return;
 		}
-		requestBodyFocus(stableId);
+		if (options.focusBody) requestBodyFocus(stableId);
+		else suppressBodyFocus(stableId);
 		await goto(messageHref(accountId, folderName, stableId));
 	}
 
 	/** Opens a conversation by its representative (newest) message. */
-	function openConversation(row: ConversationSummaryResponse): Promise<void> {
-		return openMessage(row.latest.stableId);
+	function openConversation(
+		row: ConversationSummaryResponse,
+		options: { focusBody?: boolean } = {}
+	): Promise<void> {
+		return openMessage(row.latest.stableId, options);
 	}
 
 	function conversationLabel(row: ConversationSummaryResponse): string {
@@ -123,29 +153,46 @@
 		return size;
 	}
 
-	/** Fetches a thread's folder-scoped members (representative excluded) once. */
-	async function loadMembers(conversation: ConversationSummaryResponse): Promise<boolean> {
+	/**
+	 * Fetches a thread's folder-scoped members (representative excluded), once per
+	 * loaded page. Concurrent callers (a second ArrowRight, a bulk action running
+	 * while the row expands) share the in-flight request instead of firing a
+	 * second fetch. Resolves to null when the fetch failed — the caller must not
+	 * treat that as "the thread has no other members".
+	 */
+	function loadMembers(
+		conversation: ConversationSummaryResponse
+	): Promise<MailSummaryResponse[] | null> {
 		const id = conversation.threadId;
-		if (id == null || $conversationsState.status !== 'ready') return false;
-		if (members.has(id)) return true;
+		if (id == null || $conversationsState.status !== 'ready') return Promise.resolve(null);
+		const cached = members.get(id);
+		if (cached) return Promise.resolve(cached);
+		const inFlight = memberRequests.get(id);
+		if (inFlight) return inFlight;
+
 		const { accountId, folderName } = $conversationsState.context;
 		loadingThreads.add(id);
-		try {
-			const thread = await getThread(accountId, id);
-			// Folder-scoped: keep only members in the folder in view and drop the
-			// representative (already shown as the parent). Ascending threadPosition.
-			const folderMembers = thread.messages.filter(
-				(message) =>
-					message.folderName === folderName && message.stableId !== conversation.latest.stableId
-			);
-			members.set(id, folderMembers);
-			return true;
-		} catch (error) {
-			announcePolite(`${$_('messages.grouping.loadError')} ${toErrorMessage(error)}`);
-			return false;
-		} finally {
-			loadingThreads.delete(id);
-		}
+		const request = (async () => {
+			try {
+				const thread = await getThread(accountId, id);
+				// Folder-scoped: keep only members in the folder in view and drop the
+				// representative (already shown as the parent). Ascending threadPosition.
+				const folderMembers = thread.messages.filter(
+					(message) =>
+						message.folderName === folderName && message.stableId !== conversation.latest.stableId
+				);
+				members.set(id, folderMembers);
+				return folderMembers;
+			} catch (error) {
+				announcePolite(`${$_('messages.grouping.loadError')} ${toErrorMessage(error)}`);
+				return null;
+			} finally {
+				loadingThreads.delete(id);
+				memberRequests.delete(id);
+			}
+		})();
+		memberRequests.set(id, request);
+		return request;
 	}
 
 	/**
@@ -164,12 +211,10 @@
 			expanded.delete(id);
 			announcePolite($_('messages.grouping.collapsed'));
 		} else {
-			const ok = await loadMembers(conversation);
-			if (!ok) return;
+			const loaded = await loadMembers(conversation);
+			if (!loaded) return;
 			expanded.add(id);
-			announcePolite(
-				$_('messages.grouping.revealed', { values: { count: members.get(id)?.length ?? 0 } })
-			);
+			announcePolite($_('messages.grouping.revealed', { values: { count: loaded.length } }));
 		}
 		if (focusAfter) {
 			await tick();
@@ -197,8 +242,8 @@
 	function handleKeydown(event: KeyboardEvent, row: VisibleRow, rowIndex: number): void {
 		if (event.key === 'Enter' || event.key === ' ') {
 			event.preventDefault();
-			if (row.kind === 'conversation') void openConversation(row.conversation);
-			else void openMessage(row.message.stableId);
+			if (row.kind === 'conversation') void openConversation(row.conversation, { focusBody: true });
+			else void openMessage(row.message.stableId, { focusBody: true });
 			return;
 		}
 		if ($conversationsState.status !== 'ready') return;
@@ -235,18 +280,44 @@
 		});
 		if (!next) return;
 		event.preventDefault();
-		setFocus(next.row, next.col);
+		// A row change moves the reading-pane selection with focus; a column-only
+		// move just shifts the roving cell within the current row. Same rule as the
+		// flat list: selection follows focus only while a reading pane is showing.
+		if (next.row !== rowIndex && readingPaneCtx.pane !== 'off' && currentFolderRole !== 'DRAFTS') {
+			selectAndFocus(next.row, next.col, visibleRows[next.row]);
+		} else {
+			setFocus(next.row, next.col);
+		}
 	}
 
-	function handleRowClick(event: MouseEvent, row: VisibleRow): void {
+	/*
+	 * The mouse mirrors the keyboard (see handleKeydown): a single click selects
+	 * the row like an Arrow key — in a split pane the message follows into the
+	 * reading pane but focus stays on the row, in off mode / Drafts it only moves
+	 * the roving focus — and a double click opens like Enter, moving the reading
+	 * cursor into the body. `event.detail` is the click count. The caret is the
+	 * exception: it toggles expansion instead of selecting.
+	 */
+	function handleRowClick(event: MouseEvent, row: VisibleRow, rowIndex: number): void {
 		const target = event.target as HTMLElement | null;
 		if (target?.closest('input, button, a')) return;
 		if (target?.closest('[data-expand-toggle]')) {
 			if (row.kind === 'conversation') void toggleExpand(row.conversation);
 			return;
 		}
-		if (row.kind === 'conversation') void openConversation(row.conversation);
-		else void openMessage(row.message.stableId);
+		if (event.detail >= 2) {
+			// Double click = Enter: invalidate any refocus the first click's
+			// selectAndFocus queued, so the body wins, then open deliberately.
+			selectToken += 1;
+			if (row.kind === 'conversation') void openConversation(row.conversation, { focusBody: true });
+			else void openMessage(row.message.stableId, { focusBody: true });
+			return;
+		}
+		if (readingPaneCtx.pane === 'off' || currentFolderRole === 'DRAFTS') {
+			setFocus(rowIndex, focusedCol);
+		} else {
+			selectAndFocus(rowIndex, focusedCol, row);
+		}
 	}
 
 	function handleCellFocus(rowIndex: number, col: number): void {
@@ -260,19 +331,75 @@
 		void tick().then(() => focusGridCell(gridElement, rowIndex, col));
 	}
 
-	// Reset expansion when the folder or page changes — expansion is a per-view
-	// state and the folder-scoped member filter must not leak across folders.
+	// Bumped on every selection. openMessage() navigates, and SvelteKit cancels
+	// an in-flight navigation when a newer one starts (rapid Arrow keys). The
+	// superseded navigation's promise still settles and would re-focus its
+	// now-stale row last, bouncing focus backwards — so the `.finally` only
+	// re-focuses while it is still the latest selection.
+	let selectToken = 0;
+	function selectAndFocus(rowIndex: number, col: number, row: VisibleRow): void {
+		focusedRow = rowIndex;
+		focusedCol = col;
+		void tick().then(() => focusGridCell(gridElement, rowIndex, col));
+		const token = ++selectToken;
+		void openMessage(rowStableId(row)).finally(() => {
+			if (token === selectToken) void tick().then(() => focusGridCell(gridElement, rowIndex, col));
+		});
+	}
+
+	/*
+	 * Expansion state is per-view. A folder/page switch drops it entirely (the
+	 * folder-scoped member filter must not leak across folders). A reload of the
+	 * *same* view — sync_completed, a bulk action refetch — keeps the rows
+	 * expanded but invalidates the cached members: the thread may have grown a
+	 * message, and the representative the members were filtered against may have
+	 * changed, so a stale list would no longer match the row's count badge. The
+	 * still-expanded threads are refetched right away.
+	 */
 	$effect(() => {
 		if ($conversationsState.status !== 'ready') return;
 		const ctx = $conversationsState.context;
 		const key = `${ctx.accountId}:${ctx.folderName}:${ctx.page}`;
+		const page = $conversationsState.page;
 		if (key !== viewKey) {
 			viewKey = key;
+			membersPage = page;
 			expanded.clear();
 			members.clear();
 			loadingThreads.clear();
+			return;
+		}
+		if (page !== membersPage) {
+			membersPage = page;
+			members.clear();
+			void refreshExpandedMembers(page.content);
 		}
 	});
+
+	/**
+	 * Re-fetches members for threads still expanded after a same-view reload, and
+	 * collapses the ones that no longer have a row (moved out of the folder) or
+	 * whose refetch failed — an expanded id must always have a members entry.
+	 */
+	async function refreshExpandedMembers(
+		conversations: readonly ConversationSummaryResponse[]
+	): Promise<void> {
+		const byThreadId = new Map(
+			conversations
+				.filter((conversation) => conversation.threadId != null)
+				.map((conversation) => [conversation.threadId as string, conversation])
+		);
+		await Promise.all(
+			[...expanded].map(async (id) => {
+				const conversation = byThreadId.get(id);
+				if (!conversation || !isExpandable(conversation)) {
+					expanded.delete(id);
+					return;
+				}
+				if (!(await loadMembers(conversation))) expanded.delete(id);
+			})
+		);
+	}
 
 	$effect(() => {
 		if (focusedRow >= visibleRows.length) {
@@ -359,7 +486,7 @@
 						!isConversation && 'bg-muted/20 pl-5',
 						unread && 'font-semibold'
 					)}
-					onclick={(e) => handleRowClick(e, row)}
+					onclick={(e) => handleRowClick(e, row, rowIndex)}
 					onkeydown={(e) => handleKeydown(e, row, rowIndex)}
 				>
 					<div

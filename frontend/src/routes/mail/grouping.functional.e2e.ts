@@ -24,7 +24,7 @@ test.describe('Konverzační seskupení', () => {
 		await expect(grid.locator('[role="row"][data-stable-id]').first()).toBeVisible();
 	});
 
-	test('otevření konverzace přejde na reprezentativní zprávu', async ({ page }) => {
+	test('dvojklik otevře konverzaci na reprezentativní zprávě', async ({ page }) => {
 		await page.goto(`/mail/${accountId}/${encodeURIComponent(folderName)}`);
 		await waitForShell(page);
 
@@ -32,11 +32,55 @@ test.describe('Konverzační seskupení', () => {
 		const firstRow = grid.locator('[role="row"][data-stable-id]').first();
 		await expect(firstRow).toBeVisible();
 		const stableId = await firstRow.getAttribute('data-stable-id');
-		await firstRow.click();
+		// Deliberate open = double click, mirroring the flat list (single click is
+		// the mouse twin of an Arrow key).
+		await firstRow.locator('[data-cell-target][data-col="1"]').dblclick();
 
 		await page.waitForURL(
 			`**/mail/${accountId}/${encodeURIComponent(folderName)}/${encodeURIComponent(stableId ?? '')}`
 		);
+	});
+
+	test('jednoklik bez podokna čtení jen přesune fokus, konverzaci neotevře', async ({ page }) => {
+		await page.addInitScript(() => {
+			window.localStorage.setItem('mail.readingPane', 'off');
+		});
+		await page.goto(`/mail/${accountId}/${encodeURIComponent(folderName)}`);
+		await waitForShell(page);
+
+		const grid = page.getByRole('treegrid', { name: 'Seznam konverzací' });
+		const firstRow = grid.locator('[role="row"][data-stable-id]').first();
+		await expect(firstRow).toBeVisible();
+		const subjectCell = firstRow.locator('[data-cell-target][data-col="1"]');
+		await subjectCell.click();
+
+		// No pane to preview into, so the click only moves the roving focus onto
+		// the subject cell — the conversation opens on Enter or a double click.
+		await expect(subjectCell).toBeFocused();
+		await expect(page).toHaveURL(new RegExp(`/mail/${accountId}/${folderName}$`));
+		await expect(grid).toBeVisible();
+	});
+
+	test('jednoklik ve split režimu ukáže konverzaci, ale fokus nechá na řádku', async ({ page }) => {
+		await page.addInitScript(() => {
+			window.localStorage.setItem('mail.readingPane', 'right');
+		});
+		await page.goto(`/mail/${accountId}/${encodeURIComponent(folderName)}`);
+		await waitForShell(page);
+
+		const grid = page.getByRole('treegrid', { name: 'Seznam konverzací' });
+		const firstRow = grid.locator('[role="row"][data-stable-id]').first();
+		await expect(firstRow).toBeVisible();
+		const stableId = await firstRow.getAttribute('data-stable-id');
+		const subjectCell = firstRow.locator('[data-cell-target][data-col="1"]');
+		await subjectCell.click();
+
+		await page.waitForURL(
+			`**/mail/${accountId}/${encodeURIComponent(folderName)}/${encodeURIComponent(stableId ?? '')}`
+		);
+		// Selection followed the click into the reading pane, but the reading
+		// cursor stays in the list so the next Arrow key keeps navigating.
+		await expect(subjectCell).toBeFocused();
 	});
 });
 
@@ -103,7 +147,9 @@ test.describe('Rozbalení konverzace', () => {
 
 		const member = archiveRow(page, 'arch-02');
 		await expect(member).toBeVisible();
-		await member.click();
+		// Member rows follow the same click model as the parents: a deliberate
+		// open is a double click (the suite runs with the reading pane off).
+		await member.dblclick();
 
 		await page.waitForURL(`**/mail/${accountId}/ARCHIVE/arch-02`);
 	});
