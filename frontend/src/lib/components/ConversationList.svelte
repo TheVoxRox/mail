@@ -17,11 +17,15 @@
 	import { formatMessageListDate } from '$lib/formatters.js';
 	import { messageStatusLabel } from '$lib/mail/messageStatus.js';
 	import { messagesPageInfo } from '$lib/mail/pageInfoAnnouncement.js';
-	import { requestBodyFocus } from '$lib/mail/bodyFocus.js';
+	import { requestBodyFocus, suppressBodyFocus } from '$lib/mail/bodyFocus.js';
+	import {
+		EFFECTIVE_READING_PANE_CONTEXT_KEY,
+		type EffectiveReadingPaneContext
+	} from '$lib/mail/readingPaneContext.js';
 	import MessageFlags from '$lib/components/MessageFlags.svelte';
 	import { announcePolite } from '$lib/stores/toasts.js';
 	import type { ConversationSummaryResponse, FolderResponse } from '$lib/types.js';
-	import { tick } from 'svelte';
+	import { getContext, tick } from 'svelte';
 	import { get } from 'svelte/store';
 
 	// Collapsed conversation grid — one row per thread. Unlike MessageList it has
@@ -47,6 +51,12 @@
 	// In Drafts/Sent the sender is always the account owner, so show the recipient.
 	const showRecipients = $derived(currentFolderRole === 'DRAFTS' || currentFolderRole === 'SENT');
 
+	// Effective pane mode from the mail layout; the `off` fallback keeps arrow
+	// keys from navigating if the list ever renders outside that layout.
+	const readingPaneCtx =
+		getContext<EffectiveReadingPaneContext>(EFFECTIVE_READING_PANE_CONTEXT_KEY) ??
+		({ pane: 'off' } satisfies EffectiveReadingPaneContext);
+
 	function messageHref(accountId: number, folderName: string, stableId: string): string {
 		return resolve('/mail/[accountId]/[folderName]/[stableId]', {
 			accountId: String(accountId),
@@ -55,8 +65,17 @@
 		});
 	}
 
-	/** Opens a conversation by its representative (newest) message. */
-	async function openConversation(row: ConversationSummaryResponse): Promise<void> {
+	/**
+	 * Opens a conversation by its representative (newest) message. `focusBody`
+	 * marks a deliberate open (Enter/Space, double click) — only then does the
+	 * reading cursor move into the message body. A row change that follows the
+	 * roving focus in a split pane opens with the opposite intent, so focus stays
+	 * on the grid cell and the next Arrow key keeps navigating (mail/bodyFocus.ts).
+	 */
+	async function openConversation(
+		row: ConversationSummaryResponse,
+		options: { focusBody?: boolean } = {}
+	): Promise<void> {
 		if ($conversationsState.status !== 'ready') return;
 		const { accountId, folderName } = $conversationsState.context;
 		const folder = $folders.find((f: FolderResponse) => f.folderRef === folderName);
@@ -64,7 +83,8 @@
 			await goto(`${resolve('/compose')}?draft=${encodeURIComponent(row.latest.stableId)}`);
 			return;
 		}
-		requestBodyFocus(row.latest.stableId);
+		if (options.focusBody) requestBodyFocus(row.latest.stableId);
+		else suppressBodyFocus(row.latest.stableId);
 		await goto(messageHref(accountId, folderName, row.latest.stableId));
 	}
 
@@ -83,7 +103,7 @@
 	): void {
 		if (event.key === 'Enter' || event.key === ' ') {
 			event.preventDefault();
-			void openConversation(row);
+			void openConversation(row, { focusBody: true });
 			return;
 		}
 		if ($conversationsState.status !== 'ready') return;
@@ -98,13 +118,42 @@
 		});
 		if (!next) return;
 		event.preventDefault();
-		setFocus(next.row, next.col);
+		// A row change moves the reading-pane selection with focus; a column-only
+		// move just shifts the roving cell within the current row. Same rule as the
+		// flat list: selection follows focus only while a reading pane is showing.
+		if (next.row !== rowIndex && readingPaneCtx.pane !== 'off' && currentFolderRole !== 'DRAFTS') {
+			selectAndFocus(next.row, next.col, items[next.row]);
+		} else {
+			setFocus(next.row, next.col);
+		}
 	}
 
-	function handleRowClick(event: MouseEvent, row: ConversationSummaryResponse): void {
+	/*
+	 * The mouse mirrors the keyboard (see handleKeydown): a single click selects
+	 * the row like an Arrow key — in a split pane the conversation follows into
+	 * the reading pane but focus stays on the row, in off mode / Drafts it only
+	 * moves the roving focus — and a double click opens like Enter, moving the
+	 * reading cursor into the body. `event.detail` is the click count.
+	 */
+	function handleRowClick(
+		event: MouseEvent,
+		row: ConversationSummaryResponse,
+		rowIndex: number
+	): void {
 		const target = event.target as HTMLElement | null;
 		if (target?.closest('input, button, a')) return;
-		void openConversation(row);
+		if (event.detail >= 2) {
+			// Double click = Enter: invalidate any refocus the first click's
+			// selectAndFocus queued, so the body wins, then open deliberately.
+			selectToken += 1;
+			void openConversation(row, { focusBody: true });
+			return;
+		}
+		if (readingPaneCtx.pane === 'off' || currentFolderRole === 'DRAFTS') {
+			setFocus(rowIndex, focusedCol);
+		} else {
+			selectAndFocus(rowIndex, focusedCol, row);
+		}
 	}
 
 	function handleCellFocus(rowIndex: number, col: number): void {
@@ -116,6 +165,22 @@
 		focusedRow = rowIndex;
 		focusedCol = col;
 		void tick().then(() => focusGridCell(gridElement, rowIndex, col));
+	}
+
+	// Bumped on every selection. openConversation() navigates, and SvelteKit
+	// cancels an in-flight navigation when a newer one starts (rapid Arrow keys).
+	// The superseded navigation's promise still settles and would re-focus its
+	// now-stale row last, bouncing focus backwards — so the `.finally` only
+	// re-focuses while it is still the latest selection.
+	let selectToken = 0;
+	function selectAndFocus(rowIndex: number, col: number, row: ConversationSummaryResponse): void {
+		focusedRow = rowIndex;
+		focusedCol = col;
+		void tick().then(() => focusGridCell(gridElement, rowIndex, col));
+		const token = ++selectToken;
+		void openConversation(row).finally(() => {
+			if (token === selectToken) void tick().then(() => focusGridCell(gridElement, rowIndex, col));
+		});
 	}
 
 	$effect(() => {
@@ -196,7 +261,7 @@
 						'grid cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] grid-rows-[auto_auto] border-b border-border/80 transition-colors hover:bg-muted/45 focus-within:relative focus-within:z-10',
 						unread && 'font-semibold'
 					)}
-					onclick={(e) => handleRowClick(e, row)}
+					onclick={(e) => handleRowClick(e, row, rowIndex)}
 					onkeydown={(e) => handleKeydown(e, row, rowIndex)}
 				>
 					<div
