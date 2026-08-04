@@ -116,6 +116,11 @@
 		"columnHeaderStatus": "Příznaky",
 		"columnHeaderDate": "Datum",
 		"columnHeaderActions": "Akce",
+		"grouping": {
+			"listLabel": "Seznam konverzací",
+			"threadSize": "{count, plural, one {konverzace, {count} zpráva} few {konverzace, {count} zprávy} other {konverzace, {count} zpráv}}",
+			"threadUnread": "{count, plural, one {{count} nepřečtená} few {{count} nepřečtené} other {{count} nepřečtených}}"
+		},
 		"rowActions": {
 			"trigger": "Akce pro zprávu {subject}"
 		},
@@ -518,6 +523,19 @@
 			"splitPane": {
 				"vertical": "Změnit šířku seznamu a detailu zprávy",
 				"horizontal": "Změnit výšku seznamu a detailu zprávy"
+			},
+			"grouping": {
+				"heading": "Seskupení pošty",
+				"label": "Seskupení zpráv ve složce",
+				"hint": "Zvolte, zda se zprávy zobrazují jednotlivě, nebo seskupené do konverzací (jeden řádek na vlákno).",
+				"options": {
+					"flat": {
+						"title": "Jednotlivé zprávy"
+					},
+					"grouped": {
+						"title": "Seskupit podle konverzace"
+					}
+				}
 			},
 			"messageBody": {
 				"heading": "Zobrazení obsahu zprávy",

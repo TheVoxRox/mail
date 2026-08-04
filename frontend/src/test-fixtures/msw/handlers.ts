@@ -1,5 +1,6 @@
 import { http, HttpResponse } from 'msw';
 import {
+	conversationsOf,
 	draftToSummary,
 	fixtureState,
 	forwardFor,
@@ -580,6 +581,12 @@ function messageRoutes(
 				fixtureState.lastSendSupersedesDraftId = url.searchParams.get('supersedesDraftId');
 				return acceptedSend(accountId);
 			});
+		if (segments[3] === 'folder' && segments[4] === 'conversations' && method === 'GET') {
+			const folderName = url.searchParams.get('folderRef') ?? '';
+			return HttpResponse.json(
+				listPage(conversationsOf(getFolderMessages(accountId, folderName)), url)
+			);
+		}
 		if (segments[3] === 'folder' && method === 'GET') {
 			const folderName = url.searchParams.get('folderRef') ?? decodeSegment(segments[4]);
 			return HttpResponse.json(listPage(getFolderMessages(accountId, folderName), url));

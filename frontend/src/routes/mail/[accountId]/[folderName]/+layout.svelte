@@ -5,14 +5,16 @@
 	import { setContext } from 'svelte';
 	import { get } from 'svelte/store';
 	import MessageList from '$lib/components/MessageList.svelte';
+	import ConversationList from '$lib/components/ConversationList.svelte';
 	import SplitPane from '$lib/components/SplitPane.svelte';
 	import { accountsState, setActiveAccount } from '$lib/stores/accounts.js';
 	import { folders } from '$lib/stores/folders.js';
 	import { loadPage, messagesState } from '$lib/stores/messages.js';
+	import { conversationsState, loadConversationsPage } from '$lib/stores/conversations.js';
 	import { closeCurrentMessageDetail } from '$lib/mail/actions.js';
 	import { clearSelection } from '$lib/stores/selectedMessage.js';
 	import { announcePolite } from '$lib/stores/toasts.js';
-	import { readingPane } from '$lib/stores/uiLayout.js';
+	import { messageGrouping, readingPane } from '$lib/stores/uiLayout.js';
 	import { _ } from '$lib/i18n/index.js';
 	import { folderLabel as toFolderLabel } from '$lib/mail/folderLabel.js';
 	import { messagesPageInfo } from '$lib/mail/pageInfoAnnouncement.js';
@@ -36,6 +38,8 @@
 		$page.params.stableId ? decodeURIComponent($page.params.stableId) : null
 	);
 
+	const grouped = $derived($messageGrouping === 'grouped');
+
 	// One-shot bookkeeping for the folder-switch announcement, not reactive state.
 	let lastLoadedContext = '';
 
@@ -50,34 +54,52 @@
 		setActiveAccount(accountId);
 
 		/*
-		 * Switching folder/account keeps focus on the sidebar item while the
-		 * list swaps underneath, so the reload is otherwise silent for a
-		 * screen reader — announce the loaded page once. The initial load
-		 * stays quiet (route entry is already announced via focus handling).
+		 * Switching folder/account (or the grouping mode) keeps focus on the
+		 * sidebar item while the list swaps underneath, so the reload is
+		 * otherwise silent for a screen reader — announce the loaded page once.
+		 * The initial load stays quiet (route entry is already announced via
+		 * focus handling). The grouping flag is part of the context key so
+		 * toggling it reloads the now-active store.
 		 */
-		const contextKey = `${accountId}:${folderName}`;
+		const contextKey = `${accountId}:${folderName}:${grouped ? 'grouped' : 'flat'}`;
 		const isContextSwitch = lastLoadedContext !== '' && lastLoadedContext !== contextKey;
 		lastLoadedContext = contextKey;
 
-		const state = get(messagesState);
-		if (
-			state.status === 'ready' &&
-			state.context.accountId === accountId &&
-			state.context.folderName === folderName
-		) {
-			return;
-		}
-
-		void loadPage(accountId, folderName).then(() => {
-			if (!isContextSwitch) return;
-			// loadPage discards stale results; only announce when the loaded
-			// page really belongs to the folder this effect run asked for.
-			const snapshot = get(messagesState);
-			if (snapshot.status !== 'ready') return;
-			if (snapshot.context.accountId !== accountId || snapshot.context.folderName !== folderName)
+		// The loader discards stale results; only announce (once) when the loaded
+		// page really belongs to the folder this effect run asked for.
+		if (grouped) {
+			const state = get(conversationsState);
+			if (
+				state.status === 'ready' &&
+				state.context.accountId === accountId &&
+				state.context.folderName === folderName
+			) {
 				return;
-			announcePolite(messagesPageInfo(get(_), snapshot.page));
-		});
+			}
+			void loadConversationsPage(accountId, folderName).then(() => {
+				const snapshot = get(conversationsState);
+				if (snapshot.status !== 'ready') return;
+				if (snapshot.context.accountId !== accountId || snapshot.context.folderName !== folderName)
+					return;
+				if (isContextSwitch) announcePolite(messagesPageInfo(get(_), snapshot.page));
+			});
+		} else {
+			const state = get(messagesState);
+			if (
+				state.status === 'ready' &&
+				state.context.accountId === accountId &&
+				state.context.folderName === folderName
+			) {
+				return;
+			}
+			void loadPage(accountId, folderName).then(() => {
+				const snapshot = get(messagesState);
+				if (snapshot.status !== 'ready') return;
+				if (snapshot.context.accountId !== accountId || snapshot.context.folderName !== folderName)
+					return;
+				if (isContextSwitch) announcePolite(messagesPageInfo(get(_), snapshot.page));
+			});
+		}
 	});
 
 	$effect(() => {
@@ -168,6 +190,14 @@
 
 <svelte:window bind:innerWidth />
 
+{#snippet folderList()}
+	{#if grouped}
+		<ConversationList />
+	{:else}
+		<MessageList />
+	{/if}
+{/snippet}
+
 <div class="flex flex-1 flex-col overflow-hidden bg-background">
 	<div class="flex items-center gap-3 border-b border-border bg-muted/35 px-3 py-2">
 		<div class="flex min-w-0 shrink-0 items-center pr-1">
@@ -215,7 +245,7 @@
 			ariaLabel={$_('settings.appearance.splitPane.vertical')}
 		>
 			{#snippet first()}
-				<MessageList />
+				{@render folderList()}
 			{/snippet}
 
 			{#snippet second()}
@@ -234,7 +264,7 @@
 			ariaLabel={$_('settings.appearance.splitPane.horizontal')}
 		>
 			{#snippet first()}
-				<MessageList />
+				{@render folderList()}
 			{/snippet}
 
 			{#snippet second()}
@@ -248,6 +278,6 @@
 	{:else if hasDetailRoute}
 		{@render children()}
 	{:else}
-		<MessageList />
+		{@render folderList()}
 	{/if}
 </div>

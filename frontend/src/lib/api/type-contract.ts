@@ -47,6 +47,9 @@ type _FolderResponseMatchesSchema = Assert<
 type _MailSummaryResponseMatchesSchema = Assert<
 	LocalDtoMatchesSchema<Local.MailSummaryResponse, Generated.MailSummaryResponse>
 >;
+type _ConversationSummaryResponseMatchesSchema = Assert<
+	LocalDtoMatchesSchema<Local.ConversationSummaryResponse, Generated.ConversationSummaryResponse>
+>;
 type _MailDetailResponseMatchesSchema = Assert<
 	LocalDtoMatchesSchema<Local.MailDetailResponse, Generated.MailDetailResponse>
 >;
@@ -94,6 +97,12 @@ type _PagedMailSummaryResponseMatchesSchema = Assert<
 >;
 type _PagedContactResponseMatchesSchema = Assert<
 	LocalDtoMatchesSchema<Local.PagedResponse<Local.ContactResponse>, Generated.PagedContactResponse>
+>;
+type _PagedConversationSummaryResponseMatchesSchema = Assert<
+	LocalDtoMatchesSchema<
+		Local.PagedResponse<Local.ConversationSummaryResponse>,
+		Generated.PagedConversationSummaryResponse
+	>
 >;
 
 // SSE notification stream payloads — guards against backend record drift.

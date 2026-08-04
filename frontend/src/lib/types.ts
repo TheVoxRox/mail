@@ -171,6 +171,22 @@ export interface MailSummaryResponse {
 	hasAttachments: boolean;
 }
 
+/**
+ * One row of the conversation-grouped folder listing (threading Phase 2). Each
+ * row collapses a conversation's messages in the current folder into its newest
+ * message (`latest`) plus folder-scoped counts.
+ */
+export interface ConversationSummaryResponse {
+	/** Conversation id; `null` only for a message the threading backfill has not processed yet (then a singleton). */
+	threadId: string | null;
+	/** Newest message of the conversation in this folder — the row's representative. */
+	latest: MailSummaryResponse;
+	/** Messages of the conversation present in the folder (>= 1). */
+	messageCount: number;
+	/** How many of those are not yet seen. */
+	unreadCount: number;
+}
+
 export interface AttachmentResponse {
 	partPath: string;
 	fileName: string;

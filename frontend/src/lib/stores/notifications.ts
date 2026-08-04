@@ -16,6 +16,7 @@ import type {
 	SyncNotification
 } from '$lib/types.js';
 import { messagesState, reloadCurrentPage } from './messages.js';
+import { conversationsState, reloadCurrentConversationsPage } from './conversations.js';
 import { refreshFolders } from './folders.js';
 import { accountsState } from './accounts.js';
 import { dismissToast, pushToast } from './toasts.js';
@@ -157,6 +158,17 @@ function handleSyncCompleted(event: SyncNotification): void {
 		state.context.folderName === event.folderName
 	) {
 		void reloadCurrentPage();
+	}
+
+	// The conversation-grouped view mirrors the same folder; refresh it too when
+	// it is the one currently loaded (only one of the two is mounted at a time).
+	const convState = get(conversationsState);
+	if (
+		convState.status !== 'idle' &&
+		convState.context.accountId === event.accountId &&
+		convState.context.folderName === event.folderName
+	) {
+		void reloadCurrentConversationsPage();
 	}
 
 	/*

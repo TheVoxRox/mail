@@ -5,6 +5,7 @@
 
 import { api, apiRaw } from './client.js';
 import type {
+	ConversationSummaryResponse,
 	MailContentResponse,
 	MailDetailResponse,
 	MailSummaryResponse,
@@ -30,6 +31,21 @@ export function listMessages(
 	page: PageParams = {}
 ): Promise<PagedResponse<MailSummaryResponse>> {
 	return api.get(`/messages/account/${accountId}/folder`, {
+		params: { folderRef: folderName, ...paramsFromPage(page) }
+	});
+}
+
+/**
+ * Lists the folder collapsed by conversation — one row per thread (its newest
+ * message + folder-scoped counts). Server-grouped so a thread that spans a page
+ * boundary still folds into a single row.
+ */
+export function listConversations(
+	accountId: number,
+	folderName: string,
+	page: PageParams = {}
+): Promise<PagedResponse<ConversationSummaryResponse>> {
+	return api.get(`/messages/account/${accountId}/folder/conversations`, {
 		params: { folderRef: folderName, ...paramsFromPage(page) }
 	});
 }

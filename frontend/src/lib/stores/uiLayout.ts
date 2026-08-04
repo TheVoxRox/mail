@@ -21,3 +21,22 @@ export const messageBodyView = persistedStore<MessageBodyView>(
 export function setMessageBodyView(value: MessageBodyView): void {
 	messageBodyView.set(value);
 }
+
+export const MESSAGE_GROUPINGS = ['flat', 'grouped'] as const;
+export type MessageGrouping = (typeof MESSAGE_GROUPINGS)[number];
+
+/**
+ * Whether the folder listing collapses messages into conversations (one row per
+ * thread) or shows every message flat. Off (`flat`) by default — grouping is a
+ * V0.2 opt-in, kept off so the rollout is user-visible-zero-risk (matches the
+ * threading design's staged plan).
+ */
+export const messageGrouping = persistedStore<MessageGrouping>(
+	'mail.messageGrouping',
+	MESSAGE_GROUPINGS,
+	'flat'
+);
+
+export function setMessageGrouping(value: MessageGrouping): void {
+	messageGrouping.set(value);
+}
