@@ -18,7 +18,7 @@ import { deleteMessage, moveMessage, setMessageFlag } from '$lib/api/mailAction.
 import { confirmAction } from '$lib/stores/confirmDialog.js';
 import { reloadCurrentConversationsPage } from '$lib/stores/conversations.js';
 import { adjustFolderUnread, folders as folderList } from '$lib/stores/folders.js';
-import { selectedMessage } from '$lib/stores/selectedMessage.js';
+import { invalidateMessage, selectedMessage } from '$lib/stores/selectedMessage.js';
 import { closeOpenDetail } from '$lib/mail/detailHost.js';
 import { folderLabel } from '$lib/mail/folderLabel.js';
 import { _ } from '$lib/i18n/index.js';
@@ -46,6 +46,14 @@ async function runPerItem(
 	const settled = await Promise.allSettled(unique.map((id) => perItem(id)));
 	const succeeded = unique.filter((_, index) => settled[index]?.status === 'fulfilled');
 	const failed = unique.filter((_, index) => settled[index]?.status !== 'fulfilled');
+	/*
+	 * Drop the cached detail/content of every touched message, exactly as the
+	 * flat pipeline does per item. Without this the cache keeps the pre-mutation
+	 * folder and seen flag — and the trash confirmation reads the open detail's
+	 * folderName, so a thread moved to the trash from here could later be deleted
+	 * from the detail toolbar without the permanent-delete prompt.
+	 */
+	for (const id of succeeded) invalidateMessage(id);
 	return { succeeded, failed };
 }
 
@@ -91,7 +99,9 @@ export async function deleteConversationMembers(
 	if (removedUnread > 0) adjustFolderUnread(ctx.accountId, ctx.folderName, -removedUnread);
 	await reloadCurrentConversationsPage();
 	reportOutcome(outcome, 'messages.bulkDeleteDone');
-	return true;
+	// Nothing changed server-side when every item failed — keep the selection so
+	// the user can retry without reselecting.
+	return outcome.succeeded.length > 0;
 }
 
 export async function moveConversationMembers(
@@ -111,7 +121,7 @@ export async function moveConversationMembers(
 	if (removedUnread > 0) adjustFolderUnread(ctx.accountId, ctx.folderName, -removedUnread);
 	await reloadCurrentConversationsPage();
 	reportOutcome(outcome, 'messages.bulkMoveDone', { folder: label });
-	return true;
+	return outcome.succeeded.length > 0;
 }
 
 export async function markConversationMembersSeen(
@@ -129,7 +139,7 @@ export async function markConversationMembersSeen(
 	if (delta !== 0) adjustFolderUnread(ctx.accountId, ctx.folderName, delta);
 	await reloadCurrentConversationsPage();
 	reportOutcome(outcome, seen ? 'messages.bulkMarkReadDone' : 'messages.bulkMarkUnreadDone');
-	return true;
+	return outcome.succeeded.length > 0;
 }
 
 /** Politely announces that bulk actions became available (first selection). */

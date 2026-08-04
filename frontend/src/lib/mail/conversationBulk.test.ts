@@ -15,7 +15,10 @@ vi.mock('$lib/stores/conversations.js', () => ({
 	reloadCurrentConversationsPage: vi.fn(() => Promise.resolve())
 }));
 vi.mock('$lib/stores/folders.js', () => ({ adjustFolderUnread: vi.fn(), folders: readable([]) }));
-vi.mock('$lib/stores/selectedMessage.js', () => ({ selectedMessage: readable(null) }));
+vi.mock('$lib/stores/selectedMessage.js', () => ({
+	selectedMessage: readable(null),
+	invalidateMessage: vi.fn()
+}));
 vi.mock('$lib/mail/detailHost.js', () => ({ closeOpenDetail: vi.fn(() => Promise.resolve(true)) }));
 vi.mock('$lib/mail/folderLabel.js', () => ({ folderLabel: () => 'Folder' }));
 vi.mock('$lib/i18n/index.js', () => ({ _: readable((key: string) => key) }));
@@ -29,6 +32,7 @@ import {
 import { deleteMessage, moveMessage } from '$lib/api/mailAction.js';
 import { confirmAction } from '$lib/stores/confirmDialog.js';
 import { reloadCurrentConversationsPage } from '$lib/stores/conversations.js';
+import { invalidateMessage } from '$lib/stores/selectedMessage.js';
 
 function ctx(folderRole?: string): ConversationBulkContext {
 	return { accountId: 1, folderName: 'X', folderRole, unreadMemberIds: [] };
@@ -74,5 +78,23 @@ describe('conversationBulk', () => {
 		expect(moveMessage).toHaveBeenCalledTimes(2);
 		expect(moveMessage).toHaveBeenCalledWith('a', { folderRef: 'JUNK' });
 		expect(reloadCurrentConversationsPage).toHaveBeenCalledOnce();
+	});
+
+	it('invalidates the cached detail of every mutated message', async () => {
+		// The cache otherwise keeps the pre-move folder, and the trash
+		// confirmation elsewhere reads that folder off the open detail.
+		await moveConversationMembers(['a', 'b'], 'TRASH', ctx('INBOX'));
+		expect(invalidateMessage).toHaveBeenCalledTimes(2);
+		expect(invalidateMessage).toHaveBeenCalledWith('a');
+		expect(invalidateMessage).toHaveBeenCalledWith('b');
+	});
+
+	it('keeps the selection when every item failed', async () => {
+		// `done: false` is what tells the caller not to clear the selection, so a
+		// wholly failed batch can be retried without reselecting.
+		vi.mocked(deleteMessage).mockRejectedValue(new Error('offline'));
+		const done = await deleteConversationMembers(['a', 'b'], ctx('ARCHIVE'));
+		expect(done).toBe(false);
+		expect(invalidateMessage).not.toHaveBeenCalled();
 	});
 });
