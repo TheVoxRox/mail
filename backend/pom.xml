@@ -44,7 +44,7 @@
 		-->
 		<log4j2.version>2.25.5</log4j2.version>
 		<spring-retry.version>2.0.13</spring-retry.version>
-		<jsoup.version>1.22.2</jsoup.version>
+		<jsoup.version>1.23.1</jsoup.version>
 		<springdoc.version>3.0.3</springdoc.version>
 		<wiremock.version>3.13.2</wiremock.version>
 		<error-prone.version>2.50.0</error-prone.version>
@@ -136,7 +136,7 @@
 			-->
 			<groupId>org.webjars</groupId>
 			<artifactId>swagger-ui</artifactId>
-			<version>5.32.8</version>
+			<version>5.32.11</version>
 		</dependency>
 
 		<dependency>
@@ -167,7 +167,7 @@
 			     JSpecify internally, so this only pins the version we annotate with. -->
 			<groupId>org.jspecify</groupId>
 			<artifactId>jspecify</artifactId>
-			<version>1.0.0</version>
+			<version>1.0.1</version>
 		</dependency>
 		<dependency>
 			<!-- Architecture conventions as executable tests (ArchitectureTest):
@@ -357,7 +357,7 @@
 				     in CycloneDX 1.5 JSON, attached as an artifact in CI. -->
 				<groupId>org.cyclonedx</groupId>
 				<artifactId>cyclonedx-maven-plugin</artifactId>
-				<version>2.9.2</version>
+				<version>2.9.3</version>
 				<configuration>
 					<projectType>application</projectType>
 					<schemaVersion>1.5</schemaVersion>
@@ -563,7 +563,7 @@
 			<plugin>
 				<groupId>com.diffplug.spotless</groupId>
 				<artifactId>spotless-maven-plugin</artifactId>
-				<version>3.8.0</version>
+				<version>3.9.0</version>
 				<configuration>
 					<lineEndings>UNIX</lineEndings>
 					<java>
