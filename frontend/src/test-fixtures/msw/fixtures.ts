@@ -16,7 +16,8 @@ import type {
 	MailProviderResponse,
 	MailRequest,
 	MailSummaryResponse,
-	PagedResponse
+	PagedResponse,
+	ThreadResponse
 } from '$lib/types.js';
 
 export interface E2EFixtureState {
@@ -123,7 +124,48 @@ function pageOf<T>(content: T[], page: number, size: number): PagedResponse<T> {
 }
 
 const inboxMessages = Array.from({ length: 25 }, (_, index) => makeSummary(index + 1));
-const archiveMessages: MailSummaryResponse[] = [];
+// A single 3-message conversation (subject "Plán vydání" + two replies) so the
+// grouped view's in-row expand can be exercised. ARCHIVE is otherwise empty and
+// no other test asserts its contents, so this seed is blast-radius free. All
+// seen, keeping the folder's unread badge (0) consistent.
+const archiveMessages: MailSummaryResponse[] = [
+	{
+		...makeSummary(61),
+		stableId: 'arch-01',
+		folderName: 'ARCHIVE',
+		subject: 'Plán vydání',
+		sender: 'Petr Marek <petr@example.com>',
+		receivedAt: iso(600),
+		seen: true,
+		flagged: false,
+		answered: false,
+		hasAttachments: false
+	},
+	{
+		...makeSummary(62),
+		stableId: 'arch-02',
+		folderName: 'ARCHIVE',
+		subject: 'Re: Plán vydání',
+		sender: 'Jana Novak <jana@example.com>',
+		receivedAt: iso(400),
+		seen: true,
+		flagged: false,
+		answered: false,
+		hasAttachments: false
+	},
+	{
+		...makeSummary(63),
+		stableId: 'arch-03',
+		folderName: 'ARCHIVE',
+		subject: 'Re: Plán vydání',
+		sender: 'Petr Marek <petr@example.com>',
+		receivedAt: iso(200),
+		seen: true,
+		flagged: false,
+		answered: false,
+		hasAttachments: false
+	}
+];
 const junkMessages: MailSummaryResponse[] = [];
 const sentMessages: MailSummaryResponse[] = [
 	{
@@ -423,6 +465,33 @@ export function conversationsOf(messages: MailSummaryResponse[]): ConversationSu
 			} satisfies ConversationSummaryResponse;
 		})
 		.sort((a, b) => b.latest.receivedAt.localeCompare(a.latest.receivedAt));
+}
+
+/**
+ * Reconstructs a whole thread for the {@code /threads/{threadId}} mock. Fixture
+ * thread ids are `thread-${representative.stableId}` (see {@link conversationsOf}),
+ * so this finds that representative, then collects every account message sharing
+ * its normalized subject — account-wide, ascending by receivedAt (the
+ * threadPosition proxy). Returns null when the id resolves to no message (404).
+ */
+export function threadOf(accountId: number, threadId: string): ThreadResponse | null {
+	const representativeId = threadId.replace(/^thread-/, '');
+	const accountMessages = Object.entries(fixtureState.messagesByFolder)
+		.filter(([key]) => key.startsWith(`${accountId}:`))
+		.flatMap(([, items]) => items);
+	const representative = accountMessages.find((message) => message.stableId === representativeId);
+	if (!representative) return null;
+	const subjectKey = normalizeSubject(representative.subject);
+	const members = accountMessages
+		.filter((message) => normalizeSubject(message.subject) === subjectKey)
+		.sort((a, b) => a.receivedAt.localeCompare(b.receivedAt));
+	return {
+		threadId,
+		rootMessageId: members[0] ? `<${members[0].stableId}@example.com>` : null,
+		participantsTotal: members.length,
+		unreadCount: members.filter((message) => !message.seen).length,
+		messages: members
+	};
 }
 
 function normalizeSubject(subject: string): string {

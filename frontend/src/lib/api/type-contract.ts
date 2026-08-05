@@ -50,6 +50,9 @@ type _MailSummaryResponseMatchesSchema = Assert<
 type _ConversationSummaryResponseMatchesSchema = Assert<
 	LocalDtoMatchesSchema<Local.ConversationSummaryResponse, Generated.ConversationSummaryResponse>
 >;
+type _ThreadResponseMatchesSchema = Assert<
+	LocalDtoMatchesSchema<Local.ThreadResponse, Generated.ThreadResponse>
+>;
 type _MailDetailResponseMatchesSchema = Assert<
 	LocalDtoMatchesSchema<Local.MailDetailResponse, Generated.MailDetailResponse>
 >;

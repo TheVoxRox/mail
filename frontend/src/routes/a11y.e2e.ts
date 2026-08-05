@@ -123,6 +123,26 @@ test.describe('Přístupnost', () => {
 		).toHaveCount(0);
 	});
 
+	test('rozbalený konverzační treegrid nemá a11y porušení', async ({ page }) => {
+		await page.addInitScript(() => {
+			window.localStorage.setItem('mail.messageGrouping', 'grouped');
+		});
+		await page.goto(`/mail/${mailFixture.accountId}/ARCHIVE`);
+		await waitForShell(page);
+
+		const treegrid = page.getByRole('treegrid', { name: 'Seznam konverzací' });
+		await expect(treegrid).toBeVisible();
+		const parent = treegrid.locator('[role="row"][data-stable-id="arch-03"]');
+		await expect(parent).toBeVisible();
+		// Scan the expanded state so the nested member rows are in the tree.
+		await parent.locator('[data-expand-toggle]').click();
+		await expect(parent).toHaveAttribute('aria-expanded', 'true');
+		await expect(treegrid.locator('[role="row"][data-stable-id="arch-02"]')).toBeVisible();
+
+		const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+		expect(results.violations).toEqual([]);
+	});
+
 	test('search landmark není vnořený v navigaci (pošta i kontakty)', async ({ page }) => {
 		// The sidebar is a named region; the search and the folder-list <nav>
 		// sit side by side inside it — a search landmark nested in nav is

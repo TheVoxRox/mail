@@ -9,6 +9,7 @@ import {
 	removeMessageEverywhere,
 	replaceFolderMessages,
 	replyFor,
+	threadOf,
 	upsertAccount,
 	upsertContact
 } from './fixtures.js';
@@ -586,6 +587,10 @@ function messageRoutes(
 			return HttpResponse.json(
 				listPage(conversationsOf(getFolderMessages(accountId, folderName)), url)
 			);
+		}
+		if (segments[3] === 'threads' && method === 'GET') {
+			const thread = threadOf(accountId, decodeSegment(segments[4]));
+			return thread ? HttpResponse.json(thread) : new HttpResponse(null, { status: 404 });
 		}
 		if (segments[3] === 'folder' && method === 'GET') {
 			const folderName = url.searchParams.get('folderRef') ?? decodeSegment(segments[4]);

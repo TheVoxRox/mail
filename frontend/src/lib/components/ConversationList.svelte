@@ -5,6 +5,7 @@
 	import { folders } from '$lib/stores/folders.js';
 	import { _, appLocale } from '$lib/i18n/index.js';
 	import { toErrorMessage } from '$lib/api/errors.js';
+	import { getThread } from '$lib/api/mailRead.js';
 	import Pagination from '$lib/components/Pagination.svelte';
 	import { StateMessage } from '$lib/components/ui/state-message/index.js';
 	import { Surface } from '$lib/components/ui/surface/index.js';
@@ -24,14 +25,22 @@
 	} from '$lib/mail/readingPaneContext.js';
 	import MessageFlags from '$lib/components/MessageFlags.svelte';
 	import { announcePolite } from '$lib/stores/toasts.js';
-	import type { ConversationSummaryResponse, FolderResponse } from '$lib/types.js';
+	import type {
+		ConversationSummaryResponse,
+		FolderResponse,
+		MailSummaryResponse
+	} from '$lib/types.js';
 	import { getContext, tick } from 'svelte';
 	import { get } from 'svelte/store';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
-	// Collapsed conversation grid — one row per thread. Unlike MessageList it has
-	// no select / actions columns and no multi-select: selecting a whole thread
-	// (and thread-scoped bulk actions) is a follow-up increment, so grouped mode
-	// is read/navigate only here. Same roving-cell grid a11y model otherwise.
+	// Conversation treegrid — one top-level row per thread (its newest message +
+	// count badge). Expandable threads reveal their other folder-scoped members as
+	// level-2 child rows; singletons are leaves. Same roving-cell model as
+	// MessageList (Enter/click opens), plus treegrid expand/collapse: ArrowRight /
+	// ArrowLeft on the subject cell toggle a parent, ArrowLeft on a child jumps to
+	// its parent. No select / actions columns and no multi-select yet — grouped
+	// mode stays read/navigate only.
 	const COL_STATUS = 0;
 	const COL_SUBJECT = 1;
 	const COL_SENDER = 2;
@@ -41,6 +50,21 @@
 	let gridElement = $state<HTMLDivElement | null>(null);
 	let focusedRow = $state(0);
 	let focusedCol = $state(COL_SUBJECT);
+
+	// Expansion is per-view: expanded thread ids, their loaded folder-scoped
+	// members (representative excluded — it is the parent row), and in-flight
+	// fetches. Members are added to `expanded` only after they load, so an
+	// expanded id always has a `members` entry.
+	const expanded = new SvelteSet<string>();
+	const members = new SvelteMap<string, MailSummaryResponse[]>();
+	const loadingThreads = new SvelteSet<string>();
+	// In-flight member fetches, so concurrent callers share one request.
+	const memberRequests = new SvelteMap<string, Promise<MailSummaryResponse[] | null>>();
+	let viewKey = '';
+	// Identity of the page the cached members were derived from. Every load
+	// returns a fresh page object, so a changed reference means the folder was
+	// refetched (sync_completed, a bulk action) and the cache is stale.
+	let membersPage: unknown = null;
 
 	const currentFolderName = $derived(
 		$conversationsState.status === 'idle' ? '' : $conversationsState.context.folderName
@@ -57,6 +81,30 @@
 		getContext<EffectiveReadingPaneContext>(EFFECTIVE_READING_PANE_CONTEXT_KEY) ??
 		({ pane: 'off' } satisfies EffectiveReadingPaneContext);
 
+	type VisibleRow =
+		| { kind: 'conversation'; conversation: ConversationSummaryResponse }
+		| { kind: 'member'; threadId: string; message: MailSummaryResponse };
+
+	// Flattened parent + expanded-children list the roving grid navigates over.
+	const visibleRows = $derived.by<VisibleRow[]>(() => {
+		if ($conversationsState.status !== 'ready') return [];
+		const rows: VisibleRow[] = [];
+		for (const conversation of $conversationsState.page.content) {
+			rows.push({ kind: 'conversation', conversation });
+			const id = conversation.threadId;
+			if (id && expanded.has(id)) {
+				for (const message of members.get(id) ?? []) {
+					rows.push({ kind: 'member', threadId: id, message });
+				}
+			}
+		}
+		return rows;
+	});
+
+	function isExpandable(conversation: ConversationSummaryResponse): boolean {
+		return conversation.threadId != null && conversation.messageCount > 1;
+	}
+
 	function messageHref(accountId: number, folderName: string, stableId: string): string {
 		return resolve('/mail/[accountId]/[folderName]/[stableId]', {
 			accountId: String(accountId),
@@ -66,26 +114,35 @@
 	}
 
 	/**
-	 * Opens a conversation by its representative (newest) message. `focusBody`
-	 * marks a deliberate open (Enter/Space, double click) — only then does the
-	 * reading cursor move into the message body. A row change that follows the
-	 * roving focus in a split pane opens with the opposite intent, so focus stays
-	 * on the grid cell and the next Arrow key keeps navigating (mail/bodyFocus.ts).
+	 * Opens a message in the current folder (draft folders open the composer).
+	 * `focusBody` marks a deliberate open (Enter/Space, double click) — only then
+	 * does the reading cursor move into the message body. A row change that
+	 * follows the roving focus in a split pane opens with the opposite intent, so
+	 * focus stays on the grid cell and the next Arrow key keeps navigating
+	 * (mail/bodyFocus.ts).
 	 */
-	async function openConversation(
-		row: ConversationSummaryResponse,
+	async function openMessage(
+		stableId: string,
 		options: { focusBody?: boolean } = {}
 	): Promise<void> {
 		if ($conversationsState.status !== 'ready') return;
 		const { accountId, folderName } = $conversationsState.context;
 		const folder = $folders.find((f: FolderResponse) => f.folderRef === folderName);
 		if (folder?.role === 'DRAFTS') {
-			await goto(`${resolve('/compose')}?draft=${encodeURIComponent(row.latest.stableId)}`);
+			await goto(`${resolve('/compose')}?draft=${encodeURIComponent(stableId)}`);
 			return;
 		}
-		if (options.focusBody) requestBodyFocus(row.latest.stableId);
-		else suppressBodyFocus(row.latest.stableId);
-		await goto(messageHref(accountId, folderName, row.latest.stableId));
+		if (options.focusBody) requestBodyFocus(stableId);
+		else suppressBodyFocus(stableId);
+		await goto(messageHref(accountId, folderName, stableId));
+	}
+
+	/** Opens a conversation by its representative (newest) message. */
+	function openConversation(
+		row: ConversationSummaryResponse,
+		options: { focusBody?: boolean } = {}
+	): Promise<void> {
+		return openMessage(row.latest.stableId, options);
 	}
 
 	function conversationLabel(row: ConversationSummaryResponse): string {
@@ -96,22 +153,127 @@
 		return size;
 	}
 
-	function handleKeydown(
-		event: KeyboardEvent,
-		row: ConversationSummaryResponse,
-		rowIndex: number
-	): void {
+	/**
+	 * Fetches a thread's folder-scoped members (representative excluded), once per
+	 * loaded page. Concurrent callers (a second ArrowRight, a bulk action running
+	 * while the row expands) share the in-flight request instead of firing a
+	 * second fetch. Resolves to null when the fetch failed — the caller must not
+	 * treat that as "the thread has no other members".
+	 */
+	function loadMembers(
+		conversation: ConversationSummaryResponse
+	): Promise<MailSummaryResponse[] | null> {
+		const id = conversation.threadId;
+		if (id == null || $conversationsState.status !== 'ready') return Promise.resolve(null);
+		const cached = members.get(id);
+		if (cached) return Promise.resolve(cached);
+		const inFlight = memberRequests.get(id);
+		if (inFlight) return inFlight;
+
+		const { accountId, folderName } = $conversationsState.context;
+		loadingThreads.add(id);
+		const request = (async () => {
+			try {
+				const thread = await getThread(accountId, id);
+				// Folder-scoped: keep only members in the folder in view and drop the
+				// representative (already shown as the parent). Ascending threadPosition.
+				const folderMembers = thread.messages.filter(
+					(message) =>
+						message.folderName === folderName && message.stableId !== conversation.latest.stableId
+				);
+				members.set(id, folderMembers);
+				return folderMembers;
+			} catch (error) {
+				announcePolite(`${$_('messages.grouping.loadError')} ${toErrorMessage(error)}`);
+				return null;
+			} finally {
+				loadingThreads.delete(id);
+				memberRequests.delete(id);
+			}
+		})();
+		memberRequests.set(id, request);
+		return request;
+	}
+
+	/**
+	 * Toggles a thread's expansion. Expansion is committed only after members
+	 * load, so a failed fetch leaves the row collapsed with an announced error.
+	 * When `focusParent` is set (keyboard toggles) focus returns to the parent
+	 * row afterwards.
+	 */
+	async function toggleExpand(
+		conversation: ConversationSummaryResponse,
+		focusAfter = false
+	): Promise<void> {
+		const id = conversation.threadId;
+		if (id == null || !isExpandable(conversation)) return;
+		if (expanded.has(id)) {
+			expanded.delete(id);
+			announcePolite($_('messages.grouping.collapsed'));
+		} else {
+			const loaded = await loadMembers(conversation);
+			if (!loaded) return;
+			expanded.add(id);
+			announcePolite($_('messages.grouping.revealed', { values: { count: loaded.length } }));
+		}
+		if (focusAfter) {
+			await tick();
+			const parentIndex = visibleRows.findIndex(
+				(row) => row.kind === 'conversation' && row.conversation.threadId === id
+			);
+			if (parentIndex >= 0) setFocus(parentIndex, COL_SUBJECT);
+		}
+	}
+
+	/** Moves focus from a child row up to its parent conversation row. */
+	function focusParentRow(rowIndex: number): void {
+		for (let index = rowIndex - 1; index >= 0; index -= 1) {
+			if (visibleRows[index].kind === 'conversation') {
+				setFocus(index, COL_SUBJECT);
+				return;
+			}
+		}
+	}
+
+	function rowStableId(row: VisibleRow): string {
+		return row.kind === 'conversation' ? row.conversation.latest.stableId : row.message.stableId;
+	}
+
+	function handleKeydown(event: KeyboardEvent, row: VisibleRow, rowIndex: number): void {
 		if (event.key === 'Enter' || event.key === ' ') {
 			event.preventDefault();
-			void openConversation(row, { focusBody: true });
+			if (row.kind === 'conversation') void openConversation(row.conversation, { focusBody: true });
+			else void openMessage(row.message.stableId, { focusBody: true });
 			return;
 		}
 		if ($conversationsState.status !== 'ready') return;
-		const items = $conversationsState.page.content;
+
+		// Treegrid expand/collapse lives on the subject cell (where the caret sits).
+		if (focusedCol === COL_SUBJECT) {
+			if (row.kind === 'conversation' && isExpandable(row.conversation)) {
+				const id = row.conversation.threadId as string;
+				if (event.key === 'ArrowRight' && !expanded.has(id)) {
+					event.preventDefault();
+					void toggleExpand(row.conversation, true);
+					return;
+				}
+				if (event.key === 'ArrowLeft' && expanded.has(id)) {
+					event.preventDefault();
+					void toggleExpand(row.conversation, true);
+					return;
+				}
+			}
+			if (row.kind === 'member' && event.key === 'ArrowLeft') {
+				event.preventDefault();
+				focusParentRow(rowIndex);
+				return;
+			}
+		}
+
 		const next = computeNextCell(event.key, {
 			row: rowIndex,
 			col: focusedCol,
-			maxRow: items.length - 1,
+			maxRow: visibleRows.length - 1,
 			maxCol: MAX_COL,
 			ctrl: event.ctrlKey,
 			pageStep: ROW_NAV_PAGE_STEP
@@ -122,7 +284,7 @@
 		// move just shifts the roving cell within the current row. Same rule as the
 		// flat list: selection follows focus only while a reading pane is showing.
 		if (next.row !== rowIndex && readingPaneCtx.pane !== 'off' && currentFolderRole !== 'DRAFTS') {
-			selectAndFocus(next.row, next.col, items[next.row]);
+			selectAndFocus(next.row, next.col, visibleRows[next.row]);
 		} else {
 			setFocus(next.row, next.col);
 		}
@@ -130,23 +292,25 @@
 
 	/*
 	 * The mouse mirrors the keyboard (see handleKeydown): a single click selects
-	 * the row like an Arrow key — in a split pane the conversation follows into
-	 * the reading pane but focus stays on the row, in off mode / Drafts it only
-	 * moves the roving focus — and a double click opens like Enter, moving the
-	 * reading cursor into the body. `event.detail` is the click count.
+	 * the row like an Arrow key — in a split pane the message follows into the
+	 * reading pane but focus stays on the row, in off mode / Drafts it only moves
+	 * the roving focus — and a double click opens like Enter, moving the reading
+	 * cursor into the body. `event.detail` is the click count. The caret is the
+	 * exception: it toggles expansion instead of selecting.
 	 */
-	function handleRowClick(
-		event: MouseEvent,
-		row: ConversationSummaryResponse,
-		rowIndex: number
-	): void {
+	function handleRowClick(event: MouseEvent, row: VisibleRow, rowIndex: number): void {
 		const target = event.target as HTMLElement | null;
 		if (target?.closest('input, button, a')) return;
+		if (target?.closest('[data-expand-toggle]')) {
+			if (row.kind === 'conversation') void toggleExpand(row.conversation);
+			return;
+		}
 		if (event.detail >= 2) {
 			// Double click = Enter: invalidate any refocus the first click's
 			// selectAndFocus queued, so the body wins, then open deliberately.
 			selectToken += 1;
-			void openConversation(row, { focusBody: true });
+			if (row.kind === 'conversation') void openConversation(row.conversation, { focusBody: true });
+			else void openMessage(row.message.stableId, { focusBody: true });
 			return;
 		}
 		if (readingPaneCtx.pane === 'off' || currentFolderRole === 'DRAFTS') {
@@ -167,27 +331,79 @@
 		void tick().then(() => focusGridCell(gridElement, rowIndex, col));
 	}
 
-	// Bumped on every selection. openConversation() navigates, and SvelteKit
-	// cancels an in-flight navigation when a newer one starts (rapid Arrow keys).
-	// The superseded navigation's promise still settles and would re-focus its
+	// Bumped on every selection. openMessage() navigates, and SvelteKit cancels
+	// an in-flight navigation when a newer one starts (rapid Arrow keys). The
+	// superseded navigation's promise still settles and would re-focus its
 	// now-stale row last, bouncing focus backwards — so the `.finally` only
 	// re-focuses while it is still the latest selection.
 	let selectToken = 0;
-	function selectAndFocus(rowIndex: number, col: number, row: ConversationSummaryResponse): void {
+	function selectAndFocus(rowIndex: number, col: number, row: VisibleRow): void {
 		focusedRow = rowIndex;
 		focusedCol = col;
 		void tick().then(() => focusGridCell(gridElement, rowIndex, col));
 		const token = ++selectToken;
-		void openConversation(row).finally(() => {
+		void openMessage(rowStableId(row)).finally(() => {
 			if (token === selectToken) void tick().then(() => focusGridCell(gridElement, rowIndex, col));
 		});
 	}
 
+	/*
+	 * Expansion state is per-view. A folder/page switch drops it entirely (the
+	 * folder-scoped member filter must not leak across folders). A reload of the
+	 * *same* view — sync_completed, a bulk action refetch — keeps the rows
+	 * expanded but invalidates the cached members: the thread may have grown a
+	 * message, and the representative the members were filtered against may have
+	 * changed, so a stale list would no longer match the row's count badge. The
+	 * still-expanded threads are refetched right away.
+	 */
 	$effect(() => {
 		if ($conversationsState.status !== 'ready') return;
-		const items = $conversationsState.page.content;
-		if (focusedRow >= items.length) {
-			focusedRow = Math.max(0, items.length - 1);
+		const ctx = $conversationsState.context;
+		const key = `${ctx.accountId}:${ctx.folderName}:${ctx.page}`;
+		const page = $conversationsState.page;
+		if (key !== viewKey) {
+			viewKey = key;
+			membersPage = page;
+			expanded.clear();
+			members.clear();
+			loadingThreads.clear();
+			return;
+		}
+		if (page !== membersPage) {
+			membersPage = page;
+			members.clear();
+			void refreshExpandedMembers(page.content);
+		}
+	});
+
+	/**
+	 * Re-fetches members for threads still expanded after a same-view reload, and
+	 * collapses the ones that no longer have a row (moved out of the folder) or
+	 * whose refetch failed — an expanded id must always have a members entry.
+	 */
+	async function refreshExpandedMembers(
+		conversations: readonly ConversationSummaryResponse[]
+	): Promise<void> {
+		const byThreadId = new Map(
+			conversations
+				.filter((conversation) => conversation.threadId != null)
+				.map((conversation) => [conversation.threadId as string, conversation])
+		);
+		await Promise.all(
+			[...expanded].map(async (id) => {
+				const conversation = byThreadId.get(id);
+				if (!conversation || !isExpandable(conversation)) {
+					expanded.delete(id);
+					return;
+				}
+				if (!(await loadMembers(conversation))) expanded.delete(id);
+			})
+		);
+	}
+
+	$effect(() => {
+		if (focusedRow >= visibleRows.length) {
+			focusedRow = Math.max(0, visibleRows.length - 1);
 		}
 	});
 
@@ -230,9 +446,9 @@
 	<div class="flex min-h-0 flex-1 flex-col bg-background">
 		<div
 			bind:this={gridElement}
-			role="grid"
+			role="treegrid"
 			aria-label={$_('messages.grouping.listLabel')}
-			aria-rowcount={pageData.totalElements + 1}
+			aria-rowcount={visibleRows.length + 1}
 			aria-colcount={4}
 			class="flex-1 overflow-y-auto bg-background"
 		>
@@ -246,9 +462,14 @@
 				>
 				<span role="columnheader" aria-colindex={4}>{$_('messages.columnHeaderDate')}</span>
 			</div>
-			{#each pageData.content as row, rowIndex (row.latest.stableId)}
-				{@const message = row.latest}
-				{@const unread = row.unreadCount > 0}
+			{#each visibleRows as row, rowIndex (rowStableId(row))}
+				{@const isConversation = row.kind === 'conversation'}
+				{@const message = isConversation ? row.conversation.latest : row.message}
+				{@const expandable = isConversation && isExpandable(row.conversation)}
+				{@const threadId = isConversation ? row.conversation.threadId : row.threadId}
+				{@const isOpen = threadId != null && expanded.has(threadId)}
+				{@const isLoading = threadId != null && loadingThreads.has(threadId)}
+				{@const unread = isConversation ? row.conversation.unreadCount > 0 : !row.message.seen}
 				{@const statusLabel = messageStatusLabel(message, $_)}
 				{@const formattedDate = formatMessageListDate(message.receivedAt, $appLocale ?? 'cs')}
 				<div
@@ -256,9 +477,13 @@
 					tabindex="-1"
 					data-row-index={rowIndex}
 					data-stable-id={message.stableId}
-					aria-rowindex={pageData.page * pageData.size + rowIndex + 2}
+					aria-level={isConversation ? 1 : 2}
+					aria-rowindex={rowIndex + 2}
+					aria-expanded={expandable ? (isOpen ? 'true' : 'false') : undefined}
+					aria-busy={isLoading ? 'true' : undefined}
 					class={cn(
 						'grid cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] grid-rows-[auto_auto] border-b border-border/80 transition-colors hover:bg-muted/45 focus-within:relative focus-within:z-10',
+						!isConversation && 'bg-muted/20 pl-5',
 						unread && 'font-semibold'
 					)}
 					onclick={(e) => handleRowClick(e, row, rowIndex)}
@@ -288,18 +513,48 @@
 							unread ? 'text-foreground' : 'text-muted-foreground'
 						)}
 					>
+						{#if isConversation}
+							<span
+								class="flex w-4 shrink-0 items-center justify-center text-muted-foreground"
+								data-expand-toggle={expandable ? '' : undefined}
+								title={expandable
+									? isLoading
+										? $_('messages.grouping.loading')
+										: isOpen
+											? $_('messages.grouping.collapse')
+											: $_('messages.grouping.expand')
+									: undefined}
+								aria-hidden="true"
+							>
+								{#if expandable}
+									<svg
+										viewBox="0 0 16 16"
+										class={cn('h-3.5 w-3.5 transition-transform', isOpen && 'rotate-90')}
+									>
+										<path
+											d="M6 4l4 4-4 4"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+										/>
+									</svg>
+								{/if}
+							</span>
+						{/if}
 						{#if unread}
 							<span class="sr-only">{$_('messages.unreadIndicatorLabel')}.</span>
 						{/if}
 						<span class="truncate">{message.subject || $_('messages.noSubject')}</span>
-						{#if row.messageCount > 1}
+						{#if isConversation && row.conversation.messageCount > 1}
 							<span
 								class="shrink-0 rounded-full bg-primary/12 px-1.5 py-0.5 text-caption font-semibold text-primary"
 								aria-hidden="true"
 							>
-								{row.messageCount}
+								{row.conversation.messageCount}
 							</span>
-							<span class="sr-only">{conversationLabel(row)}.</span>
+							<span class="sr-only">{conversationLabel(row.conversation)}.</span>
 						{/if}
 					</div>
 					<div
