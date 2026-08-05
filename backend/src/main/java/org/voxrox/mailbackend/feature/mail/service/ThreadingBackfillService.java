@@ -3,6 +3,7 @@ package org.voxrox.mailbackend.feature.mail.service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.ToLongFunction;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,9 +18,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
-import org.voxrox.mailbackend.feature.mail.repository.MessageReferenceBackfillRow;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
-import org.voxrox.mailbackend.feature.mail.repository.SubjectNormBackfillRow;
 import org.voxrox.mailbackend.util.AuditLog;
 import org.voxrox.mailbackend.util.LogCategory;
 import org.voxrox.mailbackend.util.LogMasker;
@@ -200,25 +199,63 @@ public class ThreadingBackfillService {
      * {@link ThreadingService#assignThread}.
      *
      * <p>
-     * Batched by an ascending id cursor (not the {@code NOT EXISTS} predicate
-     * alone, which a whitespace-only References header would re-match forever):
-     * advancing {@code afterId} past every processed row guarantees the sweep
-     * terminates. A native projection keeps the {@code @Lob} body out of each
-     * batch. On a database already fully indexed the first query returns empty, so
-     * the pass is a cheap no-op on every subsequent restart.
+     * Runs on {@link #sweepByIdCursor} — the cursor matters here because a
+     * whitespace-only References header indexes to nothing and would re-match the
+     * {@code NOT EXISTS} predicate forever. A native projection keeps the
+     * {@code @Lob} body out of each batch. On a database already fully indexed the
+     * first query returns empty, so the pass is a cheap no-op on every subsequent
+     * restart.
      */
     private int backfillReferences(AccountEntity account) {
+        return sweepByIdCursor(account, messageRepository::findMessagesNeedingReferenceIndex, row -> {
+            threadingService.indexReferences(row.getId(), account.getId(), row.getRefs());
+            return row.getId();
+        }, "References backfill: indexed", "threading_references_backfill");
+    }
+
+    /**
+     * Loads one backfill batch: the rows still needing this pass whose id is above
+     * {@code afterId}, ascending, at most {@code batchSize} of them.
+     */
+    @FunctionalInterface
+    private interface BackfillBatchQuery<T> {
+        List<T> fetch(Long accountId, Long afterId, int batchSize);
+    }
+
+    /**
+     * Shared driver for the id-cursor backfill passes. Walks batches in ascending
+     * id order, each in its own transaction with a fresh persistence context, and
+     * reports the total once at the end.
+     *
+     * <p>
+     * The cursor — not the query predicate — is what guarantees termination. A pass
+     * whose row cannot be repaired (a whitespace-only References header indexes to
+     * nothing) would otherwise keep re-matching its own predicate forever;
+     * advancing {@code afterId} past every <em>visited</em> row makes the sweep
+     * finite regardless.
+     *
+     * <p>
+     * {@code backfillThreadIds} deliberately does not use this: it advances on the
+     * predicate itself (assignThread always writes a thread_id), and it announces
+     * itself up front with a count and a started-audit entry because it is the one
+     * pass that can take a while on a populated account.
+     *
+     * @param process
+     *            handles one row and returns its id, which becomes the next cursor
+     * @param logLabel
+     *            the "&lt;pass&gt;: &lt;verb&gt;" prefix of the completion log line
+     */
+    private <T> int sweepByIdCursor(AccountEntity account, BackfillBatchQuery<T> fetch, ToLongFunction<T> process,
+            String logLabel, String auditEvent) {
         int total = 0;
         long afterId = 0;
         while (true) {
             final long cursor = afterId;
             List<Long> processed = Objects.requireNonNull(transactionTemplate.execute(status -> {
-                List<MessageReferenceBackfillRow> batch = messageRepository
-                        .findMessagesNeedingReferenceIndex(account.getId(), cursor, BATCH_SIZE);
+                List<T> batch = fetch.fetch(account.getId(), cursor, BATCH_SIZE);
                 List<Long> ids = new ArrayList<>(batch.size());
-                for (MessageReferenceBackfillRow row : batch) {
-                    threadingService.indexReferences(row.getId(), account.getId(), row.getRefs());
-                    ids.add(row.getId());
+                for (T row : batch) {
+                    ids.add(process.applyAsLong(row));
                 }
                 return ids;
             }));
@@ -232,9 +269,8 @@ public class ThreadingBackfillService {
             }
         }
         if (total > 0) {
-            log.info("{} References backfill: indexed {} message(s) in account {}.", LogCategory.SYNC, total,
-                    account.getId());
-            AuditLog.success("threading_references_backfill", LogMasker.maskEmail(account.getEmail()),
+            log.info("{} {} {} message(s) in account {}.", LogCategory.SYNC, logLabel, total, account.getId());
+            AuditLog.success(auditEvent, LogMasker.maskEmail(account.getEmail()),
                     "id=" + account.getId() + " messages=" + total);
         }
         return total;
@@ -243,8 +279,7 @@ public class ThreadingBackfillService {
     /**
      * Populates {@code subject_norm} for rows that predate the column (non-null
      * subject, null norm). Rows persisted afterwards are normalized inline by
-     * {@code ThreadingService.assignThread}. Same id-cursor batching as
-     * {@link #backfillReferences}.
+     * {@code ThreadingService.assignThread}. Runs on {@link #sweepByIdCursor}.
      *
      * <p>
      * Every visited row is written, degenerate subjects included — a subject that
@@ -256,35 +291,9 @@ public class ThreadingBackfillService {
      * and on an up-to-date database the first query returns empty.
      */
     private int backfillSubjectNorms(AccountEntity account) {
-        int total = 0;
-        long afterId = 0;
-        while (true) {
-            final long cursor = afterId;
-            List<Long> processed = Objects.requireNonNull(transactionTemplate.execute(status -> {
-                List<SubjectNormBackfillRow> batch = messageRepository.findMessagesNeedingSubjectNorm(account.getId(),
-                        cursor, BATCH_SIZE);
-                List<Long> ids = new ArrayList<>(batch.size());
-                for (SubjectNormBackfillRow row : batch) {
-                    messageRepository.updateSubjectNorm(row.getId(), SubjectNormalizer.storedNorm(row.getSubject()));
-                    ids.add(row.getId());
-                }
-                return ids;
-            }));
-            if (processed.isEmpty()) {
-                break;
-            }
-            afterId = processed.get(processed.size() - 1);
-            total += processed.size();
-            if (processed.size() < BATCH_SIZE) {
-                break;
-            }
-        }
-        if (total > 0) {
-            log.info("{} Subject-norm backfill: normalized {} message(s) in account {}.", LogCategory.SYNC, total,
-                    account.getId());
-            AuditLog.success("threading_subject_norm_backfill", LogMasker.maskEmail(account.getEmail()),
-                    "id=" + account.getId() + " messages=" + total);
-        }
-        return total;
+        return sweepByIdCursor(account, messageRepository::findMessagesNeedingSubjectNorm, row -> {
+            messageRepository.updateSubjectNorm(row.getId(), SubjectNormalizer.storedNorm(row.getSubject()));
+            return row.getId();
+        }, "Subject-norm backfill: normalized", "threading_subject_norm_backfill");
     }
 }

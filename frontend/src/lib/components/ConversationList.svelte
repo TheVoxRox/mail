@@ -19,7 +19,7 @@
 	} from '$lib/components/grid/rowNavigation.js';
 	import { cn } from '$lib/utils.js';
 	import { formatMessageListDate } from '$lib/formatters.js';
-	import { folderLabel } from '$lib/mail/folderLabel.js';
+	import { folderLabel, folderLabelByRef } from '$lib/mail/folderLabel.js';
 	import { messageStatusLabel } from '$lib/mail/messageStatus.js';
 	import { messagesPageInfo } from '$lib/mail/pageInfoAnnouncement.js';
 	import { requestBodyFocus, suppressBodyFocus } from '$lib/mail/bodyFocus.js';
@@ -221,15 +221,6 @@
 		return $_('messages.grouping.selectConversation', {
 			values: { subject: conversation.latest.subject || $_('messages.noSubject') }
 		});
-	}
-
-	/**
-	 * Display label for a cross-folder member's home folder — the localized
-	 * folder name when the folder list knows it, the raw ref otherwise.
-	 */
-	function memberFolderLabel(folderRef: string): string {
-		const folder = $folders.find((f: FolderResponse) => f.folderRef === folderRef);
-		return folder ? folderLabel(folder, $_) : folderRef;
 	}
 
 	/** Whether this row's counterpart is its recipient — see viewShowsRecipients. */
@@ -1005,7 +996,7 @@
 							<span class="sr-only">{conversationLabel(row.conversation)}.</span>
 						{/if}
 						{#if !isConversation && row.message.folderName !== currentFolderName}
-							{@const memberFolderName = memberFolderLabel(row.message.folderName)}
+							{@const memberFolderName = folderLabelByRef($folders, row.message.folderName, $_)}
 							<!-- Cross-folder member (e.g. the user's sent reply inside the inbox
 							     conversation): tag it with its home folder so the row is
 							     unambiguous both visually and for a screen reader. -->

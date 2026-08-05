@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { _, appLocale } from '$lib/i18n/index.js';
 	import { folders } from '$lib/stores/folders.js';
-	import { folderLabel } from '$lib/mail/folderLabel.js';
+	import { folderLabelByRef } from '$lib/mail/folderLabel.js';
 	import { messageStatusLabel } from '$lib/mail/messageStatus.js';
 	import MessageFlags from '$lib/components/MessageFlags.svelte';
 	import MessageRowActionsMenu from '$lib/components/MessageRowActionsMenu.svelte';
@@ -12,7 +12,7 @@
 	} from '$lib/components/grid/rowNavigation.js';
 	import { cn } from '$lib/utils.js';
 	import { formatNumericDate } from '$lib/formatters.js';
-	import type { FolderResponse, MailSummaryResponse, PagedResponse } from '$lib/types.js';
+	import type { MailSummaryResponse, PagedResponse } from '$lib/types.js';
 	import { tick } from 'svelte';
 
 	interface Props {
@@ -62,11 +62,6 @@
 	let gridElement = $state<HTMLDivElement | null>(null);
 	let focusedRow = $state(0);
 	let focusedCol = $state(COL_SUBJECT);
-
-	function labelForFolderRef(folderRef: string): string {
-		const f = $folders.find((entry: FolderResponse) => entry.folderRef === folderRef);
-		return f ? folderLabel(f, $_) : folderRef;
-	}
 
 	function focusCell(rowIndex: number, col: number): void {
 		void tick().then(() => focusGridCell(gridElement, rowIndex, col));
@@ -245,7 +240,7 @@
 				onfocus={() => handleCellFocus(rowIndex, COL_FOLDER)}
 				class="col-start-3 row-start-2 flex items-center justify-end truncate rounded-sm px-3 pb-3 text-caption text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
 			>
-				{labelForFolderRef(message.folderName)}
+				{folderLabelByRef($folders, message.folderName, $_)}
 			</div>
 			<!-- svelte-ignore a11y_click_events_have_key_events -->
 			<div
