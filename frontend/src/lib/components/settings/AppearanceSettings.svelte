@@ -30,7 +30,6 @@
 		`settings.appearance.readingPane.options.${option}.title`;
 	const bodyLabelKey = (option: MessageBodyView) =>
 		`settings.appearance.messageBody.options.${option}.title`;
-	const bodyOptionInputId = (option: MessageBodyView) => `message-body-${option}`;
 
 	function handleThemeChange(event: Event) {
 		const value = (event.target as HTMLSelectElement).value as ThemePreference;
@@ -47,7 +46,8 @@
 		setReadingPane(value);
 	}
 
-	function handleMessageBodyChange(value: MessageBodyView) {
+	function handleMessageBodyChange(event: Event) {
+		const value = (event.target as HTMLSelectElement).value as MessageBodyView;
 		setMessageBodyView(value);
 	}
 
@@ -152,28 +152,23 @@
 
 	<Surface as="section" class="space-y-3">
 		<h2 class="text-sm font-semibold">{$_('settings.appearance.messageBody.heading')}</h2>
-		<fieldset class="space-y-3" aria-describedby="message-body-view-hint">
-			<legend class="sr-only">{$_('settings.appearance.messageBody.label')}</legend>
-			<p id="message-body-view-hint" class="text-xs text-muted-foreground">
-				{$_('settings.appearance.messageBody.hint')}
-			</p>
-			{#each MESSAGE_BODY_OPTIONS as option (option)}
-				{@const inputId = bodyOptionInputId(option)}
-				<label
-					for={inputId}
-					class="flex items-center gap-3 rounded-md border border-border bg-background/70 p-3 text-sm font-medium transition-colors hover:bg-muted/60"
-				>
-					<input
-						id={inputId}
-						type="radio"
-						name="message-body-view"
-						value={option}
-						checked={$messageBodyView === option}
-						onchange={() => handleMessageBodyChange(option)}
-					/>
-					<span>{$_(bodyLabelKey(option))}</span>
-				</label>
-			{/each}
-		</fieldset>
+		<Field
+			for="message-body-select"
+			label={$_('settings.appearance.messageBody.label')}
+			labelClass="sr-only"
+			hint={$_('settings.appearance.messageBody.hint')}
+		>
+			<Select
+				id="message-body-select"
+				value={$messageBodyView}
+				onchange={handleMessageBodyChange}
+				width="full"
+				aria-describedby="message-body-select-hint"
+			>
+				{#each MESSAGE_BODY_OPTIONS as option (option)}
+					<option value={option}>{$_(bodyLabelKey(option))}</option>
+				{/each}
+			</Select>
+		</Field>
 	</Surface>
 </div>

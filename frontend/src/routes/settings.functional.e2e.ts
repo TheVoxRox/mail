@@ -86,4 +86,18 @@ test.describe('Settings – appearance', () => {
 
 		await expectArrowDownOpensSelect(page.locator('#reading-pane-select'));
 	});
+
+	test('zobrazení obsahu zprávy je rozbalovací seznam a volba se uloží', async ({ page }) => {
+		await page.goto('/settings/appearance');
+		await waitForShell(page);
+
+		const select = page.locator('#message-body-select');
+		await expect(select).toHaveValue('html');
+		await select.selectOption('plain');
+
+		expect(await page.evaluate(() => window.localStorage.getItem('mail.messageBodyView'))).toBe(
+			'plain'
+		);
+		await expectArrowDownOpensSelect(select);
+	});
 });
