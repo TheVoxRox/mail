@@ -584,9 +584,7 @@ function messageRoutes(
 			});
 		if (segments[3] === 'folder' && segments[4] === 'conversations' && method === 'GET') {
 			const folderName = url.searchParams.get('folderRef') ?? '';
-			return HttpResponse.json(
-				listPage(conversationsOf(getFolderMessages(accountId, folderName)), url)
-			);
+			return HttpResponse.json(listPage(conversationsOf(accountId, folderName), url));
 		}
 		if (segments[3] === 'threads' && method === 'GET') {
 			const thread = threadOf(accountId, decodeSegment(segments[4]));

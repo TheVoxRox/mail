@@ -1049,8 +1049,8 @@ export interface components {
 			smtp?: components['schemas']['MailServerSettings'];
 			username: string;
 			password?: string;
-			passwordPresentForNewAccount?: boolean;
 			providerOrCustomServerConfigPresent?: boolean;
+			passwordPresentForNewAccount?: boolean;
 		};
 		AccountConnectionTestResponse: {
 			imapOk?: boolean;
@@ -1191,6 +1191,8 @@ export interface components {
 			hasAttachments?: boolean;
 			/** @description Conversation identifier — every message of the same thread shares it. Null only until the threading backfill has processed the message (see /api/internal/threading/recompute). Frontends MAY group rows by this id; the V0.1.0 desktop client ignores it. */
 			threadId?: string | null;
+			/** @description RFC 5322 Message-ID. Copies of one mail stored in several folders (Gmail's INBOX + All Mail) share it while having different stableIds, so a client rendering a thread must collapse rows by this value to match the server's messageCount. Null when the sender omitted the header. */
+			messageId?: string | null;
 		};
 		ThreadResponse: {
 			/** @description Stable thread identifier shared by every message of the conversation. */
@@ -1230,12 +1232,12 @@ export interface components {
 			latest?: components['schemas']['MailSummaryResponse'];
 			/**
 			 * Format: int32
-			 * @description Number of messages of this conversation present in the folder (>= 1).
+			 * @description Number of messages of this conversation (>= 1). For a regular folder it is cross-folder except trash/junk/drafts, counting a mail stored in several folders once; folder-scoped in Trash, Junk and Drafts views.
 			 */
 			messageCount?: number;
 			/**
 			 * Format: int32
-			 * @description Number of those messages that are not yet marked as seen.
+			 * @description Number of messages of this conversation in THIS folder that are not yet marked as seen — folder-scoped in every view, unlike messageCount.
 			 */
 			unreadCount?: number;
 		};

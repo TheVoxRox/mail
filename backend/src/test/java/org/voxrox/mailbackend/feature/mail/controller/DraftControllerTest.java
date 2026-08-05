@@ -144,7 +144,7 @@ class DraftControllerTest {
     @DisplayName("GET drafts → 200, default page=0 size=50 z mailProps")
     void listDraftsDefault() throws Exception {
         MailSummaryResponse s = new MailSummaryResponse(1L, "d1", "Drafts", "Draft", "me@x.cz", "to@x.cz",
-                LocalDateTime.of(2026, 1, 1, 10, 0), false, false, false, false, null, 1L);
+                LocalDateTime.of(2026, 1, 1, 10, 0), false, false, false, false, null, null, 1L);
         when(mailFacade.listDrafts(7L, 0, 50)).thenReturn(new PageImpl<>(List.of(s), PageRequest.of(0, 50), 1));
 
         mockMvc.perform(get("/api/v1/accounts/7/drafts")).andExpect(status().isOk())

@@ -71,6 +71,33 @@ class MailDraftServiceTest {
         }
 
         @Test
+        @DisplayName("Localized and counted reply markers count as already-a-reply")
+        void shouldNotDoubleLocalizedReplyMarkers() {
+            // Shared with the threading normalizer, so this no longer drifts: the
+            // old local startsWith("re:") produced "Re: Odp: Faktura".
+            assertThat(service.createReplyDraft(newMessage("a@example.com", "Odp: Faktura"), "ans", false).subject())
+                    .isEqualTo("Odp: Faktura");
+            assertThat(service.createReplyDraft(newMessage("a@example.com", "AW: Rechnung"), "ans", false).subject())
+                    .isEqualTo("AW: Rechnung");
+            assertThat(service.createReplyDraft(newMessage("a@example.com", "Re[2]: Hello"), "ans", false).subject())
+                    .isEqualTo("Re[2]: Hello");
+            assertThat(service.createReplyDraft(newMessage("a@example.com", " Re: Hello"), "ans", false).subject())
+                    .isEqualTo(" Re: Hello");
+        }
+
+        @Test
+        @DisplayName("A reply to a forwarded message still gets its Re:")
+        void shouldPrependReToForwardedSubject() {
+            // The forward family must not suppress the reply prefix — Outlook and
+            // Gmail both produce "Re: Fwd: X" here.
+            MessageEntity orig = newMessage("Alice <alice@example.com>", "Fwd: Hello");
+
+            MailRequest reply = service.createReplyDraft(orig, "ans", false);
+
+            assertThat(reply.subject()).isEqualTo("Re: Fwd: Hello");
+        }
+
+        @Test
         void shouldDetectReCaseInsensitively() {
             MessageEntity orig = newMessage("Alice <alice@example.com>", "RE: Hello");
 

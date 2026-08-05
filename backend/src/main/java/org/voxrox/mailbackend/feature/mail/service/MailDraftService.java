@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.voxrox.mailbackend.feature.mail.dto.MailRequest;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 import org.voxrox.mailbackend.util.LogCategory;
+import org.voxrox.mailbackend.util.SubjectNormalizer;
 
 import module java.base;
 
@@ -28,7 +29,11 @@ public class MailDraftService {
         // validation requires a non-blank subject anyway.
         String originalSubject = original.getSubject();
         String subject = originalSubject != null ? originalSubject : "";
-        if (!subject.toLowerCase(Locale.ROOT).startsWith("re:")) {
+        // Marker detection is shared with threading (SubjectNormalizer) so the two
+        // cannot drift: a local startsWith("re:") missed "Odp:", "AW:", "Re[2]:"
+        // and a leading space, and turned a reply to "Odp: Faktura" into
+        // "Re: Odp: Faktura".
+        if (!SubjectNormalizer.startsWithReplyMarker(subject)) {
             subject = "Re: " + subject;
         }
 
@@ -66,7 +71,7 @@ public class MailDraftService {
     public MailRequest createForwardDraft(MessageEntity original, String content) {
         String originalSubject = original.getSubject();
         String subject = originalSubject != null ? originalSubject : "";
-        if (!subject.toLowerCase(Locale.ROOT).startsWith("fwd:")) {
+        if (!SubjectNormalizer.startsWithForwardMarker(subject)) {
             subject = "Fwd: " + subject;
         }
 

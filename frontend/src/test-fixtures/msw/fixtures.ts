@@ -70,7 +70,8 @@ function makeSummary(index: number): MailSummaryResponse {
 		seen: index > 3,
 		flagged: index === 2,
 		answered: index === 3,
-		hasAttachments: index === 1
+		hasAttachments: index === 1,
+		messageId: `<${stableId}@example.com>`
 	};
 }
 
@@ -166,7 +167,24 @@ const archiveMessages: MailSummaryResponse[] = [
 		hasAttachments: false
 	}
 ];
-const junkMessages: MailSummaryResponse[] = [];
+// A junked member of the ARCHIVE "Plán vydání" thread. Without it the "skip
+// trash/junk members" branch of the cross-folder filter is dead code under test:
+// the trash fixtures deliberately carry a subject no live thread shares. JUNK is
+// otherwise empty and only ever used as a move target, so this is blast-radius
+// free.
+const junkMessages: MailSummaryResponse[] = [
+	{
+		...makeSummary(65),
+		stableId: 'junk-plan-01',
+		folderName: 'JUNK',
+		subject: 'Re: Plán vydání',
+		receivedAt: iso(250),
+		seen: true,
+		flagged: false,
+		answered: false,
+		hasAttachments: false
+	}
+];
 const sentMessages: MailSummaryResponse[] = [
 	{
 		...makeSummary(31),
@@ -174,6 +192,21 @@ const sentMessages: MailSummaryResponse[] = [
 		folderName: 'SENT',
 		subject: 'Odeslaná zpráva',
 		seen: true,
+		hasAttachments: false
+	},
+	// The user's own reply inside the ARCHIVE "Plán vydání" thread — the
+	// cross-folder seam: the ARCHIVE conversation counts it and reveals it
+	// (tagged with its folder) on expand, while folder-scoped bulk actions from
+	// ARCHIVE must leave it untouched.
+	{
+		...makeSummary(64),
+		stableId: 'sent-plan-01',
+		folderName: 'SENT',
+		subject: 'Re: Plán vydání',
+		receivedAt: iso(300),
+		seen: true,
+		flagged: false,
+		answered: false,
 		hasAttachments: false
 	}
 ];
@@ -194,6 +227,21 @@ const draftMessages: MailSummaryResponse[] = [
 		folderName: 'DRAFTS',
 		subject: 'Druhý rozepsaný koncept',
 		seen: true,
+		hasAttachments: false
+	},
+	// A half-written reply to the ARCHIVE "Plán vydání" thread. It must not raise
+	// that conversation's count nor appear among its expanded members — an unsent
+	// draft is not part of the conversation yet, and a draft row opened from the
+	// ARCHIVE list would go to the reader instead of the composer.
+	{
+		...makeSummary(44),
+		stableId: 'draft-plan-01',
+		folderName: 'DRAFTS',
+		subject: 'Re: Plán vydání',
+		receivedAt: iso(150),
+		seen: true,
+		flagged: false,
+		answered: false,
 		hasAttachments: false
 	}
 ];
@@ -443,28 +491,66 @@ export function getFolderMessages(accountId: number, folderName: string): MailSu
  * Collapses a folder's messages into conversations for the grouped listing
  * mock. The real backend groups by `thread_id`; fixtures carry no thread ids,
  * so this stand-in groups by normalized subject (strips Re:/Fwd: prefixes) —
- * enough to exercise multi-message rows and the count badge. Newest message is
- * the representative; conversations are ordered newest-first.
+ * enough to exercise multi-message rows and the count badge. Mirrors the
+ * backend's cross-folder contract: the representative is the newest message in
+ * the folder in view and `unreadCount` counts that folder's own messages, while
+ * `messageCount` spans the account minus trash/junk/drafts — except in
+ * Trash/Junk/Drafts views, which stay folder-scoped throughout. Conversations
+ * are ordered newest-representative first.
  */
-export function conversationsOf(messages: MailSummaryResponse[]): ConversationSummaryResponse[] {
+export function conversationsOf(
+	accountId: number,
+	folderName: string
+): ConversationSummaryResponse[] {
+	const folderMessages = getFolderMessages(accountId, folderName);
+	const role = folderRoleOf(accountId, folderName);
+	const folderScoped = role === 'TRASH' || role === 'JUNK' || role === 'DRAFTS';
+	const pool = folderScoped ? folderMessages : crossFolderPool(accountId);
+
 	const groups = new Map<string, MailSummaryResponse[]>();
-	for (const message of messages) {
+	for (const message of folderMessages) {
 		const key = normalizeSubject(message.subject);
 		const bucket = groups.get(key);
 		if (bucket) bucket.push(message);
 		else groups.set(key, [message]);
 	}
-	return [...groups.values()]
-		.map((members) => {
-			const latest = [...members].sort((a, b) => b.receivedAt.localeCompare(a.receivedAt))[0];
+	return [...groups.entries()]
+		.map(([key, folderMembers]) => {
+			const latest = [...folderMembers].sort((a, b) => b.receivedAt.localeCompare(a.receivedAt))[0];
+			const members = pool.filter((message) => normalizeSubject(message.subject) === key);
 			return {
 				threadId: `thread-${latest.stableId}`,
 				latest,
 				messageCount: members.length,
-				unreadCount: members.filter((m) => !m.seen).length
+				// Folder-scoped on purpose, like the backend: marking read from this
+				// listing only reaches the folder's own messages.
+				unreadCount: folderMembers.filter((m) => !m.seen).length
 			} satisfies ConversationSummaryResponse;
 		})
 		.sort((a, b) => b.latest.receivedAt.localeCompare(a.latest.receivedAt));
+}
+
+function folderRoleOf(accountId: number, folderName: string): string | undefined {
+	return (fixtureState.foldersByAccount[accountId] ?? []).find(
+		(folder) => folder.folderRef === folderName
+	)?.role;
+}
+
+/**
+ * Every message of the account except those in trash/junk/drafts-role folders —
+ * the set the backend's cross-folder counts span.
+ */
+function crossFolderPool(accountId: number): MailSummaryResponse[] {
+	const excluded = new Set(
+		(fixtureState.foldersByAccount[accountId] ?? [])
+			.filter(
+				(folder) => folder.role === 'TRASH' || folder.role === 'JUNK' || folder.role === 'DRAFTS'
+			)
+			.map((folder) => folderKey(accountId, folder.folderRef))
+	);
+	return Object.entries(fixtureState.messagesByFolder)
+		.filter(([key]) => key.startsWith(`${accountId}:`) && !excluded.has(key))
+		.flatMap(([, items]) => items);
 }
 
 /**
@@ -689,7 +775,8 @@ export function draftToSummary(
 		seen: true,
 		flagged: false,
 		answered: false,
-		hasAttachments: Boolean(body.attachments?.length)
+		hasAttachments: Boolean(body.attachments?.length),
+		messageId: `<${stableId}@example.com>`
 	};
 	if (replaces) {
 		fixtureState.draftsByAccount[accountId] = (

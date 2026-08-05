@@ -31,6 +31,14 @@ public class MailFacade {
 
     private static final Logger log = LoggerFactory.getLogger(MailFacade.class);
 
+    /**
+     * Folder roles that stay out of the cross-folder conversation aggregation and
+     * whose own views stay folder-scoped — see
+     * {@link #conversationExcludedFolders}.
+     */
+    private static final List<FolderRole> CONVERSATION_EXCLUDED_ROLES = List.of(FolderRole.TRASH, FolderRole.JUNK,
+            FolderRole.DRAFTS);
+
     private final MessageRepository messageRepository;
     private final MessageMapper mapper;
     private final MailSyncService mailSyncService;
@@ -178,21 +186,51 @@ public class MailFacade {
 
     /**
      * Conversation-grouped folder listing (Threading Phase 2): one row per
-     * conversation in the folder, represented by its newest message plus the
-     * folder-scoped message / unread counts. Like {@link #getEmails} it kicks off a
-     * background sync so new mail flows in, but it is a purely local-DB view — the
-     * paginator total is the number of conversations mirrored locally and it does
-     * NOT lazy-fetch older messages (grouping the not-yet-mirrored tail is
-     * impossible without holding the whole thread). The flat {@link #getEmails}
-     * listing stays the path that pulls older history into the local window; once
-     * mirrored, those messages fold into their conversations here.
+     * conversation with a member in the folder, represented by its newest message
+     * <em>in that folder</em>. Like {@link #getEmails} it kicks off a background
+     * sync so new mail flows in, but it is a purely local-DB view — the paginator
+     * total is the number of conversations mirrored locally and it does NOT
+     * lazy-fetch older messages (grouping the not-yet-mirrored tail is impossible
+     * without holding the whole thread). The flat {@link #getEmails} listing stays
+     * the path that pulls older history into the local window; once mirrored, those
+     * messages fold into their conversations here.
+     *
+     * <p>
+     * Outlook-style cross-folder scope: for a regular folder {@code messageCount}
+     * spans the whole thread across the account minus the trash, junk and drafts
+     * folders ({@link #conversationExcludedFolders}), so a conversation you replied
+     * to counts your sent reply (and shows it in the expanded member list, which
+     * the client builds from the cross-folder thread endpoint). Copies of one mail
+     * in several folders — Gmail's INBOX + All Mail — count once, keyed by
+     * Message-ID.
+     *
+     * <p>
+     * {@code unreadCount} deliberately stays folder-scoped even there: mark-as-read
+     * from this listing acts on the folder's own messages, so a cross-folder number
+     * would leave a conversation whose only unread copy sits in another folder
+     * reporting "1 unread" with no way to clear it. The count and the action the
+     * row offers describe the same set of messages.
+     *
+     * <p>
+     * Trash, Junk and Drafts views stay folder-scoped — the trash must only ever
+     * show what is actually in the trash, and a cross-folder Drafts view would list
+     * full conversations behind rows that open the composer.
      */
     public Page<ConversationSummaryResponse> getConversations(Long accountId, String folderName, int page, int size) {
         AccountEntity account = accountService.getAccountOrThrow(accountId);
         mailSyncService.syncAndBackfillAsync(account, folderName, page);
 
         long offset = (long) page * size;
-        List<Object[]> rows = messageRepository.findConversationRepresentatives(accountId, folderName, size, offset);
+        // One resolution drives both decisions: a view is folder-scoped exactly
+        // when its own folder is one of the folders the cross-folder counts skip.
+        List<String> excludedFolders = conversationExcludedFolders(accountId);
+        List<Object[]> rows;
+        if (excludedFolders.isEmpty() || excludedFolders.contains(folderName)) {
+            rows = messageRepository.findConversationRepresentatives(accountId, folderName, size, offset);
+        } else {
+            rows = messageRepository.findConversationRepresentativesCrossFolder(accountId, folderName, excludedFolders,
+                    size, offset);
+        }
         long total = messageRepository.countConversationsByAccountAndFolder(accountId, folderName);
         Pageable pageable = PageRequest.of(page, size);
 
@@ -219,6 +257,44 @@ public class MailFacade {
             content.add(new ConversationSummaryResponse(latest.threadId(), latest, messageCount, unreadCount));
         }
         return new PageImpl<>(content, pageable, total);
+    }
+
+    /**
+     * Folder names kept out of the cross-folder conversation aggregation: the
+     * account's trash, junk and drafts folders. Deleted or junked replies must not
+     * resurface inside a live conversation, and an unsent draft is not a message of
+     * the conversation yet — counting it would bump the inbox badge while the user
+     * is still typing. Doubles as the folder-scoped-view test in
+     * {@link #getConversations}: those three views must only ever show their own
+     * contents.
+     *
+     * <p>
+     * Resolved through {@link ImapFolderService}, like every other role lookup in
+     * this class — the plain {@code folder_sync_state} read misses a folder the
+     * sync has not recorded yet (first visit to the trash on a fresh account),
+     * which would silently promote the trash to a cross-folder view.
+     *
+     * <p>
+     * Returns an empty list when the roles cannot be resolved at all (IMAP down and
+     * nothing recorded locally). That is the fail-closed signal — the caller falls
+     * back to the folder-scoped listing, which can never show foreign folders'
+     * messages. Otherwise the list always contains the empty-string sentinel so the
+     * native {@code NOT IN} clause stays well-formed when the account has none of
+     * the three folders; a folder name is never empty.
+     */
+    private List<String> conversationExcludedFolders(Long accountId) {
+        List<String> excluded = new ArrayList<>();
+        excluded.add("");
+        try {
+            for (FolderRole role : CONVERSATION_EXCLUDED_ROLES) {
+                excluded.addAll(imapFolderService.findFolderNamesByRole(accountId, role));
+            }
+        } catch (RuntimeException e) {
+            log.warn("{} Could not resolve trash/junk/drafts folders of account {} ({}); "
+                    + "serving the folder-scoped conversation listing.", LogCategory.SYNC, accountId, e.getMessage());
+            return List.of();
+        }
+        return excluded;
     }
 
     @Transactional(readOnly = true)

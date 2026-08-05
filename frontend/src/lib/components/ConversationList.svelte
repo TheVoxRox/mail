@@ -45,12 +45,17 @@
 	import { get } from 'svelte/store';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
-	// Conversation treegrid — one top-level row per thread (its newest message +
-	// count badge). Expandable threads reveal their other folder-scoped members as
-	// level-2 child rows; singletons are leaves. Same roving-cell model as
-	// MessageList (Enter/click opens), plus treegrid expand/collapse and a select
-	// column driving whole-conversation bulk actions: selecting a conversation
-	// targets all of its members in the folder (resolved at action time).
+	// Conversation treegrid — one top-level row per thread (its newest message in
+	// the folder + count badge). Expandable threads reveal their other members as
+	// level-2 child rows; singletons are leaves. Outlook-style cross-folder scope:
+	// in a regular folder the children span the whole thread minus trash, junk and
+	// drafts (a sent reply shows inline, tagged with its folder), while Trash, Junk
+	// and Drafts views stay folder-scoped — matching the backend's counts. Same
+	// roving-cell model as MessageList (Enter/click opens), plus treegrid
+	// expand/collapse and a select column driving conversation bulk actions:
+	// selecting a conversation targets its members in the folder in view only
+	// (resolved at action time) — a delete from the inbox must never reach the
+	// sent copies. Rows open under their own folder, not the folder in view.
 	const COL_SELECT = 0;
 	const COL_STATUS = 1;
 	const COL_SUBJECT = 2;
@@ -62,15 +67,18 @@
 	let focusedRow = $state(0);
 	let focusedCol = $state(COL_SUBJECT);
 
-	// Expansion is per-view: expanded thread ids, their loaded folder-scoped
-	// members (representative excluded — it is the parent row), and in-flight
-	// fetches. Members are added to `expanded` only after they load, so an
-	// expanded id always has a `members` entry.
+	// Expansion is per-view: expanded thread ids, their loaded thread members as
+	// the API returned them (unfiltered — the view-dependent filtering happens at
+	// render time), and in-flight fetches. Members are added to `expanded` only
+	// after they load, so an expanded id always has a `members` entry.
 	const expanded = new SvelteSet<string>();
 	const members = new SvelteMap<string, MailSummaryResponse[]>();
 	const loadingThreads = new SvelteSet<string>();
 	// In-flight member fetches, so concurrent callers share one request.
 	const memberRequests = new SvelteMap<string, Promise<MailSummaryResponse[] | null>>();
+	// Generation counter for the member cache; a fetch that started before an
+	// invalidation must not write its stale response into the new generation.
+	let membersToken = 0;
 	let viewKey = '';
 	// Identity of the page the cached members were derived from. Every load
 	// returns a fresh page object, so a changed reference means the folder was
@@ -93,8 +101,24 @@
 	const currentFolderRole = $derived(
 		$folders.find((folder: FolderResponse) => folder.folderRef === currentFolderName)?.role
 	);
-	// In Drafts/Sent the sender is always the account owner, so show the recipient.
-	const showRecipients = $derived(currentFolderRole === 'DRAFTS' || currentFolderRole === 'SENT');
+	// Views whose member lists stay folder-scoped, mirroring the backend's
+	// conversation counts: trash/junk must only show their own contents, and a
+	// cross-folder Drafts view would put non-draft rows behind composer-opening
+	// parents.
+	const isFolderScopedView = $derived(
+		currentFolderRole === 'TRASH' || currentFolderRole === 'JUNK' || currentFolderRole === 'DRAFTS'
+	);
+	const folderRoleByRef = $derived(
+		new Map($folders.map((folder: FolderResponse) => [folder.folderRef, folder.role]))
+	);
+	// In Drafts/Sent the sender is always the account owner, so the column shows
+	// the recipient. The header follows the view, but each cell follows its own
+	// message: a Sent conversation expanded cross-folder also lists the incoming
+	// replies, and labelling those with the account's own address as the
+	// counterpart would be plainly wrong.
+	const viewShowsRecipients = $derived(
+		currentFolderRole === 'DRAFTS' || currentFolderRole === 'SENT'
+	);
 	const moveTargets = $derived(
 		$folders.filter((folder: FolderResponse) => folder.folderRef !== currentFolderName)
 	);
@@ -127,7 +151,7 @@
 			rows.push({ kind: 'conversation', conversation });
 			const id = conversation.threadId;
 			if (id && expanded.has(id)) {
-				for (const message of members.get(id) ?? []) {
+				for (const message of visibleMembersOf(conversation)) {
 					rows.push({ kind: 'member', threadId: id, message });
 				}
 			}
@@ -148,21 +172,27 @@
 	}
 
 	/**
-	 * Opens a message in the current folder (draft folders open the composer).
-	 * `focusBody` marks a deliberate open (Enter/Space, double click) — only then
-	 * does the reading cursor move into the message body. A row change that
-	 * follows the roving focus in a split pane opens with the opposite intent, so
-	 * focus stays on the grid cell and the next Arrow key keeps navigating
-	 * (mail/bodyFocus.ts).
+	 * Opens a message that lives in `folderName` (a drafts folder opens the
+	 * composer instead). `focusBody` marks a deliberate open (Enter/Space, double
+	 * click) — only then does the reading cursor move into the message body. A row
+	 * change that follows the roving focus in a split pane opens with the opposite
+	 * intent, so focus stays on the grid cell and the next Arrow key keeps
+	 * navigating (mail/bodyFocus.ts).
+	 *
+	 * The folder comes from the message, never from the view: an expanded thread
+	 * shows members of other folders, and routing those through the folder in view
+	 * would open a draft read-only instead of in the composer and hand the message
+	 * route a folder the message is not in — which is what the layout header, the
+	 * back link and the move control all read.
 	 */
 	async function openMessage(
 		stableId: string,
+		folderName: string,
 		options: { focusBody?: boolean } = {}
 	): Promise<void> {
 		if ($conversationsState.status !== 'ready') return;
-		const { accountId, folderName } = $conversationsState.context;
-		const folder = $folders.find((f: FolderResponse) => f.folderRef === folderName);
-		if (folder?.role === 'DRAFTS') {
+		const { accountId } = $conversationsState.context;
+		if (folderRoleByRef.get(folderName) === 'DRAFTS') {
 			await goto(`${resolve('/compose')}?draft=${encodeURIComponent(stableId)}`);
 			return;
 		}
@@ -171,12 +201,12 @@
 		await goto(messageHref(accountId, folderName, stableId));
 	}
 
-	/** Opens a conversation by its representative (newest) message. */
+	/** Opens a conversation by its representative (newest in-folder) message. */
 	function openConversation(
 		row: ConversationSummaryResponse,
 		options: { focusBody?: boolean } = {}
 	): Promise<void> {
-		return openMessage(row.latest.stableId, options);
+		return openMessage(row.latest.stableId, row.latest.folderName, options);
 	}
 
 	function conversationLabel(row: ConversationSummaryResponse): string {
@@ -194,11 +224,79 @@
 	}
 
 	/**
-	 * Fetches a thread's folder-scoped members (representative excluded), once per
-	 * loaded page. Concurrent callers (a second ArrowRight, a bulk action running
-	 * while the row expands) share the in-flight request instead of firing a
-	 * second fetch. Resolves to null when the fetch failed — the caller must not
-	 * treat that as "the thread has no other members".
+	 * Display label for a cross-folder member's home folder — the localized
+	 * folder name when the folder list knows it, the raw ref otherwise.
+	 */
+	function memberFolderLabel(folderRef: string): string {
+		const folder = $folders.find((f: FolderResponse) => f.folderRef === folderRef);
+		return folder ? folderLabel(folder, $_) : folderRef;
+	}
+
+	/** Whether this row's counterpart is its recipient — see viewShowsRecipients. */
+	function showRecipientsFor(message: MailSummaryResponse): boolean {
+		const role = folderRoleByRef.get(message.folderName);
+		return role === 'DRAFTS' || role === 'SENT';
+	}
+
+	/**
+	 * Whether a thread member belongs in the expanded list of the current view.
+	 * Regular folders show the whole thread minus trash/junk/drafts members
+	 * (matching the backend's cross-folder counts — a deleted or still-unsent
+	 * message is not part of the live conversation); Trash/Junk/Drafts views show
+	 * only the folder's own messages. A member whose folder is unknown to the
+	 * folder list (a sync race) is shown rather than silently dropped.
+	 */
+	function isVisibleMember(message: MailSummaryResponse, folderName: string): boolean {
+		if (isFolderScopedView) return message.folderName === folderName;
+		const role = folderRoleByRef.get(message.folderName);
+		return role !== 'TRASH' && role !== 'JUNK' && role !== 'DRAFTS';
+	}
+
+	/** Grouping key for one mail, matching the server's dedup key. */
+	function memberIdentity(message: MailSummaryResponse): string {
+		return message.messageId ? `mid:${message.messageId}` : `sid:${message.stableId}`;
+	}
+
+	/**
+	 * The members this view shows under `conversation` — derived from the cached
+	 * raw thread on every read, not baked in at fetch time. The filter depends on
+	 * `$folders`, which can still be empty when a deep link expands a row, and a
+	 * list frozen at that moment would keep showing live INBOX messages inside the
+	 * trash for the lifetime of the page.
+	 *
+	 * Drops the representative (already rendered as the parent row) and collapses
+	 * copies of one mail stored in several folders — Gmail's INBOX + All Mail share
+	 * a Message-ID — because the server's count badge collapses them the same way.
+	 * The copy in the folder in view wins: it is the one bulk actions can reach.
+	 */
+	function visibleMembersOf(conversation: ConversationSummaryResponse): MailSummaryResponse[] {
+		const id = conversation.threadId;
+		const raw = id == null ? undefined : members.get(id);
+		if (!raw) return [];
+		const folderName = currentFolderName;
+		const representativeIdentity = memberIdentity(conversation.latest);
+		const visible = raw.filter(
+			(message) =>
+				isVisibleMember(message, folderName) && memberIdentity(message) !== representativeIdentity
+		);
+		// Two passes into one Map: the first fixes the iteration order (ascending
+		// threadPosition), the second overwrites each key with the copy living in
+		// the folder in view. A duplicate key keeps its original position and takes
+		// the later value, so the preferred copy wins without moving the row.
+		const byIdentity = new Map(
+			[...visible, ...visible.filter((message) => message.folderName === folderName)].map(
+				(message) => [memberIdentity(message), message] as const
+			)
+		);
+		return [...byIdentity.values()];
+	}
+
+	/**
+	 * Fetches a thread's raw member list once per loaded page. Concurrent callers
+	 * (a second ArrowRight, a bulk action running while the row expands) share the
+	 * in-flight request instead of firing a second fetch. Resolves to null when the
+	 * fetch failed — the caller must not treat that as "the thread has no other
+	 * members". View-dependent filtering happens in {@link visibleMembersOf}.
 	 */
 	function loadMembers(
 		conversation: ConversationSummaryResponse
@@ -210,19 +308,16 @@
 		const inFlight = memberRequests.get(id);
 		if (inFlight) return inFlight;
 
-		const { accountId, folderName } = $conversationsState.context;
+		const { accountId } = $conversationsState.context;
+		// Snapshot of the cache generation this fetch belongs to — a page reload
+		// that lands mid-flight must not have the older response written over it.
+		const token = membersToken;
 		loadingThreads.add(id);
 		const request = (async () => {
 			try {
 				const thread = await getThread(accountId, id);
-				// Folder-scoped: keep only members in the folder in view and drop the
-				// representative (already shown as the parent). Ascending threadPosition.
-				const folderMembers = thread.messages.filter(
-					(message) =>
-						message.folderName === folderName && message.stableId !== conversation.latest.stableId
-				);
-				members.set(id, folderMembers);
-				return folderMembers;
+				if (token === membersToken) members.set(id, thread.messages);
+				return thread.messages;
 			} catch (error) {
 				announcePolite(`${$_('messages.grouping.loadError')} ${toErrorMessage(error)}`);
 				return null;
@@ -254,7 +349,11 @@
 			const loaded = await loadMembers(conversation);
 			if (!loaded) return;
 			expanded.add(id);
-			announcePolite($_('messages.grouping.revealed', { values: { count: loaded.length } }));
+			announcePolite(
+				$_('messages.grouping.revealed', {
+					values: { count: visibleMembersOf(conversation).length }
+				})
+			);
 		}
 		if (focusAfter) {
 			await tick();
@@ -291,9 +390,14 @@
 	}
 
 	/**
-	 * Resolves the selected conversations to the union of their folder-member
-	 * stableIds (whole-conversation semantics), loading members as needed, and
-	 * which of those are unread (for the optimistic folder badge).
+	 * Resolves the selected conversations to the union of their member stableIds
+	 * in the folder in view, loading members as needed, and which of those are
+	 * unread (for the optimistic folder badge).
+	 *
+	 * Deliberately folder-scoped even though the expanded list is cross-folder:
+	 * a bulk delete/move/mark from the inbox acts on the conversation's inbox
+	 * messages only — reaching into Sent (or any other folder) from here would
+	 * be surprising and destructive. Cross-folder members are filtered out.
 	 *
 	 * Returns null when any thread's members could not be fetched. That has to
 	 * abort the whole action: a failed fetch is indistinguishable from "no other
@@ -305,6 +409,8 @@
 		memberIds: string[];
 		unreadMemberIds: string[];
 	} | null> {
+		if ($conversationsState.status !== 'ready') return null;
+		const { folderName } = $conversationsState.context;
 		// Members are naturally unique across threads (each message belongs to one
 		// thread; a thread's members exclude its representative), so plain arrays
 		// need no dedup.
@@ -319,6 +425,8 @@
 				const threadMembers = await loadMembers(conversation);
 				if (!threadMembers) return null;
 				for (const message of threadMembers) {
+					if (message.folderName !== folderName) continue;
+					if (message.stableId === representative.stableId) continue;
 					memberIds.push(message.stableId);
 					if (!message.seen) unread.push(message.stableId);
 				}
@@ -374,8 +482,13 @@
 		);
 	}
 
+	/** The message a row stands for — its own folder included, see openMessage. */
+	function rowMessage(row: VisibleRow): MailSummaryResponse {
+		return row.kind === 'conversation' ? row.conversation.latest : row.message;
+	}
+
 	function rowStableId(row: VisibleRow): string {
-		return row.kind === 'conversation' ? row.conversation.latest.stableId : row.message.stableId;
+		return rowMessage(row).stableId;
 	}
 
 	function handleKeydown(event: KeyboardEvent, row: VisibleRow, rowIndex: number): void {
@@ -384,7 +497,7 @@
 			if (focusedCol === COL_SELECT) return;
 			event.preventDefault();
 			if (row.kind === 'conversation') void openConversation(row.conversation, { focusBody: true });
-			else void openMessage(row.message.stableId, { focusBody: true });
+			else void openMessage(row.message.stableId, row.message.folderName, { focusBody: true });
 			return;
 		}
 		if ($conversationsState.status !== 'ready') return;
@@ -451,7 +564,7 @@
 			// selectAndFocus queued, so the body wins, then open deliberately.
 			selectToken += 1;
 			if (row.kind === 'conversation') void openConversation(row.conversation, { focusBody: true });
-			else void openMessage(row.message.stableId, { focusBody: true });
+			else void openMessage(row.message.stableId, row.message.folderName, { focusBody: true });
 			return;
 		}
 		if (readingPaneCtx.pane === 'off' || currentFolderRole === 'DRAFTS') {
@@ -500,20 +613,24 @@
 		focusedCol = col;
 		void tick().then(() => focusGridCell(gridElement, rowIndex, col));
 		const token = ++selectToken;
-		void openMessage(rowStableId(row)).finally(() => {
+		const message = rowMessage(row);
+		void openMessage(message.stableId, message.folderName).finally(() => {
 			if (token === selectToken) void tick().then(() => focusGridCell(gridElement, rowIndex, col));
 		});
 	}
 
 	/*
-	 * Expansion state is per-view. A folder/page switch drops it entirely (the
-	 * folder-scoped member filter must not leak across folders). A reload of the
-	 * *same* view — sync_completed, a bulk action refetch — keeps the rows
-	 * expanded but invalidates the cached members: the thread may have grown a
-	 * message, and the representative the members were filtered against may have
-	 * changed, so a stale list would no longer match the row's count badge. The
-	 * still-expanded threads are refetched right away. Selection is per-view too
-	 * and goes with the folder/page switch.
+	 * Expansion state is per-view. A folder/page switch drops it entirely. A
+	 * reload of the *same* view — sync_completed, a bulk action refetch — keeps
+	 * the rows expanded but invalidates the cached members: the thread may have
+	 * grown a message, so a stale list would no longer match the row's count
+	 * badge. The still-expanded threads are refetched right away. Selection is
+	 * per-view too and goes with the folder/page switch.
+	 *
+	 * The cache holds the raw thread, so it does not need invalidating when
+	 * `$folders` arrives — the role filter is applied at render time instead.
+	 * Every drop bumps `membersToken` so a fetch already in flight cannot write
+	 * its response into the fresh generation.
 	 */
 	$effect(() => {
 		if ($conversationsState.status !== 'ready') return;
@@ -523,15 +640,19 @@
 		if (key !== viewKey) {
 			viewKey = key;
 			membersPage = page;
+			membersToken += 1;
 			expanded.clear();
 			members.clear();
+			memberRequests.clear();
 			loadingThreads.clear();
 			selected.clear();
 			return;
 		}
 		if (page !== membersPage) {
 			membersPage = page;
+			membersToken += 1;
 			members.clear();
+			memberRequests.clear();
 			void refreshExpandedMembers(page.content);
 		}
 	});
@@ -746,7 +867,7 @@
 				<span role="columnheader" aria-colindex={2}>{$_('messages.columnHeaderStatus')}</span>
 				<span role="columnheader" aria-colindex={3}>{$_('messages.columnHeaderSubject')}</span>
 				<span role="columnheader" aria-colindex={4}
-					>{showRecipients
+					>{viewShowsRecipients
 						? $_('messages.columnHeaderRecipient')
 						: $_('messages.columnHeaderSender')}</span
 				>
@@ -883,6 +1004,23 @@
 							</span>
 							<span class="sr-only">{conversationLabel(row.conversation)}.</span>
 						{/if}
+						{#if !isConversation && row.message.folderName !== currentFolderName}
+							{@const memberFolderName = memberFolderLabel(row.message.folderName)}
+							<!-- Cross-folder member (e.g. the user's sent reply inside the inbox
+							     conversation): tag it with its home folder so the row is
+							     unambiguous both visually and for a screen reader. -->
+							<span
+								class="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-caption font-medium text-muted-foreground"
+								aria-hidden="true"
+							>
+								{memberFolderName}
+							</span>
+							<span class="sr-only"
+								>{$_('messages.grouping.memberFolder', {
+									values: { folder: memberFolderName }
+								})}.</span
+							>
+						{/if}
 					</div>
 					<div
 						role="gridcell"
@@ -896,7 +1034,7 @@
 							unread ? 'text-foreground' : 'text-muted-foreground'
 						)}
 					>
-						{showRecipients ? (message.recipientsTo ?? '') : message.sender}
+						{showRecipientsFor(message) ? (message.recipientsTo ?? '') : message.sender}
 					</div>
 					<div
 						role="gridcell"

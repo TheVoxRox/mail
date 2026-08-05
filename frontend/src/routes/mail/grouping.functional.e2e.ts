@@ -86,9 +86,14 @@ test.describe('Konverzační seskupení', () => {
 	});
 });
 
-// The ARCHIVE fixture holds one 3-message thread (arch-03 newest = the
-// representative; arch-01/arch-02 are the folder-scoped members revealed on
-// expand). No other test asserts ARCHIVE, so it is a free multi-message seam.
+// The ARCHIVE fixture holds one thread: three ARCHIVE messages (arch-03 newest
+// = the representative; arch-01/arch-02 revealed on expand) plus the user's
+// own reply sent-plan-01 living in SENT — the cross-folder seam. The grouped
+// view counts it and reveals it tagged with its folder; folder-scoped bulk
+// actions must leave it untouched. Two further members of the same thread are
+// deliberately out of scope: junk-plan-01 (JUNK) and draft-plan-01 (DRAFTS) —
+// neither may be counted nor revealed. No other test asserts ARCHIVE, so it is
+// a free multi-message seam.
 const archiveRow = (page: Page, stableId: string) =>
 	page
 		.getByRole('treegrid', { name: 'Seznam konverzací' })
@@ -102,10 +107,12 @@ test.describe('Rozbalení konverzace', () => {
 		const parent = archiveRow(page, 'arch-03');
 		await expect(parent).toBeVisible();
 		await expect(parent).toHaveAttribute('aria-expanded', 'false');
-		await expect(parent.getByText('konverzace, 3 zprávy')).toBeAttached();
+		// Cross-folder count: 3 ARCHIVE messages + the sent reply.
+		await expect(parent.getByText('konverzace, 4 zprávy')).toBeAttached();
 		// Members are hidden while collapsed.
 		await expect(archiveRow(page, 'arch-01')).toHaveCount(0);
 		await expect(archiveRow(page, 'arch-02')).toHaveCount(0);
+		await expect(archiveRow(page, 'sent-plan-01')).toHaveCount(0);
 
 		await parent.locator('[data-expand-toggle]').click();
 
@@ -114,11 +121,21 @@ test.describe('Rozbalení konverzace', () => {
 		await expect(member).toBeVisible();
 		await expect(member).toHaveAttribute('aria-level', '2');
 		await expect(archiveRow(page, 'arch-01')).toBeVisible();
+		// The user's own reply from SENT shows inline, tagged with its folder.
+		const sentMember = archiveRow(page, 'sent-plan-01');
+		await expect(sentMember).toBeVisible();
+		await expect(sentMember).toHaveAttribute('aria-level', '2');
+		await expect(sentMember.getByText('Ve složce Odeslané')).toBeAttached();
+		// Junked and still-unsent members of the same thread stay out — the badge
+		// counts 4, so the expanded list must show exactly 4 rows.
+		await expect(archiveRow(page, 'junk-plan-01')).toHaveCount(0);
+		await expect(archiveRow(page, 'draft-plan-01')).toHaveCount(0);
 
 		await parent.locator('[data-expand-toggle]').click();
 
 		await expect(parent).toHaveAttribute('aria-expanded', 'false');
 		await expect(archiveRow(page, 'arch-02')).toHaveCount(0);
+		await expect(archiveRow(page, 'sent-plan-01')).toHaveCount(0);
 	});
 
 	test('šipky na předmětu rozbalí a sbalí konverzaci', async ({ page }) => {
@@ -155,10 +172,30 @@ test.describe('Rozbalení konverzace', () => {
 
 		await page.waitForURL(`**/mail/${accountId}/ARCHIVE/arch-02`);
 	});
+
+	test('člen z jiné složky se otevře pod svou složkou, ne pod zobrazenou', async ({ page }) => {
+		// The route folder is what the layout header, the back link and the move
+		// control read. Opening the sent reply as .../ARCHIVE/sent-plan-01 would
+		// describe it as an archived message and offer moving Sent -> Sent.
+		await page.goto(`/mail/${accountId}/ARCHIVE`);
+		await waitForShell(page);
+
+		const parent = archiveRow(page, 'arch-03');
+		await expect(parent).toBeVisible();
+		await parent.locator('[data-expand-toggle]').click();
+
+		const sentMember = archiveRow(page, 'sent-plan-01');
+		await expect(sentMember).toBeVisible();
+		await sentMember.dblclick();
+
+		await page.waitForURL(`**/mail/${accountId}/SENT/sent-plan-01`);
+	});
 });
 
 test.describe('Hromadné akce nad konverzacemi', () => {
-	test('smazání vybrané konverzace zasáhne celé vlákno', async ({ page }) => {
+	test('smazání vybrané konverzace zasáhne členy v aktuální složce, odeslanou kopii nechá být', async ({
+		page
+	}) => {
 		await page.goto(`/mail/${accountId}/ARCHIVE`);
 		await waitForShell(page);
 
@@ -170,13 +207,23 @@ test.describe('Hromadné akce nad konverzacemi', () => {
 		await expect(toolbar.getByText('1 vybraná konverzace')).toBeVisible();
 		await toolbar.getByRole('button', { name: 'Smazat vybrané' }).click();
 
-		// ARCHIVE is not the trash folder, so the delete moves the whole thread
-		// (all three members) out — the folder empties and the treegrid unmounts.
+		// ARCHIVE is not the trash folder, so the delete moves the conversation's
+		// ARCHIVE members out — the folder empties and the treegrid unmounts.
 		await expect(page.getByRole('treegrid', { name: 'Seznam konverzací' })).toHaveCount(0);
 		await expect(page.locator('[role="row"][data-stable-id="arch-03"]')).toHaveCount(0);
+
+		// Folder-scoped semantics: the user's sent reply in the same thread must
+		// survive a bulk delete fired from the ARCHIVE view.
+		await page.goto(`/mail/${accountId}/SENT`);
+		await waitForShell(page);
+		await expect(
+			page
+				.getByRole('treegrid', { name: 'Seznam konverzací' })
+				.locator('[role="row"][data-stable-id="sent-plan-01"]')
+		).toBeVisible();
 	});
 
-	test('přesun vybrané konverzace přesune celé vlákno', async ({ page }) => {
+	test('přesun vybrané konverzace přesune členy v aktuální složce', async ({ page }) => {
 		await page.goto(`/mail/${accountId}/ARCHIVE`);
 		await waitForShell(page);
 

@@ -529,4 +529,179 @@ class ThreadingServiceTest {
             verify(refRepo, never()).save(any());
         }
     }
+
+    @Nested
+    @DisplayName("Subject fallback (headerless replies)")
+    class SubjectFallback {
+
+        private static final LocalDateTime BASE = LocalDateTime.of(2026, 6, 1, 12, 0);
+
+        private MessageEntity newSubjectMessage(String messageId, String subject, LocalDateTime receivedAt) {
+            MessageEntity msg = newMessage(messageId, null, null);
+            msg.setSubject(subject);
+            msg.setReceivedAt(receivedAt);
+            return msg;
+        }
+
+        /** Threads a root message and registers it as the fallback candidate. */
+        private MessageEntity threadedRoot(String subject) {
+            MessageEntity root = newSubjectMessage("<root@example.com>", subject, BASE);
+            service.assignThread(root, ACCOUNT);
+            register(root);
+            return root;
+        }
+
+        @Test
+        @DisplayName("A 'Re:'-prefixed reply with no threading headers attaches to the same-subject thread")
+        void headerlessReplyAttachesBySubject() {
+            MessageEntity root = threadedRoot("Vylet na hory");
+            when(repo.findNewestThreadedBySubjectNorm(eq(ACCOUNT_ID), eq("vylet na hory"), anyLong(), any(), any(),
+                    any())).thenReturn(List.of(root));
+
+            MessageEntity reply = newSubjectMessage("<r1@example.com>", "Re: Vylet na hory", BASE.plusDays(5));
+            service.assignThread(reply, ACCOUNT);
+
+            assertThat(reply.getThreadId()).isEqualTo(root.getThreadId());
+            assertThat(reply.getThreadRootMessageId()).isEqualTo("<root@example.com>");
+            assertThat(reply.getThreadPosition()).isEqualTo(2);
+            assertThat(reply.getSubjectNorm()).isEqualTo("vylet na hory");
+        }
+
+        @Test
+        @DisplayName("The lookup window is receivedAt plus/minus 30 days")
+        void lookupWindowSurroundsReceivedAt() {
+            MessageEntity root = threadedRoot("Vylet na hory");
+            LocalDateTime received = BASE.plusDays(5);
+            // Stubbed with the exact window bounds — a drifted implementation would
+            // miss this stub, fall through to a new thread and fail the assertion.
+            when(repo.findNewestThreadedBySubjectNorm(eq(ACCOUNT_ID), eq("vylet na hory"), anyLong(),
+                    eq(received.minusDays(30)), eq(received.plusDays(30)), any())).thenReturn(List.of(root));
+
+            MessageEntity reply = newSubjectMessage("<r1@example.com>", "Odp: Vylet na hory", received);
+            service.assignThread(reply, ACCOUNT);
+
+            assertThat(reply.getThreadId()).isEqualTo(root.getThreadId());
+        }
+
+        @Test
+        @DisplayName("An unprefixed subject never uses the fallback — independent same-name messages stay apart")
+        void unprefixedSubjectStartsNewThread() {
+            threadedRoot("Faktura");
+
+            MessageEntity second = newSubjectMessage("<f2@example.com>", "Faktura", BASE.plusDays(1));
+            service.assignThread(second, ACCOUNT);
+
+            assertThat(second.getThreadId()).isNotNull();
+            assertThat(second.getThreadPosition()).isEqualTo(1);
+            verify(repo, never()).findNewestThreadedBySubjectNorm(anyLong(), anyString(), anyLong(), any(), any(),
+                    any());
+        }
+
+        @Test
+        @DisplayName("A reply that carries threading headers keeps pure JWZ semantics (no subject fallback)")
+        void replyWithHeadersSkipsFallback() {
+            threadedRoot("Vylet na hory");
+
+            MessageEntity reply = newSubjectMessage("<r1@example.com>", "Re: Vylet na hory", BASE.plusDays(2));
+            reply.setInReplyTo("<not-mirrored@example.com>");
+            service.assignThread(reply, ACCOUNT);
+
+            assertThat(reply.getThreadPosition()).isEqualTo(1);
+            verify(repo, never()).findNewestThreadedBySubjectNorm(anyLong(), anyString(), anyLong(), any(), any(),
+                    any());
+        }
+
+        @Test
+        @DisplayName("Stacked localized markers normalize to the same key")
+        void stackedMarkersNormalize() {
+            MessageEntity root = threadedRoot("Vylet na hory");
+            when(repo.findNewestThreadedBySubjectNorm(eq(ACCOUNT_ID), eq("vylet na hory"), anyLong(), any(), any(),
+                    any())).thenReturn(List.of(root));
+
+            MessageEntity reply = newSubjectMessage("<r1@example.com>", "Odp: RE[2]: Vylet   na hory",
+                    BASE.plusDays(3));
+            service.assignThread(reply, ACCOUNT);
+
+            assertThat(reply.getThreadId()).isEqualTo(root.getThreadId());
+        }
+
+        @Test
+        @DisplayName("No same-subject thread in the window -> new thread root")
+        void noCandidateStartsNewThread() {
+            MessageEntity reply = newSubjectMessage("<r1@example.com>", "Re: Vylet na hory", BASE);
+            service.assignThread(reply, ACCOUNT);
+
+            assertThat(reply.getThreadId()).isNotNull();
+            assertThat(reply.getThreadRootMessageId()).isEqualTo("<r1@example.com>");
+            assertThat(reply.getThreadPosition()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("Reply threaded BEFORE its parent -> the arriving parent absorbs the orphan reply")
+        void lateArrivingParentAbsorbsOrphanReply() {
+            // The forward fallback alone assumes the parent is processed first.
+            // MessageDownloader walks UIDs newest-first, so on the initial sync of an
+            // existing mailbox this order is the rule, not the exception — every test
+            // above registers the parent first and would never notice.
+            MessageEntity reply = newSubjectMessage("<r1@example.com>", "Re: Vylet na hory", BASE.plusDays(2));
+            service.assignThread(reply, ACCOUNT);
+            register(reply);
+            String orphanThreadId = reply.getThreadId();
+            assertThat(orphanThreadId).isNotNull();
+
+            MessageEntity parent = newSubjectMessage("<root@example.com>", "Vylet na hory", BASE);
+            when(repo.findSubjectFallbackOrphanCandidates(eq(ACCOUNT_ID), eq("vylet na hory"), anyString(), any(),
+                    any())).thenReturn(List.<Object[]>of(new Object[]{orphanThreadId, "Re: Vylet na hory", null, null}));
+            when(repo.findByAccountIdAndThreadId(eq(ACCOUNT_ID), anyString())).thenReturn(List.of(parent, reply));
+
+            service.assignThread(parent, ACCOUNT);
+
+            verify(repo).reassignThreads(ACCOUNT_ID, List.of(orphanThreadId), parent.getThreadId(),
+                    "<root@example.com>");
+            // Renumbered oldest-first, so the parent leads its own thread.
+            assertThat(parent.getThreadPosition()).isEqualTo(1);
+            assertThat(reply.getThreadPosition()).isEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("A thread that already holds an unprefixed message is never absorbed by subject")
+        void threadWithItsOwnParentIsNotAbsorbed() {
+            // Otherwise a second, unrelated "Faktura" would swallow the first
+            // conversation whole — and keep doing so for every further one.
+            MessageEntity newcomer = newSubjectMessage("<f2@example.com>", "Faktura", BASE.plusDays(1));
+            when(repo.findSubjectFallbackOrphanCandidates(eq(ACCOUNT_ID), eq("faktura"), anyString(), any(), any()))
+                    .thenReturn(List.of(new Object[]{"t-existing", "Faktura", null, null},
+                            new Object[]{"t-existing", "Re: Faktura", null, null}));
+
+            service.assignThread(newcomer, ACCOUNT);
+
+            verify(repo, never()).reassignThreads(anyLong(), any(), anyString(), any());
+        }
+
+        @Test
+        @DisplayName("A message carrying threading headers never absorbs anything by subject")
+        void messageWithHeadersNeverAbsorbsBySubject() {
+            MessageEntity msg = newSubjectMessage("<x@example.com>", "Vylet na hory", BASE);
+            msg.setReferences("<not-mirrored@example.com>");
+
+            service.assignThread(msg, ACCOUNT);
+
+            verify(repo, never()).findSubjectFallbackOrphanCandidates(anyLong(), anyString(), anyString(), any(),
+                    any());
+        }
+
+        @Test
+        @DisplayName("A subject with no grouping key is stored as the empty sentinel, never NULL")
+        void degenerateSubjectStoresSentinel() {
+            // NULL means "the backfill has not seen this row"; a row that stays NULL
+            // is re-selected by that pass on every startup.
+            MessageEntity msg = newSubjectMessage("<m1@example.com>", "Re:", BASE);
+
+            service.assignThread(msg, ACCOUNT);
+
+            assertThat(msg.getSubjectNorm()).isEmpty();
+            verify(repo, never()).findNewestThreadedBySubjectNorm(anyLong(), anyString(), anyLong(), any(), any(),
+                    any());
+        }
+    }
 }

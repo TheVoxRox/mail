@@ -128,7 +128,8 @@
 			"collapsed": "Konverzace sbalena",
 			"bulkResolveFailed": "Konverzaci se nepodařilo načíst, akce byla zrušena. Zkuste to prosím znovu.",
 			"selectConversation": "Vybrat konverzaci {subject}",
-			"selectedConversations": "{count, plural, one {{count} vybraná konverzace} few {{count} vybrané konverzace} other {{count} vybraných konverzací}}"
+			"selectedConversations": "{count, plural, one {{count} vybraná konverzace} few {{count} vybrané konverzace} other {{count} vybraných konverzací}}",
+			"memberFolder": "Ve složce {folder}"
 		},
 		"rowActions": {
 			"trigger": "Akce pro zprávu {subject}"

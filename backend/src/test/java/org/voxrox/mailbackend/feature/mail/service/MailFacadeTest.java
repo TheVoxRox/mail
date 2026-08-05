@@ -17,6 +17,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
@@ -315,6 +317,10 @@ class MailFacadeTest {
     @DisplayName("getConversations")
     class GetConversations {
 
+        // A regular folder view is cross-folder; with no folder roles recorded the
+        // excluded list is just the NOT IN sentinel.
+        private static final List<String> NO_EXCLUDED = List.of("");
+
         @Test
         @DisplayName("Maps count rows to DTOs in query order, re-attaching the unordered summaries by id")
         void mapsRowsInOrderAndReattachesSummaries() {
@@ -322,8 +328,8 @@ class MailFacadeTest {
             // [representativeId, messageCount, unreadCount]; A newer than B.
             Object[] rowA = new Object[]{2L, 3, 1};
             Object[] rowB = new Object[]{5L, 1, 0};
-            when(messageRepository.findConversationRepresentatives(ACCOUNT_ID, FOLDER_INBOX, 50, 0L))
-                    .thenReturn(List.of(rowA, rowB));
+            when(messageRepository.findConversationRepresentativesCrossFolder(ACCOUNT_ID, FOLDER_INBOX, NO_EXCLUDED, 50,
+                    0L)).thenReturn(List.of(rowA, rowB));
             when(messageRepository.countConversationsByAccountAndFolder(ACCOUNT_ID, FOLDER_INBOX)).thenReturn(2L);
             MailSummaryResponse s2 = summaryWithThread(2L, "t-A");
             MailSummaryResponse s5 = summaryWithThread(5L, "t-B");
@@ -353,8 +359,8 @@ class MailFacadeTest {
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
             Object[] rowA = new Object[]{2L, 2, 0};
             Object[] rowB = new Object[]{5L, 1, 0}; // representative 5 vanished concurrently
-            when(messageRepository.findConversationRepresentatives(ACCOUNT_ID, FOLDER_INBOX, 50, 0L))
-                    .thenReturn(List.of(rowA, rowB));
+            when(messageRepository.findConversationRepresentativesCrossFolder(ACCOUNT_ID, FOLDER_INBOX, NO_EXCLUDED, 50,
+                    0L)).thenReturn(List.of(rowA, rowB));
             when(messageRepository.countConversationsByAccountAndFolder(ACCOUNT_ID, FOLDER_INBOX)).thenReturn(2L);
             MailSummaryResponse s2 = summaryWithThread(2L, "t-A");
             when(messageRepository.findSummariesByIds(List.of(2L, 5L))).thenReturn(List.of(s2));
@@ -374,8 +380,8 @@ class MailFacadeTest {
         @DisplayName("No conversations -> empty page with the count total, no summary lookup")
         void emptyFolderReturnsEmptyPage() {
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
-            when(messageRepository.findConversationRepresentatives(ACCOUNT_ID, FOLDER_INBOX, 50, 0L))
-                    .thenReturn(List.of());
+            when(messageRepository.findConversationRepresentativesCrossFolder(ACCOUNT_ID, FOLDER_INBOX, NO_EXCLUDED, 50,
+                    0L)).thenReturn(List.of());
             when(messageRepository.countConversationsByAccountAndFolder(ACCOUNT_ID, FOLDER_INBOX)).thenReturn(0L);
 
             Page<ConversationSummaryResponse> page = mailFacade.getConversations(ACCOUNT_ID, FOLDER_INBOX, 0, 50);
@@ -385,9 +391,77 @@ class MailFacadeTest {
             verify(messageRepository, never()).findSummariesByIds(any());
         }
 
+        @Test
+        @DisplayName("Trash, junk and drafts folders are all excluded from the cross-folder counts")
+        void excludesTrashJunkAndDraftsFromCrossFolderCounts() {
+            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
+            // Every folder claiming a role is excluded, not just the first — role
+            // detection is not unique.
+            stubRoleFolders(FolderRole.TRASH, FOLDER_TRASH, "Recycle bin");
+            stubRoleFolders(FolderRole.JUNK, "Spam");
+            stubRoleFolders(FolderRole.DRAFTS, FOLDER_DRAFTS);
+            when(messageRepository.findConversationRepresentativesCrossFolder(ACCOUNT_ID, FOLDER_INBOX,
+                    List.of("", FOLDER_TRASH, "Recycle bin", "Spam", FOLDER_DRAFTS), 50, 0L)).thenReturn(List.of());
+            when(messageRepository.countConversationsByAccountAndFolder(ACCOUNT_ID, FOLDER_INBOX)).thenReturn(0L);
+
+            Page<ConversationSummaryResponse> page = mailFacade.getConversations(ACCOUNT_ID, FOLDER_INBOX, 0, 50);
+
+            assertThat(page.getContent()).isEmpty();
+            verify(messageRepository, never()).findConversationRepresentatives(anyLong(), anyString(), anyInt(),
+                    anyLong());
+        }
+
+        /**
+         * The roles are resolved through {@link ImapFolderService}, whose live-IMAP
+         * fallback covers a folder the sync has not recorded yet. Reading
+         * {@code folder_sync_state} directly would classify the first visit to the
+         * trash on a fresh account as a regular folder and serve it cross-folder
+         * counts.
+         */
+        @ParameterizedTest(name = "{0} view stays folder-scoped")
+        @EnumSource(names = {"TRASH", "JUNK", "DRAFTS"})
+        void folderScopedViews(FolderRole role) {
+            String folderName = "folder-of-" + role;
+            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
+            stubRoleFolders(role, folderName);
+            when(messageRepository.findConversationRepresentatives(ACCOUNT_ID, folderName, 50, 0L))
+                    .thenReturn(List.of());
+            when(messageRepository.countConversationsByAccountAndFolder(ACCOUNT_ID, folderName)).thenReturn(0L);
+
+            Page<ConversationSummaryResponse> page = mailFacade.getConversations(ACCOUNT_ID, folderName, 0, 50);
+
+            assertThat(page.getContent()).isEmpty();
+            verify(messageRepository, never()).findConversationRepresentativesCrossFolder(anyLong(), anyString(), any(),
+                    anyInt(), anyLong());
+        }
+
+        @Test
+        @DisplayName("Roles unresolvable (IMAP down, nothing recorded) -> folder-scoped, not a cross-folder guess")
+        void unresolvableRolesFallBackToFolderScoped() {
+            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
+            when(imapFolderService.findFolderNamesByRole(eq(ACCOUNT_ID), any()))
+                    .thenThrow(new MailOperationException(ErrorCode.MAIL_CONNECTION_ERROR, "Connection refused"));
+            when(messageRepository.findConversationRepresentatives(ACCOUNT_ID, FOLDER_INBOX, 50, 0L))
+                    .thenReturn(List.of());
+            when(messageRepository.countConversationsByAccountAndFolder(ACCOUNT_ID, FOLDER_INBOX)).thenReturn(0L);
+
+            Page<ConversationSummaryResponse> page = mailFacade.getConversations(ACCOUNT_ID, FOLDER_INBOX, 0, 50);
+
+            // Degrading to folder-scoped counts is safe; a cross-folder query with an
+            // unknown exclusion set would pull trash and junk into live conversations.
+            assertThat(page.getContent()).isEmpty();
+            verify(messageRepository, never()).findConversationRepresentativesCrossFolder(anyLong(), anyString(), any(),
+                    anyInt(), anyLong());
+        }
+
+        private void stubRoleFolders(FolderRole role, String... folderNames) {
+            when(imapFolderService.findFolderNamesByRole(ACCOUNT_ID, role)).thenReturn(List.of(folderNames));
+        }
+
         private MailSummaryResponse summaryWithThread(long id, String threadId) {
             return new MailSummaryResponse(id, "s" + id, FOLDER_INBOX, "Subject " + id, "from@x.cz", "to@x.cz",
-                    LocalDateTime.of(2026, 1, 1, 10, 0), false, false, false, false, threadId, 100L);
+                    LocalDateTime.of(2026, 1, 1, 10, 0), false, false, false, false, threadId, "<m" + id + "@x.cz>",
+                    100L);
         }
     }
 
@@ -399,11 +473,11 @@ class MailFacadeTest {
         @DisplayName("Delegates to messageService.search and applies display fallbacks via the mapper")
         void shouldDelegateToMessageServiceAndMap() {
             MailSummaryResponse raw = new MailSummaryResponse(1L, "s1", "INBOX", null, null, "c@d.com",
-                    LocalDateTime.now(), false, false, false, false, null, 1L);
+                    LocalDateTime.now(), false, false, false, false, null, null, 1L);
             when(messageService.search(ACCOUNT_ID, "query", 0, 20)).thenReturn(new PageImpl<>(List.of(raw)));
 
             MailSummaryResponse display = new MailSummaryResponse(1L, "s1", "INBOX", "(no subject)", "(unknown sender)",
-                    "c@d.com", raw.receivedAt(), false, false, false, false, null, 1L);
+                    "c@d.com", raw.receivedAt(), false, false, false, false, null, null, 1L);
             when(mapper.withDisplayFallbacks(raw)).thenReturn(display);
 
             Page<MailSummaryResponse> result = mailFacade.searchEmails(ACCOUNT_ID, "query", 0, 20);
@@ -856,7 +930,8 @@ class MailFacadeTest {
 
         private MailSummaryResponse summaryWithSeen(long id, boolean seen) {
             return new MailSummaryResponse(id, "s" + id, "INBOX", "Subject " + id, "from@x.cz", "to@x.cz",
-                    LocalDateTime.of(2026, 1, 1, 10, 0), seen, false, false, false, THREAD_ID, 100L);
+                    LocalDateTime.of(2026, 1, 1, 10, 0), seen, false, false, false, THREAD_ID, "<m" + id + "@x.cz>",
+                    100L);
         }
     }
 

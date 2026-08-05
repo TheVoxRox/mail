@@ -1,8 +1,41 @@
 # Threading / Conversations — design proposal
 
 > **HISTORICAL SNAPSHOT.** Design proposal whose Phase 1 shipped 2026-06-01;
-> kept as the design-rationale record and not updated since. The shipping
-> code, not this document, is authoritative for current behavior.
+> kept as the design-rationale record and not updated since (one exception:
+> the 2026-08-05 revision note just below). The shipping code, not this
+> document, is authoritative for current behavior.
+
+## Revision 2026-08-05 — Outlook-style behavior (two decisions superseded)
+
+Two of the original decisions were revised after real-mailbox feedback
+("grouping does not behave like Outlook"):
+
+1. **Subject fallback (narrow).** Open question 2 was originally resolved as
+   "skip subject clustering". That stands for *unconditional* JWZ §5
+   clustering, but a narrow fallback now exists: a message whose subject
+   carries an explicit reply/forward marker (`Re:`, `Odp:`, `Fw:`, …) and has
+   **no** threading headers at all attaches to the newest thread with the
+   same normalized subject within ±30 days (`messages.subject_norm` column,
+   `util/SubjectNormalizer`). Messages with headers pointing at not-yet-
+   mirrored ancestors deliberately keep pure JWZ semantics — subject-attaching
+   them could poison a later late-arriving-parent merge. The fallback runs in
+   both directions: `resolveSubjectFallbackParent` on the way in, and
+   `ThreadingService.findAbsorbableSubjectOrphanThreadIds` on the way back,
+   because the downloader walks UIDs newest-first and the reply is normally
+   threaded *before* its parent. The reverse merge is narrower — it moves whole
+   threads, so it only absorbs a cluster whose members are all headerless and
+   all reply-prefixed.
+2. **Cross-folder conversation listing.** The Phase 2 folder listing was
+   folder-scoped; it is now Outlook-style cross-folder for regular folders:
+   a conversation row appears when the thread has a member in the folder, its
+   representative stays the newest member *in that folder*, and `messageCount`
+   plus the expanded member list span the whole thread minus trash, junk and
+   drafts (copies of one mail in several folders counted once, keyed by
+   Message-ID). `unreadCount` stays folder-scoped everywhere, because marking
+   read from the listing only reaches the folder's own messages. Trash, Junk
+   and Drafts views remain folder-scoped throughout. See
+   `MessageRepository.findConversationRepresentativesCrossFolder` and the
+   scope notes on `ConversationSummaryResponse`.
 
 _Status: **Phase 1 implemented 2026-06-01.** Decisions on the six open
 questions at the bottom of this document have been resolved as the

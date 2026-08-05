@@ -26,11 +26,24 @@ public interface FolderSyncStateRepository extends JpaRepository<FolderSyncState
     boolean existsByAccountIdAndFolderName(Long accountId, String folderName);
 
     /**
-     * Finds the technical folder name by role for the given account. Used instead
-     * of hard-coded names when dealing with trash, sent, etc.
+     * Technical folder names carrying {@code role} for the given account. Used
+     * instead of hard-coded names when dealing with trash, sent, etc.
+     *
+     * <p>
+     * A list, not an {@link Optional}: nothing constrains the role to be unique.
+     * {@code FolderRole.fromNameFallback} claims TRASH from a substring match on
+     * several localized names (see that method), and {@code SyncStateService} never
+     * retires a stale row, so a mailbox holding both a localized trash folder and a
+     * "Recycle bin" legitimately produces two rows — with an {@code Optional}
+     * return that threw {@code IncorrectResultSizeDataAccessException} at every
+     * caller, including read paths that merely need to know which folders to skip.
+     * Ordered by name so the single-value caller
+     * ({@code ImapFolderService.findFolderNameByRole}) picks the same folder on
+     * every call.
      */
-    @Query("SELECT f.folderName FROM FolderSyncStateEntity f WHERE f.account.id = :accountId AND f.role = :role")
-    Optional<String> findFolderNameByRole(@Param("accountId") Long accountId, @Param("role") FolderRole role);
+    @Query("SELECT f.folderName FROM FolderSyncStateEntity f "
+            + "WHERE f.account.id = :accountId AND f.role = :role ORDER BY f.folderName ASC")
+    List<String> findFolderNamesByRole(@Param("accountId") Long accountId, @Param("role") FolderRole role);
 
     /**
      * For each account in {@code accountIds} returns the most recent

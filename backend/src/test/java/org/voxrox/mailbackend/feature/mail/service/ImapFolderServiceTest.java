@@ -229,8 +229,8 @@ class ImapFolderServiceTest {
         @Test
         @DisplayName("Returns the folder name resolved from the DB without touching IMAP")
         void returnsFolderNameFromDb() {
-            when(folderSyncStateRepository.findFolderNameByRole(ACCOUNT_ID, FolderRole.DRAFTS))
-                    .thenReturn(Optional.of("[Gmail]/Drafts"));
+            when(folderSyncStateRepository.findFolderNamesByRole(ACCOUNT_ID, FolderRole.DRAFTS))
+                    .thenReturn(List.of("[Gmail]/Drafts"));
 
             assertThat(service.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.DRAFTS)).isEqualTo("[Gmail]/Drafts");
 
@@ -238,10 +238,24 @@ class ImapFolderServiceTest {
         }
 
         @Test
+        @DisplayName("Two folders claiming one role resolve to the first instead of throwing")
+        void duplicateRoleResolvesToFirst() {
+            // Role detection is not unique — FolderRole.fromNameFallback claims TRASH on
+            // both "Koš" and "Recycle bin", and no sync pass retires the stale row. Every
+            // read path that only needs to know which folders to skip must survive it.
+            when(folderSyncStateRepository.findFolderNamesByRole(ACCOUNT_ID, FolderRole.TRASH))
+                    .thenReturn(List.of("Koš", "Recycle bin"));
+
+            assertThat(service.findFolderNameByRole(ACCOUNT_ID, FolderRole.TRASH)).contains("Koš");
+            assertThat(service.findFolderNamesByRole(ACCOUNT_ID, FolderRole.TRASH)).containsExactly("Koš",
+                    "Recycle bin");
+            verifyNoInteractions(imapConnectionManager);
+        }
+
+        @Test
         @DisplayName("Throws MailOperationException(FOLDER_ROLE_NOT_FOUND) when the role resolves nowhere")
         void throwsWhenRoleUnresolved() throws Exception {
-            when(folderSyncStateRepository.findFolderNameByRole(ACCOUNT_ID, FolderRole.DRAFTS))
-                    .thenReturn(Optional.empty());
+            when(folderSyncStateRepository.findFolderNamesByRole(ACCOUNT_ID, FolderRole.DRAFTS)).thenReturn(List.of());
             // No folder in the IMAP listing carries the DRAFTS role either.
             mockFolderListing(folder("INBOX", "INBOX", 0));
 

@@ -172,21 +172,36 @@ public class ImapFolderService {
      * {@link FolderConstants#INBOX}, which is guaranteed by RFC 3501.
      */
     public Optional<String> findFolderNameByRole(Long accountId, FolderRole role) {
-        Optional<String> fromDb = folderSyncStateRepository.findFolderNameByRole(accountId, role);
-        if (fromDb.isPresent()) {
+        List<String> names = findFolderNamesByRole(accountId, role);
+        return names.isEmpty() ? Optional.empty() : Optional.of(names.get(0));
+    }
+
+    /**
+     * Every folder name carrying {@code role}, same DB-then-IMAP resolution as
+     * {@link #findFolderNameByRole(Long, FolderRole)}. Callers that treat the role
+     * as a <em>set</em> to skip — the conversation listing excluding trash, junk
+     * and drafts from its cross-folder counts — need all of them: role detection is
+     * not unique (see
+     * {@code FolderSyncStateRepository.findFolderNamesByRole}), and skipping only
+     * the first would let a second trash folder leak back into live conversations.
+     * Returns an empty list when the account has no folder for the role.
+     */
+    public List<String> findFolderNamesByRole(Long accountId, FolderRole role) {
+        List<String> fromDb = folderSyncStateRepository.findFolderNamesByRole(accountId, role);
+        if (!fromDb.isEmpty()) {
             return fromDb;
         }
 
-        Optional<String> fromImap = getFolders(accountId).stream().filter(f -> f.role() == role)
-                .map(FolderResponse::folderRef).findFirst();
-        if (fromImap.isPresent()) {
+        List<String> fromImap = getFolders(accountId).stream().filter(f -> f.role() == role)
+                .map(FolderResponse::folderRef).toList();
+        if (!fromImap.isEmpty()) {
             return fromImap;
         }
 
         if (role == FolderRole.INBOX) {
-            return Optional.of(FolderConstants.INBOX);
+            return List.of(FolderConstants.INBOX);
         }
-        return Optional.empty();
+        return List.of();
     }
 
     /**

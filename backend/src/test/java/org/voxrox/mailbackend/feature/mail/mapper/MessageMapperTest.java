@@ -319,7 +319,7 @@ class MessageMapperTest {
 
         private MailSummaryResponse rawSummary(String subject, String sender) {
             return new MailSummaryResponse(100L, "abc123def456", "INBOX", subject, sender, "recipient@example.com",
-                    RECEIVED_AT, true, false, true, false, "thread-1", 42L);
+                    RECEIVED_AT, true, false, true, false, "thread-1", "<mid-100@example.com>", 42L);
         }
 
         @Test

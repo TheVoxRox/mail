@@ -19,9 +19,11 @@ import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 import org.voxrox.mailbackend.feature.mail.repository.MessageReferenceBackfillRow;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
+import org.voxrox.mailbackend.feature.mail.repository.SubjectNormBackfillRow;
 import org.voxrox.mailbackend.util.AuditLog;
 import org.voxrox.mailbackend.util.LogCategory;
 import org.voxrox.mailbackend.util.LogMasker;
+import org.voxrox.mailbackend.util.SubjectNormalizer;
 
 /**
  * Backfills {@code thread_id} for every row that is missing it
@@ -129,16 +131,24 @@ public class ThreadingBackfillService {
 
     /**
      * Per-account backfill — assigns missing {@code thread_id}s and populates the
-     * {@code message_reference} index. Public so the internal
-     * {@code /threading/recompute} endpoint can call it directly without going
-     * through the {@code ApplicationReadyEvent} path. The References pass always
-     * runs, even when no {@code thread_id} was missing, because rows persisted by
-     * builds before this feature are fully threaded yet carry no index rows.
+     * {@code message_reference} index plus the {@code subject_norm} column. Public
+     * so the internal {@code /threading/recompute} endpoint can call it directly
+     * without going through the {@code ApplicationReadyEvent} path. The References
+     * and subject-norm passes always run, even when no {@code thread_id} was
+     * missing, because rows persisted by builds before those features are fully
+     * threaded yet carry no index rows / no norm.
+     *
+     * <p>
+     * Subject norms are filled <em>before</em> thread assignment so the
+     * subject-fallback lookup inside {@code assignThread} can already match rows
+     * that predate the column.
      *
      * @return number of messages whose {@code thread_id} was newly assigned (the
-     *         References-index count is logged separately, not returned)
+     *         References-index and subject-norm counts are logged separately, not
+     *         returned)
      */
     public int backfillAccount(AccountEntity account) {
+        backfillSubjectNorms(account);
         int threaded = backfillThreadIds(account);
         backfillReferences(account);
         return threaded;
@@ -225,6 +235,54 @@ public class ThreadingBackfillService {
             log.info("{} References backfill: indexed {} message(s) in account {}.", LogCategory.SYNC, total,
                     account.getId());
             AuditLog.success("threading_references_backfill", LogMasker.maskEmail(account.getEmail()),
+                    "id=" + account.getId() + " messages=" + total);
+        }
+        return total;
+    }
+
+    /**
+     * Populates {@code subject_norm} for rows that predate the column (non-null
+     * subject, null norm). Rows persisted afterwards are normalized inline by
+     * {@code ThreadingService.assignThread}. Same id-cursor batching as
+     * {@link #backfillReferences}.
+     *
+     * <p>
+     * Every visited row is written, degenerate subjects included — a subject that
+     * normalizes to nothing ({@code "Re:"}, whitespace only) gets
+     * {@link SubjectNormalizer#NO_GROUPING_KEY} rather than staying NULL. Otherwise
+     * those rows would keep matching the {@code subject_norm IS NULL} predicate and
+     * the pass would re-visit them on every startup, reporting work it never did.
+     * With the sentinel the returned count is the number of rows actually updated,
+     * and on an up-to-date database the first query returns empty.
+     */
+    private int backfillSubjectNorms(AccountEntity account) {
+        int total = 0;
+        long afterId = 0;
+        while (true) {
+            final long cursor = afterId;
+            List<Long> processed = Objects.requireNonNull(transactionTemplate.execute(status -> {
+                List<SubjectNormBackfillRow> batch = messageRepository.findMessagesNeedingSubjectNorm(account.getId(),
+                        cursor, BATCH_SIZE);
+                List<Long> ids = new ArrayList<>(batch.size());
+                for (SubjectNormBackfillRow row : batch) {
+                    messageRepository.updateSubjectNorm(row.getId(), SubjectNormalizer.storedNorm(row.getSubject()));
+                    ids.add(row.getId());
+                }
+                return ids;
+            }));
+            if (processed.isEmpty()) {
+                break;
+            }
+            afterId = processed.get(processed.size() - 1);
+            total += processed.size();
+            if (processed.size() < BATCH_SIZE) {
+                break;
+            }
+        }
+        if (total > 0) {
+            log.info("{} Subject-norm backfill: normalized {} message(s) in account {}.", LogCategory.SYNC, total,
+                    account.getId());
+            AuditLog.success("threading_subject_norm_backfill", LogMasker.maskEmail(account.getEmail()),
                     "id=" + account.getId() + " messages=" + total);
         }
         return total;

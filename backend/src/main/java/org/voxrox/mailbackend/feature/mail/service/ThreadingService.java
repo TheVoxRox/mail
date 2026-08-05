@@ -10,6 +10,7 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
@@ -19,6 +20,7 @@ import org.voxrox.mailbackend.feature.mail.entity.MessageReferenceEntity;
 import org.voxrox.mailbackend.feature.mail.repository.MessageReferenceRepository;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
 import org.voxrox.mailbackend.util.LogCategory;
+import org.voxrox.mailbackend.util.SubjectNormalizer;
 import org.voxrox.mailbackend.util.TransactionCallbacks;
 
 /**
@@ -39,18 +41,29 @@ import org.voxrox.mailbackend.util.TransactionCallbacks;
  * known {@code Message-ID} in the same account, inherit its thread.</li>
  * <li><b>References walk</b> oldest-to-newest — the first reference that
  * matches a known message wins (matches Gmail's behaviour and JWZ §3.4).</li>
- * <li><b>New thread</b> if neither step found a parent — generate a fresh UUID
- * and use the message's own {@code Message-ID} as the root.</li>
+ * <li><b>Subject fallback</b> for a reply with no threading headers at all —
+ * some clients emit a {@code "Re:"}-prefixed reply without {@code In-Reply-To}
+ * or {@code References}; such a message attaches to the newest thread with the
+ * same normalized subject inside a {@value #SUBJECT_FALLBACK_WINDOW_DAYS}-day
+ * window (see {@link #resolveSubjectFallbackParent}).</li>
+ * <li><b>New thread</b> if no step found a parent — generate a fresh UUID and
+ * use the message's own {@code Message-ID} as the root.</li>
  * <li><b>Late-arriving parent reconciliation</b> — if an earlier orphan thread
  * directly replies to this message's own {@code Message-ID} (its children
- * arrived first) or is a cross-folder duplicate rooted at it, merge those
+ * arrived first), is a cross-folder duplicate rooted at it, or is a cluster of
+ * headerless replies this message is the subject-fallback parent of, merge those
  * threads into this message's thread, re-root and renumber the result, and
- * broadcast a {@code thread_updated} SSE event per affected thread.</li>
+ * broadcast a {@code thread_updated} SSE event per affected thread. The subject
+ * branch matters because the downloader walks UIDs newest-first, so a reply is
+ * normally threaded <em>before</em> its parent.</li>
  * </ol>
  *
- * Subject-based clustering (JWZ §5) is deliberately skipped — false positives
- * on common subjects ({@code "Re: Hi"}) outweigh the recall gain given that
- * modern providers all populate the threading headers.
+ * Unconditional subject-based clustering (JWZ §5) is still skipped — false
+ * positives on common subjects ({@code "Re: Hi"}) outweigh the recall gain
+ * given that modern providers populate the threading headers. The narrow
+ * fallback above fires only when those headers are entirely absent AND the
+ * subject carries an explicit reply/forward marker, which is the observed
+ * real-world gap (Outlook groups these; pure JWZ splits them).
  */
 @Service
 public class ThreadingService {
@@ -65,6 +78,17 @@ public class ThreadingService {
      * is well above the practical length of any real conversation chain.
      */
     private static final int MAX_REFERENCES_WALK = 50;
+
+    /**
+     * Half-width of the subject-fallback time window: a headerless reply may attach
+     * only to a same-subject thread whose candidate message arrived within this
+     * many days. Bounds the false-positive risk of recurring subjects (a monthly
+     * "Re: Faktura" exchange with a different counterparty never reaches back a
+     * year). Gmail uses 7 days for its subject heuristic, Outlook none; 30 is the
+     * middle ground chosen for the desktop mirror where sync gaps of days are
+     * normal.
+     */
+    private static final int SUBJECT_FALLBACK_WINDOW_DAYS = 30;
 
     private final MessageRepository messageRepository;
     private final MessageReferenceRepository messageReferenceRepository;
@@ -97,7 +121,13 @@ public class ThreadingService {
      */
     @Transactional
     public void assignThread(MessageEntity msg, AccountEntity account) {
+        // Normalize the subject first — the fallback lookup below and every future
+        // arrival's lookup key on this row depend on it being set.
+        msg.setSubjectNorm(SubjectNormalizer.storedNorm(msg.getSubject()));
         MessageEntity parent = resolveParent(msg, account);
+        if (parent == null) {
+            parent = resolveSubjectFallbackParent(msg, account);
+        }
         if (parent != null) {
             attachToExistingThread(msg, account, parent);
         } else {
@@ -199,6 +229,46 @@ public class ThreadingService {
     }
 
     /**
+     * Step 3 of the algorithm — subject fallback for a reply with no threading
+     * headers. Fires only when <em>all</em> of the following hold:
+     *
+     * <ul>
+     * <li>the message carries neither {@code In-Reply-To} nor {@code References} (a
+     * message with headers pointing at not-yet-mirrored ancestors keeps pure JWZ
+     * semantics — attaching it by subject could poison a later late-arriving-parent
+     * merge, which re-points whole threads by those very headers);</li>
+     * <li>the subject starts with an explicit reply/forward marker ({@code Re:},
+     * {@code Odp:}, …) — an unmarked subject is no evidence of a conversation and
+     * would merge independent messages that merely share a name;</li>
+     * <li>a thread with the same normalized subject has a message within
+     * {@value #SUBJECT_FALLBACK_WINDOW_DAYS} days of this one.</li>
+     * </ul>
+     *
+     * The newest qualifying message wins, mirroring Outlook's conversation-topic
+     * behaviour on the least information available.
+     */
+    private @Nullable MessageEntity resolveSubjectFallbackParent(MessageEntity msg, AccountEntity account) {
+        if (trimToNull(msg.getInReplyTo()) != null || trimToNull(msg.getReferences()) != null) {
+            return null;
+        }
+        String norm = msg.getSubjectNorm();
+        if (norm == null || norm.isEmpty() || msg.getReceivedAt() == null
+                || !SubjectNormalizer.hasConversationMarker(msg.getSubject())) {
+            return null;
+        }
+        long selfId = msg.getId() != null ? msg.getId() : -1L;
+        List<MessageEntity> hits = messageRepository.findNewestThreadedBySubjectNorm(account.getId(), norm, selfId,
+                msg.getReceivedAt().minusDays(SUBJECT_FALLBACK_WINDOW_DAYS),
+                msg.getReceivedAt().plusDays(SUBJECT_FALLBACK_WINDOW_DAYS), PageRequest.of(0, 1));
+        if (hits.isEmpty()) {
+            return null;
+        }
+        log.debug("{} Subject fallback attached headerless reply (id {}) to thread {} of account {}.", LogCategory.SYNC,
+                msg.getId(), hits.get(0).getThreadId(), account.getId());
+        return hits.get(0);
+    }
+
+    /**
      * Looks up a candidate parent by Message-ID. Gmail and similar providers can
      * store the same Message-ID across multiple folders (e.g. INBOX + All Mail) —
      * every copy carries the same {@code threadId} by construction, so the first
@@ -258,23 +328,30 @@ public class ThreadingService {
      * is renumbered.
      *
      * <p>
+     * A fourth source has no Message-ID link at all: an orphan cluster of headerless
+     * {@code "Re:"} replies that this message is the missing subject-fallback parent
+     * of — see {@link #findAbsorbableSubjectOrphanThreadIds}.
+     *
+     * <p>
      * The merge is bounded: at most one inbound message can collapse all its orphan
      * children in a single call. Subsequent late arrivals are handled by their own
      * invocation.
      */
     private void reconcileLateArrivingParent(MessageEntity msg, AccountEntity account) {
+        Set<String> merged = new LinkedHashSet<>();
         String selfMessageId = trimToNull(msg.getMessageId());
-        if (selfMessageId == null) {
-            return; // Without a Message-ID we cannot be discovered as a parent.
+        if (selfMessageId != null) {
+            // Two indexed lookups, unioned: the in_reply_to / thread_root match on
+            // `messages`, plus the References-only match on the normalized
+            // `message_reference` index (children that referenced this id but never set
+            // In-Reply-To). Distinct so a child found by both is reassigned once.
+            // Skipped without a Message-ID — nothing can point at us.
+            merged.addAll(
+                    messageRepository.findMergeableOrphanThreadIds(account.getId(), selfMessageId, msg.getThreadId()));
+            merged.addAll(messageReferenceRepository.findOrphanThreadIdsReferencing(account.getId(), selfMessageId,
+                    msg.getThreadId()));
         }
-        // Two indexed lookups, unioned: the in_reply_to / thread_root match on
-        // `messages`, plus the References-only match on the normalized
-        // `message_reference` index (children that referenced this id but never set
-        // In-Reply-To). Distinct so a child found by both is reassigned once.
-        Set<String> merged = new LinkedHashSet<>(
-                messageRepository.findMergeableOrphanThreadIds(account.getId(), selfMessageId, msg.getThreadId()));
-        merged.addAll(messageReferenceRepository.findOrphanThreadIdsReferencing(account.getId(), selfMessageId,
-                msg.getThreadId()));
+        merged.addAll(findAbsorbableSubjectOrphanThreadIds(msg, account));
         if (merged.isEmpty()) {
             return;
         }
@@ -299,6 +376,74 @@ public class ThreadingService {
         // orphans no longer exist as standalone aggregates. Deferred to after
         // commit so the client refetch sees the reassigned rows.
         broadcastThreadUpdatedAfterCommit(ThreadUpdated.of(msg.getThreadId(), account.getId()));
+    }
+
+    /**
+     * Reverse direction of the subject fallback — the orphan threads this message
+     * is the missing parent of, discovered by subject alone.
+     *
+     * <p>
+     * {@link #resolveSubjectFallbackParent} only fires when the parent is already
+     * threaded, which silently assumes the parent is processed first. It is not:
+     * {@code MessageDownloader} walks UIDs newest-first, so on the initial sync of
+     * an existing mailbox the reply is nearly always threaded before its parent. The
+     * reply then finds no candidate, starts its own thread, and nothing ever brings
+     * the two together — exactly the split the fallback exists to prevent. This runs
+     * on every arrival and closes that gap from the other side.
+     *
+     * <p>
+     * Absorption is deliberately narrower than the forward direction, because it
+     * moves whole existing threads rather than attaching one new message. It fires
+     * only when:
+     *
+     * <ul>
+     * <li>this message carries no threading headers either — the same rule the
+     * forward direction applies, for the same reason (a message with headers
+     * pointing at not-yet-mirrored ancestors keeps pure JWZ semantics);</li>
+     * <li>the candidate thread's members are <em>all</em> headerless <em>and</em>
+     * all carry a reply/forward marker — a pure parentless reply cluster. This is
+     * what keeps the merge one-way: once absorbed, the thread contains this
+     * unprefixed parent, so a second unrelated message with the same subject can
+     * never absorb it in turn. Without that guard two independent "Faktura"
+     * conversations would collapse into one.</li>
+     * </ul>
+     *
+     * @return thread ids safe to merge into this message's thread; empty when the
+     *         gates above reject every candidate
+     */
+    private Set<String> findAbsorbableSubjectOrphanThreadIds(MessageEntity msg, AccountEntity account) {
+        if (trimToNull(msg.getInReplyTo()) != null || trimToNull(msg.getReferences()) != null) {
+            return Set.of();
+        }
+        String norm = msg.getSubjectNorm();
+        if (norm == null || norm.isEmpty() || msg.getReceivedAt() == null || msg.getThreadId() == null) {
+            return Set.of();
+        }
+        List<Object[]> rows = messageRepository.findSubjectFallbackOrphanCandidates(account.getId(), norm,
+                msg.getThreadId(), msg.getReceivedAt().minusDays(SUBJECT_FALLBACK_WINDOW_DAYS),
+                msg.getReceivedAt().plusDays(SUBJECT_FALLBACK_WINDOW_DAYS));
+        if (rows.isEmpty()) {
+            return Set.of();
+        }
+        // Every member has to qualify, so one disqualifying member vetoes its whole
+        // thread regardless of the order the rows arrive in.
+        Set<String> qualifying = new LinkedHashSet<>();
+        Set<String> vetoed = new LinkedHashSet<>();
+        for (Object[] row : rows) {
+            String threadId = (String) row[0];
+            boolean headerless = trimToNull((String) row[2]) == null && trimToNull((String) row[3]) == null;
+            if (headerless && SubjectNormalizer.hasConversationMarker((String) row[1])) {
+                qualifying.add(threadId);
+            } else {
+                vetoed.add(threadId);
+            }
+        }
+        qualifying.removeAll(vetoed);
+        if (!qualifying.isEmpty()) {
+            log.debug("{} Subject fallback found {} parentless reply thread(s) for late-arriving parent id {} "
+                    + "of account {}.", LogCategory.SYNC, qualifying.size(), msg.getId(), account.getId());
+        }
+        return qualifying;
     }
 
     /**

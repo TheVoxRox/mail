@@ -74,7 +74,7 @@ class MailReadControllerTest {
 
     private MailSummaryResponse summary(long id, String subject) {
         return new MailSummaryResponse(id, "stable-" + id, "INBOX", subject, "from@x.cz", "to@x.cz",
-                LocalDateTime.of(2026, 1, 1, 10, 0), false, false, false, false, null, 100L);
+                LocalDateTime.of(2026, 1, 1, 10, 0), false, false, false, false, null, null, 100L);
     }
 
     @Test

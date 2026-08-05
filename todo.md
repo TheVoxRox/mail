@@ -107,6 +107,28 @@ Backend (headless) cast zmerena a uzavrena — sekce "Startup audit — mereni 2
 
 ---
 
+## Threading Outlook-parity — nalezy code-review (2026-08-05)
+
+**Stav: implementace lezi NEZACOMMITOVANA v pracovni kopii. Vsech 6 P1 a 6 P2 nalezu z code-review (xhigh) je opraveno vcetne testu (2026-08-05), stejne tak vsech 5 chybejicich testu a 2 z P3 (`MailDraftService` sdili detekci markeru se `SubjectNormalizer`, cap `MAX_MARKERS` pryc). Zbyvaji 4 P3 polozky nize, ktere muzou jit do naslednika. Gate na commit je tim splneny.**
+
+Co je v pracovni kopii: (1) **subject-fallback threading obema smery** — odpoved s `Re:`/`Odp:`/`Fw:` prefixem a BEZ threading hlavicek se pripoji k nejnovejsimu vlaknu se stejnym normalizovanym predmetem v okne +-30 dni, a `reconcileLateArrivingParent` naopak pohlti osirely shluk bezhlavickovych odpovedi, jakmile dorazi jejich rodic (downloader jde od nejnovejsich UID, takze odpoved se pri prvnim syncu skoro vzdy zpracuje driv); novy sloupec `messages.subject_norm` + index (V1 in-place), [SubjectNormalizer.java](backend/src/main/java/org/voxrox/mailbackend/util/SubjectNormalizer.java) (unicode-aware kvuli NBSP, prazdny sentinel misto NULL), backfill pass. (2) **cross-folder konverzacni vypis** — `findConversationRepresentativesCrossFolder` v [MessageRepository.java](backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/MessageRepository.java) (dedup kopii jedne zpravy podle `message_id`, folder-scoped `unreadCount`), vylouceni TRASH/JUNK/DRAFTS resolvovane pres `ImapFolderService` s fail-closed degradaci v [MailFacade.java](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailFacade.java), nove `MailSummaryResponse.messageId` na drate, frontend badge slozky u cizich clenu, otevirani radku pod jeho vlastni slozkou a folder-scoped bulk akce. Backend `mvn clean verify` zeleny / FE 459 unit + 188 functional + 59 a11y zelene, prettier + eslint + i18n lint OK, OpenAPI snapshot regenerovan, dev DB resetovana (nutno znovu pridat ucet).
+
+### Dalsi kroky (v tomto poradi)
+
+- [ ] **Rucni smoke proti realne schrance — jedina neoverena cast.** Cela featura vznikla z feedbacku „seskupeni se nechova jako Outlook" a dosud bezela jen proti fixturam a SQLite ITckum. Dev DB byla resetovana (`%LOCALAPPDATA%\VoxRox\Mail`), takze nejdriv znovu pridat ucet. Co si projit: (a) subject-fallback pri PRVNIM syncu existujici schranky — to je cesta, kterou dvousmerny merge resi a kde se nejdriv pozna, jestli se vlakna skladaji; (b) badge vs. pocet rozbalenych radku v Dorucenych u konverzace, na kterou jsi odpovidal (musi sedet); (c) prvni navsteva Kose na cerstvem uctu (fail-closed vetev — folder-scoped, ne cross-folder); (d) otevreni ciziho clena z rozbaleneho vlakna (URL musi nest jeho slozku).
+- [ ] **Commit + PR.** Vetev z `main`, jeden commit na celek (backend + frontend + fixtury + docs). Pozor: `git push` pousti cely frontend gate (3+ min) — poustet na pozadi, nikdy `--no-verify`.
+- [ ] NVDA doposlech seskupeneho rezimu (uz drive evidovany u threading Phase 2) — rozbaleni/sbaleni, badge cizi slozky („Ve slozce Odeslane"), hromadne akce.
+- [ ] Az potom P3 nize.
+
+### P3 — cleanup (nice-to-have, muze do naslednika)
+
+- [ ] **Cross-folder dotaz skenuje cely ucet pri kazdem nacteni stranky.** [MessageRepository.java:437](backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/MessageRepository.java) — `folder_name = :folder OR folder_name NOT IN (...)` neumi pouzit `idx_messages_lookup_desc` a `PARTITION BY COALESCE(...)` neumi zadny index, takze se cely ucet materializuje a tridi 2x, teprve pak `LIMIT/OFFSET`. Na uctu s 10k zpravami je otevreni Odeslanych 800 → ~9800 radku a `notifications.ts` to pousti znovu pri kazdem `sync_completed`. **Fix:** nechat folder-scoped indexovany dotaz na stranku reprezentantu a dopocitat agregaty jednim `GROUP BY` jen nad temi <= `size` klici. Disjunkce `folder_name = :folder OR` je v teto vetvi navic mrtva (Kos/Spam jdou jinou vetvi).
+- [ ] **`backfillSubjectNorms` je kopie `backfillReferences`** ([ThreadingBackfillService.java:252](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/ThreadingBackfillService.java) vs `:210`) — stejny id-cursor sweep vc. dvojiteho breaku. Spolu s `backfillThreadIds` tri varianty jednoho vzoru. **Fix:** vytahnout `sweepByIdCursor(fetch, action, passName, auditEvent)`.
+- [ ] **`memberFolderLabel`** ([ConversationList.svelte:215](frontend/src/lib/components/ConversationList.svelte)) je kopie `labelForFolderRef` ze [SearchResultsGrid.svelte:66](frontend/src/lib/components/SearchResultsGrid.svelte) a ignoruje `folderRoleByRef` mapu o par radku vys. **Fix:** `folderLabelByRef(folders, ref, t)` do [folderLabel.ts](frontend/src/lib/mail/folderLabel.ts) + jedna `folderByRef` mapa pro role i labely.
+- [ ] **Rozhodnuti "ktery pohled je folder-scoped" existuje 2x** (backend [MailFacade.java:250](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailFacade.java), frontend [ConversationList.svelte:107](frontend/src/lib/components/ConversationList.svelte)) nad ruznymi zdroji role (`folder_sync_state` vs IMAP `$folders`), plus treti kopie v msw fixtures. **Fix (altitude):** at scope urcuje backend a API ho nese — bud metoda na `FolderRole` (uz se serializuje na klienta), nebo parametr `GET /threads/{id}?folderRef=` vracejici presne tu mnozinu clenu, ze ktere se pocital badge. Pak klient nemuze divergovat.
+
+---
+
 ## Produktove funkce (backlog)
 
 Hotove: **Podpisy zprav — Faze 1** (auto-insert + From-swap + manualni tlacitko + per-ucet prepinac, smoke 2026-06-23) a **Tabulka kontaktu** (sloupec Aktualizovano odebran) — detail v [todo-archive.md](todo-archive.md).
