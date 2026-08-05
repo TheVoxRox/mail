@@ -33,9 +33,11 @@ Two of the original decisions were revised after real-mailbox feedback
    drafts (copies of one mail in several folders counted once, keyed by
    Message-ID). `unreadCount` stays folder-scoped everywhere, because marking
    read from the listing only reaches the folder's own messages. Trash, Junk
-   and Drafts views remain folder-scoped throughout. See
-   `MessageRepository.findConversationRepresentativesCrossFolder` and the
-   scope notes on `ConversationSummaryResponse`.
+   and Drafts views remain folder-scoped throughout. The page itself is the
+   folder-scoped, index-backed query in both modes — it yields the same rows in
+   the same order a cross-folder window query would, so only `messageCount` is
+   recomputed, by `MessageRepository.countCrossFolderConversationSizes` over the
+   page's thread ids. See the scope notes on `ConversationSummaryResponse`.
 
 _Status: **Phase 1 implemented 2026-06-01.** Decisions on the six open
 questions at the bottom of this document have been resolved as the

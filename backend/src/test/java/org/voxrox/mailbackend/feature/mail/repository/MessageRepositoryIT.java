@@ -5,7 +5,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.junit.jupiter.api.DisplayName;
@@ -211,8 +213,8 @@ class MessageRepositoryIT {
     }
 
     @Test
-    @DisplayName("Cross-folder grouping: counts span folders, representative stays the folder's newest, trash excluded")
-    void crossFolderGroupingCountsAcrossFolders() {
+    @DisplayName("Cross-folder listing: the page query stays folder-scoped, the size query spans folders minus trash")
+    void crossFolderListingPairsFolderPageWithCrossFolderSize() {
         AccountEntity account = newAccount("xf@example.com");
         LocalDateTime base = LocalDateTime.of(2026, 1, 1, 10, 0);
         // Thread A: two INBOX messages, a newer sent reply, and a trashed member.
@@ -223,33 +225,36 @@ class MessageRepositoryIT {
         // Thread B lives only in sent — must not appear in the INBOX view.
         newConversationMessage(account, 5L, "sent", "TB", base.plusMinutes(3), false);
 
-        List<Object[]> rows = messageRepository.findConversationRepresentativesCrossFolder(account.getId(), "INBOX",
-                List.of("", "trash"), 10, 0L);
-
+        // The page is the plain folder-scoped query in cross-folder mode too: the
+        // representative is the newest INBOX member (not the newer sent reply), the
+        // sent-only thread stays out, and unread counts only this folder.
+        List<Object[]> rows = messageRepository.findConversationRepresentatives(account.getId(), "INBOX", 10, 0L);
         assertThat(rows).hasSize(1);
-        // Representative = newest INBOX member (not the newer sent reply); count =
-        // 2 INBOX + 1 sent (trash excluded); unread = the one unseen INBOX member.
-        assertConversationRow(rows.get(0), aInboxNewest.getId(), 3, 1);
+        assertConversationRow(rows.get(0), aInboxNewest.getId(), 2, 1);
+
+        // Only messageCount is recomputed across folders: 2 INBOX + 1 sent, trash out.
+        assertThat(crossFolderSizes(account, List.of("TA", "TB"), List.of("", "trash"))).containsEntry("TA", 3);
     }
 
     @Test
-    @DisplayName("Cross-folder grouping: unthreaded rows from other folders never surface in the view")
-    void crossFolderGroupingIgnoresForeignSingletons() {
-        AccountEntity account = newAccount("xf-null@example.com");
+    @DisplayName("Cross-folder sizes: only the requested threads come back, and only from allowed folders")
+    void crossFolderSizesAreScopedToRequestedThreads() {
+        AccountEntity account = newAccount("xf-scope@example.com");
         LocalDateTime base = LocalDateTime.of(2026, 1, 1, 10, 0);
-        MessageEntity inboxOnly = newConversationMessage(account, 1L, "INBOX", null, base.plusMinutes(1), true);
-        newConversationMessage(account, 2L, "sent", null, base.plusMinutes(2), true);
+        newConversationMessage(account, 1L, "INBOX", "TA", base.plusMinutes(1), true);
+        newConversationMessage(account, 2L, "sent", "TB", base.plusMinutes(2), true);
+        // Thread C exists only in the trash — excluded, so it cannot answer at all.
+        newConversationMessage(account, 3L, "trash", "TC", base.plusMinutes(3), true);
 
-        List<Object[]> rows = messageRepository.findConversationRepresentativesCrossFolder(account.getId(), "INBOX",
-                List.of(""), 10, 0L);
+        Map<String, Integer> sizes = crossFolderSizes(account, List.of("TA", "TC"), List.of("", "trash"));
 
-        assertThat(rows).hasSize(1);
-        assertConversationRow(rows.get(0), inboxOnly.getId(), 1, 0);
+        assertThat(sizes).containsOnlyKeys("TA");
+        assertThat(sizes).containsEntry("TA", 1);
     }
 
     @Test
-    @DisplayName("Cross-folder grouping: page order follows the in-folder representative, not out-of-folder members")
-    void crossFolderGroupingOrdersByFolderRepresentative() {
+    @DisplayName("Page order follows the in-folder representative, not a newer member in another folder")
+    void conversationPageOrdersByFolderRepresentative() {
         AccountEntity account = newAccount("xf-order@example.com");
         LocalDateTime base = LocalDateTime.of(2026, 1, 1, 10, 0);
         // Thread A: INBOX member old, sent member newest overall.
@@ -258,12 +263,13 @@ class MessageRepositoryIT {
         // Thread B: only INBOX, newer than A's INBOX member.
         MessageEntity bInbox = newConversationMessage(account, 3L, "INBOX", "TB", base.plusMinutes(5), true);
 
-        List<Object[]> rows = messageRepository.findConversationRepresentativesCrossFolder(account.getId(), "INBOX",
-                List.of(""), 10, 0L);
+        List<Object[]> rows = messageRepository.findConversationRepresentatives(account.getId(), "INBOX", 10, 0L);
 
+        // This invariant is what lets the cross-folder mode reuse the folder-scoped
+        // page: A's newer sent reply must not float A above B.
         assertThat(rows).hasSize(2);
         assertConversationRow(rows.get(0), bInbox.getId(), 1, 0);
-        assertConversationRow(rows.get(1), aInbox.getId(), 2, 0);
+        assertConversationRow(rows.get(1), aInbox.getId(), 1, 0);
     }
 
     @Test
@@ -288,8 +294,8 @@ class MessageRepositoryIT {
     }
 
     @Test
-    @DisplayName("Cross-folder grouping: one mail stored in two folders (Gmail INBOX + All Mail) counts once")
-    void crossFolderGroupingCountsCopiesOnce() {
+    @DisplayName("Cross-folder sizes: one mail stored in two folders (Gmail INBOX + All Mail) counts once")
+    void crossFolderSizesCountCopiesOnce() {
         AccountEntity account = newAccount("gmail-dupe@example.com");
         LocalDateTime base = LocalDateTime.of(2026, 1, 1, 10, 0);
         // Same Message-ID, same thread, two folders — exactly what Gmail mirrors
@@ -297,37 +303,52 @@ class MessageRepositoryIT {
         withMessageId(newConversationMessage(account, 1L, "INBOX", "TA", base.plusMinutes(1), true), "<a@example.com>");
         withMessageId(newConversationMessage(account, 2L, "All Mail", "TA", base.plusMinutes(1), true),
                 "<a@example.com>");
-        MessageEntity inboxNewest = withMessageId(
-                newConversationMessage(account, 3L, "INBOX", "TA", base.plusMinutes(5), false), "<b@example.com>");
+        withMessageId(newConversationMessage(account, 3L, "INBOX", "TA", base.plusMinutes(5), false),
+                "<b@example.com>");
         withMessageId(newConversationMessage(account, 4L, "All Mail", "TA", base.plusMinutes(5), true),
                 "<b@example.com>");
 
-        List<Object[]> rows = messageRepository.findConversationRepresentativesCrossFolder(account.getId(), "INBOX",
-                List.of(""), 10, 0L);
-
-        assertThat(rows).hasSize(1);
-        // Two mails, not four. The in-folder copy survives the collapse, so the
-        // representative stays an INBOX row and the unread flag is the INBOX one
-        // (its All Mail twin is marked seen).
-        assertConversationRow(rows.get(0), inboxNewest.getId(), 2, 1);
+        assertThat(crossFolderSizes(account, List.of("TA"), List.of(""))).containsEntry("TA", 2);
     }
 
     @Test
-    @DisplayName("Cross-folder grouping: unreadCount stays folder-scoped while messageCount spans folders")
-    void crossFolderGroupingKeepsUnreadFolderScoped() {
+    @DisplayName("Cross-folder sizes: a row without a Message-ID never merges with another")
+    void crossFolderSizesKeepMessageIdLessRowsApart() {
+        AccountEntity account = newAccount("no-mid@example.com");
+        LocalDateTime base = LocalDateTime.of(2026, 1, 1, 10, 0);
+        // The dedup key falls back to stable_id, which is unique per row.
+        withMessageId(newConversationMessage(account, 1L, "INBOX", "TA", base.plusMinutes(1), true), null);
+        withMessageId(newConversationMessage(account, 2L, "INBOX", "TA", base.plusMinutes(2), true), null);
+
+        assertThat(crossFolderSizes(account, List.of("TA"), List.of(""))).containsEntry("TA", 2);
+    }
+
+    @Test
+    @DisplayName("unreadCount stays folder-scoped while messageCount spans folders")
+    void conversationUnreadStaysFolderScoped() {
         AccountEntity account = newAccount("xf-unread@example.com");
         LocalDateTime base = LocalDateTime.of(2026, 1, 1, 10, 0);
         MessageEntity inboxSeen = newConversationMessage(account, 1L, "INBOX", "TA", base.plusMinutes(1), true);
         newConversationMessage(account, 2L, "Archive", "TA", base.plusMinutes(5), false);
 
-        List<Object[]> rows = messageRepository.findConversationRepresentativesCrossFolder(account.getId(), "INBOX",
-                List.of(""), 10, 0L);
+        List<Object[]> rows = messageRepository.findConversationRepresentatives(account.getId(), "INBOX", 10, 0L);
 
-        // Two messages, but the only unread one sits in Archive. Marking read from
-        // the inbox listing cannot reach it, so the row must not claim it — the
-        // conversation would stay bold with nothing to clear.
+        // Two messages across folders, but the only unread one sits in Archive.
+        // Marking read from the inbox listing cannot reach it, so the row must not
+        // claim it — the conversation would stay bold with nothing to clear.
         assertThat(rows).hasSize(1);
-        assertConversationRow(rows.get(0), inboxSeen.getId(), 2, 0);
+        assertConversationRow(rows.get(0), inboxSeen.getId(), 1, 0);
+        assertThat(crossFolderSizes(account, List.of("TA"), List.of(""))).containsEntry("TA", 2);
+    }
+
+    private Map<String, Integer> crossFolderSizes(AccountEntity account, List<String> threadIds,
+            List<String> excludedFolders) {
+        Map<String, Integer> sizes = new HashMap<>();
+        for (Object[] row : messageRepository.countCrossFolderConversationSizes(account.getId(), threadIds,
+                excludedFolders)) {
+            sizes.put((String) row[0], ((Number) row[1]).intValue());
+        }
+        return sizes;
     }
 
     @Test

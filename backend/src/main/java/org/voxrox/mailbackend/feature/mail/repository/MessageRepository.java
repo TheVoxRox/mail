@@ -107,8 +107,13 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
      * sizes the boxed numerics to the value, so callers must normalize via
      * {@link Number}. Ordered newest-conversation first (by the representative's
      * {@code received_at}, id as the deterministic tie-break) to match the flat
-     * listing's ordering. Grouping is folder-scoped: the counts reflect only the
-     * members present in this folder, not the whole cross-folder thread.
+     * listing's ordering.
+     * <p>
+     * Drives the page in <em>both</em> listing modes. Everything it returns is
+     * folder-scoped, which is exactly right for the row identity, the ordering and
+     * {@code unreadCount}; the Outlook-style cross-folder mode keeps all of that and
+     * only replaces {@code messageCount}, via
+     * {@link #countCrossFolderConversationSizes}.
      * <p>
      * Window functions require SQLite &gt;= 3.25 (2018); the bundled driver is well
      * past that.
@@ -428,75 +433,38 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
             @Param("afterId") Long afterId, @Param("batch") int batch);
 
     /**
-     * One page of the conversation-grouped folder listing in cross-folder mode —
-     * the Outlook-style view used for every folder except Trash/Junk/Drafts (those
-     * keep the folder-scoped {@link #findConversationRepresentatives}). A
-     * conversation appears when it has at least one member in {@code :folder};
-     * {@code messageCount} spans the whole account minus the
-     * {@code :excludedFolders} (the account's trash/junk/drafts names, so deleted,
-     * junked or still-unsent messages never surface in a live conversation), and
-     * the representative is the newest member <em>in the folder in view</em> — row
-     * identity, click target and selection semantics stay folder-anchored while the
-     * count and the expanded member list tell the whole story.
+     * Cross-folder conversation sizes for the threads on one page of the
+     * conversation-grouped listing — the Outlook-style {@code messageCount} used
+     * for every folder except Trash/Junk/Drafts. The page itself stays the
+     * folder-scoped {@link #findConversationRepresentatives}; only the size is
+     * recomputed here, over the whole account minus {@code :excludedFolders} (the
+     * account's trash/junk/drafts names, so deleted, junked or still-unsent
+     * messages never surface in a live conversation).
      * <p>
-     * Two per-row subtleties the outer windows depend on:
-     * <ul>
-     * <li><b>Cross-folder copies count once.</b> Gmail-style providers store one
-     * mail in several folders (INBOX + All Mail) — same {@code message_id}, same
-     * {@code thread_id}, different rows (see
-     * {@link #findByAccountIdAndMessageId}). A plain {@code COUNT(*)} would report
-     * every such thread at double length. SQLite has no
-     * {@code COUNT(DISTINCT …) OVER (…)}, so the copies are collapsed a level
-     * earlier by {@code dup_rn}, keyed on {@code COALESCE(message_id, stable_id)} —
-     * a row without a Message-ID falls back to its own stable id and so never
-     * merges with anything. The surviving copy is the one in the folder in view
-     * when there is one, which keeps the representative pick and the {@code seen}
-     * flag folder-anchored.</li>
-     * <li><b>{@code unreadCount} stays folder-scoped</b> ({@code in_folder = 1}) on
-     * purpose, unlike {@code messageCount} — see the rationale on
-     * {@code MailFacade.getConversations}.</li>
-     * </ul>
+     * Split into a second query on purpose. Doing it in one window pass means
+     * partitioning every row of the account before the page can be cut — no index
+     * covers {@code PARTITION BY}, so a 10k-message account materializes and sorts
+     * in full on every page load and every {@code sync_completed} refetch. Here the
+     * {@code IN} list holds at most {@code size} thread ids and rides
+     * {@code idx_messages_account_thread}.
      * <p>
-     * Each row is {@code [representativeId, messageCount, unreadCount]}, ordered
-     * newest-representative first; same boxed-numeric caveat as
-     * {@link #findConversationRepresentatives}. {@code :excludedFolders} must never
-     * be empty — callers pad it with a sentinel (empty string, which is never a
-     * folder name) so the SQL {@code NOT IN} stays well-formed.
+     * {@code COUNT(DISTINCT …)} collapses copies of one mail stored in several
+     * folders: Gmail-style providers keep the same {@code message_id} and
+     * {@code thread_id} in INBOX and All Mail (see
+     * {@link #findByAccountIdAndMessageId}), and a plain {@code COUNT} would report
+     * every such thread at double length. A row without a Message-ID falls back to
+     * its own stable id, so it never merges with anything.
      * <p>
-     * The paginator total is intentionally shared with the folder-scoped view
-     * ({@link #countConversationsByAccountAndFolder}): a conversation is counted
-     * when it has a member in the folder, which is exactly the {@code
-     * has_in_folder = 1} filter here.
+     * Each row is {@code [threadId, messageCount]}; same boxed-numeric caveat as
+     * {@link #findConversationRepresentatives}. Threads with no member outside the
+     * excluded folders simply do not come back — the caller keeps the folder-scoped
+     * count for those. {@code :excludedFolders} must never be empty; callers pad it
+     * with a sentinel (empty string, which is never a folder name) so the
+     * {@code NOT IN} stays well-formed.
      */
-    @Query(value = """
-            SELECT id, cnt, unread FROM (
-              SELECT id, received_at,
-                     ROW_NUMBER() OVER (PARTITION BY grp
-                                        ORDER BY in_folder DESC, received_at DESC, id DESC) AS rn,
-                     COUNT(*) OVER (PARTITION BY grp) AS cnt,
-                     SUM(CASE WHEN seen = 0 AND in_folder = 1 THEN 1 ELSE 0 END) OVER (PARTITION BY grp) AS unread,
-                     MAX(in_folder) OVER (PARTITION BY grp) AS has_in_folder
-              FROM (
-                SELECT id, received_at, seen, grp, in_folder,
-                       ROW_NUMBER() OVER (PARTITION BY grp, dedup_key
-                                          ORDER BY in_folder DESC, received_at DESC, id DESC) AS dup_rn
-                FROM (
-                  SELECT id, received_at, seen,
-                         COALESCE(thread_id, stable_id) AS grp,
-                         COALESCE(message_id, stable_id) AS dedup_key,
-                         CASE WHEN folder_name = :folder THEN 1 ELSE 0 END AS in_folder
-                  FROM messages
-                  WHERE account_id = :accId
-                    AND (folder_name = :folder OR folder_name NOT IN (:excludedFolders))
-                )
-              )
-              WHERE dup_rn = 1
-            )
-            WHERE rn = 1 AND has_in_folder = 1
-            ORDER BY received_at DESC, id DESC
-            LIMIT :size OFFSET :offset
-            """, nativeQuery = true)
-    List<Object[]> findConversationRepresentativesCrossFolder(@Param("accId") Long accountId,
-            @Param("folder") String folderName, @Param("excludedFolders") List<String> excludedFolders,
-            @Param("size") int size, @Param("offset") long offset);
+    @Query("SELECT m.threadId, COUNT(DISTINCT COALESCE(m.messageId, m.stableId)) FROM MessageEntity m "
+            + "WHERE m.account.id = :accId AND m.threadId IN :threadIds "
+            + "AND m.folderName NOT IN :excludedFolders GROUP BY m.threadId")
+    List<Object[]> countCrossFolderConversationSizes(@Param("accId") Long accountId,
+            @Param("threadIds") List<String> threadIds, @Param("excludedFolders") List<String> excludedFolders);
 }

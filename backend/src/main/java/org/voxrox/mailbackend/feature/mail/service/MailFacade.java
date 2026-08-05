@@ -224,13 +224,16 @@ public class MailFacade {
         // One resolution drives both decisions: a view is folder-scoped exactly
         // when its own folder is one of the folders the cross-folder counts skip.
         List<String> excludedFolders = conversationExcludedFolders(accountId);
-        List<Object[]> rows;
-        if (excludedFolders.isEmpty() || excludedFolders.contains(folderName)) {
-            rows = messageRepository.findConversationRepresentatives(accountId, folderName, size, offset);
-        } else {
-            rows = messageRepository.findConversationRepresentativesCrossFolder(accountId, folderName, excludedFolders,
-                    size, offset);
-        }
+        boolean crossFolder = !excludedFolders.isEmpty() && !excludedFolders.contains(folderName);
+
+        // The page is always the folder-scoped query, in both modes. It produces
+        // exactly the same rows in the same order as a cross-folder window query
+        // would — the representative is the newest member in this folder either
+        // way, and "has a member in the folder" is implicit when only the folder's
+        // rows are scanned — but it can ride the (account_id, folder_name,
+        // received_at) index instead of materializing and sorting the whole
+        // account on every page load and every sync_completed refetch.
+        List<Object[]> rows = messageRepository.findConversationRepresentatives(accountId, folderName, size, offset);
         long total = messageRepository.countConversationsByAccountAndFolder(accountId, folderName);
         Pageable pageable = PageRequest.of(page, size);
 
@@ -243,6 +246,9 @@ public class MailFacade {
         List<Long> repIds = rows.stream().map(r -> ((Number) r[0]).longValue()).toList();
         Map<Long, MailSummaryResponse> byId = messageRepository.findSummariesByIds(repIds).stream()
                 .collect(Collectors.toMap(MailSummaryResponse::id, mapper::withDisplayFallbacks));
+        Map<String, Integer> crossFolderSizes = crossFolder
+                ? crossFolderConversationSizes(accountId, byId.values(), excludedFolders)
+                : Map.of();
 
         List<ConversationSummaryResponse> content = new ArrayList<>(rows.size());
         for (Object[] r : rows) {
@@ -254,9 +260,43 @@ public class MailFacade {
             }
             int messageCount = ((Number) r[1]).intValue();
             int unreadCount = ((Number) r[2]).intValue();
+            if (latest.threadId() != null) {
+                // Cross-folder mode replaces the folder-scoped size; an unthreaded
+                // representative is a singleton by construction, so it keeps its own.
+                messageCount = crossFolderSizes.getOrDefault(latest.threadId(), messageCount);
+            }
             content.add(new ConversationSummaryResponse(latest.threadId(), latest, messageCount, unreadCount));
         }
         return new PageImpl<>(content, pageable, total);
+    }
+
+    /**
+     * Cross-folder {@code messageCount} for the conversations on one page, keyed by
+     * thread id. Bounded work: at most {@code size} thread ids go into an indexed
+     * {@code IN} lookup, unlike a window aggregate that would have to partition the
+     * whole account before the page can be cut.
+     *
+     * <p>
+     * Representatives without a thread id are left out — the backfill has not
+     * threaded them, so their conversation is a singleton and the folder-scoped
+     * count of 1 is already right. Grouping on {@code COALESCE(thread_id,
+     * stable_id)} would have been the literal translation of the listing's grouping
+     * key, but it is not indexable; the plain {@code thread_id} lookup rides
+     * {@code idx_messages_account_thread}.
+     */
+    private Map<String, Integer> crossFolderConversationSizes(Long accountId,
+            Collection<MailSummaryResponse> representatives, List<String> excludedFolders) {
+        List<String> threadIds = representatives.stream().map(MailSummaryResponse::threadId).filter(Objects::nonNull)
+                .distinct().toList();
+        if (threadIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, Integer> sizes = new HashMap<>();
+        for (Object[] row : messageRepository.countCrossFolderConversationSizes(accountId, threadIds,
+                excludedFolders)) {
+            sizes.put((String) row[0], ((Number) row[1]).intValue());
+        }
+        return sizes;
     }
 
     /**

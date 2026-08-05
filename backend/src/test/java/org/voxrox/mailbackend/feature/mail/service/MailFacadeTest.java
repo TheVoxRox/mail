@@ -328,8 +328,7 @@ class MailFacadeTest {
             // [representativeId, messageCount, unreadCount]; A newer than B.
             Object[] rowA = new Object[]{2L, 3, 1};
             Object[] rowB = new Object[]{5L, 1, 0};
-            when(messageRepository.findConversationRepresentativesCrossFolder(ACCOUNT_ID, FOLDER_INBOX, NO_EXCLUDED, 50,
-                    0L)).thenReturn(List.of(rowA, rowB));
+            when(messageRepository.findConversationRepresentatives(ACCOUNT_ID, FOLDER_INBOX, 50, 0L)).thenReturn(List.of(rowA, rowB));
             when(messageRepository.countConversationsByAccountAndFolder(ACCOUNT_ID, FOLDER_INBOX)).thenReturn(2L);
             MailSummaryResponse s2 = summaryWithThread(2L, "t-A");
             MailSummaryResponse s5 = summaryWithThread(5L, "t-B");
@@ -359,8 +358,7 @@ class MailFacadeTest {
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
             Object[] rowA = new Object[]{2L, 2, 0};
             Object[] rowB = new Object[]{5L, 1, 0}; // representative 5 vanished concurrently
-            when(messageRepository.findConversationRepresentativesCrossFolder(ACCOUNT_ID, FOLDER_INBOX, NO_EXCLUDED, 50,
-                    0L)).thenReturn(List.of(rowA, rowB));
+            when(messageRepository.findConversationRepresentatives(ACCOUNT_ID, FOLDER_INBOX, 50, 0L)).thenReturn(List.of(rowA, rowB));
             when(messageRepository.countConversationsByAccountAndFolder(ACCOUNT_ID, FOLDER_INBOX)).thenReturn(2L);
             MailSummaryResponse s2 = summaryWithThread(2L, "t-A");
             when(messageRepository.findSummariesByIds(List.of(2L, 5L))).thenReturn(List.of(s2));
@@ -380,8 +378,7 @@ class MailFacadeTest {
         @DisplayName("No conversations -> empty page with the count total, no summary lookup")
         void emptyFolderReturnsEmptyPage() {
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
-            when(messageRepository.findConversationRepresentativesCrossFolder(ACCOUNT_ID, FOLDER_INBOX, NO_EXCLUDED, 50,
-                    0L)).thenReturn(List.of());
+            when(messageRepository.findConversationRepresentatives(ACCOUNT_ID, FOLDER_INBOX, 50, 0L)).thenReturn(List.of());
             when(messageRepository.countConversationsByAccountAndFolder(ACCOUNT_ID, FOLDER_INBOX)).thenReturn(0L);
 
             Page<ConversationSummaryResponse> page = mailFacade.getConversations(ACCOUNT_ID, FOLDER_INBOX, 0, 50);
@@ -389,6 +386,43 @@ class MailFacadeTest {
             assertThat(page.getContent()).isEmpty();
             assertThat(page.getTotalElements()).isZero();
             verify(messageRepository, never()).findSummariesByIds(any());
+        }
+
+        @Test
+        @DisplayName("Cross-folder size replaces the folder-scoped messageCount; unreadCount keeps its folder value")
+        void crossFolderSizeOverridesMessageCount() {
+            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
+            // Folder-scoped row: 2 messages here, 1 of them unread.
+            when(messageRepository.findConversationRepresentatives(ACCOUNT_ID, FOLDER_INBOX, 50, 0L))
+                    .thenReturn(List.<Object[]>of(new Object[]{2L, 2, 1}));
+            when(messageRepository.countConversationsByAccountAndFolder(ACCOUNT_ID, FOLDER_INBOX)).thenReturn(1L);
+            MailSummaryResponse s2 = summaryWithThread(2L, "t-A");
+            when(messageRepository.findSummariesByIds(List.of(2L))).thenReturn(List.of(s2));
+            when(mapper.withDisplayFallbacks(any(MailSummaryResponse.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(messageRepository.countCrossFolderConversationSizes(ACCOUNT_ID, List.of("t-A"), NO_EXCLUDED))
+                    .thenReturn(List.<Object[]>of(new Object[]{"t-A", 4}));
+
+            Page<ConversationSummaryResponse> page = mailFacade.getConversations(ACCOUNT_ID, FOLDER_INBOX, 0, 50);
+
+            assertThat(page.getContent()).hasSize(1);
+            assertThat(page.getContent().get(0).messageCount()).isEqualTo(4);
+            assertThat(page.getContent().get(0).unreadCount()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("An unthreaded representative is a singleton — it never reaches the cross-folder size query")
+        void unthreadedRepresentativeKeepsItsFolderCount() {
+            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
+            when(messageRepository.findConversationRepresentatives(ACCOUNT_ID, FOLDER_INBOX, 50, 0L))
+                    .thenReturn(List.<Object[]>of(new Object[]{2L, 1, 0}));
+            when(messageRepository.countConversationsByAccountAndFolder(ACCOUNT_ID, FOLDER_INBOX)).thenReturn(1L);
+            when(messageRepository.findSummariesByIds(List.of(2L))).thenReturn(List.of(summaryWithThread(2L, null)));
+            when(mapper.withDisplayFallbacks(any(MailSummaryResponse.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            Page<ConversationSummaryResponse> page = mailFacade.getConversations(ACCOUNT_ID, FOLDER_INBOX, 0, 50);
+
+            assertThat(page.getContent().get(0).messageCount()).isEqualTo(1);
+            verify(messageRepository, never()).countCrossFolderConversationSizes(anyLong(), any(), any());
         }
 
         @Test
@@ -400,15 +434,16 @@ class MailFacadeTest {
             stubRoleFolders(FolderRole.TRASH, FOLDER_TRASH, "Recycle bin");
             stubRoleFolders(FolderRole.JUNK, "Spam");
             stubRoleFolders(FolderRole.DRAFTS, FOLDER_DRAFTS);
-            when(messageRepository.findConversationRepresentativesCrossFolder(ACCOUNT_ID, FOLDER_INBOX,
-                    List.of("", FOLDER_TRASH, "Recycle bin", "Spam", FOLDER_DRAFTS), 50, 0L)).thenReturn(List.of());
-            when(messageRepository.countConversationsByAccountAndFolder(ACCOUNT_ID, FOLDER_INBOX)).thenReturn(0L);
+            when(messageRepository.findConversationRepresentatives(ACCOUNT_ID, FOLDER_INBOX, 50, 0L))
+                    .thenReturn(List.<Object[]>of(new Object[]{2L, 1, 0}));
+            when(messageRepository.countConversationsByAccountAndFolder(ACCOUNT_ID, FOLDER_INBOX)).thenReturn(1L);
+            when(messageRepository.findSummariesByIds(List.of(2L))).thenReturn(List.of(summaryWithThread(2L, "t-A")));
+            when(mapper.withDisplayFallbacks(any(MailSummaryResponse.class))).thenAnswer(inv -> inv.getArgument(0));
 
-            Page<ConversationSummaryResponse> page = mailFacade.getConversations(ACCOUNT_ID, FOLDER_INBOX, 0, 50);
+            mailFacade.getConversations(ACCOUNT_ID, FOLDER_INBOX, 0, 50);
 
-            assertThat(page.getContent()).isEmpty();
-            verify(messageRepository, never()).findConversationRepresentatives(anyLong(), anyString(), anyInt(),
-                    anyLong());
+            verify(messageRepository).countCrossFolderConversationSizes(ACCOUNT_ID, List.of("t-A"),
+                    List.of("", FOLDER_TRASH, "Recycle bin", "Spam", FOLDER_DRAFTS));
         }
 
         /**
@@ -431,8 +466,7 @@ class MailFacadeTest {
             Page<ConversationSummaryResponse> page = mailFacade.getConversations(ACCOUNT_ID, folderName, 0, 50);
 
             assertThat(page.getContent()).isEmpty();
-            verify(messageRepository, never()).findConversationRepresentativesCrossFolder(anyLong(), anyString(), any(),
-                    anyInt(), anyLong());
+            verify(messageRepository, never()).countCrossFolderConversationSizes(anyLong(), any(), any());
         }
 
         @Test
@@ -450,8 +484,7 @@ class MailFacadeTest {
             // Degrading to folder-scoped counts is safe; a cross-folder query with an
             // unknown exclusion set would pull trash and junk into live conversations.
             assertThat(page.getContent()).isEmpty();
-            verify(messageRepository, never()).findConversationRepresentativesCrossFolder(anyLong(), anyString(), any(),
-                    anyInt(), anyLong());
+            verify(messageRepository, never()).countCrossFolderConversationSizes(anyLong(), any(), any());
         }
 
         private void stubRoleFolders(FolderRole role, String... folderNames) {
