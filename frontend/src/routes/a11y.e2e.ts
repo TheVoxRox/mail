@@ -488,9 +488,13 @@ test.describe('Přístupnost', () => {
 			/Volba se projeví ihned/
 		);
 		await expect(readingPaneSelect).toHaveAccessibleDescription(/detail zprávy/);
-		await expect(
-			page.getByRole('group', { name: 'Výchozí zobrazení obsahu zprávy' })
-		).toHaveAccessibleDescription(/tělo zprávy/);
+
+		const messageBodySelect = page.getByRole('combobox', {
+			name: 'Výchozí zobrazení obsahu zprávy'
+		});
+		await expect(messageBodySelect).toHaveCount(1);
+		await expect(messageBodySelect).toHaveAccessibleDescription(/tělo zprávy/);
+		await expect(messageBodySelect.locator('option')).toHaveText(['HTML', 'Prostý text']);
 	});
 
 	test('nový účet vystavuje provider/custom přepínač a chybové stavy přes role', async ({
