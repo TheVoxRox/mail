@@ -59,11 +59,18 @@
 	// selecting a conversation targets its members in the folder in view only
 	// (resolved at action time) — a delete from the inbox must never reach the
 	// sent copies. Rows open under their own folder, not the folder in view.
+	// The expand toggle owns a column of its own, like the flat list's row-actions
+	// menu: a screen reader has to be able to reach and operate it as a button.
+	// aria-expanded on the row plus ArrowRight/ArrowLeft is the WAI-ARIA treegrid
+	// contract, but it is not reachable in a screen reader's browse mode, which
+	// swallows unmodified arrow keys for its own navigation -- the caret used to be
+	// an aria-hidden span, so the only way to expand a thread was the mouse.
 	const COL_SELECT = 0;
-	const COL_STATUS = 1;
-	const COL_SUBJECT = 2;
-	const COL_SENDER = 3;
-	const COL_DATE = 4;
+	const COL_EXPAND = 1;
+	const COL_STATUS = 2;
+	const COL_SUBJECT = 3;
+	const COL_SENDER = 4;
+	const COL_DATE = 5;
 	const MAX_COL = COL_DATE;
 
 	let gridElement = $state<HTMLDivElement | null>(null);
@@ -466,8 +473,10 @@
 
 	function handleKeydown(event: KeyboardEvent, row: VisibleRow, rowIndex: number): void {
 		if (event.key === 'Enter' || event.key === ' ') {
-			// The select cell holds a checkbox — let Space toggle it natively.
-			if (focusedCol === COL_SELECT) return;
+			// Both cells hold a native control (checkbox, expand button) — let the
+			// key reach it instead of opening the row, which would otherwise toggle
+			// AND navigate on a single Enter.
+			if (focusedCol === COL_SELECT || focusedCol === COL_EXPAND) return;
 			event.preventDefault();
 			if (row.kind === 'conversation') void openConversation(row.conversation, { focusBody: true });
 			else void openMessage(row.message.stableId, row.message.folderName, { focusBody: true });
@@ -475,8 +484,11 @@
 		}
 		if ($conversationsState.status !== 'ready') return;
 
-		// Treegrid expand/collapse lives on the subject cell (where the caret sits).
-		if (focusedCol === COL_SUBJECT) {
+		// WAI-ARIA treegrid expand/collapse, on the subject cell and on the toggle
+		// button's own cell. This is the sighted-keyboard path; a screen reader in
+		// browse mode never delivers these keys, which is why the toggle also exists
+		// as a real button.
+		if (focusedCol === COL_SUBJECT || focusedCol === COL_EXPAND) {
 			if (row.kind === 'conversation' && isExpandable(row.conversation)) {
 				const id = row.conversation.threadId as string;
 				if (event.key === 'ArrowRight' && !expanded.has(id)) {
@@ -522,16 +534,13 @@
 	 * the row like an Arrow key — in a split pane the message follows into the
 	 * reading pane but focus stays on the row, in off mode / Drafts it only moves
 	 * the roving focus — and a double click opens like Enter, moving the reading
-	 * cursor into the body. `event.detail` is the click count. The caret is the
-	 * exception: it toggles expansion instead of selecting.
+	 * cursor into the body. `event.detail` is the click count. The expand toggle is
+	 * a real button and carries its own click handler, so it is caught by the
+	 * control guard below and never reaches the open/select logic.
 	 */
 	function handleRowClick(event: MouseEvent, row: VisibleRow, rowIndex: number): void {
 		const target = event.target as HTMLElement | null;
 		if (target?.closest('input, button, a')) return;
-		if (target?.closest('[data-expand-toggle]')) {
-			if (row.kind === 'conversation') void toggleExpand(row.conversation);
-			return;
-		}
 		if (event.detail >= 2) {
 			// Double click = Enter: invalidate any refocus the first click's
 			// selectAndFocus queued, so the body wins, then open deliberately.
@@ -830,19 +839,22 @@
 			role="treegrid"
 			aria-label={$_('messages.grouping.listLabel')}
 			aria-rowcount={visibleRows.length + 1}
-			aria-colcount={5}
+			aria-colcount={6}
 			class="flex-1 overflow-y-auto bg-background"
 		>
 			<div role="row" aria-rowindex={1} class="sr-only">
 				<span role="columnheader" aria-colindex={1}>{$_('messages.columnHeaderSelect')}</span>
-				<span role="columnheader" aria-colindex={2}>{$_('messages.columnHeaderStatus')}</span>
-				<span role="columnheader" aria-colindex={3}>{$_('messages.columnHeaderSubject')}</span>
-				<span role="columnheader" aria-colindex={4}
+				<span role="columnheader" aria-colindex={2}
+					>{$_('messages.grouping.columnHeaderExpand')}</span
+				>
+				<span role="columnheader" aria-colindex={3}>{$_('messages.columnHeaderStatus')}</span>
+				<span role="columnheader" aria-colindex={4}>{$_('messages.columnHeaderSubject')}</span>
+				<span role="columnheader" aria-colindex={5}
 					>{viewShowsRecipients
 						? $_('messages.columnHeaderRecipient')
 						: $_('messages.columnHeaderSender')}</span
 				>
-				<span role="columnheader" aria-colindex={5}>{$_('messages.columnHeaderDate')}</span>
+				<span role="columnheader" aria-colindex={6}>{$_('messages.columnHeaderDate')}</span>
 			</div>
 			{#each visibleRows as row, rowIndex (rowStableId(row))}
 				{@const isConversation = row.kind === 'conversation'}
@@ -864,7 +876,7 @@
 					aria-expanded={expandable ? (isOpen ? 'true' : 'false') : undefined}
 					aria-busy={isLoading ? 'true' : undefined}
 					class={cn(
-						'grid cursor-pointer grid-cols-[40px_auto_minmax(0,1fr)_auto] grid-rows-[auto_auto] border-b border-border/80 transition-colors hover:bg-muted/45 focus-within:relative focus-within:z-10',
+						'grid cursor-pointer grid-cols-[40px_28px_auto_minmax(0,1fr)_auto] grid-rows-[auto_auto] border-b border-border/80 transition-colors hover:bg-muted/45 focus-within:relative focus-within:z-10',
 						!isConversation && 'bg-muted/20 pl-5',
 						isConversation && selected.has(row.conversation.latest.stableId) && 'bg-primary/5',
 						unread && 'font-semibold'
@@ -908,6 +920,62 @@
 							class="row-span-2 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
 						></div>
 					{/if}
+					{#if expandable}
+						<!-- svelte-ignore a11y_click_events_have_key_events -->
+						<div
+							role="gridcell"
+							aria-colindex={COL_EXPAND + 1}
+							tabindex="-1"
+							class="col-start-2 row-span-2 flex items-start justify-center pt-3"
+							onclick={(e) => e.stopPropagation()}
+						>
+							<button
+								type="button"
+								data-cell-target
+								data-col={COL_EXPAND}
+								data-expand-toggle
+								tabindex={focusedRow === rowIndex && focusedCol === COL_EXPAND ? 0 : -1}
+								aria-expanded={isOpen}
+								aria-label={isLoading
+									? $_('messages.grouping.loading')
+									: isOpen
+										? $_('messages.grouping.collapseNamed', {
+												values: { subject: message.subject || $_('messages.noSubject') }
+											})
+										: $_('messages.grouping.expandNamed', {
+												values: { subject: message.subject || $_('messages.noSubject') }
+											})}
+								onfocus={() => handleCellFocus(rowIndex, COL_EXPAND)}
+								onclick={() => void toggleExpand(row.conversation)}
+								class="flex size-5 items-center justify-center rounded-sm text-muted-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+							>
+								<svg
+									viewBox="0 0 16 16"
+									aria-hidden="true"
+									class={cn('h-3.5 w-3.5 transition-transform', isOpen && 'rotate-90')}
+								>
+									<path
+										d="M6 4l4 4-4 4"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+									/>
+								</svg>
+							</button>
+						</div>
+					{:else}
+						<div
+							role="gridcell"
+							aria-colindex={COL_EXPAND + 1}
+							data-cell-target
+							data-col={COL_EXPAND}
+							tabindex={focusedRow === rowIndex && focusedCol === COL_EXPAND ? 0 : -1}
+							onfocus={() => handleCellFocus(rowIndex, COL_EXPAND)}
+							class="col-start-2 row-span-2 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+						></div>
+					{/if}
 					<div
 						role="gridcell"
 						aria-colindex={COL_STATUS + 1}
@@ -916,7 +984,7 @@
 						tabindex={focusedRow === rowIndex && focusedCol === COL_STATUS ? 0 : -1}
 						aria-label={statusLabel}
 						onfocus={() => handleCellFocus(rowIndex, COL_STATUS)}
-						class="col-start-2 row-span-2 flex items-center gap-1 rounded-sm px-2 text-caption text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+						class="col-start-3 row-span-2 flex items-center gap-1 rounded-sm px-2 text-caption text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
 					>
 						<MessageFlags {message} />
 					</div>
@@ -928,40 +996,10 @@
 						tabindex={focusedRow === rowIndex && focusedCol === COL_SUBJECT ? 0 : -1}
 						onfocus={() => handleCellFocus(rowIndex, COL_SUBJECT)}
 						class={cn(
-							'col-start-3 row-start-1 flex items-center gap-2 truncate rounded-sm px-2 pt-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50',
+							'col-start-4 row-start-1 flex items-center gap-2 truncate rounded-sm px-2 pt-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50',
 							unread ? 'text-foreground' : 'text-muted-foreground'
 						)}
 					>
-						{#if isConversation}
-							<span
-								class="flex w-4 shrink-0 items-center justify-center text-muted-foreground"
-								data-expand-toggle={expandable ? '' : undefined}
-								title={expandable
-									? isLoading
-										? $_('messages.grouping.loading')
-										: isOpen
-											? $_('messages.grouping.collapse')
-											: $_('messages.grouping.expand')
-									: undefined}
-								aria-hidden="true"
-							>
-								{#if expandable}
-									<svg
-										viewBox="0 0 16 16"
-										class={cn('h-3.5 w-3.5 transition-transform', isOpen && 'rotate-90')}
-									>
-										<path
-											d="M6 4l4 4-4 4"
-											fill="none"
-											stroke="currentColor"
-											stroke-width="2"
-											stroke-linecap="round"
-											stroke-linejoin="round"
-										/>
-									</svg>
-								{/if}
-							</span>
-						{/if}
 						{#if unread}
 							<span class="sr-only">{$_('messages.unreadIndicatorLabel')}.</span>
 						{/if}
@@ -1001,7 +1039,7 @@
 						tabindex={focusedRow === rowIndex && focusedCol === COL_SENDER ? 0 : -1}
 						onfocus={() => handleCellFocus(rowIndex, COL_SENDER)}
 						class={cn(
-							'col-start-3 row-start-2 truncate rounded-sm px-2 pb-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50',
+							'col-start-4 row-start-2 truncate rounded-sm px-2 pb-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50',
 							unread ? 'text-foreground' : 'text-muted-foreground'
 						)}
 					>
@@ -1014,7 +1052,7 @@
 						data-col={COL_DATE}
 						tabindex={focusedRow === rowIndex && focusedCol === COL_DATE ? 0 : -1}
 						onfocus={() => handleCellFocus(rowIndex, COL_DATE)}
-						class="col-start-4 row-span-2 flex items-center rounded-sm px-3 text-caption text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+						class="col-start-5 row-span-2 flex items-center rounded-sm px-3 text-caption text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
 					>
 						<time datetime={message.receivedAt}>{formattedDate}</time>
 					</div>

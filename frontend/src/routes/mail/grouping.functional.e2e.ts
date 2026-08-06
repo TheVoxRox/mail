@@ -57,7 +57,7 @@ test.describe('Konverzační seskupení', () => {
 		// the mouse twin of an Arrow key). Target the subject cell rather than the
 		// row: a row-centre click can land between cells, where the roving focus
 		// the assertions below check would not settle.
-		await firstRow.locator('[data-cell-target][data-col="2"]').dblclick();
+		await firstRow.locator('[data-cell-target][data-col="3"]').dblclick();
 
 		await page.waitForURL(
 			`**/mail/${accountId}/${encodeURIComponent(folderName)}/${encodeURIComponent(stableId ?? '')}`
@@ -74,7 +74,7 @@ test.describe('Konverzační seskupení', () => {
 		const grid = page.getByRole('treegrid', { name: 'Seznam konverzací' });
 		const firstRow = grid.locator('[role="row"][data-stable-id]').first();
 		await expect(firstRow).toBeVisible();
-		const subjectCell = firstRow.locator('[data-cell-target][data-col="2"]');
+		const subjectCell = firstRow.locator('[data-cell-target][data-col="3"]');
 		await subjectCell.click();
 
 		// No pane to preview into, so the click only moves the roving focus onto
@@ -95,7 +95,7 @@ test.describe('Konverzační seskupení', () => {
 		const firstRow = grid.locator('[role="row"][data-stable-id]').first();
 		await expect(firstRow).toBeVisible();
 		const stableId = await firstRow.getAttribute('data-stable-id');
-		const subjectCell = firstRow.locator('[data-cell-target][data-col="2"]');
+		const subjectCell = firstRow.locator('[data-cell-target][data-col="3"]');
 		await subjectCell.click();
 
 		await page.waitForURL(
@@ -159,20 +159,51 @@ test.describe('Rozbalení konverzace', () => {
 		await expect(archiveRow(page, 'sent-plan-01')).toHaveCount(0);
 	});
 
+	test('rozbalovací prvek je tlačítko s názvem a jde ovládat klávesnicí', async ({ page }) => {
+		// The ARIA treegrid contract (aria-expanded on the row + ArrowRight/Left) is
+		// not reachable in a screen reader's browse mode, which swallows unmodified
+		// arrow keys — so the toggle must also exist as a real, named button.
+		await page.goto(`/mail/${accountId}/ARCHIVE`);
+		await waitForShell(page);
+
+		const toggle = page.getByRole('button', { name: 'Rozbalit konverzaci Re: Plán vydání' });
+		await expect(toggle).toBeVisible();
+		await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+		await toggle.focus();
+		await toggle.press('Enter');
+
+		const parent = archiveRow(page, 'arch-03');
+		await expect(parent).toHaveAttribute('aria-expanded', 'true');
+		await expect(archiveRow(page, 'arch-02')).toBeVisible();
+		// Enter on the toggle must not also open the message: the row's own
+		// Enter handler has to yield to the button.
+		await expect(page).toHaveURL(new RegExp(`/mail/${accountId}/ARCHIVE$`));
+		// The label tracks the state, so a screen reader is told what the key did.
+		const collapse = page.getByRole('button', { name: 'Sbalit konverzaci Re: Plán vydání' });
+		await expect(collapse).toBeFocused();
+
+		await collapse.press(' ');
+
+		await expect(parent).toHaveAttribute('aria-expanded', 'false');
+		await expect(archiveRow(page, 'arch-02')).toHaveCount(0);
+		await expect(page).toHaveURL(new RegExp(`/mail/${accountId}/ARCHIVE$`));
+	});
+
 	test('šipky na předmětu rozbalí a sbalí konverzaci', async ({ page }) => {
 		await page.goto(`/mail/${accountId}/ARCHIVE`);
 		await waitForShell(page);
 
 		const parent = archiveRow(page, 'arch-03');
 		await expect(parent).toBeVisible();
-		const subjectCell = parent.locator('[data-cell-target][data-col="2"]');
+		const subjectCell = parent.locator('[data-cell-target][data-col="3"]');
 		await subjectCell.focus();
 
 		await subjectCell.press('ArrowRight');
 		await expect(parent).toHaveAttribute('aria-expanded', 'true');
 		await expect(archiveRow(page, 'arch-02')).toBeVisible();
 
-		await parent.locator('[data-cell-target][data-col="2"]').press('ArrowLeft');
+		await parent.locator('[data-cell-target][data-col="3"]').press('ArrowLeft');
 		await expect(parent).toHaveAttribute('aria-expanded', 'false');
 		await expect(archiveRow(page, 'arch-02')).toHaveCount(0);
 	});
