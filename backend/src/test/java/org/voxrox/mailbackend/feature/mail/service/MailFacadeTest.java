@@ -395,6 +395,7 @@ class MailFacadeTest {
         @DisplayName("Cross-folder size replaces the folder-scoped messageCount; unreadCount keeps its folder value")
         void crossFolderSizeOverridesMessageCount() {
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
+            stubRolesResolveToNothing();
             // Folder-scoped row: 2 messages here, 1 of them unread.
             when(messageRepository.findConversationRepresentatives(ACCOUNT_ID, FOLDER_INBOX, 50, 0L))
                     .thenReturn(List.<Object[]>of(new Object[]{2L, 2, 1}));
@@ -481,7 +482,7 @@ class MailFacadeTest {
         @DisplayName("Roles unresolvable (IMAP down, nothing recorded) -> folder-scoped, not a cross-folder guess")
         void unresolvableRolesFallBackToFolderScoped() {
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
-            when(imapFolderService.findFolderNamesByRole(eq(ACCOUNT_ID), any()))
+            when(imapFolderService.findFolderNamesByRoleWithoutWaiting(eq(ACCOUNT_ID), any()))
                     .thenThrow(new MailOperationException(ErrorCode.MAIL_CONNECTION_ERROR, "Connection refused"));
             when(messageRepository.findConversationRepresentatives(ACCOUNT_ID, FOLDER_INBOX, 50, 0L))
                     .thenReturn(List.of());
@@ -495,8 +496,44 @@ class MailFacadeTest {
             verify(messageRepository, never()).countCrossFolderConversationSizes(anyLong(), any(), any());
         }
 
+        @Test
+        @DisplayName("Connection busy with a sync -> folder-scoped too, rather than waiting for the lock")
+        void busyConnectionFallsBackToFolderScoped() {
+            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
+            /*
+             * The other degradation route: not an exception but an empty Optional, the read
+             * path's "I could not find out without waiting for the sync". It has to fail
+             * closed exactly like the error case — an empty exclusion set would mean
+             * "exclude nothing", i.e. trash and junk inside live conversations.
+             */
+            when(imapFolderService.findFolderNamesByRoleWithoutWaiting(eq(ACCOUNT_ID), any()))
+                    .thenReturn(Optional.empty());
+            when(messageRepository.findConversationRepresentatives(ACCOUNT_ID, FOLDER_INBOX, 50, 0L))
+                    .thenReturn(List.of());
+            when(messageRepository.countConversationsByAccountAndFolder(ACCOUNT_ID, FOLDER_INBOX)).thenReturn(0L);
+
+            Page<ConversationSummaryResponse> page = mailFacade.getConversations(ACCOUNT_ID, FOLDER_INBOX, 0, 50);
+
+            assertThat(page.getContent()).isEmpty();
+            verify(messageRepository, never()).countCrossFolderConversationSizes(anyLong(), any(), any());
+        }
+
+        /**
+         * Every excluded role resolves, to nothing — the account has no trash, junk or
+         * drafts. Spelled out rather than left to the Mockito default: an unstubbed
+         * {@code Optional} method yields {@link Optional#empty()}, which the read path
+         * reads as "could not resolve" and answers folder-scoped, so the test would
+         * assert cross-folder behaviour while exercising the degraded path.
+         */
+        private void stubRolesResolveToNothing() {
+            for (FolderRole role : List.of(FolderRole.TRASH, FolderRole.JUNK, FolderRole.DRAFTS)) {
+                stubRoleFolders(role);
+            }
+        }
+
         private void stubRoleFolders(FolderRole role, String... folderNames) {
-            when(imapFolderService.findFolderNamesByRole(ACCOUNT_ID, role)).thenReturn(List.of(folderNames));
+            when(imapFolderService.findFolderNamesByRoleWithoutWaiting(ACCOUNT_ID, role))
+                    .thenReturn(Optional.of(List.of(folderNames)));
         }
 
         private MailSummaryResponse summaryWithThread(long id, String threadId) {
@@ -947,7 +984,7 @@ class MailFacadeTest {
             assertThat(result.unreadCount()).isEqualTo(2);
             assertThat(result.messages()).containsExactly(s1, s2, s3);
             // The unscoped read must not go looking for folder roles at all.
-            verify(imapFolderService, never()).findFolderNamesByRole(anyLong(), any());
+            verify(imapFolderService, never()).findFolderNamesByRoleWithoutWaiting(anyLong(), any());
         }
 
         /**
@@ -983,6 +1020,7 @@ class MailFacadeTest {
             MailSummaryResponse older = summaryAt(1L, FOLDER_INBOX, "<a@x.cz>", LocalDateTime.of(2026, 1, 1, 10, 0));
             MailSummaryResponse representative = summaryAt(2L, FOLDER_INBOX, "<a@x.cz>",
                     LocalDateTime.of(2026, 1, 1, 12, 0));
+            stubRolesResolveToNothing();
             stubThread(older, representative);
             when(mapper.withDisplayFallbacks(any(MailSummaryResponse.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -998,6 +1036,7 @@ class MailFacadeTest {
             MailSummaryResponse lower = summaryAt(1L, FOLDER_INBOX, "<a@x.cz>", sameInstant);
             MailSummaryResponse higher = summaryAt(9L, FOLDER_INBOX, "<a@x.cz>", sameInstant);
             // Higher id first, so "later wins" alone would keep the wrong one.
+            stubRolesResolveToNothing();
             stubThread(higher, lower);
             when(mapper.withDisplayFallbacks(any(MailSummaryResponse.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -1091,7 +1130,7 @@ class MailFacadeTest {
         @Test
         @DisplayName("Unresolvable folder roles -> folder-scoped members, not the whole account")
         void unresolvableRolesDegradeToFolderScoped() {
-            when(imapFolderService.findFolderNamesByRole(eq(ACCOUNT_ID), any()))
+            when(imapFolderService.findFolderNamesByRoleWithoutWaiting(eq(ACCOUNT_ID), any()))
                     .thenThrow(new IllegalStateException("IMAP down"));
             MailSummaryResponse inbox = summary(1L, FOLDER_INBOX, "<a@x.cz>", true);
             MailSummaryResponse sent = summary(2L, "[Gmail]/Sent Mail", "<b@x.cz>", true);
@@ -1113,6 +1152,7 @@ class MailFacadeTest {
         void unreadCountIsFolderScopedLikeTheRow() {
             MailSummaryResponse inbox = summary(1L, FOLDER_INBOX, "<a@x.cz>", false);
             MailSummaryResponse unreadElsewhere = summary(2L, "[Gmail]/Sent Mail", "<b@x.cz>", false);
+            stubRolesResolveToNothing();
             stubThread(inbox, unreadElsewhere);
             when(mapper.withDisplayFallbacks(any(MailSummaryResponse.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -1153,7 +1193,22 @@ class MailFacadeTest {
         }
 
         private void stubRole(FolderRole role, String... folderNames) {
-            when(imapFolderService.findFolderNamesByRole(ACCOUNT_ID, role)).thenReturn(List.of(folderNames));
+            when(imapFolderService.findFolderNamesByRoleWithoutWaiting(ACCOUNT_ID, role))
+                    .thenReturn(Optional.of(List.of(folderNames)));
+        }
+
+        /**
+         * The account genuinely has no trash, junk or drafts folder — every role
+         * resolves, to nothing. Must be spelled out rather than left to the Mockito
+         * default: an unstubbed {@code Optional} method returns
+         * {@link Optional#empty()}, which the read path reads as "could not resolve"
+         * and answers with the folder-scoped fallback. The test would then assert
+         * cross-folder behaviour while silently exercising the degraded path.
+         */
+        private void stubRolesResolveToNothing() {
+            for (FolderRole role : List.of(FolderRole.TRASH, FolderRole.JUNK, FolderRole.DRAFTS)) {
+                stubRole(role);
+            }
         }
 
         /**

@@ -313,19 +313,35 @@ public class MailFacade {
      * which would silently promote the trash to a cross-folder view.
      *
      * <p>
-     * Returns an empty list when the roles cannot be resolved at all (IMAP down and
-     * nothing recorded locally). That is the fail-closed signal — the caller falls
-     * back to the folder-scoped listing, which can never show foreign folders'
-     * messages. Otherwise the list always contains the empty-string sentinel so the
-     * native {@code NOT IN} clause stays well-formed when the account has none of
-     * the three folders; a folder name is never empty.
+     * Bounded: the lookup gives up rather than waiting for the account's IMAP
+     * connection. A sync holds that lock for a whole folder cycle, and the case
+     * where the DB has no record yet is precisely the case where a long initial
+     * sync is running — so the blocking variant would stall the user's message list
+     * behind it. Waiting on a lock raises nothing, so the symptom would be a list
+     * that just hangs.
+     *
+     * <p>
+     * Returns an empty list when the roles cannot be resolved (IMAP busy or down
+     * and nothing recorded locally). That is the fail-closed signal — the caller
+     * falls back to the folder-scoped listing, which can never show foreign
+     * folders' messages. Otherwise the list always contains the empty-string
+     * sentinel so the native {@code NOT IN} clause stays well-formed when the
+     * account has none of the three folders; a folder name is never empty.
      */
     private List<String> conversationExcludedFolders(Long accountId) {
         List<String> excluded = new ArrayList<>();
         excluded.add("");
         try {
             for (FolderRole role : CONVERSATION_EXCLUDED_ROLES) {
-                excluded.addAll(imapFolderService.findFolderNamesByRole(accountId, role));
+                Optional<List<String>> names = imapFolderService.findFolderNamesByRoleWithoutWaiting(accountId, role);
+                if (names.isEmpty()) {
+                    log.debug(
+                            "{} Role {} of account {} could not be resolved without waiting for IMAP; "
+                                    + "serving the folder-scoped conversation listing.",
+                            LogCategory.SYNC, role, accountId);
+                    return List.of();
+                }
+                excluded.addAll(names.get());
             }
         } catch (RuntimeException e) {
             log.warn(

@@ -103,22 +103,81 @@ public class ImapConnectionManager {
      * refresh token, wrong scopes) and propagates outwards.
      */
     public <R> @Nullable R executeWithLock(Long accountId, StoreAction<R> action) {
-        /*
-         * Fail-fast for accounts after a rejected OAuth refresh token or a permanent
-         * IMAP auth failure. Without this guard every FE click would run through the
-         * whole IMAP connect cycle (token refresh + double XOAUTH2 attempt), generate
-         * traffic against the Google API and return a confusing "Invalid credentials"
-         * instead of a clear "sign in again" instruction. The flag is cleared only by a
-         * successful re-login in
-         * ExternalProviderLoginService#processExternalProviderLogin.
-         */
+        requireUsableAccount(accountId);
+
+        ReentrantLock lock = lockFor(accountId);
+        lock.lock();
+        try {
+            return executeLocked(accountId, action);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /**
+     * Same as {@link #executeWithLock} but gives up instead of queuing when the
+     * account's connection is busy.
+     *
+     * <p>
+     * The lock is held for a whole folder cycle by a background sync — download,
+     * flag sweep and cleanup, tens of seconds on a large mailbox. A read request
+     * serving the user's message list must never inherit that wait: waiting on a
+     * lock throws nothing and reports nothing, so the symptom is a UI that appears
+     * to hang with no error anywhere. Callers on the read path use this and degrade
+     * to whatever they can answer without IMAP.
+     *
+     * @return the action's result, or empty when the lock was not acquired within
+     *         {@code timeout}. Actions passed here must not return {@code null} —
+     *         an empty result means "did not run".
+     */
+    public <R> Optional<R> executeWithLockOrSkip(Long accountId, Duration timeout, StoreAction<R> action) {
+        requireUsableAccount(accountId);
+
+        ReentrantLock lock = lockFor(accountId);
+        boolean acquired;
+        try {
+            acquired = lock.tryLock(timeout.toMillis(), TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return Optional.empty();
+        }
+        if (!acquired) {
+            log.debug("{} Connection of account {} is busy; skipping the non-blocking IMAP lookup.", LogCategory.IMAP,
+                    accountId);
+            metrics.incrementImapLockSkipped();
+            return Optional.empty();
+        }
+        try {
+            return Optional.ofNullable(executeLocked(accountId, action));
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private ReentrantLock lockFor(Long accountId) {
+        return accountLocks.computeIfAbsent(accountId, k -> new ReentrantLock(true));
+    }
+
+    /*
+     * Fail-fast for accounts after a rejected OAuth refresh token or a permanent
+     * IMAP auth failure. Without this guard every FE click would run through the
+     * whole IMAP connect cycle (token refresh + double XOAUTH2 attempt), generate
+     * traffic against the Google API and return a confusing "Invalid credentials"
+     * instead of a clear "sign in again" instruction. The flag is cleared only by a
+     * successful re-login in
+     * ExternalProviderLoginService#processExternalProviderLogin.
+     */
+    private void requireUsableAccount(Long accountId) {
         if (accountRepository.isRequiresReauth(accountId).orElse(false)) {
             throw new MailOperationException(ErrorCode.MAIL_ACCOUNT_REQUIRES_REAUTH,
                     "The account requires sign-in again.", HttpStatus.UNAUTHORIZED, "error.mail.accountRequiresReauth");
         }
+    }
 
-        ReentrantLock lock = accountLocks.computeIfAbsent(accountId, k -> new ReentrantLock(true));
-        lock.lock();
+    /**
+     * Connection acquisition plus the single-shot auth retry. Lock must be held.
+     */
+    private <R> @Nullable R executeLocked(Long accountId, StoreAction<R> action) {
         try {
             try {
                 Store store = getConnectedStore(accountId);
@@ -141,8 +200,6 @@ public class ImapConnectionManager {
         } catch (MessagingException | IOException e) {
             throw new MailConnectionException("Critical IMAP error for account " + accountId + ": " + e.getMessage(),
                     e);
-        } finally {
-            lock.unlock();
         }
     }
 

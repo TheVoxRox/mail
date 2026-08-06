@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,6 +27,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.voxrox.mailbackend.core.config.MailClientProperties;
+import org.voxrox.mailbackend.core.config.mail.ImapProperties;
 import org.voxrox.mailbackend.exception.ErrorCode;
 import org.voxrox.mailbackend.exception.MailOperationException;
 import org.voxrox.mailbackend.feature.mail.dto.FolderResponse;
@@ -50,11 +53,16 @@ class ImapFolderServiceTest {
     private FolderListCache folderListCache;
     private ImapFolderService service;
 
+    /** Any value — these tests never exercise the non-blocking lookup path. */
+    private static final Duration ROLE_LOOKUP_TIMEOUT = Duration.ofSeconds(1);
+
     @BeforeEach
     void setUp() {
         folderListCache = new FolderListCache();
+        MailClientProperties mailProps = new MailClientProperties(new ImapProperties(993, Duration.ofSeconds(30),
+                Duration.ofSeconds(60), "imaps", "imap", ROLE_LOOKUP_TIMEOUT), null, null, null);
         service = new ImapFolderService(imapConnectionManager, imapFolderExecutor, folderSyncStateRepository,
-                messageRepository, folderListCache);
+                messageRepository, folderListCache, mailProps);
     }
 
     @Nested
