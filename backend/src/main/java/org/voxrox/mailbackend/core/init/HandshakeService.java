@@ -151,9 +151,28 @@ public class HandshakeService {
         }
 
         String previousVersion = databaseBackupService != null ? databaseBackupService.previousAppVersion() : null;
-        AuditLog.success("app_started", "system", "appVersion=" + appVersion + " dbSchemaVersion=" + dbSchemaVersion
-                + " previousAppVersion=" + (previousVersion != null ? previousVersion : "<none>"));
+        AuditLog.success("app_started", "system",
+                "appVersion=" + appVersion + " dbSchemaVersion=" + dbSchemaVersion + " dbSchemaChecksum="
+                        + resolveDbSchemaChecksum() + " previousAppVersion="
+                        + (previousVersion != null ? previousVersion : "<none>"));
         startupTimingService.record("spring.application-ready", applicationReadyStarted);
+    }
+
+    /**
+     * Checksum of the newest applied migration, logged alongside the schema
+     * version. Two installations can report the same {@code dbSchemaVersion} and
+     * still carry different schemas if a migration file was edited after release —
+     * the version alone cannot tell them apart, the checksum can. Support reads it
+     * from {@code app_started} in the audit log when a startup failure is reported
+     * as {@code flyway_altered_migration}.
+     */
+    private String resolveDbSchemaChecksum() {
+        if (flyway == null) {
+            return "<unknown>";
+        }
+        MigrationInfo current = flyway.info().current();
+        Integer checksum = current != null ? current.getChecksum() : null;
+        return checksum != null ? checksum.toString() : "<none>";
     }
 
     private String resolveDbSchemaVersion() {

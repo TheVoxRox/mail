@@ -13,7 +13,7 @@ sekci s podsekcemi podle artefaktu.
 - Přidán sidecar lifecycle kontrakt: graceful shutdown, `session.json` + `.ready` gate.
 - Přidán first-run crypto bootstrap do `${app.data-dir}/crypto.bin`; `MAIL_CRYPTO_KEY/SALT` zůstávají volitelný dev override.
 - Konsolidace startup handshake do `/api/v1/system/readiness` (vrací `appVersion`, `apiVersion`, `minClientVersion`, `dbSchemaVersion` a `phase`). Původní `/api/handshake` endpoint odstraněn — desktop klient používá readiness.
-- Pre-migration DB backup běží jen když má Flyway pending migrace (před každým release majoru jeden snapshot, ne při každém startu).
+- Pre-migration DB backup běží jen když má Flyway pending migrace nebo když už aplikovaná migrace neodpovídá souboru v buildu (ne při každém startu) — detail v sekci „Migrace / DB".
 - Health gate při startu: při selhání `PRAGMA quick_check` se aplikace zastaví s recovery zprávou odkazující na `OPERATIONS.md`.
 - Audit event `app_started` s `appVersion`, `dbSchemaVersion`, `previousAppVersion`.
 - Spring AOT a JEP 483 AOT cache (opt-in přes packaging script): cold start jvm `java -jar` 8,5 s → 5,4 s (−37 %).
@@ -147,6 +147,9 @@ sekci s podsekcemi podle artefaktu.
 
 - `V2__add_modseq.sql` (CONDSTORE `last_known_modseq` column) sloučena zpět do `V1__init.sql`. Bezpečné pře prvním release — projekt nemá produkční data.
 - `V2__remote_image_allowlist.sql` (tabulka `remote_image_sender`, per-sender opt-in pro remote obrázky z nálezu F2) sloučena zpět do `V1__init.sql`, DDL beze změny. Existující dev DB je potřeba znovu vytvořit — checksum V1 se změnil a Flyway validace je odmítne.
+- Zmrazení baseline migrace je nově build gate, ne jen řádek v release checklistu: `FlywayBaselineChecksumTest` pinuje Flyway checksum `V1__init.sql` a padá na jeho změnu s hláškou, která rozlišuje pre-release re-pin (legitimní) od post-release editace (vždy bug — editovaná V1 shodí každou existující instalaci při startu a updater nespustitelný build neopraví). Test cílí na verzi 1, ne na `info().current()`, takže platí i po přidání V2+.
+- Pre-migration DB snapshot se pořizuje i při **změněné už aplikované migraci**, nejen při pending migracích. Tenhle stav není „pending", takže dosavadní podmínka vynechala zálohu právě u jediného selhání, které nechá uživatele s nestartujícím sidecarem. Startup pak selže s pojmenovanou příčinou (audit `db_migration_altered_after_apply` + `startup_health_gate_failed`) místo neprůhledné `FlywayValidateException`, a hláška výslovně říká, že obnova ze zálohy nepomůže — databáze je v pořádku, vadný je build. `flyway repair` se záměrně nevolá automaticky: přepsáním zapsaných checksumů by se hlasité odmítnutí startu změnilo v tiché přijetí schématu, které DB nemá. Pending migrace validaci taky neprojdou, proto se rozlišuje podle error kódu (`CHECKSUM_MISMATCH`, `DESCRIPTION_MISMATCH`, `TYPE_MISMATCH`), ne podle `validationSuccessful`.
+- Audit `app_started` nese navíc `dbSchemaChecksum` — dvě instalace se stejným `dbSchemaVersion` můžou mít různé schéma, pokud se migrace po releasu editovala; checksum je to jediné, co je rozliší z logu.
 
 ### Bezpečnost a OAuth
 

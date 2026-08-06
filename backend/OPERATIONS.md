@@ -301,6 +301,15 @@ Copy-Item "$env:LOCALAPPDATA\VoxRox\Mail\db\<ZALOHA>" `
 # 6. Reportovat bug se snippetem audit.log
 ```
 
+`Sidecar nestartuje po update` s auditem `db_migration_altered_after_apply` (detail `V<n> CHECKSUM_MISMATCH` / `DESCRIPTION_MISMATCH` / `TYPE_MISMATCH`) → **obnova ze zálohy tady NEPOMŮŽE a postup výše se na tenhle případ nevztahuje.** Databáze je v pořádku; vadný je build, který nese jinou verzi už aplikované migrace, než jaká je zapsaná ve `flyway_schema_history`. Vzniká jedině tak, že se po releasu editovala existující migrace místo přidání nové (proti tomu stojí build gate `FlywayBaselineChecksumTest`).
+
+Postup:
+
+1. Z audit logu vyčíst `app_started` řádek předchozího spuštění — `dbSchemaVersion` a `dbSchemaChecksum` říkají, jaké schéma instalace reálně má.
+2. **Nespouštět `flyway repair`** jako plošnou opravu. Repair přepíše zapsané checksumy na to, co nese nový build, takže hlasité odmítnutí startu tiše promění v přijetí schématu, které databáze nemá — z nespustitelné aplikace se stane poškozená data.
+3. Oprava je roll-forward: vydat vyšší verzi, jejíž migrace odpovídají (typicky revert editace dané migrace + nová `V<n+1>__*.sql` nesoucí zamýšlenou změnu). Downgrade instalátorem je blokovaný.
+4. Pokud už vadný build odešel do kanálu, přesměrovat beta kanál na poslední dobrý tag (`beta-channel.yml`, `force=true`) — viz „Release channels".
+
 `db_backup_failed` v audit logu při startu → zkontrolovat volné místo na disku a oprávnění k `${app.data-dir}/db/`. Backup nemůže selhat tichá — pokud ano, Flyway migrate se vůbec nespustí a uživatel zůstává na předchozí verzi schémat.
 
 `Update notifikace se nezobrazuje` (Tauri klient nehlásí novou verzi) → zkontrolovat `tauri.conf.json` `bundle.updater.endpoints` URL, manifest signing key shoda s `pubkey`. U beta kanálu navíc ověřit, že release `beta` drží čerstvý `latest.json` (viz Release channels níže).
