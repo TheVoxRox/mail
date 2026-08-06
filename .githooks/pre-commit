@@ -33,6 +33,29 @@ if printf '%s\n' "$staged" | grep -q '^backend/src/main/resources/messages.*\.pr
 	fi
 fi
 
+# Markdown lives all over the monorepo (root todo.md/CHANGELOG.md, docs/,
+# backend/docs/, .github/), so a commit touching only Markdown never reaches
+# the frontend gate below — which is exactly how 23 files drifted out of format
+# before this check existed. Prettier's config and node_modules live in
+# frontend/, hence the subshell.
+if printf '%s\n' "$staged" | grep -q '\.md$'; then
+	if ! command -v npm >/dev/null 2>&1; then
+		echo "pre-commit: npm is not on PATH - cannot run the Markdown format gate." >&2
+		echo "            Fix PATH, or bypass once with: git commit --no-verify" >&2
+		exit 1
+	fi
+	if [ ! -d frontend/node_modules ]; then
+		echo "pre-commit: frontend dependencies missing. Run: cd frontend && npm ci" >&2
+		exit 1
+	fi
+	echo "pre-commit: Markdown formatting (whole repo)..."
+	if ! ( cd frontend && npm run --silent check:md ) ; then
+		echo "" >&2
+		echo "pre-commit: fix with: cd frontend && npm run format:md" >&2
+		exit 1
+	fi
+fi
+
 # Only pay the frontend cost when frontend files are staged.
 if ! printf '%s\n' "$staged" | grep -q '^frontend/'; then
 	exit 0

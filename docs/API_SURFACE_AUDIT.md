@@ -1,13 +1,13 @@
 # VoxRox Mail — Sidecar HTTP API Surface Audit
 
-| | |
-|---|---|
-| **Version** | 1.3 |
-| **Date** | 2026-07-09 |
-| **Applies to** | VoxRox Mail V0.1.0 |
-| **Audited commit** | `d55b753` (claims re-verified 2026-07-09) |
-| **Subsystem** | Sidecar REST API — Boundary 3 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md) |
-| **Verdict** | **Security: PASS** (no exploitable finding). One Low defense-in-depth finding (**A1** — unbounded JSON write-body) **fixed**; informational notes recorded. |
+|                    |                                                                                                                                                             |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Version**        | 1.3                                                                                                                                                         |
+| **Date**           | 2026-07-09                                                                                                                                                  |
+| **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                          |
+| **Audited commit** | `d55b753` (claims re-verified 2026-07-09)                                                                                                                   |
+| **Subsystem**      | Sidecar REST API — Boundary 3 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                    |
+| **Verdict**        | **Security: PASS** (no exploitable finding). One Low defense-in-depth finding (**A1** — unbounded JSON write-body) **fixed**; informational notes recorded. |
 
 Per-subsystem release audit of the **loopback HTTP API** the Tauri WebView calls:
 authentication (`X-API-KEY`), request authorization, input validation on every

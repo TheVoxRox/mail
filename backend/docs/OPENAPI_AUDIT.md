@@ -10,18 +10,18 @@ _Snapshot used: `backend/src/test/resources/openapi/api-docs.json` (35 paths,
 
 ## Resolution log
 
-| ID | Finding | Status | Reference |
-|---|---|---|---|
-| A1 | SSE stream advertises `SseEmitter` | **Fixed** 2026-06-01 | `NotificationController` rewritten with explicit `@ApiResponse(oneOf={SyncNotification, SendNotification})`; both DTOs land in `components.schemas`. FE `generated.ts` + `type-contract.ts` extended. |
-| A2 | SSE description mentions only `sync_completed` | **Fixed** 2026-06-01 | `@Operation(description=...)` now enumerates all three events. |
-| A3 | "Electron mail client" in OpenAPI info | **Fixed** 2026-06-01 | `OpenApiConfig.java:57,64` → "Tauri desktop client" / "desktop client". |
-| A4 | 8 endpoints with drift between actual status and snapshot | **Fixed** 2026-06-01 | Explicit `@ApiResponse(202)` / `@ApiResponse(204)` added on every `ResponseEntity`-returning controller method that drifts. `void` + `@ResponseStatus` cases were already correct. |
-| B1 | Duplicate folder-list endpoint | **Fixed** 2026-06-01 (B1-a) | Path-variant `getMessagesByFolderPath` removed; e2e helper migrated to query-variant; controller test URLs updated; snapshot path count 35 → 34. |
-| B2 | `PATCH /accounts/{id}` has no FE caller | **Fixed** 2026-06-01 (B2-Vol3) | Public API surface trimmed: `partialUpdateAccount` controller method, `AccountPatchRequest` DTO, `AccountService.patchAccount` + `applyServerConfigPatch` helper, 15 test scenarios, the `validation.account.patchProviderXorCustom` i18n key and all frontend echoes (`generated.ts`, `type-contract.ts`, `lib/types.ts`, msw fixtures + handlers) removed. Snapshot schemas 39 → 38. If a future partial-edit UX is needed, `git show` on the removal commit restores the proven logic + tests verbatim. |
-| B3 | `StreamingResponseBody` leak on attachment download | **Fixed** 2026-06-01 | `MailReadController.downloadAttachment` gained explicit `@ApiResponse(200, content = @Content(mediaType = "application/octet-stream", schema = @Schema(type = "string", format = "binary")))`. `StreamingResponseBody` no longer appears in `components.schemas` (count 40 → 39). |
-| B4 | `operationId = "stream"` too generic | **Fixed** 2026-06-01 (as part of A1) | Renamed to `streamNotifications` while rewriting `NotificationController.stream()`. |
-| C1 | "Mail Providers" tag not nested under "Accounts" | **Open / preference** | Consistent across the project (`Contacts`, `Drafts`, `Folders` also nest in URL but are top-level tags). Leave unless Swagger UI grouping is redesigned. |
-| C2 | `POST /test-connection` returns 200 | **Not a bug** | Probe, not a create. False-positive of the audit heuristic. |
+| ID  | Finding                                                   | Status                               | Reference                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| --- | --------------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A1  | SSE stream advertises `SseEmitter`                        | **Fixed** 2026-06-01                 | `NotificationController` rewritten with explicit `@ApiResponse(oneOf={SyncNotification, SendNotification})`; both DTOs land in `components.schemas`. FE `generated.ts` + `type-contract.ts` extended.                                                                                                                                                                                                                                                                                                      |
+| A2  | SSE description mentions only `sync_completed`            | **Fixed** 2026-06-01                 | `@Operation(description=...)` now enumerates all three events.                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| A3  | "Electron mail client" in OpenAPI info                    | **Fixed** 2026-06-01                 | `OpenApiConfig.java:57,64` → "Tauri desktop client" / "desktop client".                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| A4  | 8 endpoints with drift between actual status and snapshot | **Fixed** 2026-06-01                 | Explicit `@ApiResponse(202)` / `@ApiResponse(204)` added on every `ResponseEntity`-returning controller method that drifts. `void` + `@ResponseStatus` cases were already correct.                                                                                                                                                                                                                                                                                                                         |
+| B1  | Duplicate folder-list endpoint                            | **Fixed** 2026-06-01 (B1-a)          | Path-variant `getMessagesByFolderPath` removed; e2e helper migrated to query-variant; controller test URLs updated; snapshot path count 35 → 34.                                                                                                                                                                                                                                                                                                                                                           |
+| B2  | `PATCH /accounts/{id}` has no FE caller                   | **Fixed** 2026-06-01 (B2-Vol3)       | Public API surface trimmed: `partialUpdateAccount` controller method, `AccountPatchRequest` DTO, `AccountService.patchAccount` + `applyServerConfigPatch` helper, 15 test scenarios, the `validation.account.patchProviderXorCustom` i18n key and all frontend echoes (`generated.ts`, `type-contract.ts`, `lib/types.ts`, msw fixtures + handlers) removed. Snapshot schemas 39 → 38. If a future partial-edit UX is needed, `git show` on the removal commit restores the proven logic + tests verbatim. |
+| B3  | `StreamingResponseBody` leak on attachment download       | **Fixed** 2026-06-01                 | `MailReadController.downloadAttachment` gained explicit `@ApiResponse(200, content = @Content(mediaType = "application/octet-stream", schema = @Schema(type = "string", format = "binary")))`. `StreamingResponseBody` no longer appears in `components.schemas` (count 40 → 39).                                                                                                                                                                                                                          |
+| B4  | `operationId = "stream"` too generic                      | **Fixed** 2026-06-01 (as part of A1) | Renamed to `streamNotifications` while rewriting `NotificationController.stream()`.                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| C1  | "Mail Providers" tag not nested under "Accounts"          | **Open / preference**                | Consistent across the project (`Contacts`, `Drafts`, `Folders` also nest in URL but are top-level tags). Leave unless Swagger UI grouping is redesigned.                                                                                                                                                                                                                                                                                                                                                   |
+| C2  | `POST /test-connection` returns 200                       | **Not a bug**                        | Probe, not a create. False-positive of the audit heuristic.                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 
 Open follow-up items: C1 (preference-only — Swagger UI grouping convention).
 All A-tier and B-tier findings are resolved; the audit is closed for v0.1.0.
@@ -44,8 +44,6 @@ schemas:
 Snapshot delta: paths 34 → 35, schemas 38 → 40. Internal endpoint
 `POST /api/internal/threading/recompute` is `@Hidden` and correctly stays
 out of the public spec.
-
-
 
 The audit cross-references three sources:
 
@@ -75,6 +73,7 @@ diverge from the backend. The audit found that `KNOWN_EVENT_TYPES` in
 matching TS shapes are not validated against any contract.
 
 **Recommended fix:**
+
 - Mark `SseEmitter` as `@Schema(hidden = true)` (or filter it out via the
   springdoc operation customizer).
 - Document the stream as `oneOf: [SyncNotification, SendNotification]` via
@@ -119,17 +118,17 @@ controller actually returns `ResponseEntity.accepted()` (202),
 `ResponseEntity.noContent()` (204), or has `@ResponseStatus(NO_CONTENT)`
 on a `ResponseEntity`-returning method.
 
-| Endpoint | Actual | Snapshot |
-|---|---|---|
-| `POST /api/v1/messages/account/{accountId}/send` | 202 (`ResponseEntity.accepted()`) | 200 |
-| `POST /api/v1/messages/account/{accountId}/sync` | 202 | 200 |
-| `POST /api/v1/accounts/{accountId}/drafts` | 202 | 200 |
-| `POST /api/v1/accounts/{accountId}/drafts/{stableId}/send` | 202 | 200 |
-| `DELETE /api/v1/messages/{stableId}` | 204 (`ResponseEntity.noContent()`) | 200 |
-| `DELETE /api/v1/accounts/{id}` | 204 (`@ResponseStatus(NO_CONTENT)` on `void`-returning) | 200 |
-| `DELETE /api/v1/accounts/{accountId}/contacts/{contactId}` | 204 | 200 |
-| `DELETE /api/v1/accounts/{accountId}/contacts/{contactId}/emails/{emailId}` | 204 | 200 |
-| `DELETE /api/v1/accounts/{accountId}/contacts/bulk` | not verified — likely 200 (returns body) | 200 ✓ |
+| Endpoint                                                                    | Actual                                                  | Snapshot |
+| --------------------------------------------------------------------------- | ------------------------------------------------------- | -------- |
+| `POST /api/v1/messages/account/{accountId}/send`                            | 202 (`ResponseEntity.accepted()`)                       | 200      |
+| `POST /api/v1/messages/account/{accountId}/sync`                            | 202                                                     | 200      |
+| `POST /api/v1/accounts/{accountId}/drafts`                                  | 202                                                     | 200      |
+| `POST /api/v1/accounts/{accountId}/drafts/{stableId}/send`                  | 202                                                     | 200      |
+| `DELETE /api/v1/messages/{stableId}`                                        | 204 (`ResponseEntity.noContent()`)                      | 200      |
+| `DELETE /api/v1/accounts/{id}`                                              | 204 (`@ResponseStatus(NO_CONTENT)` on `void`-returning) | 200      |
+| `DELETE /api/v1/accounts/{accountId}/contacts/{contactId}`                  | 204                                                     | 200      |
+| `DELETE /api/v1/accounts/{accountId}/contacts/{contactId}/emails/{emailId}` | 204                                                     | 200      |
+| `DELETE /api/v1/accounts/{accountId}/contacts/bulk`                         | not verified — likely 200 (returns body)                | 200 ✓    |
 
 **Impact:** the frontend's generated types include the wrong status code in
 the response map. Right now the call sites use the result as `void` and
@@ -248,7 +247,7 @@ today — flagging for future), confirm the internal endpoints stay hidden.
 - **All 12 tags have root-level descriptions** in `OpenAPI.tags` —
   Swagger UI sidebar is fully documented.
 - **No duplicate operationIds.**
-- **Frontend api/*.ts caller surface matches the snapshot** — every
+- **Frontend api/\*.ts caller surface matches the snapshot** — every
   endpoint in the spec has a frontend caller (with the exception of B2
   above). No callers reference paths that the snapshot does not declare.
 

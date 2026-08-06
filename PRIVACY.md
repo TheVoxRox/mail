@@ -40,17 +40,17 @@ Veškerá perzistentní data jsou ve standardním Windows datovém adresáři:
 
 Obsah:
 
-| Soubor / složka | Co obsahuje |
-|---|---|
-| `crypto.bin` | Lokální šifrovací klíč pro přihlašovací údaje (vzniká při prvním startu). |
-| `crypto.fingerprint` | Otisk klíče pro detekci výměny nebo poškození `crypto.bin`. |
-| `session.json` | Port a interní API klíč aktuálně běžícího backendu (přepisuje se při každém startu). |
-| `db/mail.db` | SQLite databáze: účty, kontakty, hlavičky a těla zpráv, stav synchronizace. |
-| `db/mail.db.backup-pre-v*` | Záloha DB před každou migrací schématu (uchovává se 3 nejnovější). |
-| `attachments/` | Lokální kopie příloh stažených ze serveru. |
-| `logs/mail.log` | Aplikační log (rotuje, max 7 souborů × 10 MB, celkem cca 100 MB). |
-| `logs/audit.log` | Bezpečnostní/auditní log (retenční doba 365 dní, max cca 500 MB). |
-| `tmp/` | Dočasné soubory (mažou se automaticky). |
+| Soubor / složka            | Co obsahuje                                                                          |
+| -------------------------- | ------------------------------------------------------------------------------------ |
+| `crypto.bin`               | Lokální šifrovací klíč pro přihlašovací údaje (vzniká při prvním startu).            |
+| `crypto.fingerprint`       | Otisk klíče pro detekci výměny nebo poškození `crypto.bin`.                          |
+| `session.json`             | Port a interní API klíč aktuálně běžícího backendu (přepisuje se při každém startu). |
+| `db/mail.db`               | SQLite databáze: účty, kontakty, hlavičky a těla zpráv, stav synchronizace.          |
+| `db/mail.db.backup-pre-v*` | Záloha DB před každou migrací schématu (uchovává se 3 nejnovější).                   |
+| `attachments/`             | Lokální kopie příloh stažených ze serveru.                                           |
+| `logs/mail.log`            | Aplikační log (rotuje, max 7 souborů × 10 MB, celkem cca 100 MB).                    |
+| `logs/audit.log`           | Bezpečnostní/auditní log (retenční doba 365 dní, max cca 500 MB).                    |
+| `tmp/`                     | Dočasné soubory (mažou se automaticky).                                              |
 
 ### Co je šifrované
 

@@ -41,17 +41,17 @@ All persistent data lives in the standard Windows data directory:
 
 Contents:
 
-| File / folder | What it contains |
-|---|---|
-| `crypto.bin` | Local encryption key for credentials (created on first start). |
-| `crypto.fingerprint` | Fingerprint of the key, used to detect swap or corruption of `crypto.bin`. |
-| `session.json` | Port and internal API key of the currently running backend (rewritten on every start). |
-| `db/mail.db` | SQLite database: accounts, contacts, message headers and bodies, sync state. |
-| `db/mail.db.backup-pre-v*` | DB snapshot taken before every schema migration (3 most recent kept). |
-| `attachments/` | Local copies of attachments downloaded from the server. |
-| `logs/mail.log` | Application log (rotates, max 7 files × 10 MB, total ~100 MB). |
-| `logs/audit.log` | Security / audit log (retention 365 days, max ~500 MB). |
-| `tmp/` | Temporary files (cleared automatically). |
+| File / folder              | What it contains                                                                       |
+| -------------------------- | -------------------------------------------------------------------------------------- |
+| `crypto.bin`               | Local encryption key for credentials (created on first start).                         |
+| `crypto.fingerprint`       | Fingerprint of the key, used to detect swap or corruption of `crypto.bin`.             |
+| `session.json`             | Port and internal API key of the currently running backend (rewritten on every start). |
+| `db/mail.db`               | SQLite database: accounts, contacts, message headers and bodies, sync state.           |
+| `db/mail.db.backup-pre-v*` | DB snapshot taken before every schema migration (3 most recent kept).                  |
+| `attachments/`             | Local copies of attachments downloaded from the server.                                |
+| `logs/mail.log`            | Application log (rotates, max 7 files × 10 MB, total ~100 MB).                         |
+| `logs/audit.log`           | Security / audit log (retention 365 days, max ~500 MB).                                |
+| `tmp/`                     | Temporary files (cleared automatically).                                               |
 
 ### What is encrypted
 

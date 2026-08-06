@@ -1,13 +1,13 @@
 # VoxRox Mail — Content Rendering Security Audit
 
-| | |
-|---|---|
-| **Version** | 1.3 |
-| **Date** | 2026-07-10 |
-| **Applies to** | VoxRox Mail V0.1.0 |
-| **Audited commit** | `d55b753` (claims re-verified 2026-07-10 against `fc71cb4`) |
-| **Subsystem** | Untrusted email HTML rendering — Boundary 4 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md) |
-| **Verdict** | **Security: PASS** (no exploitable finding). F1 (dead links), F2 (embedded images + remote-image opt-in) and F3 (plain-text fidelity) all **fixed**. |
+|                    |                                                                                                                                                      |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Version**        | 1.3                                                                                                                                                  |
+| **Date**           | 2026-07-10                                                                                                                                           |
+| **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                   |
+| **Audited commit** | `d55b753` (claims re-verified 2026-07-10 against `fc71cb4`)                                                                                          |
+| **Subsystem**      | Untrusted email HTML rendering — Boundary 4 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                               |
+| **Verdict**        | **Security: PASS** (no exploitable finding). F1 (dead links), F2 (embedded images + remote-image opt-in) and F3 (plain-text fidelity) all **fixed**. |
 
 Per-subsystem release audit of the path **"raw IMAP body → rendered to the
 user"**. Every email is 100% attacker-controlled input, so this is the
@@ -35,7 +35,7 @@ IMAP raw body
    exception returns a "content blocked" placeholder, never raw HTML. Invoked
    from [MailContentService.getOrFetchMessageContent](../backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailContentService.java)
    and persisted, so the stored body is already sanitized. The one body served
-   *without* persistence is the B1-1 oversize placeholder — a first-party
+   _without_ persistence is the B1-1 oversize placeholder — a first-party
    localized string routed through the same `escapePlainText` wrapper, never
    attacker-controlled (see [IMAP_SMTP_AUDIT.md](IMAP_SMTP_AUDIT.md) §4).
 
@@ -53,7 +53,7 @@ IMAP raw body
    `sandbox="allow-scripts"` and **no** `allow-same-origin` (opaque origin: no
    parent/cookie/storage/same-origin-network access), carrying a `<meta>` CSP
    `default-src 'none'; img-src data:; script-src 'sha256-…'; style-src
-   'sha256-…'; base-uri 'none'; form-action 'none'`. The only executable script
+'sha256-…'; base-uri 'none'; form-action 'none'`. The only executable script
    is the hash-pinned first-party key forwarder; every mail-body script is
    blocked by hash mismatch, and inline event handlers are blocked by
    `script-src` without `'unsafe-inline'`.
@@ -71,8 +71,8 @@ IMAP raw body
 - [x] **mXSS (serialize → reparse) neutralized** — even if `doc.body.innerHTML`
       serialization + reparse in the iframe resurrected markup, the frame CSP
       blocks inline scripts (hash mismatch), inline event handlers (no
-      `'unsafe-inline'`) and all network (`default-src 'none'`, `img-src
-      data:`). The `srcdoc` is built by string concatenation, but HTML
+      `'unsafe-inline'`) and all network (`default-src 'none'`,
+      `img-src data:`). The `srcdoc` is built by string concatenation, but HTML
       serialization escapes text/attribute delimiters, so the body cannot break
       out of the `<body>` context.
 - [x] **Compose path is plain-text** — reply/forward/draft flatten the body via
@@ -133,7 +133,7 @@ inline `cid:` references. Combined with the (intentional) dropping of remote
 images, HTML mail displayed essentially no images — embedded newsletter
 graphics and logos in HTML signatures showed as missing. This is below the
 baseline of every mature client: Outlook / Gmail / Apple Mail / Thunderbird
-**always render embedded images** (local, no network) and only block *remote*
+**always render embedded images** (local, no network) and only block _remote_
 images by default.
 
 - **Fix (shipped):** `MimePartExtractor.collectInlineImages` walks the MIME tree

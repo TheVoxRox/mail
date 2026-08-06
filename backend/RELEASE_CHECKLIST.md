@@ -86,7 +86,7 @@ Poznámky:
 
 Předpoklady před smoke:
 
-- [ ] `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` v release buildu jsou *reálné produkční* hodnoty z Google Cloud Console ("Desktop app" client), ne `mail-local-*` placeholder. Bez nich Google odmítne login `Error 401: invalid_client` / "OAuth client was not found" (root cause 2026-06-17: produkční sidecar zabalený bez OAuth env → launcher `.cfg` bez `...google.client-id`; ověřit položkou v §1).
+- [ ] `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` v release buildu jsou _reálné produkční_ hodnoty z Google Cloud Console ("Desktop app" client), ne `mail-local-*` placeholder. Bez nich Google odmítne login `Error 401: invalid_client` / "OAuth client was not found" (root cause 2026-06-17: produkční sidecar zabalený bez OAuth env → launcher `.cfg` bez `...google.client-id`; ověřit položkou v §1).
 - [ ] OAuth consent screen je publikovaný (`In production`), ne `Testing` — jinak refresh token exspiruje po 7 dnech a přihlásí se jen přidaní test users.
 - [ ] Restricted scope `https://mail.google.com/` (`application.properties`) má dokončené Google verification (CASA security assessment). Bez něj externí uživatelé dostanou "unverified app" obrazovku / limit 100 uživatelů. **Blokující bod pro produkční consumer release** (protějšek MS „verified publisher").
 
@@ -104,7 +104,7 @@ Předpoklady před smoke:
 
 - [ ] Azure App Registration `VoxRox Mail` existuje pod `info@voxrox.org` v tenantu `Default Directory (infovoxrox.onmicrosoft.com)`.
 - [ ] **Application (client) ID** v `backend/.env` (`MICROSOFT_OAUTH_CLIENT_ID`) odpovídá hodnotě v Azure → Přehled → "ID aplikace (klienta)". POZOR: nepoužít hodnotu sloupce "Tajné ID" z tabulky client secrets — to je Secret ID, ne Application ID (záměna byla root cause `unauthorized_client` 2026-05-20).
-- [ ] **Bez client secret** — Microsoft je registrovaný jako *public client* (`client-authentication-method=none`, flow jištěný PKCE). `MICROSOFT_OAUTH_CLIENT_SECRET` se neposílá na token endpoint ani nezabaluje do instalátoru; je nepoužitý a může zůstat prázdný.
+- [ ] **Bez client secret** — Microsoft je registrovaný jako _public client_ (`client-authentication-method=none`, flow jištěný PKCE). `MICROSOFT_OAUTH_CLIENT_SECRET` se neposílá na token endpoint ani nezabaluje do instalátoru; je nepoužitý a může zůstat prázdný.
 - [ ] **Supported account types** v Azure → Authentication = "Účty v libovolném adresáři organizace + osobní účty Microsoft" (multitenant + MSA, souhlasí s tenantem `common` v `application.properties`).
 - [ ] **Platform** = "Mobilní a klasické aplikace" (Mobile and desktop applications), **Redirect URI** = přesně `http://localhost/login/oauth2/code/microsoft` (bez portu, bez https, `localhost` NE `127.0.0.1`). POZOR: migrace z původní Web platformy — pod Web platformou by public client (bez secretu) skončil na `AADSTS7000218` (chybí client_secret).
 - [ ] Azure → Authentication → **"Povolit toky veřejného klienta" (Allow public client flows) = Ano**.
@@ -172,9 +172,9 @@ Smoke flow:
 **Gate (proporcionální pro v0.1.0):** nechat appku běžet hodiny až 24 h se zapnutým syncem + projet log-scan gate a kontroly růstu paměti / SQLite DB / WAL / duplicit níže. **Hloubková JFR + JDK Mission Control analýza (lock contention) je volitelný post-release deep-dive** — dělat až při reálné stížnosti na výkon nebo podezření na leak, ne jako blocker prvního releasu.
 
 - [ ] Nechat aplikaci běžet 24 h se zapnutým syncem.
-- [ ] *(Volitelné, post-release deep-dive)* Spustit běh s JFR: `-XX:StartFlightRecording=duration=24h,filename=soak.jfr,settings=profile` (u sidecaru přidat do `--java-options` v package skriptu, u dev běhu do `JAVA_TOOL_OPTIONS`).
-- [ ] *(Volitelné, post-release deep-dive)* Vyhodnotit `soak.jfr` v JDK Mission Control: lock contention (Java Monitor Blocked / Park) na `accountLocks`/`refreshLocks`, počty výjimek, růst vláken (leak executorů).
-- [ ] *(Volitelné, post-release deep-dive)* Na konci běhu sebrat thread dump (`jcmd <pid> Thread.print`) — žádná osiřelá/parkovaná vlákna mimo známé pooly.
+- [ ] _(Volitelné, post-release deep-dive)_ Spustit běh s JFR: `-XX:StartFlightRecording=duration=24h,filename=soak.jfr,settings=profile` (u sidecaru přidat do `--java-options` v package skriptu, u dev běhu do `JAVA_TOOL_OPTIONS`).
+- [ ] _(Volitelné, post-release deep-dive)_ Vyhodnotit `soak.jfr` v JDK Mission Control: lock contention (Java Monitor Blocked / Park) na `accountLocks`/`refreshLocks`, počty výjimek, růst vláken (leak executorů).
+- [ ] _(Volitelné, post-release deep-dive)_ Na konci běhu sebrat thread dump (`jcmd <pid> Thread.print`) — žádná osiřelá/parkovaná vlákna mimo známé pooly.
 - [ ] Zkontrolovat paměťovou stopu.
 - [ ] Zkontrolovat růst SQLite DB/WAL.
 - [ ] Zkontrolovat, že IMAP pool nerecykluje chybně mrtvá spojení.
@@ -225,6 +225,7 @@ Per-candidate worksheet pro ruční smoke (§3–§8 výše). §1 (backend build
 **Worksheet je zformalizovaný z existujících důkazů (2026-06-23 tauri:dev smoke, 2026-06-25 Phase B signed smoke na čistém profilu, 2026-06-26 build+log-scan gate).** Hotové položky nesou datum+zdroj, otevřené `[ ]` jsou reálné mezery, které ještě nikdo neproved.
 
 #### Legenda
+
 - `[x]` — přímo ověřeno (datum + zdroj inline)
 - `[x] (impl.)` — implicitně pokryto širším smoke (clean boot / reálný sync by bez toho neproběhl), neitemizováno zvlášť
 - `[ ]` — reálná mezera, zbývá ověřit
@@ -304,6 +305,7 @@ Select-String -Path "$logs\audit.log" -Pattern 'CRITICAL'
 - [ ] PASSWORD účet s custom IMAP/SMTP. _(Netestováno.)_
 
 #### Google OAuth
+
 Předpoklady: [x] reálné prod `GOOGLE_OAUTH_CLIENT_ID/SECRET` (org-based client, **2026-06-23**) · **[ ] consent screen `In production` — projekt je pořád `Testing`** (refresh token padá po 7 dnech mimo test users) · **[ ] restricted scope `https://mail.google.com/` CASA verifikace — BLOKUJÍCÍ pro consumer release.**
 
 - [x] Přidat Google OAuth přes loopback — **2026-06-23 + 2026-06-25** (po fixu E #71 bez `auth-failed`).
@@ -312,6 +314,7 @@ Předpoklady: [x] reálné prod `GOOGLE_OAUTH_CLIENT_ID/SECRET` (org-based clien
 - [ ] Revoke grant u Googlu → `requires_reauth=true` → UI výzva → re-login. _(Cyklus neproveden — patří k „Produkcni OAuth readiness".)_
 
 #### Microsoft OAuth
+
 Předpoklady: [x] App Registration `VoxRox Mail` pod `info@voxrox.org` · [x] public client bez secretu (PKCE), platforma „Mobilní a klasické", redirect `http://localhost/login/oauth2/code/microsoft`, public-client flows = Ano (**2026-06-10**) · [ ] Verified publisher ODLOŽEN _(není blocker pro MSA/vlastní tenant)._
 
 - [x] Přidat MS OAuth proti `@outlook.com` — **2026-06-23** (MSA login).

@@ -62,8 +62,10 @@ git config core.hooksPath .githooks
   `prettier --check`, i18n key parity (`check:i18n`), and the strict translation
   whitelist (`check:translations:strict`); when it touches the backend
   `messages*.properties` bundles, runs the backend i18n parity guard
-  (`check:i18n:backend`). These are the cheap, deterministic checks that
-  otherwise drift between sessions because nothing enforced them at commit time.
+  (`check:i18n:backend`); when it touches any `*.md`, runs the repo-wide
+  Markdown format check (`check:md`). These are the cheap, deterministic checks
+  that otherwise drift between sessions because nothing enforced them at commit
+  time.
 - **pre-push** (fuller): `npm run lint`, `npm run check:i18n:backend`, strict
   translations, `npm run check`, `knip`, and `npm run test:unit`.
 
@@ -87,15 +89,18 @@ than lowering global floors.
 - Jacoco merged unit + IT coverage report in `target/site/jacoco-merged/`.
   Threshold gate enforces ≥ 70% instructions / ≥ 50% branches / ≥ 70% lines.
 - Translation whitelist lint (`node ../frontend/scripts/check-translation-whitelist.mjs
-  --target=backend --mode=strict`) — keeps the Java codebase in English.
+--target=backend --mode=strict`) — keeps the Java codebase in English.
 - Backend i18n key parity (`node ../frontend/scripts/check-backend-i18n-keys.mjs`) —
   cs/en key + MessageFormat placeholder parity, and `messages.properties` stays
   identical to the Czech base bundle.
 
 **Frontend (`cd frontend && npm run lint && npm run check && npm test ...`)**
 
-- `npm run lint` — Prettier check + ESLint + i18n key parity (cs.json vs
-  en.json, **606 keys**).
+- `npm run lint` — Prettier check (`frontend/`) + `check:md` (every tracked
+  `*.md` in the repo, since prettier's config lives under `frontend/` and would
+  otherwise never see the root, `docs/` or `backend/docs/` files) + ESLint +
+  i18n key parity (cs.json vs en.json). Fix formatting with `npm run format`
+  and `npm run format:md`.
 - `npm run check` — version sync, doc-claims lint (stack versions and stale
   phrases in root + module docs vs `pom.xml`/`package.json`/`.nvmrc`), OpenAPI
   snapshot drift, `svelte-check` (1378 files / 0 errors).
@@ -149,14 +154,14 @@ generated `frontend/src/lib/api/schema.d.ts`).
 
 Many files in the repo are auto-generated — do not hand-edit them.
 
-| File                                                | Regenerate command                                                                  |
-| --------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `frontend/src/lib/api/schema.d.ts`                  | `npm run generate:api:snapshot` (from `frontend/`)                                  |
-| `backend/src/test/resources/openapi/api-docs.json`  | `mvn -Dopenapi.snapshot.update=true test -Dtest=OpenApiSnapshotTest` (from backend) |
-| `frontend/THIRD_PARTY_LICENSES.md`                  | `npm run regen:licenses` (from `frontend/`)                                         |
-| `backend/THIRD_PARTY_LICENSES.md`                   | `node backend/scripts/regen-third-party-licenses.mjs`                               |
-| `frontend/src-tauri/THIRD_PARTY_LICENSES.md`        | `node frontend/src-tauri/scripts/regen-third-party-licenses.mjs`                    |
-| `frontend/src-tauri/resources/NOTICE.txt`           | `npm run regen:sbom:all && npm run regen:notice` (from `frontend/`)                  |
+| File                                               | Regenerate command                                                                  |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `frontend/src/lib/api/schema.d.ts`                 | `npm run generate:api:snapshot` (from `frontend/`)                                  |
+| `backend/src/test/resources/openapi/api-docs.json` | `mvn -Dopenapi.snapshot.update=true test -Dtest=OpenApiSnapshotTest` (from backend) |
+| `frontend/THIRD_PARTY_LICENSES.md`                 | `npm run regen:licenses` (from `frontend/`)                                         |
+| `backend/THIRD_PARTY_LICENSES.md`                  | `node backend/scripts/regen-third-party-licenses.mjs`                               |
+| `frontend/src-tauri/THIRD_PARTY_LICENSES.md`       | `node frontend/src-tauri/scripts/regen-third-party-licenses.mjs`                    |
+| `frontend/src-tauri/resources/NOTICE.txt`          | `npm run regen:sbom:all && npm run regen:notice` (from `frontend/`)                 |
 
 One-shot release regen of everything above — the three license
 inventories, the three CycloneDX SBOMs, and the bundled `NOTICE.txt`

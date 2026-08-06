@@ -1,13 +1,13 @@
 # VoxRox Mail — Auto-Updater Audit
 
-| | |
-|---|---|
-| **Version** | 1.2 |
-| **Date** | 2026-07-11 |
-| **Applies to** | VoxRox Mail V0.1.0 |
+|                    |                                                                                                                                   |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| **Version**        | 1.2                                                                                                                               |
+| **Date**           | 2026-07-11                                                                                                                        |
+| **Applies to**     | VoxRox Mail V0.1.0                                                                                                                |
 | **Audited commit** | `e2b8d8d` + the release-channels frontend/workflow changes shipped together with this doc revision (v1.0/1.1 baseline: `d55b753`) |
-| **Subsystem** | Tauri auto-updater — Boundary 6 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md) |
-| **Verdict** | **Security: PASS** — no exploitable finding, **no code change**. Two procedural/informational notes recorded. |
+| **Subsystem**      | Tauri auto-updater — Boundary 6 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                        |
+| **Verdict**        | **Security: PASS** — no exploitable finding, **no code change**. Two procedural/informational notes recorded.                     |
 
 Per-subsystem release audit of the update channel **"GitHub release →
 signature-verified install"**. This is the one path that cannot be fixed after a

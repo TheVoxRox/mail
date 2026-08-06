@@ -3,19 +3,19 @@
 What runs at compile/verify/lint time, at which severity, and why. Source of
 truth for the tools' configuration is [backend/pom.xml](../backend/pom.xml) and
 the frontend npm scripts in [frontend/package.json](../frontend/package.json);
-this file records the *policy* behind both.
+this file records the _policy_ behind both.
 
 ## Backend
 
 ### Tooling
 
-| Tool | When | Gate |
-| --- | --- | --- |
-| Error Prone 2.50 | every `javac` run (main + test) | ERROR-level bug patterns fail the build |
-| NullAway 0.13 | main sources only | ERROR (burn-down completed, see below) |
-| SpotBugs (effort Max, threshold Medium) | `mvn verify` | fails the build |
-| Spotless (Eclipse formatter) | `mvn verify` / pre-push | fails the build |
-| JaCoCo merged check | `mvn verify` | instruction 70 % / branch 50 % / line 70 % floors |
+| Tool                                    | When                            | Gate                                              |
+| --------------------------------------- | ------------------------------- | ------------------------------------------------- |
+| Error Prone 2.50                        | every `javac` run (main + test) | ERROR-level bug patterns fail the build           |
+| NullAway 0.13                           | main sources only               | ERROR (burn-down completed, see below)            |
+| SpotBugs (effort Max, threshold Medium) | `mvn verify`                    | fails the build                                   |
+| Spotless (Eclipse formatter)            | `mvn verify` / pre-push         | fails the build                                   |
+| JaCoCo merged check                     | `mvn verify`                    | instruction 70 % / branch 50 % / line 70 % floors |
 
 Error Prone needs `jdk.compiler` add-exports flags; they live in
 [backend/.mvn/jvm.config](../backend/.mvn/jvm.config) because the plugin runs
@@ -58,7 +58,7 @@ Approach for new findings, in order of preference:
 Conventions established during the burn-down:
 
 - JPA entity columns that are nullable in the schema carry `@Nullable` on the
-  field, the getter *and* the setter parameter — annotating only one of them
+  field, the getter _and_ the setter parameter — annotating only one of them
   trips the assignment/return checks.
 - A bidirectional unlink helper (`MessageEntity.removeAttachment`) may null a
   `nullable = false` association transiently; the field is `@Nullable` with a

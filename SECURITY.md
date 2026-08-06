@@ -20,11 +20,11 @@ update channel is supported with security fixes:
 Older releases, superseded beta builds and unreleased commits are not
 covered.
 
-| Version                               | Supported                                      |
-| ------------------------------------- | ---------------------------------------------- |
-| `latest` (stable channel)             | Yes — current release                          |
-| Latest beta prerelease (beta channel) | Yes — until the next beta or stable build      |
-| Older or superseded builds            | No — please update                             |
+| Version                               | Supported                                 |
+| ------------------------------------- | ----------------------------------------- |
+| `latest` (stable channel)             | Yes — current release                     |
+| Latest beta prerelease (beta channel) | Yes — until the next beta or stable build |
+| Older or superseded builds            | No — please update                        |
 
 ## Reporting a Vulnerability
 

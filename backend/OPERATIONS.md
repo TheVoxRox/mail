@@ -233,10 +233,10 @@ Workflow (pri zapnuti):
      env `MAIL_AOT_TRAINING_RUN=1` aktivuje `AotTrainingExitListener`, ktery po
      `ApplicationReadyEvent` zavola `System.exit(0)`. JVM zapise config soubor.
    - phase 2 (create): JVM s `-XX:AOTMode=create -XX:AOTConfiguration=<file>
-     -XX:AOTCache=<file>` precte config a sestavi binarni cache (~100-200 MB).
+-XX:AOTCache=<file>` precte config a sestavi binarni cache (~100-200 MB).
    - cache se kopíruje do `<install_dir>/app/mail.aot`.
 2. jpackage launcher pak spousti produkci s `--java-options
-   "-XX:AOTCache=app\mail.aot"` (relativni path vuci install dir).
+"-XX:AOTCache=app\mail.aot"` (relativni path vuci install dir).
 
 Manualne (experimentalne, proti `mvn package` jaru):
 
@@ -309,10 +309,10 @@ Copy-Item "$env:LOCALAPPDATA\VoxRox\Mail\db\<ZALOHA>" `
 
 Updater má dva kanály. Volbu drží každá instalace v Nastavení → O aplikaci (výchozí Stabilní; webview `localStorage` klíč `mail.updateChannel`). Kanál mapuje na manifest URL Tauri shell (`check_for_update` v `frontend/src-tauri/src/lib.rs`) — webview nikdy nepředává URL, jen jméno kanálu.
 
-| Kanál | Manifest | Kdo ho plní |
-| --- | --- | --- |
-| Stabilní | `releases/latest/download/latest.json` (GitHub redirect; prereleasy ignoruje) | publikace plného release |
-| Beta | `releases/download/beta/latest.json` (pohyblivý prerelease `beta`) | workflow `.github/workflows/beta-channel.yml` při každém publish |
+| Kanál    | Manifest                                                                      | Kdo ho plní                                                      |
+| -------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Stabilní | `releases/latest/download/latest.json` (GitHub redirect; prereleasy ignoruje) | publikace plného release                                         |
+| Beta     | `releases/download/beta/latest.json` (pohyblivý prerelease `beta`)            | workflow `.github/workflows/beta-channel.yml` při každém publish |
 
 **Nikdy nepublikovat release bez `latest.json` + `.sig`** (ani „jen tag s poznámkami"): stabilní kanál je GitHub redirect na poslední ne-prerelease publish, takže holý release se okamžitě stane „latest" a každá instalace dostane chybu update checku při každém startu. Cokoliv, co není plný podepsaný build, držet jako draft nebo prerelease (revize #170).
 

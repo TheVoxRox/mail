@@ -1,14 +1,14 @@
 # VoxRox Mail — Crypto & Local Storage Audit
 
-| | |
-|---|---|
-| **Version** | 1.0 |
-| **Date** | 2026-07-09 |
-| **Applies to** | VoxRox Mail V0.1.0 |
-| **Audited commit** | `d55b753` |
-| **Auditor** | Claude (Fable 5) + owner review |
-| **Subsystem** | Credential crypto + local filesystem — Boundary 5 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md) |
-| **Verdict** | **Security: PASS** (no exploitable finding, no code change). |
+|                    |                                                                                                              |
+| ------------------ | ------------------------------------------------------------------------------------------------------------ |
+| **Version**        | 1.0                                                                                                          |
+| **Date**           | 2026-07-09                                                                                                   |
+| **Applies to**     | VoxRox Mail V0.1.0                                                                                           |
+| **Audited commit** | `d55b753`                                                                                                    |
+| **Auditor**        | Claude (Fable 5) + owner review                                                                              |
+| **Subsystem**      | Credential crypto + local filesystem — Boundary 5 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md) |
+| **Verdict**        | **Security: PASS** (no exploitable finding, no code change).                                                 |
 
 Focused verification audit of the boundary **"filesystem ↔ sidecar"**: every
 mitigation claimed by the Boundary 5 STRIDE rows was traced to its code path,
@@ -19,13 +19,14 @@ than the full B3/B4 audits — see [AUDIT_GUIDE.md](AUDIT_GUIDE.md).
 ## 1. Key material at rest — `crypto.bin` (confirmed)
 
 [StorageContextInitializer](../backend/src/main/java/org/voxrox/mailbackend/core/init/StorageContextInitializer.java)
-+ [WindowsDpapiSecretStore](../backend/src/main/java/org/voxrox/mailbackend/core/security/secret/WindowsDpapiSecretStore.java):
+and [WindowsDpapiSecretStore](../backend/src/main/java/org/voxrox/mailbackend/core/security/secret/WindowsDpapiSecretStore.java):
 
 - **DPAPI, USER scope** (no `CRYPTPROTECT_LOCAL_MACHINE`) + app-specific
   entropy blob — a `crypto.bin` copied to another user/machine fails
   `CryptUnprotectData` and the boot **fail-stops** with a named recovery
   message (never falls back to plaintext). `CRYPTPROTECT_UI_FORBIDDEN` — no
   interactive prompt path.
+
 - **Native hygiene**: pure Java FFM (no JNI); the plaintext input buffer is
   zeroed after `protect`, the unprotected output buffer is zeroed before
   `LocalFree` after `unprotect`.
