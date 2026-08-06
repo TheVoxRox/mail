@@ -1,14 +1,14 @@
 # VoxRox Mail — IMAP/SMTP Protocol Layer Audit
 
-| | |
-|---|---|
-| **Version** | 1.2 |
-| **Date** | 2026-07-10 |
-| **Applies to** | VoxRox Mail V0.1.0 |
-| **Audited commit** | `35a06f3` |
-| **Auditor** | Claude (Fable 5) + owner review |
-| **Subsystem** | External mail server ↔ sidecar — Boundary 1 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md) |
-| **Verdict** | **Security: PASS** — no exploitable finding. One Medium DoS gap (**B1-1**, unbounded body fetch) documented as an accepted residual at audit time and **fixed in code on 2026-07-10** (§4); one Low informational note. |
+|                    |                                                                                                                                                                                                                         |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Version**        | 1.2                                                                                                                                                                                                                     |
+| **Date**           | 2026-07-10                                                                                                                                                                                                              |
+| **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                      |
+| **Audited commit** | `35a06f3`                                                                                                                                                                                                               |
+| **Auditor**        | Claude (Fable 5) + owner review                                                                                                                                                                                         |
+| **Subsystem**      | External mail server ↔ sidecar — Boundary 1 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                  |
+| **Verdict**        | **Security: PASS** — no exploitable finding. One Medium DoS gap (**B1-1**, unbounded body fetch) documented as an accepted residual at audit time and **fixed in code on 2026-07-10** (§4); one Low informational note. |
 
 Full per-subsystem audit of the path **"raw IMAP/SMTP wire → parsed → stored /
 sent"**. After the mail body (Boundary 4), this is the second-largest
@@ -88,7 +88,7 @@ transport/TLS and SMTP-send claims remain static-plus-unit-tests, see
   DB and FTS5 index as **data**; they never reach the mail-body iframe (that is
   Boundary 4, which renders in an opaque-origin sandbox). The one security-load
   path from `From` is the remote-image allow-list — and it is keyed on the
-  **spoofable** `From` **by design**, affecting *image loading only*, never
+  **spoofable** `From` **by design**, affecting _image loading only_, never
   trust or code execution. Traced end to end:
   [RemoteImageAllowlistService](../backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/RemoteImageAllowlistService.java)
   normalizes (trim+lowercase) and uses parameterized repository queries; a spoofed
@@ -117,7 +117,7 @@ mail server (a Boundary 1 adversary) can set any message to carry a
 multi-hundred-MB body; when the user opens that message, the sidecar buffers it
 twice and can exhaust the heap (packaged `-Xmx384m`).
 
-**Severity: Medium** (per the rubric: *DoS recoverable by restart*), tempered by
+**Severity: Medium** (per the rubric: _DoS recoverable by restart_), tempered by
 strong preconditions: it requires (a) a hostile/compromised/MITM'd mail server —
 already a semi-trusted party with larger levers over your own mailbox, and (b)
 the user to open the specific oversized message (bodies are lazy-fetched, not

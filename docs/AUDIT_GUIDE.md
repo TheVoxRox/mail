@@ -30,7 +30,7 @@ two declared tiers:
 ```
 
 The **audited commit** row exists because "Applies to V0.1.0" is not a code
-state — the B4 audit was invalidated by a fix that landed the *same day*
+state — the B4 audit was invalidated by a fix that landed the _same day_
 (F2). A SHA makes drift visible instead of silent.
 
 ## 3. Method statement (required)
@@ -75,52 +75,60 @@ Not every item applies to every boundary — mark N/A explicitly rather than
 skipping silently.
 
 **Authentication & access (ASVS V1/V4)**
+
 - [ ] Single auth chokepoint identified; comparison constant-time
 - [ ] Default-deny at the end of the chain; allow-list enumerated and minimal
 - [ ] Per-resource authorization enforced, or the single-user IDOR acceptance restated
 
 **Input handling (V5)**
+
 - [ ] Every entrypoint enumerated (reproducibly); validation on each
-- [ ] Payloads bounded — including *pre*-deserialization (Content-Length vs. bean validation)
+- [ ] Payloads bounded — including _pre_-deserialization (Content-Length vs. bean validation)
 - [ ] Enum/format params reject unknown values
 
 **Output & errors (V7)**
+
 - [ ] No exception message/stack/SQL reaches a client; prod/dev config split verified
 - [ ] Security events audited; PII masked in both log streams
 
 **Crypto & transport (V6/V9)**
+
 - [ ] Algorithms + parameters named (mode, key length, KDF iterations, IV/tag)
 - [ ] Key storage + compromise/rotation story stated (even if procedural)
 - [ ] TLS enforced; downgrade/cleartext paths blocked fail-closed
 
 **Files & storage (V12)**
+
 - [ ] No attacker-controlled value reaches a filesystem path (traversal)
 - [ ] Temp-file lifecycle (creation scope, cleanup, crash sweep)
 - [ ] Sensitive files: atomic writes, private permissions
 
 **Config & supply chain (V10/V14)**
+
 - [ ] Build fails closed on missing secrets/keys; placeholder traps checked
 - [ ] Signing/provenance chain traced end to end (for release channels)
 
 **Content rendering (app-specific)**
+
 - [ ] Sanitizer chokepoint has no unprotected consumer (grep the import graph)
 - [ ] DOM sink sweep: `{@html}`, `innerHTML`, `insertAdjacentHTML`, `outerHTML`, `document.write` = 0
 - [ ] Layering verified independently (sanitizer / CSP / sandbox each hold alone)
 
 **Cross-cutting**
+
 - [ ] CSRF posture stated wherever cookies/sessions exist (even if "disabled because X")
 - [ ] DoS bounds on caches, queues, recursion (MAX_DEPTH-style caps)
 
 ## 7. Current audit map
 
-| Boundary | Audit | Tier |
-|---|---|---|
-| B1 external mail server | [IMAP_SMTP_AUDIT.md](IMAP_SMTP_AUDIT.md) | full |
-| B2 OAuth handshake | [OAUTH_AUDIT.md](OAUTH_AUDIT.md) | focused |
-| B3 sidecar HTTP API | [API_SURFACE_AUDIT.md](API_SURFACE_AUDIT.md) | full |
-| B4 WebView ↔ SPA | [CONTENT_RENDERING_AUDIT.md](CONTENT_RENDERING_AUDIT.md) | full |
-| B5 crypto + filesystem | [CRYPTO_STORAGE_AUDIT.md](CRYPTO_STORAGE_AUDIT.md) | focused |
-| B6 Tauri updater | [UPDATER_AUDIT.md](UPDATER_AUDIT.md) | full |
+| Boundary                | Audit                                                    | Tier    |
+| ----------------------- | -------------------------------------------------------- | ------- |
+| B1 external mail server | [IMAP_SMTP_AUDIT.md](IMAP_SMTP_AUDIT.md)                 | full    |
+| B2 OAuth handshake      | [OAUTH_AUDIT.md](OAUTH_AUDIT.md)                         | focused |
+| B3 sidecar HTTP API     | [API_SURFACE_AUDIT.md](API_SURFACE_AUDIT.md)             | full    |
+| B4 WebView ↔ SPA        | [CONTENT_RENDERING_AUDIT.md](CONTENT_RENDERING_AUDIT.md) | full    |
+| B5 crypto + filesystem  | [CRYPTO_STORAGE_AUDIT.md](CRYPTO_STORAGE_AUDIT.md)       | focused |
+| B6 Tauri updater        | [UPDATER_AUDIT.md](UPDATER_AUDIT.md)                     | full    |
 
 Cross-cutting records (secret scan, log hygiene, cargo audit) live in
 [backend/SECURITY_RELEASE_CHECK.md](../backend/SECURITY_RELEASE_CHECK.md);

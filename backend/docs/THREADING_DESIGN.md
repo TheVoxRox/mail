@@ -11,7 +11,7 @@ Two of the original decisions were revised after real-mailbox feedback
 ("grouping does not behave like Outlook"):
 
 1. **Subject fallback (narrow).** Open question 2 was originally resolved as
-   "skip subject clustering". That stands for *unconditional* JWZ §5
+   "skip subject clustering". That stands for _unconditional_ JWZ §5
    clustering, but a narrow fallback now exists: a message whose subject
    carries an explicit reply/forward marker (`Re:`, `Odp:`, `Fw:`, …) and has
    **no** threading headers at all attaches to the newest thread with the
@@ -22,13 +22,13 @@ Two of the original decisions were revised after real-mailbox feedback
    both directions: `resolveSubjectFallbackParent` on the way in, and
    `ThreadingService.findAbsorbableSubjectOrphanThreadIds` on the way back,
    because the downloader walks UIDs newest-first and the reply is normally
-   threaded *before* its parent. The reverse merge is narrower — it moves whole
+   threaded _before_ its parent. The reverse merge is narrower — it moves whole
    threads, so it only absorbs a cluster whose members are all headerless and
    all reply-prefixed.
 2. **Cross-folder conversation listing.** The Phase 2 folder listing was
    folder-scoped; it is now Outlook-style cross-folder for regular folders:
    a conversation row appears when the thread has a member in the folder, its
-   representative stays the newest member *in that folder*, and `messageCount`
+   representative stays the newest member _in that folder_, and `messageCount`
    plus the expanded member list span the whole thread minus trash, junk and
    drafts (copies of one mail in several folders counted once, keyed by
    Message-ID). `unreadCount` stays folder-scoped everywhere, because marking
@@ -95,8 +95,6 @@ What is **not** in Phase 1 (deferred per decisions 1a / 4):
   is sent to the client but ignored.
 - No thread-aware search (defer per decision 4).
 - No Settings toggle, no thread row aria-tree rendering — those are V0.2.
-
-
 
 ## Problem
 
@@ -189,11 +187,11 @@ no schema-level dependence on a provider extension that may not be there.
 
 Three new columns on `messages`:
 
-| Column | Type | Meaning |
-|---|---|---|
-| `thread_id` | TEXT (UUID) | Stable identifier of the conversation this message belongs to. Generated when a new thread root is detected. |
-| `thread_root_message_id` | TEXT | RFC 5322 `Message-ID` of the root (oldest) message in the thread. Useful for late-arriving parent reconciliation. |
-| `thread_position` | INTEGER | Ordinal position within the thread, ascending by `receivedAt`. Used for default sort within a thread without an extra `ORDER BY` join. |
+| Column                   | Type        | Meaning                                                                                                                                |
+| ------------------------ | ----------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `thread_id`              | TEXT (UUID) | Stable identifier of the conversation this message belongs to. Generated when a new thread root is detected.                           |
+| `thread_root_message_id` | TEXT        | RFC 5322 `Message-ID` of the root (oldest) message in the thread. Useful for late-arriving parent reconciliation.                      |
+| `thread_position`        | INTEGER     | Ordinal position within the thread, ascending by `receivedAt`. Used for default sort within a thread without an extra `ORDER BY` join. |
 
 `thread_id` is **per account**, not global — cross-account threading would
 leak information across accounts (and is a privacy-sensitive choice the
@@ -331,7 +329,7 @@ commit:
      (`MessageRepository.findMergeableOrphanThreadIds`) matches
      `in_reply_to = :messageId OR thread_root_message_id = :messageId`, both
      indexed, so it stays cheap on every arrival during a bulk sync. A child
-     that links to the parent *only* through `references` (no `in_reply_to`)
+     that links to the parent _only_ through `references` (no `in_reply_to`)
      is not back-reconciled — a token match inside the free-text `references`
      column is unindexable and would make bulk sync O(n²). The forward
      References walk in steps 1–2 still threads those children once their

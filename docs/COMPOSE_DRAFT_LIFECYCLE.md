@@ -2,7 +2,7 @@
 
 > **HISTORICAL SNAPSHOT.** Redesign record, implemented 2026-07-13 and not
 > updated since. The findings table below describes **pre-fix** behavior
-> ("verified against current code" meant the code *before* the fix landed) —
+> ("verified against current code" meant the code _before_ the fix landed) —
 > it does not describe current code.
 
 Status: **IMPLEMENTED 2026-07-13** — PR-A (backend contract, commit `04266c1`) and PR-B (frontend, branch `feat/draft-lifecycle-frontend`) landed. Discard deletes the draft; no local mirror (server-side recovery instead). Full unit + functional + a11y e2e green.

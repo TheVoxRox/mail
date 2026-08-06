@@ -7,9 +7,9 @@ The release-level changelog for the whole monorepo is in `../CHANGELOG.md`.
 
 Backend and frontend always ship together in the Tauri bundle release. The table is for cases where someone mixes them manually (e.g. development build, manual reinstall):
 
-| Backend | Frontend | DB schema | Status        |
-|---------|----------|-----------|---------------|
-| 0.0.x   | 0.0.x    | V1        | supported     |
+| Backend | Frontend | DB schema | Status    |
+| ------- | -------- | --------- | --------- |
+| 0.0.x   | 0.0.x    | V1        | supported |
 
 When upgrading to a new MAJOR/MINOR backend version the DB schema migrates forward-only via Flyway V2+. A pre-migration DB snapshot is kept by `DatabaseBackupService` in `db/mail.db.backup-pre-v<version>` (default: 3 most recent).
 

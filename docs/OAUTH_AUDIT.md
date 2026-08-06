@@ -1,14 +1,14 @@
 # VoxRox Mail — OAuth Handshake Audit
 
-| | |
-|---|---|
-| **Version** | 1.0 |
-| **Date** | 2026-07-09 |
-| **Applies to** | VoxRox Mail V0.1.0 |
-| **Audited commit** | `d55b753` |
-| **Auditor** | Claude (Fable 5) + owner review |
-| **Subsystem** | OAuth handshake — Boundary 2 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md) |
-| **Verdict** | **Security: PASS** (no exploitable finding, no code change). |
+|                    |                                                                                         |
+| ------------------ | --------------------------------------------------------------------------------------- |
+| **Version**        | 1.0                                                                                     |
+| **Date**           | 2026-07-09                                                                              |
+| **Applies to**     | VoxRox Mail V0.1.0                                                                      |
+| **Audited commit** | `d55b753`                                                                               |
+| **Auditor**        | Claude (Fable 5) + owner review                                                         |
+| **Subsystem**      | OAuth handshake — Boundary 2 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md) |
+| **Verdict**        | **Security: PASS** (no exploitable finding, no code change).                            |
 
 Focused verification audit of the boundary **"OAuth provider ↔ system browser ↔
 sidecar"**: every mitigation claimed by the Boundary 2 STRIDE rows was traced to

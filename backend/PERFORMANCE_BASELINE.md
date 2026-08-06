@@ -29,21 +29,21 @@ Velikost priloh:
 
 ## Metriky
 
-| Metrika | Hodnota | Poznamka |
-|---|---:|---|
-| Cold start backendu po `.ready` |  |  |
-| Cas do prvniho health 200 |  |  |
-| Full sync 10k+ zprav |  |  |
-| Pocet stazenych zprav |  |  |
-| Prumer zprav/s |  |  |
-| FTS5 hit search |  |  |
-| FTS5 miss search |  |  |
-| Odeslani mailu s prilohou |  |  |
-| Max RSS / working set |  |  |
-| Java heap max observed |  |  |
-| SQLite DB velikost |  |  |
-| SQLite WAL max velikost |  |  |
-| Diagnostic dump velikost |  |  |
+| Metrika                         | Hodnota | Poznamka |
+| ------------------------------- | ------: | -------- |
+| Cold start backendu po `.ready` |         |          |
+| Cas do prvniho health 200       |         |          |
+| Full sync 10k+ zprav            |         |          |
+| Pocet stazenych zprav           |         |          |
+| Prumer zprav/s                  |         |          |
+| FTS5 hit search                 |         |          |
+| FTS5 miss search                |         |          |
+| Odeslani mailu s prilohou       |         |          |
+| Max RSS / working set           |         |          |
+| Java heap max observed          |         |          |
+| SQLite DB velikost              |         |          |
+| SQLite WAL max velikost         |         |          |
+| Diagnostic dump velikost        |         |          |
 
 ## Startup audit 2026-05-17 - before/after
 
@@ -59,16 +59,16 @@ predchozi WAL, prazdna DB). Spustit kazdy beh **3x** a brat median, ne jeden vzo
 `StartupTimingService` loguje na INFO uroven kazdou fazi (`[BOOT] Startup
 timing: phase=<klic> durationMs=<ms>`). Klicove fáze:
 
-| Faze | Klic | Typicke pred zmenami | Cil po zmenach |
-|---|---|---:|---:|
-| Spring AppContext refresh | (Spring `Started ... in X seconds`) | ~3-5 s | -20-40 % (AOT) |
-| Flyway migrace | `db.flyway-migrate` | 50-300 ms | beze zmeny (no-op pri ready) |
-| Pre-migration backup | `db.pre-migration-backup` | 50-200 ms | **0 ms** (pri zadnych pending) |
-| SQLite PRAGMA verify | `db.verify-pragmas` | 30-100 ms | beze zmeny |
-| Crypto subsystem init | `crypto.service-init` | <10 ms | beze zmeny (jiz lazy) |
-| Storage permissions | `storage.permissions` | 10-50 ms | beze zmeny |
-| Handshake session write | `handshake.session-write` | <10 ms | beze zmeny |
-| ApplicationReadyEvent total | `spring.application-ready` | ~50-500 ms | -10-20 % (mensi heap) |
+| Faze                        | Klic                                | Typicke pred zmenami |                 Cil po zmenach |
+| --------------------------- | ----------------------------------- | -------------------: | -----------------------------: |
+| Spring AppContext refresh   | (Spring `Started ... in X seconds`) |               ~3-5 s |                 -20-40 % (AOT) |
+| Flyway migrace              | `db.flyway-migrate`                 |            50-300 ms |   beze zmeny (no-op pri ready) |
+| Pre-migration backup        | `db.pre-migration-backup`           |            50-200 ms | **0 ms** (pri zadnych pending) |
+| SQLite PRAGMA verify        | `db.verify-pragmas`                 |            30-100 ms |                     beze zmeny |
+| Crypto subsystem init       | `crypto.service-init`               |               <10 ms |          beze zmeny (jiz lazy) |
+| Storage permissions         | `storage.permissions`               |             10-50 ms |                     beze zmeny |
+| Handshake session write     | `handshake.session-write`           |               <10 ms |                     beze zmeny |
+| ApplicationReadyEvent total | `spring.application-ready`          |           ~50-500 ms |          -10-20 % (mensi heap) |
 
 Zpusob mereni:
 
@@ -88,20 +88,20 @@ Get-Content "$env:LOCALAPPDATA\VoxRox\Mail\logs\mail.log" |
 [frontend/src/lib/stores/boot.ts](../frontend/src/lib/stores/boot.ts)). Dev console:
 
 ```js
-console.info('[mail] boot timings', $bootState.timings);
+console.info("[mail] boot timings", $bootState.timings);
 ```
 
 Klicove deltas (relativni k `uiStart=0`):
 
-| Mezicas | Klic | Typicke pred | Cil po |
-|---|---|---:|---:|
-| Sidecar process running | `sidecarRunning` | 50-300 ms | beze zmeny |
-| `.ready` + session.json videt | `sessionFound` | +1000-5000 ms | -300-500 ms (mensi JVM heap, AOT) |
-| Handshake OK | `handshakeOk` | +0-200 ms | **0 ms** (smazano, mark jen) |
-| Readiness OK | `readinessOk` | +0-200 ms | beze zmeny (1 polling roundtrip) |
-| Client config nactena | `clientConfigOk` | +100-300 ms | -50 ms (paralelne s accounts) |
-| Accounts nactene | `accountsLoaded` | +100-500 ms | -50 ms (paralelne s config) |
-| App ready (full shell) | `appReady` | ~2000-6000 ms | -500-1500 ms |
+| Mezicas                       | Klic             |  Typicke pred |                            Cil po |
+| ----------------------------- | ---------------- | ------------: | --------------------------------: |
+| Sidecar process running       | `sidecarRunning` |     50-300 ms |                        beze zmeny |
+| `.ready` + session.json videt | `sessionFound`   | +1000-5000 ms | -300-500 ms (mensi JVM heap, AOT) |
+| Handshake OK                  | `handshakeOk`    |     +0-200 ms |      **0 ms** (smazano, mark jen) |
+| Readiness OK                  | `readinessOk`    |     +0-200 ms |  beze zmeny (1 polling roundtrip) |
+| Client config nactena         | `clientConfigOk` |   +100-300 ms |     -50 ms (paralelne s accounts) |
+| Accounts nactene              | `accountsLoaded` |   +100-500 ms |       -50 ms (paralelne s config) |
+| App ready (full shell)        | `appReady`       | ~2000-6000 ms |                      -500-1500 ms |
 
 ### Co overit po smoke
 
@@ -113,11 +113,11 @@ Klicove deltas (relativni k `uiStart=0`):
 - [ ] Pre-migration backup file (`db/mail.db.backup-pre-v*`) NEvznikne
       pri startu na sjednocenem schema
 - [x] Springdoc classes v fat jaru chybi (`jar tf mail-backend-*.jar |
-      Select-String springdoc` = empty) — overeno 2026-06-11 po oprave
+Select-String springdoc` = empty) — overeno 2026-06-11 po oprave
       vylouceni (viz mereni nize; puvodni `<excludes>` jen s groupId tise
       nefungoval a springdoc v jaru zustaval)
 - [x] AOT artefakty v jaru pritomne (`jar tf mail-backend-*.jar |
-      Select-String "__BeanDefinitions"` non-empty) — overeno 2026-06-11,
+Select-String "__BeanDefinitions"` non-empty) — overeno 2026-06-11,
       310 trid
 - [ ] Global bootstrap timeout: pri umelem sidecar failure (mock
       `mail.e2e.sidecarFailure=once`) frontend zobrazí chybu **do 60 s**,
@@ -139,6 +139,7 @@ Provedeno po refaktoru self-injection (`MessageContentPersister`,
 AOT cache restoru přes `ClassCastException`.
 
 **Setup:**
+
 - Plain `java -jar mail-backend-0.1.0.jar` (bez Tauri jpackage launcheru)
 - Jar s `-Paot` (Spring AOT processing aktivní)
 - Crypto klíče dummy z env
@@ -147,14 +148,15 @@ AOT cache restoru přes `ClassCastException`.
 
 **Výsledky:**
 
-| Varianta | Median cold start | Delta |
-|---|---:|---:|
-| Bez AOT cache | **8553 ms** | baseline |
-| S `-XX:AOTCache=mail.aot` | **5415 ms** | **−3138 ms (−36.7 %)** |
+| Varianta                  | Median cold start |                  Delta |
+| ------------------------- | ----------------: | ---------------------: |
+| Bez AOT cache             |       **8553 ms** |               baseline |
+| S `-XX:AOTCache=mail.aot` |       **5415 ms** | **−3138 ms (−36.7 %)** |
 
 **Velikost cache:** 130.62 MB (`mail.aot`). Cache je vázaná na přesný jar hash
-+ Java verzi — při rebuildu jaru se musí regenerovat (~70 s pro training +
-create přes `scripts/generate-aot-cache-windows.ps1`).
+
+- Java verzi — při rebuildu jaru se musí regenerovat (~70 s pro training +
+  create přes `scripts/generate-aot-cache-windows.ps1`).
 
 **Closing the gap:** Tauri jpackage launcher má další overhead navíc nad plain
 `java -jar` (process spawn, sidecar handshake, .ready signal). Reálné `appReady`
@@ -175,6 +177,7 @@ lazy import FE komponent, fs watch místo session pollingu, readiness single-sho
 a že přesun cleanup mimo boot thread nezhoršil cold start.
 
 **Setup (shodný s 2026-05-19 pro srovnatelnost):**
+
 - Jar s `-Paot`, JDK 25.0.3 (Temurin)
 - Produkční JVM flagy: `-XX:TieredStopAtLevel=1 -Xms64m -Xmx384m -XX:+UseSerialGC --enable-native-access=ALL-UNNAMED -Dspring.aot.enabled=true`
 - Crypto klíče dummy z env, `APP_DATA_DIR` = čerstvý tmp adresář per běh
@@ -185,14 +188,15 @@ a že přesun cleanup mimo boot thread nezhoršil cold start.
 
 **Výsledky:**
 
-| Varianta | Median cold start (→ `.ready`) | Delta |
-|---|---:|---:|
-| Bez AOT cache | **10902 ms** | baseline |
-| S `-XX:AOTCache=mail.aot` | **7055 ms** | **−3847 ms (−35.3 %)** |
+| Varianta                  | Median cold start (→ `.ready`) |                  Delta |
+| ------------------------- | -----------------------------: | ---------------------: |
+| Bez AOT cache             |                   **10902 ms** |               baseline |
+| S `-XX:AOTCache=mail.aot` |                    **7055 ms** | **−3847 ms (−35.3 %)** |
 
 **Velikost cache:** 128.5 MB (`mail.aot`).
 
 **Závěry:**
+
 - AOT úspora **−35.3 %** potvrzuje historických −36.7 % → rozhodnutí „AOT cache
   default ON pro release" (CI `windows-signed-release.yml`) je validované reálnými čísly.
 - Obě varianty dosáhly `.ready` čistě → `AttachmentService` cleanup je nyní mimo
