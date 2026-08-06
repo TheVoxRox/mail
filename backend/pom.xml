@@ -35,6 +35,16 @@
 		-->
 		<jackson-2-bom.version>2.21.5</jackson-2-bom.version>
 		<!--
+			Security override: Spring Boot 4.1.0 manages the Jackson 3 bom at 3.1.4,
+			which is affected by CVE-2026-59889 (@JsonView bypassed for @JsonUnwrapped
+			container properties on deserialization). This is the primary JSON stack
+			(spring-boot-starter-web -> starter-jackson), but not triggerable here —
+			neither @JsonView nor @JsonUnwrapped appears in the codebase. Fixed
+			upstream in 3.1.5. Remove this override once the managed jackson-bom
+			version is >= 3.1.5.
+		-->
+		<jackson-bom.version>3.1.5</jackson-bom.version>
+		<!--
 			Security override: Spring Boot manages Log4j2 2.25.4, whose log4j-api is
 			flagged by CVE-2026-49844 (malformed JSON from MapMessage with non-finite
 			floats). Not reachable here — log4j-core is absent (SLF4J/Logback is the

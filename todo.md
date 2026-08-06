@@ -96,7 +96,10 @@ Ed25519 signing key + offline zaloha klice — **hotove** (2026-06-16/20), detai
 
 **Hotovo** (detail v [todo-archive.md](todo-archive.md)): produkcni Google OAuth creds + consent screen (2026-06-23), git-history secret scan (gitleaks, 0 leaks), vuln-scan.yml (SBOM + OWASP DC + Trivy + cargo/npm audit) + NVD API key, cargo audit gate, Tauri capability/CSP/IPC audit, zostrena globalni CSP, log hygiene audit, CodeQL log-injection (72 alertu, PR #24), Mail TLS hardening (PR #25/#26), recovery runbook OPERATIONS.md.
 
-- [ ] **jackson-databind 2.x — CVE-2026-54515: FIX APLIKOVAN 2026-07-10, zbyva dohled na OSV sync.** Upstream fix vysel den po prehodnoceni z 2026-07-07: databind #5962 opraven v **2.21.5 (6.7.)** a 2.22.1 (7.7.), GitHub advisory uz ma ohranicene rozsahy (`>=2.19.0,<2.21.5`; `>=2.22.0,<2.22.1`). Aplikovan override `<jackson-2-bom.version>2.21.5</jackson-2-bom.version>` v [backend/pom.xml](backend/pom.xml) (stejna minor jako managed 2.21.4, cisty patch) + `mvn clean verify`. **Pozor: osv.dev mirror je pozadu** (open-ended rozsahy, flaguje i opravene verze) — lokalni OSV scan bude nalez ukazovat, dokud se mirror nedotahne na GHSA; Dependabot/GHSA-based nastroje jsou ciste. Zbyva: (a) po case overit, ze OSV scan zmlkl; (b) override odstranit, az Spring Boot managed `jackson-2-bom.version` >= 2.21.5.
+- jackson-databind CVE-2026-54515 — override `jackson-2-bom 2.21.5` aplikovan 2026-07-10, OSV mirror dotazen a scan ciste (overeno 2026-08-06).
+- [ ] **Jackson overrides — cekaji na Spring Boot.** Oba override v [backend/pom.xml](backend/pom.xml) jsou docasne patch bumpy ve stejne minor jako managed verze; odstranit, az je Spring Boot dozene. Kontrolovat pri kazdem Boot bumpu (4.1.0 = posledni k 2026-08-06, stale managuje obe stare verze):
+  - `<jackson-2-bom.version>2.21.5</jackson-2-bom.version>` (CVE-2026-54515) — odstranit az managed `jackson-2-bom.version` >= 2.21.5.
+  - `<jackson-bom.version>3.1.5</jackson-bom.version>` (CVE-2026-59889, `@JsonView` obchazen u `@JsonUnwrapped` pri deserializaci, CVSS 6.5, advisory 2026-07-21). Tohle je primarni JSON stack (`spring-boot-starter-web` → `starter-jackson` → `tools.jackson.core:jackson-databind`), ne bridge bom. Netriggerovatelne — `@JsonView` ani `@JsonUnwrapped` v kodu nejsou. Odstranit az managed `jackson-bom.version` >= 3.1.5.
 
 ---
 
