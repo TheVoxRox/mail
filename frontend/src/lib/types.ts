@@ -169,29 +169,41 @@ export interface MailSummaryResponse {
 	flagged: boolean;
 	answered: boolean;
 	hasAttachments: boolean;
+	/**
+	 * RFC 5322 Message-ID. Copies of one mail kept in several folders (Gmail's
+	 * INBOX + All Mail) share it while having different `stableId`s, so a thread
+	 * rendered from several folders has to collapse rows by this value to match
+	 * the server's `messageCount`. `null` when the sender omitted the header.
+	 */
+	messageId: string | null;
 }
 
 /**
  * One row of the conversation-grouped folder listing (threading Phase 2). Each
- * row collapses a conversation's messages in the current folder into its newest
- * message (`latest`) plus folder-scoped counts.
+ * row collapses a conversation into its newest message in the current folder
+ * (`latest`) plus the counts.
  */
 export interface ConversationSummaryResponse {
 	/** Conversation id; `null` only for a message the threading backfill has not processed yet (then a singleton). */
 	threadId: string | null;
 	/** Newest message of the conversation in this folder — the row's representative. */
 	latest: MailSummaryResponse;
-	/** Messages of the conversation present in the folder (>= 1). */
+	/**
+	 * Messages of the conversation (>= 1). Cross-folder except trash/junk/drafts
+	 * in a regular folder, counting a mail stored in several folders once;
+	 * folder-scoped in Trash, Junk and Drafts views.
+	 */
 	messageCount: number;
-	/** How many of those are not yet seen. */
+	/** How many messages of the conversation IN THIS FOLDER are not yet seen. */
 	unreadCount: number;
 }
 
 /**
  * Full conversation fetched on demand when a grouped row is expanded (threading
  * Phase 2). Members are account-wide (all folders) and ordered oldest-first by
- * threadPosition; the grouped list filters them to the folder in view so the
- * expanded rows match the collapsed row's folder-scoped count.
+ * threadPosition; the grouped list applies the view's own filter (and collapses
+ * cross-folder copies by `messageId`) so the expanded rows match the collapsed
+ * row's count.
  */
 export interface ThreadResponse {
 	threadId: string;

@@ -1,5 +1,6 @@
 package org.voxrox.mailbackend.feature.mail.repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -27,7 +28,7 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
      */
     String SUMMARY_SELECT = "SELECT new " + DTO_PATH + "("
             + "m.id, m.stableId, m.folderName, m.subject, m.sender, m.recipientsTo, m.receivedAt, "
-            + "m.seen, m.flagged, m.answered, m.hasAttachments, m.threadId, m.uid) FROM MessageEntity m ";
+            + "m.seen, m.flagged, m.answered, m.hasAttachments, m.threadId, m.messageId, m.uid) FROM MessageEntity m ";
 
     Optional<MessageEntity> findByStableId(String stableId);
 
@@ -106,8 +107,13 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
      * sizes the boxed numerics to the value, so callers must normalize via
      * {@link Number}. Ordered newest-conversation first (by the representative's
      * {@code received_at}, id as the deterministic tie-break) to match the flat
-     * listing's ordering. Grouping is folder-scoped: the counts reflect only the
-     * members present in this folder, not the whole cross-folder thread.
+     * listing's ordering.
+     * <p>
+     * Drives the page in <em>both</em> listing modes. Everything it returns is
+     * folder-scoped, which is exactly right for the row identity, the ordering and
+     * {@code unreadCount}; the Outlook-style cross-folder mode keeps all of that
+     * and only replaces {@code messageCount}, via
+     * {@link #countCrossFolderConversationSizes}.
      * <p>
      * Window functions require SQLite &gt;= 3.25 (2018); the bundled driver is well
      * past that.
@@ -277,6 +283,21 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
     int findMaxThreadPosition(@Param("accId") Long accountId, @Param("threadId") String threadId);
 
     /**
+     * Subject-fallback lookup — the newest already-threaded message of the account
+     * whose normalized subject equals {@code norm}, within a time window around the
+     * new arrival. Callers pass a page of size 1; the window plus the reply-prefix
+     * gate in {@code ThreadingService.resolveSubjectFallbackParent} are the
+     * false-positive guards. {@code selfId} excludes the arriving row itself (it is
+     * already persisted when threading runs).
+     */
+    @Query("SELECT m FROM MessageEntity m "
+            + "WHERE m.account.id = :accId AND m.subjectNorm = :norm AND m.threadId IS NOT NULL "
+            + "AND m.id <> :selfId AND m.receivedAt BETWEEN :from AND :to " + "ORDER BY m.receivedAt DESC, m.id DESC")
+    List<MessageEntity> findNewestThreadedBySubjectNorm(@Param("accId") Long accountId, @Param("norm") String norm,
+            @Param("selfId") Long selfId, @Param("from") LocalDateTime from, @Param("to") LocalDateTime to,
+            Pageable pageable);
+
+    /**
      * Reconciliation lookup — find orphan thread ids that should merge into the
      * thread of a freshly-arrived message identified by its own {@code messageId}.
      * A thread qualifies when one of its rows either is rooted at {@code messageId}
@@ -301,6 +322,34 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
             + "AND m.threadId <> :excludeThreadId")
     List<String> findMergeableOrphanThreadIds(@Param("accId") Long accountId, @Param("messageId") String messageId,
             @Param("excludeThreadId") String excludeThreadId);
+
+    /**
+     * Reverse subject-fallback lookup — every member of the threads a
+     * freshly-arrived message might absorb by subject, so
+     * {@code ThreadingService.reconcileLateArrivingParent} can decide per thread.
+     *
+     * <p>
+     * The inner select finds the threads: they hold a headerless message with the
+     * same normalized subject inside the fallback window and are not the arriving
+     * message's own thread. The outer select then returns <em>all</em> their
+     * members — the decision is "may this whole thread be absorbed", and that can
+     * only be answered by looking at every member, not just the one that matched
+     * the subject.
+     *
+     * <p>
+     * Each row is {@code [threadId, subject, inReplyTo, references]}. The
+     * reply-prefix test that guards the absorption lives in
+     * {@code SubjectNormalizer.hasConversationMarker}, which is Java-side, hence
+     * the raw subject rather than a SQL predicate.
+     */
+    @Query("SELECT m.threadId, m.subject, m.inReplyTo, m.references FROM MessageEntity m "
+            + "WHERE m.account.id = :accId AND m.threadId IN (" + "  SELECT DISTINCT c.threadId FROM MessageEntity c "
+            + "  WHERE c.account.id = :accId AND c.subjectNorm = :norm AND c.threadId IS NOT NULL "
+            + "  AND c.threadId <> :excludeThreadId AND c.inReplyTo IS NULL AND c.references IS NULL "
+            + "  AND c.receivedAt BETWEEN :from AND :to)")
+    List<Object[]> findSubjectFallbackOrphanCandidates(@Param("accId") Long accountId, @Param("norm") String norm,
+            @Param("excludeThreadId") String excludeThreadId, @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to);
 
     /**
      * Bulk-update thread membership for orphan reconciliation. Used when an
@@ -356,4 +405,65 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
             + "ORDER BY m.id ASC LIMIT :batch", nativeQuery = true)
     List<MessageReferenceBackfillRow> findMessagesNeedingReferenceIndex(@Param("accId") Long accountId,
             @Param("afterId") Long afterId, @Param("batch") int batch);
+
+    /**
+     * Targeted write for the subject-norm backfill — sets the norm of one row
+     * without loading the entity (and its {@code @Lob} body) into the persistence
+     * context. Inline assignment for new rows happens on the managed entity in
+     * {@code ThreadingService.assignThread} instead.
+     */
+    @Modifying
+    @Query("UPDATE MessageEntity m SET m.subjectNorm = :norm WHERE m.id = :id")
+    void updateSubjectNorm(@Param("id") Long id, @Param("norm") String norm);
+
+    /**
+     * One subject-norm backfill batch — rows that predate the {@code subject_norm}
+     * column (non-null subject, null norm), ordered by id ascending after
+     * {@code afterId}. Rows persisted after the column shipped are normalized
+     * inline by {@code ThreadingService.assignThread}. A NULL norm means "not
+     * processed"; a subject that carries no grouping key is stored as the empty
+     * sentinel instead, so every visited row drops out of this predicate (see
+     * {@code ThreadingBackfillService.backfillSubjectNorms}).
+     */
+    @Query(value = "SELECT m.id AS id, m.subject AS subject FROM messages m "
+            + "WHERE m.account_id = :accId AND m.subject IS NOT NULL AND m.subject_norm IS NULL AND m.id > :afterId "
+            + "ORDER BY m.id ASC LIMIT :batch", nativeQuery = true)
+    List<SubjectNormBackfillRow> findMessagesNeedingSubjectNorm(@Param("accId") Long accountId,
+            @Param("afterId") Long afterId, @Param("batch") int batch);
+
+    /**
+     * Cross-folder conversation sizes for the threads on one page of the
+     * conversation-grouped listing — the Outlook-style {@code messageCount} used
+     * for every folder except Trash/Junk/Drafts. The page itself stays the
+     * folder-scoped {@link #findConversationRepresentatives}; only the size is
+     * recomputed here, over the whole account minus {@code :excludedFolders} (the
+     * account's trash/junk/drafts names, so deleted, junked or still-unsent
+     * messages never surface in a live conversation).
+     * <p>
+     * Split into a second query on purpose. Doing it in one window pass means
+     * partitioning every row of the account before the page can be cut — no index
+     * covers {@code PARTITION BY}, so a 10k-message account materializes and sorts
+     * in full on every page load and every {@code sync_completed} refetch. Here the
+     * {@code IN} list holds at most {@code size} thread ids and rides
+     * {@code idx_messages_account_thread}.
+     * <p>
+     * {@code COUNT(DISTINCT …)} collapses copies of one mail stored in several
+     * folders: Gmail-style providers keep the same {@code message_id} and
+     * {@code thread_id} in INBOX and All Mail (see
+     * {@link #findByAccountIdAndMessageId}), and a plain {@code COUNT} would report
+     * every such thread at double length. A row without a Message-ID falls back to
+     * its own stable id, so it never merges with anything.
+     * <p>
+     * Each row is {@code [threadId, messageCount]}; same boxed-numeric caveat as
+     * {@link #findConversationRepresentatives}. Threads with no member outside the
+     * excluded folders simply do not come back — the caller keeps the folder-scoped
+     * count for those. {@code :excludedFolders} must never be empty; callers pad it
+     * with a sentinel (empty string, which is never a folder name) so the
+     * {@code NOT IN} stays well-formed.
+     */
+    @Query("SELECT m.threadId, COUNT(DISTINCT COALESCE(m.messageId, m.stableId)) FROM MessageEntity m "
+            + "WHERE m.account.id = :accId AND m.threadId IN :threadIds "
+            + "AND m.folderName NOT IN :excludedFolders GROUP BY m.threadId")
+    List<Object[]> countCrossFolderConversationSizes(@Param("accId") Long accountId,
+            @Param("threadIds") List<String> threadIds, @Param("excludedFolders") List<String> excludedFolders);
 }

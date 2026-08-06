@@ -49,7 +49,7 @@ class MessageServiceTest {
 
     private static MailSummaryResponse summary(long id) {
         return new MailSummaryResponse(id, "stable-" + id, "INBOX", "subject-" + id, "sender-" + id, null,
-                LocalDateTime.now(), false, false, false, false, null, id);
+                LocalDateTime.now(), false, false, false, false, null, null, id);
     }
 
     @Nested

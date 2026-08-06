@@ -74,7 +74,7 @@ class MailReadControllerTest {
 
     private MailSummaryResponse summary(long id, String subject) {
         return new MailSummaryResponse(id, "stable-" + id, "INBOX", subject, "from@x.cz", "to@x.cz",
-                LocalDateTime.of(2026, 1, 1, 10, 0), false, false, false, false, null, 100L);
+                LocalDateTime.of(2026, 1, 1, 10, 0), false, false, false, false, null, null, 100L);
     }
 
     @Test
@@ -280,13 +280,31 @@ class MailReadControllerTest {
     void getThreadOk() throws Exception {
         ThreadResponse resp = new ThreadResponse("8b4-uuid", "<root@x.cz>", 2, 1,
                 List.of(summary(1, "Hi"), summary(2, "Re: Hi")));
-        when(mailFacade.getThread(7L, "8b4-uuid")).thenReturn(resp);
+        when(mailFacade.getThread(7L, "8b4-uuid", null)).thenReturn(resp);
 
         mockMvc.perform(get("/api/v1/messages/account/7/threads/8b4-uuid")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.threadId").value("8b4-uuid"))
                 .andExpect(jsonPath("$.rootMessageId").value("<root@x.cz>"))
                 .andExpect(jsonPath("$.participantsTotal").value(2)).andExpect(jsonPath("$.unreadCount").value(1))
                 .andExpect(jsonPath("$.messages.length()").value(2));
+    }
+
+    @Test
+    @DisplayName("GET /account/{id}/threads/{tid}?folderRef= passes the folder through to the facade")
+    void getThreadWithFolderRef() throws Exception {
+        ThreadResponse resp = new ThreadResponse("8b4-uuid", "<root@x.cz>", 1, 0, List.of(summary(1, "Hi")));
+        when(mailFacade.getThread(7L, "8b4-uuid", "INBOX")).thenReturn(resp);
+
+        mockMvc.perform(get("/api/v1/messages/account/7/threads/8b4-uuid").param("folderRef", "INBOX"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.participantsTotal").value(1))
+                .andExpect(jsonPath("$.messages.length()").value(1));
+    }
+
+    @Test
+    @DisplayName("GET /account/{id}/threads/{tid} — folderRef over 255 chars -> 400")
+    void getThreadFolderRefTooLong() throws Exception {
+        mockMvc.perform(get("/api/v1/messages/account/7/threads/8b4-uuid").param("folderRef", "x".repeat(256)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -298,7 +316,7 @@ class MailReadControllerTest {
     @Test
     @DisplayName("GET /account/{id}/threads/{tid} — service throws ResourceNotFoundException -> 404")
     void getThreadNotFound() throws Exception {
-        when(mailFacade.getThread(7L, "unknown"))
+        when(mailFacade.getThread(7L, "unknown", null))
                 .thenThrow(new org.voxrox.mailbackend.exception.ResourceNotFoundException("Thread not found: unknown"));
 
         mockMvc.perform(get("/api/v1/messages/account/7/threads/unknown")).andExpect(status().isNotFound())

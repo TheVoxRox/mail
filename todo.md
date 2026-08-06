@@ -107,6 +107,24 @@ Backend (headless) cast zmerena a uzavrena — sekce "Startup audit — mereni 2
 
 ---
 
+## Threading Outlook-parity — nalezy code-review (2026-08-05)
+
+**Stav: vsech 6 P1, 6 P2 i vsech 6 P3 nalezu z code-review (xhigh) je opraveno vcetne testu, zacommitovano a odpushovano (2026-08-05/06); stejne tak vsech 5 chybejicich testu. PR je [#221](https://github.com/TheVoxRox/mail/pull/221). Zbyva uz jen rucni smoke nize a merge — code-review nalezy jsou uzavrene.**
+
+Co featura obsahuje: (1) **subject-fallback threading obema smery** — odpoved s `Re:`/`Odp:`/`Fw:` prefixem a BEZ threading hlavicek se pripoji k nejnovejsimu vlaknu se stejnym normalizovanym predmetem v okne +-30 dni, a `reconcileLateArrivingParent` naopak pohlti osirely shluk bezhlavickovych odpovedi, jakmile dorazi jejich rodic (downloader jde od nejnovejsich UID, takze odpoved se pri prvnim syncu skoro vzdy zpracuje driv); novy sloupec `messages.subject_norm` + index (V1 in-place), [SubjectNormalizer.java](backend/src/main/java/org/voxrox/mailbackend/util/SubjectNormalizer.java) (unicode-aware kvuli NBSP, prazdny sentinel misto NULL), backfill pass. (2) **cross-folder konverzacni vypis** — `findConversationRepresentativesCrossFolder` v [MessageRepository.java](backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/MessageRepository.java) (dedup kopii jedne zpravy podle `message_id`, folder-scoped `unreadCount`), vylouceni TRASH/JUNK/DRAFTS resolvovane pres `ImapFolderService` s fail-closed degradaci v [MailFacade.java](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailFacade.java), nove `MailSummaryResponse.messageId` na drate, frontend badge slozky u cizich clenu, otevirani radku pod jeho vlastni slozkou a folder-scoped bulk akce. (3) **scope urcuje vyhradne backend** — `GET /threads/{id}?folderRef=` vraci presne tu mnozinu clenu, ze ktere se pocital badge, klient uz scope neodvozuje. Backend `mvn verify` zeleny (vc. 54 IT + spotbugs) / FE 459 unit + 190 functional + 59 a11y zelene, prettier + eslint + i18n lint + knip OK, OpenAPI snapshot regenerovan, dev DB resetovana (nutno znovu pridat ucet).
+
+### Dalsi kroky (v tomto poradi)
+
+- [ ] **Rucni smoke proti realne schrance — jedina neoverena cast.** Cela featura vznikla z feedbacku „seskupeni se nechova jako Outlook" a dosud bezela jen proti fixturam a SQLite ITckum. Dev DB byla resetovana (`%LOCALAPPDATA%\VoxRox\Mail`), takze nejdriv znovu pridat ucet. Co si projit: (a) subject-fallback pri PRVNIM syncu existujici schranky — to je cesta, kterou dvousmerny merge resi a kde se nejdriv pozna, jestli se vlakna skladaji; (b) badge vs. pocet rozbalenych radku v Dorucenych u konverzace, na kterou jsi odpovidal (musi sedet); (c) prvni navsteva Kose na cerstvem uctu (fail-closed vetev — folder-scoped, ne cross-folder); (d) otevreni ciziho clena z rozbaleneho vlakna (URL musi nest jeho slozku).
+- [ ] **Merge PR [#221](https://github.com/TheVoxRox/mail/pull/221)** — az po smoke vyse. Vetev `feat/threading-outlook-parity`. Pozor: `git push` pousti cely frontend gate (3+ min) — poustet na pozadi, nikdy `--no-verify`.
+- [ ] NVDA doposlech seskupeneho rezimu (uz drive evidovany u threading Phase 2) — rozbaleni/sbaleni, badge cizi slozky („Ve slozce Odeslane"), hromadne akce.
+
+### P3 — cleanup
+
+Vsech 6 hotovo (2026-08-05/06). Posledni polozka: rozhodnuti „ktery pohled je folder-scoped" existovalo 3x nad ruznymi zdroji role — vyreseno `GET /threads/{id}?folderRef=`, scope urcuje vyhradne backend (viz CHANGELOG).
+
+---
+
 ## Produktove funkce (backlog)
 
 Hotove: **Podpisy zprav — Faze 1** (auto-insert + From-swap + manualni tlacitko + per-ucet prepinac, smoke 2026-06-23) a **Tabulka kontaktu** (sloupec Aktualizovano odebran) — detail v [todo-archive.md](todo-archive.md).

@@ -108,7 +108,7 @@ public class MessageMapper {
         }
         return new MailSummaryResponse(raw.id(), raw.stableId(), raw.folderName(), subject, sender, raw.recipientsTo(),
                 raw.receivedAt(), raw.seen(), raw.flagged(), raw.answered(), raw.hasAttachments(), raw.threadId(),
-                raw.uid());
+                raw.messageId(), raw.uid());
     }
 
     private String displaySubject(@Nullable String subject) {

@@ -52,12 +52,24 @@ export function listConversations(
 }
 
 /**
- * Fetches a whole conversation by its thread id — members account-wide (all
- * folders), ascending threadPosition order. The grouped list filters them to
- * the folder in view when expanding a collapsed row.
+ * Fetches a conversation by its thread id, in ascending threadPosition order.
+ *
+ * `folderName` scopes the members to that folder's conversation view — the
+ * server returns exactly the messages the folder's row counted (cross-folder
+ * minus trash/junk/drafts, or folder-scoped in those views), already collapsed
+ * by Message-ID. `messages.length` therefore equals the row's `messageCount`,
+ * and the caller must not re-derive the scope: doing that from a second source
+ * of truth (IMAP roles in `$folders`) is what let the badge and the expanded
+ * rows disagree. Omit it only for the raw account-wide thread.
  */
-export function getThread(accountId: number, threadId: string): Promise<ThreadResponse> {
-	return api.get(`/messages/account/${accountId}/threads/${encodeURIComponent(threadId)}`);
+export function getThread(
+	accountId: number,
+	threadId: string,
+	folderName?: string
+): Promise<ThreadResponse> {
+	return api.get(`/messages/account/${accountId}/threads/${encodeURIComponent(threadId)}`, {
+		params: folderName == null ? {} : { folderRef: folderName }
+	});
 }
 
 /** Full-text search across folders (subject/from/body). */

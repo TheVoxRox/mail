@@ -31,7 +31,8 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
         @Index(name = "idx_messages_account_thread", columnList = "account_id, thread_id"),
         @Index(name = "idx_messages_account_thread_root", columnList = "account_id, thread_root_message_id"),
         @Index(name = "idx_messages_account_message_id", columnList = "account_id, message_id"),
-        @Index(name = "idx_messages_account_in_reply_to", columnList = "account_id, in_reply_to")})
+        @Index(name = "idx_messages_account_in_reply_to", columnList = "account_id, in_reply_to"),
+        @Index(name = "idx_messages_account_subject_norm", columnList = "account_id, subject_norm")})
 public class MessageEntity {
 
     @Id
@@ -108,6 +109,17 @@ public class MessageEntity {
 
     @Column(name = "reply_references", columnDefinition = "TEXT")
     private @Nullable String references;
+
+    /**
+     * Normal form of {@code subject} (reply/forward markers stripped, whitespace
+     * collapsed, lowercased) — the lookup key for the threading subject-fallback.
+     * Assigned by {@code ThreadingService.assignThread} alongside the thread
+     * columns. Empty when the subject carries no grouping key (see
+     * {@code SubjectNormalizer.NO_GROUPING_KEY}); {@code null} only while the row
+     * predates the column, which the startup backfill repairs.
+     */
+    @Column(name = "subject_norm", length = 500)
+    private @Nullable String subjectNorm;
 
     @Column(name = "has_attachments", nullable = false)
     private boolean hasAttachments;
@@ -347,6 +359,14 @@ public class MessageEntity {
 
     public void setReferences(@Nullable String references) {
         this.references = references;
+    }
+
+    public @Nullable String getSubjectNorm() {
+        return subjectNorm;
+    }
+
+    public void setSubjectNorm(@Nullable String subjectNorm) {
+        this.subjectNorm = subjectNorm;
     }
 
     public boolean isHasAttachments() {

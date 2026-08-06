@@ -584,12 +584,14 @@ function messageRoutes(
 			});
 		if (segments[3] === 'folder' && segments[4] === 'conversations' && method === 'GET') {
 			const folderName = url.searchParams.get('folderRef') ?? '';
-			return HttpResponse.json(
-				listPage(conversationsOf(getFolderMessages(accountId, folderName)), url)
-			);
+			return HttpResponse.json(listPage(conversationsOf(accountId, folderName), url));
 		}
 		if (segments[3] === 'threads' && method === 'GET') {
-			const thread = threadOf(accountId, decodeSegment(segments[4]));
+			const thread = threadOf(
+				accountId,
+				decodeSegment(segments[4]),
+				url.searchParams.get('folderRef') ?? undefined
+			);
 			return thread ? HttpResponse.json(thread) : new HttpResponse(null, { status: 404 });
 		}
 		if (segments[3] === 'folder' && method === 'GET') {

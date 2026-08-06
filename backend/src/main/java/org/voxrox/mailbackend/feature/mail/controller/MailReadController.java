@@ -133,18 +133,26 @@ public class MailReadController {
         return mailFacade.getEmailDetailByStableId(stableId);
     }
 
-    @Operation(summary = "Conversation (thread) detail", description = "Returns every message in the given conversation as a single ordered list. "
+    @Operation(summary = "Conversation (thread) detail", description = "Returns the messages of the given conversation as a single ordered list. "
             + "Ownership is enforced by the {accountId} path component — only threads owned by "
             + "that account are reachable. The list is ordered by threadPosition ascending "
             + "(matching receivedAt ascending). For per-message bodies fetch each member's "
-            + "/content endpoint separately.")
+            + "/content endpoint separately. "
+            + "With folderRef the thread is scoped to that folder's conversation view — exactly the "
+            + "messages its /folder/conversations row counted, deduplicated the same way, with "
+            + "unreadCount folder-scoped like the row's, so the response mirrors that row field for "
+            + "field and a client can render the list without re-deriving the scope. Omit folderRef "
+            + "entirely for the unscoped, account-wide thread; passing it empty is not the same "
+            + "thing and yields an empty member list rather than the unscoped thread.")
     @ApiResponse(responseCode = "200", description = "Thread members in ascending order.")
     @ApiResponse(responseCode = "404", description = "No thread with that id is owned by the account.")
     @GetMapping("/account/{accountId}/threads/{threadId}")
     public ThreadResponse getThread(@PathVariable @Positive(message = "{validation.positive}") Long accountId,
-            @PathVariable @NotBlank(message = "{validation.notBlank}") @Size(max = 36, message = "{validation.size.max}") String threadId) {
-        log.debug("{} Thread detail: account {}, thread {}", LogCategory.API, accountId, threadId);
-        return mailFacade.getThread(accountId, threadId);
+            @PathVariable @NotBlank(message = "{validation.notBlank}") @Size(max = 36, message = "{validation.size.max}") String threadId,
+            @RequestParam(required = false) @Size(max = 255, message = "{validation.size.max}") String folderRef) {
+        log.debug("{} Thread detail: account {}, thread {}, folder {}", LogCategory.API, accountId, threadId,
+                folderRef);
+        return mailFacade.getThread(accountId, threadId, folderRef);
     }
 
     @Operation(summary = "Message content (body)", description = "Returns only the message body (HTML / plain text) without headers and metadata. Use after /detail to load the body lazily.")

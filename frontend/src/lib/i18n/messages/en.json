@@ -120,15 +120,17 @@
 			"listLabel": "Conversation list",
 			"threadSize": "{count, plural, one {conversation, {count} message} other {conversation, {count} messages}}",
 			"threadUnread": "{count, plural, one {{count} unread} other {{count} unread}}",
-			"expand": "Expand conversation",
-			"collapse": "Collapse conversation",
+			"columnHeaderExpand": "Expand",
+			"expandNamed": "Expand conversation {subject}",
+			"collapseNamed": "Collapse conversation {subject}",
 			"loading": "Loading conversation…",
 			"loadError": "Could not load the conversation.",
 			"revealed": "{count, plural, one {Showing {count} more message} other {Showing {count} more messages}}",
 			"collapsed": "Conversation collapsed",
 			"bulkResolveFailed": "Could not load the conversation, so the action was cancelled. Please try again.",
 			"selectConversation": "Select conversation {subject}",
-			"selectedConversations": "{count, plural, one {{count} conversation selected} other {{count} conversations selected}}"
+			"selectedConversations": "{count, plural, one {{count} conversation selected} other {{count} conversations selected}}",
+			"memberFolder": "In folder {folder}"
 		},
 		"rowActions": {
 			"trigger": "Actions for message {subject}"

@@ -121,9 +121,19 @@ test.describe('Seznam zpráv v režimu bez podokna čtení', () => {
 		await page.goto('/mail/1/SENT');
 		await waitForShell(page);
 
-		const only = page.locator('[role="row"][data-stable-id]');
-		await expect(only).toHaveCount(1);
-		await only.locator('[data-col="2"]').focus();
+		// SENT seeds two messages; empty it row by row — the interesting step is
+		// the LAST deletion, after which no cell is left to receive focus.
+		const rows = page.locator('[role="row"][data-stable-id]');
+		await expect(rows).toHaveCount(2);
+		await rows.first().locator('[data-col="2"]').focus();
+		await page.keyboard.press('Delete');
+		await expect(rows).toHaveCount(1);
+
+		// No manual focus() here: the first deletion must have restored focus onto
+		// the surviving row's subject cell by itself. Re-focusing would hand the
+		// second Delete a keyboard target the app never had to provide, and the
+		// restore this suite exists to guard would go untested on this path.
+		await expect(rows.first().locator('[data-col="2"]')).toBeFocused();
 		await page.keyboard.press('Delete');
 
 		const empty = page.getByRole('status').filter({ hasText: 'Žádné zprávy' });
@@ -142,7 +152,7 @@ test.describe('Přepnutí složky', () => {
 		// announce the loaded page (the initial folder load stays quiet).
 		await page.getByRole('link', { name: 'Odeslané' }).click();
 		await page.waitForURL('**/mail/1/SENT');
-		await expect(page.locator('#live-region')).toContainText('Strana 1 z 1, 1 zpráva');
+		await expect(page.locator('#live-region')).toContainText('Strana 1 z 1, 2 zprávy');
 	});
 });
 

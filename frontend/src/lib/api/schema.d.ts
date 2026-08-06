@@ -521,7 +521,7 @@ export interface paths {
 		};
 		/**
 		 * Conversation (thread) detail
-		 * @description Returns every message in the given conversation as a single ordered list. Ownership is enforced by the {accountId} path component — only threads owned by that account are reachable. The list is ordered by threadPosition ascending (matching receivedAt ascending). For per-message bodies fetch each member's /content endpoint separately.
+		 * @description Returns the messages of the given conversation as a single ordered list. Ownership is enforced by the {accountId} path component — only threads owned by that account are reachable. The list is ordered by threadPosition ascending (matching receivedAt ascending). For per-message bodies fetch each member's /content endpoint separately. With folderRef the thread is scoped to that folder's conversation view — exactly the messages its /folder/conversations row counted, deduplicated the same way, with unreadCount folder-scoped like the row's, so the response mirrors that row field for field and a client can render the list without re-deriving the scope. Omit folderRef entirely for the unscoped, account-wide thread; passing it empty is not the same thing and yields an empty member list rather than the unscoped thread.
 		 */
 		get: operations['getThread'];
 		put?: never;
@@ -1191,6 +1191,8 @@ export interface components {
 			hasAttachments?: boolean;
 			/** @description Conversation identifier — every message of the same thread shares it. Null only until the threading backfill has processed the message (see /api/internal/threading/recompute). Frontends MAY group rows by this id; the V0.1.0 desktop client ignores it. */
 			threadId?: string | null;
+			/** @description RFC 5322 Message-ID. Copies of one mail stored in several folders (Gmail's INBOX + All Mail) share it while having different stableIds, so a client rendering a thread must collapse rows by this value to match the server's messageCount. Null when the sender omitted the header. */
+			messageId?: string | null;
 		};
 		ThreadResponse: {
 			/** @description Stable thread identifier shared by every message of the conversation. */
@@ -1199,15 +1201,15 @@ export interface components {
 			rootMessageId?: string | null;
 			/**
 			 * Format: int32
-			 * @description Number of messages in the thread.
+			 * @description Number of returned messages. With folderRef this is that folder's conversation messageCount.
 			 */
 			participantsTotal?: number;
 			/**
 			 * Format: int32
-			 * @description Number of messages in the thread that are not yet marked as seen.
+			 * @description Unread messages of the conversation. With folderRef only those in that folder (matching the row's unreadCount); otherwise all unseen members.
 			 */
 			unreadCount?: number;
-			/** @description Thread members in ascending threadPosition order. */
+			/** @description Thread members in ascending threadPosition order, scoped by folderRef when given. */
 			messages?: components['schemas']['MailSummaryResponse'][];
 		};
 		PagedResponseMailSummaryResponse: {
@@ -1230,12 +1232,12 @@ export interface components {
 			latest?: components['schemas']['MailSummaryResponse'];
 			/**
 			 * Format: int32
-			 * @description Number of messages of this conversation present in the folder (>= 1).
+			 * @description Number of messages of this conversation (>= 1). For a regular folder it is cross-folder except trash/junk/drafts, counting a mail stored in several folders once; folder-scoped in Trash, Junk and Drafts views.
 			 */
 			messageCount?: number;
 			/**
 			 * Format: int32
-			 * @description Number of those messages that are not yet marked as seen.
+			 * @description Number of messages of this conversation in THIS folder that are not yet marked as seen — folder-scoped in every view, unlike messageCount.
 			 */
 			unreadCount?: number;
 		};
@@ -3344,7 +3346,9 @@ export interface operations {
 	};
 	getThread: {
 		parameters: {
-			query?: never;
+			query?: {
+				folderRef?: string;
+			};
 			header?: never;
 			path: {
 				accountId: number;

@@ -211,6 +211,13 @@ CREATE TABLE messages (
     message_id       VARCHAR(255),
     in_reply_to      VARCHAR(255),
     reply_references TEXT,
+    -- Normal form of `subject` (reply/forward markers stripped, whitespace
+    -- collapsed, lowercased) — the key for the threading subject-fallback.
+    -- Assigned by ThreadingService together with thread_id; empty string when
+    -- the subject carries no grouping key, NULL only while the row predates
+    -- the column (repaired by the startup backfill, which keys off exactly
+    -- that NULL). See util/SubjectNormalizer.
+    subject_norm     VARCHAR(500),
     has_attachments  BOOLEAN       NOT NULL DEFAULT 0,
     -- Conversation threading, materialized at sync time (assigned inline by
     -- ThreadingService when the message is persisted; rows missing it are
@@ -269,6 +276,13 @@ CREATE INDEX idx_messages_account_message_id
 -- on every arrival during a bulk sync, so the lookup must stay cheap.
 CREATE INDEX idx_messages_account_in_reply_to
     ON messages (account_id, in_reply_to);
+
+-- Subject-fallback lookup: a reply whose threading headers are entirely
+-- missing attaches to the newest thread with the same normalized subject
+-- inside a bounded time window (ThreadingService). Runs once per arriving
+-- headerless reply during sync, so it must be indexed.
+CREATE INDEX idx_messages_account_subject_norm
+    ON messages (account_id, subject_norm);
 
 -- Normalized References index for late-arriving-parent reconciliation. The
 -- in_reply_to / thread_root lookups above miss a child that links to its
