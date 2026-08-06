@@ -24,6 +24,27 @@ test.describe('Konverzační seskupení', () => {
 		await expect(grid.locator('[role="row"][data-stable-id]').first()).toBeVisible();
 	});
 
+	test('zaškrtávací políčko říká zpráva u samostatné zprávy a konverzace až u vlákna', async ({
+		page
+	}) => {
+		// A one-message row is a message; calling it a conversation promises a
+		// thread that is not there and misdescribes what a bulk action will reach.
+		await page.goto(`/mail/${accountId}/${encodeURIComponent(folderName)}`);
+		await waitForShell(page);
+
+		await expect(
+			page.getByRole('checkbox', { name: 'Vybrat zprávu Projektové podklady', exact: true })
+		).toBeVisible();
+		await expect(page.getByRole('checkbox', { name: /^Vybrat konverzaci/ })).toHaveCount(0);
+
+		// The ARCHIVE row really is a 4-message conversation.
+		await page.goto(`/mail/${accountId}/ARCHIVE`);
+		await waitForShell(page);
+		await expect(
+			page.getByRole('checkbox', { name: 'Vybrat konverzaci Re: Plán vydání', exact: true })
+		).toBeVisible();
+	});
+
 	test('dvojklik otevře konverzaci na reprezentativní zprávě', async ({ page }) => {
 		await page.goto(`/mail/${accountId}/${encodeURIComponent(folderName)}`);
 		await waitForShell(page);

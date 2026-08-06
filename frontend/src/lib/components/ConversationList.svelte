@@ -227,10 +227,18 @@
 		return size;
 	}
 
+	/**
+	 * The checkbox label. A row holding a single message is a message, not a
+	 * conversation — announcing "Vybrat konverzaci" there promises a thread the row
+	 * does not have, and tells a screen-reader user the bulk action will reach more
+	 * than the one mail it actually touches. Same threshold as the count badge, so
+	 * what is announced matches what is rendered.
+	 */
 	function selectionLabel(conversation: ConversationSummaryResponse): string {
-		return $_('messages.grouping.selectConversation', {
-			values: { subject: conversation.latest.subject || $_('messages.noSubject') }
-		});
+		const values = { subject: conversation.latest.subject || $_('messages.noSubject') };
+		return displayedCount(conversation) > 1
+			? $_('messages.grouping.selectConversation', { values })
+			: $_('messages.selectMessage', { values });
 	}
 
 	/** Whether this row's counterpart is its recipient — see viewShowsRecipients. */
