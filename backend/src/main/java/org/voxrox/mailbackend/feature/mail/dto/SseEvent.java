@@ -5,7 +5,7 @@ package org.voxrox.mailbackend.feature.mail.dto;
  * {@link #type()} value becomes the SSE event name and the implementing record
  * is serialized (Jackson) as the event data payload.
  */
-public sealed interface SseEvent permits SyncNotification, SendNotification, ThreadUpdated {
+public sealed interface SseEvent permits SyncNotification, SyncStatusNotification, SendNotification, ThreadUpdated {
 
     String type();
 }

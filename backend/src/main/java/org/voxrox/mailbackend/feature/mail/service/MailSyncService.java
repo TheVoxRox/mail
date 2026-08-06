@@ -3,6 +3,7 @@ package org.voxrox.mailbackend.feature.mail.service;
 import jakarta.mail.*;
 
 import org.hibernate.StaleObjectStateException;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -23,6 +24,7 @@ import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
 import org.voxrox.mailbackend.feature.mail.entity.FolderSyncStateEntity;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 import org.voxrox.mailbackend.feature.mail.event.MailSyncCompletedEvent;
+import org.voxrox.mailbackend.feature.mail.event.MailSyncErrorStateChangedEvent;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
 import org.voxrox.mailbackend.util.AuditLog;
 import org.voxrox.mailbackend.util.LogCategory;
@@ -86,6 +88,14 @@ public class MailSyncService {
             return;
         }
 
+        /*
+         * Captured before the pass runs: the writes below go through @Modifying queries
+         * that bypass the persistence context, so the loaded entity keeps the pre-pass
+         * value and can serve as the "before" side of the comparison in the finally
+         * block.
+         */
+        String errorCodeBeforePass = account.getLastErrorCode();
+
         try {
             log.info("{} Starting account sync: {}", LogCategory.SYNC, LogMasker.maskEmail(account.getEmail()));
             List<FolderResponse> folders = imapFolderService.getFolders(account.getId());
@@ -140,7 +150,30 @@ public class MailSyncService {
             AuditLog.failure("sync_account", LogMasker.maskEmail(account.getEmail()), e.getClass().getSimpleName());
             accountRepository.updateLastError(account.getId(), buildAccountSyncError(e), LocalDateTime.now());
         } finally {
+            publishErrorStateTransition(account.getId(), errorCodeBeforePass);
             lockManager.unlock(account.getId());
+        }
+    }
+
+    /**
+     * Publishes {@link MailSyncErrorStateChangedEvent} when the pass changed the
+     * account's standing error state. Runs in the {@code finally} block so an
+     * abrupt failure still reports it, and swallows its own failures: a
+     * notification that cannot be produced must not turn a completed sync into a
+     * failed one, nor leak past the {@code finally} and swallow the original
+     * exception.
+     */
+    private void publishErrorStateTransition(Long accountId, @Nullable String errorCodeBeforePass) {
+        try {
+            String errorCodeAfterPass = accountRepository.findLastErrorCode(accountId).orElse(null);
+            if (Objects.equals(errorCodeBeforePass, errorCodeAfterPass)) {
+                return;
+            }
+            eventPublisher
+                    .publishEvent(new MailSyncErrorStateChangedEvent(accountId, errorCodeAfterPass, Instant.now()));
+        } catch (Exception e) {
+            log.warn("{} Could not evaluate the sync error state of account {}: {}", LogCategory.SYNC, accountId,
+                    e.getMessage());
         }
     }
 

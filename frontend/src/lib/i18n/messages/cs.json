@@ -49,6 +49,8 @@
 		"sync": "Synchronizovat",
 		"syncing": "Synchronizuji…",
 		"syncStarted": "Synchronizace zahájena.",
+		"syncProblem": "Synchronizace selhává: {account}",
+		"syncProblemMultiple": "{count, plural, one {Synchronizace selhává u {count} účtu} few {Synchronizace selhává u {count} účtů} other {Synchronizace selhává u {count} účtů}}",
 		"accounts": "Účty"
 	},
 	"folders": {
@@ -795,6 +797,9 @@
 		"sendCompleted": "Zpráva odeslána příjemci {recipient}.",
 		"sendFailed": "Zprávu se nepodařilo odeslat příjemci {recipient}.",
 		"sendFailedRecoveryDraft": "Zprávu se nepodařilo odeslat příjemci {recipient}. Obsah je uložen ve složce Rozepsané.",
-		"sendUnverified": "Výsledek odeslání příjemci {recipient} se nepodařilo ověřit — zkontrolujte složku Odeslané."
+		"sendUnverified": "Výsledek odeslání příjemci {recipient} se nepodařilo ověřit — zkontrolujte složku Odeslané.",
+		"syncFailed": "Synchronizace účtu {account} selhala. Nová pošta zatím nechodí.",
+		"syncFailedDetail": "Synchronizace účtu {account} selhala: {detail}",
+		"syncRecovered": "Synchronizace účtu {account} znovu funguje."
 	}
 }

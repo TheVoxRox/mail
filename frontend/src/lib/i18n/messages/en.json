@@ -49,6 +49,8 @@
 		"sync": "Synchronise",
 		"syncing": "Synchronising…",
 		"syncStarted": "Synchronisation started.",
+		"syncProblem": "Sync is failing: {account}",
+		"syncProblemMultiple": "{count, plural, one {Sync is failing for {count} account} other {Sync is failing for {count} accounts}}",
 		"accounts": "Accounts"
 	},
 	"folders": {
@@ -795,6 +797,9 @@
 		"sendCompleted": "Message sent to {recipient}.",
 		"sendFailed": "Couldn’t send the message to {recipient}.",
 		"sendFailedRecoveryDraft": "Couldn’t send the message to {recipient}. The content is saved in Drafts.",
-		"sendUnverified": "Couldn’t verify the send outcome for {recipient} — check the Sent folder."
+		"sendUnverified": "Couldn’t verify the send outcome for {recipient} — check the Sent folder.",
+		"syncFailed": "Syncing {account} failed. New mail is not arriving.",
+		"syncFailedDetail": "Syncing {account} failed: {detail}",
+		"syncRecovered": "Syncing {account} works again."
 	}
 }

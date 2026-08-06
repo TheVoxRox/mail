@@ -13,12 +13,14 @@ import type {
 	FolderResponse,
 	SendNotification,
 	StreamNotification,
-	SyncNotification
+	SyncNotification,
+	SyncStatusNotification
 } from '$lib/types.js';
 import { messagesState, reloadCurrentPage } from './messages.js';
 import { conversationsState, reloadCurrentConversationsPage } from './conversations.js';
 import { refreshFolders } from './folders.js';
-import { accountsState } from './accounts.js';
+import { accountsState, refreshAccounts } from './accounts.js';
+import { markSyncFailed, markSyncRecovered } from './syncHealth.js';
 import { dismissToast, pushToast } from './toasts.js';
 
 type NotificationsStatus = 'idle' | 'connecting' | 'open' | 'error';
@@ -49,6 +51,10 @@ export function handleStreamNotification(event: StreamNotification): void {
 		handleSyncCompleted(event as SyncNotification);
 		return;
 	}
+	if (event.type === 'sync_failed' || event.type === 'sync_recovered') {
+		void handleSyncStatus(event as SyncStatusNotification);
+		return;
+	}
 	/*
 	 * Any other whitelisted event (currently only `thread_updated`) has no
 	 * V0.1.0 consumer. Ignore it — previously it fell through to
@@ -57,6 +63,42 @@ export function handleStreamNotification(event: StreamNotification): void {
 	 * refreshFolders on every thread-membership change. The V0.2 conversation
 	 * UI will subscribe here.
 	 */
+}
+
+/**
+ * A sync failure or recovery. The backend emits these on the transition only,
+ * so one toast per event is one toast per state change — not one every five
+ * minutes for as long as a mail server stays down.
+ *
+ * The failure toast is persistent (`ttl: 0`) like the send failure: "mail
+ * stopped arriving" must not scroll away unnoticed. The lasting indicator lives
+ * in the sidebar; the toast only tells the user the moment it happened.
+ */
+async function handleSyncStatus(event: SyncStatusNotification): Promise<void> {
+	// Refetch first: the toast text is the account's localized `lastError`, which
+	// the backend resolves in AccountMapper. Refetching also keeps Settings →
+	// Accounts in step, so the two surfaces describe the same failure.
+	const accounts = await refreshAccounts();
+	const account = accounts.find((candidate) => candidate.id === event.accountId);
+	const accountLabel = account?.email ?? `#${event.accountId}`;
+	const translate = get(_);
+
+	if (event.type === 'sync_recovered') {
+		markSyncRecovered(event.accountId);
+		pushToast(translate('toast.syncRecovered', { values: { account: accountLabel } }), {
+			tone: 'success',
+			ttl: 6000
+		});
+		return;
+	}
+
+	markSyncFailed(event.accountId);
+	const detail = account?.lastError;
+	const message = detail
+		? translate('toast.syncFailedDetail', { values: { account: accountLabel, detail } })
+		: translate('toast.syncFailed', { values: { account: accountLabel } });
+	pushToast(message, { tone: 'error', ttl: 0 });
+	notifyUser(message, accountLabel);
 }
 
 /*

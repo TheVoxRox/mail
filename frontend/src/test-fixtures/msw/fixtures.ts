@@ -721,6 +721,24 @@ export function incrementFolderUnreadCount(
 	);
 }
 
+/**
+ * Sets (or clears) the account's standing error, the way a backend sync pass
+ * would. The `sync_failed` notification carries only the code; the localized
+ * text lives on the account and the client refetches it, so a test driving the
+ * notification has to move both together.
+ */
+export function setAccountSyncError(
+	accountId: number,
+	errorCode: string | null,
+	detail: string | null
+): void {
+	fixtureState.accounts = fixtureState.accounts.map((account) =>
+		account.id === accountId
+			? { ...account, lastError: detail, lastErrorCode: errorCode, lastErrorArgs: {} }
+			: account
+	);
+}
+
 export function upsertAccount(
 	body: AccountCreateRequest | AccountUpdateRequest,
 	id = Math.max(0, ...fixtureState.accounts.map((account) => account.id)) + 1

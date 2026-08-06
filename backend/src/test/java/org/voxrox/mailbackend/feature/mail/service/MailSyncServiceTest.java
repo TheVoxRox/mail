@@ -46,6 +46,7 @@ import org.voxrox.mailbackend.feature.mail.dto.FolderResponse;
 import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
 import org.voxrox.mailbackend.feature.mail.entity.FolderSyncStateEntity;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
+import org.voxrox.mailbackend.feature.mail.event.MailSyncErrorStateChangedEvent;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
 
 /**
@@ -567,6 +568,92 @@ class MailSyncServiceTest {
 
             assertThatThrownBy(() -> service.getMessageOrThrow("missing")).isInstanceOf(ResourceNotFoundException.class)
                     .hasMessageContaining("missing");
+        }
+    }
+
+    /**
+     * The sync error state is pushed to the client edge-triggered: the scheduler
+     * runs a pass every five minutes, so anything per-pass would notify the user
+     * that often for as long as a mail server stays unreachable.
+     */
+    @Nested
+    @DisplayName("sync error state transitions")
+    class ErrorStateTransitions {
+
+        @BeforeEach
+        void grantAccountLock() {
+            when(lockManager.tryLock(ACCOUNT_ID)).thenReturn(true);
+            lenient().when(imapFolderService.getFolders(ACCOUNT_ID)).thenReturn(List.of());
+        }
+
+        @Test
+        @DisplayName("First failure emits sync_failed; the pass after it, still failing the same way, emits nothing")
+        void emitsOnceWhileTheFailurePersists() {
+            when(imapFolderService.getFolders(ACCOUNT_ID)).thenThrow(new IllegalStateException("IMAP down"));
+            when(accountRepository.findLastErrorCode(ACCOUNT_ID))
+                    .thenReturn(Optional.of(AccountLastErrorCode.MAIL_SYNC_ACCOUNT_FAILED.name()));
+
+            service.syncAllFolders(account);
+
+            // The second pass starts from the state the first one left behind — which is
+            // what the loaded entity carries in production.
+            account.setLastErrorCode(AccountLastErrorCode.MAIL_SYNC_ACCOUNT_FAILED.name());
+            service.syncAllFolders(account);
+
+            ArgumentCaptor<Object> events = ArgumentCaptor.forClass(Object.class);
+            verify(eventPublisher, times(1)).publishEvent(events.capture());
+            MailSyncErrorStateChangedEvent event = (MailSyncErrorStateChangedEvent) events.getValue();
+            assertThat(event.accountId()).isEqualTo(ACCOUNT_ID);
+            assertThat(event.errorCode()).isEqualTo(AccountLastErrorCode.MAIL_SYNC_ACCOUNT_FAILED.name());
+        }
+
+        @Test
+        @DisplayName("A clean pass after a standing failure emits the recovery")
+        void emitsRecoveryWhenTheErrorClears() {
+            account.setLastErrorCode(AccountLastErrorCode.MAIL_SYNC_FOLDER_FAILED.name());
+            when(accountRepository.findLastErrorCode(ACCOUNT_ID)).thenReturn(Optional.empty());
+
+            service.syncAllFolders(account);
+
+            ArgumentCaptor<Object> events = ArgumentCaptor.forClass(Object.class);
+            verify(eventPublisher).publishEvent(events.capture());
+            assertThat(((MailSyncErrorStateChangedEvent) events.getValue()).errorCode()).isNull();
+        }
+
+        @Test
+        @DisplayName("A clean pass on a healthy account emits nothing")
+        void staysSilentWhenNothingChanged() {
+            when(accountRepository.findLastErrorCode(ACCOUNT_ID)).thenReturn(Optional.empty());
+
+            service.syncAllFolders(account);
+
+            verify(eventPublisher, never()).publishEvent(any(MailSyncErrorStateChangedEvent.class));
+        }
+
+        @Test
+        @DisplayName("A failure of a different kind is a transition of its own")
+        void emitsWhenTheFailureKindChanges() {
+            account.setLastErrorCode(AccountLastErrorCode.MAIL_SYNC_FOLDER_FAILED.name());
+            when(imapFolderService.getFolders(ACCOUNT_ID)).thenThrow(new IllegalStateException("IMAP down"));
+            when(accountRepository.findLastErrorCode(ACCOUNT_ID))
+                    .thenReturn(Optional.of(AccountLastErrorCode.MAIL_SYNC_ACCOUNT_FAILED.name()));
+
+            service.syncAllFolders(account);
+
+            ArgumentCaptor<Object> events = ArgumentCaptor.forClass(Object.class);
+            verify(eventPublisher).publishEvent(events.capture());
+            assertThat(((MailSyncErrorStateChangedEvent) events.getValue()).errorCode())
+                    .isEqualTo(AccountLastErrorCode.MAIL_SYNC_ACCOUNT_FAILED.name());
+        }
+
+        @Test
+        @DisplayName("A failing state read never turns a completed sync into a failed one")
+        void readFailureIsSwallowed() {
+            when(accountRepository.findLastErrorCode(ACCOUNT_ID)).thenThrow(new IllegalStateException("DB busy"));
+
+            service.syncAllFolders(account);
+
+            verify(lockManager).unlock(ACCOUNT_ID);
         }
     }
 }

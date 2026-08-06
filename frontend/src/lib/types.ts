@@ -438,5 +438,29 @@ export interface ThreadUpdated {
 	accountId: number;
 }
 
+/**
+ * Payload of the `sync_failed` / `sync_recovered` events — the account's
+ * standing sync error started, changed kind, or cleared.
+ *
+ * Emitted on the transition only, never once per pass: the backend syncs every
+ * five minutes, so a per-pass event would notify that often for as long as a
+ * server stays unreachable.
+ *
+ * Like {@link ThreadUpdated} the payload is minimal. The message placeholders
+ * (folder, error class, detail) live in the account's `lastErrorArgs`, so the
+ * client refetches accounts instead of carrying a second copy here — the
+ * notification and Settings → Accounts then cannot disagree about the same
+ * failure.
+ */
+export interface SyncStatusNotification {
+	type: 'sync_failed' | 'sync_recovered';
+	accountId: number;
+	/** {@link AccountResponse.lastErrorCode} of the new state; null on recovery. */
+	errorCode: string | null;
+	/** ISO-8601 Instant. */
+	timestamp: string;
+}
+
 /** Any event delivered over `/notifications/stream`. */
-export type StreamNotification = SyncNotification | SendNotification | ThreadUpdated;
+export type StreamNotification =
+	SyncNotification | SyncStatusNotification | SendNotification | ThreadUpdated;

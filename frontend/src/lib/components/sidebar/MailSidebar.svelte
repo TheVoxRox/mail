@@ -5,6 +5,7 @@
 	import { get } from 'svelte/store';
 	import { accountsState, activeAccount } from '$lib/stores/accounts.js';
 	import { folders, foldersState, refreshFolders } from '$lib/stores/folders.js';
+	import { failingSyncAccounts } from '$lib/stores/syncHealth.js';
 	import { announcePolite, pushToast } from '$lib/stores/toasts.js';
 	import { triggerAccountSync } from '$lib/api/mailAction.js';
 	import { toErrorMessage } from '$lib/api/errors.js';
@@ -67,6 +68,10 @@
 	function openCompose() {
 		void goto(resolve('/compose'));
 	}
+
+	function openAccountSettings() {
+		void goto(resolve('/settings/accounts'));
+	}
 </script>
 
 {#snippet header()}
@@ -92,6 +97,34 @@
 {/snippet}
 
 {#snippet footer()}
+	<!--
+		A standing sync failure has to be visible where the user notices the
+		symptom — mail not arriving — not only in Settings → Accounts. It sits next
+		to the Sync button because that is the control it is about. A real button,
+		never a decorative icon: the same mouse-only trap the expand toggle fell
+		into (#221).
+
+		text-warning-foreground, not text-destructive: --destructive is a tint
+		token and lands at 4.42:1 on the sidebar background, just under AA (caught
+		by the axe case in a11y.e2e.ts). The warning pair is what app.css already
+		defines for alert text on a light surface, and it is theme-aware.
+	-->
+	{#if $failingSyncAccounts.length > 0}
+		<Button
+			variant="ghost"
+			size="lg"
+			onclick={openAccountSettings}
+			class="mb-1 w-full justify-start text-warning-foreground hover:text-warning-foreground"
+		>
+			<Icon name="exclamation-triangle" />
+			<span class="flex-1 truncate text-left">
+				{$failingSyncAccounts.length === 1
+					? $_('nav.syncProblem', { values: { account: $failingSyncAccounts[0].email } })
+					: $_('nav.syncProblemMultiple', { values: { count: $failingSyncAccounts.length } })}
+			</span>
+		</Button>
+	{/if}
+
 	<Button
 		variant="ghost"
 		size="lg"

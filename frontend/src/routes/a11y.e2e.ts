@@ -143,6 +143,39 @@ test.describe('Přístupnost', () => {
 		expect(results.violations).toEqual([]);
 	});
 
+	test('indikátor selhané synchronizace nemá a11y porušení', async ({ page }) => {
+		// The per-route sweep never reaches this state: the indicator only exists
+		// after a sync_failed notification, so without this case the axe scan
+		// would silently skip the whole affordance.
+		await page.goto(`/mail/${mailFixture.accountId}/${encodeURIComponent(mailFixture.folderName)}`);
+		await waitForShell(page);
+
+		// Gate on the subscription, not on rendering: a push into an empty client
+		// set is dropped, and the shell exists before the stream is subscribed.
+		await page.waitForFunction(() => window.__MAIL_MSW__?.syncStreamConnected() === true);
+		await page.evaluate(() => window.__MAIL_MSW__?.pushSyncFailed());
+
+		const indicator = page.getByRole('button', {
+			name: 'Synchronizace selhává: tester@example.com'
+		});
+		await expect(indicator).toBeVisible();
+
+		/*
+		 * Scoped to the sidebar on purpose. A full-page scan in this state also
+		 * flags the error toast (`text-destructive` on `bg-destructive/10`, 3.95:1)
+		 * — a pre-existing, systemic issue: --destructive is a tint token used as
+		 * text in ~10 components, and fixing it is its own change. Widening this
+		 * scan later is the way to prove that fix landed; leaving the assertion
+		 * page-wide now would just get the whole case deleted the first time it
+		 * went red for someone else's reason.
+		 */
+		const results = await new AxeBuilder({ page })
+			.include('[aria-label="Podokno pošty"]')
+			.withTags(['wcag2a', 'wcag2aa'])
+			.analyze();
+		expect(results.violations).toEqual([]);
+	});
+
 	test('search landmark není vnořený v navigaci (pošta i kontakty)', async ({ page }) => {
 		// The sidebar is a named region; the search and the folder-list <nav>
 		// sit side by side inside it — a search landmark nested in nav is

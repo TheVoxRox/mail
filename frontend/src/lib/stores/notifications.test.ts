@@ -2,9 +2,19 @@ import { get } from 'svelte/store';
 import { addMessages, init } from 'svelte-i18n';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import csMessages from '$lib/i18n/messages/cs.json';
+import { listAccounts } from '$lib/api/accounts.js';
 import { handleStreamNotification, lastSync, registerPendingSend } from './notifications.js';
+import { accountsState } from './accounts.js';
+import { failingSyncAccounts, resetSyncHealth } from './syncHealth.js';
 import { toasts } from './toasts.js';
-import type { SendNotification, ThreadUpdated } from '$lib/types.js';
+import type {
+	AccountResponse,
+	SendNotification,
+	SyncStatusNotification,
+	ThreadUpdated
+} from '$lib/types.js';
+
+vi.mock('$lib/api/accounts.js', () => ({ listAccounts: vi.fn() }));
 
 beforeAll(() => {
 	addMessages('cs', csMessages);
@@ -114,5 +124,70 @@ describe('pending send outcome handling', () => {
 		handleStreamNotification(failed('send-f'));
 
 		expect(toastMessages()).toEqual(['Zprávu se nepodařilo odeslat příjemci jana@example.com.']);
+	});
+});
+
+describe('sync status notifications', () => {
+	const account: AccountResponse = {
+		...({} as AccountResponse),
+		id: 4,
+		email: 'jana@example.com',
+		lastError: 'Synchronizace složky INBOX selhala: MessagingException: timeout',
+		lastErrorCode: 'MAIL_SYNC_FOLDER_FAILED',
+		lastErrorArgs: {}
+	};
+
+	beforeEach(() => {
+		toasts.set([]);
+		resetSyncHealth();
+		accountsState.set({ status: 'ready', accounts: [account] });
+		vi.mocked(listAccounts).mockResolvedValue([account]);
+	});
+
+	function statusEvent(type: 'sync_failed' | 'sync_recovered'): SyncStatusNotification {
+		return {
+			type,
+			accountId: 4,
+			errorCode: type === 'sync_failed' ? 'MAIL_SYNC_FOLDER_FAILED' : null,
+			timestamp: '2026-08-06T10:00:00Z'
+		};
+	}
+
+	it('surfaces a failure as a persistent toast carrying the localized detail', async () => {
+		handleStreamNotification(statusEvent('sync_failed'));
+		await vi.waitFor(() => expect(get(toasts)).toHaveLength(1));
+
+		const [toast] = get(toasts);
+		expect(toast.message).toBe(
+			'Synchronizace účtu jana@example.com selhala: Synchronizace složky INBOX selhala: MessagingException: timeout'
+		);
+		// Persistent: "mail stopped arriving" must not scroll away unnoticed.
+		expect(toast.tone).toBe('error');
+		expect(toast.ttl).toBe(0);
+		expect(get(failingSyncAccounts).map((a) => a.id)).toEqual([4]);
+	});
+
+	it('clears the indicator on recovery', async () => {
+		handleStreamNotification(statusEvent('sync_failed'));
+		await vi.waitFor(() => expect(get(failingSyncAccounts)).toHaveLength(1));
+
+		vi.mocked(listAccounts).mockResolvedValue([
+			{ ...account, lastError: null, lastErrorCode: null }
+		]);
+		handleStreamNotification(statusEvent('sync_recovered'));
+
+		await vi.waitFor(() => expect(get(failingSyncAccounts)).toHaveLength(0));
+		expect(get(toasts).at(-1)?.message).toBe('Synchronizace účtu jana@example.com znovu funguje.');
+	});
+
+	it('does not stack indicators when the same account is reported twice', async () => {
+		// The backend is edge-triggered, but a reconnecting stream may replay; the
+		// indicator must not count the same account twice.
+		handleStreamNotification(statusEvent('sync_failed'));
+		await vi.waitFor(() => expect(get(failingSyncAccounts)).toHaveLength(1));
+		handleStreamNotification(statusEvent('sync_failed'));
+		await vi.waitFor(() => expect(get(toasts)).toHaveLength(2));
+
+		expect(get(failingSyncAccounts)).toHaveLength(1);
 	});
 });
