@@ -468,6 +468,54 @@ export function resetFixtures(): E2EFixtureState {
 	return fixtureState;
 }
 
+/**
+ * Opt-in seed (`mail.e2e.trashThreadMember`): two trashed replies inside the
+ * ARCHIVE "Plán vydání" thread. The default trash fixtures deliberately carry a
+ * subject no live thread shares, which leaves the trash side of the
+ * conversation scope untested in both directions — this seed covers both. From
+ * ARCHIVE the two must stay out of the conversation (a deleted reply is not part
+ * of the live thread, and the badge must not count it); from the Trash view the
+ * conversation must be folder-scoped, so expanding it reveals the other trashed
+ * reply and never the ARCHIVE or SENT members.
+ *
+ * Kept opt-in rather than added to `trashMessages`: the permanent-delete e2e
+ * asserts on exactly the two default rows ("Trvale smazat 2 zprávy z koše?").
+ */
+export function seedTrashThreadMembers(): E2EFixtureState {
+	const trashed: MailSummaryResponse[] = [
+		{
+			...makeSummary(66),
+			stableId: 'trash-plan-01',
+			folderName: 'TRASH',
+			subject: 'Re: Plán vydání',
+			receivedAt: iso(350),
+			seen: true,
+			flagged: false,
+			answered: false,
+			hasAttachments: false
+		},
+		{
+			...makeSummary(67),
+			stableId: 'trash-plan-02',
+			folderName: 'TRASH',
+			subject: 'Re: Plán vydání',
+			receivedAt: iso(100),
+			seen: true,
+			flagged: false,
+			answered: false,
+			hasAttachments: false
+		}
+	];
+	fixtureState.messagesByFolder[folderKey(1, 'TRASH')] = [
+		...getFolderMessages(1, 'TRASH'),
+		...trashed
+	];
+	for (const message of trashed) {
+		fixtureState.messageDetails[message.stableId] = makeDetail(message);
+	}
+	return fixtureState;
+}
+
 export function clearAccounts(): E2EFixtureState {
 	fixtureState.accounts = [];
 	fixtureState.foldersByAccount = {};
@@ -494,18 +542,15 @@ export function getFolderMessages(accountId: number, folderName: string): MailSu
  * enough to exercise multi-message rows and the count badge. Mirrors the
  * backend's cross-folder contract: the representative is the newest message in
  * the folder in view and `unreadCount` counts that folder's own messages, while
- * `messageCount` spans the account minus trash/junk/drafts — except in
- * Trash/Junk/Drafts views, which stay folder-scoped throughout. Conversations
- * are ordered newest-representative first.
+ * `messageCount` spans whatever {@link conversationPool} says the view covers.
+ * Conversations are ordered newest-representative first.
  */
 export function conversationsOf(
 	accountId: number,
 	folderName: string
 ): ConversationSummaryResponse[] {
 	const folderMessages = getFolderMessages(accountId, folderName);
-	const role = folderRoleOf(accountId, folderName);
-	const folderScoped = role === 'TRASH' || role === 'JUNK' || role === 'DRAFTS';
-	const pool = folderScoped ? folderMessages : crossFolderPool(accountId);
+	const pool = conversationPool(accountId, folderName);
 
 	const groups = new Map<string, MailSummaryResponse[]>();
 	for (const message of folderMessages) {
@@ -536,11 +581,30 @@ function folderRoleOf(accountId: number, folderName: string): string | undefined
 	)?.role;
 }
 
+/** Every message of the account, in folder-key order. */
+function accountMessages(accountId: number): MailSummaryResponse[] {
+	return Object.entries(fixtureState.messagesByFolder)
+		.filter(([key]) => key.startsWith(`${accountId}:`))
+		.flatMap(([, items]) => items);
+}
+
 /**
- * Every message of the account except those in trash/junk/drafts-role folders —
- * the set the backend's cross-folder counts span.
+ * The messages one folder's conversation view spans — the mock's single scope
+ * resolution, mirroring the backend's `ConversationScope`. Both the listing's
+ * `messageCount` and the member list served by {@link threadOf} come from it, so
+ * a fixture can never produce a badge the expanded rows disagree with (the real
+ * server has the same property, which is what lets the client skip the check).
+ *
+ * Trash/Junk/Drafts views stay folder-scoped. Every other view spans the account
+ * minus those folders, with copies of one mail (a shared `messageId` — Gmail's
+ * INBOX + All Mail) collapsed to the copy in the folder in view, exactly as the
+ * backend's `COUNT(DISTINCT COALESCE(message_id, stable_id))` counts them.
  */
-function crossFolderPool(accountId: number): MailSummaryResponse[] {
+function conversationPool(accountId: number, folderName: string): MailSummaryResponse[] {
+	const role = folderRoleOf(accountId, folderName);
+	if (role === 'TRASH' || role === 'JUNK' || role === 'DRAFTS') {
+		return getFolderMessages(accountId, folderName);
+	}
 	const excluded = new Set(
 		(fixtureState.foldersByAccount[accountId] ?? [])
 			.filter(
@@ -548,34 +612,83 @@ function crossFolderPool(accountId: number): MailSummaryResponse[] {
 			)
 			.map((folder) => folderKey(accountId, folder.folderRef))
 	);
-	return Object.entries(fixtureState.messagesByFolder)
+	const pool = Object.entries(fixtureState.messagesByFolder)
 		.filter(([key]) => key.startsWith(`${accountId}:`) && !excluded.has(key))
 		.flatMap(([, items]) => items);
+	// set() on an existing key keeps its insertion position, so replacing the
+	// surviving copy never reorders the pool.
+	const byIdentity = new Map<string, MailSummaryResponse>();
+	for (const message of pool) {
+		const identity = message.messageId ? `mid:${message.messageId}` : `sid:${message.stableId}`;
+		const kept = byIdentity.get(identity);
+		if (!kept || survivesCollapse(message, kept, folderName)) {
+			byIdentity.set(identity, message);
+		}
+	}
+	return [...byIdentity.values()];
 }
 
 /**
- * Reconstructs a whole thread for the {@code /threads/{threadId}} mock. Fixture
- * thread ids are `thread-${representative.stableId}` (see {@link conversationsOf}),
- * so this finds that representative, then collects every account message sharing
- * its normalized subject — account-wide, ascending by receivedAt (the
- * threadPosition proxy). Returns null when the id resolves to no message (404).
+ * Which copy of one mail survives the collapse — mirrors the backend's
+ * `MailFacade.survivesCollapse`. A copy in the folder in view beats one outside
+ * it; among copies inside the folder the newest wins, so the surviving copy is
+ * the same message the listing picks as the row's representative. The client
+ * drops the parent row by stableId and relies on exactly that.
  */
-export function threadOf(accountId: number, threadId: string): ThreadResponse | null {
+function survivesCollapse(
+	candidate: MailSummaryResponse,
+	kept: MailSummaryResponse,
+	folderName: string
+): boolean {
+	const candidateInView = candidate.folderName === folderName;
+	if (candidateInView !== (kept.folderName === folderName)) {
+		return candidateInView;
+	}
+	if (!candidateInView) return false;
+	return candidate.receivedAt > kept.receivedAt;
+}
+
+/**
+ * Reconstructs a thread for the {@code /threads/{threadId}} mock. Fixture thread
+ * ids are `thread-${representative.stableId}` (see {@link conversationsOf}), so
+ * this finds that representative, then collects the messages sharing its
+ * normalized subject, ascending by receivedAt (the threadPosition proxy).
+ * Returns null when the id resolves to no message (404).
+ *
+ * `folderName` scopes the members to that folder's conversation view via
+ * {@link conversationPool} — the same set its `messageCount` was taken from, so
+ * `messages.length` equals that badge. Omitted, the whole account-wide thread
+ * comes back. `rootMessageId` is always taken from the unscoped thread, like the
+ * backend's `findThreadRootMessageIds`: the root is a property of the
+ * conversation, not of the folder it is being viewed from.
+ */
+export function threadOf(
+	accountId: number,
+	threadId: string,
+	folderName?: string
+): ThreadResponse | null {
 	const representativeId = threadId.replace(/^thread-/, '');
-	const accountMessages = Object.entries(fixtureState.messagesByFolder)
-		.filter(([key]) => key.startsWith(`${accountId}:`))
-		.flatMap(([, items]) => items);
-	const representative = accountMessages.find((message) => message.stableId === representativeId);
+	const all = accountMessages(accountId);
+	const representative = all.find((message) => message.stableId === representativeId);
 	if (!representative) return null;
 	const subjectKey = normalizeSubject(representative.subject);
-	const members = accountMessages
-		.filter((message) => normalizeSubject(message.subject) === subjectKey)
-		.sort((a, b) => a.receivedAt.localeCompare(b.receivedAt));
+	const inThread = (message: MailSummaryResponse) =>
+		normalizeSubject(message.subject) === subjectKey;
+	const byReceivedAt = (a: MailSummaryResponse, b: MailSummaryResponse) =>
+		a.receivedAt.localeCompare(b.receivedAt);
+
+	const root = [...all.filter(inThread)].sort(byReceivedAt)[0];
+	const pool = folderName == null ? all : conversationPool(accountId, folderName);
+	const members = pool.filter(inThread).sort(byReceivedAt);
 	return {
 		threadId,
-		rootMessageId: members[0] ? `<${members[0].stableId}@example.com>` : null,
+		rootMessageId: root ? `<${root.stableId}@example.com>` : null,
 		participantsTotal: members.length,
-		unreadCount: members.filter((message) => !message.seen).length,
+		// Folder-scoped when scoped, like the backend — it mirrors the row's
+		// unreadCount, which counts only what marking read from that row reaches.
+		unreadCount: members.filter(
+			(message) => !message.seen && (folderName == null || message.folderName === folderName)
+		).length,
 		messages: members
 	};
 }

@@ -521,7 +521,7 @@ export interface paths {
 		};
 		/**
 		 * Conversation (thread) detail
-		 * @description Returns every message in the given conversation as a single ordered list. Ownership is enforced by the {accountId} path component — only threads owned by that account are reachable. The list is ordered by threadPosition ascending (matching receivedAt ascending). For per-message bodies fetch each member's /content endpoint separately.
+		 * @description Returns the messages of the given conversation as a single ordered list. Ownership is enforced by the {accountId} path component — only threads owned by that account are reachable. The list is ordered by threadPosition ascending (matching receivedAt ascending). For per-message bodies fetch each member's /content endpoint separately. With folderRef the thread is scoped to that folder's conversation view — exactly the messages its /folder/conversations row counted, deduplicated the same way, with unreadCount folder-scoped like the row's, so the response mirrors that row field for field and a client can render the list without re-deriving the scope. Omit folderRef entirely for the unscoped, account-wide thread; passing it empty is not the same thing and yields an empty member list rather than the unscoped thread.
 		 */
 		get: operations['getThread'];
 		put?: never;
@@ -1049,8 +1049,8 @@ export interface components {
 			smtp?: components['schemas']['MailServerSettings'];
 			username: string;
 			password?: string;
-			providerOrCustomServerConfigPresent?: boolean;
 			passwordPresentForNewAccount?: boolean;
+			providerOrCustomServerConfigPresent?: boolean;
 		};
 		AccountConnectionTestResponse: {
 			imapOk?: boolean;
@@ -1201,15 +1201,15 @@ export interface components {
 			rootMessageId?: string | null;
 			/**
 			 * Format: int32
-			 * @description Number of messages in the thread.
+			 * @description Number of returned messages. With folderRef this is that folder's conversation messageCount.
 			 */
 			participantsTotal?: number;
 			/**
 			 * Format: int32
-			 * @description Number of messages in the thread that are not yet marked as seen.
+			 * @description Unread messages of the conversation. With folderRef only those in that folder (matching the row's unreadCount); otherwise all unseen members.
 			 */
 			unreadCount?: number;
-			/** @description Thread members in ascending threadPosition order. */
+			/** @description Thread members in ascending threadPosition order, scoped by folderRef when given. */
 			messages?: components['schemas']['MailSummaryResponse'][];
 		};
 		PagedResponseMailSummaryResponse: {
@@ -3346,7 +3346,9 @@ export interface operations {
 	};
 	getThread: {
 		parameters: {
-			query?: never;
+			query?: {
+				folderRef?: string;
+			};
 			header?: never;
 			path: {
 				accountId: number;

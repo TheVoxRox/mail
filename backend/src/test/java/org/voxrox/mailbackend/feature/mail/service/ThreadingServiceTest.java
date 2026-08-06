@@ -651,7 +651,8 @@ class ThreadingServiceTest {
 
             MessageEntity parent = newSubjectMessage("<root@example.com>", "Vylet na hory", BASE);
             when(repo.findSubjectFallbackOrphanCandidates(eq(ACCOUNT_ID), eq("vylet na hory"), anyString(), any(),
-                    any())).thenReturn(List.<Object[]>of(new Object[]{orphanThreadId, "Re: Vylet na hory", null, null}));
+                    any()))
+                    .thenReturn(List.<Object[]>of(new Object[]{orphanThreadId, "Re: Vylet na hory", null, null}));
             when(repo.findByAccountIdAndThreadId(eq(ACCOUNT_ID), anyString())).thenReturn(List.of(parent, reply));
 
             service.assignThread(parent, ACCOUNT);

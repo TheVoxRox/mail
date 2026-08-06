@@ -12,12 +12,14 @@ import io.swagger.v3.oas.annotations.media.Schema;
  * cross-folder — it spans every message of the thread across the account except
  * the trash, junk and drafts folders, so a conversation the user replied to
  * counts the sent reply but not the half-written one. Copies of a single mail
- * in several folders (Gmail's INBOX + All Mail) count once.
- * {@code unreadCount} stays folder-scoped in every view, because marking read
- * from this listing only reaches the folder's own messages. Trash, Junk and
- * Drafts views are folder-scoped throughout. The full cross-folder conversation
- * is available via
- * {@code GET /api/v1/messages/account/{accountId}/threads/{threadId}}.
+ * in several folders (Gmail's INBOX + All Mail) count once. {@code unreadCount}
+ * stays folder-scoped in every view, because marking read from this listing
+ * only reaches the folder's own messages. Trash, Junk and Drafts views are
+ * folder-scoped throughout. The messages behind {@code messageCount} are
+ * available via {@code GET
+ * /api/v1/messages/account/{accountId}/threads/{threadId}?folderRef=}, which
+ * applies this same scope — pass the folder this row came from and the returned
+ * list has exactly {@code messageCount} entries.
  */
 public record ConversationSummaryResponse(
         @Schema(nullable = true, description = "Conversation identifier shared by every message of the thread. "

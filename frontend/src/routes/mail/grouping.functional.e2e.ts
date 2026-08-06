@@ -173,6 +173,59 @@ test.describe('Rozbalení konverzace', () => {
 		await page.waitForURL(`**/mail/${accountId}/ARCHIVE/arch-02`);
 	});
 
+	test('smazaný člen vlákna se nepočítá do odznaku ani se nezobrazí mezi členy', async ({
+		page
+	}) => {
+		// The badge and the expanded rows come from one server-side scope, so a
+		// trashed reply must be absent from both. Without the seed the trash
+		// fixtures share no subject with a live thread and this stays untested.
+		await page.addInitScript(() => {
+			window.localStorage.setItem('mail.e2e.trashThreadMember', '1');
+		});
+		await page.goto(`/mail/${accountId}/ARCHIVE`);
+		await waitForShell(page);
+
+		const parent = archiveRow(page, 'arch-03');
+		await expect(parent).toBeVisible();
+		// Still 4 — the two trashed replies do not raise the count.
+		await expect(parent.getByText('konverzace, 4 zprávy')).toBeAttached();
+
+		await parent.locator('[data-expand-toggle]').click();
+		await expect(parent).toHaveAttribute('aria-expanded', 'true');
+
+		await expect(archiveRow(page, 'sent-plan-01')).toBeVisible();
+		await expect(archiveRow(page, 'trash-plan-01')).toHaveCount(0);
+		await expect(archiveRow(page, 'trash-plan-02')).toHaveCount(0);
+	});
+
+	test('konverzace v koši zůstane folder-scoped a neukáže členy z jiných složek', async ({
+		page
+	}) => {
+		// The Trash view must only ever show what is actually in the trash —
+		// expanding a conversation there must not pull the live ARCHIVE/SENT
+		// members in behind it.
+		await page.addInitScript(() => {
+			window.localStorage.setItem('mail.e2e.trashThreadMember', '1');
+		});
+		await page.goto(`/mail/${accountId}/TRASH`);
+		await waitForShell(page);
+
+		const grid = page.getByRole('treegrid', { name: 'Seznam konverzací' });
+		const parent = grid.locator('[role="row"][data-stable-id="trash-plan-02"]');
+		await expect(parent).toBeVisible();
+		// Folder-scoped count: the two trashed replies, nothing else.
+		await expect(parent.getByText('konverzace, 2 zprávy')).toBeAttached();
+
+		await parent.locator('[data-expand-toggle]').click();
+		await expect(parent).toHaveAttribute('aria-expanded', 'true');
+
+		await expect(grid.locator('[role="row"][data-stable-id="trash-plan-01"]')).toBeVisible();
+		await expect(grid.locator('[role="row"][data-stable-id="arch-01"]')).toHaveCount(0);
+		await expect(grid.locator('[role="row"][data-stable-id="arch-02"]')).toHaveCount(0);
+		await expect(grid.locator('[role="row"][data-stable-id="arch-03"]')).toHaveCount(0);
+		await expect(grid.locator('[role="row"][data-stable-id="sent-plan-01"]')).toHaveCount(0);
+	});
+
 	test('člen z jiné složky se otevře pod svou složkou, ne pod zobrazenou', async ({ page }) => {
 		// The route folder is what the layout header, the back link and the move
 		// control read. Opening the sent reply as .../ARCHIVE/sent-plan-01 would

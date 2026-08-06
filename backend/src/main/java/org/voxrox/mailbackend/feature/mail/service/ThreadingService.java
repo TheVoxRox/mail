@@ -51,11 +51,11 @@ import org.voxrox.mailbackend.util.TransactionCallbacks;
  * <li><b>Late-arriving parent reconciliation</b> — if an earlier orphan thread
  * directly replies to this message's own {@code Message-ID} (its children
  * arrived first), is a cross-folder duplicate rooted at it, or is a cluster of
- * headerless replies this message is the subject-fallback parent of, merge those
- * threads into this message's thread, re-root and renumber the result, and
- * broadcast a {@code thread_updated} SSE event per affected thread. The subject
- * branch matters because the downloader walks UIDs newest-first, so a reply is
- * normally threaded <em>before</em> its parent.</li>
+ * headerless replies this message is the subject-fallback parent of, merge
+ * those threads into this message's thread, re-root and renumber the result,
+ * and broadcast a {@code thread_updated} SSE event per affected thread. The
+ * subject branch matters because the downloader walks UIDs newest-first, so a
+ * reply is normally threaded <em>before</em> its parent.</li>
  * </ol>
  *
  * Unconditional subject-based clustering (JWZ §5) is still skipped — false
@@ -328,9 +328,10 @@ public class ThreadingService {
      * is renumbered.
      *
      * <p>
-     * A fourth source has no Message-ID link at all: an orphan cluster of headerless
-     * {@code "Re:"} replies that this message is the missing subject-fallback parent
-     * of — see {@link #findAbsorbableSubjectOrphanThreadIds}.
+     * A fourth source has no Message-ID link at all: an orphan cluster of
+     * headerless {@code "Re:"} replies that this message is the missing
+     * subject-fallback parent of — see
+     * {@link #findAbsorbableSubjectOrphanThreadIds}.
      *
      * <p>
      * The merge is bounded: at most one inbound message can collapse all its orphan
@@ -386,10 +387,10 @@ public class ThreadingService {
      * {@link #resolveSubjectFallbackParent} only fires when the parent is already
      * threaded, which silently assumes the parent is processed first. It is not:
      * {@code MessageDownloader} walks UIDs newest-first, so on the initial sync of
-     * an existing mailbox the reply is nearly always threaded before its parent. The
-     * reply then finds no candidate, starts its own thread, and nothing ever brings
-     * the two together — exactly the split the fallback exists to prevent. This runs
-     * on every arrival and closes that gap from the other side.
+     * an existing mailbox the reply is nearly always threaded before its parent.
+     * The reply then finds no candidate, starts its own thread, and nothing ever
+     * brings the two together — exactly the split the fallback exists to prevent.
+     * This runs on every arrival and closes that gap from the other side.
      *
      * <p>
      * Absorption is deliberately narrower than the forward direction, because it

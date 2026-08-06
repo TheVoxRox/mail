@@ -328,7 +328,8 @@ class MailFacadeTest {
             // [representativeId, messageCount, unreadCount]; A newer than B.
             Object[] rowA = new Object[]{2L, 3, 1};
             Object[] rowB = new Object[]{5L, 1, 0};
-            when(messageRepository.findConversationRepresentatives(ACCOUNT_ID, FOLDER_INBOX, 50, 0L)).thenReturn(List.of(rowA, rowB));
+            when(messageRepository.findConversationRepresentatives(ACCOUNT_ID, FOLDER_INBOX, 50, 0L))
+                    .thenReturn(List.of(rowA, rowB));
             when(messageRepository.countConversationsByAccountAndFolder(ACCOUNT_ID, FOLDER_INBOX)).thenReturn(2L);
             MailSummaryResponse s2 = summaryWithThread(2L, "t-A");
             MailSummaryResponse s5 = summaryWithThread(5L, "t-B");
@@ -358,7 +359,8 @@ class MailFacadeTest {
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
             Object[] rowA = new Object[]{2L, 2, 0};
             Object[] rowB = new Object[]{5L, 1, 0}; // representative 5 vanished concurrently
-            when(messageRepository.findConversationRepresentatives(ACCOUNT_ID, FOLDER_INBOX, 50, 0L)).thenReturn(List.of(rowA, rowB));
+            when(messageRepository.findConversationRepresentatives(ACCOUNT_ID, FOLDER_INBOX, 50, 0L))
+                    .thenReturn(List.of(rowA, rowB));
             when(messageRepository.countConversationsByAccountAndFolder(ACCOUNT_ID, FOLDER_INBOX)).thenReturn(2L);
             MailSummaryResponse s2 = summaryWithThread(2L, "t-A");
             when(messageRepository.findSummariesByIds(List.of(2L, 5L))).thenReturn(List.of(s2));
@@ -378,7 +380,8 @@ class MailFacadeTest {
         @DisplayName("No conversations -> empty page with the count total, no summary lookup")
         void emptyFolderReturnsEmptyPage() {
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
-            when(messageRepository.findConversationRepresentatives(ACCOUNT_ID, FOLDER_INBOX, 50, 0L)).thenReturn(List.of());
+            when(messageRepository.findConversationRepresentatives(ACCOUNT_ID, FOLDER_INBOX, 50, 0L))
+                    .thenReturn(List.of());
             when(messageRepository.countConversationsByAccountAndFolder(ACCOUNT_ID, FOLDER_INBOX)).thenReturn(0L);
 
             Page<ConversationSummaryResponse> page = mailFacade.getConversations(ACCOUNT_ID, FOLDER_INBOX, 0, 50);
@@ -458,7 +461,12 @@ class MailFacadeTest {
         void folderScopedViews(FolderRole role) {
             String folderName = "folder-of-" + role;
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
-            stubRoleFolders(role, folderName);
+            // All three roles, not just the one under test: an unstubbed lookup throws
+            // a strict stubbing mismatch that the fail-closed branch swallows, and the
+            // test would prove the degraded path instead of the role check.
+            for (FolderRole candidate : List.of(FolderRole.TRASH, FolderRole.JUNK, FolderRole.DRAFTS)) {
+                stubRoleFolders(candidate, candidate == role ? folderName : "unrelated-" + candidate);
+            }
             when(messageRepository.findConversationRepresentatives(ACCOUNT_ID, folderName, 50, 0L))
                     .thenReturn(List.of());
             when(messageRepository.countConversationsByAccountAndFolder(ACCOUNT_ID, folderName)).thenReturn(0L);
@@ -920,7 +928,7 @@ class MailFacadeTest {
         private static final String THREAD_ID = "8b4abcde-uuid";
 
         @Test
-        @DisplayName("Returns the full thread with summaries ordered by threadPosition and unreadCount populated")
+        @DisplayName("No folderRef -> the full, unscoped thread ordered by threadPosition, unreadCount populated")
         void shouldReturnThreadWithMembersAndUnreadCount() {
             MailSummaryResponse s1 = summaryWithSeen(1L, true);
             MailSummaryResponse s2 = summaryWithSeen(2L, false);
@@ -931,13 +939,189 @@ class MailFacadeTest {
                     any(org.springframework.data.domain.Pageable.class))).thenReturn(List.of("<root@x.cz>"));
             when(mapper.withDisplayFallbacks(any(MailSummaryResponse.class))).thenAnswer(inv -> inv.getArgument(0));
 
-            ThreadResponse result = mailFacade.getThread(ACCOUNT_ID, THREAD_ID);
+            ThreadResponse result = mailFacade.getThread(ACCOUNT_ID, THREAD_ID, null);
 
             assertThat(result.threadId()).isEqualTo(THREAD_ID);
             assertThat(result.rootMessageId()).isEqualTo("<root@x.cz>");
             assertThat(result.participantsTotal()).isEqualTo(3);
             assertThat(result.unreadCount()).isEqualTo(2);
             assertThat(result.messages()).containsExactly(s1, s2, s3);
+            // The unscoped read must not go looking for folder roles at all.
+            verify(imapFolderService, never()).findFolderNamesByRole(anyLong(), any());
+        }
+
+        /**
+         * An empty folderRef is a client bug, not a request for the raw thread.
+         * Treating it as absent would answer it with the unscoped list — trashed and
+         * half-written members included — inside a live conversation. The empty-string
+         * NOT IN sentinel classifies it as folder-scoped instead, so it degrades to
+         * nothing rather than to everything.
+         */
+        @Test
+        @DisplayName("Empty folderRef yields no members — it is never treated as 'unscoped'")
+        void emptyFolderRefIsNotUnscoped() {
+            MailSummaryResponse inbox = summary(1L, FOLDER_INBOX, "<a@x.cz>", true);
+            MailSummaryResponse trash = summary(2L, FOLDER_TRASH, "<b@x.cz>", true);
+            stubThread(inbox, trash);
+
+            ThreadResponse result = mailFacade.getThread(ACCOUNT_ID, THREAD_ID, "");
+
+            assertThat(result.messages()).isEmpty();
+            assertThat(result.participantsTotal()).isZero();
+        }
+
+        /**
+         * The representative is the newest message of the conversation in the folder in
+         * view. When that folder holds two copies of one Message-ID (delivery via two
+         * aliases, a re-import), the collapse must keep the newest — otherwise the
+         * representative comes back as a member and the client, which drops the parent
+         * row by stableId, renders it twice.
+         */
+        @Test
+        @DisplayName("Two copies of one Message-ID in the folder in view -> the newest (the representative) survives")
+        void collapseKeepsTheRepresentativeAmongSameFolderCopies() {
+            MailSummaryResponse older = summaryAt(1L, FOLDER_INBOX, "<a@x.cz>", LocalDateTime.of(2026, 1, 1, 10, 0));
+            MailSummaryResponse representative = summaryAt(2L, FOLDER_INBOX, "<a@x.cz>",
+                    LocalDateTime.of(2026, 1, 1, 12, 0));
+            stubThread(older, representative);
+            when(mapper.withDisplayFallbacks(any(MailSummaryResponse.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            ThreadResponse result = mailFacade.getThread(ACCOUNT_ID, THREAD_ID, FOLDER_INBOX);
+
+            assertThat(result.messages()).containsExactly(representative);
+        }
+
+        @Test
+        @DisplayName("Same receivedAt -> the higher id wins, matching the listing's id tie-break")
+        void collapseTieBreaksOnIdLikeTheListing() {
+            LocalDateTime sameInstant = LocalDateTime.of(2026, 1, 1, 10, 0);
+            MailSummaryResponse lower = summaryAt(1L, FOLDER_INBOX, "<a@x.cz>", sameInstant);
+            MailSummaryResponse higher = summaryAt(9L, FOLDER_INBOX, "<a@x.cz>", sameInstant);
+            // Higher id first, so "later wins" alone would keep the wrong one.
+            stubThread(higher, lower);
+            when(mapper.withDisplayFallbacks(any(MailSummaryResponse.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            ThreadResponse result = mailFacade.getThread(ACCOUNT_ID, THREAD_ID, FOLDER_INBOX);
+
+            assertThat(result.messages()).containsExactly(higher);
+        }
+
+        /**
+         * The whole point of {@code folderRef}: what comes back is the set the row's
+         * badge was counted from, so the client renders it without re-deriving the
+         * scope from its own copy of the folder roles.
+         */
+        @Test
+        @DisplayName("Cross-folder view drops the trash, junk and drafts members")
+        void crossFolderViewDropsExcludedFolders() {
+            stubRole(FolderRole.TRASH, FOLDER_TRASH);
+            stubRole(FolderRole.JUNK, "Spam");
+            stubRole(FolderRole.DRAFTS, FOLDER_DRAFTS);
+            MailSummaryResponse inbox = summary(1L, FOLDER_INBOX, "<a@x.cz>", true);
+            MailSummaryResponse sent = summary(2L, "[Gmail]/Sent Mail", "<b@x.cz>", true);
+            MailSummaryResponse trash = summary(3L, FOLDER_TRASH, "<c@x.cz>", true);
+            MailSummaryResponse junk = summary(4L, "Spam", "<d@x.cz>", true);
+            MailSummaryResponse draft = summary(5L, FOLDER_DRAFTS, "<e@x.cz>", true);
+            stubThread(inbox, sent, trash, junk, draft);
+            when(mapper.withDisplayFallbacks(any(MailSummaryResponse.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            ThreadResponse result = mailFacade.getThread(ACCOUNT_ID, THREAD_ID, FOLDER_INBOX);
+
+            assertThat(result.messages()).containsExactly(inbox, sent);
+            assertThat(result.participantsTotal()).isEqualTo(2);
+        }
+
+        /**
+         * Mirrors {@code COUNT(DISTINCT COALESCE(message_id, stable_id))}: on Gmail the
+         * same mail sits in INBOX and All Mail with one Message-ID, and the badge
+         * counts it once. The copy in the folder in view is the one kept — it is the
+         * representative the client drops and the one its bulk actions reach — and it
+         * takes the position of the first copy, so threadPosition order survives.
+         */
+        @Test
+        @DisplayName("Cross-folder view collapses copies of one mail, keeping the copy in the folder in view")
+        void crossFolderViewCollapsesDuplicatesPreferringTheViewCopy() {
+            MailSummaryResponse allMailCopy = summary(1L, "[Gmail]/All Mail", "<a@x.cz>", true);
+            MailSummaryResponse inboxCopy = summary(2L, FOLDER_INBOX, "<a@x.cz>", true);
+            MailSummaryResponse newer = summary(3L, FOLDER_INBOX, "<b@x.cz>", true);
+            // All Mail copy first, so a naive "first wins" would keep the wrong one.
+            stubThread(allMailCopy, inboxCopy, newer);
+            when(mapper.withDisplayFallbacks(any(MailSummaryResponse.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            ThreadResponse result = mailFacade.getThread(ACCOUNT_ID, THREAD_ID, FOLDER_INBOX);
+
+            assertThat(result.messages()).containsExactly(inboxCopy, newer);
+            assertThat(result.participantsTotal()).isEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("Members without a Message-ID never merge — they fall back to their own stableId")
+        void membersWithoutMessageIdNeverMerge() {
+            MailSummaryResponse first = summary(1L, FOLDER_INBOX, null, true);
+            MailSummaryResponse second = summary(2L, FOLDER_INBOX, null, true);
+            stubThread(first, second);
+            when(mapper.withDisplayFallbacks(any(MailSummaryResponse.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            ThreadResponse result = mailFacade.getThread(ACCOUNT_ID, THREAD_ID, FOLDER_INBOX);
+
+            assertThat(result.messages()).containsExactly(first, second);
+        }
+
+        @ParameterizedTest(name = "{0} view returns only its own messages")
+        @EnumSource(names = {"TRASH", "JUNK", "DRAFTS"})
+        void folderScopedViewsReturnOnlyTheirOwnMessages(FolderRole role) {
+            String folderName = "folder-of-" + role;
+            stubAllRoles(role, folderName);
+            MailSummaryResponse inbox = summary(1L, FOLDER_INBOX, "<a@x.cz>", true);
+            MailSummaryResponse own = summary(2L, folderName, "<b@x.cz>", true);
+            stubThread(inbox, own);
+            when(mapper.withDisplayFallbacks(any(MailSummaryResponse.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            ThreadResponse result = mailFacade.getThread(ACCOUNT_ID, THREAD_ID, folderName);
+
+            assertThat(result.messages()).containsExactly(own);
+            assertThat(result.participantsTotal()).isEqualTo(1);
+        }
+
+        /**
+         * Same fail-closed degradation the listing makes: with the roles unresolvable
+         * the view falls back to folder-scoped, which can never surface another
+         * folder's messages inside this conversation.
+         */
+        @Test
+        @DisplayName("Unresolvable folder roles -> folder-scoped members, not the whole account")
+        void unresolvableRolesDegradeToFolderScoped() {
+            when(imapFolderService.findFolderNamesByRole(eq(ACCOUNT_ID), any()))
+                    .thenThrow(new IllegalStateException("IMAP down"));
+            MailSummaryResponse inbox = summary(1L, FOLDER_INBOX, "<a@x.cz>", true);
+            MailSummaryResponse sent = summary(2L, "[Gmail]/Sent Mail", "<b@x.cz>", true);
+            stubThread(inbox, sent);
+            when(mapper.withDisplayFallbacks(any(MailSummaryResponse.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            ThreadResponse result = mailFacade.getThread(ACCOUNT_ID, THREAD_ID, FOLDER_INBOX);
+
+            assertThat(result.messages()).containsExactly(inbox);
+        }
+
+        /**
+         * unreadCount mirrors the row's, which is folder-scoped in every view: an
+         * unread reply sitting in Sent must not make the inbox row report unread mail
+         * that marking read from that row cannot clear.
+         */
+        @Test
+        @DisplayName("unreadCount stays folder-scoped even though the member list is cross-folder")
+        void unreadCountIsFolderScopedLikeTheRow() {
+            MailSummaryResponse inbox = summary(1L, FOLDER_INBOX, "<a@x.cz>", false);
+            MailSummaryResponse unreadElsewhere = summary(2L, "[Gmail]/Sent Mail", "<b@x.cz>", false);
+            stubThread(inbox, unreadElsewhere);
+            when(mapper.withDisplayFallbacks(any(MailSummaryResponse.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            ThreadResponse result = mailFacade.getThread(ACCOUNT_ID, THREAD_ID, FOLDER_INBOX);
+
+            // Both members come back...
+            assertThat(result.messages()).containsExactly(inbox, unreadElsewhere);
+            // ...but only the in-folder one counts as unread.
+            assertThat(result.unreadCount()).isEqualTo(1);
         }
 
         @Test
@@ -945,7 +1129,7 @@ class MailFacadeTest {
         void shouldThrowWhenThreadHasNoMembers() {
             when(messageRepository.findSummariesByAccountIdAndThreadId(ACCOUNT_ID, THREAD_ID)).thenReturn(List.of());
 
-            assertThatThrownBy(() -> mailFacade.getThread(ACCOUNT_ID, THREAD_ID))
+            assertThatThrownBy(() -> mailFacade.getThread(ACCOUNT_ID, THREAD_ID, FOLDER_INBOX))
                     .isInstanceOf(ResourceNotFoundException.class).hasMessageContaining(THREAD_ID);
         }
 
@@ -957,14 +1141,45 @@ class MailFacadeTest {
             // thread.
             when(messageRepository.findSummariesByAccountIdAndThreadId(999L, THREAD_ID)).thenReturn(List.of());
 
-            assertThatThrownBy(() -> mailFacade.getThread(999L, THREAD_ID))
+            assertThatThrownBy(() -> mailFacade.getThread(999L, THREAD_ID, null))
                     .isInstanceOf(ResourceNotFoundException.class);
         }
 
+        private void stubThread(MailSummaryResponse... members) {
+            when(messageRepository.findSummariesByAccountIdAndThreadId(ACCOUNT_ID, THREAD_ID))
+                    .thenReturn(List.of(members));
+            when(messageRepository.findThreadRootMessageIds(eq(ACCOUNT_ID), eq(THREAD_ID),
+                    any(org.springframework.data.domain.Pageable.class))).thenReturn(List.of("<root@x.cz>"));
+        }
+
+        private void stubRole(FolderRole role, String... folderNames) {
+            when(imapFolderService.findFolderNamesByRole(ACCOUNT_ID, role)).thenReturn(List.of(folderNames));
+        }
+
+        /**
+         * Stubs all three excluded roles, giving {@code folderName} to {@code role}.
+         * Every role must be stubbed: leaving one out makes the lookup throw a strict
+         * stubbing mismatch, which the fail-closed branch swallows — the test would
+         * then pass through the degraded path instead of the one it names.
+         */
+        private void stubAllRoles(FolderRole role, String folderName) {
+            for (FolderRole candidate : List.of(FolderRole.TRASH, FolderRole.JUNK, FolderRole.DRAFTS)) {
+                stubRole(candidate, candidate == role ? folderName : "unrelated-" + candidate);
+            }
+        }
+
+        private MailSummaryResponse summary(long id, String folderName, String messageId, boolean seen) {
+            return new MailSummaryResponse(id, "s" + id, folderName, "Subject " + id, "from@x.cz", "to@x.cz",
+                    LocalDateTime.of(2026, 1, 1, 10, 0), seen, false, false, false, THREAD_ID, messageId, 100L);
+        }
+
+        private MailSummaryResponse summaryAt(long id, String folderName, String messageId, LocalDateTime receivedAt) {
+            return new MailSummaryResponse(id, "s" + id, folderName, "Subject " + id, "from@x.cz", "to@x.cz",
+                    receivedAt, true, false, false, false, THREAD_ID, messageId, 100L);
+        }
+
         private MailSummaryResponse summaryWithSeen(long id, boolean seen) {
-            return new MailSummaryResponse(id, "s" + id, "INBOX", "Subject " + id, "from@x.cz", "to@x.cz",
-                    LocalDateTime.of(2026, 1, 1, 10, 0), seen, false, false, false, THREAD_ID, "<m" + id + "@x.cz>",
-                    100L);
+            return summary(id, "INBOX", "<m" + id + "@x.cz>", seen);
         }
     }
 

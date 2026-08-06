@@ -181,10 +181,10 @@ public class ImapFolderService {
      * {@link #findFolderNameByRole(Long, FolderRole)}. Callers that treat the role
      * as a <em>set</em> to skip — the conversation listing excluding trash, junk
      * and drafts from its cross-folder counts — need all of them: role detection is
-     * not unique (see
-     * {@code FolderSyncStateRepository.findFolderNamesByRole}), and skipping only
-     * the first would let a second trash folder leak back into live conversations.
-     * Returns an empty list when the account has no folder for the role.
+     * not unique (see {@code FolderSyncStateRepository.findFolderNamesByRole}), and
+     * skipping only the first would let a second trash folder leak back into live
+     * conversations. Returns an empty list when the account has no folder for the
+     * role.
      */
     public List<String> findFolderNamesByRole(Long accountId, FolderRole role) {
         List<String> fromDb = folderSyncStateRepository.findFolderNamesByRole(accountId, role);

@@ -17,7 +17,7 @@ import {
 	pushSyncCompleted,
 	pushSyncCompletedCrLf
 } from './sse-bridge.js';
-import { clearAccounts, resetFixtures } from './fixtures.js';
+import { clearAccounts, resetFixtures, seedTrashThreadMembers } from './fixtures.js';
 import type { SessionPayload } from '$lib/api/session.js';
 
 const worker = setupWorker(...handlers);
@@ -37,14 +37,28 @@ function e2eSession(): SessionPayload {
 	};
 }
 
+/**
+ * Applies the localStorage fixture flags on top of the freshly reset state.
+ * Called from both the initial install and `__MAIL_MSW__.reset()` — a reset that
+ * only ran `resetFixtures()` would silently drop the opt-in seeds while their
+ * flags still read as enabled, so a test resetting mid-run would lose rows it
+ * had asked for.
+ */
+function applyFixtureFlags(): void {
+	if (window.localStorage.getItem('mail.e2e.noAccounts') === '1') {
+		clearAccounts();
+	}
+	if (window.localStorage.getItem('mail.e2e.trashThreadMember') === '1') {
+		seedTrashThreadMembers();
+	}
+}
+
 export async function installE2EBypass(): Promise<void> {
 	if (!browser) return;
 
 	if (!started) {
 		resetFixtures();
-		if (window.localStorage.getItem('mail.e2e.noAccounts') === '1') {
-			clearAccounts();
-		}
+		applyFixtureFlags();
 		setReadinessDelayMs(Number(window.localStorage.getItem('mail.e2e.readinessDelayMs') ?? 0));
 		setReadinessFailures(Number(window.localStorage.getItem('mail.e2e.readinessFailures') ?? 0));
 		setFolderAuthFailure(window.localStorage.getItem('mail.e2e.folderAuthFailure') === '1');
@@ -78,6 +92,7 @@ export async function installE2EBypass(): Promise<void> {
 			setVCardExportDelayMs(0);
 			setMailPageSize(null);
 			resetFixtures();
+			applyFixtureFlags();
 			worker.resetHandlers(...handlers);
 		},
 		pushSyncCompleted,

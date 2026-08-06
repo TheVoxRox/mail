@@ -111,8 +111,8 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
      * <p>
      * Drives the page in <em>both</em> listing modes. Everything it returns is
      * folder-scoped, which is exactly right for the row identity, the ordering and
-     * {@code unreadCount}; the Outlook-style cross-folder mode keeps all of that and
-     * only replaces {@code messageCount}, via
+     * {@code unreadCount}; the Outlook-style cross-folder mode keeps all of that
+     * and only replaces {@code messageCount}, via
      * {@link #countCrossFolderConversationSizes}.
      * <p>
      * Window functions require SQLite &gt;= 3.25 (2018); the bundled driver is well
@@ -339,12 +339,11 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
      * <p>
      * Each row is {@code [threadId, subject, inReplyTo, references]}. The
      * reply-prefix test that guards the absorption lives in
-     * {@code SubjectNormalizer.hasConversationMarker}, which is Java-side, hence the raw
-     * subject rather than a SQL predicate.
+     * {@code SubjectNormalizer.hasConversationMarker}, which is Java-side, hence
+     * the raw subject rather than a SQL predicate.
      */
     @Query("SELECT m.threadId, m.subject, m.inReplyTo, m.references FROM MessageEntity m "
-            + "WHERE m.account.id = :accId AND m.threadId IN ("
-            + "  SELECT DISTINCT c.threadId FROM MessageEntity c "
+            + "WHERE m.account.id = :accId AND m.threadId IN (" + "  SELECT DISTINCT c.threadId FROM MessageEntity c "
             + "  WHERE c.account.id = :accId AND c.subjectNorm = :norm AND c.threadId IS NOT NULL "
             + "  AND c.threadId <> :excludeThreadId AND c.inReplyTo IS NULL AND c.references IS NULL "
             + "  AND c.receivedAt BETWEEN :from AND :to)")

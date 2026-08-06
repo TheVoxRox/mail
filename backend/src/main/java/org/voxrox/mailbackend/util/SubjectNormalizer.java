@@ -51,8 +51,8 @@ public final class SubjectNormalizer {
      * matters here: plain {@code \s} matches ASCII whitespace only, and neither
      * {@link String#trim()} nor {@link String#strip()} removes U+00A0 NO-BREAK
      * SPACE — which webmails routinely leave in a subject after RFC 2047 decoding.
-     * Without it {@code "Re: Faktura"} normalizes to {@code " faktura"},
-     * the byte-comparing SQLite lookup misses the {@code "faktura"} stored for the
+     * Without it {@code "Re: Faktura"} normalizes to {@code " faktura"}, the
+     * byte-comparing SQLite lookup misses the {@code "faktura"} stored for the
      * parent and the fallback silently stops working. Precompiled — normalization
      * runs once per message during sync and once per row during the backfill.
      */

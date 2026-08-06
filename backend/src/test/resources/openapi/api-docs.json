@@ -2455,7 +2455,7 @@
       "get" : {
         "tags" : [ "Messages — Read" ],
         "summary" : "Conversation (thread) detail",
-        "description" : "Returns every message in the given conversation as a single ordered list. Ownership is enforced by the {accountId} path component — only threads owned by that account are reachable. The list is ordered by threadPosition ascending (matching receivedAt ascending). For per-message bodies fetch each member's /content endpoint separately.",
+        "description" : "Returns the messages of the given conversation as a single ordered list. Ownership is enforced by the {accountId} path component — only threads owned by that account are reachable. The list is ordered by threadPosition ascending (matching receivedAt ascending). For per-message bodies fetch each member's /content endpoint separately. With folderRef the thread is scoped to that folder's conversation view — exactly the messages its /folder/conversations row counted, deduplicated the same way, with unreadCount folder-scoped like the row's, so the response mirrors that row field for field and a client can render the list without re-deriving the scope. Omit folderRef entirely for the unscoped, account-wide thread; passing it empty is not the same thing and yields an empty member list rather than the unscoped thread.",
         "operationId" : "getThread",
         "parameters" : [ {
           "name" : "accountId",
@@ -2473,6 +2473,15 @@
           "schema" : {
             "type" : "string",
             "maxLength" : 36,
+            "minLength" : 0
+          }
+        }, {
+          "name" : "folderRef",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "maxLength" : 255,
             "minLength" : 0
           }
         } ],
@@ -4020,10 +4029,10 @@
           "password" : {
             "type" : "string"
           },
-          "providerOrCustomServerConfigPresent" : {
+          "passwordPresentForNewAccount" : {
             "type" : "boolean"
           },
-          "passwordPresentForNewAccount" : {
+          "providerOrCustomServerConfigPresent" : {
             "type" : "boolean"
           }
         },
@@ -4345,16 +4354,16 @@
           "participantsTotal" : {
             "type" : "integer",
             "format" : "int32",
-            "description" : "Number of messages in the thread."
+            "description" : "Number of returned messages. With folderRef this is that folder's conversation messageCount."
           },
           "unreadCount" : {
             "type" : "integer",
             "format" : "int32",
-            "description" : "Number of messages in the thread that are not yet marked as seen."
+            "description" : "Unread messages of the conversation. With folderRef only those in that folder (matching the row's unreadCount); otherwise all unseen members."
           },
           "messages" : {
             "type" : "array",
-            "description" : "Thread members in ascending threadPosition order.",
+            "description" : "Thread members in ascending threadPosition order, scoped by folderRef when given.",
             "items" : {
               "$ref" : "#/components/schemas/MailSummaryResponse"
             }

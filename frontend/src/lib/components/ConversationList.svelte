@@ -50,7 +50,10 @@
 	// level-2 child rows; singletons are leaves. Outlook-style cross-folder scope:
 	// in a regular folder the children span the whole thread minus trash, junk and
 	// drafts (a sent reply shows inline, tagged with its folder), while Trash, Junk
-	// and Drafts views stay folder-scoped — matching the backend's counts. Same
+	// and Drafts views stay folder-scoped. That scope is decided by the server and
+	// asked for by folderRef — the thread endpoint hands back exactly the messages
+	// the row's badge counted, so the child rows always match the badge instead of
+	// depending on this component re-deriving the same rule from IMAP roles. Same
 	// roving-cell model as MessageList (Enter/click opens), plus treegrid
 	// expand/collapse and a select column driving conversation bulk actions:
 	// selecting a conversation targets its members in the folder in view only
@@ -100,13 +103,6 @@
 	);
 	const currentFolderRole = $derived(
 		$folders.find((folder: FolderResponse) => folder.folderRef === currentFolderName)?.role
-	);
-	// Views whose member lists stay folder-scoped, mirroring the backend's
-	// conversation counts: trash/junk must only show their own contents, and a
-	// cross-folder Drafts view would put non-draft rows behind composer-opening
-	// parents.
-	const isFolderScopedView = $derived(
-		currentFolderRole === 'TRASH' || currentFolderRole === 'JUNK' || currentFolderRole === 'DRAFTS'
 	);
 	const folderRoleByRef = $derived(
 		new Map($folders.map((folder: FolderResponse) => [folder.folderRef, folder.role]))
@@ -163,6 +159,20 @@
 		return conversation.threadId != null && conversation.messageCount > 1;
 	}
 
+	/**
+	 * The count the row shows. Once the members are loaded it is their number
+	 * rather than the listing's, because the two come from separate calls to the
+	 * same server-side scope: if the role resolution degraded between them (IMAP
+	 * went down, so the second call fell back to folder-scoped) the listing's count
+	 * would contradict the rows rendered underneath it. Collapsed rows have nothing
+	 * to contradict and keep the listing's count.
+	 */
+	function displayedCount(conversation: ConversationSummaryResponse): number {
+		const id = conversation.threadId;
+		const loaded = id == null ? undefined : members.get(id);
+		return loaded ? loaded.length : conversation.messageCount;
+	}
+
 	function messageHref(accountId: number, folderName: string, stableId: string): string {
 		return resolve('/mail/[accountId]/[folderName]/[stableId]', {
 			accountId: String(accountId),
@@ -210,7 +220,7 @@
 	}
 
 	function conversationLabel(row: ConversationSummaryResponse): string {
-		const size = $_('messages.grouping.threadSize', { values: { count: row.messageCount } });
+		const size = $_('messages.grouping.threadSize', { values: { count: displayedCount(row) } });
 		if (row.unreadCount > 0) {
 			return `${size}, ${$_('messages.grouping.threadUnread', { values: { count: row.unreadCount } })}`;
 		}
@@ -230,64 +240,28 @@
 	}
 
 	/**
-	 * Whether a thread member belongs in the expanded list of the current view.
-	 * Regular folders show the whole thread minus trash/junk/drafts members
-	 * (matching the backend's cross-folder counts — a deleted or still-unsent
-	 * message is not part of the live conversation); Trash/Junk/Drafts views show
-	 * only the folder's own messages. A member whose folder is unknown to the
-	 * folder list (a sync race) is shown rather than silently dropped.
-	 */
-	function isVisibleMember(message: MailSummaryResponse, folderName: string): boolean {
-		if (isFolderScopedView) return message.folderName === folderName;
-		const role = folderRoleByRef.get(message.folderName);
-		return role !== 'TRASH' && role !== 'JUNK' && role !== 'DRAFTS';
-	}
-
-	/** Grouping key for one mail, matching the server's dedup key. */
-	function memberIdentity(message: MailSummaryResponse): string {
-		return message.messageId ? `mid:${message.messageId}` : `sid:${message.stableId}`;
-	}
-
-	/**
-	 * The members this view shows under `conversation` — derived from the cached
-	 * raw thread on every read, not baked in at fetch time. The filter depends on
-	 * `$folders`, which can still be empty when a deep link expands a row, and a
-	 * list frozen at that moment would keep showing live INBOX messages inside the
-	 * trash for the lifetime of the page.
-	 *
-	 * Drops the representative (already rendered as the parent row) and collapses
-	 * copies of one mail stored in several folders — Gmail's INBOX + All Mail share
-	 * a Message-ID — because the server's count badge collapses them the same way.
-	 * The copy in the folder in view wins: it is the one bulk actions can reach.
+	 * The members this view shows under `conversation`. The fetched list is already
+	 * the folder's conversation scope — the server filtered the excluded folders
+	 * and collapsed the copies of one mail (Gmail's INBOX + All Mail) exactly as
+	 * the badge counted them — so the only thing left to do here is drop the
+	 * representative, which is rendered as the parent row. It is always the copy
+	 * the server kept: the representative is the newest message in the folder in
+	 * view, and that is the copy the dedup prefers.
 	 */
 	function visibleMembersOf(conversation: ConversationSummaryResponse): MailSummaryResponse[] {
 		const id = conversation.threadId;
 		const raw = id == null ? undefined : members.get(id);
 		if (!raw) return [];
-		const folderName = currentFolderName;
-		const representativeIdentity = memberIdentity(conversation.latest);
-		const visible = raw.filter(
-			(message) =>
-				isVisibleMember(message, folderName) && memberIdentity(message) !== representativeIdentity
-		);
-		// Two passes into one Map: the first fixes the iteration order (ascending
-		// threadPosition), the second overwrites each key with the copy living in
-		// the folder in view. A duplicate key keeps its original position and takes
-		// the later value, so the preferred copy wins without moving the row.
-		const byIdentity = new Map(
-			[...visible, ...visible.filter((message) => message.folderName === folderName)].map(
-				(message) => [memberIdentity(message), message] as const
-			)
-		);
-		return [...byIdentity.values()];
+		return raw.filter((message) => message.stableId !== conversation.latest.stableId);
 	}
 
 	/**
-	 * Fetches a thread's raw member list once per loaded page. Concurrent callers
-	 * (a second ArrowRight, a bulk action running while the row expands) share the
-	 * in-flight request instead of firing a second fetch. Resolves to null when the
-	 * fetch failed — the caller must not treat that as "the thread has no other
-	 * members". View-dependent filtering happens in {@link visibleMembersOf}.
+	 * Fetches a thread's member list once per loaded page, scoped to the folder in
+	 * view (see api/mailRead.ts — the server returns exactly what the row's badge
+	 * counted). Concurrent callers (a second ArrowRight, a bulk action running
+	 * while the row expands) share the in-flight request instead of firing a second
+	 * fetch. Resolves to null when the fetch failed — the caller must not treat
+	 * that as "the thread has no other members".
 	 */
 	function loadMembers(
 		conversation: ConversationSummaryResponse
@@ -299,14 +273,14 @@
 		const inFlight = memberRequests.get(id);
 		if (inFlight) return inFlight;
 
-		const { accountId } = $conversationsState.context;
+		const { accountId, folderName } = $conversationsState.context;
 		// Snapshot of the cache generation this fetch belongs to — a page reload
 		// that lands mid-flight must not have the older response written over it.
 		const token = membersToken;
 		loadingThreads.add(id);
 		const request = (async () => {
 			try {
-				const thread = await getThread(accountId, id);
+				const thread = await getThread(accountId, id, folderName);
 				if (token === membersToken) members.set(id, thread.messages);
 				return thread.messages;
 			} catch (error) {
@@ -618,8 +592,6 @@
 	 * badge. The still-expanded threads are refetched right away. Selection is
 	 * per-view too and goes with the folder/page switch.
 	 *
-	 * The cache holds the raw thread, so it does not need invalidating when
-	 * `$folders` arrives — the role filter is applied at render time instead.
 	 * Every drop bumps `membersToken` so a fetch already in flight cannot write
 	 * its response into the fresh generation.
 	 */
@@ -986,12 +958,12 @@
 							<span class="sr-only">{$_('messages.unreadIndicatorLabel')}.</span>
 						{/if}
 						<span class="truncate">{message.subject || $_('messages.noSubject')}</span>
-						{#if isConversation && row.conversation.messageCount > 1}
+						{#if isConversation && displayedCount(row.conversation) > 1}
 							<span
 								class="shrink-0 rounded-full bg-primary/12 px-1.5 py-0.5 text-caption font-semibold text-primary"
 								aria-hidden="true"
 							>
-								{row.conversation.messageCount}
+								{displayedCount(row.conversation)}
 							</span>
 							<span class="sr-only">{conversationLabel(row.conversation)}.</span>
 						{/if}
