@@ -46,6 +46,7 @@ Deterministicke e2e kryti existuje (live-region asserty v [list-navigation.funct
   6. Stazeni prilohy ohlasi toast "Priloha ... stazena.".
   7. Hledani ohlasi "Nalezeno N zprav" po prichodu vysledku a "Strana X z Y" pri strankovani.
   8. Titulek okna otevrene zpravy cte predmet ("Posta – <predmet>").
+- [ ] **NVDA doposlech seskupeneho rezimu** (threading Phase 2, `mail.messageGrouping = grouped`) — rozbaleni/sbaleni vlakna, badge cizi slozky („Ve slozce Odeslane"), hromadne akce nad konverzaci. Pozor na to, co e2e nezachyti: ze ohlaseni odpovida skutecnosti a ze ovladaci prvek jde dosahnout jinak nez mysi — oba dosavadni nalezy v tomhle rezimu byly tohohle druhu (viz [[feedback-sr-intercepts-single-key-shortcuts]]).
 
 ---
 
@@ -107,31 +108,13 @@ Backend (headless) cast zmerena a uzavrena — sekce "Startup audit — mereni 2
 
 ---
 
-## Threading Outlook-parity — nalezy code-review (2026-08-05)
-
-**Stav: vsech 6 P1, 6 P2 i vsech 6 P3 nalezu z code-review (xhigh) je opraveno vcetne testu, zacommitovano a odpushovano (2026-08-05/06); stejne tak vsech 5 chybejicich testu. PR je [#221](https://github.com/TheVoxRox/mail/pull/221). Zbyva uz jen rucni smoke nize a merge — code-review nalezy jsou uzavrene.**
-
-Co featura obsahuje: (1) **subject-fallback threading obema smery** — odpoved s `Re:`/`Odp:`/`Fw:` prefixem a BEZ threading hlavicek se pripoji k nejnovejsimu vlaknu se stejnym normalizovanym predmetem v okne +-30 dni, a `reconcileLateArrivingParent` naopak pohlti osirely shluk bezhlavickovych odpovedi, jakmile dorazi jejich rodic (downloader jde od nejnovejsich UID, takze odpoved se pri prvnim syncu skoro vzdy zpracuje driv); novy sloupec `messages.subject_norm` + index (V1 in-place), [SubjectNormalizer.java](backend/src/main/java/org/voxrox/mailbackend/util/SubjectNormalizer.java) (unicode-aware kvuli NBSP, prazdny sentinel misto NULL), backfill pass. (2) **cross-folder konverzacni vypis** — `findConversationRepresentativesCrossFolder` v [MessageRepository.java](backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/MessageRepository.java) (dedup kopii jedne zpravy podle `message_id`, folder-scoped `unreadCount`), vylouceni TRASH/JUNK/DRAFTS resolvovane pres `ImapFolderService` s fail-closed degradaci v [MailFacade.java](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailFacade.java), nove `MailSummaryResponse.messageId` na drate, frontend badge slozky u cizich clenu, otevirani radku pod jeho vlastni slozkou a folder-scoped bulk akce. (3) **scope urcuje vyhradne backend** — `GET /threads/{id}?folderRef=` vraci presne tu mnozinu clenu, ze ktere se pocital badge, klient uz scope neodvozuje. Backend `mvn verify` zeleny (vc. 54 IT + spotbugs) / FE 459 unit + 190 functional + 59 a11y zelene, prettier + eslint + i18n lint + knip OK, OpenAPI snapshot regenerovan, dev DB resetovana (nutno znovu pridat ucet).
-
-### Dalsi kroky (v tomto poradi)
-
-- [ ] **Rucni smoke proti realne schrance — jedina neoverena cast.** Cela featura vznikla z feedbacku „seskupeni se nechova jako Outlook" a dosud bezela jen proti fixturam a SQLite ITckum. Dev DB byla resetovana (`%LOCALAPPDATA%\VoxRox\Mail`), takze nejdriv znovu pridat ucet. Co si projit: (a) subject-fallback pri PRVNIM syncu existujici schranky — to je cesta, kterou dvousmerny merge resi a kde se nejdriv pozna, jestli se vlakna skladaji; (b) badge vs. pocet rozbalenych radku v Dorucenych u konverzace, na kterou jsi odpovidal (musi sedet); (c) prvni navsteva Kose na cerstvem uctu (fail-closed vetev — folder-scoped, ne cross-folder); (d) otevreni ciziho clena z rozbaleneho vlakna (URL musi nest jeho slozku).
-- [ ] **Merge PR [#221](https://github.com/TheVoxRox/mail/pull/221)** — az po smoke vyse. Vetev `feat/threading-outlook-parity`. Pozor: `git push` pousti cely frontend gate (3+ min) — poustet na pozadi, nikdy `--no-verify`.
-- [ ] NVDA doposlech seskupeneho rezimu (uz drive evidovany u threading Phase 2) — rozbaleni/sbaleni, badge cizi slozky („Ve slozce Odeslane"), hromadne akce.
-
-### P3 — cleanup
-
-Vsech 6 hotovo (2026-08-05/06). Posledni polozka: rozhodnuti „ktery pohled je folder-scoped" existovalo 3x nad ruznymi zdroji role — vyreseno `GET /threads/{id}?folderRef=`, scope urcuje vyhradne backend (viz CHANGELOG).
-
----
-
 ## Produktove funkce (backlog)
 
 Hotove: **Podpisy zprav — Faze 1** (auto-insert + From-swap + manualni tlacitko + per-ucet prepinac, smoke 2026-06-23) a **Tabulka kontaktu** (sloupec Aktualizovano odebran) — detail v [todo-archive.md](todo-archive.md).
 
 - [ ] iCloud OAuth.
 - [ ] **Vlastni stitky kontaktu (Google model):** dnes fixni enum WORK/HOME/OTHER — pridat uzivatelske stitky („Rodina", „Klienti"…). Vyzaduje tabulku stitku misto enumu (backend + migrace + rozsireni `GET /contacts/counts`), spravu stitku v UI a dynamicke polozky v sidebaru — [ContactsSidebar.svelte](frontend/src/lib/components/sidebar/ContactsSidebar.svelte) uz polozky generuje ze seznamu, struktura je pripravena.
-- [ ] Threading Phase 2 (V0.2) — cele grouped UI HOTOVO: grouping toggle + collapsed list + in-row expand (folder-scoped treegrid, aria-expanded/aria-level, klavesnice, axe) + thread-scoped bulk akce (whole-conversation smazat/presunout/precteno pres `conversationBulk.ts`). References-only orphan reconciliation HOTOVO (junction tabulka `message_reference` v `V1__init.sql`, rozsirena late-reconciliation o indexovany references lookup + backfill pass — viz CHANGELOG). Zbyva uz jen merge PR #207/#208/#209 a NVDA doposlech grouped rezimu. Detail [backend/docs/THREADING_DESIGN.md](backend/docs/THREADING_DESIGN.md).
+- [x] Threading Phase 2 (V0.2) — HOTOVO, vse v `main`: grouped UI (#207/#208/#209) + Outlook-style cross-folder konverzace (#221, merged 2026-08-06). Detail v [todo-archive.md](todo-archive.md), design v [backend/docs/THREADING_DESIGN.md](backend/docs/THREADING_DESIGN.md). Ziva zbyva uz jen polozka NVDA doposlechu vyse.
 - [ ] **Podpisy zprav — Faze 2 (po release):** reply/forward placement vyreseno manualnim tlacitkem (Faze 1) — zbyva uz jen HTML-compose: az vznikne HTML editor, podpis sanitizovat na renderu (reuse [content-sanitizer](frontend/src/lib/mail/content-sanitizer.ts)). Vazba na [[project_desktop_app]] + HTML-compose polozku.
 - [ ] **Interactive IMAP lane — druhe spojeni na ucet pro uzivatelske cteni.** Rozhodovaci gate: implementovat az kdyz beta feedback ukaze "otevreni zpravy/prilohy obcas visi behem syncu" — po fixech z 2026-07-03 (folder-lock dedup, neblokujici dispatch, FolderListCache) je to posledni zdroj cekani na cteci ceste. **Problem:** jeden pooled `Store` na ucet + fair lock ([ImapConnectionManager.java:105](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/ImapConnectionManager.java)); sync drzi zamek po celou folder cyklu ([MailSyncService.java:170](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailSyncService.java) — cely `executeInFolder` = download + flag sweep + cleanup, i desitky sekund), takze prvni fetch tela (`MailContentService.getOrFetchMessageContent`) a stazeni prilohy ([AttachmentService.java:78](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/AttachmentService.java) — cely transfer pod zamkem) cekaji ve FIFO fronte za nim. **Plan:**
   1. `ImapConnectionManager`: enum `Lane {INTERACTIVE, BACKGROUND}`, pool + lock mapy klicovane `(accountId, lane)`; `executeWithLock(accountId, lane, action)`, stavajici signatura deleguje na BACKGROUND (zadna zmena call-sites v kroku 1). Pravidlo "lock entries never removed" (CONCURRENCY.md rule 4) plati per lane; `purgeAccount` + `@PreDestroy` zaviraji obe lane.
