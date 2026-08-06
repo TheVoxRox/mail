@@ -57,7 +57,7 @@
 			case 'error':
 				return {
 					textKey: 'settings.about.connection.error',
-					className: 'text-destructive'
+					className: 'text-destructive-foreground'
 				};
 			default:
 				return {
@@ -84,7 +84,7 @@
 			case 'error':
 				return {
 					textKey: 'app.sseOffline',
-					className: 'text-destructive',
+					className: 'text-destructive-foreground',
 					dotClass: 'bg-destructive'
 				};
 			default:
@@ -303,7 +303,7 @@
 					{:else if $sessionState.status === 'loading'}
 						{$_('app.sessionLoading')}
 					{:else if $sessionState.status === 'error'}
-						<span class="text-destructive">{$sessionState.error.message}</span>
+						<span class="text-destructive-foreground">{$sessionState.error.message}</span>
 					{:else}
 						{$_('app.sessionNotInitialized')}
 					{/if}

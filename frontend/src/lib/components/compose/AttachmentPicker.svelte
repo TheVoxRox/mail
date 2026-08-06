@@ -260,7 +260,7 @@
 						size="icon-xs"
 						onclick={() => removeAttachment(att.localId)}
 						{disabled}
-						class="ml-0.5 text-muted-foreground hover:text-destructive"
+						class="ml-0.5 text-muted-foreground hover:text-destructive-foreground"
 						aria-label={$_('compose.removeAttachment', { values: { name: att.fileName } })}
 					>
 						<Icon name="trash" size={12} />

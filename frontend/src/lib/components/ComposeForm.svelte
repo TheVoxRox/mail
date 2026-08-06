@@ -581,7 +581,7 @@
 	{#if errorMessage}
 		<div
 			role="alert"
-			class="border-t border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive"
+			class="border-t border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive-foreground"
 		>
 			{errorMessage}
 		</div>

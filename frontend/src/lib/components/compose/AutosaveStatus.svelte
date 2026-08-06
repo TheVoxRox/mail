@@ -16,7 +16,7 @@
 		{$_('compose.autosaving')}
 	</span>
 {:else if autosaveError}
-	<span class="text-xs text-destructive" role="status" aria-live="polite">
+	<span class="text-xs text-destructive-foreground" role="status" aria-live="polite">
 		{$_('compose.autosaveFailed')}
 	</span>
 {:else if autoSavedAt}

@@ -18,7 +18,18 @@
 	--muted-foreground: oklch(0.45 0.025 250);
 	--accent: oklch(0.94 0.022 218);
 	--accent-foreground: oklch(0.25 0.04 218);
+	/*
+	 * Red pair, same split as the amber one below: --destructive tints borders,
+	 * rings and backgrounds, --destructive-foreground is the matching TEXT color.
+	 * Never set text in raw --destructive — on the app's own `bg-destructive/10`
+	 * tint it lands at 3.95:1 and on the sidebar at 4.42:1, both under the 4.5:1
+	 * AA minimum, and error copy is the text that can least afford to be hard to
+	 * read. Note this is NOT the shadcn meaning of `-foreground` (text on a solid
+	 * destructive fill): no such fill exists here, the destructive button variant
+	 * is outline-style.
+	 */
 	--destructive: oklch(0.577 0.245 27.325);
+	--destructive-foreground: oklch(0.42 0.19 27.325);
 	/*
 	 * Amber pair for warning surfaces: --warning tints borders/backgrounds
 	 * (chart-4 hue), --warning-foreground is the matching TEXT color — dark
@@ -61,6 +72,8 @@
 	--accent: oklch(0.31 0.04 218);
 	--accent-foreground: oklch(0.985 0 0);
 	--destructive: oklch(0.704 0.191 22.216);
+	/* Brighter than the tint, mirroring --warning-foreground in this theme. */
+	--destructive-foreground: oklch(0.8 0.15 22.216);
 	--warning: oklch(0.828 0.189 84.429);
 	--warning-foreground: oklch(0.87 0.15 85);
 	--border: oklch(1 0 0 / 12%);
@@ -112,6 +125,7 @@
 	--color-accent: var(--accent);
 	--color-accent-foreground: var(--accent-foreground);
 	--color-destructive: var(--destructive);
+	--color-destructive-foreground: var(--destructive-foreground);
 	--color-warning: var(--warning);
 	--color-warning-foreground: var(--warning-foreground);
 	--color-border: var(--border);

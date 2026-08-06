@@ -161,18 +161,13 @@ test.describe('Přístupnost', () => {
 		await expect(indicator).toBeVisible();
 
 		/*
-		 * Scoped to the sidebar on purpose. A full-page scan in this state also
-		 * flags the error toast (`text-destructive` on `bg-destructive/10`, 3.95:1)
-		 * — a pre-existing, systemic issue: --destructive is a tint token used as
-		 * text in ~10 components, and fixing it is its own change. Widening this
-		 * scan later is the way to prove that fix landed; leaving the assertion
-		 * page-wide now would just get the whole case deleted the first time it
-		 * went red for someone else's reason.
+		 * Page-wide, which also puts the error toast under the scanner — the state
+		 * no other axe case reaches. It was scoped to the sidebar while
+		 * `text-destructive` was still used as body text (3.95:1 on its own tint);
+		 * the --destructive-foreground pair fixed that, and widening the scan back
+		 * is what keeps it fixed.
 		 */
-		const results = await new AxeBuilder({ page })
-			.include('[aria-label="Podokno pošty"]')
-			.withTags(['wcag2a', 'wcag2aa'])
-			.analyze();
+		const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
 		expect(results.violations).toEqual([]);
 	});
 

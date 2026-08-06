@@ -104,10 +104,10 @@
 		never a decorative icon: the same mouse-only trap the expand toggle fell
 		into (#221).
 
-		text-warning-foreground, not text-destructive: --destructive is a tint
-		token and lands at 4.42:1 on the sidebar background, just under AA (caught
-		by the axe case in a11y.e2e.ts). The warning pair is what app.css already
-		defines for alert text on a light surface, and it is theme-aware.
+		Amber, not red: a sync that stopped working is a degraded state the user
+		can act on, not a destructive one. (The red text token exists too —
+		--destructive-foreground — this is a semantic choice, not a contrast
+		workaround.)
 	-->
 	{#if $failingSyncAccounts.length > 0}
 		<Button

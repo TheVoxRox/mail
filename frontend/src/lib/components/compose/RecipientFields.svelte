@@ -113,7 +113,7 @@
 	{#if subjectError}
 		<div
 			id={subjectErrorId}
-			class="border-t border-border px-4 py-2 text-xs text-destructive"
+			class="border-t border-border px-4 py-2 text-xs text-destructive-foreground"
 			role="alert"
 		>
 			<span class="ml-20 block">{subjectError}</span>

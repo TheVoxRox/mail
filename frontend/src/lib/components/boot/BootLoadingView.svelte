@@ -78,7 +78,7 @@
 				</Button>
 			</div>
 			{#if diagnosticError}
-				<p class="mt-2 text-xs text-destructive" role="alert">{diagnosticError}</p>
+				<p class="mt-2 text-xs text-destructive-foreground" role="alert">{diagnosticError}</p>
 			{:else if diagnosticUnavailable}
 				<p class="mt-2 text-xs">{$_('app.diagnosticUnavailable')}</p>
 			{/if}

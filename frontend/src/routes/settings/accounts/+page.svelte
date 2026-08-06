@@ -168,7 +168,7 @@
 								</div>
 							</div>
 							{#if account.lastError}
-								<p class="mt-1 text-xs text-destructive">{account.lastError}</p>
+								<p class="mt-1 text-xs text-destructive-foreground">{account.lastError}</p>
 							{/if}
 
 							{#snippet actions()}

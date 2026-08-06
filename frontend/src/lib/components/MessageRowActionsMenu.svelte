@@ -67,7 +67,7 @@
 	}
 
 	const destructiveItemClass =
-		'flex w-full cursor-pointer rounded-md px-3 py-2 text-left text-sm text-destructive outline-none data-[highlighted]:bg-destructive/10 data-[disabled]:cursor-not-allowed data-[disabled]:text-muted-foreground';
+		'flex w-full cursor-pointer rounded-md px-3 py-2 text-left text-sm text-destructive-foreground outline-none data-[highlighted]:bg-destructive/10 data-[disabled]:cursor-not-allowed data-[disabled]:text-muted-foreground';
 	const defaultItemClass =
 		'flex w-full cursor-pointer rounded-md px-3 py-2 text-left text-sm outline-none data-[highlighted]:bg-muted data-[disabled]:cursor-not-allowed data-[disabled]:text-muted-foreground';
 </script>

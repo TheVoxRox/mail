@@ -9,7 +9,7 @@
 		variants: {
 			variant: {
 				muted: 'text-muted-foreground',
-				error: 'text-destructive',
+				error: 'text-destructive-foreground',
 				default: 'text-foreground'
 			},
 			padding: {

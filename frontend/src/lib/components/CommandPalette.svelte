@@ -190,7 +190,7 @@
 					/>
 					<div aria-live="polite" class="sr-only">{resultsAnnouncement}</div>
 					{#if executionError}
-						<p role="alert" class="mt-2 text-sm text-destructive">
+						<p role="alert" class="mt-2 text-sm text-destructive-foreground">
 							{executionError}
 						</p>
 					{/if}
