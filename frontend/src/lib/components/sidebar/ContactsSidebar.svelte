@@ -12,6 +12,7 @@
 	import { contactCounts } from '$lib/stores/contactCounts.js';
 	import { pushToast } from '$lib/stores/toasts.js';
 	import AccountSwitcher from '$lib/components/AccountSwitcher.svelte';
+	import ContactLabelsDialog from '$lib/components/ContactLabelsDialog.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { SidebarNavItem } from '$lib/components/ui/sidebar-nav-item/index.js';
@@ -19,10 +20,10 @@
 	import { SidebarShell } from '$lib/components/ui/sidebar-shell/index.js';
 	import Icon from '$lib/components/Icon.svelte';
 	import { _ } from '$lib/i18n/index.js';
-	import type { EmailLabel } from '$lib/types.js';
 
 	let query = $derived($page.url.searchParams.get('q') ?? '');
 	let exporting = $state(false);
+	let labelsDialogOpen = $state(false);
 
 	function buildContactsHref(options?: { query?: string; create?: boolean }): string | null {
 		const account = get(activeAccount);
@@ -53,33 +54,26 @@
 	}
 
 	const createActive = $derived($page.url.searchParams.get('create') === '1');
-	const currentLabel = $derived($page.url.searchParams.get('label'));
+	const currentLabelId = $derived(Number($page.url.searchParams.get('labelId')) || null);
 
 	/**
 	 * Sidebar view links deliberately drop `q` (and sort): like a mail folder
 	 * click, choosing a view starts fresh instead of carrying the search over.
 	 */
-	function viewHref(label?: EmailLabel): string | undefined {
+	function viewHref(labelId?: number): string | undefined {
 		if (!$activeAccount) return undefined;
 		const params = new SvelteURLSearchParams();
-		if (label) params.set('label', label);
+		if (labelId != null) params.set('labelId', String(labelId));
 		const queryString = params.toString();
 		return `${resolve('/contacts/[accountId]', {
 			accountId: String($activeAccount.id)
 		})}${queryString ? `?${queryString}` : ''}`;
 	}
 
-	const labelItems = $derived(
-		(['HOME', 'WORK', 'OTHER'] as const).map((label) => ({
-			label,
-			count:
-				$contactCounts == null
-					? 0
-					: { WORK: $contactCounts.work, HOME: $contactCounts.home, OTHER: $contactCounts.other }[
-							label
-						]
-		}))
-	);
+	// The counts endpoint is the single source for the sidebar: it lists every
+	// label of the account, including the ones no contact carries yet, already
+	// ordered by name.
+	const labelItems = $derived($contactCounts?.labels ?? []);
 
 	async function handleExport() {
 		const account = get(activeAccount);
@@ -186,7 +180,7 @@
 		<nav aria-label={$_('contacts.viewsNav')}>
 			<ul role="list" class="space-y-1">
 				<li>
-					<SidebarNavItem href={viewHref()} active={!createActive && !currentLabel}>
+					<SidebarNavItem href={viewHref()} active={!createActive && currentLabelId == null}>
 						{#snippet icon()}
 							<Icon name="book-open" />
 						{/snippet}
@@ -207,33 +201,65 @@
 				label={$_('contacts.labelsSection')}
 				class="mt-4"
 			>
-				<ul role="list" class="space-y-1">
-					{#each labelItems as item (item.label)}
-						<li>
-							<SidebarNavItem
-								href={viewHref(item.label)}
-								active={!createActive && currentLabel === item.label}
-							>
-								{#snippet icon()}
-									<Icon name="tag" />
-								{/snippet}
+				{#if labelItems.length === 0}
+					<p class="px-2 py-1 text-caption text-muted-foreground">{$_('contacts.noLabelsYet')}</p>
+				{:else}
+					<ul role="list" class="space-y-1">
+						{#each labelItems as item (item.id)}
+							<li>
+								<SidebarNavItem
+									href={viewHref(item.id)}
+									active={!createActive && currentLabelId === item.id}
+								>
+									{#snippet icon()}
+										<Icon name="tag" />
+									{/snippet}
 
-								{$_(`contacts.labelOptions.${item.label}`)}
+									{item.name}
 
-								{#snippet badge()}
-									{@render countBadge(item.count, false)}
-								{/snippet}
-							</SidebarNavItem>
-						</li>
-					{/each}
-				</ul>
+									{#snippet badge()}
+										<!-- A label with no contacts still renders its 0: unlike the
+										     fixed types it can be empty simply because it is new, and
+										     a missing badge would read as "not loaded". -->
+										{@render countBadge(item.contacts, true)}
+									{/snippet}
+								</SidebarNavItem>
+							</li>
+						{/each}
+					</ul>
+				{/if}
 			</SidebarSection>
 		</nav>
 
+		<SidebarSection
+			id="contacts-sidebar-actions"
+			label={$_('contacts.sidebarActions')}
+			class="mt-4"
+		>
+			<ul role="list" class="space-y-1">
+				<li>
+					<!--
+						A button, so it belongs here rather than in the views <nav> above —
+						same reason the import/export actions do. Unlike them it stays
+						available while the create form is open: the form's own empty-labels
+						hint points at this action, and a user filling in their first
+						contact is exactly who needs to make the first label.
+					-->
+					<SidebarNavItem onclick={() => (labelsDialogOpen = true)}>
+						{#snippet icon()}
+							<Icon name="pencil-square" />
+						{/snippet}
+
+						{$_('contacts.manageLabels')}
+					</SidebarNavItem>
+				</li>
+			</ul>
+		</SidebarSection>
+
 		{#if !createActive}
 			<SidebarSection
-				id="contacts-sidebar-actions"
-				label={$_('contacts.sidebarActions')}
+				id="contacts-sidebar-import-export"
+				label={$_('contacts.sidebarImportExport')}
 				class="mt-4"
 			>
 				<ul role="list" class="space-y-1">
@@ -278,3 +304,12 @@
 		{/if}
 	{/if}
 </SidebarShell>
+
+{#if $activeAccount}
+	<ContactLabelsDialog
+		open={labelsDialogOpen}
+		accountId={$activeAccount.id}
+		onOpenChange={(next) => (labelsDialogOpen = next)}
+		onChanged={() => invalidateAll()}
+	/>
+{/if}

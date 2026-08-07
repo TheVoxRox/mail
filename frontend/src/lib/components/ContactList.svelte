@@ -5,7 +5,9 @@
 	import { toErrorMessage } from '$lib/api/errors.js';
 	import { _ } from '$lib/i18n/index.js';
 	import { confirmAction } from '$lib/stores/confirmDialog.js';
+	import { contactCounts } from '$lib/stores/contactCounts.js';
 	import { announcePolite, pushToast } from '$lib/stores/toasts.js';
+	import ContactLabelAssignDialog from '$lib/components/ContactLabelAssignDialog.svelte';
 	import ContactMergeDialog from '$lib/components/ContactMergeDialog.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
@@ -17,7 +19,7 @@
 		focusGridCell,
 		ROW_NAV_PAGE_STEP
 	} from '$lib/components/grid/rowNavigation.js';
-	import type { ContactResponse, EmailLabel, PagedResponse } from '$lib/types.js';
+	import type { ContactResponse, PagedResponse } from '$lib/types.js';
 	import type { ContactSort } from '$lib/api/contacts.js';
 	import { cn } from '$lib/utils.js';
 	import { tick } from 'svelte';
@@ -26,10 +28,12 @@
 		accountId: number;
 		page: PagedResponse<ContactResponse>;
 		sort?: ContactSort | null;
-		label?: EmailLabel | null;
+		labelId?: number | null;
+		/** Display name of the active label filter, for the empty state. */
+		activeLabelName?: string | null;
 		onChanged: () => void | Promise<void>;
 		onEdit: (id: number) => void;
-		onFilterApply?: (filters: { sort: ContactSort | null; label: EmailLabel | null }) => void;
+		onFilterApply?: (filters: { sort: ContactSort | null; labelId: number | null }) => void;
 		onPrev: () => void;
 		onNext: () => void;
 		onFirst: () => void;
@@ -49,7 +53,8 @@
 		accountId,
 		page,
 		sort = null,
-		label = null,
+		labelId = null,
+		activeLabelName = null,
 		onChanged,
 		onEdit,
 		onFilterApply,
@@ -63,12 +68,6 @@
 	}: Props = $props();
 
 	const DEFAULT_SORT: ContactSort = 'surname';
-	const LABEL_FILTER_OPTIONS = [
-		{ value: '', label: 'contacts.labelFilterAny' },
-		{ value: 'HOME', label: 'contacts.labelOptions.HOME' },
-		{ value: 'WORK', label: 'contacts.labelOptions.WORK' },
-		{ value: 'OTHER', label: 'contacts.labelOptions.OTHER' }
-	] as const;
 	const SORT_OPTIONS = [
 		{ value: 'surname', label: 'contacts.sortOptions.surname' },
 		{ value: 'name', label: 'contacts.sortOptions.name' },
@@ -77,8 +76,11 @@
 	const sortValue = $derived<ContactSort>(sort ?? DEFAULT_SORT);
 	let pendingSortValue = $state<ContactSort>(DEFAULT_SORT);
 	const sortFilterDirty = $derived(pendingSortValue !== sortValue);
-	const labelValue = $derived<EmailLabel | ''>(label ?? '');
-	let pendingLabelValue = $state<EmailLabel | ''>('');
+	// The filter offers the account's own labels; the counts store already holds
+	// them in display order and is refreshed on every list load.
+	const labelOptions = $derived($contactCounts?.labels ?? []);
+	const labelValue = $derived(labelId == null ? '' : String(labelId));
+	let pendingLabelValue = $state('');
 	const labelFilterDirty = $derived(pendingLabelValue !== labelValue);
 	const filtersDirty = $derived(sortFilterDirty || labelFilterDirty);
 
@@ -93,6 +95,7 @@
 	);
 	let someVisibleSelected = $derived(selectedVisibleIds.length > 0 && !allVisibleSelected);
 	let mergeDialogOpen = $state(false);
+	let labelDialogOpen = $state(false);
 	const selectedContacts = $derived(
 		page.content.filter((contact) => selectedIds.includes(contact.id))
 	);
@@ -100,6 +103,11 @@
 	function openMergeDialog(): void {
 		if (selectedVisibleIds.length < 2) return;
 		mergeDialogOpen = true;
+	}
+
+	function openLabelDialog(): void {
+		if (selectedVisibleIds.length === 0) return;
+		labelDialogOpen = true;
 	}
 
 	/*
@@ -286,19 +294,9 @@
 		return c.emails.find((email) => email.primary)?.email ?? c.emails[0]?.email ?? null;
 	}
 
-	function emailLabelSummary(c: ContactResponse): string {
-		const labels = c.emails
-			.map((email) => email.label)
-			.filter((value): value is EmailLabel => value != null);
-		// Canonical order (sidebar / filter / form), not the contact's email order.
-		const unique = [...new Set(labels)].sort(
-			(a, b) =>
-				LABEL_FILTER_OPTIONS.findIndex((option) => option.value === a) -
-				LABEL_FILTER_OPTIONS.findIndex((option) => option.value === b)
-		);
-		return unique.length > 0
-			? unique.map((value) => $_(`contacts.labelOptions.${value}`)).join(', ')
-			: $_('contacts.labelOptions.none');
+	function labelSummary(c: ContactResponse): string {
+		// Backend order (by case-folded name) is already the display order.
+		return c.labels.length > 0 ? c.labels.map((l) => l.name).join(', ') : $_('contacts.labelsNone');
 	}
 
 	const AVATAR_PALETTE = [
@@ -433,13 +431,13 @@
 	}
 
 	function handleLabelSelectChange(event: Event) {
-		pendingLabelValue = (event.currentTarget as HTMLSelectElement).value as EmailLabel | '';
+		pendingLabelValue = (event.currentTarget as HTMLSelectElement).value;
 	}
 
 	function applyFilters() {
 		onFilterApply?.({
 			sort: pendingSortValue === DEFAULT_SORT ? null : pendingSortValue,
-			label: pendingLabelValue === '' ? null : pendingLabelValue
+			labelId: pendingLabelValue === '' ? null : Number(pendingLabelValue)
 		});
 	}
 </script>
@@ -472,8 +470,9 @@
 			size="sm"
 			disabled={onFilterApply === undefined}
 		>
-			{#each LABEL_FILTER_OPTIONS as option (option.value)}
-				<option value={option.value}>{$_(option.label)}</option>
+			<option value="">{$_('contacts.labelFilterAny')}</option>
+			{#each labelOptions as option (option.id)}
+				<option value={String(option.id)}>{option.name}</option>
 			{/each}
 		</Select>
 		<Button
@@ -490,10 +489,8 @@
 {#if page.content.length === 0}
 	<!-- Focus target after the last contact was deleted (see the pending-focus effect). -->
 	<StateMessage bind:ref={emptyStateElement} padding="lg" role="status" tabindex={-1}>
-		{label
-			? $_('contacts.emptyLabeled', {
-					values: { label: $_(`contacts.labelOptions.${label}`) }
-				})
+		{activeLabelName
+			? $_('contacts.emptyLabeled', { values: { label: activeLabelName } })
 			: $_('contacts.empty')}
 	</StateMessage>
 {:else}
@@ -521,6 +518,15 @@
 			</Button>
 			<Button
 				type="button"
+				onclick={openLabelDialog}
+				variant="outline"
+				size="xs"
+				disabled={bulkBusy}
+			>
+				{$_('contacts.assignLabelsAction')}
+			</Button>
+			<Button
+				type="button"
 				onclick={openMergeDialog}
 				variant="outline"
 				size="xs"
@@ -539,6 +545,20 @@
 			</Button>
 		{/if}
 	</div>
+
+	<ContactLabelAssignDialog
+		open={labelDialogOpen}
+		{accountId}
+		contacts={selectedContacts}
+		onOpenChange={(next) => (labelDialogOpen = next)}
+		onAssigned={async () => {
+			// The selection survives on purpose — assigning labels does not remove
+			// rows, and the user may want to apply a second label to the same set.
+			// Focus goes back to the first selected row, which the dialog took it from.
+			pendingFocus = { contactId: selectedVisibleIds[0] ?? null, fallbackIndex: 0 };
+			await onChanged();
+		}}
+	/>
 
 	<ContactMergeDialog
 		open={mergeDialogOpen}
@@ -682,7 +702,7 @@
 							onfocus={() => handleCellFocus(rowIndex, COL_LABELS)}
 							class="px-3 py-3 align-top text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
 						>
-							{emailLabelSummary(contact)}
+							{labelSummary(contact)}
 						</td>
 						<td
 							role="gridcell"

@@ -36,7 +36,8 @@
 		"delete": "Smazat",
 		"loading": "Načítám…",
 		"ok": "OK",
-		"opensInNewWindow": "(otevírá se v novém okně)"
+		"opensInNewWindow": "(otevírá se v novém okně)",
+		"close": "Zavřít"
 	},
 	"nav": {
 		"switchAccount": "Přepnout účet",
@@ -386,11 +387,11 @@
 		"emailRequired": "Zadejte alespoň jeden e-mail.",
 		"emailInvalid": "Zadejte platný e-mail.",
 		"emailFieldLabel": "Adresa {index}",
-		"emailLabelFieldIndexed": "Štítek adresy {index}",
-		"emailLabelSelection": "Štítek adresy {index}: {label}",
+		"emailTypeFieldIndexed": "Typ adresy {index}",
+		"emailTypeSelection": "Typ adresy {index}: {type}",
 		"primaryRadioLabel": "Použít adresu {index} jako hlavní",
-		"labelOptions": {
-			"none": "Bez štítku",
+		"emailTypeOptions": {
+			"none": "Bez typu",
 			"WORK": "Práce",
 			"HOME": "Domov",
 			"OTHER": "Jiný"
@@ -403,7 +404,7 @@
 		"selectContact": "Vybrat kontakt {label}",
 		"selectedCount": "{count, plural, one {{count} vybraný kontakt} few {{count} vybrané kontakty} other {{count} vybraných kontaktů}}",
 		"clearSelection": "Zrušit výběr",
-		"bulkActionsAvailable": "Hromadné akce nad seznamem: sloučit, smazat.",
+		"bulkActionsAvailable": "Hromadné akce nad seznamem: přiřadit štítky, sloučit, smazat.",
 		"bulkDelete": "Smazat vybrané",
 		"bulkDeleting": "Mažu…",
 		"bulkDeleteConfirm": "Smazat {count, plural, one {{count} vybraný kontakt} few {{count} vybrané kontakty} other {{count} vybraných kontaktů}}?",
@@ -430,7 +431,7 @@
 		"saveDone": "Kontakt uložen.",
 		"loading": "Načítám…",
 		"empty": "Žádné kontakty.",
-		"emptyLabeled": "Žádný kontakt se štítkem {label}. Štítek přiřadíte adresám ve formuláři kontaktu.",
+		"emptyLabeled": "Žádný kontakt se štítkem {label}.",
 		"sortLabel": "Řadit podle",
 		"sortOptions": {
 			"name": "Křestní jméno",
@@ -480,7 +481,36 @@
 		"vcardImportHint": "Kontakty se importují do tohoto účtu.",
 		"vcardImportNoFiles": "Vybraný soubor není vCard (.vcf).",
 		"vcardImportEmpty": "vCard soubor neobsahoval žádný kontakt s e-mailem.",
-		"vcardImportDone": "Importováno: {created}, selhalo: {failed}."
+		"vcardImportDone": "Importováno: {created}, selhalo: {failed}.",
+		"labelsNone": "Bez štítku",
+		"noLabelsYet": "Zatím žádné štítky.",
+		"manageLabels": "Spravovat štítky",
+		"labelsDialogTitle": "Štítky kontaktů",
+		"labelsDialogIntro": "Štítky patří celému kontaktu. Smazání štítku kontakty zachová, jen jim štítek odebere.",
+		"labelNameField": "Název nového štítku",
+		"labelNamePlaceholder": "Např. Rodina",
+		"addLabel": "Přidat štítek",
+		"labelCreated": "Štítek vytvořen.",
+		"labelRenamed": "Štítek přejmenován.",
+		"labelDeleted": "Štítek smazán.",
+		"renameLabelField": "Nový název štítku {label}",
+		"renameLabelAction": "Přejmenovat štítek {label}",
+		"deleteLabelAction": "Smazat štítek {label}",
+		"deleteLabelConfirm": "Smazat štítek {label}? Kontakty zůstanou, jen o tento štítek přijdou. Týká se to {count, plural, one {{count} kontaktu} few {{count} kontaktů} other {{count} kontaktů}}.",
+		"labelCount": "{count, plural, one {{count} kontakt} few {{count} kontakty} other {{count} kontaktů}}",
+		"assignLabelsAction": "Přiřadit štítky",
+		"assignDialogTitle": "Štítky vybraných kontaktů",
+		"assignDialogIntro": "Zaškrtnutý štítek se přidá všem vybraným kontaktům, odškrtnutý se všem odebere. Štítek, který má jen část výběru, zůstane beze změny, dokud ho nepřepnete.",
+		"assignPartial": "{label}, má jen část výběru",
+		"assignApply": "Použít štítky",
+		"assignBusy": "Ukládám…",
+		"assignDone": "Štítky upraveny u {changed, plural, one {{changed} kontaktu} few {{changed} kontaktů} other {{changed} kontaktů}} z {total}.",
+		"assignNoChange": "Štítky se nezměnily.",
+		"formLabelsLegend": "Štítky",
+		"formLabelsEmpty": "Zatím žádné štítky. Vytvoříte je v postranním panelu, akcí Spravovat štítky.",
+		"vcardImportLabelsFailed": "Štítky z vCard se nepodařilo vytvořit, kontakty se importují bez nich.",
+		"assignPartialCount": "{carriers} z {total} vybraných",
+		"sidebarImportExport": "Import a export"
 	},
 	"settings": {
 		"nav": {

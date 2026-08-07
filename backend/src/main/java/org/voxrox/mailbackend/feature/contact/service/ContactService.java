@@ -9,6 +9,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.voxrox.mailbackend.exception.ContactLabelNotFoundException;
 import org.voxrox.mailbackend.exception.ContactNotFoundException;
 import org.voxrox.mailbackend.exception.DuplicateContactException;
 import org.voxrox.mailbackend.exception.ResourceNotFoundException;
@@ -21,14 +22,17 @@ import org.voxrox.mailbackend.feature.contact.dto.ContactCountsResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactCreateRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactEmailRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactEmailResponse;
+import org.voxrox.mailbackend.feature.contact.dto.ContactLabelCountResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactMergeRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactPatchRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactUpdateRequest;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEmailEntity;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEntity;
+import org.voxrox.mailbackend.feature.contact.entity.ContactLabelEntity;
 import org.voxrox.mailbackend.feature.contact.mapper.ContactMapper;
 import org.voxrox.mailbackend.feature.contact.repository.ContactLabelCount;
+import org.voxrox.mailbackend.feature.contact.repository.ContactLabelRepository;
 import org.voxrox.mailbackend.feature.contact.repository.ContactRepository;
 import org.voxrox.mailbackend.util.AuditLog;
 import org.voxrox.mailbackend.util.LogCategory;
@@ -64,32 +68,60 @@ public class ContactService {
     }
 
     private final ContactRepository contactRepository;
+    private final ContactLabelRepository contactLabelRepository;
+    private final ContactLabelService contactLabelService;
     private final AccountService accountService;
     private final ContactMapper contactMapper;
 
-    public ContactService(ContactRepository contactRepository, AccountService accountService,
-            ContactMapper contactMapper) {
+    public ContactService(ContactRepository contactRepository, ContactLabelRepository contactLabelRepository,
+            ContactLabelService contactLabelService, AccountService accountService, ContactMapper contactMapper) {
         this.contactRepository = contactRepository;
+        this.contactLabelRepository = contactLabelRepository;
+        this.contactLabelService = contactLabelService;
         this.accountService = accountService;
         this.contactMapper = contactMapper;
     }
 
     @Transactional(readOnly = true)
-    public Page<ContactResponse> listContacts(Long accountId, int page, int size, String sort, EmailLabel label) {
+    public Page<ContactResponse> listContacts(Long accountId, int page, int size, String sort, @Nullable Long labelId) {
         accountService.getAccountOrThrow(accountId);
+        ensureLabelExists(accountId, labelId);
         Pageable pageable = PageRequest.of(page, size, resolveSort(sort));
-        Page<ContactEntity> contacts = contactRepository.findByAccountId(accountId, label, pageable);
+        Page<ContactEntity> contacts = contactRepository.findByAccountId(accountId, labelId, pageable);
         return contacts.map(contactMapper::toResponse);
     }
 
+    /**
+     * Counts for the sidebar. Every label of the account is listed, so a label
+     * created a second ago shows up with a zero badge instead of being invisible
+     * until someone puts a contact on it; the aggregate query only knows about
+     * labels that are in use.
+     */
     @Transactional(readOnly = true)
     public ContactCountsResponse getCounts(Long accountId) {
         accountService.getAccountOrThrow(accountId);
         long total = contactRepository.countByAccountId(accountId);
-        Map<EmailLabel, Long> byLabel = contactRepository.countByAccountIdGroupedByLabel(accountId).stream()
-                .collect(Collectors.toMap(ContactLabelCount::label, ContactLabelCount::contacts));
-        return new ContactCountsResponse(total, byLabel.getOrDefault(EmailLabel.WORK, 0L),
-                byLabel.getOrDefault(EmailLabel.HOME, 0L), byLabel.getOrDefault(EmailLabel.OTHER, 0L));
+        Map<Long, Long> byLabel = contactRepository.countByAccountIdGroupedByLabel(accountId).stream()
+                .collect(Collectors.toMap(ContactLabelCount::labelId, ContactLabelCount::contacts));
+        List<ContactLabelCountResponse> labels = contactLabelRepository.findByAccountIdOrderByNameKeyAsc(accountId)
+                .stream()
+                .map(l -> new ContactLabelCountResponse(l.getId(), l.getName(), byLabel.getOrDefault(l.getId(), 0L)))
+                .toList();
+        return new ContactCountsResponse(total, labels);
+    }
+
+    /**
+     * Rejects an unknown label filter with a 404 instead of quietly returning an
+     * empty page — a stale bookmark or a label someone deleted must not look like
+     * "this label has no contacts".
+     */
+    private void ensureLabelExists(Long accountId, @Nullable Long labelId) {
+        if (labelId == null) {
+            return;
+        }
+        if (contactLabelRepository.findByIdAndAccountId(labelId, accountId).isEmpty()) {
+            throw new ContactLabelNotFoundException(accountId, labelId);
+        }
     }
 
     /**
@@ -126,7 +158,7 @@ public class ContactService {
         String pattern = "%" + qLower + "%";
 
         Pageable pageable = PageRequest.of(0, cappedLimit, DEFAULT_SORT);
-        List<ContactEntity> matched = contactRepository.searchByAccountId(accountId, pattern, null, pageable)
+        List<ContactEntity> matched = contactRepository.searchByAccountId(accountId, pattern, (Long) null, pageable)
                 .getContent();
 
         return matched.stream().flatMap(c -> c.getEmails().stream().map(e -> toAutocompleteRow(c, e, qLower)))
@@ -163,15 +195,16 @@ public class ContactService {
 
     @Transactional(readOnly = true)
     public Page<ContactResponse> searchContacts(Long accountId, String q, int page, int size, String sort,
-            EmailLabel label) {
+            @Nullable Long labelId) {
         if (q == null || q.isBlank()) {
             throw new ValidationException("Contact search query q must not be empty.",
                     "validation.contactQueryRequired");
         }
         accountService.getAccountOrThrow(accountId);
+        ensureLabelExists(accountId, labelId);
         String pattern = "%" + q.toLowerCase(Locale.ROOT) + "%";
         Pageable pageable = PageRequest.of(page, size, resolveSort(sort));
-        Page<ContactEntity> contacts = contactRepository.searchByAccountId(accountId, pattern, label, pageable);
+        Page<ContactEntity> contacts = contactRepository.searchByAccountId(accountId, pattern, labelId, pageable);
         return contacts.map(contactMapper::toResponse);
     }
 
@@ -202,7 +235,8 @@ public class ContactService {
         List<String> normalizedEmails = normalizeEmailList(request.emails());
         checkNoDuplicatesWithinAccount(accountId, null, normalizedEmails);
 
-        ContactEntity entity = contactMapper.toEntity(request, account);
+        Set<ContactLabelEntity> labels = contactLabelService.resolveLabels(accountId, request.labelIds());
+        ContactEntity entity = contactMapper.toEntity(request, account, labels);
         ContactEntity saved = contactRepository.save(entity);
 
         String primaryEmail = primaryEmail(saved);
@@ -220,7 +254,9 @@ public class ContactService {
         List<String> normalizedEmails = normalizeEmailList(request.emails());
         checkNoDuplicatesWithinAccount(accountId, contactId, normalizedEmails);
 
-        contactMapper.applyUpdate(entity, request);
+        // PUT is replace semantics all the way down: no labelIds means no labels.
+        Set<ContactLabelEntity> labels = contactLabelService.resolveLabels(accountId, request.labelIds());
+        contactMapper.applyUpdate(entity, request, labels);
         ContactEntity saved = contactRepository.save(entity);
 
         AuditLog.success("contact_update", LogMasker.maskEmail(account.getEmail()),
@@ -238,7 +274,12 @@ public class ContactService {
             checkNoDuplicatesWithinAccount(accountId, contactId, normalizedEmails);
         }
 
-        contactMapper.applyPatch(entity, request);
+        // PATCH: an absent labelIds keeps the current labels, an empty list clears
+        // them — so null has to survive all the way into the mapper.
+        Set<ContactLabelEntity> labels = request.labelIds() == null
+                ? null
+                : contactLabelService.resolveLabels(accountId, request.labelIds());
+        contactMapper.applyPatch(entity, request, labels);
         ContactEntity saved = contactRepository.save(entity);
 
         AuditLog.success("contact_patch", LogMasker.maskEmail(account.getEmail()),
@@ -426,6 +467,22 @@ public class ContactService {
                     "validation.contactMerge.tooManyEmails", finalCount, MAX_EMAILS_PER_CONTACT);
         }
 
+        /*
+         * Labels merge as a union — the sources are about to be deleted, so a label
+         * only they carried would otherwise be silently lost. Unlike e-mails there is
+         * no dedup question: the Set and the entity's id-based equals handle it.
+         */
+        Set<ContactLabelEntity> mergedLabels = new LinkedHashSet<>(target.getLabels());
+        for (ContactEntity src : sources) {
+            mergedLabels.addAll(src.getLabels());
+        }
+        if (mergedLabels.size() > ContactLabelService.MAX_LABELS_PER_CONTACT) {
+            throw new ValidationException(
+                    "After merging, the contact would carry " + mergedLabels.size() + " labels; the maximum is "
+                            + ContactLabelService.MAX_LABELS_PER_CONTACT + ".",
+                    "validation.contactLabel.tooManyPerContact", ContactLabelService.MAX_LABELS_PER_CONTACT);
+        }
+
         String mergedNote = mergeNotes(target.getNote(), sources);
         boolean targetHasPrimary = target.getEmails().stream().anyMatch(ContactEmailEntity::isPrimary);
 
@@ -441,8 +498,12 @@ public class ContactService {
             target.getEmails().get(0).setPrimary(true);
         }
         target.setNote(mergedNote);
+        target.getLabels().addAll(mergedLabels);
 
         for (ContactEntity src : sources) {
+            // The source's own label assignments need no explicit clearing —
+            // Hibernate owns the join table from the contact side and deletes its
+            // rows with the contact (ContactRepositoryIT#deletingContactKeepsLabel).
             contactRepository.delete(src);
         }
         ContactEntity saved = contactRepository.save(target);

@@ -9,9 +9,10 @@
 		updateContact,
 		type ContactSort
 	} from '$lib/api/contacts.js';
+	import { listContactLabels } from '$lib/api/contactLabels.js';
 	import { toError } from '$lib/api/errors.js';
 	import { accountsState, setActiveAccount } from '$lib/stores/accounts.js';
-	import { refreshContactCounts } from '$lib/stores/contactCounts.js';
+	import { contactCounts, refreshContactCounts } from '$lib/stores/contactCounts.js';
 	import { contactSortPreference } from '$lib/stores/contactSort.js';
 	import { getClientConfigSnapshot } from '$lib/stores/clientConfig.js';
 	import { _ } from '$lib/i18n/index.js';
@@ -22,12 +23,7 @@
 	import { PageShell } from '$lib/components/ui/page-shell/index.js';
 	import { StateMessage } from '$lib/components/ui/state-message/index.js';
 	import { Surface } from '$lib/components/ui/surface/index.js';
-	import type {
-		ContactCreateRequest,
-		ContactResponse,
-		EmailLabel,
-		PagedResponse
-	} from '$lib/types.js';
+	import type { ContactCreateRequest, ContactResponse, PagedResponse } from '$lib/types.js';
 
 	let { data } = $props();
 
@@ -54,12 +50,50 @@
 	// variable — it's a one-shot signal, not reactive state.
 	let announceNextLoad = false;
 
+	/*
+	 * The active label's name, for the heading, window title, announcements and
+	 * empty state. Not taken from the list response — a filtered page that
+	 * happens to be empty still has to name itself.
+	 *
+	 * The counts store is the cheap path (already loaded for the sidebar badges),
+	 * but it swallows its own failures by design, so relying on it alone leaves
+	 * the view anonymous whenever that one request lost: heading "Kontakty" over
+	 * a filtered list. `resolvedLabelName` is the fallback that asks the labels
+	 * endpoint directly, so the name survives a failed counts refresh.
+	 */
+	let resolvedLabel = $state<{ id: number; name: string } | null>(null);
+
+	const countsLabelName = $derived(
+		data.labelId == null
+			? null
+			: ($contactCounts?.labels.find((item) => item.id === data.labelId)?.name ?? null)
+	);
+	const activeLabelName = $derived(
+		data.labelId == null
+			? null
+			: (countsLabelName ?? (resolvedLabel?.id === data.labelId ? resolvedLabel.name : null))
+	);
+
+	$effect(() => {
+		const labelId = data.labelId;
+		if (labelId == null || countsLabelName != null || resolvedLabel?.id === labelId) return;
+		const accountId = data.accountId;
+		// Best-effort: a failure here just leaves the view unnamed, exactly the
+		// state we were already in, so it must not surface as a list error.
+		void listContactLabels(accountId)
+			.then((labels) => {
+				const match = labels.find((item) => item.id === labelId);
+				if (match) resolvedLabel = { id: match.id, name: match.name };
+			})
+			.catch(() => undefined);
+	});
+
 	async function load(
 		accountId: number,
 		query: string,
 		page: number,
 		sort: ContactSort | null,
-		label: EmailLabel | null,
+		labelId: number | null,
 		preserveCurrent = false
 	) {
 		if (!preserveCurrent) listState = { status: 'loading' };
@@ -74,7 +108,7 @@
 				page,
 				size: getClientConfigSnapshot().contactDefaultPageSize,
 				sort: sort ?? undefined,
-				label: label ?? undefined
+				labelId: labelId ?? undefined
 			});
 			listState = { status: 'ready', page: result };
 			if (announceNextLoad) {
@@ -89,11 +123,9 @@
 				// With a label filter the reload is otherwise indistinguishable from
 				// the unfiltered list for a screen-reader user — name the view.
 				announcePolite(
-					label == null
+					activeLabelName == null
 						? info
-						: $_('contacts.pageInfoLabeled', {
-								values: { label: $_(`contacts.labelOptions.${label}`), info }
-							})
+						: $_('contacts.pageInfoLabeled', { values: { label: activeLabelName, info } })
 				);
 			}
 		} catch (err) {
@@ -123,7 +155,7 @@
 		// by the dedicated edit effect below.
 		if (data.edit != null) return;
 
-		const context = `${data.accountId}:${data.query}:${data.sort ?? ''}:${data.label ?? ''}`;
+		const context = `${data.accountId}:${data.query}:${data.sort ?? ''}:${data.labelId ?? ''}`;
 		if (lastContext !== context) {
 			// A context switch is always user-triggered (search, filter, account
 			// change) and often keeps focus in place, so the reload is otherwise
@@ -132,7 +164,7 @@
 			lastContext = context;
 			pageNumber = 0;
 		}
-		void load(data.accountId, data.query, pageNumber, data.sort, data.label);
+		void load(data.accountId, data.query, pageNumber, data.sort, data.labelId);
 	});
 
 	$effect(() => {
@@ -165,7 +197,7 @@
 			create?: boolean;
 			edit?: number | null;
 			sort?: ContactSort | null;
-			label?: EmailLabel | null;
+			labelId?: number | null;
 		} = {}
 	): string {
 		// Each list param defaults to its current value unless the option is
@@ -174,20 +206,20 @@
 		// is then set only when truthy.
 		const query = (options.query ?? data.query)?.trim();
 		const sort = 'sort' in options ? options.sort : data.sort;
-		const label = 'label' in options ? options.label : data.label;
+		const labelId = 'labelId' in options ? options.labelId : data.labelId;
 
 		const params = new SvelteURLSearchParams();
 		if (query) params.set('q', query);
 		if (options.create) params.set('create', '1');
 		if (options.edit != null) params.set('edit', String(options.edit));
 		if (sort) params.set('sort', sort);
-		if (label) params.set('label', label);
+		if (labelId != null) params.set('labelId', String(labelId));
 
 		const queryString = params.toString();
 		return `${resolve('/contacts/[accountId]', { accountId: String(data.accountId) })}${queryString ? `?${queryString}` : ''}`;
 	}
 
-	function handleFilterApply(filters: { sort: ContactSort | null; label: EmailLabel | null }) {
+	function handleFilterApply(filters: { sort: ContactSort | null; labelId: number | null }) {
 		// Remember the sort as a view preference so sidebar view links (clean
 		// URLs) do not reset it; null means the 'surname' default.
 		contactSortPreference.set(filters.sort ?? 'surname');
@@ -249,7 +281,6 @@
 
 	// The list heading, window title and reload announcement all carry the
 	// active label so the view is identifiable without inspecting the filter UI.
-	const activeLabelName = $derived(data.label ? $_(`contacts.labelOptions.${data.label}`) : null);
 	const windowTitle = $derived(
 		activeLabelName
 			? $_('contacts.pageTitleLabeled', { values: { label: activeLabelName } })
@@ -285,7 +316,7 @@
 				Array.from(event.dataTransfer?.files ?? []),
 				$_
 			);
-			if (imported) await load(data.accountId, data.query, pageNumber, data.sort, data.label);
+			if (imported) await load(data.accountId, data.query, pageNumber, data.sort, data.labelId);
 		} finally {
 			importing = false;
 		}
@@ -353,9 +384,10 @@
 					accountId={data.accountId}
 					page={listState.page}
 					sort={data.sort}
-					label={data.label}
+					labelId={data.labelId}
+					{activeLabelName}
 					onChanged={() =>
-						load(data.accountId, data.query, pageNumber, data.sort, data.label, true)}
+						load(data.accountId, data.query, pageNumber, data.sort, data.labelId, true)}
 					onEdit={(id) => goto(contactsHref({ edit: id }))}
 					onFilterApply={handleFilterApply}
 					onPrev={prevPage}

@@ -247,7 +247,9 @@ test.describe('Přístupnost', () => {
 		await expect(fileInput).toBeHidden();
 	});
 
-	test('formulář nového kontaktu má jednoznačně pojmenované seznamy štítků', async ({ page }) => {
+	test('formulář nového kontaktu má jednoznačně pojmenované seznamy typů adres', async ({
+		page
+	}) => {
 		await page.goto(`/contacts/${mailFixture.accountId}?create=1`);
 		await waitForShell(page);
 
@@ -262,12 +264,12 @@ test.describe('Přístupnost', () => {
 			'Jméno je volitelné, alespoň jeden e-mail je povinný.'
 		);
 
-		const firstLabelSelect = page.getByRole('combobox', { name: 'Štítek adresy 1' });
+		const firstLabelSelect = page.getByRole('combobox', { name: 'Typ adresy 1' });
 		await expect(firstLabelSelect).toHaveCount(1);
-		await expect(firstLabelSelect).toHaveAccessibleName('Štítek adresy 1');
+		await expect(firstLabelSelect).toHaveAccessibleName('Typ adresy 1');
 		await expect(firstLabelSelect).toHaveValue('');
 		await expect(page.locator('#contact-email-0-label-status')).toHaveText(
-			'Štítek adresy 1: Bez štítku'
+			'Typ adresy 1: Bez typu'
 		);
 		await firstLabelSelect.evaluate((element) => {
 			const select = element as HTMLSelectElement & { __showPickerCalls?: number };
@@ -288,23 +290,19 @@ test.describe('Přístupnost', () => {
 			)
 			.toBe(1);
 		await firstLabelSelect.selectOption('WORK');
-		await expect(page.locator('#contact-email-0-label-status')).toHaveText(
-			'Štítek adresy 1: Práce'
-		);
+		await expect(page.locator('#contact-email-0-label-status')).toHaveText('Typ adresy 1: Práce');
 		await firstLabelSelect.selectOption('HOME');
 		await expect(firstLabelSelect).toHaveValue('HOME');
-		await expect(page.locator('#contact-email-0-label-status')).toHaveText(
-			'Štítek adresy 1: Domov'
-		);
+		await expect(page.locator('#contact-email-0-label-status')).toHaveText('Typ adresy 1: Domov');
 
 		await page.getByRole('button', { name: 'Přidat e-mail' }).click();
 
-		const secondLabelSelect = page.getByRole('combobox', { name: 'Štítek adresy 2' });
+		const secondLabelSelect = page.getByRole('combobox', { name: 'Typ adresy 2' });
 		await expect(secondLabelSelect).toHaveCount(1);
-		await expect(secondLabelSelect).toHaveAccessibleName('Štítek adresy 2');
+		await expect(secondLabelSelect).toHaveAccessibleName('Typ adresy 2');
 		await expect(secondLabelSelect).toHaveValue('');
 		await expect(page.locator('#contact-email-1-label-status')).toHaveText(
-			'Štítek adresy 2: Bez štítku'
+			'Typ adresy 2: Bez typu'
 		);
 	});
 
@@ -340,13 +338,14 @@ test.describe('Přístupnost', () => {
 		await expect(page.getByRole('listbox')).toHaveCount(0);
 		await expect(applyFilter).toBeDisabled();
 
-		await labelFilter.selectOption('WORK');
-		await expect(labelFilter).toHaveValue('WORK');
-		expect(new URL(page.url()).searchParams.get('label')).toBeNull();
+		// The options are the account's own labels, so select by visible name.
+		await labelFilter.selectOption({ label: 'Klienti' });
+		await expect(labelFilter).toHaveValue('1');
+		expect(new URL(page.url()).searchParams.get('labelId')).toBeNull();
 		expect(new URL(page.url()).searchParams.get('sort')).toBeNull();
 		await expect(applyFilter).toBeEnabled();
 		await applyFilter.click();
-		await page.waitForURL('**/contacts/1?label=WORK');
+		await page.waitForURL('**/contacts/1?labelId=1');
 		// The filtered reload keeps focus on the Apply button, so the result
 		// is announced through the persistent live region.
 		await expect(page.locator('#live-region')).toContainText('Strana 1 z 1, 1 kontakt');
@@ -464,6 +463,82 @@ test.describe('Přístupnost', () => {
 		const preview = dialog.locator('section[aria-live="polite"][aria-atomic="true"]');
 		await expect(preview).toHaveCount(1);
 		await expect(preview.getByRole('heading', { name: /Po sloučení \(3 e-maily\)/ })).toBeVisible();
+
+		const results = await new AxeBuilder({ page })
+			.include('[role="dialog"]')
+			.withTags(['wcag2a', 'wcag2aa'])
+			.analyze();
+		expect(results.violations).toEqual([]);
+	});
+
+	test('dialog správy štítků nemá a11y porušení a potvrzení mazání je živé', async ({ page }) => {
+		await page.goto(`/contacts/${mailFixture.accountId}`);
+		await waitForShell(page);
+
+		await page
+			.getByRole('region', { name: 'Podokno kontaktů' })
+			.getByRole('button', { name: 'Spravovat štítky' })
+			.click();
+		const dialog = page.getByRole('dialog', { name: 'Štítky kontaktů' });
+		await expect(dialog).toBeVisible();
+
+		// The delete prompt replaces a modal confirmation, so it has to announce
+		// itself — role="alert" is the only thing that reaches a focus-mode user.
+		await dialog.getByRole('button', { name: 'Smazat štítek Klienti' }).click();
+		const confirm = dialog.getByRole('alert');
+		await expect(confirm).toContainText('Smazat štítek Klienti?');
+
+		const results = await new AxeBuilder({ page })
+			.include('[role="dialog"]')
+			.withTags(['wcag2a', 'wcag2aa'])
+			.analyze();
+		expect(results.violations).toEqual([]);
+
+		// Cancelling returns focus to the button that raised the prompt rather
+		// than dropping it to <body> when the strip leaves the DOM.
+		await confirm.getByRole('button', { name: 'Zrušit' }).click();
+		await expect(dialog.getByRole('button', { name: 'Smazat štítek Klienti' })).toBeFocused();
+	});
+
+	test('dialog přiřazení štítků nemá a11y porušení a smíšený stav je oznámen', async ({ page }) => {
+		await page.goto(`/contacts/${mailFixture.accountId}`);
+		await waitForShell(page);
+		await page.waitForFunction(() => typeof window.__MAIL_MSW__?.reset === 'function');
+
+		// A second, label-less contact so one label lands in the mixed state.
+		const created = await page.evaluate(async () => {
+			const res = await fetch('/api/v1/accounts/1/contacts/bulk', {
+				method: 'POST',
+				headers: {
+					Accept: 'application/json',
+					'Content-Type': 'application/json',
+					'X-API-KEY': 'e2e-test-key'
+				},
+				body: JSON.stringify({
+					contacts: [{ name: 'Bez', surname: 'Stitku', emails: [{ email: 'bez@example.com' }] }]
+				})
+			});
+			return res.status;
+		});
+		expect(created).toBe(200);
+
+		await page.locator('#contacts-sidebar-search').fill('example.com');
+		await page.keyboard.press('Enter');
+		await page.waitForURL('**/contacts/1?q=example.com');
+		await expect(page.getByText('Bez Stitku')).toBeVisible();
+
+		await page.getByLabel('Vybrat kontakt Jana Novak').check();
+		await page.getByLabel('Vybrat kontakt Bez Stitku').check();
+		await page.getByRole('button', { name: 'Přiřadit štítky' }).click();
+
+		const dialog = page.getByRole('dialog', { name: 'Štítky vybraných kontaktů' });
+		await expect(dialog).toBeVisible();
+
+		// "Mixed" alone says the state but not what it means over a selection —
+		// the accessible name spells out that only part of it carries the label.
+		const klienti = dialog.getByRole('checkbox', { name: /Klienti/ });
+		await expect(klienti).toHaveJSProperty('indeterminate', true);
+		await expect(klienti).toHaveAccessibleName(/má jen část výběru/);
 
 		const results = await new AxeBuilder({ page })
 			.include('[role="dialog"]')

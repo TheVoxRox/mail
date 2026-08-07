@@ -1,19 +1,27 @@
 package org.voxrox.mailbackend.feature.contact.service;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.voxrox.mailbackend.feature.contact.EmailLabel;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEmailEntity;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEntity;
+import org.voxrox.mailbackend.feature.contact.entity.ContactLabelEntity;
 
 /**
  * Serializes contacts to vCard 4.0 (RFC 6350).
  * <p>
  * Implemented properties: {@code FN}, {@code N}, {@code EMAIL} (with
- * {@code TYPE} and {@code PREF} parameters), {@code NOTE}. Line endings are
- * CRLF per the spec. Escaping per §3.4 — backslash, comma, semicolon and
- * newline in free-text fields. {@code TYPE}/{@code PREF} parameters are
- * enum/integer, so escaping does not apply to them.
+ * {@code TYPE} and {@code PREF} parameters), {@code CATEGORIES}, {@code NOTE}.
+ * Line endings are CRLF per the spec. Escaping per §3.4 — backslash, comma,
+ * semicolon and newline in free-text fields. {@code TYPE}/{@code PREF}
+ * parameters are enum/integer, so escaping does not apply to them.
+ * <p>
+ * The two label concepts land in two different places, matching what Google
+ * Contacts and Apple Contacts read back: the per-address WORK/HOME/OTHER type
+ * becomes the {@code EMAIL;TYPE=} parameter, while user-defined contact labels
+ * become {@code CATEGORIES} — a comma-separated list where the commas are
+ * structural, so the individual names still get their own commas escaped.
  * <p>
  * Line folding (max 75 octets per line) is not implemented yet — most parsers
  * tolerate the omission (Apple Contacts, Google Contacts,
@@ -58,6 +66,12 @@ public final class VCardWriter {
 
         for (ContactEmailEntity email : contact.getEmails()) {
             appendEmail(sb, email);
+        }
+
+        if (!contact.getLabels().isEmpty()) {
+            String categories = contact.getLabels().stream().map(ContactLabelEntity::getName)
+                    .map(VCardWriter::escapeText).collect(Collectors.joining(","));
+            sb.append("CATEGORIES:").append(categories).append(CRLF);
         }
 
         String note = contact.getNote();

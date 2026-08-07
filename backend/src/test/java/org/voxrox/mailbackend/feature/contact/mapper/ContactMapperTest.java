@@ -55,9 +55,9 @@ class ContactMapperTest {
         account.setId(1L);
 
         var req = new ContactCreateRequest(List.of(new ContactEmailRequest("work@b.cz", EmailLabel.WORK),
-                new ContactEmailRequest("home@b.cz", EmailLabel.HOME)), "Alice", "Liddell", "VIP");
+                new ContactEmailRequest("home@b.cz", EmailLabel.HOME)), null, "Alice", "Liddell", "VIP");
 
-        ContactEntity e = mapper.toEntity(req, account);
+        ContactEntity e = mapper.toEntity(req, account, null);
 
         assertThat(e.getName()).isEqualTo("Alice");
         assertThat(e.getSurname()).isEqualTo("Liddell");
@@ -97,7 +97,7 @@ class ContactMapperTest {
         e.setNote("Old note");
 
         mapper.applyUpdate(e, new ContactUpdateRequest(List.of(new ContactEmailRequest("new@x.cz", EmailLabel.WORK)),
-                null, null, null));
+                null, null, null, null), null);
 
         assertThat(e.getEmails()).hasSize(1);
         assertThat(e.getEmails().get(0).getEmail()).isEqualTo("new@x.cz");
@@ -114,7 +114,7 @@ class ContactMapperTest {
         e.setSurname("Name");
         e.setNote("Old note");
 
-        mapper.applyPatch(e, new ContactPatchRequest(null, "NewName", null, null));
+        mapper.applyPatch(e, new ContactPatchRequest(null, null, "NewName", null, null), null);
 
         assertThat(e.getEmails()).hasSize(1);
         assertThat(e.getEmails().get(0).getEmail()).isEqualTo("old@x.cz");
@@ -130,7 +130,7 @@ class ContactMapperTest {
         e.setName("Old");
         e.setSurname("Name");
 
-        mapper.applyPatch(e, new ContactPatchRequest(null, null, null, null));
+        mapper.applyPatch(e, new ContactPatchRequest(null, null, null, null, null), null);
 
         assertThat(e.getEmails()).hasSize(1);
         assertThat(e.getEmails().get(0).getEmail()).isEqualTo("old@x.cz");
@@ -143,7 +143,7 @@ class ContactMapperTest {
         ContactEntity e = entityWithEmails("old@x.cz");
 
         mapper.applyPatch(e, new ContactPatchRequest(List.of(new ContactEmailRequest("new1@x.cz", EmailLabel.WORK),
-                new ContactEmailRequest("new2@x.cz", EmailLabel.HOME)), null, null, null));
+                new ContactEmailRequest("new2@x.cz", EmailLabel.HOME)), null, null, null, null), null);
 
         assertThat(e.getEmails()).hasSize(2);
         assertThat(e.getEmails().get(0).getEmail()).isEqualTo("new1@x.cz");
@@ -166,8 +166,9 @@ class ContactMapperTest {
         AccountEntity account = new AccountEntity();
         account.setId(1L);
 
-        ContactEntity e = mapper.toEntity(new ContactCreateRequest(
-                List.of(new ContactEmailRequest("  Alice@Example.COM  ", null)), "Alice", null, null), account);
+        ContactEntity e = mapper
+                .toEntity(new ContactCreateRequest(List.of(new ContactEmailRequest("  Alice@Example.COM  ", null)),
+                        null, "Alice", null, null), account, null);
 
         assertThat(e.getEmails().get(0).getEmail()).isEqualTo("alice@example.com");
     }
@@ -179,7 +180,7 @@ class ContactMapperTest {
         e.setName("Alice");
         e.setSurname("Old");
 
-        mapper.applyPatch(e, new ContactPatchRequest(null, null, "Liddell", null));
+        mapper.applyPatch(e, new ContactPatchRequest(null, null, null, "Liddell", null), null);
 
         assertThat(e.getName()).isEqualTo("Alice");
         assertThat(e.getSurname()).isEqualTo("Liddell");

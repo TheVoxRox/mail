@@ -21,7 +21,6 @@ import org.voxrox.mailbackend.core.config.ClientConfigProperties;
 import org.voxrox.mailbackend.core.config.MailClientProperties;
 import org.voxrox.mailbackend.core.dto.PagedResponse;
 import org.voxrox.mailbackend.exception.ValidationException;
-import org.voxrox.mailbackend.feature.contact.EmailLabel;
 import org.voxrox.mailbackend.feature.contact.dto.BulkContactCreateRequest;
 import org.voxrox.mailbackend.feature.contact.dto.BulkContactCreateResponse;
 import org.voxrox.mailbackend.feature.contact.dto.BulkContactDeleteRequest;
@@ -70,14 +69,17 @@ public class ContactController {
     }
 
     @Operation(summary = "List / search contacts", description = "Returns a paginated list of contacts. With the q parameter performs a case-insensitive substring search across email, name and surname. "
-            + "Optional `sort` (`name`/`surname`/`recent`) drives the order (default `surname`). Optional `label` (`WORK`/`HOME`/`OTHER`) filters to contacts with at least one e-mail bearing the given label.")
+            + "Optional `sort` (`name`/`surname`/`recent`) drives the order (default `surname`). Optional `labelId` filters to contacts carrying the given contact label; an unknown ID is a 404, not an empty page.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "404", description = "The labelId does not exist for the account (CONTACT_LABEL_NOT_FOUND).")})
     @GetMapping
     public PagedResponse<ContactResponse> listContacts(
             @PathVariable @Positive(message = "{validation.positive}") Long accountId,
             @RequestParam(required = false) @Size(min = 1, message = "{validation.size.min}") String q,
             @RequestParam(required = false) @Min(value = 0, message = "{validation.min}") Integer page,
             @RequestParam(required = false) @Min(value = 1, message = "{validation.min}") Integer size,
-            @RequestParam(required = false) String sort, @RequestParam(required = false) EmailLabel label) {
+            @RequestParam(required = false) String sort,
+            @RequestParam(required = false) @Positive(message = "{validation.positive}") Long labelId) {
 
         int finalPage = Objects.requireNonNullElse(page, 0);
         int finalSize = Objects.requireNonNullElse(size, clientConfigProps.contactDefaultPageSize());
@@ -89,17 +91,17 @@ public class ContactController {
         }
         ensureContactQueryWithinLimit(q);
 
-        log.debug("{} Contacts account={} page={} size={} q={} sort={} label={}", LogCategory.API, accountId, finalPage,
-                finalSize, q, sort, label);
+        log.debug("{} Contacts account={} page={} size={} q={} sort={} labelId={}", LogCategory.API, accountId,
+                finalPage, finalSize, q, sort, labelId);
 
         if (q != null && !q.isBlank()) {
-            return PagedResponse.from(contactService.searchContacts(accountId, q, finalPage, finalSize, sort, label));
+            return PagedResponse.from(contactService.searchContacts(accountId, q, finalPage, finalSize, sort, labelId));
         }
-        return PagedResponse.from(contactService.listContacts(accountId, finalPage, finalSize, sort, label));
+        return PagedResponse.from(contactService.listContacts(accountId, finalPage, finalSize, sort, labelId));
     }
 
-    @Operation(summary = "Contact counts", description = "Returns the total number of contacts of the account plus per-label counts (WORK/HOME/OTHER). "
-            + "A contact is counted for a label when at least one of its e-mail addresses bears it — consistent with the `label` filter of the list endpoint.")
+    @Operation(summary = "Contact counts", description = "Returns the total number of contacts of the account plus one row per contact label. "
+            + "Each per-label count matches the size of the list filtered by the same `labelId`; labels nobody uses are included with contacts = 0.")
     @GetMapping("/counts")
     public ContactCountsResponse getCounts(@PathVariable @Positive(message = "{validation.positive}") Long accountId) {
         return contactService.getCounts(accountId);

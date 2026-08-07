@@ -12,9 +12,11 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -24,6 +26,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.voxrox.mailbackend.exception.AccountNotFoundException;
+import org.voxrox.mailbackend.exception.ContactLabelNotFoundException;
 import org.voxrox.mailbackend.exception.ContactNotFoundException;
 import org.voxrox.mailbackend.exception.DuplicateContactException;
 import org.voxrox.mailbackend.exception.ResourceNotFoundException;
@@ -36,14 +39,18 @@ import org.voxrox.mailbackend.feature.contact.dto.ContactCountsResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactCreateRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactEmailRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactEmailResponse;
+import org.voxrox.mailbackend.feature.contact.dto.ContactLabelCountResponse;
+import org.voxrox.mailbackend.feature.contact.dto.ContactLabelResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactMergeRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactPatchRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactUpdateRequest;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEmailEntity;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEntity;
+import org.voxrox.mailbackend.feature.contact.entity.ContactLabelEntity;
 import org.voxrox.mailbackend.feature.contact.mapper.ContactMapper;
 import org.voxrox.mailbackend.feature.contact.repository.ContactLabelCount;
+import org.voxrox.mailbackend.feature.contact.repository.ContactLabelRepository;
 import org.voxrox.mailbackend.feature.contact.repository.ContactRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -56,6 +63,10 @@ class ContactServiceTest {
     @Mock
     private ContactRepository contactRepository;
     @Mock
+    private ContactLabelRepository contactLabelRepository;
+    @Mock
+    private ContactLabelService contactLabelService;
+    @Mock
     private AccountService accountService;
 
     private final ContactMapper contactMapper = new ContactMapper();
@@ -63,7 +74,8 @@ class ContactServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ContactService(contactRepository, accountService, contactMapper);
+        service = new ContactService(contactRepository, contactLabelRepository, contactLabelService, accountService,
+                contactMapper);
     }
 
     private AccountEntity account() {
@@ -116,16 +128,30 @@ class ContactServiceTest {
     }
 
     @Test
-    @DisplayName("getCounts — total plus per-label counts, missing labels default to zero")
+    @DisplayName("getCounts — every label is listed, the unused ones with zero")
     void getCountsMapsLabels() {
         when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
         when(contactRepository.countByAccountId(ACCOUNT_ID)).thenReturn(5L);
-        when(contactRepository.countByAccountIdGroupedByLabel(ACCOUNT_ID)).thenReturn(
-                List.of(new ContactLabelCount(EmailLabel.WORK, 3L), new ContactLabelCount(EmailLabel.OTHER, 1L)));
+        // The aggregate only knows labels somebody uses — "Archive" is missing from it.
+        when(contactRepository.countByAccountIdGroupedByLabel(ACCOUNT_ID))
+                .thenReturn(List.of(new ContactLabelCount(1L, 3L), new ContactLabelCount(3L, 1L)));
+        when(contactLabelRepository.findByAccountIdOrderByNameKeyAsc(ACCOUNT_ID))
+                .thenReturn(List.of(label(1L, "Clients"), label(2L, "Archive"), label(3L, "Family")));
 
         ContactCountsResponse counts = service.getCounts(ACCOUNT_ID);
 
-        assertThat(counts).isEqualTo(new ContactCountsResponse(5L, 3L, 0L, 1L));
+        assertThat(counts).isEqualTo(new ContactCountsResponse(5L,
+                List.of(new ContactLabelCountResponse(1L, "Clients", 3L),
+                        new ContactLabelCountResponse(2L, "Archive", 0L),
+                        new ContactLabelCountResponse(3L, "Family", 1L))));
+    }
+
+    private ContactLabelEntity label(Long id, String name) {
+        ContactLabelEntity l = new ContactLabelEntity();
+        l.setId(id);
+        l.setName(name);
+        l.setNameKey(name.toLowerCase(java.util.Locale.ROOT));
+        return l;
     }
 
     @Test
@@ -182,8 +208,8 @@ class ContactServiceTest {
 
         ContactResponse r = service.createContact(ACCOUNT_ID,
                 new ContactCreateRequest(
-                        List.of(emailReq(EMAIL), new ContactEmailRequest("home@example.com", EmailLabel.HOME)), "Alice",
-                        "Liddell", "VIP"));
+                        List.of(emailReq(EMAIL), new ContactEmailRequest("home@example.com", EmailLabel.HOME)), null,
+                        "Alice", "Liddell", "VIP"));
 
         assertThat(r.id()).isEqualTo(CONTACT_ID);
         ArgumentCaptor<ContactEntity> captor = ArgumentCaptor.forClass(ContactEntity.class);
@@ -194,6 +220,99 @@ class ContactServiceTest {
         assertThat(captor.getValue().getEmails().get(1).getLabel()).isEqualTo(EmailLabel.HOME);
     }
 
+    @Nested
+    @DisplayName("Contact labels")
+    class Labels {
+
+        @Test
+        @DisplayName("createContact attaches the resolved labels")
+        void createAttachesLabels() {
+            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
+            ContactLabelEntity family = label(1L, "Family");
+            when(contactLabelService.resolveLabels(ACCOUNT_ID, List.of(1L))).thenReturn(Set.of(family));
+            when(contactRepository.save(any(ContactEntity.class))).thenAnswer(inv -> {
+                ContactEntity e = inv.getArgument(0);
+                e.setId(CONTACT_ID);
+                return e;
+            });
+
+            ContactResponse r = service.createContact(ACCOUNT_ID,
+                    new ContactCreateRequest(List.of(emailReq(EMAIL)), List.of(1L), "Alice", null, null));
+
+            assertThat(r.labels()).containsExactly(new ContactLabelResponse(1L, "Family"));
+        }
+
+        @Test
+        @DisplayName("PUT with no labelIds clears the labels — replace semantics")
+        void updateClearsLabelsWhenAbsent() {
+            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
+            ContactEntity existing = contact(CONTACT_ID, EMAIL);
+            existing.getLabels().add(label(1L, "Family"));
+            when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.of(existing));
+            when(contactLabelService.resolveLabels(ACCOUNT_ID, null)).thenReturn(Set.of());
+            when(contactRepository.save(existing)).thenReturn(existing);
+
+            ContactResponse r = service.updateContact(ACCOUNT_ID, CONTACT_ID,
+                    new ContactUpdateRequest(List.of(emailReq(EMAIL)), null, "Alice", null, null));
+
+            assertThat(r.labels()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("PATCH without labelIds keeps them — the resolver is never called")
+        void patchKeepsLabelsWhenAbsent() {
+            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
+            ContactEntity existing = contact(CONTACT_ID, EMAIL);
+            existing.getLabels().add(label(1L, "Family"));
+            when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.of(existing));
+            when(contactRepository.save(existing)).thenReturn(existing);
+
+            ContactResponse r = service.patchContact(ACCOUNT_ID, CONTACT_ID,
+                    new ContactPatchRequest(null, null, "NewName", null, null));
+
+            assertThat(r.labels()).containsExactly(new ContactLabelResponse(1L, "Family"));
+            verify(contactLabelService, never()).resolveLabels(anyLong(), any());
+        }
+
+        @Test
+        @DisplayName("PATCH with an explicit empty list clears them")
+        void patchClearsLabelsWhenEmptyList() {
+            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
+            ContactEntity existing = contact(CONTACT_ID, EMAIL);
+            existing.getLabels().add(label(1L, "Family"));
+            when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.of(existing));
+            when(contactLabelService.resolveLabels(ACCOUNT_ID, List.of())).thenReturn(Set.of());
+            when(contactRepository.save(existing)).thenReturn(existing);
+
+            ContactResponse r = service.patchContact(ACCOUNT_ID, CONTACT_ID,
+                    new ContactPatchRequest(null, List.of(), null, null, null));
+
+            assertThat(r.labels()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("merge unions the labels — one only the source carried is not lost")
+        void mergeUnionsLabels() {
+            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
+            ContactLabelEntity family = label(1L, "Family");
+            ContactLabelEntity clients = label(2L, "Clients");
+
+            ContactEntity target = contact(CONTACT_ID, EMAIL);
+            target.getLabels().add(family);
+            ContactEntity source = contact(11L, "bob@example.com");
+            source.getLabels().add(clients);
+            when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.of(target));
+            when(contactRepository.findByIdAndAccountId(11L, ACCOUNT_ID)).thenReturn(Optional.of(source));
+            when(contactRepository.save(target)).thenReturn(target);
+
+            ContactResponse r = service.merge(ACCOUNT_ID, CONTACT_ID, new ContactMergeRequest(List.of(11L)));
+
+            assertThat(r.labels()).containsExactlyInAnyOrder(new ContactLabelResponse(1L, "Family"),
+                    new ContactLabelResponse(2L, "Clients"));
+            verify(contactRepository).delete(source);
+        }
+    }
+
     @Test
     @DisplayName("createContact — email taken by another contact -> DuplicateContactException")
     void createContactDuplicate() {
@@ -202,7 +321,7 @@ class ContactServiceTest {
                 .thenReturn(List.of(contact(99L, EMAIL)));
 
         assertThatThrownBy(() -> service.createContact(ACCOUNT_ID,
-                new ContactCreateRequest(List.of(emailReq(EMAIL)), "Alice", null, null)))
+                new ContactCreateRequest(List.of(emailReq(EMAIL)), null, "Alice", null, null)))
                 .isInstanceOf(DuplicateContactException.class);
 
         verify(contactRepository, never()).save(any());
@@ -214,7 +333,7 @@ class ContactServiceTest {
         when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
 
         assertThatThrownBy(() -> service.createContact(ACCOUNT_ID,
-                new ContactCreateRequest(List.of(emailReq(EMAIL), emailReq(EMAIL)), null, null, null)))
+                new ContactCreateRequest(List.of(emailReq(EMAIL), emailReq(EMAIL)), null, null, null, null)))
                 .isInstanceOf(ValidationException.class).hasMessageContaining("appears more than once");
 
         verify(contactRepository, never()).save(any());
@@ -230,7 +349,7 @@ class ContactServiceTest {
         when(contactRepository.save(existing)).thenReturn(existing);
 
         ContactResponse r = service.updateContact(ACCOUNT_ID, CONTACT_ID,
-                new ContactUpdateRequest(List.of(emailReq(EMAIL)), "Alice", "Liddell", "note"));
+                new ContactUpdateRequest(List.of(emailReq(EMAIL)), null, "Alice", "Liddell", "note"));
 
         assertThat(existing.getName()).isEqualTo("Alice");
         assertThat(existing.getSurname()).isEqualTo("Liddell");
@@ -248,7 +367,7 @@ class ContactServiceTest {
         when(contactRepository.findByAccountIdAndAnyEmailIn(eq(ACCOUNT_ID), any())).thenReturn(List.of(other));
 
         assertThatThrownBy(() -> service.updateContact(ACCOUNT_ID, CONTACT_ID,
-                new ContactUpdateRequest(List.of(emailReq("taken@example.com")), "X", null, null)))
+                new ContactUpdateRequest(List.of(emailReq("taken@example.com")), null, "X", null, null)))
                 .isInstanceOf(DuplicateContactException.class);
 
         verify(contactRepository, never()).save(any());
@@ -266,7 +385,7 @@ class ContactServiceTest {
         when(contactRepository.save(existing)).thenReturn(existing);
 
         service.updateContact(ACCOUNT_ID, CONTACT_ID,
-                new ContactUpdateRequest(List.of(emailReq(EMAIL)), "X", null, null));
+                new ContactUpdateRequest(List.of(emailReq(EMAIL)), null, "X", null, null));
 
         verify(contactRepository).save(any());
     }
@@ -280,7 +399,8 @@ class ContactServiceTest {
         when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.of(existing));
         when(contactRepository.save(existing)).thenReturn(existing);
 
-        service.patchContact(ACCOUNT_ID, CONTACT_ID, new ContactPatchRequest(null, "NewName", "NewSurname", null));
+        service.patchContact(ACCOUNT_ID, CONTACT_ID,
+                new ContactPatchRequest(null, null, "NewName", "NewSurname", null));
 
         assertThat(existing.getEmails().get(0).getEmail()).isEqualTo(EMAIL);
         assertThat(existing.getName()).isEqualTo("NewName");
@@ -294,9 +414,8 @@ class ContactServiceTest {
         when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
         when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(
-                () -> service.patchContact(ACCOUNT_ID, CONTACT_ID, new ContactPatchRequest(null, "X", null, null)))
-                .isInstanceOf(ContactNotFoundException.class);
+        assertThatThrownBy(() -> service.patchContact(ACCOUNT_ID, CONTACT_ID,
+                new ContactPatchRequest(null, null, "X", null, null))).isInstanceOf(ContactNotFoundException.class);
     }
 
     @Test
@@ -353,7 +472,7 @@ class ContactServiceTest {
         });
 
         service.createContact(ACCOUNT_ID, new ContactCreateRequest(
-                List.of(new ContactEmailRequest("  Alice@Example.COM  ", null)), null, null, null));
+                List.of(new ContactEmailRequest("  Alice@Example.COM  ", null)), null, null, null, null));
 
         ArgumentCaptor<ContactEntity> captor = ArgumentCaptor.forClass(ContactEntity.class);
         verify(contactRepository).save(captor.capture());
@@ -374,7 +493,7 @@ class ContactServiceTest {
 
         service.createContact(ACCOUNT_ID, new ContactCreateRequest(
                 List.of(emailReq("first@example.com"), emailReq("second@example.com"), emailReq("third@example.com")),
-                null, null, null));
+                null, null, null, null));
 
         verify(contactRepository).findByAccountIdAndAnyEmailIn(eq(ACCOUNT_ID), any());
         verify(contactRepository, never()).findByAccountIdAndAnyEmail(eq(ACCOUNT_ID), anyString());
@@ -449,17 +568,39 @@ class ContactServiceTest {
     }
 
     @Test
-    @DisplayName("listContacts — label=WORK → repository dostane label parametr")
+    @DisplayName("listContacts — labelId → repository dostane label parametr")
     void listContactsByLabel() {
         when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.findByAccountId(eq(ACCOUNT_ID),
-                eq(org.voxrox.mailbackend.feature.contact.EmailLabel.WORK), any(Pageable.class)))
+        when(contactLabelRepository.findByIdAndAccountId(7L, ACCOUNT_ID))
+                .thenReturn(java.util.Optional.of(label(7L, "Family")));
+        when(contactRepository.findByAccountId(eq(ACCOUNT_ID), eq(7L), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(contact(10L, EMAIL))));
 
-        Page<ContactResponse> result = service.listContacts(ACCOUNT_ID, 0, 10, null,
-                org.voxrox.mailbackend.feature.contact.EmailLabel.WORK);
+        Page<ContactResponse> result = service.listContacts(ACCOUNT_ID, 0, 10, null, 7L);
 
         assertThat(result.getContent()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("listContacts — unknown labelId -> 404, not an empty page")
+    void listContactsUnknownLabel() {
+        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
+        when(contactLabelRepository.findByIdAndAccountId(99L, ACCOUNT_ID)).thenReturn(java.util.Optional.empty());
+
+        assertThatThrownBy(() -> service.listContacts(ACCOUNT_ID, 0, 10, null, 99L))
+                .isInstanceOf(ContactLabelNotFoundException.class);
+        verify(contactRepository, never()).findByAccountId(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("searchContacts — unknown labelId -> 404 before the search runs")
+    void searchContactsUnknownLabel() {
+        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
+        when(contactLabelRepository.findByIdAndAccountId(99L, ACCOUNT_ID)).thenReturn(java.util.Optional.empty());
+
+        assertThatThrownBy(() -> service.searchContacts(ACCOUNT_ID, "alice", 0, 10, null, 99L))
+                .isInstanceOf(ContactLabelNotFoundException.class);
+        verify(contactRepository, never()).searchByAccountId(any(), any(), any(), any());
     }
 
     @Test

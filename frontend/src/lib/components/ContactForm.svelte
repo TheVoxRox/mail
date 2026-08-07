@@ -4,6 +4,7 @@
 	import { toErrorMessage } from '$lib/api/errors.js';
 	import { isValidEmailAddress } from '$lib/compose/addresses.js';
 	import { confirmAction } from '$lib/stores/confirmDialog.js';
+	import { contactCounts } from '$lib/stores/contactCounts.js';
 	import { installLeaveGuard } from '$lib/leaveGuard.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Field } from '$lib/components/ui/field/index.js';
@@ -45,6 +46,14 @@
 	let note = $state('');
 	let emails = $state<EmailDraft[]>([newRow('', '', true)]);
 	let emailErrors = $state<(string | null)[]>([null]);
+	/*
+	 * The save is a PUT with replace semantics, so this always travels with the
+	 * request — an edit that never opens the label group must still send back
+	 * what the contact had, or it would silently lose its labels.
+	 */
+	let labelIds = $state<number[]>([]);
+	/** Every label of the account, from the store the sidebar badges already use. */
+	const availableLabels = $derived($contactCounts?.labels ?? []);
 	let busy = $state(false);
 	let error = $state<string | null>(null);
 	let nameInputEl = $state<HTMLInputElement | null>(null);
@@ -60,16 +69,25 @@
 
 	const isEdit = $derived(contact != null);
 
-	function snapshotOf(n: string, s: string, nt: string, rows: EmailDraft[]): string {
+	function snapshotOf(
+		n: string,
+		s: string,
+		nt: string,
+		rows: EmailDraft[],
+		labels: number[]
+	): string {
 		return JSON.stringify({
 			name: n,
 			surname: s,
 			note: nt,
-			emails: rows.map((r) => ({ email: r.email, label: r.label, primary: r.primary }))
+			emails: rows.map((r) => ({ email: r.email, label: r.label, primary: r.primary })),
+			// Sorted so that ticking a label and unticking it again is not "dirty"
+			// just because the ids ended up in a different order.
+			labelIds: [...labels].sort((a, b) => a - b)
 		});
 	}
 
-	const isDirty = $derived(snapshotOf(name, surname, note, emails) !== originalSnapshot);
+	const isDirty = $derived(snapshotOf(name, surname, note, emails, labelIds) !== originalSnapshot);
 
 	// Re-seed the form when the bound contact changes (e.g. editing a different
 	// row reuses this component instance via SvelteKit's param navigation).
@@ -77,6 +95,7 @@
 		const key = contact ? contact.id : 'new';
 		if (loadedKey === key) return;
 		loadedKey = key;
+		labelIds = contact?.labels.map((label) => label.id) ?? [];
 		if (contact && contact.emails.length > 0) {
 			name = contact.name ?? '';
 			surname = contact.surname ?? '';
@@ -98,8 +117,12 @@
 			emails = [newRow('', '', true)];
 			emailErrors = [null];
 		}
-		originalSnapshot = snapshotOf(name, surname, note, emails);
+		originalSnapshot = snapshotOf(name, surname, note, emails, labelIds);
 	});
+
+	function toggleLabel(labelId: number, checked: boolean): void {
+		labelIds = checked ? [...labelIds, labelId] : labelIds.filter((id) => id !== labelId);
+	}
 
 	onMount(() => {
 		nameInputEl?.focus();
@@ -118,14 +141,16 @@
 		return $_('contacts.primaryRadioLabel', { values: { index: index + 1 } });
 	}
 
-	function emailLabelStatusId(index: number): string {
+	function emailTypeStatusId(index: number): string {
 		return `contact-email-${index}-label-status`;
 	}
 
-	function emailLabelAnnouncement(index: number, label: EmailLabel | ''): string {
-		const labelText =
-			label === '' ? $_('contacts.labelOptions.none') : $_(`contacts.labelOptions.${label}`);
-		return $_('contacts.emailLabelSelection', { values: { index: index + 1, label: labelText } });
+	function emailTypeAnnouncement(index: number, label: EmailLabel | ''): string {
+		const typeText =
+			label === ''
+				? $_('contacts.emailTypeOptions.none')
+				: $_(`contacts.emailTypeOptions.${label}`);
+		return $_('contacts.emailTypeSelection', { values: { index: index + 1, type: typeText } });
 	}
 
 	function setPrimary(index: number) {
@@ -225,7 +250,8 @@
 				name: name || null,
 				surname: surname || null,
 				note: note || null,
-				emails: payloadEmails
+				emails: payloadEmails,
+				labelIds
 			});
 		} catch (err) {
 			error = toErrorMessage(err);
@@ -351,7 +377,7 @@
 					</Field>
 					<Field
 						for={`contact-email-${index}-label`}
-						label={$_('contacts.emailLabelFieldIndexed', { values: { index: index + 1 } })}
+						label={$_('contacts.emailTypeFieldIndexed', { values: { index: index + 1 } })}
 						labelClass="sr-only"
 					>
 						<Select
@@ -360,13 +386,13 @@
 							size="sm"
 							disabled={busy}
 						>
-							<option value="">{$_('contacts.labelOptions.none')}</option>
-							<option value="HOME">{$_('contacts.labelOptions.HOME')}</option>
-							<option value="WORK">{$_('contacts.labelOptions.WORK')}</option>
-							<option value="OTHER">{$_('contacts.labelOptions.OTHER')}</option>
+							<option value="">{$_('contacts.emailTypeOptions.none')}</option>
+							<option value="HOME">{$_('contacts.emailTypeOptions.HOME')}</option>
+							<option value="WORK">{$_('contacts.emailTypeOptions.WORK')}</option>
+							<option value="OTHER">{$_('contacts.emailTypeOptions.OTHER')}</option>
 						</Select>
-						<span id={emailLabelStatusId(index)} class="sr-only" role="status" aria-atomic="true">
-							{emailLabelAnnouncement(index, row.label)}
+						<span id={emailTypeStatusId(index)} class="sr-only" role="status" aria-atomic="true">
+							{emailTypeAnnouncement(index, row.label)}
 						</span>
 					</Field>
 					<div class="flex items-center gap-1.5 md:h-9">
@@ -412,6 +438,41 @@
 					{/if}
 				</div>
 			{/each}
+		</fieldset>
+
+		<!--
+			A checkbox group rather than a multi-select listbox: multi-select needs
+			modifier-clicking to deselect and reads poorly in browse mode, while a
+			fieldset of checkboxes is navigable with plain arrows and states each
+			label's on/off individually.
+		-->
+		<fieldset class="space-y-2">
+			<legend class="block text-sm font-medium text-foreground">
+				{$_('contacts.formLabelsLegend')}
+			</legend>
+			{#if availableLabels.length === 0}
+				<p class="text-xs text-muted-foreground">{$_('contacts.formLabelsEmpty')}</p>
+			{:else}
+				<div class="flex flex-wrap gap-1.5">
+					{#each availableLabels as label (label.id)}
+						{@const inputId = `contact-label-${label.id}`}
+						<label
+							for={inputId}
+							class="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-sm hover:bg-muted/35 has-[:checked]:border-primary has-[:checked]:bg-primary/5"
+						>
+							<input
+								id={inputId}
+								type="checkbox"
+								class="size-4 rounded border-input bg-background text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+								checked={labelIds.includes(label.id)}
+								onchange={(event) => toggleLabel(label.id, event.currentTarget.checked)}
+								disabled={busy}
+							/>
+							<span class="min-w-0 truncate">{label.name}</span>
+						</label>
+					{/each}
+				</div>
+			{/if}
 		</fieldset>
 
 		<Field for="contact-note" label={$_('contacts.noteLabel')} class="flex flex-1 flex-col">

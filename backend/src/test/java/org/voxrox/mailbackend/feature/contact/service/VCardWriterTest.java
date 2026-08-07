@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.voxrox.mailbackend.feature.contact.EmailLabel;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEmailEntity;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEntity;
+import org.voxrox.mailbackend.feature.contact.entity.ContactLabelEntity;
 
 /**
  * Unit tests for {@link VCardWriter}. They cover RFC 6350 escaping, structure
@@ -37,6 +38,63 @@ class VCardWriterTest {
         e.setLabel(label);
         e.setPrimary(primary);
         return e;
+    }
+
+    private static ContactLabelEntity label(Long id, String name) {
+        ContactLabelEntity l = new ContactLabelEntity();
+        l.setId(id);
+        l.setName(name);
+        l.setNameKey(name.toLowerCase(java.util.Locale.ROOT));
+        return l;
+    }
+
+    @Nested
+    @DisplayName("CATEGORIES — user-defined contact labels")
+    class Categories {
+
+        @Test
+        @DisplayName("No labels -> the property is omitted entirely")
+        void omittedWhenNoLabels() {
+            String out = VCardWriter.write(List.of(contact("Jan", "Novák", null, email("jan@x.cz", null, true))));
+
+            assertThat(out).doesNotContain("CATEGORIES");
+        }
+
+        @Test
+        @DisplayName("Labels are emitted as one comma-separated CATEGORIES line")
+        void commaSeparated() {
+            ContactEntity c = contact("Jan", "Novák", null, email("jan@x.cz", null, true));
+            c.getLabels().add(label(1L, "Family"));
+            c.getLabels().add(label(2L, "Clients"));
+
+            String out = VCardWriter.write(List.of(c));
+
+            assertThat(out).contains("CATEGORIES:Family,Clients\r\n");
+        }
+
+        @Test
+        @DisplayName("A comma inside a label name is escaped, the separators are not")
+        void escapesCommaInsideName() {
+            // Without escaping, "Clients, VIP" would read back as two categories.
+            ContactEntity c = contact("Jan", "Novák", null, email("jan@x.cz", null, true));
+            c.getLabels().add(label(1L, "Clients, VIP"));
+            c.getLabels().add(label(2L, "Family"));
+
+            String out = VCardWriter.write(List.of(c));
+
+            assertThat(out).contains("CATEGORIES:Clients\\, VIP,Family\r\n");
+        }
+
+        @Test
+        @DisplayName("CATEGORIES is independent of the per-address TYPE")
+        void independentOfEmailType() {
+            ContactEntity c = contact("Jan", "Novák", null, email("jan@x.cz", EmailLabel.WORK, true));
+            c.getLabels().add(label(1L, "Family"));
+
+            String out = VCardWriter.write(List.of(c));
+
+            assertThat(out).contains("EMAIL;TYPE=work;PREF=1:jan@x.cz\r\n").contains("CATEGORIES:Family\r\n");
+        }
     }
 
     @Nested

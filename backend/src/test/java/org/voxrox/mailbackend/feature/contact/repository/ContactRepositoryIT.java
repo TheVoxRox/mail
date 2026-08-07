@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -41,7 +42,9 @@ import org.voxrox.mailbackend.feature.account.service.AccountService;
 import org.voxrox.mailbackend.feature.contact.EmailLabel;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEmailEntity;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEntity;
+import org.voxrox.mailbackend.feature.contact.entity.ContactLabelEntity;
 import org.voxrox.mailbackend.feature.contact.mapper.ContactMapper;
+import org.voxrox.mailbackend.feature.contact.service.ContactLabelService;
 import org.voxrox.mailbackend.feature.contact.service.ContactService;
 
 import ch.qos.logback.classic.Level;
@@ -61,7 +64,8 @@ import ch.qos.logback.core.read.ListAppender;
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("it")
-@Sql(statements = {"DELETE FROM contact_emails", "DELETE FROM contacts", "DELETE FROM accounts",
+@Sql(statements = {"DELETE FROM contact_label_links", "DELETE FROM contact_labels", "DELETE FROM contact_emails",
+        "DELETE FROM contacts", "DELETE FROM accounts",
         "DELETE FROM mail_providers"}, executionPhase = ExecutionPhase.BEFORE_TEST_METHOD)
 class ContactRepositoryIT {
 
@@ -82,6 +86,8 @@ class ContactRepositoryIT {
 
     @Autowired
     private ContactRepository contactRepository;
+    @Autowired
+    private ContactLabelRepository labelRepository;
     @Autowired
     private AccountRepository accountRepository;
     @Autowired
@@ -136,6 +142,19 @@ class ContactRepositoryIT {
             c.getEmails().add(em);
         }
         return c;
+    }
+
+    /**
+     * Persists a label the way the service does — name_key is the case-folded name,
+     * because that is the column carrying the uniqueness constraint.
+     */
+    private ContactLabelEntity newLabel(AccountEntity owner, String name) {
+        ContactLabelEntity l = new ContactLabelEntity();
+        l.setAccount(owner);
+        l.setName(name);
+        l.setNameKey(name.toLowerCase(Locale.ROOT));
+        l.setCreatedAt(LocalDateTime.now());
+        return labelRepository.saveAndFlush(l);
     }
 
     private String primaryEmail(ContactEntity c) {
@@ -246,30 +265,36 @@ class ContactRepositoryIT {
         }
 
         @Test
-        @DisplayName("label counts are DISTINCT per contact and skip unlabeled emails and foreign accounts")
-        void labelCountsDistinctPerContact() {
-            // A contact with two WORK addresses must count once for WORK — the
-            // grouped count has to match the size of the label-filtered list.
-            ContactEntity doubleWork = newContact(account, "w1@x.cz", "A", null);
-            doubleWork.getEmails().get(0).setLabel(EmailLabel.WORK);
-            addEmail(doubleWork, "w2@x.cz", EmailLabel.WORK);
-            addEmail(doubleWork, "h@x.cz", EmailLabel.HOME);
-            contactRepository.saveAndFlush(doubleWork);
+        @DisplayName("label counts are per contact, ignore unused labels and foreign accounts")
+        void labelCountsPerContact() {
+            ContactLabelEntity family = newLabel(account, "Family");
+            ContactLabelEntity clients = newLabel(account, "Clients");
+            // Nobody carries this one — it must be absent from the aggregate, and the
+            // service is what turns that absence into a zero badge.
+            newLabel(account, "Archive");
+            ContactLabelEntity foreignLabel = newLabel(otherAccount, "Family");
 
-            ContactEntity work2 = newContact(account, "w3@x.cz", "B", null);
-            work2.getEmails().get(0).setLabel(EmailLabel.WORK);
-            addEmail(work2, "plain@x.cz", null);
-            contactRepository.saveAndFlush(work2);
+            ContactEntity both = newContact(account, "a@x.cz", "A", null);
+            both.getLabels().add(family);
+            both.getLabels().add(clients);
+            addEmail(both, "a2@x.cz", EmailLabel.WORK);
+            contactRepository.saveAndFlush(both);
 
-            ContactEntity foreign = newContact(otherAccount, "f@x.cz", "C", null);
-            foreign.getEmails().get(0).setLabel(EmailLabel.WORK);
+            ContactEntity onlyFamily = newContact(account, "b@x.cz", "B", null);
+            onlyFamily.getLabels().add(family);
+            contactRepository.saveAndFlush(onlyFamily);
+
+            contactRepository.saveAndFlush(newContact(account, "c@x.cz", "C", null));
+
+            ContactEntity foreign = newContact(otherAccount, "f@x.cz", "D", null);
+            foreign.getLabels().add(foreignLabel);
             contactRepository.saveAndFlush(foreign);
             em.clear();
 
             List<ContactLabelCount> counts = contactRepository.countByAccountIdGroupedByLabel(account.getId());
 
-            assertThat(counts).containsExactlyInAnyOrder(new ContactLabelCount(EmailLabel.WORK, 2L),
-                    new ContactLabelCount(EmailLabel.HOME, 1L));
+            assertThat(counts).containsExactlyInAnyOrder(new ContactLabelCount(family.getId(), 2L),
+                    new ContactLabelCount(clients.getId(), 1L));
         }
     }
 
@@ -304,7 +329,9 @@ class ContactRepositoryIT {
 
         AccountService accountService = mock(AccountService.class);
         when(accountService.getAccountOrThrow(account.getId())).thenReturn(account);
-        ContactService service = new ContactService(contactRepository, accountService, new ContactMapper());
+        ContactLabelService labelService = new ContactLabelService(labelRepository, contactRepository, accountService);
+        ContactService service = new ContactService(contactRepository, labelRepository, labelService, accountService,
+                new ContactMapper());
 
         // Called directly (no @Transactional proxy), so setPrimaryEmail joins the
         // test's transaction and its final change flushes here rather than on commit.
@@ -475,64 +502,120 @@ class ContactRepositoryIT {
     }
 
     @Nested
-    @DisplayName("findByAccountId/searchByAccountId — filtering by email label")
+    @DisplayName("findByAccountId/searchByAccountId — filtering by contact label")
     class LabelFilter {
+
+        private ContactLabelEntity family;
+        private ContactLabelEntity clients;
 
         @BeforeEach
         void seed() {
-            ContactEntity work = newContact(account, "work@x.cz", "Work", "Person");
-            work.getEmails().get(0).setLabel(EmailLabel.WORK);
-            contactRepository.saveAndFlush(work);
+            family = newLabel(account, "Family");
+            clients = newLabel(account, "Clients");
 
-            ContactEntity home = newContact(account, "home@x.cz", "Home", "Person");
-            home.getEmails().get(0).setLabel(EmailLabel.HOME);
-            contactRepository.saveAndFlush(home);
+            ContactEntity familyOnly = newContact(account, "family@x.cz", "Family", "Person");
+            familyOnly.getLabels().add(family);
+            contactRepository.saveAndFlush(familyOnly);
+
+            ContactEntity clientOnly = newContact(account, "client@x.cz", "Client", "Person");
+            clientOnly.getLabels().add(clients);
+            contactRepository.saveAndFlush(clientOnly);
 
             // No label — must not pass the label filter.
             contactRepository.saveAndFlush(newContact(account, "noop@x.cz", "Noop", "Person"));
 
-            // Contact with 2 emails — only one has the WORK label.
-            ContactEntity mixed = newContact(account, "mixed-primary@x.cz", "Mixed", "Person");
-            ContactEmailEntity workSecondary = new ContactEmailEntity();
-            workSecondary.setEmail("mixed-work@x.cz");
-            workSecondary.setLabel(EmailLabel.WORK);
-            workSecondary.setPrimary(false);
-            workSecondary.setContact(mixed);
-            mixed.getEmails().add(workSecondary);
-            contactRepository.saveAndFlush(mixed);
+            ContactEntity bothLabels = newContact(account, "both@x.cz", "Both", "Person");
+            bothLabels.getLabels().add(family);
+            bothLabels.getLabels().add(clients);
+            contactRepository.saveAndFlush(bothLabels);
         }
 
         @Test
-        @DisplayName("findByAccountId(label=WORK) returns only contacts with at least one WORK email")
-        void listByLabelWork() {
-            Page<ContactEntity> p = contactRepository.findByAccountId(account.getId(), EmailLabel.WORK,
+        @DisplayName("findByAccountId(labelId) returns every contact carrying that label, each once")
+        void listByLabel() {
+            Page<ContactEntity> p = contactRepository.findByAccountId(account.getId(), family.getId(),
                     PageRequest.of(0, 10));
             assertThat(p.getContent()).extracting(ContactRepositoryIT.this::primaryEmail)
-                    .containsExactlyInAnyOrder("work@x.cz", "mixed-primary@x.cz");
+                    .containsExactlyInAnyOrder("family@x.cz", "both@x.cz");
         }
 
         @Test
-        @DisplayName("findByAccountId(label=HOME) returns only the HOME contact")
-        void listByLabelHome() {
-            Page<ContactEntity> p = contactRepository.findByAccountId(account.getId(), EmailLabel.HOME,
+        @DisplayName("findByAccountId(labelId) of another label returns its own contacts")
+        void listByOtherLabel() {
+            Page<ContactEntity> p = contactRepository.findByAccountId(account.getId(), clients.getId(),
                     PageRequest.of(0, 10));
-            assertThat(p.getContent()).extracting(ContactRepositoryIT.this::primaryEmail).containsExactly("home@x.cz");
+            assertThat(p.getContent()).extracting(ContactRepositoryIT.this::primaryEmail)
+                    .containsExactlyInAnyOrder("client@x.cz", "both@x.cz");
         }
 
         @Test
-        @DisplayName("findByAccountId(label=null) returns all contacts (filter inactive)")
+        @DisplayName("findByAccountId(labelId=null) returns all contacts (filter inactive)")
         void listAllWhenLabelNull() {
-            Page<ContactEntity> p = contactRepository.findByAccountId(account.getId(), null, PageRequest.of(0, 10));
+            Page<ContactEntity> p = contactRepository.findByAccountId(account.getId(), (Long) null,
+                    PageRequest.of(0, 10));
             assertThat(p.getContent()).hasSize(4);
         }
 
         @Test
         @DisplayName("searchByAccountId kombinuje q-filtr s label-filtrem")
         void searchWithLabel() {
-            Page<ContactEntity> p = contactRepository.searchByAccountId(account.getId(), "%person%", EmailLabel.WORK,
+            Page<ContactEntity> p = contactRepository.searchByAccountId(account.getId(), "%both%", family.getId(),
                     PageRequest.of(0, 10));
-            assertThat(p.getContent()).extracting(ContactRepositoryIT.this::primaryEmail)
-                    .containsExactlyInAnyOrder("work@x.cz", "mixed-primary@x.cz");
+            assertThat(p.getContent()).extracting(ContactRepositoryIT.this::primaryEmail).containsExactly("both@x.cz");
+        }
+
+        @Test
+        @DisplayName("A label of another account never matches, even with the same name")
+        void foreignLabelDoesNotLeak() {
+            ContactLabelEntity foreignFamily = newLabel(otherAccount, "Family");
+            ContactEntity foreign = newContact(otherAccount, "foreign@x.cz", "Foreign", "Person");
+            foreign.getLabels().add(foreignFamily);
+            contactRepository.saveAndFlush(foreign);
+            em.clear();
+
+            Page<ContactEntity> p = contactRepository.findByAccountId(account.getId(), foreignFamily.getId(),
+                    PageRequest.of(0, 10));
+            assertThat(p.getContent()).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("contact_labels constraints")
+    class LabelConstraints {
+
+        @Test
+        @DisplayName("Two labels with the same name_key on one account -> constraint violation")
+        void duplicateNameKeyRejected() {
+            newLabel(account, "Family");
+            // Hibernate wraps the SQLite unique violation as JpaSystemException, so
+            // assert on the common DataAccessException base like the e-mail unique
+            // test above, and pin the constraint by name in the message.
+            assertThatThrownBy(() -> newLabel(account, "Family")).isInstanceOf(DataAccessException.class)
+                    .hasMessageContaining("contact_labels.name_key");
+        }
+
+        @Test
+        @DisplayName("The same name_key on two accounts is fine — labels are account-scoped")
+        void sameNameOnDifferentAccounts() {
+            newLabel(account, "Family");
+            assertThatCode(() -> newLabel(otherAccount, "Family")).doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("Deleting a contact drops its assignments but keeps the label")
+        void deletingContactKeepsLabel() {
+            ContactLabelEntity family = newLabel(account, "Family");
+            ContactEntity c = newContact(account, "a@x.cz", "A", null);
+            c.getLabels().add(family);
+            ContactEntity saved = contactRepository.saveAndFlush(c);
+            em.clear();
+
+            contactRepository.deleteById(saved.getId());
+            contactRepository.flush();
+            em.clear();
+
+            assertThat(labelRepository.findByIdAndAccountId(family.getId(), account.getId())).isPresent();
+            assertThat(contactRepository.findByAccountIdAndLabelId(account.getId(), family.getId())).isEmpty();
         }
     }
 }

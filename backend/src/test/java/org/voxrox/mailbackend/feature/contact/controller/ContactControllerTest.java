@@ -53,6 +53,7 @@ import org.voxrox.mailbackend.feature.contact.dto.ContactCountsResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactCreateRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactEmailRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactEmailResponse;
+import org.voxrox.mailbackend.feature.contact.dto.ContactLabelCountResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactMergeRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactPatchRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactResponse;
@@ -98,8 +99,8 @@ class ContactControllerTest {
     }
 
     private ContactResponse sample(Long id, String email) {
-        return new ContactResponse(id, List.of(new ContactEmailResponse(1L, email, EmailLabel.WORK, true)), "Alice",
-                "Liddell", "VIP", LocalDateTime.of(2026, 4, 15, 10, 0), LocalDateTime.of(2026, 4, 15, 10, 0));
+        return new ContactResponse(id, List.of(new ContactEmailResponse(1L, email, EmailLabel.WORK, true)), List.of(),
+                "Alice", "Liddell", "VIP", LocalDateTime.of(2026, 4, 15, 10, 0), LocalDateTime.of(2026, 4, 15, 10, 0));
     }
 
     private ContactEmailRequest emailReq(String email) {
@@ -123,11 +124,16 @@ class ContactControllerTest {
     @Test
     @DisplayName("GET /counts → 200 with total and per-label counts")
     void getCounts() throws Exception {
-        when(contactService.getCounts(ACCOUNT_ID)).thenReturn(new ContactCountsResponse(7L, 3L, 2L, 0L));
+        when(contactService.getCounts(ACCOUNT_ID)).thenReturn(new ContactCountsResponse(7L,
+                List.of(new ContactLabelCountResponse(1L, "Clients", 3L),
+                        new ContactLabelCountResponse(2L, "Family", 2L),
+                        new ContactLabelCountResponse(3L, "Archive", 0L))));
 
         mockMvc.perform(get("/api/v1/accounts/{aid}/contacts/counts", ACCOUNT_ID)).andExpect(status().isOk())
-                .andExpect(jsonPath("$.total").value(7)).andExpect(jsonPath("$.work").value(3))
-                .andExpect(jsonPath("$.home").value(2)).andExpect(jsonPath("$.other").value(0));
+                .andExpect(jsonPath("$.total").value(7)).andExpect(jsonPath("$.labels.length()").value(3))
+                .andExpect(jsonPath("$.labels[0].name").value("Clients"))
+                .andExpect(jsonPath("$.labels[0].contacts").value(3))
+                .andExpect(jsonPath("$.labels[2].contacts").value(0));
     }
 
     @Test
@@ -150,13 +156,21 @@ class ContactControllerTest {
     }
 
     @Test
-    @DisplayName("GET /?sort=name&label=WORK -> delegated to listContacts with parameters")
+    @DisplayName("GET /?sort=name&labelId=5 -> delegated to listContacts with parameters")
     void listContactsWithSortAndLabel() throws Exception {
-        when(contactService.listContacts(eq(ACCOUNT_ID), eq(0), eq(20), eq("name"), eq(EmailLabel.WORK)))
+        when(contactService.listContacts(eq(ACCOUNT_ID), eq(0), eq(20), eq("name"), eq(5L)))
                 .thenReturn(new PageImpl<>(List.of(sample(10L, "alice.work@x.cz"))));
 
-        mockMvc.perform(get("/api/v1/accounts/{aid}/contacts", ACCOUNT_ID).param("sort", "name").param("label", "WORK"))
+        mockMvc.perform(get("/api/v1/accounts/{aid}/contacts", ACCOUNT_ID).param("sort", "name").param("labelId", "5"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.content.length()").value(1));
+    }
+
+    @Test
+    @DisplayName("GET /?labelId=0 -> 400, the filter never reaches the service")
+    void listContactsRejectsNonPositiveLabelId() throws Exception {
+        mockMvc.perform(get("/api/v1/accounts/{aid}/contacts", ACCOUNT_ID).param("labelId", "0"))
+                .andExpect(status().isBadRequest());
+        verify(contactService, never()).listContacts(any(), anyInt(), anyInt(), any(), any());
     }
 
     @Test
@@ -205,7 +219,7 @@ class ContactControllerTest {
     @DisplayName("POST / -> 201 + Location header")
     void createContact() throws Exception {
         var req = new ContactCreateRequest(List.of(new ContactEmailRequest("a@x.cz", EmailLabel.WORK),
-                new ContactEmailRequest("home@x.cz", EmailLabel.HOME)), "Alice", "Liddell", "VIP");
+                new ContactEmailRequest("home@x.cz", EmailLabel.HOME)), null, "Alice", "Liddell", "VIP");
         when(contactService.createContact(eq(ACCOUNT_ID), any())).thenReturn(sample(CONTACT_ID, "a@x.cz"));
 
         mockMvc.perform(post("/api/v1/accounts/{aid}/contacts", ACCOUNT_ID).contentType(MediaType.APPLICATION_JSON)
@@ -217,7 +231,8 @@ class ContactControllerTest {
     @Test
     @DisplayName("POST / with an invalid email in the list -> 400 validation")
     void createContactInvalidEmail() throws Exception {
-        var bad = new ContactCreateRequest(List.of(new ContactEmailRequest("not-an-email", null)), null, null, null);
+        var bad = new ContactCreateRequest(List.of(new ContactEmailRequest("not-an-email", null)), null, null, null,
+                null);
 
         mockMvc.perform(post("/api/v1/accounts/{aid}/contacts", ACCOUNT_ID).contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(bad))).andExpect(status().isBadRequest())
@@ -227,7 +242,7 @@ class ContactControllerTest {
     @Test
     @DisplayName("POST / with an empty emails list -> 400 validation")
     void createContactEmptyEmails() throws Exception {
-        var bad = new ContactCreateRequest(List.of(), null, null, null);
+        var bad = new ContactCreateRequest(List.of(), null, null, null, null);
 
         mockMvc.perform(post("/api/v1/accounts/{aid}/contacts", ACCOUNT_ID).contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(bad))).andExpect(status().isBadRequest());
@@ -236,7 +251,7 @@ class ContactControllerTest {
     @Test
     @DisplayName("POST / with duplicate email -> 409 CONTACT_DUPLICATE")
     void createContactDuplicate() throws Exception {
-        var req = new ContactCreateRequest(List.of(emailReq("dup@x.cz")), null, null, null);
+        var req = new ContactCreateRequest(List.of(emailReq("dup@x.cz")), null, null, null, null);
         when(contactService.createContact(eq(ACCOUNT_ID), any()))
                 .thenThrow(new DuplicateContactException(ACCOUNT_ID, "dup@x.cz"));
 
@@ -248,11 +263,11 @@ class ContactControllerTest {
     @Test
     @DisplayName("PUT /{id} -> 200 with the updated contact")
     void updateContact() throws Exception {
-        var req = new ContactUpdateRequest(List.of(new ContactEmailRequest("a@x.cz", EmailLabel.WORK)), "Alice",
+        var req = new ContactUpdateRequest(List.of(new ContactEmailRequest("a@x.cz", EmailLabel.WORK)), null, "Alice",
                 "New Surname", "new note");
         when(contactService.updateContact(eq(ACCOUNT_ID), eq(CONTACT_ID), any())).thenReturn(
                 new ContactResponse(CONTACT_ID, List.of(new ContactEmailResponse(1L, "a@x.cz", EmailLabel.WORK, true)),
-                        "Alice", "New Surname", "new note", LocalDateTime.now(), LocalDateTime.now()));
+                        List.of(), "Alice", "New Surname", "new note", LocalDateTime.now(), LocalDateTime.now()));
 
         mockMvc.perform(put("/api/v1/accounts/{aid}/contacts/{cid}", ACCOUNT_ID, CONTACT_ID)
                 .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(req)))
@@ -264,10 +279,10 @@ class ContactControllerTest {
     @Test
     @DisplayName("PATCH /{id} with partial body -> delegated to service")
     void patchContact() throws Exception {
-        var req = new ContactPatchRequest(null, "OnlyName", null, null);
+        var req = new ContactPatchRequest(null, null, "OnlyName", null, null);
         when(contactService.patchContact(eq(ACCOUNT_ID), eq(CONTACT_ID), any()))
                 .thenReturn(new ContactResponse(CONTACT_ID, List.of(new ContactEmailResponse(1L, "a@x.cz", null, true)),
-                        "OnlyName", "Liddell", null, LocalDateTime.now(), LocalDateTime.now()));
+                        List.of(), "OnlyName", "Liddell", null, LocalDateTime.now(), LocalDateTime.now()));
 
         mockMvc.perform(patch("/api/v1/accounts/{aid}/contacts/{cid}", ACCOUNT_ID, CONTACT_ID)
                 .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(req)))
@@ -365,7 +380,7 @@ class ContactControllerTest {
         ContactResponse resp = new ContactResponse(CONTACT_ID,
                 List.of(new ContactEmailResponse(1L, "a@x.cz", EmailLabel.WORK, false),
                         new ContactEmailResponse(2L, "b@x.cz", EmailLabel.HOME, true)),
-                "Alice", "Liddell", null, LocalDateTime.now(), LocalDateTime.now());
+                List.of(), "Alice", "Liddell", null, LocalDateTime.now(), LocalDateTime.now());
         when(contactService.setPrimaryEmail(ACCOUNT_ID, CONTACT_ID, 2L)).thenReturn(resp);
 
         mockMvc.perform(patch("/api/v1/accounts/{aid}/contacts/{cid}/emails/{eid}/primary", ACCOUNT_ID, CONTACT_ID, 2L))
@@ -395,8 +410,8 @@ class ContactControllerTest {
     @DisplayName("POST /bulk -> 200 with created/failed summary and per-item status")
     void bulkCreateMixedResults() throws Exception {
         BulkContactCreateRequest req = new BulkContactCreateRequest(
-                List.of(new ContactCreateRequest(List.of(emailReq("a@x.cz")), "A", null, null),
-                        new ContactCreateRequest(List.of(emailReq("dup@x.cz")), "B", null, null)));
+                List.of(new ContactCreateRequest(List.of(emailReq("a@x.cz")), null, "A", null, null),
+                        new ContactCreateRequest(List.of(emailReq("dup@x.cz")), null, "B", null, null)));
 
         BulkContactCreateResponse response = new BulkContactCreateResponse(2, 1, 1,
                 List.of(BulkContactCreateResult.success(0, sample(1L, "a@x.cz")), BulkContactCreateResult.failure(1,
@@ -429,7 +444,7 @@ class ContactControllerTest {
     void bulkCreateOverLimitRejected() throws Exception {
         List<ContactCreateRequest> many = new java.util.ArrayList<>();
         for (int i = 0; i < 101; i++) {
-            many.add(new ContactCreateRequest(List.of(emailReq("c" + i + "@x.cz")), "C" + i, null, null));
+            many.add(new ContactCreateRequest(List.of(emailReq("c" + i + "@x.cz")), null, "C" + i, null, null));
         }
         BulkContactCreateRequest req = new BulkContactCreateRequest(many);
 
@@ -494,7 +509,7 @@ class ContactControllerTest {
         ContactResponse resp = new ContactResponse(CONTACT_ID,
                 List.of(new ContactEmailResponse(1L, "a@x.cz", EmailLabel.WORK, true),
                         new ContactEmailResponse(7L, "b@x.cz", null, false)),
-                "Alice", "Liddell", "merged note", LocalDateTime.now(), LocalDateTime.now());
+                List.of(), "Alice", "Liddell", "merged note", LocalDateTime.now(), LocalDateTime.now());
         when(contactService.merge(eq(ACCOUNT_ID), eq(CONTACT_ID), any(ContactMergeRequest.class))).thenReturn(resp);
 
         mockMvc.perform(post("/api/v1/accounts/{aid}/contacts/{tid}/merge", ACCOUNT_ID, CONTACT_ID)

@@ -36,7 +36,8 @@
 		"delete": "Delete",
 		"loading": "Loading…",
 		"ok": "OK",
-		"opensInNewWindow": "(opens in a new window)"
+		"opensInNewWindow": "(opens in a new window)",
+		"close": "Close"
 	},
 	"nav": {
 		"switchAccount": "Switch account",
@@ -386,11 +387,11 @@
 		"emailRequired": "Enter at least one e-mail.",
 		"emailInvalid": "Enter a valid e-mail.",
 		"emailFieldLabel": "Address {index}",
-		"emailLabelFieldIndexed": "Address {index} label",
-		"emailLabelSelection": "Address {index} label: {label}",
+		"emailTypeFieldIndexed": "Address type {index}",
+		"emailTypeSelection": "Address type {index}: {type}",
 		"primaryRadioLabel": "Use address {index} as primary",
-		"labelOptions": {
-			"none": "No label",
+		"emailTypeOptions": {
+			"none": "No type",
 			"WORK": "Work",
 			"HOME": "Home",
 			"OTHER": "Other"
@@ -403,7 +404,7 @@
 		"selectContact": "Select contact {label}",
 		"selectedCount": "{count, plural, one {{count} selected contact} other {{count} selected contacts}}",
 		"clearSelection": "Clear selection",
-		"bulkActionsAvailable": "Bulk actions on the list: merge, delete.",
+		"bulkActionsAvailable": "Bulk actions available: assign labels, merge, delete.",
 		"bulkDelete": "Delete selected",
 		"bulkDeleting": "Deleting…",
 		"bulkDeleteConfirm": "Delete {count, plural, one {{count} selected contact} other {{count} selected contacts}}?",
@@ -430,7 +431,7 @@
 		"saveDone": "Contact saved.",
 		"loading": "Loading…",
 		"empty": "No contacts.",
-		"emptyLabeled": "No contacts with the {label} label. Assign labels to addresses in the contact form.",
+		"emptyLabeled": "No contacts with the {label} label.",
 		"sortLabel": "Sort by",
 		"sortOptions": {
 			"name": "First name",
@@ -480,7 +481,36 @@
 		"vcardImportHint": "Contacts will be imported into this account.",
 		"vcardImportNoFiles": "The selected file is not a vCard (.vcf).",
 		"vcardImportEmpty": "The vCard file contained no contacts with an e-mail.",
-		"vcardImportDone": "Imported: {created}, failed: {failed}."
+		"vcardImportDone": "Imported: {created}, failed: {failed}.",
+		"labelsNone": "No label",
+		"noLabelsYet": "No labels yet.",
+		"manageLabels": "Manage labels",
+		"labelsDialogTitle": "Contact labels",
+		"labelsDialogIntro": "Labels belong to the whole contact. Deleting a label keeps the contacts and only takes the label off them.",
+		"labelNameField": "New label name",
+		"labelNamePlaceholder": "e.g. Family",
+		"addLabel": "Add label",
+		"labelCreated": "Label created.",
+		"labelRenamed": "Label renamed.",
+		"labelDeleted": "Label deleted.",
+		"renameLabelField": "New name for label {label}",
+		"renameLabelAction": "Rename label {label}",
+		"deleteLabelAction": "Delete label {label}",
+		"deleteLabelConfirm": "Delete the label {label}? The contacts are kept and only lose this label. It affects {count, plural, one {{count} contact} other {{count} contacts}}.",
+		"labelCount": "{count, plural, one {{count} contact} other {{count} contacts}}",
+		"assignLabelsAction": "Assign labels",
+		"assignDialogTitle": "Labels of the selected contacts",
+		"assignDialogIntro": "A ticked label is added to every selected contact, an unticked one is removed from all of them. A label only part of the selection carries is left alone until you toggle it.",
+		"assignPartial": "{label}, on part of the selection",
+		"assignApply": "Apply labels",
+		"assignBusy": "Saving…",
+		"assignDone": "Labels updated on {changed, plural, one {{changed} contact} other {{changed} contacts}} of {total}.",
+		"assignNoChange": "No labels changed.",
+		"formLabelsLegend": "Labels",
+		"formLabelsEmpty": "No labels yet. Create them from the sidebar, via Manage labels.",
+		"vcardImportLabelsFailed": "The vCard labels could not be created; the contacts are imported without them.",
+		"assignPartialCount": "{carriers} of {total} selected",
+		"sidebarImportExport": "Import and export"
 	},
 	"settings": {
 		"nav": {

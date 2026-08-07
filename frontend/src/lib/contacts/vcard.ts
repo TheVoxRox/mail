@@ -6,12 +6,31 @@ function unfoldLines(text: string): string[] {
 	return text.replace(/\r?\n[ \t]/g, '').split(/\r?\n/);
 }
 
+/**
+ * Reverses the RFC 6350 §3.4 text escape in a single left-to-right pass.
+ *
+ * Sequential `.replace()` calls cannot do this correctly: whichever rule runs
+ * first also rewrites the escaped backslashes that were meant for the last one,
+ * so `\\n` (an escaped backslash followed by the letter n) came out as a real
+ * newline instead of `\n`. Scanning once and consuming both characters of every
+ * escape pair removes the ordering question entirely.
+ */
 function unescapeVCard(value: string): string {
-	return value
-		.replace(/\\n/gi, '\n')
-		.replace(/\\,/g, ',')
-		.replace(/\\;/g, ';')
-		.replace(/\\\\/g, '\\');
+	let out = '';
+	for (let i = 0; i < value.length; i++) {
+		if (value[i] !== '\\' || i + 1 >= value.length) {
+			out += value[i];
+			continue;
+		}
+		const next = value[i + 1];
+		if (next === 'n' || next === 'N') out += '\n';
+		else if (next === ',' || next === ';' || next === '\\') out += next;
+		// An unknown escape keeps both characters — the spec does not define it,
+		// and silently dropping the backslash would corrupt the value.
+		else out += '\\' + next;
+		i++;
+	}
+	return out;
 }
 
 function parseEmailLabel(params: string[]): EmailLabel | null {
@@ -28,14 +47,48 @@ function parseEmailLabel(params: string[]): EmailLabel | null {
 	return null;
 }
 
+/**
+ * A parsed card. The contact labels come out as CATEGORIES *names*, not ids —
+ * the file has no way to know this account's label ids, so resolving (and
+ * creating the missing ones) is the importer's job.
+ */
+export interface ParsedVCard {
+	contact: ContactCreateRequest;
+	categories: string[];
+}
+
 interface CardBuffer {
 	nValue: string | null;
 	fnValue: string | null;
 	note: string | null;
 	emails: { email: string; label: EmailLabel | null }[];
+	categories: string[];
 }
 
-function finalizeCard(buf: CardBuffer): ContactCreateRequest | null {
+/**
+ * Splits a CATEGORIES value on its unescaped commas (RFC 6350 §6.7.1) — a
+ * comma written as `\,` is part of a single category name, not a separator.
+ */
+function splitCategories(value: string): string[] {
+	const out: string[] = [];
+	let current = '';
+	for (let i = 0; i < value.length; i++) {
+		const c = value[i];
+		if (c === '\\' && i + 1 < value.length) {
+			current += value[i] + value[i + 1];
+			i++;
+		} else if (c === ',') {
+			out.push(current);
+			current = '';
+		} else {
+			current += c;
+		}
+	}
+	out.push(current);
+	return out.map((item) => unescapeVCard(item).trim()).filter((item) => item.length > 0);
+}
+
+function finalizeCard(buf: CardBuffer): ParsedVCard | null {
 	if (buf.emails.length === 0) return null;
 
 	let name: string | null = null;
@@ -57,16 +110,24 @@ function finalizeCard(buf: CardBuffer): ContactCreateRequest | null {
 	}
 
 	return {
-		name,
-		surname,
-		note: buf.note,
-		emails: buf.emails.map(({ email, label }) => ({ email, label }))
+		contact: {
+			name,
+			surname,
+			note: buf.note,
+			emails: buf.emails.map(({ email, label }) => ({ email, label }))
+		},
+		// Deduplicated case-insensitively, the same rule the backend applies to
+		// label names — a card listing "Rodina,rodina" must not ask for two.
+		categories: buf.categories.filter(
+			(name, index, all) =>
+				all.findIndex((other) => other.toLowerCase() === name.toLowerCase()) === index
+		)
 	};
 }
 
-export function parseVCard(text: string): ContactCreateRequest[] {
+export function parseVCard(text: string): ParsedVCard[] {
 	const lines = unfoldLines(text);
-	const cards: ContactCreateRequest[] = [];
+	const cards: ParsedVCard[] = [];
 	let buf: CardBuffer | null = null;
 
 	for (const rawLine of lines) {
@@ -75,7 +136,7 @@ export function parseVCard(text: string): ContactCreateRequest[] {
 		const upper = line.toUpperCase();
 
 		if (upper === 'BEGIN:VCARD') {
-			buf = { nValue: null, fnValue: null, note: null, emails: [] };
+			buf = { nValue: null, fnValue: null, note: null, emails: [], categories: [] };
 			continue;
 		}
 		if (upper === 'END:VCARD') {
@@ -106,6 +167,9 @@ export function parseVCard(text: string): ContactCreateRequest[] {
 			}
 		} else if (fieldUpper === 'NOTE') {
 			buf.note = unescapeVCard(value).trim() || null;
+		} else if (fieldUpper === 'CATEGORIES') {
+			// A card may repeat the property; accumulate rather than overwrite.
+			buf.categories.push(...splitCategories(value));
 		}
 	}
 
