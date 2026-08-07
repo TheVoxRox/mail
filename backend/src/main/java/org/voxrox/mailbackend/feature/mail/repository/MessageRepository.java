@@ -443,13 +443,11 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
      * ({@code CorrespondentBackfillService}) — re-running it over an already
      * populated cache would double every counter.
      */
-    @Query(value = "SELECT m.id AS id, m.folder_name AS folderName, m.sender AS sender, "
-            + "m.recipients_to AS recipientsTo, m.recipients_cc AS recipientsCc, "
-            + "m.recipients_bcc AS recipientsBcc, m.received_at AS receivedAt FROM messages m "
-            + "WHERE m.account_id = :accId AND m.id > :afterId "
-            + "ORDER BY m.id ASC LIMIT :batch", nativeQuery = true)
+    @Query("SELECT new org.voxrox.mailbackend.feature.mail.repository.CorrespondentBackfillRow("
+            + "m.id, m.folderName, m.sender, m.recipientsTo, m.recipientsCc, m.recipientsBcc, m.receivedAt) "
+            + "FROM MessageEntity m WHERE m.account.id = :accId AND m.id > :afterId ORDER BY m.id ASC")
     List<CorrespondentBackfillRow> findMessagesForCorrespondentBackfill(@Param("accId") Long accountId,
-            @Param("afterId") Long afterId, @Param("batch") int batch);
+            @Param("afterId") Long afterId, Pageable pageable);
 
     /**
      * Cross-folder conversation sizes for the threads on one page of the

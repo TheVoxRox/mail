@@ -109,4 +109,14 @@ public interface CorrespondentRepository extends JpaRepository<CorrespondentEnti
     Optional<CorrespondentEntity> findByAccountIdAndEmail(Long accountId, String email);
 
     long countByAccountId(Long accountId);
+
+    /**
+     * Drops the whole cache for one account, so it can be rebuilt from
+     * {@code messages}. A bulk DELETE rather than the derived
+     * {@code deleteByAccountId}, which would load every row as an entity first only
+     * to delete it.
+     */
+    @Modifying
+    @Query("DELETE FROM CorrespondentEntity c WHERE c.account.id = :accountId")
+    int deleteAllForAccount(@Param("accountId") Long accountId);
 }

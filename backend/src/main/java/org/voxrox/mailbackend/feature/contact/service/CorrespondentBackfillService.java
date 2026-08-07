@@ -1,5 +1,6 @@
 package org.voxrox.mailbackend.feature.contact.service;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -11,6 +12,7 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -52,10 +54,14 @@ import org.voxrox.mailbackend.util.LogMasker;
  *
  * <p>
  * The cost of that choice is that a run interrupted half way leaves a partial
- * cache that will never be completed — the account is no longer empty. That is
- * acceptable precisely because this is a droppable cache: the counts are a
- * ranking signal, not an accounting record, and a partial cache still suggests
- * the right people. A full rebuild is a {@code DELETE} away.
+ * cache that the startup pass will never complete — the account is no longer
+ * empty. Same for an account that was in {@code requires_reauth} at startup:
+ * once the user signs in, the sync starts harvesting new mail inline and the
+ * guard then blocks the backfill of everything older. Neither is silently
+ * permanent, which is what makes them acceptable: {@link #rebuildAccount} drops
+ * the cache and harvests again, exposed as
+ * {@code POST /api/internal/correspondent/rebuild}. Without that escape hatch
+ * "a droppable cache" would be a claim with no way to act on it.
  */
 @Service
 public class CorrespondentBackfillService {
@@ -124,6 +130,35 @@ public class CorrespondentBackfillService {
     }
 
     /**
+     * Drops the account's cache and harvests it again from scratch.
+     *
+     * <p>
+     * The repair path for the two states the startup guard cannot get out of on its
+     * own: a backfill interrupted half way, and an account that was in
+     * {@code requires_reauth} when the pass ran. Also the way to apply a changed
+     * robot list or ranking to already harvested rows.
+     *
+     * <p>
+     * Deleting first is what re-arms the guard in {@link #backfillAccount}, so the
+     * rebuild is the same code path as the first run rather than a second
+     * implementation of it. A sync running concurrently may harvest a message that
+     * this pass then visits again, counting it twice; the counters are a ranking
+     * signal rather than an accounting record, so that is a worse ranking at worst,
+     * and running it again fixes it.
+     *
+     * @return the number of messages harvested
+     */
+    public int rebuildAccount(AccountEntity account) {
+        int dropped = transactionTemplate
+                .execute(status -> correspondentRepository.deleteAllForAccount(account.getId()));
+        log.info("{} Correspondent rebuild: dropped {} cached address(es) for account {}.", LogCategory.SYNC, dropped,
+                account.getId());
+        AuditLog.success("correspondent_rebuild", LogMasker.maskEmail(account.getEmail()),
+                "id=" + account.getId() + " dropped=" + dropped);
+        return backfillAccount(account);
+    }
+
+    /**
      * Harvests every message of one account, unless its cache already holds rows.
      *
      * @return the number of messages visited, zero when the guard skipped the
@@ -144,15 +179,15 @@ public class CorrespondentBackfillService {
         while (true) {
             final long cursor = afterId;
             List<Long> processed = Objects.requireNonNull(transactionTemplate.execute(status -> {
-                List<CorrespondentBackfillRow> batch = messageRepository
-                        .findMessagesForCorrespondentBackfill(account.getId(), cursor, BATCH_SIZE);
-                List<Long> ids = new java.util.ArrayList<>(batch.size());
+                List<CorrespondentBackfillRow> batch = messageRepository.findMessagesForCorrespondentBackfill(
+                        account.getId(), cursor, PageRequest.of(0, BATCH_SIZE));
+                List<Long> ids = new ArrayList<>(batch.size());
                 for (CorrespondentBackfillRow row : batch) {
                     correspondentService.harvest(account,
-                            new CorrespondentService.HarvestInput(roleOf(rolesByFolder, row.getFolderName()),
-                                    row.getReceivedAt(), row.getSender(), row.getRecipientsTo(), row.getRecipientsCc(),
-                                    row.getRecipientsBcc()));
-                    ids.add(row.getId());
+                            new CorrespondentService.HarvestInput(roleOf(rolesByFolder, row.folderName()),
+                                    row.receivedAt(), row.sender(), row.recipientsTo(), row.recipientsCc(),
+                                    row.recipientsBcc()));
+                    ids.add(row.id());
                 }
                 return ids;
             }));

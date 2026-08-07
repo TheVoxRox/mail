@@ -178,8 +178,20 @@ class CorrespondentServiceTest {
         }
 
         @Test
-        @DisplayName("archive and user-created folders are harvested")
-        void harvestsFiledMail() {
+        @DisplayName("inbox is harvested — the roles that reach the database are not all skipped")
+        void harvestsInbox() {
+            service.harvest(account(), new HarvestInput(FolderRole.INBOX, SEEN_AT, "a@example.com", null, null, null));
+
+            assertThat(harvestedEmails()).containsExactly("a@example.com");
+        }
+
+        @Test
+        @DisplayName("archive and user folders would be harvested if the sync ever mirrored them")
+        void wouldHarvestFiledMail() {
+            // Neither role reaches the database today: MailSyncService syncs one
+            // folder per role over six roles, and these are not among them. The
+            // assertion pins the intent rather than a reachable path, so that
+            // widening the sync does not silently need a matching edit here.
             service.harvest(account(), new HarvestInput(FolderRole.ARCHIVE, SEEN_AT, "a@example.com", null, null, null));
             service.harvest(account(), new HarvestInput(FolderRole.USER, SEEN_AT, "b@example.com", null, null, null));
 

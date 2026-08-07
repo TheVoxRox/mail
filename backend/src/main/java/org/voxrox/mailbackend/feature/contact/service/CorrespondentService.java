@@ -60,8 +60,14 @@ public class CorrespondentService {
      * Trash and Junk are the two places whose whole meaning is "the user did not
      * want this", and Newsletters is bulk mail by definition — collecting from any
      * of them would feed the typeahead exactly what the robot filter exists to keep
-     * out. Every other role is fair game, including user-created folders, which is
-     * where filed correspondence usually ends up.
+     * out. All three are synced, so this list is what actually keeps them out.
+     *
+     * <p>
+     * In practice that leaves Inbox, Sent and Drafts: {@code MailSyncService} syncs
+     * one folder per role and only those six roles, so Archive and user-created
+     * folders never reach the database at all. They are not listed here because if
+     * that ever changes, filed correspondence is exactly what the typeahead should
+     * be learning from — the omission is deliberate, not an oversight.
      */
     private static final Set<FolderRole> SKIPPED_ROLES = Set.of(FolderRole.TRASH, FolderRole.JUNK,
             FolderRole.NEWSLETTERS);
