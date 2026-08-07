@@ -132,17 +132,17 @@ class ContactServiceTest {
     void getCountsMapsLabels() {
         when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
         when(contactRepository.countByAccountId(ACCOUNT_ID)).thenReturn(5L);
-        // The aggregate only knows labels somebody uses — "Škola" is missing from it.
+        // The aggregate only knows labels somebody uses — "Archiv" is missing from it.
         when(contactRepository.countByAccountIdGroupedByLabel(ACCOUNT_ID))
                 .thenReturn(List.of(new ContactLabelCount(1L, 3L), new ContactLabelCount(3L, 1L)));
         when(contactLabelRepository.findByAccountIdOrderByNameKeyAsc(ACCOUNT_ID))
-                .thenReturn(List.of(label(1L, "Klienti"), label(2L, "Škola"), label(3L, "Rodina")));
+                .thenReturn(List.of(label(1L, "Klienti"), label(2L, "Archiv"), label(3L, "Rodina")));
 
         ContactCountsResponse counts = service.getCounts(ACCOUNT_ID);
 
         assertThat(counts).isEqualTo(new ContactCountsResponse(5L,
                 List.of(new ContactLabelCountResponse(1L, "Klienti", 3L),
-                        new ContactLabelCountResponse(2L, "Škola", 0L),
+                        new ContactLabelCountResponse(2L, "Archiv", 0L),
                         new ContactLabelCountResponse(3L, "Rodina", 1L))));
     }
 

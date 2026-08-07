@@ -141,11 +141,11 @@ class ContactLabelServiceTest {
         @DisplayName("At the per-account ceiling -> 400, nothing is saved")
         void accountLimitEnforced() {
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-            when(labelRepository.findByAccountIdAndNameKey(ACCOUNT_ID, "další")).thenReturn(Optional.empty());
+            when(labelRepository.findByAccountIdAndNameKey(ACCOUNT_ID, "extra")).thenReturn(Optional.empty());
             when(labelRepository.countByAccountId(ACCOUNT_ID))
                     .thenReturn((long) ContactLabelService.MAX_LABELS_PER_ACCOUNT);
 
-            assertThatThrownBy(() -> service.createLabel(ACCOUNT_ID, new ContactLabelCreateRequest("Další")))
+            assertThatThrownBy(() -> service.createLabel(ACCOUNT_ID, new ContactLabelCreateRequest("Extra")))
                     .isInstanceOf(ValidationException.class);
             verify(labelRepository, never()).save(any());
         }

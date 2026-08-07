@@ -271,7 +271,7 @@ class ContactRepositoryIT {
             ContactLabelEntity clients = newLabel(account, "Klienti");
             // Nobody carries this one — it must be absent from the aggregate, and the
             // service is what turns that absence into a zero badge.
-            newLabel(account, "Škola");
+            newLabel(account, "Archiv");
             ContactLabelEntity foreignLabel = newLabel(otherAccount, "Rodina");
 
             ContactEntity both = newContact(account, "a@x.cz", "A", null);

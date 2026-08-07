@@ -127,7 +127,7 @@ class ContactControllerTest {
         when(contactService.getCounts(ACCOUNT_ID)).thenReturn(new ContactCountsResponse(7L,
                 List.of(new ContactLabelCountResponse(1L, "Klienti", 3L),
                         new ContactLabelCountResponse(2L, "Rodina", 2L),
-                        new ContactLabelCountResponse(3L, "Škola", 0L))));
+                        new ContactLabelCountResponse(3L, "Archiv", 0L))));
 
         mockMvc.perform(get("/api/v1/accounts/{aid}/contacts/counts", ACCOUNT_ID)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.total").value(7)).andExpect(jsonPath("$.labels.length()").value(3))
