@@ -63,10 +63,10 @@ class ContactLabelControllerTest {
     @DisplayName("GET / → 200 with the account's labels")
     void listLabels() throws Exception {
         when(contactLabelService.listLabels(ACCOUNT_ID))
-                .thenReturn(List.of(new ContactLabelResponse(1L, "Klienti"), new ContactLabelResponse(2L, "Rodina")));
+                .thenReturn(List.of(new ContactLabelResponse(1L, "Clients"), new ContactLabelResponse(2L, "Family")));
 
         mockMvc.perform(get("/api/v1/accounts/{aid}/contact-labels", ACCOUNT_ID)).andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(2)).andExpect(jsonPath("$[0].name").value("Klienti"))
+                .andExpect(jsonPath("$.length()").value(2)).andExpect(jsonPath("$[0].name").value("Clients"))
                 .andExpect(jsonPath("$[1].id").value(2));
     }
 
@@ -74,14 +74,14 @@ class ContactLabelControllerTest {
     @DisplayName("POST / → 201 with a Location header")
     void createLabel() throws Exception {
         when(contactLabelService.createLabel(eq(ACCOUNT_ID), any()))
-                .thenReturn(new ContactLabelResponse(LABEL_ID, "Rodina"));
+                .thenReturn(new ContactLabelResponse(LABEL_ID, "Family"));
 
         mockMvc.perform(
                 post("/api/v1/accounts/{aid}/contact-labels", ACCOUNT_ID).contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new ContactLabelCreateRequest("Rodina"))))
+                        .content(objectMapper.writeValueAsString(new ContactLabelCreateRequest("Family"))))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", "/api/v1/accounts/5/contact-labels/7"))
-                .andExpect(jsonPath("$.name").value("Rodina"));
+                .andExpect(jsonPath("$.name").value("Family"));
     }
 
     @Test
@@ -108,11 +108,11 @@ class ContactLabelControllerTest {
     @DisplayName("POST / with a duplicate name → 409 CONTACT_LABEL_DUPLICATE")
     void createLabelDuplicate() throws Exception {
         when(contactLabelService.createLabel(eq(ACCOUNT_ID), any()))
-                .thenThrow(new DuplicateContactLabelException(ACCOUNT_ID, "Rodina"));
+                .thenThrow(new DuplicateContactLabelException(ACCOUNT_ID, "Family"));
 
         mockMvc.perform(
                 post("/api/v1/accounts/{aid}/contact-labels", ACCOUNT_ID).contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new ContactLabelCreateRequest("Rodina"))))
+                        .content(objectMapper.writeValueAsString(new ContactLabelCreateRequest("Family"))))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.errorCode").value("CONTACT_LABEL_DUPLICATE"));
     }
 
@@ -120,12 +120,12 @@ class ContactLabelControllerTest {
     @DisplayName("PATCH /{labelId} → 200 with the renamed label")
     void renameLabel() throws Exception {
         when(contactLabelService.renameLabel(eq(ACCOUNT_ID), eq(LABEL_ID), any()))
-                .thenReturn(new ContactLabelResponse(LABEL_ID, "Klienti"));
+                .thenReturn(new ContactLabelResponse(LABEL_ID, "Clients"));
 
         mockMvc.perform(patch("/api/v1/accounts/{aid}/contact-labels/{lid}", ACCOUNT_ID, LABEL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(new ContactLabelUpdateRequest("Klienti"))))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.name").value("Klienti"));
+                .content(objectMapper.writeValueAsString(new ContactLabelUpdateRequest("Clients"))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.name").value("Clients"));
     }
 
     @Test

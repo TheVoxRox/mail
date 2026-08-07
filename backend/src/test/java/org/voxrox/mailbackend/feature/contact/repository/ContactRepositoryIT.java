@@ -267,12 +267,12 @@ class ContactRepositoryIT {
         @Test
         @DisplayName("label counts are per contact, ignore unused labels and foreign accounts")
         void labelCountsPerContact() {
-            ContactLabelEntity family = newLabel(account, "Rodina");
-            ContactLabelEntity clients = newLabel(account, "Klienti");
+            ContactLabelEntity family = newLabel(account, "Family");
+            ContactLabelEntity clients = newLabel(account, "Clients");
             // Nobody carries this one — it must be absent from the aggregate, and the
             // service is what turns that absence into a zero badge.
-            newLabel(account, "Archiv");
-            ContactLabelEntity foreignLabel = newLabel(otherAccount, "Rodina");
+            newLabel(account, "Archive");
+            ContactLabelEntity foreignLabel = newLabel(otherAccount, "Family");
 
             ContactEntity both = newContact(account, "a@x.cz", "A", null);
             both.getLabels().add(family);
@@ -510,8 +510,8 @@ class ContactRepositoryIT {
 
         @BeforeEach
         void seed() {
-            family = newLabel(account, "Rodina");
-            clients = newLabel(account, "Klienti");
+            family = newLabel(account, "Family");
+            clients = newLabel(account, "Clients");
 
             ContactEntity familyOnly = newContact(account, "family@x.cz", "Family", "Person");
             familyOnly.getLabels().add(family);
@@ -567,7 +567,7 @@ class ContactRepositoryIT {
         @Test
         @DisplayName("A label of another account never matches, even with the same name")
         void foreignLabelDoesNotLeak() {
-            ContactLabelEntity foreignFamily = newLabel(otherAccount, "Rodina");
+            ContactLabelEntity foreignFamily = newLabel(otherAccount, "Family");
             ContactEntity foreign = newContact(otherAccount, "foreign@x.cz", "Foreign", "Person");
             foreign.getLabels().add(foreignFamily);
             contactRepository.saveAndFlush(foreign);
@@ -586,25 +586,25 @@ class ContactRepositoryIT {
         @Test
         @DisplayName("Two labels with the same name_key on one account -> constraint violation")
         void duplicateNameKeyRejected() {
-            newLabel(account, "Rodina");
+            newLabel(account, "Family");
             // Hibernate wraps the SQLite unique violation as JpaSystemException, so
             // assert on the common DataAccessException base like the e-mail unique
             // test above, and pin the constraint by name in the message.
-            assertThatThrownBy(() -> newLabel(account, "Rodina")).isInstanceOf(DataAccessException.class)
+            assertThatThrownBy(() -> newLabel(account, "Family")).isInstanceOf(DataAccessException.class)
                     .hasMessageContaining("contact_labels.name_key");
         }
 
         @Test
         @DisplayName("The same name_key on two accounts is fine — labels are account-scoped")
         void sameNameOnDifferentAccounts() {
-            newLabel(account, "Rodina");
-            assertThatCode(() -> newLabel(otherAccount, "Rodina")).doesNotThrowAnyException();
+            newLabel(account, "Family");
+            assertThatCode(() -> newLabel(otherAccount, "Family")).doesNotThrowAnyException();
         }
 
         @Test
         @DisplayName("Deleting a contact drops its assignments but keeps the label")
         void deletingContactKeepsLabel() {
-            ContactLabelEntity family = newLabel(account, "Rodina");
+            ContactLabelEntity family = newLabel(account, "Family");
             ContactEntity c = newContact(account, "a@x.cz", "A", null);
             c.getLabels().add(family);
             ContactEntity saved = contactRepository.saveAndFlush(c);

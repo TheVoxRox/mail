@@ -132,18 +132,18 @@ class ContactServiceTest {
     void getCountsMapsLabels() {
         when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
         when(contactRepository.countByAccountId(ACCOUNT_ID)).thenReturn(5L);
-        // The aggregate only knows labels somebody uses — "Archiv" is missing from it.
+        // The aggregate only knows labels somebody uses — "Archive" is missing from it.
         when(contactRepository.countByAccountIdGroupedByLabel(ACCOUNT_ID))
                 .thenReturn(List.of(new ContactLabelCount(1L, 3L), new ContactLabelCount(3L, 1L)));
         when(contactLabelRepository.findByAccountIdOrderByNameKeyAsc(ACCOUNT_ID))
-                .thenReturn(List.of(label(1L, "Klienti"), label(2L, "Archiv"), label(3L, "Rodina")));
+                .thenReturn(List.of(label(1L, "Clients"), label(2L, "Archive"), label(3L, "Family")));
 
         ContactCountsResponse counts = service.getCounts(ACCOUNT_ID);
 
         assertThat(counts).isEqualTo(new ContactCountsResponse(5L,
-                List.of(new ContactLabelCountResponse(1L, "Klienti", 3L),
-                        new ContactLabelCountResponse(2L, "Archiv", 0L),
-                        new ContactLabelCountResponse(3L, "Rodina", 1L))));
+                List.of(new ContactLabelCountResponse(1L, "Clients", 3L),
+                        new ContactLabelCountResponse(2L, "Archive", 0L),
+                        new ContactLabelCountResponse(3L, "Family", 1L))));
     }
 
     private ContactLabelEntity label(Long id, String name) {
@@ -228,7 +228,7 @@ class ContactServiceTest {
         @DisplayName("createContact attaches the resolved labels")
         void createAttachesLabels() {
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-            ContactLabelEntity family = label(1L, "Rodina");
+            ContactLabelEntity family = label(1L, "Family");
             when(contactLabelService.resolveLabels(ACCOUNT_ID, List.of(1L))).thenReturn(Set.of(family));
             when(contactRepository.save(any(ContactEntity.class))).thenAnswer(inv -> {
                 ContactEntity e = inv.getArgument(0);
@@ -239,7 +239,7 @@ class ContactServiceTest {
             ContactResponse r = service.createContact(ACCOUNT_ID,
                     new ContactCreateRequest(List.of(emailReq(EMAIL)), List.of(1L), "Alice", null, null));
 
-            assertThat(r.labels()).containsExactly(new ContactLabelResponse(1L, "Rodina"));
+            assertThat(r.labels()).containsExactly(new ContactLabelResponse(1L, "Family"));
         }
 
         @Test
@@ -247,7 +247,7 @@ class ContactServiceTest {
         void updateClearsLabelsWhenAbsent() {
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
             ContactEntity existing = contact(CONTACT_ID, EMAIL);
-            existing.getLabels().add(label(1L, "Rodina"));
+            existing.getLabels().add(label(1L, "Family"));
             when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.of(existing));
             when(contactLabelService.resolveLabels(ACCOUNT_ID, null)).thenReturn(Set.of());
             when(contactRepository.save(existing)).thenReturn(existing);
@@ -263,14 +263,14 @@ class ContactServiceTest {
         void patchKeepsLabelsWhenAbsent() {
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
             ContactEntity existing = contact(CONTACT_ID, EMAIL);
-            existing.getLabels().add(label(1L, "Rodina"));
+            existing.getLabels().add(label(1L, "Family"));
             when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.of(existing));
             when(contactRepository.save(existing)).thenReturn(existing);
 
             ContactResponse r = service.patchContact(ACCOUNT_ID, CONTACT_ID,
                     new ContactPatchRequest(null, null, "NewName", null, null));
 
-            assertThat(r.labels()).containsExactly(new ContactLabelResponse(1L, "Rodina"));
+            assertThat(r.labels()).containsExactly(new ContactLabelResponse(1L, "Family"));
             verify(contactLabelService, never()).resolveLabels(anyLong(), any());
         }
 
@@ -279,7 +279,7 @@ class ContactServiceTest {
         void patchClearsLabelsWhenEmptyList() {
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
             ContactEntity existing = contact(CONTACT_ID, EMAIL);
-            existing.getLabels().add(label(1L, "Rodina"));
+            existing.getLabels().add(label(1L, "Family"));
             when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.of(existing));
             when(contactLabelService.resolveLabels(ACCOUNT_ID, List.of())).thenReturn(Set.of());
             when(contactRepository.save(existing)).thenReturn(existing);
@@ -294,8 +294,8 @@ class ContactServiceTest {
         @DisplayName("merge unions the labels — one only the source carried is not lost")
         void mergeUnionsLabels() {
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-            ContactLabelEntity family = label(1L, "Rodina");
-            ContactLabelEntity clients = label(2L, "Klienti");
+            ContactLabelEntity family = label(1L, "Family");
+            ContactLabelEntity clients = label(2L, "Clients");
 
             ContactEntity target = contact(CONTACT_ID, EMAIL);
             target.getLabels().add(family);
@@ -307,8 +307,8 @@ class ContactServiceTest {
 
             ContactResponse r = service.merge(ACCOUNT_ID, CONTACT_ID, new ContactMergeRequest(List.of(11L)));
 
-            assertThat(r.labels()).containsExactlyInAnyOrder(new ContactLabelResponse(1L, "Rodina"),
-                    new ContactLabelResponse(2L, "Klienti"));
+            assertThat(r.labels()).containsExactlyInAnyOrder(new ContactLabelResponse(1L, "Family"),
+                    new ContactLabelResponse(2L, "Clients"));
             verify(contactRepository).delete(source);
         }
     }
@@ -572,7 +572,7 @@ class ContactServiceTest {
     void listContactsByLabel() {
         when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
         when(contactLabelRepository.findByIdAndAccountId(7L, ACCOUNT_ID))
-                .thenReturn(java.util.Optional.of(label(7L, "Rodina")));
+                .thenReturn(java.util.Optional.of(label(7L, "Family")));
         when(contactRepository.findByAccountId(eq(ACCOUNT_ID), eq(7L), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(contact(10L, EMAIL))));
 

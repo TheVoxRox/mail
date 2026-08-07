@@ -64,36 +64,36 @@ class VCardWriterTest {
         @DisplayName("Labels are emitted as one comma-separated CATEGORIES line")
         void commaSeparated() {
             ContactEntity c = contact("Jan", "Novák", null, email("jan@x.cz", null, true));
-            c.getLabels().add(label(1L, "Rodina"));
-            c.getLabels().add(label(2L, "Klienti"));
+            c.getLabels().add(label(1L, "Family"));
+            c.getLabels().add(label(2L, "Clients"));
 
             String out = VCardWriter.write(List.of(c));
 
-            assertThat(out).contains("CATEGORIES:Rodina,Klienti\r\n");
+            assertThat(out).contains("CATEGORIES:Family,Clients\r\n");
         }
 
         @Test
         @DisplayName("A comma inside a label name is escaped, the separators are not")
         void escapesCommaInsideName() {
-            // Without escaping, "Klienti, VIP" would read back as two categories.
+            // Without escaping, "Clients, VIP" would read back as two categories.
             ContactEntity c = contact("Jan", "Novák", null, email("jan@x.cz", null, true));
-            c.getLabels().add(label(1L, "Klienti, VIP"));
-            c.getLabels().add(label(2L, "Rodina"));
+            c.getLabels().add(label(1L, "Clients, VIP"));
+            c.getLabels().add(label(2L, "Family"));
 
             String out = VCardWriter.write(List.of(c));
 
-            assertThat(out).contains("CATEGORIES:Klienti\\, VIP,Rodina\r\n");
+            assertThat(out).contains("CATEGORIES:Clients\\, VIP,Family\r\n");
         }
 
         @Test
         @DisplayName("CATEGORIES is independent of the per-address TYPE")
         void independentOfEmailType() {
             ContactEntity c = contact("Jan", "Novák", null, email("jan@x.cz", EmailLabel.WORK, true));
-            c.getLabels().add(label(1L, "Rodina"));
+            c.getLabels().add(label(1L, "Family"));
 
             String out = VCardWriter.write(List.of(c));
 
-            assertThat(out).contains("EMAIL;TYPE=work;PREF=1:jan@x.cz\r\n").contains("CATEGORIES:Rodina\r\n");
+            assertThat(out).contains("EMAIL;TYPE=work;PREF=1:jan@x.cz\r\n").contains("CATEGORIES:Family\r\n");
         }
     }
 

@@ -125,13 +125,13 @@ class ContactControllerTest {
     @DisplayName("GET /counts → 200 with total and per-label counts")
     void getCounts() throws Exception {
         when(contactService.getCounts(ACCOUNT_ID)).thenReturn(new ContactCountsResponse(7L,
-                List.of(new ContactLabelCountResponse(1L, "Klienti", 3L),
-                        new ContactLabelCountResponse(2L, "Rodina", 2L),
-                        new ContactLabelCountResponse(3L, "Archiv", 0L))));
+                List.of(new ContactLabelCountResponse(1L, "Clients", 3L),
+                        new ContactLabelCountResponse(2L, "Family", 2L),
+                        new ContactLabelCountResponse(3L, "Archive", 0L))));
 
         mockMvc.perform(get("/api/v1/accounts/{aid}/contacts/counts", ACCOUNT_ID)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.total").value(7)).andExpect(jsonPath("$.labels.length()").value(3))
-                .andExpect(jsonPath("$.labels[0].name").value("Klienti"))
+                .andExpect(jsonPath("$.labels[0].name").value("Clients"))
                 .andExpect(jsonPath("$.labels[0].contacts").value(3))
                 .andExpect(jsonPath("$.labels[2].contacts").value(0));
     }
