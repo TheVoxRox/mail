@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.voxrox.mailbackend.core.config.MailClientProperties;
+import org.voxrox.mailbackend.feature.contact.service.CorrespondentService;
 import org.voxrox.mailbackend.feature.mail.dto.MailDetailResponse;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 import org.voxrox.mailbackend.feature.mail.mapper.MessageMapper;
@@ -33,10 +34,11 @@ public class MessageDownloader {
     private final MailClientProperties mailProps;
     private final MessageMapper messageMapper;
     private final ThreadingService threadingService;
+    private final CorrespondentService correspondentService;
 
     public MessageDownloader(MessageRepository messageRepository, MessageFetcher messageFetcher,
             SyncStateService syncStateService, TransactionTemplate transactionTemplate, MailClientProperties mailProps,
-            MessageMapper messageMapper, ThreadingService threadingService) {
+            MessageMapper messageMapper, ThreadingService threadingService, CorrespondentService correspondentService) {
         this.messageRepository = messageRepository;
         this.messageFetcher = messageFetcher;
         this.syncStateService = syncStateService;
@@ -44,6 +46,7 @@ public class MessageDownloader {
         this.mailProps = mailProps;
         this.messageMapper = messageMapper;
         this.threadingService = threadingService;
+        this.correspondentService = correspondentService;
     }
 
     /**
@@ -271,6 +274,25 @@ public class MessageDownloader {
                  */
                 for (MessageEntity entity : saved) {
                     threadingService.assignThread(entity, ctx.account());
+                }
+                /*
+                 * Correspondent harvesting rides the same batch, and deliberately only over
+                 * `saved` — dropAlreadyPersisted has already removed the rows this folder
+                 * knows, so a re-sync of an overlapping UID window cannot count the same
+                 * message's addresses twice and inflate the ranking.
+                 *
+                 * Direction is read off the folder role rather than compared against the
+                 * account address: a Sent copy is what proves the user wrote TO someone, and
+                 * that is the signal the typeahead ranks on.
+                 *
+                 * Inside the batch transaction on purpose. The table is a droppable cache, so
+                 * the tempting move is to isolate it — but then a rolled-back batch would leave
+                 * counts for messages that were never persisted, and there would be nothing to
+                 * reconcile them against. Rolling back together keeps the cache a function of
+                 * what is actually stored, which is what lets the backfill rebuild it.
+                 */
+                for (MessageEntity entity : saved) {
+                    correspondentService.harvestFromMessage(entity, ctx.account(), ctx.syncState().getRole());
                 }
             }
 

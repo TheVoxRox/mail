@@ -30,6 +30,13 @@ export interface E2EFixtureState {
 	messageContents: Record<string, MailContentResponse>;
 	contactsByAccount: Record<number, ContactResponse[]>;
 	contactLabelsByAccount: Record<number, ContactLabelResponse[]>;
+	/**
+	 * Addresses the backend harvested from message headers, in the order its
+	 * ranking would return them. The autocomplete double merges these behind the
+	 * contacts and drops any address a contact already carries — the same
+	 * server-side dedup the real endpoint performs.
+	 */
+	correspondentsByAccount: Record<number, { email: string; name: string | null }[]>;
 	draftsByAccount: Record<number, MailSummaryResponse[]>;
 	attachments: Record<string, Blob>;
 	/** sendId of the most recent async send, so the SSE bridge can echo its outcome. */
@@ -449,6 +456,17 @@ function createInitialState(): E2EFixtureState {
 			],
 			2: []
 		},
+		// jana@example.com is deliberately also contact 1's address: the merged
+		// list must show it once, as the contact. jan.dvorak has no contact at
+		// all, so it is the row that proves history reaches the typeahead.
+		correspondentsByAccount: {
+			1: [
+				{ email: 'jan.dvorak@example.com', name: 'Jan Dvorak' },
+				{ email: 'jana@example.com', name: 'Jana Novak' },
+				{ email: 'no-reply@example.com', name: null }
+			],
+			2: []
+		},
 		// "Rodina" deliberately has no contact: the sidebar must still list it
 		// (with a zero badge), which is the case a used-labels-only view misses.
 		contactLabelsByAccount: {
@@ -534,6 +552,7 @@ export function clearAccounts(): E2EFixtureState {
 	fixtureState.messagesByFolder = {};
 	fixtureState.contactsByAccount = {};
 	fixtureState.contactLabelsByAccount = {};
+	fixtureState.correspondentsByAccount = {};
 	fixtureState.draftsByAccount = {};
 	return fixtureState;
 }
@@ -859,6 +878,7 @@ export function upsertAccount(
 		fixtureState.messagesByFolder[folderKey(id, 'INBOX')] = [];
 		fixtureState.contactsByAccount[id] = [];
 		fixtureState.contactLabelsByAccount[id] = [];
+		fixtureState.correspondentsByAccount[id] = [];
 		fixtureState.draftsByAccount[id] = [];
 	}
 

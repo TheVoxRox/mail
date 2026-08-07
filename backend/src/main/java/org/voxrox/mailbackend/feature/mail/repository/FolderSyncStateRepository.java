@@ -20,6 +20,14 @@ public interface FolderSyncStateRepository extends JpaRepository<FolderSyncState
 
     Optional<FolderSyncStateEntity> findByAccountIdAndFolderName(Long accountId, String folderName);
 
+    /**
+     * Every synced folder of the account with its detected role. The correspondent
+     * backfill builds a name-to-role map from this once per account: it walks
+     * messages, which carry {@code folder_name} but not the role, and a per-message
+     * lookup would be one query per row.
+     */
+    List<FolderSyncStateEntity> findByAccountId(Long accountId);
+
     @Transactional
     void deleteByAccountIdAndFolderName(Long accountId, String folderName);
 

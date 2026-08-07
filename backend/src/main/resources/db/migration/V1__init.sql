@@ -522,3 +522,55 @@ CREATE TRIGGER messages_au AFTER UPDATE OF subject, sender, content, recipients_
         new.id, new.subject, new.sender, new.content, new.recipients_to, new.recipients_cc
     );
 END;
+
+
+-- =====================================================================
+-- 13) CORRESPONDENT — distinct addresses the account has exchanged mail
+-- with, harvested from message headers at sync time.
+--
+-- Feeds the compose-window typeahead so that a fresh install suggests the
+-- people the user actually writes to, instead of only the address book,
+-- which starts empty and is filled by hand or by a vCard import.
+--
+-- This is a DERIVED CACHE, never a source of truth: every row can be
+-- reconstructed from `messages` by CorrespondentBackfillService. Nothing
+-- reads it except the typeahead, so it may be dropped and rebuilt at any
+-- time — which is why there is no data migration to worry about and why a
+-- deleted message leaves its correspondent behind until a rebuild.
+--
+-- It is deliberately NOT the address book. Contacts stay hand-curated, so
+-- labels and merge keep operating on a set the user chose; a table that
+-- silently absorbed every sender would flood both.
+--
+-- email is stored normalized (trimmed, lower-cased) — the uniqueness
+-- constraint is only meaningful on the folded form, and the typeahead
+-- compares against a lower-cased query.
+--
+-- sent_count and received_count are separate rather than one counter
+-- because ranking weighs them differently: an address the user has written
+-- TO is a far stronger signal of a real correspondent than one that merely
+-- wrote to them, and the split filters out most bulk mail for free.
+--
+-- Indexes: ux_correspondent_account_email carries the uniqueness that the
+-- harvest upsert looks up by, and its leading account_id column also bounds
+-- the typeahead scan to a single account. No second index for the prefix
+-- lookup: the query ORs an email-prefix match with a display-name substring
+-- match, which no index serves anyway, and this table is narrow (no body
+-- column) and holds thousands of rows per account, not the tens of
+-- thousands `messages` does.
+-- =====================================================================
+CREATE TABLE correspondent (
+    id             INTEGER      PRIMARY KEY AUTOINCREMENT,
+    account_id     INTEGER      NOT NULL,
+    email          VARCHAR(255) NOT NULL,
+    -- Most recently seen display name from the header; NULL when every
+    -- sighting was a bare address.
+    display_name   VARCHAR(255),
+    sent_count     INTEGER      NOT NULL DEFAULT 0,
+    received_count INTEGER      NOT NULL DEFAULT 0,
+    last_seen_at   DATETIME     NOT NULL,
+    FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX ux_correspondent_account_email
+    ON correspondent (account_id, email);

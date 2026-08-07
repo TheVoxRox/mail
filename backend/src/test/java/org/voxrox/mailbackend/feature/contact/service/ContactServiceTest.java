@@ -3,6 +3,7 @@ package org.voxrox.mailbackend.feature.contact.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -10,6 +11,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -33,6 +35,7 @@ import org.voxrox.mailbackend.exception.ResourceNotFoundException;
 import org.voxrox.mailbackend.exception.ValidationException;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.account.service.AccountService;
+import org.voxrox.mailbackend.feature.contact.AutocompleteSource;
 import org.voxrox.mailbackend.feature.contact.EmailLabel;
 import org.voxrox.mailbackend.feature.contact.dto.ContactAutocompleteResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactCountsResponse;
@@ -48,6 +51,7 @@ import org.voxrox.mailbackend.feature.contact.dto.ContactUpdateRequest;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEmailEntity;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEntity;
 import org.voxrox.mailbackend.feature.contact.entity.ContactLabelEntity;
+import org.voxrox.mailbackend.feature.contact.entity.CorrespondentEntity;
 import org.voxrox.mailbackend.feature.contact.mapper.ContactMapper;
 import org.voxrox.mailbackend.feature.contact.repository.ContactLabelCount;
 import org.voxrox.mailbackend.feature.contact.repository.ContactLabelRepository;
@@ -67,6 +71,8 @@ class ContactServiceTest {
     @Mock
     private ContactLabelService contactLabelService;
     @Mock
+    private CorrespondentService correspondentService;
+    @Mock
     private AccountService accountService;
 
     private final ContactMapper contactMapper = new ContactMapper();
@@ -74,8 +80,8 @@ class ContactServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ContactService(contactRepository, contactLabelRepository, contactLabelService, accountService,
-                contactMapper);
+        service = new ContactService(contactRepository, contactLabelRepository, contactLabelService,
+                correspondentService, accountService, contactMapper);
     }
 
     private AccountEntity account() {
@@ -848,6 +854,102 @@ class ContactServiceTest {
         when(accountService.getAccountOrThrow(999L)).thenThrow(new AccountNotFoundException(999L));
 
         assertThatThrownBy(() -> service.autocomplete(999L, "ali", 10)).isInstanceOf(AccountNotFoundException.class);
+    }
+
+    // --- autocomplete: merging the address book with harvested history ---
+
+    private CorrespondentEntity correspondent(String email, String displayName) {
+        return new CorrespondentEntity(account(), email, displayName, 0, 1, LocalDateTime.now());
+    }
+
+    @Test
+    @DisplayName("autocomplete — harvested addresses are offered and marked as not being contacts")
+    void autocompleteIncludesHistory() {
+        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
+        when(contactRepository.searchByAccountId(eq(ACCOUNT_ID), anyString(), eq(null), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+        when(correspondentService.search(eq(ACCOUNT_ID), eq("jan"), anyInt()))
+                .thenReturn(List.of(correspondent("jan.dvorak@example.com", "Jan Dvorak")));
+
+        List<ContactAutocompleteResponse> result = service.autocomplete(ACCOUNT_ID, "jan", 10);
+
+        assertThat(result).singleElement().satisfies(row -> {
+            assertThat(row.email()).isEqualTo("jan.dvorak@example.com");
+            assertThat(row.source()).isEqualTo(AutocompleteSource.HISTORY);
+            // The display name lands in name undivided; surname stays null because
+            // splitting a header display name would be a guess.
+            assertThat(row.name()).isEqualTo("Jan Dvorak");
+            assertThat(row.surname()).isNull();
+            assertThat(row.contactId()).isNull();
+            assertThat(row.emailId()).isNull();
+            assertThat(row.primary()).isNull();
+        });
+    }
+
+    @Test
+    @DisplayName("autocomplete — an address in both sources appears once, as the contact")
+    void autocompleteDeduplicatesAcrossSources() {
+        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
+        ContactEntity jana = namedContact(1L, "Jana", "Novak", "jana@example.com");
+        when(contactRepository.searchByAccountId(eq(ACCOUNT_ID), anyString(), eq(null), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(jana)));
+        when(correspondentService.search(eq(ACCOUNT_ID), eq("jana"), anyInt()))
+                .thenReturn(List.of(correspondent("jana@example.com", "Jana Novak")));
+
+        List<ContactAutocompleteResponse> result = service.autocomplete(ACCOUNT_ID, "jana", 10);
+
+        assertThat(result).singleElement()
+                .satisfies(row -> assertThat(row.source()).isEqualTo(AutocompleteSource.CONTACT));
+    }
+
+    @Test
+    @DisplayName("autocomplete — sources interleave by rank rather than stacking as blocks")
+    void autocompleteInterleavesByRank() {
+        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
+        // Contact matches only as a substring (rank 3); the harvested address
+        // matches the prefix (rank 0), so it has to come first even though the
+        // address book is the preferred source on a tie.
+        ContactEntity weak = namedContact(1L, "Zara", "Smith", "contact.ali@example.com");
+        when(contactRepository.searchByAccountId(eq(ACCOUNT_ID), anyString(), eq(null), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(weak)));
+        when(correspondentService.search(eq(ACCOUNT_ID), eq("ali"), anyInt()))
+                .thenReturn(List.of(correspondent("ali@example.com", "Ali Baba")));
+
+        List<ContactAutocompleteResponse> result = service.autocomplete(ACCOUNT_ID, "ali", 10);
+
+        assertThat(result).extracting(ContactAutocompleteResponse::email).containsExactly("ali@example.com",
+                "contact.ali@example.com");
+    }
+
+    @Test
+    @DisplayName("autocomplete — a contact wins a rank tie against an equally good history row")
+    void autocompleteContactWinsTie() {
+        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
+        ContactEntity contact = namedContact(1L, "Alice", "Smith", "ali.contact@example.com");
+        when(contactRepository.searchByAccountId(eq(ACCOUNT_ID), anyString(), eq(null), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(contact)));
+        when(correspondentService.search(eq(ACCOUNT_ID), eq("ali"), anyInt()))
+                .thenReturn(List.of(correspondent("ali.history@example.com", "Ali History")));
+
+        List<ContactAutocompleteResponse> result = service.autocomplete(ACCOUNT_ID, "ali", 10);
+
+        assertThat(result).extracting(ContactAutocompleteResponse::email).containsExactly("ali.contact@example.com",
+                "ali.history@example.com");
+    }
+
+    @Test
+    @DisplayName("autocomplete — the limit applies to the merged list, not per source")
+    void autocompleteLimitsTheMergedList() {
+        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
+        when(contactRepository.searchByAccountId(eq(ACCOUNT_ID), anyString(), eq(null), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(namedContact(1L, "Ann", "A", "ali1@example.com"),
+                        namedContact(2L, "Ann", "B", "ali2@example.com"))));
+        when(correspondentService.search(eq(ACCOUNT_ID), eq("ali"), anyInt())).thenReturn(
+                List.of(correspondent("ali3@example.com", "Ali Three"), correspondent("ali4@example.com", "Ali Four")));
+
+        // Four candidates, three of them asked for: a client stitching two
+        // independently limited lists together would show all four.
+        assertThat(service.autocomplete(ACCOUNT_ID, "ali", 3)).hasSize(3);
     }
 
     // --- merge ---

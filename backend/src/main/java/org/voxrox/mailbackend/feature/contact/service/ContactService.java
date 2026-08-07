@@ -30,6 +30,7 @@ import org.voxrox.mailbackend.feature.contact.dto.ContactUpdateRequest;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEmailEntity;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEntity;
 import org.voxrox.mailbackend.feature.contact.entity.ContactLabelEntity;
+import org.voxrox.mailbackend.feature.contact.entity.CorrespondentEntity;
 import org.voxrox.mailbackend.feature.contact.mapper.ContactMapper;
 import org.voxrox.mailbackend.feature.contact.repository.ContactLabelCount;
 import org.voxrox.mailbackend.feature.contact.repository.ContactLabelRepository;
@@ -70,14 +71,17 @@ public class ContactService {
     private final ContactRepository contactRepository;
     private final ContactLabelRepository contactLabelRepository;
     private final ContactLabelService contactLabelService;
+    private final CorrespondentService correspondentService;
     private final AccountService accountService;
     private final ContactMapper contactMapper;
 
     public ContactService(ContactRepository contactRepository, ContactLabelRepository contactLabelRepository,
-            ContactLabelService contactLabelService, AccountService accountService, ContactMapper contactMapper) {
+            ContactLabelService contactLabelService, CorrespondentService correspondentService,
+            AccountService accountService, ContactMapper contactMapper) {
         this.contactRepository = contactRepository;
         this.contactLabelRepository = contactLabelRepository;
         this.contactLabelService = contactLabelService;
+        this.correspondentService = correspondentService;
         this.accountService = accountService;
         this.contactMapper = contactMapper;
     }
@@ -126,24 +130,41 @@ public class ContactService {
 
     /**
      * Autocomplete for the compose-window typeahead. Returns a flat list of
-     * addresses (contact × email) ranked by relevance to the {@code q} prefix:
+     * addresses ranked by relevance to the {@code q} prefix:
      * <ol>
      * <li>email prefix match</li>
      * <li>surname prefix match</li>
      * <li>name prefix match</li>
      * <li>other substring matches</li>
      * </ol>
-     * Within a rank, alphabetical by surname/name/email. Unlike
-     * {@code searchContacts}, no pagination metadata is returned — the client just
-     * receives an array.
+     *
+     * <p>
+     * Two sources feed it: the address book, and the addresses harvested from
+     * message headers ({@link CorrespondentService}). The second exists because the
+     * first starts empty — a new install has nothing to suggest until the user
+     * types every address by hand at least once, while the mail it has already
+     * synced is full of the people they actually write to.
+     *
+     * <p>
+     * <b>Merging belongs here, not in the client.</b> An address in both sources
+     * may appear only once, and the contact has to win because it is what the user
+     * curated; and {@code limit} has to apply to the merged list, otherwise a
+     * client asking for 10 from each source and stitching them together shows 13
+     * and the limit means nothing.
+     *
+     * <p>
+     * The two are interleaved by rank rather than concatenated as blocks: a history
+     * row matching the address prefix outranks a contact that only matched on a
+     * substring of its name. Within one rank contacts come first, and each source
+     * keeps its own order — alphabetical for contacts, and for history the ranking
+     * the query already applied (written-to first, then recency).
      *
      * <p>
      * Hard-capped at limit 20; caller enforces {@code @Min(1)} on the controller.
-     * For the flatten we fetch {@code limit} contacts — from below that covers
-     * {@code limit} rows even when each contact has just 1 address, from above the
+     * Each source is queried for {@code limit} rows: from below that covers
+     * {@code limit} results even when every contact has one address, from above the
      * pool may overflow with foreign addresses of contacts that matched on name. We
      * finally trim to {@code limit}.
-     * </p>
      */
     @Transactional(readOnly = true)
     public List<ContactAutocompleteResponse> autocomplete(Long accountId, String q, int limit) {
@@ -154,43 +175,137 @@ public class ContactService {
         accountService.getAccountOrThrow(accountId);
 
         int cappedLimit = Math.min(Math.max(limit, 1), AUTOCOMPLETE_MAX_LIMIT);
-        String qLower = q.toLowerCase(Locale.ROOT);
-        String pattern = "%" + qLower + "%";
+        // Trimmed as well as folded: CorrespondentService.search trims internally,
+        // so without it a query with leading whitespace searches the two sources
+        // for different strings — and the rank functions, comparing against the
+        // untrimmed form, would then score a genuine prefix hit from history as a
+        // substring match and sort it below every weak contact match.
+        String qLower = q.trim().toLowerCase(Locale.ROOT);
 
+        List<AutocompleteRow> rows = new ArrayList<>(contactRows(accountId, qLower, cappedLimit));
+        Set<String> offered = rows.stream().map(r -> r.response().email().toLowerCase(Locale.ROOT))
+                .collect(Collectors.toCollection(HashSet::new));
+        rows.addAll(historyRows(accountId, qLower, cappedLimit, offered));
+
+        rows.sort(AUTOCOMPLETE_RANKING);
+        return rows.stream().limit(cappedLimit).map(AutocompleteRow::response).toList();
+    }
+
+    private List<AutocompleteRow> contactRows(Long accountId, String qLower, int cappedLimit) {
         Pageable pageable = PageRequest.of(0, cappedLimit, DEFAULT_SORT);
-        List<ContactEntity> matched = contactRepository.searchByAccountId(accountId, pattern, (Long) null, pageable)
-                .getContent();
+        List<ContactEntity> matched = contactRepository
+                .searchByAccountId(accountId, "%" + qLower + "%", (Long) null, pageable).getContent();
 
-        return matched.stream().flatMap(c -> c.getEmails().stream().map(e -> toAutocompleteRow(c, e, qLower)))
-                .sorted(AUTOCOMPLETE_RANKING).limit(cappedLimit).map(AutocompleteRow::response).toList();
+        List<AutocompleteRow> ranked = matched.stream()
+                .flatMap(c -> c.getEmails().stream().map(e -> toContactRow(c, e, qLower))).sorted(CONTACT_ORDER)
+                .limit(cappedLimit).toList();
+
+        // Stamp each row with the position it landed on, so the merge preserves this
+        // alphabetical order. The rank travels with the row rather than being
+        // recomputed: deriving the sort key and the merge key separately would let a
+        // change to one ranking rule produce a list sorted by one definition and
+        // merged by another.
+        List<AutocompleteRow> rows = new ArrayList<>(ranked.size());
+        for (int i = 0; i < ranked.size(); i++) {
+            AutocompleteRow row = ranked.get(i);
+            rows.add(new AutocompleteRow(row.rank(), CONTACT_FIRST, i, row.response()));
+        }
+        return rows;
+    }
+
+    /**
+     * Harvested addresses that the contact half did not already offer.
+     * {@code offered} is mutated as we go: the same address can be reached twice
+     * (once by address prefix, once by display name) and a duplicate suggestion is
+     * worse than a missing one.
+     */
+    private List<AutocompleteRow> historyRows(Long accountId, String qLower, int cappedLimit, Set<String> offered) {
+        List<CorrespondentEntity> harvested = correspondentService.search(accountId, qLower, cappedLimit);
+        List<AutocompleteRow> rows = new ArrayList<>(harvested.size());
+        for (CorrespondentEntity c : harvested) {
+            // Stored already normalized (trimmed, lower-cased) by the harvest.
+            if (!offered.add(c.getEmail())) {
+                continue;
+            }
+            ContactAutocompleteResponse resp = ContactAutocompleteResponse.ofHistory(c.getEmail(), c.getDisplayName());
+            rows.add(new AutocompleteRow(rankOfHistory(c, qLower), HISTORY_SECOND, rows.size(), resp));
+        }
+        return rows;
     }
 
     private static final int AUTOCOMPLETE_MAX_LIMIT = 20;
 
-    private static final java.util.Comparator<AutocompleteRow> AUTOCOMPLETE_RANKING = java.util.Comparator
-            .<AutocompleteRow>comparingInt(r -> r.rank)
-            .thenComparing(r -> r.response.surname() == null ? "" : r.response.surname().toLowerCase(Locale.ROOT))
-            .thenComparing(r -> r.response.name() == null ? "" : r.response.name().toLowerCase(Locale.ROOT))
-            .thenComparing(r -> r.response.email().toLowerCase(Locale.ROOT));
+    /** Source precedence within one rank — the curated entry wins a tie. */
+    private static final int CONTACT_FIRST = 0;
+    private static final int HISTORY_SECOND = 1;
 
-    private static AutocompleteRow toAutocompleteRow(ContactEntity contact, ContactEmailEntity email, String qLower) {
-        int rank = 3;
-        String emailLower = email.getEmail().toLowerCase(Locale.ROOT);
-        String surnameLower = contact.getSurname() == null ? "" : contact.getSurname().toLowerCase(Locale.ROOT);
-        String nameLower = contact.getName() == null ? "" : contact.getName().toLowerCase(Locale.ROOT);
-        if (emailLower.startsWith(qLower)) {
-            rank = 0;
-        } else if (!surnameLower.isEmpty() && surnameLower.startsWith(qLower)) {
-            rank = 1;
-        } else if (!nameLower.isEmpty() && nameLower.startsWith(qLower)) {
-            rank = 2;
-        }
-        ContactAutocompleteResponse resp = new ContactAutocompleteResponse(contact.getId(), email.getId(),
-                email.getEmail(), email.getLabel(), email.isPrimary(), contact.getName(), contact.getSurname());
-        return new AutocompleteRow(rank, resp);
+    /**
+     * Alphabetical order used inside the contact half before the merge. The
+     * nullable name fields are read into a local before use — reading the accessor
+     * twice (once to null-check, once to fold) is what SpotBugs flags, since
+     * nothing tells it the second call returns the same value.
+     */
+    private static final java.util.Comparator<AutocompleteRow> CONTACT_ORDER = java.util.Comparator
+            .<AutocompleteRow>comparingInt(AutocompleteRow::rank)
+            .thenComparing(r -> lowerOrEmpty(r.response().surname()))
+            .thenComparing(r -> lowerOrEmpty(r.response().name()))
+            .thenComparing(r -> r.response().email().toLowerCase(Locale.ROOT));
+
+    private static String lowerOrEmpty(@Nullable String value) {
+        return value == null ? "" : value.toLowerCase(Locale.ROOT);
     }
 
-    private record AutocompleteRow(int rank, ContactAutocompleteResponse response) {
+    private static final java.util.Comparator<AutocompleteRow> AUTOCOMPLETE_RANKING = java.util.Comparator
+            .<AutocompleteRow>comparingInt(AutocompleteRow::rank).thenComparingInt(AutocompleteRow::sourceOrder)
+            .thenComparingInt(AutocompleteRow::orderInSource);
+
+    private static int rankOfContact(ContactAutocompleteResponse resp, String qLower) {
+        String emailLower = resp.email().toLowerCase(Locale.ROOT);
+        String surnameLower = lowerOrEmpty(resp.surname());
+        String nameLower = lowerOrEmpty(resp.name());
+        if (emailLower.startsWith(qLower)) {
+            return 0;
+        }
+        if (!surnameLower.isEmpty() && surnameLower.startsWith(qLower)) {
+            return 1;
+        }
+        if (!nameLower.isEmpty() && nameLower.startsWith(qLower)) {
+            return 2;
+        }
+        return 3;
+    }
+
+    /**
+     * Same scale as {@link #rankOfContact} so the two sources interleave
+     * meaningfully — a harvested address whose local part starts with the query is
+     * as good a match as a contact's would be. Rank 1 (surname) is unreachable
+     * here: a harvested display name is one undivided string, so a name hit is
+     * scored as rank 2 when it starts with the query and 3 when it merely contains
+     * it.
+     */
+    private static int rankOfHistory(CorrespondentEntity correspondent, String qLower) {
+        if (correspondent.getEmail().startsWith(qLower)) {
+            return 0;
+        }
+        String nameLower = lowerOrEmpty(correspondent.getDisplayName());
+        return !nameLower.isEmpty() && nameLower.startsWith(qLower) ? 2 : 3;
+    }
+
+    private static AutocompleteRow toContactRow(ContactEntity contact, ContactEmailEntity email, String qLower) {
+        ContactAutocompleteResponse resp = ContactAutocompleteResponse.ofContact(contact.getId(), email.getId(),
+                email.getEmail(), email.getLabel(), email.isPrimary(), contact.getName(), contact.getSurname());
+        return new AutocompleteRow(rankOfContact(resp, qLower), CONTACT_FIRST, 0, resp);
+    }
+
+    /**
+     * @param sourceOrder
+     *            {@link #CONTACT_FIRST} or {@link #HISTORY_SECOND} — breaks a rank
+     *            tie in favour of the address book
+     * @param orderInSource
+     *            position within that source's own ordering, which the merge
+     *            preserves instead of flattening both sources into one sort key
+     */
+    private record AutocompleteRow(int rank, int sourceOrder, int orderInSource, ContactAutocompleteResponse response) {
     }
 
     @Transactional(readOnly = true)

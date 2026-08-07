@@ -37,6 +37,18 @@ import type {
 
 type MockResponse = Response;
 
+/** Mirrors CorrespondentService.ROBOT_LOCAL_PARTS on the backend. */
+const ROBOT_LOCAL_PARTS = new Set([
+	'no-reply',
+	'noreply',
+	'donotreply',
+	'do-not-reply',
+	'bounce',
+	'bounces',
+	'mailer-daemon',
+	'postmaster'
+]);
+
 function problem(status: number, detail: string, errorCode: string): MockResponse {
 	return HttpResponse.json(
 		{
@@ -554,7 +566,12 @@ function contactRoutes(
 
 	if (segments[0] === 'autocomplete' && method === 'GET') {
 		const q = (url.searchParams.get('q') ?? '').toLowerCase();
-		const results = contacts.flatMap((contact) =>
+		// Falls back rather than trusting Number(): a non-numeric limit would give
+		// NaN, and slice(0, NaN) returns nothing — turning a request the real
+		// backend rejects with a 400 into a plausible-looking empty result.
+		const requestedLimit = Number(url.searchParams.get('limit') ?? 10);
+		const limit = Number.isFinite(requestedLimit) && requestedLimit > 0 ? requestedLimit : 10;
+		const contactRows = contacts.flatMap((contact) =>
 			contact.emails
 				.filter((email) => email.email.toLowerCase().includes(q))
 				.map((email) => ({
@@ -564,10 +581,35 @@ function contactRoutes(
 					label: email.label,
 					primary: email.primary,
 					name: contact.name,
-					surname: contact.surname
+					surname: contact.surname,
+					source: 'CONTACT' as const
 				}))
 		);
-		return HttpResponse.json(results);
+		// The merge is the server's job, so the double has to do it too: an
+		// address in both sources appears once (as the contact) and the limit
+		// applies to the merged list. Without that a test would pass against a
+		// double that hides exactly the bug the merge exists to prevent.
+		const offered = new Set(contactRows.map((row) => row.email.toLowerCase()));
+		const historyRows = (fixtureState.correspondentsByAccount[accountId] ?? [])
+			.filter((correspondent) => {
+				const email = correspondent.email.toLowerCase();
+				if (offered.has(email)) return false;
+				// Simplification against the backend: there the robot filter only
+				// applies while sent_count is 0, and the fixture carries no counts.
+				if (ROBOT_LOCAL_PARTS.has(email.slice(0, email.indexOf('@')))) return false;
+				return email.startsWith(q) || (correspondent.name ?? '').toLowerCase().includes(q);
+			})
+			.map((correspondent) => ({
+				contactId: null,
+				emailId: null,
+				email: correspondent.email,
+				label: null,
+				primary: null,
+				name: correspondent.name,
+				surname: null,
+				source: 'HISTORY' as const
+			}));
+		return HttpResponse.json([...contactRows, ...historyRows].slice(0, limit));
 	}
 
 	const contactId = Number(segments[0]);

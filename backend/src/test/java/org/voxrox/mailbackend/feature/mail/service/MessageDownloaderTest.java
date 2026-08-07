@@ -29,6 +29,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.voxrox.mailbackend.core.config.MailClientProperties;
 import org.voxrox.mailbackend.core.config.mail.SyncProperties;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
+import org.voxrox.mailbackend.feature.contact.service.CorrespondentService;
 import org.voxrox.mailbackend.feature.mail.dto.MailDetailResponse;
 import org.voxrox.mailbackend.feature.mail.entity.FolderSyncStateEntity;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
@@ -56,6 +57,8 @@ class MessageDownloaderTest {
     @Mock
     private ThreadingService threadingService;
     @Mock
+    private CorrespondentService correspondentService;
+    @Mock
     private Folder folder;
     @Mock
     private UIDFolder uidFolder;
@@ -67,7 +70,7 @@ class MessageDownloaderTest {
     @BeforeEach
     void setUp() {
         downloader = new MessageDownloader(messageRepository, messageFetcher, syncStateService, transactionTemplate,
-                mailProps, messageMapper, threadingService);
+                mailProps, messageMapper, threadingService, correspondentService);
 
         account = new AccountEntity();
         account.setId(ACCOUNT_ID);

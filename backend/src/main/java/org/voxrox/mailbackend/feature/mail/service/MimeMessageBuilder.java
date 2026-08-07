@@ -24,6 +24,7 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.mail.dto.MailRequest;
+import org.voxrox.mailbackend.util.HeaderAddresses;
 
 /**
  * Builds a {@link MimeMessage} from a {@link MailRequest} in the context of the
@@ -146,33 +147,13 @@ public class MimeMessageBuilder {
 
     /**
      * Splits the field into address tokens and keeps only those that are complete
-     * addresses. {@code InternetAddress.parse} cannot be used here — it rejects the
-     * whole field over one incomplete token, and its lenient overload
-     * ({@code parse(s, false)}) rejects it just the same; only
-     * {@link InternetAddress#parseHeader} tokenizes without validating, which is
-     * why the per-token {@link InternetAddress#validate()} does the deciding.
-     *
-     * <p>
-     * A field that will not even tokenize yields no addresses rather than an
-     * exception: a draft save must never fail on what the user has typed so far.
+     * addresses — see {@link HeaderAddresses#parseValidTokens} for why neither a
+     * comma split nor {@code InternetAddress.parse} can do this. Shared with the
+     * correspondent harvest, which reads the same header fields back off synced
+     * mail and must agree with this one about what counts as an address.
      */
     private static InternetAddress[] parseValidTokens(String raw) {
-        InternetAddress[] tokens;
-        try {
-            tokens = InternetAddress.parseHeader(raw, false);
-        } catch (AddressException e) {
-            return new InternetAddress[0];
-        }
-        List<InternetAddress> complete = new ArrayList<>(tokens.length);
-        for (InternetAddress token : tokens) {
-            try {
-                token.validate();
-                complete.add(token);
-            } catch (AddressException e) {
-                // Half-typed: expected on almost every keystroke-triggered autosave.
-            }
-        }
-        return complete.toArray(new InternetAddress[0]);
+        return HeaderAddresses.parseValidTokens(raw);
     }
 
     /**
