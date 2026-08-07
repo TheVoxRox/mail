@@ -616,6 +616,29 @@
 						<toggleOffOn/>
 					</java>
 				</configuration>
+				<!--
+					Bind check to `verify` so the full build actually enforces the
+					format. Without this the plugin is reachable only as an explicit
+					goal: `mvn verify` passes over unformatted sources and the sole
+					enforcement is the CI "Backend quality" job - the slowest feedback
+					loop there is (push, wait, fix, force-push). Same reasoning that
+					put the Markdown gate in .githooks/pre-commit, which its own
+					comment traces to 23 files drifting out of format.
+
+					`verify`, not `validate`: this must not fire during `mvn test`
+					while someone is mid-edit. The cost is that it reports after the
+					integration tests rather than before them, and `mvn spotless:apply`
+					stays the one-liner that fixes whatever it finds.
+				-->
+				<executions>
+					<execution>
+						<id>spotless-check</id>
+						<phase>verify</phase>
+						<goals>
+							<goal>check</goal>
+						</goals>
+					</execution>
+				</executions>
 			</plugin>
 		</plugins>
 	</build>
