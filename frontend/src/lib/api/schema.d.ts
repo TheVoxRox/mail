@@ -4,7 +4,7 @@
  */
 
 export interface paths {
-	'/api/v1/remote-images/allowlist': {
+	'/api/v1/accounts': {
 		parameters: {
 			query?: never;
 			header?: never;
@@ -12,27 +12,23 @@ export interface paths {
 			cookie?: never;
 		};
 		/**
-		 * List trusted senders
-		 * @description Returns the sender emails allowed to load remote images for the account.
+		 * List all accounts
+		 * @description Returns a list of all registered e-mail accounts (including inactive ones).
 		 */
-		get: operations['list'];
+		get: operations['getAllAccounts'];
+		put?: never;
 		/**
-		 * Trust a sender for remote images
-		 * @description Adds the sender to the account's allow-list; the sender's messages then auto-load remote https images. Idempotent.
+		 * Create account
+		 * @description Creates a new account, encrypts the password or OAuth secret and returns 201 with the complete DTO.
 		 */
-		put: operations['allow'];
-		post?: never;
-		/**
-		 * Stop trusting a sender
-		 * @description Removes the sender from the account's allow-list. Idempotent.
-		 */
-		delete: operations['disallow'];
+		post: operations['createAccount'];
+		delete?: never;
 		options?: never;
 		head?: never;
 		patch?: never;
 		trace?: never;
 	};
-	'/api/v1/accounts/{id}': {
+	'/api/v1/accounts/providers': {
 		parameters: {
 			query?: never;
 			header?: never;
@@ -40,21 +36,181 @@ export interface paths {
 			cookie?: never;
 		};
 		/**
-		 * Account detail
-		 * @description Returns one specific e-mail account by ID.
+		 * List all providers
+		 * @description Returns the list of all predefined mail provider templates (IMAP/SMTP settings).
 		 */
-		get: operations['getAccountById'];
-		/**
-		 * Full account update
-		 * @description Replaces all account fields. Password/secret are re-encrypted if sent.
-		 */
-		put: operations['updateAccount'];
+		get: operations['getAllProviders'];
+		put?: never;
 		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/accounts/providers/resolve': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
 		/**
-		 * Delete account
-		 * @description Deletes the account and closes its IMAP connection (cleanup of the ImapConnectionManager pool).
+		 * Auto-detect provider by e-mail
+		 * @description Finds the matching provider template for the given e-mail address (by domain). Returns 404 if no template matches.
 		 */
-		delete: operations['deleteAccount'];
+		get: operations['resolveProvider'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/accounts/providers/{id}': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * Provider detail
+		 * @description Returns one specific provider template by ID, or 404 if it does not exist.
+		 */
+		get: operations['getProviderById'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/accounts/test-connection': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Account connection test
+		 * @description Verifies IMAP and SMTP connections for the given provider/custom config without saving the account.
+		 */
+		post: operations['testConnection'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/accounts/{accountId}/contacts': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * List / search contacts
+		 * @description Returns a paginated list of contacts. With the q parameter performs a case-insensitive substring search across email, name and surname. Optional `sort` (`name`/`surname`/`recent`) drives the order (default `surname`). Optional `label` (`WORK`/`HOME`/`OTHER`) filters to contacts with at least one e-mail bearing the given label.
+		 */
+		get: operations['listContacts'];
+		put?: never;
+		/**
+		 * Create contact
+		 * @description Adds a new contact to the account's address book. Per-account e-mail uniqueness is enforced (409 on duplicate).
+		 */
+		post: operations['createContact'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/accounts/{accountId}/contacts/autocomplete': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * Compose-window autocomplete
+		 * @description Returns a flat list of addresses (contact x email) for typeahead. Ranking: prefix-email > prefix-surname > prefix-name > substring. Default limit 10, hard cap 20.
+		 */
+		get: operations['autocomplete'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/accounts/{accountId}/contacts/bulk': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Bulk create contacts (best-effort)
+		 * @description Creates up to 100 contacts in a single request. Each item has its own transaction — duplicates / validation errors do not affect the rest. The response is always 200 with per-item status (CREATED / FAILED).
+		 */
+		post: operations['bulkCreateContacts'];
+		/**
+		 * Bulk delete contacts (best-effort)
+		 * @description Deletes up to 100 contacts by ID. Non-existent IDs come back as FAILED / CONTACT_NOT_FOUND, the rest are deleted.
+		 */
+		delete: operations['bulkDeleteContacts'];
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/accounts/{accountId}/contacts/counts': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * Contact counts
+		 * @description Returns the total number of contacts of the account plus per-label counts (WORK/HOME/OTHER). A contact is counted for a label when at least one of its e-mail addresses bears it — consistent with the `label` filter of the list endpoint.
+		 */
+		get: operations['getCounts'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/accounts/{accountId}/contacts/export.vcf': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * Export address book as vCard 4.0
+		 * @description Returns all contacts of the account in vCard 4.0 format (RFC 6350) — text/vcard. Suitable for import into Apple Contacts, Google Contacts, Thunderbird and other clients.
+		 */
+		get: operations['exportVCard'];
+		put?: never;
+		post?: never;
+		delete?: never;
 		options?: never;
 		head?: never;
 		patch?: never;
@@ -92,7 +248,7 @@ export interface paths {
 		patch: operations['patchContact'];
 		trace?: never;
 	};
-	'/api/v1/messages/{stableId}/move': {
+	'/api/v1/accounts/{accountId}/contacts/{contactId}/emails': {
 		parameters: {
 			query?: never;
 			header?: never;
@@ -102,17 +258,57 @@ export interface paths {
 		get?: never;
 		put?: never;
 		/**
-		 * Move message to another folder
-		 * @description Moves the message to a user-selected folder identified by folderRef from the folder list. The backend operation runs asynchronously; the local record is deleted immediately — after the target folder sync completes the message reappears with the same stableId contract.
+		 * Add an e-mail address to a contact
+		 * @description Adds a new address without touching the primary flag of the others. The new e-mail only becomes primary if the contact had no address before.
 		 */
-		post: operations['moveMessage'];
+		post: operations['addEmail'];
 		delete?: never;
 		options?: never;
 		head?: never;
 		patch?: never;
 		trace?: never;
 	};
-	'/api/v1/messages/account/{accountId}/sync': {
+	'/api/v1/accounts/{accountId}/contacts/{contactId}/emails/{emailId}': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		post?: never;
+		/**
+		 * Delete an e-mail address from a contact
+		 * @description If the primary address is being deleted, the first remaining one (by ID) is promoted. The last address cannot be deleted — a contact must have at least one.
+		 */
+		delete: operations['deleteEmail'];
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/accounts/{accountId}/contacts/{contactId}/emails/{emailId}/primary': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		/**
+		 * Mark an address as primary
+		 * @description Marks the chosen address as primary; the other addresses of the contact have their primary flag cleared.
+		 */
+		patch: operations['setPrimaryEmail'];
+		trace?: never;
+	};
+	'/api/v1/accounts/{accountId}/contacts/{targetId}/merge': {
 		parameters: {
 			query?: never;
 			header?: never;
@@ -122,54 +318,10 @@ export interface paths {
 		get?: never;
 		put?: never;
 		/**
-		 * Manual account sync trigger
-		 * @description Starts an incremental sync of all folders of the given account. Returns 202 Accepted; the sync runs asynchronously.
+		 * Merge duplicate contacts
+		 * @description Merges one or more source contacts into the target (all in one transaction). The target stays canonical (name/surname/primary are preserved); e-mails from the sources are added deduplicated by lowercase variant (collisions drop the source side); notes are concatenated. The source contacts are deleted. Limit: 9 sources per request, final e-mail count at most 10.
 		 */
-		post: operations['triggerSync'];
-		delete?: never;
-		options?: never;
-		head?: never;
-		patch?: never;
-		trace?: never;
-	};
-	'/api/v1/messages/account/{accountId}/send': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		get?: never;
-		put?: never;
-		/**
-		 * Send message (async)
-		 * @description Asynchronously sends a message from the given account. Returns 202 Accepted with a sendId — the client tracks the outcome via the send_completed / send_failed notification stream event. With supersedesDraftId={stableId}, the draft the message was edited from is hard-deleted only AFTER successful delivery; the client must not delete it itself on the 202.
-		 */
-		post: operations['sendEmail'];
-		delete?: never;
-		options?: never;
-		head?: never;
-		patch?: never;
-		trace?: never;
-	};
-	'/api/v1/accounts': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		/**
-		 * List all accounts
-		 * @description Returns a list of all registered e-mail accounts (including inactive ones).
-		 */
-		get: operations['getAllAccounts'];
-		put?: never;
-		/**
-		 * Create account
-		 * @description Creates a new account, encrypts the password or OAuth secret and returns 201 with the complete DTO.
-		 */
-		post: operations['createAccount'];
+		post: operations['mergeContacts'];
 		delete?: never;
 		options?: never;
 		head?: never;
@@ -220,7 +372,7 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
-	'/api/v1/accounts/{accountId}/contacts': {
+	'/api/v1/accounts/{accountId}/folders': {
 		parameters: {
 			query?: never;
 			header?: never;
@@ -228,158 +380,10 @@ export interface paths {
 			cookie?: never;
 		};
 		/**
-		 * List / search contacts
-		 * @description Returns a paginated list of contacts. With the q parameter performs a case-insensitive substring search across email, name and surname. Optional `sort` (`name`/`surname`/`recent`) drives the order (default `surname`). Optional `label` (`WORK`/`HOME`/`OTHER`) filters to contacts with at least one e-mail bearing the given label.
+		 * List account folders
+		 * @description Returns folders with display name, folderRef and detected role (INBOX/SENT/TRASH/DRAFTS/JUNK/ARCHIVE/NEWSLETTERS/USER).
 		 */
-		get: operations['listContacts'];
-		put?: never;
-		/**
-		 * Create contact
-		 * @description Adds a new contact to the account's address book. Per-account e-mail uniqueness is enforced (409 on duplicate).
-		 */
-		post: operations['createContact'];
-		delete?: never;
-		options?: never;
-		head?: never;
-		patch?: never;
-		trace?: never;
-	};
-	'/api/v1/accounts/{accountId}/contacts/{targetId}/merge': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		get?: never;
-		put?: never;
-		/**
-		 * Merge duplicate contacts
-		 * @description Merges one or more source contacts into the target (all in one transaction). The target stays canonical (name/surname/primary are preserved); e-mails from the sources are added deduplicated by lowercase variant (collisions drop the source side); notes are concatenated. The source contacts are deleted. Limit: 9 sources per request, final e-mail count at most 10.
-		 */
-		post: operations['mergeContacts'];
-		delete?: never;
-		options?: never;
-		head?: never;
-		patch?: never;
-		trace?: never;
-	};
-	'/api/v1/accounts/{accountId}/contacts/{contactId}/emails': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		get?: never;
-		put?: never;
-		/**
-		 * Add an e-mail address to a contact
-		 * @description Adds a new address without touching the primary flag of the others. The new e-mail only becomes primary if the contact had no address before.
-		 */
-		post: operations['addEmail'];
-		delete?: never;
-		options?: never;
-		head?: never;
-		patch?: never;
-		trace?: never;
-	};
-	'/api/v1/accounts/{accountId}/contacts/bulk': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		get?: never;
-		put?: never;
-		/**
-		 * Bulk create contacts (best-effort)
-		 * @description Creates up to 100 contacts in a single request. Each item has its own transaction — duplicates / validation errors do not affect the rest. The response is always 200 with per-item status (CREATED / FAILED).
-		 */
-		post: operations['bulkCreateContacts'];
-		/**
-		 * Bulk delete contacts (best-effort)
-		 * @description Deletes up to 100 contacts by ID. Non-existent IDs come back as FAILED / CONTACT_NOT_FOUND, the rest are deleted.
-		 */
-		delete: operations['bulkDeleteContacts'];
-		options?: never;
-		head?: never;
-		patch?: never;
-		trace?: never;
-	};
-	'/api/v1/accounts/test-connection': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		get?: never;
-		put?: never;
-		/**
-		 * Account connection test
-		 * @description Verifies IMAP and SMTP connections for the given provider/custom config without saving the account.
-		 */
-		post: operations['testConnection'];
-		delete?: never;
-		options?: never;
-		head?: never;
-		patch?: never;
-		trace?: never;
-	};
-	'/api/v1/messages/{stableId}/flags': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		get?: never;
-		put?: never;
-		post?: never;
-		delete?: never;
-		options?: never;
-		head?: never;
-		/**
-		 * Set / clear a flag
-		 * @description Sets or clears a flag on the message. Supported types: seen, flagged, answered (case-insensitive).
-		 */
-		patch: operations['updateMessageFlag'];
-		trace?: never;
-	};
-	'/api/v1/accounts/{accountId}/contacts/{contactId}/emails/{emailId}/primary': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		get?: never;
-		put?: never;
-		post?: never;
-		delete?: never;
-		options?: never;
-		head?: never;
-		/**
-		 * Mark an address as primary
-		 * @description Marks the chosen address as primary; the other addresses of the contact have their primary flag cleared.
-		 */
-		patch: operations['setPrimaryEmail'];
-		trace?: never;
-	};
-	'/api/v1/system/readiness': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		/**
-		 * Returns backend readiness state
-		 * @description The desktop client uses this response at startup. Readiness means the API is ready to serve the UI; the first mail synchronization and accounts waiting for re-auth do not impact readiness.
-		 */
-		get: operations['getReadiness'];
+		get: operations['listFolders'];
 		put?: never;
 		post?: never;
 		delete?: never;
@@ -388,7 +392,7 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
-	'/api/v1/notifications/stream': {
+	'/api/v1/accounts/{id}': {
 		parameters: {
 			query?: never;
 			header?: never;
@@ -396,10 +400,38 @@ export interface paths {
 			cookie?: never;
 		};
 		/**
-		 * SSE notification stream
-		 * @description Opens a Server-Sent Events stream. The server emits one of: `sync_completed` (after a folder sync produced new messages), `sync_failed` / `sync_recovered` (the account's standing sync error changed; emitted on the transition only, payload carries the AccountLastErrorCode in `errorCode`, null on recovery), `send_completed` (asynchronous SMTP send finished successfully), `send_failed` (asynchronous SMTP send failed; payload carries the AccountLastErrorCode in `errorCode`), or `thread_updated` (a conversation gained a message or two orphan chains merged). A heartbeat comment is emitted every 30 s so intermediaries do not close the connection.
+		 * Account detail
+		 * @description Returns one specific e-mail account by ID.
 		 */
-		get: operations['streamNotifications'];
+		get: operations['getAccountById'];
+		/**
+		 * Full account update
+		 * @description Replaces all account fields. Password/secret are re-encrypted if sent.
+		 */
+		put: operations['updateAccount'];
+		post?: never;
+		/**
+		 * Delete account
+		 * @description Deletes the account and closes its IMAP connection (cleanup of the ImapConnectionManager pool).
+		 */
+		delete: operations['deleteAccount'];
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/auth/oauth2/start': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * Start the OAuth2 login flow
+		 * @description Entry point for the client. Open it in the OS browser — the backend redirects to the selected provider, and after authorization completes the user lands on /auth-finished.html. On success the account is created (or updated) with authType=OAUTH2 and oauth2Provider matching the query parameter.
+		 */
+		get: operations['start'];
 		put?: never;
 		post?: never;
 		delete?: never;
@@ -408,7 +440,7 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
-	'/api/v1/messages/{stableId}': {
+	'/api/v1/auth/oauth2/success': {
 		parameters: {
 			query?: never;
 			header?: never;
@@ -416,34 +448,10 @@ export interface paths {
 			cookie?: never;
 		};
 		/**
-		 * Message detail
-		 * @description Returns the full message detail including headers, recipients and attachment list (metadata, not content). For the message body see /content.
+		 * OAuth2 callback (success)
+		 * @description Target endpoint after a successful authorization at any provider. Spring Security redirects here after the flow completes. The controller hands the tokens to the service and sends the user to a static page the client captures. The client should not call this endpoint directly — the entry point is /api/v1/auth/oauth2/start?provider=...
 		 */
-		get: operations['getMessageDetail'];
-		put?: never;
-		post?: never;
-		/**
-		 * Delete message
-		 * @description Moves the message to the trash (soft delete). A message already in the trash is deleted permanently (server-side expunge).
-		 */
-		delete: operations['deleteMessage'];
-		options?: never;
-		head?: never;
-		patch?: never;
-		trace?: never;
-	};
-	'/api/v1/messages/{stableId}/reply': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		/**
-		 * Prepare reply (reply / reply-all)
-		 * @description Returns a pre-filled MailRequest for replying to the given message. Parameter all=true = reply-all (reply to every recipient).
-		 */
-		get: operations['prepareReply'];
+		get: operations['success'];
 		put?: never;
 		post?: never;
 		delete?: never;
@@ -452,7 +460,7 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
-	'/api/v1/messages/{stableId}/forward': {
+	'/api/v1/client-config': {
 		parameters: {
 			query?: never;
 			header?: never;
@@ -460,90 +468,10 @@ export interface paths {
 			cookie?: never;
 		};
 		/**
-		 * Prepare forward
-		 * @description Returns a pre-filled MailRequest for forwarding the message, including the quoted body and references to the original attachments.
+		 * Client runtime configuration
+		 * @description Returns only safe limits and recommendations that the desktop client can use for UX validation. The backend remains the source of truth.
 		 */
-		get: operations['prepareForward'];
-		put?: never;
-		post?: never;
-		delete?: never;
-		options?: never;
-		head?: never;
-		patch?: never;
-		trace?: never;
-	};
-	'/api/v1/messages/{stableId}/content': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		/**
-		 * Message content (body)
-		 * @description Returns only the message body (HTML / plain text) without headers and metadata. Use after /detail to load the body lazily.
-		 */
-		get: operations['getMessageContent'];
-		put?: never;
-		post?: never;
-		delete?: never;
-		options?: never;
-		head?: never;
-		patch?: never;
-		trace?: never;
-	};
-	'/api/v1/messages/{stableId}/attachments/{partPath}': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		/**
-		 * Download attachment (stream)
-		 * @description Streams the binary attachment content to the client. Content-Type is derived from the file name (fallback application/octet-stream); Content-Disposition contains both the ASCII and the UTF-8 (RFC 5987) form of the name.
-		 */
-		get: operations['downloadAttachment'];
-		put?: never;
-		post?: never;
-		delete?: never;
-		options?: never;
-		head?: never;
-		patch?: never;
-		trace?: never;
-	};
-	'/api/v1/messages/account/{accountId}/threads/{threadId}': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		/**
-		 * Conversation (thread) detail
-		 * @description Returns the messages of the given conversation as a single ordered list. Ownership is enforced by the {accountId} path component — only threads owned by that account are reachable. The list is ordered by threadPosition ascending (matching receivedAt ascending). For per-message bodies fetch each member's /content endpoint separately. With folderRef the thread is scoped to that folder's conversation view — exactly the messages its /folder/conversations row counted, deduplicated the same way, with unreadCount folder-scoped like the row's, so the response mirrors that row field for field and a client can render the list without re-deriving the scope. Omit folderRef entirely for the unscoped, account-wide thread; passing it empty is not the same thing and yields an empty member list rather than the unscoped thread.
-		 */
-		get: operations['getThread'];
-		put?: never;
-		post?: never;
-		delete?: never;
-		options?: never;
-		head?: never;
-		patch?: never;
-		trace?: never;
-	};
-	'/api/v1/messages/account/{accountId}/search': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		/**
-		 * Fulltext message search
-		 * @description Searches messages of an account across folders by the given query (subject/from/body). The query must not be empty and is capped at searchQueryMaxLength characters.
-		 */
-		get: operations['searchMessages'];
+		get: operations['getClientConfig'];
 		put?: never;
 		post?: never;
 		delete?: never;
@@ -592,7 +520,7 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
-	'/api/v1/client-config': {
+	'/api/v1/messages/account/{accountId}/search': {
 		parameters: {
 			query?: never;
 			header?: never;
@@ -600,10 +528,10 @@ export interface paths {
 			cookie?: never;
 		};
 		/**
-		 * Client runtime configuration
-		 * @description Returns only safe limits and recommendations that the desktop client can use for UX validation. The backend remains the source of truth.
+		 * Fulltext message search
+		 * @description Searches messages of an account across folders by the given query (subject/from/body). The query must not be empty and is capped at searchQueryMaxLength characters.
 		 */
-		get: operations['getClientConfig'];
+		get: operations['searchMessages'];
 		put?: never;
 		post?: never;
 		delete?: never;
@@ -612,7 +540,47 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
-	'/api/v1/auth/oauth2/success': {
+	'/api/v1/messages/account/{accountId}/send': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Send message (async)
+		 * @description Asynchronously sends a message from the given account. Returns 202 Accepted with a sendId — the client tracks the outcome via the send_completed / send_failed notification stream event. With supersedesDraftId={stableId}, the draft the message was edited from is hard-deleted only AFTER successful delivery; the client must not delete it itself on the 202.
+		 */
+		post: operations['sendEmail'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/messages/account/{accountId}/sync': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Manual account sync trigger
+		 * @description Starts an incremental sync of all folders of the given account. Returns 202 Accepted; the sync runs asynchronously.
+		 */
+		post: operations['triggerSync'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/messages/account/{accountId}/threads/{threadId}': {
 		parameters: {
 			query?: never;
 			header?: never;
@@ -620,10 +588,10 @@ export interface paths {
 			cookie?: never;
 		};
 		/**
-		 * OAuth2 callback (success)
-		 * @description Target endpoint after a successful authorization at any provider. Spring Security redirects here after the flow completes. The controller hands the tokens to the service and sends the user to a static page the client captures. The client should not call this endpoint directly — the entry point is /api/v1/auth/oauth2/start?provider=...
+		 * Conversation (thread) detail
+		 * @description Returns the messages of the given conversation as a single ordered list. Ownership is enforced by the {accountId} path component — only threads owned by that account are reachable. The list is ordered by threadPosition ascending (matching receivedAt ascending). For per-message bodies fetch each member's /content endpoint separately. With folderRef the thread is scoped to that folder's conversation view — exactly the messages its /folder/conversations row counted, deduplicated the same way, with unreadCount folder-scoped like the row's, so the response mirrors that row field for field and a client can render the list without re-deriving the scope. Omit folderRef entirely for the unscoped, account-wide thread; passing it empty is not the same thing and yields an empty member list rather than the unscoped thread.
 		 */
-		get: operations['success'];
+		get: operations['getThread'];
 		put?: never;
 		post?: never;
 		delete?: never;
@@ -632,7 +600,7 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
-	'/api/v1/auth/oauth2/start': {
+	'/api/v1/messages/{stableId}': {
 		parameters: {
 			query?: never;
 			header?: never;
@@ -640,10 +608,34 @@ export interface paths {
 			cookie?: never;
 		};
 		/**
-		 * Start the OAuth2 login flow
-		 * @description Entry point for the client. Open it in the OS browser — the backend redirects to the selected provider, and after authorization completes the user lands on /auth-finished.html. On success the account is created (or updated) with authType=OAUTH2 and oauth2Provider matching the query parameter.
+		 * Message detail
+		 * @description Returns the full message detail including headers, recipients and attachment list (metadata, not content). For the message body see /content.
 		 */
-		get: operations['start'];
+		get: operations['getMessageDetail'];
+		put?: never;
+		post?: never;
+		/**
+		 * Delete message
+		 * @description Moves the message to the trash (soft delete). A message already in the trash is deleted permanently (server-side expunge).
+		 */
+		delete: operations['deleteMessage'];
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/messages/{stableId}/attachments/{partPath}': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * Download attachment (stream)
+		 * @description Streams the binary attachment content to the client. Content-Type is derived from the file name (fallback application/octet-stream); Content-Disposition contains both the ASCII and the UTF-8 (RFC 5987) form of the name.
+		 */
+		get: operations['downloadAttachment'];
 		put?: never;
 		post?: never;
 		delete?: never;
@@ -652,7 +644,7 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
-	'/api/v1/accounts/{accountId}/folders': {
+	'/api/v1/messages/{stableId}/content': {
 		parameters: {
 			query?: never;
 			header?: never;
@@ -660,10 +652,10 @@ export interface paths {
 			cookie?: never;
 		};
 		/**
-		 * List account folders
-		 * @description Returns folders with display name, folderRef and detected role (INBOX/SENT/TRASH/DRAFTS/JUNK/ARCHIVE/NEWSLETTERS/USER).
+		 * Message content (body)
+		 * @description Returns only the message body (HTML / plain text) without headers and metadata. Use after /detail to load the body lazily.
 		 */
-		get: operations['listFolders'];
+		get: operations['getMessageContent'];
 		put?: never;
 		post?: never;
 		delete?: never;
@@ -672,127 +664,7 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
-	'/api/v1/accounts/{accountId}/contacts/export.vcf': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		/**
-		 * Export address book as vCard 4.0
-		 * @description Returns all contacts of the account in vCard 4.0 format (RFC 6350) — text/vcard. Suitable for import into Apple Contacts, Google Contacts, Thunderbird and other clients.
-		 */
-		get: operations['exportVCard'];
-		put?: never;
-		post?: never;
-		delete?: never;
-		options?: never;
-		head?: never;
-		patch?: never;
-		trace?: never;
-	};
-	'/api/v1/accounts/{accountId}/contacts/counts': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		/**
-		 * Contact counts
-		 * @description Returns the total number of contacts of the account plus per-label counts (WORK/HOME/OTHER). A contact is counted for a label when at least one of its e-mail addresses bears it — consistent with the `label` filter of the list endpoint.
-		 */
-		get: operations['getCounts'];
-		put?: never;
-		post?: never;
-		delete?: never;
-		options?: never;
-		head?: never;
-		patch?: never;
-		trace?: never;
-	};
-	'/api/v1/accounts/{accountId}/contacts/autocomplete': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		/**
-		 * Compose-window autocomplete
-		 * @description Returns a flat list of addresses (contact x email) for typeahead. Ranking: prefix-email > prefix-surname > prefix-name > substring. Default limit 10, hard cap 20.
-		 */
-		get: operations['autocomplete'];
-		put?: never;
-		post?: never;
-		delete?: never;
-		options?: never;
-		head?: never;
-		patch?: never;
-		trace?: never;
-	};
-	'/api/v1/accounts/providers': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		/**
-		 * List all providers
-		 * @description Returns the list of all predefined mail provider templates (IMAP/SMTP settings).
-		 */
-		get: operations['getAllProviders'];
-		put?: never;
-		post?: never;
-		delete?: never;
-		options?: never;
-		head?: never;
-		patch?: never;
-		trace?: never;
-	};
-	'/api/v1/accounts/providers/{id}': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		/**
-		 * Provider detail
-		 * @description Returns one specific provider template by ID, or 404 if it does not exist.
-		 */
-		get: operations['getProviderById'];
-		put?: never;
-		post?: never;
-		delete?: never;
-		options?: never;
-		head?: never;
-		patch?: never;
-		trace?: never;
-	};
-	'/api/v1/accounts/providers/resolve': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		/**
-		 * Auto-detect provider by e-mail
-		 * @description Finds the matching provider template for the given e-mail address (by domain). Returns 404 if no template matches.
-		 */
-		get: operations['resolveProvider'];
-		put?: never;
-		post?: never;
-		delete?: never;
-		options?: never;
-		head?: never;
-		patch?: never;
-		trace?: never;
-	};
-	'/api/v1/accounts/{accountId}/contacts/{contactId}/emails/{emailId}': {
+	'/api/v1/messages/{stableId}/flags': {
 		parameters: {
 			query?: never;
 			header?: never;
@@ -802,11 +674,139 @@ export interface paths {
 		get?: never;
 		put?: never;
 		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
 		/**
-		 * Delete an e-mail address from a contact
-		 * @description If the primary address is being deleted, the first remaining one (by ID) is promoted. The last address cannot be deleted — a contact must have at least one.
+		 * Set / clear a flag
+		 * @description Sets or clears a flag on the message. Supported types: seen, flagged, answered (case-insensitive).
 		 */
-		delete: operations['deleteEmail'];
+		patch: operations['updateMessageFlag'];
+		trace?: never;
+	};
+	'/api/v1/messages/{stableId}/forward': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * Prepare forward
+		 * @description Returns a pre-filled MailRequest for forwarding the message, including the quoted body and references to the original attachments.
+		 */
+		get: operations['prepareForward'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/messages/{stableId}/move': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Move message to another folder
+		 * @description Moves the message to a user-selected folder identified by folderRef from the folder list. The backend operation runs asynchronously; the local record is deleted immediately — after the target folder sync completes the message reappears with the same stableId contract.
+		 */
+		post: operations['moveMessage'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/messages/{stableId}/reply': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * Prepare reply (reply / reply-all)
+		 * @description Returns a pre-filled MailRequest for replying to the given message. Parameter all=true = reply-all (reply to every recipient).
+		 */
+		get: operations['prepareReply'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/notifications/stream': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * SSE notification stream
+		 * @description Opens a Server-Sent Events stream. The server emits one of: `sync_completed` (after a folder sync produced new messages), `sync_failed` / `sync_recovered` (the account's standing sync error changed; emitted on the transition only, payload carries the AccountLastErrorCode in `errorCode`, null on recovery), `send_completed` (asynchronous SMTP send finished successfully), `send_failed` (asynchronous SMTP send failed; payload carries the AccountLastErrorCode in `errorCode`), or `thread_updated` (a conversation gained a message or two orphan chains merged). A heartbeat comment is emitted every 30 s so intermediaries do not close the connection.
+		 */
+		get: operations['streamNotifications'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/remote-images/allowlist': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * List trusted senders
+		 * @description Returns the sender emails allowed to load remote images for the account.
+		 */
+		get: operations['list'];
+		/**
+		 * Trust a sender for remote images
+		 * @description Adds the sender to the account's allow-list; the sender's messages then auto-load remote https images. Idempotent.
+		 */
+		put: operations['allow'];
+		post?: never;
+		/**
+		 * Stop trusting a sender
+		 * @description Removes the sender from the account's allow-list. Idempotent.
+		 */
+		delete: operations['disallow'];
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/system/readiness': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * Returns backend readiness state
+		 * @description The desktop client uses this response at startup. Readiness means the API is ready to serve the UI; the first mail synchronization and accounts waiting for re-auth do not impact readiness.
+		 */
+		get: operations['getReadiness'];
+		put?: never;
+		post?: never;
+		delete?: never;
 		options?: never;
 		head?: never;
 		patch?: never;
@@ -816,31 +816,488 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
 	schemas: {
+		AccountConnectionTestRequest: {
+			/** Format: int64 */
+			accountId?: number;
+			/** Format: email */
+			email: string;
+			imap?: components['schemas']['MailServerSettings'];
+			password?: string;
+			passwordPresentForNewAccount?: boolean;
+			/** Format: int64 */
+			providerId?: number;
+			providerOrCustomServerConfigPresent?: boolean;
+			smtp?: components['schemas']['MailServerSettings'];
+			username: string;
+		};
+		AccountConnectionTestResponse: {
+			imapOk?: boolean;
+			message?: string;
+			smtpOk?: boolean;
+		};
+		AccountCreateRequest: {
+			accountName: string;
+			displayName?: string;
+			/** Format: email */
+			email: string;
+			imap?: components['schemas']['MailServerSettings'];
+			password: string;
+			/** Format: int64 */
+			providerId?: number;
+			providerOrCustomServerConfigPresent?: boolean;
+			smtp?: components['schemas']['MailServerSettings'];
+			username: string;
+		};
+		AccountResponse: {
+			accountName?: string;
+			active?: boolean;
+			/** @enum {string} */
+			authType?: 'PASSWORD' | 'OAUTH2';
+			displayName?: string;
+			email?: string;
+			/** Format: int64 */
+			id?: number;
+			imapHost?: string;
+			/** Format: int32 */
+			imapPort?: number;
+			imapUseSsl?: boolean;
+			lastError?: string;
+			lastErrorArgs?: {
+				[key: string]: string;
+			};
+			lastErrorCode?: string;
+			/** Format: date-time */
+			lastSyncAt?: string;
+			oauth2Provider?: string;
+			/** Format: int64 */
+			providerId?: number;
+			providerName?: string;
+			requiresReauth?: boolean;
+			signature?: string;
+			signatureAutoInsert?: boolean;
+			smtpHost?: string;
+			/** Format: int32 */
+			smtpPort?: number;
+			smtpUseSsl?: boolean;
+			username?: string;
+		};
+		AccountUpdateRequest: {
+			accountName: string;
+			active?: boolean;
+			displayName?: string;
+			/** Format: email */
+			email: string;
+			imap?: components['schemas']['MailServerSettings'];
+			password?: string;
+			/** Format: int64 */
+			providerId?: number;
+			providerOrCustomServerConfigPresent?: boolean;
+			signature?: string;
+			signatureAutoInsert?: boolean;
+			smtp?: components['schemas']['MailServerSettings'];
+			username: string;
+		};
+		AttachmentRequest: {
+			base64Data: string;
+			contentType: string;
+			fileName: string;
+		};
+		AttachmentResponse: {
+			contentType?: string;
+			fileName?: string;
+			partPath?: string;
+			/** Format: int64 */
+			size?: number;
+		};
+		BulkContactCreateRequest: {
+			contacts: components['schemas']['ContactCreateRequest'][];
+		};
+		BulkContactCreateResponse: {
+			/** Format: int32 */
+			created?: number;
+			/** Format: int32 */
+			failed?: number;
+			results?: components['schemas']['BulkContactCreateResult'][];
+			/** Format: int32 */
+			total?: number;
+		};
+		BulkContactCreateResult: {
+			contact?: components['schemas']['ContactResponse'];
+			errorCode?: string;
+			errorMessage?: string;
+			/** Format: int32 */
+			index?: number;
+			/** @enum {string} */
+			status?: 'CREATED' | 'FAILED';
+		};
+		BulkContactDeleteRequest: {
+			ids: number[];
+		};
+		BulkContactDeleteResponse: {
+			/** Format: int32 */
+			deleted?: number;
+			/** Format: int32 */
+			failed?: number;
+			results?: components['schemas']['BulkContactDeleteResult'][];
+			/** Format: int32 */
+			total?: number;
+		};
+		BulkContactDeleteResult: {
+			errorCode?: string;
+			errorMessage?: string;
+			/** Format: int64 */
+			id?: number;
+			/** @enum {string} */
+			status?: 'DELETED' | 'FAILED';
+		};
+		/** @description Safe runtime limits and recommendations for the desktop client. */
+		ClientConfigResponse: {
+			/**
+			 * Format: int64
+			 * @description Recommended client-side limit for a single attachment in bytes.
+			 * @example 10485760
+			 */
+			attachmentMaxBytes: number;
+			/**
+			 * Format: int64
+			 * @description Recommended client-side limit for all attachments in a single message in bytes.
+			 * @example 26214400
+			 */
+			attachmentTotalMaxBytes: number;
+			/**
+			 * Format: int32
+			 * @description Default row limit for contact autocomplete.
+			 * @example 10
+			 */
+			contactAutocompleteDefaultLimit: number;
+			/**
+			 * Format: int32
+			 * @description Maximum row limit for contact autocomplete.
+			 * @example 20
+			 */
+			contactAutocompleteMaxLimit: number;
+			/**
+			 * Format: int32
+			 * @description Default page size for contacts.
+			 * @example 20
+			 */
+			contactDefaultPageSize: number;
+			/**
+			 * Format: int32
+			 * @description Maximum query length for contacts and autocomplete.
+			 * @example 100
+			 */
+			contactQueryMaxLength: number;
+			/**
+			 * Format: int64
+			 * @description Byte threshold above which the client warns about a large attachment.
+			 * @example 5242880
+			 */
+			largeAttachmentWarningBytes: number;
+			/**
+			 * Format: int32
+			 * @description Maximum allowed page size for paginated mail endpoints.
+			 * @example 200
+			 */
+			mailApiMaxPageSize: number;
+			/**
+			 * Format: int32
+			 * @description Default page size for message listings.
+			 * @example 50
+			 */
+			mailDefaultPageSize: number;
+			/**
+			 * Format: int32
+			 * @description Maximum length of the message full-text query.
+			 * @example 256
+			 */
+			searchQueryMaxLength: number;
+		};
+		ContactAutocompleteResponse: {
+			/** Format: int64 */
+			contactId?: number;
+			email?: string;
+			/** Format: int64 */
+			emailId?: number;
+			/**
+			 * @description Label for the contact's email address. Optional — when the client omits it, null is stored (no label). Matching is case-insensitive, so both "home" and "HOME" pass.
+			 * @example HOME
+			 * @enum {string}
+			 */
+			label?: 'WORK' | 'HOME' | 'OTHER' | 'WORK' | 'HOME' | 'OTHER';
+			name?: string;
+			primary?: boolean;
+			surname?: string;
+		};
+		/** @description Contact counts for the sidebar: the account total plus per-label counts. A contact is counted for a label when at least one of its e-mail addresses bears it, so each figure matches the size of the list filtered by the same label. */
+		ContactCountsResponse: {
+			/** Format: int64 */
+			home?: number;
+			/** Format: int64 */
+			other?: number;
+			/** Format: int64 */
+			total?: number;
+			/** Format: int64 */
+			work?: number;
+		};
+		ContactCreateRequest: {
+			emails: components['schemas']['ContactEmailRequest'][];
+			name?: string;
+			note?: string;
+			surname?: string;
+		};
+		ContactEmailRequest: {
+			/** Format: email */
+			email: string;
+			/**
+			 * @description Address label (WORK/HOME/OTHER). Optional — send null or omit when no label.
+			 * @example WORK
+			 * @enum {string|null}
+			 */
+			label?: 'WORK' | 'HOME' | 'OTHER' | 'WORK' | 'HOME' | 'OTHER' | null;
+		};
+		ContactEmailResponse: {
+			email?: string;
+			/** Format: int64 */
+			id?: number;
+			/**
+			 * @description Address label. null = the contact did not set one.
+			 * @example HOME
+			 * @enum {string|null}
+			 */
+			label?: 'WORK' | 'HOME' | 'OTHER' | 'WORK' | 'HOME' | 'OTHER' | null;
+			/** @description Exactly one e-mail of a contact is primary (is_primary=1). Used for display and audit log. */
+			primary?: boolean;
+		};
+		ContactMergeRequest: {
+			source: number[];
+		};
+		ContactPatchRequest: {
+			emails?: components['schemas']['ContactEmailRequest'][];
+			name?: string;
+			note?: string;
+			surname?: string;
+		};
+		ContactResponse: {
+			/** Format: date-time */
+			createdAt?: string;
+			emails?: components['schemas']['ContactEmailResponse'][];
+			/** Format: int64 */
+			id?: number;
+			name?: string;
+			note?: string;
+			surname?: string;
+			/** Format: date-time */
+			updatedAt?: string;
+		};
+		ContactUpdateRequest: {
+			emails: components['schemas']['ContactEmailRequest'][];
+			name?: string;
+			note?: string;
+			surname?: string;
+		};
+		ConversationSummaryResponse: {
+			/** @description Newest message of the conversation in this folder — the row's representative. */
+			latest?: components['schemas']['MailSummaryResponse'];
+			/**
+			 * Format: int32
+			 * @description Number of messages of this conversation (>= 1). For a regular folder it is cross-folder except trash/junk/drafts, counting a mail stored in several folders once; folder-scoped in Trash, Junk and Drafts views.
+			 */
+			messageCount?: number;
+			/** @description Conversation identifier shared by every message of the thread. Null only for a message the threading backfill has not processed yet; such a row is a singleton (messageCount = 1) and cannot be expanded via the thread endpoint. */
+			threadId?: string | null;
+			/**
+			 * Format: int32
+			 * @description Number of messages of this conversation in THIS folder that are not yet marked as seen — folder-scoped in every view, unlike messageCount.
+			 */
+			unreadCount?: number;
+		};
+		DraftRequest: {
+			attachments?: components['schemas']['AttachmentRequest'][];
+			bcc?: string;
+			body?: string;
+			cc?: string;
+			inReplyTo?: string;
+			references?: string;
+			subject?: string;
+			to?: string;
+		};
+		DraftSaveAcceptedResponse: {
+			/** @description Stable identifier the saved draft persists under. Valid immediately for replaces= chaining; the row itself appears as soon as the async append completes. */
+			stableId?: string;
+		};
+		FolderResponse: {
+			displayName?: string;
+			/** @description Opaque folder reference. The client does not parse it, only passes it back to other mail endpoints. */
+			folderRef?: string;
+			/** @enum {string} */
+			role?: 'INBOX' | 'SENT' | 'TRASH' | 'DRAFTS' | 'JUNK' | 'ARCHIVE' | 'NEWSLETTERS' | 'USER';
+			/** Format: int32 */
+			unreadCount?: number;
+		};
+		MailContentResponse: {
+			content?: string;
+			/**
+			 * @description Whether the sender is already trusted to load remote images.
+			 * @example false
+			 */
+			remoteImagesAllowedForSender?: boolean;
+			/**
+			 * @description Bare sender email, used as the allow-list key for the remote-image opt-in.
+			 * @example newsletter@example.com
+			 */
+			senderEmail?: string;
+		};
+		MailDetailResponse: {
+			answered?: boolean;
+			attachments?: components['schemas']['AttachmentResponse'][];
+			body?: string;
+			contentError?: string;
+			flagged?: boolean;
+			/** @description Folder the message lives in (folderRef). Lets the client warn before DELETE on a message whose folder has the TRASH role — there the delete is permanent (server-side expunge), not a move to trash. */
+			folderName?: string;
+			hasAttachments?: boolean;
+			inReplyTo?: string;
+			messageId?: string;
+			/** Format: date-time */
+			receivedAt?: string;
+			/** @description Only ever present on the user's own draft/sent copies; received mail never carries the header. */
+			recipientsBcc?: string;
+			recipientsCc?: string;
+			recipientsTo?: string;
+			references?: string;
+			seen?: boolean;
+			sender?: string;
+			/** @description Stable message identifier for the REST API. The client sends it to the detail, content and action endpoints. */
+			stableId?: string;
+			subject?: string;
+			/** @description Conversation identifier shared by every message of the same thread. Null only until the threading backfill has processed the message. */
+			threadId?: string | null;
+		};
+		MailProviderResponse: {
+			domains?: string;
+			/** Format: int64 */
+			id?: number;
+			imapHost?: string;
+			/** Format: int32 */
+			imapPort?: number;
+			imapSsl?: boolean;
+			name?: string;
+			oauth2RegistrationId?: string;
+			smtpHost?: string;
+			/** Format: int32 */
+			smtpPort?: number;
+			smtpSsl?: boolean;
+			supportsOauth2?: boolean;
+		};
+		MailRequest: {
+			attachments?: components['schemas']['AttachmentRequest'][];
+			bcc?: string;
+			body: string;
+			cc?: string;
+			inReplyTo?: string;
+			references?: string;
+			subject: string;
+			to: string;
+		};
+		MailServerSettings: {
+			host: string;
+			/** Format: int32 */
+			port: number;
+			useSsl: boolean;
+		};
+		MailSummaryResponse: {
+			answered?: boolean;
+			flagged?: boolean;
+			folderName?: string;
+			hasAttachments?: boolean;
+			/** Format: int64 */
+			id?: number;
+			/** @description RFC 5322 Message-ID. Copies of one mail stored in several folders (Gmail's INBOX + All Mail) share it while having different stableIds, so a client rendering a thread must collapse rows by this value to match the server's messageCount. Null when the sender omitted the header. */
+			messageId?: string | null;
+			/** Format: date-time */
+			receivedAt?: string;
+			/** @description Primary recipients (To). Useful for Drafts/Sent listings where the sender is the account owner. */
+			recipientsTo?: string;
+			seen?: boolean;
+			sender?: string;
+			/** @description Stable message identifier for the REST API. The client uses it for message detail and message actions. */
+			stableId?: string;
+			subject?: string;
+			/** @description Conversation identifier — every message of the same thread shares it. Null only until the threading backfill has processed the message (see /api/internal/threading/recompute). Frontends MAY group rows by this id; the V0.1.0 desktop client ignores it. */
+			threadId?: string | null;
+		};
+		MoveRequest: {
+			/**
+			 * @description Opaque reference to the target folder obtained from the folder list.
+			 * @example [Gmail]/Archive
+			 */
+			folderRef: string;
+		};
+		PagedResponseContactResponse: {
+			content?: components['schemas']['ContactResponse'][];
+			first?: boolean;
+			last?: boolean;
+			/** Format: int32 */
+			page?: number;
+			/** Format: int32 */
+			size?: number;
+			/** Format: int64 */
+			totalElements?: number;
+			/** Format: int32 */
+			totalPages?: number;
+		};
+		PagedResponseConversationSummaryResponse: {
+			content?: components['schemas']['ConversationSummaryResponse'][];
+			first?: boolean;
+			last?: boolean;
+			/** Format: int32 */
+			page?: number;
+			/** Format: int32 */
+			size?: number;
+			/** Format: int64 */
+			totalElements?: number;
+			/** Format: int32 */
+			totalPages?: number;
+		};
+		PagedResponseMailSummaryResponse: {
+			content?: components['schemas']['MailSummaryResponse'][];
+			first?: boolean;
+			last?: boolean;
+			/** Format: int32 */
+			page?: number;
+			/** Format: int32 */
+			size?: number;
+			/** Format: int64 */
+			totalElements?: number;
+			/** Format: int32 */
+			totalPages?: number;
+		};
 		/** @description RFC 9457 problem+json — format of all error responses. */
 		ProblemDetail: {
-			/**
-			 * Format: uri
-			 * @description URI identifier of the error type (e.g. .../errors/account_not_found).
-			 */
-			type?: string;
-			/** @description Short human-readable description of the error class. */
-			title?: string;
-			/** @description HTTP status code. */
-			status?: unknown;
 			/** @description Error detail intended for the user. */
 			detail?: string;
+			/** @description Machine-readable error code (e.g. ACCOUNT_NOT_FOUND, VALIDATION_ERROR). */
+			errorCode?: string;
 			/**
 			 * Format: uri
 			 * @description URI of the specific occurrence (typically the request URI).
 			 */
 			instance?: string;
-			/** @description Machine-readable error code (e.g. ACCOUNT_NOT_FOUND, VALIDATION_ERROR). */
-			errorCode?: string;
+			/** @description HTTP status code. */
+			status?: unknown;
 			/**
 			 * Format: date-time
 			 * @description Time when the error occurred (ISO-8601).
 			 */
 			timestamp?: string;
+			/** @description Short human-readable description of the error class. */
+			title?: string;
+			/**
+			 * Format: uri
+			 * @description URI identifier of the error type (e.g. .../errors/account_not_found).
+			 */
+			type?: string;
 		};
 		RemoteImageAllowlistRequest: {
 			/**
@@ -856,124 +1313,6 @@ export interface components {
 			 */
 			senderEmail: string;
 		};
-		AccountUpdateRequest: {
-			accountName: string;
-			/** Format: email */
-			email: string;
-			displayName?: string;
-			signature?: string;
-			signatureAutoInsert?: boolean;
-			/** Format: int64 */
-			providerId?: number;
-			imap?: components['schemas']['MailServerSettings'];
-			smtp?: components['schemas']['MailServerSettings'];
-			username: string;
-			password?: string;
-			active?: boolean;
-			providerOrCustomServerConfigPresent?: boolean;
-		};
-		MailServerSettings: {
-			host: string;
-			/** Format: int32 */
-			port: number;
-			useSsl: boolean;
-		};
-		AccountResponse: {
-			/** Format: int64 */
-			id?: number;
-			accountName?: string;
-			email?: string;
-			displayName?: string;
-			/** Format: int64 */
-			providerId?: number;
-			providerName?: string;
-			imapHost?: string;
-			/** Format: int32 */
-			imapPort?: number;
-			imapUseSsl?: boolean;
-			smtpHost?: string;
-			/** Format: int32 */
-			smtpPort?: number;
-			smtpUseSsl?: boolean;
-			username?: string;
-			/** @enum {string} */
-			authType?: 'PASSWORD' | 'OAUTH2';
-			oauth2Provider?: string;
-			active?: boolean;
-			requiresReauth?: boolean;
-			/** Format: date-time */
-			lastSyncAt?: string;
-			lastError?: string;
-			lastErrorCode?: string;
-			lastErrorArgs?: {
-				[key: string]: string;
-			};
-			signature?: string;
-			signatureAutoInsert?: boolean;
-		};
-		ContactEmailRequest: {
-			/** Format: email */
-			email: string;
-			/**
-			 * @description Address label (WORK/HOME/OTHER). Optional — send null or omit when no label.
-			 * @example WORK
-			 * @enum {string|null}
-			 */
-			label?: 'WORK' | 'HOME' | 'OTHER' | 'WORK' | 'HOME' | 'OTHER' | null;
-		};
-		ContactUpdateRequest: {
-			emails: components['schemas']['ContactEmailRequest'][];
-			name?: string;
-			surname?: string;
-			note?: string;
-		};
-		ContactEmailResponse: {
-			/** Format: int64 */
-			id?: number;
-			email?: string;
-			/**
-			 * @description Address label. null = the contact did not set one.
-			 * @example HOME
-			 * @enum {string|null}
-			 */
-			label?: 'WORK' | 'HOME' | 'OTHER' | 'WORK' | 'HOME' | 'OTHER' | null;
-			/** @description Exactly one e-mail of a contact is primary (is_primary=1). Used for display and audit log. */
-			primary?: boolean;
-		};
-		ContactResponse: {
-			/** Format: int64 */
-			id?: number;
-			emails?: components['schemas']['ContactEmailResponse'][];
-			name?: string;
-			surname?: string;
-			note?: string;
-			/** Format: date-time */
-			createdAt?: string;
-			/** Format: date-time */
-			updatedAt?: string;
-		};
-		MoveRequest: {
-			/**
-			 * @description Opaque reference to the target folder obtained from the folder list.
-			 * @example [Gmail]/Archive
-			 */
-			folderRef: string;
-		};
-		AttachmentRequest: {
-			fileName: string;
-			contentType: string;
-			base64Data: string;
-		};
-		MailRequest: {
-			to: string;
-			cc?: string;
-			bcc?: string;
-			subject: string;
-			body: string;
-			attachments?: components['schemas']['AttachmentRequest'][];
-			inReplyTo?: string;
-			references?: string;
-		};
 		SendAcceptedResponse: {
 			/**
 			 * @description Correlation id for tracking the async send outcome over the notification stream.
@@ -981,100 +1320,38 @@ export interface components {
 			 */
 			sendId?: string;
 		};
-		AccountCreateRequest: {
-			accountName: string;
-			displayName?: string;
-			/** Format: email */
-			email: string;
-			/** Format: int64 */
-			providerId?: number;
-			imap?: components['schemas']['MailServerSettings'];
-			smtp?: components['schemas']['MailServerSettings'];
-			username: string;
-			password: string;
-			providerOrCustomServerConfigPresent?: boolean;
-		};
-		DraftRequest: {
-			to?: string;
-			cc?: string;
-			bcc?: string;
-			subject?: string;
-			body?: string;
-			attachments?: components['schemas']['AttachmentRequest'][];
-			inReplyTo?: string;
-			references?: string;
-		};
-		DraftSaveAcceptedResponse: {
-			/** @description Stable identifier the saved draft persists under. Valid immediately for replaces= chaining; the row itself appears as soon as the async append completes. */
-			stableId?: string;
-		};
-		ContactCreateRequest: {
-			emails: components['schemas']['ContactEmailRequest'][];
-			name?: string;
-			surname?: string;
-			note?: string;
-		};
-		ContactMergeRequest: {
-			source: number[];
-		};
-		BulkContactCreateRequest: {
-			contacts: components['schemas']['ContactCreateRequest'][];
-		};
-		BulkContactCreateResponse: {
-			/** Format: int32 */
-			total?: number;
-			/** Format: int32 */
-			created?: number;
-			/** Format: int32 */
-			failed?: number;
-			results?: components['schemas']['BulkContactCreateResult'][];
-		};
-		BulkContactCreateResult: {
-			/** Format: int32 */
-			index?: number;
-			/** @enum {string} */
-			status?: 'CREATED' | 'FAILED';
-			contact?: components['schemas']['ContactResponse'];
-			errorCode?: string;
-			errorMessage?: string;
-		};
-		AccountConnectionTestRequest: {
+		SendNotification: {
 			/** Format: int64 */
 			accountId?: number;
-			/** Format: email */
-			email: string;
+			errorCode?: string;
+			recoveryDraftStableId?: string;
+			sendId?: string;
+			type?: string;
+		};
+		SyncNotification: {
 			/** Format: int64 */
-			providerId?: number;
-			imap?: components['schemas']['MailServerSettings'];
-			smtp?: components['schemas']['MailServerSettings'];
-			username: string;
-			password?: string;
-			passwordPresentForNewAccount?: boolean;
-			providerOrCustomServerConfigPresent?: boolean;
+			accountId?: number;
+			folderName?: string;
+			/** Format: int32 */
+			newMessagesCount?: number;
+			/** Format: date-time */
+			timestamp?: string;
+			type?: string;
 		};
-		AccountConnectionTestResponse: {
-			imapOk?: boolean;
-			smtpOk?: boolean;
-			message?: string;
-		};
-		ContactPatchRequest: {
-			emails?: components['schemas']['ContactEmailRequest'][];
-			name?: string;
-			surname?: string;
-			note?: string;
+		SyncStatusNotification: {
+			/** Format: int64 */
+			accountId?: number;
+			errorCode?: string;
+			/** Format: date-time */
+			timestamp?: string;
+			type?: string;
 		};
 		SystemReadinessResponse: {
 			/**
-			 * @description True if the backend can serve user-facing API requests.
-			 * @example true
+			 * @description API contract version.
+			 * @example 1.0.0
 			 */
-			ready?: boolean;
-			/**
-			 * @description Current phase of the readiness state machine.
-			 * @example READY
-			 * @enum {string}
-			 */
-			phase?: 'READY';
+			apiVersion?: string;
 			/**
 			 * @description Backend application name.
 			 * @example mail
@@ -1086,329 +1363,52 @@ export interface components {
 			 */
 			appVersion?: string;
 			/**
-			 * @description API contract version.
-			 * @example 1.0.0
+			 * @description Current Flyway DB schema version.
+			 * @example 1
 			 */
-			apiVersion?: string;
+			dbSchemaVersion?: string;
 			/**
 			 * @description Minimum supported frontend version.
 			 * @example 0.0.1
 			 */
 			minClientVersion?: string;
 			/**
-			 * @description Current Flyway DB schema version.
-			 * @example 1
+			 * @description Current phase of the readiness state machine.
+			 * @example READY
+			 * @enum {string}
 			 */
-			dbSchemaVersion?: string;
+			phase?: 'READY';
+			/**
+			 * @description True if the backend can serve user-facing API requests.
+			 * @example true
+			 */
+			ready?: boolean;
 			/** @description Safe user-facing reason when ready=false. */
 			reason?: string | null;
 		};
-		SyncNotification: {
-			type?: string;
-			/** Format: int64 */
-			accountId?: number;
-			folderName?: string;
-			/** Format: int32 */
-			newMessagesCount?: number;
-			/** Format: date-time */
-			timestamp?: string;
-		};
-		SyncStatusNotification: {
-			type?: string;
-			/** Format: int64 */
-			accountId?: number;
-			errorCode?: string;
-			/** Format: date-time */
-			timestamp?: string;
-		};
-		SendNotification: {
-			type?: string;
-			sendId?: string;
-			/** Format: int64 */
-			accountId?: number;
-			errorCode?: string;
-			recoveryDraftStableId?: string;
-		};
-		ThreadUpdated: {
-			type?: string;
-			threadId?: string;
-			/** Format: int64 */
-			accountId?: number;
-		};
-		AttachmentResponse: {
-			partPath?: string;
-			fileName?: string;
-			contentType?: string;
-			/** Format: int64 */
-			size?: number;
-		};
-		MailDetailResponse: {
-			/** @description Stable message identifier for the REST API. The client sends it to the detail, content and action endpoints. */
-			stableId?: string;
-			/** @description Folder the message lives in (folderRef). Lets the client warn before DELETE on a message whose folder has the TRASH role — there the delete is permanent (server-side expunge), not a move to trash. */
-			folderName?: string;
-			subject?: string;
-			sender?: string;
-			recipientsTo?: string;
-			recipientsCc?: string;
-			/** @description Only ever present on the user's own draft/sent copies; received mail never carries the header. */
-			recipientsBcc?: string;
-			body?: string;
-			/** Format: date-time */
-			receivedAt?: string;
-			seen?: boolean;
-			flagged?: boolean;
-			answered?: boolean;
-			messageId?: string;
-			inReplyTo?: string;
-			references?: string;
-			hasAttachments?: boolean;
-			attachments?: components['schemas']['AttachmentResponse'][];
-			contentError?: string;
-			/** @description Conversation identifier shared by every message of the same thread. Null only until the threading backfill has processed the message. */
-			threadId?: string | null;
-		};
-		MailContentResponse: {
-			content?: string;
-			/**
-			 * @description Bare sender email, used as the allow-list key for the remote-image opt-in.
-			 * @example newsletter@example.com
-			 */
-			senderEmail?: string;
-			/**
-			 * @description Whether the sender is already trusted to load remote images.
-			 * @example false
-			 */
-			remoteImagesAllowedForSender?: boolean;
-		};
-		MailSummaryResponse: {
-			/** Format: int64 */
-			id?: number;
-			/** @description Stable message identifier for the REST API. The client uses it for message detail and message actions. */
-			stableId?: string;
-			folderName?: string;
-			subject?: string;
-			sender?: string;
-			/** @description Primary recipients (To). Useful for Drafts/Sent listings where the sender is the account owner. */
-			recipientsTo?: string;
-			/** Format: date-time */
-			receivedAt?: string;
-			seen?: boolean;
-			flagged?: boolean;
-			answered?: boolean;
-			hasAttachments?: boolean;
-			/** @description Conversation identifier — every message of the same thread shares it. Null only until the threading backfill has processed the message (see /api/internal/threading/recompute). Frontends MAY group rows by this id; the V0.1.0 desktop client ignores it. */
-			threadId?: string | null;
-			/** @description RFC 5322 Message-ID. Copies of one mail stored in several folders (Gmail's INBOX + All Mail) share it while having different stableIds, so a client rendering a thread must collapse rows by this value to match the server's messageCount. Null when the sender omitted the header. */
-			messageId?: string | null;
-		};
 		ThreadResponse: {
-			/** @description Stable thread identifier shared by every message of the conversation. */
-			threadId?: string;
-			/** @description RFC 5322 Message-ID of the oldest message in the thread. Null when the root message has no Message-ID. */
-			rootMessageId?: string | null;
+			/** @description Thread members in ascending threadPosition order, scoped by folderRef when given. */
+			messages?: components['schemas']['MailSummaryResponse'][];
 			/**
 			 * Format: int32
 			 * @description Number of returned messages. With folderRef this is that folder's conversation messageCount.
 			 */
 			participantsTotal?: number;
+			/** @description RFC 5322 Message-ID of the oldest message in the thread. Null when the root message has no Message-ID. */
+			rootMessageId?: string | null;
+			/** @description Stable thread identifier shared by every message of the conversation. */
+			threadId?: string;
 			/**
 			 * Format: int32
 			 * @description Unread messages of the conversation. With folderRef only those in that folder (matching the row's unreadCount); otherwise all unseen members.
 			 */
 			unreadCount?: number;
-			/** @description Thread members in ascending threadPosition order, scoped by folderRef when given. */
-			messages?: components['schemas']['MailSummaryResponse'][];
 		};
-		PagedResponseMailSummaryResponse: {
-			content?: components['schemas']['MailSummaryResponse'][];
-			/** Format: int32 */
-			page?: number;
-			/** Format: int32 */
-			size?: number;
-			/** Format: int32 */
-			totalPages?: number;
+		ThreadUpdated: {
 			/** Format: int64 */
-			totalElements?: number;
-			first?: boolean;
-			last?: boolean;
-		};
-		ConversationSummaryResponse: {
-			/** @description Conversation identifier shared by every message of the thread. Null only for a message the threading backfill has not processed yet; such a row is a singleton (messageCount = 1) and cannot be expanded via the thread endpoint. */
-			threadId?: string | null;
-			/** @description Newest message of the conversation in this folder — the row's representative. */
-			latest?: components['schemas']['MailSummaryResponse'];
-			/**
-			 * Format: int32
-			 * @description Number of messages of this conversation (>= 1). For a regular folder it is cross-folder except trash/junk/drafts, counting a mail stored in several folders once; folder-scoped in Trash, Junk and Drafts views.
-			 */
-			messageCount?: number;
-			/**
-			 * Format: int32
-			 * @description Number of messages of this conversation in THIS folder that are not yet marked as seen — folder-scoped in every view, unlike messageCount.
-			 */
-			unreadCount?: number;
-		};
-		PagedResponseConversationSummaryResponse: {
-			content?: components['schemas']['ConversationSummaryResponse'][];
-			/** Format: int32 */
-			page?: number;
-			/** Format: int32 */
-			size?: number;
-			/** Format: int32 */
-			totalPages?: number;
-			/** Format: int64 */
-			totalElements?: number;
-			first?: boolean;
-			last?: boolean;
-		};
-		/** @description Safe runtime limits and recommendations for the desktop client. */
-		ClientConfigResponse: {
-			/**
-			 * Format: int32
-			 * @description Default page size for message listings.
-			 * @example 50
-			 */
-			mailDefaultPageSize: number;
-			/**
-			 * Format: int32
-			 * @description Maximum allowed page size for paginated mail endpoints.
-			 * @example 200
-			 */
-			mailApiMaxPageSize: number;
-			/**
-			 * Format: int32
-			 * @description Maximum length of the message full-text query.
-			 * @example 256
-			 */
-			searchQueryMaxLength: number;
-			/**
-			 * Format: int32
-			 * @description Default page size for contacts.
-			 * @example 20
-			 */
-			contactDefaultPageSize: number;
-			/**
-			 * Format: int32
-			 * @description Maximum query length for contacts and autocomplete.
-			 * @example 100
-			 */
-			contactQueryMaxLength: number;
-			/**
-			 * Format: int32
-			 * @description Default row limit for contact autocomplete.
-			 * @example 10
-			 */
-			contactAutocompleteDefaultLimit: number;
-			/**
-			 * Format: int32
-			 * @description Maximum row limit for contact autocomplete.
-			 * @example 20
-			 */
-			contactAutocompleteMaxLimit: number;
-			/**
-			 * Format: int64
-			 * @description Recommended client-side limit for a single attachment in bytes.
-			 * @example 10485760
-			 */
-			attachmentMaxBytes: number;
-			/**
-			 * Format: int64
-			 * @description Recommended client-side limit for all attachments in a single message in bytes.
-			 * @example 26214400
-			 */
-			attachmentTotalMaxBytes: number;
-			/**
-			 * Format: int64
-			 * @description Byte threshold above which the client warns about a large attachment.
-			 * @example 5242880
-			 */
-			largeAttachmentWarningBytes: number;
-		};
-		FolderResponse: {
-			displayName?: string;
-			/** @description Opaque folder reference. The client does not parse it, only passes it back to other mail endpoints. */
-			folderRef?: string;
-			/** Format: int32 */
-			unreadCount?: number;
-			/** @enum {string} */
-			role?: 'INBOX' | 'SENT' | 'TRASH' | 'DRAFTS' | 'JUNK' | 'ARCHIVE' | 'NEWSLETTERS' | 'USER';
-		};
-		PagedResponseContactResponse: {
-			content?: components['schemas']['ContactResponse'][];
-			/** Format: int32 */
-			page?: number;
-			/** Format: int32 */
-			size?: number;
-			/** Format: int32 */
-			totalPages?: number;
-			/** Format: int64 */
-			totalElements?: number;
-			first?: boolean;
-			last?: boolean;
-		};
-		/** @description Contact counts for the sidebar: the account total plus per-label counts. A contact is counted for a label when at least one of its e-mail addresses bears it, so each figure matches the size of the list filtered by the same label. */
-		ContactCountsResponse: {
-			/** Format: int64 */
-			total?: number;
-			/** Format: int64 */
-			work?: number;
-			/** Format: int64 */
-			home?: number;
-			/** Format: int64 */
-			other?: number;
-		};
-		ContactAutocompleteResponse: {
-			/** Format: int64 */
-			contactId?: number;
-			/** Format: int64 */
-			emailId?: number;
-			email?: string;
-			/**
-			 * @description Label for the contact's email address. Optional — when the client omits it, null is stored (no label). Matching is case-insensitive, so both "home" and "HOME" pass.
-			 * @example HOME
-			 * @enum {string}
-			 */
-			label?: 'WORK' | 'HOME' | 'OTHER' | 'WORK' | 'HOME' | 'OTHER';
-			primary?: boolean;
-			name?: string;
-			surname?: string;
-		};
-		MailProviderResponse: {
-			/** Format: int64 */
-			id?: number;
-			name?: string;
-			imapHost?: string;
-			/** Format: int32 */
-			imapPort?: number;
-			imapSsl?: boolean;
-			smtpHost?: string;
-			/** Format: int32 */
-			smtpPort?: number;
-			smtpSsl?: boolean;
-			domains?: string;
-			supportsOauth2?: boolean;
-			oauth2RegistrationId?: string;
-		};
-		BulkContactDeleteRequest: {
-			ids: number[];
-		};
-		BulkContactDeleteResponse: {
-			/** Format: int32 */
-			total?: number;
-			/** Format: int32 */
-			deleted?: number;
-			/** Format: int32 */
-			failed?: number;
-			results?: components['schemas']['BulkContactDeleteResult'][];
-		};
-		BulkContactDeleteResult: {
-			/** Format: int64 */
-			id?: number;
-			/** @enum {string} */
-			status?: 'DELETED' | 'FAILED';
-			errorCode?: string;
-			errorMessage?: string;
+			accountId?: number;
+			threadId?: string;
+			type?: string;
 		};
 	};
 	responses: never;
@@ -1419,175 +1419,11 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-	list: {
-		parameters: {
-			query: {
-				accountId: number;
-			};
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		requestBody?: never;
-		responses: {
-			/** @description Allowed sender emails (may be empty). */
-			200: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': string[];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description IMAP/SMTP server unavailable (MAIL_CONNECTION_ERROR). */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-		};
-	};
-	allow: {
+	getAllAccounts: {
 		parameters: {
 			query?: never;
 			header?: never;
 			path?: never;
-			cookie?: never;
-		};
-		requestBody: {
-			content: {
-				'application/json': components['schemas']['RemoteImageAllowlistRequest'];
-			};
-		};
-		responses: {
-			/** @description Sender is allowed (added or already present). */
-			204: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-			/** @description Invalid input (validation error). */
-			400: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Account not found. */
-			404: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description IMAP/SMTP server unavailable (MAIL_CONNECTION_ERROR). */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-		};
-	};
-	disallow: {
-		parameters: {
-			query: {
-				accountId: number;
-				senderEmail: string;
-			};
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		requestBody?: never;
-		responses: {
-			/** @description Sender is no longer allowed (removed or was not present). */
-			204: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description IMAP/SMTP server unavailable (MAIL_CONNECTION_ERROR). */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-		};
-	};
-	getAccountById: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path: {
-				id: number;
-			};
 			cookie?: never;
 		};
 		requestBody?: never;
@@ -1598,7 +1434,7 @@ export interface operations {
 					[name: string]: unknown;
 				};
 				content: {
-					'*/*': components['schemas']['AccountResponse'];
+					'*/*': components['schemas']['AccountResponse'][];
 				};
 			};
 			/** @description Missing or invalid X-API-KEY. */
@@ -1628,23 +1464,21 @@ export interface operations {
 			};
 		};
 	};
-	updateAccount: {
+	createAccount: {
 		parameters: {
 			query?: never;
 			header?: never;
-			path: {
-				id: number;
-			};
+			path?: never;
 			cookie?: never;
 		};
 		requestBody: {
 			content: {
-				'application/json': components['schemas']['AccountUpdateRequest'];
+				'application/json': components['schemas']['AccountCreateRequest'];
 			};
 		};
 		responses: {
-			/** @description OK */
-			200: {
+			/** @description Created */
+			201: {
 				headers: {
 					[name: string]: unknown;
 				};
@@ -1688,7 +1522,99 @@ export interface operations {
 			};
 		};
 	};
-	deleteAccount: {
+	getAllProviders: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['MailProviderResponse'][];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	resolveProvider: {
+		parameters: {
+			query: {
+				email: string;
+			};
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['MailProviderResponse'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	getProviderById: {
 		parameters: {
 			query?: never;
 			header?: never;
@@ -1699,12 +1625,458 @@ export interface operations {
 		};
 		requestBody?: never;
 		responses: {
-			/** @description No Content */
-			204: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['MailProviderResponse'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
 				headers: {
 					[name: string]: unknown;
 				};
 				content?: never;
+			};
+		};
+	};
+	testConnection: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['AccountConnectionTestRequest'];
+			};
+		};
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['AccountConnectionTestResponse'];
+				};
+			};
+			/** @description Invalid input (validation error). */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	listContacts: {
+		parameters: {
+			query?: {
+				q?: string;
+				page?: number;
+				size?: number;
+				sort?: string;
+				label?: 'WORK' | 'HOME' | 'OTHER' | 'WORK' | 'HOME' | 'OTHER';
+			};
+			header?: never;
+			path: {
+				accountId: number;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['PagedResponseContactResponse'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	createContact: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				accountId: number;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['ContactCreateRequest'];
+			};
+		};
+		responses: {
+			/** @description Created */
+			201: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ContactResponse'];
+				};
+			};
+			/** @description Invalid input (validation error). */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description A contact with this e-mail already exists for the account (CONTACT_DUPLICATE). */
+			409: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ContactResponse'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	autocomplete: {
+		parameters: {
+			query: {
+				q: string;
+				limit?: number;
+			};
+			header?: never;
+			path: {
+				accountId: number;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ContactAutocompleteResponse'][];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	bulkCreateContacts: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				accountId: number;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['BulkContactCreateRequest'];
+			};
+		};
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['BulkContactCreateResponse'];
+				};
+			};
+			/** @description Invalid input (validation error). */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	bulkDeleteContacts: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				accountId: number;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['BulkContactDeleteRequest'];
+			};
+		};
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['BulkContactDeleteResponse'];
+				};
+			};
+			/** @description Invalid input (validation error). */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	getCounts: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				accountId: number;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ContactCountsResponse'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	exportVCard: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				accountId: number;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'text/vcard;charset=UTF-8': string;
+				};
 			};
 			/** @description Missing or invalid X-API-KEY. */
 			401: {
@@ -1974,27 +2346,30 @@ export interface operations {
 			};
 		};
 	};
-	moveMessage: {
+	addEmail: {
 		parameters: {
 			query?: never;
 			header?: never;
 			path: {
-				stableId: string;
+				accountId: number;
+				contactId: number;
 			};
 			cookie?: never;
 		};
 		requestBody: {
 			content: {
-				'application/json': components['schemas']['MoveRequest'];
+				'application/json': components['schemas']['ContactEmailRequest'];
 			};
 		};
 		responses: {
-			/** @description Local record removed; the remote move runs asynchronously. */
-			204: {
+			/** @description Created */
+			201: {
 				headers: {
 					[name: string]: unknown;
 				};
-				content?: never;
+				content: {
+					'*/*': components['schemas']['ContactEmailResponse'];
+				};
 			};
 			/** @description Invalid input (validation error). */
 			400: {
@@ -2014,169 +2389,22 @@ export interface operations {
 					'application/problem+json': components['schemas']['ProblemDetail'];
 				};
 			};
-			/** @description Message or target folder not found. */
+			/** @description Contact does not exist (CONTACT_NOT_FOUND). */
 			404: {
 				headers: {
 					[name: string]: unknown;
 				};
-				content?: never;
+				content: {
+					'*/*': components['schemas']['ContactEmailResponse'];
+				};
 			};
-			/** @description Internal server error. */
-			500: {
+			/** @description The e-mail is already used by another contact or by this contact (CONTACT_DUPLICATE). */
+			409: {
 				headers: {
 					[name: string]: unknown;
 				};
 				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description IMAP/SMTP server unavailable (MAIL_CONNECTION_ERROR). */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-		};
-	};
-	triggerSync: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path: {
-				accountId: number;
-			};
-			cookie?: never;
-		};
-		requestBody?: never;
-		responses: {
-			/** @description Sync started; progress is delivered via the notification stream. */
-			202: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description IMAP/SMTP server unavailable (MAIL_CONNECTION_ERROR). */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-		};
-	};
-	sendEmail: {
-		parameters: {
-			query?: {
-				supersedesDraftId?: string;
-			};
-			header?: never;
-			path: {
-				accountId: number;
-			};
-			cookie?: never;
-		};
-		requestBody: {
-			content: {
-				'application/json': components['schemas']['MailRequest'];
-			};
-		};
-		responses: {
-			/** @description Send request accepted; outcome is delivered via the notification stream. */
-			202: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['SendAcceptedResponse'];
-				};
-			};
-			/** @description Invalid input (validation error). */
-			400: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description IMAP/SMTP server unavailable (MAIL_CONNECTION_ERROR). */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-		};
-	};
-	getAllAccounts: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		requestBody?: never;
-		responses: {
-			/** @description OK */
-			200: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['AccountResponse'][];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
+					'*/*': components['schemas']['ContactEmailResponse'];
 				};
 			};
 			/** @description Internal server error. */
@@ -2197,28 +2425,132 @@ export interface operations {
 			};
 		};
 	};
-	createAccount: {
+	deleteEmail: {
 		parameters: {
 			query?: never;
 			header?: never;
-			path?: never;
+			path: {
+				accountId: number;
+				contactId: number;
+				emailId: number;
+			};
 			cookie?: never;
 		};
-		requestBody: {
-			content: {
-				'application/json': components['schemas']['AccountCreateRequest'];
-			};
-		};
+		requestBody?: never;
 		responses: {
-			/** @description Created */
-			201: {
+			/** @description No Content */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Attempted to delete the last address of a contact (VALIDATION_ERROR). */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
 				headers: {
 					[name: string]: unknown;
 				};
 				content: {
-					'*/*': components['schemas']['AccountResponse'];
+					'application/problem+json': components['schemas']['ProblemDetail'];
 				};
 			};
+			/** @description Contact or address does not exist (CONTACT_NOT_FOUND / RESOURCE_NOT_FOUND). */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	setPrimaryEmail: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				accountId: number;
+				contactId: number;
+				emailId: number;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Contact or address does not exist (CONTACT_NOT_FOUND / RESOURCE_NOT_FOUND). */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ContactResponse'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	mergeContacts: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				accountId: number;
+				targetId: number;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['ContactMergeRequest'];
+			};
+		};
+		responses: {
 			/** @description Invalid input (validation error). */
 			400: {
 				headers: {
@@ -2235,6 +2567,15 @@ export interface operations {
 				};
 				content: {
 					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description One of the source contacts or the target does not exist (CONTACT_NOT_FOUND). */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ContactResponse'];
 				};
 			};
 			/** @description Internal server error. */
@@ -2421,15 +2762,9 @@ export interface operations {
 			};
 		};
 	};
-	listContacts: {
+	listFolders: {
 		parameters: {
-			query?: {
-				q?: string;
-				page?: number;
-				size?: number;
-				sort?: string;
-				label?: 'WORK' | 'HOME' | 'OTHER' | 'WORK' | 'HOME' | 'OTHER';
-			};
+			query?: never;
 			header?: never;
 			path: {
 				accountId: number;
@@ -2444,7 +2779,7 @@ export interface operations {
 					[name: string]: unknown;
 				};
 				content: {
-					'*/*': components['schemas']['PagedResponseContactResponse'];
+					'*/*': components['schemas']['FolderResponse'][];
 				};
 			};
 			/** @description Missing or invalid X-API-KEY. */
@@ -2465,46 +2800,35 @@ export interface operations {
 					'application/problem+json': components['schemas']['ProblemDetail'];
 				};
 			};
-			/** @description Service Unavailable */
+			/** @description IMAP/SMTP server unavailable (MAIL_CONNECTION_ERROR). */
 			503: {
 				headers: {
 					[name: string]: unknown;
 				};
-				content?: never;
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
 			};
 		};
 	};
-	createContact: {
+	getAccountById: {
 		parameters: {
 			query?: never;
 			header?: never;
 			path: {
-				accountId: number;
+				id: number;
 			};
 			cookie?: never;
 		};
-		requestBody: {
-			content: {
-				'application/json': components['schemas']['ContactCreateRequest'];
-			};
-		};
+		requestBody?: never;
 		responses: {
-			/** @description Created */
-			201: {
+			/** @description OK */
+			200: {
 				headers: {
 					[name: string]: unknown;
 				};
 				content: {
-					'*/*': components['schemas']['ContactResponse'];
-				};
-			};
-			/** @description Invalid input (validation error). */
-			400: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
+					'*/*': components['schemas']['AccountResponse'];
 				};
 			};
 			/** @description Missing or invalid X-API-KEY. */
@@ -2514,15 +2838,6 @@ export interface operations {
 				};
 				content: {
 					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description A contact with this e-mail already exists for the account (CONTACT_DUPLICATE). */
-			409: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ContactResponse'];
 				};
 			};
 			/** @description Internal server error. */
@@ -2543,158 +2858,18 @@ export interface operations {
 			};
 		};
 	};
-	mergeContacts: {
+	updateAccount: {
 		parameters: {
 			query?: never;
 			header?: never;
 			path: {
-				accountId: number;
-				targetId: number;
+				id: number;
 			};
 			cookie?: never;
 		};
 		requestBody: {
 			content: {
-				'application/json': components['schemas']['ContactMergeRequest'];
-			};
-		};
-		responses: {
-			/** @description Invalid input (validation error). */
-			400: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description One of the source contacts or the target does not exist (CONTACT_NOT_FOUND). */
-			404: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ContactResponse'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	addEmail: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path: {
-				accountId: number;
-				contactId: number;
-			};
-			cookie?: never;
-		};
-		requestBody: {
-			content: {
-				'application/json': components['schemas']['ContactEmailRequest'];
-			};
-		};
-		responses: {
-			/** @description Created */
-			201: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ContactEmailResponse'];
-				};
-			};
-			/** @description Invalid input (validation error). */
-			400: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Contact does not exist (CONTACT_NOT_FOUND). */
-			404: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ContactEmailResponse'];
-				};
-			};
-			/** @description The e-mail is already used by another contact or by this contact (CONTACT_DUPLICATE). */
-			409: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ContactEmailResponse'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	bulkCreateContacts: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path: {
-				accountId: number;
-			};
-			cookie?: never;
-		};
-		requestBody: {
-			content: {
-				'application/json': components['schemas']['BulkContactCreateRequest'];
+				'application/json': components['schemas']['AccountUpdateRequest'];
 			};
 		};
 		responses: {
@@ -2704,7 +2879,7 @@ export interface operations {
 					[name: string]: unknown;
 				};
 				content: {
-					'*/*': components['schemas']['BulkContactCreateResponse'];
+					'*/*': components['schemas']['AccountResponse'];
 				};
 			};
 			/** @description Invalid input (validation error). */
@@ -2743,20 +2918,61 @@ export interface operations {
 			};
 		};
 	};
-	bulkDeleteContacts: {
+	deleteAccount: {
 		parameters: {
 			query?: never;
 			header?: never;
 			path: {
-				accountId: number;
+				id: number;
 			};
 			cookie?: never;
 		};
-		requestBody: {
-			content: {
-				'application/json': components['schemas']['BulkContactDeleteRequest'];
+		requestBody?: never;
+		responses: {
+			/** @description No Content */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
 			};
 		};
+	};
+	start: {
+		parameters: {
+			query: {
+				provider: string;
+			};
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
 		responses: {
 			/** @description OK */
 			200: {
@@ -2764,16 +2980,7 @@ export interface operations {
 					[name: string]: unknown;
 				};
 				content: {
-					'*/*': components['schemas']['BulkContactDeleteResponse'];
-				};
-			};
-			/** @description Invalid input (validation error). */
-			400: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
+					'*/*': string;
 				};
 			};
 			/** @description Missing or invalid X-API-KEY. */
@@ -2803,18 +3010,14 @@ export interface operations {
 			};
 		};
 	};
-	testConnection: {
+	success: {
 		parameters: {
 			query?: never;
 			header?: never;
 			path?: never;
 			cookie?: never;
 		};
-		requestBody: {
-			content: {
-				'application/json': components['schemas']['AccountConnectionTestRequest'];
-			};
-		};
+		requestBody?: never;
 		responses: {
 			/** @description OK */
 			200: {
@@ -2822,16 +3025,7 @@ export interface operations {
 					[name: string]: unknown;
 				};
 				content: {
-					'*/*': components['schemas']['AccountConnectionTestResponse'];
-				};
-			};
-			/** @description Invalid input (validation error). */
-			400: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
+					'*/*': string;
 				};
 			};
 			/** @description Missing or invalid X-API-KEY. */
@@ -2861,22 +3055,287 @@ export interface operations {
 			};
 		};
 	};
-	updateMessageFlag: {
+	getClientConfig: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ClientConfigResponse'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	getMessagesByFolder: {
 		parameters: {
 			query: {
-				type: string;
-				value: boolean;
+				folderRef: string;
+				page?: number;
+				size?: number;
 			};
 			header?: never;
 			path: {
-				stableId: string;
+				accountId: number;
 			};
 			cookie?: never;
 		};
 		requestBody?: never;
 		responses: {
-			/** @description Flag updated. */
-			204: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['PagedResponseMailSummaryResponse'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description IMAP/SMTP server unavailable (MAIL_CONNECTION_ERROR). */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+		};
+	};
+	getConversationsByFolder: {
+		parameters: {
+			query: {
+				folderRef: string;
+				page?: number;
+				size?: number;
+			};
+			header?: never;
+			path: {
+				accountId: number;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['PagedResponseConversationSummaryResponse'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description IMAP/SMTP server unavailable (MAIL_CONNECTION_ERROR). */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+		};
+	};
+	searchMessages: {
+		parameters: {
+			query: {
+				q: string;
+				page?: number;
+				size?: number;
+			};
+			header?: never;
+			path: {
+				accountId: number;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['PagedResponseMailSummaryResponse'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description IMAP/SMTP server unavailable (MAIL_CONNECTION_ERROR). */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+		};
+	};
+	sendEmail: {
+		parameters: {
+			query?: {
+				supersedesDraftId?: string;
+			};
+			header?: never;
+			path: {
+				accountId: number;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['MailRequest'];
+			};
+		};
+		responses: {
+			/** @description Send request accepted; outcome is delivered via the notification stream. */
+			202: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['SendAcceptedResponse'];
+				};
+			};
+			/** @description Invalid input (validation error). */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description IMAP/SMTP server unavailable (MAIL_CONNECTION_ERROR). */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+		};
+	};
+	triggerSync: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				accountId: number;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Sync started; progress is delivered via the notification stream. */
+			202: {
 				headers: {
 					[name: string]: unknown;
 				};
@@ -2911,19 +3370,29 @@ export interface operations {
 			};
 		};
 	};
-	setPrimaryEmail: {
+	getThread: {
 		parameters: {
-			query?: never;
+			query?: {
+				folderRef?: string;
+			};
 			header?: never;
 			path: {
 				accountId: number;
-				contactId: number;
-				emailId: number;
+				threadId: string;
 			};
 			cookie?: never;
 		};
 		requestBody?: never;
 		responses: {
+			/** @description Thread members in ascending order. */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ThreadResponse'];
+				};
+			};
 			/** @description Missing or invalid X-API-KEY. */
 			401: {
 				headers: {
@@ -2933,107 +3402,13 @@ export interface operations {
 					'application/problem+json': components['schemas']['ProblemDetail'];
 				};
 			};
-			/** @description Contact or address does not exist (CONTACT_NOT_FOUND / RESOURCE_NOT_FOUND). */
+			/** @description No thread with that id is owned by the account. */
 			404: {
 				headers: {
 					[name: string]: unknown;
 				};
 				content: {
-					'*/*': components['schemas']['ContactResponse'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	getReadiness: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		requestBody?: never;
-		responses: {
-			/** @description OK */
-			200: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['SystemReadinessResponse'];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	streamNotifications: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		requestBody?: never;
-		responses: {
-			/** @description Long-lived event stream. Each event has a `type` field that identifies the variant and matches the SSE event name. */
-			200: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'text/event-stream':
-						| components['schemas']['SyncNotification']
-						| components['schemas']['SyncStatusNotification']
-						| components['schemas']['SendNotification']
-						| components['schemas']['ThreadUpdated'];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
+					'*/*': components['schemas']['ThreadResponse'];
 				};
 			};
 			/** @description Internal server error. */
@@ -3152,75 +3527,27 @@ export interface operations {
 			};
 		};
 	};
-	prepareReply: {
+	downloadAttachment: {
 		parameters: {
 			query?: {
-				all?: boolean;
+				fileName?: string;
 			};
 			header?: never;
 			path: {
 				stableId: string;
+				partPath: string;
 			};
 			cookie?: never;
 		};
 		requestBody?: never;
 		responses: {
-			/** @description OK */
+			/** @description Binary attachment payload streamed to the client. */
 			200: {
 				headers: {
 					[name: string]: unknown;
 				};
 				content: {
-					'*/*': components['schemas']['MailRequest'];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description IMAP/SMTP server unavailable (MAIL_CONNECTION_ERROR). */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-		};
-	};
-	prepareForward: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path: {
-				stableId: string;
-			};
-			cookie?: never;
-		};
-		requestBody?: never;
-		responses: {
-			/** @description OK */
-			200: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['MailRequest'];
+					'application/octet-stream': string;
 				};
 			};
 			/** @description Missing or invalid X-API-KEY. */
@@ -3301,769 +3628,402 @@ export interface operations {
 			};
 		};
 	};
-	downloadAttachment: {
+	updateMessageFlag: {
 		parameters: {
-			query?: {
-				fileName?: string;
+			query: {
+				type: string;
+				value: boolean;
 			};
 			header?: never;
 			path: {
 				stableId: string;
-				partPath: string;
 			};
 			cookie?: never;
 		};
 		requestBody?: never;
 		responses: {
-			/** @description Binary attachment payload streamed to the client. */
-			200: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/octet-stream': string;
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description IMAP/SMTP server unavailable (MAIL_CONNECTION_ERROR). */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-		};
-	};
-	getThread: {
-		parameters: {
-			query?: {
-				folderRef?: string;
-			};
-			header?: never;
-			path: {
-				accountId: number;
-				threadId: string;
-			};
-			cookie?: never;
-		};
-		requestBody?: never;
-		responses: {
-			/** @description Thread members in ascending order. */
-			200: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ThreadResponse'];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description No thread with that id is owned by the account. */
-			404: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ThreadResponse'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description IMAP/SMTP server unavailable (MAIL_CONNECTION_ERROR). */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-		};
-	};
-	searchMessages: {
-		parameters: {
-			query: {
-				q: string;
-				page?: number;
-				size?: number;
-			};
-			header?: never;
-			path: {
-				accountId: number;
-			};
-			cookie?: never;
-		};
-		requestBody?: never;
-		responses: {
-			/** @description OK */
-			200: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['PagedResponseMailSummaryResponse'];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description IMAP/SMTP server unavailable (MAIL_CONNECTION_ERROR). */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-		};
-	};
-	getMessagesByFolder: {
-		parameters: {
-			query: {
-				folderRef: string;
-				page?: number;
-				size?: number;
-			};
-			header?: never;
-			path: {
-				accountId: number;
-			};
-			cookie?: never;
-		};
-		requestBody?: never;
-		responses: {
-			/** @description OK */
-			200: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['PagedResponseMailSummaryResponse'];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description IMAP/SMTP server unavailable (MAIL_CONNECTION_ERROR). */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-		};
-	};
-	getConversationsByFolder: {
-		parameters: {
-			query: {
-				folderRef: string;
-				page?: number;
-				size?: number;
-			};
-			header?: never;
-			path: {
-				accountId: number;
-			};
-			cookie?: never;
-		};
-		requestBody?: never;
-		responses: {
-			/** @description OK */
-			200: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['PagedResponseConversationSummaryResponse'];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description IMAP/SMTP server unavailable (MAIL_CONNECTION_ERROR). */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-		};
-	};
-	getClientConfig: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		requestBody?: never;
-		responses: {
-			/** @description OK */
-			200: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ClientConfigResponse'];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	success: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		requestBody?: never;
-		responses: {
-			/** @description OK */
-			200: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': string;
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	start: {
-		parameters: {
-			query: {
-				provider: string;
-			};
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		requestBody?: never;
-		responses: {
-			/** @description OK */
-			200: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': string;
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	listFolders: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path: {
-				accountId: number;
-			};
-			cookie?: never;
-		};
-		requestBody?: never;
-		responses: {
-			/** @description OK */
-			200: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['FolderResponse'][];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description IMAP/SMTP server unavailable (MAIL_CONNECTION_ERROR). */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-		};
-	};
-	exportVCard: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path: {
-				accountId: number;
-			};
-			cookie?: never;
-		};
-		requestBody?: never;
-		responses: {
-			/** @description OK */
-			200: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'text/vcard;charset=UTF-8': string;
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	getCounts: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path: {
-				accountId: number;
-			};
-			cookie?: never;
-		};
-		requestBody?: never;
-		responses: {
-			/** @description OK */
-			200: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ContactCountsResponse'];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	autocomplete: {
-		parameters: {
-			query: {
-				q: string;
-				limit?: number;
-			};
-			header?: never;
-			path: {
-				accountId: number;
-			};
-			cookie?: never;
-		};
-		requestBody?: never;
-		responses: {
-			/** @description OK */
-			200: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ContactAutocompleteResponse'][];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	getAllProviders: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		requestBody?: never;
-		responses: {
-			/** @description OK */
-			200: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['MailProviderResponse'][];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	getProviderById: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path: {
-				id: number;
-			};
-			cookie?: never;
-		};
-		requestBody?: never;
-		responses: {
-			/** @description OK */
-			200: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['MailProviderResponse'];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	resolveProvider: {
-		parameters: {
-			query: {
-				email: string;
-			};
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		requestBody?: never;
-		responses: {
-			/** @description OK */
-			200: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['MailProviderResponse'];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	deleteEmail: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path: {
-				accountId: number;
-				contactId: number;
-				emailId: number;
-			};
-			cookie?: never;
-		};
-		requestBody?: never;
-		responses: {
-			/** @description No Content */
+			/** @description Flag updated. */
 			204: {
 				headers: {
 					[name: string]: unknown;
 				};
 				content?: never;
 			};
-			/** @description Attempted to delete the last address of a contact (VALIDATION_ERROR). */
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description IMAP/SMTP server unavailable (MAIL_CONNECTION_ERROR). */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+		};
+	};
+	prepareForward: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				stableId: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['MailRequest'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description IMAP/SMTP server unavailable (MAIL_CONNECTION_ERROR). */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+		};
+	};
+	moveMessage: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				stableId: string;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['MoveRequest'];
+			};
+		};
+		responses: {
+			/** @description Local record removed; the remote move runs asynchronously. */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Invalid input (validation error). */
 			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Message or target folder not found. */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description IMAP/SMTP server unavailable (MAIL_CONNECTION_ERROR). */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+		};
+	};
+	prepareReply: {
+		parameters: {
+			query?: {
+				all?: boolean;
+			};
+			header?: never;
+			path: {
+				stableId: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['MailRequest'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description IMAP/SMTP server unavailable (MAIL_CONNECTION_ERROR). */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+		};
+	};
+	streamNotifications: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Long-lived event stream. Each event has a `type` field that identifies the variant and matches the SSE event name. */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'text/event-stream':
+						| components['schemas']['SyncNotification']
+						| components['schemas']['SyncStatusNotification']
+						| components['schemas']['SendNotification']
+						| components['schemas']['ThreadUpdated'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description IMAP/SMTP server unavailable (MAIL_CONNECTION_ERROR). */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+		};
+	};
+	list: {
+		parameters: {
+			query: {
+				accountId: number;
+			};
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Allowed sender emails (may be empty). */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': string[];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description IMAP/SMTP server unavailable (MAIL_CONNECTION_ERROR). */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+		};
+	};
+	allow: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['RemoteImageAllowlistRequest'];
+			};
+		};
+		responses: {
+			/** @description Sender is allowed (added or already present). */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Invalid input (validation error). */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Account not found. */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description IMAP/SMTP server unavailable (MAIL_CONNECTION_ERROR). */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+		};
+	};
+	disallow: {
+		parameters: {
+			query: {
+				accountId: number;
+				senderEmail: string;
+			};
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Sender is no longer allowed (removed or was not present). */
+			204: {
 				headers: {
 					[name: string]: unknown;
 				};
@@ -4078,12 +4038,52 @@ export interface operations {
 					'application/problem+json': components['schemas']['ProblemDetail'];
 				};
 			};
-			/** @description Contact or address does not exist (CONTACT_NOT_FOUND / RESOURCE_NOT_FOUND). */
-			404: {
+			/** @description Internal server error. */
+			500: {
 				headers: {
 					[name: string]: unknown;
 				};
-				content?: never;
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description IMAP/SMTP server unavailable (MAIL_CONNECTION_ERROR). */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+		};
+	};
+	getReadiness: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['SystemReadinessResponse'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
 			};
 			/** @description Internal server error. */
 			500: {
