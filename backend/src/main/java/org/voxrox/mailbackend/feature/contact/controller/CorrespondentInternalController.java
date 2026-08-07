@@ -20,13 +20,14 @@ import io.swagger.v3.oas.annotations.Hidden;
  * Internal hook for rebuilding the harvested-address cache on demand.
  *
  * <p>
- * {@code correspondent} is a derived cache, and this endpoint is what makes that
- * claim actionable. The startup backfill is guarded on the cache being empty for
- * the account — it has to be, because harvesting leaves no mark on the message
- * row to re-run from — so two states are unreachable for it: a first run
- * interrupted half way, and an account that was in {@code requires_reauth} when
- * it fired and whose sync has since written the first rows. In both the user
- * would keep a partial cache with no way to ask for a complete one.
+ * {@code correspondent} is a derived cache, and this endpoint is what makes
+ * that claim actionable. The startup backfill is guarded on the cache being
+ * empty for the account — it has to be, because harvesting leaves no mark on
+ * the message row to re-run from — so two states are unreachable for it: a
+ * first run interrupted half way, and an account that was in
+ * {@code requires_reauth} when it fired and whose sync has since written the
+ * first rows. In both the user would keep a partial cache with no way to ask
+ * for a complete one.
  *
  * <p>
  * Same shape as {@code /api/internal/threading/recompute}: hidden from the

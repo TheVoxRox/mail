@@ -15,9 +15,9 @@ import org.junit.jupiter.api.Test;
 import org.mockito.AdditionalAnswers;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -41,10 +41,10 @@ import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
  * <p>
  * Two things here are only reachable end to end. The batch query is a native
  * projection whose {@code receivedAt} is a {@code LocalDateTime} — a mapping no
- * unit test exercises and whose failure would surface at runtime, on the startup
- * pass, as a broken cache. And the empty-cache guard is the whole re-entry
- * contract: it is what stops a second run from doubling every counter, and what
- * {@code rebuildAccount} deliberately re-arms.
+ * unit test exercises and whose failure would surface at runtime, on the
+ * startup pass, as a broken cache. And the empty-cache guard is the whole
+ * re-entry contract: it is what stops a second run from doubling every counter,
+ * and what {@code rebuildAccount} deliberately re-arms.
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)

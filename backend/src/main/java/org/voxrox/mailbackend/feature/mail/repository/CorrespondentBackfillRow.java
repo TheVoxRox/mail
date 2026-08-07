@@ -5,8 +5,9 @@ import java.time.LocalDateTime;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Lightweight projection for the correspondent backfill — the address headers of
- * one message plus what the pass needs to place it (folder, date, cursor id).
+ * Lightweight projection for the correspondent backfill — the address headers
+ * of one message plus what the pass needs to place it (folder, date, cursor
+ * id).
  *
  * <p>
  * A projection rather than {@code MessageEntity} for the same reason

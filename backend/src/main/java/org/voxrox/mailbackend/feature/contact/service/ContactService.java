@@ -146,11 +146,11 @@ public class ContactService {
      * synced is full of the people they actually write to.
      *
      * <p>
-     * <b>Merging belongs here, not in the client.</b> An address in both sources may
-     * appear only once, and the contact has to win because it is what the user
-     * curated; and {@code limit} has to apply to the merged list, otherwise a client
-     * asking for 10 from each source and stitching them together shows 13 and the
-     * limit means nothing.
+     * <b>Merging belongs here, not in the client.</b> An address in both sources
+     * may appear only once, and the contact has to win because it is what the user
+     * curated; and {@code limit} has to apply to the merged list, otherwise a
+     * client asking for 10 from each source and stitching them together shows 13
+     * and the limit means nothing.
      *
      * <p>
      * The two are interleaved by rank rather than concatenated as blocks: a history
@@ -276,11 +276,12 @@ public class ContactService {
     }
 
     /**
-     * Same scale as {@link #rankOfContact} so the two sources interleave meaningfully
-     * — a harvested address whose local part starts with the query is as good a match
-     * as a contact's would be. Rank 1 (surname) is unreachable here: a harvested
-     * display name is one undivided string, so a name hit is scored as rank 2 when it
-     * starts with the query and 3 when it merely contains it.
+     * Same scale as {@link #rankOfContact} so the two sources interleave
+     * meaningfully — a harvested address whose local part starts with the query is
+     * as good a match as a contact's would be. Rank 1 (surname) is unreachable
+     * here: a harvested display name is one undivided string, so a name hit is
+     * scored as rank 2 when it starts with the query and 3 when it merely contains
+     * it.
      */
     private static int rankOfHistory(CorrespondentEntity correspondent, String qLower) {
         if (correspondent.getEmail().startsWith(qLower)) {

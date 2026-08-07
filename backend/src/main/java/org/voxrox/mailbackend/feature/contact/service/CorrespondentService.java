@@ -22,8 +22,8 @@ import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 import org.voxrox.mailbackend.util.HeaderAddresses;
 
 /**
- * Harvests the addresses the account exchanges mail with, and serves them to the
- * compose typeahead.
+ * Harvests the addresses the account exchanges mail with, and serves them to
+ * the compose typeahead.
  *
  * <p>
  * The point is a fresh install: the address book starts empty and only fills by
@@ -34,8 +34,8 @@ import org.voxrox.mailbackend.util.HeaderAddresses;
  *
  * <p>
  * Nothing here writes to the address book. {@code correspondent} is a separate,
- * droppable cache; contacts stay hand-curated so labels and merge keep operating
- * on a set the user chose.
+ * droppable cache; contacts stay hand-curated so labels and merge keep
+ * operating on a set the user chose.
  */
 @Service
 public class CorrespondentService {
@@ -73,7 +73,9 @@ public class CorrespondentService {
     private static final Set<FolderRole> SKIPPED_ROLES = Set.of(FolderRole.TRASH, FolderRole.JUNK,
             FolderRole.NEWSLETTERS);
 
-    /** Matches the column widths; anything longer is dropped rather than truncated. */
+    /**
+     * Matches the column widths; anything longer is dropped rather than truncated.
+     */
     private static final int MAX_EMAIL_LENGTH = 255;
     private static final int MAX_DISPLAY_NAME_LENGTH = 255;
 
@@ -107,13 +109,14 @@ public class CorrespondentService {
      * transaction fail at the boundary instead of deep inside the native upsert.
      *
      * <p>
-     * Failures are the caller's to handle: this is a cache, and a sync must not fail
-     * because a header would not parse — which is why parsing itself never throws.
+     * Failures are the caller's to handle: this is a cache, and a sync must not
+     * fail because a header would not parse — which is why parsing itself never
+     * throws.
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public void harvestFromMessage(MessageEntity message, AccountEntity account, FolderRole role) {
-        harvest(account, new HarvestInput(role, message.getReceivedAt(), message.getSender(),
-                message.getRecipientsTo(), message.getRecipientsCc(), message.getRecipientsBcc()));
+        harvest(account, new HarvestInput(role, message.getReceivedAt(), message.getSender(), message.getRecipientsTo(),
+                message.getRecipientsCc(), message.getRecipientsBcc()));
     }
 
     /**
@@ -152,8 +155,8 @@ public class CorrespondentService {
 
     /**
      * Typeahead lookup. Returns at most {@code limit} harvested addresses ranked by
-     * {@code CorrespondentRepository.search}; an empty or blank query yields nothing
-     * rather than the whole table.
+     * {@code CorrespondentRepository.search}; an empty or blank query yields
+     * nothing rather than the whole table.
      */
     @Transactional(readOnly = true)
     public List<CorrespondentEntity> search(Long accountId, String q, int limit) {
@@ -181,9 +184,9 @@ public class CorrespondentService {
 
     /**
      * Parses several address header fields into one deduplicated list, first
-     * sighting of an address winning. Deduplication matters because To and Cc of the
-     * same message routinely repeat an address, and each duplicate would otherwise
-     * count as a separate sighting and inflate the ranking.
+     * sighting of an address winning. Deduplication matters because To and Cc of
+     * the same message routinely repeat an address, and each duplicate would
+     * otherwise count as a separate sighting and inflate the ranking.
      */
     private static List<HarvestedAddress> parseAll(@Nullable String... rawFields) {
         Map<String, HarvestedAddress> byEmail = new LinkedHashMap<>();
@@ -202,7 +205,8 @@ public class CorrespondentService {
      * Tokenizing is {@link HeaderAddresses#parseValidTokens}, shared with
      * {@code MimeMessageBuilder} so the send path and the harvest path cannot drift
      * apart on what counts as an address. What is left here is the harvest's own
-     * part: normalizing the address and deciding what display name is worth keeping.
+     * part: normalizing the address and deciding what display name is worth
+     * keeping.
      */
     private static List<HarvestedAddress> parseField(@Nullable String raw) {
         if (raw == null || raw.isBlank()) {

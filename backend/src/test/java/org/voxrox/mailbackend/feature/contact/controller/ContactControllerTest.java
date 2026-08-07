@@ -615,10 +615,8 @@ class ContactControllerTest {
                 .andExpect(jsonPath("$[0].source").value("HISTORY"))
                 .andExpect(jsonPath("$[0].email").value("jan.dvorak@example.com"))
                 .andExpect(jsonPath("$[0].name").value("Jan Dvorak"))
-                .andExpect(jsonPath("$[0].contactId").doesNotExist())
-                .andExpect(jsonPath("$[0].emailId").doesNotExist())
-                .andExpect(jsonPath("$[0].primary").doesNotExist())
-                .andExpect(jsonPath("$[0].surname").doesNotExist());
+                .andExpect(jsonPath("$[0].contactId").doesNotExist()).andExpect(jsonPath("$[0].emailId").doesNotExist())
+                .andExpect(jsonPath("$[0].primary").doesNotExist()).andExpect(jsonPath("$[0].surname").doesNotExist());
     }
 
     @Test

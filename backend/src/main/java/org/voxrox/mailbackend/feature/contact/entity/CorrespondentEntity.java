@@ -31,10 +31,10 @@ import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
  *
  * <p>
  * Writes do not go through this entity — {@code CorrespondentRepository.upsert}
- * issues a single native {@code ON CONFLICT DO UPDATE}, because the harvest runs
- * once per address of every newly synced message and a read-modify-write per
- * address would double the statement count on the sync path. The mapping exists
- * for the read side and for tests.
+ * issues a single native {@code ON CONFLICT DO UPDATE}, because the harvest
+ * runs once per address of every newly synced message and a read-modify-write
+ * per address would double the statement count on the sync path. The mapping
+ * exists for the read side and for tests.
  */
 @Entity
 @Table(name = "correspondent", uniqueConstraints = {

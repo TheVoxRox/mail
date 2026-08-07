@@ -129,8 +129,7 @@ class CorrespondentServiceTest {
         @Test
         @DisplayName("drafts count as sent — they are addressed by the user too")
         void draftsCountAsSent() {
-            service.harvest(account(),
-                    new HarvestInput(FolderRole.DRAFTS, SEEN_AT, null, "a@example.com", null, null));
+            service.harvest(account(), new HarvestInput(FolderRole.DRAFTS, SEEN_AT, null, "a@example.com", null, null));
 
             verify(correspondentRepository).upsert(ACCOUNT_ID, "a@example.com", null, 1, 0, SEEN_AT);
         }
@@ -192,7 +191,8 @@ class CorrespondentServiceTest {
             // folder per role over six roles, and these are not among them. The
             // assertion pins the intent rather than a reachable path, so that
             // widening the sync does not silently need a matching edit here.
-            service.harvest(account(), new HarvestInput(FolderRole.ARCHIVE, SEEN_AT, "a@example.com", null, null, null));
+            service.harvest(account(),
+                    new HarvestInput(FolderRole.ARCHIVE, SEEN_AT, "a@example.com", null, null, null));
             service.harvest(account(), new HarvestInput(FolderRole.USER, SEEN_AT, "b@example.com", null, null, null));
 
             assertThat(harvestedEmails()).containsExactly("a@example.com", "b@example.com");

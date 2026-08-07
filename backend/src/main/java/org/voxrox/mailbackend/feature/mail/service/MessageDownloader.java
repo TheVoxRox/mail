@@ -38,8 +38,7 @@ public class MessageDownloader {
 
     public MessageDownloader(MessageRepository messageRepository, MessageFetcher messageFetcher,
             SyncStateService syncStateService, TransactionTemplate transactionTemplate, MailClientProperties mailProps,
-            MessageMapper messageMapper, ThreadingService threadingService,
-            CorrespondentService correspondentService) {
+            MessageMapper messageMapper, ThreadingService threadingService, CorrespondentService correspondentService) {
         this.messageRepository = messageRepository;
         this.messageFetcher = messageFetcher;
         this.syncStateService = syncStateService;
@@ -283,15 +282,14 @@ public class MessageDownloader {
                  * message's addresses twice and inflate the ranking.
                  *
                  * Direction is read off the folder role rather than compared against the
-                 * account address: a Sent copy is what proves the user wrote TO someone,
-                 * and that is the signal the typeahead ranks on.
+                 * account address: a Sent copy is what proves the user wrote TO someone, and
+                 * that is the signal the typeahead ranks on.
                  *
-                 * Inside the batch transaction on purpose. The table is a droppable cache,
-                 * so the tempting move is to isolate it — but then a rolled-back batch would
-                 * leave counts for messages that were never persisted, and there would be
-                 * nothing to reconcile them against. Rolling back together keeps the cache a
-                 * function of what is actually stored, which is what lets the backfill
-                 * rebuild it.
+                 * Inside the batch transaction on purpose. The table is a droppable cache, so
+                 * the tempting move is to isolate it — but then a rolled-back batch would leave
+                 * counts for messages that were never persisted, and there would be nothing to
+                 * reconcile them against. Rolling back together keeps the cache a function of
+                 * what is actually stored, which is what lets the backfill rebuild it.
                  */
                 for (MessageEntity entity : saved) {
                     correspondentService.harvestFromMessage(entity, ctx.account(), ctx.syncState().getRole());

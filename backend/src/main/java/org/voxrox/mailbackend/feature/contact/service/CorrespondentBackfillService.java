@@ -50,8 +50,8 @@ import org.voxrox.mailbackend.util.LogMasker;
  * a ceiling the id cursor would walk into those same rows and count them twice.
  *
  * <p>
- * <b>Re-entry is guarded differently from the threading passes.</b> Those repair
- * a column on the message row, so the row itself records whether it was
+ * <b>Re-entry is guarded differently from the threading passes.</b> Those
+ * repair a column on the message row, so the row itself records whether it was
  * processed and the WHERE clause is the guard. Harvesting writes to another
  * table and leaves no mark on the message, so re-running would add a second
  * sighting for every message and double every counter. The guard is therefore
@@ -240,9 +240,9 @@ public class CorrespondentBackfillService {
 
     /**
      * Folder name to role for one account, read once. Messages carry
-     * {@code folder_name} but not the role, and the harvest needs the role for every
-     * single row to decide direction — a per-message lookup would be one query per
-     * message.
+     * {@code folder_name} but not the role, and the harvest needs the role for
+     * every single row to decide direction — a per-message lookup would be one
+     * query per message.
      */
     private Map<String, FolderRole> rolesByFolder(AccountEntity account) {
         Map<String, FolderRole> roles = new HashMap<>();
@@ -253,8 +253,8 @@ public class CorrespondentBackfillService {
     }
 
     /**
-     * Role of the folder a message sits in. Falls back to name-based detection for a
-     * folder with no sync state — a message can outlive the row (SyncStateService
+     * Role of the folder a message sits in. Falls back to name-based detection for
+     * a folder with no sync state — a message can outlive the row (SyncStateService
      * deletes state for folders that vanish from the server) and the fallback is
      * what decides whether the message counts as sent or received. Getting that
      * wrong on a Sent folder would silently reclassify the user's strongest signal

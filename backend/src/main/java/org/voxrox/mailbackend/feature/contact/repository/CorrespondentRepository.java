@@ -27,19 +27,19 @@ public interface CorrespondentRepository extends JpaRepository<CorrespondentEnti
      * Three details in the UPDATE clause:
      * <ul>
      * <li>{@code display_name} falls back to the stored value when the incoming one
-     * is NULL, so a header that carried a bare address does not erase a name learned
-     * earlier.</li>
+     * is NULL, so a header that carried a bare address does not erase a name
+     * learned earlier.</li>
      * <li>the counters add rather than assign, because each call reports one
      * sighting.</li>
-     * <li>{@code last_seen_at} takes the later of the two. The backfill walks by id,
-     * not by date, so "the row written last" is not "the most recent message" —
+     * <li>{@code last_seen_at} takes the later of the two. The backfill walks by
+     * id, not by date, so "the row written last" is not "the most recent message" —
      * without the MAX a rebuild would leave every correspondent stamped with
      * whatever message happened to be last in id order.</li>
      * </ul>
      *
      * @param sentDelta
-     *            1 when the sighting came from the user's own Sent/Drafts copy, else
-     *            0
+     *            1 when the sighting came from the user's own Sent/Drafts copy,
+     *            else 0
      * @param receivedDelta
      *            1 when it came from incoming mail, else 0
      */
@@ -102,8 +102,8 @@ public interface CorrespondentRepository extends JpaRepository<CorrespondentEnti
                 c.email
             LIMIT :limit
             """, nativeQuery = true)
-    List<CorrespondentEntity> search(@Param("accountId") Long accountId,
-            @Param("prefixPattern") String prefixPattern, @Param("containsPattern") String containsPattern,
+    List<CorrespondentEntity> search(@Param("accountId") Long accountId, @Param("prefixPattern") String prefixPattern,
+            @Param("containsPattern") String containsPattern,
             @Param("robotLocalParts") Collection<String> robotLocalParts, @Param("limit") int limit);
 
     Optional<CorrespondentEntity> findByAccountIdAndEmail(Long accountId, String email);

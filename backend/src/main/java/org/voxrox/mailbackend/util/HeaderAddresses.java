@@ -29,13 +29,13 @@ public final class HeaderAddresses {
      * splitting on {@code ,} gets wrong. {@link InternetAddress#parse} cannot be
      * used either — it rejects the whole field over one incomplete token, and its
      * lenient overload ({@code parse(s, false)}) rejects it just the same. Only
-     * {@link InternetAddress#parseHeader} tokenizes without validating, which is why
-     * the per-token {@link InternetAddress#validate()} does the deciding.
+     * {@link InternetAddress#parseHeader} tokenizes without validating, which is
+     * why the per-token {@link InternetAddress#validate()} does the deciding.
      *
      * <p>
      * A field that will not even tokenize yields no addresses rather than an
-     * exception. Both callers need that: a draft save must not fail on what the user
-     * has typed so far, and a sync must not fail on a malformed header.
+     * exception. Both callers need that: a draft save must not fail on what the
+     * user has typed so far, and a sync must not fail on a malformed header.
      */
     public static InternetAddress[] parseValidTokens(String raw) {
         InternetAddress[] tokens;

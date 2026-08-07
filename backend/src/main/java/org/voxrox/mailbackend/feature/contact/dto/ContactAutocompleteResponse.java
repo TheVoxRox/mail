@@ -1,10 +1,10 @@
 package org.voxrox.mailbackend.feature.contact.dto;
 
-import io.swagger.v3.oas.annotations.media.Schema;
-
 import org.jspecify.annotations.Nullable;
 import org.voxrox.mailbackend.feature.contact.AutocompleteSource;
 import org.voxrox.mailbackend.feature.contact.EmailLabel;
+
+import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
  * One compose-window suggestion.
