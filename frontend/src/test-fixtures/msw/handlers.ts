@@ -566,7 +566,11 @@ function contactRoutes(
 
 	if (segments[0] === 'autocomplete' && method === 'GET') {
 		const q = (url.searchParams.get('q') ?? '').toLowerCase();
-		const limit = Number(url.searchParams.get('limit') ?? 10);
+		// Falls back rather than trusting Number(): a non-numeric limit would give
+		// NaN, and slice(0, NaN) returns nothing — turning a request the real
+		// backend rejects with a 400 into a plausible-looking empty result.
+		const requestedLimit = Number(url.searchParams.get('limit') ?? 10);
+		const limit = Number.isFinite(requestedLimit) && requestedLimit > 0 ? requestedLimit : 10;
 		const contactRows = contacts.flatMap((contact) =>
 			contact.emails
 				.filter((email) => email.email.toLowerCase().includes(q))

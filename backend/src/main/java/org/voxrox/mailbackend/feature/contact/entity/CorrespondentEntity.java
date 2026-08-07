@@ -77,7 +77,24 @@ public class CorrespondentEntity {
     @Column(name = "last_seen_at", nullable = false)
     private LocalDateTime lastSeenAt;
 
+    /** For Hibernate. */
     public CorrespondentEntity() {
+    }
+
+    /**
+     * Materializes a row without going through the database — for tests, and for
+     * anything that needs to stand in for a harvested address. Not a write path:
+     * persisting one of these with {@code save()} would bypass the accumulate
+     * semantics of {@code CorrespondentRepository.upsert}.
+     */
+    public CorrespondentEntity(AccountEntity account, String email, @Nullable String displayName, int sentCount,
+            int receivedCount, LocalDateTime lastSeenAt) {
+        this.account = account;
+        this.email = email;
+        this.displayName = displayName;
+        this.sentCount = sentCount;
+        this.receivedCount = receivedCount;
+        this.lastSeenAt = lastSeenAt;
     }
 
     @Override
@@ -94,59 +111,39 @@ public class CorrespondentEntity {
         return getClass().hashCode();
     }
 
+    /**
+     * Read-only accessors on purpose: there are deliberately no setters.
+     *
+     * <p>
+     * Every write goes through {@code CorrespondentRepository.upsert}, whose
+     * semantics are "record one more sighting" — the counters accumulate and
+     * {@code last_seen_at} takes the later date. A setter would offer a
+     * {@code save()} path that silently <em>replaces</em> those values instead,
+     * which is the opposite of what every caller wants. Hibernate reads and writes
+     * the fields directly (field access, per the annotations above), so it needs
+     * none of them either.
+     */
     public Long getId() {
         return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public AccountEntity getAccount() {
-        return account;
-    }
-
-    public void setAccount(AccountEntity account) {
-        this.account = account;
     }
 
     public String getEmail() {
         return email;
     }
 
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
     public @Nullable String getDisplayName() {
         return displayName;
-    }
-
-    public void setDisplayName(@Nullable String displayName) {
-        this.displayName = displayName;
     }
 
     public int getSentCount() {
         return sentCount;
     }
 
-    public void setSentCount(int sentCount) {
-        this.sentCount = sentCount;
-    }
-
     public int getReceivedCount() {
         return receivedCount;
     }
 
-    public void setReceivedCount(int receivedCount) {
-        this.receivedCount = receivedCount;
-    }
-
     public LocalDateTime getLastSeenAt() {
         return lastSeenAt;
-    }
-
-    public void setLastSeenAt(LocalDateTime lastSeenAt) {
-        this.lastSeenAt = lastSeenAt;
     }
 }

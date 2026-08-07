@@ -11,6 +11,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -858,10 +859,7 @@ class ContactServiceTest {
     // --- autocomplete: merging the address book with harvested history ---
 
     private CorrespondentEntity correspondent(String email, String displayName) {
-        CorrespondentEntity c = new CorrespondentEntity();
-        c.setEmail(email);
-        c.setDisplayName(displayName);
-        return c;
+        return new CorrespondentEntity(account(), email, displayName, 0, 1, LocalDateTime.now());
     }
 
     @Test

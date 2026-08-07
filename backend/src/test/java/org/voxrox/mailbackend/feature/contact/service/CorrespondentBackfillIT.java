@@ -12,7 +12,10 @@ import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.AdditionalAnswers;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.test.context.ActiveProfiles;
@@ -203,5 +206,49 @@ class CorrespondentBackfillIT {
     void emptyMailboxIsHarmless() {
         assertThat(backfillService.backfillAccount(account)).isZero();
         assertThat(correspondentRepository.countByAccountId(account.getId())).isZero();
+    }
+
+    @Test
+    @DisplayName("rebuild harvests even when the cache looks non-empty — the startup guard must not apply to it")
+    void rebuildIgnoresTheStartupGuard() {
+        seedMailbox();
+
+        // Reproduces the race the guard creates for a rebuild: the DELETE commits,
+        // and before the harvest starts a concurrent sync pass persists a message
+        // and harvests its sender, so the cache is no longer empty. A rebuild that
+        // re-entered backfillAccount would read that as "already done", return 0,
+        // and leave the caller with a cache that was wiped and never refilled.
+        // A delegating mock, not spy(): the injected repository is a Spring Data
+        // JDK proxy, which Mockito cannot unwrap to spy on.
+        CorrespondentRepository guardAlwaysClosed = Mockito.mock(CorrespondentRepository.class,
+                AdditionalAnswers.delegatesTo(correspondentRepository));
+        Mockito.doReturn(1L).when(guardAlwaysClosed).countByAccountId(account.getId());
+        CorrespondentBackfillService service = new CorrespondentBackfillService(accountRepository, messageRepository,
+                folderSyncStateRepository, guardAlwaysClosed, new CorrespondentService(guardAlwaysClosed),
+                new TransactionTemplate(transactionManager));
+
+        assertThat(service.rebuildAccount(account)).isEqualTo(3);
+        assertThat(reload("jana@example.com").getReceivedCount()).isEqualTo(1);
+
+        // And the guard still stops a second startup pass on the same service.
+        assertThat(service.backfillAccount(account)).isZero();
+    }
+
+    @Test
+    @DisplayName("the sweep is bounded by the highest message id it saw at the start")
+    void ceilingIsPinnedBeforeTheSweep() {
+        seedMailbox();
+        Long ceiling = messageRepository.findMaxMessageIdByAccount(account.getId());
+        assertThat(ceiling).isNotNull();
+
+        // Messages arriving after the ceiling was taken are the sync's to harvest —
+        // it does so inline in saveMessagesBatchAtomic — so the backfill must not
+        // walk into them and count them a second time.
+        insertMessage("INBOX", "later@example.com", "owner@example.com");
+        em.flush();
+        em.clear();
+
+        assertThat(messageRepository.findMessagesForCorrespondentBackfill(account.getId(), 0L, ceiling,
+                PageRequest.of(0, 200))).hasSize(3).noneMatch(row -> "later@example.com".equals(row.sender()));
     }
 }

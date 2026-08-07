@@ -8,17 +8,18 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-import jakarta.mail.internet.AddressException;
 import jakarta.mail.internet.InternetAddress;
 
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.contact.entity.CorrespondentEntity;
 import org.voxrox.mailbackend.feature.contact.repository.CorrespondentRepository;
 import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
+import org.voxrox.mailbackend.util.HeaderAddresses;
 
 /**
  * Harvests the addresses the account exchanges mail with, and serves them to the
@@ -98,11 +99,18 @@ public class CorrespondentService {
      * Sent copies have no such problem, so there To, Cc and Bcc all count.
      *
      * <p>
-     * Runs inside the caller's transaction (the sync batch, or one backfill batch).
+     * Runs inside the caller's transaction (the sync batch, or one backfill batch),
+     * and {@code MANDATORY} states that rather than implying the opposite: this
+     * method reaches {@link #harvest} through {@code this}, which never passes the
+     * Spring proxy, so a plain {@code @Transactional} on the inner call would be
+     * inert on this path. Declaring it mandatory makes a caller without a
+     * transaction fail at the boundary instead of deep inside the native upsert.
+     *
+     * <p>
      * Failures are the caller's to handle: this is a cache, and a sync must not fail
      * because a header would not parse — which is why parsing itself never throws.
      */
-    @Transactional
+    @Transactional(propagation = Propagation.MANDATORY)
     public void harvestFromMessage(MessageEntity message, AccountEntity account, FolderRole role) {
         harvest(account, new HarvestInput(role, message.getReceivedAt(), message.getSender(),
                 message.getRecipientsTo(), message.getRecipientsCc(), message.getRecipientsBcc()));
@@ -117,7 +125,7 @@ public class CorrespondentService {
             @Nullable String recipientsTo, @Nullable String recipientsCc, @Nullable String recipientsBcc) {
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.MANDATORY)
     public void harvest(AccountEntity account, HarvestInput input) {
         if (SKIPPED_ROLES.contains(input.role())) {
             return;
@@ -191,32 +199,18 @@ public class CorrespondentService {
      * Extracts the complete addresses from one raw header field.
      *
      * <p>
-     * Header fields are raw text, not a comma-separated list of addresses: a display
-     * name may itself contain a comma ({@code "Novak, Jan" <j@x.cz>}), which is
-     * exactly what a naive split gets wrong. {@link InternetAddress#parseHeader}
-     * tokenizes without validating and the per-token {@link InternetAddress#validate()}
-     * decides — the same shape {@code MimeMessageBuilder.parseValidTokens} uses,
-     * and for the same reason: one malformed token must not discard the rest of the
-     * field. A field that will not tokenize at all yields nothing; this is a cache
-     * and a sync must not fail over a bad header.
+     * Tokenizing is {@link HeaderAddresses#parseValidTokens}, shared with
+     * {@code MimeMessageBuilder} so the send path and the harvest path cannot drift
+     * apart on what counts as an address. What is left here is the harvest's own
+     * part: normalizing the address and deciding what display name is worth keeping.
      */
     private static List<HarvestedAddress> parseField(@Nullable String raw) {
         if (raw == null || raw.isBlank()) {
             return List.of();
         }
-        InternetAddress[] tokens;
-        try {
-            tokens = InternetAddress.parseHeader(raw, false);
-        } catch (AddressException e) {
-            return List.of();
-        }
+        InternetAddress[] tokens = HeaderAddresses.parseValidTokens(raw);
         List<HarvestedAddress> parsed = new ArrayList<>(tokens.length);
         for (InternetAddress token : tokens) {
-            try {
-                token.validate();
-            } catch (AddressException e) {
-                continue;
-            }
             String address = token.getAddress();
             if (address == null || address.isBlank()) {
                 continue;

@@ -445,9 +445,25 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
      */
     @Query("SELECT new org.voxrox.mailbackend.feature.mail.repository.CorrespondentBackfillRow("
             + "m.id, m.folderName, m.sender, m.recipientsTo, m.recipientsCc, m.recipientsBcc, m.receivedAt) "
-            + "FROM MessageEntity m WHERE m.account.id = :accId AND m.id > :afterId ORDER BY m.id ASC")
+            + "FROM MessageEntity m WHERE m.account.id = :accId AND m.id > :afterId AND m.id <= :maxId "
+            + "ORDER BY m.id ASC")
     List<CorrespondentBackfillRow> findMessagesForCorrespondentBackfill(@Param("accId") Long accountId,
-            @Param("afterId") Long afterId, Pageable pageable);
+            @Param("afterId") Long afterId, @Param("maxId") Long maxId, Pageable pageable);
+
+    /**
+     * Highest message id of the account, or {@code null} on an empty mailbox.
+     *
+     * <p>
+     * The correspondent backfill pins this before it starts and never walks past
+     * it. Without the ceiling the pass would sweep straight into messages the sync
+     * persisted <em>while it was running</em> — and
+     * {@code MessageDownloader.saveMessagesBatchAtomic} has already harvested those
+     * inline, so each one would be counted a second time and skew the ranking the
+     * counters exist to produce.
+     */
+    @Query("SELECT MAX(m.id) FROM MessageEntity m WHERE m.account.id = :accId")
+    @Nullable
+    Long findMaxMessageIdByAccount(@Param("accId") Long accountId);
 
     /**
      * Cross-folder conversation sizes for the threads on one page of the

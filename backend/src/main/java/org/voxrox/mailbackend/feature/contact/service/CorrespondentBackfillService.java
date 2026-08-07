@@ -43,6 +43,13 @@ import org.voxrox.mailbackend.util.LogMasker;
  * batch.
  *
  * <p>
+ * One thing it adds to that shape: the sweep is bounded above by the highest
+ * message id when it starts. The sync scheduler fires 10s after startup while
+ * this pass can run for minutes on a populated mailbox, and
+ * {@code MessageDownloader} harvests everything it persists inline — so without
+ * a ceiling the id cursor would walk into those same rows and count them twice.
+ *
+ * <p>
  * <b>Re-entry is guarded differently from the threading passes.</b> Those repair
  * a column on the message row, so the row itself records whether it was
  * processed and the WHERE clause is the guard. Harvesting writes to another
@@ -139,23 +146,24 @@ public class CorrespondentBackfillService {
      * robot list or ranking to already harvested rows.
      *
      * <p>
-     * Deleting first is what re-arms the guard in {@link #backfillAccount}, so the
-     * rebuild is the same code path as the first run rather than a second
-     * implementation of it. A sync running concurrently may harvest a message that
-     * this pass then visits again, counting it twice; the counters are a ranking
-     * signal rather than an accounting record, so that is a worse ranking at worst,
-     * and running it again fixes it.
+     * It deliberately does <em>not</em> go through {@link #backfillAccount}: that
+     * method's guard is the startup contract, and re-entering it here would make
+     * the rebuild lose a race it must not lose. The DELETE commits, and a sync pass
+     * landing in the window before the guard runs would put a row back, close the
+     * guard and return 0 — leaving the caller with a cache that was wiped and never
+     * refilled, which is worse than the partial cache they asked to repair. Both
+     * paths share {@link #harvestAccount}; only the guard differs.
      *
      * @return the number of messages harvested
      */
     public int rebuildAccount(AccountEntity account) {
-        int dropped = transactionTemplate
-                .execute(status -> correspondentRepository.deleteAllForAccount(account.getId()));
+        int dropped = Objects.requireNonNull(
+                transactionTemplate.execute(status -> correspondentRepository.deleteAllForAccount(account.getId())));
         log.info("{} Correspondent rebuild: dropped {} cached address(es) for account {}.", LogCategory.SYNC, dropped,
                 account.getId());
         AuditLog.success("correspondent_rebuild", LogMasker.maskEmail(account.getEmail()),
                 "id=" + account.getId() + " dropped=" + dropped);
-        return backfillAccount(account);
+        return harvestAccount(account);
     }
 
     /**
@@ -166,6 +174,26 @@ public class CorrespondentBackfillService {
      */
     public int backfillAccount(AccountEntity account) {
         if (correspondentRepository.countByAccountId(account.getId()) > 0) {
+            return 0;
+        }
+        return harvestAccount(account);
+    }
+
+    /**
+     * Walks the account's messages and harvests each one. Unguarded — the caller
+     * decides whether running is appropriate.
+     *
+     * <p>
+     * The sweep is bounded above by the highest message id at the moment it starts.
+     * Without that ceiling the id cursor would walk straight into messages the sync
+     * persists <em>while this runs</em> — on a first launch the pass takes minutes
+     * and the scheduler fires 10s in — and
+     * {@code MessageDownloader.saveMessagesBatchAtomic} has already harvested those
+     * inline, so every one of them would land in the counters twice.
+     */
+    private int harvestAccount(AccountEntity account) {
+        Long maxId = messageRepository.findMaxMessageIdByAccount(account.getId());
+        if (maxId == null) {
             return 0;
         }
         Map<String, FolderRole> rolesByFolder = rolesByFolder(account);
@@ -180,7 +208,7 @@ public class CorrespondentBackfillService {
             final long cursor = afterId;
             List<Long> processed = Objects.requireNonNull(transactionTemplate.execute(status -> {
                 List<CorrespondentBackfillRow> batch = messageRepository.findMessagesForCorrespondentBackfill(
-                        account.getId(), cursor, PageRequest.of(0, BATCH_SIZE));
+                        account.getId(), cursor, maxId, PageRequest.of(0, BATCH_SIZE));
                 List<Long> ids = new ArrayList<>(batch.size());
                 for (CorrespondentBackfillRow row : batch) {
                     correspondentService.harvest(account,

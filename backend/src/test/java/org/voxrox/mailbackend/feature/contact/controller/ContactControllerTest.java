@@ -597,7 +597,28 @@ class ContactControllerTest {
                 .andExpect(jsonPath("$[0].contactId").value(1)).andExpect(jsonPath("$[0].emailId").value(11))
                 .andExpect(jsonPath("$[0].email").value("alice@x.cz")).andExpect(jsonPath("$[0].label").value("WORK"))
                 .andExpect(jsonPath("$[0].primary").value(true)).andExpect(jsonPath("$[0].name").value("Alice"))
-                .andExpect(jsonPath("$[0].surname").value("Liddell")).andExpect(jsonPath("$[1].primary").value(false));
+                .andExpect(jsonPath("$[0].surname").value("Liddell")).andExpect(jsonPath("$[1].primary").value(false))
+                .andExpect(jsonPath("$[0].source").value("CONTACT"));
+    }
+
+    @Test
+    @DisplayName("GET /autocomplete -> a history row serializes with source=HISTORY and null contact fields")
+    void autocompleteHistoryRowShape() throws Exception {
+        when(contactService.autocomplete(eq(ACCOUNT_ID), eq("jan"), eq(10)))
+                .thenReturn(List.of(ContactAutocompleteResponse.ofHistory("jan.dvorak@example.com", "Jan Dvorak")));
+
+        // The client marks these rows as "not in contacts", and it decides from
+        // `source` alone — so the field reaching the wire is the contract, not an
+        // implementation detail of the service.
+        mockMvc.perform(get("/api/v1/accounts/{aid}/contacts/autocomplete", ACCOUNT_ID).param("q", "jan"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].source").value("HISTORY"))
+                .andExpect(jsonPath("$[0].email").value("jan.dvorak@example.com"))
+                .andExpect(jsonPath("$[0].name").value("Jan Dvorak"))
+                .andExpect(jsonPath("$[0].contactId").doesNotExist())
+                .andExpect(jsonPath("$[0].emailId").doesNotExist())
+                .andExpect(jsonPath("$[0].primary").doesNotExist())
+                .andExpect(jsonPath("$[0].surname").doesNotExist());
     }
 
     @Test

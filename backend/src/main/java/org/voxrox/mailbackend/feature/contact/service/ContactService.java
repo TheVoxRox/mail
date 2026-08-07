@@ -175,7 +175,12 @@ public class ContactService {
         accountService.getAccountOrThrow(accountId);
 
         int cappedLimit = Math.min(Math.max(limit, 1), AUTOCOMPLETE_MAX_LIMIT);
-        String qLower = q.toLowerCase(Locale.ROOT);
+        // Trimmed as well as folded: CorrespondentService.search trims internally,
+        // so without it a query with leading whitespace searches the two sources
+        // for different strings — and the rank functions, comparing against the
+        // untrimmed form, would then score a genuine prefix hit from history as a
+        // substring match and sort it below every weak contact match.
+        String qLower = q.trim().toLowerCase(Locale.ROOT);
 
         List<AutocompleteRow> rows = new ArrayList<>(contactRows(accountId, qLower, cappedLimit));
         Set<String> offered = rows.stream().map(r -> r.response().email().toLowerCase(Locale.ROOT))
@@ -191,15 +196,19 @@ public class ContactService {
         List<ContactEntity> matched = contactRepository
                 .searchByAccountId(accountId, "%" + qLower + "%", (Long) null, pageable).getContent();
 
-        List<ContactAutocompleteResponse> ranked = matched.stream()
+        List<AutocompleteRow> ranked = matched.stream()
                 .flatMap(c -> c.getEmails().stream().map(e -> toContactRow(c, e, qLower))).sorted(CONTACT_ORDER)
-                .limit(cappedLimit).map(AutocompleteRow::response).toList();
+                .limit(cappedLimit).toList();
 
-        // Re-wrap with the position each row landed on, so the merge can preserve
-        // this alphabetical order without re-deriving it from the response fields.
+        // Stamp each row with the position it landed on, so the merge preserves this
+        // alphabetical order. The rank travels with the row rather than being
+        // recomputed: deriving the sort key and the merge key separately would let a
+        // change to one ranking rule produce a list sorted by one definition and
+        // merged by another.
         List<AutocompleteRow> rows = new ArrayList<>(ranked.size());
         for (int i = 0; i < ranked.size(); i++) {
-            rows.add(new AutocompleteRow(rankOfContact(ranked.get(i), qLower), CONTACT_FIRST, i, ranked.get(i)));
+            AutocompleteRow row = ranked.get(i);
+            rows.add(new AutocompleteRow(row.rank(), CONTACT_FIRST, i, row.response()));
         }
         return rows;
     }
