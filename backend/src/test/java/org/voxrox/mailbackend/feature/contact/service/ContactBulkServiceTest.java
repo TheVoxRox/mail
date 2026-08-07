@@ -98,9 +98,9 @@ class ContactBulkServiceTest {
     void bulkCreateAllSuccess() {
         when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
 
-        ContactCreateRequest r1 = new ContactCreateRequest(List.of(emailReq("a@x.cz")), "A", null, null);
-        ContactCreateRequest r2 = new ContactCreateRequest(List.of(emailReq("b@x.cz")), "B", null, null);
-        ContactCreateRequest r3 = new ContactCreateRequest(List.of(emailReq("c@x.cz")), "C", null, null);
+        ContactCreateRequest r1 = new ContactCreateRequest(List.of(emailReq("a@x.cz")), null, "A", null, null);
+        ContactCreateRequest r2 = new ContactCreateRequest(List.of(emailReq("b@x.cz")), null, "B", null, null);
+        ContactCreateRequest r3 = new ContactCreateRequest(List.of(emailReq("c@x.cz")), null, "C", null, null);
 
         ContactResponse c1 = contactMapper.toResponse(contact(1L, "a@x.cz"));
         ContactResponse c2 = contactMapper.toResponse(contact(2L, "b@x.cz"));
@@ -126,9 +126,9 @@ class ContactBulkServiceTest {
     void bulkCreatePartialFailure() {
         when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
 
-        ContactCreateRequest r1 = new ContactCreateRequest(List.of(emailReq("a@x.cz")), "A", null, null);
-        ContactCreateRequest r2 = new ContactCreateRequest(List.of(emailReq("dup@x.cz")), "B", null, null);
-        ContactCreateRequest r3 = new ContactCreateRequest(List.of(emailReq("c@x.cz")), "C", null, null);
+        ContactCreateRequest r1 = new ContactCreateRequest(List.of(emailReq("a@x.cz")), null, "A", null, null);
+        ContactCreateRequest r2 = new ContactCreateRequest(List.of(emailReq("dup@x.cz")), null, "B", null, null);
+        ContactCreateRequest r3 = new ContactCreateRequest(List.of(emailReq("c@x.cz")), null, "C", null, null);
 
         ContactResponse c1 = contactMapper.toResponse(contact(1L, "a@x.cz"));
         ContactResponse c3 = contactMapper.toResponse(contact(3L, "c@x.cz"));
@@ -160,8 +160,8 @@ class ContactBulkServiceTest {
     void bulkCreateValidationFailure() {
         when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
 
-        ContactCreateRequest r1 = new ContactCreateRequest(List.of(emailReq("a@x.cz"), emailReq("a@x.cz")), "A", null,
-                null);
+        ContactCreateRequest r1 = new ContactCreateRequest(List.of(emailReq("a@x.cz"), emailReq("a@x.cz")), null, "A",
+                null, null);
 
         when(contactService.createContact(ACCOUNT_ID, r1))
                 .thenThrow(new ValidationException("Email a@x.cz is listed multiple times."));
@@ -180,7 +180,7 @@ class ContactBulkServiceTest {
 
         assertThatThrownBy(() -> bulkService.bulkCreate(999L,
                 new BulkContactCreateRequest(
-                        List.of(new ContactCreateRequest(List.of(emailReq("a@x.cz")), "A", null, null)))))
+                        List.of(new ContactCreateRequest(List.of(emailReq("a@x.cz")), null, "A", null, null)))))
                 .isInstanceOf(AccountNotFoundException.class);
 
         verify(contactService, never()).createContact(anyLong(), any());

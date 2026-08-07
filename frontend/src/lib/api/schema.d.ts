@@ -108,6 +108,74 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
+	'/api/v1/accounts/{accountId}/contact-labels': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * List contact labels
+		 * @description Returns all labels of the account ordered by name (case-insensitive). Contact counts are not included here — use `GET /contacts/counts` for the sidebar badges.
+		 */
+		get: operations['listLabels'];
+		put?: never;
+		/**
+		 * Create a contact label
+		 * @description Creates a label. The name is trimmed and must be unique within the account, compared case-insensitively (so "Rodina" and "rodina" collide). Maximum 200 labels per account.
+		 */
+		post: operations['createLabel'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/accounts/{accountId}/contact-labels/assignments': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Bulk assign labels to contacts
+		 * @description Adds and/or removes labels across up to 100 contacts in one transaction. Idempotent: a label a contact already carries is left alone and does not count toward `changed`. At least one of addLabelIds / removeLabelIds must be non-empty.
+		 */
+		post: operations['assignLabels'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/accounts/{accountId}/contact-labels/{labelId}': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		post?: never;
+		/**
+		 * Delete a contact label
+		 * @description Removes the label and unassigns it from every contact. The contacts themselves are kept.
+		 */
+		delete: operations['deleteLabel'];
+		options?: never;
+		head?: never;
+		/**
+		 * Rename a contact label
+		 * @description Changes the label name. Assignments to contacts are unaffected.
+		 */
+		patch: operations['renameLabel'];
+		trace?: never;
+	};
 	'/api/v1/accounts/{accountId}/contacts': {
 		parameters: {
 			query?: never;
@@ -117,7 +185,7 @@ export interface paths {
 		};
 		/**
 		 * List / search contacts
-		 * @description Returns a paginated list of contacts. With the q parameter performs a case-insensitive substring search across email, name and surname. Optional `sort` (`name`/`surname`/`recent`) drives the order (default `surname`). Optional `label` (`WORK`/`HOME`/`OTHER`) filters to contacts with at least one e-mail bearing the given label.
+		 * @description Returns a paginated list of contacts. With the q parameter performs a case-insensitive substring search across email, name and surname. Optional `sort` (`name`/`surname`/`recent`) drives the order (default `surname`). Optional `labelId` filters to contacts carrying the given contact label; an unknown ID is a 404, not an empty page.
 		 */
 		get: operations['listContacts'];
 		put?: never;
@@ -185,7 +253,7 @@ export interface paths {
 		};
 		/**
 		 * Contact counts
-		 * @description Returns the total number of contacts of the account plus per-label counts (WORK/HOME/OTHER). A contact is counted for a label when at least one of its e-mail addresses bears it — consistent with the `label` filter of the list endpoint.
+		 * @description Returns the total number of contacts of the account plus one row per contact label. Each per-label count matches the size of the list filtered by the same `labelId`; labels nobody uses are included with contacts = 0.
 		 */
 		get: operations['getCounts'];
 		put?: never;
@@ -1029,19 +1097,19 @@ export interface components {
 			primary?: boolean;
 			surname?: string;
 		};
-		/** @description Contact counts for the sidebar: the account total plus per-label counts. A contact is counted for a label when at least one of its e-mail addresses bears it, so each figure matches the size of the list filtered by the same label. */
+		/** @description Contact counts for the sidebar: the account total plus one row per contact label. Labels with no contacts are included with contacts = 0. */
 		ContactCountsResponse: {
-			/** Format: int64 */
-			home?: number;
-			/** Format: int64 */
-			other?: number;
-			/** Format: int64 */
+			labels?: components['schemas']['ContactLabelCountResponse'][];
+			/**
+			 * Format: int64
+			 * @example 137
+			 */
 			total?: number;
-			/** Format: int64 */
-			work?: number;
 		};
 		ContactCreateRequest: {
 			emails: components['schemas']['ContactEmailRequest'][];
+			/** @description Contact labels to attach, by ID. Omit or send an empty list for no labels; every ID must belong to the same account. */
+			labelIds?: number[];
 			name?: string;
 			note?: string;
 			surname?: string;
@@ -1069,11 +1137,69 @@ export interface components {
 			/** @description Exactly one e-mail of a contact is primary (is_primary=1). Used for display and audit log. */
 			primary?: boolean;
 		};
+		ContactLabelAssignmentRequest: {
+			/** @description Labels to add. Omit or send an empty list to only remove. */
+			addLabelIds?: number[];
+			contactIds: number[];
+			/** @description Labels to remove. Omit or send an empty list to only add. */
+			removeLabelIds?: number[];
+		};
+		/** @description Bulk label assignment result. */
+		ContactLabelAssignmentResponse: {
+			/**
+			 * Format: int32
+			 * @description Contacts whose label set changed.
+			 * @example 9
+			 */
+			changed?: number;
+			/**
+			 * Format: int32
+			 * @description Contacts addressed by the request.
+			 * @example 12
+			 */
+			total?: number;
+		};
+		/** @description Contact label with the number of contacts carrying it. */
+		ContactLabelCountResponse: {
+			/**
+			 * Format: int64
+			 * @description Number of contacts with this label; matches the size of the list filtered by it.
+			 * @example 8
+			 */
+			contacts?: number;
+			/**
+			 * Format: int64
+			 * @example 12
+			 */
+			id?: number;
+			/** @example Rodina */
+			name?: string;
+		};
+		ContactLabelCreateRequest: {
+			/** @example Rodina */
+			name: string;
+		};
+		/** @description User-defined contact label. */
+		ContactLabelResponse: {
+			/**
+			 * Format: int64
+			 * @example 12
+			 */
+			id?: number;
+			/** @example Rodina */
+			name?: string;
+		};
+		ContactLabelUpdateRequest: {
+			/** @example Klienti */
+			name: string;
+		};
 		ContactMergeRequest: {
 			source: number[];
 		};
 		ContactPatchRequest: {
 			emails?: components['schemas']['ContactEmailRequest'][];
+			/** @description Contact labels after the patch, by ID. Replace semantics when present; omit to keep the current labels. */
+			labelIds?: number[];
 			name?: string;
 			note?: string;
 			surname?: string;
@@ -1084,6 +1210,7 @@ export interface components {
 			emails?: components['schemas']['ContactEmailResponse'][];
 			/** Format: int64 */
 			id?: number;
+			labels?: components['schemas']['ContactLabelResponse'][];
 			name?: string;
 			note?: string;
 			surname?: string;
@@ -1092,6 +1219,8 @@ export interface components {
 		};
 		ContactUpdateRequest: {
 			emails: components['schemas']['ContactEmailRequest'][];
+			/** @description Contact labels after the update, by ID. Replace semantics: omitting the field clears all labels. */
+			labelIds?: number[];
 			name?: string;
 			note?: string;
 			surname?: string;
@@ -1719,15 +1848,9 @@ export interface operations {
 			};
 		};
 	};
-	listContacts: {
+	listLabels: {
 		parameters: {
-			query?: {
-				q?: string;
-				page?: number;
-				size?: number;
-				sort?: string;
-				label?: 'WORK' | 'HOME' | 'OTHER' | 'WORK' | 'HOME' | 'OTHER';
-			};
+			query?: never;
 			header?: never;
 			path: {
 				accountId: number;
@@ -1742,7 +1865,7 @@ export interface operations {
 					[name: string]: unknown;
 				};
 				content: {
-					'*/*': components['schemas']['PagedResponseContactResponse'];
+					'*/*': components['schemas']['ContactLabelResponse'][];
 				};
 			};
 			/** @description Missing or invalid X-API-KEY. */
@@ -1752,6 +1875,311 @@ export interface operations {
 				};
 				content: {
 					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	createLabel: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				accountId: number;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['ContactLabelCreateRequest'];
+			};
+		};
+		responses: {
+			/** @description Created */
+			201: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ContactLabelResponse'];
+				};
+			};
+			/** @description Invalid input (validation error). */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description A label with this name already exists for the account (CONTACT_LABEL_DUPLICATE). */
+			409: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ContactLabelResponse'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	assignLabels: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				accountId: number;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['ContactLabelAssignmentRequest'];
+			};
+		};
+		responses: {
+			/** @description Invalid input (validation error). */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description One of the contacts or labels does not exist for the account (CONTACT_NOT_FOUND / CONTACT_LABEL_NOT_FOUND). */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ContactLabelAssignmentResponse'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	deleteLabel: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				accountId: number;
+				labelId: number;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description No Content */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description The label does not exist for the account (CONTACT_LABEL_NOT_FOUND). */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	renameLabel: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				accountId: number;
+				labelId: number;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['ContactLabelUpdateRequest'];
+			};
+		};
+		responses: {
+			/** @description Invalid input (validation error). */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description The label does not exist for the account (CONTACT_LABEL_NOT_FOUND). */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ContactLabelResponse'];
+				};
+			};
+			/** @description Another label of the account already uses this name (CONTACT_LABEL_DUPLICATE). */
+			409: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ContactLabelResponse'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	listContacts: {
+		parameters: {
+			query?: {
+				q?: string;
+				page?: number;
+				size?: number;
+				sort?: string;
+				labelId?: number;
+			};
+			header?: never;
+			path: {
+				accountId: number;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description The labelId does not exist for the account (CONTACT_LABEL_NOT_FOUND). */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['PagedResponseContactResponse'];
 				};
 			};
 			/** @description Internal server error. */

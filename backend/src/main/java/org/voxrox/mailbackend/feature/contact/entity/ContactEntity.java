@@ -2,7 +2,9 @@ package org.voxrox.mailbackend.feature.contact.entity;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import jakarta.persistence.*;
 
@@ -36,6 +38,20 @@ public class ContactEntity {
     @OrderBy("primary DESC, id ASC")
     @BatchSize(size = 50)
     private List<ContactEmailEntity> emails = new ArrayList<>();
+
+    /*
+     * Owning side of the M:N with ContactLabelEntity. No cascade: labels have their
+     * own lifecycle (ContactLabelService) and must outlive the contacts they are on
+     * — cascading a contact delete into the label would wipe it off every other
+     * contact too. Batch-loaded for the same reason as emails: the paginated
+     * listings must keep their SQL-level limit/offset, so this cannot be fetch
+     * joined. Ordered by nameKey so the response order matches the sidebar.
+     */
+    @ManyToMany
+    @JoinTable(name = "contact_label_links", joinColumns = @JoinColumn(name = "contact_id"), inverseJoinColumns = @JoinColumn(name = "label_id"))
+    @OrderBy("nameKey ASC")
+    @BatchSize(size = 50)
+    private Set<ContactLabelEntity> labels = new LinkedHashSet<>();
 
     @Column(name = "name", length = 255)
     private String name;
@@ -104,6 +120,14 @@ public class ContactEntity {
 
     public void setEmails(List<ContactEmailEntity> emails) {
         this.emails = emails;
+    }
+
+    public Set<ContactLabelEntity> getLabels() {
+        return labels;
+    }
+
+    public void setLabels(Set<ContactLabelEntity> labels) {
+        this.labels = labels;
     }
 
     public String getName() {

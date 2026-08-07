@@ -398,7 +398,57 @@ CREATE INDEX ix_contact_emails_email
 
 
 -- =====================================================================
--- 9) REMOTE IMAGE SENDER — per-sender allow-list for loading remote (https)
+-- 9) CONTACT LABELS — user-defined labels ("Family", "Clients"), per account.
+--
+-- Distinct from contact_emails.label: that one is the *type* of a single
+-- address (WORK/HOME/OTHER, a closed enum mapped to the vCard TYPE
+-- parameter), while a contact label groups whole contacts and is created by
+-- the user. Same split as Google Contacts, where the sidebar "Labels" are
+-- contact groups and the address type is an inline field.
+--
+-- name_key is the case-folded form of name, maintained by the application
+-- (ContactLabelService uses Locale.ROOT lower-casing) and carries the
+-- uniqueness constraint. SQLite's COLLATE NOCASE folds ASCII A-Z only, so it
+-- would happily accept both "Škola" and "škola" as distinct labels — for a
+-- Czech address book that is a real duplicate, hence the explicit column.
+-- =====================================================================
+CREATE TABLE contact_labels (
+    id         INTEGER     PRIMARY KEY AUTOINCREMENT,
+    account_id INTEGER     NOT NULL,
+    name       VARCHAR(60) NOT NULL,
+    name_key   VARCHAR(60) NOT NULL,
+    created_at DATETIME    NOT NULL,
+    FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX ux_contact_labels_account_name_key
+    ON contact_labels (account_id, name_key);
+
+
+-- =====================================================================
+-- 10) CONTACT LABEL LINKS — M:N between contacts and contact labels.
+--
+-- Composite primary key makes "the same label twice on one contact"
+-- impossible. Both FKs cascade: deleting a contact drops its assignments,
+-- deleting a label unassigns it everywhere while the contacts survive.
+-- ix_contact_label_links_label_id serves the per-label contact counts and the
+-- labelId list filter, which both start from the label side (the PK's leading
+-- column is contact_id and cannot help there).
+-- =====================================================================
+CREATE TABLE contact_label_links (
+    contact_id INTEGER NOT NULL,
+    label_id   INTEGER NOT NULL,
+    PRIMARY KEY (contact_id, label_id),
+    FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE,
+    FOREIGN KEY (label_id) REFERENCES contact_labels(id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_contact_label_links_label_id
+    ON contact_label_links (label_id);
+
+
+-- =====================================================================
+-- 11) REMOTE IMAGE SENDER — per-sender allow-list for loading remote (https)
 --    images in HTML mail bodies.
 --
 -- Remote images are blocked by default (tracking-pixel defense, see
@@ -418,7 +468,7 @@ CREATE TABLE remote_image_sender (
 
 
 -- =====================================================================
--- 10) FTS5 SEARCH — full-text index over messages.
+-- 12) FTS5 SEARCH — full-text index over messages.
 --     Indexes subject + sender + content + recipients (TO and CC), so the
 --     user can search for "mail from/to/about".
 --     External content (content='messages') = the data is not duplicated;

@@ -3,9 +3,9 @@ package org.voxrox.mailbackend.exception;
 import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpStatus;
 
-public abstract sealed class AppException extends RuntimeException
-        permits AccountAlreadyExistsException, AccountNotFoundException, ContactNotFoundException,
-        DuplicateContactException, MailAuthenticationException, MailConnectionException, MailOperationException,
+public abstract sealed class AppException extends RuntimeException permits AccountAlreadyExistsException,
+        AccountNotFoundException, ContactLabelNotFoundException, ContactNotFoundException, DuplicateContactException,
+        DuplicateContactLabelException, MailAuthenticationException, MailConnectionException, MailOperationException,
         ProviderNotFoundException, ResourceNotFoundException, ValidationException {
     private final ErrorCode code;
     private final HttpStatus status;

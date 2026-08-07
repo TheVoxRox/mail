@@ -1,9 +1,16 @@
 package org.voxrox.mailbackend.feature.contact.dto;
 
+import java.util.List;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 
-@Schema(description = "Contact counts for the sidebar: the account total plus per-label counts. A contact is "
-        + "counted for a label when at least one of its e-mail addresses bears it, so each figure matches the "
-        + "size of the list filtered by the same label.")
-public record ContactCountsResponse(long total, long work, long home, long other) {
+/**
+ * Counts for the contacts sidebar: the account total plus one row per contact
+ * label. Every label of the account appears, including the ones nobody uses yet
+ * (contacts = 0) — the sidebar has to list them regardless, otherwise a freshly
+ * created label would be invisible until the first contact lands on it.
+ */
+@Schema(description = "Contact counts for the sidebar: the account total plus one row per contact label. "
+        + "Labels with no contacts are included with contacts = 0.")
+public record ContactCountsResponse(@Schema(example = "137") long total, List<ContactLabelCountResponse> labels) {
 }
