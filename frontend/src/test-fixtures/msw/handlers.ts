@@ -21,6 +21,10 @@ import type {
 	BulkContactDeleteRequest,
 	ContactCreateRequest,
 	ContactEmailRequest,
+	ContactLabelAssignmentRequest,
+	ContactLabelCreateRequest,
+	ContactLabelResponse,
+	ContactLabelUpdateRequest,
 	ContactMergeRequest,
 	ContactPatchRequest,
 	ContactResponse,
@@ -320,6 +324,124 @@ function accountRoutes(
 		return contactRoutes(method, accountId, segments.slice(3), request);
 	}
 
+	if (segments[2] === 'contact-labels') {
+		return contactLabelRoutes(method, accountId, segments.slice(3), request);
+	}
+
+	return null;
+}
+
+/**
+ * `/accounts/{id}/contact-labels` — CRUD plus bulk assignment. The name
+ * uniqueness and the 409 are modelled because the label dialog's error path is
+ * a real e2e case, not an edge one.
+ */
+function contactLabelRoutes(
+	method: string,
+	accountId: number,
+	segments: string[],
+	request: Request
+): Promise<MockResponse> | MockResponse | null {
+	const labels = fixtureState.contactLabelsByAccount[accountId] ?? [];
+
+	if (segments.length === 0) {
+		if (method === 'GET') {
+			return HttpResponse.json(labels);
+		}
+		if (method === 'POST') {
+			return request.json().then((body) => {
+				const name = ((body as ContactLabelCreateRequest).name ?? '').trim();
+				if (name.length === 0) {
+					return HttpResponse.json({ errorCode: 'VALIDATION_ERROR' }, { status: 400 });
+				}
+				if (labels.some((label) => label.name.toLowerCase() === name.toLowerCase())) {
+					return HttpResponse.json({ errorCode: 'CONTACT_LABEL_DUPLICATE' }, { status: 409 });
+				}
+				const created = { id: Math.max(0, ...labels.map((label) => label.id)) + 1, name };
+				fixtureState.contactLabelsByAccount[accountId] = [...labels, created].sort((a, b) =>
+					a.name.localeCompare(b.name)
+				);
+				return HttpResponse.json(created, { status: 201 });
+			});
+		}
+	}
+
+	if (segments[0] === 'assignments' && method === 'POST') {
+		return request.json().then((body) => {
+			const req = body as ContactLabelAssignmentRequest;
+			const add = (req.addLabelIds ?? [])
+				.map((id) => labels.find((label) => label.id === id))
+				.filter((label): label is ContactLabelResponse => label != null);
+			const remove = new Set(req.removeLabelIds ?? []);
+			const contacts = fixtureState.contactsByAccount[accountId] ?? [];
+
+			let changed = 0;
+			fixtureState.contactsByAccount[accountId] = contacts.map((contact) => {
+				if (!req.contactIds.includes(contact.id)) return contact;
+				const kept = contact.labels.filter((label) => !remove.has(label.id));
+				const next = [...kept];
+				for (const label of add) {
+					if (!next.some((existing) => existing.id === label.id)) next.push(label);
+				}
+				next.sort((a, b) => a.name.localeCompare(b.name));
+				const same =
+					next.length === contact.labels.length &&
+					next.every((label, i) => label.id === contact.labels[i]?.id);
+				if (same) return contact;
+				changed += 1;
+				return { ...contact, labels: next };
+			});
+			return HttpResponse.json({ total: new Set(req.contactIds).size, changed });
+		});
+	}
+
+	const labelId = Number(segments[0]);
+	const label = labels.find((item) => item.id === labelId);
+	if (!label) {
+		return HttpResponse.json({ errorCode: 'CONTACT_LABEL_NOT_FOUND' }, { status: 404 });
+	}
+
+	if (method === 'PATCH') {
+		return request.json().then((body) => {
+			const name = ((body as ContactLabelUpdateRequest).name ?? '').trim();
+			if (name.length === 0) {
+				return HttpResponse.json({ errorCode: 'VALIDATION_ERROR' }, { status: 400 });
+			}
+			if (
+				labels.some(
+					(other) => other.id !== labelId && other.name.toLowerCase() === name.toLowerCase()
+				)
+			) {
+				return HttpResponse.json({ errorCode: 'CONTACT_LABEL_DUPLICATE' }, { status: 409 });
+			}
+			const renamed = { id: labelId, name };
+			fixtureState.contactLabelsByAccount[accountId] = labels
+				.map((item) => (item.id === labelId ? renamed : item))
+				.sort((a, b) => a.name.localeCompare(b.name));
+			// The name is denormalized onto the contacts, same as the real
+			// response would carry it — keep both sides in step.
+			fixtureState.contactsByAccount[accountId] = (
+				fixtureState.contactsByAccount[accountId] ?? []
+			).map((contact) => ({
+				...contact,
+				labels: contact.labels.map((item) => (item.id === labelId ? renamed : item))
+			}));
+			return HttpResponse.json(renamed);
+		});
+	}
+
+	if (method === 'DELETE') {
+		fixtureState.contactLabelsByAccount[accountId] = labels.filter((item) => item.id !== labelId);
+		// The contacts survive and simply lose the label.
+		fixtureState.contactsByAccount[accountId] = (
+			fixtureState.contactsByAccount[accountId] ?? []
+		).map((contact) => ({
+			...contact,
+			labels: contact.labels.filter((item) => item.id !== labelId)
+		}));
+		return new HttpResponse(null, { status: 204 });
+	}
+
 	return null;
 }
 
@@ -335,7 +457,8 @@ function contactRoutes(
 	if (segments.length === 0) {
 		if (method === 'GET') {
 			const q = (url.searchParams.get('q') ?? '').toLowerCase();
-			const label = url.searchParams.get('label');
+			const labelIdRaw = url.searchParams.get('labelId');
+			const labelId = labelIdRaw == null ? null : Number(labelIdRaw);
 			const matchedByQuery = q
 				? contacts.filter((contact) =>
 						[contact.name, contact.surname, ...contact.emails.map((email) => email.email)].some(
@@ -343,9 +466,12 @@ function contactRoutes(
 						)
 					)
 				: contacts;
-			const filtered = label
-				? matchedByQuery.filter((contact) => contact.emails.some((email) => email.label === label))
-				: matchedByQuery;
+			const filtered =
+				labelId == null
+					? matchedByQuery
+					: matchedByQuery.filter((contact) =>
+							contact.labels.some((label) => label.id === labelId)
+						);
 			return HttpResponse.json(listPage(filtered, url));
 		}
 		if (method === 'POST') {
@@ -358,14 +484,14 @@ function contactRoutes(
 	}
 
 	if (segments[0] === 'counts' && method === 'GET') {
-		const countFor = (label: string): number =>
-			contacts.filter((contact) => contact.emails.some((email) => email.label === label)).length;
-		return HttpResponse.json({
-			total: contacts.length,
-			work: countFor('WORK'),
-			home: countFor('HOME'),
-			other: countFor('OTHER')
-		});
+		// Every label of the account, including unused ones — the sidebar has to
+		// list those too, so a zero must be a real row rather than a gap.
+		const labels = (fixtureState.contactLabelsByAccount[accountId] ?? []).map((label) => ({
+			id: label.id,
+			name: label.name,
+			contacts: contacts.filter((contact) => contact.labels.some((l) => l.id === label.id)).length
+		}));
+		return HttpResponse.json({ total: contacts.length, labels });
 	}
 
 	if (segments[0] === 'bulk') {

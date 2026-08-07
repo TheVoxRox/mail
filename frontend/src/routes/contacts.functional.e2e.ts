@@ -67,30 +67,32 @@ test.describe('Contacts', () => {
 		const sidebar = page.getByRole('region', { name: 'Podokno kontaktů' });
 		const nav = sidebar.getByRole('navigation', { name: 'Zobrazení kontaktů' });
 
-		// Fixture: 1 kontakt (Jana Novak) se štítky Práce + Domov. Accessible
-		// name odkazu zahrnuje aria-label badge s počtem.
+		// Fixture: 1 kontakt (Jana Novak) se štítkem Klienti, plus prázdný
+		// štítek Rodina. Accessible name odkazu zahrnuje aria-label badge s
+		// počtem.
 		const allLink = nav.getByRole('link', { name: 'Kontakty 1 kontakt' });
 		await expect(allLink).toHaveAttribute('aria-current', 'page');
 
-		// Jiný nemá žádný kontakt — badge se nevykresluje vůbec (vzor pošty).
-		await expect(nav.getByRole('link', { name: 'Jiný' })).toBeVisible();
+		// Nepoužitý štítek je v panelu vidět s nulou — na rozdíl od pevných typů
+		// může být prázdný prostě proto, že je nový.
+		await expect(nav.getByRole('link', { name: 'Rodina 0 kontaktů' })).toBeVisible();
 
-		await nav.getByRole('link', { name: 'Práce 1 kontakt' }).click();
-		await page.waitForURL('**/contacts/1?label=WORK');
-		await expect(nav.getByRole('link', { name: 'Práce 1 kontakt' })).toHaveAttribute(
+		await nav.getByRole('link', { name: 'Klienti 1 kontakt' }).click();
+		await page.waitForURL('**/contacts/1?labelId=1');
+		await expect(nav.getByRole('link', { name: 'Klienti 1 kontakt' })).toHaveAttribute(
 			'aria-current',
 			'page'
 		);
 		await expect(page.getByText('Jana Novak')).toBeVisible();
 		// Nadpis stránky i titulek okna nesou aktivní pohled.
-		await expect(page.getByRole('heading', { level: 1, name: 'Práce' })).toBeVisible();
-		await expect(page).toHaveTitle('Pošta – Kontakty – Práce');
+		await expect(page.getByRole('heading', { level: 1, name: 'Klienti' })).toBeVisible();
+		await expect(page).toHaveTitle('Pošta – Kontakty – Klienti');
 
 		// Prázdný štítek jmenuje sám sebe místo obecné hlášky.
-		await nav.getByRole('link', { name: 'Jiný' }).click();
-		await page.waitForURL('**/contacts/1?label=OTHER');
-		await expect(page.getByRole('heading', { level: 1, name: 'Jiný' })).toBeVisible();
-		await expect(page.getByText(/Žádný kontakt se štítkem Jiný/)).toBeVisible();
+		await nav.getByRole('link', { name: 'Rodina 0 kontaktů' }).click();
+		await page.waitForURL('**/contacts/1?labelId=2');
+		await expect(page.getByRole('heading', { level: 1, name: 'Rodina' })).toBeVisible();
+		await expect(page.getByText(/Žádný kontakt se štítkem Rodina/)).toBeVisible();
 
 		await allLink.click();
 		await page.waitForURL('**/contacts/1');
@@ -109,8 +111,8 @@ test.describe('Contacts', () => {
 		// Sidebar odkaz vede na čistou URL bez sortu — řazení se doplní z
 		// persistované preference, ne z URL.
 		const nav = page.getByRole('navigation', { name: 'Zobrazení kontaktů' });
-		await nav.getByRole('link', { name: 'Práce 1 kontakt' }).click();
-		await page.waitForURL('**/contacts/1?label=WORK');
+		await nav.getByRole('link', { name: 'Klienti 1 kontakt' }).click();
+		await page.waitForURL('**/contacts/1?labelId=1');
 		await expect(page.getByRole('combobox', { name: 'Řadit podle' })).toHaveValue('recent');
 	});
 
@@ -150,6 +152,10 @@ test.describe('Contacts', () => {
 		).toHaveCount(0);
 		await expect(page.getByRole('button', { name: 'Exportovat vCard' })).toHaveCount(0);
 		await expect(page.getByRole('button', { name: 'Importovat vCard' })).toHaveCount(0);
+		// Spravovat štítky naopak zůstává: formulář na něj sám odkazuje, když
+		// účet ještě žádné štítky nemá, takže skrýt ho tady by z té nápovědy
+		// udělalo slepou uličku.
+		await expect(page.getByRole('button', { name: 'Spravovat štítky' })).toBeVisible();
 		await expect(page.locator('#contact-name')).toBeFocused();
 
 		await page.getByPlaceholder('Jméno').fill('Marie');
@@ -287,8 +293,11 @@ test.describe('Contacts', () => {
 			emails: [
 				{ email: 'jana@example.com', label: 'WORK' },
 				{ email: 'jana.home@example.com', label: 'HOME' }
-			]
+			],
+			labelIds: [1]
 		});
+		// And the label really survived the round trip, not just the request body.
+		await expect(page.getByRole('gridcell', { name: 'Klienti' })).toBeVisible();
 	});
 
 	test('úprava e-mailů (přidat, hlavní, odebrat) se uloží jedním PUT', async ({ page }) => {
@@ -333,7 +342,11 @@ test.describe('Contacts', () => {
 			emails: [
 				{ email: 'jana.home@example.com', label: 'HOME' },
 				{ email: 'jana@example.com', label: 'WORK' }
-			]
+			],
+			// PUT replaces the whole contact, so an edit that never touches the
+			// labels still has to send them back — otherwise reordering e-mails
+			// would silently strip the contact's labels.
+			labelIds: [1]
 		});
 	});
 
@@ -439,7 +452,7 @@ test.describe('Contacts', () => {
 		// the persistent live region (the conditional status span alone is not
 		// announced reliably when inserted with content).
 		await expect(page.locator('#live-region')).toContainText(
-			'Hromadné akce nad seznamem: sloučit, smazat.'
+			'Hromadné akce nad seznamem: přiřadit štítky, sloučit, smazat.'
 		);
 		await page.getByLabel('Vybrat kontakt Bulk Delete').check();
 		await expect(page.getByText('2 vybrané kontakty')).toBeVisible();
@@ -671,13 +684,15 @@ test.describe('Contacts', () => {
 						name: 'Marek',
 						surname: 'Drag',
 						note: 'Drop import',
-						emails: [{ email: 'marek.drag@example.com', label: 'WORK' }]
+						emails: [{ email: 'marek.drag@example.com', label: 'WORK' }],
+						labelIds: []
 					},
 					{
 						name: 'Iva',
 						surname: 'Drop',
 						note: null,
-						emails: [{ email: 'iva.drop@example.com', label: null }]
+						emails: [{ email: 'iva.drop@example.com', label: null }],
+						labelIds: []
 					}
 				]
 			}
@@ -726,7 +741,8 @@ test.describe('Contacts', () => {
 						name: 'Petra',
 						surname: 'Picker',
 						note: null,
-						emails: [{ email: 'petra.picker@example.com', label: 'HOME' }]
+						emails: [{ email: 'petra.picker@example.com', label: 'HOME' }],
+						labelIds: []
 					}
 				]
 			}
@@ -769,5 +785,177 @@ test.describe('Contacts', () => {
 		await page.waitForURL('**/contacts/1');
 		await expect(page.getByRole('heading', { level: 1, name: 'Kontakty' })).toBeVisible();
 		await expect(page.getByText('Jana Novak')).toBeVisible();
+	});
+
+	test('správa štítků vytvoří, přejmenuje a smaže štítek', async ({ page }) => {
+		await page.goto('/contacts/1');
+		await waitForShell(page);
+
+		const sidebar = page.getByRole('region', { name: 'Podokno kontaktů' });
+		const nav = sidebar.getByRole('navigation', { name: 'Zobrazení kontaktů' });
+		await sidebar.getByRole('button', { name: 'Spravovat štítky' }).click();
+
+		// Named, because the delete confirmation below is a second role=dialog.
+		const dialog = page.getByRole('dialog', { name: 'Štítky kontaktů' });
+		await expect(dialog).toBeVisible();
+
+		// Vytvoření: pole se vyprázdní a štítek se objeví v sidebaru s nulou.
+		await dialog.getByLabel('Název nového štítku').fill('Škola');
+		await dialog.getByRole('button', { name: 'Přidat štítek' }).click();
+		await expect(dialog.getByLabel('Název nového štítku')).toHaveValue('');
+		await expect(nav.getByRole('link', { name: 'Škola 0 kontaktů' })).toBeVisible();
+
+		// Duplicita liší se jen velikostí písmen -> 409 inline, ne vytvoření.
+		await dialog.getByLabel('Název nového štítku').fill('škola');
+		await dialog.getByRole('button', { name: 'Přidat štítek' }).click();
+		await expect(dialog.getByRole('alert')).toBeVisible();
+		await expect(nav.getByRole('link', { name: /Škola/ })).toHaveCount(1);
+
+		// Přejmenování přepíše i název na kontaktech, které štítek nesou.
+		await dialog.getByRole('button', { name: 'Přejmenovat štítek Klienti' }).click();
+		const renameField = dialog.getByLabel('Nový název štítku Klienti');
+		await expect(renameField).toBeFocused();
+		await renameField.fill('Zákazníci');
+		await dialog.getByRole('button', { name: 'Uložit' }).click();
+		await expect(nav.getByRole('link', { name: 'Zákazníci 1 kontakt' })).toBeVisible();
+
+		// Smazání se ptá inline a jmenuje počet dotčených kontaktů. Potvrzení je
+		// uvnitř téhož dialogu, ne vnořený modál — fokus tak nikdy neopustí
+		// otevřený dialog.
+		await dialog.getByRole('button', { name: 'Smazat štítek Zákazníci' }).click();
+		const confirm = dialog.getByRole('alert').filter({ hasText: 'Smazat štítek Zákazníci?' });
+		await expect(confirm).toBeVisible();
+		await expect(confirm).toContainText('1 kontaktu');
+		await confirm.getByRole('button', { name: 'Smazat', exact: true }).click();
+
+		await expect(nav.getByRole('link', { name: /Zákazníci/ })).toHaveCount(0);
+		// Kontakt přežil, jen přišel o štítek.
+		await dialog.getByRole('button', { name: 'Zavřít' }).click();
+		await expect(page.getByText('Jana Novak')).toBeVisible();
+		await expect(page.getByRole('gridcell', { name: 'Bez štítku' })).toBeVisible();
+	});
+
+	test('hromadné přiřazení štítků respektuje smíšený stav výběru', async ({ page }) => {
+		await page.goto('/contacts/1');
+		await waitForShell(page);
+		// Druhý kontakt bez štítků, aby výběr měl u Klientů smíšený stav.
+		await bulkCreateContacts(page, [
+			{ name: 'Bez', surname: 'Stitku', emails: [{ email: 'bez@example.com' }] }
+		]);
+		// Re-query through the app — a reload would reset the MSW fixtures and
+		// take the seeded contact with them.
+		await page.locator('#contacts-sidebar-search').fill('example.com');
+		await page.keyboard.press('Enter');
+		await page.waitForURL('**/contacts/1?q=example.com');
+		await expect(page.getByText('Bez Stitku')).toBeVisible();
+
+		const assignRequests: unknown[] = [];
+		page.on('request', (request) => {
+			if (request.method() === 'POST' && /\/contact-labels\/assignments$/.test(request.url())) {
+				assignRequests.push(request.postDataJSON());
+			}
+		});
+
+		await page.getByLabel('Vybrat kontakt Jana Novak').check();
+		await page.getByLabel('Vybrat kontakt Bez Stitku').check();
+		await page.getByRole('button', { name: 'Přiřadit štítky' }).click();
+
+		const dialog = page.getByRole('dialog', { name: 'Štítky vybraných kontaktů' });
+		const klienti = dialog.getByRole('checkbox', { name: /Klienti/ });
+		const rodina = dialog.getByRole('checkbox', { name: /Rodina/ });
+		// Klienti má jen jeden ze dvou vybraných -> mixed; Rodina nemá nikdo.
+		await expect(klienti).toHaveJSProperty('indeterminate', true);
+		await expect(rodina).not.toBeChecked();
+		await expect(rodina).toHaveJSProperty('indeterminate', false);
+
+		// Bez jediné změny je Použít neaktivní — dialog nesmí smíšený stav
+		// zploštit jen tím, že ho uživatel otevřel.
+		await expect(dialog.getByRole('button', { name: 'Použít štítky' })).toBeDisabled();
+
+		await rodina.check();
+		await dialog.getByRole('button', { name: 'Použít štítky' }).click();
+
+		await expect(
+			page.getByRole('region', { name: 'Oznámení' }).getByText(/Štítky upraveny u 2 kontaktů z 2/)
+		).toBeVisible();
+		expect(assignRequests).toHaveLength(1);
+		// Klienti zůstali mimo obě pole — nedotčený smíšený štítek se neposílá.
+		expect(assignRequests[0]).toEqual({
+			contactIds: [1, 2],
+			addLabelIds: [2],
+			removeLabelIds: []
+		});
+
+		const nav = page.getByRole('navigation', { name: 'Zobrazení kontaktů' });
+		await expect(nav.getByRole('link', { name: 'Rodina 2 kontakty' })).toBeVisible();
+	});
+
+	test('formulář kontaktu ukládá zaškrtnuté štítky', async ({ page }) => {
+		const putBodies: unknown[] = [];
+		page.on('request', (request) => {
+			if (request.method() === 'PUT' && /\/contacts\/1$/.test(request.url())) {
+				putBodies.push(request.postDataJSON());
+			}
+		});
+
+		await page.goto('/contacts/1?edit=1');
+		await waitForShell(page);
+
+		const labels = page.getByRole('group', { name: 'Štítky' });
+		await expect(labels.getByRole('checkbox', { name: 'Klienti' })).toBeChecked();
+		await expect(labels.getByRole('checkbox', { name: 'Rodina' })).not.toBeChecked();
+
+		await labels.getByRole('checkbox', { name: 'Rodina' }).check();
+		await labels.getByRole('checkbox', { name: 'Klienti' }).uncheck();
+		await page.getByRole('button', { name: 'Uložit' }).click();
+
+		await page.waitForURL('**/contacts/1');
+		expect(putBodies).toHaveLength(1);
+		expect((putBodies[0] as { labelIds: number[] }).labelIds).toEqual([2]);
+		await expect(page.getByRole('gridcell', { name: 'Rodina' })).toBeVisible();
+	});
+
+	test('vCard import vytvoří chybějící štítky z CATEGORIES', async ({ page }) => {
+		const bulkBodies: unknown[] = [];
+		page.on('request', (request) => {
+			if (
+				request.method() === 'POST' &&
+				/\/api\/v1\/accounts\/1\/contacts\/bulk$/.test(request.url())
+			) {
+				bulkBodies.push(request.postDataJSON());
+			}
+		});
+
+		await page.goto('/contacts/1');
+		await waitForShell(page);
+		// Gate on the rendered list: the drop listener lives on window and is only
+		// attached once the page has hydrated, so dispatching earlier is a no-op.
+		await expect(page.getByText('Jana Novak')).toBeVisible();
+
+		// "Klienti" už existuje (id 1) — musí se použít, ne vytvořit znovu;
+		// "Kolegové" je nový. Escapovaná čárka drží jeden název pohromadě.
+		const vcardText =
+			'BEGIN:VCARD\r\nVERSION:4.0\r\nFN:Petr Kategorie\r\nEMAIL:petr.kat@example.com\r\nCATEGORIES:klienti,Kolegové\\, externí\r\nEND:VCARD\r\n';
+
+		await page.evaluate((text) => {
+			const file = new File([text], 'labels.vcf', { type: 'text/vcard' });
+			const dataTransfer = new DataTransfer();
+			dataTransfer.items.add(file);
+			const drop = new Event('drop', { bubbles: true, cancelable: true });
+			Object.defineProperty(drop, 'dataTransfer', { value: dataTransfer, configurable: true });
+			(document.body ?? document).dispatchEvent(drop);
+		}, vcardText);
+
+		await expect(page.getByText('Petr Kategorie')).toBeVisible();
+
+		const nav = page.getByRole('navigation', { name: 'Zobrazení kontaktů' });
+		await expect(nav.getByRole('link', { name: 'Kolegové, externí 1 kontakt' })).toBeVisible();
+		// Existující štítek se nezaložil podruhé, jen se navýšil jeho počet.
+		await expect(nav.getByRole('link', { name: 'Klienti 2 kontakty' })).toBeVisible();
+
+		expect(bulkBodies).toHaveLength(1);
+		const sent = bulkBodies[0] as { contacts: Array<{ labelIds: number[] }> };
+		expect(sent.contacts[0].labelIds).toHaveLength(2);
+		expect(sent.contacts[0].labelIds).toContain(1);
 	});
 });

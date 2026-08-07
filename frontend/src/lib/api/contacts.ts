@@ -12,7 +12,6 @@ import type {
 	ContactMergeRequest,
 	ContactResponse,
 	ContactUpdateRequest,
-	EmailLabel,
 	PagedResponse
 } from '$lib/types.js';
 import type { PageParams } from './mailRead.js';
@@ -21,14 +20,14 @@ export type ContactSort = 'name' | 'surname' | 'recent';
 
 export function listContacts(
 	accountId: number,
-	options: PageParams & { q?: string; sort?: ContactSort; label?: EmailLabel } = {}
+	options: PageParams & { q?: string; sort?: ContactSort; labelId?: number } = {}
 ): Promise<PagedResponse<ContactResponse>> {
 	const params: Record<string, string> = {};
 	if (options.q) params.q = options.q;
 	if (options.page != null) params.page = String(options.page);
 	if (options.size != null) params.size = String(options.size);
 	if (options.sort) params.sort = options.sort;
-	if (options.label) params.label = options.label;
+	if (options.labelId != null) params.labelId = String(options.labelId);
 	return api.get(`/accounts/${accountId}/contacts`, { params });
 }
 

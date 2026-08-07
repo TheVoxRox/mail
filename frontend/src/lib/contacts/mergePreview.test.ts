@@ -22,6 +22,7 @@ function contact(id: number, emails: ContactEmailResponse[]): ContactResponse {
 	return {
 		id,
 		emails,
+		labels: [],
 		name: `Contact ${id}`,
 		surname: null,
 		note: null,

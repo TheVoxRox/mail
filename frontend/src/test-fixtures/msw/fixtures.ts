@@ -6,6 +6,7 @@ import type {
 	ContactCreateRequest,
 	ContactEmailResponse,
 	ContactPatchRequest,
+	ContactLabelResponse,
 	ContactResponse,
 	ContactUpdateRequest,
 	ConversationSummaryResponse,
@@ -28,6 +29,7 @@ export interface E2EFixtureState {
 	messageDetails: Record<string, MailDetailResponse>;
 	messageContents: Record<string, MailContentResponse>;
 	contactsByAccount: Record<number, ContactResponse[]>;
+	contactLabelsByAccount: Record<number, ContactLabelResponse[]>;
 	draftsByAccount: Record<number, MailSummaryResponse[]>;
 	attachments: Record<string, Blob>;
 	/** sendId of the most recent async send, so the SSE bridge can echo its outcome. */
@@ -441,8 +443,18 @@ function createInitialState(): E2EFixtureState {
 					emails: [
 						{ id: 1, email: 'jana@example.com', label: 'WORK', primary: true },
 						{ id: 2, email: 'jana.home@example.com', label: 'HOME', primary: false }
-					]
+					],
+					labels: [{ id: 1, name: 'Klienti' }]
 				}
+			],
+			2: []
+		},
+		// "Rodina" deliberately has no contact: the sidebar must still list it
+		// (with a zero badge), which is the case a used-labels-only view misses.
+		contactLabelsByAccount: {
+			1: [
+				{ id: 1, name: 'Klienti' },
+				{ id: 2, name: 'Rodina' }
 			],
 			2: []
 		},
@@ -521,6 +533,7 @@ export function clearAccounts(): E2EFixtureState {
 	fixtureState.foldersByAccount = {};
 	fixtureState.messagesByFolder = {};
 	fixtureState.contactsByAccount = {};
+	fixtureState.contactLabelsByAccount = {};
 	fixtureState.draftsByAccount = {};
 	return fixtureState;
 }
@@ -845,6 +858,7 @@ export function upsertAccount(
 		];
 		fixtureState.messagesByFolder[folderKey(id, 'INBOX')] = [];
 		fixtureState.contactsByAccount[id] = [];
+		fixtureState.contactLabelsByAccount[id] = [];
 		fixtureState.draftsByAccount[id] = [];
 	}
 
@@ -870,12 +884,23 @@ export function upsertContact(
 		})) ??
 		existing?.emails ??
 		[];
+	// Mirrors the backend: an explicit labelIds replaces the set (empty clears
+	// it), an absent one keeps what the contact already had. Unknown ids are
+	// dropped rather than invented, so a fixture cannot fake a label into being.
+	const known = fixtureState.contactLabelsByAccount[accountId] ?? [];
+	const labels: ContactLabelResponse[] =
+		body.labelIds == null
+			? (existing?.labels ?? [])
+			: body.labelIds
+					.map((labelId) => known.find((label) => label.id === labelId))
+					.filter((label): label is ContactLabelResponse => label != null);
 	const contact: ContactResponse = {
 		id,
 		name: body.name ?? existing?.name ?? null,
 		surname: body.surname ?? existing?.surname ?? null,
 		note: body.note ?? existing?.note ?? null,
 		emails,
+		labels,
 		createdAt: existing?.createdAt ?? iso(0),
 		updatedAt: iso(0)
 	};

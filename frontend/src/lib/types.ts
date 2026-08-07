@@ -322,8 +322,21 @@ export interface ContactEmailResponse {
 	primary: boolean;
 }
 
+/**
+ * A user-defined contact label ("Rodina", "Klienti"). Distinct from
+ * {@link EmailLabel}, which is the WORK/HOME/OTHER *type* of a single address:
+ * a label groups whole contacts and the user creates it, matching how Google
+ * Contacts splits sidebar labels from the inline address type.
+ */
+export interface ContactLabelResponse {
+	id: number;
+	name: string;
+}
+
 export interface ContactCreateRequest {
 	emails: ContactEmailRequest[];
+	/** Replace semantics on PUT — omitting it clears the contact's labels. */
+	labelIds?: number[] | null;
 	name?: string | null;
 	surname?: string | null;
 	note?: string | null;
@@ -331,6 +344,7 @@ export interface ContactCreateRequest {
 
 export interface ContactUpdateRequest {
 	emails: ContactEmailRequest[];
+	labelIds?: number[] | null;
 	name?: string | null;
 	surname?: string | null;
 	note?: string | null;
@@ -338,6 +352,8 @@ export interface ContactUpdateRequest {
 
 export interface ContactPatchRequest {
 	emails?: ContactEmailRequest[] | null;
+	/** Absent keeps the current labels; an explicit empty list clears them. */
+	labelIds?: number[] | null;
 	name?: string | null;
 	surname?: string | null;
 	note?: string | null;
@@ -346,6 +362,7 @@ export interface ContactPatchRequest {
 export interface ContactResponse {
 	id: number;
 	emails: ContactEmailResponse[];
+	labels: ContactLabelResponse[];
 	name: string | null;
 	surname: string | null;
 	note: string | null;
@@ -353,12 +370,41 @@ export interface ContactResponse {
 	updatedAt: string;
 }
 
-/** Sidebar counts — a contact counts toward a label when at least one of its e-mails bears it. */
+/** One sidebar row: a contact label and how many contacts carry it. */
+export interface ContactLabelCountResponse {
+	id: number;
+	name: string;
+	contacts: number;
+}
+
+/**
+ * Sidebar counts. Every label of the account is present, including ones no
+ * contact carries yet — otherwise a freshly created label would be invisible.
+ */
 export interface ContactCountsResponse {
 	total: number;
-	work: number;
-	home: number;
-	other: number;
+	labels: ContactLabelCountResponse[];
+}
+
+export interface ContactLabelCreateRequest {
+	name: string;
+}
+
+export interface ContactLabelUpdateRequest {
+	name: string;
+}
+
+/** One bulk apply of the label dialog: everything ticked and everything unticked. */
+export interface ContactLabelAssignmentRequest {
+	contactIds: number[];
+	addLabelIds?: number[] | null;
+	removeLabelIds?: number[] | null;
+}
+
+export interface ContactLabelAssignmentResponse {
+	total: number;
+	/** Contacts whose label set actually differed afterwards. */
+	changed: number;
 }
 
 export interface ContactAutocompleteResponse {

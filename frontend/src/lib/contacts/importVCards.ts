@@ -7,9 +7,11 @@
  * a file.
  */
 
+import { createContactLabel, listContactLabels } from '$lib/api/contactLabels.js';
 import { bulkCreateContacts } from '$lib/api/contacts.js';
 import { toErrorMessage } from '$lib/api/errors.js';
-import { parseVCard } from '$lib/contacts/vcard.js';
+import { parseVCard, type ParsedVCard } from '$lib/contacts/vcard.js';
+import { refreshContactCounts } from '$lib/stores/contactCounts.js';
 import { pushToast } from '$lib/stores/toasts.js';
 import type { ContactCreateRequest } from '$lib/types.js';
 
@@ -43,6 +45,49 @@ export function looksLikeVCardFile(file: File): boolean {
 }
 
 /**
+ * Maps every CATEGORIES name in the parsed cards to a label id of the account,
+ * creating the ones that do not exist yet. Keyed by lower-cased name, matching
+ * the backend's case-insensitive uniqueness.
+ * <p>
+ * Deliberately fail-soft: label creation is a convenience on top of the import,
+ * so a failure here (an account at its label ceiling, a race with another
+ * client) warns and returns what it managed to resolve rather than losing the
+ * contacts themselves. Contacts always matter more than their labels.
+ */
+async function resolveCategories(
+	accountId: number,
+	parsed: ParsedVCard[],
+	t: ImportMessageFn
+): Promise<Map<string, number>> {
+	const wanted = new Map<string, string>();
+	for (const card of parsed) {
+		for (const name of card.categories) {
+			const key = name.toLowerCase();
+			if (!wanted.has(key)) wanted.set(key, name);
+		}
+	}
+	if (wanted.size === 0) return new Map();
+
+	const byName = new Map<string, number>();
+	try {
+		for (const label of await listContactLabels(accountId)) {
+			byName.set(label.name.toLowerCase(), label.id);
+		}
+		for (const [key, name] of wanted) {
+			if (byName.has(key)) continue;
+			const created = await createContactLabel(accountId, { name });
+			byName.set(key, created.id);
+		}
+		// New labels have to reach the sidebar even if the caller only reloads
+		// the list; the counts store is what feeds those badges.
+		await refreshContactCounts(accountId);
+	} catch {
+		pushToast(t('contacts.vcardImportLabelsFailed'), { tone: 'error' });
+	}
+	return byName;
+}
+
+/**
  * Imports the vCard files among `candidates` into the account and toasts the
  * outcome (including all error cases). Returns true when the bulk call
  * succeeded — the caller should then reload its contact list.
@@ -59,15 +104,24 @@ export async function importVCardFiles(
 	}
 
 	try {
-		const allContacts: ContactCreateRequest[] = [];
+		const parsed: ParsedVCard[] = [];
 		for (const file of files) {
 			const text = await file.text();
-			allContacts.push(...parseVCard(text));
+			parsed.push(...parseVCard(text));
 		}
-		if (allContacts.length === 0) {
+		if (parsed.length === 0) {
 			pushToast(t('contacts.vcardImportEmpty'), { tone: 'error' });
 			return false;
 		}
+
+		const labelIdsByName = await resolveCategories(accountId, parsed, t);
+		const allContacts: ContactCreateRequest[] = parsed.map(({ contact, categories }) => ({
+			...contact,
+			labelIds: categories
+				.map((name) => labelIdsByName.get(name.toLowerCase()))
+				.filter((id): id is number => id != null)
+		}));
+
 		const result = await bulkCreateContacts(accountId, { contacts: allContacts });
 		pushToast(
 			t('contacts.vcardImportDone', {
