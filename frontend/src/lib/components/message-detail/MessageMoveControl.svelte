@@ -80,6 +80,6 @@
 		</DropdownMenu.Portal>
 	</DropdownMenu.Root>
 	{#if moveError}
-		<p class="basis-full text-xs text-destructive" role="alert">{moveError}</p>
+		<p class="basis-full text-xs text-destructive-foreground" role="alert">{moveError}</p>
 	{/if}
 </div>

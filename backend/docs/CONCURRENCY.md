@@ -12,6 +12,19 @@ one of these, re-read its row first.
    thread-safe; the per-account fair `ReentrantLock` is the only thing
    serializing protocol access. (Enforced by `ArchitectureTest` — no class
    outside `feature.mail.service` may even reference `jakarta.mail.Store`.)
+   - **The read path uses `executeWithLockOrSkip` instead.** A sync holds the
+     lock for a whole folder cycle (download + flag sweep + cleanup, tens of
+     seconds on a large mailbox). Waiting on a lock raises nothing and logs
+     nothing, so a read request that queues behind it reaches the user as a UI
+     that silently hangs. Read-path callers pass a short timeout
+     (`mail.client.imap.role-lookup-timeout`, default 1 s), get an empty
+     `Optional` when the connection is busy and degrade to whatever they can
+     answer from the DB. Today's only caller is the conversation listing's
+     trash/junk/drafts role lookup (`MailFacade.conversationExcludedFolders`),
+     which falls back to a folder-scoped listing. The `mail.imap.lock.skipped`
+     counter measures how often this bites — a rising count is the signal that
+     the single connection per account has become the bottleneck and the
+     interactive lane is due.
 2. **Lock order: `SyncLockManager` (non-blocking tryLock) → account connection
    lock → OAuth refresh lock.** The IMAP path takes the refresh lock _inside_
    the connection lock (`createNewConnectedStore → getAccessToken`); the SMTP

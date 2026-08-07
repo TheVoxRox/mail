@@ -6,7 +6,9 @@ import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.voxrox.mailbackend.feature.mail.dto.SyncNotification;
+import org.voxrox.mailbackend.feature.mail.dto.SyncStatusNotification;
 import org.voxrox.mailbackend.feature.mail.event.MailSyncCompletedEvent;
+import org.voxrox.mailbackend.feature.mail.event.MailSyncErrorStateChangedEvent;
 import org.voxrox.mailbackend.feature.mail.service.FolderListCache;
 import org.voxrox.mailbackend.feature.mail.service.SseNotificationService;
 import org.voxrox.mailbackend.util.LogCategory;
@@ -53,6 +55,30 @@ public class MailSyncEventListener {
             } catch (Exception e) {
                 log.warn("{} SSE broadcast failed: {}", LogCategory.SYNC, e.getMessage());
             }
+        }
+    }
+
+    /**
+     * Pushes a changed sync error state to the client. The counterpart of
+     * {@code send_failed} on the receive side: until this existed, a persistently
+     * failing sync produced no client-visible signal at all — the message list just
+     * stopped changing.
+     */
+    @Async("mailEventExecutor")
+    @EventListener
+    public void handleErrorStateChanged(MailSyncErrorStateChangedEvent event) {
+        String errorCode = event.errorCode();
+        SyncStatusNotification notification = errorCode == null
+                ? SyncStatusNotification.recovered(event.accountId(), event.timestamp())
+                : SyncStatusNotification.failed(event.accountId(), errorCode, event.timestamp());
+
+        log.info("{} Sync error state of account {} changed to {}.", LogCategory.SYNC, event.accountId(),
+                errorCode != null ? errorCode : "<clear>");
+
+        try {
+            sseNotificationService.broadcast(notification);
+        } catch (Exception e) {
+            log.warn("{} SSE broadcast failed: {}", LogCategory.SYNC, e.getMessage());
         }
     }
 }

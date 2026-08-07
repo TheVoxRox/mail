@@ -41,7 +41,7 @@
 			{$_('auth.description', { values: { countdown } })}
 		</p>
 		{#if errorMessage}
-			<p class="mt-2 text-sm text-destructive" role="alert">{errorMessage}</p>
+			<p class="mt-2 text-sm text-destructive-foreground" role="alert">{errorMessage}</p>
 		{/if}
 		<Button href={resolve('/settings/accounts')} class="mt-4">
 			{$_('auth.goToAccounts')}

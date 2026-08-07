@@ -15,7 +15,7 @@
 				ghost:
 					'hover:bg-muted hover:text-foreground dark:hover:bg-muted/50 aria-expanded:bg-muted aria-expanded:text-foreground',
 				destructive:
-					'border-destructive/30 bg-background text-destructive hover:bg-destructive/10 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:border-destructive/50 dark:bg-background dark:hover:bg-destructive/20 dark:focus-visible:ring-destructive/40',
+					'border-destructive/30 bg-background text-destructive-foreground hover:bg-destructive/10 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:border-destructive/50 dark:bg-background dark:hover:bg-destructive/20 dark:focus-visible:ring-destructive/40',
 				link: 'text-primary underline-offset-4 hover:underline'
 			},
 			size: {

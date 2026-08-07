@@ -522,7 +522,7 @@
 				</DropdownMenu.Root>
 			{/if}
 			{#if bulkError}
-				<p class="basis-full text-xs text-destructive" role="alert">{bulkError}</p>
+				<p class="basis-full text-xs text-destructive-foreground" role="alert">{bulkError}</p>
 			{/if}
 		</div>
 

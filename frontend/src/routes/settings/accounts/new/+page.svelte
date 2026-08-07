@@ -316,7 +316,7 @@
 				{$_('accounts.wizard.useImapInstead')}
 			</button>
 			{#if googleError}
-				<p class="mt-2 text-xs text-destructive" role="alert">{googleError}</p>
+				<p class="mt-2 text-xs text-destructive-foreground" role="alert">{googleError}</p>
 			{/if}
 		</Surface>
 	{:else if step.kind === 'oauth-waiting'}

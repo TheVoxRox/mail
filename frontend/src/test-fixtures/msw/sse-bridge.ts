@@ -3,9 +3,10 @@ import {
 	draftToSummary,
 	fixtureState,
 	incrementFolderUnreadCount,
-	removeMessageEverywhere
+	removeMessageEverywhere,
+	setAccountSyncError
 } from './fixtures.js';
-import type { SendNotification, SyncNotification } from '$lib/types.js';
+import type { SendNotification, SyncNotification, SyncStatusNotification } from '$lib/types.js';
 
 type StreamController = ReadableStreamDefaultController<Uint8Array>;
 
@@ -96,6 +97,60 @@ export function pushSendFailed(errorCode = 'SMTP_SEND_FAILED'): void {
 	}
 	fixtureState.lastSendMailRequest = null;
 	pushSendOutcome('send_failed', errorCode, recoveryDraftStableId);
+}
+
+/**
+ * Sync error-state transition. Also writes the standing error onto the account
+ * fixture, because the client refetches accounts to render the failure text —
+ * pushing the event alone would produce the generic fallback copy and the test
+ * would not exercise the real path.
+ */
+export function pushSyncFailed(
+	accountId = 1,
+	errorCode = 'MAIL_SYNC_FOLDER_FAILED',
+	// In the app the backend localizes this (AccountMapper); the fixture default
+	// stays English so this shared file needs no diacritics whitelist entry.
+	// Tests that assert on the rendered detail pass their own string.
+	detail = 'Folder sync INBOX failed: MessagingException: timeout'
+): void {
+	setAccountSyncError(accountId, errorCode, detail);
+	pushSyncStatus({
+		type: 'sync_failed',
+		accountId,
+		errorCode,
+		timestamp: new Date().toISOString()
+	});
+}
+
+export function pushSyncRecovered(accountId = 1): void {
+	setAccountSyncError(accountId, null, null);
+	pushSyncStatus({
+		type: 'sync_recovered',
+		accountId,
+		errorCode: null,
+		timestamp: new Date().toISOString()
+	});
+}
+
+/**
+ * Whether at least one client is subscribed to the stream.
+ *
+ * A push into an empty client set is silently dropped, and `waitForShell` only
+ * proves the SSR shell exists — the `EventSource` subscribe happens later, after
+ * hydration. Tests that drive a notification must gate on this instead of on
+ * rendering, or they pass on timing luck and fail on a slower run.
+ */
+export function syncStreamConnected(): boolean {
+	return clients.size > 0;
+}
+
+function pushSyncStatus(payload: SyncStatusNotification): void {
+	const chunk = encoder.encode(
+		[`event: ${payload.type}`, `data: ${JSON.stringify(payload)}`, '', ''].join('\n')
+	);
+	for (const client of clients) {
+		client.enqueue(chunk);
+	}
 }
 
 export function openSyncStream(): Response {

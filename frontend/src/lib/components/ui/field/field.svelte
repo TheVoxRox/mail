@@ -43,6 +43,6 @@
 		<p id={forId ? `${forId}-hint` : undefined} class="text-xs text-muted-foreground">{hint}</p>
 	{/if}
 	{#if error}
-		<p id={errorId} class="text-xs text-destructive" role="alert">{error}</p>
+		<p id={errorId} class="text-xs text-destructive-foreground" role="alert">{error}</p>
 	{/if}
 </div>

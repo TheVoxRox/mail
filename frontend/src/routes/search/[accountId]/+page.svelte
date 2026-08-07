@@ -219,7 +219,7 @@
 			</div>
 		{:else if $searchState.status === 'error'}
 			<div
-				class="flex flex-1 items-center justify-center p-8 text-sm text-destructive"
+				class="flex flex-1 items-center justify-center p-8 text-sm text-destructive-foreground"
 				role="alert"
 			>
 				{$_('messages.errorPrefix', { values: { message: $searchState.error.message } })}

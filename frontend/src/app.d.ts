@@ -43,6 +43,10 @@ declare global {
 				timestamp?: string;
 				type?: string;
 			}) => void;
+			pushSyncFailed: (accountId?: number, errorCode?: string, detail?: string) => void;
+			pushSyncRecovered: (accountId?: number) => void;
+			/** True once a client subscribed — a push before that is dropped. */
+			syncStreamConnected: () => boolean;
 			pushSendCompleted: () => void;
 			pushSendFailed: (errorCode?: string) => void;
 			setReadinessDelayMs: (delayMs: number) => void;

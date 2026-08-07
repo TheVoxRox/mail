@@ -2,11 +2,13 @@ package org.voxrox.mailbackend.feature.mail.service;
 
 import jakarta.mail.Folder;
 import jakarta.mail.MessagingException;
+import jakarta.mail.Store;
 
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.voxrox.mailbackend.core.config.MailClientProperties;
 import org.voxrox.mailbackend.exception.ErrorCode;
 import org.voxrox.mailbackend.exception.MailOperationException;
 import org.voxrox.mailbackend.feature.mail.dto.FolderConstants;
@@ -26,15 +28,17 @@ public class ImapFolderService {
     private final FolderSyncStateRepository folderSyncStateRepository;
     private final MessageRepository messageRepository;
     private final FolderListCache folderListCache;
+    private final MailClientProperties mailProps;
 
     public ImapFolderService(ImapConnectionManager imapConnectionManager, ImapFolderExecutor imapFolderExecutor,
             FolderSyncStateRepository folderSyncStateRepository, MessageRepository messageRepository,
-            FolderListCache folderListCache) {
+            FolderListCache folderListCache, MailClientProperties mailProps) {
         this.imapConnectionManager = imapConnectionManager;
         this.imapFolderExecutor = imapFolderExecutor;
         this.folderSyncStateRepository = folderSyncStateRepository;
         this.messageRepository = messageRepository;
         this.folderListCache = folderListCache;
+        this.mailProps = mailProps;
     }
 
     public <R> @Nullable R executeInFolder(Long accountId, String folderName, int mode, ImapFolderAction<R> action) {
@@ -72,55 +76,79 @@ public class ImapFolderService {
 
         // The action always returns a (possibly empty) list or throws — it never
         // yields null, so the nullable executor result can be required here.
-        List<FolderResponse> fresh = java.util.Objects
-                .requireNonNull(imapConnectionManager.executeWithLock(accountId, store -> {
-                    log.debug("{} Listing folders for account {}", LogCategory.IMAP, accountId);
-                    Folder defaultFolder = store.getDefaultFolder();
-                    Folder[] listed = defaultFolder.list("*");
-
-                    // Drop \Noselect containers (e.g. Gmail's "[Gmail]" parent node). They have
-                    // HOLDS_FOLDERS but not HOLDS_MESSAGES — SELECT on them fails, so surfacing
-                    // them in the sidebar would only lead to a click-to-error.
-                    List<Folder> folders = new ArrayList<>(listed.length);
-                    for (Folder folder : listed) {
-                        if (isSelectable(folder)) {
-                            folders.add(folder);
-                        }
-                    }
-
-                    /*
-                     * Two-pass role detection. Pass 1 assigns the "strong" role from INBOX,
-                     * NEWSLETTERS-by-name (seznam.cz quirk), or RFC 6154 SPECIAL-USE attributes —
-                     * no name fallback yet. Pass 2 applies the name fallback only for roles not
-                     * already claimed in pass 1, so a stray user label like "[Gmail]Koš" or
-                     * "Archiv 2024" cannot impersonate the system Trash/Archive when the real one
-                     * was detected via SPECIAL-USE.
-                     */
-                    FolderRole[] primary = new FolderRole[folders.size()];
-                    EnumSet<FolderRole> claimed = EnumSet.noneOf(FolderRole.class);
-                    for (int i = 0; i < folders.size(); i++) {
-                        primary[i] = detectPrimaryRole(folders.get(i));
-                        if (primary[i] != FolderRole.USER) {
-                            claimed.add(primary[i]);
-                        }
-                    }
-
-                    List<FolderResponse> result = new ArrayList<>(folders.size());
-                    for (int i = 0; i < folders.size(); i++) {
-                        Folder folder = folders.get(i);
-                        FolderRole role = primary[i];
-                        if (role == FolderRole.USER) {
-                            FolderRole byName = FolderRole.fromNameFallback(folder.getFullName());
-                            if (byName != FolderRole.USER && !claimed.contains(byName)) {
-                                role = byName;
-                            }
-                        }
-                        result.add(buildResponse(folder, accountId, role));
-                    }
-                    return result;
-                }));
+        List<FolderResponse> fresh = java.util.Objects.requireNonNull(
+                imapConnectionManager.executeWithLock(accountId, store -> listFolders(accountId, store)));
         folderListCache.put(accountId, fresh);
         return fresh;
+    }
+
+    /**
+     * Folder listing that gives up instead of queuing behind a running sync.
+     * <p>
+     * {@link #getFolders(Long)} waits on the per-account connection lock, which a
+     * background sync holds for a whole folder cycle — tens of seconds on a large
+     * mailbox. That is fine for the sync path, but a read request that only needs
+     * to know which folder is the trash must not block the user's message list on
+     * it. An empty result means "could not resolve right now"; the caller decides
+     * how to degrade, and the TTL cache means this is at most one cold lookup.
+     */
+    public Optional<List<FolderResponse>> getFoldersWithinTimeout(Long accountId, Duration timeout) {
+        Optional<List<FolderResponse>> cached = folderListCache.get(accountId);
+        if (cached.isPresent()) {
+            return cached;
+        }
+
+        Optional<List<FolderResponse>> fresh = imapConnectionManager.executeWithLockOrSkip(accountId, timeout,
+                store -> listFolders(accountId, store));
+        fresh.ifPresent(folders -> folderListCache.put(accountId, folders));
+        return fresh;
+    }
+
+    private List<FolderResponse> listFolders(Long accountId, Store store) throws MessagingException {
+        log.debug("{} Listing folders for account {}", LogCategory.IMAP, accountId);
+        Folder defaultFolder = store.getDefaultFolder();
+        Folder[] listed = defaultFolder.list("*");
+
+        // Drop \Noselect containers (e.g. Gmail's "[Gmail]" parent node). They have
+        // HOLDS_FOLDERS but not HOLDS_MESSAGES — SELECT on them fails, so surfacing
+        // them in the sidebar would only lead to a click-to-error.
+        List<Folder> folders = new ArrayList<>(listed.length);
+        for (Folder folder : listed) {
+            if (isSelectable(folder)) {
+                folders.add(folder);
+            }
+        }
+
+        /*
+         * Two-pass role detection. Pass 1 assigns the "strong" role from INBOX,
+         * NEWSLETTERS-by-name (seznam.cz quirk), or RFC 6154 SPECIAL-USE attributes —
+         * no name fallback yet. Pass 2 applies the name fallback only for roles not
+         * already claimed in pass 1, so a stray user label like "[Gmail]Koš" or
+         * "Archiv 2024" cannot impersonate the system Trash/Archive when the real one
+         * was detected via SPECIAL-USE.
+         */
+        FolderRole[] primary = new FolderRole[folders.size()];
+        EnumSet<FolderRole> claimed = EnumSet.noneOf(FolderRole.class);
+        for (int i = 0; i < folders.size(); i++) {
+            primary[i] = detectPrimaryRole(folders.get(i));
+            if (primary[i] != FolderRole.USER) {
+                claimed.add(primary[i]);
+            }
+        }
+
+        List<FolderResponse> result = new ArrayList<>(folders.size());
+        for (int i = 0; i < folders.size(); i++) {
+            Folder folder = folders.get(i);
+            FolderRole role = primary[i];
+            if (role == FolderRole.USER) {
+                FolderRole byName = FolderRole.fromNameFallback(folder.getFullName());
+                if (byName != FolderRole.USER && !claimed.contains(byName)) {
+                    role = byName;
+                }
+            }
+            result.add(buildResponse(folder, accountId, role));
+        }
+        return result;
     }
 
     private boolean isSelectable(Folder folder) {
@@ -186,6 +214,39 @@ public class ImapFolderService {
      * conversations. Returns an empty list when the account has no folder for the
      * role.
      */
+    /**
+     * Read-path variant of {@link #findFolderNamesByRole(Long, FolderRole)} that
+     * never queues behind a running sync.
+     *
+     * <p>
+     * The DB lookup answers this in the overwhelming majority of calls; the IMAP
+     * fallback only fires when the sync has not recorded the folder yet — first
+     * visit on a fresh account, which is exactly when a long initial sync is
+     * holding the connection lock. Blocking there would stall the user's message
+     * list on a lookup that only decides which folders to exclude from a count.
+     *
+     * <p>
+     * The empty {@link Optional} is deliberately distinct from an empty list: "the
+     * account has no trash folder" and "could not find out" lead to opposite
+     * decisions in the conversation listing, and conflating them would silently
+     * promote the trash into cross-folder conversations.
+     */
+    public Optional<List<String>> findFolderNamesByRoleWithoutWaiting(Long accountId, FolderRole role) {
+        List<String> fromDb = folderSyncStateRepository.findFolderNamesByRole(accountId, role);
+        if (!fromDb.isEmpty()) {
+            return Optional.of(fromDb);
+        }
+
+        return getFoldersWithinTimeout(accountId, mailProps.imap().roleLookupTimeout()).map(folders -> {
+            List<String> fromImap = folders.stream().filter(f -> f.role() == role).map(FolderResponse::folderRef)
+                    .toList();
+            if (!fromImap.isEmpty()) {
+                return fromImap;
+            }
+            return role == FolderRole.INBOX ? List.of(FolderConstants.INBOX) : List.<String>of();
+        });
+    }
+
     public List<String> findFolderNamesByRole(Long accountId, FolderRole role) {
         List<String> fromDb = folderSyncStateRepository.findFolderNamesByRole(accountId, role);
         if (!fromDb.isEmpty()) {

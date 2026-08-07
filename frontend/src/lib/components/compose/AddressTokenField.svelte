@@ -183,7 +183,7 @@
 						'inline-flex max-w-full items-center gap-1 rounded-md border px-2 py-1 text-xs',
 						isValidEmailAddress(address)
 							? 'border-border bg-muted text-foreground'
-							: 'border-destructive/40 bg-destructive/10 text-destructive'
+							: 'border-destructive/40 bg-destructive/10 text-destructive-foreground'
 					]}
 				>
 					<span class="truncate">{address}</span>
@@ -249,7 +249,7 @@
 	{#if error}
 		<div
 			id={errorId}
-			class="border-t border-border px-4 py-2 text-xs text-destructive"
+			class="border-t border-border px-4 py-2 text-xs text-destructive-foreground"
 			role="alert"
 		>
 			<span class="ml-20 block">{error}</span>

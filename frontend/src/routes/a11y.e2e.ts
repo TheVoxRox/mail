@@ -143,6 +143,34 @@ test.describe('Přístupnost', () => {
 		expect(results.violations).toEqual([]);
 	});
 
+	test('indikátor selhané synchronizace nemá a11y porušení', async ({ page }) => {
+		// The per-route sweep never reaches this state: the indicator only exists
+		// after a sync_failed notification, so without this case the axe scan
+		// would silently skip the whole affordance.
+		await page.goto(`/mail/${mailFixture.accountId}/${encodeURIComponent(mailFixture.folderName)}`);
+		await waitForShell(page);
+
+		// Gate on the subscription, not on rendering: a push into an empty client
+		// set is dropped, and the shell exists before the stream is subscribed.
+		await page.waitForFunction(() => window.__MAIL_MSW__?.syncStreamConnected() === true);
+		await page.evaluate(() => window.__MAIL_MSW__?.pushSyncFailed());
+
+		const indicator = page.getByRole('button', {
+			name: 'Synchronizace selhává: tester@example.com'
+		});
+		await expect(indicator).toBeVisible();
+
+		/*
+		 * Page-wide, which also puts the error toast under the scanner — the state
+		 * no other axe case reaches. It was scoped to the sidebar while
+		 * `text-destructive` was still used as body text (3.95:1 on its own tint);
+		 * the --destructive-foreground pair fixed that, and widening the scan back
+		 * is what keeps it fixed.
+		 */
+		const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+		expect(results.violations).toEqual([]);
+	});
+
 	test('search landmark není vnořený v navigaci (pošta i kontakty)', async ({ page }) => {
 		// The sidebar is a named region; the search and the folder-list <nav>
 		// sit side by side inside it — a search landmark nested in nav is

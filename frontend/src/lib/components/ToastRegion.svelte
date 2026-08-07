@@ -6,7 +6,7 @@
 	const toneClass: Record<ToastTone, string> = {
 		info: 'border-border bg-popover text-popover-foreground',
 		success: 'border-chart-2/50 bg-chart-2/10 text-foreground',
-		error: 'border-destructive/50 bg-destructive/10 text-destructive'
+		error: 'border-destructive/50 bg-destructive/10 text-destructive-foreground'
 	};
 </script>
 

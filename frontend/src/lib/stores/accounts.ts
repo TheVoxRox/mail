@@ -78,6 +78,25 @@ export async function loadAccounts(): Promise<AccountResponse[]> {
 	}
 }
 
+/**
+ * Reloads accounts in place, without the `loading` state {@link loadAccounts}
+ * goes through. Used by background refreshes (a `sync_failed` / `sync_recovered`
+ * notification): the list is already on screen and must not blank out, and the
+ * active account must not be re-picked underneath the user. A failed refresh
+ * keeps the previous list rather than replacing it with an error state — a
+ * transient fetch failure is not a reason to tear down a working view.
+ */
+export async function refreshAccounts(): Promise<AccountResponse[]> {
+	try {
+		const accounts = await listAccounts();
+		accountsState.set({ status: 'ready', accounts });
+		return accounts;
+	} catch {
+		const state = get(accountsState);
+		return state.status === 'ready' ? state.accounts : [];
+	}
+}
+
 export function setActiveAccount(id: number | null): void {
 	if (id != null) {
 		const state = get(accountsState);

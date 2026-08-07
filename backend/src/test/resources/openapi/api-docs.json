@@ -2021,7 +2021,7 @@
       "get" : {
         "tags" : [ "Notifications" ],
         "summary" : "SSE notification stream",
-        "description" : "Opens a Server-Sent Events stream. The server emits one of: `sync_completed` (after a folder sync produced new messages), `send_completed` (asynchronous SMTP send finished successfully), `send_failed` (asynchronous SMTP send failed; payload carries the AccountLastErrorCode in `errorCode`), or `thread_updated` (a conversation gained a message or two orphan chains merged). A heartbeat comment is emitted every 30 s so intermediaries do not close the connection.",
+        "description" : "Opens a Server-Sent Events stream. The server emits one of: `sync_completed` (after a folder sync produced new messages), `sync_failed` / `sync_recovered` (the account's standing sync error changed; emitted on the transition only, payload carries the AccountLastErrorCode in `errorCode`, null on recovery), `send_completed` (asynchronous SMTP send finished successfully), `send_failed` (asynchronous SMTP send failed; payload carries the AccountLastErrorCode in `errorCode`), or `thread_updated` (a conversation gained a message or two orphan chains merged). A heartbeat comment is emitted every 30 s so intermediaries do not close the connection.",
         "operationId" : "streamNotifications",
         "responses" : {
           "503" : {
@@ -2041,6 +2041,8 @@
                 "schema" : {
                   "oneOf" : [ {
                     "$ref" : "#/components/schemas/SyncNotification"
+                  }, {
+                    "$ref" : "#/components/schemas/SyncStatusNotification"
                   }, {
                     "$ref" : "#/components/schemas/SendNotification"
                   }, {
@@ -4141,6 +4143,25 @@
           "newMessagesCount" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "timestamp" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "SyncStatusNotification" : {
+        "type" : "object",
+        "properties" : {
+          "type" : {
+            "type" : "string"
+          },
+          "accountId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "errorCode" : {
+            "type" : "string"
           },
           "timestamp" : {
             "type" : "string",

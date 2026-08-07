@@ -72,6 +72,21 @@ public interface AccountRepository extends JpaRepository<AccountEntity, Long> {
     @Query("SELECT a.requiresReauth FROM AccountEntity a WHERE a.id = :id")
     Optional<Boolean> isRequiresReauth(@Param("id") Long id);
 
+    /**
+     * Standing error code of the account, read back after a sync pass to decide
+     * whether the account's error state <em>changed</em>. The slot is written
+     * through {@code @Modifying} queries that bypass the persistence context, so a
+     * loaded {@link org.voxrox.mailbackend.feature.account.entity.AccountEntity}
+     * still holds the pre-pass value — that is what makes the before/after
+     * comparison possible without a version column.
+     * <p>
+     * An empty result means "no standing error" and, for a deleted account, the
+     * same — both leave nothing to report, so the caller does not distinguish them.
+     */
+    @Transactional(readOnly = true)
+    @Query("SELECT a.lastErrorCode FROM AccountEntity a WHERE a.id = :id")
+    Optional<String> findLastErrorCode(@Param("id") Long id);
+
     @Modifying
     @Transactional
     @Query("UPDATE AccountEntity a SET a.lastError = :error, a.lastErrorCode = :code, "

@@ -15,7 +15,10 @@ import {
 	pushSendCompleted,
 	pushSendFailed,
 	pushSyncCompleted,
-	pushSyncCompletedCrLf
+	pushSyncCompletedCrLf,
+	pushSyncFailed,
+	pushSyncRecovered,
+	syncStreamConnected
 } from './sse-bridge.js';
 import { clearAccounts, resetFixtures, seedTrashThreadMembers } from './fixtures.js';
 import type { SessionPayload } from '$lib/api/session.js';
@@ -97,6 +100,9 @@ export async function installE2EBypass(): Promise<void> {
 		},
 		pushSyncCompleted,
 		pushSyncCompletedCrLf,
+		pushSyncFailed,
+		pushSyncRecovered,
+		syncStreamConnected,
 		pushSendCompleted,
 		pushSendFailed,
 		setReadinessDelayMs,
@@ -114,7 +120,10 @@ export {
 	pushSendFailed,
 	pushSyncCompleted,
 	pushSyncCompletedCrLf,
+	pushSyncFailed,
+	pushSyncRecovered,
 	resetFixtures,
+	syncStreamConnected,
 	setFolderAuthFailure,
 	setMailPageSize,
 	setReadinessDelayMs,

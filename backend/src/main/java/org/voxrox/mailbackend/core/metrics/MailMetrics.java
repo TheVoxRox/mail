@@ -42,6 +42,7 @@ public class MailMetrics {
     private static final String METRIC_SMTP_SEND = "mail.smtp.send";
     private static final String METRIC_IMAP_CONNECT = "mail.imap.connect";
     private static final String METRIC_IMAP_AUTH_REFRESH = "mail.imap.auth.refresh";
+    private static final String METRIC_IMAP_LOCK_SKIPPED = "mail.imap.lock.skipped";
     private static final String METRIC_IMAP_POOL_SIZE = "mail.imap.pool.size";
     private static final String METRIC_OAUTH_REFRESH = "mail.oauth.refresh";
     private static final String METRIC_IMAP_MOVE = "mail.imap.move";
@@ -50,6 +51,7 @@ public class MailMetrics {
     private final MeterRegistry registry;
     private final Counter syncMessagesDownloaded;
     private final Counter imapAuthRefresh;
+    private final Counter imapLockSkipped;
 
     public MailMetrics(MeterRegistry registry) {
         this.registry = registry;
@@ -57,6 +59,10 @@ public class MailMetrics {
                 .description("Total number of messages downloaded during synchronization.").register(registry);
         this.imapAuthRefresh = Counter.builder(METRIC_IMAP_AUTH_REFRESH).description(
                 "IMAP executeWithLock hit AuthenticationFailedException and had to refresh the token + reconnect.")
+                .register(registry);
+        this.imapLockSkipped = Counter.builder(METRIC_IMAP_LOCK_SKIPPED).description(
+                "A read-path IMAP lookup gave up because a sync held the account's connection lock. A rising count "
+                        + "means the single connection per account is the bottleneck — the signal for the interactive lane.")
                 .register(registry);
     }
 
@@ -102,6 +108,10 @@ public class MailMetrics {
      */
     public void incrementImapAuthRefresh() {
         imapAuthRefresh.increment();
+    }
+
+    public void incrementImapLockSkipped() {
+        imapLockSkipped.increment();
     }
 
     /**
