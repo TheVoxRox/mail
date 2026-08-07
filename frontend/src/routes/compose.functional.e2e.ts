@@ -221,12 +221,43 @@ test.describe('Compose', () => {
 		await waitForShell(page);
 
 		await page.locator('#compose-to').fill('jana');
-		const suggestions = page.getByRole('listbox', { name: 'Návrhy kontaktů' });
+		const suggestions = page.getByRole('listbox', { name: 'Návrhy adres' });
 		await expect(suggestions).toBeVisible();
 		await suggestions.getByRole('option', { name: /jana@example\.com/ }).click();
 
 		await expect(page.getByText('jana@example.com')).toBeVisible();
 		await expect(page.locator('#compose-to')).toHaveValue('');
+	});
+
+	test('našeptávač nabídne adresu z historie a řekne, že není v kontaktech', async ({ page }) => {
+		await page.goto('/compose');
+		await waitForShell(page);
+
+		await page.locator('#compose-to').fill('jan');
+		const suggestions = page.getByRole('listbox', { name: 'Návrhy adres' });
+		await expect(suggestions).toBeVisible();
+
+		// jan.dvorak je jen v historii — v adresáři žádný takový kontakt není.
+		// Označení musí být součástí přístupného jména položky, ne vizuál vedle
+		// ní: v listboxu odečítač čte jméno option, takže odznak mimo tlačítko
+		// (nebo skrytý před stromem přístupnosti) by uživatel nikdy neslyšel.
+		const historyOption = suggestions.getByRole('option', {
+			name: /jan\.dvorak@example\.com.*není v kontaktech/
+		});
+		await expect(historyOption).toBeVisible();
+
+		// jana@example.com má kontakt i záznam v historii — server je slučuje,
+		// takže se smí objevit právě jednou a bez označení.
+		await expect(suggestions.getByRole('option', { name: /jana@example\.com/ })).toHaveCount(1);
+		await expect(
+			suggestions.getByRole('option', { name: /jana@example\.com.*není v kontaktech/ })
+		).toHaveCount(0);
+
+		// no-reply@example.com je v historii taky, ale robotí adresy se nenabízejí.
+		await expect(suggestions.getByRole('option', { name: /no-reply/ })).toHaveCount(0);
+
+		await historyOption.click();
+		await expect(page.getByText('jan.dvorak@example.com')).toBeVisible();
 	});
 
 	test('Escape v poli adresátů zavře jen našeptávač, další Escape teprve zahazuje', async ({
@@ -236,7 +267,7 @@ test.describe('Compose', () => {
 		await waitForShell(page);
 
 		await page.locator('#compose-to').fill('jana');
-		const suggestions = page.getByRole('listbox', { name: 'Návrhy kontaktů' });
+		const suggestions = page.getByRole('listbox', { name: 'Návrhy adres' });
 		await expect(suggestions).toBeVisible();
 
 		await page.keyboard.press('Escape');

@@ -588,8 +588,8 @@ class ContactControllerTest {
     @DisplayName("GET /autocomplete?q=ali -> 200 with a flat list (contact x email)")
     void autocompleteHappyPath() throws Exception {
         when(contactService.autocomplete(eq(ACCOUNT_ID), eq("ali"), eq(10))).thenReturn(List.of(
-                new ContactAutocompleteResponse(1L, 11L, "alice@x.cz", EmailLabel.WORK, true, "Alice", "Liddell"),
-                new ContactAutocompleteResponse(1L, 12L, "alice.home@x.cz", EmailLabel.HOME, false, "Alice",
+                ContactAutocompleteResponse.ofContact(1L, 11L, "alice@x.cz", EmailLabel.WORK, true, "Alice", "Liddell"),
+                ContactAutocompleteResponse.ofContact(1L, 12L, "alice.home@x.cz", EmailLabel.HOME, false, "Alice",
                         "Liddell")));
 
         mockMvc.perform(get("/api/v1/accounts/{aid}/contacts/autocomplete", ACCOUNT_ID).param("q", "ali"))

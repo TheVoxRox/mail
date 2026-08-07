@@ -238,7 +238,8 @@
 		"errorNoSubject": "Vyplňte předmět zprávy.",
 		"removeAddress": "Odebrat {address}",
 		"invalidAddress": "Neplatná adresa: {address}",
-		"suggestionsLabel": "Návrhy kontaktů"
+		"suggestionsLabel": "Návrhy adres",
+		"suggestionFromHistory": "není v kontaktech"
 	},
 	"accounts": {
 		"listPageTitle": "Pošta – Nastavení – Účty",

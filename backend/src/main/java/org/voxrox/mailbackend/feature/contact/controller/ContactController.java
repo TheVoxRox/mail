@@ -107,7 +107,11 @@ public class ContactController {
         return contactService.getCounts(accountId);
     }
 
-    @Operation(summary = "Compose-window autocomplete", description = "Returns a flat list of addresses (contact x email) for typeahead. Ranking: prefix-email > prefix-surname > prefix-name > substring. Default limit 10, hard cap 20.")
+    @Operation(summary = "Compose-window autocomplete", description = "Returns a flat list of addresses for typeahead, merged from the address book (`source: CONTACT`) and "
+            + "the addresses harvested from synced message headers (`source: HISTORY`). Ranking: prefix-email > prefix-surname > prefix-name > substring, "
+            + "with contacts winning a tie and history rows ordered by written-to-first then recency. An address present in both appears once, as the contact. "
+            + "History rows carry no contact identity, so `contactId`, `emailId`, `label` and `primary` are null and the last seen display name is in `name`. "
+            + "The limit applies to the merged list. Default limit 10, hard cap 20.")
     @GetMapping("/autocomplete")
     public List<ContactAutocompleteResponse> autocomplete(
             @PathVariable @Positive(message = "{validation.positive}") Long accountId,

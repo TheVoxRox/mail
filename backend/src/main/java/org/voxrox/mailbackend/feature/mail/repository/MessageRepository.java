@@ -432,6 +432,26 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
             @Param("afterId") Long afterId, @Param("batch") int batch);
 
     /**
+     * One correspondent-backfill batch — the address headers of every message of
+     * the account, ordered by id ascending after {@code afterId}.
+     *
+     * <p>
+     * No "needs processing" predicate, unlike the other backfill queries: the
+     * harvest writes to a different table, so nothing on the message row records
+     * that it was visited. The pass is instead gated as a whole on the
+     * correspondent table being empty for the account
+     * ({@code CorrespondentBackfillService}) — re-running it over an already
+     * populated cache would double every counter.
+     */
+    @Query(value = "SELECT m.id AS id, m.folder_name AS folderName, m.sender AS sender, "
+            + "m.recipients_to AS recipientsTo, m.recipients_cc AS recipientsCc, "
+            + "m.recipients_bcc AS recipientsBcc, m.received_at AS receivedAt FROM messages m "
+            + "WHERE m.account_id = :accId AND m.id > :afterId "
+            + "ORDER BY m.id ASC LIMIT :batch", nativeQuery = true)
+    List<CorrespondentBackfillRow> findMessagesForCorrespondentBackfill(@Param("accId") Long accountId,
+            @Param("afterId") Long afterId, @Param("batch") int batch);
+
+    /**
      * Cross-folder conversation sizes for the threads on one page of the
      * conversation-grouped listing — the Outlook-style {@code messageCount} used
      * for every folder except Trash/Junk/Drafts. The page itself stays the

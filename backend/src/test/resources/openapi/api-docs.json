@@ -461,30 +461,39 @@
       "ContactAutocompleteResponse" : {
         "properties" : {
           "contactId" : {
+            "description" : "Address book entry this address belongs to. Null on a HISTORY row.",
             "format" : "int64",
-            "type" : "integer"
+            "type" : [ "integer", "null" ]
           },
           "email" : {
             "type" : "string"
           },
           "emailId" : {
+            "description" : "Identifier of the stored address. Null on a HISTORY row.",
             "format" : "int64",
-            "type" : "integer"
+            "type" : [ "integer", "null" ]
           },
           "label" : {
-            "description" : "Label for the contact's email address. Optional — when the client omits it, null is stored (no label). Matching is case-insensitive, so both \"home\" and \"HOME\" pass.",
+            "description" : "Address label (WORK/HOME/OTHER). Null on a HISTORY row and on a contact address with no label.",
             "enum" : [ "WORK", "HOME", "OTHER", "WORK", "HOME", "OTHER" ],
             "example" : "HOME",
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "name" : {
-            "type" : "string"
+            "description" : "Given name for a CONTACT row; on a HISTORY row the whole display name last seen in a header.",
+            "type" : [ "string", "null" ]
           },
           "primary" : {
-            "type" : "boolean"
+            "description" : "Whether this is the contact's primary address. Null on a HISTORY row.",
+            "type" : [ "boolean", "null" ]
+          },
+          "source" : {
+            "enum" : [ "CONTACT", "HISTORY" ],
+            "type" : "string"
           },
           "surname" : {
-            "type" : "string"
+            "description" : "Family name. Always null on a HISTORY row — a header display name is not split.",
+            "type" : [ "string", "null" ]
           }
         },
         "type" : "object"
@@ -2367,7 +2376,7 @@
     },
     "/api/v1/accounts/{accountId}/contacts/autocomplete" : {
       "get" : {
-        "description" : "Returns a flat list of addresses (contact x email) for typeahead. Ranking: prefix-email > prefix-surname > prefix-name > substring. Default limit 10, hard cap 20.",
+        "description" : "Returns a flat list of addresses for typeahead, merged from the address book (`source: CONTACT`) and the addresses harvested from synced message headers (`source: HISTORY`). Ranking: prefix-email > prefix-surname > prefix-name > substring, with contacts winning a tie and history rows ordered by written-to-first then recency. An address present in both appears once, as the contact. History rows carry no contact identity, so `contactId`, `emailId`, `label` and `primary` are null and the last seen display name is in `name`. The limit applies to the merged list. Default limit 10, hard cap 20.",
         "operationId" : "autocomplete",
         "parameters" : [ {
           "in" : "path",

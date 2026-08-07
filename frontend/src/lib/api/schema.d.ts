@@ -209,7 +209,7 @@ export interface paths {
 		};
 		/**
 		 * Compose-window autocomplete
-		 * @description Returns a flat list of addresses (contact x email) for typeahead. Ranking: prefix-email > prefix-surname > prefix-name > substring. Default limit 10, hard cap 20.
+		 * @description Returns a flat list of addresses for typeahead, merged from the address book (`source: CONTACT`) and the addresses harvested from synced message headers (`source: HISTORY`). Ranking: prefix-email > prefix-surname > prefix-name > substring, with contacts winning a tie and history rows ordered by written-to-first then recency. An address present in both appears once, as the contact. History rows carry no contact identity, so `contactId`, `emailId`, `label` and `primary` are null and the last seen display name is in `name`. The limit applies to the merged list. Default limit 10, hard cap 20.
 		 */
 		get: operations['autocomplete'];
 		put?: never;
@@ -1082,20 +1082,31 @@ export interface components {
 			searchQueryMaxLength: number;
 		};
 		ContactAutocompleteResponse: {
-			/** Format: int64 */
-			contactId?: number;
-			email?: string;
-			/** Format: int64 */
-			emailId?: number;
 			/**
-			 * @description Label for the contact's email address. Optional — when the client omits it, null is stored (no label). Matching is case-insensitive, so both "home" and "HOME" pass.
-			 * @example HOME
-			 * @enum {string}
+			 * Format: int64
+			 * @description Address book entry this address belongs to. Null on a HISTORY row.
 			 */
-			label?: 'WORK' | 'HOME' | 'OTHER' | 'WORK' | 'HOME' | 'OTHER';
-			name?: string;
-			primary?: boolean;
-			surname?: string;
+			contactId?: number | null;
+			email?: string;
+			/**
+			 * Format: int64
+			 * @description Identifier of the stored address. Null on a HISTORY row.
+			 */
+			emailId?: number | null;
+			/**
+			 * @description Address label (WORK/HOME/OTHER). Null on a HISTORY row and on a contact address with no label.
+			 * @example HOME
+			 * @enum {string|null}
+			 */
+			label?: 'WORK' | 'HOME' | 'OTHER' | 'WORK' | 'HOME' | 'OTHER' | null;
+			/** @description Given name for a CONTACT row; on a HISTORY row the whole display name last seen in a header. */
+			name?: string | null;
+			/** @description Whether this is the contact's primary address. Null on a HISTORY row. */
+			primary?: boolean | null;
+			/** @enum {string} */
+			source?: 'CONTACT' | 'HISTORY';
+			/** @description Family name. Always null on a HISTORY row — a header display name is not split. */
+			surname?: string | null;
 		};
 		/** @description Contact counts for the sidebar: the account total plus one row per contact label. Labels with no contacts are included with contacts = 0. */
 		ContactCountsResponse: {

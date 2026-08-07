@@ -46,6 +46,7 @@ import org.voxrox.mailbackend.feature.contact.entity.ContactLabelEntity;
 import org.voxrox.mailbackend.feature.contact.mapper.ContactMapper;
 import org.voxrox.mailbackend.feature.contact.service.ContactLabelService;
 import org.voxrox.mailbackend.feature.contact.service.ContactService;
+import org.voxrox.mailbackend.feature.contact.service.CorrespondentService;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
@@ -330,8 +331,8 @@ class ContactRepositoryIT {
         AccountService accountService = mock(AccountService.class);
         when(accountService.getAccountOrThrow(account.getId())).thenReturn(account);
         ContactLabelService labelService = new ContactLabelService(labelRepository, contactRepository, accountService);
-        ContactService service = new ContactService(contactRepository, labelRepository, labelService, accountService,
-                new ContactMapper());
+        ContactService service = new ContactService(contactRepository, labelRepository, labelService,
+                mock(CorrespondentService.class), accountService, new ContactMapper());
 
         // Called directly (no @Transactional proxy), so setPrimaryEmail joins the
         // test's transaction and its final change flushes here rather than on commit.

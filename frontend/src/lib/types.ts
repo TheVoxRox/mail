@@ -407,14 +407,25 @@ export interface ContactLabelAssignmentResponse {
 	changed: number;
 }
 
+/**
+ * Where a compose suggestion came from. `HISTORY` rows are addresses harvested
+ * from synced message headers — offered by the typeahead but not in the address
+ * book, which is why the UI says so rather than letting them pass as contacts.
+ */
+export type AutocompleteSource = 'CONTACT' | 'HISTORY';
+
 export interface ContactAutocompleteResponse {
-	contactId: number;
-	emailId: number;
+	/** Null on a HISTORY row — nothing in the address book backs it. */
+	contactId: number | null;
+	emailId: number | null;
 	email: string;
 	label: EmailLabel | null;
-	primary: boolean;
+	primary: boolean | null;
+	/** On a HISTORY row this is the whole display name last seen in a header. */
 	name: string | null;
+	/** Always null on a HISTORY row: a header display name is not split. */
 	surname: string | null;
+	source: AutocompleteSource;
 }
 
 export interface BulkContactCreateRequest {

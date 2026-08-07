@@ -225,7 +225,13 @@
 					aria-label={$_('compose.suggestionsLabel')}
 					class="absolute left-0 right-0 top-full z-20 mt-1 rounded-md border border-border bg-popover p-1 text-sm text-popover-foreground shadow-md"
 				>
-					{#each suggestions as suggestion, index (suggestion.emailId)}
+					<!--
+						Keyed by email, not emailId: history suggestions have no emailId, so
+						every one of them would key to undefined and Svelte would treat them
+						as the same item. Email is unique because the server deduplicates
+						across both sources before responding.
+					-->
+					{#each suggestions as suggestion, index (suggestion.email)}
 						<button
 							type="button"
 							id={`${id}-suggestion-${index}`}
@@ -233,13 +239,28 @@
 							tabindex="-1"
 							aria-selected={index === activeSuggestion}
 							class={[
-								'block w-full rounded px-2 py-1.5 text-left hover:bg-accent hover:text-accent-foreground',
+								'flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left hover:bg-accent hover:text-accent-foreground',
 								index === activeSuggestion ? 'bg-accent text-accent-foreground' : ''
 							]}
 							onmousedown={(event) => event.preventDefault()}
 							onclick={() => selectSuggestion(suggestion)}
 						>
-							{suggestionLabel(suggestion)}
+							<span class="truncate">{suggestionLabel(suggestion)}</span>
+							{#if suggestion.source === 'HISTORY'}
+								<!--
+									Real text inside the option, not a decorative badge next to it:
+									in a listbox the screen reader announces the option's accessible
+									name, so a marker rendered outside the button — or hidden from
+									the accessibility tree — would never be heard, and the one thing
+									distinguishing this row from an address book entry would be
+									visual only.
+								-->
+								<span
+									class="shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+								>
+									{$_('compose.suggestionFromHistory')}
+								</span>
+							{/if}
 						</button>
 					{/each}
 				</div>
