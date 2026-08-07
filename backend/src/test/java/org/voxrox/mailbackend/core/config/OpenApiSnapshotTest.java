@@ -10,7 +10,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.DisplayName;
@@ -79,7 +81,8 @@ class OpenApiSnapshotTest {
         assertThat(SNAPSHOT_PATH)
                 .as("OpenAPI snapshot missing; run `mvn -Dopenapi.snapshot.update=true test` in backend/").exists();
 
-        Map<?, ?> expected = objectMapper.readValue(Files.readString(SNAPSHOT_PATH), LinkedHashMap.class);
+        Map<?, ?> expected = canonicalOpenApi(
+                objectMapper.readValue(Files.readString(SNAPSHOT_PATH), LinkedHashMap.class));
         assertThat(actual)
                 .as("OpenAPI contract changed; review the diff and update both the snapshot and frontend types")
                 .isEqualTo(expected);
@@ -96,7 +99,32 @@ class OpenApiSnapshotTest {
 
     private Map<?, ?> canonicalOpenApi(Map<?, ?> openApi) {
         openApi.remove("servers");
-        return openApi;
+        return (Map<?, ?>) sortKeysRecursively(openApi);
+    }
+
+    /**
+     * springdoc emits object keys in a varying order between runs — two consecutive
+     * regenerations of an unchanged tree can swap sibling schema properties. JSON
+     * object key order carries no meaning, so sorting it away is what makes the
+     * snapshot a stable artefact: without it, regenerating after a real API change
+     * drags unrelated reordering into the diff, and a diff nobody can read is a
+     * diff nobody checks before re-pinning the golden file.
+     *
+     * <p>
+     * Arrays keep their order — in OpenAPI it is significant ({@code enum},
+     * {@code required}, {@code parameters}), so only their elements are
+     * canonicalised.
+     */
+    private static Object sortKeysRecursively(Object node) {
+        if (node instanceof Map<?, ?> map) {
+            Map<String, Object> sorted = new TreeMap<>();
+            map.forEach((key, value) -> sorted.put(String.valueOf(key), sortKeysRecursively(value)));
+            return sorted;
+        }
+        if (node instanceof List<?> list) {
+            return list.stream().map(OpenApiSnapshotTest::sortKeysRecursively).toList();
+        }
+        return node;
     }
 
     private static void deleteRecursively(Path path) throws Exception {
