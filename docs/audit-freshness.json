@@ -15,13 +15,20 @@
 		"What is NOT legitimate is bumping `reviewedAt` without reading the diff.",
 		"The note is the evidence that someone did.",
 		"",
+		"Both SHAs must survive a squash-merge. A branch SHA resolves in the clone",
+		"you wrote it in and nowhere else: CI checks out main plus the PR head, so",
+		"the gate that was green on your machine fails for everyone. This has now",
+		"cost three fixes (5799e8b, 3ff0c78, defb756). Write the SHA the change",
+		"lands on, which for a `reviewedAt` covering the current PR means a",
+		"follow-up commit once the squash SHA exists.",
+		"",
 		"Empty since 2026-08-08: all six audits were re-verified and re-anchored,",
 		"so every one of them is level with the code. Entries reappear here as",
 		"soon as something lands under an audited path — that is the file working,",
 		"not the file rotting."
 	],
 	"docs/IMAP_SMTP_AUDIT.md": {
-		"reviewedAt": "defb756",
-		"note": "defb756 changes which exception MailConnectionProbe throws when the server rejects a login: MailAuthenticationException instead of MailConnectionException, so the reply text stops being rendered into the user-facing error.mail.connectionFailed placeholder and travels as the cause into the log instead. That narrows what server-controlled text reaches the UI; it touches no TLS, auth-mechanism or timeout setting. Re-checked on the probe specifically: pinned ssl.checkserveridentity, the fail-closed OAuth2-requires-SSL guard and the millisecond-string timeouts are all unchanged. Verdict stays PASS."
+		"reviewedAt": "4e3b223",
+		"note": "4e3b223 changes which exception MailConnectionProbe throws when the server rejects a login: MailAuthenticationException instead of MailConnectionException, so the reply text stops being rendered into the user-facing error.mail.connectionFailed placeholder and travels as the cause into the log instead. That narrows what server-controlled text reaches the UI; it touches no TLS, auth-mechanism or timeout setting. Re-checked on the probe specifically: pinned ssl.checkserveridentity, the fail-closed OAuth2-requires-SSL guard and the millisecond-string timeouts are all unchanged. Verdict stays PASS."
 	}
 }
