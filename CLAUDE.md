@@ -44,9 +44,16 @@ someone a rework at least once. For the human-facing versions see
   [voxrox.org](https://voxrox.org) — a **separate repo** at
   `C:\dev\java\TheVoxRox.github.io`, both CS and EN, plus the version header.
 - Don't state a number a machine could recompute unless a gate recomputes it.
-  Test counts and file counts rot within a week; that is what
-  `check-doc-claims.mjs` and `check-audit-freshness.mjs` exist to prevent, and
-  what they don't cover should generally be deleted rather than written down.
+  Test counts and file counts rot within a week — delete them rather than
+  writing them down. What is checked, all inside `npm run check`:
+  - `check:docs` — stack versions, plus computed claims (controller
+    enumeration in the B3 audit, CI job count vs `ci.yml`). A claim pattern
+    that stops matching **fails**; rewording forces you to re-check the number.
+  - `check:audits` — audits vs the code under their `Code paths`.
+  - `check:refs` — every repo path and `npm run` script named in prose or in a
+    comment exists.
+  - `check:docs-impact` (CI only) — egress/storage-relevant changes must touch
+    `PRIVACY*.md` or carry a `Docs-impact:` commit trailer.
 
 ## Security audits
 

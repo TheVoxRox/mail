@@ -206,6 +206,16 @@ jobs:
       - name: Run check
         run: npm run check
 
+      # Advisory-shaped but enforced: a change to an egress- or storage-relevant
+      # path must either update the privacy policy or say in a commit trailer
+      # why it does not. See scripts/check-docs-impact.mjs.
+      - name: Docs impact
+        run: >-
+          npm run check:docs-impact --
+          --base ${{ github.event_name == 'pull_request'
+          && github.event.pull_request.base.sha
+          || github.event.before }}
+
   test-unit:
     name: Frontend unit tests
     runs-on: ubuntu-latest
