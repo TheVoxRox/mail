@@ -1,6 +1,6 @@
 # Privacy Policy — VoxRox Mail
 
-_Version: 2026-07-20 (draft, pre-first-release). This version is preliminary
+_Version: 2026-08-08 (draft, pre-first-release). This version is preliminary
 and has not yet been reviewed by a lawyer — see "Open items" at the bottom._
 
 _Česká verze: [PRIVACY.md](PRIVACY.md)._
@@ -10,8 +10,9 @@ locally on your computer. Your e-mails, contacts, account credentials and
 logs stay on your device and are never sent to any VoxRox server or other
 third party — except those you choose yourself by adding an e-mail account
 (your e-mail provider, and optionally Google or Microsoft for OAuth login),
-and except the check for available updates on GitHub (see "What data leaves
-the device").
+except the check for available updates on GitHub, and except remote images in
+a message whose loading you explicitly allow (both: see "What data leaves the
+device").
 
 VoxRox does not operate a backend server for this application, does not store
 your data in the cloud, and does not collect telemetry, analytics or crash
@@ -41,17 +42,17 @@ All persistent data lives in the standard Windows data directory:
 
 Contents:
 
-| File / folder              | What it contains                                                                       |
-| -------------------------- | -------------------------------------------------------------------------------------- |
-| `crypto.bin`               | Local encryption key for credentials (created on first start).                         |
-| `crypto.fingerprint`       | Fingerprint of the key, used to detect swap or corruption of `crypto.bin`.             |
-| `session.json`             | Port and internal API key of the currently running backend (rewritten on every start). |
-| `db/mail.db`               | SQLite database: accounts, contacts, message headers and bodies, sync state.           |
-| `db/mail.db.backup-pre-v*` | DB snapshot taken before every schema migration (3 most recent kept).                  |
-| `attachments/`             | Local copies of attachments downloaded from the server.                                |
-| `logs/mail.log`            | Application log (rotates, max 7 files × 10 MB, total ~100 MB).                         |
-| `logs/audit.log`           | Security / audit log (retention 365 days, max ~500 MB).                                |
-| `tmp/`                     | Temporary files (cleared automatically).                                               |
+| File / folder              | What it contains                                                                                                                                                                                                             |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `crypto.bin`               | Local encryption key for credentials (created on first start).                                                                                                                                                               |
+| `crypto.fingerprint`       | Fingerprint of the key, used to detect swap or corruption of `crypto.bin`.                                                                                                                                                   |
+| `session.json`             | Port and internal API key of the currently running backend (rewritten on every start).                                                                                                                                       |
+| `db/mail.db`               | SQLite database: accounts, contacts, message headers and bodies, sync state, the list of senders allowed to load remote images, and correspondence history (addresses from sent and received mail) for address autocomplete. |
+| `db/mail.db.backup-pre-v*` | DB snapshot taken before every schema migration (3 most recent kept).                                                                                                                                                        |
+| `attachments/`             | Local copies of attachments downloaded from the server.                                                                                                                                                                      |
+| `logs/mail.log`            | Application log (rotates, max 7 files × 10 MB, total ~100 MB).                                                                                                                                                               |
+| `logs/audit.log`           | Security / audit log (retention 365 days, max ~500 MB).                                                                                                                                                                      |
+| `tmp/`                     | Temporary files (cleared automatically).                                                                                                                                                                                     |
 
 ### What is encrypted
 
@@ -92,6 +93,18 @@ The application initiates network traffic only in these cases:
    and the version you are querying in its server logs — just like any other
    download from the web. No other data is sent during the update check (the
    channel choice is stored locally only).
+4. **Loading remote images in a message — only when you allow it.** Images
+   referenced by an HTML message are **not fetched** by default; the
+   application blocks them and shows "Remote images blocked" above the
+   message. Only when you click **"Load images"** (once, for that message) or
+   **"Always from this sender"** (permanently — the trusted-sender list is
+   stored locally in the database) does the application fetch the images
+   directly from the servers the message points at. Those servers are **not
+   under VoxRox's control** — they belong to the sender or their mailing
+   platform. On such a request the operator of that server sees your **IP
+   address** and the time of loading, and can infer that you opened the
+   message (a tracking pixel). That is exactly why remote images stay blocked
+   until you allow them.
 
 The application **does not send** your e-mails, contacts or activity to any
 VoxRox server or third-party analytics platform.
@@ -124,6 +137,11 @@ When you add an account, the following providers come into play:
   periodically checks for a new version against GitHub (see "What data leaves
   the device" above). GitHub sees your IP address and the queried version
   ([https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement)).
+- **Servers hosting remote images in messages** — they only come into play
+  when you allow image loading for a particular message or sender (see "What
+  data leaves the device" above). Who operates such a server and under what
+  policy is determined by the sender of the message; VoxRox has no control
+  over it.
 
 VoxRox has no data-sharing agreement with any of these providers regarding
 your data. Communication happens directly between your computer and the

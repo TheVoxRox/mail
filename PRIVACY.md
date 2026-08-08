@@ -1,6 +1,6 @@
 # Zásady ochrany soukromí — VoxRox Mail
 
-_Verze: 2026-07-20 (návrh před prvním vydáním). Tato verze je předběžná a ještě
+_Verze: 2026-08-08 (návrh před prvním vydáním). Tato verze je předběžná a ještě
 nebyla schválena právníkem — viz sekce „Otevřené body" na konci dokumentu._
 
 _English version: [PRIVACY.en.md](PRIVACY.en.md)._
@@ -10,7 +10,8 @@ na vašem počítači. Vaše e-maily, kontakty, přihlašovací údaje k účtů
 zůstávají na vašem zařízení a neposílají se na žádný server VoxRox ani jiné
 třetí strany — kromě těch, které si sami zvolíte přidáním e-mailového účtu
 (váš poskytovatel e-mailu, případně Google nebo Microsoft pro OAuth přihlášení),
-a kromě kontroly dostupných aktualizací na GitHubu (viz „Jaká data putují po
+kromě kontroly dostupných aktualizací na GitHubu a kromě vzdálených obrázků ve
+zprávě, jejichž načtení sami výslovně povolíte (obojí viz „Jaká data putují po
 síti").
 
 VoxRox neprovozuje pro tuto aplikaci žádný backendový server, neukládá vaše
@@ -40,17 +41,17 @@ Veškerá perzistentní data jsou ve standardním Windows datovém adresáři:
 
 Obsah:
 
-| Soubor / složka            | Co obsahuje                                                                          |
-| -------------------------- | ------------------------------------------------------------------------------------ |
-| `crypto.bin`               | Lokální šifrovací klíč pro přihlašovací údaje (vzniká při prvním startu).            |
-| `crypto.fingerprint`       | Otisk klíče pro detekci výměny nebo poškození `crypto.bin`.                          |
-| `session.json`             | Port a interní API klíč aktuálně běžícího backendu (přepisuje se při každém startu). |
-| `db/mail.db`               | SQLite databáze: účty, kontakty, hlavičky a těla zpráv, stav synchronizace.          |
-| `db/mail.db.backup-pre-v*` | Záloha DB před každou migrací schématu (uchovává se 3 nejnovější).                   |
-| `attachments/`             | Lokální kopie příloh stažených ze serveru.                                           |
-| `logs/mail.log`            | Aplikační log (rotuje, max 7 souborů × 10 MB, celkem cca 100 MB).                    |
-| `logs/audit.log`           | Bezpečnostní/auditní log (retenční doba 365 dní, max cca 500 MB).                    |
-| `tmp/`                     | Dočasné soubory (mažou se automaticky).                                              |
+| Soubor / složka            | Co obsahuje                                                                                                                                                                                                       |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `crypto.bin`               | Lokální šifrovací klíč pro přihlašovací údaje (vzniká při prvním startu).                                                                                                                                         |
+| `crypto.fingerprint`       | Otisk klíče pro detekci výměny nebo poškození `crypto.bin`.                                                                                                                                                       |
+| `session.json`             | Port a interní API klíč aktuálně běžícího backendu (přepisuje se při každém startu).                                                                                                                              |
+| `db/mail.db`               | SQLite databáze: účty, kontakty, hlavičky a těla zpráv, stav synchronizace, seznam odesílatelů s povolenými vzdálenými obrázky a historie korespondence (adresy z odeslané a přijaté pošty) pro našeptávač adres. |
+| `db/mail.db.backup-pre-v*` | Záloha DB před každou migrací schématu (uchovává se 3 nejnovější).                                                                                                                                                |
+| `attachments/`             | Lokální kopie příloh stažených ze serveru.                                                                                                                                                                        |
+| `logs/mail.log`            | Aplikační log (rotuje, max 7 souborů × 10 MB, celkem cca 100 MB).                                                                                                                                                 |
+| `logs/audit.log`           | Bezpečnostní/auditní log (retenční doba 365 dní, max cca 500 MB).                                                                                                                                                 |
+| `tmp/`                     | Dočasné soubory (mažou se automaticky).                                                                                                                                                                           |
 
 ### Co je šifrované
 
@@ -90,6 +91,17 @@ Aplikace zahájí síťovou komunikaci jen v těchto případech:
    lozích vaši **IP adresu** a verzi, na kterou se dotazujete — stejně jako při
    jakémkoli jiném stažení z webu. Žádná jiná data se při kontrole aktualizací
    neodesílají (volba kanálu zůstává uložená jen lokálně).
+4. **Načtení vzdálených obrázků ve zprávě — jen když to sami povolíte.**
+   Obrázky odkazované z HTML zprávy se ve výchozím stavu **nestahují**;
+   aplikace je zablokuje a nad zprávou zobrazí „Vzdálené obrázky blokovány".
+   Teprve když kliknete na **„Načíst obrázky"** (jednorázově pro danou zprávu),
+   nebo na **„Vždy od tohoto odesílatele"** (trvale, seznam důvěryhodných
+   odesílatelů se ukládá lokálně v databázi), stáhne aplikace obrázky přímo ze
+   serverů, na které zpráva odkazuje. Ty **nejsou pod kontrolou VoxRoxu** — jsou
+   to servery odesílatele nebo jeho rozesílací platformy. Při stažení uvidí
+   provozovatel takového serveru vaši **IP adresu** a čas načtení a může z toho
+   odvodit, že jste zprávu otevřeli (tzv. sledovací pixel). Právě proto jsou
+   vzdálené obrázky blokované, dokud je nepovolíte.
 
 Aplikace **neposílá** vaše e-maily, kontakty ani aktivitu na servery VoxRox
 ani na žádnou analytickou platformu třetí strany.
@@ -122,6 +134,10 @@ Pokud přidáte účet, vstupují do hry tito poskytovatelé:
   periodicky kontroluje dostupnost nové verze proti GitHubu (viz „Jaká data
   putují po síti" výše). GitHub při tom vidí vaši IP adresu a dotazovanou verzi
   ([https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement)).
+- **Servery hostující vzdálené obrázky ve zprávách** — vstupují do hry jen
+  tehdy, když u konkrétní zprávy nebo odesílatele načtení obrázků sami povolíte
+  (viz „Jaká data putují po síti" výše). Kdo takový server provozuje a jaké má
+  zásady, určuje odesílatel zprávy; VoxRox nad tím nemá kontrolu.
 
 VoxRox nemá s těmito poskytovateli žádnou sdílecí dohodu o vašich datech.
 Komunikace probíhá přímo mezi vaším počítačem a daným serverem.
