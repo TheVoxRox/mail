@@ -4,6 +4,7 @@ import { sessionState } from '$lib/stores/session.js';
 import {
 	failNextVCardExportOnce,
 	handlers,
+	setConnectionTestAuthFailure,
 	setFolderAuthFailure,
 	setMailPageSize,
 	setReadinessDelayMs,
@@ -65,6 +66,9 @@ export async function installE2EBypass(): Promise<void> {
 		setReadinessDelayMs(Number(window.localStorage.getItem('mail.e2e.readinessDelayMs') ?? 0));
 		setReadinessFailures(Number(window.localStorage.getItem('mail.e2e.readinessFailures') ?? 0));
 		setFolderAuthFailure(window.localStorage.getItem('mail.e2e.folderAuthFailure') === '1');
+		setConnectionTestAuthFailure(
+			window.localStorage.getItem('mail.e2e.connectionTestAuthFailure') === '1'
+		);
 		setMailPageSize(Number(window.localStorage.getItem('mail.e2e.mailPageSize') ?? 0) || null);
 		await worker.start({
 			quiet: true,
@@ -92,6 +96,7 @@ export async function installE2EBypass(): Promise<void> {
 			setReadinessDelayMs(0);
 			setReadinessFailures(0);
 			setFolderAuthFailure(false);
+			setConnectionTestAuthFailure(false);
 			setVCardExportDelayMs(0);
 			setMailPageSize(null);
 			resetFixtures();
@@ -108,6 +113,7 @@ export async function installE2EBypass(): Promise<void> {
 		setReadinessDelayMs,
 		setReadinessFailures,
 		setFolderAuthFailure,
+		setConnectionTestAuthFailure,
 		setVCardExportDelayMs,
 		failNextVCardExport: failNextVCardExportOnce
 	};
@@ -124,6 +130,7 @@ export {
 	pushSyncRecovered,
 	resetFixtures,
 	syncStreamConnected,
+	setConnectionTestAuthFailure,
 	setFolderAuthFailure,
 	setMailPageSize,
 	setReadinessDelayMs,

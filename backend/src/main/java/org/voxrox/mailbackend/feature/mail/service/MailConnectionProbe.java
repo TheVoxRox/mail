@@ -2,6 +2,7 @@ package org.voxrox.mailbackend.feature.mail.service;
 
 import java.util.Properties;
 
+import jakarta.mail.AuthenticationFailedException;
 import jakarta.mail.MessagingException;
 import jakarta.mail.Session;
 import jakarta.mail.Store;
@@ -11,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.voxrox.mailbackend.core.config.MailClientProperties;
+import org.voxrox.mailbackend.exception.MailAuthenticationException;
 import org.voxrox.mailbackend.exception.MailConnectionException;
 import org.voxrox.mailbackend.feature.account.dto.AccountConnectionDetails;
 import org.voxrox.mailbackend.feature.auth.dto.AuthType;
@@ -77,6 +79,8 @@ public class MailConnectionProbe {
                 store.connect(details.host(), details.port(), details.username(), details.passwordOrSecret());
             }
             store.getDefaultFolder();
+        } catch (AuthenticationFailedException e) {
+            throw rejectedLogin(e);
         } catch (MessagingException | RuntimeException e) {
             throw new MailConnectionException("IMAP test connection failed: " + e.getMessage(), e);
         } finally {
@@ -95,10 +99,29 @@ public class MailConnectionProbe {
         try {
             Session session = smtpTransportFactory.createSession(details);
             transport = smtpTransportFactory.openTransport(accountId, session, details);
+        } catch (AuthenticationFailedException e) {
+            throw rejectedLogin(e);
         } catch (MessagingException | RuntimeException e) {
             throw new MailConnectionException("SMTP test connection failed: " + e.getMessage(), e);
         } finally {
             smtpTransportFactory.closeQuietly(transport, accountId);
         }
+    }
+
+    /**
+     * A server that rejected the login is not a connection failure — the socket and
+     * the TLS handshake worked. The distinction is what the caller sees:
+     * {@code error.mail.connectionFailed} renders the wrapped text into its
+     * {@code {0}} placeholder, so a rejected password surfaced as the raw English
+     * server reply ("Mail server connection failed: IMAP test connection failed:
+     * [AUTHENTICATIONFAILED] AUTHENTICATE Incorrect authentication data") inside an
+     * otherwise localized sentence. {@link MailAuthenticationException} carries a
+     * fully localized message and the machine-readable
+     * {@code MAIL_AUTHENTICATION_FAILED} code the client keys on to point the user
+     * at the password field; the original reply travels as the cause, so the log
+     * keeps it.
+     */
+    private static MailAuthenticationException rejectedLogin(AuthenticationFailedException cause) {
+        return new MailAuthenticationException(cause);
     }
 }

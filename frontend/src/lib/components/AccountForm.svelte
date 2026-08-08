@@ -18,6 +18,7 @@
 	import ProviderLogo from '$lib/components/ProviderLogo.svelte';
 	import { Select } from '$lib/components/ui/select/index.js';
 	import { Surface } from '$lib/components/ui/surface/index.js';
+	import { ApiError } from '$lib/api/client.js';
 	import { toErrorMessage } from '$lib/api/errors.js';
 	import { _ } from '$lib/i18n/index.js';
 	import { cn } from '$lib/utils.js';
@@ -143,6 +144,7 @@
 
 	let busy = $state(false);
 	let testingConnection = $state(false);
+	let verifyingCredentials = $state(false);
 	let errorMessage = $state('');
 	let fieldErrors = $state<Partial<Record<CustomFieldKey, string>>>({});
 	let connectionTestMessage = $state('');
@@ -333,6 +335,7 @@
 		try {
 			const server = buildServerPayload();
 			if (mode === 'create') {
+				await verifyCredentials(server, null);
 				const payload: AccountCreateRequest = {
 					accountName,
 					email,
@@ -343,6 +346,9 @@
 				};
 				await onSubmit(payload);
 			} else {
+				if (shouldVerifyOnSave()) {
+					await verifyCredentials(server, initial?.id ?? null);
+				}
 				const payload: AccountUpdateRequest = {
 					accountName,
 					email,
@@ -358,8 +364,82 @@
 			}
 		} catch (err) {
 			errorMessage = toErrorMessage(err);
+			focusFieldForError(err);
 		} finally {
 			busy = false;
+		}
+	}
+
+	/**
+	 * Live IMAP + SMTP login, run before the change is stored. Until this
+	 * existed, a wrong password produced a green "account added" toast and an
+	 * "Active" badge in Settings; the first sign of trouble was the mail view
+	 * failing minutes later, once the background sync had tried the same
+	 * credentials. Throws on failure — the caller renders the (already
+	 * localized) message and nothing is written.
+	 *
+	 * An edit passes the account id and may leave the password empty; the
+	 * backend then probes with the stored secret (`AccountConnectionTestService`
+	 * #resolveCredentials), which is what verifies a changed host or username.
+	 */
+	async function verifyCredentials(
+		server: ReturnType<typeof buildServerPayload>,
+		accountId: number | null
+	): Promise<void> {
+		verifyingCredentials = true;
+		try {
+			await testAccountConnection({
+				accountId,
+				email,
+				username,
+				password: password || null,
+				...server
+			});
+		} finally {
+			verifyingCredentials = false;
+		}
+	}
+
+	/**
+	 * Whether saving an edit has to prove the login first. Only changes that can
+	 * affect it qualify — a new password, a different address or username, or
+	 * another server. Two deliberate exemptions:
+	 *
+	 * - Unticking "account is active": switching a broken account off is exactly
+	 *   what a user does when it keeps failing, and a probe that must succeed
+	 *   would make the failure un-turn-off-able.
+	 * - Everything unrelated (signature, display name, account label) — an
+	 *   unreachable server must not hold a signature edit hostage.
+	 */
+	function shouldVerifyOnSave(): boolean {
+		if (!active) return false;
+		if (!initial) return true;
+		if (password) return true;
+		if (email.trim() !== initial.email || username.trim() !== initial.username) return true;
+
+		const wasCustom = initial.providerId == null;
+		if ((serverMode === 'custom') !== wasCustom) return true;
+		if (serverMode === 'provider') return providerId !== initial.providerId;
+		return (
+			imapHost.trim() !== initial.imapHost ||
+			imapPort !== initial.imapPort ||
+			imapUseSsl !== initial.imapUseSsl ||
+			smtpHost.trim() !== initial.smtpHost ||
+			smtpPort !== initial.smtpPort ||
+			smtpUseSsl !== initial.smtpUseSsl
+		);
+	}
+
+	/**
+	 * Sends focus where the fix is. A rejected login means the password (the
+	 * error text alone leaves a keyboard or screen-reader user to hunt for the
+	 * field); anything else — an unreachable host, a refused port — is about the
+	 * server config, so focus stays put and the alert does the talking.
+	 */
+	function focusFieldForError(err: unknown): void {
+		const code = err instanceof ApiError ? err.problem?.errorCode : undefined;
+		if (code === 'MAIL_AUTHENTICATION_FAILED') {
+			focusFieldById('acc-password');
 		}
 	}
 
@@ -410,6 +490,7 @@
 			connectionTestMessage = result.message || $_('accounts.form.testConnectionSuccess');
 		} catch (err) {
 			errorMessage = toErrorMessage(err);
+			focusFieldForError(err);
 		} finally {
 			testingConnection = false;
 		}
@@ -713,8 +794,12 @@
 
 	<div class="flex flex-wrap items-center gap-2">
 		<Button type="submit" size="sm" disabled={busy || testingConnection}>
-			{submitLabel ??
-				(mode === 'create' ? $_('accounts.form.submitCreate') : $_('accounts.form.submitSave'))}
+			{#if verifyingCredentials}
+				{$_('accounts.form.verifyingCredentials')}
+			{:else}
+				{submitLabel ??
+					(mode === 'create' ? $_('accounts.form.submitCreate') : $_('accounts.form.submitSave'))}
+			{/if}
 		</Button>
 		<Button
 			type="button"

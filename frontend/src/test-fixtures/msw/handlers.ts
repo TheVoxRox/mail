@@ -15,6 +15,7 @@ import {
 } from './fixtures.js';
 import { openSyncStream } from './sse-bridge.js';
 import type {
+	AccountConnectionTestRequest,
 	AccountCreateRequest,
 	AccountUpdateRequest,
 	BulkContactCreateRequest,
@@ -99,7 +100,7 @@ function findAccount(id: number) {
 }
 
 function validateAccountPayload(
-	body: AccountCreateRequest | AccountUpdateRequest,
+	body: AccountCreateRequest | AccountUpdateRequest | AccountConnectionTestRequest,
 	method: 'POST' | 'PUT',
 	accountId?: number
 ): MockResponse | null {
@@ -153,6 +154,7 @@ let failNextVCardExport = false;
 let readinessDelayMs = 0;
 let readinessFailures = 0;
 let folderAuthFailure = false;
+let connectionTestAuthFailure = false;
 let mailPageSizeOverride: number | null = null;
 
 export function setVCardExportDelayMs(delayMs: number): void {
@@ -173,6 +175,11 @@ export function setReadinessFailures(count: number): void {
 
 export function setFolderAuthFailure(enabled: boolean): void {
 	folderAuthFailure = enabled;
+}
+
+/** Makes the pre-create IMAP/SMTP probe reject the credentials. */
+export function setConnectionTestAuthFailure(enabled: boolean): void {
+	connectionTestAuthFailure = enabled;
 }
 
 /*
@@ -226,8 +233,24 @@ function accountRoutes(
 
 	if (segments[1] === 'test-connection' && method === 'POST') {
 		return request.json().then((body) => {
-			const requestBody = body as AccountCreateRequest;
-			const validationError = validateAccountPayload(requestBody, 'POST');
+			const requestBody = body as AccountConnectionTestRequest;
+			/*
+			 * Probing an existing account resends its own e-mail; passing the id
+			 * exempts it from the duplicate check, the way the real backend does —
+			 * AccountConnectionTestService only resolves credentials and dials out,
+			 * it never asks whether the address is already taken.
+			 */
+			const validationError = validateAccountPayload(
+				requestBody,
+				'POST',
+				requestBody.accountId ?? undefined
+			);
+			if (connectionTestAuthFailure) {
+				return (
+					validationError ??
+					problem(401, 'Chybné přihlašovací údaje k e-mailu.', 'MAIL_AUTHENTICATION_FAILED')
+				);
+			}
 			return (
 				validationError ??
 				HttpResponse.json({

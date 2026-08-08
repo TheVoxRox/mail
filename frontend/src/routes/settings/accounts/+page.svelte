@@ -46,14 +46,26 @@
 		return provider.toLowerCase() !== accountTitle(account).toLowerCase();
 	}
 
+	/*
+	 * `active` is the administrative "synchronize this account" checkbox from the
+	 * edit form, not a health state, and `requiresReauth` is only ever written for
+	 * OAuth2 accounts (ImapConnectionManager#persistentAuthenticationFailure). A
+	 * password account whose login the server rejects therefore used to sit here
+	 * badged green "Active" with the failure relegated to the small print below —
+	 * the standing error has to reach the badge too.
+	 */
 	function accountStatusLabel(account: AccountResponse): string {
 		if (account.requiresReauth) return $_('accounts.statusRequiresReauth');
+		if (account.lastErrorCode) return $_('accounts.statusError');
 		return account.active ? $_('accounts.statusActive') : $_('accounts.statusInactive');
 	}
 
 	function accountStatusClass(account: AccountResponse): string {
 		if (account.requiresReauth) {
 			return 'border-warning/30 bg-warning/10 text-warning-foreground';
+		}
+		if (account.lastErrorCode) {
+			return 'border-destructive/30 bg-destructive/10 text-destructive-foreground';
 		}
 		if (!account.active) {
 			return 'border-border bg-muted text-muted-foreground';

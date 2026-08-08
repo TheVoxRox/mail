@@ -260,6 +260,7 @@
 		"statusActive": "Aktivní",
 		"statusInactive": "Neaktivní",
 		"statusRequiresReauth": "Vyžaduje nové přihlášení",
+		"statusError": "Chyba",
 		"edit": "Upravit",
 		"delete": "Smazat",
 		"deleting": "Mažu…",
@@ -324,6 +325,7 @@
 			"errorPasswordRequiredForTest": "Pro test nového účtu vyplňte heslo.",
 			"testConnection": "Otestovat připojení",
 			"testingConnection": "Testuji připojení…",
+			"verifyingCredentials": "Ověřuji přihlášení…",
 			"testConnectionSuccess": "IMAP i SMTP připojení bylo úspěšně ověřeno.",
 			"submitCreate": "Vytvořit",
 			"submitSave": "Uložit"

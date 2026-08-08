@@ -19,5 +19,9 @@
 		"so every one of them is level with the code. Entries reappear here as",
 		"soon as something lands under an audited path — that is the file working,",
 		"not the file rotting."
-	]
+	],
+	"docs/IMAP_SMTP_AUDIT.md": {
+		"reviewedAt": "defb756",
+		"note": "defb756 changes which exception MailConnectionProbe throws when the server rejects a login: MailAuthenticationException instead of MailConnectionException, so the reply text stops being rendered into the user-facing error.mail.connectionFailed placeholder and travels as the cause into the log instead. That narrows what server-controlled text reaches the UI; it touches no TLS, auth-mechanism or timeout setting. Re-checked on the probe specifically: pinned ssl.checkserveridentity, the fail-closed OAuth2-requires-SSL guard and the millisecond-string timeouts are all unchanged. Verdict stays PASS."
+	}
 }
