@@ -260,6 +260,7 @@
 		"statusActive": "Active",
 		"statusInactive": "Inactive",
 		"statusRequiresReauth": "Requires sign-in",
+		"statusError": "Error",
 		"edit": "Edit",
 		"delete": "Delete",
 		"deleting": "Deleting…",
@@ -324,6 +325,7 @@
 			"errorPasswordRequiredForTest": "Enter a password before testing a new account.",
 			"testConnection": "Test connection",
 			"testingConnection": "Testing connection…",
+			"verifyingCredentials": "Verifying sign-in…",
 			"testConnectionSuccess": "IMAP and SMTP connection were verified successfully.",
 			"submitCreate": "Create",
 			"submitSave": "Save"

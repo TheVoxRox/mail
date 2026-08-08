@@ -52,6 +52,7 @@ declare global {
 			setReadinessDelayMs: (delayMs: number) => void;
 			setReadinessFailures: (count: number) => void;
 			setFolderAuthFailure: (enabled: boolean) => void;
+			setConnectionTestAuthFailure: (enabled: boolean) => void;
 			setVCardExportDelayMs: (delayMs: number) => void;
 			failNextVCardExport: () => void;
 		};

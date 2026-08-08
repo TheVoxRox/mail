@@ -18,6 +18,7 @@ import static org.mockito.Mockito.when;
 import java.time.Duration;
 import java.util.Properties;
 
+import jakarta.mail.AuthenticationFailedException;
 import jakarta.mail.MessagingException;
 import jakarta.mail.Session;
 import jakarta.mail.Store;
@@ -35,6 +36,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.voxrox.mailbackend.core.config.MailClientProperties;
 import org.voxrox.mailbackend.core.config.mail.ImapProperties;
 import org.voxrox.mailbackend.core.config.mail.SmtpProperties;
+import org.voxrox.mailbackend.exception.ErrorCode;
+import org.voxrox.mailbackend.exception.MailAuthenticationException;
 import org.voxrox.mailbackend.exception.MailConnectionException;
 import org.voxrox.mailbackend.feature.account.dto.AccountConnectionDetails;
 import org.voxrox.mailbackend.feature.auth.dto.AuthType;
@@ -173,6 +176,31 @@ class MailConnectionProbeTest {
         }
 
         @Test
+        @DisplayName("A rejected login surfaces as MailAuthenticationException, not as a connection failure carrying the raw server reply")
+        void authenticationFailureIsNotAConnectionFailure() throws Exception {
+            Session sessionMock = mock(Session.class);
+            Store storeMock = mock(Store.class);
+            when(sessionMock.getStore("imaps")).thenReturn(storeMock);
+            doThrow(new AuthenticationFailedException(
+                    "[AUTHENTICATIONFAILED] AUTHENTICATE Incorrect authentication data")).when(storeMock)
+                    .connect("imap.example.com", 993, "user@example.com", "secret");
+
+            try (MockedStatic<Session> staticSession = mockStatic(Session.class)) {
+                staticSession.when(() -> Session.getInstance(any(Properties.class))).thenReturn(sessionMock);
+
+                assertThatThrownBy(() -> probe.testImap(ACCOUNT_ID, passwordDetails(true)))
+                        .isInstanceOf(MailAuthenticationException.class)
+                        .extracting(e -> ((MailAuthenticationException) e).getCode())
+                        .isEqualTo(ErrorCode.MAIL_AUTHENTICATION_FAILED);
+            }
+
+            // The raw server text stays on the cause (for the log), never in the
+            // user-facing message rendered from error.mail.connectionFailed's {0}.
+            verify(storeMock).close();
+            verify(storeMock, never()).getDefaultFolder();
+        }
+
+        @Test
         @DisplayName("Close exception in finally is swallowed so the original error reaches the caller")
         void closeExceptionIsSwallowed() throws Exception {
             Session sessionMock = mock(Session.class);
@@ -263,6 +291,23 @@ class MailConnectionProbeTest {
 
             assertThatThrownBy(() -> probe.testSmtp(ACCOUNT_ID, details)).isInstanceOf(MailConnectionException.class)
                     .hasMessageContaining("smtp auth failed");
+
+            verify(smtpTransportFactory).closeQuietly(null, ACCOUNT_ID);
+        }
+
+        @Test
+        @DisplayName("A rejected SMTP login surfaces as MailAuthenticationException, same as the IMAP side")
+        void smtpAuthenticationFailureIsNotAConnectionFailure() throws Exception {
+            AccountConnectionDetails details = passwordDetails(true);
+            Session session = mock(Session.class);
+            when(smtpTransportFactory.createSession(details)).thenReturn(session);
+            when(smtpTransportFactory.openTransport(ACCOUNT_ID, session, details))
+                    .thenThrow(new AuthenticationFailedException("535 5.7.8 Authentication credentials invalid"));
+
+            assertThatThrownBy(() -> probe.testSmtp(ACCOUNT_ID, details))
+                    .isInstanceOf(MailAuthenticationException.class)
+                    .extracting(e -> ((MailAuthenticationException) e).getCode())
+                    .isEqualTo(ErrorCode.MAIL_AUTHENTICATION_FAILED);
 
             verify(smtpTransportFactory).closeQuietly(null, ACCOUNT_ID);
         }

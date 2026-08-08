@@ -196,7 +196,12 @@ test.describe('Accounts', () => {
 		await page.locator('#acc-username').fill('majitel@firma.cz');
 		await page.locator('#acc-password').fill('secret123');
 
-		// Watch the outgoing request — verify the XOR payload.
+		// Watch the outgoing requests — the credential probe has to precede the
+		// create, and the create carries the XOR payload.
+		const probeRequest = page.waitForRequest(
+			(request) =>
+				request.url().endsWith('/api/v1/accounts/test-connection') && request.method() === 'POST'
+		);
 		const createRequest = page.waitForRequest(
 			(request) => request.url().endsWith('/api/v1/accounts') && request.method() === 'POST'
 		);
@@ -206,6 +211,7 @@ test.describe('Accounts', () => {
 				request.method() === 'POST'
 		);
 		await page.getByRole('button', { name: 'Vytvořit účet' }).click();
+		await probeRequest;
 		const request = await createRequest;
 		const body = JSON.parse(request.postData() ?? '{}');
 
@@ -216,6 +222,42 @@ test.describe('Accounts', () => {
 		// After a successful create we return to the list; the new account carries the "Vlastní" label.
 		await initialSyncRequest;
 		await expect(page).toHaveURL(/\/settings\/accounts$/);
+	});
+
+	test('odmítnuté heslo účet nevytvoří a vrátí fokus na pole hesla', async ({ page }) => {
+		await page.addInitScript(() => {
+			window.localStorage.setItem('mail.e2e.connectionTestAuthFailure', '1');
+		});
+
+		const createRequests: string[] = [];
+		page.on('request', (request) => {
+			if (request.method() === 'POST' && request.url().endsWith('/api/v1/accounts')) {
+				createRequests.push(request.url());
+			}
+		});
+
+		await page.goto('/settings/accounts/new');
+		await waitForShell(page);
+
+		await page.locator('#wizard-email').fill('majitel@firma.cz');
+		await page.getByRole('button', { name: 'Pokračovat' }).click();
+		await page.locator('#acc-imap-host').fill('imap.firma.cz');
+		await page.locator('#acc-smtp-host').fill('smtp.firma.cz');
+		await page.locator('#acc-username').fill('majitel@firma.cz');
+		await page.locator('#acc-password').fill('spatne-heslo');
+
+		const probeRequest = page.waitForRequest(
+			(request) =>
+				request.url().endsWith('/api/v1/accounts/test-connection') && request.method() === 'POST'
+		);
+		await page.getByRole('button', { name: 'Vytvořit účet' }).click();
+		await probeRequest;
+
+		await expect(page.getByRole('alert')).toContainText('Chybné přihlašovací údaje k e-mailu.');
+		// The account must not exist: no POST /accounts, and the wizard stays open.
+		expect(createRequests).toHaveLength(0);
+		await expect(page).toHaveURL(/\/settings\/accounts\/new$/);
+		await expect(page.locator('#acc-password')).toBeFocused();
 	});
 
 	test('test připojení ověří formulář bez vytvoření účtu', async ({ page }) => {
@@ -420,6 +462,33 @@ test.describe('Accounts', () => {
 		await page.waitForURL('**/settings/accounts/1');
 	});
 
+	test('účet s trvalou chybou má v seznamu chybový stav místo Aktivní', async ({ page }) => {
+		await page.goto('/settings/accounts');
+		await waitForShell(page);
+
+		const workRow = page.getByRole('listitem').filter({ hasText: 'Pracovní účet' });
+		await expect(workRow.getByText('Aktivní')).toBeVisible();
+
+		// Gate on the subscription, not on rendering: a push into an empty client
+		// set is dropped, and the shell exists before the stream is subscribed.
+		await page.waitForFunction(() => window.__MAIL_MSW__?.syncStreamConnected() === true);
+		await page.evaluate(() =>
+			window.__MAIL_MSW__?.pushSyncFailed(
+				1,
+				'MAIL_SYNC_ACCOUNT_FAILED',
+				'Account sync failed: MailAuthenticationException'
+			)
+		);
+
+		// `active` stays true throughout — the badge has to follow the standing
+		// error, otherwise a rejected password reads as a healthy account.
+		await expect(workRow.getByText('Chyba', { exact: true })).toBeVisible();
+		await expect(workRow.getByText('Aktivní')).toHaveCount(0);
+		await expect(
+			workRow.getByText('Account sync failed: MailAuthenticationException')
+		).toBeVisible();
+	});
+
 	test('smazání účtu z výpisu zavolá DELETE a odebere řádek ze seznamu', async ({ page }) => {
 		const deleteUrls: string[] = [];
 		page.on('request', (request) => {
@@ -446,9 +515,13 @@ test.describe('Accounts', () => {
 
 	test('úprava existujícího účtu uloží změnu jména přes PUT a vrátí na výpis', async ({ page }) => {
 		const putBodies: unknown[] = [];
+		const probeRequests: string[] = [];
 		page.on('request', (request) => {
 			if (request.method() === 'PUT' && /\/api\/v1\/accounts\/2$/.test(request.url())) {
 				putBodies.push(request.postDataJSON());
+			}
+			if (request.url().endsWith('/api/v1/accounts/test-connection')) {
+				probeRequests.push(request.url());
 			}
 		});
 
@@ -473,5 +546,70 @@ test.describe('Accounts', () => {
 			accountName: 'Osobní – přejmenovaný',
 			email: 'personal@another.test'
 		});
+		// Nothing touched the login, so the save must not have gone near the
+		// server — an unreachable host cannot hold a rename hostage.
+		expect(probeRequests).toHaveLength(0);
+	});
+
+	test('změna hesla v editaci se neuloží, když ho server odmítne', async ({ page }) => {
+		await page.addInitScript(() => {
+			window.localStorage.setItem('mail.e2e.connectionTestAuthFailure', '1');
+		});
+
+		const putRequests: string[] = [];
+		page.on('request', (request) => {
+			if (request.method() === 'PUT' && /\/api\/v1\/accounts\/2$/.test(request.url())) {
+				putRequests.push(request.url());
+			}
+		});
+
+		await page.goto('/settings/accounts/2');
+		await waitForShell(page);
+
+		await page.locator('#acc-password').fill('spatne-heslo');
+
+		const probeRequest = page.waitForRequest(
+			(request) =>
+				request.url().endsWith('/api/v1/accounts/test-connection') && request.method() === 'POST'
+		);
+		await page.getByRole('button', { name: 'Uložit změny' }).click();
+		await probeRequest;
+
+		await expect(page.getByRole('alert')).toContainText('Chybné přihlašovací údaje k e-mailu.');
+		expect(putRequests).toHaveLength(0);
+		await expect(page).toHaveURL(/\/settings\/accounts\/2$/);
+		await expect(page.locator('#acc-password')).toBeFocused();
+	});
+
+	test('vypnout rozbitý účet jde i když by se přihlášení nepovedlo', async ({ page }) => {
+		await page.addInitScript(() => {
+			window.localStorage.setItem('mail.e2e.connectionTestAuthFailure', '1');
+		});
+
+		const putBodies: unknown[] = [];
+		const probeRequests: string[] = [];
+		page.on('request', (request) => {
+			if (request.method() === 'PUT' && /\/api\/v1\/accounts\/2$/.test(request.url())) {
+				putBodies.push(request.postDataJSON());
+			}
+			if (request.url().endsWith('/api/v1/accounts/test-connection')) {
+				probeRequests.push(request.url());
+			}
+		});
+
+		await page.goto('/settings/accounts/2');
+		await waitForShell(page);
+
+		// A password the server rejects, plus the account switched off: the point
+		// of unticking is to stop a failing account, so the probe must not gate it.
+		await page.locator('#acc-password').fill('spatne-heslo');
+		await page.getByRole('checkbox', { name: 'Účet je aktivní (synchronizuje se)' }).uncheck();
+
+		await page.getByRole('button', { name: 'Uložit změny' }).click();
+
+		await page.waitForURL('**/settings/accounts');
+		expect(probeRequests).toHaveLength(0);
+		expect(putBodies).toHaveLength(1);
+		expect(putBodies[0]).toMatchObject({ active: false });
 	});
 });
