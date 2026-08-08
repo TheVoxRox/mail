@@ -2,10 +2,10 @@
 
 |                    |                                                                                                                                                             |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.3                                                                                                                                                         |
-| **Date**           | 2026-07-09                                                                                                                                                  |
+| **Version**        | 1.4                                                                                                                                                         |
+| **Date**           | 2026-08-08                                                                                                                                                  |
 | **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                          |
-| **Audited commit** | `d55b753` (claims re-verified 2026-07-09)                                                                                                                   |
+| **Audited commit** | `d45e253` (enumeration re-counted 2026-08-08; verdicts unchanged since `d55b753`)                                                                           |
 | **Subsystem**      | Sidecar REST API — Boundary 3 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                    |
 | **Verdict**        | **Security: PASS** (no exploitable finding). One Low defense-in-depth finding (**A1** — unbounded JSON write-body) **fixed**; informational notes recorded. |
 
@@ -13,9 +13,22 @@ Per-subsystem release audit of the **loopback HTTP API** the Tauri WebView calls
 authentication (`X-API-KEY`), request authorization, input validation on every
 controller, error-response hygiene, attachment streaming (path traversal), and
 the diagnostic/data-exposure endpoints. Method: static trace of the Spring
-Security filter chain, enumeration of all 15 `@RestController`s (12 public +
-the 3 `/api/internal` ones) and their request DTOs, and a data-flow check of
+Security filter chain, enumeration of all 17 `@RestController`s (13 public +
+the 4 `/api/internal` ones) and their request DTOs, and a data-flow check of
 the two highest-risk paths (attachment download, diagnostic dump).
+
+Regenerate the enumeration every count below rests on (the `\b` matters —
+without it `@RestControllerAdvice` on `GlobalExceptionHandler` inflates the
+total by one; `OAuth2CallbackController` is a plain `@Controller` serving the
+redirect pages and is deliberately outside the count):
+
+```sh
+C=$(grep -rlE '@RestController\b' backend/src/main/java)
+echo "$C" | wc -l                              # 17 controllers
+echo "$C" | xargs grep -l '/api/internal' | wc -l   # 4 internal (13 public)
+echo "$C" | xargs grep -l '@Validated' | wc -l      # 12 @Validated
+echo "$C" | xargs grep -l '@Hidden' | wc -l         # 3 hidden from OpenAPI
+```
 
 Scope is Boundary 3 (sidecar ↔ WebView, loopback + `X-API-KEY`). The
 WebView↔SPA / mail-content boundary is Boundary 4, covered separately by
@@ -44,9 +57,11 @@ sync/write review (see the audit map in [AUDIT_GUIDE.md](AUDIT_GUIDE.md)).
   are permitted — they are server-internal continuations of an
   already-authorized request and cannot be triggered from outside the container.
 - **Internal endpoints are behind the key.** `/api/internal/**`
-  (diagnostic-dump, threading recompute, client-boot, actuator `health`) is not
-  in the allow-list, so it inherits `authenticated()`. The two support/QA hooks
-  are `@Hidden` from OpenAPI.
+  (diagnostic-dump, threading recompute, correspondent rebuild, client-boot,
+  actuator `health`) is not in the allow-list, so it inherits
+  `authenticated()`. The three support/QA hooks — client-boot, threading
+  recompute and correspondent rebuild — are `@Hidden` from OpenAPI; the
+  diagnostic dump is documented because support walks users through it.
 - **IDOR — accepted by design.** A single API key models a single-user desktop
   app; endpoints do not enforce per-account ownership (documented inline in
   `SecurityConfig.PUBLIC_ENDPOINTS`). Bare-`stableId` endpoints (detail,
@@ -57,7 +72,7 @@ sync/write review (see the audit map in [AUDIT_GUIDE.md](AUDIT_GUIDE.md)).
 
 ## 2. Input validation (confirmed)
 
-Ten of the 15 controllers are `@Validated` — every one that declares
+Twelve of the 17 controllers are `@Validated` — every one that declares
 constrained parameters. The five without it give bean validation nothing to
 enforce: four expose parameterless endpoints (system readiness, client-config,
 diagnostic-dump, the SSE notification stream) and the fifth, client-boot,
@@ -67,7 +82,10 @@ carry `@Positive`, `@NotBlank`, `@Size`, `@Min`, and request bodies are
 (`apiMaxPageSize`), search queries are length-bounded (`searchQueryMaxLength`),
 enum params (`EmailLabel`, `MessageFlag`) reject unknown values with 400. Bulk
 contact operations are capped at 100 items; contact merge at 9 sources / 10
-emails. The `HandlerMethodValidationException` /
+emails; contact-label assignment at 100 contacts and 50 labels per direction,
+label names at 60 chars; compose autocomplete bounds its query
+(`contactQueryMaxLength`) and clamps `limit` to
+`contactAutocompleteMaxLimit`. The `HandlerMethodValidationException` /
 `MethodArgumentNotValidException` / `ConstraintViolationException` handlers all
 produce a clean RFC 9457 `ProblemDetail`.
 
@@ -176,6 +194,17 @@ reads them) if the boundary is ever hardened toward a lower-trust caller.
 
 ## 9. Change log
 
+- **1.4** (2026-08-08) — enumeration re-counted against `d45e253`; no verdict
+  or mitigation changes. The controller surface grew after v1.3 without the
+  audit noticing: `ContactLabelController` (#230) and
+  `CorrespondentInternalController` (#232) landed, so **17** controllers
+  (13 public + **4** `/api/internal`), **12** `@Validated` (the same five
+  without it, unchanged), and **three** `@Hidden` support hooks. This is the
+  exact failure mode [AUDIT_GUIDE.md](AUDIT_GUIDE.md) §3 rule 1 exists to
+  prevent — a bare number with no way to regenerate it — so §"Method" now
+  carries the commands, and they use `@RestController\b` because
+  `@RestControllerAdvice` otherwise counts as an 18th. §2 also names the
+  bounds on the two new surfaces (label assignment, compose autocomplete).
 - **1.3** (2026-07-09) — added the audited-commit header row (`d55b753`,
   claims re-verified during the truing pass); boundary-coverage paragraph now
   points at the new B2/B5 focused audits and the audit map in AUDIT_GUIDE.md.
