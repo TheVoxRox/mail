@@ -119,11 +119,44 @@ class SubjectNormalizerTest {
     @Test
     @DisplayName("A long Re: chain strips completely — normalization is length-independent")
     void longMarkerChainStripsCompletely() {
-        // The strip loop is uncapped: every iteration consumes at least "re:", so
-        // it terminates on its own. With a cap, a subject that stacked more markers
-        // than the cap would normalize to a different key than the same subject
-        // with fewer — the two would stop threading together.
+        // Every iteration consumes at least "re:", so the strip terminates on its
+        // own. Within the length cap the result stays independent of how many
+        // markers were stacked, so a deeply-nested reply still threads with a
+        // shallow one.
         assertThat(SubjectNormalizer.normalize("Re: ".repeat(100) + "X")).isEqualTo("x");
         assertThat(SubjectNormalizer.normalize("Re: ".repeat(2) + "X")).isEqualTo("x");
+    }
+
+    @Test
+    @DisplayName("A pathological subject cannot burn CPU during sync (audit B1-2)")
+    void pathologicalSubjectIsBounded() {
+        // The Subject header is attacker-controlled and nothing upstream bounds
+        // it: MessageFetcher takes getSubject() verbatim and SQLite ignores the
+        // schema's VARCHAR(500). Before the fix this input cost ~108 s on the
+        // sync executor (O(n²) substring copying, measured on -Xmx384m); the
+        // budget below is ~4 orders of magnitude above the fixed cost and still
+        // fails loudly if the quadratic behaviour ever returns.
+        String hostile = "Re: ".repeat(1_048_576) + "payload";
+
+        long startNanos = System.nanoTime();
+        String normalized = SubjectNormalizer.normalize(hostile);
+        long elapsedMillis = (System.nanoTime() - startNanos) / 1_000_000;
+
+        assertThat(elapsedMillis).as("normalizing a 4 MiB marker chain").isLessThan(1_000);
+        // Truncated to markers only, so there is no grouping key left — the row
+        // simply does not participate in the subject fallback.
+        assertThat(normalized).isNull();
+    }
+
+    @Test
+    @DisplayName("The length cap does not change any realistic subject")
+    void capLeavesRealisticSubjectsUntouched() {
+        String longButLegitimate = "Re: " + "a".repeat(400);
+        assertThat(SubjectNormalizer.normalize(longButLegitimate)).isEqualTo("a".repeat(400));
+
+        // A subject whose payload starts beyond the cap keeps only what fits, which
+        // is the point: the key is derived from a bounded prefix, deterministically.
+        String beyondCap = "Re: " + "b".repeat(2_000);
+        assertThat(SubjectNormalizer.normalize(beyondCap)).isEqualTo("b".repeat(996));
     }
 }

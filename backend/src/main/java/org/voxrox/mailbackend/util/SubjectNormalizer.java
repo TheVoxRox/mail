@@ -59,6 +59,18 @@ public final class SubjectNormalizer {
     private static final Pattern WHITESPACE = Pattern.compile("\\s+", Pattern.UNICODE_CHARACTER_CLASS);
 
     /**
+     * Hard cap on the subject we are willing to normalize (audit finding B1-2). The
+     * header is attacker-controlled — a hostile or compromised mail server picks
+     * its length, and nothing upstream bounds it: {@code MessageFetcher} takes
+     * {@code getSubject()} verbatim and SQLite ignores the {@code VARCHAR(500)} the
+     * schema declares. The column's own intent is 500 characters and RFC 5322
+     * recommends far less, so 1000 is generous for every legitimate subject while
+     * keeping the work per message trivially bounded. Truncation only affects the
+     * grouping key; the stored subject is untouched.
+     */
+    private static final int MAX_NORMALIZED_LENGTH = 1000;
+
+    /**
      * Stored form of a subject that carries no grouping key — see
      * {@link #storedNorm}. Never equal to any value {@link #normalize} returns, so
      * a row holding it can never match a fallback lookup.
@@ -79,7 +91,10 @@ public final class SubjectNormalizer {
         if (subject == null) {
             return null;
         }
-        String stripped = stripMarkers(subject);
+        String bounded = subject.length() > MAX_NORMALIZED_LENGTH
+                ? subject.substring(0, MAX_NORMALIZED_LENGTH)
+                : subject;
+        String stripped = stripMarkers(bounded);
         // Collapse first, trim second: the collapse rewrites every whitespace run
         // (including U+00A0, which trim() would not touch) to a single ASCII space,
         // so the trailing trim() then reaches a leading/trailing no-break space too.
@@ -136,20 +151,30 @@ public final class SubjectNormalizer {
     }
 
     /**
-     * Strips every leading marker. Uncapped: each iteration consumes a match that
-     * is at least three characters long ({@code "re:"}), so {@code current} shrinks
-     * strictly and the loop is finite by construction — a cap would only make a
-     * long {@code "Re: Re: …"} chain normalize to something different from a short
-     * one, which is worse than the linear work it saves.
+     * Strips every leading marker by advancing an offset — never by re-slicing.
+     *
+     * <p>
+     * The loop was always finite (each match consumes at least {@code "re:"}), but
+     * finite is not the same as cheap: the previous version called
+     * {@code substring} per iteration, so a {@code "Re: "} chain cost O(n²) in
+     * copying, and the chain length is chosen by whoever sent the message. Measured
+     * on the packaged heap before this change: 512 KiB of markers took 1.7 s, 1 MiB
+     * 7.2 s, 2 MiB 30 s, 4 MiB 108 s — per message, on the sync executor, with no
+     * user interaction (audit finding B1-2). Matching from a region start keeps the
+     * same result for every input while making the work linear;
+     * {@link #MAX_NORMALIZED_LENGTH} then bounds it outright.
      */
     private static String stripMarkers(String subject) {
-        String current = subject;
+        int start = 0;
+        Matcher matcher = LEADING_MARKER.matcher(subject);
         while (true) {
-            Matcher matcher = LEADING_MARKER.matcher(current);
+            // useAnchoringBounds keeps ^ meaningful at the region start, so the
+            // pattern still only ever strips a *leading* marker.
+            matcher.region(start, subject.length());
             if (!matcher.find()) {
-                return current;
+                return start == 0 ? subject : subject.substring(start);
             }
-            current = current.substring(matcher.end());
+            start = matcher.end();
         }
     }
 }

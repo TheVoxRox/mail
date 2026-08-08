@@ -16,10 +16,6 @@
 		"The note is the evidence that someone did."
 	],
 
-	"docs/IMAP_SMTP_AUDIT.md": {
-		"reviewedAt": "9197e27",
-		"note": "21 commits touch feature/mail/service since 35a06f3 (threading phase 2, draft lifecycle, send-path review, service splits). NOT reviewed against the audit's claims — recorded as debt on 2026-08-08 so the gate starts green on existing history. Re-verification is a First Release Gate item, see todo.md."
-	},
 	"docs/CONTENT_RENDERING_AUDIT.md": {
 		"reviewedAt": "9197e27",
 		"note": "4 commits since d55b753; fc71cb4 is the B1-1 body cap the audit already documents. The other three (#197 focus handling, #203 settings copy, #226 pre-mortem) touch message-detail components without changing the sanitizer, the frame CSP or a DOM sink. Recorded as debt 2026-08-08 rather than claimed as re-verified."
