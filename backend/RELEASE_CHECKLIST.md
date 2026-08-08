@@ -32,7 +32,7 @@ Spouštět ve frontend repu proti dev/preview buildu se spuštěným backend sid
 - [x] `npm run check:i18n`
 - [x] `npm run build`
 - [x] `npm run test:e2e`
-- [x] `npm run test:functional`
+- [x] `npm run test:functional:stable`
 - [x] `npm run test:a11y`
 
 Poznámky:

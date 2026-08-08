@@ -79,9 +79,14 @@ the manual gate / CI — too slow to force on every commit or push.
 ## Pre-Push Quality Gate
 
 Every change must pass the following locally before opening a PR. CI runs the
-same set and will reject the PR if anything red. The numbers in parentheses are
-the 2026-08-08 baseline — if you regress them, set per-file thresholds rather
-than lowering global floors.
+same set and will reject the PR if anything red.
+
+This list deliberately carries **no test counts**. Earlier revisions did, and
+every one of them was wrong within a month — a count changes whenever anyone
+adds a test, which is never the moment someone remembers to edit
+CONTRIBUTING. The invariant worth stating is the one the tooling enforces:
+suites are green and coverage floors do not move. If a change would drop
+coverage, add a per-file threshold rather than lowering a global floor.
 
 **Backend (`cd backend && mvn clean verify`)**
 
@@ -90,7 +95,7 @@ than lowering global floors.
   `spotbugs-exclude.xml`. Run it with `clean`: a `target/` left over from an
   earlier `-Paot package` still holds the generated `__BeanDefinitions`
   classes, and SpotBugs analyses them and fails on code nobody wrote.
-- Unit + integration tests (Surefire + Failsafe). Baseline: **1140 + 78 green**.
+- Unit + integration tests (Surefire + Failsafe).
 - Jacoco merged unit + IT coverage report in `target/site/jacoco-merged/`.
   Threshold gate enforces ≥ 70% instructions / ≥ 50% branches / ≥ 70% lines.
 - Translation whitelist lint (`node ../frontend/scripts/check-translation-whitelist.mjs
@@ -109,18 +114,43 @@ than lowering global floors.
 - `npm run check` — CSP parity (`app.security.csp` vs `devCsp`), typography
   lint (no arbitrary font-size utilities), version sync, doc-claims lint
   (stack versions and stale phrases in root + module docs vs
-  `pom.xml`/`package.json`/`.nvmrc`), OpenAPI snapshot drift, `svelte-check`
-  (1408 files / 0 errors).
+  `pom.xml`/`package.json`/`.nvmrc`), audit freshness (see below), OpenAPI
+  snapshot drift, `svelte-check` (must report 0 errors).
+- `npm run check:audits` (part of `check`) — fails when a commit touches the
+  `Code paths` of a security audit in `docs/` after that audit's
+  `Audited commit`. If your change trips it, either re-verify the audit
+  (bump the SHA + change-log entry) or record in
+  [`docs/audit-freshness.json`](docs/audit-freshness.json) why the change
+  cannot move a verdict. Bumping `reviewedAt` without reading the diff
+  defeats the point.
+- `npm run check:refs` (part of `check`) — every repo path and `npm run`
+  script named in a doc or a source comment must exist. Historical documents
+  (changelogs, `todo-archive.md`, snapshot docs) are skipped: their dead
+  references are the record, not a defect.
+- `npm run check:docs-impact -- --base <ref>` — CI-only, needs a diff range.
+  Fails when a change touches an egress- or storage-relevant path without
+  updating `PRIVACY*.md`. No script can decide whether the policy is still
+  true, so this only refuses to let the question go unasked. Waive it with a
+  commit trailer when it genuinely does not apply:
+
+  ```
+  Docs-impact: none — internal refactor, no change to what leaves the device
+  ```
+
+Note what these gates deliberately do **not** do: they never rewrite a doc for
+you. A number a machine can recompute either gets checked or gets deleted —
+prose that silently self-heals is prose nobody reads.
+
 - `npm run knip` — dead-code analysis. Config in `knip.json`. Output must
   be empty.
 - `npm run check:translations:strict` — Czech-diacritics whitelist.
 - `npm audit --audit-level=high` — must report 0 high+ vulnerabilities.
 - `npm run test:unit:coverage` — vitest with thresholds (≥ 65% global,
   per-file 90/85/90 for `content-sanitizer.ts`, 85/80/80 for
-  `client.ts`). Baseline: **475 green**.
-- `npm run test:functional:stable` — Playwright functional (**199 green**).
-- `npm run test:a11y:stable` — Playwright a11y (**62 green**).
-- `npm run test:performance:stable` — initial-load budget (**1 green**).
+  `client.ts`).
+- `npm run test:functional:stable` — Playwright functional.
+- `npm run test:a11y:stable` — Playwright a11y.
+- `npm run test:performance:stable` — initial-load budget.
 
 **Tauri Rust (`cd frontend/src-tauri && cargo check && cargo clippy`)**
 

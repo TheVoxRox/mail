@@ -1,3 +1,5 @@
+import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
@@ -128,6 +130,135 @@ DOC_FILES.forEach((file, index) => {
 	});
 });
 
+/*
+ * Computed claims: numbers a doc states that this script can recount from the
+ * source of truth. The version claims above catch a stale dependency; these
+ * catch a stale *description of the code* — the B3 audit said "15
+ * controllers" for a month after two more landed, and nothing noticed because
+ * the number was prose.
+ *
+ * A pattern that stops matching is a FAILURE, never a silent pass. Rewording
+ * the sentence must force you to look at the number again; the alternative is
+ * a check that quietly stops checking, which is worse than no check at all.
+ */
+const WORD_NUMBERS = [
+	'zero',
+	'one',
+	'two',
+	'three',
+	'four',
+	'five',
+	'six',
+	'seven',
+	'eight',
+	'nine',
+	'ten',
+	'eleven',
+	'twelve',
+	'thirteen',
+	'fourteen',
+	'fifteen',
+	'sixteen',
+	'seventeen',
+	'eighteen',
+	'nineteen',
+	'twenty'
+];
+
+function numeral(value) {
+	const asNumber = Number(value);
+	if (!Number.isNaN(asNumber)) return asNumber;
+	const index = WORD_NUMBERS.indexOf(String(value).toLowerCase());
+	return index === -1 ? NaN : index;
+}
+
+function backendFiles() {
+	return execFileSync('git', ['ls-files', 'backend/src/main/java'], {
+		cwd: repoRoot,
+		encoding: 'utf8'
+	})
+		.split('\n')
+		.filter((f) => f.endsWith('.java'))
+		.map((f) => ({ file: f, source: readFileSync(path.join(repoRoot, f), 'utf8') }));
+}
+
+// `\b` excludes @RestControllerAdvice on GlobalExceptionHandler, which is not
+// a controller — the same trap the audit's own regenerate command documents.
+const controllers = backendFiles().filter(({ source }) => /@RestController\b/.test(source));
+const counts = {
+	total: controllers.length,
+	internal: controllers.filter(({ source }) => source.includes('/api/internal')).length,
+	validated: controllers.filter(({ source }) => source.includes('@Validated')).length,
+	hidden: controllers.filter(({ source }) => source.includes('@Hidden')).length
+};
+counts.public = counts.total - counts.internal;
+
+const ciSource = await readText('.github/workflows/ci.yml');
+// Scoped to the `jobs:` block — the trigger keys under `on:` sit at the same
+// indentation and would otherwise be counted as jobs.
+const jobsBlock = ciSource.split(/^jobs:$/m)[1];
+if (!jobsBlock) {
+	throw new Error('.github/workflows/ci.yml has no `jobs:` block');
+}
+const ciJobs = [...jobsBlock.split(/^[a-z]/m)[0].matchAll(/^ {2}([a-z][a-z0-9_-]*):$/gm)].map(
+	(m) => m[1]
+);
+
+const COMPUTED = [
+	{
+		file: 'docs/API_SURFACE_AUDIT.md',
+		what: 'controller enumeration in the method statement',
+		pattern: /all (\d+) `@RestController`s \((\d+) public \+ the (\d+) `\/api\/internal` ones\)/,
+		expected: [counts.total, counts.public, counts.internal]
+	},
+	{
+		file: 'docs/API_SURFACE_AUDIT.md',
+		what: '@Validated claim in §2',
+		pattern: /(\w+) of the (\d+) controllers are `@Validated`/,
+		expected: [counts.validated, counts.total]
+	},
+	{
+		file: 'docs/API_SURFACE_AUDIT.md',
+		what: 'regenerate-command comments',
+		pattern:
+			/# (\d+) controllers[\s\S]*?# (\d+) internal \((\d+) public\)[\s\S]*?# (\d+) @Validated[\s\S]*?# (\d+) hidden/,
+		expected: [counts.total, counts.internal, counts.public, counts.validated, counts.hidden]
+	},
+	{
+		file: 'frontend/README.md',
+		what: 'CI job count',
+		pattern: /workflow is split into (\d+) jobs/,
+		expected: [ciJobs.length]
+	}
+];
+
+for (const claim of COMPUTED) {
+	const source = await readText(claim.file);
+	const match = claim.pattern.exec(source.replace(/\s+/g, ' '));
+	if (!match) {
+		problems.push(
+			`${claim.file}: cannot find the ${claim.what} — the wording changed. ` +
+				`Re-check the number, then update the pattern in check-doc-claims.mjs.`
+		);
+		continue;
+	}
+	claim.expected.forEach((value, index) => {
+		const stated = numeral(match[index + 1]);
+		if (stated !== value) {
+			problems.push(
+				`${claim.file}: ${claim.what} says "${match[index + 1]}" where the code has ${value}`
+			);
+		}
+	});
+}
+
+const readmeSource = await readText('frontend/README.md');
+for (const job of ciJobs) {
+	if (!readmeSource.includes(`\`${job}\``)) {
+		problems.push(`frontend/README.md does not mention the CI job \`${job}\` from ci.yml`);
+	}
+}
+
 if (problems.length > 0) {
 	console.error('Doc claims are stale:');
 	for (const problem of problems) {
@@ -136,6 +267,8 @@ if (problems.length > 0) {
 	process.exitCode = 1;
 } else {
 	console.log(
-		`Doc claims OK: ${DOC_FILES.length} docs match the stack (Spring Boot ${springBootMajor}, Java ${javaMajor}, Node ${nodeMajor}).`
+		`Doc claims OK: ${DOC_FILES.length} docs match the stack (Spring Boot ${springBootMajor}, ` +
+			`Java ${javaMajor}, Node ${nodeMajor}); ${COMPUTED.length} computed claims match the code ` +
+			`(${counts.total} controllers, ${ciJobs.length} CI jobs).`
 	);
 }

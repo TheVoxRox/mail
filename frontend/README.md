@@ -220,7 +220,7 @@ The committed `static/mockServiceWorker.js` is intentional so the MSW runtime an
 
 GitHub Actions runs the `CI` workflow on pushes to `main` and on pull requests.
 
-The workflow is split into nine jobs; five of them are this module's:
+The workflow is split into 9 jobs; five of them are this module's:
 
 - `lint`: `npm run lint` + `npm audit --audit-level=high` + `npm run knip`
 - `check`: `npm run check` (includes `check:api` schema-drift)
@@ -231,6 +231,8 @@ The workflow is split into nine jobs; five of them are this module's:
 The rest cover the other modules and the release artifacts: `backend`
 (`mvn verify`, translation + i18n lints), `tauri` (`cargo check`, `cargo
 clippy -D warnings`, `cargo audit`), `backend-build` and `frontend-build`.
+
+<!-- The job count and every id above are checked against ci.yml by check:docs. -->
 
 Playwright jobs install Chromium with system dependencies and upload `test-results/` on failure.
 
