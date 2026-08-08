@@ -1,15 +1,15 @@
 # VoxRox Mail — IMAP/SMTP Protocol Layer Audit
 
-|                    |                                                                                                                                                                                                                                            |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Version**        | 1.3                                                                                                                                                                                                                                        |
-| **Date**           | 2026-08-08                                                                                                                                                                                                                                 |
-| **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                         |
-| **Audited commit** | `806528e` (re-verified 2026-08-08 after 21 commits of drift; 1.0–1.2 baseline: `35a06f3`)                                                                                                                                                  |
-| **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service`, `backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java`, `backend/src/main/java/org/voxrox/mailbackend/core/config/mail`                           |
-| **Auditor**        | Claude (Fable 5) + owner review                                                                                                                                                                                                            |
-| **Subsystem**      | External mail server ↔ sidecar — Boundary 1 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                     |
-| **Verdict**        | **Security: PASS** — no exploitable finding. Two Medium DoS gaps found and **fixed in code**: **B1-1** (unbounded body fetch, 2026-07-10, §4) and **B1-2** (quadratic subject normalization, 2026-08-08, §4b); one Low informational note. |
+|                    |                                                                                                                                                                                                                                                                                              |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Version**        | 1.3                                                                                                                                                                                                                                                                                          |
+| **Date**           | 2026-08-08                                                                                                                                                                                                                                                                                   |
+| **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                           |
+| **Audited commit** | `3ff0c78` (re-verified 2026-08-08 after 21 commits of drift, including the B1-2 fix; 1.0–1.2 baseline: `35a06f3`)                                                                                                                                                                            |
+| **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service`, `backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java`, `backend/src/main/java/org/voxrox/mailbackend/util/SubjectNormalizer.java`, `backend/src/main/java/org/voxrox/mailbackend/core/config/mail` |
+| **Auditor**        | Claude (Fable 5) + owner review                                                                                                                                                                                                                                                              |
+| **Subsystem**      | External mail server ↔ sidecar — Boundary 1 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                       |
+| **Verdict**        | **Security: PASS** — no exploitable finding. Two Medium DoS gaps found and **fixed in code**: **B1-1** (unbounded body fetch, 2026-07-10, §4) and **B1-2** (quadratic subject normalization, 2026-08-08, §4b); one Low informational note.                                                   |
 
 Full per-subsystem audit of the path **"raw IMAP/SMTP wire → parsed → stored /
 sent"**. After the mail body (Boundary 4), this is the second-largest
@@ -269,7 +269,7 @@ one after 101.8 s — so the budget is empirically load-bearing, not decorative.
 
 ## 7. Change log
 
-- **1.3** (2026-08-08) — re-verified against `806528e` after `check:audits`
+- **1.3** (2026-08-08) — re-verified against `3ff0c78` after `check:audits`
   reported 21 commits of drift since `35a06f3` (threading phase 2, draft
   lifecycle, send-path review, service splits). Every §1–§5 claim was
   re-checked against the current code and all still hold: pinned
@@ -286,7 +286,12 @@ one after 101.8 s — so the budget is empirically load-bearing, not decorative.
   #145 added CR/LF rejection to `MimeMessageBuilder`, hardening the send path
   beyond what 1.0 described, and `MessageDownloader.reconcileServerOnlyUids`
   (#204) fetches server-only UIDs in `batchSize` windows bounded by the locally
-  mirrored UID range, not by anything the server chooses.
+  mirrored UID range, not by anything the server chooses. The `Code paths` row
+  gained `SubjectNormalizer.java`: it parses an attacker-controlled header on
+  the sync path, so it was always in this boundary, but the pathspec written
+  earlier the same day omitted it — the B1-2 fix landed without the gate
+  noticing, which is the "too narrow a scope claim" failure
+  [AUDIT_GUIDE.md](AUDIT_GUIDE.md) §2 warns the row can have.
 - **1.2** (2026-07-10) — dynamic hostile-content harness added
   (`MailContentGreenMailIT`): the §4 fix and the fetch→parse pipeline claims
   are now exercised over a live IMAP server through the production client
