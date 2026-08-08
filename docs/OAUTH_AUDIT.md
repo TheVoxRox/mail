@@ -1,15 +1,15 @@
 # VoxRox Mail — OAuth Handshake Audit
 
-|                    |                                                                                                                                                                                  |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.0                                                                                                                                                                              |
-| **Date**           | 2026-07-09                                                                                                                                                                       |
-| **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                               |
-| **Audited commit** | `d55b753`                                                                                                                                                                        |
-| **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/auth`, `backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java`, `backend/src/main/resources/static` |
-| **Auditor**        | Claude (Fable 5) + owner review                                                                                                                                                  |
-| **Subsystem**      | OAuth handshake — Boundary 2 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                          |
-| **Verdict**        | **Security: PASS** (no exploitable finding, no code change).                                                                                                                     |
+|                    |                                                                                                                                                                                                                                                                                                                                                                                         |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Version**        | 1.1                                                                                                                                                                                                                                                                                                                                                                                     |
+| **Date**           | 2026-08-08                                                                                                                                                                                                                                                                                                                                                                              |
+| **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                      |
+| **Audited commit** | `5799e8b` (re-verified 2026-08-08; 1.0 baseline: `d55b753`)                                                                                                                                                                                                                                                                                                                             |
+| **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/auth`, `backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java`, `backend/src/main/java/org/voxrox/mailbackend/core/config/OAuth2CompletedStateTracker.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/account/service/ExternalProviderLoginService.java`, `backend/src/main/resources/static` |
+| **Auditor**        | Claude (Fable 5) + owner review                                                                                                                                                                                                                                                                                                                                                         |
+| **Subsystem**      | OAuth handshake — Boundary 2 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                 |
+| **Verdict**        | **Security: PASS** (no exploitable finding, no code change).                                                                                                                                                                                                                                                                                                                            |
 
 Focused verification audit of the boundary **"OAuth provider ↔ system browser ↔
 sidecar"**: every mitigation claimed by the Boundary 2 STRIDE rows was traced to
@@ -87,5 +87,21 @@ tiers.
 
 ## 5. Change log
 
+- **1.1** (2026-08-08) — re-verified against `5799e8b` after `check:audits`
+  reported one commit of drift. That commit (#179) is a pure delegation move:
+  `OAuth2LoginService` now calls `ExternalProviderLoginService` instead of
+  `AccountService` for `processExternalProviderLogin` and
+  `markRequiresReauthIfExists`, same names and arguments, no behaviour change.
+  Every §1–§2 claim re-checked and still true, including the one the move
+  could plausibly have broken: the `requires_reauth` flag is cleared **only**
+  on a successful re-login that carries a new refresh token, and the benign
+  duplicate callback (`authorization_request_not_found` with a completed
+  state) still only redirects — it never reaches the account, so a stale
+  success cannot resurrect a dead account. Verdict unchanged (**PASS**).
+  `Code paths` gained `ExternalProviderLoginService.java` and
+  `OAuth2CompletedStateTracker.java`: the first is where #179 moved the token
+  and account persistence this audit reasons about, the second implements the
+  narrow state gate §1 describes, and neither was covered by the original
+  pathspec — so a future change to either would not have tripped the gate.
 - **1.0** (2026-07-09) — initial focused audit; all Boundary 2 STRIDE
   mitigations verified against `d55b753`.
