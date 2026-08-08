@@ -1,0 +1,39 @@
+{
+	"_README": [
+		"Acknowledged drift for the per-subsystem security audits, checked by",
+		"frontend/scripts/check-audit-freshness.mjs (runs in `npm run check`).",
+		"",
+		"An audit's `Audited commit` is the code state its claims were verified",
+		"against. When a commit touches that audit's `Code paths` afterwards, the",
+		"check goes red. Two ways out, both legitimate:",
+		"",
+		"  1. Re-verify the audit -> bump `Audited commit` in the doc, add a change",
+		"     log entry, and drop the audit's entry from this file.",
+		"  2. Review the drift and conclude it cannot move a verdict -> set",
+		"     `reviewedAt` to the SHA you reviewed through and say why in `note`.",
+		"",
+		"What is NOT legitimate is bumping `reviewedAt` without reading the diff.",
+		"The note is the evidence that someone did."
+	],
+
+	"docs/IMAP_SMTP_AUDIT.md": {
+		"reviewedAt": "9197e27",
+		"note": "21 commits touch feature/mail/service since 35a06f3 (threading phase 2, draft lifecycle, send-path review, service splits). NOT reviewed against the audit's claims — recorded as debt on 2026-08-08 so the gate starts green on existing history. Re-verification is a First Release Gate item, see todo.md."
+	},
+	"docs/CONTENT_RENDERING_AUDIT.md": {
+		"reviewedAt": "9197e27",
+		"note": "4 commits since d55b753; fc71cb4 is the B1-1 body cap the audit already documents. The other three (#197 focus handling, #203 settings copy, #226 pre-mortem) touch message-detail components without changing the sanitizer, the frame CSP or a DOM sink. Recorded as debt 2026-08-08 rather than claimed as re-verified."
+	},
+	"docs/CRYPTO_STORAGE_AUDIT.md": {
+		"reviewedAt": "9197e27",
+		"note": "2 commits since d55b753 (#155 SpotBugs null-deref guards, #226 pre-mortem). Recorded as debt 2026-08-08, not re-verified."
+	},
+	"docs/OAUTH_AUDIT.md": {
+		"reviewedAt": "9197e27",
+		"note": "1 commit since d55b753 (#179 split ExternalProviderLoginService out of AccountService — a move, not a protocol change). Recorded as debt 2026-08-08, not re-verified."
+	},
+	"docs/UPDATER_AUDIT.md": {
+		"auditedCommitUnresolved": "e2b8d8d",
+		"note": "The SHA in the header is not in this repository (`git cat-file -t e2b8d8d` fails) — almost certainly a pre-squash branch commit. The B6 audit therefore has no checkable anchor and its drift cannot be computed. Candidate replacement: 3162e6a (#144, the release-channels work the v1.2 change log describes), pending owner confirmation."
+	}
+}

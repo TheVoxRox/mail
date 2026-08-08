@@ -109,8 +109,15 @@ than lowering global floors.
 - `npm run check` — CSP parity (`app.security.csp` vs `devCsp`), typography
   lint (no arbitrary font-size utilities), version sync, doc-claims lint
   (stack versions and stale phrases in root + module docs vs
-  `pom.xml`/`package.json`/`.nvmrc`), OpenAPI snapshot drift, `svelte-check`
-  (1408 files / 0 errors).
+  `pom.xml`/`package.json`/`.nvmrc`), audit freshness (see below), OpenAPI
+  snapshot drift, `svelte-check` (1408 files / 0 errors).
+- `npm run check:audits` (part of `check`) — fails when a commit touches the
+  `Code paths` of a security audit in `docs/` after that audit's
+  `Audited commit`. If your change trips it, either re-verify the audit
+  (bump the SHA + change-log entry) or record in
+  [`docs/audit-freshness.json`](docs/audit-freshness.json) why the change
+  cannot move a verdict. Bumping `reviewedAt` without reading the diff
+  defeats the point.
 - `npm run knip` — dead-code analysis. Config in `knip.json`. Output must
   be empty.
 - `npm run check:translations:strict` — Czech-diacritics whitelist.

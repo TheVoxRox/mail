@@ -24,6 +24,7 @@ two declared tiers:
 | **Date**            | date of this version |
 | **Applies to**      | product version |
 | **Audited commit**  | the exact SHA the claims were verified against |
+| **Code paths**      | literal git pathspec the scope claim covers (no globs) |
 | **Auditor**         | who traced the code + who reviewed |
 | **Subsystem**       | boundary N of the threat model |
 | **Verdict**         | PASS / findings summary |
@@ -32,6 +33,17 @@ two declared tiers:
 The **audited commit** row exists because "Applies to V0.1.0" is not a code
 state — the B4 audit was invalidated by a fix that landed the _same day_
 (F2). A SHA makes drift visible instead of silent.
+
+The **code paths** row makes it _detectable_. Visible was not enough: B3 spent
+a month claiming "15 controllers" after two more landed, because nothing
+compared the SHA to the code. `npm run check` now runs
+[check-audit-freshness.mjs](../frontend/scripts/check-audit-freshness.mjs),
+which fails when a commit touches these paths after the audited commit. Clear
+it by re-verifying (bump the SHA + change-log entry) or by reviewing the drift
+and recording why it cannot move a verdict in
+[audit-freshness.json](audit-freshness.json). Treat the pathspec as part of
+the audit's claim: too narrow and the check misses real drift, so it is worth
+arguing about in review — which an implicit scope never was.
 
 ## 3. Method statement (required)
 
