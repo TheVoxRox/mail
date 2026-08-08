@@ -196,7 +196,7 @@ test.describe('Přístupnost', () => {
 		// <nav>; the import/export actions stay buttons outside of it.
 		const contactsNav = contactsPane.getByRole('navigation', { name: 'Zobrazení kontaktů' });
 		await expect(contactsNav).toBeVisible();
-		await expect(contactsNav.getByRole('link', { name: /^Kontakty/ })).toBeVisible();
+		await expect(contactsNav.getByRole('link', { name: /^Všechny kontakty/ })).toBeVisible();
 		await expect(contactsNav.getByRole('button')).toHaveCount(0);
 		await expect(contactsPane.getByRole('button', { name: 'Importovat vCard' })).toBeVisible();
 	});

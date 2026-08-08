@@ -70,7 +70,7 @@ test.describe('Contacts', () => {
 		// Fixture: 1 kontakt (Jana Novak) se štítkem Klienti, plus prázdný
 		// štítek Rodina. Accessible name odkazu zahrnuje aria-label badge s
 		// počtem.
-		const allLink = nav.getByRole('link', { name: 'Kontakty 1 kontakt' });
+		const allLink = nav.getByRole('link', { name: 'Všechny kontakty 1 kontakt' });
 		await expect(allLink).toHaveAttribute('aria-current', 'page');
 
 		// Nepoužitý štítek je v panelu vidět s nulou — na rozdíl od pevných typů

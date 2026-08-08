@@ -178,55 +178,56 @@
 		</div>
 	{:else}
 		<nav aria-label={$_('contacts.viewsNav')}>
-			<ul role="list" class="space-y-1">
-				<li>
-					<SidebarNavItem href={viewHref()} active={!createActive && currentLabelId == null}>
-						{#snippet icon()}
-							<Icon name="book-open" />
-						{/snippet}
+			<!--
+				The unfiltered view leads the label list instead of standing above it
+				on its own: it is the "no label" end of the same filter, so one group
+				reads as one switch — all contacts, then each label. Its old name
+				("Kontakty") repeated the rail entry and the pane heading without
+				saying how it differed; the current one names what the link does.
+			-->
+			<SidebarSection id="contacts-sidebar-labels" label={$_('contacts.labelsSection')}>
+				<ul role="list" class="space-y-1">
+					<li>
+						<SidebarNavItem href={viewHref()} active={!createActive && currentLabelId == null}>
+							{#snippet icon()}
+								<Icon name="book-open" />
+							{/snippet}
 
-						{$_('contacts.contactsList')}
+							{$_('contacts.allContacts')}
 
-						{#snippet badge()}
-							<!-- Total 0 renders (an empty address book is meaningful);
-							     no badge means the counts have not loaded. -->
-							{@render countBadge($contactCounts?.total ?? 0, $contactCounts != null)}
-						{/snippet}
-					</SidebarNavItem>
-				</li>
-			</ul>
+							{#snippet badge()}
+								<!-- Total 0 renders (an empty address book is meaningful);
+								     no badge means the counts have not loaded. -->
+								{@render countBadge($contactCounts?.total ?? 0, $contactCounts != null)}
+							{/snippet}
+						</SidebarNavItem>
+					</li>
 
-			<SidebarSection
-				id="contacts-sidebar-labels"
-				label={$_('contacts.labelsSection')}
-				class="mt-4"
-			>
+					{#each labelItems as item (item.id)}
+						<li>
+							<SidebarNavItem
+								href={viewHref(item.id)}
+								active={!createActive && currentLabelId === item.id}
+							>
+								{#snippet icon()}
+									<Icon name="tag" />
+								{/snippet}
+
+								{item.name}
+
+								{#snippet badge()}
+									<!-- A label with no contacts still renders its 0: unlike the
+									     unfiltered view it can be empty simply because it is new,
+									     and a missing badge would read as "not loaded". -->
+									{@render countBadge(item.contacts, true)}
+								{/snippet}
+							</SidebarNavItem>
+						</li>
+					{/each}
+				</ul>
+
 				{#if labelItems.length === 0}
 					<p class="px-2 py-1 text-caption text-muted-foreground">{$_('contacts.noLabelsYet')}</p>
-				{:else}
-					<ul role="list" class="space-y-1">
-						{#each labelItems as item (item.id)}
-							<li>
-								<SidebarNavItem
-									href={viewHref(item.id)}
-									active={!createActive && currentLabelId === item.id}
-								>
-									{#snippet icon()}
-										<Icon name="tag" />
-									{/snippet}
-
-									{item.name}
-
-									{#snippet badge()}
-										<!-- A label with no contacts still renders its 0: unlike the
-										     fixed types it can be empty simply because it is new, and
-										     a missing badge would read as "not loaded". -->
-										{@render countBadge(item.contacts, true)}
-									{/snippet}
-								</SidebarNavItem>
-							</li>
-						{/each}
-					</ul>
 				{/if}
 			</SidebarSection>
 		</nav>
