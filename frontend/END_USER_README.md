@@ -8,9 +8,17 @@ IMAP/SMTP servery a poskytuje API pro uživatelské rozhraní.
 
 - Správa více e-mailových účtů.
 - Čtení složek, vyhledávání zpráv a práce s detailem zprávy.
-- Vytváření nové zprávy, odpovědi, přeposlání a ukládání konceptů.
+- Zobrazení pošty po jednotlivých zprávách, nebo seskupené do konverzací
+  (vlákno drží zprávy pohromadě i napříč složkami).
+- Vytváření nové zprávy, odpovědi, přeposlání a ukládání konceptů; adresy
+  našeptává adresář i historie vaší korespondence.
 - Hromadné akce se zprávami: označení jako přečtené, mazání, přesun a spam.
-- Správa kontaktů a export kontaktů do vCard.
+- Správa kontaktů, vlastní štítky kontaktů (Rodina, Klienti, …) a export
+  kontaktů do vCard.
+- Blokování vzdálených obrázků ve zprávách s možností je povolit jednorázově
+  nebo trvale pro konkrétního odesílatele (viz [PRIVACY.md](../PRIVACY.md)).
+- Ovládání klávesnicí s výpisem zkratek v Nastavení → Klávesové zkratky;
+  volba vzhledu (světlý/tmavý), rozložení čtení a jazyka rozhraní.
 - Lokální diagnostické logy pro podporu.
 
 ## Instalace a ověření instalátoru

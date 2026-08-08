@@ -21,20 +21,25 @@ Repo-wide overview and the full doc map live in the monorepo root
 ```bash
 cd backend
 cp .env.example .env          # fill in OAuth values; leave MAIL_CRYPTO_* empty
-./mvnw -Dmaven.repo.local=.m2repo spring-boot:run
+mvn -Dmaven.repo.local=.m2repo spring-boot:run
 ```
 
 The backend listens on a random port and writes `session.json` + `.ready` to
 `${user.home}/.voxrox/mail/` by default. Override the data directory with
-`--app.data-dir=<path>`. See [`OPERATIONS.md`](OPERATIONS.md) for the full layout.
+`--app.data-dir=<path>` or the `APP_DATA_DIR` env var — the latter is how the
+Tauri shell points the sidecar at `%LOCALAPPDATA%\VoxRox\Mail`. See
+[`OPERATIONS.md`](OPERATIONS.md) for the full layout.
 
 ## Test, package, sidecar
 
 ```bash
-./mvnw verify                                 # unit + integration tests
-./mvnw -Paot package                          # fat jar with Spring AOT
+mvn clean verify                              # unit + integration tests + SpotBugs
+mvn -Paot package                             # fat jar with Spring AOT
 ./package-sidecar-dev-windows.ps1             # jpackage app-image for Tauri (bakes OAuth from .env)
 ```
+
+`clean` is not cosmetic: SpotBugs runs in `verify` and will analyse the
+`__BeanDefinitions` classes a previous `-Paot package` left in `target/`.
 
 > The bare `scripts/package-sidecar-windows.ps1` requires real OAuth client ids in
 > the environment (CI secrets) and fails otherwise. `package-sidecar-dev-windows.ps1`

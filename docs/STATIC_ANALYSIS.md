@@ -1,9 +1,10 @@
 # Static analysis
 
 What runs at compile/verify/lint time, at which severity, and why. Source of
-truth for the tools' configuration is [backend/pom.xml](../backend/pom.xml) and
-the frontend npm scripts in [frontend/package.json](../frontend/package.json);
-this file records the _policy_ behind both.
+truth for the tools' configuration is [backend/pom.xml](../backend/pom.xml),
+the frontend npm scripts in [frontend/package.json](../frontend/package.json)
+and the workflows in [.github/workflows/](../.github/workflows/); this file
+records the _policy_ behind all three.
 
 ## Backend
 
@@ -118,3 +119,33 @@ No permanent `complexity` lint rule — a threshold loose enough to pass the
 legitimate enumerations (>28) would never fire in practice, and a tighter one
 would only generate suppressions. Re-run the sweep when a function _feels_
 unreadable, and judge by the three categories above, not by the number alone.
+
+## Tauri (Rust)
+
+| Tool                                    | When                             | Gate                        |
+| --------------------------------------- | -------------------------------- | --------------------------- |
+| `cargo check`                           | CI `tauri` job / pre-release     | clean compile               |
+| `cargo clippy --no-deps -- -D warnings` | CI `tauri` job / pre-release     | any warning fails the build |
+| `cargo audit` (RustSec)                 | CI `tauri` job + `vuln-scan.yml` | advisory hit fails the job  |
+
+`--no-deps` keeps clippy on our own crate: the Tauri dependency tree is large
+and we do not own its lints. cargo-audit is pinned (`0.22.2`) and cached, so a
+new advisory changes the result but a new tool version never does on its own.
+
+## Cross-language (CodeQL)
+
+[.github/workflows/codeql.yml](../.github/workflows/codeql.yml) runs the
+`security-and-quality` suite over a Java + JS/TS matrix on push, on pull
+requests, and on a weekly cron. SARIF lands in the GitHub Security tab.
+
+**Advisory only, deliberately.** CodeQL is not wired into branch protection:
+its quality queries carry a false-positive rate this codebase has not yet
+characterised, and a gate nobody trusts gets bypassed rather than fixed. The
+weekly cron exists because the query packs improve independently of our code —
+a finding can appear in a file nobody has touched. Promote it to a required
+check once the noise level is known.
+
+Dismissing an alert needs a written reason. The log-injection class (72 alerts,
+closed 2026-06-18) is the standing example: `CrlfSafeMessageConverter`
+neutralises the sink, but CodeQL does not model the converter, so structurally
+identical alerts keep arriving and get dismissed the same way.

@@ -14,8 +14,8 @@ const RESTART_DELAY_MS = 1_000;
 const E2E_SIDECAR_FAILURE_KEY = 'mail.e2e.sidecarFailure';
 
 /*
- * Mirrors the file names from backend/StorageContextInitializer and
- * frontend/lib/api/session.ts. Kept locally so we can wipe stale handshake
+ * Mirrors the file names from backend StorageContextInitializer and
+ * frontend/src/lib/api/session.ts. Kept locally so we can wipe stale handshake
  * state independently — without this, the frontend reads the previous run's
  * files BEFORE the backend JVM finishes starting (Spring takes 2–5 s, but
  * frontend polling runs every 200 ms — a race condition where the client

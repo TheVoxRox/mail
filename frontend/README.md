@@ -68,11 +68,16 @@ Reports are posted to:
 POST /api/internal/client-errors
 ```
 
+**The backend does not implement this endpoint yet** — `clientErrors.ts` is the
+client half of a contract whose server half is still unwritten, so in practice
+the first report of a session gets `404`, reporting disables itself until the
+next reload, and nothing is recorded anywhere. Keep that in mind before relying
+on it while debugging: if you need the data today, read the console.
+
 The payload includes an event id, timestamp, kind, message, stack, source
 location, current route, user agent, language, and backend version metadata from
-`session.json`. It intentionally does not include the API key. If the endpoint is
-not implemented yet and returns `404` or `501`, reporting is disabled until the
-next reload so production users do not see secondary failures.
+`session.json`. It intentionally does not include the API key. The `404`/`501`
+self-disable is what keeps production users from seeing secondary failures.
 
 ## Tauri Sidecar Build
 
@@ -215,12 +220,17 @@ The committed `static/mockServiceWorker.js` is intentional so the MSW runtime an
 
 GitHub Actions runs the `CI` workflow on pushes to `main` and on pull requests.
 
-The workflow is split into four jobs:
+The workflow is split into nine jobs; five of them are this module's:
 
-- `lint`: `npm run lint`
-- `check`: `npm run check`
+- `lint`: `npm run lint` + `npm audit --audit-level=high` + `npm run knip`
+- `check`: `npm run check` (includes `check:api` schema-drift)
+- `test-unit`: `npm run test:unit:coverage`
 - `test-functional`: `npm run test:functional:stable`
 - `test-a11y`: `npm run test:a11y:stable`
+
+The rest cover the other modules and the release artifacts: `backend`
+(`mvn verify`, translation + i18n lints), `tauri` (`cargo check`, `cargo
+clippy -D warnings`, `cargo audit`), `backend-build` and `frontend-build`.
 
 Playwright jobs install Chromium with system dependencies and upload `test-results/` on failure.
 

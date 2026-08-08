@@ -34,7 +34,7 @@ Requires Node.js 26, JDK 25, Rust toolchain (for Tauri build), Windows.
 ```bash
 cd backend
 cp .env.example .env       # fill in OAuth values; leave MAIL_CRYPTO_* empty for desktop bootstrap
-./mvnw -Dmaven.repo.local=.m2repo spring-boot:run
+mvn -Dmaven.repo.local=.m2repo spring-boot:run
 ```
 
 ### 2. Frontend (Tauri dev)
@@ -47,9 +47,12 @@ npm run tauri:dev
 ```
 
 In desktop mode Tauri does not forward `MAIL_CRYPTO_KEY`/`MAIL_CRYPTO_SALT`
-from `backend/.env`; the backend creates and uses
-`${user.home}/.voxrox/mail/crypto.bin` for local data. Use the explicit env
-crypto override only outside the regular desktop flow.
+from `backend/.env`; the backend creates and uses a local `crypto.bin` instead.
+It lands in the data directory Tauri hands the sidecar via `APP_DATA_DIR` —
+`%LOCALAPPDATA%\VoxRox\Mail\crypto.bin` (dev runs: `Mail.dev`). The
+`${user.home}/.voxrox/mail` path in `application.properties` is only the
+fallback for standalone runs that set no `APP_DATA_DIR` (`mvn spring-boot:run`).
+Use the explicit env crypto override only outside the regular desktop flow.
 
 For a browser-only dev run (MSW mocks, no backend):
 

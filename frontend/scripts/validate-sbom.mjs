@@ -4,12 +4,12 @@
  * specification's required-field shape. Run after `regen:sbom:all` and
  * in CI before the release artefact upload.
  *
- * Schema fetched from the official cyclonedx/specification repo and
- * vendored in `frontend/scripts/cyclonedx-bom-1.5.schema.json` so the
- * check runs offline. Uses a minimal hand-rolled validator (the spec's
- * full validator pulls a 200 KB jsonschema runtime; we only need to
- * assert the structural invariants that downstream CVE scanners depend
- * on).
+ * No JSON Schema is involved: the checks below are hand-rolled against the
+ * CycloneDX spec's required-field shape, because the official validator
+ * pulls a 200 KB jsonschema runtime to assert far more than we need. What
+ * matters here are the structural invariants downstream CVE scanners depend
+ * on — `bomFormat`, a supported `specVersion`, a well-formed `serialNumber`,
+ * and per-component `type`/`name`/`version`/`purl`.
  *
  * Usage: `node frontend/scripts/validate-sbom.mjs`
  *        or `npm run check:sbom`.

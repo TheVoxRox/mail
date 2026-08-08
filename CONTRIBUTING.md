@@ -22,7 +22,10 @@ inventory (`THIRD_PARTY_LICENSES.md`) and changelog where applicable.
 
 Requirements:
 
-- **Java 25 (Temurin)** with Maven (the wrapper `mvnw` is provided).
+- **Java 25 (Temurin)** with Maven. Use `mvn` directly — that is what CI runs.
+  The `mvnw` wrapper is committed, but `mvnw.cmd` shells out to
+  `powershell.exe` (Windows PowerShell 5.1), which is absent on machines that
+  only ship PowerShell 7, so it fails there before Maven ever starts.
 - **Node 26** with `npm`.
 - **Rust toolchain** (stable + clippy) — only needed for the Tauri Rust
   crate (`frontend/src-tauri/`).
@@ -34,7 +37,7 @@ Quick start:
 ```powershell
 # 1. Backend tests
 cd backend
-./mvnw verify
+mvn clean verify
 
 # 2. Frontend gates
 cd ../frontend
@@ -77,15 +80,17 @@ the manual gate / CI — too slow to force on every commit or push.
 
 Every change must pass the following locally before opening a PR. CI runs the
 same set and will reject the PR if anything red. The numbers in parentheses are
-the 2026-07-06 baseline — if you regress them, set per-file thresholds rather
+the 2026-08-08 baseline — if you regress them, set per-file thresholds rather
 than lowering global floors.
 
-**Backend (`cd backend && ./mvnw verify`)**
+**Backend (`cd backend && mvn clean verify`)**
 
 - `spotless:check` — Eclipse 4.37 formatter via `spotless-maven-plugin`.
 - `spotbugs:check` — Bundled in `mvn verify`. Exclusions in
-  `spotbugs-exclude.xml`.
-- Unit + integration tests (Surefire + Failsafe). Baseline: **917 + 31 green**.
+  `spotbugs-exclude.xml`. Run it with `clean`: a `target/` left over from an
+  earlier `-Paot package` still holds the generated `__BeanDefinitions`
+  classes, and SpotBugs analyses them and fails on code nobody wrote.
+- Unit + integration tests (Surefire + Failsafe). Baseline: **1140 + 78 green**.
 - Jacoco merged unit + IT coverage report in `target/site/jacoco-merged/`.
   Threshold gate enforces ≥ 70% instructions / ≥ 50% branches / ≥ 70% lines.
 - Translation whitelist lint (`node ../frontend/scripts/check-translation-whitelist.mjs
@@ -101,18 +106,20 @@ than lowering global floors.
   otherwise never see the root, `docs/` or `backend/docs/` files) + ESLint +
   i18n key parity (cs.json vs en.json). Fix formatting with `npm run format`
   and `npm run format:md`.
-- `npm run check` — version sync, doc-claims lint (stack versions and stale
-  phrases in root + module docs vs `pom.xml`/`package.json`/`.nvmrc`), OpenAPI
-  snapshot drift, `svelte-check` (1378 files / 0 errors).
+- `npm run check` — CSP parity (`app.security.csp` vs `devCsp`), typography
+  lint (no arbitrary font-size utilities), version sync, doc-claims lint
+  (stack versions and stale phrases in root + module docs vs
+  `pom.xml`/`package.json`/`.nvmrc`), OpenAPI snapshot drift, `svelte-check`
+  (1408 files / 0 errors).
 - `npm run knip` — dead-code analysis. Config in `knip.json`. Output must
   be empty.
 - `npm run check:translations:strict` — Czech-diacritics whitelist.
 - `npm audit --audit-level=high` — must report 0 high+ vulnerabilities.
 - `npm run test:unit:coverage` — vitest with thresholds (≥ 65% global,
   per-file 90/85/90 for `content-sanitizer.ts`, 85/80/80 for
-  `client.ts`). Baseline: **376 green**.
-- `npm run test:functional:stable` — Playwright functional (**134 green**).
-- `npm run test:a11y:stable` — Playwright a11y (**58 green**).
+  `client.ts`). Baseline: **475 green**.
+- `npm run test:functional:stable` — Playwright functional (**199 green**).
+- `npm run test:a11y:stable` — Playwright a11y (**62 green**).
 - `npm run test:performance:stable` — initial-load budget (**1 green**).
 
 **Tauri Rust (`cd frontend/src-tauri && cargo check && cargo clippy`)**

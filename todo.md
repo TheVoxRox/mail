@@ -169,10 +169,13 @@ npm run tauri:dev
 
 ## Pre-Push Quality Gate
 
-Pred kazdym pushem zelene:
+Seznam gate je v [CONTRIBUTING.md](CONTRIBUTING.md) „Pre-Push Quality Gate" —
+jediny zdroj pravdy. Zdejsi kopie se od nej rozesla (chybel v ni `npm run lint`,
+tedy prettier + `check:md` + eslint + `check:i18n`, ktery pre-push hook realne
+pousti jako prvni krok), takze se nahrazuje odkazem misto aby se dorovnavala.
 
-- Backend: `mvn verify`, `mvn spotless:check`, `mvn spotbugs:check`.
-- Frontend: `npm run check`, `npm run check:i18n`, `npm run check:i18n:backend`, `npm run check:translations:strict`, `npm run knip`, `npm audit --audit-level=high`, `npm run test:unit`, `npm run test:functional:stable`, `npm run test:a11y:stable`.
+Zbyva tady jen to, co v CONTRIBUTING neni:
+
 - Po `git add .` rucne projit staged soubory.
 - Git hooky: `git config core.hooksPath .githooks` (per clone).
 
