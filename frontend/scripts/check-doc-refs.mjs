@@ -79,16 +79,42 @@ const packageScripts = new Set(
 
 const problems = [];
 
-/**
- * A reference resolves if it is findable from the repo root, from the file's
- * own directory, or from either module root — all three spellings are in use
- * and all three are legible to a reader.
+/*
+ * Build artefacts a document may legitimately name even though git never sees
+ * them. Resolution is tracked-file based (see `resolves`), so without this
+ * list a comment describing where a generator writes its output would fail —
+ * but only on a machine that had not run the generator, which is the worst
+ * kind of check: green locally, red in CI.
  */
+const GENERATED_REFS = new Set([
+	'frontend/bom.json', // written by scripts/generate-sbom.mjs, gitignored
+	'backend/target/bom.json', // CycloneDX Maven plugin output
+	'backend/target/bom.xml'
+]);
+
+/**
+ * Resolution is against **tracked** paths, not the filesystem: a working tree
+ * carries build output, node_modules and scratch files that CI does not, and a
+ * check whose answer depends on that is worthless. Directories count as
+ * tracked when anything under them is.
+ */
+const trackedPaths = new Set(tracked([]));
+const trackedDirs = new Set();
+for (const file of trackedPaths) {
+	const parts = file.split('/');
+	for (let i = 1; i < parts.length; i++) trackedDirs.add(parts.slice(0, i).join('/'));
+}
+
 function resolves(ref, fromFile) {
-	const bases = [repoRoot, path.dirname(path.join(repoRoot, fromFile)), 'frontend', 'backend'].map(
-		(b) => (path.isAbsolute(b) ? b : path.join(repoRoot, b))
-	);
-	return bases.some((base) => existsSync(path.join(base, ref)));
+	const bases = ['', path.posix.dirname(fromFile), 'frontend', 'backend'];
+	return bases.some((base) => {
+		const candidate = path.posix
+			.normalize(base === '' || base === '.' ? ref : `${base}/${ref}`)
+			.replace(/^\.\//, '');
+		return (
+			trackedPaths.has(candidate) || trackedDirs.has(candidate) || GENERATED_REFS.has(candidate)
+		);
+	});
 }
 
 function checkRefs(file, text, { commentsOnly }) {
