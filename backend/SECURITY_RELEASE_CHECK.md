@@ -2,7 +2,7 @@
 
 |                |                                                                                                                                                                        |
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**    | 2.1                                                                                                                                                                    |
+| **Version**    | 2.2                                                                                                                                                                    |
 | **Date**       | 2026-08-08                                                                                                                                                             |
 | **Applies to** | VoxRox Mail V0.1.0                                                                                                                                                     |
 | **Role**       | Průřezový pre-release security gate: index verdiktů per-subsystem auditů + primární záznamy průřezových kontrol (secret/artefakt scan, log hygiene, dependency audity) |
@@ -22,7 +22,7 @@ datovaný snapshot konkrétního běhu.
 | B3 sidecar HTTP API     | [API_SURFACE_AUDIT.md](../docs/API_SURFACE_AUDIT.md)             | full    | 1.4   | 2026-08-08 | `d45e253`                                   | **PASS** — A1 (Low, defense-in-depth) opraven          |
 | B4 WebView ↔ SPA        | [CONTENT_RENDERING_AUDIT.md](../docs/CONTENT_RENDERING_AUDIT.md) | full    | 1.3   | 2026-07-10 | `d55b753` (re-verifikováno proti `fc71cb4`) | **PASS** — F1/F2/F3 opraveny                           |
 | B5 crypto + filesystem  | [CRYPTO_STORAGE_AUDIT.md](../docs/CRYPTO_STORAGE_AUDIT.md)       | focused | 1.0   | 2026-07-09 | `d55b753`                                   | **PASS** — bez zásahu do kódu                          |
-| B6 Tauri updater        | [UPDATER_AUDIT.md](../docs/UPDATER_AUDIT.md)                     | full    | 1.2   | 2026-07-11 | `e2b8d8d`                                   | **PASS** — re-verifikováno pro release channels        |
+| B6 Tauri updater        | [UPDATER_AUDIT.md](../docs/UPDATER_AUDIT.md)                     | full    | 1.3   | 2026-08-08 | `3162e6a`                                   | **PASS** — re-verifikováno pro release channels        |
 
 Verdikt + odkaz drží také change log
 [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md) §7; při aktualizaci
@@ -164,6 +164,7 @@ Reziduum / poznámky:
 
 | Version | Date                     | Summary                                                                                                                                                                                                                                                                                                                                                                   |
 | ------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2.2     | 2026-08-08               | Řádek B6 dorovnán na [UPDATER_AUDIT.md](../docs/UPDATER_AUDIT.md) v1.3 (`3162e6a`) — původní kotva `e2b8d8d` v repu neexistovala (pre-squash SHA), našel `npm run check:audits`. Verdikt beze změny (**PASS**).                                                                                                                                                           |
 | 2.1     | 2026-08-08               | Řádek B3 v indexu verdiktů dorovnán na [API_SURFACE_AUDIT.md](../docs/API_SURFACE_AUDIT.md) v1.4 (`d45e253`) — audit přepočítal enumeraci controllerů po #230/#232. Verdikt beze změny (**PASS**).                                                                                                                                                                        |
 | 2.0     | 2026-07-20               | Restrukturalizace (konsolidace dokumentace): pět per-boundary souhrnných sekcí nahrazeno indexem verdiktů — detailní tvrzení žijí jen v `docs/*_AUDIT.md`, čímž se propagace auditního tvrzení zkracuje na 2 místa (audit + threat model). Doplněna verzní hlavička; datované průřezové sekce označeny jako snapshoty konkrétních běhů. Obsahově se žádné tvrzení nemění. |
 | —       | 2026-04-30 až 2026-07-12 | Append-only éra bez verzní hlavičky (hlavička tvrdila „stav z 2026-04-30", obsah rostl do 2026-07-11) — plná historie v gitu.                                                                                                                                                                                                                                             |

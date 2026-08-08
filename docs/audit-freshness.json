@@ -33,7 +33,7 @@
 		"note": "1 commit since d55b753 (#179 split ExternalProviderLoginService out of AccountService — a move, not a protocol change). Recorded as debt 2026-08-08, not re-verified."
 	},
 	"docs/UPDATER_AUDIT.md": {
-		"auditedCommitUnresolved": "e2b8d8d",
-		"note": "The SHA in the header is not in this repository (`git cat-file -t e2b8d8d` fails) — almost certainly a pre-squash branch commit. The B6 audit therefore has no checkable anchor and its drift cannot be computed. Candidate replacement: 3162e6a (#144, the release-channels work the v1.2 change log describes), pending owner confirmation."
+		"reviewedAt": "3514ff4",
+		"note": "Anchor corrected to 3162e6a in audit v1.3 (the unresolvable e2b8d8d was a pre-squash SHA). The 3 commits touching Code paths since then were read and none touches the trust chain: #226 renames a CSS class in AboutSettings.svelte, #190 adds window sizing to lib.rs without touching check_for_update / endpoints / pubkey, #158 bumps actions/setup-node in the signed-release workflow. Reviewed 2026-08-08."
 	}
 }
