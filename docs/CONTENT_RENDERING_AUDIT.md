@@ -2,10 +2,10 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.3                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| **Date**           | 2026-07-10                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **Version**        | 1.4                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| **Date**           | 2026-08-08                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| **Audited commit** | `d55b753` (claims re-verified 2026-07-10 against `fc71cb4`)                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| **Audited commit** | `5799e8b` (re-verified 2026-08-08; 1.0–1.3 baseline: `d55b753` / `fc71cb4`)                                                                                                                                                                                                                                                                                                                                                                                                             |
 | **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/util/HtmlSanitizer.java`, `backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailContentService.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/RemoteImageAllowlistService.java`, `frontend/src/lib/mail/content-sanitizer.ts`, `frontend/src/lib/mail/mailFrame.ts`, `frontend/src/lib/components/message-detail` |
 | **Subsystem**      | Untrusted email HTML rendering — Boundary 4 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                                                                                                  |
 | **Verdict**        | **Security: PASS** (no exploitable finding). F1 (dead links), F2 (embedded images + remote-image opt-in) and F3 (plain-text fidelity) all **fixed**.                                                                                                                                                                                                                                                                                                                                    |
@@ -64,8 +64,11 @@ IMAP raw body
 - [x] **No `{@html}`** anywhere in the frontend → mail content never becomes
       live DOM in the main document.
 - [x] **No dangerous DOM sinks** — `.innerHTML =`, `insertAdjacentHTML`,
-      `outerHTML =`, `document.write` = 0 occurrences in `frontend/src`. The
-      only path from content to live DOM is the sandboxed iframe `srcdoc`.
+      `outerHTML =`, `document.write` = 0 occurrences in production code under
+      `frontend/src`. The only path from content to live DOM is the sandboxed
+      iframe `srcdoc`. (One occurrence exists in `stores/palette.test.ts`, a
+      vitest teardown assigning the constant `''` to `document.body.innerHTML`;
+      it takes no input and ships in no bundle.)
 - [x] **Sanitizer has no unprotected consumer** — `sanitizeMailHtml` is
       imported only by `buildMailFrameSrcdoc` (+ tests), so its output always
       lands inside the CSP frame.
@@ -251,6 +254,21 @@ bridge restores working links without changing the sandbox.
 
 ## 7. Change log
 
+- **1.4** (2026-08-08) — re-verified against `5799e8b` after `check:audits`
+  reported four commits of drift, all of them outside the rendering chain:
+  #203 edits a comment in `mailFrame.ts` (a key name in prose, no code), #197
+  rewrites focus handling in `MessageContent.svelte` without touching how the
+  `srcdoc` is built, #226 renames a CSS class in `MessageMoveControl.svelte`,
+  and `fc71cb4` is the B1-1 body cap §1 already describes. The §2 checklist
+  was re-run mechanically: `{@html}` still 0, `sanitizeMailHtml` still
+  imported only by `mailFrame.ts` (plus tests), the frame still
+  `sandbox="allow-scripts"` with no `allow-same-origin` and
+  `default-src 'none'`. One line was made more precise rather than left
+  technically false: the dangerous-sink sweep is 0 in **production** code, but
+  `stores/palette.test.ts` now assigns the constant `''` to
+  `document.body.innerHTML` in a vitest teardown, so the unqualified "0
+  occurrences in `frontend/src`" no longer held literally. Verdict unchanged
+  (**PASS**).
 - **1.3** (2026-07-10) — claims re-verified against `fc71cb4` after the B1-1
   bounded-body-fetch fix landed upstream of layer [1] (bounded 8 MiB body read,
   order-agnostic `selectAlternative` that also renders `multipart/related`

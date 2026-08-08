@@ -2,10 +2,10 @@
 
 |                    |                                                                                                                                                                                                                                                                            |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.0                                                                                                                                                                                                                                                                        |
-| **Date**           | 2026-07-09                                                                                                                                                                                                                                                                 |
+| **Version**        | 1.1                                                                                                                                                                                                                                                                        |
+| **Date**           | 2026-08-08                                                                                                                                                                                                                                                                 |
 | **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                         |
-| **Audited commit** | `d55b753`                                                                                                                                                                                                                                                                  |
+| **Audited commit** | `5799e8b` (re-verified 2026-08-08; 1.0 baseline: `d55b753`)                                                                                                                                                                                                                |
 | **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/core/security/CryptoService.java`, `backend/src/main/java/org/voxrox/mailbackend/core/security/secret`, `backend/src/main/java/org/voxrox/mailbackend/core/init`, `backend/src/main/java/org/voxrox/mailbackend/core/backup` |
 | **Auditor**        | Claude (Fable 5) + owner review                                                                                                                                                                                                                                            |
 | **Subsystem**      | Credential crypto + local filesystem — Boundary 5 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                               |
@@ -83,5 +83,13 @@ and [WindowsDpapiSecretStore](../backend/src/main/java/org/voxrox/mailbackend/co
 
 ## 5. Change log
 
-- **1.0** (2026-07-09) — initial focused audit; all Boundary 5 STRIDE
-  mitigations verified against `d55b753`.
+- **1.1** (2026-08-08) — re-verified against `5799e8b` after `check:audits`
+  reported two commits of drift, neither of which touches key material or the
+  storage guards: #155 rewrites a backup-filename `substring` as a null-safe
+  `Optional.map` chain for SpotBugs, and #226 adds the newest applied
+  migration's checksum (a non-secret integer) to the `app_started` audit
+  event. Every §1–§2 claim re-checked in code and still true — AES/GCM with a
+  128-bit tag and 12-byte IV, PBKDF2WithHmacSHA256 at 600k with `accountId`
+  bound as AAD, DPAPI USER scope with `CRYPTPROTECT_UI_FORBIDDEN` and no
+  `CRYPTPROTECT_LOCAL_MACHINE`, the `VOXSEC1` format, and the constant-time
+  `MessageDigest.isEqual` fingerprint gate. Verdict unchanged (**PASS**).

@@ -13,23 +13,11 @@
 		"     `reviewedAt` to the SHA you reviewed through and say why in `note`.",
 		"",
 		"What is NOT legitimate is bumping `reviewedAt` without reading the diff.",
-		"The note is the evidence that someone did."
-	],
-
-	"docs/CONTENT_RENDERING_AUDIT.md": {
-		"reviewedAt": "9197e27",
-		"note": "4 commits since d55b753; fc71cb4 is the B1-1 body cap the audit already documents. The other three (#197 focus handling, #203 settings copy, #226 pre-mortem) touch message-detail components without changing the sanitizer, the frame CSP or a DOM sink. Recorded as debt 2026-08-08 rather than claimed as re-verified."
-	},
-	"docs/CRYPTO_STORAGE_AUDIT.md": {
-		"reviewedAt": "9197e27",
-		"note": "2 commits since d55b753 (#155 SpotBugs null-deref guards, #226 pre-mortem). Recorded as debt 2026-08-08, not re-verified."
-	},
-	"docs/OAUTH_AUDIT.md": {
-		"reviewedAt": "9197e27",
-		"note": "1 commit since d55b753 (#179 split ExternalProviderLoginService out of AccountService — a move, not a protocol change). Recorded as debt 2026-08-08, not re-verified."
-	},
-	"docs/UPDATER_AUDIT.md": {
-		"reviewedAt": "3514ff4",
-		"note": "Anchor corrected to 3162e6a in audit v1.3 (the unresolvable e2b8d8d was a pre-squash SHA). The 3 commits touching Code paths since then were read and none touches the trust chain: #226 renames a CSS class in AboutSettings.svelte, #190 adds window sizing to lib.rs without touching check_for_update / endpoints / pubkey, #158 bumps actions/setup-node in the signed-release workflow. Reviewed 2026-08-08."
-	}
+		"The note is the evidence that someone did.",
+		"",
+		"Empty since 2026-08-08: all six audits were re-verified and re-anchored,",
+		"so every one of them is level with the code. Entries reappear here as",
+		"soon as something lands under an audited path — that is the file working,",
+		"not the file rotting."
+	]
 }
