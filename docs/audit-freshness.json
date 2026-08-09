@@ -1,38 +1,58 @@
 {
-	"_README": [
-		"Acknowledged drift for the per-subsystem security audits, checked by",
-		"frontend/scripts/check-audit-freshness.mjs (runs in `npm run check`).",
-		"",
-		"An audit's `Audited commit` is the code state its claims were verified",
-		"against. When a commit touches that audit's `Code paths` afterwards, the",
-		"check goes red. Two ways out, both legitimate:",
-		"",
-		"  1. Re-verify the audit -> bump `Audited commit` in the doc, add a change",
-		"     log entry, and drop the audit's entry from this file.",
-		"  2. Review the drift and conclude it cannot move a verdict -> set",
-		"     `reviewedAt` to the SHA you reviewed through and say why in `note`.",
-		"",
-		"What is NOT legitimate is bumping `reviewedAt` without reading the diff.",
-		"The note is the evidence that someone did.",
-		"",
-		"Both SHAs must survive a squash-merge. A branch SHA resolves in the clone",
-		"you wrote it in and nowhere else: CI checks out main plus the PR head, so",
-		"the gate that was green on your machine fails for everyone. This has now",
-		"cost three fixes (5799e8b, 3ff0c78, defb756). Write the SHA the change",
-		"lands on, which for a `reviewedAt` covering the current PR means a",
-		"follow-up commit once the squash SHA exists.",
-		"",
-		"Empty since 2026-08-08: all six audits were re-verified and re-anchored,",
-		"so every one of them is level with the code. Entries reappear here as",
-		"soon as something lands under an audited path — that is the file working,",
-		"not the file rotting."
-	],
-	"docs/IMAP_SMTP_AUDIT.md": {
-		"reviewedAt": "5c76f91",
-		"note": "Two commits reviewed. 4e3b223 changes which exception MailConnectionProbe throws when the server rejects a login: MailAuthenticationException instead of MailConnectionException, so the reply text stops being rendered into the user-facing error.mail.connectionFailed placeholder and travels as the cause into the log instead. That narrows what server-controlled text reaches the UI; it touches no TLS, auth-mechanism or timeout setting. Re-checked on the probe specifically: pinned ssl.checkserveridentity, the fail-closed OAuth2-requires-SSL guard and the millisecond-string timeouts are all unchanged. 5c76f91 adds an outbound content type: MimeMessageBuilder attaches a text/html alternative rendered by the new MarkdownBodyRenderer when the composed body uses Markdown. The HTML is generated locally from the user's own keystrokes, never from server-controlled data, so the hostile-server surface this boundary is about is untouched — as are TLS setup, auth mechanisms, timeouts, connection pooling and every IMAP command path. Re-checked the send path specifically: the CRLF guard on header-bound fields (requireSingleLine) and both AddressPolicy branches are unchanged, and drafts stay single-part text/plain, so the IMAP APPEND payload shape is identical to what was audited. The renderer runs with escapeHtml and sanitizeUrls on and HtmlBlock parsing off, so it cannot emit script, event handlers or non-http/mailto URLs; rendering is skipped above 512 kB, below the existing 10 MB body cap, so it adds no unbounded CPU sink to the send path. Verdict stays PASS."
-	},
-	"docs/UPDATER_AUDIT.md": {
-		"reviewedAt": "c16b3df",
-		"note": "c16b3df adds the tray icon, its menu and close-to-tray under frontend/src-tauri/src. The updater itself is untouched: endpoints, the embedded pubkey, check_for_update/install_pending_update and the expected-version pin on the pending slot are unchanged, as are tauri.conf.json (CSP, updater plugin config) and capabilities/default.json — the new commands are app-defined and therefore not capability-gated, and the tray is built Rust-side. New surface reviewed: three commands (configure_tray, set_tray_tooltip, set_close_behavior) that take only strings and a bool from the webview and reach nothing but tray label/tooltip APIs and an in-process Mutex<bool>; a CloseRequested handler that hides the main window; and a tray menu whose Quit calls the same app.exit(0) the window path already reaches. None of that touches signature verification or the download path, so the B6 verdict does not move. Flagged for the next full B6 pass rather than settled here: tauri-plugin-single-instance is a new supply-chain item (32 crates added to Cargo.lock) and opens a local IPC channel (a named object on Windows) that another process on the same machine can address — low risk under the single-user local threat model, but it is new attack surface under an audited path, not a reshuffle of existing code. cargo audit is clean after the change apart from the pre-existing allowed RUSTSEC-2026-0190 in anyhow."
-	}
+  "_README": [
+    "Acknowledged drift for the per-subsystem security audits, checked by",
+    "frontend/scripts/check-audit-freshness.mjs (runs in `npm run check`).",
+    "",
+    "An audit's `Audited commit` is the code state its claims were verified",
+    "against. When the content under that audit's `Code paths` moves away from",
+    "it, the check goes red. Two ways out, both legitimate:",
+    "",
+    "  1. Re-verify the audit -> bump `Audited commit` in the doc, add a change",
+    "     log entry, and drop the audit's entry from this file.",
+    "  2. Review the drift and conclude it cannot move a verdict -> record the",
+    "     current object id of each `Code paths` entry in `reviewedTrees` and",
+    "     say why in `note`.",
+    "",
+    "What is NOT legitimate is recording an object id without reading the diff.",
+    "The note is the evidence that someone did.",
+    "",
+    "`reviewedTrees` holds git object ids (a tree for a directory, a blob for a",
+    "file), not commit SHAs. Get them from the check itself: when it fails it",
+    "prints the current id of every path that moved, ready to paste.",
+    "",
+    "Object ids rather than commit SHAs because this repo squash-merges. A SHA",
+    "written during a PR names the branch commit, which stops existing the",
+    "moment the PR lands — so the gate that was green locally went red on main",
+    "and needed a follow-up commit that changed nothing but a SHA. That cost six",
+    "fixes in the two days the SHA-based version existed. Squashing rewrites",
+    "history, not content, so an object id simply survives it, along with",
+    "rebases, cherry-picks and force pushes."
+  ],
+  "docs/IMAP_SMTP_AUDIT.md": {
+    "reviewedTrees": {
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "a3ebca31376a6088eeb316427988283ec72142aa",
+      "backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java": "52352351b88047d1aea0329d7eea887676f8444e",
+      "backend/src/main/java/org/voxrox/mailbackend/util/SubjectNormalizer.java": "9f5185a315875e4f312bb869cfa9903bda53c8ff",
+      "backend/src/main/java/org/voxrox/mailbackend/core/config/mail": "63a1713b3bacac4d2fbde82a906486bc33daf5fb"
+    },
+    "note": "Two commits reviewed. 4e3b223 changes which exception MailConnectionProbe throws when the server rejects a login: MailAuthenticationException instead of MailConnectionException, so the reply text stops being rendered into the user-facing error.mail.connectionFailed placeholder and travels as the cause into the log instead. That narrows what server-controlled text reaches the UI; it touches no TLS, auth-mechanism or timeout setting. Re-checked on the probe specifically: pinned ssl.checkserveridentity, the fail-closed OAuth2-requires-SSL guard and the millisecond-string timeouts are all unchanged. 5c76f91 adds an outbound content type: MimeMessageBuilder attaches a text/html alternative rendered by the new MarkdownBodyRenderer when the composed body uses Markdown. The HTML is generated locally from the user's own keystrokes, never from server-controlled data, so the hostile-server surface this boundary is about is untouched — as are TLS setup, auth mechanisms, timeouts, connection pooling and every IMAP command path. Re-checked the send path specifically: the CRLF guard on header-bound fields (requireSingleLine) and both AddressPolicy branches are unchanged, and drafts stay single-part text/plain, so the IMAP APPEND payload shape is identical to what was audited. The renderer runs with escapeHtml and sanitizeUrls on and HtmlBlock parsing off, so it cannot emit script, event handlers or non-http/mailto URLs; rendering is skipped above 512 kB, below the existing 10 MB body cap, so it adds no unbounded CPU sink to the send path. Verdict stays PASS."
+  },
+  "docs/UPDATER_AUDIT.md": {
+    "reviewedTrees": {
+      "frontend/src-tauri/src": "452e55d06f976b740930c16f2ffcf7888c239b09",
+      "frontend/src-tauri/tauri.conf.json": "9cebd9df67a34d9adfbfbdb8c6e12628c79eacc8",
+      "frontend/src-tauri/capabilities": "29146de238b9867fa5ce719d8b858dd9003986aa",
+      "frontend/src/lib/updates.ts": "f81fc48f88f14fb0b4f0382cf3f03b69ae879155",
+      "frontend/src/lib/components/UpdatePromptDialog.svelte": "866ff090765952ccb5c2958b6b469680f7b8b9fc",
+      "frontend/src/lib/components/settings/AboutSettings.svelte": "4820d8eb91ee380448f9f86d5078929a33ed3bc8",
+      ".github/workflows/windows-signed-release.yml": "87352ab08fd2864be1a2b03102417186ab9ec951",
+      ".github/workflows/beta-channel.yml": "f73b729dc53a870e85f37f9d994e8ca21cec485b",
+      "frontend/scripts/beta-channel-guard.mjs": "f1b07880a5d2da40fcfcbcc7fc9670771b604e0e",
+      "frontend/scripts/generate-tauri-latest-windows.mjs": "d787e4c55059fea716749c441bc058fdea19d4d2",
+      "frontend/scripts/prepare-tauri-windows-release-config.mjs": "96db6b69470432ae0f7e2e1928e7a915a88f1190",
+      "frontend/scripts/prepare-tauri-updater-config.mjs": "8a9ccc82d868845203cec72586b553117b71a731",
+      "frontend/scripts/lib/tauri-config.mjs": "b8caf520a006aaac1fb1c7ba4edf9cd7e18e3f54"
+    },
+    "note": "c16b3df adds the tray icon, its menu and close-to-tray under frontend/src-tauri/src. The updater itself is untouched: endpoints, the embedded pubkey, check_for_update/install_pending_update and the expected-version pin on the pending slot are unchanged, as are tauri.conf.json (CSP, updater plugin config) and capabilities/default.json — the new commands are app-defined and therefore not capability-gated, and the tray is built Rust-side. New surface reviewed: three commands (configure_tray, set_tray_tooltip, set_close_behavior) that take only strings and a bool from the webview and reach nothing but tray label/tooltip APIs and an in-process Mutex<bool>; a CloseRequested handler that hides the main window; and a tray menu whose Quit calls the same app.exit(0) the window path already reaches. None of that touches signature verification or the download path, so the B6 verdict does not move. Flagged for the next full B6 pass rather than settled here: tauri-plugin-single-instance is a new supply-chain item (32 crates added to Cargo.lock) and opens a local IPC channel (a named object on Windows) that another process on the same machine can address — low risk under the single-user local threat model, but it is new attack surface under an audited path, not a reshuffle of existing code. cargo audit is clean after the change apart from the pre-existing allowed RUSTSEC-2026-0190 in anyhow."
+  }
 }

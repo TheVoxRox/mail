@@ -38,12 +38,24 @@ The **code paths** row makes it _detectable_. Visible was not enough: B3 spent
 a month claiming "15 controllers" after two more landed, because nothing
 compared the SHA to the code. `npm run check` now runs
 [check-audit-freshness.mjs](../frontend/scripts/check-audit-freshness.mjs),
-which fails when a commit touches these paths after the audited commit. Clear
-it by re-verifying (bump the SHA + change-log entry) or by reviewing the drift
-and recording why it cannot move a verdict in
+which fails when the content under these paths no longer matches what the
+audited commit saw. Clear it by re-verifying (bump the SHA + change-log entry)
+or by reviewing the drift and recording why it cannot move a verdict in
 [audit-freshness.json](audit-freshness.json). Treat the pathspec as part of
 the audit's claim: too narrow and the check misses real drift, so it is worth
 arguing about in review — which an implicit scope never was.
+
+The comparison is by **git object id** — the tree of a directory, the blob of
+a file — not by commit range, and an acknowledgement records those ids. The
+distinction matters because the repo squash-merges: a commit SHA written into
+the ledger during a PR names the branch commit and stops resolving the moment
+the PR lands, so the gate that was green locally went red on main and needed a
+follow-up commit carrying nothing but a SHA. Squashing rewrites history, not
+content, so an object id survives it — as do rebases, cherry-picks and force
+pushes. It is also more precise: a change reverted within the range reads as
+drift under `git log` and correctly reads as none here. `Audited commit` stays
+the human anchor into history and the range the failure message prints for
+context; it is no longer what the pass/fail decision hangs on.
 
 ## 3. Method statement (required)
 
