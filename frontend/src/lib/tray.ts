@@ -73,6 +73,14 @@ function buildLabels(t: TranslateFn): TrayLabels {
 	};
 }
 
+/**
+ * Sends one update to the tray.
+ *
+ * The cache is written only after the call resolves. Writing it up front is
+ * what left the tray permanently menu-less when the first `configure_tray`
+ * failed: the module recorded the labels as applied, so no later change ever
+ * saw a difference worth sending and nothing retried.
+ */
 async function applyLabels(labels: TrayLabels): Promise<void> {
 	// JSON rather than a joined string: a separator character can also occur
 	// inside a translated label, and two different label sets that happen to
@@ -80,14 +88,14 @@ async function applyLabels(labels: TrayLabels): Promise<void> {
 	const menuKey = JSON.stringify([labels.open, labels.compose, labels.sync, labels.quit]);
 
 	if (menuKey !== lastMenuKey) {
+		await invoke('configure_tray', { labels });
 		lastMenuKey = menuKey;
 		lastTooltip = labels.tooltip;
-		await invoke('configure_tray', { labels });
 		return;
 	}
 	if (labels.tooltip !== lastTooltip) {
-		lastTooltip = labels.tooltip;
 		await invoke('set_tray_tooltip', { tooltip: labels.tooltip });
+		lastTooltip = labels.tooltip;
 	}
 }
 
@@ -118,11 +126,21 @@ export function startTray(): void {
 		})
 	);
 
-	// `_` re-emits on locale change and `folders` on every sync, so this single
-	// subscription covers both the menu and the unread tooltip.
+	/*
+	 * `_` re-emits on locale change and `folders` on every sync, so this single
+	 * subscription covers both the menu and the unread tooltip.
+	 *
+	 * Updates are chained rather than fired concurrently. Two in flight at once
+	 * would both read the pre-update cache and both rebuild the menu, and their
+	 * IPC calls could land in either order — leaving the tray showing whichever
+	 * finished last rather than whichever was newest.
+	 */
+	let queue: Promise<void> = Promise.resolve();
 	teardown.push(
 		derived([_, folders], ([$t]) => buildLabels($t)).subscribe((labels) => {
-			void applyLabels(labels).catch((err) => console.warn('[tray] failed to update', err));
+			queue = queue
+				.then(() => applyLabels(labels))
+				.catch((err) => console.warn('[tray] failed to update', err));
 		})
 	);
 

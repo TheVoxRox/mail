@@ -35,14 +35,23 @@ const MENU_QUIT: &str = "quit";
 
 /// Whether closing the main window hides it (true) or quits the app (false).
 ///
-/// Defaults to hiding: the tray exists so the app can keep receiving mail, and
-/// a user who never opens Settings gets the behaviour the feature was added
-/// for. The webview overwrites this from the stored preference during boot.
+/// **Defaults to quitting**, even though the stored preference usually says
+/// otherwise, because the default is what governs before anything has been
+/// stored — and that window is exactly where hiding is a trap. The webview
+/// enables hiding from [`set_close_behavior`] at the end of its boot sequence;
+/// a boot that never gets there (no sidecar, session timeout, failed readiness)
+/// leaves a tray icon with no menu, so a close button that hid the window would
+/// leave the user no way to quit but Task Manager — in the one state where they
+/// most want to close the thing.
+///
+/// So the invariant is: the window stays quittable until something is in place
+/// to make hiding recoverable. [`set_close_behavior`] enforces the other half
+/// of it by refusing to hide when there is no tray icon to restore from.
 pub struct CloseBehavior(Mutex<bool>);
 
 impl Default for CloseBehavior {
     fn default() -> Self {
-        Self(Mutex::new(true))
+        Self(Mutex::new(false))
     }
 }
 
@@ -143,8 +152,17 @@ pub fn set_tray_tooltip(app: AppHandle, tooltip: String) -> Result<(), String> {
 
 /// Pushes the user's Settings → Appearance choice down to the window-close
 /// handler.
+///
+/// Hiding is refused when the tray icon does not exist: without it the hidden
+/// window has nothing to restore it and nothing to quit from, so honouring the
+/// preference would strand the user. Quitting is always honoured — turning the
+/// behaviour *off* can never trap anyone.
 #[tauri::command]
 pub fn set_close_behavior(app: AppHandle, hide_to_tray: bool) {
+    if hide_to_tray && app.tray_by_id(TRAY_ID).is_none() {
+        log::warn!("Close-to-tray requested but no tray icon exists — keeping the window quittable");
+        return;
+    }
     app.state::<CloseBehavior>().set(hide_to_tray);
 }
 
@@ -209,9 +227,11 @@ fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, event: MenuEvent) {
 mod tests {
     use super::CloseBehavior;
 
+    /// The window has to stay quittable until the webview has a tray menu in
+    /// place to quit from. A boot that fails never gets there.
     #[test]
-    fn close_to_tray_is_the_default_until_the_webview_says_otherwise() {
-        assert!(CloseBehavior::default().hides_to_tray());
+    fn the_window_is_quittable_until_the_webview_enables_hiding() {
+        assert!(!CloseBehavior::default().hides_to_tray());
     }
 
     #[test]

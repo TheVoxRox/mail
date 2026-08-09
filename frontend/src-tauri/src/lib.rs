@@ -75,7 +75,16 @@ pub fn run() {
                 .data_directory(webview_dir.clone())
                 .build()?;
 
-            tray::create(app.handle())?;
+            /*
+             * Logged, not propagated: `?` here would turn "the notification
+             * area would not take an icon" into "the mail client does not
+             * start". Without a tray, set_close_behavior refuses to enable
+             * hiding, so the window simply keeps quitting on close — the
+             * behaviour from before the tray existed.
+             */
+            if let Err(err) = tray::create(app.handle()) {
+                log::error!("Tray icon unavailable, continuing without it: {err}");
+            }
 
             Ok(())
         })
