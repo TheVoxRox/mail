@@ -116,13 +116,21 @@ coverage, add a per-file threshold rather than lowering a global floor.
   (stack versions and stale phrases in root + module docs vs
   `pom.xml`/`package.json`/`.nvmrc`), audit freshness (see below), OpenAPI
   snapshot drift, `svelte-check` (must report 0 errors).
-- `npm run check:audits` (part of `check`) — fails when a commit touches the
-  `Code paths` of a security audit in `docs/` after that audit's
-  `Audited commit`. If your change trips it, either re-verify the audit
-  (bump the SHA + change-log entry) or record in
+- `npm run check:audits` (part of `check`) — fails when the content under the
+  `Code paths` of a security audit in `docs/` no longer matches what that
+  audit's `Audited commit` saw. If your change trips it, either re-verify the
+  audit (bump the SHA + change-log entry) or record in
   [`docs/audit-freshness.json`](docs/audit-freshness.json) why the change
-  cannot move a verdict. Bumping `reviewedAt` without reading the diff
+  cannot move a verdict. Recording an object id without reading the diff
   defeats the point.
+
+  The comparison is by git object id, not by commit range, and the
+  acknowledgement records those ids — the check prints the current ones when
+  it fails, ready to paste. This is what lets an acknowledgement written
+  during a PR stay valid after the squash merge: squashing rewrites history,
+  not content. The SHA-based version cost a follow-up commit per
+  acknowledgement, six of them in two days.
+
 - `npm run check:refs` (part of `check`) — every repo path and `npm run`
   script named in a doc or a source comment must exist. Historical documents
   (changelogs, `todo-archive.md`, snapshot docs) are skipped: their dead

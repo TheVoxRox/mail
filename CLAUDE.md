@@ -49,7 +49,12 @@ someone a rework at least once. For the human-facing versions see
   - `check:docs` — stack versions, plus computed claims (controller
     enumeration in the B3 audit, CI job count vs `ci.yml`). A claim pattern
     that stops matching **fails**; rewording forces you to re-check the number.
-  - `check:audits` — audits vs the code under their `Code paths`.
+  - `check:audits` — audits vs the code under their `Code paths`, compared by
+    git object id rather than by commit range. Acknowledging drift means
+    recording the current object ids in `docs/audit-freshness.json`; the check
+    prints them ready to paste when it fails. Object ids because the repo
+    squash-merges: a commit SHA written during a PR stops existing when the PR
+    lands, which used to cost a follow-up commit per acknowledgement.
   - `check:refs` — every repo path and `npm run` script named in prose or in a
     comment exists.
   - `check:nul` — no NUL byte in a file `.gitattributes` has not declared
