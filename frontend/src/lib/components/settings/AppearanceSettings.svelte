@@ -6,12 +6,15 @@
 	import { themePreference, setThemePreference, type ThemePreference } from '$lib/stores/theme.js';
 	import { textSize, setTextSize, type TextSize } from '$lib/stores/textSize.js';
 	import {
+		closeAction,
 		messageBodyView,
 		messageGrouping,
 		readingPane,
+		setCloseAction,
 		setMessageBodyView,
 		setMessageGrouping,
 		setReadingPane,
+		type CloseAction,
 		type MessageBodyView,
 		type MessageGrouping,
 		type ReadingPane
@@ -22,6 +25,9 @@
 	const READING_PANE_OPTIONS: ReadonlyArray<ReadingPane> = ['right', 'bottom', 'off'];
 	const MESSAGE_BODY_OPTIONS: ReadonlyArray<MessageBodyView> = ['html', 'plain'];
 	const GROUPING_OPTIONS: ReadonlyArray<MessageGrouping> = ['flat', 'grouped'];
+	const CLOSE_ACTION_OPTIONS: ReadonlyArray<CloseAction> = ['tray', 'quit'];
+	const closeActionLabelKey = (option: CloseAction) =>
+		`settings.appearance.closeAction.options.${option}.title`;
 	const groupingLabelKey = (option: MessageGrouping) =>
 		`settings.appearance.grouping.options.${option}.title`;
 	const themeLabelKey = (option: ThemePreference) => `settings.appearance.theme.options.${option}`;
@@ -54,6 +60,11 @@
 	function handleGroupingChange(event: Event) {
 		const value = (event.target as HTMLSelectElement).value as MessageGrouping;
 		setMessageGrouping(value);
+	}
+
+	function handleCloseActionChange(event: Event) {
+		const value = (event.target as HTMLSelectElement).value as CloseAction;
+		setCloseAction(value);
 	}
 </script>
 
@@ -145,6 +156,33 @@
 			>
 				{#each GROUPING_OPTIONS as option (option)}
 					<option value={option}>{$_(groupingLabelKey(option))}</option>
+				{/each}
+			</Select>
+		</Field>
+	</Surface>
+
+	<!--
+		Desktop-only in effect (the tray lives in the Tauri shell), but shown
+		unconditionally: the app ships as a desktop bundle, and hiding a setting in
+		the browser dev build would make the two surfaces disagree for no gain.
+	-->
+	<Surface as="section" class="space-y-3">
+		<h2 class="text-sm font-semibold">{$_('settings.appearance.closeAction.heading')}</h2>
+		<Field
+			for="close-action-select"
+			label={$_('settings.appearance.closeAction.label')}
+			labelClass="sr-only"
+			hint={$_('settings.appearance.closeAction.hint')}
+		>
+			<Select
+				id="close-action-select"
+				value={$closeAction}
+				onchange={handleCloseActionChange}
+				width="full"
+				aria-describedby="close-action-select-hint"
+			>
+				{#each CLOSE_ACTION_OPTIONS as option (option)}
+					<option value={option}>{$_(closeActionLabelKey(option))}</option>
 				{/each}
 			</Select>
 		</Field>

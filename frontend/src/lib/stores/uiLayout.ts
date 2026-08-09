@@ -40,3 +40,25 @@ export const messageGrouping = persistedStore<MessageGrouping>(
 export function setMessageGrouping(value: MessageGrouping): void {
 	messageGrouping.set(value);
 }
+
+export const CLOSE_ACTIONS = ['tray', 'quit'] as const;
+export type CloseAction = (typeof CLOSE_ACTIONS)[number];
+
+/**
+ * What the window's close button does: hide to the tray and keep syncing
+ * (`tray`) or quit the app (`quit`).
+ *
+ * Defaults to `tray` because that is the point of having a tray at all — a
+ * mail client that stops checking for mail the moment its window is closed
+ * cannot notify anyone. It is a setting rather than a fixed behaviour because
+ * the same default is a trap for someone who reads the close button as "quit"
+ * and then wonders why the app is still holding the mailbox.
+ *
+ * Read by `$lib/tray.ts`, which pushes it to the Rust close handler; outside
+ * the desktop shell it has no effect.
+ */
+export const closeAction = persistedStore<CloseAction>('mail.closeAction', CLOSE_ACTIONS, 'tray');
+
+export function setCloseAction(value: CloseAction): void {
+	closeAction.set(value);
+}

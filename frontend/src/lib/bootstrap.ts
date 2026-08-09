@@ -14,6 +14,7 @@ import {
 } from '$lib/backend/sidecar.js';
 import { registerDefaultCommands } from '$lib/stores/commands.js';
 import { startNotifications } from '$lib/stores/notifications.js';
+import { startTray } from '$lib/tray.js';
 import { checkForUpdateAndPrompt } from '$lib/updates.js';
 import { waitForBackendReadiness } from '$lib/api/readiness.js';
 import { reportClientBootDiagnostics } from '$lib/api/clientBootDiagnostics.js';
@@ -192,6 +193,11 @@ async function runBootstrap({
 		markBootTiming('accountsLoaded');
 
 		startNotifications();
+		/*
+		 * After the accounts and folders exist, so the first tooltip the tray
+		 * shows already carries a real unread count instead of zero.
+		 */
+		startTray();
 		void checkForUpdateAndPrompt();
 		if (generation !== bootGeneration) return;
 		completeBoot();

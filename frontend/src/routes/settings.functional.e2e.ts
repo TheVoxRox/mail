@@ -87,6 +87,25 @@ test.describe('Settings – appearance', () => {
 		await expectArrowDownOpensSelect(page.locator('#reading-pane-select'));
 	});
 
+	/*
+	 * The tray itself cannot be driven from Playwright (it is a native Windows
+	 * object). What is testable here — and what actually decides whether the app
+	 * keeps running — is that the preference exists, defaults to keeping the app
+	 * alive, and persists under the key `$lib/tray.ts` reads.
+	 */
+	test('zavření okna má výchozí volbu nechat běžet a volba se uloží', async ({ page }) => {
+		await page.goto('/settings/appearance');
+		await waitForShell(page);
+
+		const select = page.locator('#close-action-select');
+		await expect(select).toHaveValue('tray');
+		expect(await page.evaluate(() => window.localStorage.getItem('mail.closeAction'))).toBeNull();
+
+		await select.selectOption('quit');
+		expect(await page.evaluate(() => window.localStorage.getItem('mail.closeAction'))).toBe('quit');
+		await expectArrowDownOpensSelect(select);
+	});
+
 	test('zobrazení obsahu zprávy je rozbalovací seznam a volba se uloží', async ({ page }) => {
 		await page.goto('/settings/appearance');
 		await waitForShell(page);
