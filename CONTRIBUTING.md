@@ -157,6 +157,18 @@ Note what these gates deliberately do **not** do: they never rewrite a doc for
 you. A number a machine can recompute either gets checked or gets deleted —
 prose that silently self-heals is prose nobody reads.
 
+**The gates have their own tests** (`frontend/scripts/*.test.mjs`, run by
+`npm run test:unit`). Each one runs the real script as a process against a
+throwaway git repository built by
+[`scripts/test-support/gate-repo.mjs`](frontend/scripts/test-support/gate-repo.mjs),
+because a gate's contract is its exit code and most of them ask git questions
+only a real repository can answer. The script under test is copied into the
+fixture: the gates are split between finding the repo from `process.cwd()` and
+finding it from their own location, and only a copy puts both inside the
+fixture rather than letting half of them report on the real checkout. When you
+change a gate, change its suite in the same commit — these are the checks that
+decide whether everything else is allowed to land.
+
 - `npm run knip` — dead-code analysis. Config in `knip.json`. Output must
   be empty.
 - `npm run check:translations:strict` — Czech-diacritics whitelist.

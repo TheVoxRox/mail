@@ -65,6 +65,10 @@ someone a rework at least once. For the human-facing versions see
   - `check:docs-impact` (CI only) — egress/storage-relevant changes must touch
     `PRIVACY*.md` or carry a `Docs-impact:` commit trailer.
 
+  Each of these has a suite in `frontend/scripts/*.test.mjs` that runs the real
+  script against a throwaway git repo (`scripts/test-support/gate-repo.mjs`).
+  Changing a gate means changing its suite in the same commit.
+
 ## Security audits
 
 - A claim lives in exactly **two** places: the audit doc in `docs/` and the

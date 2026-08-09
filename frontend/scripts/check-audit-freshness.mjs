@@ -102,9 +102,16 @@ function headerValues(source, label) {
 	return [...row[1].matchAll(/`([^`]+)`/g)].map((m) => m[1]);
 }
 
-const auditFiles = readdirSync(docsDir)
-	.filter((name) => name.endsWith('_AUDIT.md'))
-	.sort();
+/*
+ * A missing docs/ is the strongest form of "the audit set moved", which is
+ * exactly what the message below is for — so it has to reach that message
+ * rather than throw ENOENT out of readdirSync with a stack trace.
+ */
+const auditFiles = existsSync(docsDir)
+	? readdirSync(docsDir)
+			.filter((name) => name.endsWith('_AUDIT.md'))
+			.sort()
+	: [];
 
 if (auditFiles.length === 0) {
 	console.error('No docs/*_AUDIT.md found — has the audit set moved?');
