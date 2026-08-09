@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, lstatSync, readFileSync } from 'node:fs';
+import { closeSync, constants, fstatSync, openSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
@@ -82,20 +82,38 @@ const files = filesToCheck();
 const declared = declaredBinary(files);
 const offenders = [];
 
+/*
+ * Not everything git tracks is a regular file: a symlink is stored as its
+ * target path, a submodule as a gitlink. Reading either as bytes fails —
+ * EISDIR for a symlink pointing at a directory, which killed the whole run
+ * partway through the tree until this was handled.
+ *
+ * Everything is asked of one open descriptor rather than of the path twice.
+ * Stat-then-read is a check against one file and a read of whatever occupies
+ * the path a moment later; `fstat` on the descriptor already open cannot be
+ * answered about a different file. `O_NOFOLLOW` keeps a symlink from being
+ * silently resolved to its target, whose bytes are not this file's content.
+ */
+function readRegularFile(abs) {
+	let fd;
+	try {
+		fd = openSync(abs, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+	} catch {
+		// Gone since git listed it (a staged deletion), or not openable as a
+		// plain file: a symlink, a directory, a submodule's gitlink.
+		return null;
+	}
+	try {
+		return fstatSync(fd).isFile() ? readFileSync(fd) : null;
+	} finally {
+		closeSync(fd);
+	}
+}
+
 for (const file of files) {
 	if (declared.has(file)) continue;
-	const abs = path.join(repoRoot, file);
-	// A staged deletion or a file removed after staging has nothing to read.
-	if (!existsSync(abs)) continue;
-	/*
-	 * Not everything git tracks is a regular file. A symlink is stored as its
-	 * target path and a submodule as a gitlink, and reading either as bytes
-	 * fails — EISDIR for a symlink that points at a directory, which is how
-	 * this surfaced. Neither can carry a NUL the way a source file can, so
-	 * skipping them is the answer rather than guarding the read.
-	 */
-	if (!lstatSync(abs).isFile()) continue;
-	const bytes = readFileSync(abs);
+	const bytes = readRegularFile(path.join(repoRoot, file));
+	if (bytes === null) continue;
 	const at = bytes.indexOf(0);
 	if (at >= 0) offenders.push({ file, at });
 }
