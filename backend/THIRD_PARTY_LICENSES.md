@@ -2,13 +2,13 @@
 
 VoxRox Mail backend bundles or transitively depends on the following Maven artifacts. All listed entries are compile / runtime scope (test and provided scopes are excluded). Multi-licensed artifacts (e.g., Jakarta EE specs licensed under EPL-2.0 + EDL-1.0 + GPL-2.0 with Classpath Exception) are grouped under the license most relevant for redistribution.
 
-Counts: 131 artifacts total. 109 Apache-2.0, 10 EDL-1.0 (BSD-3-Clause), 5 EPL-2.0, 4 MIT, 2 BSD-3-Clause, 1 BSD-2-Clause.
+Counts: 132 artifacts total. 109 Apache-2.0, 10 EDL-1.0 (BSD-3-Clause), 5 EPL-2.0, 4 MIT, 2 BSD-2-Clause, 2 BSD-3-Clause.
 
 ## Apache-2.0 (109)
 
 - **Apache Commons Lang** `org.apache.commons:commons-lang3:3.20.0` — [https://commons.apache.org/proper/commons-lang/](https://commons.apache.org/proper/commons-lang/)
 - **Apache Commons Logging** `commons-logging:commons-logging:1.3.6` — [https://commons.apache.org/proper/commons-logging/](https://commons.apache.org/proper/commons-logging/)
-- **Apache Log4j API** `org.apache.logging.log4j:log4j-api:2.25.4` — [https://logging.apache.org/log4j/2.x/](https://logging.apache.org/log4j/2.x/)
+- **Apache Log4j API** `org.apache.logging.log4j:log4j-api:2.25.5` — [https://logging.apache.org/log4j/2.x/](https://logging.apache.org/log4j/2.x/)
 - **ASM based accessors helper used by json-smart** `net.minidev:accessors-smart:2.6.0` — [https://urielch.github.io/](https://urielch.github.io/)
 - **Byte Buddy** `without dependencies) (net.bytebuddy:byte-buddy:1.18.10` — [https://bytebuddy.net/byte-buddy](https://bytebuddy.net/byte-buddy)
 - **ClassMate** `com.fasterxml:classmate:1.7.3` — [https://github.com/FasterXML/java-classmate](https://github.com/FasterXML/java-classmate)
@@ -18,20 +18,20 @@ Counts: 131 artifacts total. 109 Apache-2.0, 10 EDL-1.0 (BSD-3-Clause), 5 EPL-2.
 - **Hibernate ORM - hibernate-core** `org.hibernate.orm:hibernate-core:7.4.1.Final` — [https://hibernate.org/orm](https://hibernate.org/orm)
 - **Hibernate Validator Engine** `org.hibernate.validator:hibernate-validator:9.1.0.Final` — [https://hibernate.org/validator](https://hibernate.org/validator)
 - **HikariCP** `com.zaxxer:HikariCP:7.0.2` — [https://github.com/brettwooldridge/HikariCP](https://github.com/brettwooldridge/HikariCP)
-- **Jackson datatype: JSR310** `com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.21.4` — [https://github.com/FasterXML/jackson-modules-java8/jackson-datatype-jsr310](https://github.com/FasterXML/jackson-modules-java8/jackson-datatype-jsr310)
+- **Jackson datatype: JSR310** `com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.21.5` — [https://github.com/FasterXML/jackson-modules-java8/jackson-datatype-jsr310](https://github.com/FasterXML/jackson-modules-java8/jackson-datatype-jsr310)
 - **Jackson-annotations** `com.fasterxml.jackson.core:jackson-annotations:2.21` — [https://github.com/FasterXML/jackson](https://github.com/FasterXML/jackson)
-- **Jackson-core** `com.fasterxml.jackson.core:jackson-core:2.21.4` — [https://github.com/FasterXML/jackson-core](https://github.com/FasterXML/jackson-core)
-- **Jackson-core** `tools.jackson.core:jackson-core:3.1.4` — [https://github.com/FasterXML/jackson-core](https://github.com/FasterXML/jackson-core)
-- **jackson-databind** `com.fasterxml.jackson.core:jackson-databind:2.21.4` — [https://github.com/FasterXML/jackson](https://github.com/FasterXML/jackson)
-- **jackson-databind** `tools.jackson.core:jackson-databind:3.1.4` — [https://github.com/FasterXML/jackson](https://github.com/FasterXML/jackson)
-- **Jackson-dataformat-YAML** `com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.21.4` — [https://github.com/FasterXML/jackson-dataformats-text](https://github.com/FasterXML/jackson-dataformats-text)
+- **Jackson-core** `com.fasterxml.jackson.core:jackson-core:2.21.5` — [https://github.com/FasterXML/jackson-core](https://github.com/FasterXML/jackson-core)
+- **Jackson-core** `tools.jackson.core:jackson-core:3.1.5` — [https://github.com/FasterXML/jackson-core](https://github.com/FasterXML/jackson-core)
+- **jackson-databind** `com.fasterxml.jackson.core:jackson-databind:2.21.5` — [https://github.com/FasterXML/jackson](https://github.com/FasterXML/jackson)
+- **jackson-databind** `tools.jackson.core:jackson-databind:3.1.5` — [https://github.com/FasterXML/jackson](https://github.com/FasterXML/jackson)
+- **Jackson-dataformat-YAML** `com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.21.5` — [https://github.com/FasterXML/jackson-dataformats-text](https://github.com/FasterXML/jackson-dataformats-text)
 - **Jakarta Dependency Injection** `jakarta.inject:jakarta.inject-api:2.0.1` — [https://github.com/eclipse-ee4j/injection-api](https://github.com/eclipse-ee4j/injection-api)
 - **Jakarta Validation API** `jakarta.validation:jakarta.validation-api:3.1.1` — [https://beanvalidation.org](https://beanvalidation.org)
 - **JBoss Logging 3** `org.jboss.logging:jboss-logging:3.6.3.Final` — [https://www.jboss.org](https://www.jboss.org)
 - **JCIP Annotations under Apache License** `com.github.stephenc.jcip:jcip-annotations:1.0-1` — [http://stephenc.github.com/jcip-annotations](http://stephenc.github.com/jcip-annotations)
 - **JSON Small and Fast Parser** `net.minidev:json-smart:2.6.0` — [https://urielch.github.io/](https://urielch.github.io/)
-- **JSpecify annotations** `org.jspecify:jspecify:1.0.0` — [http://jspecify.org/](http://jspecify.org/)
-- **Log4j API to SLF4J Adapter** `org.apache.logging.log4j:log4j-to-slf4j:2.25.4` — [https://logging.apache.org/log4j/2.x/](https://logging.apache.org/log4j/2.x/)
+- **JSpecify annotations** `org.jspecify:jspecify:1.0.1` — [https://jspecify.dev/](https://jspecify.dev/)
+- **Log4j API to SLF4J Adapter** `org.apache.logging.log4j:log4j-to-slf4j:2.25.5` — [https://logging.apache.org/log4j/2.x/](https://logging.apache.org/log4j/2.x/)
 - **micrometer-commons** `io.micrometer:micrometer-commons:1.17.0` — [https://github.com/micrometer-metrics/micrometer](https://github.com/micrometer-metrics/micrometer)
 - **micrometer-core** `io.micrometer:micrometer-core:1.17.0` — [https://github.com/micrometer-metrics/micrometer](https://github.com/micrometer-metrics/micrometer)
 - **micrometer-jakarta9** `io.micrometer:micrometer-jakarta9:1.17.0` — [https://github.com/micrometer-metrics/micrometer](https://github.com/micrometer-metrics/micrometer)
@@ -108,13 +108,13 @@ Counts: 131 artifacts total. 109 Apache-2.0, 10 EDL-1.0 (BSD-3-Clause), 5 EPL-2.
 - **springdoc-openapi-starter-webmvc-api** `org.springdoc:springdoc-openapi-starter-webmvc-api:3.0.3` — [https://springdoc.org/springdoc-openapi-starter-webmvc-api/](https://springdoc.org/springdoc-openapi-starter-webmvc-api/)
 - **springdoc-openapi-starter-webmvc-ui** `org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3` — [https://springdoc.org/springdoc-openapi-starter-webmvc-ui/](https://springdoc.org/springdoc-openapi-starter-webmvc-ui/)
 - **SQLite JDBC** `org.xerial:sqlite-jdbc:3.53.2.0` — [https://github.com/xerial/sqlite-jdbc](https://github.com/xerial/sqlite-jdbc)
-- **Swagger UI** `org.webjars:swagger-ui:5.32.2` — [https://www.webjars.org](https://www.webjars.org)
+- **Swagger UI** `org.webjars:swagger-ui:5.32.11` — [https://www.webjars.org](https://www.webjars.org)
 - **swagger-annotations-jakarta** `io.swagger.core.v3:swagger-annotations-jakarta:2.2.47` — [https://github.com/swagger-api/swagger-core/modules/swagger-annotations-jakarta](https://github.com/swagger-api/swagger-core/modules/swagger-annotations-jakarta)
 - **swagger-core-jakarta** `io.swagger.core.v3:swagger-core-jakarta:2.2.47` — [https://github.com/swagger-api/swagger-core/modules/swagger-core-jakarta](https://github.com/swagger-api/swagger-core/modules/swagger-core-jakarta)
 - **swagger-models-jakarta** `io.swagger.core.v3:swagger-models-jakarta:2.2.47` — [https://github.com/swagger-api/swagger-core/modules/swagger-models-jakarta](https://github.com/swagger-api/swagger-core/modules/swagger-models-jakarta)
-- **tomcat-embed-core** `org.apache.tomcat.embed:tomcat-embed-core:11.0.22` — [https://tomcat.apache.org/](https://tomcat.apache.org/)
-- **tomcat-embed-el** `org.apache.tomcat.embed:tomcat-embed-el:11.0.22` — [https://tomcat.apache.org/](https://tomcat.apache.org/)
-- **tomcat-embed-websocket** `org.apache.tomcat.embed:tomcat-embed-websocket:11.0.22` — [https://tomcat.apache.org/](https://tomcat.apache.org/)
+- **tomcat-embed-core** `org.apache.tomcat.embed:tomcat-embed-core:11.0.24` — [https://tomcat.apache.org/](https://tomcat.apache.org/)
+- **tomcat-embed-el** `org.apache.tomcat.embed:tomcat-embed-el:11.0.24` — [https://tomcat.apache.org/](https://tomcat.apache.org/)
+- **tomcat-embed-websocket** `org.apache.tomcat.embed:tomcat-embed-websocket:11.0.24` — [https://tomcat.apache.org/](https://tomcat.apache.org/)
 
 ## EDL-1.0 (BSD-3-Clause) (10)
 
@@ -139,16 +139,17 @@ Counts: 131 artifacts total. 109 Apache-2.0, 10 EDL-1.0 (BSD-3-Clause), 5 EPL-2.
 
 ## MIT (4)
 
-- **jsoup Java HTML Parser** `org.jsoup:jsoup:1.22.2` — [https://jsoup.org/](https://jsoup.org/)
+- **jsoup Java HTML Parser** `org.jsoup:jsoup:1.23.1` — [https://jsoup.org/](https://jsoup.org/)
 - **JUL to SLF4J bridge** `org.slf4j:jul-to-slf4j:2.0.18` — [http://www.slf4j.org](http://www.slf4j.org)
 - **SLF4J API Module** `org.slf4j:slf4j-api:2.0.18` — [http://www.slf4j.org](http://www.slf4j.org)
 - **webjars-locator-lite** `org.webjars:webjars-locator-lite:1.1.3` — [https://webjars.org](https://webjars.org)
+
+## BSD-2-Clause (2)
+
+- **commonmark-java core** `org.commonmark:commonmark:0.30.0` — [https://github.com/commonmark/commonmark-java/commonmark](https://github.com/commonmark/commonmark-java/commonmark)
+- **HdrHistogram** `org.hdrhistogram:HdrHistogram:2.2.2` — [http://hdrhistogram.github.io/HdrHistogram/](http://hdrhistogram.github.io/HdrHistogram/)
 
 ## BSD-3-Clause (2)
 
 - **ANTLR 4 Runtime** `org.antlr:antlr4-runtime:4.13.2` — [https://www.antlr.org/antlr4-runtime/](https://www.antlr.org/antlr4-runtime/)
 - **asm** `org.ow2.asm:asm:9.7.1` — [http://asm.ow2.io/](http://asm.ow2.io/)
-
-## BSD-2-Clause (1)
-
-- **HdrHistogram** `org.hdrhistogram:HdrHistogram:2.2.2` — [http://hdrhistogram.github.io/HdrHistogram/](http://hdrhistogram.github.io/HdrHistogram/)

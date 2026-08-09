@@ -45,6 +45,23 @@ test.describe('Compose', () => {
 		await expect(page.locator('#compose-subject')).toHaveValue(/Re:/);
 	});
 
+	/*
+	 * Markdown is rendered by the backend on send, so the composer never shows the
+	 * formatting — this hint is the only place the feature is discoverable. It has
+	 * to reach a screen reader, hence the accessible-description assertion rather
+	 * than a check that the text is merely on screen.
+	 */
+	test('tělo zprávy má Markdown nápovědu ve své přístupné popisce', async ({ page }) => {
+		await page.goto('/compose');
+		await waitForShell(page);
+
+		const body = page.locator('#compose-body');
+		await expect(body).toHaveAccessibleDescription(/Markdown/);
+		await expect(page.locator('#compose-body-hint')).toHaveText(
+			'Podporuje Markdown: **tučně**, # nadpis, - odrážka.'
+		);
+	});
+
 	test('forward prefill doplní Fwd předmět a citované tělo', async ({ page }) => {
 		await page.goto('/compose?forward=msg-01');
 		await waitForShell(page);

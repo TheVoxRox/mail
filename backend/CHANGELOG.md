@@ -17,6 +17,8 @@ When upgrading to a new MAJOR/MINOR backend version the DB schema migrates forwa
 
 ### Added
 
+- `MarkdownBodyRenderer` — renders the composed body to the outgoing `text/html` alternative (new dependency `org.commonmark:commonmark` 0.30.0, BSD-2-Clause, no transitives). Parser runs with `IndentedCodeBlock` and `HtmlBlock` disabled and the renderer with `escapeHtml` + `sanitizeUrls` on and `softbreak` as `<br />`; bodies over 512 kB are not parsed. Returns empty for a parse tree of nothing but `Document`/`Paragraph`/`Text`/line breaks/`HtmlInline`, which is what keeps a Markdown-free message single-part.
+- `MimeMessageBuilder.build` takes a `BodyFormat` (`MARKDOWN` for send, `PLAIN` for drafts) alongside the existing `AddressPolicy`. Under `MARKDOWN` a formatted body becomes `multipart/alternative` (plain first per RFC 2046 §5.1.4) nested inside the existing `multipart/mixed`; attachments and every header path are unchanged. **Drafts must stay `PLAIN`** — `DraftPersistenceService` round-trips them through IMAP Drafts and the composer flattens any body part to text, so a stored rendering would overwrite the Markdown source on reopen.
 - Sidecar lifecycle contract: graceful shutdown, `session.json` + `.ready` gate written by `HandshakeService` on `ApplicationReadyEvent`.
 - First-run crypto bootstrap into `${app.data-dir}/crypto.bin`; `MAIL_CRYPTO_KEY/SALT` remain an optional dev override.
 - Consolidated `/api/v1/system/readiness` endpoint that carries `appName`, `appVersion`, `apiVersion`, `minClientVersion`, `dbSchemaVersion` and the boot phase. Replaces the former `/api/handshake` (now removed); the desktop client uses readiness for the full startup compatibility check.

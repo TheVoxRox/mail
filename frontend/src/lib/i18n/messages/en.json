@@ -219,6 +219,7 @@
 		"fieldBcc": "Bcc:",
 		"fieldSubject": "Subject:",
 		"bodyLabel": "Message body",
+		"markdownHint": "Supports Markdown: **bold**, # heading, - bullet.",
 		"addAttachment": "Add attachment",
 		"attachmentDropZone": "Message attachments",
 		"dropAttachmentsHint": "Drop files here or paste an attachment from the clipboard.",

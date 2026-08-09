@@ -186,12 +186,17 @@ public class DraftPersistenceService {
      * neither pipeline may fail over a recipient the user has not finished typing —
      * autosave fires mid-token, and the recovery pipeline exists precisely to
      * salvage content whose send already failed.
+     *
+     * <p>
+     * The body is stored under {@link MimeMessageBuilder.BodyFormat#PLAIN} so the
+     * draft carries the typed Markdown source, not its rendering — see that
+     * constant for why the round-trip through Drafts would otherwise lose it.
      */
     private boolean appendDraftMessage(AccountEntity account, DraftIdentity identity, DraftRequest request)
             throws MessagingException, java.io.UnsupportedEncodingException {
         Session session = Session.getInstance(new Properties());
         MimeMessage message = mimeMessageBuilder.build(session, account, request.toMailRequest(),
-                MimeMessageBuilder.AddressPolicy.DRAFT);
+                MimeMessageBuilder.AddressPolicy.DRAFT, MimeMessageBuilder.BodyFormat.PLAIN);
         message.setFlag(Flags.Flag.DRAFT, true);
         message.setSentDate(Date.from(Instant.now()));
         /*

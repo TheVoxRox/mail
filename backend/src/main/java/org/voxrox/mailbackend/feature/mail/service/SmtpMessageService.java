@@ -87,7 +87,7 @@ public class SmtpMessageService {
             transport = transportFactory.openTransport(accountId, session, details);
 
             MimeMessage message = mimeMessageBuilder.build(session, account, request,
-                    MimeMessageBuilder.AddressPolicy.STRICT);
+                    MimeMessageBuilder.AddressPolicy.STRICT, MimeMessageBuilder.BodyFormat.MARKDOWN);
             transport.sendMessage(message, message.getAllRecipients());
 
             // Delivered. From here the send has happened, so nothing below may report a

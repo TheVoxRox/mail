@@ -2,10 +2,9 @@ package org.voxrox.mailbackend.feature.mail.service;
 
 import java.io.UnsupportedEncodingException;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Date;
-import java.util.List;
+import java.util.Optional;
 
 import jakarta.activation.DataHandler;
 import jakarta.mail.Message;
@@ -45,12 +44,21 @@ import org.voxrox.mailbackend.util.HeaderAddresses;
  * </ul>
  *
  * <p>
- * Body is plaintext from the compose textarea ({@code text/plain;
- * charset=UTF-8}), the subject is encoded as UTF-8, attachment filenames are
- * encoded via {@link MimeUtility#encodeText} (RFC 2047 for non-ASCII).
+ * Body is the plaintext from the compose textarea ({@code text/plain;
+ * charset=UTF-8}); under {@link BodyFormat#MARKDOWN} a message that actually
+ * uses Markdown additionally carries the rendered {@code text/html} as a
+ * {@code multipart/alternative} sibling. The subject is encoded as UTF-8,
+ * attachment filenames are encoded via {@link MimeUtility#encodeText} (RFC 2047
+ * for non-ASCII).
  */
 @Component
 public class MimeMessageBuilder {
+
+    private final MarkdownBodyRenderer markdownRenderer;
+
+    public MimeMessageBuilder(MarkdownBodyRenderer markdownRenderer) {
+        this.markdownRenderer = markdownRenderer;
+    }
 
     /**
      * How the {@code to/cc/bcc} text is turned into header addresses. The two
@@ -84,8 +92,34 @@ public class MimeMessageBuilder {
         DRAFT
     }
 
-    public MimeMessage build(Session session, AccountEntity account, MailRequest request, AddressPolicy addressPolicy)
-            throws MessagingException, UnsupportedEncodingException {
+    /**
+     * Whether the body text is interpreted as Markdown on the way out.
+     */
+    public enum BodyFormat {
+        /**
+         * Send: a body that uses Markdown goes out as {@code multipart/alternative} —
+         * the typed source as {@code text/plain}, the rendering as {@code text/html}. A
+         * body without Markdown stays a single {@code text/plain} part (see
+         * {@link MarkdownBodyRenderer}).
+         */
+        MARKDOWN,
+        /**
+         * Draft: always a single {@code text/plain} part carrying the typed source.
+         *
+         * <p>
+         * Never widen this to {@link #MARKDOWN}. A draft is round-tripped through the
+         * IMAP Drafts folder and back into the composer, which is a plain-text editor:
+         * reopening flattens whatever body part it finds to text
+         * ({@code frontend/src/lib/compose/prefill.ts}). Storing the rendering would
+         * therefore return {@code bold} where the user typed {@code **bold**} — the
+         * Markdown source would be destroyed by saving and reopening the draft. The
+         * rendering is derived data; the typed text is what has to survive.
+         */
+        PLAIN
+    }
+
+    public MimeMessage build(Session session, AccountEntity account, MailRequest request, AddressPolicy addressPolicy,
+            BodyFormat bodyFormat) throws MessagingException, UnsupportedEncodingException {
         MimeMessage message = new MimeMessage(session);
 
         message.setFrom(new InternetAddress(account.getEmail(), account.getDisplayName(), "UTF-8"));
@@ -106,10 +140,7 @@ public class MimeMessageBuilder {
         }
 
         Multipart multipart = new MimeMultipart();
-
-        MimeBodyPart textPart = new MimeBodyPart();
-        textPart.setText(request.body() == null ? "" : request.body(), "UTF-8");
-        multipart.addBodyPart(textPart);
+        multipart.addBodyPart(buildBodyPart(request.body() == null ? "" : request.body(), bodyFormat));
 
         for (MailRequest.AttachmentRequest att : request.attachments()) {
             MimeBodyPart attachPart = new MimeBodyPart();
@@ -124,6 +155,40 @@ public class MimeMessageBuilder {
         message.setContent(multipart);
         message.setSentDate(Date.from(Instant.now()));
         return message;
+    }
+
+    /**
+     * The message's body part: a bare {@code text/plain} part, or — when the body
+     * uses Markdown and the caller asked for {@link BodyFormat#MARKDOWN} — a
+     * {@code multipart/alternative} holding the typed source and its rendering.
+     *
+     * <p>
+     * Alternative parts are ordered least-to-most preferred per RFC 2046 §5.1.4, so
+     * {@code text/plain} comes first: a client that understands both shows the
+     * HTML, one that understands only text still finds the source it can render.
+     */
+    private MimeBodyPart buildBodyPart(String body, BodyFormat bodyFormat) throws MessagingException {
+        MimeBodyPart textPart = new MimeBodyPart();
+        textPart.setText(body, "UTF-8");
+
+        if (bodyFormat == BodyFormat.PLAIN) {
+            return textPart;
+        }
+        Optional<String> html = markdownRenderer.renderAlternative(body);
+        if (html.isEmpty()) {
+            return textPart;
+        }
+
+        MimeBodyPart htmlPart = new MimeBodyPart();
+        htmlPart.setContent(html.get(), "text/html; charset=UTF-8");
+
+        MimeMultipart alternative = new MimeMultipart("alternative");
+        alternative.addBodyPart(textPart);
+        alternative.addBodyPart(htmlPart);
+
+        MimeBodyPart wrapper = new MimeBodyPart();
+        wrapper.setContent(alternative);
+        return wrapper;
     }
 
     /**

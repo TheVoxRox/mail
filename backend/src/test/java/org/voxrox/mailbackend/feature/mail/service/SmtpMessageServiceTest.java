@@ -260,7 +260,7 @@ class SmtpMessageServiceTest {
             account.setId(ACCOUNT_ID);
             account.setEmail("me@example.com");
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
-            when(mimeMessageBuilder.build(any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
+            when(mimeMessageBuilder.build(any(), any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
             when(transportFactory.openTransport(eq(ACCOUNT_ID), any(), any()))
                     .thenReturn(mock(jakarta.mail.Transport.class));
         }
