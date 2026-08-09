@@ -55,10 +55,15 @@ export function createGateRepo() {
 	 * The copied script and the linked dependencies must never become fixture
 	 * content: several gates enumerate tracked files, and a test whose subject
 	 * shows up in its own input tells you nothing.
+	 *
+	 * No trailing slash. That form matches directories only, and the
+	 * node_modules link is a directory junction on Windows but a symlink on
+	 * Linux — where git sees a trackable file, adds it, and the gate under test
+	 * then tries to read a directory. The pattern has to catch both.
 	 */
 	writeFileSync(
 		path.join(root, '.git', 'info', 'exclude'),
-		'frontend/scripts/\nfrontend/node_modules/\n',
+		'frontend/scripts\nfrontend/node_modules\n',
 		'utf8'
 	);
 

@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
@@ -87,6 +87,14 @@ for (const file of files) {
 	const abs = path.join(repoRoot, file);
 	// A staged deletion or a file removed after staging has nothing to read.
 	if (!existsSync(abs)) continue;
+	/*
+	 * Not everything git tracks is a regular file. A symlink is stored as its
+	 * target path and a submodule as a gitlink, and reading either as bytes
+	 * fails — EISDIR for a symlink that points at a directory, which is how
+	 * this surfaced. Neither can carry a NUL the way a source file can, so
+	 * skipping them is the answer rather than guarding the read.
+	 */
+	if (!lstatSync(abs).isFile()) continue;
 	const bytes = readFileSync(abs);
 	const at = bytes.indexOf(0);
 	if (at >= 0) offenders.push({ file, at });

@@ -1,5 +1,25 @@
+import { mkdtempSync, rmSync, symlinkSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createGateRepo } from './test-support/gate-repo.mjs';
+
+/**
+ * Whether this machine lets an unprivileged process create a symlink. Windows
+ * needs Developer Mode or elevation, so the symlink case below is skipped
+ * there rather than asserted on a setup the OS refused.
+ */
+const canSymlink = (() => {
+	const probe = mkdtempSync(path.join(os.tmpdir(), 'voxrox-symlink-probe-'));
+	try {
+		symlinkSync(probe, path.join(probe, 'link'), 'dir');
+		return true;
+	} catch {
+		return false;
+	} finally {
+		rmSync(probe, { recursive: true, force: true });
+	}
+})();
 
 /*
  * The gate exists because a NUL byte passes every formatter, linter and test
@@ -72,6 +92,28 @@ describe('check-no-nul-bytes', () => {
 		expect(result.status).toBe(1);
 		expect(result.stderr).toContain('assets/photo.jpg');
 		expect(result.stderr).toContain('.gitattributes');
+	});
+
+	/*
+	 * Not everything git tracks is a regular file. A tracked symlink pointing
+	 * at a directory made the gate die with EISDIR partway through the tree —
+	 * so it reported nothing about the files it had not reached yet, which is
+	 * the worst way for a gate to fail: loudly, and with a false all-clear for
+	 * everything after the crash. Found on the first CI run of these tests,
+	 * because the platform difference only shows on Linux.
+	 */
+	it.skipIf(!canSymlink)('walks past a tracked symlink instead of dying on it', () => {
+		repo.write('src/target/file.ts', 'export const x = 1;\n');
+		symlinkSync(path.join(repo.root, 'src/target'), path.join(repo.root, 'src/link'), 'dir');
+		// Ordered after the symlink so a crash there would hide this one.
+		repo.writeBytes('src/zz-offender.ts', withNul('a', 'b'));
+		repo.commit();
+
+		const result = repo.run('check-no-nul-bytes.mjs');
+
+		expect(result.status).toBe(1);
+		expect(result.stderr).toContain('src/zz-offender.ts');
+		expect(result.stderr).not.toContain('EISDIR');
 	});
 
 	it('ignores untracked files — the gate judges what git would carry', () => {
