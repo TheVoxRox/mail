@@ -219,6 +219,7 @@
 		"fieldBcc": "Skrytá kopie:",
 		"fieldSubject": "Předmět:",
 		"bodyLabel": "Text zprávy",
+		"markdownHint": "Podporuje Markdown: **tučně**, # nadpis, - odrážka.",
 		"addAttachment": "Přidat přílohu",
 		"attachmentDropZone": "Přílohy zprávy",
 		"dropAttachmentsHint": "Přetáhněte sem soubory nebo vložte přílohu ze schránky.",

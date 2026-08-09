@@ -39,7 +39,7 @@ class MimeMessageBuilderTest {
 
     @BeforeEach
     void setUp() {
-        builder = new MimeMessageBuilder();
+        builder = new MimeMessageBuilder(new MarkdownBodyRenderer());
         session = Session.getInstance(new Properties());
 
         account = new AccountEntity();
@@ -55,11 +55,20 @@ class MimeMessageBuilderTest {
 
     /** The send path's policy — the default for every case not about drafts. */
     private MimeMessage buildSend(MailRequest request) throws Exception {
-        return builder.build(session, account, request, MimeMessageBuilder.AddressPolicy.STRICT);
+        return builder.build(session, account, request, MimeMessageBuilder.AddressPolicy.STRICT,
+                MimeMessageBuilder.BodyFormat.MARKDOWN);
     }
 
     private MimeMessage buildDraft(MailRequest request) throws Exception {
-        return builder.build(session, account, request, MimeMessageBuilder.AddressPolicy.DRAFT);
+        return builder.build(session, account, request, MimeMessageBuilder.AddressPolicy.DRAFT,
+                MimeMessageBuilder.BodyFormat.PLAIN);
+    }
+
+    /** Serialized MIME exactly as an SMTP server or IMAP APPEND would see it. */
+    private static String toMime(MimeMessage message) throws Exception {
+        ByteArrayOutputStream raw = new ByteArrayOutputStream();
+        message.writeTo(raw);
+        return raw.toString(StandardCharsets.UTF_8);
     }
 
     @Nested
@@ -263,7 +272,7 @@ class MimeMessageBuilderTest {
         }
 
         @Test
-        @DisplayName("HTML-like body from compose — content-type is text/plain with charset=UTF-8")
+        @DisplayName("HTML-like body from compose — content-type is text/plain with charset=UTF-8, no HTML part")
         void plainBodyHasUtf8ContentType() throws Exception {
             String body = "<b>x</b>\n<script>alert('x')</script>";
             MimeMessage msg = buildSend(req("to@example.com", null, null, "s", body, List.of(), null, null));
@@ -271,12 +280,13 @@ class MimeMessageBuilderTest {
             // Jakarta Mail finalizes content-type only on writeTo()/saveChanges() —
             // we test it via the serialized MIME representation that an SMTP server would
             // see.
-            ByteArrayOutputStream raw = new ByteArrayOutputStream();
-            msg.writeTo(raw);
-            String mime = raw.toString(StandardCharsets.US_ASCII);
+            String mime = toMime(msg);
 
             assertThat(mime).contains("Content-Type: text/plain");
             assertThat(mime).contains("charset=UTF-8");
+            // Markdown never turns typed markup into live markup: this body is inert
+            // (only inline-HTML and text nodes), so no text/html alternative is
+            // generated at all — and had one been, escapeHtml would have escaped it.
             assertThat(mime).doesNotContain("Content-Type: text/html");
             // Raw body part content — visible in the MIME output (before encoding
             // wrapping).
@@ -325,6 +335,113 @@ class MimeMessageBuilderTest {
             assertThat(mp.getCount()).isEqualTo(3); // body + 2 attachments
             assertThat(mp.getBodyPart(1).getFileName()).isEqualTo("a.txt");
             assertThat(mp.getBodyPart(2).getFileName()).isEqualTo("b.bin");
+        }
+    }
+
+    /**
+     * The composer sends plain text; a body that uses Markdown gains a rendered
+     * {@code text/html} sibling on the way out. The invariant these tests protect
+     * is that the {@code text/plain} part is always the untouched source — a
+     * recipient reading the text part sees the keystrokes, never a rendering.
+     */
+    @Nested
+    @DisplayName("Markdown body")
+    class MarkdownBody {
+
+        private static final String FORMATTED = "Hello,\n\n- first\n- second\n";
+
+        /**
+         * Jakarta Mail materializes part headers only in {@code updateHeaders()}, so
+         * every part of an unsaved message still reports the default
+         * {@code text/plain}. The send path always goes through {@code writeTo()};
+         * {@code saveChanges()} is the same step, made explicit so the assertions can
+         * read the structure rather than grep the serialized bytes.
+         */
+        private MimeMessage buildSaved(MailRequest request) throws Exception {
+            MimeMessage msg = buildSend(request);
+            msg.saveChanges();
+            return msg;
+        }
+
+        @Test
+        @DisplayName("Body without Markdown stays a single text/plain part")
+        void inertBodyStaysSinglePart() throws Exception {
+            String body = "Hello,\nsee you at 10:00.\n\nAlice";
+
+            MimeMessage msg = buildSend(req("to@example.com", null, null, "s", body, List.of(), null, null));
+
+            Multipart mp = (Multipart) msg.getContent();
+            assertThat(mp.getCount()).isEqualTo(1);
+            assertThat(mp.getBodyPart(0).getContent()).isEqualTo(body);
+            assertThat(toMime(msg)).doesNotContain("text/html").doesNotContain("alternative");
+        }
+
+        @Test
+        @DisplayName("Body with Markdown becomes multipart/alternative: plain source first, HTML second")
+        void formattedBodyGainsHtmlAlternative() throws Exception {
+            MimeMessage msg = buildSaved(req("to@example.com", null, null, "s", FORMATTED, List.of(), null, null));
+
+            Multipart mixed = (Multipart) msg.getContent();
+            assertThat(mixed.getCount()).isEqualTo(1);
+
+            Multipart alternative = (Multipart) mixed.getBodyPart(0).getContent();
+            assertThat(alternative.getContentType()).startsWith("multipart/alternative");
+            assertThat(alternative.getCount()).isEqualTo(2);
+
+            // RFC 2046 §5.1.4 ordering: least preferred (plain) first.
+            assertThat(alternative.getBodyPart(0).getContentType()).startsWith("text/plain");
+            assertThat(alternative.getBodyPart(0).getContent()).isEqualTo(FORMATTED);
+
+            assertThat(alternative.getBodyPart(1).getContentType()).startsWith("text/html");
+            assertThat((String) alternative.getBodyPart(1).getContent()).contains("<li>first</li>")
+                    .contains("<li>second</li>");
+        }
+
+        @Test
+        @DisplayName("Markdown plus attachments — alternative body nests inside the mixed part")
+        void formattedBodyKeepsAttachmentsAtMixedLevel() throws Exception {
+            MailRequest.AttachmentRequest att = new MailRequest.AttachmentRequest("a.txt", "text/plain",
+                    Base64.getEncoder().encodeToString("A".getBytes(StandardCharsets.UTF_8)));
+
+            MimeMessage msg = buildSaved(req("to@example.com", null, null, "s", FORMATTED, List.of(att), null, null));
+
+            Multipart mixed = (Multipart) msg.getContent();
+            assertThat(mixed.getCount()).isEqualTo(2);
+            assertThat(((Multipart) mixed.getBodyPart(0).getContent()).getContentType())
+                    .startsWith("multipart/alternative");
+            assertThat(mixed.getBodyPart(1).getFileName()).isEqualTo("a.txt");
+        }
+
+        /**
+         * A draft is reopened by flattening whatever body part it carries back to text,
+         * so an HTML part in Drafts would return "first" where the user typed "- first"
+         * — the source would be destroyed by saving and reopening.
+         */
+        @Test
+        @DisplayName("Draft keeps the Markdown source as a single text/plain part")
+        void draftNeverRendersMarkdown() throws Exception {
+            MimeMessage msg = buildDraft(req("to@example.com", null, null, "s", FORMATTED, List.of(), null, null));
+            msg.saveChanges();
+
+            Multipart mp = (Multipart) msg.getContent();
+            assertThat(mp.getCount()).isEqualTo(1);
+            assertThat(mp.getBodyPart(0).getContentType()).startsWith("text/plain");
+            assertThat(mp.getBodyPart(0).getContent()).isEqualTo(FORMATTED);
+            assertThat(toMime(msg)).doesNotContain("text/html");
+        }
+
+        @Test
+        @DisplayName("Diacritics survive into both parts of the alternative")
+        void utf8SurvivesBothParts() throws Exception {
+            String body = "# Žluťoučký kůň\n\nÚpěl **ďábelské** ódy.";
+
+            MimeMessage msg = buildSaved(req("to@example.com", null, null, "s", body, List.of(), null, null));
+
+            Multipart alternative = (Multipart) ((Multipart) msg.getContent()).getBodyPart(0).getContent();
+            assertThat(alternative.getBodyPart(0).getContent()).isEqualTo(body);
+            assertThat((String) alternative.getBodyPart(1).getContent()).contains("<h1>Žluťoučký kůň</h1>")
+                    .contains("<strong>ďábelské</strong>");
+            assertThat(alternative.getBodyPart(1).getContentType()).containsIgnoringCase("charset=UTF-8");
         }
     }
 
