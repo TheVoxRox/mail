@@ -51,6 +51,11 @@ async function freshModule(): Promise<TrayModule> {
 	return current;
 }
 
+/** Tray updates are chained through a promise queue; let it drain. */
+async function flush(): Promise<void> {
+	await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 function calls(command: string): unknown[] {
 	return invokeMock.mock.calls.filter(([name]) => name === command).map(([, args]) => args);
 }
@@ -106,10 +111,12 @@ describe('startTray', () => {
 		const tray = await freshModule();
 
 		tray.startTray();
+		await flush();
 		expect(calls('configure_tray')).toHaveLength(1);
 
 		foldersStore.set([{ role: 'INBOX', unreadCount: 3, displayName: 'x', folderRef: 'INBOX' }]);
 		foldersStore.set([{ role: 'INBOX', unreadCount: 5, displayName: 'x', folderRef: 'INBOX' }]);
+		await flush();
 
 		// The labels never changed, so the native menu is built exactly once —
 		// recreating menu items on every sync is what this guards against.
@@ -125,6 +132,7 @@ describe('startTray', () => {
 		const tray = await freshModule();
 
 		tray.startTray();
+		await flush();
 
 		const [labels] = calls('configure_tray') as [{ labels: { tooltip: string } }];
 		expect(labels.labels.tooltip).toContain('2');
@@ -136,9 +144,41 @@ describe('startTray', () => {
 		const tray = await freshModule();
 
 		tray.startTray();
+		await flush();
 
 		const [labels] = calls('configure_tray') as [{ labels: { tooltip: string } }];
 		expect(labels.labels.tooltip).toBe('VoxRox Mail');
+	});
+
+	/*
+	 * The cache used to be written before the invoke resolved, so a rejected
+	 * configure_tray still counted as applied: the labels never looked
+	 * different again and the tray kept a menu-less icon for the whole session.
+	 */
+	it('retries the menu after a failed configure_tray instead of caching the failure', async () => {
+		// Fail the first configure_tray specifically — startTray's first invoke
+		// is set_close_behavior, so a plain mockRejectedValueOnce would land on
+		// the wrong call.
+		let menuBuilds = 0;
+		invokeMock.mockImplementation((command: string) => {
+			if (command === 'configure_tray' && ++menuBuilds === 1) {
+				return Promise.reject(new Error('tray icon is not available'));
+			}
+			return Promise.resolve();
+		});
+		const tray = await freshModule();
+
+		tray.startTray();
+		await flush();
+		expect(calls('configure_tray')).toHaveLength(1);
+
+		foldersStore.set([{ role: 'INBOX', unreadCount: 1, displayName: 'x', folderRef: 'INBOX' }]);
+		await flush();
+
+		// The menu was never actually installed, so the next change has to try
+		// again rather than fall through to a tooltip-only update.
+		expect(calls('configure_tray')).toHaveLength(2);
+		expect(calls('set_tray_tooltip')).toHaveLength(0);
 	});
 
 	it('subscribes only once even if called again', async () => {
