@@ -17,6 +17,22 @@
 
 staged=$(git diff --cached --name-only)
 
+# A NUL byte makes git treat a source file as binary: no diff in the PR, no
+# blame, no conflict resolution. Nothing else in either gate notices, because
+# a NUL is a legal string character — prettier, eslint, svelte-check and
+# vitest all passed one in tray.ts. Cheap enough to run on every commit, and
+# this is the moment where the fix is one edit rather than a rewritten branch.
+if [ -n "$staged" ]; then
+	if ! command -v node >/dev/null 2>&1; then
+		echo "pre-commit: node is not on PATH - cannot run the NUL byte gate." >&2
+		echo "            Fix PATH, or bypass once with: git commit --no-verify" >&2
+		exit 1
+	fi
+	if ! node frontend/scripts/check-no-nul-bytes.mjs --staged ; then
+		exit 1
+	fi
+fi
+
 # Backend messages bundles changed -> check cs/en parity + default-bundle
 # identity. The guard is a dependency-free Node script, so it needs node but
 # not the frontend node_modules.

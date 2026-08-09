@@ -127,6 +127,14 @@ coverage, add a per-file threshold rather than lowering a global floor.
   script named in a doc or a source comment must exist. Historical documents
   (changelogs, `todo-archive.md`, snapshot docs) are skipped: their dead
   references are the record, not a defect.
+- `npm run check:nul` (part of `check`, and on staged files in the pre-commit
+  hook) — fails when a file carries a NUL byte without being declared binary
+  in `.gitattributes`. git then treats it as binary: the PR shows
+  `Bin N -> N bytes` instead of a diff, and blame and conflict resolution stop
+  working. Nothing else catches it, because a NUL is a legal string character
+  that formatters, linters and tests are happy to carry. If you need one in a
+  string, write it as an escape sequence rather than the raw byte; if the
+  file really is binary, declare it next to the other asset types.
 - `npm run check:docs-impact -- --base <ref>` — CI-only, needs a diff range.
   Fails when a change touches an egress- or storage-relevant path without
   updating `PRIVACY*.md`. No script can decide whether the policy is still
