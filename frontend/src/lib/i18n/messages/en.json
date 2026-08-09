@@ -596,6 +596,19 @@
 						"title": "Plain text"
 					}
 				}
+			},
+			"closeAction": {
+				"heading": "Closing the window",
+				"label": "What closing the window does",
+				"hint": "Left running in the notification area, the app keeps syncing mail and announcing new messages. Quitting is then done from the notification area icon menu.",
+				"options": {
+					"tray": {
+						"title": "Keep running in the notification area"
+					},
+					"quit": {
+						"title": "Quit the application"
+					}
+				}
 			}
 		},
 		"language": {
@@ -835,5 +848,13 @@
 		"syncFailed": "Syncing {account} failed. New mail is not arriving.",
 		"syncFailedDetail": "Syncing {account} failed: {detail}",
 		"syncRecovered": "Syncing {account} works again."
+	},
+	"tray": {
+		"menuOpen": "Open VoxRox Mail",
+		"menuCompose": "New message",
+		"menuSync": "Sync",
+		"menuQuit": "Quit",
+		"tooltip": "VoxRox Mail",
+		"tooltipUnread": "VoxRox Mail – {count, plural, one {{count} unread message} other {{count} unread messages}} in the Inbox"
 	}
 }

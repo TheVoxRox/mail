@@ -1,3 +1,5 @@
+mod tray;
+
 use std::path::PathBuf;
 use std::sync::Mutex;
 
@@ -12,16 +14,32 @@ pub fn run() {
     let webview_dir = data_root.join("webview");
 
     tauri::Builder::default()
+        /*
+         * Must be registered first, and is not optional now that closing the
+         * window only hides it: an app sitting in the tray still owns the data
+         * directory and the backend port, so a second launch would otherwise
+         * spawn a sidecar that exits 78 ("already running") and greet the user
+         * with a boot error while their running app was one click away.
+         */
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            log::info!("Second instance launched — surfacing the running window");
+            tray::show_main_window(app);
+        }))
         .plugin(configure_log_plugin(log_dir.clone()))
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(PendingUpdate(Mutex::new(None)))
+        .manage(tray::CloseBehavior::default())
         .invoke_handler(tauri::generate_handler![
             check_for_update,
-            install_pending_update
+            install_pending_update,
+            tray::configure_tray,
+            tray::set_tray_tooltip,
+            tray::set_close_behavior
         ])
+        .on_window_event(tray::handle_window_event)
         .setup(move |app| {
             log::info!("Mail Tauri application started");
             log::info!("Data root: {}", data_root.display());
@@ -56,6 +74,8 @@ pub fn run() {
                 .maximized(true)
                 .data_directory(webview_dir.clone())
                 .build()?;
+
+            tray::create(app.handle())?;
 
             Ok(())
         })

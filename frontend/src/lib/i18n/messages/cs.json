@@ -596,6 +596,19 @@
 						"title": "Prostý text"
 					}
 				}
+			},
+			"closeAction": {
+				"heading": "Zavření okna",
+				"label": "Co udělá zavření okna",
+				"hint": "Zůstane-li aplikace v oznamovací oblasti, dál synchronizuje poštu a hlásí nové zprávy. Ukončit ji pak jde přes nabídku ikony v oznamovací oblasti.",
+				"options": {
+					"tray": {
+						"title": "Nechat běžet v oznamovací oblasti"
+					},
+					"quit": {
+						"title": "Ukončit aplikaci"
+					}
+				}
 			}
 		},
 		"language": {
@@ -835,5 +848,13 @@
 		"syncFailed": "Synchronizace účtu {account} selhala. Nová pošta zatím nechodí.",
 		"syncFailedDetail": "Synchronizace účtu {account} selhala: {detail}",
 		"syncRecovered": "Synchronizace účtu {account} znovu funguje."
+	},
+	"tray": {
+		"menuOpen": "Otevřít VoxRox Mail",
+		"menuCompose": "Nová zpráva",
+		"menuSync": "Synchronizovat",
+		"menuQuit": "Ukončit",
+		"tooltip": "VoxRox Mail",
+		"tooltipUnread": "VoxRox Mail – {count, plural, one {{count} nepřečtená zpráva} few {{count} nepřečtené zprávy} other {{count} nepřečtených zpráv}} v Doručených"
 	}
 }

@@ -12,6 +12,14 @@ IMAP/SMTP servery a poskytuje API pro uživatelské rozhraní.
   (vlákno drží zprávy pohromadě i napříč složkami).
 - Vytváření nové zprávy, odpovědi, přeposlání a ukládání konceptů; adresy
   našeptává adresář i historie vaší korespondence.
+- Psaní v Markdownu: napíšete-li `**tučně**`, `# nadpis` nebo `- odrážku`,
+  příjemce dostane zprávu i naformátovanou. Editor zůstává obyčejné textové
+  pole a odchozí zpráva vždy nese i přesně to, co jste napsali — kdo Markdown
+  nepoužívá, nepozná rozdíl.
+- Běh v oznamovací oblasti: zavření okna aplikaci ve výchozím nastavení
+  neukončí, jen ji skryje, takže dál stahuje poštu a hlásí nové zprávy.
+  Ukončit ji jde přes nabídku ikony v oznamovací oblasti; chcete-li, aby ji
+  ukončil křížek, přepněte to v Nastavení → Vzhled → Zavření okna.
 - Hromadné akce se zprávami: označení jako přečtené, mazání, přesun a spam.
 - Správa kontaktů, vlastní štítky kontaktů (Rodina, Klienti, …) a export
   kontaktů do vCard.
