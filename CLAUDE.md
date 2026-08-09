@@ -52,6 +52,11 @@ someone a rework at least once. For the human-facing versions see
   - `check:audits` — audits vs the code under their `Code paths`.
   - `check:refs` — every repo path and `npm run` script named in prose or in a
     comment exists.
+  - `check:nul` — no NUL byte in a file `.gitattributes` has not declared
+    binary. One turns a source file binary for git (no diff, no blame) while
+    passing every formatter and test, because it is a legal string character.
+    Deliberate NUL goes in as an escape (`"\0"`), never as the byte. Also runs
+    on staged files in the pre-commit hook.
   - `check:docs-impact` (CI only) — egress/storage-relevant changes must touch
     `PRIVACY*.md` or carry a `Docs-impact:` commit trailer.
 
