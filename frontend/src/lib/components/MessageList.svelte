@@ -578,22 +578,31 @@
 						class="row-span-2 flex items-start justify-center py-3"
 						onclick={(e) => e.stopPropagation()}
 					>
-						<input
-							id={`message-select-${message.stableId}`}
-							type="checkbox"
-							data-cell-target
-							data-col={COL_SELECT}
-							class="mt-1 size-4 accent-primary"
-							checked={multiSelected}
-							tabindex={focusedRow === rowIndex && focusedCol === COL_SELECT ? 0 : -1}
-							aria-label={selectionLabel(message)}
-							onfocus={() => handleCellFocus(rowIndex, COL_SELECT)}
-							onchange={(event) =>
-								toggleMessageSelection(
-									message.stableId,
-									(event.currentTarget as HTMLInputElement).checked
-								)}
-						/>
+						<!--
+							The box stays 16px; the label around it is the pointer target and
+							carries the 24px minimum (WCAG 2.5.8). Size is the only way to
+							satisfy it here — the status cell sits flush against this one, so
+							there is no spacing to fall back on. Centring inside the 24px label
+							reproduces the old `mt-1` offset, so nothing moves.
+						-->
+						<label class="flex size-6 cursor-pointer items-center justify-center">
+							<input
+								id={`message-select-${message.stableId}`}
+								type="checkbox"
+								data-cell-target
+								data-col={COL_SELECT}
+								class="size-4 accent-primary"
+								checked={multiSelected}
+								tabindex={focusedRow === rowIndex && focusedCol === COL_SELECT ? 0 : -1}
+								aria-label={selectionLabel(message)}
+								onfocus={() => handleCellFocus(rowIndex, COL_SELECT)}
+								onchange={(event) =>
+									toggleMessageSelection(
+										message.stableId,
+										(event.currentTarget as HTMLInputElement).checked
+									)}
+							/>
+						</label>
 					</div>
 					<div
 						role="gridcell"

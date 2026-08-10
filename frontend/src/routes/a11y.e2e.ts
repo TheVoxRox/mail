@@ -268,9 +268,12 @@ test.describe('Přístupnost', () => {
 		await expect(firstLabelSelect).toHaveCount(1);
 		await expect(firstLabelSelect).toHaveAccessibleName('Typ adresy 1');
 		await expect(firstLabelSelect).toHaveValue('');
-		await expect(page.locator('#contact-email-0-label-status')).toHaveText(
-			'Typ adresy 1: Bez typu'
-		);
+		// The type is announced through the app-wide announcer, which drops the
+		// message again. The form itself must hold no live region of its own: one
+		// that keeps its text is also ordinary content, so a screen reader walking
+		// past the select reads the selection a second time (reported 2026-08-10).
+		await expect(page.locator('[id$="-label-status"]')).toHaveCount(0);
+		await expect(page.locator('#live-region')).toBeEmpty();
 		await firstLabelSelect.evaluate((element) => {
 			const select = element as HTMLSelectElement & { __showPickerCalls?: number };
 			select.__showPickerCalls = 0;
@@ -290,10 +293,13 @@ test.describe('Přístupnost', () => {
 			)
 			.toBe(1);
 		await firstLabelSelect.selectOption('WORK');
-		await expect(page.locator('#contact-email-0-label-status')).toHaveText('Typ adresy 1: Práce');
+		await expect(page.locator('#live-region')).toContainText('Typ adresy 1: Práce');
 		await firstLabelSelect.selectOption('HOME');
 		await expect(firstLabelSelect).toHaveValue('HOME');
-		await expect(page.locator('#contact-email-0-label-status')).toHaveText('Typ adresy 1: Domov');
+		await expect(page.locator('#live-region')).toContainText('Typ adresy 1: Domov');
+		// The announcer drops its text again, so browsing the form afterwards does
+		// not run into a stale copy of it.
+		await expect(page.locator('#live-region')).toBeEmpty({ timeout: 5000 });
 
 		await page.getByRole('button', { name: 'Přidat e-mail' }).click();
 
@@ -301,9 +307,65 @@ test.describe('Přístupnost', () => {
 		await expect(secondLabelSelect).toHaveCount(1);
 		await expect(secondLabelSelect).toHaveAccessibleName('Typ adresy 2');
 		await expect(secondLabelSelect).toHaveValue('');
-		await expect(page.locator('#contact-email-1-label-status')).toHaveText(
-			'Typ adresy 2: Bez typu'
-		);
+		// A newly added row announces nothing either — the row appearing is not a
+		// type selection, and the user has not chosen anything yet.
+		await expect(page.locator('#live-region')).toBeEmpty();
+		await secondLabelSelect.selectOption('HOME');
+		await expect(page.locator('#live-region')).toContainText('Typ adresy 2: Domov');
+	});
+
+	test('volba hlavní adresy se nabídne, až když je z čeho vybírat', async ({ page }) => {
+		// A single address is primary by construction, so its radio would be a tab
+		// stop that decides nothing: checked, not uncheckable, nowhere to switch.
+		await page.goto(`/contacts/${mailFixture.accountId}?create=1`);
+		await waitForShell(page);
+
+		// Named by its own <label>, so every row's radio is called "hlavní" and the
+		// row is what tells them apart — scope the locator, never the name.
+		const primaryRadio = (index: number) =>
+			page.locator(`[data-email-row="${index - 1}"]`).getByRole('radio', { name: 'hlavní' });
+		const allPrimaryRadios = () => page.getByRole('radio', { name: 'hlavní' });
+
+		// Anchor on the rendered row first — an absence assertion fired before the
+		// form mounts passes for the wrong reason (verified: without it the test
+		// still passes with the radio present).
+		await expect(page.locator('#contact-email-0')).toBeVisible();
+		await expect(allPrimaryRadios()).toHaveCount(0);
+
+		await page.getByRole('button', { name: 'Přidat e-mail' }).click();
+		await expect(primaryRadio(1)).toBeChecked();
+		await expect(primaryRadio(2)).not.toBeChecked();
+
+		// The <label> must be the accessible name, not decoration next to an
+		// aria-label: when aria-label wins, the label text drops out of the name
+		// and a screen reader reads it a second time as a stray word.
+		await expect(primaryRadio(1)).toHaveAccessibleName('hlavní');
+		await expect(primaryRadio(1)).not.toHaveAttribute('aria-label', /./);
+
+		// The route-level sweep scans the create form with a single address, where
+		// the group no longer exists — this is now the only axe pass that sees it.
+		const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+		expect(results.violations).toEqual([]);
+
+		// Arrow keys are the only way into the unchecked radio: a radio group is one
+		// tab stop, so row 2's control is reachable from row 1's, not by Tab.
+		await primaryRadio(1).focus();
+		await page.keyboard.press('ArrowDown');
+		await expect(primaryRadio(2)).toBeFocused();
+		await expect(primaryRadio(2)).toBeChecked();
+
+		// The second address is primary now (the arrow key moved the selection with
+		// the focus). Drop the first one: the group vanishes with the choice, and
+		// the survivor keeps the flag — visible again once a second row is added.
+		await page
+			.locator('[data-email-row="0"]')
+			.getByRole('button', { name: 'Odebrat e-mail' })
+			.click();
+		await expect(allPrimaryRadios()).toHaveCount(0);
+
+		await page.getByRole('button', { name: 'Přidat e-mail' }).click();
+		await expect(primaryRadio(1)).toBeChecked();
+		await expect(primaryRadio(2)).not.toBeChecked();
 	});
 
 	test('přidání a odebrání adresy v kontaktu neztratí fokus', async ({ page }) => {
@@ -799,6 +861,54 @@ test.describe('Přístupnost', () => {
 
 		await page.keyboard.press('ArrowLeft');
 		await expect(cell(0)).toBeFocused();
+	});
+
+	test('zaškrtávátko výběru řádku má ukazovátkový cíl 24×24 v obou režimech', async ({ page }) => {
+		// WCAG 2.5.8: the box stays 16px for looks, the label around it is the
+		// target. The status cell sits flush against this one, so the spacing
+		// exception cannot carry it and only size can. Asserted by geometry
+		// because axe cannot see it — its target-size rule measures the input's own
+		// rect and never merges a wrapping label, so it reports "incomplete" either
+		// way (verified against axe-core 4.12).
+		const assertTarget = async (checkboxId: string) => {
+			const label = page.locator(`label:has(#${checkboxId})`);
+			await expect(label).toHaveCount(1);
+			const box = await label.boundingBox();
+			expect(box, `${checkboxId}: label wrapper missing`).not.toBeNull();
+			expect(box!.width).toBeGreaterThanOrEqual(24);
+			expect(box!.height).toBeGreaterThanOrEqual(24);
+			// The padding is only a target if it really toggles — and it must not
+			// reach the row underneath and open the message. Click through the
+			// locator, not page.mouse: it recomputes the box at click time and waits
+			// for the element to stop moving, where measure-then-click-by-coordinate
+			// raced a reflow and missed under load.
+			const before = page.url();
+			await label.click({ position: { x: 2, y: 2 } });
+			await expect(page.locator(`#${checkboxId}`)).toBeChecked();
+			expect(page.url()).toBe(before);
+		};
+
+		await page.goto(`/mail/${mailFixture.accountId}/${mailFixture.folderName}`);
+		await waitForShell(page);
+		await assertTarget(`message-select-${mailFixture.stableId}`);
+
+		await page.addInitScript(() => {
+			window.localStorage.setItem('mail.messageGrouping', 'grouped');
+		});
+		await page.goto(`/mail/${mailFixture.accountId}/ARCHIVE`);
+		await waitForShell(page);
+		const conversationBox = page.getByRole('checkbox', { name: /^Vybrat konverzaci/ }).first();
+		await expect(conversationBox).toBeVisible();
+		const conversationLabel = page.locator('label').filter({ has: conversationBox }).first();
+		await expect(conversationLabel).toHaveCount(1);
+		const wrapper = await conversationLabel.boundingBox();
+		expect(wrapper).not.toBeNull();
+		expect(wrapper!.width).toBeGreaterThanOrEqual(24);
+		expect(wrapper!.height).toBeGreaterThanOrEqual(24);
+		const beforeUrl = page.url();
+		await conversationLabel.click({ position: { x: 2, y: 2 } });
+		await expect(conversationBox).toBeChecked();
+		expect(page.url()).toBe(beforeUrl);
 	});
 
 	test('výsledky hledání tvoří grid s navigací po buňkách a otevření přesune fokus na text zprávy', async ({

@@ -371,6 +371,7 @@ public class ContactService {
 
         // PUT is replace semantics all the way down: no labelIds means no labels.
         Set<ContactLabelEntity> labels = contactLabelService.resolveLabels(accountId, request.labelIds());
+        deleteEmailsBeforeReplacing(entity);
         contactMapper.applyUpdate(entity, request, labels);
         ContactEntity saved = contactRepository.save(entity);
 
@@ -394,12 +395,40 @@ public class ContactService {
         Set<ContactLabelEntity> labels = request.labelIds() == null
                 ? null
                 : contactLabelService.resolveLabels(accountId, request.labelIds());
+        if (request.emails() != null)
+            deleteEmailsBeforeReplacing(entity);
         contactMapper.applyPatch(entity, request, labels);
         ContactEntity saved = contactRepository.save(entity);
 
         AuditLog.success("contact_patch", LogMasker.maskEmail(account.getEmail()),
                 "contact_id=" + saved.getId() + " email=" + LogMasker.maskEmail(primaryEmail(saved)));
         return contactMapper.toResponse(saved);
+    }
+
+    /**
+     * Empties the address list and pushes the deletes out before the replacements
+     * are added.
+     *
+     * <p>
+     * Replacing addresses is delete-then-insert, and within one flush Hibernate
+     * runs the inserts before the orphan deletes. Both indexes on
+     * {@code contact_emails} then see a state that only exists mid-flush:
+     * {@code ux_contact_emails_contact_primary} sees two primaries whenever the
+     * incoming order promotes a different address, and
+     * {@code ux_contact_emails_contact_email} sees a duplicate for every address
+     * that survives the edit. Either one fails the save with
+     * SQLITE_CONSTRAINT_UNIQUE, so <em>every</em> edit of an existing contact did,
+     * not only one that moves the primary. Same shape as the demote-flush-promote
+     * in {@link #setPrimaryEmail}: make the intermediate state legal instead of
+     * relying on statement order. Covered by
+     * {@code ContactRepositoryIT#updateContactReordersPrimary} and
+     * {@code #updateContactKeepsOrder}.
+     */
+    private void deleteEmailsBeforeReplacing(ContactEntity entity) {
+        if (entity.getEmails().isEmpty())
+            return;
+        entity.getEmails().clear();
+        contactRepository.flush();
     }
 
     @Transactional

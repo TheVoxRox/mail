@@ -5,6 +5,7 @@
 	import { isValidEmailAddress } from '$lib/compose/addresses.js';
 	import { confirmAction } from '$lib/stores/confirmDialog.js';
 	import { contactCounts } from '$lib/stores/contactCounts.js';
+	import { announcePolite } from '$lib/stores/toasts.js';
 	import { installLeaveGuard } from '$lib/leaveGuard.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Field } from '$lib/components/ui/field/index.js';
@@ -137,20 +138,23 @@
 		emailErrors = emailErrors.map((value, i) => (i === index ? null : value));
 	}
 
-	function primaryRadioLabel(index: number): string {
-		return $_('contacts.primaryRadioLabel', { values: { index: index + 1 } });
-	}
-
-	function emailTypeStatusId(index: number): string {
-		return `contact-email-${index}-label-status`;
-	}
-
-	function emailTypeAnnouncement(index: number, label: EmailLabel | ''): string {
+	/*
+	 * The type select swallows ArrowDown to open the picker instead of cycling
+	 * values, so the chosen type needs saying out loud. It goes through the
+	 * app-wide announcer, which drops the message from the DOM after ~1.5 s: a
+	 * live region that keeps its text is also ordinary content, and a screen
+	 * reader walking the form reads it a second time right after the select.
+	 * Announcing from onchange (not from the value) also keeps mount and the
+	 * edit-form prefill silent.
+	 */
+	function announceEmailType(index: number, label: EmailLabel | ''): void {
 		const typeText =
 			label === ''
 				? $_('contacts.emailTypeOptions.none')
 				: $_(`contacts.emailTypeOptions.${label}`);
-		return $_('contacts.emailTypeSelection', { values: { index: index + 1, type: typeText } });
+		announcePolite(
+			$_('contacts.emailTypeSelection', { values: { index: index + 1, type: typeText } })
+		);
 	}
 
 	function setPrimary(index: number) {
@@ -383,6 +387,8 @@
 						<Select
 							id={`contact-email-${index}-label`}
 							bind:value={row.label}
+							onchange={(event) =>
+								announceEmailType(index, event.currentTarget.value as EmailLabel | '')}
 							size="sm"
 							disabled={busy}
 						>
@@ -391,28 +397,39 @@
 							<option value="WORK">{$_('contacts.emailTypeOptions.WORK')}</option>
 							<option value="OTHER">{$_('contacts.emailTypeOptions.OTHER')}</option>
 						</Select>
-						<span id={emailTypeStatusId(index)} class="sr-only" role="status" aria-atomic="true">
-							{emailTypeAnnouncement(index, row.label)}
-						</span>
 					</Field>
-					<div class="flex items-center gap-1.5 md:h-9">
-						<input
-							id={`contact-email-${index}-primary`}
-							type="radio"
-							name="contact-primary-email"
-							class="size-4 border-input bg-background text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-							checked={row.primary}
-							onchange={() => setPrimary(index)}
-							disabled={busy}
-							aria-label={primaryRadioLabel(index)}
-						/>
-						<label
-							for={`contact-email-${index}-primary`}
-							class="select-none text-xs text-muted-foreground"
-						>
-							{$_('contacts.emailPrimary')}
-						</label>
-					</div>
+					<!--
+						A single address is primary by construction (newRow(…, true), and
+						handleSubmit promotes entries[0] anyway), so a lone radio offers no
+						choice — it is checked, cannot be unchecked and has nothing to switch
+						to. Hiding it below two rows keeps a dead tab stop out of the form.
+					-->
+					{#if emails.length > 1}
+						<!--
+							Named by its <label>, never by aria-label. An aria-label wins over the
+							label, which then stops being the control's name and turns into ordinary
+							content — a screen reader reads the radio and then repeats the label text
+							as a stray word after it. Every other field here is named natively, which
+							is why this was the only one that stuttered.
+						-->
+						<div class="flex items-center gap-1.5 md:h-9">
+							<input
+								id={`contact-email-${index}-primary`}
+								type="radio"
+								name="contact-primary-email"
+								class="size-4 border-input bg-background text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+								checked={row.primary}
+								onchange={() => setPrimary(index)}
+								disabled={busy}
+							/>
+							<label
+								for={`contact-email-${index}-primary`}
+								class="select-none text-xs text-muted-foreground"
+							>
+								{$_('contacts.emailPrimary')}
+							</label>
+						</div>
+					{/if}
 					{#if index === emails.length - 1}
 						<Button
 							type="button"
