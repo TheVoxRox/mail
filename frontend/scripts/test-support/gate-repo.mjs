@@ -35,6 +35,43 @@ import { fileURLToPath } from 'node:url';
 const scriptsDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const realNodeModules = path.resolve(scriptsDir, '..', 'node_modules');
 
+/**
+ * Points a fixture's `frontend/node_modules` at the real one. Two gates shell
+ * out to a package rather than to git; the rest never notice it is there.
+ */
+function linkNodeModules(frontend) {
+	if (!existsSync(realNodeModules)) return false;
+	try {
+		symlinkSync(realNodeModules, path.join(frontend, 'node_modules'), 'junction');
+		return true;
+	} catch {
+		// A platform or policy that refuses links. Callers that need a package
+		// ask `fixtureHasDependencies()` and skip; the others carry on.
+		return false;
+	}
+}
+
+let dependenciesAvailable;
+
+/**
+ * Whether a fixture can reach the packages two of the gates invoke. A suite
+ * that needs one asks first and skips if the answer is no: an ENOENT from a
+ * missing `prettier` says nothing about the gate under test, and a red suite
+ * that means "this machine cannot run me" is a red suite people stop reading.
+ */
+export function fixtureHasDependencies() {
+	if (dependenciesAvailable === undefined) {
+		const probe = mkdtempSync(path.join(os.tmpdir(), 'voxrox-deps-probe-'));
+		try {
+			dependenciesAvailable =
+				linkNodeModules(probe) && existsSync(path.join(probe, 'node_modules', 'prettier'));
+		} finally {
+			rmSync(probe, { recursive: true, force: true });
+		}
+	}
+	return dependenciesAvailable;
+}
+
 export function createGateRepo() {
 	const root = mkdtempSync(path.join(os.tmpdir(), 'voxrox-gate-'));
 	const frontend = path.join(root, 'frontend');
@@ -67,15 +104,7 @@ export function createGateRepo() {
 		'utf8'
 	);
 
-	// One script imports prettier; a link costs nothing for the rest.
-	if (existsSync(realNodeModules)) {
-		try {
-			symlinkSync(realNodeModules, path.join(frontend, 'node_modules'), 'junction');
-		} catch {
-			// A platform or policy that refuses links only affects the one
-			// script that needs a package; the others do not notice.
-		}
-	}
+	linkNodeModules(frontend);
 
 	const installed = new Set();
 	function install(scriptName) {

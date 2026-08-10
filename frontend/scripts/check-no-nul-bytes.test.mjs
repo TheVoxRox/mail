@@ -1,6 +1,8 @@
-import { mkdtempSync, rmSync, symlinkSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { chmodSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import process from 'node:process';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createGateRepo } from './test-support/gate-repo.mjs';
 
@@ -18,6 +20,56 @@ const canSymlink = (() => {
 		return false;
 	} finally {
 		rmSync(probe, { recursive: true, force: true });
+	}
+})();
+
+/**
+ * Takes away this account's read access to `abs` and returns the undo, or
+ * `null` if the denial did not actually take — root and an elevated Windows
+ * account both read straight through one, and asserting on a restriction the
+ * OS ignored would test nothing.
+ */
+function denyRead(abs) {
+	const account = os.userInfo().username;
+	const windows = process.platform === 'win32';
+	const restore = () =>
+		windows
+			? execFileSync('icacls', [abs, '/remove:d', account], { stdio: 'ignore' })
+			: chmodSync(abs, 0o644);
+
+	try {
+		if (windows) {
+			execFileSync('icacls', [abs, '/deny', `${account}:(R)`], { stdio: 'ignore' });
+		} else {
+			chmodSync(abs, 0o000);
+		}
+	} catch {
+		return null;
+	}
+
+	try {
+		readFileSync(abs);
+	} catch {
+		return restore;
+	}
+	restore();
+	return null;
+}
+
+/** Whether `denyRead` has any effect on this machine and account. */
+const canDenyRead = (() => {
+	const dir = mkdtempSync(path.join(os.tmpdir(), 'voxrox-deny-probe-'));
+	try {
+		const file = path.join(dir, 'probe.txt');
+		writeFileSync(file, 'probe\n');
+		const restore = denyRead(file);
+		if (!restore) return false;
+		restore();
+		return true;
+	} catch {
+		return false;
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
 	}
 })();
 
@@ -114,6 +166,30 @@ describe('check-no-nul-bytes', () => {
 		expect(result.status).toBe(1);
 		expect(result.stderr).toContain('src/zz-offender.ts');
 		expect(result.stderr).not.toContain('EISDIR');
+	});
+
+	/*
+	 * Skipping what cannot be opened is right for a symlink and wrong for a
+	 * file that is merely locked or unreadable: one has no bytes of its own,
+	 * the other has bytes nobody looked at. Treating them alike turned a
+	 * Windows handle held by an editor or a scanner into a printed "NUL check
+	 * OK" — the gate reporting a verdict on files it never read.
+	 */
+	it.skipIf(!canDenyRead)('refuses to call a file clean when it could not be read', () => {
+		repo.write('src/app.ts', 'export const x = 1;\n');
+		const locked = repo.write('src/locked.ts', 'export const y = 2;\n');
+		repo.commit();
+
+		const restore = denyRead(locked);
+		try {
+			const result = repo.run('check-no-nul-bytes.mjs');
+
+			expect(result.status).toBe(1);
+			expect(result.stderr).toContain('src/locked.ts');
+			expect(result.stdout).not.toContain('NUL check OK');
+		} finally {
+			restore();
+		}
 	});
 
 	it('ignores untracked files — the gate judges what git would carry', () => {

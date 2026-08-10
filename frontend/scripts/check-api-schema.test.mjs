@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createGateRepo } from './test-support/gate-repo.mjs';
+import { createGateRepo, fixtureHasDependencies } from './test-support/gate-repo.mjs';
 
 /*
  * The generated `schema.d.ts` is what the frontend types itself against, so a
@@ -77,7 +77,16 @@ afterEach(() => {
 	repo.cleanup();
 });
 
-describe('check-api-schema', () => {
+/*
+ * The slowest suite here by a wide margin: every case regenerates the schema,
+ * which means openapi-typescript and prettier as separate processes, and the
+ * gate spawns them again for the comparison. A cold Windows run measured
+ * 5.1 s on the first case against vitest's 5 s default — green, but only by
+ * accident of timing, and a gate suite that goes red on a slow runner teaches
+ * people to rerun rather than to read. The generation also needs the packages
+ * themselves, so the suite skips outright where a fixture cannot reach them.
+ */
+describe.skipIf(!fixtureHasDependencies())('check-api-schema', { timeout: 30_000 }, () => {
 	it('fails when the committed schema does not match the snapshot', () => {
 		seed();
 

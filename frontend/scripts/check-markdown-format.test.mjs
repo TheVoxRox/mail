@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createGateRepo } from './test-support/gate-repo.mjs';
+import { createGateRepo, fixtureHasDependencies } from './test-support/gate-repo.mjs';
 
 /*
  * A thin wrapper around prettier, so the formatting itself is not what is
@@ -22,7 +22,8 @@ afterEach(() => {
 	repo.cleanup();
 });
 
-describe('check-markdown-format', () => {
+// The gate is prettier; without it in the fixture there is nothing to assert.
+describe.skipIf(!fixtureHasDependencies())('check-markdown-format', () => {
 	it('passes on formatted Markdown', () => {
 		repo.write('README.md', '# Title\n\nA paragraph.\n');
 		repo.commit();
