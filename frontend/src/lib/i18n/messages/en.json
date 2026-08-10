@@ -435,6 +435,8 @@
 		"loading": "Loading…",
 		"empty": "No contacts.",
 		"emptyLabeled": "No contacts with the {label} label.",
+		"renderError": "The contact list could not be displayed — the data from the mail service has an unexpected shape.",
+		"renderErrorRetry": "Reload contacts",
 		"sortLabel": "Sort by",
 		"sortOptions": {
 			"name": "First name",

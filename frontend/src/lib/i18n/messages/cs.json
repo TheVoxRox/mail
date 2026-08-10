@@ -435,6 +435,8 @@
 		"loading": "Načítám…",
 		"empty": "Žádné kontakty.",
 		"emptyLabeled": "Žádný kontakt se štítkem {label}.",
+		"renderError": "Seznam kontaktů se nepodařilo zobrazit — data ze služby pošty mají neočekávanou podobu.",
+		"renderErrorRetry": "Načíst kontakty znovu",
 		"sortLabel": "Řadit podle",
 		"sortOptions": {
 			"name": "Křestní jméno",

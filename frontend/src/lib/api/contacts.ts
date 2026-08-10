@@ -9,6 +9,9 @@ import type {
 	ContactAutocompleteResponse,
 	ContactCountsResponse,
 	ContactCreateRequest,
+	ContactEmailResponse,
+	ContactLabelCountResponse,
+	ContactLabelResponse,
 	ContactMergeRequest,
 	ContactResponse,
 	ContactUpdateRequest,
@@ -18,7 +21,44 @@ import type { PageParams } from './mailRead.js';
 
 export type ContactSort = 'name' | 'surname' | 'recent';
 
-export function listContacts(
+/*
+ * ── What the wire may actually carry ──────────────────────────────────────
+ *
+ * The contract says the list fields are always there — they are Java `List`s
+ * and Jackson never omits them — so `ContactResponse` declares them required
+ * and the UI reads them without a guard, once per row. A backend built before
+ * a field existed answers 200 without the key, and then one absent list takes
+ * the whole view down: the pre-labels sidecar sent contacts with no `labels`,
+ * `c.labels.length` threw while rendering and the contact list stayed blank
+ * with no message (#252). Its counts endpoint answered in the pre-labels
+ * shape for the same reason.
+ *
+ * The version handshake is what keeps a mismatched pair from running at all;
+ * these types are what keeps the damage proportionate when something slips
+ * past it — a contact with no labels, not a dead page.
+ */
+type WireContactResponse = Omit<ContactResponse, 'emails' | 'labels'> & {
+	emails?: ContactEmailResponse[] | null;
+	labels?: ContactLabelResponse[] | null;
+};
+
+type WireContactPage = Omit<PagedResponse<ContactResponse>, 'content'> & {
+	content?: WireContactResponse[] | null;
+};
+
+type WireContactCountsResponse = Omit<ContactCountsResponse, 'labels'> & {
+	labels?: ContactLabelCountResponse[] | null;
+};
+
+function normalizeContact(contact: WireContactResponse): ContactResponse {
+	return { ...contact, emails: contact.emails ?? [], labels: contact.labels ?? [] };
+}
+
+function normalizeContactPage(page: WireContactPage): PagedResponse<ContactResponse> {
+	return { ...page, content: (page.content ?? []).map(normalizeContact) };
+}
+
+export async function listContacts(
 	accountId: number,
 	options: PageParams & { q?: string; sort?: ContactSort; labelId?: number } = {}
 ): Promise<PagedResponse<ContactResponse>> {
@@ -28,11 +68,14 @@ export function listContacts(
 	if (options.size != null) params.size = String(options.size);
 	if (options.sort) params.sort = options.sort;
 	if (options.labelId != null) params.labelId = String(options.labelId);
-	return api.get(`/accounts/${accountId}/contacts`, { params });
+	return normalizeContactPage(
+		await api.get<WireContactPage>(`/accounts/${accountId}/contacts`, { params })
+	);
 }
 
-export function getContactCounts(accountId: number): Promise<ContactCountsResponse> {
-	return api.get<ContactCountsResponse>(`/accounts/${accountId}/contacts/counts`);
+export async function getContactCounts(accountId: number): Promise<ContactCountsResponse> {
+	const counts = await api.get<WireContactCountsResponse>(`/accounts/${accountId}/contacts/counts`);
+	return { ...counts, labels: counts.labels ?? [] };
 }
 
 export function autocompleteContacts(
@@ -45,11 +88,13 @@ export function autocompleteContacts(
 	return api.get(`/accounts/${accountId}/contacts/autocomplete`, { params });
 }
 
-export function createContact(
+export async function createContact(
 	accountId: number,
 	body: ContactCreateRequest
 ): Promise<ContactResponse> {
-	return api.post<ContactResponse>(`/accounts/${accountId}/contacts`, body);
+	return normalizeContact(
+		await api.post<WireContactResponse>(`/accounts/${accountId}/contacts`, body)
+	);
 }
 
 export function bulkCreateContacts(
@@ -59,17 +104,21 @@ export function bulkCreateContacts(
 	return api.post<BulkContactCreateResponse>(`/accounts/${accountId}/contacts/bulk`, body);
 }
 
-export function getContact(accountId: number, contactId: number): Promise<ContactResponse> {
-	return api.get<ContactResponse>(`/accounts/${accountId}/contacts/${contactId}`);
+export async function getContact(accountId: number, contactId: number): Promise<ContactResponse> {
+	return normalizeContact(
+		await api.get<WireContactResponse>(`/accounts/${accountId}/contacts/${contactId}`)
+	);
 }
 
 /** Full contact replace (PUT) — name/surname/note plus the whole e-mail list; the first e-mail becomes primary. */
-export function updateContact(
+export async function updateContact(
 	accountId: number,
 	contactId: number,
 	body: ContactUpdateRequest
 ): Promise<ContactResponse> {
-	return api.put<ContactResponse>(`/accounts/${accountId}/contacts/${contactId}`, body);
+	return normalizeContact(
+		await api.put<WireContactResponse>(`/accounts/${accountId}/contacts/${contactId}`, body)
+	);
 }
 
 export function deleteContact(accountId: number, contactId: number): Promise<void> {
@@ -84,12 +133,14 @@ export function bulkDeleteContacts(
 }
 
 /** Merges source contacts into the target — see `POST /accounts/{id}/contacts/{targetId}/merge`. */
-export function mergeContacts(
+export async function mergeContacts(
 	accountId: number,
 	targetId: number,
 	body: ContactMergeRequest
 ): Promise<ContactResponse> {
-	return api.post<ContactResponse>(`/accounts/${accountId}/contacts/${targetId}/merge`, body);
+	return normalizeContact(
+		await api.post<WireContactResponse>(`/accounts/${accountId}/contacts/${targetId}/merge`, body)
+	);
 }
 
 /** Downloads all account contacts as vCard 4.0 (RFC 6350). */
