@@ -1,6 +1,7 @@
 import { access, cp, mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { recordBackendSourceHash } from './lib/sidecar-staleness.mjs';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const defaultSource = path.resolve(
@@ -54,4 +55,15 @@ try {
 	// cfg missing in this layout — keep whatever is present
 }
 
+/*
+ * Record what this binary was built from, so `tauri:dev` can refuse to run a
+ * sidecar that no longer matches the checked-out backend (see
+ * lib/sidecar-staleness.mjs). Written here rather than in the PowerShell
+ * packaging step because this is the point where the binary becomes the one
+ * the app will launch.
+ */
+const repoRoot = path.resolve(scriptDir, '..', '..');
+const { hash, fileCount } = await recordBackendSourceHash(repoRoot);
+
 console.log(`Copied backend sidecar to ${destination}`);
+console.log(`Backend sources at sync: ${hash.slice(0, 12)}… (${fileCount} files)`);
