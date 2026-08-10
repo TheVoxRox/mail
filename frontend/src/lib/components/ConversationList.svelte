@@ -893,21 +893,24 @@
 							class="row-span-2 flex items-start justify-center py-3"
 							onclick={(e) => e.stopPropagation()}
 						>
-							<input
-								type="checkbox"
-								data-cell-target
-								data-col={COL_SELECT}
-								class="mt-1 size-4 accent-primary"
-								checked={selected.has(row.conversation.latest.stableId)}
-								tabindex={focusedRow === rowIndex && focusedCol === COL_SELECT ? 0 : -1}
-								aria-label={selectionLabel(row.conversation)}
-								onfocus={() => handleCellFocus(rowIndex, COL_SELECT)}
-								onchange={(event) =>
-									toggleConversation(
-										row.conversation.latest.stableId,
-										(event.currentTarget as HTMLInputElement).checked
-									)}
-							/>
+							<!-- 24px pointer target around the 16px box, see MessageList. -->
+							<label class="flex size-6 cursor-pointer items-center justify-center">
+								<input
+									type="checkbox"
+									data-cell-target
+									data-col={COL_SELECT}
+									class="size-4 accent-primary"
+									checked={selected.has(row.conversation.latest.stableId)}
+									tabindex={focusedRow === rowIndex && focusedCol === COL_SELECT ? 0 : -1}
+									aria-label={selectionLabel(row.conversation)}
+									onfocus={() => handleCellFocus(rowIndex, COL_SELECT)}
+									onchange={(event) =>
+										toggleConversation(
+											row.conversation.latest.stableId,
+											(event.currentTarget as HTMLInputElement).checked
+										)}
+								/>
+							</label>
 						</div>
 					{:else}
 						<div

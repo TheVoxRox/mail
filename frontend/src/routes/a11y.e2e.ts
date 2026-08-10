@@ -846,6 +846,51 @@ test.describe('Přístupnost', () => {
 		await expect(cell(0)).toBeFocused();
 	});
 
+	test('zaškrtávátko výběru řádku má ukazovátkový cíl 24×24 v obou režimech', async ({ page }) => {
+		// WCAG 2.5.8: the box stays 16px for looks, the label around it is the
+		// target. The status cell sits flush against this one, so the spacing
+		// exception cannot carry it and only size can. Asserted by geometry
+		// because axe cannot see it — its target-size rule measures the input's own
+		// rect and never merges a wrapping label, so it reports "incomplete" either
+		// way (verified against axe-core 4.12).
+		const assertTarget = async (checkboxId: string) => {
+			const label = page.locator(`label:has(#${checkboxId})`);
+			await expect(label).toHaveCount(1);
+			const box = await label.boundingBox();
+			expect(box, `${checkboxId}: label wrapper missing`).not.toBeNull();
+			expect(box!.width).toBeGreaterThanOrEqual(24);
+			expect(box!.height).toBeGreaterThanOrEqual(24);
+			// The padding is only a target if it really toggles — and it must not
+			// reach the row underneath and open the message.
+			const before = page.url();
+			await page.mouse.click(box!.x + 2, box!.y + 2);
+			await expect(page.locator(`#${checkboxId}`)).toBeChecked();
+			expect(page.url()).toBe(before);
+		};
+
+		await page.goto(`/mail/${mailFixture.accountId}/${mailFixture.folderName}`);
+		await waitForShell(page);
+		await assertTarget(`message-select-${mailFixture.stableId}`);
+
+		await page.addInitScript(() => {
+			window.localStorage.setItem('mail.messageGrouping', 'grouped');
+		});
+		await page.goto(`/mail/${mailFixture.accountId}/ARCHIVE`);
+		await waitForShell(page);
+		const conversationBox = page.getByRole('checkbox', { name: /^Vybrat konverzaci/ }).first();
+		await expect(conversationBox).toBeVisible();
+		const conversationLabel = page.locator('label').filter({ has: conversationBox }).first();
+		await expect(conversationLabel).toHaveCount(1);
+		const wrapper = await conversationLabel.boundingBox();
+		expect(wrapper).not.toBeNull();
+		expect(wrapper!.width).toBeGreaterThanOrEqual(24);
+		expect(wrapper!.height).toBeGreaterThanOrEqual(24);
+		const beforeUrl = page.url();
+		await page.mouse.click(wrapper!.x + 2, wrapper!.y + 2);
+		await expect(conversationBox).toBeChecked();
+		expect(page.url()).toBe(beforeUrl);
+	});
+
 	test('výsledky hledání tvoří grid s navigací po buňkách a otevření přesune fokus na text zprávy', async ({
 		page
 	}) => {
