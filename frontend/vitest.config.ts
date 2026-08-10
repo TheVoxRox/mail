@@ -37,11 +37,35 @@ export default defineConfig({
 	},
 	test: {
 		environment: 'node',
-		include: ['src/**/*.test.ts', 'scripts/**/*.test.mjs'],
 		exclude: ['**/node_modules/**', '**/*.e2e.ts'],
 		globals: false,
 		clearMocks: true,
 		restoreMocks: true,
+		/*
+		 * Two projects only because they need different timeouts. The gate suites
+		 * run their script as a process against a throwaway git repo, so a single
+		 * test is a handful of `git` and `node` spawns: the slowest sit at 2–3 s on
+		 * an idle machine, which the 5 s default survives right up until the machine
+		 * is busy (a parallel e2e run was enough to time out
+		 * check-audit-freshness). Raising it for `src` too would cost the fast fail
+		 * on a genuinely hung unit test, which is worth keeping.
+		 */
+		projects: [
+			{
+				extends: true,
+				test: { name: 'unit', environment: 'node', include: ['src/**/*.test.ts'] }
+			},
+			{
+				extends: true,
+				test: {
+					name: 'gates',
+					environment: 'node',
+					include: ['scripts/**/*.test.mjs'],
+					testTimeout: 30000,
+					hookTimeout: 30000
+				}
+			}
+		],
 		coverage: {
 			provider: 'v8',
 			// Floors set ~5 points below the actual baseline so an accidental
