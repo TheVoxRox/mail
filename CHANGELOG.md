@@ -194,6 +194,7 @@ sekci s podsekcemi podle artefaktu.
 
 ### Bezpečnost a OAuth
 
+- Triáž otevřených code-scanning nálezů. Dva zavřeny jako won't fix se stejným odůvodněním jako jejich dřívější dvojčata: log-injection v `ContactController` (#127) je pokrytý `CrlfSafeMessageConverter`, který v `logback-spring.xml` přebírá `%m`/`%msg`/`%message` a čistí CR/LF až po expanzi `{}` placeholderů, takže i parametry `q`/`sort` z requestu — CodeQL ten converter nemodeluje; `getLabels` v `ContactEntity` (#128) vrací živou `@ManyToMany` kolekci, protože ji spravuje Hibernate a defenzivní kopie by rozbila mapování (totéž už bylo uzavřeno u `emails`). Zbylé dva (#130/#131, DOMPurify uvnitř swagger-ui webjaru) zůstávají otevřené a nově je hlídá položka v `todo.md` — fix neexistuje, swagger-ui s DOMPurify 3.4.13 zatím nevyšel. Komentář u pinu `org.webjars:swagger-ui` v `backend/pom.xml` mezitím tvrdil podmínku odstranění, která je už splněná (springdoc 3.1.0 řídí 5.32.11 sám), takže by dalšího čtenáře navedl pin zahodit uprostřed otevřeného nálezu — přepsán na skutečný stav.
 - Microsoft OAuth (Outlook / Exchange Online) backend hotový — frontend wizard přepnutý na OAuth flow pro `@outlook.com`, `@hotmail.com`, `@live.com`. Před produkčním release ještě potřeba verified publisher.
 - OAuth failure UX: dedikovaná `auth-failed.html` stránka s `?reason=...` kódem (Spring `oauth2FailureHandler` loguje na WARN).
 

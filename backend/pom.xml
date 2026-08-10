@@ -147,14 +147,24 @@
 		</dependency>
 		<dependency>
 			<!--
-				Security override: springdoc 3.0.3 bundles swagger-ui 5.32.2, which ships
-				DOMPurify 3.3.2 with a DOM-XSS bypass (CVE-2026-49978 et al., fixed in
-				DOMPurify 3.4.7; swagger-ui carries the patched build from 5.32.7). Not
-				exposed in production — both springdoc.api-docs.enabled and
-				springdoc.swagger-ui.enabled default to false (only turned on for OpenAPI
-				snapshot generation in dev/CI). Pinning the webjar explicitly is the
-				springdoc-recommended way to override the bundled version. Drop this once
-				springdoc's managed swagger-ui is >= 5.32.7.
+				Explicit pin of the swagger-ui webjar springdoc pulls in — the
+				springdoc-recommended way to move it ahead of the starter. It was added
+				for a DOMPurify 3.3.2 DOM-XSS (CVE-2026-49978 et al., patched in
+				swagger-ui 5.32.7) and that condition is now met: springdoc 3.1.0
+				manages 5.32.11 itself, so today the pin changes nothing.
+
+				It stays because the successor finding is open. 5.32.11 bundles
+				DOMPurify 3.4.12 and GHSA-55q2-fjhq-7xh7 (removing an IN_PLACE hook
+				leaves a detached subtree executable) is fixed in 3.4.13, which no
+				swagger-ui release carries yet — Maven Central's latest was still
+				5.32.11 on 2026-08-10. This line is where that bump lands; drop it once
+				springdoc's own managed version is at or past it. Tracked as
+				code-scanning alerts #130/#131 with the standing details in todo.md.
+
+				Not exploitable here either way: nothing in the app loads the bundle,
+				both springdoc.api-docs.enabled and springdoc.swagger-ui.enabled default
+				to false, and the production fat jar carries no springdoc at all (the
+				webjar itself does ride along — excludeGroupIds filters on groupId).
 			-->
 			<groupId>org.webjars</groupId>
 			<artifactId>swagger-ui</artifactId>
