@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { closeSync, constants, fstatSync, openSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
@@ -81,13 +81,70 @@ function declaredBinary(files) {
 const files = filesToCheck();
 const declared = declaredBinary(files);
 const offenders = [];
+const unreadable = [];
+
+/** A tracked path that carries no bytes of its own for this check to read. */
+const NOTHING_TO_READ = Symbol('nothing to read');
+
+/*
+ * The only reasons a tracked path may legitimately fail to open. Anything else
+ * — EACCES, or the EPERM/EBUSY a Windows editor or virus scanner produces
+ * while it holds a handle — means the file was not inspected, and a file that
+ * was not inspected is not a file that came back clean. Those are collected
+ * and reported rather than skipped, because silence here is indistinguishable
+ * from a pass.
+ */
+const NOT_A_REGULAR_FILE = new Set([
+	'ENOENT', // gone since git listed it, e.g. a staged deletion
+	'ELOOP', // a symlink, which O_NOFOLLOW refuses
+	'EMLINK', // how some BSDs report that same refusal
+	'EISDIR', // a directory — Windows will not open one at all
+	'ENOTDIR' // a path component that is no longer a directory
+]);
+
+/*
+ * Not everything git tracks is a regular file: a symlink is stored as its
+ * target path, a submodule as a gitlink. Reading either as bytes fails —
+ * EISDIR for a symlink pointing at a directory, which killed the whole run
+ * partway through the tree until this was handled.
+ *
+ * Everything is asked of one open descriptor rather than of the path twice.
+ * Stat-then-read is a check against one file and a read of whatever occupies
+ * the path a moment later; `fstat` on the descriptor already open cannot be
+ * answered about a different file.
+ *
+ * `O_NOFOLLOW` refuses a symlink outright — on the platforms that define it.
+ * Windows does not, so there the link is followed and `fstat` answers about
+ * the target: a link to a directory is still skipped, so the EISDIR crash
+ * cannot come back, while a link to a file is read as its target's bytes.
+ * That asymmetry costs nothing in practice, because git on Windows writes a
+ * tracked symlink out as an ordinary file unless `core.symlinks` is on.
+ */
+function readRegularFile(abs) {
+	let fd;
+	try {
+		fd = openSync(abs, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+	} catch (err) {
+		if (NOT_A_REGULAR_FILE.has(err.code)) return NOTHING_TO_READ;
+		throw err;
+	}
+	try {
+		return fstatSync(fd).isFile() ? readFileSync(fd) : NOTHING_TO_READ;
+	} finally {
+		closeSync(fd);
+	}
+}
 
 for (const file of files) {
 	if (declared.has(file)) continue;
-	const abs = path.join(repoRoot, file);
-	// A staged deletion or a file removed after staging has nothing to read.
-	if (!existsSync(abs)) continue;
-	const bytes = readFileSync(abs);
+	let bytes;
+	try {
+		bytes = readRegularFile(path.join(repoRoot, file));
+	} catch (err) {
+		unreadable.push({ file, reason: err.code ?? err.message });
+		continue;
+	}
+	if (bytes === NOTHING_TO_READ) continue;
 	const at = bytes.indexOf(0);
 	if (at >= 0) offenders.push({ file, at });
 }
@@ -103,7 +160,21 @@ if (offenders.length > 0) {
 	console.error('(Java \\0, TypeScript \\u0000). If the file really is binary, declare it');
 	console.error('in .gitattributes next to the other binary asset types.');
 	process.exitCode = 1;
-} else {
+}
+
+if (unreadable.length > 0) {
+	console.error('Tracked files that could not be read, and so were not checked:');
+	for (const { file, reason } of unreadable) {
+		console.error(`  - ${file} (${reason})`);
+	}
+	console.error('');
+	console.error('Reporting these as clean would be a guess. Release whatever holds the');
+	console.error('file — an editor, a scanner, a stale build — or fix its permissions,');
+	console.error('and run the check again.');
+	process.exitCode = 1;
+}
+
+if (offenders.length === 0 && unreadable.length === 0) {
 	const scope = stagedOnly ? 'staged file(s)' : 'tracked file(s)';
 	console.log(
 		`NUL check OK: ${files.length} ${scope}, ${declared.size} declared binary and skipped.`
