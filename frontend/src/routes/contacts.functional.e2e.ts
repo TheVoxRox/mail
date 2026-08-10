@@ -958,4 +958,53 @@ test.describe('Contacts', () => {
 		expect(sent.contacts[0].labelIds).toHaveLength(2);
 		expect(sent.contacts[0].labelIds).toContain(1);
 	});
+
+	test('seznam se vykreslí i proti backendu, který štítky ještě nezná', async ({ page }) => {
+		// Odpověď bez klíče `labels`, počty v předštítkovém tvaru a /contact-labels
+		// vracející 500 — přesně to, co posílal starší sidecar v #252. Tehdy
+		// `c.labels.length` shodilo vykreslení a seznam zůstal prázdný.
+		await page.addInitScript(() => {
+			window.localStorage.setItem('mail.e2e.contactsLegacyShape', '1');
+		});
+
+		await page.goto('/contacts/1');
+		await waitForShell(page);
+
+		await expect(page.getByText('Jana Novak')).toBeVisible();
+		await expect(page.getByRole('gridcell', { name: 'jana@example.com' })).toBeVisible();
+		// Chybějící seznam štítků čte řádek jako "bez štítku", ne jako pád.
+		await expect(page.getByRole('gridcell', { name: 'Bez štítku' })).toBeVisible();
+		await expect(page.getByRole('alert')).toHaveCount(0);
+	});
+
+	test('řádek, který renderer nezvládne, skončí chybou s možností načíst znovu', async ({
+		page
+	}) => {
+		// Pole, kterému se změnil typ — třída driftu, kterou doplnění chybějícího
+		// pole na hranici API neopraví. Bez hranice zůstala stránka viset na
+		// "Načítám…" bez hlášky a bez čeho se chytit (#252).
+		await page.addInitScript(() => {
+			window.localStorage.setItem('mail.e2e.contactsBrokenRow', '1');
+		});
+
+		await page.goto('/contacts/1');
+		await waitForShell(page);
+
+		await expect(page.getByRole('alert')).toContainText('Seznam kontaktů se nepodařilo zobrazit');
+		await expect(page.getByText('Načítám…')).toHaveCount(0);
+
+		// Tlačítko musí opravdu znovu načítat: reset mocků vrátí odpovědi do
+		// dnešního tvaru (backend mezitím doběhl do správné verze) a teprve pak
+		// má klik smysl.
+		const retry = page.getByRole('button', { name: 'Načíst kontakty znovu' });
+		await expect(retry).toBeVisible();
+		await page.evaluate(() => {
+			window.localStorage.setItem('mail.e2e.contactsBrokenRow', '0');
+			window.__MAIL_MSW__?.reset();
+		});
+		await retry.click();
+
+		await expect(page.getByText('Jana Novak')).toBeVisible();
+		await expect(page.getByRole('alert')).toHaveCount(0);
+	});
 });

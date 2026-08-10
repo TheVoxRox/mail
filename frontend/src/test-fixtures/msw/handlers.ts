@@ -33,7 +33,8 @@ import type {
 	DraftRequest,
 	MailFlagType,
 	MailRequest,
-	MoveRequest
+	MoveRequest,
+	PagedResponse
 } from '$lib/types.js';
 
 type MockResponse = Response;
@@ -156,6 +157,8 @@ let readinessFailures = 0;
 let folderAuthFailure = false;
 let connectionTestAuthFailure = false;
 let mailPageSizeOverride: number | null = null;
+let contactsLegacyShape = false;
+let contactsBrokenRow = false;
 
 export function setVCardExportDelayMs(delayMs: number): void {
 	vCardExportDelayMs = Math.max(0, delayMs);
@@ -190,6 +193,43 @@ export function setConnectionTestAuthFailure(enabled: boolean): void {
  */
 export function setMailPageSize(size: number | null): void {
 	mailPageSizeOverride = size && size > 0 ? size : null;
+}
+
+/**
+ * Answers the contact endpoints the way a backend built before user-defined
+ * contact labels did: rows without a `labels` key, the pre-labels counts shape
+ * and no `/contact-labels` endpoint. This is the drift #252 came from — a
+ * sidecar older than the frontend it was running under — and the shape the
+ * mocks otherwise never produce, because they always serve today's contract.
+ */
+export function setContactsLegacyShape(enabled: boolean): void {
+	contactsLegacyShape = enabled;
+}
+
+/**
+ * Serves contacts whose `name` is an object where the UI expects a string: the
+ * renderer calls a string method on it and throws mid-render. Stands in for
+ * the class of drift no defaulting normaliser can repair — a field whose type
+ * changed — so the boundary around the list has a real failure to catch.
+ */
+export function setContactsBrokenRow(enabled: boolean): void {
+	contactsBrokenRow = enabled;
+}
+
+function contactListResponse(page: PagedResponse<ContactResponse>): MockResponse {
+	if (contactsBrokenRow) {
+		return HttpResponse.json({
+			...page,
+			content: page.content.map((contact) => ({ ...contact, name: { given: contact.name } }))
+		});
+	}
+	if (contactsLegacyShape) {
+		return HttpResponse.json({
+			...page,
+			content: page.content.map(({ labels: _labels, ...rest }) => rest)
+		});
+	}
+	return HttpResponse.json(page);
 }
 
 function vCardExportResponse(accountId: number, contacts: ContactResponse[]): MockResponse {
@@ -377,6 +417,12 @@ function contactLabelRoutes(
 	segments: string[],
 	request: Request
 ): Promise<MockResponse> | MockResponse | null {
+	if (contactsLegacyShape) {
+		// The endpoint does not exist in that build, and an unmapped path under
+		// the API prefix is answered by the error handler, not by a 404 the
+		// client could tell apart — same as the 500 observed in #252.
+		return problem(500, 'Interní chyba serveru.', 'INTERNAL_ERROR');
+	}
 	const labels = fixtureState.contactLabelsByAccount[accountId] ?? [];
 
 	if (segments.length === 0) {
@@ -507,7 +553,7 @@ function contactRoutes(
 					: matchedByQuery.filter((contact) =>
 							contact.labels.some((label) => label.id === labelId)
 						);
-			return HttpResponse.json(listPage(filtered, url));
+			return contactListResponse(listPage(filtered, url));
 		}
 		if (method === 'POST') {
 			return request
@@ -519,6 +565,10 @@ function contactRoutes(
 	}
 
 	if (segments[0] === 'counts' && method === 'GET') {
+		if (contactsLegacyShape) {
+			// The pre-labels response: counts per fixed address type, no `labels`.
+			return HttpResponse.json({ total: contacts.length, work: 0, home: 0, other: 0 });
+		}
 		// Every label of the account, including unused ones — the sidebar has to
 		// list those too, so a zero must be a real row rather than a gap.
 		const labels = (fixtureState.contactLabelsByAccount[accountId] ?? []).map((label) => ({

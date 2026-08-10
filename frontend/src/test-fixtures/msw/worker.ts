@@ -5,6 +5,8 @@ import {
 	failNextVCardExportOnce,
 	handlers,
 	setConnectionTestAuthFailure,
+	setContactsBrokenRow,
+	setContactsLegacyShape,
 	setFolderAuthFailure,
 	setMailPageSize,
 	setReadinessDelayMs,
@@ -55,6 +57,14 @@ function applyFixtureFlags(): void {
 	if (window.localStorage.getItem('mail.e2e.trashThreadMember') === '1') {
 		seedTrashThreadMembers();
 	}
+	/*
+	 * Response-shape flags, unlike the failure switches above, are read here
+	 * rather than only at install: the contact tests seed through `reset()`, and
+	 * a flag that install alone applied would be switched off by the very call
+	 * that seeds the rows it is supposed to reshape.
+	 */
+	setContactsLegacyShape(window.localStorage.getItem('mail.e2e.contactsLegacyShape') === '1');
+	setContactsBrokenRow(window.localStorage.getItem('mail.e2e.contactsBrokenRow') === '1');
 }
 
 export async function installE2EBypass(): Promise<void> {

@@ -10,6 +10,7 @@
 		type ContactSort
 	} from '$lib/api/contacts.js';
 	import { listContactLabels } from '$lib/api/contactLabels.js';
+	import { reportClientError } from '$lib/api/clientErrors.js';
 	import { toError } from '$lib/api/errors.js';
 	import { accountsState, setActiveAccount } from '$lib/stores/accounts.js';
 	import { contactCounts, refreshContactCounts } from '$lib/stores/contactCounts.js';
@@ -20,6 +21,7 @@
 	import ContactList from '$lib/components/ContactList.svelte';
 	import ContactForm from '$lib/components/ContactForm.svelte';
 	import { dragHasFiles, importVCardFiles } from '$lib/contacts/importVCards.js';
+	import { Button } from '$lib/components/ui/button/index.js';
 	import { PageShell } from '$lib/components/ui/page-shell/index.js';
 	import { StateMessage } from '$lib/components/ui/state-message/index.js';
 	import { Surface } from '$lib/components/ui/surface/index.js';
@@ -131,6 +133,19 @@
 		} catch (err) {
 			listState = { status: 'error', error: toError(err) };
 		}
+	}
+
+	/**
+	 * Recovery path for a render failure the list boundary caught. Reloads
+	 * before letting the boundary try again: a bare `reset()` would re-render
+	 * the very data that just threw, so the button would do nothing visible.
+	 * Refetching is the one thing that can change the outcome — the response
+	 * that broke the renderer came from a backend that has since been replaced
+	 * (see the boundary comment below).
+	 */
+	async function retryListRender(reset: () => void) {
+		await load(data.accountId, data.query, pageNumber, data.sort, data.labelId, true);
+		reset();
 	}
 
 	$effect(() => {
@@ -380,24 +395,60 @@
 			{:else if listState.status === 'error'}
 				<StateMessage variant="error" role="alert">{listState.error.message}</StateMessage>
 			{:else if listState.status === 'ready'}
-				<ContactList
-					accountId={data.accountId}
-					page={listState.page}
-					sort={data.sort}
-					labelId={data.labelId}
-					{activeLabelName}
-					onChanged={() =>
-						load(data.accountId, data.query, pageNumber, data.sort, data.labelId, true)}
-					onEdit={(id) => goto(contactsHref({ edit: id }))}
-					onFilterApply={handleFilterApply}
-					onPrev={prevPage}
-					onNext={nextPage}
-					onFirst={() => goToPage(0)}
-					onLast={lastPage}
-					onJump={(target) => goToPage(target - 1)}
-					{restoreFocusContactId}
-					onFocusRestored={() => (restoreFocusContactId = null)}
-				/>
+				<!--
+					A contact the renderer cannot make sense of must cost that one
+					list, not the page: before the boundary, a row that threw while
+					rendering left the view on its loading placeholder forever, with
+					no message and nothing to retry (#252 — a backend older than
+					contact labels sent rows without `labels`).
+
+					That particular shape is handled where it belongs, at the API
+					boundary; what stays here is the class the normaliser cannot
+					repair, a field whose *type* changed under us. The error is still
+					reported — the boundary catching it is what stops it reaching the
+					window handler that reports uncaught errors, so it has to be
+					handed over explicitly, or the fix would have bought a quiet page
+					instead of a dead one.
+				-->
+				<svelte:boundary
+					onerror={(error) => {
+						void reportClientError({
+							kind: 'manual',
+							error,
+							context: { boundary: 'contact-list', accountId: data.accountId }
+						});
+					}}
+				>
+					<ContactList
+						accountId={data.accountId}
+						page={listState.page}
+						sort={data.sort}
+						labelId={data.labelId}
+						{activeLabelName}
+						onChanged={() =>
+							load(data.accountId, data.query, pageNumber, data.sort, data.labelId, true)}
+						onEdit={(id) => goto(contactsHref({ edit: id }))}
+						onFilterApply={handleFilterApply}
+						onPrev={prevPage}
+						onNext={nextPage}
+						onFirst={() => goToPage(0)}
+						onLast={lastPage}
+						onJump={(target) => goToPage(target - 1)}
+						{restoreFocusContactId}
+						onFocusRestored={() => (restoreFocusContactId = null)}
+					/>
+
+					{#snippet failed(_error, reset)}
+						<div class="space-y-3 p-4">
+							<StateMessage variant="error" padding="none" role="alert">
+								{$_('contacts.renderError')}
+							</StateMessage>
+							<Button type="button" onclick={() => void retryListRender(reset)}>
+								{$_('contacts.renderErrorRetry')}
+							</Button>
+						</div>
+					{/snippet}
+				</svelte:boundary>
 			{/if}
 		</Surface>
 	</PageShell>
