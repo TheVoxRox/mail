@@ -40,6 +40,8 @@ import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.feature.account.repository.MailProviderRepository;
 import org.voxrox.mailbackend.feature.account.service.AccountService;
 import org.voxrox.mailbackend.feature.contact.EmailLabel;
+import org.voxrox.mailbackend.feature.contact.dto.ContactEmailRequest;
+import org.voxrox.mailbackend.feature.contact.dto.ContactUpdateRequest;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEmailEntity;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEntity;
 import org.voxrox.mailbackend.feature.contact.entity.ContactLabelEntity;
@@ -344,6 +346,85 @@ class ContactRepositoryIT {
 
         em.clear();
         assertThat(primaryEmail(contactRepository.findById(contactId).orElseThrow())).isEqualTo("low@x.cz");
+    }
+
+    @Test
+    @DisplayName("updateContact reordering the primary must not violate the one-primary index")
+    void updateContactReordersPrimary() {
+        // PUT carries primacy as the order of the addresses, so moving the primary
+        // means the incoming list starts with what used to be the second address.
+        // replaceEmails clears the collection and adds fresh rows; if the inserts
+        // reach the database before the orphan deletes, the contact briefly holds
+        // two is_primary=1 rows and ux_contact_emails_contact_primary rejects it.
+        ContactEntity c = new ContactEntity();
+        c.setAccount(account);
+        LocalDateTime now = LocalDateTime.now();
+        c.setCreatedAt(now);
+        c.setUpdatedAt(now);
+        ContactEmailEntity first = new ContactEmailEntity();
+        first.setEmail("first@x.cz");
+        first.setPrimary(true);
+        first.setContact(c);
+        ContactEmailEntity second = new ContactEmailEntity();
+        second.setEmail("second@x.cz");
+        second.setPrimary(false);
+        second.setContact(c);
+        c.getEmails().add(first);
+        c.getEmails().add(second);
+        Long contactId = contactRepository.saveAndFlush(c).getId();
+        em.clear();
+
+        AccountService accountService = mock(AccountService.class);
+        when(accountService.getAccountOrThrow(account.getId())).thenReturn(account);
+        ContactLabelService labelService = new ContactLabelService(labelRepository, contactRepository, accountService);
+        ContactService service = new ContactService(contactRepository, labelRepository, labelService,
+                mock(CorrespondentService.class), accountService, new ContactMapper());
+
+        ContactUpdateRequest request = new ContactUpdateRequest(
+                List.of(new ContactEmailRequest("second@x.cz", EmailLabel.HOME),
+                        new ContactEmailRequest("first@x.cz", EmailLabel.WORK)),
+                List.of(), "Jana", "Novak", null);
+
+        // Called directly (no @Transactional proxy), so the write joins the test's
+        // transaction and the flush below is where the index would trip.
+        assertThatCode(() -> {
+            service.updateContact(account.getId(), contactId, request);
+            em.flush();
+        }).doesNotThrowAnyException();
+
+        em.clear();
+        assertThat(primaryEmail(contactRepository.findById(contactId).orElseThrow())).isEqualTo("second@x.cz");
+    }
+
+    @Test
+    @DisplayName("updateContact keeping the order must not violate the unique-email index either")
+    void updateContactKeepsOrder() {
+        ContactEntity c = new ContactEntity();
+        c.setAccount(account);
+        LocalDateTime now = LocalDateTime.now();
+        c.setCreatedAt(now);
+        c.setUpdatedAt(now);
+        ContactEmailEntity only = new ContactEmailEntity();
+        only.setEmail("only@x.cz");
+        only.setPrimary(true);
+        only.setContact(c);
+        c.getEmails().add(only);
+        Long contactId = contactRepository.saveAndFlush(c).getId();
+        em.clear();
+
+        AccountService accountService = mock(AccountService.class);
+        when(accountService.getAccountOrThrow(account.getId())).thenReturn(account);
+        ContactLabelService labelService = new ContactLabelService(labelRepository, contactRepository, accountService);
+        ContactService service = new ContactService(contactRepository, labelRepository, labelService,
+                mock(CorrespondentService.class), accountService, new ContactMapper());
+
+        ContactUpdateRequest request = new ContactUpdateRequest(
+                List.of(new ContactEmailRequest("only@x.cz", EmailLabel.WORK)), List.of(), "Jana", "Novak", null);
+
+        assertThatCode(() -> {
+            service.updateContact(account.getId(), contactId, request);
+            em.flush();
+        }).doesNotThrowAnyException();
     }
 
     @Test
