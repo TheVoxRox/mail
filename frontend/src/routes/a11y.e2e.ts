@@ -306,6 +306,51 @@ test.describe('Přístupnost', () => {
 		);
 	});
 
+	test('volba hlavní adresy se nabídne, až když je z čeho vybírat', async ({ page }) => {
+		// A single address is primary by construction, so its radio would be a tab
+		// stop that decides nothing: checked, not uncheckable, nowhere to switch.
+		await page.goto(`/contacts/${mailFixture.accountId}?create=1`);
+		await waitForShell(page);
+
+		const primaryRadio = (index: number) =>
+			page.getByRole('radio', { name: `Použít adresu ${index} jako hlavní` });
+
+		// Anchor on the rendered row first — an absence assertion fired before the
+		// form mounts passes for the wrong reason (verified: without it the test
+		// still passes with the radio present).
+		await expect(page.locator('#contact-email-0')).toBeVisible();
+		await expect(primaryRadio(1)).toHaveCount(0);
+
+		await page.getByRole('button', { name: 'Přidat e-mail' }).click();
+		await expect(primaryRadio(1)).toBeChecked();
+		await expect(primaryRadio(2)).not.toBeChecked();
+
+		// The route-level sweep scans the create form with a single address, where
+		// the group no longer exists — this is now the only axe pass that sees it.
+		const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+		expect(results.violations).toEqual([]);
+
+		// Arrow keys are the only way into the unchecked radio: a radio group is one
+		// tab stop, so row 2's control is reachable from row 1's, not by Tab.
+		await primaryRadio(1).focus();
+		await page.keyboard.press('ArrowDown');
+		await expect(primaryRadio(2)).toBeFocused();
+		await expect(primaryRadio(2)).toBeChecked();
+
+		// The second address is primary now (the arrow key moved the selection with
+		// the focus). Drop the first one: the group vanishes with the choice, and
+		// the survivor keeps the flag — visible again once a second row is added.
+		await page
+			.locator('[data-email-row="0"]')
+			.getByRole('button', { name: 'Odebrat e-mail' })
+			.click();
+		await expect(primaryRadio(1)).toHaveCount(0);
+
+		await page.getByRole('button', { name: 'Přidat e-mail' }).click();
+		await expect(primaryRadio(1)).toBeChecked();
+		await expect(primaryRadio(2)).not.toBeChecked();
+	});
+
 	test('přidání a odebrání adresy v kontaktu neztratí fokus', async ({ page }) => {
 		// Both actions destroy the focused button (Add moves to the new last
 		// row, Remove disappears with its row) — focus must land on an e-mail

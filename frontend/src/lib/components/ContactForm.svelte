@@ -395,24 +395,32 @@
 							{emailTypeAnnouncement(index, row.label)}
 						</span>
 					</Field>
-					<div class="flex items-center gap-1.5 md:h-9">
-						<input
-							id={`contact-email-${index}-primary`}
-							type="radio"
-							name="contact-primary-email"
-							class="size-4 border-input bg-background text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-							checked={row.primary}
-							onchange={() => setPrimary(index)}
-							disabled={busy}
-							aria-label={primaryRadioLabel(index)}
-						/>
-						<label
-							for={`contact-email-${index}-primary`}
-							class="select-none text-xs text-muted-foreground"
-						>
-							{$_('contacts.emailPrimary')}
-						</label>
-					</div>
+					<!--
+						A single address is primary by construction (newRow(…, true), and
+						handleSubmit promotes entries[0] anyway), so a lone radio offers no
+						choice — it is checked, cannot be unchecked and has nothing to switch
+						to. Hiding it below two rows keeps a dead tab stop out of the form.
+					-->
+					{#if emails.length > 1}
+						<div class="flex items-center gap-1.5 md:h-9">
+							<input
+								id={`contact-email-${index}-primary`}
+								type="radio"
+								name="contact-primary-email"
+								class="size-4 border-input bg-background text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+								checked={row.primary}
+								onchange={() => setPrimary(index)}
+								disabled={busy}
+								aria-label={primaryRadioLabel(index)}
+							/>
+							<label
+								for={`contact-email-${index}-primary`}
+								class="select-none text-xs text-muted-foreground"
+							>
+								{$_('contacts.emailPrimary')}
+							</label>
+						</div>
+					{/if}
 					{#if index === emails.length - 1}
 						<Button
 							type="button"
