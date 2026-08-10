@@ -312,18 +312,27 @@ test.describe('Přístupnost', () => {
 		await page.goto(`/contacts/${mailFixture.accountId}?create=1`);
 		await waitForShell(page);
 
+		// Named by its own <label>, so every row's radio is called "hlavní" and the
+		// row is what tells them apart — scope the locator, never the name.
 		const primaryRadio = (index: number) =>
-			page.getByRole('radio', { name: `Použít adresu ${index} jako hlavní` });
+			page.locator(`[data-email-row="${index - 1}"]`).getByRole('radio', { name: 'hlavní' });
+		const allPrimaryRadios = () => page.getByRole('radio', { name: 'hlavní' });
 
 		// Anchor on the rendered row first — an absence assertion fired before the
 		// form mounts passes for the wrong reason (verified: without it the test
 		// still passes with the radio present).
 		await expect(page.locator('#contact-email-0')).toBeVisible();
-		await expect(primaryRadio(1)).toHaveCount(0);
+		await expect(allPrimaryRadios()).toHaveCount(0);
 
 		await page.getByRole('button', { name: 'Přidat e-mail' }).click();
 		await expect(primaryRadio(1)).toBeChecked();
 		await expect(primaryRadio(2)).not.toBeChecked();
+
+		// The <label> must be the accessible name, not decoration next to an
+		// aria-label: when aria-label wins, the label text drops out of the name
+		// and a screen reader reads it a second time as a stray word.
+		await expect(primaryRadio(1)).toHaveAccessibleName('hlavní');
+		await expect(primaryRadio(1)).not.toHaveAttribute('aria-label', /./);
 
 		// The route-level sweep scans the create form with a single address, where
 		// the group no longer exists — this is now the only axe pass that sees it.
@@ -344,7 +353,7 @@ test.describe('Přístupnost', () => {
 			.locator('[data-email-row="0"]')
 			.getByRole('button', { name: 'Odebrat e-mail' })
 			.click();
-		await expect(primaryRadio(1)).toHaveCount(0);
+		await expect(allPrimaryRadios()).toHaveCount(0);
 
 		await page.getByRole('button', { name: 'Přidat e-mail' }).click();
 		await expect(primaryRadio(1)).toBeChecked();
@@ -861,9 +870,12 @@ test.describe('Přístupnost', () => {
 			expect(box!.width).toBeGreaterThanOrEqual(24);
 			expect(box!.height).toBeGreaterThanOrEqual(24);
 			// The padding is only a target if it really toggles — and it must not
-			// reach the row underneath and open the message.
+			// reach the row underneath and open the message. Click through the
+			// locator, not page.mouse: it recomputes the box at click time and waits
+			// for the element to stop moving, where measure-then-click-by-coordinate
+			// raced a reflow and missed under load.
 			const before = page.url();
-			await page.mouse.click(box!.x + 2, box!.y + 2);
+			await label.click({ position: { x: 2, y: 2 } });
 			await expect(page.locator(`#${checkboxId}`)).toBeChecked();
 			expect(page.url()).toBe(before);
 		};
@@ -886,7 +898,7 @@ test.describe('Přístupnost', () => {
 		expect(wrapper!.width).toBeGreaterThanOrEqual(24);
 		expect(wrapper!.height).toBeGreaterThanOrEqual(24);
 		const beforeUrl = page.url();
-		await page.mouse.click(wrapper!.x + 2, wrapper!.y + 2);
+		await conversationLabel.click({ position: { x: 2, y: 2 } });
 		await expect(conversationBox).toBeChecked();
 		expect(page.url()).toBe(beforeUrl);
 	});

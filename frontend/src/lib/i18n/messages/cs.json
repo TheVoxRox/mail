@@ -393,7 +393,6 @@
 		"emailFieldLabel": "Adresa {index}",
 		"emailTypeFieldIndexed": "Typ adresy {index}",
 		"emailTypeSelection": "Typ adresy {index}: {type}",
-		"primaryRadioLabel": "Použít adresu {index} jako hlavní",
 		"emailTypeOptions": {
 			"none": "Bez typu",
 			"WORK": "Práce",

@@ -393,7 +393,6 @@
 		"emailFieldLabel": "Address {index}",
 		"emailTypeFieldIndexed": "Address type {index}",
 		"emailTypeSelection": "Address type {index}: {type}",
-		"primaryRadioLabel": "Use address {index} as primary",
 		"emailTypeOptions": {
 			"none": "No type",
 			"WORK": "Work",

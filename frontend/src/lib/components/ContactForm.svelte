@@ -137,10 +137,6 @@
 		emailErrors = emailErrors.map((value, i) => (i === index ? null : value));
 	}
 
-	function primaryRadioLabel(index: number): string {
-		return $_('contacts.primaryRadioLabel', { values: { index: index + 1 } });
-	}
-
 	function emailTypeStatusId(index: number): string {
 		return `contact-email-${index}-label-status`;
 	}
@@ -402,6 +398,13 @@
 						to. Hiding it below two rows keeps a dead tab stop out of the form.
 					-->
 					{#if emails.length > 1}
+						<!--
+							Named by its <label>, never by aria-label. An aria-label wins over the
+							label, which then stops being the control's name and turns into ordinary
+							content — a screen reader reads the radio and then repeats the label text
+							as a stray word after it. Every other field here is named natively, which
+							is why this was the only one that stuttered.
+						-->
 						<div class="flex items-center gap-1.5 md:h-9">
 							<input
 								id={`contact-email-${index}-primary`}
@@ -411,7 +414,6 @@
 								checked={row.primary}
 								onchange={() => setPrimary(index)}
 								disabled={busy}
-								aria-label={primaryRadioLabel(index)}
 							/>
 							<label
 								for={`contact-email-${index}-primary`}
