@@ -5,6 +5,7 @@
 	import { isValidEmailAddress } from '$lib/compose/addresses.js';
 	import { confirmAction } from '$lib/stores/confirmDialog.js';
 	import { contactCounts } from '$lib/stores/contactCounts.js';
+	import { announcePolite } from '$lib/stores/toasts.js';
 	import { installLeaveGuard } from '$lib/leaveGuard.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Field } from '$lib/components/ui/field/index.js';
@@ -137,16 +138,23 @@
 		emailErrors = emailErrors.map((value, i) => (i === index ? null : value));
 	}
 
-	function emailTypeStatusId(index: number): string {
-		return `contact-email-${index}-label-status`;
-	}
-
-	function emailTypeAnnouncement(index: number, label: EmailLabel | ''): string {
+	/*
+	 * The type select swallows ArrowDown to open the picker instead of cycling
+	 * values, so the chosen type needs saying out loud. It goes through the
+	 * app-wide announcer, which drops the message from the DOM after ~1.5 s: a
+	 * live region that keeps its text is also ordinary content, and a screen
+	 * reader walking the form reads it a second time right after the select.
+	 * Announcing from onchange (not from the value) also keeps mount and the
+	 * edit-form prefill silent.
+	 */
+	function announceEmailType(index: number, label: EmailLabel | ''): void {
 		const typeText =
 			label === ''
 				? $_('contacts.emailTypeOptions.none')
 				: $_(`contacts.emailTypeOptions.${label}`);
-		return $_('contacts.emailTypeSelection', { values: { index: index + 1, type: typeText } });
+		announcePolite(
+			$_('contacts.emailTypeSelection', { values: { index: index + 1, type: typeText } })
+		);
 	}
 
 	function setPrimary(index: number) {
@@ -379,6 +387,8 @@
 						<Select
 							id={`contact-email-${index}-label`}
 							bind:value={row.label}
+							onchange={(event) =>
+								announceEmailType(index, event.currentTarget.value as EmailLabel | '')}
 							size="sm"
 							disabled={busy}
 						>
@@ -387,9 +397,6 @@
 							<option value="WORK">{$_('contacts.emailTypeOptions.WORK')}</option>
 							<option value="OTHER">{$_('contacts.emailTypeOptions.OTHER')}</option>
 						</Select>
-						<span id={emailTypeStatusId(index)} class="sr-only" role="status" aria-atomic="true">
-							{emailTypeAnnouncement(index, row.label)}
-						</span>
 					</Field>
 					<!--
 						A single address is primary by construction (newRow(…, true), and

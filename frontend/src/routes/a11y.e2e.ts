@@ -268,9 +268,12 @@ test.describe('Přístupnost', () => {
 		await expect(firstLabelSelect).toHaveCount(1);
 		await expect(firstLabelSelect).toHaveAccessibleName('Typ adresy 1');
 		await expect(firstLabelSelect).toHaveValue('');
-		await expect(page.locator('#contact-email-0-label-status')).toHaveText(
-			'Typ adresy 1: Bez typu'
-		);
+		// The type is announced through the app-wide announcer, which drops the
+		// message again. The form itself must hold no live region of its own: one
+		// that keeps its text is also ordinary content, so a screen reader walking
+		// past the select reads the selection a second time (reported 2026-08-10).
+		await expect(page.locator('[id$="-label-status"]')).toHaveCount(0);
+		await expect(page.locator('#live-region')).toBeEmpty();
 		await firstLabelSelect.evaluate((element) => {
 			const select = element as HTMLSelectElement & { __showPickerCalls?: number };
 			select.__showPickerCalls = 0;
@@ -290,10 +293,13 @@ test.describe('Přístupnost', () => {
 			)
 			.toBe(1);
 		await firstLabelSelect.selectOption('WORK');
-		await expect(page.locator('#contact-email-0-label-status')).toHaveText('Typ adresy 1: Práce');
+		await expect(page.locator('#live-region')).toContainText('Typ adresy 1: Práce');
 		await firstLabelSelect.selectOption('HOME');
 		await expect(firstLabelSelect).toHaveValue('HOME');
-		await expect(page.locator('#contact-email-0-label-status')).toHaveText('Typ adresy 1: Domov');
+		await expect(page.locator('#live-region')).toContainText('Typ adresy 1: Domov');
+		// The announcer drops its text again, so browsing the form afterwards does
+		// not run into a stale copy of it.
+		await expect(page.locator('#live-region')).toBeEmpty({ timeout: 5000 });
 
 		await page.getByRole('button', { name: 'Přidat e-mail' }).click();
 
@@ -301,9 +307,11 @@ test.describe('Přístupnost', () => {
 		await expect(secondLabelSelect).toHaveCount(1);
 		await expect(secondLabelSelect).toHaveAccessibleName('Typ adresy 2');
 		await expect(secondLabelSelect).toHaveValue('');
-		await expect(page.locator('#contact-email-1-label-status')).toHaveText(
-			'Typ adresy 2: Bez typu'
-		);
+		// A newly added row announces nothing either — the row appearing is not a
+		// type selection, and the user has not chosen anything yet.
+		await expect(page.locator('#live-region')).toBeEmpty();
+		await secondLabelSelect.selectOption('HOME');
+		await expect(page.locator('#live-region')).toContainText('Typ adresy 2: Domov');
 	});
 
 	test('volba hlavní adresy se nabídne, až když je z čeho vybírat', async ({ page }) => {
