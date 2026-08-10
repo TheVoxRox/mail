@@ -60,8 +60,8 @@
 		<wiremock.version>3.13.2</wiremock.version>
 		<error-prone.version>2.50.0</error-prone.version>
 		<nullaway.version>0.13.8</nullaway.version>
-		<archunit.version>1.4.2</archunit.version>
-		<greenmail.version>2.1.11</greenmail.version>
+		<archunit.version>1.5.0</archunit.version>
+		<greenmail.version>2.1.12</greenmail.version>
 		<!--
 			JaCoCo injects its coverage agent into these (prepare-agent ->
 			surefireArgLine, prepare-agent-integration -> failsafeArgLine). Surefire
