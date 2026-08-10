@@ -2,6 +2,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { envForDesktopSidecar, loadBackendEnv } from './lib/dotenv.mjs';
 import { run } from './lib/run.mjs';
+import { checkSidecarFreshness, describeStaleness } from './lib/sidecar-staleness.mjs';
 
 const rootDir = process.cwd();
 const tauriCliPath = path.join(rootDir, 'node_modules', '@tauri-apps', 'cli', 'tauri.js');
@@ -33,7 +34,31 @@ function withDevTauriConfig(env) {
 	};
 }
 
+/*
+ * Fails closed, with an opt-out, like the packaging script does for a
+ * placeholder OAuth client: a run against a stale backend does not look broken,
+ * it looks slow or empty, and the cost of finding that out the hard way is an
+ * afternoon.
+ */
+async function assertSidecarIsFresh() {
+	if (process.env.MAIL_ALLOW_STALE_SIDECAR === '1') {
+		console.log('[tauri-dev] MAIL_ALLOW_STALE_SIDECAR=1 — skipping the sidecar freshness check.');
+		return;
+	}
+	const repoRoot = path.resolve(rootDir, '..');
+	const result = await checkSidecarFreshness(repoRoot);
+	const report = describeStaleness(result);
+	if (!report) return;
+	if (!report.fatal) {
+		console.warn(`\n[tauri-dev] ${report.text}\n`);
+		return;
+	}
+	console.error(`\n[tauri-dev] ${report.text}\n`);
+	throw new Error('Sidecar does not match the checked-out backend (see above).');
+}
+
 async function main() {
+	await assertSidecarIsFresh();
 	const backendEnv = await loadBackendEnv(
 		'Copy backend/.env.example to backend/.env and fill in the values.'
 	);
