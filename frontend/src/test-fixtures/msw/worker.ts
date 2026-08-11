@@ -23,7 +23,12 @@ import {
 	pushSyncRecovered,
 	syncStreamConnected
 } from './sse-bridge.js';
-import { clearAccounts, resetFixtures, seedTrashThreadMembers } from './fixtures.js';
+import {
+	clearAccounts,
+	resetFixtures,
+	seedInboxThreadMember,
+	seedTrashThreadMembers
+} from './fixtures.js';
 import type { SessionPayload } from '$lib/api/session.js';
 
 const worker = setupWorker(...handlers);
@@ -56,6 +61,9 @@ function applyFixtureFlags(): void {
 	}
 	if (window.localStorage.getItem('mail.e2e.trashThreadMember') === '1') {
 		seedTrashThreadMembers();
+	}
+	if (window.localStorage.getItem('mail.e2e.inboxThreadMember') === '1') {
+		seedInboxThreadMember();
 	}
 	/*
 	 * Response-shape flags, unlike the failure switches above, are read here

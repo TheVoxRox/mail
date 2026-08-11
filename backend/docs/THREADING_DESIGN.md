@@ -1,9 +1,30 @@
 # Threading / Conversations — design proposal
 
 > **HISTORICAL SNAPSHOT.** Design proposal whose Phase 1 shipped 2026-06-01;
-> kept as the design-rationale record and not updated since (one exception:
-> the 2026-08-05 revision note just below). The shipping code, not this
-> document, is authoritative for current behavior.
+> kept as the design-rationale record and not updated since (two exceptions:
+> the revision notes of 2026-08-05 and 2026-08-11 just below). The shipping
+> code, not this document, is authoritative for current behavior.
+
+## Revision 2026-08-11 — Sent leaves the conversation scope
+
+Narrows §2 of the 2026-08-05 revision below, after using it on a real
+mailbox. `SENT` joined `TRASH`, `JUNK` and `DRAFTS` in
+`MailFacade.CONVERSATION_EXCLUDED_ROLES`, which decides both halves at once:
+the user's own replies are neither counted in `messageCount` nor listed among
+a thread's members in a receiving folder, and the Sent view itself becomes
+folder-scoped like the other three.
+
+The reasoning is the one the 2026-08-05 note did not weigh: bulk actions over
+a conversation are deliberately folder-scoped (a delete from the inbox must
+not reach the copies elsewhere), so the sent copy was counted in a badge and
+rendered as a row that no action offered on that row could ever touch. A
+thread in a receiving folder is about the mail that arrived. Everything else
+about the cross-folder scope stands — an archived copy inside an inbox thread
+is still counted, still listed, still tagged with its folder.
+
+Threading itself is untouched: `thread_id` assignment does not know about
+folder roles, so this is a read-path scope change with no backfill and no
+migration.
 
 ## Revision 2026-08-05 — Outlook-style behavior (two decisions superseded)
 

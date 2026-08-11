@@ -132,12 +132,23 @@ test.describe('Přístupnost', () => {
 
 		const treegrid = page.getByRole('treegrid', { name: 'Seznam konverzací' });
 		await expect(treegrid).toBeVisible();
-		const parent = treegrid.locator('[role="row"][data-stable-id="arch-03"]');
+		// The representative fills both a parent row and a child row of the
+		// expanded thread, so rows are addressed by kind, not by stableId alone.
+		const parent = treegrid.locator(
+			'[role="row"][data-row-kind="conversation"][data-stable-id="arch-03"]'
+		);
+		const member = treegrid.locator(
+			'[role="row"][data-row-kind="member"][data-stable-id="arch-02"]'
+		);
 		await expect(parent).toBeVisible();
 		// Scan the expanded state so the nested member rows are in the tree.
 		await parent.locator('[data-expand-toggle]').click();
 		await expect(parent).toHaveAttribute('aria-expanded', 'true');
-		await expect(treegrid.locator('[role="row"][data-stable-id="arch-02"]')).toBeVisible();
+		await expect(member).toBeVisible();
+		// Tick one member so the scan also covers the member checkboxes and the
+		// parent's `mixed` state, which only exists with a partial selection.
+		await member.locator('input[type="checkbox"]').check();
+		await expect(parent.locator('input[type="checkbox"]')).toHaveAttribute('aria-checked', 'mixed');
 
 		const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
 		expect(results.violations).toEqual([]);

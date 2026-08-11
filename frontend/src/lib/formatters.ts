@@ -53,6 +53,22 @@ export function formatMessageListDate(iso: string, locale = 'cs', now = new Date
 	});
 }
 
+/**
+ * The date of a message shown inside an expanded conversation. Same shape as
+ * {@link formatMessageListDate} plus the clock, because a thread's replies
+ * cluster in a day or two and the list format collapses those to one string:
+ * three replies from the same Tuesday all render as that weekday's name alone,
+ * which leaves the rows — and the checkbox labels built from them —
+ * indistinguishable. Today's messages already render as the clock, so they are
+ * left alone.
+ */
+export function formatThreadMemberDate(iso: string, locale = 'cs', now = new Date()): string {
+	const date = new Date(iso);
+	const listDate = formatMessageListDate(iso, locale, now);
+	if (date.toDateString() === now.toDateString()) return listDate;
+	return `${listDate} ${formatTime(date, locale)}`;
+}
+
 export function formatNumericDate(iso: string, locale = 'cs'): string {
 	return new Date(iso).toLocaleDateString(locale, {
 		day: 'numeric',

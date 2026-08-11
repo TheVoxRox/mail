@@ -20,7 +20,7 @@ one of these, re-read its row first.
      (`mail.client.imap.role-lookup-timeout`, default 1 s), get an empty
      `Optional` when the connection is busy and degrade to whatever they can
      answer from the DB. Today's only caller is the conversation listing's
-     trash/junk/drafts role lookup (`MailFacade.conversationExcludedFolders`),
+     trash/junk/drafts/sent role lookup (`MailFacade.conversationExcludedFolders`),
      which falls back to a folder-scoped listing. The `mail.imap.lock.skipped`
      counter measures how often this bites — a rising count is the signal that
      the single connection per account has become the bottleneck and the

@@ -1241,7 +1241,7 @@ export interface components {
 			latest?: components['schemas']['MailSummaryResponse'];
 			/**
 			 * Format: int32
-			 * @description Number of messages of this conversation (>= 1). For a regular folder it is cross-folder except trash/junk/drafts, counting a mail stored in several folders once; folder-scoped in Trash, Junk and Drafts views.
+			 * @description Number of messages of this conversation (>= 1). For a regular folder it is cross-folder except trash/junk/drafts/sent, counting a mail stored in several folders once; folder-scoped in Trash, Junk, Drafts and Sent views.
 			 */
 			messageCount?: number;
 			/** @description Conversation identifier shared by every message of the thread. Null only for a message the threading backfill has not processed yet; such a row is a singleton (messageCount = 1) and cannot be expanded via the thread endpoint. */

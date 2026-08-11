@@ -430,7 +430,7 @@ class MailFacadeTest {
         }
 
         @Test
-        @DisplayName("Trash, junk and drafts folders are all excluded from the cross-folder counts")
+        @DisplayName("Trash, junk, drafts and sent folders are all excluded from the cross-folder counts")
         void excludesTrashJunkAndDraftsFromCrossFolderCounts() {
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
             // Every folder claiming a role is excluded, not just the first — role
@@ -438,6 +438,7 @@ class MailFacadeTest {
             stubRoleFolders(FolderRole.TRASH, FOLDER_TRASH, "Recycle bin");
             stubRoleFolders(FolderRole.JUNK, "Spam");
             stubRoleFolders(FolderRole.DRAFTS, FOLDER_DRAFTS);
+            stubRoleFolders(FolderRole.SENT, "[Gmail]/Sent Mail");
             when(messageRepository.findConversationRepresentatives(ACCOUNT_ID, FOLDER_INBOX, 50, 0L))
                     .thenReturn(List.<Object[]>of(new Object[]{2L, 1, 0}));
             when(messageRepository.countConversationsByAccountAndFolder(ACCOUNT_ID, FOLDER_INBOX)).thenReturn(1L);
@@ -447,7 +448,7 @@ class MailFacadeTest {
             mailFacade.getConversations(ACCOUNT_ID, FOLDER_INBOX, 0, 50);
 
             verify(messageRepository).countCrossFolderConversationSizes(ACCOUNT_ID, List.of("t-A"),
-                    List.of("", FOLDER_TRASH, "Recycle bin", "Spam", FOLDER_DRAFTS));
+                    List.of("", FOLDER_TRASH, "Recycle bin", "Spam", FOLDER_DRAFTS, "[Gmail]/Sent Mail"));
         }
 
         /**
@@ -458,14 +459,15 @@ class MailFacadeTest {
          * counts.
          */
         @ParameterizedTest(name = "{0} view stays folder-scoped")
-        @EnumSource(names = {"TRASH", "JUNK", "DRAFTS"})
+        @EnumSource(names = {"TRASH", "JUNK", "DRAFTS", "SENT"})
         void folderScopedViews(FolderRole role) {
             String folderName = "folder-of-" + role;
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
-            // All three roles, not just the one under test: an unstubbed lookup throws
+            // Every excluded role, not just the one under test: an unstubbed lookup throws
             // a strict stubbing mismatch that the fail-closed branch swallows, and the
             // test would prove the degraded path instead of the role check.
-            for (FolderRole candidate : List.of(FolderRole.TRASH, FolderRole.JUNK, FolderRole.DRAFTS)) {
+            for (FolderRole candidate : List.of(FolderRole.TRASH, FolderRole.JUNK, FolderRole.DRAFTS,
+                    FolderRole.SENT)) {
                 stubRoleFolders(candidate, candidate == role ? folderName : "unrelated-" + candidate);
             }
             when(messageRepository.findConversationRepresentatives(ACCOUNT_ID, folderName, 50, 0L))
@@ -519,14 +521,14 @@ class MailFacadeTest {
         }
 
         /**
-         * Every excluded role resolves, to nothing — the account has no trash, junk or
-         * drafts. Spelled out rather than left to the Mockito default: an unstubbed
-         * {@code Optional} method yields {@link Optional#empty()}, which the read path
-         * reads as "could not resolve" and answers folder-scoped, so the test would
-         * assert cross-folder behaviour while exercising the degraded path.
+         * Every excluded role resolves, to nothing — the account has no trash, junk,
+         * drafts or sent folder. Spelled out rather than left to the Mockito default:
+         * an unstubbed {@code Optional} method yields {@link Optional#empty()}, which
+         * the read path reads as "could not resolve" and answers folder-scoped, so the
+         * test would assert cross-folder behaviour while exercising the degraded path.
          */
         private void stubRolesResolveToNothing() {
-            for (FolderRole role : List.of(FolderRole.TRASH, FolderRole.JUNK, FolderRole.DRAFTS)) {
+            for (FolderRole role : List.of(FolderRole.TRASH, FolderRole.JUNK, FolderRole.DRAFTS, FolderRole.SENT)) {
                 stubRoleFolders(role);
             }
         }
@@ -1051,22 +1053,27 @@ class MailFacadeTest {
          * scope from its own copy of the folder roles.
          */
         @Test
-        @DisplayName("Cross-folder view drops the trash, junk and drafts members")
+        @DisplayName("Cross-folder view drops the trash, junk, drafts and sent members")
         void crossFolderViewDropsExcludedFolders() {
             stubRole(FolderRole.TRASH, FOLDER_TRASH);
             stubRole(FolderRole.JUNK, "Spam");
             stubRole(FolderRole.DRAFTS, FOLDER_DRAFTS);
+            stubRole(FolderRole.SENT, "[Gmail]/Sent Mail");
             MailSummaryResponse inbox = summary(1L, FOLDER_INBOX, "<a@x.cz>", true);
-            MailSummaryResponse sent = summary(2L, "[Gmail]/Sent Mail", "<b@x.cz>", true);
+            MailSummaryResponse archive = summary(2L, "Archive", "<b@x.cz>", true);
             MailSummaryResponse trash = summary(3L, FOLDER_TRASH, "<c@x.cz>", true);
             MailSummaryResponse junk = summary(4L, "Spam", "<d@x.cz>", true);
             MailSummaryResponse draft = summary(5L, FOLDER_DRAFTS, "<e@x.cz>", true);
-            stubThread(inbox, sent, trash, junk, draft);
+            // The user's own reply. A received conversation is about the mail that
+            // arrived, and a folder-scoped bulk action from the inbox could not touch
+            // this copy anyway — so it is out, like the trashed and junked ones.
+            MailSummaryResponse sent = summary(6L, "[Gmail]/Sent Mail", "<f@x.cz>", true);
+            stubThread(inbox, archive, trash, junk, draft, sent);
             when(mapper.withDisplayFallbacks(any(MailSummaryResponse.class))).thenAnswer(inv -> inv.getArgument(0));
 
             ThreadResponse result = mailFacade.getThread(ACCOUNT_ID, THREAD_ID, FOLDER_INBOX);
 
-            assertThat(result.messages()).containsExactly(inbox, sent);
+            assertThat(result.messages()).containsExactly(inbox, archive);
             assertThat(result.participantsTotal()).isEqualTo(2);
         }
 
@@ -1107,7 +1114,7 @@ class MailFacadeTest {
         }
 
         @ParameterizedTest(name = "{0} view returns only its own messages")
-        @EnumSource(names = {"TRASH", "JUNK", "DRAFTS"})
+        @EnumSource(names = {"TRASH", "JUNK", "DRAFTS", "SENT"})
         void folderScopedViewsReturnOnlyTheirOwnMessages(FolderRole role) {
             String folderName = "folder-of-" + role;
             stubAllRoles(role, folderName);
@@ -1144,14 +1151,14 @@ class MailFacadeTest {
 
         /**
          * unreadCount mirrors the row's, which is folder-scoped in every view: an
-         * unread reply sitting in Sent must not make the inbox row report unread mail
-         * that marking read from that row cannot clear.
+         * unread copy sitting in another folder must not make the inbox row report
+         * unread mail that marking read from that row cannot clear.
          */
         @Test
         @DisplayName("unreadCount stays folder-scoped even though the member list is cross-folder")
         void unreadCountIsFolderScopedLikeTheRow() {
             MailSummaryResponse inbox = summary(1L, FOLDER_INBOX, "<a@x.cz>", false);
-            MailSummaryResponse unreadElsewhere = summary(2L, "[Gmail]/Sent Mail", "<b@x.cz>", false);
+            MailSummaryResponse unreadElsewhere = summary(2L, "Archive", "<b@x.cz>", false);
             stubRolesResolveToNothing();
             stubThread(inbox, unreadElsewhere);
             when(mapper.withDisplayFallbacks(any(MailSummaryResponse.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -1198,7 +1205,7 @@ class MailFacadeTest {
         }
 
         /**
-         * The account genuinely has no trash, junk or drafts folder — every role
+         * The account genuinely has no trash, junk, drafts or sent folder — every role
          * resolves, to nothing. Must be spelled out rather than left to the Mockito
          * default: an unstubbed {@code Optional} method returns
          * {@link Optional#empty()}, which the read path reads as "could not resolve"
@@ -1206,19 +1213,20 @@ class MailFacadeTest {
          * cross-folder behaviour while silently exercising the degraded path.
          */
         private void stubRolesResolveToNothing() {
-            for (FolderRole role : List.of(FolderRole.TRASH, FolderRole.JUNK, FolderRole.DRAFTS)) {
+            for (FolderRole role : List.of(FolderRole.TRASH, FolderRole.JUNK, FolderRole.DRAFTS, FolderRole.SENT)) {
                 stubRole(role);
             }
         }
 
         /**
-         * Stubs all three excluded roles, giving {@code folderName} to {@code role}.
-         * Every role must be stubbed: leaving one out makes the lookup throw a strict
+         * Stubs every excluded role, giving {@code folderName} to {@code role}. Every
+         * role must be stubbed: leaving one out makes the lookup throw a strict
          * stubbing mismatch, which the fail-closed branch swallows — the test would
          * then pass through the degraded path instead of the one it names.
          */
         private void stubAllRoles(FolderRole role, String folderName) {
-            for (FolderRole candidate : List.of(FolderRole.TRASH, FolderRole.JUNK, FolderRole.DRAFTS)) {
+            for (FolderRole candidate : List.of(FolderRole.TRASH, FolderRole.JUNK, FolderRole.DRAFTS,
+                    FolderRole.SENT)) {
                 stubRole(candidate, candidate == role ? folderName : "unrelated-" + candidate);
             }
         }
