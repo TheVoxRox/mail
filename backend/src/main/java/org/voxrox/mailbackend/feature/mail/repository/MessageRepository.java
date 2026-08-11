@@ -467,12 +467,12 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
 
     /**
      * Cross-folder conversation sizes for the threads on one page of the
-     * conversation-grouped listing — the Outlook-style {@code messageCount} used
-     * for every folder except Trash/Junk/Drafts. The page itself stays the
-     * folder-scoped {@link #findConversationRepresentatives}; only the size is
-     * recomputed here, over the whole account minus {@code :excludedFolders} (the
-     * account's trash/junk/drafts names, so deleted, junked or still-unsent
-     * messages never surface in a live conversation).
+     * conversation-grouped listing — the {@code messageCount} used for every folder
+     * except Trash/Junk/Drafts/Sent. The page itself stays the folder-scoped
+     * {@link #findConversationRepresentatives}; only the size is recomputed here,
+     * over the whole account minus {@code :excludedFolders} (the account's
+     * trash/junk/drafts/sent names, so deleted, junked, still-unsent and
+     * self-authored messages never surface in a received conversation).
      * <p>
      * Split into a second query on purpose. Doing it in one window pass means
      * partitioning every row of the account before the page can be cut — no index

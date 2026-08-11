@@ -203,10 +203,11 @@ const sentMessages: MailSummaryResponse[] = [
 		seen: true,
 		hasAttachments: false
 	},
-	// The user's own reply inside the ARCHIVE "Plán vydání" thread — the
-	// cross-folder seam: the ARCHIVE conversation counts it and reveals it
-	// (tagged with its folder) on expand, while folder-scoped bulk actions from
-	// ARCHIVE must leave it untouched.
+	// The user's own reply inside the ARCHIVE "Plán vydání" thread. Sent is one of
+	// the folders a conversation never spans, so this copy must stay out of the
+	// ARCHIVE row's badge and out of its expanded members — the negative half of
+	// the scope, mirroring junk-plan-01 and draft-plan-01. The cross-folder seam
+	// that is still shown lives in seedInboxThreadMember().
 	{
 		...makeSummary(64),
 		stableId: 'sent-plan-01',
@@ -546,6 +547,39 @@ export function seedTrashThreadMembers(): E2EFixtureState {
 	return fixtureState;
 }
 
+/**
+ * Opt-in seed (`mail.e2e.inboxThreadMember`): one received reply in INBOX that
+ * belongs to the ARCHIVE "Plán vydání" thread — the cross-folder seam a
+ * conversation really does span, now that Sent is excluded like Trash and Junk.
+ * From ARCHIVE the row must count it and reveal it tagged with its folder, it
+ * must open under INBOX rather than the folder in view, and a folder-scoped bulk
+ * action fired from ARCHIVE must leave it alone.
+ *
+ * Kept opt-in rather than added to `inboxMessages`: the inbox fixture is exactly
+ * 25 rows, which several tests take as one full page, and it carries the unread
+ * count the folder heading asserts.
+ */
+export function seedInboxThreadMember(): E2EFixtureState {
+	const received: MailSummaryResponse = {
+		...makeSummary(68),
+		stableId: 'inbox-plan-01',
+		folderName: 'INBOX',
+		subject: 'Re: Plán vydání',
+		sender: 'Karel Dvorak <karel@example.com>',
+		receivedAt: iso(300),
+		seen: true,
+		flagged: false,
+		answered: false,
+		hasAttachments: false
+	};
+	fixtureState.messagesByFolder[folderKey(1, 'INBOX')] = [
+		...getFolderMessages(1, 'INBOX'),
+		received
+	];
+	fixtureState.messageDetails[received.stableId] = makeDetail(received);
+	return fixtureState;
+}
+
 export function clearAccounts(): E2EFixtureState {
 	fixtureState.accounts = [];
 	fixtureState.foldersByAccount = {};
@@ -627,21 +661,23 @@ function accountMessages(accountId: number): MailSummaryResponse[] {
  * a fixture can never produce a badge the expanded rows disagree with (the real
  * server has the same property, which is what lets the client skip the check).
  *
- * Trash/Junk/Drafts views stay folder-scoped. Every other view spans the account
- * minus those folders, with copies of one mail (a shared `messageId` — Gmail's
- * INBOX + All Mail) collapsed to the copy in the folder in view, exactly as the
- * backend's `COUNT(DISTINCT COALESCE(message_id, stable_id))` counts them.
+ * Trash/Junk/Drafts/Sent views stay folder-scoped. Every other view spans the
+ * account minus those folders, with copies of one mail (a shared `messageId` —
+ * Gmail's INBOX + All Mail) collapsed to the copy in the folder in view, exactly
+ * as the backend's `COUNT(DISTINCT COALESCE(message_id, stable_id))` counts
+ * them. Sent is excluded like the rest since the conversation in a receiving
+ * folder is about the mail that arrived (`MailFacade.CONVERSATION_EXCLUDED_ROLES`).
  */
+const CONVERSATION_EXCLUDED_ROLES = ['TRASH', 'JUNK', 'DRAFTS', 'SENT'];
+
 function conversationPool(accountId: number, folderName: string): MailSummaryResponse[] {
 	const role = folderRoleOf(accountId, folderName);
-	if (role === 'TRASH' || role === 'JUNK' || role === 'DRAFTS') {
+	if (role && CONVERSATION_EXCLUDED_ROLES.includes(role)) {
 		return getFolderMessages(accountId, folderName);
 	}
 	const excluded = new Set(
 		(fixtureState.foldersByAccount[accountId] ?? [])
-			.filter(
-				(folder) => folder.role === 'TRASH' || folder.role === 'JUNK' || folder.role === 'DRAFTS'
-			)
+			.filter((folder) => folder.role && CONVERSATION_EXCLUDED_ROLES.includes(folder.role))
 			.map((folder) => folderKey(accountId, folder.folderRef))
 	);
 	const pool = Object.entries(fixtureState.messagesByFolder)

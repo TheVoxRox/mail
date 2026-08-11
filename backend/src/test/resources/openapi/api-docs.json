@@ -853,7 +853,7 @@
             "description" : "Newest message of the conversation in this folder — the row's representative."
           },
           "messageCount" : {
-            "description" : "Number of messages of this conversation (>= 1). For a regular folder it is cross-folder except trash/junk/drafts, counting a mail stored in several folders once; folder-scoped in Trash, Junk and Drafts views.",
+            "description" : "Number of messages of this conversation (>= 1). For a regular folder it is cross-folder except trash/junk/drafts/sent, counting a mail stored in several folders once; folder-scoped in Trash, Junk, Drafts and Sent views.",
             "format" : "int32",
             "type" : "integer"
           },

@@ -9,7 +9,8 @@ IMAP/SMTP servery a poskytuje API pro uživatelské rozhraní.
 - Správa více e-mailových účtů.
 - Čtení složek, vyhledávání zpráv a práce s detailem zprávy.
 - Zobrazení pošty po jednotlivých zprávách, nebo seskupené do konverzací
-  (vlákno drží zprávy pohromadě i napříč složkami).
+  (vlákno drží zprávy pohromadě i napříč složkami; Odeslané, Koš, Spam a
+  Rozepsané zůstávají stranou a seskupují se samy pro sebe).
 - Vytváření nové zprávy, odpovědi, přeposlání a ukládání konceptů; adresy
   našeptává adresář i historie vaší korespondence.
 - Psaní v Markdownu: napíšete-li `**tučně**`, `# nadpis` nebo `- odrážku`,

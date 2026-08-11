@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { formatMediumDate, formatSize } from './formatters.js';
+import {
+	formatMediumDate,
+	formatMessageListDate,
+	formatSize,
+	formatThreadMemberDate
+} from './formatters.js';
 
 describe('formatSize', () => {
 	it('renders bytes and kB as separator-free integers', () => {
@@ -41,5 +46,39 @@ describe('formatMediumDate', () => {
 
 	it('falls back to the raw value for an unparseable date', () => {
 		expect(formatMediumDate('not-a-date', 'cs')).toBe('not-a-date');
+	});
+});
+
+describe('formatThreadMemberDate', () => {
+	// Local-time constructor: the "same day" branch is a local-calendar question,
+	// so a UTC literal would flip the assertion in a timezone behind UTC.
+	const at = (day: number, hour: number, minute: number) =>
+		new Date(2026, 5, day, hour, minute).toISOString();
+	const now = new Date(2026, 5, 20, 12, 0);
+
+	it('leaves today alone — the list format is already the clock', () => {
+		const iso = at(20, 9, 30);
+		expect(formatThreadMemberDate(iso, 'cs', now)).toBe(formatMessageListDate(iso, 'cs', now));
+	});
+
+	it('appends the clock to the day, so same-day replies differ', () => {
+		// Two replies from the same Tuesday: the list format renders both as the
+		// weekday alone, which is what made two checkboxes read identically.
+		const morning = at(16, 9, 5);
+		const evening = at(16, 19, 40);
+		expect(formatMessageListDate(morning, 'cs', now)).toBe(
+			formatMessageListDate(evening, 'cs', now)
+		);
+		expect(formatThreadMemberDate(morning, 'cs', now)).not.toBe(
+			formatThreadMemberDate(evening, 'cs', now)
+		);
+		expect(formatThreadMemberDate(morning, 'cs', now)).toContain(
+			formatMessageListDate(morning, 'cs', now)
+		);
+	});
+
+	it('keeps the clock on dates older than a week', () => {
+		const iso = at(1, 8, 15);
+		expect(formatThreadMemberDate(iso, 'cs', now)).toMatch(/1\. 6\. \d{1,2}:\d{2}/);
 	});
 });

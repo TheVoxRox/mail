@@ -38,7 +38,7 @@ public class MailFacade {
      * {@link #conversationExcludedFolders}.
      */
     private static final List<FolderRole> CONVERSATION_EXCLUDED_ROLES = List.of(FolderRole.TRASH, FolderRole.JUNK,
-            FolderRole.DRAFTS);
+            FolderRole.DRAFTS, FolderRole.SENT);
 
     private final MessageRepository messageRepository;
     private final MessageMapper mapper;
@@ -197,13 +197,13 @@ public class MailFacade {
      * messages fold into their conversations here.
      *
      * <p>
-     * Outlook-style cross-folder scope: for a regular folder {@code messageCount}
-     * spans the whole thread across the account minus the trash, junk and drafts
-     * folders ({@link #conversationExcludedFolders}), so a conversation you replied
-     * to counts your sent reply (and shows it in the expanded member list, which
-     * the client builds from the cross-folder thread endpoint). Copies of one mail
-     * in several folders — Gmail's INBOX + All Mail — count once, keyed by
-     * Message-ID.
+     * Cross-folder scope: for a regular folder {@code messageCount} spans the whole
+     * thread across the account minus the trash, junk, drafts and sent folders
+     * ({@link #conversationExcludedFolders}), so a conversation the user filed into
+     * an archive still counts the copies that stayed in the inbox, and the expanded
+     * member list the client builds from the thread endpoint shows exactly those.
+     * Copies of one mail in several folders — Gmail's INBOX + All Mail — count
+     * once, keyed by Message-ID.
      *
      * <p>
      * {@code unreadCount} deliberately stays folder-scoped even there: mark-as-read
@@ -213,9 +213,9 @@ public class MailFacade {
      * row offers describe the same set of messages.
      *
      * <p>
-     * Trash, Junk and Drafts views stay folder-scoped — the trash must only ever
-     * show what is actually in the trash, and a cross-folder Drafts view would list
-     * full conversations behind rows that open the composer.
+     * Trash, Junk, Drafts and Sent views stay folder-scoped — the trash must only
+     * ever show what is actually in the trash, and a cross-folder Drafts view would
+     * list full conversations behind rows that open the composer.
      */
     public Page<ConversationSummaryResponse> getConversations(Long accountId, String folderName, int page, int size) {
         AccountEntity account = accountService.getAccountOrThrow(accountId);
@@ -299,12 +299,15 @@ public class MailFacade {
 
     /**
      * Folder names kept out of the cross-folder conversation aggregation: the
-     * account's trash, junk and drafts folders. Deleted or junked replies must not
-     * resurface inside a live conversation, and an unsent draft is not a message of
-     * the conversation yet — counting it would bump the inbox badge while the user
-     * is still typing. Doubles as the folder-scoped-view test in
-     * {@link #getConversations}: those three views must only ever show their own
-     * contents.
+     * account's trash, junk, drafts and sent folders. Deleted or junked replies
+     * must not resurface inside a live conversation, and an unsent draft is not a
+     * message of the conversation yet — counting it would bump the inbox badge
+     * while the user is still typing. The user's own sent copies are out because a
+     * conversation in a receiving folder is about the mail that arrived: folding
+     * the replies back in doubles every exchange the user took part in, and the
+     * folder-scoped bulk actions could never touch them anyway. Doubles as the
+     * folder-scoped-view test in {@link #getConversations}: those four views must
+     * only ever show their own contents.
      *
      * <p>
      * Resolved through {@link ImapFolderService}, like every other role lookup in
@@ -345,7 +348,7 @@ public class MailFacade {
             }
         } catch (RuntimeException e) {
             log.warn(
-                    "{} Could not resolve trash/junk/drafts folders of account {} ({}); "
+                    "{} Could not resolve trash/junk/drafts/sent folders of account {} ({}); "
                             + "serving the folder-scoped conversation listing.",
                     LogCategory.SYNC, accountId, e.getMessage());
             return List.of();
@@ -361,8 +364,9 @@ public class MailFacade {
      * appear under it can no longer disagree.
      *
      * @param excludedFolders
-     *            the account's trash/junk/drafts folder names (with the {@code NOT
-     *            IN} sentinel), or empty when the roles could not be resolved
+     *            the account's trash/junk/drafts/sent folder names (with the
+     *            {@code NOT IN} sentinel), or empty when the roles could not be
+     *            resolved
      * @param crossFolder
      *            whether this view spans the account minus {@code excludedFolders};
      *            false means folder-scoped, which is both the Trash/Junk/Drafts
