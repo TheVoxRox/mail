@@ -210,12 +210,25 @@
 		if ($conversationsState.status !== 'ready') return;
 		const { accountId } = $conversationsState.context;
 		if (folderRoleByRef.get(folderName) === 'DRAFTS') {
-			await goto(`${resolve('/compose')}?draft=${encodeURIComponent(stableId)}`);
+			await goto(rowHref(stableId, folderName));
 			return;
 		}
 		if (options.focusBody) requestBodyFocus(stableId);
 		else suppressBodyFocus(stableId);
 		await goto(messageHref(accountId, folderName, stableId));
+	}
+
+	/**
+	 * Where a row's subject link points. Mirrors openMessage — the message's own
+	 * folder, the Drafts detour into the composer — so an assistive technology
+	 * that follows the link natively lands in the same place as activating it.
+	 */
+	function rowHref(stableId: string, folderName: string): string {
+		if ($conversationsState.status !== 'ready') return '';
+		if (folderRoleByRef.get(folderName) === 'DRAFTS') {
+			return `${resolve('/compose')}?draft=${encodeURIComponent(stableId)}`;
+		}
+		return messageHref($conversationsState.context.accountId, folderName, stableId);
 	}
 
 	/** Opens a conversation by its representative (newest in-folder) message. */
@@ -471,6 +484,12 @@
 		return rowMessage(row).stableId;
 	}
 
+	/** Deliberate open of the row — a conversation opens on its representative. */
+	function openRow(row: VisibleRow): void {
+		if (row.kind === 'conversation') void openConversation(row.conversation, { focusBody: true });
+		else void openMessage(row.message.stableId, row.message.folderName, { focusBody: true });
+	}
+
 	function handleKeydown(event: KeyboardEvent, row: VisibleRow, rowIndex: number): void {
 		if (event.key === 'Enter' || event.key === ' ') {
 			// Both cells hold a native control (checkbox, expand button) — let the
@@ -478,8 +497,7 @@
 			// AND navigate on a single Enter.
 			if (focusedCol === COL_SELECT || focusedCol === COL_EXPAND) return;
 			event.preventDefault();
-			if (row.kind === 'conversation') void openConversation(row.conversation, { focusBody: true });
-			else void openMessage(row.message.stableId, row.message.folderName, { focusBody: true });
+			openRow(row);
 			return;
 		}
 		if ($conversationsState.status !== 'ready') return;
@@ -530,30 +548,34 @@
 	}
 
 	/*
-	 * The mouse mirrors the keyboard (see handleKeydown): a single click selects
-	 * the row like an Arrow key — in a split pane the message follows into the
-	 * reading pane but focus stays on the row, in off mode / Drafts it only moves
-	 * the roving focus — and a double click opens like Enter, moving the reading
-	 * cursor into the body. `event.detail` is the click count. The expand toggle is
-	 * a real button and carries its own click handler, so it is caught by the
-	 * control guard below and never reaches the open/select logic.
+	 * Same mouse model as the flat list: a click anywhere on the row opens it and
+	 * moves the reading cursor into the body, and the checkbox is the only thing
+	 * that selects (see MessageList.handleRowClick for why "single click selects"
+	 * had to go — it swallowed the click a screen reader sends in place of the
+	 * Enter it never delivers). The checkbox and the expand toggle are real
+	 * controls that stop their own clicks, and the subject link handles its own.
 	 */
-	function handleRowClick(event: MouseEvent, row: VisibleRow, rowIndex: number): void {
+	function handleRowClick(event: MouseEvent, row: VisibleRow): void {
 		const target = event.target as HTMLElement | null;
 		if (target?.closest('input, button, a')) return;
-		if (event.detail >= 2) {
-			// Double click = Enter: invalidate any refocus the first click's
-			// selectAndFocus queued, so the body wins, then open deliberately.
-			selectToken += 1;
-			if (row.kind === 'conversation') void openConversation(row.conversation, { focusBody: true });
-			else void openMessage(row.message.stableId, row.message.folderName, { focusBody: true });
-			return;
-		}
-		if (readingPaneCtx.pane === 'off' || currentFolderRole === 'DRAFTS') {
-			setFocus(rowIndex, focusedCol);
-		} else {
-			selectAndFocus(rowIndex, focusedCol, row);
-		}
+		openDeliberately(row);
+	}
+
+	/**
+	 * The subject is a real link — the one affordance a screen reader can
+	 * activate in browse mode however it chooses to do it. Its own handler keeps
+	 * the navigation client-side and records the body-focus intent, which a
+	 * native follow of the href could not.
+	 */
+	function handleSubjectClick(event: MouseEvent, row: VisibleRow): void {
+		event.preventDefault();
+		openDeliberately(row);
+	}
+
+	function openDeliberately(row: VisibleRow): void {
+		// Invalidate a refocus an in-flight selectAndFocus queued, so the body wins.
+		selectToken += 1;
+		openRow(row);
 	}
 
 	function handleCellFocus(rowIndex: number, col: number): void {
@@ -881,7 +903,7 @@
 						isConversation && selected.has(row.conversation.latest.stableId) && 'bg-primary/5',
 						unread && 'font-semibold'
 					)}
-					onclick={(e) => handleRowClick(e, row, rowIndex)}
+					onclick={(e) => handleRowClick(e, row)}
 					onkeydown={(e) => handleKeydown(e, row, rowIndex)}
 				>
 					{#if isConversation}
@@ -994,45 +1016,57 @@
 					<div
 						role="gridcell"
 						aria-colindex={COL_SUBJECT + 1}
-						data-cell-target
-						data-col={COL_SUBJECT}
-						tabindex={focusedRow === rowIndex && focusedCol === COL_SUBJECT ? 0 : -1}
-						onfocus={() => handleCellFocus(rowIndex, COL_SUBJECT)}
-						class={cn(
-							'col-start-4 row-start-1 flex items-center gap-2 truncate rounded-sm px-2 pt-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50',
-							unread ? 'text-foreground' : 'text-muted-foreground'
-						)}
+						class="col-start-4 row-start-1 min-w-0 px-2 pt-3"
 					>
-						{#if unread}
-							<span class="sr-only">{$_('messages.unreadIndicatorLabel')}.</span>
-						{/if}
-						<span class="truncate">{message.subject || $_('messages.noSubject')}</span>
-						{#if isConversation && displayedCount(row.conversation) > 1}
-							<span
-								class="shrink-0 rounded-full bg-primary/12 px-1.5 py-0.5 text-caption font-semibold text-primary"
-								aria-hidden="true"
-							>
-								{displayedCount(row.conversation)}
-							</span>
-							<span class="sr-only">{conversationLabel(row.conversation)}.</span>
-						{/if}
-						{#if !isConversation && row.message.folderName !== currentFolderName}
-							{@const memberFolderName = folderLabelByRef($folders, row.message.folderName, $_)}
-							<!-- Cross-folder member (e.g. the user's sent reply inside the inbox
+						<!--
+							A real link, like the flat list: browse mode never delivers Enter
+							to the treegrid, and a link is the one thing every screen reader
+							activates there. It carries the roving tabindex, so the arrow keys
+							and the expand contract are unchanged.
+						-->
+						<a
+							href={rowHref(message.stableId, message.folderName)}
+							data-cell-target
+							data-col={COL_SUBJECT}
+							tabindex={focusedRow === rowIndex && focusedCol === COL_SUBJECT ? 0 : -1}
+							onfocus={() => handleCellFocus(rowIndex, COL_SUBJECT)}
+							onclick={(event) => handleSubjectClick(event, row)}
+							class={cn(
+								'flex items-center gap-2 rounded-sm text-sm no-underline outline-none hover:underline focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50',
+								unread ? 'text-foreground' : 'text-muted-foreground'
+							)}
+						>
+							{#if unread}
+								<span class="sr-only">{$_('messages.unreadIndicatorLabel')}.</span>
+							{/if}
+							<span class="truncate">{message.subject || $_('messages.noSubject')}</span>
+							{#if isConversation && displayedCount(row.conversation) > 1}
+								<span
+									class="shrink-0 rounded-full bg-primary/12 px-1.5 py-0.5 text-caption font-semibold text-primary"
+									aria-hidden="true"
+								>
+									{displayedCount(row.conversation)}
+								</span>
+								<span class="sr-only">{conversationLabel(row.conversation)}.</span>
+							{/if}
+							{#if !isConversation && row.message.folderName !== currentFolderName}
+								{@const memberFolderName = folderLabelByRef($folders, row.message.folderName, $_)}
+								<!-- Cross-folder member (e.g. the user's sent reply inside the inbox
 							     conversation): tag it with its home folder so the row is
 							     unambiguous both visually and for a screen reader. -->
-							<span
-								class="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-caption font-medium text-muted-foreground"
-								aria-hidden="true"
-							>
-								{memberFolderName}
-							</span>
-							<span class="sr-only"
-								>{$_('messages.grouping.memberFolder', {
-									values: { folder: memberFolderName }
-								})}.</span
-							>
-						{/if}
+								<span
+									class="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-caption font-medium text-muted-foreground"
+									aria-hidden="true"
+								>
+									{memberFolderName}
+								</span>
+								<span class="sr-only"
+									>{$_('messages.grouping.memberFolder', {
+										values: { folder: memberFolderName }
+									})}.</span
+								>
+							{/if}
+						</a>
 					</div>
 					<div
 						role="gridcell"

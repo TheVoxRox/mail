@@ -45,7 +45,7 @@ test.describe('Konverzační seskupení', () => {
 		).toBeVisible();
 	});
 
-	test('dvojklik otevře konverzaci na reprezentativní zprávě', async ({ page }) => {
+	test('jednoklik otevře konverzaci na reprezentativní zprávě', async ({ page }) => {
 		await page.goto(`/mail/${accountId}/${encodeURIComponent(folderName)}`);
 		await waitForShell(page);
 
@@ -53,18 +53,16 @@ test.describe('Konverzační seskupení', () => {
 		const firstRow = grid.locator('[role="row"][data-stable-id]').first();
 		await expect(firstRow).toBeVisible();
 		const stableId = await firstRow.getAttribute('data-stable-id');
-		// Deliberate open = double click, mirroring the flat list (single click is
-		// the mouse twin of an Arrow key). Target the subject cell rather than the
-		// row: a row-centre click can land between cells, where the roving focus
-		// the assertions below check would not settle.
-		await firstRow.locator('[data-cell-target][data-col="3"]').dblclick();
+		// The web-mail model: a click opens, the checkbox selects. Target the
+		// subject rather than the row centre, which can land between cells.
+		await firstRow.locator('[data-cell-target][data-col="3"]').click();
 
 		await page.waitForURL(
 			`**/mail/${accountId}/${encodeURIComponent(folderName)}/${encodeURIComponent(stableId ?? '')}`
 		);
 	});
 
-	test('jednoklik bez podokna čtení jen přesune fokus, konverzaci neotevře', async ({ page }) => {
+	test('aktivace odečítačem otevře konverzaci jako Enter', async ({ page }) => {
 		await page.addInitScript(() => {
 			window.localStorage.setItem('mail.readingPane', 'off');
 		});
@@ -74,19 +72,22 @@ test.describe('Konverzační seskupení', () => {
 		const grid = page.getByRole('treegrid', { name: 'Seznam konverzací' });
 		const firstRow = grid.locator('[role="row"][data-stable-id]').first();
 		await expect(firstRow).toBeVisible();
-		const subjectCell = firstRow.locator('[data-cell-target][data-col="3"]');
-		await subjectCell.click();
+		const stableId = await firstRow.getAttribute('data-stable-id');
+		const subjectLink = firstRow.locator('[data-cell-target][data-col="3"]');
+		await subjectLink.focus();
 
-		// No pane to preview into, so the click only moves the roving focus onto
-		// the subject cell — the conversation opens on Enter or a double click.
-		await expect(subjectCell).toBeFocused();
-		await expect(page).toHaveURL(new RegExp(`/mail/${accountId}/${folderName}$`));
-		await expect(grid).toBeVisible();
+		// The reader keeps Enter for browse-mode navigation and activates the
+		// subject link instead; the click it sends may carry no click count.
+		await subjectLink.evaluate((el: HTMLElement) => el.click());
+
+		await page.waitForURL(
+			`**/mail/${accountId}/${encodeURIComponent(folderName)}/${encodeURIComponent(stableId ?? '')}`
+		);
 	});
 
-	test('jednoklik ve split režimu ukáže konverzaci, ale fokus nechá na řádku', async ({ page }) => {
+	test('zaškrtávátko vybere konverzaci a neotevře ji', async ({ page }) => {
 		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.readingPane', 'right');
+			window.localStorage.setItem('mail.readingPane', 'off');
 		});
 		await page.goto(`/mail/${accountId}/${encodeURIComponent(folderName)}`);
 		await waitForShell(page);
@@ -94,16 +95,12 @@ test.describe('Konverzační seskupení', () => {
 		const grid = page.getByRole('treegrid', { name: 'Seznam konverzací' });
 		const firstRow = grid.locator('[role="row"][data-stable-id]').first();
 		await expect(firstRow).toBeVisible();
-		const stableId = await firstRow.getAttribute('data-stable-id');
-		const subjectCell = firstRow.locator('[data-cell-target][data-col="3"]');
-		await subjectCell.click();
+		await firstRow.locator('input[type="checkbox"]').check();
 
-		await page.waitForURL(
-			`**/mail/${accountId}/${encodeURIComponent(folderName)}/${encodeURIComponent(stableId ?? '')}`
-		);
-		// Selection followed the click into the reading pane, but the reading
-		// cursor stays in the list so the next Arrow key keeps navigating.
-		await expect(subjectCell).toBeFocused();
+		// Selection is the checkbox alone — it keeps its click to itself.
+		await page.waitForTimeout(700);
+		await expect(page).toHaveURL(new RegExp(`/mail/${accountId}/${folderName}$`));
+		await expect(grid).toBeVisible();
 	});
 });
 
@@ -218,11 +215,25 @@ test.describe('Rozbalení konverzace', () => {
 
 		const member = archiveRow(page, 'arch-02');
 		await expect(member).toBeVisible();
-		// Member rows follow the same click model as the parents: a deliberate
-		// open is a double click (the suite runs with the reading pane off).
-		await member.dblclick();
+		// Member rows follow the same click model as the parents: a click opens.
+		await member.click();
 
 		await page.waitForURL(`**/mail/${accountId}/ARCHIVE/arch-02`);
+	});
+
+	test('rozbalovací tlačítko vlákno jen rozbalí, konverzaci neotevře', async ({ page }) => {
+		await page.goto(`/mail/${accountId}/ARCHIVE`);
+		await waitForShell(page);
+
+		// The one exemption from "a click opens": the toggle is a real control and
+		// keeps its click to itself, or expanding a thread would navigate away.
+		const parent = archiveRow(page, 'arch-03');
+		await expect(parent).toBeVisible();
+		await parent.locator('[data-expand-toggle]').click();
+
+		await expect(parent).toHaveAttribute('aria-expanded', 'true');
+		await expect(archiveRow(page, 'arch-02')).toBeVisible();
+		await expect(page).toHaveURL(new RegExp(`/mail/${accountId}/ARCHIVE$`));
 	});
 
 	test('smazaný člen vlákna se nepočítá do odznaku ani se nezobrazí mezi členy', async ({
@@ -291,7 +302,7 @@ test.describe('Rozbalení konverzace', () => {
 
 		const sentMember = archiveRow(page, 'sent-plan-01');
 		await expect(sentMember).toBeVisible();
-		await sentMember.dblclick();
+		await sentMember.click();
 
 		await page.waitForURL(`**/mail/${accountId}/SENT/sent-plan-01`);
 	});
