@@ -84,6 +84,36 @@ export function computeNextCell(
  * down, and a one-shot focus request must survive that to be honoured by the
  * instance that replaces it.
  */
+/**
+ * Is this click a deliberate open of the row, rather than the select-only
+ * single click that mirrors an Arrow key?
+ *
+ * `event.detail` is the click count: 2 is the second click of a double click,
+ * the mouse gesture for "open". 0 is not a mouse click at all — a screen reader
+ * in browse mode keeps the unmodified keys for its own navigation and never
+ * delivers Enter to the grid as a keydown, so it activates the cell under its
+ * cursor instead and the webview dispatches that as a click carrying no click
+ * count. That IS the Enter the user pressed. Counting it as a single click is
+ * what makes Enter look dead: with the reading pane off nothing happens at all,
+ * and beside a pane the message shows but the reading cursor never leaves the
+ * row, so the SR user hears nothing of what they just opened.
+ */
+export function isDeliberateOpenClick(event: MouseEvent): boolean {
+	return event.detail === 0 || event.detail >= 2;
+}
+
+/**
+ * Column of the `[data-cell-target]` cell a click came from, or null when it
+ * landed outside one. Lets a row-level click handler honour the same per-column
+ * exemptions as its keydown twin: a cell that owns a control (checkbox, expand
+ * toggle) must keep its own activation, and a screen-reader activation is fired
+ * from the very cell it targets.
+ */
+export function clickedCellColumn(target: HTMLElement | null): number | null {
+	const col = target?.closest<HTMLElement>('[data-cell-target]')?.dataset.col;
+	return col === undefined ? null : Number(col);
+}
+
 export function focusGridCell(gridEl: HTMLElement | null, rowIndex: number, col: number): boolean {
 	const cell = gridEl
 		?.querySelector<HTMLElement>(`[data-row-index="${rowIndex}"]`)

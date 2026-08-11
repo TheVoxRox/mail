@@ -64,6 +64,30 @@ test.describe('Konverzační seskupení', () => {
 		);
 	});
 
+	test('aktivace odečítačem otevře konverzaci jako Enter', async ({ page }) => {
+		await page.addInitScript(() => {
+			window.localStorage.setItem('mail.readingPane', 'off');
+		});
+		await page.goto(`/mail/${accountId}/${encodeURIComponent(folderName)}`);
+		await waitForShell(page);
+
+		const grid = page.getByRole('treegrid', { name: 'Seznam konverzací' });
+		const firstRow = grid.locator('[role="row"][data-stable-id]').first();
+		await expect(firstRow).toBeVisible();
+		const stableId = await firstRow.getAttribute('data-stable-id');
+		const subjectCell = firstRow.locator('[data-cell-target][data-col="3"]');
+		await subjectCell.focus();
+
+		// The screen reader keeps Enter for browse-mode navigation and activates
+		// the cell instead — a click with no click count. Counted as a single
+		// click it would only move the roving focus (see the test below).
+		await subjectCell.evaluate((el: HTMLElement) => el.click());
+
+		await page.waitForURL(
+			`**/mail/${accountId}/${encodeURIComponent(folderName)}/${encodeURIComponent(stableId ?? '')}`
+		);
+	});
+
 	test('jednoklik bez podokna čtení jen přesune fokus, konverzaci neotevře', async ({ page }) => {
 		await page.addInitScript(() => {
 			window.localStorage.setItem('mail.readingPane', 'off');
@@ -223,6 +247,27 @@ test.describe('Rozbalení konverzace', () => {
 		await member.dblclick();
 
 		await page.waitForURL(`**/mail/${accountId}/ARCHIVE/arch-02`);
+	});
+
+	test('aktivace odečítačem na prázdné buňce výběru člena nic neotevře', async ({ page }) => {
+		await page.goto(`/mail/${accountId}/ARCHIVE`);
+		await waitForShell(page);
+
+		const parent = archiveRow(page, 'arch-03');
+		await expect(parent).toBeVisible();
+		await parent.locator('[data-expand-toggle]').click();
+		const member = archiveRow(page, 'arch-02');
+		await expect(member).toBeVisible();
+
+		// The select and expand columns own their own activation — Enter there
+		// must not also open the row. The checkbox and the toggle keep their
+		// clicks to themselves; a member row's select cell is an empty gridcell
+		// with nothing to stop them, so the column guard has to hold here.
+		await member.locator('[data-cell-target][data-col="0"]').evaluate((el: HTMLElement) => {
+			el.click();
+		});
+
+		await expect(page).toHaveURL(new RegExp(`/mail/${accountId}/ARCHIVE$`));
 	});
 
 	test('smazaný člen vlákna se nepočítá do odznaku ani se nezobrazí mezi členy', async ({

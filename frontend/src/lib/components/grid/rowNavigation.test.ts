@@ -1,5 +1,25 @@
 import { describe, expect, it } from 'vitest';
-import { computeNextCell, ROW_NAV_PAGE_STEP } from './rowNavigation.js';
+import { computeNextCell, isDeliberateOpenClick, ROW_NAV_PAGE_STEP } from './rowNavigation.js';
+
+describe('isDeliberateOpenClick', () => {
+	const click = (detail: number) => ({ detail }) as MouseEvent;
+
+	it('treats a single click as select-only, the twin of an Arrow key', () => {
+		expect(isDeliberateOpenClick(click(1))).toBe(false);
+	});
+
+	it('opens on a double click', () => {
+		expect(isDeliberateOpenClick(click(2))).toBe(true);
+		expect(isDeliberateOpenClick(click(3))).toBe(true);
+	});
+
+	// A screen reader in browse mode activates the cell instead of delivering
+	// Enter, and that arrives with no click count. Counting it as a single click
+	// is what made Enter look dead in the message list.
+	it('opens on an activation carrying no click count', () => {
+		expect(isDeliberateOpenClick(click(0))).toBe(true);
+	});
+});
 
 describe('computeNextCell', () => {
 	const grid = { row: 2, col: 1, maxRow: 5, maxCol: 4 };

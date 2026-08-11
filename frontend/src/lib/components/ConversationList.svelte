@@ -13,8 +13,10 @@
 	import { StateMessage } from '$lib/components/ui/state-message/index.js';
 	import { Surface } from '$lib/components/ui/surface/index.js';
 	import {
+		clickedCellColumn,
 		computeNextCell,
 		focusGridCell,
+		isDeliberateOpenClick,
 		ROW_NAV_PAGE_STEP
 	} from '$lib/components/grid/rowNavigation.js';
 	import { cn } from '$lib/utils.js';
@@ -471,6 +473,12 @@
 		return rowMessage(row).stableId;
 	}
 
+	/** Deliberate open of the row — a conversation opens on its representative. */
+	function openRow(row: VisibleRow): void {
+		if (row.kind === 'conversation') void openConversation(row.conversation, { focusBody: true });
+		else void openMessage(row.message.stableId, row.message.folderName, { focusBody: true });
+	}
+
 	function handleKeydown(event: KeyboardEvent, row: VisibleRow, rowIndex: number): void {
 		if (event.key === 'Enter' || event.key === ' ') {
 			// Both cells hold a native control (checkbox, expand button) — let the
@@ -478,8 +486,7 @@
 			// AND navigate on a single Enter.
 			if (focusedCol === COL_SELECT || focusedCol === COL_EXPAND) return;
 			event.preventDefault();
-			if (row.kind === 'conversation') void openConversation(row.conversation, { focusBody: true });
-			else void openMessage(row.message.stableId, row.message.folderName, { focusBody: true });
+			openRow(row);
 			return;
 		}
 		if ($conversationsState.status !== 'ready') return;
@@ -534,19 +541,28 @@
 	 * the row like an Arrow key — in a split pane the message follows into the
 	 * reading pane but focus stays on the row, in off mode / Drafts it only moves
 	 * the roving focus — and a double click opens like Enter, moving the reading
-	 * cursor into the body. `event.detail` is the click count. The expand toggle is
-	 * a real button and carries its own click handler, so it is caught by the
+	 * cursor into the body — as does a screen reader activating the cell, which
+	 * arrives as a click too (see isDeliberateOpenClick). The expand toggle is a
+	 * real button and carries its own click handler, so it is caught by the
 	 * control guard below and never reaches the open/select logic.
 	 */
 	function handleRowClick(event: MouseEvent, row: VisibleRow, rowIndex: number): void {
 		const target = event.target as HTMLElement | null;
 		if (target?.closest('input, button, a')) return;
-		if (event.detail >= 2) {
-			// Double click = Enter: invalidate any refocus the first click's
-			// selectAndFocus queued, so the body wins, then open deliberately.
+		if (isDeliberateOpenClick(event)) {
+			/*
+			 * Same exemption as handleKeydown: a screen-reader activation is fired
+			 * from the cell it targets, and those two columns own their activation —
+			 * one Enter must not both toggle the thread and navigate away. The
+			 * checkbox and the toggle stop their own clicks, but a member row's
+			 * select cell is an empty gridcell with nothing to stop them.
+			 */
+			const col = clickedCellColumn(target);
+			if (col === COL_SELECT || col === COL_EXPAND) return;
+			// Invalidate any refocus the first click's selectAndFocus queued, so the
+			// body wins, then open deliberately.
 			selectToken += 1;
-			if (row.kind === 'conversation') void openConversation(row.conversation, { focusBody: true });
-			else void openMessage(row.message.stableId, row.message.folderName, { focusBody: true });
+			openRow(row);
 			return;
 		}
 		if (readingPaneCtx.pane === 'off' || currentFolderRole === 'DRAFTS') {

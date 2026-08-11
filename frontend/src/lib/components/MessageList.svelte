@@ -27,6 +27,7 @@
 	import {
 		computeNextCell,
 		focusGridCell,
+		isDeliberateOpenClick,
 		ROW_NAV_PAGE_STEP
 	} from '$lib/components/grid/rowNavigation.js';
 	import { cn } from '$lib/utils.js';
@@ -193,15 +194,17 @@
 	 * the row like an Arrow key — in a split pane the message follows into the
 	 * reading pane but focus stays on the row, in off mode / Drafts it only moves
 	 * the roving focus — and a double click opens like Enter, moving the reading
-	 * cursor into the body. `event.detail` is the click count, so 2 marks the
-	 * second click of a double-click.
+	 * cursor into the body — as does a screen reader activating the cell, which
+	 * arrives as a click too (see isDeliberateOpenClick). The select and actions
+	 * cells stop their own clicks from reaching this handler, so the keydown
+	 * exemption for those columns needs no counterpart here.
 	 */
 	function handleRowClick(event: MouseEvent, message: MailSummaryResponse, rowIndex: number): void {
 		const target = event.target as HTMLElement | null;
 		if (target?.closest('input, button, a')) return;
-		if (event.detail >= 2) {
-			// Double click = Enter: invalidate any refocus the first click's
-			// selectAndFocus queued, so the body wins, then open deliberately.
+		if (isDeliberateOpenClick(event)) {
+			// Invalidate any refocus the first click's selectAndFocus queued, so the
+			// body wins, then open deliberately.
 			selectToken += 1;
 			void handleSelect(message, { focusBody: true });
 			return;

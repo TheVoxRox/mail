@@ -1,5 +1,15 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator } from '@playwright/test';
 import { waitForShell } from '../e2e-helpers';
+
+/*
+ * What a screen reader does to the grid instead of pressing Enter. In browse
+ * mode it keeps the unmodified keys for its own navigation and never delivers
+ * the keydown; activating the cell under its cursor reaches the page as a
+ * synthetic click carrying no click count. Playwright's keyboard and mouse
+ * cannot produce that event, so the app-side half of the SR path is only
+ * testable this way.
+ */
+const activateLikeScreenReader = (cell: Locator) => cell.evaluate((el: HTMLElement) => el.click());
 
 /*
  * Off-mode list keyboard model (SR audit findings 1+2): with the reading pane
@@ -65,6 +75,21 @@ test.describe('Seznam zpráv v režimu bez podokna čtení', () => {
 		await expect(
 			page.locator('[role="row"][data-stable-id="msg-02"] [data-col="2"]')
 		).toBeFocused();
+	});
+
+	test('aktivace odečítačem otevře zprávu jako Enter, ne jako jednoklik', async ({ page }) => {
+		await page.goto('/mail/1/INBOX');
+		await waitForShell(page);
+
+		const firstSubject = page.locator('[role="row"][data-stable-id="msg-01"] [data-col="2"]');
+		await expect(firstSubject).toBeVisible();
+		await firstSubject.focus();
+
+		// Treated as a single click this does nothing visible in off mode — the
+		// user presses Enter and the message never opens.
+		await activateLikeScreenReader(firstSubject);
+
+		await page.waitForURL('**/mail/1/INBOX/msg-01');
 	});
 
 	test('PageDown a Home v seznamu neotevírají zprávy', async ({ page }) => {
@@ -254,6 +279,27 @@ test.describe('Seznam zpráv ve split režimu', () => {
 		// The double click is the deliberate open — like Enter it moves the
 		// reading cursor into the body of the message already in the pane.
 		await subject.dblclick();
+		const frame = page.getByTitle('Obsah zprávy');
+		await expect.poll(() => frame.evaluate((el) => el === document.activeElement)).toBe(true);
+	});
+
+	test('aktivace odečítačem ve split režimu pustí kurzor do těla zprávy', async ({ page }) => {
+		await page.addInitScript(() => {
+			window.localStorage.setItem('mail.readingPane', 'right');
+		});
+		await page.goto('/mail/1/INBOX');
+		await waitForShell(page);
+
+		const subject = page.locator('[role="row"][data-stable-id="msg-01"] [data-col="2"]');
+		await expect(subject).toBeVisible();
+		await subject.focus();
+
+		// The deliberate-open half matters here too: treated as a single click the
+		// message would show in the pane but the reading cursor would stay on the
+		// row, so the SR user hears nothing of the message they just opened.
+		await activateLikeScreenReader(subject);
+
+		await page.waitForURL('**/mail/1/INBOX/msg-01');
 		const frame = page.getByTitle('Obsah zprávy');
 		await expect.poll(() => frame.evaluate((el) => el === document.activeElement)).toBe(true);
 	});
