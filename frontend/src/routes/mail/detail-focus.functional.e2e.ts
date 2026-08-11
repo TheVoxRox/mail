@@ -23,9 +23,9 @@ test.describe('Fokus na tělo otevřené zprávy', () => {
 		await page.goto('/mail/1/INBOX');
 		await waitForShell(page);
 
-		// Off mode: the deliberate open is a double-click (Enter's mouse twin);
-		// a single click would only move the roving focus.
-		await page.locator('[role="row"][data-stable-id="msg-01"]').dblclick();
+		// A click anywhere on the row is a deliberate open (the web-mail model),
+		// so the reading cursor lands in the body just like it does on Enter.
+		await page.locator('[role="row"][data-stable-id="msg-01"]').click();
 		await page.waitForURL('**/mail/1/INBOX/msg-01');
 
 		const frame = page.getByTitle('Obsah zprávy');

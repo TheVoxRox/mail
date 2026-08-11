@@ -29,9 +29,8 @@ test.describe('Akce v otevřené zprávě (off mód)', () => {
 
 		const row = page.locator(`[role="row"][data-stable-id="${fixture.stableId}"]`);
 		await expect(row).toBeVisible();
-		// Off mode: a single click only selects the row (mirrors an Arrow key);
-		// the double click is the deliberate open, like Enter.
-		await row.dblclick();
+		// A click anywhere on the row opens it (the web-mail model).
+		await row.click();
 
 		await page.waitForURL(
 			`**/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}/${encodeURIComponent(fixture.stableId)}`

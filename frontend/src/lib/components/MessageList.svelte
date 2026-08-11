@@ -27,7 +27,6 @@
 	import {
 		computeNextCell,
 		focusGridCell,
-		isDeliberateOpenClick,
 		ROW_NAV_PAGE_STEP
 	} from '$lib/components/grid/rowNavigation.js';
 	import { cn } from '$lib/utils.js';
@@ -111,6 +110,23 @@
 		});
 	}
 
+	function draftHref(stableId: string): string {
+		return `${resolve('/compose')}?draft=${encodeURIComponent(stableId)}`;
+	}
+
+	/**
+	 * Where the row's subject link points. Mirrors handleSelect — including the
+	 * Drafts detour into the composer — so an assistive technology that follows
+	 * the link natively instead of firing a click lands in the same place.
+	 */
+	function rowHref(message: MailSummaryResponse): string {
+		if ($messagesState.status !== 'ready') return '';
+		const { accountId, folderName } = $messagesState.context;
+		return currentFolderRole === 'DRAFTS'
+			? draftHref(message.stableId)
+			: messageHref(accountId, folderName, message.stableId);
+	}
+
 	/**
 	 * Opens `message`. `focusBody` marks a deliberate open (Enter/Space, click)
 	 * — only then does the reading cursor move into the message body. A row
@@ -127,7 +143,7 @@
 		// Drafts open in the composer (with a Send button), not the read-only viewer.
 		const folder = $folders.find((f: FolderResponse) => f.folderRef === folderName);
 		if (folder?.role === 'DRAFTS') {
-			await goto(`${resolve('/compose')}?draft=${encodeURIComponent(message.stableId)}`);
+			await goto(draftHref(message.stableId));
 			return;
 		}
 		if (options.focusBody) requestBodyFocus(message.stableId);
@@ -190,30 +206,40 @@
 	}
 
 	/*
-	 * The mouse mirrors the keyboard (see handleKeydown): a single click selects
-	 * the row like an Arrow key — in a split pane the message follows into the
-	 * reading pane but focus stays on the row, in off mode / Drafts it only moves
-	 * the roving focus — and a double click opens like Enter, moving the reading
-	 * cursor into the body — as does a screen reader activating the cell, which
-	 * arrives as a click too (see isDeliberateOpenClick). The select and actions
-	 * cells stop their own clicks from reaching this handler, so the keydown
-	 * exemption for those columns needs no counterpart here.
+	 * The mouse follows the web-mail model (Gmail, Outlook Web): a click anywhere
+	 * on the row opens the message and moves the reading cursor into the body,
+	 * and the checkbox is the only thing that selects. #201 briefly made a single
+	 * click select instead — the Outlook *desktop* model — and that silently
+	 * broke Enter for a screen reader in browse mode: the reader keeps the
+	 * unmodified keys for its own navigation and never delivers Enter as a
+	 * keydown, it activates the row instead, and the activation arrives here as
+	 * an ordinary click. Treating that click as "select" made Enter look dead.
+	 *
+	 * The checkbox and the actions menu stop their own clicks before this, and
+	 * the subject link handles its own — see handleSubjectClick.
 	 */
-	function handleRowClick(event: MouseEvent, message: MailSummaryResponse, rowIndex: number): void {
+	function handleRowClick(event: MouseEvent, message: MailSummaryResponse): void {
 		const target = event.target as HTMLElement | null;
 		if (target?.closest('input, button, a')) return;
-		if (isDeliberateOpenClick(event)) {
-			// Invalidate any refocus the first click's selectAndFocus queued, so the
-			// body wins, then open deliberately.
-			selectToken += 1;
-			void handleSelect(message, { focusBody: true });
-			return;
-		}
-		if (readingPaneCtx.pane === 'off' || currentFolderRole === 'DRAFTS') {
-			setFocus(rowIndex, focusedCol);
-		} else {
-			selectAndFocus(rowIndex, focusedCol, message);
-		}
+		openDeliberately(message);
+	}
+
+	/**
+	 * The subject is a real link, the one affordance every screen reader can
+	 * activate in browse mode regardless of how it chooses to do it (a synthetic
+	 * click, a simulated mouse click, or following the href). Its own handler
+	 * keeps the navigation client-side and records the body-focus intent, which a
+	 * native follow of the href could not.
+	 */
+	function handleSubjectClick(event: MouseEvent, message: MailSummaryResponse): void {
+		event.preventDefault();
+		openDeliberately(message);
+	}
+
+	function openDeliberately(message: MailSummaryResponse): void {
+		// Invalidate a refocus an in-flight selectAndFocus queued, so the body wins.
+		selectToken += 1;
+		void handleSelect(message, { focusBody: true });
 	}
 
 	function handleCellFocus(rowIndex: number, col: number): void {
@@ -570,7 +596,7 @@
 						multiSelected && !selected && 'bg-primary/5',
 						!message.seen && 'font-semibold'
 					)}
-					onclick={(e) => handleRowClick(e, message, rowIndex)}
+					onclick={(e) => handleRowClick(e, message)}
 					onkeydown={(e) => handleKeydown(e, message, rowIndex)}
 				>
 					<!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -622,19 +648,32 @@
 					<div
 						role="gridcell"
 						aria-colindex={COL_SUBJECT + 1}
-						data-cell-target
-						data-col={COL_SUBJECT}
-						tabindex={focusedRow === rowIndex && focusedCol === COL_SUBJECT ? 0 : -1}
-						onfocus={() => handleCellFocus(rowIndex, COL_SUBJECT)}
-						class={cn(
-							'col-start-3 row-start-1 truncate rounded-sm px-2 pt-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50',
-							!message.seen ? 'text-foreground' : 'text-muted-foreground'
-						)}
+						class="col-start-3 row-start-1 min-w-0 px-2 pt-3"
 					>
-						{#if !message.seen}
-							<span class="sr-only">{$_('messages.unreadIndicatorLabel')}.</span>
-						{/if}
-						{message.subject || $_('messages.noSubject')}
+						<!--
+							A real link, not a clickable cell: browse mode never delivers
+							Enter to the grid, and a link is the one thing every screen
+							reader activates there. It carries the roving tabindex, so the
+							arrow-key model is unchanged — same shape as the actions menu
+							button in its own cell.
+						-->
+						<a
+							href={rowHref(message)}
+							data-cell-target
+							data-col={COL_SUBJECT}
+							tabindex={focusedRow === rowIndex && focusedCol === COL_SUBJECT ? 0 : -1}
+							onfocus={() => handleCellFocus(rowIndex, COL_SUBJECT)}
+							onclick={(event) => handleSubjectClick(event, message)}
+							class={cn(
+								'block truncate rounded-sm text-sm no-underline outline-none hover:underline focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50',
+								!message.seen ? 'text-foreground' : 'text-muted-foreground'
+							)}
+						>
+							{#if !message.seen}
+								<span class="sr-only">{$_('messages.unreadIndicatorLabel')}.</span>
+							{/if}
+							{message.subject || $_('messages.noSubject')}
+						</a>
 					</div>
 					<div
 						role="gridcell"

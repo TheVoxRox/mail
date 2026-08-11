@@ -799,9 +799,8 @@ test.describe('Compose', () => {
 		// page.goto would reload the MSW worker and reset its fixtures, wiping it.
 		await page.getByRole('link', { name: 'Rozepsané' }).click();
 		await page.waitForURL('**/mail/1/DRAFTS');
-		// In Drafts a single click only selects the row (like an Arrow key); the
-		// double-click is the deliberate open into the composer (Enter's twin).
-		await page.getByText('Koncept se skrytou kopií').dblclick();
+		// A click on the draft opens it in the composer (the web-mail model).
+		await page.getByText('Koncept se skrytou kopií').click();
 		await page.waitForURL(/\/compose\?draft=/);
 
 		// Reopened recipients render as token chips (the input itself is empty).

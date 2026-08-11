@@ -4,22 +4,25 @@ import { waitForShell } from '../e2e-helpers';
 /*
  * What a screen reader does to the grid instead of pressing Enter. In browse
  * mode it keeps the unmodified keys for its own navigation and never delivers
- * the keydown; activating the cell under its cursor reaches the page as a
- * synthetic click carrying no click count. Playwright's keyboard and mouse
- * cannot produce that event, so the app-side half of the SR path is only
- * testable this way.
+ * the keydown; activating the element under its cursor reaches the page as a
+ * click, and depending on the reader that click may carry no click count at
+ * all. Playwright's keyboard and mouse cannot produce that event, so the
+ * app-side half of the SR path is only testable this way.
  */
 const activateLikeScreenReader = (cell: Locator) => cell.evaluate((el: HTMLElement) => el.click());
 
 /*
  * Off-mode list keyboard model (SR audit findings 1+2): with the reading pane
  * off there is no pane that could follow the selection — a row change on
- * Arrow/Page keys must only move the roving focus, and only Enter/Space (or a
- * double-click) opens the message. The mouse mirrors the keyboard: a single
- * click selects the row like an Arrow key, a double click opens like Enter.
- * Without this, arrowing through the list tears a screen-reader user out of the
- * list into the detail route. Delete must hand focus to a neighbouring row
- * instead of dropping it on <body>.
+ * Arrow/Page keys must only move the roving focus, and the message opens on
+ * Enter/Space.
+ *
+ * The mouse is a separate model, the web-mail one (Gmail, Outlook Web): a click
+ * anywhere on the row opens the message, and the checkbox is the only thing
+ * that selects. #201 briefly made a single click select instead, mirroring
+ * Outlook desktop, and that swallowed the click a screen reader sends in place
+ * of the Enter it never delivers — Enter looked dead in both readers. Delete
+ * must hand focus to a neighbouring row instead of dropping it on <body>.
  */
 
 test.beforeEach(async ({ page }) => {
@@ -49,35 +52,43 @@ test.describe('Seznam zpráv v režimu bez podokna čtení', () => {
 		await page.waitForURL('**/mail/1/INBOX/msg-02');
 	});
 
-	test('jednoklik jen vybere řádek, neotevře zprávu', async ({ page }) => {
+	test('jednoklik na předmět otevře zprávu', async ({ page }) => {
 		await page.goto('/mail/1/INBOX');
 		await waitForShell(page);
 
 		const firstSubject = page.locator('[role="row"][data-stable-id="msg-01"] [data-col="2"]');
 		await expect(firstSubject).toBeVisible();
-
-		// A single click is the mouse twin of an Arrow key: it moves the roving
-		// focus onto the row but must not open the message (there is no pane to
-		// show it in) — the double-click opens.
 		await firstSubject.click();
-		await expect(firstSubject).toBeFocused();
 
-		// A would-be open navigates to the message route and swaps the list for the
-		// detail. Proving that non-event needs a settle: an open takes well under
-		// this budget (measured ~280 ms), so after it the folder URL must still
-		// hold and no detail heading may have appeared.
-		await page.waitForTimeout(700);
-		await expect(page).toHaveURL(/\/mail\/1\/INBOX$/);
-		await expect(page.getByRole('heading', { name: 'Projektové podklady' })).toHaveCount(0);
-
-		// Focus is still on the row, so the next Arrow key keeps navigating the list.
-		await page.keyboard.press('ArrowDown');
-		await expect(
-			page.locator('[role="row"][data-stable-id="msg-02"] [data-col="2"]')
-		).toBeFocused();
+		await page.waitForURL('**/mail/1/INBOX/msg-01');
 	});
 
-	test('aktivace odečítačem otevře zprávu jako Enter, ne jako jednoklik', async ({ page }) => {
+	test('jednoklik mimo předmět otevře zprávu taky', async ({ page }) => {
+		await page.goto('/mail/1/INBOX');
+		await waitForShell(page);
+
+		// The whole row opens, not only the link — the row click handler is the
+		// path a screen reader's activation takes when it does not target the link.
+		await page.locator('[role="row"][data-stable-id="msg-01"] [data-col="4"]').click();
+
+		await page.waitForURL('**/mail/1/INBOX/msg-01');
+	});
+
+	test('zaškrtávátko vybere řádek a zprávu neotevře', async ({ page }) => {
+		await page.goto('/mail/1/INBOX');
+		await waitForShell(page);
+
+		// Selection is the checkbox alone; it must keep its click to itself.
+		await page.locator('[role="row"][data-stable-id="msg-01"] input[type="checkbox"]').check();
+
+		// Proving a non-event needs a settle: an open takes well under this budget
+		// (measured ~280 ms), so after it the folder URL must still hold.
+		await page.waitForTimeout(700);
+		await expect(page).toHaveURL(/\/mail\/1\/INBOX$/);
+		await expect(page.getByRole('button', { name: 'Smazat vybrané' })).toBeVisible();
+	});
+
+	test('aktivace odečítačem otevře zprávu jako Enter', async ({ page }) => {
 		await page.goto('/mail/1/INBOX');
 		await waitForShell(page);
 
@@ -85,8 +96,8 @@ test.describe('Seznam zpráv v režimu bez podokna čtení', () => {
 		await expect(firstSubject).toBeVisible();
 		await firstSubject.focus();
 
-		// Treated as a single click this does nothing visible in off mode — the
-		// user presses Enter and the message never opens.
+		// The subject is a real link, so this is the reader's own activation path;
+		// under the old select-on-click model it did nothing visible at all.
 		await activateLikeScreenReader(firstSubject);
 
 		await page.waitForURL('**/mail/1/INBOX/msg-01');
@@ -248,38 +259,23 @@ test.describe('Seznam zpráv ve split režimu', () => {
 		await expect.poll(() => frame.evaluate((el) => el === document.activeElement)).toBe(true);
 	});
 
-	test('jednoklik ukáže zprávu v podokně, fokus nechá na řádku; dvojklik pustí do těla', async ({
-		page
-	}) => {
+	test('jednoklik ve split režimu otevře zprávu a pustí kurzor do těla', async ({ page }) => {
 		await page.addInitScript(() => {
 			window.localStorage.setItem('mail.readingPane', 'right');
 		});
 		await page.goto('/mail/1/INBOX');
 		await waitForShell(page);
 
-		const activeCell = () =>
-			page.evaluate(() => ({
-				stableId:
-					document.activeElement?.closest('[data-stable-id]')?.getAttribute('data-stable-id') ??
-					null,
-				col: document.activeElement?.getAttribute('data-col') ?? null
-			}));
-
 		const subject = page.locator('[role="row"][data-stable-id="msg-01"] [data-col="2"]');
 		await expect(subject).toBeVisible();
 
-		// A single click mirrors an Arrow row change: the message opens in the
-		// reading pane, but focus stays on the clicked grid cell — it must not be
-		// dragged into the body once that renders asynchronously.
+		// A click is a deliberate open in either pane mode: the message shows in the
+		// pane and the reading cursor follows it into the body. Only the Arrow keys
+		// keep the cursor in the list — that is the split-mode test above.
 		await subject.click();
 		await page.waitForURL('**/mail/1/INBOX/msg-01');
-		await expect(page.getByTitle('Obsah zprávy')).toBeVisible();
-		await expect.poll(activeCell).toEqual({ stableId: 'msg-01', col: '2' });
-
-		// The double click is the deliberate open — like Enter it moves the
-		// reading cursor into the body of the message already in the pane.
-		await subject.dblclick();
 		const frame = page.getByTitle('Obsah zprávy');
+		await expect(frame).toBeVisible();
 		await expect.poll(() => frame.evaluate((el) => el === document.activeElement)).toBe(true);
 	});
 
