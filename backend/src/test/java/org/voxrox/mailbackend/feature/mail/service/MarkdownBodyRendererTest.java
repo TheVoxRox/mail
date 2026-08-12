@@ -228,5 +228,94 @@ class MarkdownBodyRendererTest {
 
             assertThat(html).contains("<p>--<br />\nAlice Smith</p>");
         }
+
+        @Test
+        @DisplayName("A signature with a --- rule stays plain, name and separator intact")
+        void signatureWithHorizontalRuleStaysPlain() {
+            assertThat(renderer.renderAlternative("Hello." + SEPARATOR + "Alice Smith\n---\nExample Ltd")).isEmpty();
+        }
+
+        @Test
+        @DisplayName("With a formatted body, the rule in the signature renders as text on its own line")
+        void signatureRuleIsTextInAFormattedBody() {
+            String html = render("Hello,\n\n- first\n- second" + SEPARATOR + "Alice Smith\n---\nExample Ltd");
+
+            // The rule ends the block, so what followed it is its own paragraph —
+            // the dashes are kept, which is what the plain-text part shows too.
+            assertThat(html).doesNotContain("<h2>").contains("Alice Smith<br />\n---</p>")
+                    .contains("<p>Example Ltd</p>");
+        }
+    }
+
+    /**
+     * A rule under a line of text is a setext heading in CommonMark, and in a mail
+     * that is almost never what the writer meant — a signature separated by dashes
+     * would turn its own name into an {@code
+     *
+    <h2>}. These demote back to paragraphs, on the same principle that keeps
+     * indented code blocks off: formatting in a message should be an explicit
+     * gesture, and {@code # Title} is one while a line of dashes is not.
+     */
+    @Nested
+    @DisplayName("Setext headings demote to paragraphs")
+    class SetextHeadings {
+
+        @Test
+        @DisplayName("A --- rule under text does not create a heading")
+        void dashRuleIsNotAHeading() {
+            assertThat(renderer.renderAlternative("Release notes\n---\nnothing to report")).isEmpty();
+        }
+
+        @Test
+        @DisplayName("An === rule under text does not create a heading either")
+        void equalsRuleIsNotAHeading() {
+            assertThat(renderer.renderAlternative("Release notes\n===\nnothing to report")).isEmpty();
+        }
+
+        @Test
+        @DisplayName("The underline survives as text — both message parts say the same thing")
+        void underlineIsKeptAsText() {
+            String html = render("# Title\n\nSummary\n---\nrest");
+
+            assertThat(html).doesNotContain("<h2>").contains("Summary<br />\n---</p>").contains("<p>rest</p>");
+        }
+
+        @Test
+        @DisplayName("ATX headings are untouched — writing # is deliberate")
+        void atxHeadingsStillRender() {
+            assertThat(render("# Title")).contains("<h1>Title</h1>");
+            assertThat(render("## Sub")).contains("<h2>Sub</h2>");
+            assertThat(render("###### Six")).contains("<h6>Six</h6>");
+        }
+
+        @Test
+        @DisplayName("A rule on its own is still a thematic break, not an underline")
+        void standaloneRuleIsUnaffected() {
+            String html = render("before\n\n---\n\nafter");
+
+            assertThat(html).contains("<hr />");
+        }
+
+        /**
+         * The enabled block types must keep a stable iteration order, because
+         * CommonMark registers block parsers in that order and, for a rule under a
+         * paragraph, the first parser to claim the line wins. A {@code Set.of} here
+         * randomizes that order per JVM and the same message renders differently
+         * between runs — which is how this was found: CI failed on exactly the
+         * {@code ---} cases while the same commit passed locally.
+         *
+         * <p>
+         * This asserts the outcome rather than the collection type, so it also covers
+         * any future change that reintroduces the ambiguity elsewhere.
+         */
+        @Test
+        @DisplayName("Parsing a rule under text is stable across repeated parses")
+        void ruleParsingIsDeterministic() {
+            String body = "Alice Smith\n---\nExample Ltd";
+
+            for (int i = 0; i < 50; i++) {
+                assertThat(renderer.renderAlternative(body)).as("parse #%d", i).isEmpty();
+            }
+        }
     }
 }
