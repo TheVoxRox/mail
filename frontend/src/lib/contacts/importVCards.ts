@@ -55,7 +55,6 @@ export function looksLikeVCardFile(file: File): boolean {
  * contacts themselves. Contacts always matter more than their labels.
  */
 async function resolveCategories(
-	accountId: number,
 	parsed: ParsedVCard[],
 	t: ImportMessageFn
 ): Promise<Map<string, number>> {
@@ -70,17 +69,17 @@ async function resolveCategories(
 
 	const byName = new Map<string, number>();
 	try {
-		for (const label of await listContactLabels(accountId)) {
+		for (const label of await listContactLabels()) {
 			byName.set(label.name.toLowerCase(), label.id);
 		}
 		for (const [key, name] of wanted) {
 			if (byName.has(key)) continue;
-			const created = await createContactLabel(accountId, { name });
+			const created = await createContactLabel({ name });
 			byName.set(key, created.id);
 		}
 		// New labels have to reach the sidebar even if the caller only reloads
 		// the list; the counts store is what feeds those badges.
-		await refreshContactCounts(accountId);
+		await refreshContactCounts();
 	} catch {
 		pushToast(t('contacts.vcardImportLabelsFailed'), { tone: 'error' });
 	}
@@ -92,11 +91,7 @@ async function resolveCategories(
  * outcome (including all error cases). Returns true when the bulk call
  * succeeded — the caller should then reload its contact list.
  */
-export async function importVCardFiles(
-	accountId: number,
-	candidates: File[],
-	t: ImportMessageFn
-): Promise<boolean> {
+export async function importVCardFiles(candidates: File[], t: ImportMessageFn): Promise<boolean> {
 	const files = candidates.filter(looksLikeVCardFile);
 	if (files.length === 0) {
 		pushToast(t('contacts.vcardImportNoFiles'), { tone: 'error' });
@@ -114,7 +109,7 @@ export async function importVCardFiles(
 			return false;
 		}
 
-		const labelIdsByName = await resolveCategories(accountId, parsed, t);
+		const labelIdsByName = await resolveCategories(parsed, t);
 		const allContacts: ContactCreateRequest[] = parsed.map(({ contact, categories }) => ({
 			...contact,
 			labelIds: categories
@@ -122,7 +117,7 @@ export async function importVCardFiles(
 				.filter((id): id is number => id != null)
 		}));
 
-		const result = await bulkCreateContacts(accountId, { contacts: allContacts });
+		const result = await bulkCreateContacts({ contacts: allContacts });
 		pushToast(
 			t('contacts.vcardImportDone', {
 				values: { created: result.created ?? 0, failed: result.failed ?? 0 }

@@ -1,6 +1,6 @@
 # Privacy Policy — VoxRox Mail
 
-_Version: 2026-08-09 (draft, pre-first-release). This version is preliminary
+_Version: 2026-08-12 (draft, pre-first-release). This version is preliminary
 and has not yet been reviewed by a lawyer — see "Open items" at the bottom._
 
 _Česká verze: [PRIVACY.md](PRIVACY.md)._
@@ -161,7 +161,12 @@ respective server.
 
 - **Remove an account from the application** — delete the account in
   Settings. This cascade-deletes the account record, credentials, sync
-  state, messages and contacts from the local database.
+  state, messages and correspondence history from the local database.
+  **Contacts stay** — the address book belongs to the application rather
+  than to one account, and disconnecting a mailbox is no reason to lose
+  addresses you entered or imported by hand. Delete them individually or in
+  bulk under Contacts; removing everything is covered by "Complete data
+  removal" below.
 - **Revoke OAuth access** at the provider:
   - Google: [https://myaccount.google.com/permissions](https://myaccount.google.com/permissions) → find "VoxRox
     Mail" → Remove access.

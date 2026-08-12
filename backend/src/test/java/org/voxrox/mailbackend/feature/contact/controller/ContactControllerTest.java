@@ -110,10 +110,10 @@ class ContactControllerTest {
     @Test
     @DisplayName("GET / → 200 s paginated seznamem (default page/size)")
     void listContacts() throws Exception {
-        when(contactService.listContacts(eq(ACCOUNT_ID), eq(0), eq(20), eq(null), eq(null)))
+        when(contactService.listContacts(eq(0), eq(20), eq(null), eq(null)))
                 .thenReturn(new PageImpl<>(List.of(sample(10L, "a@x.cz"), sample(11L, "b@x.cz"))));
 
-        mockMvc.perform(get("/api/v1/accounts/{aid}/contacts", ACCOUNT_ID)).andExpect(status().isOk())
+        mockMvc.perform(get("/api/v1/contacts")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(2))
                 .andExpect(jsonPath("$.content[0].emails[0].email").value("a@x.cz"))
                 .andExpect(jsonPath("$.content[0].emails[0].primary").value(true))
@@ -124,12 +124,12 @@ class ContactControllerTest {
     @Test
     @DisplayName("GET /counts → 200 with total and per-label counts")
     void getCounts() throws Exception {
-        when(contactService.getCounts(ACCOUNT_ID)).thenReturn(new ContactCountsResponse(7L,
+        when(contactService.getCounts()).thenReturn(new ContactCountsResponse(7L,
                 List.of(new ContactLabelCountResponse(1L, "Clients", 3L),
                         new ContactLabelCountResponse(2L, "Family", 2L),
                         new ContactLabelCountResponse(3L, "Archive", 0L))));
 
-        mockMvc.perform(get("/api/v1/accounts/{aid}/contacts/counts", ACCOUNT_ID)).andExpect(status().isOk())
+        mockMvc.perform(get("/api/v1/contacts/counts")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.total").value(7)).andExpect(jsonPath("$.labels.length()").value(3))
                 .andExpect(jsonPath("$.labels[0].name").value("Clients"))
                 .andExpect(jsonPath("$.labels[0].contacts").value(3))
@@ -137,69 +137,53 @@ class ContactControllerTest {
     }
 
     @Test
-    @DisplayName("GET /counts with non-positive accountId → 400")
-    void getCountsInvalidAccountId() throws Exception {
-        mockMvc.perform(get("/api/v1/accounts/{aid}/contacts/counts", 0L)).andExpect(status().isBadRequest());
-        verify(contactService, never()).getCounts(any());
-    }
-
-    @Test
     @DisplayName("GET /?q=alice -> delegated to search")
     void searchContacts() throws Exception {
-        when(contactService.searchContacts(eq(ACCOUNT_ID), eq("alice"), eq(0), eq(20), eq(null), eq(null)))
+        when(contactService.searchContacts(eq("alice"), eq(0), eq(20), eq(null), eq(null)))
                 .thenReturn(new PageImpl<>(List.of(sample(10L, "alice@x.cz"))));
 
-        mockMvc.perform(get("/api/v1/accounts/{aid}/contacts", ACCOUNT_ID).param("q", "alice"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.content[0].emails[0].email").value("alice@x.cz"));
+        mockMvc.perform(get("/api/v1/contacts").param("q", "alice")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].emails[0].email").value("alice@x.cz"));
 
-        verify(contactService, never()).listContacts(any(), anyInt(), anyInt(), any(), any());
+        verify(contactService, never()).listContacts(anyInt(), anyInt(), any(), any());
     }
 
     @Test
     @DisplayName("GET /?sort=name&labelId=5 -> delegated to listContacts with parameters")
     void listContactsWithSortAndLabel() throws Exception {
-        when(contactService.listContacts(eq(ACCOUNT_ID), eq(0), eq(20), eq("name"), eq(5L)))
+        when(contactService.listContacts(eq(0), eq(20), eq("name"), eq(5L)))
                 .thenReturn(new PageImpl<>(List.of(sample(10L, "alice.work@x.cz"))));
 
-        mockMvc.perform(get("/api/v1/accounts/{aid}/contacts", ACCOUNT_ID).param("sort", "name").param("labelId", "5"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.content.length()").value(1));
+        mockMvc.perform(get("/api/v1/contacts").param("sort", "name").param("labelId", "5")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1));
     }
 
     @Test
     @DisplayName("GET /?labelId=0 -> 400, the filter never reaches the service")
     void listContactsRejectsNonPositiveLabelId() throws Exception {
-        mockMvc.perform(get("/api/v1/accounts/{aid}/contacts", ACCOUNT_ID).param("labelId", "0"))
-                .andExpect(status().isBadRequest());
-        verify(contactService, never()).listContacts(any(), anyInt(), anyInt(), any(), any());
+        mockMvc.perform(get("/api/v1/contacts").param("labelId", "0")).andExpect(status().isBadRequest());
+        verify(contactService, never()).listContacts(anyInt(), anyInt(), any(), any());
     }
 
     @Test
     @DisplayName("GET /?size=500 -> 400 (exceeds apiMaxPageSize=200)")
     void listContactsSizeOverCap() throws Exception {
-        mockMvc.perform(get("/api/v1/accounts/{aid}/contacts", ACCOUNT_ID).param("size", "500"))
-                .andExpect(status().isBadRequest())
+        mockMvc.perform(get("/api/v1/contacts").param("size", "500")).andExpect(status().isBadRequest())
                 .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON));
     }
 
     @Test
     @DisplayName("GET /?page=-1 -> 400 (@Min(0) guard)")
     void listContactsNegativePage() throws Exception {
-        mockMvc.perform(get("/api/v1/accounts/{aid}/contacts", ACCOUNT_ID).param("page", "-1"))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    @DisplayName("GET / with accountId=0 -> 400 (@Positive guard)")
-    void listContactsInvalidAccount() throws Exception {
-        mockMvc.perform(get("/api/v1/accounts/0/contacts")).andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/v1/contacts").param("page", "-1")).andExpect(status().isBadRequest());
     }
 
     @Test
     @DisplayName("GET /{id} -> 200 with detail")
     void getContact() throws Exception {
-        when(contactService.getContact(ACCOUNT_ID, CONTACT_ID)).thenReturn(sample(CONTACT_ID, "a@x.cz"));
+        when(contactService.getContact(CONTACT_ID)).thenReturn(sample(CONTACT_ID, "a@x.cz"));
 
-        mockMvc.perform(get("/api/v1/accounts/{aid}/contacts/{cid}", ACCOUNT_ID, CONTACT_ID)).andExpect(status().isOk())
+        mockMvc.perform(get("/api/v1/contacts/{cid}", CONTACT_ID)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(CONTACT_ID)).andExpect(jsonPath("$.emails[0].email").value("a@x.cz"))
                 .andExpect(jsonPath("$.emails[0].label").value("WORK"));
     }
@@ -207,11 +191,10 @@ class ContactControllerTest {
     @Test
     @DisplayName("GET /{id} missing → 404 CONTACT_NOT_FOUND")
     void getContactMissing() throws Exception {
-        when(contactService.getContact(ACCOUNT_ID, CONTACT_ID))
-                .thenThrow(new ContactNotFoundException(ACCOUNT_ID, CONTACT_ID));
+        when(contactService.getContact(CONTACT_ID)).thenThrow(new ContactNotFoundException(CONTACT_ID));
 
-        mockMvc.perform(get("/api/v1/accounts/{aid}/contacts/{cid}", ACCOUNT_ID, CONTACT_ID))
-                .andExpect(status().isNotFound()).andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+        mockMvc.perform(get("/api/v1/contacts/{cid}", CONTACT_ID)).andExpect(status().isNotFound())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.errorCode").value("CONTACT_NOT_FOUND"));
     }
 
@@ -220,11 +203,11 @@ class ContactControllerTest {
     void createContact() throws Exception {
         var req = new ContactCreateRequest(List.of(new ContactEmailRequest("a@x.cz", EmailLabel.WORK),
                 new ContactEmailRequest("home@x.cz", EmailLabel.HOME)), null, "Alice", "Liddell", "VIP");
-        when(contactService.createContact(eq(ACCOUNT_ID), any())).thenReturn(sample(CONTACT_ID, "a@x.cz"));
+        when(contactService.createContact(any())).thenReturn(sample(CONTACT_ID, "a@x.cz"));
 
-        mockMvc.perform(post("/api/v1/accounts/{aid}/contacts", ACCOUNT_ID).contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(post("/api/v1/contacts").contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req))).andExpect(status().isCreated())
-                .andExpect(header().string("Location", "/api/v1/accounts/" + ACCOUNT_ID + "/contacts/" + CONTACT_ID))
+                .andExpect(header().string("Location", "/api/v1/contacts/" + CONTACT_ID))
                 .andExpect(jsonPath("$.id").value(CONTACT_ID)).andExpect(jsonPath("$.emails[0].label").value("WORK"));
     }
 
@@ -234,7 +217,7 @@ class ContactControllerTest {
         var bad = new ContactCreateRequest(List.of(new ContactEmailRequest("not-an-email", null)), null, null, null,
                 null);
 
-        mockMvc.perform(post("/api/v1/accounts/{aid}/contacts", ACCOUNT_ID).contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(post("/api/v1/contacts").contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(bad))).andExpect(status().isBadRequest())
                 .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON));
     }
@@ -244,7 +227,7 @@ class ContactControllerTest {
     void createContactEmptyEmails() throws Exception {
         var bad = new ContactCreateRequest(List.of(), null, null, null, null);
 
-        mockMvc.perform(post("/api/v1/accounts/{aid}/contacts", ACCOUNT_ID).contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(post("/api/v1/contacts").contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(bad))).andExpect(status().isBadRequest());
     }
 
@@ -252,10 +235,9 @@ class ContactControllerTest {
     @DisplayName("POST / with duplicate email -> 409 CONTACT_DUPLICATE")
     void createContactDuplicate() throws Exception {
         var req = new ContactCreateRequest(List.of(emailReq("dup@x.cz")), null, null, null, null);
-        when(contactService.createContact(eq(ACCOUNT_ID), any()))
-                .thenThrow(new DuplicateContactException(ACCOUNT_ID, "dup@x.cz"));
+        when(contactService.createContact(any())).thenThrow(new DuplicateContactException("dup@x.cz"));
 
-        mockMvc.perform(post("/api/v1/accounts/{aid}/contacts", ACCOUNT_ID).contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(post("/api/v1/contacts").contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req))).andExpect(status().isConflict())
                 .andExpect(jsonPath("$.errorCode").value("CONTACT_DUPLICATE"));
     }
@@ -265,14 +247,13 @@ class ContactControllerTest {
     void updateContact() throws Exception {
         var req = new ContactUpdateRequest(List.of(new ContactEmailRequest("a@x.cz", EmailLabel.WORK)), null, "Alice",
                 "New Surname", "new note");
-        when(contactService.updateContact(eq(ACCOUNT_ID), eq(CONTACT_ID), any())).thenReturn(
+        when(contactService.updateContact(eq(CONTACT_ID), any())).thenReturn(
                 new ContactResponse(CONTACT_ID, List.of(new ContactEmailResponse(1L, "a@x.cz", EmailLabel.WORK, true)),
                         List.of(), "Alice", "New Surname", "new note", LocalDateTime.now(), LocalDateTime.now()));
 
-        mockMvc.perform(put("/api/v1/accounts/{aid}/contacts/{cid}", ACCOUNT_ID, CONTACT_ID)
-                .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.name").value("Alice"))
-                .andExpect(jsonPath("$.surname").value("New Surname"))
+        mockMvc.perform(put("/api/v1/contacts/{cid}", CONTACT_ID).contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Alice")).andExpect(jsonPath("$.surname").value("New Surname"))
                 .andExpect(jsonPath("$.emails[0].email").value("a@x.cz"));
     }
 
@@ -280,59 +261,55 @@ class ContactControllerTest {
     @DisplayName("PATCH /{id} with partial body -> delegated to service")
     void patchContact() throws Exception {
         var req = new ContactPatchRequest(null, null, "OnlyName", null, null);
-        when(contactService.patchContact(eq(ACCOUNT_ID), eq(CONTACT_ID), any()))
+        when(contactService.patchContact(eq(CONTACT_ID), any()))
                 .thenReturn(new ContactResponse(CONTACT_ID, List.of(new ContactEmailResponse(1L, "a@x.cz", null, true)),
                         List.of(), "OnlyName", "Liddell", null, LocalDateTime.now(), LocalDateTime.now()));
 
-        mockMvc.perform(patch("/api/v1/accounts/{aid}/contacts/{cid}", ACCOUNT_ID, CONTACT_ID)
-                .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.name").value("OnlyName"))
-                .andExpect(jsonPath("$.surname").value("Liddell"));
+        mockMvc.perform(patch("/api/v1/contacts/{cid}", CONTACT_ID).contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("OnlyName")).andExpect(jsonPath("$.surname").value("Liddell"));
     }
 
     @Test
     @DisplayName("DELETE /{id} -> 204, service is invoked")
     void deleteContact() throws Exception {
-        mockMvc.perform(delete("/api/v1/accounts/{aid}/contacts/{cid}", ACCOUNT_ID, CONTACT_ID))
-                .andExpect(status().isNoContent());
+        mockMvc.perform(delete("/api/v1/contacts/{cid}", CONTACT_ID)).andExpect(status().isNoContent());
 
-        verify(contactService).deleteContact(ACCOUNT_ID, CONTACT_ID);
+        verify(contactService).deleteContact(CONTACT_ID);
     }
 
     @Test
     @DisplayName("DELETE /{id} missing → 404")
     void deleteContactMissing() throws Exception {
-        org.mockito.Mockito.doThrow(new ContactNotFoundException(ACCOUNT_ID, CONTACT_ID)).when(contactService)
-                .deleteContact(ACCOUNT_ID, CONTACT_ID);
+        org.mockito.Mockito.doThrow(new ContactNotFoundException(CONTACT_ID)).when(contactService)
+                .deleteContact(CONTACT_ID);
 
-        mockMvc.perform(delete("/api/v1/accounts/{aid}/contacts/{cid}", ACCOUNT_ID, CONTACT_ID))
-                .andExpect(status().isNotFound()).andExpect(jsonPath("$.errorCode").value("CONTACT_NOT_FOUND"));
+        mockMvc.perform(delete("/api/v1/contacts/{cid}", CONTACT_ID)).andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.errorCode").value("CONTACT_NOT_FOUND"));
     }
 
     @Test
     @DisplayName("POST /{cid}/emails -> 201 with the added address")
     void addEmail() throws Exception {
         var req = new ContactEmailRequest("new@x.cz", EmailLabel.HOME);
-        when(contactService.addEmail(eq(ACCOUNT_ID), eq(CONTACT_ID), any()))
+        when(contactService.addEmail(eq(CONTACT_ID), any()))
                 .thenReturn(new ContactEmailResponse(7L, "new@x.cz", EmailLabel.HOME, false));
 
-        mockMvc.perform(post("/api/v1/accounts/{aid}/contacts/{cid}/emails", ACCOUNT_ID, CONTACT_ID)
-                .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isCreated()).andExpect(jsonPath("$.id").value(7))
-                .andExpect(jsonPath("$.email").value("new@x.cz")).andExpect(jsonPath("$.label").value("HOME"))
-                .andExpect(jsonPath("$.primary").value(false));
+        mockMvc.perform(post("/api/v1/contacts/{cid}/emails", CONTACT_ID).contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req))).andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(7)).andExpect(jsonPath("$.email").value("new@x.cz"))
+                .andExpect(jsonPath("$.label").value("HOME")).andExpect(jsonPath("$.primary").value(false));
     }
 
     @Test
     @DisplayName("POST /{cid}/emails duplicate → 409")
     void addEmailDuplicate() throws Exception {
         var req = new ContactEmailRequest("dup@x.cz", null);
-        when(contactService.addEmail(eq(ACCOUNT_ID), eq(CONTACT_ID), any()))
-                .thenThrow(new DuplicateContactException(ACCOUNT_ID, "dup@x.cz"));
+        when(contactService.addEmail(eq(CONTACT_ID), any())).thenThrow(new DuplicateContactException("dup@x.cz"));
 
-        mockMvc.perform(post("/api/v1/accounts/{aid}/contacts/{cid}/emails", ACCOUNT_ID, CONTACT_ID)
-                .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isConflict()).andExpect(jsonPath("$.errorCode").value("CONTACT_DUPLICATE"));
+        mockMvc.perform(post("/api/v1/contacts/{cid}/emails", CONTACT_ID).contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req))).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorCode").value("CONTACT_DUPLICATE"));
     }
 
     @Test
@@ -340,27 +317,26 @@ class ContactControllerTest {
     void addEmailInvalidBody() throws Exception {
         var bad = new ContactEmailRequest("not-an-email", null);
 
-        mockMvc.perform(post("/api/v1/accounts/{aid}/contacts/{cid}/emails", ACCOUNT_ID, CONTACT_ID)
-                .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(bad)))
-                .andExpect(status().isBadRequest());
+        mockMvc.perform(post("/api/v1/contacts/{cid}/emails", CONTACT_ID).contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(bad))).andExpect(status().isBadRequest());
     }
 
     @Test
     @DisplayName("DELETE /{cid}/emails/{eid} → 204")
     void deleteEmail() throws Exception {
-        mockMvc.perform(delete("/api/v1/accounts/{aid}/contacts/{cid}/emails/{eid}", ACCOUNT_ID, CONTACT_ID, 3L))
+        mockMvc.perform(delete("/api/v1/contacts/{cid}/emails/{eid}", CONTACT_ID, 3L))
                 .andExpect(status().isNoContent());
 
-        verify(contactService).deleteEmail(ACCOUNT_ID, CONTACT_ID, 3L);
+        verify(contactService).deleteEmail(CONTACT_ID, 3L);
     }
 
     @Test
     @DisplayName("DELETE /{cid}/emails/{eid} last -> 400 VALIDATION_ERROR")
     void deleteEmailLast() throws Exception {
         org.mockito.Mockito.doThrow(new ValidationException("Contact must have at least one email address."))
-                .when(contactService).deleteEmail(ACCOUNT_ID, CONTACT_ID, 1L);
+                .when(contactService).deleteEmail(CONTACT_ID, 1L);
 
-        mockMvc.perform(delete("/api/v1/accounts/{aid}/contacts/{cid}/emails/{eid}", ACCOUNT_ID, CONTACT_ID, 1L))
+        mockMvc.perform(delete("/api/v1/contacts/{cid}/emails/{eid}", CONTACT_ID, 1L))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"));
     }
 
@@ -368,9 +344,9 @@ class ContactControllerTest {
     @DisplayName("DELETE /{cid}/emails/{eid} not found -> 404 RESOURCE_NOT_FOUND")
     void deleteEmailMissing() throws Exception {
         org.mockito.Mockito.doThrow(new ResourceNotFoundException("Email with ID 999 for contact 42 was not found."))
-                .when(contactService).deleteEmail(ACCOUNT_ID, CONTACT_ID, 999L);
+                .when(contactService).deleteEmail(CONTACT_ID, 999L);
 
-        mockMvc.perform(delete("/api/v1/accounts/{aid}/contacts/{cid}/emails/{eid}", ACCOUNT_ID, CONTACT_ID, 999L))
+        mockMvc.perform(delete("/api/v1/contacts/{cid}/emails/{eid}", CONTACT_ID, 999L))
                 .andExpect(status().isNotFound()).andExpect(jsonPath("$.errorCode").value("RESOURCE_NOT_FOUND"));
     }
 
@@ -381,29 +357,27 @@ class ContactControllerTest {
                 List.of(new ContactEmailResponse(1L, "a@x.cz", EmailLabel.WORK, false),
                         new ContactEmailResponse(2L, "b@x.cz", EmailLabel.HOME, true)),
                 List.of(), "Alice", "Liddell", null, LocalDateTime.now(), LocalDateTime.now());
-        when(contactService.setPrimaryEmail(ACCOUNT_ID, CONTACT_ID, 2L)).thenReturn(resp);
+        when(contactService.setPrimaryEmail(CONTACT_ID, 2L)).thenReturn(resp);
 
-        mockMvc.perform(patch("/api/v1/accounts/{aid}/contacts/{cid}/emails/{eid}/primary", ACCOUNT_ID, CONTACT_ID, 2L))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.emails[0].primary").value(false))
+        mockMvc.perform(patch("/api/v1/contacts/{cid}/emails/{eid}/primary", CONTACT_ID, 2L)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.emails[0].primary").value(false))
                 .andExpect(jsonPath("$.emails[1].primary").value(true));
     }
 
     @Test
     @DisplayName("PATCH /{cid}/emails/{eid}/primary non-existing emailId -> 404")
     void setPrimaryEmailMissing() throws Exception {
-        when(contactService.setPrimaryEmail(ACCOUNT_ID, CONTACT_ID, 999L))
+        when(contactService.setPrimaryEmail(CONTACT_ID, 999L))
                 .thenThrow(new ResourceNotFoundException("Email with ID 999 for contact 42 was not found."));
 
-        mockMvc.perform(
-                patch("/api/v1/accounts/{aid}/contacts/{cid}/emails/{eid}/primary", ACCOUNT_ID, CONTACT_ID, 999L))
+        mockMvc.perform(patch("/api/v1/contacts/{cid}/emails/{eid}/primary", CONTACT_ID, 999L))
                 .andExpect(status().isNotFound()).andExpect(jsonPath("$.errorCode").value("RESOURCE_NOT_FOUND"));
     }
 
     @Test
     @DisplayName("DELETE /{cid}/emails/{eid} with emailId=0 -> 400 @Positive")
     void deleteEmailInvalidId() throws Exception {
-        mockMvc.perform(delete("/api/v1/accounts/{aid}/contacts/{cid}/emails/0", ACCOUNT_ID, CONTACT_ID))
-                .andExpect(status().isBadRequest());
+        mockMvc.perform(delete("/api/v1/contacts/{cid}/emails/0", CONTACT_ID)).andExpect(status().isBadRequest());
     }
 
     @Test
@@ -417,9 +391,9 @@ class ContactControllerTest {
                 List.of(BulkContactCreateResult.success(0, sample(1L, "a@x.cz")), BulkContactCreateResult.failure(1,
                         "CONTACT_DUPLICATE", "A contact with email dup@x.cz already exists for account 5.")));
 
-        when(contactBulkService.bulkCreate(eq(ACCOUNT_ID), any(BulkContactCreateRequest.class))).thenReturn(response);
+        when(contactBulkService.bulkCreate(any(BulkContactCreateRequest.class))).thenReturn(response);
 
-        mockMvc.perform(post("/api/v1/accounts/{aid}/contacts/bulk", ACCOUNT_ID).contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(post("/api/v1/contacts/bulk").contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req))).andExpect(status().isOk())
                 .andExpect(jsonPath("$.total").value(2)).andExpect(jsonPath("$.created").value(1))
                 .andExpect(jsonPath("$.failed").value(1)).andExpect(jsonPath("$.results[0].status").value("CREATED"))
@@ -433,10 +407,10 @@ class ContactControllerTest {
     void bulkCreateEmptyListRejected() throws Exception {
         BulkContactCreateRequest req = new BulkContactCreateRequest(List.of());
 
-        mockMvc.perform(post("/api/v1/accounts/{aid}/contacts/bulk", ACCOUNT_ID).contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(post("/api/v1/contacts/bulk").contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req))).andExpect(status().isBadRequest());
 
-        verify(contactBulkService, never()).bulkCreate(any(), any());
+        verify(contactBulkService, never()).bulkCreate(any());
     }
 
     @Test
@@ -448,10 +422,10 @@ class ContactControllerTest {
         }
         BulkContactCreateRequest req = new BulkContactCreateRequest(many);
 
-        mockMvc.perform(post("/api/v1/accounts/{aid}/contacts/bulk", ACCOUNT_ID).contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(post("/api/v1/contacts/bulk").contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req))).andExpect(status().isBadRequest());
 
-        verify(contactBulkService, never()).bulkCreate(any(), any());
+        verify(contactBulkService, never()).bulkCreate(any());
     }
 
     @Test
@@ -465,13 +439,12 @@ class ContactControllerTest {
                                 "Contact with ID 999 for account 5 was not found."),
                         BulkContactDeleteResult.success(12L)));
 
-        when(contactBulkService.bulkDelete(eq(ACCOUNT_ID), any(BulkContactDeleteRequest.class))).thenReturn(response);
+        when(contactBulkService.bulkDelete(any(BulkContactDeleteRequest.class))).thenReturn(response);
 
-        mockMvc.perform(delete("/api/v1/accounts/{aid}/contacts/bulk", ACCOUNT_ID)
-                .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(3))
-                .andExpect(jsonPath("$.deleted").value(2)).andExpect(jsonPath("$.failed").value(1))
-                .andExpect(jsonPath("$.results[0].status").value("DELETED"))
+        mockMvc.perform(delete("/api/v1/contacts/bulk").contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(3)).andExpect(jsonPath("$.deleted").value(2))
+                .andExpect(jsonPath("$.failed").value(1)).andExpect(jsonPath("$.results[0].status").value("DELETED"))
                 .andExpect(jsonPath("$.results[0].id").value(10))
                 .andExpect(jsonPath("$.results[1].status").value("FAILED"))
                 .andExpect(jsonPath("$.results[1].id").value(999))
@@ -483,11 +456,10 @@ class ContactControllerTest {
     void bulkDeleteEmptyListRejected() throws Exception {
         BulkContactDeleteRequest req = new BulkContactDeleteRequest(List.of());
 
-        mockMvc.perform(delete("/api/v1/accounts/{aid}/contacts/bulk", ACCOUNT_ID)
-                .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isBadRequest());
+        mockMvc.perform(delete("/api/v1/contacts/bulk").contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req))).andExpect(status().isBadRequest());
 
-        verify(contactBulkService, never()).bulkDelete(any(), any());
+        verify(contactBulkService, never()).bulkDelete(any());
     }
 
     @Test
@@ -495,11 +467,10 @@ class ContactControllerTest {
     void bulkDeleteInvalidIdRejected() throws Exception {
         BulkContactDeleteRequest req = new BulkContactDeleteRequest(List.of(1L, 0L, 3L));
 
-        mockMvc.perform(delete("/api/v1/accounts/{aid}/contacts/bulk", ACCOUNT_ID)
-                .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isBadRequest());
+        mockMvc.perform(delete("/api/v1/contacts/bulk").contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req))).andExpect(status().isBadRequest());
 
-        verify(contactBulkService, never()).bulkDelete(any(), any());
+        verify(contactBulkService, never()).bulkDelete(any());
     }
 
     @Test
@@ -510,12 +481,12 @@ class ContactControllerTest {
                 List.of(new ContactEmailResponse(1L, "a@x.cz", EmailLabel.WORK, true),
                         new ContactEmailResponse(7L, "b@x.cz", null, false)),
                 List.of(), "Alice", "Liddell", "merged note", LocalDateTime.now(), LocalDateTime.now());
-        when(contactService.merge(eq(ACCOUNT_ID), eq(CONTACT_ID), any(ContactMergeRequest.class))).thenReturn(resp);
+        when(contactService.merge(eq(CONTACT_ID), any(ContactMergeRequest.class))).thenReturn(resp);
 
-        mockMvc.perform(post("/api/v1/accounts/{aid}/contacts/{tid}/merge", ACCOUNT_ID, CONTACT_ID)
-                .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(CONTACT_ID))
-                .andExpect(jsonPath("$.emails.length()").value(2)).andExpect(jsonPath("$.note").value("merged note"));
+        mockMvc.perform(post("/api/v1/contacts/{tid}/merge", CONTACT_ID).contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(CONTACT_ID)).andExpect(jsonPath("$.emails.length()").value(2))
+                .andExpect(jsonPath("$.note").value("merged note"));
     }
 
     @Test
@@ -523,11 +494,10 @@ class ContactControllerTest {
     void mergeContactsEmptySourceRejected() throws Exception {
         ContactMergeRequest req = new ContactMergeRequest(List.of());
 
-        mockMvc.perform(post("/api/v1/accounts/{aid}/contacts/{tid}/merge", ACCOUNT_ID, CONTACT_ID)
-                .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isBadRequest());
+        mockMvc.perform(post("/api/v1/contacts/{tid}/merge", CONTACT_ID).contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req))).andExpect(status().isBadRequest());
 
-        verify(contactService, never()).merge(any(), any(), any());
+        verify(contactService, never()).merge(any(), any());
     }
 
     @Test
@@ -539,24 +509,22 @@ class ContactControllerTest {
         }
         ContactMergeRequest req = new ContactMergeRequest(tooMany);
 
-        mockMvc.perform(post("/api/v1/accounts/{aid}/contacts/{tid}/merge", ACCOUNT_ID, CONTACT_ID)
-                .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isBadRequest());
+        mockMvc.perform(post("/api/v1/contacts/{tid}/merge", CONTACT_ID).contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req))).andExpect(status().isBadRequest());
 
-        verify(contactService, never()).merge(any(), any(), any());
+        verify(contactService, never()).merge(any(), any());
     }
 
     @Test
     @DisplayName("POST /{tid}/merge exceeds 10-email limit -> 400 VALIDATION_ERROR from service")
     void mergeContactsExceedsEmailLimit() throws Exception {
         ContactMergeRequest req = new ContactMergeRequest(List.of(20L));
-        when(contactService.merge(eq(ACCOUNT_ID), eq(CONTACT_ID), any(ContactMergeRequest.class)))
-                .thenThrow(new ValidationException(
-                        "After merging the contact would have 11 emails, maximum is 10. Reduce addresses before merging."));
+        when(contactService.merge(eq(CONTACT_ID), any(ContactMergeRequest.class))).thenThrow(new ValidationException(
+                "After merging the contact would have 11 emails, maximum is 10. Reduce addresses before merging."));
 
-        mockMvc.perform(post("/api/v1/accounts/{aid}/contacts/{tid}/merge", ACCOUNT_ID, CONTACT_ID)
-                .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"))
+        mockMvc.perform(post("/api/v1/contacts/{tid}/merge", CONTACT_ID).contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req))).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("11 emails")));
     }
 
@@ -564,24 +532,24 @@ class ContactControllerTest {
     @DisplayName("POST /{tid}/merge se source = target → 400 VALIDATION_ERROR ze service")
     void mergeContactsTargetInSource() throws Exception {
         ContactMergeRequest req = new ContactMergeRequest(List.of(CONTACT_ID));
-        when(contactService.merge(eq(ACCOUNT_ID), eq(CONTACT_ID), any(ContactMergeRequest.class)))
+        when(contactService.merge(eq(CONTACT_ID), any(ContactMergeRequest.class)))
                 .thenThrow(new ValidationException("Target contact must not also be in the source list."));
 
-        mockMvc.perform(post("/api/v1/accounts/{aid}/contacts/{tid}/merge", ACCOUNT_ID, CONTACT_ID)
-                .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"));
+        mockMvc.perform(post("/api/v1/contacts/{tid}/merge", CONTACT_ID).contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req))).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"));
     }
 
     @Test
     @DisplayName("POST /{tid}/merge with non-existing source -> 404 CONTACT_NOT_FOUND from service")
     void mergeContactsSourceNotFound() throws Exception {
         ContactMergeRequest req = new ContactMergeRequest(List.of(999L));
-        when(contactService.merge(eq(ACCOUNT_ID), eq(CONTACT_ID), any(ContactMergeRequest.class)))
-                .thenThrow(new ContactNotFoundException(ACCOUNT_ID, 999L));
+        when(contactService.merge(eq(CONTACT_ID), any(ContactMergeRequest.class)))
+                .thenThrow(new ContactNotFoundException(999L));
 
-        mockMvc.perform(post("/api/v1/accounts/{aid}/contacts/{tid}/merge", ACCOUNT_ID, CONTACT_ID)
-                .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isNotFound()).andExpect(jsonPath("$.errorCode").value("CONTACT_NOT_FOUND"));
+        mockMvc.perform(post("/api/v1/contacts/{tid}/merge", CONTACT_ID).contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req))).andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.errorCode").value("CONTACT_NOT_FOUND"));
     }
 
     @Test
@@ -592,7 +560,8 @@ class ContactControllerTest {
                 ContactAutocompleteResponse.ofContact(1L, 12L, "alice.home@x.cz", EmailLabel.HOME, false, "Alice",
                         "Liddell")));
 
-        mockMvc.perform(get("/api/v1/accounts/{aid}/contacts/autocomplete", ACCOUNT_ID).param("q", "ali"))
+        mockMvc.perform(
+                get("/api/v1/contacts/autocomplete").param("accountId", ACCOUNT_ID.toString()).param("q", "ali"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2))
                 .andExpect(jsonPath("$[0].contactId").value(1)).andExpect(jsonPath("$[0].emailId").value(11))
                 .andExpect(jsonPath("$[0].email").value("alice@x.cz")).andExpect(jsonPath("$[0].label").value("WORK"))
@@ -610,7 +579,8 @@ class ContactControllerTest {
         // The client marks these rows as "not in contacts", and it decides from
         // `source` alone — so the field reaching the wire is the contract, not an
         // implementation detail of the service.
-        mockMvc.perform(get("/api/v1/accounts/{aid}/contacts/autocomplete", ACCOUNT_ID).param("q", "jan"))
+        mockMvc.perform(
+                get("/api/v1/contacts/autocomplete").param("accountId", ACCOUNT_ID.toString()).param("q", "jan"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].source").value("HISTORY"))
                 .andExpect(jsonPath("$[0].email").value("jan.dvorak@example.com"))
@@ -624,9 +594,8 @@ class ContactControllerTest {
     void autocompleteCustomLimit() throws Exception {
         when(contactService.autocomplete(eq(ACCOUNT_ID), eq("ali"), eq(5))).thenReturn(List.of());
 
-        mockMvc.perform(
-                get("/api/v1/accounts/{aid}/contacts/autocomplete", ACCOUNT_ID).param("q", "ali").param("limit", "5"))
-                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/contacts/autocomplete").param("accountId", ACCOUNT_ID.toString()).param("q", "ali")
+                .param("limit", "5")).andExpect(status().isOk());
 
         verify(contactService).autocomplete(ACCOUNT_ID, "ali", 5);
     }
@@ -636,9 +605,8 @@ class ContactControllerTest {
     void autocompleteLimitCappedByClientConfig() throws Exception {
         when(contactService.autocomplete(eq(ACCOUNT_ID), eq("ali"), eq(20))).thenReturn(List.of());
 
-        mockMvc.perform(
-                get("/api/v1/accounts/{aid}/contacts/autocomplete", ACCOUNT_ID).param("q", "ali").param("limit", "999"))
-                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/contacts/autocomplete").param("accountId", ACCOUNT_ID.toString()).param("q", "ali")
+                .param("limit", "999")).andExpect(status().isOk());
 
         verify(contactService).autocomplete(ACCOUNT_ID, "ali", 20);
     }
@@ -646,7 +614,7 @@ class ContactControllerTest {
     @Test
     @DisplayName("GET /autocomplete bez q → 400")
     void autocompleteMissingQ() throws Exception {
-        mockMvc.perform(get("/api/v1/accounts/{aid}/contacts/autocomplete", ACCOUNT_ID))
+        mockMvc.perform(get("/api/v1/contacts/autocomplete").param("accountId", ACCOUNT_ID.toString()))
                 .andExpect(status().isBadRequest());
 
         verify(contactService, never()).autocomplete(any(), any(), anyInt());
@@ -655,7 +623,7 @@ class ContactControllerTest {
     @Test
     @DisplayName("GET /autocomplete?q= (empty) -> 400 (@Size min=1)")
     void autocompleteEmptyQ() throws Exception {
-        mockMvc.perform(get("/api/v1/accounts/{aid}/contacts/autocomplete", ACCOUNT_ID).param("q", ""))
+        mockMvc.perform(get("/api/v1/contacts/autocomplete").param("accountId", ACCOUNT_ID.toString()).param("q", ""))
                 .andExpect(status().isBadRequest());
 
         verify(contactService, never()).autocomplete(any(), any(), anyInt());
@@ -666,7 +634,8 @@ class ContactControllerTest {
     void autocompleteQTooLong() throws Exception {
         String longQ = "a".repeat(101);
 
-        mockMvc.perform(get("/api/v1/accounts/{aid}/contacts/autocomplete", ACCOUNT_ID).param("q", longQ))
+        mockMvc.perform(
+                get("/api/v1/contacts/autocomplete").param("accountId", ACCOUNT_ID.toString()).param("q", longQ))
                 .andExpect(status().isBadRequest());
 
         verify(contactService, never()).autocomplete(any(), any(), anyInt());
@@ -675,17 +644,16 @@ class ContactControllerTest {
     @Test
     @DisplayName("GET /autocomplete?limit=0 → 400 (@Min(1))")
     void autocompleteZeroLimit() throws Exception {
-        mockMvc.perform(
-                get("/api/v1/accounts/{aid}/contacts/autocomplete", ACCOUNT_ID).param("q", "ali").param("limit", "0"))
-                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/v1/contacts/autocomplete").param("accountId", ACCOUNT_ID.toString()).param("q", "ali")
+                .param("limit", "0")).andExpect(status().isBadRequest());
 
         verify(contactService, never()).autocomplete(any(), any(), anyInt());
     }
 
     @Test
-    @DisplayName("GET /autocomplete s accountId=0 → 400 (@Positive)")
+    @DisplayName("GET /autocomplete with accountId=0 → 400 (@Positive)")
     void autocompleteInvalidAccount() throws Exception {
-        mockMvc.perform(get("/api/v1/accounts/0/contacts/autocomplete").param("q", "ali"))
+        mockMvc.perform(get("/api/v1/contacts/autocomplete").param("accountId", "0").param("q", "ali"))
                 .andExpect(status().isBadRequest());
     }
 
@@ -693,19 +661,12 @@ class ContactControllerTest {
     @DisplayName("GET /export.vcf → 200, text/vcard, Content-Disposition s filename")
     void exportVCardHappyPath() throws Exception {
         String vcard = "BEGIN:VCARD\r\nVERSION:4.0\r\nFN:Alice\r\nEMAIL:a@x.cz\r\nEND:VCARD\r\n";
-        when(contactService.exportToVCard(ACCOUNT_ID)).thenReturn(vcard);
+        when(contactService.exportToVCard()).thenReturn(vcard);
 
-        mockMvc.perform(get("/api/v1/accounts/{aid}/contacts/export.vcf", ACCOUNT_ID)).andExpect(status().isOk())
-                .andExpect(content().contentTypeCompatibleWith("text/vcard")).andExpect(header()
-                        .string("Content-Disposition", "attachment; filename=\"contacts-" + ACCOUNT_ID + ".vcf\""))
+        mockMvc.perform(get("/api/v1/contacts/export.vcf")).andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith("text/vcard"))
+                .andExpect(header().string("Content-Disposition", "attachment; filename=\"contacts.vcf\""))
                 .andExpect(content().string(vcard));
     }
 
-    @Test
-    @DisplayName("GET /export.vcf s accountId=0 → 400 (@Positive)")
-    void exportVCardInvalidAccount() throws Exception {
-        mockMvc.perform(get("/api/v1/accounts/0/contacts/export.vcf")).andExpect(status().isBadRequest());
-
-        verify(contactService, never()).exportToVCard(any());
-    }
 }

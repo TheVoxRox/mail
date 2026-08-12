@@ -57,12 +57,11 @@ class ContactMapperTest {
         var req = new ContactCreateRequest(List.of(new ContactEmailRequest("work@b.cz", EmailLabel.WORK),
                 new ContactEmailRequest("home@b.cz", EmailLabel.HOME)), null, "Alice", "Liddell", "VIP");
 
-        ContactEntity e = mapper.toEntity(req, account, null);
+        ContactEntity e = mapper.toEntity(req, null);
 
         assertThat(e.getName()).isEqualTo("Alice");
         assertThat(e.getSurname()).isEqualTo("Liddell");
         assertThat(e.getNote()).isEqualTo("VIP");
-        assertThat(e.getAccount()).isSameAs(account);
         assertThat(e.getEmails()).hasSize(2);
         assertThat(e.getEmails().get(0).getEmail()).isEqualTo("work@b.cz");
         assertThat(e.getEmails().get(0).getLabel()).isEqualTo(EmailLabel.WORK);
@@ -166,9 +165,8 @@ class ContactMapperTest {
         AccountEntity account = new AccountEntity();
         account.setId(1L);
 
-        ContactEntity e = mapper
-                .toEntity(new ContactCreateRequest(List.of(new ContactEmailRequest("  Alice@Example.COM  ", null)),
-                        null, "Alice", null, null), account, null);
+        ContactEntity e = mapper.toEntity(new ContactCreateRequest(
+                List.of(new ContactEmailRequest("  Alice@Example.COM  ", null)), null, "Alice", null, null), null);
 
         assertThat(e.getEmails().get(0).getEmail()).isEqualTo("alice@example.com");
     }

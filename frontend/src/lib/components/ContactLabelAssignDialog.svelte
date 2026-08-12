@@ -11,14 +11,13 @@
 
 	interface Props {
 		open: boolean;
-		accountId: number;
 		/** The selected contacts, so the initial tri-state can be derived. */
 		contacts: ContactResponse[];
 		onOpenChange: (open: boolean) => void;
 		onAssigned: () => void | Promise<void>;
 	}
 
-	let { open, accountId, contacts, onOpenChange, onAssigned }: Props = $props();
+	let { open, contacts, onOpenChange, onAssigned }: Props = $props();
 
 	const labels = $derived($contactCounts?.labels ?? []);
 
@@ -107,7 +106,7 @@
 		busy = true;
 		serverError = null;
 		try {
-			const result = await assignContactLabels(accountId, {
+			const result = await assignContactLabels({
 				contactIds: contacts.map((contact) => contact.id),
 				addLabelIds,
 				removeLabelIds

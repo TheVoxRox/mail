@@ -1,4 +1,11 @@
-/** `/api/v1/accounts/{accountId}/contacts` — CRUD for contacts + their emails. */
+/**
+ * `/api/v1/contacts` — CRUD for contacts + their emails.
+ *
+ * There is one address book for the whole application, not one per mail
+ * account, so nothing here is account-scoped. The single exception is
+ * `autocomplete`, which takes the composing mailbox so the backend knows whose
+ * correspondence history to blend in with the (global) address book.
+ */
 
 import { api, apiRaw } from './client.js';
 import type {
@@ -59,7 +66,6 @@ function normalizeContactPage(page: WireContactPage): PagedResponse<ContactRespo
 }
 
 export async function listContacts(
-	accountId: number,
 	options: PageParams & { q?: string; sort?: ContactSort; labelId?: number } = {}
 ): Promise<PagedResponse<ContactResponse>> {
 	const params: Record<string, string> = {};
@@ -68,87 +74,75 @@ export async function listContacts(
 	if (options.size != null) params.size = String(options.size);
 	if (options.sort) params.sort = options.sort;
 	if (options.labelId != null) params.labelId = String(options.labelId);
-	return normalizeContactPage(
-		await api.get<WireContactPage>(`/accounts/${accountId}/contacts`, { params })
-	);
+	return normalizeContactPage(await api.get<WireContactPage>(`/contacts`, { params }));
 }
 
-export async function getContactCounts(accountId: number): Promise<ContactCountsResponse> {
-	const counts = await api.get<WireContactCountsResponse>(`/accounts/${accountId}/contacts/counts`);
+export async function getContactCounts(): Promise<ContactCountsResponse> {
+	const counts = await api.get<WireContactCountsResponse>(`/contacts/counts`);
 	return { ...counts, labels: counts.labels ?? [] };
 }
 
+/**
+ * `accountId` is the mailbox being composed from. It selects whose
+ * correspondence history is blended into the suggestions; the address book half
+ * is global and ignores it.
+ */
 export function autocompleteContacts(
 	accountId: number,
 	q: string,
 	limit?: number
 ): Promise<ContactAutocompleteResponse[]> {
-	const params: Record<string, string> = { q };
+	const params: Record<string, string> = { accountId: String(accountId), q };
 	if (limit != null) params.limit = String(limit);
-	return api.get(`/accounts/${accountId}/contacts/autocomplete`, { params });
+	return api.get(`/contacts/autocomplete`, { params });
 }
 
-export async function createContact(
-	accountId: number,
-	body: ContactCreateRequest
-): Promise<ContactResponse> {
-	return normalizeContact(
-		await api.post<WireContactResponse>(`/accounts/${accountId}/contacts`, body)
-	);
+export async function createContact(body: ContactCreateRequest): Promise<ContactResponse> {
+	return normalizeContact(await api.post<WireContactResponse>(`/contacts`, body));
 }
 
 export function bulkCreateContacts(
-	accountId: number,
 	body: BulkContactCreateRequest
 ): Promise<BulkContactCreateResponse> {
-	return api.post<BulkContactCreateResponse>(`/accounts/${accountId}/contacts/bulk`, body);
+	return api.post<BulkContactCreateResponse>(`/contacts/bulk`, body);
 }
 
-export async function getContact(accountId: number, contactId: number): Promise<ContactResponse> {
-	return normalizeContact(
-		await api.get<WireContactResponse>(`/accounts/${accountId}/contacts/${contactId}`)
-	);
+export async function getContact(contactId: number): Promise<ContactResponse> {
+	return normalizeContact(await api.get<WireContactResponse>(`/contacts/${contactId}`));
 }
 
 /** Full contact replace (PUT) — name/surname/note plus the whole e-mail list; the first e-mail becomes primary. */
 export async function updateContact(
-	accountId: number,
 	contactId: number,
 	body: ContactUpdateRequest
 ): Promise<ContactResponse> {
-	return normalizeContact(
-		await api.put<WireContactResponse>(`/accounts/${accountId}/contacts/${contactId}`, body)
-	);
+	return normalizeContact(await api.put<WireContactResponse>(`/contacts/${contactId}`, body));
 }
 
-export function deleteContact(accountId: number, contactId: number): Promise<void> {
-	return api.delete<void>(`/accounts/${accountId}/contacts/${contactId}`);
+export function deleteContact(contactId: number): Promise<void> {
+	return api.delete<void>(`/contacts/${contactId}`);
 }
 
 export function bulkDeleteContacts(
-	accountId: number,
 	body: BulkContactDeleteRequest
 ): Promise<BulkContactDeleteResponse> {
-	return api.delete<BulkContactDeleteResponse>(`/accounts/${accountId}/contacts/bulk`, body);
+	return api.delete<BulkContactDeleteResponse>(`/contacts/bulk`, body);
 }
 
-/** Merges source contacts into the target — see `POST /accounts/{id}/contacts/{targetId}/merge`. */
+/** Merges source contacts into the target — see `POST /contacts/{targetId}/merge`. */
 export async function mergeContacts(
-	accountId: number,
 	targetId: number,
 	body: ContactMergeRequest
 ): Promise<ContactResponse> {
-	return normalizeContact(
-		await api.post<WireContactResponse>(`/accounts/${accountId}/contacts/${targetId}/merge`, body)
-	);
+	return normalizeContact(await api.post<WireContactResponse>(`/contacts/${targetId}/merge`, body));
 }
 
-/** Downloads all account contacts as vCard 4.0 (RFC 6350). */
-export async function exportVCard(accountId: number): Promise<{ blob: Blob; filename: string }> {
-	const response = await apiRaw(`/accounts/${accountId}/contacts/export.vcf`);
+/** Downloads the whole address book as vCard 4.0 (RFC 6350). */
+export async function exportVCard(): Promise<{ blob: Blob; filename: string }> {
+	const response = await apiRaw(`/contacts/export.vcf`);
 	const blob = await response.blob();
 	const disposition = response.headers.get('content-disposition') ?? '';
 	const match = /filename="([^"]+)"/.exec(disposition);
-	const filename = match?.[1] ?? `contacts-${accountId}.vcf`;
+	const filename = match?.[1] ?? `contacts.vcf`;
 	return { blob, filename };
 }

@@ -28,8 +28,8 @@ const routes: ReadonlyArray<{ path: string; name: string }> = [
 	{ path: '/settings/accounts/1', name: 'Detail účtu' },
 	{ path: '/compose', name: 'Nová zpráva' },
 	{ path: '/contacts', name: 'Kontakty bez účtu' },
-	{ path: '/contacts/1', name: 'Kontakty' },
-	{ path: '/contacts/1?create=1', name: 'Nový kontakt' },
+	{ path: '/contacts', name: 'Kontakty' },
+	{ path: '/contacts?create=1', name: 'Nový kontakt' },
 	{ path: '/search/1?q=test', name: 'Hledání' },
 	{ path: '/mail/1/INBOX', name: 'Výpis složky' },
 	{
@@ -198,7 +198,7 @@ test.describe('Přístupnost', () => {
 		await expect(foldersNav.getByRole('link', { name: /Doručené/ })).toBeVisible();
 		await expect(foldersNav.getByRole('button')).toHaveCount(0);
 
-		await page.goto(`/contacts/${mailFixture.accountId}`);
+		await page.goto(`/contacts`);
 		await waitForShell(page);
 		const contactsPane = page.getByRole('region', { name: 'Podokno kontaktů' });
 		await expect(contactsPane.getByRole('search', { name: 'Hledání v kontaktech' })).toHaveCount(1);
@@ -225,7 +225,7 @@ test.describe('Přístupnost', () => {
 	});
 
 	test('tlačítko exportu vCard je dostupné přes roli a název', async ({ page }) => {
-		await page.goto(`/contacts/${mailFixture.accountId}`);
+		await page.goto(`/contacts`);
 		await waitForShell(page);
 
 		const sidebar = page.getByRole('region', { name: 'Podokno kontaktů' });
@@ -241,7 +241,7 @@ test.describe('Přístupnost', () => {
 		// The vCard import must not be drag-and-drop-only — a keyboard or
 		// screen-reader user reaches it through a real button that proxies a
 		// file input.
-		await page.goto(`/contacts/${mailFixture.accountId}`);
+		await page.goto(`/contacts`);
 		await waitForShell(page);
 
 		const sidebar = page.getByRole('region', { name: 'Podokno kontaktů' });
@@ -261,7 +261,7 @@ test.describe('Přístupnost', () => {
 	test('formulář nového kontaktu má jednoznačně pojmenované seznamy typů adres', async ({
 		page
 	}) => {
-		await page.goto(`/contacts/${mailFixture.accountId}?create=1`);
+		await page.goto(`/contacts?create=1`);
 		await waitForShell(page);
 
 		// Form landmark names carry no role word ("Formulář …") — the SR
@@ -328,7 +328,7 @@ test.describe('Přístupnost', () => {
 	test('volba hlavní adresy se nabídne, až když je z čeho vybírat', async ({ page }) => {
 		// A single address is primary by construction, so its radio would be a tab
 		// stop that decides nothing: checked, not uncheckable, nowhere to switch.
-		await page.goto(`/contacts/${mailFixture.accountId}?create=1`);
+		await page.goto(`/contacts?create=1`);
 		await waitForShell(page);
 
 		// Named by its own <label>, so every row's radio is called "hlavní" and the
@@ -383,7 +383,7 @@ test.describe('Přístupnost', () => {
 		// Both actions destroy the focused button (Add moves to the new last
 		// row, Remove disappears with its row) — focus must land on an e-mail
 		// input, not drop silently to <body>.
-		await page.goto(`/contacts/${mailFixture.accountId}?create=1`);
+		await page.goto(`/contacts?create=1`);
 		await waitForShell(page);
 
 		await page.getByRole('button', { name: 'Přidat e-mail' }).click();
@@ -400,7 +400,7 @@ test.describe('Přístupnost', () => {
 	test('filtr štítků v kontaktech používá standardní select s explicitním použitím', async ({
 		page
 	}) => {
-		await page.goto(`/contacts/${mailFixture.accountId}`);
+		await page.goto(`/contacts`);
 		await waitForShell(page);
 
 		const labelFilter = page.getByRole('combobox', { name: 'Filtr podle štítku' });
@@ -418,7 +418,7 @@ test.describe('Přístupnost', () => {
 		expect(new URL(page.url()).searchParams.get('sort')).toBeNull();
 		await expect(applyFilter).toBeEnabled();
 		await applyFilter.click();
-		await page.waitForURL('**/contacts/1?labelId=1');
+		await page.waitForURL('**/contacts?labelId=1');
 		// The filtered reload keeps focus on the Apply button, so the result
 		// is announced through the persistent live region.
 		await expect(page.locator('#live-region')).toContainText('Strana 1 z 1, 1 kontakt');
@@ -427,7 +427,7 @@ test.describe('Přístupnost', () => {
 	test('řazení kontaktů používá standardní select s dostupným názvem a stavem', async ({
 		page
 	}) => {
-		await page.goto(`/contacts/${mailFixture.accountId}`);
+		await page.goto(`/contacts`);
 		await waitForShell(page);
 
 		const sortSelect = page.getByRole('combobox', { name: 'Řadit podle' });
@@ -444,12 +444,12 @@ test.describe('Přístupnost', () => {
 		expect(new URL(page.url()).searchParams.get('label')).toBeNull();
 		await expect(applyFilter).toBeEnabled();
 		await applyFilter.click();
-		await page.waitForURL('**/contacts/1?sort=name');
+		await page.waitForURL('**/contacts?sort=name');
 		await expect(sortSelect).toHaveValue('name');
 	});
 
 	test('export vCard oznamuje busy stav a success/error toast přístupně', async ({ page }) => {
-		await page.goto(`/contacts/${mailFixture.accountId}`);
+		await page.goto(`/contacts`);
 		await waitForShell(page);
 		await page.waitForFunction(
 			() =>
@@ -470,7 +470,7 @@ test.describe('Přístupnost', () => {
 		await expect(exportButton).toHaveText('Exportuji…');
 
 		const download = await downloadPromise;
-		expect(download.suggestedFilename()).toBe('contacts-1.vcf');
+		expect(download.suggestedFilename()).toBe('contacts.vcf');
 		await expect(exportButton).toBeEnabled();
 		await expect(exportButton).toHaveAttribute('aria-busy', 'false');
 
@@ -492,14 +492,14 @@ test.describe('Přístupnost', () => {
 	test('dialog sloučení kontaktů nemá a11y porušení a preview oznamuje výsledek živě', async ({
 		page
 	}) => {
-		await page.goto(`/contacts/${mailFixture.accountId}`);
+		await page.goto(`/contacts`);
 		await waitForShell(page);
 		await page.waitForFunction(() => typeof window.__MAIL_MSW__?.reset === 'function');
 		await page.evaluate(() => window.__MAIL_MSW__?.reset());
 
 		// Default fixture has a single contact; a merge needs at least two.
 		const created = await page.evaluate(async () => {
-			const res = await fetch('/api/v1/accounts/1/contacts/bulk', {
+			const res = await fetch('/api/v1/contacts/bulk', {
 				method: 'POST',
 				headers: {
 					Accept: 'application/json',
@@ -518,7 +518,7 @@ test.describe('Přístupnost', () => {
 
 		await page.locator('#contacts-sidebar-search').fill('example.com');
 		await page.keyboard.press('Enter');
-		await page.waitForURL('**/contacts/1?q=example.com');
+		await page.waitForURL('**/contacts?q=example.com');
 		await expect(page.getByText('Jan Novak')).toBeVisible();
 
 		await page.getByLabel('Vybrat kontakt Jana Novak').check();
@@ -545,7 +545,7 @@ test.describe('Přístupnost', () => {
 	});
 
 	test('dialog správy štítků nemá a11y porušení a potvrzení mazání je živé', async ({ page }) => {
-		await page.goto(`/contacts/${mailFixture.accountId}`);
+		await page.goto(`/contacts`);
 		await waitForShell(page);
 
 		await page
@@ -574,13 +574,13 @@ test.describe('Přístupnost', () => {
 	});
 
 	test('dialog přiřazení štítků nemá a11y porušení a smíšený stav je oznámen', async ({ page }) => {
-		await page.goto(`/contacts/${mailFixture.accountId}`);
+		await page.goto(`/contacts`);
 		await waitForShell(page);
 		await page.waitForFunction(() => typeof window.__MAIL_MSW__?.reset === 'function');
 
 		// A second, label-less contact so one label lands in the mixed state.
 		const created = await page.evaluate(async () => {
-			const res = await fetch('/api/v1/accounts/1/contacts/bulk', {
+			const res = await fetch('/api/v1/contacts/bulk', {
 				method: 'POST',
 				headers: {
 					Accept: 'application/json',
@@ -597,7 +597,7 @@ test.describe('Přístupnost', () => {
 
 		await page.locator('#contacts-sidebar-search').fill('example.com');
 		await page.keyboard.press('Enter');
-		await page.waitForURL('**/contacts/1?q=example.com');
+		await page.waitForURL('**/contacts?q=example.com');
 		await expect(page.getByText('Bez Stitku')).toBeVisible();
 
 		await page.getByLabel('Vybrat kontakt Jana Novak').check();
@@ -626,7 +626,7 @@ test.describe('Přístupnost', () => {
 				path: `/mail/${mailFixture.accountId}/${encodeURIComponent(mailFixture.folderName)}`,
 				label: 'Pošta (Ctrl+1)'
 			},
-			{ path: `/contacts/${mailFixture.accountId}`, label: 'Kontakty (Ctrl+2)' },
+			{ path: `/contacts`, label: 'Kontakty (Ctrl+2)' },
 			{ path: '/settings/appearance', label: 'Nastavení (Ctrl+3)' }
 		];
 

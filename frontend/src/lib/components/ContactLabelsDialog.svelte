@@ -16,13 +16,12 @@
 
 	interface Props {
 		open: boolean;
-		accountId: number;
 		onOpenChange: (open: boolean) => void;
 		/** Fired after any change, so the caller can reload a list filtered by a label. */
 		onChanged?: () => void | Promise<void>;
 	}
 
-	let { open, accountId, onOpenChange, onChanged }: Props = $props();
+	let { open, onOpenChange, onChanged }: Props = $props();
 
 	/*
 	 * The counts store is the single source for labels: it is loaded per account,
@@ -65,7 +64,7 @@
 	}
 
 	async function notifyChanged(): Promise<void> {
-		await refreshContactCounts(accountId);
+		await refreshContactCounts();
 		await onChanged?.();
 	}
 
@@ -76,7 +75,7 @@
 		creating = true;
 		createError = null;
 		try {
-			await createContactLabel(accountId, { name });
+			await createContactLabel({ name });
 			newName = '';
 			await notifyChanged();
 			pushToast($_('contacts.labelCreated'), { tone: 'success' });
@@ -116,7 +115,7 @@
 		renameBusy = true;
 		renameError = null;
 		try {
-			await renameContactLabel(accountId, labelId, { name });
+			await renameContactLabel(labelId, { name });
 			renamingId = null;
 			await notifyChanged();
 			pushToast($_('contacts.labelRenamed'), { tone: 'success' });
@@ -154,7 +153,7 @@
 		pendingDeleteId = null;
 		deletingId = labelId;
 		try {
-			await deleteContactLabel(accountId, labelId);
+			await deleteContactLabel(labelId);
 			await notifyChanged();
 			pushToast($_('contacts.labelDeleted'), { tone: 'success' });
 			announcePolite($_('contacts.labelDeleted'));

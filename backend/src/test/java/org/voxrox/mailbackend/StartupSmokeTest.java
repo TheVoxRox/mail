@@ -9,6 +9,7 @@ import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
+import java.util.List;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.DisplayName;
@@ -68,7 +69,7 @@ class StartupSmokeTest {
     ApplicationVersion applicationVersion;
 
     @Test
-    @DisplayName("Application starts, Flyway applies V1, and health returns 200")
+    @DisplayName("Application starts, Flyway applies V1, the provider catalog lands, and health returns 200")
     void applicationStartsAndHealthIsAvailable() throws Exception {
         Path sessionFile = DATA_DIR.resolve("session.json");
         Path readyFile = DATA_DIR.resolve(".ready");
@@ -89,6 +90,20 @@ class StartupSmokeTest {
         Integer migrationCount = jdbcTemplate
                 .queryForObject("SELECT COUNT(*) FROM flyway_schema_history WHERE version = '1'", Integer.class);
         assertThat(migrationCount).isEqualTo(1);
+
+        /*
+         * The provider catalog is no longer seeded by V1 —
+         * MailProviderCatalogReconciler writes it during bean initialisation. This is
+         * the only test that exercises that wiring on a genuinely fresh data directory;
+         * the reconciler's own IT drives the bean directly and would still pass if
+         * the @PostConstruct never fired, leaving a fresh install with no providers and
+         * therefore no OAuth buttons on the account screen.
+         */
+        List<String> providers = jdbcTemplate.queryForList(
+                "SELECT name FROM mail_providers WHERE imap_host IS NOT NULL AND smtp_host IS NOT NULL ORDER BY id",
+                String.class);
+        assertThat(providers).as("a fresh install must come up with a usable provider catalog").contains("Google",
+                "Seznam", "Microsoft");
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create("http://127.0.0.1:" + port + "/api/internal/health"))

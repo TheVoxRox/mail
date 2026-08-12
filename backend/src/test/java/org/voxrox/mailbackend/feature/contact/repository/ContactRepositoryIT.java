@@ -56,13 +56,13 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 
 /**
- * Integration tests for the repository layer against a real SQLite + Flyway
- * migration V5. They verify constructs that mock-based unit tests cannot catch:
- * - UNIQUE (contact_id, email) constraint in contact_emails - FK CASCADE on
- * account deletion (contacts -> contact_emails) - subquery search over
- * contact_emails, name, surname - case-insensitivity - scoped
- * findByIdAndAccountId (cross-account isolation) - findByAccountIdAndAnyEmail
- * (cross-contact duplicate check) - NULLS LAST ordering on surname / name.
+ * Integration tests for the repository layer against a real SQLite built by the
+ * real Flyway migration. They verify constructs that mock-based unit tests
+ * cannot catch: the UNIQUE (contact_id, email) constraint, the global
+ * contact_labels.name_key uniqueness, that deleting a mail account leaves the
+ * address book alone, the subquery search over contact_emails/name/surname,
+ * case-insensitivity, the cross-contact duplicate check and NULLS LAST ordering
+ * on surname / name.
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -130,7 +130,6 @@ class ContactRepositoryIT {
 
     private ContactEntity newContact(AccountEntity owner, String email, String name, String surname) {
         ContactEntity c = new ContactEntity();
-        c.setAccount(owner);
         c.setName(name);
         c.setSurname(surname);
         LocalDateTime now = LocalDateTime.now();
@@ -153,7 +152,6 @@ class ContactRepositoryIT {
      */
     private ContactLabelEntity newLabel(AccountEntity owner, String name) {
         ContactLabelEntity l = new ContactLabelEntity();
-        l.setAccount(owner);
         l.setName(name);
         l.setNameKey(name.toLowerCase(Locale.ROOT));
         l.setCreatedAt(LocalDateTime.now());
@@ -202,9 +200,15 @@ class ContactRepositoryIT {
         }
     }
 
+    /**
+     * The inverse of what this used to assert. The address book deliberately has no
+     * account column any more, so removing a mailbox must leave every contact
+     * standing — messages come back from IMAP on the next sync, hand-curated
+     * contacts come back from nowhere.
+     */
     @Test
-    @DisplayName("Deleting an account cascades to its contacts and their emails")
-    void cascadeOnAccountDelete() {
+    @DisplayName("Deleting an account leaves the address book untouched")
+    void accountDeleteKeepsContacts() {
         contactRepository.saveAndFlush(newContact(account, "a@x.cz", null, null));
         contactRepository.saveAndFlush(newContact(account, "b@x.cz", null, null));
         contactRepository.saveAndFlush(newContact(otherAccount, "c@x.cz", null, null));
@@ -213,13 +217,12 @@ class ContactRepositoryIT {
         accountRepository.flush();
         em.clear();
 
-        List<ContactEntity> remaining = contactRepository.findAll();
-        assertThat(remaining).hasSize(1);
-        assertThat(primaryEmail(remaining.get(0))).isEqualTo("c@x.cz");
+        assertThat(contactRepository.findAll()).extracting(this::primaryEmail).containsExactlyInAnyOrder("a@x.cz",
+                "b@x.cz", "c@x.cz");
     }
 
     @Test
-    @DisplayName("findByAccountIdAndAnyEmail — finds the contact by any email")
+    @DisplayName("findByAnyEmail — finds the contact by any email")
     void findByAnyEmail() {
         ContactEntity c = newContact(account, "primary@x.cz", "Alice", null);
         ContactEmailEntity second = new ContactEmailEntity();
@@ -231,16 +234,12 @@ class ContactRepositoryIT {
         contactRepository.saveAndFlush(c);
         em.clear();
 
-        List<ContactEntity> byPrimary = contactRepository.findByAccountIdAndAnyEmail(account.getId(), "primary@x.cz");
-        List<ContactEntity> bySecondary = contactRepository.findByAccountIdAndAnyEmail(account.getId(),
-                "secondary@x.cz");
-        List<ContactEntity> byOtherAccount = contactRepository.findByAccountIdAndAnyEmail(otherAccount.getId(),
-                "primary@x.cz");
+        List<ContactEntity> byPrimary = contactRepository.findByAnyEmail("primary@x.cz");
+        List<ContactEntity> bySecondary = contactRepository.findByAnyEmail("secondary@x.cz");
 
         assertThat(byPrimary).hasSize(1);
         assertThat(bySecondary).hasSize(1);
         assertThat(bySecondary.get(0).getId()).isEqualTo(byPrimary.get(0).getId());
-        assertThat(byOtherAccount).isEmpty();
     }
 
     @Nested
@@ -257,25 +256,23 @@ class ContactRepositoryIT {
         }
 
         @Test
-        @DisplayName("countByAccountId counts only the account's own contacts")
-        void totalIsAccountScoped() {
+        @DisplayName("count returns every contact in the address book")
+        void totalCountsEveryContact() {
             contactRepository.saveAndFlush(newContact(account, "a@x.cz", null, null));
             contactRepository.saveAndFlush(newContact(account, "b@x.cz", null, null));
             contactRepository.saveAndFlush(newContact(otherAccount, "c@x.cz", null, null));
 
-            assertThat(contactRepository.countByAccountId(account.getId())).isEqualTo(2);
-            assertThat(contactRepository.countByAccountId(otherAccount.getId())).isEqualTo(1);
+            assertThat(contactRepository.count()).isEqualTo(3);
         }
 
         @Test
-        @DisplayName("label counts are per contact, ignore unused labels and foreign accounts")
+        @DisplayName("label counts are per contact and ignore unused labels")
         void labelCountsPerContact() {
             ContactLabelEntity family = newLabel(account, "Family");
             ContactLabelEntity clients = newLabel(account, "Clients");
             // Nobody carries this one — it must be absent from the aggregate, and the
             // service is what turns that absence into a zero badge.
             newLabel(account, "Archive");
-            ContactLabelEntity foreignLabel = newLabel(otherAccount, "Family");
 
             ContactEntity both = newContact(account, "a@x.cz", "A", null);
             both.getLabels().add(family);
@@ -289,12 +286,9 @@ class ContactRepositoryIT {
 
             contactRepository.saveAndFlush(newContact(account, "c@x.cz", "C", null));
 
-            ContactEntity foreign = newContact(otherAccount, "f@x.cz", "D", null);
-            foreign.getLabels().add(foreignLabel);
-            contactRepository.saveAndFlush(foreign);
             em.clear();
 
-            List<ContactLabelCount> counts = contactRepository.countByAccountIdGroupedByLabel(account.getId());
+            List<ContactLabelCount> counts = contactRepository.countGroupedByLabel();
 
             assertThat(counts).containsExactlyInAnyOrder(new ContactLabelCount(family.getId(), 2L),
                     new ContactLabelCount(clients.getId(), 1L));
@@ -310,7 +304,6 @@ class ContactRepositoryIT {
         // (->non-primary), producing a transient two-primaries state that the partial
         // unique index ux_contact_emails_contact_primary rejects.
         ContactEntity c = new ContactEntity();
-        c.setAccount(account);
         LocalDateTime now = LocalDateTime.now();
         c.setCreatedAt(now);
         c.setUpdatedAt(now);
@@ -332,7 +325,7 @@ class ContactRepositoryIT {
 
         AccountService accountService = mock(AccountService.class);
         when(accountService.getAccountOrThrow(account.getId())).thenReturn(account);
-        ContactLabelService labelService = new ContactLabelService(labelRepository, contactRepository, accountService);
+        ContactLabelService labelService = new ContactLabelService(labelRepository, contactRepository);
         ContactService service = new ContactService(contactRepository, labelRepository, labelService,
                 mock(CorrespondentService.class), accountService, new ContactMapper());
 
@@ -340,7 +333,7 @@ class ContactRepositoryIT {
         // test's transaction and its final change flushes here rather than on commit.
         // The flush is where a single-pass swap would trip the partial unique index.
         assertThatCode(() -> {
-            service.setPrimaryEmail(account.getId(), contactId, lowId);
+            service.setPrimaryEmail(contactId, lowId);
             em.flush();
         }).doesNotThrowAnyException();
 
@@ -357,7 +350,6 @@ class ContactRepositoryIT {
         // reach the database before the orphan deletes, the contact briefly holds
         // two is_primary=1 rows and ux_contact_emails_contact_primary rejects it.
         ContactEntity c = new ContactEntity();
-        c.setAccount(account);
         LocalDateTime now = LocalDateTime.now();
         c.setCreatedAt(now);
         c.setUpdatedAt(now);
@@ -376,7 +368,7 @@ class ContactRepositoryIT {
 
         AccountService accountService = mock(AccountService.class);
         when(accountService.getAccountOrThrow(account.getId())).thenReturn(account);
-        ContactLabelService labelService = new ContactLabelService(labelRepository, contactRepository, accountService);
+        ContactLabelService labelService = new ContactLabelService(labelRepository, contactRepository);
         ContactService service = new ContactService(contactRepository, labelRepository, labelService,
                 mock(CorrespondentService.class), accountService, new ContactMapper());
 
@@ -388,7 +380,7 @@ class ContactRepositoryIT {
         // Called directly (no @Transactional proxy), so the write joins the test's
         // transaction and the flush below is where the index would trip.
         assertThatCode(() -> {
-            service.updateContact(account.getId(), contactId, request);
+            service.updateContact(contactId, request);
             em.flush();
         }).doesNotThrowAnyException();
 
@@ -400,7 +392,6 @@ class ContactRepositoryIT {
     @DisplayName("updateContact keeping the order must not violate the unique-email index either")
     void updateContactKeepsOrder() {
         ContactEntity c = new ContactEntity();
-        c.setAccount(account);
         LocalDateTime now = LocalDateTime.now();
         c.setCreatedAt(now);
         c.setUpdatedAt(now);
@@ -414,7 +405,7 @@ class ContactRepositoryIT {
 
         AccountService accountService = mock(AccountService.class);
         when(accountService.getAccountOrThrow(account.getId())).thenReturn(account);
-        ContactLabelService labelService = new ContactLabelService(labelRepository, contactRepository, accountService);
+        ContactLabelService labelService = new ContactLabelService(labelRepository, contactRepository);
         ContactService service = new ContactService(contactRepository, labelRepository, labelService,
                 mock(CorrespondentService.class), accountService, new ContactMapper());
 
@@ -422,24 +413,23 @@ class ContactRepositoryIT {
                 List.of(new ContactEmailRequest("only@x.cz", EmailLabel.WORK)), List.of(), "Jana", "Novak", null);
 
         assertThatCode(() -> {
-            service.updateContact(account.getId(), contactId, request);
+            service.updateContact(contactId, request);
             em.flush();
         }).doesNotThrowAnyException();
     }
 
     @Test
-    @DisplayName("findByAccountIdAndAnyEmailIn — finds collisions for multiple emails in a single query")
+    @DisplayName("findByAnyEmailIn — finds collisions for multiple emails in a single query, across the whole book")
     void findByAnyEmailIn() {
         contactRepository.saveAndFlush(newContact(account, "first@x.cz", "First", null));
         contactRepository.saveAndFlush(newContact(account, "second@x.cz", "Second", null));
         contactRepository.saveAndFlush(newContact(otherAccount, "third@x.cz", "Other", null));
         em.clear();
 
-        List<ContactEntity> found = contactRepository.findByAccountIdAndAnyEmailIn(account.getId(),
-                List.of("missing@x.cz", "second@x.cz", "third@x.cz"));
+        List<ContactEntity> found = contactRepository
+                .findByAnyEmailIn(List.of("missing@x.cz", "second@x.cz", "third@x.cz"));
 
-        assertThat(found).hasSize(1);
-        assertThat(primaryEmail(found.get(0))).isEqualTo("second@x.cz");
+        assertThat(found).extracting(this::primaryEmail).containsExactlyInAnyOrder("second@x.cz", "third@x.cz");
     }
 
     @Nested
@@ -459,15 +449,15 @@ class ContactRepositoryIT {
 
             contactRepository.saveAndFlush(newContact(account, "bob@x.cz", "Bob", "Dylan"));
             contactRepository.saveAndFlush(newContact(account, "c@x.cz", null, null));
-            // Foreign account — must not leak into the results:
+            // Entered while a different mailbox was active — same one book, so it matches
+            // too.
             contactRepository.saveAndFlush(newContact(otherAccount, "alice2@x.cz", "Alice", "Other"));
         }
 
         @Test
         @DisplayName("Match via the primary email")
         void matchByPrimaryEmail() {
-            Page<ContactEntity> p = contactRepository.searchByAccountId(account.getId(), "%bob%", null,
-                    PageRequest.of(0, 10));
+            Page<ContactEntity> p = contactRepository.search("%bob%", null, PageRequest.of(0, 10));
             assertThat(p.getContent()).hasSize(1);
             assertThat(primaryEmail(p.getContent().get(0))).isEqualTo("bob@x.cz");
         }
@@ -475,8 +465,7 @@ class ContactRepositoryIT {
         @Test
         @DisplayName("Match via a contact's secondary email")
         void matchBySecondaryEmail() {
-            Page<ContactEntity> p = contactRepository.searchByAccountId(account.getId(), "%alice.work%", null,
-                    PageRequest.of(0, 10));
+            Page<ContactEntity> p = contactRepository.search("%alice.work%", null, PageRequest.of(0, 10));
             assertThat(p.getContent()).hasSize(1);
             assertThat(primaryEmail(p.getContent().get(0))).isEqualTo("alice@x.cz");
         }
@@ -484,43 +473,19 @@ class ContactRepositoryIT {
         @Test
         @DisplayName("Match via name (case-insensitive) — each contact only once (no duplicates)")
         void matchByNameNoDuplicates() {
-            Page<ContactEntity> p = contactRepository.searchByAccountId(account.getId(), "%alice%", null,
-                    PageRequest.of(0, 10));
-            // Alice has two emails — must be returned only once
-            assertThat(p.getContent()).hasSize(1);
-            assertThat(primaryEmail(p.getContent().get(0))).isEqualTo("alice@x.cz");
+            Page<ContactEntity> p = contactRepository.search("%alice%", null, PageRequest.of(0, 10));
+            // The first Alice has two emails — the join must not return her twice.
+            assertThat(p.getContent()).extracting(ContactRepositoryIT.this::primaryEmail)
+                    .containsExactlyInAnyOrder("alice@x.cz", "alice2@x.cz");
         }
 
         @Test
         @DisplayName("Match via surname")
         void matchBySurname() {
-            Page<ContactEntity> p = contactRepository.searchByAccountId(account.getId(), "%dylan%", null,
-                    PageRequest.of(0, 10));
+            Page<ContactEntity> p = contactRepository.search("%dylan%", null, PageRequest.of(0, 10));
             assertThat(p.getContent()).hasSize(1);
             assertThat(p.getContent().get(0).getSurname()).isEqualTo("Dylan");
         }
-
-        @Test
-        @DisplayName("Scope by accountId — does not return foreign contacts")
-        void scopedByAccount() {
-            Page<ContactEntity> p = contactRepository.searchByAccountId(account.getId(), "%alice%", null,
-                    PageRequest.of(0, 10));
-            assertThat(p.getContent()).noneMatch(c -> "alice2@x.cz".equals(primaryEmail(c)));
-        }
-    }
-
-    @Test
-    @DisplayName("findByIdAndAccountId — cross-account returns empty")
-    void findByIdScopedByAccount() {
-        ContactEntity ownersContact = contactRepository.saveAndFlush(newContact(account, "owner@x.cz", null, null));
-
-        Optional<ContactEntity> crossAccount = contactRepository.findByIdAndAccountId(ownersContact.getId(),
-                otherAccount.getId());
-        Optional<ContactEntity> sameAccount = contactRepository.findByIdAndAccountId(ownersContact.getId(),
-                account.getId());
-
-        assertThat(crossAccount).isEmpty();
-        assertThat(sameAccount).isPresent();
     }
 
     @Test
@@ -532,7 +497,7 @@ class ContactRepositoryIT {
 
         Sort sort = Sort.by(Sort.Order.asc("surname").nullsLast(), Sort.Order.asc("name").nullsLast(),
                 Sort.Order.asc("id"));
-        Page<ContactEntity> p = contactRepository.findByAccountId(account.getId(), null, PageRequest.of(0, 10, sort));
+        Page<ContactEntity> p = contactRepository.findAllFiltered(null, PageRequest.of(0, 10, sort));
 
         assertThat(p.getContent()).extracting(ContactRepositoryIT.this::primaryEmail).containsExactly("a@x.cz",
                 "b@x.cz", "x@x.cz");
@@ -564,8 +529,7 @@ class ContactRepositoryIT {
         hibernate.setLevel(Level.WARN);
         hibernate.addAppender(appender);
         try {
-            Page<ContactEntity> page = contactRepository.findByAccountId(account.getId(), null,
-                    PageRequest.of(0, 2, Sort.by("id")));
+            Page<ContactEntity> page = contactRepository.findAllFiltered(null, PageRequest.of(0, 2, Sort.by("id")));
 
             // SQL-level pagination: the page holds exactly the requested slice while
             // the total reflects every matching row.
@@ -615,8 +579,7 @@ class ContactRepositoryIT {
         @Test
         @DisplayName("findByAccountId(labelId) returns every contact carrying that label, each once")
         void listByLabel() {
-            Page<ContactEntity> p = contactRepository.findByAccountId(account.getId(), family.getId(),
-                    PageRequest.of(0, 10));
+            Page<ContactEntity> p = contactRepository.findAllFiltered(family.getId(), PageRequest.of(0, 10));
             assertThat(p.getContent()).extracting(ContactRepositoryIT.this::primaryEmail)
                     .containsExactlyInAnyOrder("family@x.cz", "both@x.cz");
         }
@@ -624,8 +587,7 @@ class ContactRepositoryIT {
         @Test
         @DisplayName("findByAccountId(labelId) of another label returns its own contacts")
         void listByOtherLabel() {
-            Page<ContactEntity> p = contactRepository.findByAccountId(account.getId(), clients.getId(),
-                    PageRequest.of(0, 10));
+            Page<ContactEntity> p = contactRepository.findAllFiltered(clients.getId(), PageRequest.of(0, 10));
             assertThat(p.getContent()).extracting(ContactRepositoryIT.this::primaryEmail)
                     .containsExactlyInAnyOrder("client@x.cz", "both@x.cz");
         }
@@ -633,31 +595,15 @@ class ContactRepositoryIT {
         @Test
         @DisplayName("findByAccountId(labelId=null) returns all contacts (filter inactive)")
         void listAllWhenLabelNull() {
-            Page<ContactEntity> p = contactRepository.findByAccountId(account.getId(), (Long) null,
-                    PageRequest.of(0, 10));
+            Page<ContactEntity> p = contactRepository.findAllFiltered((Long) null, PageRequest.of(0, 10));
             assertThat(p.getContent()).hasSize(4);
         }
 
         @Test
         @DisplayName("searchByAccountId kombinuje q-filtr s label-filtrem")
         void searchWithLabel() {
-            Page<ContactEntity> p = contactRepository.searchByAccountId(account.getId(), "%both%", family.getId(),
-                    PageRequest.of(0, 10));
+            Page<ContactEntity> p = contactRepository.search("%both%", family.getId(), PageRequest.of(0, 10));
             assertThat(p.getContent()).extracting(ContactRepositoryIT.this::primaryEmail).containsExactly("both@x.cz");
-        }
-
-        @Test
-        @DisplayName("A label of another account never matches, even with the same name")
-        void foreignLabelDoesNotLeak() {
-            ContactLabelEntity foreignFamily = newLabel(otherAccount, "Family");
-            ContactEntity foreign = newContact(otherAccount, "foreign@x.cz", "Foreign", "Person");
-            foreign.getLabels().add(foreignFamily);
-            contactRepository.saveAndFlush(foreign);
-            em.clear();
-
-            Page<ContactEntity> p = contactRepository.findByAccountId(account.getId(), foreignFamily.getId(),
-                    PageRequest.of(0, 10));
-            assertThat(p.getContent()).isEmpty();
         }
     }
 
@@ -666,7 +612,7 @@ class ContactRepositoryIT {
     class LabelConstraints {
 
         @Test
-        @DisplayName("Two labels with the same name_key on one account -> constraint violation")
+        @DisplayName("Two labels with the same name_key -> constraint violation")
         void duplicateNameKeyRejected() {
             newLabel(account, "Family");
             // Hibernate wraps the SQLite unique violation as JpaSystemException, so
@@ -674,13 +620,6 @@ class ContactRepositoryIT {
             // test above, and pin the constraint by name in the message.
             assertThatThrownBy(() -> newLabel(account, "Family")).isInstanceOf(DataAccessException.class)
                     .hasMessageContaining("contact_labels.name_key");
-        }
-
-        @Test
-        @DisplayName("The same name_key on two accounts is fine — labels are account-scoped")
-        void sameNameOnDifferentAccounts() {
-            newLabel(account, "Family");
-            assertThatCode(() -> newLabel(otherAccount, "Family")).doesNotThrowAnyException();
         }
 
         @Test
@@ -696,8 +635,8 @@ class ContactRepositoryIT {
             contactRepository.flush();
             em.clear();
 
-            assertThat(labelRepository.findByIdAndAccountId(family.getId(), account.getId())).isPresent();
-            assertThat(contactRepository.findByAccountIdAndLabelId(account.getId(), family.getId())).isEmpty();
+            assertThat(labelRepository.findById(family.getId())).isPresent();
+            assertThat(contactRepository.findByLabelId(family.getId())).isEmpty();
         }
     }
 }

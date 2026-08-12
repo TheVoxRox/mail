@@ -232,7 +232,7 @@ function contactListResponse(page: PagedResponse<ContactResponse>): MockResponse
 	return HttpResponse.json(page);
 }
 
-function vCardExportResponse(accountId: number, contacts: ContactResponse[]): MockResponse {
+function vCardExportResponse(contacts: ContactResponse[]): MockResponse {
 	const lines: string[] = [];
 	for (const contact of contacts) {
 		const fullName = [contact.name, contact.surname].filter(Boolean).join(' ');
@@ -248,7 +248,7 @@ function vCardExportResponse(accountId: number, contacts: ContactResponse[]): Mo
 		status: 200,
 		headers: {
 			'Content-Type': 'text/vcard; charset=utf-8',
-			'Content-Disposition': `attachment; filename="contacts-${accountId}.vcf"`
+			'Content-Disposition': `attachment; filename="contacts.vcf"`
 		}
 	});
 }
@@ -395,35 +395,29 @@ function accountRoutes(
 		}
 	}
 
-	if (segments[2] === 'contacts') {
-		return contactRoutes(method, accountId, segments.slice(3), request);
-	}
-
-	if (segments[2] === 'contact-labels') {
-		return contactLabelRoutes(method, accountId, segments.slice(3), request);
-	}
-
 	return null;
 }
 
 /**
- * `/accounts/{id}/contact-labels` — CRUD plus bulk assignment. The name
+ * `/contact-labels` — CRUD plus bulk assignment. The name
  * uniqueness and the 409 are modelled because the label dialog's error path is
  * a real e2e case, not an edge one.
  */
 function contactLabelRoutes(
 	method: string,
-	accountId: number,
 	segments: string[],
 	request: Request
 ): Promise<MockResponse> | MockResponse | null {
+	if (segments[0] !== 'contact-labels') return null;
+	segments = segments.slice(1);
+
 	if (contactsLegacyShape) {
 		// The endpoint does not exist in that build, and an unmapped path under
 		// the API prefix is answered by the error handler, not by a 404 the
 		// client could tell apart — same as the 500 observed in #252.
 		return problem(500, 'Interní chyba serveru.', 'INTERNAL_ERROR');
 	}
-	const labels = fixtureState.contactLabelsByAccount[accountId] ?? [];
+	const labels = fixtureState.contactLabels;
 
 	if (segments.length === 0) {
 		if (method === 'GET') {
@@ -439,7 +433,7 @@ function contactLabelRoutes(
 					return HttpResponse.json({ errorCode: 'CONTACT_LABEL_DUPLICATE' }, { status: 409 });
 				}
 				const created = { id: Math.max(0, ...labels.map((label) => label.id)) + 1, name };
-				fixtureState.contactLabelsByAccount[accountId] = [...labels, created].sort((a, b) =>
+				fixtureState.contactLabels = [...labels, created].sort((a, b) =>
 					a.name.localeCompare(b.name)
 				);
 				return HttpResponse.json(created, { status: 201 });
@@ -454,10 +448,10 @@ function contactLabelRoutes(
 				.map((id) => labels.find((label) => label.id === id))
 				.filter((label): label is ContactLabelResponse => label != null);
 			const remove = new Set(req.removeLabelIds ?? []);
-			const contacts = fixtureState.contactsByAccount[accountId] ?? [];
+			const contacts = fixtureState.contacts;
 
 			let changed = 0;
-			fixtureState.contactsByAccount[accountId] = contacts.map((contact) => {
+			fixtureState.contacts = contacts.map((contact) => {
 				if (!req.contactIds.includes(contact.id)) return contact;
 				const kept = contact.labels.filter((label) => !remove.has(label.id));
 				const next = [...kept];
@@ -496,14 +490,12 @@ function contactLabelRoutes(
 				return HttpResponse.json({ errorCode: 'CONTACT_LABEL_DUPLICATE' }, { status: 409 });
 			}
 			const renamed = { id: labelId, name };
-			fixtureState.contactLabelsByAccount[accountId] = labels
+			fixtureState.contactLabels = labels
 				.map((item) => (item.id === labelId ? renamed : item))
 				.sort((a, b) => a.name.localeCompare(b.name));
 			// The name is denormalized onto the contacts, same as the real
 			// response would carry it — keep both sides in step.
-			fixtureState.contactsByAccount[accountId] = (
-				fixtureState.contactsByAccount[accountId] ?? []
-			).map((contact) => ({
+			fixtureState.contacts = fixtureState.contacts.map((contact) => ({
 				...contact,
 				labels: contact.labels.map((item) => (item.id === labelId ? renamed : item))
 			}));
@@ -512,11 +504,9 @@ function contactLabelRoutes(
 	}
 
 	if (method === 'DELETE') {
-		fixtureState.contactLabelsByAccount[accountId] = labels.filter((item) => item.id !== labelId);
+		fixtureState.contactLabels = labels.filter((item) => item.id !== labelId);
 		// The contacts survive and simply lose the label.
-		fixtureState.contactsByAccount[accountId] = (
-			fixtureState.contactsByAccount[accountId] ?? []
-		).map((contact) => ({
+		fixtureState.contacts = fixtureState.contacts.map((contact) => ({
 			...contact,
 			labels: contact.labels.filter((item) => item.id !== labelId)
 		}));
@@ -528,11 +518,13 @@ function contactLabelRoutes(
 
 function contactRoutes(
 	method: string,
-	accountId: number,
 	segments: string[],
 	request: Request
 ): Promise<MockResponse> | MockResponse | null {
-	const contacts = fixtureState.contactsByAccount[accountId] ?? [];
+	if (segments[0] !== 'contacts') return null;
+	segments = segments.slice(1);
+
+	const contacts = fixtureState.contacts;
 	const url = new URL(request.url);
 
 	if (segments.length === 0) {
@@ -559,7 +551,7 @@ function contactRoutes(
 			return request
 				.json()
 				.then((body) =>
-					HttpResponse.json(upsertContact(accountId, body as ContactCreateRequest), { status: 201 })
+					HttpResponse.json(upsertContact(body as ContactCreateRequest), { status: 201 })
 				);
 		}
 	}
@@ -571,7 +563,7 @@ function contactRoutes(
 		}
 		// Every label of the account, including unused ones — the sidebar has to
 		// list those too, so a zero must be a real row rather than a gap.
-		const labels = (fixtureState.contactLabelsByAccount[accountId] ?? []).map((label) => ({
+		const labels = fixtureState.contactLabels.map((label) => ({
 			id: label.id,
 			name: label.name,
 			contacts: contacts.filter((contact) => contact.labels.some((l) => l.id === label.id)).length
@@ -586,7 +578,7 @@ function contactRoutes(
 				const results = requestBody.contacts.map((contact, index) => ({
 					index,
 					status: 'CREATED' as const,
-					contact: upsertContact(accountId, contact)
+					contact: upsertContact(contact)
 				}));
 				return HttpResponse.json({
 					total: requestBody.contacts.length,
@@ -601,9 +593,7 @@ function contactRoutes(
 				const requestBody = body as BulkContactDeleteRequest;
 				const existingIds = new Set(contacts.map((contact) => contact.id));
 				const idsToDelete = new Set(requestBody.ids.filter((id) => existingIds.has(id)));
-				fixtureState.contactsByAccount[accountId] = contacts.filter(
-					(contact) => !idsToDelete.has(contact.id)
-				);
+				fixtureState.contacts = contacts.filter((contact) => !idsToDelete.has(contact.id));
 				const results = requestBody.ids.map((id) =>
 					existingIds.has(id)
 						? { id, status: 'DELETED' as const }
@@ -631,13 +621,16 @@ function contactRoutes(
 		}
 		if (vCardExportDelayMs > 0) {
 			return new Promise((resolve) => {
-				setTimeout(() => resolve(vCardExportResponse(accountId, contacts)), vCardExportDelayMs);
+				setTimeout(() => resolve(vCardExportResponse(contacts)), vCardExportDelayMs);
 			});
 		}
-		return vCardExportResponse(accountId, contacts);
+		return vCardExportResponse(contacts);
 	}
 
 	if (segments[0] === 'autocomplete' && method === 'GET') {
+		// The mailbox being composed from: it picks whose history is blended in.
+		// The address book half is global and ignores it.
+		const accountId = Number(url.searchParams.get('accountId') ?? 0);
 		const q = (url.searchParams.get('q') ?? '').toLowerCase();
 		// Falls back rather than trusting Number(): a non-numeric limit would give
 		// NaN, and slice(0, NaN) returns nothing — turning a request the real
@@ -692,22 +685,18 @@ function contactRoutes(
 	if (segments.length === 1) {
 		if (method === 'GET') return HttpResponse.json(contact);
 		if (method === 'DELETE') {
-			fixtureState.contactsByAccount[accountId] = contacts.filter((item) => item.id !== contactId);
+			fixtureState.contacts = contacts.filter((item) => item.id !== contactId);
 			return noContent();
 		}
 		if (method === 'PUT') {
 			return request
 				.json()
-				.then((body) =>
-					HttpResponse.json(upsertContact(accountId, body as ContactUpdateRequest, contactId))
-				);
+				.then((body) => HttpResponse.json(upsertContact(body as ContactUpdateRequest, contactId)));
 		}
 		if (method === 'PATCH') {
 			return request
 				.json()
-				.then((body) =>
-					HttpResponse.json(upsertContact(accountId, body as ContactPatchRequest, contactId))
-				);
+				.then((body) => HttpResponse.json(upsertContact(body as ContactPatchRequest, contactId)));
 		}
 	}
 
@@ -767,7 +756,7 @@ function contactRoutes(
 				updatedAt: new Date().toISOString()
 			};
 			const sourceIdSet = new Set(uniqueSourceIds);
-			fixtureState.contactsByAccount[accountId] = contacts
+			fixtureState.contacts = contacts
 				.filter((item) => !sourceIdSet.has(item.id))
 				.map((item) => (item.id === contactId ? mergedContact : item));
 			return HttpResponse.json(mergedContact);
@@ -1055,6 +1044,8 @@ async function routeApiRequest(request: Request): Promise<MockResponse> {
 		clientConfigRoutes(method, segments) ??
 		systemRoutes(method, segments) ??
 		accountRoutes(method, segments, request) ??
+		contactRoutes(method, segments, request) ??
+		contactLabelRoutes(method, segments, request) ??
 		messageRoutes(method, segments, request) ??
 		authRoutes(method, segments) ??
 		notificationRoutes(method, segments);

@@ -654,7 +654,7 @@ test.describe('Compose', () => {
 		await expect(dialog).toBeVisible();
 		await dialog.getByRole('button', { name: 'Uložit koncept' }).click();
 
-		await page.waitForURL('**/contacts/1');
+		await page.waitForURL('**/contacts');
 		await expect(
 			page.getByRole('main').getByRole('heading', { level: 1, name: 'Kontakty' })
 		).toBeVisible();

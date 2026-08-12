@@ -9,10 +9,7 @@ import java.util.Set;
 import jakarta.persistence.*;
 
 import org.hibernate.annotations.BatchSize;
-import org.hibernate.annotations.OnDelete;
-import org.hibernate.annotations.OnDeleteAction;
 import org.jspecify.annotations.Nullable;
-import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 
 @Entity
 @Table(name = "contacts")
@@ -21,11 +18,6 @@ public class ContactEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "account_id", nullable = false)
-    @OnDelete(action = OnDeleteAction.CASCADE)
-    private AccountEntity account;
 
     /*
      * @BatchSize lets the paginated listing queries (ContactRepository) load this
@@ -104,14 +96,6 @@ public class ContactEntity {
 
     public void setId(Long id) {
         this.id = id;
-    }
-
-    public AccountEntity getAccount() {
-        return account;
-    }
-
-    public void setAccount(AccountEntity account) {
-        this.account = account;
     }
 
     public List<ContactEmailEntity> getEmails() {
