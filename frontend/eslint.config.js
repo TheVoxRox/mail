@@ -37,10 +37,17 @@ export default defineConfig(
 		}
 	},
 	{
+		// No `projectService` here on purpose: not one rule that applies to
+		// .svelte reads type information (verified against every enabled rule's
+		// meta.docs.requiresTypeChecking), so full type analysis over every
+		// component was pure overhead — `eslint .` took 93 s with it and 5.8 s
+		// without, findings identical. `parser` stays: it is what parses
+		// `lang="ts"`, and that needs no program. Turning the two type-aware
+		// rules below on for components as well is the only thing this gives
+		// up; measured over src it finds nothing today.
 		files: ['**/*.svelte', '**/*.svelte.ts', '**/*.svelte.js'],
 		languageOptions: {
 			parserOptions: {
-				projectService: true,
 				extraFileExtensions: ['.svelte'],
 				parser: ts.parser,
 				svelteConfig

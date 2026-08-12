@@ -180,6 +180,13 @@ Zbyva tady jen to, co v CONTRIBUTING neni:
 - Po `git add .` rucne projit staged soubory.
 - Git hooky: `git config core.hooksPath .githooks` (per clone).
 
+- [ ] **Zjistit, proc brana na druhem stroji trvala ~50 minut.** #263 srazil `npm run lint`
+      z 91 s na 11 s, jenze tech 50 minut to nevysvetluje: pomer obou stroju vysel z mereni
+      na ~1,7x, takze i pred opravou by tam lint mel byt kolem 2-3 minut, ne desitky. Cas
+      tedy zere neco dalsiho. Zmerit na tom stroji kroky brany jednotlive (`lint`, `check`,
+      `knip`, `test:unit`, `check:translations:strict`) a teprve podle toho hledat pricinu;
+      podezreli jsou Defender a `svelte-check` uvnitr `npm run check`.
+
 ---
 
 ## Definition of Done
