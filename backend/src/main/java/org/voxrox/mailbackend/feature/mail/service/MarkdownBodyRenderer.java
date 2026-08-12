@@ -1,5 +1,7 @@
 package org.voxrox.mailbackend.feature.mail.service;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -15,8 +17,10 @@ import org.commonmark.node.ListBlock;
 import org.commonmark.node.Node;
 import org.commonmark.node.Paragraph;
 import org.commonmark.node.SoftLineBreak;
+import org.commonmark.node.SourceSpan;
 import org.commonmark.node.Text;
 import org.commonmark.node.ThematicBreak;
+import org.commonmark.parser.IncludeSourceSpans;
 import org.commonmark.parser.Parser;
 import org.commonmark.renderer.html.HtmlRenderer;
 import org.springframework.stereotype.Component;
@@ -98,8 +102,14 @@ public class MarkdownBodyRenderer {
     /*
      * Both are documented as thread-safe and immutable after build(), and neither
      * holds per-document state, so one shared instance serves every send.
+     *
+     * Source spans are what demoteSetextHeadings uses to tell a setext heading from
+     * an ATX one; BLOCKS is the cheaper of the two levels and all that is needed,
+     * since the distinction is per block. They do not affect parsing itself —
+     * verified by comparing trees with and without them.
      */
-    private static final Parser PARSER = Parser.builder().enabledBlockTypes(ENABLED_BLOCKS).build();
+    private static final Parser PARSER = Parser.builder().enabledBlockTypes(ENABLED_BLOCKS)
+            .includeSourceSpans(IncludeSourceSpans.BLOCKS).build();
 
     private static final HtmlRenderer RENDERER = HtmlRenderer.builder().escapeHtml(true).sanitizeUrls(true)
             .softbreak("<br />\n").build();
@@ -119,11 +129,79 @@ public class MarkdownBodyRenderer {
         }
 
         Node document = PARSER.parse(markdown);
+        demoteSetextHeadings(document, markdown);
         if (isInert(document)) {
             return Optional.empty();
         }
 
         return Optional.of(wrapAsDocument(RENDERER.render(document)));
+    }
+
+    /**
+     * Turns setext headings ({@code Title} with {@code ---} or {@code ===} under
+     * it) back into paragraphs, keeping the underline as literal text.
+     *
+     * <p>
+     * A horizontal rule is ordinary punctuation in a signature or a mail, and
+     * CommonMark reads the line above one as a heading. An ordinary signature — a
+     * name with a rule under it — therefore came out as a level-two heading that
+     * had swallowed both the RFC 3676 separator and the sender's name, and it
+     * switched a message the user wrote as plain text into
+     * {@code multipart/alternative}.
+     *
+     * <p>
+     * Same reasoning as indented code blocks being off: formatting in a mail should
+     * be an explicit gesture. {@code # Title} stays a heading, because writing it
+     * is deliberate; a line of dashes under a name is not. The two cannot be
+     * separated through {@code enabledBlockTypes} — CommonMark has one
+     * {@code Heading} class for both — but they differ in the source: ATX is always
+     * one line, setext spans the text plus its underline, so the block's source
+     * span count tells them apart.
+     *
+     * <p>
+     * The underline is re-appended as text rather than dropped. The rule that the
+     * {@code text/plain} and {@code text/html} parts must say the same thing holds
+     * here too: the dashes are in what the user typed, so they belong in both.
+     */
+    private static void demoteSetextHeadings(Node document, String markdown) {
+        List<Heading> setextHeadings = new ArrayList<>();
+        document.accept(new AbstractVisitor() {
+            @Override
+            public void visit(Heading heading) {
+                // ATX occupies exactly one source line; setext occupies its text
+                // lines plus the underline, so anything past one line is setext.
+                if (heading.getSourceSpans().size() > 1) {
+                    setextHeadings.add(heading);
+                }
+                visitChildren(heading);
+            }
+        });
+
+        if (setextHeadings.isEmpty()) {
+            // Split the source only when there is something to rewrite: bodies
+            // reach 512 kB here and almost none of them contain a setext heading.
+            return;
+        }
+
+        String[] lines = markdown.split("\n", -1);
+        for (Heading heading : setextHeadings) {
+            Paragraph paragraph = new Paragraph();
+            for (Node child = heading.getFirstChild(); child != null;) {
+                Node next = child.getNext();
+                paragraph.appendChild(child);
+                child = next;
+            }
+
+            List<SourceSpan> spans = heading.getSourceSpans();
+            int underlineLine = spans.get(spans.size() - 1).getLineIndex();
+            if (underlineLine >= 0 && underlineLine < lines.length) {
+                paragraph.appendChild(new SoftLineBreak());
+                paragraph.appendChild(new Text(lines[underlineLine]));
+            }
+
+            heading.insertBefore(paragraph);
+            heading.unlink();
+        }
     }
 
     /**
