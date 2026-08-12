@@ -159,4 +159,74 @@ class MarkdownBodyRendererTest {
             assertThat(html).contains("href=\"https://example.com\"").contains("href=\"mailto:bob@example.com\"");
         }
     }
+
+    /**
+     * The account signature is not a separate thing on the way out: the composer
+     * appends it to the body as {@code "\n\n-- \n" + text} (frontend
+     * {@code lib/compose/signature.ts}), so it is parsed as part of the message and
+     * its format is whatever the body's is — plain text that may contain Markdown.
+     * That is the reason {@code accounts.signature} is a single untyped
+     * {@code TEXT} column and needs no {@code signature_html} sibling or
+     * {@code signature_format} discriminator (decision recorded in
+     * {@code todo.md}).
+     *
+     * <p>
+     * These tests hold the half of that reasoning which could break silently: that
+     * an ordinary signature does not, by itself, turn a plain-text message into a
+     * {@code multipart/alternative} one. Nothing else enforces it — it rests on the
+     * RFC 3676 separator being {@code "-- "} and on the enabled block set, and a
+     * change to either lives far from this consequence.
+     */
+    @Nested
+    @DisplayName("The RFC 3676 signature block the composer appends")
+    class SignatureBlock {
+
+        private static final String SEPARATOR = "\n\n-- \n";
+
+        @Test
+        @DisplayName("An ordinary signature leaves a plain body plain")
+        void plainSignatureStaysPlain() {
+            assertThat(
+                    renderer.renderAlternative("Hello,\n\nsee you at 10:00." + SEPARATOR + "Alice Smith\nExample Ltd"))
+                    .isEmpty();
+        }
+
+        @Test
+        @DisplayName("The separator alone is inert — two hyphens are not a thematic break")
+        void separatorAloneIsInert() {
+            assertThat(renderer.renderAlternative("Hello." + SEPARATOR + "Alice")).isEmpty();
+        }
+
+        @Test
+        @DisplayName("A bare URL in the signature does not trigger rendering")
+        void signatureWithUrlStaysPlain() {
+            assertThat(renderer.renderAlternative("Hello." + SEPARATOR + "Alice Smith\nhttps://example.com")).isEmpty();
+        }
+
+        @Test
+        @DisplayName("An indented block inside the signature is indentation, not code")
+        void indentedSignatureStaysPlain() {
+            // The blank line matters. Without it the indented line is a lazy
+            // continuation of the paragraph above and could never be a code block,
+            // so the assertion would hold whatever the enabled block set says —
+            // passing for a reason that has nothing to do with what it claims.
+            assertThat(renderer.renderAlternative("Hello." + SEPARATOR + "Alice Smith\n\n    Example Ltd")).isEmpty();
+        }
+
+        @Test
+        @DisplayName("Markdown typed into the signature renders, like anywhere else in the body")
+        void markdownInSignatureRenders() {
+            String html = render("Hello." + SEPARATOR + "*Alice Smith*");
+
+            assertThat(html).contains("<em>Alice Smith</em>");
+        }
+
+        @Test
+        @DisplayName("A formatted body keeps the separator as text, not as a heading")
+        void separatorSurvivesAFormattedBody() {
+            String html = render("Hello,\n\n- first\n- second" + SEPARATOR + "Alice Smith");
+
+            assertThat(html).contains("<p>--<br />\nAlice Smith</p>");
+        }
+    }
 }
