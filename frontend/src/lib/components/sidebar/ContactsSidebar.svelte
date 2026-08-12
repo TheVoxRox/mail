@@ -3,7 +3,6 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
-	import { get } from 'svelte/store';
 	import { exportVCard } from '$lib/api/contacts.js';
 	import { toErrorMessage } from '$lib/api/errors.js';
 	import { importVCardFiles } from '$lib/contacts/importVCards.js';
@@ -25,26 +24,19 @@
 	let exporting = $state(false);
 	let labelsDialogOpen = $state(false);
 
-	function buildContactsHref(options?: { query?: string; create?: boolean }): string | null {
-		const account = get(activeAccount);
-		if (!account) return null;
-
+	function buildContactsHref(options?: { query?: string; create?: boolean }): string {
 		const params = new SvelteURLSearchParams();
 		const nextQuery = options?.query?.trim() ?? '';
 		if (nextQuery) params.set('q', nextQuery);
 		if (options?.create) params.set('create', '1');
 
 		const queryString = params.toString();
-		return `${resolve('/contacts/[accountId]', {
-			accountId: String(account.id)
-		})}${queryString ? `?${queryString}` : ''}`;
+		return `${resolve('/contacts')}${queryString ? `?${queryString}` : ''}`;
 	}
 
 	function handleSearch(event: SubmitEvent) {
 		event.preventDefault();
-		const href = buildContactsHref({ query });
-		if (!href) return;
-		void goto(href);
+		void goto(buildContactsHref({ query }));
 	}
 
 	function openCreate() {
@@ -60,28 +52,24 @@
 	 * Sidebar view links deliberately drop `q` (and sort): like a mail folder
 	 * click, choosing a view starts fresh instead of carrying the search over.
 	 */
-	function viewHref(labelId?: number): string | undefined {
-		if (!$activeAccount) return undefined;
+	function viewHref(labelId?: number): string {
 		const params = new SvelteURLSearchParams();
 		if (labelId != null) params.set('labelId', String(labelId));
 		const queryString = params.toString();
-		return `${resolve('/contacts/[accountId]', {
-			accountId: String($activeAccount.id)
-		})}${queryString ? `?${queryString}` : ''}`;
+		return `${resolve('/contacts')}${queryString ? `?${queryString}` : ''}`;
 	}
 
 	// The counts endpoint is the single source for the sidebar: it lists every
-	// label of the account, including the ones no contact carries yet, already
+	// label, including the ones no contact carries yet, already
 	// ordered by name.
 	const labelItems = $derived($contactCounts?.labels ?? []);
 
 	async function handleExport() {
-		const account = get(activeAccount);
-		if (!account || exporting) return;
+		if (exporting) return;
 
 		exporting = true;
 		try {
-			const { blob, filename } = await exportVCard(account.id);
+			const { blob, filename } = await exportVCard();
 			saveBlobAsFile(blob, filename);
 			pushToast($_('contacts.exportDone'), { tone: 'success' });
 		} catch (err) {
@@ -101,12 +89,11 @@
 		const files = Array.from(input.files ?? []);
 		// Reset so picking the same file again re-fires the change event.
 		input.value = '';
-		const account = get(activeAccount);
-		if (!account || files.length === 0 || importing) return;
+		if (files.length === 0 || importing) return;
 
 		importing = true;
 		try {
-			const imported = await importVCardFiles(account.id, files, $_);
+			const imported = await importVCardFiles(files, $_);
 			// The page's list load is driven by its `data` prop — re-running the
 			// route load produces a fresh object and re-triggers the list effect.
 			if (imported) await invalidateAll();
@@ -172,145 +159,132 @@
 	headerClass="px-4 py-4"
 	contentClass="p-2.5"
 >
-	{#if !$activeAccount}
-		<div class="rounded-md border border-sidebar-border bg-background/80 p-3">
-			<p class="text-sm text-muted-foreground">{$_('contacts.noActiveAccount')}</p>
-		</div>
-	{:else}
-		<nav aria-label={$_('contacts.viewsNav')}>
-			<!--
+	<nav aria-label={$_('contacts.viewsNav')}>
+		<!--
 				The unfiltered view leads the label list instead of standing above it
 				on its own: it is the "no label" end of the same filter, so one group
 				reads as one switch — all contacts, then each label. Its old name
 				("Kontakty") repeated the rail entry and the pane heading without
 				saying how it differed; the current one names what the link does.
 			-->
-			<SidebarSection id="contacts-sidebar-labels" label={$_('contacts.labelsSection')}>
-				<ul role="list" class="space-y-1">
+		<SidebarSection id="contacts-sidebar-labels" label={$_('contacts.labelsSection')}>
+			<ul role="list" class="space-y-1">
+				<li>
+					<SidebarNavItem href={viewHref()} active={!createActive && currentLabelId == null}>
+						{#snippet icon()}
+							<Icon name="book-open" />
+						{/snippet}
+
+						{$_('contacts.allContacts')}
+
+						{#snippet badge()}
+							<!-- Total 0 renders (an empty address book is meaningful);
+								     no badge means the counts have not loaded. -->
+							{@render countBadge($contactCounts?.total ?? 0, $contactCounts != null)}
+						{/snippet}
+					</SidebarNavItem>
+				</li>
+
+				{#each labelItems as item (item.id)}
 					<li>
-						<SidebarNavItem href={viewHref()} active={!createActive && currentLabelId == null}>
+						<SidebarNavItem
+							href={viewHref(item.id)}
+							active={!createActive && currentLabelId === item.id}
+						>
 							{#snippet icon()}
-								<Icon name="book-open" />
+								<Icon name="tag" />
 							{/snippet}
 
-							{$_('contacts.allContacts')}
+							{item.name}
 
 							{#snippet badge()}
-								<!-- Total 0 renders (an empty address book is meaningful);
-								     no badge means the counts have not loaded. -->
-								{@render countBadge($contactCounts?.total ?? 0, $contactCounts != null)}
+								<!-- A label with no contacts still renders its 0: unlike the
+									     unfiltered view it can be empty simply because it is new,
+									     and a missing badge would read as "not loaded". -->
+								{@render countBadge(item.contacts, true)}
 							{/snippet}
 						</SidebarNavItem>
 					</li>
+				{/each}
+			</ul>
 
-					{#each labelItems as item (item.id)}
-						<li>
-							<SidebarNavItem
-								href={viewHref(item.id)}
-								active={!createActive && currentLabelId === item.id}
-							>
-								{#snippet icon()}
-									<Icon name="tag" />
-								{/snippet}
+			{#if labelItems.length === 0}
+				<p class="px-2 py-1 text-caption text-muted-foreground">{$_('contacts.noLabelsYet')}</p>
+			{/if}
+		</SidebarSection>
+	</nav>
 
-								{item.name}
-
-								{#snippet badge()}
-									<!-- A label with no contacts still renders its 0: unlike the
-									     unfiltered view it can be empty simply because it is new,
-									     and a missing badge would read as "not loaded". -->
-									{@render countBadge(item.contacts, true)}
-								{/snippet}
-							</SidebarNavItem>
-						</li>
-					{/each}
-				</ul>
-
-				{#if labelItems.length === 0}
-					<p class="px-2 py-1 text-caption text-muted-foreground">{$_('contacts.noLabelsYet')}</p>
-				{/if}
-			</SidebarSection>
-		</nav>
-
-		<SidebarSection
-			id="contacts-sidebar-actions"
-			label={$_('contacts.sidebarActions')}
-			class="mt-4"
-		>
-			<ul role="list" class="space-y-1">
-				<li>
-					<!--
+	<SidebarSection id="contacts-sidebar-actions" label={$_('contacts.sidebarActions')} class="mt-4">
+		<ul role="list" class="space-y-1">
+			<li>
+				<!--
 						A button, so it belongs here rather than in the views <nav> above —
 						same reason the import/export actions do. Unlike them it stays
 						available while the create form is open: the form's own empty-labels
 						hint points at this action, and a user filling in their first
 						contact is exactly who needs to make the first label.
 					-->
-					<SidebarNavItem onclick={() => (labelsDialogOpen = true)}>
+				<SidebarNavItem onclick={() => (labelsDialogOpen = true)}>
+					{#snippet icon()}
+						<Icon name="pencil-square" />
+					{/snippet}
+
+					{$_('contacts.manageLabels')}
+				</SidebarNavItem>
+			</li>
+		</ul>
+	</SidebarSection>
+
+	{#if !createActive}
+		<SidebarSection
+			id="contacts-sidebar-import-export"
+			label={$_('contacts.sidebarImportExport')}
+			class="mt-4"
+		>
+			<ul role="list" class="space-y-1">
+				<li>
+					<SidebarNavItem
+						onclick={() => importInputEl?.click()}
+						disabled={importing}
+						ariaLabel={$_('contacts.importVCard')}
+						ariaBusy={importing ? 'true' : 'false'}
+					>
 						{#snippet icon()}
-							<Icon name="pencil-square" />
+							<Icon name="arrow-up-tray" />
 						{/snippet}
 
-						{$_('contacts.manageLabels')}
+						{importing ? $_('contacts.importing') : $_('contacts.importVCard')}
+					</SidebarNavItem>
+					<input
+						bind:this={importInputEl}
+						type="file"
+						accept=".vcf,text/vcard,text/x-vcard"
+						multiple
+						hidden
+						onchange={handleImportFiles}
+					/>
+				</li>
+				<li>
+					<SidebarNavItem
+						onclick={handleExport}
+						disabled={exporting}
+						ariaLabel={$_('contacts.exportVCard')}
+						ariaBusy={exporting ? 'true' : 'false'}
+					>
+						{#snippet icon()}
+							<Icon name="arrow-down-tray" />
+						{/snippet}
+
+						{exporting ? $_('contacts.exporting') : $_('contacts.exportVCard')}
 					</SidebarNavItem>
 				</li>
 			</ul>
 		</SidebarSection>
-
-		{#if !createActive}
-			<SidebarSection
-				id="contacts-sidebar-import-export"
-				label={$_('contacts.sidebarImportExport')}
-				class="mt-4"
-			>
-				<ul role="list" class="space-y-1">
-					<li>
-						<SidebarNavItem
-							onclick={() => importInputEl?.click()}
-							disabled={importing}
-							ariaLabel={$_('contacts.importVCard')}
-							ariaBusy={importing ? 'true' : 'false'}
-						>
-							{#snippet icon()}
-								<Icon name="arrow-up-tray" />
-							{/snippet}
-
-							{importing ? $_('contacts.importing') : $_('contacts.importVCard')}
-						</SidebarNavItem>
-						<input
-							bind:this={importInputEl}
-							type="file"
-							accept=".vcf,text/vcard,text/x-vcard"
-							multiple
-							hidden
-							onchange={handleImportFiles}
-						/>
-					</li>
-					<li>
-						<SidebarNavItem
-							onclick={handleExport}
-							disabled={exporting}
-							ariaLabel={$_('contacts.exportVCard')}
-							ariaBusy={exporting ? 'true' : 'false'}
-						>
-							{#snippet icon()}
-								<Icon name="arrow-down-tray" />
-							{/snippet}
-
-							{exporting ? $_('contacts.exporting') : $_('contacts.exportVCard')}
-						</SidebarNavItem>
-					</li>
-				</ul>
-			</SidebarSection>
-		{/if}
 	{/if}
 </SidebarShell>
 
-{#if $activeAccount}
-	<ContactLabelsDialog
-		open={labelsDialogOpen}
-		accountId={$activeAccount.id}
-		onOpenChange={(next) => (labelsDialogOpen = next)}
-		onChanged={() => invalidateAll()}
-	/>
-{/if}
+<ContactLabelsDialog
+	open={labelsDialogOpen}
+	onOpenChange={(next) => (labelsDialogOpen = next)}
+	onChanged={() => invalidateAll()}
+/>

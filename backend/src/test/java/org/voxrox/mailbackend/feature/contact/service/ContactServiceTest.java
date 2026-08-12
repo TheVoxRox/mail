@@ -96,7 +96,6 @@ class ContactServiceTest {
         c.setId(id);
         c.setName("Alice");
         c.setSurname("Liddell");
-        c.setAccount(account());
         for (int i = 0; i < emails.length; i++) {
             ContactEmailEntity em = new ContactEmailEntity();
             em.setId((long) (i + 1));
@@ -115,36 +114,26 @@ class ContactServiceTest {
     @Test
     @DisplayName("listContacts — paginated listing via the mapper")
     void listContactsReturnsPage() {
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
         Page<ContactEntity> page = new PageImpl<>(List.of(contact(10L, EMAIL), contact(11L, "bob@example.com")));
-        when(contactRepository.findByAccountId(eq(ACCOUNT_ID), eq(null), any(Pageable.class))).thenReturn(page);
+        when(contactRepository.findAllFiltered(eq(null), any(Pageable.class))).thenReturn(page);
 
-        Page<ContactResponse> result = service.listContacts(ACCOUNT_ID, 0, 20, null, null);
+        Page<ContactResponse> result = service.listContacts(0, 20, null, null);
 
         assertThat(result.getContent()).hasSize(2);
         assertThat(result.getContent().get(0).emails().get(0).email()).isEqualTo(EMAIL);
     }
 
     @Test
-    @DisplayName("listContacts — unknown account -> AccountNotFoundException")
-    void listContactsMissingAccount() {
-        when(accountService.getAccountOrThrow(999L)).thenThrow(new AccountNotFoundException(999L));
-        assertThatThrownBy(() -> service.listContacts(999L, 0, 20, null, null))
-                .isInstanceOf(AccountNotFoundException.class);
-    }
-
-    @Test
     @DisplayName("getCounts — every label is listed, the unused ones with zero")
     void getCountsMapsLabels() {
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.countByAccountId(ACCOUNT_ID)).thenReturn(5L);
+        when(contactRepository.count()).thenReturn(5L);
         // The aggregate only knows labels somebody uses — "Archive" is missing from it.
-        when(contactRepository.countByAccountIdGroupedByLabel(ACCOUNT_ID))
+        when(contactRepository.countGroupedByLabel())
                 .thenReturn(List.of(new ContactLabelCount(1L, 3L), new ContactLabelCount(3L, 1L)));
-        when(contactLabelRepository.findByAccountIdOrderByNameKeyAsc(ACCOUNT_ID))
+        when(contactLabelRepository.findAllByOrderByNameKeyAsc())
                 .thenReturn(List.of(label(1L, "Clients"), label(2L, "Archive"), label(3L, "Family")));
 
-        ContactCountsResponse counts = service.getCounts(ACCOUNT_ID);
+        ContactCountsResponse counts = service.getCounts();
 
         assertThat(counts).isEqualTo(new ContactCountsResponse(5L,
                 List.of(new ContactLabelCountResponse(1L, "Clients", 3L),
@@ -161,21 +150,12 @@ class ContactServiceTest {
     }
 
     @Test
-    @DisplayName("getCounts — unknown account -> AccountNotFoundException")
-    void getCountsMissingAccount() {
-        when(accountService.getAccountOrThrow(999L)).thenThrow(new AccountNotFoundException(999L));
-        assertThatThrownBy(() -> service.getCounts(999L)).isInstanceOf(AccountNotFoundException.class);
-        verify(contactRepository, never()).countByAccountId(anyLong());
-    }
-
-    @Test
     @DisplayName("searchContacts — q zabaleno %...% a lowercased")
     void searchContactsWrapsPattern() {
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.searchByAccountId(eq(ACCOUNT_ID), eq("%alice%"), eq(null), any(Pageable.class)))
+        when(contactRepository.search(eq("%alice%"), eq(null), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(contact(10L, EMAIL))));
 
-        Page<ContactResponse> result = service.searchContacts(ACCOUNT_ID, "ALICE", 0, 20, null, null);
+        Page<ContactResponse> result = service.searchContacts("ALICE", 0, 20, null, null);
 
         assertThat(result.getContent()).hasSize(1);
     }
@@ -183,10 +163,9 @@ class ContactServiceTest {
     @Test
     @DisplayName("getContact — happy path")
     void getContactHappyPath() {
-        when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID))
-                .thenReturn(Optional.of(contact(CONTACT_ID, EMAIL)));
+        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(contact(CONTACT_ID, EMAIL)));
 
-        ContactResponse r = service.getContact(ACCOUNT_ID, CONTACT_ID);
+        ContactResponse r = service.getContact(CONTACT_ID);
 
         assertThat(r.id()).isEqualTo(CONTACT_ID);
         assertThat(r.emails().get(0).email()).isEqualTo(EMAIL);
@@ -195,27 +174,24 @@ class ContactServiceTest {
     @Test
     @DisplayName("getContact — cross-account → ContactNotFoundException")
     void getContactCrossAccountReturnsNotFound() {
-        when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.empty());
+        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.getContact(ACCOUNT_ID, CONTACT_ID))
-                .isInstanceOf(ContactNotFoundException.class);
+        assertThatThrownBy(() -> service.getContact(CONTACT_ID)).isInstanceOf(ContactNotFoundException.class);
     }
 
     @Test
     @DisplayName("createContact — saves with audit trail, multiple emails")
     void createContactSaves() {
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.findByAccountIdAndAnyEmailIn(eq(ACCOUNT_ID), any())).thenReturn(List.of());
+        when(contactRepository.findByAnyEmailIn(any())).thenReturn(List.of());
         when(contactRepository.save(any(ContactEntity.class))).thenAnswer(inv -> {
             ContactEntity e = inv.getArgument(0);
             e.setId(CONTACT_ID);
             return e;
         });
 
-        ContactResponse r = service.createContact(ACCOUNT_ID,
-                new ContactCreateRequest(
-                        List.of(emailReq(EMAIL), new ContactEmailRequest("home@example.com", EmailLabel.HOME)), null,
-                        "Alice", "Liddell", "VIP"));
+        ContactResponse r = service.createContact(new ContactCreateRequest(
+                List.of(emailReq(EMAIL), new ContactEmailRequest("home@example.com", EmailLabel.HOME)), null, "Alice",
+                "Liddell", "VIP"));
 
         assertThat(r.id()).isEqualTo(CONTACT_ID);
         ArgumentCaptor<ContactEntity> captor = ArgumentCaptor.forClass(ContactEntity.class);
@@ -233,16 +209,15 @@ class ContactServiceTest {
         @Test
         @DisplayName("createContact attaches the resolved labels")
         void createAttachesLabels() {
-            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
             ContactLabelEntity family = label(1L, "Family");
-            when(contactLabelService.resolveLabels(ACCOUNT_ID, List.of(1L))).thenReturn(Set.of(family));
+            when(contactLabelService.resolveLabels(List.of(1L))).thenReturn(Set.of(family));
             when(contactRepository.save(any(ContactEntity.class))).thenAnswer(inv -> {
                 ContactEntity e = inv.getArgument(0);
                 e.setId(CONTACT_ID);
                 return e;
             });
 
-            ContactResponse r = service.createContact(ACCOUNT_ID,
+            ContactResponse r = service.createContact(
                     new ContactCreateRequest(List.of(emailReq(EMAIL)), List.of(1L), "Alice", null, null));
 
             assertThat(r.labels()).containsExactly(new ContactLabelResponse(1L, "Family"));
@@ -251,14 +226,13 @@ class ContactServiceTest {
         @Test
         @DisplayName("PUT with no labelIds clears the labels — replace semantics")
         void updateClearsLabelsWhenAbsent() {
-            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
             ContactEntity existing = contact(CONTACT_ID, EMAIL);
             existing.getLabels().add(label(1L, "Family"));
-            when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.of(existing));
-            when(contactLabelService.resolveLabels(ACCOUNT_ID, null)).thenReturn(Set.of());
+            when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(existing));
+            when(contactLabelService.resolveLabels(null)).thenReturn(Set.of());
             when(contactRepository.save(existing)).thenReturn(existing);
 
-            ContactResponse r = service.updateContact(ACCOUNT_ID, CONTACT_ID,
+            ContactResponse r = service.updateContact(CONTACT_ID,
                     new ContactUpdateRequest(List.of(emailReq(EMAIL)), null, "Alice", null, null));
 
             assertThat(r.labels()).isEmpty();
@@ -267,30 +241,28 @@ class ContactServiceTest {
         @Test
         @DisplayName("PATCH without labelIds keeps them — the resolver is never called")
         void patchKeepsLabelsWhenAbsent() {
-            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
             ContactEntity existing = contact(CONTACT_ID, EMAIL);
             existing.getLabels().add(label(1L, "Family"));
-            when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.of(existing));
+            when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(existing));
             when(contactRepository.save(existing)).thenReturn(existing);
 
-            ContactResponse r = service.patchContact(ACCOUNT_ID, CONTACT_ID,
+            ContactResponse r = service.patchContact(CONTACT_ID,
                     new ContactPatchRequest(null, null, "NewName", null, null));
 
             assertThat(r.labels()).containsExactly(new ContactLabelResponse(1L, "Family"));
-            verify(contactLabelService, never()).resolveLabels(anyLong(), any());
+            verify(contactLabelService, never()).resolveLabels(any());
         }
 
         @Test
         @DisplayName("PATCH with an explicit empty list clears them")
         void patchClearsLabelsWhenEmptyList() {
-            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
             ContactEntity existing = contact(CONTACT_ID, EMAIL);
             existing.getLabels().add(label(1L, "Family"));
-            when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.of(existing));
-            when(contactLabelService.resolveLabels(ACCOUNT_ID, List.of())).thenReturn(Set.of());
+            when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(existing));
+            when(contactLabelService.resolveLabels(List.of())).thenReturn(Set.of());
             when(contactRepository.save(existing)).thenReturn(existing);
 
-            ContactResponse r = service.patchContact(ACCOUNT_ID, CONTACT_ID,
+            ContactResponse r = service.patchContact(CONTACT_ID,
                     new ContactPatchRequest(null, List.of(), null, null, null));
 
             assertThat(r.labels()).isEmpty();
@@ -299,7 +271,6 @@ class ContactServiceTest {
         @Test
         @DisplayName("merge unions the labels — one only the source carried is not lost")
         void mergeUnionsLabels() {
-            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
             ContactLabelEntity family = label(1L, "Family");
             ContactLabelEntity clients = label(2L, "Clients");
 
@@ -307,11 +278,11 @@ class ContactServiceTest {
             target.getLabels().add(family);
             ContactEntity source = contact(11L, "bob@example.com");
             source.getLabels().add(clients);
-            when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.of(target));
-            when(contactRepository.findByIdAndAccountId(11L, ACCOUNT_ID)).thenReturn(Optional.of(source));
+            when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(target));
+            when(contactRepository.findById(11L)).thenReturn(Optional.of(source));
             when(contactRepository.save(target)).thenReturn(target);
 
-            ContactResponse r = service.merge(ACCOUNT_ID, CONTACT_ID, new ContactMergeRequest(List.of(11L)));
+            ContactResponse r = service.merge(CONTACT_ID, new ContactMergeRequest(List.of(11L)));
 
             assertThat(r.labels()).containsExactlyInAnyOrder(new ContactLabelResponse(1L, "Family"),
                     new ContactLabelResponse(2L, "Clients"));
@@ -322,12 +293,10 @@ class ContactServiceTest {
     @Test
     @DisplayName("createContact — email taken by another contact -> DuplicateContactException")
     void createContactDuplicate() {
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.findByAccountIdAndAnyEmailIn(eq(ACCOUNT_ID), any()))
-                .thenReturn(List.of(contact(99L, EMAIL)));
+        when(contactRepository.findByAnyEmailIn(any())).thenReturn(List.of(contact(99L, EMAIL)));
 
-        assertThatThrownBy(() -> service.createContact(ACCOUNT_ID,
-                new ContactCreateRequest(List.of(emailReq(EMAIL)), null, "Alice", null, null)))
+        assertThatThrownBy(() -> service
+                .createContact(new ContactCreateRequest(List.of(emailReq(EMAIL)), null, "Alice", null, null)))
                 .isInstanceOf(DuplicateContactException.class);
 
         verify(contactRepository, never()).save(any());
@@ -336,9 +305,8 @@ class ContactServiceTest {
     @Test
     @DisplayName("createContact — duplicate email within the request -> ValidationException (400)")
     void createContactDuplicateWithinRequest() {
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
 
-        assertThatThrownBy(() -> service.createContact(ACCOUNT_ID,
+        assertThatThrownBy(() -> service.createContact(
                 new ContactCreateRequest(List.of(emailReq(EMAIL), emailReq(EMAIL)), null, null, null, null)))
                 .isInstanceOf(ValidationException.class).hasMessageContaining("appears more than once");
 
@@ -349,12 +317,11 @@ class ContactServiceTest {
     @DisplayName("updateContact — overwrites all fields including emails")
     void updateContactReplacesFields() {
         ContactEntity existing = contact(CONTACT_ID, EMAIL);
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.of(existing));
-        when(contactRepository.findByAccountIdAndAnyEmailIn(eq(ACCOUNT_ID), any())).thenReturn(List.of(existing));
+        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(existing));
+        when(contactRepository.findByAnyEmailIn(any())).thenReturn(List.of(existing));
         when(contactRepository.save(existing)).thenReturn(existing);
 
-        ContactResponse r = service.updateContact(ACCOUNT_ID, CONTACT_ID,
+        ContactResponse r = service.updateContact(CONTACT_ID,
                 new ContactUpdateRequest(List.of(emailReq(EMAIL)), null, "Alice", "Liddell", "note"));
 
         assertThat(existing.getName()).isEqualTo("Alice");
@@ -368,11 +335,10 @@ class ContactServiceTest {
     void updateContactDuplicate() {
         ContactEntity existing = contact(CONTACT_ID, EMAIL);
         ContactEntity other = contact(22L, "taken@example.com");
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.of(existing));
-        when(contactRepository.findByAccountIdAndAnyEmailIn(eq(ACCOUNT_ID), any())).thenReturn(List.of(other));
+        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(existing));
+        when(contactRepository.findByAnyEmailIn(any())).thenReturn(List.of(other));
 
-        assertThatThrownBy(() -> service.updateContact(ACCOUNT_ID, CONTACT_ID,
+        assertThatThrownBy(() -> service.updateContact(CONTACT_ID,
                 new ContactUpdateRequest(List.of(emailReq("taken@example.com")), null, "X", null, null)))
                 .isInstanceOf(DuplicateContactException.class);
 
@@ -383,15 +349,13 @@ class ContactServiceTest {
     @DisplayName("updateContact — same email on its own contact (no-op) passes")
     void updateContactSameEmailSkipsCheck() {
         ContactEntity existing = contact(CONTACT_ID, EMAIL);
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.of(existing));
+        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(existing));
         // findByAccountIdAndAnyEmailIn returns the same contact — must pass
         // (excludeContactId = CONTACT_ID)
-        when(contactRepository.findByAccountIdAndAnyEmailIn(eq(ACCOUNT_ID), any())).thenReturn(List.of(existing));
+        when(contactRepository.findByAnyEmailIn(any())).thenReturn(List.of(existing));
         when(contactRepository.save(existing)).thenReturn(existing);
 
-        service.updateContact(ACCOUNT_ID, CONTACT_ID,
-                new ContactUpdateRequest(List.of(emailReq(EMAIL)), null, "X", null, null));
+        service.updateContact(CONTACT_ID, new ContactUpdateRequest(List.of(emailReq(EMAIL)), null, "X", null, null));
 
         verify(contactRepository).save(any());
     }
@@ -401,12 +365,10 @@ class ContactServiceTest {
     void patchContactNullFieldsSkipped() {
         ContactEntity existing = contact(CONTACT_ID, EMAIL);
         existing.setNote("original");
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.of(existing));
+        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(existing));
         when(contactRepository.save(existing)).thenReturn(existing);
 
-        service.patchContact(ACCOUNT_ID, CONTACT_ID,
-                new ContactPatchRequest(null, null, "NewName", "NewSurname", null));
+        service.patchContact(CONTACT_ID, new ContactPatchRequest(null, null, "NewName", "NewSurname", null));
 
         assertThat(existing.getEmails().get(0).getEmail()).isEqualTo(EMAIL);
         assertThat(existing.getName()).isEqualTo("NewName");
@@ -417,21 +379,19 @@ class ContactServiceTest {
     @Test
     @DisplayName("patchContact — missing contact -> ContactNotFoundException")
     void patchContactMissing() {
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.empty());
+        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.patchContact(ACCOUNT_ID, CONTACT_ID,
-                new ContactPatchRequest(null, null, "X", null, null))).isInstanceOf(ContactNotFoundException.class);
+        assertThatThrownBy(() -> service.patchContact(CONTACT_ID, new ContactPatchRequest(null, null, "X", null, null)))
+                .isInstanceOf(ContactNotFoundException.class);
     }
 
     @Test
     @DisplayName("deleteContact — deletes the entity")
     void deleteContactDeletes() {
         ContactEntity existing = contact(CONTACT_ID, EMAIL);
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.of(existing));
+        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(existing));
 
-        service.deleteContact(ACCOUNT_ID, CONTACT_ID);
+        service.deleteContact(CONTACT_ID);
 
         verify(contactRepository).delete(existing);
     }
@@ -439,96 +399,71 @@ class ContactServiceTest {
     @Test
     @DisplayName("deleteContact — missing kontakt → ContactNotFoundException")
     void deleteContactMissing() {
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.empty());
+        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.deleteContact(ACCOUNT_ID, CONTACT_ID))
-                .isInstanceOf(ContactNotFoundException.class);
-    }
-
-    @Test
-    @DisplayName("deleteContact — audit log uses the fetched account, not LAZY contact.getAccount()")
-    void deleteContactUsesFetchedAccountForAudit() {
-        ContactEntity existing = new ContactEntity();
-        existing.setId(CONTACT_ID);
-        ContactEmailEntity em = new ContactEmailEntity();
-        em.setEmail(EMAIL);
-        em.setPrimary(true);
-        em.setContact(existing);
-        existing.getEmails().add(em);
-        // intentionally without setAccount — we confirm the LAZY proxy is not touched
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.of(existing));
-
-        service.deleteContact(ACCOUNT_ID, CONTACT_ID);
-
-        verify(contactRepository).delete(existing);
-        verify(accountService).getAccountOrThrow(ACCOUNT_ID);
+        assertThatThrownBy(() -> service.deleteContact(CONTACT_ID)).isInstanceOf(ContactNotFoundException.class);
     }
 
     @Test
     @DisplayName("createContact — mixed-case email with whitespace is stored normalized")
     void createContactNormalizesEmail() {
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.findByAccountIdAndAnyEmailIn(eq(ACCOUNT_ID), any())).thenReturn(List.of());
+        when(contactRepository.findByAnyEmailIn(any())).thenReturn(List.of());
         when(contactRepository.save(any(ContactEntity.class))).thenAnswer(inv -> {
             ContactEntity e = inv.getArgument(0);
             e.setId(CONTACT_ID);
             return e;
         });
 
-        service.createContact(ACCOUNT_ID, new ContactCreateRequest(
-                List.of(new ContactEmailRequest("  Alice@Example.COM  ", null)), null, null, null, null));
+        service.createContact(new ContactCreateRequest(List.of(new ContactEmailRequest("  Alice@Example.COM  ", null)),
+                null, null, null, null));
 
         ArgumentCaptor<ContactEntity> captor = ArgumentCaptor.forClass(ContactEntity.class);
         verify(contactRepository).save(captor.capture());
         assertThat(captor.getValue().getEmails().get(0).getEmail()).isEqualTo("alice@example.com");
-        verify(contactRepository).findByAccountIdAndAnyEmailIn(eq(ACCOUNT_ID), any());
+        verify(contactRepository).findByAnyEmailIn(any());
     }
 
     @Test
     @DisplayName("createContact — multiple emails checked for collisions in a single batch query")
     void createContactChecksDuplicatesWithSingleBatchLookup() {
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.findByAccountIdAndAnyEmailIn(eq(ACCOUNT_ID), any())).thenReturn(List.of());
+        when(contactRepository.findByAnyEmailIn(any())).thenReturn(List.of());
         when(contactRepository.save(any(ContactEntity.class))).thenAnswer(inv -> {
             ContactEntity e = inv.getArgument(0);
             e.setId(CONTACT_ID);
             return e;
         });
 
-        service.createContact(ACCOUNT_ID, new ContactCreateRequest(
+        service.createContact(new ContactCreateRequest(
                 List.of(emailReq("first@example.com"), emailReq("second@example.com"), emailReq("third@example.com")),
                 null, null, null, null));
 
-        verify(contactRepository).findByAccountIdAndAnyEmailIn(eq(ACCOUNT_ID), any());
-        verify(contactRepository, never()).findByAccountIdAndAnyEmail(eq(ACCOUNT_ID), anyString());
+        verify(contactRepository).findByAnyEmailIn(any());
+        verify(contactRepository, never()).findByAnyEmail(anyString());
     }
 
     @Test
     @DisplayName("searchContacts — null q → ValidationException")
     void searchContactsNullQ() {
-        assertThatThrownBy(() -> service.searchContacts(ACCOUNT_ID, null, 0, 20, null, null))
+        assertThatThrownBy(() -> service.searchContacts(null, 0, 20, null, null))
                 .isInstanceOf(ValidationException.class);
-        verify(contactRepository, never()).searchByAccountId(anyLong(), any(), any(), any());
+        verify(contactRepository, never()).search(any(), any(), any());
     }
 
     @Test
     @DisplayName("searchContacts — blank q → ValidationException")
     void searchContactsBlankQ() {
-        assertThatThrownBy(() -> service.searchContacts(ACCOUNT_ID, "   ", 0, 20, null, null))
+        assertThatThrownBy(() -> service.searchContacts("   ", 0, 20, null, null))
                 .isInstanceOf(ValidationException.class);
     }
 
     @Test
     @DisplayName("listContacts — Pageable passed with the requested page size")
     void listContactsPageableSize() {
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-        when(contactRepository.findByAccountId(eq(ACCOUNT_ID), eq(null), pageableCaptor.capture()))
+        when(contactRepository.findAllFiltered(eq(null), pageableCaptor.capture()))
                 .thenReturn(new PageImpl<>(List.of()));
 
-        service.listContacts(ACCOUNT_ID, 3, 50, null, null);
+        service.listContacts(3, 50, null, null);
 
         Pageable captured = pageableCaptor.getValue();
         assertThat(captured.getPageNumber()).isEqualTo(3);
@@ -538,12 +473,11 @@ class ContactServiceTest {
     @Test
     @DisplayName("listContacts — sort=name → primary order asc by name")
     void listContactsSortByName() {
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-        when(contactRepository.findByAccountId(eq(ACCOUNT_ID), eq(null), pageableCaptor.capture()))
+        when(contactRepository.findAllFiltered(eq(null), pageableCaptor.capture()))
                 .thenReturn(new PageImpl<>(List.of()));
 
-        service.listContacts(ACCOUNT_ID, 0, 10, "name", null);
+        service.listContacts(0, 10, "name", null);
 
         var orders = pageableCaptor.getValue().getSort().toList();
         assertThat(orders.get(0).getProperty()).isEqualTo("name");
@@ -553,12 +487,11 @@ class ContactServiceTest {
     @Test
     @DisplayName("listContacts — sort=recent → primary order desc by updatedAt")
     void listContactsSortByRecent() {
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-        when(contactRepository.findByAccountId(eq(ACCOUNT_ID), eq(null), pageableCaptor.capture()))
+        when(contactRepository.findAllFiltered(eq(null), pageableCaptor.capture()))
                 .thenReturn(new PageImpl<>(List.of()));
 
-        service.listContacts(ACCOUNT_ID, 0, 10, "recent", null);
+        service.listContacts(0, 10, "recent", null);
 
         var orders = pageableCaptor.getValue().getSort().toList();
         assertThat(orders.get(0).getProperty()).isEqualTo("updatedAt");
@@ -568,21 +501,17 @@ class ContactServiceTest {
     @Test
     @DisplayName("listContacts — unknown sort -> ValidationException")
     void listContactsInvalidSort() {
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        assertThatThrownBy(() -> service.listContacts(ACCOUNT_ID, 0, 10, "bogus", null))
-                .isInstanceOf(ValidationException.class);
+        assertThatThrownBy(() -> service.listContacts(0, 10, "bogus", null)).isInstanceOf(ValidationException.class);
     }
 
     @Test
     @DisplayName("listContacts — labelId → repository dostane label parametr")
     void listContactsByLabel() {
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactLabelRepository.findByIdAndAccountId(7L, ACCOUNT_ID))
-                .thenReturn(java.util.Optional.of(label(7L, "Family")));
-        when(contactRepository.findByAccountId(eq(ACCOUNT_ID), eq(7L), any(Pageable.class)))
+        when(contactLabelRepository.findById(7L)).thenReturn(java.util.Optional.of(label(7L, "Family")));
+        when(contactRepository.findAllFiltered(eq(7L), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(contact(10L, EMAIL))));
 
-        Page<ContactResponse> result = service.listContacts(ACCOUNT_ID, 0, 10, null, 7L);
+        Page<ContactResponse> result = service.listContacts(0, 10, null, 7L);
 
         assertThat(result.getContent()).hasSize(1);
     }
@@ -590,39 +519,36 @@ class ContactServiceTest {
     @Test
     @DisplayName("listContacts — unknown labelId -> 404, not an empty page")
     void listContactsUnknownLabel() {
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactLabelRepository.findByIdAndAccountId(99L, ACCOUNT_ID)).thenReturn(java.util.Optional.empty());
+        when(contactLabelRepository.findById(99L)).thenReturn(java.util.Optional.empty());
 
-        assertThatThrownBy(() -> service.listContacts(ACCOUNT_ID, 0, 10, null, 99L))
+        assertThatThrownBy(() -> service.listContacts(0, 10, null, 99L))
                 .isInstanceOf(ContactLabelNotFoundException.class);
-        verify(contactRepository, never()).findByAccountId(any(), any(), any());
+        verify(contactRepository, never()).findAllFiltered(any(), any());
     }
 
     @Test
     @DisplayName("searchContacts — unknown labelId -> 404 before the search runs")
     void searchContactsUnknownLabel() {
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactLabelRepository.findByIdAndAccountId(99L, ACCOUNT_ID)).thenReturn(java.util.Optional.empty());
+        when(contactLabelRepository.findById(99L)).thenReturn(java.util.Optional.empty());
 
-        assertThatThrownBy(() -> service.searchContacts(ACCOUNT_ID, "alice", 0, 10, null, 99L))
+        assertThatThrownBy(() -> service.searchContacts("alice", 0, 10, null, 99L))
                 .isInstanceOf(ContactLabelNotFoundException.class);
-        verify(contactRepository, never()).searchByAccountId(any(), any(), any(), any());
+        verify(contactRepository, never()).search(any(), any(), any());
     }
 
     @Test
     @DisplayName("addEmail — adds the email, does not change the primary one, stores normalized")
     void addEmailAppends() {
         ContactEntity existing = contact(CONTACT_ID, EMAIL);
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.of(existing));
-        when(contactRepository.findByAccountIdAndAnyEmail(ACCOUNT_ID, "new@x.cz")).thenReturn(List.of());
+        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(existing));
+        when(contactRepository.findByAnyEmail("new@x.cz")).thenReturn(List.of());
         when(contactRepository.save(existing)).thenAnswer(inv -> {
             ContactEntity e = inv.getArgument(0);
             e.getEmails().stream().filter(em -> em.getId() == null).forEach(em -> em.setId(123L));
             return e;
         });
 
-        ContactEmailResponse added = service.addEmail(ACCOUNT_ID, CONTACT_ID,
+        ContactEmailResponse added = service.addEmail(CONTACT_ID,
                 new ContactEmailRequest("  New@X.cz  ", EmailLabel.HOME));
 
         assertThat(added.email()).isEqualTo("new@x.cz");
@@ -636,11 +562,10 @@ class ContactServiceTest {
     void addEmailDuplicate() {
         ContactEntity existing = contact(CONTACT_ID, EMAIL);
         ContactEntity other = contact(99L, "taken@x.cz");
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.of(existing));
-        when(contactRepository.findByAccountIdAndAnyEmail(ACCOUNT_ID, "taken@x.cz")).thenReturn(List.of(other));
+        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(existing));
+        when(contactRepository.findByAnyEmail("taken@x.cz")).thenReturn(List.of(other));
 
-        assertThatThrownBy(() -> service.addEmail(ACCOUNT_ID, CONTACT_ID, new ContactEmailRequest("taken@x.cz", null)))
+        assertThatThrownBy(() -> service.addEmail(CONTACT_ID, new ContactEmailRequest("taken@x.cz", null)))
                 .isInstanceOf(DuplicateContactException.class);
 
         verify(contactRepository, never()).save(any());
@@ -650,14 +575,12 @@ class ContactServiceTest {
     @DisplayName("addEmail — duplicate within the contact's own list -> ValidationException (400)")
     void addEmailOwnDuplicateIsValidationError() {
         ContactEntity existing = contact(CONTACT_ID, EMAIL);
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.of(existing));
+        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(existing));
 
         // The contact already has EMAIL — per the checkNoDuplicatesWithinAccount
         // convention this is "fix your own form" (400), not a cross-contact
         // conflict (409).
-        assertThatThrownBy(
-                () -> service.addEmail(ACCOUNT_ID, CONTACT_ID, new ContactEmailRequest("  " + EMAIL + "  ", null)))
+        assertThatThrownBy(() -> service.addEmail(CONTACT_ID, new ContactEmailRequest("  " + EMAIL + "  ", null)))
                 .isInstanceOf(ValidationException.class);
 
         verify(contactRepository, never()).save(any());
@@ -666,10 +589,9 @@ class ContactServiceTest {
     @Test
     @DisplayName("addEmail — missing kontakt → ContactNotFoundException")
     void addEmailContactMissing() {
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.empty());
+        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.addEmail(ACCOUNT_ID, CONTACT_ID, new ContactEmailRequest("x@x.cz", null)))
+        assertThatThrownBy(() -> service.addEmail(CONTACT_ID, new ContactEmailRequest("x@x.cz", null)))
                 .isInstanceOf(ContactNotFoundException.class);
     }
 
@@ -677,11 +599,10 @@ class ContactServiceTest {
     @DisplayName("deleteEmail — deletes non-primary, primary stays")
     void deleteEmailRemovesNonPrimary() {
         ContactEntity existing = contact(CONTACT_ID, EMAIL, "second@x.cz");
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.of(existing));
+        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(existing));
         when(contactRepository.save(existing)).thenReturn(existing);
 
-        service.deleteEmail(ACCOUNT_ID, CONTACT_ID, 2L);
+        service.deleteEmail(CONTACT_ID, 2L);
 
         assertThat(existing.getEmails()).hasSize(1);
         assertThat(existing.getEmails().get(0).getEmail()).isEqualTo(EMAIL);
@@ -692,11 +613,10 @@ class ContactServiceTest {
     @DisplayName("deleteEmail — deletes primary -> promotes the next one (lowest ID)")
     void deleteEmailPromotesNext() {
         ContactEntity existing = contact(CONTACT_ID, EMAIL, "second@x.cz");
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.of(existing));
+        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(existing));
         when(contactRepository.save(existing)).thenReturn(existing);
 
-        service.deleteEmail(ACCOUNT_ID, CONTACT_ID, 1L);
+        service.deleteEmail(CONTACT_ID, 1L);
 
         assertThat(existing.getEmails()).hasSize(1);
         assertThat(existing.getEmails().get(0).getEmail()).isEqualTo("second@x.cz");
@@ -707,11 +627,10 @@ class ContactServiceTest {
     @DisplayName("deleteEmail — last email -> ValidationException (400)")
     void deleteEmailLastOneRejected() {
         ContactEntity existing = contact(CONTACT_ID, EMAIL);
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.of(existing));
+        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(existing));
 
-        assertThatThrownBy(() -> service.deleteEmail(ACCOUNT_ID, CONTACT_ID, 1L))
-                .isInstanceOf(ValidationException.class).hasMessageContaining("At least one");
+        assertThatThrownBy(() -> service.deleteEmail(CONTACT_ID, 1L)).isInstanceOf(ValidationException.class)
+                .hasMessageContaining("At least one");
 
         verify(contactRepository, never()).save(any());
     }
@@ -720,22 +639,19 @@ class ContactServiceTest {
     @DisplayName("deleteEmail — email ID does not belong to the contact -> ResourceNotFoundException")
     void deleteEmailNotFound() {
         ContactEntity existing = contact(CONTACT_ID, EMAIL, "second@x.cz");
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.of(existing));
+        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(existing));
 
-        assertThatThrownBy(() -> service.deleteEmail(ACCOUNT_ID, CONTACT_ID, 999L))
-                .isInstanceOf(ResourceNotFoundException.class);
+        assertThatThrownBy(() -> service.deleteEmail(CONTACT_ID, 999L)).isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test
     @DisplayName("setPrimaryEmail — changes the primary one, sets the others to false")
     void setPrimaryEmailSwitches() {
         ContactEntity existing = contact(CONTACT_ID, EMAIL, "second@x.cz");
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.of(existing));
+        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(existing));
         when(contactRepository.save(existing)).thenReturn(existing);
 
-        ContactResponse r = service.setPrimaryEmail(ACCOUNT_ID, CONTACT_ID, 2L);
+        ContactResponse r = service.setPrimaryEmail(CONTACT_ID, 2L);
 
         assertThat(existing.getEmails().get(0).isPrimary()).isFalse();
         assertThat(existing.getEmails().get(1).isPrimary()).isTrue();
@@ -746,10 +662,9 @@ class ContactServiceTest {
     @DisplayName("setPrimaryEmail — non-existing emailId -> ResourceNotFoundException")
     void setPrimaryEmailNotFound() {
         ContactEntity existing = contact(CONTACT_ID, EMAIL);
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.of(existing));
+        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(existing));
 
-        assertThatThrownBy(() -> service.setPrimaryEmail(ACCOUNT_ID, CONTACT_ID, 999L))
+        assertThatThrownBy(() -> service.setPrimaryEmail(CONTACT_ID, 999L))
                 .isInstanceOf(ResourceNotFoundException.class);
 
         verify(contactRepository, never()).save(any());
@@ -760,7 +675,6 @@ class ContactServiceTest {
         c.setId(id);
         c.setName(name);
         c.setSurname(surname);
-        c.setAccount(account());
         for (int i = 0; i < emails.length; i++) {
             ContactEmailEntity em = new ContactEmailEntity();
             em.setId((long) (10 * id + i));
@@ -776,13 +690,12 @@ class ContactServiceTest {
     @DisplayName("autocomplete — empty q -> ValidationException")
     void autocompleteBlankQ() {
         assertThatThrownBy(() -> service.autocomplete(ACCOUNT_ID, "  ", 10)).isInstanceOf(ValidationException.class);
-        verify(contactRepository, never()).searchByAccountId(anyLong(), anyString(), any(), any());
+        verify(contactRepository, never()).search(anyString(), any(), any());
     }
 
     @Test
     @DisplayName("autocomplete — ranking: email prefix > surname prefix > name prefix > substring")
     void autocompleteRanking() {
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
 
         // Substring match (rank 3) - email contains "ali" but does not start with it
         ContactEntity c1 = namedContact(1L, "Zara", "Smith", "contact.ali@example.com");
@@ -793,7 +706,7 @@ class ContactServiceTest {
         // Email prefix match (rank 0)
         ContactEntity c4 = namedContact(4L, "Xena", "Warrior", "ali@example.com");
 
-        when(contactRepository.searchByAccountId(eq(ACCOUNT_ID), eq("%ali%"), eq(null), any(Pageable.class)))
+        when(contactRepository.search(eq("%ali%"), eq(null), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(c1, c2, c3, c4)));
 
         List<ContactAutocompleteResponse> result = service.autocomplete(ACCOUNT_ID, "ali", 10);
@@ -809,10 +722,9 @@ class ContactServiceTest {
     @Test
     @DisplayName("autocomplete — flattening: a contact with 2 emails produces 2 rows")
     void autocompleteFlattensEmails() {
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
 
         ContactEntity c = namedContact(10L, "Alice", "Liddell", "work@x.cz", "home@x.cz");
-        when(contactRepository.searchByAccountId(eq(ACCOUNT_ID), anyString(), eq(null), any(Pageable.class)))
+        when(contactRepository.search(anyString(), eq(null), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(c)));
 
         List<ContactAutocompleteResponse> result = service.autocomplete(ACCOUNT_ID, "alice", 10);
@@ -829,7 +741,6 @@ class ContactServiceTest {
     @Test
     @DisplayName("autocomplete — limit clamped to the hard cap of 20")
     void autocompleteHardCap() {
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
 
         List<ContactEntity> many = new java.util.ArrayList<>();
         for (int i = 0; i < 25; i++) {
@@ -837,7 +748,7 @@ class ContactServiceTest {
         }
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-        when(contactRepository.searchByAccountId(eq(ACCOUNT_ID), anyString(), eq(null), pageableCaptor.capture()))
+        when(contactRepository.search(anyString(), eq(null), pageableCaptor.capture()))
                 .thenReturn(new PageImpl<>(many.subList(0, 20)));
 
         List<ContactAutocompleteResponse> result = service.autocomplete(ACCOUNT_ID, "x", 100);
@@ -865,8 +776,7 @@ class ContactServiceTest {
     @Test
     @DisplayName("autocomplete — harvested addresses are offered and marked as not being contacts")
     void autocompleteIncludesHistory() {
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.searchByAccountId(eq(ACCOUNT_ID), anyString(), eq(null), any(Pageable.class)))
+        when(contactRepository.search(anyString(), eq(null), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of()));
         when(correspondentService.search(eq(ACCOUNT_ID), eq("jan"), anyInt()))
                 .thenReturn(List.of(correspondent("jan.dvorak@example.com", "Jan Dvorak")));
@@ -889,9 +799,8 @@ class ContactServiceTest {
     @Test
     @DisplayName("autocomplete — an address in both sources appears once, as the contact")
     void autocompleteDeduplicatesAcrossSources() {
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
         ContactEntity jana = namedContact(1L, "Jana", "Novak", "jana@example.com");
-        when(contactRepository.searchByAccountId(eq(ACCOUNT_ID), anyString(), eq(null), any(Pageable.class)))
+        when(contactRepository.search(anyString(), eq(null), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(jana)));
         when(correspondentService.search(eq(ACCOUNT_ID), eq("jana"), anyInt()))
                 .thenReturn(List.of(correspondent("jana@example.com", "Jana Novak")));
@@ -905,12 +814,11 @@ class ContactServiceTest {
     @Test
     @DisplayName("autocomplete — sources interleave by rank rather than stacking as blocks")
     void autocompleteInterleavesByRank() {
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
         // Contact matches only as a substring (rank 3); the harvested address
         // matches the prefix (rank 0), so it has to come first even though the
         // address book is the preferred source on a tie.
         ContactEntity weak = namedContact(1L, "Zara", "Smith", "contact.ali@example.com");
-        when(contactRepository.searchByAccountId(eq(ACCOUNT_ID), anyString(), eq(null), any(Pageable.class)))
+        when(contactRepository.search(anyString(), eq(null), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(weak)));
         when(correspondentService.search(eq(ACCOUNT_ID), eq("ali"), anyInt()))
                 .thenReturn(List.of(correspondent("ali@example.com", "Ali Baba")));
@@ -924,9 +832,8 @@ class ContactServiceTest {
     @Test
     @DisplayName("autocomplete — a contact wins a rank tie against an equally good history row")
     void autocompleteContactWinsTie() {
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
         ContactEntity contact = namedContact(1L, "Alice", "Smith", "ali.contact@example.com");
-        when(contactRepository.searchByAccountId(eq(ACCOUNT_ID), anyString(), eq(null), any(Pageable.class)))
+        when(contactRepository.search(anyString(), eq(null), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(contact)));
         when(correspondentService.search(eq(ACCOUNT_ID), eq("ali"), anyInt()))
                 .thenReturn(List.of(correspondent("ali.history@example.com", "Ali History")));
@@ -940,8 +847,7 @@ class ContactServiceTest {
     @Test
     @DisplayName("autocomplete — the limit applies to the merged list, not per source")
     void autocompleteLimitsTheMergedList() {
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.searchByAccountId(eq(ACCOUNT_ID), anyString(), eq(null), any(Pageable.class)))
+        when(contactRepository.search(anyString(), eq(null), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(namedContact(1L, "Ann", "A", "ali1@example.com"),
                         namedContact(2L, "Ann", "B", "ali2@example.com"))));
         when(correspondentService.search(eq(ACCOUNT_ID), eq("ali"), anyInt())).thenReturn(
@@ -960,7 +866,6 @@ class ContactServiceTest {
         c.setName("Bob");
         c.setSurname("Builder");
         c.setNote(note);
-        c.setAccount(account());
         ContactEmailEntity em = new ContactEmailEntity();
         em.setId(id * 100);
         em.setEmail(email);
@@ -977,13 +882,11 @@ class ContactServiceTest {
         ContactEntity target = contact(CONTACT_ID, "alice@example.com");
         target.setNote("VIP");
         ContactEntity src = contactWithLabel(20L, "alice.work@example.com", EmailLabel.WORK, null);
-
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.of(target));
-        when(contactRepository.findByIdAndAccountId(20L, ACCOUNT_ID)).thenReturn(Optional.of(src));
+        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(target));
+        when(contactRepository.findById(20L)).thenReturn(Optional.of(src));
         when(contactRepository.save(any(ContactEntity.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        ContactResponse r = service.merge(ACCOUNT_ID, CONTACT_ID, new ContactMergeRequest(List.of(20L)));
+        ContactResponse r = service.merge(CONTACT_ID, new ContactMergeRequest(List.of(20L)));
 
         assertThat(r.emails()).hasSize(2);
         assertThat(r.emails().stream().map(ContactEmailResponse::email)).containsExactlyInAnyOrder("alice@example.com",
@@ -998,13 +901,11 @@ class ContactServiceTest {
     void mergeEmailCollisionDedupes() {
         ContactEntity target = contact(CONTACT_ID, "alice@example.com");
         ContactEntity src = contactWithLabel(20L, "ALICE@example.com", EmailLabel.HOME, null);
-
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.of(target));
-        when(contactRepository.findByIdAndAccountId(20L, ACCOUNT_ID)).thenReturn(Optional.of(src));
+        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(target));
+        when(contactRepository.findById(20L)).thenReturn(Optional.of(src));
         when(contactRepository.save(any(ContactEntity.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        ContactResponse r = service.merge(ACCOUNT_ID, CONTACT_ID, new ContactMergeRequest(List.of(20L)));
+        ContactResponse r = service.merge(CONTACT_ID, new ContactMergeRequest(List.of(20L)));
 
         assertThat(r.emails()).hasSize(1);
         assertThat(r.emails().get(0).email()).isEqualTo("alice@example.com");
@@ -1018,14 +919,12 @@ class ContactServiceTest {
         target.setNote("note A");
         ContactEntity src1 = contactWithLabel(20L, "src1@example.com", null, "note B");
         ContactEntity src2 = contactWithLabel(21L, "src2@example.com", null, "  ");
-
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.of(target));
-        when(contactRepository.findByIdAndAccountId(20L, ACCOUNT_ID)).thenReturn(Optional.of(src1));
-        when(contactRepository.findByIdAndAccountId(21L, ACCOUNT_ID)).thenReturn(Optional.of(src2));
+        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(target));
+        when(contactRepository.findById(20L)).thenReturn(Optional.of(src1));
+        when(contactRepository.findById(21L)).thenReturn(Optional.of(src2));
         when(contactRepository.save(any(ContactEntity.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        ContactResponse r = service.merge(ACCOUNT_ID, CONTACT_ID, new ContactMergeRequest(List.of(20L, 21L)));
+        ContactResponse r = service.merge(CONTACT_ID, new ContactMergeRequest(List.of(20L, 21L)));
 
         assertThat(r.note()).isEqualTo("note A\n\n---\n\nnote B");
     }
@@ -1035,7 +934,6 @@ class ContactServiceTest {
     void mergeExceedsMaxEmails() {
         ContactEntity target = new ContactEntity();
         target.setId(CONTACT_ID);
-        target.setAccount(account());
         for (int i = 0; i < 8; i++) {
             ContactEmailEntity em = new ContactEmailEntity();
             em.setId((long) i);
@@ -1046,7 +944,6 @@ class ContactServiceTest {
         }
         ContactEntity src = new ContactEntity();
         src.setId(20L);
-        src.setAccount(account());
         for (int i = 0; i < 3; i++) {
             ContactEmailEntity em = new ContactEmailEntity();
             em.setId(100L + i);
@@ -1054,12 +951,10 @@ class ContactServiceTest {
             em.setContact(src);
             src.getEmails().add(em);
         }
+        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(target));
+        when(contactRepository.findById(20L)).thenReturn(Optional.of(src));
 
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.of(target));
-        when(contactRepository.findByIdAndAccountId(20L, ACCOUNT_ID)).thenReturn(Optional.of(src));
-
-        assertThatThrownBy(() -> service.merge(ACCOUNT_ID, CONTACT_ID, new ContactMergeRequest(List.of(20L))))
+        assertThatThrownBy(() -> service.merge(CONTACT_ID, new ContactMergeRequest(List.of(20L))))
                 .isInstanceOf(ValidationException.class).hasMessageContaining("11 e-mail addresses; the maximum is 10");
 
         verify(contactRepository, never()).save(any(ContactEntity.class));
@@ -1069,10 +964,8 @@ class ContactServiceTest {
     @Test
     @DisplayName("merge — target ∈ source → ValidationException")
     void mergeTargetInSource() {
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
 
-        assertThatThrownBy(
-                () -> service.merge(ACCOUNT_ID, CONTACT_ID, new ContactMergeRequest(List.of(CONTACT_ID, 20L))))
+        assertThatThrownBy(() -> service.merge(CONTACT_ID, new ContactMergeRequest(List.of(CONTACT_ID, 20L))))
                 .isInstanceOf(ValidationException.class).hasMessageContaining("must not also be");
 
         verify(contactRepository, never()).delete(any(ContactEntity.class));
@@ -1081,9 +974,8 @@ class ContactServiceTest {
     @Test
     @DisplayName("merge — duplicate ID in source -> ValidationException")
     void mergeDuplicateSourceIds() {
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
 
-        assertThatThrownBy(() -> service.merge(ACCOUNT_ID, CONTACT_ID, new ContactMergeRequest(List.of(20L, 20L))))
+        assertThatThrownBy(() -> service.merge(CONTACT_ID, new ContactMergeRequest(List.of(20L, 20L))))
                 .isInstanceOf(ValidationException.class).hasMessageContaining("duplicate IDs");
     }
 
@@ -1091,11 +983,10 @@ class ContactServiceTest {
     @DisplayName("merge — source kontakt neexistuje → ContactNotFoundException")
     void mergeSourceNotFound() {
         ContactEntity target = contact(CONTACT_ID, "alice@example.com");
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.of(target));
-        when(contactRepository.findByIdAndAccountId(99L, ACCOUNT_ID)).thenReturn(Optional.empty());
+        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(target));
+        when(contactRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.merge(ACCOUNT_ID, CONTACT_ID, new ContactMergeRequest(List.of(99L))))
+        assertThatThrownBy(() -> service.merge(CONTACT_ID, new ContactMergeRequest(List.of(99L))))
                 .isInstanceOf(ContactNotFoundException.class);
 
         verify(contactRepository, never()).save(any(ContactEntity.class));
@@ -1105,9 +996,7 @@ class ContactServiceTest {
     @DisplayName("merge — target without primary, after merge the first email is promoted")
     void mergePromotesPrimaryWhenTargetHasNone() {
         ContactEntity target = new ContactEntity();
-        target.setId(CONTACT_ID);
-        target.setAccount(account());
-        // target with an email lacking the primary flag (edge case after an earlier
+        target.setId(CONTACT_ID); // target with an email lacking the primary flag (edge case after an earlier
         // primary deletion)
         ContactEmailEntity te = new ContactEmailEntity();
         te.setId(1L);
@@ -1116,13 +1005,11 @@ class ContactServiceTest {
         te.setContact(target);
         target.getEmails().add(te);
         ContactEntity src = contactWithLabel(20L, "src@example.com", null, null);
-
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.findByIdAndAccountId(CONTACT_ID, ACCOUNT_ID)).thenReturn(Optional.of(target));
-        when(contactRepository.findByIdAndAccountId(20L, ACCOUNT_ID)).thenReturn(Optional.of(src));
+        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(target));
+        when(contactRepository.findById(20L)).thenReturn(Optional.of(src));
         when(contactRepository.save(any(ContactEntity.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        ContactResponse r = service.merge(ACCOUNT_ID, CONTACT_ID, new ContactMergeRequest(List.of(20L)));
+        ContactResponse r = service.merge(CONTACT_ID, new ContactMergeRequest(List.of(20L)));
 
         assertThat(r.emails().stream().filter(ContactEmailResponse::primary).map(ContactEmailResponse::email))
                 .containsExactly("t@example.com");
@@ -1131,11 +1018,10 @@ class ContactServiceTest {
     @Test
     @DisplayName("exportToVCard — happy path: 2 contacts serialized to vCard, audit written")
     void exportToVCardHappyPath() {
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.findAllByAccountId(eq(ACCOUNT_ID), any(org.springframework.data.domain.Sort.class)))
+        when(contactRepository.findAllBy(any(org.springframework.data.domain.Sort.class)))
                 .thenReturn(List.of(contact(10L, EMAIL), contact(11L, "bob@example.com")));
 
-        String vcard = service.exportToVCard(ACCOUNT_ID);
+        String vcard = service.exportToVCard();
 
         assertThat(vcard).startsWith("BEGIN:VCARD\r\n").contains("VERSION:4.0\r\n").contains("EMAIL;PREF=1:" + EMAIL)
                 .contains("EMAIL;PREF=1:bob@example.com").endsWith("END:VCARD\r\n");
@@ -1146,23 +1032,10 @@ class ContactServiceTest {
     @Test
     @DisplayName("exportToVCard — empty address book -> empty string, audit written with count=0")
     void exportToVCardEmpty() {
-        when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-        when(contactRepository.findAllByAccountId(eq(ACCOUNT_ID), any(org.springframework.data.domain.Sort.class)))
-                .thenReturn(List.of());
+        when(contactRepository.findAllBy(any(org.springframework.data.domain.Sort.class))).thenReturn(List.of());
 
-        String vcard = service.exportToVCard(ACCOUNT_ID);
+        String vcard = service.exportToVCard();
 
         assertThat(vcard).isEmpty();
-    }
-
-    @Test
-    @DisplayName("exportToVCard — non-existing account -> AccountNotFoundException, repo is not called")
-    void exportToVCardAccountNotFound() {
-        when(accountService.getAccountOrThrow(999L)).thenThrow(new AccountNotFoundException(999L));
-
-        assertThatThrownBy(() -> service.exportToVCard(999L)).isInstanceOf(AccountNotFoundException.class);
-
-        verify(contactRepository, never()).findAllByAccountId(anyLong(),
-                any(org.springframework.data.domain.Sort.class));
     }
 }

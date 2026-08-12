@@ -28,7 +28,7 @@ function currentFolderHref(): string {
 }
 
 export async function goToWorkspaceMode(mode: WorkspaceMode): Promise<void> {
-	await goto(workspaceHref(mode, get(resolvedActiveAccountId)));
+	await goto(workspaceHref(mode));
 }
 
 export async function goToAccounts(): Promise<void> {
@@ -58,7 +58,7 @@ export async function goToFolder(accountId: number, folderName: string): Promise
 export async function switchToAccount(accountId: number): Promise<void> {
 	setActiveAccount(accountId);
 	const mode = get(workspaceMode);
-	await goto(workspaceHref(mode, accountId));
+	await goto(workspaceHref(mode));
 }
 
 export async function syncCurrentAccount(): Promise<void> {

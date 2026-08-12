@@ -15,14 +15,13 @@
 
 	interface Props {
 		open: boolean;
-		accountId: number;
 		contacts: ContactResponse[];
 		onOpenChange: (open: boolean) => void;
 		/** Receives the surviving contact, so the caller can put focus on its row. */
 		onMerged: (targetId: number) => void | Promise<void>;
 	}
 
-	let { open, accountId, contacts, onOpenChange, onMerged }: Props = $props();
+	let { open, contacts, onOpenChange, onMerged }: Props = $props();
 
 	let targetId = $state<number | null>(null);
 	let busy = $state(false);
@@ -60,7 +59,7 @@
 		busy = true;
 		serverError = null;
 		try {
-			await mergeContacts(accountId, target.id, {
+			await mergeContacts(target.id, {
 				source: sources.map((c) => c.id)
 			});
 			pushToast($_('contacts.mergeDone'), { tone: 'success' });

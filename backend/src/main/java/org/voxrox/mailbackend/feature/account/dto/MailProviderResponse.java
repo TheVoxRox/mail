@@ -11,5 +11,5 @@ import org.jspecify.annotations.Nullable;
  */
 public record MailProviderResponse(Long id, String name, @Nullable String imapHost, @Nullable Integer imapPort,
         boolean imapSsl, @Nullable String smtpHost, @Nullable Integer smtpPort, boolean smtpSsl, String domains,
-        boolean supportsOauth2, String oauth2RegistrationId) {
+        boolean supportsOauth2, @Nullable String oauth2RegistrationId) {
 }

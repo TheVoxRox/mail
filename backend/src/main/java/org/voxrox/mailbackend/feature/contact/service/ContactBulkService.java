@@ -4,7 +4,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.voxrox.mailbackend.exception.AppException;
-import org.voxrox.mailbackend.feature.account.service.AccountService;
 import org.voxrox.mailbackend.feature.contact.dto.BulkContactCreateRequest;
 import org.voxrox.mailbackend.feature.contact.dto.BulkContactCreateResponse;
 import org.voxrox.mailbackend.feature.contact.dto.BulkContactCreateResponse.BulkContactCreateResult;
@@ -38,22 +37,17 @@ public class ContactBulkService {
 
     private static final Logger log = LoggerFactory.getLogger(ContactBulkService.class);
 
-    private final AccountService accountService;
     private final ContactService contactService;
 
-    public ContactBulkService(AccountService accountService, ContactService contactService) {
-        this.accountService = accountService;
+    public ContactBulkService(ContactService contactService) {
         this.contactService = contactService;
     }
 
     /**
      * Best-effort bulk create. Each item runs in its own transaction — a failure of
-     * one (duplicate, validation) does not affect the others. Account existence is
-     * verified once up front (fail-fast) so the whole request does not waste effort
-     * on per-item 404s.
+     * one (duplicate, validation) does not affect the others.
      */
-    public BulkContactCreateResponse bulkCreate(Long accountId, BulkContactCreateRequest request) {
-        accountService.getAccountOrThrow(accountId);
+    public BulkContactCreateResponse bulkCreate(BulkContactCreateRequest request) {
 
         List<ContactCreateRequest> items = request.contacts();
         List<BulkContactCreateResult> results = new ArrayList<>(items.size());
@@ -62,7 +56,7 @@ public class ContactBulkService {
 
         for (int i = 0; i < items.size(); i++) {
             try {
-                ContactResponse contact = contactService.createContact(accountId, items.get(i));
+                ContactResponse contact = contactService.createContact(items.get(i));
                 results.add(BulkContactCreateResult.success(i, contact));
                 created++;
             } catch (AppException e) {
@@ -72,8 +66,8 @@ public class ContactBulkService {
             }
         }
 
-        log.info("{} Bulk contact create account={}: total={} created={} failed={}", LogCategory.ACCOUNT, accountId,
-                items.size(), created, failed);
+        log.info("{} Bulk contact create: total={} created={} failed={}", LogCategory.ACCOUNT, items.size(), created,
+                failed);
         return new BulkContactCreateResponse(items.size(), created, failed, results);
     }
 
@@ -82,8 +76,7 @@ public class ContactBulkService {
      * the second attempt (meaningful — the client learns the ID has already been
      * deleted).
      */
-    public BulkContactDeleteResponse bulkDelete(Long accountId, BulkContactDeleteRequest request) {
-        accountService.getAccountOrThrow(accountId);
+    public BulkContactDeleteResponse bulkDelete(BulkContactDeleteRequest request) {
 
         List<Long> ids = request.ids();
         List<BulkContactDeleteResult> results = new ArrayList<>(ids.size());
@@ -92,7 +85,7 @@ public class ContactBulkService {
 
         for (Long id : ids) {
             try {
-                contactService.deleteContact(accountId, id);
+                contactService.deleteContact(id);
                 results.add(BulkContactDeleteResult.success(id));
                 deleted++;
             } catch (AppException e) {
@@ -102,8 +95,8 @@ public class ContactBulkService {
             }
         }
 
-        log.info("{} Bulk contact delete account={}: total={} deleted={} failed={}", LogCategory.ACCOUNT, accountId,
-                ids.size(), deleted, failed);
+        log.info("{} Bulk contact delete: total={} deleted={} failed={}", LogCategory.ACCOUNT, ids.size(), deleted,
+                failed);
         return new BulkContactDeleteResponse(ids.size(), deleted, failed, results);
     }
 }

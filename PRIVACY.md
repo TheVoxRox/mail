@@ -1,6 +1,6 @@
 # Zásady ochrany soukromí — VoxRox Mail
 
-_Verze: 2026-08-09 (návrh před prvním vydáním). Tato verze je předběžná a ještě
+_Verze: 2026-08-12 (návrh před prvním vydáním). Tato verze je předběžná a ještě
 nebyla schválena právníkem — viz sekce „Otevřené body" na konci dokumentu._
 
 _English version: [PRIVACY.en.md](PRIVACY.en.md)._
@@ -156,7 +156,11 @@ Komunikace probíhá přímo mezi vaším počítačem a daným serverem.
 
 - **Smazat účet z aplikace** — odeberte účet v Nastavení. Tím se kaskádově
   smaže záznam účtu, přihlašovací údaje, stav synchronizace, zprávy a
-  kontakty z lokální databáze.
+  historie korespondence z lokální databáze. **Kontakty zůstávají** —
+  adresář je společný pro celou aplikaci, ne pro jeden účet, a odpojení
+  schránky není důvod přijít o adresy, které jste do něj zadali ručně nebo
+  naimportovali. Smazat je můžete jednotlivě nebo hromadně v Kontaktech;
+  kompletní odstranění všech dat popisuje bod „Kompletní odstranění dat" níže.
 - **Odvolat OAuth přístup** u poskytovatele:
   - Google: [https://myaccount.google.com/permissions](https://myaccount.google.com/permissions) → vyhledat „VoxRox
     Mail" → Odebrat přístup.

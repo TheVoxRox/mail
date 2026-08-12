@@ -1,44 +1,32 @@
 /**
- * Store for the contact counts of the active account (sidebar badges).
+ * Store for the contact counts behind the sidebar badges.
  *
- * Mirrors the folders store: on `activeAccountId` change the counts load
- * automatically, cached per account so switching does not flicker. Mutation
- * sites (create/edit/delete/merge/import) call `refreshContactCounts`.
+ * There is one address book for the whole application, so unlike the folders
+ * store this holds a single value rather than a per-account cache — switching
+ * mailbox does not change the address book. Mutation sites
+ * (create/edit/delete/merge/import) call `refreshContactCounts`.
  */
 
-import { derived, get, writable } from 'svelte/store';
+import { get, writable } from 'svelte/store';
 import { getContactCounts } from '$lib/api/contacts.js';
 import type { ContactCountsResponse } from '$lib/types.js';
-import { resolvedActiveAccountId } from './accounts.js';
 
-type CountsByAccount = Record<number, ContactCountsResponse>;
-
-const countsByAccount = writable<CountsByAccount>({});
-
-export const contactCounts = derived(
-	[countsByAccount, resolvedActiveAccountId],
-	([$countsByAccount, $resolvedActiveAccountId]): ContactCountsResponse | null => {
-		if ($resolvedActiveAccountId == null) return null;
-		return $countsByAccount[$resolvedActiveAccountId] ?? null;
-	}
-);
+export const contactCounts = writable<ContactCountsResponse | null>(null);
 
 /**
- * Loads the counts for one account. Failures are swallowed — the badges are
- * secondary information and the list itself reports its own errors; a failed
- * refresh just leaves the previous (or no) badge values in place.
+ * Reloads the counts. Failures are swallowed — the badges are secondary
+ * information and the list itself reports its own errors; a failed refresh just
+ * leaves the previous (or no) badge values in place.
  */
-export async function refreshContactCounts(accountId: number): Promise<void> {
+export async function refreshContactCounts(): Promise<void> {
 	try {
-		const counts = await getContactCounts(accountId);
-		countsByAccount.update((map) => ({ ...map, [accountId]: counts }));
+		contactCounts.set(await getContactCounts());
 	} catch {
 		// Keep stale values; the next successful refresh reconciles them.
 	}
 }
 
-resolvedActiveAccountId.subscribe((id) => {
-	if (id == null) return;
-	const cached = get(countsByAccount)[id];
-	if (!cached) void refreshContactCounts(id);
-});
+/** First read is lazy: whoever renders the badges asks for them once. */
+export function ensureContactCounts(): void {
+	if (get(contactCounts) == null) void refreshContactCounts();
+}

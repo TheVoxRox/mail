@@ -28,8 +28,9 @@ export interface E2EFixtureState {
 	messagesByFolder: Record<string, MailSummaryResponse[]>;
 	messageDetails: Record<string, MailDetailResponse>;
 	messageContents: Record<string, MailContentResponse>;
-	contactsByAccount: Record<number, ContactResponse[]>;
-	contactLabelsByAccount: Record<number, ContactLabelResponse[]>;
+	/** One address book for the whole app — deliberately not keyed by account. */
+	contacts: ContactResponse[];
+	contactLabels: ContactLabelResponse[];
 	/**
 	 * Addresses the backend harvested from message headers, in the order its
 	 * ranking would return them. The autocomplete double merges these behind the
@@ -439,24 +440,21 @@ function createInitialState(): E2EFixtureState {
 				}
 			])
 		),
-		contactsByAccount: {
-			1: [
-				{
-					id: 1,
-					name: 'Jana',
-					surname: 'Novak',
-					note: 'Projekt',
-					createdAt: iso(400),
-					updatedAt: iso(30),
-					emails: [
-						{ id: 1, email: 'jana@example.com', label: 'WORK', primary: true },
-						{ id: 2, email: 'jana.home@example.com', label: 'HOME', primary: false }
-					],
-					labels: [{ id: 1, name: 'Klienti' }]
-				}
-			],
-			2: []
-		},
+		contacts: [
+			{
+				id: 1,
+				name: 'Jana',
+				surname: 'Novak',
+				note: 'Projekt',
+				createdAt: iso(400),
+				updatedAt: iso(30),
+				emails: [
+					{ id: 1, email: 'jana@example.com', label: 'WORK', primary: true },
+					{ id: 2, email: 'jana.home@example.com', label: 'HOME', primary: false }
+				],
+				labels: [{ id: 1, name: 'Klienti' }]
+			}
+		],
 		// jana@example.com is deliberately also contact 1's address: the merged
 		// list must show it once, as the contact. jan.dvorak has no contact at
 		// all, so it is the row that proves history reaches the typeahead.
@@ -470,13 +468,10 @@ function createInitialState(): E2EFixtureState {
 		},
 		// "Rodina" deliberately has no contact: the sidebar must still list it
 		// (with a zero badge), which is the case a used-labels-only view misses.
-		contactLabelsByAccount: {
-			1: [
-				{ id: 1, name: 'Klienti' },
-				{ id: 2, name: 'Rodina' }
-			],
-			2: []
-		},
+		contactLabels: [
+			{ id: 1, name: 'Klienti' },
+			{ id: 2, name: 'Rodina' }
+		],
 		draftsByAccount: {
 			1: draftMessages.map((message) => ({ ...message })),
 			2: []
@@ -580,12 +575,16 @@ export function seedInboxThreadMember(): E2EFixtureState {
 	return fixtureState;
 }
 
+/**
+ * Drops every mailbox and everything that belongs to one. Contacts and their
+ * labels deliberately stay: the address book belongs to the application, not to
+ * an account, so it outlives the last mailbox — the harvested correspondence
+ * cache (`correspondentsByAccount`) is the per-account half and does go.
+ */
 export function clearAccounts(): E2EFixtureState {
 	fixtureState.accounts = [];
 	fixtureState.foldersByAccount = {};
 	fixtureState.messagesByFolder = {};
-	fixtureState.contactsByAccount = {};
-	fixtureState.contactLabelsByAccount = {};
 	fixtureState.correspondentsByAccount = {};
 	fixtureState.draftsByAccount = {};
 	return fixtureState;
@@ -912,8 +911,6 @@ export function upsertAccount(
 			{ displayName: 'Doručené', folderRef: 'INBOX', unreadCount: 0, role: 'INBOX' }
 		];
 		fixtureState.messagesByFolder[folderKey(id, 'INBOX')] = [];
-		fixtureState.contactsByAccount[id] = [];
-		fixtureState.contactLabelsByAccount[id] = [];
 		fixtureState.correspondentsByAccount[id] = [];
 		fixtureState.draftsByAccount[id] = [];
 	}
@@ -922,14 +919,10 @@ export function upsertAccount(
 }
 
 export function upsertContact(
-	accountId: number,
 	body: ContactCreateRequest | ContactUpdateRequest | ContactPatchRequest,
-	id = Math.max(
-		0,
-		...(fixtureState.contactsByAccount[accountId] ?? []).map((contact) => contact.id)
-	) + 1
+	id = Math.max(0, ...fixtureState.contacts.map((contact) => contact.id)) + 1
 ): ContactResponse {
-	const contacts = fixtureState.contactsByAccount[accountId] ?? [];
+	const contacts = fixtureState.contacts;
 	const existing = contacts.find((contact) => contact.id === id);
 	const emails: ContactEmailResponse[] =
 		body.emails?.map((email, index) => ({
@@ -943,7 +936,7 @@ export function upsertContact(
 	// Mirrors the backend: an explicit labelIds replaces the set (empty clears
 	// it), an absent one keeps what the contact already had. Unknown ids are
 	// dropped rather than invented, so a fixture cannot fake a label into being.
-	const known = fixtureState.contactLabelsByAccount[accountId] ?? [];
+	const known = fixtureState.contactLabels;
 	const labels: ContactLabelResponse[] =
 		body.labelIds == null
 			? (existing?.labels ?? [])
@@ -961,7 +954,7 @@ export function upsertContact(
 		updatedAt: iso(0)
 	};
 
-	fixtureState.contactsByAccount[accountId] = existing
+	fixtureState.contacts = existing
 		? contacts.map((item) => (item.id === id ? contact : item))
 		: [...contacts, contact];
 	return contact;

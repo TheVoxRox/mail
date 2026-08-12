@@ -501,7 +501,7 @@
         "type" : "object"
       },
       "ContactCountsResponse" : {
-        "description" : "Contact counts for the sidebar: the account total plus one row per contact label. Labels with no contacts are included with contacts = 0.",
+        "description" : "Contact counts for the sidebar: the address book total plus one row per contact label. Labels with no contacts are included with contacts = 0.",
         "properties" : {
           "labels" : {
             "items" : {
@@ -1849,1488 +1849,6 @@
         "tags" : [ "Accounts" ]
       }
     },
-    "/api/v1/accounts/{accountId}/contact-labels" : {
-      "get" : {
-        "description" : "Returns all labels of the account ordered by name (case-insensitive). Contact counts are not included here — use `GET /contacts/counts` for the sidebar badges.",
-        "operationId" : "listLabels",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "accountId",
-          "required" : true,
-          "schema" : {
-            "exclusiveMinimum" : 0,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "items" : {
-                    "$ref" : "#/components/schemas/ContactLabelResponse"
-                  },
-                  "type" : "array"
-                }
-              }
-            },
-            "description" : "OK"
-          },
-          "401" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Missing or invalid X-API-KEY."
-          },
-          "500" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Internal server error."
-          },
-          "503" : {
-            "description" : "Service Unavailable"
-          }
-        },
-        "summary" : "List contact labels",
-        "tags" : [ "Contact labels" ]
-      },
-      "post" : {
-        "description" : "Creates a label. The name is trimmed and must be unique within the account, compared case-insensitively (so \"Rodina\" and \"rodina\" collide). Maximum 200 labels per account.",
-        "operationId" : "createLabel",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "accountId",
-          "required" : true,
-          "schema" : {
-            "exclusiveMinimum" : 0,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/ContactLabelCreateRequest"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "201" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ContactLabelResponse"
-                }
-              }
-            },
-            "description" : "Created"
-          },
-          "400" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Invalid input (validation error)."
-          },
-          "401" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Missing or invalid X-API-KEY."
-          },
-          "409" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ContactLabelResponse"
-                }
-              }
-            },
-            "description" : "A label with this name already exists for the account (CONTACT_LABEL_DUPLICATE)."
-          },
-          "500" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Internal server error."
-          },
-          "503" : {
-            "description" : "Service Unavailable"
-          }
-        },
-        "summary" : "Create a contact label",
-        "tags" : [ "Contact labels" ]
-      }
-    },
-    "/api/v1/accounts/{accountId}/contact-labels/assignments" : {
-      "post" : {
-        "description" : "Adds and/or removes labels across up to 100 contacts in one transaction. Idempotent: a label a contact already carries is left alone and does not count toward `changed`. At least one of addLabelIds / removeLabelIds must be non-empty.",
-        "operationId" : "assignLabels",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "accountId",
-          "required" : true,
-          "schema" : {
-            "exclusiveMinimum" : 0,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/ContactLabelAssignmentRequest"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "400" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Invalid input (validation error)."
-          },
-          "401" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Missing or invalid X-API-KEY."
-          },
-          "404" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ContactLabelAssignmentResponse"
-                }
-              }
-            },
-            "description" : "One of the contacts or labels does not exist for the account (CONTACT_NOT_FOUND / CONTACT_LABEL_NOT_FOUND)."
-          },
-          "500" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Internal server error."
-          },
-          "503" : {
-            "description" : "Service Unavailable"
-          }
-        },
-        "summary" : "Bulk assign labels to contacts",
-        "tags" : [ "Contact labels" ]
-      }
-    },
-    "/api/v1/accounts/{accountId}/contact-labels/{labelId}" : {
-      "delete" : {
-        "description" : "Removes the label and unassigns it from every contact. The contacts themselves are kept.",
-        "operationId" : "deleteLabel",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "accountId",
-          "required" : true,
-          "schema" : {
-            "exclusiveMinimum" : 0,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        }, {
-          "in" : "path",
-          "name" : "labelId",
-          "required" : true,
-          "schema" : {
-            "exclusiveMinimum" : 0,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        } ],
-        "responses" : {
-          "204" : {
-            "description" : "No Content"
-          },
-          "401" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Missing or invalid X-API-KEY."
-          },
-          "404" : {
-            "description" : "The label does not exist for the account (CONTACT_LABEL_NOT_FOUND)."
-          },
-          "500" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Internal server error."
-          },
-          "503" : {
-            "description" : "Service Unavailable"
-          }
-        },
-        "summary" : "Delete a contact label",
-        "tags" : [ "Contact labels" ]
-      },
-      "patch" : {
-        "description" : "Changes the label name. Assignments to contacts are unaffected.",
-        "operationId" : "renameLabel",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "accountId",
-          "required" : true,
-          "schema" : {
-            "exclusiveMinimum" : 0,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        }, {
-          "in" : "path",
-          "name" : "labelId",
-          "required" : true,
-          "schema" : {
-            "exclusiveMinimum" : 0,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/ContactLabelUpdateRequest"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "400" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Invalid input (validation error)."
-          },
-          "401" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Missing or invalid X-API-KEY."
-          },
-          "404" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ContactLabelResponse"
-                }
-              }
-            },
-            "description" : "The label does not exist for the account (CONTACT_LABEL_NOT_FOUND)."
-          },
-          "409" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ContactLabelResponse"
-                }
-              }
-            },
-            "description" : "Another label of the account already uses this name (CONTACT_LABEL_DUPLICATE)."
-          },
-          "500" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Internal server error."
-          },
-          "503" : {
-            "description" : "Service Unavailable"
-          }
-        },
-        "summary" : "Rename a contact label",
-        "tags" : [ "Contact labels" ]
-      }
-    },
-    "/api/v1/accounts/{accountId}/contacts" : {
-      "get" : {
-        "description" : "Returns a paginated list of contacts. With the q parameter performs a case-insensitive substring search across email, name and surname. Optional `sort` (`name`/`surname`/`recent`) drives the order (default `surname`). Optional `labelId` filters to contacts carrying the given contact label; an unknown ID is a 404, not an empty page.",
-        "operationId" : "listContacts",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "accountId",
-          "required" : true,
-          "schema" : {
-            "exclusiveMinimum" : 0,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        }, {
-          "in" : "query",
-          "name" : "q",
-          "required" : false,
-          "schema" : {
-            "maxLength" : 2147483647,
-            "minLength" : 1,
-            "type" : "string"
-          }
-        }, {
-          "in" : "query",
-          "name" : "page",
-          "required" : false,
-          "schema" : {
-            "format" : "int32",
-            "minimum" : 0,
-            "type" : "integer"
-          }
-        }, {
-          "in" : "query",
-          "name" : "size",
-          "required" : false,
-          "schema" : {
-            "format" : "int32",
-            "minimum" : 1,
-            "type" : "integer"
-          }
-        }, {
-          "in" : "query",
-          "name" : "sort",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "in" : "query",
-          "name" : "labelId",
-          "required" : false,
-          "schema" : {
-            "exclusiveMinimum" : 0,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        } ],
-        "responses" : {
-          "401" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Missing or invalid X-API-KEY."
-          },
-          "404" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PagedResponseContactResponse"
-                }
-              }
-            },
-            "description" : "The labelId does not exist for the account (CONTACT_LABEL_NOT_FOUND)."
-          },
-          "500" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Internal server error."
-          },
-          "503" : {
-            "description" : "Service Unavailable"
-          }
-        },
-        "summary" : "List / search contacts",
-        "tags" : [ "Contacts" ]
-      },
-      "post" : {
-        "description" : "Adds a new contact to the account's address book. Per-account e-mail uniqueness is enforced (409 on duplicate).",
-        "operationId" : "createContact",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "accountId",
-          "required" : true,
-          "schema" : {
-            "exclusiveMinimum" : 0,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/ContactCreateRequest"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "201" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ContactResponse"
-                }
-              }
-            },
-            "description" : "Created"
-          },
-          "400" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Invalid input (validation error)."
-          },
-          "401" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Missing or invalid X-API-KEY."
-          },
-          "409" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ContactResponse"
-                }
-              }
-            },
-            "description" : "A contact with this e-mail already exists for the account (CONTACT_DUPLICATE)."
-          },
-          "500" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Internal server error."
-          },
-          "503" : {
-            "description" : "Service Unavailable"
-          }
-        },
-        "summary" : "Create contact",
-        "tags" : [ "Contacts" ]
-      }
-    },
-    "/api/v1/accounts/{accountId}/contacts/autocomplete" : {
-      "get" : {
-        "description" : "Returns a flat list of addresses for typeahead, merged from the address book (`source: CONTACT`) and the addresses harvested from synced message headers (`source: HISTORY`). Ranking: prefix-email > prefix-surname > prefix-name > substring, with contacts winning a tie and history rows ordered by written-to-first then recency. An address present in both appears once, as the contact. History rows carry no contact identity, so `contactId`, `emailId`, `label` and `primary` are null and the last seen display name is in `name`. The limit applies to the merged list. Default limit 10, hard cap 20.",
-        "operationId" : "autocomplete",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "accountId",
-          "required" : true,
-          "schema" : {
-            "exclusiveMinimum" : 0,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        }, {
-          "in" : "query",
-          "name" : "q",
-          "required" : true,
-          "schema" : {
-            "maxLength" : 2147483647,
-            "minLength" : 1,
-            "type" : "string"
-          }
-        }, {
-          "in" : "query",
-          "name" : "limit",
-          "required" : false,
-          "schema" : {
-            "format" : "int32",
-            "minimum" : 1,
-            "type" : "integer"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "items" : {
-                    "$ref" : "#/components/schemas/ContactAutocompleteResponse"
-                  },
-                  "type" : "array"
-                }
-              }
-            },
-            "description" : "OK"
-          },
-          "401" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Missing or invalid X-API-KEY."
-          },
-          "500" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Internal server error."
-          },
-          "503" : {
-            "description" : "Service Unavailable"
-          }
-        },
-        "summary" : "Compose-window autocomplete",
-        "tags" : [ "Contacts" ]
-      }
-    },
-    "/api/v1/accounts/{accountId}/contacts/bulk" : {
-      "delete" : {
-        "description" : "Deletes up to 100 contacts by ID. Non-existent IDs come back as FAILED / CONTACT_NOT_FOUND, the rest are deleted.",
-        "operationId" : "bulkDeleteContacts",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "accountId",
-          "required" : true,
-          "schema" : {
-            "exclusiveMinimum" : 0,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/BulkContactDeleteRequest"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/BulkContactDeleteResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          },
-          "400" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Invalid input (validation error)."
-          },
-          "401" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Missing or invalid X-API-KEY."
-          },
-          "500" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Internal server error."
-          },
-          "503" : {
-            "description" : "Service Unavailable"
-          }
-        },
-        "summary" : "Bulk delete contacts (best-effort)",
-        "tags" : [ "Contacts" ]
-      },
-      "post" : {
-        "description" : "Creates up to 100 contacts in a single request. Each item has its own transaction — duplicates / validation errors do not affect the rest. The response is always 200 with per-item status (CREATED / FAILED).",
-        "operationId" : "bulkCreateContacts",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "accountId",
-          "required" : true,
-          "schema" : {
-            "exclusiveMinimum" : 0,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/BulkContactCreateRequest"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/BulkContactCreateResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          },
-          "400" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Invalid input (validation error)."
-          },
-          "401" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Missing or invalid X-API-KEY."
-          },
-          "500" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Internal server error."
-          },
-          "503" : {
-            "description" : "Service Unavailable"
-          }
-        },
-        "summary" : "Bulk create contacts (best-effort)",
-        "tags" : [ "Contacts" ]
-      }
-    },
-    "/api/v1/accounts/{accountId}/contacts/counts" : {
-      "get" : {
-        "description" : "Returns the total number of contacts of the account plus one row per contact label. Each per-label count matches the size of the list filtered by the same `labelId`; labels nobody uses are included with contacts = 0.",
-        "operationId" : "getCounts",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "accountId",
-          "required" : true,
-          "schema" : {
-            "exclusiveMinimum" : 0,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ContactCountsResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          },
-          "401" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Missing or invalid X-API-KEY."
-          },
-          "500" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Internal server error."
-          },
-          "503" : {
-            "description" : "Service Unavailable"
-          }
-        },
-        "summary" : "Contact counts",
-        "tags" : [ "Contacts" ]
-      }
-    },
-    "/api/v1/accounts/{accountId}/contacts/export.vcf" : {
-      "get" : {
-        "description" : "Returns all contacts of the account in vCard 4.0 format (RFC 6350) — text/vcard. Suitable for import into Apple Contacts, Google Contacts, Thunderbird and other clients.",
-        "operationId" : "exportVCard",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "accountId",
-          "required" : true,
-          "schema" : {
-            "exclusiveMinimum" : 0,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "text/vcard;charset=UTF-8" : {
-                "schema" : {
-                  "type" : "string"
-                }
-              }
-            },
-            "description" : "OK"
-          },
-          "401" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Missing or invalid X-API-KEY."
-          },
-          "500" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Internal server error."
-          },
-          "503" : {
-            "description" : "Service Unavailable"
-          }
-        },
-        "summary" : "Export address book as vCard 4.0",
-        "tags" : [ "Contacts" ]
-      }
-    },
-    "/api/v1/accounts/{accountId}/contacts/{contactId}" : {
-      "delete" : {
-        "description" : "Removes the contact from the address book.",
-        "operationId" : "deleteContact",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "accountId",
-          "required" : true,
-          "schema" : {
-            "exclusiveMinimum" : 0,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        }, {
-          "in" : "path",
-          "name" : "contactId",
-          "required" : true,
-          "schema" : {
-            "exclusiveMinimum" : 0,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        } ],
-        "responses" : {
-          "204" : {
-            "description" : "No Content"
-          },
-          "401" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Missing or invalid X-API-KEY."
-          },
-          "404" : {
-            "description" : "A contact with the given ID does not exist for the account (CONTACT_NOT_FOUND)."
-          },
-          "500" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Internal server error."
-          },
-          "503" : {
-            "description" : "Service Unavailable"
-          }
-        },
-        "summary" : "Delete contact",
-        "tags" : [ "Contacts" ]
-      },
-      "get" : {
-        "description" : "Returns one contact by ID within the given account.",
-        "operationId" : "getContact",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "accountId",
-          "required" : true,
-          "schema" : {
-            "exclusiveMinimum" : 0,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        }, {
-          "in" : "path",
-          "name" : "contactId",
-          "required" : true,
-          "schema" : {
-            "exclusiveMinimum" : 0,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        } ],
-        "responses" : {
-          "401" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Missing or invalid X-API-KEY."
-          },
-          "404" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ContactResponse"
-                }
-              }
-            },
-            "description" : "A contact with the given ID does not exist for the account (CONTACT_NOT_FOUND)."
-          },
-          "500" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Internal server error."
-          },
-          "503" : {
-            "description" : "Service Unavailable"
-          }
-        },
-        "summary" : "Contact detail",
-        "tags" : [ "Contacts" ]
-      },
-      "patch" : {
-        "description" : "Updates only the non-null fields from the request.",
-        "operationId" : "patchContact",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "accountId",
-          "required" : true,
-          "schema" : {
-            "exclusiveMinimum" : 0,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        }, {
-          "in" : "path",
-          "name" : "contactId",
-          "required" : true,
-          "schema" : {
-            "exclusiveMinimum" : 0,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/ContactPatchRequest"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "400" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Invalid input (validation error)."
-          },
-          "401" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Missing or invalid X-API-KEY."
-          },
-          "404" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ContactResponse"
-                }
-              }
-            },
-            "description" : "A contact with the given ID does not exist for the account (CONTACT_NOT_FOUND)."
-          },
-          "409" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ContactResponse"
-                }
-              }
-            },
-            "description" : "The target e-mail is already used by another contact (CONTACT_DUPLICATE)."
-          },
-          "500" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Internal server error."
-          },
-          "503" : {
-            "description" : "Service Unavailable"
-          }
-        },
-        "summary" : "Partial contact update",
-        "tags" : [ "Contacts" ]
-      },
-      "put" : {
-        "description" : "Replaces all contact fields (PUT).",
-        "operationId" : "updateContact",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "accountId",
-          "required" : true,
-          "schema" : {
-            "exclusiveMinimum" : 0,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        }, {
-          "in" : "path",
-          "name" : "contactId",
-          "required" : true,
-          "schema" : {
-            "exclusiveMinimum" : 0,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/ContactUpdateRequest"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "400" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Invalid input (validation error)."
-          },
-          "401" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Missing or invalid X-API-KEY."
-          },
-          "404" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ContactResponse"
-                }
-              }
-            },
-            "description" : "A contact with the given ID does not exist for the account (CONTACT_NOT_FOUND)."
-          },
-          "409" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ContactResponse"
-                }
-              }
-            },
-            "description" : "The target e-mail is already used by another contact (CONTACT_DUPLICATE)."
-          },
-          "500" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Internal server error."
-          },
-          "503" : {
-            "description" : "Service Unavailable"
-          }
-        },
-        "summary" : "Full contact update",
-        "tags" : [ "Contacts" ]
-      }
-    },
-    "/api/v1/accounts/{accountId}/contacts/{contactId}/emails" : {
-      "post" : {
-        "description" : "Adds a new address without touching the primary flag of the others. The new e-mail only becomes primary if the contact had no address before.",
-        "operationId" : "addEmail",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "accountId",
-          "required" : true,
-          "schema" : {
-            "exclusiveMinimum" : 0,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        }, {
-          "in" : "path",
-          "name" : "contactId",
-          "required" : true,
-          "schema" : {
-            "exclusiveMinimum" : 0,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/ContactEmailRequest"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "201" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ContactEmailResponse"
-                }
-              }
-            },
-            "description" : "Created"
-          },
-          "400" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Invalid input (validation error)."
-          },
-          "401" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Missing or invalid X-API-KEY."
-          },
-          "404" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ContactEmailResponse"
-                }
-              }
-            },
-            "description" : "Contact does not exist (CONTACT_NOT_FOUND)."
-          },
-          "409" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ContactEmailResponse"
-                }
-              }
-            },
-            "description" : "The e-mail is already used by another contact or by this contact (CONTACT_DUPLICATE)."
-          },
-          "500" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Internal server error."
-          },
-          "503" : {
-            "description" : "Service Unavailable"
-          }
-        },
-        "summary" : "Add an e-mail address to a contact",
-        "tags" : [ "Contacts" ]
-      }
-    },
-    "/api/v1/accounts/{accountId}/contacts/{contactId}/emails/{emailId}" : {
-      "delete" : {
-        "description" : "If the primary address is being deleted, the first remaining one (by ID) is promoted. The last address cannot be deleted — a contact must have at least one.",
-        "operationId" : "deleteEmail",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "accountId",
-          "required" : true,
-          "schema" : {
-            "exclusiveMinimum" : 0,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        }, {
-          "in" : "path",
-          "name" : "contactId",
-          "required" : true,
-          "schema" : {
-            "exclusiveMinimum" : 0,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        }, {
-          "in" : "path",
-          "name" : "emailId",
-          "required" : true,
-          "schema" : {
-            "exclusiveMinimum" : 0,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        } ],
-        "responses" : {
-          "204" : {
-            "description" : "No Content"
-          },
-          "400" : {
-            "description" : "Attempted to delete the last address of a contact (VALIDATION_ERROR)."
-          },
-          "401" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Missing or invalid X-API-KEY."
-          },
-          "404" : {
-            "description" : "Contact or address does not exist (CONTACT_NOT_FOUND / RESOURCE_NOT_FOUND)."
-          },
-          "500" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Internal server error."
-          },
-          "503" : {
-            "description" : "Service Unavailable"
-          }
-        },
-        "summary" : "Delete an e-mail address from a contact",
-        "tags" : [ "Contacts" ]
-      }
-    },
-    "/api/v1/accounts/{accountId}/contacts/{contactId}/emails/{emailId}/primary" : {
-      "patch" : {
-        "description" : "Marks the chosen address as primary; the other addresses of the contact have their primary flag cleared.",
-        "operationId" : "setPrimaryEmail",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "accountId",
-          "required" : true,
-          "schema" : {
-            "exclusiveMinimum" : 0,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        }, {
-          "in" : "path",
-          "name" : "contactId",
-          "required" : true,
-          "schema" : {
-            "exclusiveMinimum" : 0,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        }, {
-          "in" : "path",
-          "name" : "emailId",
-          "required" : true,
-          "schema" : {
-            "exclusiveMinimum" : 0,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        } ],
-        "responses" : {
-          "401" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Missing or invalid X-API-KEY."
-          },
-          "404" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ContactResponse"
-                }
-              }
-            },
-            "description" : "Contact or address does not exist (CONTACT_NOT_FOUND / RESOURCE_NOT_FOUND)."
-          },
-          "500" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Internal server error."
-          },
-          "503" : {
-            "description" : "Service Unavailable"
-          }
-        },
-        "summary" : "Mark an address as primary",
-        "tags" : [ "Contacts" ]
-      }
-    },
-    "/api/v1/accounts/{accountId}/contacts/{targetId}/merge" : {
-      "post" : {
-        "description" : "Merges one or more source contacts into the target (all in one transaction). The target stays canonical (name/surname/primary are preserved); e-mails from the sources are added deduplicated by lowercase variant (collisions drop the source side); notes are concatenated. The source contacts are deleted. Limit: 9 sources per request, final e-mail count at most 10.",
-        "operationId" : "mergeContacts",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "accountId",
-          "required" : true,
-          "schema" : {
-            "exclusiveMinimum" : 0,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        }, {
-          "in" : "path",
-          "name" : "targetId",
-          "required" : true,
-          "schema" : {
-            "exclusiveMinimum" : 0,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/ContactMergeRequest"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "400" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Invalid input (validation error)."
-          },
-          "401" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Missing or invalid X-API-KEY."
-          },
-          "404" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ContactResponse"
-                }
-              }
-            },
-            "description" : "One of the source contacts or the target does not exist (CONTACT_NOT_FOUND)."
-          },
-          "500" : {
-            "content" : {
-              "application/problem+json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description" : "Internal server error."
-          },
-          "503" : {
-            "description" : "Service Unavailable"
-          }
-        },
-        "summary" : "Merge duplicate contacts",
-        "tags" : [ "Contacts" ]
-      }
-    },
     "/api/v1/accounts/{accountId}/drafts" : {
       "get" : {
         "description" : "Returns a paginated list of drafts saved in the Drafts folder for the given account.",
@@ -3934,6 +2452,1309 @@
         },
         "summary" : "Client runtime configuration",
         "tags" : [ "Client Config" ]
+      }
+    },
+    "/api/v1/contact-labels" : {
+      "get" : {
+        "description" : "Returns every label ordered by name (case-insensitive). Contact counts are not included here — use `GET /contacts/counts` for the sidebar badges.",
+        "operationId" : "listLabels",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ContactLabelResponse"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "401" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Missing or invalid X-API-KEY."
+          },
+          "500" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Internal server error."
+          },
+          "503" : {
+            "description" : "Service Unavailable"
+          }
+        },
+        "summary" : "List contact labels",
+        "tags" : [ "Contact labels" ]
+      },
+      "post" : {
+        "description" : "Creates a label. The name is trimmed and must be unique in the address book, compared case-insensitively (so \"Rodina\" and \"rodina\" collide). Maximum 200 labels.",
+        "operationId" : "createLabel",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ContactLabelCreateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ContactLabelResponse"
+                }
+              }
+            },
+            "description" : "Created"
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Invalid input (validation error)."
+          },
+          "401" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Missing or invalid X-API-KEY."
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ContactLabelResponse"
+                }
+              }
+            },
+            "description" : "A label with this name already exists (CONTACT_LABEL_DUPLICATE)."
+          },
+          "500" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Internal server error."
+          },
+          "503" : {
+            "description" : "Service Unavailable"
+          }
+        },
+        "summary" : "Create a contact label",
+        "tags" : [ "Contact labels" ]
+      }
+    },
+    "/api/v1/contact-labels/assignments" : {
+      "post" : {
+        "description" : "Adds and/or removes labels across up to 100 contacts in one transaction. Idempotent: a label a contact already carries is left alone and does not count toward `changed`. At least one of addLabelIds / removeLabelIds must be non-empty.",
+        "operationId" : "assignLabels",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ContactLabelAssignmentRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Invalid input (validation error)."
+          },
+          "401" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Missing or invalid X-API-KEY."
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ContactLabelAssignmentResponse"
+                }
+              }
+            },
+            "description" : "One of the contacts or labels does not exist (CONTACT_NOT_FOUND / CONTACT_LABEL_NOT_FOUND)."
+          },
+          "500" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Internal server error."
+          },
+          "503" : {
+            "description" : "Service Unavailable"
+          }
+        },
+        "summary" : "Bulk assign labels to contacts",
+        "tags" : [ "Contact labels" ]
+      }
+    },
+    "/api/v1/contact-labels/{labelId}" : {
+      "delete" : {
+        "description" : "Removes the label and unassigns it from every contact. The contacts themselves are kept.",
+        "operationId" : "deleteLabel",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "labelId",
+          "required" : true,
+          "schema" : {
+            "exclusiveMinimum" : 0,
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          },
+          "401" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Missing or invalid X-API-KEY."
+          },
+          "404" : {
+            "description" : "The label does not exist (CONTACT_LABEL_NOT_FOUND)."
+          },
+          "500" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Internal server error."
+          },
+          "503" : {
+            "description" : "Service Unavailable"
+          }
+        },
+        "summary" : "Delete a contact label",
+        "tags" : [ "Contact labels" ]
+      },
+      "patch" : {
+        "description" : "Changes the label name. Assignments to contacts are unaffected.",
+        "operationId" : "renameLabel",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "labelId",
+          "required" : true,
+          "schema" : {
+            "exclusiveMinimum" : 0,
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ContactLabelUpdateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Invalid input (validation error)."
+          },
+          "401" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Missing or invalid X-API-KEY."
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ContactLabelResponse"
+                }
+              }
+            },
+            "description" : "The label does not exist (CONTACT_LABEL_NOT_FOUND)."
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ContactLabelResponse"
+                }
+              }
+            },
+            "description" : "Another label already uses this name (CONTACT_LABEL_DUPLICATE)."
+          },
+          "500" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Internal server error."
+          },
+          "503" : {
+            "description" : "Service Unavailable"
+          }
+        },
+        "summary" : "Rename a contact label",
+        "tags" : [ "Contact labels" ]
+      }
+    },
+    "/api/v1/contacts" : {
+      "get" : {
+        "description" : "Returns a paginated list of contacts. With the q parameter performs a case-insensitive substring search across email, name and surname. Optional `sort` (`name`/`surname`/`recent`) drives the order (default `surname`). Optional `labelId` filters to contacts carrying the given contact label; an unknown ID is a 404, not an empty page.",
+        "operationId" : "listContacts",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "q",
+          "required" : false,
+          "schema" : {
+            "maxLength" : 2147483647,
+            "minLength" : 1,
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "format" : "int32",
+            "minimum" : 0,
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "format" : "int32",
+            "minimum" : 1,
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "sort",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "labelId",
+          "required" : false,
+          "schema" : {
+            "exclusiveMinimum" : 0,
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "401" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Missing or invalid X-API-KEY."
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PagedResponseContactResponse"
+                }
+              }
+            },
+            "description" : "The labelId does not exist (CONTACT_LABEL_NOT_FOUND)."
+          },
+          "500" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Internal server error."
+          },
+          "503" : {
+            "description" : "Service Unavailable"
+          }
+        },
+        "summary" : "List / search contacts",
+        "tags" : [ "Contacts" ]
+      },
+      "post" : {
+        "description" : "Adds a new contact to the address book. E-mail uniqueness across the whole book is enforced (409 on duplicate).",
+        "operationId" : "createContact",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ContactCreateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ContactResponse"
+                }
+              }
+            },
+            "description" : "Created"
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Invalid input (validation error)."
+          },
+          "401" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Missing or invalid X-API-KEY."
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ContactResponse"
+                }
+              }
+            },
+            "description" : "A contact with this e-mail already exists (CONTACT_DUPLICATE)."
+          },
+          "500" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Internal server error."
+          },
+          "503" : {
+            "description" : "Service Unavailable"
+          }
+        },
+        "summary" : "Create contact",
+        "tags" : [ "Contacts" ]
+      }
+    },
+    "/api/v1/contacts/autocomplete" : {
+      "get" : {
+        "description" : "Returns a flat list of addresses for typeahead, merged from the address book (`source: CONTACT`) and the addresses harvested from synced message headers (`source: HISTORY`). Ranking: prefix-email > prefix-surname > prefix-name > substring, with contacts winning a tie and history rows ordered by written-to-first then recency. An address present in both appears once, as the contact. History rows carry no contact identity, so `contactId`, `emailId`, `label` and `primary` are null and the last seen display name is in `name`. The limit applies to the merged list. Default limit 10, hard cap 20. `accountId` selects whose correspondence history to blend in — it is the mailbox being composed from. The address book half ignores it: the book is application-wide, so composing from any mailbox reaches every saved contact.",
+        "operationId" : "autocomplete",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "accountId",
+          "required" : true,
+          "schema" : {
+            "exclusiveMinimum" : 0,
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "q",
+          "required" : true,
+          "schema" : {
+            "maxLength" : 2147483647,
+            "minLength" : 1,
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "format" : "int32",
+            "minimum" : 1,
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ContactAutocompleteResponse"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "401" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Missing or invalid X-API-KEY."
+          },
+          "500" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Internal server error."
+          },
+          "503" : {
+            "description" : "Service Unavailable"
+          }
+        },
+        "summary" : "Compose-window autocomplete",
+        "tags" : [ "Contacts" ]
+      }
+    },
+    "/api/v1/contacts/bulk" : {
+      "delete" : {
+        "description" : "Deletes up to 100 contacts by ID. Non-existent IDs come back as FAILED / CONTACT_NOT_FOUND, the rest are deleted.",
+        "operationId" : "bulkDeleteContacts",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BulkContactDeleteRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BulkContactDeleteResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Invalid input (validation error)."
+          },
+          "401" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Missing or invalid X-API-KEY."
+          },
+          "500" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Internal server error."
+          },
+          "503" : {
+            "description" : "Service Unavailable"
+          }
+        },
+        "summary" : "Bulk delete contacts (best-effort)",
+        "tags" : [ "Contacts" ]
+      },
+      "post" : {
+        "description" : "Creates up to 100 contacts in a single request. Each item has its own transaction — duplicates / validation errors do not affect the rest. The response is always 200 with per-item status (CREATED / FAILED).",
+        "operationId" : "bulkCreateContacts",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BulkContactCreateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BulkContactCreateResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Invalid input (validation error)."
+          },
+          "401" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Missing or invalid X-API-KEY."
+          },
+          "500" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Internal server error."
+          },
+          "503" : {
+            "description" : "Service Unavailable"
+          }
+        },
+        "summary" : "Bulk create contacts (best-effort)",
+        "tags" : [ "Contacts" ]
+      }
+    },
+    "/api/v1/contacts/counts" : {
+      "get" : {
+        "description" : "Returns the total number of contacts plus one row per contact label. Each per-label count matches the size of the list filtered by the same `labelId`; labels nobody uses are included with contacts = 0.",
+        "operationId" : "getCounts",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ContactCountsResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "401" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Missing or invalid X-API-KEY."
+          },
+          "500" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Internal server error."
+          },
+          "503" : {
+            "description" : "Service Unavailable"
+          }
+        },
+        "summary" : "Contact counts",
+        "tags" : [ "Contacts" ]
+      }
+    },
+    "/api/v1/contacts/export.vcf" : {
+      "get" : {
+        "description" : "Returns every contact in the address book in vCard 4.0 format (RFC 6350) — text/vcard. Suitable for import into Apple Contacts, Google Contacts, Thunderbird and other clients.",
+        "operationId" : "exportVCard",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "text/vcard;charset=UTF-8" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "401" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Missing or invalid X-API-KEY."
+          },
+          "500" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Internal server error."
+          },
+          "503" : {
+            "description" : "Service Unavailable"
+          }
+        },
+        "summary" : "Export address book as vCard 4.0",
+        "tags" : [ "Contacts" ]
+      }
+    },
+    "/api/v1/contacts/{contactId}" : {
+      "delete" : {
+        "description" : "Removes the contact from the address book.",
+        "operationId" : "deleteContact",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "contactId",
+          "required" : true,
+          "schema" : {
+            "exclusiveMinimum" : 0,
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          },
+          "401" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Missing or invalid X-API-KEY."
+          },
+          "404" : {
+            "description" : "A contact with the given ID does not exist (CONTACT_NOT_FOUND)."
+          },
+          "500" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Internal server error."
+          },
+          "503" : {
+            "description" : "Service Unavailable"
+          }
+        },
+        "summary" : "Delete contact",
+        "tags" : [ "Contacts" ]
+      },
+      "get" : {
+        "description" : "Returns one contact by ID.",
+        "operationId" : "getContact",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "contactId",
+          "required" : true,
+          "schema" : {
+            "exclusiveMinimum" : 0,
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "401" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Missing or invalid X-API-KEY."
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ContactResponse"
+                }
+              }
+            },
+            "description" : "A contact with the given ID does not exist (CONTACT_NOT_FOUND)."
+          },
+          "500" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Internal server error."
+          },
+          "503" : {
+            "description" : "Service Unavailable"
+          }
+        },
+        "summary" : "Contact detail",
+        "tags" : [ "Contacts" ]
+      },
+      "patch" : {
+        "description" : "Updates only the non-null fields from the request.",
+        "operationId" : "patchContact",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "contactId",
+          "required" : true,
+          "schema" : {
+            "exclusiveMinimum" : 0,
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ContactPatchRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Invalid input (validation error)."
+          },
+          "401" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Missing or invalid X-API-KEY."
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ContactResponse"
+                }
+              }
+            },
+            "description" : "A contact with the given ID does not exist (CONTACT_NOT_FOUND)."
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ContactResponse"
+                }
+              }
+            },
+            "description" : "The target e-mail is already used by another contact (CONTACT_DUPLICATE)."
+          },
+          "500" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Internal server error."
+          },
+          "503" : {
+            "description" : "Service Unavailable"
+          }
+        },
+        "summary" : "Partial contact update",
+        "tags" : [ "Contacts" ]
+      },
+      "put" : {
+        "description" : "Replaces all contact fields (PUT).",
+        "operationId" : "updateContact",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "contactId",
+          "required" : true,
+          "schema" : {
+            "exclusiveMinimum" : 0,
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ContactUpdateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Invalid input (validation error)."
+          },
+          "401" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Missing or invalid X-API-KEY."
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ContactResponse"
+                }
+              }
+            },
+            "description" : "A contact with the given ID does not exist (CONTACT_NOT_FOUND)."
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ContactResponse"
+                }
+              }
+            },
+            "description" : "The target e-mail is already used by another contact (CONTACT_DUPLICATE)."
+          },
+          "500" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Internal server error."
+          },
+          "503" : {
+            "description" : "Service Unavailable"
+          }
+        },
+        "summary" : "Full contact update",
+        "tags" : [ "Contacts" ]
+      }
+    },
+    "/api/v1/contacts/{contactId}/emails" : {
+      "post" : {
+        "description" : "Adds a new address without touching the primary flag of the others. The new e-mail only becomes primary if the contact had no address before.",
+        "operationId" : "addEmail",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "contactId",
+          "required" : true,
+          "schema" : {
+            "exclusiveMinimum" : 0,
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ContactEmailRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ContactEmailResponse"
+                }
+              }
+            },
+            "description" : "Created"
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Invalid input (validation error)."
+          },
+          "401" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Missing or invalid X-API-KEY."
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ContactEmailResponse"
+                }
+              }
+            },
+            "description" : "Contact does not exist (CONTACT_NOT_FOUND)."
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ContactEmailResponse"
+                }
+              }
+            },
+            "description" : "The e-mail is already used by another contact or by this contact (CONTACT_DUPLICATE)."
+          },
+          "500" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Internal server error."
+          },
+          "503" : {
+            "description" : "Service Unavailable"
+          }
+        },
+        "summary" : "Add an e-mail address to a contact",
+        "tags" : [ "Contacts" ]
+      }
+    },
+    "/api/v1/contacts/{contactId}/emails/{emailId}" : {
+      "delete" : {
+        "description" : "If the primary address is being deleted, the first remaining one (by ID) is promoted. The last address cannot be deleted — a contact must have at least one.",
+        "operationId" : "deleteEmail",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "contactId",
+          "required" : true,
+          "schema" : {
+            "exclusiveMinimum" : 0,
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "path",
+          "name" : "emailId",
+          "required" : true,
+          "schema" : {
+            "exclusiveMinimum" : 0,
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          },
+          "400" : {
+            "description" : "Attempted to delete the last address of a contact (VALIDATION_ERROR)."
+          },
+          "401" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Missing or invalid X-API-KEY."
+          },
+          "404" : {
+            "description" : "Contact or address does not exist (CONTACT_NOT_FOUND / RESOURCE_NOT_FOUND)."
+          },
+          "500" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Internal server error."
+          },
+          "503" : {
+            "description" : "Service Unavailable"
+          }
+        },
+        "summary" : "Delete an e-mail address from a contact",
+        "tags" : [ "Contacts" ]
+      }
+    },
+    "/api/v1/contacts/{contactId}/emails/{emailId}/primary" : {
+      "patch" : {
+        "description" : "Marks the chosen address as primary; the other addresses of the contact have their primary flag cleared.",
+        "operationId" : "setPrimaryEmail",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "contactId",
+          "required" : true,
+          "schema" : {
+            "exclusiveMinimum" : 0,
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "path",
+          "name" : "emailId",
+          "required" : true,
+          "schema" : {
+            "exclusiveMinimum" : 0,
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "401" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Missing or invalid X-API-KEY."
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ContactResponse"
+                }
+              }
+            },
+            "description" : "Contact or address does not exist (CONTACT_NOT_FOUND / RESOURCE_NOT_FOUND)."
+          },
+          "500" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Internal server error."
+          },
+          "503" : {
+            "description" : "Service Unavailable"
+          }
+        },
+        "summary" : "Mark an address as primary",
+        "tags" : [ "Contacts" ]
+      }
+    },
+    "/api/v1/contacts/{targetId}/merge" : {
+      "post" : {
+        "description" : "Merges one or more source contacts into the target (all in one transaction). The target stays canonical (name/surname/primary are preserved); e-mails from the sources are added deduplicated by lowercase variant (collisions drop the source side); notes are concatenated. The source contacts are deleted. Limit: 9 sources per request, final e-mail count at most 10.",
+        "operationId" : "mergeContacts",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "targetId",
+          "required" : true,
+          "schema" : {
+            "exclusiveMinimum" : 0,
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ContactMergeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Invalid input (validation error)."
+          },
+          "401" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Missing or invalid X-API-KEY."
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ContactResponse"
+                }
+              }
+            },
+            "description" : "One of the source contacts or the target does not exist (CONTACT_NOT_FOUND)."
+          },
+          "500" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Internal server error."
+          },
+          "503" : {
+            "description" : "Service Unavailable"
+          }
+        },
+        "summary" : "Merge duplicate contacts",
+        "tags" : [ "Contacts" ]
       }
     },
     "/api/v1/messages/account/{accountId}/folder" : {
@@ -5242,10 +5063,13 @@
     "ApiKeyAuth" : [ ]
   } ],
   "tags" : [ {
+    "description" : "User-defined contact labels of the address book (CRUD + bulk assignment).",
+    "name" : "Contact labels"
+  }, {
     "description" : "Account folder listing with folderRef and detected role.",
     "name" : "Folders"
   }, {
-    "description" : "Per-account contact address book (CRUD + search).",
+    "description" : "Application-wide contact address book (CRUD + search).",
     "name" : "Contacts"
   }, {
     "description" : "Real-time SSE notifications about sync progress and send outcomes.",
@@ -5277,9 +5101,6 @@
   }, {
     "description" : "Predefined provider templates and e-mail-based auto-detection.",
     "name" : "Mail Providers"
-  }, {
-    "description" : "Per-account user-defined contact labels (CRUD + bulk assignment).",
-    "name" : "Contact labels"
   }, {
     "description" : "Local backend state for the desktop client",
     "name" : "System"

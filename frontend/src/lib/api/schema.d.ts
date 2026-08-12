@@ -108,294 +108,6 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
-	'/api/v1/accounts/{accountId}/contact-labels': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		/**
-		 * List contact labels
-		 * @description Returns all labels of the account ordered by name (case-insensitive). Contact counts are not included here — use `GET /contacts/counts` for the sidebar badges.
-		 */
-		get: operations['listLabels'];
-		put?: never;
-		/**
-		 * Create a contact label
-		 * @description Creates a label. The name is trimmed and must be unique within the account, compared case-insensitively (so "Rodina" and "rodina" collide). Maximum 200 labels per account.
-		 */
-		post: operations['createLabel'];
-		delete?: never;
-		options?: never;
-		head?: never;
-		patch?: never;
-		trace?: never;
-	};
-	'/api/v1/accounts/{accountId}/contact-labels/assignments': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		get?: never;
-		put?: never;
-		/**
-		 * Bulk assign labels to contacts
-		 * @description Adds and/or removes labels across up to 100 contacts in one transaction. Idempotent: a label a contact already carries is left alone and does not count toward `changed`. At least one of addLabelIds / removeLabelIds must be non-empty.
-		 */
-		post: operations['assignLabels'];
-		delete?: never;
-		options?: never;
-		head?: never;
-		patch?: never;
-		trace?: never;
-	};
-	'/api/v1/accounts/{accountId}/contact-labels/{labelId}': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		get?: never;
-		put?: never;
-		post?: never;
-		/**
-		 * Delete a contact label
-		 * @description Removes the label and unassigns it from every contact. The contacts themselves are kept.
-		 */
-		delete: operations['deleteLabel'];
-		options?: never;
-		head?: never;
-		/**
-		 * Rename a contact label
-		 * @description Changes the label name. Assignments to contacts are unaffected.
-		 */
-		patch: operations['renameLabel'];
-		trace?: never;
-	};
-	'/api/v1/accounts/{accountId}/contacts': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		/**
-		 * List / search contacts
-		 * @description Returns a paginated list of contacts. With the q parameter performs a case-insensitive substring search across email, name and surname. Optional `sort` (`name`/`surname`/`recent`) drives the order (default `surname`). Optional `labelId` filters to contacts carrying the given contact label; an unknown ID is a 404, not an empty page.
-		 */
-		get: operations['listContacts'];
-		put?: never;
-		/**
-		 * Create contact
-		 * @description Adds a new contact to the account's address book. Per-account e-mail uniqueness is enforced (409 on duplicate).
-		 */
-		post: operations['createContact'];
-		delete?: never;
-		options?: never;
-		head?: never;
-		patch?: never;
-		trace?: never;
-	};
-	'/api/v1/accounts/{accountId}/contacts/autocomplete': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		/**
-		 * Compose-window autocomplete
-		 * @description Returns a flat list of addresses for typeahead, merged from the address book (`source: CONTACT`) and the addresses harvested from synced message headers (`source: HISTORY`). Ranking: prefix-email > prefix-surname > prefix-name > substring, with contacts winning a tie and history rows ordered by written-to-first then recency. An address present in both appears once, as the contact. History rows carry no contact identity, so `contactId`, `emailId`, `label` and `primary` are null and the last seen display name is in `name`. The limit applies to the merged list. Default limit 10, hard cap 20.
-		 */
-		get: operations['autocomplete'];
-		put?: never;
-		post?: never;
-		delete?: never;
-		options?: never;
-		head?: never;
-		patch?: never;
-		trace?: never;
-	};
-	'/api/v1/accounts/{accountId}/contacts/bulk': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		get?: never;
-		put?: never;
-		/**
-		 * Bulk create contacts (best-effort)
-		 * @description Creates up to 100 contacts in a single request. Each item has its own transaction — duplicates / validation errors do not affect the rest. The response is always 200 with per-item status (CREATED / FAILED).
-		 */
-		post: operations['bulkCreateContacts'];
-		/**
-		 * Bulk delete contacts (best-effort)
-		 * @description Deletes up to 100 contacts by ID. Non-existent IDs come back as FAILED / CONTACT_NOT_FOUND, the rest are deleted.
-		 */
-		delete: operations['bulkDeleteContacts'];
-		options?: never;
-		head?: never;
-		patch?: never;
-		trace?: never;
-	};
-	'/api/v1/accounts/{accountId}/contacts/counts': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		/**
-		 * Contact counts
-		 * @description Returns the total number of contacts of the account plus one row per contact label. Each per-label count matches the size of the list filtered by the same `labelId`; labels nobody uses are included with contacts = 0.
-		 */
-		get: operations['getCounts'];
-		put?: never;
-		post?: never;
-		delete?: never;
-		options?: never;
-		head?: never;
-		patch?: never;
-		trace?: never;
-	};
-	'/api/v1/accounts/{accountId}/contacts/export.vcf': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		/**
-		 * Export address book as vCard 4.0
-		 * @description Returns all contacts of the account in vCard 4.0 format (RFC 6350) — text/vcard. Suitable for import into Apple Contacts, Google Contacts, Thunderbird and other clients.
-		 */
-		get: operations['exportVCard'];
-		put?: never;
-		post?: never;
-		delete?: never;
-		options?: never;
-		head?: never;
-		patch?: never;
-		trace?: never;
-	};
-	'/api/v1/accounts/{accountId}/contacts/{contactId}': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		/**
-		 * Contact detail
-		 * @description Returns one contact by ID within the given account.
-		 */
-		get: operations['getContact'];
-		/**
-		 * Full contact update
-		 * @description Replaces all contact fields (PUT).
-		 */
-		put: operations['updateContact'];
-		post?: never;
-		/**
-		 * Delete contact
-		 * @description Removes the contact from the address book.
-		 */
-		delete: operations['deleteContact'];
-		options?: never;
-		head?: never;
-		/**
-		 * Partial contact update
-		 * @description Updates only the non-null fields from the request.
-		 */
-		patch: operations['patchContact'];
-		trace?: never;
-	};
-	'/api/v1/accounts/{accountId}/contacts/{contactId}/emails': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		get?: never;
-		put?: never;
-		/**
-		 * Add an e-mail address to a contact
-		 * @description Adds a new address without touching the primary flag of the others. The new e-mail only becomes primary if the contact had no address before.
-		 */
-		post: operations['addEmail'];
-		delete?: never;
-		options?: never;
-		head?: never;
-		patch?: never;
-		trace?: never;
-	};
-	'/api/v1/accounts/{accountId}/contacts/{contactId}/emails/{emailId}': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		get?: never;
-		put?: never;
-		post?: never;
-		/**
-		 * Delete an e-mail address from a contact
-		 * @description If the primary address is being deleted, the first remaining one (by ID) is promoted. The last address cannot be deleted — a contact must have at least one.
-		 */
-		delete: operations['deleteEmail'];
-		options?: never;
-		head?: never;
-		patch?: never;
-		trace?: never;
-	};
-	'/api/v1/accounts/{accountId}/contacts/{contactId}/emails/{emailId}/primary': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		get?: never;
-		put?: never;
-		post?: never;
-		delete?: never;
-		options?: never;
-		head?: never;
-		/**
-		 * Mark an address as primary
-		 * @description Marks the chosen address as primary; the other addresses of the contact have their primary flag cleared.
-		 */
-		patch: operations['setPrimaryEmail'];
-		trace?: never;
-	};
-	'/api/v1/accounts/{accountId}/contacts/{targetId}/merge': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		get?: never;
-		put?: never;
-		/**
-		 * Merge duplicate contacts
-		 * @description Merges one or more source contacts into the target (all in one transaction). The target stays canonical (name/surname/primary are preserved); e-mails from the sources are added deduplicated by lowercase variant (collisions drop the source side); notes are concatenated. The source contacts are deleted. Limit: 9 sources per request, final e-mail count at most 10.
-		 */
-		post: operations['mergeContacts'];
-		delete?: never;
-		options?: never;
-		head?: never;
-		patch?: never;
-		trace?: never;
-	};
 	'/api/v1/accounts/{accountId}/drafts': {
 		parameters: {
 			query?: never;
@@ -542,6 +254,294 @@ export interface paths {
 		get: operations['getClientConfig'];
 		put?: never;
 		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/contact-labels': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * List contact labels
+		 * @description Returns every label ordered by name (case-insensitive). Contact counts are not included here — use `GET /contacts/counts` for the sidebar badges.
+		 */
+		get: operations['listLabels'];
+		put?: never;
+		/**
+		 * Create a contact label
+		 * @description Creates a label. The name is trimmed and must be unique in the address book, compared case-insensitively (so "Rodina" and "rodina" collide). Maximum 200 labels.
+		 */
+		post: operations['createLabel'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/contact-labels/assignments': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Bulk assign labels to contacts
+		 * @description Adds and/or removes labels across up to 100 contacts in one transaction. Idempotent: a label a contact already carries is left alone and does not count toward `changed`. At least one of addLabelIds / removeLabelIds must be non-empty.
+		 */
+		post: operations['assignLabels'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/contact-labels/{labelId}': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		post?: never;
+		/**
+		 * Delete a contact label
+		 * @description Removes the label and unassigns it from every contact. The contacts themselves are kept.
+		 */
+		delete: operations['deleteLabel'];
+		options?: never;
+		head?: never;
+		/**
+		 * Rename a contact label
+		 * @description Changes the label name. Assignments to contacts are unaffected.
+		 */
+		patch: operations['renameLabel'];
+		trace?: never;
+	};
+	'/api/v1/contacts': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * List / search contacts
+		 * @description Returns a paginated list of contacts. With the q parameter performs a case-insensitive substring search across email, name and surname. Optional `sort` (`name`/`surname`/`recent`) drives the order (default `surname`). Optional `labelId` filters to contacts carrying the given contact label; an unknown ID is a 404, not an empty page.
+		 */
+		get: operations['listContacts'];
+		put?: never;
+		/**
+		 * Create contact
+		 * @description Adds a new contact to the address book. E-mail uniqueness across the whole book is enforced (409 on duplicate).
+		 */
+		post: operations['createContact'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/contacts/autocomplete': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * Compose-window autocomplete
+		 * @description Returns a flat list of addresses for typeahead, merged from the address book (`source: CONTACT`) and the addresses harvested from synced message headers (`source: HISTORY`). Ranking: prefix-email > prefix-surname > prefix-name > substring, with contacts winning a tie and history rows ordered by written-to-first then recency. An address present in both appears once, as the contact. History rows carry no contact identity, so `contactId`, `emailId`, `label` and `primary` are null and the last seen display name is in `name`. The limit applies to the merged list. Default limit 10, hard cap 20. `accountId` selects whose correspondence history to blend in — it is the mailbox being composed from. The address book half ignores it: the book is application-wide, so composing from any mailbox reaches every saved contact.
+		 */
+		get: operations['autocomplete'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/contacts/bulk': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Bulk create contacts (best-effort)
+		 * @description Creates up to 100 contacts in a single request. Each item has its own transaction — duplicates / validation errors do not affect the rest. The response is always 200 with per-item status (CREATED / FAILED).
+		 */
+		post: operations['bulkCreateContacts'];
+		/**
+		 * Bulk delete contacts (best-effort)
+		 * @description Deletes up to 100 contacts by ID. Non-existent IDs come back as FAILED / CONTACT_NOT_FOUND, the rest are deleted.
+		 */
+		delete: operations['bulkDeleteContacts'];
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/contacts/counts': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * Contact counts
+		 * @description Returns the total number of contacts plus one row per contact label. Each per-label count matches the size of the list filtered by the same `labelId`; labels nobody uses are included with contacts = 0.
+		 */
+		get: operations['getCounts'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/contacts/export.vcf': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * Export address book as vCard 4.0
+		 * @description Returns every contact in the address book in vCard 4.0 format (RFC 6350) — text/vcard. Suitable for import into Apple Contacts, Google Contacts, Thunderbird and other clients.
+		 */
+		get: operations['exportVCard'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/contacts/{contactId}': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * Contact detail
+		 * @description Returns one contact by ID.
+		 */
+		get: operations['getContact'];
+		/**
+		 * Full contact update
+		 * @description Replaces all contact fields (PUT).
+		 */
+		put: operations['updateContact'];
+		post?: never;
+		/**
+		 * Delete contact
+		 * @description Removes the contact from the address book.
+		 */
+		delete: operations['deleteContact'];
+		options?: never;
+		head?: never;
+		/**
+		 * Partial contact update
+		 * @description Updates only the non-null fields from the request.
+		 */
+		patch: operations['patchContact'];
+		trace?: never;
+	};
+	'/api/v1/contacts/{contactId}/emails': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Add an e-mail address to a contact
+		 * @description Adds a new address without touching the primary flag of the others. The new e-mail only becomes primary if the contact had no address before.
+		 */
+		post: operations['addEmail'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/contacts/{contactId}/emails/{emailId}': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		post?: never;
+		/**
+		 * Delete an e-mail address from a contact
+		 * @description If the primary address is being deleted, the first remaining one (by ID) is promoted. The last address cannot be deleted — a contact must have at least one.
+		 */
+		delete: operations['deleteEmail'];
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/contacts/{contactId}/emails/{emailId}/primary': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		/**
+		 * Mark an address as primary
+		 * @description Marks the chosen address as primary; the other addresses of the contact have their primary flag cleared.
+		 */
+		patch: operations['setPrimaryEmail'];
+		trace?: never;
+	};
+	'/api/v1/contacts/{targetId}/merge': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Merge duplicate contacts
+		 * @description Merges one or more source contacts into the target (all in one transaction). The target stays canonical (name/surname/primary are preserved); e-mails from the sources are added deduplicated by lowercase variant (collisions drop the source side); notes are concatenated. The source contacts are deleted. Limit: 9 sources per request, final e-mail count at most 10.
+		 */
+		post: operations['mergeContacts'];
 		delete?: never;
 		options?: never;
 		head?: never;
@@ -1108,7 +1108,7 @@ export interface components {
 			/** @description Family name. Always null on a HISTORY row — a header display name is not split. */
 			surname?: string | null;
 		};
-		/** @description Contact counts for the sidebar: the account total plus one row per contact label. Labels with no contacts are included with contacts = 0. */
+		/** @description Contact counts for the sidebar: the address book total plus one row per contact label. Labels with no contacts are included with contacts = 0. */
 		ContactCountsResponse: {
 			labels?: components['schemas']['ContactLabelCountResponse'][];
 			/**
@@ -1859,1182 +1859,6 @@ export interface operations {
 			};
 		};
 	};
-	listLabels: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path: {
-				accountId: number;
-			};
-			cookie?: never;
-		};
-		requestBody?: never;
-		responses: {
-			/** @description OK */
-			200: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ContactLabelResponse'][];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	createLabel: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path: {
-				accountId: number;
-			};
-			cookie?: never;
-		};
-		requestBody: {
-			content: {
-				'application/json': components['schemas']['ContactLabelCreateRequest'];
-			};
-		};
-		responses: {
-			/** @description Created */
-			201: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ContactLabelResponse'];
-				};
-			};
-			/** @description Invalid input (validation error). */
-			400: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description A label with this name already exists for the account (CONTACT_LABEL_DUPLICATE). */
-			409: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ContactLabelResponse'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	assignLabels: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path: {
-				accountId: number;
-			};
-			cookie?: never;
-		};
-		requestBody: {
-			content: {
-				'application/json': components['schemas']['ContactLabelAssignmentRequest'];
-			};
-		};
-		responses: {
-			/** @description Invalid input (validation error). */
-			400: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description One of the contacts or labels does not exist for the account (CONTACT_NOT_FOUND / CONTACT_LABEL_NOT_FOUND). */
-			404: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ContactLabelAssignmentResponse'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	deleteLabel: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path: {
-				accountId: number;
-				labelId: number;
-			};
-			cookie?: never;
-		};
-		requestBody?: never;
-		responses: {
-			/** @description No Content */
-			204: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description The label does not exist for the account (CONTACT_LABEL_NOT_FOUND). */
-			404: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	renameLabel: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path: {
-				accountId: number;
-				labelId: number;
-			};
-			cookie?: never;
-		};
-		requestBody: {
-			content: {
-				'application/json': components['schemas']['ContactLabelUpdateRequest'];
-			};
-		};
-		responses: {
-			/** @description Invalid input (validation error). */
-			400: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description The label does not exist for the account (CONTACT_LABEL_NOT_FOUND). */
-			404: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ContactLabelResponse'];
-				};
-			};
-			/** @description Another label of the account already uses this name (CONTACT_LABEL_DUPLICATE). */
-			409: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ContactLabelResponse'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	listContacts: {
-		parameters: {
-			query?: {
-				q?: string;
-				page?: number;
-				size?: number;
-				sort?: string;
-				labelId?: number;
-			};
-			header?: never;
-			path: {
-				accountId: number;
-			};
-			cookie?: never;
-		};
-		requestBody?: never;
-		responses: {
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description The labelId does not exist for the account (CONTACT_LABEL_NOT_FOUND). */
-			404: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['PagedResponseContactResponse'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	createContact: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path: {
-				accountId: number;
-			};
-			cookie?: never;
-		};
-		requestBody: {
-			content: {
-				'application/json': components['schemas']['ContactCreateRequest'];
-			};
-		};
-		responses: {
-			/** @description Created */
-			201: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ContactResponse'];
-				};
-			};
-			/** @description Invalid input (validation error). */
-			400: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description A contact with this e-mail already exists for the account (CONTACT_DUPLICATE). */
-			409: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ContactResponse'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	autocomplete: {
-		parameters: {
-			query: {
-				q: string;
-				limit?: number;
-			};
-			header?: never;
-			path: {
-				accountId: number;
-			};
-			cookie?: never;
-		};
-		requestBody?: never;
-		responses: {
-			/** @description OK */
-			200: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ContactAutocompleteResponse'][];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	bulkCreateContacts: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path: {
-				accountId: number;
-			};
-			cookie?: never;
-		};
-		requestBody: {
-			content: {
-				'application/json': components['schemas']['BulkContactCreateRequest'];
-			};
-		};
-		responses: {
-			/** @description OK */
-			200: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['BulkContactCreateResponse'];
-				};
-			};
-			/** @description Invalid input (validation error). */
-			400: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	bulkDeleteContacts: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path: {
-				accountId: number;
-			};
-			cookie?: never;
-		};
-		requestBody: {
-			content: {
-				'application/json': components['schemas']['BulkContactDeleteRequest'];
-			};
-		};
-		responses: {
-			/** @description OK */
-			200: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['BulkContactDeleteResponse'];
-				};
-			};
-			/** @description Invalid input (validation error). */
-			400: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	getCounts: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path: {
-				accountId: number;
-			};
-			cookie?: never;
-		};
-		requestBody?: never;
-		responses: {
-			/** @description OK */
-			200: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ContactCountsResponse'];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	exportVCard: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path: {
-				accountId: number;
-			};
-			cookie?: never;
-		};
-		requestBody?: never;
-		responses: {
-			/** @description OK */
-			200: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'text/vcard;charset=UTF-8': string;
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	getContact: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path: {
-				accountId: number;
-				contactId: number;
-			};
-			cookie?: never;
-		};
-		requestBody?: never;
-		responses: {
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description A contact with the given ID does not exist for the account (CONTACT_NOT_FOUND). */
-			404: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ContactResponse'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	updateContact: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path: {
-				accountId: number;
-				contactId: number;
-			};
-			cookie?: never;
-		};
-		requestBody: {
-			content: {
-				'application/json': components['schemas']['ContactUpdateRequest'];
-			};
-		};
-		responses: {
-			/** @description Invalid input (validation error). */
-			400: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description A contact with the given ID does not exist for the account (CONTACT_NOT_FOUND). */
-			404: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ContactResponse'];
-				};
-			};
-			/** @description The target e-mail is already used by another contact (CONTACT_DUPLICATE). */
-			409: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ContactResponse'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	deleteContact: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path: {
-				accountId: number;
-				contactId: number;
-			};
-			cookie?: never;
-		};
-		requestBody?: never;
-		responses: {
-			/** @description No Content */
-			204: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description A contact with the given ID does not exist for the account (CONTACT_NOT_FOUND). */
-			404: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	patchContact: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path: {
-				accountId: number;
-				contactId: number;
-			};
-			cookie?: never;
-		};
-		requestBody: {
-			content: {
-				'application/json': components['schemas']['ContactPatchRequest'];
-			};
-		};
-		responses: {
-			/** @description Invalid input (validation error). */
-			400: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description A contact with the given ID does not exist for the account (CONTACT_NOT_FOUND). */
-			404: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ContactResponse'];
-				};
-			};
-			/** @description The target e-mail is already used by another contact (CONTACT_DUPLICATE). */
-			409: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ContactResponse'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	addEmail: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path: {
-				accountId: number;
-				contactId: number;
-			};
-			cookie?: never;
-		};
-		requestBody: {
-			content: {
-				'application/json': components['schemas']['ContactEmailRequest'];
-			};
-		};
-		responses: {
-			/** @description Created */
-			201: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ContactEmailResponse'];
-				};
-			};
-			/** @description Invalid input (validation error). */
-			400: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Contact does not exist (CONTACT_NOT_FOUND). */
-			404: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ContactEmailResponse'];
-				};
-			};
-			/** @description The e-mail is already used by another contact or by this contact (CONTACT_DUPLICATE). */
-			409: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ContactEmailResponse'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	deleteEmail: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path: {
-				accountId: number;
-				contactId: number;
-				emailId: number;
-			};
-			cookie?: never;
-		};
-		requestBody?: never;
-		responses: {
-			/** @description No Content */
-			204: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-			/** @description Attempted to delete the last address of a contact (VALIDATION_ERROR). */
-			400: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Contact or address does not exist (CONTACT_NOT_FOUND / RESOURCE_NOT_FOUND). */
-			404: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	setPrimaryEmail: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path: {
-				accountId: number;
-				contactId: number;
-				emailId: number;
-			};
-			cookie?: never;
-		};
-		requestBody?: never;
-		responses: {
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Contact or address does not exist (CONTACT_NOT_FOUND / RESOURCE_NOT_FOUND). */
-			404: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ContactResponse'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	mergeContacts: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path: {
-				accountId: number;
-				targetId: number;
-			};
-			cookie?: never;
-		};
-		requestBody: {
-			content: {
-				'application/json': components['schemas']['ContactMergeRequest'];
-			};
-		};
-		responses: {
-			/** @description Invalid input (validation error). */
-			400: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description One of the source contacts or the target does not exist (CONTACT_NOT_FOUND). */
-			404: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ContactResponse'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
 	listDrafts: {
 		parameters: {
 			query?: {
@@ -3519,6 +2343,1153 @@ export interface operations {
 				};
 				content: {
 					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	listLabels: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ContactLabelResponse'][];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	createLabel: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['ContactLabelCreateRequest'];
+			};
+		};
+		responses: {
+			/** @description Created */
+			201: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ContactLabelResponse'];
+				};
+			};
+			/** @description Invalid input (validation error). */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description A label with this name already exists (CONTACT_LABEL_DUPLICATE). */
+			409: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ContactLabelResponse'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	assignLabels: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['ContactLabelAssignmentRequest'];
+			};
+		};
+		responses: {
+			/** @description Invalid input (validation error). */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description One of the contacts or labels does not exist (CONTACT_NOT_FOUND / CONTACT_LABEL_NOT_FOUND). */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ContactLabelAssignmentResponse'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	deleteLabel: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				labelId: number;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description No Content */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description The label does not exist (CONTACT_LABEL_NOT_FOUND). */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	renameLabel: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				labelId: number;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['ContactLabelUpdateRequest'];
+			};
+		};
+		responses: {
+			/** @description Invalid input (validation error). */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description The label does not exist (CONTACT_LABEL_NOT_FOUND). */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ContactLabelResponse'];
+				};
+			};
+			/** @description Another label already uses this name (CONTACT_LABEL_DUPLICATE). */
+			409: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ContactLabelResponse'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	listContacts: {
+		parameters: {
+			query?: {
+				q?: string;
+				page?: number;
+				size?: number;
+				sort?: string;
+				labelId?: number;
+			};
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description The labelId does not exist (CONTACT_LABEL_NOT_FOUND). */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['PagedResponseContactResponse'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	createContact: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['ContactCreateRequest'];
+			};
+		};
+		responses: {
+			/** @description Created */
+			201: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ContactResponse'];
+				};
+			};
+			/** @description Invalid input (validation error). */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description A contact with this e-mail already exists (CONTACT_DUPLICATE). */
+			409: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ContactResponse'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	autocomplete: {
+		parameters: {
+			query: {
+				accountId: number;
+				q: string;
+				limit?: number;
+			};
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ContactAutocompleteResponse'][];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	bulkCreateContacts: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['BulkContactCreateRequest'];
+			};
+		};
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['BulkContactCreateResponse'];
+				};
+			};
+			/** @description Invalid input (validation error). */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	bulkDeleteContacts: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['BulkContactDeleteRequest'];
+			};
+		};
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['BulkContactDeleteResponse'];
+				};
+			};
+			/** @description Invalid input (validation error). */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	getCounts: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ContactCountsResponse'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	exportVCard: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'text/vcard;charset=UTF-8': string;
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	getContact: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				contactId: number;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description A contact with the given ID does not exist (CONTACT_NOT_FOUND). */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ContactResponse'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	updateContact: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				contactId: number;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['ContactUpdateRequest'];
+			};
+		};
+		responses: {
+			/** @description Invalid input (validation error). */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description A contact with the given ID does not exist (CONTACT_NOT_FOUND). */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ContactResponse'];
+				};
+			};
+			/** @description The target e-mail is already used by another contact (CONTACT_DUPLICATE). */
+			409: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ContactResponse'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	deleteContact: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				contactId: number;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description No Content */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description A contact with the given ID does not exist (CONTACT_NOT_FOUND). */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	patchContact: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				contactId: number;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['ContactPatchRequest'];
+			};
+		};
+		responses: {
+			/** @description Invalid input (validation error). */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description A contact with the given ID does not exist (CONTACT_NOT_FOUND). */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ContactResponse'];
+				};
+			};
+			/** @description The target e-mail is already used by another contact (CONTACT_DUPLICATE). */
+			409: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ContactResponse'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	addEmail: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				contactId: number;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['ContactEmailRequest'];
+			};
+		};
+		responses: {
+			/** @description Created */
+			201: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ContactEmailResponse'];
+				};
+			};
+			/** @description Invalid input (validation error). */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Contact does not exist (CONTACT_NOT_FOUND). */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ContactEmailResponse'];
+				};
+			};
+			/** @description The e-mail is already used by another contact or by this contact (CONTACT_DUPLICATE). */
+			409: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ContactEmailResponse'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	deleteEmail: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				contactId: number;
+				emailId: number;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description No Content */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Attempted to delete the last address of a contact (VALIDATION_ERROR). */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Contact or address does not exist (CONTACT_NOT_FOUND / RESOURCE_NOT_FOUND). */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	setPrimaryEmail: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				contactId: number;
+				emailId: number;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Contact or address does not exist (CONTACT_NOT_FOUND / RESOURCE_NOT_FOUND). */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ContactResponse'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	mergeContacts: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				targetId: number;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['ContactMergeRequest'];
+			};
+		};
+		responses: {
+			/** @description Invalid input (validation error). */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description One of the source contacts or the target does not exist (CONTACT_NOT_FOUND). */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ContactResponse'];
 				};
 			};
 			/** @description Internal server error. */

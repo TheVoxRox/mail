@@ -25,7 +25,6 @@
 	import { tick } from 'svelte';
 
 	interface Props {
-		accountId: number;
 		page: PagedResponse<ContactResponse>;
 		sort?: ContactSort | null;
 		labelId?: number | null;
@@ -50,7 +49,6 @@
 	}
 
 	let {
-		accountId,
 		page,
 		sort = null,
 		labelId = null,
@@ -379,7 +377,7 @@
 		const index = page.content.findIndex((contact) => contact.id === c.id);
 		const neighbour = page.content[index + 1]?.id ?? page.content[index - 1]?.id ?? null;
 		try {
-			await deleteContact(accountId, c.id);
+			await deleteContact(c.id);
 			pushToast($_('contacts.deleteDone'), { tone: 'success' });
 			pendingFocus = { contactId: neighbour, fallbackIndex: Math.max(0, index) };
 			await onChanged();
@@ -409,7 +407,7 @@
 		bulkBusy = true;
 		bulkError = null;
 		try {
-			const result = await bulkDeleteContacts(accountId, { ids });
+			const result = await bulkDeleteContacts({ ids });
 			pushToast(
 				$_('contacts.bulkDeleteDone', {
 					values: { deleted: result.deleted ?? 0, failed: result.failed ?? 0 }
@@ -548,7 +546,6 @@
 
 	<ContactLabelAssignDialog
 		open={labelDialogOpen}
-		{accountId}
 		contacts={selectedContacts}
 		onOpenChange={(next) => (labelDialogOpen = next)}
 		onAssigned={async () => {
@@ -562,7 +559,6 @@
 
 	<ContactMergeDialog
 		open={mergeDialogOpen}
-		{accountId}
 		contacts={selectedContacts}
 		onOpenChange={(next) => (mergeDialogOpen = next)}
 		onMerged={async (targetId) => {

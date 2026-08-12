@@ -21,13 +21,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.voxrox.mailbackend.exception.AccountNotFoundException;
 import org.voxrox.mailbackend.exception.ContactLabelNotFoundException;
 import org.voxrox.mailbackend.exception.ContactNotFoundException;
 import org.voxrox.mailbackend.exception.DuplicateContactLabelException;
 import org.voxrox.mailbackend.exception.ValidationException;
-import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
-import org.voxrox.mailbackend.feature.account.service.AccountService;
 import org.voxrox.mailbackend.feature.contact.dto.ContactLabelAssignmentRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactLabelAssignmentResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactLabelCreateRequest;
@@ -47,21 +44,11 @@ class ContactLabelServiceTest {
     private ContactLabelRepository labelRepository;
     @Mock
     private ContactRepository contactRepository;
-    @Mock
-    private AccountService accountService;
-
     private ContactLabelService service;
 
     @BeforeEach
     void setUp() {
-        service = new ContactLabelService(labelRepository, contactRepository, accountService);
-    }
-
-    private AccountEntity account() {
-        AccountEntity a = new AccountEntity();
-        a.setId(ACCOUNT_ID);
-        a.setEmail("owner@example.com");
-        return a;
+        service = new ContactLabelService(labelRepository, contactRepository);
     }
 
     private ContactLabelEntity label(Long id, String name) {
@@ -75,7 +62,6 @@ class ContactLabelServiceTest {
     private ContactEntity contact(Long id) {
         ContactEntity c = new ContactEntity();
         c.setId(id);
-        c.setAccount(account());
         return c;
     }
 
@@ -86,16 +72,15 @@ class ContactLabelServiceTest {
         @Test
         @DisplayName("Trims the name and derives the case-folded key from it")
         void trimsAndDerivesKey() {
-            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-            when(labelRepository.findByAccountIdAndNameKey(ACCOUNT_ID, "family")).thenReturn(Optional.empty());
-            when(labelRepository.countByAccountId(ACCOUNT_ID)).thenReturn(0L);
+            when(labelRepository.findByNameKey("family")).thenReturn(Optional.empty());
+            when(labelRepository.count()).thenReturn(0L);
             when(labelRepository.save(any(ContactLabelEntity.class))).thenAnswer(inv -> {
                 ContactLabelEntity e = inv.getArgument(0);
                 e.setId(7L);
                 return e;
             });
 
-            ContactLabelResponse created = service.createLabel(ACCOUNT_ID, new ContactLabelCreateRequest("  Family  "));
+            ContactLabelResponse created = service.createLabel(new ContactLabelCreateRequest("  Family  "));
 
             ArgumentCaptor<ContactLabelEntity> captor = ArgumentCaptor.forClass(ContactLabelEntity.class);
             verify(labelRepository).save(captor.capture());
@@ -107,11 +92,9 @@ class ContactLabelServiceTest {
         @Test
         @DisplayName("A name differing only in case collides -> 409")
         void caseInsensitiveDuplicate() {
-            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-            when(labelRepository.findByAccountIdAndNameKey(ACCOUNT_ID, "family"))
-                    .thenReturn(Optional.of(label(3L, "Family")));
+            when(labelRepository.findByNameKey("family")).thenReturn(Optional.of(label(3L, "Family")));
 
-            assertThatThrownBy(() -> service.createLabel(ACCOUNT_ID, new ContactLabelCreateRequest("FAMILY")))
+            assertThatThrownBy(() -> service.createLabel(new ContactLabelCreateRequest("FAMILY")))
                     .isInstanceOf(DuplicateContactLabelException.class);
             verify(labelRepository, never()).save(any());
         }
@@ -119,20 +102,17 @@ class ContactLabelServiceTest {
         @Test
         @DisplayName("Czech diacritics fold too — the key is not ASCII-only")
         void foldsDiacritics() {
-            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-            when(labelRepository.findByAccountIdAndNameKey(ACCOUNT_ID, "škola"))
-                    .thenReturn(Optional.of(label(4L, "Škola")));
+            when(labelRepository.findByNameKey("škola")).thenReturn(Optional.of(label(4L, "Škola")));
 
-            assertThatThrownBy(() -> service.createLabel(ACCOUNT_ID, new ContactLabelCreateRequest("škola")))
+            assertThatThrownBy(() -> service.createLabel(new ContactLabelCreateRequest("škola")))
                     .isInstanceOf(DuplicateContactLabelException.class);
         }
 
         @Test
         @DisplayName("A whitespace-only name is rejected before it becomes an empty key")
         void blankNameRejected() {
-            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
 
-            assertThatThrownBy(() -> service.createLabel(ACCOUNT_ID, new ContactLabelCreateRequest("   ")))
+            assertThatThrownBy(() -> service.createLabel(new ContactLabelCreateRequest("   ")))
                     .isInstanceOf(ValidationException.class);
             verify(labelRepository, never()).save(any());
         }
@@ -140,23 +120,12 @@ class ContactLabelServiceTest {
         @Test
         @DisplayName("At the per-account ceiling -> 400, nothing is saved")
         void accountLimitEnforced() {
-            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-            when(labelRepository.findByAccountIdAndNameKey(ACCOUNT_ID, "extra")).thenReturn(Optional.empty());
-            when(labelRepository.countByAccountId(ACCOUNT_ID))
-                    .thenReturn((long) ContactLabelService.MAX_LABELS_PER_ACCOUNT);
+            when(labelRepository.findByNameKey("extra")).thenReturn(Optional.empty());
+            when(labelRepository.count()).thenReturn((long) ContactLabelService.MAX_LABELS);
 
-            assertThatThrownBy(() -> service.createLabel(ACCOUNT_ID, new ContactLabelCreateRequest("Extra")))
+            assertThatThrownBy(() -> service.createLabel(new ContactLabelCreateRequest("Extra")))
                     .isInstanceOf(ValidationException.class);
             verify(labelRepository, never()).save(any());
-        }
-
-        @Test
-        @DisplayName("Unknown account -> AccountNotFoundException")
-        void unknownAccount() {
-            when(accountService.getAccountOrThrow(999L)).thenThrow(new AccountNotFoundException(999L));
-
-            assertThatThrownBy(() -> service.createLabel(999L, new ContactLabelCreateRequest("Family")))
-                    .isInstanceOf(AccountNotFoundException.class);
         }
     }
 
@@ -167,25 +136,22 @@ class ContactLabelServiceTest {
         @Test
         @DisplayName("Renaming to a name held by another label -> 409")
         void collidesWithOther() {
-            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-            when(labelRepository.findByIdAndAccountId(1L, ACCOUNT_ID)).thenReturn(Optional.of(label(1L, "Family")));
-            when(labelRepository.findByAccountIdAndNameKey(ACCOUNT_ID, "clients"))
-                    .thenReturn(Optional.of(label(2L, "Clients")));
+            when(labelRepository.findById(1L)).thenReturn(Optional.of(label(1L, "Family")));
+            when(labelRepository.findByNameKey("clients")).thenReturn(Optional.of(label(2L, "Clients")));
 
-            assertThatThrownBy(() -> service.renameLabel(ACCOUNT_ID, 1L, new ContactLabelUpdateRequest("Clients")))
+            assertThatThrownBy(() -> service.renameLabel(1L, new ContactLabelUpdateRequest("Clients")))
                     .isInstanceOf(DuplicateContactLabelException.class);
         }
 
         @Test
         @DisplayName("Re-casing a label's own name is allowed — the match is itself")
         void ownNameIsNotACollision() {
-            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
             ContactLabelEntity existing = label(1L, "family");
-            when(labelRepository.findByIdAndAccountId(1L, ACCOUNT_ID)).thenReturn(Optional.of(existing));
-            when(labelRepository.findByAccountIdAndNameKey(ACCOUNT_ID, "family")).thenReturn(Optional.of(existing));
+            when(labelRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(labelRepository.findByNameKey("family")).thenReturn(Optional.of(existing));
             when(labelRepository.save(existing)).thenReturn(existing);
 
-            ContactLabelResponse renamed = service.renameLabel(ACCOUNT_ID, 1L, new ContactLabelUpdateRequest("Family"));
+            ContactLabelResponse renamed = service.renameLabel(1L, new ContactLabelUpdateRequest("Family"));
 
             assertThat(renamed.name()).isEqualTo("Family");
             assertThat(existing.getNameKey()).isEqualTo("family");
@@ -194,10 +160,9 @@ class ContactLabelServiceTest {
         @Test
         @DisplayName("Unknown label -> 404")
         void unknownLabel() {
-            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-            when(labelRepository.findByIdAndAccountId(99L, ACCOUNT_ID)).thenReturn(Optional.empty());
+            when(labelRepository.findById(99L)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> service.renameLabel(ACCOUNT_ID, 99L, new ContactLabelUpdateRequest("X")))
+            assertThatThrownBy(() -> service.renameLabel(99L, new ContactLabelUpdateRequest("X")))
                     .isInstanceOf(ContactLabelNotFoundException.class);
         }
     }
@@ -209,18 +174,17 @@ class ContactLabelServiceTest {
         @Test
         @DisplayName("Unassigns from every carrier, then deletes — the contacts survive")
         void unassignsBeforeDeleting() {
-            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
             ContactLabelEntity family = label(1L, "Family");
-            when(labelRepository.findByIdAndAccountId(1L, ACCOUNT_ID)).thenReturn(Optional.of(family));
+            when(labelRepository.findById(1L)).thenReturn(Optional.of(family));
 
             ContactEntity a = contact(10L);
             a.getLabels().add(family);
             ContactEntity b = contact(11L);
             b.getLabels().add(family);
             b.getLabels().add(label(2L, "Clients"));
-            when(contactRepository.findByAccountIdAndLabelId(ACCOUNT_ID, 1L)).thenReturn(List.of(a, b));
+            when(contactRepository.findByLabelId(1L)).thenReturn(List.of(a, b));
 
-            service.deleteLabel(ACCOUNT_ID, 1L);
+            service.deleteLabel(1L);
 
             assertThat(a.getLabels()).isEmpty();
             assertThat(b.getLabels()).extracting(ContactLabelEntity::getName).containsExactly("Clients");
@@ -231,12 +195,10 @@ class ContactLabelServiceTest {
         @Test
         @DisplayName("Unknown label -> 404, nothing is touched")
         void unknownLabel() {
-            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-            when(labelRepository.findByIdAndAccountId(99L, ACCOUNT_ID)).thenReturn(Optional.empty());
+            when(labelRepository.findById(99L)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> service.deleteLabel(ACCOUNT_ID, 99L))
-                    .isInstanceOf(ContactLabelNotFoundException.class);
-            verify(contactRepository, never()).findByAccountIdAndLabelId(anyLong(), anyLong());
+            assertThatThrownBy(() -> service.deleteLabel(99L)).isInstanceOf(ContactLabelNotFoundException.class);
+            verify(contactRepository, never()).findByLabelId(anyLong());
             verify(labelRepository, never()).delete(any());
         }
     }
@@ -248,27 +210,25 @@ class ContactLabelServiceTest {
         @Test
         @DisplayName("null and an empty list both mean no labels, with no query")
         void emptyMeansNothing() {
-            assertThat(service.resolveLabels(ACCOUNT_ID, null)).isEmpty();
-            assertThat(service.resolveLabels(ACCOUNT_ID, List.of())).isEmpty();
-            verify(labelRepository, never()).findByAccountIdAndIdIn(anyLong(), any());
+            assertThat(service.resolveLabels(null)).isEmpty();
+            assertThat(service.resolveLabels(List.of())).isEmpty();
+            verify(labelRepository, never()).findByIdIn(any());
         }
 
         @Test
         @DisplayName("Duplicate IDs collapse to one label")
         void deduplicates() {
-            when(labelRepository.findByAccountIdAndIdIn(ACCOUNT_ID, Set.of(1L)))
-                    .thenReturn(List.of(label(1L, "Family")));
+            when(labelRepository.findByIdIn(Set.of(1L))).thenReturn(List.of(label(1L, "Family")));
 
-            assertThat(service.resolveLabels(ACCOUNT_ID, List.of(1L, 1L, 1L))).hasSize(1);
+            assertThat(service.resolveLabels(List.of(1L, 1L, 1L))).hasSize(1);
         }
 
         @Test
         @DisplayName("An ID the account does not own -> 404 (a foreign label is never attached)")
         void unknownIdRejected() {
-            when(labelRepository.findByAccountIdAndIdIn(ACCOUNT_ID, Set.of(1L, 99L)))
-                    .thenReturn(List.of(label(1L, "Family")));
+            when(labelRepository.findByIdIn(Set.of(1L, 99L))).thenReturn(List.of(label(1L, "Family")));
 
-            assertThatThrownBy(() -> service.resolveLabels(ACCOUNT_ID, List.of(1L, 99L)))
+            assertThatThrownBy(() -> service.resolveLabels(List.of(1L, 99L)))
                     .isInstanceOf(ContactLabelNotFoundException.class);
         }
     }
@@ -280,11 +240,10 @@ class ContactLabelServiceTest {
         @Test
         @DisplayName("Adds and removes in one pass; only genuinely changed contacts are counted")
         void addsAndRemovesIdempotently() {
-            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
             ContactLabelEntity family = label(1L, "Family");
             ContactLabelEntity clients = label(2L, "Clients");
-            when(labelRepository.findByAccountIdAndIdIn(ACCOUNT_ID, Set.of(1L))).thenReturn(List.of(family));
-            when(labelRepository.findByAccountIdAndIdIn(ACCOUNT_ID, Set.of(2L))).thenReturn(List.of(clients));
+            when(labelRepository.findByIdIn(Set.of(1L))).thenReturn(List.of(family));
+            when(labelRepository.findByIdIn(Set.of(2L))).thenReturn(List.of(clients));
 
             // Already has exactly the target state -> not a change.
             ContactEntity noop = contact(10L);
@@ -292,11 +251,11 @@ class ContactLabelServiceTest {
             // Gains "Family" and loses "Clients".
             ContactEntity changes = contact(11L);
             changes.getLabels().add(clients);
-            when(contactRepository.findByIdAndAccountId(10L, ACCOUNT_ID)).thenReturn(Optional.of(noop));
-            when(contactRepository.findByIdAndAccountId(11L, ACCOUNT_ID)).thenReturn(Optional.of(changes));
+            when(contactRepository.findById(10L)).thenReturn(Optional.of(noop));
+            when(contactRepository.findById(11L)).thenReturn(Optional.of(changes));
 
-            ContactLabelAssignmentResponse result = service.assignLabels(ACCOUNT_ID,
-                    new ContactLabelAssignmentRequest(List.of(10L, 11L), List.of(1L), List.of(2L)));
+            ContactLabelAssignmentResponse result = service
+                    .assignLabels(new ContactLabelAssignmentRequest(List.of(10L, 11L), List.of(1L), List.of(2L)));
 
             assertThat(result).isEqualTo(new ContactLabelAssignmentResponse(2, 1));
             assertThat(noop.getLabels()).containsExactly(family);
@@ -307,38 +266,33 @@ class ContactLabelServiceTest {
         @Test
         @DisplayName("Neither add nor remove -> 400, the request would be a no-op")
         void emptyAssignmentRejected() {
-            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
 
-            assertThatThrownBy(() -> service.assignLabels(ACCOUNT_ID,
-                    new ContactLabelAssignmentRequest(List.of(10L), List.of(), null)))
+            assertThatThrownBy(
+                    () -> service.assignLabels(new ContactLabelAssignmentRequest(List.of(10L), List.of(), null)))
                     .isInstanceOf(ValidationException.class);
-            verify(contactRepository, never()).findByIdAndAccountId(anyLong(), anyLong());
+            verify(contactRepository, never()).findById(anyLong());
         }
 
         @Test
         @DisplayName("A contact outside the account -> 404 for the whole request")
         void unknownContactFailsWholeRequest() {
-            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-            when(labelRepository.findByAccountIdAndIdIn(ACCOUNT_ID, Set.of(1L)))
-                    .thenReturn(List.of(label(1L, "Family")));
-            when(contactRepository.findByIdAndAccountId(99L, ACCOUNT_ID)).thenReturn(Optional.empty());
+            when(labelRepository.findByIdIn(Set.of(1L))).thenReturn(List.of(label(1L, "Family")));
+            when(contactRepository.findById(99L)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> service.assignLabels(ACCOUNT_ID,
-                    new ContactLabelAssignmentRequest(List.of(99L), List.of(1L), null)))
+            assertThatThrownBy(
+                    () -> service.assignLabels(new ContactLabelAssignmentRequest(List.of(99L), List.of(1L), null)))
                     .isInstanceOf(ContactNotFoundException.class);
         }
 
         @Test
         @DisplayName("Removing a label a contact never had is a no-op, not a failure")
         void removingAbsentLabelIsNoop() {
-            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-            when(labelRepository.findByAccountIdAndIdIn(ACCOUNT_ID, Set.of(2L)))
-                    .thenReturn(List.of(label(2L, "Clients")));
+            when(labelRepository.findByIdIn(Set.of(2L))).thenReturn(List.of(label(2L, "Clients")));
             ContactEntity c = contact(10L);
-            when(contactRepository.findByIdAndAccountId(10L, ACCOUNT_ID)).thenReturn(Optional.of(c));
+            when(contactRepository.findById(10L)).thenReturn(Optional.of(c));
 
-            ContactLabelAssignmentResponse result = service.assignLabels(ACCOUNT_ID,
-                    new ContactLabelAssignmentRequest(List.of(10L), null, List.of(2L)));
+            ContactLabelAssignmentResponse result = service
+                    .assignLabels(new ContactLabelAssignmentRequest(List.of(10L), null, List.of(2L)));
 
             assertThat(result).isEqualTo(new ContactLabelAssignmentResponse(1, 0));
             assertThat(c.getLabels()).isEmpty();
@@ -347,14 +301,12 @@ class ContactLabelServiceTest {
         @Test
         @DisplayName("A repeated contact ID is processed once")
         void duplicateContactIdsCollapse() {
-            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account());
-            when(labelRepository.findByAccountIdAndIdIn(ACCOUNT_ID, Set.of(1L)))
-                    .thenReturn(List.of(label(1L, "Family")));
+            when(labelRepository.findByIdIn(Set.of(1L))).thenReturn(List.of(label(1L, "Family")));
             ContactEntity c = contact(10L);
-            when(contactRepository.findByIdAndAccountId(10L, ACCOUNT_ID)).thenReturn(Optional.of(c));
+            when(contactRepository.findById(10L)).thenReturn(Optional.of(c));
 
-            ContactLabelAssignmentResponse result = service.assignLabels(ACCOUNT_ID,
-                    new ContactLabelAssignmentRequest(List.of(10L, 10L), List.of(1L), null));
+            ContactLabelAssignmentResponse result = service
+                    .assignLabels(new ContactLabelAssignmentRequest(List.of(10L, 10L), List.of(1L), null));
 
             assertThat(result).isEqualTo(new ContactLabelAssignmentResponse(1, 1));
         }
