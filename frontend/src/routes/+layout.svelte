@@ -126,16 +126,37 @@
 	 * `document.activeElement` so we don't steal focus from an autofocused
 	 * input.
 	 */
+	function focusMainIfUnclaimed() {
+		const active = document.activeElement;
+		const isDefaultFocus =
+			!active || active === document.body || active === document.documentElement;
+		if (!isDefaultFocus) return;
+		document.getElementById('main-content')?.focus({ preventScroll: true });
+	}
+
 	afterNavigate(() => {
 		if (typeof window === 'undefined') return;
-		requestAnimationFrame(() => {
-			const active = document.activeElement;
-			const isDefaultFocus =
-				!active || active === document.body || active === document.documentElement;
-			if (!isDefaultFocus) return;
-			const main = document.getElementById('main-content');
-			main?.focus({ preventScroll: true });
-		});
+		requestAnimationFrame(focusMainIfUnclaimed);
+	});
+
+	/*
+	 * The boot and error views carry their own `<main id="main-content">`, so a
+	 * navigation that lands while the app is still booting focuses *that* one —
+	 * and when boot finishes, Svelte throws it away together with the branch it
+	 * lives in. Focus falls back to `<body>` and nothing brings it back, because
+	 * no navigation happened: the shell simply swapped underneath. A screen
+	 * reader user is then parked outside the content with the whole rail and
+	 * sidebar to tab through. Re-run the same check once the ready shell exists.
+	 */
+	const shellReady = $derived(
+		$bootState.phase === 'ready' &&
+			$sessionState.status === 'ready' &&
+			$accountsState.status === 'ready'
+	);
+
+	$effect(() => {
+		if (!shellReady) return;
+		requestAnimationFrame(focusMainIfUnclaimed);
 	});
 
 	onMount(() => {
