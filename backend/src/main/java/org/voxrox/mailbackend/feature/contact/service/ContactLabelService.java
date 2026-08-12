@@ -19,8 +19,6 @@ import org.voxrox.mailbackend.exception.ContactLabelNotFoundException;
 import org.voxrox.mailbackend.exception.ContactNotFoundException;
 import org.voxrox.mailbackend.exception.DuplicateContactLabelException;
 import org.voxrox.mailbackend.exception.ValidationException;
-import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
-import org.voxrox.mailbackend.feature.account.service.AccountService;
 import org.voxrox.mailbackend.feature.contact.dto.ContactLabelAssignmentRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactLabelAssignmentResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactLabelCreateRequest;
@@ -35,8 +33,9 @@ import org.voxrox.mailbackend.util.LogCategory;
 import org.voxrox.mailbackend.util.LogMasker;
 
 /**
- * Manages the account's user-defined contact labels and their assignment to
- * contacts.
+ * Manages the user-defined contact labels of the address book and their
+ * assignment to contacts. Like the address book itself, labels are
+ * application-wide rather than per mail account.
  * <p>
  * Deliberately separate from {@link ContactService}: labels have their own
  * lifecycle (they exist without any contact) and their own uniqueness rule,
@@ -50,24 +49,21 @@ public class ContactLabelService {
     private static final Logger log = LoggerFactory.getLogger(ContactLabelService.class);
 
     /**
-     * Ceiling on labels per account. Not a storage concern — the sidebar lists all
-     * of them, so past a few hundred the navigation stops being navigation. High
-     * enough that no genuine address book hits it.
+     * Ceiling on labels. Not a storage concern — the sidebar lists all of them, so
+     * past a few hundred the navigation stops being navigation. High enough that no
+     * genuine address book hits it.
      */
-    static final int MAX_LABELS_PER_ACCOUNT = 200;
+    static final int MAX_LABELS = 200;
 
     /** Ceiling on labels per contact; mirrors the DTO {@code @Size} bound. */
     static final int MAX_LABELS_PER_CONTACT = 50;
 
     private final ContactLabelRepository labelRepository;
     private final ContactRepository contactRepository;
-    private final AccountService accountService;
 
-    public ContactLabelService(ContactLabelRepository labelRepository, ContactRepository contactRepository,
-            AccountService accountService) {
+    public ContactLabelService(ContactLabelRepository labelRepository, ContactRepository contactRepository) {
         this.labelRepository = labelRepository;
         this.contactRepository = contactRepository;
-        this.accountService = accountService;
     }
 
     /**
@@ -81,58 +77,51 @@ public class ContactLabelService {
     }
 
     @Transactional(readOnly = true)
-    public List<ContactLabelResponse> listLabels(Long accountId) {
-        accountService.getAccountOrThrow(accountId);
-        return labelRepository.findByAccountIdOrderByNameKeyAsc(accountId).stream().map(ContactLabelService::toResponse)
-                .toList();
+    public List<ContactLabelResponse> listLabels() {
+        return labelRepository.findAllByOrderByNameKeyAsc().stream().map(ContactLabelService::toResponse).toList();
     }
 
     @Transactional
-    public ContactLabelResponse createLabel(Long accountId, ContactLabelCreateRequest request) {
-        AccountEntity account = accountService.getAccountOrThrow(accountId);
+    public ContactLabelResponse createLabel(ContactLabelCreateRequest request) {
         String name = requireNonBlankName(request.name());
         String nameKey = toNameKey(name);
 
-        labelRepository.findByAccountIdAndNameKey(accountId, nameKey).ifPresent(existing -> {
-            throw new DuplicateContactLabelException(accountId, existing.getName());
+        labelRepository.findByNameKey(nameKey).ifPresent(existing -> {
+            throw new DuplicateContactLabelException(existing.getName());
         });
-        long existingCount = labelRepository.countByAccountId(accountId);
-        if (existingCount >= MAX_LABELS_PER_ACCOUNT) {
-            throw new ValidationException(
-                    "Account " + accountId + " already has " + existingCount + " contact labels; the maximum is "
-                            + MAX_LABELS_PER_ACCOUNT + ".",
-                    "validation.contactLabel.tooManyPerAccount", MAX_LABELS_PER_ACCOUNT);
+        long existingCount = labelRepository.count();
+        if (existingCount >= MAX_LABELS) {
+            throw new ValidationException("The address book already has " + existingCount
+                    + " contact labels; the maximum is " + MAX_LABELS + ".", "validation.contactLabel.tooMany",
+                    MAX_LABELS);
         }
 
         ContactLabelEntity entity = new ContactLabelEntity();
-        entity.setAccount(account);
         entity.setName(name);
         entity.setNameKey(nameKey);
         ContactLabelEntity saved = labelRepository.save(entity);
 
-        log.info("{} Contact label created: id={} account={}", LogCategory.ACCOUNT, saved.getId(), accountId);
-        AuditLog.success("contact_label_create", LogMasker.maskEmail(account.getEmail()), "label_id=" + saved.getId());
+        log.info("{} Contact label created: id={}", LogCategory.ACCOUNT, saved.getId());
+        AuditLog.success("contact_label_create", ContactService.AUDIT_ACTOR, "label_id=" + saved.getId());
         return toResponse(saved);
     }
 
     @Transactional
-    public ContactLabelResponse renameLabel(Long accountId, Long labelId, ContactLabelUpdateRequest request) {
-        AccountEntity account = accountService.getAccountOrThrow(accountId);
-        ContactLabelEntity entity = getLabelOrThrow(accountId, labelId);
+    public ContactLabelResponse renameLabel(Long labelId, ContactLabelUpdateRequest request) {
+        ContactLabelEntity entity = getLabelOrThrow(labelId);
 
         String name = requireNonBlankName(request.name());
         String nameKey = toNameKey(name);
 
-        labelRepository.findByAccountIdAndNameKey(accountId, nameKey).filter(other -> !other.getId().equals(labelId))
-                .ifPresent(other -> {
-                    throw new DuplicateContactLabelException(accountId, other.getName());
-                });
+        labelRepository.findByNameKey(nameKey).filter(other -> !other.getId().equals(labelId)).ifPresent(other -> {
+            throw new DuplicateContactLabelException(other.getName());
+        });
 
         entity.setName(name);
         entity.setNameKey(nameKey);
         ContactLabelEntity saved = labelRepository.save(entity);
 
-        AuditLog.success("contact_label_rename", LogMasker.maskEmail(account.getEmail()), "label_id=" + labelId);
+        AuditLog.success("contact_label_rename", ContactService.AUDIT_ACTOR, "label_id=" + labelId);
         return toResponse(saved);
     }
 
@@ -145,11 +134,10 @@ public class ContactLabelService {
      * loaded in the same transaction.
      */
     @Transactional
-    public void deleteLabel(Long accountId, Long labelId) {
-        AccountEntity account = accountService.getAccountOrThrow(accountId);
-        ContactLabelEntity entity = getLabelOrThrow(accountId, labelId);
+    public void deleteLabel(Long labelId) {
+        ContactLabelEntity entity = getLabelOrThrow(labelId);
 
-        List<ContactEntity> carriers = contactRepository.findByAccountIdAndLabelId(accountId, labelId);
+        List<ContactEntity> carriers = contactRepository.findByLabelId(labelId);
         for (ContactEntity contact : carriers) {
             contact.getLabels().remove(entity);
         }
@@ -158,9 +146,8 @@ public class ContactLabelService {
 
         labelRepository.delete(entity);
 
-        log.info("{} Contact label deleted: id={} account={} detached_contacts={}", LogCategory.ACCOUNT, labelId,
-                accountId, carriers.size());
-        AuditLog.success("contact_label_delete", LogMasker.maskEmail(account.getEmail()),
+        log.info("{} Contact label deleted: id={} detached_contacts={}", LogCategory.ACCOUNT, labelId, carriers.size());
+        AuditLog.success("contact_label_delete", ContactService.AUDIT_ACTOR,
                 "label_id=" + labelId + " detached_contacts=" + carriers.size());
     }
 
@@ -170,14 +157,13 @@ public class ContactLabelService {
      * removing one it does not) is a no-op that does not count toward
      * {@code changed}.
      * <p>
-     * A contact ID that does not belong to the account is a 404 for the whole
-     * request rather than a per-item failure — unlike bulk delete, this originates
-     * from a selection the client just rendered, so an unknown ID means the client
-     * is out of sync and silently skipping it would misreport what happened.
+     * An unknown contact ID is a 404 for the whole request rather than a per-item
+     * failure — unlike bulk delete, this originates from a selection the client
+     * just rendered, so an unknown ID means the client is out of sync and silently
+     * skipping it would misreport what happened.
      */
     @Transactional
-    public ContactLabelAssignmentResponse assignLabels(Long accountId, ContactLabelAssignmentRequest request) {
-        AccountEntity account = accountService.getAccountOrThrow(accountId);
+    public ContactLabelAssignmentResponse assignLabels(ContactLabelAssignmentRequest request) {
 
         Set<Long> addIds = distinctIds(request.addLabelIds());
         Set<Long> removeIds = distinctIds(request.removeLabelIds());
@@ -186,15 +172,15 @@ public class ContactLabelService {
                     "validation.contactLabel.assignmentEmpty");
         }
 
-        Set<ContactLabelEntity> toAdd = resolveLabels(accountId, addIds);
-        Set<ContactLabelEntity> toRemove = resolveLabels(accountId, removeIds);
+        Set<ContactLabelEntity> toAdd = resolveLabels(addIds);
+        Set<ContactLabelEntity> toRemove = resolveLabels(removeIds);
 
         Set<Long> contactIds = new LinkedHashSet<>(request.contactIds());
         int changed = 0;
         List<ContactEntity> dirty = new ArrayList<>();
         for (Long contactId : contactIds) {
-            ContactEntity contact = contactRepository.findByIdAndAccountId(contactId, accountId)
-                    .orElseThrow(() -> new ContactNotFoundException(accountId, contactId));
+            ContactEntity contact = contactRepository.findById(contactId)
+                    .orElseThrow(() -> new ContactNotFoundException(contactId));
 
             Set<ContactLabelEntity> labels = contact.getLabels();
             boolean modified = labels.removeAll(toRemove);
@@ -207,10 +193,10 @@ public class ContactLabelService {
         }
         contactRepository.saveAll(dirty);
 
-        log.info("{} Contact label assignment account={} contacts={} add={} remove={} changed={}", LogCategory.ACCOUNT,
-                accountId, contactIds.size(), addIds.size(), removeIds.size(), changed);
-        AuditLog.success("contact_label_assign", LogMasker.maskEmail(account.getEmail()), "contacts="
-                + contactIds.size() + " add=" + addIds.size() + " remove=" + removeIds.size() + " changed=" + changed);
+        log.info("{} Contact label assignment contacts={} add={} remove={} changed={}", LogCategory.ACCOUNT,
+                contactIds.size(), addIds.size(), removeIds.size(), changed);
+        AuditLog.success("contact_label_assign", ContactService.AUDIT_ACTOR, "contacts=" + contactIds.size() + " add="
+                + addIds.size() + " remove=" + removeIds.size() + " changed=" + changed);
         return new ContactLabelAssignmentResponse(contactIds.size(), changed);
     }
 
@@ -221,24 +207,24 @@ public class ContactLabelService {
      * semantics say so.
      *
      * @throws ContactLabelNotFoundException
-     *             if any ID is unknown within the account
+     *             if any ID is unknown
      */
     @Transactional(readOnly = true)
-    public Set<ContactLabelEntity> resolveLabels(Long accountId, @Nullable Collection<Long> labelIds) {
+    public Set<ContactLabelEntity> resolveLabels(@Nullable Collection<Long> labelIds) {
         Set<Long> distinct = distinctIds(labelIds);
         if (distinct.isEmpty()) {
             return Set.of();
         }
         ensureLabelCountWithinLimit(null, distinct.size());
 
-        Map<Long, ContactLabelEntity> found = labelRepository.findByAccountIdAndIdIn(accountId, distinct).stream()
+        Map<Long, ContactLabelEntity> found = labelRepository.findByIdIn(distinct).stream()
                 .collect(Collectors.toMap(ContactLabelEntity::getId, l -> l));
         // Preserve request order so a caller inspecting the set sees what it sent.
         Set<ContactLabelEntity> resolved = new LinkedHashSet<>(distinct.size());
         for (Long id : distinct) {
             ContactLabelEntity label = found.get(id);
             if (label == null) {
-                throw new ContactLabelNotFoundException(accountId, id);
+                throw new ContactLabelNotFoundException(id);
             }
             resolved.add(label);
         }
@@ -258,9 +244,9 @@ public class ContactLabelService {
         return ids == null ? Set.of() : new LinkedHashSet<>(ids);
     }
 
-    private ContactLabelEntity getLabelOrThrow(Long accountId, Long labelId) {
-        Optional<ContactLabelEntity> found = labelRepository.findByIdAndAccountId(labelId, accountId);
-        return found.orElseThrow(() -> new ContactLabelNotFoundException(accountId, labelId));
+    private ContactLabelEntity getLabelOrThrow(Long labelId) {
+        Optional<ContactLabelEntity> found = labelRepository.findById(labelId);
+        return found.orElseThrow(() -> new ContactLabelNotFoundException(labelId));
     }
 
     private String requireNonBlankName(String raw) {

@@ -1,57 +1,446 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { accountsState, resolvedActiveAccountId } from '$lib/stores/accounts.js';
-	import { Button } from '$lib/components/ui/button/index.js';
+	import { SvelteURLSearchParams } from 'svelte/reactivity';
+	import {
+		createContact,
+		getContact,
+		listContacts,
+		updateContact,
+		type ContactSort
+	} from '$lib/api/contacts.js';
+	import { listContactLabels } from '$lib/api/contactLabels.js';
+	import { reportClientError } from '$lib/api/clientErrors.js';
+	import { toError } from '$lib/api/errors.js';
+	import {
+		contactCounts,
+		ensureContactCounts,
+		refreshContactCounts
+	} from '$lib/stores/contactCounts.js';
+	import { contactSortPreference } from '$lib/stores/contactSort.js';
+	import { getClientConfigSnapshot } from '$lib/stores/clientConfig.js';
 	import { _ } from '$lib/i18n/index.js';
+	import { announcePolite, pushToast } from '$lib/stores/toasts.js';
+	import ContactList from '$lib/components/ContactList.svelte';
+	import ContactForm from '$lib/components/ContactForm.svelte';
+	import { dragHasFiles, importVCardFiles } from '$lib/contacts/importVCards.js';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { PageShell } from '$lib/components/ui/page-shell/index.js';
+	import { StateMessage } from '$lib/components/ui/state-message/index.js';
+	import { Surface } from '$lib/components/ui/surface/index.js';
+	import type { ContactCreateRequest, ContactResponse, PagedResponse } from '$lib/types.js';
 
-	let ready = $state(false);
-	let redirecting = $state(false);
+	let { data } = $props();
+
+	type ListState =
+		| { status: 'idle' }
+		| { status: 'loading' }
+		| { status: 'ready'; page: PagedResponse<ContactResponse> }
+		| { status: 'error'; error: Error };
+
+	type EditState =
+		| { status: 'idle' }
+		| { status: 'loading' }
+		| { status: 'ready'; contact: ContactResponse }
+		| { status: 'error'; error: Error };
+
+	let listState = $state<ListState>({ status: 'idle' });
+	let editState = $state<EditState>({ status: 'idle' });
+	let loadedEditId: number | null = null;
+	let pageNumber = $state(0);
+	let lastContext = $state('');
+	// Set by pagination handlers and list-context switches (search, filter,
+	// account change) so the next successful load announces the result to
+	// screen-reader users (matches the Messages list behaviour). Plain
+	// variable — it's a one-shot signal, not reactive state.
+	let announceNextLoad = false;
+
+	/*
+	 * The active label's name, for the heading, window title, announcements and
+	 * empty state. Not taken from the list response — a filtered page that
+	 * happens to be empty still has to name itself.
+	 *
+	 * The counts store is the cheap path (already loaded for the sidebar badges),
+	 * but it swallows its own failures by design, so relying on it alone leaves
+	 * the view anonymous whenever that one request lost: heading "Kontakty" over
+	 * a filtered list. `resolvedLabelName` is the fallback that asks the labels
+	 * endpoint directly, so the name survives a failed counts refresh.
+	 */
+	let resolvedLabel = $state<{ id: number; name: string } | null>(null);
+
+	const countsLabelName = $derived(
+		data.labelId == null
+			? null
+			: ($contactCounts?.labels.find((item) => item.id === data.labelId)?.name ?? null)
+	);
+	const activeLabelName = $derived(
+		data.labelId == null
+			? null
+			: (countsLabelName ?? (resolvedLabel?.id === data.labelId ? resolvedLabel.name : null))
+	);
 
 	$effect(() => {
-		if ($accountsState.status !== 'ready') {
-			ready = false;
-			redirecting = false;
-			return;
-		}
-
-		const accountId = $resolvedActiveAccountId;
-		if (accountId != null) {
-			if (redirecting) return;
-			redirecting = true;
-			void goto(resolve('/contacts/[accountId]', { accountId: String(accountId) }), {
-				replaceState: true
-			});
-			return;
-		}
-
-		redirecting = false;
-		ready = true;
+		const labelId = data.labelId;
+		if (labelId == null || countsLabelName != null || resolvedLabel?.id === labelId) return;
+		// Best-effort: a failure here just leaves the view unnamed, exactly the
+		// state we were already in, so it must not surface as a list error.
+		void listContactLabels()
+			.then((labels) => {
+				const match = labels.find((item) => item.id === labelId);
+				if (match) resolvedLabel = { id: match.id, name: match.name };
+			})
+			.catch(() => undefined);
 	});
+
+	async function load(
+		query: string,
+		page: number,
+		sort: ContactSort | null,
+		labelId: number | null,
+		preserveCurrent = false
+	) {
+		if (!preserveCurrent) listState = { status: 'loading' };
+		// Every list reload — mutation callbacks (create/edit/delete/merge/import
+		// all funnel into onChanged → load), filters, pagination — also refreshes
+		// the sidebar count badges. Fire-and-forget: badge staleness must never
+		// block or fail the list itself.
+		void refreshContactCounts();
+		try {
+			const result = await listContacts({
+				q: query || undefined,
+				page,
+				size: getClientConfigSnapshot().contactDefaultPageSize,
+				sort: sort ?? undefined,
+				labelId: labelId ?? undefined
+			});
+			listState = { status: 'ready', page: result };
+			if (announceNextLoad) {
+				announceNextLoad = false;
+				const info = $_('contacts.pageInfo', {
+					values: {
+						current: result.page + 1,
+						total: Math.max(1, result.totalPages),
+						totalCount: $_('contacts.totalCount', { values: { count: result.totalElements } })
+					}
+				});
+				// With a label filter the reload is otherwise indistinguishable from
+				// the unfiltered list for a screen-reader user — name the view.
+				announcePolite(
+					activeLabelName == null
+						? info
+						: $_('contacts.pageInfoLabeled', { values: { label: activeLabelName, info } })
+				);
+			}
+		} catch (err) {
+			listState = { status: 'error', error: toError(err) };
+		}
+	}
+
+	/**
+	 * Recovery path for a render failure the list boundary caught. Reloads
+	 * before letting the boundary try again: a bare `reset()` would re-render
+	 * the very data that just threw, so the button would do nothing visible.
+	 * Refetching is the one thing that can change the outcome — the response
+	 * that broke the renderer came from a backend that has since been replaced
+	 * (see the boundary comment below).
+	 */
+	async function retryListRender(reset: () => void) {
+		await load(data.query, pageNumber, data.sort, data.labelId, true);
+		reset();
+	}
+
+	// No account gate: the address book belongs to the application, not to a
+	// mailbox, so it opens and works even before the first account is set up.
+	// The list reload refreshes the counts on its own, but the form routes
+	// (?create=1, ?edit=) never load a list — and the label checkboxes in the
+	// form read the same store as the sidebar badges. Without this, opening the
+	// new-contact form directly (Ctrl+N, a bookmark) offered no labels at all.
+	$effect(() => {
+		ensureContactCounts();
+	});
+
+	$effect(() => {
+		if (data.create) {
+			listState = { status: 'idle' };
+			return;
+		}
+		// Edit renders the full-page form instead of the list; loading is handled
+		// by the dedicated edit effect below.
+		if (data.edit != null) return;
+
+		const context = `${data.query}:${data.sort ?? ''}:${data.labelId ?? ''}`;
+		if (lastContext !== context) {
+			// A context switch is always user-triggered (search, filter, account
+			// change) and often keeps focus in place, so the reload is otherwise
+			// silent — announce the result. The initial load stays quiet.
+			if (lastContext !== '') announceNextLoad = true;
+			lastContext = context;
+			pageNumber = 0;
+		}
+		void load(data.query, pageNumber, data.sort, data.labelId);
+	});
+
+	$effect(() => {
+		if (data.edit == null) {
+			editState = { status: 'idle' };
+			loadedEditId = null;
+			return;
+		}
+		// Guard purely on the id — do NOT read editState here, or the effect would
+		// re-run on every load transition and refetch in a loop after an error.
+		if (loadedEditId === data.edit) return;
+		loadedEditId = data.edit;
+		void loadEditContact(data.edit);
+	});
+
+	async function loadEditContact(contactId: number) {
+		editState = { status: 'loading' };
+		try {
+			const contact = await getContact(contactId);
+			editState = { status: 'ready', contact };
+		} catch (err) {
+			editState = { status: 'error', error: toError(err) };
+		}
+	}
+
+	function contactsHref(
+		options: {
+			query?: string;
+			create?: boolean;
+			edit?: number | null;
+			sort?: ContactSort | null;
+			labelId?: number | null;
+		} = {}
+	): string {
+		// Each list param defaults to its current value unless the option is
+		// present (so passing `sort: null` clears it, while omitting it keeps the
+		// current sort); `create`/`edit` are one-shot view switches. Every param
+		// is then set only when truthy.
+		const query = (options.query ?? data.query)?.trim();
+		const sort = 'sort' in options ? options.sort : data.sort;
+		const labelId = 'labelId' in options ? options.labelId : data.labelId;
+
+		const params = new SvelteURLSearchParams();
+		if (query) params.set('q', query);
+		if (options.create) params.set('create', '1');
+		if (options.edit != null) params.set('edit', String(options.edit));
+		if (sort) params.set('sort', sort);
+		if (labelId != null) params.set('labelId', String(labelId));
+
+		const queryString = params.toString();
+		return `${resolve('/contacts')}${queryString ? `?${queryString}` : ''}`;
+	}
+
+	function handleFilterApply(filters: { sort: ContactSort | null; labelId: number | null }) {
+		// Remember the sort as a view preference so sidebar view links (clean
+		// URLs) do not reset it; null means the 'surname' default.
+		contactSortPreference.set(filters.sort ?? 'surname');
+		void goto(contactsHref(filters), { keepFocus: true, noScroll: true });
+	}
+
+	/*
+	 * The form replaces the list, so the roving focus cannot survive in the
+	 * grid — coming back, focus would land on <main> and the user would have to
+	 * find their contact again. The list takes the row to return to from here.
+	 */
+	let restoreFocusContactId = $state<number | null>(null);
+
+	async function handleCreate(payload: ContactCreateRequest) {
+		const created = await createContact(payload);
+		pushToast($_('contacts.createDone'), { tone: 'success' });
+		restoreFocusContactId = created.id;
+		// Returning to the list view clears `create`, which re-runs the list
+		// effect and reloads — no explicit load() here, that would fetch twice.
+		await goto(contactsHref({ create: false }));
+	}
+
+	async function handleEditSave(payload: ContactCreateRequest) {
+		if (data.edit == null) return;
+		await updateContact(data.edit, payload);
+		pushToast($_('contacts.saveDone'), { tone: 'success' });
+		// Clearing `edit` re-runs the list effect, which reloads the list.
+		await leaveEditForm();
+	}
+
+	/**
+	 * Back to the list from the edit form. The target is remembered *before*
+	 * navigating: a dirty form routes the navigation through the leave guard
+	 * inside ContactForm, which never comes back through here.
+	 */
+	async function leaveEditForm() {
+		restoreFocusContactId = data.edit;
+		await goto(contactsHref({ edit: null }));
+	}
+
+	function goToPage(target: number) {
+		if (listState.status !== 'ready') return;
+		const lastPage = Math.max(0, listState.page.totalPages - 1);
+		const next = Math.min(Math.max(0, target), lastPage);
+		if (next === pageNumber) return;
+		announceNextLoad = true;
+		pageNumber = next;
+	}
+	function prevPage() {
+		if (pageNumber > 0) goToPage(pageNumber - 1);
+	}
+	function nextPage() {
+		if (listState.status === 'ready' && !listState.page.last) goToPage(pageNumber + 1);
+	}
+	function lastPage() {
+		if (listState.status !== 'ready') return;
+		goToPage(listState.page.totalPages - 1);
+	}
+
+	// The list heading, window title and reload announcement all carry the
+	// active label so the view is identifiable without inspecting the filter UI.
+	const windowTitle = $derived(
+		activeLabelName
+			? $_('contacts.pageTitleLabeled', { values: { label: activeLabelName } })
+			: $_('contacts.pageTitle')
+	);
+
+	let dragActive = $state(false);
+	let importing = $state(false);
+
+	function handleWindowDragOver(event: DragEvent) {
+		if (data.create || data.edit != null) return;
+		if (!dragHasFiles(event)) return;
+		event.preventDefault();
+		dragActive = true;
+	}
+
+	function handleWindowDragLeave(event: DragEvent) {
+		if (event.relatedTarget) return;
+		dragActive = false;
+	}
+
+	async function handleWindowDrop(event: DragEvent) {
+		if (data.create || data.edit != null) return;
+		if (!dragHasFiles(event)) return;
+		event.preventDefault();
+		dragActive = false;
+		if (importing) return;
+
+		importing = true;
+		try {
+			const imported = await importVCardFiles(Array.from(event.dataTransfer?.files ?? []), $_);
+			if (imported) await load(data.query, pageNumber, data.sort, data.labelId);
+		} finally {
+			importing = false;
+		}
+	}
 </script>
 
 <svelte:head>
-	<title>{$_('contacts.pageTitle')}</title>
+	<title>{windowTitle}</title>
 </svelte:head>
 
-<div class="flex flex-1 items-center justify-center p-6">
-	{#if ready}
+<svelte:window
+	ondragover={handleWindowDragOver}
+	ondragleave={handleWindowDragLeave}
+	ondrop={handleWindowDrop}
+/>
+
+{#if !data.create && data.edit == null && dragActive}
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center bg-background/85 backdrop-blur-sm"
+		aria-hidden="true"
+	>
 		<div
-			class="max-w-md rounded-md border border-border bg-card p-6 text-center text-card-foreground"
+			class="rounded-xl border-2 border-dashed border-primary/70 bg-background/90 px-10 py-8 text-center shadow-lg"
 		>
-			<h1 class="text-title font-semibold">{$_('contacts.noAccountHeading')}</h1>
-			<p class="mt-2 text-sm text-muted-foreground">
-				{#if $accountsState.status === 'ready' && $accountsState.accounts.length === 0}
-					{$_('accounts.none')}
-				{:else}
-					{$_('contacts.noActiveAccount')}
-				{/if}
-			</p>
-			<Button autofocus class="mt-4" onclick={() => goto(resolve('/settings/accounts/new'))}>
-				{$_('accounts.addAccount')}
-			</Button>
+			<p class="text-base font-semibold text-foreground">{$_('contacts.vcardImportPrompt')}</p>
+			<p class="mt-1 text-sm text-muted-foreground">{$_('contacts.vcardImportHint')}</p>
 		</div>
-	{:else}
-		<span class="text-sm text-muted-foreground" role="status">{$_('common.loading')}</span>
-	{/if}
-</div>
+	</div>
+{/if}
+
+{#if data.create}
+	<section class="flex-1 overflow-y-auto bg-background outline-none">
+		<div class="max-w-4xl space-y-4 p-6">
+			<ContactForm onSubmit={handleCreate} onCancel={() => goto(contactsHref({ create: false }))} />
+		</div>
+	</section>
+{:else if data.edit != null}
+	<section class="flex-1 overflow-y-auto bg-background outline-none">
+		<div class="max-w-4xl space-y-4 p-6">
+			{#if editState.status === 'loading' || editState.status === 'idle'}
+				<StateMessage>{$_('contacts.loading')}</StateMessage>
+			{:else if editState.status === 'error'}
+				<StateMessage variant="error" role="alert">{editState.error.message}</StateMessage>
+			{:else if editState.status === 'ready'}
+				<ContactForm
+					contact={editState.contact}
+					onSubmit={handleEditSave}
+					onCancel={() => void leaveEditForm()}
+				/>
+			{/if}
+		</div>
+	</section>
+{:else}
+	<PageShell
+		title={activeLabelName ?? $_('contacts.listHeading')}
+		contentClass="max-w-4xl space-y-4"
+	>
+		<Surface as="section" variant="list" padding="none">
+			{#if listState.status === 'loading'}
+				<StateMessage>{$_('contacts.loading')}</StateMessage>
+			{:else if listState.status === 'error'}
+				<StateMessage variant="error" role="alert">{listState.error.message}</StateMessage>
+			{:else if listState.status === 'ready'}
+				<!--
+					A contact the renderer cannot make sense of must cost that one
+					list, not the page: before the boundary, a row that threw while
+					rendering left the view on its loading placeholder forever, with
+					no message and nothing to retry (#252 — a backend older than
+					contact labels sent rows without `labels`).
+
+					That particular shape is handled where it belongs, at the API
+					boundary; what stays here is the class the normaliser cannot
+					repair, a field whose *type* changed under us. The error is still
+					reported — the boundary catching it is what stops it reaching the
+					window handler that reports uncaught errors, so it has to be
+					handed over explicitly, or the fix would have bought a quiet page
+					instead of a dead one.
+				-->
+				<svelte:boundary
+					onerror={(error) => {
+						void reportClientError({
+							kind: 'manual',
+							error,
+							context: { boundary: 'contact-list' }
+						});
+					}}
+				>
+					<ContactList
+						page={listState.page}
+						sort={data.sort}
+						labelId={data.labelId}
+						{activeLabelName}
+						onChanged={() => load(data.query, pageNumber, data.sort, data.labelId, true)}
+						onEdit={(id) => goto(contactsHref({ edit: id }))}
+						onFilterApply={handleFilterApply}
+						onPrev={prevPage}
+						onNext={nextPage}
+						onFirst={() => goToPage(0)}
+						onLast={lastPage}
+						onJump={(target) => goToPage(target - 1)}
+						{restoreFocusContactId}
+						onFocusRestored={() => (restoreFocusContactId = null)}
+					/>
+
+					{#snippet failed(_error, reset)}
+						<div class="space-y-3 p-4">
+							<StateMessage variant="error" padding="none" role="alert">
+								{$_('contacts.renderError')}
+							</StateMessage>
+							<Button type="button" onclick={() => void retryListRender(reset)}>
+								{$_('contacts.renderErrorRetry')}
+							</Button>
+						</div>
+					{/snippet}
+				</svelte:boundary>
+			{/if}
+		</Surface>
+	</PageShell>
+{/if}

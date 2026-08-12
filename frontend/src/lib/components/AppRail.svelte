@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolvedActiveAccountId } from '$lib/stores/accounts.js';
 	import { type WorkspaceMode, workspaceHref, workspaceMode } from '$lib/stores/workspaceMode.js';
 	import { _ } from '$lib/i18n/index.js';
 	import Icon from '$lib/components/Icon.svelte';
@@ -36,7 +35,7 @@
 		{#each items as item (item.mode)}
 			{@const active = $workspaceMode === item.mode}
 			<a
-				href={workspaceHref(item.mode, $resolvedActiveAccountId)}
+				href={workspaceHref(item.mode)}
 				class={railItemClass(active)}
 				aria-current={active ? 'page' : undefined}
 				aria-label={$_('railSwitch.goToMode', {

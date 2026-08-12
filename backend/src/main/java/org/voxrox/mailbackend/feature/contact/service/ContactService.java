@@ -14,7 +14,6 @@ import org.voxrox.mailbackend.exception.ContactNotFoundException;
 import org.voxrox.mailbackend.exception.DuplicateContactException;
 import org.voxrox.mailbackend.exception.ResourceNotFoundException;
 import org.voxrox.mailbackend.exception.ValidationException;
-import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.account.service.AccountService;
 import org.voxrox.mailbackend.feature.contact.EmailLabel;
 import org.voxrox.mailbackend.feature.contact.dto.ContactAutocompleteResponse;
@@ -45,6 +44,13 @@ import module java.base;
 public class ContactService {
 
     private static final Logger log = LoggerFactory.getLogger(ContactService.class);
+
+    /**
+     * Audit actor for address book changes. The book is application-wide, so there
+     * is no mailbox identity to attribute the action to — and on a single-user
+     * desktop install there is only ever one person doing it.
+     */
+    static final String AUDIT_ACTOR = "local-user";
 
     private static final Sort DEFAULT_SORT = Sort.by(Sort.Order.asc("surname").nullsLast(),
             Sort.Order.asc("name").nullsLast(), Sort.Order.asc("id"));
@@ -87,28 +93,24 @@ public class ContactService {
     }
 
     @Transactional(readOnly = true)
-    public Page<ContactResponse> listContacts(Long accountId, int page, int size, String sort, @Nullable Long labelId) {
-        accountService.getAccountOrThrow(accountId);
-        ensureLabelExists(accountId, labelId);
+    public Page<ContactResponse> listContacts(int page, int size, String sort, @Nullable Long labelId) {
+        ensureLabelExists(labelId);
         Pageable pageable = PageRequest.of(page, size, resolveSort(sort));
-        Page<ContactEntity> contacts = contactRepository.findByAccountId(accountId, labelId, pageable);
+        Page<ContactEntity> contacts = contactRepository.findAllFiltered(labelId, pageable);
         return contacts.map(contactMapper::toResponse);
     }
 
     /**
-     * Counts for the sidebar. Every label of the account is listed, so a label
-     * created a second ago shows up with a zero badge instead of being invisible
-     * until someone puts a contact on it; the aggregate query only knows about
-     * labels that are in use.
+     * Counts for the sidebar. Every label is listed, so a label created a second
+     * ago shows up with a zero badge instead of being invisible until someone puts
+     * a contact on it; the aggregate query only knows about labels that are in use.
      */
     @Transactional(readOnly = true)
-    public ContactCountsResponse getCounts(Long accountId) {
-        accountService.getAccountOrThrow(accountId);
-        long total = contactRepository.countByAccountId(accountId);
-        Map<Long, Long> byLabel = contactRepository.countByAccountIdGroupedByLabel(accountId).stream()
+    public ContactCountsResponse getCounts() {
+        long total = contactRepository.count();
+        Map<Long, Long> byLabel = contactRepository.countGroupedByLabel().stream()
                 .collect(Collectors.toMap(ContactLabelCount::labelId, ContactLabelCount::contacts));
-        List<ContactLabelCountResponse> labels = contactLabelRepository.findByAccountIdOrderByNameKeyAsc(accountId)
-                .stream()
+        List<ContactLabelCountResponse> labels = contactLabelRepository.findAllByOrderByNameKeyAsc().stream()
                 .map(l -> new ContactLabelCountResponse(l.getId(), l.getName(), byLabel.getOrDefault(l.getId(), 0L)))
                 .toList();
         return new ContactCountsResponse(total, labels);
@@ -119,12 +121,12 @@ public class ContactService {
      * empty page — a stale bookmark or a label someone deleted must not look like
      * "this label has no contacts".
      */
-    private void ensureLabelExists(Long accountId, @Nullable Long labelId) {
+    private void ensureLabelExists(@Nullable Long labelId) {
         if (labelId == null) {
             return;
         }
-        if (contactLabelRepository.findByIdAndAccountId(labelId, accountId).isEmpty()) {
-            throw new ContactLabelNotFoundException(accountId, labelId);
+        if (contactLabelRepository.findById(labelId).isEmpty()) {
+            throw new ContactLabelNotFoundException(labelId);
         }
     }
 
@@ -172,6 +174,9 @@ public class ContactService {
             throw new ValidationException("Contact search query q must not be empty.",
                     "validation.contactQueryRequired");
         }
+        // Still validated even though the address book half ignores it: the history
+        // half is that mailbox's own correspondence, so an unknown account is a bad
+        // request, not an empty history.
         accountService.getAccountOrThrow(accountId);
 
         int cappedLimit = Math.min(Math.max(limit, 1), AUTOCOMPLETE_MAX_LIMIT);
@@ -182,7 +187,7 @@ public class ContactService {
         // substring match and sort it below every weak contact match.
         String qLower = q.trim().toLowerCase(Locale.ROOT);
 
-        List<AutocompleteRow> rows = new ArrayList<>(contactRows(accountId, qLower, cappedLimit));
+        List<AutocompleteRow> rows = new ArrayList<>(contactRows(qLower, cappedLimit));
         Set<String> offered = rows.stream().map(r -> r.response().email().toLowerCase(Locale.ROOT))
                 .collect(Collectors.toCollection(HashSet::new));
         rows.addAll(historyRows(accountId, qLower, cappedLimit, offered));
@@ -191,10 +196,14 @@ public class ContactService {
         return rows.stream().limit(cappedLimit).map(AutocompleteRow::response).toList();
     }
 
-    private List<AutocompleteRow> contactRows(Long accountId, String qLower, int cappedLimit) {
+    /**
+     * The address book half. Not account-scoped — the whole point of a single
+     * address book is that composing from any mailbox can reach every contact the
+     * user saved.
+     */
+    private List<AutocompleteRow> contactRows(String qLower, int cappedLimit) {
         Pageable pageable = PageRequest.of(0, cappedLimit, DEFAULT_SORT);
-        List<ContactEntity> matched = contactRepository
-                .searchByAccountId(accountId, "%" + qLower + "%", (Long) null, pageable).getContent();
+        List<ContactEntity> matched = contactRepository.search("%" + qLower + "%", (Long) null, pageable).getContent();
 
         List<AutocompleteRow> ranked = matched.stream()
                 .flatMap(c -> c.getEmails().stream().map(e -> toContactRow(c, e, qLower))).sorted(CONTACT_ORDER)
@@ -309,98 +318,91 @@ public class ContactService {
     }
 
     @Transactional(readOnly = true)
-    public Page<ContactResponse> searchContacts(Long accountId, String q, int page, int size, String sort,
-            @Nullable Long labelId) {
+    public Page<ContactResponse> searchContacts(String q, int page, int size, String sort, @Nullable Long labelId) {
         if (q == null || q.isBlank()) {
             throw new ValidationException("Contact search query q must not be empty.",
                     "validation.contactQueryRequired");
         }
-        accountService.getAccountOrThrow(accountId);
-        ensureLabelExists(accountId, labelId);
+        ensureLabelExists(labelId);
         String pattern = "%" + q.toLowerCase(Locale.ROOT) + "%";
         Pageable pageable = PageRequest.of(page, size, resolveSort(sort));
-        Page<ContactEntity> contacts = contactRepository.searchByAccountId(accountId, pattern, labelId, pageable);
+        Page<ContactEntity> contacts = contactRepository.search(pattern, labelId, pageable);
         return contacts.map(contactMapper::toResponse);
     }
 
     @Transactional(readOnly = true)
-    public ContactResponse getContact(Long accountId, Long contactId) {
-        ContactEntity contact = getContactOrThrow(accountId, contactId);
+    public ContactResponse getContact(Long contactId) {
+        ContactEntity contact = getContactOrThrow(contactId);
         return contactMapper.toResponse(contact);
     }
 
     /**
-     * Exports the entire account address book as vCard 4.0 (RFC 6350). Order of
-     * contacts matches the listing (surname/name/id NULLS LAST). Returns a plain
-     * string — address books are typically &lt;10k entries, streaming would be
+     * Exports the entire address book as vCard 4.0 (RFC 6350). Order of contacts
+     * matches the listing (surname/name/id NULLS LAST). Returns a plain string —
+     * address books are typically &lt;10k entries, streaming would be
      * over-engineering.
      */
     @Transactional(readOnly = true)
-    public String exportToVCard(Long accountId) {
-        AccountEntity account = accountService.getAccountOrThrow(accountId);
-        List<ContactEntity> contacts = contactRepository.findAllByAccountId(accountId, DEFAULT_SORT);
-        AuditLog.success("contact_export", LogMasker.maskEmail(account.getEmail()),
-                "format=vcard count=" + contacts.size());
+    public String exportToVCard() {
+        List<ContactEntity> contacts = contactRepository.findAllBy(DEFAULT_SORT);
+        AuditLog.success("contact_export", AUDIT_ACTOR, "format=vcard count=" + contacts.size());
         return VCardWriter.write(contacts);
     }
 
     @Transactional
-    public ContactResponse createContact(Long accountId, ContactCreateRequest request) {
-        AccountEntity account = accountService.getAccountOrThrow(accountId);
+    public ContactResponse createContact(ContactCreateRequest request) {
         List<String> normalizedEmails = normalizeEmailList(request.emails());
-        checkNoDuplicatesWithinAccount(accountId, null, normalizedEmails);
+        checkNoDuplicates(null, normalizedEmails);
 
-        Set<ContactLabelEntity> labels = contactLabelService.resolveLabels(accountId, request.labelIds());
-        ContactEntity entity = contactMapper.toEntity(request, account, labels);
+        Set<ContactLabelEntity> labels = contactLabelService.resolveLabels(request.labelIds());
+        ContactEntity entity = contactMapper.toEntity(request, labels);
         ContactEntity saved = contactRepository.save(entity);
 
         String primaryEmail = primaryEmail(saved);
-        log.info("{} Contact created: id={} account={}", LogCategory.ACCOUNT, saved.getId(), accountId);
-        AuditLog.success("contact_create", LogMasker.maskEmail(account.getEmail()),
+        log.info("{} Contact created: id={}", LogCategory.ACCOUNT, saved.getId());
+        AuditLog.success("contact_create", AUDIT_ACTOR,
                 "contact_id=" + saved.getId() + " email=" + LogMasker.maskEmail(primaryEmail));
         return contactMapper.toResponse(saved);
     }
 
     @Transactional
-    public ContactResponse updateContact(Long accountId, Long contactId, ContactUpdateRequest request) {
-        AccountEntity account = accountService.getAccountOrThrow(accountId);
-        ContactEntity entity = getContactOrThrow(accountId, contactId);
+    public ContactResponse updateContact(Long contactId, ContactUpdateRequest request) {
+        ContactEntity entity = getContactOrThrow(contactId);
 
         List<String> normalizedEmails = normalizeEmailList(request.emails());
-        checkNoDuplicatesWithinAccount(accountId, contactId, normalizedEmails);
+        checkNoDuplicates(contactId, normalizedEmails);
 
         // PUT is replace semantics all the way down: no labelIds means no labels.
-        Set<ContactLabelEntity> labels = contactLabelService.resolveLabels(accountId, request.labelIds());
+        Set<ContactLabelEntity> labels = contactLabelService.resolveLabels(request.labelIds());
         deleteEmailsBeforeReplacing(entity);
         contactMapper.applyUpdate(entity, request, labels);
         ContactEntity saved = contactRepository.save(entity);
 
-        AuditLog.success("contact_update", LogMasker.maskEmail(account.getEmail()),
+        AuditLog.success("contact_update", AUDIT_ACTOR,
                 "contact_id=" + saved.getId() + " email=" + LogMasker.maskEmail(primaryEmail(saved)));
         return contactMapper.toResponse(saved);
     }
 
     @Transactional
-    public ContactResponse patchContact(Long accountId, Long contactId, ContactPatchRequest request) {
-        AccountEntity account = accountService.getAccountOrThrow(accountId);
-        ContactEntity entity = getContactOrThrow(accountId, contactId);
+    public ContactResponse patchContact(Long contactId, ContactPatchRequest request) {
+        ContactEntity entity = getContactOrThrow(contactId);
 
         if (request.emails() != null) {
             List<String> normalizedEmails = normalizeEmailList(request.emails());
-            checkNoDuplicatesWithinAccount(accountId, contactId, normalizedEmails);
+            checkNoDuplicates(contactId, normalizedEmails);
         }
 
         // PATCH: an absent labelIds keeps the current labels, an empty list clears
         // them — so null has to survive all the way into the mapper.
         Set<ContactLabelEntity> labels = request.labelIds() == null
                 ? null
-                : contactLabelService.resolveLabels(accountId, request.labelIds());
+                : contactLabelService.resolveLabels(request.labelIds());
         if (request.emails() != null)
             deleteEmailsBeforeReplacing(entity);
         contactMapper.applyPatch(entity, request, labels);
         ContactEntity saved = contactRepository.save(entity);
 
-        AuditLog.success("contact_patch", LogMasker.maskEmail(account.getEmail()),
+        AuditLog.success("contact_patch", AUDIT_ACTOR,
                 "contact_id=" + saved.getId() + " email=" + LogMasker.maskEmail(primaryEmail(saved)));
         return contactMapper.toResponse(saved);
     }
@@ -432,29 +434,26 @@ public class ContactService {
     }
 
     @Transactional
-    public void deleteContact(Long accountId, Long contactId) {
-        AccountEntity account = accountService.getAccountOrThrow(accountId);
-        ContactEntity entity = getContactOrThrow(accountId, contactId);
+    public void deleteContact(Long contactId) {
+        ContactEntity entity = getContactOrThrow(contactId);
         String maskedEmail = LogMasker.maskEmail(primaryEmail(entity));
 
         contactRepository.delete(entity);
 
-        AuditLog.success("contact_delete", LogMasker.maskEmail(account.getEmail()),
-                "contact_id=" + contactId + " email=" + maskedEmail);
+        AuditLog.success("contact_delete", AUDIT_ACTOR, "contact_id=" + contactId + " email=" + maskedEmail);
     }
 
     /**
      * Adds a new e-mail address to a contact. Does not change the primary flag of
      * existing addresses — the new email is added as non-primary. Follows the
-     * {@link #checkNoDuplicatesWithinAccount} convention: a duplicate within this
-     * contact's own list → {@link ValidationException} (400, the client fixes its
-     * own form), a collision with another contact →
-     * {@link DuplicateContactException} (409, conflict with an existing record).
+     * {@link #checkNoDuplicates} convention: a duplicate within this contact's own
+     * list → {@link ValidationException} (400, the client fixes its own form), a
+     * collision with another contact → {@link DuplicateContactException} (409,
+     * conflict with an existing record).
      */
     @Transactional
-    public ContactEmailResponse addEmail(Long accountId, Long contactId, ContactEmailRequest request) {
-        AccountEntity account = accountService.getAccountOrThrow(accountId);
-        ContactEntity entity = getContactOrThrow(accountId, contactId);
+    public ContactEmailResponse addEmail(Long contactId, ContactEmailRequest request) {
+        ContactEntity entity = getContactOrThrow(contactId);
 
         // request.email() is @NotBlank-validated, so the normalized form exists.
         String normalized = Objects.requireNonNull(contactMapper.normalizeEmail(request.email()));
@@ -465,9 +464,9 @@ public class ContactService {
                     "The contact already has the e-mail address " + LogMasker.maskEmail(normalized) + ".",
                     "validation.contact.emailAlreadyOnContact", normalized);
         }
-        contactRepository.findByAccountIdAndAnyEmail(accountId, normalized).stream()
-                .filter(other -> !other.getId().equals(contactId)).findFirst().ifPresent(other -> {
-                    throw new DuplicateContactException(accountId, normalized);
+        contactRepository.findByAnyEmail(normalized).stream().filter(other -> !other.getId().equals(contactId))
+                .findFirst().ifPresent(other -> {
+                    throw new DuplicateContactException(normalized);
                 });
 
         ContactEmailEntity newEmail = new ContactEmailEntity();
@@ -481,7 +480,7 @@ public class ContactService {
         ContactEmailEntity persisted = saved.getEmails().stream().filter(e -> normalized.equals(e.getEmail()))
                 .findFirst().orElseThrow(() -> new IllegalStateException("Added email was not found after save."));
 
-        AuditLog.success("contact_email_add", LogMasker.maskEmail(account.getEmail()),
+        AuditLog.success("contact_email_add", AUDIT_ACTOR,
                 "contact_id=" + contactId + " email=" + LogMasker.maskEmail(normalized));
         return new ContactEmailResponse(persisted.getId(), persisted.getEmail(), persisted.getLabel(),
                 persisted.isPrimary());
@@ -493,9 +492,8 @@ public class ContactService {
      * email.
      */
     @Transactional
-    public void deleteEmail(Long accountId, Long contactId, Long emailId) {
-        AccountEntity account = accountService.getAccountOrThrow(accountId);
-        ContactEntity entity = getContactOrThrow(accountId, contactId);
+    public void deleteEmail(Long contactId, Long emailId) {
+        ContactEntity entity = getContactOrThrow(contactId);
 
         ContactEmailEntity target = entity.getEmails().stream().filter(e -> emailId.equals(e.getId())).findFirst()
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -517,7 +515,7 @@ public class ContactService {
 
         contactRepository.save(entity);
 
-        AuditLog.success("contact_email_delete", LogMasker.maskEmail(account.getEmail()),
+        AuditLog.success("contact_email_delete", AUDIT_ACTOR,
                 "contact_id=" + contactId + " email=" + LogMasker.maskEmail(removedEmail));
     }
 
@@ -526,9 +524,8 @@ public class ContactService {
      * {@code primary=false}. 404 when the address does not belong to the contact.
      */
     @Transactional
-    public ContactResponse setPrimaryEmail(Long accountId, Long contactId, Long emailId) {
-        AccountEntity account = accountService.getAccountOrThrow(accountId);
-        ContactEntity entity = getContactOrThrow(accountId, contactId);
+    public ContactResponse setPrimaryEmail(Long contactId, Long emailId) {
+        ContactEntity entity = getContactOrThrow(contactId);
 
         ContactEmailEntity target = entity.getEmails().stream().filter(e -> emailId.equals(e.getId())).findFirst()
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -555,7 +552,7 @@ public class ContactService {
 
         ContactEntity saved = contactRepository.save(entity);
 
-        AuditLog.success("contact_email_set_primary", LogMasker.maskEmail(account.getEmail()),
+        AuditLog.success("contact_email_set_primary", AUDIT_ACTOR,
                 "contact_id=" + contactId + " email=" + LogMasker.maskEmail(target.getEmail()));
         return contactMapper.toResponse(saved);
     }
@@ -570,8 +567,7 @@ public class ContactService {
      * and retry — we never drop addresses automatically.
      */
     @Transactional
-    public ContactResponse merge(Long accountId, Long targetId, ContactMergeRequest request) {
-        AccountEntity account = accountService.getAccountOrThrow(accountId);
+    public ContactResponse merge(Long targetId, ContactMergeRequest request) {
 
         List<Long> rawSources = request.source();
         Set<Long> uniqueSources = new LinkedHashSet<>(rawSources);
@@ -584,10 +580,10 @@ public class ContactService {
                     "validation.contactMerge.targetInSource");
         }
 
-        ContactEntity target = getContactOrThrow(accountId, targetId);
+        ContactEntity target = getContactOrThrow(targetId);
         List<ContactEntity> sources = new ArrayList<>(uniqueSources.size());
         for (Long sid : uniqueSources) {
-            sources.add(getContactOrThrow(accountId, sid));
+            sources.add(getContactOrThrow(sid));
         }
 
         Set<String> alreadyAdded = target.getEmails().stream().map(e -> e.getEmail().toLowerCase(Locale.ROOT))
@@ -652,10 +648,10 @@ public class ContactService {
         }
         ContactEntity saved = contactRepository.save(target);
 
-        log.info("{} Contact merge account={}: target={} sources={} final_emails={}", LogCategory.ACCOUNT, accountId,
-                targetId, uniqueSources.size(), saved.getEmails().size());
-        AuditLog.success("contact_merge", LogMasker.maskEmail(account.getEmail()), "target=" + targetId + " sources="
-                + uniqueSources.size() + " final_emails=" + saved.getEmails().size());
+        log.info("{} Contact merge: target={} sources={} final_emails={}", LogCategory.ACCOUNT, targetId,
+                uniqueSources.size(), saved.getEmails().size());
+        AuditLog.success("contact_merge", AUDIT_ACTOR, "target=" + targetId + " sources=" + uniqueSources.size()
+                + " final_emails=" + saved.getEmails().size());
 
         return contactMapper.toResponse(saved);
     }
@@ -686,15 +682,14 @@ public class ContactService {
         return parts.isEmpty() ? null : String.join(NOTE_SEPARATOR, parts);
     }
 
-    private ContactEntity getContactOrThrow(Long accountId, Long contactId) {
-        return contactRepository.findByIdAndAccountId(contactId, accountId)
-                .orElseThrow(() -> new ContactNotFoundException(accountId, contactId));
+    private ContactEntity getContactOrThrow(Long contactId) {
+        return contactRepository.findById(contactId).orElseThrow(() -> new ContactNotFoundException(contactId));
     }
 
     /**
-     * Verifies that no email in the list is used by another contact within the
-     * given account. {@code excludeContactId} is the ID of the contact currently
-     * being edited (its own emails are fine); pass {@code null} for create.
+     * Verifies that no email in the list is used by another contact.
+     * {@code excludeContactId} is the ID of the contact currently being edited (its
+     * own emails are fine); pass {@code null} for create.
      * <p>
      * A duplicate inside the request (client sent the same email twice) and a
      * collision with a foreign contact are two different states:
@@ -705,7 +700,7 @@ public class ContactService {
      * an existing record in the DB</li>
      * </ul>
      */
-    private void checkNoDuplicatesWithinAccount(Long accountId, @Nullable Long excludeContactId, List<String> emails) {
+    private void checkNoDuplicates(@Nullable Long excludeContactId, List<String> emails) {
         Set<String> seen = new HashSet<>();
         for (String email : emails) {
             if (!seen.add(email)) {
@@ -718,12 +713,12 @@ public class ContactService {
             }
         }
 
-        List<ContactEntity> matches = contactRepository.findByAccountIdAndAnyEmailIn(accountId, seen);
+        List<ContactEntity> matches = contactRepository.findByAnyEmailIn(seen);
         for (String email : seen) {
             matches.stream().filter(other -> excludeContactId == null || !other.getId().equals(excludeContactId))
                     .filter(other -> other.getEmails().stream().anyMatch(e -> email.equals(e.getEmail()))).findFirst()
                     .ifPresent(other -> {
-                        throw new DuplicateContactException(accountId, email);
+                        throw new DuplicateContactException(email);
                     });
         }
     }

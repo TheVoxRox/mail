@@ -3,6 +3,8 @@ package org.voxrox.mailbackend.feature.account.entity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 
+import org.jspecify.annotations.Nullable;
+
 @Entity
 @Table(name = "mail_providers")
 public class MailProviderEntity {
@@ -52,10 +54,11 @@ public class MailProviderEntity {
      * RegistrationId of the Spring Security ClientRegistration ({@code "google"},
      * {@code "microsoft"}, …). The value matches the key in
      * {@link org.voxrox.mailbackend.feature.auth.service.OAuth2TokenServiceRegistry}.
-     * Only meaningful when {@link #supportsOauth2} is {@code true}.
+     * {@code null} exactly when {@link #supportsOauth2} is {@code false} — Seznam
+     * publishes no OAuth2 API and is PASSWORD-only.
      */
     @Column(name = "oauth2_registration_id")
-    private String oauth2RegistrationId;
+    private @Nullable String oauth2RegistrationId;
 
     public MailProviderEntity() {
         this.imapConfig = new MailServerConfig();
@@ -118,11 +121,11 @@ public class MailProviderEntity {
         this.supportsOauth2 = supportsOauth2;
     }
 
-    public String getOauth2RegistrationId() {
+    public @Nullable String getOauth2RegistrationId() {
         return oauth2RegistrationId;
     }
 
-    public void setOauth2RegistrationId(String oauth2RegistrationId) {
+    public void setOauth2RegistrationId(@Nullable String oauth2RegistrationId) {
         this.oauth2RegistrationId = oauth2RegistrationId;
     }
 

@@ -15,7 +15,7 @@
 	import { saveBlobAsFile } from '$lib/download.js';
 	import { initErrorReporting } from '$lib/errorReporting.js';
 	import { sessionState } from '$lib/stores/session.js';
-	import { accountsState, resolvedActiveAccountId } from '$lib/stores/accounts.js';
+	import { accountsState } from '$lib/stores/accounts.js';
 	import { backendSidecarState } from '$lib/backend/sidecar.js';
 	import { watchSidecarAutoRestart } from '$lib/backend/sidecarRecovery.js';
 	import { bootState } from '$lib/stores/boot.js';
@@ -248,7 +248,7 @@
 	}
 
 	async function goToWorkspace(mode: WorkspaceMode) {
-		await goto(workspaceHref(mode, $resolvedActiveAccountId));
+		await goto(workspaceHref(mode));
 	}
 
 	async function goToCompose() {
@@ -256,16 +256,12 @@
 	}
 
 	async function goToNewContact() {
-		const accountId = $resolvedActiveAccountId ?? Number($page.params.accountId);
-		if (!accountId) return;
+		// No account guard: the address book is application-wide, so a new
+		// contact can be written before any mailbox is set up.
 		const params = new SvelteURLSearchParams($page.url.searchParams);
 		params.set('create', '1');
 		const query = params.toString();
-		await goto(
-			`${resolve('/contacts/[accountId]', {
-				accountId: String(accountId)
-			})}${query ? `?${query}` : ''}`
-		);
+		await goto(`${resolve('/contacts')}${query ? `?${query}` : ''}`);
 	}
 
 	async function goToPrimaryNewAction() {

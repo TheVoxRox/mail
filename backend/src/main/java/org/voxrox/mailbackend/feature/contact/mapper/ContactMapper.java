@@ -8,7 +8,6 @@ import java.util.Set;
 
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
-import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.contact.dto.ContactCreateRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactEmailRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactEmailResponse;
@@ -31,10 +30,8 @@ import org.voxrox.mailbackend.feature.contact.entity.ContactLabelEntity;
 @Component
 public class ContactMapper {
 
-    public ContactEntity toEntity(ContactCreateRequest req, AccountEntity account,
-            @Nullable Set<ContactLabelEntity> labels) {
+    public ContactEntity toEntity(ContactCreateRequest req, @Nullable Set<ContactLabelEntity> labels) {
         ContactEntity e = new ContactEntity();
-        e.setAccount(account);
         e.setName(req.name());
         e.setSurname(req.surname());
         e.setNote(req.note());

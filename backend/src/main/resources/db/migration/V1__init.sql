@@ -18,9 +18,15 @@
 
 
 -- =====================================================================
--- 1) MAIL PROVIDERS — predefined templates for Google (Gmail), Seznam,
+-- 1) MAIL PROVIDERS — built-in templates for Google (Gmail), Seznam,
 --    Microsoft (Outlook/Office 365). The 'name' is the user-facing brand;
 --    OAuth flow routing keys on oauth2_registration_id, not on the name.
+--
+-- The rows are NOT seeded here. MailProviderCatalogReconciler projects
+-- MailProviderCatalog into this table on every boot, so adding a provider
+-- or following one that moved a hostname/port is an ordinary code change
+-- instead of a Flyway migration against an installed user's database. The
+-- table is reference data — no endpoint writes to it.
 --
 -- supports_oauth2 + oauth2_registration_id:
 --   The frontend bootstrap loads providers and uses these fields to decide
@@ -29,6 +35,11 @@
 --   Security ClientRegistration ID in application.properties (e.g.
 --   "google", "microsoft") — backend and frontend then use the same
 --   identifier for OAuth flow routing.
+--
+-- The BOOLEAN columns are NOT NULL because the entity maps them to
+-- primitive booleans (MailProviderEntity.systemTemplate,
+-- MailServerConfig.useSsl); a NULL would fail on read, and only the
+-- reconciler ever writes here.
 -- =====================================================================
 CREATE TABLE mail_providers (
     id                     INTEGER       PRIMARY KEY AUTOINCREMENT,
@@ -36,31 +47,14 @@ CREATE TABLE mail_providers (
     domains                VARCHAR(1000) NOT NULL,
     imap_host              VARCHAR(255)  NOT NULL,
     imap_port              INTEGER       NOT NULL,
-    imap_ssl               BOOLEAN,
+    imap_ssl               BOOLEAN       NOT NULL DEFAULT 1,
     smtp_host              VARCHAR(255)  NOT NULL,
     smtp_port              INTEGER       NOT NULL,
-    smtp_ssl               BOOLEAN,
-    is_system_template     BOOLEAN,
+    smtp_ssl               BOOLEAN       NOT NULL DEFAULT 1,
+    is_system_template     BOOLEAN       NOT NULL DEFAULT 0,
     supports_oauth2        BOOLEAN       NOT NULL DEFAULT 0,
     oauth2_registration_id VARCHAR(50)
 );
-
--- Seed of system templates. 'domains' format: comma-anchored (",a.cz,b.cz,")
--- for exact LIKE '%,<domain>,%' matching in MailProviderRepository.
--- Ports 993/465 = implicit SSL/TLS (useSsl=1); STARTTLS variants (143/587)
--- use useSsl=0. Office 365 SMTP submission is STARTTLS-only on 587 (no
--- implicit-SSL endpoint exists), so Microsoft is seeded smtp 587/useSsl=0;
--- its IMAP keeps implicit SSL on 993.
---
--- supports_oauth2 = 1 + oauth2_registration_id signals to the frontend that
--- the provider has a backend OAuth2 implementation (token service + Spring
--- ClientRegistration). Seznam stays PASSWORD-only — there is no public
--- OAuth2 API. Microsoft (Outlook/Office 365) uses Microsoft Identity Platform
--- tenant 'common' (personal MSA and work/AAD accounts under one registration).
-INSERT INTO mail_providers (name, domains, imap_host, imap_port, imap_ssl, smtp_host, smtp_port, smtp_ssl, is_system_template, supports_oauth2, oauth2_registration_id) VALUES
-    ('Google',    ',gmail.com,googlemail.com,',                    'imap.gmail.com',   993, 1, 'smtp.gmail.com',   465, 1, 1, 1, 'google'),
-    ('Seznam',    ',seznam.cz,email.cz,post.cz,spoluzaci.cz,',     'imap.seznam.cz',   993, 1, 'smtp.seznam.cz',   465, 1, 1, 0, NULL),
-    ('Microsoft', ',outlook.com,hotmail.com,live.com,msn.com,',    'outlook.office365.com', 993, 1, 'smtp.office365.com', 587, 0, 1, 1, 'microsoft');
 
 
 -- =====================================================================
@@ -175,7 +169,10 @@ CREATE TABLE folder_sync_state (
     last_known_uid    INTEGER,
     uid_validity      INTEGER,
     last_sync_at      DATETIME,
-    version           INTEGER,
+    -- JPA @Version optimistic locking. NOT NULL because Hibernate always
+    -- writes a version on insert and a NULL one would be read back as a
+    -- detached/transient marker.
+    version           INTEGER       NOT NULL DEFAULT 0,
     last_known_modseq INTEGER,
     CONSTRAINT uk_account_folder UNIQUE (account_id, folder_name),
     FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
@@ -245,8 +242,11 @@ CREATE UNIQUE INDEX idx_messages_unique_uid
 CREATE INDEX idx_messages_lookup_desc
     ON messages (account_id, folder_name, received_at DESC);
 
-CREATE INDEX idx_messages_stable_id
-    ON messages (stable_id);
+-- No explicit index on stable_id: the column's UNIQUE constraint already
+-- makes SQLite build sqlite_autoindex_messages_1 over exactly (stable_id),
+-- which serves every findByStableId lookup. A second CREATE INDEX on the
+-- same column is a duplicate B-tree maintained on every insert — measured at
+-- +6 % database file size over 40k messages, for nothing.
 
 -- Threading indexes. Composite on (account_id, ...) so every thread lookup
 -- stays inside the caller's account and cross-account thread IDs cannot
@@ -333,27 +333,38 @@ CREATE INDEX idx_attachments_message_id ON attachments (message_id);
 
 
 -- =====================================================================
--- 7) CONTACTS — per-account address book.
+-- 7) CONTACTS — the address book. One book for the whole application, NOT
+--    one per mail account.
 --
--- A contact belongs to exactly one account (FK with CASCADE). Structured
--- names: name (given name) + surname (family name), both nullable. Email
--- addresses live in a separate contact_emails table (a contact may have
--- 0..N addresses). The audit columns created_at, updated_at are managed
--- by @PrePersist / @PreUpdate in ContactEntity.
+-- There is deliberately no account_id. The address book is data the user
+-- curated by hand or imported from a .vcf; nothing syncs it from a provider,
+-- so no mail account owns it. Scoping it per account would mean the same
+-- person has to be entered twice for a user with a private and a work
+-- mailbox (the common case), compose could only suggest the addresses of the
+-- account being written from, and removing a mail account would silently
+-- delete people — data that, unlike messages, cannot be re-fetched from
+-- anywhere.
+--
+-- If per-account provenance is ever needed (a CardDAV / provider sync would
+-- want it), that is an additive column, not a reason to scope the table.
+--
+-- Structured names: name (given name) + surname (family name), both
+-- nullable. Email addresses live in a separate contact_emails table (a
+-- contact may have 0..N addresses). The audit columns created_at, updated_at
+-- are managed by @PrePersist / @PreUpdate in ContactEntity.
 -- =====================================================================
 CREATE TABLE contacts (
     id         INTEGER       PRIMARY KEY AUTOINCREMENT,
-    account_id INTEGER       NOT NULL,
     name       VARCHAR(255),
     surname    VARCHAR(255),
     note       VARCHAR(1000),
     created_at DATETIME      NOT NULL,
-    updated_at DATETIME      NOT NULL,
-    FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
+    updated_at DATETIME      NOT NULL
 );
 
-CREATE INDEX ix_contacts_account_surname_name
-    ON contacts (account_id, surname, name);
+-- Serves the default list ordering (surname, name).
+CREATE INDEX ix_contacts_surname_name
+    ON contacts (surname, name);
 
 
 -- =====================================================================
@@ -364,15 +375,16 @@ CREATE INDEX ix_contacts_account_surname_name
 --
 -- Indexes:
 --  * ux_contact_emails_contact_email — duplicate email on the same contact
---    is rejected.
+--    is rejected. Its leading column also serves every lookup by contact_id
+--    alone (loading a contact's addresses, the FK cascade), so no separate
+--    index on contact_id exists — it would only duplicate this one's prefix.
 --  * ux_contact_emails_contact_primary — partial unique enforces "exactly
 --    one primary email per contact" at the DB level. SQLite 3.8+ supports
 --    partial indexes.
 --  * ix_contact_emails_email — speeds up the cross-contact duplicate check
---    (findByAccountIdAndAnyEmail) over address books with thousands of
---    contacts; the composite (contact_id, email) is not enough for plain
---    email=:x lookups.
---  * Cross-contact uniqueness per account is enforced in the application layer.
+--    (findByAnyEmail) over address books with thousands of contacts; the
+--    composite (contact_id, email) is not enough for plain email=:x lookups.
+--  * Cross-contact uniqueness is enforced in the application layer.
 -- =====================================================================
 CREATE TABLE contact_emails (
     id         INTEGER      PRIMARY KEY AUTOINCREMENT,
@@ -386,9 +398,6 @@ CREATE TABLE contact_emails (
 CREATE UNIQUE INDEX ux_contact_emails_contact_email
     ON contact_emails (contact_id, email);
 
-CREATE INDEX ix_contact_emails_contact_id
-    ON contact_emails (contact_id);
-
 CREATE UNIQUE INDEX ux_contact_emails_contact_primary
     ON contact_emails (contact_id)
     WHERE is_primary = 1;
@@ -398,7 +407,13 @@ CREATE INDEX ix_contact_emails_email
 
 
 -- =====================================================================
--- 9) CONTACT LABELS — user-defined labels ("Family", "Clients"), per account.
+-- 9) CONTACT LABELS — user-defined labels ("Family", "Clients").
+--
+-- Not scoped per account, for the same reason as `contacts`: they group
+-- entries of the one address book. A per-account label set would let two
+-- rows both called "Family" exist and force the UI to present them as one
+-- anyway — renaming and deleting would then have to guess which row the
+-- user meant.
 --
 -- Distinct from contact_emails.label: that one is the *type* of a single
 -- address (WORK/HOME/OTHER, a closed enum mapped to the vCard TYPE
@@ -414,15 +429,13 @@ CREATE INDEX ix_contact_emails_email
 -- =====================================================================
 CREATE TABLE contact_labels (
     id         INTEGER     PRIMARY KEY AUTOINCREMENT,
-    account_id INTEGER     NOT NULL,
     name       VARCHAR(60) NOT NULL,
     name_key   VARCHAR(60) NOT NULL,
-    created_at DATETIME    NOT NULL,
-    FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
+    created_at DATETIME    NOT NULL
 );
 
-CREATE UNIQUE INDEX ux_contact_labels_account_name_key
-    ON contact_labels (account_id, name_key);
+CREATE UNIQUE INDEX ux_contact_labels_name_key
+    ON contact_labels (name_key);
 
 
 -- =====================================================================

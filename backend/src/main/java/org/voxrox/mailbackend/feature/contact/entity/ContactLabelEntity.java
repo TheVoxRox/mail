@@ -4,12 +4,11 @@ import java.time.LocalDateTime;
 
 import jakarta.persistence.*;
 
-import org.hibernate.annotations.OnDelete;
-import org.hibernate.annotations.OnDeleteAction;
-import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
-
 /**
- * A user-defined contact label ("Family", "Clients"), scoped to one account.
+ * A user-defined contact label ("Family", "Clients").
+ * <p>
+ * Not scoped to a mail account: it groups entries of the one address book (see
+ * the `contacts` table comment in V1__init.sql).
  * <p>
  * Not to be confused with
  * {@link org.voxrox.mailbackend.feature.contact.EmailLabel} — that is the
@@ -24,17 +23,12 @@ import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
  */
 @Entity
 @Table(name = "contact_labels", uniqueConstraints = {
-        @UniqueConstraint(name = "ux_contact_labels_account_name_key", columnNames = {"account_id", "name_key"})})
+        @UniqueConstraint(name = "ux_contact_labels_name_key", columnNames = {"name_key"})})
 public class ContactLabelEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "account_id", nullable = false)
-    @OnDelete(action = OnDeleteAction.CASCADE)
-    private AccountEntity account;
 
     /** Display form, exactly as the user typed it. */
     @Column(name = "name", nullable = false, length = 60)
@@ -80,14 +74,6 @@ public class ContactLabelEntity {
 
     public void setId(Long id) {
         this.id = id;
-    }
-
-    public AccountEntity getAccount() {
-        return account;
-    }
-
-    public void setAccount(AccountEntity account) {
-        this.account = account;
     }
 
     public String getName() {

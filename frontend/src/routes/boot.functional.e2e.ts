@@ -96,7 +96,7 @@ test.describe('MSW bootstrap', () => {
 			bubbles: true,
 			cancelable: true
 		});
-		await page.waitForURL('**/contacts/1');
+		await page.waitForURL('**/contacts');
 		await expect(
 			page
 				.getByRole('navigation', { name: 'Přepínač prostředí' })
@@ -108,7 +108,7 @@ test.describe('MSW bootstrap', () => {
 		await page.waitForURL('**/settings/appearance');
 
 		await page.keyboard.press('Control+2');
-		await page.waitForURL('**/contacts/1');
+		await page.waitForURL('**/contacts');
 		await expect(
 			page
 				.getByRole('navigation', { name: 'Přepínač prostředí' })
@@ -158,7 +158,7 @@ test.describe('MSW bootstrap', () => {
 		await expect(search).toBeFocused();
 
 		await page.keyboard.press('Control+2');
-		await page.waitForURL('**/contacts/1');
+		await page.waitForURL('**/contacts');
 		await expect(page.getByRole('main', { name: 'Kontakty' })).toBeFocused();
 	});
 

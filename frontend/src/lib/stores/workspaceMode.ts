@@ -16,12 +16,15 @@ export const workspaceMode: Readable<WorkspaceMode> = derived(page, ($page) =>
 	detectWorkspaceMode($page.url.pathname)
 );
 
-export function workspaceHref(mode: WorkspaceMode, activeAccountId: number | null): string {
+/**
+ * Landing route of a workspace. Takes no account: the address book is
+ * application-wide, and mail and settings open on their own entry route and
+ * read the active account from the store.
+ */
+export function workspaceHref(mode: WorkspaceMode): string {
 	switch (mode) {
 		case 'contacts':
-			return activeAccountId
-				? resolve('/contacts/[accountId]', { accountId: String(activeAccountId) })
-				: resolve('/contacts');
+			return resolve('/contacts');
 		case 'settings':
 			return resolve('/settings/appearance');
 		case 'mail':

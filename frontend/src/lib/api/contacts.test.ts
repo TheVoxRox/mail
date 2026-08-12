@@ -48,7 +48,7 @@ describe('contacts API — responses missing a list field', () => {
 	it('fills in a missing `labels` on a listed contact and keeps the rest', async () => {
 		apiGetMock.mockResolvedValue(pageOf([legacyRow]));
 
-		const result = await listContacts(1);
+		const result = await listContacts();
 
 		expect(result.content[0].labels).toEqual([]);
 		expect(result.content[0].emails).toHaveLength(1);
@@ -59,7 +59,7 @@ describe('contacts API — responses missing a list field', () => {
 	it('fills in a missing `emails`', async () => {
 		apiGetMock.mockResolvedValue(pageOf([{ ...legacyRow, emails: undefined, labels: [] }]));
 
-		const result = await listContacts(1);
+		const result = await listContacts();
 
 		expect(result.content[0].emails).toEqual([]);
 	});
@@ -68,7 +68,7 @@ describe('contacts API — responses missing a list field', () => {
 		const labels = [{ id: 7, name: 'Klienti' }];
 		apiGetMock.mockResolvedValue(pageOf([{ ...legacyRow, labels }]));
 
-		const result = await listContacts(1);
+		const result = await listContacts();
 
 		expect(result.content[0].labels).toEqual(labels);
 	});
@@ -76,7 +76,7 @@ describe('contacts API — responses missing a list field', () => {
 	it('turns a page without `content` into an empty page', async () => {
 		apiGetMock.mockResolvedValue({ ...pageOf([]), content: undefined });
 
-		const result = await listContacts(1);
+		const result = await listContacts();
 
 		expect(result.content).toEqual([]);
 	});
@@ -85,15 +85,15 @@ describe('contacts API — responses missing a list field', () => {
 		apiGetMock.mockResolvedValue(legacyRow);
 		apiPostMock.mockResolvedValue(legacyRow);
 
-		expect((await getContact(1, 1)).labels).toEqual([]);
-		expect((await createContact(1, { emails: [] })).labels).toEqual([]);
+		expect((await getContact(1)).labels).toEqual([]);
+		expect((await createContact({ emails: [] })).labels).toEqual([]);
 	});
 
 	it('fills in `labels` missing from the sidebar counts', async () => {
 		// The same backend answered counts in its pre-labels shape.
 		apiGetMock.mockResolvedValue({ total: 1, work: 1, home: 0, other: 0 });
 
-		const counts = await getContactCounts(1);
+		const counts = await getContactCounts();
 
 		expect(counts.labels).toEqual([]);
 		expect(counts.total).toBe(1);

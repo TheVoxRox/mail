@@ -27,7 +27,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 @Table(name = "messages", indexes = {
         @Index(name = "idx_messages_unique_uid", columnList = "account_id, folder_name, uid", unique = true),
         @Index(name = "idx_messages_lookup_desc", columnList = "account_id, folder_name, received_at DESC"),
-        @Index(name = "idx_messages_stable_id", columnList = "stable_id"),
+        // No index on stable_id — its UNIQUE constraint already builds one.
         @Index(name = "idx_messages_account_thread", columnList = "account_id, thread_id"),
         @Index(name = "idx_messages_account_thread_root", columnList = "account_id, thread_root_message_id"),
         @Index(name = "idx_messages_account_message_id", columnList = "account_id, message_id"),

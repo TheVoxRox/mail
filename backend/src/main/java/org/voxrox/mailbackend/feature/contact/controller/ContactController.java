@@ -44,13 +44,15 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 /**
- * REST API for the per-account contact address book. All endpoints are rooted
- * under a concrete account — cross-account access returns 404 (we do not leak
- * the existence of another account's contact).
+ * REST API for the address book. There is one book for the whole application,
+ * not one per mail account (see the {@code contacts} table comment in
+ * {@code V1__init.sql}), so no endpoint here is scoped to an account. The one
+ * exception is {@code /autocomplete}, which takes the composing mailbox as a
+ * query parameter to decide whose correspondence history to blend in.
  */
-@Tag(name = "Contacts", description = "Per-account contact address book (CRUD + search).")
+@Tag(name = "Contacts", description = "Application-wide contact address book (CRUD + search).")
 @RestController
-@RequestMapping("/api/v1/accounts/{accountId}/contacts")
+@RequestMapping("/api/v1/contacts")
 @Validated
 public class ContactController {
 
@@ -71,10 +73,9 @@ public class ContactController {
     @Operation(summary = "List / search contacts", description = "Returns a paginated list of contacts. With the q parameter performs a case-insensitive substring search across email, name and surname. "
             + "Optional `sort` (`name`/`surname`/`recent`) drives the order (default `surname`). Optional `labelId` filters to contacts carrying the given contact label; an unknown ID is a 404, not an empty page.")
     @ApiResponses({
-            @ApiResponse(responseCode = "404", description = "The labelId does not exist for the account (CONTACT_LABEL_NOT_FOUND).")})
+            @ApiResponse(responseCode = "404", description = "The labelId does not exist (CONTACT_LABEL_NOT_FOUND).")})
     @GetMapping
     public PagedResponse<ContactResponse> listContacts(
-            @PathVariable @Positive(message = "{validation.positive}") Long accountId,
             @RequestParam(required = false) @Size(min = 1, message = "{validation.size.min}") String q,
             @RequestParam(required = false) @Min(value = 0, message = "{validation.min}") Integer page,
             @RequestParam(required = false) @Min(value = 1, message = "{validation.min}") Integer size,
@@ -91,30 +92,32 @@ public class ContactController {
         }
         ensureContactQueryWithinLimit(q);
 
-        log.debug("{} Contacts account={} page={} size={} q={} sort={} labelId={}", LogCategory.API, accountId,
-                finalPage, finalSize, q, sort, labelId);
+        log.debug("{} Contacts page={} size={} q={} sort={} labelId={}", LogCategory.API, finalPage, finalSize, q, sort,
+                labelId);
 
         if (q != null && !q.isBlank()) {
-            return PagedResponse.from(contactService.searchContacts(accountId, q, finalPage, finalSize, sort, labelId));
+            return PagedResponse.from(contactService.searchContacts(q, finalPage, finalSize, sort, labelId));
         }
-        return PagedResponse.from(contactService.listContacts(accountId, finalPage, finalSize, sort, labelId));
+        return PagedResponse.from(contactService.listContacts(finalPage, finalSize, sort, labelId));
     }
 
-    @Operation(summary = "Contact counts", description = "Returns the total number of contacts of the account plus one row per contact label. "
+    @Operation(summary = "Contact counts", description = "Returns the total number of contacts plus one row per contact label. "
             + "Each per-label count matches the size of the list filtered by the same `labelId`; labels nobody uses are included with contacts = 0.")
     @GetMapping("/counts")
-    public ContactCountsResponse getCounts(@PathVariable @Positive(message = "{validation.positive}") Long accountId) {
-        return contactService.getCounts(accountId);
+    public ContactCountsResponse getCounts() {
+        return contactService.getCounts();
     }
 
     @Operation(summary = "Compose-window autocomplete", description = "Returns a flat list of addresses for typeahead, merged from the address book (`source: CONTACT`) and "
             + "the addresses harvested from synced message headers (`source: HISTORY`). Ranking: prefix-email > prefix-surname > prefix-name > substring, "
             + "with contacts winning a tie and history rows ordered by written-to-first then recency. An address present in both appears once, as the contact. "
             + "History rows carry no contact identity, so `contactId`, `emailId`, `label` and `primary` are null and the last seen display name is in `name`. "
-            + "The limit applies to the merged list. Default limit 10, hard cap 20.")
+            + "The limit applies to the merged list. Default limit 10, hard cap 20. "
+            + "`accountId` selects whose correspondence history to blend in — it is the mailbox being composed from. "
+            + "The address book half ignores it: the book is application-wide, so composing from any mailbox reaches every saved contact.")
     @GetMapping("/autocomplete")
     public List<ContactAutocompleteResponse> autocomplete(
-            @PathVariable @Positive(message = "{validation.positive}") Long accountId,
+            @RequestParam @Positive(message = "{validation.positive}") Long accountId,
             @RequestParam @Size(min = 1, message = "{validation.size.min}") String q,
             @RequestParam(required = false) @Min(value = 1, message = "{validation.min}") Integer limit) {
         ensureContactQueryWithinLimit(q);
@@ -135,89 +138,78 @@ public class ContactController {
         }
     }
 
-    @Operation(summary = "Export address book as vCard 4.0", description = "Returns all contacts of the account in vCard 4.0 format (RFC 6350) — text/vcard. "
+    @Operation(summary = "Export address book as vCard 4.0", description = "Returns every contact in the address book in vCard 4.0 format (RFC 6350) — text/vcard. "
             + "Suitable for import into Apple Contacts, Google Contacts, Thunderbird and other clients.")
     @GetMapping(value = "/export.vcf", produces = "text/vcard;charset=UTF-8")
-    public ResponseEntity<String> exportVCard(
-            @PathVariable @Positive(message = "{validation.positive}") Long accountId) {
-        log.info("{} Contact export (vCard) account={}", LogCategory.API, accountId);
-        String body = contactService.exportToVCard(accountId);
-        String filename = "contacts-" + accountId + ".vcf";
+    public ResponseEntity<String> exportVCard() {
+        log.info("{} Contact export (vCard)", LogCategory.API);
+        String body = contactService.exportToVCard();
+        String filename = "contacts.vcf";
         return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
                 .contentType(MediaType.parseMediaType("text/vcard;charset=UTF-8")).body(body);
     }
 
-    @Operation(summary = "Contact detail", description = "Returns one contact by ID within the given account.")
+    @Operation(summary = "Contact detail", description = "Returns one contact by ID.")
     @ApiResponses({
-            @ApiResponse(responseCode = "404", description = "A contact with the given ID does not exist for the account (CONTACT_NOT_FOUND).")})
+            @ApiResponse(responseCode = "404", description = "A contact with the given ID does not exist (CONTACT_NOT_FOUND).")})
     @GetMapping("/{contactId}")
-    public ContactResponse getContact(@PathVariable @Positive(message = "{validation.positive}") Long accountId,
-            @PathVariable @Positive(message = "{validation.positive}") Long contactId) {
-        return contactService.getContact(accountId, contactId);
+    public ContactResponse getContact(@PathVariable @Positive(message = "{validation.positive}") Long contactId) {
+        return contactService.getContact(contactId);
     }
 
-    @Operation(summary = "Create contact", description = "Adds a new contact to the account's address book. Per-account e-mail uniqueness is enforced (409 on duplicate).")
+    @Operation(summary = "Create contact", description = "Adds a new contact to the address book. E-mail uniqueness across the whole book is enforced (409 on duplicate).")
     @ApiResponses({
-            @ApiResponse(responseCode = "409", description = "A contact with this e-mail already exists for the account (CONTACT_DUPLICATE).")})
+            @ApiResponse(responseCode = "409", description = "A contact with this e-mail already exists (CONTACT_DUPLICATE).")})
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ResponseEntity<ContactResponse> createContact(
-            @PathVariable @Positive(message = "{validation.positive}") Long accountId,
-            @Valid @RequestBody ContactCreateRequest request) {
-        log.info("{} Creating contact for account {}", LogCategory.API, accountId);
-        ContactResponse created = contactService.createContact(accountId, request);
-        URI location = URI.create("/api/v1/accounts/" + accountId + "/contacts/" + created.id());
+    public ResponseEntity<ContactResponse> createContact(@Valid @RequestBody ContactCreateRequest request) {
+        log.info("{} Creating contact", LogCategory.API);
+        ContactResponse created = contactService.createContact(request);
+        URI location = URI.create("/api/v1/contacts/" + created.id());
         return ResponseEntity.created(location).body(created);
     }
 
     @Operation(summary = "Full contact update", description = "Replaces all contact fields (PUT).")
     @ApiResponses({
-            @ApiResponse(responseCode = "404", description = "A contact with the given ID does not exist for the account (CONTACT_NOT_FOUND)."),
+            @ApiResponse(responseCode = "404", description = "A contact with the given ID does not exist (CONTACT_NOT_FOUND)."),
             @ApiResponse(responseCode = "409", description = "The target e-mail is already used by another contact (CONTACT_DUPLICATE).")})
     @PutMapping("/{contactId}")
-    public ContactResponse updateContact(@PathVariable @Positive(message = "{validation.positive}") Long accountId,
-            @PathVariable @Positive(message = "{validation.positive}") Long contactId,
+    public ContactResponse updateContact(@PathVariable @Positive(message = "{validation.positive}") Long contactId,
             @Valid @RequestBody ContactUpdateRequest request) {
-        return contactService.updateContact(accountId, contactId, request);
+        return contactService.updateContact(contactId, request);
     }
 
     @Operation(summary = "Partial contact update", description = "Updates only the non-null fields from the request.")
     @ApiResponses({
-            @ApiResponse(responseCode = "404", description = "A contact with the given ID does not exist for the account (CONTACT_NOT_FOUND)."),
+            @ApiResponse(responseCode = "404", description = "A contact with the given ID does not exist (CONTACT_NOT_FOUND)."),
             @ApiResponse(responseCode = "409", description = "The target e-mail is already used by another contact (CONTACT_DUPLICATE).")})
     @PatchMapping("/{contactId}")
-    public ContactResponse patchContact(@PathVariable @Positive(message = "{validation.positive}") Long accountId,
-            @PathVariable @Positive(message = "{validation.positive}") Long contactId,
+    public ContactResponse patchContact(@PathVariable @Positive(message = "{validation.positive}") Long contactId,
             @Valid @RequestBody ContactPatchRequest request) {
-        return contactService.patchContact(accountId, contactId, request);
+        return contactService.patchContact(contactId, request);
     }
 
     @Operation(summary = "Delete contact", description = "Removes the contact from the address book.")
     @ApiResponses({
-            @ApiResponse(responseCode = "404", description = "A contact with the given ID does not exist for the account (CONTACT_NOT_FOUND).")})
+            @ApiResponse(responseCode = "404", description = "A contact with the given ID does not exist (CONTACT_NOT_FOUND).")})
     @DeleteMapping("/{contactId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteContact(@PathVariable @Positive(message = "{validation.positive}") Long accountId,
-            @PathVariable @Positive(message = "{validation.positive}") Long contactId) {
-        contactService.deleteContact(accountId, contactId);
+    public void deleteContact(@PathVariable @Positive(message = "{validation.positive}") Long contactId) {
+        contactService.deleteContact(contactId);
     }
 
     @Operation(summary = "Bulk create contacts (best-effort)", description = "Creates up to 100 contacts in a single request. Each item has its own transaction — duplicates / validation errors do not affect the rest. The response is always 200 with per-item status (CREATED / FAILED).")
     @PostMapping("/bulk")
-    public BulkContactCreateResponse bulkCreateContacts(
-            @PathVariable @Positive(message = "{validation.positive}") Long accountId,
-            @Valid @RequestBody BulkContactCreateRequest request) {
-        log.info("{} Bulk create contacts account={} count={}", LogCategory.API, accountId, request.contacts().size());
-        return contactBulkService.bulkCreate(accountId, request);
+    public BulkContactCreateResponse bulkCreateContacts(@Valid @RequestBody BulkContactCreateRequest request) {
+        log.info("{} Bulk create contacts count={}", LogCategory.API, request.contacts().size());
+        return contactBulkService.bulkCreate(request);
     }
 
     @Operation(summary = "Bulk delete contacts (best-effort)", description = "Deletes up to 100 contacts by ID. Non-existent IDs come back as FAILED / CONTACT_NOT_FOUND, the rest are deleted.")
     @DeleteMapping("/bulk")
-    public BulkContactDeleteResponse bulkDeleteContacts(
-            @PathVariable @Positive(message = "{validation.positive}") Long accountId,
-            @Valid @RequestBody BulkContactDeleteRequest request) {
-        log.info("{} Bulk delete contacts account={} count={}", LogCategory.API, accountId, request.ids().size());
-        return contactBulkService.bulkDelete(accountId, request);
+    public BulkContactDeleteResponse bulkDeleteContacts(@Valid @RequestBody BulkContactDeleteRequest request) {
+        log.info("{} Bulk delete contacts count={}", LogCategory.API, request.ids().size());
+        return contactBulkService.bulkDelete(request);
     }
 
     @Operation(summary = "Merge duplicate contacts", description = "Merges one or more source contacts into the target (all in one transaction). The target stays canonical (name/surname/primary are preserved); e-mails from the sources are added deduplicated by lowercase variant (collisions drop the source side); notes are concatenated. The source contacts are deleted. Limit: 9 sources per request, final e-mail count at most 10.")
@@ -225,12 +217,10 @@ public class ContactController {
             @ApiResponse(responseCode = "400", description = "Invalid request: target in source, duplicate ID in source, empty source, exceeded 10-email cap (VALIDATION_ERROR)."),
             @ApiResponse(responseCode = "404", description = "One of the source contacts or the target does not exist (CONTACT_NOT_FOUND).")})
     @PostMapping("/{targetId}/merge")
-    public ContactResponse mergeContacts(@PathVariable @Positive(message = "{validation.positive}") Long accountId,
-            @PathVariable @Positive(message = "{validation.positive}") Long targetId,
+    public ContactResponse mergeContacts(@PathVariable @Positive(message = "{validation.positive}") Long targetId,
             @Valid @RequestBody ContactMergeRequest request) {
-        log.info("{} Merge contacts account={} target={} sources={}", LogCategory.API, accountId, targetId,
-                request.source().size());
-        return contactService.merge(accountId, targetId, request);
+        log.info("{} Merge contacts target={} sources={}", LogCategory.API, targetId, request.source().size());
+        return contactService.merge(targetId, request);
     }
 
     @Operation(summary = "Add an e-mail address to a contact", description = "Adds a new address without touching the primary flag of the others. The new e-mail only becomes primary if the contact had no address before.")
@@ -238,11 +228,10 @@ public class ContactController {
             @ApiResponse(responseCode = "409", description = "The e-mail is already used by another contact or by this contact (CONTACT_DUPLICATE).")})
     @PostMapping("/{contactId}/emails")
     @ResponseStatus(HttpStatus.CREATED)
-    public ContactEmailResponse addEmail(@PathVariable @Positive(message = "{validation.positive}") Long accountId,
-            @PathVariable @Positive(message = "{validation.positive}") Long contactId,
+    public ContactEmailResponse addEmail(@PathVariable @Positive(message = "{validation.positive}") Long contactId,
             @Valid @RequestBody ContactEmailRequest request) {
-        log.info("{} Adding e-mail to contact {} account {}", LogCategory.API, contactId, accountId);
-        return contactService.addEmail(accountId, contactId, request);
+        log.info("{} Adding e-mail to contact {}", LogCategory.API, contactId);
+        return contactService.addEmail(contactId, request);
     }
 
     @Operation(summary = "Delete an e-mail address from a contact", description = "If the primary address is being deleted, the first remaining one (by ID) is promoted. The last address cannot be deleted — a contact must have at least one.")
@@ -251,19 +240,17 @@ public class ContactController {
             @ApiResponse(responseCode = "404", description = "Contact or address does not exist (CONTACT_NOT_FOUND / RESOURCE_NOT_FOUND).")})
     @DeleteMapping("/{contactId}/emails/{emailId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteEmail(@PathVariable @Positive(message = "{validation.positive}") Long accountId,
-            @PathVariable @Positive(message = "{validation.positive}") Long contactId,
+    public void deleteEmail(@PathVariable @Positive(message = "{validation.positive}") Long contactId,
             @PathVariable @Positive(message = "{validation.positive}") Long emailId) {
-        contactService.deleteEmail(accountId, contactId, emailId);
+        contactService.deleteEmail(contactId, emailId);
     }
 
     @Operation(summary = "Mark an address as primary", description = "Marks the chosen address as primary; the other addresses of the contact have their primary flag cleared.")
     @ApiResponses({
             @ApiResponse(responseCode = "404", description = "Contact or address does not exist (CONTACT_NOT_FOUND / RESOURCE_NOT_FOUND).")})
     @PatchMapping("/{contactId}/emails/{emailId}/primary")
-    public ContactResponse setPrimaryEmail(@PathVariable @Positive(message = "{validation.positive}") Long accountId,
-            @PathVariable @Positive(message = "{validation.positive}") Long contactId,
+    public ContactResponse setPrimaryEmail(@PathVariable @Positive(message = "{validation.positive}") Long contactId,
             @PathVariable @Positive(message = "{validation.positive}") Long emailId) {
-        return contactService.setPrimaryEmail(accountId, contactId, emailId);
+        return contactService.setPrimaryEmail(contactId, emailId);
     }
 }

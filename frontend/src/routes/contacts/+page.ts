@@ -1,4 +1,3 @@
-import { error } from '@sveltejs/kit';
 import { get } from 'svelte/store';
 import type { ContactSort } from '$lib/api/contacts.js';
 import { contactSortPreference } from '$lib/stores/contactSort.js';
@@ -6,11 +5,7 @@ import type { PageLoad } from './$types.js';
 
 const SORT_VALUES: ContactSort[] = ['name', 'surname', 'recent'];
 
-export const load: PageLoad = ({ params, url }) => {
-	const accountId = Number(params.accountId);
-	if (!Number.isInteger(accountId) || accountId <= 0) {
-		error(400, 'Invalid account ID.');
-	}
+export const load: PageLoad = ({ url }) => {
 	const query = url.searchParams.get('q') ?? '';
 	const create = url.searchParams.get('create') === '1';
 	const editRaw = url.searchParams.get('edit');
@@ -30,5 +25,5 @@ export const load: PageLoad = ({ params, url }) => {
 	// bookmark surfaces as an error instead of "this label has no contacts".
 	const labelIdParsed = labelIdRaw != null && /^\d+$/.test(labelIdRaw) ? Number(labelIdRaw) : null;
 	const labelId = labelIdParsed != null && labelIdParsed > 0 ? labelIdParsed : null;
-	return { accountId, query, create, edit, sort, labelId };
+	return { query, create, edit, sort, labelId };
 };
