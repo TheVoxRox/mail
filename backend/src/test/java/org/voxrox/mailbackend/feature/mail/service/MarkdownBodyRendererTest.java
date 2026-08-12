@@ -295,5 +295,27 @@ class MarkdownBodyRendererTest {
 
             assertThat(html).contains("<hr />");
         }
+
+        /**
+         * The enabled block types must keep a stable iteration order, because
+         * CommonMark registers block parsers in that order and, for a rule under a
+         * paragraph, the first parser to claim the line wins. A {@code Set.of} here
+         * randomizes that order per JVM and the same message renders differently
+         * between runs — which is how this was found: CI failed on exactly the
+         * {@code ---} cases while the same commit passed locally.
+         *
+         * <p>
+         * This asserts the outcome rather than the collection type, so it also covers
+         * any future change that reintroduces the ambiguity elsewhere.
+         */
+        @Test
+        @DisplayName("Parsing a rule under text is stable across repeated parses")
+        void ruleParsingIsDeterministic() {
+            String body = "Alice Smith\n---\nExample Ltd";
+
+            for (int i = 0; i < 50; i++) {
+                assertThat(renderer.renderAlternative(body)).as("parse #%d", i).isEmpty();
+            }
+        }
     }
 }

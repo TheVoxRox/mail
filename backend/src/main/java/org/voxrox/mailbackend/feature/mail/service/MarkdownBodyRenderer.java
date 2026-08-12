@@ -1,6 +1,8 @@
 package org.voxrox.mailbackend.feature.mail.service;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -80,9 +82,20 @@ public class MarkdownBodyRenderer {
      * Block types the parser recognizes — the CommonMark default set minus
      * {@code IndentedCodeBlock} and {@code HtmlBlock}. See the class javadoc for
      * why those two are dropped rather than merely escaped.
+     *
+     * <p>
+     * <b>Order matters, so this must not be a {@code Set.of}.</b> CommonMark
+     * registers its block parsers in iteration order, and for a rule under a
+     * paragraph the first one to claim the line wins: heading first reads it as a
+     * setext underline, thematic break first reads it as a rule. {@code Set.of}
+     * randomizes iteration per JVM (its layout is salted at class-init), so the
+     * same message rendered on two runs produced two different documents —
+     * measured, not deduced: six runs of the same parse gave five headings and one
+     * thematic break. Heading first, so that a rule under text becomes a setext
+     * heading and {@link #demoteSetextHeadings} can put it back as text.
      */
-    private static final Set<Class<? extends Block>> ENABLED_BLOCKS = Set.of(Heading.class, FencedCodeBlock.class,
-            BlockQuote.class, ListBlock.class, ThematicBreak.class);
+    private static final Set<Class<? extends Block>> ENABLED_BLOCKS = Collections.unmodifiableSet(new LinkedHashSet<>(
+            List.of(Heading.class, FencedCodeBlock.class, BlockQuote.class, ListBlock.class, ThematicBreak.class)));
 
     /**
      * Node types whose HTML rendering says exactly what the {@code text/plain} part
