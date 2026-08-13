@@ -186,12 +186,25 @@ Zbyva tady jen to, co v CONTRIBUTING neni:
 - Po `git add .` rucne projit staged soubory.
 - Git hooky: `git config core.hooksPath .githooks` (per clone).
 
-- [ ] **Zjistit, proc brana na druhem stroji trvala ~50 minut.** #263 srazil `npm run lint`
-      z 91 s na 11 s, jenze tech 50 minut to nevysvetluje: pomer obou stroju vysel z mereni
-      na ~1,7x, takze i pred opravou by tam lint mel byt kolem 2-3 minut, ne desitky. Cas
-      tedy zere neco dalsiho. Zmerit na tom stroji kroky brany jednotlive (`lint`, `check`,
-      `knip`, `test:unit`, `check:translations:strict`) a teprve podle toho hledat pricinu;
-      podezreli jsou Defender a `svelte-check` uvnitr `npm run check`.
+- [ ] **Brana na pomalejsim stroji: ~50 minut se nereprodukuje.** Zmereno 2026-08-13 primo
+      na tom stroji (i7-1255U, 15W U-series, 1,7 GHz base, 16 GB, NVMe, plan Rovnovaha),
+      kroky jednotlive: cela brana 106 s. Nejdrazsi je `lint` 34,5 s a `test:unit` 27,4 s,
+      zbytek `svelte-check` 10,8 s, `check:audits` 7,5 s, `svelte-kit sync` 6,7 s, `knip`
+      6,6 s, ostatni `check:*` pod 3,5 s. Se starou konfiguraci pred #264 (`projectService`
+      nad `.svelte`, coz je stav, ve kterem tech 50 minut bezelo) vychazi `lint` 120,6 s,
+      tedy cela brana ~192 s — ani to na 50 minut nestaci, chybi faktor ~15.
+      Vylouceno: `svelte-check` (desetina toho, co `lint`), Defender (na tom stroji vubec
+      nebezi, `WinDefend` je Stopped a real-time dela ESET) i sit (brana je cela offline).
+      Pricina tedy neni v repu. Stopa, kterou to merenim vydalo: cisla na tom stroji
+      **kolisaji mezi behy** — druhy pruchod dal `lint` 19,4 s proti 34,5 s prvniho a
+      celou branu 64 s proti 106 s, pri identickem prikazu i stromu. Propustnost stroje
+      tedy neni stabilni (15W CPU, termalni skrceni), coz je presne ten typ chovani, ktery
+      se za horsich podminek muze nasobit. Kdyby se to vratilo, zmerit **za behu** toho
+      pomaleho pruchodu, ne zpetne — podezreli zustavaji jednorazove vlivy: soubezna zatez stroje,
+      planovany sken ESETu, prvni pruchod pres cerstve `node_modules` po `npm ci` (ESET
+      skenuje desitky tisic souboru pri prvnim dotyku), beh na baterii a termalni skrceni
+      15W CPU. Stejne tak je mozne, ze „50 minut" byl wall-clock cele push session vcetne
+      selhani a oprav, ne jeden pruchod branou.
 
 ---
 
