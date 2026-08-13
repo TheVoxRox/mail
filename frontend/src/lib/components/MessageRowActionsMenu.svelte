@@ -9,10 +9,12 @@
 	} from '$lib/mail/mailbox.js';
 	import { folders } from '$lib/stores/folders.js';
 	import { messagesState } from '$lib/stores/messages.js';
-	import { folderLabel } from '$lib/mail/folderLabel.js';
+	import { moveTargetsFor } from '$lib/mail/moveTargets.js';
 	import { _ } from '$lib/i18n/index.js';
 	import Icon from '$lib/components/Icon.svelte';
+	import MoveTargetMenuItems from '$lib/components/MoveTargetMenuItems.svelte';
 	import { cn } from '$lib/utils.js';
+	import type { RowActions } from '$lib/mail/rowActions.js';
 	import type { MailSummaryResponse } from '$lib/types.js';
 
 	type Props = {
@@ -23,7 +25,8 @@
 		/**
 		 * Folder the row belongs to, used to drop the current folder from the
 		 * Move submenu. Defaults to the active folder from `messagesState` — the
-		 * search results grid spans folders, so it passes the row's own folder.
+		 * search results grid spans folders, so it passes the row's own folder,
+		 * and the grouped view passes the folder its own store is showing.
 		 */
 		currentFolderRef?: string;
 		/**
@@ -32,9 +35,31 @@
 		 * refresh. Reply/forward navigate away and do not fire it.
 		 */
 		onAfterAction?: () => void;
+		/** Overrides the default flat-store wiring — see `mail/rowActions.ts`. */
+		actions?: RowActions;
+		/** Overrides the trigger's accessible name (a conversation is not a message). */
+		triggerLabel?: string;
+		/**
+		 * Read/starred state the labels describe. Defaults to the row's own
+		 * message; a conversation row passes the thread's state, which is what
+		 * that row displays and what its actions change.
+		 */
+		seen?: boolean;
+		flagged?: boolean;
 	};
 
-	let { message, focused, col, onCellFocus, currentFolderRef, onAfterAction }: Props = $props();
+	let {
+		message,
+		focused,
+		col,
+		onCellFocus,
+		currentFolderRef,
+		onAfterAction,
+		actions,
+		triggerLabel: triggerLabelOverride,
+		seen,
+		flagged
+	}: Props = $props();
 
 	let open = $state(false);
 
@@ -46,15 +71,18 @@
 	const currentFolderName = $derived(
 		currentFolderRef ?? ($messagesState.status === 'idle' ? '' : $messagesState.context.folderName)
 	);
-	const moveTargets = $derived($folders.filter((folder) => folder.folderRef !== currentFolderName));
+	const moveTargets = $derived(moveTargetsFor($folders, currentFolderName));
 
-	const flagLabel = $derived(message.flagged ? $_('toolbar.unflag') : $_('toolbar.flag'));
-	const seenLabel = $derived(message.seen ? $_('toolbar.markUnread') : $_('toolbar.markRead'));
+	const isFlagged = $derived(flagged ?? message.flagged);
+	const isSeen = $derived(seen ?? message.seen);
+	const flagLabel = $derived(isFlagged ? $_('toolbar.unflag') : $_('toolbar.flag'));
+	const seenLabel = $derived(isSeen ? $_('toolbar.markUnread') : $_('toolbar.markRead'));
 
 	const triggerLabel = $derived(
-		$_('messages.rowActions.trigger', {
-			values: { subject: message.subject || $_('messages.noSubject') }
-		})
+		triggerLabelOverride ??
+			$_('messages.rowActions.trigger', {
+				values: { subject: message.subject || $_('messages.noSubject') }
+			})
 	);
 
 	function run(
@@ -65,6 +93,18 @@
 			if (opts?.refresh) onAfterAction?.();
 		});
 	}
+
+	/** The flat-list wiring, used unless the caller injects its own. */
+	const effectiveActions: RowActions = $derived(
+		actions ?? {
+			reply: (all) => run((id) => replyToMessage(id, all)),
+			forward: () => run(forwardMessage),
+			toggleFlag: () => run(toggleMessageFlag, { refresh: true }),
+			toggleSeen: () => run(toggleMessageSeen, { refresh: true }),
+			moveTo: (folderRef) => run((id) => moveMessages([id], folderRef), { refresh: true }),
+			remove: () => run((id) => deleteMessages([id]), { refresh: true })
+		}
+	);
 
 	const destructiveItemClass =
 		'flex w-full cursor-pointer rounded-md px-3 py-2 text-left text-sm text-destructive-foreground outline-none data-[highlighted]:bg-destructive/10 data-[disabled]:cursor-not-allowed data-[disabled]:text-muted-foreground';
@@ -103,34 +143,22 @@
 			loop
 			class="z-10 min-w-44 rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-lg"
 		>
-			<DropdownMenu.Item
-				class={defaultItemClass}
-				onSelect={() => run((id) => replyToMessage(id, false))}
-			>
+			<DropdownMenu.Item class={defaultItemClass} onSelect={() => effectiveActions.reply(false)}>
 				{$_('toolbar.reply')}
 			</DropdownMenu.Item>
-			<DropdownMenu.Item
-				class={defaultItemClass}
-				onSelect={() => run((id) => replyToMessage(id, true))}
-			>
+			<DropdownMenu.Item class={defaultItemClass} onSelect={() => effectiveActions.reply(true)}>
 				{$_('toolbar.replyAll')}
 			</DropdownMenu.Item>
-			<DropdownMenu.Item class={defaultItemClass} onSelect={() => run(forwardMessage)}>
+			<DropdownMenu.Item class={defaultItemClass} onSelect={() => effectiveActions.forward()}>
 				{$_('toolbar.forward')}
 			</DropdownMenu.Item>
 
 			<DropdownMenu.Separator class="my-1 h-px bg-border" />
 
-			<DropdownMenu.Item
-				class={defaultItemClass}
-				onSelect={() => run(toggleMessageFlag, { refresh: true })}
-			>
+			<DropdownMenu.Item class={defaultItemClass} onSelect={() => effectiveActions.toggleFlag()}>
 				{flagLabel}
 			</DropdownMenu.Item>
-			<DropdownMenu.Item
-				class={defaultItemClass}
-				onSelect={() => run(toggleMessageSeen, { refresh: true })}
-			>
+			<DropdownMenu.Item class={defaultItemClass} onSelect={() => effectiveActions.toggleSeen()}>
 				{seenLabel}
 			</DropdownMenu.Item>
 
@@ -146,27 +174,17 @@
 						sideOffset={4}
 						class="z-10 max-h-64 min-w-48 overflow-y-auto rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-lg"
 					>
-						{#each moveTargets as folder (folder.folderRef)}
-							{@const label = folderLabel(folder, $_)}
-							<DropdownMenu.Item
-								class={defaultItemClass}
-								title={label}
-								onSelect={() =>
-									run((id) => moveMessages([id], folder.folderRef), { refresh: true })}
-							>
-								<span class="truncate">{label}</span>
-							</DropdownMenu.Item>
-						{/each}
+						<MoveTargetMenuItems
+							targets={moveTargets}
+							onMoveTo={(folderRef) => effectiveActions.moveTo(folderRef)}
+						/>
 					</DropdownMenu.SubContent>
 				</DropdownMenu.Sub>
 			{/if}
 
 			<DropdownMenu.Separator class="my-1 h-px bg-border" />
 
-			<DropdownMenu.Item
-				class={destructiveItemClass}
-				onSelect={() => run((id) => deleteMessages([id]), { refresh: true })}
-			>
+			<DropdownMenu.Item class={destructiveItemClass} onSelect={() => effectiveActions.remove()}>
 				{$_('toolbar.delete')}
 			</DropdownMenu.Item>
 		</DropdownMenu.Content>

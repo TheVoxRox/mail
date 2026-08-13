@@ -184,4 +184,83 @@ test.describe('Řádkové menu Akce', () => {
 		await expect(row).toHaveCount(0);
 		await expect(page.getByRole('menu')).toHaveCount(0);
 	});
+
+	test('Přesunout z řádkového menu pošle cílovou složku a zavře menu', async ({ page }) => {
+		const moveBodies: unknown[] = [];
+		page.on('request', (request) => {
+			if (
+				request.method() === 'POST' &&
+				new RegExp(`/api/v1/messages/${fixture.stableId}/move$`).test(request.url())
+			) {
+				moveBodies.push(request.postDataJSON());
+			}
+		});
+
+		await page.goto(`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
+		await waitForShell(page);
+
+		const row = page.locator(`[role="row"][data-stable-id="${fixture.stableId}"]`);
+		await expect(row).toBeVisible();
+
+		await row.getByRole('button', { name: `Akce pro zprávu ${fixture.subject}` }).click();
+		await page.getByRole('menuitem', { name: 'Přesunout' }).click();
+		await page.getByRole('menuitem', { name: 'Archiv', exact: true }).click();
+
+		expect(moveBodies).toEqual([{ folderRef: 'ARCHIVE' }]);
+		await expect(row).toHaveCount(0);
+		await expect(page.getByRole('menu')).toHaveCount(0);
+	});
+
+	test('Přesunout z řádkového menu klávesnicí: submenu otevře šipka a složku najde psaní', async ({
+		page
+	}) => {
+		const moveBodies: unknown[] = [];
+		page.on('request', (request) => {
+			if (
+				request.method() === 'POST' &&
+				new RegExp(`/api/v1/messages/${fixture.stableId}/move$`).test(request.url())
+			) {
+				moveBodies.push(request.postDataJSON());
+			}
+		});
+
+		await page.goto(`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
+		await waitForShell(page);
+
+		const row = page.locator(`[role="row"][data-stable-id="${fixture.stableId}"]`);
+		await expect(row).toBeVisible();
+
+		await row.getByRole('button', { name: `Akce pro zprávu ${fixture.subject}` }).focus();
+		await page.keyboard.press('Enter');
+
+		/*
+		 * The keyboard path a screen-reader user takes: walk up to Move (loop
+		 * wraps ArrowUp to the last item, Delete, so one more step lands on the
+		 * submenu trigger), open the submenu with ArrowRight, then jump to the
+		 * folder by typing its first letters instead of arrowing through the
+		 * whole list. That typeahead is why this stayed a menu rather than
+		 * becoming a filterable dialog — if it ever stops working, the
+		 * affordance argument goes with it.
+		 */
+		await page.keyboard.press('ArrowUp');
+		await page.keyboard.press('ArrowUp');
+		await expect(page.getByRole('menuitem', { name: 'Přesunout' })).toBeFocused();
+
+		/*
+		 * ArrowRight opens the submenu and moves focus onto its first target.
+		 * Wait for that before typing: the submenu mounts a tick later and keys
+		 * pressed in the meantime still go to the parent menu, where they match
+		 * nothing.
+		 */
+		await page.keyboard.press('ArrowRight');
+		await expect(page.getByRole('menuitem', { name: 'Odeslané', exact: true })).toBeFocused();
+
+		await page.keyboard.press('s');
+		await expect(page.getByRole('menuitem', { name: 'Spam', exact: true })).toBeFocused();
+		await page.keyboard.press('Enter');
+
+		expect(moveBodies).toEqual([{ folderRef: 'JUNK' }]);
+		await expect(row).toHaveCount(0);
+		await expect(page.getByRole('menu')).toHaveCount(0);
+	});
 });

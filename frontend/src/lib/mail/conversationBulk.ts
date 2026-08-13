@@ -142,6 +142,37 @@ export async function markConversationMembersSeen(
 	return outcome.succeeded.length > 0;
 }
 
+/**
+ * Star / unstar. Unlike the three above this has no bulk-bar counterpart — it
+ * exists for the row actions menu, which acts on a single message (a member, or
+ * a conversation's representative, whose flags are what the row displays).
+ *
+ * It therefore follows the flat list's single-toggle convention from
+ * `mailbox.ts`: one message that succeeded gets no toast, because the star in
+ * the row flips visibly, only a polite announcement so the change is not silent
+ * for a screen reader. Every other outcome reports a counted toast — the
+ * announcement is phrased for a single message, so using it for a batch would
+ * state neither how many were starred nor that any of them failed.
+ * The gate is on the deduplicated count `runPerItem` actually acted on, not on
+ * `memberIds.length`.
+ */
+export async function flagConversationMembers(
+	memberIds: readonly string[],
+	flagged: boolean,
+	_ctx: ConversationBulkContext
+): Promise<boolean> {
+	if (memberIds.length === 0) return false;
+	const outcome = await runPerItem(memberIds, (id) => setMessageFlag(id, 'flagged', flagged));
+	await reloadCurrentConversationsPage();
+	const touched = outcome.succeeded.length + outcome.failed.length;
+	if (touched === 1 && outcome.failed.length === 0) {
+		announcePolite(get(_)(flagged ? 'messages.flaggedAnnounce' : 'messages.unflaggedAnnounce'));
+	} else {
+		reportOutcome(outcome, flagged ? 'messages.bulkFlagDone' : 'messages.bulkUnflagDone');
+	}
+	return outcome.succeeded.length > 0;
+}
+
 /** Politely announces that bulk actions became available (first selection). */
 export function announceBulkActionsAvailable(): void {
 	announcePolite(get(_)('messages.bulkActionsAvailable'));

@@ -566,3 +566,209 @@ test.describe('Hromadné akce nad konverzacemi', () => {
 		await expect(page.locator('[role="row"][data-stable-id="arch-03"]')).toHaveCount(0);
 	});
 });
+
+test.describe('Řádkové menu Akce v seskupeném režimu', () => {
+	test('konverzace má menu Akce a smazání z něj zasáhne členy v aktuální složce', async ({
+		page
+	}) => {
+		// Same probe as the bulk-bar test above: the inbox copy is a counted member
+		// of this conversation, so it proves the row menu keeps the same
+		// folder-scoped semantics the bulk bar has instead of reaching the whole
+		// thread.
+		await page.addInitScript(() => {
+			window.localStorage.setItem('mail.e2e.inboxThreadMember', '1');
+		});
+		await page.goto(`/mail/${accountId}/ARCHIVE`);
+		await waitForShell(page);
+
+		const parent = archiveRow(page, 'arch-03');
+		await expect(parent).toBeVisible();
+
+		// A conversation row names itself as such — "Akce pro zprávu" would promise
+		// the menu acts on one message, which for read/move/delete it does not.
+		await parent
+			.getByRole('button', { name: 'Akce pro konverzaci Re: Plán vydání', exact: true })
+			.click();
+		await page.getByRole('menu').getByRole('menuitem', { name: 'Smazat' }).click();
+
+		await expect(page.getByRole('treegrid', { name: 'Seznam konverzací' })).toHaveCount(0);
+		await expect(page.locator('[role="row"][data-stable-id="arch-03"]')).toHaveCount(0);
+
+		await page.goto(`/mail/${accountId}/INBOX`);
+		await waitForShell(page);
+		await expect(
+			page
+				.getByRole('treegrid', { name: 'Seznam konverzací' })
+				.locator('[role="row"][data-stable-id="inbox-plan-01"]')
+		).toBeVisible();
+	});
+
+	test('člen vlákna má vlastní menu a smaže jen sebe', async ({ page }) => {
+		await page.goto(`/mail/${accountId}/ARCHIVE`);
+		await waitForShell(page);
+
+		const parent = archiveRow(page, 'arch-03');
+		await expect(parent).toBeVisible();
+		await parent.locator('[data-expand-toggle]').click();
+
+		const member = archiveMember(page, 'arch-01');
+		await expect(member).toBeVisible();
+		await member.getByRole('button', { name: /^Akce pro zprávu/ }).click();
+		await page.getByRole('menu').getByRole('menuitem', { name: 'Smazat' }).click();
+
+		// Only that message goes; the conversation and its other members stay.
+		await expect(archiveMember(page, 'arch-01')).toHaveCount(0);
+		await expect(archiveRow(page, 'arch-03')).toBeVisible();
+	});
+
+	test('člen z jiné složky menu nemá a buňka říká proč', async ({ page }) => {
+		await page.addInitScript(() => {
+			window.localStorage.setItem('mail.e2e.inboxThreadMember', '1');
+		});
+		await page.goto(`/mail/${accountId}/ARCHIVE`);
+		await waitForShell(page);
+
+		const parent = archiveRow(page, 'arch-03');
+		await expect(parent).toBeVisible();
+		await parent.locator('[data-expand-toggle]').click();
+
+		// Actions here are folder-scoped, so a member living elsewhere gets no
+		// menu — but the cell is named rather than left as a silent gap, the same
+		// way its selection cell is.
+		const inboxMember = archiveMember(page, 'inbox-plan-01');
+		await expect(inboxMember).toBeVisible();
+		await expect(inboxMember.getByRole('button', { name: /^Akce pro/ })).toHaveCount(0);
+		await expect(
+			inboxMember.getByRole('gridcell', { name: 'Bez akcí, zpráva je ve složce Doručené' })
+		).toBeVisible();
+	});
+});
+
+test.describe('Řádkové menu Akce v koši', () => {
+	test('smazání konverzace z řádkového menu v koši se potvrzuje', async ({ page }) => {
+		/*
+		 * The destructive path this menu must not shortcut. In the trash a delete
+		 * is an expunge, and the confirmation is driven by the folder role the
+		 * grouped view knows — which is exactly why these actions go through
+		 * conversationBulk instead of the flat pipeline the row menu uses
+		 * elsewhere.
+		 */
+		await page.addInitScript(() => {
+			window.localStorage.setItem('mail.e2e.trashThreadMember', '1');
+		});
+		await page.goto(`/mail/${accountId}/TRASH`);
+		await waitForShell(page);
+
+		const parent = page
+			.getByRole('treegrid', { name: 'Seznam konverzací' })
+			.locator('[role="row"][data-row-kind="conversation"][data-stable-id="trash-plan-02"]');
+		await expect(parent).toBeVisible();
+
+		await parent.getByRole('button', { name: /^Akce pro konverzaci/ }).click();
+		await page.getByRole('menu').getByRole('menuitem', { name: 'Smazat' }).click();
+
+		const dialog = page.getByRole('dialog', { name: 'Trvalé smazání' });
+		await expect(dialog).toBeVisible();
+		// Both trashed members are counted, not just the representative.
+		await expect(dialog.getByText('Trvale smazat 2 zprávy z koše?')).toBeVisible();
+
+		await dialog.getByRole('button', { name: 'Smazat trvale' }).click();
+		await expect(page.locator('[role="row"][data-stable-id="trash-plan-02"]')).toHaveCount(0);
+	});
+});
+
+test('klávesnice dojde na buňku akcí a Enter tam otevře menu místo konverzace', async ({
+	page
+}) => {
+	// The reason the column exists: without it the row's actions were reachable
+	// only by opening the message. End jumps to the last column, and Enter there
+	// must open the menu — the row-open handler has to stay out of that cell.
+	await page.goto(`/mail/${accountId}/ARCHIVE`);
+	await waitForShell(page);
+
+	const parent = archiveRow(page, 'arch-03');
+	await expect(parent).toBeVisible();
+	await parent.locator('[data-cell-target][data-col="3"]').focus();
+
+	await page.keyboard.press('End');
+	await expect(parent.locator('[data-cell-target]:focus')).toHaveAttribute('data-col', '6');
+
+	await page.keyboard.press('Enter');
+	await expect(page.getByRole('menu')).toBeVisible();
+	await expect(page).toHaveURL(/\/mail\/1\/ARCHIVE$/);
+});
+
+test('samostatná zpráva má menu pojmenované jako zpráva, ne jako konverzace', async ({ page }) => {
+	// Same rule as the checkbox label: a row holding one message is a message.
+	// Calling it a conversation promises a thread that is not there and tells a
+	// screen-reader user that read/move/delete will reach more than one mail.
+	await page.goto(`/mail/${accountId}/${encodeURIComponent(folderName)}`);
+	await waitForShell(page);
+
+	await expect(
+		page.getByRole('button', { name: 'Akce pro zprávu Projektové podklady', exact: true })
+	).toBeVisible();
+	await expect(page.getByRole('button', { name: /^Akce pro konverzaci/ })).toHaveCount(0);
+
+	// The ARCHIVE row really is a 4-message thread, so there it stays a conversation.
+	await page.goto(`/mail/${accountId}/ARCHIVE`);
+	await waitForShell(page);
+	await expect(
+		page.getByRole('button', { name: 'Akce pro konverzaci Re: Plán vydání', exact: true })
+	).toBeVisible();
+});
+
+test.describe('Fokus po řádkové akci v seskupeném režimu', () => {
+	test('smazání konverzace z menu posadí fokus na sousední řádek, ne na body', async ({ page }) => {
+		// The whole point of the column is keyboard reach; a delete that drops the
+		// reading cursor on <body> takes it away again. Same contract the flat list
+		// keeps via listFocusRestore.
+		await page.goto(`/mail/${accountId}/${encodeURIComponent(folderName)}`);
+		await waitForShell(page);
+
+		const grid = page.getByRole('treegrid', { name: 'Seznam konverzací' });
+		const rows = grid.locator('[role="row"][data-stable-id]');
+		const firstId = await rows.first().getAttribute('data-stable-id');
+		const secondId = await rows.nth(1).getAttribute('data-stable-id');
+		if (!firstId || !secondId) throw new Error('Fixture musí mít aspoň dva řádky.');
+
+		await grid
+			.locator(`[role="row"][data-stable-id="${firstId}"]`)
+			.getByRole('button', { name: /^Akce pro/ })
+			.click();
+		await page.getByRole('menu').getByRole('menuitem', { name: 'Smazat' }).click();
+
+		await expect(grid.locator(`[role="row"][data-stable-id="${firstId}"]`)).toHaveCount(0);
+
+		// Focus lands on the neighbouring row, on its subject cell — the reading
+		// anchor, not the actions column of some other message.
+		const focused = page.locator('[data-cell-target]:focus');
+		await expect(focused).toHaveCount(1);
+		await expect(focused).toHaveAttribute('data-col', '3');
+		await expect(
+			grid.locator(`[role="row"][data-stable-id="${secondId}"] [data-cell-target]:focus`)
+		).toHaveCount(1);
+	});
+
+	test('hvězdička z menu členského řádku nechá fokus na tom řádku', async ({ page }) => {
+		// The member rows unmount for a moment on every reload (the member cache is
+		// cleared before the expanded threads refetch), so even a non-removing
+		// action costs the focused trigger.
+		await page.goto(`/mail/${accountId}/ARCHIVE`);
+		await waitForShell(page);
+
+		const parent = archiveRow(page, 'arch-03');
+		await expect(parent).toBeVisible();
+		await parent.locator('[data-expand-toggle]').click();
+
+		const member = archiveMember(page, 'arch-01');
+		await expect(member).toBeVisible();
+		await member.getByRole('button', { name: /^Akce pro zprávu/ }).click();
+		await page.getByRole('menu').getByRole('menuitem', { name: 'Označit hvězdičkou' }).click();
+
+		// The row survives, so focus comes back to it — and stays in the actions
+		// column the user was in, because it still names the same message.
+		await expect(archiveMember(page, 'arch-01').locator('[data-cell-target]:focus')).toHaveCount(1);
+		await expect(page.locator('[data-cell-target]:focus')).toHaveAttribute('data-col', '6');
+	});
+});

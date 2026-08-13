@@ -104,6 +104,8 @@
 		"bulkDeleteDone": "Smazáno: {count}, selhalo: {failed}.",
 		"bulkMove": "Přesunout vybrané",
 		"bulkMoveDone": "Přesunuto do složky {folder}: {count}, selhalo: {failed}.",
+		"bulkFlagDone": "Označeno hvězdičkou: {count}, selhalo: {failed}.",
+		"bulkUnflagDone": "Hvězdička zrušena: {count}, selhalo: {failed}.",
 		"permanentDeleteConfirmTitle": "Trvalé smazání",
 		"permanentDeleteConfirm": "{count, plural, one {Trvale smazat {count} zprávu z koše?} few {Trvale smazat {count} zprávy z koše?} other {Trvale smazat {count} zpráv z koše?}} Tuto akci nelze vzít zpět.",
 		"permanentDeleteConfirmAction": "Smazat trvale",
@@ -139,7 +141,9 @@
 			"memberFolder": "Ve složce {folder}"
 		},
 		"rowActions": {
-			"trigger": "Akce pro zprávu {subject}"
+			"trigger": "Akce pro zprávu {subject}",
+			"conversationTrigger": "Akce pro konverzaci {subject}",
+			"memberNotActionable": "Bez akcí, zpráva je ve složce {folder}"
 		},
 		"flaggedLabel": "Označeno hvězdičkou",
 		"flaggedTitle": "Označeno",
