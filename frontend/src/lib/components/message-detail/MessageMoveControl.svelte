@@ -2,14 +2,14 @@
 	import { folders } from '$lib/stores/folders.js';
 	import { messagesState } from '$lib/stores/messages.js';
 	import { moveMessages } from '$lib/mail/mailbox.js';
-	import { folderLabel } from '$lib/mail/folderLabel.js';
+	import { moveTargetsFor } from '$lib/mail/moveTargets.js';
 	import { toErrorMessage } from '$lib/api/errors.js';
 	import { _ } from '$lib/i18n/index.js';
 	import { buttonVariants } from '$lib/components/ui/button/index.js';
 	import { DropdownMenu } from 'bits-ui';
 	import Icon from '$lib/components/Icon.svelte';
+	import MoveTargetMenuItems from '$lib/components/MoveTargetMenuItems.svelte';
 	import { cn } from '$lib/utils.js';
-	import type { FolderResponse } from '$lib/types.js';
 
 	interface Props {
 		stableId: string | null;
@@ -26,9 +26,7 @@
 	const currentFolderName = $derived(
 		$messagesState.status === 'idle' ? '' : $messagesState.context.folderName
 	);
-	const moveTargets = $derived(
-		$folders.filter((folder: FolderResponse) => folder.folderRef !== currentFolderName)
-	);
+	const moveTargets = $derived(moveTargetsFor($folders, currentFolderName));
 
 	async function handleMoveTo(folderRef: string) {
 		if (!stableId) return;
@@ -66,16 +64,7 @@
 				loop
 				class="z-10 max-h-64 min-w-44 overflow-y-auto rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-lg"
 			>
-				{#each moveTargets as folder (folder.folderRef)}
-					{@const label = folderLabel(folder, $_)}
-					<DropdownMenu.Item
-						class="flex w-full cursor-pointer rounded-md px-3 py-2 text-left text-sm outline-none data-[highlighted]:bg-muted data-[disabled]:cursor-not-allowed data-[disabled]:text-muted-foreground"
-						title={label}
-						onSelect={() => handleMoveTo(folder.folderRef)}
-					>
-						<span class="truncate">{label}</span>
-					</DropdownMenu.Item>
-				{/each}
+				<MoveTargetMenuItems targets={moveTargets} onMoveTo={handleMoveTo} />
 			</DropdownMenu.Content>
 		</DropdownMenu.Portal>
 	</DropdownMenu.Root>

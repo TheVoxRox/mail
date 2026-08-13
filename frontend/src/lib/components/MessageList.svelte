@@ -31,7 +31,7 @@
 	} from '$lib/components/grid/rowNavigation.js';
 	import { cn } from '$lib/utils.js';
 	import { formatMessageListDate } from '$lib/formatters.js';
-	import { folderLabel } from '$lib/mail/folderLabel.js';
+	import { moveTargetsFor } from '$lib/mail/moveTargets.js';
 	import { messageStatusLabel } from '$lib/mail/messageStatus.js';
 	import type { FolderResponse, MailSummaryResponse } from '$lib/types.js';
 	import { requestBodyFocus, suppressBodyFocus } from '$lib/mail/bodyFocus.js';
@@ -42,6 +42,7 @@
 		type EffectiveReadingPaneContext
 	} from '$lib/mail/readingPaneContext.js';
 	import MessageFlags from '$lib/components/MessageFlags.svelte';
+	import MoveTargetMenuItems from '$lib/components/MoveTargetMenuItems.svelte';
 	import MessageRowActionsMenu from '$lib/components/MessageRowActionsMenu.svelte';
 	import { announcePolite } from '$lib/stores/toasts.js';
 	import { getContext, tick } from 'svelte';
@@ -87,9 +88,7 @@
 	const currentFolderName = $derived(
 		$messagesState.status === 'idle' ? '' : $messagesState.context.folderName
 	);
-	const moveTargets = $derived(
-		$folders.filter((folder: FolderResponse) => folder.folderRef !== currentFolderName)
-	);
+	const moveTargets = $derived(moveTargetsFor($folders, currentFolderName));
 	// In Drafts/Sent the sender is always the account owner, so show the recipient (To) instead.
 	const currentFolderRole = $derived(
 		$folders.find((folder: FolderResponse) => folder.folderRef === currentFolderName)?.role
@@ -536,16 +535,7 @@
 							loop
 							class="z-10 max-h-64 min-w-44 overflow-y-auto rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-lg"
 						>
-							{#each moveTargets as folder (folder.folderRef)}
-								{@const label = folderLabel(folder, $_)}
-								<DropdownMenu.Item
-									class="flex w-full cursor-pointer rounded-md px-3 py-2 text-left text-sm outline-none data-[highlighted]:bg-muted data-[disabled]:cursor-not-allowed data-[disabled]:text-muted-foreground"
-									title={label}
-									onSelect={() => handleBulkMoveTo(folder.folderRef)}
-								>
-									<span class="truncate">{label}</span>
-								</DropdownMenu.Item>
-							{/each}
+							<MoveTargetMenuItems targets={moveTargets} onMoveTo={handleBulkMoveTo} />
 						</DropdownMenu.Content>
 					</DropdownMenu.Portal>
 				</DropdownMenu.Root>

@@ -19,7 +19,8 @@
 	} from '$lib/components/grid/rowNavigation.js';
 	import { cn } from '$lib/utils.js';
 	import { formatMessageListDate, formatThreadMemberDate } from '$lib/formatters.js';
-	import { folderLabel, folderLabelByRef } from '$lib/mail/folderLabel.js';
+	import { folderLabelByRef } from '$lib/mail/folderLabel.js';
+	import { moveTargetsFor } from '$lib/mail/moveTargets.js';
 	import { messageStatusLabel } from '$lib/mail/messageStatus.js';
 	import { messagesPageInfo } from '$lib/mail/pageInfoAnnouncement.js';
 	import { requestBodyFocus, suppressBodyFocus } from '$lib/mail/bodyFocus.js';
@@ -30,11 +31,16 @@
 	import {
 		announceBulkActionsAvailable,
 		deleteConversationMembers,
+		flagConversationMembers,
 		markConversationMembersSeen,
 		moveConversationMembers,
 		type ConversationBulkContext
 	} from '$lib/mail/conversationBulk.js';
+	import { forwardMessage, replyToMessage } from '$lib/mail/actions.js';
+	import type { RowActions } from '$lib/mail/rowActions.js';
 	import MessageFlags from '$lib/components/MessageFlags.svelte';
+	import MessageRowActionsMenu from '$lib/components/MessageRowActionsMenu.svelte';
+	import MoveTargetMenuItems from '$lib/components/MoveTargetMenuItems.svelte';
 	import { announcePolite } from '$lib/stores/toasts.js';
 	import type {
 		ConversationSummaryResponse,
@@ -78,9 +84,11 @@
 	const COL_SUBJECT = 3;
 	const COL_SENDER = 4;
 	const COL_DATE = 5;
-	const MAX_COL = COL_DATE;
+	const COL_ACTIONS = 6;
+	const MAX_COL = COL_ACTIONS;
 
 	let gridElement = $state<HTMLDivElement | null>(null);
+	let emptyStateElement = $state<HTMLParagraphElement | null>(null);
 	let focusedRow = $state(0);
 	let focusedCol = $state(COL_SUBJECT);
 
@@ -142,9 +150,7 @@
 	const viewShowsRecipients = $derived(
 		currentFolderRole === 'DRAFTS' || currentFolderRole === 'SENT'
 	);
-	const moveTargets = $derived(
-		$folders.filter((folder: FolderResponse) => folder.folderRef !== currentFolderName)
-	);
+	const moveTargets = $derived(moveTargetsFor($folders, currentFolderName));
 
 	const pageConversations = $derived(
 		$conversationsState.status === 'ready' ? $conversationsState.page.content : []
@@ -296,15 +302,22 @@
 	}
 
 	/**
-	 * The checkbox label. A row holding a single message is a message, not a
-	 * conversation — announcing "Vybrat konverzaci" there promises a thread the row
-	 * does not have, and tells a screen-reader user the bulk action will reach more
-	 * than the one mail it actually touches. Same threshold as the count badge, so
-	 * what is announced matches what is rendered.
+	 * Whether a top-level row really stands for a thread. A row holding a single
+	 * message is a message, not a conversation — calling it one promises a thread
+	 * the row does not have and tells a screen-reader user that an action will
+	 * reach more than the one mail it actually touches. Same threshold as the
+	 * count badge, so what is announced matches what is rendered; every label
+	 * that has to choose a word for the row goes through here so the checkbox and
+	 * the actions menu cannot drift apart.
 	 */
+	function isThread(conversation: ConversationSummaryResponse): boolean {
+		return displayedCount(conversation) > 1;
+	}
+
+	/** The checkbox label — see {@link isThread}. */
 	function selectionLabel(conversation: ConversationSummaryResponse): string {
 		const values = { subject: conversation.latest.subject || $_('messages.noSubject') };
-		return displayedCount(conversation) > 1
+		return isThread(conversation)
 			? $_('messages.grouping.selectConversation', { values })
 			: $_('messages.selectMessage', { values });
 	}
@@ -555,31 +568,55 @@
 		unreadMemberIds: string[];
 	} | null> {
 		if ($conversationsState.status !== 'ready') return null;
-		const { folderName } = $conversationsState.context;
 		// Members are naturally unique across threads (each message belongs to one
 		// thread; a thread's members exclude its representative), so plain arrays
 		// need no dedup.
 		const memberIds: string[] = [];
 		const unread: string[] = [];
 		for (const conversation of pageConversations) {
-			const representative = conversation.latest;
-			const wholeConversation = selected.has(representative.stableId);
+			const wholeConversation = selected.has(conversation.latest.stableId);
 			const picked = pickedMembersOf(conversation);
 			if (!wholeConversation && picked.length === 0) continue;
-			const take = (message: MailSummaryResponse): void => {
-				memberIds.push(message.stableId);
-				if (!message.seen) unread.push(message.stableId);
-			};
-			if (wholeConversation || picked.includes(representative.stableId)) take(representative);
-			if (isExpandable(conversation) && conversation.threadId) {
-				const threadMembers = await loadMembers(conversation);
-				if (!threadMembers) return null;
-				for (const message of threadMembers) {
-					if (message.folderName !== folderName) continue;
-					if (message.stableId === representative.stableId) continue;
-					if (!wholeConversation && !picked.includes(message.stableId)) continue;
-					take(message);
-				}
+			const resolved = await resolveConversationMembers(
+				conversation,
+				(stableId) => wholeConversation || picked.includes(stableId)
+			);
+			if (!resolved) return null;
+			memberIds.push(...resolved.memberIds);
+			unread.push(...resolved.unreadMemberIds);
+		}
+		return { memberIds, unreadMemberIds: unread };
+	}
+
+	/**
+	 * One conversation's members in the folder in view, filtered by `include`.
+	 * Shared by the bulk bar (which passes the selection) and the row actions
+	 * menu (which takes the whole thread) so both agree on what "this
+	 * conversation" means — the same folder-scoped set, resolved against a
+	 * freshly loaded thread.
+	 */
+	async function resolveConversationMembers(
+		conversation: ConversationSummaryResponse,
+		include: (stableId: string) => boolean
+	): Promise<{ memberIds: string[]; unreadMemberIds: string[] } | null> {
+		if ($conversationsState.status !== 'ready') return null;
+		const { folderName } = $conversationsState.context;
+		const representative = conversation.latest;
+		const memberIds: string[] = [];
+		const unread: string[] = [];
+		const take = (message: MailSummaryResponse): void => {
+			memberIds.push(message.stableId);
+			if (!message.seen) unread.push(message.stableId);
+		};
+		if (include(representative.stableId)) take(representative);
+		if (isExpandable(conversation) && conversation.threadId) {
+			const threadMembers = await loadMembers(conversation);
+			if (!threadMembers) return null;
+			for (const message of threadMembers) {
+				if (message.folderName !== folderName) continue;
+				if (message.stableId === representative.stableId) continue;
+				if (!include(message.stableId)) continue;
+				take(message);
 			}
 		}
 		return { memberIds, unreadMemberIds: unread };
@@ -632,6 +669,199 @@
 		);
 	}
 
+	/** Read state the row displays: a conversation is unread while any member is. */
+	function rowSeen(row: VisibleRow): boolean {
+		return row.kind === 'conversation' ? row.conversation.unreadCount === 0 : row.message.seen;
+	}
+
+	/**
+	 * Whether this row can be selected and acted on from here. Actions in this
+	 * view are folder-scoped by design, so a member living elsewhere (an archived
+	 * reply inside an inbox thread) is off limits — and its parent has to be on
+	 * the page, because every action resolves through that conversation. The
+	 * selection cell and the actions cell both ask this one question: two cells
+	 * that disagreed would offer a destructive menu on a row whose own checkbox
+	 * says it is not actionable.
+	 */
+	function isRowActionableHere(row: VisibleRow): boolean {
+		if (row.kind === 'conversation') return true;
+		return row.message.folderName === currentFolderName && conversationByThread.has(row.threadId);
+	}
+
+	/*
+	 * Row actions menu. Same pipeline as the bulk bar above — including the
+	 * permanent-delete confirmation in the trash, which is why this cannot go
+	 * through `mailbox.ts` like the flat list does — but scoped to one row
+	 * instead of the selection. Failures land in the same toolbar error slot.
+	 */
+	let rowActionBusy = $state(false);
+
+	/**
+	 * Where focus goes once a row action settles, captured before it runs.
+	 *
+	 * Every row action costs the focused element: a delete or move takes the row
+	 * away, and even a star or read toggle unmounts the member rows for a moment,
+	 * because the reload clears the member cache before refetching the expanded
+	 * threads. Without this the menu trigger dies under the cursor and focus
+	 * falls to `<body>` — the same hole the flat list closes with
+	 * `listFocusRestore` (see the restore effect in MessageList.svelte).
+	 *
+	 * Rows are addressed by `rowKey`, not by stableId: the representative fills
+	 * both a parent row and a child row of its expanded thread, so a stableId
+	 * alone would be ambiguous here. `index` is the last resort for a row that
+	 * never comes back.
+	 */
+	type RowFocusAnchor = { preferred: string; fallback: string | null; index: number; col: number };
+	let pendingRowFocus = $state<RowFocusAnchor | null>(null);
+
+	function rowThreadId(row: VisibleRow): string | null {
+		return row.kind === 'conversation' ? row.conversation.threadId : row.threadId;
+	}
+
+	/**
+	 * The acted-on row first — a toggle keeps it — and a neighbour as the
+	 * fallback for the actions that remove it. The neighbour deliberately skips
+	 * the rest of the same thread: deleting a conversation takes its member rows
+	 * with it, so the row right below is usually just as gone.
+	 */
+	function focusAnchorFor(row: VisibleRow): RowFocusAnchor {
+		const rows = visibleRows;
+		const key = rowKey(row);
+		const index = rows.findIndex((candidate) => rowKey(candidate) === key);
+		const threadId = rowThreadId(row);
+		const survivor = (candidate: VisibleRow): boolean => rowThreadId(candidate) !== threadId;
+		const after = rows.slice(index + 1).find(survivor);
+		const before = [...rows.slice(0, Math.max(0, index))].reverse().find(survivor);
+		const neighbour = after ?? before ?? null;
+		return {
+			preferred: key,
+			fallback: neighbour ? rowKey(neighbour) : null,
+			index: Math.max(0, index),
+			col: focusedCol
+		};
+	}
+
+	$effect(() => {
+		const anchor = pendingRowFocus;
+		if (!anchor || $conversationsState.status !== 'ready' || !gridElement) return;
+		const rows = visibleRows;
+		if (rows.length === 0) {
+			// The grid itself is gone; the empty state takes focus instead (below).
+			pendingRowFocus = null;
+			return;
+		}
+
+		let index = rows.findIndex((row) => rowKey(row) === anchor.preferred);
+		// Landing back on the same row keeps the column the user was in — it is
+		// the same message, so the menu trigger still names it. Any other row is
+		// approached through its subject cell, the row's reading anchor: the
+		// actions column would announce a *different* message's menu and the
+		// select column a checkbox that says nothing about what just happened.
+		// Same rule as the flat list's restore effect.
+		let col = anchor.col;
+		if (index < 0) {
+			const fallback = anchor.fallback;
+			index = fallback ? rows.findIndex((row) => rowKey(row) === fallback) : -1;
+			col = COL_SUBJECT;
+		}
+		if (index < 0) {
+			// An expanded thread's members are refetching after the reload — wait
+			// for them rather than grabbing some unrelated row.
+			if (loadingThreads.size > 0) return;
+			index = Math.min(anchor.index, rows.length - 1);
+		}
+
+		const target = index;
+		const frame = requestAnimationFrame(() => {
+			setFocus(target, col);
+			pendingRowFocus = null;
+		});
+		return () => cancelAnimationFrame(frame);
+	});
+
+	/** The last row went with the mutation — only the empty state is left. */
+	$effect(() => {
+		if (!pendingRowFocus || !emptyStateElement) return;
+		const target = emptyStateElement;
+		const frame = requestAnimationFrame(() => {
+			target.focus();
+			pendingRowFocus = null;
+		});
+		return () => cancelAnimationFrame(frame);
+	});
+
+	async function runRowAction(
+		row: VisibleRow,
+		action: (memberIds: string[], ctx: ConversationBulkContext) => Promise<boolean>
+	): Promise<void> {
+		if (rowActionBusy || bulkAction || $conversationsState.status !== 'ready') return;
+		rowActionBusy = true;
+		bulkError = null;
+		const anchor = focusAnchorFor(row);
+		try {
+			/*
+			 * A conversation row stands for every member in this folder — the set its
+			 * badge counts and the bulk bar would act on — so the menu acts on that
+			 * same set. A member row is one message. Cross-folder members get no menu
+			 * at all (see the actions cell), so nothing here reaches outside the
+			 * folder in view.
+			 */
+			const resolved =
+				row.kind === 'conversation'
+					? await resolveConversationMembers(row.conversation, () => true)
+					: {
+							memberIds: [row.message.stableId],
+							unreadMemberIds: row.message.seen ? [] : [row.message.stableId]
+						};
+			if (!resolved) {
+				bulkError = $_('messages.grouping.bulkResolveFailed');
+				return;
+			}
+			const { accountId, folderName } = $conversationsState.context;
+			await action(resolved.memberIds, {
+				accountId,
+				folderName,
+				folderRole: currentFolderRole,
+				unreadMemberIds: resolved.unreadMemberIds
+			});
+			/*
+			 * Only now: the action has awaited its own reload, so the rows the
+			 * restore looks through are the post-mutation ones. Requested even when
+			 * the action reported nothing done (a cancelled trash confirmation, a
+			 * failed request) — the menu closed and took focus with it either way.
+			 */
+			pendingRowFocus = anchor;
+		} catch (err) {
+			bulkError = toErrorMessage(err);
+			pendingRowFocus = anchor;
+		} finally {
+			rowActionBusy = false;
+		}
+	}
+
+	/**
+	 * Reply, forward and the star act on a single message even on a conversation
+	 * row: replying to "a thread" means replying to its newest message, and the
+	 * star the row shows is the representative's. Read/move/delete take the whole
+	 * row, matching what the row displays.
+	 */
+	function rowActions(row: VisibleRow): RowActions {
+		const message = rowMessage(row);
+		return {
+			reply: (all) => void replyToMessage(message.stableId, all),
+			forward: () => void forwardMessage(message.stableId),
+			toggleFlag: () =>
+				void runRowAction(row, (_ids, ctx) =>
+					flagConversationMembers([message.stableId], !message.flagged, ctx)
+				),
+			toggleSeen: () =>
+				void runRowAction(row, (ids, ctx) => markConversationMembersSeen(ids, !rowSeen(row), ctx)),
+			moveTo: (folderRef) =>
+				void runRowAction(row, (ids, ctx) => moveConversationMembers(ids, folderRef, ctx)),
+			remove: () => void runRowAction(row, (ids, ctx) => deleteConversationMembers(ids, ctx))
+		};
+	}
+
 	/** The message a row stands for — its own folder included, see openMessage. */
 	function rowMessage(row: VisibleRow): MailSummaryResponse {
 		return row.kind === 'conversation' ? row.conversation.latest : row.message;
@@ -656,10 +886,11 @@
 
 	function handleKeydown(event: KeyboardEvent, row: VisibleRow, rowIndex: number): void {
 		if (event.key === 'Enter' || event.key === ' ') {
-			// Both cells hold a native control (checkbox, expand button) — let the
-			// key reach it instead of opening the row, which would otherwise toggle
-			// AND navigate on a single Enter.
-			if (focusedCol === COL_SELECT || focusedCol === COL_EXPAND) return;
+			// These cells hold a native control (checkbox, expand button, menu
+			// trigger) — let the key reach it instead of opening the row, which would
+			// otherwise toggle AND navigate on a single Enter.
+			if (focusedCol === COL_SELECT || focusedCol === COL_EXPAND || focusedCol === COL_ACTIONS)
+				return;
 			event.preventDefault();
 			openRow(row);
 			return;
@@ -922,7 +1153,10 @@
 {:else if $conversationsState.page.content.length === 0}
 	<div class="flex flex-1 items-center justify-center bg-background p-6">
 		<Surface variant="subtle" padding="lg" class="max-w-sm text-center">
-			<StateMessage padding="none" role="status">{$_('messages.empty')}</StateMessage>
+			<!-- Focus target after a row action removed the last row (see the restore effects). -->
+			<StateMessage bind:ref={emptyStateElement} padding="none" role="status" tabindex={-1}>
+				{$_('messages.empty')}
+			</StateMessage>
 		</Surface>
 	</div>
 {:else}
@@ -1029,16 +1263,7 @@
 							loop
 							class="z-10 max-h-64 min-w-44 overflow-y-auto rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-lg"
 						>
-							{#each moveTargets as folder (folder.folderRef)}
-								{@const label = folderLabel(folder, $_)}
-								<DropdownMenu.Item
-									class="flex w-full cursor-pointer rounded-md px-3 py-2 text-left text-sm outline-none data-[highlighted]:bg-muted data-[disabled]:cursor-not-allowed data-[disabled]:text-muted-foreground"
-									title={label}
-									onSelect={() => handleBulkMoveTo(folder.folderRef)}
-								>
-									<span class="truncate">{label}</span>
-								</DropdownMenu.Item>
-							{/each}
+							<MoveTargetMenuItems targets={moveTargets} onMoveTo={handleBulkMoveTo} />
 						</DropdownMenu.Content>
 					</DropdownMenu.Portal>
 				</DropdownMenu.Root>
@@ -1053,7 +1278,7 @@
 			role="treegrid"
 			aria-label={$_('messages.grouping.listLabel')}
 			aria-rowcount={visibleRows.length + 1}
-			aria-colcount={6}
+			aria-colcount={7}
 			class="flex-1 overflow-y-auto bg-background"
 		>
 			<div role="row" aria-rowindex={1} class="sr-only">
@@ -1069,6 +1294,7 @@
 						: $_('messages.columnHeaderSender')}</span
 				>
 				<span role="columnheader" aria-colindex={6}>{$_('messages.columnHeaderDate')}</span>
+				<span role="columnheader" aria-colindex={7}>{$_('messages.columnHeaderActions')}</span>
 			</div>
 			{#each visibleRows as row, rowIndex (rowKey(row))}
 				{@const isConversation = row.kind === 'conversation'}
@@ -1100,7 +1326,7 @@
 					aria-expanded={expandable ? (isOpen ? 'true' : 'false') : undefined}
 					aria-busy={isLoading ? 'true' : undefined}
 					class={cn(
-						'grid cursor-pointer grid-cols-[40px_28px_auto_minmax(0,1fr)_auto] grid-rows-[auto_auto] border-b border-border/80 transition-colors hover:bg-muted/45 focus-within:relative focus-within:z-10',
+						'grid cursor-pointer grid-cols-[40px_28px_auto_minmax(0,1fr)_auto_40px] grid-rows-[auto_auto] border-b border-border/80 transition-colors hover:bg-muted/45 focus-within:relative focus-within:z-10',
 						!isConversation && 'bg-muted/20 pl-5',
 						isConversation && selected.has(row.conversation.latest.stableId) && 'bg-primary/5',
 						unread && 'font-semibold'
@@ -1147,7 +1373,7 @@
 								/>
 							</label>
 						</div>
-					{:else if row.message.folderName === currentFolderName && conversationByThread.has(row.threadId)}
+					{:else if isRowActionableHere(row)}
 						{@const parentConversation = conversationByThread.get(row.threadId)!}
 						<!-- svelte-ignore a11y_click_events_have_key_events -->
 						<div
@@ -1345,6 +1571,52 @@
 					>
 						<time datetime={message.receivedAt}>{formattedDate}</time>
 					</div>
+					{#if row.kind === 'member' && !isRowActionableHere(row)}
+						<!--
+							A member living in another folder, same case as its empty selection
+							cell: every action here is folder-scoped, and a delete that read the
+							*view's* folder role would skip the permanent-delete prompt for a
+							member already in the trash. Name the cell instead of leaving a
+							silent gap where a screen reader expects the actions column. This
+							branch comes first so the member narrowing survives into it.
+						-->
+						<div
+							role="gridcell"
+							aria-colindex={COL_ACTIONS + 1}
+							data-cell-target
+							data-col={COL_ACTIONS}
+							tabindex={focusedRow === rowIndex && focusedCol === COL_ACTIONS ? 0 : -1}
+							aria-label={$_('messages.rowActions.memberNotActionable', {
+								values: { folder: folderLabelByRef($folders, row.message.folderName, $_) }
+							})}
+							onfocus={() => handleCellFocus(rowIndex, COL_ACTIONS)}
+							class="col-start-6 row-span-2 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+						></div>
+					{:else}
+						<!-- svelte-ignore a11y_click_events_have_key_events -->
+						<div
+							role="gridcell"
+							aria-colindex={COL_ACTIONS + 1}
+							tabindex="-1"
+							class="col-start-6 row-span-2 flex items-center justify-center pr-2"
+							onclick={(e) => e.stopPropagation()}
+						>
+							<MessageRowActionsMenu
+								{message}
+								col={COL_ACTIONS}
+								focused={focusedRow === rowIndex && focusedCol === COL_ACTIONS}
+								onCellFocus={() => handleCellFocus(rowIndex, COL_ACTIONS)}
+								currentFolderRef={currentFolderName}
+								actions={rowActions(row)}
+								seen={rowSeen(row)}
+								triggerLabel={isConversation && isThread(row.conversation)
+									? $_('messages.rowActions.conversationTrigger', {
+											values: { subject: message.subject || $_('messages.noSubject') }
+										})
+									: undefined}
+							/>
+						</div>
+					{/if}
 				</div>
 			{/each}
 		</div>

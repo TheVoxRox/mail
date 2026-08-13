@@ -104,6 +104,8 @@
 		"bulkDeleteDone": "Deleted: {count}, failed: {failed}.",
 		"bulkMove": "Move selected",
 		"bulkMoveDone": "Moved to {folder}: {count}, failed: {failed}.",
+		"bulkFlagDone": "Starred: {count}, failed: {failed}.",
+		"bulkUnflagDone": "Star removed: {count}, failed: {failed}.",
 		"permanentDeleteConfirmTitle": "Permanent deletion",
 		"permanentDeleteConfirm": "{count, plural, one {Permanently delete {count} message from the trash?} other {Permanently delete {count} messages from the trash?}} This action cannot be undone.",
 		"permanentDeleteConfirmAction": "Delete permanently",
@@ -139,7 +141,9 @@
 			"memberFolder": "In folder {folder}"
 		},
 		"rowActions": {
-			"trigger": "Actions for message {subject}"
+			"trigger": "Actions for message {subject}",
+			"conversationTrigger": "Actions for conversation {subject}",
+			"memberNotActionable": "No actions, the message is in {folder}"
 		},
 		"flaggedLabel": "Starred",
 		"flaggedTitle": "Starred",

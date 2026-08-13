@@ -26,13 +26,15 @@ vi.mock('$lib/stores/toasts.js', () => ({ pushToast: vi.fn(), announcePolite: vi
 
 import {
 	deleteConversationMembers,
+	flagConversationMembers,
 	moveConversationMembers,
 	type ConversationBulkContext
 } from './conversationBulk.js';
-import { deleteMessage, moveMessage } from '$lib/api/mailAction.js';
+import { deleteMessage, moveMessage, setMessageFlag } from '$lib/api/mailAction.js';
 import { confirmAction } from '$lib/stores/confirmDialog.js';
 import { reloadCurrentConversationsPage } from '$lib/stores/conversations.js';
 import { invalidateMessage } from '$lib/stores/selectedMessage.js';
+import { announcePolite, pushToast } from '$lib/stores/toasts.js';
 
 function ctx(folderRole?: string): ConversationBulkContext {
 	return { accountId: 1, folderName: 'X', folderRole, unreadMemberIds: [] };
@@ -87,6 +89,48 @@ describe('conversationBulk', () => {
 		expect(invalidateMessage).toHaveBeenCalledTimes(2);
 		expect(invalidateMessage).toHaveBeenCalledWith('a');
 		expect(invalidateMessage).toHaveBeenCalledWith('b');
+	});
+
+	it('stars one message with a polite announcement and no toast', async () => {
+		// The row's star flips visibly, so a toast would be noise — but a screen
+		// reader needs the announcement or the toggle is silent. Same split the
+		// flat list makes in mailbox.ts.
+		const done = await flagConversationMembers(['a'], true, ctx('INBOX'));
+		expect(done).toBe(true);
+		expect(setMessageFlag).toHaveBeenCalledWith('a', 'flagged', true);
+		expect(announcePolite).toHaveBeenCalledWith('messages.flaggedAnnounce');
+		expect(pushToast).not.toHaveBeenCalled();
+		expect(reloadCurrentConversationsPage).toHaveBeenCalledOnce();
+	});
+
+	it('unstars one message with the matching announcement', async () => {
+		await flagConversationMembers(['a'], false, ctx('INBOX'));
+		expect(setMessageFlag).toHaveBeenCalledWith('a', 'flagged', false);
+		expect(announcePolite).toHaveBeenCalledWith('messages.unflaggedAnnounce');
+	});
+
+	it('reports a counted toast for more than one message instead of the singular announcement', async () => {
+		// The polite announcement describes one message; for a batch it would say
+		// neither how many were starred nor that any failed.
+		const done = await flagConversationMembers(['a', 'b'], true, ctx('INBOX'));
+		expect(done).toBe(true);
+		expect(announcePolite).not.toHaveBeenCalled();
+		expect(pushToast).toHaveBeenCalledOnce();
+	});
+
+	it('reports a toast when the only starred message failed', async () => {
+		vi.mocked(setMessageFlag).mockRejectedValueOnce(new Error('offline'));
+		const done = await flagConversationMembers(['a'], true, ctx('INBOX'));
+		expect(done).toBe(false);
+		expect(announcePolite).not.toHaveBeenCalled();
+		expect(pushToast).toHaveBeenCalledOnce();
+	});
+
+	it('does not star an empty selection', async () => {
+		const done = await flagConversationMembers([], true, ctx('INBOX'));
+		expect(done).toBe(false);
+		expect(setMessageFlag).not.toHaveBeenCalled();
+		expect(reloadCurrentConversationsPage).not.toHaveBeenCalled();
 	});
 
 	it('keeps the selection when every item failed', async () => {
