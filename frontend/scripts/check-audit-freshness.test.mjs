@@ -148,6 +148,68 @@ describe('check-audit-freshness', () => {
 		expect(result.stdout).toContain('no unreviewed drift');
 	});
 
+	/*
+	 * Every object id comes from one batched `git cat-file --batch-check`, whose
+	 * results are matched back to their inputs by position. Two audits drifting
+	 * differently is what catches a mis-aligned zip: cross the results and the
+	 * untouched audit inherits the drifted one's verdict, which is a false alarm
+	 * on one side and a silently stale audit on the other.
+	 */
+	it('keeps two audits apart when only one of them has drifted', () => {
+		repo.write('src/first/service.ts', 'export const v = 1;\n');
+		repo.write('src/second/service.ts', 'export const v = 1;\n');
+		for (const [doc, dir] of [
+			['docs/FIRST_AUDIT.md', 'src/first'],
+			['docs/SECOND_AUDIT.md', 'src/second']
+		]) {
+			repo.write(doc, auditDoc({ auditedCommit: 'PLACEHOLDER', codePaths: [dir] }));
+		}
+		const sha = repo.commit('seed');
+		repo.write('docs/FIRST_AUDIT.md', auditDoc({ auditedCommit: sha, codePaths: ['src/first'] }));
+		repo.write('docs/SECOND_AUDIT.md', auditDoc({ auditedCommit: sha, codePaths: ['src/second'] }));
+		repo.commit('anchor both audits');
+
+		repo.write('src/second/service.ts', 'export const v = 2;\n');
+		repo.commit('touch only what the second audit claims');
+
+		const result = repo.run('check-audit-freshness.mjs');
+
+		expect(result.status).toBe(1);
+		expect(result.stderr).toContain('docs/SECOND_AUDIT.md');
+		expect(result.stderr).not.toContain('docs/FIRST_AUDIT.md');
+	});
+
+	/*
+	 * `--batch-check` echoes input it cannot resolve back verbatim, so a path
+	 * with a space produces a line whose field layout is indistinguishable from
+	 * a resolved one. That is why results are matched by position and a resolved
+	 * line is recognised by its exact `<40 hex> <type> <size>` shape, never by
+	 * parsing the echo.
+	 */
+	it('handles a Code paths entry containing a space', () => {
+		repo.write('src/with space/service.ts', 'export const v = 1;\n');
+		repo.write(
+			'docs/FIXTURE_AUDIT.md',
+			auditDoc({ auditedCommit: 'PLACEHOLDER', codePaths: ['src/with space'] })
+		);
+		const sha = repo.commit('seed');
+		repo.write(
+			'docs/FIXTURE_AUDIT.md',
+			auditDoc({ auditedCommit: sha, codePaths: ['src/with space'] })
+		);
+		repo.commit('anchor the audit');
+
+		expect(repo.run('check-audit-freshness.mjs').status).toBe(0);
+
+		repo.write('src/with space/service.ts', 'export const v = 2;\n');
+		repo.commit('touch the audited path');
+
+		const result = repo.run('check-audit-freshness.mjs');
+
+		expect(result.status).toBe(1);
+		expect(result.stderr).toMatch(/"src\/with space": "[0-9a-f]{40}"/);
+	});
+
 	it('rejects a Code paths entry that no longer exists', () => {
 		seedAudit(['src/renamed-away']);
 

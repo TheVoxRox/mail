@@ -55,36 +55,56 @@ const repoRoot = path.join(process.cwd(), '..');
 const docsDir = path.join(repoRoot, 'docs');
 const ledgerPath = path.join(docsDir, 'audit-freshness.json');
 
-function git(args, { quiet = false } = {}) {
-	return execFileSync('git', args, {
-		cwd: repoRoot,
-		encoding: 'utf8',
-		// An unknown SHA is an expected outcome here, not a crash — keep git's
-		// "Not a valid object name" off the console so the report reads clean.
-		stdio: quiet ? ['ignore', 'pipe', 'ignore'] : undefined
-	}).trim();
+/*
+ * Only the drift report's commit list still shells out per call, and only on a
+ * run that is already failing — every object id goes through resolveObjects.
+ */
+function git(args) {
+	return execFileSync('git', args, { cwd: repoRoot, encoding: 'utf8' }).trim();
 }
 
-function isCommit(sha) {
-	try {
-		return git(['cat-file', '-t', sha], { quiet: true }) === 'commit';
-	} catch {
-		return false;
-	}
-}
+/** A resolved `--batch-check` line: `<oid> <type> <size>`. */
+const OBJECT_LINE = /^([0-9a-f]{40}) (\S+) (\d+)$/;
 
 /**
- * The object id git stores for `path` at `rev` — a tree for a directory, a
- * blob for a file. Identical content always yields an identical id, which is
- * the whole point: it is stable across squash, rebase and cherry-pick.
- * Returns null when the path does not exist at that revision.
+ * Resolves every revspec — a bare `<rev>` or a `<rev>:<path>` — in ONE git
+ * process, returning `revspec -> { oid, type }` and `null` for anything git
+ * cannot resolve.
+ *
+ * `git cat-file --batch-check` reads revspecs on stdin and writes exactly one
+ * line per input line, in order: `<oid> <type> <size>` when it resolves,
+ * `<input> missing` when it does not. Results are matched back to inputs BY
+ * POSITION, not by parsing the echoed input, because a `Code paths` entry may
+ * contain a space and the echo would then be indistinguishable from an oid
+ * line's field layout.
+ *
+ * This replaced one `git rev-parse` per lookup. That form cost ~160 process
+ * spawns across six audits, and a spawn is ~43 ms on a Windows laptop with a
+ * real-time scanner in the path — so the gate spent ~7 s starting git rather
+ * than reading it, growing linearly with every audit added. The batch form
+ * resolves the same set in ~0.2 s and no longer scales with the audit count.
+ *
+ * Unresolvable input is data here, not an error: `missing` is how a pre-squash
+ * `Audited commit` reports, which is a case the checks below handle.
  */
-function objectIdAt(rev, filePath) {
-	try {
-		return git(['rev-parse', `${rev}:${filePath}`], { quiet: true });
-	} catch {
-		return null;
-	}
+function resolveObjects(revspecs) {
+	const unique = [...new Set(revspecs)];
+	const resolved = new Map();
+	if (unique.length === 0) return resolved;
+
+	const stdout = execFileSync('git', ['cat-file', '--batch-check'], {
+		cwd: repoRoot,
+		encoding: 'utf8',
+		input: `${unique.join('\n')}\n`,
+		stdio: ['pipe', 'pipe', 'ignore']
+	});
+
+	const lines = stdout.split('\n');
+	unique.forEach((revspec, index) => {
+		const match = OBJECT_LINE.exec(lines[index] ?? '');
+		resolved.set(revspec, match ? { oid: match[1], type: match[2] } : null);
+	});
+	return resolved;
 }
 
 /** Pulls the first backticked value out of a `| **Label** | ... |` header row. */
@@ -122,6 +142,7 @@ const ledger = existsSync(ledgerPath) ? JSON.parse(readFileSync(ledgerPath, 'utf
 const problems = [];
 const notices = [];
 const rows = [];
+const audits = [];
 
 for (const file of auditFiles) {
 	const rel = `docs/${file}`;
@@ -155,6 +176,36 @@ for (const file of auditFiles) {
 	}
 	if (!pathsUsable) continue;
 
+	audits.push({ rel, auditedCommit, codePaths });
+}
+
+/*
+ * Every object id the checks below compare is known by now, so ask git once.
+ * Both sides of every comparison go in: the current id, the id at the audit's
+ * own anchor, and the anchor itself — whose type is what answers isCommit.
+ */
+const wanted = [];
+for (const { auditedCommit, codePaths } of audits) {
+	wanted.push(auditedCommit);
+	for (const p of codePaths) {
+		wanted.push(`HEAD:${p}`);
+		wanted.push(`${auditedCommit}:${p}`);
+	}
+}
+const resolved = resolveObjects(wanted);
+
+/** Whether `sha` names a commit that exists in this repository. */
+const isCommit = (sha) => resolved.get(sha)?.type === 'commit';
+
+/**
+ * The object id git stores for `path` at `rev` — a tree for a directory, a
+ * blob for a file. Identical content always yields an identical id, which is
+ * the whole point: it is stable across squash, rebase and cherry-pick.
+ * Returns null when the path does not exist at that revision.
+ */
+const objectIdAt = (rev, filePath) => resolved.get(`${rev}:${filePath}`)?.oid ?? null;
+
+for (const { rel, auditedCommit, codePaths } of audits) {
 	const entry = ledger[rel] ?? {};
 	const reviewed = entry.reviewedTrees ?? {};
 	const auditedCommitResolves = isCommit(auditedCommit);
