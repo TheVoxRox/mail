@@ -1,5 +1,7 @@
 package org.voxrox.mailbackend.feature.auth.service;
 
+import java.util.Set;
+
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Component;
@@ -29,9 +31,19 @@ import org.springframework.stereotype.Component;
 @Component
 public class MicrosoftClaimsExtractor implements OAuth2ClaimsExtractor {
 
+    /** IMAP4 access to Outlook/Exchange Online — reading the mailbox. */
+    static final String IMAP_SCOPE = "https://outlook.office.com/IMAP.AccessAsUser.All";
+    /** SMTP submission — sending. Without it the account can only receive. */
+    static final String SMTP_SCOPE = "https://outlook.office.com/SMTP.Send";
+
     @Override
     public String providerName() {
         return MicrosoftTokenService.PROVIDER_NAME;
+    }
+
+    @Override
+    public Set<String> requiredMailScopes() {
+        return Set.of(IMAP_SCOPE, SMTP_SCOPE);
     }
 
     @Override

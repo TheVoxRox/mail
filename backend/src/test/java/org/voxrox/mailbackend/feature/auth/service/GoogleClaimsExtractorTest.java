@@ -22,6 +22,12 @@ class GoogleClaimsExtractorTest {
     }
 
     @Test
+    @DisplayName("Requires the full Gmail scope — the one Google grants on a separate consent screen")
+    void requiresGmailScope() {
+        assertThat(extractor.requiredMailScopes()).containsExactly("https://mail.google.com/");
+    }
+
+    @Test
     @DisplayName("Maps email/name/sub + refresh token from the OAuth2 callback payload")
     void extractsPrimaryClaims() {
         OAuth2User user = mock(OAuth2User.class);

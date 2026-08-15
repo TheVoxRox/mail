@@ -22,6 +22,13 @@ class MicrosoftClaimsExtractorTest {
     }
 
     @Test
+    @DisplayName("Requires both Outlook mail scopes — IMAP for reading, SMTP.Send for sending")
+    void requiresImapAndSmtpScopes() {
+        assertThat(extractor.requiredMailScopes()).containsExactlyInAnyOrder(
+                "https://outlook.office.com/IMAP.AccessAsUser.All", "https://outlook.office.com/SMTP.Send");
+    }
+
+    @Test
     @DisplayName("Maps email/name/oid + refresh token from the OAuth2 callback payload")
     void extractsPrimaryClaims() {
         OAuth2User user = mock(OAuth2User.class);

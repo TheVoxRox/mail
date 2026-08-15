@@ -1,5 +1,8 @@
 package org.voxrox.mailbackend.feature.auth.service;
 
+import java.util.List;
+import java.util.Set;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -23,7 +26,8 @@ import org.voxrox.mailbackend.util.LogMasker;
  * Per-provider claim mapping is handled by {@link OAuth2ClaimsExtractor};
  * account and credential persistence is handled by
  * {@link ExternalProviderLoginService}. This class orchestrates the fail-fast
- * guard on a missing refresh token and the audit trail.
+ * guards — identity claims, refresh token, granted mail scopes — and the audit
+ * trail.
  */
 @Service
 public class OAuth2LoginService {
@@ -92,6 +96,42 @@ public class OAuth2LoginService {
             throw new MailOperationException(ErrorCode.MAIL_AUTHENTICATION_FAILED,
                     "The provider did not return a refresh token. Repeat the sign-in and confirm access.",
                     HttpStatus.UNAUTHORIZED);
+        }
+
+        /*
+         * A completed sign-in does not imply access to the mailbox. Google asks for the
+         * Gmail scope on a consent screen of its own, separate from the sign-in
+         * ("wants additional access to your Google account"); confirming only the
+         * sign-in yields a perfectly valid token carrying the OIDC scopes alone. The
+         * reduced grant is then stored at the provider, so every later login returns
+         * the same narrow token and prompt=consent does not widen it — only approving
+         * the mail scope does.
+         *
+         * Without this guard the account gets created (or has requires_reauth cleared)
+         * and the missing scope surfaces several IMAP round trips later as
+         * "the provider denied IMAP access — sign in again", which is exactly the
+         * advice that cannot help.
+         *
+         * Only a positively missing scope is rejected. A token response with no scope
+         * information at all leaves nothing to judge by, and refusing the login on that
+         * basis would be worse than letting the IMAP connection decide.
+         */
+        Set<String> grantedScopes = (authorizedClient.getAccessToken() != null)
+                ? authorizedClient.getAccessToken().getScopes()
+                : null;
+        if (grantedScopes != null && !grantedScopes.isEmpty()) {
+            List<String> missingScopes = extractor.requiredMailScopes().stream()
+                    .filter(required -> grantedScopes.stream().noneMatch(required::equalsIgnoreCase)).sorted().toList();
+            if (!missingScopes.isEmpty()) {
+                String missing = String.join(" ", missingScopes);
+                log.warn("{} Provider {} did not grant the mail scopes ({}) for {} — login rejected.", LogCategory.AUTH,
+                        providerName, missing, maskedEmail);
+                AuditLog.failure("oauth2_login", maskedEmail, "provider=" + providerName + " missing_scope=" + missing);
+                externalProviderLoginService.markRequiresReauthIfExists(email);
+                throw new MailOperationException(ErrorCode.MAIL_OAUTH2_SCOPE_NOT_GRANTED,
+                        "The provider did not grant access to the mailbox. Sign in again and confirm access to e-mail.",
+                        HttpStatus.UNAUTHORIZED, "error.mail.oauth2ScopeNotGranted");
+            }
         }
 
         try {
