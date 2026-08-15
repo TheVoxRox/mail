@@ -1,5 +1,7 @@
 package org.voxrox.mailbackend.feature.auth.service;
 
+import java.util.Set;
+
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Component;
@@ -18,9 +20,21 @@ import org.springframework.stereotype.Component;
 @Component
 public class GoogleClaimsExtractor implements OAuth2ClaimsExtractor {
 
+    /**
+     * Full Gmail access (IMAP + SMTP). A restricted scope, which Google presents on
+     * its own consent screen separate from the sign-in — declining it still yields
+     * a usable OIDC token, so the grant has to be verified rather than assumed.
+     */
+    static final String GMAIL_SCOPE = "https://mail.google.com/";
+
     @Override
     public String providerName() {
         return GoogleTokenService.PROVIDER_NAME;
+    }
+
+    @Override
+    public Set<String> requiredMailScopes() {
+        return Set.of(GMAIL_SCOPE);
     }
 
     @Override

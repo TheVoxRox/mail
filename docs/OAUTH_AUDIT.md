@@ -2,14 +2,14 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                         |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.1                                                                                                                                                                                                                                                                                                                                                                                     |
-| **Date**           | 2026-08-08                                                                                                                                                                                                                                                                                                                                                                              |
+| **Version**        | 1.2                                                                                                                                                                                                                                                                                                                                                                                     |
+| **Date**           | 2026-08-15                                                                                                                                                                                                                                                                                                                                                                              |
 | **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                      |
 | **Audited commit** | `cad05cb` (re-verified 2026-08-08, recorded pre-squash as `5799e8b`; 1.0 baseline: `d55b753`)                                                                                                                                                                                                                                                                                           |
 | **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/auth`, `backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java`, `backend/src/main/java/org/voxrox/mailbackend/core/config/OAuth2CompletedStateTracker.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/account/service/ExternalProviderLoginService.java`, `backend/src/main/resources/static` |
 | **Auditor**        | Claude (Fable 5) + owner review                                                                                                                                                                                                                                                                                                                                                         |
 | **Subsystem**      | OAuth handshake — Boundary 2 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                 |
-| **Verdict**        | **Security: PASS** (no exploitable finding, no code change).                                                                                                                                                                                                                                                                                                                            |
+| **Verdict**        | **Security: PASS** (no exploitable finding; the code change re-verified in 1.2 came from a reliability fix, not from an audit finding).                                                                                                                                                                                                                                                 |
 
 Focused verification audit of the boundary **"OAuth provider ↔ system browser ↔
 sidecar"**: every mitigation claimed by the Boundary 2 STRIDE rows was traced to
@@ -44,6 +44,19 @@ tiers.
 - **Scopes are hardcoded** per provider in `application.properties` (Google:
   `https://mail.google.com/` + `openid,email,profile`; Microsoft: IMAP/SMTP
   resource scopes + `offline_access`) — no in-app scope escalation path exists.
+- **The granted scopes are verified, not assumed.** A provider may return a
+  valid token that carries fewer scopes than were requested: Google asks for
+  the restricted Gmail scope on a consent screen separate from the sign-in, and
+  approving only the sign-in yields a token with the OIDC scopes alone.
+  [OAuth2LoginService](../backend/src/main/java/org/voxrox/mailbackend/feature/auth/service/OAuth2LoginService.java)
+  compares the token's scopes against the mail scopes the provider's
+  `OAuth2ClaimsExtractor` declares as required and rejects the login before any
+  account is persisted (`MAIL_OAUTH2_SCOPE_NOT_GRANTED`). The check is
+  one-directional — it can only refuse a grant that is too narrow, never widen
+  one — so it does not weaken the escalation claim above. A token response
+  carrying no scope information at all is deliberately allowed through, leaving
+  the IMAP connection as the judge; the requested set stays the one in
+  `application.properties`.
 
 ## 2. Token lifecycle (confirmed)
 
@@ -61,7 +74,10 @@ tiers.
   the account is flagged, the sync scheduler stops picking it up, and the UI
   re-runs the OAuth wizard. The benign-duplicate-callback path deliberately
   does **not** clear the flag (`OAuth2LoginService`), so a stale success cannot
-  resurrect a dead account.
+  resurrect a dead account. A login that returns without a refresh token or
+  without the required mail scopes flags an existing account the same way
+  rather than clearing it — the failing guards run before persistence, so the
+  incomplete grant can neither create an account nor revive one.
 - **`client_secret` is Google-only** and injected via env
   (`GOOGLE_OAUTH_CLIENT_SECRET`); the shared refresh body carries no secret —
   the Microsoft path would be rejected by AAD if one were sent (fixed boot
@@ -87,6 +103,20 @@ tiers.
 
 ## 5. Change log
 
+- **1.2** (2026-08-15) — re-verified after the login flow gained a fourth
+  fail-fast guard: `OAuth2LoginService` rejects a login whose access token does
+  not carry the mail scopes its provider declares as required
+  (`MAIL_OAUTH2_SCOPE_NOT_GRANTED`). Prompted by a real failure rather than a
+  review — two Google logins in a row completed carrying `openid email profile`
+  alone, so an account was created whose every IMAP connection was then
+  refused, and the user-facing advice ("sign in again") could not fix it
+  because the narrowed grant is stored at the provider. §1 gained the
+  granted-scope claim, §2 the note that the guard flags an existing account
+  instead of clearing it. The check is one-directional — it can refuse a grant
+  that is too narrow but never widen one — so the **E** mitigation of
+  Boundary 2 is strengthened, not moved, and the requested scope set is still
+  exactly the one hardcoded in `application.properties`. Verdict unchanged
+  (**PASS**).
 - **1.1** (2026-08-08) — re-verified against `5799e8b` after `check:audits`
   reported one commit of drift. That commit (#179) is a pure delegation move:
   `OAuth2LoginService` now calls `ExternalProviderLoginService` instead of
