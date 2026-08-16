@@ -559,15 +559,9 @@
 				"hint": "Zvolte, zda se detail zprávy zobrazuje vedle seznamu, pod ním, nebo je skryté, dokud zprávu neotevřete.",
 				"empty": "Vyberte zprávu ze seznamu a detail se otevře tady.",
 				"options": {
-					"right": {
-						"title": "Vpravo"
-					},
-					"bottom": {
-						"title": "Dole"
-					},
-					"off": {
-						"title": "Skryté"
-					}
+					"right": "Vpravo",
+					"bottom": "Dole",
+					"off": "Skryté"
 				}
 			},
 			"splitPane": {
@@ -578,36 +572,24 @@
 				"heading": "Seskupení zpráv ve složce",
 				"hint": "Zvolte, zda se zprávy zobrazují jednotlivě, nebo seskupené do konverzací (jeden řádek na vlákno).",
 				"options": {
-					"flat": {
-						"title": "Jednotlivé zprávy"
-					},
-					"grouped": {
-						"title": "Seskupit podle konverzace"
-					}
+					"flat": "Jednotlivé zprávy",
+					"grouped": "Seskupit podle konverzace"
 				}
 			},
 			"messageBody": {
 				"heading": "Výchozí zobrazení obsahu zprávy",
 				"hint": "Zvolte, jak se vykreslí tělo zprávy. Volba platí pro všechny zprávy, dokud ji znovu nezměníte.",
 				"options": {
-					"html": {
-						"title": "HTML"
-					},
-					"plain": {
-						"title": "Prostý text"
-					}
+					"html": "HTML",
+					"plain": "Prostý text"
 				}
 			},
 			"closeAction": {
 				"heading": "Co udělá zavření okna",
 				"hint": "Zůstane-li aplikace v oznamovací oblasti, dál synchronizuje poštu a hlásí nové zprávy. Ukončit ji pak jde přes nabídku ikony v oznamovací oblasti.",
 				"options": {
-					"tray": {
-						"title": "Nechat běžet v oznamovací oblasti"
-					},
-					"quit": {
-						"title": "Ukončit aplikaci"
-					}
+					"tray": "Nechat běžet v oznamovací oblasti",
+					"quit": "Ukončit aplikaci"
 				}
 			}
 		},

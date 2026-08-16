@@ -559,15 +559,9 @@
 				"hint": "Choose whether message details appear next to the list, below it, or stay hidden until you open a message.",
 				"empty": "Select a message from the list and its detail will appear here.",
 				"options": {
-					"right": {
-						"title": "Right"
-					},
-					"bottom": {
-						"title": "Bottom"
-					},
-					"off": {
-						"title": "Hidden"
-					}
+					"right": "Right",
+					"bottom": "Bottom",
+					"off": "Hidden"
 				}
 			},
 			"splitPane": {
@@ -578,36 +572,24 @@
 				"heading": "Group messages in a folder",
 				"hint": "Choose whether messages appear individually or grouped into conversations (one row per thread).",
 				"options": {
-					"flat": {
-						"title": "Individual messages"
-					},
-					"grouped": {
-						"title": "Group by conversation"
-					}
+					"flat": "Individual messages",
+					"grouped": "Group by conversation"
 				}
 			},
 			"messageBody": {
 				"heading": "Default rendering of message body",
 				"hint": "Choose how message bodies are rendered. The choice applies to all messages until you change it again.",
 				"options": {
-					"html": {
-						"title": "HTML"
-					},
-					"plain": {
-						"title": "Plain text"
-					}
+					"html": "HTML",
+					"plain": "Plain text"
 				}
 			},
 			"closeAction": {
 				"heading": "What closing the window does",
 				"hint": "Left running in the notification area, the app keeps syncing mail and announcing new messages. Quitting is then done from the notification area icon menu.",
 				"options": {
-					"tray": {
-						"title": "Keep running in the notification area"
-					},
-					"quit": {
-						"title": "Quit the application"
-					}
+					"tray": "Keep running in the notification area",
+					"quit": "Quit the application"
 				}
 			}
 		},
