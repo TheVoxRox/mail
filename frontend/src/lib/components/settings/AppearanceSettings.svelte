@@ -26,16 +26,14 @@
 	const MESSAGE_BODY_OPTIONS: ReadonlyArray<MessageBodyView> = ['html', 'plain'];
 	const GROUPING_OPTIONS: ReadonlyArray<MessageGrouping> = ['flat', 'grouped'];
 	const CLOSE_ACTION_OPTIONS: ReadonlyArray<CloseAction> = ['tray', 'quit'];
-	const closeActionLabelKey = (option: CloseAction) =>
-		`settings.appearance.closeAction.options.${option}.title`;
-	const groupingLabelKey = (option: MessageGrouping) =>
-		`settings.appearance.grouping.options.${option}.title`;
-	const themeLabelKey = (option: ThemePreference) => `settings.appearance.theme.options.${option}`;
-	const textSizeLabelKey = (option: TextSize) => `settings.appearance.textSize.options.${option}`;
-	const paneLabelKey = (option: ReadingPane) =>
-		`settings.appearance.readingPane.options.${option}.title`;
-	const bodyLabelKey = (option: MessageBodyView) =>
-		`settings.appearance.messageBody.options.${option}.title`;
+	/**
+	 * Theme and Text size store each option's text as a plain string; the other
+	 * four nest it under `.title` with nothing else beside it. That is drift in
+	 * the message bundle rather than a difference in meaning, so the caller says
+	 * which shape its section uses — flattening the bundle would retire the flag.
+	 */
+	const optionLabelKey = (section: string, option: string, nested: boolean): string =>
+		`settings.appearance.${section}.options.${option}${nested ? '.title' : ''}`;
 
 	function handleThemeChange(event: Event) {
 		const value = (event.target as HTMLSelectElement).value as ThemePreference;
@@ -68,145 +66,104 @@
 	}
 </script>
 
+{#snippet selectCard(setting: {
+	id: string;
+	section: string;
+	value: string;
+	onchange: (event: Event) => void;
+	options: readonly string[];
+	/** This section's option texts live under `.title` — see `optionLabelKey`. */
+	nestedOptionLabel: boolean;
+})}
+	<Surface as="section" class="space-y-3">
+		<h2 id={`${setting.id}-label`} class="text-sm font-semibold">
+			{$_(`settings.appearance.${setting.section}.heading`)}
+		</h2>
+		<Field for={setting.id} hint={$_(`settings.appearance.${setting.section}.hint`)}>
+			<Select
+				id={setting.id}
+				value={setting.value}
+				onchange={setting.onchange}
+				width="full"
+				aria-labelledby={`${setting.id}-label`}
+				aria-describedby={`${setting.id}-hint`}
+			>
+				{#each setting.options as option (option)}
+					<option value={option}>
+						{$_(optionLabelKey(setting.section, option, setting.nestedOptionLabel))}
+					</option>
+				{/each}
+			</Select>
+		</Field>
+	</Surface>
+{/snippet}
+
+<!--
+	Each card names its select with its own heading (`aria-labelledby`) instead
+	of carrying a separate `<label>`. A card holding one control does not need
+	two names for it, and two is what it had: the heading plus a field label
+	worded differently. Screen-reader users heard both, one after the other, and
+	voice-control users were left saying the heading at a control that answered
+	to the label.
+
+	The labels were hidden with `sr-only` rather than reworded, which removed the
+	visible duplicate but not the spoken one — and the flag then spread to cards
+	whose label was *not* a duplicate, so the reason stopped matching the code.
+	The headings below carry the wording those labels had, since it was written
+	to name a control; `settings.appearance.*.label` is gone.
+-->
 <div class="max-w-2xl space-y-4">
-	<Surface as="section" class="space-y-3">
-		<h2 class="text-sm font-semibold">{$_('settings.appearance.theme.heading')}</h2>
-		<!--
-			labelClass="sr-only": the card heading already shows the same text right
-			above the select, so the field label stays screen-reader-only to avoid
-			a visible duplicate while keeping the select's accessible name.
-		-->
-		<Field
-			for="theme-select"
-			label={$_('settings.appearance.theme.label')}
-			labelClass="sr-only"
-			hint={$_('settings.appearance.theme.hint')}
-		>
-			<Select
-				id="theme-select"
-				value={$themePreference}
-				onchange={handleThemeChange}
-				width="full"
-				aria-describedby="theme-select-hint"
-			>
-				{#each THEME_OPTIONS as opt (opt)}
-					<option value={opt}>{$_(themeLabelKey(opt))}</option>
-				{/each}
-			</Select>
-		</Field>
-	</Surface>
-
-	<Surface as="section" class="space-y-3">
-		<h2 class="text-sm font-semibold">{$_('settings.appearance.textSize.heading')}</h2>
-		<Field
-			for="text-size-select"
-			label={$_('settings.appearance.textSize.label')}
-			labelClass="sr-only"
-			hint={$_('settings.appearance.textSize.hint')}
-		>
-			<Select
-				id="text-size-select"
-				value={$textSize}
-				onchange={handleTextSizeChange}
-				width="full"
-				aria-describedby="text-size-select-hint"
-			>
-				{#each TEXT_SIZE_OPTIONS as option (option)}
-					<option value={option}>{$_(textSizeLabelKey(option))}</option>
-				{/each}
-			</Select>
-		</Field>
-	</Surface>
-
-	<Surface as="section" class="space-y-3">
-		<h2 class="text-sm font-semibold">{$_('settings.appearance.readingPane.heading')}</h2>
-		<Field
-			for="reading-pane-select"
-			label={$_('settings.appearance.readingPane.label')}
-			hint={$_('settings.appearance.readingPane.hint')}
-		>
-			<Select
-				id="reading-pane-select"
-				value={$readingPane}
-				onchange={handleReadingPaneChange}
-				width="full"
-				aria-describedby="reading-pane-select-hint"
-			>
-				{#each READING_PANE_OPTIONS as option (option)}
-					<option value={option}>{$_(paneLabelKey(option))}</option>
-				{/each}
-			</Select>
-		</Field>
-	</Surface>
-
-	<Surface as="section" class="space-y-3">
-		<h2 class="text-sm font-semibold">{$_('settings.appearance.grouping.heading')}</h2>
-		<Field
-			for="message-grouping-select"
-			label={$_('settings.appearance.grouping.label')}
-			labelClass="sr-only"
-			hint={$_('settings.appearance.grouping.hint')}
-		>
-			<Select
-				id="message-grouping-select"
-				value={$messageGrouping}
-				onchange={handleGroupingChange}
-				width="full"
-				aria-describedby="message-grouping-select-hint"
-			>
-				{#each GROUPING_OPTIONS as option (option)}
-					<option value={option}>{$_(groupingLabelKey(option))}</option>
-				{/each}
-			</Select>
-		</Field>
-	</Surface>
-
+	{@render selectCard({
+		id: 'theme-select',
+		section: 'theme',
+		value: $themePreference,
+		onchange: handleThemeChange,
+		options: THEME_OPTIONS,
+		nestedOptionLabel: false
+	})}
+	{@render selectCard({
+		id: 'text-size-select',
+		section: 'textSize',
+		value: $textSize,
+		onchange: handleTextSizeChange,
+		options: TEXT_SIZE_OPTIONS,
+		nestedOptionLabel: false
+	})}
+	{@render selectCard({
+		id: 'reading-pane-select',
+		section: 'readingPane',
+		value: $readingPane,
+		onchange: handleReadingPaneChange,
+		options: READING_PANE_OPTIONS,
+		nestedOptionLabel: true
+	})}
+	{@render selectCard({
+		id: 'message-grouping-select',
+		section: 'grouping',
+		value: $messageGrouping,
+		onchange: handleGroupingChange,
+		options: GROUPING_OPTIONS,
+		nestedOptionLabel: true
+	})}
 	<!--
 		Desktop-only in effect (the tray lives in the Tauri shell), but shown
 		unconditionally: the app ships as a desktop bundle, and hiding a setting in
 		the browser dev build would make the two surfaces disagree for no gain.
 	-->
-	<Surface as="section" class="space-y-3">
-		<h2 class="text-sm font-semibold">{$_('settings.appearance.closeAction.heading')}</h2>
-		<Field
-			for="close-action-select"
-			label={$_('settings.appearance.closeAction.label')}
-			labelClass="sr-only"
-			hint={$_('settings.appearance.closeAction.hint')}
-		>
-			<Select
-				id="close-action-select"
-				value={$closeAction}
-				onchange={handleCloseActionChange}
-				width="full"
-				aria-describedby="close-action-select-hint"
-			>
-				{#each CLOSE_ACTION_OPTIONS as option (option)}
-					<option value={option}>{$_(closeActionLabelKey(option))}</option>
-				{/each}
-			</Select>
-		</Field>
-	</Surface>
-
-	<Surface as="section" class="space-y-3">
-		<h2 class="text-sm font-semibold">{$_('settings.appearance.messageBody.heading')}</h2>
-		<Field
-			for="message-body-select"
-			label={$_('settings.appearance.messageBody.label')}
-			labelClass="sr-only"
-			hint={$_('settings.appearance.messageBody.hint')}
-		>
-			<Select
-				id="message-body-select"
-				value={$messageBodyView}
-				onchange={handleMessageBodyChange}
-				width="full"
-				aria-describedby="message-body-select-hint"
-			>
-				{#each MESSAGE_BODY_OPTIONS as option (option)}
-					<option value={option}>{$_(bodyLabelKey(option))}</option>
-				{/each}
-			</Select>
-		</Field>
-	</Surface>
+	{@render selectCard({
+		id: 'close-action-select',
+		section: 'closeAction',
+		value: $closeAction,
+		onchange: handleCloseActionChange,
+		options: CLOSE_ACTION_OPTIONS,
+		nestedOptionLabel: true
+	})}
+	{@render selectCard({
+		id: 'message-body-select',
+		section: 'messageBody',
+		value: $messageBodyView,
+		onchange: handleMessageBodyChange,
+		options: MESSAGE_BODY_OPTIONS,
+		nestedOptionLabel: true
+	})}
 </div>

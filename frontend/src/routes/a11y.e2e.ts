@@ -644,13 +644,33 @@ test.describe('Přístupnost', () => {
 		await waitForShell(page);
 
 		await expect(page.getByRole('heading', { level: 1, name: 'Vzhled' })).toBeVisible();
-		await expect(page.getByRole('heading', { level: 2, name: 'Téma' })).toBeVisible();
-		await expect(page.getByRole('heading', { level: 2, name: 'Podokno čtení' })).toBeVisible();
 
-		// The theme/text-size field labels are visually hidden (the card heading
-		// shows the same text), so the selects must keep their accessible names.
-		await expect(page.getByRole('combobox', { name: 'Téma' })).toHaveCount(1);
-		await expect(page.getByRole('combobox', { name: 'Velikost textu' })).toHaveCount(1);
+		/*
+		 * Each card names its select with its own heading instead of carrying a
+		 * separate <label>, so every select's accessible name must be exactly the
+		 * heading above it: one name per control, and the one a voice-control
+		 * user can read off the screen.
+		 *
+		 * Both halves are needed. The name assertion alone would not notice a
+		 * <label> coming back, because `aria-labelledby` outranks it in the name
+		 * calculation — the label would sit there as a second visible wording
+		 * while the name stayed right. The `label[for]` count is what catches
+		 * that, and it is scoped to these selects so an unrelated checkbox added
+		 * to this page later is free to have one.
+		 */
+		const cards: ReadonlyArray<{ id: string; heading: string }> = [
+			{ id: 'theme-select', heading: 'Téma' },
+			{ id: 'text-size-select', heading: 'Velikost textu' },
+			{ id: 'reading-pane-select', heading: 'Rozložení podokna čtení' },
+			{ id: 'message-grouping-select', heading: 'Seskupení zpráv ve složce' },
+			{ id: 'close-action-select', heading: 'Co udělá zavření okna' },
+			{ id: 'message-body-select', heading: 'Výchozí zobrazení obsahu zprávy' }
+		];
+		for (const { id, heading } of cards) {
+			await expect(page.getByRole('heading', { level: 2, name: heading })).toBeVisible();
+			await expect(page.locator(`#${id}`)).toHaveAccessibleName(heading);
+			await expect(page.locator(`label[for="${id}"]`)).toHaveCount(0);
+		}
 
 		const readingPaneSelect = page.getByRole('combobox', { name: 'Rozložení podokna čtení' });
 		await expect(readingPaneSelect).toHaveCount(1);

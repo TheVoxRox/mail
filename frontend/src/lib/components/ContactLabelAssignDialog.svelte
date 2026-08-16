@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { Dialog } from 'bits-ui';
 	import { assignContactLabels } from '$lib/api/contactLabels.js';
 	import { toErrorMessage } from '$lib/api/errors.js';
 	import { _ } from '$lib/i18n/index.js';
 	import { contactCounts } from '$lib/stores/contactCounts.js';
 	import { announcePolite, pushToast } from '$lib/stores/toasts.js';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import { DialogDescription, DialogShell, DialogTitle } from '$lib/components/ui/dialog/index.js';
 	import { StateMessage } from '$lib/components/ui/state-message/index.js';
 	import type { ContactResponse } from '$lib/types.js';
 
@@ -131,79 +131,68 @@
 	}
 </script>
 
-<Dialog.Root {open} onOpenChange={(next) => (next ? onOpenChange(true) : close())}>
-	<Dialog.Portal>
-		<Dialog.Overlay class="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px]" />
-		<Dialog.Content
-			class="fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-border bg-popover p-5 text-popover-foreground shadow-2xl"
-			aria-describedby="contact-label-assign-intro"
-		>
-			<Dialog.Title class="text-base font-semibold">
-				{$_('contacts.assignDialogTitle')}
-			</Dialog.Title>
-			<Dialog.Description
-				id="contact-label-assign-intro"
-				class="mt-2 text-sm text-muted-foreground"
-			>
-				{$_('contacts.assignDialogIntro')}
-			</Dialog.Description>
+<DialogShell {open} onOpenChange={(next) => (next ? onOpenChange(true) : close())} size="lg" scroll>
+	<DialogTitle>
+		{$_('contacts.assignDialogTitle')}
+	</DialogTitle>
+	<DialogDescription>
+		{$_('contacts.assignDialogIntro')}
+	</DialogDescription>
 
-			{#if labels.length === 0}
-				<p class="mt-4 text-sm text-muted-foreground">{$_('contacts.formLabelsEmpty')}</p>
-			{:else}
-				<fieldset class="mt-4 space-y-1.5">
-					<legend class="sr-only">{$_('contacts.assignDialogTitle')}</legend>
-					{#each labels as label (label.id)}
-						{@const inputId = `contact-label-assign-${label.id}`}
-						{@const partial = isIndeterminate(label.id)}
-						<label
-							for={inputId}
-							class="flex cursor-pointer items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm hover:bg-muted/35 has-[:checked]:border-primary has-[:checked]:bg-primary/5"
-						>
-							<input
-								id={inputId}
-								type="checkbox"
-								class="size-4 rounded border-input bg-background text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-								checked={effectiveChecked(label.id)}
-								indeterminate={partial}
-								onchange={(event) => toggle(label.id, event.currentTarget.checked)}
-								disabled={busy}
-							/>
-							<span class="min-w-0 flex-1 truncate">{label.name}</span>
-							{#if partial}
-								<!--
-									A native indeterminate checkbox announces "mixed", which says
-									the state but not what it means here. The sr-only text spells
-									out that only part of the selection carries the label.
-								-->
-								<span class="sr-only">
-									{$_('contacts.assignPartial', { values: { label: label.name } })}
-								</span>
-								<span class="shrink-0 text-xs text-muted-foreground" aria-hidden="true">
-									{$_('contacts.assignPartialCount', {
-										values: { carriers: carrierCount(label.id), total: contacts.length }
-									})}
-								</span>
-							{/if}
-						</label>
-					{/each}
-				</fieldset>
-			{/if}
+	{#if labels.length === 0}
+		<p class="mt-4 text-sm text-muted-foreground">{$_('contacts.formLabelsEmpty')}</p>
+	{:else}
+		<fieldset class="mt-4 space-y-1.5">
+			<legend class="sr-only">{$_('contacts.assignDialogTitle')}</legend>
+			{#each labels as label (label.id)}
+				{@const inputId = `contact-label-assign-${label.id}`}
+				{@const partial = isIndeterminate(label.id)}
+				<label
+					for={inputId}
+					class="flex cursor-pointer items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm hover:bg-muted/35 has-[:checked]:border-primary has-[:checked]:bg-primary/5"
+				>
+					<input
+						id={inputId}
+						type="checkbox"
+						class="size-4 rounded border-input bg-background text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+						checked={effectiveChecked(label.id)}
+						indeterminate={partial}
+						onchange={(event) => toggle(label.id, event.currentTarget.checked)}
+						disabled={busy}
+					/>
+					<span class="min-w-0 flex-1 truncate">{label.name}</span>
+					{#if partial}
+						<!--
+							A native indeterminate checkbox announces "mixed", which says the
+							state but not what it means here. The sr-only text spells out that
+							only part of the selection carries the label.
+						-->
+						<span class="sr-only">
+							{$_('contacts.assignPartial', { values: { label: label.name } })}
+						</span>
+						<span class="shrink-0 text-xs text-muted-foreground" aria-hidden="true">
+							{$_('contacts.assignPartialCount', {
+								values: { carriers: carrierCount(label.id), total: contacts.length }
+							})}
+						</span>
+					{/if}
+				</label>
+			{/each}
+		</fieldset>
+	{/if}
 
-			{#if serverError}
-				<StateMessage variant="error" padding="none" role="alert" class="mt-3">
-					{serverError}
-				</StateMessage>
-			{/if}
+	{#if serverError}
+		<StateMessage variant="error" padding="none" role="alert" class="mt-3">
+			{serverError}
+		</StateMessage>
+	{/if}
 
-			<div class="mt-5 flex flex-wrap justify-end gap-2">
-				<Button variant="outline" onclick={close} disabled={busy}>
-					{$_('common.cancel')}
-				</Button>
-				<Button onclick={submit} disabled={!hasChanges || busy}>
-					{busy ? $_('contacts.assignBusy') : $_('contacts.assignApply')}
-				</Button>
-			</div>
-		</Dialog.Content>
-	</Dialog.Portal>
-</Dialog.Root>
+	<div class="mt-5 flex flex-wrap justify-end gap-2">
+		<Button variant="outline" onclick={close} disabled={busy}>
+			{$_('common.cancel')}
+		</Button>
+		<Button onclick={submit} disabled={!hasChanges || busy}>
+			{busy ? $_('contacts.assignBusy') : $_('contacts.assignApply')}
+		</Button>
+	</div>
+</DialogShell>

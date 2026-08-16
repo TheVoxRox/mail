@@ -7,6 +7,7 @@
 	import { _ } from '$lib/i18n/index.js';
 	import { buttonVariants } from '$lib/components/ui/button/index.js';
 	import { DropdownMenu } from 'bits-ui';
+	import { menuContentVariants } from '$lib/components/ui/menu/index.js';
 	import Icon from '$lib/components/Icon.svelte';
 	import MoveTargetMenuItems from '$lib/components/MoveTargetMenuItems.svelte';
 	import { cn } from '$lib/utils.js';
@@ -62,7 +63,7 @@
 				align="start"
 				sideOffset={4}
 				loop
-				class="z-10 max-h-64 min-w-44 overflow-y-auto rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-lg"
+				class={menuContentVariants({ scroll: true })}
 			>
 				<MoveTargetMenuItems targets={moveTargets} onMoveTo={handleMoveTo} />
 			</DropdownMenu.Content>

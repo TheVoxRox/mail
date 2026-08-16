@@ -5,15 +5,10 @@
 	import { messageStatusLabel } from '$lib/mail/messageStatus.js';
 	import MessageFlags from '$lib/components/MessageFlags.svelte';
 	import MessageRowActionsMenu from '$lib/components/MessageRowActionsMenu.svelte';
-	import {
-		computeNextCell,
-		focusGridCell,
-		ROW_NAV_PAGE_STEP
-	} from '$lib/components/grid/rowNavigation.js';
+	import { createRovingGrid } from '$lib/components/grid/rovingGrid.svelte.js';
 	import { cn } from '$lib/utils.js';
 	import { formatNumericDate } from '$lib/formatters.js';
 	import type { MailSummaryResponse, PagedResponse } from '$lib/types.js';
-	import { tick } from 'svelte';
 
 	interface Props {
 		results: PagedResponse<MailSummaryResponse>;
@@ -60,23 +55,11 @@
 	const COL_COUNT = 6;
 
 	let gridElement = $state<HTMLDivElement | null>(null);
-	let focusedRow = $state(0);
-	let focusedCol = $state(COL_SUBJECT);
-
-	function focusCell(rowIndex: number, col: number): void {
-		void tick().then(() => focusGridCell(gridElement, rowIndex, col));
-	}
-
-	function setFocus(rowIndex: number, col: number): void {
-		focusedRow = rowIndex;
-		focusedCol = col;
-		focusCell(rowIndex, col);
-	}
-
-	function handleCellFocus(rowIndex: number, col: number): void {
-		focusedRow = rowIndex;
-		focusedCol = col;
-	}
+	const grid = createRovingGrid({
+		element: () => gridElement,
+		initialCol: COL_SUBJECT,
+		maxCol: MAX_COL
+	});
 
 	function handleKeydown(
 		event: KeyboardEvent,
@@ -85,22 +68,12 @@
 	): void {
 		if (event.key === 'Enter' || event.key === ' ') {
 			// The actions cell owns Enter/Space to open its menu.
-			if (focusedCol === COL_ACTIONS) return;
+			if (grid.col === COL_ACTIONS) return;
 			event.preventDefault();
 			onSelect(message);
 			return;
 		}
-		const next = computeNextCell(event.key, {
-			row: rowIndex,
-			col: focusedCol,
-			maxRow: results.content.length - 1,
-			maxCol: MAX_COL,
-			ctrl: event.ctrlKey,
-			pageStep: ROW_NAV_PAGE_STEP
-		});
-		if (!next) return;
-		event.preventDefault();
-		setFocus(next.row, next.col);
+		grid.navigate(event, rowIndex, results.content.length);
 	}
 
 	function handleRowClick(event: MouseEvent, message: MailSummaryResponse): void {
@@ -111,8 +84,7 @@
 
 	// Keep the roving focus index inside the page when results shrink.
 	$effect(() => {
-		const max = results.content.length - 1;
-		if (focusedRow > max) focusedRow = Math.max(0, max);
+		grid.clampRow(results.content.length);
 	});
 
 	/**
@@ -124,10 +96,7 @@
 	function focusRowSubject(stableId: string): boolean {
 		const idx = results.content.findIndex((message) => message.stableId === stableId);
 		if (idx < 0) return false;
-		if (!focusGridCell(gridElement, idx, COL_SUBJECT)) return false;
-		focusedRow = idx;
-		focusedCol = COL_SUBJECT;
-		return true;
+		return grid.focusNow(idx, COL_SUBJECT);
 	}
 
 	/*
@@ -180,11 +149,8 @@
 			<div
 				role="gridcell"
 				aria-colindex={COL_STATUS + 1}
-				data-cell-target
-				data-col={COL_STATUS}
-				tabindex={focusedRow === rowIndex && focusedCol === COL_STATUS ? 0 : -1}
+				{...grid.cell(rowIndex, COL_STATUS)}
 				aria-label={statusLabel}
-				onfocus={() => handleCellFocus(rowIndex, COL_STATUS)}
 				class="row-span-2 flex items-center gap-1 rounded-sm px-2 text-caption text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
 			>
 				<MessageFlags {message} />
@@ -192,10 +158,7 @@
 			<div
 				role="gridcell"
 				aria-colindex={COL_SUBJECT + 1}
-				data-cell-target
-				data-col={COL_SUBJECT}
-				tabindex={focusedRow === rowIndex && focusedCol === COL_SUBJECT ? 0 : -1}
-				onfocus={() => handleCellFocus(rowIndex, COL_SUBJECT)}
+				{...grid.cell(rowIndex, COL_SUBJECT)}
 				class={cn(
 					'col-start-2 row-start-1 truncate rounded-sm px-2 pt-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50',
 					!message.seen ? 'text-foreground' : 'text-muted-foreground'
@@ -209,10 +172,7 @@
 			<div
 				role="gridcell"
 				aria-colindex={COL_SENDER + 1}
-				data-cell-target
-				data-col={COL_SENDER}
-				tabindex={focusedRow === rowIndex && focusedCol === COL_SENDER ? 0 : -1}
-				onfocus={() => handleCellFocus(rowIndex, COL_SENDER)}
+				{...grid.cell(rowIndex, COL_SENDER)}
 				class={cn(
 					'col-start-2 row-start-2 truncate rounded-sm px-2 pb-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50',
 					!message.seen ? 'text-foreground' : 'text-muted-foreground'
@@ -223,10 +183,7 @@
 			<div
 				role="gridcell"
 				aria-colindex={COL_DATE + 1}
-				data-cell-target
-				data-col={COL_DATE}
-				tabindex={focusedRow === rowIndex && focusedCol === COL_DATE ? 0 : -1}
-				onfocus={() => handleCellFocus(rowIndex, COL_DATE)}
+				{...grid.cell(rowIndex, COL_DATE)}
 				class="col-start-3 row-start-1 flex items-center justify-end rounded-sm px-3 pt-3 text-caption text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
 			>
 				<time datetime={message.receivedAt}>{formattedDate}</time>
@@ -234,10 +191,7 @@
 			<div
 				role="gridcell"
 				aria-colindex={COL_FOLDER + 1}
-				data-cell-target
-				data-col={COL_FOLDER}
-				tabindex={focusedRow === rowIndex && focusedCol === COL_FOLDER ? 0 : -1}
-				onfocus={() => handleCellFocus(rowIndex, COL_FOLDER)}
+				{...grid.cell(rowIndex, COL_FOLDER)}
 				class="col-start-3 row-start-2 flex items-center justify-end truncate rounded-sm px-3 pb-3 text-caption text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
 			>
 				{folderLabelByRef($folders, message.folderName, $_)}
@@ -253,8 +207,8 @@
 				<MessageRowActionsMenu
 					{message}
 					col={COL_ACTIONS}
-					focused={focusedRow === rowIndex && focusedCol === COL_ACTIONS}
-					onCellFocus={() => handleCellFocus(rowIndex, COL_ACTIONS)}
+					focused={grid.isAt(rowIndex, COL_ACTIONS)}
+					onCellFocus={() => grid.track(rowIndex, COL_ACTIONS)}
 					currentFolderRef={message.folderName}
 					onAfterAction={() => onAfterAction(message)}
 				/>

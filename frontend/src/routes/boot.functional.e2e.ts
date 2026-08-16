@@ -47,7 +47,7 @@ test.describe('MSW bootstrap', () => {
 		await page.goto('/settings/appearance');
 		await waitForShell(page);
 
-		await expect(page.getByRole('heading', { name: 'Podokno čtení' })).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Rozložení podokna čtení' })).toBeVisible();
 		const select = page.getByRole('combobox', { name: 'Rozložení podokna čtení' });
 		await expect(select).toBeVisible();
 		await expect(select).toHaveAttribute('id', 'reading-pane-select');

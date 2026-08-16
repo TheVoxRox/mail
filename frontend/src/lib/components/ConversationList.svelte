@@ -6,17 +6,13 @@
 	import { _, appLocale } from '$lib/i18n/index.js';
 	import { toErrorMessage } from '$lib/api/errors.js';
 	import { getThread } from '$lib/api/mailRead.js';
-	import Icon from '$lib/components/Icon.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
-	import { Button, buttonVariants } from '$lib/components/ui/button/index.js';
-	import { DropdownMenu } from 'bits-ui';
-	import { StateMessage } from '$lib/components/ui/state-message/index.js';
-	import { Surface } from '$lib/components/ui/surface/index.js';
-	import {
-		computeNextCell,
-		focusGridCell,
-		ROW_NAV_PAGE_STEP
-	} from '$lib/components/grid/rowNavigation.js';
+	import MailBulkToolbar, {
+		type BulkAction
+	} from '$lib/components/mail-list/MailBulkToolbar.svelte';
+	import MailListState from '$lib/components/mail-list/MailListState.svelte';
+	import { createRovingGrid } from '$lib/components/grid/rovingGrid.svelte.js';
+
 	import { cn } from '$lib/utils.js';
 	import { formatMessageListDate, formatThreadMemberDate } from '$lib/formatters.js';
 	import { folderLabelByRef } from '$lib/mail/folderLabel.js';
@@ -40,7 +36,6 @@
 	import type { RowActions } from '$lib/mail/rowActions.js';
 	import MessageFlags from '$lib/components/MessageFlags.svelte';
 	import MessageRowActionsMenu from '$lib/components/MessageRowActionsMenu.svelte';
-	import MoveTargetMenuItems from '$lib/components/MoveTargetMenuItems.svelte';
 	import { announcePolite } from '$lib/stores/toasts.js';
 	import type {
 		ConversationSummaryResponse,
@@ -89,8 +84,11 @@
 
 	let gridElement = $state<HTMLDivElement | null>(null);
 	let emptyStateElement = $state<HTMLParagraphElement | null>(null);
-	let focusedRow = $state(0);
-	let focusedCol = $state(COL_SUBJECT);
+	const grid = createRovingGrid({
+		element: () => gridElement,
+		initialCol: COL_SUBJECT,
+		maxCol: MAX_COL
+	});
 
 	// Expansion is per-view: expanded thread ids, their loaded thread members as
 	// the API returned them (unfiltered — the view-dependent filtering happens at
@@ -126,11 +124,8 @@
 	 */
 	const selected = new SvelteSet<string>();
 	const selectedMembers = new SvelteMap<string, string>();
-	let selectAllInput = $state<HTMLInputElement | null>(null);
-	let bulkAction = $state<'read' | 'unread' | 'delete' | 'move' | null>(null);
+	let bulkAction = $state<BulkAction | null>(null);
 	let bulkError = $state<string | null>(null);
-	let seenMenuOpen = $state(false);
-	let moveMenuOpen = $state(false);
 	let bulkActionsAnnounced = false;
 
 	const currentFolderName = $derived(
@@ -436,7 +431,7 @@
 			const parentIndex = visibleRows.findIndex(
 				(row) => row.kind === 'conversation' && row.conversation.threadId === id
 			);
-			if (parentIndex >= 0) setFocus(parentIndex, COL_SUBJECT);
+			if (parentIndex >= 0) grid.moveTo(parentIndex, COL_SUBJECT);
 		}
 	}
 
@@ -444,7 +439,7 @@
 	function focusParentRow(rowIndex: number): void {
 		for (let index = rowIndex - 1; index >= 0; index -= 1) {
 			if (visibleRows[index].kind === 'conversation') {
-				setFocus(index, COL_SUBJECT);
+				grid.moveTo(index, COL_SUBJECT);
 				return;
 			}
 		}
@@ -529,8 +524,7 @@
 		}
 	}
 
-	function handleSelectAll(event: Event): void {
-		const checked = (event.currentTarget as HTMLInputElement).checked;
+	function handleSelectAll(checked: boolean): void {
 		selectedMembers.clear();
 		if (checked) for (const id of pageRepIds) selected.add(id);
 		else selected.clear();
@@ -623,7 +617,7 @@
 	}
 
 	async function runBulk(
-		action: 'read' | 'unread' | 'delete' | 'move',
+		action: BulkAction,
 		run: (memberIds: string[], ctx: ConversationBulkContext) => Promise<boolean>
 	): Promise<void> {
 		if (!hasSelection || bulkAction || $conversationsState.status !== 'ready') return;
@@ -737,7 +731,7 @@
 			preferred: key,
 			fallback: neighbour ? rowKey(neighbour) : null,
 			index: Math.max(0, index),
-			col: focusedCol
+			col: grid.col
 		};
 	}
 
@@ -773,7 +767,7 @@
 
 		const target = index;
 		const frame = requestAnimationFrame(() => {
-			setFocus(target, col);
+			grid.moveTo(target, col);
 			pendingRowFocus = null;
 		});
 		return () => cancelAnimationFrame(frame);
@@ -889,8 +883,7 @@
 			// These cells hold a native control (checkbox, expand button, menu
 			// trigger) — let the key reach it instead of opening the row, which would
 			// otherwise toggle AND navigate on a single Enter.
-			if (focusedCol === COL_SELECT || focusedCol === COL_EXPAND || focusedCol === COL_ACTIONS)
-				return;
+			if (grid.col === COL_SELECT || grid.col === COL_EXPAND || grid.col === COL_ACTIONS) return;
 			event.preventDefault();
 			openRow(row);
 			return;
@@ -901,7 +894,7 @@
 		// button's own cell. This is the sighted-keyboard path; a screen reader in
 		// browse mode never delivers these keys, which is why the toggle also exists
 		// as a real button.
-		if (focusedCol === COL_SUBJECT || focusedCol === COL_EXPAND) {
+		if (grid.col === COL_SUBJECT || grid.col === COL_EXPAND) {
 			if (row.kind === 'conversation' && isExpandable(row.conversation)) {
 				const id = row.conversation.threadId as string;
 				if (event.key === 'ArrowRight' && !expanded.has(id)) {
@@ -922,14 +915,7 @@
 			}
 		}
 
-		const next = computeNextCell(event.key, {
-			row: rowIndex,
-			col: focusedCol,
-			maxRow: visibleRows.length - 1,
-			maxCol: MAX_COL,
-			ctrl: event.ctrlKey,
-			pageStep: ROW_NAV_PAGE_STEP
-		});
+		const next = grid.nextCell(event, rowIndex, visibleRows.length);
 		if (!next) return;
 		event.preventDefault();
 		// A row change moves the reading-pane selection with focus; a column-only
@@ -938,7 +924,7 @@
 		if (next.row !== rowIndex && readingPaneCtx.pane !== 'off' && currentFolderRole !== 'DRAFTS') {
 			selectAndFocus(next.row, next.col, visibleRows[next.row]);
 		} else {
-			setFocus(next.row, next.col);
+			grid.moveTo(next.row, next.col);
 		}
 	}
 
@@ -973,21 +959,6 @@
 		openRow(row);
 	}
 
-	function handleCellFocus(rowIndex: number, col: number): void {
-		focusedRow = rowIndex;
-		focusedCol = col;
-	}
-
-	function setFocus(rowIndex: number, col: number): void {
-		focusedRow = rowIndex;
-		focusedCol = col;
-		void tick().then(() => focusGridCell(gridElement, rowIndex, col));
-	}
-
-	$effect(() => {
-		if (selectAllInput) selectAllInput.indeterminate = someSelected;
-	});
-
 	// Announce the bulk actions the first time a selection starts (they render
 	// only once something is selected — a screen-reader signal they appeared).
 	$effect(() => {
@@ -1008,13 +979,11 @@
 	// re-focuses while it is still the latest selection.
 	let selectToken = 0;
 	function selectAndFocus(rowIndex: number, col: number, row: VisibleRow): void {
-		focusedRow = rowIndex;
-		focusedCol = col;
-		void tick().then(() => focusGridCell(gridElement, rowIndex, col));
+		grid.moveTo(rowIndex, col);
 		const token = ++selectToken;
 		const message = rowMessage(row);
 		void openMessage(message.stableId, message.folderName).finally(() => {
-			if (token === selectToken) void tick().then(() => focusGridCell(gridElement, rowIndex, col));
+			if (token === selectToken) grid.moveTo(rowIndex, col);
 		});
 	}
 
@@ -1117,9 +1086,7 @@
 	}
 
 	$effect(() => {
-		if (focusedRow >= visibleRows.length) {
-			focusedRow = Math.max(0, visibleRows.length - 1);
-		}
+		grid.clampRow(visibleRows.length);
 	});
 
 	async function navigateToPage(target: number): Promise<void> {
@@ -1134,505 +1101,355 @@
 	}
 </script>
 
-{#if $conversationsState.status === 'idle' || $conversationsState.status === 'loading'}
-	<div class="flex flex-1 items-center justify-center bg-background p-6">
-		<Surface variant="subtle" padding="lg" class="max-w-sm text-center">
-			<StateMessage padding="none" role="status">{$_('messages.loading')}</StateMessage>
-		</Surface>
-	</div>
-{:else if $conversationsState.status === 'error'}
-	<div class="flex flex-1 items-center justify-center bg-background p-6">
-		<Surface variant="danger" padding="sm" class="max-w-md">
-			<StateMessage variant="error" padding="none" role="alert">
-				{$_('messages.errorPrefix', {
-					values: { message: toErrorMessage($conversationsState.error) }
-				})}
-			</StateMessage>
-		</Surface>
-	</div>
-{:else if $conversationsState.page.content.length === 0}
-	<div class="flex flex-1 items-center justify-center bg-background p-6">
-		<Surface variant="subtle" padding="lg" class="max-w-sm text-center">
-			<!-- Focus target after a row action removed the last row (see the restore effects). -->
-			<StateMessage bind:ref={emptyStateElement} padding="none" role="status" tabindex={-1}>
-				{$_('messages.empty')}
-			</StateMessage>
-		</Surface>
-	</div>
-{:else}
-	{@const pageData = $conversationsState.page}
-	<div class="flex min-h-0 flex-1 flex-col bg-background">
-		<div
-			role="toolbar"
-			aria-label={$_('messages.bulkToolbarLabel')}
-			class="flex min-h-11 flex-wrap items-center gap-2 border-b border-border/80 bg-muted/20 px-3 py-2"
-		>
-			<label class="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-				<input
-					bind:this={selectAllInput}
-					type="checkbox"
-					class="size-4 accent-primary"
-					checked={allSelected}
-					aria-checked={someSelected ? 'mixed' : allSelected ? 'true' : 'false'}
-					onchange={handleSelectAll}
-				/>
-				<span>{$_('messages.selectAll')}</span>
-			</label>
+<MailListState state={$conversationsState} bind:emptyRef={emptyStateElement}>
+	{#snippet ready(pageData)}
+		<div class="flex min-h-0 flex-1 flex-col bg-background">
+			<MailBulkToolbar
+				{allSelected}
+				{someSelected}
+				{hasSelection}
+				summary={selectionSummary}
+				busy={bulkAction}
+				{moveTargets}
+				error={bulkError}
+				onSelectAll={handleSelectAll}
+				onClear={clearSelection}
+				onDelete={handleBulkDelete}
+				onMarkSeen={handleBulkMarkSeen}
+				onMoveTo={handleBulkMoveTo}
+			/>
 
-			{#if hasSelection}
-				<span class="text-xs text-muted-foreground" role="status">
-					{selectionSummary}
-				</span>
-				<Button
-					type="button"
-					variant="ghost"
-					size="xs"
-					onclick={() => clearSelection()}
-					disabled={bulkAction !== null}
-				>
-					{$_('messages.clearSelection')}
-				</Button>
-				<Button
-					type="button"
-					variant="destructive"
-					size="xs"
-					onclick={handleBulkDelete}
-					disabled={bulkAction !== null}
-				>
-					<Icon name="trash" />
-					<span
-						>{bulkAction === 'delete'
-							? $_('messages.bulkDeleting')
-							: $_('messages.bulkDelete')}</span
+			<div
+				bind:this={gridElement}
+				role="treegrid"
+				aria-label={$_('messages.grouping.listLabel')}
+				aria-rowcount={visibleRows.length + 1}
+				aria-colcount={7}
+				class="flex-1 overflow-y-auto bg-background"
+			>
+				<div role="row" aria-rowindex={1} class="sr-only">
+					<span role="columnheader" aria-colindex={1}>{$_('messages.columnHeaderSelect')}</span>
+					<span role="columnheader" aria-colindex={2}
+						>{$_('messages.grouping.columnHeaderExpand')}</span
 					>
-				</Button>
-				<DropdownMenu.Root bind:open={seenMenuOpen}>
-					<DropdownMenu.Trigger
+					<span role="columnheader" aria-colindex={3}>{$_('messages.columnHeaderStatus')}</span>
+					<span role="columnheader" aria-colindex={4}>{$_('messages.columnHeaderSubject')}</span>
+					<span role="columnheader" aria-colindex={5}
+						>{viewShowsRecipients
+							? $_('messages.columnHeaderRecipient')
+							: $_('messages.columnHeaderSender')}</span
+					>
+					<span role="columnheader" aria-colindex={6}>{$_('messages.columnHeaderDate')}</span>
+					<span role="columnheader" aria-colindex={7}>{$_('messages.columnHeaderActions')}</span>
+				</div>
+				{#each visibleRows as row, rowIndex (rowKey(row))}
+					{@const isConversation = row.kind === 'conversation'}
+					{@const message = isConversation ? row.conversation.latest : row.message}
+					{@const expandable = isConversation && isExpandable(row.conversation)}
+					{@const threadId = isConversation ? row.conversation.threadId : row.threadId}
+					{@const isOpen = threadId != null && expanded.has(threadId)}
+					{@const isLoading = threadId != null && loadingThreads.has(threadId)}
+					{@const unread = isConversation ? row.conversation.unreadCount > 0 : !row.message.seen}
+					{@const statusLabel = messageStatusLabel(message, $_)}
+					<!--
+						A member row carries the clock as well: inside one thread the list
+						format collapses a day's replies to a single string (a weekday name, a
+						bare date), so several rows would read alike and nothing would tell
+						them apart. Parent rows keep the compact list format the flat list
+						uses.
+					-->
+					{@const formattedDate = isConversation
+						? formatMessageListDate(message.receivedAt, $appLocale ?? 'cs')
+						: formatThreadMemberDate(message.receivedAt, $appLocale ?? 'cs')}
+					<div
+						role="row"
+						tabindex="-1"
+						data-row-index={rowIndex}
+						data-stable-id={message.stableId}
+						data-row-kind={isConversation ? 'conversation' : 'member'}
+						aria-level={isConversation ? 1 : 2}
+						aria-rowindex={rowIndex + 2}
+						aria-expanded={expandable ? (isOpen ? 'true' : 'false') : undefined}
+						aria-busy={isLoading ? 'true' : undefined}
 						class={cn(
-							buttonVariants({ variant: 'outline', size: 'xs' }),
-							'data-[state=open]:bg-muted'
+							'grid cursor-pointer grid-cols-[40px_28px_auto_minmax(0,1fr)_auto_40px] grid-rows-[auto_auto] border-b border-border/80 transition-colors hover:bg-muted/45 focus-within:relative focus-within:z-10',
+							!isConversation && 'bg-muted/20 pl-5',
+							isConversation && selected.has(row.conversation.latest.stableId) && 'bg-primary/5',
+							unread && 'font-semibold'
 						)}
-						disabled={bulkAction !== null}
+						onclick={(e) => handleRowClick(e, row)}
+						onkeydown={(e) => handleKeydown(e, row, rowIndex)}
 					>
-						<Icon name="envelope" />
-						<span
-							>{bulkAction === 'read' || bulkAction === 'unread'
-								? $_('messages.bulkMarkingRead')
-								: $_('messages.bulkSeenMenu')}</span
-						>
-						<Icon name="chevron-down" size={16} />
-					</DropdownMenu.Trigger>
-					<DropdownMenu.Portal>
-						<DropdownMenu.Content
-							align="start"
-							sideOffset={4}
-							loop
-							class="z-10 min-w-44 rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-lg"
-						>
-							<DropdownMenu.Item
-								class="flex w-full cursor-pointer rounded-md px-3 py-2 text-left text-sm outline-none data-[highlighted]:bg-muted data-[disabled]:cursor-not-allowed data-[disabled]:text-muted-foreground"
-								onSelect={() => handleBulkMarkSeen(true)}
+						{#if isConversation}
+							{@const mixed = conversationMixed(row.conversation)}
+							<!-- svelte-ignore a11y_click_events_have_key_events -->
+							<div
+								role="gridcell"
+								aria-colindex={COL_SELECT + 1}
+								tabindex="-1"
+								class="row-span-2 flex items-start justify-center py-3"
+								onclick={(e) => e.stopPropagation()}
 							>
-								{$_('messages.bulkMarkRead')}
-							</DropdownMenu.Item>
-							<DropdownMenu.Item
-								class="flex w-full cursor-pointer rounded-md px-3 py-2 text-left text-sm outline-none data-[highlighted]:bg-muted data-[disabled]:cursor-not-allowed data-[disabled]:text-muted-foreground"
-								onSelect={() => handleBulkMarkSeen(false)}
-							>
-								{$_('messages.bulkMarkUnread')}
-							</DropdownMenu.Item>
-						</DropdownMenu.Content>
-					</DropdownMenu.Portal>
-				</DropdownMenu.Root>
-				<DropdownMenu.Root bind:open={moveMenuOpen}>
-					<DropdownMenu.Trigger
-						class={cn(
-							buttonVariants({ variant: 'outline', size: 'xs' }),
-							'data-[state=open]:bg-muted'
-						)}
-						disabled={bulkAction !== null || moveTargets.length === 0}
-					>
-						<Icon name="folder" />
-						<span>{bulkAction === 'move' ? $_('toolbar.moving') : $_('messages.bulkMove')}</span>
-						<Icon name="chevron-down" size={16} />
-					</DropdownMenu.Trigger>
-					<DropdownMenu.Portal>
-						<DropdownMenu.Content
-							align="start"
-							sideOffset={4}
-							loop
-							class="z-10 max-h-64 min-w-44 overflow-y-auto rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-lg"
-						>
-							<MoveTargetMenuItems targets={moveTargets} onMoveTo={handleBulkMoveTo} />
-						</DropdownMenu.Content>
-					</DropdownMenu.Portal>
-				</DropdownMenu.Root>
-			{/if}
-			{#if bulkError}
-				<p class="basis-full text-xs text-destructive-foreground" role="alert">{bulkError}</p>
-			{/if}
-		</div>
-
-		<div
-			bind:this={gridElement}
-			role="treegrid"
-			aria-label={$_('messages.grouping.listLabel')}
-			aria-rowcount={visibleRows.length + 1}
-			aria-colcount={7}
-			class="flex-1 overflow-y-auto bg-background"
-		>
-			<div role="row" aria-rowindex={1} class="sr-only">
-				<span role="columnheader" aria-colindex={1}>{$_('messages.columnHeaderSelect')}</span>
-				<span role="columnheader" aria-colindex={2}
-					>{$_('messages.grouping.columnHeaderExpand')}</span
-				>
-				<span role="columnheader" aria-colindex={3}>{$_('messages.columnHeaderStatus')}</span>
-				<span role="columnheader" aria-colindex={4}>{$_('messages.columnHeaderSubject')}</span>
-				<span role="columnheader" aria-colindex={5}
-					>{viewShowsRecipients
-						? $_('messages.columnHeaderRecipient')
-						: $_('messages.columnHeaderSender')}</span
-				>
-				<span role="columnheader" aria-colindex={6}>{$_('messages.columnHeaderDate')}</span>
-				<span role="columnheader" aria-colindex={7}>{$_('messages.columnHeaderActions')}</span>
-			</div>
-			{#each visibleRows as row, rowIndex (rowKey(row))}
-				{@const isConversation = row.kind === 'conversation'}
-				{@const message = isConversation ? row.conversation.latest : row.message}
-				{@const expandable = isConversation && isExpandable(row.conversation)}
-				{@const threadId = isConversation ? row.conversation.threadId : row.threadId}
-				{@const isOpen = threadId != null && expanded.has(threadId)}
-				{@const isLoading = threadId != null && loadingThreads.has(threadId)}
-				{@const unread = isConversation ? row.conversation.unreadCount > 0 : !row.message.seen}
-				{@const statusLabel = messageStatusLabel(message, $_)}
-				<!--
-					A member row carries the clock as well: inside one thread the list
-					format collapses a day's replies to a single string (a weekday name, a
-					bare date), so several rows would read alike and nothing would tell
-					them apart. Parent rows keep the compact list format the flat list
-					uses.
-				-->
-				{@const formattedDate = isConversation
-					? formatMessageListDate(message.receivedAt, $appLocale ?? 'cs')
-					: formatThreadMemberDate(message.receivedAt, $appLocale ?? 'cs')}
-				<div
-					role="row"
-					tabindex="-1"
-					data-row-index={rowIndex}
-					data-stable-id={message.stableId}
-					data-row-kind={isConversation ? 'conversation' : 'member'}
-					aria-level={isConversation ? 1 : 2}
-					aria-rowindex={rowIndex + 2}
-					aria-expanded={expandable ? (isOpen ? 'true' : 'false') : undefined}
-					aria-busy={isLoading ? 'true' : undefined}
-					class={cn(
-						'grid cursor-pointer grid-cols-[40px_28px_auto_minmax(0,1fr)_auto_40px] grid-rows-[auto_auto] border-b border-border/80 transition-colors hover:bg-muted/45 focus-within:relative focus-within:z-10',
-						!isConversation && 'bg-muted/20 pl-5',
-						isConversation && selected.has(row.conversation.latest.stableId) && 'bg-primary/5',
-						unread && 'font-semibold'
-					)}
-					onclick={(e) => handleRowClick(e, row)}
-					onkeydown={(e) => handleKeydown(e, row, rowIndex)}
-				>
-					{#if isConversation}
-						{@const mixed = conversationMixed(row.conversation)}
-						<!-- svelte-ignore a11y_click_events_have_key_events -->
-						<div
-							role="gridcell"
-							aria-colindex={COL_SELECT + 1}
-							tabindex="-1"
-							class="row-span-2 flex items-start justify-center py-3"
-							onclick={(e) => e.stopPropagation()}
-						>
-							<!-- 24px pointer target around the 16px box, see MessageList. -->
-							<label class="flex size-6 cursor-pointer items-center justify-center">
-								<input
-									type="checkbox"
-									data-cell-target
-									data-col={COL_SELECT}
-									class="size-4 accent-primary"
-									checked={conversationChecked(row.conversation)}
-									aria-checked={mixed
-										? 'mixed'
-										: conversationChecked(row.conversation)
-											? 'true'
-											: 'false'}
-									{@attach (node: HTMLInputElement) => {
-										// Part of the thread ticked: the native tri-state, so the
-										// box looks the way `aria-checked="mixed"` sounds.
-										node.indeterminate = mixed;
-									}}
-									tabindex={focusedRow === rowIndex && focusedCol === COL_SELECT ? 0 : -1}
-									aria-label={selectionLabel(row.conversation)}
-									onfocus={() => handleCellFocus(rowIndex, COL_SELECT)}
-									onchange={(event) =>
-										toggleConversation(
-											row.conversation,
-											(event.currentTarget as HTMLInputElement).checked
-										)}
-								/>
-							</label>
-						</div>
-					{:else if isRowActionableHere(row)}
-						{@const parentConversation = conversationByThread.get(row.threadId)!}
-						<!-- svelte-ignore a11y_click_events_have_key_events -->
-						<div
-							role="gridcell"
-							aria-colindex={COL_SELECT + 1}
-							tabindex="-1"
-							class="row-span-2 flex items-start justify-center py-3"
-							onclick={(e) => e.stopPropagation()}
-						>
-							<label class="flex size-6 cursor-pointer items-center justify-center">
-								<input
-									type="checkbox"
-									data-cell-target
-									data-col={COL_SELECT}
-									class="size-4 accent-primary"
-									checked={conversationChecked(parentConversation) ||
-										selectedMembers.has(row.message.stableId)}
-									tabindex={focusedRow === rowIndex && focusedCol === COL_SELECT ? 0 : -1}
-									aria-label={memberSelectionLabel(row.message)}
-									onfocus={() => handleCellFocus(rowIndex, COL_SELECT)}
-									onchange={(event) =>
-										toggleMember(
-											parentConversation,
-											row.message,
-											(event.currentTarget as HTMLInputElement).checked
-										)}
-								/>
-							</label>
-						</div>
-					{:else}
-						<!--
-							A member living in another folder (an archived reply inside an
-							inbox thread). Bulk actions here are folder-scoped by design, so
-							there is nothing to tick — and an unnamed empty cell would read to
-							a screen reader as a checkbox that went missing.
-						-->
-						<div
-							role="gridcell"
-							aria-colindex={COL_SELECT + 1}
-							data-cell-target
-							data-col={COL_SELECT}
-							tabindex={focusedRow === rowIndex && focusedCol === COL_SELECT ? 0 : -1}
-							aria-label={$_('messages.grouping.memberNotSelectable', {
-								values: { folder: folderLabelByRef($folders, row.message.folderName, $_) }
-							})}
-							onfocus={() => handleCellFocus(rowIndex, COL_SELECT)}
-							class="row-span-2 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
-						></div>
-					{/if}
-					{#if expandable}
-						<!-- svelte-ignore a11y_click_events_have_key_events -->
-						<div
-							role="gridcell"
-							aria-colindex={COL_EXPAND + 1}
-							tabindex="-1"
-							class="col-start-2 row-span-2 flex items-start justify-center pt-3"
-							onclick={(e) => e.stopPropagation()}
-						>
-							<button
-								type="button"
-								data-cell-target
-								data-col={COL_EXPAND}
-								data-expand-toggle
-								tabindex={focusedRow === rowIndex && focusedCol === COL_EXPAND ? 0 : -1}
-								aria-expanded={isOpen}
-								aria-label={isLoading
-									? $_('messages.grouping.loading')
-									: isOpen
-										? $_('messages.grouping.collapseNamed', {
-												values: { subject: message.subject || $_('messages.noSubject') }
-											})
-										: $_('messages.grouping.expandNamed', {
-												values: { subject: message.subject || $_('messages.noSubject') }
-											})}
-								onfocus={() => handleCellFocus(rowIndex, COL_EXPAND)}
-								onclick={() => void toggleExpand(row.conversation)}
-								class="flex size-5 items-center justify-center rounded-sm text-muted-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
-							>
-								<svg
-									viewBox="0 0 16 16"
-									aria-hidden="true"
-									class={cn('h-3.5 w-3.5 transition-transform', isOpen && 'rotate-90')}
-								>
-									<path
-										d="M6 4l4 4-4 4"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="2"
-										stroke-linecap="round"
-										stroke-linejoin="round"
+								<!-- 24px pointer target around the 16px box, see MessageList. -->
+								<label class="flex size-6 cursor-pointer items-center justify-center">
+									<input
+										type="checkbox"
+										{...grid.cell(rowIndex, COL_SELECT)}
+										class="size-4 accent-primary"
+										checked={conversationChecked(row.conversation)}
+										aria-checked={mixed
+											? 'mixed'
+											: conversationChecked(row.conversation)
+												? 'true'
+												: 'false'}
+										{@attach (node: HTMLInputElement) => {
+											// Part of the thread ticked: the native tri-state, so the
+											// box looks the way `aria-checked="mixed"` sounds.
+											node.indeterminate = mixed;
+										}}
+										aria-label={selectionLabel(row.conversation)}
+										onchange={(event) =>
+											toggleConversation(
+												row.conversation,
+												(event.currentTarget as HTMLInputElement).checked
+											)}
 									/>
-								</svg>
-							</button>
-						</div>
-					{:else}
+								</label>
+							</div>
+						{:else if isRowActionableHere(row)}
+							{@const parentConversation = conversationByThread.get(row.threadId)!}
+							<!-- svelte-ignore a11y_click_events_have_key_events -->
+							<div
+								role="gridcell"
+								aria-colindex={COL_SELECT + 1}
+								tabindex="-1"
+								class="row-span-2 flex items-start justify-center py-3"
+								onclick={(e) => e.stopPropagation()}
+							>
+								<label class="flex size-6 cursor-pointer items-center justify-center">
+									<input
+										type="checkbox"
+										{...grid.cell(rowIndex, COL_SELECT)}
+										class="size-4 accent-primary"
+										checked={conversationChecked(parentConversation) ||
+											selectedMembers.has(row.message.stableId)}
+										aria-label={memberSelectionLabel(row.message)}
+										onchange={(event) =>
+											toggleMember(
+												parentConversation,
+												row.message,
+												(event.currentTarget as HTMLInputElement).checked
+											)}
+									/>
+								</label>
+							</div>
+						{:else}
+							<!--
+								A member living in another folder (an archived reply inside an
+								inbox thread). Bulk actions here are folder-scoped by design, so
+								there is nothing to tick — and an unnamed empty cell would read to
+								a screen reader as a checkbox that went missing.
+							-->
+							<div
+								role="gridcell"
+								aria-colindex={COL_SELECT + 1}
+								{...grid.cell(rowIndex, COL_SELECT)}
+								aria-label={$_('messages.grouping.memberNotSelectable', {
+									values: { folder: folderLabelByRef($folders, row.message.folderName, $_) }
+								})}
+								class="row-span-2 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+							></div>
+						{/if}
+						{#if expandable}
+							<!-- svelte-ignore a11y_click_events_have_key_events -->
+							<div
+								role="gridcell"
+								aria-colindex={COL_EXPAND + 1}
+								tabindex="-1"
+								class="col-start-2 row-span-2 flex items-start justify-center pt-3"
+								onclick={(e) => e.stopPropagation()}
+							>
+								<button
+									type="button"
+									{...grid.cell(rowIndex, COL_EXPAND)}
+									data-expand-toggle
+									aria-expanded={isOpen}
+									aria-label={isLoading
+										? $_('messages.grouping.loading')
+										: isOpen
+											? $_('messages.grouping.collapseNamed', {
+													values: { subject: message.subject || $_('messages.noSubject') }
+												})
+											: $_('messages.grouping.expandNamed', {
+													values: { subject: message.subject || $_('messages.noSubject') }
+												})}
+									onclick={() => void toggleExpand(row.conversation)}
+									class="flex size-5 items-center justify-center rounded-sm text-muted-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+								>
+									<svg
+										viewBox="0 0 16 16"
+										aria-hidden="true"
+										class={cn('h-3.5 w-3.5 transition-transform', isOpen && 'rotate-90')}
+									>
+										<path
+											d="M6 4l4 4-4 4"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+										/>
+									</svg>
+								</button>
+							</div>
+						{:else}
+							<div
+								role="gridcell"
+								aria-colindex={COL_EXPAND + 1}
+								{...grid.cell(rowIndex, COL_EXPAND)}
+								class="col-start-2 row-span-2 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+							></div>
+						{/if}
 						<div
 							role="gridcell"
-							aria-colindex={COL_EXPAND + 1}
-							data-cell-target
-							data-col={COL_EXPAND}
-							tabindex={focusedRow === rowIndex && focusedCol === COL_EXPAND ? 0 : -1}
-							onfocus={() => handleCellFocus(rowIndex, COL_EXPAND)}
-							class="col-start-2 row-span-2 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
-						></div>
-					{/if}
-					<div
-						role="gridcell"
-						aria-colindex={COL_STATUS + 1}
-						data-cell-target
-						data-col={COL_STATUS}
-						tabindex={focusedRow === rowIndex && focusedCol === COL_STATUS ? 0 : -1}
-						aria-label={statusLabel}
-						onfocus={() => handleCellFocus(rowIndex, COL_STATUS)}
-						class="col-start-3 row-span-2 flex items-center gap-1 rounded-sm px-2 text-caption text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
-					>
-						<MessageFlags {message} />
-					</div>
-					<div
-						role="gridcell"
-						aria-colindex={COL_SUBJECT + 1}
-						class="col-start-4 row-start-1 min-w-0 px-2 pt-3"
-					>
-						<!--
-							A real link, like the flat list: browse mode never delivers Enter
-							to the treegrid, and a link is the one thing every screen reader
-							activates there. It carries the roving tabindex, so the arrow keys
-							and the expand contract are unchanged.
-						-->
-						<a
-							href={rowHref(message.stableId, message.folderName)}
-							data-cell-target
-							data-col={COL_SUBJECT}
-							tabindex={focusedRow === rowIndex && focusedCol === COL_SUBJECT ? 0 : -1}
-							onfocus={() => handleCellFocus(rowIndex, COL_SUBJECT)}
-							onclick={(event) => handleSubjectClick(event, row)}
+							aria-colindex={COL_STATUS + 1}
+							{...grid.cell(rowIndex, COL_STATUS)}
+							aria-label={statusLabel}
+							class="col-start-3 row-span-2 flex items-center gap-1 rounded-sm px-2 text-caption text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+						>
+							<MessageFlags {message} />
+						</div>
+						<div
+							role="gridcell"
+							aria-colindex={COL_SUBJECT + 1}
+							class="col-start-4 row-start-1 min-w-0 px-2 pt-3"
+						>
+							<!--
+								A real link, like the flat list: browse mode never delivers Enter
+								to the treegrid, and a link is the one thing every screen reader
+								activates there. It carries the roving tabindex, so the arrow keys
+								and the expand contract are unchanged.
+							-->
+							<a
+								href={rowHref(message.stableId, message.folderName)}
+								{...grid.cell(rowIndex, COL_SUBJECT)}
+								onclick={(event) => handleSubjectClick(event, row)}
+								class={cn(
+									'flex items-center gap-2 rounded-sm text-sm no-underline outline-none hover:underline focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50',
+									unread ? 'text-foreground' : 'text-muted-foreground'
+								)}
+							>
+								{#if unread}
+									<span class="sr-only">{$_('messages.unreadIndicatorLabel')}.</span>
+								{/if}
+								<span class="truncate">{message.subject || $_('messages.noSubject')}</span>
+								{#if isConversation && displayedCount(row.conversation) > 1}
+									<span
+										class="shrink-0 rounded-full bg-primary/12 px-1.5 py-0.5 text-caption font-semibold text-primary"
+										aria-hidden="true"
+									>
+										{displayedCount(row.conversation)}
+									</span>
+									<span class="sr-only">{conversationLabel(row.conversation)}.</span>
+								{/if}
+								{#if !isConversation && row.message.folderName !== currentFolderName}
+									{@const memberFolderName = folderLabelByRef($folders, row.message.folderName, $_)}
+									<!-- Cross-folder member (e.g. an archived reply inside the inbox
+								     conversation): tag it with its home folder so the row is
+								     unambiguous both visually and for a screen reader. -->
+									<span
+										class="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-caption font-medium text-muted-foreground"
+										aria-hidden="true"
+									>
+										{memberFolderName}
+									</span>
+									<span class="sr-only"
+										>{$_('messages.grouping.memberFolder', {
+											values: { folder: memberFolderName }
+										})}.</span
+									>
+								{/if}
+							</a>
+						</div>
+						<div
+							role="gridcell"
+							aria-colindex={COL_SENDER + 1}
+							{...grid.cell(rowIndex, COL_SENDER)}
 							class={cn(
-								'flex items-center gap-2 rounded-sm text-sm no-underline outline-none hover:underline focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50',
+								'col-start-4 row-start-2 truncate rounded-sm px-2 pb-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50',
 								unread ? 'text-foreground' : 'text-muted-foreground'
 							)}
 						>
-							{#if unread}
-								<span class="sr-only">{$_('messages.unreadIndicatorLabel')}.</span>
-							{/if}
-							<span class="truncate">{message.subject || $_('messages.noSubject')}</span>
-							{#if isConversation && displayedCount(row.conversation) > 1}
-								<span
-									class="shrink-0 rounded-full bg-primary/12 px-1.5 py-0.5 text-caption font-semibold text-primary"
-									aria-hidden="true"
-								>
-									{displayedCount(row.conversation)}
-								</span>
-								<span class="sr-only">{conversationLabel(row.conversation)}.</span>
-							{/if}
-							{#if !isConversation && row.message.folderName !== currentFolderName}
-								{@const memberFolderName = folderLabelByRef($folders, row.message.folderName, $_)}
-								<!-- Cross-folder member (e.g. an archived reply inside the inbox
-							     conversation): tag it with its home folder so the row is
-							     unambiguous both visually and for a screen reader. -->
-								<span
-									class="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-caption font-medium text-muted-foreground"
-									aria-hidden="true"
-								>
-									{memberFolderName}
-								</span>
-								<span class="sr-only"
-									>{$_('messages.grouping.memberFolder', {
-										values: { folder: memberFolderName }
-									})}.</span
-								>
-							{/if}
-						</a>
-					</div>
-					<div
-						role="gridcell"
-						aria-colindex={COL_SENDER + 1}
-						data-cell-target
-						data-col={COL_SENDER}
-						tabindex={focusedRow === rowIndex && focusedCol === COL_SENDER ? 0 : -1}
-						onfocus={() => handleCellFocus(rowIndex, COL_SENDER)}
-						class={cn(
-							'col-start-4 row-start-2 truncate rounded-sm px-2 pb-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50',
-							unread ? 'text-foreground' : 'text-muted-foreground'
-						)}
-					>
-						{showRecipientsFor(message) ? (message.recipientsTo ?? '') : message.sender}
-					</div>
-					<div
-						role="gridcell"
-						aria-colindex={COL_DATE + 1}
-						data-cell-target
-						data-col={COL_DATE}
-						tabindex={focusedRow === rowIndex && focusedCol === COL_DATE ? 0 : -1}
-						onfocus={() => handleCellFocus(rowIndex, COL_DATE)}
-						class="col-start-5 row-span-2 flex items-center rounded-sm px-3 text-caption text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
-					>
-						<time datetime={message.receivedAt}>{formattedDate}</time>
-					</div>
-					{#if row.kind === 'member' && !isRowActionableHere(row)}
-						<!--
-							A member living in another folder, same case as its empty selection
-							cell: every action here is folder-scoped, and a delete that read the
-							*view's* folder role would skip the permanent-delete prompt for a
-							member already in the trash. Name the cell instead of leaving a
-							silent gap where a screen reader expects the actions column. This
-							branch comes first so the member narrowing survives into it.
-						-->
-						<div
-							role="gridcell"
-							aria-colindex={COL_ACTIONS + 1}
-							data-cell-target
-							data-col={COL_ACTIONS}
-							tabindex={focusedRow === rowIndex && focusedCol === COL_ACTIONS ? 0 : -1}
-							aria-label={$_('messages.rowActions.memberNotActionable', {
-								values: { folder: folderLabelByRef($folders, row.message.folderName, $_) }
-							})}
-							onfocus={() => handleCellFocus(rowIndex, COL_ACTIONS)}
-							class="col-start-6 row-span-2 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
-						></div>
-					{:else}
-						<!-- svelte-ignore a11y_click_events_have_key_events -->
-						<div
-							role="gridcell"
-							aria-colindex={COL_ACTIONS + 1}
-							tabindex="-1"
-							class="col-start-6 row-span-2 flex items-center justify-center pr-2"
-							onclick={(e) => e.stopPropagation()}
-						>
-							<MessageRowActionsMenu
-								{message}
-								col={COL_ACTIONS}
-								focused={focusedRow === rowIndex && focusedCol === COL_ACTIONS}
-								onCellFocus={() => handleCellFocus(rowIndex, COL_ACTIONS)}
-								currentFolderRef={currentFolderName}
-								actions={rowActions(row)}
-								seen={rowSeen(row)}
-								triggerLabel={isConversation && isThread(row.conversation)
-									? $_('messages.rowActions.conversationTrigger', {
-											values: { subject: message.subject || $_('messages.noSubject') }
-										})
-									: undefined}
-							/>
+							{showRecipientsFor(message) ? (message.recipientsTo ?? '') : message.sender}
 						</div>
-					{/if}
-				</div>
-			{/each}
+						<div
+							role="gridcell"
+							aria-colindex={COL_DATE + 1}
+							{...grid.cell(rowIndex, COL_DATE)}
+							class="col-start-5 row-span-2 flex items-center rounded-sm px-3 text-caption text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+						>
+							<time datetime={message.receivedAt}>{formattedDate}</time>
+						</div>
+						{#if row.kind === 'member' && !isRowActionableHere(row)}
+							<!--
+								A member living in another folder, same case as its empty selection
+								cell: every action here is folder-scoped, and a delete that read the
+								*view's* folder role would skip the permanent-delete prompt for a
+								member already in the trash. Name the cell instead of leaving a
+								silent gap where a screen reader expects the actions column. This
+								branch comes first so the member narrowing survives into it.
+							-->
+							<div
+								role="gridcell"
+								aria-colindex={COL_ACTIONS + 1}
+								{...grid.cell(rowIndex, COL_ACTIONS)}
+								aria-label={$_('messages.rowActions.memberNotActionable', {
+									values: { folder: folderLabelByRef($folders, row.message.folderName, $_) }
+								})}
+								class="col-start-6 row-span-2 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+							></div>
+						{:else}
+							<!-- svelte-ignore a11y_click_events_have_key_events -->
+							<div
+								role="gridcell"
+								aria-colindex={COL_ACTIONS + 1}
+								tabindex="-1"
+								class="col-start-6 row-span-2 flex items-center justify-center pr-2"
+								onclick={(e) => e.stopPropagation()}
+							>
+								<MessageRowActionsMenu
+									{message}
+									col={COL_ACTIONS}
+									focused={grid.isAt(rowIndex, COL_ACTIONS)}
+									onCellFocus={() => grid.track(rowIndex, COL_ACTIONS)}
+									currentFolderRef={currentFolderName}
+									actions={rowActions(row)}
+									seen={rowSeen(row)}
+									triggerLabel={isConversation && isThread(row.conversation)
+										? $_('messages.rowActions.conversationTrigger', {
+												values: { subject: message.subject || $_('messages.noSubject') }
+											})
+										: undefined}
+								/>
+							</div>
+						{/if}
+					</div>
+				{/each}
+			</div>
 		</div>
-	</div>
 
-	<Pagination
-		page={pageData.page}
-		totalPages={pageData.totalPages}
-		totalElements={pageData.totalElements}
-		first={pageData.first}
-		last={pageData.last}
-		onFirst={() => navigateToPage(0)}
-		onPrev={() => navigateToPage(pageData.page - 1)}
-		onNext={() => navigateToPage(pageData.page + 1)}
-		onLast={() => navigateToPage(pageData.totalPages - 1)}
-		onJump={(target) => navigateToPage(target - 1)}
-		landmarkLabel={$_('messages.paginationLandmark')}
-	/>
-{/if}
+		<Pagination
+			page={pageData.page}
+			totalPages={pageData.totalPages}
+			totalElements={pageData.totalElements}
+			first={pageData.first}
+			last={pageData.last}
+			onFirst={() => navigateToPage(0)}
+			onPrev={() => navigateToPage(pageData.page - 1)}
+			onNext={() => navigateToPage(pageData.page + 1)}
+			onLast={() => navigateToPage(pageData.totalPages - 1)}
+			onJump={(target) => navigateToPage(target - 1)}
+			landmarkLabel={$_('messages.paginationLandmark')}
+		/>
+	{/snippet}
+</MailListState>

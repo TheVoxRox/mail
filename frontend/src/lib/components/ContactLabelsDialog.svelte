@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { Dialog } from 'bits-ui';
 	import {
 		createContactLabel,
 		deleteContactLabel,
@@ -10,6 +9,7 @@
 	import { contactCounts, refreshContactCounts } from '$lib/stores/contactCounts.js';
 	import { announcePolite, pushToast } from '$lib/stores/toasts.js';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import { DialogDescription, DialogShell, DialogTitle } from '$lib/components/ui/dialog/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { StateMessage } from '$lib/components/ui/state-message/index.js';
 	import { tick } from 'svelte';
@@ -166,196 +166,185 @@
 	}
 </script>
 
-<Dialog.Root {open} onOpenChange={(next) => (next ? onOpenChange(true) : close())}>
-	<Dialog.Portal>
-		<Dialog.Overlay class="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px]" />
-		<Dialog.Content
-			class="fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-border bg-popover p-5 text-popover-foreground shadow-2xl"
-			aria-describedby="contact-labels-dialog-intro"
+<DialogShell {open} onOpenChange={(next) => (next ? onOpenChange(true) : close())} size="lg" scroll>
+	<DialogTitle>
+		{$_('contacts.labelsDialogTitle')}
+	</DialogTitle>
+	<DialogDescription>
+		{$_('contacts.labelsDialogIntro')}
+	</DialogDescription>
+
+	<form onsubmit={handleCreate} class="mt-4 flex flex-wrap items-end gap-2">
+		<div class="min-w-0 flex-1">
+			<label for="contact-label-new" class="mb-1 block text-sm font-medium text-foreground">
+				{$_('contacts.labelNameField')}
+			</label>
+			<Input
+				id="contact-label-new"
+				type="text"
+				bind:value={newName}
+				bind:ref={newNameInput}
+				placeholder={$_('contacts.labelNamePlaceholder')}
+				maxlength={60}
+				disabled={creating}
+				aria-invalid={createError ? 'true' : undefined}
+				aria-describedby={createError ? 'contact-label-new-error' : undefined}
+			/>
+		</div>
+		<Button type="submit" disabled={creating || newName.trim().length === 0}>
+			{$_('contacts.addLabel')}
+		</Button>
+	</form>
+	{#if createError}
+		<StateMessage
+			variant="error"
+			padding="none"
+			role="alert"
+			class="mt-2"
+			id="contact-label-new-error"
 		>
-			<Dialog.Title class="text-base font-semibold">
-				{$_('contacts.labelsDialogTitle')}
-			</Dialog.Title>
-			<Dialog.Description
-				id="contact-labels-dialog-intro"
-				class="mt-2 text-sm text-muted-foreground"
-			>
-				{$_('contacts.labelsDialogIntro')}
-			</Dialog.Description>
+			{createError}
+		</StateMessage>
+	{/if}
 
-			<form onsubmit={handleCreate} class="mt-4 flex flex-wrap items-end gap-2">
-				<div class="min-w-0 flex-1">
-					<label for="contact-label-new" class="mb-1 block text-sm font-medium text-foreground">
-						{$_('contacts.labelNameField')}
-					</label>
-					<Input
-						id="contact-label-new"
-						type="text"
-						bind:value={newName}
-						bind:ref={newNameInput}
-						placeholder={$_('contacts.labelNamePlaceholder')}
-						maxlength={60}
-						disabled={creating}
-						aria-invalid={createError ? 'true' : undefined}
-						aria-describedby={createError ? 'contact-label-new-error' : undefined}
-					/>
-				</div>
-				<Button type="submit" disabled={creating || newName.trim().length === 0}>
-					{$_('contacts.addLabel')}
-				</Button>
-			</form>
-			{#if createError}
-				<StateMessage
-					variant="error"
-					padding="none"
-					role="alert"
-					class="mt-2"
-					id="contact-label-new-error"
-				>
-					{createError}
-				</StateMessage>
-			{/if}
-
-			{#if labels.length === 0}
-				<p class="mt-4 text-sm text-muted-foreground">{$_('contacts.noLabelsYet')}</p>
-			{:else}
-				<ul class="mt-4 space-y-1.5">
-					{#each labels as label (label.id)}
-						<li class="rounded-md border border-border bg-background px-3 py-2">
-							{#if renamingId === label.id}
-								<form
-									onsubmit={(event) => submitRename(event, label.id)}
-									class="flex flex-wrap items-end gap-2"
+	{#if labels.length === 0}
+		<p class="mt-4 text-sm text-muted-foreground">{$_('contacts.noLabelsYet')}</p>
+	{:else}
+		<ul class="mt-4 space-y-1.5">
+			{#each labels as label (label.id)}
+				<li class="rounded-md border border-border bg-background px-3 py-2">
+					{#if renamingId === label.id}
+						<form
+							onsubmit={(event) => submitRename(event, label.id)}
+							class="flex flex-wrap items-end gap-2"
+						>
+							<div class="min-w-0 flex-1">
+								<label
+									for={`contact-label-rename-${label.id}`}
+									class="mb-1 block text-xs text-muted-foreground"
 								>
-									<div class="min-w-0 flex-1">
-										<label
-											for={`contact-label-rename-${label.id}`}
-											class="mb-1 block text-xs text-muted-foreground"
-										>
-											{$_('contacts.renameLabelField', { values: { label: label.name } })}
-										</label>
-										<Input
-											id={`contact-label-rename-${label.id}`}
-											type="text"
-											bind:value={renameValue}
-											maxlength={60}
-											size="sm"
-											disabled={renameBusy}
-											aria-invalid={renameError ? 'true' : undefined}
-											aria-describedby={renameError
-												? `contact-label-rename-${label.id}-error`
-												: undefined}
-										/>
-									</div>
+									{$_('contacts.renameLabelField', { values: { label: label.name } })}
+								</label>
+								<Input
+									id={`contact-label-rename-${label.id}`}
+									type="text"
+									bind:value={renameValue}
+									maxlength={60}
+									size="sm"
+									disabled={renameBusy}
+									aria-invalid={renameError ? 'true' : undefined}
+									aria-describedby={renameError
+										? `contact-label-rename-${label.id}-error`
+										: undefined}
+								/>
+							</div>
+							<Button
+								type="submit"
+								size="xs"
+								disabled={renameBusy || renameValue.trim().length === 0}
+							>
+								{$_('contacts.save')}
+							</Button>
+							<Button
+								type="button"
+								variant="ghost"
+								size="xs"
+								onclick={cancelRename}
+								disabled={renameBusy}
+							>
+								{$_('common.cancel')}
+							</Button>
+						</form>
+						{#if renameError}
+							<StateMessage
+								variant="error"
+								padding="none"
+								role="alert"
+								class="mt-2"
+								id={`contact-label-rename-${label.id}-error`}
+							>
+								{renameError}
+							</StateMessage>
+						{/if}
+					{:else}
+						<div class="flex flex-wrap items-center gap-2">
+							<span class="min-w-0 flex-1">
+								<span class="block truncate text-sm font-medium text-foreground">
+									{label.name}
+								</span>
+								<span class="block text-xs text-muted-foreground">
+									{$_('contacts.labelCount', { values: { count: label.contacts } })}
+								</span>
+							</span>
+							<Button
+								id={`contact-label-rename-action-${label.id}`}
+								type="button"
+								variant="outline"
+								size="xs"
+								onclick={() => startRename(label.id, label.name)}
+								disabled={deletingId != null}
+								aria-label={$_('contacts.renameLabelAction', { values: { label: label.name } })}
+							>
+								{$_('contacts.edit')}
+							</Button>
+							<Button
+								id={`contact-label-delete-action-${label.id}`}
+								type="button"
+								variant="destructive"
+								size="xs"
+								onclick={() => askDelete(label.id)}
+								disabled={deletingId != null}
+								aria-label={$_('contacts.deleteLabelAction', { values: { label: label.name } })}
+							>
+								{$_('contacts.delete')}
+							</Button>
+						</div>
+						{#if pendingDeleteId === label.id}
+							<!--
+								role="alert" so the prompt reaches a screen reader the moment it
+								appears — it replaces a modal confirmation, and a silent inline
+								strip would be missed entirely in focus mode.
+							-->
+							<div
+								class="mt-2 rounded-md border border-destructive/30 bg-destructive/5 p-2"
+								role="alert"
+							>
+								<p class="text-xs text-destructive-foreground">
+									{$_('contacts.deleteLabelConfirm', {
+										values: { label: label.name, count: label.contacts }
+									})}
+								</p>
+								<div class="mt-2 flex flex-wrap gap-2">
 									<Button
-										type="submit"
+										type="button"
+										variant="destructive"
 										size="xs"
-										disabled={renameBusy || renameValue.trim().length === 0}
+										onclick={() => confirmDelete(label.id)}
+										disabled={deletingId != null}
 									>
-										{$_('contacts.save')}
+										{$_('common.delete')}
 									</Button>
 									<Button
 										type="button"
 										variant="ghost"
 										size="xs"
-										onclick={cancelRename}
-										disabled={renameBusy}
+										onclick={cancelDelete}
+										disabled={deletingId != null}
 									>
 										{$_('common.cancel')}
 									</Button>
-								</form>
-								{#if renameError}
-									<StateMessage
-										variant="error"
-										padding="none"
-										role="alert"
-										class="mt-2"
-										id={`contact-label-rename-${label.id}-error`}
-									>
-										{renameError}
-									</StateMessage>
-								{/if}
-							{:else}
-								<div class="flex flex-wrap items-center gap-2">
-									<span class="min-w-0 flex-1">
-										<span class="block truncate text-sm font-medium text-foreground">
-											{label.name}
-										</span>
-										<span class="block text-xs text-muted-foreground">
-											{$_('contacts.labelCount', { values: { count: label.contacts } })}
-										</span>
-									</span>
-									<Button
-										id={`contact-label-rename-action-${label.id}`}
-										type="button"
-										variant="outline"
-										size="xs"
-										onclick={() => startRename(label.id, label.name)}
-										disabled={deletingId != null}
-										aria-label={$_('contacts.renameLabelAction', { values: { label: label.name } })}
-									>
-										{$_('contacts.edit')}
-									</Button>
-									<Button
-										id={`contact-label-delete-action-${label.id}`}
-										type="button"
-										variant="destructive"
-										size="xs"
-										onclick={() => askDelete(label.id)}
-										disabled={deletingId != null}
-										aria-label={$_('contacts.deleteLabelAction', { values: { label: label.name } })}
-									>
-										{$_('contacts.delete')}
-									</Button>
 								</div>
-								{#if pendingDeleteId === label.id}
-									<!--
-										role="alert" so the prompt reaches a screen reader the moment
-										it appears — it replaces a modal confirmation, and a silent
-										inline strip would be missed entirely in focus mode.
-									-->
-									<div
-										class="mt-2 rounded-md border border-destructive/30 bg-destructive/5 p-2"
-										role="alert"
-									>
-										<p class="text-xs text-destructive-foreground">
-											{$_('contacts.deleteLabelConfirm', {
-												values: { label: label.name, count: label.contacts }
-											})}
-										</p>
-										<div class="mt-2 flex flex-wrap gap-2">
-											<Button
-												type="button"
-												variant="destructive"
-												size="xs"
-												onclick={() => confirmDelete(label.id)}
-												disabled={deletingId != null}
-											>
-												{$_('common.delete')}
-											</Button>
-											<Button
-												type="button"
-												variant="ghost"
-												size="xs"
-												onclick={cancelDelete}
-												disabled={deletingId != null}
-											>
-												{$_('common.cancel')}
-											</Button>
-										</div>
-									</div>
-								{/if}
-							{/if}
-						</li>
-					{/each}
-				</ul>
-			{/if}
+							</div>
+						{/if}
+					{/if}
+				</li>
+			{/each}
+		</ul>
+	{/if}
 
-			<div class="mt-5 flex justify-end">
-				<Button variant="outline" onclick={close} disabled={creating || renameBusy}>
-					{$_('common.close')}
-				</Button>
-			</div>
-		</Dialog.Content>
-	</Dialog.Portal>
-</Dialog.Root>
+	<div class="mt-5 flex justify-end">
+		<Button variant="outline" onclick={close} disabled={creating || renameBusy}>
+			{$_('common.close')}
+		</Button>
+	</div>
+</DialogShell>
