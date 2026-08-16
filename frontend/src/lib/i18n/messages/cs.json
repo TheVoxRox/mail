@@ -539,7 +539,6 @@
 			"theme": {
 				"heading": "Téma",
 				"hint": "Volba se projeví ihned. „Podle systému\" přebírá nastavení operačního systému.",
-				"label": "Téma",
 				"options": {
 					"system": "Podle systému",
 					"light": "Světlé",
@@ -549,7 +548,6 @@
 			"textSize": {
 				"heading": "Velikost textu",
 				"hint": "Zvětší nebo zmenší celé rozhraní. Volba se projeví ihned.",
-				"label": "Velikost textu",
 				"options": {
 					"small": "Malá",
 					"medium": "Střední",
@@ -557,9 +555,8 @@
 				}
 			},
 			"readingPane": {
-				"heading": "Podokno čtení",
+				"heading": "Rozložení podokna čtení",
 				"hint": "Zvolte, zda se detail zprávy zobrazuje vedle seznamu, pod ním, nebo je skryté, dokud zprávu neotevřete.",
-				"label": "Rozložení podokna čtení",
 				"empty": "Vyberte zprávu ze seznamu a detail se otevře tady.",
 				"options": {
 					"right": {
@@ -578,8 +575,7 @@
 				"horizontal": "Změnit výšku seznamu a detailu zprávy"
 			},
 			"grouping": {
-				"heading": "Seskupení pošty",
-				"label": "Seskupení zpráv ve složce",
+				"heading": "Seskupení zpráv ve složce",
 				"hint": "Zvolte, zda se zprávy zobrazují jednotlivě, nebo seskupené do konverzací (jeden řádek na vlákno).",
 				"options": {
 					"flat": {
@@ -591,8 +587,7 @@
 				}
 			},
 			"messageBody": {
-				"heading": "Zobrazení obsahu zprávy",
-				"label": "Výchozí zobrazení obsahu zprávy",
+				"heading": "Výchozí zobrazení obsahu zprávy",
 				"hint": "Zvolte, jak se vykreslí tělo zprávy. Volba platí pro všechny zprávy, dokud ji znovu nezměníte.",
 				"options": {
 					"html": {
@@ -604,8 +599,7 @@
 				}
 			},
 			"closeAction": {
-				"heading": "Zavření okna",
-				"label": "Co udělá zavření okna",
+				"heading": "Co udělá zavření okna",
 				"hint": "Zůstane-li aplikace v oznamovací oblasti, dál synchronizuje poštu a hlásí nové zprávy. Ukončit ji pak jde přes nabídku ikony v oznamovací oblasti.",
 				"options": {
 					"tray": {

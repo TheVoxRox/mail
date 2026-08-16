@@ -539,7 +539,6 @@
 			"theme": {
 				"heading": "Theme",
 				"hint": "Takes effect immediately. \"System\" follows the OS preference.",
-				"label": "Theme",
 				"options": {
 					"system": "System",
 					"light": "Light",
@@ -549,7 +548,6 @@
 			"textSize": {
 				"heading": "Text size",
 				"hint": "Scales the whole interface up or down. Takes effect immediately.",
-				"label": "Text size",
 				"options": {
 					"small": "Small",
 					"medium": "Medium",
@@ -557,9 +555,8 @@
 				}
 			},
 			"readingPane": {
-				"heading": "Reading pane",
+				"heading": "Reading pane layout",
 				"hint": "Choose whether message details appear next to the list, below it, or stay hidden until you open a message.",
-				"label": "Reading pane layout",
 				"empty": "Select a message from the list and its detail will appear here.",
 				"options": {
 					"right": {
@@ -578,8 +575,7 @@
 				"horizontal": "Resize the message list and detail panes vertically"
 			},
 			"grouping": {
-				"heading": "Mail grouping",
-				"label": "Group messages in a folder",
+				"heading": "Group messages in a folder",
 				"hint": "Choose whether messages appear individually or grouped into conversations (one row per thread).",
 				"options": {
 					"flat": {
@@ -591,8 +587,7 @@
 				}
 			},
 			"messageBody": {
-				"heading": "Message body rendering",
-				"label": "Default rendering of message body",
+				"heading": "Default rendering of message body",
 				"hint": "Choose how message bodies are rendered. The choice applies to all messages until you change it again.",
 				"options": {
 					"html": {
@@ -604,8 +599,7 @@
 				}
 			},
 			"closeAction": {
-				"heading": "Closing the window",
-				"label": "What closing the window does",
+				"heading": "What closing the window does",
 				"hint": "Left running in the notification area, the app keeps syncing mail and announcing new messages. Quitting is then done from the notification area icon menu.",
 				"options": {
 					"tray": {

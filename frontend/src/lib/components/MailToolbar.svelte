@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { DropdownMenu } from 'bits-ui';
+	import { menuContentVariants, menuItemVariants } from '$lib/components/ui/menu/index.js';
 	import { selectedMessage } from '$lib/stores/selectedMessage.js';
 	import { _ } from '$lib/i18n/index.js';
 	import { forwardMessage, replyToMessage } from '$lib/mail/actions.js';
@@ -93,8 +94,7 @@
 				variant: 'destructive',
 				icon: 'trash',
 				ariaKeyshortcuts: 'Delete',
-				menuClass:
-					'flex w-full cursor-pointer rounded-md px-3 py-2 text-left text-sm text-destructive-foreground outline-none data-[highlighted]:bg-destructive/10 data-[disabled]:cursor-not-allowed data-[disabled]:text-muted-foreground',
+				menuClass: menuItemVariants({ tone: 'destructive' }),
 				run: (stableId: string) => deleteMessages([stableId])
 			}
 		];
@@ -164,12 +164,11 @@
 						align="end"
 						sideOffset={8}
 						loop
-						class="absolute right-0 top-full z-10 mt-2 min-w-48 rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-lg"
+						class={cn(menuContentVariants({ width: 'md' }), 'absolute right-0 top-full mt-2')}
 					>
 						{#each messageActions() as action (action.id)}
 							<DropdownMenu.Item
-								class={action.menuClass ??
-									'flex w-full cursor-pointer rounded-md px-3 py-2 text-left text-sm outline-none data-[highlighted]:bg-muted data-[disabled]:cursor-not-allowed data-[disabled]:text-muted-foreground'}
+								class={action.menuClass ?? menuItemVariants()}
 								onSelect={() => handleMenuSelect(action.run)}
 								disabled={!hasSelection}
 								aria-keyshortcuts={action.ariaKeyshortcuts}

@@ -14,11 +14,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Select } from '$lib/components/ui/select/index.js';
 	import { StateMessage } from '$lib/components/ui/state-message/index.js';
-	import {
-		computeNextCell,
-		focusGridCell,
-		ROW_NAV_PAGE_STEP
-	} from '$lib/components/grid/rowNavigation.js';
+	import { createRovingGrid } from '$lib/components/grid/rovingGrid.svelte.js';
 	import type { ContactResponse, PagedResponse } from '$lib/types.js';
 	import type { ContactSort } from '$lib/api/contacts.js';
 	import { cn } from '$lib/utils.js';
@@ -129,8 +125,11 @@
 	let selectAllInput = $state<HTMLInputElement | null>(null);
 	let tableBodyElement = $state<HTMLTableSectionElement | null>(null);
 	let emptyStateElement = $state<HTMLParagraphElement | null>(null);
-	let focusedRowIndex = $state(0);
-	let focusedCol = $state(COL_NAME);
+	const grid = createRovingGrid({
+		element: () => tableBodyElement,
+		initialCol: COL_NAME,
+		maxCol: MAX_COL
+	});
 
 	$effect(() => {
 		if (selectAllInput) selectAllInput.indeterminate = someVisibleSelected;
@@ -143,24 +142,8 @@
 
 	// Keep the roving row inside the page when the list shrinks (delete, filter).
 	$effect(() => {
-		const max = page.content.length - 1;
-		if (max < 0) {
-			if (focusedRowIndex !== 0) focusedRowIndex = 0;
-			return;
-		}
-		if (focusedRowIndex > max) focusedRowIndex = max;
+		grid.clampRow(page.content.length);
 	});
-
-	function setFocus(rowIndex: number, col: number): void {
-		focusedRowIndex = rowIndex;
-		focusedCol = col;
-		void tick().then(() => focusGridCell(tableBodyElement, rowIndex, col));
-	}
-
-	function handleCellFocus(rowIndex: number, col: number): void {
-		focusedRowIndex = rowIndex;
-		focusedCol = col;
-	}
 
 	/**
 	 * Puts the roving focus on `contactId`'s name cell — the row's reading
@@ -172,10 +155,7 @@
 		const known = contactId == null ? -1 : page.content.findIndex((c) => c.id === contactId);
 		const target = known >= 0 ? known : Math.min(fallbackIndex, page.content.length - 1);
 		if (target < 0) return false;
-		if (!focusGridCell(tableBodyElement, target, COL_NAME)) return false;
-		focusedRowIndex = target;
-		focusedCol = COL_NAME;
-		return true;
+		return grid.focusNow(target, COL_NAME);
 	}
 
 	/**
@@ -240,22 +220,12 @@
 	): void {
 		if (event.key === 'Enter' || event.key === ' ') {
 			// The checkbox and the action buttons own their own activation.
-			if (focusedCol >= COL_COMPOSE || focusedCol === COL_SELECT) return;
+			if (grid.col >= COL_COMPOSE || grid.col === COL_SELECT) return;
 			event.preventDefault();
 			onEdit(contact.id);
 			return;
 		}
-		const next = computeNextCell(event.key, {
-			row: rowIndex,
-			col: focusedCol,
-			maxRow: page.content.length - 1,
-			maxCol: MAX_COL,
-			ctrl: event.ctrlKey,
-			pageStep: ROW_NAV_PAGE_STEP
-		});
-		if (!next) return;
-		event.preventDefault();
-		setFocus(next.row, next.col);
+		grid.navigate(event, rowIndex, page.content.length);
 	}
 
 	$effect(() => {
@@ -622,8 +592,6 @@
 				{#each page.content as contact, rowIndex (contact.id)}
 					{@const label = contactLabel(contact)}
 					{@const composeTarget = primaryEmail(contact)}
-					{@const cellTabindex = (col: number) =>
-						focusedRowIndex === rowIndex && focusedCol === col ? 0 : -1}
 					<tr
 						data-row-index={rowIndex}
 						data-contact-id={contact.id}
@@ -635,10 +603,7 @@
 						<td role="gridcell" class="px-3 py-3 align-top">
 							<input
 								type="checkbox"
-								data-cell-target
-								data-col={COL_SELECT}
-								tabindex={cellTabindex(COL_SELECT)}
-								onfocus={() => handleCellFocus(rowIndex, COL_SELECT)}
+								{...grid.cell(rowIndex, COL_SELECT)}
 								class="mt-0.5 size-4 rounded border-input bg-background text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
 								checked={selectedIds.includes(contact.id)}
 								onchange={(event) => toggleSelected(contact.id, event.currentTarget.checked)}
@@ -651,10 +616,7 @@
 						<th
 							role="rowheader"
 							scope="row"
-							data-cell-target
-							data-col={COL_NAME}
-							tabindex={cellTabindex(COL_NAME)}
-							onfocus={() => handleCellFocus(rowIndex, COL_NAME)}
+							{...grid.cell(rowIndex, COL_NAME)}
 							class="px-3 py-3 text-left align-top font-normal outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
 						>
 							<div class="flex min-w-0 items-center gap-2">
@@ -675,10 +637,7 @@
 						</th>
 						<td
 							role="gridcell"
-							data-cell-target
-							data-col={COL_EMAIL}
-							tabindex={cellTabindex(COL_EMAIL)}
-							onfocus={() => handleCellFocus(rowIndex, COL_EMAIL)}
+							{...grid.cell(rowIndex, COL_EMAIL)}
 							class="px-3 py-3 align-top text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
 						>
 							<ul class="m-0 list-none space-y-1 p-0">
@@ -692,20 +651,14 @@
 						</td>
 						<td
 							role="gridcell"
-							data-cell-target
-							data-col={COL_LABELS}
-							tabindex={cellTabindex(COL_LABELS)}
-							onfocus={() => handleCellFocus(rowIndex, COL_LABELS)}
+							{...grid.cell(rowIndex, COL_LABELS)}
 							class="px-3 py-3 align-top text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
 						>
 							{labelSummary(contact)}
 						</td>
 						<td
 							role="gridcell"
-							data-cell-target
-							data-col={COL_NOTE}
-							tabindex={cellTabindex(COL_NOTE)}
-							onfocus={() => handleCellFocus(rowIndex, COL_NOTE)}
+							{...grid.cell(rowIndex, COL_NOTE)}
 							class="px-3 py-3 align-top text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
 						>
 							<p class="line-clamp-2">{contact.note ?? ''}</p>
@@ -721,10 +674,7 @@
 								-->
 								<Button
 									type="button"
-									data-cell-target
-									data-col={COL_COMPOSE}
-									tabindex={cellTabindex(COL_COMPOSE)}
-									onfocus={() => handleCellFocus(rowIndex, COL_COMPOSE)}
+									{...grid.cell(rowIndex, COL_COMPOSE)}
 									onclick={() => handleCompose(contact)}
 									variant="outline"
 									size="xs"
@@ -736,10 +686,7 @@
 								</Button>
 								<Button
 									type="button"
-									data-cell-target
-									data-col={COL_EDIT}
-									tabindex={cellTabindex(COL_EDIT)}
-									onfocus={() => handleCellFocus(rowIndex, COL_EDIT)}
+									{...grid.cell(rowIndex, COL_EDIT)}
 									onclick={() => onEdit(contact.id)}
 									variant="outline"
 									size="xs"
@@ -749,10 +696,7 @@
 								</Button>
 								<Button
 									type="button"
-									data-cell-target
-									data-col={COL_DELETE}
-									tabindex={cellTabindex(COL_DELETE)}
-									onfocus={() => handleCellFocus(rowIndex, COL_DELETE)}
+									{...grid.cell(rowIndex, COL_DELETE)}
 									onclick={() => handleDelete(contact)}
 									variant="destructive"
 									size="xs"

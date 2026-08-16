@@ -251,9 +251,17 @@ test.describe('Řádkové menu Akce', () => {
 		 * Wait for that before typing: the submenu mounts a tick later and keys
 		 * pressed in the meantime still go to the parent menu, where they match
 		 * nothing.
+		 *
+		 * Focus on the first item is not enough on its own — bits-ui matches
+		 * typeahead against the items it has collected, and the later ones are
+		 * still registering while the first one already has focus. Waiting for
+		 * the item we are about to type our way to is what makes this
+		 * deterministic; without it the test raced the mount and lost whenever
+		 * the machine or the bundle shifted underneath it.
 		 */
 		await page.keyboard.press('ArrowRight');
 		await expect(page.getByRole('menuitem', { name: 'Odeslané', exact: true })).toBeFocused();
+		await expect(page.getByRole('menuitem', { name: 'Spam', exact: true })).toBeAttached();
 
 		await page.keyboard.press('s');
 		await expect(page.getByRole('menuitem', { name: 'Spam', exact: true })).toBeFocused();

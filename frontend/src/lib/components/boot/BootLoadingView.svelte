@@ -1,4 +1,5 @@
 <script lang="ts">
+	import BootDiagnosticActions from '$lib/components/boot/BootDiagnosticActions.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { _ } from '$lib/i18n/index.js';
 	import type { BootSlowLevel } from '$lib/stores/boot.js';
@@ -63,25 +64,19 @@
 			<p class="mt-2 text-xs">{$_('app.startingBackendHint')}</p>
 		{:else if slowLevel === 'verySlow'}
 			<p class="mt-2">{$_('app.startingBackendVerySlow')}</p>
-			<div class="mt-4 flex flex-wrap justify-center gap-2">
-				<Button type="button" onclick={onRetry}>{$_('app.retry')}</Button>
-				<Button type="button" variant="outline" onclick={onRestart}>
-					{$_('app.restartBackend')}
-				</Button>
-				<Button
-					type="button"
-					variant="outline"
-					onclick={onDownloadDiagnostic}
-					disabled={diagnosticDisabled}
-				>
-					{diagnosticBusy ? $_('app.downloadingDiagnostic') : $_('app.downloadDiagnostic')}
-				</Button>
-			</div>
-			{#if diagnosticError}
-				<p class="mt-2 text-xs text-destructive-foreground" role="alert">{diagnosticError}</p>
-			{:else if diagnosticUnavailable}
-				<p class="mt-2 text-xs">{$_('app.diagnosticUnavailable')}</p>
-			{/if}
+			<BootDiagnosticActions
+				{onRestart}
+				{onDownloadDiagnostic}
+				{diagnosticBusy}
+				{diagnosticDisabled}
+				{diagnosticError}
+				{diagnosticUnavailable}
+				rowClass="mt-4"
+			>
+				{#snippet leading()}
+					<Button type="button" onclick={onRetry}>{$_('app.retry')}</Button>
+				{/snippet}
+			</BootDiagnosticActions>
 		{/if}
 	</div>
 </main>

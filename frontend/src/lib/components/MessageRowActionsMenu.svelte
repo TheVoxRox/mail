@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { DropdownMenu } from 'bits-ui';
+	import { menuContentVariants, menuItemVariants } from '$lib/components/ui/menu/index.js';
 	import { forwardMessage, replyToMessage } from '$lib/mail/actions.js';
 	import {
 		deleteMessages,
@@ -106,10 +107,8 @@
 		}
 	);
 
-	const destructiveItemClass =
-		'flex w-full cursor-pointer rounded-md px-3 py-2 text-left text-sm text-destructive-foreground outline-none data-[highlighted]:bg-destructive/10 data-[disabled]:cursor-not-allowed data-[disabled]:text-muted-foreground';
-	const defaultItemClass =
-		'flex w-full cursor-pointer rounded-md px-3 py-2 text-left text-sm outline-none data-[highlighted]:bg-muted data-[disabled]:cursor-not-allowed data-[disabled]:text-muted-foreground';
+	const destructiveItemClass = menuItemVariants({ tone: 'destructive' });
+	const defaultItemClass = menuItemVariants();
 </script>
 
 <DropdownMenu.Root bind:open>
@@ -137,12 +136,7 @@
 	</DropdownMenu.Trigger>
 
 	<DropdownMenu.Portal>
-		<DropdownMenu.Content
-			align="end"
-			sideOffset={4}
-			loop
-			class="z-10 min-w-44 rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-lg"
-		>
+		<DropdownMenu.Content align="end" sideOffset={4} loop class={menuContentVariants()}>
 			<DropdownMenu.Item class={defaultItemClass} onSelect={() => effectiveActions.reply(false)}>
 				{$_('toolbar.reply')}
 			</DropdownMenu.Item>
@@ -172,7 +166,7 @@
 					</DropdownMenu.SubTrigger>
 					<DropdownMenu.SubContent
 						sideOffset={4}
-						class="z-10 max-h-64 min-w-48 overflow-y-auto rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-lg"
+						class={menuContentVariants({ width: 'md', scroll: true })}
 					>
 						<MoveTargetMenuItems
 							targets={moveTargets}

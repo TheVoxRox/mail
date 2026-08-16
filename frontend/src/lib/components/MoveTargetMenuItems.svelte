@@ -13,6 +13,7 @@
 	 * this a menu instead of a filterable dialog.
 	 */
 	import { DropdownMenu } from 'bits-ui';
+	import { menuItemVariants } from '$lib/components/ui/menu/index.js';
 	import { folderLabel } from '$lib/mail/folderLabel.js';
 	import { _ } from '$lib/i18n/index.js';
 	import type { FolderResponse } from '$lib/types.js';
@@ -29,7 +30,7 @@
 {#each targets as folder (folder.folderRef)}
 	{@const label = folderLabel(folder, $_)}
 	<DropdownMenu.Item
-		class="flex w-full cursor-pointer rounded-md px-3 py-2 text-left text-sm outline-none data-[highlighted]:bg-muted data-[disabled]:cursor-not-allowed data-[disabled]:text-muted-foreground"
+		class={menuItemVariants()}
 		title={label}
 		onSelect={() => onMoveTo(folder.folderRef)}
 	>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import BootDiagnosticActions from '$lib/components/boot/BootDiagnosticActions.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { _ } from '$lib/i18n/index.js';
 
@@ -32,24 +33,15 @@
 		<p class="mt-2 text-sm text-muted-foreground">{errorMessage}</p>
 		<Button class="mt-4" onclick={onRetry}>{$_('app.retry')}</Button>
 		{#if onDownloadDiagnostic}
-			<div class="mt-2 flex flex-wrap justify-center gap-2">
-				<Button type="button" variant="outline" onclick={onRestart}>
-					{$_('app.restartBackend')}
-				</Button>
-				<Button
-					type="button"
-					variant="outline"
-					onclick={onDownloadDiagnostic}
-					disabled={diagnosticDisabled}
-				>
-					{diagnosticBusy ? $_('app.downloadingDiagnostic') : $_('app.downloadDiagnostic')}
-				</Button>
-			</div>
-			{#if diagnosticError}
-				<p class="mt-2 text-xs text-destructive-foreground" role="alert">{diagnosticError}</p>
-			{:else if diagnosticUnavailable}
-				<p class="mt-2 text-xs text-muted-foreground">{$_('app.diagnosticUnavailable')}</p>
-			{/if}
+			<BootDiagnosticActions
+				{onRestart}
+				{onDownloadDiagnostic}
+				{diagnosticBusy}
+				{diagnosticDisabled}
+				{diagnosticError}
+				{diagnosticUnavailable}
+				rowClass="mt-2"
+			/>
 		{:else}
 			<Button class="mt-2" variant="outline" onclick={onRestart}>{$_('app.restartBackend')}</Button>
 		{/if}
