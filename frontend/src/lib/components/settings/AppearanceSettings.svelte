@@ -26,14 +26,6 @@
 	const MESSAGE_BODY_OPTIONS: ReadonlyArray<MessageBodyView> = ['html', 'plain'];
 	const GROUPING_OPTIONS: ReadonlyArray<MessageGrouping> = ['flat', 'grouped'];
 	const CLOSE_ACTION_OPTIONS: ReadonlyArray<CloseAction> = ['tray', 'quit'];
-	/**
-	 * Theme and Text size store each option's text as a plain string; the other
-	 * four nest it under `.title` with nothing else beside it. That is drift in
-	 * the message bundle rather than a difference in meaning, so the caller says
-	 * which shape its section uses — flattening the bundle would retire the flag.
-	 */
-	const optionLabelKey = (section: string, option: string, nested: boolean): string =>
-		`settings.appearance.${section}.options.${option}${nested ? '.title' : ''}`;
 
 	function handleThemeChange(event: Event) {
 		const value = (event.target as HTMLSelectElement).value as ThemePreference;
@@ -72,8 +64,6 @@
 	value: string;
 	onchange: (event: Event) => void;
 	options: readonly string[];
-	/** This section's option texts live under `.title` — see `optionLabelKey`. */
-	nestedOptionLabel: boolean;
 })}
 	<Surface as="section" class="space-y-3">
 		<h2 id={`${setting.id}-label`} class="text-sm font-semibold">
@@ -90,7 +80,7 @@
 			>
 				{#each setting.options as option (option)}
 					<option value={option}>
-						{$_(optionLabelKey(setting.section, option, setting.nestedOptionLabel))}
+						{$_(`settings.appearance.${setting.section}.options.${option}`)}
 					</option>
 				{/each}
 			</Select>
@@ -118,32 +108,28 @@
 		section: 'theme',
 		value: $themePreference,
 		onchange: handleThemeChange,
-		options: THEME_OPTIONS,
-		nestedOptionLabel: false
+		options: THEME_OPTIONS
 	})}
 	{@render selectCard({
 		id: 'text-size-select',
 		section: 'textSize',
 		value: $textSize,
 		onchange: handleTextSizeChange,
-		options: TEXT_SIZE_OPTIONS,
-		nestedOptionLabel: false
+		options: TEXT_SIZE_OPTIONS
 	})}
 	{@render selectCard({
 		id: 'reading-pane-select',
 		section: 'readingPane',
 		value: $readingPane,
 		onchange: handleReadingPaneChange,
-		options: READING_PANE_OPTIONS,
-		nestedOptionLabel: true
+		options: READING_PANE_OPTIONS
 	})}
 	{@render selectCard({
 		id: 'message-grouping-select',
 		section: 'grouping',
 		value: $messageGrouping,
 		onchange: handleGroupingChange,
-		options: GROUPING_OPTIONS,
-		nestedOptionLabel: true
+		options: GROUPING_OPTIONS
 	})}
 	<!--
 		Desktop-only in effect (the tray lives in the Tauri shell), but shown
@@ -155,15 +141,13 @@
 		section: 'closeAction',
 		value: $closeAction,
 		onchange: handleCloseActionChange,
-		options: CLOSE_ACTION_OPTIONS,
-		nestedOptionLabel: true
+		options: CLOSE_ACTION_OPTIONS
 	})}
 	{@render selectCard({
 		id: 'message-body-select',
 		section: 'messageBody',
 		value: $messageBodyView,
 		onchange: handleMessageBodyChange,
-		options: MESSAGE_BODY_OPTIONS,
-		nestedOptionLabel: true
+		options: MESSAGE_BODY_OPTIONS
 	})}
 </div>
