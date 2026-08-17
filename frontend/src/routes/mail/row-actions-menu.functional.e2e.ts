@@ -12,6 +12,29 @@ const fixture = {
 	subject: 'Testovací zpráva 4'
 };
 
+/*
+ * Pace for keyboard walks through the menu, and the reason every such walk
+ * asserts where focus landed before sending its next key.
+ *
+ * bits-ui places roving focus an `afterTick` after the key that asked for it.
+ * Keys fired back-to-back at Playwright speed can arrive inside that window,
+ * and the menu does not merely lag — it wedges: the focus the next step waits
+ * for never arrives at all, so the assertion burns its full timeout rather
+ * than settling late. That is why polling assertions alone do not make these
+ * tests deterministic.
+ *
+ * The pace is measured, not guessed. A walk driven with a pause between
+ * keystrokes lands every step correctly at 400 ms, 150 ms and 60 ms, nine runs
+ * for nine — and 60 ms is quicker than anyone deliberately working a menu, so
+ * the wedge is out of human reach and this stays a harness artifact rather
+ * than a defect to chase. The assertions are what keep the tests honest: if
+ * the affordance itself ever breaks, focus stops landing and they still fail.
+ */
+const KEY_PACE_MS = 60;
+
+/** First item of the row actions menu — where bits-ui puts focus on open. */
+const FIRST_ITEM = 'Odpovědět';
+
 test.beforeEach(async ({ page }) => {
 	await page.addInitScript(() => {
 		window.localStorage.setItem('mail.locale', 'cs');
@@ -52,9 +75,12 @@ test.describe('Řádkové menu Akce', () => {
 		await row.getByRole('button', { name: `Akce pro zprávu ${fixture.subject}` }).focus();
 		await page.keyboard.press('Enter');
 		const menu = page.getByRole('menu');
-		await expect(menu).toBeVisible();
+		// Visible is not ready: the menu paints before bits-ui has placed roving
+		// focus, and ArrowUp sent into that gap wedges it. Wait for the focus.
+		await expect(menu.getByRole('menuitem', { name: FIRST_ITEM, exact: true })).toBeFocused();
 
 		// `loop` wraps ArrowUp from the top straight to the last item = Smazat.
+		await page.waitForTimeout(KEY_PACE_MS);
 		await page.keyboard.press('ArrowUp');
 		await expect(menu.getByRole('menuitem', { name: 'Smazat' })).toBeFocused();
 		await page.keyboard.press('Enter');
@@ -232,7 +258,7 @@ test.describe('Řádkové menu Akce', () => {
 
 		await row.getByRole('button', { name: `Akce pro zprávu ${fixture.subject}` }).focus();
 		await page.keyboard.press('Enter');
-		await expect(page.getByRole('menuitem', { name: 'Odpovědět', exact: true })).toBeFocused();
+		await expect(page.getByRole('menuitem', { name: FIRST_ITEM, exact: true })).toBeFocused();
 
 		/*
 		 * The keyboard path a screen-reader user takes: walk up to Move (loop
@@ -244,24 +270,8 @@ test.describe('Řádkové menu Akce', () => {
 		 * affordance argument goes with it.
 		 *
 		 * Each step asserts where focus landed before the next key goes out, and
-		 * the walk is paced. Both are needed, for different reasons.
-		 *
-		 * bits-ui places roving focus an `afterTick` after the key that asked for
-		 * it. Keys fired back-to-back at Playwright speed can arrive inside that
-		 * window, and the menu does not merely lag — it wedges: the focus the
-		 * next step waits for never arrives at all, so the assertion burns its
-		 * full timeout rather than settling late. That is why polling assertions
-		 * alone did not make this test deterministic.
-		 *
-		 * The pace is measured, not guessed. The same walk driven with a pause
-		 * between keystrokes lands every step correctly at 400 ms, 150 ms and
-		 * 60 ms, nine runs for nine — and 60 ms is quicker than anyone
-		 * deliberately working a menu, so the wedge is out of human reach and
-		 * this stays a harness artifact rather than a defect to chase. The
-		 * assertions are what keep the test honest: if the affordance itself
-		 * ever breaks, focus stops landing and they still fail.
+		 * the walk is paced — see KEY_PACE_MS for why both are needed.
 		 */
-		const KEY_PACE_MS = 60;
 		const walk: ReadonlyArray<{ key: string; lands: string }> = [
 			{ key: 'ArrowUp', lands: 'Smazat' },
 			{ key: 'ArrowUp', lands: 'Přesunout' },

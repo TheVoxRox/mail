@@ -22,10 +22,19 @@ inventory (`THIRD_PARTY_LICENSES.md`) and changelog where applicable.
 
 Requirements:
 
-- **Java 25 (Temurin)** with Maven. Use `mvn` directly — that is what CI runs.
-  The `mvnw` wrapper is committed, but `mvnw.cmd` shells out to
-  `powershell.exe` (Windows PowerShell 5.1), which is absent on machines that
-  only ship PowerShell 7, so it fails there before Maven ever starts.
+- **Java 25 (Temurin)** with Maven. Use `mvn` directly — that is what every
+  hand-written invocation runs, in CI and in `backend/scripts/`. Do not reach
+  for `./mvnw`: `mvnw.cmd` shells out to `powershell.exe` (Windows PowerShell
+  5.1), which is absent on machines that only ship PowerShell 7, so it fails
+  there before Maven ever starts.
+
+  The wrapper is committed anyway and **must stay**. CodeQL analyses Java with
+  `build-mode: autobuild` ([`.github/workflows/codeql.yml`](.github/workflows/codeql.yml)),
+  and the autobuilder picks `./mvnw` over the system `mvn` on its own — so
+  `backend/.mvn/wrapper/maven-wrapper.properties` decides which Maven builds
+  the CodeQL database, and `Analyze (java-kotlin)` is a required check.
+  Dependabot's `apache-maven` bumps are therefore real changes, not noise.
+
 - **Node 26** with `npm`.
 - **Rust toolchain** (stable + clippy) — only needed for the Tauri Rust
   crate (`frontend/src-tauri/`).
