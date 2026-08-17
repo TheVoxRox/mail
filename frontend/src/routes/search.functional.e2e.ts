@@ -73,6 +73,37 @@ test.describe('Search', () => {
 		await expect(page.locator('#live-region')).toContainText('Strana 2 z 3, 25 zpráv');
 	});
 
+	/*
+	 * The jump field carries min/max so a screen reader can announce the spin
+	 * button's range. Leaving the browser to *enforce* them meant an
+	 * out-of-range page was refused before the submit handler ever ran: no
+	 * navigation, no announcement, and the rejected number left sitting in a
+	 * field that now disagreed with the page on screen. The form is
+	 * `novalidate` and the handler clamps instead.
+	 */
+	test('skok na stranu mimo rozsah se ořízne, místo aby se tiše odmítl', async ({ page }) => {
+		await page.addInitScript(() => {
+			window.localStorage.setItem('mail.e2e.mailPageSize', '10');
+		});
+		await page.goto('/search/1?q=zpráva');
+		await waitForShell(page);
+
+		const pagination = page.getByRole('navigation', { name: 'Stránkování výsledků' });
+		const jumpField = pagination.getByRole('spinbutton', { name: 'Přejít na stranu' });
+		const jumpButton = pagination.getByRole('button', { name: 'Přejít', exact: true });
+
+		await jumpField.fill('99');
+		await jumpButton.click();
+		await expect(pagination).toContainText('Strana 3 z 3');
+		await expect(jumpField).toHaveValue('3');
+
+		// Below the range clamps the same way, through the other branch.
+		await jumpField.fill('0');
+		await jumpButton.click();
+		await expect(pagination).toContainText('Strana 1 z 3');
+		await expect(jumpField).toHaveValue('1');
+	});
+
 	test('detail z výsledků hledání nabízí akce v inline toolbaru', async ({ page }) => {
 		await page.goto('/search/1?q=projekt');
 		await waitForShell(page);

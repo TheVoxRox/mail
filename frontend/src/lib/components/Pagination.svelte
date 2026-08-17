@@ -133,7 +133,16 @@
 			{$_(prevLabelKey)}
 		</Button>
 		{#if onJump}
-			<form class="flex items-center gap-1" onsubmit={handleJump}>
+			<!--
+				`novalidate`, with min/max kept: the two attributes are what tells a
+				screen reader the spin button's range, but leaving the browser to
+				enforce them meant it refused to submit an out-of-range page and
+				`handleJump`'s clamping never ran — the entry was rejected with a
+				transient native bubble and the field kept a value that contradicted
+				the page on screen. Clamping in the handler lands the user on a real
+				page and the pager's live region says which one.
+			-->
+			<form class="flex items-center gap-1" novalidate onsubmit={handleJump}>
 				<label class="flex items-center">
 					<span class="sr-only">{$_(jumpLabelKey)}</span>
 					<Input
