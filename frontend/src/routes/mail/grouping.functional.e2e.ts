@@ -188,15 +188,84 @@ test.describe('Rozbalení konverzace', () => {
 		// Enter on the toggle must not also open the message: the row's own
 		// Enter handler has to yield to the button.
 		await expect(page).toHaveURL(new RegExp(`/mail/${accountId}/ARCHIVE$`));
-		// The label tracks the state, so a screen reader is told what the key did.
+		// The label tracks the state, so the control still says what the key did.
 		const collapse = page.getByRole('button', { name: 'Sbalit konverzaci Re: Plán vydání' });
-		await expect(collapse).toBeFocused();
+		await expect(collapse).toBeVisible();
+		// Focus does not stay on it, though. Activating the toggle is the browse-mode
+		// path — a screen reader sends Enter as a click — and leaving the cursor here
+		// would make it walk the rest of the parent row (status, sender, date, the
+		// actions trigger, each naming the same subject) before reaching the message
+		// the thread was expanded for. It lands on the oldest member instead, on the
+		// subject cell; the polite announcement carries the state change.
+		await expect(page.locator('[data-cell-target]:focus')).toHaveAttribute('data-col', '3');
+		await expect(archiveMember(page, 'arch-01').locator('[data-cell-target]:focus')).toHaveCount(1);
 
 		await collapse.press(' ');
 
 		await expect(parent).toHaveAttribute('aria-expanded', 'false');
 		await expect(anyArchiveRow(page, 'arch-02')).toHaveCount(0);
 		await expect(page).toHaveURL(new RegExp(`/mail/${accountId}/ARCHIVE$`));
+	});
+
+	test('rozbalený rodič neopakuje odesílatele a datum nejnovější zprávy', async ({ page }) => {
+		// Expanded, the parent is a conversation header: the newest message it used
+		// to stand for now has a child row of its own carrying exactly these two
+		// fields. A screen reader reads the row cell by cell, so repeating them here
+		// is speech spent on the way into the thread the user just opened.
+		await page.goto(`/mail/${accountId}/ARCHIVE`);
+		await waitForShell(page);
+
+		const parent = archiveRow(page, 'arch-03');
+		const parentSender = parent.locator('[data-cell-target][data-col="4"]');
+		const parentDate = parent.locator('[data-cell-target][data-col="5"]');
+		// Collapsed, the row is all there is — who wrote last and when is what the
+		// folder is triaged on, so both stay.
+		await expect(parentSender).not.toHaveText('');
+		await expect(parentDate).not.toHaveText('');
+
+		await parent.locator('[data-expand-toggle]').click();
+		await expect(parent).toHaveAttribute('aria-expanded', 'true');
+
+		await expect(parentSender).toHaveText('');
+		await expect(parentDate).toHaveText('');
+		// Emptied, not removed and not renamed. The cells are grid columns, so
+		// dropping them would renumber the roving navigation — and an aria-label
+		// would spend the saving on announcing the emptiness, which is the whole
+		// point of leaving them silent.
+		await expect(parentSender).toHaveCount(1);
+		await expect(parentDate).toHaveCount(1);
+		await expect(parentSender).not.toHaveAttribute('aria-label', /./);
+		await expect(parentDate).not.toHaveAttribute('aria-label', /./);
+
+		// The same message, as a child row, still carries both.
+		const own = archiveMember(page, 'arch-03');
+		await expect(own.locator('[data-col="4"]')).not.toHaveText('');
+		await expect(own.locator('[data-col="5"]')).not.toHaveText('');
+
+		// Empty must not mean collapsed. The columns belong to the list and the rows
+		// are `subgrid`, so an emptied cell cannot shrink its own column any more —
+		// but that is exactly the property worth pinning, because the arrangement
+		// that preceded it (each row its own grid, the date track carrying a floor)
+		// passed here on Windows and failed on CI's Linux fonts by 4.5px: a floor
+		// aligns only while every date fits under it, which is a property of the
+		// font, not of the layout. Compared against a member rather than against a
+		// number written down here, so the assertion says "the same as its
+		// children", which is the actual requirement.
+		const memberDate = own.locator('[data-col="5"]');
+		const parentBox = await parentDate.boundingBox();
+		const memberBox = await memberDate.boundingBox();
+		expect(parentBox).not.toBeNull();
+		expect(memberBox).not.toBeNull();
+		expect(parentBox?.x).toBeCloseTo(memberBox?.x ?? 0, 0);
+		expect(parentBox?.width).toBeCloseTo(memberBox?.width ?? 0, 0);
+		const parentRowBox = await parent.boundingBox();
+		const memberRowBox = await own.boundingBox();
+		expect(parentRowBox?.height).toBeCloseTo(memberRowBox?.height ?? 0, 0);
+
+		await parent.locator('[data-expand-toggle]').click();
+		await expect(parent).toHaveAttribute('aria-expanded', 'false');
+		await expect(parentSender).not.toHaveText('');
+		await expect(parentDate).not.toHaveText('');
 	});
 
 	test('šipky na předmětu rozbalí a sbalí konverzaci', async ({ page }) => {
@@ -211,6 +280,12 @@ test.describe('Rozbalení konverzace', () => {
 		await subjectCell.press('ArrowRight');
 		await expect(parent).toHaveAttribute('aria-expanded', 'true');
 		await expect(archiveMember(page, 'arch-02')).toBeVisible();
+		// Deliberately unlike the toggle button, which steps into the thread: this is
+		// the WAI-ARIA treegrid contract, where expanding a node leaves focus on it
+		// and a second ArrowRight is what walks into the children. The sighted
+		// keyboard user gets the spec; browse mode, which never delivers this key,
+		// gets the shortcut.
+		await expect(subjectCell).toBeFocused();
 
 		await parent.locator('[data-cell-target][data-col="3"]').press('ArrowLeft');
 		await expect(parent).toHaveAttribute('aria-expanded', 'false');

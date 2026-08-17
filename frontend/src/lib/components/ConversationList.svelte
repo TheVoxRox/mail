@@ -406,35 +406,72 @@
 	/**
 	 * Toggles a thread's expansion. Expansion is committed only after members
 	 * load, so a failed fetch leaves the row collapsed with an announced error.
-	 * When `focusAfter` is set (keyboard toggles) focus returns to the parent
-	 * row afterwards.
+	 *
+	 * `focus` is where the reading cursor goes once the rows are in, and the two
+	 * callers deliberately ask for different things. ArrowRight says `parent`:
+	 * that is the WAI-ARIA treegrid contract, where expanding a node leaves focus
+	 * on it and a second ArrowRight steps into the children. The toggle button
+	 * says `firstMember`, because it is the browse-mode path — a screen reader
+	 * never delivers ArrowRight here and sends Enter as a click — and there the
+	 * cost is not one keystroke but reading: the cursor would otherwise walk the
+	 * rest of the parent row (status, sender, date, the actions trigger, each
+	 * naming the same subject) before reaching the message the user expanded the
+	 * thread to get to. The oldest message is where a conversation is read from.
+	 *
+	 * What that costs is the button relabelling itself under a focus that stayed
+	 * put ("Sbalit konverzaci …"), which used to be how the keypress confirmed
+	 * itself. The polite announcement covers it — it says how many messages
+	 * appeared, which is the more useful half — and ArrowLeft on a member returns
+	 * to the parent, so the collapse toggle is one key away.
+	 *
+	 * Collapsing keeps focus exactly where it was for both callers: the button
+	 * that collapsed the thread is still under the cursor, and moving off it
+	 * would take the user away from the control they just used.
 	 */
 	async function toggleExpand(
 		conversation: ConversationSummaryResponse,
-		focusAfter = false
+		focus: 'parent' | 'firstMember'
 	): Promise<void> {
 		const id = conversation.threadId;
 		if (id == null || !isExpandable(conversation)) return;
 		if (expanded.has(id)) {
 			expanded.delete(id);
 			announcePolite($_('messages.grouping.collapsed'));
-		} else {
-			const loaded = await loadMembers(conversation);
-			if (!loaded) return;
-			expanded.add(id);
-			announcePolite(
-				$_('messages.grouping.revealed', {
-					values: { count: visibleMembersOf(conversation).length }
-				})
-			);
+			if (focus === 'parent') {
+				await tick();
+				focusRowOfThread(id, 'conversation');
+			}
+			return;
 		}
-		if (focusAfter) {
-			await tick();
-			const parentIndex = visibleRows.findIndex(
-				(row) => row.kind === 'conversation' && row.conversation.threadId === id
-			);
-			if (parentIndex >= 0) grid.moveTo(parentIndex, COL_SUBJECT);
-		}
+		const loaded = await loadMembers(conversation);
+		if (!loaded) return;
+		expanded.add(id);
+		announcePolite(
+			$_('messages.grouping.revealed', {
+				values: { count: visibleMembersOf(conversation).length }
+			})
+		);
+		await tick();
+		// A thread with no member row to land on falls back to its parent rather
+		// than leaving focus on a control that has just changed meaning.
+		if (focus === 'firstMember' && focusRowOfThread(id, 'member')) return;
+		focusRowOfThread(id, 'conversation');
+	}
+
+	/**
+	 * Moves the roving cursor to this thread's parent row, or to the first of its
+	 * member rows, on the subject cell — the row's reading anchor. Returns whether
+	 * such a row was there to move to.
+	 */
+	function focusRowOfThread(threadId: string, kind: VisibleRow['kind']): boolean {
+		const index = visibleRows.findIndex((row) =>
+			row.kind === 'conversation'
+				? kind === 'conversation' && row.conversation.threadId === threadId
+				: kind === 'member' && row.threadId === threadId
+		);
+		if (index < 0) return false;
+		grid.moveTo(index, COL_SUBJECT);
+		return true;
 	}
 
 	/** Moves focus from a child row up to its parent conversation row. */
@@ -901,12 +938,12 @@
 				const id = row.conversation.threadId as string;
 				if (event.key === 'ArrowRight' && !expanded.has(id)) {
 					event.preventDefault();
-					void toggleExpand(row.conversation, true);
+					void toggleExpand(row.conversation, 'parent');
 					return;
 				}
 				if (event.key === 'ArrowLeft' && expanded.has(id)) {
 					event.preventDefault();
-					void toggleExpand(row.conversation, true);
+					void toggleExpand(row.conversation, 'parent');
 					return;
 				}
 			}
@@ -1121,13 +1158,31 @@
 				onMoveTo={handleBulkMoveTo}
 			/>
 
+			<!--
+				The column widths live here, on the list, not on each row. They used to
+				live on the row, and a track sized to one row's own content lines up
+				with the row above it only by accident: the date column measured 1164px
+				from the left for `14:32`, 1148px for a weekday name and 1118px for a
+				full date, and an expanded parent — whose date cell is deliberately
+				empty — collapsed to the padding, 80px away from the very children it
+				heads. Rows are `subgrid`, so every one of them resolves against this
+				one set of tracks and the columns line up by construction rather than by
+				coincidence of string width. A floor on the row's own track was tried
+				first and is not enough: it aligns only while every date fits under it,
+				which is a property of the font. It held on Windows by 0.45px and lost
+				on CI's Linux fonts, where the same date measures 108.5px against a
+				104px floor.
+
+				`content-start` because the implicit rows are `auto`: without it a short
+				list stretches its rows to fill the viewport.
+			-->
 			<div
 				bind:this={gridElement}
 				role="treegrid"
 				aria-label={$_('messages.grouping.listLabel')}
 				aria-rowcount={visibleRows.length + 1}
 				aria-colcount={7}
-				class="flex-1 overflow-y-auto bg-background"
+				class="grid flex-1 grid-cols-[2.5rem_1.75rem_auto_minmax(0,1fr)_auto_2.5rem] content-start overflow-y-auto bg-background"
 			>
 				<div role="row" aria-rowindex={1} class="sr-only">
 					<span role="columnheader" aria-colindex={1}>{$_('messages.columnHeaderSelect')}</span>
@@ -1152,6 +1207,21 @@
 					{@const isOpen = threadId != null && expanded.has(threadId)}
 					{@const isLoading = threadId != null && loadingThreads.has(threadId)}
 					{@const unread = isConversation ? row.conversation.unreadCount > 0 : !row.message.seen}
+					<!--
+						An expanded conversation row is a header, not a message. Sender and
+						date describe the newest message, which is now listed underneath as
+						a child row of its own — rendering them here says the same thing
+						twice, and a screen reader reads the row cell by cell, so the second
+						time costs speech on the way to the conversation it just opened.
+						Collapsed rows keep both: there the row is all there is, and who
+						wrote last and when is what the folder is triaged on. The cells
+						themselves stay — they are grid columns, and dropping them would
+						renumber the roving navigation — but they stay genuinely empty. An
+						aria-label would spend the saving on announcing the emptiness, which
+						is why the named empty cells further down are named only where a
+						control was expected and is missing.
+					-->
+					{@const conversationHeader = isConversation && isOpen}
 					{@const statusLabel = messageStatusLabel(message, $_)}
 					<!--
 						A member row carries the clock as well: inside one thread the list
@@ -1163,6 +1233,15 @@
 					{@const formattedDate = isConversation
 						? formatMessageListDate(message.receivedAt, $appLocale ?? 'cs')
 						: formatThreadMemberDate(message.receivedAt, $appLocale ?? 'cs')}
+					<!--
+						Columns come from the list (see the `subgrid` note above); only the two
+						row tracks are the row's own. The second of them still needs a floor:
+						an expanded parent empties its sender cell, and an empty cell would
+						collapse that track from 32px to 14px and leave the conversation header
+						the one row in the list shorter than every other. The number is the
+						member rows' own — their line height plus the padding they already
+						carry.
+					-->
 					<div
 						role="row"
 						tabindex="-1"
@@ -1174,8 +1253,8 @@
 						aria-expanded={expandable ? (isOpen ? 'true' : 'false') : undefined}
 						aria-busy={isLoading ? 'true' : undefined}
 						class={cn(
-							'grid cursor-pointer grid-cols-[2.5rem_1.75rem_auto_minmax(0,1fr)_auto_2.5rem] grid-rows-[auto_auto] border-b border-border/80 transition-colors hover:bg-muted/40 focus-within:relative focus-within:z-10',
-							!isConversation && 'bg-muted/20 pl-5',
+							'col-span-full grid cursor-pointer grid-cols-subgrid grid-rows-[auto_auto] border-b border-border/80 transition-colors hover:bg-muted/40 focus-within:relative focus-within:z-10',
+							!isConversation && 'bg-muted/20',
 							isConversation && selected.has(row.conversation.latest.stableId) && 'bg-primary/10',
 							unread && 'font-semibold'
 						)}
@@ -1285,7 +1364,7 @@
 											: $_('messages.grouping.expandNamed', {
 													values: { subject: message.subject || $_('messages.noSubject') }
 												})}
-									onclick={() => void toggleExpand(row.conversation)}
+									onclick={() => void toggleExpand(row.conversation, 'firstMember')}
 									class={cn(
 										'flex size-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted',
 										focusRingInset
@@ -1327,10 +1406,25 @@
 						>
 							<MessageFlags {message} />
 						</div>
+						<!--
+							A member row's indent. It used to be `pl-5` on the row itself, which
+							worked only because each row was its own grid; under `subgrid` that
+							padding would shift every one of the row's columns, actions included,
+							and push the last one past the list's right edge. The indent belongs
+							to the label anyway — it is the subject that is subordinate, not the
+							checkbox — so it lives on the two cells of the subject track, which
+							leaves the select, expand, status, date and actions columns lined up
+							with the parent's. `pr-2` + an explicit `pl-*` rather than `px-2` and
+							an override, so neither value depends on which utility Tailwind emits
+							last.
+						-->
 						<div
 							role="gridcell"
 							aria-colindex={COL_SUBJECT + 1}
-							class="col-start-4 row-start-1 min-w-0 px-2 pt-3"
+							class={cn(
+								'col-start-4 row-start-1 min-w-0 pt-3 pr-2',
+								isConversation ? 'pl-2' : 'pl-7'
+							)}
 						>
 							<!--
 								A real link, like the flat list: browse mode never delivers Enter
@@ -1385,12 +1479,15 @@
 							aria-colindex={COL_SENDER + 1}
 							{...grid.cell(rowIndex, COL_SENDER)}
 							class={cn(
-								'col-start-4 row-start-2 truncate rounded-sm px-2 pb-3 text-sm',
+								'col-start-4 row-start-2 min-h-8 truncate rounded-sm pr-2 pb-3 text-sm',
+								isConversation ? 'pl-2' : 'pl-7',
 								unread ? 'text-foreground' : 'text-muted-foreground',
 								focusRingInset
 							)}
 						>
-							{showRecipientsFor(message) ? (message.recipientsTo ?? '') : message.sender}
+							{#if !conversationHeader}
+								{showRecipientsFor(message) ? (message.recipientsTo ?? '') : message.sender}
+							{/if}
 						</div>
 						<div
 							role="gridcell"
@@ -1401,7 +1498,9 @@
 								focusRingInset
 							)}
 						>
-							<time datetime={message.receivedAt}>{formattedDate}</time>
+							{#if !conversationHeader}
+								<time datetime={message.receivedAt}>{formattedDate}</time>
+							{/if}
 						</div>
 						{#if row.kind === 'member' && !isRowActionableHere(row)}
 							<!--
