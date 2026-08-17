@@ -5,7 +5,7 @@
 	import { type VariantProps, tv } from 'tailwind-variants';
 
 	export const listRowVariants = tv({
-		base: 'flex justify-between text-sm transition-colors hover:bg-muted/35',
+		base: 'flex justify-between text-sm transition-colors hover:bg-muted/40',
 		variants: {
 			align: {
 				start: 'items-start',

@@ -179,7 +179,7 @@
 								{#snippet badge()}
 									{#if folder.unreadCount > 0}
 										<span
-											class="min-w-5 rounded-full bg-primary/12 px-1.5 py-0.5 text-center text-caption font-semibold text-primary"
+											class="min-w-5 rounded-full bg-primary/10 px-1.5 py-0.5 text-center text-caption font-semibold text-primary"
 											aria-label={$_('nav.unreadBadge', { values: { count: folder.unreadCount } })}
 										>
 											{folder.unreadCount}

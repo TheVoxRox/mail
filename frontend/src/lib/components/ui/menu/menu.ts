@@ -34,7 +34,7 @@ export const menuContentVariants = tv({
 });
 
 export const menuItemVariants = tv({
-	base: 'flex w-full cursor-pointer rounded-md px-3 py-2 text-left text-sm outline-none data-[disabled]:cursor-not-allowed data-[disabled]:text-muted-foreground',
+	base: 'flex w-full cursor-pointer rounded-md px-3 py-2 text-left text-sm outline-hidden data-[disabled]:cursor-not-allowed data-[disabled]:text-muted-foreground',
 	variants: {
 		tone: {
 			default: 'data-[highlighted]:bg-muted',

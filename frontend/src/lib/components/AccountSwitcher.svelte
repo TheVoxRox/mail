@@ -34,11 +34,18 @@
 			size={14}
 			class="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground"
 		/>
+		<!--
+			Only what differs from `selectVariants`: the icon well on the left,
+			the chevron room on the right and the hover. The frame, the ring and
+			the disabled state come from the primitive.
+		-->
 		<Select
 			id="sidebar-account-switcher"
 			value={currentValue}
 			onchange={handleChange}
-			class="block w-full appearance-none rounded-md border border-input bg-background py-1.5 pl-7 pr-7 text-xs text-foreground shadow-xs hover:bg-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+			size="sm"
+			width="full"
+			class="h-auto appearance-none py-1.5 pl-7 pr-7 hover:bg-muted"
 		>
 			{#if !current}
 				<option value="" disabled>{$_('nav.switchAccount')}</option>

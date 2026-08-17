@@ -3,6 +3,8 @@
 	import AddressTokenField from '$lib/components/compose/AddressTokenField.svelte';
 	import { Select } from '$lib/components/ui/select/index.js';
 	import type { AccountResponse } from '$lib/types.js';
+	import { focusRingInset } from '$lib/components/ui/focus-ring/index.js';
+	import { cn } from '$lib/utils.js';
 
 	interface Props {
 		to: string;
@@ -58,7 +60,10 @@
 				id="compose-from"
 				bind:value={fromAccountId}
 				{disabled}
-				class="flex-1 border-0 bg-transparent py-2.5 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-60"
+				class={cn(
+					'flex-1 border-0 bg-transparent py-2.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-50',
+					focusRingInset
+				)}
 			>
 				{#each accounts as account (account.id)}
 					<option value={account.id}>{formatAccountLabel(account)}</option>
@@ -107,7 +112,7 @@
 			{disabled}
 			aria-invalid={subjectError ? 'true' : undefined}
 			aria-describedby={subjectError ? subjectErrorId : undefined}
-			class="flex-1 border-0 bg-transparent py-2.5 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+			class={cn('flex-1 border-0 bg-transparent py-2.5 text-sm text-foreground', focusRingInset)}
 		/>
 	</div>
 	{#if subjectError}

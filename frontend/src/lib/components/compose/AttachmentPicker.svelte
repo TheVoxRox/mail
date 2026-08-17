@@ -1,6 +1,8 @@
 <script lang="ts">
 	import Icon from '$lib/components/Icon.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import { chipVariants } from '$lib/components/ui/chip/index.js';
+	import { cn } from '$lib/utils.js';
 	import { formatSize } from '$lib/formatters.js';
 	import { clientConfig } from '$lib/stores/clientConfig.js';
 	import { confirmAction } from '$lib/stores/confirmDialog.js';
@@ -220,7 +222,7 @@
 	role="group"
 	aria-label={$_('compose.attachmentDropZone')}
 	class={`flex flex-wrap items-center gap-3 border-b px-4 py-2 transition-colors ${
-		dragActive ? 'border-primary bg-primary/8' : 'border-border bg-background'
+		dragActive ? 'border-primary bg-primary/10' : 'border-border bg-background'
 	}`}
 	ondragenter={handleDragEnter}
 	ondragover={handleDragOver}
@@ -228,9 +230,12 @@
 	ondrop={handleDrop}
 >
 	<label
-		class={`inline-flex items-center gap-1 rounded border border-input bg-background px-2 py-1 text-xs text-foreground ${
-			disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-muted'
-		}`}
+		class={cn(
+			chipVariants({ tone: 'outline' }),
+			disabled
+				? 'cursor-not-allowed bg-muted text-muted-foreground'
+				: 'cursor-pointer hover:bg-muted'
+		)}
 	>
 		<Icon name="paperclip" size={14} />
 		<span>{$_('compose.addAttachment')}</span>
@@ -249,9 +254,7 @@
 	{#if attachments.length > 0}
 		<ul class="flex flex-wrap gap-2" aria-label={$_('compose.attachmentsLabel')}>
 			{#each attachments as att (att.localId)}
-				<li
-					class="inline-flex items-center gap-1 rounded bg-secondary px-2 py-1 text-xs text-secondary-foreground"
-				>
+				<li class={chipVariants()}>
 					<span>{att.fileName}</span>
 					<span class="text-muted-foreground">({formatSize(att.size, $appLocale)})</span>
 					<Button

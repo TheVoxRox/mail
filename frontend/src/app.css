@@ -2,6 +2,19 @@
 @import 'tw-animate-css';
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Every colour in the app comes from a token below — no raw Tailwind palette
+ * utility (`bg-emerald-500`, `text-yellow-500`), because a palette colour has
+ * to be re-picked by hand for dark mode and nothing checks that the pair was
+ * ever contrast-tested.
+ *
+ * Tints of a token (`bg-muted/40`) must step in multiples of 10. Not an
+ * aesthetic rule: `bg-muted` had drifted to ten alphas between /15 and /70 —
+ * three of them stacked as adjacent bars in the contacts list — and steps that
+ * fine are indistinguishable on screen while reading as deliberate in a diff.
+ * A coarse ladder means picking a tint is picking a role. Enforced by
+ * check:design.
+ */
 :root {
 	--radius: 0.625rem;
 	--background: oklch(0.996 0.003 250);
@@ -16,8 +29,6 @@
 	--secondary-foreground: oklch(0.23 0.02 250);
 	--muted: oklch(0.965 0.008 250);
 	--muted-foreground: oklch(0.45 0.025 250);
-	--accent: oklch(0.94 0.022 218);
-	--accent-foreground: oklch(0.25 0.04 218);
 	/*
 	 * Red pair, same split as the amber one below: --destructive tints borders,
 	 * rings and backgrounds, --destructive-foreground is the matching TEXT color.
@@ -38,22 +49,27 @@
 	 */
 	--warning: oklch(0.828 0.189 84.429);
 	--warning-foreground: oklch(0.45 0.105 75);
+	/*
+	 * Green pair for the "healthy / connected / active" state, same tint-vs-text
+	 * split as the two above. The app used to say this four different ways —
+	 * `chart-2` in toasts, `primary` on success surfaces and raw `emerald-500`
+	 * in the account badge and the connection dot — and the emerald one was the
+	 * only place in the app carrying a hand-written `dark:` counterpart, which
+	 * is exactly the work the token layer exists to do once.
+	 * Measured: foreground 6.37:1 on its own `bg-success/10` tint (6.01:1 on the
+	 * sidebar), tint 3.38:1 against the page for the dot, which is a non-text
+	 * indicator and needs 3:1.
+	 */
+	--success: oklch(0.62 0.13 162);
+	--success-foreground: oklch(0.45 0.11 162);
 	--border: oklch(0.905 0.012 250);
 	--input: oklch(0.88 0.014 250);
 	--ring: oklch(0.58 0.095 218);
-	--chart-1: oklch(0.646 0.222 41.116);
-	--chart-2: oklch(0.6 0.118 184.704);
-	--chart-3: oklch(0.398 0.07 227.392);
-	--chart-4: oklch(0.828 0.189 84.429);
-	--chart-5: oklch(0.769 0.188 70.08);
 	--sidebar: oklch(0.975 0.009 250);
 	--sidebar-foreground: oklch(0.22 0.02 250);
-	--sidebar-primary: oklch(0.47 0.105 218);
-	--sidebar-primary-foreground: oklch(0.985 0 0);
 	--sidebar-accent: oklch(0.94 0.022 218);
 	--sidebar-accent-foreground: oklch(0.24 0.04 218);
 	--sidebar-border: oklch(0.895 0.014 250);
-	--sidebar-ring: oklch(0.58 0.095 218);
 }
 
 .dark {
@@ -69,29 +85,22 @@
 	--secondary-foreground: oklch(0.985 0 0);
 	--muted: oklch(0.27 0.022 250);
 	--muted-foreground: oklch(0.72 0.018 250);
-	--accent: oklch(0.31 0.04 218);
-	--accent-foreground: oklch(0.985 0 0);
 	--destructive: oklch(0.704 0.191 22.216);
 	/* Brighter than the tint, mirroring --warning-foreground in this theme. */
 	--destructive-foreground: oklch(0.8 0.15 22.216);
 	--warning: oklch(0.828 0.189 84.429);
 	--warning-foreground: oklch(0.87 0.15 85);
+	/* Brighter than the tint here too — 6.55:1 on the tint, dot 7.73:1. */
+	--success: oklch(0.7 0.14 162);
+	--success-foreground: oklch(0.8 0.13 162);
 	--border: oklch(1 0 0 / 12%);
 	--input: oklch(1 0 0 / 16%);
 	--ring: oklch(0.72 0.11 218);
-	--chart-1: oklch(0.488 0.243 264.376);
-	--chart-2: oklch(0.696 0.17 162.48);
-	--chart-3: oklch(0.769 0.188 70.08);
-	--chart-4: oklch(0.627 0.265 303.9);
-	--chart-5: oklch(0.645 0.246 16.439);
 	--sidebar: oklch(0.19 0.02 250);
 	--sidebar-foreground: oklch(0.985 0 0);
-	--sidebar-primary: oklch(0.72 0.11 218);
-	--sidebar-primary-foreground: oklch(0.985 0 0);
 	--sidebar-accent: oklch(0.27 0.036 218);
 	--sidebar-accent-foreground: oklch(0.985 0 0);
 	--sidebar-border: oklch(1 0 0 / 12%);
-	--sidebar-ring: oklch(0.72 0.11 218);
 }
 
 @theme inline {
@@ -106,10 +115,20 @@
 	--text-caption--line-height: 1rem;
 	--text-title: 0.9375rem;
 	--text-title--line-height: 1.4;
+	/*
+	 * Corner radii. Take them ONLY from here, i.e. rounded-sm/md/lg/xl (or
+	 * rounded-full for pills) — Tailwind's bare `rounded` is its own 4px
+	 * default and belongs to no step of this scale, which is how a dozen
+	 * near-identical corners appeared. Enforced by check:design, same
+	 * reasoning as the font-size scale above.
+	 */
 	--radius-sm: calc(var(--radius) - 4px);
 	--radius-md: calc(var(--radius) - 2px);
 	--radius-lg: var(--radius);
 	--radius-xl: calc(var(--radius) + 4px);
+	/* The dialog corner. Derived rather than left on Tailwind's flat 1rem so it
+	   tracks `--radius` and the root font-size like every other step. */
+	--radius-2xl: calc(var(--radius) + 6px);
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
 	--color-card: var(--card);
@@ -122,28 +141,20 @@
 	--color-secondary-foreground: var(--secondary-foreground);
 	--color-muted: var(--muted);
 	--color-muted-foreground: var(--muted-foreground);
-	--color-accent: var(--accent);
-	--color-accent-foreground: var(--accent-foreground);
 	--color-destructive: var(--destructive);
 	--color-destructive-foreground: var(--destructive-foreground);
 	--color-warning: var(--warning);
 	--color-warning-foreground: var(--warning-foreground);
+	--color-success: var(--success);
+	--color-success-foreground: var(--success-foreground);
 	--color-border: var(--border);
 	--color-input: var(--input);
 	--color-ring: var(--ring);
-	--color-chart-1: var(--chart-1);
-	--color-chart-2: var(--chart-2);
-	--color-chart-3: var(--chart-3);
-	--color-chart-4: var(--chart-4);
-	--color-chart-5: var(--chart-5);
 	--color-sidebar: var(--sidebar);
 	--color-sidebar-foreground: var(--sidebar-foreground);
-	--color-sidebar-primary: var(--sidebar-primary);
-	--color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
 	--color-sidebar-accent: var(--sidebar-accent);
 	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
 	--color-sidebar-border: var(--sidebar-border);
-	--color-sidebar-ring: var(--sidebar-ring);
 }
 
 @layer base {

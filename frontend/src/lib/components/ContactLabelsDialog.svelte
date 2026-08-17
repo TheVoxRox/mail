@@ -306,7 +306,7 @@
 								strip would be missed entirely in focus mode.
 							-->
 							<div
-								class="mt-2 rounded-md border border-destructive/30 bg-destructive/5 p-2"
+								class="mt-2 rounded-md border border-destructive/30 bg-destructive/10 p-2"
 								role="alert"
 							>
 								<p class="text-xs text-destructive-foreground">

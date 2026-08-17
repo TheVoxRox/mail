@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { toasts, dismissToast, type ToastTone } from '$lib/stores/toasts.js';
 	import { _ } from '$lib/i18n/index.js';
+	import { focusRing } from '$lib/components/ui/focus-ring/index.js';
 	import { cn } from '$lib/utils.js';
 
 	const toneClass: Record<ToastTone, string> = {
 		info: 'border-border bg-popover text-popover-foreground',
-		success: 'border-chart-2/50 bg-chart-2/10 text-foreground',
+		success: 'border-success/50 bg-success/10 text-success-foreground',
 		error: 'border-destructive/50 bg-destructive/10 text-destructive-foreground'
 	};
 </script>
@@ -34,7 +35,7 @@
 				type="button"
 				onclick={() => dismissToast(toast.id)}
 				aria-label={$_('toast.dismiss')}
-				class="shrink-0 rounded text-muted-foreground hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+				class={cn('shrink-0 rounded-sm text-muted-foreground hover:text-foreground', focusRing)}
 			>
 				<span aria-hidden="true">×</span>
 			</button>

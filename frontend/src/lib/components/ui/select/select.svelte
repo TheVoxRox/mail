@@ -1,11 +1,12 @@
 <script lang="ts" module>
 	import { cn, type WithElementRef } from '$lib/utils.js';
+	import { focusRing } from '../focus-ring/index.js';
 	import type { Snippet } from 'svelte';
 	import type { HTMLSelectAttributes } from 'svelte/elements';
 	import { type VariantProps, tv } from 'tailwind-variants';
 
 	export const selectVariants = tv({
-		base: 'block rounded-md border border-input bg-background text-foreground shadow-xs outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20',
+		base: `block rounded-md border border-input bg-background text-foreground shadow-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/20 ${focusRing}`,
 		variants: {
 			size: {
 				default: 'px-2.5 py-1.5 text-sm',

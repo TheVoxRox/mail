@@ -1,10 +1,16 @@
 <script lang="ts" module>
 	import { cn, type WithElementRef } from '$lib/utils.js';
+	import { focusRing } from '../focus-ring/index.js';
 	import type { HTMLInputAttributes } from 'svelte/elements';
 	import { type VariantProps, tv } from 'tailwind-variants';
 
 	export const inputVariants = tv({
-		base: 'block w-full rounded-md border border-input bg-background text-foreground shadow-xs outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20',
+		/*
+		 * `aria-invalid:ring-2` alongside the ring colour: a `ring-<colour>`
+		 * on its own sets no width, so the invalid halo the three form
+		 * primitives all declared was never painted on any of them.
+		 */
+		base: `block w-full rounded-md border border-input bg-background text-foreground shadow-xs transition-colors placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/20 ${focusRing}`,
 		variants: {
 			size: {
 				default: 'px-2.5 py-1.5 text-sm',

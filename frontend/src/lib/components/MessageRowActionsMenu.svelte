@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { DropdownMenu } from 'bits-ui';
+	import { buttonVariants } from '$lib/components/ui/button/index.js';
 	import { menuContentVariants, menuItemVariants } from '$lib/components/ui/menu/index.js';
 	import { forwardMessage, replyToMessage } from '$lib/mail/actions.js';
 	import {
@@ -128,9 +129,7 @@
 			if (e.key === 'ArrowDown') e.preventDefault();
 		}}
 		aria-label={triggerLabel}
-		class={cn(
-			'inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring data-[state=open]:bg-muted data-[state=open]:text-foreground'
-		)}
+		class={cn(buttonVariants({ variant: 'ghost', size: 'icon-sm' }), 'text-muted-foreground')}
 	>
 		<Icon name="ellipsis-horizontal" size={16} />
 	</DropdownMenu.Trigger>

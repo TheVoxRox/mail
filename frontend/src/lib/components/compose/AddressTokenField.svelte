@@ -1,7 +1,11 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { autocompleteContacts } from '$lib/api/contacts.js';
+	import { chipVariants } from '$lib/components/ui/chip/index.js';
+	import { focusRing, focusRingInset } from '$lib/components/ui/focus-ring/index.js';
+	import { menuContentVariants, menuItemVariants } from '$lib/components/ui/menu/index.js';
 	import { clientConfig } from '$lib/stores/clientConfig.js';
+	import { cn } from '$lib/utils.js';
 	import { _ } from '$lib/i18n/index.js';
 	import {
 		isValidEmailAddress,
@@ -178,18 +182,14 @@
 		</label>
 		<div class="relative flex min-h-10 flex-1 flex-wrap items-center gap-1.5 py-1.5">
 			{#each tokens as address, index (address)}
-				<span
-					class={[
-						'inline-flex max-w-full items-center gap-1 rounded-md border px-2 py-1 text-xs',
-						isValidEmailAddress(address)
-							? 'border-border bg-muted text-foreground'
-							: 'border-destructive/40 bg-destructive/10 text-destructive-foreground'
-					]}
-				>
+				<span class={chipVariants({ tone: isValidEmailAddress(address) ? 'default' : 'danger' })}>
 					<span class="truncate">{address}</span>
 					<button
 						type="button"
-						class="rounded-sm px-1 text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+						class={cn(
+							'rounded-sm px-1 text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50',
+							focusRing
+						)}
 						{disabled}
 						aria-label={$_('compose.removeAddress', { values: { address } })}
 						onclick={() => removeAddress(index)}
@@ -212,7 +212,10 @@
 					? `${id}-suggestion-${activeSuggestion}`
 					: undefined}
 				aria-keyshortcuts={shortcut}
-				class="min-w-40 flex-1 border-0 bg-transparent py-1 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-60"
+				class={cn(
+					'min-w-40 flex-1 border-0 bg-transparent py-1 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-50',
+					focusRingInset
+				)}
 				oninput={handleInput}
 				onkeydown={handleKeydown}
 				onpaste={handlePaste}
@@ -223,7 +226,7 @@
 					id={`${id}-suggestions`}
 					role="listbox"
 					aria-label={$_('compose.suggestionsLabel')}
-					class="absolute left-0 right-0 top-full z-20 mt-1 rounded-md border border-border bg-popover p-1 text-sm text-popover-foreground shadow-md"
+					class={cn(menuContentVariants(), 'absolute left-0 right-0 top-full z-20 mt-1 min-w-0')}
 				>
 					<!--
 						Keyed by email, not emailId: history suggestions have no emailId, so
@@ -238,10 +241,11 @@
 							role="option"
 							tabindex="-1"
 							aria-selected={index === activeSuggestion}
-							class={[
-								'flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left hover:bg-accent hover:text-accent-foreground',
-								index === activeSuggestion ? 'bg-accent text-accent-foreground' : ''
-							]}
+							class={cn(
+								menuItemVariants(),
+								'items-center justify-between gap-2 hover:bg-muted',
+								index === activeSuggestion && 'bg-muted'
+							)}
 							onmousedown={(event) => event.preventDefault()}
 							onclick={() => selectSuggestion(suggestion)}
 						>
@@ -255,8 +259,9 @@
 									distinguishing this row from an address book entry would be
 									visual only.
 								-->
+								<!-- `bg-background`, not `bg-muted`: the highlighted row is muted. -->
 								<span
-									class="shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+									class="shrink-0 rounded-sm bg-background px-1.5 py-0.5 text-xs text-muted-foreground"
 								>
 									{$_('compose.suggestionFromHistory')}
 								</span>

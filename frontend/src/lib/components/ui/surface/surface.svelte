@@ -12,7 +12,7 @@
 				list: 'overflow-hidden border-border bg-card',
 				subtle: 'border-border bg-background/80',
 				danger: 'border-destructive/30 bg-destructive/10 text-destructive-foreground',
-				success: 'border-primary/30 bg-primary/10 text-primary',
+				success: 'border-success/30 bg-success/10 text-success-foreground',
 				warning: 'border-warning/40 bg-warning/10 text-warning-foreground'
 			},
 			padding: {
