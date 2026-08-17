@@ -1,1 +1,1 @@
-export { chipVariants, type ChipTone } from './chip.js';
+export { chipVariants } from './chip.js';

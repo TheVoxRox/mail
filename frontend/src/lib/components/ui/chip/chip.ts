@@ -12,7 +12,7 @@
  * as if they were different fills — they resolve to the same colour in both
  * themes, so the tones below are the ones that actually differ on screen.
  */
-import { tv, type VariantProps } from 'tailwind-variants';
+import { tv } from 'tailwind-variants';
 
 export const chipVariants = tv({
 	base: 'inline-flex max-w-full items-center gap-1 rounded-md border px-2 py-1 text-xs',
@@ -28,5 +28,3 @@ export const chipVariants = tv({
 		tone: 'default'
 	}
 });
-
-export type ChipTone = VariantProps<typeof chipVariants>['tone'];
