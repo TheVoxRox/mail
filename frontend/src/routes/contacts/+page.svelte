@@ -343,7 +343,7 @@
 
 {#if !data.create && data.edit == null && dragActive}
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-background/85 backdrop-blur-sm"
+		class="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
 		aria-hidden="true"
 	>
 		<div
@@ -356,13 +356,13 @@
 {/if}
 
 {#if data.create}
-	<section class="flex-1 overflow-y-auto bg-background outline-none">
+	<section class="flex-1 overflow-y-auto bg-background outline-hidden">
 		<div class="max-w-4xl space-y-4 p-6">
 			<ContactForm onSubmit={handleCreate} onCancel={() => goto(contactsHref({ create: false }))} />
 		</div>
 	</section>
 {:else if data.edit != null}
-	<section class="flex-1 overflow-y-auto bg-background outline-none">
+	<section class="flex-1 overflow-y-auto bg-background outline-hidden">
 		<div class="max-w-4xl space-y-4 p-6">
 			{#if editState.status === 'loading' || editState.status === 'idle'}
 				<StateMessage>{$_('contacts.loading')}</StateMessage>

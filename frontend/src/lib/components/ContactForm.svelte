@@ -13,6 +13,7 @@
 	import { Select } from '$lib/components/ui/select/index.js';
 	import { Surface } from '$lib/components/ui/surface/index.js';
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
+	import { nativeControlClass } from '$lib/components/ui/native-control/index.js';
 	import { onMount, tick } from 'svelte';
 	import type {
 		ContactCreateRequest,
@@ -417,7 +418,7 @@
 								id={`contact-email-${index}-primary`}
 								type="radio"
 								name="contact-primary-email"
-								class="size-4 border-input bg-background text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+								class={nativeControlClass}
 								checked={row.primary}
 								onchange={() => setPrimary(index)}
 								disabled={busy}
@@ -475,12 +476,12 @@
 						{@const inputId = `contact-label-${label.id}`}
 						<label
 							for={inputId}
-							class="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-sm hover:bg-muted/35 has-[:checked]:border-primary has-[:checked]:bg-primary/5"
+							class="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-sm hover:bg-muted/40 has-[:checked]:border-primary has-[:checked]:bg-primary/10"
 						>
 							<input
 								id={inputId}
 								type="checkbox"
-								class="size-4 rounded border-input bg-background text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+								class={nativeControlClass}
 								checked={labelIds.includes(label.id)}
 								onchange={(event) => toggleLabel(label.id, event.currentTarget.checked)}
 								disabled={busy}

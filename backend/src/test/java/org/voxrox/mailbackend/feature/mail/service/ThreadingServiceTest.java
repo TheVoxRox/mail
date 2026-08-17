@@ -189,6 +189,87 @@ class ThreadingServiceTest {
     }
 
     @Nested
+    @DisplayName("Chronological positions")
+    class ChronologicalPositions {
+
+        /*
+         * Sync order is not chronological order. The folders are mirrored one after
+         * another, so the Sent copy of a reply reaches the database after the received
+         * messages it belongs between. Observed on a real mailbox: a thread whose own
+         * 29 May reply held the last position, leaving the account-wide order 26 May,
+         * 31 May, 25 June, 3 July, 29 May.
+         */
+        @Test
+        @DisplayName("A reply that syncs late but is chronologically older is inserted, not appended")
+        void olderArrivalIsInsertedInChronologicalOrder() {
+            MessageEntity opening = newMessage("<m1@example.com>", null, null);
+            opening.setId(76L);
+            opening.setReceivedAt(LocalDateTime.of(2026, 5, 26, 13, 54));
+            service.assignThread(opening, ACCOUNT);
+            register(opening);
+
+            MessageEntity laterReply = newMessage("<m3@example.com>", "<m1@example.com>", null);
+            laterReply.setId(77L);
+            laterReply.setReceivedAt(LocalDateTime.of(2026, 5, 31, 19, 51));
+            service.assignThread(laterReply, ACCOUNT);
+            register(laterReply);
+
+            // The Sent folder syncs now, carrying a reply written between the two.
+            MessageEntity ownReply = newMessage("<m2@example.com>", "<m1@example.com>", null);
+            ownReply.setId(127L);
+            ownReply.setReceivedAt(LocalDateTime.of(2026, 5, 29, 15, 10));
+            when(repo.countThreadMembersAfter(eq(ACCOUNT_ID), anyString(), eq(ownReply.getReceivedAt()), eq(127L)))
+                    .thenReturn(1L);
+            when(repo.findByAccountIdAndThreadId(eq(ACCOUNT_ID), anyString()))
+                    .thenReturn(List.of(opening, laterReply, ownReply));
+
+            service.assignThread(ownReply, ACCOUNT);
+
+            assertThat(opening.getThreadPosition()).isEqualTo(1);
+            assertThat(ownReply.getThreadPosition()).isEqualTo(2);
+            assertThat(laterReply.getThreadPosition()).isEqualTo(3);
+        }
+
+        @Test
+        @DisplayName("A genuinely new reply still appends without reading the thread back")
+        void newestArrivalAppendsWithoutRenumbering() {
+            MessageEntity opening = newMessage("<m1@example.com>", null, null);
+            opening.setId(1L);
+            opening.setReceivedAt(LocalDateTime.of(2026, 5, 26, 13, 54));
+            service.assignThread(opening, ACCOUNT);
+            register(opening);
+
+            MessageEntity reply = newMessage("<m2@example.com>", "<m1@example.com>", null);
+            reply.setId(2L);
+            reply.setReceivedAt(LocalDateTime.of(2026, 5, 31, 19, 51));
+            service.assignThread(reply, ACCOUNT);
+
+            assertThat(opening.getThreadPosition()).isEqualTo(1);
+            assertThat(reply.getThreadPosition()).isEqualTo(2);
+            // The renumbering pass loads every member as a managed entity, @Lob body
+            // included. The common case — mail newer than its whole thread — must not
+            // pay for that, which is what the COUNT probe buys.
+            verify(repo, never()).findByAccountIdAndThreadId(anyLong(), anyString());
+        }
+
+        @Test
+        @DisplayName("An entity with no receivedAt is appended rather than probed")
+        void messageWithoutReceivedAtAppends() {
+            MessageEntity opening = newMessage("<m1@example.com>", null, null);
+            service.assignThread(opening, ACCOUNT);
+            register(opening);
+
+            // The column is NOT NULL in the schema, so this only pins the behaviour of
+            // an entity built without one — it must not reach the probe with a null key.
+            MessageEntity reply = newMessage("<m2@example.com>", "<m1@example.com>", null);
+            service.assignThread(reply, ACCOUNT);
+
+            assertThat(reply.getThreadPosition()).isEqualTo(2);
+            verify(repo, never()).countThreadMembersAfter(anyLong(), anyString(), any(), anyLong());
+        }
+    }
+
+    @Nested
     @DisplayName("Edge cases")
     class EdgeCases {
 

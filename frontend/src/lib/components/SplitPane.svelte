@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { cn } from '$lib/utils.js';
+	import { focusRing } from '$lib/components/ui/focus-ring/index.js';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
@@ -158,8 +159,9 @@
 		aria-valuemax={maxPercent}
 		aria-valuenow={separatorNow}
 		class={cn(
-			'group relative flex items-center justify-center bg-border/80 outline-none transition-colors hover:bg-border focus-visible:bg-ring/60 focus-visible:ring-2 focus-visible:ring-ring',
-			orientation === 'vertical' ? 'cursor-col-resize' : 'cursor-row-resize'
+			'group relative flex items-center justify-center bg-border/80 transition-colors hover:bg-border focus-visible:bg-ring/60',
+			orientation === 'vertical' ? 'cursor-col-resize' : 'cursor-row-resize',
+			focusRing
 		)}
 		onpointerdown={startDrag}
 		onkeydown={onKeydown}

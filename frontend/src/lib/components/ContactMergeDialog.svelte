@@ -6,6 +6,8 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { DialogDescription, DialogShell, DialogTitle } from '$lib/components/ui/dialog/index.js';
 	import { StateMessage } from '$lib/components/ui/state-message/index.js';
+	import { nativeControlClass } from '$lib/components/ui/native-control/index.js';
+	import { cn } from '$lib/utils.js';
 	import {
 		MAX_EMAILS_PER_CONTACT,
 		buildMergePreview,
@@ -93,13 +95,13 @@
 					<li>
 						<label
 							for={inputId}
-							class="flex cursor-pointer items-start gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm hover:bg-muted/35 has-[:checked]:border-primary has-[:checked]:bg-primary/5"
+							class="flex cursor-pointer items-start gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm hover:bg-muted/40 has-[:checked]:border-primary has-[:checked]:bg-primary/10"
 						>
 							<input
 								id={inputId}
 								type="radio"
 								name="contact-merge-target"
-								class="mt-0.5 size-4"
+								class={cn('mt-0.5', nativeControlClass)}
 								value={c.id}
 								checked={targetId === c.id}
 								onchange={() => (targetId = c.id)}
@@ -120,7 +122,7 @@
 		</fieldset>
 
 		<section
-			class="mt-4 rounded-md border border-border bg-muted/15 p-3 text-sm"
+			class="mt-4 rounded-md border border-border bg-muted/20 p-3 text-sm"
 			aria-live="polite"
 			aria-atomic="true"
 		>

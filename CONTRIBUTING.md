@@ -22,10 +22,19 @@ inventory (`THIRD_PARTY_LICENSES.md`) and changelog where applicable.
 
 Requirements:
 
-- **Java 25 (Temurin)** with Maven. Use `mvn` directly — that is what CI runs.
-  The `mvnw` wrapper is committed, but `mvnw.cmd` shells out to
-  `powershell.exe` (Windows PowerShell 5.1), which is absent on machines that
-  only ship PowerShell 7, so it fails there before Maven ever starts.
+- **Java 25 (Temurin)** with Maven. Use `mvn` directly — that is what every
+  hand-written invocation runs, in CI and in `backend/scripts/`. Do not reach
+  for `./mvnw`: `mvnw.cmd` shells out to `powershell.exe` (Windows PowerShell
+  5.1), which is absent on machines that only ship PowerShell 7, so it fails
+  there before Maven ever starts.
+
+  The wrapper is committed anyway and **must stay**. CodeQL analyses Java with
+  `build-mode: autobuild` ([`.github/workflows/codeql.yml`](.github/workflows/codeql.yml)),
+  and the autobuilder picks `./mvnw` over the system `mvn` on its own — so
+  `backend/.mvn/wrapper/maven-wrapper.properties` decides which Maven builds
+  the CodeQL database, and `Analyze (java-kotlin)` is a required check.
+  Dependabot's `apache-maven` bumps are therefore real changes, not noise.
+
 - **Node 26** with `npm`.
 - **Rust toolchain** (stable + clippy) — only needed for the Tauri Rust
   crate (`frontend/src-tauri/`).
@@ -112,10 +121,25 @@ coverage, add a per-file threshold rather than lowering a global floor.
   i18n key parity (cs.json vs en.json). Fix formatting with `npm run format`
   and `npm run format:md`.
 - `npm run check` — CSP parity (`app.security.csp` vs `devCsp`), typography
-  lint (no arbitrary font-size utilities), version sync, doc-claims lint
-  (stack versions and stale phrases in root + module docs vs
-  `pom.xml`/`package.json`/`.nvmrc`), audit freshness (see below), OpenAPI
-  snapshot drift, `svelte-check` (must report 0 errors).
+  lint (no arbitrary font-size utilities), design lint (see below), version
+  sync, doc-claims lint (stack versions and stale phrases in root + module
+  docs vs `pom.xml`/`package.json`/`.nvmrc`), audit freshness (see below),
+  OpenAPI snapshot drift, `svelte-check` (must report 0 errors).
+- `npm run check:design` (part of `check`) — the visual system, which a type
+  checker cannot see: colours must come from the tokens in `app.css` and never
+  from Tailwind's own palette (a palette colour has to be re-picked by hand for
+  dark mode, and nothing checks the pair was ever contrast-tested); corner radii
+  must come from the radius scale, so Tailwind's bare `rounded` — its own 4px
+  default, on no step of that scale — is refused; the focus indicator may only
+  be spelled out in `src/lib/components/ui/focus-ring/`; and a token tint must
+  step in multiples of 10. The tint rule is not cosmetic: `bg-muted` had drifted
+  to ten alphas between /15 and /70, three of them stacked as adjacent bars in
+  one view, and steps that fine are invisible on screen while reading as
+  deliberate in a diff. Adding a colour, a radius or a tint step therefore means
+  editing `app.css`, which is the point — one file to read before picking.
+  There is one exception and it is a path, not a list of hues:
+  `ui/avatar/` holds the categorical avatar palette, eight colours whose only
+  job is to differ from each other, so no semantic token could supply them.
 - `npm run check:audits` (part of `check`) — fails when the content under the
   `Code paths` of a security audit in `docs/` no longer matches what that
   audit's `Audited commit` saw. If your change trips it, either re-verify the

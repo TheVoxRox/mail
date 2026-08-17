@@ -92,9 +92,17 @@
 </script>
 
 <script lang="ts">
+	/**
+	 * Icon sizes are a scale, not a number: the app used to pass 12, 13, 14, 16
+	 * and 20, five values for four jobs, with the 13 appearing exactly once.
+	 * The union below makes a sixth size a compile error rather than a diff
+	 * nobody looks twice at.
+	 */
+	type IconSize = 12 | 14 | 16 | 20;
+
 	interface Props {
 		name: IconName;
-		size?: number;
+		size?: IconSize;
 		class?: string;
 		title?: string;
 	}
@@ -102,13 +110,21 @@
 	let { name, size = 16, class: className = '', title }: Props = $props();
 	const path = $derived(PATHS[name]);
 	const filled = $derived(SOLID_FILL[name] === true);
+	/*
+	 * rem, not px. `textSize` scales the interface by moving the root
+	 * font-size, which works because everything else is in rem — an icon
+	 * measured in px was the one part of a row that stayed put while the text
+	 * around it grew. The divisor is the browser default the scale is
+	 * expressed against, so `size={16}` still means "16px at normal text size".
+	 */
+	const dimension = $derived(`${size / 16}rem`);
 </script>
 
 <svg
 	xmlns="http://www.w3.org/2000/svg"
 	viewBox="0 0 24 24"
-	width={size}
-	height={size}
+	width={dimension}
+	height={dimension}
 	fill={filled ? 'currentColor' : 'none'}
 	stroke={filled ? 'none' : 'currentColor'}
 	stroke-width={filled ? 0 : 1.75}

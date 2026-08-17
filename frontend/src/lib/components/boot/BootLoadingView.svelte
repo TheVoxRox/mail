@@ -49,12 +49,12 @@
 	class="flex h-full w-64 shrink-0 flex-col gap-2 border-r border-sidebar-border bg-sidebar px-3 py-4"
 	aria-hidden="true"
 >
-	<div class="h-6 w-32 rounded bg-sidebar-accent/40"></div>
+	<div class="h-6 w-32 rounded-md bg-sidebar-accent/40"></div>
 	<div class="mt-3 flex flex-col gap-2">
-		<div class="h-4 w-full rounded bg-sidebar-accent/30"></div>
-		<div class="h-4 w-3/4 rounded bg-sidebar-accent/30"></div>
-		<div class="h-4 w-5/6 rounded bg-sidebar-accent/30"></div>
-		<div class="h-4 w-2/3 rounded bg-sidebar-accent/30"></div>
+		<div class="h-4 w-full rounded-md bg-sidebar-accent/30"></div>
+		<div class="h-4 w-3/4 rounded-md bg-sidebar-accent/30"></div>
+		<div class="h-4 w-5/6 rounded-md bg-sidebar-accent/30"></div>
+		<div class="h-4 w-2/3 rounded-md bg-sidebar-accent/30"></div>
 	</div>
 </div>
 <main id="main-content" tabindex="-1" class="flex flex-1 items-center justify-center p-8">

@@ -18,7 +18,11 @@ someone a rework at least once. For the human-facing versions see
 ## Build and test
 
 - Use **`mvn`**, not `./mvnw` — `mvnw.cmd` shells out to `powershell.exe` 5.1,
-  which is absent on PowerShell-7-only machines.
+  which is absent on PowerShell-7-only machines. The wrapper is still **not
+  dead code**: CodeQL's `autobuild` picks `./mvnw` over the system `mvn` by
+  itself, so the pinned version in `backend/.mvn/wrapper/maven-wrapper.properties`
+  is what builds a required check's database. Don't delete it, and don't wave
+  through its dependabot bumps as no-ops.
 - Always **`mvn clean verify`**. Without `clean`, SpotBugs analyses the
   `__BeanDefinitions` classes a previous `-Paot package` left in `target/` and
   fails on generated code.

@@ -276,11 +276,30 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
     /**
      * Max thread_position within a thread — used by
      * {@link org.voxrox.mailbackend.feature.mail.service.ThreadingService} when
-     * appending a new message to an existing thread.
+     * appending a new message to the end of an existing thread.
      */
     @Query("SELECT COALESCE(MAX(m.threadPosition), 0) FROM MessageEntity m "
             + "WHERE m.account.id = :accId AND m.threadId = :threadId")
     int findMaxThreadPosition(@Param("accId") Long accountId, @Param("threadId") String threadId);
+
+    /**
+     * How many members of {@code threadId} sort after the key
+     * {@code (receivedAt, id)} in the thread's canonical order — the same
+     * {@code (receivedAt, id)} order
+     * {@link org.voxrox.mailbackend.feature.mail.service.ThreadingService}
+     * renumbers by. Zero means a message with that key belongs at the end of the
+     * thread, so the cheap append is correct and no renumbering pass is needed.
+     *
+     * <p>
+     * The {@code id} tiebreak is what makes this exact rather than merely close:
+     * two messages of a thread can share a {@code receivedAt} to the second, and
+     * without it the answer would depend on which of them the comparison happened
+     * to see.
+     */
+    @Query("SELECT COUNT(m) FROM MessageEntity m " + "WHERE m.account.id = :accId AND m.threadId = :threadId "
+            + "AND (m.receivedAt > :receivedAt OR (m.receivedAt = :receivedAt AND m.id > :id))")
+    long countThreadMembersAfter(@Param("accId") Long accountId, @Param("threadId") String threadId,
+            @Param("receivedAt") LocalDateTime receivedAt, @Param("id") Long id);
 
     /**
      * Subject-fallback lookup — the newest already-threaded message of the account

@@ -37,6 +37,8 @@
 	import MessageFlags from '$lib/components/MessageFlags.svelte';
 	import MessageRowActionsMenu from '$lib/components/MessageRowActionsMenu.svelte';
 	import { announcePolite } from '$lib/stores/toasts.js';
+	import { nativeControlClass } from '$lib/components/ui/native-control/index.js';
+	import { focusRingInset } from '$lib/components/ui/focus-ring/index.js';
 	import type {
 		ConversationSummaryResponse,
 		FolderResponse,
@@ -1172,9 +1174,9 @@
 						aria-expanded={expandable ? (isOpen ? 'true' : 'false') : undefined}
 						aria-busy={isLoading ? 'true' : undefined}
 						class={cn(
-							'grid cursor-pointer grid-cols-[40px_28px_auto_minmax(0,1fr)_auto_40px] grid-rows-[auto_auto] border-b border-border/80 transition-colors hover:bg-muted/45 focus-within:relative focus-within:z-10',
+							'grid cursor-pointer grid-cols-[2.5rem_1.75rem_auto_minmax(0,1fr)_auto_2.5rem] grid-rows-[auto_auto] border-b border-border/80 transition-colors hover:bg-muted/40 focus-within:relative focus-within:z-10',
 							!isConversation && 'bg-muted/20 pl-5',
-							isConversation && selected.has(row.conversation.latest.stableId) && 'bg-primary/5',
+							isConversation && selected.has(row.conversation.latest.stableId) && 'bg-primary/10',
 							unread && 'font-semibold'
 						)}
 						onclick={(e) => handleRowClick(e, row)}
@@ -1195,7 +1197,7 @@
 									<input
 										type="checkbox"
 										{...grid.cell(rowIndex, COL_SELECT)}
-										class="size-4 accent-primary"
+										class={nativeControlClass}
 										checked={conversationChecked(row.conversation)}
 										aria-checked={mixed
 											? 'mixed'
@@ -1230,7 +1232,7 @@
 									<input
 										type="checkbox"
 										{...grid.cell(rowIndex, COL_SELECT)}
-										class="size-4 accent-primary"
+										class={nativeControlClass}
 										checked={conversationChecked(parentConversation) ||
 											selectedMembers.has(row.message.stableId)}
 										aria-label={memberSelectionLabel(row.message)}
@@ -1257,7 +1259,7 @@
 								aria-label={$_('messages.grouping.memberNotSelectable', {
 									values: { folder: folderLabelByRef($folders, row.message.folderName, $_) }
 								})}
-								class="row-span-2 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+								class={cn('row-span-2', focusRingInset)}
 							></div>
 						{/if}
 						{#if expandable}
@@ -1284,7 +1286,10 @@
 													values: { subject: message.subject || $_('messages.noSubject') }
 												})}
 									onclick={() => void toggleExpand(row.conversation)}
-									class="flex size-5 items-center justify-center rounded-sm text-muted-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+									class={cn(
+										'flex size-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted',
+										focusRingInset
+									)}
 								>
 									<svg
 										viewBox="0 0 16 16"
@@ -1307,7 +1312,7 @@
 								role="gridcell"
 								aria-colindex={COL_EXPAND + 1}
 								{...grid.cell(rowIndex, COL_EXPAND)}
-								class="col-start-2 row-span-2 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+								class={cn('col-start-2 row-span-2', focusRingInset)}
 							></div>
 						{/if}
 						<div
@@ -1315,7 +1320,10 @@
 							aria-colindex={COL_STATUS + 1}
 							{...grid.cell(rowIndex, COL_STATUS)}
 							aria-label={statusLabel}
-							class="col-start-3 row-span-2 flex items-center gap-1 rounded-sm px-2 text-caption text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+							class={cn(
+								'col-start-3 row-span-2 flex items-center gap-1 rounded-sm px-2 text-caption text-muted-foreground',
+								focusRingInset
+							)}
 						>
 							<MessageFlags {message} />
 						</div>
@@ -1335,8 +1343,9 @@
 								{...grid.cell(rowIndex, COL_SUBJECT)}
 								onclick={(event) => handleSubjectClick(event, row)}
 								class={cn(
-									'flex items-center gap-2 rounded-sm text-sm no-underline outline-none hover:underline focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50',
-									unread ? 'text-foreground' : 'text-muted-foreground'
+									'flex items-center gap-2 rounded-sm text-sm no-underline hover:underline',
+									unread ? 'text-foreground' : 'text-muted-foreground',
+									focusRingInset
 								)}
 							>
 								{#if unread}
@@ -1345,7 +1354,7 @@
 								<span class="truncate">{message.subject || $_('messages.noSubject')}</span>
 								{#if isConversation && displayedCount(row.conversation) > 1}
 									<span
-										class="shrink-0 rounded-full bg-primary/12 px-1.5 py-0.5 text-caption font-semibold text-primary"
+										class="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-caption font-semibold text-primary"
 										aria-hidden="true"
 									>
 										{displayedCount(row.conversation)}
@@ -1376,8 +1385,9 @@
 							aria-colindex={COL_SENDER + 1}
 							{...grid.cell(rowIndex, COL_SENDER)}
 							class={cn(
-								'col-start-4 row-start-2 truncate rounded-sm px-2 pb-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50',
-								unread ? 'text-foreground' : 'text-muted-foreground'
+								'col-start-4 row-start-2 truncate rounded-sm px-2 pb-3 text-sm',
+								unread ? 'text-foreground' : 'text-muted-foreground',
+								focusRingInset
 							)}
 						>
 							{showRecipientsFor(message) ? (message.recipientsTo ?? '') : message.sender}
@@ -1386,7 +1396,10 @@
 							role="gridcell"
 							aria-colindex={COL_DATE + 1}
 							{...grid.cell(rowIndex, COL_DATE)}
-							class="col-start-5 row-span-2 flex items-center rounded-sm px-3 text-caption text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+							class={cn(
+								'col-start-5 row-span-2 flex items-center rounded-sm px-3 text-caption text-muted-foreground',
+								focusRingInset
+							)}
 						>
 							<time datetime={message.receivedAt}>{formattedDate}</time>
 						</div>
@@ -1406,7 +1419,7 @@
 								aria-label={$_('messages.rowActions.memberNotActionable', {
 									values: { folder: folderLabelByRef($folders, row.message.folderName, $_) }
 								})}
-								class="col-start-6 row-span-2 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+								class={cn('col-start-6 row-span-2', focusRingInset)}
 							></div>
 						{:else}
 							<!-- svelte-ignore a11y_click_events_have_key_events -->

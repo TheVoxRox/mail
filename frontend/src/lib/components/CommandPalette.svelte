@@ -17,6 +17,9 @@
 		type VisibleCommand
 	} from '$lib/commands/paletteRanking.js';
 	import type { CommandGroup } from '$lib/commands/shared.js';
+	import { inputVariants } from '$lib/components/ui/input/index.js';
+	import { menuItemVariants } from '$lib/components/ui/menu/index.js';
+	import { cn } from '$lib/utils.js';
 
 	type PositionedCommand = VisibleCommand & { position: number };
 
@@ -193,7 +196,7 @@
 				aria-describedby="palette-hint"
 				autofocus
 				placeholder={$_('palette.placeholder')}
-				class="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+				class={cn(inputVariants(), 'px-3 py-2')}
 			/>
 			<div aria-live="polite" class="sr-only">{resultsAnnouncement}</div>
 			{#if executionError}
@@ -230,7 +233,10 @@
 										aria-posinset={entry.position}
 										aria-setsize={filteredCommands.length}
 										onSelect={() => void execute(entry.command)}
-										class="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-left hover:bg-muted/70 data-[selected]:bg-muted"
+										class={cn(
+											menuItemVariants(),
+											'items-center gap-3 hover:bg-muted data-[selected]:bg-muted'
+										)}
 									>
 										{#if entry.command.icon}
 											<span

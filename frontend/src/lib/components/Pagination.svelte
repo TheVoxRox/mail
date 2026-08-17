@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button/index.js';
+	import { Input } from '$lib/components/ui/input/index.js';
 	import { _ } from '$lib/i18n/index.js';
 
 	interface Props {
@@ -132,16 +133,26 @@
 			{$_(prevLabelKey)}
 		</Button>
 		{#if onJump}
-			<form class="flex items-center gap-1" onsubmit={handleJump}>
+			<!--
+				`novalidate`, with min/max kept: the two attributes are what tells a
+				screen reader the spin button's range, but leaving the browser to
+				enforce them meant it refused to submit an out-of-range page and
+				`handleJump`'s clamping never ran — the entry was rejected with a
+				transient native bubble and the field kept a value that contradicted
+				the page on screen. Clamping in the handler lands the user on a real
+				page and the pager's live region says which one.
+			-->
+			<form class="flex items-center gap-1" novalidate onsubmit={handleJump}>
 				<label class="flex items-center">
 					<span class="sr-only">{$_(jumpLabelKey)}</span>
-					<input
+					<Input
 						type="number"
 						inputmode="numeric"
 						min="1"
 						max={pageCount}
 						bind:value={jumpValue}
-						class="h-6 w-14 rounded-md border border-border bg-background px-1 text-center text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+						size="sm"
+						class="h-6 w-14 px-1 text-center"
 					/>
 				</label>
 				<Button type="submit" variant="outline" size="xs">

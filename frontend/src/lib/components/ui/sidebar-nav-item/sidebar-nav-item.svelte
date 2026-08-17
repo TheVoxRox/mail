@@ -1,15 +1,17 @@
 <script lang="ts" module>
 	import { cn } from '$lib/utils.js';
+	import { focusRing } from '../focus-ring/index.js';
 	import type { Snippet } from 'svelte';
 	import { tv } from 'tailwind-variants';
 
 	export const sidebarNavItemVariants = tv({
-		base: 'flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm transition-colors',
+		base: `flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm transition-colors ${focusRing}`,
 		variants: {
 			active: {
-				true: 'bg-primary/12 font-semibold text-primary shadow-[inset_2px_0_0_var(--primary)]',
+				/* Same 3px bar as the current row of a message list — one marker for "this is where you are". */
+				true: 'bg-primary/10 font-semibold text-primary shadow-[inset_3px_0_0_var(--primary)]',
 				false:
-					'text-sidebar-foreground/85 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+					'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
 			}
 		},
 		defaultVariants: {

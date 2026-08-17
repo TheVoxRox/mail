@@ -73,7 +73,7 @@
 				return {
 					textKey: 'app.sseOnline',
 					className: 'font-medium text-foreground',
-					dotClass: 'bg-emerald-500'
+					dotClass: 'bg-success'
 				};
 			case 'connecting':
 				return {

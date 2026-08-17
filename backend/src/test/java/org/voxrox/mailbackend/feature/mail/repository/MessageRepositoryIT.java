@@ -380,6 +380,33 @@ class MessageRepositoryIT {
         });
     }
 
+    @Test
+    @DisplayName("Thread-position probe counts only later members of the same thread, tiebreaking on id")
+    void countThreadMembersAfterIsScopedAndTiebreaks() {
+        AccountEntity account = newAccount("thread-order@example.com");
+        AccountEntity otherAccount = newAccount("thread-order-other@example.com");
+        LocalDateTime base = LocalDateTime.of(2026, 5, 29, 15, 10);
+
+        newConversationMessage(account, 1L, "INBOX", "TA", base.minusDays(3), true);
+        MessageEntity sameInstant = newConversationMessage(account, 2L, "INBOX", "TA", base, true);
+        newConversationMessage(account, 3L, "INBOX", "TA", base.plusDays(2), true);
+        // Neither of these may be counted — another thread, and another account.
+        newConversationMessage(account, 4L, "INBOX", "TB", base.plusDays(5), true);
+        newConversationMessage(otherAccount, 5L, "INBOX", "TA", base.plusDays(5), true);
+
+        // An arrival timestamped at `base` but holding the thread's highest id: only
+        // the plusDays(2) member sorts after it.
+        assertThat(messageRepository.countThreadMembersAfter(account.getId(), "TA", base, Long.MAX_VALUE)).isEqualTo(1);
+        // Same instant, lower id — the tiebreak now puts `sameInstant` after it too.
+        // Without the id half of the comparison this would still read 1 and the
+        // caller would append the row in front of its own equal-timestamped sibling.
+        assertThat(messageRepository.countThreadMembersAfter(account.getId(), "TA", base, sameInstant.getId() - 1))
+                .isEqualTo(2);
+        // Newer than the whole thread: nothing sorts after it, so the caller appends.
+        assertThat(messageRepository.countThreadMembersAfter(account.getId(), "TA", base.plusDays(9), Long.MAX_VALUE))
+                .isZero();
+    }
+
     private MessageEntity withMessageId(MessageEntity message, String messageId) {
         message.setMessageId(messageId);
         return messageRepository.saveAndFlush(message);
