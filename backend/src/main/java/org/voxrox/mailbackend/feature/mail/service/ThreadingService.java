@@ -285,20 +285,64 @@ public class ThreadingService {
     }
 
     /**
-     * Step 1 / Step 2 success — inherit thread membership from the parent and
-     * append to the end of the thread.
+     * Step 1 / Step 2 success — inherit thread membership from the parent and take
+     * the position the message's own {@code receivedAt} earns it.
      */
     private void attachToExistingThread(MessageEntity msg, AccountEntity account, MessageEntity parent) {
         msg.setThreadId(parent.getThreadId());
         msg.setThreadRootMessageId(parent.getThreadRootMessageId());
-        int maxPosition = messageRepository.findMaxThreadPosition(account.getId(), parent.getThreadId());
-        msg.setThreadPosition(maxPosition + 1);
+        placeInThread(msg, account);
 
         // Notify subscribers that the thread gained a message. Deferred to
         // after commit so the client refetch sees the persisted row. This may
         // fire many events during a bulk initial sync; SSE clients are expected
         // to coalesce.
         broadcastThreadUpdatedAfterCommit(ThreadUpdated.of(msg.getThreadId(), account.getId()));
+    }
+
+    /**
+     * Positions {@code msg} inside the thread it has just joined, keeping
+     * {@code thread_position} the dense ordinal ascending by {@code receivedAt}
+     * that {@link MessageEntity#getThreadPosition()} and the thread detail endpoint
+     * promise.
+     *
+     * <p>
+     * A plain {@code max + 1} append was wrong for any arrival that is older than
+     * something already in the thread. Sync order is not chronological order: the
+     * folders are walked one after another, so the Sent copy of a reply lands after
+     * the received messages it sits between, and the backfill re-threads whole
+     * mailboxes in an order of its own. Such a message took the last position and
+     * the thread then read 26 May, 31 May, 25 June, 3 July, 29 May.
+     *
+     * <p>
+     * The common case — genuinely new mail, newer than everything in its thread —
+     * still appends, decided by one COUNT that touches no {@code @Lob} body. Only
+     * an out-of-order arrival pays for the full renumbering pass, which also
+     * repairs whatever order the thread was already in.
+     */
+    private void placeInThread(MessageEntity msg, AccountEntity account) {
+        if (sortsAfterEveryMember(msg, account)) {
+            msg.setThreadPosition(messageRepository.findMaxThreadPosition(account.getId(), msg.getThreadId()) + 1);
+            return;
+        }
+        renumberThreadPositions(account.getId(), msg.getThreadId(), msg);
+    }
+
+    /**
+     * Whether {@code msg} belongs at the end of its thread. A message with no
+     * {@code receivedAt} has no place to be sorted into and is appended — the
+     * column is NOT NULL in the schema, so this only guards unit-test entities
+     * built without one. A message with no id yet (an out-of-transaction unit call)
+     * cannot lose the {@code (receivedAt, id)} tiebreak against a persisted row,
+     * hence {@link Long#MAX_VALUE}.
+     */
+    private boolean sortsAfterEveryMember(MessageEntity msg, AccountEntity account) {
+        if (msg.getReceivedAt() == null) {
+            return true;
+        }
+        long selfId = msg.getId() != null ? msg.getId() : Long.MAX_VALUE;
+        return messageRepository.countThreadMembersAfter(account.getId(), msg.getThreadId(), msg.getReceivedAt(),
+                selfId) == 0;
     }
 
     /**
@@ -369,7 +413,7 @@ public class ThreadingService {
         // thread_position stays the dense, ascending ordinal the detail endpoint and
         // THREADING_DESIGN.md promise — otherwise getThread() would order the root
         // behind its own children (they have lower ids because they arrived first).
-        renumberThreadPositions(account.getId(), msg.getThreadId());
+        renumberThreadPositions(account.getId(), msg.getThreadId(), msg);
         log.info("{} Reconciled {} orphan thread(s) ({} message rows) onto thread {} (root {}) for account {}.",
                 LogCategory.SYNC, orphanThreadIds.size(), moved, msg.getThreadId(), mergedRoot, account.getId());
         // One thread_updated event per affected thread keeps the wire format
@@ -451,14 +495,26 @@ public class ThreadingService {
      * Recomputes dense, 1-based {@code thread_position} ordinals for every member
      * of {@code threadId}, ordered by {@code (receivedAt, id)}. Called after an
      * orphan merge, where the absorbed rows would otherwise keep their original
-     * per-orphan positions and collide. The members are managed entities loaded
-     * inside the active transaction, so the position writes flush on commit. The
-     * fetched list is copied into a mutable list because the repository may hand
-     * back an immutable view.
+     * per-orphan positions and collide, and for an out-of-order arrival, which has
+     * no position yet. The members are managed entities loaded inside the active
+     * transaction, so the position writes flush on commit. The fetched list is
+     * copied into a mutable list because the repository may hand back an immutable
+     * view.
+     *
+     * <p>
+     * {@code arrival} is the message this pass runs for. It is a member of the
+     * thread and the persistence context hands it back as the very same instance —
+     * reference equality, not {@code equals}, because an entity with no id yet has
+     * no identity to compare. Adding it when the query did not return it is what
+     * keeps the pass total: the alternative is a silently null
+     * {@code thread_position} on the one row the caller cared about.
      */
-    private void renumberThreadPositions(Long accountId, String threadId) {
+    private void renumberThreadPositions(Long accountId, String threadId, MessageEntity arrival) {
         List<MessageEntity> members = new ArrayList<>(
                 messageRepository.findByAccountIdAndThreadId(accountId, threadId));
+        if (members.stream().noneMatch(member -> member == arrival)) {
+            members.add(arrival);
+        }
         members.sort(Comparator.comparing(MessageEntity::getReceivedAt, Comparator.nullsLast(Comparator.naturalOrder()))
                 .thenComparing(MessageEntity::getId, Comparator.nullsLast(Comparator.naturalOrder())));
         int position = 1;

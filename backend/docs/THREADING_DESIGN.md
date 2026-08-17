@@ -1,9 +1,31 @@
 # Threading / Conversations — design proposal
 
 > **HISTORICAL SNAPSHOT.** Design proposal whose Phase 1 shipped 2026-06-01;
-> kept as the design-rationale record and not updated since (two exceptions:
-> the revision notes of 2026-08-05 and 2026-08-11 just below). The shipping
-> code, not this document, is authoritative for current behavior.
+> kept as the design-rationale record and not updated since (three exceptions:
+> the revision notes of 2026-08-05, 2026-08-11 and 2026-08-17 just below). The
+> shipping code, not this document, is authoritative for current behavior.
+
+## Revision 2026-08-17 — a position is earned by receivedAt, not by arrival
+
+Corrects the assignment rule stated in §"Algorithm" step 1 below, which says
+`msg.threadPosition = max(threadPosition) over thread + 1`. That is only right
+while messages reach the database in the order they were sent, and they do not:
+folders are mirrored one after another, so the Sent copy of a reply arrives
+after the received messages it belongs between, and the backfill re-threads a
+whole mailbox in an order of its own. Such a message took the last position,
+leaving a real thread reading 26 May, 31 May, 25 June, 3 July, 29 May — against
+the meaning the schema table below gives the column.
+
+`ThreadingService` now asks whether anything in the thread sorts after the
+arrival (`countThreadMembersAfter`, comparing on `(receivedAt, id)`) and appends
+only then; otherwise it renumbers the thread with the pass step 4 already used
+after an orphan merge. Appending stays the common path, so the ordinary arrival
+does not start reading member entities and their `@Lob` bodies.
+
+No migration and no backfill pass: the read paths all scope by `folderRef`, and
+the copy that made the order wrong is in Sent, which the 2026-08-11 revision
+had already excluded from those views. Existing rows keep their positions until
+the thread next gains a message, which repairs it.
 
 ## Revision 2026-08-11 — Sent leaves the conversation scope
 

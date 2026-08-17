@@ -12,9 +12,10 @@ import io.swagger.v3.oas.annotations.media.Schema;
  *
  * <p>
  * The {@code messages} list is ordered by {@code threadPosition} ascending,
- * which matches receivedAt ascending for the canonical case (each message was
- * assigned a position at sync time). The client renders the conversation
- * top-down from this list.
+ * which is receivedAt ascending: every arrival is placed by its own receivedAt
+ * rather than appended, so sync order — which walks the folders one after
+ * another — cannot leak into the conversation's order. The client renders the
+ * conversation top-down from this list.
  *
  * <p>
  * Per-account scope: the controller enforces ownership before this DTO is
