@@ -1,7 +1,10 @@
 <script lang="ts">
 	import Icon from '$lib/components/Icon.svelte';
+	import { chipVariants } from '$lib/components/ui/chip/index.js';
+	import { focusRing } from '$lib/components/ui/focus-ring/index.js';
 	import { formatSize } from '$lib/formatters.js';
 	import { _, appLocale } from '$lib/i18n/index.js';
+	import { cn } from '$lib/utils.js';
 	import type { AttachmentResponse } from '$lib/types.js';
 
 	interface Props {
@@ -27,7 +30,7 @@
 					<button
 						type="button"
 						onclick={() => onDownload(attachment)}
-						class="inline-flex items-center gap-1 rounded-md bg-secondary px-2 py-1 text-xs text-secondary-foreground hover:bg-secondary/80 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+						class={cn(chipVariants(), 'hover:bg-secondary/80', focusRing)}
 					>
 						<Icon name="paperclip" size={14} />
 						<span>{attachment.fileName}</span>

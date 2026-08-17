@@ -31,7 +31,7 @@
 	this area inside the parent <main> landmark.
 -->
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-<section tabindex="0" class={cn('flex-1 overflow-y-auto bg-background outline-none', className)}>
+<section tabindex="0" class={cn('flex-1 overflow-y-auto bg-background outline-hidden', className)}>
 	<div class="border-b border-border bg-background px-6 py-4">
 		<div class="flex items-center justify-between gap-3">
 			<div class="min-w-0">

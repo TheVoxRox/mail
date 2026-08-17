@@ -18,6 +18,7 @@
 	import ProviderLogo from '$lib/components/ProviderLogo.svelte';
 	import { Select } from '$lib/components/ui/select/index.js';
 	import { Surface } from '$lib/components/ui/surface/index.js';
+	import { nativeControlClass } from '$lib/components/ui/native-control/index.js';
 	import { ApiError } from '$lib/api/client.js';
 	import { toErrorMessage } from '$lib/api/errors.js';
 	import { _ } from '$lib/i18n/index.js';
@@ -761,7 +762,7 @@
 				type="checkbox"
 				bind:checked={signatureAutoInsert}
 				disabled={busy}
-				class="mt-0.5 h-4 w-4 rounded border-input text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+				class={cn('mt-0.5', nativeControlClass)}
 			/>
 			<span class="min-w-0 text-sm text-foreground">{$_('accounts.form.signatureAutoInsert')}</span>
 		</label>
@@ -771,11 +772,7 @@
 		<label
 			class="flex items-start gap-3 rounded-md border border-border bg-background/70 p-3 text-sm transition-colors hover:bg-muted/60"
 		>
-			<input
-				type="checkbox"
-				bind:checked={active}
-				class="mt-0.5 h-4 w-4 rounded border-input text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-			/>
+			<input type="checkbox" bind:checked={active} class={cn('mt-0.5', nativeControlClass)} />
 			<span class="min-w-0 text-sm text-foreground">{$_('accounts.form.activeCheckbox')}</span>
 		</label>
 	{/if}

@@ -7,6 +7,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { DialogDescription, DialogShell, DialogTitle } from '$lib/components/ui/dialog/index.js';
 	import { StateMessage } from '$lib/components/ui/state-message/index.js';
+	import { nativeControlClass } from '$lib/components/ui/native-control/index.js';
 	import type { ContactResponse } from '$lib/types.js';
 
 	interface Props {
@@ -149,12 +150,12 @@
 				{@const partial = isIndeterminate(label.id)}
 				<label
 					for={inputId}
-					class="flex cursor-pointer items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm hover:bg-muted/35 has-[:checked]:border-primary has-[:checked]:bg-primary/5"
+					class="flex cursor-pointer items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm hover:bg-muted/40 has-[:checked]:border-primary has-[:checked]:bg-primary/10"
 				>
 					<input
 						id={inputId}
 						type="checkbox"
-						class="size-4 rounded border-input bg-background text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+						class={nativeControlClass}
 						checked={effectiveChecked(label.id)}
 						indeterminate={partial}
 						onchange={(event) => toggle(label.id, event.currentTarget.checked)}

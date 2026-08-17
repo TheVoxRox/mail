@@ -18,7 +18,14 @@
 </script>
 
 {#if message.flagged}
-	<Icon name="star" size={14} title={$_('messages.flaggedTitle')} class="text-yellow-500" />
+	<!--
+		`--warning-foreground`, not the `--warning` tint and not the raw
+		`yellow-500` this used to be: the star is the only amber thing in the
+		app that has to be told apart from the two grey icons beside it, and
+		both of those spellings sit near 1.9:1 against the light page. The text
+		token measures 7.48:1 light and 12.90:1 dark.
+	-->
+	<Icon name="star" size={14} title={$_('messages.flaggedTitle')} class="text-warning-foreground" />
 {/if}
 {#if message.hasAttachments}
 	<Icon name="paperclip" size={14} title={$_('messages.attachmentsTitle')} />

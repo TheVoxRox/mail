@@ -25,6 +25,7 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import MoveTargetMenuItems from '$lib/components/MoveTargetMenuItems.svelte';
 	import { Button, buttonVariants } from '$lib/components/ui/button/index.js';
+	import { nativeControlClass } from '$lib/components/ui/native-control/index.js';
 	import { _ } from '$lib/i18n/index.js';
 	import { cn } from '$lib/utils.js';
 	import type { FolderResponse } from '$lib/types.js';
@@ -84,7 +85,7 @@
 		<input
 			bind:this={selectAllInput}
 			type="checkbox"
-			class="size-4 accent-primary"
+			class={nativeControlClass}
 			checked={allSelected}
 			aria-checked={someSelected ? 'mixed' : allSelected ? 'true' : 'false'}
 			onchange={(event) => onSelectAll((event.currentTarget as HTMLInputElement).checked)}

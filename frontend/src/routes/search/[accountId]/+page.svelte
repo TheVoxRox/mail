@@ -229,7 +229,7 @@
 			<div
 				bind:this={emptyResultsElement}
 				tabindex="-1"
-				class="flex flex-1 items-center justify-center p-8 text-sm text-muted-foreground outline-none"
+				class="flex flex-1 items-center justify-center p-8 text-sm text-muted-foreground outline-hidden"
 				role="status"
 			>
 				{$_('search.noResults')}

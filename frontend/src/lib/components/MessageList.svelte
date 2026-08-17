@@ -39,6 +39,8 @@
 	import MessageFlags from '$lib/components/MessageFlags.svelte';
 	import MessageRowActionsMenu from '$lib/components/MessageRowActionsMenu.svelte';
 	import { announcePolite } from '$lib/stores/toasts.js';
+	import { nativeControlClass } from '$lib/components/ui/native-control/index.js';
+	import { focusRingInset } from '$lib/components/ui/focus-ring/index.js';
 	import { getContext } from 'svelte';
 	import { get } from 'svelte/store';
 
@@ -419,11 +421,11 @@
 						aria-selected={selected ? 'true' : 'false'}
 						aria-current={selected ? 'page' : undefined}
 						class={cn(
-							'grid cursor-pointer grid-cols-[40px_auto_minmax(0,1fr)_auto_auto] grid-rows-[auto_auto] border-b border-border/80 transition-colors focus-within:relative focus-within:z-10',
+							'grid cursor-pointer grid-cols-[2.5rem_auto_minmax(0,1fr)_auto_auto] grid-rows-[auto_auto] border-b border-border/80 transition-colors focus-within:relative focus-within:z-10',
 							selected
-								? 'bg-primary/8 text-accent-foreground shadow-[inset_3px_0_0_var(--primary)]'
-								: 'hover:bg-muted/45',
-							multiSelected && !selected && 'bg-primary/5',
+								? 'bg-primary/10 text-foreground shadow-[inset_3px_0_0_var(--primary)]'
+								: 'hover:bg-muted/40',
+							multiSelected && !selected && 'bg-primary/10',
 							!message.seen && 'font-semibold'
 						)}
 						onclick={(e) => handleRowClick(e, message)}
@@ -449,7 +451,7 @@
 									id={`message-select-${message.stableId}`}
 									type="checkbox"
 									{...grid.cell(rowIndex, COL_SELECT)}
-									class="size-4 accent-primary"
+									class={nativeControlClass}
 									checked={multiSelected}
 									aria-label={selectionLabel(message)}
 									onchange={(event) =>
@@ -465,7 +467,10 @@
 							aria-colindex={COL_STATUS + 1}
 							{...grid.cell(rowIndex, COL_STATUS)}
 							aria-label={statusLabel}
-							class="col-start-2 row-span-2 flex items-center gap-1 rounded-sm px-2 text-caption text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+							class={cn(
+								'col-start-2 row-span-2 flex items-center gap-1 rounded-sm px-2 text-caption text-muted-foreground',
+								focusRingInset
+							)}
 						>
 							<MessageFlags {message} />
 						</div>
@@ -486,8 +491,9 @@
 								{...grid.cell(rowIndex, COL_SUBJECT)}
 								onclick={(event) => handleSubjectClick(event, message)}
 								class={cn(
-									'block truncate rounded-sm text-sm no-underline outline-none hover:underline focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50',
-									!message.seen ? 'text-foreground' : 'text-muted-foreground'
+									'block truncate rounded-sm text-sm no-underline hover:underline',
+									!message.seen ? 'text-foreground' : 'text-muted-foreground',
+									focusRingInset
 								)}
 							>
 								{#if !message.seen}
@@ -501,8 +507,9 @@
 							aria-colindex={COL_SENDER + 1}
 							{...grid.cell(rowIndex, COL_SENDER)}
 							class={cn(
-								'col-start-3 row-start-2 truncate rounded-sm px-2 pb-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50',
-								!message.seen ? 'text-foreground' : 'text-muted-foreground'
+								'col-start-3 row-start-2 truncate rounded-sm px-2 pb-3 text-sm',
+								!message.seen ? 'text-foreground' : 'text-muted-foreground',
+								focusRingInset
 							)}
 						>
 							{showRecipients ? (message.recipientsTo ?? '') : message.sender}
@@ -511,7 +518,10 @@
 							role="gridcell"
 							aria-colindex={COL_DATE + 1}
 							{...grid.cell(rowIndex, COL_DATE)}
-							class="col-start-4 row-span-2 flex items-center rounded-sm px-3 text-caption text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+							class={cn(
+								'col-start-4 row-span-2 flex items-center rounded-sm px-3 text-caption text-muted-foreground',
+								focusRingInset
+							)}
 						>
 							<time datetime={message.receivedAt}>{formattedDate}</time>
 						</div>

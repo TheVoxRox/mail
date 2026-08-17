@@ -9,6 +9,7 @@
 	import { cn } from '$lib/utils.js';
 	import { formatNumericDate } from '$lib/formatters.js';
 	import type { MailSummaryResponse, PagedResponse } from '$lib/types.js';
+	import { focusRingInset } from '$lib/components/ui/focus-ring/index.js';
 
 	interface Props {
 		results: PagedResponse<MailSummaryResponse>;
@@ -140,7 +141,7 @@
 			data-stable-id={message.stableId}
 			aria-rowindex={results.page * results.size + rowIndex + 2}
 			class={cn(
-				'grid cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto_auto] grid-rows-[auto_auto] border-b border-border/80 transition-colors hover:bg-muted/45 focus-within:relative focus-within:z-10',
+				'grid cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto_auto] grid-rows-[auto_auto] border-b border-border/80 transition-colors hover:bg-muted/40 focus-within:relative focus-within:z-10',
 				!message.seen && 'font-semibold'
 			)}
 			onclick={(e) => handleRowClick(e, message)}
@@ -151,7 +152,10 @@
 				aria-colindex={COL_STATUS + 1}
 				{...grid.cell(rowIndex, COL_STATUS)}
 				aria-label={statusLabel}
-				class="row-span-2 flex items-center gap-1 rounded-sm px-2 text-caption text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+				class={cn(
+					'row-span-2 flex items-center gap-1 rounded-sm px-2 text-caption text-muted-foreground',
+					focusRingInset
+				)}
 			>
 				<MessageFlags {message} />
 			</div>
@@ -160,8 +164,9 @@
 				aria-colindex={COL_SUBJECT + 1}
 				{...grid.cell(rowIndex, COL_SUBJECT)}
 				class={cn(
-					'col-start-2 row-start-1 truncate rounded-sm px-2 pt-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50',
-					!message.seen ? 'text-foreground' : 'text-muted-foreground'
+					'col-start-2 row-start-1 truncate rounded-sm px-2 pt-3 text-sm',
+					!message.seen ? 'text-foreground' : 'text-muted-foreground',
+					focusRingInset
 				)}
 			>
 				{#if !message.seen}
@@ -174,8 +179,9 @@
 				aria-colindex={COL_SENDER + 1}
 				{...grid.cell(rowIndex, COL_SENDER)}
 				class={cn(
-					'col-start-2 row-start-2 truncate rounded-sm px-2 pb-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50',
-					!message.seen ? 'text-foreground' : 'text-muted-foreground'
+					'col-start-2 row-start-2 truncate rounded-sm px-2 pb-3 text-sm',
+					!message.seen ? 'text-foreground' : 'text-muted-foreground',
+					focusRingInset
 				)}
 			>
 				{message.sender}
@@ -184,7 +190,10 @@
 				role="gridcell"
 				aria-colindex={COL_DATE + 1}
 				{...grid.cell(rowIndex, COL_DATE)}
-				class="col-start-3 row-start-1 flex items-center justify-end rounded-sm px-3 pt-3 text-caption text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+				class={cn(
+					'col-start-3 row-start-1 flex items-center justify-end rounded-sm px-3 pt-3 text-caption text-muted-foreground',
+					focusRingInset
+				)}
 			>
 				<time datetime={message.receivedAt}>{formattedDate}</time>
 			</div>
@@ -192,7 +201,10 @@
 				role="gridcell"
 				aria-colindex={COL_FOLDER + 1}
 				{...grid.cell(rowIndex, COL_FOLDER)}
-				class="col-start-3 row-start-2 flex items-center justify-end truncate rounded-sm px-3 pb-3 text-caption text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+				class={cn(
+					'col-start-3 row-start-2 flex items-center justify-end truncate rounded-sm px-3 pb-3 text-caption text-muted-foreground',
+					focusRingInset
+				)}
 			>
 				{folderLabelByRef($folders, message.folderName, $_)}
 			</div>

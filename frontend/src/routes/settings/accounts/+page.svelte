@@ -70,7 +70,7 @@
 		if (!account.active) {
 			return 'border-border bg-muted text-muted-foreground';
 		}
-		return 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300';
+		return 'border-success/30 bg-success/10 text-success-foreground';
 	}
 
 	async function handleReauth(account: AccountResponse) {
@@ -154,7 +154,7 @@
 						<ListRow align="center" class="gap-4">
 							<div class="flex min-w-0 items-start gap-3">
 								<div
-									class="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-muted/45 text-muted-foreground"
+									class="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-muted/40 text-muted-foreground"
 								>
 									<Icon name="user-circle" size={20} />
 								</div>

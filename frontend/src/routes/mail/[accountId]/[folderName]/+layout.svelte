@@ -27,6 +27,7 @@
 		type EffectiveReadingPaneContext
 	} from '$lib/mail/readingPaneContext.js';
 	import { cn } from '$lib/utils.js';
+	import { buttonVariants } from '$lib/components/ui/button/index.js';
 
 	let { children } = $props();
 
@@ -199,7 +200,8 @@
 {/snippet}
 
 <div class="flex flex-1 flex-col overflow-hidden bg-background">
-	<div class="flex items-center gap-3 border-b border-border bg-muted/35 px-3 py-2">
+	<!-- `bg-muted/20`, the same bar fill as every other strip above a list. -->
+	<div class="flex items-center gap-3 border-b border-border bg-muted/20 px-3 py-2">
 		<div class="flex min-w-0 shrink-0 items-center pr-1">
 			{#if detailIsOffMode}
 				<!--
@@ -212,7 +214,10 @@
 				<a
 					href={folderHref}
 					onclick={handleBackToFolder}
-					class="inline-flex min-w-0 items-center gap-1 truncate rounded-md px-2 py-1 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+					class={cn(
+						buttonVariants({ variant: 'ghost', size: 'sm' }),
+						'min-w-0 truncate text-muted-foreground'
+					)}
 					aria-label={$_('detail.backToFolder', { values: { folder: folderLabel } })}
 				>
 					<span aria-hidden="true">←</span>
@@ -220,13 +225,13 @@
 				</a>
 			{:else}
 				<h1
-					class="flex min-w-0 items-baseline gap-2 px-2 text-base font-semibold text-foreground"
+					class="flex min-w-0 items-baseline gap-2 px-2 text-title font-semibold text-foreground"
 					aria-label={folderHeadingLabel}
 				>
 					<span class="truncate" aria-hidden="true">{folderLabel}</span>
 					{#if unreadCount > 0}
 						<span
-							class="shrink-0 min-w-5 rounded-full bg-primary/12 px-1.5 py-0.5 text-center text-caption font-semibold text-primary"
+							class="shrink-0 min-w-5 rounded-full bg-primary/10 px-1.5 py-0.5 text-center text-caption font-semibold text-primary"
 							aria-hidden="true"
 						>
 							{unreadCount}

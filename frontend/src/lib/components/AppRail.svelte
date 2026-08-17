@@ -2,6 +2,7 @@
 	import { type WorkspaceMode, workspaceHref, workspaceMode } from '$lib/stores/workspaceMode.js';
 	import { _ } from '$lib/i18n/index.js';
 	import Icon from '$lib/components/Icon.svelte';
+	import { focusRing } from '$lib/components/ui/focus-ring/index.js';
 	import { cn } from '$lib/utils.js';
 
 	type RailItem = {
@@ -20,9 +21,10 @@
 	function railItemClass(active: boolean): string {
 		return cn(
 			'group relative flex h-10 w-10 items-center justify-center rounded-lg border transition-colors',
+			focusRing,
 			active
-				? 'border-primary/20 bg-primary/12 text-primary shadow-sm'
-				: 'border-transparent text-sidebar-foreground/75 hover:border-sidebar-border hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+				? 'border-primary/20 bg-primary/10 text-primary shadow-sm'
+				: 'border-transparent text-sidebar-foreground/80 hover:border-sidebar-border hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
 		);
 	}
 </script>

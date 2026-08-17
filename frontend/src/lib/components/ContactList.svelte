@@ -14,10 +14,13 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Select } from '$lib/components/ui/select/index.js';
 	import { StateMessage } from '$lib/components/ui/state-message/index.js';
+	import { avatarColorClass } from '$lib/components/ui/avatar/index.js';
+	import { nativeControlClass } from '$lib/components/ui/native-control/index.js';
 	import { createRovingGrid } from '$lib/components/grid/rovingGrid.svelte.js';
 	import type { ContactResponse, PagedResponse } from '$lib/types.js';
 	import type { ContactSort } from '$lib/api/contacts.js';
 	import { cn } from '$lib/utils.js';
+	import { focusRingInset } from '$lib/components/ui/focus-ring/index.js';
 	import { tick } from 'svelte';
 
 	interface Props {
@@ -267,29 +270,8 @@
 		return c.labels.length > 0 ? c.labels.map((l) => l.name).join(', ') : $_('contacts.labelsNone');
 	}
 
-	const AVATAR_PALETTE = [
-		'bg-rose-200 text-rose-900',
-		'bg-amber-200 text-amber-900',
-		'bg-emerald-200 text-emerald-900',
-		'bg-sky-200 text-sky-900',
-		'bg-violet-200 text-violet-900',
-		'bg-pink-200 text-pink-900',
-		'bg-teal-200 text-teal-900',
-		'bg-indigo-200 text-indigo-900'
-	];
-
-	function hashString(value: string): number {
-		let hash = 0;
-		for (let i = 0; i < value.length; i++) {
-			hash = (hash << 5) - hash + value.charCodeAt(i);
-			hash |= 0;
-		}
-		return Math.abs(hash);
-	}
-
 	function avatarColor(c: ContactResponse): string {
-		const seed = (c.name ?? '') + (c.surname ?? '') + (c.emails[0]?.email ?? c.id);
-		return AVATAR_PALETTE[hashString(seed) % AVATAR_PALETTE.length];
+		return avatarColorClass((c.name ?? '') + (c.surname ?? '') + (c.emails[0]?.email ?? c.id));
 	}
 
 	function avatarInitials(c: ContactResponse): string {
@@ -411,7 +393,7 @@
 </script>
 
 <div
-	class="flex min-h-11 flex-wrap items-center gap-3 border-b border-border bg-muted/15 px-4 py-2 text-xs"
+	class="flex min-h-11 flex-wrap items-center gap-3 border-b border-border bg-muted/20 px-4 py-2 text-xs"
 >
 	<div class="flex min-w-0 items-center gap-1.5">
 		<label class="text-muted-foreground" for="contacts-sort">{$_('contacts.sortLabel')}</label>
@@ -463,13 +445,13 @@
 	</StateMessage>
 {:else}
 	<div
-		class="flex min-h-11 flex-wrap items-center gap-2 border-b border-border bg-muted/25 px-4 py-2 text-xs"
+		class="flex min-h-11 flex-wrap items-center gap-2 border-b border-border bg-muted/20 px-4 py-2 text-xs"
 	>
 		<label class="inline-flex min-w-0 items-center gap-2 text-muted-foreground">
 			<input
 				bind:this={selectAllInput}
 				type="checkbox"
-				class="size-4 rounded border-input bg-background text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+				class={nativeControlClass}
 				checked={allVisibleSelected}
 				onchange={(event) => toggleAllVisible(event.currentTarget.checked)}
 				disabled={bulkBusy}
@@ -596,7 +578,7 @@
 						data-row-index={rowIndex}
 						data-contact-id={contact.id}
 						aria-rowindex={page.page * page.size + rowIndex + 2}
-						class="cursor-pointer transition-colors hover:bg-muted/35 focus-within:bg-muted/35"
+						class="cursor-pointer transition-colors hover:bg-muted/40 focus-within:bg-muted/40"
 						onclick={(event: MouseEvent) => handleRowClick(event, contact)}
 						onkeydown={(event: KeyboardEvent) => handleRowKeydown(event, contact, rowIndex)}
 					>
@@ -604,7 +586,7 @@
 							<input
 								type="checkbox"
 								{...grid.cell(rowIndex, COL_SELECT)}
-								class="mt-0.5 size-4 rounded border-input bg-background text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+								class={cn('mt-0.5', nativeControlClass)}
 								checked={selectedIds.includes(contact.id)}
 								onchange={(event) => toggleSelected(contact.id, event.currentTarget.checked)}
 								disabled={bulkBusy}
@@ -617,7 +599,7 @@
 							role="rowheader"
 							scope="row"
 							{...grid.cell(rowIndex, COL_NAME)}
-							class="px-3 py-3 text-left align-top font-normal outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+							class={cn('px-3 py-3 text-left align-top font-normal', focusRingInset)}
 						>
 							<div class="flex min-w-0 items-center gap-2">
 								<div
@@ -638,12 +620,12 @@
 						<td
 							role="gridcell"
 							{...grid.cell(rowIndex, COL_EMAIL)}
-							class="px-3 py-3 align-top text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+							class={cn('px-3 py-3 align-top text-muted-foreground', focusRingInset)}
 						>
 							<ul class="m-0 list-none space-y-1 p-0">
 								{#each contact.emails as email (email.id)}
 									<li class="flex min-w-0 items-center gap-1.5">
-										<Icon name="envelope" size={13} class="shrink-0 text-muted-foreground/80" />
+										<Icon name="envelope" size={14} class="shrink-0 text-muted-foreground/80" />
 										<span class="min-w-0 truncate">{email.email}</span>
 									</li>
 								{/each}
@@ -652,14 +634,14 @@
 						<td
 							role="gridcell"
 							{...grid.cell(rowIndex, COL_LABELS)}
-							class="px-3 py-3 align-top text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+							class={cn('px-3 py-3 align-top text-muted-foreground', focusRingInset)}
 						>
 							{labelSummary(contact)}
 						</td>
 						<td
 							role="gridcell"
 							{...grid.cell(rowIndex, COL_NOTE)}
-							class="px-3 py-3 align-top text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+							class={cn('px-3 py-3 align-top text-muted-foreground', focusRingInset)}
 						>
 							<p class="line-clamp-2">{contact.note ?? ''}</p>
 						</td>
@@ -669,8 +651,9 @@
 									Always rendered, and aria-disabled rather than disabled when
 									the contact has no address: a `disabled` button leaves the
 									focus order, which would punch a hole in the roving cell
-									sequence of that one row. It still has to *look* unavailable,
-									hence the dimming.
+									sequence of that one row. Looking unavailable is the button's
+									own job — `buttonVariants` styles `aria-disabled` like
+									`disabled` precisely so this call site does not have to.
 								-->
 								<Button
 									type="button"
@@ -678,7 +661,6 @@
 									onclick={() => handleCompose(contact)}
 									variant="outline"
 									size="xs"
-									class={composeTarget ? undefined : 'cursor-not-allowed opacity-50'}
 									aria-disabled={composeTarget ? undefined : 'true'}
 									aria-label={$_('contacts.composeContact', { values: { label } })}
 								>

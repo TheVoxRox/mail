@@ -11,6 +11,7 @@
 	 */
 	import { Field } from '$lib/components/ui/field/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
+	import { nativeControlClass } from '$lib/components/ui/native-control/index.js';
 	import { _ } from '$lib/i18n/index.js';
 	import { cn } from '$lib/utils.js';
 
@@ -48,7 +49,7 @@
 
 <div class={cn('space-y-2', separated && 'border-t border-border/60 pt-3')}>
 	<p class="text-sm font-medium text-foreground">{heading}</p>
-	<div class="grid gap-3 sm:grid-cols-[1fr_120px]">
+	<div class="grid gap-3 sm:grid-cols-[1fr_7.5rem]">
 		<Field for={hostId} label={$_('accounts.form.host')} error={hostError} errorId={hostErrorId}>
 			<Input
 				id={hostId}
@@ -76,11 +77,7 @@
 		</Field>
 	</div>
 	<label class="flex items-center gap-2 text-sm">
-		<input
-			type="checkbox"
-			bind:checked={useSsl}
-			class="h-4 w-4 rounded border-input text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-		/>
+		<input type="checkbox" bind:checked={useSsl} class={nativeControlClass} />
 		<span>{$_('accounts.form.useSsl')}</span>
 	</label>
 </div>

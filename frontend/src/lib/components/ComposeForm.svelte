@@ -42,6 +42,8 @@
 	import { confirmAction } from '$lib/stores/confirmDialog.js';
 	import { composeSession, composeSnapshotFingerprint } from '$lib/compose/session.js';
 	import { installLeaveGuard } from '$lib/leaveGuard.js';
+	import { focusRingInset } from '$lib/components/ui/focus-ring/index.js';
+	import { cn } from '$lib/utils.js';
 	import { onDestroy, onMount, tick, untrack } from 'svelte';
 
 	let to = $state('');
@@ -574,8 +576,10 @@
 				bind:value={body}
 				disabled={busy}
 				aria-describedby="compose-body-hint"
-				class="flex-1 resize-none border-0 bg-transparent text-sm leading-relaxed text-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-60"
-			></textarea>
+				class={cn(
+					'flex-1 resize-none border-0 bg-transparent text-sm leading-relaxed text-foreground disabled:cursor-not-allowed disabled:opacity-50',
+					focusRingInset
+				)}></textarea>
 			<!--
 				The editor stays a plain textarea; Markdown is interpreted by the backend
 				on send, so nothing in the composer ever shows the formatting. That makes
