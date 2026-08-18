@@ -45,6 +45,77 @@ test.describe('Search', () => {
 		await expect(page.getByText('Jana Novak <jana@example.com>')).toBeVisible();
 	});
 
+	test('výsledek jde otevřít i v prohlížecím režimu odečítače', async ({ page }) => {
+		/*
+		 * The results grid used to hold no interactive element at all — every cell
+		 * was a plain div. Enter with focus inside the grid worked, but that is the
+		 * focus mode; in browse mode a screen reader keeps the unmodified keys for
+		 * its own navigation and activates whatever it recognises as interactive
+		 * under its cursor, reaching the page as a bare click. With nothing
+		 * interactive in the row there was nothing to activate, so opening a result
+		 * meant leaving browse mode first.
+		 *
+		 * A button rather than the link the two mail lists use: opening a result
+		 * changes no route, the detail swaps in place, so there is no address to
+		 * put in an href.
+		 */
+		await page.goto('/search/1?q=projekt');
+		await waitForShell(page);
+
+		const results = page.getByRole('grid', { name: 'Výsledky' });
+		// By cell, not by accessible name: the row's actions trigger is a button
+		// too and also names the subject, so a name match resolves to both.
+		const subject = results
+			.getByRole('row')
+			.filter({ hasText: 'Projektové podklady' })
+			.locator('[data-col="1"]');
+		await expect(subject).toBeVisible();
+
+		/*
+		 * The load-bearing assertion, and the one this test is really for. A click
+		 * on a plain div bubbles to the row and opens the result too, so activating
+		 * it proves nothing on its own — the first version of this test passed
+		 * against the unfixed grid for exactly that reason. What browse mode needs
+		 * is an element the reader offers to activate at all, which a div is not.
+		 */
+		await expect(subject).toHaveRole('button');
+
+		// The activation a reader sends in place of the Enter it never delivers —
+		// Playwright's own click cannot reproduce it (it may carry no click count).
+		await subject.evaluate((el: HTMLElement) => el.click());
+
+		await expect(page.getByRole('heading', { name: 'Projektové podklady' })).toBeVisible();
+	});
+
+	test('Enter na předmětu výsledku dál otevírá detail', async ({ page }) => {
+		/*
+		 * The focus-mode path, which the button must not have taken away: with the
+		 * cursor in the grid the row's keydown handler owns Enter and calls
+		 * `preventDefault`, so no click is synthesised on the button on top of it.
+		 *
+		 * This one passes on the unfixed grid as well, and that is the point — it
+		 * is a regression guard for the path that already worked, not a
+		 * reproduction of the gap. The browse-mode case above is the reproduction.
+		 */
+		await page.goto('/search/1?q=projekt');
+		await waitForShell(page);
+
+		const results = page.getByRole('grid', { name: 'Výsledky' });
+		// By cell, not by accessible name: the row's actions trigger is a button
+		// too and also names the subject, so a name match resolves to both.
+		const subject = results
+			.getByRole('row')
+			.filter({ hasText: 'Projektové podklady' })
+			.locator('[data-col="1"]');
+		await subject.focus();
+		await expect(subject).toBeFocused();
+
+		await subject.press('Enter');
+
+		await expect(page.getByRole('heading', { name: 'Projektové podklady' })).toBeVisible();
+		await expect(results).toHaveCount(0);
+	});
+
 	test('příchod výsledků hledání ohlásí počet do live regionu', async ({ page }) => {
 		await page.goto('/search/1?q=projekt');
 		await waitForShell(page);

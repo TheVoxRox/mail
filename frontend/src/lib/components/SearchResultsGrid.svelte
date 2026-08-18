@@ -181,17 +181,39 @@
 			<div
 				role="gridcell"
 				aria-colindex={COL_SUBJECT + 1}
-				{...grid.cell(rowIndex, COL_SUBJECT)}
-				class={cn(
-					'col-start-2 row-start-1 truncate rounded-sm px-2 pt-3 text-sm',
-					!message.seen ? 'text-foreground' : 'text-muted-foreground',
-					focusRingInset
-				)}
+				class="col-start-2 row-start-1 min-w-0 px-2 pt-3"
 			>
-				{#if !message.seen}
-					<span class="sr-only">{$_('messages.unreadIndicatorLabel')}.</span>
-				{/if}
-				{message.subject || $_('messages.noSubject')}
+				<!--
+					A real control, for the same reason the two mail lists carry one:
+					browse mode never delivers Enter to the grid, so a screen reader can
+					only activate what it recognises as interactive — and until now this
+					grid had none at all, which left opening a result out of reach
+					without leaving browse mode. Enter with focus in the grid always
+					worked; that is the other mode, not this one.
+
+					A button, though, not the link the mail lists use. Opening a result
+					is not a navigation: there is no route change, the detail replaces
+					the list in place (see handleSelect in the search page), so there is
+					no address a link could carry. The row keydown handler takes Enter
+					first and calls `preventDefault`, so the browser synthesises no click
+					on top of it, and `handleRowClick` ignores anything inside a button —
+					both paths open the result exactly once.
+				-->
+				<button
+					type="button"
+					{...grid.cell(rowIndex, COL_SUBJECT)}
+					onclick={() => onSelect(message)}
+					class={cn(
+						'block w-full truncate rounded-sm text-left text-sm hover:underline',
+						!message.seen ? 'text-foreground' : 'text-muted-foreground',
+						focusRingInset
+					)}
+				>
+					{#if !message.seen}
+						<span class="sr-only">{$_('messages.unreadIndicatorLabel')}.</span>
+					{/if}
+					{message.subject || $_('messages.noSubject')}
+				</button>
 			</div>
 			<div
 				role="gridcell"
