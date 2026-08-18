@@ -19,6 +19,24 @@ async function openHtmlMessage(page: import('@playwright/test').Page) {
 	await page.waitForURL('**/mail/1/INBOX/msg-01');
 	const frame = page.locator('iframe');
 	await expect(frame).toBeVisible();
+	/*
+	 * Visible is not settled: opening a message parks focus in the body frame
+	 * (MessageContent defers it a rAF, so it lands after SvelteKit's own
+	 * post-navigation focus reset), and the frame being in the DOM says nothing
+	 * about that having run. A test that takes focus away inside that gap has
+	 * it stolen back — measured three runs of three: focus <main> straight
+	 * after waitForURL and it ends up on the frame regardless.
+	 *
+	 * That does not surface as a failure here, which is why it is worth
+	 * pinning: the frame forwards keystrokes to the parent (mailFrame.ts), so
+	 * Delete still deletes and the test still passes — it just stops being the
+	 * "focus outside the body" case it claims to cover, silently duplicating
+	 * the test above it.
+	 *
+	 * activeElement poll rather than toBeFocused(), the same headless-Chromium
+	 * workaround the sibling suites use on this element.
+	 */
+	await expect.poll(() => frame.evaluate((el) => el === document.activeElement)).toBe(true);
 	return frame;
 }
 
@@ -91,7 +109,11 @@ test('Delete s focusem na aplikaci (mimo tělo) zprávu stále smaže', async ({
 	});
 
 	await openHtmlMessage(page);
-	await page.locator('#main-content').focus();
+	const main = page.locator('#main-content');
+	await main.focus();
+	// Confirm the app really gave focus up before the key goes out, so a future
+	// theft fails here rather than passing as the wrong test.
+	await expect(main).toBeFocused();
 
 	await page.keyboard.press('Delete');
 
