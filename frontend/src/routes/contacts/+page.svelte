@@ -405,6 +405,7 @@
 						labelId={data.labelId}
 						{activeLabelName}
 						onChanged={() => load(data.query, pageNumber, data.sort, data.labelId, true)}
+						editHref={(id) => contactsHref({ edit: id })}
 						onEdit={(id) => goto(contactsHref({ edit: id }))}
 						onFilterApply={handleFilterApply}
 						onNavigate={goToPage}

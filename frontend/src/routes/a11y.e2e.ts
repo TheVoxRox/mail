@@ -159,7 +159,7 @@ test.describe('Přístupnost', () => {
 		await page.waitForFunction(() => window.__MAIL_MSW__?.syncStreamConnected() === true);
 		await page.evaluate(() => window.__MAIL_MSW__?.pushSyncFailed());
 
-		const indicator = page.getByRole('button', {
+		const indicator = page.getByRole('link', {
 			name: 'Synchronizace selhává: tester@example.com'
 		});
 		await expect(indicator).toBeVisible();

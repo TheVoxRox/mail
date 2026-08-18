@@ -184,11 +184,15 @@
 											: $_('accounts.reauth')}
 									</Button>
 								{/if}
+								<!--
+									A link: it opens an account that exists, at its own route.
+									The add-account control above stays a button — it makes one.
+									Same line the contacts row and the search results draw.
+								-->
 								<Button
 									variant="outline"
 									size="xs"
-									onclick={() =>
-										goto(resolve('/settings/accounts/[id]', { id: String(account.id) }))}
+									href={resolve('/settings/accounts/[id]', { id: String(account.id) })}
 								>
 									{$_('accounts.edit')}
 								</Button>
