@@ -175,17 +175,19 @@
 				label={$_('settings.about.versions.channel.label')}
 				hint={$_('settings.about.versions.channel.hint')}
 			>
-				<Select
-					id="update-channel-select"
-					value={$updateChannel}
-					onchange={handleUpdateChannelChange}
-					width="full"
-					aria-describedby="update-channel-select-hint"
-				>
-					{#each UPDATE_CHANNELS as option (option)}
-						<option value={option}>{$_(channelLabelKey(option))}</option>
-					{/each}
-				</Select>
+				{#snippet children(control)}
+					<Select
+						id="update-channel-select"
+						value={$updateChannel}
+						onchange={handleUpdateChannelChange}
+						width="full"
+						{...control}
+					>
+						{#each UPDATE_CHANNELS as option (option)}
+							<option value={option}>{$_(channelLabelKey(option))}</option>
+						{/each}
+					</Select>
+				{/snippet}
 			</Field>
 		</div>
 

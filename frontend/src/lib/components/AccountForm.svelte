@@ -518,15 +518,17 @@
 			label={$_('accounts.form.email')}
 			hint={resolvingProvider ? $_('accounts.form.resolving') : $_('accounts.form.emailHint')}
 		>
-			<Input
-				id="acc-email"
-				type="email"
-				bind:value={email}
-				bind:ref={emailInputEl}
-				oninput={scheduleResolve}
-				required
-				aria-describedby="acc-email-hint"
-			/>
+			{#snippet children(control)}
+				<Input
+					id="acc-email"
+					type="email"
+					bind:value={email}
+					bind:ref={emailInputEl}
+					oninput={scheduleResolve}
+					required
+					{...control}
+				/>
+			{/snippet}
 		</Field>
 	{:else if email && selectedProvider}
 		<div
@@ -562,12 +564,9 @@
 			label={$_('accounts.form.displayName')}
 			hint={$_('accounts.form.displayNameHint')}
 		>
-			<Input
-				id="acc-displayName"
-				type="text"
-				bind:value={displayName}
-				aria-describedby="acc-displayName-hint"
-			/>
+			{#snippet children(control)}
+				<Input id="acc-displayName" type="text" bind:value={displayName} {...control} />
+			{/snippet}
 		</Field>
 
 		<Field
@@ -575,14 +574,16 @@
 			label={$_('accounts.form.accountName')}
 			hint={$_('accounts.form.accountNameHint')}
 		>
-			<Input
-				id="acc-accountName"
-				type="text"
-				bind:value={accountName}
-				oninput={handleAccountNameInput}
-				required
-				aria-describedby="acc-accountName-hint"
-			/>
+			{#snippet children(control)}
+				<Input
+					id="acc-accountName"
+					type="text"
+					bind:value={accountName}
+					oninput={handleAccountNameInput}
+					required
+					{...control}
+				/>
+			{/snippet}
 		</Field>
 	{/if}
 
@@ -708,13 +709,9 @@
 			label={$_('accounts.form.username')}
 			hint={$_('accounts.form.usernameHint')}
 		>
-			<Input
-				id="acc-username"
-				type="text"
-				bind:value={username}
-				required
-				aria-describedby="acc-username-hint"
-			/>
+			{#snippet children(control)}
+				<Input id="acc-username" type="text" bind:value={username} required {...control} />
+			{/snippet}
 		</Field>
 	{/if}
 
@@ -727,15 +724,17 @@
 		label={$_('accounts.form.password')}
 		hint={mode === 'edit' ? $_('accounts.form.passwordEditHint') : null}
 	>
-		<Input
-			id="acc-password"
-			type="password"
-			bind:value={password}
-			bind:ref={passwordInputEl}
-			required={mode === 'create'}
-			autocomplete="new-password"
-			aria-describedby={mode === 'edit' ? 'acc-password-hint' : undefined}
-		/>
+		{#snippet children(control)}
+			<Input
+				id="acc-password"
+				type="password"
+				bind:value={password}
+				bind:ref={passwordInputEl}
+				required={mode === 'create'}
+				autocomplete="new-password"
+				{...control}
+			/>
+		{/snippet}
 	</Field>
 
 	{#if mode === 'edit' && !compact}
@@ -744,15 +743,17 @@
 			label={$_('accounts.form.signature')}
 			hint={$_('accounts.form.signatureHint')}
 		>
-			<Textarea
-				id="acc-signature"
-				bind:value={signature}
-				rows={4}
-				maxlength={10000}
-				disabled={busy}
-				placeholder={$_('accounts.form.signaturePlaceholder')}
-				aria-describedby="acc-signature-hint"
-			/>
+			{#snippet children(control)}
+				<Textarea
+					id="acc-signature"
+					bind:value={signature}
+					rows={4}
+					maxlength={10000}
+					disabled={busy}
+					placeholder={$_('accounts.form.signaturePlaceholder')}
+					{...control}
+				/>
+			{/snippet}
 		</Field>
 
 		<label

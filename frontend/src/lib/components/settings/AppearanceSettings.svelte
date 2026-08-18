@@ -70,20 +70,22 @@
 			{$_(`settings.appearance.${setting.section}.heading`)}
 		</h2>
 		<Field for={setting.id} hint={$_(`settings.appearance.${setting.section}.hint`)}>
-			<Select
-				id={setting.id}
-				value={setting.value}
-				onchange={setting.onchange}
-				width="full"
-				aria-labelledby={`${setting.id}-label`}
-				aria-describedby={`${setting.id}-hint`}
-			>
-				{#each setting.options as option (option)}
-					<option value={option}>
-						{$_(`settings.appearance.${setting.section}.options.${option}`)}
-					</option>
-				{/each}
-			</Select>
+			{#snippet children(control)}
+				<Select
+					id={setting.id}
+					value={setting.value}
+					onchange={setting.onchange}
+					width="full"
+					aria-labelledby={`${setting.id}-label`}
+					{...control}
+				>
+					{#each setting.options as option (option)}
+						<option value={option}>
+							{$_(`settings.appearance.${setting.section}.options.${option}`)}
+						</option>
+					{/each}
+				</Select>
+			{/snippet}
 		</Field>
 	</Surface>
 {/snippet}

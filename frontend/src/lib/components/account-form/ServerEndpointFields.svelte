@@ -51,29 +51,31 @@
 	<p class="text-sm font-medium text-foreground">{heading}</p>
 	<div class="grid gap-3 sm:grid-cols-[1fr_7.5rem]">
 		<Field for={hostId} label={$_('accounts.form.host')} error={hostError} errorId={hostErrorId}>
-			<Input
-				id={hostId}
-				type="text"
-				bind:value={host}
-				required
-				maxlength={255}
-				{placeholder}
-				autocomplete="off"
-				aria-invalid={hostError ? 'true' : undefined}
-				aria-describedby={hostError ? hostErrorId : undefined}
-			/>
+			{#snippet children(control)}
+				<Input
+					id={hostId}
+					type="text"
+					bind:value={host}
+					required
+					maxlength={255}
+					{placeholder}
+					autocomplete="off"
+					{...control}
+				/>
+			{/snippet}
 		</Field>
 		<Field for={portId} label={$_('accounts.form.port')} error={portError} errorId={portErrorId}>
-			<Input
-				id={portId}
-				type="number"
-				min={1}
-				max={65535}
-				bind:value={port}
-				required
-				aria-invalid={portError ? 'true' : undefined}
-				aria-describedby={portError ? portErrorId : undefined}
-			/>
+			{#snippet children(control)}
+				<Input
+					id={portId}
+					type="number"
+					min={1}
+					max={65535}
+					bind:value={port}
+					required
+					{...control}
+				/>
+			{/snippet}
 		</Field>
 	</div>
 	<label class="flex items-center gap-2 text-sm">
