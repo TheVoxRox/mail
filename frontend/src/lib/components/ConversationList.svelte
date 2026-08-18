@@ -1201,10 +1201,7 @@
 	async function navigateToPage(target: number): Promise<void> {
 		if ($conversationsState.status !== 'ready') return;
 		const ctx = $conversationsState.context;
-		const lastPage = Math.max(0, $conversationsState.page.totalPages - 1);
-		const next = Math.min(Math.max(0, target), lastPage);
-		if (next === ctx.page) return;
-		await loadConversationsPage(ctx.accountId, ctx.folderName, next, ctx.size);
+		await loadConversationsPage(ctx.accountId, ctx.folderName, target, ctx.size);
 		const snapshot = get(conversationsState);
 		if (snapshot.status === 'ready') announcePolite(messagesPageInfo($_, snapshot.page));
 	}
@@ -1687,11 +1684,7 @@
 			totalElements={pageData.totalElements}
 			first={pageData.first}
 			last={pageData.last}
-			onFirst={() => navigateToPage(0)}
-			onPrev={() => navigateToPage(pageData.page - 1)}
-			onNext={() => navigateToPage(pageData.page + 1)}
-			onLast={() => navigateToPage(pageData.totalPages - 1)}
-			onJump={(target) => navigateToPage(target - 1)}
+			onNavigate={navigateToPage}
 			landmarkLabel={$_('messages.paginationLandmark')}
 		/>
 	{/snippet}
