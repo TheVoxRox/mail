@@ -58,9 +58,8 @@ test.describe('Search', () => {
 		 * interactive in the row there was nothing to activate, so opening a result
 		 * meant leaving browse mode first.
 		 *
-		 * A button rather than the link the two mail lists use: opening a result
-		 * changes no route, the detail swaps in place, so there is no address to
-		 * put in an href.
+		 * A link, the same as the two mail lists: the open result has an address
+		 * (`?message=`), so the same action reads the same way in both places.
 		 */
 		await openApp(page, '/search/1?q=projekt');
 
@@ -80,7 +79,7 @@ test.describe('Search', () => {
 		 * against the unfixed grid for exactly that reason. What browse mode needs
 		 * is an element the reader offers to activate at all, which a div is not.
 		 */
-		await expect(subject).toHaveRole('button');
+		await expect(subject).toHaveRole('link');
 
 		// The activation a reader sends in place of the Enter it never delivers —
 		// Playwright's own click cannot reproduce it (it may carry no click count).
@@ -115,6 +114,44 @@ test.describe('Search', () => {
 
 		await expect(page.getByRole('heading', { name: 'Projektové podklady' })).toBeVisible();
 		await expect(results).toHaveCount(0);
+	});
+
+	test('otevření výsledku zapíše zprávu do URL a Zpět ji zase odebere', async ({ page }) => {
+		/*
+		 * The open result is URL state. Before it was, the subject had to be a
+		 * button (nothing to put in an href), Back left the search screen
+		 * entirely, and a reload dropped the open message — this is the test for
+		 * all three at once.
+		 */
+		await openApp(page, '/search/1?q=projekt');
+
+		const subject = page.locator('[role="row"][data-stable-id="msg-01"] [data-col="1"]');
+		await expect(subject).toBeVisible();
+		await subject.click();
+
+		await expect(page.getByRole('heading', { name: 'Projektové podklady' })).toBeVisible();
+		await page.waitForURL(/\/search\/1\?q=projekt&message=msg-01$/);
+
+		// Back closes the detail and stays in the results, query intact.
+		await page.goBack();
+		await page.waitForURL(/\/search\/1\?q=projekt$/);
+		await expect(searchResultsGrid(page)).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Projektové podklady' })).toHaveCount(0);
+	});
+
+	test('odkaz na otevřený výsledek jde otevřít přímo a přežije reload', async ({ page }) => {
+		// The deep link: what a bookmark, a reload and a restored window all do.
+		await openApp(page, '/search/1?q=projekt&message=msg-01');
+
+		await expect(page.getByRole('heading', { name: 'Projektové podklady' })).toBeVisible();
+		await expect(searchResultsGrid(page)).toHaveCount(0);
+
+		// Closing from a deep link still returns to the results the query names,
+		// even though this tab never rendered them.
+		await page.locator('main').focus();
+		await page.keyboard.press('Escape');
+		await page.waitForURL(/\/search\/1\?q=projekt$/);
+		await expect(searchResultsGrid(page)).toBeVisible();
 	});
 
 	test('příchod výsledků hledání ohlásí počet do live regionu', async ({ page }) => {

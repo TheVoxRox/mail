@@ -73,9 +73,7 @@ test.describe('Sync notifications', () => {
 		await expect(page.locator('#live-region')).toContainText('Synchronizace zahájena.');
 	});
 
-	test('selhání synchronizace se ohlásí a nechá v podokně dosažitelné tlačítko', async ({
-		page
-	}) => {
+	test('selhání synchronizace se ohlásí a nechá v podokně dosažitelný odkaz', async ({ page }) => {
 		await openApp(page, '/mail/1/INBOX');
 		// The listing has to be hydrated before the synthetic event: the handler
 		// refetches accounts, and a pre-hydration push would be dropped.
@@ -94,10 +92,14 @@ test.describe('Sync notifications', () => {
 		/*
 		 * The standing indicator is the part a toast cannot cover — the toast is
 		 * gone by the time the user wonders why no mail is arriving. It must be a
-		 * real button: an icon-only, non-focusable marker is the mouse-only trap
-		 * the conversation expand toggle fell into (#221).
+		 * real control, not an icon-only, non-focusable marker: that is the
+		 * mouse-only trap the conversation expand toggle fell into (#221).
+		 *
+		 * A link, because it does nothing but open the accounts page, which exists
+		 * regardless of any sync failing. Reporting a state alongside does not
+		 * make it an action.
 		 */
-		const indicator = page.getByRole('button', {
+		const indicator = page.getByRole('link', {
 			name: 'Synchronizace selhává: tester@example.com'
 		});
 		await expect(indicator).toBeVisible();
@@ -117,7 +119,7 @@ test.describe('Sync notifications', () => {
 		await page.waitForFunction(() => window.__MAIL_MSW__?.syncStreamConnected() === true);
 		await page.evaluate(() => window.__MAIL_MSW__?.pushSyncFailed());
 
-		const indicator = page.getByRole('button', {
+		const indicator = page.getByRole('link', {
 			name: 'Synchronizace selhává: tester@example.com'
 		});
 		await expect(indicator).toBeVisible();

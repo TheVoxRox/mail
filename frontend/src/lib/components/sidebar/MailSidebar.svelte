@@ -69,9 +69,7 @@
 		void goto(resolve('/compose'));
 	}
 
-	function openAccountSettings() {
-		void goto(resolve('/settings/accounts'));
-	}
+	const accountSettingsHref = resolve('/settings/accounts');
 </script>
 
 {#snippet header()}
@@ -110,10 +108,15 @@
 		workaround.)
 	-->
 	{#if $failingSyncAccounts.length > 0}
+		<!--
+			A link: it takes the user to the accounts page, which exists whether or
+			not a sync is failing. That it also reports a state does not make it an
+			action — nothing happens here but the navigation.
+		-->
 		<Button
 			variant="ghost"
 			size="lg"
-			onclick={openAccountSettings}
+			href={accountSettingsHref}
 			class="mb-1 w-full justify-start text-warning-foreground hover:text-warning-foreground"
 		>
 			<Icon name="exclamation-triangle" />

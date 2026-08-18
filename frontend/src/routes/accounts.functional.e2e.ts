@@ -420,7 +420,7 @@ test.describe('Accounts', () => {
 		}
 	});
 
-	test('seznam účtů zobrazí všechny existující účty s tlačítky Upravit a Smazat', async ({
+	test('seznam účtů zobrazí všechny existující účty s odkazem Upravit a tlačítkem Smazat', async ({
 		page
 	}) => {
 		await openApp(page, '/settings/accounts');
@@ -429,16 +429,17 @@ test.describe('Accounts', () => {
 
 		const workRow = page.getByRole('listitem').filter({ hasText: 'Pracovní účet' });
 		await expect(workRow.getByText('tester@example.com')).toBeVisible();
-		await expect(workRow.getByRole('button', { name: 'Upravit' })).toBeVisible();
+		await expect(workRow.getByRole('link', { name: 'Upravit' })).toBeVisible();
 		await expect(workRow.getByRole('button', { name: 'Smazat' })).toBeVisible();
 
 		const personalRow = page.getByRole('listitem').filter({ hasText: 'Osobní účet' });
 		await expect(personalRow.getByText('personal@another.test')).toBeVisible();
-		await expect(personalRow.getByRole('button', { name: 'Upravit' })).toBeVisible();
+		await expect(personalRow.getByRole('link', { name: 'Upravit' })).toBeVisible();
 
-		// The edit affordance is now a button that navigates via goto() instead of
-		// an <a href>, so assert it routes to the correct account on click.
-		await workRow.getByRole('button', { name: 'Upravit' }).click();
+		// The edit affordance opens an account that already exists, at its own
+		// route, so it is a link and carries the address it goes to. "Přidat účet"
+		// stays a button — it makes an account rather than opening one.
+		await workRow.getByRole('link', { name: 'Upravit' }).click();
 		await page.waitForURL('**/settings/accounts/1');
 	});
 

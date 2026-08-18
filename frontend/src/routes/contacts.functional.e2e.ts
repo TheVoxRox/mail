@@ -266,7 +266,7 @@ test.describe('Contacts', () => {
 
 		await openApp(page, '/contacts');
 
-		await page.getByRole('button', { name: 'Upravit' }).first().click();
+		await page.getByRole('link', { name: 'Upravit' }).first().click();
 		await page.waitForURL('**/contacts?edit=1');
 		await expect(page.getByRole('heading', { name: 'Upravit kontakt' })).toBeVisible();
 
@@ -305,7 +305,7 @@ test.describe('Contacts', () => {
 
 		await openApp(page, '/contacts');
 
-		await page.getByRole('button', { name: 'Upravit' }).first().click();
+		await page.getByRole('link', { name: 'Upravit' }).first().click();
 		await page.waitForURL('**/contacts?edit=1');
 
 		// Add a third address, then remove it again — it must not reach the PUT body.
@@ -365,7 +365,7 @@ test.describe('Contacts', () => {
 	}) => {
 		await openApp(page, '/contacts');
 
-		await page.getByRole('button', { name: 'Upravit' }).first().click();
+		await page.getByRole('link', { name: 'Upravit' }).first().click();
 		await page.waitForURL('**/contacts?edit=1');
 
 		await page.getByPlaceholder('Jméno').fill('Jana Změněná');
@@ -600,7 +600,7 @@ test.describe('Contacts', () => {
 	test('návrat z úpravy kontaktu vrátí fokus na jeho řádek', async ({ page }) => {
 		await openApp(page, '/contacts');
 
-		await page.getByRole('button', { name: 'Upravit kontakt Jana Novak' }).click();
+		await page.getByRole('link', { name: 'Upravit kontakt Jana Novak' }).click();
 		await page.waitForURL('**/contacts?edit=1');
 		await expect(page.locator('#contact-name')).toBeFocused();
 

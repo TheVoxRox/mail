@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { page as pageStore } from '$app/stores';
 	import { resolve } from '$app/paths';
+	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import { accountsState, setActiveAccount } from '$lib/stores/accounts.js';
 	import { reloadSearch, runSearch, searchState } from '$lib/stores/search.js';
 	import { selectMessage, selectedMessage, clearSelection } from '$lib/stores/selectedMessage.js';
@@ -26,8 +26,35 @@
 	 */
 	let announcePageInfoOnReady = false;
 	let lastAnnouncedResultsKey = '';
+	let lastSearchKey = '';
 	let restoreFocusStableId = $state<string | null>(null);
 	let emptyResultsElement = $state<HTMLDivElement | null>(null);
+
+	/**
+	 * The address of one view of this screen. Everything visible — the query,
+	 * the page, the open result — lives in the URL, so Back, reload and a
+	 * bookmark all reproduce what a click produced. Each option defaults to its
+	 * current value; `message: null` closes the open result.
+	 *
+	 * Same shape as `contactsHref` on the contacts route, deliberately: two
+	 * screens with the same problem should not have two different answers.
+	 */
+	function searchHref(
+		options: { query?: string; page?: number; message?: string | null } = {}
+	): string {
+		const query = (options.query ?? data.query).trim();
+		const pageNumber = options.page ?? data.page;
+		const message = 'message' in options ? options.message : data.message;
+
+		const params = new SvelteURLSearchParams();
+		if (query) params.set('q', query);
+		if (pageNumber > 0) params.set('page', String(pageNumber));
+		if (message) params.set('message', message);
+
+		const queryString = params.toString();
+		const base = resolve('/search/[accountId]', { accountId: String(data.accountId) });
+		return `${base}${queryString ? `?${queryString}` : ''}`;
+	}
 
 	$effect(() => {
 		if ($searchState.status !== 'ready') return;
@@ -73,7 +100,20 @@
 		}
 
 		setActiveAccount(data.accountId);
-		clearSelection();
+
+		/*
+		 * Everything below belongs to a *changed* search, and `data` is a fresh
+		 * object on every navigation — including one that only moved
+		 * `?message=`. Re-running it there is not merely a wasted fetch: the
+		 * second `runSearch` takes the store through a ready transition of its
+		 * own, and the row-removal bookkeeping further down consumes the first
+		 * ready it sees. Deleting an open result then dropped its focus restore
+		 * on the floor and left focus on the main landmark.
+		 */
+		const key = `${data.accountId}:${data.query}:${data.page}`;
+		if (key === lastSearchKey) return;
+		lastSearchKey = key;
+
 		// A new query throws away any pending focus restore: it points at a row
 		// of the previous result set, which must not grab focus if the same
 		// message happens to match again.
@@ -83,24 +123,32 @@
 		}
 	});
 
+	/*
+	 * The open result follows `?message=`, the same way the mail route's detail
+	 * follows its `[stableId]` segment. Deriving it from the URL rather than
+	 * from the click is what makes the deep link, the reload and Back land in
+	 * the state a click produces.
+	 */
+	$effect(() => {
+		const stableId = data.message;
+		if (stableId) void selectMessage(stableId);
+		else clearSelection();
+	});
+
+	/**
+	 * Opens `m` at its address within the search context — results and query
+	 * stay behind it, which the message's own address under its folder could
+	 * not do.
+	 *
+	 * Opening is always deliberate here (Enter or a click): the results grid
+	 * has no reading pane that could follow focus, so the reading cursor moves
+	 * into the body (see mail/bodyFocus.ts). Focus is not moved here — the
+	 * navigation fires `afterNavigate`, and the layout hands focus to the main
+	 * landmark once the grid cell the user was on unmounts.
+	 */
 	function handleSelect(m: MailSummaryResponse) {
-		// Opening a result is always deliberate here (Enter or a click) — the
-		// results grid has no reading pane that could follow focus, so the
-		// reading cursor moves into the body (see mail/bodyFocus.ts).
 		requestBodyFocus(m.stableId);
-		void selectMessage(m.stableId);
-		/*
-		 * Opening a result swaps the list for the detail in place — there is no
-		 * route change, so afterNavigate (which normally moves focus to <main>)
-		 * does not fire. Move focus to the main landmark ourselves so the detail
-		 * is announced instead of focus falling back to <body> when the focused
-		 * grid cell unmounts.
-		 */
-		if (typeof window !== 'undefined') {
-			requestAnimationFrame(() => {
-				document.getElementById('main-content')?.focus({ preventScroll: true });
-			});
-		}
+		void goto(searchHref({ message: m.stableId }));
 	}
 
 	/*
@@ -110,9 +158,17 @@
 	 * search results gone, so this screen closes on its own terms and hands the
 	 * roving focus back to the row the result was opened from.
 	 */
-	function handleDetailClose(context: DetailCloseContext) {
-		const openStableId = $selectedMessage?.stableId ?? null;
-		clearSelection();
+	async function handleDetailClose(context: DetailCloseContext) {
+		// Read before the await: `data` is the new URL's by the time it resolves.
+		const openStableId = data.message;
+		/*
+		 * The URL held the open result, so closing has to take it out of the URL
+		 * — otherwise Back would land straight back on the detail the user just
+		 * left. `keepFocus` because the restore below is ours to do: SvelteKit's
+		 * own focus reset would send focus to the document first, and the
+		 * restore would be racing it rather than taking over from it.
+		 */
+		await goto(searchHref({ message: null }), { keepFocus: true, noScroll: true });
 		if (!context.removedStableId) {
 			restoreFocusStableId = openStableId;
 			return;
@@ -175,9 +231,7 @@
 	function navigateToPage(target: number) {
 		if ($searchState.status !== 'ready') return;
 		announcePageInfoOnReady = true;
-		const q = $pageStore.url.searchParams.get('q') ?? '';
-		const qs = `?q=${encodeURIComponent(q)}&page=${target}`;
-		void goto(`${resolve('/search/[accountId]', { accountId: String(data.accountId) })}${qs}`);
+		void goto(searchHref({ page: target }));
 	}
 </script>
 
@@ -235,6 +289,7 @@
 			{@const pageData = $searchState.page}
 			<SearchResultsGrid
 				results={pageData}
+				hrefFor={(message) => searchHref({ message: message.stableId })}
 				onSelect={handleSelect}
 				onAfterAction={handleAfterRowAction}
 				{restoreFocusStableId}

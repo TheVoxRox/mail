@@ -13,6 +13,18 @@
 
 	interface Props {
 		results: PagedResponse<MailSummaryResponse>;
+		/**
+		 * Where a result's subject link points — its address inside the search
+		 * context, built by the screen that owns the URL. The grid does not
+		 * assemble it itself: the query and page it would have to carry are the
+		 * route's state, not the grid's.
+		 */
+		hrefFor: (message: MailSummaryResponse) => string;
+		/**
+		 * Opens a result. The link above navigates on its own; this keeps the
+		 * navigation client-side and records the body-focus intent, which a
+		 * native follow of the href could not.
+		 */
 		onSelect: (message: MailSummaryResponse) => void;
 		/**
 		 * Re-run the search after a row action mutated a result
@@ -33,6 +45,7 @@
 
 	let {
 		results,
+		hrefFor,
 		onSelect,
 		onAfterAction,
 		restoreFocusStableId = null,
@@ -75,6 +88,17 @@
 			return;
 		}
 		grid.navigate(event, rowIndex, results.content.length);
+	}
+
+	/**
+	 * The subject link's own click. Mirrors MessageList: `preventDefault` so the
+	 * browser does not follow the href, then the screen's opener runs — it
+	 * navigates client-side *and* records the body-focus intent the href alone
+	 * cannot carry.
+	 */
+	function handleSubjectClick(event: MouseEvent, message: MailSummaryResponse): void {
+		event.preventDefault();
+		onSelect(message);
 	}
 
 	function handleRowClick(event: MouseEvent, message: MailSummaryResponse): void {
@@ -184,27 +208,30 @@
 				class="col-start-2 row-start-1 min-w-0 px-2 pt-3"
 			>
 				<!--
-					A real control, for the same reason the two mail lists carry one:
-					browse mode never delivers Enter to the grid, so a screen reader can
-					only activate what it recognises as interactive — and until now this
-					grid had none at all, which left opening a result out of reach
-					without leaving browse mode. Enter with focus in the grid always
-					worked; that is the other mode, not this one.
+					A real link, exactly as in the two mail lists. Browse mode never
+					delivers Enter to the grid, so a screen reader can only activate what
+					it recognises as interactive, and a link is the one thing every
+					reader activates there. It carries the roving tabindex, so the
+					arrow-key model is unchanged.
 
-					A button, though, not the link the mail lists use. Opening a result
-					is not a navigation: there is no route change, the detail replaces
-					the list in place (see handleSelect in the search page), so there is
-					no address a link could carry. The row keydown handler takes Enter
-					first and calls `preventDefault`, so the browser synthesises no click
-					on top of it, and `handleRowClick` ignores anything inside a button —
-					both paths open the result exactly once.
+					A link and not a button because opening a result *is* a navigation:
+					it has an address (`?message=` on the search route), Back closes it
+					and a reload reopens it. It used to be a button, back when the open
+					result lived only in a store and there was no address to put in an
+					href — which made the same action read as "button" here and as "link"
+					in the mail list, for no reason the user could see.
+
+					The row keydown handler takes Enter first and calls
+					`preventDefault`, so the browser follows no href on top of it, and
+					`handleRowClick` ignores anything inside an anchor — every path
+					opens the result exactly once.
 				-->
-				<button
-					type="button"
+				<a
+					href={hrefFor(message)}
 					{...grid.cell(rowIndex, COL_SUBJECT)}
-					onclick={() => onSelect(message)}
+					onclick={(event) => handleSubjectClick(event, message)}
 					class={cn(
-						'block w-full truncate rounded-sm text-left text-sm hover:underline',
+						'block truncate rounded-sm text-sm no-underline hover:underline',
 						!message.seen ? 'text-foreground' : 'text-muted-foreground',
 						focusRingInset
 					)}
@@ -213,7 +240,7 @@
 						<span class="sr-only">{$_('messages.unreadIndicatorLabel')}.</span>
 					{/if}
 					{message.subject || $_('messages.noSubject')}
-				</button>
+				</a>
 			</div>
 			<div
 				role="gridcell"

@@ -30,6 +30,17 @@
 		/** Display name of the active label filter, for the empty state. */
 		activeLabelName?: string | null;
 		onChanged: () => void | Promise<void>;
+		/**
+		 * Where a row's edit control points. The form is a view of the contacts
+		 * route (`?edit=`), so it has an address and the control that opens it is
+		 * a link; the screen that owns the URL builds it.
+		 */
+		editHref: (id: number) => string;
+		/**
+		 * Opens the edit form from the paths that are not the link itself — a
+		 * click on the row, Enter on a non-action cell. Those are activations of
+		 * the row, not of a control, so they navigate programmatically.
+		 */
 		onEdit: (id: number) => void;
 		onFilterApply?: (filters: { sort: ContactSort | null; labelId: number | null }) => void;
 		/** Where to page to, 0-based; the pager clamps before it calls. */
@@ -50,6 +61,7 @@
 		labelId = null,
 		activeLabelName = null,
 		onChanged,
+		editHref,
 		onEdit,
 		onFilterApply,
 		onNavigate,
@@ -659,10 +671,23 @@
 								>
 									{$_('contacts.compose')}
 								</Button>
+								<!--
+									A link, not a button: the edit form is an addressable view of
+									this screen (`?edit=<id>`), so Back closes it and a reload
+									reopens it. It used to be a button that called `goto` — the
+									address existed, the control just did not admit to it, which
+									is what a screen reader then had to relay.
+
+									The compose control above stays a button on purpose. The line
+									is whether the control opens something that already exists (a
+									link) or makes something new (a button) — composing starts a
+									new draft, and an address that happens to implement it does
+									not change that. Same reason the drafts list links to an
+									existing draft but the new-message control does not.
+								-->
 								<Button
-									type="button"
+									href={editHref(contact.id)}
 									{...grid.cell(rowIndex, COL_EDIT)}
-									onclick={() => onEdit(contact.id)}
 									variant="outline"
 									size="xs"
 									aria-label={$_('contacts.editContact', { values: { label } })}
