@@ -34,6 +34,7 @@
 	} from '$lib/mail/conversationBulk.js';
 	import { forwardMessage, replyToMessage } from '$lib/mail/actions.js';
 	import type { RowActions } from '$lib/mail/rowActions.js';
+	import Icon from '$lib/components/Icon.svelte';
 	import MessageFlags from '$lib/components/MessageFlags.svelte';
 	import MessageRowActionsMenu from '$lib/components/MessageRowActionsMenu.svelte';
 	import { announcePolite } from '$lib/stores/toasts.js';
@@ -1444,20 +1445,11 @@
 										focusRingInset
 									)}
 								>
-									<svg
-										viewBox="0 0 16 16"
-										aria-hidden="true"
-										class={cn('h-3.5 w-3.5 transition-transform', isOpen && 'rotate-90')}
-									>
-										<path
-											d="M6 4l4 4-4 4"
-											fill="none"
-											stroke="currentColor"
-											stroke-width="2"
-											stroke-linecap="round"
-											stroke-linejoin="round"
-										/>
-									</svg>
+									<Icon
+										name="chevron-right"
+										size={14}
+										class={cn('transition-transform', isOpen && 'rotate-90')}
+									/>
 								</button>
 							</div>
 						{:else}
