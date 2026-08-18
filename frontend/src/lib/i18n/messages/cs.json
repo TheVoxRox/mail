@@ -143,7 +143,9 @@
 		"rowActions": {
 			"trigger": "Akce pro zprávu {subject}",
 			"conversationTrigger": "Akce pro konverzaci {subject}",
-			"memberNotActionable": "Bez akcí, zpráva je ve složce {folder}"
+			"memberNotActionable": "Bez akcí, zpráva je ve složce {folder}",
+			"memberTriggerFrom": "Akce pro zprávu od {counterpart}, {date}",
+			"memberTriggerTo": "Akce pro zprávu pro {counterpart}, {date}"
 		},
 		"flaggedLabel": "Označeno hvězdičkou",
 		"flaggedTitle": "Označeno",
@@ -160,7 +162,9 @@
 		"firstPage": "« První",
 		"lastPage": "Poslední »",
 		"jumpLabel": "Přejít na stranu",
-		"jumpButton": "Přejít"
+		"jumpButton": "Přejít",
+		"unknownSender": "(neznámý odesílatel)",
+		"noRecipient": "(bez příjemce)"
 	},
 	"detail": {
 		"from": "Od:",

@@ -320,21 +320,62 @@
 	}
 
 	/**
-	 * The checkbox label of a member row. Naming it the way the parent is named
-	 * would repeat the subject every message of the thread shares, so it goes by
-	 * counterpart and timestamp — the same timestamp the row renders, clock
-	 * included (formatThreadMemberDate), which is what tells two replies from the
-	 * same person on the same day apart. Announcing what is rendered rather than
-	 * a number of its own also means the label needs no separate explanation.
+	 * What identifies one message *inside* a thread: who it is with and when.
+	 * Not the subject — that belongs to the conversation and every member shares
+	 * it, so naming members by it repeats one string per message. The timestamp
+	 * is the one the row renders, clock included (formatThreadMemberDate), which
+	 * is what tells two replies from the same person on the same day apart;
+	 * announcing what is rendered rather than a figure of its own also means the
+	 * label needs no separate explanation.
+	 *
+	 * One source for every label that names a member — the checkbox, the row's
+	 * link and the actions menu. Three copies of this reasoning would drift the
+	 * way any three copies do.
 	 */
-	function memberSelectionLabel(message: MailSummaryResponse): string {
-		const values = {
-			counterpart: (showRecipientsFor(message) ? message.recipientsTo : message.sender) ?? '',
-			date: formatThreadMemberDate(message.receivedAt, $appLocale ?? 'cs')
+	interface MemberIdentity {
+		values: { counterpart: string; date: string };
+		toRecipient: boolean;
+	}
+
+	function memberIdentity(message: MailSummaryResponse): MemberIdentity {
+		const toRecipient = showRecipientsFor(message);
+		/*
+		 * The fallback lives here rather than at each call site because the
+		 * counterpart really can be missing — `recipientsTo` is nullable, which a
+		 * draft saved without a To header produces — and every label built from it
+		 * needs a word there. Until now the checkbox rendered its "select the
+		 * message from {counterpart}" string with the slot empty — a stray comma
+		 * ahead of the date — and the row's link below would have had no
+		 * accessible name at all.
+		 */
+		const counterpart = (toRecipient ? message.recipientsTo : message.sender) || '';
+		return {
+			toRecipient,
+			values: {
+				counterpart:
+					counterpart || (toRecipient ? $_('messages.noRecipient') : $_('messages.unknownSender')),
+				date: formatThreadMemberDate(message.receivedAt, $appLocale ?? 'cs')
+			}
 		};
-		return showRecipientsFor(message)
+	}
+
+	/**
+	 * The checkbox label of a member row — see {@link memberIdentity}. Takes the
+	 * resolved identity rather than the message, like its sibling below: the row
+	 * template resolves it once and hands it to every label, so the timestamp is
+	 * formatted once per row instead of once per label.
+	 */
+	function memberSelectionLabel({ values, toRecipient }: MemberIdentity): string {
+		return toRecipient
 			? $_('messages.grouping.selectMemberTo', { values })
 			: $_('messages.grouping.selectMemberFrom', { values });
+	}
+
+	/** The actions-menu trigger of a member row — see {@link memberIdentity}. */
+	function memberActionsLabel({ values, toRecipient }: MemberIdentity): string {
+		return toRecipient
+			? $_('messages.rowActions.memberTriggerTo', { values })
+			: $_('messages.rowActions.memberTriggerFrom', { values });
 	}
 
 	/** Whether this row's counterpart is its recipient — see viewShowsRecipients. */
@@ -459,9 +500,20 @@
 	}
 
 	/**
+	 * The cell a row is approached through — whatever carries its identity, so a
+	 * cursor arriving there hears which row it is on. That is the subject for a
+	 * conversation and the counterpart for a member: a member's subject cell is
+	 * deliberately empty, because the subject belongs to the thread, so landing
+	 * there would announce nothing at all.
+	 */
+	function readingAnchorCol(kind: VisibleRow['kind']): number {
+		return kind === 'conversation' ? COL_SUBJECT : COL_SENDER;
+	}
+
+	/**
 	 * Moves the roving cursor to this thread's parent row, or to the first of its
-	 * member rows, on the subject cell — the row's reading anchor. Returns whether
-	 * such a row was there to move to.
+	 * member rows, on that row's reading anchor. Returns whether such a row was
+	 * there to move to.
 	 */
 	function focusRowOfThread(threadId: string, kind: VisibleRow['kind']): boolean {
 		const index = visibleRows.findIndex((row) =>
@@ -470,7 +522,7 @@
 				: kind === 'member' && row.threadId === threadId
 		);
 		if (index < 0) return false;
-		grid.moveTo(index, COL_SUBJECT);
+		grid.moveTo(index, readingAnchorCol(kind));
 		return true;
 	}
 
@@ -787,15 +839,14 @@
 		let index = rows.findIndex((row) => rowKey(row) === anchor.preferred);
 		// Landing back on the same row keeps the column the user was in — it is
 		// the same message, so the menu trigger still names it. Any other row is
-		// approached through its subject cell, the row's reading anchor: the
-		// actions column would announce a *different* message's menu and the
-		// select column a checkbox that says nothing about what just happened.
-		// Same rule as the flat list's restore effect.
-		let col = anchor.col;
+		// approached through its reading anchor: the actions column would announce
+		// a *different* message's menu and the select column a checkbox that says
+		// nothing about what just happened. Same rule as the flat list's restore
+		// effect.
+		const landedOnSameRow = index >= 0;
 		if (index < 0) {
 			const fallback = anchor.fallback;
 			index = fallback ? rows.findIndex((row) => rowKey(row) === fallback) : -1;
-			col = COL_SUBJECT;
 		}
 		if (index < 0) {
 			// An expanded thread's members are refetching after the reload — wait
@@ -805,6 +856,10 @@
 		}
 
 		const target = index;
+		// Resolved from the row actually landed on, not from the row that was
+		// asked for: which column is the anchor depends on the kind of row, and a
+		// fallback can be a conversation where the lost row was a member.
+		const col = landedOnSameRow ? anchor.col : readingAnchorCol(rows[target].kind);
 		const frame = requestAnimationFrame(() => {
 			grid.moveTo(target, col);
 			pendingRowFocus = null;
@@ -933,7 +988,18 @@
 		// button's own cell. This is the sighted-keyboard path; a screen reader in
 		// browse mode never delivers these keys, which is why the toggle also exists
 		// as a real button.
-		if (grid.col === COL_SUBJECT || grid.col === COL_EXPAND) {
+		/*
+		 * The anchor column differs by row kind (see readingAnchorCol), so the
+		 * treegrid keys have to answer on whichever one the cursor actually lands
+		 * on. A member's is the sender cell — that is where expanding a thread
+		 * leaves the cursor, and ArrowLeft has to walk back up to the parent from
+		 * exactly there or the contract breaks where the user is standing.
+		 */
+		if (
+			grid.col === COL_SUBJECT ||
+			grid.col === COL_EXPAND ||
+			(row.kind === 'member' && grid.col === COL_SENDER)
+		) {
 			if (row.kind === 'conversation' && isExpandable(row.conversation)) {
 				const id = row.conversation.threadId as string;
 				if (event.key === 'ArrowRight' && !expanded.has(id)) {
@@ -987,7 +1053,11 @@
 	 * the navigation client-side and records the body-focus intent, which a
 	 * native follow of the href could not.
 	 */
-	function handleSubjectClick(event: MouseEvent, row: VisibleRow): void {
+	/**
+	 * The row's own link — the subject on a conversation row, the counterpart on
+	 * a member row, whichever cell carries that row's identity.
+	 */
+	function handleRowLinkClick(event: MouseEvent, row: VisibleRow): void {
 		event.preventDefault();
 		openDeliberately(row);
 	}
@@ -1234,6 +1304,13 @@
 						? formatMessageListDate(message.receivedAt, $appLocale ?? 'cs')
 						: formatThreadMemberDate(message.receivedAt, $appLocale ?? 'cs')}
 					<!--
+						Resolved once per row: the counterpart below and the actions trigger
+						further down both need it, and each call formats the timestamp through
+						`Intl`. Conversation rows never read it, so the branch keeps the work
+						off them entirely.
+					-->
+					{@const identity = isConversation ? null : memberIdentity(message)}
+					<!--
 						Columns come from the list (see the `subgrid` note above); only the two
 						row tracks are the row's own. The second of them still needs a floor:
 						an expanded parent empties its sender cell, and an empty cell would
@@ -1314,7 +1391,7 @@
 										class={nativeControlClass}
 										checked={conversationChecked(parentConversation) ||
 											selectedMembers.has(row.message.stableId)}
-										aria-label={memberSelectionLabel(row.message)}
+										aria-label={memberSelectionLabel(memberIdentity(row.message))}
 										onchange={(event) =>
 											toggleMember(
 												parentConversation,
@@ -1407,86 +1484,138 @@
 							<MessageFlags {message} />
 						</div>
 						<!--
-							A member row's indent. It used to be `pl-5` on the row itself, which
-							worked only because each row was its own grid; under `subgrid` that
-							padding would shift every one of the row's columns, actions included,
-							and push the last one past the list's right edge. The indent belongs
-							to the label anyway — it is the subject that is subordinate, not the
-							checkbox — so it lives on the two cells of the subject track, which
-							leaves the select, expand, status, date and actions columns lined up
-							with the parent's. `pr-2` + an explicit `pl-*` rather than `px-2` and
-							an override, so neither value depends on which utility Tailwind emits
-							last.
+							The subject track, and the two things that make a member row differ
+							from a conversation row.
+
+							**Only a conversation renders the subject.** It belongs to the thread,
+							so a member repeating it said the one string in every child cell and
+							again inside the name of every child's actions menu — eight times
+							across four rows for a three-mail thread, six of them on members.
+							Reading a thread top to bottom should say who wrote; the parent
+							already said what it is about.
+
+							The cell stays, empty, for the reason the expanded parent's sender and
+							date cells do: it is a grid column, and `focusGridCell` resolves a
+							roving move by `[data-cell-target][data-col]` inside the target row, so
+							a row missing one would swallow an ArrowDown from the column above it.
+							Silent, without an `aria-label` — naming it would spend the saving on
+							announcing the emptiness. It spans both row tracks so that the focus
+							ring has the row's height to draw around: sized to its own (empty)
+							content it collapsed to an 8px sliver, measured, and `pointer-events-none`
+							keeps the layer off the counterpart link it now sits over.
+
+							**The indent lives on the cells, not the row.** It used to be `pl-5` on
+							the row, which worked only while each row was its own grid; under
+							`subgrid` a padding there shifts every one of the row's columns,
+							actions included, and pushes the last one past the list's right edge.
+							`pr-2` with an explicit `pl-*` rather than `px-2` and an override, so
+							neither value depends on which utility Tailwind emits last.
 						-->
 						<div
 							role="gridcell"
 							aria-colindex={COL_SUBJECT + 1}
+							{...isConversation ? {} : grid.cell(rowIndex, COL_SUBJECT)}
 							class={cn(
-								'col-start-4 row-start-1 min-w-0 pt-3 pr-2',
-								isConversation ? 'pl-2' : 'pl-7'
+								'col-start-4 min-w-0 pr-2',
+								isConversation
+									? 'row-start-1 pt-3 pl-2'
+									: 'pointer-events-none row-span-2 row-start-1 pl-7',
+								!isConversation && focusRingInset
 							)}
 						>
-							<!--
-								A real link, like the flat list: browse mode never delivers Enter
-								to the treegrid, and a link is the one thing every screen reader
-								activates there. It carries the roving tabindex, so the arrow keys
-								and the expand contract are unchanged.
-							-->
-							<a
-								href={rowHref(message.stableId, message.folderName)}
-								{...grid.cell(rowIndex, COL_SUBJECT)}
-								onclick={(event) => handleSubjectClick(event, row)}
-								class={cn(
-									'flex items-center gap-2 rounded-sm text-sm no-underline hover:underline',
-									unread ? 'text-foreground' : 'text-muted-foreground',
-									focusRingInset
-								)}
-							>
-								{#if unread}
-									<span class="sr-only">{$_('messages.unreadIndicatorLabel')}.</span>
-								{/if}
-								<span class="truncate">{message.subject || $_('messages.noSubject')}</span>
-								{#if isConversation && displayedCount(row.conversation) > 1}
-									<span
-										class="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-caption font-semibold text-primary"
-										aria-hidden="true"
-									>
-										{displayedCount(row.conversation)}
-									</span>
-									<span class="sr-only">{conversationLabel(row.conversation)}.</span>
-								{/if}
-								{#if !isConversation && row.message.folderName !== currentFolderName}
-									{@const memberFolderName = folderLabelByRef($folders, row.message.folderName, $_)}
-									<!-- Cross-folder member (e.g. an archived reply inside the inbox
-								     conversation): tag it with its home folder so the row is
-								     unambiguous both visually and for a screen reader. -->
-									<span
-										class="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-caption font-medium text-muted-foreground"
-										aria-hidden="true"
-									>
-										{memberFolderName}
-									</span>
-									<span class="sr-only"
-										>{$_('messages.grouping.memberFolder', {
-											values: { folder: memberFolderName }
-										})}.</span
-									>
-								{/if}
-							</a>
+							{#if isConversation}
+								<!--
+									A real link, like the flat list: browse mode never delivers Enter
+									to the treegrid, and a link is the one thing every screen reader
+									activates there. It carries the roving tabindex, so the arrow keys
+									and the expand contract are unchanged.
+								-->
+								<a
+									href={rowHref(message.stableId, message.folderName)}
+									{...grid.cell(rowIndex, COL_SUBJECT)}
+									onclick={(event) => handleRowLinkClick(event, row)}
+									class={cn(
+										'flex items-center gap-2 rounded-sm text-sm no-underline hover:underline',
+										unread ? 'text-foreground' : 'text-muted-foreground',
+										focusRingInset
+									)}
+								>
+									{#if unread}
+										<span class="sr-only">{$_('messages.unreadIndicatorLabel')}.</span>
+									{/if}
+									<span class="truncate">{message.subject || $_('messages.noSubject')}</span>
+									{#if displayedCount(row.conversation) > 1}
+										<span
+											class="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-caption font-semibold text-primary"
+											aria-hidden="true"
+										>
+											{displayedCount(row.conversation)}
+										</span>
+										<span class="sr-only">{conversationLabel(row.conversation)}.</span>
+									{/if}
+								</a>
+							{/if}
 						</div>
 						<div
 							role="gridcell"
 							aria-colindex={COL_SENDER + 1}
-							{...grid.cell(rowIndex, COL_SENDER)}
+							{...isConversation ? grid.cell(rowIndex, COL_SENDER) : {}}
 							class={cn(
 								'col-start-4 row-start-2 min-h-8 truncate rounded-sm pr-2 pb-3 text-sm',
 								isConversation ? 'pl-2' : 'pl-7',
 								unread ? 'text-foreground' : 'text-muted-foreground',
-								focusRingInset
+								isConversation && focusRingInset
 							)}
 						>
-							{#if !conversationHeader}
-								{showRecipientsFor(message) ? (message.recipientsTo ?? '') : message.sender}
+							{#if isConversation}
+								{#if !conversationHeader}
+									{showRecipientsFor(message) ? (message.recipientsTo ?? '') : message.sender}
+								{/if}
+							{:else}
+								<!--
+									A member's own label, and the row's link. It sits in the sender
+									cell rather than where a conversation puts its subject, so the
+									column headers keep telling the truth: moving across the row
+									announces the sender header over a person's name, rather than
+									the subject header over one. Reading the thread downwards then
+									goes subject, then the people — which is how a conversation
+									reads.
+								-->
+								<a
+									href={rowHref(message.stableId, message.folderName)}
+									{...grid.cell(rowIndex, COL_SENDER)}
+									onclick={(event) => handleRowLinkClick(event, row)}
+									class={cn(
+										'flex items-center gap-2 rounded-sm no-underline hover:underline',
+										focusRingInset
+									)}
+								>
+									{#if unread}
+										<span class="sr-only">{$_('messages.unreadIndicatorLabel')}.</span>
+									{/if}
+									<span class="truncate">{identity?.values.counterpart}</span>
+									{#if row.message.folderName !== currentFolderName}
+										{@const memberFolderName = folderLabelByRef(
+											$folders,
+											row.message.folderName,
+											$_
+										)}
+										<!-- Cross-folder member (e.g. an archived reply inside the inbox
+									     conversation): tag it with its home folder so the row is
+									     unambiguous both visually and for a screen reader. -->
+										<span
+											class="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-caption font-medium text-muted-foreground"
+											aria-hidden="true"
+										>
+											{memberFolderName}
+										</span>
+										<span class="sr-only"
+											>{$_('messages.grouping.memberFolder', {
+												values: { folder: memberFolderName }
+											})}.</span
+										>
+									{/if}
+								</a>
 							{/if}
 						</div>
 						<div
@@ -1537,11 +1666,13 @@
 									currentFolderRef={currentFolderName}
 									actions={rowActions(row)}
 									seen={rowSeen(row)}
-									triggerLabel={isConversation && isThread(row.conversation)
-										? $_('messages.rowActions.conversationTrigger', {
-												values: { subject: message.subject || $_('messages.noSubject') }
-											})
-										: undefined}
+									triggerLabel={isConversation
+										? isThread(row.conversation)
+											? $_('messages.rowActions.conversationTrigger', {
+													values: { subject: message.subject || $_('messages.noSubject') }
+												})
+											: undefined
+										: memberActionsLabel(identity!)}
 								/>
 							</div>
 						{/if}

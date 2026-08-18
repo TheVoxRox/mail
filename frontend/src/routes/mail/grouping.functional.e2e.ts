@@ -195,9 +195,13 @@ test.describe('Rozbalení konverzace', () => {
 		// path — a screen reader sends Enter as a click — and leaving the cursor here
 		// would make it walk the rest of the parent row (status, sender, date, the
 		// actions trigger, each naming the same subject) before reaching the message
-		// the thread was expanded for. It lands on the oldest member instead, on the
-		// subject cell; the polite announcement carries the state change.
-		await expect(page.locator('[data-cell-target]:focus')).toHaveAttribute('data-col', '3');
+		// the thread was expanded for. It lands on the oldest member instead.
+		//
+		// On the sender cell (col 4), not the subject cell: a member's subject cell
+		// is deliberately empty, so landing there would announce nothing at all —
+		// which would spend the whole point of moving the cursor here. The polite
+		// announcement carries the state change.
+		await expect(page.locator('[data-cell-target]:focus')).toHaveAttribute('data-col', '4');
 		await expect(archiveMember(page, 'arch-01').locator('[data-cell-target]:focus')).toHaveCount(1);
 
 		await collapse.press(' ');
@@ -258,14 +262,127 @@ test.describe('Rozbalení konverzace', () => {
 		expect(memberBox).not.toBeNull();
 		expect(parentBox?.x).toBeCloseTo(memberBox?.x ?? 0, 0);
 		expect(parentBox?.width).toBeCloseTo(memberBox?.width ?? 0, 0);
+
+		/*
+		 * Row heights deliberately differ. This used to assert they matched, back
+		 * when a member row carried the thread's subject on its first line and the
+		 * counterpart on its second. The subject is gone from member rows — it
+		 * belongs to the conversation and repeating it read the same string once
+		 * per message — so a member is a single line and stands visibly under the
+		 * two-line header. Pinned as a relation, not as pixels: shorter than the
+		 * parent, and not collapsed to nothing.
+		 */
 		const parentRowBox = await parent.boundingBox();
 		const memberRowBox = await own.boundingBox();
-		expect(parentRowBox?.height).toBeCloseTo(memberRowBox?.height ?? 0, 0);
+		expect(memberRowBox?.height ?? 0).toBeLessThan(parentRowBox?.height ?? 0);
+		// Not collapsed either, compared against what the row actually holds rather
+		// than against the `min-h-8` value written down a second time here — moving
+		// that floor should change the row, not fail this assertion by its number.
+		const memberSenderBox = await own.locator('[data-col="4"]').boundingBox();
+		expect(memberRowBox?.height ?? 0).toBeGreaterThanOrEqual(memberSenderBox?.height ?? 0);
+		expect(memberSenderBox?.height ?? 0).toBeGreaterThan(0);
 
 		await parent.locator('[data-expand-toggle]').click();
 		await expect(parent).toHaveAttribute('aria-expanded', 'false');
 		await expect(parentSender).not.toHaveText('');
 		await expect(parentDate).not.toHaveText('');
+	});
+
+	test('rozbalené vlákno neopakuje předmět u každé zprávy', async ({ page }) => {
+		/*
+		 * The other half of the parent-row trim above. The subject belongs to the
+		 * conversation, but every member repeated it twice — once in its subject
+		 * cell and once inside the name of its actions menu — so a three-message
+		 * thread said one string eight times across four rows.
+		 *
+		 * Counted rather than spot-checked: an assertion per known place would
+		 * keep passing when a new one appears, and this defect is precisely "the
+		 * same words in one more place than anybody counted".
+		 */
+		await page.goto(`/mail/${accountId}/ARCHIVE`);
+		await waitForShell(page);
+		await page.getByRole('button', { name: 'Rozbalit konverzaci Re: Plán vydání' }).click();
+		await expect(archiveMember(page, 'arch-01')).toBeVisible();
+
+		const grid = page.getByRole('treegrid', { name: 'Seznam konverzací' });
+		const mentions = await grid.evaluate((el) => {
+			const count = (text: string | null) => (text?.match(/Plán vydání/g) ?? []).length;
+			const inRow = (row: Element) =>
+				count((row as HTMLElement).innerText) +
+				[...row.querySelectorAll('[aria-label]')].reduce(
+					(sum, node) => sum + count(node.getAttribute('aria-label')),
+					0
+				);
+			const rows = [...el.querySelectorAll('[role="row"][data-stable-id]')];
+			return {
+				conversation: rows
+					.filter((r) => r.getAttribute('data-row-kind') === 'conversation')
+					.reduce((s, r) => s + inRow(r), 0),
+				members: rows
+					.filter((r) => r.getAttribute('data-row-kind') === 'member')
+					.reduce((s, r) => s + inRow(r), 0),
+				memberRows: rows.filter((r) => r.getAttribute('data-row-kind') === 'member').length
+			};
+		});
+
+		expect(mentions.memberRows).toBe(3);
+		// Not one mention on any member row, however many members there are.
+		expect(mentions.members).toBe(0);
+		/*
+		 * The conversation row still owns it, in all four places it belongs: the
+		 * link text, the expand button, the checkbox and the actions trigger. The
+		 * number rather than "more than zero" — dropping it from two of the four
+		 * would make the row quieter about what the thread is, and a loose
+		 * assertion would call that fine.
+		 */
+		expect(mentions.conversation).toBe(4);
+
+		// What a member says instead: who, and when. Same shape as its checkbox
+		// (selectMemberFrom), from one shared helper, so the two cannot drift.
+		const member = archiveMember(page, 'arch-02');
+		await expect(member.locator('[data-col="4"]')).toHaveText(/Jana Novak/);
+		await expect(
+			member.getByRole('button', { name: /^Akce pro zprávu od Jana Novak .*, 21\. 4\./ })
+		).toBeVisible();
+	});
+
+	test('prázdná buňka předmětu nepolyká pohyb šipkami ani návrat na rodiče', async ({ page }) => {
+		/*
+		 * A member's subject cell is empty but must stay a cell: `focusGridCell`
+		 * resolves a roving move through `[data-cell-target][data-col]` inside the
+		 * target row, so a row missing one would swallow ArrowDown from the column
+		 * above it and strand the cursor on the parent.
+		 */
+		await page.goto(`/mail/${accountId}/ARCHIVE`);
+		await waitForShell(page);
+		await page.getByRole('button', { name: 'Rozbalit konverzaci Re: Plán vydání' }).click();
+		await expect(archiveMember(page, 'arch-01')).toBeVisible();
+
+		const parentSubject = archiveRow(page, 'arch-03').locator('[data-cell-target][data-col="3"]');
+		await parentSubject.focus();
+		await expect(parentSubject).toBeFocused();
+
+		await parentSubject.press('ArrowDown');
+		await expect(
+			archiveMember(page, 'arch-01').locator('[data-cell-target][data-col="3"]:focus')
+		).toHaveCount(1);
+
+		/*
+		 * And the treegrid contract answers on the member's own anchor. Expanding
+		 * leaves the cursor on the sender cell, so ArrowLeft has to climb back to
+		 * the parent from there — checking it only from the subject cell would test
+		 * a column the user never lands on.
+		 */
+		const memberSender = archiveMember(page, 'arch-01').locator('[data-cell-target][data-col="4"]');
+		await memberSender.focus();
+		await memberSender.press('ArrowLeft');
+		// On the parent's own anchor, its subject cell — not merely somewhere in
+		// the parent row. Landing on its expand cell or its checkbox would still
+		// satisfy a bare focus count while announcing "Rozbalení" or "Vybrat
+		// konverzaci" instead of what the thread is.
+		await expect(
+			archiveRow(page, 'arch-03').locator('[data-cell-target][data-col="3"]:focus')
+		).toHaveCount(1);
 	});
 
 	test('šipky na předmětu rozbalí a sbalí konverzaci', async ({ page }) => {

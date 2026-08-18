@@ -143,7 +143,9 @@
 		"rowActions": {
 			"trigger": "Actions for message {subject}",
 			"conversationTrigger": "Actions for conversation {subject}",
-			"memberNotActionable": "No actions, the message is in {folder}"
+			"memberNotActionable": "No actions, the message is in {folder}",
+			"memberTriggerFrom": "Actions for the message from {counterpart}, {date}",
+			"memberTriggerTo": "Actions for the message to {counterpart}, {date}"
 		},
 		"flaggedLabel": "Starred",
 		"flaggedTitle": "Starred",
@@ -160,7 +162,9 @@
 		"firstPage": "« First",
 		"lastPage": "Last »",
 		"jumpLabel": "Go to page",
-		"jumpButton": "Go"
+		"jumpButton": "Go",
+		"unknownSender": "(unknown sender)",
+		"noRecipient": "(no recipient)"
 	},
 	"detail": {
 		"from": "From:",
