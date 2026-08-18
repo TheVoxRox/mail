@@ -2,7 +2,8 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import AccountForm from '$lib/components/AccountForm.svelte';
-	import { deleteAccount, getAccount, updateAccount } from '$lib/api/accounts.js';
+	import { getAccount, updateAccount } from '$lib/api/accounts.js';
+	import { confirmAndDeleteAccount } from '$lib/accounts/deleteAccount.js';
 	import { toErrorMessage } from '$lib/api/errors.js';
 	import { getProvider } from '$lib/api/providers.js';
 	import { loadAccounts } from '$lib/stores/accounts.js';
@@ -11,7 +12,6 @@
 	import { StateMessage } from '$lib/components/ui/state-message/index.js';
 	import { Surface } from '$lib/components/ui/surface/index.js';
 	import { _ } from '$lib/i18n/index.js';
-	import { confirmAction } from '$lib/stores/confirmDialog.js';
 	import { pushToast } from '$lib/stores/toasts.js';
 	import type {
 		AccountCreateRequest,
@@ -53,21 +53,14 @@
 
 	async function handleDelete() {
 		if (!account) return;
-		const confirmed = await confirmAction({
-			title: $_('accounts.deleteConfirmTitle'),
-			description: $_('accounts.deleteConfirm', { values: { name: account.accountName } }),
-			confirmLabel: $_('common.delete'),
-			cancelLabel: $_('common.cancel'),
-			tone: 'destructive'
-		});
-		if (!confirmed) return;
 		deleting = true;
 		deleteError = null;
 		try {
-			await deleteAccount(data.id);
-			await loadAccounts();
-			pushToast($_('accounts.deletedToast'), { tone: 'success' });
-			await goto(resolve('/settings/accounts'));
+			// Only a real delete may leave the route — the account this page is
+			// about still exists when the user backs out of the confirmation.
+			if (await confirmAndDeleteAccount(data.id, account.accountName)) {
+				await goto(resolve('/settings/accounts'));
+			}
 		} catch (err) {
 			deleteError = toErrorMessage(err);
 		} finally {

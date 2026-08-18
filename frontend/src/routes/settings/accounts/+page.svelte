@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { goto } from '$app/navigation';
-	import { accountsState, loadAccounts } from '$lib/stores/accounts.js';
-	import { deleteAccount } from '$lib/api/accounts.js';
+	import { accountsState } from '$lib/stores/accounts.js';
+	import { confirmAndDeleteAccount } from '$lib/accounts/deleteAccount.js';
 	import { toErrorMessage } from '$lib/api/errors.js';
 	import { startOAuthLogin } from '$lib/api/googleAuth.js';
 	import Icon from '$lib/components/Icon.svelte';
@@ -12,8 +12,6 @@
 	import { Surface } from '$lib/components/ui/surface/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { _ } from '$lib/i18n/index.js';
-	import { confirmAction } from '$lib/stores/confirmDialog.js';
-	import { pushToast } from '$lib/stores/toasts.js';
 	import type { AccountResponse } from '$lib/types.js';
 
 	let deletingId = $state<number | null>(null);
@@ -87,20 +85,10 @@
 	}
 
 	async function handleDelete(id: number, label: string) {
-		const confirmed = await confirmAction({
-			title: $_('accounts.deleteConfirmTitle'),
-			description: $_('accounts.deleteConfirm', { values: { name: label } }),
-			confirmLabel: $_('common.delete'),
-			cancelLabel: $_('common.cancel'),
-			tone: 'destructive'
-		});
-		if (!confirmed) return;
 		deletingId = id;
 		errorMessage = '';
 		try {
-			await deleteAccount(id);
-			await loadAccounts();
-			pushToast($_('accounts.deletedToast'), { tone: 'success' });
+			await confirmAndDeleteAccount(id, label);
 		} catch (err) {
 			errorMessage = toErrorMessage(err);
 		} finally {
