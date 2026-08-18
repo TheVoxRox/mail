@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { openApp, setPrefs } from '../e2e-helpers';
+import { bodyFrame, openApp, setPrefs } from '../e2e-helpers';
 
 /*
  * Regression cover for the message-body iframe LINK bridge (lib/mail/mailFrame.ts).
@@ -20,7 +20,7 @@ test('klik na odkaz v těle zprávy se přepošle ven místo mrtvé _blank navig
 }) => {
 	await openApp(page, '/mail/1/INBOX/msg-01');
 
-	const iframe = page.getByTitle('Obsah zprávy');
+	const iframe = bodyFrame(page);
 	await expect(iframe).toBeVisible();
 
 	// Record the forwarder's link relay on the parent window. The frame is an

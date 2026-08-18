@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { openApp, setPrefs } from '../e2e-helpers';
+import { bodyFrame, openApp, setPrefs } from '../e2e-helpers';
 
 /*
  * Regression cover for the remote-image opt-in (audit finding F2). Remote images
@@ -17,7 +17,7 @@ test.beforeEach(async ({ page }) => {
 test('vzdálené obrázky jsou blokované, dokud je uživatel nenačte', async ({ page }) => {
 	await openApp(page, '/mail/1/INBOX/msg-02');
 
-	const iframe = page.getByTitle('Obsah zprávy');
+	const iframe = bodyFrame(page);
 	await expect(iframe).toBeVisible();
 
 	// Default: banner shown, and the srcdoc keeps the image inert — no live src,

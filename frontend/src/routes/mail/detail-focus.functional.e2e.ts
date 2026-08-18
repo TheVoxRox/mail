@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { openApp, setPrefs } from '../e2e-helpers';
+import { bodyFrame, openApp, setPrefs, waitForFocus } from '../e2e-helpers';
 
 /*
  * Screen-reader guidance into an opened message (MessageContent.svelte):
@@ -24,14 +24,9 @@ test.describe('Fokus na tělo otevřené zprávy', () => {
 		await page.locator('[role="row"][data-stable-id="msg-01"]').click();
 		await page.waitForURL('**/mail/1/INBOX/msg-01');
 
-		const frame = page.getByTitle('Obsah zprávy');
+		const frame = bodyFrame(page);
 		await expect(frame).toBeVisible();
-		// activeElement poll instead of toBeFocused() — the matcher additionally
-		// requires document.hasFocus(), which headless Chromium reports false on
-		// the outer document while the programmatically focused sandbox <iframe>
-		// holds focus (flaky in CI). Same workaround as the search test in
-		// a11y.e2e.ts.
-		await expect.poll(() => frame.evaluate((el) => el === document.activeElement)).toBe(true);
+		await waitForFocus(frame);
 
 		// Landmark + hidden heading: in off mode the subject is <h1>, the body <h2>.
 		const region = page.getByRole('region', { name: 'Text zprávy' });
@@ -58,10 +53,8 @@ test.describe('Fokus na tělo otevřené zprávy', () => {
 		await page.keyboard.press('Enter');
 		await page.waitForURL('**/mail/1/INBOX/msg-01');
 
-		const frame = page.getByTitle('Obsah zprávy');
-		// Same activeElement poll as above — toBeFocused() on the sandbox
-		// <iframe> is flaky in headless CI (document.hasFocus() dependency).
-		await expect.poll(() => frame.evaluate((el) => el === document.activeElement)).toBe(true);
+		const frame = bodyFrame(page);
+		await waitForFocus(frame);
 
 		// In split mode the subject is <h2>, so the body heading is <h3>.
 		const region = page.getByRole('region', { name: 'Text zprávy' });

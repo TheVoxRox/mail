@@ -1,13 +1,15 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import {
+	bodyFrame,
 	conversationGrid,
 	messageGrid,
 	openApp,
 	rowsOf,
 	searchResultsGrid,
 	setMockFlags,
-	setPrefs
+	setPrefs,
+	waitForFocus
 } from './e2e-helpers';
 
 test.setTimeout(60000);
@@ -755,12 +757,14 @@ test.describe('Přístupnost', () => {
 		// loaded body and for the focus move to settle before focusing <main>.
 		const bodyRegion = page.getByRole('region', { name: 'Text zprávy' });
 		await expect(bodyRegion).toBeVisible();
-		const frame = page.getByTitle('Obsah zprávy');
-		// activeElement poll instead of toBeFocused() — same headless-Chromium
-		// workaround as in detail-focus.functional.e2e.ts.
-		await expect.poll(() => frame.evaluate((el) => el === document.activeElement)).toBe(true);
+		const frame = bodyFrame(page);
+		await waitForFocus(frame);
 
-		await page.locator('main').focus();
+		const main = page.locator('main');
+		await main.focus();
+		// Confirm the app really gave focus up before the key goes out, so a
+		// future theft fails here rather than passing as the wrong test.
+		await waitForFocus(main);
 		await page.keyboard.press('Escape');
 
 		await page.waitForURL((url) => url.pathname === folderHref);
