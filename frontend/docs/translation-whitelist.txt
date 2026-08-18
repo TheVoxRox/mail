@@ -40,6 +40,7 @@ frontend/src/routes/e2e-helpers.ts -- Shared Playwright helpers; sets 'mail.loca
 frontend/src/routes/mail/detail-focus.functional.e2e.ts -- Message-body focus and landmark assertions against Czech UI ("Text zprávy", "Obsah zprávy") under mail.locale = 'cs'.
 frontend/src/routes/mail/grouping.functional.e2e.ts -- Conversation-grouping view assertions against Czech UI ("Seznam konverzací") under mail.locale = 'cs'.
 frontend/src/routes/mail/links.functional.e2e.ts -- Mail-body iframe link-bridge assertions against the Czech UI ("Obsah zprávy") under mail.locale = 'cs'; Czech test title matches the sibling mail-body e2e specs.
+frontend/src/routes/mail/list-columns.functional.e2e.ts -- Column-alignment assertions locate the two flat grids by their Czech accessible names ("Seznam zpráv", "Výsledky") under mail.locale = 'cs'.
 frontend/src/routes/mail/list-navigation.functional.e2e.ts -- Off-mode list keyboard model and focus-restore assertions against Czech UI ("Seznam zpráv", live-region texts) under mail.locale = 'cs'.
 frontend/src/routes/mail/message-detail-actions.functional.e2e.ts -- Inline message-toolbar action assertions against Czech UI ("Akce se zprávami", "Odpovědět", reply subject) under mail.locale = 'cs'.
 frontend/src/routes/mail/remote-images.functional.e2e.ts -- Remote-image opt-in banner assertions against Czech UI ("Blokované vzdálené obrázky", "Načíst obrázky") under mail.locale = 'cs'.

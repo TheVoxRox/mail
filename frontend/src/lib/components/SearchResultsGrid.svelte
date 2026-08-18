@@ -115,13 +115,27 @@
 	});
 </script>
 
+<!--
+	Shared column tracks, same as MessageList and ConversationList — this grid
+	has the same fault and one of its own. The status cell is `auto` around
+	`MessageFlags`, so a result with a flag measures 30px there and one
+	without 16px, and the subject starts at 366px against 352px. On top of
+	that the third track carries the date and the folder name stacked, so its
+	width is whichever of the two is wider in that row — folder names differ
+	per result by construction here, which a search result list makes routine
+	rather than incidental.
+
+	Four tracks against the six of `aria-colcount`: subject and sender share
+	the second, date and folder the third. `content-start` keeps a short
+	result list from stretching its rows over the viewport.
+-->
 <div
 	bind:this={gridElement}
 	role="grid"
 	aria-label={$_('search.resultsLandmark')}
 	aria-rowcount={results.totalElements + 1}
 	aria-colcount={COL_COUNT}
-	class="flex-1 overflow-y-auto bg-background"
+	class="grid flex-1 grid-cols-[auto_minmax(0,1fr)_auto_auto] content-start overflow-y-auto bg-background"
 >
 	<div role="row" aria-rowindex={1} class="sr-only">
 		<span role="columnheader" aria-colindex={1}>{$_('messages.columnHeaderStatus')}</span>
@@ -134,6 +148,11 @@
 	{#each results.content as message, rowIndex (message.stableId)}
 		{@const statusLabel = messageStatusLabel(message, $_)}
 		{@const formattedDate = formatNumericDate(message.receivedAt, $appLocale ?? 'cs')}
+		<!--
+			Columns come from the grid above; only the two row tracks are the row's
+			own. No horizontal padding on the row — under `subgrid` it would inset
+			every track and push the actions column past the right edge.
+		-->
 		<div
 			role="row"
 			tabindex="-1"
@@ -141,7 +160,7 @@
 			data-stable-id={message.stableId}
 			aria-rowindex={results.page * results.size + rowIndex + 2}
 			class={cn(
-				'grid cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto_auto] grid-rows-[auto_auto] border-b border-border/80 transition-colors hover:bg-muted/40 focus-within:relative focus-within:z-10',
+				'col-span-full grid cursor-pointer grid-cols-subgrid grid-rows-[auto_auto] border-b border-border/80 transition-colors hover:bg-muted/40 focus-within:relative focus-within:z-10',
 				!message.seen && 'font-semibold'
 			)}
 			onclick={(e) => handleRowClick(e, message)}
@@ -179,7 +198,10 @@
 				aria-colindex={COL_SENDER + 1}
 				{...grid.cell(rowIndex, COL_SENDER)}
 				class={cn(
-					'col-start-2 row-start-2 truncate rounded-sm px-2 pb-3 text-sm',
+					/* Row-track floor, same reason as MessageList: subgrid shares the
+					   columns, not the rows, so an empty sender would collapse this
+					   track and leave the row shorter than the ones around it. */
+					'col-start-2 row-start-2 min-h-8 truncate rounded-sm px-2 pb-3 text-sm',
 					!message.seen ? 'text-foreground' : 'text-muted-foreground',
 					focusRingInset
 				)}
