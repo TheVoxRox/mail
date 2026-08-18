@@ -17,10 +17,10 @@ IMAP/SMTP servery a poskytuje API pro uživatelské rozhraní.
   příjemce dostane zprávu i naformátovanou. Editor zůstává obyčejné textové
   pole a odchozí zpráva vždy nese i přesně to, co jste napsali — kdo Markdown
   nepoužívá, nepozná rozdíl.
-- Běh v oznamovací oblasti: zavření okna aplikaci ve výchozím nastavení
-  neukončí, jen ji skryje, takže dál stahuje poštu a hlásí nové zprávy.
-  Ukončit ji jde přes nabídku ikony v oznamovací oblasti; chcete-li, aby ji
-  ukončil křížek, přepněte to v Nastavení → Vzhled → Zavření okna.
+- Běh v oznamovací oblasti: ve výchozím nastavení křížek aplikaci ukončí.
+  Přepnete-li Nastavení → Vzhled → Zavření okna na „nechat běžet", zavření
+  okna aplikaci jen skryje a ta dál stahuje poštu a hlásí nové zprávy; ukončit
+  ji pak jde přes nabídku ikony v oznamovací oblasti.
 - Hromadné akce se zprávami: označení jako přečtené, mazání, přesun a spam.
 - Správa kontaktů, vlastní štítky kontaktů (Rodina, Klienti, …) a export
   kontaktů do vCard.

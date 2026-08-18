@@ -1,6 +1,6 @@
 # Privacy Policy — VoxRox Mail
 
-_Version: 2026-08-12 (draft, pre-first-release). This version is preliminary
+_Version: 2026-08-18 (draft, pre-first-release). This version is preliminary
 and has not yet been reviewed by a lawyer — see "Open items" at the bottom._
 
 _Česká verze: [PRIVACY.md](PRIVACY.md)._
@@ -111,13 +111,13 @@ VoxRox server or third-party analytics platform.
 
 ### When that traffic happens
 
-Points 1 to 3 above continue after you close the window. By default closing the
-window does not quit the application — it hides it in the notification area so
-it can keep fetching mail and announcing new messages, which means it is still
-running and still connecting to your e-mail server at regular intervals. Quit it
-from the notification area icon menu (**Quit**). If you want closing the window
-to actually quit, switch that in **Settings → Appearance → Closing the window**;
-the network traffic then stops with the application.
+By default closing the window quits the application, and the network traffic
+stops with it. If you switch **Settings → Appearance → Closing the window** to
+"keep running in the notification area", points 1 to 3 above continue after you
+close the window: the application is only hidden, so it can keep fetching mail
+and announcing new messages, which means it is still running and still
+connecting to your e-mail server at regular intervals. Quit it from the
+notification area icon menu (**Quit**).
 
 ### Diagnostic reports from the client
 

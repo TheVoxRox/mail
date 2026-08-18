@@ -1,6 +1,6 @@
 # Zásady ochrany soukromí — VoxRox Mail
 
-_Verze: 2026-08-12 (návrh před prvním vydáním). Tato verze je předběžná a ještě
+_Verze: 2026-08-18 (návrh před prvním vydáním). Tato verze je předběžná a ještě
 nebyla schválena právníkem — viz sekce „Otevřené body" na konci dokumentu._
 
 _English version: [PRIVACY.en.md](PRIVACY.en.md)._
@@ -108,13 +108,12 @@ ani na žádnou analytickou platformu třetí strany.
 
 ### Kdy komunikace probíhá
 
-Body 1 až 3 výše probíhají i po zavření okna. Ve výchozím nastavení se
-aplikace zavřením okna neukončí, jen skryje do oznamovací oblasti, aby dál
-stahovala poštu a hlásila nové zprávy — pořád tedy běží a pořád se v
-pravidelných intervalech připojuje k vašemu e-mailovému serveru. Ukončit ji jde
-přes nabídku ikony v oznamovací oblasti (**Ukončit**). Pokud chcete, aby
-zavření okna aplikaci opravdu ukončilo, přepněte to v **Nastavení → Vzhled →
-Zavření okna**; síťová komunikace pak skončí spolu s ní.
+Ve výchozím nastavení zavření okna aplikaci ukončí a síťová komunikace končí
+spolu s ní. Přepnete-li **Nastavení → Vzhled → Zavření okna** na „nechat běžet
+v oznamovací oblasti", probíhají body 1 až 3 výše i po zavření okna: aplikace
+se jen skryje, aby dál stahovala poštu a hlásila nové zprávy — pořád tedy běží
+a pořád se v pravidelných intervalech připojuje k vašemu e-mailovému serveru.
+Ukončit ji pak jde přes nabídku ikony v oznamovací oblasti (**Ukončit**).
 
 ### Diagnostické reporty z klienta
 
