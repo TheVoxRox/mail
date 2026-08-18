@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { waitForShell } from './e2e-helpers';
+import { contactGrid, openApp, setMockFlags } from './e2e-helpers';
 
 type ContactSeed = {
 	name: string;
@@ -37,8 +37,7 @@ test.describe('Contacts', () => {
 	test('sidebar používá tlačítko Nový kontakt a Ctrl+N otevře vytvoření kontaktu', async ({
 		page
 	}) => {
-		await page.goto('/contacts');
-		await waitForShell(page);
+		await openApp(page, '/contacts');
 
 		const sidebar = page.getByRole('region', { name: 'Podokno kontaktů' });
 		await expect(sidebar.getByRole('link', { name: /Nový kontakt/ })).toHaveCount(0);
@@ -47,8 +46,7 @@ test.describe('Contacts', () => {
 		await page.waitForURL('**/contacts?create=1');
 		await expect(page.getByRole('heading', { name: 'Nový kontakt' })).toBeVisible();
 
-		await page.goto('/contacts');
-		await waitForShell(page);
+		await openApp(page, '/contacts');
 		await page.locator('body').dispatchEvent('keydown', {
 			key: 'n',
 			code: 'KeyN',
@@ -61,8 +59,7 @@ test.describe('Contacts', () => {
 	});
 
 	test('sidebar zobrazení jsou odkazy s počty a filtrují podle štítku', async ({ page }) => {
-		await page.goto('/contacts');
-		await waitForShell(page);
+		await openApp(page, '/contacts');
 
 		const sidebar = page.getByRole('region', { name: 'Podokno kontaktů' });
 		const nav = sidebar.getByRole('navigation', { name: 'Zobrazení kontaktů' });
@@ -101,8 +98,7 @@ test.describe('Contacts', () => {
 	});
 
 	test('řazení je persistovaná preference a přežije klik v sidebaru', async ({ page }) => {
-		await page.goto('/contacts');
-		await waitForShell(page);
+		await openApp(page, '/contacts');
 
 		await page.getByRole('combobox', { name: 'Řadit podle' }).selectOption('recent');
 		await page.getByRole('button', { name: 'Použít filtr' }).click();
@@ -117,12 +113,9 @@ test.describe('Contacts', () => {
 	});
 
 	test('rail otevře Kontakty i bez účtu a nezůstane v Nastavení', async ({ page }) => {
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.e2e.noAccounts', '1');
-		});
+		await setMockFlags(page, { noAccounts: true });
 
-		await page.goto('/settings/appearance');
-		await waitForShell(page);
+		await openApp(page, '/settings/appearance');
 
 		await page.getByRole('link', { name: 'Kontakty (Ctrl+2)' }).click();
 		await page.waitForURL('**/contacts');
@@ -146,8 +139,7 @@ test.describe('Contacts', () => {
 	});
 
 	test('vytvoří kontakt přes MSW API a zobrazí ho v seznamu', async ({ page }) => {
-		await page.goto('/contacts?create=1');
-		await waitForShell(page);
+		await openApp(page, '/contacts?create=1');
 
 		await expect(page.getByRole('heading', { level: 1, name: 'Kontakty' })).toHaveCount(0);
 		await expect(page.getByRole('heading', { level: 1, name: 'Nový kontakt' })).toBeVisible();
@@ -183,12 +175,11 @@ test.describe('Contacts', () => {
 	});
 
 	test('kontakty se zobrazují jako přístupný grid', async ({ page }) => {
-		await page.goto('/contacts');
-		await waitForShell(page);
+		await openApp(page, '/contacts');
 
 		// A grid, not a plain table: the rows carry interactive controls and are
 		// navigated with arrows under a roving tabindex.
-		const grid = page.getByRole('grid', { name: 'Seznam kontaktů' });
+		const grid = contactGrid(page);
 		await expect(grid).toBeVisible();
 		await expect(grid.getByRole('columnheader', { name: 'Jméno' })).toBeVisible();
 		await expect(grid.getByRole('columnheader', { name: 'E-mail' })).toBeVisible();
@@ -197,8 +188,7 @@ test.describe('Contacts', () => {
 	});
 
 	test('seznam kontaktů je jeden tab stop a šipky chodí po buňkách', async ({ page }) => {
-		await page.goto('/contacts');
-		await waitForShell(page);
+		await openApp(page, '/contacts');
 		await bulkCreateContacts(page, [
 			{ name: 'Karel', surname: 'Druhy', emails: [{ email: 'karel@example.com' }] }
 		]);
@@ -253,8 +243,7 @@ test.describe('Contacts', () => {
 			}
 		});
 
-		await page.goto('/contacts?create=1');
-		await waitForShell(page);
+		await openApp(page, '/contacts?create=1');
 
 		await page.getByPlaceholder('Jméno').fill('Bez');
 		await page.getByPlaceholder('Příjmení').fill('Emailu');
@@ -275,8 +264,7 @@ test.describe('Contacts', () => {
 			}
 		});
 
-		await page.goto('/contacts');
-		await waitForShell(page);
+		await openApp(page, '/contacts');
 
 		await page.getByRole('button', { name: 'Upravit' }).first().click();
 		await page.waitForURL('**/contacts?edit=1');
@@ -315,8 +303,7 @@ test.describe('Contacts', () => {
 			}
 		});
 
-		await page.goto('/contacts');
-		await waitForShell(page);
+		await openApp(page, '/contacts');
 
 		await page.getByRole('button', { name: 'Upravit' }).first().click();
 		await page.waitForURL('**/contacts?edit=1');
@@ -364,8 +351,7 @@ test.describe('Contacts', () => {
 			}
 		});
 
-		await page.goto('/contacts?edit=999');
-		await waitForShell(page);
+		await openApp(page, '/contacts?edit=999');
 
 		await expect(page.getByRole('alert')).toBeVisible();
 		await expect(page.locator('#contact-name')).toHaveCount(0);
@@ -377,8 +363,7 @@ test.describe('Contacts', () => {
 	test('opuštění editace s neuloženými změnami vyžádá potvrzení a po potvrzení zahodí', async ({
 		page
 	}) => {
-		await page.goto('/contacts');
-		await waitForShell(page);
+		await openApp(page, '/contacts');
 
 		await page.getByRole('button', { name: 'Upravit' }).first().click();
 		await page.waitForURL('**/contacts?edit=1');
@@ -399,8 +384,7 @@ test.describe('Contacts', () => {
 	test('Escape zruší vytváření kontaktu; s neuloženými změnami až po potvrzení', async ({
 		page
 	}) => {
-		await page.goto('/contacts?create=1');
-		await waitForShell(page);
+		await openApp(page, '/contacts?create=1');
 		// The onMount autofocus proves the form is hydrated (the Esc handler is a
 		// window listener attached on mount).
 		await expect(page.locator('#contact-name')).toBeFocused();
@@ -436,8 +420,7 @@ test.describe('Contacts', () => {
 			}
 		});
 
-		await page.goto('/contacts?create=1');
-		await waitForShell(page);
+		await openApp(page, '/contacts?create=1');
 
 		await page.getByPlaceholder('Jméno').fill('Bulk');
 		await page.getByPlaceholder('Příjmení').fill('Delete');
@@ -476,8 +459,7 @@ test.describe('Contacts', () => {
 			}
 		});
 
-		await page.goto('/contacts');
-		await waitForShell(page);
+		await openApp(page, '/contacts');
 		await page.evaluate(() => window.__MAIL_MSW__?.reset());
 		await bulkCreateContacts(page, [
 			{
@@ -515,8 +497,7 @@ test.describe('Contacts', () => {
 	});
 
 	test('merge dialog upozorní a zablokuje sloučení nad limit e-mailů', async ({ page }) => {
-		await page.goto('/contacts');
-		await waitForShell(page);
+		await openApp(page, '/contacts');
 		await page.evaluate(() => window.__MAIL_MSW__?.reset());
 		await bulkCreateContacts(page, [
 			{
@@ -562,8 +543,7 @@ test.describe('Contacts', () => {
 			}
 		});
 
-		await page.goto('/contacts');
-		await waitForShell(page);
+		await openApp(page, '/contacts');
 
 		const row = page.getByRole('row', { name: /Jana Novak/ });
 		await row.getByRole('button', { name: 'Smazat kontakt Jana Novak' }).click();
@@ -580,8 +560,7 @@ test.describe('Contacts', () => {
 	});
 
 	test('smazání kontaktu vrátí fokus na sousední řádek', async ({ page }) => {
-		await page.goto('/contacts');
-		await waitForShell(page);
+		await openApp(page, '/contacts');
 		await bulkCreateContacts(page, [
 			{ name: 'Karel', surname: 'Druhy', emails: [{ email: 'karel@example.com' }] }
 		]);
@@ -605,8 +584,7 @@ test.describe('Contacts', () => {
 	}) => {
 		// The fixture holds a single contact, so the whole grid goes away with
 		// it and there is no row left to hand focus to.
-		await page.goto('/contacts');
-		await waitForShell(page);
+		await openApp(page, '/contacts');
 
 		await page.getByRole('button', { name: 'Smazat kontakt Jana Novak' }).click();
 		await page
@@ -620,8 +598,7 @@ test.describe('Contacts', () => {
 	});
 
 	test('návrat z úpravy kontaktu vrátí fokus na jeho řádek', async ({ page }) => {
-		await page.goto('/contacts');
-		await waitForShell(page);
+		await openApp(page, '/contacts');
 
 		await page.getByRole('button', { name: 'Upravit kontakt Jana Novak' }).click();
 		await page.waitForURL('**/contacts?edit=1');
@@ -642,8 +619,7 @@ test.describe('Contacts', () => {
 			}
 		});
 
-		await page.goto('/contacts');
-		await waitForShell(page);
+		await openApp(page, '/contacts');
 		await expect(page.getByText('Jana Novak')).toBeVisible();
 
 		const vcardText =
@@ -701,8 +677,7 @@ test.describe('Contacts', () => {
 			}
 		});
 
-		await page.goto('/contacts');
-		await waitForShell(page);
+		await openApp(page, '/contacts');
 		await expect(page.getByText('Jana Novak')).toBeVisible();
 
 		const sidebar = page.getByRole('region', { name: 'Podokno kontaktů' });
@@ -749,8 +724,7 @@ test.describe('Contacts', () => {
 			}
 		});
 
-		await page.goto('/contacts');
-		await waitForShell(page);
+		await openApp(page, '/contacts');
 
 		const sidebar = page.getByRole('region', { name: 'Podokno kontaktů' });
 		await expect(sidebar.getByRole('button', { name: 'Exportovat vCard' })).toBeVisible();
@@ -768,8 +742,7 @@ test.describe('Contacts', () => {
 	});
 
 	test('správa štítků vytvoří, přejmenuje a smaže štítek', async ({ page }) => {
-		await page.goto('/contacts');
-		await waitForShell(page);
+		await openApp(page, '/contacts');
 
 		const sidebar = page.getByRole('region', { name: 'Podokno kontaktů' });
 		const nav = sidebar.getByRole('navigation', { name: 'Zobrazení kontaktů' });
@@ -816,8 +789,7 @@ test.describe('Contacts', () => {
 	});
 
 	test('hromadné přiřazení štítků respektuje smíšený stav výběru', async ({ page }) => {
-		await page.goto('/contacts');
-		await waitForShell(page);
+		await openApp(page, '/contacts');
 		// Druhý kontakt bez štítků, aby výběr měl u Klientů smíšený stav.
 		await bulkCreateContacts(page, [
 			{ name: 'Bez', surname: 'Stitku', emails: [{ email: 'bez@example.com' }] }
@@ -878,8 +850,7 @@ test.describe('Contacts', () => {
 			}
 		});
 
-		await page.goto('/contacts?edit=1');
-		await waitForShell(page);
+		await openApp(page, '/contacts?edit=1');
 
 		const labels = page.getByRole('group', { name: 'Štítky' });
 		await expect(labels.getByRole('checkbox', { name: 'Klienti' })).toBeChecked();
@@ -903,8 +874,7 @@ test.describe('Contacts', () => {
 			}
 		});
 
-		await page.goto('/contacts');
-		await waitForShell(page);
+		await openApp(page, '/contacts');
 		// Gate on the rendered list: the drop listener lives on window and is only
 		// attached once the page has hydrated, so dispatching earlier is a no-op.
 		await expect(page.getByText('Jana Novak')).toBeVisible();
@@ -940,12 +910,9 @@ test.describe('Contacts', () => {
 		// Odpověď bez klíče `labels`, počty v předštítkovém tvaru a /contact-labels
 		// vracející 500 — přesně to, co posílal starší sidecar v #252. Tehdy
 		// `c.labels.length` shodilo vykreslení a seznam zůstal prázdný.
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.e2e.contactsLegacyShape', '1');
-		});
+		await setMockFlags(page, { contactsLegacyShape: true });
 
-		await page.goto('/contacts');
-		await waitForShell(page);
+		await openApp(page, '/contacts');
 
 		await expect(page.getByText('Jana Novak')).toBeVisible();
 		await expect(page.getByRole('gridcell', { name: 'jana@example.com' })).toBeVisible();
@@ -960,12 +927,9 @@ test.describe('Contacts', () => {
 		// Pole, kterému se změnil typ — třída driftu, kterou doplnění chybějícího
 		// pole na hranici API neopraví. Bez hranice zůstala stránka viset na
 		// "Načítám…" bez hlášky a bez čeho se chytit (#252).
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.e2e.contactsBrokenRow', '1');
-		});
+		await setMockFlags(page, { contactsBrokenRow: true });
 
-		await page.goto('/contacts');
-		await waitForShell(page);
+		await openApp(page, '/contacts');
 
 		await expect(page.getByRole('alert')).toContainText('Seznam kontaktů se nepodařilo zobrazit');
 		await expect(page.getByText('Načítám…')).toHaveCount(0);

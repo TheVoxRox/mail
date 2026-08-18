@@ -1,18 +1,14 @@
 import { expect, test } from '@playwright/test';
-import { waitForShell } from './e2e-helpers';
+import { openApp, setMockFlags, setPrefs } from './e2e-helpers';
 
 test.beforeEach(async ({ page }) => {
-	await page.addInitScript(() => {
-		window.localStorage.setItem('mail.locale', 'cs');
-		window.localStorage.setItem('mail.readingPane', 'right');
-		window.localStorage.setItem('mail.e2e', '1');
-	});
+	await setPrefs(page, { locale: 'cs', readingPane: 'right' });
+	await setMockFlags(page, { e2e: true });
 });
 
 test.describe('Sync notifications', () => {
 	test('zobrazí toast a aktualizuje unread badge po sync_completed eventu', async ({ page }) => {
-		await page.goto('/mail/1/INBOX');
-		await waitForShell(page);
+		await openApp(page, '/mail/1/INBOX');
 
 		const folders = page.getByRole('region', { name: 'Podokno pošty' });
 		const inbox = folders.getByRole('link', { name: /Doručené/ });
@@ -43,8 +39,7 @@ test.describe('Sync notifications', () => {
 	});
 
 	test('zpracuje sync_completed event s CRLF SSE framingem', async ({ page }) => {
-		await page.goto('/mail/1/INBOX');
-		await waitForShell(page);
+		await openApp(page, '/mail/1/INBOX');
 
 		const folders = page.getByRole('region', { name: 'Podokno pošty' });
 		const inbox = folders.getByRole('link', { name: /Doručené/ });
@@ -69,8 +64,7 @@ test.describe('Sync notifications', () => {
 	});
 
 	test('tlačítko Synchronizovat ohlásí zahájení do live regionu', async ({ page }) => {
-		await page.goto('/mail/1/INBOX');
-		await waitForShell(page);
+		await openApp(page, '/mail/1/INBOX');
 
 		// The endpoint replies 202 (sync continues in the background), so the
 		// truthful immediate feedback is "started" — completion with new mail
@@ -82,8 +76,7 @@ test.describe('Sync notifications', () => {
 	test('selhání synchronizace se ohlásí a nechá v podokně dosažitelné tlačítko', async ({
 		page
 	}) => {
-		await page.goto('/mail/1/INBOX');
-		await waitForShell(page);
+		await openApp(page, '/mail/1/INBOX');
 		// The listing has to be hydrated before the synthetic event: the handler
 		// refetches accounts, and a pre-hydration push would be dropped.
 		await expect(page.getByRole('region', { name: 'Podokno pošty' })).toBeVisible();
@@ -116,8 +109,7 @@ test.describe('Sync notifications', () => {
 	});
 
 	test('zotavení synchronizace indikátor zase schová', async ({ page }) => {
-		await page.goto('/mail/1/INBOX');
-		await waitForShell(page);
+		await openApp(page, '/mail/1/INBOX');
 		await expect(page.getByRole('region', { name: 'Podokno pošty' })).toBeVisible();
 
 		// Gate on the subscription, not on rendering: a push into an empty client

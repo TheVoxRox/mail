@@ -1,27 +1,30 @@
 import { expect, test, type Page } from '@playwright/test';
-import { waitForShell } from '../e2e-helpers';
+import {
+	conversationGrid,
+	messageGrid,
+	openApp,
+	rowsOf,
+	setMockFlags,
+	setPrefs
+} from '../e2e-helpers';
 
 const accountId = 1;
 const folderName = 'INBOX';
 
 test.beforeEach(async ({ page }) => {
-	await page.addInitScript(() => {
-		window.localStorage.setItem('mail.locale', 'cs');
-		// Opt into the conversation-grouped folder view (Phase 2).
-		window.localStorage.setItem('mail.messageGrouping', 'grouped');
-	});
+	// Opt into the conversation-grouped folder view (Phase 2).
+	await setPrefs(page, { locale: 'cs', messageGrouping: 'grouped' });
 });
 
 test.describe('Konverzační seskupení', () => {
 	test('seskupený režim vykreslí seznam konverzací místo plochého seznamu', async ({ page }) => {
-		await page.goto(`/mail/${accountId}/${encodeURIComponent(folderName)}`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${accountId}/${encodeURIComponent(folderName)}`);
 
-		const grid = page.getByRole('treegrid', { name: 'Seznam konverzací' });
+		const grid = conversationGrid(page);
 		await expect(grid).toBeVisible();
 		// The flat message list must not be mounted at the same time.
-		await expect(page.getByRole('grid', { name: 'Seznam zpráv' })).toHaveCount(0);
-		await expect(grid.locator('[role="row"][data-stable-id]').first()).toBeVisible();
+		await expect(messageGrid(page)).toHaveCount(0);
+		await expect(rowsOf(grid).first()).toBeVisible();
 	});
 
 	test('zaškrtávací políčko říká zpráva u samostatné zprávy a konverzace až u vlákna', async ({
@@ -29,8 +32,7 @@ test.describe('Konverzační seskupení', () => {
 	}) => {
 		// A one-message row is a message; calling it a conversation promises a
 		// thread that is not there and misdescribes what a bulk action will reach.
-		await page.goto(`/mail/${accountId}/${encodeURIComponent(folderName)}`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${accountId}/${encodeURIComponent(folderName)}`);
 
 		await expect(
 			page.getByRole('checkbox', { name: 'Vybrat zprávu Projektové podklady', exact: true })
@@ -38,19 +40,17 @@ test.describe('Konverzační seskupení', () => {
 		await expect(page.getByRole('checkbox', { name: /^Vybrat konverzaci/ })).toHaveCount(0);
 
 		// The ARCHIVE row really is a 4-message conversation.
-		await page.goto(`/mail/${accountId}/ARCHIVE`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${accountId}/ARCHIVE`);
 		await expect(
 			page.getByRole('checkbox', { name: 'Vybrat konverzaci Re: Plán vydání', exact: true })
 		).toBeVisible();
 	});
 
 	test('jednoklik otevře konverzaci na reprezentativní zprávě', async ({ page }) => {
-		await page.goto(`/mail/${accountId}/${encodeURIComponent(folderName)}`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${accountId}/${encodeURIComponent(folderName)}`);
 
-		const grid = page.getByRole('treegrid', { name: 'Seznam konverzací' });
-		const firstRow = grid.locator('[role="row"][data-stable-id]').first();
+		const grid = conversationGrid(page);
+		const firstRow = rowsOf(grid).first();
 		await expect(firstRow).toBeVisible();
 		const stableId = await firstRow.getAttribute('data-stable-id');
 		// The web-mail model: a click opens, the checkbox selects. Target the
@@ -63,14 +63,11 @@ test.describe('Konverzační seskupení', () => {
 	});
 
 	test('aktivace odečítačem otevře konverzaci jako Enter', async ({ page }) => {
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.readingPane', 'off');
-		});
-		await page.goto(`/mail/${accountId}/${encodeURIComponent(folderName)}`);
-		await waitForShell(page);
+		await setPrefs(page, { readingPane: 'off' });
+		await openApp(page, `/mail/${accountId}/${encodeURIComponent(folderName)}`);
 
-		const grid = page.getByRole('treegrid', { name: 'Seznam konverzací' });
-		const firstRow = grid.locator('[role="row"][data-stable-id]').first();
+		const grid = conversationGrid(page);
+		const firstRow = rowsOf(grid).first();
 		await expect(firstRow).toBeVisible();
 		const stableId = await firstRow.getAttribute('data-stable-id');
 		const subjectLink = firstRow.locator('[data-cell-target][data-col="3"]');
@@ -86,14 +83,11 @@ test.describe('Konverzační seskupení', () => {
 	});
 
 	test('zaškrtávátko vybere konverzaci a neotevře ji', async ({ page }) => {
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.readingPane', 'off');
-		});
-		await page.goto(`/mail/${accountId}/${encodeURIComponent(folderName)}`);
-		await waitForShell(page);
+		await setPrefs(page, { readingPane: 'off' });
+		await openApp(page, `/mail/${accountId}/${encodeURIComponent(folderName)}`);
 
-		const grid = page.getByRole('treegrid', { name: 'Seznam konverzací' });
-		const firstRow = grid.locator('[role="row"][data-stable-id]').first();
+		const grid = conversationGrid(page);
+		const firstRow = rowsOf(grid).first();
 		await expect(firstRow).toBeVisible();
 		await firstRow.locator('input[type="checkbox"]').check();
 
@@ -116,25 +110,22 @@ test.describe('Konverzační seskupení', () => {
 // included, so arch-03 has both a parent row and a child row of its own and the
 // two have to be addressed apart.
 const archiveRow = (page: Page, stableId: string) =>
-	page
-		.getByRole('treegrid', { name: 'Seznam konverzací' })
-		.locator(`[role="row"][data-row-kind="conversation"][data-stable-id="${stableId}"]`);
+	conversationGrid(page).locator(
+		`[role="row"][data-row-kind="conversation"][data-stable-id="${stableId}"]`
+	);
 
 const archiveMember = (page: Page, stableId: string) =>
-	page
-		.getByRole('treegrid', { name: 'Seznam konverzací' })
-		.locator(`[role="row"][data-row-kind="member"][data-stable-id="${stableId}"]`);
+	conversationGrid(page).locator(
+		`[role="row"][data-row-kind="member"][data-stable-id="${stableId}"]`
+	);
 
 /** Either kind — for asserting a message has no row in the view at all. */
 const anyArchiveRow = (page: Page, stableId: string) =>
-	page
-		.getByRole('treegrid', { name: 'Seznam konverzací' })
-		.locator(`[role="row"][data-stable-id="${stableId}"]`);
+	conversationGrid(page).locator(`[role="row"][data-stable-id="${stableId}"]`);
 
 test.describe('Rozbalení konverzace', () => {
 	test('kliknutí na šipku rozbalí a sbalí členy vlákna', async ({ page }) => {
-		await page.goto(`/mail/${accountId}/ARCHIVE`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${accountId}/ARCHIVE`);
 
 		const parent = archiveRow(page, 'arch-03');
 		await expect(parent).toBeVisible();
@@ -172,8 +163,7 @@ test.describe('Rozbalení konverzace', () => {
 		// The ARIA treegrid contract (aria-expanded on the row + ArrowRight/Left) is
 		// not reachable in a screen reader's browse mode, which swallows unmodified
 		// arrow keys — so the toggle must also exist as a real, named button.
-		await page.goto(`/mail/${accountId}/ARCHIVE`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${accountId}/ARCHIVE`);
 
 		const toggle = page.getByRole('button', { name: 'Rozbalit konverzaci Re: Plán vydání' });
 		await expect(toggle).toBeVisible();
@@ -216,8 +206,7 @@ test.describe('Rozbalení konverzace', () => {
 		// to stand for now has a child row of its own carrying exactly these two
 		// fields. A screen reader reads the row cell by cell, so repeating them here
 		// is speech spent on the way into the thread the user just opened.
-		await page.goto(`/mail/${accountId}/ARCHIVE`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${accountId}/ARCHIVE`);
 
 		const parent = archiveRow(page, 'arch-03');
 		const parentSender = parent.locator('[data-cell-target][data-col="4"]');
@@ -299,12 +288,11 @@ test.describe('Rozbalení konverzace', () => {
 		 * keep passing when a new one appears, and this defect is precisely "the
 		 * same words in one more place than anybody counted".
 		 */
-		await page.goto(`/mail/${accountId}/ARCHIVE`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${accountId}/ARCHIVE`);
 		await page.getByRole('button', { name: 'Rozbalit konverzaci Re: Plán vydání' }).click();
 		await expect(archiveMember(page, 'arch-01')).toBeVisible();
 
-		const grid = page.getByRole('treegrid', { name: 'Seznam konverzací' });
+		const grid = conversationGrid(page);
 		const mentions = await grid.evaluate((el) => {
 			const count = (text: string | null) => (text?.match(/Plán vydání/g) ?? []).length;
 			const inRow = (row: Element) =>
@@ -353,8 +341,7 @@ test.describe('Rozbalení konverzace', () => {
 		 * target row, so a row missing one would swallow ArrowDown from the column
 		 * above it and strand the cursor on the parent.
 		 */
-		await page.goto(`/mail/${accountId}/ARCHIVE`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${accountId}/ARCHIVE`);
 		await page.getByRole('button', { name: 'Rozbalit konverzaci Re: Plán vydání' }).click();
 		await expect(archiveMember(page, 'arch-01')).toBeVisible();
 
@@ -386,8 +373,7 @@ test.describe('Rozbalení konverzace', () => {
 	});
 
 	test('šipky na předmětu rozbalí a sbalí konverzaci', async ({ page }) => {
-		await page.goto(`/mail/${accountId}/ARCHIVE`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${accountId}/ARCHIVE`);
 
 		const parent = archiveRow(page, 'arch-03');
 		await expect(parent).toBeVisible();
@@ -410,8 +396,7 @@ test.describe('Rozbalení konverzace', () => {
 	});
 
 	test('otevření člena rozbaleného vlákna přejde na jeho zprávu', async ({ page }) => {
-		await page.goto(`/mail/${accountId}/ARCHIVE`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${accountId}/ARCHIVE`);
 
 		const parent = archiveRow(page, 'arch-03');
 		await expect(parent).toBeVisible();
@@ -426,8 +411,7 @@ test.describe('Rozbalení konverzace', () => {
 	});
 
 	test('rozbalovací tlačítko vlákno jen rozbalí, konverzaci neotevře', async ({ page }) => {
-		await page.goto(`/mail/${accountId}/ARCHIVE`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${accountId}/ARCHIVE`);
 
 		// The one exemption from "a click opens": the toggle is a real control and
 		// keeps its click to itself, or expanding a thread would navigate away.
@@ -446,11 +430,8 @@ test.describe('Rozbalení konverzace', () => {
 		// The badge and the expanded rows come from one server-side scope, so a
 		// trashed reply must be absent from both. Without the seed the trash
 		// fixtures share no subject with a live thread and this stays untested.
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.e2e.trashThreadMember', '1');
-		});
-		await page.goto(`/mail/${accountId}/ARCHIVE`);
-		await waitForShell(page);
+		await setMockFlags(page, { trashThreadMember: true });
+		await openApp(page, `/mail/${accountId}/ARCHIVE`);
 
 		const parent = archiveRow(page, 'arch-03');
 		await expect(parent).toBeVisible();
@@ -470,8 +451,7 @@ test.describe('Rozbalení konverzace', () => {
 		// receiving folder is about the mail that arrived, and a folder-scoped bulk
 		// action could not reach the sent copy anyway. sent-plan-01 belongs to this
 		// very thread, so it is the seam that proves the rule.
-		await page.goto(`/mail/${accountId}/ARCHIVE`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${accountId}/ARCHIVE`);
 
 		const parent = archiveRow(page, 'arch-03');
 		await expect(parent.getByText('konverzace, 3 zprávy')).toBeAttached();
@@ -482,12 +462,11 @@ test.describe('Rozbalení konverzace', () => {
 
 		// And the Sent view itself stays folder-scoped, like Trash and Junk: the
 		// reply groups with the sent messages, never with the archived thread.
-		await page.goto(`/mail/${accountId}/SENT`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${accountId}/SENT`);
 
-		const sentRow = page
-			.getByRole('treegrid', { name: 'Seznam konverzací' })
-			.locator('[role="row"][data-row-kind="conversation"][data-stable-id="sent-plan-01"]');
+		const sentRow = conversationGrid(page).locator(
+			'[role="row"][data-row-kind="conversation"][data-stable-id="sent-plan-01"]'
+		);
 		await expect(sentRow).toBeVisible();
 		await expect(sentRow.getByText('konverzace,')).toHaveCount(0);
 		await expect(page.locator('[role="row"][data-stable-id="arch-03"]')).toHaveCount(0);
@@ -499,13 +478,10 @@ test.describe('Rozbalení konverzace', () => {
 		// The Trash view must only ever show what is actually in the trash —
 		// expanding a conversation there must not pull the live members of the same
 		// thread in behind it.
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.e2e.trashThreadMember', '1');
-		});
-		await page.goto(`/mail/${accountId}/TRASH`);
-		await waitForShell(page);
+		await setMockFlags(page, { trashThreadMember: true });
+		await openApp(page, `/mail/${accountId}/TRASH`);
 
-		const grid = page.getByRole('treegrid', { name: 'Seznam konverzací' });
+		const grid = conversationGrid(page);
 		const parent = grid.locator(
 			'[role="row"][data-row-kind="conversation"][data-stable-id="trash-plan-02"]'
 		);
@@ -529,11 +505,8 @@ test.describe('Rozbalení konverzace', () => {
 		// The route folder is what the layout header, the back link and the move
 		// control read. Opening the received reply as .../ARCHIVE/inbox-plan-01
 		// would describe it as an archived message and offer moving Inbox -> Inbox.
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.e2e.inboxThreadMember', '1');
-		});
-		await page.goto(`/mail/${accountId}/ARCHIVE`);
-		await waitForShell(page);
+		await setMockFlags(page, { inboxThreadMember: true });
+		await openApp(page, `/mail/${accountId}/ARCHIVE`);
 
 		const parent = archiveRow(page, 'arch-03');
 		await expect(parent).toBeVisible();
@@ -567,11 +540,8 @@ test.describe('Výběr jednotlivých zpráv ve vlákně', () => {
 		// follows the runner's timezone). The inbox copy is out of a folder-scoped
 		// action's reach and says so instead of leaving a silent, empty cell where
 		// a screen reader expects a checkbox.
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.e2e.inboxThreadMember', '1');
-		});
-		await page.goto(`/mail/${accountId}/ARCHIVE`);
-		await waitForShell(page);
+		await setMockFlags(page, { inboxThreadMember: true });
+		await openApp(page, `/mail/${accountId}/ARCHIVE`);
 
 		const parent = archiveRow(page, 'arch-03');
 		await parent.locator('[data-expand-toggle]').click();
@@ -603,8 +573,7 @@ test.describe('Výběr jednotlivých zpráv ve vlákně', () => {
 		// The parent row shows the newest message but stands for the conversation.
 		// Without a child row of its own it was the one message that could not be
 		// ticked alone, so an expanded thread lists it like the rest.
-		await page.goto(`/mail/${accountId}/ARCHIVE`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${accountId}/ARCHIVE`);
 
 		const parent = archiveRow(page, 'arch-03');
 		await parent.locator('[data-expand-toggle]').click();
@@ -629,8 +598,7 @@ test.describe('Výběr jednotlivých zpráv ve vlákně', () => {
 	});
 
 	test('zaškrtnutí jednoho člena vybere jen jeho a smaže jen jeho', async ({ page }) => {
-		await page.goto(`/mail/${accountId}/ARCHIVE`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${accountId}/ARCHIVE`);
 
 		const parent = archiveRow(page, 'arch-03');
 		await parent.locator('[data-expand-toggle]').click();
@@ -653,8 +621,7 @@ test.describe('Výběr jednotlivých zpráv ve vlákně', () => {
 	});
 
 	test('odškrtnutí člena vybrané konverzace nechá zbytek vlákna vybraný', async ({ page }) => {
-		await page.goto(`/mail/${accountId}/ARCHIVE`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${accountId}/ARCHIVE`);
 
 		const parent = archiveRow(page, 'arch-03');
 		await parent.locator('[data-expand-toggle]').click();
@@ -685,8 +652,7 @@ test.describe('Výběr jednotlivých zpráv ve vlákně', () => {
 		// A fully ticked thread has to fall back to the conversation-level
 		// selection: that is the state a collapsed row can still show, and what the
 		// toolbar counts.
-		await page.goto(`/mail/${accountId}/ARCHIVE`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${accountId}/ARCHIVE`);
 
 		const parent = archiveRow(page, 'arch-03');
 		await parent.locator('[data-expand-toggle]').click();
@@ -712,11 +678,8 @@ test.describe('Hromadné akce nad konverzacemi', () => {
 		// The inbox copy is a counted member of this conversation, which is what
 		// makes it the right probe: a bulk delete fired from ARCHIVE still must not
 		// reach it, even though the row it was fired from counts it.
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.e2e.inboxThreadMember', '1');
-		});
-		await page.goto(`/mail/${accountId}/ARCHIVE`);
-		await waitForShell(page);
+		await setMockFlags(page, { inboxThreadMember: true });
+		await openApp(page, `/mail/${accountId}/ARCHIVE`);
 
 		const parent = archiveRow(page, 'arch-03');
 		await expect(parent).toBeVisible();
@@ -728,23 +691,19 @@ test.describe('Hromadné akce nad konverzacemi', () => {
 
 		// ARCHIVE is not the trash folder, so the delete moves the conversation's
 		// ARCHIVE members out — the folder empties and the treegrid unmounts.
-		await expect(page.getByRole('treegrid', { name: 'Seznam konverzací' })).toHaveCount(0);
+		await expect(conversationGrid(page)).toHaveCount(0);
 		await expect(page.locator('[role="row"][data-stable-id="arch-03"]')).toHaveCount(0);
 
 		// Folder-scoped semantics: the received reply in the same thread must
 		// survive a bulk delete fired from the ARCHIVE view.
-		await page.goto(`/mail/${accountId}/INBOX`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${accountId}/INBOX`);
 		await expect(
-			page
-				.getByRole('treegrid', { name: 'Seznam konverzací' })
-				.locator('[role="row"][data-stable-id="inbox-plan-01"]')
+			conversationGrid(page).locator('[role="row"][data-stable-id="inbox-plan-01"]')
 		).toBeVisible();
 	});
 
 	test('přesun vybrané konverzace přesune členy v aktuální složce', async ({ page }) => {
-		await page.goto(`/mail/${accountId}/ARCHIVE`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${accountId}/ARCHIVE`);
 
 		const parent = archiveRow(page, 'arch-03');
 		await expect(parent).toBeVisible();
@@ -754,7 +713,7 @@ test.describe('Hromadné akce nad konverzacemi', () => {
 		await toolbar.getByRole('button', { name: 'Přesunout vybrané' }).click();
 		await page.getByRole('menuitem', { name: 'Spam', exact: true }).click();
 
-		await expect(page.getByRole('treegrid', { name: 'Seznam konverzací' })).toHaveCount(0);
+		await expect(conversationGrid(page)).toHaveCount(0);
 		await expect(page.locator('[role="row"][data-stable-id="arch-03"]')).toHaveCount(0);
 	});
 });
@@ -767,11 +726,8 @@ test.describe('Řádkové menu Akce v seskupeném režimu', () => {
 		// of this conversation, so it proves the row menu keeps the same
 		// folder-scoped semantics the bulk bar has instead of reaching the whole
 		// thread.
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.e2e.inboxThreadMember', '1');
-		});
-		await page.goto(`/mail/${accountId}/ARCHIVE`);
-		await waitForShell(page);
+		await setMockFlags(page, { inboxThreadMember: true });
+		await openApp(page, `/mail/${accountId}/ARCHIVE`);
 
 		const parent = archiveRow(page, 'arch-03');
 		await expect(parent).toBeVisible();
@@ -783,21 +739,17 @@ test.describe('Řádkové menu Akce v seskupeném režimu', () => {
 			.click();
 		await page.getByRole('menu').getByRole('menuitem', { name: 'Smazat' }).click();
 
-		await expect(page.getByRole('treegrid', { name: 'Seznam konverzací' })).toHaveCount(0);
+		await expect(conversationGrid(page)).toHaveCount(0);
 		await expect(page.locator('[role="row"][data-stable-id="arch-03"]')).toHaveCount(0);
 
-		await page.goto(`/mail/${accountId}/INBOX`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${accountId}/INBOX`);
 		await expect(
-			page
-				.getByRole('treegrid', { name: 'Seznam konverzací' })
-				.locator('[role="row"][data-stable-id="inbox-plan-01"]')
+			conversationGrid(page).locator('[role="row"][data-stable-id="inbox-plan-01"]')
 		).toBeVisible();
 	});
 
 	test('člen vlákna má vlastní menu a smaže jen sebe', async ({ page }) => {
-		await page.goto(`/mail/${accountId}/ARCHIVE`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${accountId}/ARCHIVE`);
 
 		const parent = archiveRow(page, 'arch-03');
 		await expect(parent).toBeVisible();
@@ -814,11 +766,8 @@ test.describe('Řádkové menu Akce v seskupeném režimu', () => {
 	});
 
 	test('člen z jiné složky menu nemá a buňka říká proč', async ({ page }) => {
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.e2e.inboxThreadMember', '1');
-		});
-		await page.goto(`/mail/${accountId}/ARCHIVE`);
-		await waitForShell(page);
+		await setMockFlags(page, { inboxThreadMember: true });
+		await openApp(page, `/mail/${accountId}/ARCHIVE`);
 
 		const parent = archiveRow(page, 'arch-03');
 		await expect(parent).toBeVisible();
@@ -845,15 +794,12 @@ test.describe('Řádkové menu Akce v koši', () => {
 		 * conversationBulk instead of the flat pipeline the row menu uses
 		 * elsewhere.
 		 */
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.e2e.trashThreadMember', '1');
-		});
-		await page.goto(`/mail/${accountId}/TRASH`);
-		await waitForShell(page);
+		await setMockFlags(page, { trashThreadMember: true });
+		await openApp(page, `/mail/${accountId}/TRASH`);
 
-		const parent = page
-			.getByRole('treegrid', { name: 'Seznam konverzací' })
-			.locator('[role="row"][data-row-kind="conversation"][data-stable-id="trash-plan-02"]');
+		const parent = conversationGrid(page).locator(
+			'[role="row"][data-row-kind="conversation"][data-stable-id="trash-plan-02"]'
+		);
 		await expect(parent).toBeVisible();
 
 		await parent.getByRole('button', { name: /^Akce pro konverzaci/ }).click();
@@ -875,8 +821,7 @@ test('klávesnice dojde na buňku akcí a Enter tam otevře menu místo konverza
 	// The reason the column exists: without it the row's actions were reachable
 	// only by opening the message. End jumps to the last column, and Enter there
 	// must open the menu — the row-open handler has to stay out of that cell.
-	await page.goto(`/mail/${accountId}/ARCHIVE`);
-	await waitForShell(page);
+	await openApp(page, `/mail/${accountId}/ARCHIVE`);
 
 	const parent = archiveRow(page, 'arch-03');
 	await expect(parent).toBeVisible();
@@ -894,8 +839,7 @@ test('samostatná zpráva má menu pojmenované jako zpráva, ne jako konverzace
 	// Same rule as the checkbox label: a row holding one message is a message.
 	// Calling it a conversation promises a thread that is not there and tells a
 	// screen-reader user that read/move/delete will reach more than one mail.
-	await page.goto(`/mail/${accountId}/${encodeURIComponent(folderName)}`);
-	await waitForShell(page);
+	await openApp(page, `/mail/${accountId}/${encodeURIComponent(folderName)}`);
 
 	await expect(
 		page.getByRole('button', { name: 'Akce pro zprávu Projektové podklady', exact: true })
@@ -903,8 +847,7 @@ test('samostatná zpráva má menu pojmenované jako zpráva, ne jako konverzace
 	await expect(page.getByRole('button', { name: /^Akce pro konverzaci/ })).toHaveCount(0);
 
 	// The ARCHIVE row really is a 4-message thread, so there it stays a conversation.
-	await page.goto(`/mail/${accountId}/ARCHIVE`);
-	await waitForShell(page);
+	await openApp(page, `/mail/${accountId}/ARCHIVE`);
 	await expect(
 		page.getByRole('button', { name: 'Akce pro konverzaci Re: Plán vydání', exact: true })
 	).toBeVisible();
@@ -915,11 +858,10 @@ test.describe('Fokus po řádkové akci v seskupeném režimu', () => {
 		// The whole point of the column is keyboard reach; a delete that drops the
 		// reading cursor on <body> takes it away again. Same contract the flat list
 		// keeps via listFocusRestore.
-		await page.goto(`/mail/${accountId}/${encodeURIComponent(folderName)}`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${accountId}/${encodeURIComponent(folderName)}`);
 
-		const grid = page.getByRole('treegrid', { name: 'Seznam konverzací' });
-		const rows = grid.locator('[role="row"][data-stable-id]');
+		const grid = conversationGrid(page);
+		const rows = rowsOf(grid);
 		const firstId = await rows.first().getAttribute('data-stable-id');
 		const secondId = await rows.nth(1).getAttribute('data-stable-id');
 		if (!firstId || !secondId) throw new Error('Fixture musí mít aspoň dva řádky.');
@@ -946,8 +888,7 @@ test.describe('Fokus po řádkové akci v seskupeném režimu', () => {
 		// The member rows unmount for a moment on every reload (the member cache is
 		// cleared before the expanded threads refetch), so even a non-removing
 		// action costs the focused trigger.
-		await page.goto(`/mail/${accountId}/ARCHIVE`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${accountId}/ARCHIVE`);
 
 		const parent = archiveRow(page, 'arch-03');
 		await expect(parent).toBeVisible();

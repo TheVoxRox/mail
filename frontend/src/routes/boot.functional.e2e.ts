@@ -1,24 +1,19 @@
 import { expect, test } from '@playwright/test';
-import { waitForShell } from './e2e-helpers';
+import { openApp, rowsOf, setMockFlags, setPrefs, waitForShell } from './e2e-helpers';
 
 test.beforeEach(async ({ page }) => {
-	await page.addInitScript(() => {
-		window.localStorage.setItem('mail.locale', 'cs');
-		window.localStorage.setItem('mail.readingPane', 'right');
-	});
+	await setPrefs(page, { locale: 'cs', readingPane: 'right' });
 });
 
 test.describe('MSW bootstrap', () => {
 	test('běžný režim nezobrazuje diagnostickou lištu backendu', async ({ page }) => {
-		await page.goto('/');
-		await waitForShell(page);
+		await openApp(page, '/');
 
 		await expect(page.locator('header')).toHaveCount(0);
 	});
 
 	test('O aplikaci v běžném režimu nezobrazuje technickou diagnostiku', async ({ page }) => {
-		await page.goto('/settings/about');
-		await waitForShell(page);
+		await openApp(page, '/settings/about');
 
 		await expect(page.getByRole('heading', { name: 'Verze' })).toBeVisible();
 		await expect(page.getByText('Verze frontendu:')).toBeVisible();
@@ -33,8 +28,7 @@ test.describe('MSW bootstrap', () => {
 	test('ruční kontrola aktualizací v netauri režimu ukáže dostupnost jen v desktopu', async ({
 		page
 	}) => {
-		await page.goto('/settings/about');
-		await waitForShell(page);
+		await openApp(page, '/settings/about');
 
 		await page.getByRole('button', { name: 'Zkontrolovat aktualizace' }).click();
 
@@ -44,8 +38,7 @@ test.describe('MSW bootstrap', () => {
 	});
 
 	test('přepínač podokna čtení používá nativní select', async ({ page }) => {
-		await page.goto('/settings/appearance');
-		await waitForShell(page);
+		await openApp(page, '/settings/appearance');
 
 		await expect(page.getByRole('heading', { name: 'Rozložení podokna čtení' })).toBeVisible();
 		const select = page.getByRole('combobox', { name: 'Rozložení podokna čtení' });
@@ -62,12 +55,9 @@ test.describe('MSW bootstrap', () => {
 	});
 
 	test('rail otevře Poštu i bez účtu a nezůstane v Nastavení', async ({ page }) => {
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.e2e.noAccounts', '1');
-		});
+		await setMockFlags(page, { noAccounts: true });
 
-		await page.goto('/settings/appearance');
-		await waitForShell(page);
+		await openApp(page, '/settings/appearance');
 
 		await page.getByRole('link', { name: 'Pošta (Ctrl+1)' }).click();
 		await page.waitForURL('**/');
@@ -83,8 +73,7 @@ test.describe('MSW bootstrap', () => {
 	});
 
 	test('klávesové zkratky Ctrl+1, Ctrl+2 a Ctrl+3 přepínají workspace módy', async ({ page }) => {
-		await page.goto('/settings/appearance');
-		await waitForShell(page);
+		await openApp(page, '/settings/appearance');
 
 		await page.keyboard.press('Alt+2');
 		await expect(page).toHaveURL(/\/settings\/appearance$/);
@@ -144,8 +133,7 @@ test.describe('MSW bootstrap', () => {
 	});
 
 	test('Ctrl+2 přepne prostředí i s kurzorem v hledacím poli', async ({ page }) => {
-		await page.goto('/mail/1/INBOX');
-		await waitForShell(page);
+		await openApp(page, '/mail/1/INBOX');
 		await expect(page.getByRole('region', { name: 'Podokno pošty' })).toBeVisible();
 
 		/*
@@ -163,8 +151,7 @@ test.describe('MSW bootstrap', () => {
 	});
 
 	test('nastartuje aplikaci bez backendu a přesměruje na aktivní inbox', async ({ page }) => {
-		await page.goto('/');
-		await waitForShell(page);
+		await openApp(page, '/');
 		await page.waitForURL('**/mail/1/INBOX');
 
 		await expect(page.getByRole('navigation', { name: 'Přepínač prostředí' })).toBeVisible();
@@ -184,12 +171,9 @@ test.describe('MSW bootstrap', () => {
 				browserErrors.push(message.text());
 			}
 		});
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.e2e.folderAuthFailure', '1');
-		});
+		await setMockFlags(page, { folderAuthFailure: true });
 
-		await page.goto('/');
-		await waitForShell(page);
+		await openApp(page, '/');
 
 		await expect(
 			page.getByText('Autorizace u Google vypršela nebo byla zrušena.').first()
@@ -199,9 +183,7 @@ test.describe('MSW bootstrap', () => {
 	});
 
 	test('při pomalé readiness ukazuje konkrétní fázi a potom dokončí start', async ({ page }) => {
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.e2e.readinessDelayMs', '1200');
-		});
+		await setMockFlags(page, { readinessDelayMs: 1200 });
 
 		await page.goto('/');
 
@@ -212,9 +194,7 @@ test.describe('MSW bootstrap', () => {
 	});
 
 	test('při pomalé session ukazuje čekání na bezpečné připojení', async ({ page }) => {
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.e2e.sessionDelayMs', '900');
-		});
+		await setMockFlags(page, { sessionDelayMs: 900 });
 
 		await page.goto('/');
 
@@ -225,24 +205,20 @@ test.describe('MSW bootstrap', () => {
 	});
 
 	test('dočasně nedostupná readiness se retryne bez pádu bootu', async ({ page }) => {
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.e2e.readinessFailures', '2');
-		});
+		await setMockFlags(page, { readinessFailures: 2 });
 
-		await page.goto('/');
-
-		await waitForShell(page);
+		await openApp(page, '/');
 		await page.waitForURL('**/mail/1/INBOX');
 		await expect(page.getByRole('heading', { name: 'Doručené' })).toBeVisible();
 		await expect(page.getByRole('heading', { name: 'Nelze nastartovat aplikaci' })).toHaveCount(0);
 	});
 
 	test('velmi pomalý start nabídne retry, restart služby a diagnostiku', async ({ page }) => {
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.e2e', '1');
-			window.localStorage.setItem('mail.e2e.readinessDelayMs', '900');
-			window.localStorage.setItem('mail.e2e.bootSlowMs', '25');
-			window.localStorage.setItem('mail.e2e.bootVerySlowMs', '50');
+		await setMockFlags(page, {
+			e2e: true,
+			readinessDelayMs: 900,
+			bootSlowMs: 25,
+			bootVerySlowMs: 50
 		});
 
 		await page.goto('/');
@@ -259,10 +235,7 @@ test.describe('MSW bootstrap', () => {
 	});
 
 	test('selhání sidecaru nabídne retry a další pokus dokončí start', async ({ page }) => {
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.e2e', '1');
-			window.localStorage.setItem('mail.e2e.sidecarFailure', 'once');
-		});
+		await setMockFlags(page, { e2e: true, sidecarFailure: 'once' });
 
 		await page.goto('/');
 
@@ -276,12 +249,9 @@ test.describe('MSW bootstrap', () => {
 	});
 
 	test('client error reporter pošle bezpečný payload na interní endpoint', async ({ page }) => {
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.e2e', '1');
-		});
+		await setMockFlags(page, { e2e: true });
 
-		await page.goto('/settings/about');
-		await waitForShell(page);
+		await openApp(page, '/settings/about');
 		await page.waitForFunction(() => typeof window.__MAIL_E2E__?.reportClientError === 'function');
 		await page.evaluate(() => {
 			window.__MAIL_TEST_SESSION__ = {
@@ -354,20 +324,16 @@ test.describe('MSW bootstrap', () => {
 	});
 
 	test('paginace výpisu používá mockovaná data', async ({ page }) => {
-		await page.goto('/mail/1/INBOX');
-		await waitForShell(page);
+		await openApp(page, '/mail/1/INBOX');
 
 		await expect(page.getByText('Strana 1 z 1')).toBeVisible();
-		await expect(page.locator('[role="row"][data-stable-id]')).toHaveCount(25);
+		await expect(rowsOf(page)).toHaveCount(25);
 	});
 
 	test('update prompt funguje s mock response a Později dismissne verzi', async ({ page }) => {
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.e2e', '1');
-		});
+		await setMockFlags(page, { e2e: true });
 
-		await page.goto('/settings/about');
-		await waitForShell(page);
+		await openApp(page, '/settings/about');
 		await page.waitForFunction(
 			() => typeof window.__MAIL_E2E__?.showMockUpdateForTests === 'function'
 		);
@@ -389,12 +355,9 @@ test.describe('MSW bootstrap', () => {
 	});
 
 	test('update failure ukáže toast a GitHub Releases fallback link', async ({ page }) => {
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.e2e', '1');
-		});
+		await setMockFlags(page, { e2e: true });
 
-		await page.goto('/settings/about');
-		await waitForShell(page);
+		await openApp(page, '/settings/about');
 		await page.waitForFunction(
 			() => typeof window.__MAIL_E2E__?.showMockUpdateForTests === 'function'
 		);
@@ -421,12 +384,9 @@ test.describe('MSW bootstrap', () => {
 	});
 
 	test('ignoruje stale activeAccountId a použije existující účet', async ({ page }) => {
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.activeAccountId', '999');
-		});
+		await setPrefs(page, { activeAccountId: 999 });
 
-		await page.goto('/');
-		await waitForShell(page);
+		await openApp(page, '/');
 
 		await page.waitForURL('**/mail/1/INBOX');
 		await expect(page.getByRole('heading', { name: 'Doručené' })).toBeVisible();

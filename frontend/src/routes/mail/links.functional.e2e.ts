@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { waitForShell } from '../e2e-helpers';
+import { openApp, setPrefs } from '../e2e-helpers';
 
 /*
  * Regression cover for the message-body iframe LINK bridge (lib/mail/mailFrame.ts).
@@ -12,18 +12,13 @@ import { waitForShell } from '../e2e-helpers';
  */
 
 test.beforeEach(async ({ page }) => {
-	await page.addInitScript(() => {
-		window.localStorage.setItem('mail.locale', 'cs');
-		window.localStorage.setItem('mail.readingPane', 'right');
-		window.localStorage.setItem('mail.messageBodyView', 'html');
-	});
+	await setPrefs(page, { locale: 'cs', readingPane: 'right', messageBodyView: 'html' });
 });
 
 test('klik na odkaz v těle zprávy se přepošle ven místo mrtvé _blank navigace', async ({
 	page
 }) => {
-	await page.goto('/mail/1/INBOX/msg-01');
-	await waitForShell(page);
+	await openApp(page, '/mail/1/INBOX/msg-01');
 
 	const iframe = page.getByTitle('Obsah zprávy');
 	await expect(iframe).toBeVisible();

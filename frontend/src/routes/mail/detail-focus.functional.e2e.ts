@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { waitForShell } from '../e2e-helpers';
+import { openApp, setPrefs } from '../e2e-helpers';
 
 /*
  * Screen-reader guidance into an opened message (MessageContent.svelte):
@@ -12,16 +12,12 @@ import { waitForShell } from '../e2e-helpers';
  */
 
 test.beforeEach(async ({ page }) => {
-	await page.addInitScript(() => {
-		window.localStorage.setItem('mail.locale', 'cs');
-		window.localStorage.setItem('mail.readingPane', 'off');
-	});
+	await setPrefs(page, { locale: 'cs', readingPane: 'off' });
 });
 
 test.describe('Fokus na tělo otevřené zprávy', () => {
 	test('dvojklik na HTML zprávu přesune fokus na iframe s tělem', async ({ page }) => {
-		await page.goto('/mail/1/INBOX');
-		await waitForShell(page);
+		await openApp(page, '/mail/1/INBOX');
 
 		// A click anywhere on the row is a deliberate open (the web-mail model),
 		// so the reading cursor lands in the body just like it does on Enter.
@@ -44,11 +40,8 @@ test.describe('Fokus na tělo otevřené zprávy', () => {
 	});
 
 	test('plain-text zobrazení fokusuje textový kontejner', async ({ page }) => {
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.messageBodyView', 'plain');
-		});
-		await page.goto('/mail/1/INBOX/msg-01');
-		await waitForShell(page);
+		await setPrefs(page, { messageBodyView: 'plain' });
+		await openApp(page, '/mail/1/INBOX/msg-01');
 
 		const region = page.getByRole('region', { name: 'Text zprávy' });
 		await expect(region).toContainText('Projektové podklady');
@@ -56,11 +49,8 @@ test.describe('Fokus na tělo otevřené zprávy', () => {
 	});
 
 	test('ve split režimu přesune Enter na řádku fokus do čtecího podokna', async ({ page }) => {
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.readingPane', 'right');
-		});
-		await page.goto('/mail/1/INBOX');
-		await waitForShell(page);
+		await setPrefs(page, { readingPane: 'right' });
+		await openApp(page, '/mail/1/INBOX');
 
 		const row = page.locator('[role="row"][data-stable-id="msg-01"]');
 		await expect(row).toBeVisible();

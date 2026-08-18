@@ -1,17 +1,13 @@
 import { expect, test } from '@playwright/test';
-import { waitForShell } from './e2e-helpers';
+import { openApp, rowsOf, searchResultsGrid, setMockFlags, setPrefs } from './e2e-helpers';
 
 test.beforeEach(async ({ page }) => {
-	await page.addInitScript(() => {
-		window.localStorage.setItem('mail.locale', 'cs');
-		window.localStorage.setItem('mail.readingPane', 'right');
-	});
+	await setPrefs(page, { locale: 'cs', readingPane: 'right' });
 });
 
 test.describe('Search', () => {
 	test('synchronizuje SearchBar s parametrem q v URL', async ({ page }) => {
-		await page.goto('/search/1?q=foo');
-		await waitForShell(page);
+		await openApp(page, '/search/1?q=foo');
 
 		const searchInput = page.locator('#search-input');
 		await expect(searchInput).toHaveValue('foo');
@@ -27,14 +23,13 @@ test.describe('Search', () => {
 	});
 
 	test('najde zprávu v mockovaných datech a otevře detail z výsledků', async ({ page }) => {
-		await page.goto('/search/1?q=projekt');
-		await waitForShell(page);
+		await openApp(page, '/search/1?q=projekt');
 
 		await expect(
 			page.getByRole('heading', { name: 'Výsledky vyhledávání „projekt"' })
 		).toBeVisible();
 
-		const results = page.getByRole('grid', { name: 'Výsledky' });
+		const results = searchResultsGrid(page);
 		await expect(results).toBeVisible();
 
 		const result = results.getByRole('row').filter({ hasText: 'Projektové podklady' });
@@ -59,10 +54,9 @@ test.describe('Search', () => {
 		 * changes no route, the detail swaps in place, so there is no address to
 		 * put in an href.
 		 */
-		await page.goto('/search/1?q=projekt');
-		await waitForShell(page);
+		await openApp(page, '/search/1?q=projekt');
 
-		const results = page.getByRole('grid', { name: 'Výsledky' });
+		const results = searchResultsGrid(page);
 		// By cell, not by accessible name: the row's actions trigger is a button
 		// too and also names the subject, so a name match resolves to both.
 		const subject = results
@@ -97,10 +91,9 @@ test.describe('Search', () => {
 		 * is a regression guard for the path that already worked, not a
 		 * reproduction of the gap. The browse-mode case above is the reproduction.
 		 */
-		await page.goto('/search/1?q=projekt');
-		await waitForShell(page);
+		await openApp(page, '/search/1?q=projekt');
 
-		const results = page.getByRole('grid', { name: 'Výsledky' });
+		const results = searchResultsGrid(page);
 		// By cell, not by accessible name: the row's actions trigger is a button
 		// too and also names the subject, so a name match resolves to both.
 		const subject = results
@@ -117,25 +110,21 @@ test.describe('Search', () => {
 	});
 
 	test('příchod výsledků hledání ohlásí počet do live regionu', async ({ page }) => {
-		await page.goto('/search/1?q=projekt');
-		await waitForShell(page);
+		await openApp(page, '/search/1?q=projekt');
 
 		// Focus stays in the search box while the results render below it,
 		// so the arrival of results must be announced explicitly.
-		await expect(page.getByRole('grid', { name: 'Výsledky' })).toBeVisible();
+		await expect(searchResultsGrid(page)).toBeVisible();
 		await expect(page.locator('#live-region')).toContainText('Nalezeno 1 zpráva.');
 	});
 
 	test('stránkování výsledků ohlásí novou stranu do live regionu', async ({ page }) => {
-		await page.addInitScript(() => {
-			// 25 fixture matches for "zpráva" paginate by 10 → 3 pages; the
-			// default page size (25) would leave a single page and no pager.
-			window.localStorage.setItem('mail.e2e.mailPageSize', '10');
-		});
-		await page.goto('/search/1?q=zpráva');
-		await waitForShell(page);
+		// 25 fixture matches for "zpráva" paginate by 10 → 3 pages; the
+		// default page size (25) would leave a single page and no pager.
+		await setMockFlags(page, { mailPageSize: 10 });
+		await openApp(page, '/search/1?q=zpráva');
 
-		await expect(page.getByRole('grid', { name: 'Výsledky' })).toBeVisible();
+		await expect(searchResultsGrid(page)).toBeVisible();
 		await expect(page.locator('#live-region')).toContainText('Nalezeno 25 zpráv.');
 
 		const pagination = page.getByRole('navigation', { name: 'Stránkování výsledků' });
@@ -153,11 +142,8 @@ test.describe('Search', () => {
 	 * `novalidate` and the handler clamps instead.
 	 */
 	test('skok na stranu mimo rozsah se ořízne, místo aby se tiše odmítl', async ({ page }) => {
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.e2e.mailPageSize', '10');
-		});
-		await page.goto('/search/1?q=zpráva');
-		await waitForShell(page);
+		await setMockFlags(page, { mailPageSize: 10 });
+		await openApp(page, '/search/1?q=zpráva');
 
 		const pagination = page.getByRole('navigation', { name: 'Stránkování výsledků' });
 		const jumpField = pagination.getByRole('spinbutton', { name: 'Přejít na stranu' });
@@ -176,10 +162,9 @@ test.describe('Search', () => {
 	});
 
 	test('detail z výsledků hledání nabízí akce v inline toolbaru', async ({ page }) => {
-		await page.goto('/search/1?q=projekt');
-		await waitForShell(page);
+		await openApp(page, '/search/1?q=projekt');
 
-		const results = page.getByRole('grid', { name: 'Výsledky' });
+		const results = searchResultsGrid(page);
 		const result = results.getByRole('row').filter({ hasText: 'Projektové podklady' });
 		await expect(result).toBeVisible();
 		await result.click();
@@ -199,8 +184,7 @@ test.describe('Search', () => {
 		// The detail renders in place of the results here, so the mail route's
 		// closing path (back to the last browsed folder) would throw the user
 		// into the inbox and lose the results entirely.
-		await page.goto('/search/1?q=projekt');
-		await waitForShell(page);
+		await openApp(page, '/search/1?q=projekt');
 
 		const subject = page.locator('[role="row"][data-stable-id="msg-01"] [data-col="1"]');
 		await expect(subject).toBeVisible();
@@ -214,18 +198,17 @@ test.describe('Search', () => {
 		await page.locator('main').focus();
 		await page.keyboard.press('Escape');
 
-		await expect(page.getByRole('grid', { name: 'Výsledky' })).toBeVisible();
+		await expect(searchResultsGrid(page)).toBeVisible();
 		await expect(page).toHaveURL(/\/search\/1\?q=projekt$/);
 		await expect(subject).toBeFocused();
 	});
 
 	test('smazání výsledku z řádkového menu vrátí fokus na sousední řádek', async ({ page }) => {
-		await page.goto('/search/1?q=zpráva');
-		await waitForShell(page);
+		await openApp(page, '/search/1?q=zpráva');
 
-		const grid = page.getByRole('grid', { name: 'Výsledky' });
+		const grid = searchResultsGrid(page);
 		await expect(grid).toBeVisible();
-		const rows = grid.locator('[role="row"][data-stable-id]');
+		const rows = rowsOf(grid);
 		const firstId = await rows.nth(0).getAttribute('data-stable-id');
 		const secondId = await rows.nth(1).getAttribute('data-stable-id');
 		if (!firstId || !secondId) throw new Error('Výsledky hledání neobsahují data-stable-id.');
@@ -246,12 +229,9 @@ test.describe('Search', () => {
 		// The optimistic pipeline closes the detail itself when the open message
 		// is removed. On the mail route that means navigating to the folder; from
 		// search it must close in place, or the results and the query are gone.
-		await page.goto('/search/1?q=zpráva');
-		await waitForShell(page);
+		await openApp(page, '/search/1?q=zpráva');
 
-		const rows = page
-			.getByRole('grid', { name: 'Výsledky' })
-			.locator('[role="row"][data-stable-id]');
+		const rows = searchResultsGrid(page).locator('[role="row"][data-stable-id]');
 		const firstId = await rows.nth(0).getAttribute('data-stable-id');
 		const secondId = await rows.nth(1).getAttribute('data-stable-id');
 		if (!firstId || !secondId) throw new Error('Výsledky hledání neobsahují data-stable-id.');
@@ -265,7 +245,7 @@ test.describe('Search', () => {
 			.click();
 
 		await expect(page).toHaveURL(/\/search\/1\?q=zpr/);
-		await expect(page.getByRole('grid', { name: 'Výsledky' })).toBeVisible();
+		await expect(searchResultsGrid(page)).toBeVisible();
 		await expect(page.locator(`[role="row"][data-stable-id="${firstId}"]`)).toHaveCount(0);
 		await expect(
 			page.locator(`[role="row"][data-stable-id="${secondId}"] [data-col="1"]`)
@@ -275,12 +255,9 @@ test.describe('Search', () => {
 	test('smazání posledního výsledku přesune fokus na hlášku bez výsledků', async ({ page }) => {
 		// A single match, so the grid disappears with it — focus has to land on
 		// the message that replaces it instead of falling to <body>.
-		await page.goto('/search/1?q=projekt');
-		await waitForShell(page);
+		await openApp(page, '/search/1?q=projekt');
 
-		const rows = page
-			.getByRole('grid', { name: 'Výsledky' })
-			.locator('[role="row"][data-stable-id]');
+		const rows = searchResultsGrid(page).locator('[role="row"][data-stable-id]');
 		await expect(rows).toHaveCount(1);
 		await rows.locator('[data-col="5"]').click();
 		await page.getByRole('menuitem', { name: 'Smazat' }).click();

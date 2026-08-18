@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { waitForShell } from '../e2e-helpers';
+import { openApp, setPrefs } from '../e2e-helpers';
 
 /*
  * Regression cover for the remote-image opt-in (audit finding F2). Remote images
@@ -11,16 +11,11 @@ import { waitForShell } from '../e2e-helpers';
  */
 
 test.beforeEach(async ({ page }) => {
-	await page.addInitScript(() => {
-		window.localStorage.setItem('mail.locale', 'cs');
-		window.localStorage.setItem('mail.readingPane', 'right');
-		window.localStorage.setItem('mail.messageBodyView', 'html');
-	});
+	await setPrefs(page, { locale: 'cs', readingPane: 'right', messageBodyView: 'html' });
 });
 
 test('vzdálené obrázky jsou blokované, dokud je uživatel nenačte', async ({ page }) => {
-	await page.goto('/mail/1/INBOX/msg-02');
-	await waitForShell(page);
+	await openApp(page, '/mail/1/INBOX/msg-02');
 
 	const iframe = page.getByTitle('Obsah zprávy');
 	await expect(iframe).toBeVisible();

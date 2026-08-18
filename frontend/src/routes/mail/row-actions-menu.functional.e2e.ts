@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { waitForShell } from '../e2e-helpers';
+import { openApp, setPrefs } from '../e2e-helpers';
 
 /**
  * Row actions menu ("Akce pro zprávu …") in the message list. Delete removes
@@ -36,16 +36,12 @@ const KEY_PACE_MS = 60;
 const FIRST_ITEM = 'Odpovědět';
 
 test.beforeEach(async ({ page }) => {
-	await page.addInitScript(() => {
-		window.localStorage.setItem('mail.locale', 'cs');
-		window.localStorage.setItem('mail.readingPane', 'right');
-	});
+	await setPrefs(page, { locale: 'cs', readingPane: 'right' });
 });
 
 test.describe('Řádkové menu Akce', () => {
 	test('Smazat z řádkového menu smaže zprávu a menu se zavře', async ({ page }) => {
-		await page.goto(`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
 
 		const row = page.locator(`[role="row"][data-stable-id="${fixture.stableId}"]`);
 		await expect(row).toBeVisible();
@@ -63,8 +59,7 @@ test.describe('Řádkové menu Akce', () => {
 	});
 
 	test('Smazat z řádkového menu klávesnicí smaže zprávu a menu se zavře', async ({ page }) => {
-		await page.goto(`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
 
 		const row = page.locator(`[role="row"][data-stable-id="${fixture.stableId}"]`);
 		await expect(row).toBeVisible();
@@ -92,8 +87,7 @@ test.describe('Řádkové menu Akce', () => {
 	test('Smazat z řádkového menu v koši: potvrzovací dialog, smazání a menu zavřené', async ({
 		page
 	}) => {
-		await page.goto(`/mail/${fixture.accountId}/TRASH`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${fixture.accountId}/TRASH`);
 
 		const row = page.locator('[role="row"][data-stable-id="trash-01"]');
 		await expect(row).toBeVisible();
@@ -131,8 +125,7 @@ test.describe('Řádkové menu Akce', () => {
 			};
 		});
 
-		await page.goto(`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
 
 		const row = page.locator(`[role="row"][data-stable-id="${fixture.stableId}"]`);
 		await expect(row).toBeVisible();
@@ -154,8 +147,7 @@ test.describe('Řádkové menu Akce', () => {
 	test('po smazání z řádkového menu pokračují šipky v seznamu místo otevírání menu', async ({
 		page
 	}) => {
-		await page.goto(`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
 
 		const row = page.locator(`[role="row"][data-stable-id="${fixture.stableId}"]`);
 		await expect(row).toBeVisible();
@@ -174,8 +166,7 @@ test.describe('Řádkové menu Akce', () => {
 	});
 
 	test('šipka dolů na tlačítku Akce neotevře menu, ale naviguje v gridu', async ({ page }) => {
-		await page.goto(`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
 
 		const row = page.locator(`[role="row"][data-stable-id="${fixture.stableId}"]`);
 		await expect(row).toBeVisible();
@@ -193,11 +184,8 @@ test.describe('Řádkové menu Akce', () => {
 	});
 
 	test('Smazat z řádkového menu v režimu bez podokna čtení zavře menu', async ({ page }) => {
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.readingPane', 'off');
-		});
-		await page.goto(`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
-		await waitForShell(page);
+		await setPrefs(page, { readingPane: 'off' });
+		await openApp(page, `/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
 
 		const row = page.locator(`[role="row"][data-stable-id="${fixture.stableId}"]`);
 		await expect(row).toBeVisible();
@@ -222,8 +210,7 @@ test.describe('Řádkové menu Akce', () => {
 			}
 		});
 
-		await page.goto(`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
 
 		const row = page.locator(`[role="row"][data-stable-id="${fixture.stableId}"]`);
 		await expect(row).toBeVisible();
@@ -250,8 +237,7 @@ test.describe('Řádkové menu Akce', () => {
 			}
 		});
 
-		await page.goto(`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
 
 		const row = page.locator(`[role="row"][data-stable-id="${fixture.stableId}"]`);
 		await expect(row).toBeVisible();

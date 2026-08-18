@@ -1,5 +1,5 @@
 import { expect, test, type Locator } from '@playwright/test';
-import { waitForShell } from './e2e-helpers';
+import { openApp } from './e2e-helpers';
 
 async function expectArrowDownOpensSelect(locator: Locator): Promise<void> {
 	await locator.evaluate((element) => {
@@ -31,8 +31,7 @@ test.beforeEach(async ({ page }) => {
 
 test.describe('Settings – language', () => {
 	test('přepnutí jazyka okamžitě změní UI a uloží volbu do localStorage', async ({ page }) => {
-		await page.goto('/settings/language');
-		await waitForShell(page);
+		await openApp(page, '/settings/language');
 
 		await expect(page.getByRole('heading', { level: 1, name: 'Jazyk' })).toBeVisible();
 		await expect(page.getByRole('heading', { level: 2, name: 'Jazyk aplikace' })).toBeVisible();
@@ -54,8 +53,7 @@ test.describe('Settings – language', () => {
 	});
 
 	test('rozbalovací seznam jazyka se otevře šipkou dolů', async ({ page }) => {
-		await page.goto('/settings/language');
-		await waitForShell(page);
+		await openApp(page, '/settings/language');
 
 		await expectArrowDownOpensSelect(page.locator('#locale-select'));
 	});
@@ -63,8 +61,7 @@ test.describe('Settings – language', () => {
 
 test.describe('Settings – appearance', () => {
 	test('výchozí podokno čtení je skryté', async ({ page }) => {
-		await page.goto('/settings/appearance');
-		await waitForShell(page);
+		await openApp(page, '/settings/appearance');
 
 		const select = page.locator('#reading-pane-select');
 		await expect(select).toHaveValue('off');
@@ -74,15 +71,13 @@ test.describe('Settings – appearance', () => {
 	});
 
 	test('rozbalovací seznam motivu se otevře šipkou dolů', async ({ page }) => {
-		await page.goto('/settings/appearance');
-		await waitForShell(page);
+		await openApp(page, '/settings/appearance');
 
 		await expectArrowDownOpensSelect(page.locator('#theme-select'));
 	});
 
 	test('rozbalovací seznam podokna čtení se otevře šipkou dolů', async ({ page }) => {
-		await page.goto('/settings/appearance');
-		await waitForShell(page);
+		await openApp(page, '/settings/appearance');
 
 		await expectArrowDownOpensSelect(page.locator('#reading-pane-select'));
 	});
@@ -94,8 +89,7 @@ test.describe('Settings – appearance', () => {
 	 * alive, and persists under the key `$lib/tray.ts` reads.
 	 */
 	test('zavření okna má výchozí volbu nechat běžet a volba se uloží', async ({ page }) => {
-		await page.goto('/settings/appearance');
-		await waitForShell(page);
+		await openApp(page, '/settings/appearance');
 
 		const select = page.locator('#close-action-select');
 		await expect(select).toHaveValue('tray');
@@ -107,8 +101,7 @@ test.describe('Settings – appearance', () => {
 	});
 
 	test('zobrazení obsahu zprávy je rozbalovací seznam a volba se uloží', async ({ page }) => {
-		await page.goto('/settings/appearance');
-		await waitForShell(page);
+		await openApp(page, '/settings/appearance');
 
 		const select = page.locator('#message-body-select');
 		await expect(select).toHaveValue('html');

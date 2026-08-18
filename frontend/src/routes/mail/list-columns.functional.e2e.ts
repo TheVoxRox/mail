@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { waitForShell } from '../e2e-helpers';
+import { openApp, rowsOf, setPrefs } from '../e2e-helpers';
 
 /*
  * Shared column tracks in the two flat message grids.
@@ -80,24 +80,20 @@ function spread(values: number[]): number {
 }
 
 async function openGrid(page: Page, url: string, name: string): Promise<Locator> {
-	await page.goto(url);
-	await waitForShell(page);
+	await openApp(page, url);
 	const grid = page.getByRole('grid', { name });
-	await expect(grid.locator('[role="row"][data-stable-id]').first()).toBeVisible();
+	await expect(rowsOf(grid).first()).toBeVisible();
 	return grid;
 }
 
 test.beforeEach(async ({ page }) => {
-	await page.addInitScript(() => {
-		window.localStorage.setItem('mail.locale', 'cs');
-		/*
-		 * Pinned, not inherited. `flat` is today's default but the threading
-		 * rollout is staged to flip it, and a grouped default renders
-		 * ConversationList instead — a treegrid under a different name, so these
-		 * tests would die on a locator timeout that says nothing about grouping.
-		 */
-		window.localStorage.setItem('mail.messageGrouping', 'flat');
-	});
+	/*
+	 * `messageGrouping` is pinned, not inherited. `flat` is today's default but
+	 * the threading rollout is staged to flip it, and a grouped default renders
+	 * ConversationList instead — a treegrid under a different name, so these
+	 * tests would die on a locator timeout that says nothing about grouping.
+	 */
+	await setPrefs(page, { locale: 'cs', messageGrouping: 'flat' });
 });
 
 test.describe('Sloupce plochých seznamů', () => {
