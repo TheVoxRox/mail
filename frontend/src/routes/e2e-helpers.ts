@@ -1,4 +1,4 @@
-import type { Locator, Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import type { MessageBodyView, MessageGrouping, ReadingPane } from '$lib/stores/uiLayout.js';
 import type { TextSize } from '$lib/stores/textSize.js';
 import type { ThemePreference } from '$lib/stores/theme.js';
@@ -24,6 +24,29 @@ export async function waitForShell(page: Page): Promise<void> {
  */
 export async function waitForRootRedirect(page: Page): Promise<void> {
 	await page.waitForURL('**/mail/**');
+}
+
+/**
+ * Wait until `target` is the document's active element.
+ *
+ * Preferred over `toBeFocused()` anywhere the message body is in play: that
+ * matcher additionally requires `document.hasFocus()`, which headless Chromium
+ * reports false on the outer document while the programmatically focused
+ * sandbox `<iframe>` holds focus (flaky in CI). Comparing `activeElement` has
+ * no such dependency.
+ *
+ * What makes it a helper rather than a workaround is the waiting half. Opening
+ * a message parks focus in the body frame a frame later — MessageContent defers
+ * it so the move lands after SvelteKit's own post-navigation focus reset — so a
+ * visible frame says nothing about focus having arrived. A test that takes
+ * focus away inside that gap has it stolen back, and because the frame forwards
+ * keystrokes to the parent (lib/mail/mailFrame.ts) the key still lands: the test
+ * passes while covering something other than what it claims (#284, #293). Wait
+ * for focus to settle, then assert who holds it before sending a key — both
+ * halves are this one call.
+ */
+export async function waitForFocus(target: Locator): Promise<void> {
+	await expect.poll(() => target.evaluate((el) => el === document.activeElement)).toBe(true);
 }
 
 /**
@@ -147,6 +170,14 @@ export const searchResultsGrid = (page: Page): Locator =>
 /** The contact list (ContactList) — a native table carrying grid roles. */
 export const contactGrid = (page: Page): Locator =>
 	page.getByRole('grid', { name: 'Seznam kontaktů' });
+
+/**
+ * The message-body iframe (MessageContent), by its accessible title — never by
+ * tag: the page can hold a second frame (the CSP probe in shortcuts builds one),
+ * and a bare `iframe` locator turns that into a strict-mode failure in tests
+ * that have nothing to do with it.
+ */
+export const bodyFrame = (page: Page): Locator => page.getByTitle('Obsah zprávy');
 
 /**
  * The data rows under `root`, in render order — never the sr-only header row,

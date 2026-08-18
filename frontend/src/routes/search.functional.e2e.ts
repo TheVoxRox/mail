@@ -1,5 +1,13 @@
 import { expect, test } from '@playwright/test';
-import { openApp, rowsOf, searchResultsGrid, setMockFlags, setPrefs } from './e2e-helpers';
+import {
+	bodyFrame,
+	openApp,
+	rowsOf,
+	searchResultsGrid,
+	setMockFlags,
+	setPrefs,
+	waitForFocus
+} from './e2e-helpers';
 
 test.beforeEach(async ({ page }) => {
 	await setPrefs(page, { locale: 'cs', readingPane: 'right' });
@@ -192,10 +200,14 @@ test.describe('Search', () => {
 		await page.keyboard.press('Enter');
 
 		await expect(page.getByRole('heading', { name: 'Projektové podklady' })).toBeVisible();
-		const frame = page.getByTitle('Obsah zprávy');
-		await expect.poll(() => frame.evaluate((el) => el === document.activeElement)).toBe(true);
+		const frame = bodyFrame(page);
+		await waitForFocus(frame);
 
-		await page.locator('main').focus();
+		const main = page.locator('main');
+		await main.focus();
+		// Confirm the app really gave focus up before the key goes out, so a
+		// future theft fails here rather than passing as the wrong test.
+		await waitForFocus(main);
 		await page.keyboard.press('Escape');
 
 		await expect(searchResultsGrid(page)).toBeVisible();

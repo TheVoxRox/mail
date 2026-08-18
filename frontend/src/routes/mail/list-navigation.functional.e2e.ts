@@ -1,5 +1,5 @@
 import { expect, test, type Locator } from '@playwright/test';
-import { messageGrid, openApp, rowsOf, setPrefs } from '../e2e-helpers';
+import { bodyFrame, messageGrid, openApp, rowsOf, setPrefs, waitForFocus } from '../e2e-helpers';
 
 /*
  * What a screen reader does to the grid instead of pressing Enter. In browse
@@ -225,7 +225,7 @@ test.describe('Seznam zpráv ve split režimu', () => {
 		// out of the list once it arrives.
 		await page.keyboard.press('ArrowDown');
 		await page.waitForURL('**/mail/1/INBOX/msg-02');
-		await expect(page.getByTitle('Obsah zprávy')).toBeVisible();
+		await expect(bodyFrame(page)).toBeVisible();
 		await expect.poll(activeCell).toEqual({ stableId: 'msg-02', col: '2' });
 
 		// Focus still in the grid means the next Arrow key keeps navigating.
@@ -236,8 +236,8 @@ test.describe('Seznam zpráv ve split režimu', () => {
 		// Enter is the deliberate open — that one does move the reading cursor
 		// into the body of the message already showing in the pane.
 		await page.keyboard.press('Enter');
-		const frame = page.getByTitle('Obsah zprávy');
-		await expect.poll(() => frame.evaluate((el) => el === document.activeElement)).toBe(true);
+		const frame = bodyFrame(page);
+		await waitForFocus(frame);
 	});
 
 	test('jednoklik ve split režimu otevře zprávu a pustí kurzor do těla', async ({ page }) => {
@@ -252,9 +252,9 @@ test.describe('Seznam zpráv ve split režimu', () => {
 		// keep the cursor in the list — that is the split-mode test above.
 		await subject.click();
 		await page.waitForURL('**/mail/1/INBOX/msg-01');
-		const frame = page.getByTitle('Obsah zprávy');
+		const frame = bodyFrame(page);
 		await expect(frame).toBeVisible();
-		await expect.poll(() => frame.evaluate((el) => el === document.activeElement)).toBe(true);
+		await waitForFocus(frame);
 	});
 
 	test('aktivace odečítačem ve split režimu pustí kurzor do těla zprávy', async ({ page }) => {
@@ -271,8 +271,8 @@ test.describe('Seznam zpráv ve split režimu', () => {
 		await activateLikeScreenReader(subject);
 
 		await page.waitForURL('**/mail/1/INBOX/msg-01');
-		const frame = page.getByTitle('Obsah zprávy');
-		await expect.poll(() => frame.evaluate((el) => el === document.activeElement)).toBe(true);
+		const frame = bodyFrame(page);
+		await waitForFocus(frame);
 	});
 
 	test('Delete na neotevřeném řádku neztratí fokus a nechá detail otevřený', async ({ page }) => {
@@ -285,23 +285,21 @@ test.describe('Seznam zpráv ve split režimu', () => {
 		await expect(page.getByRole('heading', { name: 'Projektové podklady' })).toBeVisible();
 
 		/*
-		 * Wait for the app to park focus in the content frame before taking it
-		 * away. Opening a message moves focus there on its own, a step behind the
-		 * navigation, and a rendered heading does not mean that step has run —
-		 * so a row focused too early gets it stolen back. Delete then reaches the
-		 * detail rather than the grid and removes the OPEN message instead of the
-		 * focused row, which is why this failed as "msg-02 still present" rather
-		 * than as a lost keystroke. Measured: with focus left in the frame, Delete
-		 * takes msg-01 and leaves msg-02 standing, three runs of three.
+		 * Why this test in particular cares (waitForFocus explains the gap
+		 * itself): Delete sent too early reaches the detail rather than the grid
+		 * and removes the OPEN message instead of the focused row, so it failed
+		 * as "msg-02 still present" rather than as a lost keystroke. Measured:
+		 * with focus left in the frame, Delete takes msg-01 and leaves msg-02
+		 * standing, three runs of three.
 		 */
-		const frame = page.getByTitle('Obsah zprávy');
-		await expect.poll(() => frame.evaluate((el) => el === document.activeElement)).toBe(true);
+		const frame = bodyFrame(page);
+		await waitForFocus(frame);
 
 		const secondSubject = page.locator('[role="row"][data-stable-id="msg-02"] [data-col="2"]');
 		await secondSubject.focus();
 		// Confirm the row really holds focus before the key goes out, so a future
 		// theft fails here instead of three lines down as a puzzling count.
-		await expect(secondSubject).toBeFocused();
+		await waitForFocus(secondSubject);
 		await page.keyboard.press('Delete');
 
 		await expect(page.locator('[role="row"][data-stable-id="msg-02"]')).toHaveCount(0);
@@ -327,7 +325,7 @@ test.describe('Seznam zpráv ve split režimu', () => {
 		await page.keyboard.press('ArrowDown');
 		await page.waitForURL('**/mail/1/INBOX/msg-02');
 		const second = page.locator('[role="row"][data-stable-id="msg-02"] [data-col="2"]');
-		await expect.poll(() => second.evaluate((el) => el === document.activeElement)).toBe(true);
+		await waitForFocus(second);
 
 		await page.keyboard.press('Escape');
 		await page.waitForURL((url) => url.pathname === '/mail/1/INBOX');
