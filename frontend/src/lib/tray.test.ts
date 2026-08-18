@@ -101,10 +101,10 @@ describe('startTray', () => {
 		const { setCloseAction } = await import('$lib/stores/uiLayout.js');
 
 		tray.startTray();
-		expect(calls('set_close_behavior')).toEqual([{ hideToTray: true }]);
+		expect(calls('set_close_behavior')).toEqual([{ hideToTray: false }]);
 
-		setCloseAction('quit');
-		expect(calls('set_close_behavior')).toEqual([{ hideToTray: true }, { hideToTray: false }]);
+		setCloseAction('tray');
+		expect(calls('set_close_behavior')).toEqual([{ hideToTray: false }, { hideToTray: true }]);
 	});
 
 	it('builds the menu once and then only refreshes the tooltip', async () => {

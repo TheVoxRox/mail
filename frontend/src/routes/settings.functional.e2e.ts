@@ -84,19 +84,19 @@ test.describe('Settings – appearance', () => {
 
 	/*
 	 * The tray itself cannot be driven from Playwright (it is a native Windows
-	 * object). What is testable here — and what actually decides whether the app
-	 * keeps running — is that the preference exists, defaults to keeping the app
-	 * alive, and persists under the key `$lib/tray.ts` reads.
+	 * object). What is testable here — and what actually decides whether the
+	 * close button surprises anyone — is that the preference exists, defaults to
+	 * quitting, and persists under the key `$lib/tray.ts` reads.
 	 */
-	test('zavření okna má výchozí volbu nechat běžet a volba se uloží', async ({ page }) => {
+	test('zavření okna má výchozí volbu aplikaci ukončit a volba se uloží', async ({ page }) => {
 		await openApp(page, '/settings/appearance');
 
 		const select = page.locator('#close-action-select');
-		await expect(select).toHaveValue('tray');
+		await expect(select).toHaveValue('quit');
 		expect(await page.evaluate(() => window.localStorage.getItem('mail.closeAction'))).toBeNull();
 
-		await select.selectOption('quit');
-		expect(await page.evaluate(() => window.localStorage.getItem('mail.closeAction'))).toBe('quit');
+		await select.selectOption('tray');
+		expect(await page.evaluate(() => window.localStorage.getItem('mail.closeAction'))).toBe('tray');
 		await expectArrowDownOpensSelect(select);
 	});
 

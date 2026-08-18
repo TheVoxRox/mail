@@ -1,14 +1,14 @@
 //! System-tray icon, its menu, and the close-to-tray behaviour of the main
 //! window.
 //!
-//! The app can outlive its window: closing the window hides it instead of
+//! The app can outlive its window: closing the window can hide it instead of
 //! quitting, so sync and new-mail notifications keep running. That is the
 //! whole point of the tray — a mail client that only notifies while its window
-//! is open is not doing the job — but it is also a trap if the user reads the
-//! close button as "quit", which is why the behaviour is a setting
-//! (`mail.closeAction`, Settings → Appearance) rather than a decision made for
-//! them. The webview owns that setting and pushes it here via
-//! [`set_close_behavior`]; nothing is persisted on the Rust side.
+//! is open is not doing the job — but a close button that does not close is a
+//! trap, so hiding is the opt-in half of a setting (`mail.closeAction`,
+//! Settings → Appearance) whose default is to quit. The webview owns that
+//! setting and pushes it here via [`set_close_behavior`]; nothing is persisted
+//! on the Rust side.
 //!
 //! Menu labels come from the webview too ([`configure_tray`]) — the i18n
 //! bundles live there, and a second copy of the strings in Rust would be a
@@ -35,10 +35,11 @@ const MENU_QUIT: &str = "quit";
 
 /// Whether closing the main window hides it (true) or quits the app (false).
 ///
-/// **Defaults to quitting**, even though the stored preference usually says
-/// otherwise, because the default is what governs before anything has been
-/// stored — and that window is exactly where hiding is a trap. The webview
-/// enables hiding from [`set_close_behavior`] at the end of its boot sequence;
+/// **Defaults to quitting**, which is also what the webview preference
+/// defaults to — but it would default this way regardless, because the default
+/// is what governs before anything has been stored, and that window is exactly
+/// where hiding is a trap. The webview enables hiding from
+/// [`set_close_behavior`] at the end of its boot sequence;
 /// a boot that never gets there (no sidecar, session timeout, failed readiness)
 /// leaves a tray icon with no menu, so a close button that hid the window would
 /// leave the user no way to quit but Task Manager — in the one state where they
