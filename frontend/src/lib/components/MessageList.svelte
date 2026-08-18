@@ -387,13 +387,44 @@
 				onMoveTo={handleBulkMoveTo}
 			/>
 
+			<!--
+				The column widths live here, on the list, not on each row — the same
+				arrangement the grouped list uses (see ConversationList) and for the same
+				reason. A track sized to one row's own content agrees with the row above
+				it only by coincidence: the status cell is `auto` around `MessageFlags`,
+				whose three icons are each conditional, so a row carrying one measures
+				30px there and a row carrying none 16px — and the subject column behind
+				it starts 14px further right. Measured in the browser, not reasoned
+				about.
+
+				What kept it out of sight is the `minmax(0,1fr)` on the subject: it
+				absorbs the difference, so the date and actions columns stay put and only
+				the left edge of the subject moves. The date column has the same fault
+				and shows it whenever the formats differ: with the three shapes
+				`formatMessageListDate` can return substituted into one list — a clock,
+				a weekday name and a full date — that column measured 1167 / 1154.7 /
+				1120.3px from the left. Those three came from substituting the strings
+				by hand, because the e2e fixture dates all land on one day and render
+				one shape; the 30/16px status figures above are what it renders as
+				shipped. Rows are `subgrid`, so every one of them now resolves against
+				this one set of tracks and the columns line up by construction rather
+				than by coincidence of content width.
+
+				Five tracks, not the six `aria-colcount` reports: subject and sender
+				share the third one across the two rows. The ARIA count describes the
+				reading order, not the layout, and writing it here would not break the
+				grid visibly — it would just shift every cell one column right.
+
+				`content-start` because the implicit rows are `auto`: without it a short
+				list stretches its rows to fill the viewport.
+			-->
 			<div
 				bind:this={gridElement}
 				role="grid"
 				aria-label={$_('messages.listLabel')}
 				aria-rowcount={pageData.totalElements + 1}
 				aria-colcount={6}
-				class="flex-1 overflow-y-auto bg-background"
+				class="grid flex-1 grid-cols-[2.5rem_auto_minmax(0,1fr)_auto_auto] content-start overflow-y-auto bg-background"
 			>
 				<div role="row" aria-rowindex={1} class="sr-only">
 					<span role="columnheader" aria-colindex={1}>{$_('messages.columnHeaderSelect')}</span>
@@ -412,6 +443,14 @@
 					{@const multiSelected = $selectedMessageIdSet.has(message.stableId)}
 					{@const statusLabel = messageStatusLabel(message, $_)}
 					{@const formattedDate = formatMessageListDate(message.receivedAt, $appLocale ?? 'cs')}
+					<!--
+						Columns come from the list (see the `subgrid` note above); only the two
+						row tracks are the row's own. Nothing here may take horizontal padding:
+						under `subgrid` a padding on the row insets every one of its tracks at
+						once, so the actions column would slide past the list's right edge. The
+						cells carry their own padding already, which is why this row carries
+						none.
+					-->
 					<div
 						role="row"
 						tabindex="-1"
@@ -421,7 +460,7 @@
 						aria-selected={selected ? 'true' : 'false'}
 						aria-current={selected ? 'page' : undefined}
 						class={cn(
-							'grid cursor-pointer grid-cols-[2.5rem_auto_minmax(0,1fr)_auto_auto] grid-rows-[auto_auto] border-b border-border/80 transition-colors focus-within:relative focus-within:z-10',
+							'col-span-full grid cursor-pointer grid-cols-subgrid grid-rows-[auto_auto] border-b border-border/80 transition-colors focus-within:relative focus-within:z-10',
 							selected
 								? 'bg-primary/10 text-foreground shadow-[inset_3px_0_0_var(--primary)]'
 								: 'hover:bg-muted/40',
@@ -507,7 +546,17 @@
 							aria-colindex={COL_SENDER + 1}
 							{...grid.cell(rowIndex, COL_SENDER)}
 							class={cn(
-								'col-start-3 row-start-2 truncate rounded-sm px-2 pb-3 text-sm',
+								/*
+									`min-h-8` because `subgrid` shares the columns only — the two
+									row tracks stay each row's own, so an empty cell still
+									collapses one. In Drafts and Sent this cell renders
+									`recipientsTo`, which is nullable, so a draft saved without a
+									To header would leave the row ~20px shorter than its
+									neighbours. The value is the height the filled cell already
+									has (20px line + 12px padding), so it costs nothing when
+									there is text. Same floor as ConversationList.
+								*/
+								'col-start-3 row-start-2 min-h-8 truncate rounded-sm px-2 pb-3 text-sm',
 								!message.seen ? 'text-foreground' : 'text-muted-foreground',
 								focusRingInset
 							)}
