@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { waitForShell } from '../e2e-helpers';
+import { openApp, setPrefs } from '../e2e-helpers';
 
 /**
  * Delete in the trash folder is a permanent delete (server-side expunge) and
@@ -15,10 +15,7 @@ const fixture = {
 };
 
 test.beforeEach(async ({ page }) => {
-	await page.addInitScript(() => {
-		window.localStorage.setItem('mail.locale', 'cs');
-		window.localStorage.setItem('mail.readingPane', 'right');
-	});
+	await setPrefs(page, { locale: 'cs', readingPane: 'right' });
 });
 
 test.describe('Trvalé mazání v koši', () => {
@@ -32,8 +29,7 @@ test.describe('Trvalé mazání v koši', () => {
 			}
 		});
 
-		await page.goto(`/mail/${fixture.accountId}/${fixture.trashFolder}`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${fixture.accountId}/${fixture.trashFolder}`);
 		await expect(
 			page.locator(`[role="row"][data-stable-id="${fixture.trashIds[0]}"]`)
 		).toBeVisible();
@@ -81,8 +77,7 @@ test.describe('Trvalé mazání v koši', () => {
 			}
 		});
 
-		await page.goto(`/mail/${fixture.accountId}/${fixture.trashFolder}`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${fixture.accountId}/${fixture.trashFolder}`);
 
 		const row = page.locator(`[role="row"][data-stable-id="${fixture.trashIds[0]}"]`);
 		await expect(row).toBeVisible();
@@ -110,8 +105,7 @@ test.describe('Trvalé mazání v koši', () => {
 			}
 		});
 
-		await page.goto(`/mail/${fixture.accountId}/${fixture.inboxFolder}`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${fixture.accountId}/${fixture.inboxFolder}`);
 
 		const row = page.locator(`[role="row"][data-stable-id="${fixture.inboxId}"]`);
 		await expect(row).toBeVisible();

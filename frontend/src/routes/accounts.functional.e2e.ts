@@ -1,11 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
-import { waitForShell } from './e2e-helpers';
+import { openApp, setMockFlags, setPrefs } from './e2e-helpers';
 
 test.beforeEach(async ({ page }) => {
-	await page.addInitScript(() => {
-		window.localStorage.setItem('mail.locale', 'cs');
-		window.localStorage.setItem('mail.readingPane', 'right');
-	});
+	await setPrefs(page, { locale: 'cs', readingPane: 'right' });
 });
 
 type AccountMutationMethod = 'POST' | 'PUT';
@@ -42,12 +39,9 @@ async function accountApiRequest(
 
 test.describe('Accounts', () => {
 	test('prázdný seznam účtů nabídne onboarding a otevře přidání prvního účtu', async ({ page }) => {
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.e2e.noAccounts', '1');
-		});
+		await setMockFlags(page, { noAccounts: true });
 
-		await page.goto('/settings/accounts');
-		await waitForShell(page);
+		await openApp(page, '/settings/accounts');
 
 		await expect(
 			page.getByRole('heading', { level: 2, name: 'Přidejte první poštovní účet' })
@@ -62,8 +56,7 @@ test.describe('Accounts', () => {
 	});
 
 	test('Gmail e-mail otevře OAuth panel s Google CTA bez IMAP formuláře', async ({ page }) => {
-		await page.goto('/settings/accounts/new');
-		await waitForShell(page);
+		await openApp(page, '/settings/accounts/new');
 
 		await page.locator('#wizard-email').fill('someone@gmail.com');
 		await page.getByRole('button', { name: 'Pokračovat' }).click();
@@ -78,8 +71,7 @@ test.describe('Accounts', () => {
 	});
 
 	test('Outlook e-mail otevře OAuth panel s Microsoft CTA bez IMAP formuláře', async ({ page }) => {
-		await page.goto('/settings/accounts/new');
-		await waitForShell(page);
+		await openApp(page, '/settings/accounts/new');
 
 		await page.locator('#wizard-email').fill('user@outlook.com');
 		await page.getByRole('button', { name: 'Pokračovat' }).click();
@@ -94,8 +86,7 @@ test.describe('Accounts', () => {
 	test('Seznam e-mail otevře provider flow s app-password varováním a odkazem', async ({
 		page
 	}) => {
-		await page.goto('/settings/accounts/new');
-		await waitForShell(page);
+		await openApp(page, '/settings/accounts/new');
 
 		await page.locator('#wizard-email').fill('user@seznam.cz');
 		await page.getByRole('button', { name: 'Pokračovat' }).click();
@@ -110,8 +101,7 @@ test.describe('Accounts', () => {
 	});
 
 	test('auto-resolve providera reaguje i na změnu e-mailové domény', async ({ page }) => {
-		await page.goto('/settings/accounts/new');
-		await waitForShell(page);
+		await openApp(page, '/settings/accounts/new');
 
 		// Email-first wizard: manual setup opens the full form; switch to provider
 		// mode and test auto-resolve inside the form, not in the stepped wizard.
@@ -136,8 +126,7 @@ test.describe('Accounts', () => {
 	test('ruční výběr OAuth poskytovatele ve formuláři nabídne přihlášení místo hesla', async ({
 		page
 	}) => {
-		await page.goto('/settings/accounts/new');
-		await waitForShell(page);
+		await openApp(page, '/settings/accounts/new');
 
 		// Unknown domain hosted at Microsoft → the wizard opens the form in "Vlastní nastavení".
 		await page.locator('#wizard-email').fill('jan@firma.cz');
@@ -177,8 +166,7 @@ test.describe('Accounts', () => {
 	test('založení účtu s vlastním IMAP/SMTP pošle imap+smtp blok bez providerId', async ({
 		page
 	}) => {
-		await page.goto('/settings/accounts/new');
-		await waitForShell(page);
+		await openApp(page, '/settings/accounts/new');
 
 		// Unknown domain → the wizard sends us straight to form mode with
 		// "Vlastní nastavení" preselected (no template matches the firma.cz domain).
@@ -225,9 +213,7 @@ test.describe('Accounts', () => {
 	});
 
 	test('odmítnuté heslo účet nevytvoří a vrátí fokus na pole hesla', async ({ page }) => {
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.e2e.connectionTestAuthFailure', '1');
-		});
+		await setMockFlags(page, { connectionTestAuthFailure: true });
 
 		const createRequests: string[] = [];
 		page.on('request', (request) => {
@@ -236,8 +222,7 @@ test.describe('Accounts', () => {
 			}
 		});
 
-		await page.goto('/settings/accounts/new');
-		await waitForShell(page);
+		await openApp(page, '/settings/accounts/new');
 
 		await page.locator('#wizard-email').fill('majitel@firma.cz');
 		await page.getByRole('button', { name: 'Pokračovat' }).click();
@@ -261,8 +246,7 @@ test.describe('Accounts', () => {
 	});
 
 	test('test připojení ověří formulář bez vytvoření účtu', async ({ page }) => {
-		await page.goto('/settings/accounts/new');
-		await waitForShell(page);
+		await openApp(page, '/settings/accounts/new');
 
 		await page.locator('#wizard-email').fill('majitel@firma.cz');
 		await page.getByRole('button', { name: 'Pokračovat' }).click();
@@ -292,8 +276,7 @@ test.describe('Accounts', () => {
 	});
 
 	test('Zadat jiný e-mail vrátí wizard na první krok', async ({ page }) => {
-		await page.goto('/settings/accounts/new');
-		await waitForShell(page);
+		await openApp(page, '/settings/accounts/new');
 
 		await page.locator('#wizard-email').fill('majitel@firma.cz');
 		await page.getByRole('button', { name: 'Pokračovat' }).click();
@@ -309,8 +292,7 @@ test.describe('Accounts', () => {
 	test('toggle umožní přepnout z provider na vlastní a zpět bez ztráty zadaných údajů', async ({
 		page
 	}) => {
-		await page.goto('/settings/accounts/new');
-		await waitForShell(page);
+		await openApp(page, '/settings/accounts/new');
 		await page.getByRole('button', { name: 'Nastavit ručně' }).click();
 		await page.getByRole('radio', { name: 'Vybrat poskytovatele' }).click();
 
@@ -331,8 +313,7 @@ test.describe('Accounts', () => {
 	});
 
 	test('MSW odmítne neplatné account payloady stejně jako backend kontrakt', async ({ page }) => {
-		await page.goto('/settings/accounts/new');
-		await waitForShell(page);
+		await openApp(page, '/settings/accounts/new');
 		await page.waitForFunction(() => typeof window.__MAIL_MSW__?.reset === 'function');
 		await page.evaluate(() => window.__MAIL_MSW__?.reset());
 
@@ -442,8 +423,7 @@ test.describe('Accounts', () => {
 	test('seznam účtů zobrazí všechny existující účty s tlačítky Upravit a Smazat', async ({
 		page
 	}) => {
-		await page.goto('/settings/accounts');
-		await waitForShell(page);
+		await openApp(page, '/settings/accounts');
 
 		await expect(page.getByRole('heading', { level: 1, name: 'Účty' })).toBeVisible();
 
@@ -463,8 +443,7 @@ test.describe('Accounts', () => {
 	});
 
 	test('účet s trvalou chybou má v seznamu chybový stav místo Aktivní', async ({ page }) => {
-		await page.goto('/settings/accounts');
-		await waitForShell(page);
+		await openApp(page, '/settings/accounts');
 
 		const workRow = page.getByRole('listitem').filter({ hasText: 'Pracovní účet' });
 		await expect(workRow.getByText('Aktivní')).toBeVisible();
@@ -497,8 +476,7 @@ test.describe('Accounts', () => {
 			}
 		});
 
-		await page.goto('/settings/accounts');
-		await waitForShell(page);
+		await openApp(page, '/settings/accounts');
 
 		const personalRow = page.getByRole('listitem').filter({ hasText: 'Osobní účet' });
 		await personalRow.getByRole('button', { name: 'Smazat' }).click();
@@ -525,8 +503,7 @@ test.describe('Accounts', () => {
 			}
 		});
 
-		await page.goto('/settings/accounts/2');
-		await waitForShell(page);
+		await openApp(page, '/settings/accounts/2');
 
 		await expect(
 			page.getByRole('heading', { level: 1, name: /Upravit účet: Osobní účet/ })
@@ -552,9 +529,7 @@ test.describe('Accounts', () => {
 	});
 
 	test('změna hesla v editaci se neuloží, když ho server odmítne', async ({ page }) => {
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.e2e.connectionTestAuthFailure', '1');
-		});
+		await setMockFlags(page, { connectionTestAuthFailure: true });
 
 		const putRequests: string[] = [];
 		page.on('request', (request) => {
@@ -563,8 +538,7 @@ test.describe('Accounts', () => {
 			}
 		});
 
-		await page.goto('/settings/accounts/2');
-		await waitForShell(page);
+		await openApp(page, '/settings/accounts/2');
 
 		await page.locator('#acc-password').fill('spatne-heslo');
 
@@ -582,9 +556,7 @@ test.describe('Accounts', () => {
 	});
 
 	test('vypnout rozbitý účet jde i když by se přihlášení nepovedlo', async ({ page }) => {
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.e2e.connectionTestAuthFailure', '1');
-		});
+		await setMockFlags(page, { connectionTestAuthFailure: true });
 
 		const putBodies: unknown[] = [];
 		const probeRequests: string[] = [];
@@ -597,8 +569,7 @@ test.describe('Accounts', () => {
 			}
 		});
 
-		await page.goto('/settings/accounts/2');
-		await waitForShell(page);
+		await openApp(page, '/settings/accounts/2');
 
 		// A password the server rejects, plus the account switched off: the point
 		// of unticking is to stop a failing account, so the probe must not gate it.

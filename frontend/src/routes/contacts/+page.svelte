@@ -274,21 +274,8 @@
 
 	function goToPage(target: number) {
 		if (listState.status !== 'ready') return;
-		const lastPage = Math.max(0, listState.page.totalPages - 1);
-		const next = Math.min(Math.max(0, target), lastPage);
-		if (next === pageNumber) return;
 		announceNextLoad = true;
-		pageNumber = next;
-	}
-	function prevPage() {
-		if (pageNumber > 0) goToPage(pageNumber - 1);
-	}
-	function nextPage() {
-		if (listState.status === 'ready' && !listState.page.last) goToPage(pageNumber + 1);
-	}
-	function lastPage() {
-		if (listState.status !== 'ready') return;
-		goToPage(listState.page.totalPages - 1);
+		pageNumber = target;
 	}
 
 	// The list heading, window title and reload announcement all carry the
@@ -420,11 +407,7 @@
 						onChanged={() => load(data.query, pageNumber, data.sort, data.labelId, true)}
 						onEdit={(id) => goto(contactsHref({ edit: id }))}
 						onFilterApply={handleFilterApply}
-						onPrev={prevPage}
-						onNext={nextPage}
-						onFirst={() => goToPage(0)}
-						onLast={lastPage}
-						onJump={(target) => goToPage(target - 1)}
+						onNavigate={goToPage}
 						{restoreFocusContactId}
 						onFocusRestored={() => (restoreFocusContactId = null)}
 					/>

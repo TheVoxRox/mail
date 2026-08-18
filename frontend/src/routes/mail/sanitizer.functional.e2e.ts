@@ -1,17 +1,13 @@
 import { expect, test } from '@playwright/test';
-import { waitForShell } from '../e2e-helpers';
+import { openApp, setPrefs } from '../e2e-helpers';
 
 test.beforeEach(async ({ page }) => {
-	await page.addInitScript(() => {
-		window.localStorage.setItem('mail.locale', 'cs');
-		window.localStorage.setItem('mail.readingPane', 'right');
-	});
+	await setPrefs(page, { locale: 'cs', readingPane: 'right' });
 });
 
 test.describe('Mail HTML sanitizer', () => {
 	test('odstraní aktivní obsah a vzdálené zdroje z HTML zprávy', async ({ page }) => {
-		await page.goto('/mail/1/INBOX/msg-01');
-		await waitForShell(page);
+		await openApp(page, '/mail/1/INBOX/msg-01');
 
 		const iframe = page.getByTitle('Obsah zprávy');
 		await expect(iframe).toBeVisible();
@@ -34,14 +30,11 @@ test.describe('Mail HTML sanitizer', () => {
 
 test.describe('Zobrazení těla jako prostý text', () => {
 	test.beforeEach(async ({ page }) => {
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.messageBodyView', 'plain');
-		});
+		await setPrefs(page, { messageBodyView: 'plain' });
 	});
 
 	test('zploští HTML na čitelný text místo zobrazení holých značek', async ({ page }) => {
-		await page.goto('/mail/1/INBOX/msg-01');
-		await waitForShell(page);
+		await openApp(page, '/mail/1/INBOX/msg-01');
 
 		// Plain-text view renders directly in the document — no sandboxed iframe.
 		await expect(page.getByTitle('Obsah zprávy')).toHaveCount(0);

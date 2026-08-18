@@ -1,18 +1,14 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
-import { waitForShell } from './e2e-helpers';
+import { openApp, setPrefs } from './e2e-helpers';
 
 test.beforeEach(async ({ page }) => {
-	await page.addInitScript(() => {
-		window.localStorage.setItem('mail.locale', 'cs');
-		window.localStorage.setItem('mail.readingPane', 'right');
-	});
+	await setPrefs(page, { locale: 'cs', readingPane: 'right' });
 });
 
 test.describe('Compose', () => {
 	test('sidebar používá tlačítko Nová zpráva a Ctrl+N otevře compose', async ({ page }) => {
-		await page.goto('/mail/1/INBOX');
-		await waitForShell(page);
+		await openApp(page, '/mail/1/INBOX');
 
 		const sidebar = page.getByRole('region', { name: 'Podokno pošty' });
 		await expect(sidebar.getByRole('link', { name: /Nová zpráva/ })).toHaveCount(0);
@@ -21,8 +17,7 @@ test.describe('Compose', () => {
 		await page.waitForURL('**/compose');
 		await expect(page.getByRole('form', { name: 'Nová zpráva' })).toBeVisible();
 
-		await page.goto('/mail/1/INBOX');
-		await waitForShell(page);
+		await openApp(page, '/mail/1/INBOX');
 		await page.locator('body').dispatchEvent('keydown', {
 			key: 'n',
 			code: 'KeyN',
@@ -35,12 +30,10 @@ test.describe('Compose', () => {
 	});
 
 	test('nová zpráva fokusuje Komu a reply fokusuje tělo zprávy', async ({ page }) => {
-		await page.goto('/compose');
-		await waitForShell(page);
+		await openApp(page, '/compose');
 		await expect(page.locator('#compose-to')).toBeFocused();
 
-		await page.goto('/compose?reply=msg-01&all=0');
-		await waitForShell(page);
+		await openApp(page, '/compose?reply=msg-01&all=0');
 		await expect(page.locator('#compose-body')).toBeFocused();
 		await expect(page.locator('#compose-subject')).toHaveValue(/Re:/);
 	});
@@ -52,8 +45,7 @@ test.describe('Compose', () => {
 	 * than a check that the text is merely on screen.
 	 */
 	test('tělo zprávy má Markdown nápovědu ve své přístupné popisce', async ({ page }) => {
-		await page.goto('/compose');
-		await waitForShell(page);
+		await openApp(page, '/compose');
 
 		const body = page.locator('#compose-body');
 		await expect(body).toHaveAccessibleDescription(/Markdown/);
@@ -63,8 +55,7 @@ test.describe('Compose', () => {
 	});
 
 	test('forward prefill doplní Fwd předmět a citované tělo', async ({ page }) => {
-		await page.goto('/compose?forward=msg-01');
-		await waitForShell(page);
+		await openApp(page, '/compose?forward=msg-01');
 
 		await expect(page.locator('#compose-body')).toBeFocused();
 		await expect(page.locator('#compose-subject')).toHaveValue('Fwd: Projektové podklady');
@@ -81,8 +72,7 @@ test.describe('Compose', () => {
 			}
 		});
 
-		await page.goto('/compose?reply=msg-01&all=0');
-		await waitForShell(page);
+		await openApp(page, '/compose?reply=msg-01&all=0');
 
 		await expect(page.getByText('Jana Novak <jana@example.com>')).toBeVisible();
 		await expect(page.locator('#compose-subject')).toHaveValue('Re: Projektové podklady');
@@ -111,8 +101,7 @@ test.describe('Compose', () => {
 			}
 		});
 
-		await page.goto('/compose?draft=draft-42');
-		await waitForShell(page);
+		await openApp(page, '/compose?draft=draft-42');
 
 		await expect(page.locator('#compose-body')).toBeFocused();
 		await expect(page.getByText('tester@example.com', { exact: true })).toBeVisible();
@@ -129,8 +118,7 @@ test.describe('Compose', () => {
 	});
 
 	test('odešle novou zprávu přes MSW API a vrátí se do inboxu', async ({ page }) => {
-		await page.goto('/compose');
-		await waitForShell(page);
+		await openApp(page, '/compose');
 
 		await expect(page.getByRole('form', { name: 'Nová zpráva' })).toBeVisible();
 		await expect(page.getByRole('region', { name: 'Podokno pošty' })).toBeVisible();
@@ -152,8 +140,7 @@ test.describe('Compose', () => {
 			if (request.method() === 'POST' && request.url().includes('/send')) sendRequests += 1;
 		});
 
-		await page.goto('/compose');
-		await waitForShell(page);
+		await openApp(page, '/compose');
 
 		await page.locator('#compose-to').fill('recipient@example.com');
 		await page.locator('#compose-subject').fill('Faktura');
@@ -179,8 +166,7 @@ test.describe('Compose', () => {
 	});
 
 	test('zpráva s připojenou přílohou se odešle bez potvrzovacího dialogu', async ({ page }) => {
-		await page.goto('/compose');
-		await waitForShell(page);
+		await openApp(page, '/compose');
 
 		await page.locator('#compose-to').fill('recipient@example.com');
 		await page.locator('#compose-subject').fill('Faktura');
@@ -199,8 +185,7 @@ test.describe('Compose', () => {
 	});
 
 	test('odeslání bez příjemce zobrazí chybu u pole Komu a zůstane na compose', async ({ page }) => {
-		await page.goto('/compose');
-		await waitForShell(page);
+		await openApp(page, '/compose');
 
 		await page.locator('#compose-subject').fill('Bez příjemce');
 		await page.locator('#compose-body').fill('Tato zpráva nesmí odejít.');
@@ -217,8 +202,7 @@ test.describe('Compose', () => {
 	});
 
 	test('neplatná adresa v Komu se označí u adresního pole', async ({ page }) => {
-		await page.goto('/compose');
-		await waitForShell(page);
+		await openApp(page, '/compose');
 
 		await page.locator('#compose-to').fill('neplatna-adresa');
 		await page.locator('#compose-subject').fill('Neplatný příjemce');
@@ -234,8 +218,7 @@ test.describe('Compose', () => {
 	});
 
 	test('autocomplete adresátů vloží e-mail kontaktu do pole Komu', async ({ page }) => {
-		await page.goto('/compose');
-		await waitForShell(page);
+		await openApp(page, '/compose');
 
 		await page.locator('#compose-to').fill('jana');
 		const suggestions = page.getByRole('listbox', { name: 'Návrhy adres' });
@@ -247,8 +230,7 @@ test.describe('Compose', () => {
 	});
 
 	test('našeptávač nabídne adresu z historie a řekne, že není v kontaktech', async ({ page }) => {
-		await page.goto('/compose');
-		await waitForShell(page);
+		await openApp(page, '/compose');
 
 		await page.locator('#compose-to').fill('jan');
 		const suggestions = page.getByRole('listbox', { name: 'Návrhy adres' });
@@ -280,8 +262,7 @@ test.describe('Compose', () => {
 	test('Escape v poli adresátů zavře jen našeptávač, další Escape teprve zahazuje', async ({
 		page
 	}) => {
-		await page.goto('/compose');
-		await waitForShell(page);
+		await openApp(page, '/compose');
 
 		await page.locator('#compose-to').fill('jana');
 		const suggestions = page.getByRole('listbox', { name: 'Návrhy adres' });
@@ -296,8 +277,7 @@ test.describe('Compose', () => {
 	});
 
 	test('přílohu lze přidat a odebrat přístupným tlačítkem', async ({ page }) => {
-		await page.goto('/compose');
-		await waitForShell(page);
+		await openApp(page, '/compose');
 
 		await page.locator('input[type="file"]').setInputFiles({
 			name: 'poznamka.txt',
@@ -328,8 +308,7 @@ test.describe('Compose', () => {
 			}
 		});
 
-		await page.goto('/compose');
-		await waitForShell(page);
+		await openApp(page, '/compose');
 
 		await page.locator('#compose-to').fill('recipient@example.com');
 		await page.locator('#compose-subject').fill('Zpráva s pomalou přílohou');
@@ -359,8 +338,7 @@ test.describe('Compose', () => {
 	});
 
 	test('přílohu lze přidat přetažením souboru do compose', async ({ page }) => {
-		await page.goto('/compose');
-		await waitForShell(page);
+		await openApp(page, '/compose');
 
 		const dataTransfer = await page.evaluateHandle(() => {
 			const transfer = new DataTransfer();
@@ -391,8 +369,7 @@ test.describe('Compose', () => {
 			}
 		});
 
-		await page.goto('/compose');
-		await waitForShell(page);
+		await openApp(page, '/compose');
 
 		await page.locator('#compose-body').focus();
 		await page.evaluate(() => {
@@ -430,8 +407,7 @@ test.describe('Compose', () => {
 	test('příliš velká příloha zobrazí lokalizovanou chybu a nepřidá se do payloadu', async ({
 		page
 	}) => {
-		await page.goto('/compose');
-		await waitForShell(page);
+		await openApp(page, '/compose');
 
 		await page.locator('input[type="file"]').setInputFiles({
 			name: 'velka-priloha.bin',
@@ -451,8 +427,7 @@ test.describe('Compose', () => {
 	test('odeslání bez předmětu zobrazí chybu u pole Předmět a zůstane na compose', async ({
 		page
 	}) => {
-		await page.goto('/compose');
-		await waitForShell(page);
+		await openApp(page, '/compose');
 
 		await page.locator('#compose-to').fill('recipient@example.com');
 		await page.locator('#compose-body').fill('Zpráva bez předmětu.');
@@ -477,8 +452,7 @@ test.describe('Compose', () => {
 	});
 
 	test('odeslání zobrazí průběžný toast a po send_completed potvrdí úspěch', async ({ page }) => {
-		await page.goto('/compose');
-		await waitForShell(page);
+		await openApp(page, '/compose');
 
 		await page.locator('#compose-to').fill('vysledek@example.com');
 		await page.locator('#compose-subject').fill('Sledování odeslání');
@@ -502,8 +476,7 @@ test.describe('Compose', () => {
 	});
 
 	test('po send_failed zobrazí chybu odeslání', async ({ page }) => {
-		await page.goto('/compose');
-		await waitForShell(page);
+		await openApp(page, '/compose');
 
 		await page.locator('#compose-to').fill('chyba@example.com');
 		await page.locator('#compose-subject').fill('Selhání odeslání');
@@ -524,8 +497,7 @@ test.describe('Compose', () => {
 	});
 
 	test('compose formulář nemá axe porušení po validaci a přidání přílohy', async ({ page }) => {
-		await page.goto('/compose');
-		await waitForShell(page);
+		await openApp(page, '/compose');
 
 		await page.getByRole('button', { name: 'Odeslat' }).click();
 		await page.locator('input[type="file"]').setInputFiles({
@@ -542,8 +514,7 @@ test.describe('Compose', () => {
 	});
 
 	test('Ctrl+Enter odešle novou zprávu z editoru', async ({ page }) => {
-		await page.goto('/compose');
-		await waitForShell(page);
+		await openApp(page, '/compose');
 
 		await page.locator('#compose-to').fill('shortcut-send@example.com');
 		await page.locator('#compose-subject').fill('E2E odeslání zkratkou');
@@ -555,8 +526,7 @@ test.describe('Compose', () => {
 	});
 
 	test('uloží koncept ručně přes MSW API a vrátí se do inboxu', async ({ page }) => {
-		await page.goto('/compose');
-		await waitForShell(page);
+		await openApp(page, '/compose');
 
 		await expect(page.getByRole('form', { name: 'Nová zpráva' })).toBeVisible();
 		await expect(page.getByRole('region', { name: 'Podokno pošty' })).toBeVisible();
@@ -571,8 +541,7 @@ test.describe('Compose', () => {
 	});
 
 	test('Ctrl+S uloží koncept z editoru', async ({ page }) => {
-		await page.goto('/compose');
-		await waitForShell(page);
+		await openApp(page, '/compose');
 
 		await page.locator('#compose-to').fill('shortcut-draft@example.com');
 		await page.locator('#compose-subject').fill('E2E koncept zkratkou');
@@ -584,8 +553,7 @@ test.describe('Compose', () => {
 	});
 
 	test('Gmail zkratky Ctrl+Shift+C a Ctrl+Shift+B přesunou fokus na kopie', async ({ page }) => {
-		await page.goto('/compose');
-		await waitForShell(page);
+		await openApp(page, '/compose');
 
 		await page.locator('#compose-body').focus();
 		await page.keyboard.press('Control+Shift+C');
@@ -599,8 +567,7 @@ test.describe('Compose', () => {
 	test('Gmail zkratka Ctrl+Shift+D otevře potvrzení a umí zahodit rozepsanou zprávu', async ({
 		page
 	}) => {
-		await page.goto('/compose');
-		await waitForShell(page);
+		await openApp(page, '/compose');
 
 		await expect(page.getByRole('button', { name: 'Zahodit' })).toHaveAttribute(
 			'aria-keyshortcuts',
@@ -617,8 +584,7 @@ test.describe('Compose', () => {
 	});
 
 	test('Escape otevře potvrzení pro zahození rozepsané zprávy', async ({ page }) => {
-		await page.goto('/compose');
-		await waitForShell(page);
+		await openApp(page, '/compose');
 
 		await page.locator('#compose-body').fill('Text k ověření Escape.');
 		await page.keyboard.press('Escape');
@@ -629,8 +595,7 @@ test.describe('Compose', () => {
 	});
 
 	test('navigace pryč z compose nabídne zůstat a zachová rozepsaný text', async ({ page }) => {
-		await page.goto('/compose');
-		await waitForShell(page);
+		await openApp(page, '/compose');
 
 		await page.locator('#compose-body').fill('Text, který musí zůstat.');
 		await page.getByRole('link', { name: 'Kontakty (Ctrl+2)' }).click();
@@ -643,8 +608,7 @@ test.describe('Compose', () => {
 	});
 
 	test('navigace pryč z compose umí nejdřív uložit koncept a pak pokračovat', async ({ page }) => {
-		await page.goto('/compose');
-		await waitForShell(page);
+		await openApp(page, '/compose');
 
 		await page.locator('#compose-to').fill('leave-after-save@example.com');
 		await page.locator('#compose-body').fill('Text, který se má uložit před odchodem.');
@@ -661,8 +625,7 @@ test.describe('Compose', () => {
 	});
 
 	test('tichý autosave zobrazí chybový stav, když uložení konceptu selže', async ({ page }) => {
-		await page.goto('/compose');
-		await waitForShell(page);
+		await openApp(page, '/compose');
 
 		await page.locator('#compose-to').fill('autosave@example.com');
 		await page.locator('#compose-subject').fill('__FAIL_DRAFT__');
@@ -684,8 +647,7 @@ test.describe('Compose', () => {
 			}
 		});
 
-		await page.goto('/compose');
-		await waitForShell(page);
+		await openApp(page, '/compose');
 
 		await page.locator('#compose-to').fill('autosave-replaces@example.com');
 		await page.locator('#compose-subject').fill('E2E autosave replaces');
@@ -719,8 +681,7 @@ test.describe('Compose', () => {
 			if (request.method() === 'DELETE' && match) deletedIds.push(decodeURIComponent(match[1]));
 		});
 
-		await page.goto('/compose');
-		await waitForShell(page);
+		await openApp(page, '/compose');
 
 		await page.locator('#compose-to').fill('smazat@example.com');
 		await page.locator('#compose-subject').fill('Koncept k zahození');
@@ -747,8 +708,7 @@ test.describe('Compose', () => {
 			if (request.method() === 'DELETE' && match) deletedIds.push(decodeURIComponent(match[1]));
 		});
 
-		await page.goto('/compose?draft=draft-42');
-		await waitForShell(page);
+		await openApp(page, '/compose?draft=draft-42');
 		await expect(page.locator('#compose-subject')).toHaveValue('Rozepsaný koncept');
 
 		await page.getByRole('button', { name: 'Zahodit', exact: true }).click();
@@ -762,8 +722,7 @@ test.describe('Compose', () => {
 	});
 
 	test('po send_failed s obnoveným konceptem toast odkáže na Rozepsané', async ({ page }) => {
-		await page.goto('/compose');
-		await waitForShell(page);
+		await openApp(page, '/compose');
 
 		await page.locator('#compose-to').fill('recovery@example.com');
 		await page.locator('#compose-subject').fill('Selhání s obnovou');
@@ -785,8 +744,7 @@ test.describe('Compose', () => {
 	});
 
 	test('Bcc přežije uložení konceptu a jeho znovuotevření', async ({ page }) => {
-		await page.goto('/compose');
-		await waitForShell(page);
+		await openApp(page, '/compose');
 
 		await page.locator('#compose-to').fill('viditelny@example.com');
 		await page.locator('#compose-bcc').fill('skryta-kopie@example.com');

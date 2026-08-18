@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { waitForShell } from '../e2e-helpers';
+import { openApp, setPrefs } from '../e2e-helpers';
 
 const fixture = {
 	accountId: 1,
@@ -16,16 +16,12 @@ const fixture = {
  * actions.
  */
 test.beforeEach(async ({ page }) => {
-	await page.addInitScript(() => {
-		window.localStorage.setItem('mail.locale', 'cs');
-		window.localStorage.setItem('mail.readingPane', 'off');
-	});
+	await setPrefs(page, { locale: 'cs', readingPane: 'off' });
 });
 
 test.describe('Akce v otevřené zprávě (off mód)', () => {
 	test('inline toolbar nabízí akce, i když je horní lišta skrytá', async ({ page }) => {
-		await page.goto(`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
 
 		const row = page.locator(`[role="row"][data-stable-id="${fixture.stableId}"]`);
 		await expect(row).toBeVisible();
@@ -49,20 +45,20 @@ test.describe('Akce v otevřené zprávě (off mód)', () => {
 	});
 
 	test('titulek okna otevřené zprávy obsahuje předmět', async ({ page }) => {
-		await page.goto(
+		await openApp(
+			page,
 			`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}/${encodeURIComponent(fixture.stableId)}`
 		);
-		await waitForShell(page);
 
 		await expect(page.getByRole('heading', { name: 'Projektové podklady' })).toBeVisible();
 		await expect(page).toHaveTitle('Pošta – Projektové podklady');
 	});
 
 	test('stažení přílohy potvrdí úspěch toastem', async ({ page }) => {
-		await page.goto(
+		await openApp(
+			page,
 			`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}/${encodeURIComponent(fixture.stableId)}`
 		);
-		await waitForShell(page);
 
 		await page.getByRole('button', { name: /brief\.pdf/ }).click();
 		await expect(

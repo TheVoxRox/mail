@@ -1,5 +1,5 @@
 import { expect, test, type Locator } from '@playwright/test';
-import { waitForShell } from '../e2e-helpers';
+import { messageGrid, openApp, rowsOf, setPrefs } from '../e2e-helpers';
 
 /*
  * What a screen reader does to the grid instead of pressing Enter. In browse
@@ -26,16 +26,12 @@ const activateLikeScreenReader = (cell: Locator) => cell.evaluate((el: HTMLEleme
  */
 
 test.beforeEach(async ({ page }) => {
-	await page.addInitScript(() => {
-		window.localStorage.setItem('mail.locale', 'cs');
-		window.localStorage.setItem('mail.readingPane', 'off');
-	});
+	await setPrefs(page, { locale: 'cs', readingPane: 'off' });
 });
 
 test.describe('Seznam zpráv v režimu bez podokna čtení', () => {
 	test('šipka dolů jen přesune fokus, zprávu otevře až Enter', async ({ page }) => {
-		await page.goto('/mail/1/INBOX');
-		await waitForShell(page);
+		await openApp(page, '/mail/1/INBOX');
 
 		const firstSubject = page.locator('[role="row"][data-stable-id="msg-01"] [data-col="2"]');
 		await expect(firstSubject).toBeVisible();
@@ -46,15 +42,14 @@ test.describe('Seznam zpráv v režimu bez podokna čtení', () => {
 		const secondSubject = page.locator('[role="row"][data-stable-id="msg-02"] [data-col="2"]');
 		await expect(secondSubject).toBeFocused();
 		await expect(page).toHaveURL(/\/mail\/1\/INBOX$/);
-		await expect(page.getByRole('grid', { name: 'Seznam zpráv' })).toBeVisible();
+		await expect(messageGrid(page)).toBeVisible();
 
 		await page.keyboard.press('Enter');
 		await page.waitForURL('**/mail/1/INBOX/msg-02');
 	});
 
 	test('jednoklik na předmět otevře zprávu', async ({ page }) => {
-		await page.goto('/mail/1/INBOX');
-		await waitForShell(page);
+		await openApp(page, '/mail/1/INBOX');
 
 		const firstSubject = page.locator('[role="row"][data-stable-id="msg-01"] [data-col="2"]');
 		await expect(firstSubject).toBeVisible();
@@ -64,8 +59,7 @@ test.describe('Seznam zpráv v režimu bez podokna čtení', () => {
 	});
 
 	test('jednoklik mimo předmět otevře zprávu taky', async ({ page }) => {
-		await page.goto('/mail/1/INBOX');
-		await waitForShell(page);
+		await openApp(page, '/mail/1/INBOX');
 
 		// The whole row opens, not only the link — the row click handler is the
 		// path a screen reader's activation takes when it does not target the link.
@@ -75,8 +69,7 @@ test.describe('Seznam zpráv v režimu bez podokna čtení', () => {
 	});
 
 	test('zaškrtávátko vybere řádek a zprávu neotevře', async ({ page }) => {
-		await page.goto('/mail/1/INBOX');
-		await waitForShell(page);
+		await openApp(page, '/mail/1/INBOX');
 
 		// Selection is the checkbox alone; it must keep its click to itself.
 		await page.locator('[role="row"][data-stable-id="msg-01"] input[type="checkbox"]').check();
@@ -89,8 +82,7 @@ test.describe('Seznam zpráv v režimu bez podokna čtení', () => {
 	});
 
 	test('aktivace odečítačem otevře zprávu jako Enter', async ({ page }) => {
-		await page.goto('/mail/1/INBOX');
-		await waitForShell(page);
+		await openApp(page, '/mail/1/INBOX');
 
 		const firstSubject = page.locator('[role="row"][data-stable-id="msg-01"] [data-col="2"]');
 		await expect(firstSubject).toBeVisible();
@@ -104,8 +96,7 @@ test.describe('Seznam zpráv v režimu bez podokna čtení', () => {
 	});
 
 	test('PageDown a Home v seznamu neotevírají zprávy', async ({ page }) => {
-		await page.goto('/mail/1/INBOX');
-		await waitForShell(page);
+		await openApp(page, '/mail/1/INBOX');
 
 		const firstSubject = page.locator('[role="row"][data-stable-id="msg-01"] [data-col="2"]');
 		await expect(firstSubject).toBeVisible();
@@ -120,8 +111,7 @@ test.describe('Seznam zpráv v režimu bez podokna čtení', () => {
 	});
 
 	test('Delete vrátí fokus na sousední řádek', async ({ page }) => {
-		await page.goto('/mail/1/INBOX');
-		await waitForShell(page);
+		await openApp(page, '/mail/1/INBOX');
 
 		const secondSubject = page.locator('[role="row"][data-stable-id="msg-02"] [data-col="2"]');
 		await expect(secondSubject).toBeVisible();
@@ -135,8 +125,7 @@ test.describe('Seznam zpráv v režimu bez podokna čtení', () => {
 	});
 
 	test('hromadné smazání vrátí fokus na předmět sousedního řádku', async ({ page }) => {
-		await page.goto('/mail/1/INBOX');
-		await waitForShell(page);
+		await openApp(page, '/mail/1/INBOX');
 
 		// Ticking the box parks the roving cell on the select column, and that
 		// row then disappears — the restore must land on a content cell. A
@@ -154,12 +143,11 @@ test.describe('Seznam zpráv v režimu bez podokna čtení', () => {
 	test('smazání poslední zprávy přesune fokus na hlášku prázdné složky', async ({ page }) => {
 		// The grid goes away with the row, so there is no cell left to receive
 		// focus — without a target it falls to <body> and the deletion is silent.
-		await page.goto('/mail/1/SENT');
-		await waitForShell(page);
+		await openApp(page, '/mail/1/SENT');
 
 		// SENT seeds two messages; empty it row by row — the interesting step is
 		// the LAST deletion, after which no cell is left to receive focus.
-		const rows = page.locator('[role="row"][data-stable-id]');
+		const rows = rowsOf(page);
 		await expect(rows).toHaveCount(2);
 		await rows.first().locator('[data-col="2"]').focus();
 		await page.keyboard.press('Delete');
@@ -180,8 +168,7 @@ test.describe('Seznam zpráv v režimu bez podokna čtení', () => {
 
 test.describe('Přepnutí složky', () => {
 	test('přepnutí složky ohlásí načtený seznam do live regionu', async ({ page }) => {
-		await page.goto('/mail/1/INBOX');
-		await waitForShell(page);
+		await openApp(page, '/mail/1/INBOX');
 		await expect(page.locator('[role="row"][data-stable-id="msg-01"]')).toBeVisible();
 
 		// Focus stays on the sidebar folder link while the list swaps —
@@ -194,11 +181,8 @@ test.describe('Přepnutí složky', () => {
 
 test.describe('Koncepty ve split režimu', () => {
 	test('šipka v Konceptech jen přesune fokus, composer otevře až Enter', async ({ page }) => {
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.readingPane', 'right');
-		});
-		await page.goto('/mail/1/DRAFTS');
-		await waitForShell(page);
+		await setPrefs(page, { readingPane: 'right' });
+		await openApp(page, '/mail/1/DRAFTS');
 
 		// Drafts open the composer, not the reading pane — a row change must
 		// not navigate even in split mode (same guard as effective off mode).
@@ -220,11 +204,8 @@ test.describe('Koncepty ve split režimu', () => {
 
 test.describe('Seznam zpráv ve split režimu', () => {
 	test('šipky drží fokus v seznamu, do těla zprávy pustí až Enter', async ({ page }) => {
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.readingPane', 'right');
-		});
-		await page.goto('/mail/1/INBOX');
-		await waitForShell(page);
+		await setPrefs(page, { readingPane: 'right' });
+		await openApp(page, '/mail/1/INBOX');
 
 		const activeCell = () =>
 			page.evaluate(() => ({
@@ -260,11 +241,8 @@ test.describe('Seznam zpráv ve split režimu', () => {
 	});
 
 	test('jednoklik ve split režimu otevře zprávu a pustí kurzor do těla', async ({ page }) => {
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.readingPane', 'right');
-		});
-		await page.goto('/mail/1/INBOX');
-		await waitForShell(page);
+		await setPrefs(page, { readingPane: 'right' });
+		await openApp(page, '/mail/1/INBOX');
 
 		const subject = page.locator('[role="row"][data-stable-id="msg-01"] [data-col="2"]');
 		await expect(subject).toBeVisible();
@@ -280,11 +258,8 @@ test.describe('Seznam zpráv ve split režimu', () => {
 	});
 
 	test('aktivace odečítačem ve split režimu pustí kurzor do těla zprávy', async ({ page }) => {
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.readingPane', 'right');
-		});
-		await page.goto('/mail/1/INBOX');
-		await waitForShell(page);
+		await setPrefs(page, { readingPane: 'right' });
+		await openApp(page, '/mail/1/INBOX');
 
 		const subject = page.locator('[role="row"][data-stable-id="msg-01"] [data-col="2"]');
 		await expect(subject).toBeVisible();
@@ -301,11 +276,8 @@ test.describe('Seznam zpráv ve split režimu', () => {
 	});
 
 	test('Delete na neotevřeném řádku neztratí fokus a nechá detail otevřený', async ({ page }) => {
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.readingPane', 'right');
-		});
-		await page.goto('/mail/1/INBOX');
-		await waitForShell(page);
+		await setPrefs(page, { readingPane: 'right' });
+		await openApp(page, '/mail/1/INBOX');
 
 		// Open msg-01 in the reading pane, then move focus back to another row.
 		await page.locator('[role="row"][data-stable-id="msg-01"]').click();
@@ -341,11 +313,8 @@ test.describe('Seznam zpráv ve split režimu', () => {
 	});
 
 	test('Esc na otevřené zprávě vrátí fokus na její řádek', async ({ page }) => {
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.readingPane', 'right');
-		});
-		await page.goto('/mail/1/INBOX');
-		await waitForShell(page);
+		await setPrefs(page, { readingPane: 'right' });
+		await openApp(page, '/mail/1/INBOX');
 
 		const first = page.locator('[role="row"][data-stable-id="msg-01"] [data-col="2"]');
 		await expect(first).toBeVisible();
@@ -366,11 +335,8 @@ test.describe('Seznam zpráv ve split režimu', () => {
 	});
 
 	test('smazání otevřené zprávy vrátí fokus na sousední řádek', async ({ page }) => {
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.readingPane', 'right');
-		});
-		await page.goto('/mail/1/INBOX');
-		await waitForShell(page);
+		await setPrefs(page, { readingPane: 'right' });
+		await openApp(page, '/mail/1/INBOX');
 
 		const subject = page.locator('[role="row"][data-stable-id="msg-02"] [data-col="2"]');
 		await expect(subject).toBeVisible();
@@ -395,8 +361,7 @@ test.describe('Seznam zpráv ve split režimu', () => {
 	test('odkaz zpět do složky vrátí fokus na řádek zprávy', async ({ page }) => {
 		// Off mode replaces the detail's Back button with the breadcrumb link in
 		// the top bar — the visible way back must restore focus like Esc does.
-		await page.goto('/mail/1/INBOX');
-		await waitForShell(page);
+		await openApp(page, '/mail/1/INBOX');
 
 		const subject = page.locator('[role="row"][data-stable-id="msg-02"] [data-col="2"]');
 		await expect(subject).toBeVisible();

@@ -17,16 +17,18 @@
 		label={$_('settings.language.label')}
 		hint={$_('settings.language.hint')}
 	>
-		<Select
-			id="locale-select"
-			value={$appLocale ?? SUPPORTED_LOCALES[0]}
-			onchange={handleLocaleChange}
-			width="full"
-			aria-describedby="locale-select-hint"
-		>
-			{#each SUPPORTED_LOCALES as loc (loc)}
-				<option value={loc}>{LOCALE_LABELS[loc]}</option>
-			{/each}
-		</Select>
+		{#snippet children(control)}
+			<Select
+				id="locale-select"
+				value={$appLocale ?? SUPPORTED_LOCALES[0]}
+				onchange={handleLocaleChange}
+				width="full"
+				{...control}
+			>
+				{#each SUPPORTED_LOCALES as loc (loc)}
+					<option value={loc}>{LOCALE_LABELS[loc]}</option>
+				{/each}
+			</Select>
+		{/snippet}
 	</Field>
 </Surface>

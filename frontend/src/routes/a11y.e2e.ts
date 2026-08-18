@@ -1,5 +1,14 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import {
+	conversationGrid,
+	messageGrid,
+	openApp,
+	rowsOf,
+	searchResultsGrid,
+	setMockFlags,
+	setPrefs
+} from './e2e-helpers';
 
 test.setTimeout(60000);
 
@@ -39,14 +48,6 @@ const routes: ReadonlyArray<{ path: string; name: string }> = [
 	{ path: '/auth/finished', name: 'Návrat z OAuth' }
 ];
 
-/**
- * The layout renders `<main>` only after i18n has loaded. Waiting for `main`
- * eliminates the race where axe scans just the "…" placeholder.
- */
-async function waitForShell(page: Page): Promise<void> {
-	await page.waitForSelector('main', { state: 'attached' });
-}
-
 async function openPalette(page: Page): Promise<void> {
 	await page.waitForFunction(() => typeof window.__MAIL_E2E__?.openPalette === 'function');
 	await page.evaluate(() => {
@@ -56,24 +57,19 @@ async function openPalette(page: Page): Promise<void> {
 }
 
 test.beforeEach(async ({ page }) => {
-	await page.addInitScript(() => {
-		window.localStorage.setItem('mail.locale', 'cs');
-		window.localStorage.setItem('mail.e2e', '1');
-		window.localStorage.setItem('mail.readingPane', 'right');
-	});
+	await setPrefs(page, { locale: 'cs', readingPane: 'right' });
+	await setMockFlags(page, { e2e: true });
 });
 
 test.describe('Přístupnost', () => {
 	test('hlavní stránka nemá a11y porušení', async ({ page }) => {
-		await page.goto('/');
-		await waitForShell(page);
+		await openApp(page, '/');
 		const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
 		expect(results.violations).toEqual([]);
 	});
 
 	test('skip-link odkazy jsou přítomné a funkční', async ({ page }) => {
-		await page.goto('/');
-		await waitForShell(page);
+		await openApp(page, '/');
 		const skipLink = page.locator('a[href="#main-content"]');
 		await expect(skipLink).toBeAttached();
 
@@ -87,50 +83,43 @@ test.describe('Přístupnost', () => {
 	});
 
 	test('stránka má správné ARIA landmarks', async ({ page }) => {
-		await page.goto('/');
-		await waitForShell(page);
+		await openApp(page, '/');
 		await expect(page.locator('main')).toBeAttached();
 		await expect(page.locator('nav[aria-label="Přepínač prostředí"]')).toBeAttached();
 	});
 
 	test('stránka má nastavený jazyk', async ({ page }) => {
-		await page.goto('/');
-		await waitForShell(page);
+		await openApp(page, '/');
 		const lang = await page.locator('html').getAttribute('lang');
 		expect(lang).toBe('cs');
 	});
 
 	test('detail pošty v režimu right obsahuje přístupný separator', async ({ page }) => {
-		await page.goto(
+		await openApp(
+			page,
 			`/mail/${mailFixture.accountId}/${encodeURIComponent(mailFixture.folderName)}/${encodeURIComponent(mailFixture.stableId)}`
 		);
-		await waitForShell(page);
 		await expect(
 			page.locator('[role="separator"][aria-orientation="vertical"][tabindex="0"]')
 		).toBeAttached();
 	});
 
 	test('detail pošty v režimu off zůstává bez split separatoru', async ({ page }) => {
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.readingPane', 'off');
-		});
-		await page.goto(
+		await setPrefs(page, { readingPane: 'off' });
+		await openApp(
+			page,
 			`/mail/${mailFixture.accountId}/${encodeURIComponent(mailFixture.folderName)}/${encodeURIComponent(mailFixture.stableId)}`
 		);
-		await waitForShell(page);
 		await expect(
 			page.locator('[role="separator"][aria-orientation="vertical"][tabindex="0"]')
 		).toHaveCount(0);
 	});
 
 	test('rozbalený konverzační treegrid nemá a11y porušení', async ({ page }) => {
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.messageGrouping', 'grouped');
-		});
-		await page.goto(`/mail/${mailFixture.accountId}/ARCHIVE`);
-		await waitForShell(page);
+		await setPrefs(page, { messageGrouping: 'grouped' });
+		await openApp(page, `/mail/${mailFixture.accountId}/ARCHIVE`);
 
-		const treegrid = page.getByRole('treegrid', { name: 'Seznam konverzací' });
+		const treegrid = conversationGrid(page);
 		await expect(treegrid).toBeVisible();
 		// The representative fills both a parent row and a child row of the
 		// expanded thread, so rows are addressed by kind, not by stableId alone.
@@ -158,8 +147,10 @@ test.describe('Přístupnost', () => {
 		// The per-route sweep never reaches this state: the indicator only exists
 		// after a sync_failed notification, so without this case the axe scan
 		// would silently skip the whole affordance.
-		await page.goto(`/mail/${mailFixture.accountId}/${encodeURIComponent(mailFixture.folderName)}`);
-		await waitForShell(page);
+		await openApp(
+			page,
+			`/mail/${mailFixture.accountId}/${encodeURIComponent(mailFixture.folderName)}`
+		);
 
 		// Gate on the subscription, not on rendering: a push into an empty client
 		// set is dropped, and the shell exists before the stream is subscribed.
@@ -186,8 +177,10 @@ test.describe('Přístupnost', () => {
 		// The sidebar is a named region; the search and the folder-list <nav>
 		// sit side by side inside it — a search landmark nested in nav is
 		// semantically wrong.
-		await page.goto(`/mail/${mailFixture.accountId}/${encodeURIComponent(mailFixture.folderName)}`);
-		await waitForShell(page);
+		await openApp(
+			page,
+			`/mail/${mailFixture.accountId}/${encodeURIComponent(mailFixture.folderName)}`
+		);
 		const mailPane = page.getByRole('region', { name: 'Podokno pošty' });
 		await expect(mailPane.getByRole('search', { name: 'Hledání v poště' })).toHaveCount(1);
 		const foldersNav = mailPane.getByRole('navigation', { name: 'Složky' });
@@ -198,8 +191,7 @@ test.describe('Přístupnost', () => {
 		await expect(foldersNav.getByRole('link', { name: /Doručené/ })).toBeVisible();
 		await expect(foldersNav.getByRole('button')).toHaveCount(0);
 
-		await page.goto(`/contacts`);
-		await waitForShell(page);
+		await openApp(page, `/contacts`);
 		const contactsPane = page.getByRole('region', { name: 'Podokno kontaktů' });
 		await expect(contactsPane.getByRole('search', { name: 'Hledání v kontaktech' })).toHaveCount(1);
 		await expect(page.getByRole('navigation').getByRole('search')).toHaveCount(0);
@@ -216,8 +208,7 @@ test.describe('Přístupnost', () => {
 		// The settings pane must announce like the mail and contacts panes —
 		// a named region. Its links are the pane's sole content, so there is
 		// no inner <nav>: a nested navigation landmark would only add noise.
-		await page.goto('/settings/appearance');
-		await waitForShell(page);
+		await openApp(page, '/settings/appearance');
 		const settingsPane = page.getByRole('region', { name: 'Podokno nastavení' });
 		await expect(settingsPane).toBeVisible();
 		await expect(settingsPane.getByRole('navigation')).toHaveCount(0);
@@ -225,8 +216,7 @@ test.describe('Přístupnost', () => {
 	});
 
 	test('tlačítko exportu vCard je dostupné přes roli a název', async ({ page }) => {
-		await page.goto(`/contacts`);
-		await waitForShell(page);
+		await openApp(page, `/contacts`);
 
 		const sidebar = page.getByRole('region', { name: 'Podokno kontaktů' });
 		const exportButton = sidebar.getByRole('button', { name: 'Exportovat vCard' });
@@ -241,8 +231,7 @@ test.describe('Přístupnost', () => {
 		// The vCard import must not be drag-and-drop-only — a keyboard or
 		// screen-reader user reaches it through a real button that proxies a
 		// file input.
-		await page.goto(`/contacts`);
-		await waitForShell(page);
+		await openApp(page, `/contacts`);
 
 		const sidebar = page.getByRole('region', { name: 'Podokno kontaktů' });
 		const importButton = sidebar.getByRole('button', { name: 'Importovat vCard' });
@@ -261,8 +250,7 @@ test.describe('Přístupnost', () => {
 	test('formulář nového kontaktu má jednoznačně pojmenované seznamy typů adres', async ({
 		page
 	}) => {
-		await page.goto(`/contacts?create=1`);
-		await waitForShell(page);
+		await openApp(page, `/contacts?create=1`);
 
 		// Form landmark names carry no role word ("Formulář …") — the SR
 		// appends the role itself; pattern matches compose's "Nová zpráva".
@@ -328,8 +316,7 @@ test.describe('Přístupnost', () => {
 	test('volba hlavní adresy se nabídne, až když je z čeho vybírat', async ({ page }) => {
 		// A single address is primary by construction, so its radio would be a tab
 		// stop that decides nothing: checked, not uncheckable, nowhere to switch.
-		await page.goto(`/contacts?create=1`);
-		await waitForShell(page);
+		await openApp(page, `/contacts?create=1`);
 
 		// Named by its own <label>, so every row's radio is called "hlavní" and the
 		// row is what tells them apart — scope the locator, never the name.
@@ -383,8 +370,7 @@ test.describe('Přístupnost', () => {
 		// Both actions destroy the focused button (Add moves to the new last
 		// row, Remove disappears with its row) — focus must land on an e-mail
 		// input, not drop silently to <body>.
-		await page.goto(`/contacts?create=1`);
-		await waitForShell(page);
+		await openApp(page, `/contacts?create=1`);
 
 		await page.getByRole('button', { name: 'Přidat e-mail' }).click();
 		await expect(page.locator('#contact-email-1')).toBeFocused();
@@ -400,8 +386,7 @@ test.describe('Přístupnost', () => {
 	test('filtr štítků v kontaktech používá standardní select s explicitním použitím', async ({
 		page
 	}) => {
-		await page.goto(`/contacts`);
-		await waitForShell(page);
+		await openApp(page, `/contacts`);
 
 		const labelFilter = page.getByRole('combobox', { name: 'Filtr podle štítku' });
 		const applyFilter = page.getByRole('button', { name: 'Použít filtr' });
@@ -427,8 +412,7 @@ test.describe('Přístupnost', () => {
 	test('řazení kontaktů používá standardní select s dostupným názvem a stavem', async ({
 		page
 	}) => {
-		await page.goto(`/contacts`);
-		await waitForShell(page);
+		await openApp(page, `/contacts`);
 
 		const sortSelect = page.getByRole('combobox', { name: 'Řadit podle' });
 		const applyFilter = page.getByRole('button', { name: 'Použít filtr' });
@@ -449,8 +433,7 @@ test.describe('Přístupnost', () => {
 	});
 
 	test('export vCard oznamuje busy stav a success/error toast přístupně', async ({ page }) => {
-		await page.goto(`/contacts`);
-		await waitForShell(page);
+		await openApp(page, `/contacts`);
 		await page.waitForFunction(
 			() =>
 				typeof window.__MAIL_MSW__?.setVCardExportDelayMs === 'function' &&
@@ -492,8 +475,7 @@ test.describe('Přístupnost', () => {
 	test('dialog sloučení kontaktů nemá a11y porušení a preview oznamuje výsledek živě', async ({
 		page
 	}) => {
-		await page.goto(`/contacts`);
-		await waitForShell(page);
+		await openApp(page, `/contacts`);
 		await page.waitForFunction(() => typeof window.__MAIL_MSW__?.reset === 'function');
 		await page.evaluate(() => window.__MAIL_MSW__?.reset());
 
@@ -545,8 +527,7 @@ test.describe('Přístupnost', () => {
 	});
 
 	test('dialog správy štítků nemá a11y porušení a potvrzení mazání je živé', async ({ page }) => {
-		await page.goto(`/contacts`);
-		await waitForShell(page);
+		await openApp(page, `/contacts`);
 
 		await page
 			.getByRole('region', { name: 'Podokno kontaktů' })
@@ -574,8 +555,7 @@ test.describe('Přístupnost', () => {
 	});
 
 	test('dialog přiřazení štítků nemá a11y porušení a smíšený stav je oznámen', async ({ page }) => {
-		await page.goto(`/contacts`);
-		await waitForShell(page);
+		await openApp(page, `/contacts`);
 		await page.waitForFunction(() => typeof window.__MAIL_MSW__?.reset === 'function');
 
 		// A second, label-less contact so one label lands in the mixed state.
@@ -631,8 +611,7 @@ test.describe('Přístupnost', () => {
 		];
 
 		for (const testCase of cases) {
-			await page.goto(testCase.path);
-			await waitForShell(page);
+			await openApp(page, testCase.path);
 			const rail = page.locator('nav[aria-label="Přepínač prostředí"]');
 			await expect(rail).toBeAttached();
 			await expect(rail.locator('a[aria-current="page"]')).toHaveAccessibleName(testCase.label);
@@ -640,8 +619,7 @@ test.describe('Přístupnost', () => {
 	});
 
 	test('nastavení vzhledu má čitelnou osnovu a select podokna čtení', async ({ page }) => {
-		await page.goto('/settings/appearance');
-		await waitForShell(page);
+		await openApp(page, '/settings/appearance');
 
 		await expect(page.getByRole('heading', { level: 1, name: 'Vzhled' })).toBeVisible();
 
@@ -696,8 +674,7 @@ test.describe('Přístupnost', () => {
 	test('nový účet vystavuje provider/custom přepínač a chybové stavy přes role', async ({
 		page
 	}) => {
-		await page.goto('/settings/accounts/new');
-		await waitForShell(page);
+		await openApp(page, '/settings/accounts/new');
 
 		await page.getByRole('button', { name: 'Nastavit ručně' }).click();
 		await expect(page.locator('#acc-email')).toBeFocused();
@@ -731,8 +708,7 @@ test.describe('Přístupnost', () => {
 	test('compose validace, autosave stav a dialog neuložených změn jsou přístupné', async ({
 		page
 	}) => {
-		await page.goto('/compose');
-		await waitForShell(page);
+		await openApp(page, '/compose');
 
 		await expect(page.getByRole('heading', { level: 1, name: 'Nová zpráva' })).toBeVisible();
 		await page.locator('#compose-subject').fill('A11y bez příjemce');
@@ -765,8 +741,7 @@ test.describe('Přístupnost', () => {
 		const folderHref = `/mail/${mailFixture.accountId}/${encodeURIComponent(mailFixture.folderName)}`;
 		const detailHref = `${folderHref}/${encodeURIComponent(mailFixture.stableId)}`;
 
-		await page.goto(detailHref);
-		await waitForShell(page);
+		await openApp(page, detailHref);
 
 		await expect(
 			page.locator(`[role="row"][data-stable-id="${mailFixture.stableId}"]`)
@@ -795,12 +770,14 @@ test.describe('Přístupnost', () => {
 	});
 
 	test('MessageList podporuje Home, End, PageDown a PageUp', async ({ page }) => {
-		await page.goto(`/mail/${mailFixture.accountId}/${encodeURIComponent(mailFixture.folderName)}`);
-		await waitForShell(page);
+		await openApp(
+			page,
+			`/mail/${mailFixture.accountId}/${encodeURIComponent(mailFixture.folderName)}`
+		);
 
-		const grid = page.getByRole('grid', { name: 'Seznam zpráv' });
+		const grid = messageGrid(page);
 		await expect(grid).toBeAttached();
-		const rows = grid.locator('[role="row"][data-stable-id]');
+		const rows = rowsOf(grid);
 		await expect(rows.first()).toBeAttached();
 
 		const firstId = await rows.first().getAttribute('data-stable-id');
@@ -841,15 +818,14 @@ test.describe('Přístupnost', () => {
 	});
 
 	test('MessageList ArrowLeft/ArrowRight přepíná mezi buňkami v rámci řádku', async ({ page }) => {
-		await page.goto(`/mail/${mailFixture.accountId}/${encodeURIComponent(mailFixture.folderName)}`);
-		await waitForShell(page);
+		await openApp(
+			page,
+			`/mail/${mailFixture.accountId}/${encodeURIComponent(mailFixture.folderName)}`
+		);
 
-		const grid = page.getByRole('grid', { name: 'Seznam zpráv' });
+		const grid = messageGrid(page);
 		await expect(grid).toBeAttached();
-		const firstId = await grid
-			.locator('[role="row"][data-stable-id]')
-			.first()
-			.getAttribute('data-stable-id');
+		const firstId = await rowsOf(grid).first().getAttribute('data-stable-id');
 		if (!firstId) throw new Error('MessageList neobsahuje data-stable-id atributy.');
 
 		const cell = (col: number) =>
@@ -919,15 +895,11 @@ test.describe('Přístupnost', () => {
 			expect(page.url()).toBe(before);
 		};
 
-		await page.goto(`/mail/${mailFixture.accountId}/${mailFixture.folderName}`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${mailFixture.accountId}/${mailFixture.folderName}`);
 		await assertTarget(`message-select-${mailFixture.stableId}`);
 
-		await page.addInitScript(() => {
-			window.localStorage.setItem('mail.messageGrouping', 'grouped');
-		});
-		await page.goto(`/mail/${mailFixture.accountId}/ARCHIVE`);
-		await waitForShell(page);
+		await setPrefs(page, { messageGrouping: 'grouped' });
+		await openApp(page, `/mail/${mailFixture.accountId}/ARCHIVE`);
 		const conversationBox = page.getByRole('checkbox', { name: /^Vybrat konverzaci/ }).first();
 		await expect(conversationBox).toBeVisible();
 		const conversationLabel = page.locator('label').filter({ has: conversationBox }).first();
@@ -945,15 +917,11 @@ test.describe('Přístupnost', () => {
 	test('výsledky hledání tvoří grid s navigací po buňkách a otevření přesune fokus na text zprávy', async ({
 		page
 	}) => {
-		await page.goto('/search/1?q=test');
-		await waitForShell(page);
+		await openApp(page, '/search/1?q=test');
 
-		const grid = page.getByRole('grid', { name: 'Výsledky' });
+		const grid = searchResultsGrid(page);
 		await expect(grid).toBeAttached();
-		const firstId = await grid
-			.locator('[role="row"][data-stable-id]')
-			.first()
-			.getAttribute('data-stable-id');
+		const firstId = await rowsOf(grid).first().getAttribute('data-stable-id');
 		if (!firstId) throw new Error('SearchResultsGrid neobsahuje data-stable-id atributy.');
 
 		const cell = (col: number) =>
@@ -988,8 +956,7 @@ test.describe('Přístupnost', () => {
 	});
 
 	test('AccountForm vystavuje per-field aria-invalid u IMAP/SMTP polí', async ({ page }) => {
-		await page.goto('/settings/accounts/new');
-		await waitForShell(page);
+		await openApp(page, '/settings/accounts/new');
 
 		await page.getByRole('button', { name: 'Nastavit ručně' }).click();
 		await page.getByRole('radio', { name: 'Vlastní nastavení' }).click();
@@ -1022,8 +989,7 @@ test.describe('Přístupnost', () => {
 	test('AddressTokenField listbox propojuje aktivní option přes aria-activedescendant', async ({
 		page
 	}) => {
-		await page.goto('/compose');
-		await waitForShell(page);
+		await openApp(page, '/compose');
 
 		const toInput = page.locator('#compose-to');
 		await toInput.fill('jana');
@@ -1045,8 +1011,7 @@ test.describe('Přístupnost', () => {
 	});
 
 	test('command palette dialog nemá a11y porušení', async ({ page }) => {
-		await page.goto('/');
-		await waitForShell(page);
+		await openApp(page, '/');
 		await openPalette(page);
 
 		const results = await new AxeBuilder({ page })
@@ -1060,8 +1025,7 @@ test.describe('Přístupnost', () => {
 	test('command palette drží fokus ve vyhledávání a aktivní příkaz předává přes combobox', async ({
 		page
 	}) => {
-		await page.goto('/');
-		await waitForShell(page);
+		await openApp(page, '/');
 		await openPalette(page);
 
 		const input = page.locator('#command-palette-input');
@@ -1088,15 +1052,13 @@ test.describe('Přístupnost', () => {
 test.describe('Přístupnost – jednotlivé obrazovky', () => {
 	for (const { path, name } of routes) {
 		test(`${name} (${path}) nemá a11y porušení`, async ({ page }) => {
-			await page.goto(path);
-			await waitForShell(page);
+			await openApp(page, path);
 			const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
 			expect(results.violations).toEqual([]);
 		});
 
 		test(`${name} (${path}) má živou oblast, skip-link a main landmark`, async ({ page }) => {
-			await page.goto(path);
-			await waitForShell(page);
+			await openApp(page, path);
 			await expect(page.locator('a[href="#main-content"]')).toBeAttached();
 			await expect(page.getByRole('link', { name: 'Přejít na klávesové zkratky' })).toBeAttached();
 			await expect(page.locator('main#main-content')).toBeAttached();

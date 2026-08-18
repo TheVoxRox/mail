@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { waitForShell } from './e2e-helpers';
+import { openApp, setPrefs } from './e2e-helpers';
 
 interface InitialLoadMetrics {
 	shellVisibleMs: number;
@@ -23,18 +23,14 @@ const budgets = {
 } as const;
 
 test.beforeEach(async ({ page }) => {
-	await page.addInitScript(() => {
-		window.localStorage.setItem('mail.locale', 'cs');
-		window.localStorage.setItem('mail.readingPane', 'right');
-	});
+	await setPrefs(page, { locale: 'cs', readingPane: 'right' });
 });
 
 test.describe('Performance baseline', () => {
 	test('initial load stays within baseline budgets', async ({ page }, testInfo) => {
 		const startedAt = Date.now();
 
-		await page.goto('/');
-		await waitForShell(page);
+		await openApp(page, '/');
 		const shellVisibleMs = Date.now() - startedAt;
 
 		await page.waitForURL('**/mail/1/INBOX');

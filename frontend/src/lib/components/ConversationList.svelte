@@ -34,6 +34,7 @@
 	} from '$lib/mail/conversationBulk.js';
 	import { forwardMessage, replyToMessage } from '$lib/mail/actions.js';
 	import type { RowActions } from '$lib/mail/rowActions.js';
+	import Icon from '$lib/components/Icon.svelte';
 	import MessageFlags from '$lib/components/MessageFlags.svelte';
 	import MessageRowActionsMenu from '$lib/components/MessageRowActionsMenu.svelte';
 	import { announcePolite } from '$lib/stores/toasts.js';
@@ -1201,10 +1202,7 @@
 	async function navigateToPage(target: number): Promise<void> {
 		if ($conversationsState.status !== 'ready') return;
 		const ctx = $conversationsState.context;
-		const lastPage = Math.max(0, $conversationsState.page.totalPages - 1);
-		const next = Math.min(Math.max(0, target), lastPage);
-		if (next === ctx.page) return;
-		await loadConversationsPage(ctx.accountId, ctx.folderName, next, ctx.size);
+		await loadConversationsPage(ctx.accountId, ctx.folderName, target, ctx.size);
 		const snapshot = get(conversationsState);
 		if (snapshot.status === 'ready') announcePolite(messagesPageInfo($_, snapshot.page));
 	}
@@ -1447,20 +1445,11 @@
 										focusRingInset
 									)}
 								>
-									<svg
-										viewBox="0 0 16 16"
-										aria-hidden="true"
-										class={cn('h-3.5 w-3.5 transition-transform', isOpen && 'rotate-90')}
-									>
-										<path
-											d="M6 4l4 4-4 4"
-											fill="none"
-											stroke="currentColor"
-											stroke-width="2"
-											stroke-linecap="round"
-											stroke-linejoin="round"
-										/>
-									</svg>
+									<Icon
+										name="chevron-right"
+										size={14}
+										class={cn('transition-transform', isOpen && 'rotate-90')}
+									/>
 								</button>
 							</div>
 						{:else}
@@ -1687,11 +1676,7 @@
 			totalElements={pageData.totalElements}
 			first={pageData.first}
 			last={pageData.last}
-			onFirst={() => navigateToPage(0)}
-			onPrev={() => navigateToPage(pageData.page - 1)}
-			onNext={() => navigateToPage(pageData.page + 1)}
-			onLast={() => navigateToPage(pageData.totalPages - 1)}
-			onJump={(target) => navigateToPage(target - 1)}
+			onNavigate={navigateToPage}
 			landmarkLabel={$_('messages.paginationLandmark')}
 		/>
 	{/snippet}

@@ -367,18 +367,19 @@
 						error={emailErrors[index]}
 						errorId={emailErrorId(index)}
 					>
-						<Input
-							id={`contact-email-${index}`}
-							type="email"
-							bind:value={row.email}
-							oninput={() => clearEmailError(index)}
-							placeholder={$_('contacts.emailPlaceholder')}
-							maxlength={255}
-							required={index === 0}
-							disabled={busy}
-							aria-invalid={emailErrors[index] ? 'true' : undefined}
-							aria-describedby={emailErrors[index] ? emailErrorId(index) : undefined}
-						/>
+						{#snippet children(control)}
+							<Input
+								id={`contact-email-${index}`}
+								type="email"
+								bind:value={row.email}
+								oninput={() => clearEmailError(index)}
+								placeholder={$_('contacts.emailPlaceholder')}
+								maxlength={255}
+								required={index === 0}
+								disabled={busy}
+								{...control}
+							/>
+						{/snippet}
 					</Field>
 					<Field
 						for={`contact-email-${index}-label`}

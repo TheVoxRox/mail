@@ -174,12 +174,9 @@
 
 	function navigateToPage(target: number) {
 		if ($searchState.status !== 'ready') return;
-		const lastPage = Math.max(0, $searchState.page.totalPages - 1);
-		const next = Math.min(Math.max(0, target), lastPage);
-		if (next === $searchState.context.page) return;
 		announcePageInfoOnReady = true;
 		const q = $pageStore.url.searchParams.get('q') ?? '';
-		const qs = `?q=${encodeURIComponent(q)}&page=${next}`;
+		const qs = `?q=${encodeURIComponent(q)}&page=${target}`;
 		void goto(`${resolve('/search/[accountId]', { accountId: String(data.accountId) })}${qs}`);
 	}
 </script>
@@ -250,11 +247,7 @@
 				totalElements={pageData.totalElements}
 				first={pageData.first}
 				last={pageData.last}
-				onFirst={() => navigateToPage(0)}
-				onPrev={() => navigateToPage(pageData.page - 1)}
-				onNext={() => navigateToPage(pageData.page + 1)}
-				onLast={() => navigateToPage(pageData.totalPages - 1)}
-				onJump={(target) => navigateToPage(target - 1)}
+				onNavigate={navigateToPage}
 				landmarkLabel={$_('search.paginationLandmark')}
 			/>
 		{/if}

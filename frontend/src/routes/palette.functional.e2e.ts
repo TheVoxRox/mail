@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { waitForRootRedirect, waitForShell } from './e2e-helpers';
+import { openApp, setMockFlags, setPrefs, waitForRootRedirect } from './e2e-helpers';
 
 const fixture = {
 	accountId: 1,
@@ -25,17 +25,13 @@ async function openPalette(page: Page): Promise<void> {
 }
 
 test.beforeEach(async ({ page }) => {
-	await page.addInitScript(() => {
-		window.localStorage.setItem('mail.locale', 'cs');
-		window.localStorage.setItem('mail.e2e', '1');
-		window.localStorage.setItem('mail.readingPane', 'right');
-	});
+	await setPrefs(page, { locale: 'cs', readingPane: 'right' });
+	await setMockFlags(page, { e2e: true });
 });
 
 test.describe('Command palette', () => {
 	test('otevře se zkratkou a zavře se na Escape', async ({ page }) => {
-		await page.goto('/');
-		await waitForShell(page);
+		await openApp(page, '/');
 
 		await openPalette(page);
 		const dialog = page.locator('[role="dialog"]');
@@ -48,8 +44,7 @@ test.describe('Command palette', () => {
 	});
 
 	test('umí navigovat do Nastavení přes filtrovaný příkaz', async ({ page }) => {
-		await page.goto('/');
-		await waitForShell(page);
+		await openApp(page, '/');
 
 		await openPalette(page);
 		const input = page.locator('#command-palette-input');
@@ -64,8 +59,7 @@ test.describe('Command palette', () => {
 	});
 
 	test('zobrazuje aktuální Ctrl zkratky pro přepínání pracovních sekcí', async ({ page }) => {
-		await page.goto('/');
-		await waitForShell(page);
+		await openApp(page, '/');
 
 		await openPalette(page);
 		await page.locator('#command-palette-input').fill('pošta');
@@ -76,8 +70,7 @@ test.describe('Command palette', () => {
 	});
 
 	test('klíčová slova se zobrazí až po zadání dotazu', async ({ page }) => {
-		await page.goto('/');
-		await waitForShell(page);
+		await openApp(page, '/');
 
 		await openPalette(page);
 		const mailOption = page.getByRole('option', { name: /Přepnout na Poštu/ });
@@ -90,8 +83,7 @@ test.describe('Command palette', () => {
 	test('ve výchozím pořadí řadí přepnutí workspace před jednorázové view akce', async ({
 		page
 	}) => {
-		await page.goto('/mail/1/INBOX');
-		await waitForShell(page);
+		await openApp(page, '/mail/1/INBOX');
 
 		await openPalette(page);
 		const optionTexts = await page.getByRole('option').allTextContents();
@@ -107,8 +99,7 @@ test.describe('Command palette', () => {
 	});
 
 	test('Nová zpráva zůstává ve výchozí paletě před jednorázovými nastaveními', async ({ page }) => {
-		await page.goto('/settings/language');
-		await waitForShell(page);
+		await openApp(page, '/settings/language');
 
 		await openPalette(page);
 		const optionTexts = await page.getByRole('option').allTextContents();
@@ -121,8 +112,7 @@ test.describe('Command palette', () => {
 	});
 
 	test('šipka dolů posune výběr jen o jeden příkaz', async ({ page }) => {
-		await page.goto('/');
-		await waitForShell(page);
+		await openApp(page, '/');
 		// Let the root → mailbox redirect settle before reading the option order
 		// and pressing ArrowDown; otherwise the late re-derive can reset the
 		// active item back to the first command mid-interaction.
@@ -145,8 +135,7 @@ test.describe('Command palette', () => {
 	});
 
 	test('aktivní položku předává bez duplicitního live oznámení', async ({ page }) => {
-		await page.goto('/');
-		await waitForShell(page);
+		await openApp(page, '/');
 
 		await openPalette(page);
 		const input = page.locator('#command-palette-input');
@@ -161,8 +150,7 @@ test.describe('Command palette', () => {
 	});
 
 	test('seznam Výsledky příkazů má přístupnou listbox strukturu', async ({ page }) => {
-		await page.goto('/');
-		await waitForShell(page);
+		await openApp(page, '/');
 
 		await openPalette(page);
 		const input = page.locator('#command-palette-input');
@@ -191,8 +179,7 @@ test.describe('Command palette', () => {
 	});
 
 	test('prochází příkazy šipkami bez přesunu fokusu z vyhledávacího pole', async ({ page }) => {
-		await page.goto('/');
-		await waitForShell(page);
+		await openApp(page, '/');
 
 		await openPalette(page);
 		const input = page.locator('#command-palette-input');
@@ -216,10 +203,10 @@ test.describe('Command palette', () => {
 	test('na detailu nabídne kontextový Reply command a otevře compose s prefillem', async ({
 		page
 	}) => {
-		await page.goto(
+		await openApp(
+			page,
 			`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}/${encodeURIComponent(fixture.stableId)}`
 		);
-		await waitForShell(page);
 		await expect(page.getByRole('heading', { name: 'Projektové podklady' })).toBeVisible();
 
 		await openPalette(page);
@@ -232,10 +219,10 @@ test.describe('Command palette', () => {
 	});
 
 	test('najde příkaz i při přehozeném pořadí slov dotazu', async ({ page }) => {
-		await page.goto(
+		await openApp(
+			page,
 			`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}/${encodeURIComponent(fixture.stableId)}`
 		);
-		await waitForShell(page);
 		await expect(page.getByRole('heading', { name: 'Projektové podklady' })).toBeVisible();
 
 		await openPalette(page);
@@ -244,10 +231,10 @@ test.describe('Command palette', () => {
 	});
 
 	test('toggle příkaz vrátí fokus na prvek fokusovaný před otevřením palety', async ({ page }) => {
-		await page.goto(
+		await openApp(
+			page,
 			`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}/${encodeURIComponent(fixture.stableId)}`
 		);
-		await waitForShell(page);
 		await expect(page.getByRole('heading', { name: 'Projektové podklady' })).toBeVisible();
 
 		const archiveLink = page.getByRole('link', { name: 'Archiv' });
@@ -264,8 +251,7 @@ test.describe('Command palette', () => {
 	});
 
 	test('dvojité Ctrl+K nerozbije obnovu fokusu po Escape', async ({ page }) => {
-		await page.goto('/');
-		await waitForShell(page);
+		await openApp(page, '/');
 		// The global keydown listener attaches on hydration; the E2E hook
 		// appearing proves the layout has mounted.
 		await page.waitForFunction(() => typeof window.__MAIL_E2E__?.openPalette === 'function');
@@ -286,10 +272,10 @@ test.describe('Command palette', () => {
 	});
 
 	test('na detailu nabídne command pro přesun zprávy do složky', async ({ page }) => {
-		await page.goto(
+		await openApp(
+			page,
 			`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}/${encodeURIComponent(fixture.moveStableId)}`
 		);
-		await waitForShell(page);
 		await expect(page.getByRole('heading', { name: 'Testovací zpráva 3' })).toBeVisible();
 
 		await openPalette(page);

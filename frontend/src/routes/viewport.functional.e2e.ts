@@ -1,17 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
-import { waitForShell } from './e2e-helpers';
+import { openApp, setPrefs } from './e2e-helpers';
 
 const mailDetailPath = '/mail/1/INBOX/msg-01';
 
 async function openMailDetailAt(page: Page, viewport: { width: number; height: number }) {
 	await page.setViewportSize(viewport);
-	await page.addInitScript(() => {
-		window.localStorage.setItem('mail.locale', 'cs');
-		window.localStorage.setItem('mail.readingPane', 'right');
-	});
+	await setPrefs(page, { locale: 'cs', readingPane: 'right' });
 
-	await page.goto(mailDetailPath);
-	await waitForShell(page);
+	await openApp(page, mailDetailPath);
 }
 
 async function expectShellFitsViewport(page: Page) {

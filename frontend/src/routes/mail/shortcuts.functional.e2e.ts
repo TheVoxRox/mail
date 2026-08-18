@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { waitForShell } from '../e2e-helpers';
+import { openApp, setPrefs } from '../e2e-helpers';
 
 /*
  * Regression cover for the message-body iframe key bridge (lib/mail/mailFrame.ts).
@@ -10,16 +10,11 @@ import { waitForShell } from '../e2e-helpers';
  */
 
 test.beforeEach(async ({ page }) => {
-	await page.addInitScript(() => {
-		window.localStorage.setItem('mail.locale', 'cs');
-		window.localStorage.setItem('mail.readingPane', 'right');
-		window.localStorage.setItem('mail.messageBodyView', 'html');
-	});
+	await setPrefs(page, { locale: 'cs', readingPane: 'right', messageBodyView: 'html' });
 });
 
 async function openHtmlMessage(page: import('@playwright/test').Page) {
-	await page.goto('/mail/1/INBOX');
-	await waitForShell(page);
+	await openApp(page, '/mail/1/INBOX');
 	await page.locator('[role="row"][data-stable-id="msg-01"]').click();
 	await page.waitForURL('**/mail/1/INBOX/msg-01');
 	const frame = page.locator('iframe');
@@ -118,8 +113,7 @@ test('Shift/Ctrl+Delete na fokusovaném řádku seznamu zprávu nesmaže', async
 		if (r.method() === 'DELETE' && match) deletedIds.push(match[1]);
 	});
 
-	await page.goto('/mail/1/INBOX');
-	await waitForShell(page);
+	await openApp(page, '/mail/1/INBOX');
 
 	// Focus the row directly (a click would open the message and hand Delete to
 	// the open-message handler instead of the grid row handler under test).

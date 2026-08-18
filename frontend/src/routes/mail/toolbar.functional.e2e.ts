@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { waitForShell } from '../e2e-helpers';
+import { openApp, setPrefs } from '../e2e-helpers';
 
 const fixture = {
 	accountId: 1,
@@ -13,16 +13,12 @@ const fixture = {
 };
 
 test.beforeEach(async ({ page }) => {
-	await page.addInitScript(() => {
-		window.localStorage.setItem('mail.locale', 'cs');
-		window.localStorage.setItem('mail.readingPane', 'right');
-	});
+	await setPrefs(page, { locale: 'cs', readingPane: 'right' });
 });
 
 test.describe('Mail toolbar', () => {
 	test('reply akce v toolbaru otevře compose s prefillem vybrané zprávy', async ({ page }) => {
-		await page.goto(`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
 
 		const row = page.locator(`[role="row"][data-stable-id="${fixture.stableId}"]`);
 		await expect(row).toBeVisible();
@@ -44,8 +40,7 @@ test.describe('Mail toolbar', () => {
 	});
 
 	test('po flag PATCH se znovu otevřený detail nenačte ze staré cache', async ({ page }) => {
-		await page.goto(`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
 
 		const row = page.locator(`[role="row"][data-stable-id="${fixture.moveStableId}"]`);
 		await expect(row).toBeVisible();
@@ -70,8 +65,7 @@ test.describe('Mail toolbar', () => {
 	});
 
 	test('samostatné přepnutí hvězdičky a přečtení se ohlásí do live regionu', async ({ page }) => {
-		await page.goto(`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
 
 		// msg-02 is flagged in the fixtures; opening it auto-marks it read
 		// (that path is deliberately silent — only the explicit toggles talk).
@@ -96,8 +90,7 @@ test.describe('Mail toolbar', () => {
 			}
 		});
 
-		await page.goto(`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
 
 		await page.locator(`[role="row"][data-stable-id="${fixture.moveStableId}"]`).click();
 		await page.waitForURL(
@@ -133,8 +126,7 @@ test.describe('Mail toolbar', () => {
 			}
 		});
 
-		await page.goto(`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
 
 		await page.locator('[role="row"][data-stable-id="msg-07"]').click();
 		await page.waitForURL(
@@ -171,8 +163,7 @@ test.describe('Mail toolbar', () => {
 			}
 		});
 
-		await page.goto(`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
 
 		await page.getByRole('checkbox', { name: 'Vybrat zprávu Projektové podklady' }).check();
 		await page
@@ -221,8 +212,7 @@ test.describe('Mail toolbar', () => {
 	});
 
 	test('výběr zprávy oznámí dostupné hromadné akce a panel má roli toolbar', async ({ page }) => {
-		await page.goto(`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
 
 		const bulkToolbar = page.getByRole('toolbar', { name: 'Hromadné akce', exact: true });
 		await expect(bulkToolbar).toBeVisible();
@@ -252,8 +242,7 @@ test.describe('Mail toolbar', () => {
 			}
 		});
 
-		await page.goto(`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
 
 		await page.getByRole('checkbox', { name: 'Vybrat zprávu Projektové podklady' }).check();
 		await page
@@ -273,8 +262,7 @@ test.describe('Mail toolbar', () => {
 	});
 
 	test('smazání jedné zprávy klávesou Delete ohlásí její předmět', async ({ page }) => {
-		await page.goto(`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
 
 		const row = page.locator(`[role="row"][data-stable-id="${fixture.stableId}"]`);
 		await expect(row).toBeVisible();
@@ -290,8 +278,7 @@ test.describe('Mail toolbar', () => {
 	});
 
 	test('hromadné smazání nepřečtených aktualizuje počet v nadpisu složky', async ({ page }) => {
-		await page.goto(`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
-		await waitForShell(page);
+		await openApp(page, `/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
 
 		// INBOX starts with 3 unread (msg-01/02/03) in the fixtures.
 		const heading = page.getByRole('heading', { level: 1 });

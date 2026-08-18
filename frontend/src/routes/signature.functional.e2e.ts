@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { waitForShell } from './e2e-helpers';
+import { openApp, setPrefs, waitForShell } from './e2e-helpers';
 
 // First line is unique and ASCII, so it works as a plain RegExp probe against the
 // textarea value regardless of the delimiter the composer prepends.
@@ -7,10 +7,7 @@ const SIGNATURE_FIRST_LINE = 'Tester z VoxRoxu';
 const SIGNATURE = `${SIGNATURE_FIRST_LINE}\ntester@example.com`;
 
 test.beforeEach(async ({ page }) => {
-	await page.addInitScript(() => {
-		window.localStorage.setItem('mail.locale', 'cs');
-		window.localStorage.setItem('mail.readingPane', 'right');
-	});
+	await setPrefs(page, { locale: 'cs', readingPane: 'right' });
 });
 
 /**
@@ -18,8 +15,7 @@ test.beforeEach(async ({ page }) => {
  * auto-insert state via the real edit form, then return to the account list.
  */
 async function setAccountSignature(page: Page, autoInsert: boolean): Promise<void> {
-	await page.goto('/settings/accounts/1');
-	await waitForShell(page);
+	await openApp(page, '/settings/accounts/1');
 	await expect(page.getByRole('heading', { level: 1, name: /Upravit účet/ })).toBeVisible();
 
 	await page.locator('#acc-signature').fill(SIGNATURE);

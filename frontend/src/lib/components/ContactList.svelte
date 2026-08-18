@@ -32,11 +32,8 @@
 		onChanged: () => void | Promise<void>;
 		onEdit: (id: number) => void;
 		onFilterApply?: (filters: { sort: ContactSort | null; labelId: number | null }) => void;
-		onPrev: () => void;
-		onNext: () => void;
-		onFirst: () => void;
-		onLast: () => void;
-		onJump: (page: number) => void;
+		/** Where to page to, 0-based; the pager clamps before it calls. */
+		onNavigate: (target: number) => void;
 		/**
 		 * Contact to put the roving focus on once the list renders — the one the
 		 * user just came back from editing. The list unmounts while the form is
@@ -55,11 +52,7 @@
 		onChanged,
 		onEdit,
 		onFilterApply,
-		onPrev,
-		onNext,
-		onFirst,
-		onLast,
-		onJump,
+		onNavigate,
 		restoreFocusContactId = null,
 		onFocusRestored
 	}: Props = $props();
@@ -700,19 +693,8 @@
 		totalElements={page.totalElements}
 		first={page.first}
 		last={page.last}
-		{onPrev}
-		{onNext}
-		{onFirst}
-		{onLast}
-		{onJump}
+		{onNavigate}
 		landmarkLabel={$_('contacts.paginationLandmark')}
-		pageInfoKey="contacts.pageInfo"
-		totalCountKey="contacts.totalCount"
-		prevLabelKey="contacts.prev"
-		nextLabelKey="contacts.next"
-		firstLabelKey="contacts.firstPage"
-		lastLabelKey="contacts.lastPage"
-		jumpLabelKey="contacts.jumpLabel"
-		jumpButtonKey="contacts.jumpButton"
+		variant="contacts"
 	/>
 {/if}
