@@ -17,6 +17,8 @@
 	import { avatarColorClass } from '$lib/components/ui/avatar/index.js';
 	import { nativeControlClass } from '$lib/components/ui/native-control/index.js';
 	import { createRovingGrid } from '$lib/components/grid/rovingGrid.svelte.js';
+	import { createBulkAnnouncer } from '$lib/components/grid/bulkAnnouncer.js';
+	import { isRowBackgroundClick } from '$lib/components/grid/rowActivation.js';
 	import type { ContactResponse, PagedResponse } from '$lib/types.js';
 	import type { ContactSort } from '$lib/api/contacts.js';
 	import { cn } from '$lib/utils.js';
@@ -244,21 +246,14 @@
 	/*
 	 * The bulk toolbar (merge / delete / clear) appears with the first selected
 	 * row, which a screen reader would miss — the conditional status span alone
-	 * is a freshly inserted live region and is not announced reliably. Announce
-	 * the availability once per selection through the persistent LiveAnnouncer
-	 * (mirrors MessageList). Plain (non-reactive) flag to avoid an effect
-	 * self-dependency.
+	 * is a freshly inserted live region and is not announced reliably. The
+	 * persistent LiveAnnouncer carries it instead.
 	 */
-	let bulkActionsAnnounced = false;
+	const announceBulkActions = createBulkAnnouncer(() =>
+		announcePolite($_('contacts.bulkActionsAvailable'))
+	);
 	$effect(() => {
-		if (selectedVisibleIds.length > 0) {
-			if (!bulkActionsAnnounced) {
-				bulkActionsAnnounced = true;
-				announcePolite($_('contacts.bulkActionsAvailable'));
-			}
-		} else {
-			bulkActionsAnnounced = false;
-		}
+		announceBulkActions(selectedVisibleIds.length > 0);
 	});
 
 	function contactLabel(c: ContactResponse): string {
@@ -316,9 +311,7 @@
 	}
 
 	function handleRowClick(event: MouseEvent, contact: ContactResponse): void {
-		const target = event.target as HTMLElement | null;
-		if (target?.closest('input, button, a, label')) return;
-		onEdit(contact.id);
+		if (isRowBackgroundClick(event)) onEdit(contact.id);
 	}
 
 	async function handleDelete(c: ContactResponse) {

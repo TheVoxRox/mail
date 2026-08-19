@@ -12,6 +12,11 @@
 	} from '$lib/components/mail-list/MailBulkToolbar.svelte';
 	import MailListState from '$lib/components/mail-list/MailListState.svelte';
 	import { createRovingGrid } from '$lib/components/grid/rovingGrid.svelte.js';
+	import { createBulkAnnouncer } from '$lib/components/grid/bulkAnnouncer.js';
+	import {
+		createLatestSelection,
+		isRowBackgroundClick
+	} from '$lib/components/grid/rowActivation.js';
 
 	import { cn } from '$lib/utils.js';
 	import { formatMessageListDate, formatThreadMemberDate } from '$lib/formatters.js';
@@ -92,6 +97,7 @@
 		initialCol: COL_SUBJECT,
 		maxCol: MAX_COL
 	});
+	const latestSelection = createLatestSelection();
 
 	// Expansion is per-view: expanded thread ids, their loaded thread members as
 	// the API returned them (unfiltered — the view-dependent filtering happens at
@@ -129,7 +135,6 @@
 	const selectedMembers = new SvelteMap<string, string>();
 	let bulkAction = $state<BulkAction | null>(null);
 	let bulkError = $state<string | null>(null);
-	let bulkActionsAnnounced = false;
 
 	const currentFolderName = $derived(
 		$conversationsState.status === 'idle' ? '' : $conversationsState.context.folderName
@@ -1034,29 +1039,19 @@
 		}
 	}
 
-	/*
-	 * Same mouse model as the flat list: a click anywhere on the row opens it and
-	 * moves the reading cursor into the body, and the checkbox is the only thing
-	 * that selects (see MessageList.handleRowClick for why "single click selects"
-	 * had to go — it swallowed the click a screen reader sends in place of the
-	 * Enter it never delivers). The checkbox and the expand toggle are real
-	 * controls that stop their own clicks, and the subject link handles its own.
-	 */
+	// Same mouse model as the flat list: a click on the row opens it, the
+	// checkbox alone selects, and the expand toggle and the row's link are real
+	// controls that own their clicks. The reasoning is in grid/rowActivation.ts.
 	function handleRowClick(event: MouseEvent, row: VisibleRow): void {
-		const target = event.target as HTMLElement | null;
-		if (target?.closest('input, button, a')) return;
-		openDeliberately(row);
+		if (isRowBackgroundClick(event)) openDeliberately(row);
 	}
 
 	/**
-	 * The subject is a real link — the one affordance a screen reader can
-	 * activate in browse mode however it chooses to do it. Its own handler keeps
-	 * the navigation client-side and records the body-focus intent, which a
-	 * native follow of the href could not.
-	 */
-	/**
 	 * The row's own link — the subject on a conversation row, the counterpart on
-	 * a member row, whichever cell carries that row's identity.
+	 * a member row, whichever cell carries that row's identity. It is the one
+	 * affordance a screen reader can activate in browse mode however it chooses
+	 * to do it; handling the click here keeps the navigation client-side and
+	 * records the body-focus intent, which a native follow of the href could not.
 	 */
 	function handleRowLinkClick(event: MouseEvent, row: VisibleRow): void {
 		event.preventDefault();
@@ -1064,36 +1059,24 @@
 	}
 
 	function openDeliberately(row: VisibleRow): void {
-		// Invalidate a refocus an in-flight selectAndFocus queued, so the body wins.
-		selectToken += 1;
+		// Retire a refocus an in-flight selectAndFocus queued, so the body wins.
+		latestSelection.retire();
 		openRow(row);
 	}
 
-	// Announce the bulk actions the first time a selection starts (they render
-	// only once something is selected — a screen-reader signal they appeared).
+	// The bulk actions render only once something is selected, so their arrival
+	// is a screen-reader signal of its own.
+	const announceBulkActions = createBulkAnnouncer(announceBulkActionsAvailable);
 	$effect(() => {
-		if (hasSelection) {
-			if (!bulkActionsAnnounced) {
-				bulkActionsAnnounced = true;
-				announceBulkActionsAvailable();
-			}
-		} else {
-			bulkActionsAnnounced = false;
-		}
+		announceBulkActions(hasSelection);
 	});
 
-	// Bumped on every selection. openMessage() navigates, and SvelteKit cancels
-	// an in-flight navigation when a newer one starts (rapid Arrow keys). The
-	// superseded navigation's promise still settles and would re-focus its
-	// now-stale row last, bouncing focus backwards — so the `.finally` only
-	// re-focuses while it is still the latest selection.
-	let selectToken = 0;
 	function selectAndFocus(rowIndex: number, col: number, row: VisibleRow): void {
 		grid.moveTo(rowIndex, col);
-		const token = ++selectToken;
+		const isLatest = latestSelection.begin();
 		const message = rowMessage(row);
 		void openMessage(message.stableId, message.folderName).finally(() => {
-			if (token === selectToken) grid.moveTo(rowIndex, col);
+			if (isLatest()) grid.moveTo(rowIndex, col);
 		});
 	}
 
