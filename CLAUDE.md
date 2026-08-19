@@ -66,6 +66,13 @@ someone a rework at least once. For the human-facing versions see
     passing every formatter and test, because it is a legal string character.
     Deliberate NUL goes in as an escape (`"\0"`), never as the byte. Also runs
     on staged files in the pre-commit hook.
+  - `check:eol` — an index blob's line endings must match what `.gitattributes`
+    declares. git normalizes text blobs to LF on `git add`, so a CRLF blob
+    comes from a commit made through the GitHub API, which does not apply
+    `.gitattributes` — dependabot commits that way, weekly. The file then reads
+    as modified in every clone and `checkout --`/`reset --hard` cannot clear
+    it; `git add --renormalize` can. Detection is `git ls-files --eol`, not
+    `git status`, which reports a mixed-ending blob as clean.
   - `check:docs-impact` (CI only) — egress/storage-relevant changes must touch
     `PRIVACY*.md` or carry a `Docs-impact:` commit trailer.
 
