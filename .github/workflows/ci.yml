@@ -320,6 +320,13 @@ jobs:
               exit 0
             fi
             echo "::warning::playwright install attempt ${attempt} of 3 did not finish within 200s"
+            # The apt-get inside --with-deps runs under sudo, so it is a root
+            # process and this timeout is not: the cut never reaches it, it keeps
+            # /var/lib/dpkg/lock-frontend, and every later attempt then dies on
+            # the lock in seconds instead of retrying anything. Observed exactly
+            # that before this line existed. The Tauri step needs no equivalent,
+            # because there timeout itself runs under sudo.
+            sudo pkill -9 -x 'apt-get|apt|dpkg' || true
             sudo dpkg --configure -a || true
             sleep 5
           done
@@ -365,6 +372,13 @@ jobs:
               exit 0
             fi
             echo "::warning::playwright install attempt ${attempt} of 3 did not finish within 200s"
+            # The apt-get inside --with-deps runs under sudo, so it is a root
+            # process and this timeout is not: the cut never reaches it, it keeps
+            # /var/lib/dpkg/lock-frontend, and every later attempt then dies on
+            # the lock in seconds instead of retrying anything. Observed exactly
+            # that before this line existed. The Tauri step needs no equivalent,
+            # because there timeout itself runs under sudo.
+            sudo pkill -9 -x 'apt-get|apt|dpkg' || true
             sudo dpkg --configure -a || true
             sleep 5
           done
