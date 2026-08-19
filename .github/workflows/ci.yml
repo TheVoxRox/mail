@@ -30,12 +30,15 @@ concurrency:
 # with auto-merge armed is worse than the wait it replaced. So each attempt is
 # bounded and then retried: a fresh apt connection usually lands on a healthy
 # mirror backend, so the retry is what recovers, and the bound is what keeps a
-# bad attempt from running away. 200s per attempt is over four times the 45s
-# normal ceiling, three attempts put the worst case near ten minutes, and the
-# step limit sits just above that. Each job limit sits above its step limit plus
-# the job's own measured work.
+# bad attempt from running away. It works -- on a badly degraded day both apt
+# steps needed a third attempt and passed on it.
 #
-# dpkg --configure -a runs between attempts because timeout kills apt with
+# The test jobs no longer take part in any of that, because they no longer call
+# apt: playwright install runs without --with-deps, which on this image bought
+# nothing but nine font packages. Only the Tauri step still needs apt, and it
+# genuinely does -- libwebkit2gtk is not on the runner image.
+#
+# dpkg --configure -a runs between apt attempts because timeout kills apt with
 # SIGTERM. The stalls seen so far were all in the fetch phase, where there is
 # nothing half-configured to repair, but an attempt cut during unpack would
 # otherwise leave the next one to fail on a broken package state.
@@ -294,7 +297,7 @@ jobs:
   test-functional:
     name: Functional tests
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 12
     defaults:
       run:
         working-directory: frontend
@@ -313,21 +316,21 @@ jobs:
         run: npm ci
 
       - name: Install Playwright browser
-        timeout-minutes: 11
+        # Deliberately not --with-deps. On the runner image that installs nine
+        # font packages and nothing else -- CJK, Thai and Cyrillic faces; every
+        # actual Chromium library is already present -- and it buys them through
+        # apt, which is the one genuinely unreliable thing in this workflow.
+        # Dropping it takes apt out of both test jobs entirely and leaves the CDN
+        # download, fast in every log we have. If a test ever needs one of those
+        # scripts rendered, the fonts come back as their own explicit step rather
+        # than as a side effect of installing a browser.
+        timeout-minutes: 8
         run: |
-          for attempt in 1 2 3; do
-            if timeout -k 10 200 npx playwright install --with-deps chromium; then
+          for attempt in 1 2; do
+            if timeout -k 10 180 npx playwright install chromium; then
               exit 0
             fi
-            echo "::warning::playwright install attempt ${attempt} of 3 did not finish within 200s"
-            # The apt-get inside --with-deps runs under sudo, so it is a root
-            # process and this timeout is not: the cut never reaches it, it keeps
-            # /var/lib/dpkg/lock-frontend, and every later attempt then dies on
-            # the lock in seconds instead of retrying anything. Observed exactly
-            # that before this line existed. The Tauri step needs no equivalent,
-            # because there timeout itself runs under sudo.
-            sudo pkill -9 -x 'apt-get|apt|dpkg' || true
-            sudo dpkg --configure -a || true
+            echo "::warning::playwright download attempt ${attempt} of 2 did not finish within 180s"
             sleep 5
           done
           exit 1
@@ -346,7 +349,7 @@ jobs:
   test-a11y:
     name: Accessibility tests
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 12
     defaults:
       run:
         working-directory: frontend
@@ -365,21 +368,21 @@ jobs:
         run: npm ci
 
       - name: Install Playwright browser
-        timeout-minutes: 11
+        # Deliberately not --with-deps. On the runner image that installs nine
+        # font packages and nothing else -- CJK, Thai and Cyrillic faces; every
+        # actual Chromium library is already present -- and it buys them through
+        # apt, which is the one genuinely unreliable thing in this workflow.
+        # Dropping it takes apt out of both test jobs entirely and leaves the CDN
+        # download, fast in every log we have. If a test ever needs one of those
+        # scripts rendered, the fonts come back as their own explicit step rather
+        # than as a side effect of installing a browser.
+        timeout-minutes: 8
         run: |
-          for attempt in 1 2 3; do
-            if timeout -k 10 200 npx playwright install --with-deps chromium; then
+          for attempt in 1 2; do
+            if timeout -k 10 180 npx playwright install chromium; then
               exit 0
             fi
-            echo "::warning::playwright install attempt ${attempt} of 3 did not finish within 200s"
-            # The apt-get inside --with-deps runs under sudo, so it is a root
-            # process and this timeout is not: the cut never reaches it, it keeps
-            # /var/lib/dpkg/lock-frontend, and every later attempt then dies on
-            # the lock in seconds instead of retrying anything. Observed exactly
-            # that before this line existed. The Tauri step needs no equivalent,
-            # because there timeout itself runs under sudo.
-            sudo pkill -9 -x 'apt-get|apt|dpkg' || true
-            sudo dpkg --configure -a || true
+            echo "::warning::playwright download attempt ${attempt} of 2 did not finish within 180s"
             sleep 5
           done
           exit 1
