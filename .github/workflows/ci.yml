@@ -22,10 +22,23 @@ concurrency:
 # cargo and test steps stayed flat. It is not a stalled connection: the worst
 # case logged "21.1 MB in 12min 38s (27.8 kB/s)", a transfer that keeps making
 # progress, so Acquire::Retries and Acquire::http::Timeout would never fire and
-# a timeout is the only bound that applies to it. Six minutes is over six times
-# the normal ceiling -- it cuts the 13-16 minute cases and leaves the merely
-# slow ones to finish. Each job limit sits above that step limit plus the job's
-# own measured work.
+# a timeout is the only bound that applies to it.
+#
+# A bare limit is only half of it, which the first run of this change proved:
+# the mirror degraded again, and a flat 6-minute cut turned two jobs red at 373s
+# apiece -- "slow but green" became "fast red" with nothing to recover it, which
+# with auto-merge armed is worse than the wait it replaced. So each attempt is
+# bounded and then retried: a fresh apt connection usually lands on a healthy
+# mirror backend, so the retry is what recovers, and the bound is what keeps a
+# bad attempt from running away. 200s per attempt is over four times the 45s
+# normal ceiling, three attempts put the worst case near ten minutes, and the
+# step limit sits just above that. Each job limit sits above its step limit plus
+# the job's own measured work.
+#
+# dpkg --configure -a runs between attempts because timeout kills apt with
+# SIGTERM. The stalls seen so far were all in the fetch phase, where there is
+# nothing half-configured to repair, but an attempt cut during unpack would
+# otherwise leave the next one to fail on a broken package state.
 jobs:
   backend:
     name: Backend quality
@@ -105,10 +118,17 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Install Tauri system deps
-        timeout-minutes: 6
+        timeout-minutes: 11
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          for attempt in 1 2 3; do
+            if sudo timeout -k 10 200 bash -c 'apt-get update && apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf'; then
+              exit 0
+            fi
+            echo "::warning::apt attempt ${attempt} of 3 did not finish within 200s"
+            sudo dpkg --configure -a || true
+            sleep 5
+          done
+          exit 1
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -293,8 +313,17 @@ jobs:
         run: npm ci
 
       - name: Install Playwright browser
-        timeout-minutes: 6
-        run: npx playwright install --with-deps chromium
+        timeout-minutes: 11
+        run: |
+          for attempt in 1 2 3; do
+            if timeout -k 10 200 npx playwright install --with-deps chromium; then
+              exit 0
+            fi
+            echo "::warning::playwright install attempt ${attempt} of 3 did not finish within 200s"
+            sudo dpkg --configure -a || true
+            sleep 5
+          done
+          exit 1
 
       - name: Run functional tests
         run: npm run test:functional:stable
@@ -329,8 +358,17 @@ jobs:
         run: npm ci
 
       - name: Install Playwright browser
-        timeout-minutes: 6
-        run: npx playwright install --with-deps chromium
+        timeout-minutes: 11
+        run: |
+          for attempt in 1 2 3; do
+            if timeout -k 10 200 npx playwright install --with-deps chromium; then
+              exit 0
+            fi
+            echo "::warning::playwright install attempt ${attempt} of 3 did not finish within 200s"
+            sudo dpkg --configure -a || true
+            sleep 5
+          done
+          exit 1
 
       - name: Run accessibility tests
         run: npm run test:a11y:stable
