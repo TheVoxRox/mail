@@ -196,10 +196,23 @@ public abstract class OAuth2TokenService {
     }
 
     /**
-     * Used during the initial OAuth2 login flow, where we do not yet have an
-     * accountId — the login handler receives the refresh token from the OAuth2
-     * redirect and needs to exchange it for an access token straight away, without
-     * caching anything.
+     * Uncached refresh for a token that belongs to no persisted account yet — the
+     * {@code accountId == null} entry into {@link #doRefresh}.
+     * <p>
+     * <b>Currently has no production caller</b> and never had one in this repo
+     * ({@code git log -S} finds it only in the initial import). The javadoc used to
+     * claim the initial OAuth2 login flow used it; that is wrong —
+     * {@code ExternalProviderLoginService} only persists the refresh token via
+     * {@code AccountCredentialService.saveCredentials} and lets the first IMAP
+     * connection do the exchange, by which point the account exists and the cached
+     * {@link #getAccessToken} path applies.
+     * <p>
+     * Kept rather than deleted because removing it would also make the
+     * {@code accountId != null} guard in {@link #doRefresh} unreachable — that
+     * guard is what marks an account {@code requires_reauth} after a permanent
+     * rejection, behaviour {@code docs/OAUTH_AUDIT.md} reasons about. Deciding
+     * between wiring this back up and collapsing the nullable parameter is its own
+     * change, not a cleanup.
      */
     public final String exchangeRefreshToken(String refreshToken, String email) {
         return doRefresh(null, refreshToken, email).accessToken();

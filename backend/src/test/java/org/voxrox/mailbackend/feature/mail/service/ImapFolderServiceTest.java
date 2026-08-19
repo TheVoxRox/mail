@@ -13,7 +13,6 @@ import static org.mockito.Mockito.when;
 
 import java.time.Duration;
 import java.util.List;
-import java.util.Optional;
 
 import jakarta.mail.Folder;
 import jakarta.mail.MessagingException;

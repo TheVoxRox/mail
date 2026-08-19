@@ -10,11 +10,9 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.voxrox.mailbackend.core.config.MailClientProperties;
 import org.voxrox.mailbackend.core.metrics.MailMetrics;
-import org.voxrox.mailbackend.exception.ResourceNotFoundException;
 import org.voxrox.mailbackend.feature.account.AccountLastError;
 import org.voxrox.mailbackend.feature.account.AccountLastErrorCode;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
@@ -22,7 +20,6 @@ import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.feature.mail.dto.FolderResponse;
 import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
 import org.voxrox.mailbackend.feature.mail.entity.FolderSyncStateEntity;
-import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 import org.voxrox.mailbackend.feature.mail.event.MailSyncCompletedEvent;
 import org.voxrox.mailbackend.feature.mail.event.MailSyncErrorStateChangedEvent;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
@@ -515,7 +512,12 @@ public class MailSyncService {
         }
     }
 
-    public void downloadRange(AccountEntity account, String folderName, long startUid, long endUid) {
+    /**
+     * History backfill of one UID range. Private because the only caller is
+     * {@link #syncAndBackfill}, which already holds the per-folder lock that this
+     * body assumes — an outside caller could not honour that precondition.
+     */
+    private void downloadRange(AccountEntity account, String folderName, long startUid, long endUid) {
         log.info("{} History backfill for {}: UID {}-{}", LogCategory.SYNC, folderName, startUid, endUid);
 
         imapFolderService.executeInFolder(account.getId(), folderName, Folder.READ_ONLY, (folder, uidFolder) -> {
@@ -535,11 +537,5 @@ public class MailSyncService {
             }
             return null;
         });
-    }
-
-    @Transactional(readOnly = true)
-    public MessageEntity getMessageOrThrow(String stableId) {
-        return messageRepository.findByStableId(stableId)
-                .orElseThrow(() -> new ResourceNotFoundException("Message does not exist: " + stableId));
     }
 }

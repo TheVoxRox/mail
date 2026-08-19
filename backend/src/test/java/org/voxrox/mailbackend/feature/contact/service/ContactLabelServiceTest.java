@@ -38,8 +38,6 @@ import org.voxrox.mailbackend.feature.contact.repository.ContactRepository;
 @ExtendWith(MockitoExtension.class)
 class ContactLabelServiceTest {
 
-    private static final Long ACCOUNT_ID = 1L;
-
     @Mock
     private ContactLabelRepository labelRepository;
     @Mock

@@ -97,7 +97,7 @@ public class MessageFetcher {
         // servers (e.g. Seznam) occasionally return malformed BODYSTRUCTURE for
         // individual messages — persist an envelope-only stub so the message still
         // appears in the list. The detail endpoint will retry the content fetch and
-        // surface contentError dynamically (see MailFacade.getMessageDetail).
+        // surface contentError dynamically (see MailFacade.getEmailDetailByStableId).
         List<AttachmentResponse> attachments;
         String contentError = null;
         try {

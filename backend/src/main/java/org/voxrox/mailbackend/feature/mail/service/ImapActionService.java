@@ -147,11 +147,12 @@ public class ImapActionService {
      * absent from {@code folderName}". When the UID is already gone the goal is
      * already met, so this is a no-op success — logged at DEBUG, not WARN. A draft
      * can legitimately be removed by a concurrent cleanup path before this runs:
-     * the send handler issues a best-effort move-to-trash of the draft
-     * ({@code MailFacade.deleteMessages}) that races the autosave {@code replaces}
-     * hard-delete of the same revision, and on an eventually-consistent async
-     * pipeline either may win. Idempotency keeps that race correct instead of
-     * trying to serialise the two paths.
+     * the send handler issues a best-effort hard delete of the draft
+     * ({@code SmtpMessageService.sendDraft}, post-send bookkeeping) that races the
+     * autosave {@code replaces} hard-delete of the same revision
+     * ({@code DraftPersistenceService.saveDraftAsync}), and on an
+     * eventually-consistent async pipeline either may win. Idempotency keeps that
+     * race correct instead of trying to serialise the two paths.
      *
      * @return {@code true} when the postcondition holds (expunged now or already
      *         absent), {@code false} when the IMAP operation failed

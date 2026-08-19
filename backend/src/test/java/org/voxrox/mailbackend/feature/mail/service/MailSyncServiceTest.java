@@ -1,7 +1,6 @@
 package org.voxrox.mailbackend.feature.mail.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -37,7 +36,6 @@ import org.voxrox.mailbackend.core.config.MailClientProperties;
 import org.voxrox.mailbackend.core.config.mail.RetryProperties;
 import org.voxrox.mailbackend.core.config.mail.SyncProperties;
 import org.voxrox.mailbackend.core.metrics.MailMetrics;
-import org.voxrox.mailbackend.exception.ResourceNotFoundException;
 import org.voxrox.mailbackend.feature.account.AccountLastError;
 import org.voxrox.mailbackend.feature.account.AccountLastErrorCode;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
@@ -45,7 +43,6 @@ import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.feature.mail.dto.FolderResponse;
 import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
 import org.voxrox.mailbackend.feature.mail.entity.FolderSyncStateEntity;
-import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 import org.voxrox.mailbackend.feature.mail.event.MailSyncErrorStateChangedEvent;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
 
@@ -543,31 +540,6 @@ class MailSyncServiceTest {
             ArgumentCaptor<AccountLastError> captor = ArgumentCaptor.forClass(AccountLastError.class);
             verify(accountRepository).updateLastError(eq(ACCOUNT_ID), captor.capture(), any(LocalDateTime.class));
             assertThat(captor.getValue().code()).isEqualTo(AccountLastErrorCode.MAIL_SYNC_FOLDER_FAILED);
-        }
-    }
-
-    @Nested
-    @DisplayName("getMessageOrThrow")
-    class GetMessageOrThrow {
-
-        @Test
-        @DisplayName("Returns the message when it exists in the repository")
-        void returnsEntity() {
-            MessageEntity entity = new MessageEntity();
-            when(messageRepository.findByStableId("stable-123")).thenReturn(Optional.of(entity));
-
-            MessageEntity found = service.getMessageOrThrow("stable-123");
-
-            assertThat(found).isSameAs(entity);
-        }
-
-        @Test
-        @DisplayName("Throws ResourceNotFoundException for non-existing stableId")
-        void throwsWhenMissing() {
-            when(messageRepository.findByStableId("missing")).thenReturn(Optional.empty());
-
-            assertThatThrownBy(() -> service.getMessageOrThrow("missing")).isInstanceOf(ResourceNotFoundException.class)
-                    .hasMessageContaining("missing");
         }
     }
 

@@ -30,7 +30,6 @@ import org.voxrox.mailbackend.feature.contact.repository.ContactLabelRepository;
 import org.voxrox.mailbackend.feature.contact.repository.ContactRepository;
 import org.voxrox.mailbackend.util.AuditLog;
 import org.voxrox.mailbackend.util.LogCategory;
-import org.voxrox.mailbackend.util.LogMasker;
 
 /**
  * Manages the user-defined contact labels of the address book and their

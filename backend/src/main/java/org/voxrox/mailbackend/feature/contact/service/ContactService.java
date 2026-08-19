@@ -60,6 +60,28 @@ public class ContactService {
 
     private static final Sort SORT_BY_RECENT = Sort.by(Sort.Order.desc("updatedAt"), Sort.Order.asc("id"));
 
+    private static final int AUTOCOMPLETE_MAX_LIMIT = 20;
+
+    /** Source precedence within one rank — the curated entry wins a tie. */
+    private static final int CONTACT_FIRST = 0;
+    private static final int HISTORY_SECOND = 1;
+
+    /**
+     * Alphabetical order used inside the contact half before the merge. The
+     * nullable name fields are read into a local before use — reading the accessor
+     * twice (once to null-check, once to fold) is what SpotBugs flags, since
+     * nothing tells it the second call returns the same value.
+     */
+    private static final Comparator<AutocompleteRow> CONTACT_ORDER = Comparator
+            .<AutocompleteRow>comparingInt(AutocompleteRow::rank)
+            .thenComparing(r -> lowerOrEmpty(r.response().surname()))
+            .thenComparing(r -> lowerOrEmpty(r.response().name()))
+            .thenComparing(r -> r.response().email().toLowerCase(Locale.ROOT));
+
+    private static final Comparator<AutocompleteRow> AUTOCOMPLETE_RANKING = Comparator
+            .<AutocompleteRow>comparingInt(AutocompleteRow::rank).thenComparingInt(AutocompleteRow::sourceOrder)
+            .thenComparingInt(AutocompleteRow::orderInSource);
+
     private static Sort resolveSort(String sortKey) {
         if (sortKey == null || sortKey.isBlank()) {
             return DEFAULT_SORT;
@@ -242,31 +264,9 @@ public class ContactService {
         return rows;
     }
 
-    private static final int AUTOCOMPLETE_MAX_LIMIT = 20;
-
-    /** Source precedence within one rank — the curated entry wins a tie. */
-    private static final int CONTACT_FIRST = 0;
-    private static final int HISTORY_SECOND = 1;
-
-    /**
-     * Alphabetical order used inside the contact half before the merge. The
-     * nullable name fields are read into a local before use — reading the accessor
-     * twice (once to null-check, once to fold) is what SpotBugs flags, since
-     * nothing tells it the second call returns the same value.
-     */
-    private static final java.util.Comparator<AutocompleteRow> CONTACT_ORDER = java.util.Comparator
-            .<AutocompleteRow>comparingInt(AutocompleteRow::rank)
-            .thenComparing(r -> lowerOrEmpty(r.response().surname()))
-            .thenComparing(r -> lowerOrEmpty(r.response().name()))
-            .thenComparing(r -> r.response().email().toLowerCase(Locale.ROOT));
-
     private static String lowerOrEmpty(@Nullable String value) {
         return value == null ? "" : value.toLowerCase(Locale.ROOT);
     }
-
-    private static final java.util.Comparator<AutocompleteRow> AUTOCOMPLETE_RANKING = java.util.Comparator
-            .<AutocompleteRow>comparingInt(AutocompleteRow::rank).thenComparingInt(AutocompleteRow::sourceOrder)
-            .thenComparingInt(AutocompleteRow::orderInSource);
 
     private static int rankOfContact(ContactAutocompleteResponse resp, String qLower) {
         String emailLower = resp.email().toLowerCase(Locale.ROOT);
