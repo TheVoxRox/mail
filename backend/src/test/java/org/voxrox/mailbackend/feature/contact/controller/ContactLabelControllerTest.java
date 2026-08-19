@@ -46,7 +46,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @AutoConfigureMockMvc(addFilters = false)
 class ContactLabelControllerTest {
 
-    private static final Long ACCOUNT_ID = 5L;
     private static final Long LABEL_ID = 7L;
 
     @Autowired
