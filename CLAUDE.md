@@ -73,6 +73,14 @@ someone a rework at least once. For the human-facing versions see
     as modified in every clone and `checkout --`/`reset --hard` cannot clear
     it; `git add --renormalize` can. Detection is `git ls-files --eol`, not
     `git status`, which reports a mixed-ending blob as clean.
+  - `check:java-imports` — no unused import in a tracked `.java` file. Nothing
+    else reports one: Spotless has a `removeUnusedImports` step but it stays
+    **off** here because it does not understand `import module` (see the note by
+    the plugin in `backend/pom.xml`), and javac has no lint for it, so leftovers
+    survive a green `mvn clean verify` indefinitely. A symbol named only in
+    prose does not count as used — a `{@link}` or `@throws` does, since those
+    need the import to resolve. Wildcard and `import module` lines are skipped,
+    not guessed at. TypeScript is out of scope; eslint already covers it.
   - `check:docs-impact` (CI only) — egress/storage-relevant changes must touch
     `PRIVACY*.md` or carry a `Docs-impact:` commit trailer.
 
