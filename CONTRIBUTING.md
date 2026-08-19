@@ -167,6 +167,20 @@ coverage, add a per-file threshold rather than lowering a global floor.
   that formatters, linters and tests are happy to carry. If you need one in a
   string, write it as an escape sequence rather than the raw byte; if the
   file really is binary, declare it next to the other asset types.
+- `npm run check:eol` (part of `check`) — fails when an index blob's line
+  endings contradict `.gitattributes`. git normalizes a text blob to LF on the
+  way in and applies `eol=` on checkout, so a CRLF blob is not one `git add`
+  produced: it arrives from a commit made through the GitHub API, which does
+  not apply `.gitattributes`. Dependabot commits that way and runs weekly.
+  The file then shows as modified in every clone, and neither
+  `git checkout --` nor `git reset --hard` clears it — the smudge filter
+  rebuilds the working copy from the same bad blob. The fix is a commit:
+  `git add --renormalize <path>`, which the gate prints ready to paste.
+
+  The detection is `git ls-files --eol`, which reads the blob. `git status`
+  is not a substitute: it compares round-tripped content under a stat cache
+  and calls a mixed-ending blob clean even after a fresh checkout.
+
 - `npm run check:docs-impact -- --base <ref>` — CI-only, needs a diff range.
   Fails when a change touches an egress- or storage-relevant path without
   updating `PRIVACY*.md`. No script can decide whether the policy is still
