@@ -18,14 +18,22 @@
 		<java.version>25</java.version>
 		<!--
 			Security override: Spring Boot manages an older Tomcat 11.0.x that carries
-			known advisories. 11.0.22 (our previous pin) is itself affected by
-			CVE-2026-55276, CVE-2026-53434 (fixed 11.0.23) and CVE-2026-59083,
-			CVE-2026-59084 (fixed 11.0.24). Apache rates all four Low; NVD scores them
-			9.1, which trips the vuln-scan failBuildOnCVSS=8 gate — hence the bump to
-			the patched release. Remove this override once the managed Tomcat version
-			is >= 11.0.24.
+			known advisories. The managed version (11.0.22 as of Boot 4.1.0) is itself
+			affected by CVE-2026-55276, CVE-2026-53434 (fixed 11.0.23) and
+			CVE-2026-59083, CVE-2026-59084 (fixed 11.0.24). Apache rates all four Low;
+			NVD scores them 9.1, which trips the vuln-scan failBuildOnCVSS=8 gate —
+			hence the bump to the patched release.
+
+			11.0.24 in turn is affected by CVE-2026-66299 (high, fixed 11.0.25).
+			That one cannot be triggered here: it lives in the WebSocket chat of the
+			`examples` webapp, which embedded Tomcat does not ship at all. The pin
+			moves anyway, because the code-scanning alert matches on version rather
+			than on reachability, and a moving pin beats a standing dismissal that
+			would also hide the next advisory on this coordinate.
+
+			Remove this override once the managed Tomcat version is >= 11.0.25.
 		-->
-		<tomcat.version>11.0.24</tomcat.version>
+		<tomcat.version>11.0.25</tomcat.version>
 		<!--
 			Security override: Spring Boot 4.1.0 manages the Jackson 2 bridge bom at
 			2.21.4, which is affected by CVE-2026-54515 (case-insensitive deserialization
