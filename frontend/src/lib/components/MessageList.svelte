@@ -24,6 +24,11 @@
 	} from '$lib/components/mail-list/MailBulkToolbar.svelte';
 	import MailListState from '$lib/components/mail-list/MailListState.svelte';
 	import { createRovingGrid } from '$lib/components/grid/rovingGrid.svelte.js';
+	import { createBulkAnnouncer } from '$lib/components/grid/bulkAnnouncer.js';
+	import {
+		createLatestSelection,
+		isRowBackgroundClick
+	} from '$lib/components/grid/rowActivation.js';
 	import { cn } from '$lib/utils.js';
 	import { formatMessageListDate } from '$lib/formatters.js';
 	import { moveTargetsFor } from '$lib/mail/moveTargets.js';
@@ -61,6 +66,7 @@
 		initialCol: COL_SUBJECT,
 		maxCol: MAX_COL
 	});
+	const latestSelection = createLatestSelection();
 
 	const selectedCount = $derived($selectedMessageIds.length);
 	const pageStableIds = $derived(
@@ -188,23 +194,11 @@
 		}
 	}
 
-	/*
-	 * The mouse follows the web-mail model (Gmail, Outlook Web): a click anywhere
-	 * on the row opens the message and moves the reading cursor into the body,
-	 * and the checkbox is the only thing that selects. #201 briefly made a single
-	 * click select instead — the Outlook *desktop* model — and that silently
-	 * broke Enter for a screen reader in browse mode: the reader keeps the
-	 * unmodified keys for its own navigation and never delivers Enter as a
-	 * keydown, it activates the row instead, and the activation arrives here as
-	 * an ordinary click. Treating that click as "select" made Enter look dead.
-	 *
-	 * The checkbox and the actions menu stop their own clicks before this, and
-	 * the subject link handles its own — see handleSubjectClick.
-	 */
+	// A click on the row opens the message; the checkbox alone selects. Which
+	// clicks count as the row's own, and why that distinction is load-bearing for
+	// a screen reader, is in grid/rowActivation.ts.
 	function handleRowClick(event: MouseEvent, message: MailSummaryResponse): void {
-		const target = event.target as HTMLElement | null;
-		if (target?.closest('input, button, a')) return;
-		openDeliberately(message);
+		if (isRowBackgroundClick(event)) openDeliberately(message);
 	}
 
 	/**
@@ -220,8 +214,8 @@
 	}
 
 	function openDeliberately(message: MailSummaryResponse): void {
-		// Invalidate a refocus an in-flight selectAndFocus queued, so the body wins.
-		selectToken += 1;
+		// Retire a refocus an in-flight selectAndFocus queued, so the body wins.
+		latestSelection.retire();
 		void handleSelect(message, { focusBody: true });
 	}
 
@@ -264,17 +258,11 @@
 		void runBulkAction('move', (stableIds) => moveMessages(stableIds, folderRef));
 	}
 
-	// Bumped on every selection. handleSelect() navigates, and SvelteKit cancels
-	// an in-flight navigation when a newer one starts (rapid Arrow/Page keys). The
-	// superseded navigation's promise still settles and would re-focus its now-stale
-	// row last, bouncing focus backwards — so a `.finally` only re-focuses while it
-	// is still the latest selection.
-	let selectToken = 0;
 	function selectAndFocus(rowIndex: number, col: number, message: MailSummaryResponse): void {
 		grid.moveTo(rowIndex, col);
-		const token = ++selectToken;
+		const isLatest = latestSelection.begin();
 		void handleSelect(message).finally(() => {
-			if (token === selectToken) grid.moveTo(rowIndex, col);
+			if (isLatest()) grid.moveTo(rowIndex, col);
 		});
 	}
 
@@ -333,23 +321,15 @@
 	});
 
 	/*
-	 * Announce the available bulk actions the first time a selection starts.
 	 * The action buttons render only once something is selected and the focus
 	 * stays on the row, so without this a screen-reader user ticks a checkbox
-	 * and has no signal that Mark read / Move / Delete just appeared. Resets
-	 * when the selection empties so the next session announces again. The flag
-	 * is a plain (non-reactive) variable to avoid an effect self-dependency.
+	 * and has no signal that Mark read / Move / Delete just appeared.
 	 */
-	let bulkActionsAnnounced = false;
+	const announceBulkActions = createBulkAnnouncer(() =>
+		announcePolite($_('messages.bulkActionsAvailable'))
+	);
 	$effect(() => {
-		if (selectedCount > 0) {
-			if (!bulkActionsAnnounced) {
-				bulkActionsAnnounced = true;
-				announcePolite($_('messages.bulkActionsAvailable'));
-			}
-		} else {
-			bulkActionsAnnounced = false;
-		}
+		announceBulkActions(selectedCount > 0);
 	});
 
 	async function navigateToPage(target: number) {

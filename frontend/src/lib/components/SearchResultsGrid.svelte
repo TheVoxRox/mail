@@ -6,6 +6,7 @@
 	import MessageFlags from '$lib/components/MessageFlags.svelte';
 	import MessageRowActionsMenu from '$lib/components/MessageRowActionsMenu.svelte';
 	import { createRovingGrid } from '$lib/components/grid/rovingGrid.svelte.js';
+	import { isRowBackgroundClick } from '$lib/components/grid/rowActivation.js';
 	import { cn } from '$lib/utils.js';
 	import { formatNumericDate } from '$lib/formatters.js';
 	import type { MailSummaryResponse, PagedResponse } from '$lib/types.js';
@@ -102,9 +103,7 @@
 	}
 
 	function handleRowClick(event: MouseEvent, message: MailSummaryResponse): void {
-		const target = event.target as HTMLElement | null;
-		if (target?.closest('input, button, a')) return;
-		onSelect(message);
+		if (isRowBackgroundClick(event)) onSelect(message);
 	}
 
 	// Keep the roving focus index inside the page when results shrink.
