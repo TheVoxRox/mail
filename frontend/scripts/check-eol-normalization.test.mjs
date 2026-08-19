@@ -1,7 +1,4 @@
-import { randomUUID } from 'node:crypto';
-import { rmSync, writeFileSync } from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createGateRepo } from './test-support/gate-repo.mjs';
 
@@ -45,19 +42,20 @@ afterEach(() => {
  * spelled — the whole reason the bug arrives through the GitHub API, which
  * writes blobs directly and does not apply .gitattributes.
  *
- * The carrier file lives outside the repo: several gates enumerate tracked
- * files, and a fixture that tracks its own scaffolding tests the wrong tree.
+ * The bytes go in over stdin, which is what makes the bypass work at all: git
+ * resolves `.gitattributes` by path, and stdin has no path, so there is no
+ * filter for it to apply. It also keeps the fixture down to git state — an
+ * earlier version staged the bytes through a temp file, which is a second
+ * thing to place, clean up and reason about for no gain.
  */
 function commitUnfilteredBlob(relPath, bytes) {
-	const carrier = path.join(os.tmpdir(), `voxrox-eol-blob-${randomUUID()}`);
-	writeFileSync(carrier, bytes);
-	try {
-		const sha = repo.git(['hash-object', '-w', '--no-filters', carrier]);
-		repo.git(['update-index', '--add', '--cacheinfo', `100644,${sha},${relPath}`]);
-		repo.git(['commit', '--quiet', '--no-verify', '-m', `raw ${relPath}`]);
-	} finally {
-		rmSync(carrier, { force: true });
-	}
+	const sha = execFileSync('git', ['hash-object', '-w', '--stdin'], {
+		cwd: repo.root,
+		input: bytes,
+		encoding: 'utf8'
+	}).trim();
+	repo.git(['update-index', '--add', '--cacheinfo', `100644,${sha},${relPath}`]);
+	repo.git(['commit', '--quiet', '--no-verify', '-m', `raw ${relPath}`]);
 	repo.git(['checkout', '--', relPath]);
 }
 
