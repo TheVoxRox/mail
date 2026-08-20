@@ -184,6 +184,7 @@
 		"notFound": "Tato zpráva už není dostupná — mohla být přesunuta nebo smazána. Seznam jsme obnovili.",
 		"iframeTitle": "Obsah zprávy",
 		"bodyHeading": "Text zprávy",
+		"linkOpenError": "Odkaz se nepodařilo otevřít v prohlížeči.",
 		"pageTitle": "Pošta – Zpráva",
 		"pageTitleWithSubject": "Pošta – {subject}",
 		"folderPageTitle": "Pošta – {folder}",

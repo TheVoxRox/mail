@@ -184,6 +184,7 @@
 		"notFound": "This message is no longer available — it may have been moved or deleted. We've refreshed the list.",
 		"iframeTitle": "Message content",
 		"bodyHeading": "Message text",
+		"linkOpenError": "Could not open the link in your browser.",
 		"pageTitle": "Mail – Message",
 		"pageTitleWithSubject": "Mail – {subject}",
 		"folderPageTitle": "Mail – {folder}",
