@@ -496,6 +496,7 @@
 		"vcardImportNoFiles": "The selected file is not a vCard (.vcf).",
 		"vcardImportEmpty": "The vCard file contained no contacts with an e-mail.",
 		"vcardImportDone": "Imported: {created}, failed: {failed}.",
+		"vcardImportDoneSkipped": "Imported: {created}, failed: {failed}, skipped without an e-mail: {skipped}.",
 		"labelsNone": "No label",
 		"noLabelsYet": "No labels yet.",
 		"manageLabels": "Manage labels",

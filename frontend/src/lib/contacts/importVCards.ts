@@ -24,6 +24,17 @@ type ImportMessageFn = (
 	options?: { values?: Record<string, string | number> }
 ) => string;
 
+/**
+ * Contacts per bulk request, matching the `@Size(max = 100)` ceiling on
+ * `BulkContactCreateRequest`.
+ *
+ * The whole file used to go into a single call, so anything above the ceiling
+ * failed validation as one — and nothing at all was imported. A Google or
+ * Outlook address-book export routinely holds more than a hundred cards, which
+ * made the import that matters most the one that could not run.
+ */
+const BULK_CHUNK_SIZE = 100;
+
 /** True when the drag payload contains files (vs. text/link drags). */
 export function dragHasFiles(event: DragEvent): boolean {
 	const dt = event.dataTransfer;
@@ -88,8 +99,10 @@ async function resolveCategories(
 
 /**
  * Imports the vCard files among `candidates` into the account and toasts the
- * outcome (including all error cases). Returns true when the bulk call
- * succeeded — the caller should then reload its contact list.
+ * outcome (including all error cases). Contacts go in batches of
+ * {@link BULK_CHUNK_SIZE}, and a batch that fails costs only its own items.
+ * Returns true when anything reached the address book — the caller should then
+ * reload its contact list.
  */
 export async function importVCardFiles(candidates: File[], t: ImportMessageFn): Promise<boolean> {
 	const files = candidates.filter(looksLikeVCardFile);
@@ -100,9 +113,12 @@ export async function importVCardFiles(candidates: File[], t: ImportMessageFn): 
 
 	try {
 		const parsed: ParsedVCard[] = [];
+		let skipped = 0;
 		for (const file of files) {
 			const text = await file.text();
-			parsed.push(...parseVCard(text));
+			const { cards, skippedWithoutEmail } = parseVCard(text);
+			parsed.push(...cards);
+			skipped += skippedWithoutEmail;
 		}
 		if (parsed.length === 0) {
 			pushToast(t('contacts.vcardImportEmpty'), { tone: 'error' });
@@ -117,12 +133,39 @@ export async function importVCardFiles(candidates: File[], t: ImportMessageFn): 
 				.filter((id): id is number => id != null)
 		}));
 
-		const result = await bulkCreateContacts({ contacts: allContacts });
+		let created = 0;
+		let failed = 0;
+		let firstErrorMessage: string | null = null;
+
+		for (let start = 0; start < allContacts.length; start += BULK_CHUNK_SIZE) {
+			const chunk = allContacts.slice(start, start + BULK_CHUNK_SIZE);
+			try {
+				const result = await bulkCreateContacts({ contacts: chunk });
+				created += result.created ?? 0;
+				failed += result.failed ?? 0;
+			} catch (err) {
+				// One rejected request must not throw away the batches that already
+				// landed: its items count as failures, the rest of the file still
+				// goes in, and the reason is kept for the report below.
+				firstErrorMessage ??= toErrorMessage(err);
+				failed += chunk.length;
+			}
+		}
+
+		if (firstErrorMessage !== null) {
+			// Even next to a summary this has to be said: the counts alone would
+			// leave the user guessing which half of the file is missing and why.
+			pushToast(firstErrorMessage, { tone: 'error' });
+			// Nothing was written at all — the plain failure the caller used to
+			// get, with no summary to add and nothing to reload.
+			if (created === 0) return false;
+		}
+
 		pushToast(
-			t('contacts.vcardImportDone', {
-				values: { created: result.created ?? 0, failed: result.failed ?? 0 }
-			}),
-			{ tone: (result.failed ?? 0) > 0 ? 'error' : 'success' }
+			skipped > 0
+				? t('contacts.vcardImportDoneSkipped', { values: { created, failed, skipped } })
+				: t('contacts.vcardImportDone', { values: { created, failed } }),
+			{ tone: failed > 0 ? 'error' : skipped > 0 ? 'info' : 'success' }
 		);
 		return true;
 	} catch (err) {

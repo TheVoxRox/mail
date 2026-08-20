@@ -57,6 +57,21 @@ export interface ParsedVCard {
 	categories: string[];
 }
 
+/**
+ * Everything one file yielded: the cards that can become contacts, plus how
+ * many it held that carry no e-mail address at all.
+ *
+ * The count is not bookkeeping for its own sake. A card without an address
+ * cannot become a contact (the backend requires at least one), and dropping
+ * those silently let an import that lost half a file still report a clean
+ * success — the caller has to be able to say so.
+ */
+export interface ParsedVCardFile {
+	cards: ParsedVCard[];
+	/** Cards that ended without a usable EMAIL property. */
+	skippedWithoutEmail: number;
+}
+
 interface CardBuffer {
 	nValue: string | null;
 	fnValue: string | null;
@@ -125,9 +140,10 @@ function finalizeCard(buf: CardBuffer): ParsedVCard | null {
 	};
 }
 
-export function parseVCard(text: string): ParsedVCard[] {
+export function parseVCard(text: string): ParsedVCardFile {
 	const lines = unfoldLines(text);
 	const cards: ParsedVCard[] = [];
+	let skippedWithoutEmail = 0;
 	let buf: CardBuffer | null = null;
 
 	for (const rawLine of lines) {
@@ -143,6 +159,7 @@ export function parseVCard(text: string): ParsedVCard[] {
 			if (buf) {
 				const card = finalizeCard(buf);
 				if (card) cards.push(card);
+				else skippedWithoutEmail++;
 			}
 			buf = null;
 			continue;
@@ -173,5 +190,5 @@ export function parseVCard(text: string): ParsedVCard[] {
 		}
 	}
 
-	return cards;
+	return { cards, skippedWithoutEmail };
 }
