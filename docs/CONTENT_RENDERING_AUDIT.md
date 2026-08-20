@@ -2,13 +2,13 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.4                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| **Date**           | 2026-08-08                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **Version**        | 1.5                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| **Date**           | 2026-08-20                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | **Audited commit** | `cad05cb` (re-verified 2026-08-08, recorded pre-squash as `5799e8b`; 1.0–1.3 baseline: `d55b753` / `fc71cb4`)                                                                                                                                                                                                                                                                                                                                                                           |
 | **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/util/HtmlSanitizer.java`, `backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailContentService.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/RemoteImageAllowlistService.java`, `frontend/src/lib/mail/content-sanitizer.ts`, `frontend/src/lib/mail/mailFrame.ts`, `frontend/src/lib/components/message-detail` |
 | **Subsystem**      | Untrusted email HTML rendering — Boundary 4 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                                                                                                  |
-| **Verdict**        | **Security: PASS** (no exploitable finding). F1 (dead links), F2 (embedded images + remote-image opt-in) and F3 (plain-text fidelity) all **fixed**.                                                                                                                                                                                                                                                                                                                                    |
+| **Verdict**        | **Security: PASS** (no exploitable finding). F1 (dead links), F2 (embedded images + remote-image opt-in), F3 (plain-text fidelity) and F4 (URLs in plain-text bodies were not links) all **fixed**.                                                                                                                                                                                                                                                                                     |
 
 Per-subsystem release audit of the path **"raw IMAP body → rendered to the
 user"**. Every email is 100% attacker-controlled input, so this is the
@@ -187,6 +187,39 @@ displayed text. No security impact.
   HTML, so literal markup renders verbatim. Covered by `HtmlSanitizerTest`
   (plain-text) + `MimePartExtractorTest` (`extractBody` content-type).
 
+### F4 — Medium (functional): a URL in a plain-text body was never a link — **FIXED 2026-08-20**
+
+The F3 fix routes a genuine `text/plain` body through `escapePlainText`, which
+escapes it and wraps it in `<pre>`. A `text/plain` body carries no markup of its
+own, so a bare `https://…` in it stayed inert text: nothing to activate with the
+mouse, and — the part that makes this more than cosmetic — nothing a screen
+reader ever announces as a link, so it is absent from the links list and from
+link-by-link navigation. The F1 bridge was irrelevant here; there was no anchor
+for it to relay.
+
+- **Fix (shipped):** `escapePlainText`
+  ([HtmlSanitizer.java](../backend/src/main/java/org/voxrox/mailbackend/util/HtmlSanitizer.java))
+  linkifies a bare `http(s)` URL into a real `<a href>`, then the existing
+  frontend allow-list gives it `target`/`rel` and the F1 bridge opens it. No
+  other scheme is linkified, so nothing reaches the body that
+  `isOpenableMailLink` would refuse anyway. **The escaping is not relaxed:** the
+  URL pattern can match neither a quote nor an angle bracket, so the generated
+  anchor is the only markup the method emits and everything else stays escaped —
+  the attribute cannot be broken out of.
+- **Verdict impact:** none. The linkified anchor is a strict subset of what the
+  backend safelist has always allowed HTML bodies to carry (`a[href]` limited to
+  `http/https/mailto/tel`), and it passes through the same two downstream layers.
+- **Regression cover:** `HtmlSanitizerTest` (linkification, punctuation
+  boundary, non-http schemes, attribute break-out attempt), a
+  `content-sanitizer` unit test (anchor survives inside `<pre>` with
+  `target`/`rel`), and a second case in
+  [links.functional.e2e.ts](../frontend/src/routes/mail/links.functional.e2e.ts)
+  clicking the link of a plain-text body end to end.
+- **Diagnostics gap closed with it:** a body-link click that did not end in an
+  open was reported only to `console.warn` — invisible in a packaged build and
+  indistinguishable from success for a screen-reader user. Both failure paths
+  (refused protocol, failed open) now raise an error toast.
+
 ### Note — backend `cid:` allowance — **RESOLVED by the F2 fix**
 
 `Safelist … .addProtocols("img", "src", "cid", "data")` in HtmlSanitizer keeps
@@ -199,8 +232,9 @@ one, so no dead `cid:` source is ever retained.
 
 - **Security:** close this subsystem as **PASS**; add a change-log pointer from
   the threat model (Boundary 4) to this audit.
-- **Release:** F1 (dead links), F2 (embedded images + remote-image opt-in) and F3
-  (plain-text fidelity) are all **fixed**. The sandbox and default CSP are
+- **Release:** F1 (dead links), F2 (embedded images + remote-image opt-in), F3
+  (plain-text fidelity) and F4 (URLs in plain-text bodies were not links) are all
+  **fixed**. The sandbox and default CSP are
   unchanged; the frame CSP `img-src` relaxes to `https:` **only** under the
   explicit per-message "load images" gesture, and stored content stays inert at
   rest (remote URLs held in `data-voxrox-remote-src`, never a live `src`).
@@ -254,6 +288,18 @@ bridge restores working links without changing the sandbox.
 
 ## 7. Change log
 
+- **1.5** (2026-08-20) — new finding **F4** (a bare URL in a `text/plain` body
+  was inert text, so it was neither clickable nor announced as a link) and its
+  fix: `escapePlainText` linkifies `http(s)` URLs. Verdict unchanged (**PASS**)
+  — the generated anchor is a subset of what layer [1] already allows HTML
+  bodies, it passes through layers [2] and [3] untouched, and the escaping is
+  not relaxed (the URL pattern cannot match a quote or an angle bracket, so no
+  attribute break-out is possible; covered by a test). Also recorded under F4:
+  a body-link click that failed to open reported only to `console.warn`, which
+  is invisible in a packaged build — both failure paths now raise an error
+  toast. Drift under `Code paths` acknowledged by object id in
+  `docs/audit-freshness.json` rather than a bumped `Audited commit`, which
+  would point at a pre-squash SHA.
 - **1.4** (2026-08-08) — re-verified against `5799e8b` after `check:audits`
   reported four commits of drift, all of them outside the rendering chain:
   #203 edits a comment in `mailFrame.ts` (a key name in prose, no code), #197

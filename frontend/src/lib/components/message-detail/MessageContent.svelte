@@ -171,12 +171,22 @@
 	 * handing the URL to the OS browser via the shell:allow-open capability.
 	 */
 	async function openBodyLink(href: string): Promise<void> {
-		if (!isOpenableMailLink(href)) return;
+		/*
+		 * Every path that does not end in an open reports it. A dead click used to
+		 * be indistinguishable from a working one for a screen-reader user (the
+		 * failure was a console warning nobody sees in a packaged build), which is
+		 * how the F1 regression stayed invisible for as long as it did.
+		 */
+		if (!isOpenableMailLink(href)) {
+			pushToast($_('detail.linkOpenError'), { tone: 'error' });
+			return;
+		}
 		try {
 			const { open } = await import('@tauri-apps/plugin-shell');
 			await open(href);
 		} catch (error) {
 			console.warn('[mail] failed to open body link', error);
+			pushToast($_('detail.linkOpenError'), { tone: 'error' });
 		}
 	}
 </script>

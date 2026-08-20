@@ -434,7 +434,11 @@ function createInitialState(): E2EFixtureState {
 							? `<div><p onclick="window.__xss=1">HTML obsah pro <strong>${message.subject}</strong>.</p><script>window.__xss=1</script><img src="https://tracker.example.test/pixel.png" onerror="window.__xss=1" alt="tracker"><a href="javascript:alert(1)">nebezpečný odkaz</a><a href="https://example.com/safe">bezpečný odkaz</a></div>`
 							: message.stableId === 'msg-02'
 								? `<div><p>Newsletter pro <strong>${message.subject}</strong>.</p><img data-voxrox-remote-src="https://cdn.example.test/logo.png" alt="logo"></div>`
-								: `<p>HTML obsah pro <strong>${message.subject}</strong>.</p>`,
+								: message.stableId === 'msg-04'
+									? // A text/plain body exactly as the backend wraps it after
+										// linkifying a bare URL (HtmlSanitizer.escapePlainText, audit F4).
+										`<div class='mail-content-wrapper' style='all: revert;'><pre>Textová zpráva bez HTML.\nOdkaz: <a href="https://example.com/plain">https://example.com/plain</a> na konci.</pre></div>`
+									: `<p>HTML obsah pro <strong>${message.subject}</strong>.</p>`,
 					senderEmail: 'newsletter@example.com',
 					remoteImagesAllowedForSender: false
 				}

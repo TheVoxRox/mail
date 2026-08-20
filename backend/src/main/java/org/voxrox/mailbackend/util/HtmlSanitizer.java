@@ -34,6 +34,17 @@ public class HtmlSanitizer {
      */
     private static final String REMOTE_SRC_ATTR = "data-voxrox-remote-src";
 
+    /**
+     * Matches a bare {@code http(s)} URL inside a plain-text body. The trailing
+     * character class ends the match on a character a URL plausibly ends with, so
+     * sentence punctuation ({@code see https://example.com.}) and a bracket the
+     * author wrapped the address in stay out of the link, while a path ending in
+     * {@code /} or a query ending in {@code =} is kept whole. Neither a quote nor
+     * an angle bracket can ever be part of a match.
+     */
+    private static final Pattern PLAIN_TEXT_URL = Pattern.compile("https?://[^\\s<>\"']*[\\w/=+_~%#-]",
+            Pattern.CASE_INSENSITIVE);
+
     private static final Logger log = LoggerFactory.getLogger(HtmlSanitizer.class);
 
     /*
@@ -169,13 +180,39 @@ public class HtmlSanitizer {
      * sanitizer (content-rendering audit finding F3). Same wrapper as
      * {@link #sanitize} so the client renders it through the identical content
      * path.
+     *
+     * <p>
+     * A bare {@code http(s)} URL in the text becomes a real {@code <a>}: a
+     * text/plain body carries no markup of its own, so without this an address in
+     * the body is inert text — nothing the reader can open and nothing a screen
+     * reader ever announces as a link (content-rendering audit finding F4). That
+     * anchor is the only markup this method emits; everything else stays escaped.
      */
     public static String escapePlainText(String rawText) {
         if (rawText == null || rawText.isBlank()) {
             return "";
         }
-        String escaped = rawText.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
-        return "<div class='mail-content-wrapper' style='all: revert;'><pre>" + escaped + "</pre></div>";
+        StringBuilder body = new StringBuilder(rawText.length() + 64);
+        Matcher url = PLAIN_TEXT_URL.matcher(rawText);
+        int cursor = 0;
+        while (url.find()) {
+            body.append(escapeText(rawText.substring(cursor, url.start())));
+            /*
+             * PLAIN_TEXT_URL matches neither a quote nor an angle bracket, so the escaped
+             * match is safe both as the href of a double-quoted attribute and as the link
+             * text — no attribute can be broken out of.
+             */
+            String href = escapeText(url.group());
+            body.append("<a href=\"").append(href).append("\">").append(href).append("</a>");
+            cursor = url.end();
+        }
+        body.append(escapeText(rawText.substring(cursor)));
+        return "<div class='mail-content-wrapper' style='all: revert;'><pre>" + body + "</pre></div>";
+    }
+
+    /** HTML-escapes plain body text. The wrapper markup is emitted around it. */
+    private static String escapeText(String text) {
+        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
     }
 
     /**

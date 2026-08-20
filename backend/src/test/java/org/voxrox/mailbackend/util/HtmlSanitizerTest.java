@@ -242,6 +242,53 @@ class HtmlSanitizerTest {
             assertThat(HtmlSanitizer.escapePlainText(null)).isEmpty();
             assertThat(HtmlSanitizer.escapePlainText("   ")).isEmpty();
         }
+
+        @Test
+        @DisplayName("A bare URL becomes an openable link (F4)")
+        void linkifiesBareUrl() {
+            String out = HtmlSanitizer.escapePlainText("See https://example.com/a/b for details");
+
+            assertThat(out).contains("<a href=\"https://example.com/a/b\">https://example.com/a/b</a>");
+            assertThat(out).contains("See ").contains(" for details");
+        }
+
+        @Test
+        @DisplayName("Sentence punctuation and a wrapping bracket stay outside the link")
+        void keepsPunctuationOutsideTheLink() {
+            String out = HtmlSanitizer.escapePlainText("Read (http://example.com/x), then stop.");
+
+            assertThat(out).contains("(<a href=\"http://example.com/x\">http://example.com/x</a>), then stop.");
+        }
+
+        @Test
+        @DisplayName("A query string keeps its parameters, escaped in both href and text")
+        void escapesAmpersandsInsideTheUrl() {
+            String out = HtmlSanitizer.escapePlainText("https://example.com/s?a=1&b=2");
+
+            assertThat(out).contains("<a href=\"https://example.com/s?a=1&amp;b=2\">");
+            assertThat(out).doesNotContain("?a=1&b=2\"");
+        }
+
+        @Test
+        @DisplayName("Only http(s) is linkified — no other scheme is invented")
+        void ignoresNonHttpSchemes() {
+            String out = HtmlSanitizer
+                    .escapePlainText("javascript:alert(1) file:///c:/x data:text/html,x ftp://example.com/f");
+
+            assertThat(out).doesNotContain("<a ");
+            assertThat(out).contains("javascript:alert(1)").contains("ftp://example.com/f");
+        }
+
+        @Test
+        @DisplayName("A quote in the text cannot break out of the generated href")
+        void cannotBreakOutOfTheHrefAttribute() {
+            String out = HtmlSanitizer.escapePlainText("https://example.com/a\" onmouseover=\"alert(1)");
+
+            // The link ends at the quote, so what follows is inert text inside <pre>
+            // rather than an attribute of the anchor.
+            assertThat(out)
+                    .contains("<a href=\"https://example.com/a\">https://example.com/a</a>\" onmouseover=\"alert(1)");
+        }
     }
 
     @Nested

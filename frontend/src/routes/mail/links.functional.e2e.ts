@@ -49,3 +49,39 @@ test('klik na odkaz v těle zprávy se přepošle ven místo mrtvé _blank navig
 	// preventDefault + no popup: the click must not navigate the frame or the app.
 	await expect(page).toHaveURL(/\/mail\/1\/INBOX\/msg-01$/);
 });
+
+/*
+ * A text/plain body carries no markup, so a bare URL in it used to be inert
+ * text — nothing to click and nothing a screen reader announces as a link
+ * (audit F4). The backend now linkifies it (HtmlSanitizer.escapePlainText); this
+ * asserts the resulting anchor survives the frontend allow-list inside <pre> and
+ * reaches the same bridge as a link from an HTML mail.
+ */
+test('odkaz v textové zprávě je skutečný odkaz a přepošle se ven', async ({ page }) => {
+	await openApp(page, '/mail/1/INBOX/msg-04');
+
+	const iframe = bodyFrame(page);
+	await expect(iframe).toBeVisible();
+
+	await page.evaluate(() => {
+		(window as unknown as { __linkRelays: string[] }).__linkRelays = [];
+		window.addEventListener('message', (event: MessageEvent) => {
+			if (event.origin !== 'null') return;
+			const data = event.data as { __voxroxMailFrameLink?: unknown; href?: unknown };
+			if (data && data.__voxroxMailFrameLink === true && typeof data.href === 'string') {
+				(window as unknown as { __linkRelays: string[] }).__linkRelays.push(data.href);
+			}
+		});
+	});
+
+	const link = page.frameLocator('iframe').locator('a[href="https://example.com/plain"]');
+	// The anchor is a real link in the accessibility tree, not styled text.
+	await expect(link).toHaveText('https://example.com/plain');
+	await link.click();
+
+	await expect
+		.poll(() => page.evaluate(() => (window as unknown as { __linkRelays: string[] }).__linkRelays))
+		.toContain('https://example.com/plain');
+
+	await expect(page).toHaveURL(/\/mail\/1\/INBOX\/msg-04$/);
+});

@@ -200,6 +200,20 @@ describe('sanitizeMailHtml — XSS hardening', () => {
 		expect(result).toContain('<td>cell</td>');
 	});
 
+	it('keeps a linkified URL inside a plain-text body openable', () => {
+		// Exactly what the backend emits for a text/plain body whose text contained
+		// a bare URL (HtmlSanitizer.escapePlainText, audit F4): the anchor must
+		// survive the frontend allow-list and get the target/rel the frame bridge
+		// relies on, with <pre> preserving the layout around it.
+		const result = sanitizeMailHtml(
+			"<div class='mail-content-wrapper' style='all: revert;'><pre>See <a href=\"https://example.test/a?x=1&amp;y=2\">https://example.test/a?x=1&amp;y=2</a> please</pre></div>"
+		);
+		expect(result).toContain('<pre>');
+		expect(result).toContain('href="https://example.test/a?x=1&amp;y=2"');
+		expect(result).toContain('target="_blank"');
+		expect(result).toContain('rel="noopener noreferrer nofollow"');
+	});
+
 	it('sanitises colspan/rowspan to digits only', () => {
 		const result = sanitizeMailHtml(
 			'<table><tr><td colspan="2; evil" rowspan="1">x</td></tr></table>'
