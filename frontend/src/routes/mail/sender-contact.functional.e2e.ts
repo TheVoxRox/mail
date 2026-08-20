@@ -54,7 +54,7 @@ test.describe('Kontakt z otevřené zprávy', () => {
 		await page.waitForURL(`**${messageUrl(unknown.stableId)}`);
 		// The same line now offers the contact instead of offering to add it.
 		await expect(
-			page.getByRole('link', { name: `Zobrazit kontakt, ${unknown.email}` })
+			page.getByRole('link', { name: `Upravit kontakt, ${unknown.email}` })
 		).toBeVisible();
 	});
 
@@ -87,12 +87,10 @@ test.describe('Kontakt z otevřené zprávy', () => {
 	test('známý odesílatel nabízí jen svůj kontakt', async ({ page }) => {
 		await openApp(page, messageUrl(known.stableId));
 
-		await expect(
-			page.getByRole('link', { name: `Zobrazit kontakt, ${known.email}` })
-		).toBeVisible();
+		await expect(page.getByRole('link', { name: `Upravit kontakt, ${known.email}` })).toBeVisible();
 		await expect(page.getByRole('link', { name: /^Přidat do kontaktů/ })).toHaveCount(0);
 
-		await page.getByRole('link', { name: `Zobrazit kontakt, ${known.email}` }).click();
+		await page.getByRole('link', { name: `Upravit kontakt, ${known.email}` }).click();
 
 		await page.waitForURL(new RegExp(`/contacts\\?.*edit=${known.contactId}`));
 		await expect(page.getByRole('heading', { name: 'Upravit kontakt' })).toBeVisible();
