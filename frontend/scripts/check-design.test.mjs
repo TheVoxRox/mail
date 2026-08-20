@@ -226,6 +226,147 @@ describe('check-design', () => {
 		expect(run().status).toBe(0);
 	});
 
+	/*
+	 * The one element-scoped rule. Its whole difficulty is that the two
+	 * attributes it has to see together are far apart on a real row — eight
+	 * lines and a `cn(...)` call — so these tests are mostly about the walk
+	 * reaching the class at all, and about it stopping at the right element.
+	 */
+	describe('row grid columns', () => {
+		const row = (classAttr, extra = '') =>
+			[
+				'<div role="grid" class="grid grid-cols-[2.5rem_auto]">',
+				'\t<div',
+				'\t\trole="row"',
+				'\t\ttabindex="-1"',
+				`\t\t${extra}`,
+				`\t\tclass=${classAttr}`,
+				'\t>',
+				'\t\t<span role="gridcell">x</span>',
+				'\t</div>',
+				'</div>',
+				''
+			].join('\n');
+
+		it('allows a container that declares the tracks', () => {
+			repo.write('frontend/src/lib/A.svelte', row('"col-span-full grid grid-cols-subgrid"'));
+
+			const result = run();
+
+			expect(result.status).toBe(0);
+			expect(result.stdout).toContain('Design OK');
+		});
+
+		it('fails on a row that declares its own tracks, reporting where the tag opens', () => {
+			repo.write('frontend/src/lib/A.svelte', row('"col-span-full grid grid-cols-[2.5rem_auto]"'));
+
+			const result = run();
+
+			expect(result.status).not.toBe(0);
+			expect(result.output).toContain('row-grid-columns');
+			// Line 2 is `<div`, nine lines above the class it is judged on.
+			expect(result.output.replaceAll('\\', '/')).toContain('src/lib/A.svelte:2');
+		});
+
+		/*
+		 * The reason this is a scanner. `onclick={(e) => …}` puts a `>` inside
+		 * the tag, so a walk that stopped at the first one would never reach a
+		 * class written below the handler.
+		 */
+		it('does not let an event handler arrow end the tag early', () => {
+			repo.write(
+				'frontend/src/lib/A.svelte',
+				row('"col-span-full grid grid-cols-[2.5rem_auto]"', 'onclick={(e) => handle(e)}')
+			);
+
+			expect(run().status).not.toBe(0);
+		});
+
+		it('reads a class built by a helper across several lines', () => {
+			repo.write(
+				'frontend/src/lib/A.svelte',
+				[
+					'<div role="row"',
+					'\tclass={cn(',
+					"\t\t'col-span-full grid grid-cols-[2.5rem_auto]',",
+					"\t\tselected ? 'bg-primary/10' : 'hover:bg-muted/40'",
+					'\t)}',
+					'>',
+					'\t<span role="gridcell">x</span>',
+					'</div>',
+					''
+				].join('\n')
+			);
+
+			expect(run().status).not.toBe(0);
+		});
+
+		it('accepts single quotes around the role', () => {
+			repo.write(
+				'frontend/src/lib/A.svelte',
+				"<div role='row' class='grid grid-cols-[2.5rem_auto]'>x</div>\n"
+			);
+
+			expect(run().status).not.toBe(0);
+		});
+
+		it('catches a variant-prefixed track list', () => {
+			repo.write(
+				'frontend/src/lib/A.svelte',
+				'<div role="row" class="grid sm:grid-cols-[2.5rem_auto]">x</div>\n'
+			);
+
+			expect(run().status).not.toBe(0);
+		});
+
+		/*
+		 * The boundary that element scoping buys. Both strings are in the file,
+		 * on adjacent lines, but on different elements — a line-based rule that
+		 * looked for them in one file would fire here.
+		 */
+		it('does not fire when the row and the tracks are different elements', () => {
+			repo.write(
+				'frontend/src/lib/A.svelte',
+				[
+					'<div class="grid grid-cols-[2.5rem_auto]">',
+					'\t<div role="row" class="grid-cols-subgrid">x</div>',
+					'</div>',
+					''
+				].join('\n')
+			);
+
+			expect(run().status).toBe(0);
+		});
+
+		it('ignores a comment that describes the thing it bans', () => {
+			repo.write(
+				'frontend/src/lib/A.svelte',
+				[
+					'<!-- A role="row" must not carry grid-cols-[…]; use subgrid. -->',
+					'<div role="row" class="grid-cols-subgrid">x</div>',
+					''
+				].join('\n')
+			);
+
+			expect(run().status).toBe(0);
+		});
+
+		/* A type parameter reads like a tag, so the rule stays out of .ts. */
+		it('does not scan TypeScript for elements', () => {
+			repo.write(
+				'frontend/src/lib/rows.ts',
+				[
+					'export function build<T>(role: string) {',
+					"\treturn role === 'row' ? 'grid-cols-[2.5rem_auto]' : '';",
+					'}',
+					''
+				].join('\n')
+			);
+
+			expect(run().status).toBe(0);
+		});
+	});
+
 	it('reports every rule that was broken, not just the first', () => {
 		repo.write('frontend/src/lib/A.svelte', '<div class="bg-emerald-500">a</div>\n');
 		repo.write('frontend/src/lib/B.svelte', '<div class="rounded bg-muted/45">b</div>\n');
