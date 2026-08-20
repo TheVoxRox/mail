@@ -496,6 +496,7 @@
 		"vcardImportNoFiles": "Vybraný soubor není vCard (.vcf).",
 		"vcardImportEmpty": "vCard soubor neobsahoval žádný kontakt s e-mailem.",
 		"vcardImportDone": "Importováno: {created}, selhalo: {failed}.",
+		"vcardImportDoneSkipped": "Importováno: {created}, selhalo: {failed}, přeskočeno bez e-mailu: {skipped}.",
 		"labelsNone": "Bez štítku",
 		"noLabelsYet": "Zatím žádné štítky.",
 		"manageLabels": "Spravovat štítky",
