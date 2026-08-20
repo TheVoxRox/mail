@@ -121,8 +121,8 @@
 				{#if resolved?.contact}
 					{@render addressLink(
 						contactEditHref(resolved.contact.id, returnTo),
-						$_('detail.viewContact'),
-						$_('detail.viewContactFor', { values: { email: resolved.email } })
+						$_('detail.editContact'),
+						$_('detail.editContactFor', { values: { email: resolved.email } })
 					)}
 				{:else if resolved && seed}
 					{@render addressLink(
