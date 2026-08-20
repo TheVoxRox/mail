@@ -1,3 +1,4 @@
+import { splitDisplayName } from '$lib/contacts/displayName.js';
 import type { ContactCreateRequest, EmailLabel } from '$lib/types.js';
 
 const KNOWN_LABELS: readonly EmailLabel[] = ['HOME', 'WORK', 'OTHER'];
@@ -114,14 +115,9 @@ function finalizeCard(buf: CardBuffer): ParsedVCard | null {
 		surname = parts[0] ? unescapeVCard(parts[0]).trim() || null : null;
 		name = parts[1] ? unescapeVCard(parts[1]).trim() || null : null;
 	} else if (buf.fnValue) {
-		const fn = unescapeVCard(buf.fnValue).trim();
-		const idx = fn.lastIndexOf(' ');
-		if (idx > 0) {
-			name = fn.slice(0, idx);
-			surname = fn.slice(idx + 1);
-		} else if (fn) {
-			name = fn;
-		}
+		// FN is one display string, the same shape a message's From line has, so
+		// the split is the shared one rather than a second rule.
+		({ name, surname } = splitDisplayName(unescapeVCard(buf.fnValue)));
 	}
 
 	return {
