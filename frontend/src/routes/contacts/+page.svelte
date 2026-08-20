@@ -248,6 +248,12 @@
 	async function handleCreate(payload: ContactCreateRequest) {
 		const created = await createContact(payload);
 		pushToast($_('contacts.createDone'), { tone: 'success' });
+		if (data.returnTo) {
+			// Opened from a message: that message is where the user was, and where
+			// the sender line now offers the contact instead of adding it.
+			await goto(data.returnTo);
+			return;
+		}
 		restoreFocusContactId = created.id;
 		// Returning to the list view clears `create`, which re-runs the list
 		// effect and reloads — no explicit load() here, that would fetch twice.
@@ -262,6 +268,11 @@
 		await leaveEditForm();
 	}
 
+	/** Where leaving a form goes: back to the message it was opened from, else the list. */
+	function leaveFormHref(options: { create?: boolean; edit?: number | null }): string {
+		return data.returnTo ?? contactsHref(options);
+	}
+
 	/**
 	 * Back to the list from the edit form. The target is remembered *before*
 	 * navigating: a dirty form routes the navigation through the leave guard
@@ -269,7 +280,7 @@
 	 */
 	async function leaveEditForm() {
 		restoreFocusContactId = data.edit;
-		await goto(contactsHref({ edit: null }));
+		await goto(leaveFormHref({ edit: null }));
 	}
 
 	function goToPage(target: number) {
@@ -345,7 +356,11 @@
 {#if data.create}
 	<section class="flex-1 overflow-y-auto bg-background outline-hidden">
 		<div class="max-w-4xl space-y-4 p-6">
-			<ContactForm onSubmit={handleCreate} onCancel={() => goto(contactsHref({ create: false }))} />
+			<ContactForm
+				initial={data.prefill}
+				onSubmit={handleCreate}
+				onCancel={() => goto(leaveFormHref({ create: false }))}
+			/>
 		</div>
 	</section>
 {:else if data.edit != null}

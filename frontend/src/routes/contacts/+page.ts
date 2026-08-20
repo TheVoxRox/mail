@@ -1,5 +1,6 @@
 import { get } from 'svelte/store';
 import type { ContactSort } from '$lib/api/contacts.js';
+import { readContactPrefill, readReturnTo } from '$lib/contacts/prefill.js';
 import { contactSortPreference } from '$lib/stores/contactSort.js';
 import type { PageLoad } from './$types.js';
 
@@ -25,5 +26,9 @@ export const load: PageLoad = ({ url }) => {
 	// bookmark surfaces as an error instead of "this label has no contacts".
 	const labelIdParsed = labelIdRaw != null && /^\d+$/.test(labelIdRaw) ? Number(labelIdRaw) : null;
 	const labelId = labelIdParsed != null && labelIdParsed > 0 ? labelIdParsed : null;
-	return { query, create, edit, sort, labelId };
+	// Both only mean anything on a form route: the new-contact form seeded from
+	// a message's sender, and the way back to that message.
+	const prefill = create ? readContactPrefill(url.searchParams) : null;
+	const returnTo = create || edit != null ? readReturnTo(url.searchParams) : null;
+	return { query, create, edit, sort, labelId, prefill, returnTo };
 };

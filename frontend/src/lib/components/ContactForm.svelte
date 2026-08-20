@@ -21,15 +21,23 @@
 		ContactResponse,
 		EmailLabel
 	} from '$lib/types.js';
+	import type { ContactPrefill } from '$lib/contacts/prefill.js';
 
 	interface Props {
 		/** When provided the form edits an existing contact; otherwise it creates a new one. */
 		contact?: ContactResponse | null;
+		/**
+		 * What a new contact starts with — today the sender of an open message.
+		 * Separate from `contact` on purpose: a seeded form is still a new
+		 * contact, so it must keep the create heading, the create labels and the
+		 * create submit, and only `contact` decides that.
+		 */
+		initial?: ContactPrefill | null;
 		onSubmit: (payload: ContactCreateRequest) => Promise<void> | void;
 		onCancel?: () => void;
 	}
 
-	let { contact = null, onSubmit, onCancel }: Props = $props();
+	let { contact = null, initial = null, onSubmit, onCancel }: Props = $props();
 
 	const MAX_EMAILS = 10;
 
@@ -61,7 +69,7 @@
 	let nameInputEl = $state<HTMLInputElement | null>(null);
 	let formEl = $state<HTMLFormElement | null>(null);
 
-	let loadedKey: number | 'new' | null = null;
+	let loadedKey: number | string | null = null;
 	// $state so the isDirty derived recomputes when the baseline is re-seeded,
 	// not only as a side effect of the form fields changing in the same tick.
 	let originalSnapshot = $state('');
@@ -94,7 +102,9 @@
 	// Re-seed the form when the bound contact changes (e.g. editing a different
 	// row reuses this component instance via SvelteKit's param navigation).
 	$effect(() => {
-		const key = contact ? contact.id : 'new';
+		// A different seed is a different form to fill in, so it re-seeds the same
+		// way a different contact id does.
+		const key = contact ? contact.id : `new:${initial?.email ?? ''}`;
 		if (loadedKey === key) return;
 		loadedKey = key;
 		labelIds = contact?.labels.map((label) => label.id) ?? [];
@@ -113,12 +123,14 @@
 			emails = [newRow('', '', true)];
 			emailErrors = [null];
 		} else {
-			name = '';
-			surname = '';
+			name = initial?.name ?? '';
+			surname = initial?.surname ?? '';
 			note = '';
-			emails = [newRow('', '', true)];
+			emails = [newRow(initial?.email ?? '', '', true)];
 			emailErrors = [null];
 		}
+		// The seed is part of the baseline, not an edit of it: a form the user has
+		// not touched must not ask them to confirm discarding anything.
 		originalSnapshot = snapshotOf(name, surname, note, emails, labelIds);
 	});
 
