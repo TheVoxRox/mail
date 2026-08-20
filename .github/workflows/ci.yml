@@ -9,10 +9,53 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Every job carries a timeout-minutes, and so do the three network installs --
+# the apt step in the Tauri job and the browser download in each test job.
+# Without them the GitHub default of 360 minutes applies, and a run that is
+# never going to finish holds an armed auto-merge open for hours: #296 sat
+# 80 minutes on "Install Tauri system deps" before anyone restarted it by hand.
+#
+# A job limit is a backstop against a wedged run, not a performance budget, so
+# every number here sits well above the slowest run that actually passed rather
+# than near it. Set it near the ceiling and it stops catching hangs and starts
+# failing honest work: the ceiling is not where the typical run is. Tauri (Rust)
+# is the clearest case -- it is bimodal on the cargo cache, a couple of minutes
+# on a hit and far longer on a miss, and a miss is routine rather than exotic
+# (any Cargo.lock or toolchain bump causes one). Before lowering any of these,
+# re-measure the max over recent *successful* runs, and measure the job, not one
+# step: the limit bounds checkout, dependency install and build as well.
+#
+# Only the Tauri step still needs apt, and it genuinely does -- libwebkit2gtk is
+# not on the runner image. The test jobs left apt entirely: playwright install
+# runs without --with-deps, which on this image pulled no browser library at all
+# -- they are already present -- only font packages for CJK, Thai and Cyrillic,
+# and it bought them through apt, the one unreliable thing in this workflow.
+# What is left there is the Playwright CDN download, fast in every log we have.
+# If a test ever needs one of those scripts rendered, the fonts come back as
+# their own explicit step rather than as a side effect of installing a browser.
+#
+# The apt step is bounded per attempt and then retried, because a bound alone is
+# only half of it: a flat cut turns "slow but green" into "fast red" with nothing
+# to recover it, which with auto-merge armed is worse than the wait it replaced.
+# A fresh connection usually lands on a healthy mirror backend, so the retry is
+# what recovers and the bound is what keeps a bad attempt from running away.
+#
+# Known limit, left in place deliberately: when the mirror stays degraded longer
+# than the whole retry budget, this still ends red where the old unbounded step
+# ended green. The cheaper mitigations that target the observed stall directly
+# -- Acquire::http::Timeout, and pinning the mirror apt failed over to instead of
+# rediscovering the dead one on every attempt -- are recorded as an open item in
+# todo.md together with the log evidence for them.
+#
+# dpkg --configure -a runs between apt attempts because timeout kills apt with
+# SIGTERM. The stalls seen so far were all in the fetch phase, where there is
+# nothing half-configured to repair, but an attempt cut during unpack would
+# otherwise leave the next one to fail on a broken package state.
 jobs:
   backend:
     name: Backend quality
     runs-on: ubuntu-latest
+    timeout-minutes: 12
     defaults:
       run:
         working-directory: backend
@@ -78,6 +121,9 @@ jobs:
   tauri:
     name: Tauri (Rust)
     runs-on: ubuntu-latest
+    # High on purpose: a cargo cache miss is what this has to clear, and it is
+    # several times a cache hit. See the note above jobs: before lowering it.
+    timeout-minutes: 35
     defaults:
       run:
         working-directory: frontend/src-tauri
@@ -86,9 +132,20 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Install Tauri system deps
+        # Clear of the loop's own worst case below, with room for dpkg to do real
+        # work, so an exhausted retry reports through its exit 1 rather than being
+        # cut here -- the three warnings are the whole diagnostic value.
+        timeout-minutes: 13
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          for attempt in 1 2 3; do
+            if sudo timeout -k 10 200 bash -c 'apt-get update && apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf'; then
+              exit 0
+            fi
+            echo "::warning::apt attempt ${attempt} of 3 did not finish within 200s"
+            sudo dpkg --configure -a || true
+            sleep 5
+          done
+          exit 1
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -145,6 +202,7 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: frontend
@@ -174,6 +232,7 @@ jobs:
   check:
     name: Svelte check
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: frontend
@@ -219,6 +278,7 @@ jobs:
   test-unit:
     name: Frontend unit tests
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: frontend
@@ -251,6 +311,9 @@ jobs:
   test-functional:
     name: Functional tests
     runs-on: ubuntu-latest
+    # Bounds npm ci, the vite build inside run-playwright-with-preview.mjs and
+    # the suite together -- not just the test step it is easy to read it as.
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: frontend
@@ -269,7 +332,24 @@ jobs:
         run: npm ci
 
       - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
+        # Deliberately not --with-deps. On the runner image that installs nine
+        # font packages and nothing else -- CJK, Thai and Cyrillic faces; every
+        # actual Chromium library is already present -- and it buys them through
+        # apt, which is the one genuinely unreliable thing in this workflow.
+        # Dropping it takes apt out of both test jobs entirely and leaves the CDN
+        # download, fast in every log we have. If a test ever needs one of those
+        # scripts rendered, the fonts come back as their own explicit step rather
+        # than as a side effect of installing a browser.
+        timeout-minutes: 8
+        run: |
+          for attempt in 1 2; do
+            if timeout -k 10 180 npx playwright install chromium; then
+              exit 0
+            fi
+            echo "::warning::playwright download attempt ${attempt} of 2 did not finish within 180s"
+            sleep 5
+          done
+          exit 1
 
       - name: Run functional tests
         run: npm run test:functional:stable
@@ -285,6 +365,9 @@ jobs:
   test-a11y:
     name: Accessibility tests
     runs-on: ubuntu-latest
+    # Same shape as the functional job: its own work peaks lower, but the
+    # browser download below can spend most of a step budget out of this one.
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: frontend
@@ -303,7 +386,24 @@ jobs:
         run: npm ci
 
       - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
+        # Deliberately not --with-deps. On the runner image that installs nine
+        # font packages and nothing else -- CJK, Thai and Cyrillic faces; every
+        # actual Chromium library is already present -- and it buys them through
+        # apt, which is the one genuinely unreliable thing in this workflow.
+        # Dropping it takes apt out of both test jobs entirely and leaves the CDN
+        # download, fast in every log we have. If a test ever needs one of those
+        # scripts rendered, the fonts come back as their own explicit step rather
+        # than as a side effect of installing a browser.
+        timeout-minutes: 8
+        run: |
+          for attempt in 1 2; do
+            if timeout -k 10 180 npx playwright install chromium; then
+              exit 0
+            fi
+            echo "::warning::playwright download attempt ${attempt} of 2 did not finish within 180s"
+            sleep 5
+          done
+          exit 1
 
       - name: Run accessibility tests
         run: npm run test:a11y:stable
@@ -319,6 +419,7 @@ jobs:
   backend-build:
     name: Backend build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: backend
@@ -350,6 +451,7 @@ jobs:
   frontend-build:
     name: Frontend build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: frontend
