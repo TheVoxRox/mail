@@ -17,6 +17,8 @@
  *   4. A token tint steps in multiples of 10. Finer steps are invisible on
  *      screen and deliberate-looking in a diff, which is how ten of them
  *      accumulated.
+ *   5. A grid row takes its columns from the grid, never from itself. This one
+ *      is scoped to an element rather than a line — see `openingTags`.
  *
  * Adding a colour, a radius or a tint step means changing `app.css`, which is
  * the point: it is one file to read before picking, and one place to argue in.
@@ -132,6 +134,69 @@ const rules = [
 	}
 ];
 
+/**
+ * Yields the opening tag of every element, with the line it starts on.
+ *
+ * A scanner rather than a regex because the two attributes this has to see
+ * together sit far apart: on a data row `role="row"` and the class expression
+ * are eight lines and a `cn(...)` call away from each other. Scanning to the
+ * first `>` would not do either — an event handler's arrow (`onclick={(e) =>
+ * …}`) puts a `>` inside the tag — so the walk carries quote and brace state
+ * and ends the tag only at brace depth zero.
+ */
+function* openingTags(text) {
+	let line = 1;
+	for (let i = 0; i < text.length; i++) {
+		if (text[i] === '\n') {
+			line++;
+			continue;
+		}
+		if (text[i] !== '<' || !/[A-Za-z]/.test(text[i + 1] ?? '')) continue;
+
+		const startLine = line;
+		let depth = 0;
+		let quote = null;
+		let j = i + 1;
+		for (; j < text.length; j++) {
+			const char = text[j];
+			if (char === '\n') line++;
+			if (quote) {
+				if (char === quote) quote = null;
+				continue;
+			}
+			if (char === '"' || char === "'" || char === '`') quote = char;
+			else if (char === '{') depth++;
+			else if (char === '}') depth--;
+			else if (depth === 0 && char === '>') break;
+		}
+		if (j >= text.length) return; // Unterminated tag: nothing further to trust.
+		yield { line: startLine, attributes: text.slice(i, j + 1) };
+		i = j;
+	}
+}
+
+/**
+ * Rules that need a whole element rather than a line. Kept separate because
+ * the shape differs: a line rule reports the text it matched, an element rule
+ * reports the pair of attributes that may not appear together.
+ */
+const elementRules = [
+	{
+		id: 'row-grid-columns',
+		// The three data grids keep their tracks on the container and give each
+		// row `grid-cols-subgrid`. Nothing stopped a fourth row-level component
+		// from declaring its own tracks instead, and columns that drift apart
+		// do it silently — the same way radii and focus rings did before the
+		// rules above existed. Literal `role="row"` only: a computed role is
+		// not something this can read, and guessing at one would be worse than
+		// not looking.
+		test: (attributes) =>
+			/\brole=(["'])row\1/.test(attributes) && attributes.includes('grid-cols-['),
+		label: 'grid-cols-[…] on role="row"',
+		hint: 'A row takes its columns from the grid it is in: put the tracks on the container and grid-cols-subgrid on the row.'
+	}
+];
+
 async function* sourceFiles(dir) {
 	for (const entry of await readdir(dir, { withFileTypes: true })) {
 		const full = path.join(dir, entry.name);
@@ -147,11 +212,13 @@ async function* sourceFiles(dir) {
 	}
 }
 
-const violations = new Map(rules.map((rule) => [rule.id, []]));
+const allRules = [...rules, ...elementRules];
+const violations = new Map(allRules.map((rule) => [rule.id, []]));
 
 for await (const file of sourceFiles(srcDir)) {
 	const relative = path.relative(frontendDir, file);
-	const lines = stripComments(await readFile(file, 'utf8')).split('\n');
+	const source = stripComments(await readFile(file, 'utf8'));
+	const lines = source.split('\n');
 	for (const rule of rules) {
 		if (rule.skip?.(relative)) continue;
 		lines.forEach((line, i) => {
@@ -161,9 +228,20 @@ for await (const file of sourceFiles(srcDir)) {
 			}
 		});
 	}
+	// Markup only — an element rule needs an element, and a type parameter in a
+	// .ts file reads like a tag to any scanner.
+	if (!file.endsWith('.svelte')) continue;
+	const tags = [...openingTags(source)];
+	for (const rule of elementRules) {
+		if (rule.skip?.(relative)) continue;
+		for (const { line, attributes } of tags) {
+			if (!rule.test(attributes)) continue;
+			violations.get(rule.id).push(`  ${relative}:${line}  ${rule.label}`);
+		}
+	}
 }
 
-const failed = rules.filter((rule) => violations.get(rule.id).length > 0);
+const failed = allRules.filter((rule) => violations.get(rule.id).length > 0);
 
 if (failed.length > 0) {
 	const total = failed.reduce((sum, rule) => sum + violations.get(rule.id).length, 0);
@@ -175,4 +253,6 @@ if (failed.length > 0) {
 	);
 }
 
-console.log('Design OK: tokens, radius scale, one focus ring, tints on the ladder');
+console.log(
+	'Design OK: tokens, radius scale, one focus ring, tints on the ladder, rows on subgrid'
+);
