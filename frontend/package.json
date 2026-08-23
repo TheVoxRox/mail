@@ -42,6 +42,7 @@
 		"check:i18n:backend": "node scripts/check-backend-i18n-keys.mjs",
 		"check:translations": "node scripts/check-translation-whitelist.mjs",
 		"check:translations:strict": "node scripts/check-translation-whitelist.mjs --mode=strict",
+		"check:translations:backend:strict": "node scripts/check-translation-whitelist.mjs --target=backend --mode=strict",
 		"check:api": "node scripts/check-api-schema.mjs",
 		"generate:api": "node scripts/generate-api.mjs --snapshot",
 		"generate:api:live": "node scripts/generate-api.mjs",
