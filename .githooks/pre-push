@@ -40,6 +40,7 @@ run() {
 run lint
 run check:i18n:backend
 run check:translations:strict
+run check:translations:backend:strict
 run check
 run knip
 run test:unit

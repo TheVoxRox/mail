@@ -209,7 +209,12 @@ decide whether everything else is allowed to land.
 
 - `npm run knip` — dead-code analysis. Config in `knip.json`. Output must
   be empty.
-- `npm run check:translations:strict` — Czech-diacritics whitelist.
+- `npm run check:translations:strict` — Czech-diacritics whitelist over
+  `frontend/src`.
+- `npm run check:translations:backend:strict` — the same whitelist over the
+  Java tree. A separate script because the shared implementation takes one
+  target per run; CI invokes it directly from the backend job, which has no
+  npm dependencies installed.
 - `npm audit --audit-level=high` — must report 0 high+ vulnerabilities.
 - `npm run test:unit:coverage` — vitest with thresholds (≥ 65% global,
   per-file 90/85/90 for `content-sanitizer.ts`, 85/80/80 for
