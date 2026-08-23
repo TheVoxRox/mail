@@ -98,7 +98,6 @@ class ContactRepositoryIT {
     private EntityManager em;
 
     private AccountEntity account;
-    private AccountEntity otherAccount;
 
     @BeforeEach
     void setUp() {
@@ -109,10 +108,8 @@ class ContactRepositoryIT {
         provider.setSmtpConfig(new MailServerConfig("smtp.example.com", 465, true));
         provider = providerRepository.saveAndFlush(provider);
 
-        account = newAccount("owner1@example.com", provider);
-        otherAccount = newAccount("owner2@example.com", provider);
+        account = newAccount("mailbox@example.com", provider);
         account = accountRepository.save(account);
-        otherAccount = accountRepository.save(otherAccount);
     }
 
     private AccountEntity newAccount(String email, MailProviderEntity provider) {
@@ -127,7 +124,7 @@ class ContactRepositoryIT {
         return a;
     }
 
-    private ContactEntity newContact(AccountEntity owner, String email, String name, String surname) {
+    private ContactEntity newContact(String email, String name, String surname) {
         ContactEntity c = new ContactEntity();
         c.setName(name);
         c.setSurname(surname);
@@ -149,7 +146,7 @@ class ContactRepositoryIT {
      * Persists a label the way the service does — name_key is the case-folded name,
      * because that is the column carrying the uniqueness constraint.
      */
-    private ContactLabelEntity newLabel(AccountEntity owner, String name) {
+    private ContactLabelEntity newLabel(String name) {
         ContactLabelEntity l = new ContactLabelEntity();
         l.setName(name);
         l.setNameKey(name.toLowerCase(Locale.ROOT));
@@ -169,7 +166,7 @@ class ContactRepositoryIT {
         @Test
         @DisplayName("A second insert of the same email on the same contact -> constraint violation")
         void duplicateEmailOnSameContact() {
-            ContactEntity c = newContact(account, "first@x.cz", "A", "A");
+            ContactEntity c = newContact("first@x.cz", "A", "A");
             ContactEmailEntity second = new ContactEmailEntity();
             second.setEmail("first@x.cz");
             second.setPrimary(false);
@@ -181,19 +178,10 @@ class ContactRepositoryIT {
         }
 
         @Test
-        @DisplayName("Same email on two different contacts of the same account passes (cross-contact uniqueness is app-level)")
+        @DisplayName("Same email on two different contacts passes (cross-contact uniqueness is app-level)")
         void sameEmailOnDifferentContactsAllowed() {
-            contactRepository.saveAndFlush(newContact(account, "shared@x.cz", "A", null));
-            contactRepository.saveAndFlush(newContact(account, "shared@x.cz", "B", null));
-
-            assertThat(contactRepository.findAll()).hasSize(2);
-        }
-
-        @Test
-        @DisplayName("Same email on contacts of different accounts passes")
-        void sameEmailOtherAccountAllowed() {
-            contactRepository.saveAndFlush(newContact(account, "shared@x.cz", "A", null));
-            contactRepository.saveAndFlush(newContact(otherAccount, "shared@x.cz", "B", null));
+            contactRepository.saveAndFlush(newContact("shared@x.cz", "A", null));
+            contactRepository.saveAndFlush(newContact("shared@x.cz", "B", null));
 
             assertThat(contactRepository.findAll()).hasSize(2);
         }
@@ -208,9 +196,9 @@ class ContactRepositoryIT {
     @Test
     @DisplayName("Deleting an account leaves the address book untouched")
     void accountDeleteKeepsContacts() {
-        contactRepository.saveAndFlush(newContact(account, "a@x.cz", null, null));
-        contactRepository.saveAndFlush(newContact(account, "b@x.cz", null, null));
-        contactRepository.saveAndFlush(newContact(otherAccount, "c@x.cz", null, null));
+        contactRepository.saveAndFlush(newContact("a@x.cz", null, null));
+        contactRepository.saveAndFlush(newContact("b@x.cz", null, null));
+        contactRepository.saveAndFlush(newContact("c@x.cz", null, null));
 
         accountRepository.delete(account);
         accountRepository.flush();
@@ -223,7 +211,7 @@ class ContactRepositoryIT {
     @Test
     @DisplayName("findByAnyEmail — finds the contact by any email")
     void findByAnyEmail() {
-        ContactEntity c = newContact(account, "primary@x.cz", "Alice", null);
+        ContactEntity c = newContact("primary@x.cz", "Alice", null);
         ContactEmailEntity second = new ContactEmailEntity();
         second.setEmail("secondary@x.cz");
         second.setLabel(EmailLabel.HOME);
@@ -257,9 +245,9 @@ class ContactRepositoryIT {
         @Test
         @DisplayName("count returns every contact in the address book")
         void totalCountsEveryContact() {
-            contactRepository.saveAndFlush(newContact(account, "a@x.cz", null, null));
-            contactRepository.saveAndFlush(newContact(account, "b@x.cz", null, null));
-            contactRepository.saveAndFlush(newContact(otherAccount, "c@x.cz", null, null));
+            contactRepository.saveAndFlush(newContact("a@x.cz", null, null));
+            contactRepository.saveAndFlush(newContact("b@x.cz", null, null));
+            contactRepository.saveAndFlush(newContact("c@x.cz", null, null));
 
             assertThat(contactRepository.count()).isEqualTo(3);
         }
@@ -267,23 +255,23 @@ class ContactRepositoryIT {
         @Test
         @DisplayName("label counts are per contact and ignore unused labels")
         void labelCountsPerContact() {
-            ContactLabelEntity family = newLabel(account, "Family");
-            ContactLabelEntity clients = newLabel(account, "Clients");
+            ContactLabelEntity family = newLabel("Family");
+            ContactLabelEntity clients = newLabel("Clients");
             // Nobody carries this one — it must be absent from the aggregate, and the
             // service is what turns that absence into a zero badge.
-            newLabel(account, "Archive");
+            newLabel("Archive");
 
-            ContactEntity both = newContact(account, "a@x.cz", "A", null);
+            ContactEntity both = newContact("a@x.cz", "A", null);
             both.getLabels().add(family);
             both.getLabels().add(clients);
             addEmail(both, "a2@x.cz", EmailLabel.WORK);
             contactRepository.saveAndFlush(both);
 
-            ContactEntity onlyFamily = newContact(account, "b@x.cz", "B", null);
+            ContactEntity onlyFamily = newContact("b@x.cz", "B", null);
             onlyFamily.getLabels().add(family);
             contactRepository.saveAndFlush(onlyFamily);
 
-            contactRepository.saveAndFlush(newContact(account, "c@x.cz", "C", null));
+            contactRepository.saveAndFlush(newContact("c@x.cz", "C", null));
 
             em.clear();
 
@@ -420,9 +408,9 @@ class ContactRepositoryIT {
     @Test
     @DisplayName("findByAnyEmailIn — finds collisions for multiple emails in a single query, across the whole book")
     void findByAnyEmailIn() {
-        contactRepository.saveAndFlush(newContact(account, "first@x.cz", "First", null));
-        contactRepository.saveAndFlush(newContact(account, "second@x.cz", "Second", null));
-        contactRepository.saveAndFlush(newContact(otherAccount, "third@x.cz", "Other", null));
+        contactRepository.saveAndFlush(newContact("first@x.cz", "First", null));
+        contactRepository.saveAndFlush(newContact("second@x.cz", "Second", null));
+        contactRepository.saveAndFlush(newContact("third@x.cz", "Other", null));
         em.clear();
 
         List<ContactEntity> found = contactRepository
@@ -432,12 +420,12 @@ class ContactRepositoryIT {
     }
 
     @Nested
-    @DisplayName("searchByAccountId")
+    @DisplayName("search")
     class Search {
 
         @BeforeEach
         void seed() {
-            ContactEntity alice = newContact(account, "alice@x.cz", "Alice", "Liddell");
+            ContactEntity alice = newContact("alice@x.cz", "Alice", "Liddell");
             ContactEmailEntity aliceWork = new ContactEmailEntity();
             aliceWork.setEmail("alice.work@x.cz");
             aliceWork.setLabel(EmailLabel.WORK);
@@ -446,11 +434,10 @@ class ContactRepositoryIT {
             alice.getEmails().add(aliceWork);
             contactRepository.saveAndFlush(alice);
 
-            contactRepository.saveAndFlush(newContact(account, "bob@x.cz", "Bob", "Dylan"));
-            contactRepository.saveAndFlush(newContact(account, "c@x.cz", null, null));
-            // Entered while a different mailbox was active — same one book, so it matches
-            // too.
-            contactRepository.saveAndFlush(newContact(otherAccount, "alice2@x.cz", "Alice", "Other"));
+            contactRepository.saveAndFlush(newContact("bob@x.cz", "Bob", "Dylan"));
+            contactRepository.saveAndFlush(newContact("c@x.cz", null, null));
+            // A second contact sharing the given name — the name match must return both.
+            contactRepository.saveAndFlush(newContact("alice2@x.cz", "Alice", "Other"));
         }
 
         @Test
@@ -490,9 +477,9 @@ class ContactRepositoryIT {
     @Test
     @DisplayName("Ordering surname/name with NULLS LAST — null surnames fall to the end")
     void sortNullsLast() {
-        contactRepository.saveAndFlush(newContact(account, "x@x.cz", "Zoe", null));
-        contactRepository.saveAndFlush(newContact(account, "a@x.cz", "Bob", "Alpha"));
-        contactRepository.saveAndFlush(newContact(account, "b@x.cz", "Alice", "Beta"));
+        contactRepository.saveAndFlush(newContact("x@x.cz", "Zoe", null));
+        contactRepository.saveAndFlush(newContact("a@x.cz", "Bob", "Alpha"));
+        contactRepository.saveAndFlush(newContact("b@x.cz", "Alice", "Beta"));
 
         Sort sort = Sort.by(Sort.Order.asc("surname").nullsLast(), Sort.Order.asc("name").nullsLast(),
                 Sort.Order.asc("id"));
@@ -503,14 +490,14 @@ class ContactRepositoryIT {
     }
 
     @Test
-    @DisplayName("findByAccountId — paginates in SQL, not in memory (no HHH90003004 collection fetch-join)")
+    @DisplayName("findAllFiltered — paginates in SQL, not in memory (no HHH90003004 collection fetch-join)")
     void paginationDoesNotApplyLimitInMemory() {
         // More contacts than the page size, each with several emails: a fetch-join
         // of the emails collection together with Pageable would force Hibernate to
         // page the result in memory and log HHH90003004. Batch fetching keeps the
         // LIMIT in SQL while still loading the emails.
         for (int i = 0; i < 5; i++) {
-            ContactEntity c = newContact(account, "primary" + i + "@x.cz", "Name" + i, "Surname" + i);
+            ContactEntity c = newContact("primary" + i + "@x.cz", "Name" + i, "Surname" + i);
             ContactEmailEntity work = new ContactEmailEntity();
             work.setEmail("work" + i + "@x.cz");
             work.setLabel(EmailLabel.WORK);
@@ -547,7 +534,7 @@ class ContactRepositoryIT {
     }
 
     @Nested
-    @DisplayName("findByAccountId/searchByAccountId — filtering by contact label")
+    @DisplayName("findAllFiltered/search — filtering by contact label")
     class LabelFilter {
 
         private ContactLabelEntity family;
@@ -555,28 +542,28 @@ class ContactRepositoryIT {
 
         @BeforeEach
         void seed() {
-            family = newLabel(account, "Family");
-            clients = newLabel(account, "Clients");
+            family = newLabel("Family");
+            clients = newLabel("Clients");
 
-            ContactEntity familyOnly = newContact(account, "family@x.cz", "Family", "Person");
+            ContactEntity familyOnly = newContact("family@x.cz", "Family", "Person");
             familyOnly.getLabels().add(family);
             contactRepository.saveAndFlush(familyOnly);
 
-            ContactEntity clientOnly = newContact(account, "client@x.cz", "Client", "Person");
+            ContactEntity clientOnly = newContact("client@x.cz", "Client", "Person");
             clientOnly.getLabels().add(clients);
             contactRepository.saveAndFlush(clientOnly);
 
             // No label — must not pass the label filter.
-            contactRepository.saveAndFlush(newContact(account, "noop@x.cz", "Noop", "Person"));
+            contactRepository.saveAndFlush(newContact("noop@x.cz", "Noop", "Person"));
 
-            ContactEntity bothLabels = newContact(account, "both@x.cz", "Both", "Person");
+            ContactEntity bothLabels = newContact("both@x.cz", "Both", "Person");
             bothLabels.getLabels().add(family);
             bothLabels.getLabels().add(clients);
             contactRepository.saveAndFlush(bothLabels);
         }
 
         @Test
-        @DisplayName("findByAccountId(labelId) returns every contact carrying that label, each once")
+        @DisplayName("findAllFiltered(labelId) returns every contact carrying that label, each once")
         void listByLabel() {
             Page<ContactEntity> p = contactRepository.findAllFiltered(family.getId(), PageRequest.of(0, 10));
             assertThat(p.getContent()).extracting(ContactRepositoryIT.this::primaryEmail)
@@ -584,7 +571,7 @@ class ContactRepositoryIT {
         }
 
         @Test
-        @DisplayName("findByAccountId(labelId) of another label returns its own contacts")
+        @DisplayName("findAllFiltered(labelId) of another label returns its own contacts")
         void listByOtherLabel() {
             Page<ContactEntity> p = contactRepository.findAllFiltered(clients.getId(), PageRequest.of(0, 10));
             assertThat(p.getContent()).extracting(ContactRepositoryIT.this::primaryEmail)
@@ -592,14 +579,14 @@ class ContactRepositoryIT {
         }
 
         @Test
-        @DisplayName("findByAccountId(labelId=null) returns all contacts (filter inactive)")
+        @DisplayName("findAllFiltered(labelId=null) returns all contacts (filter inactive)")
         void listAllWhenLabelNull() {
             Page<ContactEntity> p = contactRepository.findAllFiltered((Long) null, PageRequest.of(0, 10));
             assertThat(p.getContent()).hasSize(4);
         }
 
         @Test
-        @DisplayName("searchByAccountId kombinuje q-filtr s label-filtrem")
+        @DisplayName("search combines the q filter with the label filter")
         void searchWithLabel() {
             Page<ContactEntity> p = contactRepository.search("%both%", family.getId(), PageRequest.of(0, 10));
             assertThat(p.getContent()).extracting(ContactRepositoryIT.this::primaryEmail).containsExactly("both@x.cz");
@@ -613,19 +600,19 @@ class ContactRepositoryIT {
         @Test
         @DisplayName("Two labels with the same name_key -> constraint violation")
         void duplicateNameKeyRejected() {
-            newLabel(account, "Family");
+            newLabel("Family");
             // Hibernate wraps the SQLite unique violation as JpaSystemException, so
             // assert on the common DataAccessException base like the e-mail unique
             // test above, and pin the constraint by name in the message.
-            assertThatThrownBy(() -> newLabel(account, "Family")).isInstanceOf(DataAccessException.class)
+            assertThatThrownBy(() -> newLabel("Family")).isInstanceOf(DataAccessException.class)
                     .hasMessageContaining("contact_labels.name_key");
         }
 
         @Test
         @DisplayName("Deleting a contact drops its assignments but keeps the label")
         void deletingContactKeepsLabel() {
-            ContactLabelEntity family = newLabel(account, "Family");
-            ContactEntity c = newContact(account, "a@x.cz", "A", null);
+            ContactLabelEntity family = newLabel("Family");
+            ContactEntity c = newContact("a@x.cz", "A", null);
             c.getLabels().add(family);
             ContactEntity saved = contactRepository.saveAndFlush(c);
             em.clear();

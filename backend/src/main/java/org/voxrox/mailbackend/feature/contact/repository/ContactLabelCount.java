@@ -2,8 +2,8 @@ package org.voxrox.mailbackend.feature.contact.repository;
 
 /**
  * JPQL constructor projection for
- * {@link ContactRepository#countByAccountIdGroupedByLabel(Long)} — how many
- * contacts carry the label with the given ID.
+ * {@link ContactRepository#countGroupedByLabel()} — how many contacts carry the
+ * label with the given ID.
  */
 public record ContactLabelCount(Long labelId, long contacts) {
 }
