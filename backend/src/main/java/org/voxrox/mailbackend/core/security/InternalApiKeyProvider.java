@@ -23,8 +23,4 @@ public class InternalApiKeyProvider {
             return currentKey;
         });
     }
-
-    public void invalidateCache() {
-        cachedKey.set(null);
-    }
 }

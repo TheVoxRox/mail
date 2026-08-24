@@ -281,6 +281,16 @@ jobs:
           && github.event.pull_request.base.sha
           || github.event.before }}
 
+      # A rename leaves its old name in comments, @DisplayName strings and test
+      # names, where no compiler looks. Checks the change, not the tree, because
+      # that is the moment the answer is cheap. See scripts/check-rename-residue.mjs.
+      - name: Rename residue
+        run: >-
+          npm run check:rename-residue --
+          --base ${{ github.event_name == 'pull_request'
+          && github.event.pull_request.base.sha
+          || github.event.before }}
+
   test-unit:
     name: Frontend unit tests
     runs-on: ubuntu-latest

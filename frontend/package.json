@@ -33,6 +33,7 @@
 		"check:java-imports": "node scripts/check-unused-java-imports.mjs",
 		"check:eol": "node scripts/check-eol-normalization.mjs",
 		"check:docs-impact": "node scripts/check-docs-impact.mjs",
+		"check:rename-residue": "node scripts/check-rename-residue.mjs",
 		"check:typography": "node scripts/check-typography.mjs",
 		"check:design": "node scripts/check-design.mjs",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",

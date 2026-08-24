@@ -576,7 +576,7 @@ class ContactServiceTest {
         ContactEntity existing = contact(CONTACT_ID, EMAIL);
         when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(existing));
 
-        // The contact already has EMAIL — per the checkNoDuplicatesWithinAccount
+        // The contact already has EMAIL — per the checkNoDuplicates
         // convention this is "fix your own form" (400), not a cross-contact
         // conflict (409).
         assertThatThrownBy(() -> service.addEmail(CONTACT_ID, new ContactEmailRequest("  " + EMAIL + "  ", null)))
@@ -586,7 +586,7 @@ class ContactServiceTest {
     }
 
     @Test
-    @DisplayName("addEmail — missing kontakt → ContactNotFoundException")
+    @DisplayName("addEmail — missing contact -> ContactNotFoundException")
     void addEmailContactMissing() {
         when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.empty());
 
