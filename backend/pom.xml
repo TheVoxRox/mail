@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>4.1.0</version>
+		<version>4.1.1</version>
 		<relativePath/>
 	</parent>
 	<groupId>org.voxrox</groupId>
@@ -70,7 +70,7 @@
 			and springdoc.swagger-ui.version in application.properties (Maven-filtered)
 			must agree, or the UI 404s. See the dependency comment for why.
 		-->
-		<swagger-ui.version>5.32.13</swagger-ui.version>
+		<swagger-ui.version>5.32.14</swagger-ui.version>
 		<wiremock.version>3.13.2</wiremock.version>
 		<error-prone.version>2.50.0</error-prone.version>
 		<nullaway.version>0.13.8</nullaway.version>
