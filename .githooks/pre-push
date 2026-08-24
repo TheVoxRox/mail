@@ -43,6 +43,7 @@ run check:translations:strict
 run check:translations:backend:strict
 run check
 run knip
+run knip:production
 run test:unit
 
 echo "pre-push: OK"

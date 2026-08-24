@@ -160,6 +160,8 @@ export function startTray(): void {
  * whole life — but the unit tests re-import the module per case, and a
  * subscription left on the (module-independent) folder store would keep
  * invoking from an earlier test's instance.
+ *
+ * @testseam
  */
 export function stopTrayForTests(): void {
 	for (const off of teardown) off();

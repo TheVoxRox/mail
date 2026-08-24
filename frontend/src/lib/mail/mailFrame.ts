@@ -81,9 +81,6 @@ export function mailFrameCsp(loadRemoteImages = false): string {
 	);
 }
 
-/** Default (remote-blocked) frame CSP. */
-export const MAIL_FRAME_CSP = mailFrameCsp(false);
-
 /**
  * Promotes each preserved remote image (`data-voxrox-remote-src`) to a real
  * `src` on the already-sanitized body. Only called when the user has opted in;

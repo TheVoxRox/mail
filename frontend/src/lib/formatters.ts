@@ -86,15 +86,3 @@ export function formatFullDateTime(iso: string, locale = 'cs'): string {
 		minute: '2-digit'
 	});
 }
-
-/**
- * Locale-aware "medium" date (cs: "9. 6. 2026", en: "Jun 9, 2026"). Used by the
- * contacts "updated" column. Falls back to the raw ISO string when the value
- * cannot be parsed — `Intl.format` throws on an invalid Date, and the cell
- * should degrade gracefully rather than break the row.
- */
-export function formatMediumDate(iso: string, locale = 'cs'): string {
-	const date = new Date(iso);
-	if (Number.isNaN(date.getTime())) return iso;
-	return new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(date);
-}

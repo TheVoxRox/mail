@@ -120,11 +120,7 @@ function ensureI18nInitialized(): void {
 
 ensureI18nInitialized();
 
-export async function initI18n(): Promise<void> {
-	ensureI18nInitialized();
-}
-
-/** Sets the active locale. Persistence happens via the subscribe in `initI18n`. */
+/** Sets the active locale. Persistence is wired in `ensureI18nInitialized`. */
 export function setLocale(next: AppLocale): void {
 	// locale.set resolves immediately for synchronously registered messages —
 	// see the note on init() above.
@@ -136,4 +132,4 @@ export const appLocale: Readable<AppLocale | null> = derived(locale, ($l) =>
 	isSupported($l) ? $l : null
 );
 
-export { _, _ as t, locale } from 'svelte-i18n';
+export { _, locale } from 'svelte-i18n';

@@ -10,13 +10,14 @@ records the _policy_ behind all three.
 
 ### Tooling
 
-| Tool                                    | When                            | Gate                                              |
-| --------------------------------------- | ------------------------------- | ------------------------------------------------- |
-| Error Prone 2.50                        | every `javac` run (main + test) | ERROR-level bug patterns fail the build           |
-| NullAway 0.13                           | main sources only               | ERROR (burn-down completed, see below)            |
-| SpotBugs (effort Max, threshold Medium) | `mvn verify`                    | fails the build                                   |
-| Spotless (Eclipse formatter)            | `mvn verify` / pre-push         | fails the build                                   |
-| JaCoCo merged check                     | `mvn verify`                    | instruction 70 % / branch 50 % / line 70 % floors |
+| Tool                                    | When                            | Gate                                                               |
+| --------------------------------------- | ------------------------------- | ------------------------------------------------------------------ |
+| Error Prone 2.50                        | every `javac` run (main + test) | ERROR-level bug patterns fail the build                            |
+| NullAway 0.13                           | main sources only               | ERROR (burn-down completed, see below)                             |
+| javac doclint, `reference` group        | every `javac` run (main + test) | a `{@link}`/`@see`/`@throws` that does not resolve fails the build |
+| SpotBugs (effort Max, threshold Medium) | `mvn verify`                    | fails the build                                                    |
+| Spotless (Eclipse formatter)            | `mvn verify` / pre-push         | fails the build                                                    |
+| JaCoCo merged check                     | `mvn verify`                    | instruction 70 % / branch 50 % / line 70 % floors                  |
 
 Error Prone needs `jdk.compiler` add-exports flags; they live in
 [backend/.mvn/jvm.config](../backend/.mvn/jvm.config) because the plugin runs
@@ -33,6 +34,15 @@ in-process (forked javac swallows its own diagnostics on Windows).
 - **String case conversions use `Locale.ROOT`.** Everything we fold is a
   protocol token, email address, OS name or i18n-independent key — never
   locale-sensitive user text. Enforced by `StringCaseLocaleUsage`.
+- **Javadoc references are compiled, prose is not.** `-Xdoclint:reference/private`
+  turns a `{@link}`, `@see`, `@throws` or `@param` naming a member that does
+  not exist into a compile error. It closes the rot that a rename leaves behind
+  and that nothing else here sees: `check:refs` validates repo paths and npm
+  scripts, not Java identifiers, and `check:java-imports` reads a `{@link}` as
+  a _use_ of the import. Only the `reference` group is on — `missing` and
+  `syntax` would demand a javadoc burn-down this repo has not decided to do.
+  A method named in plain prose (`… is called by MailFacade.deleteMessages`)
+  is still outside the gate; writing it as a `{@link}` is what puts it in.
 - **No empty catch blocks.** Best-effort cleanup paths (`store.close()` in
   pool eviction, key zeroing at shutdown) log at DEBUG instead of swallowing —
   the 2026-06 reviews showed that silent error paths are exactly where this
@@ -72,15 +82,16 @@ Conventions established during the burn-down:
 
 ### Tooling
 
-| Tool                              | When                           | Gate                                                           |
-| --------------------------------- | ------------------------------ | -------------------------------------------------------------- |
-| TypeScript strict + svelte-check  | `npm run check` / pre-push     | fails on any error                                             |
-| ESLint (js/ts/svelte recommended) | `npm run lint` / pre-push      | fails the run                                                  |
-| ESLint type-aware promise rules   | `src/**/*.ts`                  | `no-floating-promises`, `await-thenable` as errors             |
-| knip                              | `npm run knip` / pre-push      | unused files, exports, types, dependencies                     |
-| i18n key checks                   | `check:i18n` (also pre-commit) | locale parity **and** unused base-locale keys fail             |
-| backend i18n key parity           | `check:i18n:backend`           | cs/en key + placeholder parity; `messages.properties` == cs    |
-| translations whitelist            | `check:translations:strict`    | Czech diacritics outside i18n need a justified whitelist entry |
+| Tool                              | When                                 | Gate                                                           |
+| --------------------------------- | ------------------------------------ | -------------------------------------------------------------- |
+| TypeScript strict + svelte-check  | `npm run check` / pre-push           | fails on any error                                             |
+| ESLint (js/ts/svelte recommended) | `npm run lint` / pre-push            | fails the run                                                  |
+| ESLint type-aware promise rules   | `src/**/*.ts`                        | `no-floating-promises`, `await-thenable` as errors             |
+| knip                              | `npm run knip` / pre-push            | unused files, exports, types, dependencies                     |
+| knip, production graph            | `npm run knip:production` / pre-push | the same, with test files out of the graph                     |
+| i18n key checks                   | `check:i18n` (also pre-commit)       | locale parity **and** unused base-locale keys fail             |
+| backend i18n key parity           | `check:i18n:backend`                 | cs/en key + placeholder parity; `messages.properties` == cs    |
+| translations whitelist            | `check:translations:strict`          | Czech diacritics outside i18n need a justified whitelist entry |
 
 Policy notes:
 
@@ -88,6 +99,22 @@ Policy notes:
   boot/sidecar path surfaces as a silent hang or a spurious unhandled-rejection
   boot error; intentional cases are written as `void promise` with a comment
   (see `lib/i18n/index.ts` for the pattern).
+- **The second knip run is where refactoring leftovers surface.** The default
+  run treats every `*.test.ts` and `*.e2e.ts` as an entry point, so production
+  code whose last real caller disappeared stays green as long as its own test
+  still imports it — that is how `formatMediumDate` survived two months after
+  #34 deleted the contacts column it was written for. `knip:production` runs
+  the same config with only the patterns marked `!` (the SvelteKit routes,
+  `app.html`, the API type contract), so the test graph is gone. **Dropping a
+  `!` does not narrow the run, it empties it:** with no production pattern left,
+  knip traverses nothing, reports nothing and exits 0 — a silently disabled
+  gate. Three
+  deliberate consequences: `--exclude dependencies` (with the test graph out,
+  every runtime dependency of a `.svelte` component reads as unused), the
+  `!src/test-fixtures/**!` / `!src/routes/e2e-helpers.ts!` project negations
+  (test support that happens to live under `src/`), and `--tags=-testseam`
+  for the handful of exports production genuinely never calls — a reset hook
+  or a teardown seam, each carrying `@testseam` next to the reason it exists.
 - **Unused i18n keys fail the gate.** `scripts/check-i18n-keys.mjs` recognizes
   literal lookups and dynamic template prefixes (`` `folder.${role}` ``,
   `` `palette.group_${id}` ``); keys consumed via property access need a

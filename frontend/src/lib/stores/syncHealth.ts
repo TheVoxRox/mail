@@ -28,7 +28,11 @@ export function markSyncRecovered(accountId: number): void {
 	failingSyncAccountIds.update((ids) => ids.filter((id) => id !== accountId));
 }
 
-/** Test seam — the stream is the only writer in the app itself. */
+/**
+ * Test seam — the stream is the only writer in the app itself.
+ *
+ * @testseam
+ */
 export function resetSyncHealth(): void {
 	failingSyncAccountIds.set([]);
 }

@@ -327,6 +327,19 @@
 								<arg>-XDcompilePolicy=simple</arg>
 								<arg>--should-stop=ifError=FLOW</arg>
 								<!--
+									doclint, reference group only: a {@link}, @see, @throws or
+									@param naming a member that does not exist fails the build.
+									It is the one kind of javadoc rot a machine can catch - the
+									name is the only navigation a cross-class comment has, and a
+									rename leaves it pointing at nothing while every other gate
+									stays green (check:refs validates repo paths and npm scripts,
+									not Java identifiers; check:java-imports reads a {@link} as a
+									*use* of the import). Only "reference" is on: "missing" and
+									"syntax" would demand a javadoc burn-down this repo has not
+									decided to do.
+								-->
+								<arg>-Xdoclint:reference/private</arg>
+								<!--
 									JavaTimeDefaultTimeZone is OFF by policy: this is a single-user
 									desktop app, timestamps (last_sync_at, received_at) are stored
 									and displayed in the machine's local wall-clock time by design.
@@ -343,6 +356,8 @@
 							<compilerArgs>
 								<arg>-XDcompilePolicy=simple</arg>
 								<arg>--should-stop=ifError=FLOW</arg>
+								<!-- Same reference check on tests; see default-compile above. -->
+								<arg>-Xdoclint:reference/private</arg>
 								<arg>-Xplugin:ErrorProne -XepExcludedPaths:.*[\\/]target[\\/].* -Xep:JavaTimeDefaultTimeZone:OFF -Xep:NullAway:OFF</arg>
 							</compilerArgs>
 						</configuration>

@@ -34,11 +34,12 @@ import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
 /**
  * Unit tests for {@link AttachmentService}.
  *
- * Strategy: - A real temp directory via {@link TempDir} — the service
- * constructor calls {@code Files.list(privateTempDir)} during cleanup, so we
- * need a real existing directory. - {@link ImapFolderExecutor} is mocked — it
- * returns a prepared temp file so we do not actually download from IMAP (the
- * lambda inside {@code executeReadOnly} is not invoked in the test).
+ * Strategy: - A real temp directory under {@code target/test-tmp}, made in
+ * {@code setUp} and deleted in {@code tearDown} — the service constructor calls
+ * {@code Files.list(privateTempDir)} during cleanup, so we need a real existing
+ * directory. - {@link ImapFolderExecutor} is mocked — it returns a prepared
+ * temp file so we do not actually download from IMAP (the lambda inside
+ * {@code executeReadOnly} is not invoked in the test).
  *
  * Covers: - Happy path: returns a stream over the content, which is deleted on
  * close(). - Message not found in DB -> ResourceNotFoundException. - Cleanup of

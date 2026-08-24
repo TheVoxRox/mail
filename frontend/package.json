@@ -61,6 +61,7 @@
 		"check:md": "node scripts/check-markdown-format.mjs",
 		"format:md": "node scripts/check-markdown-format.mjs --write",
 		"knip": "knip --no-progress",
+		"knip:production": "knip --no-progress --production --exclude dependencies,binaries --tags=-testseam",
 		"format": "prettier --write .",
 		"test:e2e:stable": "node scripts/run-playwright-with-preview.mjs",
 		"test:functional:stable": "node scripts/run-playwright-with-preview.mjs --project=functional",
