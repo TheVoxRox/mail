@@ -449,7 +449,6 @@ class MailSyncServiceTest {
             // Regression for the optimistic-lock fix: lastSyncAt must go through
             // a dedicated UPDATE, not through save(detached entity).
             verify(syncStateService).touchLastSyncAt(any(), any(LocalDateTime.class));
-            verify(syncStateService, never()).saveSyncState(any());
         }
 
         @Test

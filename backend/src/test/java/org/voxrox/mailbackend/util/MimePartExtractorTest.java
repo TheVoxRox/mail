@@ -45,9 +45,9 @@ class MimePartExtractorTest {
     }
 
     @Test
-    @DisplayName("extractText degrades to empty when a 'multipart' body is not a Multipart")
-    void extractTextHandlesMalformedMultipart() throws Exception {
-        assertThat(MimePartExtractor.extractText(malformedMultipart())).isEmpty();
+    @DisplayName("extractBody degrades to empty when a 'multipart' body is not a Multipart")
+    void extractBodyHandlesMalformedMultipart() throws Exception {
+        assertThat(MimePartExtractor.extractBody(malformedMultipart()).text()).isEmpty();
     }
 
     @Test
@@ -78,11 +78,11 @@ class MimePartExtractorTest {
     }
 
     @Test
-    @DisplayName("extractText reads the body of a plain-text part")
-    void extractTextReadsPlainText() throws Exception {
+    @DisplayName("extractBody reads the body of a plain-text part")
+    void extractBodyReadsPlainText() throws Exception {
         Part part = textPart("text/plain", "text/plain; charset=utf-8", "hello world".getBytes(StandardCharsets.UTF_8));
 
-        assertThat(MimePartExtractor.extractText(part)).isEqualTo("hello world");
+        assertThat(MimePartExtractor.extractBody(part).text()).isEqualTo("hello world");
     }
 
     @Test

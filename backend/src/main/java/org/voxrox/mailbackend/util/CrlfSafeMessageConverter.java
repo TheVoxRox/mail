@@ -23,6 +23,9 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
  * multi-line exceptions stay readable; the log-injection sinks flagged by
  * static analysis are all on the message argument, which renders through
  * {@code %m}.
+ *
+ * @callerless Named as a class string in logback-spring.xml, which is the only
+ *             thing that instantiates it; no Java code ever references it.
  */
 public final class CrlfSafeMessageConverter extends MessageConverter {
 

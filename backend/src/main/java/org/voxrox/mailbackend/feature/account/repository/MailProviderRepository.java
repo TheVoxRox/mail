@@ -20,9 +20,5 @@ public interface MailProviderRepository extends JpaRepository<MailProviderEntity
     @Query("SELECT p FROM MailProviderEntity p WHERE p.domains LIKE %:domainKey%")
     List<MailProviderEntity> findByDomainKey(@Param("domainKey") String domainKey);
 
-    List<MailProviderEntity> findAllBySystemTemplateTrue();
-
     Optional<MailProviderEntity> findByName(String name);
-
-    boolean existsByName(String name);
 }

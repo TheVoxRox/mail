@@ -57,10 +57,6 @@ public class SyncLockManager {
         }
     }
 
-    public boolean isSyncing(Long accountId) {
-        return activeSyncs.contains(accountId);
-    }
-
     /**
      * Attempts to acquire the per-folder cycle lock. Callers skip the cycle when
      * this returns {@code false} — an identical cycle is already running and will

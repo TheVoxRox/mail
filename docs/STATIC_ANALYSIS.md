@@ -10,14 +10,15 @@ records the _policy_ behind all three.
 
 ### Tooling
 
-| Tool                                    | When                            | Gate                                                               |
-| --------------------------------------- | ------------------------------- | ------------------------------------------------------------------ |
-| Error Prone 2.50                        | every `javac` run (main + test) | ERROR-level bug patterns fail the build                            |
-| NullAway 0.13                           | main sources only               | ERROR (burn-down completed, see below)                             |
-| javac doclint, `reference` group        | every `javac` run (main + test) | a `{@link}`/`@see`/`@throws` that does not resolve fails the build |
-| SpotBugs (effort Max, threshold Medium) | `mvn verify`                    | fails the build                                                    |
-| Spotless (Eclipse formatter)            | `mvn verify` / pre-push         | fails the build                                                    |
-| JaCoCo merged check                     | `mvn verify`                    | instruction 70 % / branch 50 % / line 70 % floors                  |
+| Tool                                    | When                            | Gate                                                                 |
+| --------------------------------------- | ------------------------------- | -------------------------------------------------------------------- |
+| Error Prone 2.50                        | every `javac` run (main + test) | ERROR-level bug patterns fail the build                              |
+| NullAway 0.13                           | main sources only               | ERROR (burn-down completed, see below)                               |
+| javac doclint, `reference` group        | every `javac` run (main + test) | a `{@link}`/`@see`/`@throws` that does not resolve fails the build   |
+| `check:java-callers`                    | `npm run check` / pre-push      | a main-source declaration with no caller (three verdicts, see below) |
+| SpotBugs (effort Max, threshold Medium) | `mvn verify`                    | fails the build                                                      |
+| Spotless (Eclipse formatter)            | `mvn verify` / pre-push         | fails the build                                                      |
+| JaCoCo merged check                     | `mvn verify`                    | instruction 70 % / branch 50 % / line 70 % floors                    |
 
 Error Prone needs `jdk.compiler` add-exports flags; they live in
 [backend/.mvn/jvm.config](../backend/.mvn/jvm.config) because the plugin runs
@@ -43,6 +44,22 @@ in-process (forked javac swallows its own diagnostics on Windows).
   `syntax` would demand a javadoc burn-down this repo has not decided to do.
   A method named in plain prose (`… is called by MailFacade.deleteMessages`)
   is still outside the gate; writing it as a `{@link}` is what puts it in.
+- **Three verdicts on a callerless declaration, never one.** `check:java-callers`
+  reports **dead** (nothing names it, tests included), **test-only** (only tests
+  do) and **internal** (only its own file does) separately, because the fix
+  differs: delete it, delete both the code and the test that hid it, or narrow
+  it to `private`. The first prototype lumped the third in with the first and
+  argued for deleting `MessageDownloader.getLatestUidFromServer`, whose caller
+  sits 260 lines above it. Framework entry points are skipped by annotation —
+  anything Spring, JPA, Jackson or Jakarta Validation invokes reflectively —
+  and an `@Entity` accessor a test calls is exempt from the test-only verdict:
+  production writes through a mapper and a test asserts persisted state through
+  the getter, which is the healthy shape rather than a leftover. A private
+  method with no caller stays out entirely, since SpotBugs already fails the
+  build on `UPM_UNCALLED_PRIVATE_METHOD` and two gates on one finding means two
+  places to silence it. Deliberate exceptions carry `@callerless <reason>` on
+  the declaration; the reason is required and must sit on the tag's own line,
+  or the javadoc's closing delimiter reads as the reason.
 - **No empty catch blocks.** Best-effort cleanup paths (`store.close()` in
   pool eviction, key zeroing at shutdown) log at DEBUG instead of swallowing —
   the 2026-06 reviews showed that silent error paths are exactly where this
@@ -71,10 +88,13 @@ Conventions established during the burn-down:
 - JPA entity columns that are nullable in the schema carry `@Nullable` on the
   field, the getter _and_ the setter parameter — annotating only one of them
   trips the assignment/return checks.
-- A bidirectional unlink helper (`MessageEntity.removeAttachment`) may null a
-  `nullable = false` association transiently; the field is `@Nullable` with a
-  comment, the column constraint is unaffected because orphanRemoval deletes
-  the row.
+- The owning side of a bidirectional association is `@Nullable` even when the
+  column is `nullable = false`: it is unset between construction and the
+  `addX` helper that links the two sides (`AttachmentEntity.message`). The
+  column constraint is unaffected — removal goes through orphanRemoval, which
+  deletes the row rather than flushing a null. The unlink helper this bullet
+  used to cite was removed in the 2026-08-24 dead-code sweep; nothing called
+  it, and the nullability it justified is really the construction gap.
 - `account_credentials.password` is NOT NULL by schema; "no secret" is stored
   as an empty string (all readers treat blank as absent), never as null.
 

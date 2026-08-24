@@ -42,20 +42,6 @@ public class SyncStateService {
     }
 
     /**
-     * Saves/updates the existing sync state.
-     * <p>
-     * Note: in the hot path (handleUidValidity / saveMessagesBatchAtomic /
-     * performFullSyncCycle) dedicated {@code update*} methods are used — a detached
-     * entity bumped across independent transactions would otherwise throw
-     * {@code StaleObjectStateException}. This method remains for the cases where
-     * the {@code @Version} guard is desirable (cross-thread save).
-     */
-    @Transactional
-    public void saveSyncState(FolderSyncStateEntity state) {
-        syncStateRepository.save(state);
-    }
-
-    /**
      * Targeted UPDATE of {@code last_known_uid}; bypasses JPA merge and therefore
      * also the {@code @Version} guard. Safe — sync is serialized per (account,
      * folder) via {@code SyncLockManager}.
