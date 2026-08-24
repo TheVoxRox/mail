@@ -229,6 +229,12 @@ jobs:
       - name: Dead-code analysis (knip)
         run: npm run knip
 
+      # Second pass with the test files out of the graph: an export the app
+      # itself no longer calls stays green above as long as its own test still
+      # imports it.
+      - name: Dead-code analysis, production graph (knip)
+        run: npm run knip:production
+
   check:
     name: Svelte check
     runs-on: ubuntu-latest

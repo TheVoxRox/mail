@@ -222,7 +222,8 @@ GitHub Actions runs the `CI` workflow on pushes to `main` and on pull requests.
 
 The workflow is split into 9 jobs; five of them are this module's:
 
-- `lint`: `npm run lint` + `npm audit --audit-level=high` + `npm run knip`
+- `lint`: `npm run lint` + `npm audit --audit-level=high` + `npm run knip` +
+  `npm run knip:production`
 - `check`: `npm run check` (includes `check:api` schema-drift)
 - `test-unit`: `npm run test:unit:coverage`
 - `test-functional`: `npm run test:functional:stable`

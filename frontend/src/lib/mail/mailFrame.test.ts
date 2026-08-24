@@ -2,7 +2,6 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
-	MAIL_FRAME_CSP,
 	MAIL_FRAME_SCRIPT,
 	MAIL_FRAME_SCRIPT_SHA256,
 	MAIL_FRAME_STYLE,
@@ -18,6 +17,10 @@ import {
 	type MailFrameLinkMessage
 } from './mailFrame.js';
 
+// The frame renders with remote images blocked until the user opts in, so the
+// default flag is what the pinned hashes below have to hold for.
+const defaultCsp = mailFrameCsp(false);
+
 describe('MAIL_FRAME_SCRIPT_SHA256', () => {
 	it('matches the actual SHA-256 of the forwarder script', () => {
 		// If this fails, the CSP hash no longer pins the script and the body
@@ -28,9 +31,9 @@ describe('MAIL_FRAME_SCRIPT_SHA256', () => {
 	});
 
 	it('is referenced by the frame CSP script-src', () => {
-		expect(MAIL_FRAME_CSP).toContain(`script-src 'sha256-${MAIL_FRAME_SCRIPT_SHA256}'`);
-		expect(MAIL_FRAME_CSP).toContain("default-src 'none'");
-		expect(MAIL_FRAME_CSP).toContain('img-src data:');
+		expect(defaultCsp).toContain(`script-src 'sha256-${MAIL_FRAME_SCRIPT_SHA256}'`);
+		expect(defaultCsp).toContain("default-src 'none'");
+		expect(defaultCsp).toContain('img-src data:');
 	});
 });
 
@@ -44,7 +47,7 @@ describe('MAIL_FRAME_STYLE_SHA256', () => {
 	});
 
 	it('is referenced by the frame CSP style-src', () => {
-		expect(MAIL_FRAME_CSP).toContain(`style-src 'sha256-${MAIL_FRAME_STYLE_SHA256}'`);
+		expect(defaultCsp).toContain(`style-src 'sha256-${MAIL_FRAME_STYLE_SHA256}'`);
 	});
 
 	it('keeps the mail surface light regardless of app theme', () => {

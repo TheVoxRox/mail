@@ -201,12 +201,3 @@ describe('setLocale — persistence + DOM side-effects', () => {
 		expect(document.title).toBeTruthy();
 	});
 });
-
-describe('initI18n — idempotent public bootstrap', () => {
-	it('can be called multiple times without re-initialising', async () => {
-		const mod = await freshModule();
-
-		await expect(mod.initI18n()).resolves.toBeUndefined();
-		await expect(mod.initI18n()).resolves.toBeUndefined();
-	});
-});

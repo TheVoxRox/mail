@@ -79,7 +79,7 @@ git config core.hooksPath .githooks
   that otherwise drift between sessions because nothing enforced them at commit
   time.
 - **pre-push** (fuller): `npm run lint`, `npm run check:i18n:backend`, strict
-  translations, `npm run check`, `knip`, and `npm run test:unit`.
+  translations, `npm run check`, `knip`, `knip:production`, and `npm run test:unit`.
 
 Bypass once with `git commit --no-verify` / `git push --no-verify`. Backend
 `mvn verify`, Playwright e2e, and Tauri `cargo` checks are intentionally left to
@@ -209,6 +209,10 @@ decide whether everything else is allowed to land.
 
 - `npm run knip` — dead-code analysis. Config in `knip.json`. Output must
   be empty.
+- `npm run knip:production` — the same config with the test files out of the
+  graph, so an export that only its own test still imports shows up. Deliberate
+  exceptions (a reset hook, a teardown seam) carry an `@testseam` JSDoc tag next
+  to the reason they exist; everything else on that list is dead.
 - `npm run check:translations:strict` — Czech-diacritics whitelist over
   `frontend/src`.
 - `npm run check:translations:backend:strict` — the same whitelist over the
