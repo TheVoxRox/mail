@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { codeOnly, withoutAnnotations } from './lib/source-text.mjs';
 
 /*
  * Fails a change that deletes or renames a symbol and leaves its old name
@@ -101,15 +102,6 @@ function isWorthTracking(name) {
 	return /[A-Z_]/.test(name);
 }
 
-/**
- * Annotations sit between the modifier and the type — `public @Nullable String
- * getFoo()` — where every pattern above reads a type. Blanking them keeps a
- * declaration from being missed.
- */
-function withoutAnnotations(text) {
-	return text.replace(/@\w+(?:\([^)]*\))?/g, ' ');
-}
-
 function declaredNamesIn(source) {
 	const text = withoutAnnotations(source);
 	const names = new Set();
@@ -121,55 +113,6 @@ function declaredNamesIn(source) {
 		}
 	}
 	return names;
-}
-
-/**
- * Blanks comments and string literals, leaving positions intact. Deliberately
- * a scanner and not a regex: `"// not a comment"` and `// a "quote"` each turn
- * the other's opener into content, and a replace pass cannot hold that state.
- * Errs towards *keeping* code — an unterminated literal blanks to end of line
- * only, so a stray quote cannot hide the rest of a file from the gate.
- */
-function codeOnly(source) {
-	let out = '';
-	let index = 0;
-	while (index < source.length) {
-		const rest = source.slice(index);
-		const char = source[index];
-		if (rest.startsWith('//')) {
-			const end = source.indexOf('\n', index);
-			const stop = end === -1 ? source.length : end;
-			out += ' '.repeat(stop - index);
-			index = stop;
-		} else if (rest.startsWith('/*')) {
-			const end = source.indexOf('*/', index + 2);
-			const stop = end === -1 ? source.length : end + 2;
-			out += ' '.repeat(stop - index);
-			index = stop;
-		} else if (rest.startsWith('<!--')) {
-			const end = source.indexOf('-->', index + 4);
-			const stop = end === -1 ? source.length : end + 3;
-			out += ' '.repeat(stop - index);
-			index = stop;
-		} else if (char === '"' || char === "'" || char === '`') {
-			let scan = index + 1;
-			while (scan < source.length) {
-				if (source[scan] === '\\') {
-					scan += 2;
-					continue;
-				}
-				if (source[scan] === char || source[scan] === '\n') break;
-				scan += 1;
-			}
-			const stop = Math.min(scan + 1, source.length);
-			out += ' '.repeat(stop - index);
-			index = stop;
-		} else {
-			out += char;
-			index += 1;
-		}
-	}
-	return out;
 }
 
 function arg(name) {

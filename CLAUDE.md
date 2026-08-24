@@ -81,6 +81,15 @@ someone a rework at least once. For the human-facing versions see
     prose does not count as used — a `{@link}` or `@throws` does, since those
     need the import to resolve. Wildcard and `import module` lines are skipped,
     not guessed at. TypeScript is out of scope; eslint already covers it.
+  - `check:java-callers` — a declaration in `backend/src/main` needs a caller.
+    The Java half of what knip does for TypeScript, and it names three cases
+    apart because they argue for different fixes: **dead** (nothing anywhere —
+    delete), **test-only** (only tests — the test is what makes it look used)
+    and **internal** (only its own file — narrow to `private`, do not delete).
+    Framework entry points are skipped by annotation; a `@Entity` accessor a
+    test calls is exempt from test-only, since production writes through a
+    mapper and a test asserts through the getter. Deliberate exceptions carry
+    `@callerless <reason>` on the declaration, reason required.
   - `check:rename-residue` (CI only) — a symbol the change stopped declaring
     may not still be named in source. It reads the **diff**, not the tree, and
     reports a name only once it is gone from code everywhere (code = the file

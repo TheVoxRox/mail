@@ -58,6 +58,9 @@ public final class ImapCapabilities {
      * reworking {@code ImapFolderExecutor} (the SELECT itself has to carry the
      * QRESYNC parameters), which {@code todo.md} defers to after the release. Do
      * not delete this as dead code: it is the gate that work switches on.
+     *
+     * @callerless The probe records the capability the VANISHED rework will switch
+     *             on; todo.md defers that rework past the release.
      */
     public boolean hasQresync() {
         return qresync;

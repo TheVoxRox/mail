@@ -115,13 +115,6 @@ class SyncStateServiceTest {
     class TargetedUpdates {
 
         @Test
-        void saveSyncStateDelegates() {
-            FolderSyncStateEntity state = new FolderSyncStateEntity();
-            service.saveSyncState(state);
-            verify(syncStateRepository).save(state);
-        }
-
-        @Test
         void updateLastKnownUidDelegates() {
             service.updateLastKnownUid(STATE_ID, 42L);
             verify(syncStateRepository).updateLastKnownUid(STATE_ID, 42L);

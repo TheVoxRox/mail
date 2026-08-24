@@ -106,6 +106,11 @@ public interface CorrespondentRepository extends JpaRepository<CorrespondentEnti
             @Param("containsPattern") String containsPattern,
             @Param("robotLocalParts") Collection<String> robotLocalParts, @Param("limit") int limit);
 
+    /**
+     * @callerless Identity lookup for the integration tests. Production reaches
+     *             correspondents through upsert() and search(), neither of which
+     *             can show what a single row ended up holding after an upsert.
+     */
     Optional<CorrespondentEntity> findByAccountIdAndEmail(Long accountId, String email);
 
     long countByAccountId(Long accountId);

@@ -213,6 +213,10 @@ decide whether everything else is allowed to land.
   graph, so an export that only its own test still imports shows up. Deliberate
   exceptions (a reset hook, a teardown seam) carry an `@testseam` JSDoc tag next
   to the reason they exist; everything else on that list is dead.
+- `npm run check:java-callers` — part of `npm run check`. A declaration in
+  `backend/src/main` needs a caller; the report separates dead code from code
+  only tests reach and from a method that is merely too visible. A deliberate
+  exception carries `@callerless <reason>` on the declaration.
 - `npm run check:rename-residue -- --base <ref>` — CI only, like the docs
   impact check: it needs something to diff against. Fails when a symbol the
   range stopped declaring is still named in a comment, a `@DisplayName` or a

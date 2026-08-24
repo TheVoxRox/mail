@@ -62,13 +62,6 @@ public interface AccountRepository extends JpaRepository<AccountEntity, Long> {
     Optional<AccountEntity> findByOauth2ProviderAndExternalId(String oauth2Provider, String externalId);
 
     @Transactional(readOnly = true)
-    List<AccountEntity> findByProviderId(Long providerId);
-
-    @Transactional(readOnly = true)
-    @Query("SELECT a.active FROM AccountEntity a WHERE a.id = :id")
-    Optional<Boolean> isAccountActive(@Param("id") Long id);
-
-    @Transactional(readOnly = true)
     @Query("SELECT a.requiresReauth FROM AccountEntity a WHERE a.id = :id")
     Optional<Boolean> isRequiresReauth(@Param("id") Long id);
 

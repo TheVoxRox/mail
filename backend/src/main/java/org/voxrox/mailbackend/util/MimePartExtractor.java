@@ -68,17 +68,6 @@ public final class MimePartExtractor {
         private static final ExtractedBody OVERSIZE = new ExtractedBody("", false, true);
     }
 
-    /**
-     * Backwards-compatible thin wrapper: returns only the body text. Callers that
-     * flatten to plain text (drafts, reply/forward) use this; the content path uses
-     * {@link #extractBody} to learn the content type. An oversized body (B1-1)
-     * flattens to an empty string here — use {@link #extractBody} when the caller
-     * must distinguish oversize from genuinely empty.
-     */
-    public static String extractText(Part part) throws MessagingException, IOException {
-        return extractBody(part).text();
-    }
-
     public static ExtractedBody extractBody(Part part) throws MessagingException, IOException {
         return extractBodyInternal(part, 0);
     }

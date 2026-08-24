@@ -31,8 +31,6 @@ public interface FolderSyncStateRepository extends JpaRepository<FolderSyncState
     @Transactional
     void deleteByAccountIdAndFolderName(Long accountId, String folderName);
 
-    boolean existsByAccountIdAndFolderName(Long accountId, String folderName);
-
     /**
      * Technical folder names carrying {@code role} for the given account. Used
      * instead of hard-coded names when dealing with trash, sent, etc.

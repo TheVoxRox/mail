@@ -147,7 +147,6 @@ class FlagSyncServiceTest {
             assertThat(syncState.getUidValidity()).isEqualTo(123456L);
             assertThat(syncState.getLastKnownUid()).isEqualTo(100L); // unchanged
             verify(syncStateService).updateUidValidity(SYNC_STATE_ID, 123456L);
-            verify(syncStateService, never()).saveSyncState(any());
             verify(maintenanceService, never()).clearLocalCache(anyLong(), anyString());
         }
 
@@ -184,7 +183,6 @@ class FlagSyncServiceTest {
             assertThat(syncState.getLastKnownModseq()).isNull(); // modseq is reset as well
             verify(maintenanceService).clearLocalCache(ACCOUNT_ID, FOLDER);
             verify(syncStateService).resetForUidValidityChange(SYNC_STATE_ID, 999999L);
-            verify(syncStateService, never()).saveSyncState(any());
         }
     }
 

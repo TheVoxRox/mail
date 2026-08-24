@@ -173,12 +173,6 @@ public class MessageEntity {
         this.hasAttachments = true;
     }
 
-    public void removeAttachment(AttachmentEntity attachment) {
-        attachments.remove(attachment);
-        attachment.setMessage(null);
-        this.hasAttachments = !attachments.isEmpty();
-    }
-
     @Override
     public final boolean equals(Object o) {
         if (this == o)
@@ -379,10 +373,6 @@ public class MessageEntity {
 
     public List<AttachmentEntity> getAttachments() {
         return attachments;
-    }
-
-    public void setAttachments(List<AttachmentEntity> attachments) {
-        this.attachments = attachments;
     }
 
     public String getThreadId() {

@@ -102,10 +102,6 @@ public class ContactEntity {
         return emails;
     }
 
-    public void setEmails(List<ContactEmailEntity> emails) {
-        this.emails = emails;
-    }
-
     public Set<ContactLabelEntity> getLabels() {
         return labels;
     }

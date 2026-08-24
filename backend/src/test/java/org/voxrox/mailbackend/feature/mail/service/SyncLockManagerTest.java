@@ -40,33 +40,20 @@ class SyncLockManagerTest {
     }
 
     @Test
-    @DisplayName("isSyncing reflects the lock state across acquire and release")
-    void isSyncingTracksState() {
-        assertThat(manager.isSyncing(1L)).isFalse();
-        manager.tryLock(1L);
-        assertThat(manager.isSyncing(1L)).isTrue();
-        manager.unlock(1L);
-        assertThat(manager.isSyncing(1L)).isFalse();
-    }
-
-    @Test
     @DisplayName("Locks are independent per account")
     void locksAreIndependentPerAccount() {
         assertThat(manager.tryLock(1L)).isTrue();
         assertThat(manager.tryLock(2L)).isTrue();
-        assertThat(manager.isSyncing(1L)).isTrue();
-        assertThat(manager.isSyncing(2L)).isTrue();
-        // Releasing one leaves the other held.
+        // Releasing one leaves the other held: 1 can be taken again, 2 cannot.
         manager.unlock(1L);
-        assertThat(manager.isSyncing(1L)).isFalse();
-        assertThat(manager.isSyncing(2L)).isTrue();
+        assertThat(manager.tryLock(1L)).isTrue();
+        assertThat(manager.tryLock(2L)).isFalse();
     }
 
     @Test
     @DisplayName("Unlocking a lock that was never held is a safe no-op")
     void unlockNonHeldLockIsNoOp() {
         manager.unlock(99L); // must not throw
-        assertThat(manager.isSyncing(99L)).isFalse();
         assertThat(manager.tryLock(99L)).isTrue();
     }
 
@@ -116,7 +103,8 @@ class SyncLockManagerTest {
             }
 
             assertThat(winners.get()).isEqualTo(1);
-            assertThat(manager.isSyncing(7L)).isTrue();
+            // The winner still holds it: nobody else can take it after the race.
+            assertThat(manager.tryLock(7L)).isFalse();
         } finally {
             pool.shutdownNow();
             assertThat(pool.awaitTermination(5, TimeUnit.SECONDS)).isTrue();

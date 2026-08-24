@@ -15,9 +15,10 @@ public class AttachmentEntity {
     private Long id;
 
     /**
-     * Nullable only transiently: {@code MessageEntity.removeAttachment} unlinks the
-     * bidirectional association before orphanRemoval deletes the row — a null is
-     * never flushed to the NOT NULL column.
+     * Nullable only between construction and {@link MessageEntity#addAttachment},
+     * which is what links the two sides. A null is never flushed to the NOT NULL
+     * column: removal goes through orphanRemoval, which deletes the row rather than
+     * unlinking it.
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "message_id", nullable = false)
