@@ -213,6 +213,10 @@ decide whether everything else is allowed to land.
   graph, so an export that only its own test still imports shows up. Deliberate
   exceptions (a reset hook, a teardown seam) carry an `@testseam` JSDoc tag next
   to the reason they exist; everything else on that list is dead.
+- `npm run check:rename-residue -- --base <ref>` — CI only, like the docs
+  impact check: it needs something to diff against. Fails when a symbol the
+  range stopped declaring is still named in a comment, a `@DisplayName` or a
+  test name. Deliberate mentions take a `Rename-residue:` commit trailer.
 - `npm run check:translations:strict` — Czech-diacritics whitelist over
   `frontend/src`.
 - `npm run check:translations:backend:strict` — the same whitelist over the

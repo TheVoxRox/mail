@@ -89,6 +89,7 @@ Conventions established during the burn-down:
 | ESLint type-aware promise rules   | `src/**/*.ts`                        | `no-floating-promises`, `await-thenable` as errors             |
 | knip                              | `npm run knip` / pre-push            | unused files, exports, types, dependencies                     |
 | knip, production graph            | `npm run knip:production` / pre-push | the same, with test files out of the graph                     |
+| rename residue                    | `check:rename-residue` (CI only)     | a removed symbol still named in a comment or a test name       |
 | i18n key checks                   | `check:i18n` (also pre-commit)       | locale parity **and** unused base-locale keys fail             |
 | backend i18n key parity           | `check:i18n:backend`                 | cs/en key + placeholder parity; `messages.properties` == cs    |
 | translations whitelist            | `check:translations:strict`          | Czech diacritics outside i18n need a justified whitelist entry |
@@ -115,6 +116,18 @@ Policy notes:
   (test support that happens to live under `src/`), and `--tags=-testseam`
   for the handful of exports production genuinely never calls — a reset hook
   or a teardown seam, each carrying `@testseam` next to the reason it exists.
+- **The rename gate reads the change, not the tree.** `check-rename-residue.mjs`
+  takes the names a diff stopped declaring and reports the ones that no longer
+  appear in code anywhere — code being the file with comments and string
+  literals blanked out. That direction is the robust one: matching declarations
+  across the tree misses Spring Data methods (no access modifier), annotated
+  signatures and wrapped ones, and every miss would call a live symbol dead.
+  Two known limits, both deliberate. A name that still exists **somewhere** in
+  the codebase cannot be judged by name alone, so the seven `@DisplayName`
+  strings naming `findByAccountId` in #307 would not have fired — another
+  repository still declares that method. And Markdown is out of scope in both
+  directions: it is where removals get recorded, so a changelog entry must
+  neither be reported nor let a real leftover hide behind it.
 - **Unused i18n keys fail the gate.** `scripts/check-i18n-keys.mjs` recognizes
   literal lookups and dynamic template prefixes (`` `folder.${role}` ``,
   `` `palette.group_${id}` ``); keys consumed via property access need a

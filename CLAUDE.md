@@ -81,6 +81,13 @@ someone a rework at least once. For the human-facing versions see
     prose does not count as used — a `{@link}` or `@throws` does, since those
     need the import to resolve. Wildcard and `import module` lines are skipped,
     not guessed at. TypeScript is out of scope; eslint already covers it.
+  - `check:rename-residue` (CI only) — a symbol the change stopped declaring
+    may not still be named in source. It reads the **diff**, not the tree, and
+    reports a name only once it is gone from code everywhere (code = the file
+    with comments and string literals stripped), so what is left is a comment,
+    a `@DisplayName` or a test name — the places a rename rots unseen. A name
+    that still exists elsewhere in the codebase is unjudgeable by name alone
+    and stays quiet. Deliberate mentions take a `Rename-residue:` trailer.
   - `check:docs-impact` (CI only) — egress/storage-relevant changes must touch
     `PRIVACY*.md` or carry a `Docs-impact:` commit trailer.
 

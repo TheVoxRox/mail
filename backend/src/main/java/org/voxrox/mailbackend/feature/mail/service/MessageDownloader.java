@@ -337,10 +337,10 @@ public class MessageDownloader {
     }
 
     /**
-     * Highest UID the server currently holds, from UIDNEXT where the server
-     * offers a plausible one and from the last message otherwise. Private: the
-     * only caller is {@link #syncNewMessages} and the value is only meaningful
-     * next to that method's lastUid comparison.
+     * Highest UID the server currently holds, from UIDNEXT where the server offers
+     * a plausible one and from the last message otherwise. Private: the only caller
+     * is {@link #syncNewMessages} and the value is only meaningful next to that
+     * method's lastUid comparison.
      */
     private long getLatestUidFromServer(Folder folder, UIDFolder uidFolder) throws MessagingException {
         long nextUid = uidFolder.getUIDNext();

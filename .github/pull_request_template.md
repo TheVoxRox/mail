@@ -16,6 +16,7 @@ I have run the relevant gates locally and they are **all green**:
 - [ ] `npm run check:i18n:backend` (frontend) — backend `messages.properties` cs/en parity
 - [ ] `npm run knip` (frontend) — dead-code analysis
 - [ ] `npm run knip:production` (frontend) — dead-code analysis without the test graph
+- [ ] `npm run check:rename-residue -- --base <ref>` (frontend) — leftovers of a rename
 - [ ] `npm run check` (frontend) — version sync, schema drift, svelte-check
 - [ ] `npm run test:unit:coverage` (frontend) — passing thresholds
 - [ ] `npm run test:functional:stable` (frontend)
