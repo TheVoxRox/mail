@@ -110,6 +110,7 @@ Conventions established during the burn-down:
 | knip                              | `npm run knip` / pre-push            | unused files, exports, types, dependencies                     |
 | knip, production graph            | `npm run knip:production` / pre-push | the same, with test files out of the graph                     |
 | rename residue                    | `check:rename-residue` (CI only)     | a removed symbol still named in a comment or a test name       |
+| test claims                       | `check:test-claims` / pre-push       | duplicate test bodies in one file, tests switched off silently |
 | i18n key checks                   | `check:i18n` (also pre-commit)       | locale parity **and** unused base-locale keys fail             |
 | backend i18n key parity           | `check:i18n:backend`                 | cs/en key + placeholder parity; `messages.properties` == cs    |
 | translations whitelist            | `check:translations:strict`          | Czech diacritics outside i18n need a justified whitelist entry |
@@ -136,6 +137,22 @@ Policy notes:
   (test support that happens to live under `src/`), and `--tags=-testseam`
   for the handful of exports production genuinely never calls — a reset hook
   or a teardown seam, each carrying `@testseam` next to the reason it exists.
+- **A test that repeats its neighbour claims something nothing backs.**
+  `check:test-claims` compares test bodies **within one file** and reports a
+  pair that normalizes to the same text, plus any test switched off without a
+  reason. The scope is what makes it usable: the Google and Microsoft token
+  suites share sixteen bodies deliberately — one contract, two providers — so
+  comparing across files would report them all and the gate would be switched
+  off within a week. Inside one file the same body under two names is a copy
+  someone stopped editing, which is exactly what #307 found by hand.
+  **Comments come out, strings stay in**, and that pairing is not incidental:
+  `'http://example.com'` contains `//`, so a regex comment-stripper deletes the
+  rest of the line and two tests rejecting different URLs read as identical —
+  this gate's first run reported precisely that false pair. The skip rule needs
+  the opposite view (strings blanked), or the sentence "it.skip is not allowed"
+  inside an assertion reports as a switched-off test.
+  A skip stays if it says why: `@Disabled("…")`, a `test-skip:` comment above
+  the call, or `skipIf`, whose condition is the reason.
 - **The rename gate reads the change, not the tree.** `check-rename-residue.mjs`
   takes the names a diff stopped declaring and reports the ones that no longer
   appear in code anywhere — code being the file with comments and string
