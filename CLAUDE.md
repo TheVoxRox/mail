@@ -90,6 +90,14 @@ someone a rework at least once. For the human-facing versions see
     test calls is exempt from test-only, since production writes through a
     mapper and a test asserts through the getter. Deliberate exceptions carry
     `@callerless <reason>` on the declaration, reason required.
+  - `check:test-claims` — a test may not repeat its neighbour, and may not be
+    switched off in silence. Two tests in **one file** with identical bodies
+    assert the same thing under two names (#307: a refactor removed the
+    parameter that made them differ). Duplicates across files are fine — the
+    Google and Microsoft suites share sixteen bodies on purpose. An
+    unconditional `@Disabled` / `it.skip` needs a reason: the annotation
+    argument in Java, a `test-skip:` comment above the call in TypeScript.
+    `skipIf` states its own condition and passes.
   - `check:rename-residue` (CI only) — a symbol the change stopped declaring
     may not still be named in source. It reads the **diff**, not the tree, and
     reports a name only once it is gone from code everywhere (code = the file

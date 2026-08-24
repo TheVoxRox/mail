@@ -217,6 +217,9 @@ decide whether everything else is allowed to land.
   `backend/src/main` needs a caller; the report separates dead code from code
   only tests reach and from a method that is merely too visible. A deliberate
   exception carries `@callerless <reason>` on the declaration.
+- `npm run check:test-claims` — part of `npm run check`. Fails on two tests
+  in one file with identical bodies, and on a test switched off without a
+  reason (`@Disabled("…")`, or a `test-skip: …` comment above the call).
 - `npm run check:rename-residue -- --base <ref>` — CI only, like the docs
   impact check: it needs something to diff against. Fails when a symbol the
   range stopped declaring is still named in a comment, a `@DisplayName` or a

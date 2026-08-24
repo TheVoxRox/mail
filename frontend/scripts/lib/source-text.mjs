@@ -25,6 +25,24 @@
  * declared a method called `substr`.
  */
 export function codeOnly(source) {
+	return scan(source, true);
+}
+
+/**
+ * Blanks comments but keeps string literals intact — for callers that compare
+ * code by content, where the strings are most of what distinguishes one line
+ * from another.
+ *
+ * It has to be this scanner rather than a regex over `//`, and the reason is
+ * concrete: `'http://example.com'` contains `//`, so a regex pass deletes the
+ * rest of the line. Two test bodies asserting different URLs then normalize to
+ * the same text and read as copies of each other.
+ */
+export function withoutComments(source) {
+	return scan(source, false);
+}
+
+function scan(source, blankStrings) {
 	let out = '';
 	let index = 0;
 	while (index < source.length) {
@@ -48,7 +66,8 @@ export function codeOnly(source) {
 		} else if (rest.startsWith('"""')) {
 			const end = source.indexOf('"""', index + 3);
 			const stop = end === -1 ? source.length : end + 3;
-			out += blankKeepingNewlines(source.slice(index, stop));
+			const literal = source.slice(index, stop);
+			out += blankStrings ? blankKeepingNewlines(literal) : literal;
 			index = stop;
 		} else if (char === '"' || char === "'" || char === '`') {
 			let scan = index + 1;
@@ -61,7 +80,8 @@ export function codeOnly(source) {
 				scan += 1;
 			}
 			const stop = Math.min(scan + 1, source.length);
-			out += blankKeepingNewlines(source.slice(index, stop));
+			const literal = source.slice(index, stop);
+			out += blankStrings ? blankKeepingNewlines(literal) : literal;
 			index = stop;
 		} else {
 			out += char;
