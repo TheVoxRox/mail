@@ -13,10 +13,6 @@ public abstract sealed class AppException extends RuntimeException permits Accou
     private final @Nullable String messageKey;
     private final Object[] messageArgs;
 
-    public AppException(ErrorCode code, String message, HttpStatus status) {
-        this(code, message, status, null);
-    }
-
     public AppException(ErrorCode code, String fallbackMessage, HttpStatus status, @Nullable String messageKey,
             Object... messageArgs) {
         this(code, fallbackMessage, status, null, messageKey, messageArgs);
