@@ -88,10 +88,6 @@ public interface AccountRepository extends JpaRepository<AccountEntity, Long> {
             @Param("code") @Nullable String code, @Param("argsJson") @Nullable String argsJson,
             @Param("timestamp") LocalDateTime timestamp);
 
-    default void updateLastError(Long id, String error, LocalDateTime timestamp) {
-        updateLastErrorFields(id, error, null, null, timestamp);
-    }
-
     default void updateLastError(Long id, @Nullable AccountLastError error, LocalDateTime timestamp) {
         if (error == null) {
             updateLastErrorFields(id, null, null, null, timestamp);
