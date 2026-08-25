@@ -24,8 +24,17 @@ public class MailSyncScheduler {
         this.mailSyncService = mailSyncService;
     }
 
+    /*
+     * No inline fallback in either placeholder, deliberately. Both keys already
+     * have a default on the SyncProperties component that binds them, and a second
+     * one here is a default nothing reconciles with the first: they are written in
+     * different syntaxes (`5m` there, `PT5M` here), so they can drift apart while
+     * both still read as correct. The shipped application.properties sets both
+     * keys, so the only way to reach a fallback is to delete a line from it — and
+     * then failing to start beats silently running at a rate no one chose.
+     */
     @Transactional(readOnly = true)
-    @Scheduled(initialDelayString = "${mail.client.sync.initial-delay:PT10S}", fixedRateString = "${mail.client.sync.interval:PT5M}")
+    @Scheduled(initialDelayString = "${mail.client.sync.initial-delay}", fixedRateString = "${mail.client.sync.interval}")
     public void syncAccounts() {
         log.info("{} Starting scheduled sync cycle for all active accounts.", LogCategory.SYNC);
 
