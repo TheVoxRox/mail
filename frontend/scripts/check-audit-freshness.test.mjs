@@ -10,6 +10,20 @@ import { createGateRepo } from './test-support/gate-repo.mjs';
  * squash merge this repo does on every PR.
  */
 
+/** An ISO date `n` days before today, floored the same way the gate floors. */
+const daysAgo = (n) => new Date(Date.now() - n * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+/**
+ * `count` acknowledgement records, the oldest dated `oldestDaysAgo` and the
+ * rest today — so a test moves exactly one of the two caps at a time.
+ */
+function acknowledgements(count, oldestDaysAgo = 0) {
+	return Array.from({ length: count }, (_, index) => ({
+		date: index === 0 ? daysAgo(oldestDaysAgo) : daysAgo(0),
+		note: `Reviewed change ${index + 1}: it cannot move the verdict.`
+	}));
+}
+
 /** A minimal audit document with the two header rows the gate reads. */
 function auditDoc({ auditedCommit, codePaths }) {
 	const paths = codePaths.map((p) => `\`${p}\``).join(', ');
@@ -45,6 +59,25 @@ function seedAudit(codePaths = ['src/audited']) {
 	repo.write('docs/FIXTURE_AUDIT.md', auditDoc({ auditedCommit: sha, codePaths }));
 	repo.commit('anchor the audit');
 	return sha;
+}
+
+/**
+ * Drifts the audited path and returns the object id the gate asks to have
+ * recorded, so a ledger test can get straight to the ledger it is about.
+ */
+function driftAndResolveOid() {
+	repo.write('src/audited/service.ts', 'export const v = 2;\n');
+	repo.commit('touch the audited path');
+	return /"src\/audited": "([0-9a-f]{40})"/.exec(repo.run('check-audit-freshness.mjs').stderr)[1];
+}
+
+/** Replaces the ledger with one entry for the fixture audit, and commits it. */
+function writeLedger(entry) {
+	repo.write(
+		'docs/audit-freshness.json',
+		JSON.stringify({ 'docs/FIXTURE_AUDIT.md': entry }, null, '\t')
+	);
+	repo.commit('record the acknowledgement');
 }
 
 describe('check-audit-freshness', () => {
@@ -93,7 +126,9 @@ describe('check-audit-freshness', () => {
 				{
 					'docs/FIXTURE_AUDIT.md': {
 						reviewedTrees: { 'src/audited': oid },
-						note: 'Reviewed: the change cannot move the verdict.'
+						acknowledgements: [
+							{ date: daysAgo(0), note: 'Reviewed: the change cannot move the verdict.' }
+						]
 					}
 				},
 				null,
@@ -106,6 +141,10 @@ describe('check-audit-freshness', () => {
 
 		expect(result.status).toBe(0);
 		expect(result.stdout).toContain('acknowledged drift');
+		// The passing run says how much is being carried. The failure this gate
+		// grew to catch was invisible for seventeen days because green said
+		// nothing.
+		expect(result.stdout).toContain('1/8 acks');
 	});
 
 	/*
@@ -129,7 +168,10 @@ describe('check-audit-freshness', () => {
 		repo.write(
 			'docs/audit-freshness.json',
 			JSON.stringify({
-				'docs/FIXTURE_AUDIT.md': { reviewedTrees: { 'src/audited': oid }, note: 'Reviewed.' }
+				'docs/FIXTURE_AUDIT.md': {
+					reviewedTrees: { 'src/audited': oid },
+					acknowledgements: acknowledgements(1)
+				}
 			})
 		);
 		repo.commit('acknowledge on the branch');
@@ -253,7 +295,7 @@ describe('check-audit-freshness', () => {
 			JSON.stringify({
 				'docs/FIXTURE_AUDIT.md': {
 					reviewedTrees: { 'src/audited': 'x', 'src/dropped-from-scope': 'y' },
-					note: 'stale'
+					acknowledgements: acknowledgements(1)
 				}
 			})
 		);
@@ -292,7 +334,10 @@ describe('check-audit-freshness', () => {
 		repo.write(
 			'docs/audit-freshness.json',
 			JSON.stringify({
-				'docs/FIXTURE_AUDIT.md': { reviewedTrees: { 'src/audited': oid }, note: 'Reviewed.' }
+				'docs/FIXTURE_AUDIT.md': {
+					reviewedTrees: { 'src/audited': oid },
+					acknowledgements: acknowledgements(1)
+				}
 			})
 		);
 		repo.commit('unresolvable anchor, covered ledger');
@@ -315,5 +360,188 @@ describe('check-audit-freshness', () => {
 
 		expect(result.status).toBe(1);
 		expect(result.stderr).toContain('not a commit in this repository');
+	});
+
+	/*
+	 * The caps. Acknowledging drift was the cheaper of the two honest routes
+	 * and it had no end: the real ledger reached seven run-together reviews in
+	 * one string in seventeen days, and the audit behind them was never read
+	 * again. Each judgement below is fine on its own — it is their union that
+	 * nobody has ever reviewed, which is what the count cap is measuring, and
+	 * what the age cap measures for an entry that grows slowly instead.
+	 */
+	describe('caps on a run of acknowledgements', () => {
+		it('allows eight standing acknowledgements and refuses the ninth', () => {
+			seedAudit();
+			const oid = driftAndResolveOid();
+
+			writeLedger({ reviewedTrees: { 'src/audited': oid }, acknowledgements: acknowledgements(8) });
+			expect(repo.run('check-audit-freshness.mjs').status).toBe(0);
+
+			writeLedger({ reviewedTrees: { 'src/audited': oid }, acknowledgements: acknowledgements(9) });
+			const result = repo.run('check-audit-freshness.mjs');
+
+			expect(result.status).toBe(1);
+			expect(result.stderr).toContain('9 acknowledgements stand (cap 8)');
+			expect(result.stderr).toContain('re-verify the audit against HEAD');
+		});
+
+		it('allows a ninety-day-old acknowledgement and refuses one a day older', () => {
+			seedAudit();
+			const oid = driftAndResolveOid();
+
+			writeLedger({
+				reviewedTrees: { 'src/audited': oid },
+				acknowledgements: acknowledgements(1, 90)
+			});
+			expect(repo.run('check-audit-freshness.mjs').status).toBe(0);
+
+			writeLedger({
+				reviewedTrees: { 'src/audited': oid },
+				acknowledgements: acknowledgements(1, 91)
+			});
+			const result = repo.run('check-audit-freshness.mjs');
+
+			expect(result.status).toBe(1);
+			expect(result.stderr).toContain('the oldest is 91 days old (cap 90)');
+		});
+
+		/*
+		 * A capped entry must not also be offered the way out it has just lost.
+		 * Printing "Current object ids:" underneath the cap would name the
+		 * weaker action second, and the weaker action is the one that is one
+		 * paste away.
+		 */
+		it('stops offering another acknowledgement once a cap is hit', () => {
+			seedAudit();
+			const oid = driftAndResolveOid();
+			writeLedger({ reviewedTrees: { 'src/audited': oid }, acknowledgements: acknowledgements(9) });
+			repo.write('src/audited/service.ts', 'export const v = 3;\n');
+			repo.commit('drift again on top of a capped entry');
+
+			const result = repo.run('check-audit-freshness.mjs');
+
+			expect(result.status).toBe(1);
+			expect(result.stderr).toContain('outrun its cap');
+			expect(result.stderr).not.toContain('Current object ids:');
+		});
+
+		it('warns on a passing run while the count cap is still two away', () => {
+			seedAudit();
+			const oid = driftAndResolveOid();
+			writeLedger({ reviewedTrees: { 'src/audited': oid }, acknowledgements: acknowledgements(6) });
+
+			const result = repo.run('check-audit-freshness.mjs');
+
+			expect(result.status).toBe(0);
+			expect(result.stdout).toContain('NOTICE');
+			expect(result.stdout).toContain('6/8 acknowledgements');
+		});
+
+		it('warns on a passing run while the age cap is still a fortnight away', () => {
+			seedAudit();
+			const oid = driftAndResolveOid();
+			writeLedger({
+				reviewedTrees: { 'src/audited': oid },
+				acknowledgements: acknowledgements(1, 76)
+			});
+
+			const result = repo.run('check-audit-freshness.mjs');
+
+			expect(result.status).toBe(0);
+			expect(result.stdout).toContain('oldest 76/90 days');
+		});
+	});
+
+	/*
+	 * Shape validation. Every cap above is measured off these fields, so a
+	 * record the gate cannot read is a record that cannot age or be counted —
+	 * which is the old unbounded behaviour reintroduced by accident.
+	 */
+	describe('acknowledgement record shape', () => {
+		it('rejects the pre-migration note string rather than reading it as nothing', () => {
+			seedAudit();
+			const oid = driftAndResolveOid();
+			writeLedger({ reviewedTrees: { 'src/audited': oid }, note: 'Reviewed, at some point.' });
+
+			const result = repo.run('check-audit-freshness.mjs');
+
+			expect(result.status).toBe(1);
+			expect(result.stderr).toContain('still carries the single `note` string');
+		});
+
+		it('rejects recorded object ids that carry no acknowledgement at all', () => {
+			seedAudit();
+			const oid = driftAndResolveOid();
+			writeLedger({ reviewedTrees: { 'src/audited': oid } });
+
+			const result = repo.run('check-audit-freshness.mjs');
+
+			expect(result.status).toBe(1);
+			expect(result.stderr).toContain('no "acknowledgements"');
+		});
+
+		it('rejects an undated acknowledgement, which could never age out', () => {
+			seedAudit();
+			const oid = driftAndResolveOid();
+			writeLedger({
+				reviewedTrees: { 'src/audited': oid },
+				acknowledgements: [{ note: 'Reviewed: it cannot move the verdict.' }]
+			});
+
+			const result = repo.run('check-audit-freshness.mjs');
+
+			expect(result.status).toBe(1);
+			expect(result.stderr).toContain('no "date" in YYYY-MM-DD form');
+		});
+
+		it('rejects an acknowledgement whose note is blank', () => {
+			seedAudit();
+			const oid = driftAndResolveOid();
+			writeLedger({
+				reviewedTrees: { 'src/audited': oid },
+				acknowledgements: [{ date: daysAgo(0), note: '   ' }]
+			});
+
+			const result = repo.run('check-audit-freshness.mjs');
+
+			expect(result.status).toBe(1);
+			expect(result.stderr).toContain('the note is the evidence');
+		});
+
+		/*
+		 * The age cap reads acknowledgements[0]. Newest-first would make the
+		 * oldest record invisible to it, so a run could stand indefinitely.
+		 */
+		it('rejects records that are not oldest-first', () => {
+			seedAudit();
+			const oid = driftAndResolveOid();
+			writeLedger({
+				reviewedTrees: { 'src/audited': oid },
+				acknowledgements: [
+					{ date: daysAgo(0), note: 'Newest, written at the top.' },
+					{ date: daysAgo(30), note: 'Oldest, pushed down out of the caps reach.' }
+				]
+			});
+
+			const result = repo.run('check-audit-freshness.mjs');
+
+			expect(result.status).toBe(1);
+			expect(result.stderr).toContain('records go oldest first');
+		});
+
+		it('rejects an acknowledgement dated in the future', () => {
+			seedAudit();
+			const oid = driftAndResolveOid();
+			writeLedger({
+				reviewedTrees: { 'src/audited': oid },
+				acknowledgements: [{ date: daysAgo(-30), note: 'Reviewed next month, apparently.' }]
+			});
+
+			const result = repo.run('check-audit-freshness.mjs');
+
+			expect(result.status).toBe(1);
+			expect(result.stderr).toContain('is in the future');
+		});
 	});
 });

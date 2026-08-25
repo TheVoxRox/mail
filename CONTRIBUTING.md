@@ -155,6 +155,14 @@ coverage, add a per-file threshold rather than lowering a global floor.
   not content. The SHA-based version cost a follow-up commit per
   acknowledgement, six of them in two days.
 
+  Acknowledging is **capped**: records are dated, and a run of them ends at 8
+  records or 90 days from the oldest, whichever comes first. Past either, only
+  re-verification clears the gate. You get a warning two records or a
+  fortnight before the wall, so plan the re-verification then rather than
+  meeting the cap on an unrelated PR. See
+  [AUDIT_GUIDE.md §2](docs/AUDIT_GUIDE.md) for why the cap is on the union of
+  acknowledgements rather than on any one of them.
+
 - `npm run check:refs` (part of `check`) — every repo path and `npm run`
   script named in a doc or a source comment must exist. Historical documents
   (changelogs, `todo-archive.md`, snapshot docs) are skipped: their dead
