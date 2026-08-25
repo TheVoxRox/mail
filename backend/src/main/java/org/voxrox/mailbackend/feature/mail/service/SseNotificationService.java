@@ -57,7 +57,15 @@ public class SseNotificationService {
         emitters.removeAll(dead);
     }
 
-    @Scheduled(fixedRateString = "${mail.client.sync.sse-heartbeat-interval:PT30S}")
+    /*
+     * Reads the raw property rather than props.sync().sseHeartbeatInterval(),
+     * because @Scheduled is resolved before any bean is available to read from; the
+     * sseTimeout above is typed only because a constructor can do that. The
+     * placeholder carries no inline fallback for the reason spelled out on
+     * MailSyncScheduler.syncAccounts: the SyncProperties component already defaults
+     * this key, and a second default here is one nothing reconciles.
+     */
+    @Scheduled(fixedRateString = "${mail.client.sync.sse-heartbeat-interval}")
     public void sendHeartbeat() {
         if (emitters.isEmpty()) {
             return;
