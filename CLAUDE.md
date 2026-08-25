@@ -59,6 +59,11 @@ someone a rework at least once. For the human-facing versions see
     prints them ready to paste when it fails. Object ids because the repo
     squash-merges: a commit SHA written during a PR stops existing when the PR
     lands, which used to cost a follow-up commit per acknowledgement.
+    Acknowledgements are **dated records, and capped**: 8 of them, or 90 days
+    from the oldest, and then only re-verifying the audit clears the gate
+    (bump `Audited commit`, change-log entry, delete the ledger entry). Do not
+    raise the cap to get a change through — the cap is the point, and the
+    ledger grew seven run-together reviews in seventeen days without it.
   - `check:refs` — every repo path and `npm run` script named in prose or in a
     comment exists.
   - `check:nul` — no NUL byte in a file `.gitattributes` has not declared

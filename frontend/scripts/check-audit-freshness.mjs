@@ -26,6 +26,30 @@ import process from 'node:process';
  *
  * ---
  *
+ * Acknowledging was, until this was added, the cheaper of those two forever.
+ * It cost one paragraph appended to a free-text field, so the ledger grew a
+ * note per PR and nothing ever forced the audit itself to be read again: the
+ * IMAP/SMTP entry reached 12 791 characters and seven run-together reviews in
+ * the seventeen days after its last re-verification, and its numbering had
+ * already lost track of itself ("Sixth commit reviewed" followed later by
+ * "Third commit, the dead-code batch"). A gate that is green while the
+ * document it guards goes stale is worse than no gate, because it also
+ * supplies the confidence.
+ *
+ * So an acknowledgement is now a dated record and a run of them is capped.
+ * The caps are not about any single judgement being wrong — each one reads a
+ * real diff and is usually right. They are about the UNION: eight separate
+ * "this cannot move the verdict" calls, each made in isolation, compose into
+ * a delta nobody has ever judged as a whole, and it is the whole that decides
+ * whether a verdict still holds. Ninety days does the same job for an entry
+ * that grows slowly instead of quickly.
+ *
+ * Both caps are deliberately reachable rather than generous. Hitting one is
+ * not a failure of process — it is the process, arriving at the moment the
+ * audit is due a real read.
+ *
+ * ---
+ *
  * The comparison is by CONTENT, not by history: for each audited path we
  * record git's tree (or blob) object id and compare object ids, rather than
  * asking `git log` what happened between two commits.
@@ -54,6 +78,29 @@ import process from 'node:process';
 const repoRoot = path.join(process.cwd(), '..');
 const docsDir = path.join(repoRoot, 'docs');
 const ledgerPath = path.join(docsDir, 'audit-freshness.json');
+
+/** How many acknowledgements may stand before the audit must be re-verified. */
+const MAX_ACKNOWLEDGEMENTS = 8;
+/** How long the oldest standing acknowledgement may stand, in days. */
+const MAX_ACKNOWLEDGED_DAYS = 90;
+/*
+ * Where the warning starts. A cap that is only ever met as a red build on an
+ * unrelated PR gets bypassed on the spot; one that has been announcing itself
+ * for two acknowledgements or a fortnight gets planned for.
+ */
+const WARN_AT_ACKNOWLEDGEMENTS = MAX_ACKNOWLEDGEMENTS - 2;
+const WARN_AT_DAYS = MAX_ACKNOWLEDGED_DAYS - 15;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/*
+ * Both sides of the age comparison are UTC midnights, so the answer is a whole
+ * number of days that does not change with the machine's timezone or with the
+ * hour the gate happens to run.
+ */
+const todayUtc = Math.floor(Date.now() / DAY_MS) * DAY_MS;
+const daysSince = (isoDate) => Math.floor((todayUtc - Date.parse(isoDate)) / DAY_MS);
 
 /*
  * Only the drift report's commit list still shells out per call, and only on a
@@ -120,6 +167,82 @@ function headerValues(source, label) {
 	const row = new RegExp(`^\\|\\s*\\*\\*${label}\\*\\*\\s*\\|([^|]*)\\|`, 'm').exec(source);
 	if (!row) return null;
 	return [...row[1].matchAll(/`([^`]+)`/g)].map((m) => m[1]);
+}
+
+/** A note trimmed to one line, so a 13 kB record cannot own the terminal. */
+const summarize = (note) => {
+	const flat = note.replace(/\s+/g, ' ').trim();
+	return flat.length > 140 ? `${flat.slice(0, 137)}...` : flat;
+};
+
+/**
+ * The dated records justifying one ledger entry, oldest first. Returns `[]`
+ * for an audit with no entry, and also for a malformed one — having recorded
+ * the problem, so the remaining checks still run and report on the same pass.
+ *
+ * The shape is enforced rather than assumed because every cap below is
+ * measured off it: an undated record cannot age, and a run whose oldest
+ * record is not first would age from the wrong end.
+ */
+function readAcknowledgements(rel, entry, hasEntry) {
+	if (!hasEntry) return [];
+
+	// The pre-2026-08 format. Named explicitly rather than ignored: silently
+	// reading a string as "no acknowledgements" would drop the justification
+	// and the caps at once, and read as a pass.
+	if (typeof entry.note === 'string') {
+		problems.push(
+			`${rel}: audit-freshness.json still carries the single \`note\` string. Replace it with ` +
+				`"acknowledgements": [{ "date": "YYYY-MM-DD", "note": "..." }], oldest record first.`
+		);
+		return [];
+	}
+
+	const list = entry.acknowledgements;
+	if (!Array.isArray(list) || list.length === 0) {
+		problems.push(
+			`${rel}: audit-freshness.json records object ids but no "acknowledgements" — an id ` +
+				`without the review that produced it is the thing this ledger exists to prevent.`
+		);
+		return [];
+	}
+
+	let previousDate = '';
+	for (const [index, record] of list.entries()) {
+		const at = `${rel}: acknowledgements[${index}]`;
+		if (!record || typeof record !== 'object') {
+			problems.push(`${at} is not an object — expected { "date": "YYYY-MM-DD", "note": "..." }`);
+			return [];
+		}
+		if (typeof record.date !== 'string' || !ISO_DATE.test(record.date)) {
+			problems.push(
+				`${at} has no "date" in YYYY-MM-DD form (found ${JSON.stringify(record.date)})`
+			);
+			return [];
+		}
+		if (Number.isNaN(Date.parse(record.date))) {
+			problems.push(`${at} has "date": "${record.date}", which is not a real date`);
+			return [];
+		}
+		if (typeof record.note !== 'string' || record.note.trim() === '') {
+			problems.push(`${at} has no "note" — the note is the evidence that someone read the diff`);
+			return [];
+		}
+		// ISO dates sort as strings exactly as they sort as dates.
+		if (record.date < previousDate) {
+			problems.push(
+				`${at} is dated ${record.date}, before acknowledgements[${index - 1}] ` +
+					`(${previousDate}) — records go oldest first, because the caps age from the first one`
+			);
+			return [];
+		}
+		if (daysSince(record.date) < 0) {
+			problems.push(`${at} is dated ${record.date}, which is in the future`);
+			return [];
+		}
+		previousDate = record.date;
+	}
+	return list;
 }
 
 /*
@@ -206,8 +329,10 @@ const isCommit = (sha) => resolved.get(sha)?.type === 'commit';
 const objectIdAt = (rev, filePath) => resolved.get(`${rev}:${filePath}`)?.oid ?? null;
 
 for (const { rel, auditedCommit, codePaths } of audits) {
+	const hasEntry = Object.hasOwn(ledger, rel);
 	const entry = ledger[rel] ?? {};
 	const reviewed = entry.reviewedTrees ?? {};
+	const acknowledgements = readAcknowledgements(rel, entry, hasEntry);
 	const auditedCommitResolves = isCommit(auditedCommit);
 
 	// An acknowledgement that names a path the audit no longer claims is an
@@ -222,17 +347,55 @@ for (const { rel, auditedCommit, codePaths } of audits) {
 		}
 	}
 
+	/*
+	 * The caps end a run of acknowledgements, and the only way out of them is
+	 * route 1 — so reporting the drift underneath would name a second, weaker
+	 * action for the same entry. One instruction, and it is the stronger one.
+	 */
+	if (acknowledgements.length > 0) {
+		const oldest = acknowledgements[0];
+		const age = daysSince(oldest.date);
+		const exceeded = [];
+		if (acknowledgements.length > MAX_ACKNOWLEDGEMENTS) {
+			exceeded.push(
+				`${acknowledgements.length} acknowledgements stand (cap ${MAX_ACKNOWLEDGEMENTS})`
+			);
+		}
+		if (age > MAX_ACKNOWLEDGED_DAYS) {
+			exceeded.push(`the oldest is ${age} days old (cap ${MAX_ACKNOWLEDGED_DAYS})`);
+		}
+
+		if (exceeded.length > 0) {
+			problems.push(
+				`${rel}: acknowledged drift has outrun its cap — ${exceeded.join(', and ')}. ` +
+					`No further acknowledgement is available here: re-verify the audit against HEAD, ` +
+					`bump \`Audited commit\`, add the change-log entry, and delete this entry from ` +
+					`docs/audit-freshness.json. Standing since ${oldest.date}: ${summarize(oldest.note)}`
+			);
+			continue;
+		}
+
+		if (acknowledgements.length >= WARN_AT_ACKNOWLEDGEMENTS || age >= WARN_AT_DAYS) {
+			notices.push(
+				`${rel}: ${acknowledgements.length}/${MAX_ACKNOWLEDGEMENTS} acknowledgements, oldest ` +
+					`${age}/${MAX_ACKNOWLEDGED_DAYS} days — re-verification is due before the cap, and ` +
+					`planning it now is cheaper than meeting it on an unrelated PR.`
+			);
+		}
+	}
+
 	if (!auditedCommitResolves) {
 		// Typically a pre-squash branch SHA: the audit can never be re-verified
 		// against a code state nobody can check out. Not fatal when the ledger
 		// carries a reviewed object id for every path — those do not depend on
 		// history resolving at all.
 		const covered = codePaths.every((p) => reviewed[p]);
+		const newest = acknowledgements.at(-1);
 		if (entry.auditedCommitUnresolved === auditedCommit || covered) {
 			notices.push(
 				`${rel}: \`Audited commit\` ${auditedCommit} is not in this repository` +
 					(covered ? ' (drift is judged from the recorded object ids instead)' : '') +
-					(entry.note ? ` — ${entry.note}` : '')
+					(newest ? ` — ${summarize(newest.note)}` : '')
 			);
 		} else {
 			problems.push(
@@ -264,7 +427,7 @@ for (const { rel, auditedCommit, codePaths } of audits) {
 		? codePaths.filter((p) => objectIdAt(auditedCommit, p) !== objectIdAt('HEAD', p)).length
 		: codePaths.length;
 
-	rows.push({ rel, totalDrift, acknowledged: Object.keys(reviewed).length > 0 });
+	rows.push({ rel, totalDrift, acknowledgements: acknowledgements.length });
 
 	if (drifted.length > 0) {
 		// The object ids decide; the commit list is there so a reviewer knows
@@ -300,11 +463,22 @@ if (problems.length > 0) {
 	process.exitCode = 1;
 } else {
 	const behind = rows.filter((r) => r.totalDrift > 0);
+	/*
+	 * The acknowledgement count is printed on the GREEN run too. The failure
+	 * this gate now guards against grew invisibly for seventeen days precisely
+	 * because a passing run said nothing about how much was being carried.
+	 */
 	console.log(
 		`Audit freshness OK: ${auditFiles.length} audits, no unreviewed drift` +
 			(behind.length > 0
 				? ` (${behind.length} carry acknowledged drift: ` +
-					behind.map((r) => `${path.basename(r.rel)} ${r.totalDrift} path(s)`).join(', ') +
+					behind
+						.map(
+							(r) =>
+								`${path.basename(r.rel)} ${r.totalDrift} path(s), ` +
+								`${r.acknowledgements}/${MAX_ACKNOWLEDGEMENTS} acks`
+						)
+						.join('; ') +
 					')'
 				: '')
 	);

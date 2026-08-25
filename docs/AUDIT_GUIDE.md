@@ -45,6 +45,26 @@ or by reviewing the drift and recording why it cannot move a verdict in
 the audit's claim: too narrow and the check misses real drift, so it is worth
 arguing about in review — which an implicit scope never was.
 
+**Acknowledging is capped.** An acknowledgement is a dated record —
+`{ "date": "YYYY-MM-DD", "note": "..." }`, oldest first — and a run of them
+ends at **8 records or 90 days from the oldest**, whichever comes first. Past
+either, the only thing that clears the gate is re-verification: bump
+`Audited commit`, add the change-log entry, delete the ledger entry. The check
+warns two records or a fortnight ahead, so the cap can be planned for rather
+than met as a red build on an unrelated PR.
+
+The cap is not there because any single acknowledgement is suspect — each one
+reads a real diff and is usually right. It is there because their **union** is
+not reviewed by anyone: eight "this cannot move the verdict" judgements made
+in isolation compose into a delta no one has ever weighed as a whole, and the
+whole is what the verdict is about. Before the cap existed, acknowledging cost
+one appended paragraph and re-verifying cost a day, so the ledger grew a note
+per PR and the audits went unread — the IMAP/SMTP entry reached seven
+run-together reviews in the seventeen days after its last re-verification, and
+its own numbering had lost track of itself. A gate that stays green while the
+document it guards goes stale is worse than no gate, because it also supplies
+the confidence.
+
 The comparison is by **git object id** — the tree of a directory, the blob of
 a file — not by commit range, and an acknowledgement records those ids. The
 distinction matters because the repo squash-merges: a commit SHA written into
