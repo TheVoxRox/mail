@@ -4,9 +4,9 @@ The Tauri runtime that ships with VoxRox Mail compiles in the following Rust cra
 
 Dual-licensed crates (e.g. `MIT OR Apache-2.0`) are listed under their canonical license expression — pick either license when redistributing.
 
-Counts: 334 crates total. 158 MIT OR Apache-2.0, 70 MIT, 32 Apache-2.0 OR MIT, 18 Unicode-3.0, 14 MIT/Apache-2.0, 7 MPL-2.0, 4 Unlicense OR MIT, 3 BSD-3-Clause, 3 MIT OR Apache-2.0 OR Zlib, 2 Apache-2.0, 2 Apache-2.0 OR ISC OR MIT, 2 ISC, 2 Unlicense/MIT, 1 (Apache-2.0 OR MIT) AND BSD-3-Clause, 1 (MIT OR Apache-2.0) AND Unicode-3.0, 1 0BSD OR MIT OR Apache-2.0, 1 Apache-2.0 / MIT, 1 Apache-2.0 AND ISC, 1 Apache-2.0 AND MIT, 1 Apache-2.0 OR BSL-1.0, 1 Apache-2.0/MIT, 1 BSD-2-Clause OR Apache-2.0 OR MIT, 1 BSD-3-Clause AND MIT, 1 BSD-3-Clause/MIT, 1 CC0-1.0 OR MIT-0 OR Apache-2.0, 1 CDLA-Permissive-2.0, 1 MIT / Apache-2.0, 1 MIT OR Zlib OR Apache-2.0, 1 Zlib, 1 Zlib OR Apache-2.0 OR MIT.
+Counts: 338 crates total. 162 MIT OR Apache-2.0, 70 MIT, 32 Apache-2.0 OR MIT, 18 Unicode-3.0, 14 MIT/Apache-2.0, 7 MPL-2.0, 4 Unlicense OR MIT, 3 BSD-3-Clause, 3 MIT OR Apache-2.0 OR Zlib, 2 Apache-2.0, 2 Apache-2.0 OR ISC OR MIT, 2 ISC, 2 Unlicense/MIT, 1 (Apache-2.0 OR MIT) AND BSD-3-Clause, 1 (MIT OR Apache-2.0) AND Unicode-3.0, 1 0BSD OR MIT OR Apache-2.0, 1 Apache-2.0 / MIT, 1 Apache-2.0 AND ISC, 1 Apache-2.0 AND MIT, 1 Apache-2.0 OR BSL-1.0, 1 Apache-2.0/MIT, 1 BSD-2-Clause OR Apache-2.0 OR MIT, 1 BSD-3-Clause AND MIT, 1 BSD-3-Clause/MIT, 1 CC0-1.0 OR MIT-0 OR Apache-2.0, 1 CDLA-Permissive-2.0, 1 MIT / Apache-2.0, 1 MIT OR Zlib OR Apache-2.0, 1 Zlib, 1 Zlib OR Apache-2.0 OR MIT.
 
-## MIT OR Apache-2.0 (158)
+## MIT OR Apache-2.0 (162)
 
 - **anyhow** 1.0.102 — [https://github.com/dtolnay/anyhow](https://github.com/dtolnay/anyhow)
 - **base64** 0.22.1 — [https://github.com/marshallpierce/rust-base64](https://github.com/marshallpierce/rust-base64)
@@ -146,6 +146,7 @@ Counts: 334 crates total. 158 MIT OR Apache-2.0, 70 MIT, 32 Apache-2.0 OR MIT, 1
 - **windows** 0.61.3 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 - **windows_x86_64_msvc** 0.53.1 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 - **windows_x86_64_msvc** 0.52.6 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
+- **windows_x86_64_msvc** 0.42.2 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 - **windows-collections** 0.2.0 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 - **windows-core** 0.61.2 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 - **windows-future** 0.2.1 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
@@ -160,10 +161,13 @@ Counts: 334 crates total. 158 MIT OR Apache-2.0, 70 MIT, 32 Apache-2.0 OR MIT, 1
 - **windows-strings** 0.4.2 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 - **windows-strings** 0.5.1 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 - **windows-sys** 0.60.2 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
-- **windows-sys** 0.61.2 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 - **windows-sys** 0.59.0 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
+- **windows-sys** 0.61.2 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
+- **windows-sys** 0.45.0 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
+- **windows-sys** 0.52.0 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 - **windows-targets** 0.53.5 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 - **windows-targets** 0.52.6 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
+- **windows-targets** 0.42.2 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 - **windows-threading** 0.1.0 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 - **windows-version** 0.1.7 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
@@ -182,7 +186,7 @@ Counts: 334 crates total. 158 MIT OR Apache-2.0, 70 MIT, 32 Apache-2.0 OR MIT, 1
 - **dom_query** 0.27.0 — [https://github.com/niklak/dom_query](https://github.com/niklak/dom_query)
 - **fern** 0.7.1 — [https://github.com/daboross/fern](https://github.com/daboross/fern)
 - **generic-array** 0.14.7 — [https://github.com/fizyk20/generic-array.git](https://github.com/fizyk20/generic-array.git)
-- **h2** 0.4.13 — [https://github.com/hyperium/h2](https://github.com/hyperium/h2)
+- **h2** 0.4.16 — [https://github.com/hyperium/h2](https://github.com/hyperium/h2)
 - **http-body** 1.0.1 — [https://github.com/hyperium/http-body](https://github.com/hyperium/http-body)
 - **http-body-util** 0.1.3 — [https://github.com/hyperium/http-body](https://github.com/hyperium/http-body)
 - **hyper** 1.9.0 — [https://github.com/hyperium/hyper](https://github.com/hyperium/hyper)
