@@ -2,10 +2,10 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.6                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| **Version**        | 1.7                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | **Date**           | 2026-08-26                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| **Audited commit** | `cad05cb` (re-verified 2026-08-08, recorded pre-squash as `5799e8b`; 1.0–1.3 baseline: `d55b753` / `fc71cb4`)                                                                                                                                                                                                                                                                                                                                                                           |
+| **Audited commit** | `d558098` (re-verified 2026-08-26; 1.4-1.6 anchor `cad05cb`, recorded pre-squash as `5799e8b`; 1.0–1.3 baseline: `d55b753` / `fc71cb4`)                                                                                                                                                                                                                                                                                                                                                 |
 | **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/util/HtmlSanitizer.java`, `backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailContentService.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/RemoteImageAllowlistService.java`, `frontend/src/lib/mail/content-sanitizer.ts`, `frontend/src/lib/mail/mailFrame.ts`, `frontend/src/lib/components/message-detail` |
 | **Subsystem**      | Untrusted email HTML rendering — Boundary 4 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                                                                                                  |
 | **Verdict**        | **Security: PASS** (no exploitable finding). F1 (dead links), F2 (embedded images + remote-image opt-in), F3 (plain-text fidelity), F4 (URLs in plain-text bodies were not links) and F5 (a link into the message opened the app's own URL) all **fixed**.                                                                                                                                                                                                                              |
@@ -66,9 +66,11 @@ IMAP raw body
 - [x] **No dangerous DOM sinks** — `.innerHTML =`, `insertAdjacentHTML`,
       `outerHTML =`, `document.write` = 0 occurrences in production code under
       `frontend/src`. The only path from content to live DOM is the sandboxed
-      iframe `srcdoc`. (One occurrence exists in `stores/palette.test.ts`, a
-      vitest teardown assigning the constant `''` to `document.body.innerHTML`;
-      it takes no input and ships in no bundle.)
+      iframe `srcdoc`. (Two occurrences exist, both under vitest and neither in
+      a shipped bundle: `stores/palette.test.ts` assigns the constant `''` to
+      `document.body.innerHTML` in a teardown, and — since #300 —
+      `components/grid/rowActivation.test.ts` builds a row from a literal markup
+      fixture. Both take a first-party constant, never message content.)
 - [x] **Sanitizer has no unprotected consumer** — `sanitizeMailHtml` is
       imported only by `buildMailFrameSrcdoc` (+ tests), so its output always
       lands inside the CSP frame.
@@ -334,6 +336,27 @@ bridge restores working links without changing the sandbox.
 
 ## 7. Change log
 
+- **1.7** (2026-08-26) — re-verified against `d558098`, closing the two
+  acknowledgements the ledger had accumulated (the 2026-08-08 pre-structure
+  record and the 2026-08-26 F5 record) rather than adding a third. Route 1 of
+  `docs/audit-freshness.json`, so the entry for this audit is deleted: the
+  `Audited commit` now carries the anchor again. The §2 checklist was re-run
+  against the tree, not reasoned from the diff: `{@html}` still 0 across
+  `frontend/src`; `sanitizeMailHtml` still imported only by `mailFrame.ts`
+  (plus its own test); the frame still `sandbox="allow-scripts"` with no
+  `allow-same-origin` and `default-src 'none'; img-src data:`; the backend
+  safelist still `Safelist.relaxed()` minus `style` with `img src` stripped of
+  `http`/`https` and links forced to `target="_blank"` +
+  `rel="nofollow noopener noreferrer"`; `MimePartExtractor` still caps depth at
+  20 and bytes at 2 MiB/image, 8 MiB/message, 8 MiB/body; the compose path
+  still flattens through `mailHtmlToPlainText` / `Safelist.none()`; and
+  `isOpenableMailLink` still refuses the app's own origin (the F5 fix). One
+  enumeration was trued rather than left technically false: §2 said a single
+  `innerHTML` occurrence exists in `stores/palette.test.ts`, but #300 added a
+  second in `components/grid/rowActivation.test.ts`. The security half of that
+  row is unchanged — both are vitest files taking a first-party constant, so
+  production code is still at 0 — but the count in the parenthetical had rotted.
+  Verdict unchanged (**PASS**).
 - **1.6** (2026-08-26) — new finding **F5** (a body link written `href="#"` or
   `href="/x"` reached the parent already resolved against the app's own base
   URL, passed the protocol allow-list and was opened in the OS browser) and its
