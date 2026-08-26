@@ -192,6 +192,7 @@ Smoke flow:
 - [ ] Datum verze na <https://voxrox.org/privacy/> (CS i EN) odpovídá `PRIVACY.md` / `PRIVACY.en.md` v repu.
 - [ ] Stránka <https://voxrox.org/support/> odpovídá `SECURITY.md` (podporované verze, lhůty, rozsah zranitelností).
 - [ ] `frontend/END_USER_README.md` odpovídá vydávané verzi (funkce, stav OAuth providerů, název instalátoru).
+- [ ] Inventáře třetích stran a bundled `NOTICE.txt` odpovídají skutečnému stromu závislostí: z `frontend/` spustit `npm run regen:licenses:all` a prohlédnout `git diff`. **Přípustný je nanejvýš jediný změněný řádek — `Generated:` v `NOTICE.txt`.** Ten nese datum běhu, takže se objeví jen tehdy, když minulý regen padl na jiný den; dva regeny v týž den nechají strom úplně čistý, což je taky v pořádku. Ten řádek zahoď. Cokoli dalšího (komponenta, verze, počet) znamená, že se soubory od minulého regenu rozešly se stromem — a `NOTICE.txt` se přibaluje do instalátoru, takže by uživateli šel seznam, který neodpovídá tomu, co v balíku je. Průběžně to nehlídá nic: dependabot regen nedělá a v CI na to brána není, tenhle bod je první místo, kde se to pozná.
 - [ ] Status badge na <https://voxrox.org> („Ve vývoji (Beta)" apod.) odpovídá realitě vydání.
 - [ ] GitHub repo metadata: description + Website (`https://voxrox.org`) vyplněné; stránka Releases obsahuje publikovaný release (ne jen draft).
 
