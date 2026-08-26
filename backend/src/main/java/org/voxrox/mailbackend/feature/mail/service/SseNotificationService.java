@@ -83,11 +83,9 @@ public class SseNotificationService {
         emitters.removeAll(dead);
     }
 
-    /**
-     * @callerless Package-private test seam: the emitter list is private and its
-     *             size is the only way to assert that a completed or failed emitter
-     *             was actually dropped.
-     */
+    // @callerless Package-private test seam: the emitter list is private and
+    // its size is the only way to assert that a completed or failed emitter
+    // was actually dropped.
     int getActiveEmitterCount() {
         return emitters.size();
     }

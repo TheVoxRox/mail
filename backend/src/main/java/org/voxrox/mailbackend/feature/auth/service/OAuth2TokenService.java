@@ -213,10 +213,9 @@ public abstract class OAuth2TokenService {
      * rejection, behaviour {@code docs/OAUTH_AUDIT.md} reasons about. Deciding
      * between wiring this back up and collapsing the nullable parameter is its own
      * change, not a cleanup.
-     *
-     * @callerless Deleting it would make the accountId != null guard in doRefresh
-     *             unreachable, and that guard is audited behaviour.
      */
+    // @callerless Deleting it would make the accountId != null guard in
+    // doRefresh unreachable, and that guard is audited behaviour.
     public final String exchangeRefreshToken(String refreshToken, String email) {
         return doRefresh(null, refreshToken, email).accessToken();
     }

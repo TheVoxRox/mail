@@ -241,9 +241,9 @@ describe('check-java-callers', () => {
 		expect(result.output).toContain('setDead');
 	});
 
-	it('accepts a @callerless tag with a reason', () => {
+	it('accepts a @callerless line comment with a reason', () => {
 		service(
-			'    /**\n     * @callerless Named from logback-spring.xml, never from Java.\n     */\n' +
+			'    // @callerless Named from logback-spring.xml, never from Java.\n' +
 				'    public void countGrouped() {\n    }'
 		);
 		repo.commit('waived');
@@ -254,8 +254,29 @@ describe('check-java-callers', () => {
 		expect(result.output).toContain('waived by @callerless');
 	});
 
+	/*
+	 * The line comment is the documented form, because javadoc costs an Error
+	 * Prone InvalidBlockTag on every build. The gate itself reads the raw lines
+	 * above the declaration and is indifferent to which comment carries the
+	 * tag; pinned here so that indifference is a decision on record, and so
+	 * that moving the five real waivers out of javadoc is demonstrably a
+	 * change of style and not of what waives.
+	 */
+	it('reads the tag out of javadoc as well', () => {
+		service(
+			'    /**\n     * @callerless Named from logback-spring.xml, never from Java.\n     */\n' +
+				'    public void countGrouped() {\n    }'
+		);
+		repo.commit('waived in javadoc');
+
+		const result = run();
+
+		expect(result.status).toBe(0);
+		expect(result.output).toContain('waived by @callerless');
+	});
+
 	it('ignores a bare @callerless with no reason', () => {
-		service('    /**\n     * @callerless\n     */\n    public void countGrouped() {\n    }');
+		service('    // @callerless\n    public void countGrouped() {\n    }');
 		repo.commit('bare tag');
 
 		const result = run();

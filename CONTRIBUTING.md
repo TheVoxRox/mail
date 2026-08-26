@@ -224,7 +224,8 @@ decide whether everything else is allowed to land.
 - `npm run check:java-callers` — part of `npm run check`. A declaration in
   `backend/src/main` needs a caller; the report separates dead code from code
   only tests reach and from a method that is merely too visible. A deliberate
-  exception carries `@callerless <reason>` on the declaration.
+  exception carries `@callerless <reason>` on the declaration, in a `//`
+  comment — javadoc would trip Error Prone's `InvalidBlockTag`.
 - `npm run check:test-claims` — part of `npm run check`. Fails on two tests
   in one file with identical bodies, and on a test switched off without a
   reason (`@Disabled("…")`, or a `test-skip: …` comment above the call).
