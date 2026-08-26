@@ -185,6 +185,7 @@
 		"iframeTitle": "Message content",
 		"bodyHeading": "Message text",
 		"linkOpenError": "Could not open the link in your browser.",
+		"linkNotOpenable": "The link has no target that can be opened.",
 		"pageTitle": "Mail – Message",
 		"pageTitleWithSubject": "Mail – {subject}",
 		"folderPageTitle": "Mail – {folder}",

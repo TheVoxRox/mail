@@ -63,8 +63,15 @@
 	/** Non-null only once the answer for the sender currently on screen is in. */
 	const resolved = $derived(seed && lookup?.email === seed.email ? lookup : null);
 
-	/** Back to this message once the contact form is done with. */
-	const returnTo = $derived($page.url.pathname);
+	/**
+	 * Back to this message once the contact form is done with.
+	 *
+	 * Path *and* query: this card also renders inside the search results, where
+	 * the open message, the query and the page all live in the query string
+	 * (`/search/[accountId]/+page.ts`), so a pathname on its own would return
+	 * the reader to an empty search instead of to what they were reading.
+	 */
+	const returnTo = $derived(`${$page.url.pathname}${$page.url.search}`);
 
 	/*
 	 * `+layout.svelte` passes the heading level and back-button visibility

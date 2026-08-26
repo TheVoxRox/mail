@@ -176,9 +176,15 @@
 		 * be indistinguishable from a working one for a screen-reader user (the
 		 * failure was a console warning nobody sees in a packaged build), which is
 		 * how the F1 regression stayed invisible for as long as it did.
+		 *
+		 * Two outcomes, two tones. A link with nothing to open — an in-message
+		 * anchor, a relative href, a scheme the allow-list refuses — is the mail
+		 * being what it is, so it is stated politely. Only a link that should have
+		 * opened and did not is an error, and an error interrupts: pushToast sends
+		 * that tone to the assertive live region.
 		 */
 		if (!isOpenableMailLink(href)) {
-			pushToast($_('detail.linkOpenError'), { tone: 'error' });
+			pushToast($_('detail.linkNotOpenable'), { tone: 'info' });
 			return;
 		}
 		try {

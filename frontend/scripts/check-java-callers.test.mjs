@@ -201,6 +201,69 @@ describe('check-java-callers', () => {
 		expect(result.output).not.toContain('substr');
 	});
 
+	/*
+	 * A type argument list contains a space, and the declaration matcher used to
+	 * read the type out of a character class that could not hold one: `public
+	 * Map<String, Long> counts()` split as type `Map<String,` plus name `Long>`,
+	 * matched nothing, and left the whole declaration outside the gate. Real
+	 * signatures shaped like this exist in main (AccountLastErrorJson.read), so
+	 * the miss was not theoretical — the method could lose its last caller and
+	 * still pass. The array case was never broken; it is here because the type
+	 * matcher was rewritten around it and nothing else pins that half.
+	 */
+	it.each([
+		['a parameterised return type', 'Map<String, Long>'],
+		['a nested parameterised return type', 'List<Map<String, Object>>'],
+		['an array return type', 'String[]']
+	])('sees a declaration returning %s', (_label, returnType) => {
+		service(`    public ${returnType} countsByLabel() {\n        return null;\n    }`);
+		repo.commit('spaced generics');
+
+		const result = run();
+
+		expect(result.status).toBe(1);
+		expect(result.output).toContain('countsByLabel');
+	});
+
+	/*
+	 * A constructor spells its type's name a second time without using it, and
+	 * the own-file token count read that as "the type uses itself" — which
+	 * routed it into the `internal` bucket, where types are dropped because a
+	 * class cannot be narrowed to private. The net effect was that a class was
+	 * reportable only while it declared no constructor.
+	 */
+	it('reports a dead class that declares a constructor', () => {
+		service(
+			'    private final String value;\n\n' +
+				'    public ContactService(String value) {\n        this.value = value;\n    }',
+			'ContactService',
+			''
+		);
+		repo.commit('dead class with constructor');
+
+		const result = run();
+
+		expect(result.status).toBe(1);
+		expect(result.output).toContain('ContactService');
+	});
+
+	it('still counts a real self-reference as keeping the class alive', () => {
+		// The constructor no longer counts, but naming the type as a field type
+		// and instantiating it do — a nested helper a file uses is not dead, and
+		// subtracting constructors must not turn it into a finding.
+		service(
+			'    private static final ContactService INSTANCE = new ContactService();\n\n' +
+				'    public ContactService() {\n    }',
+			'ContactService',
+			''
+		);
+		repo.commit('self-referencing class');
+
+		const result = run();
+
+		expect(result.status).toBe(0);
+	});
+
 	it('reports overloads once, at the first declaration', () => {
 		service(
 			'    public void countGrouped() {\n        countGrouped(1);\n    }\n\n' +

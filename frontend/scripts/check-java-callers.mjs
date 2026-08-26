@@ -140,6 +140,23 @@ const CONTROL_KEYWORDS = new Set([
 ]);
 
 const TYPE_DECLARATION = /\b(?:class|interface|enum|record)\s+([A-Za-z_$][\w$]*)/;
+
+const MODIFIERS =
+	'(?:(?:public|protected|private|static|final|abstract|default|synchronized|native)\\s+)*';
+/*
+ * A type name, optionally with generic arguments and array brackets.
+ *
+ * The generic part is its own alternation rather than another character in the
+ * class, because a type argument list contains spaces — `Map<String, Long>` —
+ * and a character class cannot hold one without letting the type run into the
+ * name after it. Written the flat way, `public Map<String, Long> counts()`
+ * split as type `Map<String,` plus name `Long>` and matched nothing at all, so
+ * the declaration was invisible to this gate: `AccountLastErrorJson.read` and
+ * every other signature returning a parameterised type could lose its last
+ * caller and still pass. One level of nesting is enough for `List<Map<K, V>>`;
+ * deeper than that the gate goes quiet the way it does everywhere else.
+ */
+const TYPE_NAME = '[A-Za-z_$][\\w$.]*(?:\\s*<[^<>]*(?:<[^<>]*>[^<>]*)*>)?(?:\\s*\\[\\])*';
 /*
  * A return type, then a name, then arguments — with the type captured too,
  * because that capture is what separates a declaration from a call. `return
@@ -147,8 +164,22 @@ const TYPE_DECLARATION = /\b(?:class|interface|enum|record)\s+([A-Za-z_$][\w$]*)
  * stand where a type belongs, which cost this gate 40-odd phantom findings on
  * its first run over the real tree.
  */
-const METHOD_DECLARATION =
-	/^[\s}]*(?:(?:public|protected|private|static|final|abstract|default|synchronized|native)\s+)*(?:<[^>]+>\s+)?([A-Za-z_$][\w$.<>[\],?]*(?:\s*\[\])?)\s+([A-Za-z_$][\w$]*)\s*\(/;
+const METHOD_DECLARATION = new RegExp(
+	`^[\\s}]*${MODIFIERS}(?:<[^>]+>\\s+)?(${TYPE_NAME})\\s+([A-Za-z_$][\\w$]*)\\s*\\(`
+);
+/*
+ * A constructor: modifiers, then the enclosing type's own name, then arguments
+ * — no return type, which is exactly why METHOD_DECLARATION cannot see one.
+ *
+ * It is matched only to be SUBTRACTED. A constructor is part of declaring the
+ * type, not a use of it, but it does put the type's name in the file a second
+ * time, and `internalUses` is a token count: `public class Foo` plus
+ * `public Foo(...)` read as "Foo uses itself once", which routed every such
+ * type into the `internal` bucket and then dropped it there, because a type
+ * cannot be narrowed to private. The effect was that a class was reportable as
+ * dead only while it declared no constructor — which is to say, almost never.
+ */
+const CONSTRUCTOR_DECLARATION = new RegExp(`^[\\s}]*${MODIFIERS}([A-Za-z_$][\\w$]*)\\s*[({]`);
 
 function git(args) {
 	return execFileSync('git', args, {
@@ -200,6 +231,8 @@ function preamble(lines, index) {
 const declarations = [];
 /** Files declaring a mapped type — see the @Entity note in the buckets below. */
 const entityFiles = new Set();
+/** `<file> <type>` → how many constructors that file declares for that type. */
+const constructorsPerFile = new Map();
 
 for (const file of files) {
 	if (!file.startsWith(MAIN)) continue;
@@ -218,6 +251,21 @@ for (const file of files) {
 		const line = withoutAnnotations(codeLines[index]);
 		const type = TYPE_DECLARATION.exec(line);
 		const method = TYPE_DECLARATION.test(line) ? null : METHOD_DECLARATION.exec(line);
+
+		/*
+		 * Counted before any of the bailouts below, because a constructor reaches
+		 * none of them: it carries no return type, so METHOD_DECLARATION never
+		 * matches it and the line leaves this loop at `if (!name)`. The count is
+		 * subtracted from the type's own-file token total further down.
+		 */
+		if (!type) {
+			const constructor = CONSTRUCTOR_DECLARATION.exec(line);
+			if (constructor && enclosingTypes.has(constructor[1])) {
+				const key = `${file} ${constructor[1]}`;
+				constructorsPerFile.set(key, (constructorsPerFile.get(key) ?? 0) + 1);
+			}
+		}
+
 		if (method && CONTROL_KEYWORDS.has(method[1].trim())) continue;
 		const name = type?.[1] ?? method?.[2];
 		if (!name) continue;
@@ -275,7 +323,12 @@ for (const declaration of declarations) {
 	if (seenPairs.has(pair)) continue;
 	seenPairs.add(pair);
 	const own = tokenCounts.get(file).get(name) ?? 0;
-	const declaredHere = declarationsPerFile.get(`${file} ${name}`) ?? 1;
+	/*
+	 * Everything in this file that spells the name without using it: the
+	 * declarations themselves, plus — for a type — its constructors, which name
+	 * it because they declare it, not because anything called it.
+	 */
+	const declaredHere = (declarationsPerFile.get(pair) ?? 1) + (constructorsPerFile.get(pair) ?? 0);
 	const internalUses = own - declaredHere;
 
 	let mainUses = 0;

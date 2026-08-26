@@ -47,9 +47,23 @@ describe('readReturnTo', () => {
 		expect(readReturnTo(params('returnTo=/mail/1/INBOX/msg-01'))).toBe('/mail/1/INBOX/msg-01');
 	});
 
+	/*
+	 * The same MessageDetail renders on the search route, so the sender line
+	 * offers the same affordance there. Accepting only `/mail/` dropped the
+	 * parameter without a word, and the form opened with no way back.
+	 */
+	it('accepts the search route, query and all', () => {
+		const target = '/search/1?q=faktura&page=2&message=msg-01';
+		expect(readReturnTo(params(`returnTo=${encodeURIComponent(target)}`))).toBe(target);
+	});
+
 	it('refuses anything else, including an off-site target', () => {
 		expect(readReturnTo(params('returnTo=/settings'))).toBeNull();
 		expect(readReturnTo(params('returnTo=//example.com'))).toBeNull();
+		// A protocol-relative target dressed up as one of the allowed routes: the
+		// second slash is what the prefixes refuse.
+		expect(readReturnTo(params('returnTo=//mail/evil'))).toBeNull();
+		expect(readReturnTo(params('returnTo=//search/evil'))).toBeNull();
 		expect(readReturnTo(params('returnTo=https://example.com'))).toBeNull();
 		expect(readReturnTo(params(''))).toBeNull();
 	});

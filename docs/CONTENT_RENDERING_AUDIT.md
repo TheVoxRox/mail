@@ -2,13 +2,13 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.5                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| **Date**           | 2026-08-20                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **Version**        | 1.6                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| **Date**           | 2026-08-26                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | **Audited commit** | `cad05cb` (re-verified 2026-08-08, recorded pre-squash as `5799e8b`; 1.0–1.3 baseline: `d55b753` / `fc71cb4`)                                                                                                                                                                                                                                                                                                                                                                           |
 | **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/util/HtmlSanitizer.java`, `backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailContentService.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/RemoteImageAllowlistService.java`, `frontend/src/lib/mail/content-sanitizer.ts`, `frontend/src/lib/mail/mailFrame.ts`, `frontend/src/lib/components/message-detail` |
 | **Subsystem**      | Untrusted email HTML rendering — Boundary 4 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                                                                                                  |
-| **Verdict**        | **Security: PASS** (no exploitable finding). F1 (dead links), F2 (embedded images + remote-image opt-in), F3 (plain-text fidelity) and F4 (URLs in plain-text bodies were not links) all **fixed**.                                                                                                                                                                                                                                                                                     |
+| **Verdict**        | **Security: PASS** (no exploitable finding). F1 (dead links), F2 (embedded images + remote-image opt-in), F3 (plain-text fidelity), F4 (URLs in plain-text bodies were not links) and F5 (a link into the message opened the app's own URL) all **fixed**.                                                                                                                                                                                                                              |
 
 Per-subsystem release audit of the path **"raw IMAP body → rendered to the
 user"**. Every email is 100% attacker-controlled input, so this is the
@@ -218,7 +218,53 @@ for it to relay.
 - **Diagnostics gap closed with it:** a body-link click that did not end in an
   open was reported only to `console.warn` — invisible in a packaged build and
   indistinguishable from success for a screen-reader user. Both failure paths
-  (refused protocol, failed open) now raise an error toast.
+  (refused protocol, failed open) now report to the user. They no longer report
+  the same way: **F5** split the tones once it became clear how ordinary the
+  refused-protocol path is.
+
+### F5 — Medium (functional): a link into the message opened the app's own URL — **FIXED 2026-08-26**
+
+`isOpenableMailLink` re-validated the forwarded href against the protocol
+allow-list, which reads as the mirror of the sanitizer's `allowedUriProtocols`
+but is not, because the href arrives **already resolved**. A `srcdoc` document
+does not resolve a relative href against `about:srcdoc`: it inherits the base
+URL of the container document (HTML, _fallback base URL_). So a body link
+written `href="#"` or `href="/x"` — the first is what the decorative half of
+marketing mail is built from — reached the parent as
+`http://<app-origin>/mail/1/INBOX/msg-01#` and `http://<app-origin>/x`, both
+carrying an allowed protocol, and was handed to `shell:allow-open`. Clicking a
+placeholder anchor in a newsletter opened the user's default browser at the
+app's own URL; for a screen-reader user the app simply lost focus to a window
+nothing explained.
+
+- **Verified, not reasoned:** driven in Chromium against a
+  `sandbox="allow-scripts"` srcdoc frame whose parent sat on a real https path.
+  `document.URL` inside the frame is `about:srcdoc`, but `document.baseURI` —
+  and therefore every `a.href` — is the parent's URL. The sandbox does not
+  change this; an opaque origin still inherits the container's base URL.
+- **Why the sanitizer does not stop it:** `isSafeLink(value, origin)` resolves
+  the attribute against the app origin before testing the protocol, so a
+  relative or fragment href is "safe" by construction and is kept.
+- **Fix (shipped):** `isOpenableMailLink`
+  ([mailFrame.ts](../frontend/src/lib/mail/mailFrame.ts)) additionally refuses
+  a URL whose origin is the app's own. That is also the honest verdict rather
+  than a workaround: an in-message anchor has no target either, because the
+  sanitizer keeps no `id` on any element. `mailto:` and `tel:` are unaffected —
+  their origin is the opaque `"null"`, which never equals the app's.
+- **Verdict impact:** none, and the direction is inward: strictly fewer URLs
+  reach `shell:allow-open` than before. Nothing was exploitable — the opened
+  URL was always on the app's own origin with a path the message chose, so no
+  third-party egress and no credential exposure — which is why this is filed
+  functional rather than as a security finding.
+- **Tone corrected with it:** the refused-protocol path raised the same _error_
+  toast as a genuinely failed open, and `pushToast` routes an error tone to the
+  **assertive** live region. A placeholder anchor is not an error, so it now
+  reports politely (`detail.linkNotOpenable`, info tone) and only a link that
+  should have opened and did not still interrupts.
+- **Regression cover:** `mailFrame.test.ts` — the four resolved-onto-app-origin
+  shapes the frame actually posts, a same-scheme link to another host that must
+  still open, and the window-origin fallback. Watched to fail against the
+  pre-fix function before being kept.
 
 ### Note — backend `cid:` allowance — **RESOLVED by the F2 fix**
 
@@ -288,6 +334,20 @@ bridge restores working links without changing the sandbox.
 
 ## 7. Change log
 
+- **1.6** (2026-08-26) — new finding **F5** (a body link written `href="#"` or
+  `href="/x"` reached the parent already resolved against the app's own base
+  URL, passed the protocol allow-list and was opened in the OS browser) and its
+  fix: `isOpenableMailLink` also refuses the app's own origin. Verdict
+  unchanged (**PASS**) — nothing was exploitable, the opened URL was always on
+  our origin with a path the message chose, and the fix lets strictly fewer
+  URLs reach `shell:allow-open`. The base-URL behaviour was established in
+  Chromium rather than from the spec, and it is the reason the check could not
+  stay protocol-only: a `srcdoc` document inherits the container's base URL,
+  sandbox or not. Also corrected under F5: the refused-protocol path shared the
+  error toast F4 gave the failed-open path, and an error tone is announced
+  assertively — a placeholder anchor now reports politely instead of
+  interrupting. Drift under `Code paths` acknowledged by object id in
+  `docs/audit-freshness.json`.
 - **1.5** (2026-08-20) — new finding **F4** (a bare URL in a `text/plain` body
   was inert text, so it was neither clickable nor announced as a link) and its
   fix: `escapePlainText` linkifies `http(s)` URLs. Verdict unchanged (**PASS**)

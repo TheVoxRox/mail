@@ -22,9 +22,10 @@
  * `sandbox="allow-scripts"` frame has no `allow-popups`, so a `target="_blank"`
  * link is blocked by the engine and clicking it does nothing. The forwarder
  * `preventDefault`s a genuine anchor click and posts the resolved `href` to the
- * parent, which validates the protocol and opens it in the OS browser via
- * `shell:allow-open` — restoring working links without granting the frame any
- * navigation or popup capability.
+ * parent, which validates it — the protocol, and that it leads out of the app
+ * rather than back into it (see `isOpenableMailLink`) — and opens it in the OS
+ * browser via `shell:allow-open`, restoring working links without granting the
+ * frame any navigation or popup capability.
  *
  * The CSP hash is over the exact bytes of MAIL_FRAME_SCRIPT; mailFrame.test.ts
  * recomputes it so any edit to the script that forgets to update the hash (which
@@ -183,10 +184,36 @@ export function isMailFrameLinkMessage(data: unknown): data is MailFrameLinkMess
  */
 const OPENABLE_LINK_PROTOCOLS = new Set(['http:', 'https:', 'mailto:', 'tel:']);
 
-/** True when a forwarded body-link href is safe to open in the OS browser. */
-export function isOpenableMailLink(href: string): boolean {
+/**
+ * True when a forwarded body-link href is safe to open in the OS browser.
+ *
+ * The protocol allow-list is not enough on its own, because the href arrives
+ * already resolved: the forwarder posts `a.href`, and a `srcdoc` document does
+ * NOT resolve a relative href against `about:srcdoc` — it inherits the base URL
+ * of the container document (HTML: fallback base URL). Verified in Chromium:
+ * inside a `sandbox="allow-scripts"` srcdoc frame whose parent is
+ * `https://host/mail/1/INBOX/msg-01`, `href="#"` arrives as
+ * `https://host/mail/1/INBOX/msg-01#` and `href="/foo"` as `https://host/foo`.
+ * Both carry an allowed protocol, so without the origin test below a bare
+ * `href="#"` — what the decorative half of marketing mail is built from — would
+ * hand the app's own URL to the OS browser, and a relative href would let a
+ * message pick any path on the app origin to open there.
+ *
+ * Refusing the app's own origin is the whole fix, and it is also the honest
+ * verdict: an in-message anchor has no target either, since the sanitizer keeps
+ * no `id` on any element. `origin` is the opaque `"null"` for `mailto:` and
+ * `tel:`, which therefore never collide with the app's.
+ *
+ * `appOrigin` is a parameter for the same reason `sanitizeMailHtml` takes one —
+ * the check has to be testable without a window, and the two must agree on
+ * which origin is "ours".
+ */
+export function isOpenableMailLink(href: string, appOrigin?: string): boolean {
+	const ownOrigin =
+		appOrigin ?? (typeof window === 'undefined' ? 'http://localhost' : window.location.origin);
 	try {
-		return OPENABLE_LINK_PROTOCOLS.has(new URL(href).protocol);
+		const url = new URL(href);
+		return OPENABLE_LINK_PROTOCOLS.has(url.protocol) && url.origin !== ownOrigin;
 	} catch {
 		return false;
 	}
