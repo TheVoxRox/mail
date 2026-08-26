@@ -204,7 +204,7 @@ Smoke flow:
   - Když se to přesto stane, startup selže s auditem `db_migration_altered_after_apply` a hláškou, která výslovně říká, že obnova ze zálohy nepomůže; postup je roll-forward, viz OPERATIONS.md „Update troubleshooting".
 - [ ] **Každý publikovaný release = plný podepsaný build.** Stabilní kanál čte `releases/latest/download/latest.json` (`frontend/src-tauri/tauri.conf.json`) a signed workflow zapíná `VITE_ENABLE_AUTO_UPDATE_CHECK=1`, takže **cokoli** publikovaného v repu se stává „latest" a všechny instalace to kontrolují při každém startu. Release publikovaný bez `latest.json` + `.sig` (třeba jen tag s poznámkami) = chyba update checku při každém startu všech instalací. Poznámky, částečné buildy apod. držet jako **draft** nebo **prerelease** (prereleasy `releases/latest` redirect přeskakuje — viz OPERATIONS.md „Release channels").
 - [ ] **Revize dočasných pinů a výjimek** (při každém release + při každém bumpu dotčené závislosti zkontrolovat removal conditions):
-  - jackson override `<jackson-2-bom.version>2.21.5</jackson-2-bom.version>` v `backend/pom.xml` — odstranit, až Spring Boot managed `jackson-2-bom.version` >= 2.21.5 (SB 4.1.0 = 2.21.4).
+  - tomcat override `<tomcat.version>11.0.25</tomcat.version>` v `backend/pom.xml` — odstranit, až Spring Boot managed `tomcat.version` >= 11.0.25 (SB 4.1.1 = 11.0.24). Jediný zbylý backendový pin: obě jackson boms i log4j2 odpadly 2026-08-26 s Bootem 4.1.1.
   - quick-xml výjimka ve vuln-scanu — removal conditions u výjimky.
   - dependabot ignore TypeScript 7.x (typescript-eslint cap < 6.1.0, viz #147).
 
