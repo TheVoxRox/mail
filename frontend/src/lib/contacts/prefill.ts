@@ -23,15 +23,30 @@ export interface ContactPrefill {
 const MAX_NAME_LENGTH = 255;
 
 /**
- * Where the form returns to. Only a message route qualifies: the parameter
- * decides a navigation, so accepting an arbitrary string would let a crafted
- * link send the user anywhere — and "anywhere" in this shell includes the
- * routes that talk to the mailbox. The `/mail/` prefix also rules out a
- * protocol-relative `//host` target.
+ * Routes that can have a message open, and therefore the sender line the form
+ * is reached from: the mail section, and the search results, which render the
+ * same `MessageDetail`. `/mail/` alone silently dropped every return trip
+ * started from a search result — the link carried the parameter and the load
+ * threw it away, so the form opened with no way back and said nothing about it.
+ */
+const RETURN_TO_PREFIXES = ['/mail/', '/search/'];
+
+/**
+ * Where the form returns to. Only a route that can have a message open
+ * qualifies: the parameter decides a navigation, so accepting an arbitrary
+ * string would let a crafted link send the user anywhere — and "anywhere" in
+ * this shell includes the routes that talk to the mailbox. Requiring one of
+ * these prefixes also rules out a protocol-relative `//host` target, which
+ * starts with a second slash and so matches neither.
+ *
+ * The query string is kept, because on the search route it IS the destination:
+ * `/search/1` without its `q` and `page` is an empty search, not the results
+ * the reader left.
  */
 export function readReturnTo(params: URLSearchParams): string | null {
 	const raw = params.get('returnTo');
-	return raw && raw.startsWith('/mail/') ? raw : null;
+	if (!raw) return null;
+	return RETURN_TO_PREFIXES.some((prefix) => raw.startsWith(prefix)) ? raw : null;
 }
 
 export function readContactPrefill(params: URLSearchParams): ContactPrefill | null {

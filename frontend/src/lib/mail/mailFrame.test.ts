@@ -185,10 +185,17 @@ describe('isMailFrameLinkMessage', () => {
 });
 
 describe('isOpenableMailLink', () => {
+	/*
+	 * Passed explicitly everywhere below: the app origin decides half of these
+	 * answers, and reading it from the test harness's own URL would make the
+	 * cases depend on which port vitest happened to serve from.
+	 */
+	const appOrigin = 'https://app.test';
+
 	it.each(['http://example.test', 'https://example.test/x', 'mailto:a@b.test', 'tel:+420123'])(
 		'allows the safe scheme %s',
 		(href) => {
-			expect(isOpenableMailLink(href)).toBe(true);
+			expect(isOpenableMailLink(href, appOrigin)).toBe(true);
 		}
 	);
 
@@ -201,7 +208,31 @@ describe('isOpenableMailLink', () => {
 		'not a url',
 		'#fragment'
 	])('rejects the unsafe or non-openable value %s', (href) => {
-		expect(isOpenableMailLink(href)).toBe(false);
+		expect(isOpenableMailLink(href, appOrigin)).toBe(false);
+	});
+
+	/*
+	 * What the frame actually posts for a relative href. A srcdoc document
+	 * inherits the container's base URL rather than resolving against
+	 * `about:srcdoc`, so these arrive already pointing at the app itself —
+	 * verified in Chromium, and the reason the check is not protocol-only.
+	 */
+	it.each([
+		['a bare placeholder anchor', 'https://app.test/mail/1/INBOX/msg-01#'],
+		['an in-message anchor', 'https://app.test/mail/1/INBOX/msg-01#section'],
+		['a relative href', 'https://app.test/foo'],
+		['the app root', 'https://app.test/']
+	])('refuses %s, which resolved onto the app origin', (_label, href) => {
+		expect(isOpenableMailLink(href, appOrigin)).toBe(false);
+	});
+
+	it('still allows a real link to another host on the same scheme', () => {
+		expect(isOpenableMailLink('https://example.test/app.test', appOrigin)).toBe(true);
+	});
+
+	it('falls back to the window origin when none is given', () => {
+		expect(isOpenableMailLink(`${window.location.origin}/foo`)).toBe(false);
+		expect(isOpenableMailLink('https://example.test/x')).toBe(true);
 	});
 });
 

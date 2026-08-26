@@ -185,6 +185,7 @@
 		"iframeTitle": "Obsah zprávy",
 		"bodyHeading": "Text zprávy",
 		"linkOpenError": "Odkaz se nepodařilo otevřít v prohlížeči.",
+		"linkNotOpenable": "Odkaz nemá cíl, který by šlo otevřít.",
 		"pageTitle": "Pošta – Zpráva",
 		"pageTitleWithSubject": "Pošta – {subject}",
 		"folderPageTitle": "Pošta – {folder}",
