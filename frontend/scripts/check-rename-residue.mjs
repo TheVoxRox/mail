@@ -17,9 +17,12 @@ import { codeOnly, withoutAnnotations } from './lib/source-text.mjs';
  * it, and were found two months later, by hand, in #299 and #307.
  *
  * How it decides, and why this way round: a candidate is a name a declaration
- * in the diff stopped declaring, and it is reported only when the name no
- * longer appears **in code anywhere** — code being the file with comments and
- * string literals stripped out. The obvious alternative, matching declarations
+ * in the diff stopped declaring **and that was code at the base revision**,
+ * and it is reported only when the name no longer appears **in code anywhere**
+ * — code being the file with comments and string literals stripped out. Both
+ * halves have to agree on what code is, or a name that only ever lived inside
+ * a string literal is a declaration going out and invisible coming back in.
+ * The obvious alternative, matching declarations
  * across the tree, is the fragile half: Spring Data repository methods carry
  * no access modifier, annotations sit between the modifier and the type, and
  * signatures wrap across lines, so every miss turns a live symbol into a false
@@ -60,9 +63,10 @@ const SOURCE_PATHSPECS = [
 const GENERATED = ['frontend/src/lib/api/generated.ts', 'frontend/src/lib/api/schema.d.ts'];
 
 /*
- * Candidate extraction, run over removed lines only. Generosity is free here:
- * a name that is not really a declaration is dropped by the "still in code"
- * test a step later, while a shape missed here is a rename nobody catches.
+ * Candidate extraction, run over removed lines only. Generosity is close to
+ * free here: a name that is not really a declaration is dropped either by the
+ * "was it code at base" filter or by the "still in code" test a step later,
+ * while a shape missed here is a rename nobody catches.
  */
 const DECLARATIONS = [
 	// Java and TypeScript type declarations.
@@ -140,6 +144,25 @@ function git(args) {
 	});
 }
 
+/**
+ * A file as it stood at the base revision, or `null` when it did not exist
+ * there. stderr is dropped rather than inherited: a path that is new in the
+ * range is an ordinary outcome here, not something to print git's complaint
+ * about.
+ */
+function showAtBase(file) {
+	try {
+		return execFileSync('git', ['show', `${mergeBase}:${file}`], {
+			cwd: repoRoot,
+			encoding: 'utf8',
+			maxBuffer: 64 * 1024 * 1024,
+			stdio: ['ignore', 'pipe', 'ignore']
+		});
+	} catch {
+		return null;
+	}
+}
+
 let mergeBase;
 try {
 	mergeBase = git(['merge-base', base, 'HEAD']).trim();
@@ -154,10 +177,50 @@ try {
 // -U0: only the changed lines, so unchanged context cannot read as a removal.
 const diff = git(['diff', '-U0', `${mergeBase}..HEAD`, '--', ...SOURCE_PATHSPECS]);
 
-const removedNames = new Set();
+/*
+ * Candidates are collected per file, because each one is then held against
+ * the code that file actually had at the base revision.
+ *
+ * The path comes from the `--- a/…` header rather than `+++ b/…`: it is the
+ * pre-image name, which is what the base blob is stored under, and a deleted
+ * file has no `+++` path at all.
+ */
+const removedPerFile = new Map();
+let preImage = null;
 for (const line of diff.split('\n')) {
-	if (!line.startsWith('-') || line.startsWith('---')) continue;
-	for (const name of declaredNamesIn(line.slice(1))) removedNames.add(name);
+	if (line.startsWith('--- ')) {
+		const declared = line.slice(4).trim();
+		preImage = declared === '/dev/null' ? null : declared.replace(/^a\//, '');
+		continue;
+	}
+	if (line.startsWith('+++ ') || !line.startsWith('-') || !preImage) continue;
+	const names = removedPerFile.get(preImage) ?? new Set();
+	for (const name of declaredNamesIn(line.slice(1))) names.add(name);
+	removedPerFile.set(preImage, names);
+}
+
+/*
+ * A candidate has to have BEEN code, not merely declaration-shaped text on a
+ * removed line — otherwise the two halves of this check disagree about what
+ * code is. `codeOnly` decides whether a name survives, so a name that only
+ * ever lived inside a string literal is invisible to that half while the raw
+ * removed line makes it visible to this one, and a file whose subject matter
+ * is code-in-strings then reports every fixture it touches. Not hypothetical:
+ * check-java-callers.test.mjs is nothing but Java declarations inside JS
+ * strings, and editing them cost #321 a waiver for a rename that never
+ * happened.
+ *
+ * The base blob is read whole rather than blanking the removed line on its
+ * own, because `codeOnly` is a scanner: a text block or a block comment is
+ * only recognisable from the lines around it, and a lone diff line has none.
+ */
+const removedNames = new Set();
+for (const [file, names] of removedPerFile) {
+	if (names.size === 0) continue;
+	const before = showAtBase(file);
+	if (before === null) continue;
+	const wasCode = new Set(codeOnly(before).match(/[A-Za-z_$][\w$]*/g) ?? []);
+	for (const name of names) if (wasCode.has(name)) removedNames.add(name);
 }
 
 if (removedNames.size === 0) {

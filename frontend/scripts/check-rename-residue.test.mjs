@@ -135,6 +135,42 @@ describe('check-rename-residue', () => {
 	});
 
 	/*
+	 * A gate fixture is code about code: check-java-callers.test.mjs is nothing
+	 * but Java declarations inside JS string literals, and none of them is a
+	 * symbol anything could rename. Removing one such line used to read as a
+	 * rename, because the candidate half saw the raw removed line while the
+	 * survival half blanked the strings — the two halves disagreed about what
+	 * code is, and #321 paid for it with a waiver.
+	 *
+	 * The fixture here is a .ts file rather than the obvious `.test.mjs` one,
+	 * because this harness ignores `frontend/scripts` in the throwaway repo (it
+	 * copies the real gates in there). The asymmetry is the same in any
+	 * language: a declaration shape inside a string literal.
+	 *
+	 * The name still sits in a string afterwards, which is what makes this the
+	 * failing shape rather than a quiet one: with residue to point at, the old
+	 * gate had everything it needed to report.
+	 */
+	it('ignores a declaration that only ever existed inside a string literal', () => {
+		const SAMPLES = 'frontend/src/lib/samples.ts';
+		repo.write(
+			SAMPLES,
+			"const one = 'export function renderMessage() {}';\n" +
+				"const two = 'export function renderMessage(limit: number) {}';\n"
+		);
+		repo.commit('samples');
+		const base = repo.git(['rev-parse', 'HEAD']);
+
+		repo.write(SAMPLES, "const two = 'export function renderMessage(limit: number) {}';\n");
+		repo.commit('drop one sample');
+
+		const result = repo.run('check-rename-residue.mjs', ['--base', base]);
+
+		expect(result.status).toBe(0);
+		expect(result.output).toContain('removes no declaration');
+	});
+
+	/*
 	 * Markdown is out of scope in both directions, and the second one is the
 	 * one worth pinning: a changelog naming the old symbol must not read as the
 	 * symbol still being alive, or every documented rename would suppress the
