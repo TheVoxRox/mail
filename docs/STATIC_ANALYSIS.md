@@ -58,8 +58,13 @@ in-process (forked javac swallows its own diagnostics on Windows).
   method with no caller stays out entirely, since SpotBugs already fails the
   build on `UPM_UNCALLED_PRIVATE_METHOD` and two gates on one finding means two
   places to silence it. Deliberate exceptions carry `@callerless <reason>` on
-  the declaration; the reason is required and must sit on the tag's own line,
-  or the javadoc's closing delimiter reads as the reason.
+  the declaration, in a **line comment** — not javadoc and not a block
+  comment: Error Prone rejects a javadoc block tag it does not know
+  (`InvalidBlockTag`) and flags a block comment carrying javadoc tags
+  (`AlmostJavadoc`), so either spelling buys a warning on every build for a
+  note addressed to this gate rather than to a caller. The reason is required
+  and must sit on the tag's own line, or whatever opens the next line reads
+  as the reason.
 - **No empty catch blocks.** Best-effort cleanup paths (`store.close()` in
   pool eviction, key zeroing at shutdown) log at DEBUG instead of swallowing —
   the 2026-06 reviews showed that silent error paths are exactly where this

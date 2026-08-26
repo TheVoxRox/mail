@@ -25,8 +25,13 @@ import { codeOnly, withoutAnnotations } from './lib/source-text.mjs';
  *                 first prototype next to a genuinely dead method, and the
  *                 right fix was `private`, not deletion.
  *
- * Deliberate exceptions carry a `@callerless <reason>` javadoc tag on the
- * declaration, with the reason required. ImapCapabilities.hasQresync is the
+ * Deliberate exceptions carry a `@callerless <reason>` line comment on the
+ * declaration, with the reason required. A line comment rather than javadoc,
+ * and not a block comment either: Error Prone rejects a javadoc block tag it
+ * does not know (InvalidBlockTag) and flags a block comment that carries
+ * javadoc tags (AlmostJavadoc), so both of those spellings buy a warning on
+ * every build for a note addressed to this gate rather than to a caller.
+ * ImapCapabilities.hasQresync is the
  * standing example: the probe records a capability the sync does not use yet,
  * and #299 had to write a paragraph hoping the next sweep would read it.
  *
@@ -224,8 +229,9 @@ for (const file of files) {
 		if (FRAMEWORK_ANNOTATIONS.some((tag) => new RegExp(`@${tag}\\b`).test(above))) continue;
 
 		// The reason has to sit on the tag's own line: `\s+` swallows the line
-		// break, and then the javadoc's closing delimiter reads as a reason, so
-		// a bare `@callerless` would waive a finding while saying nothing.
+		// break, and then whatever opens the next line — another `//`, a javadoc
+		// `*` — reads as a reason, so a bare `@callerless` would waive a finding
+		// while saying nothing.
 		const waiver = /@callerless[^\S\n]+(\S[^\n]*)/.exec(above);
 		declarations.push({
 			file,
@@ -346,7 +352,7 @@ const SECTIONS = [
 	[
 		'dead',
 		'nothing names these, tests included — delete them',
-		'Deleting is the default. If it has to stay, say why in a `@callerless` javadoc tag.'
+		'Deleting is the default. If it has to stay, say why in a `@callerless` comment.'
 	],
 	[
 		'testOnly',
@@ -370,6 +376,6 @@ for (const [bucket, heading, advice] of SECTIONS) {
 }
 console.error(
 	'A deliberate exception carries the reason next to the code:\n' +
-		'    /** … @callerless Kept because <reason>. */'
+		'    // @callerless Kept because <reason>.'
 );
 process.exitCode = 1;

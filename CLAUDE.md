@@ -94,7 +94,9 @@ someone a rework at least once. For the human-facing versions see
     Framework entry points are skipped by annotation; a `@Entity` accessor a
     test calls is exempt from test-only, since production writes through a
     mapper and a test asserts through the getter. Deliberate exceptions carry
-    `@callerless <reason>` on the declaration, reason required.
+    `@callerless <reason>` on the declaration, reason required, in a `//`
+    comment — javadoc and block comments each cost an Error Prone warning
+    (`InvalidBlockTag`, `AlmostJavadoc`) on every build.
   - `check:test-claims` — a test may not repeat its neighbour, and may not be
     switched off in silence. Two tests in **one file** with identical bodies
     assert the same thing under two names (#307: a refactor removed the
