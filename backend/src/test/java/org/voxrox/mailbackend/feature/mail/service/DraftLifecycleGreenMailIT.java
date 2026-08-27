@@ -300,12 +300,9 @@ class DraftLifecycleGreenMailIT {
         Properties props = new Properties();
         props.put("mail.store.protocol", "imap");
         Session session = Session.getInstance(props);
-        Store store = session.getStore("imap");
-        store.connect("127.0.0.1", greenMail.getImap().getPort(), LOGIN, PASSWORD);
-        try {
+        try (Store store = session.getStore("imap")) {
+            store.connect("127.0.0.1", greenMail.getImap().getPort(), LOGIN, PASSWORD);
             return action.apply(store);
-        } finally {
-            store.close();
         }
     }
 

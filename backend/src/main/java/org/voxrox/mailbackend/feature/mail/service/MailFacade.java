@@ -486,7 +486,7 @@ public class MailFacade {
         // No Stream.findFirst() here — the single element may legitimately be null
         // (root without a Message-ID) and findFirst() throws NPE on a null element.
         List<String> roots = messageRepository.findThreadRootMessageIds(accountId, threadId, PageRequest.of(0, 1));
-        String rootMessageId = roots.isEmpty() ? null : roots.get(0);
+        String rootMessageId = roots.isEmpty() ? null : roots.getFirst();
         if (folderRef == null) {
             return threadResponse(threadId, rootMessageId, summaries,
                     (int) summaries.stream().filter(s -> !s.seen()).count());

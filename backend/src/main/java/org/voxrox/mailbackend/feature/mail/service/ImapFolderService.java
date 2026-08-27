@@ -201,7 +201,7 @@ public class ImapFolderService {
      */
     public Optional<String> findFolderNameByRole(Long accountId, FolderRole role) {
         List<String> names = findFolderNamesByRole(accountId, role);
-        return names.isEmpty() ? Optional.empty() : Optional.of(names.get(0));
+        return names.isEmpty() ? Optional.empty() : Optional.of(names.getFirst());
     }
 
     /**

@@ -222,7 +222,7 @@ public class CorrespondentBackfillService {
             if (processed.isEmpty()) {
                 break;
             }
-            afterId = processed.get(processed.size() - 1);
+            afterId = processed.getLast();
             total += processed.size();
             if (processed.size() < BATCH_SIZE) {
                 break;

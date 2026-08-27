@@ -264,8 +264,8 @@ public class ThreadingService {
             return null;
         }
         log.debug("{} Subject fallback attached headerless reply (id {}) to thread {} of account {}.", LogCategory.SYNC,
-                msg.getId(), hits.get(0).getThreadId(), account.getId());
-        return hits.get(0);
+                msg.getId(), hits.getFirst().getThreadId(), account.getId());
+        return hits.getFirst();
     }
 
     /**

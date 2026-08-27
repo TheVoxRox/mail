@@ -118,6 +118,15 @@ public class ImapFolderExecutor {
             } finally {
                 if (folder != null && folder.isOpen()) {
                     try {
+                        /*
+                         * Always close(boolean), never the inherited no-arg close(). Folder does
+                         * implement AutoCloseable, so a try-with-resources compiles here — but
+                         * Folder.close() is defined as close(TRUE), i.e. expunge. That would turn every
+                         * folder close in this class into a permanent delete of whatever carries
+                         * \Deleted, including on the READ_ONLY path where this code asks for no writes
+                         * at all. Passing the flag explicitly is the reason this is a try/finally and
+                         * not a resource block.
+                         */
                         folder.close(mode == Folder.READ_WRITE);
                     } catch (MessagingException e) {
                         log.warn("{} Error while closing folder {}: {}", LogCategory.IMAP, folderName, e.getMessage());
