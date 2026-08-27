@@ -146,9 +146,9 @@ public abstract class OAuth2TokenService {
      * that the actual HTTP call happens only ~once per hour.
      */
     public final String getAccessToken(Long accountId, @Nullable String refreshToken, String email) {
-        Optional<CachedToken> cached = tokenCache.get(accountId);
-        if (cached.isPresent() && cached.get().isFresh()) {
-            return cached.get().accessToken();
+        Optional<CachedToken> fresh = tokenCache.get(accountId).filter(CachedToken::isFresh);
+        if (fresh.isPresent()) {
+            return fresh.get().accessToken();
         }
 
         /*
@@ -168,9 +168,9 @@ public abstract class OAuth2TokenService {
             // Double-check under the lock: a concurrent caller may have refreshed
             // while this thread was waiting — reuse its token instead of firing a
             // second HTTP request.
-            cached = tokenCache.get(accountId);
-            if (cached.isPresent() && cached.get().isFresh()) {
-                return cached.get().accessToken();
+            fresh = tokenCache.get(accountId).filter(CachedToken::isFresh);
+            if (fresh.isPresent()) {
+                return fresh.get().accessToken();
             }
 
             CachedToken refreshed = doRefresh(accountId, refreshToken, email);

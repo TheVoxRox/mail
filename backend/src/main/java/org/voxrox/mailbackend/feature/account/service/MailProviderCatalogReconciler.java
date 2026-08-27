@@ -80,6 +80,8 @@ public class MailProviderCatalogReconciler {
     }
 
     /**
+     * Upserts the built-in provider templates into the catalog table.
+     *
      * @return how many rows were inserted or updated
      */
     int reconcile() {

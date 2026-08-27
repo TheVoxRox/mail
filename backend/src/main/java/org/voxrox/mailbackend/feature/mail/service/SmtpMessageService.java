@@ -62,6 +62,9 @@ public class SmtpMessageService {
     }
 
     /**
+     * Sends a composed message over SMTP off the request thread, then files the
+     * Sent copy and settles the draft it supersedes.
+     *
      * @param supersedesDraftId
      *            stableId of the draft this message was edited from, or
      *            {@code null} for a brand-new message. The draft is hard-deleted

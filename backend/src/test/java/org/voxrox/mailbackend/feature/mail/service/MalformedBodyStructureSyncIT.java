@@ -217,9 +217,16 @@ class MalformedBodyStructureSyncIT {
     }
 
     private static MimeMessage goodMessage() throws MessagingException {
-        String raw = "From: Alice <alice@example.com>\r\n" + "To: rcpt@example.com\r\n" + "Subject: Good message\r\n"
-                + "Date: Thu, 15 Jan 2026 10:30:00 +0000\r\n" + "Message-ID: <good@example.com>\r\n"
-                + "Content-Type: text/plain; charset=UTF-8\r\n" + "\r\n" + "Hello body\r\n";
+        String raw = """
+                From: Alice <alice@example.com>\r
+                To: rcpt@example.com\r
+                Subject: Good message\r
+                Date: Thu, 15 Jan 2026 10:30:00 +0000\r
+                Message-ID: <good@example.com>\r
+                Content-Type: text/plain; charset=UTF-8\r
+                \r
+                Hello body\r
+                """;
         Session session = Session.getInstance(new Properties());
         return new MimeMessage(session, new ByteArrayInputStream(raw.getBytes(StandardCharsets.UTF_8)));
     }

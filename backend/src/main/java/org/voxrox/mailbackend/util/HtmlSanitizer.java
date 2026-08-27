@@ -47,7 +47,7 @@ public class HtmlSanitizer {
 
     private static final Logger log = LoggerFactory.getLogger(HtmlSanitizer.class);
 
-    /*
+    /**
      * The backend is the canonical policy: it does not let user inline CSS or
      * remote images through. The frontend may be stricter, but must not be the only
      * safeguard.
@@ -81,6 +81,8 @@ public class HtmlSanitizer {
     }
 
     /**
+     * Sanitizes untrusted message HTML, inlining the embedded images it is given.
+     *
      * @param inlineImages
      *            normalized Content-ID → {@code data:} URI for embedded images, as
      *            collected by {@link MimePartExtractor#collectInlineImages}. A
@@ -145,8 +147,7 @@ public class HtmlSanitizer {
                         image.remove();
                     }
                 } else if (isSafeImageSrc(src)) {
-                    // inline data:image — keep as-is
-                    continue;
+                    // inline data:image — kept as-is: neither rewritten nor removed
                 } else if (image.hasAttr(REMOTE_SRC_ATTR)) {
                     // inert remote https placeholder — keep the element, never a live src
                     image.removeAttr("src");

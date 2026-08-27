@@ -56,6 +56,9 @@ class ParentProcessWatchdogTest {
     @DisplayName("treats a broken pipe (IOException) as the parent being gone")
     void exitsOnBrokenPipe() {
         AtomicInteger exits = new AtomicInteger();
+        // Single-byte reads only: the watchdog consumes the pipe one byte at a
+        // time by design, so the bulk-read override would never be called.
+        @SuppressWarnings("InputStreamSlowMultibyteRead")
         InputStream broken = new InputStream() {
             @Override
             public int read() throws IOException {

@@ -79,6 +79,10 @@ public class DraftPersistenceService {
     }
 
     /**
+     * Reserves the identity a draft will be stored under: its Message-ID, the
+     * resolved Drafts folder and the stableId derived from both, all settled before
+     * any IMAP write happens.
+     *
      * @throws org.voxrox.mailbackend.exception.MailOperationException
      *             when the account has no detectable Drafts folder (surfaces
      *             synchronously instead of a silent async failure).

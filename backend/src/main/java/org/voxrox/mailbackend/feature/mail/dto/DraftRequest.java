@@ -1,6 +1,5 @@
 package org.voxrox.mailbackend.feature.mail.dto;
 
-import java.util.Collections;
 import java.util.List;
 
 import jakarta.validation.Valid;
@@ -22,7 +21,7 @@ public record DraftRequest(@Nullable String to, @Nullable String cc, @Nullable S
 
     public DraftRequest {
         if (attachments == null) {
-            attachments = Collections.emptyList();
+            attachments = List.of();
         }
     }
 
@@ -34,6 +33,6 @@ public record DraftRequest(@Nullable String to, @Nullable String cc, @Nullable S
         // The compact constructor normalizes attachments to an empty list; the
         // re-check only proves it to the static nullability analysis.
         return new MailRequest(to == null ? "" : to, cc, bcc, subject == null ? "" : subject, body == null ? "" : body,
-                attachments == null ? Collections.emptyList() : attachments, inReplyTo, references);
+                attachments == null ? List.of() : attachments, inReplyTo, references);
     }
 }

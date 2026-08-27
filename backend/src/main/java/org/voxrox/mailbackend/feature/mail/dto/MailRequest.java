@@ -1,6 +1,5 @@
 package org.voxrox.mailbackend.feature.mail.dto;
 
-import java.util.Collections;
 import java.util.List;
 
 import jakarta.validation.Valid;
@@ -25,7 +24,7 @@ public record MailRequest(@NotBlank(message = "{validation.mail.recipientRequire
         @Nullable String inReplyTo, @Nullable String references) {
     public MailRequest {
         if (attachments == null) {
-            attachments = Collections.emptyList();
+            attachments = List.of();
         }
     }
 

@@ -69,7 +69,6 @@ class SyncHealthIndicatorTest {
     /**
      * {@code List.of(Object[])} expands as varargs — we must type it explicitly.
      */
-    @SafeVarargs
     private static List<Object[]> rows(Object[]... rs) {
         return java.util.Arrays.asList(rs);
     }

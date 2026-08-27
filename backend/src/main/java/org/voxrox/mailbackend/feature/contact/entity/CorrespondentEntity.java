@@ -45,6 +45,14 @@ public class CorrespondentEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /*
+     * Written by the constructor and read only by Hibernate, reflectively, when it
+     * persists the account_id FK — deleting it would drop the mapping. No getter:
+     * nothing in the app navigates from a correspondent back to its account, and
+     * adding one to satisfy this check would trade the waiver for a
+     * check:java-callers test-only report.
+     */
+    @SuppressWarnings("UnusedVariable")
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_id", nullable = false)
     @OnDelete(action = OnDeleteAction.CASCADE)

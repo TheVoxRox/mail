@@ -509,6 +509,7 @@ public class ThreadingService {
      * keeps the pass total: the alternative is a silently null
      * {@code thread_position} on the one row the caller cared about.
      */
+    @SuppressWarnings("ReferenceEquality") // identity compare is the point; see the javadoc above
     private void renumberThreadPositions(Long accountId, String threadId, MessageEntity arrival) {
         List<MessageEntity> members = new ArrayList<>(
                 messageRepository.findByAccountIdAndThreadId(accountId, threadId));

@@ -36,7 +36,7 @@ public class ApiKeyFilter extends OncePerRequestFilter {
         if (clientKey != null) {
             if (secureCompare(clientKey, apiKeyProvider.getKey())) {
                 UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken("desktop-client",
-                        null, Collections.emptyList());
+                        null, List.of());
                 SecurityContextHolder.getContext().setAuthentication(auth);
             } else {
                 /*
