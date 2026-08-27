@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { get } from 'svelte/store';
 	import { accountsState, activeAccountId } from '$lib/stores/accounts.js';
 	import { sendMail } from '$lib/api/mailWrite.js';
@@ -157,7 +157,7 @@
 	}
 
 	onMount(async () => {
-		const searchParams = get(page).url.searchParams;
+		const searchParams = page.url.searchParams;
 		const kind = composeKind(searchParams);
 		const focusBodyAfterPrefill = shouldFocusComposeBody(searchParams);
 		autofocusTo = !focusBodyAfterPrefill;

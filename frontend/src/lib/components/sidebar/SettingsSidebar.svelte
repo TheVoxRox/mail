@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import Icon from '$lib/components/Icon.svelte';
 	import { SidebarNavItem } from '$lib/components/ui/sidebar-nav-item/index.js';
 	import { SidebarSection } from '$lib/components/ui/sidebar-section/index.js';
@@ -70,7 +70,7 @@
 	];
 
 	function isActive(item: SettingsItem): boolean {
-		const pathname = $page.url.pathname;
+		const pathname = page.url.pathname;
 		return pathname === `/settings/${item.id}` || pathname.startsWith(`/settings/${item.id}/`);
 	}
 </script>

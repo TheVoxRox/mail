@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import { exportVCard } from '$lib/api/contacts.js';
 	import { toErrorMessage } from '$lib/api/errors.js';
@@ -20,7 +20,7 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import { _ } from '$lib/i18n/index.js';
 
-	let query = $derived($page.url.searchParams.get('q') ?? '');
+	let query = $derived(page.url.searchParams.get('q') ?? '');
 	let exporting = $state(false);
 	let labelsDialogOpen = $state(false);
 
@@ -45,8 +45,8 @@
 		void goto(href);
 	}
 
-	const createActive = $derived($page.url.searchParams.get('create') === '1');
-	const currentLabelId = $derived(Number($page.url.searchParams.get('labelId')) || null);
+	const createActive = $derived(page.url.searchParams.get('create') === '1');
+	const currentLabelId = $derived(Number(page.url.searchParams.get('labelId')) || null);
 
 	/**
 	 * Sidebar view links deliberately drop `q` (and sort): like a mail folder

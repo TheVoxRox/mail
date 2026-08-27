@@ -1,6 +1,5 @@
 import { resolve } from '$app/paths';
-import { page } from '$app/stores';
-import { derived, type Readable } from 'svelte/store';
+import { page } from '$app/state';
 
 export type WorkspaceMode = 'mail' | 'contacts' | 'settings';
 
@@ -12,9 +11,14 @@ export function detectWorkspaceMode(pathname: string): WorkspaceMode {
 	return 'mail';
 }
 
-export const workspaceMode: Readable<WorkspaceMode> = derived(page, ($page) =>
-	detectWorkspaceMode($page.url.pathname)
-);
+/**
+ * Workspace of the current route. A function rather than a store: `$app/state`
+ * is runes-only, so reading it inside `$derived` or markup tracks navigation,
+ * while a call from an event handler is a one-shot read of the current route.
+ */
+export function currentWorkspaceMode(): WorkspaceMode {
+	return detectWorkspaceMode(page.url.pathname);
+}
 
 /**
  * Landing route of a workspace. Takes no account: the address book is

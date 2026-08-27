@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import type { ContactResponse, MailDetailResponse } from '$lib/types.js';
 	import { _, appLocale } from '$lib/i18n/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -71,7 +71,7 @@
 	 * (`/search/[accountId]/+page.ts`), so a pathname on its own would return
 	 * the reader to an empty search instead of to what they were reading.
 	 */
-	const returnTo = $derived(`${$page.url.pathname}${$page.url.search}`);
+	const returnTo = $derived(`${page.url.pathname}${page.url.search}`);
 
 	/*
 	 * `+layout.svelte` passes the heading level and back-button visibility

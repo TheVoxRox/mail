@@ -83,7 +83,7 @@ describe('parseReadiness', () => {
 
 	it('gives helpful diagnostic when appName is missing (stale sidecar)', () => {
 		const broken = { ...baseReadiness, appName: '' };
-		expect(() => parseReadiness(broken)).toThrowError(/old sidecar version|sidecar/i);
+		expect(() => parseReadiness(broken)).toThrow(/old sidecar version|sidecar/i);
 	});
 
 	it('rejects empty required string fields', () => {

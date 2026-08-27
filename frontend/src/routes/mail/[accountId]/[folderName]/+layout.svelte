@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { setContext } from 'svelte';
@@ -33,11 +33,9 @@
 
 	let innerWidth = $state(1200);
 
-	const accountId = $derived(Number($page.params.accountId ?? '0'));
-	const folderName = $derived(decodeURIComponent($page.params.folderName ?? ''));
-	const stableId = $derived(
-		$page.params.stableId ? decodeURIComponent($page.params.stableId) : null
-	);
+	const accountId = $derived(Number(page.params.accountId ?? '0'));
+	const folderName = $derived(decodeURIComponent(page.params.folderName ?? ''));
+	const stableId = $derived(page.params.stableId ? decodeURIComponent(page.params.stableId) : null);
 
 	const grouped = $derived($messageGrouping === 'grouped');
 

@@ -1,5 +1,4 @@
-import { page } from '$app/stores';
-import { derived, writable } from 'svelte/store';
+import { derived, writable, type Readable } from 'svelte/store';
 import type { Command } from '$lib/commands/shared.js';
 import { createAccountCommands, createFolderCommands } from '$lib/commands/accountCommands.js';
 import { createMailCommands } from '$lib/commands/mailCommands.js';
@@ -20,7 +19,16 @@ export function registerDefaultCommands(): void {
 	registryReady.set(true);
 }
 
-export const commands = derived(
+/**
+ * The command registry, curried over the current pathname.
+ *
+ * Pathname is a parameter rather than a ninth store input because `page` now
+ * comes from `$app/state`, which is runes-backed and cannot join a
+ * `derived([...])`. The consumer (CommandPalette) already reads
+ * `page.url.pathname` for ranking, so it passes the same value in here and the
+ * store keeps re-deriving on account / folder / locale / theme changes.
+ */
+export const commandsFor: Readable<(pathname: string) => Command[]> = derived(
 	[
 		registryReady,
 		accountsState,
@@ -29,7 +37,6 @@ export const commands = derived(
 		selectedMessage,
 		appLocale,
 		themePreference,
-		page,
 		_
 	],
 	([
@@ -40,37 +47,37 @@ export const commands = derived(
 		$selectedMessage,
 		$appLocale,
 		$themePreference,
-		$page,
 		$t
-	]): Command[] => {
-		if (!$registryReady) return [];
+	]) =>
+		(pathname: string): Command[] => {
+			if (!$registryReady) return [];
 
-		const stableId = $selectedMessage?.stableId ?? null;
-		const selectedDetail = $selectedMessage?.detail ?? null;
+			const stableId = $selectedMessage?.stableId ?? null;
+			const selectedDetail = $selectedMessage?.detail ?? null;
 
-		// Special folders carry a technical name (e.g. "INBOX") in `displayName`;
-		// folderLabel maps them to the localized label by role, so command titles
-		// match the rest of the UI instead of showing the raw IMAP name.
-		const localizedFolders = $folders.map((folder) => ({
-			...folder,
-			displayName: folderLabel(folder, $t)
-		}));
+			// Special folders carry a technical name (e.g. "INBOX") in `displayName`;
+			// folderLabel maps them to the localized label by role, so command titles
+			// match the rest of the UI instead of showing the raw IMAP name.
+			const localizedFolders = $folders.map((folder) => ({
+				...folder,
+				displayName: folderLabel(folder, $t)
+			}));
 
-		const items: Command[] = [
-			...createWorkspaceCommands($appLocale),
-			...createAccountCommands($accountsState, $appLocale),
-			...createFolderCommands($activeAccountId, localizedFolders, $appLocale),
-			...createMailCommands({
-				activeAccountId: $activeAccountId,
-				folders: localizedFolders,
-				locale: $appLocale,
-				pathname: $page.url.pathname,
-				selectedDetail,
-				stableId
-			}),
-			...createViewCommands($appLocale, $themePreference)
-		];
+			const items: Command[] = [
+				...createWorkspaceCommands($appLocale),
+				...createAccountCommands($accountsState, $appLocale),
+				...createFolderCommands($activeAccountId, localizedFolders, $appLocale),
+				...createMailCommands({
+					activeAccountId: $activeAccountId,
+					folders: localizedFolders,
+					locale: $appLocale,
+					pathname,
+					selectedDetail,
+					stableId
+				}),
+				...createViewCommands($appLocale, $themePreference)
+			];
 
-		return items.filter((command) => command.available());
-	}
+			return items.filter((command) => command.available());
+		}
 );

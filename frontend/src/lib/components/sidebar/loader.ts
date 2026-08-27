@@ -8,7 +8,7 @@
  * Module-level cache (not inside any Svelte component) so it survives HMR /
  * remounts and is shared across any caller. Plain Map is intentional — the
  * cache is not consumed reactively (the active mode comes from
- * `workspaceMode` store; the consumer wraps `loadSidebar` in `$derived`).
+ * `currentWorkspaceMode()`; the consumer wraps `loadSidebar` in `$derived`).
  */
 import type { Component } from 'svelte';
 import type { WorkspaceMode } from '$lib/stores/workspaceMode.js';

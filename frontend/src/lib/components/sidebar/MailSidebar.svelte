@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { goto } from '$app/navigation';
 	import { get } from 'svelte/store';
@@ -33,7 +33,7 @@
 	function isActive(folder: FolderResponse): boolean {
 		const acc = get(activeAccount);
 		if (!acc) return false;
-		const pathname = $page.url.pathname;
+		const pathname = page.url.pathname;
 		return pathname.startsWith(
 			resolve('/mail/[accountId]/[folderName]', {
 				accountId: String(acc.id),

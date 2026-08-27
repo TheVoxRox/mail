@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { tick } from 'svelte';
 	import { Command as BitsCommand } from 'bits-ui';
 	import Icon from '$lib/components/Icon.svelte';
 	import { DialogDescription, DialogShell, DialogTitle } from '$lib/components/ui/dialog/index.js';
-	import { commands, type Command } from '$lib/stores/commands.js';
+	import { commandsFor, type Command } from '$lib/stores/commands.js';
 	import { closePalette, paletteOpen } from '$lib/stores/palette.js';
 	import { pushToast } from '$lib/stores/toasts.js';
 	import { toErrorMessage } from '$lib/api/errors.js';
@@ -38,8 +38,10 @@
 		return `palette-option-${command.id.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
 	}
 
+	const pathname = $derived(page.url.pathname);
+
 	const visibleCommands = $derived.by<VisibleCommand[]>(() =>
-		$commands.map((command, baseIndex) => {
+		$commandsFor(pathname).map((command, baseIndex) => {
 			const title = $_(
 				command.titleKey,
 				command.titleValues ? { values: command.titleValues } : undefined
@@ -53,7 +55,6 @@
 
 	const filteredCommands = $derived.by<VisibleCommand[]>(() => {
 		const normalizedQuery = normalizeText(query.trim());
-		const pathname = $page.url.pathname;
 		if (!normalizedQuery) return sortByRelevance(visibleCommands, normalizedQuery, pathname);
 
 		const tokens = tokenizeQuery(normalizedQuery);

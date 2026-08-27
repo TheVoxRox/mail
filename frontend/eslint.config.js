@@ -66,7 +66,15 @@ export default defineConfig(
 		},
 		rules: {
 			'@typescript-eslint/no-floating-promises': 'error',
-			'@typescript-eslint/await-thenable': 'error'
+			'@typescript-eslint/await-thenable': 'error',
+			// A deprecated framework API is otherwise invisible here: it type-checks,
+			// `svelte-check` stays silent, and the JSDoc `@deprecated` is only in
+			// node_modules. That is how `$app/stores` survived twelve files after
+			// SvelteKit 2.12 deprecated it. Blind spot worth knowing: components are
+			// out of scope (no `projectService` above, deliberately), so this catches
+			// a deprecated import in `.ts` only — which is where the store-shaped
+			// ones land anyway.
+			'@typescript-eslint/no-deprecated': 'error'
 		}
 	},
 	{

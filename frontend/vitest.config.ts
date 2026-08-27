@@ -14,8 +14,8 @@ export default defineConfig({
 				replacement: path.resolve(here, './src/test-stubs/app-environment.ts')
 			},
 			{
-				find: /^\$app\/stores$/,
-				replacement: path.resolve(here, './src/test-stubs/app-stores.ts')
+				find: /^\$app\/state$/,
+				replacement: path.resolve(here, './src/test-stubs/app-state.ts')
 			},
 			{
 				find: /^\$app\/paths$/,

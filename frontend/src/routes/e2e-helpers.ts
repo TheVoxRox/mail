@@ -13,7 +13,7 @@ export async function waitForShell(page: Page): Promise<void> {
 
 /**
  * The root route ('/') redirects to the default mailbox once accounts load
- * (see routes/+page.svelte). That redirect mutates `$page.url.pathname` and
+ * (see routes/+page.svelte). That redirect mutates `page.url.pathname` and
  * fills the folders store asynchronously, both of which re-derive the command
  * list (lib/stores/commands.ts). Interacting with order-sensitive UI — e.g.
  * moving the command-palette selection with ArrowDown — before the redirect
