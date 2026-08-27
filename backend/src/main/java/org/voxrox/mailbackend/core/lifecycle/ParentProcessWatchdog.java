@@ -81,10 +81,8 @@ public final class ParentProcessWatchdog {
 
     /** Spawns the daemon watcher thread. Package-private for tests. */
     static Thread start(InputStream parentPipe, Runnable onParentExit) {
-        Thread thread = new Thread(() -> watchUntilParentExits(parentPipe, onParentExit), "parent-process-watchdog");
-        thread.setDaemon(true);
-        thread.start();
-        return thread;
+        return Thread.ofPlatform().name("parent-process-watchdog").daemon()
+                .start(() -> watchUntilParentExits(parentPipe, onParentExit));
     }
 
     /**
@@ -124,7 +122,7 @@ public final class ParentProcessWatchdog {
      * returns the timer thread for the same reason.
      */
     static Thread exitWithHaltFallback(Runnable exit, Runnable halt, Duration timeout) {
-        Thread halter = new Thread(() -> {
+        Thread halter = Thread.ofPlatform().name("parent-process-watchdog-halt").daemon().unstarted(() -> {
             try {
                 Thread.sleep(timeout);
             } catch (InterruptedException e) {
@@ -140,8 +138,7 @@ public final class ParentProcessWatchdog {
                 // the very shutdown hook that is hanging.
                 halt.run();
             }
-        }, "parent-process-watchdog-halt");
-        halter.setDaemon(true);
+        });
         try {
             halter.start();
         } catch (RuntimeException | Error e) {

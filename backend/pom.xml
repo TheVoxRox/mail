@@ -294,6 +294,24 @@
 								<arg>-XDcompilePolicy=simple</arg>
 								<arg>--should-stop=ifError=FLOW</arg>
 								<!--
+									No older Java where a newer one exists. -Xlint:deprecation,removal
+									names the file and the line; without it javac emits only a two-line
+									"Note: uses or overrides a deprecated API / Recompile with
+									-Xlint:deprecation for details", which carries no location and drowns
+									in a Maven log. -Werror then makes it a failure instead of a note
+									nobody reads. The pair is what keeps "Java 25, not older" a property
+									of the build rather than of whoever last audited by hand.
+
+									-Werror is global, so it also promotes Error Prone's WARN-level
+									findings to build failures. That is deliberate (the backend carries
+									none today), but it means an error-prone bump that ships a new check
+									can turn a dependabot PR red. Fix the finding, or pin that one check
+									to OFF in the -Xplugin line below. Do not drop -Werror to get a bump
+									through: the gate is the point.
+								-->
+								<arg>-Xlint:deprecation,removal</arg>
+								<arg>-Werror</arg>
+								<!--
 									doclint, reference group only: a {@link}, @see, @throws or
 									@param naming a member that does not exist fails the build.
 									It is the one kind of javadoc rot a machine can catch - the
@@ -323,6 +341,9 @@
 							<compilerArgs>
 								<arg>-XDcompilePolicy=simple</arg>
 								<arg>--should-stop=ifError=FLOW</arg>
+								<!-- Same no-older-API gate on tests; see default-compile above. -->
+								<arg>-Xlint:deprecation,removal</arg>
+								<arg>-Werror</arg>
 								<!-- Same reference check on tests; see default-compile above. -->
 								<arg>-Xdoclint:reference/private</arg>
 								<arg>-Xplugin:ErrorProne -XepExcludedPaths:.*[\\/]target[\\/].* -Xep:JavaTimeDefaultTimeZone:OFF -Xep:NullAway:OFF</arg>

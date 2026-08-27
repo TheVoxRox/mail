@@ -10,6 +10,9 @@ import jakarta.validation.constraints.NotNull;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /**
+ * IMAP client tuning: default port, protocol names, socket timeouts and the
+ * budget a read request may spend resolving a folder role.
+ *
  * @param roleLookupTimeout
  *            how long a read request may wait for the account's IMAP connection
  *            when resolving a folder role it cannot answer from the DB. Short

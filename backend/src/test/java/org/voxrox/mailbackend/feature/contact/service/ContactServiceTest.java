@@ -676,7 +676,7 @@ class ContactServiceTest {
         c.setSurname(surname);
         for (int i = 0; i < emails.length; i++) {
             ContactEmailEntity em = new ContactEmailEntity();
-            em.setId((long) (10 * id + i));
+            em.setId(10 * id + i);
             em.setEmail(emails[i]);
             em.setPrimary(i == 0);
             em.setContact(c);

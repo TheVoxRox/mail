@@ -43,10 +43,10 @@
   ],
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "93fbaacb8df381212b81a290fbb60c9144688e62",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "42c0452a9e3b447dc5a285f3167b33a2eecf9e12",
       "backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java": "54707f192e933ad89aec987c1223eb6ec03821c1",
       "backend/src/main/java/org/voxrox/mailbackend/util/SubjectNormalizer.java": "9f5185a315875e4f312bb869cfa9903bda53c8ff",
-      "backend/src/main/java/org/voxrox/mailbackend/core/config/mail": "63a1713b3bacac4d2fbde82a906486bc33daf5fb"
+      "backend/src/main/java/org/voxrox/mailbackend/core/config/mail": "b77bdaf0cf559d1711135b4dd0c06bce168046d6"
     },
     "acknowledgements": [
       {
@@ -60,6 +60,10 @@
       {
         "date": "2026-08-27",
         "note": "API-equivalence and comment-only change under this path. fa1333f swaps six `get(0)` / `get(size() - 1)` calls here for `getFirst()` / `getLast()` (ImapFolderService, MailFacade, MarkdownBodyRenderer, ThreadingBackfillService, ThreadingService twice), replaces `Thread.sleep(millis)` with the `Duration` overload in DraftPersistenceService, and adds comments — nothing else — at the folder-close sites in ImapFolderExecutor, ImapAppendService (two) and ImapActionService. Verified line by line rather than by intent: every changed line is either a comment or a call whose replacement is specified in terms of the call it replaces, so no TLS setting, auth mechanism, timeout, connection-pool policy, IMAP command path or MIME parse step moved, and no server-controlled byte reaches anywhere it did not before. The sequenced accessors differ from the indexed ones only in the exception thrown on an empty list (NoSuchElementException rather than IndexOutOfBoundsException), and each of the six sites is guarded by an emptiness check that makes the empty case unreachable, so no new failure mode reaches a caller. The added comments state why those closes must stay `close(false)` / `close(mode == READ_WRITE)` and must not become try-with-resources — the inherited no-arg Folder.close() is close(true), i.e. expunge — which records the behaviour the audit already verified instead of changing it. Verdict stays PASS."
+      },
+      {
+        "date": "2026-08-27",
+        "note": "Documentation and idiom change under these paths. 7ec2793 adds the javadoc summary sentences Error Prone was asking for (ImapProperties, DraftPersistenceService.prepareDraftIdentity, SmtpMessageService.sendEmailAsync), reattaches the ImapFolderService javadoc that had come loose from findFolderNamesByRole and was documenting nothing, annotates ThreadingService.renumberThreadPositions with @SuppressWarnings(\"ReferenceEquality\") where the identity compare is already explained in its own javadoc, and swaps two Collections.emptyList() for List.of() in the MailDraftService reply and forward drafts. Verified line by line: every changed line is a comment, an annotation, or an empty-list factory call that yields an immutable empty list either way. No TLS setting, auth mechanism, timeout, connection-pool policy, IMAP command path or MIME parse step moved. Verdict stays PASS."
       }
     ]
   },
@@ -88,22 +92,26 @@
   },
   "docs/API_SURFACE_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "5929de175f068f7c496d2d252491afbc6c8f1748",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "e5e5ce9a18c1ec14eddef77c967bc64f23ee3dca",
       "backend/src/main/java/org/voxrox/mailbackend/feature/contact/controller": "b0f4ecc1d5e2e73a2d10afc75caea2f4c8fb2110",
       "backend/src/main/java/org/voxrox/mailbackend/feature/contact/dto": "05e6c2053fe77b32dc61dda6da27155c892ce3c8",
       "backend/src/main/java/org/voxrox/mailbackend/feature/account/dto": "d74fd9f1ab3a5bf3660edbc9ac93866bfde403d9",
-      "backend/src/main/java/org/voxrox/mailbackend/core/security": "b179e3a28f96ad24005321b573eea0c9dada2ae5"
+      "backend/src/main/java/org/voxrox/mailbackend/core/security": "09fb8b40a5553f99ca36f044348c0ecd91e56a93"
     },
     "acknowledgements": [
       {
         "date": "2026-08-08",
         "note": "[Pre-structure accumulation.] Everything below was recorded in the single free-text note field the ledger carried before acknowledgements became dated records, and it therefore runs several separate reviews together in one string. It is kept verbatim rather than split, because the per-review object ids and dates it would need were never recorded. It counts as one acknowledgement; the next one starts a fresh record. 3c2e1b3 touches this path in documentation only: ConversationSummaryResponse gains a reworded record javadoc and a reworded @Schema description for messageCount, because the conversation scope stopped spanning the sent folder. No field was added, removed, renamed or retyped, no nullability changed, and no validation annotation was touched — so none of the things this audit weighs (request-body bounds, DTO size limits, what the surface exposes) moved. Evidence rather than assertion: the golden api-docs.json diff for the commit is a single description string, and the schema.d.ts regenerated from it differs by exactly the one @description comment line that carries it — no type, field name or optionality in the generated client surface moves. Verdict stays PASS. — 9567d49 moves the address book out of the account scope: the contact endpoints go from /api/v1/accounts/{accountId}/contacts and .../contact-labels to /api/v1/contacts and /api/v1/contact-labels, and both controllers lose their accountId path variable (autocomplete keeps it as a @RequestParam @Positive). Nothing this audit weighs moves with them. Authorization is path-independent: SecurityConfig permits only PUBLIC_ENDPOINTS (the OAuth callbacks) and leaves anyRequest().authenticated() behind ApiKeyFilter, so a relocated path keeps the same posture — there is no per-prefix rule to fall out of. The two counts the enumeration rests on are unchanged (17 @RestController, 12 @Validated): no controller was added, removed, or stripped of @Validated. Every bound §2 cites is untouched — bulk 100 items, merge 9 sources / 10 emails, label assignment 100 contacts / 50 labels, label name 60 chars, contactQueryMaxLength and the contactAutocompleteMaxLimit clamp — and the whole contact/dto diff for this commit is a single javadoc line; account/dto only gains @Nullable on MailProviderResponse.oauth2RegistrationId, which springdoc does not read, so the golden api-docs.json does not move for it. Error hygiene is unchanged in shape: the contact exceptions drop their accountId argument and still resolve through AppException to an RFC 9457 ProblemDetail. The audit enumerates no endpoint paths, so the move leaves no stale claim. Verdict stays PASS. — 472de85 touches this path in documentation only: the ThreadResponse record javadoc drops the hedge that threadPosition order matches receivedAt ascending only for the canonical case, because ThreadingService now places every arrival by its own receivedAt instead of appending it. No field was added, removed, renamed or retyped, no nullability changed, and no @Schema description or validation annotation was touched, so none of the things this audit weighs — request-body bounds, DTO size limits, what the surface exposes — moved. Evidence rather than assertion: the golden api-docs.json does not appear in the commit diff at all and OpenApiSnapshotTest passes, so the generated client surface cannot have moved either; springdoc reads @Schema, not record javadoc. What changed is the truth of a claim the endpoint already made about its own ordering, not the shape of what it returns. Verdict stays PASS. — The vCard-import fix touches this path in one file, BulkContactCreateRequest.java, and only above the record header: a class javadoc now says what the 100-item cap is for. Verified as a comment-only diff, every changed line inside the added /** */ block; the record component and its @NotEmpty / @Size(max = 100) / @Valid annotations are byte-identical, so every bound this audit rests on in §2 is the one that was audited. No @Schema was added, so the generated surface cannot move either — springdoc reads annotations, not javadoc, and the golden api-docs.json is absent from the commit diff with OpenApiSnapshotTest green. The comment records why the cap exists (it bounds the per-item transactions of one request, not its bytes) and points at finding A1 for the byte question, which is a restatement of what §2 and §6 already establish, not a new claim. Verdict stays PASS. Dead-code batch: the whole diff under core/security is the deletion of InternalApiKeyProvider.invalidateCache, a method with no caller anywhere in main or test. ApiKeyFilter -- the component this audit reasons about, and the only reader of the provider -- is byte-identical, and so is getKey and the AtomicReference it memoizes; HandshakeService mints the key once per process and has no rotation path, which is why nothing ever called the invalidation. Removing an uncalled method cannot change which requests the filter accepts. Verdict PASS stands."
+      },
+      {
+        "date": "2026-08-27",
+        "note": "Idiom-only change under these paths. 7ec2793 replaces Collections.emptyList() with List.of() in ApiKeyFilter (the empty authority collection handed to UsernamePasswordAuthenticationToken) and in the DraftRequest/MailRequest compact constructors (the default empty attachments list). Both factories return an immutable empty list, so size, iteration and the [] Jackson renders are identical; the OpenApiSnapshot golden did not move, which the build confirms rather than this note assuming it. No endpoint, DTO field, validation constraint or authentication decision changed. Verdict stays PASS."
       }
     ]
   },
   "docs/OAUTH_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/auth": "cb84105ef6fc82dcf081fa51ca635eab723953d9"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/auth": "83babfd619df7402c46006a7ff5226288afe7f19"
     },
     "acknowledgements": [
       {
@@ -113,6 +121,21 @@
       {
         "date": "2026-08-26",
         "note": "Comment-only change under this path. 578526c moves the @callerless waiver on OAuth2TokenService.exchangeRefreshToken out of javadoc into a line comment, because @callerless is not a javadoc tag and Error Prone rejected it with InvalidBlockTag. Verified line by line rather than by reading the intent: every added and removed line under this path is a comment line. What the waiver protects is untouched — exchangeRefreshToken still exists, and the accountId != null guard in doRefresh it keeps reachable, the guard that marks an account requires_reauth after a permanent rejection, is byte for byte the same. No token exchange, refresh path, scope, redirect URI, PKCE step or credential storage path moved. Verdict stays PASS."
+      },
+      {
+        "date": "2026-08-27",
+        "note": "One idiom change under this path. 7ec2793 rewrites both cache lookups in OAuth2TokenService.getAccessToken from \"cached.isPresent() && cached.get().isFresh()\" to tokenCache.get(accountId).filter(CachedToken::isFresh). Optional.filter evaluates the predicate only when a value is present, exactly as the && short-circuit did, and the cache is still read once per lookup, so the freshness decision, the double-check under the refresh lock and the fall-through to doRefresh all behave as before. No token is cached, logged or transmitted differently, and no scope, redirect URI or PKCE handling is in the diff. Verdict stays PASS."
+      }
+    ]
+  },
+  "docs/CONTENT_RENDERING_AUDIT.md": {
+    "reviewedTrees": {
+      "backend/src/main/java/org/voxrox/mailbackend/util/HtmlSanitizer.java": "f0fe05868ad59a30ce75badc6529c68d7e55641f"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-08-27",
+        "note": "Comment change plus one control-flow-neutral deletion under this path. 7ec2793 promotes the block comment above SAFELIST to javadoc (it already carried a {@link}), adds the missing summary sentence to the two-argument sanitize javadoc, and deletes a continue from the isSafeImageSrc branch of the <img> loop. Checked rather than assumed: the if/else-if chain is the entire loop body after the src local and nothing follows it, so the continue was the last statement either way and every image stays on exactly the branch it was on - cid rewritten or dropped, inline data: kept untouched, an inert remote placeholder stripped of src, everything else removed. The Safelist, its protocol allow and deny lists and both sanitize entry points are unchanged. Verdict stays PASS."
       }
     ]
   }

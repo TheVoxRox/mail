@@ -72,6 +72,9 @@ class MailFacadeTest {
     private MailDraftService mailDraftService;
     @Mock
     private FolderCountCache folderCountCache;
+    // No test touches it, but MailFacade's constructor takes one, so @InjectMocks
+    // needs the field to exist.
+    @SuppressWarnings("UnusedVariable")
     @Mock
     private RemoteImageAllowlistService remoteImageAllowlistService;
 
@@ -82,6 +85,7 @@ class MailFacadeTest {
      * retried — non-transient throws from the wrapped write still propagate on the
      * first attempt, keeping the verify(...)-once assertions valid.
      */
+    @SuppressWarnings("UnusedVariable") // injected, never read directly; see above
     @Spy
     private RetryTemplate dbWriteRetryTemplate = new RetryConfig().dbWriteRetryTemplate();
 

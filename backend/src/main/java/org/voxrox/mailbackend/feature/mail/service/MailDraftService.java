@@ -65,7 +65,7 @@ public class MailDraftService {
             toAddresses.add(myEmail);
 
         return new MailRequest(String.join(", ", toAddresses), String.join(", ", ccAddresses), null, subject,
-                quotedBody, Collections.emptyList(), original.getMessageId(), newReferences);
+                quotedBody, List.of(), original.getMessageId(), newReferences);
     }
 
     public MailRequest createForwardDraft(MessageEntity original, String content) {
@@ -76,7 +76,7 @@ public class MailDraftService {
         }
 
         return new MailRequest("", "", null, subject, buildQuotedBody(original, content, "Přeposlaná zpráva"),
-                Collections.emptyList(), null, original.getReferences());
+                List.of(), null, original.getReferences());
     }
 
     private String buildQuotedBody(MessageEntity entity, String content, String label) {
