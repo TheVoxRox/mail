@@ -40,12 +40,15 @@ concurrency:
 # A fresh connection usually lands on a healthy mirror backend, so the retry is
 # what recovers and the bound is what keeps a bad attempt from running away.
 #
-# Known limit, left in place deliberately: when the mirror stays degraded longer
+# Known limit, narrowed but not closed: when the mirror stays degraded longer
 # than the whole retry budget, this still ends red where the old unbounded step
-# ended green. The cheaper mitigations that target the observed stall directly
-# -- Acquire::http::Timeout, and pinning the mirror apt failed over to instead of
-# rediscovering the dead one on every attempt -- are recorded as an open item in
-# todo.md together with the log evidence for them.
+# ended green. Acquire::http::Timeout (see the step) now cuts the case that
+# actually produced that red -- a single connection going silent mid-fetch --
+# inside the attempt instead of costing the whole attempt. Pinning a mirror was
+# the other candidate and is deliberately not done: sources on this image are a
+# mirrorlist (file:/etc/apt/apt-mirrors.txt), the host apt fails over to is the
+# one that then stalled, and dropping either entry trades away the failover that
+# got the attempt as far as it did to save ~38s of rediscovery per attempt.
 #
 # dpkg --configure -a runs between apt attempts because timeout kills apt with
 # SIGTERM. The stalls seen so far were all in the fetch phase, where there is
@@ -137,13 +140,51 @@ jobs:
         # cut here -- the three warnings are the whole diagnostic value.
         timeout-minutes: 13
         run: |
+          # Acquire Timeout bounds a connection that has gone silent, which is what
+          # the 200s cap was really catching. In run 32295477243 attempt 1 fetched
+          # the InRelease files by 20:04:48 and then printed nothing at all until
+          # the kill at 20:07:30 -- 162s of one stalled transfer, and the attempt
+          # lost to it. apt's own default is 120s and every byte received restarts
+          # the clock, so a mirror that trickles never trips it; 30s cuts a stalled
+          # connection inside the attempt and lets a retry go again, which with a
+          # mirrorlist can mean a different mirror.
+          #
+          # Both schemes are set on purpose. The stall was on an https URL --
+          # https://archive.ubuntu.com, the mirror apt had just failed over to --
+          # and the https method resolves Acquire::https::Timeout, not the http
+          # one, so setting only http would leave the very case this targets
+          # unbounded. Retries is global rather than per-scheme, so it is set once;
+          # it is already 3 on this image (the 1s/2s/4s backoff in that log is it)
+          # and is spelled out so an image default cannot quietly change the worst
+          # case, which is four tries of 30s on one item.
+          apt_opts='-o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o Acquire::Retries=3'
           for attempt in 1 2 3; do
-            if sudo timeout -k 10 200 bash -c 'apt-get update && apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf'; then
+            status=0
+            sudo timeout -k 10 200 bash -c "apt-get update $apt_opts && apt-get install -y $apt_opts libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf" || status=$?
+            if [ "$status" -eq 0 ]; then
               exit 0
             fi
-            echo "::warning::apt attempt ${attempt} of 3 did not finish within 200s"
-            sudo dpkg --configure -a || true
-            sleep 5
+            # 124 is timeout's own exit, 137 the -k SIGKILL landing; anything else
+            # came from apt. Saying "did not finish within 200s" for a 404 or a
+            # renamed package -- which returns 100 in seconds -- sends the reader
+            # after a network fault that was never there. Both cases are still
+            # retried: apt returns 100 for the transient failures the retry exists
+            # to absorb too, so the exit code cannot separate permanent from
+            # recoverable on its own.
+            case "$status" in
+              124|137)
+                echo "::warning::apt attempt ${attempt} of 3 did not finish within 200s"
+                ;;
+              *)
+                echo "::warning::apt attempt ${attempt} of 3 failed with exit ${status} (not a timeout)"
+                ;;
+            esac
+            # Between attempts only: after the last one there is no next attempt
+            # to repair package state for, and the sleep only delayed the failure.
+            if [ "$attempt" -lt 3 ]; then
+              sudo dpkg --configure -a || true
+              sleep 5
+            fi
           done
           exit 1
 
