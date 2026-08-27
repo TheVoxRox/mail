@@ -172,22 +172,13 @@
 }
 
 /*
- * Visually hidden text that stays accessible to screen readers.
- * Usage: class="sr-only" on an element meant for screen readers only.
- * The sr-only-focusable variant becomes visible on focus (skip-link).
+ * Visually hidden text that stays accessible to screen readers, but becomes
+ * visible on focus (skip-link). Plain `sr-only` is NOT defined here: Tailwind
+ * ships it, and a local copy only ever re-stated it with the deprecated `clip`
+ * property alongside the built-in's `clip-path`. This variant has no built-in
+ * counterpart, so it keeps its own definition — mirroring Tailwind's, then
+ * unhiding on :focus.
  */
-@utility sr-only {
-	position: absolute;
-	width: 1px;
-	height: 1px;
-	padding: 0;
-	margin: -1px;
-	overflow: hidden;
-	clip: rect(0, 0, 0, 0);
-	white-space: nowrap;
-	border-width: 0;
-}
-
 @utility sr-only-focusable {
 	position: absolute;
 	width: 1px;
@@ -195,7 +186,7 @@
 	padding: 0;
 	margin: -1px;
 	overflow: hidden;
-	clip: rect(0, 0, 0, 0);
+	clip-path: inset(50%);
 	white-space: nowrap;
 	border-width: 0;
 
@@ -209,7 +200,7 @@
 		padding: 0.75rem 1.5rem;
 		margin: 0;
 		overflow: visible;
-		clip: auto;
+		clip-path: none;
 		white-space: normal;
 		background: var(--primary);
 		color: var(--primary-foreground);

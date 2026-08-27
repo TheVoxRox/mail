@@ -14,7 +14,11 @@ import {
 	selectedMessage
 } from '$lib/stores/selectedMessage.js';
 import { messagesState } from '$lib/stores/messages.js';
-import { workspaceHref, type WorkspaceMode, workspaceMode } from '$lib/stores/workspaceMode.js';
+import {
+	currentWorkspaceMode,
+	workspaceHref,
+	type WorkspaceMode
+} from '$lib/stores/workspaceMode.js';
 
 function currentFolderHref(): string {
 	const state = get(messagesState);
@@ -57,7 +61,7 @@ export async function goToFolder(accountId: number, folderName: string): Promise
 
 export async function switchToAccount(accountId: number): Promise<void> {
 	setActiveAccount(accountId);
-	const mode = get(workspaceMode);
+	const mode = currentWorkspaceMode();
 	await goto(workspaceHref(mode));
 }
 

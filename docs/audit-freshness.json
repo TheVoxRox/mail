@@ -130,12 +130,17 @@
   },
   "docs/CONTENT_RENDERING_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/util/HtmlSanitizer.java": "f0fe05868ad59a30ce75badc6529c68d7e55641f"
+      "backend/src/main/java/org/voxrox/mailbackend/util/HtmlSanitizer.java": "f0fe05868ad59a30ce75badc6529c68d7e55641f",
+      "frontend/src/lib/components/message-detail": "8d800cdff421f5cf9b6b9e6d1ddb6da26e5b638f"
     },
     "acknowledgements": [
       {
         "date": "2026-08-27",
         "note": "Comment change plus one control-flow-neutral deletion under this path. 7ec2793 promotes the block comment above SAFELIST to javadoc (it already carried a {@link}), adds the missing summary sentence to the two-argument sanitize javadoc, and deletes a continue from the isSafeImageSrc branch of the <img> loop. Checked rather than assumed: the if/else-if chain is the entire loop body after the src local and nothing follows it, so the continue was the last statement either way and every image stays on exactly the branch it was on - cid rewritten or dropped, inline data: kept untouched, an inert remote placeholder stripped of src, everything else removed. The Safelist, its protocol allow and deny lists and both sanitize entry points are unchanged. Verdict stays PASS."
+      },
+      {
+        "date": "2026-08-27",
+        "note": "Two-line deprecated-API swap under this path. MessageHeaderCard takes `page` from `$app/state` instead of the deprecated `$app/stores`, so `$page.url.pathname`/`$page.url.search` become `page.url.pathname`/`page.url.search`. Checked rather than assumed: the entire diff under this path is those two lines, the import and the `returnTo` derivation, and both read the same SvelteKit-owned URL - `$app/state` exposes plain getters over the same `$state` the store subscribed to, so the value is identical and only the reactivity mechanism changes. `returnTo` is built from the application's own route, never from message content, so no new value from an email reaches the DOM. The sanitizer, the frame CSP, the link allow-list and the cid image rewriting are all outside this diff. Verdict stays PASS."
       }
     ]
   }

@@ -6,7 +6,7 @@
 	import { onMount, type Component } from 'svelte';
 	import { afterNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import { bootstrap } from '$lib/bootstrap.js';
 	import { reportClientError, resetClientErrorReportingForTests } from '$lib/api/clientErrors.js';
@@ -24,7 +24,11 @@
 	import { openPalette, paletteOpen } from '$lib/stores/palette.js';
 	import { initThemeSideEffects } from '$lib/stores/theme.js';
 	import { initTextSizeSideEffects } from '$lib/stores/textSize.js';
-	import { type WorkspaceMode, workspaceHref, workspaceMode } from '$lib/stores/workspaceMode.js';
+	import {
+		currentWorkspaceMode,
+		type WorkspaceMode,
+		workspaceHref
+	} from '$lib/stores/workspaceMode.js';
 	import { handleGlobalKeydown } from '$lib/shortcuts/globalShortcuts.js';
 	import { selectedMessage } from '$lib/stores/selectedMessage.js';
 	import { forwardMessage, replyToMessage } from '$lib/mail/actions.js';
@@ -55,12 +59,12 @@
 	let UpdateFailureDialogComp = $state<Component | null>(null);
 
 	/*
-	 * Sidebar is loaded per active workspaceMode (see ./components/sidebar/
+	 * Sidebar is loaded per active workspace (see ./components/sidebar/
 	 * loader.ts). Only one is ever visible at a time; eager-loading all three
 	 * pulled each sidebar's bits-ui + per-feature stores into the initial
 	 * bundle even though only one ever renders.
 	 */
-	const sidebarPromise = $derived(loadSidebar($workspaceMode));
+	const sidebarPromise = $derived(loadSidebar(currentWorkspaceMode()));
 
 	let diagnosticBusy = $state(false);
 	let diagnosticError = $state<string | null>(null);
@@ -76,7 +80,7 @@
 	 * elements have no aria-label at all — their state is transitive and
 	 * the generic landmark announcement is enough.
 	 */
-	const mainLandmarkLabel = $derived($_(`workspace.${$workspaceMode}`));
+	const mainLandmarkLabel = $derived($_(`workspace.${currentWorkspaceMode()}`));
 
 	/*
 	 * Native OS window title (taskbar / Alt+Tab, and the name a screen reader
@@ -258,14 +262,14 @@
 	async function goToNewContact() {
 		// No account guard: the address book is application-wide, so a new
 		// contact can be written before any mailbox is set up.
-		const params = new SvelteURLSearchParams($page.url.searchParams);
+		const params = new SvelteURLSearchParams(page.url.searchParams);
 		params.set('create', '1');
 		const query = params.toString();
 		await goto(`${resolve('/contacts')}${query ? `?${query}` : ''}`);
 	}
 
 	async function goToPrimaryNewAction() {
-		if ($workspaceMode === 'contacts') {
+		if (currentWorkspaceMode() === 'contacts') {
 			await goToNewContact();
 			return;
 		}
@@ -295,7 +299,7 @@
 			goToWorkspace,
 			getMessageShortcutContext: () => {
 				const selected = $selectedMessage;
-				if (!selected?.stableId || !isOpenMessageRoute($page.url.pathname)) return null;
+				if (!selected?.stableId || !isOpenMessageRoute(page.url.pathname)) return null;
 				return { seen: selected.detail?.seen ?? false };
 			},
 			reply: () => runOnOpenMessage((id) => replyToMessage(id, false)),

@@ -1,5 +1,9 @@
 <script lang="ts">
-	import { type WorkspaceMode, workspaceHref, workspaceMode } from '$lib/stores/workspaceMode.js';
+	import {
+		currentWorkspaceMode,
+		type WorkspaceMode,
+		workspaceHref
+	} from '$lib/stores/workspaceMode.js';
 	import { _ } from '$lib/i18n/index.js';
 	import Icon from '$lib/components/Icon.svelte';
 	import { focusRing } from '$lib/components/ui/focus-ring/index.js';
@@ -35,7 +39,7 @@
 >
 	<div class="flex w-full flex-col items-center gap-2">
 		{#each items as item (item.mode)}
-			{@const active = $workspaceMode === item.mode}
+			{@const active = currentWorkspaceMode() === item.mode}
 			<a
 				href={workspaceHref(item.mode)}
 				class={railItemClass(active)}

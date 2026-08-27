@@ -4,22 +4,24 @@
 	import { get } from 'svelte/store';
 	import { activeAccount } from '$lib/stores/accounts.js';
 	import { clientConfig } from '$lib/stores/clientConfig.js';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { _ } from '$lib/i18n/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
-	import { onDestroy } from 'svelte';
+	import { untrack } from 'svelte';
 
-	let query = $state(get(page).url.searchParams.get('q') ?? '');
+	let query = $state(page.url.searchParams.get('q') ?? '');
 
-	const unsubscribe = page.subscribe(($page) => {
-		const nextQuery = $page.url.searchParams.get('q') ?? '';
-		if (nextQuery !== query) {
+	/*
+	 * The URL is the source of truth for the query, but the user types into
+	 * `query` between navigations. Untracking the comparison keeps those local
+	 * edits out of the effect's dependencies, so it re-runs on navigation only —
+	 * the semantics the `page.subscribe` it replaced had.
+	 */
+	$effect(() => {
+		const nextQuery = page.url.searchParams.get('q') ?? '';
+		if (nextQuery !== untrack(() => query)) {
 			query = nextQuery;
 		}
-	});
-
-	onDestroy(() => {
-		unsubscribe();
 	});
 
 	function handleSubmit(event: SubmitEvent) {

@@ -1,6 +1,5 @@
 import { beforeNavigate } from '$app/navigation';
-import { page } from '$app/stores';
-import { get } from 'svelte/store';
+import { page } from '$app/state';
 
 export interface LeaveGuardOptions {
 	/** True while the guard should intercept navigation (e.g. dirty && !busy && !bypass). */
@@ -37,7 +36,7 @@ export function installLeaveGuard(options: LeaveGuardOptions): void {
 		}
 		const nextUrl = navigation.to?.url;
 		if (!nextUrl) return;
-		if (isSameTarget(nextUrl, get(page).url)) return;
+		if (isSameTarget(nextUrl, page.url)) return;
 		navigation.cancel();
 		options.onBlocked(nextUrl);
 	});
