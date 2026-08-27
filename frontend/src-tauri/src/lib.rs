@@ -31,9 +31,11 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(PendingUpdate(Mutex::new(None)))
+        .manage(DownloadedUpdate(Mutex::new(None)))
         .manage(tray::CloseBehavior::default())
         .invoke_handler(tauri::generate_handler![
             check_for_update,
+            download_pending_update,
             install_pending_update,
             tray::configure_tray,
             tray::set_tray_tooltip,
@@ -132,6 +134,30 @@ fn window_sizes_for(work_area: Option<LogicalSize<f64>>) -> (LogicalSize<f64>, L
 /// (or cleared) by every subsequent check, including after a channel switch.
 struct PendingUpdate(Mutex<Option<tauri_plugin_updater::Update>>);
 
+/// The verified installer bytes produced by `download_pending_update`.
+///
+/// Downloading and installing are two commands rather than one because the
+/// webview has work to do between them: the installer overwrites the sidecar
+/// launcher and its bundled JRE inside the install directory, and Windows will
+/// not overwrite a file a live process holds open. The seam is what lets the
+/// backend be shut down after the bytes are on disk but before the installer
+/// is handed control.
+///
+/// The bytes stay Rust-side. `Update::download` verifies the signature before
+/// it returns and `Update::install` does not re-check, so routing the package
+/// through the renderer would put the one unverified copy of the installer on
+/// the install path — the pinned pubkey would still have been checked, but no
+/// longer on the bytes that actually run.
+///
+/// Cleared by every `check_for_update`, so a package can never outlive the
+/// prompt that offered it.
+struct DownloadedUpdate(Mutex<Option<DownloadedPackage>>);
+
+struct DownloadedPackage {
+    version: String,
+    bytes: Vec<u8>,
+}
+
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 struct UpdateMetadata {
@@ -171,6 +197,7 @@ fn beta_endpoint_override(channel: &str) -> Result<Option<&'static str>, String>
 async fn check_for_update(
     app: tauri::AppHandle,
     pending: tauri::State<'_, PendingUpdate>,
+    downloaded: tauri::State<'_, DownloadedUpdate>,
     channel: String,
 ) -> Result<Option<UpdateMetadata>, String> {
     let mut builder = app.updater_builder();
@@ -194,14 +221,23 @@ async fn check_for_update(
     });
 
     *pending.0.lock().unwrap_or_else(|err| err.into_inner()) = update;
+    // A package downloaded for a previous answer must not survive a new one:
+    // the version pin below would still catch it, but leaving it there means
+    // holding an installer nothing can install.
+    *downloaded.0.lock().unwrap_or_else(|err| err.into_inner()) = None;
     Ok(metadata)
 }
 
-#[tauri::command]
-async fn install_pending_update(
-    pending: tauri::State<'_, PendingUpdate>,
-    expected_version: String,
-) -> Result<(), String> {
+/// Reads the pending update, failing unless it is the version the prompt named.
+///
+/// The webview names the version its prompt showed. The pending slot is
+/// replaced by every check (cleared on a no-update result), so without this pin
+/// a stale prompt could act on a different build than the one the user
+/// approved — failing is better.
+fn take_expected_update(
+    pending: &tauri::State<'_, PendingUpdate>,
+    expected_version: &str,
+) -> Result<tauri_plugin_updater::Update, String> {
     let update = pending
         .0
         .lock()
@@ -209,10 +245,6 @@ async fn install_pending_update(
         .clone()
         .ok_or_else(|| "no update is pending installation".to_string())?;
 
-    // The webview names the version its prompt showed. The pending slot is
-    // replaced by every check (cleared on a no-update result), so without
-    // this pin a stale prompt could install a different build than the one
-    // the user approved — failing is better.
     if update.version != expected_version {
         return Err(format!(
             "pending update is {}, but the prompt offered {}",
@@ -220,10 +252,59 @@ async fn install_pending_update(
         ));
     }
 
-    update
-        .download_and_install(|_, _| {}, || {})
+    Ok(update)
+}
+
+#[tauri::command]
+async fn download_pending_update(
+    pending: tauri::State<'_, PendingUpdate>,
+    downloaded: tauri::State<'_, DownloadedUpdate>,
+    expected_version: String,
+) -> Result<(), String> {
+    let update = take_expected_update(&pending, &expected_version)?;
+
+    // Signature verification happens in here, against the pinned pubkey,
+    // before the bytes are handed back.
+    let bytes = update
+        .download(|_, _| {}, || {})
         .await
-        .map_err(|err| err.to_string())
+        .map_err(|err| err.to_string())?;
+
+    *downloaded.0.lock().unwrap_or_else(|err| err.into_inner()) = Some(DownloadedPackage {
+        version: update.version,
+        bytes,
+    });
+    Ok(())
+}
+
+#[tauri::command]
+async fn install_pending_update(
+    pending: tauri::State<'_, PendingUpdate>,
+    downloaded: tauri::State<'_, DownloadedUpdate>,
+    expected_version: String,
+) -> Result<(), String> {
+    let update = take_expected_update(&pending, &expected_version)?;
+
+    let guard = downloaded.0.lock().unwrap_or_else(|err| err.into_inner());
+    let package = guard
+        .as_ref()
+        .ok_or_else(|| "no update has been downloaded".to_string())?;
+
+    // Same pin again on the package itself: the download and the install are
+    // separate calls, so a check between them could have moved the pending
+    // slot on while these bytes stayed behind.
+    if package.version != expected_version {
+        return Err(format!(
+            "downloaded update is {}, but the prompt offered {}",
+            package.version, expected_version
+        ));
+    }
+
+    // On Windows this spawns the installer and ends the process with
+    // std::process::exit(0), so nothing after it runs — including the
+    // webview's beforeunload hooks. Whatever has to happen before the
+    // installer touches the install directory has to have happened already.
+    update.install(&package.bytes).map_err(|err| err.to_string())
 }
 
 /// Resolves the unified `<vendor>/Mail[suffix]` data root under the OS-specific

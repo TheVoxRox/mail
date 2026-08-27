@@ -153,7 +153,15 @@ export async function restartBackendSidecar(): Promise<void> {
 	await ensureBackendSidecar();
 }
 
-async function stopBackendSidecar(): Promise<void> {
+/**
+ * Kills the sidecar and marks the stop as intentional, so `handleUnexpectedExit`
+ * reports `stopped` instead of restarting it.
+ *
+ * Exported for the update path, which has to free the install directory before
+ * the installer runs (see installPromptedUpdate in lib/updates.ts). Everywhere
+ * else it is reached through `restartBackendSidecar` or the beforeunload hook.
+ */
+export async function stopBackendSidecar(): Promise<void> {
 	runtime.stopRequested = true;
 	const runningChild = runtime.child;
 	runtime.child = null;
