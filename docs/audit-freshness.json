@@ -43,7 +43,7 @@
   ],
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "86ee8e1ad281723c607d91005879bda713069e76",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "93fbaacb8df381212b81a290fbb60c9144688e62",
       "backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java": "54707f192e933ad89aec987c1223eb6ec03821c1",
       "backend/src/main/java/org/voxrox/mailbackend/util/SubjectNormalizer.java": "9f5185a315875e4f312bb869cfa9903bda53c8ff",
       "backend/src/main/java/org/voxrox/mailbackend/core/config/mail": "63a1713b3bacac4d2fbde82a906486bc33daf5fb"
@@ -56,6 +56,10 @@
       {
         "date": "2026-08-26",
         "note": "Comment-only change under this path. 578526c moves the @callerless waiver on ImapCapabilities.hasQresync and SseNotificationService.getActiveEmitterCount out of javadoc into a line comment, because @callerless is not a javadoc tag and Error Prone rejected all five of the gate’s waivers with InvalidBlockTag. Verified line by line rather than by reading the intent: every added and removed line under this path is a comment line — a javadoc opener, closer or continuation going out, a // coming in. No statement, signature, annotation or literal changed, so no TLS setting, auth mechanism, timeout, connection-pool policy or IMAP command path moved, and no server-controlled byte reaches anywhere it did not before. The waiver text itself is unchanged in substance: the QRESYNC probe is still recorded and still unused, which is the fact the waiver exists to state. Verdict stays PASS."
+      },
+      {
+        "date": "2026-08-27",
+        "note": "API-equivalence and comment-only change under this path. fa1333f swaps six `get(0)` / `get(size() - 1)` calls here for `getFirst()` / `getLast()` (ImapFolderService, MailFacade, MarkdownBodyRenderer, ThreadingBackfillService, ThreadingService twice), replaces `Thread.sleep(millis)` with the `Duration` overload in DraftPersistenceService, and adds comments — nothing else — at the folder-close sites in ImapFolderExecutor, ImapAppendService (two) and ImapActionService. Verified line by line rather than by intent: every changed line is either a comment or a call whose replacement is specified in terms of the call it replaces, so no TLS setting, auth mechanism, timeout, connection-pool policy, IMAP command path or MIME parse step moved, and no server-controlled byte reaches anywhere it did not before. The sequenced accessors differ from the indexed ones only in the exception thrown on an empty list (NoSuchElementException rather than IndexOutOfBoundsException), and each of the six sites is guarded by an emptiness check that makes the empty case unreachable, so no new failure mode reaches a caller. The added comments state why those closes must stay `close(false)` / `close(mode == READ_WRITE)` and must not become try-with-resources — the inherited no-arg Folder.close() is close(true), i.e. expunge — which records the behaviour the audit already verified instead of changing it. Verdict stays PASS."
       }
     ]
   },

@@ -126,7 +126,7 @@ public final class ParentProcessWatchdog {
     static Thread exitWithHaltFallback(Runnable exit, Runnable halt, Duration timeout) {
         Thread halter = new Thread(() -> {
             try {
-                Thread.sleep(timeout.toMillis());
+                Thread.sleep(timeout);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 return;

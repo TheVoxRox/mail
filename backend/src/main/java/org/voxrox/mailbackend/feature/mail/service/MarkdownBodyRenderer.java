@@ -206,7 +206,7 @@ public class MarkdownBodyRenderer {
             }
 
             List<SourceSpan> spans = heading.getSourceSpans();
-            int underlineLine = spans.get(spans.size() - 1).getLineIndex();
+            int underlineLine = spans.getLast().getLineIndex();
             if (underlineLine >= 0 && underlineLine < lines.length) {
                 paragraph.appendChild(new SoftLineBreak());
                 paragraph.appendChild(new Text(lines[underlineLine]));

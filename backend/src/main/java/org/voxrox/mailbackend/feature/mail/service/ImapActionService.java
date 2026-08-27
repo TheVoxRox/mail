@@ -80,6 +80,8 @@ public class ImapActionService {
                 } finally {
                     if (dest != null && dest.isOpen()) {
                         try {
+                            // close(false), not the AutoCloseable close() — that one is
+                            // close(true) and would expunge. See ImapFolderExecutor.
                             dest.close(false);
                         } catch (MessagingException e) {
                             log.debug("{} Closing the move destination folder failed: {}", LogCategory.IMAP,

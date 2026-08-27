@@ -201,7 +201,7 @@ public class ContactService {
         // request, not an empty history.
         accountService.getAccountOrThrow(accountId);
 
-        int cappedLimit = Math.min(Math.max(limit, 1), AUTOCOMPLETE_MAX_LIMIT);
+        int cappedLimit = Math.clamp(limit, 1, AUTOCOMPLETE_MAX_LIMIT);
         // Trimmed as well as folded: CorrespondentService.search trims internally,
         // so without it a query with leading whitespace searches the two sources
         // for different strings — and the rank functions, comparing against the
@@ -635,7 +635,7 @@ public class ContactService {
             target.getEmails().add(ne);
         }
         if (!targetHasPrimary && !target.getEmails().isEmpty()) {
-            target.getEmails().get(0).setPrimary(true);
+            target.getEmails().getFirst().setPrimary(true);
         }
         target.setNote(mergedNote);
         target.getLabels().addAll(mergedLabels);
@@ -730,6 +730,6 @@ public class ContactService {
 
     private static String primaryEmail(ContactEntity entity) {
         return entity.getEmails().stream().filter(e -> e.isPrimary()).findFirst().map(e -> e.getEmail())
-                .orElseGet(() -> entity.getEmails().isEmpty() ? "unknown" : entity.getEmails().get(0).getEmail());
+                .orElseGet(() -> entity.getEmails().isEmpty() ? "unknown" : entity.getEmails().getFirst().getEmail());
     }
 }

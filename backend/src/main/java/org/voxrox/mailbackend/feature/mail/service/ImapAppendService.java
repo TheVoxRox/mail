@@ -91,6 +91,8 @@ public class ImapAppendService {
                     return true;
                 } finally {
                     if (folder.isOpen()) {
+                        // close(false), not the AutoCloseable close() — that one is
+                        // close(true) and would expunge. See ImapFolderExecutor.
                         folder.close(false);
                     }
                 }
@@ -147,6 +149,8 @@ public class ImapAppendService {
                     return new DraftAppendOutcome(true, null, null);
                 } finally {
                     if (folder.isOpen()) {
+                        // close(false), not the AutoCloseable close() — that one is
+                        // close(true) and would expunge. See ImapFolderExecutor.
                         folder.close(false);
                     }
                 }

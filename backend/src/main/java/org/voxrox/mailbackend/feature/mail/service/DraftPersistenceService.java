@@ -296,7 +296,7 @@ public class DraftPersistenceService {
             }
             if (attempt < SUPERSEDE_DRAFT_LOOKUP_ATTEMPTS - 1) {
                 try {
-                    Thread.sleep(SUPERSEDE_DRAFT_LOOKUP_DELAY.toMillis());
+                    Thread.sleep(SUPERSEDE_DRAFT_LOOKUP_DELAY);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     return null;
