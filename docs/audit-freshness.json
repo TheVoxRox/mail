@@ -67,44 +67,6 @@
       }
     ]
   },
-  "docs/UPDATER_AUDIT.md": {
-    "reviewedTrees": {
-      ".github/workflows/windows-signed-release.yml": "0687a1c04e7a9d31438c10a9304802dc7d946925",
-      ".github/workflows/beta-channel.yml": "84d05d34c03448f99c42a547890bc05aeefe6990",
-      "frontend/src-tauri/src": "9c8b6e4118326e59b38795efb0e5809f527dc415",
-      "frontend/src/lib/updates.ts": "78e80a3781ef81a96145fc60bda8696fdac918a9",
-      "frontend/src/lib/components/UpdatePromptDialog.svelte": "cfaccbc34b830c5ed7d0b270507f45edb0f8cc0b",
-      "frontend/src/lib/components/UpdateFailureDialog.svelte": "45b7bbd7e0171f3afbc80d892f5bbd4bf861a12a",
-      "frontend/scripts/generate-tauri-latest-windows.mjs": "9c048ef32f2c8bd55e31913dad6dbc97684269cc",
-      "frontend/scripts/verify-updater-signature.mjs": "89e9a7437bf000c93c535f0457da29db1592a402"
-    },
-    "acknowledgements": [
-      {
-        "date": "2026-08-28",
-        "note": "The U-1 fix (audit v1.6), and nothing else. Both release workflows stop interpolating outside values into their `run:` blocks and read them from a step-level `env:` instead: windows-signed-release.yml takes the release tag, ref type and ref name that way (pwsh `$env:RELEASE_TAG_INPUT` / `$env:REF_TYPE` / `$env:REF_NAME`) plus the skip-backend-tests boolean, and beta-channel.yml takes the source tag (`${TAG_INPUT:-$RELEASE_EVENT_TAG}`, matching the `||` it replaced) plus the force boolean. No step was added, removed or reordered and no value changed: the same tag still fails the same version comparison, the same loop guard still skips the beta pointer release, and the guard script is still called with the same two arguments. The two booleans could not carry an injection payload and were converted anyway so the file-level property is \"no `${{ }}` inside any `run:` block\" rather than a mixed set a reader has to judge site by site. Nothing under any other Code path moved, so the signature, endpoint and command claims are untouched and the verdict stays PASS."
-      },
-      {
-        "date": "2026-08-28",
-        "note": "The install-progress change (audit v1.7), and nothing else. lib.rs gains one outbound event (update://download-progress, byte counts throttled to whole percents) emitted from the existing chunk callback of download_pending_update; no command was added, no signature or endpoint logic moved, and the emit is ignored on failure so progress can never fail a download. updates.ts gains an install phase and a progress field on the installing state plus the listener that fills it, and the listener handle is deliberately not awaited before the download starts (awaiting would open a turn in which a concurrent check could clear the shell pending slot). UpdatePromptDialog.svelte gains the bar and the phase label. Both new claims are written into the audit rather than left implicit: section 1 for the direction and irrelevance of the event to the trust chain, section 4 for the clamping that keeps a hostile Content-Length from reaching a style attribute as anything but a number in 0..=100. Verdict stays PASS."
-      },
-      {
-        "date": "2026-08-28",
-        "note": "Presentation-only change under these paths, and the one acknowledgement in this run that does NOT come with an audit revision, because it falsifies no claim the audit makes. A failed install now sets the prompt to hidden instead of back to available, and UpdateFailureDialog.svelte stops pushing a toast that carried its own heading — the failure was announced twice, and the modal stood over a prompt still offering the update that had just failed. Section 5 says the manual check surfaces a prominent failure UI with a releases-page fallback; that is still exactly what happens, and the backend restart on a failed install is untouched. Nothing in the check, download, verify or install path moved, no command signature changed, and no new value reaches the DOM. Verdict stays PASS."
-      },
-      {
-        "date": "2026-08-28",
-        "note": "The manifest artifact-selection fix (audit v1.8), and nothing else. Carrying the released version in the artifact name moves from a +10 term in scoreArtifact to a filter applied before the sort, with its own error naming the signed artifacts that were found; the no-signed-artifact case is now raised separately, because an unsigned build and a stale build are different mistakes with different fixes. The version is matched as a whole token so 0.1.0 does not match inside 0.1.01. Nothing else in the file changed: the same signed-only candidate set, the same empty-signature throw, the same encodeURIComponent on the url, the same manifest shape. Section 2 is updated rather than left describing the weaker behaviour, and it now also records why the v1.5 signature gate cannot catch this case. Verdict stays PASS."
-      },
-      {
-        "date": "2026-08-28",
-        "note": "The batch of small items (audit v1.9). verify-updater-signature.mjs gains one assertion on the config it already parses: a release fails if dangerousInsecureTransportProtocol is true, which closes the informational note section 6 had carried since v1.0. The flag spelled out as false still passes, because Tauri defaults it to false and treating \"mentioned\" as \"enabled\" would fail a correct release; both cases are tested. prepare-tauri-updater-config.mjs is deleted and drops out of Code paths — nothing invoked it (only its own npm script referenced it) and with no Authenticode certificate configured, which is this repository state per AR-4, it emitted a file byte-identical to prepare-tauri-windows-release-config.mjs; verified by running both and diffing. updates.ts loses only the unused showMockUpdateFailureForTests seam, which no test ever called. Nothing in the check, download, verify or install path moved and no signature logic changed. Verdict stays PASS."
-      },
-      {
-        "date": "2026-08-28",
-        "note": "Prompt-affordance change, no audit revision — for the same reason as the failure-surface acknowledgement above: no claim here is falsified. Section 5 says a per-version dismissal is persisted best-effort in localStorage, which stays exactly true; what changed is which gesture triggers it. postponePromptedUpdate now only closes the prompt, and a new skipPromptedUpdateVersion is the one thing that writes the version, so \"Later\" and the Escape/click-outside path stop meaning \"never\" silently. Reading the record is untouched (still only the startup check; the manual check deliberately ignores it, now pinned by a test). No signature, endpoint, command or install-path logic moved and nothing new reaches the DOM beyond one more button label. Verdict stays PASS."
-      }
-    ]
-  },
   "docs/API_SURFACE_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "e5e5ce9a18c1ec14eddef77c967bc64f23ee3dca",
