@@ -58,8 +58,19 @@ jobs:
 
       - name: Resolve source tag
         id: source
+        # The tag is read through env:, never interpolated into the script.
+        # Git refname rules allow backticks, dollar signs, semicolons and
+        # quotes, so a "${{ }}" expansion inside a run: block is executable
+        # code in a job that holds contents: write — U-1 in
+        # docs/UPDATER_AUDIT.md. The steps below already read the resolved tag
+        # this way; this step was the one that did not.
+        env:
+          TAG_INPUT: ${{ inputs.tag }}
+          RELEASE_EVENT_TAG: ${{ github.event.release.tag_name }}
         run: |
-          TAG="${{ inputs.tag || github.event.release.tag_name }}"
+          # ${VAR:-default} matches the `||` this replaced: an empty input
+          # falls through to the release event's tag.
+          TAG="${TAG_INPUT:-$RELEASE_EVENT_TAG}"
           if [ -z "$TAG" ]; then
             echo "No source tag resolved." >&2
             exit 1
@@ -121,11 +132,16 @@ jobs:
 
       - name: Guard against version regression
         if: steps.candidate.outputs.proceed == 'true'
+        # A boolean input cannot carry an injection payload, but it is read
+        # through env: like every other outside value so that no reader has to
+        # work out which of the interpolations were the safe ones.
+        env:
+          FORCE_INPUT: ${{ inputs.force }}
         run: |
           node frontend/scripts/beta-channel-guard.mjs \
             --new candidate/latest.json \
             --current current/latest.json \
-            --force "${{ inputs.force || 'false' }}"
+            --force "${FORCE_INPUT:-false}"
 
       - name: Upload manifest to beta release
         if: steps.candidate.outputs.proceed == 'true'

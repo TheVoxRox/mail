@@ -2,13 +2,13 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.5                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| **Version**        | 1.6                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | **Date**           | 2026-08-28                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | **Audited commit** | `c6744a1` (re-verified 2026-08-28 after the signing-key gate and the install-ordering fix; v1.4 anchor: `cad05cb`, recorded pre-squash as `5799e8b`; v1.2/1.3 anchor: `3162e6a` (#144), v1.0/1.1 baseline: `d55b753`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | **Code paths**     | `frontend/src-tauri/src`, `frontend/src-tauri/tauri.conf.json`, `frontend/src-tauri/capabilities`, `frontend/src/lib/updates.ts`, `frontend/src/lib/components/UpdatePromptDialog.svelte`, `frontend/src/lib/components/UpdateFailureDialog.svelte`, `frontend/src/lib/components/settings/AboutSettings.svelte`, `.github/workflows/windows-signed-release.yml`, `.github/workflows/beta-channel.yml`, `frontend/scripts/beta-channel-guard.mjs`, `frontend/scripts/generate-tauri-latest-windows.mjs`, `frontend/scripts/verify-updater-signature.mjs`, `frontend/scripts/lib/minisign.mjs`, `frontend/scripts/prepare-tauri-windows-release-config.mjs`, `frontend/scripts/prepare-tauri-updater-config.mjs`, `frontend/scripts/lib/tauri-config.mjs` |
 | **Subsystem**      | Tauri auto-updater — Boundary 6 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| **Verdict**        | **Security: PASS** — nothing in the trust chain, in three audits running. One **Low** hardening finding open (U-1, workflow script injection, needs repo write access to reach); two procedural/informational notes. The v1.5 code changes came from the operational review in `todo.md`, not from this audit.                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| **Verdict**        | **Security: PASS** — nothing in the trust chain, in three audits running. The one finding this audit raised (U-1, workflow script injection, **Low**) is fixed; two procedural/informational notes stay open. The v1.5 code changes came from the operational review in `todo.md`, not from this audit.                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 
 Per-subsystem release audit of the update channel **"GitHub release →
 signature-verified install"**. This is the one path that cannot be fixed after a
@@ -188,20 +188,32 @@ renders through `{message}` in a `<span>` — Svelte text interpolation, no
 
 ## 6. Findings and informational notes
 
-- **U-1 — script injection in both release workflows (Low, open).** The tag name
-  is interpolated straight into `run:` blocks:
-  [beta-channel.yml](../.github/workflows/beta-channel.yml) reads
+- **U-1 — script injection in both release workflows (Low, FIXED 2026-08-28).**
+  The tag name was interpolated straight into `run:` blocks:
+  [beta-channel.yml](../.github/workflows/beta-channel.yml) read
   `${{ github.event.release.tag_name }}` into a bash string,
   [windows-signed-release.yml](../.github/workflows/windows-signed-release.yml)
-  does the same with `inputs['release-tag']` into a pwsh one. Git refname rules
-  allow `` ` ``, `$`, `;`, `&`, `|` and quotes, so a crafted tag is executable
+  did the same with `inputs['release-tag']` into a pwsh one. Git refname rules
+  allow `` ` ``, `$`, `;`, `&`, `|` and quotes, so a crafted tag was executable
   code inside a job holding `contents: write` — including the updater signing
   secrets. Rated Low because creating that tag already requires write access to
-  the repository, so it escalates an existing privilege rather than granting
-  one; it is a **hardening** item, not a way in. Both workflows are in
-  `Code paths` and no previous revision of this audit looked at their injection
-  surface. Mechanical fix (value into `env:`, read as `"$TAG"` / `$env:TAG`)
-  recorded in `todo.md`.
+  the repository, so it escalated an existing privilege rather than granting
+  one; it was a **hardening** item, not a way in. Both workflows have been in
+  `Code paths` since v1.2 and no revision before v1.5 looked at their injection
+  surface.
+  **Fix:** every value originating outside the workflow file now arrives through
+  a step-level `env:` and is read as a variable — `${TAG_INPUT:-$RELEASE_EVENT_TAG}`
+  in bash, `$env:RELEASE_TAG_INPUT` / `$env:REF_TYPE` / `$env:REF_NAME` in pwsh.
+  The two boolean inputs (`inputs.force`, `inputs['skip-backend-tests']`) cannot
+  carry a payload and were converted anyway, so that **no `${{ }}` remains inside
+  any `run:` block in either file** — a reader checking this property does not
+  have to judge each interpolation, and a new one is visible as an exception
+  rather than as one more of a mixed set. Verified mechanically over both files
+  after the change; the other repository workflows were scanned at the same time
+  and two still interpolate, neither with attacker-shaped input: `ci.yml` passes
+  commit SHAs (`github.event.pull_request.base.sha` / `github.event.before`, both
+  40-hex from GitHub), and `vuln-scan.yml` passes the NVD API key — a
+  log-hygiene item for a secret, not an injection, and outside this boundary.
 - **Base-config updater block is a dev reference, not the release source of
   truth.** [tauri.conf.json](../frontend/src-tauri/tauri.conf.json) carries a
   hardcoded pubkey + `TheVoxRox/mail` endpoint; the shipped values come from the
@@ -225,6 +237,15 @@ renders through `{message}` in a `<span>` — Svelte text interpolation, no
 
 ## 8. Change log
 
+- **1.6** (2026-08-28) — **U-1 fixed**, the finding v1.5 had raised one revision
+  earlier. Both release workflows now take every outside value through a
+  step-level `env:` and read it as a variable, so no `${{ }}` remains inside any
+  `run:` block in either file — including the two boolean inputs, which could not
+  carry a payload but were converted so the property is checkable by looking
+  rather than by judging each site. Nothing else moved: same commands, same
+  pinned pubkey, same manifest, same verdict (**PASS**). The `Audited commit`
+  stays `c6744a1`; the drift these two files now carry is exactly what this entry
+  describes, recorded in [audit-freshness.json](audit-freshness.json).
 - **1.5** (2026-08-28) — re-verified against `c6744a1` and **corrected**, rather
   than acknowledged for a fourth time. The operational review recorded in
   `todo.md` found nothing in the trust chain but showed three places where this
