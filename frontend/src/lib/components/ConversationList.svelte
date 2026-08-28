@@ -38,6 +38,8 @@
 		type ConversationBulkContext
 	} from '$lib/mail/conversationBulk.js';
 	import { forwardMessage, replyToMessage } from '$lib/mail/actions.js';
+	import { createConversationSelection } from '$lib/mail/conversationSelection.js';
+	import { createThreadMemberCache } from '$lib/mail/threadMembers.js';
 	import type { RowActions } from '$lib/mail/rowActions.js';
 	import Icon from '$lib/components/Icon.svelte';
 	import MessageFlags from '$lib/components/MessageFlags.svelte';
@@ -52,7 +54,6 @@
 	} from '$lib/types.js';
 	import { getContext, tick } from 'svelte';
 	import { get } from 'svelte/store';
-	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
 	// Conversation treegrid — one top-level row per thread (its newest message in
 	// the folder + count badge). An expanded thread lists every message it holds
@@ -99,40 +100,34 @@
 	});
 	const latestSelection = createLatestSelection();
 
-	// Expansion is per-view: expanded thread ids, their loaded thread members as
-	// the API returned them (unfiltered — the view-dependent filtering happens at
-	// render time), and in-flight fetches. Members are added to `expanded` only
-	// after they load, so an expanded id always has a `members` entry.
-	const expanded = new SvelteSet<string>();
-	const members = new SvelteMap<string, MailSummaryResponse[]>();
-	const loadingThreads = new SvelteSet<string>();
-	// In-flight member fetches, so concurrent callers share one request.
-	const memberRequests = new SvelteMap<string, Promise<MailSummaryResponse[] | null>>();
-	// Generation counter for the member cache; a fetch that started before an
-	// invalidation must not write its stale response into the new generation.
-	let membersToken = 0;
-	let viewKey = '';
-	// Identity of the page the cached members were derived from. Every load
-	// returns a fresh page object, so a changed reference means the folder was
-	// refetched (sync_completed, a bulk action) and the cache is stale.
-	let membersPage: unknown = null;
-
 	/*
-	 * Selection is per-view and has two levels, mutually exclusive per
-	 * conversation. `selected` holds whole conversations by representative
-	 * stableId — resolved to the folder's members only when an action runs, so a
-	 * collapsed thread can be selected without fetching it. `selectedMembers`
-	 * holds the individually ticked messages of a thread, mapped to their thread
-	 * id: the tick lives on the message, but resolving it later must not depend on
-	 * the member cache still being warm, and the id is what re-fetches it.
-	 *
-	 * Ticking a parent collapses its member entries into the conversation-level
-	 * selection; unticking one message of a selected conversation expands that
-	 * selection into per-message entries, so the rest of the thread stays selected
-	 * and the parent can announce `mixed`. A conversation is never in both.
+	 * Expansion and selection are both per-view state machines, and both live in
+	 * modules of their own (mail/threadMembers.ts, mail/conversationSelection.ts)
+	 * so they can be unit tested — inside a component they were reachable only by
+	 * clicking. What stays here is what the view knows and they do not: which
+	 * folder is open, and which of a thread's messages this view may act on.
 	 */
-	const selected = new SvelteSet<string>();
-	const selectedMembers = new SvelteMap<string, string>();
+	const memberCache = createThreadMemberCache({
+		context: () =>
+			$conversationsState.status === 'ready'
+				? {
+						accountId: $conversationsState.context.accountId,
+						folderName: $conversationsState.context.folderName
+					}
+				: null,
+		/*
+		 * Folder-scoped on purpose (see api/mailRead.ts): the server returns
+		 * exactly the messages the row's badge counted — the excluded folders
+		 * filtered and the copies of one mail (Gmail's INBOX + All Mail) collapsed
+		 * — so the child rows always add up to the badge instead of this component
+		 * re-deriving the same rule from IMAP roles.
+		 */
+		fetchMembers: async ({ accountId, folderName }, threadId) =>
+			(await getThread(accountId, threadId, folderName)).messages,
+		onLoadError: (error) =>
+			announcePolite(`${$_('messages.grouping.loadError')} ${toErrorMessage(error)}`)
+	});
+	const selection = createConversationSelection();
 	let bulkAction = $state<BulkAction | null>(null);
 	let bulkError = $state<string | null>(null);
 
@@ -168,10 +163,13 @@
 				.map((conversation) => [conversation.threadId as string, conversation])
 		)
 	);
-	const hasSelection = $derived(selected.size > 0 || selectedMembers.size > 0);
-	const allSelected = $derived(pageRepIds.length > 0 && pageRepIds.every((id) => selected.has(id)));
+	const hasSelection = $derived(!selection.isEmpty);
+	const allSelected = $derived(
+		pageRepIds.length > 0 && pageRepIds.every((id) => selection.isConversationSelected(id))
+	);
 	const someSelected = $derived(
-		!allSelected && (pageRepIds.some((id) => selected.has(id)) || selectedMembers.size > 0)
+		!allSelected &&
+			(pageRepIds.some((id) => selection.isConversationSelected(id)) || selection.memberCount > 0)
 	);
 	/*
 	 * What the toolbar reports. Whole conversations and individually ticked
@@ -181,14 +179,13 @@
 	 * announce a number the action then contradicts.
 	 */
 	const selectionSummary = $derived.by(() => {
+		const { conversationCount, memberCount } = selection;
 		const conversations =
-			selected.size > 0
-				? $_('messages.grouping.selectedConversations', { values: { count: selected.size } })
+			conversationCount > 0
+				? $_('messages.grouping.selectedConversations', { values: { count: conversationCount } })
 				: '';
 		const messages =
-			selectedMembers.size > 0
-				? $_('messages.selectedCount', { values: { count: selectedMembers.size } })
-				: '';
+			memberCount > 0 ? $_('messages.selectedCount', { values: { count: memberCount } }) : '';
 		if (conversations && messages) return `${conversations}, ${messages}`;
 		return conversations || messages;
 	});
@@ -203,15 +200,25 @@
 		| { kind: 'conversation'; conversation: ConversationSummaryResponse }
 		| { kind: 'member'; threadId: string; message: MailSummaryResponse };
 
-	// Flattened parent + expanded-children list the roving grid navigates over.
+	/*
+	 * Flattened parent + expanded-children list the roving grid navigates over.
+	 *
+	 * The children are the fetched member list as it came, in thread order — the
+	 * representative among them, listed again under the parent row it also fills
+	 * (Outlook expands a conversation the same way). Two reasons it is not
+	 * dropped: it is a message of the thread like any other, and dropping it left
+	 * the newest message as the only one that could not be ticked on its own —
+	 * the parent's checkbox stands for the whole conversation, not for that one
+	 * message.
+	 */
 	const visibleRows = $derived.by<VisibleRow[]>(() => {
 		if ($conversationsState.status !== 'ready') return [];
 		const rows: VisibleRow[] = [];
 		for (const conversation of $conversationsState.page.content) {
 			rows.push({ kind: 'conversation', conversation });
 			const id = conversation.threadId;
-			if (id && expanded.has(id)) {
-				for (const message of visibleMembersOf(conversation)) {
+			if (id && memberCache.isExpanded(id)) {
+				for (const message of memberCache.membersOf(id)) {
 					rows.push({ kind: 'member', threadId: id, message });
 				}
 			}
@@ -232,8 +239,7 @@
 	 * to contradict and keep the listing's count.
 	 */
 	function displayedCount(conversation: ConversationSummaryResponse): number {
-		const id = conversation.threadId;
-		const loaded = id == null ? undefined : members.get(id);
+		const loaded = memberCache.loaded(conversation.threadId);
 		return loaded ? loaded.length : conversation.messageCount;
 	}
 
@@ -391,66 +397,6 @@
 	}
 
 	/**
-	 * The members this view shows under `conversation` — the fetched list as it
-	 * came, in thread order. It is already the folder's conversation scope: the
-	 * server filtered the excluded folders and collapsed the copies of one mail
-	 * (Gmail's INBOX + All Mail) exactly as the badge counted them, so the child
-	 * rows always add up to the badge.
-	 *
-	 * The representative is among them, listed again under the parent row it also
-	 * fills (Outlook expands a conversation the same way). Two reasons it is not
-	 * dropped: it is a message of the thread like any other, and dropping it left
-	 * the newest message as the only one that could not be ticked on its own —
-	 * the parent's checkbox stands for the whole conversation, not for that one
-	 * message.
-	 */
-	function visibleMembersOf(conversation: ConversationSummaryResponse): MailSummaryResponse[] {
-		const id = conversation.threadId;
-		const raw = id == null ? undefined : members.get(id);
-		return raw ?? [];
-	}
-
-	/**
-	 * Fetches a thread's member list once per loaded page, scoped to the folder in
-	 * view (see api/mailRead.ts — the server returns exactly what the row's badge
-	 * counted). Concurrent callers (a second ArrowRight, a bulk action running
-	 * while the row expands) share the in-flight request instead of firing a second
-	 * fetch. Resolves to null when the fetch failed — the caller must not treat
-	 * that as "the thread has no other members".
-	 */
-	function loadMembers(
-		conversation: ConversationSummaryResponse
-	): Promise<MailSummaryResponse[] | null> {
-		const id = conversation.threadId;
-		if (id == null || $conversationsState.status !== 'ready') return Promise.resolve(null);
-		const cached = members.get(id);
-		if (cached) return Promise.resolve(cached);
-		const inFlight = memberRequests.get(id);
-		if (inFlight) return inFlight;
-
-		const { accountId, folderName } = $conversationsState.context;
-		// Snapshot of the cache generation this fetch belongs to — a page reload
-		// that lands mid-flight must not have the older response written over it.
-		const token = membersToken;
-		loadingThreads.add(id);
-		const request = (async () => {
-			try {
-				const thread = await getThread(accountId, id, folderName);
-				if (token === membersToken) members.set(id, thread.messages);
-				return thread.messages;
-			} catch (error) {
-				announcePolite(`${$_('messages.grouping.loadError')} ${toErrorMessage(error)}`);
-				return null;
-			} finally {
-				loadingThreads.delete(id);
-				memberRequests.delete(id);
-			}
-		})();
-		memberRequests.set(id, request);
-		return request;
-	}
-
-	/**
 	 * Toggles a thread's expansion. Expansion is committed only after members
 	 * load, so a failed fetch leaves the row collapsed with an announced error.
 	 *
@@ -481,8 +427,8 @@
 	): Promise<void> {
 		const id = conversation.threadId;
 		if (id == null || !isExpandable(conversation)) return;
-		if (expanded.has(id)) {
-			expanded.delete(id);
+		if (memberCache.isExpanded(id)) {
+			memberCache.collapse(id);
 			announcePolite($_('messages.grouping.collapsed'));
 			if (focus === 'parent') {
 				await tick();
@@ -490,12 +436,14 @@
 			}
 			return;
 		}
-		const loaded = await loadMembers(conversation);
-		if (!loaded) return;
-		expanded.add(id);
+		if (!(await memberCache.load(id))) return;
+		// Silent when the cache refuses: the view moved on while the fetch ran, so
+		// the members never reached it. Announcing a count here would name rows the
+		// grid is not about to render.
+		if (!memberCache.expand(id)) return;
 		announcePolite(
 			$_('messages.grouping.revealed', {
-				values: { count: visibleMembersOf(conversation).length }
+				values: { count: memberCache.membersOf(id).length }
 			})
 		);
 		await tick();
@@ -552,9 +500,9 @@
 	 * which is all this is used for there.
 	 */
 	function selectableMessagesOf(conversation: ConversationSummaryResponse): MailSummaryResponse[] {
-		const own = visibleMembersOf(conversation).filter(
-			(message) => message.folderName === currentFolderName
-		);
+		const own = memberCache
+			.membersOf(conversation.threadId)
+			.filter((message) => message.folderName === currentFolderName);
 		// The representative is one of them once the members are loaded; before
 		// that it is all this view has.
 		if (!own.some((message) => message.stableId === conversation.latest.stableId)) {
@@ -563,44 +511,27 @@
 		return own;
 	}
 
-	/** The stableIds of this conversation's individually ticked messages. */
-	function pickedMembersOf(conversation: ConversationSummaryResponse): string[] {
-		const threadId = conversation.threadId;
-		if (threadId == null) return [];
-		const picked: string[] = [];
-		for (const [stableId, id] of selectedMembers) {
-			if (id === threadId) picked.push(stableId);
-		}
-		return picked;
-	}
-
+	/*
+	 * The selection state machine itself is in mail/conversationSelection.ts; what
+	 * follows only maps a conversation to the ids it works in — the representative
+	 * stableId a whole-thread tick is stored under, the thread id its members hang
+	 * off, and (for a member tick) the folder-scoped set above.
+	 */
 	function conversationChecked(conversation: ConversationSummaryResponse): boolean {
-		return selected.has(conversation.latest.stableId);
+		return selection.isConversationSelected(conversation.latest.stableId);
 	}
 
-	/** Some but not all of the conversation's messages are ticked. */
 	function conversationMixed(conversation: ConversationSummaryResponse): boolean {
-		if (conversationChecked(conversation)) return false;
-		return pickedMembersOf(conversation).length > 0;
+		return selection.isMixed(conversation.latest.stableId, conversation.threadId);
 	}
 
 	function toggleConversation(
 		conversation: ConversationSummaryResponse,
 		isSelected: boolean
 	): void {
-		const repId = conversation.latest.stableId;
-		for (const stableId of pickedMembersOf(conversation)) selectedMembers.delete(stableId);
-		if (isSelected) selected.add(repId);
-		else selected.delete(repId);
+		selection.toggleConversation(conversation.latest.stableId, conversation.threadId, isSelected);
 	}
 
-	/**
-	 * Ticks or unticks one message of a thread. Unticking a message of a
-	 * conversation selected as a whole rewrites that selection as explicit
-	 * per-message ticks first, so the rest of the thread survives; ticking the last
-	 * missing message collapses the ticks back into the conversation-level
-	 * selection, which is the state a collapsed row can still represent.
-	 */
 	function toggleMember(
 		conversation: ConversationSummaryResponse,
 		message: MailSummaryResponse,
@@ -608,28 +539,18 @@
 	): void {
 		const threadId = conversation.threadId;
 		if (threadId == null) return;
-		const actionable = selectableMessagesOf(conversation);
-		if (conversationChecked(conversation)) {
-			selected.delete(conversation.latest.stableId);
-			for (const own of actionable) selectedMembers.set(own.stableId, threadId);
-		}
-		if (isSelected) selectedMembers.set(message.stableId, threadId);
-		else selectedMembers.delete(message.stableId);
-		if (actionable.length > 1 && actionable.every((own) => selectedMembers.has(own.stableId))) {
-			for (const own of actionable) selectedMembers.delete(own.stableId);
-			selected.add(conversation.latest.stableId);
-		}
+		selection.toggleMember({
+			repId: conversation.latest.stableId,
+			threadId,
+			actionableIds: selectableMessagesOf(conversation).map((own) => own.stableId),
+			memberId: message.stableId,
+			isSelected
+		});
 	}
 
 	function handleSelectAll(checked: boolean): void {
-		selectedMembers.clear();
-		if (checked) for (const id of pageRepIds) selected.add(id);
-		else selected.clear();
-	}
-
-	function clearSelection(): void {
-		selected.clear();
-		selectedMembers.clear();
+		if (checked) selection.selectAll(pageRepIds);
+		else selection.clear();
 	}
 
 	/**
@@ -665,8 +586,8 @@
 		const memberIds: string[] = [];
 		const unread: string[] = [];
 		for (const conversation of pageConversations) {
-			const wholeConversation = selected.has(conversation.latest.stableId);
-			const picked = pickedMembersOf(conversation);
+			const wholeConversation = selection.isConversationSelected(conversation.latest.stableId);
+			const picked = selection.pickedMembersOf(conversation.threadId);
 			if (!wholeConversation && picked.length === 0) continue;
 			const resolved = await resolveConversationMembers(
 				conversation,
@@ -701,7 +622,7 @@
 		};
 		if (include(representative.stableId)) take(representative);
 		if (isExpandable(conversation) && conversation.threadId) {
-			const threadMembers = await loadMembers(conversation);
+			const threadMembers = await memberCache.load(conversation.threadId);
 			if (!threadMembers) return null;
 			for (const message of threadMembers) {
 				if (message.folderName !== folderName) continue;
@@ -723,8 +644,8 @@
 		try {
 			const resolved = await resolveSelection();
 			if (!resolved) {
-				// loadMembers already announced the fetch failure; surface it in the
-				// toolbar too and leave the selection untouched so a retry is one
+				// The member cache already announced the fetch failure; surface it in
+				// the toolbar too and leave the selection untouched so a retry is one
 				// click away.
 				bulkError = $_('messages.grouping.bulkResolveFailed');
 				return;
@@ -738,7 +659,7 @@
 				unreadMemberIds
 			};
 			const done = await run(memberIds, ctx);
-			if (done) clearSelection();
+			if (done) selection.clear();
 		} catch (err) {
 			bulkError = toErrorMessage(err);
 		} finally {
@@ -857,7 +778,7 @@
 		if (index < 0) {
 			// An expanded thread's members are refetching after the reload — wait
 			// for them rather than grabbing some unrelated row.
-			if (loadingThreads.size > 0) return;
+			if (memberCache.loadingCount > 0) return;
 			index = Math.min(anchor.index, rows.length - 1);
 		}
 
@@ -1008,12 +929,12 @@
 		) {
 			if (row.kind === 'conversation' && isExpandable(row.conversation)) {
 				const id = row.conversation.threadId as string;
-				if (event.key === 'ArrowRight' && !expanded.has(id)) {
+				if (event.key === 'ArrowRight' && !memberCache.isExpanded(id)) {
 					event.preventDefault();
 					void toggleExpand(row.conversation, 'parent');
 					return;
 				}
-				if (event.key === 'ArrowLeft' && expanded.has(id)) {
+				if (event.key === 'ArrowLeft' && memberCache.isExpanded(id)) {
 					event.preventDefault();
 					void toggleExpand(row.conversation, 'parent');
 					return;
@@ -1088,55 +1009,46 @@
 	 * badge. The still-expanded threads are refetched right away. Selection is
 	 * per-view too and goes with the folder/page switch.
 	 *
-	 * Every drop bumps `membersToken` so a fetch already in flight cannot write
-	 * its response into the fresh generation.
+	 * The page is read from the store rather than from `pageConversations`: this
+	 * is the effect that decides the cache is stale, so it has to compare against
+	 * the very object the store just handed out, not a derived view of it.
 	 */
 	$effect(() => {
 		if ($conversationsState.status !== 'ready') return;
 		const ctx = $conversationsState.context;
-		const key = `${ctx.accountId}:${ctx.folderName}:${ctx.page}`;
 		const page = $conversationsState.page;
-		if (key !== viewKey) {
-			viewKey = key;
-			membersPage = page;
-			membersToken += 1;
-			expanded.clear();
-			members.clear();
-			memberRequests.clear();
-			loadingThreads.clear();
-			selected.clear();
-			selectedMembers.clear();
+		const transition = memberCache.syncToView(
+			`${ctx.accountId}:${ctx.folderName}:${ctx.page}`,
+			page
+		);
+		if (transition === 'switched') {
+			selection.clear();
 			return;
 		}
-		if (page !== membersPage) {
-			membersPage = page;
-			membersToken += 1;
-			members.clear();
-			memberRequests.clear();
-			/*
-			 * Individual ticks outlive the reload only for the threads refetched
-			 * right away — the expanded ones. A collapsed thread's members are gone
-			 * from the cache, so its ticks could no longer be shown anywhere (not
-			 * even as a mixed parent), and a selection nothing on screen represents
-			 * must not still act.
-			 */
-			for (const [stableId, threadId] of selectedMembers) {
-				if (!expanded.has(threadId)) selectedMembers.delete(stableId);
-			}
-			void refreshExpandedMembers(page.content);
-		}
+		if (transition !== 'reloaded') return;
+		/*
+		 * Individual ticks outlive the reload only for the threads refetched right
+		 * away — the expanded ones. A collapsed thread's members are gone from the
+		 * cache, so its ticks could no longer be shown anywhere (not even as a
+		 * mixed parent), and a selection nothing on screen represents must not
+		 * still act.
+		 */
+		selection.dropTicksOfCollapsed((threadId) => memberCache.isExpanded(threadId));
+		const byThreadId = new Map(
+			page.content
+				.filter((conversation) => conversation.threadId != null)
+				.map((conversation) => [conversation.threadId as string, conversation])
+		);
+		void memberCache.refreshExpanded((threadId) => {
+			const conversation = byThreadId.get(threadId);
+			return conversation != null && isExpandable(conversation);
+		});
 	});
 
 	// Prune selection to still-visible conversations after a same-view reload
 	// (e.g. sync_completed or a bulk action refetch).
 	$effect(() => {
-		const visible = new Set(pageRepIds);
-		for (const id of [...selected]) {
-			if (!visible.has(id)) selected.delete(id);
-		}
-		for (const [stableId, threadId] of selectedMembers) {
-			if (!conversationByThread.has(threadId)) selectedMembers.delete(stableId);
-		}
+		selection.pruneToPage(pageRepIds, (threadId) => conversationByThread.has(threadId));
 	});
 
 	// A refetched thread may have lost a ticked message (moved, deleted, synced
@@ -1144,39 +1056,12 @@
 	// empty the tick stands, and resolveSelection re-checks it against the thread
 	// it loads then.
 	$effect(() => {
-		for (const [stableId, threadId] of selectedMembers) {
-			const loaded = members.get(threadId);
-			if (!loaded) continue;
-			if (!loaded.some((message) => message.stableId === stableId)) {
-				selectedMembers.delete(stableId);
-			}
-		}
+		selection.dropTicksMissingFrom((threadId, stableId) => {
+			const loaded = memberCache.loaded(threadId);
+			if (!loaded) return undefined;
+			return loaded.some((message) => message.stableId === stableId);
+		});
 	});
-
-	/**
-	 * Re-fetches members for threads still expanded after a same-view reload, and
-	 * collapses the ones that no longer have a row (moved out of the folder) or
-	 * whose refetch failed — an expanded id must always have a members entry.
-	 */
-	async function refreshExpandedMembers(
-		conversations: readonly ConversationSummaryResponse[]
-	): Promise<void> {
-		const byThreadId = new Map(
-			conversations
-				.filter((conversation) => conversation.threadId != null)
-				.map((conversation) => [conversation.threadId as string, conversation])
-		);
-		await Promise.all(
-			[...expanded].map(async (id) => {
-				const conversation = byThreadId.get(id);
-				if (!conversation || !isExpandable(conversation)) {
-					expanded.delete(id);
-					return;
-				}
-				if (!(await loadMembers(conversation))) expanded.delete(id);
-			})
-		);
-	}
 
 	$effect(() => {
 		grid.clampRow(visibleRows.length);
@@ -1203,7 +1088,7 @@
 				{moveTargets}
 				error={bulkError}
 				onSelectAll={handleSelectAll}
-				onClear={clearSelection}
+				onClear={() => selection.clear()}
 				onDelete={handleBulkDelete}
 				onMarkSeen={handleBulkMarkSeen}
 				onMoveTo={handleBulkMoveTo}
@@ -1255,8 +1140,8 @@
 					{@const message = isConversation ? row.conversation.latest : row.message}
 					{@const expandable = isConversation && isExpandable(row.conversation)}
 					{@const threadId = isConversation ? row.conversation.threadId : row.threadId}
-					{@const isOpen = threadId != null && expanded.has(threadId)}
-					{@const isLoading = threadId != null && loadingThreads.has(threadId)}
+					{@const isOpen = memberCache.isExpanded(threadId)}
+					{@const isLoading = memberCache.isLoading(threadId)}
 					{@const unread = isConversation ? row.conversation.unreadCount > 0 : !row.message.seen}
 					<!--
 						An expanded conversation row is a header, not a message. Sender and
@@ -1313,7 +1198,7 @@
 						class={cn(
 							'col-span-full grid cursor-pointer grid-cols-subgrid grid-rows-[auto_auto] border-b border-border/80 transition-colors hover:bg-muted/40 focus-within:relative focus-within:z-10',
 							!isConversation && 'bg-muted/20',
-							isConversation && selected.has(row.conversation.latest.stableId) && 'bg-primary/10',
+							isConversation && conversationChecked(row.conversation) && 'bg-primary/10',
 							unread && 'font-semibold'
 						)}
 						onclick={(e) => handleRowClick(e, row)}
@@ -1371,7 +1256,7 @@
 										{...grid.cell(rowIndex, COL_SELECT)}
 										class={nativeControlClass}
 										checked={conversationChecked(parentConversation) ||
-											selectedMembers.has(row.message.stableId)}
+											selection.isMemberTicked(row.message.stableId)}
 										aria-label={memberSelectionLabel(memberIdentity(row.message))}
 										onchange={(event) =>
 											toggleMember(
