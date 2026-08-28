@@ -392,7 +392,9 @@ test.describe('MSW bootstrap', () => {
 		await expect(prompt).toContainText('Stahuji aktualizaci…');
 	});
 
-	test('update failure ukáže toast a GitHub Releases fallback link', async ({ page }) => {
+	test('selhání updatu ukáže jediný dialog s fallback linkem, žádný toast navíc', async ({
+		page
+	}) => {
 		await setMockFlags(page, { e2e: true });
 
 		await openApp(page, '/settings/about');
@@ -416,9 +418,16 @@ test.describe('MSW bootstrap', () => {
 			'href',
 			'https://github.com/TheVoxRox/mail/releases/latest'
 		);
+
+		// One surface, not three. The dialog used to push a toast carrying its
+		// own heading, over a prompt that reverted to 'available' underneath —
+		// the same failure announced twice, two modals deep.
+		await expect(prompt).toBeHidden();
 		await expect(
 			page.getByRole('alert').filter({ hasText: 'Aktualizace se nezdařila' })
-		).toBeVisible();
+		).toHaveCount(0);
+		// Being the only surface only helps if it is the one that has focus.
+		await expect(failure.locator(':focus')).toHaveCount(1);
 	});
 
 	test('ignoruje stale activeAccountId a použije existující účet', async ({ page }) => {

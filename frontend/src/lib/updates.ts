@@ -196,7 +196,14 @@ export async function installPromptedUpdate(): Promise<void> {
 		updatePromptState.set({ status: 'hidden' });
 	} catch (err) {
 		if (backendStopped) await restartBackendAfterFailedInstall();
-		updatePromptState.set({ status: 'available', update });
+		// The prompt closes rather than reverting to 'available'. Leaving it open
+		// stacked the failure dialog on top of it — two modals, one over the
+		// other, and a screen reader walking back out of the top one into a
+		// prompt still offering the update that just failed. The failure dialog
+		// is the single surface for the failure; the update itself is not lost,
+		// since the version was never dismissed and About → check for updates
+		// finds it again.
+		updatePromptState.set({ status: 'hidden' });
 		showUpdateFailure(err);
 	} finally {
 		(await progressListener)();

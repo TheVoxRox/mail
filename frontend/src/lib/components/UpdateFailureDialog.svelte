@@ -2,7 +2,6 @@
 	import { _ } from '$lib/i18n/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { DialogDescription, DialogShell, DialogTitle } from '$lib/components/ui/dialog/index.js';
-	import { pushToast } from '$lib/stores/toasts.js';
 	import { dismissUpdateFailure, updateFailureState } from '$lib/updates.js';
 
 	let open = $derived($updateFailureState.status === 'failed');
@@ -13,14 +12,14 @@
 		$updateFailureState.status === 'failed' ? $updateFailureState.releasesUrl : null
 	);
 
-	let lastToastMessage = $state<string | null>(null);
-
-	$effect(() => {
-		if ($updateFailureState.status !== 'failed') return;
-		if (message === lastToastMessage) return;
-		lastToastMessage = message;
-		pushToast($_('update.failure.title'), { tone: 'error' });
-	});
+	/*
+	 * No toast. This dialog used to push one carrying `update.failure.title` —
+	 * the same string as its own heading, raised at the same moment the modal
+	 * opened, so the failure was announced twice in a row with nothing to
+	 * distinguish the two. The modal is the louder and more useful of the pair:
+	 * it takes focus, carries the underlying message and the releases-page
+	 * fallback, and has to be dismissed.
+	 */
 </script>
 
 <DialogShell {open} onOpenChange={(nextOpen) => !nextOpen && dismissUpdateFailure()}>
