@@ -66,13 +66,25 @@ jobs:
 
       - name: Resolve release tag
         shell: pwsh
+        # Values originating outside this file are read through env:, never
+        # interpolated into the script. Git refname rules allow backticks,
+        # dollar signs, semicolons and quotes, so a "${{ }}" expansion inside
+        # a run: block is executable code in a job that holds contents: write
+        # and the updater signing key — U-1 in docs/UPDATER_AUDIT.md. The
+        # boolean input further down cannot carry such a value; it is read the
+        # same way so that no reader has to work out which of the
+        # interpolations were the safe ones.
+        env:
+          RELEASE_TAG_INPUT: ${{ inputs['release-tag'] }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
-          $tag = "${{ inputs['release-tag'] }}".Trim()
+          $tag = "$env:RELEASE_TAG_INPUT".Trim()
           if ([string]::IsNullOrWhiteSpace($tag)) {
-            if ("${{ github.ref_type }}" -ne "tag") {
+            if ($env:REF_TYPE -ne "tag") {
               throw "release-tag input is required when this workflow is not running from a tag."
             }
-            $tag = "${{ github.ref_name }}"
+            $tag = $env:REF_NAME
           }
 
           # latest.json embeds a download URL built from this tag while its
@@ -114,12 +126,14 @@ jobs:
         # ~37 % cold start (PERFORMANCE_BASELINE.md 2026-05-19). Dev sidecar
         # builds keep the default (OFF) to avoid the ~70 s training overhead
         # on every iteration.
+        env:
+          SKIP_BACKEND_TESTS: ${{ inputs['skip-backend-tests'] }}
         run: |
           # OAuth config is required by default (the script fails on a missing /
           # placeholder client-id); no flag needed. -AllowPlaceholderOAuth is the
           # local-only opt-out and must never appear here.
           $args = @("-File", "scripts/package-sidecar-windows.ps1", "-EnableAotCache")
-          if ("${{ inputs['skip-backend-tests'] }}" -eq "true") {
+          if ($env:SKIP_BACKEND_TESTS -eq "true") {
             $args += "-SkipTests"
           }
           & pwsh @args
