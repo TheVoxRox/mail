@@ -2,7 +2,7 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.7                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| **Version**        | 1.8                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | **Date**           | 2026-08-28                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | **Audited commit** | `c6744a1` (re-verified 2026-08-28 after the signing-key gate and the install-ordering fix; v1.4 anchor: `cad05cb`, recorded pre-squash as `5799e8b`; v1.2/1.3 anchor: `3162e6a` (#144), v1.0/1.1 baseline: `d55b753`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
@@ -91,7 +91,15 @@ generated by [prepare-tauri-windows-release-config.mjs](../frontend/scripts/prep
   trade.
 - [generate-tauri-latest-windows.mjs](../frontend/scripts/generate-tauri-latest-windows.mjs)
   only selects a **signed** artifact (one with a sibling `.sig`), **throws on an
-  empty signature**, and builds the download `url` with `encodeURIComponent`.
+  empty signature**, **throws unless the artifact's name carries the version
+  being released** (v1.8), and builds the download `url` with
+  `encodeURIComponent`. The version check is the one that catches a manifest
+  announcing this version while pointing at an older build — until v1.8 it was
+  a preference in a score rather than a condition, so a previous release left in
+  `bundle/` could win. Note that **the signature gate above cannot catch that**:
+  it verifies the artifact the manifest names, and a stale artifact carries its
+  own valid signature. The two checks answer different questions — "is this
+  signed by our key" and "is this the build we are releasing".
 - Defense in depth beyond the signature: a Sigstore **build-provenance
   attestation** ties the installer to the workflow + commit, and a published
   **SHA-256** checksum accompanies each installer.
@@ -263,6 +271,17 @@ renders through `{message}` in a `<span>` — Svelte text interpolation, no
 
 ## 8. Change log
 
+- **1.8** (2026-08-28) — the manifest generator's version match became a
+  **condition** instead of a preference, and §2 says so. Carrying the released
+  version in the artifact name was worth +10 in a score, which on a clean runner
+  always won and anywhere else lost to a previous release left in `bundle/` —
+  producing a `latest.json` that announced this version while pointing at that
+  build. §2 also records why nothing else caught it: the signature gate added in
+  v1.5 verifies the artifact the manifest **names**, and a stale artifact carries
+  its own valid signature, so the two checks answer different questions. Proven
+  by a new suite that runs the real script against a throwaway bundle directory
+  (the script had none); removing the condition fails four of its eight tests.
+  Trust chain untouched, verdict unchanged (**PASS**).
 - **1.7** (2026-08-28) — the install now reports what it is doing, which adds the
   **first Rust → webview event** in this boundary and the **first
   remote-influenced number that reaches a style attribute**; both are recorded

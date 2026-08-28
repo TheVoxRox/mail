@@ -54,26 +54,57 @@ async function readAppVersion() {
 	return tauriConfig.version;
 }
 
+/**
+ * Picks the installer this manifest will point at.
+ *
+ * Carrying `version` in the name is a **condition**, not a preference. It used
+ * to be worth +10 in the score below, which on a clean runner always won — and
+ * anywhere else, with a previous release still sitting in `bundle/`, quietly
+ * produced a manifest that announced this version while pointing at that build.
+ * The signature would still verify (it is read from the chosen artifact's own
+ * `.sig`), so neither the empty-signature throw nor the release signature gate
+ * catches it: both check the artifact the manifest names, not whether it is the
+ * right one. Failing here is the only place that can tell the difference.
+ *
+ * The remaining score only breaks ties between artifacts that all carry the
+ * right version.
+ */
 async function findWindowsUpdaterArtifact(root, version) {
 	const files = await listFiles(root);
-	const signedCandidates = files.filter((file) => files.includes(`${file}.sig`));
-	const preferred = signedCandidates.sort(
-		(a, b) => scoreArtifact(b, version) - scoreArtifact(a, version)
-	);
+	const signed = files.filter((file) => files.includes(`${file}.sig`));
 
-	if (preferred.length === 0) {
+	if (signed.length === 0) {
 		throw new Error(
 			`No signed Windows updater artifact found in ${root}. Expected a bundle artifact with a sibling .sig file.`
 		);
 	}
 
-	return preferred[0];
+	const matching = signed.filter((file) => nameCarriesVersion(path.basename(file), version));
+	if (matching.length === 0) {
+		const found = signed.map((file) => path.basename(file)).join(', ');
+		throw new Error(
+			`No signed Windows updater artifact in ${root} carries version ${version}. ` +
+				`Signed artifacts found: ${found}. A stale artifact from an earlier build ` +
+				`would otherwise be published under this version.`
+		);
+	}
+
+	return matching.sort((a, b) => scoreArtifact(b) - scoreArtifact(a))[0];
 }
 
-function scoreArtifact(file, version) {
+/**
+ * Version present as a whole token, so `0.1.0` does not match inside `0.1.01`
+ * or `10.1.0`. A `-` or `_` on either side is a boundary, which is what the
+ * `voxrox-mail-<version>-windows-x64-setup.exe` shape uses.
+ */
+function nameCarriesVersion(base, version) {
+	const escaped = version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	return new RegExp(`(^|[^0-9.])${escaped}([^0-9.]|$)`, 'i').test(base);
+}
+
+function scoreArtifact(file) {
 	const base = path.basename(file).toLowerCase();
 	let score = 0;
-	if (base.includes(version.toLowerCase())) score += 10;
 	if (base.startsWith('voxrox-mail-')) score += 10;
 	if (base.endsWith('-setup.exe')) score += 8;
 	if (base.endsWith('.exe')) score += 4;
