@@ -1,14 +1,14 @@
 # VoxRox Mail — Auto-Updater Audit
 
-|                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.4                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| **Date**           | 2026-08-08                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| **Audited commit** | `cad05cb` (re-verified 2026-08-08, recorded pre-squash as `5799e8b`; v1.2/1.3 anchor: `3162e6a` (#144), v1.0/1.1 baseline: `d55b753`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| **Code paths**     | `frontend/src-tauri/src`, `frontend/src-tauri/tauri.conf.json`, `frontend/src-tauri/capabilities`, `frontend/src/lib/updates.ts`, `frontend/src/lib/components/UpdatePromptDialog.svelte`, `frontend/src/lib/components/settings/AboutSettings.svelte`, `.github/workflows/windows-signed-release.yml`, `.github/workflows/beta-channel.yml`, `frontend/scripts/beta-channel-guard.mjs`, `frontend/scripts/generate-tauri-latest-windows.mjs`, `frontend/scripts/prepare-tauri-windows-release-config.mjs`, `frontend/scripts/prepare-tauri-updater-config.mjs`, `frontend/scripts/lib/tauri-config.mjs` |
-| **Subsystem**      | Tauri auto-updater — Boundary 6 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| **Verdict**        | **Security: PASS** — no exploitable finding, **no code change**. Two procedural/informational notes recorded.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+|                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Version**        | 1.5                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| **Date**           | 2026-08-28                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **Audited commit** | `c6744a1` (re-verified 2026-08-28 after the signing-key gate and the install-ordering fix; v1.4 anchor: `cad05cb`, recorded pre-squash as `5799e8b`; v1.2/1.3 anchor: `3162e6a` (#144), v1.0/1.1 baseline: `d55b753`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| **Code paths**     | `frontend/src-tauri/src`, `frontend/src-tauri/tauri.conf.json`, `frontend/src-tauri/capabilities`, `frontend/src/lib/updates.ts`, `frontend/src/lib/components/UpdatePromptDialog.svelte`, `frontend/src/lib/components/UpdateFailureDialog.svelte`, `frontend/src/lib/components/settings/AboutSettings.svelte`, `.github/workflows/windows-signed-release.yml`, `.github/workflows/beta-channel.yml`, `frontend/scripts/beta-channel-guard.mjs`, `frontend/scripts/generate-tauri-latest-windows.mjs`, `frontend/scripts/verify-updater-signature.mjs`, `frontend/scripts/lib/minisign.mjs`, `frontend/scripts/prepare-tauri-windows-release-config.mjs`, `frontend/scripts/prepare-tauri-updater-config.mjs`, `frontend/scripts/lib/tauri-config.mjs` |
+| **Subsystem**      | Tauri auto-updater — Boundary 6 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| **Verdict**        | **Security: PASS** — nothing in the trust chain, in three audits running. One **Low** hardening finding open (U-1, workflow script injection, needs repo write access to reach); two procedural/informational notes. The v1.5 code changes came from the operational review in `todo.md`, not from this audit.                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 
 Per-subsystem release audit of the update channel **"GitHub release →
 signature-verified install"**. This is the one path that cannot be fixed after a
@@ -28,13 +28,26 @@ scripts.
 - The WebView holds **no updater plugin permissions at all**
   ([capabilities/default.json](../frontend/src-tauri/capabilities/default.json)
   grants nothing under `updater:`); the renderer reaches the updater only
-  through two app-defined commands in
-  [lib.rs](../frontend/src-tauri/src/lib.rs) — `check_for_update(channel)` and
-  `install_pending_update`. The `channel` argument accepts only the known names
-  `stable` / `beta` (anything else is rejected), and the install command takes
-  no arguments (it installs the `Update` held in Rust managed state from the
-  last check) — so a compromised renderer can pick between two pinned endpoints
-  but can never supply a URL or an install path.
+  through **three** app-defined commands in
+  [lib.rs](../frontend/src-tauri/src/lib.rs) — `check_for_update(channel)`,
+  `download_pending_update(expectedVersion)` and
+  `install_pending_update(expectedVersion)`. The `channel` argument accepts only
+  the known names `stable` / `beta` (anything else is rejected) and
+  `expectedVersion` is a version **to be matched**, never a URL or a path, so a
+  compromised renderer can pick between two pinned endpoints but can never
+  supply either.
+- **The verified bytes never cross into the renderer.** `download_pending_update`
+  verifies the signature inside `Update::download` and parks the package in Rust
+  managed state (`DownloadedUpdate`); `install_pending_update` installs from
+  there. `Update::install` does not re-check, so routing the package through JS
+  would put the one unverified copy on the install path — the split into two
+  commands (§5) was made without moving the bytes for exactly that reason.
+- **The version pin is checked twice.** Every check replaces the pending slot and
+  clears any downloaded package, so `take_expected_update` fails unless the slot
+  still holds the version the prompt named; the downloaded package then carries
+  its own `version` and is compared again at install, because a check landing
+  between the two calls moves the slot on while the bytes stay behind. A stale or
+  hostile prompt cannot install a build the user did not approve — it errors out.
 - A hijacked `latest.json` cannot cause code execution: it can point `url`
   anywhere, but the downloaded artifact is verified against the pinned pubkey, so
   a forged installer fails the Ed25519 check and the install aborts. Worst case
@@ -59,12 +72,35 @@ generated by [prepare-tauri-windows-release-config.mjs](../frontend/scripts/prep
 - The workflow separately **throws if `TAURI_SIGNING_PRIVATE_KEY` is absent**
   ("Validate Tauri updater signing secrets"), so `.sig` artifacts are always
   produced.
+- **The two halves of the key pair are compared** ("Verify updater signature
+  against the shipped pubkey" →
+  [verify-updater-signature.mjs](../frontend/scripts/verify-updater-signature.mjs),
+  verifier in [lib/minisign.mjs](../frontend/scripts/lib/minisign.mjs)). Both
+  inputs are read from the **generated artifacts** rather than from the env vars
+  they came from: the pubkey out of `tauri.release.conf.json`, the signature out
+  of the `latest.json` the updater will actually fetch, checked against the
+  installer in `bundle/`. A manifest naming an installer this build did not
+  produce fails the same step. Dependency-free on purpose — widening the supply
+  chain of the one step whose job is to distrust the build would be the wrong
+  trade.
 - [generate-tauri-latest-windows.mjs](../frontend/scripts/generate-tauri-latest-windows.mjs)
   only selects a **signed** artifact (one with a sibling `.sig`), **throws on an
   empty signature**, and builds the download `url` with `encodeURIComponent`.
 - Defense in depth beyond the signature: a Sigstore **build-provenance
   attestation** ties the installer to the workflow + commit, and a published
   **SHA-256** checksum accompanies each installer.
+
+**What "fail-closed" did not cover until 2026-08-27, recorded so the claim is
+not read backwards.** Up to and including v1.4 this section verified that each
+half of the key pair was _present_ — never that they _matched_.
+`TAURI_SIGNING_PRIVATE_KEY` produces the `.sig` and `TAURI_UPDATER_PUBKEY` is
+baked into the app, they are unrelated secrets, and a rotated or mistyped half
+let the workflow finish green while every installation that took the release
+lost its updater permanently: the app can only be repaired by an update it now
+refuses to accept. The gate above closes that, and it is the one control here
+that **has never run on a real release** — the verifier is proven against a
+genuine `tauri signer sign` artifact (the test fixture) and the npm wiring is
+smoked, but the happy path needs a full release build.
 
 ## 3. Config & transport hardening (confirmed)
 
@@ -101,7 +137,14 @@ The `body` / `notes` field (the most free-form, attacker-shapeable field in a
 hijacked `latest.json`) is **not rendered at all**. No mail-content-style
 sanitizer is needed because no untrusted markup reaches the DOM.
 
-## 5. Failure handling (confirmed)
+The failure dialog ([UpdateFailureDialog.svelte](../frontend/src/lib/components/UpdateFailureDialog.svelte))
+is the one place where remote-influenced text can reach the screen: the error
+string bubbled out of the Rust commands can quote a manifest version (the
+mismatch messages in `take_expected_update` and `install_pending_update` do). It
+renders through `{message}` in a `<span>` — Svelte text interpolation, no
+`{@html}` — so it is escaped on the same terms as the prompt.
+
+## 5. Install sequence & failure handling (confirmed)
 
 - **Startup check** ([bootstrap.ts](../frontend/src/lib/bootstrap.ts) →
   `checkForUpdateAndPrompt`) is fire-and-forget and **fails silently** (a
@@ -109,17 +152,56 @@ sanitizer is needed because no untrusted markup reaches the DOM.
   as-yet-unpublished release must not throw an alarming dialog on every cold
   start (announced to screen-reader users). Gated on `PROD` + Tauri +
   `VITE_ENABLE_AUTO_UPDATE_CHECK`.
+- **The install runs download → stop the backend → install, in that order**
+  (`installPromptedUpdate` in [updates.ts](../frontend/src/lib/updates.ts)). The
+  NSIS installer overwrites the sidecar launcher, its `app/` and the whole
+  bundled JRE inside the install directory, and Windows will not overwrite a
+  file a live process holds open; `install_inner` in tauri-plugin-updater ends
+  the app with `std::process::exit(0)`, so the `beforeunload` hook that normally
+  kills the sidecar never runs. The seam between the two commands is where the
+  backend is stopped, which replaces that race with a sequence. Only the middle
+  position is correct — stopping before the download leaves the app dead for the
+  length of it — so the unit tests assert the **order**, not just the calls.
+  Re-confirmed by mutation during this revision: dropping the stop fails two
+  tests, moving it ahead of the download fails three, and both name the
+  ordering test.
+- A failed install puts the backend back through
+  `bootstrap({ restartSidecar: true })` — a plain respawn is not enough, the new
+  sidecar comes up on a fresh port with a fresh handshake key — and then surfaces
+  the failure dialog.
 - **Manual check** ([AboutSettings.svelte](../frontend/src/lib/components/settings/AboutSettings.svelte))
   surfaces a prominent failure UI with a fallback link to the releases page
   (`RELEASES_URL`).
 - A per-version **dismissal** is persisted best-effort in `localStorage`
   (wrapped in try/catch for private-mode).
 - Covered by [updates.test.ts](../frontend/src/lib/updates.test.ts): fail-silent
-  startup, prompt-when-available, manual-failure-dialog, and channel routing
-  (stable default, stored beta preference, install-through-shell).
+  startup, prompt-when-available, manual-failure-dialog, channel routing (stable
+  default, stored beta preference), download/stop/install ordering, the
+  backend restart after a failed install, and the guard that refuses a second
+  run rather than starting a second download.
+- **Not proven by any test:** that the installer really does overwrite
+  `runtime/**` and `app/**` without a file-in-use failure. Only a real vN-1 → vN
+  smoke shows that, and `CheckIfAppIsRunning` in the bundled NSIS template still
+  guards only `${MAINBINARYNAME}.exe`, so a **manual** reinstall while the app
+  runs (a path outside this flow) has nothing covering the sidecar. Tracked in
+  `todo.md`, not claimed here.
 
-## 6. Informational notes (no change required)
+## 6. Findings and informational notes
 
+- **U-1 — script injection in both release workflows (Low, open).** The tag name
+  is interpolated straight into `run:` blocks:
+  [beta-channel.yml](../.github/workflows/beta-channel.yml) reads
+  `${{ github.event.release.tag_name }}` into a bash string,
+  [windows-signed-release.yml](../.github/workflows/windows-signed-release.yml)
+  does the same with `inputs['release-tag']` into a pwsh one. Git refname rules
+  allow `` ` ``, `$`, `;`, `&`, `|` and quotes, so a crafted tag is executable
+  code inside a job holding `contents: write` — including the updater signing
+  secrets. Rated Low because creating that tag already requires write access to
+  the repository, so it escalates an existing privilege rather than granting
+  one; it is a **hardening** item, not a way in. Both workflows are in
+  `Code paths` and no previous revision of this audit looked at their injection
+  surface. Mechanical fix (value into `env:`, read as `"$TAG"` / `$env:TAG`)
+  recorded in `todo.md`.
 - **Base-config updater block is a dev reference, not the release source of
   truth.** [tauri.conf.json](../frontend/src-tauri/tauri.conf.json) carries a
   hardcoded pubkey + `TheVoxRox/mail` endpoint; the shipped values come from the
@@ -131,7 +213,9 @@ sanitizer is needed because no untrusted markup reaches the DOM.
   secret.
 - **`dangerousInsecureTransportProtocol`** is env-gated and unset; a future CI
   lint that asserts it is never `true` for a release would make the HTTPS-only
-  guarantee explicit rather than default.
+  guarantee explicit rather than default. Open since v1.0 (2026-07-09) — the
+  signature gate added in v1.5 covers a different property (key-pair identity),
+  so this note is not closed by it.
 
 ## 7. References
 
@@ -140,6 +224,31 @@ sanitizer is needed because no untrusted markup reaches the DOM.
 - [backend/SECURITY_RELEASE_CHECK.md](../backend/SECURITY_RELEASE_CHECK.md) — per-release security gate.
 
 ## 8. Change log
+
+- **1.5** (2026-08-28) — re-verified against `c6744a1` and **corrected**, rather
+  than acknowledged for a fourth time. The operational review recorded in
+  `todo.md` found nothing in the trust chain but showed three places where this
+  document had stopped describing the code: §1 enumerated **two** renderer
+  commands where there are three (`download_pending_update`) and said the
+  install command takes no arguments, when it has taken `expectedVersion` since
+  v1.2; §2 called the pipeline "fail-closed" while it only checked that each
+  half of the key pair was **present**, never that they matched; and the
+  injection surface of the two release workflows had never been looked at,
+  although both have been in `Code paths` since v1.2. §1 now describes all three
+  commands, the double version pin and why the verified bytes stay Rust-side;
+  §2 records the new key-pair gate together with what it did not cover before;
+  §5 covers the download → stop-backend → install ordering; §6 records the
+  injection as **U-1** (Low, open — it needs repo write access to reach). Every
+  claim kept from v1.4 was re-read in the tree, not inferred from the diff:
+  `requireEnv('TAURI_UPDATER_PUBKEY')` still throws on an empty key, the
+  endpoint list still throws when empty, `dangerousInsecureTransportProtocol` is
+  still env-gated and unset, `capabilities/default.json` still grants the
+  WebView no `updater:` permission, `allowDowngrades` is still `false`, the
+  channel map still sends `stable` to `None` and `beta` to the compile-time
+  constant, and the manifest generator still takes only a signed artifact and
+  throws on an empty `.sig`. `Code paths` gained
+  `verify-updater-signature.mjs`, `lib/minisign.mjs` and
+  `UpdateFailureDialog.svelte`. Verdict unchanged (**PASS**).
 
 - **1.4** (2026-08-08) — re-verified against `5799e8b`, bringing B6 to the same standard as the other five audits re-checked the same day. The three drift commits are non-material (see 1.3), and the §2 pipeline claims were re-checked in code rather than inferred from them: `requireEnv('TAURI_UPDATER_PUBKEY')` still throws on an empty key, the endpoint list still throws when empty, `dangerousInsecureTransportProtocol` is still env-gated and unset so transport stays HTTPS-only, `capabilities/default.json` still grants the WebView no `updater:` permission, and the channel map still sends `stable` to `None` (config endpoints) and `beta` to the compile-time constant. Verdict unchanged (**PASS**).
 - **1.3** (2026-08-08) — corrected the audited-commit anchor; no re-audit, no
