@@ -22,7 +22,13 @@ declare global {
 				context?: Record<string, unknown>;
 			}) => Promise<'sent' | 'disabled' | 'failed'>;
 			resetClientErrorReportingForTests: () => void;
-			showMockUpdateForTests: (version?: string, options?: { failInstall?: boolean }) => void;
+			showMockUpdateForTests: (
+				version?: string,
+				options?: {
+					failInstall?: boolean;
+					holdDownloadAt?: { downloaded: number; total: number | null };
+				}
+			) => void;
 			showMockUpdateFailureForTests: (message?: string) => void;
 			resetUpdateStateForTests: () => void;
 		};

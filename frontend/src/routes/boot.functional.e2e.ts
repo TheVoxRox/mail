@@ -354,6 +354,44 @@ test.describe('MSW bootstrap', () => {
 			.toBe('9.9.9');
 	});
 
+	test('probíhající update ukáže progressbar, fázi a ohlásí ji do live region', async ({
+		page
+	}) => {
+		await setMockFlags(page, { e2e: true });
+
+		await openApp(page, '/settings/about');
+		await page.waitForFunction(
+			() => typeof window.__MAIL_E2E__?.showMockUpdateForTests === 'function'
+		);
+
+		await page.evaluate(() => {
+			window.__MAIL_E2E__?.resetUpdateStateForTests();
+			window.__MAIL_E2E__?.showMockUpdateForTests('9.9.9', {
+				holdDownloadAt: { downloaded: 30, total: 100 }
+			});
+		});
+
+		const prompt = page.getByRole('dialog', { name: 'Nová verze 9.9.9 je k dispozici' });
+		await expect(prompt).toBeVisible();
+		// The description has to say the app closes; the install ends the
+		// process, so a user who does not expect that reads it as a crash.
+		await expect(prompt).toContainText('aplikace ukončí');
+
+		await prompt.getByRole('button', { name: 'Aktualizovat teď' }).click();
+
+		// Asserted first, and deliberately: the polite region drops a message
+		// after ANNOUNCEMENT_CLEAR_MS (1.5 s), so a check queued behind slower
+		// ones could look for text that has already been cleared. The phase is
+		// announced there rather than by making the bar itself live — a bar that
+		// announces every percent buries the phase changes that matter.
+		await expect(page.locator('#live-region')).toContainText('Stahuji aktualizaci…');
+
+		const bar = prompt.getByRole('progressbar', { name: 'Průběh aktualizace' });
+		await expect(bar).toHaveAttribute('aria-valuenow', '30');
+		await expect(bar).toHaveAttribute('aria-valuetext', 'Staženo 30 %');
+		await expect(prompt).toContainText('Stahuji aktualizaci…');
+	});
+
 	test('update failure ukáže toast a GitHub Releases fallback link', async ({ page }) => {
 		await setMockFlags(page, { e2e: true });
 
