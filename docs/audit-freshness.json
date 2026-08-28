@@ -67,6 +67,17 @@
       }
     ]
   },
+  "docs/UPDATER_AUDIT.md": {
+    "reviewedTrees": {
+      "frontend/src-tauri/src": "a19c0a6f3373cec79e497ef215ca7a97ba5d95f7"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-08-28",
+        "note": "Whitespace only, and proven rather than asserted. cargo fmt became a CI gate and the same commit reformatted the four places the crate had drifted, two of them in lib.rs under this Code path (a method chain in check_for_update, the install call in install_pending_update) and two in tray.rs. Checked by stripping all whitespace from both revisions of each file and comparing: identical, sha256 d4bb792b0db5556e for lib.rs and 87eeeb24b01d7742 for tray.rs. String literals were compared separately and unsqueezed, since squeezing could otherwise hide a change inside one — also identical. No token, no order, no control flow moved, so every claim in sections 1 through 5 holds by construction. Verdict stays PASS. Note this arrives one commit after the v1.10 re-anchor emptied this ledger: it is not a fresh run of acknowledgements but the audited tree catching a formatter that had never been allowed to touch it."
+      }
+    ]
+  },
   "docs/API_SURFACE_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "e5e5ce9a18c1ec14eddef77c967bc64f23ee3dca",

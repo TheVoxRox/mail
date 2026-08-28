@@ -148,7 +148,8 @@ pub fn set_tray_tooltip(app: AppHandle, tooltip: String) -> Result<(), String> {
     let tray = app
         .tray_by_id(TRAY_ID)
         .ok_or_else(|| "tray icon is not available".to_string())?;
-    tray.set_tooltip(Some(&tooltip)).map_err(|err| err.to_string())
+    tray.set_tooltip(Some(&tooltip))
+        .map_err(|err| err.to_string())
 }
 
 /// Pushes the user's Settings → Appearance choice down to the window-close
@@ -161,7 +162,9 @@ pub fn set_tray_tooltip(app: AppHandle, tooltip: String) -> Result<(), String> {
 #[tauri::command]
 pub fn set_close_behavior(app: AppHandle, hide_to_tray: bool) {
     if hide_to_tray && app.tray_by_id(TRAY_ID).is_none() {
-        log::warn!("Close-to-tray requested but no tray icon exists — keeping the window quittable");
+        log::warn!(
+            "Close-to-tray requested but no tray icon exists — keeping the window quittable"
+        );
         return;
     }
     app.state::<CloseBehavior>().set(hide_to_tray);
