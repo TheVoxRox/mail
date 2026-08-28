@@ -46,17 +46,31 @@ jobs:
           restore-keys: |
             nvd-v2-${{ runner.os }}-
 
-      - name: Check NVD API key availability
-        id: nvd
+      # The secret arrives through env: instead of a "${{ }}" expansion. What that
+      # buys is narrow and worth stating exactly: Actions renders every run: block
+      # into a script file on the runner's disk, and a "${{ secrets.* }}" is
+      # substituted into it, so the literal key sits in that file. Read from env:
+      # the file contains only the variable name.
+      #
+      # It does NOT hide the key from the process list: the mvn invocation below
+      # still expands it into -DnvdApiKey=..., i.e. into argv. Maven has no
+      # env-var route for a plugin property, so closing that would mean a config
+      # file holding the secret instead — not an improvement. Left as is.
+      #
+      # Renamed from "Check NVD API key availability": it used to publish an
+      # `available` output that nothing in this file ever read (no `steps.nvd`
+      # reference exists), so warning is all it has ever actually done.
+      - name: Warn when the NVD API key is missing
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: |
-          if [ -n "${{ secrets.NVD_API_KEY }}" ]; then
-            echo "available=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "available=false" >> "$GITHUB_OUTPUT"
+          if [ -z "$NVD_API_KEY" ]; then
             echo "::warning::NVD_API_KEY secret is not set; scan will run without an API key and may hit rate limits (429)."
           fi
 
       - name: Run OWASP Dependency-Check
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: |
           set +e
           # The NVD bulk API is chronically flaky (503/timeouts). Retry a couple of
@@ -71,7 +85,7 @@ jobs:
             # every run, and a plugin upgrade with a new DB schema silently turns
             # the cached NVD H2 database into a full re-download.
             mvn --batch-mode org.owasp:dependency-check-maven:12.2.2:check \
-              -DnvdApiKey="${{ secrets.NVD_API_KEY }}" \
+              -DnvdApiKey="$NVD_API_KEY" \
               -DfailBuildOnCVSS=8 \
               -DskipTests \
               -Dformats=HTML,JSON,SARIF 2>&1 | tee "$log"
