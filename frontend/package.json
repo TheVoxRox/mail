@@ -18,7 +18,6 @@
 		"tauri:generate-latest:windows": "node scripts/generate-tauri-latest-windows.mjs",
 		"tauri:verify-updater-signature": "node scripts/verify-updater-signature.mjs",
 		"tauri:signing-config:windows": "node scripts/prepare-tauri-windows-signing-config.mjs",
-		"tauri:updater-config": "node scripts/prepare-tauri-updater-config.mjs",
 		"sidecar:sync:windows": "node scripts/sync-backend-sidecar-windows.mjs",
 		"dev": "vite dev",
 		"build": "vite build",

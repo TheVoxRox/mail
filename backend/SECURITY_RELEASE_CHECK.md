@@ -22,7 +22,7 @@ datovaný snapshot konkrétního běhu.
 | B3 sidecar HTTP API     | [API_SURFACE_AUDIT.md](../docs/API_SURFACE_AUDIT.md)             | full    | 1.4   | 2026-08-08 | `d45e253`      | **PASS** — A1 (Low, defense-in-depth) opraven       |
 | B4 WebView ↔ SPA        | [CONTENT_RENDERING_AUDIT.md](../docs/CONTENT_RENDERING_AUDIT.md) | full    | 1.7   | 2026-08-26 | `d558098`      | **PASS** — F1/F2/F3/F4/F5 opraveny                  |
 | B5 crypto + filesystem  | [CRYPTO_STORAGE_AUDIT.md](../docs/CRYPTO_STORAGE_AUDIT.md)       | focused | 1.1   | 2026-08-08 | `5799e8b`      | **PASS** — bez zásahu do kódu                       |
-| B6 Tauri updater        | [UPDATER_AUDIT.md](../docs/UPDATER_AUDIT.md)                     | full    | 1.8   | 2026-08-28 | `c6744a1`      | **PASS** — U-1 opraven, bez otevřených nálezů       |
+| B6 Tauri updater        | [UPDATER_AUDIT.md](../docs/UPDATER_AUDIT.md)                     | full    | 1.9   | 2026-08-28 | `c6744a1`      | **PASS** — U-1 opraven, bez otevřených nálezů       |
 
 Verdikt + odkaz drží také change log
 [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md) §7; při aktualizaci

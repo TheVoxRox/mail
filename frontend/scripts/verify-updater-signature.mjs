@@ -64,11 +64,24 @@ console.log(
 
 async function readPubkey(file) {
 	const config = JSON.parse(await readFile(file, 'utf8'));
-	const value = config.plugins?.updater?.pubkey;
+	const updater = config.plugins?.updater;
+	const value = updater?.pubkey;
 	if (!value) {
 		throw new Error(
 			`No plugins.updater.pubkey in ${file}. ` +
 				'Run tauri:release-config:windows before this check.'
+		);
+	}
+	// HTTPS-only is true today by default rather than by assertion: the flag is
+	// env-gated in lib/tauri-config.mjs and nothing sets the env var. Checking it
+	// on the generated config makes the guarantee explicit, and this is the step
+	// that already reads that file. Recorded as an open note in
+	// docs/UPDATER_AUDIT.md since v1.0.
+	if (updater.dangerousInsecureTransportProtocol === true) {
+		throw new Error(
+			`${file} sets plugins.updater.dangerousInsecureTransportProtocol — a release ` +
+				'must fetch its manifest over HTTPS. Unset ' +
+				'TAURI_UPDATER_DANGEROUS_INSECURE_TRANSPORT_PROTOCOL and regenerate the config.'
 		);
 	}
 	return value;
