@@ -199,6 +199,18 @@ jobs:
         working-directory: frontend
         run: npm run tauri:generate-latest:windows
 
+      # The one release property that cannot be repaired afterwards: the key
+      # baked into the app must be the pair of the key that signed the
+      # installer. The two halves come from unrelated secrets
+      # (TAURI_UPDATER_PUBKEY vs TAURI_SIGNING_PRIVATE_KEY) and nothing else
+      # compares them — a mismatched pair otherwise ships green and costs every
+      # installation its updater, which no later update can fix. Reads the
+      # generated config and manifest, so it judges what actually ships rather
+      # than the env vars they came from.
+      - name: Verify updater signature against the shipped pubkey
+        working-directory: frontend
+        run: npm run tauri:verify-updater-signature
+
       - name: Verify signatures
         if: steps.signing.outputs.available == 'true'
         working-directory: frontend

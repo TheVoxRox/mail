@@ -3,6 +3,7 @@ import { invoke, isTauri } from '@tauri-apps/api/core';
 import { get, writable } from 'svelte/store';
 import { RELEASES_URL } from '$lib/version.js';
 import { toErrorMessage } from '$lib/api/errors.js';
+import { stopBackendSidecar, usesBackendSidecar } from '$lib/backend/sidecar.js';
 import { updateChannel } from '$lib/stores/updateChannel.js';
 
 const DISMISSED_UPDATE_VERSION_KEY = 'mail.update.dismissedVersion';
@@ -17,6 +18,12 @@ interface UpdateMetadata {
 }
 
 interface AvailableUpdate extends UpdateMetadata {
+	/**
+	 * Downloads and verifies the package, leaving it in the shell's managed
+	 * state. Separate from {@link install} so the backend can be shut down in
+	 * between — see installPromptedUpdate.
+	 */
+	download: () => Promise<void>;
 	/**
 	 * Installs the update found by the check that produced this object. The
 	 * Tauri shell holds the pending update in managed state and refuses to
@@ -62,6 +69,7 @@ async function checkForUpdate(): Promise<AvailableUpdate | null> {
 
 	return {
 		...metadata,
+		download: () => invoke('download_pending_update', { expectedVersion: metadata.version }),
 		install: () => invoke('install_pending_update', { expectedVersion: metadata.version })
 	};
 }
@@ -119,18 +127,66 @@ export async function checkForUpdateManually(): Promise<ManualUpdateCheckResult>
 	}
 }
 
+/**
+ * Downloads the update, frees the install directory, then hands over to the
+ * installer — in that order.
+ *
+ * The order is the point. The NSIS installer overwrites the sidecar launcher
+ * and its bundled JRE inside the install directory, and Windows refuses to
+ * overwrite a file a live process holds open. Left alone, nothing stops the
+ * backend before then: the updater plugin spawns the installer and ends the
+ * app with `std::process::exit(0)`, which skips the `beforeunload` hook that
+ * normally kills the sidecar, so the only thing left is the backend's
+ * parent-death watchdog — and that only starts once the app process is
+ * already gone, racing an installer that is by then running. Stopping the
+ * sidecar here replaces that race with a sequence.
+ *
+ * Nothing re-entrant: the prompt's buttons are disabled while installing, and
+ * the guard below refuses a second run rather than starting a second download.
+ */
 export async function installPromptedUpdate(): Promise<void> {
 	const state = get(updatePromptState);
-	if (state.status !== 'available' && state.status !== 'installing') return;
+	if (state.status !== 'available') return;
 
 	const { update } = state;
 	updatePromptState.set({ status: 'installing', update });
+	let backendStopped = false;
 	try {
+		await update.download();
+
+		if (usesBackendSidecar()) {
+			await stopBackendSidecar();
+			backendStopped = true;
+		}
+
 		await update.install();
 		updatePromptState.set({ status: 'hidden' });
 	} catch (err) {
+		if (backendStopped) await restartBackendAfterFailedInstall();
 		updatePromptState.set({ status: 'available', update });
 		showUpdateFailure(err);
+	}
+}
+
+/**
+ * Puts the backend back after an install that did not take. Without this the
+ * app survives the failure with no backend behind it, which reads to the user
+ * as a second, unrelated breakage on top of the one the dialog reports.
+ *
+ * A plain respawn is not enough: the new sidecar comes up on a fresh port with
+ * a fresh handshake key, so the boot has to be redone. The import is dynamic
+ * because bootstrap imports this module — the same cycle sidecarRecovery.ts
+ * breaks the same way.
+ */
+async function restartBackendAfterFailedInstall(): Promise<void> {
+	try {
+		const { bootstrap } = await import('$lib/bootstrap.js');
+		await bootstrap({ restartSidecar: true });
+	} catch (err) {
+		// The boot / session stores surface this on their own, and the update
+		// failure dialog is already on its way up; a throw here would replace
+		// that dialog's message with this one.
+		console.warn('[mail] backend restart after a failed update install failed', err);
 	}
 }
 
@@ -155,6 +211,7 @@ export function showMockUpdateForTests(
 		update: {
 			version,
 			currentVersion: '0.1.0',
+			async download() {},
 			async install() {
 				if (options.failInstall) {
 					throw new Error('Mock update install failed');
