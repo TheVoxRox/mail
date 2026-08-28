@@ -74,7 +74,8 @@
       "frontend/src-tauri/src": "9c8b6e4118326e59b38795efb0e5809f527dc415",
       "frontend/src/lib/updates.ts": "0bfc6a88dbe0a088c0e79365c058b524f223f3b8",
       "frontend/src/lib/components/UpdatePromptDialog.svelte": "5e7e7cb585bd655457df707c3520ccb3826e5976",
-      "frontend/src/lib/components/UpdateFailureDialog.svelte": "45b7bbd7e0171f3afbc80d892f5bbd4bf861a12a"
+      "frontend/src/lib/components/UpdateFailureDialog.svelte": "45b7bbd7e0171f3afbc80d892f5bbd4bf861a12a",
+      "frontend/scripts/generate-tauri-latest-windows.mjs": "9c048ef32f2c8bd55e31913dad6dbc97684269cc"
     },
     "acknowledgements": [
       {
@@ -88,6 +89,10 @@
       {
         "date": "2026-08-28",
         "note": "Presentation-only change under these paths, and the one acknowledgement in this run that does NOT come with an audit revision, because it falsifies no claim the audit makes. A failed install now sets the prompt to hidden instead of back to available, and UpdateFailureDialog.svelte stops pushing a toast that carried its own heading — the failure was announced twice, and the modal stood over a prompt still offering the update that had just failed. Section 5 says the manual check surfaces a prominent failure UI with a releases-page fallback; that is still exactly what happens, and the backend restart on a failed install is untouched. Nothing in the check, download, verify or install path moved, no command signature changed, and no new value reaches the DOM. Verdict stays PASS."
+      },
+      {
+        "date": "2026-08-28",
+        "note": "The manifest artifact-selection fix (audit v1.8), and nothing else. Carrying the released version in the artifact name moves from a +10 term in scoreArtifact to a filter applied before the sort, with its own error naming the signed artifacts that were found; the no-signed-artifact case is now raised separately, because an unsigned build and a stale build are different mistakes with different fixes. The version is matched as a whole token so 0.1.0 does not match inside 0.1.01. Nothing else in the file changed: the same signed-only candidate set, the same empty-signature throw, the same encodeURIComponent on the url, the same manifest shape. Section 2 is updated rather than left describing the weaker behaviour, and it now also records why the v1.5 signature gate cannot catch this case. Verdict stays PASS."
       }
     ]
   },
