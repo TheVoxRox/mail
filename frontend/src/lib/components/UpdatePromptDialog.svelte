@@ -63,7 +63,7 @@
 
 	$effect(() => {
 		if (phase !== 'downloading' || percent === null) return;
-		const reached = ANNOUNCED_STEPS.filter((step) => percent >= step).pop() ?? 0;
+		const reached = ANNOUNCED_STEPS.findLast((step) => percent >= step) ?? 0;
 		if (reached > announcedStep) {
 			announcedStep = reached;
 			announcePolite($_('update.prompt.progressAnnouncement', { values: { percent: reached } }));
@@ -117,7 +117,7 @@
 				class="h-2 w-full overflow-hidden rounded-full bg-muted"
 			>
 				<div
-					class="h-full rounded-full bg-primary transition-[width] duration-200 motion-reduce:transition-none"
+					class="h-full rounded-full bg-primary transition-[width] duration-200 motion-reduce:transition-none motion-reduce:animate-none"
 					class:animate-pulse={percent === null}
 					style:width={percent === null ? '100%' : `${percent}%`}
 				></div>

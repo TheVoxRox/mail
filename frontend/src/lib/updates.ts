@@ -9,6 +9,8 @@ import { updateChannel } from '$lib/stores/updateChannel.js';
 
 const DISMISSED_UPDATE_VERSION_KEY = 'mail.update.dismissedVersion';
 const AUTO_UPDATE_CHECK_ENABLED = import.meta.env.VITE_ENABLE_AUTO_UPDATE_CHECK === '1';
+/** See checkForUpdateAndPrompt: one startup check per process, not per boot. */
+let startupCheckRan = false;
 /** Emitted by `download_pending_update` (lib.rs), throttled to whole percents. */
 const UPDATE_PROGRESS_EVENT = 'update://download-progress';
 
@@ -109,8 +111,44 @@ function hideStalePrompt(): void {
 	}
 }
 
+/**
+ * Raises the prompt for `update`, unless an install is already running.
+ *
+ * The same rule {@link hideStalePrompt} applies on the "found nothing" branch,
+ * on the branch that found something. Without it a check landing mid-download
+ * replaces `installing` with `available`, and the dialog keys everything off
+ * that: the buttons re-enable (they are disabled on `installing` alone), so a
+ * second click starts a second download — while the shell-side check that just
+ * ran has cleared the pending and downloaded slots the first one is about to
+ * ask for.
+ */
+function showPromptUnlessInstalling(update: AvailableUpdate): void {
+	if (get(updatePromptState).status === 'installing') return;
+	updatePromptState.set({ status: 'available', update });
+}
+
+/**
+ * The once-per-process startup check.
+ *
+ * The guard is here rather than at the call site because `bootstrap()` is not
+ * the startup path, it is the *boot* path, and it runs again on every boot
+ * retry: the two buttons on the boot error view, sidecarRecovery after an
+ * unexpected sidecar exit, and the restart this module itself performs after a
+ * failed install. Each re-entry used to fire another unattended request to
+ * GitHub. Two things were wrong with that. It re-raised the update prompt on
+ * top of the failure dialog that had caused the reboot — the two-modal state
+ * installPromptedUpdate closes the prompt to avoid. And it is more egress than
+ * PRIVACY.md promises: "the next request happens at the next startup, or when
+ * you trigger the check yourself".
+ *
+ * A check that failed still counts as the startup check. Retrying it on the
+ * next reboot would restore exactly the traffic this prevents, and the manual
+ * check in Settings → About is the way out.
+ */
 export async function checkForUpdateAndPrompt(): Promise<void> {
 	if (!shouldCheckForUpdatesOnStartup()) return;
+	if (startupCheckRan) return;
+	startupCheckRan = true;
 
 	try {
 		const update = await checkForUpdate();
@@ -119,7 +157,7 @@ export async function checkForUpdateAndPrompt(): Promise<void> {
 			return;
 		}
 		if (wasDismissed(update.version)) return;
-		updatePromptState.set({ status: 'available', update });
+		showPromptUnlessInstalling(update);
 	} catch (err) {
 		// Background startup checks fail silently: a transient network error or a
 		// not-yet-published release must not raise an alarming dialog on every
@@ -139,7 +177,7 @@ export async function checkForUpdateManually(): Promise<ManualUpdateCheckResult>
 			hideStalePrompt();
 			return { status: 'none' };
 		}
-		updatePromptState.set({ status: 'available', update });
+		showPromptUnlessInstalling(update);
 		return { status: 'available', update };
 	} catch (err) {
 		showUpdateFailure(err);
@@ -187,24 +225,42 @@ export async function installPromptedUpdate(): Promise<void> {
 
 		if (usesBackendSidecar()) {
 			setInstallPhase('stoppingBackend');
-			await stopBackendSidecar();
+			// Flagged before the await, not after. stopBackendSidecar drops its
+			// handle on the child and marks the sidecar stopped before the kill
+			// that can throw, so once this call has started the backend is gone
+			// either way — a rejection is not "it is still running", it is "it is
+			// gone and we no longer have the handle". Setting the flag on success
+			// only left that case with no backend AND no restart: the second,
+			// unrelated-looking breakage restartBackendAfterFailedInstall exists
+			// to prevent.
 			backendStopped = true;
+			await stopBackendSidecar();
 		}
 
 		setInstallPhase('installing');
 		await update.install();
 		updatePromptState.set({ status: 'hidden' });
 	} catch (err) {
-		if (backendStopped) await restartBackendAfterFailedInstall();
+		// Both of these happen before the restart below, which is a full re-boot
+		// (~6–7 s), and the order is the point twice over.
+		//
 		// The prompt closes rather than reverting to 'available'. Leaving it open
 		// stacked the failure dialog on top of it — two modals, one over the
 		// other, and a screen reader walking back out of the top one into a
 		// prompt still offering the update that just failed. The failure dialog
 		// is the single surface for the failure; the update itself is not lost,
 		// since the version was never dismissed and About → check for updates
-		// finds it again.
+		// finds it again. Closing it here also retires the `installing` phase,
+		// whose label and live-region announcement both say the app is about to
+		// close — which, for the length of the restart, it is not.
+		//
+		// The failure is raised before the restart rather than after it so the
+		// reason is on screen while the re-boot runs behind it. The dialogs are
+		// mounted outside the boot-gated block in +layout.svelte, so this one
+		// survives the boot view taking over the main area.
 		updatePromptState.set({ status: 'hidden' });
 		showUpdateFailure(err);
+		if (backendStopped) await restartBackendAfterFailedInstall();
 	} finally {
 		(await progressListener)();
 	}
@@ -260,8 +316,8 @@ async function restartBackendAfterFailedInstall(): Promise<void> {
 		await bootstrap({ restartSidecar: true });
 	} catch (err) {
 		// The boot / session stores surface this on their own, and the update
-		// failure dialog is already on its way up; a throw here would replace
-		// that dialog's message with this one.
+		// failure dialog is already up by the time this runs; a throw here would
+		// replace that dialog's message with this one.
 		console.warn('[mail] backend restart after a failed update install failed', err);
 	}
 }
@@ -338,6 +394,7 @@ export function showMockUpdateForTests(
 export function resetUpdateStateForTests(): void {
 	updatePromptState.set({ status: 'hidden' });
 	updateFailureState.set({ status: 'hidden' });
+	startupCheckRan = false;
 }
 
 function dismissVersion(version: string): void {

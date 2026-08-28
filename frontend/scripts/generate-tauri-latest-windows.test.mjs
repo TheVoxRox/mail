@@ -108,6 +108,26 @@ describe('artifact selection', () => {
 		expect(() => run('0.1.0')).toThrow(/carries version 0\.1\.0/);
 	});
 
+	it('does not accept a version that only appears inside a longer dotted one', () => {
+		// The left-hand boundary has to exclude `.` as well as a digit, or the
+		// tail of 1.0.1.0 reads as 0.1.0.
+		addSignedArtifact('voxrox-mail-1.0.1.0-windows-x64-setup.exe');
+
+		expect(() => run('0.1.0')).toThrow(/carries version 0\.1\.0/);
+	});
+
+	it('accepts the version immediately before the extension', () => {
+		// The right-hand boundary must NOT exclude `.`: this shape, and a
+		// <version>.nsis.zip, put the extension straight after the version. The
+		// version check is a hard condition now, so over-rejecting aborts a
+		// release that has the correct installer sitting right there.
+		addSignedArtifact('voxrox-mail-0.1.1.exe');
+
+		run('0.1.1');
+
+		expect(manifest().platforms['windows-x86_64'].url).toContain('voxrox-mail-0.1.1.exe');
+	});
+
 	it('prefers the setup installer when several artifacts carry the version', () => {
 		addSignedArtifact('voxrox-mail-0.1.1-windows-x64.exe');
 		addSignedArtifact('voxrox-mail-0.1.1-windows-x64-setup.exe');

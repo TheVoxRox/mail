@@ -96,10 +96,17 @@ async function findWindowsUpdaterArtifact(root, version) {
  * Version present as a whole token, so `0.1.0` does not match inside `0.1.01`
  * or `10.1.0`. A `-` or `_` on either side is a boundary, which is what the
  * `voxrox-mail-<version>-windows-x64-setup.exe` shape uses.
+ *
+ * The two sides are deliberately not symmetric. On the left a `.` has to be
+ * excluded as well as a digit, or `0.1.0` matches the tail of `1.0.1.0`. On the
+ * right only the digit may be: excluding `.` there rejects a name that puts the
+ * extension straight after the version — `voxrox-mail-0.1.0.exe`, or a
+ * `<version>.nsis.zip` — and this function is now a hard condition, so a false
+ * negative aborts the release rather than merely deranking a candidate.
  */
 function nameCarriesVersion(base, version) {
 	const escaped = version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-	return new RegExp(`(^|[^0-9.])${escaped}([^0-9.]|$)`, 'i').test(base);
+	return new RegExp(`(^|[^0-9.])${escaped}([^0-9]|$)`, 'i').test(base);
 }
 
 function scoreArtifact(file) {

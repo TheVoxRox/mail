@@ -155,6 +155,22 @@ describe('checkForUpdateAndPrompt (startup, background)', () => {
 		// the old prompt would offer an update the shell refuses to install.
 		expect(get(mod.updatePromptState)).toEqual({ status: 'hidden' });
 	});
+
+	it('runs once per process, not once per boot', async () => {
+		invokeMock.mockResolvedValue({ version: '9.9.9', currentVersion: '0.1.0' });
+
+		const mod = await freshModule();
+		await mod.checkForUpdateAndPrompt();
+		await mod.checkForUpdateAndPrompt();
+
+		// bootstrap() fires this at the end of every boot, and a boot happens
+		// again on both error-view retry buttons, on sidecar recovery, and on the
+		// restart installPromptedUpdate performs after a failed install. Each of
+		// those was another unattended request to GitHub — more egress than
+		// PRIVACY.md promises, and on the failed-install path a prompt raised on
+		// top of the failure dialog that caused the reboot.
+		expect(invokeMock.mock.calls.filter(([name]) => name === 'check_for_update')).toHaveLength(1);
+	});
 });
 
 describe('checkForUpdateManually (user-initiated)', () => {
@@ -207,6 +223,38 @@ describe('checkForUpdateManually (user-initiated)', () => {
 		resolveInstall();
 		await install;
 		expect(get(mod.updatePromptState)).toEqual({ status: 'hidden' });
+	});
+
+	it('does not touch an in-flight install when a later check finds one', async () => {
+		let resolveDownload!: () => void;
+		invokeMock
+			.mockResolvedValueOnce({ version: '9.9.9', currentVersion: '0.1.0' })
+			.mockImplementationOnce(
+				() =>
+					new Promise<void>((resolve) => {
+						resolveDownload = resolve;
+					})
+			)
+			.mockResolvedValueOnce({ version: '9.9.9', currentVersion: '0.1.0' })
+			.mockResolvedValue(undefined);
+
+		const mod = await freshModule();
+		await mod.checkForUpdateManually();
+		const install = mod.installPromptedUpdate();
+		const result = await mod.checkForUpdateManually();
+
+		// The sibling above covers the check that finds nothing. This is the same
+		// rule on the branch that finds something, which did not have it:
+		// reverting to 'available' mid-download re-enables the dialog's buttons
+		// (they are disabled on 'installing' alone), so a second click starts a
+		// second download — of a package this run is still fetching, while the
+		// shell-side check that just ran has cleared the pending and downloaded
+		// slots it is about to ask for. The caller still gets its answer.
+		expect(result.status).toBe('available');
+		expect(get(mod.updatePromptState).status).toBe('installing');
+
+		resolveDownload();
+		await install;
 	});
 });
 
@@ -436,6 +484,41 @@ describe('installPromptedUpdate (backend handoff)', () => {
 		// port with a fresh handshake key, so the boot has to be redone.
 		expect(bootstrapMock).toHaveBeenCalledWith({ restartSidecar: true });
 		expect(get(mod.updateFailureState).status).toBe('failed');
+	});
+
+	it('puts the backend back when stopping it is what failed', async () => {
+		const mod = await primedModule();
+		stopSidecarMock.mockRejectedValueOnce(new Error('kill failed'));
+
+		await mod.installPromptedUpdate();
+
+		// stopBackendSidecar drops its handle on the child and marks the sidecar
+		// stopped BEFORE the kill that can throw, so a rejection does not mean
+		// "still running", it means "gone, and no longer reachable". Flagging the
+		// stop only after the await left exactly this case with no backend and no
+		// restart — the failure dialog plus a second, unrelated-looking breakage.
+		expect(bootstrapMock).toHaveBeenCalledWith({ restartSidecar: true });
+		expect(get(mod.updateFailureState).status).toBe('failed');
+	});
+
+	it('has the failure on screen before the restart begins', async () => {
+		const mod = await primedModule();
+		invokeMock.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('install failed'));
+		let failureDuringRestart: string | undefined;
+		let promptDuringRestart: string | undefined;
+		bootstrapMock.mockImplementation(async () => {
+			failureDuringRestart = get(mod.updateFailureState).status;
+			promptDuringRestart = get(mod.updatePromptState).status;
+		});
+
+		await mod.installPromptedUpdate();
+
+		// The restart is a full re-boot (~6–7 s in this app). Running it first
+		// left the prompt on its 'installing' phase for that whole time — a label
+		// and a live-region announcement both saying the app is about to close,
+		// while it demonstrably was not — and no reason on screen anywhere.
+		expect(failureDuringRestart).toBe('failed');
+		expect(promptDuringRestart).toBe('hidden');
 	});
 
 	it('does not touch the backend when this build has no sidecar', async () => {
