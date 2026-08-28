@@ -15,7 +15,6 @@ node_modules
 /src-tauri/target
 /src-tauri/tauri.release.conf.json
 /src-tauri/tauri.signing.conf.json
-/src-tauri/tauri.updater.conf.json
 
 # Local data (in case someone redirects the data dir into the project)
 *.db

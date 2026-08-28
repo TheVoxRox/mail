@@ -174,11 +174,16 @@ describe('verify-updater-signature.mjs', () => {
 	});
 
 	/** Lays down the three artifacts the gate reads, then runs it. */
-	function run({ pubkey = REAL_PUBKEY, signature = REAL_SIGNATURE, assetName = 'sample.bin' }) {
+	function run({
+		pubkey = REAL_PUBKEY,
+		signature = REAL_SIGNATURE,
+		assetName = 'sample.bin',
+		updater = {}
+	}) {
 		writeFileSync(path.join(dir, 'bundle', 'nsis', 'sample.bin'), REAL_DATA);
 		writeFileSync(
 			path.join(dir, 'config.json'),
-			JSON.stringify({ plugins: { updater: { pubkey } } })
+			JSON.stringify({ plugins: { updater: { pubkey, ...updater } } })
 		);
 		writeFileSync(
 			path.join(dir, 'latest.json'),
@@ -226,6 +231,24 @@ describe('verify-updater-signature.mjs', () => {
 	it('fails when the manifest points at a file the build did not produce', () => {
 		expect(() => run({ assetName: 'voxrox-mail-0.1.0-windows-x64-setup.exe' })).toThrowError(
 			/Manifest names voxrox-mail-0\.1\.0-windows-x64-setup\.exe, but no such file exists/
+		);
+	});
+
+	it('fails a release whose config allows plain-http updater endpoints', () => {
+		// HTTPS-only used to hold because nothing set the env var behind this
+		// flag, not because anything checked. A release that fetches its
+		// manifest over http can be redirected to a hostile one — the signature
+		// still bounds the damage, but nothing should have to rely on that.
+		expect(() => run({ updater: { dangerousInsecureTransportProtocol: true } })).toThrowError(
+			/dangerousInsecureTransportProtocol/
+		);
+	});
+
+	it('passes when the flag is present but false', () => {
+		// Tauri's own default is false, so a config that spells it out must not
+		// be mistaken for one that turns it on.
+		expect(run({ updater: { dangerousInsecureTransportProtocol: false } })).toContain(
+			'Updater signature check OK'
 		);
 	});
 });

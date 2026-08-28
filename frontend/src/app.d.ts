@@ -29,7 +29,6 @@ declare global {
 					holdDownloadAt?: { downloaded: number; total: number | null };
 				}
 			) => void;
-			showMockUpdateFailureForTests: (message?: string) => void;
 			resetUpdateStateForTests: () => void;
 		};
 		__MAIL_MSW__?: {

@@ -101,6 +101,6 @@ instead of installing an older bundle over a newer one.
 
 ## Generated config files (gitignored)
 
-`src-tauri/tauri.release.conf.json`, `src-tauri/tauri.signing.conf.json`, and
-`src-tauri/tauri.updater.conf.json` are generated from environment variables and
-ignored by Git so release metadata is not committed accidentally.
+`src-tauri/tauri.release.conf.json` and `src-tauri/tauri.signing.conf.json` are
+generated from environment variables and ignored by Git so release metadata is
+not committed accidentally.

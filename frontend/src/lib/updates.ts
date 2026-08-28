@@ -314,10 +314,6 @@ export function showMockUpdateForTests(
 	});
 }
 
-export function showMockUpdateFailureForTests(message = 'Mock update check failed'): void {
-	showUpdateFailure(new Error(message));
-}
-
 export function resetUpdateStateForTests(): void {
 	updatePromptState.set({ status: 'hidden' });
 	updateFailureState.set({ status: 'hidden' });

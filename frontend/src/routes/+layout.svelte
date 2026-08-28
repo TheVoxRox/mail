@@ -36,11 +36,7 @@
 	import { loadSidebar } from '$lib/components/sidebar/loader.js';
 	import BootErrorView from '$lib/components/boot/BootErrorView.svelte';
 	import BootLoadingView from '$lib/components/boot/BootLoadingView.svelte';
-	import {
-		resetUpdateStateForTests,
-		showMockUpdateFailureForTests,
-		showMockUpdateForTests
-	} from '$lib/updates.js';
+	import { resetUpdateStateForTests, showMockUpdateForTests } from '$lib/updates.js';
 	import '../app.css';
 
 	let { children } = $props();
@@ -182,7 +178,6 @@
 				reportClientError,
 				resetClientErrorReportingForTests,
 				showMockUpdateForTests,
-				showMockUpdateFailureForTests,
 				resetUpdateStateForTests
 			};
 		}

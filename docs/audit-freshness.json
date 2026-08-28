@@ -72,10 +72,11 @@
       ".github/workflows/windows-signed-release.yml": "0687a1c04e7a9d31438c10a9304802dc7d946925",
       ".github/workflows/beta-channel.yml": "84d05d34c03448f99c42a547890bc05aeefe6990",
       "frontend/src-tauri/src": "9c8b6e4118326e59b38795efb0e5809f527dc415",
-      "frontend/src/lib/updates.ts": "0bfc6a88dbe0a088c0e79365c058b524f223f3b8",
+      "frontend/src/lib/updates.ts": "cf1a972b1020746c36f306bd67bb0072934b1624",
       "frontend/src/lib/components/UpdatePromptDialog.svelte": "5e7e7cb585bd655457df707c3520ccb3826e5976",
       "frontend/src/lib/components/UpdateFailureDialog.svelte": "45b7bbd7e0171f3afbc80d892f5bbd4bf861a12a",
-      "frontend/scripts/generate-tauri-latest-windows.mjs": "9c048ef32f2c8bd55e31913dad6dbc97684269cc"
+      "frontend/scripts/generate-tauri-latest-windows.mjs": "9c048ef32f2c8bd55e31913dad6dbc97684269cc",
+      "frontend/scripts/verify-updater-signature.mjs": "89e9a7437bf000c93c535f0457da29db1592a402"
     },
     "acknowledgements": [
       {
@@ -93,6 +94,10 @@
       {
         "date": "2026-08-28",
         "note": "The manifest artifact-selection fix (audit v1.8), and nothing else. Carrying the released version in the artifact name moves from a +10 term in scoreArtifact to a filter applied before the sort, with its own error naming the signed artifacts that were found; the no-signed-artifact case is now raised separately, because an unsigned build and a stale build are different mistakes with different fixes. The version is matched as a whole token so 0.1.0 does not match inside 0.1.01. Nothing else in the file changed: the same signed-only candidate set, the same empty-signature throw, the same encodeURIComponent on the url, the same manifest shape. Section 2 is updated rather than left describing the weaker behaviour, and it now also records why the v1.5 signature gate cannot catch this case. Verdict stays PASS."
+      },
+      {
+        "date": "2026-08-28",
+        "note": "The batch of small items (audit v1.9). verify-updater-signature.mjs gains one assertion on the config it already parses: a release fails if dangerousInsecureTransportProtocol is true, which closes the informational note section 6 had carried since v1.0. The flag spelled out as false still passes, because Tauri defaults it to false and treating \"mentioned\" as \"enabled\" would fail a correct release; both cases are tested. prepare-tauri-updater-config.mjs is deleted and drops out of Code paths — nothing invoked it (only its own npm script referenced it) and with no Authenticode certificate configured, which is this repository state per AR-4, it emitted a file byte-identical to prepare-tauri-windows-release-config.mjs; verified by running both and diffing. updates.ts loses only the unused showMockUpdateFailureForTests seam, which no test ever called. Nothing in the check, download, verify or install path moved and no signature logic changed. Verdict stays PASS."
       }
     ]
   },
