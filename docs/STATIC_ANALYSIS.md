@@ -206,6 +206,7 @@ unreadable, and judge by the three categories above, not by the number alone.
 
 | Tool                                    | When                             | Gate                        |
 | --------------------------------------- | -------------------------------- | --------------------------- |
+| `cargo fmt --check`                     | CI `tauri` job                   | any diff fails the build    |
 | `cargo check`                           | CI `tauri` job / pre-release     | clean compile               |
 | `cargo clippy --no-deps -- -D warnings` | CI `tauri` job / pre-release     | any warning fails the build |
 | `cargo audit` (RustSec)                 | CI `tauri` job + `vuln-scan.yml` | advisory hit fails the job  |
@@ -213,6 +214,12 @@ unreadable, and judge by the three categories above, not by the number alone.
 `--no-deps` keeps clippy on our own crate: the Tauri dependency tree is large
 and we do not own its lints. cargo-audit is pinned (`0.22.2`) and cached, so a
 new advisory changes the result but a new tool version never does on its own.
+
+`cargo fmt --check` runs first and before the sidecar stubs, because rustfmt
+parses rather than builds: it needs neither the stubs nor the cargo cache, and
+it is the cheapest step here to fail on. It was added late (2026-08-28) — Rust
+had been the one language in this repo with no formatting gate, and the crate
+had by then drifted from rustfmt in four places that nothing was looking at.
 
 ## Cross-language (CodeQL)
 

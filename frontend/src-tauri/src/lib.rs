@@ -222,7 +222,9 @@ async fn check_for_update(
     let mut builder = app.updater_builder();
     if let Some(endpoint) = beta_endpoint_override(&channel)? {
         let url = tauri::Url::parse(endpoint).map_err(|err| err.to_string())?;
-        builder = builder.endpoints(vec![url]).map_err(|err| err.to_string())?;
+        builder = builder
+            .endpoints(vec![url])
+            .map_err(|err| err.to_string())?;
     }
 
     let update = builder
@@ -359,7 +361,9 @@ async fn install_pending_update(
     // std::process::exit(0), so nothing after it runs — including the
     // webview's beforeunload hooks. Whatever has to happen before the
     // installer touches the install directory has to have happened already.
-    update.install(&package.bytes).map_err(|err| err.to_string())
+    update
+        .install(&package.bytes)
+        .map_err(|err| err.to_string())
 }
 
 /// Resolves the unified `<vendor>/Mail[suffix]` data root under the OS-specific

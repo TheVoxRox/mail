@@ -191,7 +191,16 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: clippy
+          components: clippy, rustfmt
+
+      # Runs before the stub and cache steps on purpose: rustfmt parses, it does
+      # not build, so it needs neither and it is the cheapest thing here to fail
+      # on. Rust was the only language in this repo without a formatting gate —
+      # the frontend has prettier, the whole tree has check:md, the backend has
+      # Spotless — and by the time this was added the crate had drifted from
+      # rustfmt in four places nobody had reason to notice.
+      - name: cargo fmt
+        run: cargo fmt --check
 
       # The sidecar (externalBin "binaries/mail") and the bundled resources
       # ("binaries/app", "binaries/runtime") are Windows-only artifacts produced
