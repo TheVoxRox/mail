@@ -1,6 +1,6 @@
 # Zásady ochrany soukromí — VoxRox Mail
 
-_Verze: 2026-08-18 (návrh před prvním vydáním). Tato verze je předběžná a ještě
+_Verze: 2026-08-28 (návrh před prvním vydáním). Tato verze je předběžná a ještě
 nebyla schválena právníkem — viz sekce „Otevřené body" na konci dokumentu._
 
 _English version: [PRIVACY.en.md](PRIVACY.en.md)._
@@ -81,12 +81,15 @@ Aplikace zahájí síťovou komunikaci jen v těchto případech:
    na přihlašovací stránce poskytovatele, obdrží access token + refresh
    token a uloží je lokálně (šifrované, viz výše). Pravidelně si od
    poskytovatele bere nový access token přes refresh token.
-3. **Aktualizace aplikace** (Tauri updater) — aplikace se periodicky připojuje
+3. **Aktualizace aplikace** (Tauri updater) — aplikace se **při spuštění**
+   připojuje
    na `https://github.com/TheVoxRox/mail/releases/latest/download/latest.json`
    (stabilní kanál), resp. na
    `https://github.com/TheVoxRox/mail/releases/download/beta/latest.json`,
    pokud si v Nastavení → O aplikaci zvolíte beta kanál, aby zjistila, zda
    existuje novější podepsaná verze, a případně stáhla podepsaný instalátor.
+   **Za běhu se už sama znovu neptá** — další dotaz proběhne až při příštím
+   spuštění, nebo když kontrolu sami vyvoláte v Nastavení → O aplikaci.
    Při tomto požadavku GitHub (hosting releasů) dočasně uvidí ve svých server
    lozích vaši **IP adresu** a verzi, na kterou se dotazujete — stejně jako při
    jakémkoli jiném stažení z webu. Žádná jiná data se při kontrole aktualizací
@@ -110,10 +113,12 @@ ani na žádnou analytickou platformu třetí strany.
 
 Ve výchozím nastavení zavření okna aplikaci ukončí a síťová komunikace končí
 spolu s ní. Přepnete-li **Nastavení → Vzhled → Zavření okna** na „nechat běžet
-v oznamovací oblasti", probíhají body 1 až 3 výše i po zavření okna: aplikace
+v oznamovací oblasti", probíhají body 1 a 2 výše i po zavření okna: aplikace
 se jen skryje, aby dál stahovala poštu a hlásila nové zprávy — pořád tedy běží
 a pořád se v pravidelných intervalech připojuje k vašemu e-mailovému serveru.
-Ukončit ji pak jde přes nabídku ikony v oznamovací oblasti (**Ukončit**).
+**Kontrola aktualizací (bod 3) mezi ně nepatří** — ta proběhla jednou při
+spuštění a za běhu se neopakuje, ať je okno zavřené, nebo ne.
+Ukončit aplikaci pak jde přes nabídku ikony v oznamovací oblasti (**Ukončit**).
 
 ### Diagnostické reporty z klienta
 
@@ -140,7 +145,7 @@ Pokud přidáte účet, vstupují do hry tito poskytovatelé:
 - **Google** — pokud používáte Gmail s OAuth ([https://policies.google.com/privacy](https://policies.google.com/privacy)).
 - **Microsoft** — pokud používáte Outlook/Hotmail/Live s OAuth ([https://privacy.microsoft.com/](https://privacy.microsoft.com/)).
 - **GitHub** — aktualizace se distribuují přes GitHub Releases, takže aplikace
-  periodicky kontroluje dostupnost nové verze proti GitHubu (viz „Jaká data
+  při spuštění kontroluje dostupnost nové verze proti GitHubu (viz „Jaká data
   putují po síti" výše). GitHub při tom vidí vaši IP adresu a dotazovanou verzi
   ([https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement)).
 - **Servery hostující vzdálené obrázky ve zprávách** — vstupují do hry jen

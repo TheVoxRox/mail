@@ -1,6 +1,6 @@
 # Privacy Policy — VoxRox Mail
 
-_Version: 2026-08-18 (draft, pre-first-release). This version is preliminary
+_Version: 2026-08-28 (draft, pre-first-release). This version is preliminary
 and has not yet been reviewed by a lawyer — see "Open items" at the bottom._
 
 _Česká verze: [PRIVACY.md](PRIVACY.md)._
@@ -82,13 +82,15 @@ The application initiates network traffic only in these cases:
    on the provider's login page, receives an access token + refresh token,
    and stores them locally (encrypted, see above). It periodically obtains
    a new access token from the provider using the refresh token.
-3. **Application updates** (Tauri updater) — the application periodically
+3. **Application updates** (Tauri updater) — **at startup** the application
    connects to
    `https://github.com/TheVoxRox/mail/releases/latest/download/latest.json`
    (stable channel), or to
    `https://github.com/TheVoxRox/mail/releases/download/beta/latest.json` if
    you opt into the beta channel in Settings → About, to check whether a newer
-   signed release exists, and downloads the signed installer if so. During
+   signed release exists, and downloads the signed installer if so. **It does
+   not ask again while running** — the next request happens at the next
+   startup, or when you trigger the check yourself in Settings → About. During
    this request GitHub (the release host) temporarily sees your **IP address**
    and the version you are querying in its server logs — just like any other
    download from the web. No other data is sent during the update check (the
@@ -113,11 +115,13 @@ VoxRox server or third-party analytics platform.
 
 By default closing the window quits the application, and the network traffic
 stops with it. If you switch **Settings → Appearance → Closing the window** to
-"keep running in the notification area", points 1 to 3 above continue after you
+"keep running in the notification area", points 1 and 2 above continue after you
 close the window: the application is only hidden, so it can keep fetching mail
 and announcing new messages, which means it is still running and still
-connecting to your e-mail server at regular intervals. Quit it from the
-notification area icon menu (**Quit**).
+connecting to your e-mail server at regular intervals. **The update check
+(point 3) is not among them** — it ran once at startup and does not repeat while
+the application runs, whether the window is closed or not. Quit the application
+from the notification area icon menu (**Quit**).
 
 ### Diagnostic reports from the client
 
@@ -144,7 +148,7 @@ When you add an account, the following providers come into play:
 - **Google** — if you use Gmail with OAuth ([https://policies.google.com/privacy](https://policies.google.com/privacy)).
 - **Microsoft** — if you use Outlook / Hotmail / Live with OAuth ([https://privacy.microsoft.com/](https://privacy.microsoft.com/)).
 - **GitHub** — updates are distributed via GitHub Releases, so the application
-  periodically checks for a new version against GitHub (see "What data leaves
+  checks for a new version against GitHub at startup (see "What data leaves
   the device" above). GitHub sees your IP address and the queried version
   ([https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement)).
 - **Servers hosting remote images in messages** — they only come into play
