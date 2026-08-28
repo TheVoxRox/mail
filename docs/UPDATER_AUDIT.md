@@ -2,7 +2,7 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.10                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| **Version**        | 1.11                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | **Date**           | 2026-08-28                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | **Audited commit** | `3e71529` (re-verified 2026-08-28 at the end of the updater work series, clearing six acknowledgements; v1.5–v1.9 anchor: `c6744a1`; v1.4 anchor: `cad05cb`, recorded pre-squash as `5799e8b`; v1.2/1.3 anchor: `3162e6a` (#144), v1.0/1.1 baseline: `d55b753`)                                                                                                                                                                                                                                                                                                                                                                                                                                     |
@@ -177,7 +177,15 @@ renders through `{message}` in a `<span>` — Svelte text interpolation, no
   `console.warn`, no dialog) — a transient network error or an
   as-yet-unpublished release must not throw an alarming dialog on every cold
   start (announced to screen-reader users). Gated on `PROD` + Tauri +
-  `VITE_ENABLE_AUTO_UPDATE_CHECK`.
+  `VITE_ENABLE_AUTO_UPDATE_CHECK`, and **once per process** (v1.11). The gate
+  is inside the function rather than at its one call site because `bootstrap()`
+  is the boot path, not the startup path: it runs again on both boot-error
+  retry buttons, on `sidecarRecovery` after an unexpected sidecar exit, and on
+  the restart the failed-install path below performs. Each of those re-entries
+  was another unattended request to GitHub — more egress than
+  [PRIVACY.md](../PRIVACY.md) describes ("the next request happens at the next
+  startup, or when you trigger the check yourself"), and on the failed-install
+  path a prompt raised on top of the failure dialog that had caused the reboot.
 - **The install runs download → stop the backend → install, in that order**
   (`installPromptedUpdate` in [updates.ts](../frontend/src/lib/updates.ts)). The
   NSIS installer overwrites the sidecar launcher, its `app/` and the whole
@@ -199,10 +207,27 @@ renders through `{message}` in a `<span>` — Svelte text interpolation, no
   than making the bar itself live, so a screen reader hears the transitions
   instead of a hundred percentages. Progress is advisory end to end: a shell that
   cannot deliver the event leaves the bar indeterminate and the install proceeds.
-- A failed install puts the backend back through
-  `bootstrap({ restartSidecar: true })` — a plain respawn is not enough, the new
-  sidecar comes up on a fresh port with a fresh handshake key — and then surfaces
-  the failure dialog.
+- A failed install **closes the prompt, surfaces the failure dialog, and only
+  then** puts the backend back through `bootstrap({ restartSidecar: true })` — a
+  plain respawn is not enough, the new sidecar comes up on a fresh port with a
+  fresh handshake key. The order is v1.11 and it is load-bearing twice: the
+  restart is a full re-boot (~6–7 s), and running it first left the prompt on
+  its `installing` phase for that whole time, whose label and live-region
+  announcement both say the app is about to close. The dialogs are mounted
+  outside the boot-gated block in `+layout.svelte`, so the failure stays on
+  screen while the boot view takes over the main area. The stop is also flagged
+  **before** `stopBackendSidecar()` is awaited, not after: that function drops
+  its handle on the child and marks the sidecar stopped before the kill that can
+  throw, so a rejection means the backend is gone and unreachable rather than
+  still running — flagging it on success only left that case with no backend and
+  no restart.
+- **A check landing during an install cannot take the dialog away from it.**
+  `hideStalePrompt` had that rule on the branch that finds nothing; v1.11 adds
+  `showPromptUnlessInstalling` for the branch that finds something. Without it a
+  check mid-download reverted `installing` to `available`, which re-enables the
+  dialog's buttons (they are disabled on `installing` alone) and offers a second
+  download — while the shell-side check has just cleared the pending and
+  downloaded slots the running install is about to ask for.
 - **Manual check** ([AboutSettings.svelte](../frontend/src/lib/components/settings/AboutSettings.svelte))
   surfaces a prominent failure UI with a fallback link to the releases page
   (`RELEASES_URL`).
@@ -212,7 +237,11 @@ renders through `{message}` in a `<span>` — Svelte text interpolation, no
   startup, prompt-when-available, manual-failure-dialog, channel routing (stable
   default, stored beta preference), download/stop/install ordering, the
   backend restart after a failed install, and the guard that refuses a second
-  run rather than starting a second download.
+  run rather than starting a second download. v1.11 adds four: the startup check
+  runs once per process, a check that finds an update leaves an in-flight
+  install alone, the backend is restored when stopping it is what failed, and
+  the failure is on screen before the restart begins. Each was verified by
+  reverting its fix and watching that test — and only that test — fail.
 - **Not proven by any test:** that the installer really does overwrite
   `runtime/**` and `app/**` without a file-in-use failure. Only a real vN-1 → vN
   smoke shows that, and `CheckIfAppIsRunning` in the bundled NSIS template still
@@ -274,6 +303,33 @@ renders through `{message}` in a `<span>` — Svelte text interpolation, no
 - [backend/SECURITY_RELEASE_CHECK.md](../backend/SECURITY_RELEASE_CHECK.md) — per-release security gate.
 
 ## 8. Change log
+
+- **1.11** (2026-08-28) — **four defects on the install and check paths, found
+  by a review of the whole updater series; verdict stays PASS.** None of them
+  is in the trust chain, which is why the verdict does not move: signature
+  verification, the pinned pubkey, the endpoint map, `allowDowngrades`, the
+  capability set and the `expectedVersion` pin on both commands are byte-for-byte
+  what §1–§3 describe, and no line of this change goes near them. What moved is
+  §5. (1) The startup check is now once per process — `bootstrap()` re-runs on
+  every boot retry, so the failed-install restart re-raised the prompt over the
+  failure dialog, and the extra requests exceeded what `PRIVACY.md` describes;
+  the code was corrected rather than the document. (2) A check that finds an
+  update no longer overwrites an in-flight install. (3) The stop is flagged
+  before the await, so a `kill()` rejection still restores the backend. (4) The
+  failure dialog is raised before the restart, not after it. Rust-side,
+  `install_pending_update` now **takes** the downloaded package instead of
+  borrowing it, so a failed install no longer leaves a JRE-sized installer
+  resident in managed state for the rest of the session — a memory property, not
+  a security one; the bytes still never cross into the renderer, which is the
+  §1 claim.
+
+  Two script fixes under the same `Code paths`, both in gates rather than in the
+  shipped app: `nameCarriesVersion` rejected artifact names that put the
+  extension straight after the version, which since v1.8 aborts a release rather
+  than deranking a candidate; and `parseSignature` split on `\n` only, so a CRLF
+  `.sig` would have failed the v1.9 signature gate as a tampered trusted comment
+  instead of as a line-ending problem. Neither weakens a check — the first
+  stopped a false negative, the second a misleading true one.
 
 - **1.10** (2026-08-28) — **re-anchored to `3e71529` and the ledger emptied.**
   This document went 1.4 → 1.9 in one day while `Audited commit` stayed at

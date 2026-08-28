@@ -342,14 +342,24 @@ async fn install_pending_update(
 ) -> Result<(), String> {
     let update = take_expected_update(&pending, &expected_version)?;
 
-    let guard = downloaded.0.lock().unwrap_or_else(|err| err.into_inner());
+    // Taken, not borrowed. `bytes` is a whole NSIS installer with a JRE inside
+    // it, so it is on the order of a hundred megabytes. The success path never
+    // frees anything (install() ends the process), but the error path returns
+    // into an app that goes on running, and borrowing left those megabytes in
+    // managed state for the rest of the session — reachable only by a later
+    // check_for_update happening to clear the slot. Taking drops them here.
+    let mut guard = downloaded.0.lock().unwrap_or_else(|err| err.into_inner());
     let package = guard
-        .as_ref()
+        .take()
         .ok_or_else(|| "no update has been downloaded".to_string())?;
+    // Nothing below needs the slot, and install() does not return on Windows.
+    drop(guard);
 
     // Same pin again on the package itself: the download and the install are
     // separate calls, so a check between them could have moved the pending
-    // slot on while these bytes stayed behind.
+    // slot on while these bytes stayed behind. Such a package is dropped rather
+    // than put back, for the reason check_for_update clears the slot at all: an
+    // installer no version pin can accept is an installer nothing can install.
     if package.version != expected_version {
         return Err(format!(
             "downloaded update is {}, but the prompt offered {}",

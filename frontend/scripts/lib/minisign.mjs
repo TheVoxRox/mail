@@ -93,7 +93,16 @@ export function parsePublicKey(value) {
 }
 
 export function parseSignature(value) {
-	const lines = decodeFile(value, 'Updater signature').split('\n');
+	/*
+	 * Split on either terminator. The payload lines survive a stray `\r` on
+	 * their own (decodePayload trims), but the trusted comment is sliced out
+	 * verbatim because trailing spaces inside it are signed data — so a CRLF
+	 * file would carry a `\r` that minisign never signed into the global
+	 * signature check, and fail it as "the trusted comment was altered after
+	 * signing". That is a true statement about the wrong thing, on the one gate
+	 * whose job is to be believed.
+	 */
+	const lines = decodeFile(value, 'Updater signature').split(/\r?\n/);
 	/*
 	 * Anchoring on the trusted comment rather than on fixed line numbers: it
 	 * is the only line whose position is load-bearing (the signature is the

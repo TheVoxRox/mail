@@ -405,14 +405,32 @@ test.describe('MSW bootstrap', () => {
 		// process, so a user who does not expect that reads it as a crash.
 		await expect(prompt).toContainText('aplikace ukončí');
 
+		// Recorded rather than polled for. The polite region drops a message after
+		// ANNOUNCEMENT_CLEAR_MS (1.5 s), so `toContainText` was asserting that the
+		// announcement is still there when Playwright gets round to looking — a
+		// 1.5 s window from the click, on a runner that has been slower than that.
+		// A MutationObserver armed before the click keeps every value the region
+		// ever held, which is the thing actually being claimed: that the phase was
+		// announced. The phase goes there rather than into a live progress bar —
+		// a bar that announces every percent buries the phase changes that matter.
+		await page.evaluate(() => {
+			const seen: string[] = [];
+			(window as unknown as { __liveRegionLog: string[] }).__liveRegionLog = seen;
+			const region = document.querySelector('#live-region');
+			if (!region) return;
+			new MutationObserver(() => {
+				const text = region.textContent?.trim();
+				if (text) seen.push(text);
+			}).observe(region, { childList: true, subtree: true, characterData: true });
+		});
+
 		await prompt.getByRole('button', { name: 'Aktualizovat teď' }).click();
 
-		// Asserted first, and deliberately: the polite region drops a message
-		// after ANNOUNCEMENT_CLEAR_MS (1.5 s), so a check queued behind slower
-		// ones could look for text that has already been cleared. The phase is
-		// announced there rather than by making the bar itself live — a bar that
-		// announces every percent buries the phase changes that matter.
-		await expect(page.locator('#live-region')).toContainText('Stahuji aktualizaci…');
+		await expect
+			.poll(() =>
+				page.evaluate(() => (window as unknown as { __liveRegionLog: string[] }).__liveRegionLog)
+			)
+			.toContainEqual(expect.stringContaining('Stahuji aktualizaci…'));
 
 		const bar = prompt.getByRole('progressbar', { name: 'Průběh aktualizace' });
 		await expect(bar).toHaveAttribute('aria-valuenow', '30');

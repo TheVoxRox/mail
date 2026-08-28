@@ -95,6 +95,24 @@ describe('verifyMinisignSignature', () => {
 		expect(result.trustedComment).toContain('file:sample.bin');
 	});
 
+	it('accepts the same signature with CRLF line endings', () => {
+		// Same bytes, Windows terminators — from an editor, an artifact upload,
+		// or a checkout without a binary attribute. The payload lines survive it
+		// on their own (they are trimmed), but the trusted comment is sliced out
+		// verbatim, so a `\r` used to ride into the global-signature check and
+		// fail it as "the trusted comment was altered after signing": a true
+		// sentence about the wrong thing, on the gate whose job is to be
+		// believed.
+		const crlf = wrap(
+			Buffer.from(REAL_SIGNATURE, 'base64').toString('utf8').replaceAll('\n', '\r\n')
+		);
+
+		expect(
+			verifyMinisignSignature({ publicKey: REAL_PUBKEY, signature: crlf, data: REAL_DATA })
+				.trustedComment
+		).toContain('file:sample.bin');
+	});
+
 	it('rejects an artifact that changed after signing', () => {
 		expect(() =>
 			verifyMinisignSignature({
