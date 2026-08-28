@@ -329,6 +329,19 @@ Updater má dva kanály. Volbu drží každá instalace v Nastavení → O aplik
 
 **Nikdy nepublikovat release bez `latest.json` + `.sig`** (ani „jen tag s poznámkami"): stabilní kanál je GitHub redirect na poslední ne-prerelease publish, takže holý release se okamžitě stane „latest" a každá instalace dostane chybu update checku při každém startu. Cokoliv, co není plný podepsaný build, držet jako draft nebo prerelease (revize #170).
 
+### Model vydávání: všechno jde přes betu
+
+Rozhodnuto 2026-08-28. **Každá změna se vydá nejdřív jako beta a teprve po otestování se promotuje na stable.** Beta není odkladiště rozdělané práce — nese hotové funkce, které už prošly testem vývojářů; beta znamená jen širší okruh uživatelů.
+
+Z toho plynou dvě vlastnosti, na kterých stojí zbytek téhle sekce:
+
+- **Neexistuje stable release, který betu přeskočil.**
+- **Neexistuje beta, kterou nejde promotovat** — když stable potřebuje opravu, oprava jde do beta linky a promotuje se s ní. Nikdy nevzniká potřeba vydat `0.1.1` vedle běžící bety `0.2.0-beta.1`, protože `0.2.0` je z definice vydatelné.
+
+**Proto je červený `beta-channel.yml` signál, ne šum.** Guard odmítne kandidáta staršího, než je současný beta manifest, a v tomhle modelu takový kandidát nemá jak legitimně vzniknout — červená znamená, že se stalo něco mimo model, typicky re-publikace starého tagu. **Neřešit to `force=true`**; ten je vyhrazený pro HALT níže. Nejdřív zjistit, který publish to spustil.
+
+**Co ten model stojí:** oprava se ke stabilním uživatelům dostane až po beta cyklu, ne hned. U uzavřené bety (~45 testerů) je to přijatelné. Kdyby oprava opravdu nemohla počkat, jsi mimo model — postup pak je: postavit `0.1.1` z tagu `v0.1.0` jen s tou opravou, publikovat (stabilní uživatelé ji dostanou), **počítat s tím, že `beta-channel.yml` skončí červeně, a nechat ho tak** (beta manifest se přepsat nesmí, poslal by testery dozadu), a fix zvlášť dostat i do beta linky jako `0.2.0-beta.2`. Do té doby jsou beta testeři na neopravené verzi — což je přesně ten důvod, proč se tahle cesta nepoužívá.
+
 ### Ship beta buildu
 
 1. Nastavit prerelease verzi (`0.2.0-beta.1`) v `tauri.conf.json`/`package.json`/`version.ts` a tagnout `v0.2.0-beta.1`. Release workflow kontroluje shodu tag ↔ verze a prerelease-suffixovaný tag založí release s `--prerelease`; pokud release už existuje (předdraftované poznámky, částečný předchozí běh), workflow flag doplní přes `gh release edit` — bez něj by publish předal beta build do `releases/latest` redirectu stabilního kanálu.
