@@ -3,7 +3,7 @@ mod tray;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use tauri::{LogicalSize, WebviewUrl, WebviewWindowBuilder};
+use tauri::{Emitter, LogicalSize, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_log::{Target, TargetKind};
 use tauri_plugin_updater::UpdaterExt;
 
@@ -158,6 +158,25 @@ struct DownloadedPackage {
     bytes: Vec<u8>,
 }
 
+/// Download progress, pushed to the webview so the update dialog can show a
+/// bar instead of a static "installing" label for the length of a download
+/// that carries a whole JRE.
+const UPDATE_PROGRESS_EVENT: &str = "update://download-progress";
+
+/// Emit interval when the server sends no `Content-Length`. Without a total
+/// there is no percentage to step on, and the dialog only needs enough events
+/// to show that something is still moving.
+const PROGRESS_EMIT_BYTES: u64 = 4 * 1024 * 1024;
+
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DownloadProgress {
+    downloaded: u64,
+    /// `None` when the server sent no `Content-Length` — the dialog then shows
+    /// an indeterminate bar rather than inventing a denominator.
+    total: Option<u64>,
+}
+
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 struct UpdateMetadata {
@@ -257,16 +276,52 @@ fn take_expected_update(
 
 #[tauri::command]
 async fn download_pending_update(
+    app: tauri::AppHandle,
     pending: tauri::State<'_, PendingUpdate>,
     downloaded: tauri::State<'_, DownloadedUpdate>,
     expected_version: String,
 ) -> Result<(), String> {
     let update = take_expected_update(&pending, &expected_version)?;
 
+    let mut received: u64 = 0;
+    let mut last_percent: Option<u64> = None;
+    let mut last_bytes: u64 = 0;
+
     // Signature verification happens in here, against the pinned pubkey,
     // before the bytes are handed back.
     let bytes = update
-        .download(|_, _| {}, || {})
+        .download(
+            |chunk, total| {
+                received += chunk as u64;
+                // The chunk callback fires thousands of times for an installer
+                // this size, and one IPC event per chunk would flood a channel
+                // the dialog cannot render that fast. A bar only moves in whole
+                // percents, so that is the step.
+                let emit = match total {
+                    Some(total) if total > 0 => {
+                        let percent = received.saturating_mul(100) / total;
+                        last_percent != Some(percent) && {
+                            last_percent = Some(percent);
+                            true
+                        }
+                    }
+                    _ => received.saturating_sub(last_bytes) >= PROGRESS_EMIT_BYTES,
+                };
+                if emit {
+                    last_bytes = received;
+                    // Progress is advisory: a failed emit must not fail the
+                    // download the user is waiting for.
+                    let _ = app.emit(
+                        UPDATE_PROGRESS_EVENT,
+                        DownloadProgress {
+                            downloaded: received,
+                            total,
+                        },
+                    );
+                }
+            },
+            || {},
+        )
         .await
         .map_err(|err| err.to_string())?;
 

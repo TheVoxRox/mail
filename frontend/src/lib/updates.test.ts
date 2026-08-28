@@ -12,15 +12,35 @@ import { get } from 'svelte/store';
  * too — the install path stops the backend between the download and the
  * install, and putting it back is part of the failure path.
  */
-const { browserMock, isTauriMock, invokeMock, usesSidecarMock, stopSidecarMock, bootstrapMock } =
-	vi.hoisted(() => ({
+const {
+	browserMock,
+	isTauriMock,
+	invokeMock,
+	usesSidecarMock,
+	stopSidecarMock,
+	bootstrapMock,
+	listenMock,
+	unlistenMock,
+	emitProgress
+} = vi.hoisted(() => {
+	const handlers = new Map<string, (event: { payload: unknown }) => void>();
+	const unlisten = vi.fn();
+	return {
 		browserMock: { value: true },
 		isTauriMock: vi.fn<() => boolean>(),
 		invokeMock: vi.fn(),
 		usesSidecarMock: vi.fn<() => boolean>(),
 		stopSidecarMock: vi.fn(async () => {}),
-		bootstrapMock: vi.fn(async () => {})
-	}));
+		bootstrapMock: vi.fn(async () => {}),
+		unlistenMock: unlisten,
+		listenMock: vi.fn(async (event: string, handler: (e: { payload: unknown }) => void) => {
+			handlers.set(event, handler);
+			return unlisten;
+		}),
+		emitProgress: (payload: { downloaded: number; total: number | null }) =>
+			handlers.get('update://download-progress')?.({ payload })
+	};
+});
 
 vi.mock('$app/environment', () => ({
 	get browser() {
@@ -31,6 +51,7 @@ vi.mock('$app/environment', () => ({
 	version: 'test'
 }));
 vi.mock('@tauri-apps/api/core', () => ({ isTauri: isTauriMock, invoke: invokeMock }));
+vi.mock('@tauri-apps/api/event', () => ({ listen: listenMock }));
 vi.mock('$lib/backend/sidecar.js', () => ({
 	usesBackendSidecar: usesSidecarMock,
 	stopBackendSidecar: stopSidecarMock
@@ -79,6 +100,8 @@ beforeEach(() => {
 	usesSidecarMock.mockReset().mockReturnValue(true);
 	stopSidecarMock.mockReset();
 	bootstrapMock.mockReset();
+	listenMock.mockClear();
+	unlistenMock.mockClear();
 	installLocalStorageStub();
 	vi.stubEnv('VITE_E2E_MOCK', '');
 	vi.stubEnv('VITE_ENABLE_AUTO_UPDATE_CHECK', '1');
@@ -266,6 +289,67 @@ describe('installPromptedUpdate (backend handoff)', () => {
 		// bug this replaced. Only the middle position is correct.
 		expect(orderOf(invokeMock, 1)).toBeLessThan(orderOf(stopSidecarMock));
 		expect(orderOf(stopSidecarMock)).toBeLessThan(orderOf(invokeMock, 2));
+	});
+
+	it('names each phase as it runs, in order', async () => {
+		const mod = await primedModule();
+		const seen: string[] = [];
+		const record = () => {
+			const state = get(mod.updatePromptState);
+			seen.push(state.status === 'installing' ? state.phase : state.status);
+		};
+		invokeMock.mockImplementation(async (name: string) => {
+			if (name !== 'check_for_update') record();
+			return undefined;
+		});
+		stopSidecarMock.mockImplementation(async () => record());
+
+		await mod.installPromptedUpdate();
+
+		// The three steps are not interchangeable to someone waiting: the
+		// download is long, stopping the backend is brief, and the install ends
+		// the app. A single "installing" label for all three is what this
+		// replaced.
+		expect(seen).toEqual(['downloading', 'stoppingBackend', 'installing']);
+	});
+
+	it('records download progress while downloading, then stops listening', async () => {
+		const mod = await primedModule();
+		let duringDownload: unknown = null;
+		invokeMock.mockImplementation(async (name: string) => {
+			if (name === 'download_pending_update') {
+				emitProgress({ downloaded: 512, total: 1024 });
+				duringDownload = get(mod.updatePromptState);
+			}
+			return undefined;
+		});
+
+		await mod.installPromptedUpdate();
+
+		expect(duringDownload).toMatchObject({
+			status: 'installing',
+			phase: 'downloading',
+			progress: { downloaded: 512, total: 1024 }
+		});
+		expect(unlistenMock).toHaveBeenCalledTimes(1);
+	});
+
+	it('ignores a progress event that arrives after the download phase', async () => {
+		const mod = await primedModule();
+		let duringInstall: unknown = null;
+		invokeMock.mockImplementation(async (name: string) => {
+			if (name === 'install_pending_update') {
+				emitProgress({ downloaded: 999, total: 1024 });
+				duringInstall = get(mod.updatePromptState);
+			}
+			return undefined;
+		});
+
+		await mod.installPromptedUpdate();
+
+		// A late event must not put a download bar back on a dialog that has
+		// moved on to the step which ends the app.
+		expect(duringInstall).toMatchObject({ phase: 'installing', progress: null });
 	});
 
 	it('leaves the backend alone when the download fails', async () => {

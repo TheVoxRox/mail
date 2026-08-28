@@ -818,10 +818,18 @@
 	"update": {
 		"prompt": {
 			"title": "Version {version} is available",
-			"description": "You are using version {currentVersion}. The update will be downloaded and installed by the built-in updater.",
+			"description": "You are using version {currentVersion}. The update will be downloaded and installed by the built-in updater. The app closes at the end, and the installer starts it again.",
 			"installNow": "Update now",
 			"installing": "Updating…",
-			"later": "Later"
+			"later": "Later",
+			"progressLabel": "Update progress",
+			"progressUnknown": "Progress unknown",
+			"progressAnnouncement": "{percent}% downloaded",
+			"phase": {
+				"downloading": "Downloading the update…",
+				"stoppingBackend": "Stopping the mail service…",
+				"installing": "Installing the update, the app will close now…"
+			}
 		},
 		"failure": {
 			"title": "Update failed",

@@ -70,12 +70,19 @@
   "docs/UPDATER_AUDIT.md": {
     "reviewedTrees": {
       ".github/workflows/windows-signed-release.yml": "0687a1c04e7a9d31438c10a9304802dc7d946925",
-      ".github/workflows/beta-channel.yml": "84d05d34c03448f99c42a547890bc05aeefe6990"
+      ".github/workflows/beta-channel.yml": "84d05d34c03448f99c42a547890bc05aeefe6990",
+      "frontend/src-tauri/src": "9c8b6e4118326e59b38795efb0e5809f527dc415",
+      "frontend/src/lib/updates.ts": "ecdc8af7136313144ad66fa7d09fb49cbd501861",
+      "frontend/src/lib/components/UpdatePromptDialog.svelte": "5e7e7cb585bd655457df707c3520ccb3826e5976"
     },
     "acknowledgements": [
       {
         "date": "2026-08-28",
         "note": "The U-1 fix (audit v1.6), and nothing else. Both release workflows stop interpolating outside values into their `run:` blocks and read them from a step-level `env:` instead: windows-signed-release.yml takes the release tag, ref type and ref name that way (pwsh `$env:RELEASE_TAG_INPUT` / `$env:REF_TYPE` / `$env:REF_NAME`) plus the skip-backend-tests boolean, and beta-channel.yml takes the source tag (`${TAG_INPUT:-$RELEASE_EVENT_TAG}`, matching the `||` it replaced) plus the force boolean. No step was added, removed or reordered and no value changed: the same tag still fails the same version comparison, the same loop guard still skips the beta pointer release, and the guard script is still called with the same two arguments. The two booleans could not carry an injection payload and were converted anyway so the file-level property is \"no `${{ }}` inside any `run:` block\" rather than a mixed set a reader has to judge site by site. Nothing under any other Code path moved, so the signature, endpoint and command claims are untouched and the verdict stays PASS."
+      },
+      {
+        "date": "2026-08-28",
+        "note": "The install-progress change (audit v1.7), and nothing else. lib.rs gains one outbound event (update://download-progress, byte counts throttled to whole percents) emitted from the existing chunk callback of download_pending_update; no command was added, no signature or endpoint logic moved, and the emit is ignored on failure so progress can never fail a download. updates.ts gains an install phase and a progress field on the installing state plus the listener that fills it, and the listener handle is deliberately not awaited before the download starts (awaiting would open a turn in which a concurrent check could clear the shell pending slot). UpdatePromptDialog.svelte gains the bar and the phase label. Both new claims are written into the audit rather than left implicit: section 1 for the direction and irrelevance of the event to the trust chain, section 4 for the clamping that keeps a hostile Content-Length from reaching a style attribute as anything but a number in 0..=100. Verdict stays PASS."
       }
     ]
   },

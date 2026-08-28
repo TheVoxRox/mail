@@ -2,7 +2,7 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.6                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| **Version**        | 1.7                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | **Date**           | 2026-08-28                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | **Audited commit** | `c6744a1` (re-verified 2026-08-28 after the signing-key gate and the install-ordering fix; v1.4 anchor: `cad05cb`, recorded pre-squash as `5799e8b`; v1.2/1.3 anchor: `3162e6a` (#144), v1.0/1.1 baseline: `d55b753`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
@@ -48,6 +48,12 @@ scripts.
   its own `version` and is compared again at install, because a check landing
   between the two calls moves the slot on while the bytes stay behind. A stale or
   hostile prompt cannot install a build the user did not approve — it errors out.
+- **One event flows the other way**, added in v1.7: `download_pending_update`
+  emits `update://download-progress` (byte counts, throttled to whole percents)
+  so the dialog can show a bar. It is outbound Rust → webview only, carries no
+  handle to the update, and nothing in the install path reads it — a renderer
+  that ignores, spoofs or never receives it still gets exactly the same
+  signature-verified package. Its payload does reach the DOM, which §4 covers.
 - A hijacked `latest.json` cannot cause code execution: it can point `url`
   anywhere, but the downloaded artifact is verified against the pinned pubkey, so
   a forged installer fails the Ed25519 check and the install aborts. Worst case
@@ -137,6 +143,18 @@ The `body` / `notes` field (the most free-form, attacker-shapeable field in a
 hijacked `latest.json`) is **not rendered at all**. No mail-content-style
 sanitizer is needed because no untrusted markup reaches the DOM.
 
+**Download progress is the one remote-influenced value that reaches a style
+attribute** ([UpdatePromptDialog.svelte](../frontend/src/lib/components/UpdatePromptDialog.svelte),
+v1.7). The denominator is the server's `Content-Length` and the numerator is
+bytes actually received, so a hostile host controls both. Neither is ever
+interpolated as text: the shell only emits a total it has checked is `> 0`, the
+dialog divides and rounds, clamps with `Math.min(100, …)`, and the result is a
+finite number in `0..=100` before it becomes `aria-valuenow` and a `width`
+percentage. An absurd `Content-Length` therefore yields a bar stuck near 0, not
+a malformed style. Where no `Content-Length` arrives at all the shell sends
+`null`, `aria-valuenow` is omitted and the bar renders indeterminate — the
+correct ARIA for an unknown value rather than a guessed one.
+
 The failure dialog ([UpdateFailureDialog.svelte](../frontend/src/lib/components/UpdateFailureDialog.svelte))
 is the one place where remote-influenced text can reach the screen: the error
 string bubbled out of the Rust commands can quote a manifest version (the
@@ -165,6 +183,14 @@ renders through `{message}` in a `<span>` — Svelte text interpolation, no
   Re-confirmed by mutation during this revision: dropping the stop fails two
   tests, moving it ahead of the download fails three, and both name the
   ordering test.
+- **The dialog names which of the three steps is running** and shows a progress
+  bar for the download (v1.7). Before that it held one static "installing" label
+  for the whole sequence, including a multi-minute download of an installer that
+  carries a JRE, with both buttons disabled and nothing announced. Phase changes
+  and coarse percentage steps go through the app-wide polite live region rather
+  than making the bar itself live, so a screen reader hears the transitions
+  instead of a hundred percentages. Progress is advisory end to end: a shell that
+  cannot deliver the event leaves the bar indeterminate and the install proceeds.
 - A failed install puts the backend back through
   `bootstrap({ restartSidecar: true })` — a plain respawn is not enough, the new
   sidecar comes up on a fresh port with a fresh handshake key — and then surfaces
@@ -237,6 +263,20 @@ renders through `{message}` in a `<span>` — Svelte text interpolation, no
 
 ## 8. Change log
 
+- **1.7** (2026-08-28) — the install now reports what it is doing, which adds the
+  **first Rust → webview event** in this boundary and the **first
+  remote-influenced number that reaches a style attribute**; both are recorded
+  above rather than left to be noticed later. `update://download-progress`
+  carries byte counts only, is outbound, throttled to whole percents, and is read
+  by nothing in the install path — a renderer that never receives it gets the
+  same signature-verified package (§1). The numbers it carries do reach the DOM,
+  and §4 now states why that is safe: the shell only emits a total it has checked
+  is `> 0`, the dialog divides, rounds and clamps to `0..=100`, and no value is
+  interpolated as text into CSS. §5 records the phase labels and the progress bar
+  themselves, including the decision to announce phases and coarse steps through
+  the app-wide polite region instead of making the bar live. Trust chain
+  untouched, verdict unchanged (**PASS**). The `Audited commit` stays `c6744a1`;
+  the drift is recorded in [audit-freshness.json](audit-freshness.json).
 - **1.6** (2026-08-28) — **U-1 fixed**, the finding v1.5 had raised one revision
   earlier. Both release workflows now take every outside value through a
   step-level `env:` and read it as a variable, so no `${{ }}` remains inside any

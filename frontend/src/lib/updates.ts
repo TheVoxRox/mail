@@ -1,5 +1,6 @@
 import { browser } from '$app/environment';
 import { invoke, isTauri } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { get, writable } from 'svelte/store';
 import { RELEASES_URL } from '$lib/version.js';
 import { toErrorMessage } from '$lib/api/errors.js';
@@ -8,6 +9,8 @@ import { updateChannel } from '$lib/stores/updateChannel.js';
 
 const DISMISSED_UPDATE_VERSION_KEY = 'mail.update.dismissedVersion';
 const AUTO_UPDATE_CHECK_ENABLED = import.meta.env.VITE_ENABLE_AUTO_UPDATE_CHECK === '1';
+/** Emitted by `download_pending_update` (lib.rs), throttled to whole percents. */
+const UPDATE_PROGRESS_EVENT = 'update://download-progress';
 
 /** Shape returned by the Tauri `check_for_update` command (lib.rs). */
 interface UpdateMetadata {
@@ -34,10 +37,30 @@ interface AvailableUpdate extends UpdateMetadata {
 	install: () => Promise<void>;
 }
 
+/**
+ * Which of the three steps in {@link installPromptedUpdate} is running. The
+ * dialog names them because they are not interchangeable to a waiting user:
+ * the download is long and cancellable-by-failure, stopping the backend is
+ * brief, and the install is the point of no return — it ends the app.
+ */
+export type UpdateInstallPhase = 'downloading' | 'stoppingBackend' | 'installing';
+
+export interface UpdateProgress {
+	downloaded: number;
+	/** `null` when the server sent no `Content-Length` — no percentage exists. */
+	total: number | null;
+}
+
 type UpdatePromptState =
 	| { status: 'hidden' }
 	| { status: 'available'; update: AvailableUpdate }
-	| { status: 'installing'; update: AvailableUpdate };
+	| {
+			status: 'installing';
+			update: AvailableUpdate;
+			phase: UpdateInstallPhase;
+			/** Only ever set during `downloading`; `null` until the first event. */
+			progress: UpdateProgress | null;
+	  };
 
 type UpdateFailureState =
 	{ status: 'hidden' } | { status: 'failed'; message: string; releasesUrl: string | null };
@@ -149,22 +172,68 @@ export async function installPromptedUpdate(): Promise<void> {
 	if (state.status !== 'available') return;
 
 	const { update } = state;
-	updatePromptState.set({ status: 'installing', update });
+	updatePromptState.set({ status: 'installing', update, phase: 'downloading', progress: null });
 	let backendStopped = false;
+	// Deliberately not awaited here. Awaiting would put a turn between the
+	// prompt going into 'installing' and the download starting, and a check
+	// landing in that turn clears the shell's pending slot — the download would
+	// then fail on an update that was there when the user clicked. The handle is
+	// awaited in the `finally` instead, where nothing is racing it; the cost is
+	// that a progress event arriving before the listener attaches is missed,
+	// which moves a bar slightly late and nothing else.
+	const progressListener = listenForDownloadProgress();
 	try {
 		await update.download();
 
 		if (usesBackendSidecar()) {
+			setInstallPhase('stoppingBackend');
 			await stopBackendSidecar();
 			backendStopped = true;
 		}
 
+		setInstallPhase('installing');
 		await update.install();
 		updatePromptState.set({ status: 'hidden' });
 	} catch (err) {
 		if (backendStopped) await restartBackendAfterFailedInstall();
 		updatePromptState.set({ status: 'available', update });
 		showUpdateFailure(err);
+	} finally {
+		(await progressListener)();
+	}
+}
+
+function setInstallPhase(phase: UpdateInstallPhase): void {
+	updatePromptState.update((state) =>
+		state.status === 'installing' ? { ...state, phase, progress: null } : state
+	);
+}
+
+/**
+ * Subscribes to the shell's download-progress events for the length of one
+ * install, and returns the unsubscribe.
+ *
+ * Progress is advisory throughout: a shell that cannot deliver it (an older
+ * build, a webview without the event permission) leaves the dialog on its
+ * indeterminate bar and the install proceeds unchanged. That is why the failure
+ * path here warns instead of throwing — refusing to update because a progress
+ * bar could not be wired up would trade the important thing for the cosmetic
+ * one.
+ */
+async function listenForDownloadProgress(): Promise<() => void> {
+	if (!supportsNativeUpdater()) return () => {};
+
+	try {
+		return await listen<UpdateProgress>(UPDATE_PROGRESS_EVENT, ({ payload }) => {
+			updatePromptState.update((state) =>
+				state.status === 'installing' && state.phase === 'downloading'
+					? { ...state, progress: payload }
+					: state
+			);
+		});
+	} catch (err) {
+		console.warn('[mail] update progress listener failed', err);
+		return () => {};
 	}
 }
 
@@ -202,16 +271,33 @@ export function dismissUpdateFailure(): void {
 	updateFailureState.set({ status: 'hidden' });
 }
 
+/**
+ * @param options.holdDownloadAt Leaves the mock parked in the download phase at
+ * this progress, so a test can inspect the dialog while it is downloading. The
+ * real progress events come from the shell, which the mocked build has no IPC
+ * to, so the value is written into the same store slot the listener writes to.
+ * The download promise never settles — that is the hold — and the page is
+ * discarded at the end of the test.
+ */
 export function showMockUpdateForTests(
 	version = '9.9.9',
-	options: { failInstall?: boolean } = {}
+	options: { failInstall?: boolean; holdDownloadAt?: UpdateProgress } = {}
 ): void {
 	updatePromptState.set({
 		status: 'available',
 		update: {
 			version,
 			currentVersion: '0.1.0',
-			async download() {},
+			async download() {
+				const progress = options.holdDownloadAt;
+				if (!progress) return;
+				updatePromptState.update((state) =>
+					state.status === 'installing' && state.phase === 'downloading'
+						? { ...state, progress }
+						: state
+				);
+				await new Promise<void>(() => {});
+			},
 			async install() {
 				if (options.failInstall) {
 					throw new Error('Mock update install failed');
