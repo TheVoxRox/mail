@@ -6,6 +6,7 @@
 	import {
 		installPromptedUpdate,
 		postponePromptedUpdate,
+		skipPromptedUpdateVersion,
 		updatePromptState,
 		type UpdateInstallPhase
 	} from '$lib/updates.js';
@@ -69,6 +70,12 @@
 		}
 	});
 
+	/**
+	 * Escape and a click outside land here. They close the prompt and nothing
+	 * more — skipping the version is a separate, named button, because a
+	 * dismissal gesture that silently decides "not this version, ever" is a
+	 * decision the user did not make.
+	 */
 	function handleOpenChange(nextOpen: boolean) {
 		if (!nextOpen && !installing) {
 			postponePromptedUpdate();
@@ -118,7 +125,15 @@
 		</div>
 	{/if}
 
+	<!--
+		Order runs least to most wanted, so the primary action is last in the tab
+		order as everywhere else in the app, and the one irreversible-ish choice
+		(skipping) is the least prominent rather than the easiest to hit.
+	-->
 	<div class="mt-5 flex flex-wrap justify-end gap-2">
+		<Button variant="ghost" onclick={skipPromptedUpdateVersion} disabled={installing}>
+			{$_('update.prompt.skipVersion')}
+		</Button>
 		<Button variant="outline" onclick={postponePromptedUpdate} disabled={installing}>
 			{$_('update.prompt.later')}
 		</Button>

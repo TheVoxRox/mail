@@ -210,6 +210,65 @@ describe('checkForUpdateManually (user-initiated)', () => {
 	});
 });
 
+describe('postponing versus skipping a version', () => {
+	const STORAGE_KEY = 'mail.update.dismissedVersion';
+
+	async function promptedModule() {
+		invokeMock.mockResolvedValue(null);
+		invokeMock.mockResolvedValueOnce({ version: '9.9.9', currentVersion: '0.1.0' });
+		const mod = await freshModule();
+		await mod.checkForUpdateManually();
+		return mod;
+	}
+
+	it('closing the prompt decides nothing', async () => {
+		const mod = await promptedModule();
+
+		mod.postponePromptedUpdate();
+
+		// "Later" used to persist the version, so it meant "never" — and so did
+		// Escape and a click outside, which reach the same function through the
+		// dialog's onOpenChange with no label saying so.
+		expect(get(mod.updatePromptState)).toEqual({ status: 'hidden' });
+		expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+	});
+
+	it('skipping records the version and the startup check honours it', async () => {
+		const mod = await promptedModule();
+
+		mod.skipPromptedUpdateVersion();
+		expect(localStorage.getItem(STORAGE_KEY)).toBe('9.9.9');
+
+		invokeMock.mockResolvedValueOnce({ version: '9.9.9', currentVersion: '0.1.0' });
+		await mod.checkForUpdateAndPrompt();
+
+		expect(get(mod.updatePromptState)).toEqual({ status: 'hidden' });
+	});
+
+	it('a skipped version is still offered by the manual check', async () => {
+		const mod = await promptedModule();
+		mod.skipPromptedUpdateVersion();
+
+		invokeMock.mockResolvedValueOnce({ version: '9.9.9', currentVersion: '0.1.0' });
+		const result = await mod.checkForUpdateManually();
+
+		// Skipping silences the startup prompt, not the update. Asking for it
+		// explicitly has to answer, or the record becomes a trap with no way out.
+		expect(result.status).toBe('available');
+		expect(get(mod.updatePromptState).status).toBe('available');
+	});
+
+	it('skipping one version does not silence the next', async () => {
+		const mod = await promptedModule();
+		mod.skipPromptedUpdateVersion();
+
+		invokeMock.mockResolvedValueOnce({ version: '10.0.0', currentVersion: '0.1.0' });
+		await mod.checkForUpdateAndPrompt();
+
+		expect(get(mod.updatePromptState).status).toBe('available');
+	});
+});
+
 describe('update channel routing', () => {
 	it('checks on the stable channel by default', async () => {
 		invokeMock.mockResolvedValue(null);
