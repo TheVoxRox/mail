@@ -72,8 +72,9 @@
       ".github/workflows/windows-signed-release.yml": "0687a1c04e7a9d31438c10a9304802dc7d946925",
       ".github/workflows/beta-channel.yml": "84d05d34c03448f99c42a547890bc05aeefe6990",
       "frontend/src-tauri/src": "9c8b6e4118326e59b38795efb0e5809f527dc415",
-      "frontend/src/lib/updates.ts": "ecdc8af7136313144ad66fa7d09fb49cbd501861",
-      "frontend/src/lib/components/UpdatePromptDialog.svelte": "5e7e7cb585bd655457df707c3520ccb3826e5976"
+      "frontend/src/lib/updates.ts": "0bfc6a88dbe0a088c0e79365c058b524f223f3b8",
+      "frontend/src/lib/components/UpdatePromptDialog.svelte": "5e7e7cb585bd655457df707c3520ccb3826e5976",
+      "frontend/src/lib/components/UpdateFailureDialog.svelte": "45b7bbd7e0171f3afbc80d892f5bbd4bf861a12a"
     },
     "acknowledgements": [
       {
@@ -83,6 +84,10 @@
       {
         "date": "2026-08-28",
         "note": "The install-progress change (audit v1.7), and nothing else. lib.rs gains one outbound event (update://download-progress, byte counts throttled to whole percents) emitted from the existing chunk callback of download_pending_update; no command was added, no signature or endpoint logic moved, and the emit is ignored on failure so progress can never fail a download. updates.ts gains an install phase and a progress field on the installing state plus the listener that fills it, and the listener handle is deliberately not awaited before the download starts (awaiting would open a turn in which a concurrent check could clear the shell pending slot). UpdatePromptDialog.svelte gains the bar and the phase label. Both new claims are written into the audit rather than left implicit: section 1 for the direction and irrelevance of the event to the trust chain, section 4 for the clamping that keeps a hostile Content-Length from reaching a style attribute as anything but a number in 0..=100. Verdict stays PASS."
+      },
+      {
+        "date": "2026-08-28",
+        "note": "Presentation-only change under these paths, and the one acknowledgement in this run that does NOT come with an audit revision, because it falsifies no claim the audit makes. A failed install now sets the prompt to hidden instead of back to available, and UpdateFailureDialog.svelte stops pushing a toast that carried its own heading — the failure was announced twice, and the modal stood over a prompt still offering the update that had just failed. Section 5 says the manual check surfaces a prominent failure UI with a releases-page fallback; that is still exactly what happens, and the backend restart on a failed install is untouched. Nothing in the check, download, verify or install path moved, no command signature changed, and no new value reaches the DOM. Verdict stays PASS."
       }
     ]
   },

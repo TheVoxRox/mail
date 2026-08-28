@@ -361,7 +361,10 @@ describe('installPromptedUpdate (backend handoff)', () => {
 		expect(stopSidecarMock).not.toHaveBeenCalled();
 		expect(bootstrapMock).not.toHaveBeenCalled();
 		expect(get(mod.updateFailureState).status).toBe('failed');
-		expect(get(mod.updatePromptState).status).toBe('available');
+		// The prompt closes instead of reverting to 'available': the failure
+		// dialog would otherwise stand on top of a prompt still offering the
+		// update that just failed, two modals deep.
+		expect(get(mod.updatePromptState).status).toBe('hidden');
 	});
 
 	it('puts the backend back when the install fails', async () => {
