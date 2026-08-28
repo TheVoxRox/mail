@@ -330,28 +330,56 @@ test.describe('MSW bootstrap', () => {
 		await expect(rowsOf(page)).toHaveCount(25);
 	});
 
-	test('update prompt funguje s mock response a Později dismissne verzi', async ({ page }) => {
+	/** Opens the mocked update prompt and returns its locator. */
+	async function openMockUpdatePrompt(page: import('@playwright/test').Page, version = '9.9.9') {
 		await setMockFlags(page, { e2e: true });
-
 		await openApp(page, '/settings/about');
 		await page.waitForFunction(
 			() => typeof window.__MAIL_E2E__?.showMockUpdateForTests === 'function'
 		);
-
-		await page.evaluate(() => {
+		await page.evaluate((v) => {
 			window.__MAIL_E2E__?.resetUpdateStateForTests();
-			window.__MAIL_E2E__?.showMockUpdateForTests('9.9.9');
-		});
+			window.__MAIL_E2E__?.showMockUpdateForTests(v);
+		}, version);
 
-		const dialog = page.getByRole('dialog', { name: 'Nová verze 9.9.9 je k dispozici' });
+		const dialog = page.getByRole('dialog', { name: `Nová verze ${version} je k dispozici` });
 		await expect(dialog).toBeVisible();
+		return dialog;
+	}
+
+	function dismissedVersion(page: import('@playwright/test').Page) {
+		return page.evaluate(() => window.localStorage.getItem('mail.update.dismissedVersion'));
+	}
+
+	test('update prompt funguje s mock response a Později verzi nezahodí', async ({ page }) => {
+		const dialog = await openMockUpdatePrompt(page);
 		await expect(dialog).toContainText('Používáte verzi 0.1.0.');
 
 		await dialog.getByRole('button', { name: 'Později' }).click();
 		await expect(dialog).toBeHidden();
-		await expect
-			.poll(() => page.evaluate(() => window.localStorage.getItem('mail.update.dismissedVersion')))
-			.toBe('9.9.9');
+
+		// "Later" used to mean "never": it persisted the version and the startup
+		// check skipped it from then on. Closing the dialog decides nothing now.
+		await expect.poll(() => dismissedVersion(page)).toBeNull();
+	});
+
+	test('Esc zavře update prompt, ale verzi taky nezahodí', async ({ page }) => {
+		const dialog = await openMockUpdatePrompt(page);
+
+		await page.keyboard.press('Escape');
+		await expect(dialog).toBeHidden();
+
+		// Escape and a click outside reach the same handler as "Later", so they
+		// used to skip the version with no label saying so at all.
+		await expect.poll(() => dismissedVersion(page)).toBeNull();
+	});
+
+	test('Přeskočit tuto verzi je jediné, co verzi zapíše', async ({ page }) => {
+		const dialog = await openMockUpdatePrompt(page);
+
+		await dialog.getByRole('button', { name: 'Přeskočit tuto verzi' }).click();
+		await expect(dialog).toBeHidden();
+		await expect.poll(() => dismissedVersion(page)).toBe('9.9.9');
 	});
 
 	test('probíhající update ukáže progressbar, fázi a ohlásí ji do live region', async ({

@@ -266,9 +266,30 @@ async function restartBackendAfterFailedInstall(): Promise<void> {
 	}
 }
 
+/**
+ * Closes the prompt without deciding anything. The next startup check offers
+ * the same version again.
+ *
+ * This used to persist the version, which made "Later" mean "never" — and made
+ * Escape and a click outside mean it too, silently, since both arrive here
+ * through the dialog's `onOpenChange`. Skipping a version is now something the
+ * user has to ask for; see {@link skipPromptedUpdateVersion}.
+ */
 export function postponePromptedUpdate(): void {
+	updatePromptState.set({ status: 'hidden' });
+}
+
+/**
+ * Closes the prompt and stops the **startup** check from raising it for this
+ * version again.
+ *
+ * Deliberately not a permanent refusal of the update: `checkForUpdateManually`
+ * ignores the record, so About → check for updates still offers it, and the
+ * stored value is a single version, so the next release prompts normally.
+ */
+export function skipPromptedUpdateVersion(): void {
 	const state = get(updatePromptState);
-	if (state.status === 'available' || state.status === 'installing') {
+	if (state.status === 'available') {
 		dismissVersion(state.update.version);
 	}
 	updatePromptState.set({ status: 'hidden' });

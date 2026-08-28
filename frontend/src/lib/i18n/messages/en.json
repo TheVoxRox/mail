@@ -822,6 +822,7 @@
 			"installNow": "Update now",
 			"installing": "Updating…",
 			"later": "Later",
+			"skipVersion": "Skip this version",
 			"progressLabel": "Update progress",
 			"progressUnknown": "Progress unknown",
 			"progressAnnouncement": "{percent}% downloaded",

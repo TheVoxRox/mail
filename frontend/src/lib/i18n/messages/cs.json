@@ -822,6 +822,7 @@
 			"installNow": "Aktualizovat teď",
 			"installing": "Aktualizuji…",
 			"later": "Později",
+			"skipVersion": "Přeskočit tuto verzi",
 			"progressLabel": "Průběh aktualizace",
 			"progressUnknown": "Průběh není známý",
 			"progressAnnouncement": "Staženo {percent} %",
