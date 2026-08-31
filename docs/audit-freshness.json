@@ -132,7 +132,8 @@
   "docs/CONTENT_RENDERING_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/util/HtmlSanitizer.java": "f0fe05868ad59a30ce75badc6529c68d7e55641f",
-      "frontend/src/lib/components/message-detail": "8d800cdff421f5cf9b6b9e6d1ddb6da26e5b638f"
+      "frontend/src/lib/components/message-detail": "8d800cdff421f5cf9b6b9e6d1ddb6da26e5b638f",
+      "frontend/src/lib/mail/mailFrame.ts": "493e543a3e79dc5e9b2f4c91705c5b44cda39f3d"
     },
     "acknowledgements": [
       {
@@ -142,6 +143,10 @@
       {
         "date": "2026-08-27",
         "note": "Two-line deprecated-API swap under this path. MessageHeaderCard takes `page` from `$app/state` instead of the deprecated `$app/stores`, so `$page.url.pathname`/`$page.url.search` become `page.url.pathname`/`page.url.search`. Checked rather than assumed: the entire diff under this path is those two lines, the import and the `returnTo` derivation, and both read the same SvelteKit-owned URL - `$app/state` exposes plain getters over the same `$state` the store subscribed to, so the value is identical and only the reactivity mechanism changes. `returnTo` is built from the application's own route, never from message content, so no new value from an email reaches the DOM. The sanitizer, the frame CSP, the link allow-list and the cid image rewriting are all outside this diff. Verdict stays PASS."
+      },
+      {
+        "date": "2026-08-31",
+        "note": "The in-frame forwarder now cancels the browser default for the shortcut combinations the app claims, so a keystroke read inside the message body no longer runs a webview accelerator on top of the app action (Ctrl+Shift+G both flagged the message and opened the find bar). Checked rather than assumed: the script diff is a single insertion of 154 characters at one position - an if guard plus e.preventDefault() - with nothing removed, so the postMessage payload is byte-identical, no listener is added and the frame gains no capability it did not already have. Everything the audit asserts is untouched: the sandbox attribute, the opaque origin, default-src none, and the rule that exactly one script may execute. The CSP hash moved with the script and is still the sole script-src entry, which its own suite recomputes and buildMailFrameSrcdoc asserts embeds only one script element. Cancelling a default is a capability the frame already had - it is what the click bridge does one line below. Verdict stays PASS."
       }
     ]
   }
