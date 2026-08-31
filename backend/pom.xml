@@ -29,7 +29,7 @@
 		-->
 		<tomcat.version>11.0.25</tomcat.version>
 		<spring-retry.version>2.0.13</spring-retry.version>
-		<jsoup.version>1.23.1</jsoup.version>
+		<jsoup.version>1.23.2</jsoup.version>
 		<commonmark.version>0.30.0</commonmark.version>
 		<springdoc.version>3.1.0</springdoc.version>
 		<!--
@@ -40,7 +40,7 @@
 		<swagger-ui.version>5.32.14</swagger-ui.version>
 		<wiremock.version>3.13.2</wiremock.version>
 		<error-prone.version>2.50.0</error-prone.version>
-		<nullaway.version>0.13.8</nullaway.version>
+		<nullaway.version>0.14.0</nullaway.version>
 		<archunit.version>1.5.0</archunit.version>
 		<greenmail.version>2.1.12</greenmail.version>
 		<!--
