@@ -39,12 +39,30 @@ import { REMOTE_IMAGE_ATTR, sanitizeMailHtml } from './content-sanitizer.js';
  * so its bytes — and therefore its CSP hash — are stable and easy to reproduce.
  * Forwards real keystrokes and body-link clicks to the parent; it can do nothing
  * else (opaque origin, `default-src 'none'`).
+ *
+ * It also has to cancel the browser default for the combinations the app claims,
+ * and that is not something the parent can do for it. Relaying a keystroke means
+ * the parent reacts to a *synthetic* replay, and `preventDefault` on a synthetic
+ * event cancels nothing — the genuine event stayed in the frame, unprevented, so
+ * the webview ran its own accelerator as well. With the reader's focus in the
+ * body that made Ctrl+Shift+G both flag the message and open the webview's find
+ * bar, which is what the reader actually heard; Ctrl+R, Ctrl+F and Ctrl+U shadow
+ * reload, find and view-source the same way. `handleMessageShortcut` says it
+ * consumes these keys "so the webview never reacts" — this is where that promise
+ * is kept for the frame.
+ *
+ * The claimed set mirrors `handleGlobalKeydown`, and mirrors how it matches:
+ * by `key` for the letters (Ctrl+K palette, Ctrl+R/Shift+R reply, Ctrl+F
+ * forward, Ctrl+Q/U read state, Ctrl+Shift+G flag) and by `code` for Ctrl+N and
+ * the workspace digits, which must survive layouts whose top row types letters.
+ * Editing keys are deliberately absent: Ctrl+C and Ctrl+A have to keep working
+ * on the message text.
  */
 export const MAIL_FRAME_SCRIPT =
-	'window.addEventListener("keydown",function(e){if(!e.isTrusted)return;window.parent.postMessage({__voxroxMailFrameKey:true,key:e.key,code:e.code,ctrlKey:e.ctrlKey,metaKey:e.metaKey,altKey:e.altKey,shiftKey:e.shiftKey},"*");});window.addEventListener("click",function(e){if(!e.isTrusted)return;var a=e.target.closest?e.target.closest("a[href]"):null;if(!a)return;e.preventDefault();window.parent.postMessage({__voxroxMailFrameLink:true,href:a.href},"*");});';
+	'window.addEventListener("keydown",function(e){if(!e.isTrusted)return;if((e.ctrlKey||e.metaKey)&&!e.altKey&&("krgfqu".indexOf((e.key||"").toLowerCase())>=0||/^(KeyN|Digit[123]|Numpad[123])$/.test(e.code)))e.preventDefault();window.parent.postMessage({__voxroxMailFrameKey:true,key:e.key,code:e.code,ctrlKey:e.ctrlKey,metaKey:e.metaKey,altKey:e.altKey,shiftKey:e.shiftKey},"*");});window.addEventListener("click",function(e){if(!e.isTrusted)return;var a=e.target.closest?e.target.closest("a[href]"):null;if(!a)return;e.preventDefault();window.parent.postMessage({__voxroxMailFrameLink:true,href:a.href},"*");});';
 
 /** Base64 SHA-256 of MAIL_FRAME_SCRIPT — asserted in mailFrame.test.ts. */
-export const MAIL_FRAME_SCRIPT_SHA256 = 'P0dzBplLeG9MS+sbj54Edo5FqVN4odqRclMXa+orxyM=';
+export const MAIL_FRAME_SCRIPT_SHA256 = 'wN5hGd1mMyyuRcJv0nzEaL0Edfg5xEyRyhnx6vYlF/0=';
 
 /**
  * Base stylesheet for the mail body. The sanitizer strips every style element

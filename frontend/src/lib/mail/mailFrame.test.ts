@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { createHash } from 'node:crypto';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import {
 	MAIL_FRAME_SCRIPT,
 	MAIL_FRAME_SCRIPT_SHA256,
@@ -159,6 +159,113 @@ describe('MAIL_FRAME_SCRIPT link forwarding', () => {
 		expect(MAIL_FRAME_SCRIPT).toContain('__voxroxMailFrameLink');
 		// Only genuine user clicks are relayed (a synthetic click can never loop).
 		expect(MAIL_FRAME_SCRIPT).toContain('e.isTrusted');
+	});
+});
+
+describe('MAIL_FRAME_SCRIPT keyboard forwarding', () => {
+	/*
+	 * The forwarder is executed here rather than string-matched: what matters is
+	 * which keystrokes it cancels, and a containment check would pass just as
+	 * happily on an inverted condition or a wrong key list.
+	 *
+	 * Its keydown listener is captured instead of dispatching real events,
+	 * because the forwarder ignores anything with `isTrusted === false` and
+	 * jsdom makes `isTrusted` a non-configurable own property — a dispatched
+	 * synthetic event can never look genuine, so every case would vacuously
+	 * "pass" by being skipped.
+	 */
+	type FrameKeyEvent = {
+		isTrusted: boolean;
+		key: string;
+		code: string;
+		ctrlKey: boolean;
+		metaKey: boolean;
+		altKey: boolean;
+		shiftKey: boolean;
+		preventDefault: () => void;
+	};
+	let onKeydown: (event: FrameKeyEvent) => void;
+
+	beforeAll(() => {
+		const original = window.addEventListener;
+		window.addEventListener = ((type: string, handler: unknown) => {
+			if (type === 'keydown') onKeydown = handler as (event: FrameKeyEvent) => void;
+		}) as typeof window.addEventListener;
+		new Function(MAIL_FRAME_SCRIPT)();
+		window.addEventListener = original;
+	});
+
+	function press(init: Partial<FrameKeyEvent>): boolean {
+		let prevented = false;
+		onKeydown({
+			isTrusted: true,
+			key: '',
+			code: '',
+			ctrlKey: false,
+			metaKey: false,
+			altKey: false,
+			shiftKey: false,
+			...init,
+			preventDefault: () => {
+				prevented = true;
+			}
+		});
+		return prevented;
+	}
+
+	// The reported case: with focus in the body, this both flagged the message
+	// and opened the webview's find bar, and the find bar is what got spoken.
+	it('cancels Ctrl+Shift+G so the webview does not also find-previous', () => {
+		expect(press({ key: 'G', code: 'KeyG', ctrlKey: true, shiftKey: true })).toBe(true);
+	});
+
+	it.each([
+		['k', 'KeyK'],
+		['r', 'KeyR'],
+		['f', 'KeyF'],
+		['q', 'KeyQ'],
+		['u', 'KeyU']
+	])('cancels Ctrl+%s, which the app claims', (key, code) => {
+		expect(press({ key, code, ctrlKey: true })).toBe(true);
+	});
+
+	/*
+	 * Ctrl+N and the workspace digits are matched by `code` in
+	 * handleGlobalKeydown so they survive layouts whose top row types letters;
+	 * the frame has to mirror that or it cancels the wrong keys on those
+	 * layouts. The Czech layout types punctuation and accented letters across
+	 * the top row, so `key` there is nothing like the digit.
+	 */
+	it.each([
+		['n', 'KeyN'],
+		['+', 'Digit1'],
+		[String.fromCodePoint(0x011b), 'Digit2'],
+		[String.fromCodePoint(0x0161), 'Digit3']
+	])('cancels the app claim on code %s regardless of the typed character', (key, code) => {
+		expect(press({ key, code, ctrlKey: true })).toBe(true);
+	});
+
+	it.each([
+		['c', 'KeyC'],
+		['a', 'KeyA'],
+		['x', 'KeyX'],
+		['z', 'KeyZ']
+	])('leaves the editing shortcut Ctrl+%s alone so the body stays copyable', (key, code) => {
+		expect(press({ key, code, ctrlKey: true })).toBe(false);
+	});
+
+	it('leaves an unmodified letter alone', () => {
+		expect(press({ key: 'g', code: 'KeyG' })).toBe(false);
+	});
+
+	it('leaves Ctrl+Alt combinations alone — the app claims none of them', () => {
+		expect(press({ key: 'f', code: 'KeyF', ctrlKey: true, altKey: true })).toBe(false);
+	});
+
+	it('ignores an untrusted keystroke entirely', () => {
+		expect(press({ isTrusted: false, key: 'G', code: 'KeyG', ctrlKey: true, shiftKey: true })).toBe(
+			false
+		);
 	});
 });
 
