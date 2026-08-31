@@ -56,8 +56,18 @@
 		syncing = true;
 		try {
 			await triggerAccountSync(acc.id);
-			await refreshFolders(acc.id);
+			/*
+			 * Announce on the 202, not after the folder refresh below. "Started"
+			 * becomes true the moment the trigger is accepted, and waiting for
+			 * the refresh put the message ~3.7 s late (measured) for a reason
+			 * that only gets worse on a big mailbox: the refresh queues behind
+			 * the IMAP connection lock that the sync it just triggered is now
+			 * holding, so the announcement was blocked by the very thing it
+			 * announces. A refresh that fails afterwards still raises its own
+			 * toast; it does not make "started" untrue.
+			 */
 			announcePolite($_('nav.syncStarted'));
+			await refreshFolders(acc.id);
 		} catch (err) {
 			pushToast(toErrorMessage(err), { tone: 'error' });
 		} finally {

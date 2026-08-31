@@ -86,9 +86,41 @@
 	 * first focus — before the webview even hydrates — is already informative.
 	 * document.title (the webview/route title) is handled separately by SvelteKit.
 	 */
+	/*
+	 * Once booted the native title mirrors the route title instead of staying on
+	 * the bare app name. NVDA+T — the "where am I?" command — reads the native
+	 * title and nothing else, so an app name alone answered it with "in the
+	 * app": the open message's subject reached the reader only on window focus,
+	 * where the document title is read after it. Confirmed by listening, along
+	 * with the cost: on Alt+Tab the subject is now spoken twice, once per
+	 * channel, which the maintainer weighed and accepted for the orientation it
+	 * buys (Outlook titles its message windows by subject too).
+	 *
+	 * Mirrored through an observer rather than recomputed here, because the
+	 * route owns its title and the layout must not grow a second copy of that
+	 * logic. A navigation hook would not do either: the message detail writes
+	 * its title twice, the placeholder first and the subject once the body
+	 * arrives. `document.head` is the observed node, not the <title> element —
+	 * SvelteKit may swap the element itself, which would leave an observer
+	 * bound to it silently watching a detached node.
+	 */
 	$effect(() => {
 		const settled = $bootState.phase === 'ready' || $bootState.phase === 'failed';
-		setNativeWindowTitle(settled ? $_('app.title') : $_('app.titleLoading'));
+		if (!settled) {
+			setNativeWindowTitle($_('app.titleLoading'));
+			return;
+		}
+		let last = '';
+		const sync = () => {
+			if (document.title && document.title !== last) {
+				last = document.title;
+				setNativeWindowTitle(last);
+			}
+		};
+		sync();
+		const observer = new MutationObserver(sync);
+		observer.observe(document.head, { childList: true, characterData: true, subtree: true });
+		return () => observer.disconnect();
 	});
 
 	const bootPhaseTextKey = $derived.by(() => {
