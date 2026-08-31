@@ -3,8 +3,13 @@
 	import { folders } from '$lib/stores/folders.js';
 	import { folderLabelByRef } from '$lib/mail/folderLabel.js';
 	import { messageStatusLabel } from '$lib/mail/messageStatus.js';
-	import MessageFlags from '$lib/components/MessageFlags.svelte';
 	import MessageRowActionsMenu from '$lib/components/MessageRowActionsMenu.svelte';
+	import MailActionsCell from '$lib/components/mail-list/MailActionsCell.svelte';
+	import MailDateCell from '$lib/components/mail-list/MailDateCell.svelte';
+	import MailRow from '$lib/components/mail-list/MailRow.svelte';
+	import MailSenderCell from '$lib/components/mail-list/MailSenderCell.svelte';
+	import MailStatusCell from '$lib/components/mail-list/MailStatusCell.svelte';
+	import MailSubjectCell from '$lib/components/mail-list/MailSubjectCell.svelte';
 	import { createRovingGrid } from '$lib/components/grid/rovingGrid.svelte.js';
 	import { isRowBackgroundClick } from '$lib/components/grid/rowActivation.js';
 	import { cn } from '$lib/utils.js';
@@ -169,104 +174,49 @@
 		<span role="columnheader" aria-colindex={6}>{$_('messages.columnHeaderActions')}</span>
 	</div>
 	{#each results.content as message, rowIndex (message.stableId)}
-		{@const statusLabel = messageStatusLabel(message, $_)}
-		{@const formattedDate = formatNumericDate(message.receivedAt, $appLocale ?? 'cs')}
-		<!--
-			Columns come from the grid above; only the two row tracks are the row's
-			own. No horizontal padding on the row — under `subgrid` it would inset
-			every track and push the actions column past the right edge.
-		-->
-		<div
-			role="row"
-			tabindex="-1"
-			data-row-index={rowIndex}
-			data-stable-id={message.stableId}
-			aria-rowindex={results.page * results.size + rowIndex + 2}
-			class={cn(
-				'col-span-full grid cursor-pointer grid-cols-subgrid grid-rows-[auto_auto] border-b border-border/80 transition-colors hover:bg-muted/40 focus-within:relative focus-within:z-10',
-				!message.seen && 'font-semibold'
-			)}
+		{@const unread = !message.seen}
+		<MailRow
+			{rowIndex}
+			stableId={message.stableId}
+			ariaRowIndex={results.page * results.size + rowIndex + 2}
+			{unread}
 			onclick={(e) => handleRowClick(e, message)}
 			onkeydown={(e) => handleKeydown(e, message, rowIndex)}
 		>
-			<div
-				role="gridcell"
-				aria-colindex={COL_STATUS + 1}
-				{...grid.cell(rowIndex, COL_STATUS)}
-				aria-label={statusLabel}
-				class={cn(
-					'row-span-2 flex items-center gap-1 rounded-sm px-2 text-caption text-muted-foreground',
-					focusRingInset
-				)}
-			>
-				<MessageFlags {message} />
-			</div>
-			<div
-				role="gridcell"
-				aria-colindex={COL_SUBJECT + 1}
-				class="col-start-2 row-start-1 min-w-0 px-2 pt-3"
-			>
-				<!--
-					A real link, exactly as in the two mail lists. Browse mode never
-					delivers Enter to the grid, so a screen reader can only activate what
-					it recognises as interactive, and a link is the one thing every
-					reader activates there. It carries the roving tabindex, so the
-					arrow-key model is unchanged.
-
-					A link and not a button because opening a result *is* a navigation:
-					it has an address (`?message=` on the search route), Back closes it
-					and a reload reopens it. It used to be a button, back when the open
-					result lived only in a store and there was no address to put in an
-					href — which made the same action read as "button" here and as "link"
-					in the mail list, for no reason the user could see.
-
-					The row keydown handler takes Enter first and calls
-					`preventDefault`, so the browser follows no href on top of it, and
-					`handleRowClick` ignores anything inside an anchor — every path
-					opens the result exactly once.
-				-->
-				<a
-					href={hrefFor(message)}
-					{...grid.cell(rowIndex, COL_SUBJECT)}
-					onclick={(event) => handleSubjectClick(event, message)}
-					class={cn(
-						'block truncate rounded-sm text-sm no-underline hover:underline',
-						!message.seen ? 'text-foreground' : 'text-muted-foreground',
-						focusRingInset
-					)}
-				>
-					{#if !message.seen}
-						<span class="sr-only">{$_('messages.unreadIndicatorLabel')}.</span>
-					{/if}
-					{message.subject || $_('messages.noSubject')}
-				</a>
-			</div>
-			<div
-				role="gridcell"
-				aria-colindex={COL_SENDER + 1}
-				{...grid.cell(rowIndex, COL_SENDER)}
-				class={cn(
-					/* Row-track floor, same reason as MessageList: subgrid shares the
-					   columns, not the rows, so an empty sender would collapse this
-					   track and leave the row shorter than the ones around it. */
-					'col-start-2 row-start-2 min-h-8 truncate rounded-sm px-2 pb-3 text-sm',
-					!message.seen ? 'text-foreground' : 'text-muted-foreground',
-					focusRingInset
-				)}
-			>
-				{message.sender}
-			</div>
-			<div
-				role="gridcell"
-				aria-colindex={COL_DATE + 1}
-				{...grid.cell(rowIndex, COL_DATE)}
-				class={cn(
-					'col-start-3 row-start-1 flex items-center justify-end rounded-sm px-3 pt-3 text-caption text-muted-foreground',
-					focusRingInset
-				)}
-			>
-				<time datetime={message.receivedAt}>{formattedDate}</time>
-			</div>
+			<MailStatusCell
+				{message}
+				colIndex={COL_STATUS + 1}
+				cell={grid.cell(rowIndex, COL_STATUS)}
+				label={messageStatusLabel(message, $_)}
+				placement="row-span-2"
+			/>
+			<MailSubjectCell
+				subject={message.subject}
+				{unread}
+				href={hrefFor(message)}
+				onclick={(event) => handleSubjectClick(event, message)}
+				colIndex={COL_SUBJECT + 1}
+				cell={grid.cell(rowIndex, COL_SUBJECT)}
+				placement="col-start-2 row-start-1"
+			/>
+			<MailSenderCell
+				text={message.sender}
+				{unread}
+				colIndex={COL_SENDER + 1}
+				cell={grid.cell(rowIndex, COL_SENDER)}
+				placement="col-start-2 row-start-2"
+			/>
+			<MailDateCell
+				receivedAt={message.receivedAt}
+				formatted={formatNumericDate(message.receivedAt, $appLocale ?? 'cs')}
+				colIndex={COL_DATE + 1}
+				cell={grid.cell(rowIndex, COL_DATE)}
+				placement="col-start-3 row-start-1 justify-end pt-3"
+			/>
+			<!--
+				The folder name is this grid's own column: results span folders, which
+				is the one thing a search row says that a folder listing never has to.
+			-->
 			<div
 				role="gridcell"
 				aria-colindex={COL_FOLDER + 1}
@@ -278,14 +228,7 @@
 			>
 				{folderLabelByRef($folders, message.folderName, $_)}
 			</div>
-			<!-- svelte-ignore a11y_click_events_have_key_events -->
-			<div
-				role="gridcell"
-				aria-colindex={COL_ACTIONS + 1}
-				tabindex="-1"
-				class="col-start-4 row-span-2 flex items-center justify-center pr-2"
-				onclick={(e) => e.stopPropagation()}
-			>
+			<MailActionsCell colIndex={COL_ACTIONS + 1} placement="col-start-4 row-span-2">
 				<MessageRowActionsMenu
 					{message}
 					col={COL_ACTIONS}
@@ -294,7 +237,7 @@
 					currentFolderRef={message.folderName}
 					onAfterAction={() => onAfterAction(message)}
 				/>
-			</div>
-		</div>
+			</MailActionsCell>
+		</MailRow>
 	{/each}
 </div>
