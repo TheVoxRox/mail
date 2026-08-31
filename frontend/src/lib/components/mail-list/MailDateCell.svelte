@@ -19,9 +19,10 @@
 		/** Spread from `grid.cell(rowIndex, COL_DATE)`. */
 		cell: RovingCellProps;
 		/**
-		 * Placement in the container's tracks, alignment inside them included:
-		 * the search grid stacks its date over the folder name and right-aligns
-		 * both, the flat list centres a single date over both row tracks.
+		 * Placement in the container's tracks, with the alignment and padding
+		 * that follow from it: the search grid stacks its date over the folder
+		 * name, right-aligns both and pays the top row's `pt-3`, while the flat
+		 * list centres a single date over both row tracks and needs neither.
 		 */
 		placement: string;
 	}
