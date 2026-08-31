@@ -129,3 +129,137 @@ describe('parseVCard — CATEGORIES', () => {
 		expect(parsed.categories).toEqual(['Rodina', 'Klienti']);
 	});
 });
+
+/**
+ * A property line may carry a group prefix — `group "." name` (RFC 6350 §3.3).
+ * Apple Contacts and iCloud write every property that way, and those cards
+ * reach us through any address book a phone syncs into, so this is the shape a
+ * real export has rather than an exotic one. Matching the property name without
+ * stripping the group dropped the EMAIL, and a card with no address is dropped
+ * whole — the import lost the contact, not just its group.
+ */
+describe('parseVCard — property groups', () => {
+	it('reads an e-mail off a grouped property', () => {
+		const [parsed] = parse(card('FN:Jan\r\nitem1.EMAIL:jan@x.cz'));
+
+		expect(parsed.contact.emails).toEqual([{ email: 'jan@x.cz', label: null }]);
+	});
+
+	it('still reads the TYPE parameter of a grouped property', () => {
+		const [parsed] = parse(card('FN:Jan\r\nitem1.EMAIL;TYPE=WORK:jan@x.cz'));
+
+		expect(parsed.contact.emails[0].label).toBe('WORK');
+	});
+
+	it('reads grouped N, NOTE and CATEGORIES', () => {
+		const [parsed] = parse(
+			card(
+				'item1.N:Novak;Jan;;;\r\nitem2.EMAIL:jan@x.cz\r\nitem3.NOTE:Pozn\r\nitem4.CATEGORIES:Rodina'
+			)
+		);
+
+		expect(parsed.contact.surname).toBe('Novak');
+		expect(parsed.contact.note).toBe('Pozn');
+		expect(parsed.categories).toEqual(['Rodina']);
+	});
+
+	it('is case-insensitive about the property name after the group', () => {
+		const [parsed] = parse(card('FN:Jan\r\nitem1.email:jan@x.cz'));
+
+		expect(parsed.contact.emails).toHaveLength(1);
+	});
+
+	it('does not treat a dot inside a parameter as a group separator', () => {
+		// The group prefix belongs to the property name alone. Stripping up to the
+		// first dot of the whole field part would eat the property name here and
+		// leave `b` — no property matches that, and the address vanishes.
+		const [parsed] = parse(card('FN:Jan\r\nEMAIL;X-SERVICE=a.b:jan@x.cz'));
+
+		expect(parsed.contact.emails).toEqual([{ email: 'jan@x.cz', label: null }]);
+	});
+});
+
+/**
+ * vCard 2.1 encodes non-ASCII with quoted-printable (RFC 2045 §6.7) and names
+ * its charset in a parameter. Both matter for Czech data specifically: an
+ * undecoded card imports a contact literally called `Nov=C3=A1k`, and old
+ * Outlook exports still declare windows-1250 rather than UTF-8.
+ *
+ * Expected values are built from code points rather than written as letters:
+ * the assertion is precisely about which code point the decoder produces, and
+ * `check:translations` scans source for literal Czech diacritics.
+ */
+describe('parseVCard — quoted-printable', () => {
+	/** `Novak` with an acute over the a. */
+	const NOVAK = `Nov${String.fromCodePoint(0xe1)}k`;
+	/** `Pratel` with a caron over the r and an acute over the a. */
+	const PRATEL = `P${String.fromCodePoint(0x159)}${String.fromCodePoint(0xe1)}tel`;
+
+	function v21(body: string): string {
+		return `BEGIN:VCARD\r\nVERSION:2.1\r\n${body}\r\nEND:VCARD\r\n`;
+	}
+
+	it('decodes a UTF-8 multi-byte sequence in N', () => {
+		const [parsed] = parse(
+			v21('N;CHARSET=UTF-8;ENCODING=QUOTED-PRINTABLE:Nov=C3=A1k;Jan;;;\r\nEMAIL:jan@x.cz')
+		);
+
+		expect(parsed.contact.surname).toBe(NOVAK);
+	});
+
+	it('decodes FN, which is what the display-name split then reads', () => {
+		const [parsed] = parse(v21('FN;ENCODING=QUOTED-PRINTABLE:Jan Nov=C3=A1k\r\nEMAIL:jan@x.cz'));
+
+		expect(parsed.contact.surname).toBe(NOVAK);
+	});
+
+	it('decodes a NOTE', () => {
+		const [parsed] = parse(
+			v21('FN:Jan\r\nEMAIL:jan@x.cz\r\nNOTE;ENCODING=QUOTED-PRINTABLE:P=C5=99=C3=A1tel')
+		);
+
+		expect(parsed.contact.note).toBe(PRATEL);
+	});
+
+	it('honours a non-UTF-8 CHARSET', () => {
+		// The same byte is a different letter per charset: 0xE1 is U+00E1 in
+		// windows-1250 but an incomplete sequence in UTF-8.
+		const [parsed] = parse(
+			v21('N;CHARSET=windows-1250;ENCODING=QUOTED-PRINTABLE:Nov=E1k;Jan;;;\r\nEMAIL:jan@x.cz')
+		);
+
+		expect(parsed.contact.surname).toBe(NOVAK);
+	});
+
+	it('joins a soft line break, which wraps long encoded values', () => {
+		const [parsed] = parse(
+			v21('FN:Jan\r\nEMAIL:jan@x.cz\r\nNOTE;ENCODING=QUOTED-PRINTABLE:Pratel=\r\nsky pozdrav')
+		);
+
+		expect(parsed.contact.note).toBe('Pratelsky pozdrav');
+	});
+
+	it('leaves an invalid escape verbatim rather than dropping it', () => {
+		// Same convention as the RFC 6350 text unescape: an undefined sequence
+		// keeps its characters instead of being silently swallowed.
+		const [parsed] = parse(
+			v21('FN:Jan\r\nEMAIL:jan@x.cz\r\nNOTE;ENCODING=QUOTED-PRINTABLE:100=ZZ%')
+		);
+
+		expect(parsed.contact.note).toBe('100=ZZ%');
+	});
+
+	it('leaves a bare equals alone when the property declares no encoding', () => {
+		const [parsed] = parse(card('FN:Jan\r\nEMAIL:jan@x.cz\r\nNOTE:a=C3=A1b'));
+
+		expect(parsed.contact.note).toBe('a=C3=A1b');
+	});
+
+	it('does not join the line after base64 padding', () => {
+		// Base64 pads with `=` at the end of a line too. Treating that as a soft
+		// break would swallow the property that follows — here, the only address.
+		const [parsed] = parse(card('FN:Jan\r\nPHOTO;ENCODING=BASE64:AAAA=\r\nEMAIL:jan@x.cz'));
+
+		expect(parsed.contact.emails).toEqual([{ email: 'jan@x.cz', label: null }]);
+	});
+});

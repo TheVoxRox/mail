@@ -34,6 +34,79 @@ function unescapeVCard(value: string): string {
 	return out;
 }
 
+/**
+ * Strips the optional group prefix from a property name — `group "." name`
+ * (RFC 6350 §3.3). Apple Contacts and iCloud write every property grouped
+ * (`item1.EMAIL:…`), and those cards reach us through any address book a phone
+ * syncs into. Without this the name never matches, the address is lost, and a
+ * card with no address is dropped whole.
+ *
+ * Applied to the name segment only. The field part may hold a parameter with a
+ * dot in its value (`EMAIL;X-SERVICE=a.b:…`), which is not a group separator.
+ */
+function stripGroup(field: string): string {
+	const dot = field.indexOf('.');
+	return dot < 0 ? field : field.slice(dot + 1);
+}
+
+/**
+ * True when the property declares quoted-printable. vCard 2.1 allows a bare
+ * parameter value as well as the `ENCODING=` form, and exporters use both.
+ */
+function isQuotedPrintable(params: string[]): boolean {
+	return params.some((p) => {
+		const upper = p.toUpperCase().trim();
+		return upper === 'QUOTED-PRINTABLE' || upper === 'ENCODING=QUOTED-PRINTABLE';
+	});
+}
+
+/** The declared CHARSET, or UTF-8 when the property names none. */
+function charsetOf(params: string[]): string {
+	const declared = params.find((p) => p.toUpperCase().trim().startsWith('CHARSET='));
+	if (!declared) return 'utf-8';
+	return (
+		declared
+			.slice(declared.indexOf('=') + 1)
+			.replace(/^"|"$/g, '')
+			.trim() || 'utf-8'
+	);
+}
+
+/**
+ * Decodes a quoted-printable value (RFC 2045 §6.7).
+ *
+ * Bytes are collected first and decoded as one buffer, because a single
+ * character can span several escapes — `=C3=A1` is one code point in UTF-8, and
+ * decoding pair by pair would yield two replacement characters. The charset
+ * matters for Czech data in particular: old Outlook exports declare
+ * windows-1250, where the same `=E1` byte is a different letter than it would
+ * be in UTF-8.
+ *
+ * An `=` that is not followed by two hex digits keeps its characters, the same
+ * convention {@link unescapeVCard} follows for undefined vCard escapes — a
+ * malformed card should lose as little as possible, not be swallowed.
+ */
+function decodeQuotedPrintable(value: string, charset: string): string {
+	const encoder = new TextEncoder();
+	const bytes: number[] = [];
+	for (let i = 0; i < value.length; i++) {
+		const pair = value.slice(i + 1, i + 3);
+		if (value[i] === '=' && /^[0-9a-fA-F]{2}$/.test(pair)) {
+			bytes.push(Number.parseInt(pair, 16));
+			i += 2;
+			continue;
+		}
+		for (const byte of encoder.encode(value[i])) bytes.push(byte);
+	}
+	const buffer = new Uint8Array(bytes);
+	try {
+		return new TextDecoder(charset).decode(buffer);
+	} catch {
+		// An unknown charset label must not cost us the value.
+		return new TextDecoder('utf-8').decode(buffer);
+	}
+}
+
 function parseEmailLabel(params: string[]): EmailLabel | null {
 	const types = params
 		.map((p) => p.toUpperCase())
@@ -74,7 +147,14 @@ export interface ParsedVCardFile {
 }
 
 interface CardBuffer {
-	nValue: string | null;
+	/**
+	 * N split into its structural components, still escaped. Split at read time
+	 * rather than in {@link finalizeCard} so the semicolons that separate the
+	 * components are the ones the file wrote — a quoted-printable `=3B` inside a
+	 * component decodes to a semicolon, and decoding before the split would turn
+	 * it into a separator.
+	 */
+	nParts: string[] | null;
 	fnValue: string | null;
 	note: string | null;
 	emails: { email: string; label: EmailLabel | null }[];
@@ -110,8 +190,8 @@ function finalizeCard(buf: CardBuffer): ParsedVCard | null {
 	let name: string | null = null;
 	let surname: string | null = null;
 
-	if (buf.nValue) {
-		const parts = buf.nValue.split(';');
+	if (buf.nParts) {
+		const parts = buf.nParts;
 		surname = parts[0] ? unescapeVCard(parts[0]).trim() || null : null;
 		name = parts[1] ? unescapeVCard(parts[1]).trim() || null : null;
 	} else if (buf.fnValue) {
@@ -142,13 +222,13 @@ export function parseVCard(text: string): ParsedVCardFile {
 	let skippedWithoutEmail = 0;
 	let buf: CardBuffer | null = null;
 
-	for (const rawLine of lines) {
-		const line = rawLine.trim();
+	for (let index = 0; index < lines.length; index++) {
+		const line = lines[index].trim();
 		if (!line) continue;
 		const upper = line.toUpperCase();
 
 		if (upper === 'BEGIN:VCARD') {
-			buf = { nValue: null, fnValue: null, note: null, emails: [], categories: [] };
+			buf = { nParts: null, fnValue: null, note: null, emails: [], categories: [] };
 			continue;
 		}
 		if (upper === 'END:VCARD') {
@@ -165,24 +245,39 @@ export function parseVCard(text: string): ParsedVCardFile {
 		const sep = line.indexOf(':');
 		if (sep < 0) continue;
 		const fieldPart = line.slice(0, sep);
-		const value = line.slice(sep + 1);
+		let value = line.slice(sep + 1);
 		const [field, ...params] = fieldPart.split(';');
-		const fieldUpper = field.toUpperCase();
+		const fieldUpper = stripGroup(field).toUpperCase();
+
+		/*
+		 * Quoted-printable wraps a long value with a trailing `=` and continues on
+		 * the next line (RFC 2045 §6.7). Joining is gated on the property actually
+		 * declaring the encoding: base64 pads with `=` at a line end too, and
+		 * joining there would swallow the property that follows.
+		 */
+		const quotedPrintable = isQuotedPrintable(params);
+		if (quotedPrintable) {
+			while (value.endsWith('=') && index + 1 < lines.length) {
+				value = value.slice(0, -1) + lines[++index].trim();
+			}
+		}
+		const charset = charsetOf(params);
+		const decode = (raw: string) => (quotedPrintable ? decodeQuotedPrintable(raw, charset) : raw);
 
 		if (fieldUpper === 'N') {
-			buf.nValue = value;
+			buf.nParts = value.split(';').map(decode);
 		} else if (fieldUpper === 'FN') {
-			buf.fnValue = value;
+			buf.fnValue = decode(value);
 		} else if (fieldUpper === 'EMAIL') {
-			const email = unescapeVCard(value).trim();
+			const email = unescapeVCard(decode(value)).trim();
 			if (email && email.includes('@')) {
 				buf.emails.push({ email, label: parseEmailLabel(params) });
 			}
 		} else if (fieldUpper === 'NOTE') {
-			buf.note = unescapeVCard(value).trim() || null;
+			buf.note = unescapeVCard(decode(value)).trim() || null;
 		} else if (fieldUpper === 'CATEGORIES') {
 			// A card may repeat the property; accumulate rather than overwrite.
-			buf.categories.push(...splitCategories(value));
+			buf.categories.push(...splitCategories(decode(value)));
 		}
 	}
 
