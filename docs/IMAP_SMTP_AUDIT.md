@@ -2,8 +2,8 @@
 
 |                    |                                                                                                                                                                                                                                                                                              |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.3                                                                                                                                                                                                                                                                                          |
-| **Date**           | 2026-08-08                                                                                                                                                                                                                                                                                   |
+| **Version**        | 1.4                                                                                                                                                                                                                                                                                          |
+| **Date**           | 2026-08-31                                                                                                                                                                                                                                                                                   |
 | **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                           |
 | **Audited commit** | `cad05cb` (re-verified 2026-08-08, recorded pre-squash as `3ff0c78` after 21 commits of drift, including the B1-2 fix; 1.0–1.2 baseline: `35a06f3`)                                                                                                                                          |
 | **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service`, `backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java`, `backend/src/main/java/org/voxrox/mailbackend/util/SubjectNormalizer.java`, `backend/src/main/java/org/voxrox/mailbackend/core/config/mail` |
@@ -81,6 +81,28 @@ transport/TLS and SMTP-send claims remain static-plus-unit-tests, see
 - **Attachment metadata is safe.** Filenames are RFC 2047-decoded for display;
   content-type is reduced to the media type before the first `;`; a negative
   `getSize()` is clamped to 0.
+
+- **The parse those claims sit on is now exercised, not assumed.** Every claim
+  above describes what happens _after_ jakarta.mail has turned
+  attacker-controlled bytes into a part tree, and until 2026-08-31 no test
+  asked it to do that: all seventeen cases in `MimePartExtractorTest` hand the
+  extractor a tree the test built, and even its "malformed multipart" case is a
+  Mockito mock returning a String — the shape a bad parse leaves behind, not
+  the parse. `MimePartExtractorHostileMimeTest` now runs sixteen raw messages
+  (truncated parts, missing boundaries, a boundary token inside the content,
+  bogus charsets and encodings, `message/rfc822` nesting, nesting past
+  `MAX_DEPTH`) through the four entry points. It asserts **invariants**, not
+  recorded output: that the two attachment walks agree, and that the depth
+  bound both binds and lets shallower trees through. Which of these inputs the
+  library throws on is deliberately not pinned — four of the sixteen do today,
+  and throwing is inside the contract, since the caller catches it and records
+  `contentError` (proven by `MalformedBodyStructureSyncIT`).
+- **Measured while writing that test:** `MAX_DEPTH` bounds _work_, not stack. A
+  copy of the extractor with the depth guard removed walks 100, 1000 and 3000
+  levels of nesting and still returns the body, so a `StackOverflowError`
+  escaping into the sync is not the failure mode the bound prevents. An earlier
+  version of the test asserted no `Error` escapes and was deleted once that
+  measurement showed it could not fail.
 
 ## 3. Header handling & threading (confirmed)
 
@@ -268,6 +290,18 @@ one after 101.8 s — so the budget is empirically load-bearing, not decorative.
 - [backend/SECURITY_RELEASE_CHECK.md](../backend/SECURITY_RELEASE_CHECK.md) — per-release security gate.
 
 ## 7. Change log
+
+- **1.4** (2026-08-31) — no claim changed and the anchor stays `cad05cb`;
+  what changed is that §2 stopped resting on an untested parse. The claims
+  there describe the pipeline after jakarta.mail has built the part tree from
+  attacker-controlled bytes, and no test had ever asked it to build one — the
+  seventeen existing cases all assemble the tree themselves. New
+  `MimePartExtractorHostileMimeTest` closes that with sixteen raw messages
+  against invariants rather than recorded output. Written alongside the same
+  treatment for Boundary 4 (`CONTENT_RENDERING_AUDIT` v1.8), after the jsoup
+  bump in #349 showed that a dependency can move an audited behaviour without
+  `check:audits` noticing. Two new bullets in §2 carry the method and the
+  measurement that killed a weaker version of the test.
 
 - **1.3** (2026-08-08) — re-verified against `3ff0c78` after `check:audits`
   reported 21 commits of drift since `35a06f3` (threading phase 2, draft
