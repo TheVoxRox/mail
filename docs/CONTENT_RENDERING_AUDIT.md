@@ -2,8 +2,8 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.7                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| **Date**           | 2026-08-26                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **Version**        | 1.8                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| **Date**           | 2026-08-31                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | **Audited commit** | `d558098` (re-verified 2026-08-26; 1.4-1.6 anchor `cad05cb`, recorded pre-squash as `5799e8b`; 1.0–1.3 baseline: `d55b753` / `fc71cb4`)                                                                                                                                                                                                                                                                                                                                                 |
 | **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/util/HtmlSanitizer.java`, `backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailContentService.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/RemoteImageAllowlistService.java`, `frontend/src/lib/mail/content-sanitizer.ts`, `frontend/src/lib/mail/mailFrame.ts`, `frontend/src/lib/components/message-detail` |
@@ -289,7 +289,28 @@ one, so no dead `cid:` source is ever retained.
 - **Regression cover:** [links.functional.e2e.ts](../frontend/src/routes/mail/links.functional.e2e.ts)
   guards the link bridge; `MimePartExtractorTest` + `HtmlSanitizerTest` guard cid
   inlining; keep [sanitizer.functional.e2e.ts](../frontend/src/routes/mail/sanitizer.functional.e2e.ts)
-  and [mailFrame.test.ts](../frontend/src/lib/mail/mailFrame.test.ts) as the XSS/CSP guards.
+  and [mailFrame.test.ts](../frontend/src/lib/mail/mailFrame.test.ts) as the XSS/CSP guards
+- **Parser behaviour belongs to jsoup, and is now asserted rather than assumed.**
+  The backend layer is `Jsoup.clean` over a parse, so what the Cleaner is even
+  shown depends on how jsoup resolves malformed markup: foreign content,
+  unclosed RCDATA, a tag breaking out of a context it should not leave.
+  `HtmlSanitizerTest` never reached that input class — all 33 of its cases are
+  markup a parser agrees about. `HtmlSanitizerMalformedInputTest` now runs a
+  corpus of malformed payloads through the sanitizer and asserts the
+  **invariant** (no script-capable element, no `on*` handler, no executable URL
+  scheme, no inline style survives), not a recorded output. A golden string
+  would go red when a jsoup release changes rendering without changing safety,
+  and re-approving a golden file is how a real regression eventually gets
+  approved too; exact output is pinned only for well-formed mail, where it
+  should not move.
+- **Method when jsoup moves.** Compile `HtmlSanitizer` against both versions and
+  diff the corpus output. The run on 2026-08-31 for 1.23.1 to 1.23.2 found
+  exactly one difference across 22 payloads — unclosed `textarea` content stays
+  text through EOF and is therefore escaped, inert under both — against a
+  release that changed SVG/MathML breakout placement and RCDATA handling.
+  `npm run check:audits` cannot stand in for this: it compares object ids of
+  the files under `Code paths`, and `backend/pom.xml` is deliberately not one
+  (decision recorded in [todo.md](../todo.md)).
 
 ## 5. F1 verification evidence
 
@@ -335,6 +356,18 @@ bridge restores working links without changing the sandbox.
   [mailFrame.ts](../frontend/src/lib/mail/mailFrame.ts).
 
 ## 7. Change log
+
+- **1.8** (2026-08-31) — no claim changed and the anchor stays `d558098`;
+  what changed is that one of them is now tested. The verdict rests on jsoup
+  neutralising attacker-controlled HTML, but every case in `HtmlSanitizerTest`
+  feeds it markup a parser agrees about, so the malformed-input behaviour the
+  Cleaner actually depends on was unasserted. New
+  `HtmlSanitizerMalformedInputTest` closes that: 17 malformed payloads against
+  a security invariant, three controls proving the checker bites, and two
+  exact-output cases for well-formed mail. Written after the jsoup 1.23.2 bump
+  (#349), whose parser changes a differential run showed to be safe here — see
+  the two new bullets in §4 for the method and why `check:audits` does not
+  cover dependency moves.
 
 - **1.7** (2026-08-26) — re-verified against `d558098`, closing the two
   acknowledgements the ledger had accumulated (the 2026-08-08 pre-structure
