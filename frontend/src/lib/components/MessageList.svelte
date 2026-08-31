@@ -29,7 +29,6 @@
 		createLatestSelection,
 		isRowBackgroundClick
 	} from '$lib/components/grid/rowActivation.js';
-	import { cn } from '$lib/utils.js';
 	import { formatMessageListDate } from '$lib/formatters.js';
 	import { moveTargetsFor } from '$lib/mail/moveTargets.js';
 	import { messageStatusLabel } from '$lib/mail/messageStatus.js';
@@ -41,11 +40,15 @@
 		EFFECTIVE_READING_PANE_CONTEXT_KEY,
 		type EffectiveReadingPaneContext
 	} from '$lib/mail/readingPaneContext.js';
-	import MessageFlags from '$lib/components/MessageFlags.svelte';
 	import MessageRowActionsMenu from '$lib/components/MessageRowActionsMenu.svelte';
+	import MailActionsCell from '$lib/components/mail-list/MailActionsCell.svelte';
+	import MailDateCell from '$lib/components/mail-list/MailDateCell.svelte';
+	import MailRow from '$lib/components/mail-list/MailRow.svelte';
+	import MailSenderCell from '$lib/components/mail-list/MailSenderCell.svelte';
+	import MailStatusCell from '$lib/components/mail-list/MailStatusCell.svelte';
+	import MailSubjectCell from '$lib/components/mail-list/MailSubjectCell.svelte';
 	import { announcePolite } from '$lib/stores/toasts.js';
 	import { nativeControlClass } from '$lib/components/ui/native-control/index.js';
-	import { focusRingInset } from '$lib/components/ui/focus-ring/index.js';
 	import { getContext } from 'svelte';
 	import { get } from 'svelte/store';
 
@@ -417,33 +420,15 @@
 				</div>
 				{#each pageData.content as message, rowIndex (message.stableId)}
 					{@const selected = $selectedMessage?.stableId === message.stableId}
+					{@const unread = !message.seen}
 					{@const multiSelected = $selectedMessageIdSet.has(message.stableId)}
-					{@const statusLabel = messageStatusLabel(message, $_)}
-					{@const formattedDate = formatMessageListDate(message.receivedAt, $appLocale ?? 'cs')}
-					<!--
-						Columns come from the list (see the `subgrid` note above); only the two
-						row tracks are the row's own. Nothing here may take horizontal padding:
-						under `subgrid` a padding on the row insets every one of its tracks at
-						once, so the actions column would slide past the list's right edge. The
-						cells carry their own padding already, which is why this row carries
-						none.
-					-->
-					<div
-						role="row"
-						tabindex="-1"
-						data-row-index={rowIndex}
-						data-stable-id={message.stableId}
-						aria-rowindex={pageData.page * pageData.size + rowIndex + 2}
-						aria-selected={selected ? 'true' : 'false'}
-						aria-current={selected ? 'page' : undefined}
-						class={cn(
-							'col-span-full grid cursor-pointer grid-cols-subgrid grid-rows-[auto_auto] border-b border-border/80 transition-colors focus-within:relative focus-within:z-10',
-							selected
-								? 'bg-primary/10 text-foreground shadow-[inset_3px_0_0_var(--primary)]'
-								: 'hover:bg-muted/40',
-							multiSelected && !selected && 'bg-primary/10',
-							!message.seen && 'font-semibold'
-						)}
+					<MailRow
+						{rowIndex}
+						stableId={message.stableId}
+						ariaRowIndex={pageData.page * pageData.size + rowIndex + 2}
+						{unread}
+						current={selected}
+						ticked={multiSelected}
 						onclick={(e) => handleRowClick(e, message)}
 						onkeydown={(e) => handleKeydown(e, message, rowIndex)}
 					>
@@ -478,95 +463,45 @@
 								/>
 							</label>
 						</div>
-						<div
-							role="gridcell"
-							aria-colindex={COL_STATUS + 1}
-							{...grid.cell(rowIndex, COL_STATUS)}
-							aria-label={statusLabel}
-							class={cn(
-								'col-start-2 row-span-2 flex items-center gap-1 rounded-sm px-2 text-caption text-muted-foreground',
-								focusRingInset
-							)}
-						>
-							<MessageFlags {message} />
-						</div>
-						<div
-							role="gridcell"
-							aria-colindex={COL_SUBJECT + 1}
-							class="col-start-3 row-start-1 min-w-0 px-2 pt-3"
-						>
-							<!--
-								A real link, not a clickable cell: browse mode never delivers
-								Enter to the grid, and a link is the one thing every screen
-								reader activates there. It carries the roving tabindex, so the
-								arrow-key model is unchanged — same shape as the actions menu
-								button in its own cell.
-							-->
-							<a
-								href={rowHref(message)}
-								{...grid.cell(rowIndex, COL_SUBJECT)}
-								onclick={(event) => handleSubjectClick(event, message)}
-								class={cn(
-									'block truncate rounded-sm text-sm no-underline hover:underline',
-									!message.seen ? 'text-foreground' : 'text-muted-foreground',
-									focusRingInset
-								)}
-							>
-								{#if !message.seen}
-									<span class="sr-only">{$_('messages.unreadIndicatorLabel')}.</span>
-								{/if}
-								{message.subject || $_('messages.noSubject')}
-							</a>
-						</div>
-						<div
-							role="gridcell"
-							aria-colindex={COL_SENDER + 1}
-							{...grid.cell(rowIndex, COL_SENDER)}
-							class={cn(
-								/*
-									`min-h-8` because `subgrid` shares the columns only — the two
-									row tracks stay each row's own, so an empty cell still
-									collapses one. In Drafts and Sent this cell renders
-									`recipientsTo`, which is nullable, so a draft saved without a
-									To header would leave the row ~20px shorter than its
-									neighbours. The value is the height the filled cell already
-									has (20px line + 12px padding), so it costs nothing when
-									there is text. Same floor as ConversationList.
-								*/
-								'col-start-3 row-start-2 min-h-8 truncate rounded-sm px-2 pb-3 text-sm',
-								!message.seen ? 'text-foreground' : 'text-muted-foreground',
-								focusRingInset
-							)}
-						>
-							{showRecipients ? (message.recipientsTo ?? '') : message.sender}
-						</div>
-						<div
-							role="gridcell"
-							aria-colindex={COL_DATE + 1}
-							{...grid.cell(rowIndex, COL_DATE)}
-							class={cn(
-								'col-start-4 row-span-2 flex items-center rounded-sm px-3 text-caption text-muted-foreground',
-								focusRingInset
-							)}
-						>
-							<time datetime={message.receivedAt}>{formattedDate}</time>
-						</div>
-						<!-- svelte-ignore a11y_click_events_have_key_events -->
-						<div
-							role="gridcell"
-							aria-colindex={COL_ACTIONS + 1}
-							tabindex="-1"
-							class="col-start-5 row-span-2 flex items-center justify-center pr-2"
-							onclick={(e) => e.stopPropagation()}
-						>
+						<MailStatusCell
+							{message}
+							colIndex={COL_STATUS + 1}
+							cell={grid.cell(rowIndex, COL_STATUS)}
+							label={messageStatusLabel(message, $_)}
+							placement="col-start-2 row-span-2"
+						/>
+						<MailSubjectCell
+							subject={message.subject}
+							{unread}
+							href={rowHref(message)}
+							onclick={(event) => handleSubjectClick(event, message)}
+							colIndex={COL_SUBJECT + 1}
+							cell={grid.cell(rowIndex, COL_SUBJECT)}
+							placement="col-start-3 row-start-1"
+						/>
+						<MailSenderCell
+							text={showRecipients ? (message.recipientsTo ?? '') : message.sender}
+							{unread}
+							colIndex={COL_SENDER + 1}
+							cell={grid.cell(rowIndex, COL_SENDER)}
+							placement="col-start-3 row-start-2"
+						/>
+						<MailDateCell
+							receivedAt={message.receivedAt}
+							formatted={formatMessageListDate(message.receivedAt, $appLocale ?? 'cs')}
+							colIndex={COL_DATE + 1}
+							cell={grid.cell(rowIndex, COL_DATE)}
+							placement="col-start-4 row-span-2"
+						/>
+						<MailActionsCell colIndex={COL_ACTIONS + 1} placement="col-start-5 row-span-2">
 							<MessageRowActionsMenu
 								{message}
 								col={COL_ACTIONS}
 								focused={grid.isAt(rowIndex, COL_ACTIONS)}
 								onCellFocus={() => grid.track(rowIndex, COL_ACTIONS)}
 							/>
-						</div>
-					</div>
+						</MailActionsCell>
+					</MailRow>
 				{/each}
 			</div>
 		</div>
