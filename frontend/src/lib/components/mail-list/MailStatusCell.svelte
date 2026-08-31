@@ -26,7 +26,10 @@
 		label: string | undefined;
 		/**
 		 * Where in the container's track set this cell sits: `col-start-*`,
-		 * `row-*`. Placement only — the look belongs to the component, or the
+		 * `row-*`, and the alignment or edge padding that follows from sitting
+		 * there — a cell cannot work out for itself that it has a neighbour above
+		 * it in the same track. What never travels this way is the look: colour,
+		 * type scale, border, focus ring. Those belong to the component, or the
 		 * grids drift apart again by the back door.
 		 */
 		placement: string;
