@@ -141,11 +141,21 @@
 		</Button>
 	{/if}
 
+	<!--
+		aria-disabled, never disabled: this button disables *itself* on activation,
+		and disabling the focused element drops focus to <body> without firing a
+		focus event — the user presses Sync and is nowhere, with the button gone
+		from the tab order for the whole pass (up to the three-minute cap). Staying
+		focusable is also what makes aria-busy worth setting. `handleSync` already
+		refuses a press while syncing, so the attribute is the only guard needed;
+		`buttonVariants` styles aria-disabled like disabled, same as the contact
+		list's Compose button.
+	-->
 	<Button
 		variant="ghost"
 		size="lg"
 		onclick={handleSync}
-		disabled={syncing || !$activeAccount}
+		aria-disabled={syncing || !$activeAccount ? 'true' : undefined}
 		aria-busy={syncing ? 'true' : 'false'}
 		class="w-full justify-start"
 	>

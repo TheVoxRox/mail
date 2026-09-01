@@ -92,6 +92,30 @@ test.describe('Sync notifications', () => {
 		await expect(page.getByRole('button', { name: 'Synchronizovat' })).toBeEnabled();
 	});
 
+	test('tlačítko Synchronizovat zůstane zaostřené po celou dobu průchodu', async ({ page }) => {
+		await openApp(page, '/mail/1/INBOX');
+		await page.waitForFunction(() => window.__MAIL_MSW__?.syncStreamConnected() === true);
+
+		await page.getByRole('button', { name: 'Synchronizovat' }).focus();
+		await page.keyboard.press('Enter');
+
+		/*
+		 * The button disables itself on activation, and `disabled` would take the
+		 * focused element out of the focus order — the browser then drops focus to
+		 * <body> without firing an event, so the user is nowhere and cannot even
+		 * Shift+Tab back to hear the state. Found by listening with NVDA on
+		 * 2026-09-01; aria-disabled is what keeps the control reachable, and
+		 * aria-busy is only worth setting on something reachable.
+		 */
+		const busy = page.getByRole('button', { name: 'Synchronizuji…' });
+		await expect(busy).toBeFocused();
+		await expect(busy).toHaveAttribute('aria-busy', 'true');
+		await expect(busy).toHaveAttribute('aria-disabled', 'true');
+
+		await page.evaluate(() => window.__MAIL_MSW__?.pushSyncCycleCompleted(1, 0));
+		await expect(page.getByRole('button', { name: 'Synchronizovat' })).toBeFocused();
+	});
+
 	test('sync_cycle_completed neopakuje počet, který už řekl toast složky', async ({ page }) => {
 		await openApp(page, '/mail/1/INBOX');
 		await page.waitForFunction(() => window.__MAIL_MSW__?.syncStreamConnected() === true);
