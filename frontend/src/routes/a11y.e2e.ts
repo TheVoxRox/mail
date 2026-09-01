@@ -50,6 +50,13 @@ const routes: ReadonlyArray<{ path: string; name: string }> = [
 	{ path: '/auth/finished', name: 'Návrat z OAuth' }
 ];
 
+/**
+ * The conformance target every axe scan below is measured against. Kept as one
+ * constant so widening it stays a single edit: the tags are cumulative, so
+ * WCAG 2.2 AA means naming 2.0, 2.1 and 2.2 rather than the latest alone.
+ */
+const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
+
 async function openPalette(page: Page): Promise<void> {
 	await page.waitForFunction(() => typeof window.__MAIL_E2E__?.openPalette === 'function');
 	await page.evaluate(() => {
@@ -66,7 +73,7 @@ test.beforeEach(async ({ page }) => {
 test.describe('Přístupnost', () => {
 	test('hlavní stránka nemá a11y porušení', async ({ page }) => {
 		await openApp(page, '/');
-		const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+		const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
 		expect(results.violations).toEqual([]);
 	});
 
@@ -141,7 +148,7 @@ test.describe('Přístupnost', () => {
 		await member.locator('input[type="checkbox"]').check();
 		await expect(parent.locator('input[type="checkbox"]')).toHaveAttribute('aria-checked', 'mixed');
 
-		const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+		const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
 		expect(results.violations).toEqual([]);
 	});
 
@@ -171,7 +178,7 @@ test.describe('Přístupnost', () => {
 		 * the --destructive-foreground pair fixed that, and widening the scan back
 		 * is what keeps it fixed.
 		 */
-		const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+		const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
 		expect(results.violations).toEqual([]);
 	});
 
@@ -344,7 +351,7 @@ test.describe('Přístupnost', () => {
 
 		// The route-level sweep scans the create form with a single address, where
 		// the group no longer exists — this is now the only axe pass that sees it.
-		const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+		const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
 		expect(results.violations).toEqual([]);
 
 		// Arrow keys are the only way into the unchecked radio: a radio group is one
@@ -523,7 +530,7 @@ test.describe('Přístupnost', () => {
 
 		const results = await new AxeBuilder({ page })
 			.include('[role="dialog"]')
-			.withTags(['wcag2a', 'wcag2aa'])
+			.withTags(WCAG_TAGS)
 			.analyze();
 		expect(results.violations).toEqual([]);
 	});
@@ -546,7 +553,7 @@ test.describe('Přístupnost', () => {
 
 		const results = await new AxeBuilder({ page })
 			.include('[role="dialog"]')
-			.withTags(['wcag2a', 'wcag2aa'])
+			.withTags(WCAG_TAGS)
 			.analyze();
 		expect(results.violations).toEqual([]);
 
@@ -597,7 +604,7 @@ test.describe('Přístupnost', () => {
 
 		const results = await new AxeBuilder({ page })
 			.include('[role="dialog"]')
-			.withTags(['wcag2a', 'wcag2aa'])
+			.withTags(WCAG_TAGS)
 			.analyze();
 		expect(results.violations).toEqual([]);
 	});
@@ -1020,7 +1027,7 @@ test.describe('Přístupnost', () => {
 
 		const results = await new AxeBuilder({ page })
 			.include('[role="dialog"]')
-			.withTags(['wcag2a', 'wcag2aa'])
+			.withTags(WCAG_TAGS)
 			.analyze();
 
 		expect(results.violations).toEqual([]);
@@ -1057,7 +1064,7 @@ test.describe('Přístupnost – jednotlivé obrazovky', () => {
 	for (const { path, name } of routes) {
 		test(`${name} (${path}) nemá a11y porušení`, async ({ page }) => {
 			await openApp(page, path);
-			const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+			const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
 			expect(results.violations).toEqual([]);
 		});
 
