@@ -5,9 +5,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
+import org.voxrox.mailbackend.feature.mail.dto.SyncCycleNotification;
 import org.voxrox.mailbackend.feature.mail.dto.SyncNotification;
 import org.voxrox.mailbackend.feature.mail.dto.SyncStatusNotification;
 import org.voxrox.mailbackend.feature.mail.event.MailSyncCompletedEvent;
+import org.voxrox.mailbackend.feature.mail.event.MailSyncCycleCompletedEvent;
 import org.voxrox.mailbackend.feature.mail.event.MailSyncErrorStateChangedEvent;
 import org.voxrox.mailbackend.feature.mail.service.FolderListCache;
 import org.voxrox.mailbackend.feature.mail.service.SseNotificationService;
@@ -55,6 +57,35 @@ public class MailSyncEventListener {
             } catch (Exception e) {
                 log.warn("{} SSE broadcast failed: {}", LogCategory.SYNC, e.getMessage());
             }
+        }
+    }
+
+    /**
+     * Reports a finished user-triggered sync pass. Separate from
+     * {@link #handleSyncCompleted} because that one is per folder and stays quiet
+     * when the folder downloaded nothing — so the outcome a waiting user is most
+     * likely to get, "no new mail", was the one that produced no event at all.
+     */
+    @Async("mailEventExecutor")
+    @EventListener
+    public void handleSyncCycleCompleted(MailSyncCycleCompletedEvent event) {
+        log.info("{} Sync pass of account {} finished, new messages: {}", LogCategory.SYNC, event.accountId(),
+                event.newMessagesCount());
+
+        /*
+         * Invalidate here as well, not only per folder: the per-folder listener runs on
+         * the same unbounded executor, so nothing orders it before this broadcast, and
+         * the client answers this event with a folder refresh that must not be served a
+         * pre-sync snapshot. A pass that only changed flags produces no folder event at
+         * all, and its unread counts still moved.
+         */
+        folderListCache.invalidate(event.accountId());
+
+        try {
+            sseNotificationService.broadcast(
+                    SyncCycleNotification.completed(event.accountId(), event.newMessagesCount(), event.timestamp()));
+        } catch (Exception e) {
+            log.warn("{} SSE broadcast failed: {}", LogCategory.SYNC, e.getMessage());
         }
     }
 

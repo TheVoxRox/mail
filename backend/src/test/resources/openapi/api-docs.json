@@ -1374,6 +1374,26 @@
         },
         "type" : "object"
       },
+      "SyncCycleNotification" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "newMessagesCount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "SyncNotification" : {
         "properties" : {
           "accountId" : {
@@ -4771,7 +4791,7 @@
     },
     "/api/v1/notifications/stream" : {
       "get" : {
-        "description" : "Opens a Server-Sent Events stream. The server emits one of: `sync_completed` (after a folder sync produced new messages), `sync_failed` / `sync_recovered` (the account's standing sync error changed; emitted on the transition only, payload carries the AccountLastErrorCode in `errorCode`, null on recovery), `send_completed` (asynchronous SMTP send finished successfully), `send_failed` (asynchronous SMTP send failed; payload carries the AccountLastErrorCode in `errorCode`), or `thread_updated` (a conversation gained a message or two orphan chains merged). A heartbeat comment is emitted every 30 s so intermediaries do not close the connection.",
+        "description" : "Opens a Server-Sent Events stream. The server emits one of: `sync_completed` (after a folder sync produced new messages), `sync_cycle_completed` (a user-triggered whole-account sync pass finished, whatever it found; scheduled passes stay silent), `sync_failed` / `sync_recovered` (the account's standing sync error changed; emitted on the transition only, payload carries the AccountLastErrorCode in `errorCode`, null on recovery), `send_completed` (asynchronous SMTP send finished successfully), `send_failed` (asynchronous SMTP send failed; payload carries the AccountLastErrorCode in `errorCode`), or `thread_updated` (a conversation gained a message or two orphan chains merged). A heartbeat comment is emitted every 30 s so intermediaries do not close the connection.",
         "operationId" : "streamNotifications",
         "responses" : {
           "200" : {
@@ -4780,6 +4800,8 @@
                 "schema" : {
                   "oneOf" : [ {
                     "$ref" : "#/components/schemas/SyncNotification"
+                  }, {
+                    "$ref" : "#/components/schemas/SyncCycleNotification"
                   }, {
                     "$ref" : "#/components/schemas/SyncStatusNotification"
                   }, {

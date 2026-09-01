@@ -2,6 +2,7 @@ package org.voxrox.mailbackend.feature.mail.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -43,6 +44,7 @@ import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.feature.mail.dto.FolderResponse;
 import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
 import org.voxrox.mailbackend.feature.mail.entity.FolderSyncStateEntity;
+import org.voxrox.mailbackend.feature.mail.event.MailSyncCycleCompletedEvent;
 import org.voxrox.mailbackend.feature.mail.event.MailSyncErrorStateChangedEvent;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
 
@@ -139,9 +141,9 @@ class MailSyncServiceTest {
         @Test
         @DisplayName("Skips synchronization when one already runs for the account (lock not granted)")
         void skipsWhenLocked() {
-            when(lockManager.tryLock(ACCOUNT_ID)).thenReturn(false);
+            when(lockManager.tryLock(eq(ACCOUNT_ID), anyBoolean())).thenReturn(false);
 
-            service.syncAllFolders(account);
+            service.syncAllFolders(account, SyncTrigger.SCHEDULED);
 
             verify(imapFolderService, never()).getFolders(anyLong());
             verify(lockManager, never()).unlock(anyLong());
@@ -150,7 +152,7 @@ class MailSyncServiceTest {
         @Test
         @DisplayName("Synchronizes only the 5 role-matched folders (INBOX/SENT/DRAFTS/JUNK/TRASH)")
         void syncsOnlyRoleMatchedFolders() {
-            when(lockManager.tryLock(ACCOUNT_ID)).thenReturn(true);
+            when(lockManager.tryLock(eq(ACCOUNT_ID), anyBoolean())).thenReturn(true);
             when(imapFolderService.getFolders(ACCOUNT_ID))
                     .thenReturn(List.of(new FolderResponse("INBOX", "INBOX", FolderRole.INBOX),
                             new FolderResponse("Sent", "[Gmail]/Sent", FolderRole.SENT),
@@ -160,9 +162,9 @@ class MailSyncServiceTest {
                             new FolderResponse("MyCustom", "MyCustom", FolderRole.USER),
                             new FolderResponse("Archive", "All", FolderRole.ARCHIVE)));
 
-            service.syncAllFolders(account);
+            service.syncAllFolders(account, SyncTrigger.SCHEDULED);
 
-            // performFullSyncCycle -> executeInFolder once per role-matched folder.
+            // runFolderCycle -> executeInFolder once per role-matched folder.
             verify(imapFolderService, times(5)).executeInFolder(eq(ACCOUNT_ID), any(),
                     eq(jakarta.mail.Folder.READ_ONLY), any());
             verify(lockManager).unlock(ACCOUNT_ID);
@@ -171,10 +173,10 @@ class MailSyncServiceTest {
         @Test
         @DisplayName("Exception while listing folders writes last_error and releases the lock")
         void recordsLastErrorAndReleasesLockOnException() {
-            when(lockManager.tryLock(ACCOUNT_ID)).thenReturn(true);
+            when(lockManager.tryLock(eq(ACCOUNT_ID), anyBoolean())).thenReturn(true);
             when(imapFolderService.getFolders(ACCOUNT_ID)).thenThrow(new RuntimeException("boom"));
 
-            service.syncAllFolders(account);
+            service.syncAllFolders(account, SyncTrigger.SCHEDULED);
 
             verify(lockManager).unlock(ACCOUNT_ID);
             ArgumentCaptor<AccountLastError> captor = ArgumentCaptor.forClass(AccountLastError.class);
@@ -187,7 +189,7 @@ class MailSyncServiceTest {
         @Test
         @DisplayName("Clears last_error only after a fully clean pass over all role-matched folders")
         void clearsLastErrorAfterFullyCleanPass() throws Exception {
-            when(lockManager.tryLock(ACCOUNT_ID)).thenReturn(true);
+            when(lockManager.tryLock(eq(ACCOUNT_ID), anyBoolean())).thenReturn(true);
             when(imapFolderService.getFolders(ACCOUNT_ID))
                     .thenReturn(List.of(new FolderResponse("INBOX", "INBOX", FolderRole.INBOX),
                             new FolderResponse("Sent", "[Gmail]/Sent", FolderRole.SENT)));
@@ -197,7 +199,7 @@ class MailSyncServiceTest {
                     .thenReturn(new FolderSyncStateEntity());
             when(flagSyncService.handleUidValidity(any())).thenReturn(true);
 
-            service.syncAllFolders(account);
+            service.syncAllFolders(account, SyncTrigger.SCHEDULED);
 
             verify(accountRepository).clearLastError(eq(ACCOUNT_ID), any(LocalDateTime.class));
             verify(accountRepository, never()).updateLastError(anyLong(), any(AccountLastError.class),
@@ -207,7 +209,7 @@ class MailSyncServiceTest {
         @Test
         @DisplayName("A failed folder blocks clearing last_error even when later folders succeed")
         void failedFolderBlocksClearingLastError() throws Exception {
-            when(lockManager.tryLock(ACCOUNT_ID)).thenReturn(true);
+            when(lockManager.tryLock(eq(ACCOUNT_ID), anyBoolean())).thenReturn(true);
             when(imapFolderService.getFolders(ACCOUNT_ID))
                     .thenReturn(List.of(new FolderResponse("INBOX", "INBOX", FolderRole.INBOX),
                             new FolderResponse("Sent", "[Gmail]/Sent", FolderRole.SENT)));
@@ -219,7 +221,7 @@ class MailSyncServiceTest {
             when(flagSyncService.handleUidValidity(any())).thenThrow(new RuntimeException("IMAP timeout"))
                     .thenReturn(true);
 
-            service.syncAllFolders(account);
+            service.syncAllFolders(account, SyncTrigger.SCHEDULED);
 
             // The INBOX failure is recorded...
             ArgumentCaptor<AccountLastError> captor = ArgumentCaptor.forClass(AccountLastError.class);
@@ -232,7 +234,7 @@ class MailSyncServiceTest {
         @Test
         @DisplayName("A folder whose cycle already runs elsewhere is skipped and blocks clearing last_error")
         void skipsFolderLockedElsewhereAndDoesNotClearLastError() throws Exception {
-            when(lockManager.tryLock(ACCOUNT_ID)).thenReturn(true);
+            when(lockManager.tryLock(eq(ACCOUNT_ID), anyBoolean())).thenReturn(true);
             when(imapFolderService.getFolders(ACCOUNT_ID))
                     .thenReturn(List.of(new FolderResponse("INBOX", "INBOX", FolderRole.INBOX),
                             new FolderResponse("Sent", "[Gmail]/Sent", FolderRole.SENT)));
@@ -245,7 +247,7 @@ class MailSyncServiceTest {
                     .thenReturn(new FolderSyncStateEntity());
             when(flagSyncService.handleUidValidity(any())).thenReturn(true);
 
-            service.syncAllFolders(account);
+            service.syncAllFolders(account, SyncTrigger.SCHEDULED);
 
             // Only SENT ran; the skipped INBOX released nothing it never acquired.
             verify(imapFolderService, times(1)).executeInFolder(eq(ACCOUNT_ID), eq("[Gmail]/Sent"),
@@ -262,15 +264,118 @@ class MailSyncServiceTest {
         @Test
         @DisplayName("Duplicate roles are reduced to one (first match)")
         void duplicateRolesLimitedToFirst() {
-            when(lockManager.tryLock(ACCOUNT_ID)).thenReturn(true);
+            when(lockManager.tryLock(eq(ACCOUNT_ID), anyBoolean())).thenReturn(true);
             when(imapFolderService.getFolders(ACCOUNT_ID))
                     .thenReturn(List.of(new FolderResponse("INBOX", "INBOX", FolderRole.INBOX),
                             new FolderResponse("Inbox2", "[Gmail]/Inbox2", FolderRole.INBOX)));
 
-            service.syncAllFolders(account);
+            service.syncAllFolders(account, SyncTrigger.SCHEDULED);
 
             verify(imapFolderService, times(1)).executeInFolder(eq(ACCOUNT_ID), eq("INBOX"),
                     eq(jakarta.mail.Folder.READ_ONLY), any());
+        }
+    }
+
+    /**
+     * Reporting a finished pass back to the waiting user. The per-folder
+     * {@code sync_completed} event cannot serve this: it is suppressed when the
+     * folder downloaded nothing, which is the ordinary outcome of pressing
+     * Synchronise, so the pass has to say so itself.
+     */
+    @Nested
+    @DisplayName("completion of a user-triggered pass")
+    class CycleCompletionReporting {
+
+        @Test
+        @DisplayName("A manual trigger asks the lock to have the pass reported")
+        void manualTriggerRequestsReport() {
+            when(lockManager.tryLock(eq(ACCOUNT_ID), anyBoolean())).thenReturn(true);
+            when(imapFolderService.getFolders(ACCOUNT_ID)).thenReturn(List.of());
+
+            service.syncAllFolders(account, SyncTrigger.MANUAL);
+
+            verify(lockManager).tryLock(ACCOUNT_ID, true);
+        }
+
+        @Test
+        @DisplayName("The scheduled pass stays silent — it would announce itself every five minutes")
+        void scheduledTriggerDoesNotRequestReport() {
+            when(lockManager.tryLock(eq(ACCOUNT_ID), anyBoolean())).thenReturn(true);
+            when(imapFolderService.getFolders(ACCOUNT_ID)).thenReturn(List.of());
+
+            service.syncAllFolders(account, SyncTrigger.SCHEDULED);
+
+            verify(lockManager).tryLock(ACCOUNT_ID, false);
+        }
+
+        @Test
+        @DisplayName("A pass someone waits on publishes its completion, zero new messages included")
+        void publishesCompletionWithZeroCount() {
+            when(lockManager.tryLock(eq(ACCOUNT_ID), anyBoolean())).thenReturn(true);
+            when(lockManager.unlock(ACCOUNT_ID)).thenReturn(true);
+            when(imapFolderService.getFolders(ACCOUNT_ID)).thenReturn(List.of());
+
+            service.syncAllFolders(account, SyncTrigger.MANUAL);
+
+            MailSyncCycleCompletedEvent event = capturePublished(MailSyncCycleCompletedEvent.class);
+            assertThat(event.accountId()).isEqualTo(ACCOUNT_ID);
+            assertThat(event.newMessagesCount()).isZero();
+        }
+
+        @Test
+        @DisplayName("A pass nobody waits on publishes nothing")
+        void publishesNothingWhenNobodyIsWaiting() {
+            when(lockManager.tryLock(eq(ACCOUNT_ID), anyBoolean())).thenReturn(true);
+            when(lockManager.unlock(ACCOUNT_ID)).thenReturn(false);
+            when(imapFolderService.getFolders(ACCOUNT_ID)).thenReturn(List.of());
+
+            service.syncAllFolders(account, SyncTrigger.SCHEDULED);
+
+            verify(eventPublisher, never()).publishEvent(any(MailSyncCycleCompletedEvent.class));
+        }
+
+        @Test
+        @DisplayName("The reported count sums every folder of the pass")
+        void countSumsAcrossFolders() throws Exception {
+            when(lockManager.tryLock(eq(ACCOUNT_ID), anyBoolean())).thenReturn(true);
+            when(lockManager.unlock(ACCOUNT_ID)).thenReturn(true);
+            when(imapFolderService.getFolders(ACCOUNT_ID))
+                    .thenReturn(List.of(new FolderResponse("INBOX", "INBOX", FolderRole.INBOX),
+                            new FolderResponse("Sent", "[Gmail]/Sent", FolderRole.SENT)));
+            stubExecuteInFolderRunCallback(mock(Folder.class));
+            stubTransactionTemplateExecuteRunCallback();
+            when(syncStateService.getOrCreateState(eq(ACCOUNT_ID), any(), any()))
+                    .thenReturn(new FolderSyncStateEntity());
+            when(flagSyncService.handleUidValidity(any())).thenReturn(true);
+            when(messageDownloader.syncNewMessages(any())).thenReturn(2).thenReturn(3);
+
+            service.syncAllFolders(account, SyncTrigger.MANUAL);
+
+            assertThat(capturePublished(MailSyncCycleCompletedEvent.class).newMessagesCount()).isEqualTo(5);
+        }
+
+        @Test
+        @DisplayName("A pass that failed outright still reports — that is when the user most needs an answer")
+        void reportsCompletionAfterFailure() {
+            when(lockManager.tryLock(eq(ACCOUNT_ID), anyBoolean())).thenReturn(true);
+            when(lockManager.unlock(ACCOUNT_ID)).thenReturn(true);
+            when(imapFolderService.getFolders(ACCOUNT_ID)).thenThrow(new IllegalStateException("IMAP down"));
+
+            service.syncAllFolders(account, SyncTrigger.MANUAL);
+
+            assertThat(capturePublished(MailSyncCycleCompletedEvent.class).newMessagesCount()).isZero();
+        }
+
+        /**
+         * The pass publishes more than one kind of event (the error-state transition
+         * rides along), so the assertions pick the one they are about instead of
+         * assuming a single publish.
+         */
+        private <T> T capturePublished(Class<T> eventType) {
+            ArgumentCaptor<Object> events = ArgumentCaptor.forClass(Object.class);
+            verify(eventPublisher, org.mockito.Mockito.atLeastOnce()).publishEvent(events.capture());
+            return events.getAllValues().stream().filter(eventType::isInstance).map(eventType::cast).findFirst()
+                    .orElseThrow(() -> new AssertionError("No " + eventType.getSimpleName() + " was published"));
         }
     }
 
@@ -553,7 +658,7 @@ class MailSyncServiceTest {
 
         @BeforeEach
         void grantAccountLock() {
-            when(lockManager.tryLock(ACCOUNT_ID)).thenReturn(true);
+            when(lockManager.tryLock(eq(ACCOUNT_ID), anyBoolean())).thenReturn(true);
             lenient().when(imapFolderService.getFolders(ACCOUNT_ID)).thenReturn(List.of());
         }
 
@@ -564,12 +669,12 @@ class MailSyncServiceTest {
             when(accountRepository.findLastErrorCode(ACCOUNT_ID))
                     .thenReturn(Optional.of(AccountLastErrorCode.MAIL_SYNC_ACCOUNT_FAILED.name()));
 
-            service.syncAllFolders(account);
+            service.syncAllFolders(account, SyncTrigger.SCHEDULED);
 
             // The second pass starts from the state the first one left behind — which is
             // what the loaded entity carries in production.
             account.setLastErrorCode(AccountLastErrorCode.MAIL_SYNC_ACCOUNT_FAILED.name());
-            service.syncAllFolders(account);
+            service.syncAllFolders(account, SyncTrigger.SCHEDULED);
 
             ArgumentCaptor<Object> events = ArgumentCaptor.forClass(Object.class);
             verify(eventPublisher, times(1)).publishEvent(events.capture());
@@ -584,7 +689,7 @@ class MailSyncServiceTest {
             account.setLastErrorCode(AccountLastErrorCode.MAIL_SYNC_FOLDER_FAILED.name());
             when(accountRepository.findLastErrorCode(ACCOUNT_ID)).thenReturn(Optional.empty());
 
-            service.syncAllFolders(account);
+            service.syncAllFolders(account, SyncTrigger.SCHEDULED);
 
             ArgumentCaptor<Object> events = ArgumentCaptor.forClass(Object.class);
             verify(eventPublisher).publishEvent(events.capture());
@@ -596,7 +701,7 @@ class MailSyncServiceTest {
         void staysSilentWhenNothingChanged() {
             when(accountRepository.findLastErrorCode(ACCOUNT_ID)).thenReturn(Optional.empty());
 
-            service.syncAllFolders(account);
+            service.syncAllFolders(account, SyncTrigger.SCHEDULED);
 
             verify(eventPublisher, never()).publishEvent(any(MailSyncErrorStateChangedEvent.class));
         }
@@ -609,7 +714,7 @@ class MailSyncServiceTest {
             when(accountRepository.findLastErrorCode(ACCOUNT_ID))
                     .thenReturn(Optional.of(AccountLastErrorCode.MAIL_SYNC_ACCOUNT_FAILED.name()));
 
-            service.syncAllFolders(account);
+            service.syncAllFolders(account, SyncTrigger.SCHEDULED);
 
             ArgumentCaptor<Object> events = ArgumentCaptor.forClass(Object.class);
             verify(eventPublisher).publishEvent(events.capture());
@@ -622,7 +727,7 @@ class MailSyncServiceTest {
         void readFailureIsSwallowed() {
             when(accountRepository.findLastErrorCode(ACCOUNT_ID)).thenThrow(new IllegalStateException("DB busy"));
 
-            service.syncAllFolders(account);
+            service.syncAllFolders(account, SyncTrigger.SCHEDULED);
 
             verify(lockManager).unlock(ACCOUNT_ID);
         }

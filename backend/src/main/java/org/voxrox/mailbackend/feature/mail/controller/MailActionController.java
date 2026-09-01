@@ -15,6 +15,7 @@ import org.voxrox.mailbackend.feature.mail.dto.MessageFlag;
 import org.voxrox.mailbackend.feature.mail.dto.MoveRequest;
 import org.voxrox.mailbackend.feature.mail.service.MailFacade;
 import org.voxrox.mailbackend.feature.mail.service.MailSyncService;
+import org.voxrox.mailbackend.feature.mail.service.SyncTrigger;
 import org.voxrox.mailbackend.util.LogCategory;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -98,7 +99,7 @@ public class MailActionController {
     public ResponseEntity<Void> triggerSync(@PathVariable @Positive(message = "{validation.positive}") Long accountId) {
         log.info("{} Sync trigger for account {}", LogCategory.API, accountId);
         // Load the real entity from the DB — not an empty proxy with just an ID.
-        mailSyncService.syncAllFolders(accountService.getAccountOrThrow(accountId));
+        mailSyncService.syncAllFolders(accountService.getAccountOrThrow(accountId), SyncTrigger.MANUAL);
         return ResponseEntity.accepted().build();
     }
 }

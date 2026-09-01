@@ -2,6 +2,7 @@ package org.voxrox.mailbackend.feature.mail.service;
 
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,39 +23,79 @@ import org.voxrox.mailbackend.util.LogCategory;
  * connection lock and burn executor permits doing duplicate work.</li>
  * </ul>
  *
- * Both are non-blocking {@code tryLock} sets — a raced cycle is skipped, never
- * queued. The running cycle publishes the same {@code sync_completed} event the
- * skipped one would have, so the client still refreshes.
+ * Both are non-blocking {@code tryLock} guards — a raced cycle is skipped,
+ * never queued. The running cycle publishes the same {@code sync_completed}
+ * event the skipped one would have, so the client still refreshes.
  */
 @Component
 public class SyncLockManager {
     private static final Logger log = LoggerFactory.getLogger(SyncLockManager.class);
 
-    private final Set<Long> activeSyncs = ConcurrentHashMap.newKeySet();
+    /**
+     * Accounts with a pass in flight, mapped to whether that pass has to report its
+     * completion to the client. The flag rides along with the lock instead of
+     * living in {@code MailSyncService} so that absorbing a dropped request (see
+     * {@link #tryLock}) is atomic against the release — held anywhere else, the
+     * running pass could finish in between and the request would be left with
+     * nothing to carry it.
+     */
+    private final ConcurrentMap<Long, Boolean> activeSyncs = new ConcurrentHashMap<>();
     private final Set<FolderKey> activeFolderSyncs = ConcurrentHashMap.newKeySet();
 
     /**
      * Attempts to acquire the lock for an account.
      *
+     * <p>
+     * A dropped pass is not simply discarded when it was asked to report: the pass
+     * already running <em>absorbs</em> the obligation and reports for both. The
+     * user pressed Synchronise and a sync is indeed running, so its completion
+     * answers them truthfully; without this the request would vanish and the client
+     * would sit on "Synchronising…" until its own fallback timer gave up.
+     *
+     * @param reportOnFinish
+     *            whether the caller needs the finished pass reported to the client
      * @return true if the lock was acquired, false if a sync is already in
      *         progress.
      */
-    public boolean tryLock(Long accountId) {
-        boolean acquired = activeSyncs.add(accountId);
-        if (acquired) {
+    public boolean tryLock(Long accountId, boolean reportOnFinish) {
+        /*
+         * compute() hands back the new value, not whether the entry was created, so the
+         * answer is smuggled out of the remapping function. It has to be one operation:
+         * a putIfAbsent followed by a separate escalation loses the flag when the
+         * running pass releases the lock between the two.
+         */
+        boolean[] acquired = {false};
+        activeSyncs.compute(accountId, (id, running) -> {
+            if (running == null) {
+                acquired[0] = true;
+                return reportOnFinish;
+            }
+            return running || reportOnFinish;
+        });
+
+        if (acquired[0]) {
             log.debug("{} Acquired lock for account id={}", LogCategory.SYNC, accountId);
         } else {
-            log.warn("{} Duplicate lock attempt for account id={} rejected", LogCategory.SYNC, accountId);
+            log.warn("{} Duplicate lock attempt for account id={} rejected{}", LogCategory.SYNC, accountId,
+                    reportOnFinish ? "; the running pass will report its completion" : "");
         }
-        return acquired;
+        return acquired[0];
     }
 
-    public void unlock(Long accountId) {
-        if (activeSyncs.remove(accountId)) {
-            log.debug("{} Released lock for account id={}", LogCategory.SYNC, accountId);
-        } else {
+    /**
+     * Releases the account lock.
+     *
+     * @return true when the released pass was asked to report its completion — by
+     *         its own caller, or by a request it absorbed while running.
+     */
+    public boolean unlock(Long accountId) {
+        Boolean reportOnFinish = activeSyncs.remove(accountId);
+        if (reportOnFinish == null) {
             log.trace("{} Attempted to release a non-existent lock for account id={}", LogCategory.SYNC, accountId);
+            return false;
         }
+        log.debug("{} Released lock for account id={}", LogCategory.SYNC, accountId);
+        return reportOnFinish;
     }
 
     /**

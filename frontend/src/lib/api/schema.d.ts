@@ -821,7 +821,7 @@ export interface paths {
 		};
 		/**
 		 * SSE notification stream
-		 * @description Opens a Server-Sent Events stream. The server emits one of: `sync_completed` (after a folder sync produced new messages), `sync_failed` / `sync_recovered` (the account's standing sync error changed; emitted on the transition only, payload carries the AccountLastErrorCode in `errorCode`, null on recovery), `send_completed` (asynchronous SMTP send finished successfully), `send_failed` (asynchronous SMTP send failed; payload carries the AccountLastErrorCode in `errorCode`), or `thread_updated` (a conversation gained a message or two orphan chains merged). A heartbeat comment is emitted every 30 s so intermediaries do not close the connection.
+		 * @description Opens a Server-Sent Events stream. The server emits one of: `sync_completed` (after a folder sync produced new messages), `sync_cycle_completed` (a user-triggered whole-account sync pass finished, whatever it found; scheduled passes stay silent), `sync_failed` / `sync_recovered` (the account's standing sync error changed; emitted on the transition only, payload carries the AccountLastErrorCode in `errorCode`, null on recovery), `send_completed` (asynchronous SMTP send finished successfully), `send_failed` (asynchronous SMTP send failed; payload carries the AccountLastErrorCode in `errorCode`), or `thread_updated` (a conversation gained a message or two orphan chains merged). A heartbeat comment is emitted every 30 s so intermediaries do not close the connection.
 		 */
 		get: operations['streamNotifications'];
 		put?: never;
@@ -1466,6 +1466,15 @@ export interface components {
 			errorCode?: string;
 			recoveryDraftStableId?: string;
 			sendId?: string;
+			type?: string;
+		};
+		SyncCycleNotification: {
+			/** Format: int64 */
+			accountId?: number;
+			/** Format: int32 */
+			newMessagesCount?: number;
+			/** Format: date-time */
+			timestamp?: string;
 			type?: string;
 		};
 		SyncNotification: {
@@ -4272,6 +4281,7 @@ export interface operations {
 				content: {
 					'text/event-stream':
 						| components['schemas']['SyncNotification']
+						| components['schemas']['SyncCycleNotification']
 						| components['schemas']['SyncStatusNotification']
 						| components['schemas']['SendNotification']
 						| components['schemas']['ThreadUpdated'];

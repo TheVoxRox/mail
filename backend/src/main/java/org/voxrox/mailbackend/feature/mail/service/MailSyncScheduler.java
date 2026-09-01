@@ -54,7 +54,7 @@ public class MailSyncScheduler {
         for (AccountEntity account : activeAccounts) {
             try {
                 log.info("{} Scheduled sync for: {}", LogCategory.SYNC, LogMasker.maskEmail(account.getEmail()));
-                mailSyncService.syncAllFolders(account);
+                mailSyncService.syncAllFolders(account, SyncTrigger.SCHEDULED);
             } catch (Exception e) {
                 /*
                  * Per-account isolation: one broken account must not bring down the cycle for

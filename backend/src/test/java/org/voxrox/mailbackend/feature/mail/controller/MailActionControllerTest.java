@@ -33,6 +33,7 @@ import org.voxrox.mailbackend.feature.mail.dto.MessageFlag;
 import org.voxrox.mailbackend.feature.mail.dto.MoveRequest;
 import org.voxrox.mailbackend.feature.mail.service.MailFacade;
 import org.voxrox.mailbackend.feature.mail.service.MailSyncService;
+import org.voxrox.mailbackend.feature.mail.service.SyncTrigger;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -166,7 +167,7 @@ class MailActionControllerTest {
 
         mockMvc.perform(post("/api/v1/messages/account/7/sync")).andExpect(status().isAccepted());
 
-        verify(mailSyncService).syncAllFolders(eq(account));
+        verify(mailSyncService).syncAllFolders(eq(account), eq(SyncTrigger.MANUAL));
     }
 
     @Test

@@ -58,8 +58,8 @@ class MailSyncSchedulerTest {
 
         scheduler.syncAccounts();
 
-        verify(mailSyncService).syncAllFolders(first);
-        verify(mailSyncService).syncAllFolders(second);
+        verify(mailSyncService).syncAllFolders(first, SyncTrigger.SCHEDULED);
+        verify(mailSyncService).syncAllFolders(second, SyncTrigger.SCHEDULED);
         verifyNoMoreInteractions(mailSyncService);
     }
 
@@ -69,11 +69,12 @@ class MailSyncSchedulerTest {
         AccountEntity failing = accountWithEmail("failing@example.com");
         AccountEntity healthy = accountWithEmail("healthy@example.com");
         when(accountRepository.findByActiveTrueAndRequiresReauthFalse()).thenReturn(List.of(failing, healthy));
-        doThrow(new RuntimeException("IMAP unreachable")).when(mailSyncService).syncAllFolders(failing);
+        doThrow(new RuntimeException("IMAP unreachable")).when(mailSyncService).syncAllFolders(failing,
+                SyncTrigger.SCHEDULED);
 
         scheduler.syncAccounts();
 
-        verify(mailSyncService).syncAllFolders(failing);
-        verify(mailSyncService).syncAllFolders(healthy);
+        verify(mailSyncService).syncAllFolders(failing, SyncTrigger.SCHEDULED);
+        verify(mailSyncService).syncAllFolders(healthy, SyncTrigger.SCHEDULED);
     }
 }

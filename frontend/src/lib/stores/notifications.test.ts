@@ -6,7 +6,8 @@ import { listAccounts } from '$lib/api/accounts.js';
 import { handleStreamNotification, lastSync, registerPendingSend } from './notifications.js';
 import { accountsState } from './accounts.js';
 import { failingSyncAccounts, resetSyncHealth } from './syncHealth.js';
-import { toasts } from './toasts.js';
+import { beginManualSync, resetManualSync, syncingAccountIds } from './manualSync.js';
+import { politeAnnouncements, toasts } from './toasts.js';
 import type {
 	AccountResponse,
 	SendNotification,
@@ -124,6 +125,34 @@ describe('pending send outcome handling', () => {
 		handleStreamNotification(failed('send-f'));
 
 		expect(toastMessages()).toEqual(['Zprávu se nepodařilo odeslat příjemci jana@example.com.']);
+	});
+});
+
+describe('sync cycle completion', () => {
+	beforeEach(() => {
+		resetManualSync();
+		politeAnnouncements.set([]);
+	});
+
+	afterEach(() => {
+		resetManualSync();
+	});
+
+	it('ends the wait for the account the finished pass belongs to', () => {
+		beginManualSync(4);
+		beginManualSync(9);
+
+		handleStreamNotification({
+			type: 'sync_cycle_completed',
+			accountId: 4,
+			newMessagesCount: 0,
+			timestamp: '2026-08-31T10:00:00Z'
+		});
+
+		expect(get(syncingAccountIds)).toEqual([9]);
+		expect(get(politeAnnouncements).map((entry) => entry.message)).toContain(
+			'Synchronizace dokončena, žádné nové zprávy.'
+		);
 	});
 });
 

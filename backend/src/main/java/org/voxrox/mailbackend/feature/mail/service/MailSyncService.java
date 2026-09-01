@@ -21,6 +21,7 @@ import org.voxrox.mailbackend.feature.mail.dto.FolderResponse;
 import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
 import org.voxrox.mailbackend.feature.mail.entity.FolderSyncStateEntity;
 import org.voxrox.mailbackend.feature.mail.event.MailSyncCompletedEvent;
+import org.voxrox.mailbackend.feature.mail.event.MailSyncCycleCompletedEvent;
 import org.voxrox.mailbackend.feature.mail.event.MailSyncErrorStateChangedEvent;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
 import org.voxrox.mailbackend.util.AuditLog;
@@ -77,9 +78,21 @@ public class MailSyncService {
 
     private static final int LAST_ERROR_MAX_LENGTH = 950;
 
+    /**
+     * Syncs every role-matched folder of the account.
+     *
+     * @param trigger
+     *            who asked. A {@link SyncTrigger#MANUAL} pass reports its
+     *            completion to the client (see
+     *            {@link MailSyncCycleCompletedEvent}); a scheduled one runs
+     *            silently.
+     */
     @Async("mailSyncExecutor")
-    public void syncAllFolders(AccountEntity account) {
-        if (!lockManager.tryLock(account.getId())) {
+    public void syncAllFolders(AccountEntity account, SyncTrigger trigger) {
+        boolean reportOnFinish = trigger == SyncTrigger.MANUAL;
+        if (!lockManager.tryLock(account.getId(), reportOnFinish)) {
+            // Not lost when it was a manual request: the running pass absorbed the
+            // obligation to report and answers the user on its own completion.
             log.info("{} Skipping sync for {}, already running.", LogCategory.SYNC,
                     LogMasker.maskEmail(account.getEmail()));
             return;
@@ -92,6 +105,13 @@ public class MailSyncService {
          * block.
          */
         String errorCodeBeforePass = account.getLastErrorCode();
+
+        /*
+         * Declared out here so the finally block can report it: the completion event
+         * has to fire on the way out of a failed pass too, otherwise the one case where
+         * the user most needs an answer is the one that leaves them waiting.
+         */
+        int newMessagesCount = 0;
 
         try {
             log.info("{} Starting account sync: {}", LogCategory.SYNC, LogMasker.maskEmail(account.getEmail()));
@@ -123,7 +143,9 @@ public class MailSyncService {
                     continue;
                 }
                 try {
-                    allSucceeded &= performFullSyncCycle(account, f.folderRef(), f.role());
+                    FolderSyncOutcome outcome = runFolderCycle(account, f.folderRef(), f.role());
+                    allSucceeded &= outcome.succeeded();
+                    newMessagesCount += outcome.newMessagesCount();
                 } finally {
                     lockManager.unlockFolder(account.getId(), f.folderRef());
                 }
@@ -148,7 +170,26 @@ public class MailSyncService {
             accountRepository.updateLastError(account.getId(), buildAccountSyncError(e), LocalDateTime.now());
         } finally {
             publishErrorStateTransition(account.getId(), errorCodeBeforePass);
-            lockManager.unlock(account.getId());
+            // Release first: the flag the lock carries is the authority on whether
+            // anyone is waiting for this pass, and it is only readable on release.
+            if (lockManager.unlock(account.getId())) {
+                publishCycleCompletion(account.getId(), newMessagesCount);
+            }
+        }
+    }
+
+    /**
+     * Publishes {@link MailSyncCycleCompletedEvent} for a pass someone is waiting
+     * on. Swallows its own failures for the same reason as
+     * {@link #publishErrorStateTransition}: it runs in a {@code finally} block and
+     * must not replace the exception that sent us there.
+     */
+    private void publishCycleCompletion(Long accountId, int newMessagesCount) {
+        try {
+            eventPublisher.publishEvent(new MailSyncCycleCompletedEvent(accountId, newMessagesCount, Instant.now()));
+        } catch (Exception e) {
+            log.warn("{} Could not report the completed sync pass of account {}: {}", LogCategory.SYNC, accountId,
+                    e.getMessage());
         }
     }
 
@@ -189,6 +230,23 @@ public class MailSyncService {
      *         failure.
      */
     public boolean performFullSyncCycle(AccountEntity account, String folderName, FolderRole detectedRole) {
+        return runFolderCycle(account, folderName, detectedRole).succeeded();
+    }
+
+    /**
+     * What one folder cycle did. Callers that only decide whether the account still
+     * has a standing error use {@link #performFullSyncCycle}; the whole-account
+     * pass needs the count as well, because the completion it reports to a waiting
+     * user is about the pass, not about a single folder.
+     */
+    private record FolderSyncOutcome(boolean succeeded, int newMessagesCount) {
+
+        private static FolderSyncOutcome failed() {
+            return new FolderSyncOutcome(false, 0);
+        }
+    }
+
+    private FolderSyncOutcome runFolderCycle(AccountEntity account, String folderName, FolderRole detectedRole) {
         // Bounded retry around the whole folder cycle for transient IMAP blips (bug D,
         // #78). Reuses the IMAP connect-retry tuning (mail.client.retry.*) as the
         // single "transient network blip" knob. Worst case is bounded: maxAttempts here
@@ -197,21 +255,22 @@ public class MailSyncService {
         int maxAttempts = mailProps.retry().maxAttempts();
         for (int attempt = 1;; attempt++) {
             try {
-                Boolean succeeded = imapFolderService.executeInFolder(account.getId(), folderName, Folder.READ_ONLY,
+                FolderSyncOutcome outcome = imapFolderService.executeInFolder(account.getId(), folderName,
+                        Folder.READ_ONLY,
                         (folder, uidFolder) -> syncFolderOnce(account, folderName, detectedRole, folder, uidFolder));
-                return Boolean.TRUE.equals(succeeded);
+                return outcome != null ? outcome : FolderSyncOutcome.failed();
             } catch (TransientImapException e) {
                 if (attempt >= maxAttempts) {
                     log.error("{} Folder sync {} still failing after {} transient-retry attempt(s); recording it: {}",
                             LogCategory.SYNC, folderName, attempt, e.getMessage(), e.originalCause());
                     recordFolderSyncFailure(account, folderName, e.originalCause());
-                    return false;
+                    return FolderSyncOutcome.failed();
                 }
                 log.warn("{} Transient IMAP error during folder sync {} (attempt {}/{}); reconnecting and retrying: {}",
                         LogCategory.SYNC, folderName, attempt, maxAttempts, e.getMessage());
                 imapFolderService.invalidateConnection(account.getId());
                 if (!sleepBeforeRetry(attempt)) {
-                    return false;
+                    return FolderSyncOutcome.failed();
                 }
             }
         }
@@ -222,11 +281,11 @@ public class MailSyncService {
      * validity check, new-message download, flag sync plus deletion cleanup,
      * last-sync bookkeeping and the completion event. A transient connectivity blip
      * is rethrown as {@link TransientImapException} so the retry loop in
-     * {@link #performFullSyncCycle} can reconnect and retry; any other failure is
-     * recorded as last_error and the pass returns {@code false}.
+     * {@link #runFolderCycle} can reconnect and retry; any other failure is
+     * recorded as last_error and the pass reports itself as not succeeded.
      */
-    private boolean syncFolderOnce(AccountEntity account, String folderName, FolderRole detectedRole, Folder folder,
-            UIDFolder uidFolder) {
+    private FolderSyncOutcome syncFolderOnce(AccountEntity account, String folderName, FolderRole detectedRole,
+            Folder folder, UIDFolder uidFolder) {
         final FolderRole role = detectedRole;
         FolderSyncStateEntity syncState = transactionTemplate
                 .execute(status -> syncStateService.getOrCreateState(account.getId(), folderName, role));
@@ -300,16 +359,16 @@ public class MailSyncService {
                         LogCategory.SYNC, folderName, e.getMessage());
             }
 
-            return true;
+            return new FolderSyncOutcome(true, totalDownloaded);
         } catch (Exception e) {
             outcome = MailMetrics.OUTCOME_FAILURE;
             if (TransientMailErrors.isTransient(e)) {
                 /*
                  * A transient connectivity blip (e.g. Angus "failed to create new store
                  * connection" when its internal pool grows mid-cycle). Do NOT record last_error
-                 * here — escape to the bounded retry loop in performFullSyncCycle, which drops
-                 * the connection, backs off and retries. Only an exhausted retry becomes a
-                 * hard, user-visible failure.
+                 * here — escape to the bounded retry loop in runFolderCycle, which drops the
+                 * connection, backs off and retries. Only an exhausted retry becomes a hard,
+                 * user-visible failure.
                  */
                 throw new TransientImapException(folderName, e);
             }
@@ -320,7 +379,7 @@ public class MailSyncService {
              */
             log.error("{} Critical error during folder sync {}: {}", LogCategory.SYNC, folderName, e.getMessage(), e);
             recordFolderSyncFailure(account, folderName, e);
-            return false;
+            return FolderSyncOutcome.failed();
         } finally {
             metrics.recordSync(sample, outcome, totalDownloaded);
         }
@@ -344,7 +403,7 @@ public class MailSyncService {
     /**
      * Audits and records a folder-sync failure into the account's
      * {@code last_error} slot. Shared by the permanent-failure path inside the
-     * cycle and the exhausted-retry path in {@link #performFullSyncCycle} so both
+     * cycle and the exhausted-retry path in {@link #runFolderCycle} so both
      * classify the audit action (optimistic-lock vs generic) and build the error
      * identically.
      */

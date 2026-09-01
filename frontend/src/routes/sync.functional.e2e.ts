@@ -67,10 +67,29 @@ test.describe('Sync notifications', () => {
 		await openApp(page, '/mail/1/INBOX');
 
 		// The endpoint replies 202 (sync continues in the background), so the
-		// truthful immediate feedback is "started" — completion with new mail
-		// is announced later by the sync_completed toast above.
+		// truthful immediate feedback is "started" — the end of the pass arrives
+		// later as sync_cycle_completed, tested below.
 		await page.getByRole('button', { name: 'Synchronizovat' }).click();
 		await expect(page.locator('#live-region')).toContainText('Synchronizace zahájena.');
+	});
+
+	test('sync_cycle_completed ohlásí konec i bez nové pošty a uvolní tlačítko', async ({ page }) => {
+		await openApp(page, '/mail/1/INBOX');
+		await page.waitForFunction(() => window.__MAIL_MSW__?.syncStreamConnected() === true);
+
+		await page.getByRole('button', { name: 'Synchronizovat' }).click();
+		// The button waits for the pass, not for its own request: the 202 has
+		// long returned by the time this assertion runs.
+		await expect(page.getByRole('button', { name: 'Synchronizuji…' })).toBeVisible();
+
+		// A pass that downloaded nothing emits no folder event at all — this is
+		// the whole reason the cycle event exists.
+		await page.evaluate(() => window.__MAIL_MSW__?.pushSyncCycleCompleted(1, 0));
+
+		await expect(page.locator('#live-region')).toContainText(
+			'Synchronizace dokončena, žádné nové zprávy.'
+		);
+		await expect(page.getByRole('button', { name: 'Synchronizovat' })).toBeEnabled();
 	});
 
 	test('selhání synchronizace se ohlásí a nechá v podokně dosažitelný odkaz', async ({ page }) => {

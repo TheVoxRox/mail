@@ -19,6 +19,7 @@ import {
 	pushSendFailed,
 	pushSyncCompleted,
 	pushSyncCompletedCrLf,
+	pushSyncCycleCompleted,
 	pushSyncFailed,
 	pushSyncRecovered,
 	syncStreamConnected
@@ -123,6 +124,7 @@ export async function installE2EBypass(): Promise<void> {
 		},
 		pushSyncCompleted,
 		pushSyncCompletedCrLf,
+		pushSyncCycleCompleted,
 		pushSyncFailed,
 		pushSyncRecovered,
 		syncStreamConnected,
@@ -144,6 +146,7 @@ export {
 	pushSendFailed,
 	pushSyncCompleted,
 	pushSyncCompletedCrLf,
+	pushSyncCycleCompleted,
 	pushSyncFailed,
 	pushSyncRecovered,
 	resetFixtures,

@@ -48,6 +48,7 @@ declare global {
 				timestamp?: string;
 				type?: string;
 			}) => void;
+			pushSyncCycleCompleted: (accountId?: number, newMessagesCount?: number) => void;
 			pushSyncFailed: (accountId?: number, errorCode?: string, detail?: string) => void;
 			pushSyncRecovered: (accountId?: number) => void;
 			/** True once a client subscribed — a push before that is dropped. */
