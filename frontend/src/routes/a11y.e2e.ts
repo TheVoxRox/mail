@@ -1,4 +1,3 @@
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import {
 	bodyFrame,
@@ -9,7 +8,8 @@ import {
 	searchResultsGrid,
 	setMockFlags,
 	setPrefs,
-	waitForFocus
+	waitForFocus,
+	wcagScan
 } from './e2e-helpers';
 
 test.setTimeout(60000);
@@ -66,7 +66,7 @@ test.beforeEach(async ({ page }) => {
 test.describe('Přístupnost', () => {
 	test('hlavní stránka nemá a11y porušení', async ({ page }) => {
 		await openApp(page, '/');
-		const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+		const results = await wcagScan(page).analyze();
 		expect(results.violations).toEqual([]);
 	});
 
@@ -141,7 +141,7 @@ test.describe('Přístupnost', () => {
 		await member.locator('input[type="checkbox"]').check();
 		await expect(parent.locator('input[type="checkbox"]')).toHaveAttribute('aria-checked', 'mixed');
 
-		const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+		const results = await wcagScan(page).analyze();
 		expect(results.violations).toEqual([]);
 	});
 
@@ -171,7 +171,7 @@ test.describe('Přístupnost', () => {
 		 * the --destructive-foreground pair fixed that, and widening the scan back
 		 * is what keeps it fixed.
 		 */
-		const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+		const results = await wcagScan(page).analyze();
 		expect(results.violations).toEqual([]);
 	});
 
@@ -344,7 +344,7 @@ test.describe('Přístupnost', () => {
 
 		// The route-level sweep scans the create form with a single address, where
 		// the group no longer exists — this is now the only axe pass that sees it.
-		const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+		const results = await wcagScan(page).analyze();
 		expect(results.violations).toEqual([]);
 
 		// Arrow keys are the only way into the unchecked radio: a radio group is one
@@ -521,10 +521,7 @@ test.describe('Přístupnost', () => {
 		await expect(preview).toHaveCount(1);
 		await expect(preview.getByRole('heading', { name: /Po sloučení \(3 e-maily\)/ })).toBeVisible();
 
-		const results = await new AxeBuilder({ page })
-			.include('[role="dialog"]')
-			.withTags(['wcag2a', 'wcag2aa'])
-			.analyze();
+		const results = await wcagScan(page).include('[role="dialog"]').analyze();
 		expect(results.violations).toEqual([]);
 	});
 
@@ -544,10 +541,7 @@ test.describe('Přístupnost', () => {
 		const confirm = dialog.getByRole('alert');
 		await expect(confirm).toContainText('Smazat štítek Klienti?');
 
-		const results = await new AxeBuilder({ page })
-			.include('[role="dialog"]')
-			.withTags(['wcag2a', 'wcag2aa'])
-			.analyze();
+		const results = await wcagScan(page).include('[role="dialog"]').analyze();
 		expect(results.violations).toEqual([]);
 
 		// Cancelling returns focus to the button that raised the prompt rather
@@ -595,10 +589,7 @@ test.describe('Přístupnost', () => {
 		await expect(klienti).toHaveJSProperty('indeterminate', true);
 		await expect(klienti).toHaveAccessibleName(/má jen část výběru/);
 
-		const results = await new AxeBuilder({ page })
-			.include('[role="dialog"]')
-			.withTags(['wcag2a', 'wcag2aa'])
-			.analyze();
+		const results = await wcagScan(page).include('[role="dialog"]').analyze();
 		expect(results.violations).toEqual([]);
 	});
 
@@ -1018,10 +1009,7 @@ test.describe('Přístupnost', () => {
 		await openApp(page, '/');
 		await openPalette(page);
 
-		const results = await new AxeBuilder({ page })
-			.include('[role="dialog"]')
-			.withTags(['wcag2a', 'wcag2aa'])
-			.analyze();
+		const results = await wcagScan(page).include('[role="dialog"]').analyze();
 
 		expect(results.violations).toEqual([]);
 	});
@@ -1057,7 +1045,7 @@ test.describe('Přístupnost – jednotlivé obrazovky', () => {
 	for (const { path, name } of routes) {
 		test(`${name} (${path}) nemá a11y porušení`, async ({ page }) => {
 			await openApp(page, path);
-			const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+			const results = await wcagScan(page).analyze();
 			expect(results.violations).toEqual([]);
 		});
 

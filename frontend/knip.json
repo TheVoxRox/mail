@@ -13,6 +13,7 @@
 		"src/**/*.{ts,svelte}!",
 		"!src/test-fixtures/**!",
 		"!src/routes/e2e-helpers.ts!",
+		"!src/routes/a11y-target.ts!",
 		"scripts/**/*.{mjs,ts,js}"
 	],
 	"ignore": ["src/lib/api/generated.ts", "src/test-stubs/**"],

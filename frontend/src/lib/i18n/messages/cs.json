@@ -518,7 +518,7 @@
 		"labelRenamed": "Štítek přejmenován.",
 		"labelDeleted": "Štítek smazán.",
 		"renameLabelField": "Nový název štítku {label}",
-		"renameLabelAction": "Přejmenovat štítek {label}",
+		"renameLabelAction": "Upravit štítek {label}",
 		"deleteLabelAction": "Smazat štítek {label}",
 		"deleteLabelConfirm": "Smazat štítek {label}? Kontakty zůstanou, jen o tento štítek přijdou. Týká se to {count, plural, one {{count} kontaktu} few {{count} kontaktů} other {{count} kontaktů}}.",
 		"labelCount": "{count, plural, one {{count} kontakt} few {{count} kontakty} other {{count} kontaktů}}",

@@ -518,7 +518,7 @@
 		"labelRenamed": "Label renamed.",
 		"labelDeleted": "Label deleted.",
 		"renameLabelField": "New name for label {label}",
-		"renameLabelAction": "Rename label {label}",
+		"renameLabelAction": "Edit label {label}",
 		"deleteLabelAction": "Delete label {label}",
 		"deleteLabelConfirm": "Delete the label {label}? The contacts are kept and only lose this label. It affects {count, plural, one {{count} contact} other {{count} contacts}}.",
 		"labelCount": "{count, plural, one {{count} contact} other {{count} contacts}}",
