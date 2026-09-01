@@ -6,6 +6,7 @@
 	import { accountsState, activeAccount } from '$lib/stores/accounts.js';
 	import { folders, foldersState, refreshFolders } from '$lib/stores/folders.js';
 	import { failingSyncAccounts } from '$lib/stores/syncHealth.js';
+	import { abandonManualSync, beginManualSync, syncingAccountIds } from '$lib/stores/manualSync.js';
 	import { announcePolite, pushToast } from '$lib/stores/toasts.js';
 	import { triggerAccountSync } from '$lib/api/mailAction.js';
 	import { toErrorMessage } from '$lib/api/errors.js';
@@ -42,36 +43,44 @@
 		);
 	}
 
-	let syncing = $state(false);
-
 	/*
-	 * The endpoint returns 202 — the sync itself runs in the background and
-	 * only reports back via SSE when new mail arrived. "Started" is therefore
-	 * the strongest completion signal the client can announce truthfully; a
-	 * failure to even start was previously swallowed, hence the error toast.
+	 * "Is a sync running" is not this component's to decide: the endpoint
+	 * returns 202 and the pass finishes minutes later, so the answer arrives on
+	 * the notification stream as `sync_cycle_completed`. The store holds it;
+	 * the button only reads it.
 	 */
+	const syncing = $derived(
+		$activeAccount != null && $syncingAccountIds.includes($activeAccount.id)
+	);
+
 	async function handleSync() {
 		const acc = get(activeAccount);
 		if (!acc || syncing) return;
-		syncing = true;
+		beginManualSync(acc.id);
 		try {
 			await triggerAccountSync(acc.id);
-			/*
-			 * Announce on the 202, not after the folder refresh below. "Started"
-			 * becomes true the moment the trigger is accepted, and waiting for
-			 * the refresh put the message ~3.7 s late (measured) for a reason
-			 * that only gets worse on a big mailbox: the refresh queues behind
-			 * the IMAP connection lock that the sync it just triggered is now
-			 * holding, so the announcement was blocked by the very thing it
-			 * announces. A refresh that fails afterwards still raises its own
-			 * toast; it does not make "started" untrue.
-			 */
-			announcePolite($_('nav.syncStarted'));
+		} catch (err) {
+			// Nothing was accepted, so no pass is coming to report the end and
+			// the button would otherwise wait out its whole timeout.
+			abandonManualSync(acc.id);
+			pushToast(toErrorMessage(err), { tone: 'error' });
+			return;
+		}
+		/*
+		 * Announce on the 202, not after the folder refresh below. "Started"
+		 * becomes true the moment the trigger is accepted, and waiting for the
+		 * refresh put the message ~3.7 s late (measured) for a reason that only
+		 * gets worse on a big mailbox: the refresh queues behind the IMAP
+		 * connection lock that the sync it just triggered is now holding, so the
+		 * announcement was blocked by the very thing it announces.
+		 */
+		announcePolite($_('nav.syncStarted'));
+		try {
 			await refreshFolders(acc.id);
 		} catch (err) {
+			// A refresh that fails does not make "started" untrue, and the pass
+			// keeps running — so this reports itself without ending the wait.
 			pushToast(toErrorMessage(err), { tone: 'error' });
-		} finally {
-			syncing = false;
 		}
 	}
 

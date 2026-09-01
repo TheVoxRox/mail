@@ -43,7 +43,7 @@
   ],
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "42c0452a9e3b447dc5a285f3167b33a2eecf9e12",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "a485793b0ee40f3925ae931194d4fe32cc9bd128",
       "backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java": "54707f192e933ad89aec987c1223eb6ec03821c1",
       "backend/src/main/java/org/voxrox/mailbackend/util/SubjectNormalizer.java": "9f5185a315875e4f312bb869cfa9903bda53c8ff",
       "backend/src/main/java/org/voxrox/mailbackend/core/config/mail": "b77bdaf0cf559d1711135b4dd0c06bce168046d6"
@@ -64,6 +64,10 @@
       {
         "date": "2026-08-27",
         "note": "Documentation and idiom change under these paths. 7ec2793 adds the javadoc summary sentences Error Prone was asking for (ImapProperties, DraftPersistenceService.prepareDraftIdentity, SmtpMessageService.sendEmailAsync), reattaches the ImapFolderService javadoc that had come loose from findFolderNamesByRole and was documenting nothing, annotates ThreadingService.renumberThreadPositions with @SuppressWarnings(\"ReferenceEquality\") where the identity compare is already explained in its own javadoc, and swaps two Collections.emptyList() for List.of() in the MailDraftService reply and forward drafts. Verified line by line: every changed line is a comment, an annotation, or an empty-list factory call that yields an immutable empty list either way. No TLS setting, auth mechanism, timeout, connection-pool policy, IMAP command path or MIME parse step moved. Verdict stays PASS."
+      },
+      {
+        "date": "2026-09-01",
+        "note": "Orchestration-only change under this path. The sync-completion change touches four files here: `MailSyncService` (a `SyncTrigger` parameter, a per-pass sum of downloaded messages, a completion event published in the `finally` block, and the bounded transient-retry loop extracted from `performFullSyncCycle` into a private `runFolderCycle`), `SyncLockManager` (the account guard now maps to a report-on-finish flag), the new `SyncTrigger` enum, and a javadoc reference in `TransientImapException`. None of it is on the fetch/parse/persist pipeline the audit verifies. `MessageFetcher`, its metadata-only `FetchProfile`, `MimePartExtractor`, the inline-image caps, the attachment-metadata handling, the B1-1 body-fetch cap and the B1-2 subject normalization are all unchanged -- what is fetched, how it is parsed and every bound on it are byte-identical. §1 (transport, TLS, the OAuth2-without-STARTTLS guard) and §5 (attachment streaming) are not touched. `runFolderCycle` is an extraction, not a rewrite: same retry count from `mail.client.retry.*`, same `invalidateConnection` + backoff, same call into `executeInFolder`; it returns a record instead of a boolean so the pass can sum a count, and the public `performFullSyncCycle` delegates to it unchanged. The lock change is on the account-level skip-if-running guard, not on the IMAP connection lock in `ImapConnectionManager` that any starvation or exhaustion claim would rest on. Its acquire/reject contract is unchanged -- non-blocking, no queueing, exactly one winner under contention, still proven by the 64-thread race test in `SyncLockManagerTest` -- and the added flag rides along in one atomic `compute`, so it cannot make a pass hold the lock any longer. Verdict stays PASS."
       }
     ]
   },
@@ -93,11 +97,12 @@
   },
   "docs/API_SURFACE_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "e5e5ce9a18c1ec14eddef77c967bc64f23ee3dca",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "f6baa8f85b7f0bf516aff8ab2a95b6dbbfafac22",
       "backend/src/main/java/org/voxrox/mailbackend/feature/contact/controller": "b0f4ecc1d5e2e73a2d10afc75caea2f4c8fb2110",
       "backend/src/main/java/org/voxrox/mailbackend/feature/contact/dto": "05e6c2053fe77b32dc61dda6da27155c892ce3c8",
       "backend/src/main/java/org/voxrox/mailbackend/feature/account/dto": "d74fd9f1ab3a5bf3660edbc9ac93866bfde403d9",
-      "backend/src/main/java/org/voxrox/mailbackend/core/security": "09fb8b40a5553f99ca36f044348c0ecd91e56a93"
+      "backend/src/main/java/org/voxrox/mailbackend/core/security": "09fb8b40a5553f99ca36f044348c0ecd91e56a93",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/controller": "c68e027fc1f6241faaa2d0021ccc4a6c88312441"
     },
     "acknowledgements": [
       {
@@ -107,6 +112,10 @@
       {
         "date": "2026-08-27",
         "note": "Idiom-only change under these paths. 7ec2793 replaces Collections.emptyList() with List.of() in ApiKeyFilter (the empty authority collection handed to UsernamePasswordAuthenticationToken) and in the DraftRequest/MailRequest compact constructors (the default empty attachments list). Both factories return an immutable empty list, so size, iteration and the [] Jackson renders are identical; the OpenApiSnapshot golden did not move, which the build confirms rather than this note assuming it. No endpoint, DTO field, validation constraint or authentication decision changed. Verdict stays PASS."
+      },
+      {
+        "date": "2026-09-01",
+        "note": "Outbound-only addition under these paths. The sync-completion change adds the SSE event `sync_cycle_completed`: a new response record `SyncCycleNotification` (four scalars: type, accountId, newMessagesCount, timestamp) in feature/mail/dto, one more `permits` entry on the sealed `SseEvent`, and in feature/mail/controller a javadoc / `@Operation` description / `@Schema(oneOf)` edit on `NotificationController` plus one changed argument in `MailActionController.triggerSync`. Nothing this audit weighs moves. No path is added or removed, so the 17-controller enumeration in §2 stands (verified by re-running the count command in the doc). No request DTO, parameter or body is introduced, so §2 input validation has nothing new to enforce and §6/A1 (write-body bounds) is untouched; `triggerSync` keeps its `@Positive accountId` and the class keeps `@Validated`. `NotificationController` stays the parameterless SSE endpoint §2 already lists among the five that give bean validation nothing to enforce. §1 (ApiKeyFilter, default-deny) and §3 (error hygiene) are not touched at all. Evidence rather than assertion: the golden api-docs.json diff for this change is exactly one new `SyncCycleNotification` schema of four scalars, one extra `$ref` in the stream response `oneOf`, and one reworded endpoint description -- no new path, no new parameter, no changed required/nullability anywhere; the schema.d.ts regenerated from it differs by the same three things and nothing else. On data exposure (§5 is about the diagnostic dump, but the same question applies to a new outbound payload): the new event carries strictly less than the `SyncNotification` beside it -- the same accountId and timestamp, a count, and no folder name. Verdict stays PASS."
       }
     ]
   },

@@ -463,6 +463,24 @@ export interface SyncNotification {
 }
 
 /**
+ * Payload of the `sync_cycle_completed` event — a sync the user asked for has
+ * finished, whatever it found.
+ *
+ * {@link SyncNotification} cannot answer that question: it reports one folder
+ * and the backend suppresses it when the folder downloaded nothing, which is
+ * the ordinary outcome of pressing Synchronise. Emitted for manual passes only;
+ * the five-minute scheduled pass stays silent.
+ */
+export interface SyncCycleNotification {
+	type: 'sync_cycle_completed';
+	accountId: number;
+	/** Messages downloaded across every folder of the pass, zero included. */
+	newMessagesCount: number;
+	/** ISO-8601 Instant. */
+	timestamp: string;
+}
+
+/**
  * Payload of the `send_completed` / `send_failed` events. Correlated with the
  * original request via {@link SendAcceptedResponse.sendId}; recipient / subject
  * are held by the client and not duplicated here.
@@ -520,4 +538,8 @@ export interface SyncStatusNotification {
 
 /** Any event delivered over `/notifications/stream`. */
 export type StreamNotification =
-	SyncNotification | SyncStatusNotification | SendNotification | ThreadUpdated;
+	| SyncNotification
+	| SyncCycleNotification
+	| SyncStatusNotification
+	| SendNotification
+	| ThreadUpdated;

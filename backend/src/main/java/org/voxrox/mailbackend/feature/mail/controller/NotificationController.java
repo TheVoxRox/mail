@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.voxrox.mailbackend.feature.mail.dto.SendNotification;
+import org.voxrox.mailbackend.feature.mail.dto.SyncCycleNotification;
 import org.voxrox.mailbackend.feature.mail.dto.SyncNotification;
 import org.voxrox.mailbackend.feature.mail.dto.SyncStatusNotification;
 import org.voxrox.mailbackend.feature.mail.dto.ThreadUpdated;
@@ -20,11 +21,17 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 /**
  * SSE endpoint for real-time notifications. The desktop client subscribes via a
  * streaming HTTP read (under Tauri) or an {@code EventSource} (browser dev) and
- * receives one of six event types:
+ * receives one of seven event types:
  *
  * <ul>
  * <li>{@code sync_completed} — emitted after a folder sync that produced new
  * messages; payload is {@link SyncNotification}.</li>
+ * <li>{@code sync_cycle_completed} — emitted when a user-triggered
+ * whole-account pass finishes, whatever it found; payload is
+ * {@link SyncCycleNotification}. The scheduled pass is silent, and the
+ * per-folder {@code sync_completed} above cannot stand in for this: it is
+ * suppressed when nothing was downloaded, which is the common outcome of
+ * pressing Synchronise.</li>
  * <li>{@code sync_failed} — emitted when an account starts failing to sync (or
  * starts failing differently); payload is {@link SyncStatusNotification} with
  * {@code errorCode} populated.</li>
@@ -60,6 +67,8 @@ public class NotificationController {
 
     @Operation(operationId = "streamNotifications", summary = "SSE notification stream", description = "Opens a Server-Sent Events stream. The server emits one of: "
             + "`sync_completed` (after a folder sync produced new messages), "
+            + "`sync_cycle_completed` (a user-triggered whole-account sync pass finished, "
+            + "whatever it found; scheduled passes stay silent), "
             + "`sync_failed` / `sync_recovered` (the account's standing sync error changed; "
             + "emitted on the transition only, payload carries the AccountLastErrorCode in "
             + "`errorCode`, null on recovery), " + "`send_completed` (asynchronous SMTP send finished successfully), "
@@ -69,8 +78,8 @@ public class NotificationController {
             + "heartbeat comment is emitted every 30 s so intermediaries do not " + "close the connection.")
     @ApiResponse(responseCode = "200", description = "Long-lived event stream. Each event has a `type` "
             + "field that identifies the variant and matches the SSE event name.", content = @Content(mediaType = MediaType.TEXT_EVENT_STREAM_VALUE, schema = @Schema(oneOf = {
-                    SyncNotification.class, SyncStatusNotification.class, SendNotification.class,
-                    ThreadUpdated.class})))
+                    SyncNotification.class, SyncCycleNotification.class, SyncStatusNotification.class,
+                    SendNotification.class, ThreadUpdated.class})))
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter stream() {
         return sseNotificationService.register();

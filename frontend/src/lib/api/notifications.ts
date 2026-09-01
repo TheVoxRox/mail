@@ -32,6 +32,7 @@ type OpenListener = () => void;
 // conversation UI to subscribe without a backend-side change.
 const KNOWN_EVENT_TYPES = new Set([
 	'sync_completed',
+	'sync_cycle_completed',
 	'sync_failed',
 	'sync_recovered',
 	'send_completed',

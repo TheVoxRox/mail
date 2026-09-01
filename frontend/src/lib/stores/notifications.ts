@@ -1,7 +1,9 @@
 /**
  * SSE notifications: after each `sync_completed` invalidates the current
  * message list page (if it matches the notified account/folder) and forces
- * a folder refresh for that account (unread counts).
+ * a folder refresh for that account (unread counts). `sync_cycle_completed`
+ * does the same for a whole user-triggered pass and is what ends the
+ * Synchronise button's wait.
  */
 
 import { get, writable } from 'svelte/store';
@@ -13,6 +15,7 @@ import type {
 	FolderResponse,
 	SendNotification,
 	StreamNotification,
+	SyncCycleNotification,
 	SyncNotification,
 	SyncStatusNotification
 } from '$lib/types.js';
@@ -21,6 +24,7 @@ import { conversationsState, reloadCurrentConversationsPage } from './conversati
 import { refreshFolders } from './folders.js';
 import { accountsState, refreshAccounts } from './accounts.js';
 import { markSyncFailed, markSyncRecovered } from './syncHealth.js';
+import { completeManualSync } from './manualSync.js';
 import { dismissToast, pushToast } from './toasts.js';
 
 type NotificationsStatus = 'idle' | 'connecting' | 'open' | 'error';
@@ -49,6 +53,10 @@ export function handleStreamNotification(event: StreamNotification): void {
 	}
 	if (event.type === 'sync_completed') {
 		handleSyncCompleted(event as SyncNotification);
+		return;
+	}
+	if (event.type === 'sync_cycle_completed') {
+		handleSyncCycleCompleted(event as SyncCycleNotification);
 		return;
 	}
 	if (event.type === 'sync_failed' || event.type === 'sync_recovered') {
@@ -224,6 +232,29 @@ function handleSyncCompleted(event: SyncNotification): void {
 	if (event.newMessagesCount > 0) {
 		void announceNewMessages(event, refreshedFolders);
 	}
+}
+
+/**
+ * A user-triggered pass finished. Two jobs the per-folder `sync_completed`
+ * cannot do: it lets the Synchronise button stop waiting on the truth rather
+ * than on its own request returning, and it refreshes the folder counts after
+ * a pass that only moved flags — such a pass downloads nothing, so it emits no
+ * folder event at all, yet the unread badges did change.
+ */
+function handleSyncCycleCompleted(event: SyncCycleNotification): void {
+	completeManualSync(event.accountId, event.newMessagesCount);
+
+	const state = get(messagesState);
+	if (state.status !== 'idle' && state.context.accountId === event.accountId) {
+		void reloadCurrentPage();
+	}
+
+	const convState = get(conversationsState);
+	if (convState.status !== 'idle' && convState.context.accountId === event.accountId) {
+		void reloadCurrentConversationsPage();
+	}
+
+	void refreshFolders(event.accountId).catch(() => []);
 }
 
 async function announceNewMessages(

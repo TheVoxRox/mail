@@ -3,9 +3,9 @@ package org.voxrox.mailbackend.feature.mail.service;
 /**
  * Internal marker raised inside a sync action when a {@link TransientMailErrors
  * transient} IMAP connectivity failure occurs. It signals the bounded retry
- * loop in {@link MailSyncService#performFullSyncCycle} to drop the pooled
- * connection, back off and retry the folder cycle instead of recording the
- * failure as a hard {@code last_error}.
+ * loop in {@code MailSyncService.runFolderCycle} to drop the pooled connection,
+ * back off and retry the folder cycle instead of recording the failure as a
+ * hard {@code last_error}.
  *
  * <p>
  * It is deliberately passed through unchanged by {@link ImapFolderExecutor}

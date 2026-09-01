@@ -6,7 +6,12 @@ import {
 	removeMessageEverywhere,
 	setAccountSyncError
 } from './fixtures.js';
-import type { SendNotification, SyncNotification, SyncStatusNotification } from '$lib/types.js';
+import type {
+	SendNotification,
+	SyncCycleNotification,
+	SyncNotification,
+	SyncStatusNotification
+} from '$lib/types.js';
 
 type StreamController = ReadableStreamDefaultController<Uint8Array>;
 
@@ -142,6 +147,26 @@ export function pushSyncRecovered(accountId = 1): void {
  */
 export function syncStreamConnected(): boolean {
 	return clients.size > 0;
+}
+
+/**
+ * End of a user-triggered pass. Unlike {@link pushSyncCompleted} it moves no
+ * unread counts on purpose: the case it exists for is the pass that downloaded
+ * nothing and therefore emitted no folder event at all.
+ */
+export function pushSyncCycleCompleted(accountId = 1, newMessagesCount = 0): void {
+	const payload: SyncCycleNotification = {
+		type: 'sync_cycle_completed',
+		accountId,
+		newMessagesCount,
+		timestamp: new Date().toISOString()
+	};
+	const chunk = encoder.encode(
+		[`event: sync_cycle_completed`, `data: ${JSON.stringify(payload)}`, '', ''].join('\n')
+	);
+	for (const client of clients) {
+		client.enqueue(chunk);
+	}
 }
 
 function pushSyncStatus(payload: SyncStatusNotification): void {

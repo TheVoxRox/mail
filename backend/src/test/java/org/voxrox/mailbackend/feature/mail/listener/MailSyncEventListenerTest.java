@@ -15,9 +15,11 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.voxrox.mailbackend.feature.mail.dto.SyncCycleNotification;
 import org.voxrox.mailbackend.feature.mail.dto.SyncNotification;
 import org.voxrox.mailbackend.feature.mail.dto.SyncStatusNotification;
 import org.voxrox.mailbackend.feature.mail.event.MailSyncCompletedEvent;
+import org.voxrox.mailbackend.feature.mail.event.MailSyncCycleCompletedEvent;
 import org.voxrox.mailbackend.feature.mail.event.MailSyncErrorStateChangedEvent;
 import org.voxrox.mailbackend.feature.mail.service.FolderListCache;
 import org.voxrox.mailbackend.feature.mail.service.SseNotificationService;
@@ -77,6 +79,41 @@ class MailSyncEventListenerTest {
 
         // Must not throw
         listener.handleSyncCompleted(event);
+    }
+
+    @Test
+    @DisplayName("finished pass -> sync_cycle_completed, and it carries a zero count rather than staying silent")
+    void broadcastsCycleCompletionWithZeroCount() {
+        var event = new MailSyncCycleCompletedEvent(1L, 0, Instant.now());
+
+        listener.handleSyncCycleCompleted(event);
+
+        var notification = ArgumentCaptor.forClass(SyncCycleNotification.class);
+        verify(sseNotificationService).broadcast(notification.capture());
+        assertThat(notification.getValue().type()).isEqualTo("sync_cycle_completed");
+        assertThat(notification.getValue().accountId()).isEqualTo(1L);
+        assertThat(notification.getValue().newMessagesCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("finished pass invalidates the folder cache before broadcasting — a flag-only pass moved unread counts")
+    void cycleCompletionInvalidatesCacheBeforeBroadcast() {
+        var event = new MailSyncCycleCompletedEvent(1L, 0, Instant.now());
+
+        listener.handleSyncCycleCompleted(event);
+
+        var inOrder = org.mockito.Mockito.inOrder(folderListCache, sseNotificationService);
+        inOrder.verify(folderListCache).invalidate(1L);
+        inOrder.verify(sseNotificationService).broadcast(any(SyncCycleNotification.class));
+    }
+
+    @Test
+    @DisplayName("broadcast exception on a finished pass does not propagate either")
+    void cycleCompletionBroadcastExceptionIsolated() {
+        var event = new MailSyncCycleCompletedEvent(1L, 2, Instant.now());
+        doThrow(new RuntimeException("SSE broken")).when(sseNotificationService).broadcast(any());
+
+        listener.handleSyncCycleCompleted(event);
     }
 
     @Test

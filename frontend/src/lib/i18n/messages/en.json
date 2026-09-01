@@ -50,6 +50,9 @@
 		"sync": "Synchronise",
 		"syncing": "Synchronising…",
 		"syncStarted": "Synchronisation started.",
+		"syncFinishedEmpty": "Synchronisation finished, no new messages.",
+		"syncFinishedWithMessages": "Synchronisation finished, {count, plural, one {{count} new message} other {{count} new messages}}.",
+		"syncStillRunning": "Synchronisation is still running in the background.",
 		"syncProblem": "Sync is failing: {account}",
 		"syncProblemMultiple": "{count, plural, one {Sync is failing for {count} account} other {Sync is failing for {count} accounts}}",
 		"accounts": "Accounts"
