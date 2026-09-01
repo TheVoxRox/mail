@@ -25,10 +25,7 @@
 	import MailListState from '$lib/components/mail-list/MailListState.svelte';
 	import { createRovingGrid } from '$lib/components/grid/rovingGrid.svelte.js';
 	import { createBulkAnnouncer } from '$lib/components/grid/bulkAnnouncer.js';
-	import {
-		createLatestSelection,
-		isRowBackgroundClick
-	} from '$lib/components/grid/rowActivation.js';
+	import { isRowBackgroundClick } from '$lib/components/grid/rowActivation.js';
 	import { formatMessageListDate } from '$lib/formatters.js';
 	import { moveTargetsFor } from '$lib/mail/moveTargets.js';
 	import { messageStatusLabel } from '$lib/mail/messageStatus.js';
@@ -69,7 +66,6 @@
 		initialCol: COL_SUBJECT,
 		maxCol: MAX_COL
 	});
-	const latestSelection = createLatestSelection();
 
 	const selectedCount = $derived($selectedMessageIds.length);
 	const pageStableIds = $derived(
@@ -147,7 +143,15 @@
 		}
 		if (options.focusBody) requestBodyFocus(message.stableId);
 		else suppressBodyFocus(message.stableId);
-		await goto(messageHref(accountId, folderName, message.stableId));
+		/*
+		 * keepFocus because focus here is ours to place, not SvelteKit's. Without
+		 * it the post-navigation reset drops focus to <body> and the row has to be
+		 * focused a second time — and a screen reader reads it again, so a single
+		 * Arrow press announced the subject twice (measured 2026-09-01, 1 ms
+		 * between the drop and the restore). Opening deliberately still moves the
+		 * reading cursor into the body: that is `requestBodyFocus`, not the reset.
+		 */
+		await goto(messageHref(accountId, folderName, message.stableId), { keepFocus: true });
 	}
 
 	function handleKeydown(event: KeyboardEvent, message: MailSummaryResponse, rowIndex: number) {
@@ -217,8 +221,8 @@
 	}
 
 	function openDeliberately(message: MailSummaryResponse): void {
-		// Retire a refocus an in-flight selectAndFocus queued, so the body wins.
-		latestSelection.retire();
+		// No refocus to retire any more: selectAndFocus queues none, so the body
+		// wins by being the only thing asking for focus.
 		void handleSelect(message, { focusBody: true });
 	}
 
@@ -261,12 +265,16 @@
 		void runBulkAction('move', (stableIds) => moveMessages(stableIds, folderRef));
 	}
 
+	/*
+	 * One focus move, not two: `handleSelect` navigates with `keepFocus`, so
+	 * nothing takes focus off the cell and there is no reset to undo afterwards.
+	 * The `.finally` refocus that used to sit here — and the stale-refocus token
+	 * it needed (see grid/rowActivation.ts) — were both compensating for that
+	 * reset, and each announced the row a second time.
+	 */
 	function selectAndFocus(rowIndex: number, col: number, message: MailSummaryResponse): void {
 		grid.moveTo(rowIndex, col);
-		const isLatest = latestSelection.begin();
-		void handleSelect(message).finally(() => {
-			if (isLatest()) grid.moveTo(rowIndex, col);
-		});
+		void handleSelect(message);
 	}
 
 	$effect(() => {

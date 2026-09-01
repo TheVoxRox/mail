@@ -240,6 +240,47 @@ test.describe('Seznam zpráv ve split režimu', () => {
 		await waitForFocus(frame);
 	});
 
+	test('šipka ve split režimu zaostří řádek jen jednou', async ({ page }) => {
+		await setPrefs(page, { readingPane: 'right' });
+		await openApp(page, '/mail/1/INBOX');
+
+		const firstSubject = page.locator('[role="row"][data-stable-id="msg-01"] [data-col="2"]');
+		await expect(firstSubject).toBeVisible();
+		await firstSubject.focus();
+
+		await page.evaluate(() => {
+			const log: string[] = [];
+			(window as unknown as { __focusLog: string[] }).__focusLog = log;
+			document.addEventListener(
+				'focusin',
+				(event) => {
+					const el = event.target as HTMLElement;
+					log.push(
+						el === document.body
+							? 'BODY'
+							: (el.closest('[data-stable-id]')?.getAttribute('data-stable-id') ?? 'other')
+					);
+				},
+				true
+			);
+		});
+
+		await page.keyboard.press('ArrowDown');
+		await page.waitForURL('**/mail/1/INBOX/msg-02');
+		await expect(bodyFrame(page)).toBeVisible();
+
+		/*
+		 * One focus move for one key press. The navigation used to reset focus to
+		 * <body> and a queued refocus put it back 1 ms later, so a screen reader
+		 * announced the row twice — found by listening with NVDA on 2026-09-01.
+		 * The sibling test above cannot catch it: it polls the end state, and the
+		 * round trip ends where it began.
+		 */
+		await expect
+			.poll(() => page.evaluate(() => (window as unknown as { __focusLog: string[] }).__focusLog))
+			.toEqual(['msg-02']);
+	});
+
 	test('jednoklik ve split režimu otevře zprávu a pustí kurzor do těla', async ({ page }) => {
 		await setPrefs(page, { readingPane: 'right' });
 		await openApp(page, '/mail/1/INBOX');
