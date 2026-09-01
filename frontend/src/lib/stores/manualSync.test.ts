@@ -6,6 +6,7 @@ import {
 	abandonManualSync,
 	beginManualSync,
 	completeManualSync,
+	releaseManualSyncsOnStreamLoss,
 	resetManualSync,
 	syncingAccountIds
 } from './manualSync.js';
@@ -36,30 +37,42 @@ describe('manual sync waiting state', () => {
 		beginManualSync(4);
 		expect(get(syncingAccountIds)).toEqual([4]);
 
-		completeManualSync(4, 0);
+		completeManualSync(4, 0, true);
 
 		expect(get(syncingAccountIds)).toEqual([]);
 	});
 
 	it('announces a pass that found nothing — the case no folder event covers', () => {
 		beginManualSync(4);
-		completeManualSync(4, 0);
+		completeManualSync(4, 0, true);
 
 		expect(announcements()).toContain('Synchronizace dokončena, žádné nové zprávy.');
 	});
 
-	it('announces the message count when the pass downloaded something', () => {
+	it('leaves the counting to the folder toasts when the pass did find mail', () => {
 		beginManualSync(4);
-		completeManualSync(4, 3);
+		completeManualSync(4, 3, true);
 
-		expect(announcements()).toContain('Synchronizace dokončena, 3 nové zprávy.');
+		// The per-folder toast already said how many and where; repeating the
+		// number here would read the same fact twice into the live region.
+		expect(announcements()).toContain('Synchronizace dokončena.');
+	});
+
+	it('will not call a zero "no new messages" when the pass skipped a folder', () => {
+		beginManualSync(4);
+		// A folder whose own cycle was already running downloaded into the same
+		// mailbox; its toast would contradict the claim.
+		completeManualSync(4, 0, false);
+
+		expect(announcements()).toContain('Synchronizace dokončena.');
+		expect(announcements()).not.toContain('Synchronizace dokončena, žádné nové zprávy.');
 	});
 
 	it('leaves other accounts waiting when one of them finishes', () => {
 		beginManualSync(4);
 		beginManualSync(9);
 
-		completeManualSync(4, 0);
+		completeManualSync(4, 0, true);
 
 		expect(get(syncingAccountIds)).toEqual([9]);
 	});
@@ -86,10 +99,29 @@ describe('manual sync waiting state', () => {
 
 	it('does not give up on a pass that reported back before the timeout', () => {
 		beginManualSync(4);
-		completeManualSync(4, 0);
+		completeManualSync(4, 0, true);
 		politeAnnouncements.set([]);
 
 		vi.advanceTimersByTime(180_000);
+
+		expect(announcements()).toEqual([]);
+	});
+
+	it('releases every wait when the notification stream drops', () => {
+		beginManualSync(4);
+		beginManualSync(9);
+		politeAnnouncements.set([]);
+
+		releaseManualSyncsOnStreamLoss();
+
+		// A reconnect replays nothing, so the completions can never arrive; the
+		// button must not sit disabled for the rest of the timeout.
+		expect(get(syncingAccountIds)).toEqual([]);
+		expect(announcements()).toContain('Synchronizace pokračuje na pozadí.');
+	});
+
+	it('stays quiet about a stream drop when nothing was waiting', () => {
+		releaseManualSyncsOnStreamLoss();
 
 		expect(announcements()).toEqual([]);
 	});

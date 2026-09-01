@@ -154,11 +154,16 @@ export function syncStreamConnected(): boolean {
  * unread counts on purpose: the case it exists for is the pass that downloaded
  * nothing and therefore emitted no folder event at all.
  */
-export function pushSyncCycleCompleted(accountId = 1, newMessagesCount = 0): void {
+export function pushSyncCycleCompleted(
+	accountId = 1,
+	newMessagesCount = 0,
+	allFoldersSynced = true
+): void {
 	const payload: SyncCycleNotification = {
 		type: 'sync_cycle_completed',
 		accountId,
 		newMessagesCount,
+		allFoldersSynced,
 		timestamp: new Date().toISOString()
 	};
 	const chunk = encoder.encode(

@@ -24,7 +24,7 @@ import { conversationsState, reloadCurrentConversationsPage } from './conversati
 import { refreshFolders } from './folders.js';
 import { accountsState, refreshAccounts } from './accounts.js';
 import { markSyncFailed, markSyncRecovered } from './syncHealth.js';
-import { completeManualSync } from './manualSync.js';
+import { completeManualSync, releaseManualSyncsOnStreamLoss } from './manualSync.js';
 import { dismissToast, pushToast } from './toasts.js';
 
 type NotificationsStatus = 'idle' | 'connecting' | 'open' | 'error';
@@ -40,7 +40,12 @@ export function startNotifications(): void {
 	void ensureNotificationPermission();
 	client = new SseClient({
 		onOpen: () => notificationsStatus.set('open'),
-		onError: () => notificationsStatus.set('error')
+		onError: () => {
+			notificationsStatus.set('error');
+			// A reconnect opens a fresh emitter and nothing is replayed, so a
+			// completion that has not arrived by now never will.
+			releaseManualSyncsOnStreamLoss();
+		}
 	});
 	client.on(handleStreamNotification);
 	client.start();
@@ -242,7 +247,7 @@ function handleSyncCompleted(event: SyncNotification): void {
  * folder event at all, yet the unread badges did change.
  */
 function handleSyncCycleCompleted(event: SyncCycleNotification): void {
-	completeManualSync(event.accountId, event.newMessagesCount);
+	completeManualSync(event.accountId, event.newMessagesCount, event.allFoldersSynced);
 
 	const state = get(messagesState);
 	if (state.status !== 'idle' && state.context.accountId === event.accountId) {

@@ -24,8 +24,11 @@ import org.voxrox.mailbackend.util.LogCategory;
  * </ul>
  *
  * Both are non-blocking {@code tryLock} guards — a raced cycle is skipped,
- * never queued. The running cycle publishes the same {@code sync_completed}
- * event the skipped one would have, so the client still refreshes.
+ * never queued. What the skip costs differs by level, so read the method you
+ * are calling rather than this paragraph: the running <em>folder</em> cycle
+ * publishes the same {@code sync_completed} event the skipped one would have,
+ * so the client still refreshes; a dropped <em>account</em> pass is not
+ * discarded but absorbed, see {@link #tryLock}.
  */
 @Component
 public class SyncLockManager {

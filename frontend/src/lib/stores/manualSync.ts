@@ -52,23 +52,47 @@ export function beginManualSync(accountId: number): void {
 }
 
 /**
- * The pass reported itself finished. Announces the outcome including "no new
- * messages" — that is the whole point of the event, and the case the
- * per-folder `sync_completed` toast never covered.
+ * The pass reported itself finished.
+ *
+ * Only one of the two things worth saying is said. "No new messages" is the
+ * case the per-folder `sync_completed` toast never covered, and the reason this
+ * event exists — but it may only be claimed when the pass actually ran every
+ * folder (`allFoldersSynced`); a folder skipped because its own cycle was
+ * already running downloads into the same mailbox, and its toast would then
+ * contradict this sentence. Otherwise the announcement stops at "finished" and
+ * leaves the counting to those toasts, which name the folder and are not a
+ * second reading of the same number.
  */
-export function completeManualSync(accountId: number, newMessagesCount: number): void {
+export function completeManualSync(
+	accountId: number,
+	newMessagesCount: number,
+	allFoldersSynced: boolean
+): void {
 	stopWaiting(accountId);
 	const translate = get(_);
-	announcePolite(
-		newMessagesCount > 0
-			? translate('nav.syncFinishedWithMessages', { values: { count: newMessagesCount } })
-			: translate('nav.syncFinishedEmpty')
-	);
+	const foundNothing = newMessagesCount === 0 && allFoldersSynced;
+	announcePolite(translate(foundNothing ? 'nav.syncFinishedEmpty' : 'nav.syncFinished'));
 }
 
 /** The trigger itself failed, so no pass is coming to report anything. */
 export function abandonManualSync(accountId: number): void {
 	stopWaiting(accountId);
+}
+
+/**
+ * The notification stream dropped, so no pending completion can still arrive —
+ * a reconnect opens a fresh emitter and the backend replays nothing. Releasing
+ * the waits here is what keeps the Synchronise button from sitting disabled for
+ * the full timeout on the one failure the client already knows about.
+ *
+ * Says the same thing the timeout says, for the same reason: the passes are
+ * still running, we have only stopped being able to hear them finish.
+ */
+export function releaseManualSyncsOnStreamLoss(): void {
+	const waiting = get(syncingAccountIds);
+	if (waiting.length === 0) return;
+	for (const accountId of waiting) stopWaiting(accountId);
+	announcePolite(get(_)('nav.syncStillRunning'));
 }
 
 function stopWaiting(accountId: number): void {

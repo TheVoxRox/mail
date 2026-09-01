@@ -474,8 +474,19 @@ export interface SyncNotification {
 export interface SyncCycleNotification {
 	type: 'sync_cycle_completed';
 	accountId: number;
-	/** Messages downloaded across every folder of the pass, zero included. */
+	/**
+	 * Messages that arrived for the user across the pass, zero included.
+	 * Mirrored downloads into Sent, Drafts, Junk and Trash are not counted —
+	 * they are not new mail.
+	 */
 	newMessagesCount: number;
+	/**
+	 * Whether every role-matched folder actually ran. When false the count is a
+	 * floor, not a total, so a zero must not be reported as "nothing arrived":
+	 * a folder skipped because its own cycle was already running downloads
+	 * without the pass ever seeing it.
+	 */
+	allFoldersSynced: boolean;
 	/** ISO-8601 Instant. */
 	timestamp: string;
 }

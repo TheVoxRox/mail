@@ -1471,7 +1471,12 @@ export interface components {
 		SyncCycleNotification: {
 			/** Format: int64 */
 			accountId?: number;
-			/** Format: int32 */
+			/** @description Whether every role-matched folder actually ran. When false the count is a floor, not a total, and a zero must not be reported to the user as "nothing arrived". */
+			allFoldersSynced?: boolean;
+			/**
+			 * Format: int32
+			 * @description Messages that arrived for the user across the pass, zero included. Mirrored downloads into Sent, Drafts, Junk and Trash are not counted — they are not new mail.
+			 */
 			newMessagesCount?: number;
 			/** Format: date-time */
 			timestamp?: string;

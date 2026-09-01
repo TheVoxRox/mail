@@ -16,11 +16,27 @@ package org.voxrox.mailbackend.feature.mail.service;
 class TransientImapException extends RuntimeException {
 
     private final Throwable originalCause;
+    private final int downloadedBeforeFailure;
 
     TransientImapException(String folderName, Throwable cause) {
+        this(folderName, cause, 0);
+    }
+
+    TransientImapException(String folderName, Throwable cause, int downloadedBeforeFailure) {
         super("Transient IMAP failure in folder " + folderName + ": "
                 + (cause.getMessage() == null ? cause.getClass().getSimpleName() : cause.getMessage()), cause);
         this.originalCause = cause;
+        this.downloadedBeforeFailure = downloadedBeforeFailure;
+    }
+
+    /**
+     * Messages the abandoned attempt had already persisted. The retry cannot
+     * re-download them — batches are saved in their own transactions and advance
+     * {@code lastKnownUid} as they go — so without carrying the number out here it
+     * is simply lost, and a pass that did deliver mail reports none.
+     */
+    int downloadedBeforeFailure() {
+        return downloadedBeforeFailure;
     }
 
     /**
