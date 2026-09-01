@@ -1,4 +1,6 @@
+import AxeBuilder from '@axe-core/playwright';
 import { expect, type Locator, type Page } from '@playwright/test';
+import { FORCED_RULES, WCAG_TAGS } from './a11y-target.js';
 import type { MessageBodyView, MessageGrouping, ReadingPane } from '$lib/stores/uiLayout.js';
 import type { TextSize } from '$lib/stores/textSize.js';
 import type { ThemePreference } from '$lib/stores/theme.js';
@@ -187,3 +189,19 @@ export const bodyFrame = (page: Page): Locator => page.getByTitle('Obsah zprávy
  */
 export const rowsOf = (root: Page | Locator): Locator =>
 	root.locator('[role="row"][data-stable-id]');
+
+/**
+ * An axe run configured for the conformance target in a11y-target.ts. Every
+ * scan in the repository goes through here, and `a11y-target.test.ts` fails a
+ * spec that builds its own — a scan pinned to a narrower tag list is invisible
+ * in a green suite, which is how one of them sat on the 2.0 baseline after the
+ * rest moved to 2.2.
+ *
+ * Returns the builder rather than the results so a caller can still narrow the
+ * context (`.include('[role="dialog"]')`) before calling `.analyze()`.
+ *
+ * Order matters: `options()` replaces the whole options object, so it has to
+ * come before `withTags()`, which writes `runOnly` into it.
+ */
+export const wcagScan = (page: Page): AxeBuilder =>
+	new AxeBuilder({ page }).options({ rules: FORCED_RULES }).withTags(WCAG_TAGS);

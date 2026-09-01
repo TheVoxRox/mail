@@ -765,7 +765,7 @@ test.describe('Contacts', () => {
 		await expect(nav.getByRole('link', { name: /Škola/ })).toHaveCount(1);
 
 		// Přejmenování přepíše i název na kontaktech, které štítek nesou.
-		await dialog.getByRole('button', { name: 'Přejmenovat štítek Klienti' }).click();
+		await dialog.getByRole('button', { name: 'Upravit štítek Klienti' }).click();
 		const renameField = dialog.getByLabel('Nový název štítku Klienti');
 		await expect(renameField).toBeFocused();
 		await renameField.fill('Zákazníci');

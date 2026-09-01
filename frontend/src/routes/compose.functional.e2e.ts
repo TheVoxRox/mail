@@ -1,6 +1,5 @@
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
-import { openApp, setPrefs } from './e2e-helpers';
+import { openApp, setPrefs, wcagScan } from './e2e-helpers';
 
 test.beforeEach(async ({ page }) => {
 	await setPrefs(page, { locale: 'cs', readingPane: 'right' });
@@ -506,10 +505,7 @@ test.describe('Compose', () => {
 			buffer: Buffer.from('A11y příloha')
 		});
 
-		const results = await new AxeBuilder({ page })
-			.include('form[aria-label="Nová zpráva"]')
-			.withTags(['wcag2a', 'wcag2aa'])
-			.analyze();
+		const results = await wcagScan(page).include('form[aria-label="Nová zpráva"]').analyze();
 		expect(results.violations).toEqual([]);
 	});
 
