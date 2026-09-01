@@ -69,8 +69,8 @@ public class MailSyncEventListener {
     @Async("mailEventExecutor")
     @EventListener
     public void handleSyncCycleCompleted(MailSyncCycleCompletedEvent event) {
-        log.info("{} Sync pass of account {} finished, new messages: {}", LogCategory.SYNC, event.accountId(),
-                event.newMessagesCount());
+        log.info("{} Sync pass of account {} finished, new messages: {}{}", LogCategory.SYNC, event.accountId(),
+                event.newMessagesCount(), event.allFoldersSynced() ? "" : " (incomplete pass, count is a floor)");
 
         /*
          * Invalidate here as well, not only per folder: the per-folder listener runs on
@@ -82,8 +82,8 @@ public class MailSyncEventListener {
         folderListCache.invalidate(event.accountId());
 
         try {
-            sseNotificationService.broadcast(
-                    SyncCycleNotification.completed(event.accountId(), event.newMessagesCount(), event.timestamp()));
+            sseNotificationService.broadcast(SyncCycleNotification.completed(event.accountId(),
+                    event.newMessagesCount(), event.allFoldersSynced(), event.timestamp()));
         } catch (Exception e) {
             log.warn("{} SSE broadcast failed: {}", LogCategory.SYNC, e.getMessage());
         }

@@ -107,11 +107,18 @@ public class MailSyncService {
         String errorCodeBeforePass = account.getLastErrorCode();
 
         /*
-         * Declared out here so the finally block can report it: the completion event
+         * Declared out here so the finally block can report them: the completion event
          * has to fire on the way out of a failed pass too, otherwise the one case where
          * the user most needs an answer is the one that leaves them waiting.
+         *
+         * allFoldersSynced starts false and is only raised by a loop that ran every
+         * role-matched folder cleanly. It is what keeps the client from turning a zero
+         * into "no new mail arrived": a folder skipped because its own cycle was
+         * already running downloads into the same mailbox without this pass ever seeing
+         * the count.
          */
         int newMessagesCount = 0;
+        boolean allFoldersSynced = false;
 
         try {
             log.info("{} Starting account sync: {}", LogCategory.SYNC, LogMasker.maskEmail(account.getEmail()));
@@ -145,11 +152,20 @@ public class MailSyncService {
                 try {
                     FolderSyncOutcome outcome = runFolderCycle(account, f.folderRef(), f.role());
                     allSucceeded &= outcome.succeeded();
-                    newMessagesCount += outcome.newMessagesCount();
+                    /*
+                     * Only mail that arrived for the user counts. SENT, DRAFTS, JUNK and TRASH are
+                     * synced by the same loop, and a first pass mirrors all of them — reporting
+                     * that total as "new messages" would announce hundreds of old sent items as new
+                     * mail.
+                     */
+                    if (f.role().deliversNewMail()) {
+                        newMessagesCount += outcome.newMessagesCount();
+                    }
                 } finally {
                     lockManager.unlockFolder(account.getId(), f.folderRef());
                 }
             }
+            allFoldersSynced = allSucceeded;
 
             /*
              * Clear last_error only after a fully clean pass over all role-matched folders.
@@ -173,7 +189,7 @@ public class MailSyncService {
             // Release first: the flag the lock carries is the authority on whether
             // anyone is waiting for this pass, and it is only readable on release.
             if (lockManager.unlock(account.getId())) {
-                publishCycleCompletion(account.getId(), newMessagesCount);
+                publishCycleCompletion(account.getId(), newMessagesCount, allFoldersSynced);
             }
         }
     }
@@ -184,9 +200,10 @@ public class MailSyncService {
      * {@link #publishErrorStateTransition}: it runs in a {@code finally} block and
      * must not replace the exception that sent us there.
      */
-    private void publishCycleCompletion(Long accountId, int newMessagesCount) {
+    private void publishCycleCompletion(Long accountId, int newMessagesCount, boolean allFoldersSynced) {
         try {
-            eventPublisher.publishEvent(new MailSyncCycleCompletedEvent(accountId, newMessagesCount, Instant.now()));
+            eventPublisher.publishEvent(
+                    new MailSyncCycleCompletedEvent(accountId, newMessagesCount, allFoldersSynced, Instant.now()));
         } catch (Exception e) {
             log.warn("{} Could not report the completed sync pass of account {}: {}", LogCategory.SYNC, accountId,
                     e.getMessage());
@@ -241,8 +258,12 @@ public class MailSyncService {
      */
     private record FolderSyncOutcome(boolean succeeded, int newMessagesCount) {
 
-        private static FolderSyncOutcome failed() {
-            return new FolderSyncOutcome(false, 0);
+        private static FolderSyncOutcome failed(int newMessagesCount) {
+            return new FolderSyncOutcome(false, newMessagesCount);
+        }
+
+        private FolderSyncOutcome plusDownloaded(int extra) {
+            return extra == 0 ? this : new FolderSyncOutcome(succeeded, newMessagesCount + extra);
         }
     }
 
@@ -253,24 +274,35 @@ public class MailSyncService {
         // times the connect-time retry inside ImapConnectionManager — a few seconds for
         // a background @Async sync — before the failure is recorded as last_error.
         int maxAttempts = mailProps.retry().maxAttempts();
+        /*
+         * Carried across attempts, because an abandoned attempt does not undo its work:
+         * batches are persisted in their own transactions and advance lastKnownUid as
+         * they go, so the retry starts above them and can never account for them.
+         * Dropping the number here made a pass that did deliver mail report none — and
+         * the client now says so out loud.
+         */
+        int downloadedInAbandonedAttempts = 0;
         for (int attempt = 1;; attempt++) {
             try {
                 FolderSyncOutcome outcome = imapFolderService.executeInFolder(account.getId(), folderName,
                         Folder.READ_ONLY,
                         (folder, uidFolder) -> syncFolderOnce(account, folderName, detectedRole, folder, uidFolder));
-                return outcome != null ? outcome : FolderSyncOutcome.failed();
+                return outcome != null
+                        ? outcome.plusDownloaded(downloadedInAbandonedAttempts)
+                        : FolderSyncOutcome.failed(downloadedInAbandonedAttempts);
             } catch (TransientImapException e) {
+                downloadedInAbandonedAttempts += e.downloadedBeforeFailure();
                 if (attempt >= maxAttempts) {
                     log.error("{} Folder sync {} still failing after {} transient-retry attempt(s); recording it: {}",
                             LogCategory.SYNC, folderName, attempt, e.getMessage(), e.originalCause());
                     recordFolderSyncFailure(account, folderName, e.originalCause());
-                    return FolderSyncOutcome.failed();
+                    return FolderSyncOutcome.failed(downloadedInAbandonedAttempts);
                 }
                 log.warn("{} Transient IMAP error during folder sync {} (attempt {}/{}); reconnecting and retrying: {}",
                         LogCategory.SYNC, folderName, attempt, maxAttempts, e.getMessage());
                 imapFolderService.invalidateConnection(account.getId());
                 if (!sleepBeforeRetry(attempt)) {
-                    return FolderSyncOutcome.failed();
+                    return FolderSyncOutcome.failed(downloadedInAbandonedAttempts);
                 }
             }
         }
@@ -370,7 +402,7 @@ public class MailSyncService {
                  * connection, backs off and retries. Only an exhausted retry becomes a hard,
                  * user-visible failure.
                  */
-                throw new TransientImapException(folderName, e);
+                throw new TransientImapException(folderName, e, totalDownloaded);
             }
             /*
              * Log with the full stack trace — this catch is the last place the exception is
@@ -379,7 +411,7 @@ public class MailSyncService {
              */
             log.error("{} Critical error during folder sync {}: {}", LogCategory.SYNC, folderName, e.getMessage(), e);
             recordFolderSyncFailure(account, folderName, e);
-            return FolderSyncOutcome.failed();
+            return FolderSyncOutcome.failed(totalDownloaded);
         } finally {
             metrics.recordSync(sample, outcome, totalDownloaded);
         }

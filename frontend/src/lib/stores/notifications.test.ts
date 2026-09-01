@@ -146,6 +146,7 @@ describe('sync cycle completion', () => {
 			type: 'sync_cycle_completed',
 			accountId: 4,
 			newMessagesCount: 0,
+			allFoldersSynced: true,
 			timestamp: '2026-08-31T10:00:00Z'
 		});
 

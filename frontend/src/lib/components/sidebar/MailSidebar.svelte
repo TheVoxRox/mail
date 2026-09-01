@@ -4,7 +4,7 @@
 	import { goto } from '$app/navigation';
 	import { get } from 'svelte/store';
 	import { accountsState, activeAccount } from '$lib/stores/accounts.js';
-	import { folders, foldersState, refreshFolders } from '$lib/stores/folders.js';
+	import { folders, foldersState } from '$lib/stores/folders.js';
 	import { failingSyncAccounts } from '$lib/stores/syncHealth.js';
 	import { abandonManualSync, beginManualSync, syncingAccountIds } from '$lib/stores/manualSync.js';
 	import { announcePolite, pushToast } from '$lib/stores/toasts.js';
@@ -67,21 +67,15 @@
 			return;
 		}
 		/*
-		 * Announce on the 202, not after the folder refresh below. "Started"
-		 * becomes true the moment the trigger is accepted, and waiting for the
-		 * refresh put the message ~3.7 s late (measured) for a reason that only
-		 * gets worse on a big mailbox: the refresh queues behind the IMAP
-		 * connection lock that the sync it just triggered is now holding, so the
-		 * announcement was blocked by the very thing it announces.
+		 * Announce on the 202. "Started" becomes true the moment the trigger is
+		 * accepted, and there is nothing left to wait for: this used to be
+		 * followed by a folder refresh, which fetched the counts as they were
+		 * *before* the sync it had just started — and queued behind the IMAP
+		 * lock that sync was already holding, putting the announcement ~3.7 s
+		 * late (measured). The counts now arrive with `sync_cycle_completed`,
+		 * at the moment they mean something.
 		 */
 		announcePolite($_('nav.syncStarted'));
-		try {
-			await refreshFolders(acc.id);
-		} catch (err) {
-			// A refresh that fails does not make "started" untrue, and the pass
-			// keeps running — so this reports itself without ending the wait.
-			pushToast(toErrorMessage(err), { tone: 'error' });
-		}
 	}
 
 	function openCompose() {

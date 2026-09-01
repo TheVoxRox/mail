@@ -43,7 +43,7 @@
   ],
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "a485793b0ee40f3925ae931194d4fe32cc9bd128",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "556dfb403bf3433ef45d18d689fa2c512bb2a2ef",
       "backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java": "54707f192e933ad89aec987c1223eb6ec03821c1",
       "backend/src/main/java/org/voxrox/mailbackend/util/SubjectNormalizer.java": "9f5185a315875e4f312bb869cfa9903bda53c8ff",
       "backend/src/main/java/org/voxrox/mailbackend/core/config/mail": "b77bdaf0cf559d1711135b4dd0c06bce168046d6"
@@ -68,6 +68,10 @@
       {
         "date": "2026-09-01",
         "note": "Orchestration-only change under this path. The sync-completion change touches four files here: `MailSyncService` (a `SyncTrigger` parameter, a per-pass sum of downloaded messages, a completion event published in the `finally` block, and the bounded transient-retry loop extracted from `performFullSyncCycle` into a private `runFolderCycle`), `SyncLockManager` (the account guard now maps to a report-on-finish flag), the new `SyncTrigger` enum, and a javadoc reference in `TransientImapException`. None of it is on the fetch/parse/persist pipeline the audit verifies. `MessageFetcher`, its metadata-only `FetchProfile`, `MimePartExtractor`, the inline-image caps, the attachment-metadata handling, the B1-1 body-fetch cap and the B1-2 subject normalization are all unchanged -- what is fetched, how it is parsed and every bound on it are byte-identical. §1 (transport, TLS, the OAuth2-without-STARTTLS guard) and §5 (attachment streaming) are not touched. `runFolderCycle` is an extraction, not a rewrite: same retry count from `mail.client.retry.*`, same `invalidateConnection` + backoff, same call into `executeInFolder`; it returns a record instead of a boolean so the pass can sum a count, and the public `performFullSyncCycle` delegates to it unchanged. The lock change is on the account-level skip-if-running guard, not on the IMAP connection lock in `ImapConnectionManager` that any starvation or exhaustion claim would rest on. Its acquire/reject contract is unchanged -- non-blocking, no queueing, exactly one winner under contention, still proven by the 64-thread race test in `SyncLockManagerTest` -- and the added flag rides along in one atomic `compute`, so it cannot make a pass hold the lock any longer. Verdict stays PASS."
+      },
+      {
+        "date": "2026-09-01",
+        "note": "Follow-up to the acknowledgement above it, same day, correcting the counting the previous change got wrong. Three files here: `MailSyncService` (count only folders that deliver mail, carry an abandoned attempt's count across the retry, publish an all-folders-ran flag), `TransientImapException` (a second constructor and an int accessor), `SyncLockManager` (class javadoc). Still nothing on the pipeline this audit verifies. `MessageFetcher` and its metadata-only FetchProfile, `MimePartExtractor`, the inline-image caps, the attachment-metadata handling, the B1-1 body-fetch cap and B1-2 subject normalization are byte-identical; §1 transport/TLS and §5 attachment streaming are untouched. What changed is arithmetic over a number the cycle already computed and a field on an exception that already crossed the same boundary. The retry loop deserves the explicit statement, since it is control flow: attempt count, the connect-retry tuning it reads, `invalidateConnection`, the backoff and the exhausted-retry path that records last_error are all unchanged — the loop now adds an int between attempts and nothing else. No new IMAP command is issued and no fetch is repeated, so a hostile or broken server has no new path through this code. **Ledger pressure noted deliberately:** this is the sixth of eight entries, and the second inside one day. Two same-day acknowledgements for one piece of work is the shape the cap exists to catch, even when each is individually sound. The next drift under this path should be weighed as a re-verification of Boundary 1 rather than a seventh note."
       }
     ]
   },
@@ -97,7 +101,7 @@
   },
   "docs/API_SURFACE_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "f6baa8f85b7f0bf516aff8ab2a95b6dbbfafac22",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "0830f65ed01467a4f5e9966a94b61e4cba9de18a",
       "backend/src/main/java/org/voxrox/mailbackend/feature/contact/controller": "b0f4ecc1d5e2e73a2d10afc75caea2f4c8fb2110",
       "backend/src/main/java/org/voxrox/mailbackend/feature/contact/dto": "05e6c2053fe77b32dc61dda6da27155c892ce3c8",
       "backend/src/main/java/org/voxrox/mailbackend/feature/account/dto": "d74fd9f1ab3a5bf3660edbc9ac93866bfde403d9",
@@ -116,6 +120,10 @@
       {
         "date": "2026-09-01",
         "note": "Outbound-only addition under these paths. The sync-completion change adds the SSE event `sync_cycle_completed`: a new response record `SyncCycleNotification` (four scalars: type, accountId, newMessagesCount, timestamp) in feature/mail/dto, one more `permits` entry on the sealed `SseEvent`, and in feature/mail/controller a javadoc / `@Operation` description / `@Schema(oneOf)` edit on `NotificationController` plus one changed argument in `MailActionController.triggerSync`. Nothing this audit weighs moves. No path is added or removed, so the 17-controller enumeration in §2 stands (verified by re-running the count command in the doc). No request DTO, parameter or body is introduced, so §2 input validation has nothing new to enforce and §6/A1 (write-body bounds) is untouched; `triggerSync` keeps its `@Positive accountId` and the class keeps `@Validated`. `NotificationController` stays the parameterless SSE endpoint §2 already lists among the five that give bean validation nothing to enforce. §1 (ApiKeyFilter, default-deny) and §3 (error hygiene) are not touched at all. Evidence rather than assertion: the golden api-docs.json diff for this change is exactly one new `SyncCycleNotification` schema of four scalars, one extra `$ref` in the stream response `oneOf`, and one reworded endpoint description -- no new path, no new parameter, no changed required/nullability anywhere; the schema.d.ts regenerated from it differs by the same three things and nothing else. On data exposure (§5 is about the diagnostic dump, but the same question applies to a new outbound payload): the new event carries strictly less than the `SyncNotification` beside it -- the same accountId and timestamp, a count, and no folder name. Verdict stays PASS."
+      },
+      {
+        "date": "2026-09-01",
+        "note": "Follow-up to the acknowledgement above it, same day, correcting what that change got wrong. Two files move under this path. `SyncCycleNotification` gains a fourth component, `allFoldersSynced`, plus `@Schema` descriptions on it and on `newMessagesCount`; it stays an outbound SSE payload, so there is still no request DTO, no parameter and no path here — §2 input validation and the §6/A1 write-body bound have nothing new to enforce, and the 17-controller count is untouched (re-run: 17 / 4 internal / 12 @Validated / 3 @Hidden). `FolderRole` gains `deliversNewMail()`, a two-branch predicate over the enum constants. It adds no constant, so no request that binds to this enum can carry a value it could not carry before, and the 400-on-unknown-value behaviour §2 records is unchanged. Evidence: the golden api-docs.json diff is one added boolean property on one schema plus two description strings, and the regenerated schema.d.ts differs by exactly those. Nothing became required, nothing changed type. On exposure, the added field is a boolean about our own completeness, not mailbox data. Verdict stays PASS."
       }
     ]
   },

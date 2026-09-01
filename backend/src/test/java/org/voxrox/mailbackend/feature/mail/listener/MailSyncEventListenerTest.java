@@ -84,7 +84,7 @@ class MailSyncEventListenerTest {
     @Test
     @DisplayName("finished pass -> sync_cycle_completed, and it carries a zero count rather than staying silent")
     void broadcastsCycleCompletionWithZeroCount() {
-        var event = new MailSyncCycleCompletedEvent(1L, 0, Instant.now());
+        var event = new MailSyncCycleCompletedEvent(1L, 0, true, Instant.now());
 
         listener.handleSyncCycleCompleted(event);
 
@@ -93,12 +93,27 @@ class MailSyncEventListenerTest {
         assertThat(notification.getValue().type()).isEqualTo("sync_cycle_completed");
         assertThat(notification.getValue().accountId()).isEqualTo(1L);
         assertThat(notification.getValue().newMessagesCount()).isZero();
+        assertThat(notification.getValue().allFoldersSynced()).isTrue();
+    }
+
+    @Test
+    @DisplayName("An incomplete pass says so, so a zero is not read as \"nothing arrived\"")
+    void carriesIncompletenessOfThePass() {
+        // A folder skipped because its own cycle was already running downloads
+        // into the same mailbox without this pass ever seeing the count.
+        var event = new MailSyncCycleCompletedEvent(1L, 0, false, Instant.now());
+
+        listener.handleSyncCycleCompleted(event);
+
+        var notification = ArgumentCaptor.forClass(SyncCycleNotification.class);
+        verify(sseNotificationService).broadcast(notification.capture());
+        assertThat(notification.getValue().allFoldersSynced()).isFalse();
     }
 
     @Test
     @DisplayName("finished pass invalidates the folder cache before broadcasting — a flag-only pass moved unread counts")
     void cycleCompletionInvalidatesCacheBeforeBroadcast() {
-        var event = new MailSyncCycleCompletedEvent(1L, 0, Instant.now());
+        var event = new MailSyncCycleCompletedEvent(1L, 0, true, Instant.now());
 
         listener.handleSyncCycleCompleted(event);
 
@@ -110,7 +125,7 @@ class MailSyncEventListenerTest {
     @Test
     @DisplayName("broadcast exception on a finished pass does not propagate either")
     void cycleCompletionBroadcastExceptionIsolated() {
-        var event = new MailSyncCycleCompletedEvent(1L, 2, Instant.now());
+        var event = new MailSyncCycleCompletedEvent(1L, 2, true, Instant.now());
         doThrow(new RuntimeException("SSE broken")).when(sseNotificationService).broadcast(any());
 
         listener.handleSyncCycleCompleted(event);

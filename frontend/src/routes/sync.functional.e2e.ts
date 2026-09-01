@@ -92,6 +92,29 @@ test.describe('Sync notifications', () => {
 		await expect(page.getByRole('button', { name: 'Synchronizovat' })).toBeEnabled();
 	});
 
+	test('sync_cycle_completed neopakuje počet, který už řekl toast složky', async ({ page }) => {
+		await openApp(page, '/mail/1/INBOX');
+		await page.waitForFunction(() => window.__MAIL_MSW__?.syncStreamConnected() === true);
+
+		await page.getByRole('button', { name: 'Synchronizovat' }).click();
+		await page.evaluate(() => {
+			window.__MAIL_MSW__?.pushSyncCompleted({
+				accountId: 1,
+				folderName: 'INBOX',
+				newMessagesCount: 2
+			});
+			window.__MAIL_MSW__?.pushSyncCycleCompleted(1, 2);
+		});
+
+		const liveRegion = page.locator('#live-region');
+		// The folder toast names the count and the folder; the completion only
+		// closes the operation, so the screen reader hears the number once.
+		await expect(liveRegion).toContainText('2 nové zprávy, tester@example.com, Doručené');
+		await expect(liveRegion).toContainText('Synchronizace dokončena.');
+		await expect(liveRegion).not.toContainText('Synchronizace dokončena, 2');
+		await expect(page.getByRole('button', { name: 'Synchronizovat' })).toBeEnabled();
+	});
+
 	test('selhání synchronizace se ohlásí a nechá v podokně dosažitelný odkaz', async ({ page }) => {
 		await openApp(page, '/mail/1/INBOX');
 		// The listing has to be hydrated before the synthetic event: the handler

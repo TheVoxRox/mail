@@ -30,7 +30,58 @@ export const folders = derived(
 	}
 );
 
-export async function loadFolders(accountId: number): Promise<FolderResponse[]> {
+/*
+ * One request in flight per account, and at most one more queued behind it.
+ *
+ * A finished sync pass fires a folder event per folder that found mail and
+ * then one for the pass, and each answers with a refresh — five `GET /folders`
+ * inside a second on a three-folder pass, every one of them queueing behind
+ * the IMAP connection lock the sync was holding.
+ *
+ * The tempting collapse — hand a late caller the request already in flight —
+ * is wrong here, and quietly so: that request was issued *before* the event
+ * this caller is reacting to, so its response can predate the change it is
+ * being asked about. It is the same pre-sync-snapshot hazard the backend
+ * invalidates its folder cache to avoid. Queueing one refetch behind instead
+ * keeps the guarantee that every trigger is followed by a fetch issued after
+ * it, while a burst of any length still costs two requests rather than N.
+ */
+const inFlight = new Map<number, Promise<FolderResponse[]>>();
+const queued = new Map<number, Promise<FolderResponse[]>>();
+
+export function loadFolders(accountId: number): Promise<FolderResponse[]> {
+	const alreadyQueued = queued.get(accountId);
+	// A refetch is already scheduled to start after the running one; it will be
+	// issued after this trigger too, so it answers this caller as well.
+	if (alreadyQueued) return alreadyQueued;
+
+	const running = inFlight.get(accountId);
+	if (!running) return startLoad(accountId);
+
+	const next = running
+		// The running request's outcome is its own callers' business; a failure
+		// there must not cancel the refetch this caller still needs.
+		.catch(() => undefined)
+		.then(() => {
+			queued.delete(accountId);
+			return startLoad(accountId);
+		});
+	queued.set(accountId, next);
+	return next;
+}
+
+async function startLoad(accountId: number): Promise<FolderResponse[]> {
+	const load = fetchFolders(accountId);
+	inFlight.set(accountId, load);
+	try {
+		return await load;
+	} finally {
+		// Only if it is still ours: a queued refetch may have replaced it.
+		if (inFlight.get(accountId) === load) inFlight.delete(accountId);
+	}
+}
+
+async function fetchFolders(accountId: number): Promise<FolderResponse[]> {
 	foldersState.set({ status: 'loading' });
 	try {
 		const list = await listFolders(accountId);
@@ -47,6 +98,17 @@ export async function loadFolders(accountId: number): Promise<FolderResponse[]> 
 /** Forces a folder refresh for a specific account (e.g. after sync_completed). */
 export function refreshFolders(accountId: number): Promise<FolderResponse[]> {
 	return loadFolders(accountId);
+}
+
+/**
+ * Test seam — the in-flight bookkeeping outlives a single test otherwise, and
+ * a queued refetch from one case would resolve inside the next.
+ *
+ * @testseam
+ */
+export function resetFolderLoads(): void {
+	inFlight.clear();
+	queued.clear();
 }
 
 /**

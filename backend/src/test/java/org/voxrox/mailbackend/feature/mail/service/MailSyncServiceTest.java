@@ -320,6 +320,8 @@ class MailSyncServiceTest {
             MailSyncCycleCompletedEvent event = capturePublished(MailSyncCycleCompletedEvent.class);
             assertThat(event.accountId()).isEqualTo(ACCOUNT_ID);
             assertThat(event.newMessagesCount()).isZero();
+            // Nothing was skipped, so the client may read the zero as "no mail came".
+            assertThat(event.allFoldersSynced()).isTrue();
         }
 
         @Test
@@ -335,23 +337,75 @@ class MailSyncServiceTest {
         }
 
         @Test
-        @DisplayName("The reported count sums every folder of the pass")
-        void countSumsAcrossFolders() throws Exception {
+        @DisplayName("The count sums the folders that deliver new mail, and only those")
+        void countSumsFoldersThatDeliverNewMail() throws Exception {
+            grantLockAndReport();
+            // Sent is mirrored, not delivered: counting it would report three
+            // messages the user wrote on their phone as three new ones, and a first
+            // pass over a fresh account as hundreds.
+            stubFolderCycle(new FolderResponse("INBOX", "INBOX", FolderRole.INBOX),
+                    new FolderResponse("Newsletters", "Bulk", FolderRole.NEWSLETTERS),
+                    new FolderResponse("Sent", "[Gmail]/Sent", FolderRole.SENT));
+            // The pass walks rolesToSync order (INBOX, SENT, …, NEWSLETTERS), not the
+            // order the folder list came in: 2 inbox, 300 sent, 3 newsletters.
+            when(messageDownloader.syncNewMessages(any())).thenReturn(2).thenReturn(300).thenReturn(3);
+
+            service.syncAllFolders(account, SyncTrigger.MANUAL);
+
+            assertThat(capturePublished(MailSyncCycleCompletedEvent.class).newMessagesCount()).isEqualTo(5);
+        }
+
+        @Test
+        @DisplayName("A skipped folder marks the pass incomplete, so its zero cannot be read as \"nothing arrived\"")
+        void skippedFolderMarksThePassIncomplete() {
+            grantLockAndReport();
+            when(imapFolderService.getFolders(ACCOUNT_ID))
+                    .thenReturn(List.of(new FolderResponse("INBOX", "INBOX", FolderRole.INBOX)));
+            // INBOX is being synced by the cycle every GET /emails dispatches; it
+            // downloads into the same mailbox without this pass seeing the count.
+            when(lockManager.tryLockFolder(ACCOUNT_ID, "INBOX")).thenReturn(false);
+
+            service.syncAllFolders(account, SyncTrigger.MANUAL);
+
+            MailSyncCycleCompletedEvent event = capturePublished(MailSyncCycleCompletedEvent.class);
+            assertThat(event.newMessagesCount()).isZero();
+            assertThat(event.allFoldersSynced()).isFalse();
+        }
+
+        @Test
+        @DisplayName("Messages a transient blip left behind are still counted after the retry")
+        void countSurvivesATransientRetry() throws Exception {
+            grantLockAndReport();
+            stubFolderCycle(new FolderResponse("INBOX", "INBOX", FolderRole.INBOX));
+            /*
+             * The first attempt persists 4 messages and then hits a blip. Those batches
+             * committed and advanced lastKnownUid, so the retry starts above them and
+             * legitimately downloads none — without carrying the 4 out of the abandoned
+             * attempt the pass would report zero for mail that landed.
+             */
+            when(messageDownloader.syncNewMessages(any())).thenReturn(4).thenReturn(0);
+            when(flagSyncService.cleanupDeletedInWindow(any()))
+                    .thenThrow(new MessagingException("failed to create new store connection")).thenReturn(List.of());
+
+            service.syncAllFolders(account, SyncTrigger.MANUAL);
+
+            MailSyncCycleCompletedEvent event = capturePublished(MailSyncCycleCompletedEvent.class);
+            assertThat(event.newMessagesCount()).isEqualTo(4);
+            assertThat(event.allFoldersSynced()).isTrue();
+        }
+
+        private void grantLockAndReport() {
             when(lockManager.tryLock(eq(ACCOUNT_ID), anyBoolean())).thenReturn(true);
             when(lockManager.unlock(ACCOUNT_ID)).thenReturn(true);
-            when(imapFolderService.getFolders(ACCOUNT_ID))
-                    .thenReturn(List.of(new FolderResponse("INBOX", "INBOX", FolderRole.INBOX),
-                            new FolderResponse("Sent", "[Gmail]/Sent", FolderRole.SENT)));
+        }
+
+        private void stubFolderCycle(FolderResponse... folders) throws MessagingException {
+            when(imapFolderService.getFolders(ACCOUNT_ID)).thenReturn(List.of(folders));
             stubExecuteInFolderRunCallback(mock(Folder.class));
             stubTransactionTemplateExecuteRunCallback();
             when(syncStateService.getOrCreateState(eq(ACCOUNT_ID), any(), any()))
                     .thenReturn(new FolderSyncStateEntity());
             when(flagSyncService.handleUidValidity(any())).thenReturn(true);
-            when(messageDownloader.syncNewMessages(any())).thenReturn(2).thenReturn(3);
-
-            service.syncAllFolders(account, SyncTrigger.MANUAL);
-
-            assertThat(capturePublished(MailSyncCycleCompletedEvent.class).newMessagesCount()).isEqualTo(5);
         }
 
         @Test

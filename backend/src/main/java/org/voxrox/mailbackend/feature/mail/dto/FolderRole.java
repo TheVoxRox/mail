@@ -17,6 +17,21 @@ public enum FolderRole {
         this.attribute = attribute;
     }
 
+    /**
+     * Whether a download into this folder is mail that has just arrived for the
+     * user, as opposed to a mirror of something else.
+     *
+     * <p>
+     * Only {@code INBOX} and {@code NEWSLETTERS} qualify. A sync pass downloads
+     * SENT, DRAFTS, JUNK and TRASH too, and counting those as "new messages" makes
+     * the count say something it does not mean: the first pass over a fresh account
+     * mirrors the whole window of every folder, and three messages sent from a
+     * phone would otherwise be reported as three new ones.
+     */
+    public boolean deliversNewMail() {
+        return this == INBOX || this == NEWSLETTERS;
+    }
+
     public static FolderRole fromAttribute(String attr) {
         return Arrays.stream(values()).filter(role -> role.attribute != null && role.attribute.equalsIgnoreCase(attr))
                 .findFirst().orElse(USER);
