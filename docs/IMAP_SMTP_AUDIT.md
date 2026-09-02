@@ -2,14 +2,14 @@
 
 |                    |                                                                                                                                                                                                                                                                                              |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.4                                                                                                                                                                                                                                                                                          |
-| **Date**           | 2026-08-31                                                                                                                                                                                                                                                                                   |
+| **Version**        | 1.5                                                                                                                                                                                                                                                                                          |
+| **Date**           | 2026-09-02                                                                                                                                                                                                                                                                                   |
 | **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                           |
-| **Audited commit** | `cad05cb` (re-verified 2026-08-08, recorded pre-squash as `3ff0c78` after 21 commits of drift, including the B1-2 fix; 1.0–1.2 baseline: `35a06f3`)                                                                                                                                          |
+| **Audited commit** | `885b98a` (re-verified 2026-09-02 at the ledger cap; 1.3–1.4 anchor `cad05cb`, recorded pre-squash as `3ff0c78`; 1.0–1.2 baseline: `35a06f3`)                                                                                                                                                |
 | **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service`, `backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java`, `backend/src/main/java/org/voxrox/mailbackend/util/SubjectNormalizer.java`, `backend/src/main/java/org/voxrox/mailbackend/core/config/mail` |
 | **Auditor**        | Claude (Fable 5) + owner review                                                                                                                                                                                                                                                              |
 | **Subsystem**      | External mail server ↔ sidecar — Boundary 1 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                       |
-| **Verdict**        | **Security: PASS** — no exploitable finding. Two Medium DoS gaps found and **fixed in code**: **B1-1** (unbounded body fetch, 2026-07-10, §4) and **B1-2** (quadratic subject normalization, 2026-08-08, §4b); one Low informational note.                                                   |
+| **Verdict**        | **Security: PASS** — no exploitable finding. Two Medium DoS gaps found and **fixed in code**: **B1-1** (unbounded body fetch, 2026-07-10, §4) and **B1-2** (quadratic subject normalization, 2026-08-08, §4b); two Low informational notes (§5).                                             |
 
 Full per-subsystem audit of the path **"raw IMAP/SMTP wire → parsed → stored /
 sent"**. After the mail body (Boundary 4), this is the second-largest
@@ -44,13 +44,35 @@ transport/TLS and SMTP-send claims remain static-plus-unit-tests, see
   equivalent via `requireSslForOAuth2` (implicit SSL **or** mandatory STARTTLS)
   before every open. This closes B1-I (STARTTLS-strip) for the token.
 - **STARTTLS is required, not opportunistic.** `mail.smtp.starttls.required=true`
-  is always set, so a stripped/absent upgrade fails instead of silently
-  sending cleartext.
+  is set on every session that is not implicit SSL — the two are alternatives,
+  and `requireSslForOAuth2` accepts either — so a stripped/absent upgrade fails
+  instead of silently sending cleartext. (1.0–1.4 wrote "always set", which
+  reads as unconditional; the property is set in the `else` branch of the
+  implicit-SSL test in `SmtpTransportFactory.createSession`, and always has
+  been. Wording tightened at 1.5, no behaviour involved.)
 - **Timeouts are real and effective.** IMAP connect 30 s / read 60 s, SMTP
   connect 30 s — passed as `String.valueOf(duration.toMillis())` (a raw
   `Duration` is silently ignored by JavaMail's `PropUtil`; the code handles
   this correctly). Closes B1-D (slow-server hang), the regression that
-  Phase 6.15 fixed.
+  Phase 6.15 fixed. Where the numbers live matters and is worth stating: the
+  IMAP pair and the SMTP connect timeout come from `application.properties`
+  (`mail.client.imap.connection-timeout` / `.read-timeout`,
+  `mail.client.smtp.connection-timeout`), **not** from the `@DefaultValue`
+  on the binding record, which for SMTP is a shorter 15 s. Nothing is
+  unbounded either way — the record default is the floor if the key ever
+  disappears — but a reader checking the claim against `SmtpProperties`
+  alone would find a different number than the app runs with.
+- **Connection contention is bounded, not queued indefinitely.** New since 1.4
+  and not previously described: `ImapConnectionManager.executeWithLockOrSkip`
+  takes the per-account store lock with a timeout and returns empty instead of
+  waiting, and `ImapFolderService` uses it for folder-role lookups under
+  `mail.client.imap.role-lookup-timeout` (1 s). The listing degrades to
+  folder scope rather than blocking behind a sync that holds the connection
+  for a whole folder cycle. The direction is fail-closed for this boundary:
+  it removes an unbounded wait on a server-paced operation and adds no IMAP
+  command. It does mean an unresolvable role is indistinguishable from a busy
+  one at the call site, which is a correctness consideration, not a security
+  one — no trust decision keys off a folder role.
 - **Retry policy is scoped.** Connect is wrapped in a `RetryTemplate` that
   retries only transient network errors; `AuthenticationFailedException`
   short-circuits to the token-refresh path (no pointless backoff on a bad
@@ -141,6 +163,36 @@ transport/TLS and SMTP-send claims remain static-plus-unit-tests, see
   and triggers a state reset (`resetForUidValidityChange`), so a server that
   renumbers its mailbox (or an active-MITM UID desync, B1-T) cannot silently
   map local rows onto different server messages.
+
+## 3b. Outbound composition (confirmed, new at 1.5)
+
+The send path existed at 1.0 but was only described where it touches transport
+(§1) and header injection. It grew a second content type since 1.4, which is
+worth stating explicitly so the next reader does not have to decide whether it
+belongs to this boundary.
+
+- **The HTML alternative is rendered from local input, never from the wire.**
+  [MimeMessageBuilder](../backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MimeMessageBuilder.java)
+  now attaches a `text/html` part beside the plain text when the composed body
+  is Markdown, rendered by
+  [MarkdownBodyRenderer](../backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MarkdownBodyRenderer.java).
+  This boundary is about bytes a hostile server supplies; these bytes are the
+  user's own keystrokes, so the surface the audit exists to weigh is untouched.
+  The renderer is nonetheless configured defensively: `escapeHtml(true)` and
+  `sanitizeUrls(true)` are on, `HtmlBlock` is absent from the enabled block
+  set, and rendering is skipped above `MAX_RENDERED_CHARS = 512 kB` — below the
+  8 MiB body cap of §4, so the send path gains no unbounded CPU sink.
+- **The enabled block set is explicitly ordered.** `ENABLED_BLOCKS` is a
+  `LinkedHashSet`, not `Set.of`. CommonMark registers block parsers in
+  iteration order and `Set.of` salts that order per JVM, so the same body
+  rendered differently between runs. Determinism is a correctness property
+  rather than a security one, but a renderer whose output depends on the JVM
+  instance is not a thing an audit can make claims about at all.
+- **Header-bound fields still reject CR/LF.** `requireSingleLine` guards the
+  subject, `In-Reply-To`, `References` and the attachment content type — the
+  #145 hardening noted at 1.3, re-verified here unchanged.
+- **Drafts remain single-part `text/plain`,** so the IMAP APPEND payload shape
+  is still the one §2's persistence claims were written against.
 
 ## 4. Finding B1-1 (Medium) — unbounded message-body fetch — **FIXED**
 
@@ -271,7 +323,26 @@ normalizes in under a millisecond.
 Both were run against the reverted fix and both fail there — the pathological
 one after 101.8 s — so the budget is empirically load-bearing, not decorative.
 
-## 5. Informational note (no change required)
+## 5. Informational notes (no change required)
+
+- **Thread renumbering reads whole entities.**
+  `ThreadingService.renumberThreadPositions` loads a thread's members through
+  `findByAccountIdAndThreadId` as managed entities, and `MessageEntity.content`
+  is a plain `@Lob` — eager by default — so the bodies come with them. It runs
+  on every orphan merge and on a late arrival that sorts before an existing
+  member, both of which a hostile server can provoke by drip-feeding a thread
+  in descending date order. Two things bound it, and both were measured against
+  the code rather than assumed. Each body is capped at 8 MiB by the B1-1 fix,
+  and — the larger effect — `content` is **null for a message nobody has
+  opened**: the sync path persists through `MessageMapper`, which never sets it
+  ("usually null during sync; the body is fetched separately"), and
+  `MessageContentPersister` fills it on first open. The worst case is therefore
+  a long thread the user has already read that the server keeps extending, not
+  an arbitrary sync. Recorded rather than fixed: a body-free projection for the
+  renumber would remove the heap term from both call sites and is worth its own
+  change. Carried up from the freshness ledger at 1.5 — it was found during an
+  acknowledgement, and acknowledgements are deleted at re-verification, so a
+  note that only lived there would have been lost with them.
 
 - **Attachment download is disk-bounded, not memory-bounded.**
   [AttachmentService.downloadToTempFile](../backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/AttachmentService.java)
@@ -290,6 +361,38 @@ one after 101.8 s — so the budget is empirically load-bearing, not decorative.
 - [backend/SECURITY_RELEASE_CHECK.md](../backend/SECURITY_RELEASE_CHECK.md) — per-release security gate.
 
 ## 7. Change log
+
+- **1.5** (2026-09-02) — re-verified against `885b98a`, **at the ledger cap
+  rather than because something broke**: the acknowledgement run had reached
+  six of eight and the sixth said in as many words that the next drift under
+  this path should be weighed as a re-verification. Twenty-five files had moved
+  under `Code paths` since `cad05cb` (+756/−146). Every §1–§5 claim re-checked
+  against the current code and all still hold: pinned `checkserveridentity` on
+  all three connectors, both fail-closed OAuth2/TLS guards, millisecond-string
+  timeouts, the metadata-only `FetchProfile`, the soft-fail on a malformed
+  `BODYSTRUCTURE`, `MAX_DEPTH = 20` across all four extractor entry points, the
+  2/8 MiB inline-image caps, `MAX_BODY_BYTES` with the pinned `partialfetch`,
+  the linear `stripMarkers` with its 1000-char truncation, the subject
+  fallback's three guards, `MAX_REFERENCES_WALK = 50`, the UIDVALIDITY reset
+  and the `Files.copy` attachment stream. Verdict unchanged (**PASS**), no new
+  finding. What the pass produced instead is four records the acknowledgements
+  had not put anywhere durable. (1) A **new §3b** for outbound composition: the
+  Markdown-to-HTML alternative added since 1.4 renders local input, never
+  server bytes, behind `escapeHtml`/`sanitizeUrls`, no `HtmlBlock`, and a
+  512 kB render cap. (2) A **new §1 bullet** for `executeWithLockOrSkip` and
+  the 1 s role-lookup timeout, which replaced an unbounded wait on a
+  server-paced lock. (3) A **second informational note in §5** for the thread
+  renumber reading `@Lob` bodies — lifted out of the ledger deliberately,
+  because re-verification deletes acknowledgements and a note that only lived
+  there would have gone with them. (4) Two **wording corrections in §1**: the
+  STARTTLS property is set on every non-implicit-SSL session rather than
+  "always", and the timeout numbers come from `application.properties`, not
+  from the binding record's `@DefaultValue`, which for SMTP is a shorter 15 s.
+  Also corrected outside this document: the verdict index in
+  [SECURITY_RELEASE_CHECK.md](../backend/SECURITY_RELEASE_CHECK.md) pinned B1
+  to `806528e`, which **does not resolve** — a pre-squash branch SHA, the exact
+  failure [AUDIT_GUIDE.md](AUDIT_GUIDE.md) §2 describes, recorded there while
+  this document had already written the post-squash `cad05cb` beside it.
 
 - **1.4** (2026-08-31) — no claim changed and the anchor stays `cad05cb`;
   what changed is that §2 stopped resting on an untested parse. The claims
