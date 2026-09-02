@@ -293,4 +293,90 @@ test.describe('Mail toolbar', () => {
 		await expect(page.getByRole('status').filter({ hasText: 'Smazáno: 2.' })).toBeVisible();
 		await expect(heading).toHaveAccessibleName(/1 nepřečten/);
 	});
+
+	/*
+	 * Both bulk menus carry the defect the row actions menu was fixed for:
+	 * bits-ui parks focus on the panel when the menu opens and only reaches the
+	 * first item an `afterTick` later, and a screen reader reads the nameless
+	 * container by reciting its contents (NVDA read out every item — heard
+	 * 2026-09-02 on the row menu, whose cause is in the library and therefore
+	 * shared). Asserted by counting focus events, since the settled state is
+	 * the same either way and only the route to it differs.
+	 */
+	for (const menu of [
+		{ trigger: 'Označit jako…', name: 'Označit jako…' },
+		{ trigger: 'Přesunout vybrané', name: 'Přesunout vybrané' }
+	]) {
+		test(`hromadné menu ${menu.trigger} nedá fokus svému kontejneru`, async ({ page }) => {
+			await openApp(page, `/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
+			await page.getByRole('checkbox', { name: 'Vybrat zprávu Projektové podklady' }).check();
+			await expect(page.getByText('1 vybraná zpráva')).toBeVisible();
+
+			await page.getByRole('button', { name: menu.trigger, exact: true }).focus();
+			await page.evaluate(() => {
+				const seen: string[] = [];
+				(window as unknown as { __menuFocus: string[] }).__menuFocus = seen;
+				document.addEventListener(
+					'focusin',
+					(e) => {
+						const role = (e.target as HTMLElement | null)?.getAttribute?.('role');
+						if (role === 'menu' || role === 'menuitem') seen.push(role);
+					},
+					true
+				);
+			});
+
+			await page.keyboard.press('Enter');
+			const panel = page.getByRole('menu');
+			// Whichever item is first — the move menu lists folders, whose order
+			// belongs to the folder store, not to this assertion.
+			await expect(panel.getByRole('menuitem').first()).toBeFocused();
+			await page.waitForTimeout(60);
+
+			const focused = await page.evaluate(
+				() => (window as unknown as { __menuFocus: string[] }).__menuFocus
+			);
+			expect(focused).not.toContain('menu');
+			expect(focused).toContain('menuitem');
+			await expect(panel).toHaveAccessibleName(menu.name);
+		});
+	}
+
+	// The third menu with the same defect, and the only one reached from an open
+	// message rather than from a selection — hence its own setup rather than a
+	// third turn of the loop above.
+	test('nabídka Přesunout v otevřené zprávě nedá fokus svému kontejneru', async ({ page }) => {
+		await openApp(page, `/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
+		await page.locator(`[role="row"][data-stable-id="${fixture.moveStableId}"]`).click();
+		await page.waitForURL(
+			`**/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}/${encodeURIComponent(fixture.moveStableId)}`
+		);
+
+		const toolbar = page.getByRole('toolbar', { name: 'Akce se zprávami' });
+		await toolbar.getByRole('button', { name: 'Přesunout', exact: true }).focus();
+		await page.evaluate(() => {
+			const seen: string[] = [];
+			(window as unknown as { __menuFocus: string[] }).__menuFocus = seen;
+			document.addEventListener(
+				'focusin',
+				(e) => {
+					const role = (e.target as HTMLElement | null)?.getAttribute?.('role');
+					if (role === 'menu' || role === 'menuitem') seen.push(role);
+				},
+				true
+			);
+		});
+
+		await page.keyboard.press('Enter');
+		const panel = page.getByRole('menu');
+		await expect(panel.getByRole('menuitem').first()).toBeFocused();
+		await page.waitForTimeout(60);
+
+		const focused = await page.evaluate(
+			() => (window as unknown as { __menuFocus: string[] }).__menuFocus
+		);
+		expect(focused).not.toContain('menu');
+		expect(focused).toContain('menuitem');
+		await expect(panel).toHaveAccessibleName('Přesunout');
+	});
 });

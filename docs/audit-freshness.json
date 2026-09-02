@@ -115,7 +115,7 @@
   "docs/CONTENT_RENDERING_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/util/HtmlSanitizer.java": "f0fe05868ad59a30ce75badc6529c68d7e55641f",
-      "frontend/src/lib/components/message-detail": "599c0bdcbd10ba9624bca32ad667563f26bc085d",
+      "frontend/src/lib/components/message-detail": "e5672d6ce768238e3ccc38aacb31c6ffd823c14e",
       "frontend/src/lib/mail/mailFrame.ts": "493e543a3e79dc5e9b2f4c91705c5b44cda39f3d"
     },
     "acknowledgements": [
@@ -134,6 +134,10 @@
       {
         "date": "2026-09-02",
         "note": "One ARIA attribute removed from the blocked-remote-images banner, plus the comment above it rewritten to say why. Checked rather than assumed: the whole diff under this path is those two hunks in MessageContent.svelte, and `git diff` between the recorded tree and the current one shows nothing else. The banner div loses `aria-live=\"polite\"` and keeps `role=\"region\"` and its label, because in split reading-pane mode every arrow key reloads the pane and the live region read itself out over the row the screen reader had just announced. Everything F2 rests on is outside the diff: `showRemoteBanner`, both opt-in handlers (`loadRemoteImages` and `trustSender`), the allow-list call, and `buildMailFrameSrcdoc`, which is what decides whether a remote URL stays inert in `data-voxrox-remote-src` under `img-src data:` or is promoted to a live `src` under the relaxed CSP. No remote content loads a moment sooner or later than before; only whether a screen reader speaks the banner unprompted changed. Verdict stays PASS."
+      },
+      {
+        "date": "2026-09-02",
+        "note": "Three lines under this path, all of them about focus, none about content. MessageMoveControl's DropdownMenu.Content gains `aria-label={$_('toolbar.move')}` and `onfocus={focusFirstMenuItem}`, plus the import that brings the second one in. Checked rather than assumed: `git show --stat` over this path reports one file, three insertions and one deletion, and that is the whole of it. The label is an i18n key, not a value taken from the message, and the menu lists folder names from the folder store, so no new value from an email reaches the DOM. The handler only moves focus from the menu panel to its own first `[role=menuitem]`, inside a container the application renders itself — it neither reads nor writes message markup. The sanitizer, the frame CSP, the link allow-list and the cid image rewriting are all outside this diff. Verdict stays PASS."
       }
     ]
   }
