@@ -64,12 +64,20 @@ test.describe('Search', () => {
 		await openApp(page, '/search/1?q=projekt');
 
 		const results = searchResultsGrid(page);
-		// By cell, not by accessible name: the row's actions trigger is a button
-		// too and also names the subject, so a name match resolves to both.
+		/*
+		 * The anchor inside the subject cell, not the cell itself and not an
+		 * accessible-name match: the row's actions trigger is a button that also
+		 * names the subject, so a name match resolves to both. This used to be
+		 * `[data-col="1"]`, which was the anchor back when the anchor carried the
+		 * roving tabindex; the tabindex moved to the cell (a screen reader read
+		 * the subject twice otherwise, see MailSubjectCell), and `data-col` moved
+		 * with it. What this test is about did not move — the row still has to
+		 * contain something a reader will offer to activate.
+		 */
 		const subject = results
 			.getByRole('row')
 			.filter({ hasText: 'Projektové podklady' })
-			.locator('[data-col="1"]');
+			.locator('[data-col="1"] a');
 		await expect(subject).toBeVisible();
 
 		/*
