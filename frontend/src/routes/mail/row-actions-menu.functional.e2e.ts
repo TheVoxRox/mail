@@ -276,4 +276,53 @@ test.describe('Řádkové menu Akce', () => {
 		await expect(row).toHaveCount(0);
 		await expect(page.getByRole('menu')).toHaveCount(0);
 	});
+
+	test('otevřené menu nedá fokus svému kontejneru, jen první položce', async ({ page }) => {
+		await openApp(page, `/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
+
+		const row = page.locator(`[role="row"][data-stable-id="${fixture.stableId}"]`);
+		await expect(row).toBeVisible();
+		await row.getByRole('button', { name: `Akce pro zprávu ${fixture.subject}` }).focus();
+
+		/*
+		 * Counts focus events instead of polling the settled state, because the
+		 * defect was never visible in the settled state: focus ended on the
+		 * first item either way. bits-ui parks focus on the content element on
+		 * open and reaches the item an `afterTick` later, and a screen reader
+		 * reads the container during that gap — role="menu" has no value of its
+		 * own, so NVDA announced the menu name and then every item in it (heard
+		 * 2026-09-02). What the fix removes is the container's turn at focus,
+		 * which only an event log can see.
+		 */
+		await page.evaluate(() => {
+			const seen: string[] = [];
+			(window as unknown as { __menuFocus: string[] }).__menuFocus = seen;
+			document.addEventListener(
+				'focusin',
+				(e) => {
+					const el = e.target as HTMLElement | null;
+					const role = el?.getAttribute?.('role');
+					if (role === 'menu' || role === 'menuitem') seen.push(role);
+				},
+				true
+			);
+		});
+
+		await page.keyboard.press('Enter');
+		const menu = page.getByRole('menu');
+		await expect(menu.getByRole('menuitem', { name: FIRST_ITEM, exact: true })).toBeFocused();
+		// The second pass through the container lands ~15 ms after the first;
+		// settle past it so the assertion covers both, not just the opening one.
+		await page.waitForTimeout(KEY_PACE_MS);
+
+		const focused = await page.evaluate(
+			() => (window as unknown as { __menuFocus: string[] }).__menuFocus
+		);
+		expect(focused).not.toContain('menu');
+		expect(focused).toContain('menuitem');
+
+		// The name is the other half: a container a screen reader may still
+		// reach some other way must not be nameless.
+		await expect(menu).toHaveAccessibleName(`Akce pro zprávu ${fixture.subject}`);
+	});
 });

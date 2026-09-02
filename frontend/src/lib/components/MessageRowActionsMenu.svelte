@@ -135,7 +135,36 @@
 	</DropdownMenu.Trigger>
 
 	<DropdownMenu.Portal>
-		<DropdownMenu.Content align="end" sideOffset={4} loop class={menuContentVariants()}>
+		<!--
+			Named after the trigger that opens it, the way the detail toolbar's
+			menu already is — a menu with no accessible name is a container a
+			screen reader can only describe by reading what is inside it.
+		-->
+		<DropdownMenu.Content
+			align="end"
+			sideOffset={4}
+			loop
+			aria-label={triggerLabel}
+			onfocus={(e: FocusEvent & { currentTarget: HTMLElement }) => {
+				/*
+				 * Move focus off this container in the same task it arrived in.
+				 * bits-ui parks focus here on open and only reaches the first
+				 * item `afterTick` (menu.svelte.js, MenuContentState.onfocus) —
+				 * measured as menu -> menuitem -> menu -> menuitem inside 12 ms.
+				 * NVDA processes the container during that gap, and role="menu"
+				 * carries no value of its own, so it announces the name and then
+				 * reads every item (heard 2026-09-02, Space and Enter alike).
+				 * Our handler runs before theirs (composeHandlers), so landing
+				 * the first item synchronously closes the gap; their afterTick
+				 * then finds focus already where it wanted it.
+				 */
+				if (e.target !== e.currentTarget) return;
+				e.currentTarget
+					.querySelector<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"])')
+					?.focus();
+			}}
+			class={menuContentVariants()}
+		>
 			<DropdownMenu.Item class={defaultItemClass} onSelect={() => effectiveActions.reply(false)}>
 				{$_('toolbar.reply')}
 			</DropdownMenu.Item>
