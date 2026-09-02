@@ -67,6 +67,7 @@ frontend/src/test-fixtures/msw/fixtures.ts -- Mock message/account/folder data w
 
 frontend/src/lib/api/client.test.ts -- Inline mock RFC 9457 ProblemDetail response with Czech `detail` ("Špatný požadavek"); asserts that api client surfaces the localized backend message verbatim. Same load-bearing pattern as MSW handlers, just inline.
 frontend/src/lib/api/errors.test.ts -- Inline mock ProblemDetail with Czech `detail` ("Poskytovatel pošty…"); asserts toErrorMessage() prefers the localized backend payload over the i18n fallback. Load-bearing test fixture.
+frontend/src/lib/i18n/index.test.ts -- Asserts the rendered cs bundle for the bulk-outcome messages ("Smazáno: 4." with no failure clause). The exact Czech wording is what the test is about -- it is what a screen reader reads out -- so it cannot be moved to en without testing something else.
 
 # --- Command palette: transliterated aliases ---
 

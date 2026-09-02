@@ -444,7 +444,7 @@ test.describe('Contacts', () => {
 		await bulkDialog.getByRole('button', { name: 'Smazat' }).click();
 
 		await expect(
-			page.getByRole('region', { name: 'Oznámení' }).getByText('Smazáno: 2, selhalo: 0.')
+			page.getByRole('region', { name: 'Oznámení' }).getByText('Smazáno: 2.')
 		).toBeVisible();
 		await expect(page.getByText('Jana Novak')).toHaveCount(0);
 		await expect(page.getByText('Bulk Delete')).toHaveCount(0);
@@ -638,7 +638,7 @@ test.describe('Contacts', () => {
 		}, vcardText);
 
 		await expect(
-			page.getByRole('region', { name: 'Oznámení' }).getByText('Importováno: 2, selhalo: 0.')
+			page.getByRole('region', { name: 'Oznámení' }).getByText('Importováno: 2.')
 		).toBeVisible();
 		await expect(page.getByText('Marek Drag')).toBeVisible();
 		await expect(page.getByText('marek.drag@example.com')).toBeVisible();
@@ -692,7 +692,7 @@ test.describe('Contacts', () => {
 		});
 
 		await expect(
-			page.getByRole('region', { name: 'Oznámení' }).getByText('Importováno: 1, selhalo: 0.')
+			page.getByRole('region', { name: 'Oznámení' }).getByText('Importováno: 1.')
 		).toBeVisible();
 		// The list reloads without navigation — the imported contact appears.
 		await expect(page.getByText('Petra Picker')).toBeVisible();

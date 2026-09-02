@@ -174,7 +174,7 @@ test.describe('Mail toolbar', () => {
 		await page.getByRole('button', { name: 'Označit jako…', exact: true }).click();
 		await page.getByRole('menuitem', { name: 'Přečtené', exact: true }).click();
 		await expect(
-			page.getByRole('status').filter({ hasText: 'Označeno jako přečtené: 2, selhalo: 0.' })
+			page.getByRole('status').filter({ hasText: 'Označeno jako přečtené: 2.' })
 		).toBeVisible();
 		expect(flagRequests).toHaveLength(2);
 		expect(
@@ -190,7 +190,7 @@ test.describe('Mail toolbar', () => {
 		await page.getByRole('button', { name: 'Přesunout vybrané' }).click();
 		await page.getByRole('menuitem', { name: 'Archiv', exact: true }).click();
 		await expect(
-			page.getByRole('status').filter({ hasText: 'Přesunuto do složky Archiv: 2, selhalo: 0.' })
+			page.getByRole('status').filter({ hasText: 'Přesunuto do složky Archiv: 2.' })
 		).toBeVisible();
 		expect(moveBodies).toEqual([{ folderRef: 'ARCHIVE' }, { folderRef: 'ARCHIVE' }]);
 		await expect(page.locator('[role="row"][data-stable-id="msg-03"]')).toHaveCount(0);
@@ -203,9 +203,7 @@ test.describe('Mail toolbar', () => {
 			.getByRole('checkbox', { name: 'Vybrat zprávu Testovací zpráva 6', exact: true })
 			.check();
 		await page.getByRole('button', { name: 'Smazat vybrané' }).click();
-		await expect(
-			page.getByRole('status').filter({ hasText: 'Smazáno: 2, selhalo: 0.' })
-		).toBeVisible();
+		await expect(page.getByRole('status').filter({ hasText: 'Smazáno: 2.' })).toBeVisible();
 		expect(deleteRequests).toHaveLength(2);
 		await expect(page.locator('[role="row"][data-stable-id="msg-05"]')).toHaveCount(0);
 		await expect(page.locator('[role="row"][data-stable-id="msg-06"]')).toHaveCount(0);
@@ -253,7 +251,7 @@ test.describe('Mail toolbar', () => {
 		await page.getByRole('menuitem', { name: 'Nepřečtené', exact: true }).click();
 
 		await expect(
-			page.getByRole('status').filter({ hasText: 'Označeno jako nepřečtené: 2, selhalo: 0.' })
+			page.getByRole('status').filter({ hasText: 'Označeno jako nepřečtené: 2.' })
 		).toBeVisible();
 		expect(flagRequests).toHaveLength(2);
 		expect(
@@ -292,9 +290,7 @@ test.describe('Mail toolbar', () => {
 			.check();
 		await page.getByRole('button', { name: 'Smazat vybrané' }).click();
 
-		await expect(
-			page.getByRole('status').filter({ hasText: 'Smazáno: 2, selhalo: 0.' })
-		).toBeVisible();
+		await expect(page.getByRole('status').filter({ hasText: 'Smazáno: 2.' })).toBeVisible();
 		await expect(heading).toHaveAccessibleName(/1 nepřečten/);
 	});
 });
