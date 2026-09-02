@@ -67,16 +67,43 @@
 	const diagnosticDisabled = $derived(diagnosticBusy || $sessionState.status !== 'ready');
 
 	/*
-	 * Workspace-aware aria-label for the <main> element in the ready state.
-	 * We deliberately do NOT prefix with "Main content:" — screen readers
-	 * automatically append "main region" (or the localised equivalent) from
-	 * role=main, so prefixing would produce duplication (e.g. "Main content:
-	 * Settings, main region"). Best practice: a landmark's aria-label
-	 * carries only the context, never the role name. Boot/error <main>
-	 * elements have no aria-label at all — their state is transitive and
-	 * the generic landmark announcement is enough.
+	 * The aria-label for <main> in the ready state. It deliberately does NOT
+	 * prefix with "Main content:" — screen readers append "main region" (or the
+	 * localised equivalent) from role=main by themselves, so prefixing would
+	 * duplicate it ("Main content: Settings, main region"). A landmark's label
+	 * carries only the context, never the role name. Boot/error <main> elements
+	 * have no label at all: their state is transitive and the generic landmark
+	 * announcement is enough.
 	 */
-	const mainLandmarkLabel = $derived($_(`workspace.${currentWorkspaceMode()}`));
+	/*
+	 * Mirrored from document.title by the observer below, so the route keeps
+	 * owning what it is called and the layout does not grow a second copy of
+	 * that logic — the same reason the native window title is mirrored rather
+	 * than recomputed. Empty until boot settles, hence the workspace fallback.
+	 */
+	let routeTitle = $state('');
+
+	/*
+	 * Named after the route, not the workspace. Measured with NVDA: after
+	 * switching folders the app moves focus here, and with the name fixed at
+	 * the workspace name the landing said just that, then began reading content —
+	 * in split mode the empty reading-pane placeholder — so the folder was
+	 * never announced at all and could only be had on demand via NVDA+T.
+	 *
+	 * The app-name prefix comes off first. Route titles are not uniform: mail
+	 * and contacts prefix the product name, while three settings pages prefix
+	 * `app.title` instead, which as a landmark name repeats what the window
+	 * title already says and pushes the useful half to the end. The strip is
+	 * deliberately literal — an
+	 * exact `app.title` prefix and separator, nothing cleverer — so a title that
+	 * happens to start with something similar is left alone.
+	 */
+	const appTitlePrefix = $derived(`${$_('app.title')} – `);
+	const mainLandmarkLabel = $derived(
+		(routeTitle.startsWith(appTitlePrefix)
+			? routeTitle.slice(appTitlePrefix.length)
+			: routeTitle) || $_(`workspace.${currentWorkspaceMode()}`)
+	);
 
 	/*
 	 * Native OS window title (taskbar / Alt+Tab, and the name a screen reader
@@ -114,6 +141,7 @@
 		const sync = () => {
 			if (document.title && document.title !== last) {
 				last = document.title;
+				routeTitle = last;
 				setNativeWindowTitle(last);
 			}
 		};

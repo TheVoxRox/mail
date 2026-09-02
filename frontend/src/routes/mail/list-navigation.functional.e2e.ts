@@ -177,6 +177,26 @@ test.describe('Přepnutí složky', () => {
 		await page.waitForURL('**/mail/1/SENT');
 		await expect(page.locator('#live-region')).toContainText('Strana 1 z 1, 2 zprávy');
 	});
+
+	test('hlavní oblast se po přepnutí složky jmenuje podle složky', async ({ page }) => {
+		/*
+		 * After a navigation the layout moves focus to <main>, which is the only
+		 * automatic answer to "where am I" — the route announcer is silenced and
+		 * the list announcement below arrives seconds later and names no folder.
+		 * Heard with NVDA: with the landmark named after the workspace, landing
+		 * said "Pošta" and then began reading content (in split mode the empty
+		 * reading-pane placeholder), so the folder was never announced at all.
+		 * Asserted across two folders, because a name that is merely correct once
+		 * would also pass while being a constant.
+		 */
+		await openApp(page, '/mail/1/INBOX');
+		const main = page.locator('#main-content');
+		await expect(main).toHaveAttribute('aria-label', 'Pošta – Doručené');
+
+		await page.getByRole('link', { name: 'Odeslané' }).click();
+		await page.waitForURL('**/mail/1/SENT');
+		await expect(main).toHaveAttribute('aria-label', 'Pošta – Odeslané');
+	});
 });
 
 test.describe('Koncepty ve split režimu', () => {
