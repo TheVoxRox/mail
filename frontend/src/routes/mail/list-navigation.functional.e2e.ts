@@ -412,4 +412,38 @@ test.describe('Seznam zpráv ve split režimu', () => {
 		await page.waitForURL((url) => url.pathname === '/mail/1/INBOX');
 		await expect(subject).toBeFocused();
 	});
+
+	test('fokus nese buňka předmětu, ne odkaz uvnitř ní', async ({ page }) => {
+		/*
+		 * The subject cell is the only one in the grid carrying both text and a
+		 * focusable element with that same text. With the roving tabindex on the
+		 * link, a screen reader announced the cell it had entered and then the
+		 * link inside it, so every arrow key read the subject twice — heard with
+		 * NVDA, and structural rather than timing, which is why a focus-event
+		 * count cannot catch it. The invariant that keeps it away is this one:
+		 * the cell is what takes focus, and the anchor stays out of the tab
+		 * order while keeping href and link role so browse mode can still
+		 * activate it (verified by listening, not by reasoning).
+		 */
+		await openApp(page, '/mail/1/INBOX');
+
+		const row = page.locator('[role="row"][data-stable-id="msg-01"]');
+		await expect(row).toBeVisible();
+
+		/*
+		 * Asserted through what the roving grid actually moves focus to, rather
+		 * than by locating the cell directly: a locator that names the gridcell
+		 * fails with "element not found" when the target moves back onto the
+		 * link, which is true but says nothing about why it matters.
+		 */
+		const rovingTarget = row.locator('[data-cell-target][data-col="2"]');
+		await expect(rovingTarget).toHaveAttribute('role', 'gridcell');
+		await rovingTarget.focus();
+		await expect(rovingTarget).toBeFocused();
+
+		// The link keeps href and role — browse mode still reaches and activates
+		// it — but stays out of the tab order so the cell is what gets announced.
+		const link = row.locator('a[href$="/msg-01"]');
+		await expect(link).toHaveAttribute('tabindex', '-1');
+	});
 });
