@@ -70,7 +70,10 @@ test.describe('Konverzační seskupení', () => {
 		const firstRow = rowsOf(grid).first();
 		await expect(firstRow).toBeVisible();
 		const stableId = await firstRow.getAttribute('data-stable-id');
-		const subjectLink = firstRow.locator('[data-cell-target][data-col="3"]');
+		// `a` inside the cell, not the cell: the roving target is the gridcell, and
+		// the anchor is what browse mode activates.
+		const subjectLink = firstRow.locator('[data-cell-target][data-col="3"] a');
+		await expect(subjectLink).toHaveRole('link');
 		await subjectLink.focus();
 
 		// The reader keeps Enter for browse-mode navigation and activates the
@@ -393,6 +396,40 @@ test.describe('Rozbalení konverzace', () => {
 		await parent.locator('[data-cell-target][data-col="3"]').press('ArrowLeft');
 		await expect(parent).toHaveAttribute('aria-expanded', 'false');
 		await expect(anyArchiveRow(page, 'arch-02')).toHaveCount(0);
+	});
+
+	test('fokus nese buňka předmětu konverzace, ne odkaz uvnitř ní', async ({ page }) => {
+		/*
+		 * The same structural fault the flat list carried: the subject cell is the
+		 * only one in the row holding both text and a focusable element with that
+		 * same text, so a roving tabindex on the link made a screen reader
+		 * announce the cell it had entered and then the link inside it — the
+		 * subject twice per arrow key. Heard in grouped mode with NVDA. It is
+		 * structural rather than timing, so counting focus events cannot catch
+		 * it; the invariant that keeps it away is that the cell takes focus while
+		 * the anchor stays out of the tab order with href and link role intact.
+		 */
+		await openApp(page, `/mail/${accountId}/ARCHIVE`);
+
+		const parent = archiveRow(page, 'arch-03');
+		await expect(parent).toBeVisible();
+
+		/*
+		 * Asserted through what the roving treegrid actually moves focus to. A
+		 * locator naming the gridcell directly fails with "element not found"
+		 * once the target moves back onto the link — true, but silent about why
+		 * it matters.
+		 */
+		const rovingTarget = parent.locator('[data-cell-target][data-col="3"]');
+		await expect(rovingTarget).toHaveAttribute('role', 'gridcell');
+		await rovingTarget.focus();
+		await expect(rovingTarget).toBeFocused();
+
+		// The anchor keeps href and role so browse mode still activates it, but
+		// stays out of the tab order so the cell is what gets announced.
+		const link = rovingTarget.locator('a');
+		await expect(link).toHaveAttribute('tabindex', '-1');
+		await expect(link).toHaveRole('link');
 	});
 
 	test('otevření člena rozbaleného vlákna přejde na jeho zprávu', async ({ page }) => {

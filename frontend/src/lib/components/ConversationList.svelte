@@ -1371,30 +1371,45 @@
 						<div
 							role="gridcell"
 							aria-colindex={COL_SUBJECT + 1}
-							{...isConversation ? {} : grid.cell(rowIndex, COL_SUBJECT)}
+							{...grid.cell(rowIndex, COL_SUBJECT)}
 							class={cn(
 								'col-start-4 min-w-0 pr-2',
 								isConversation
 									? 'row-start-1 pt-3 pl-2'
 									: 'pointer-events-none row-span-2 row-start-1 pl-7',
-								!isConversation && focusRingInset
+								focusRingInset
 							)}
 						>
 							{#if isConversation}
 								<!--
 									A real link, like the flat list: browse mode never delivers Enter
 									to the treegrid, and a link is the one thing every screen reader
-									activates there. It carries the roving tabindex, so the arrow keys
-									and the expand contract are unchanged.
+									activates there.
+
+									The roving tabindex sits on the CELL, not on this link, and the
+									difference is audible. This is the only cell in the row holding
+									both text and a focusable element carrying that same text, so with
+									focus on the link a reader announced the cell it had entered and
+									then the link inside it, and every arrow key read the subject
+									twice. The flat list carried the identical fault until its subject
+									cell took focus; heard here in grouped mode with NVDA before it
+									was changed, not inferred from the flat list.
+
+									Earlier revisions put the tabindex on the link on the grounds that
+									browse mode could otherwise not activate it. Listening disproved
+									that in the treegrid too, not only in the flat list: with
+									`tabindex="-1"` the anchor keeps its href and its link role, the
+									virtual cursor still finds it, and Enter still opens the message.
+									Both halves were heard here — the doubling before the change, the
+									activation and the single announcement after it.
 								-->
 								<a
 									href={rowHref(message.stableId, message.folderName)}
-									{...grid.cell(rowIndex, COL_SUBJECT)}
+									tabindex="-1"
 									onclick={(event) => handleRowLinkClick(event, row)}
 									class={cn(
 										'flex items-center gap-2 rounded-sm text-sm no-underline hover:underline',
-										unread ? 'text-foreground' : 'text-muted-foreground',
-										focusRingInset
+										unread ? 'text-foreground' : 'text-muted-foreground'
 									)}
 								>
 									{#if unread}
