@@ -549,6 +549,7 @@
 			"reference": "Help"
 		},
 		"appearance": {
+			"pageTitle": "Mail – Settings – Appearance",
 			"intro": "Adjust the theme and message reading layout.",
 			"theme": {
 				"heading": "Theme",
@@ -608,6 +609,7 @@
 			}
 		},
 		"language": {
+			"pageTitle": "Mail – Settings – Language",
 			"intro": "Language changes apply immediately in the UI and in the accessibility metadata used by screen readers.",
 			"heading": "Application language",
 			"hint": "The change applies immediately. The HTML lang attribute is updated so screen readers use the correct pronunciation.",
@@ -680,6 +682,7 @@
 			"loading": "Accounts are still loading."
 		},
 		"about": {
+			"pageTitle": "Mail – About",
 			"intro": "Basic application information and mail service connection status.",
 			"versions": {
 				"heading": "Versions",

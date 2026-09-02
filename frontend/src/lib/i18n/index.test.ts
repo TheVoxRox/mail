@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { get } from 'svelte/store';
+import csBundle from './messages/cs.json';
+import enBundle from './messages/en.json';
 
 /*
  * Each test re-imports ./index.js after vi.resetModules() (see freshModule()).
@@ -268,5 +270,59 @@ describe('bulk outcome messages — the failure clause only when there is a fail
 		const mod = await freshModule();
 		mod.setLocale('cs');
 		expect(get(mod._)(key, { values: { ...values, failed: 2 } })).toBe(withFail);
+	});
+});
+
+describe('route titles — one prefix, and never the application name', () => {
+	/*
+	 * A route title names the window, and since the landmark fix it names
+	 * <main> as well: the layout takes document.title verbatim. Three settings
+	 * pages used to lead with `app.title` while every other route led with the
+	 * product name, so the landmark said the application first and the page
+	 * last — and the layout carried a literal prefix strip to paper over it.
+	 * The titles were made uniform, the strip is gone, and this is what keeps
+	 * it gone.
+	 *
+	 * Asserted as a shape over both bundles, not as a list of expected strings:
+	 * a new route gets a title without anyone remembering this file, and a
+	 * hardcoded list would go stale in silence where a shared-prefix rule fails
+	 * out loud. The separator is the one the titles are written with, so a
+	 * title that omits it counts as its own prefix and trips the same rule.
+	 */
+	const bundles: Array<[string, Record<string, unknown>]> = [
+		['cs', csBundle],
+		['en', enBundle]
+	];
+
+	function routeTitles(bundle: Record<string, unknown>): Array<[string, string]> {
+		const found: Array<[string, string]> = [];
+		const walk = (node: unknown, path: string): void => {
+			if (typeof node === 'string') {
+				if (path.toLowerCase().includes('pagetitle')) found.push([path, node]);
+				return;
+			}
+			if (!node || typeof node !== 'object') return;
+			for (const [key, value] of Object.entries(node)) {
+				walk(value, path ? `${path}.${key}` : key);
+			}
+		};
+		walk(bundle, '');
+		return found;
+	}
+
+	it.each(bundles)('%s: every route title leads with the same prefix', (_locale, bundle) => {
+		const titles = routeTitles(bundle);
+		// Guards the walker itself: a rename of the key suffix would otherwise
+		// leave this suite green while asserting over nothing at all.
+		expect(titles.length).toBeGreaterThan(5);
+		expect([...new Set(titles.map(([, title]) => title.split(' – ')[0]))]).toHaveLength(1);
+	});
+
+	it.each(bundles)('%s: no route title leads with the application name', (_locale, bundle) => {
+		const appTitle = (bundle.app as Record<string, string>).title;
+		const offenders = routeTitles(bundle)
+			.filter(([, title]) => title.startsWith(`${appTitle} – `))
+			.map(([key]) => key);
+		expect(offenders).toEqual([]);
 	});
 });

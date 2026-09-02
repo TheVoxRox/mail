@@ -549,6 +549,7 @@
 			"reference": "Nápověda"
 		},
 		"appearance": {
+			"pageTitle": "Pošta – Nastavení – Vzhled",
 			"intro": "Upravte téma a rozložení čtení zpráv.",
 			"theme": {
 				"heading": "Téma",
@@ -608,6 +609,7 @@
 			}
 		},
 		"language": {
+			"pageTitle": "Pošta – Nastavení – Jazyk",
 			"intro": "Změna jazyka se projeví okamžitě v rozhraní i v atributech pro odečítače obrazovky.",
 			"heading": "Jazyk aplikace",
 			"hint": "Volba se projeví ihned. Také se podle ní nastavuje atribut lang v HTML pro odečítače obrazovky.",
@@ -680,6 +682,7 @@
 			"loading": "Účty se ještě nenačetly."
 		},
 		"about": {
+			"pageTitle": "Pošta – O aplikaci",
 			"intro": "Základní informace o aplikaci a stav připojení ke službě pošty.",
 			"versions": {
 				"heading": "Verze",
