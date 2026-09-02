@@ -91,7 +91,16 @@ test.describe('MSW bootstrap', () => {
 				.getByRole('navigation', { name: 'Přepínač prostředí' })
 				.getByRole('link', { name: 'Kontakty (Ctrl+2)' })
 		).toHaveAttribute('aria-current', 'page');
-		await expect(page.getByRole('main', { name: 'Kontakty' })).toBeFocused();
+		/*
+		 * The landmark is named after the route, not the workspace — it used to be
+		 * "Kontakty" here for every contacts route alike. Switching folders in mail
+		 * otherwise announced only "Pošta" and then began reading content, so the
+		 * folder was never said (heard with NVDA). The names below are the route
+		 * titles with an app-name prefix stripped, which is why the settings page
+		 * reads "Vzhled" while the others keep their "Pošta – " prefix: only three
+		 * settings pages title themselves after the application.
+		 */
+		await expect(page.getByRole('main', { name: 'Pošta – Kontakty' })).toBeFocused();
 
 		await page.keyboard.press('Control+3');
 		await page.waitForURL('**/settings/appearance');
@@ -104,7 +113,7 @@ test.describe('MSW bootstrap', () => {
 				.getByRole('link', { name: 'Kontakty (Ctrl+2)' })
 		).toHaveAttribute('aria-current', 'page');
 		await expect(page.getByRole('region', { name: 'Podokno kontaktů' })).toBeVisible();
-		await expect(page.getByRole('main', { name: 'Kontakty' })).toBeFocused();
+		await expect(page.getByRole('main', { name: 'Pošta – Kontakty' })).toBeFocused();
 
 		await page.keyboard.press('Control+3');
 		await page.waitForURL('**/settings/appearance');
@@ -114,7 +123,7 @@ test.describe('MSW bootstrap', () => {
 				.getByRole('link', { name: 'Nastavení (Ctrl+3)' })
 		).toHaveAttribute('aria-current', 'page');
 		await expect(page.getByRole('region', { name: 'Podokno nastavení' })).toBeVisible();
-		await expect(page.getByRole('main', { name: 'Nastavení' })).toBeFocused();
+		await expect(page.getByRole('main', { name: 'Vzhled' })).toBeFocused();
 
 		await page.keyboard.press('Control+1');
 		await page.waitForURL('**/mail/1/INBOX');
@@ -129,7 +138,7 @@ test.describe('MSW bootstrap', () => {
 		 * +layout.svelte), never on <body> — otherwise a keyboard user tabs
 		 * through the whole rail and sidebar before reaching the content.
 		 */
-		await expect(page.getByRole('main', { name: 'Pošta' })).toBeFocused();
+		await expect(page.getByRole('main', { name: 'Pošta – Doručené' })).toBeFocused();
 	});
 
 	test('Ctrl+2 přepne prostředí i s kurzorem v hledacím poli', async ({ page }) => {
@@ -147,7 +156,7 @@ test.describe('MSW bootstrap', () => {
 
 		await page.keyboard.press('Control+2');
 		await page.waitForURL('**/contacts');
-		await expect(page.getByRole('main', { name: 'Kontakty' })).toBeFocused();
+		await expect(page.getByRole('main', { name: 'Pošta – Kontakty' })).toBeFocused();
 	});
 
 	test('nastartuje aplikaci bez backendu a přesměruje na aktivní inbox', async ({ page }) => {
