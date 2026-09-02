@@ -201,3 +201,72 @@ describe('setLocale — persistence + DOM side-effects', () => {
 		expect(document.title).toBeTruthy();
 	});
 });
+
+describe('bulk outcome messages — the failure clause only when there is a failure', () => {
+	/*
+	 * "Smazáno: 4, selhalo: 0." was read aloud after every successful bulk
+	 * action, and a zero nobody needs to hear is noise a screen-reader user
+	 * pays for on every delete, move and flag. The clause is now an ICU
+	 * `plural` branch rather than a second key per action, because both mail
+	 * runners and both contacts call sites format through a bare
+	 * `$_(key, { values })` — a conditional in the message reaches all of them
+	 * without a suffix argument threaded through five call sites.
+	 *
+	 * Asserted by equality, not by substring: the e2e locators match on
+	 * substring, so they would still pass if the clause came back as
+	 * "Selhalo: 0." on the end.
+	 */
+	const cases: Array<[string, Record<string, string | number>, string, string]> = [
+		['messages.bulkDeleteDone', { count: 4 }, 'Smazáno: 4.', 'Smazáno: 4. Selhalo: 2.'],
+		[
+			'messages.bulkMarkReadDone',
+			{ count: 3 },
+			'Označeno jako přečtené: 3.',
+			'Označeno jako přečtené: 3. Selhalo: 2.'
+		],
+		[
+			'messages.bulkMarkUnreadDone',
+			{ count: 3 },
+			'Označeno jako nepřečtené: 3.',
+			'Označeno jako nepřečtené: 3. Selhalo: 2.'
+		],
+		[
+			'messages.bulkMoveDone',
+			{ count: 3, folder: 'Archiv' },
+			'Přesunuto do složky Archiv: 3.',
+			'Přesunuto do složky Archiv: 3. Selhalo: 2.'
+		],
+		[
+			'messages.bulkFlagDone',
+			{ count: 3 },
+			'Označeno hvězdičkou: 3.',
+			'Označeno hvězdičkou: 3. Selhalo: 2.'
+		],
+		[
+			'messages.bulkUnflagDone',
+			{ count: 3 },
+			'Hvězdička zrušena: 3.',
+			'Hvězdička zrušena: 3. Selhalo: 2.'
+		],
+		['contacts.bulkDeleteDone', { deleted: 5 }, 'Smazáno: 5.', 'Smazáno: 5. Selhalo: 2.'],
+		['contacts.vcardImportDone', { created: 7 }, 'Importováno: 7.', 'Importováno: 7. Selhalo: 2.'],
+		[
+			'contacts.vcardImportDoneSkipped',
+			{ created: 7, skipped: 1 },
+			'Importováno: 7. Přeskočeno bez e-mailu: 1.',
+			'Importováno: 7. Selhalo: 2. Přeskočeno bez e-mailu: 1.'
+		]
+	];
+
+	it.each(cases)('%s stays silent about zero failures', async (key, values, clean) => {
+		const mod = await freshModule();
+		mod.setLocale('cs');
+		expect(get(mod._)(key, { values: { ...values, failed: 0 } })).toBe(clean);
+	});
+
+	it.each(cases)('%s still reports a real failure count', async (key, values, _clean, withFail) => {
+		const mod = await freshModule();
+		mod.setLocale('cs');
+		expect(get(mod._)(key, { values: { ...values, failed: 2 } })).toBe(withFail);
+	});
+});
