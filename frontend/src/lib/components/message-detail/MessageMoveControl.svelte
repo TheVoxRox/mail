@@ -7,7 +7,7 @@
 	import { _ } from '$lib/i18n/index.js';
 	import { buttonVariants } from '$lib/components/ui/button/index.js';
 	import { DropdownMenu } from 'bits-ui';
-	import { menuContentVariants } from '$lib/components/ui/menu/index.js';
+	import { focusFirstMenuItem, menuContentVariants } from '$lib/components/ui/menu/index.js';
 	import Icon from '$lib/components/Icon.svelte';
 	import MoveTargetMenuItems from '$lib/components/MoveTargetMenuItems.svelte';
 	import { cn } from '$lib/utils.js';
@@ -63,6 +63,8 @@
 				align="start"
 				sideOffset={4}
 				loop
+				aria-label={$_('toolbar.move')}
+				onfocus={focusFirstMenuItem}
 				class={menuContentVariants({ scroll: true })}
 			>
 				<MoveTargetMenuItems targets={moveTargets} onMoveTo={handleMoveTo} />

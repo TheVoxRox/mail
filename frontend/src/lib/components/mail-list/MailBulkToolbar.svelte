@@ -21,7 +21,11 @@
 	 * outside reads them.
 	 */
 	import { DropdownMenu } from 'bits-ui';
-	import { menuContentVariants, menuItemVariants } from '$lib/components/ui/menu/index.js';
+	import {
+		focusFirstMenuItem,
+		menuContentVariants,
+		menuItemVariants
+	} from '$lib/components/ui/menu/index.js';
 	import Icon from '$lib/components/Icon.svelte';
 	import MoveTargetMenuItems from '$lib/components/MoveTargetMenuItems.svelte';
 	import { Button, buttonVariants } from '$lib/components/ui/button/index.js';
@@ -124,7 +128,14 @@
 				<Icon name="chevron-down" size={16} />
 			</DropdownMenu.Trigger>
 			<DropdownMenu.Portal>
-				<DropdownMenu.Content align="start" sideOffset={4} loop class={menuContentVariants()}>
+				<DropdownMenu.Content
+					align="start"
+					sideOffset={4}
+					loop
+					aria-label={$_('messages.bulkSeenMenu')}
+					onfocus={focusFirstMenuItem}
+					class={menuContentVariants()}
+				>
 					<DropdownMenu.Item class={menuItemVariants()} onSelect={() => onMarkSeen(true)}>
 						{$_('messages.bulkMarkRead')}
 					</DropdownMenu.Item>
@@ -148,6 +159,8 @@
 					align="start"
 					sideOffset={4}
 					loop
+					aria-label={$_('messages.bulkMove')}
+					onfocus={focusFirstMenuItem}
 					class={menuContentVariants({ scroll: true })}
 				>
 					<MoveTargetMenuItems targets={moveTargets} {onMoveTo} />

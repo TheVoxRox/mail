@@ -1,7 +1,11 @@
 <script lang="ts">
 	import { DropdownMenu } from 'bits-ui';
 	import { buttonVariants } from '$lib/components/ui/button/index.js';
-	import { menuContentVariants, menuItemVariants } from '$lib/components/ui/menu/index.js';
+	import {
+		focusFirstMenuItem,
+		menuContentVariants,
+		menuItemVariants
+	} from '$lib/components/ui/menu/index.js';
 	import { forwardMessage, replyToMessage } from '$lib/mail/actions.js';
 	import {
 		deleteMessages,
@@ -145,24 +149,7 @@
 			sideOffset={4}
 			loop
 			aria-label={triggerLabel}
-			onfocus={(e: FocusEvent & { currentTarget: HTMLElement }) => {
-				/*
-				 * Move focus off this container in the same task it arrived in.
-				 * bits-ui parks focus here on open and only reaches the first
-				 * item `afterTick` (menu.svelte.js, MenuContentState.onfocus) —
-				 * measured as menu -> menuitem -> menu -> menuitem inside 12 ms.
-				 * NVDA processes the container during that gap, and role="menu"
-				 * carries no value of its own, so it announces the name and then
-				 * reads every item (heard 2026-09-02, Space and Enter alike).
-				 * Our handler runs before theirs (composeHandlers), so landing
-				 * the first item synchronously closes the gap; their afterTick
-				 * then finds focus already where it wanted it.
-				 */
-				if (e.target !== e.currentTarget) return;
-				e.currentTarget
-					.querySelector<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"])')
-					?.focus();
-			}}
+			onfocus={focusFirstMenuItem}
 			class={menuContentVariants()}
 		>
 			<DropdownMenu.Item class={defaultItemClass} onSelect={() => effectiveActions.reply(false)}>

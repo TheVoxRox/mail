@@ -1,1 +1,1 @@
-export { menuContentVariants, menuItemVariants } from './menu.js';
+export { focusFirstMenuItem, menuContentVariants, menuItemVariants } from './menu.js';
