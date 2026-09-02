@@ -172,6 +172,52 @@
 }
 
 /*
+ * SvelteKit's built-in route announcer, silenced on purpose.
+ *
+ * The framework injects `<div id="svelte-announcer" aria-live="assertive">`
+ * into every page and writes document.title into it after each navigation,
+ * standing in for the page load a client-side navigation never fires. This app
+ * does not need that stand-in, and paid for it twice.
+ *
+ * It duplicated. After every navigation the app moves focus to <main>
+ * (focusMainIfUnclaimed in frontend/src/routes/+layout.svelte) — the pattern
+ * user testing of client-side routing found people preferred — and the
+ * announcer then repeated what landing there had already said. Split
+ * reading-pane mode made it plain: there every arrow key is a full navigation,
+ * so merely browsing a list read each subject out a second time.
+ *
+ * And it interrupted. `assertive` clears the speech queue, so it did not queue
+ * behind the app's own polite announcements, it cut in front of them —
+ * measured after deleting a message, where the route title arrived before
+ * "message deleted" from LiveAnnouncer.
+ *
+ * It was also, often, wrong. SvelteKit samples document.title one tick after
+ * the page store updates, and the new route's <svelte:head> title lands after
+ * that: measured on the shortcuts page, document.title was already correct
+ * while the region still held the app name from the page before it. The
+ * interruption named the page the user had just left. Only the announcer is
+ * affected: the native window title mirrors document.title through an observer
+ * (frontend/src/routes/+layout.svelte) and stays correct.
+ *
+ * The redundancy an announcer buys elsewhere does not apply here. It exists for
+ * browser/screen-reader pairs that fail to announce a moved focus (NVDA with
+ * Firefox, VoiceOver with Safari); this app ships one engine, WebView2. And
+ * "where am I" still has an on-demand answer in that same native window title,
+ * which NVDA+T reads.
+ *
+ * `display: none` rather than an attribute, because the element is generated
+ * code we do not own and SvelteKit exposes no way to disable or configure it.
+ * Being out of the accessibility tree also keeps the bare page title from
+ * turning up as stray text at the end of the document in browse mode.
+ * SvelteKit still writes into the element; nothing reads it any more, which is
+ * what the cover in frontend/src/routes/a11y.e2e.ts asserts — that the writes
+ * still happen and still cannot be heard.
+ */
+#svelte-announcer {
+	display: none;
+}
+
+/*
  * Visually hidden text that stays accessible to screen readers, but becomes
  * visible on focus (skip-link). Plain `sr-only` is NOT defined here: Tailwind
  * ships it, and a local copy only ever re-stated it with the deprecated `clip`

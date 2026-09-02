@@ -211,15 +211,24 @@
 	{#if renderAsHtml}
 		{#if showRemoteBanner}
 			<!--
-				Opt-in banner for blocked remote images. Polite live region (does not
-				steal focus from the auto-focused body); the two buttons are the only
+				Opt-in banner for blocked remote images; the two buttons are the only
 				way remote content ever loads.
+
+				A named region, deliberately NOT a live region. It used to be
+				`aria-live="polite"` so that opening a message would mention the
+				blocked images without stealing focus from the auto-focused body.
+				That reasoning holds for deliberately opening a message with Enter,
+				but in split mode every arrow key is a full navigation: the reading
+				pane reloads per row, and the region read itself out in full —
+				label, count and both button names — on top of the row the reader
+				had just announced. The banner is still reachable without it: the
+				region is named, so the landmark key (D) reaches it, and both
+				buttons sit in the tab order between the row and the body.
 			-->
 			<div
 				class="mb-2 flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted px-3 py-2 text-sm"
 				role="region"
 				aria-label={$_('detail.remoteImages.regionLabel')}
-				aria-live="polite"
 			>
 				<span class="text-muted-foreground">
 					{$_('detail.remoteImages.blocked', { values: { count: remoteImageCount } })}

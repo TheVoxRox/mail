@@ -41,3 +41,26 @@ test('vzdálené obrázky jsou blokované, dokud je uživatel nenačte', async (
 	expect(after).toContain('img-src data: https:');
 	expect(after).not.toContain('data-voxrox-remote-src');
 });
+
+test('baner blokovaných obrázků se nečte sám', async ({ page }) => {
+	await openApp(page, '/mail/1/INBOX/msg-02');
+
+	const banner = page.getByRole('region', { name: 'Blokované vzdálené obrázky' });
+	await expect(banner).toBeVisible();
+
+	/*
+	 * The banner used to be a polite live region. In split mode every arrow key
+	 * is a full navigation, so the reading pane reloads per row and the region
+	 * read itself out in full — label, count and both button names — over the
+	 * row the reader had just announced. What replaces it is reachability, not
+	 * an announcement: the region keeps its name for the landmark key, and both
+	 * buttons stay in the tab order (asserted above by clicking one by name).
+	 */
+	const liveAncestor = await banner.evaluate((element) => {
+		const live = element.closest('[aria-live]');
+		return live
+			? `${live.tagName.toLowerCase()}[aria-live=${live.getAttribute('aria-live')}]`
+			: null;
+	});
+	expect(liveAncestor).toBeNull();
+});
