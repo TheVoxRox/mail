@@ -96,9 +96,8 @@ test.describe('MSW bootstrap', () => {
 		 * "Kontakty" here for every contacts route alike. Switching folders in mail
 		 * otherwise announced only "Pošta" and then began reading content, so the
 		 * folder was never said (heard with NVDA). The names below are the route
-		 * titles with an app-name prefix stripped, which is why the settings page
-		 * reads "Vzhled" while the others keep their "Pošta – " prefix: only three
-		 * settings pages title themselves after the application.
+		 * titles verbatim; the settings page carries the "Nastavení" level because
+		 * it sits in the sidebar's primary group, the way Účty already did.
 		 */
 		await expect(page.getByRole('main', { name: 'Pošta – Kontakty' })).toBeFocused();
 
@@ -123,7 +122,7 @@ test.describe('MSW bootstrap', () => {
 				.getByRole('link', { name: 'Nastavení (Ctrl+3)' })
 		).toHaveAttribute('aria-current', 'page');
 		await expect(page.getByRole('region', { name: 'Podokno nastavení' })).toBeVisible();
-		await expect(page.getByRole('main', { name: 'Vzhled' })).toBeFocused();
+		await expect(page.getByRole('main', { name: 'Pošta – Nastavení – Vzhled' })).toBeFocused();
 
 		await page.keyboard.press('Control+1');
 		await page.waitForURL('**/mail/1/INBOX');

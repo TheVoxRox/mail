@@ -90,20 +90,14 @@
 	 * in split mode the empty reading-pane placeholder — so the folder was
 	 * never announced at all and could only be had on demand via NVDA+T.
 	 *
-	 * The app-name prefix comes off first. Route titles are not uniform: mail
-	 * and contacts prefix the product name, while three settings pages prefix
-	 * `app.title` instead, which as a landmark name repeats what the window
-	 * title already says and pushes the useful half to the end. The strip is
-	 * deliberately literal — an
-	 * exact `app.title` prefix and separator, nothing cleverer — so a title that
-	 * happens to start with something similar is left alone.
+	 * The route title is taken whole. That used to need a strip: three settings
+	 * pages titled themselves "{app.title} – {page}" while every other route
+	 * prefixed the product name, so the landmark repeated what the window title
+	 * already said and pushed the useful half to the end. The titles were made
+	 * uniform instead, which is why nothing is trimmed here — a title that needs
+	 * shortening is shortened where it is written.
 	 */
-	const appTitlePrefix = $derived(`${$_('app.title')} – `);
-	const mainLandmarkLabel = $derived(
-		(routeTitle.startsWith(appTitlePrefix)
-			? routeTitle.slice(appTitlePrefix.length)
-			: routeTitle) || $_(`workspace.${currentWorkspaceMode()}`)
-	);
+	const mainLandmarkLabel = $derived(routeTitle || $_(`workspace.${currentWorkspaceMode()}`));
 
 	/*
 	 * Native OS window title (taskbar / Alt+Tab, and the name a screen reader

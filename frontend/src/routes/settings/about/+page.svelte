@@ -5,7 +5,7 @@
 </script>
 
 <svelte:head>
-	<title>{$_('app.title')} – {$_('settings.nav.about')}</title>
+	<title>{$_('settings.about.pageTitle')}</title>
 </svelte:head>
 
 <PageShell title={$_('settings.nav.about')} description={$_('settings.about.intro')}>
