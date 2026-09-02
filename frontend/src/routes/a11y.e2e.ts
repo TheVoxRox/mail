@@ -9,6 +9,7 @@ import {
 	setMockFlags,
 	setPrefs,
 	waitForFocus,
+	waitForRootRedirect,
 	wcagScan
 } from './e2e-helpers';
 
@@ -82,6 +83,46 @@ test.describe('Přístupnost', () => {
 		await expect(shortcutsLink).toHaveAttribute('href', '/settings/shortcuts');
 		await shortcutsLink.focus();
 		await expect(shortcutsLink).toBeVisible();
+	});
+
+	test('vestavěný oznamovač route je umlčený', async ({ page }) => {
+		await openApp(page, '/');
+		/*
+		 * The root redirect has to land before the test navigates itself, or the
+		 * two race and the redirect wins — which is how this test first failed,
+		 * on `toHaveURL`, with the app back at the mailbox.
+		 */
+		await waitForRootRedirect(page);
+
+		const announcer = page.locator('#svelte-announcer');
+		await expect(announcer).toBeAttached();
+
+		/*
+		 * A client-side navigation is what makes SvelteKit write into the
+		 * announcer, so the assertion needs one — over a plain load the region
+		 * can still be empty and the test would be passing on nothing.
+		 *
+		 * Worth noting what it writes. document.title is correct here, but the
+		 * region holds the title from *before* the navigation: SvelteKit samples
+		 * document.title one tick after the page store updates, and the new
+		 * route's <svelte:head> title lands after that. So the announcement was
+		 * not merely duplicating the focus move to <main> — it was naming the
+		 * page the user had just left.
+		 */
+		const shortcutsLink = page.getByRole('link', { name: 'Přejít na klávesové zkratky' });
+		await shortcutsLink.focus();
+		await shortcutsLink.press('Enter');
+		await expect(page).toHaveURL(/\/settings\/shortcuts/);
+		await expect(page).toHaveTitle('Pošta – Klávesové zkratky');
+		await expect(announcer).not.toBeEmpty();
+
+		/*
+		 * The write still happens and still cannot be heard: `display: none`
+		 * (see app.css) keeps the region out of the accessibility tree, so its
+		 * assertive live region never fires. What announces the route instead is
+		 * the focus move to <main> that the layout does after every navigation.
+		 */
+		await expect(announcer).toBeHidden();
 	});
 
 	test('stránka má správné ARIA landmarks', async ({ page }) => {

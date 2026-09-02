@@ -149,7 +149,7 @@
   "docs/CONTENT_RENDERING_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/util/HtmlSanitizer.java": "f0fe05868ad59a30ce75badc6529c68d7e55641f",
-      "frontend/src/lib/components/message-detail": "8d800cdff421f5cf9b6b9e6d1ddb6da26e5b638f",
+      "frontend/src/lib/components/message-detail": "599c0bdcbd10ba9624bca32ad667563f26bc085d",
       "frontend/src/lib/mail/mailFrame.ts": "493e543a3e79dc5e9b2f4c91705c5b44cda39f3d"
     },
     "acknowledgements": [
@@ -164,6 +164,10 @@
       {
         "date": "2026-08-31",
         "note": "The in-frame forwarder now cancels the browser default for the shortcut combinations the app claims, so a keystroke read inside the message body no longer runs a webview accelerator on top of the app action (Ctrl+Shift+G both flagged the message and opened the find bar). Checked rather than assumed: the script diff is a single insertion of 154 characters at one position - an if guard plus e.preventDefault() - with nothing removed, so the postMessage payload is byte-identical, no listener is added and the frame gains no capability it did not already have. Everything the audit asserts is untouched: the sandbox attribute, the opaque origin, default-src none, and the rule that exactly one script may execute. The CSP hash moved with the script and is still the sole script-src entry, which its own suite recomputes and buildMailFrameSrcdoc asserts embeds only one script element. Cancelling a default is a capability the frame already had - it is what the click bridge does one line below. Verdict stays PASS."
+      },
+      {
+        "date": "2026-09-02",
+        "note": "One ARIA attribute removed from the blocked-remote-images banner, plus the comment above it rewritten to say why. Checked rather than assumed: the whole diff under this path is those two hunks in MessageContent.svelte, and `git diff` between the recorded tree and the current one shows nothing else. The banner div loses `aria-live=\"polite\"` and keeps `role=\"region\"` and its label, because in split reading-pane mode every arrow key reloads the pane and the live region read itself out over the row the screen reader had just announced. Everything F2 rests on is outside the diff: `showRemoteBanner`, both opt-in handlers (`loadRemoteImages` and `trustSender`), the allow-list call, and `buildMailFrameSrcdoc`, which is what decides whether a remote URL stays inert in `data-voxrox-remote-src` under `img-src data:` or is promoted to a live `src` under the relaxed CSP. No remote content loads a moment sooner or later than before; only whether a screen reader speaks the banner unprompted changed. Verdict stays PASS."
       }
     ]
   }
