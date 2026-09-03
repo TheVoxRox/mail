@@ -9,7 +9,7 @@
 		isOpenableMailLink,
 		mailFrameKeyToEvent
 	} from '$lib/mail/mailFrame.js';
-	import { bodyFocusIntent, clearBodyFocusIntent } from '$lib/mail/bodyFocus.js';
+	import { bodyFocusIntent, clearBodyFocusIntent, shouldFocusBody } from '$lib/mail/bodyFocus.js';
 	import { mailHtmlToPlainText } from '$lib/mail/content-sanitizer.js';
 	import { allowSenderRemoteImages } from '$lib/api/remoteImages.js';
 	import { pushToast } from '$lib/stores/toasts.js';
@@ -127,13 +127,12 @@
 	$effect(() => {
 		const target = renderAsHtml ? frameElement : textElement;
 		if (!target) return;
-		const intent = $bodyFocusIntent?.stableId === stableId ? $bodyFocusIntent.mode : null;
 		const firstRender = focusedStableId !== stableId;
 		focusedStableId = stableId;
-		// An explicit open wins even on a re-render (Enter on the row whose
-		// message the pane already shows); otherwise only the first render of a
-		// message moves focus, and never one the roving selection dragged in.
-		if (intent !== 'open' && (!firstRender || intent === 'follow')) return;
+		// The rule lives in mail/bodyFocus.ts, where the case that broke it is
+		// written down: an intent naming another message means two navigations
+		// overlapped, which is not the same as no intent at all.
+		if (!shouldFocusBody($bodyFocusIntent, stableId, firstRender)) return;
 		// Consumed here rather than after the frame: the intent is single-use.
 		// The effect deliberately has no cleanup — clearing the store re-runs
 		// it, and a cleanup would cancel the frame it just scheduled; the
