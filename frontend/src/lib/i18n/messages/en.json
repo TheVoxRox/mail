@@ -197,7 +197,9 @@
 			"load": "Load images",
 			"alwaysAllow": "Always from this sender",
 			"allowError": "Could not add the sender to your trusted list. Please try again.",
-			"regionLabel": "Blocked remote images"
+			"regionLabel": "Blocked remote images",
+			"loadedAnnouncement": "Remote images loaded.",
+			"senderAllowedAnnouncement": "Sender added to your trusted list, remote images loaded."
 		}
 	},
 	"compose": {
@@ -819,6 +821,7 @@
 		"goToAccounts": "Go to accounts"
 	},
 	"root": {
+		"pageTitle": "Mail – Welcome",
 		"loadingMail": "Loading mail…"
 	},
 	"update": {

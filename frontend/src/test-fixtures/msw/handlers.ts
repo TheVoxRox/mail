@@ -935,6 +935,42 @@ function authRoutes(method: string, segments: string[]): MockResponse | null {
 	return null;
 }
 
+/**
+ * The per-sender remote-image allow-list. Missing until the banner's second
+ * button got a test: without a handler the PUT fell through to the mock's 404,
+ * so "Vždy od tohoto odesílatele" took the error path in every e2e run while
+ * looking like it worked — nothing asserted it, and the banner it leaves
+ * standing is also what a failed attempt leaves standing.
+ */
+function remoteImageRoutes(
+	method: string,
+	segments: string[],
+	request: Request
+): Promise<MockResponse> | MockResponse | null {
+	if (segments[0] !== 'remote-images' || segments[1] !== 'allowlist') return null;
+
+	if (method === 'GET') {
+		const accountId = Number(new URL(request.url).searchParams.get('accountId') ?? 0);
+		return HttpResponse.json(fixtureState.remoteImageAllowlist[accountId] ?? []);
+	}
+	if (method === 'PUT' || method === 'DELETE') {
+		return request.json().then((body) => {
+			const { accountId, senderEmail } = body as { accountId: number; senderEmail: string };
+			const current = fixtureState.remoteImageAllowlist[accountId] ?? [];
+			// Both verbs are idempotent on the real endpoint, so neither reports
+			// whether it changed anything.
+			fixtureState.remoteImageAllowlist[accountId] =
+				method === 'PUT'
+					? current.includes(senderEmail)
+						? current
+						: [...current, senderEmail]
+					: current.filter((email) => email !== senderEmail);
+			return noContent();
+		});
+	}
+	return null;
+}
+
 function notificationRoutes(method: string, segments: string[]): MockResponse | null {
 	if (segments[0] === 'notifications' && segments[1] === 'stream' && method === 'GET') {
 		return openSyncStream();
@@ -1048,6 +1084,7 @@ async function routeApiRequest(request: Request): Promise<MockResponse> {
 		contactLabelRoutes(method, segments, request) ??
 		messageRoutes(method, segments, request) ??
 		authRoutes(method, segments) ??
+		remoteImageRoutes(method, segments, request) ??
 		notificationRoutes(method, segments);
 
 	if (response) return response;

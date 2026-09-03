@@ -67,15 +67,6 @@
 	const diagnosticDisabled = $derived(diagnosticBusy || $sessionState.status !== 'ready');
 
 	/*
-	 * The aria-label for <main> in the ready state. It deliberately does NOT
-	 * prefix with "Main content:" — screen readers append "main region" (or the
-	 * localised equivalent) from role=main by themselves, so prefixing would
-	 * duplicate it ("Main content: Settings, main region"). A landmark's label
-	 * carries only the context, never the role name. Boot/error <main> elements
-	 * have no label at all: their state is transitive and the generic landmark
-	 * announcement is enough.
-	 */
-	/*
 	 * Mirrored from document.title by the observer below, so the route keeps
 	 * owning what it is called and the layout does not grow a second copy of
 	 * that logic — the same reason the native window title is mirrored rather
@@ -84,6 +75,14 @@
 	let routeTitle = $state('');
 
 	/*
+	 * The aria-label for <main> in the ready state. It deliberately does NOT
+	 * prefix with "Main content:" — screen readers append "main region" (or the
+	 * localised equivalent) from role=main by themselves, so prefixing would
+	 * duplicate it ("Main content: Settings, main region"). A landmark's label
+	 * carries only the context, never the role name. Boot/error <main> elements
+	 * have no label at all: their state is transitive and the generic landmark
+	 * announcement is enough.
+	 *
 	 * Named after the route, not the workspace. Measured with NVDA: after
 	 * switching folders the app moves focus here, and with the name fixed at
 	 * the workspace name the landing said just that, then began reading content —

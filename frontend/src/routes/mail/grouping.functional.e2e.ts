@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import {
 	conversationGrid,
 	messageGrid,
@@ -430,6 +430,103 @@ test.describe('Rozbalení konverzace', () => {
 		const link = rovingTarget.locator('a');
 		await expect(link).toHaveAttribute('tabindex', '-1');
 		await expect(link).toHaveRole('link');
+	});
+
+	test('buňky konverzace i člena kreslí focus ring se stejným zaoblením', async ({ page }) => {
+		/*
+		 * `focusRingInset` is an inset box-shadow, so the ring's corners are
+		 * whatever `border-radius` sits on the element drawing it. The subject
+		 * cell had lost that class to the link inside it when the roving tabindex
+		 * moved out, so one cell per row flashed a square ring while its
+		 * neighbours flashed rounded ones.
+		 *
+		 * The cross-folder member is the row that makes this worth asserting
+		 * twice: select, expand and actions are empty divs there — nothing to
+		 * tick, nothing to expand, nothing to act on — so those three draw the
+		 * ring themselves instead of handing it to a native control.
+		 */
+		await setMockFlags(page, { inboxThreadMember: true });
+		await openApp(page, `/mail/${accountId}/ARCHIVE`);
+
+		const parent = archiveRow(page, 'arch-03');
+		await expect(parent).toBeVisible();
+		await parent.locator('[data-expand-toggle]').click();
+
+		const member = archiveMember(page, 'inbox-plan-01');
+		await expect(member).toBeVisible();
+
+		const radiiOf = (row: Locator, cols: number[]) =>
+			row.evaluate(
+				(el, wanted) =>
+					wanted.map((col) => {
+						const cell = el.querySelector(`[data-cell-target][data-col="${col}"]`);
+						return cell ? getComputedStyle(cell).borderRadius : null;
+					}),
+				cols
+			);
+
+		// A conversation row: status, subject, sender, date. Its select, expand
+		// and actions columns hold a checkbox, a toggle and a menu trigger, each
+		// carrying a radius of its own — those are not this rule's business.
+		const parentRadii = await radiiOf(parent, [2, 3, 4, 5]);
+		expect(parentRadii).not.toContain(null);
+		expect(new Set(parentRadii).size).toBe(1);
+		// Equality alone would also hold with every corner square, which is the
+		// state this test exists to keep out.
+		expect(parentRadii[0]).not.toBe('0px');
+
+		// The cross-folder member: every one of its seven columns is a cell that
+		// draws its own ring.
+		const memberRadii = await radiiOf(member, [0, 1, 2, 3, 4, 5, 6]);
+		expect(memberRadii).not.toContain(null);
+		expect(new Set(memberRadii).size).toBe(1);
+		expect(memberRadii[0]).not.toBe('0px');
+	});
+
+	test('fokus nese buňka odesílatele členské řádky, ne odkaz uvnitř ní', async ({ page }) => {
+		/*
+		 * The third row of the same structure the two subject columns already
+		 * dropped, and the one that outlived both fixes. A member row is read
+		 * through its SENDER cell — readingAnchorCol sends the cursor there,
+		 * because a member's subject cell is deliberately empty — and that cell
+		 * holds the counterpart's name together with a link carrying the same
+		 * name, which is exactly the pair that made a screen reader announce the
+		 * cell and then the element inside it.
+		 *
+		 * Unlike the two subject columns, this one was NOT heard: it is derived
+		 * from a structure whose fix listening settled twice. So what is asserted
+		 * here is the structure and the activation, never the announcement.
+		 */
+		await openApp(page, `/mail/${accountId}/ARCHIVE`);
+
+		const parent = archiveRow(page, 'arch-03');
+		await expect(parent).toBeVisible();
+		await parent.locator('[data-expand-toggle]').click();
+
+		const member = archiveMember(page, 'arch-02');
+		await expect(member).toBeVisible();
+
+		/*
+		 * Through what the treegrid actually moves focus to, like the two tests
+		 * above: naming the gridcell directly fails with "element not found" the
+		 * moment the target slips back onto the link, which is true and silent
+		 * about why it matters.
+		 */
+		const rovingTarget = member.locator('[data-cell-target][data-col="4"]');
+		await expect(rovingTarget).toHaveAttribute('role', 'gridcell');
+		await rovingTarget.focus();
+		await expect(rovingTarget).toBeFocused();
+
+		// The anchor keeps href and role so browse mode still activates it, and
+		// stays out of the tab order so the cell is what gets announced.
+		const link = rovingTarget.locator('a');
+		await expect(link).toHaveAttribute('tabindex', '-1');
+		await expect(link).toHaveRole('link');
+
+		// And the cell that now holds focus still opens the member's message:
+		// moving the tabindex must not cost the row its activation.
+		await rovingTarget.press('Enter');
+		await page.waitForURL(`**/mail/${accountId}/ARCHIVE/arch-02`);
 	});
 
 	test('otevření člena rozbaleného vlákna přejde na jeho zprávu', async ({ page }) => {

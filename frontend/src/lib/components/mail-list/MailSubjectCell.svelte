@@ -62,14 +62,14 @@
 	role="gridcell"
 	aria-colindex={colIndex}
 	{...cell}
-	class={cn('min-w-0 px-2 pt-3', placement, focusRingInset)}
+	class={cn('min-w-0 rounded-sm px-2 pt-3', placement, focusRingInset)}
 >
 	<a
 		{href}
 		tabindex="-1"
 		{onclick}
 		class={cn(
-			'block truncate rounded-sm text-sm no-underline hover:underline',
+			'block truncate text-sm no-underline hover:underline',
 			unread ? 'text-foreground' : 'text-muted-foreground'
 		)}
 	>

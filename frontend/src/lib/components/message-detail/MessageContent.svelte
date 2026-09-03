@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getContext } from 'svelte';
+	import { getContext, tick } from 'svelte';
 	import { _ } from '$lib/i18n/index.js';
 	import {
 		buildMailFrameSrcdoc,
@@ -69,17 +69,39 @@
 	const showRemoteBanner = $derived(remoteImageCount > 0 && !loadRemoteImages);
 	let allowInFlight = $state(false);
 
+	/*
+	 * Loading the images unmounts the banner the pressed button lives in, and the
+	 * button takes focus down with it — focus falls back to <body>, where a
+	 * screen reader has nothing to read and no way back except the landmark key.
+	 * So both halves of the press are done here rather than inline: focus moves
+	 * to the frame (the target the deliberate-open path already uses, and the
+	 * thing the user just asked to see), and the outcome is announced.
+	 *
+	 * The announcement goes through pushToast, which writes into the persistent
+	 * polite region ToastRegion keeps mounted. This is not the banner's old live
+	 * region coming back: that one re-read itself on every render, which in split
+	 * mode meant every arrow key. This fires on a press.
+	 */
+	function revealRemoteImages(announcement: string): void {
+		loadRemoteImages = true;
+		pushToast(announcement, { tone: 'success' });
+		void tick().then(() => {
+			if (frameElement?.isConnected) frameElement.focus();
+		});
+	}
+
 	/* "Always from this sender": persist to the allow-list, then load for this view. */
 	async function trustSender(): Promise<void> {
 		if (accountId <= 0 || !senderEmail) {
-			// No key to persist against — still honor the intent for this view only.
-			loadRemoteImages = true;
+			// No key to persist against — still honor the intent for this view only,
+			// and announce only that, because nothing was remembered.
+			revealRemoteImages($_('detail.remoteImages.loadedAnnouncement'));
 			return;
 		}
 		allowInFlight = true;
 		try {
 			await allowSenderRemoteImages(accountId, senderEmail);
-			loadRemoteImages = true;
+			revealRemoteImages($_('detail.remoteImages.senderAllowedAnnouncement'));
 		} catch (error) {
 			console.warn('[mail] failed to trust sender for remote images', error);
 			pushToast($_('detail.remoteImages.allowError'), { tone: 'error' });
@@ -224,6 +246,9 @@
 				had just announced. The banner is still reachable without it: the
 				region is named, so the landmark key (D) reaches it, and both
 				buttons sit in the tab order between the row and the body.
+
+				Pressing either button unmounts this entire region, so neither
+				button can be what reports the result — see revealRemoteImages.
 			-->
 			<div
 				class="mb-2 flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted px-3 py-2 text-sm"
@@ -234,7 +259,11 @@
 					{$_('detail.remoteImages.blocked', { values: { count: remoteImageCount } })}
 				</span>
 				<div class="ml-auto flex gap-2">
-					<Button variant="outline" size="sm" onclick={() => (loadRemoteImages = true)}>
+					<Button
+						variant="outline"
+						size="sm"
+						onclick={() => revealRemoteImages($_('detail.remoteImages.loadedAnnouncement'))}
+					>
 						{$_('detail.remoteImages.load')}
 					</Button>
 					<Button variant="ghost" size="sm" disabled={allowInFlight} onclick={trustSender}>

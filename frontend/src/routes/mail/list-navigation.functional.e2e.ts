@@ -260,6 +260,41 @@ test.describe('Seznam zpráv ve split režimu', () => {
 		await waitForFocus(frame);
 	});
 
+	test('kliknutí myší na předmět zapíše roving pozici, kam uživatel klikl', async ({ page }) => {
+		/*
+		 * The roving tabindex sits on the subject CELL and the link inside it is
+		 * `tabindex="-1"`, so a mouse click lands on the link, not on the cell.
+		 * The cell learns about it through `focusin`, which bubbles; `focus`,
+		 * which the cell listened for first, does not — and every keyboard path
+		 * calls `track` on its own, so the gap was invisible until a mouse and a
+		 * keyboard were used in that order.
+		 *
+		 * Asserted on the roving position (which cell carries `tabindex="0"`)
+		 * rather than on document.activeElement: after a click in split mode the
+		 * pane takes over, and where focus ends up is a different contract from
+		 * where the next Arrow key will resume.
+		 */
+		await setPrefs(page, { readingPane: 'right' });
+		await openApp(page, '/mail/1/INBOX');
+
+		const subjectOf = (stableId: string) =>
+			page.locator(`[role="row"][data-stable-id="${stableId}"] [data-col="2"]`);
+
+		// Start the roving position on the first row, with the keyboard.
+		await expect(subjectOf('msg-01')).toBeVisible();
+		await subjectOf('msg-01').focus();
+		await expect(subjectOf('msg-01')).toHaveAttribute('tabindex', '0');
+
+		// Then open a different row with the mouse, on the link inside the cell.
+		await subjectOf('msg-03').locator('a').click();
+		await page.waitForURL('**/mail/1/INBOX/msg-03');
+
+		// The roving position moved with the click: the row that was clicked is
+		// the one Tab returns to, and the one the next Arrow key steps from.
+		await expect(subjectOf('msg-03')).toHaveAttribute('tabindex', '0');
+		await expect(subjectOf('msg-01')).toHaveAttribute('tabindex', '-1');
+	});
+
 	test('šipka ve split režimu zaostří řádek jen jednou', async ({ page }) => {
 		await setPrefs(page, { readingPane: 'right' });
 		await openApp(page, '/mail/1/INBOX');

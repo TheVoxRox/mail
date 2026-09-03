@@ -24,10 +24,10 @@ import { openApp, rowsOf, setPrefs } from '../e2e-helpers';
  * `aria-colindex` values, which are `COL_* + 1` in the components and differ
  * between the two grids: the search results have no select column and carry a
  * folder column the inbox does not. Cells are addressed by these rather than by
- * the roving `data-col`, because `data-col` sits on the focusable element
- * inside the cell (the subject link) and its box is the cell's minus padding —
- * measuring the two grids through different boxes would let one case tolerate
- * what the other catches.
+ * the roving `data-col`, because `data-col` marks whatever the grid moves
+ * focus to, which is the cell in most columns and a native control in the rest
+ * (checkbox, expand toggle, menu trigger) — measuring the two grids through
+ * different boxes would let one case tolerate what the other catches.
  */
 const INBOX_COLS = { status: 2, subject: 3, sender: 4, actions: 6 };
 const SEARCH_COLS = { status: 1, subject: 2 };
@@ -166,6 +166,36 @@ test.describe('Sloupce plochých seznamů', () => {
 	 * produces a recipient-less draft, and the property under test is the CSS
 	 * floor, not the data path that reaches it.
 	 */
+	test('buňky řádku kreslí focus ring se stejným zaoblením', async ({ page }) => {
+		/*
+		 * `focusRingInset` is an inset box-shadow, so the ring's corners are
+		 * whatever `border-radius` the element it sits on has. The subject cell
+		 * was the one cell in the row without the rounding its neighbours carry:
+		 * the class stayed behind on the link when the roving tabindex moved out
+		 * to the cell, so arrowing along a row drew four rounded rings and one
+		 * square one — visible only while moving, which is why it survived.
+		 */
+		await openApp(page, '/mail/1/INBOX');
+
+		const row = page.locator('[role="row"][data-stable-id="msg-01"]');
+		await expect(row).toBeVisible();
+
+		// Status, subject, sender, date — the four cells that carry the ring
+		// themselves. Select and actions hold a native control instead.
+		const radii = await row.evaluate((el) =>
+			[1, 2, 3, 4].map((col) => {
+				const cell = el.querySelector(`[data-cell-target][data-col="${col}"]`);
+				return cell ? getComputedStyle(cell).borderRadius : null;
+			})
+		);
+
+		expect(radii).not.toContain(null);
+		expect(new Set(radii).size).toBe(1);
+		// Equality alone would also hold with every corner square, which is the
+		// state this is here to keep out.
+		expect(radii[0]).not.toBe('0px');
+	});
+
 	test('prázdná buňka odesílatele nezkrátí řádek', async ({ page }) => {
 		const grid = await openGrid(page, '/mail/1/INBOX', 'Seznam zpráv');
 

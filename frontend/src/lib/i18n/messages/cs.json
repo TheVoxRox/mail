@@ -197,7 +197,9 @@
 			"load": "Načíst obrázky",
 			"alwaysAllow": "Vždy od tohoto odesílatele",
 			"allowError": "Odesílatele se nepodařilo přidat mezi důvěryhodné. Zkuste to znovu.",
-			"regionLabel": "Blokované vzdálené obrázky"
+			"regionLabel": "Blokované vzdálené obrázky",
+			"loadedAnnouncement": "Vzdálené obrázky načteny.",
+			"senderAllowedAnnouncement": "Odesílatel přidán mezi důvěryhodné, vzdálené obrázky načteny."
 		}
 	},
 	"compose": {
@@ -819,6 +821,7 @@
 		"goToAccounts": "Přejít na účty"
 	},
 	"root": {
+		"pageTitle": "Pošta – Vítejte",
 		"loadingMail": "Načítám poštu…"
 	},
 	"update": {

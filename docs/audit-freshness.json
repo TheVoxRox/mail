@@ -115,7 +115,7 @@
   "docs/CONTENT_RENDERING_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/util/HtmlSanitizer.java": "f0fe05868ad59a30ce75badc6529c68d7e55641f",
-      "frontend/src/lib/components/message-detail": "e5672d6ce768238e3ccc38aacb31c6ffd823c14e",
+      "frontend/src/lib/components/message-detail": "f86825edf81c3308cd3ac38b2df157df39455998",
       "frontend/src/lib/mail/mailFrame.ts": "493e543a3e79dc5e9b2f4c91705c5b44cda39f3d"
     },
     "acknowledgements": [
@@ -138,6 +138,10 @@
       {
         "date": "2026-09-02",
         "note": "Three lines under this path, all of them about focus, none about content. MessageMoveControl's DropdownMenu.Content gains `aria-label={$_('toolbar.move')}` and `onfocus={focusFirstMenuItem}`, plus the import that brings the second one in. Checked rather than assumed: `git show --stat` over this path reports one file, three insertions and one deletion, and that is the whole of it. The label is an i18n key, not a value taken from the message, and the menu lists folder names from the folder store, so no new value from an email reaches the DOM. The handler only moves focus from the menu panel to its own first `[role=menuitem]`, inside a container the application renders itself — it neither reads nor writes message markup. The sanitizer, the frame CSP, the link allow-list and the cid image rewriting are all outside this diff. Verdict stays PASS."
+      },
+      {
+        "date": "2026-09-03",
+        "note": "Focus and announcement around the remote-image opt-in; the opt-in itself is untouched. The whole diff under this path is MessageContent.svelte: the three assignments of loadRemoteImages moved into one revealRemoteImages helper, which additionally focuses the body frame and pushes a toast. Checked rather than assumed: the helper is called from exactly the three places that already set the flag (the Load button, the trustSender success path, and its no-key-to-persist path), so no fourth way to set it appeared and the error path still leaves it false; buildMailFrameSrcdoc(content, { loadRemoteImages }) is byte-identical, so the promotion of data-voxrox-remote-src to src and the img-src relaxation still happen only on opt-in. The two new i18n strings are static and take no interpolation, so no attacker-controlled text from a message reaches the toast. frameElement.focus() adds no capability: the sandbox=\"allow-scripts\" attribute, the opaque origin and default-src none are outside this diff, and the deliberate-open effect in this same file already focuses that element. The e2e named in F2 only gained tests. Verdict stays PASS. Noted for the next reviewer: this is 6 of 8 for this audit, and the flagged path is the frontend half of the rendering chain - the next drift under it should be weighed as a re-verification of Boundary 4, not as a seventh note."
       }
     ]
   }
