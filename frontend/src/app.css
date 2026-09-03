@@ -180,11 +180,16 @@
  * does not need that stand-in, and paid for it twice.
  *
  * It duplicated. After every navigation the app moves focus to <main>
- * (focusMainIfUnclaimed in frontend/src/routes/+layout.svelte) — the pattern
+ * (deliverRouteLanding in frontend/src/routes/+layout.svelte) — the pattern
  * user testing of client-side routing found people preferred — and the
  * announcer then repeated what landing there had already said. Split
  * reading-pane mode made it plain: there every arrow key is a full navigation,
  * so merely browsing a list read each subject out a second time.
+ *
+ * Where the app cannot move focus — an autofocus got there first — it names the
+ * route through its own polite announcer instead (frontend/src/lib/
+ * routeLanding.ts), which is the same channel as every other app announcement
+ * and so queues behind them rather than cutting in.
  *
  * And it interrupted. `assertive` clears the speech queue, so it did not queue
  * behind the app's own polite announcements, it cut in front of them —
