@@ -139,6 +139,27 @@ test.describe('Sync notifications', () => {
 		await expect(page.getByRole('button', { name: 'Synchronizovat' })).toBeEnabled();
 	});
 
+	test('neúplný průchod se neohlásí jako dokončený', async ({ page }) => {
+		await openApp(page, '/mail/1/INBOX');
+		await page.waitForFunction(() => window.__MAIL_MSW__?.syncStreamConnected() === true);
+
+		await page.getByRole('button', { name: 'Synchronizovat' }).click();
+		/*
+		 * allFoldersSynced=false means a folder was skipped or the pass failed
+		 * outright, so the count is a floor and neither case may claim the sync
+		 * is done. Asserted here and not only in the unit test because this is
+		 * the sentence a screen reader gets: with the mail server unreachable it
+		 * used to say "Synchronizace dokončena." two seconds before the failure
+		 * toast, and on every later failing pass it is the only thing said about
+		 * the outcome — sync_failed does not fire again for an unchanged code.
+		 */
+		await page.evaluate(() => window.__MAIL_MSW__?.pushSyncCycleCompleted(1, 0, false));
+
+		const liveRegion = page.locator('#live-region');
+		await expect(liveRegion).toContainText('Synchronizace neproběhla celá.');
+		await expect(liveRegion).not.toContainText('Synchronizace dokončena');
+	});
+
 	test('selhání synchronizace se ohlásí a nechá v podokně dosažitelný odkaz', async ({ page }) => {
 		await openApp(page, '/mail/1/INBOX');
 		// The listing has to be hydrated before the synthetic event: the handler

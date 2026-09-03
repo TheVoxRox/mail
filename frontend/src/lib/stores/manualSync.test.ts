@@ -58,14 +58,25 @@ describe('manual sync waiting state', () => {
 		expect(announcements()).toContain('Synchronizace dokončena.');
 	});
 
-	it('will not call a zero "no new messages" when the pass skipped a folder', () => {
+	it('will not call a pass finished at all when it skipped a folder', () => {
 		beginManualSync(4);
 		// A folder whose own cycle was already running downloaded into the same
-		// mailbox; its toast would contradict the claim.
+		// mailbox; its toast would contradict the claim. The same flag also
+		// covers a pass that failed outright, which is how this was found: with
+		// the mail server unreachable the app said "Synchronizace dokončena."
+		// two seconds before the failure toast (NVDA listening 2026-09-03).
 		completeManualSync(4, 0, false);
 
-		expect(announcements()).toContain('Synchronizace dokončena.');
+		expect(announcements()).toContain('Synchronizace neproběhla celá.');
+		expect(announcements()).not.toContain('Synchronizace dokončena.');
 		expect(announcements()).not.toContain('Synchronizace dokončena, žádné nové zprávy.');
+	});
+
+	it('says the same about an incomplete pass that did bring mail — the count is a floor', () => {
+		beginManualSync(4);
+		completeManualSync(4, 3, false);
+
+		expect(announcements()).toContain('Synchronizace neproběhla celá.');
 	});
 
 	it('leaves other accounts waiting when one of them finishes', () => {

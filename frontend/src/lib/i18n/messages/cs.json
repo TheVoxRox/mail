@@ -52,6 +52,7 @@
 		"syncStarted": "Synchronizace zahájena.",
 		"syncFinished": "Synchronizace dokončena.",
 		"syncFinishedEmpty": "Synchronizace dokončena, žádné nové zprávy.",
+		"syncFinishedIncomplete": "Synchronizace neproběhla celá.",
 		"syncStillRunning": "Synchronizace pokračuje na pozadí.",
 		"syncProblem": "Synchronizace selhává: {account}",
 		"syncProblemMultiple": "{count, plural, one {Synchronizace selhává u {count} účtu} few {Synchronizace selhává u {count} účtů} other {Synchronizace selhává u {count} účtů}}",

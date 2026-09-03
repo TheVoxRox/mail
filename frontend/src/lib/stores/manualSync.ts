@@ -69,9 +69,28 @@ export function completeManualSync(
 	allFoldersSynced: boolean
 ): void {
 	stopWaiting(accountId);
-	const translate = get(_);
-	const foundNothing = newMessagesCount === 0 && allFoldersSynced;
-	announcePolite(translate(foundNothing ? 'nav.syncFinishedEmpty' : 'nav.syncFinished'));
+	announcePolite(get(_)(completionMessageKey(newMessagesCount, allFoldersSynced)));
+}
+
+/**
+ * A pass that did not cover every folder may not be announced as finished.
+ *
+ * `allFoldersSynced === false` covers two different things — a folder skipped
+ * because its own cycle already held it, and a pass that failed outright — and
+ * both make the count a floor rather than a total, so neither may claim the
+ * sync is done. Previously only the "no new messages" half was guarded and the
+ * fallback was `nav.syncFinished`, the wording meant for a pass that brought
+ * mail.
+ *
+ * Found by NVDA listening 2026-09-03 with the mail server unreachable: the
+ * failed pass was announced as finished two seconds before the failure toast
+ * reached the live region. On every *later* failing pass it is the only thing
+ * said about the outcome at all — the edge-triggered `sync_failed` does not
+ * fire again while the error code stays the same.
+ */
+function completionMessageKey(newMessagesCount: number, allFoldersSynced: boolean): string {
+	if (!allFoldersSynced) return 'nav.syncFinishedIncomplete';
+	return newMessagesCount === 0 ? 'nav.syncFinishedEmpty' : 'nav.syncFinished';
 }
 
 /** The trigger itself failed, so no pass is coming to report anything. */
