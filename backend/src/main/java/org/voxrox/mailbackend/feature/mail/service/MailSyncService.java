@@ -211,9 +211,10 @@ public class MailSyncService {
     }
 
     /**
-     * Publishes {@link MailSyncErrorStateChangedEvent} when the pass changed the
-     * account's standing error state. Runs in the {@code finally} block so an
-     * abrupt failure still reports it, and swallows its own failures: a
+     * Publishes {@link MailSyncErrorStateChangedEvent} when the pass started or
+     * stopped the account failing — not when it merely swapped one failure code for
+     * another; see the comment on the guard. Runs in the {@code finally} block so
+     * an abrupt failure still reports it, and swallows its own failures: a
      * notification that cannot be produced must not turn a completed sync into a
      * failed one, nor leak past the {@code finally} and swallow the original
      * exception.
@@ -221,7 +222,23 @@ public class MailSyncService {
     private void publishErrorStateTransition(Long accountId, @Nullable String errorCodeBeforePass) {
         try {
             String errorCodeAfterPass = accountRepository.findLastErrorCode(accountId).orElse(null);
-            if (Objects.equals(errorCodeBeforePass, errorCodeAfterPass)) {
+            /*
+             * Presence, not identity. The client never reads the code: it picks sync_failed
+             * vs sync_recovered from whether errorCode is null, and takes the text from the
+             * account's localized last_error. A failure-to-failure change therefore carries
+             * nothing new — and costs a second persistent toast, announced assertively over
+             * whatever the screen reader was saying.
+             *
+             * It is not a rare shape either. last_error is one account-scoped slot and
+             * syncAndBackfill writes MAIL_SYNC_FOLDER_FAILED into it without publishing
+             * anything (this method has a single caller, the pass below), so while a mail
+             * server is down the code flips FOLDER -> ACCOUNT -> FOLDER and every scheduled
+             * cycle used to look like a fresh transition. Measured during an NVDA session
+             * on 2026-09-03: two identical announcements 71 seconds apart, both
+             * MAIL_SYNC_ACCOUNT_FAILED, the second one reaching the user while they were
+             * already reading the same error in Settings.
+             */
+            if ((errorCodeBeforePass == null) == (errorCodeAfterPass == null)) {
                 return;
             }
             eventPublisher

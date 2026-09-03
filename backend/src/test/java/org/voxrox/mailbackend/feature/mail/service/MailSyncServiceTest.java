@@ -761,8 +761,16 @@ class MailSyncServiceTest {
         }
 
         @Test
-        @DisplayName("A failure of a different kind is a transition of its own")
-        void emitsWhenTheFailureKindChanges() {
+        @DisplayName("A failure that swaps one code for another is not a transition")
+        void staysSilentWhenOneFailureCodeReplacesAnother() {
+            /*
+             * The shape that made the client announce the same outage twice. last_error is
+             * one account-scoped slot and syncAndBackfill writes MAIL_SYNC_FOLDER_FAILED
+             * into it without publishing, so while a mail server is down the code flips
+             * between the folder and account variants and every scheduled cycle looked like
+             * a fresh failure. The client cannot even tell them apart — it reads only
+             * whether errorCode is null.
+             */
             account.setLastErrorCode(AccountLastErrorCode.MAIL_SYNC_FOLDER_FAILED.name());
             when(imapFolderService.getFolders(ACCOUNT_ID)).thenThrow(new IllegalStateException("IMAP down"));
             when(accountRepository.findLastErrorCode(ACCOUNT_ID))
@@ -770,10 +778,22 @@ class MailSyncServiceTest {
 
             service.syncAllFolders(account, SyncTrigger.SCHEDULED);
 
+            verify(eventPublisher, never()).publishEvent(any(MailSyncErrorStateChangedEvent.class));
+        }
+
+        @Test
+        @DisplayName("An account that starts failing still emits, whichever code it lands on")
+        void emitsWhenAHealthyAccountStartsFailing() {
+            when(imapFolderService.getFolders(ACCOUNT_ID)).thenThrow(new IllegalStateException("IMAP down"));
+            when(accountRepository.findLastErrorCode(ACCOUNT_ID))
+                    .thenReturn(Optional.of(AccountLastErrorCode.MAIL_SYNC_FOLDER_FAILED.name()));
+
+            service.syncAllFolders(account, SyncTrigger.SCHEDULED);
+
             ArgumentCaptor<Object> events = ArgumentCaptor.forClass(Object.class);
             verify(eventPublisher).publishEvent(events.capture());
             assertThat(((MailSyncErrorStateChangedEvent) events.getValue()).errorCode())
-                    .isEqualTo(AccountLastErrorCode.MAIL_SYNC_ACCOUNT_FAILED.name());
+                    .isEqualTo(AccountLastErrorCode.MAIL_SYNC_FOLDER_FAILED.name());
         }
 
         @Test
