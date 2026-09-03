@@ -2,10 +2,10 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.8                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| **Date**           | 2026-08-31                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **Version**        | 1.9                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| **Date**           | 2026-09-03                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| **Audited commit** | `d558098` (re-verified 2026-08-26; 1.4-1.6 anchor `cad05cb`, recorded pre-squash as `5799e8b`; 1.0–1.3 baseline: `d55b753` / `fc71cb4`)                                                                                                                                                                                                                                                                                                                                                 |
+| **Audited commit** | `0c1b61b` (re-verified 2026-09-03; 1.7-1.8 anchor `d558098`; 1.4-1.6 anchor `cad05cb`, recorded pre-squash as `5799e8b`; 1.0–1.3 baseline: `d55b753` / `fc71cb4`)                                                                                                                                                                                                                                                                                                                       |
 | **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/util/HtmlSanitizer.java`, `backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailContentService.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/RemoteImageAllowlistService.java`, `frontend/src/lib/mail/content-sanitizer.ts`, `frontend/src/lib/mail/mailFrame.ts`, `frontend/src/lib/components/message-detail` |
 | **Subsystem**      | Untrusted email HTML rendering — Boundary 4 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                                                                                                  |
 | **Verdict**        | **Security: PASS** (no exploitable finding). F1 (dead links), F2 (embedded images + remote-image opt-in), F3 (plain-text fidelity), F4 (URLs in plain-text bodies were not links) and F5 (a link into the message opened the app's own URL) all **fixed**.                                                                                                                                                                                                                              |
@@ -72,8 +72,12 @@ IMAP raw body
       `components/grid/rowActivation.test.ts` builds a row from a literal markup
       fixture. Both take a first-party constant, never message content.)
 - [x] **Sanitizer has no unprotected consumer** — `sanitizeMailHtml` is
-      imported only by `buildMailFrameSrcdoc` (+ tests), so its output always
-      lands inside the CSP frame.
+      imported only by `mailFrame.ts` (+ its own test), where **two** functions
+      call it: `buildMailFrameSrcdoc`, whose output goes into the CSP frame, and
+      `countRemoteImages`, which parses into a detached `DOMParser` document and
+      returns a node count — an inert document that runs no script and loads no
+      resource, and nothing of it reaches live DOM. Both consumers are therefore
+      protected, by the frame and by inertness respectively.
 - [x] **mXSS (serialize → reparse) neutralized** — even if `doc.body.innerHTML`
       serialization + reparse in the iframe resurrected markup, the frame CSP
       blocks inline scripts (hash mismatch), inline event handlers (no
@@ -303,6 +307,37 @@ one, so no dead `cid:` source is ever retained.
   and re-approving a golden file is how a real regression eventually gets
   approved too; exact output is pinned only for well-formed mail, where it
   should not move.
+- **How to re-run the §2 checklist.** Every row is a grep or a run, so a
+  re-verification is mechanical rather than a re-read. From the repository root:
+
+  ```
+  grep -rn "{@html" frontend/src --include=*.svelte
+  grep -rn ".innerHTMLs*=|insertAdjacentHTML|.outerHTMLs*=|document.write" frontend/src
+  grep -rn "sanitizeMailHtml" frontend/src --include=*.ts --include=*.svelte
+  grep -rn "mailHtmlToPlainText" frontend/src --include=*.ts --include=*.svelte
+  grep -n "Safelist|removeProtocols|rel\", \"nofollow" backend/src/main/java/org/voxrox/mailbackend/util/HtmlSanitizer.java
+  grep -n "MAX_DEPTH|MAX_INLINE_IMAGE_BYTES|MAX_TOTAL_INLINE_BYTES|MAX_BODY_BYTES" backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java
+  cd backend && mvn -Dtest='HtmlSanitizerTest,HtmlSanitizerMalformedInputTest,MimePartExtractorTest' test
+  ```
+
+  The frontend guards run inside the ordinary suites (`npm run test:unit` for
+  `mailFrame.test.ts` and `content-sanitizer.test.ts`, `npm run test:e2e` for
+  `sanitizer.functional.e2e.ts`, `links.functional.e2e.ts` and
+  `remote-images.functional.e2e.ts`).
+
+  **Two traps in reading the result.** Both sanitizer suites use `@Nested`, so
+  surefire's per-class `.txt` reports `Tests run: 0` while the cases live in the
+  XML — count `<testcase` in `target/surefire-reports/TEST-*.xml`, not the summary
+  line. And never read any of this through a pipe to `tail`/`grep`: the pipeline's
+  exit code is not the command's.
+
+- **Recompute the CSP hashes, do not compare them to a note.** The frame's
+  guarantee is "exactly one script may execute", and it is only as good as
+  `MAIL_FRAME_SCRIPT_SHA256` matching `MAIL_FRAME_SCRIPT`. `mailFrame.test.ts`
+  pins it, but a re-verification should derive it independently: SHA-256 of the
+  string literal, base64. The same holds for `MAIL_FRAME_STYLE_SHA256`. Done on
+  2026-09-03 after the forwarder gained its `preventDefault` — both matched.
+
 - **Method when jsoup moves.** Compile `HtmlSanitizer` against both versions and
   diff the corpus output. The run on 2026-08-31 for 1.23.1 to 1.23.2 found
   exactly one difference across 22 payloads — unclosed `textarea` content stays
@@ -357,6 +392,33 @@ bridge restores working links without changing the sandbox.
 
 ## 7. Change log
 
+- **1.9** (2026-09-03) — re-verified against `0c1b61b`, closing the six
+  acknowledgements the ledger had reached rather than adding a seventh. Route 1
+  of `docs/audit-freshness.json`, so the entry for this audit is deleted and
+  `Audited commit` carries the anchor again. Drift since `d558098` was three
+  files, each read rather than reasoned from: `HtmlSanitizer` gained a javadoc
+  summary and lost a trailing `continue` (control-flow-neutral, the `if`/`else if`
+  chain is the whole loop body); `mailFrame.ts` gained an in-frame
+  `preventDefault` for the shortcut combinations the app claims; and
+  `MessageContent.svelte` moved three assignments of `loadRemoteImages` into one
+  helper that also focuses the frame and announces the outcome. None of them
+  touches what the verdict rests on. `MimePartExtractor`, `MailContentService`,
+  `RemoteImageAllowlistService` and `content-sanitizer.ts` are byte-identical to
+  the previous anchor. The §2 checklist was re-run against the tree with the
+  commands in §4: `{@html}` still 0 across `frontend/src`; the two `innerHTML`
+  occurrences still both vitest, still first-party constants; the frame still
+  `sandbox="allow-scripts"` with no `allow-same-origin` and `default-src 'none'`;
+  the safelist still `Safelist.relaxed()` minus `style` with `img src` stripped of
+  `http`/`https`; the caps still 20 / 2 MiB / 8 MiB / 8 MiB; the compose path
+  still flattens through `mailHtmlToPlainText` / `Safelist.none()`. Both CSP
+  hashes were **recomputed from the source literals**, not compared to a note:
+  script and style each match what the frame declares, so "exactly one script may
+  execute" still holds after the forwarder changed. One row was trued rather than
+  left technically false: §2 said `sanitizeMailHtml` is imported only by
+  `buildMailFrameSrcdoc`, but `countRemoteImages` has called it since the F2
+  opt-in shipped (#132). The security half of the row is unchanged — that second
+  consumer parses into a detached, inert document and only counts nodes — but the
+  claim named the wrong consumer for two months. Verdict unchanged (**PASS**).
 - **1.8** (2026-08-31) — no claim changed and the anchor stays `d558098`;
   what changed is that one of them is now tested. The verdict rests on jsoup
   neutralising attacker-controlled HTML, but every case in `HtmlSanitizerTest`
