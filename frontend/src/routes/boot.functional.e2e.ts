@@ -72,6 +72,26 @@ test.describe('MSW bootstrap', () => {
 		await expect(page.getByRole('button', { name: 'Přidat účet' })).toBeFocused();
 	});
 
+	test('uvítací obrazovka bez účtu se jako oblast jmenuje podle route', async ({ page }) => {
+		/*
+		 * The last route with no title of its own. It inherited the layout's bare
+		 * `app.title`, and since <main> is named after the route title, the
+		 * landmark introduced the application instead of the page — the exact
+		 * shape the settings titles were made uniform to drop.
+		 *
+		 * It is the one route where the landmark is all there is: the Add-account
+		 * button takes focus on its own, so the layout deliberately leaves focus
+		 * alone and nothing announces the page. The name only pays off on the
+		 * landmark key, which is why nothing noticed it was wrong.
+		 */
+		await setMockFlags(page, { noAccounts: true });
+
+		await openApp(page, '/');
+
+		await expect(page.getByRole('button', { name: 'Přidat účet' })).toBeVisible();
+		await expect(page.locator('#main-content')).toHaveAttribute('aria-label', 'Pošta – Vítejte');
+	});
+
 	test('klávesové zkratky Ctrl+1, Ctrl+2 a Ctrl+3 přepínají workspace módy', async ({ page }) => {
 		await openApp(page, '/settings/appearance');
 

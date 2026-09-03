@@ -78,6 +78,24 @@ Deterministicke e2e kryti existuje (live-region asserty v [list-navigation.funct
 
 ---
 
+## Code review sestice commitu (2026-09-02) — uzavreno
+
+Review `885b98a..463a7ac` (#364, #365, #366, #367, #369, #370). Osm nalezu, sedm
+opraveno 2026-09-03, osmy ceka na doposlech (nize). Kazda oprava ma test, ktery
+byl **videt spadnout na kodu bez ni**; detail v [CHANGELOG.md](CHANGELOG.md).
+
+- [x] **Clensky radek nesl roving tabindex na odkazu** — HOTOVO 2026-09-03, treti vyskyt tvaru, ktery #366 a #369 odstranily ze dvou sloupcu predmetu. Struktura a aktivace kryte testem, **ohlaseni same doposud neslysene** — jde o odvozeni ze dvou pripadu, ktere poslech uzavrel. Az bude po ruce NVDA, potvrdit, ze se jmeno protejsku u clena cte jednou.
+- [x] **Kliknuti mysi nezaznamenalo roving pozici** — HOTOVO 2026-09-03: bunka posloucha `focusin` misto `focus`, ktery nebubla.
+- [x] **Tlacitko „Nacist obrazky" shodilo fokus na `<body>` a nic neohlasilo** — HOTOVO 2026-09-03: fokus jde do ramu, vysledek pres polity oznamovac; obe tlacitka hlasi ruzne veci, protoze delaji ruzne veci. Pri psani testu se naslo, ze **mock backend endpoint allow-listu vubec nemel**, takze „Vzdy od tohoto odesilatele" v kazdem e2e tise padalo do chybove vetve.
+- [x] **Focus ring bunky predmetu prisel o zaobleni** — HOTOVO 2026-09-03, a s nim tri prazdne bunky clenske radky z jine slozky, ktere mely tutez vadu.
+- [x] **Osirely komentar v `+layout.svelte`** — HOTOVO 2026-09-03.
+- [x] **Nahradni dosazitelnost baneru nebyla kryta** — HOTOVO 2026-09-03: Tab z radky dojde na obe tlacitka pred ramem. Nejde o opravu: kod byl spravne, jen to netvrdil nikdo — a mutace to potvrdila, po vyrazeni tlacitka z poradi fokusu test pada.
+- [x] **Uvitaci obrazovka bez uctu se jmenovala „VoxRox Mail"** — HOTOVO 2026-09-03: routa `/` ma vlastni titulek, takze uz zadna routa nededi titulek z layoutu.
+
+- [ ] **Routy s autofocusem po umlceni oznamovace neohlasi vubec nic** — jediny neuzavreny nalez, a **zamerne**: `focusMainIfUnclaimed` nesahne na fokus, kdyz si ho vzal nekdo jiny ([+layout.svelte](frontend/src/routes/+layout.svelte)), a `#svelte-announcer` je `display: none` ([app.css](frontend/src/app.css)) — takze prave tam, kde nahrada nefunguje, zmizela i zaloha. Ctrl+N otevre skladani, fokus si vezme pole Komu a odecitac rekne jen „Komu, editace". Totez `/` bez uctu, kde fokus bere tlacitko Pridat ucet. **Neopravovat pred doposlechem:** oprava znamena pridat politou hlasku, tedy rec navic — a jestli je potreba, rozhodne ucho, ne struktura. Kdyby vadilo, resenim neni oznamovac zpet, ale pojmenovat route i tam, kde fokus zustal jinde.
+
+---
+
 ## v0.1.0 smoke — bugy Faze B
 
 **Vse uzavreno** (2026-06-25/30). 8 bugu opraveno: FE update-dialog (#65), OAuth poll reconcile (#66), "duch" zpravy 404 A+B, SSE 30min ERROR (C), soubezny sync UNIQUE (F), HHH90003004 paginace (#70), duplicitni OAuth callback (#71/E), transient sync retry (#78/D), §6 sidecar zombie watchdog (#89/#90). Detail v [todo-archive.md](todo-archive.md); reziduum = pasivni log-watch v [backend/RELEASE_CHECKLIST.md](backend/RELEASE_CHECKLIST.md) §8.

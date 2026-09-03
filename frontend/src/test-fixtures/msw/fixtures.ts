@@ -51,6 +51,12 @@ export interface E2EFixtureState {
 	lastSendSupersedesDraftId: string | null;
 	/** Body of the most recent `POST .../send`, for the B2 recovery draft on failure. */
 	lastSendMailRequest: MailRequest | null;
+	/**
+	 * Senders trusted for remote images, per account — the allow-list the real
+	 * endpoint persists. Held here rather than in the handler so it resets with
+	 * the rest of the fixtures between tests.
+	 */
+	remoteImageAllowlist: Record<number, string[]>;
 }
 
 const now = new Date('2026-04-21T08:00:00.000Z');
@@ -486,7 +492,8 @@ function createInitialState(): E2EFixtureState {
 		lastSendId: null,
 		lastSendAccountId: null,
 		lastSendSupersedesDraftId: null,
-		lastSendMailRequest: null
+		lastSendMailRequest: null,
+		remoteImageAllowlist: {}
 	};
 }
 

@@ -1281,7 +1281,7 @@
 								aria-label={$_('messages.grouping.memberNotSelectable', {
 									values: { folder: folderLabelByRef($folders, row.message.folderName, $_) }
 								})}
-								class={cn('row-span-2', focusRingInset)}
+								class={cn('row-span-2 rounded-sm', focusRingInset)}
 							></div>
 						{/if}
 						{#if expandable}
@@ -1325,7 +1325,7 @@
 								role="gridcell"
 								aria-colindex={COL_EXPAND + 1}
 								{...grid.cell(rowIndex, COL_EXPAND)}
-								class={cn('col-start-2 row-span-2', focusRingInset)}
+								class={cn('col-start-2 row-span-2 rounded-sm', focusRingInset)}
 							></div>
 						{/if}
 						<div
@@ -1373,7 +1373,7 @@
 							aria-colindex={COL_SUBJECT + 1}
 							{...grid.cell(rowIndex, COL_SUBJECT)}
 							class={cn(
-								'col-start-4 min-w-0 pr-2',
+								'col-start-4 min-w-0 rounded-sm pr-2',
 								isConversation
 									? 'row-start-1 pt-3 pl-2'
 									: 'pointer-events-none row-span-2 row-start-1 pl-7',
@@ -1408,7 +1408,7 @@
 									tabindex="-1"
 									onclick={(event) => handleRowLinkClick(event, row)}
 									class={cn(
-										'flex items-center gap-2 rounded-sm text-sm no-underline hover:underline',
+										'flex items-center gap-2 text-sm no-underline hover:underline',
 										unread ? 'text-foreground' : 'text-muted-foreground'
 									)}
 								>
@@ -1431,12 +1431,12 @@
 						<div
 							role="gridcell"
 							aria-colindex={COL_SENDER + 1}
-							{...isConversation ? grid.cell(rowIndex, COL_SENDER) : {}}
+							{...grid.cell(rowIndex, COL_SENDER)}
 							class={cn(
 								'col-start-4 row-start-2 min-h-8 truncate rounded-sm pr-2 pb-3 text-sm',
 								isConversation ? 'pl-2' : 'pl-7',
 								unread ? 'text-foreground' : 'text-muted-foreground',
-								isConversation && focusRingInset
+								focusRingInset
 							)}
 						>
 							{#if isConversation}
@@ -1452,15 +1452,26 @@
 									the subject header over one. Reading the thread downwards then
 									goes subject, then the people — which is how a conversation
 									reads.
+
+									The roving tabindex sits on the CELL, not on this link — the
+									same structure the subject column above holds, and for the same
+									reason: `readingAnchorCol` sends a member's cursor to this
+									column, so this is the one cell a member row is read through,
+									and it is the only cell in that row holding both text and a
+									focusable element carrying that same text. The two subject
+									columns were fixed twice before this one was noticed.
+
+									Unlike those two, the doubling was NOT heard here — the flat
+									list and the conversation header both were, and this is the
+									third instance of a structure whose fix they settled. What is
+									covered by a test is the structure and the activation; what a
+									listening session still owes is the announcement itself.
 								-->
 								<a
 									href={rowHref(message.stableId, message.folderName)}
-									{...grid.cell(rowIndex, COL_SENDER)}
+									tabindex="-1"
 									onclick={(event) => handleRowLinkClick(event, row)}
-									class={cn(
-										'flex items-center gap-2 rounded-sm no-underline hover:underline',
-										focusRingInset
-									)}
+									class="flex items-center gap-2 no-underline hover:underline"
 								>
 									{#if unread}
 										<span class="sr-only">{$_('messages.unreadIndicatorLabel')}.</span>
@@ -1519,7 +1530,7 @@
 								aria-label={$_('messages.rowActions.memberNotActionable', {
 									values: { folder: folderLabelByRef($folders, row.message.folderName, $_) }
 								})}
-								class={cn('col-start-6 row-span-2', focusRingInset)}
+								class={cn('col-start-6 row-span-2 rounded-sm', focusRingInset)}
 							></div>
 						{:else}
 							<!-- svelte-ignore a11y_click_events_have_key_events -->

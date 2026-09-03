@@ -61,6 +61,18 @@
 	});
 </script>
 
+<!--
+	The one route that had no title of its own, so it inherited the layout's
+	bare `app.title` — and since <main> is named after the route title, the
+	accountless welcome screen introduced itself as the application. That is the
+	shape every other route was made to drop, and the strip that used to hide it
+	is gone. Static, because all three states of this route are the same place:
+	the redirect that has not resolved yet, the load error, and the welcome card.
+-->
+<svelte:head>
+	<title>{$_('root.pageTitle')}</title>
+</svelte:head>
+
 <div class="flex h-full items-center justify-center text-sm text-muted-foreground">
 	{#if loadError}
 		<Surface variant="danger" role="alert" class="max-w-md text-center">

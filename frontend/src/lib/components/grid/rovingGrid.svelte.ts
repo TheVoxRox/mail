@@ -25,7 +25,16 @@ export interface RovingCellProps {
 	'data-cell-target': string;
 	'data-col': number;
 	tabindex: 0 | -1;
-	onfocus: () => void;
+	/**
+	 * `focusin`, not `focus`, because a cell is not always the thing that takes
+	 * focus: the subject cell holds a `tabindex="-1"` link, and a mouse click
+	 * lands on the link. `focus` does not bubble, so the cell never heard it and
+	 * the roving position stayed on whatever row the arrows had last visited —
+	 * silently, because every keyboard path also calls `track` on its own.
+	 * `focusin` bubbles, and Svelte 5 delegates it (`focus` is not in its
+	 * delegated list either), so one handler on the cell covers both.
+	 */
+	onfocusin: () => void;
 }
 
 export interface RovingGrid {
@@ -39,7 +48,8 @@ export interface RovingGrid {
 	cell(rowIndex: number, col: number): RovingCellProps;
 	/**
 	 * Records where focus landed without moving it — for a cell that took focus
-	 * on its own (a click, or Tab into the grid).
+	 * on its own (a click, or Tab into the grid), or for a cell target that is
+	 * not spread from `cell()` and wires its own listener.
 	 */
 	track(rowIndex: number, col: number): void;
 	/** Moves the roving position, and the DOM focus after it once rendered. */
@@ -121,7 +131,7 @@ export function createRovingGrid({ element, initialCol, maxCol }: RovingGridOpti
 			'data-cell-target': '',
 			'data-col': targetCol,
 			tabindex: row === rowIndex && col === targetCol ? 0 : -1,
-			onfocus: () => track(rowIndex, targetCol)
+			onfocusin: () => track(rowIndex, targetCol)
 		}),
 		track,
 		moveTo,
