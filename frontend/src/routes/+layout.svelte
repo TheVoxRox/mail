@@ -14,8 +14,6 @@
 	import { toErrorMessage } from '$lib/api/errors.js';
 	import { saveBlobAsFile } from '$lib/download.js';
 	import { initErrorReporting } from '$lib/errorReporting.js';
-	import { routeLandingDelivery } from '$lib/routeLanding.js';
-	import { announcePolite } from '$lib/stores/toasts.js';
 	import { sessionState } from '$lib/stores/session.js';
 	import { accountsState } from '$lib/stores/accounts.js';
 	import { backendSidecarState } from '$lib/backend/sidecar.js';
@@ -180,35 +178,18 @@
 	 * for components to finish onMount — only then do we check
 	 * `document.activeElement` so we don't steal focus from an autofocused
 	 * input.
-	 *
-	 * When an autofocus did claim it, the landmark is never entered and its
-	 * name — the only thing naming the route since the built-in announcer was
-	 * silenced — goes unread. The route then says its name through the polite
-	 * announcer instead. Which of the two fires is decided by routeLanding.ts,
-	 * because the interesting part is that it is always exactly one.
 	 */
-	let announcedForLanding: string | null = null;
-
-	function deliverRouteLanding() {
+	function focusMainIfUnclaimed() {
 		const active = document.activeElement;
 		const isDefaultFocus =
 			!active || active === document.body || active === document.documentElement;
-		const delivery = routeLandingDelivery(isDefaultFocus, routeTitle, announcedForLanding);
-		if (delivery.channel === 'focus-main') {
-			document.getElementById('main-content')?.focus({ preventScroll: true });
-			return;
-		}
-		if (delivery.channel === 'announce') {
-			announcedForLanding = delivery.text;
-			announcePolite(delivery.text);
-		}
+		if (!isDefaultFocus) return;
+		document.getElementById('main-content')?.focus({ preventScroll: true });
 	}
 
 	afterNavigate(() => {
 		if (typeof window === 'undefined') return;
-		// A new landing: whatever the previous one announced no longer suppresses.
-		announcedForLanding = null;
-		requestAnimationFrame(deliverRouteLanding);
+		requestAnimationFrame(focusMainIfUnclaimed);
 	});
 
 	/*
@@ -228,7 +209,7 @@
 
 	$effect(() => {
 		if (!shellReady) return;
-		requestAnimationFrame(deliverRouteLanding);
+		requestAnimationFrame(focusMainIfUnclaimed);
 	});
 
 	onMount(() => {

@@ -51,49 +51,6 @@ const routes: ReadonlyArray<{ path: string; name: string }> = [
 	{ path: '/auth/finished', name: 'Návrat z OAuth' }
 ];
 
-/*
- * Everything the polite live region ever held, recorded rather than polled for.
- * Two reasons, and the second is why this arms at load rather than on demand:
- * a message is dropped after ANNOUNCEMENT_CLEAR_MS (1.5 s), so `toContainText`
- * only asserts that it is still there when Playwright gets round to looking;
- * and the announcements below land *during* a navigation, so there is no moment
- * afterwards at which a test could still arm an observer on the region itself.
- * The observer therefore watches the document — at addInitScript time
- * `#live-region` does not exist yet.
- */
-type LiveRegionLog = { __liveRegionLog: string[] };
-
-async function recordLiveRegion(page: Page): Promise<void> {
-	// The Disposable is dropped on purpose: the recording lives for the whole
-	// test, the same way setPrefs treats its seeds.
-	await page.addInitScript(() => {
-		const seen: string[] = [];
-		(window as unknown as LiveRegionLog).__liveRegionLog = seen;
-		new MutationObserver(() => {
-			const text = document.querySelector('#live-region')?.textContent?.trim();
-			if (text && seen[seen.length - 1] !== text) seen.push(text);
-		}).observe(document, {
-			// `document`, not `document.documentElement`: at addInitScript time the
-			// parser has not necessarily created <html> yet, and observing null
-			// throws — silently, since the init script's failure surfaces nowhere
-			// and leaves a recorder that simply records nothing.
-			childList: true,
-			subtree: true,
-			characterData: true
-		});
-	});
-}
-
-const liveRegionLog = (page: Page): Promise<string[]> =>
-	page.evaluate(() => (window as unknown as LiveRegionLog).__liveRegionLog ?? []);
-
-// Truncated, never reassigned: the observer closes over the array it was given,
-// so a fresh one would leave it writing where nothing reads.
-const clearLiveRegionLog = (page: Page): Promise<void> =>
-	page.evaluate(() => {
-		(window as unknown as LiveRegionLog).__liveRegionLog.length = 0;
-	});
-
 async function openPalette(page: Page): Promise<void> {
 	await page.waitForFunction(() => typeof window.__MAIL_E2E__?.openPalette === 'function');
 	await page.evaluate(() => {
@@ -166,80 +123,6 @@ test.describe('Přístupnost', () => {
 		 * the focus move to <main> that the layout does after every navigation.
 		 */
 		await expect(announcer).toBeHidden();
-	});
-
-	/*
-	 * The other half of silencing the built-in announcer. Where the app cannot
-	 * move focus to <main>, its name — the only thing naming the route — is
-	 * never read, and with the stand-in gone nothing else names it either.
-	 * Measured on Ctrl+N over CDP in the running desktop app: the reader got the
-	 * composer's field and nothing else.
-	 */
-	test('route, kterou si vzal autofocus, se pojmenuje politým hlášením', async ({ page }) => {
-		await recordLiveRegion(page);
-		await openApp(page, '/mail/1/INBOX');
-		await clearLiveRegionLog(page);
-
-		await page.locator('body').dispatchEvent('keydown', {
-			key: 'n',
-			code: 'KeyN',
-			ctrlKey: true,
-			bubbles: true,
-			cancelable: true
-		});
-		await page.waitForURL('**/compose');
-		await waitForFocus(page.locator('#compose-to'));
-
-		/*
-		 * Compared against the route's own title rather than a literal. A
-		 * literal would still pass on an announcement that had gone stale and
-		 * named the page the user just left — which is exactly what the built-in
-		 * announcer did, and half of why it was silenced.
-		 */
-		const routeTitle = await page.title();
-		await expect.poll(() => liveRegionLog(page)).toContain(routeTitle);
-	});
-
-	/*
-	 * The pairing, asserted from the other side: exactly one channel per
-	 * landing. This one does not fail on the code before the announcement was
-	 * added — nothing announced then either — it fails on the obvious wrong fix,
-	 * announcing unconditionally, which would restore the duplication the
-	 * built-in announcer was silenced for.
-	 */
-	test('route, kam fokus dojde sám, se politě neohlašuje', async ({ page }) => {
-		await recordLiveRegion(page);
-		await openApp(page, '/mail/1/INBOX');
-		await clearLiveRegionLog(page);
-
-		const shortcutsLink = page.getByRole('link', { name: 'Přejít na klávesové zkratky' });
-		await shortcutsLink.focus();
-		await shortcutsLink.press('Enter');
-		await page.waitForURL('**/settings/shortcuts');
-		// Waiting for the landmark to hold focus is what makes the negative
-		// meaningful: the delivery has demonstrably happened and chose focus.
-		await waitForFocus(page.locator('#main-content'));
-
-		expect(await liveRegionLog(page)).not.toContain(await page.title());
-	});
-
-	/*
-	 * The second of the two routes that autofocus a control of their own. Worth
-	 * asserting separately because it arrives by a different path: no client-side
-	 * navigation happens on a cold start into `/`, so what delivers here is the
-	 * shell-ready check rather than afterNavigate.
-	 */
-	test('uvítací obrazovka bez účtu se pojmenuje, protože fokus vezme tlačítko', async ({
-		page
-	}) => {
-		await setMockFlags(page, { noAccounts: true });
-		await recordLiveRegion(page);
-		await openApp(page, '/');
-
-		await waitForFocus(page.getByRole('button', { name: 'Přidat účet' }));
-
-		const routeTitle = await page.title();
-		await expect.poll(() => liveRegionLog(page)).toContain(routeTitle);
 	});
 
 	test('stránka má správné ARIA landmarks', async ({ page }) => {
