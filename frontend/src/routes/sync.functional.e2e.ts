@@ -139,6 +139,117 @@ test.describe('Sync notifications', () => {
 		await expect(page.getByRole('button', { name: 'Synchronizovat' })).toBeEnabled();
 	});
 
+	test('návrat sítě zkusí selhávající účet hned, ne až dalším cyklem', async ({ page }) => {
+		const syncTriggers: string[] = [];
+		page.on('request', (request) => {
+			if (request.method() === 'POST' && request.url().includes('/messages/account/1/sync')) {
+				syncTriggers.push(request.url());
+			}
+		});
+
+		await openApp(page, '/mail/1/INBOX');
+		await page.waitForFunction(() => window.__MAIL_MSW__?.syncStreamConnected() === true);
+		await page.evaluate(() => window.__MAIL_MSW__?.pushSyncFailed(1));
+		await expect(page.getByRole('link', { name: /Synchronizace selhává/ })).toBeVisible();
+
+		const beforeReconnect = syncTriggers.length;
+		/*
+		 * Recovery is only noticed by a pass that finishes cleanly, and passes run
+		 * every five minutes, so reconnecting used to be followed by nothing at
+		 * all — measured on 2026-09-03, the recovery announcement came five
+		 * minutes later, with every surface describing the outage until then.
+		 */
+		await page.evaluate(() => window.dispatchEvent(new Event('online')));
+
+		await expect.poll(() => syncTriggers.length).toBeGreaterThan(beforeReconnect);
+	});
+
+	test('zavření toastu pojmenuje, co zavírá, a nenechá fokus spadnout', async ({ page }) => {
+		await openApp(page, '/mail/1/INBOX');
+		await page.waitForFunction(() => window.__MAIL_MSW__?.syncStreamConnected() === true);
+
+		// Two persistent toasts, which is the state the stacking produced: a
+		// dismiss button named only by its action gives no way to tell them apart.
+		await page.evaluate(() => {
+			window.__MAIL_MSW__?.pushSyncFailed(1);
+			window.__MAIL_MSW__?.pushSyncFailed(2);
+		});
+
+		const first = page.getByRole('button', { name: /Zavřít oznámení.*tester@example\.com/ });
+		const second = page.getByRole('button', { name: /Zavřít oznámení.*personal@another\.test/ });
+		await expect(first).toBeVisible();
+		await expect(second).toBeVisible();
+
+		/*
+		 * Dismissing removes the focused element, and nothing used to place focus
+		 * afterwards — the browser dropped it to <body>, so a keyboard user
+		 * clearing a stack had to walk the whole app again for the next one.
+		 */
+		await second.focus();
+		await page.keyboard.press('Enter');
+		await expect(first).toBeFocused();
+	});
+
+	test('chyba seznamu složek se sama nepřečte', async ({ page }) => {
+		await openApp(page, '/mail/1/INBOX');
+		await page.waitForFunction(() => window.__MAIL_MSW__?.syncStreamConnected() === true);
+
+		await page.evaluate(() => {
+			window.__MAIL_MSW__?.setFolderAuthFailure(true);
+			// A completed cycle refreshes the folder list, which is what puts the
+			// panel into its error state without a reload.
+			window.__MAIL_MSW__?.pushSyncCycleCompleted(1, 0);
+		});
+
+		const error = page.getByText('Autorizace u Google vypršela nebo byla zrušena.');
+		await expect(error).toBeVisible();
+
+		/*
+		 * It used to be role="alert", so every failed pass interrupted whatever
+		 * was being read to repeat the same backend sentence in full, port number
+		 * included. The event is announced once, by the toast that names the
+		 * account; this is ambient panel state. Ancestors are checked too, so the
+		 * announcement cannot be restored a level up, and role="status" counts as
+		 * a live region here — polite still reads it.
+		 */
+		const liveAncestor = await error.evaluate((element) => {
+			const live = element.closest(
+				'[aria-live]:not([aria-live="off"]),[role="alert"],[role="status"]'
+			);
+			return live
+				? `${live.tagName.toLowerCase()}[${live.getAttribute('role') ?? 'aria-live'}]`
+				: null;
+		});
+		expect(liveAncestor).toBeNull();
+	});
+
+	test('zotavení vrátí seznam složek, který výpadek shodil', async ({ page }) => {
+		await openApp(page, '/mail/1/INBOX');
+		await page.waitForFunction(() => window.__MAIL_MSW__?.syncStreamConnected() === true);
+
+		await page.evaluate(() => {
+			window.__MAIL_MSW__?.setFolderAuthFailure(true);
+			window.__MAIL_MSW__?.pushSyncCycleCompleted(1, 0);
+		});
+		await expect(page.getByText('Autorizace u Google vypršela nebo byla zrušena.')).toBeVisible();
+
+		/*
+		 * The navigation is gone from the keyboard at this point, and nothing used
+		 * to bring it back: recovery refetched only accounts, and the folder list
+		 * is refreshed by sync_cycle_completed, which a scheduled pass with nobody
+		 * waiting never sends. Asserted through a folder link rather than the
+		 * absence of the error, because "the error went away" would also pass if
+		 * the panel rendered nothing at all.
+		 */
+		await page.evaluate(() => {
+			window.__MAIL_MSW__?.setFolderAuthFailure(false);
+			window.__MAIL_MSW__?.pushSyncRecovered();
+		});
+
+		await expect(page.getByRole('link', { name: /Doručené/ })).toBeVisible();
+		await expect(page.getByText('Autorizace u Google vypršela nebo byla zrušena.')).toHaveCount(0);
+	});
+
 	test('neúplný průchod se neohlásí jako dokončený', async ({ page }) => {
 		await openApp(page, '/mail/1/INBOX');
 		await page.waitForFunction(() => window.__MAIL_MSW__?.syncStreamConnected() === true);

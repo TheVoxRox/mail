@@ -189,8 +189,19 @@
 					<li class="px-3 py-2 text-xs text-muted-foreground">{$_('nav.foldersLoading')}</li>
 				{:else if $foldersState.status === 'error'}
 					<li>
+						<!--
+							Not a live region. This is ambient panel state, not an event: the
+							thing that just happened is already announced by the sync failure
+							toast, which names the account and is the one place the failure is
+							reported once. As role="alert" it was assertive, so every failed
+							pass interrupted whatever was being read to repeat the same backend
+							sentence — measured during an NVDA session on 2026-09-03, where it
+							was read out in full down to the port number. Same call as the
+							blocked-remote-images banner: dropping the announcement costs
+							nothing, because reachability is what the panel state is for.
+						-->
 						<Surface variant="danger" padding="sm">
-							<p class="text-sm" role="alert">{toErrorMessage($foldersState.error)}</p>
+							<p class="text-sm">{toErrorMessage($foldersState.error)}</p>
 						</Surface>
 					</li>
 				{:else}

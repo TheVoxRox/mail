@@ -9,6 +9,7 @@
 import { get, writable } from 'svelte/store';
 import { _ } from 'svelte-i18n';
 import { SseClient } from '$lib/api/notifications.js';
+import { triggerAccountSync } from '$lib/api/mailAction.js';
 import { ensureNotificationPermission, notifyUser } from '$lib/api/nativeNotifications.js';
 import { folderLabel } from '$lib/mail/folderLabel.js';
 import type {
@@ -23,7 +24,7 @@ import { messagesState, reloadCurrentPage } from './messages.js';
 import { conversationsState, reloadCurrentConversationsPage } from './conversations.js';
 import { refreshFolders } from './folders.js';
 import { accountsState, refreshAccounts } from './accounts.js';
-import { markSyncFailed, markSyncRecovered } from './syncHealth.js';
+import { failingSyncAccountIds, markSyncFailed, markSyncRecovered } from './syncHealth.js';
 import { completeManualSync, releaseManualSyncsOnStreamLoss } from './manualSync.js';
 import { dismissToast, pushToast } from './toasts.js';
 
@@ -49,6 +50,31 @@ export function startNotifications(): void {
 	});
 	client.on(handleStreamNotification);
 	client.start();
+	retryFailingAccountsOnReconnect();
+}
+
+/**
+ * A machine that comes back online must not wait out the sync interval.
+ *
+ * Recovery is only noticed by a pass that completes cleanly, and passes are
+ * scheduled every five minutes, so plugging the cable back in used to produce
+ * nothing at all: measured on 2026-09-03, the recovery announcement arrived
+ * five minutes later, long after the user had stopped listening, and until then
+ * every surface on screen still described an outage that was over. Pressing
+ * Synchronise would have shortened it — but nothing tells the user that.
+ *
+ * Scoped to accounts already known to be failing, so a flapping adapter cannot
+ * turn this into a sync trigger for a healthy mailbox. The pass reports its own
+ * completion the way a pressed button's would; that is the point, since it is
+ * the answer the user is waiting for.
+ */
+function retryFailingAccountsOnReconnect(): void {
+	if (typeof window === 'undefined') return;
+	window.addEventListener('online', () => {
+		for (const accountId of get(failingSyncAccountIds)) {
+			void triggerAccountSync(accountId).catch(() => undefined);
+		}
+	});
 }
 
 export function handleStreamNotification(event: StreamNotification): void {
@@ -98,6 +124,26 @@ async function handleSyncStatus(event: SyncStatusNotification): Promise<void> {
 
 	if (event.type === 'sync_recovered') {
 		markSyncRecovered(event.accountId);
+		/*
+		 * Reload what the outage left broken. A failed folder refresh puts the
+		 * sidebar into its error state and takes the whole folder list out of the
+		 * tab order, and nothing else ever retried it: recovery only refetched
+		 * accounts, and the folder list is refreshed by `sync_cycle_completed`,
+		 * which a scheduled pass with nobody waiting does not send. Measured
+		 * during an NVDA session on 2026-09-03 — the account recovered, the
+		 * failure indicator disappeared as it should, and the user was left with
+		 * a stale error where the navigation used to be until they reloaded the
+		 * app.
+		 */
+		void refreshFolders(event.accountId).catch(() => []);
+		const messages = get(messagesState);
+		if (messages.status !== 'idle' && messages.context.accountId === event.accountId) {
+			void reloadCurrentPage();
+		}
+		const conversations = get(conversationsState);
+		if (conversations.status !== 'idle' && conversations.context.accountId === event.accountId) {
+			void reloadCurrentConversationsPage();
+		}
 		pushToast(translate('toast.syncRecovered', { values: { account: accountLabel } }), {
 			tone: 'success',
 			ttl: 6000
