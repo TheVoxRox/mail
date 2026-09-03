@@ -111,5 +111,16 @@
         "note": "One idiom change under this path. 7ec2793 rewrites both cache lookups in OAuth2TokenService.getAccessToken from \"cached.isPresent() && cached.get().isFresh()\" to tokenCache.get(accountId).filter(CachedToken::isFresh). Optional.filter evaluates the predicate only when a value is present, exactly as the && short-circuit did, and the cache is still read once per lookup, so the freshness decision, the double-check under the refresh lock and the fall-through to doRefresh all behave as before. No token is cached, logged or transmitted differently, and no scope, redirect URI or PKCE handling is in the diff. Verdict stays PASS."
       }
     ]
+  },
+  "docs/CONTENT_RENDERING_AUDIT.md": {
+    "reviewedTrees": {
+      "frontend/src/lib/components/message-detail": "da8a22457d5c75c5e8e658352a8902f59e55430f"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-09-03",
+        "note": "First note after the v1.9 re-verification, and it is the folder-move dropdown, not the rendering chain. The whole diff under this path is MessageMoveControl.svelte swapping its hand-written DropdownMenu.Portal + Content for the new MenuContent wrapper: same aria-label, same focus handler, same scroll variant, same align and sideOffset, now defaults inside the component instead of attributes at the call site. Checked rather than assumed: the element that renders message content is the iframe in MessageContent.svelte, which is not in this diff, and this control lists folder names from the folder store - it never receives message HTML. Nothing here touches the sandbox, the frame CSP, the sanitizer or the remote-image opt-in. Verdict stays PASS."
+      }
+    ]
   }
 }

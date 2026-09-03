@@ -1,11 +1,7 @@
 <script lang="ts">
 	import { DropdownMenu } from 'bits-ui';
 	import { buttonVariants } from '$lib/components/ui/button/index.js';
-	import {
-		focusFirstMenuItem,
-		menuContentVariants,
-		menuItemVariants
-	} from '$lib/components/ui/menu/index.js';
+	import { MenuContent, MenuSubContent, menuItemVariants } from '$lib/components/ui/menu/index.js';
 	import { forwardMessage, replyToMessage } from '$lib/mail/actions.js';
 	import {
 		deleteMessages,
@@ -138,64 +134,47 @@
 		<Icon name="ellipsis-horizontal" size={16} />
 	</DropdownMenu.Trigger>
 
-	<DropdownMenu.Portal>
-		<!--
-			Named after the trigger that opens it, the way the detail toolbar's
-			menu already is — a menu with no accessible name is a container a
-			screen reader can only describe by reading what is inside it.
-		-->
-		<DropdownMenu.Content
-			align="end"
-			sideOffset={4}
-			loop
-			aria-label={triggerLabel}
-			onfocus={focusFirstMenuItem}
-			class={menuContentVariants()}
-		>
-			<DropdownMenu.Item class={defaultItemClass} onSelect={() => effectiveActions.reply(false)}>
-				{$_('toolbar.reply')}
-			</DropdownMenu.Item>
-			<DropdownMenu.Item class={defaultItemClass} onSelect={() => effectiveActions.reply(true)}>
-				{$_('toolbar.replyAll')}
-			</DropdownMenu.Item>
-			<DropdownMenu.Item class={defaultItemClass} onSelect={() => effectiveActions.forward()}>
-				{$_('toolbar.forward')}
-			</DropdownMenu.Item>
+	<MenuContent label={triggerLabel} align="end">
+		<DropdownMenu.Item class={defaultItemClass} onSelect={() => effectiveActions.reply(false)}>
+			{$_('toolbar.reply')}
+		</DropdownMenu.Item>
+		<DropdownMenu.Item class={defaultItemClass} onSelect={() => effectiveActions.reply(true)}>
+			{$_('toolbar.replyAll')}
+		</DropdownMenu.Item>
+		<DropdownMenu.Item class={defaultItemClass} onSelect={() => effectiveActions.forward()}>
+			{$_('toolbar.forward')}
+		</DropdownMenu.Item>
 
+		<DropdownMenu.Separator class="my-1 h-px bg-border" />
+
+		<DropdownMenu.Item class={defaultItemClass} onSelect={() => effectiveActions.toggleFlag()}>
+			{flagLabel}
+		</DropdownMenu.Item>
+		<DropdownMenu.Item class={defaultItemClass} onSelect={() => effectiveActions.toggleSeen()}>
+			{seenLabel}
+		</DropdownMenu.Item>
+
+		{#if moveTargets.length > 0}
 			<DropdownMenu.Separator class="my-1 h-px bg-border" />
 
-			<DropdownMenu.Item class={defaultItemClass} onSelect={() => effectiveActions.toggleFlag()}>
-				{flagLabel}
-			</DropdownMenu.Item>
-			<DropdownMenu.Item class={defaultItemClass} onSelect={() => effectiveActions.toggleSeen()}>
-				{seenLabel}
-			</DropdownMenu.Item>
+			<DropdownMenu.Sub>
+				<DropdownMenu.SubTrigger class={cn(defaultItemClass, 'justify-between gap-3')}>
+					<span class="truncate">{$_('toolbar.move')}</span>
+					<span aria-hidden="true" class="text-muted-foreground">›</span>
+				</DropdownMenu.SubTrigger>
+				<MenuSubContent label={$_('toolbar.move')} width="md" scroll>
+					<MoveTargetMenuItems
+						targets={moveTargets}
+						onMoveTo={(folderRef) => effectiveActions.moveTo(folderRef)}
+					/>
+				</MenuSubContent>
+			</DropdownMenu.Sub>
+		{/if}
 
-			{#if moveTargets.length > 0}
-				<DropdownMenu.Separator class="my-1 h-px bg-border" />
+		<DropdownMenu.Separator class="my-1 h-px bg-border" />
 
-				<DropdownMenu.Sub>
-					<DropdownMenu.SubTrigger class={cn(defaultItemClass, 'justify-between gap-3')}>
-						<span class="truncate">{$_('toolbar.move')}</span>
-						<span aria-hidden="true" class="text-muted-foreground">›</span>
-					</DropdownMenu.SubTrigger>
-					<DropdownMenu.SubContent
-						sideOffset={4}
-						class={menuContentVariants({ width: 'md', scroll: true })}
-					>
-						<MoveTargetMenuItems
-							targets={moveTargets}
-							onMoveTo={(folderRef) => effectiveActions.moveTo(folderRef)}
-						/>
-					</DropdownMenu.SubContent>
-				</DropdownMenu.Sub>
-			{/if}
-
-			<DropdownMenu.Separator class="my-1 h-px bg-border" />
-
-			<DropdownMenu.Item class={destructiveItemClass} onSelect={() => effectiveActions.remove()}>
-				{$_('toolbar.delete')}
-			</DropdownMenu.Item>
-		</DropdownMenu.Content>
-	</DropdownMenu.Portal>
+		<DropdownMenu.Item class={destructiveItemClass} onSelect={() => effectiveActions.remove()}>
+			{$_('toolbar.delete')}
+		</DropdownMenu.Item>
+	</MenuContent>
 </DropdownMenu.Root>
