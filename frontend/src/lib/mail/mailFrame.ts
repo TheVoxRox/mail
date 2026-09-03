@@ -52,17 +52,29 @@ import { REMOTE_IMAGE_ATTR, sanitizeMailHtml } from './content-sanitizer.js';
  * is kept for the frame.
  *
  * The claimed set mirrors `handleGlobalKeydown`, and mirrors how it matches:
- * by `key` for the letters (Ctrl+K palette, Ctrl+R/Shift+R reply, Ctrl+F
- * forward, Ctrl+Q/U read state, Ctrl+Shift+G flag) and by `code` for Ctrl+N and
- * the workspace digits, which must survive layouts whose top row types letters.
- * Editing keys are deliberately absent: Ctrl+C and Ctrl+A have to keep working
- * on the message text.
+ * by `key` for the letters and by `code` for Ctrl+N and the workspace digits,
+ * which must survive layouts whose top row types letters. Editing keys are
+ * deliberately absent: Ctrl+C and Ctrl+A have to keep working on the message
+ * text.
+ *
+ * Shift splits the set, because it splits it in the parent too. With Shift the
+ * app claims only Ctrl+Shift+R (reply all) and Ctrl+Shift+G (flag); without it,
+ * Ctrl+K, Ctrl+R, Ctrl+F, Ctrl+Q, Ctrl+U and the `code`-matched Ctrl+N and
+ * Ctrl+1-3 — every one of which `handleGlobalKeydown` matches under
+ * `!event.shiftKey`. One letter list for both cases therefore cancelled
+ * defaults the app never claims: while the reading cursor was in the body,
+ * Ctrl+G (find next) and Ctrl+Shift+F/Q/U/K/N/1-3 did nothing at all — the
+ * frame swallowed them and the parent ignored the relay.
+ *
+ * Meta folds into Ctrl for the letters and not for the codes, again mirroring
+ * the parent: `handleMessageShortcut` reads `ctrlKey || metaKey`, while
+ * `handleWorkspaceShortcut` bails on `metaKey`.
  */
 export const MAIL_FRAME_SCRIPT =
-	'window.addEventListener("keydown",function(e){if(!e.isTrusted)return;if((e.ctrlKey||e.metaKey)&&!e.altKey&&("krgfqu".indexOf((e.key||"").toLowerCase())>=0||/^(KeyN|Digit[123]|Numpad[123])$/.test(e.code)))e.preventDefault();window.parent.postMessage({__voxroxMailFrameKey:true,key:e.key,code:e.code,ctrlKey:e.ctrlKey,metaKey:e.metaKey,altKey:e.altKey,shiftKey:e.shiftKey},"*");});window.addEventListener("click",function(e){if(!e.isTrusted)return;var a=e.target.closest?e.target.closest("a[href]"):null;if(!a)return;e.preventDefault();window.parent.postMessage({__voxroxMailFrameLink:true,href:a.href},"*");});';
+	'window.addEventListener("keydown",function(e){if(!e.isTrusted)return;if(!e.altKey&&(e.ctrlKey||e.metaKey)&&(e.shiftKey?/^[rg]$/i.test(e.key):/^[krfqu]$/i.test(e.key)||e.ctrlKey&&!e.metaKey&&/^(KeyN|Digit[123]|Numpad[123])$/.test(e.code)))e.preventDefault();window.parent.postMessage({__voxroxMailFrameKey:true,key:e.key,code:e.code,ctrlKey:e.ctrlKey,metaKey:e.metaKey,altKey:e.altKey,shiftKey:e.shiftKey},"*");});window.addEventListener("click",function(e){if(!e.isTrusted)return;var a=e.target.closest?e.target.closest("a[href]"):null;if(!a)return;e.preventDefault();window.parent.postMessage({__voxroxMailFrameLink:true,href:a.href},"*");});';
 
 /** Base64 SHA-256 of MAIL_FRAME_SCRIPT — asserted in mailFrame.test.ts. */
-export const MAIL_FRAME_SCRIPT_SHA256 = 'wN5hGd1mMyyuRcJv0nzEaL0Edfg5xEyRyhnx6vYlF/0=';
+export const MAIL_FRAME_SCRIPT_SHA256 = 'edMSNLAP5VI76mC/e7yROrEhT2jCiiQXbPLr59xLyA0=';
 
 /**
  * Base stylesheet for the mail body. The sanitizer strips every style element

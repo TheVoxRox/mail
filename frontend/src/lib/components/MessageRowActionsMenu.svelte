@@ -18,12 +18,22 @@
 	import { cn } from '$lib/utils.js';
 	import type { RowActions } from '$lib/mail/rowActions.js';
 	import type { MailSummaryResponse } from '$lib/types.js';
+	import type { RovingCellProps } from '$lib/components/grid/rovingGrid.svelte.js';
 
 	type Props = {
 		message: MailSummaryResponse;
-		focused: boolean;
-		col: number;
-		onCellFocus: () => void;
+		/**
+		 * Spread from `grid.cell(rowIndex, COL_ACTIONS)` — onto the trigger, not
+		 * onto the cell around it. The trigger holds the roving tabindex here,
+		 * unlike every other column, where the cell does: a menu button is the
+		 * focusable thing and `MailActionsCell` around it is only its container.
+		 *
+		 * Taken whole rather than rebuilt from `col` + `focused` + a focus
+		 * callback. All three grids were assembling the same four attributes by
+		 * hand, and that copy had already drifted from the factory — it listened
+		 * for `focus` where `grid.cell` listens for `focusin`.
+		 */
+		cell: RovingCellProps;
 		/**
 		 * Folder the row belongs to, used to drop the current folder from the
 		 * Move submenu. Defaults to the active folder from `messagesState` — the
@@ -52,9 +62,7 @@
 
 	let {
 		message,
-		focused,
-		col,
-		onCellFocus,
+		cell,
 		currentFolderRef,
 		onAfterAction,
 		actions,
@@ -114,10 +122,7 @@
 
 <DropdownMenu.Root bind:open>
 	<DropdownMenu.Trigger
-		data-cell-target
-		data-col={col}
-		tabindex={focused ? 0 : -1}
-		onfocus={onCellFocus}
+		{...cell}
 		onkeydown={(e: KeyboardEvent) => {
 			/*
 			 * The trigger sits in a grid cell, where arrows move focus between

@@ -258,6 +258,42 @@ describe('MAIL_FRAME_SCRIPT keyboard forwarding', () => {
 		expect(press({ key: 'g', code: 'KeyG' })).toBe(false);
 	});
 
+	// Ctrl+Shift+R is the reply-all claim, so Shift does not simply disqualify a
+	// keystroke — it selects a different, shorter list.
+	it('cancels Ctrl+Shift+R, which the app claims as reply all', () => {
+		expect(press({ key: 'R', code: 'KeyR', ctrlKey: true, shiftKey: true })).toBe(true);
+	});
+
+	/*
+	 * The other half of that rule. handleGlobalKeydown matches Ctrl+K, Ctrl+F,
+	 * Ctrl+Q, Ctrl+U and the code-matched Ctrl+N / Ctrl+1-3 under
+	 * `!event.shiftKey`, so with Shift held the app claims none of them and the
+	 * frame has nothing to keep the webview away from. Cancelling them anyway
+	 * left the keystroke doing nothing at all: the webview default gone and no
+	 * app action in its place.
+	 */
+	it.each([
+		['k', 'KeyK'],
+		['f', 'KeyF'],
+		['q', 'KeyQ'],
+		['u', 'KeyU'],
+		['n', 'KeyN'],
+		['1', 'Digit1']
+	])('leaves Ctrl+Shift+%s alone, which the app claims only without Shift', (key, code) => {
+		expect(press({ key, code, ctrlKey: true, shiftKey: true })).toBe(false);
+	});
+
+	// Ctrl+G is find-next in the webview; the app claims Ctrl+Shift+G and not it.
+	it('leaves Ctrl+G alone so find-next keeps working in the body', () => {
+		expect(press({ key: 'g', code: 'KeyG', ctrlKey: true })).toBe(false);
+	});
+
+	// The workspace and new-item keys are Ctrl-only: handleWorkspaceShortcut
+	// bails on metaKey, unlike handleMessageShortcut, which folds Meta into Ctrl.
+	it('leaves Meta+N alone, since the workspace claim is Ctrl-only', () => {
+		expect(press({ key: 'n', code: 'KeyN', metaKey: true })).toBe(false);
+	});
+
 	it('leaves Ctrl+Alt combinations alone — the app claims none of them', () => {
 		expect(press({ key: 'f', code: 'KeyF', ctrlKey: true, altKey: true })).toBe(false);
 	});

@@ -219,7 +219,17 @@ test.describe('Řádkové menu Akce', () => {
 		await page.getByRole('menuitem', { name: 'Přesunout' }).click();
 		await page.getByRole('menuitem', { name: 'Archiv', exact: true }).click();
 
-		expect(moveBodies).toEqual([{ folderRef: 'ARCHIVE' }]);
+		/*
+		 * Polled, not read once. `moveBodies` is filled by a `page.on('request')`
+		 * listener, so it is asynchronous state, and neither the click above nor
+		 * a key press waits for the app to reach the network — unlike the toolbar
+		 * suite, where an awaited outcome toast stands between the action and the
+		 * assertion and the request is necessarily out by then. This read had
+		 * nothing in front of it, and it went red on main on a docs-only commit
+		 * (d29df5f, `Received: Array []`), which is what a plain read of an array
+		 * that fills later looks like when the machine is slow enough.
+		 */
+		await expect.poll(() => moveBodies).toEqual([{ folderRef: 'ARCHIVE' }]);
 		await expect(row).toHaveCount(0);
 		await expect(page.getByRole('menu')).toHaveCount(0);
 	});
@@ -272,7 +282,9 @@ test.describe('Řádkové menu Akce', () => {
 
 		await page.keyboard.press('Enter');
 
-		expect(moveBodies).toEqual([{ folderRef: 'JUNK' }]);
+		// Polled for the reason given on the mouse path above; this is the read
+		// that actually failed in CI.
+		await expect.poll(() => moveBodies).toEqual([{ folderRef: 'JUNK' }]);
 		await expect(row).toHaveCount(0);
 		await expect(page.getByRole('menu')).toHaveCount(0);
 	});

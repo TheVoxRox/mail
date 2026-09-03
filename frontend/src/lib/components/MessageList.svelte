@@ -502,12 +502,7 @@
 							placement="col-start-4 row-span-2"
 						/>
 						<MailActionsCell colIndex={COL_ACTIONS + 1} placement="col-start-5 row-span-2">
-							<MessageRowActionsMenu
-								{message}
-								col={COL_ACTIONS}
-								focused={grid.isAt(rowIndex, COL_ACTIONS)}
-								onCellFocus={() => grid.track(rowIndex, COL_ACTIONS)}
-							/>
+							<MessageRowActionsMenu {message} cell={grid.cell(rowIndex, COL_ACTIONS)} />
 						</MailActionsCell>
 					</MailRow>
 				{/each}
