@@ -162,8 +162,11 @@ describe('sync status notifications', () => {
 		...({} as AccountResponse),
 		id: 4,
 		email: 'jana@example.com',
-		lastError: 'Synchronizace složky INBOX selhala: MessagingException: timeout',
-		lastErrorCode: 'MAIL_SYNC_FOLDER_FAILED',
+		// The shape the backend actually produces since the cause classification:
+		// a localized sentence that stands on its own, with no exception class name
+		// and no English developer string inside it.
+		lastError: 'Nepodařilo se spojit s poštovním serverem. Zkontrolujte připojení k internetu.',
+		lastErrorCode: 'MAIL_SYNC_CONNECTION_FAILED',
 		lastErrorArgs: {}
 	};
 
@@ -178,7 +181,7 @@ describe('sync status notifications', () => {
 		return {
 			type,
 			accountId: 4,
-			errorCode: type === 'sync_failed' ? 'MAIL_SYNC_FOLDER_FAILED' : null,
+			errorCode: type === 'sync_failed' ? 'MAIL_SYNC_CONNECTION_FAILED' : null,
 			timestamp: '2026-08-06T10:00:00Z'
 		};
 	}
@@ -189,7 +192,7 @@ describe('sync status notifications', () => {
 
 		const [toast] = get(toasts);
 		expect(toast.message).toBe(
-			'Synchronizace účtu jana@example.com selhala: Synchronizace složky INBOX selhala: MessagingException: timeout'
+			'Synchronizace účtu jana@example.com selhala: Nepodařilo se spojit s poštovním serverem. Zkontrolujte připojení k internetu.'
 		);
 		// Persistent: "mail stopped arriving" must not scroll away unnoticed.
 		expect(toast.tone).toBe('error');

@@ -133,8 +133,8 @@ class AccountRepositoryIT {
 
         accountRepository.updateLastError(accountId,
                 AccountLastError.of(AccountLastErrorCode.MAIL_SYNC_FOLDER_FAILED,
-                        java.util.Map.of("folder", "INBOX", "errorClass", "RuntimeException", "detail", "boom"),
-                        "Folder INBOX synchronization failed: RuntimeException: boom"),
+                        java.util.Map.of("folder", "INBOX", "detail", "boom"),
+                        "Folder sync INBOX failed: RuntimeException: boom"),
                 java.time.LocalDateTime.of(2026, 5, 12, 10, 0));
         em.clear();
 

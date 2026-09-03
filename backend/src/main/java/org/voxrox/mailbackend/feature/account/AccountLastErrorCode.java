@@ -14,8 +14,10 @@ public enum AccountLastErrorCode {
     // spotless:off
     OAUTH2_IMAP_ACCESS_DENIED("account.lastError.oauth2ImapAccessDenied"),
     OAUTH2_REFRESH_REJECTED("account.lastError.oauth2RefreshRejected", "provider"),
-    MAIL_SYNC_ACCOUNT_FAILED("account.lastError.mailSyncAccountFailed", "errorClass", "detail"),
-    MAIL_SYNC_FOLDER_FAILED("account.lastError.mailSyncFolderFailed", "folder", "errorClass", "detail"),
+    MAIL_SYNC_CONNECTION_FAILED("account.lastError.mailSyncConnectionFailed"),
+    MAIL_SYNC_AUTH_FAILED("account.lastError.mailSyncAuthFailed"),
+    MAIL_SYNC_ACCOUNT_FAILED("account.lastError.mailSyncAccountFailed", "detail"),
+    MAIL_SYNC_FOLDER_FAILED("account.lastError.mailSyncFolderFailed", "folder", "detail"),
     SMTP_SEND_FAILED("account.lastError.smtpSendFailed", "detail"),
     DRAFT_SAVE_FAILED("account.lastError.draftSaveFailed", "detail"),
     DRAFT_SEND_FAILED("account.lastError.draftSendFailed", "detail"),

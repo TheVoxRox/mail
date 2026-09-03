@@ -13,6 +13,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.voxrox.mailbackend.core.config.MailClientProperties;
 import org.voxrox.mailbackend.core.metrics.MailMetrics;
+import org.voxrox.mailbackend.exception.MailAuthenticationException;
+import org.voxrox.mailbackend.exception.MailConnectionException;
 import org.voxrox.mailbackend.feature.account.AccountLastError;
 import org.voxrox.mailbackend.feature.account.AccountLastErrorCode;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
@@ -489,6 +491,32 @@ public class MailSyncService {
         }
     }
 
+    /**
+     * The cause behind a sync failure, when it is one the user can be told about in
+     * their own language. {@code last_error} is read out loud — it is the text of
+     * the failure toast and of the row in Settings — and the generic codes carry
+     * {@code e.getMessage()}, which is an English developer string. An NVDA session
+     * on 2026-09-03 heard the whole of one: a Czech frame wrapped around "Critical
+     * IMAP error for account 1: Couldn't connect to host, port: imap.gmail.com,
+     * 993; timeout 30000", internal account id, port and timeout included.
+     *
+     * Both branches are our own wrapper types, thrown by
+     * {@code ImapConnectionManager}, so this classifies on the contract rather than
+     * by matching text. Anything else keeps the generic code, where the developer
+     * string is still better than nothing.
+     */
+    private static @Nullable AccountLastErrorCode classifyCause(Throwable e) {
+        for (Throwable cause = e; cause != null; cause = cause.getCause()) {
+            if (cause instanceof MailAuthenticationException) {
+                return AccountLastErrorCode.MAIL_SYNC_AUTH_FAILED;
+            }
+            if (cause instanceof MailConnectionException) {
+                return AccountLastErrorCode.MAIL_SYNC_CONNECTION_FAILED;
+            }
+        }
+        return null;
+    }
+
     private static AccountLastError buildFolderSyncError(String folderName, Throwable e) {
         String base = "Folder sync " + folderName + " failed: " + e.getClass().getSimpleName();
         if (e.getMessage() != null && !e.getMessage().isBlank()) {
@@ -497,9 +525,12 @@ public class MailSyncService {
         if (base.length() > LAST_ERROR_MAX_LENGTH) {
             base = base.substring(0, LAST_ERROR_MAX_LENGTH);
         }
+        AccountLastErrorCode cause = classifyCause(e);
+        if (cause != null) {
+            return AccountLastError.of(cause, Map.of(), base);
+        }
         return AccountLastError.of(AccountLastErrorCode.MAIL_SYNC_FOLDER_FAILED,
-                Map.of("folder", folderName, "errorClass", e.getClass().getSimpleName(), "detail", safeDetail(e)),
-                base);
+                Map.of("folder", folderName, "detail", safeDetail(e)), base);
     }
 
     private static AccountLastError buildAccountSyncError(Exception e) {
@@ -510,8 +541,12 @@ public class MailSyncService {
         if (base.length() > LAST_ERROR_MAX_LENGTH) {
             base = base.substring(0, LAST_ERROR_MAX_LENGTH);
         }
-        return AccountLastError.of(AccountLastErrorCode.MAIL_SYNC_ACCOUNT_FAILED,
-                Map.of("errorClass", e.getClass().getSimpleName(), "detail", safeDetail(e)), base);
+        AccountLastErrorCode cause = classifyCause(e);
+        if (cause != null) {
+            return AccountLastError.of(cause, Map.of(), base);
+        }
+        return AccountLastError.of(AccountLastErrorCode.MAIL_SYNC_ACCOUNT_FAILED, Map.of("detail", safeDetail(e)),
+                base);
     }
 
     private static String safeDetail(Throwable e) {

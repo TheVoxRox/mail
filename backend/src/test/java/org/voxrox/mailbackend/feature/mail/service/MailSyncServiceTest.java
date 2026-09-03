@@ -37,6 +37,8 @@ import org.voxrox.mailbackend.core.config.MailClientProperties;
 import org.voxrox.mailbackend.core.config.mail.RetryProperties;
 import org.voxrox.mailbackend.core.config.mail.SyncProperties;
 import org.voxrox.mailbackend.core.metrics.MailMetrics;
+import org.voxrox.mailbackend.exception.MailAuthenticationException;
+import org.voxrox.mailbackend.exception.MailConnectionException;
 import org.voxrox.mailbackend.feature.account.AccountLastError;
 import org.voxrox.mailbackend.feature.account.AccountLastErrorCode;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
@@ -184,6 +186,46 @@ class MailSyncServiceTest {
             assertThat(captor.getValue().code()).isEqualTo(AccountLastErrorCode.MAIL_SYNC_ACCOUNT_FAILED);
             assertThat(captor.getValue().fallbackMessage()).contains("Account sync failed").contains("RuntimeException")
                     .contains("boom");
+        }
+
+        @Test
+        @DisplayName("An unreachable server is recorded as a cause, not as a developer string")
+        void classifiesConnectionFailure() {
+            /*
+             * last_error is what the failure toast reads out. The generic codes carry
+             * e.getMessage(), which for this path is "Critical IMAP error for account 1:
+             * Couldn't connect to host, port: ..., 993; timeout 30000" — English, with an
+             * internal account id, inside an otherwise Czech sentence. Heard in full during
+             * an NVDA session on 2026-09-03.
+             */
+            when(lockManager.tryLock(eq(ACCOUNT_ID), anyBoolean())).thenReturn(true);
+            when(imapFolderService.getFolders(ACCOUNT_ID))
+                    .thenThrow(new MailConnectionException("Critical IMAP error for account 1: timeout 30000"));
+
+            service.syncAllFolders(account, SyncTrigger.SCHEDULED);
+
+            ArgumentCaptor<AccountLastError> captor = ArgumentCaptor.forClass(AccountLastError.class);
+            verify(accountRepository).updateLastError(eq(ACCOUNT_ID), captor.capture(), any(LocalDateTime.class));
+            assertThat(captor.getValue().code()).isEqualTo(AccountLastErrorCode.MAIL_SYNC_CONNECTION_FAILED);
+            assertThat(captor.getValue().args()).isEmpty();
+            // The developer string survives where it belongs: the stored fallback, which
+            // is what a log or a support dump reads.
+            assertThat(captor.getValue().fallbackMessage()).contains("timeout 30000");
+        }
+
+        @Test
+        @DisplayName("A rejected sign-in is classified even when it arrives wrapped")
+        void classifiesAuthenticationFailureThroughTheCauseChain() {
+            // The connection manager wraps, so the interesting case is not the top type.
+            when(lockManager.tryLock(eq(ACCOUNT_ID), anyBoolean())).thenReturn(true);
+            when(imapFolderService.getFolders(ACCOUNT_ID)).thenThrow(
+                    new IllegalStateException("wrapped", new MailAuthenticationException(new RuntimeException("no"))));
+
+            service.syncAllFolders(account, SyncTrigger.SCHEDULED);
+
+            ArgumentCaptor<AccountLastError> captor = ArgumentCaptor.forClass(AccountLastError.class);
+            verify(accountRepository).updateLastError(eq(ACCOUNT_ID), captor.capture(), any(LocalDateTime.class));
+            assertThat(captor.getValue().code()).isEqualTo(AccountLastErrorCode.MAIL_SYNC_AUTH_FAILED);
         }
 
         @Test
