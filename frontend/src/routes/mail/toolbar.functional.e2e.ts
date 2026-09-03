@@ -379,4 +379,58 @@ test.describe('Mail toolbar', () => {
 		expect(focused).toContain('menuitem');
 		await expect(panel).toHaveAccessibleName('Přesunout');
 	});
+
+	test('nabídka Více v panelu zprávy nedá fokus svému kontejneru', async ({ page }) => {
+		/*
+		 * The fifth menu, and the one that shows why the handler had to stop being
+		 * something a menu opts into. #372 and #373 fixed four panels by adding
+		 * `focusFirstMenuItem` to each by hand; this one was never in either list,
+		 * so it kept giving focus to its own container while the fix was described
+		 * as complete. It even had the accessible name already — #372 cited it as
+		 * the example the row menu was copying — which is exactly why nobody
+		 * looked at it twice.
+		 *
+		 * It is fixed here by construction rather than by another call site:
+		 * MenuContent installs the handler, so the question "did this menu
+		 * remember?" no longer has a per-menu answer.
+		 *
+		 * It only renders below 640px, where the toolbar collapses its buttons
+		 * into an overflow menu — which is the other half of why it was missed,
+		 * and no reason to leave it broken: the window is resizable and the menu
+		 * is a real one when it is there.
+		 */
+		await page.setViewportSize({ width: 600, height: 800 });
+		await openApp(page, `/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
+		await page.locator(`[role="row"][data-stable-id="${fixture.moveStableId}"]`).click();
+		await page.waitForURL(
+			`**/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}/${encodeURIComponent(fixture.moveStableId)}`
+		);
+
+		const toolbar = page.getByRole('toolbar', { name: 'Akce se zprávami' });
+		await toolbar.getByRole('button', { name: 'Více', exact: true }).focus();
+		await page.evaluate(() => {
+			const seen: string[] = [];
+			(window as unknown as { __menuFocus: string[] }).__menuFocus = seen;
+			document.addEventListener(
+				'focusin',
+				(e) => {
+					const role = (e.target as HTMLElement | null)?.getAttribute?.('role');
+					if (role === 'menu' || role === 'menuitem') seen.push(role);
+				},
+				true
+			);
+		});
+
+		await page.keyboard.press('Enter');
+		const panel = page.getByRole('menu');
+		await expect(panel.getByRole('menuitem').first()).toBeFocused();
+		await page.waitForTimeout(60);
+
+		const focused = await page.evaluate(
+			() => (window as unknown as { __menuFocus: string[] }).__menuFocus
+		);
+		expect(focused).not.toContain('menu');
+		expect(focused).toContain('menuitem');
+		await expect(panel).toHaveAccessibleName('Více');
+	});
 });

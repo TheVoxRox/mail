@@ -21,11 +21,7 @@
 	 * outside reads them.
 	 */
 	import { DropdownMenu } from 'bits-ui';
-	import {
-		focusFirstMenuItem,
-		menuContentVariants,
-		menuItemVariants
-	} from '$lib/components/ui/menu/index.js';
+	import { MenuContent, menuItemVariants } from '$lib/components/ui/menu/index.js';
 	import Icon from '$lib/components/Icon.svelte';
 	import MoveTargetMenuItems from '$lib/components/MoveTargetMenuItems.svelte';
 	import { Button, buttonVariants } from '$lib/components/ui/button/index.js';
@@ -127,23 +123,14 @@
 				>
 				<Icon name="chevron-down" size={16} />
 			</DropdownMenu.Trigger>
-			<DropdownMenu.Portal>
-				<DropdownMenu.Content
-					align="start"
-					sideOffset={4}
-					loop
-					aria-label={$_('messages.bulkSeenMenu')}
-					onfocus={focusFirstMenuItem}
-					class={menuContentVariants()}
-				>
-					<DropdownMenu.Item class={menuItemVariants()} onSelect={() => onMarkSeen(true)}>
-						{$_('messages.bulkMarkRead')}
-					</DropdownMenu.Item>
-					<DropdownMenu.Item class={menuItemVariants()} onSelect={() => onMarkSeen(false)}>
-						{$_('messages.bulkMarkUnread')}
-					</DropdownMenu.Item>
-				</DropdownMenu.Content>
-			</DropdownMenu.Portal>
+			<MenuContent label={$_('messages.bulkSeenMenu')}>
+				<DropdownMenu.Item class={menuItemVariants()} onSelect={() => onMarkSeen(true)}>
+					{$_('messages.bulkMarkRead')}
+				</DropdownMenu.Item>
+				<DropdownMenu.Item class={menuItemVariants()} onSelect={() => onMarkSeen(false)}>
+					{$_('messages.bulkMarkUnread')}
+				</DropdownMenu.Item>
+			</MenuContent>
 		</DropdownMenu.Root>
 		<DropdownMenu.Root bind:open={moveMenuOpen}>
 			<DropdownMenu.Trigger
@@ -154,18 +141,9 @@
 				<span>{busy === 'move' ? $_('toolbar.moving') : $_('messages.bulkMove')}</span>
 				<Icon name="chevron-down" size={16} />
 			</DropdownMenu.Trigger>
-			<DropdownMenu.Portal>
-				<DropdownMenu.Content
-					align="start"
-					sideOffset={4}
-					loop
-					aria-label={$_('messages.bulkMove')}
-					onfocus={focusFirstMenuItem}
-					class={menuContentVariants({ scroll: true })}
-				>
-					<MoveTargetMenuItems targets={moveTargets} {onMoveTo} />
-				</DropdownMenu.Content>
-			</DropdownMenu.Portal>
+			<MenuContent label={$_('messages.bulkMove')} scroll>
+				<MoveTargetMenuItems targets={moveTargets} {onMoveTo} />
+			</MenuContent>
 		</DropdownMenu.Root>
 	{/if}
 	{#if error}

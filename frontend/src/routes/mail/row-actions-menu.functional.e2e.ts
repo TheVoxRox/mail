@@ -277,6 +277,63 @@ test.describe('Řádkové menu Akce', () => {
 		await expect(page.getByRole('menu')).toHaveCount(0);
 	});
 
+	test('submenu Přesunout se jmenuje a fokus dá rovnou první složce', async ({ page }) => {
+		/*
+		 * The submenu was the one panel in the app with no accessible name at all
+		 * — neither `aria-label` nor `aria-labelledby` — which the four top-level
+		 * menus had been given precisely because a nameless container is one a
+		 * screen reader can only describe by reciting its contents.
+		 *
+		 * The focus half is deliberately the opposite assertion from its parent's,
+		 * and it is measured rather than inherited: bits-ui runs a different
+		 * handler for `SubContent` than for `Content`, and recording focusin while
+		 * opening this submenu produced one event, the first item. The container
+		 * never takes a turn here, so `MenuSubContent` installs no focus handler —
+		 * this test is what keeps that claim honest if the library changes.
+		 */
+		await openApp(page, `/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
+
+		const row = page.locator(`[role="row"][data-stable-id="${fixture.stableId}"]`);
+		await expect(row).toBeVisible();
+		await row.getByRole('button', { name: `Akce pro zprávu ${fixture.subject}` }).focus();
+		await page.keyboard.press('Enter');
+		await expect(page.getByRole('menuitem', { name: FIRST_ITEM, exact: true })).toBeFocused();
+
+		// Walk up to the Move sub-trigger the way the typeahead test above does.
+		for (const key of ['ArrowUp', 'ArrowUp']) {
+			await page.waitForTimeout(KEY_PACE_MS);
+			await page.keyboard.press(key);
+		}
+		await expect(page.getByRole('menuitem', { name: 'Přesunout', exact: true })).toBeFocused();
+
+		await page.evaluate(() => {
+			const seen: string[] = [];
+			(window as unknown as { __subFocus: string[] }).__subFocus = seen;
+			document.addEventListener(
+				'focusin',
+				(e) => {
+					const role = (e.target as HTMLElement | null)?.getAttribute?.('role');
+					if (role === 'menu' || role === 'menuitem') seen.push(role);
+				},
+				true
+			);
+		});
+
+		await page.waitForTimeout(KEY_PACE_MS);
+		await page.keyboard.press('ArrowRight');
+
+		const submenu = page.getByRole('menu').last();
+		await expect(submenu.getByRole('menuitem').first()).toBeFocused();
+		await page.waitForTimeout(KEY_PACE_MS);
+
+		const focused = await page.evaluate(
+			() => (window as unknown as { __subFocus: string[] }).__subFocus
+		);
+		expect(focused).not.toContain('menu');
+		expect(focused).toContain('menuitem');
+		await expect(submenu).toHaveAccessibleName('Přesunout');
+	});
+
 	test('otevřené menu nedá fokus svému kontejneru, jen první položce', async ({ page }) => {
 		await openApp(page, `/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
 

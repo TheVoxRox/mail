@@ -7,7 +7,7 @@
 	import { _ } from '$lib/i18n/index.js';
 	import { buttonVariants } from '$lib/components/ui/button/index.js';
 	import { DropdownMenu } from 'bits-ui';
-	import { focusFirstMenuItem, menuContentVariants } from '$lib/components/ui/menu/index.js';
+	import { MenuContent } from '$lib/components/ui/menu/index.js';
 	import Icon from '$lib/components/Icon.svelte';
 	import MoveTargetMenuItems from '$lib/components/MoveTargetMenuItems.svelte';
 	import { cn } from '$lib/utils.js';
@@ -58,18 +58,9 @@
 				<Icon name="chevron-down" size={16} />
 			{/if}
 		</DropdownMenu.Trigger>
-		<DropdownMenu.Portal>
-			<DropdownMenu.Content
-				align="start"
-				sideOffset={4}
-				loop
-				aria-label={$_('toolbar.move')}
-				onfocus={focusFirstMenuItem}
-				class={menuContentVariants({ scroll: true })}
-			>
-				<MoveTargetMenuItems targets={moveTargets} onMoveTo={handleMoveTo} />
-			</DropdownMenu.Content>
-		</DropdownMenu.Portal>
+		<MenuContent label={$_('toolbar.move')} scroll>
+			<MoveTargetMenuItems targets={moveTargets} onMoveTo={handleMoveTo} />
+		</MenuContent>
 	</DropdownMenu.Root>
 	{#if moveError}
 		<p class="basis-full text-xs text-destructive-foreground" role="alert">{moveError}</p>

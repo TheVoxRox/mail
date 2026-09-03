@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { DropdownMenu } from 'bits-ui';
-	import { menuContentVariants, menuItemVariants } from '$lib/components/ui/menu/index.js';
+	import { MenuContent, menuItemVariants } from '$lib/components/ui/menu/index.js';
 	import { selectedMessage } from '$lib/stores/selectedMessage.js';
 	import { _ } from '$lib/i18n/index.js';
 	import { forwardMessage, replyToMessage } from '$lib/mail/actions.js';
@@ -157,27 +157,25 @@
 					<span>{$_('toolbar.more')}</span>
 				</DropdownMenu.Trigger>
 
-				<DropdownMenu.Portal>
-					<DropdownMenu.Content
-						id="mail-toolbar-more-popover"
-						aria-label={$_('toolbar.more')}
-						align="end"
-						sideOffset={8}
-						loop
-						class={cn(menuContentVariants({ width: 'md' }), 'absolute right-0 top-full mt-2')}
-					>
-						{#each messageActions() as action (action.id)}
-							<DropdownMenu.Item
-								class={action.menuClass ?? menuItemVariants()}
-								onSelect={() => handleMenuSelect(action.run)}
-								disabled={!hasSelection}
-								aria-keyshortcuts={action.ariaKeyshortcuts}
-							>
-								{action.label}
-							</DropdownMenu.Item>
-						{/each}
-					</DropdownMenu.Content>
-				</DropdownMenu.Portal>
+				<MenuContent
+					id="mail-toolbar-more-popover"
+					label={$_('toolbar.more')}
+					align="end"
+					sideOffset={8}
+					width="md"
+					class="absolute right-0 top-full mt-2"
+				>
+					{#each messageActions() as action (action.id)}
+						<DropdownMenu.Item
+							class={action.menuClass ?? menuItemVariants()}
+							onSelect={() => handleMenuSelect(action.run)}
+							disabled={!hasSelection}
+							aria-keyshortcuts={action.ariaKeyshortcuts}
+						>
+							{action.label}
+						</DropdownMenu.Item>
+					{/each}
+				</MenuContent>
 			</DropdownMenu.Root>
 		{/if}
 	</div>
