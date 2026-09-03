@@ -1543,9 +1543,7 @@
 							>
 								<MessageRowActionsMenu
 									{message}
-									col={COL_ACTIONS}
-									focused={grid.isAt(rowIndex, COL_ACTIONS)}
-									onCellFocus={() => grid.track(rowIndex, COL_ACTIONS)}
+									cell={grid.cell(rowIndex, COL_ACTIONS)}
 									currentFolderRef={currentFolderName}
 									actions={rowActions(row)}
 									seen={rowSeen(row)}

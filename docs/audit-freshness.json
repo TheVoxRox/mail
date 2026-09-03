@@ -114,12 +114,17 @@
   },
   "docs/CONTENT_RENDERING_AUDIT.md": {
     "reviewedTrees": {
-      "frontend/src/lib/components/message-detail": "da8a22457d5c75c5e8e658352a8902f59e55430f"
+      "frontend/src/lib/components/message-detail": "da8a22457d5c75c5e8e658352a8902f59e55430f",
+      "frontend/src/lib/mail/mailFrame.ts": "786ab5698849533399a6f73e899d1c8432c6945a"
     },
     "acknowledgements": [
       {
         "date": "2026-09-03",
         "note": "First note after the v1.9 re-verification, and it is the folder-move dropdown, not the rendering chain. The whole diff under this path is MessageMoveControl.svelte swapping its hand-written DropdownMenu.Portal + Content for the new MenuContent wrapper: same aria-label, same focus handler, same scroll variant, same align and sideOffset, now defaults inside the component instead of attributes at the call site. Checked rather than assumed: the element that renders message content is the iframe in MessageContent.svelte, which is not in this diff, and this control lists folder names from the folder store - it never receives message HTML. Nothing here touches the sandbox, the frame CSP, the sanitizer or the remote-image opt-in. Verdict stays PASS."
+      },
+      {
+        "date": "2026-09-03",
+        "note": "Second note after the v1.9 re-verification, and it is the keydown forwarder, not the isolation. The whole diff under this path is the preventDefault predicate inside MAIL_FRAME_SCRIPT, which stops cancelling browser defaults for combinations the app never claims (Ctrl+G, and the Shift variants of the claimed letters), plus the CSP hash that necessarily follows from changing the literal. Checked rather than assumed: the sandbox attributes, the opaque origin, the frame's default-src none, the sanitizer and the remote-image opt-in are byte-identical, and the postMessage payload the frame sends its parent is unchanged field for field - nothing new reaches the parent and nothing new is admitted into the frame. The hash is the one security-relevant line here, and it stays a pin on exactly one inline script: mailFrame.test.ts recomputes it from the literal, so it cannot drift from the script it authorises. Verdict stays PASS."
       }
     ]
   }

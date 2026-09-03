@@ -3,9 +3,9 @@
 	 * The folder items of a "move to folder" menu — one per target, labelled by
 	 * role or by the server's own name for USER folders (see mail/folderLabel).
 	 *
-	 * Rendered inside the caller's `DropdownMenu.Content` (detail toolbar, both
-	 * bulk bars) or `DropdownMenu.SubContent` (row actions menu): the container
-	 * and its trigger differ per surface, the items do not. bits-ui wires items
+	 * Rendered inside the caller's `MenuContent` (detail toolbar, both bulk
+	 * bars) or `MenuSubContent` (row actions menu): the container and its
+	 * trigger differ per surface, the items do not. bits-ui wires items
 	 * to their menu through Svelte context, which reaches across this component
 	 * boundary, and collects them for keyboard navigation and typeahead by
 	 * querying the content element — so wrapping them in a component changes

@@ -941,34 +941,24 @@ function authRoutes(method: string, segments: string[]): MockResponse | null {
  * so "Vždy od tohoto odesílatele" took the error path in every e2e run while
  * looking like it worked — nothing asserted it, and the banner it leaves
  * standing is also what a failed attempt leaves standing.
+ *
+ * PUT only, although the real controller also serves GET and DELETE. Modelling
+ * those turned out worse than omitting them: no client calls either, so nothing
+ * exercised the branches, and the DELETE one was wrong — it read `accountId`
+ * and `senderEmail` from a JSON body, while
+ * `RemoteImageAllowlistController.disallow` takes them as query parameters and
+ * has no body at all. An unexercised mock branch is a claim about the contract
+ * that nothing checks, which is how that one got to be wrong unnoticed.
+ *
+ * No allow-list state is kept either. It was written and never read: the
+ * mail-content fixture answers `remoteImagesAllowedForSender: false`
+ * unconditionally, so trusting a sender here was never observable to a test. A
+ * test that needs it to be would wire that flag in fixtures.ts, not here.
  */
-function remoteImageRoutes(
-	method: string,
-	segments: string[],
-	request: Request
-): Promise<MockResponse> | MockResponse | null {
+function remoteImageRoutes(method: string, segments: string[]): MockResponse | null {
 	if (segments[0] !== 'remote-images' || segments[1] !== 'allowlist') return null;
-
-	if (method === 'GET') {
-		const accountId = Number(new URL(request.url).searchParams.get('accountId') ?? 0);
-		return HttpResponse.json(fixtureState.remoteImageAllowlist[accountId] ?? []);
-	}
-	if (method === 'PUT' || method === 'DELETE') {
-		return request.json().then((body) => {
-			const { accountId, senderEmail } = body as { accountId: number; senderEmail: string };
-			const current = fixtureState.remoteImageAllowlist[accountId] ?? [];
-			// Both verbs are idempotent on the real endpoint, so neither reports
-			// whether it changed anything.
-			fixtureState.remoteImageAllowlist[accountId] =
-				method === 'PUT'
-					? current.includes(senderEmail)
-						? current
-						: [...current, senderEmail]
-					: current.filter((email) => email !== senderEmail);
-			return noContent();
-		});
-	}
-	return null;
+	// Idempotent on the real endpoint: 204 whether or not the sender was new.
+	return method === 'PUT' ? noContent() : null;
 }
 
 function notificationRoutes(method: string, segments: string[]): MockResponse | null {
@@ -1084,7 +1074,7 @@ async function routeApiRequest(request: Request): Promise<MockResponse> {
 		contactLabelRoutes(method, segments, request) ??
 		messageRoutes(method, segments, request) ??
 		authRoutes(method, segments) ??
-		remoteImageRoutes(method, segments, request) ??
+		remoteImageRoutes(method, segments) ??
 		notificationRoutes(method, segments);
 
 	if (response) return response;
