@@ -94,18 +94,14 @@ byl **videt spadnout na kodu bez ni**; detail v [CHANGELOG.md](CHANGELOG.md).
   - **Cena opravy je ohranicena, ne plosna.** Autofocusu, ktere `focusMainIfUnclaimed` necha projit, jsou v appce **tri**: tlacitko Pridat ucet na `/`, pole Komu v composeru ([RecipientFields](frontend/src/lib/components/compose/RecipientFields.svelte)) a vyhledavaci pole v palete prikazu ([CommandPalette](frontend/src/lib/components/CommandPalette.svelte)). Dopocitavat se nic nemusi — obe routy uz spravne jmeno nesou, chybi jen doruceni.
   - **Co z logu rozhodnout nejde, a proto to zustava otevrene:** poradi. Polita hlaska a ohlaseni fokusu dopadnou par ms od sebe, takze jestli zazni „Komu, editace. Posta – Nova zprava." nebo obracene, ukaze az poslech. To je otazka na pohodli, ne na to, jestli tam vada je. Resenim v zadnem pripade neni oznamovac zpet (ten je `assertive`, tedy vyprazdnuje frontu reci), ale polite pojmenovani route tam, kde fokus zustal jinde.
 
-## Prohlidka tydenni prace na vice strojich (2026-09-03)
+## Prohlidka tydenni prace na vice strojich (2026-09-03) — uzavreno
 
 Cely tyden `504ed86..66b770a` procten proti cistemu stromu; vsechny brany
 zelene i pred prohlidkou, takze nalezy jsou z cteni, ne ze stroje. Pet zbytku
-opraveno tymz commitem, detail v [CHANGELOG.md](CHANGELOG.md). Otevrena zustava
-jedna vec, protoze na ni oprava bez mereni znamena hadat.
+opraveno tymz commitem, sesty (fokus pri strankovani) commitem hned po nem; detail v
+[CHANGELOG.md](CHANGELOG.md).
 
-- [ ] **Fokus po PageUp/PageDown v seznamu zprav obcas skonci mimo mrizku.** Videno dvakrat, spolehlive reprodukovat se to zatim nepodarilo: `MessageList podporuje Home, End, PageDown a PageUp` ([a11y.e2e.ts](frontend/src/routes/a11y.e2e.ts)) spadl 2026-09-03 v CI na commitu 521ec41 tak, ze po PageUp byl `document.activeElement` **po cele 5 s mimo mrizku** — `{stableId: null, col: null}`, tedy ani ne o radek vedle. **Reprodukovano i lokalne** 2026-09-03 se stejnym podpisem (`{stableId: null, col: null}`, timeout 5000 ms), ale jen jednou z peti behu cele a11y sady a jen ve chvili, kdy byl stroj citelne pomaly — tyz den predtim slo 6 z 6 opakovani te jedne polozky i cela sada zelene.
-  - **Hypoteza, kterou je potreba potvrdit nebo vyvratit, ne rovnou opravit:** kazda z techto klaves zaroven **otevira zpravu**, takze `grid.moveTo` (tick → `focusGridCell`) zavodi s `afterNavigate` → `requestAnimationFrame(focusMainIfUnclaimed)` v [+layout.svelte](frontend/src/routes/+layout.svelte). Kdyz pri prerenderu fokus na okamzik spadne na `<body>`, layout ho sebere na `<main>` a mrizka uz si ho zpatky nevezme, protoze zadna dalsi navigace neprijde. Pro odecitac by to znamenalo, ze kurzor pri rychlem strankovani vyskoci ze seznamu do main.
-  - **Co to rozhodne:** `--repeat-each` te jedne sady pod umelou zatezi CPU, nebo zaznam `focusin` pres CDP v bezici appce pri rychlem drzeni PageUp (tyz postup jako u mereni Ctrl+N o sekci vys: WebView2 s `--remote-debugging-port`, zaznam fokusu a zapisu do zivych oblasti). Teprve pak oprava — poradi rAF, nebo `focusMainIfUnclaimed`, ktery respektuje probihajici obnovu fokusu v mrizce.
-  - **Co uz vylouceno je: samotna sekvence klaves.** Sonda ve `functional` projektu, ktera dela presne totez (split rezim, Control+End / Control+Home / PageDown / PageUp hned za sebou, mezi nimi tytez polling asserty jako v sade) a pak 3 s vzorkuje `document.activeElement`, dala **5 z 5 behu ciste** — fokus zustal celou dobu v mrizce a `focusin` log neukazal ani jeden prechod jinam. Spoustec je tedy v tom, co kolem toho dela a11y sada (65 testu, axe skeny), ne v poradi klaves samotnem.
-  - **Neplest s flakem na iframe.** Tam jde o timeout `toBeFocused()` na `<iframe>` v headless CI; tady fokus prokazatelne odesel jinam a zustal tam.
+- [x] **Fokus po PageUp/PageDown obcas skocil do tela zpravy** — HOTOVO 2026-09-03. Hypoteza o `focusMainIfUnclaimed` **neplatila**: zmereno, fokus koncil v `<iframe>`, ne na `<main>`, a pricina byla v tom, ze `MessageContent` neodlisil zamer patrici **jine** zprave od zadneho zameru. Pravidlo je nove `shouldFocusBody` v [bodyFocus.ts](frontend/src/lib/mail/bodyFocus.ts). Zmereno pred i po (2 uniky ze 40 cyklu → 0 ze 3×40), detail v [CHANGELOG.md](CHANGELOG.md).
 
 ---
 

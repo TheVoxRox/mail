@@ -114,7 +114,7 @@
   },
   "docs/CONTENT_RENDERING_AUDIT.md": {
     "reviewedTrees": {
-      "frontend/src/lib/components/message-detail": "da8a22457d5c75c5e8e658352a8902f59e55430f",
+      "frontend/src/lib/components/message-detail": "65a7c700fd6de9dc2eeaf801e4284fcf5f52017c",
       "frontend/src/lib/mail/mailFrame.ts": "786ab5698849533399a6f73e899d1c8432c6945a"
     },
     "acknowledgements": [
@@ -125,6 +125,10 @@
       {
         "date": "2026-09-03",
         "note": "Second note after the v1.9 re-verification, and it is the keydown forwarder, not the isolation. The whole diff under this path is the preventDefault predicate inside MAIL_FRAME_SCRIPT, which stops cancelling browser defaults for combinations the app never claims (Ctrl+G, and the Shift variants of the claimed letters), plus the CSP hash that necessarily follows from changing the literal. Checked rather than assumed: the sandbox attributes, the opaque origin, the frame's default-src none, the sanitizer and the remote-image opt-in are byte-identical, and the postMessage payload the frame sends its parent is unchanged field for field - nothing new reaches the parent and nothing new is admitted into the frame. The hash is the one security-relevant line here, and it stays a pin on exactly one inline script: mailFrame.test.ts recomputes it from the literal, so it cannot drift from the script it authorises. Verdict stays PASS."
+      },
+      {
+        "date": "2026-09-03",
+        "note": "Third note after the v1.9 re-verification, and it is when the body takes focus, not what the body is. The whole diff under this path is MessageContent.svelte's focus effect calling the new shouldFocusBody rule instead of computing the intent inline, so that an intent naming another message stops reading as no intent at all. Checked rather than assumed: the iframe's sandbox attributes, its srcdoc assembly, the frame CSP, the sanitizer call and the remote-image opt-in are untouched, and no new value from the message reaches the DOM - the rule takes a stable id, a mode and a boolean, and returns a boolean. The only observable change is that the reading cursor stops being pulled into the frame when two navigations overlap. Verdict stays PASS."
       }
     ]
   }

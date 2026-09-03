@@ -45,3 +45,42 @@ export function suppressBodyFocus(stableId: string): void {
 export function clearBodyFocusIntent(): void {
 	intent.set(null);
 }
+
+/**
+ * Whether the body that just rendered should take focus.
+ *
+ * A pure rule rather than a condition inside the effect, because the case that
+ * broke it is invisible from the call site: an intent naming a **different**
+ * message is not the same thing as no intent at all, and reading the store as
+ * `intent?.stableId === stableId ? intent.mode : null` made them identical.
+ *
+ * How that happens: the intent is single-use and cleared by whoever consumes
+ * it, so one that still names another message means that message's body never
+ * rendered — the user paged past it. Two navigations are in flight, the earlier
+ * one's content arrives late, and it used to land on the default ("no intent,
+ * so this is a deep link, focus the body") and drag the reading cursor into the
+ * sandboxed iframe, out of the grid, mid-navigation. Measured before the fix
+ * with 40 fast Home/End/PageDown/PageUp cycles in split mode: focus left the
+ * grid for the iframe on 2 of them, and it is the same signature as the CI
+ * flake on a11y.e2e.ts ("MessageList podporuje Home, End, PageDown a PageUp",
+ * activeElement outside the grid for the full five-second poll).
+ *
+ * So a stale intent means "paging", not "deep link". Only a genuinely empty
+ * store is an entry with no history behind it — a deep link, a reload, the
+ * detail route mounting on its own — and that is still the case the default is
+ * for.
+ */
+export function shouldFocusBody(
+	current: BodyFocusIntent | null,
+	stableId: string,
+	firstRender: boolean
+): boolean {
+	// Stale: recorded for another message, so navigations overlapped.
+	if (current && current.stableId !== stableId) return false;
+	const mode = current?.mode ?? null;
+	// A deliberate open wins even on a re-render (Enter on the row whose message
+	// the pane already shows); otherwise only a first render moves focus, and
+	// never one the roving selection dragged in.
+	if (mode === 'open') return true;
+	return firstRender && mode !== 'follow';
+}
