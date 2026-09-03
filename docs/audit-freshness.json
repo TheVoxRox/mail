@@ -114,7 +114,7 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "39574de4d5d4c72614d0638906a83141420ebe05",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "73b780d8126b1f59448d22d238ce95b473195841",
       "backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java": "54707f192e933ad89aec987c1223eb6ec03821c1",
       "backend/src/main/java/org/voxrox/mailbackend/util/SubjectNormalizer.java": "9f5185a315875e4f312bb869cfa9903bda53c8ff",
       "backend/src/main/java/org/voxrox/mailbackend/core/config/mail": "b77bdaf0cf559d1711135b4dd0c06bce168046d6"
@@ -123,6 +123,10 @@
       {
         "date": "2026-09-03",
         "note": "First note since the 2026-09-02 re-verification at 885b98a emptied this ledger, and the whole code delta under these paths is one line. MailSyncService.publishErrorStateTransition compares the standing error code before and after a pass to decide whether to broadcast MailSyncErrorStateChangedEvent; the guard changes from Objects.equals(before, after) to (before == null) == (after == null), so a pass that swaps one failure code for another no longer publishes. Everything else in the diff is a javadoc line and two comment blocks - verified by stripping comment lines from the diff, which leaves exactly that one condition. It is the notification path, not the mail pipeline: no IMAP or SMTP command, no connection, no store or transport property, no TLS or checkserveridentity setting is in the diff, so section 1 is untouched; no fetch, parse or persist step moves, so section 2 holds, and MessageFetcher, MimePartExtractor and the inline-image caps are byte-identical; no header is read, formatted or normalized, so sections 3, 3b and 4b do not see it; the B1-1 body-fetch bound in MailContentService is not in the diff. The change can only make the sidecar emit FEWER events on an already-authenticated SSE stream, and the event payload is unchanged (type, accountId, the error code enum name, timestamp) - no message content, no credential and no server response crosses the boundary that did not before, and nothing new is written to last_error. Publishing less cannot disclose more. Verdict stays PASS."
+      },
+      {
+        "date": "2026-09-03",
+        "note": "Second note of this run, same file and the same reason the first one exists: what a failing sync tells the user. MailSyncService gains classifyCause, which walks the getCause() chain and returns MAIL_SYNC_CONNECTION_FAILED or MAIL_SYNC_AUTH_FAILED for our own MailConnectionException / MailAuthenticationException wrappers, and buildAccountSyncError / buildFolderSyncError consult it before falling back to the generic codes, which lose their errorClass argument. Read rather than summarised: no IMAP or SMTP command, connection, store, transport or TLS property is in the diff, so section 1 does not move; nothing in the fetch, parse or persist path changes, so section 2 holds and MessageFetcher, MimePartExtractor and the inline-image caps stay byte-identical; no header is read, formatted or normalised (sections 3, 3b, 4b); the B1-1 body-fetch bound is untouched. The persisted fallbackMessage is built exactly as before, character for character - the only difference is which message key renders the localized text, and that text now carries LESS: the exception message and class name stop reaching the field the UI shows, and stay in the log and the stored fallback. A change that removes attacker-influenced content from a rendered string cannot widen disclosure, and nothing new is written to the database. Verdict stays PASS."
       }
     ]
   },
