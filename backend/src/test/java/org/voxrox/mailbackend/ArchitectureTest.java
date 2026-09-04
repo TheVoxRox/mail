@@ -72,6 +72,26 @@ class ArchitectureTest {
             .because("Store access must stay behind ImapConnectionManager's per-account lock");
 
     /**
+     * Jackson 2 is compiled against but never shipped. It reaches the compile
+     * classpath through springdoc, and {@code backend/pom.xml} excludes both from
+     * the fat jar — so a Jackson 2 import in production code compiles, passes every
+     * test, and then raises {@code NoClassDefFoundError} in the packaged sidecar.
+     * That is not hypothetical: {@code AccountLastErrorJson} did exactly this, and
+     * the first account the mapper touched took the whole boot down.
+     *
+     * <p>
+     * {@code com.fasterxml.jackson.annotation} is deliberately not covered —
+     * Jackson 3 depends on it, so it IS shipped, and the DTOs annotated with
+     * {@code @JsonIgnore} are correct as they are. The rule names the packages
+     * whose artifacts the pom drops; keep the two lists in step.
+     */
+    @ArchTest
+    static final ArchRule productionCodeDoesNotUseJackson2 = noClasses().should().dependOnClassesThat()
+            .resideInAnyPackage("com.fasterxml.jackson.core..", "com.fasterxml.jackson.databind..",
+                    "com.fasterxml.jackson.dataformat..", "com.fasterxml.jackson.datatype..")
+            .because("Jackson 2 is excluded from the fat jar; use tools.jackson (Jackson 3) instead");
+
+    /**
      * Spring executes {@code @Async} methods on the executor and silently discards
      * any return value that is not a {@link Future} — a non-void, non-Future async
      * method looks like it works but the caller can never see the result.
