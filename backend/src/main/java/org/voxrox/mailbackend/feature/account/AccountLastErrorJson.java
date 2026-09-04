@@ -4,10 +4,19 @@ import java.util.Map;
 
 import org.jspecify.annotations.Nullable;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
+/**
+ * Jackson 3 ({@code tools.jackson}), like the rest of the application. Jackson
+ * 2 is not shipped: {@code backend/pom.xml} excludes
+ * {@code com.fasterxml.jackson.core} from the fat jar, because it only entered
+ * the tree through springdoc, which is excluded too. The compile classpath
+ * still has it, so a Jackson 2 import here compiles and every test passes — and
+ * then the packaged sidecar dies on the first account it maps. See
+ * {@code ArchitectureTest.productionCodeDoesNotUseJackson2}.
+ */
 public final class AccountLastErrorJson {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -23,7 +32,7 @@ public final class AccountLastErrorJson {
         }
         try {
             return MAPPER.writeValueAsString(args);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new IllegalArgumentException("Failed to serialize last_error_args", e);
         }
     }
@@ -34,7 +43,7 @@ public final class AccountLastErrorJson {
         }
         try {
             return MAPPER.readValue(json, STRING_MAP);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             return Map.of();
         }
     }
