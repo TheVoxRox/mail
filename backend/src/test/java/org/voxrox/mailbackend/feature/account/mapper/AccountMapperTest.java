@@ -120,15 +120,17 @@ class AccountMapperTest {
         @DisplayName("structured lastError is localized per request locale and propagates code/args")
         void structuredLastErrorIsLocalized() {
             var account = createAccount();
-            account.setLastError("Folder INBOX synchronization failed: RuntimeException: boom");
+            account.setLastError("Folder sync INBOX failed: RuntimeException: boom");
             account.setLastErrorCode(AccountLastErrorCode.MAIL_SYNC_FOLDER_FAILED.name());
-            account.setLastErrorArgs(AccountLastErrorJson
-                    .write(java.util.Map.of("folder", "INBOX", "errorClass", "RuntimeException", "detail", "boom")));
+            account.setLastErrorArgs(AccountLastErrorJson.write(java.util.Map.of("folder", "INBOX", "detail", "boom")));
             LocaleContextHolder.setLocale(Locale.ENGLISH);
 
             AccountResponse response = mapper.toResponse(account);
 
-            assertThat(response.lastError()).isEqualTo("Folder INBOX synchronization failed: RuntimeException: boom");
+            // The exception class name is deliberately not in the rendered text: this
+            // string is read out loud, and "RuntimeException" is not something to say
+            // to a user.
+            assertThat(response.lastError()).isEqualTo("Unexpected error in folder INBOX: boom");
             assertThat(response.lastErrorCode()).isEqualTo("MAIL_SYNC_FOLDER_FAILED");
             assertThat(response.lastErrorArgs()).containsEntry("folder", "INBOX").containsEntry("detail", "boom");
         }

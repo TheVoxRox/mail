@@ -39,7 +39,14 @@
 {:else if state.status === 'error'}
 	<div class="flex flex-1 items-center justify-center bg-background p-6">
 		<Surface variant="danger" padding="sm" class="max-w-md">
-			<StateMessage variant="error" padding="none" role="alert">
+			<!--
+				status, not alert: this follows a navigation the user just made, so it
+				is worth announcing — but it is one of several surfaces that render the
+				same backend failure, and as an alert it interrupted the announcement
+				that names the account. Polite lets it queue behind that one instead of
+				cutting it off (NVDA session 2026-09-03).
+			-->
+			<StateMessage variant="error" padding="none" role="status">
 				{$_('messages.errorPrefix', { values: { message: toErrorMessage(state.error) } })}
 			</StateMessage>
 		</Surface>
