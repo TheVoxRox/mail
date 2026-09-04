@@ -41,7 +41,6 @@ import module java.base;
 public class MailSyncService {
 
     private static final Logger log = LoggerFactory.getLogger(MailSyncService.class);
-    private static final long UID_INCREMENT = 1L;
 
     private final ImapFolderService imapFolderService;
     private final MessageRepository messageRepository;
@@ -640,15 +639,7 @@ public class MailSyncService {
             performFullSyncCycle(account, folderName);
 
             if (page == 0) {
-                messageRepository.findMinUidByAccountIdAndFolderName(account.getId(), folderName).ifPresent(minUid -> {
-                    if (minUid > UID_INCREMENT) {
-                        int backfillCount = mailProps.sync().backfillBatchSize();
-                        long startUid = Math.max(UID_INCREMENT, minUid - backfillCount);
-                        long endUid = minUid - 1;
-                        log.info("{} Folder backfill {}: UID {}-{}", LogCategory.SYNC, folderName, startUid, endUid);
-                        downloadRange(account, folderName, startUid, endUid);
-                    }
-                });
+                backfillOlderMessages(account, folderName);
             }
         } finally {
             lockManager.unlockFolder(account.getId(), folderName);
@@ -656,27 +647,71 @@ public class MailSyncService {
     }
 
     /**
-     * History backfill of one UID range. Private because the only caller is
-     * {@link #syncAndBackfill}, which already holds the per-folder lock that this
-     * body assumes — an outside caller could not honour that precondition.
+     * Extends the local mirror one batch further back in history. Private because
+     * the only caller is {@link #syncAndBackfill}, which already holds the
+     * per-folder lock that this body assumes — an outside caller could not honour
+     * that precondition.
+     * <p>
+     * The batch is addressed by IMAP sequence number, not by a UID window below the
+     * oldest local UID. The UID space is sparse — messages moved or deleted years
+     * ago leave gaps of thousands of UIDs — so a fixed-width UID window below the
+     * local minimum routinely covers no message at all. It then downloads nothing,
+     * the local minimum does not move, and the next folder open computes the very
+     * same empty range: an IMAP round trip per folder open that can never make
+     * progress, and never reaches the older mail it is supposed to fetch. Sequence
+     * numbers are dense and contiguous (RFC 3501), so a batch below the local edge
+     * always covers exactly {@code mail.client.sync.backfill-batch-size} real
+     * messages and the mirror grows on every pass. Same reasoning, and the same
+     * fix, as {@code MessageDownloader.downloadInitialWindowBySequence}, which
+     * moved the initial window off UIDs for this exact reason.
+     * <p>
+     * The local edge sits at sequence {@code messageCount - localCount}: the read
+     * path maintains "local = the newest localCount server positions, contiguous"
+     * (see {@link #fetchServerCountAndEnsurePageLocally}), so the position directly
+     * below the mirror is where history continues.
      */
-    private void downloadRange(AccountEntity account, String folderName, long startUid, long endUid) {
-        log.info("{} History backfill for {}: UID {}-{}", LogCategory.SYNC, folderName, startUid, endUid);
-
+    private void backfillOlderMessages(AccountEntity account, String folderName) {
         imapFolderService.executeInFolder(account.getId(), folderName, Folder.READ_ONLY, (folder, uidFolder) -> {
-            // USER = "do not change the existing role". Backfill targets an
-            // already-synced folder whose role was set by performFullSyncCycle.
-            FolderSyncStateEntity syncState = transactionTemplate
-                    .execute(status -> syncStateService.getOrCreateState(account.getId(), folderName, FolderRole.USER));
-
-            FolderSyncContext ctx = new FolderSyncContext(account, folderName, folder, uidFolder, syncState);
+            /*
+             * Counted inside the per-account lock, exactly as the lazy page fetch does it:
+             * a concurrent pass must not add rows between the count and the sequence-range
+             * computation, or the range overlaps UIDs that are already saved.
+             */
+            long localCount = messageRepository.countByAccountIdAndFolderName(account.getId(), folderName);
+            int windowLimit = mailProps.sync().localWindowLimit();
+            if (localCount >= windowLimit) {
+                /*
+                 * At the cap, MailboxMaintenanceService prunes the oldest rows after every
+                 * folder cycle. Backfilling past it would hand the pruner exactly the batch
+                 * just downloaded, and the two would trade the same messages back and forth for
+                 * as long as the user keeps opening the folder.
+                 */
+                log.debug("{} Backfill of {} stops at the local window limit ({} rows).", LogCategory.SYNC, folderName,
+                        windowLimit);
+                return null;
+            }
 
             try {
-                messageDownloader.downloadRange(ctx, startUid, endUid);
+                long endSeq = folder.getMessageCount() - localCount;
+                if (endSeq < 1) {
+                    // The mirror already reaches the oldest message on the server.
+                    return null;
+                }
+                long startSeq = Math.max(1L, endSeq - mailProps.sync().backfillBatchSize() + 1L);
+
+                // USER = "do not change the existing role". Backfill targets an
+                // already-synced folder whose role was set by performFullSyncCycle.
+                FolderSyncStateEntity syncState = transactionTemplate.execute(
+                        status -> syncStateService.getOrCreateState(account.getId(), folderName, FolderRole.USER));
+                FolderSyncContext ctx = new FolderSyncContext(account, folderName, folder, uidFolder, syncState);
+
+                int fetched = messageDownloader.downloadSequenceRange(ctx, (int) startSeq, (int) endSeq);
+                log.info("{} History backfill of {}: sequence {}-{}, {} message(s) added.", LogCategory.SYNC,
+                        folderName, startSeq, endSeq, fetched);
             } catch (MessagingException e) {
                 log.error("{} Error during folder backfill {}: {}", LogCategory.SYNC, folderName, e.getMessage());
-                AuditLog.failure("sync_backfill", LogMasker.maskEmail(account.getEmail()), "folder=" + folderName
-                        + " range=" + startUid + "-" + endUid + " " + e.getClass().getSimpleName());
+                AuditLog.failure("sync_backfill", LogMasker.maskEmail(account.getEmail()),
+                        "folder=" + folderName + " " + e.getClass().getSimpleName());
             }
             return null;
         });
