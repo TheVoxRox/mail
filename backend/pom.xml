@@ -393,9 +393,14 @@
 							skenovat springdoc auto-configuration classes) a snizuje
 							velikost binarky o ~3 MB.
 
-							Musi to byt excludeGroupIds — <excludes> vyzaduje groupId
-							I artifactId a varianta jen s groupId tise nematchne nic
-							(springdoc pak zustal v jaru). Konfigurace je schvalne na
+							Springdoc itself has to go through excludeGroupIds:
+							<excludes> requires groupId AND artifactId, and a groupId-only
+							entry silently matches nothing (springdoc then stayed in the
+							jar). Its transitive dependencies go the other way, through
+							<excludes> below, because they need artifact-level precision
+							— see the comment there. The two filters are additive.
+
+							Konfigurace je schvalne na
 							exekuci `repackage`, ne na pluginu: `mvn spring-boot:run`
 							tak jede s compile classpath vcetne springdoc a Swagger UI
 							pri vyvoji funguje. Pro fat jar s docs viz profile `openapi`.
@@ -403,6 +408,65 @@
 						<id>repackage</id>
 						<configuration>
 							<excludeGroupIds>org.springdoc</excludeGroupIds>
+							<!--
+								springdoc's transitive closure, which excludeGroupIds does
+								not reach: that filter matches on groupId, so dropping
+								org.springdoc left everything it pulls in sitting in the fat
+								jar. Measured in the shipped artifact rather than inferred
+								from the tree: swagger-core/models/annotations, the whole
+								Jackson 2 stack, the swagger-ui webjar and webjars-locator.
+								Nothing else in the tree depends on any of them (verified
+								with `mvn dependency:tree -Dverbose`), and at runtime none
+								could be reached anyway with springdoc itself absent.
+
+								com.fasterxml.jackson.core:jackson-annotations is
+								deliberately NOT here. It looks like part of the same
+								group, but Jackson 3 depends on it
+								(tools.jackson.core:jackson-databind -> jackson-annotations
+								2.21), so excluding the groupId wholesale breaks
+								serialization. Artifact-level excludes are what makes the
+								distinction possible; the Jackson 2 artifacts below share
+								their names with Jackson 3 ones under the tools.jackson.core
+								groupId, which is why both coordinates matter.
+							-->
+							<excludes>
+								<exclude>
+									<groupId>io.swagger.core.v3</groupId>
+									<artifactId>swagger-core-jakarta</artifactId>
+								</exclude>
+								<exclude>
+									<groupId>io.swagger.core.v3</groupId>
+									<artifactId>swagger-annotations-jakarta</artifactId>
+								</exclude>
+								<exclude>
+									<groupId>io.swagger.core.v3</groupId>
+									<artifactId>swagger-models-jakarta</artifactId>
+								</exclude>
+								<exclude>
+									<groupId>com.fasterxml.jackson.core</groupId>
+									<artifactId>jackson-databind</artifactId>
+								</exclude>
+								<exclude>
+									<groupId>com.fasterxml.jackson.core</groupId>
+									<artifactId>jackson-core</artifactId>
+								</exclude>
+								<exclude>
+									<groupId>com.fasterxml.jackson.dataformat</groupId>
+									<artifactId>jackson-dataformat-yaml</artifactId>
+								</exclude>
+								<exclude>
+									<groupId>com.fasterxml.jackson.datatype</groupId>
+									<artifactId>jackson-datatype-jsr310</artifactId>
+								</exclude>
+								<exclude>
+									<groupId>org.webjars</groupId>
+									<artifactId>swagger-ui</artifactId>
+								</exclude>
+								<exclude>
+									<groupId>org.webjars</groupId>
+									<artifactId>webjars-locator-lite</artifactId>
+								</exclude>
+							</excludes>
 						</configuration>
 					</execution>
 				</executions>
@@ -722,6 +786,50 @@
 										chybejici ve fat jaru.
 									-->
 									<excludeGroupIds>org.springdoc</excludeGroupIds>
+									<!--
+										The artifact-level excludes have to be repeated here too, for
+										the same reason: what process-aot sees decides which
+										__BeanDefinitions it writes. Keep this list identical to the
+										one on the repackage execution above, where it is explained.
+									-->
+									<excludes>
+										<exclude>
+											<groupId>io.swagger.core.v3</groupId>
+											<artifactId>swagger-core-jakarta</artifactId>
+										</exclude>
+										<exclude>
+											<groupId>io.swagger.core.v3</groupId>
+											<artifactId>swagger-annotations-jakarta</artifactId>
+										</exclude>
+										<exclude>
+											<groupId>io.swagger.core.v3</groupId>
+											<artifactId>swagger-models-jakarta</artifactId>
+										</exclude>
+										<exclude>
+											<groupId>com.fasterxml.jackson.core</groupId>
+											<artifactId>jackson-databind</artifactId>
+										</exclude>
+										<exclude>
+											<groupId>com.fasterxml.jackson.core</groupId>
+											<artifactId>jackson-core</artifactId>
+										</exclude>
+										<exclude>
+											<groupId>com.fasterxml.jackson.dataformat</groupId>
+											<artifactId>jackson-dataformat-yaml</artifactId>
+										</exclude>
+										<exclude>
+											<groupId>com.fasterxml.jackson.datatype</groupId>
+											<artifactId>jackson-datatype-jsr310</artifactId>
+										</exclude>
+										<exclude>
+											<groupId>org.webjars</groupId>
+											<artifactId>swagger-ui</artifactId>
+										</exclude>
+										<exclude>
+											<groupId>org.webjars</groupId>
+											<artifactId>webjars-locator-lite</artifactId>
+										</exclude>
+									</excludes>
 								</configuration>
 							</execution>
 						</executions>
@@ -749,6 +857,7 @@
 								<id>repackage</id>
 								<configuration>
 									<excludeGroupIds combine.self="override"/>
+									<excludes combine.self="override"/>
 								</configuration>
 							</execution>
 							<execution>
@@ -757,6 +866,7 @@
 								<id>process-aot</id>
 								<configuration>
 									<excludeGroupIds combine.self="override"/>
+									<excludes combine.self="override"/>
 								</configuration>
 							</execution>
 						</executions>
