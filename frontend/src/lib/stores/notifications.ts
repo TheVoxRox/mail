@@ -10,7 +10,6 @@ import { get, writable } from 'svelte/store';
 import { _ } from 'svelte-i18n';
 import { SseClient } from '$lib/api/notifications.js';
 import { triggerAccountSync } from '$lib/api/mailAction.js';
-import { ensureNotificationPermission, notifyUser } from '$lib/api/nativeNotifications.js';
 import { folderLabel } from '$lib/mail/folderLabel.js';
 import type {
 	FolderResponse,
@@ -38,7 +37,6 @@ let client: SseClient | null = null;
 export function startNotifications(): void {
 	if (client) return;
 	notificationsStatus.set('connecting');
-	void ensureNotificationPermission();
 	client = new SseClient({
 		onOpen: () => notificationsStatus.set('open'),
 		onError: () => {
@@ -157,7 +155,6 @@ async function handleSyncStatus(event: SyncStatusNotification): Promise<void> {
 		? translate('toast.syncFailedDetail', { values: { account: accountLabel, detail } })
 		: translate('toast.syncFailed', { values: { account: accountLabel } });
 	pushToast(message, { tone: 'error', ttl: 0 });
-	notifyUser(message, accountLabel);
 }
 
 /*
@@ -239,7 +236,6 @@ function renderSendOutcome(event: SendNotification, recipient: string): void {
 		? translate('toast.sendFailedRecoveryDraft', { values: { recipient } })
 		: translate('toast.sendFailed', { values: { recipient } });
 	pushToast(message, { tone: 'error', ttl: 0 });
-	notifyUser(message, recipient);
 }
 
 function handleSyncCompleted(event: SyncNotification): void {
@@ -328,5 +324,4 @@ async function announceNewMessages(
 		}
 	});
 	pushToast(message, { tone: 'success', ttl: 6000 });
-	notifyUser(message, `${accountLabel}, ${folderName}`);
 }
