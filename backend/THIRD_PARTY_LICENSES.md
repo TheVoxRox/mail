@@ -139,7 +139,7 @@ Counts: 132 artifacts total. 109 Apache-2.0, 10 EDL-1.0 (BSD-3-Clause), 5 EPL-2.
 
 ## MIT (4)
 
-- **jsoup Java HTML Parser** `org.jsoup:jsoup:1.23.1` — [https://jsoup.org/](https://jsoup.org/)
+- **jsoup Java HTML Parser** `org.jsoup:jsoup:1.23.2` — [https://jsoup.org/](https://jsoup.org/)
 - **JUL to SLF4J bridge** `org.slf4j:jul-to-slf4j:2.0.18` — [http://www.slf4j.org](http://www.slf4j.org)
 - **SLF4J API Module** `org.slf4j:slf4j-api:2.0.18` — [http://www.slf4j.org](http://www.slf4j.org)
 - **webjars-locator-lite** `org.webjars:webjars-locator-lite:1.1.4` — [https://webjars.org](https://webjars.org)

@@ -188,12 +188,92 @@ Invoke-Step "Creating Windows app-image sidecar with jpackage" {
         $aotArgs += "-XX:AOTCache=app\mail.aot"
     }
 
+    # Runtime module set. Without --add-modules, jpackage bundles the default
+    # root set -- java.se plus the JDK tooling modules -- which shipped jshell,
+    # javadoc, the compiler, jconsole and the JDWP debug agent inside a mail
+    # client, and the jlink image carried lib/ct.sym (used only by javac
+    # -release). Measured: 123 MB before, 55 MB with the list below.
+    #
+    # The list is the union of what jdeps reports over the exploded fat jar
+    # (BOOT-INF/classes plus every BOOT-INF/lib jar, unioned per jar because a
+    # whole-jar run dies on jakarta.transaction's module-info) and three
+    # additions a static analysis cannot see, each load-bearing:
+    #
+    #   jdk.charsets        Mail arrives in whatever charset the sender used.
+    #                       java.base carries only US-ASCII, ISO-8859-1, UTF-8
+    #                       and the UTF-16/32 family; windows-1250 and
+    #                       ISO-8859-2 -- the two a Czech mailbox meets daily --
+    #                       live here. Without it MessageFetcher would decode
+    #                       Czech mail as mojibake, not fail.
+    #   jdk.localedata      Locale data for anything past the root locale. See
+    #                       --include-locales below.
+    #   jdk.crypto.mscapi   Windows crypto provider, reached by name through the
+    #                       JCA rather than by a symbol jdeps can follow.
+    #   jdk.crypto.cryptoki Likewise, for PKCS#11.
+    #
+    # Adding a dependency can add a module. If the sidecar starts failing with
+    # NoClassDefFoundError or a missing provider after a dependency bump, this
+    # list is the first place to look: re-run the jdeps union and diff it.
+    $runtimeModules = @(
+        'java.base',
+        'java.compiler',
+        'java.desktop',
+        'java.instrument',
+        'java.logging',
+        'java.management',
+        'java.naming',
+        'java.net.http',
+        'java.prefs',
+        'java.rmi',
+        'java.scripting',
+        'java.security.jgss',
+        'java.security.sasl',
+        'java.sql',
+        'java.sql.rowset',
+        'java.transaction.xa',
+        'java.xml',
+        'jdk.charsets',
+        'jdk.crypto.cryptoki',
+        'jdk.crypto.mscapi',
+        'jdk.jfr',
+        'jdk.localedata',
+        'jdk.management',
+        'jdk.net',
+        'jdk.unsupported',
+        'jdk.zipfs'
+    ) -join ','
+
+    # jlink options. --include-locales is the reason jdk.localedata can stay:
+    # the module costs 10 MB whole and nothing once cut to the two locales this
+    # app ships, so keeping it is free and dropping it would have bought nothing.
+    #
+    # It is load-bearing, not a precaution. Grepping messages_cs.properties for
+    # {0,number} finds nothing and says the opposite, which is the trap:
+    # MessageFormat runs a Number argument through the locale's NumberFormat for
+    # a bare {0} too. Measured end to end against a running sidecar, same jar,
+    # same request (GET /api/v1/accounts/999999, Accept-Language: cs):
+    #
+    #   with jdk.localedata     "E-mailovy ucet s ID 999 999 nebyl nalezen."
+    #   without it              "E-mailovy ucet s ID 999,999 nebyl nalezen."
+    #
+    # (narrow no-break space vs. an English comma; diacritics stripped here for
+    # check:translations:strict). No exception, no log line -- just an English
+    # separator inside a Czech sentence that a screen reader then reads out.
+    #
+    # Passing --jlink-options replaces jpackage's defaults rather than adding to
+    # them, so --strip-native-commands is repeated here on purpose: it drops
+    # bin/java and friends, which the generated launcher does not use (it loads
+    # jvm.dll directly).
+    $jlinkOptions = '--strip-native-commands --strip-debug --no-man-pages --no-header-files --compress=zip-6 --include-locales=en,cs'
+
     & jpackage `
         --type app-image `
         --name $sidecarName `
         --input $jpackageInputDir `
         --main-jar $jar.Name `
         --dest $jpackageWorkDir `
+        --add-modules $runtimeModules `
+        --jlink-options $jlinkOptions `
         --java-options "--enable-native-access=ALL-UNNAMED" `
         --java-options "-Dfile.encoding=UTF-8" `
         --java-options "-Dspring.aot.enabled=true" `
