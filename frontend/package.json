@@ -61,6 +61,7 @@
 		"regen:sbom:all": "npm run regen:sbom && npm run regen:sbom:backend && npm run regen:sbom:tauri",
 		"check:sbom": "node scripts/validate-sbom.mjs",
 		"lint": "prettier --check . && npm run check:md && eslint . && npm run check:i18n",
+		"audit:ci": "node scripts/npm-audit-gate.mjs",
 		"check:md": "node scripts/check-markdown-format.mjs",
 		"format:md": "node scripts/check-markdown-format.mjs --write",
 		"knip": "knip --no-progress",
