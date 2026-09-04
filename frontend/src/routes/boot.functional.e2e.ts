@@ -514,3 +514,133 @@ test.describe('MSW bootstrap', () => {
 		await expect(page.getByRole('region', { name: 'Podokno pošty' })).toBeVisible();
 	});
 });
+
+test.describe('Vstup do Pošty', () => {
+	type Recorded = { landmarks: string[]; transit: string[] };
+	type RecorderWindow = Window & { __recorded: Recorded };
+
+	/**
+	 * Records every value `<main>`'s accessible name takes, and every `role=status`
+	 * line that is ever built, for the whole life of the document. Both are what a
+	 * screen reader would have been handed: the landmark name is announced on
+	 * landing, and a status line is a live region that reads itself out.
+	 *
+	 * Installed before any app code runs, because the state under test does not
+	 * last - and walking the mutation records rather than re-reading the live DOM
+	 * so a value replaced again inside the same microtask still shows up.
+	 */
+	async function recordAnnouncements(page: import('@playwright/test').Page): Promise<void> {
+		await page.addInitScript(() => {
+			const recorded: Recorded = { landmarks: [], transit: [] };
+			(window as unknown as RecorderWindow).__recorded = recorded;
+
+			const noteMain = (element: Element) => {
+				if (element.id !== 'main-content') return;
+				const label = element.getAttribute('aria-label');
+				const seen = recorded.landmarks;
+				if (label && seen[seen.length - 1] !== label) seen.push(label);
+			};
+			const noteStatus = (element: Element) => {
+				const text = element.textContent?.trim();
+				if (text) recorded.transit.push(text);
+			};
+			const scan = (root: ParentNode) => {
+				for (const main of root.querySelectorAll('#main-content')) noteMain(main);
+				for (const status of root.querySelectorAll('[role="status"]')) noteStatus(status);
+			};
+
+			const start = () => {
+				scan(document);
+				new MutationObserver((records) => {
+					for (const record of records) {
+						if (record.type === 'attributes' && record.target instanceof Element) {
+							noteMain(record.target);
+						}
+						for (const node of record.addedNodes) {
+							if (!(node instanceof Element)) continue;
+							noteMain(node);
+							if (node.matches('[role="status"]')) noteStatus(node);
+							scan(node);
+						}
+					}
+				}).observe(document.documentElement, {
+					subtree: true,
+					childList: true,
+					attributes: true,
+					attributeFilter: ['aria-label']
+				});
+			};
+
+			if (document.documentElement) start();
+			else document.addEventListener('DOMContentLoaded', start, { once: true });
+		});
+	}
+
+	function readRecorded(page: import('@playwright/test').Page): Promise<Recorded> {
+		return page.evaluate(
+			() => (window as unknown as RecorderWindow).__recorded ?? { landmarks: [], transit: [] }
+		);
+	}
+
+	async function forgetRecorded(page: import('@playwright/test').Page): Promise<void> {
+		await page.evaluate(() => {
+			const recorded = (window as unknown as RecorderWindow).__recorded;
+			if (recorded) {
+				recorded.landmarks.length = 0;
+				recorded.transit.length = 0;
+			}
+		});
+	}
+
+	/*
+	 * `/` is the routing decision "which folder does Mail open on", and it used to
+	 * be reached as a page: the app navigated there, focus went into a <main>
+	 * named after the accountless welcome screen, and only then did the redirect
+	 * run. Measured over an NVDA session on 2026-09-03 - twice on an ordinary
+	 * return from Settings, and 8 of 8 on Esc out of the composer. Eight call
+	 * sites navigate to `/` meaning "go to Mail", so the two tests below go
+	 * through the two ways the route can be entered rather than through callers.
+	 */
+	test('návrat z Nastavení do Pošty se nezastaví na uvítací obrazovce', async ({ page }) => {
+		await recordAnnouncements(page);
+		await openApp(page, '/mail/1/INBOX');
+		await expect(page.getByRole('heading', { name: 'Doručené' })).toBeVisible();
+
+		await page.getByRole('link', { name: 'Nastavení (Ctrl+3)' }).click();
+		await page.waitForURL('**/settings/appearance');
+
+		// From here on the folder list is in the store, which is the case every
+		// in-app return to Mail is in: the redirect can be decided without asking.
+		await forgetRecorded(page);
+		await page.getByRole('link', { name: 'Pošta (Ctrl+1)' }).click();
+		await page.waitForURL('**/mail/1/INBOX');
+		await expect(page.getByRole('heading', { name: 'Doručené' })).toBeVisible();
+
+		const recorded = await readRecorded(page);
+		// The stop itself: the welcome screen's name, on a route the user is only
+		// passing through.
+		expect(recorded.landmarks).not.toContain('Pošta – Vítejte');
+		// And its live region, which read itself out on the way past.
+		expect(recorded.transit).not.toContain('Načítám poštu…');
+		// The landing that should happen still does.
+		expect(recorded.landmarks).toContain('Pošta – Doručené');
+	});
+
+	test('start na / neohlásí uvítací obrazovku účtu, který ji nemá', async ({ page }) => {
+		/*
+		 * The cold half, which the redirect above deliberately does not cover: with
+		 * no folder list loaded yet there is nothing to decide from, so the route is
+		 * rendered and the wait is real. It may still say it is loading - that is
+		 * true, and a wait the user is in deserves to be said - but it may not
+		 * introduce itself as the screen for an account that does not exist.
+		 */
+		await recordAnnouncements(page);
+		await openApp(page, '/');
+		await page.waitForURL('**/mail/1/INBOX');
+		await expect(page.getByRole('heading', { name: 'Doručené' })).toBeVisible();
+
+		const recorded = await readRecorded(page);
+		expect(recorded.landmarks).not.toContain('Pošta – Vítejte');
+		expect(recorded.landmarks).toContain('Pošta – Doručené');
+	});
+});
