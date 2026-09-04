@@ -521,7 +521,6 @@
 		void handleSend();
 	}}
 	class="flex flex-1 flex-col"
-	aria-label={$_('compose.formLabel')}
 >
 	<ComposeActionsBar
 		{autosaving}

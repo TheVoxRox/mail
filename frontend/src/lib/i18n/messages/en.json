@@ -204,7 +204,6 @@
 		}
 	},
 	"compose": {
-		"formLabel": "New message",
 		"heading": "New message",
 		"pageTitle": "Mail – New message",
 		"insertSignature": "Insert signature",

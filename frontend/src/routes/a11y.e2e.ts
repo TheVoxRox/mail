@@ -295,8 +295,11 @@ test.describe('Přístupnost', () => {
 	}) => {
 		await openApp(page, `/contacts?create=1`);
 
-		// Form landmark names carry no role word ("Formulář …") — the SR
-		// appends the role itself; pattern matches compose's "Nová zpráva".
+		// Form landmark names carry no role word ("Formulář …") — the SR appends
+		// the role itself. This form keeps its name where the composer's lost it:
+		// the name is what makes it a landmark, and the landmark is what carries
+		// the aria-describedby hint asserted below. The composer had no hint to
+		// carry, so there the name only repeated the <h1> inside it.
 		const form = page.getByRole('form', { name: 'Nový kontakt' });
 		await expect(form).toBeVisible();
 		// The intro hint is linked to the form, otherwise focus-mode users
