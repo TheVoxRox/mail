@@ -1,6 +1,7 @@
 package org.voxrox.mailbackend.feature.mail.service;
 
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -30,6 +31,7 @@ class MailboxMaintenanceServiceTest {
     void enforceLocalWindowLimitAsyncShouldDeleteOlderMessagesWhenLimitReached() {
         MailboxMaintenanceService service = new MailboxMaintenanceService(messageRepository, mailProps);
         when(mailProps.sync()).thenReturn(syncProperties(3));
+        when(messageRepository.countByAccountIdAndFolderName(7L, "INBOX")).thenReturn(4L);
         when(messageRepository.findLatestUids(7L, "INBOX", 3)).thenReturn(List.of(30L, 20L, 10L));
         when(messageRepository.deleteOlderThan(7L, "INBOX", 10L)).thenReturn(5);
 
@@ -38,15 +40,51 @@ class MailboxMaintenanceServiceTest {
         verify(messageRepository).deleteOlderThan(7L, "INBOX", 10L);
     }
 
+    /**
+     * The common case: the folder holds fewer rows than the limit, so there is
+     * nothing to prune. Reading up to {@code local-window-limit} UIDs to find that
+     * out is the cost this guard removes — the method runs after every folder
+     * cycle.
+     */
+    @Test
+    void enforceLocalWindowLimitAsyncShouldNotReadUidsBelowTheLimit() {
+        MailboxMaintenanceService service = new MailboxMaintenanceService(messageRepository, mailProps);
+        when(mailProps.sync()).thenReturn(syncProperties(3));
+        when(messageRepository.countByAccountIdAndFolderName(7L, "INBOX")).thenReturn(2L);
+
+        service.enforceLocalWindowLimitAsync(7L, "INBOX");
+
+        verify(messageRepository, never()).findLatestUids(eq(7L), eq("INBOX"), anyInt());
+        verify(messageRepository, never()).deleteOlderThan(eq(7L), eq("INBOX"), anyLong());
+    }
+
+    /**
+     * Exactly on the limit is a no-op as well, which is why the guard may use
+     * {@code <=}: the threshold would be the folder's oldest UID and
+     * {@code uid < threshold} matches no row.
+     */
+    @Test
+    void enforceLocalWindowLimitAsyncShouldNotReadUidsExactlyOnTheLimit() {
+        MailboxMaintenanceService service = new MailboxMaintenanceService(messageRepository, mailProps);
+        when(mailProps.sync()).thenReturn(syncProperties(3));
+        when(messageRepository.countByAccountIdAndFolderName(7L, "INBOX")).thenReturn(3L);
+
+        service.enforceLocalWindowLimitAsync(7L, "INBOX");
+
+        verify(messageRepository, never()).findLatestUids(eq(7L), eq("INBOX"), anyInt());
+        verify(messageRepository, never()).deleteOlderThan(eq(7L), eq("INBOX"), anyLong());
+    }
+
     @Test
     void enforceLocalWindowLimitAsyncShouldSwallowRepositoryFailure() {
         MailboxMaintenanceService service = new MailboxMaintenanceService(messageRepository, mailProps);
         when(mailProps.sync()).thenReturn(syncProperties(3));
-        when(messageRepository.findLatestUids(7L, "INBOX", 3)).thenThrow(new RuntimeException("db busy"));
+        when(messageRepository.countByAccountIdAndFolderName(7L, "INBOX")).thenThrow(new RuntimeException("db busy"));
 
         service.enforceLocalWindowLimitAsync(7L, "INBOX");
 
-        verify(messageRepository, never()).deleteOlderThan(eq(7L), eq("INBOX"), anyInt());
+        verify(messageRepository, never()).findLatestUids(eq(7L), eq("INBOX"), anyInt());
+        verify(messageRepository, never()).deleteOlderThan(eq(7L), eq("INBOX"), anyLong());
     }
 
     private static SyncProperties syncProperties(int localWindowLimit) {

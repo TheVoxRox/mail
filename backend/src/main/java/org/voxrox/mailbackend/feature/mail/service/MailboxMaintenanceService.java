@@ -38,6 +38,20 @@ public class MailboxMaintenanceService {
         try {
             int limit = mailProps.sync().localWindowLimit();
 
+            /*
+             * Cheap guard in front of the expensive read. This runs after every folder
+             * cycle — six folders per five minutes on a normal account — while a folder
+             * over the limit is the rare case, so the common path used to pull up to
+             * local-window-limit UIDs out of the DB only to delete nothing. A folder
+             * sitting exactly on the limit is a no-op too, not just a cheap one: the
+             * threshold would be the folder's oldest UID and "uid < threshold" matches no
+             * row.
+             */
+            long localCount = messageRepository.countByAccountIdAndFolderName(accountId, folderName);
+            if (localCount <= limit) {
+                return;
+            }
+
             List<Long> latestUids = messageRepository.findLatestUids(accountId, folderName, limit);
 
             if (latestUids.size() >= limit) {
