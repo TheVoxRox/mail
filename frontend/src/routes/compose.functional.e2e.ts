@@ -14,7 +14,7 @@ test.describe('Compose', () => {
 
 		await sidebar.getByRole('button', { name: 'Nová zpráva Ctrl+N' }).click();
 		await page.waitForURL('**/compose');
-		await expect(page.getByRole('form', { name: 'Nová zpráva' })).toBeVisible();
+		await expect(page.getByRole('heading', { level: 1, name: 'Nová zpráva' })).toBeVisible();
 
 		await openApp(page, '/mail/1/INBOX');
 		await page.locator('body').dispatchEvent('keydown', {
@@ -25,7 +25,31 @@ test.describe('Compose', () => {
 			cancelable: true
 		});
 		await page.waitForURL('**/compose');
-		await expect(page.getByRole('form', { name: 'Nová zpráva' })).toBeVisible();
+		await expect(page.getByRole('heading', { level: 1, name: 'Nová zpráva' })).toBeVisible();
+	});
+
+	test('composer se nepředstaví dvakrát, než se dojde ke Komu', async ({ page }) => {
+		/*
+		 * Ctrl+N used to say "Nová zpráva" twice before the To field: the <main>
+		 * landmark is named after the route title ("Pošta – Nová zpráva") and the
+		 * <form> inside it carried aria-label="Nová zpráva", which made it a second
+		 * landmark whose whole name was the <h1> immediately inside it. Found by
+		 * NVDA listening on 2026-09-03.
+		 *
+		 * The name is what makes a <form> a landmark, so dropping it removes the
+		 * landmark rather than leaving an unnamed one — which is the point: the
+		 * composer is the whole of main here, so a region spanning exactly main
+		 * adds a navigation target that goes nowhere new. The contact form keeps
+		 * its name for a reason that does not apply here: there the landmark
+		 * carries an aria-describedby hint (see a11y.e2e.ts).
+		 */
+		await openApp(page, '/compose');
+
+		await expect(page.getByRole('main', { name: 'Pošta – Nová zpráva' })).toBeVisible();
+		await expect(page.getByRole('heading', { level: 1, name: 'Nová zpráva' })).toBeVisible();
+		// No third one. Asserted over every form landmark rather than the name, so
+		// re-introducing it under any wording has to be a deliberate choice.
+		await expect(page.getByRole('form')).toHaveCount(0);
 	});
 
 	test('nová zpráva fokusuje Komu a reply fokusuje tělo zprávy', async ({ page }) => {
@@ -119,7 +143,7 @@ test.describe('Compose', () => {
 	test('odešle novou zprávu přes MSW API a vrátí se do inboxu', async ({ page }) => {
 		await openApp(page, '/compose');
 
-		await expect(page.getByRole('form', { name: 'Nová zpráva' })).toBeVisible();
+		await expect(page.getByRole('heading', { level: 1, name: 'Nová zpráva' })).toBeVisible();
 		await expect(page.getByRole('region', { name: 'Podokno pošty' })).toBeVisible();
 
 		await page.locator('#compose-to').fill('recipient@example.com');
@@ -152,7 +176,7 @@ test.describe('Compose', () => {
 		await expect(dialog).toHaveCount(0);
 
 		// Cancel keeps the composer intact and nothing was sent.
-		await expect(page.getByRole('form', { name: 'Nová zpráva' })).toBeVisible();
+		await expect(page.getByRole('heading', { level: 1, name: 'Nová zpráva' })).toBeVisible();
 		await expect(page.locator('#compose-body')).toHaveValue('Posílám fakturu v příloze.');
 		expect(sendRequests).toBe(0);
 
@@ -505,7 +529,9 @@ test.describe('Compose', () => {
 			buffer: Buffer.from('A11y příloha')
 		});
 
-		const results = await wcagScan(page).include('form[aria-label="Nová zpráva"]').analyze();
+		// Scoped to the form element, not to a name: the composer's form is
+		// deliberately unnamed, so it is no longer addressable by aria-label.
+		const results = await wcagScan(page).include('#main-content form').analyze();
 		expect(results.violations).toEqual([]);
 	});
 
@@ -524,7 +550,7 @@ test.describe('Compose', () => {
 	test('uloží koncept ručně přes MSW API a vrátí se do inboxu', async ({ page }) => {
 		await openApp(page, '/compose');
 
-		await expect(page.getByRole('form', { name: 'Nová zpráva' })).toBeVisible();
+		await expect(page.getByRole('heading', { level: 1, name: 'Nová zpráva' })).toBeVisible();
 		await expect(page.getByRole('region', { name: 'Podokno pošty' })).toBeVisible();
 
 		await page.locator('#compose-to').fill('draft-recipient@example.com');

@@ -204,7 +204,6 @@
 		}
 	},
 	"compose": {
-		"formLabel": "Nová zpráva",
 		"heading": "Nová zpráva",
 		"pageTitle": "Pošta – Nová zpráva",
 		"insertSignature": "Vložit podpis",

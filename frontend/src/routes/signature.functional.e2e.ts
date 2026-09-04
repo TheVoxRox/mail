@@ -40,7 +40,7 @@ async function openComposeClientSide(page: Page): Promise<void> {
 		.click();
 	await page.waitForURL('**/compose');
 	await waitForShell(page);
-	await expect(page.getByRole('form', { name: 'Nová zpráva' })).toBeVisible();
+	await expect(page.getByRole('heading', { level: 1, name: 'Nová zpráva' })).toBeVisible();
 }
 
 test.describe('Podpisy v compose', () => {
