@@ -8,6 +8,7 @@
 		setActiveAccount
 	} from '$lib/stores/accounts.js';
 	import { loadFolders } from '$lib/stores/folders.js';
+	import { folderHref, pickEntryFolder } from '$lib/mail/entryFolder.js';
 	import { toErrorMessage } from '$lib/api/errors.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Surface } from '$lib/components/ui/surface/index.js';
@@ -17,6 +18,12 @@
 	let loadError = $state<string | null>(null);
 	let handledContext = $state<string | null>(null);
 
+	/*
+	 * Only the cold cases reach here: `+page.ts` redirects from cache before this
+	 * component is ever built, so what is left is the boot that has no folder
+	 * list yet and the account switch to a mailbox never opened. Both are a real
+	 * wait, which is why they get a status message rather than a silent one.
+	 */
 	async function redirect() {
 		const state = get(accountsState);
 		if (state.status !== 'ready') {
@@ -40,19 +47,13 @@
 			loadError = toErrorMessage(err);
 			return [];
 		});
-		const inbox = folders.find((f) => f.role === 'INBOX') ?? folders[0];
-		if (!inbox) {
+		const entry = pickEntryFolder(folders);
+		if (!entry) {
 			emptyMail = true;
 			return;
 		}
 
-		await goto(
-			resolve('/mail/[accountId]/[folderName]', {
-				accountId: String(accountId),
-				folderName: encodeURIComponent(inbox.folderRef)
-			}),
-			{ replaceState: true }
-		);
+		await goto(folderHref(accountId, entry), { replaceState: true });
 	}
 
 	$effect(() => {
@@ -66,11 +67,19 @@
 	bare `app.title` — and since <main> is named after the route title, the
 	accountless welcome screen introduced itself as the application. That is the
 	shape every other route was made to drop, and the strip that used to hide it
-	is gone. Static, because all three states of this route are the same place:
-	the redirect that has not resolved yet, the load error, and the welcome card.
+	is gone.
+
+	It is no longer one title for all states, which is what the first fix
+	assumed. "The redirect that has not resolved yet" turned out not to be the
+	same place as the welcome card at all: focus lands in <main> while this route
+	is still on its way somewhere else, so naming it after the welcome screen
+	announced a screen the user was not on and would never see. Only the states
+	the user actually stays on may claim that name; on the way through, the
+	landmark says the workspace being entered and the status line below says a
+	wait is on, which is the truth in the one case that still gets here.
 -->
 <svelte:head>
-	<title>{$_('root.pageTitle')}</title>
+	<title>{emptyMail ? $_('root.pageTitle') : $_('workspace.mail')}</title>
 </svelte:head>
 
 <div class="flex h-full items-center justify-center text-sm text-muted-foreground">
