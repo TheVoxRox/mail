@@ -141,28 +141,27 @@ public class MessageDownloader {
     }
 
     /**
-     * Downloads messages within the given UID range (used for historical backfill).
-     */
-    public int downloadRange(FolderSyncContext ctx, long startUid, long endUid) throws MessagingException {
-        return downloadRangeInternal(ctx, startUid, endUid);
-    }
-
-    /**
-     * Lazy-fetch path: downloads the messages at the given IMAP sequence positions
-     * (1-indexed; sequence 1 = oldest, {@code folder.getMessageCount()} = newest).
-     * Used by the read path when the user navigates to a page that falls below the
-     * locally cached recency window, so we can serve any page of any folder without
-     * mirroring the whole mailbox up front.
+     * Downloads the messages at the given IMAP sequence positions (1-indexed;
+     * sequence 1 = oldest, {@code folder.getMessageCount()} = newest). Two callers,
+     * both extending the local mirror downward into older mail: the read path when
+     * the user navigates to a page below the cached recency window, and the page-0
+     * history backfill. Neither has to mirror the whole mailbox up front.
+     * <p>
+     * Sequence positions rather than a UID range because the UID space is sparse —
+     * see {@code MailSyncService.backfillOlderMessages} for what a UID window costs
+     * when it lands in a gap.
      * <p>
      * Saves through the same batched-atomic write as the initial sync, which
      * advances {@code lastKnownUid} only upward — backfilled / lazy-fetched older
      * UIDs never regress the forward sync cursor.
+     * <p>
+     * The caller logs the outcome: both know why they are fetching, and this method
+     * does not.
      */
     public int downloadSequenceRange(FolderSyncContext ctx, int startSeq, int endSeq) throws MessagingException {
         if (endSeq < startSeq) {
             return 0;
         }
-        log.info("{} Lazy page fetch in {}: sequence {} -> {}.", LogCategory.SYNC, ctx.folderName(), startSeq, endSeq);
         Message[] messages = ctx.folder().getMessages(startSeq, endSeq);
         if (messages == null || messages.length == 0) {
             return 0;

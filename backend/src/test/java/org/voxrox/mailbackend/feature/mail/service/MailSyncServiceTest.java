@@ -479,56 +479,116 @@ class MailSyncServiceTest {
     @DisplayName("syncAndBackfill")
     class SyncAndBackfill {
 
-        @Test
-        @DisplayName("page=0 + minUid>1 triggers backfill (downloadRange via executeInFolder)")
-        void triggersBackfillOnFirstPage() {
-            SyncProperties sync = new SyncProperties(100, 200, java.time.Duration.ofMinutes(5),
-                    java.time.Duration.ofSeconds(10), 50, 30, 300, 4, 256, 200, java.time.Duration.ofMinutes(30),
-                    java.time.Duration.ofSeconds(30));
-            when(mailProps.sync()).thenReturn(sync);
+        /**
+         * The two knobs this nested class drives: a backfill batch of 30 and a local
+         * window limit of 300. The rest matches the shipped defaults.
+         */
+        private void stubSyncProperties() {
+            when(mailProps.sync()).thenReturn(
+                    new SyncProperties(100, 200, java.time.Duration.ofMinutes(5), java.time.Duration.ofSeconds(10), 50,
+                            30, 300, 4, 256, 200, java.time.Duration.ofMinutes(30), java.time.Duration.ofSeconds(30)));
+        }
 
-            when(messageRepository.findMinUidByAccountIdAndFolderName(ACCOUNT_ID, "INBOX"))
-                    .thenReturn(Optional.of(100L));
+        @Test
+        @DisplayName("page=0 backfills the batch directly below the local edge, addressed by sequence number")
+        void triggersBackfillOnFirstPage() throws Exception {
+            Folder folder = mock(Folder.class);
+            stubSyncProperties();
+            stubExecuteInFolderRunCallback(folder);
+            stubTransactionTemplateExecuteRunCallback();
+            when(messageRepository.countByAccountIdAndFolderName(ACCOUNT_ID, "INBOX")).thenReturn(100L);
+            when(folder.getMessageCount()).thenReturn(1790);
+            when(syncStateService.getOrCreateState(eq(ACCOUNT_ID), eq("INBOX"), eq(FolderRole.USER)))
+                    .thenReturn(new FolderSyncStateEntity());
 
             service.syncAndBackfill(account, "INBOX", 0);
 
-            // 1) performFullSyncCycle → executeInFolder
-            // 2) downloadRange → executeInFolder
-            verify(imapFolderService, times(2)).executeInFolder(eq(ACCOUNT_ID), eq("INBOX"),
-                    eq(jakarta.mail.Folder.READ_ONLY), any());
+            // Local edge = 1790 - 100 = 1690; a batch of 30 below it = 1661..1690.
+            verify(messageDownloader).downloadSequenceRange(any(), eq(1661), eq(1690));
+        }
+
+        @Test
+        @DisplayName("A sparse UID space no longer stalls the backfill — the batch is full whatever the UIDs are")
+        void backfillProgressesOverSparseUidSpace() throws Exception {
+            /*
+             * Regression for the loop this replaced: the old backfill fetched the 30 UIDs
+             * below the oldest local one, which in a long-lived mailbox (a local minimum of
+             * 18263 with the next real message at 61072) covers no message at all. It
+             * downloaded nothing, the local minimum stayed put, and the next folder open
+             * asked for the identical empty range — forever. Sequence positions are dense,
+             * so the same folder now yields a full batch of real messages no matter where
+             * the UIDs sit.
+             */
+            Folder folder = mock(Folder.class);
+            stubSyncProperties();
+            stubExecuteInFolderRunCallback(folder);
+            stubTransactionTemplateExecuteRunCallback();
+            when(messageRepository.countByAccountIdAndFolderName(ACCOUNT_ID, "INBOX")).thenReturn(59L);
+            when(folder.getMessageCount()).thenReturn(204);
+            when(syncStateService.getOrCreateState(eq(ACCOUNT_ID), eq("INBOX"), eq(FolderRole.USER)))
+                    .thenReturn(new FolderSyncStateEntity());
+            when(messageDownloader.downloadSequenceRange(any(), eq(116), eq(145))).thenReturn(30);
+
+            service.syncAndBackfill(account, "INBOX", 0);
+
+            verify(messageDownloader).downloadSequenceRange(any(), eq(116), eq(145));
+        }
+
+        @Test
+        @DisplayName("A batch that would reach past the oldest message is clamped at sequence 1")
+        void clampsAtTheOldestMessage() throws Exception {
+            Folder folder = mock(Folder.class);
+            stubSyncProperties();
+            stubExecuteInFolderRunCallback(folder);
+            stubTransactionTemplateExecuteRunCallback();
+            when(messageRepository.countByAccountIdAndFolderName(ACCOUNT_ID, "INBOX")).thenReturn(40L);
+            when(folder.getMessageCount()).thenReturn(52);
+            when(syncStateService.getOrCreateState(eq(ACCOUNT_ID), eq("INBOX"), eq(FolderRole.USER)))
+                    .thenReturn(new FolderSyncStateEntity());
+
+            service.syncAndBackfill(account, "INBOX", 0);
+
+            // Edge at 12, a batch of 30 would reach -17; the folder starts at 1.
+            verify(messageDownloader).downloadSequenceRange(any(), eq(1), eq(12));
         }
 
         @Test
         @DisplayName("page>0 only sync, no backfill")
-        void noBackfillOnLaterPages() {
+        void noBackfillOnLaterPages() throws Exception {
             service.syncAndBackfill(account, "INBOX", 1);
 
             verify(imapFolderService, times(1)).executeInFolder(eq(ACCOUNT_ID), eq("INBOX"),
                     eq(jakarta.mail.Folder.READ_ONLY), any());
-            verify(messageRepository, never()).findMinUidByAccountIdAndFolderName(anyLong(), any());
+            verify(messageDownloader, never()).downloadSequenceRange(any(), anyInt(), anyInt());
         }
 
         @Test
-        @DisplayName("minUid=1 does not trigger backfill (nothing older can exist)")
-        void noBackfillWhenMinUidIsOne() {
-            when(messageRepository.findMinUidByAccountIdAndFolderName(ACCOUNT_ID, "INBOX")).thenReturn(Optional.of(1L));
+        @DisplayName("A fully mirrored folder fetches nothing — no history is left below the edge")
+        void noBackfillWhenFolderFullyMirrored() throws Exception {
+            Folder folder = mock(Folder.class);
+            stubSyncProperties();
+            stubExecuteInFolderRunCallback(folder);
+            when(messageRepository.countByAccountIdAndFolderName(ACCOUNT_ID, "INBOX")).thenReturn(52L);
+            when(folder.getMessageCount()).thenReturn(52);
 
             service.syncAndBackfill(account, "INBOX", 0);
 
-            verify(imapFolderService, times(1)).executeInFolder(eq(ACCOUNT_ID), eq("INBOX"),
-                    eq(jakarta.mail.Folder.READ_ONLY), any());
+            verify(messageDownloader, never()).downloadSequenceRange(any(), anyInt(), anyInt());
         }
 
         @Test
-        @DisplayName("No messages in DB -> no backfill")
-        void noBackfillWhenEmpty() {
-            when(messageRepository.findMinUidByAccountIdAndFolderName(ACCOUNT_ID, "INBOX"))
-                    .thenReturn(Optional.empty());
+        @DisplayName("At the local window limit the backfill stops, so it cannot feed the pruner its own batch")
+        void noBackfillAtLocalWindowLimit() throws Exception {
+            Folder folder = mock(Folder.class);
+            stubSyncProperties();
+            stubExecuteInFolderRunCallback(folder);
+            when(messageRepository.countByAccountIdAndFolderName(ACCOUNT_ID, "INBOX")).thenReturn(300L);
 
             service.syncAndBackfill(account, "INBOX", 0);
 
-            verify(imapFolderService, times(1)).executeInFolder(eq(ACCOUNT_ID), eq("INBOX"),
-                    eq(jakarta.mail.Folder.READ_ONLY), any());
+            verify(messageDownloader, never()).downloadSequenceRange(any(), anyInt(), anyInt());
+            // The server count is never even asked for — the guard fires first.
+            verify(folder, never()).getMessageCount();
         }
 
         @Test
@@ -539,7 +599,7 @@ class MailSyncServiceTest {
             service.syncAndBackfill(account, "INBOX", 0);
 
             verify(imapFolderService, never()).executeInFolder(anyLong(), any(), anyInt(), any());
-            verify(messageRepository, never()).findMinUidByAccountIdAndFolderName(anyLong(), any());
+            verify(messageRepository, never()).countByAccountIdAndFolderName(anyLong(), any());
             verify(lockManager, never()).unlockFolder(anyLong(), any());
         }
 

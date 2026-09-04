@@ -198,10 +198,6 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
     @Query("UPDATE MessageEntity m SET m.answered = :answered WHERE m.stableId = :stableId AND m.answered != :answered")
     void updateAnsweredStatus(@Param("stableId") String stableId, @Param("answered") boolean answered);
 
-    @Query("SELECT MIN(m.uid) FROM MessageEntity m WHERE m.account.id = :accId AND m.folderName = :folder")
-    Optional<Long> findMinUidByAccountIdAndFolderName(@Param("accId") Long accountId,
-            @Param("folder") String folderName);
-
     @Query(value = "SELECT uid FROM messages WHERE account_id = :accId AND folder_name = :folder ORDER BY uid DESC LIMIT :limit", nativeQuery = true)
     List<Long> findLatestUids(@Param("accId") Long accountId, @Param("folder") String folderName,
             @Param("limit") int limit);
