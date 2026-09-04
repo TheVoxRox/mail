@@ -145,8 +145,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Audit (full report)
-        run: npm audit --json > npm-audit-report.json || true
+      # One call, not two. This used to fetch the advisories twice - once for the
+      # artifact with `|| true`, then again for the verdict - so a flapping
+      # registry had two chances to fail the job and the second call could
+      # disagree with the report that was uploaded. The gate keeps the report it
+      # actually judged, and retries the no-verdict case rather than ending red
+      # on a 503; a finding still fails the step, and the artifact still uploads
+      # because the report is written before the threshold is applied.
+      - name: Audit npm dependencies
+        run: npm run audit:ci -- --report npm-audit-report.json
 
       - name: Upload audit report
         if: always()
@@ -156,9 +163,6 @@ jobs:
           path: frontend/npm-audit-report.json
           retention-days: 30
           if-no-files-found: warn
-
-      - name: Fail on high+ severity
-        run: npm audit --audit-level=high
 
   cargo-audit-tauri:
     name: Tauri cargo audit (RustSec)
