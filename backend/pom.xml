@@ -80,8 +80,24 @@
 			<artifactId>spring-boot-starter-data-jpa</artifactId>
 		</dependency>
 		<dependency>
+			<!--
+				The default artifact carries the native library for all twenty
+				platforms xerial builds for: 11.4 MB in the fat jar, one file of
+				which is ever loaded. `without-natives` is the same 160 class and
+				service entries with the natives left out; the one platform a
+				build actually runs on arrives from the OS-activated
+				`sqlite-natives-*` profiles below. Windows: 11.4 MB -> 2.4 MB.
+
+				The version is spelled out because dependencyManagement keys on
+				the classifier as well, so the entry Spring Boot's BOM manages
+				(org.xerial:sqlite-jdbc:jar, no classifier) does not apply to
+				these. ${sqlite-jdbc.version} is that same BOM's property, so a
+				Boot bump still moves all three in step.
+			-->
 			<groupId>org.xerial</groupId>
 			<artifactId>sqlite-jdbc</artifactId>
+			<classifier>without-natives</classifier>
+			<version>${sqlite-jdbc.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.hibernate.orm</groupId>
@@ -873,6 +889,72 @@
 					</plugin>
 				</plugins>
 			</build>
+		</profile>
+
+		<!--
+			The SQLite native library for the platform being built on, paired with
+			the `without-natives` sqlite-jdbc above. Split by classifier rather
+			than shipping all twenty platforms, which is 9.0 MB of a Windows
+			sidecar that can load exactly one of them.
+
+			Activation is by OS, not by -P, so no caller has to remember it:
+			packaging runs on Windows, `Backend quality` on ubuntu-latest, and a
+			developer gets whichever machine they are on. Linux matches on `name`
+			because Maven's `unix` family covers macOS too, and natives-linux
+			does not.
+
+			A platform with no profile here (FreeBSD, Android) builds a driver
+			with no native library. That fails loudly rather than silently: the
+			repository ITs open a real SQLite database, so `mvn verify` cannot go
+			green without the native the platform needs.
+		-->
+		<profile>
+			<id>sqlite-natives-windows</id>
+			<activation>
+				<os>
+					<family>windows</family>
+				</os>
+			</activation>
+			<dependencies>
+				<dependency>
+					<groupId>org.xerial</groupId>
+					<artifactId>sqlite-jdbc</artifactId>
+					<classifier>natives-windows</classifier>
+					<version>${sqlite-jdbc.version}</version>
+				</dependency>
+			</dependencies>
+		</profile>
+		<profile>
+			<id>sqlite-natives-linux</id>
+			<activation>
+				<os>
+					<name>linux</name>
+				</os>
+			</activation>
+			<dependencies>
+				<dependency>
+					<groupId>org.xerial</groupId>
+					<artifactId>sqlite-jdbc</artifactId>
+					<classifier>natives-linux</classifier>
+					<version>${sqlite-jdbc.version}</version>
+				</dependency>
+			</dependencies>
+		</profile>
+		<profile>
+			<id>sqlite-natives-mac</id>
+			<activation>
+				<os>
+					<family>mac</family>
+				</os>
+			</activation>
+			<dependencies>
+				<dependency>
+					<groupId>org.xerial</groupId>
+					<artifactId>sqlite-jdbc</artifactId>
+					<classifier>natives-mac</classifier>
+					<version>${sqlite-jdbc.version}</version>
+				</dependency>
+			</dependencies>
 		</profile>
 	</profiles>
 </project>
