@@ -148,9 +148,9 @@ jobs:
       # regression because the webview origin only exists in a bundle — this is
       # the integration counterpart to SecurityConfigTest. Runs before signing
       # so a broken build fails fast.
-      - name: Sidecar CORS contract smoke
+      - name: Packaged sidecar smoke
         working-directory: frontend
-        run: npm run tauri:smoke:sidecar-cors
+        run: npm run tauri:smoke:sidecar
 
       # Authenticode signing is optional for this OSS build (no paid cert). When
       # the certificate secret is absent the installer ships unsigned and
