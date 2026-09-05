@@ -75,6 +75,7 @@ pub fn run() {
                 .resizable(true)
                 .maximized(true)
                 .data_directory(webview_dir.clone())
+                .additional_browser_args(&webview_browser_args())
                 .build()?;
 
             /*
@@ -92,6 +93,47 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+/// Ceiling for the WebView2 HTTP cache, which has none by default: unbounded,
+/// it measured 22.8 MB in the production profile and 73 MB in the dev one.
+/// Everything the webview loads comes from `tauri://localhost` or the sidecar
+/// on loopback, so a refill costs no network, and 16 MB is ten times the whole
+/// built frontend.
+///
+/// Only the separately stored entries count against the value. The blockfile
+/// backend preallocates `data_0`..`data_3` (5.5 MB) whatever it is set to, so a
+/// cap below that floor saves nothing. Measured over one 3-minute cold start on
+/// the same workload: 9.9 MB of entry files uncapped, 2.8 MB at a 2 MB cap.
+const WEBVIEW_DISK_CACHE_BYTES: u32 = 16 * 1024 * 1024;
+
+/// Chromium command line for the embedded WebView2.
+///
+/// Setting this **replaces** wry's default argument string rather than adding
+/// to it (wry 0.55 `webview2/mod.rs` only builds its default when
+/// `additional_browser_args` is `None`), so the features that default disables
+/// — the PDF/mini-menu overlays and SmartScreen — are repeated here. Keep them
+/// in one `--disable-features` switch: a second one does not merge, it wins.
+///
+/// `--disable-component-update` turns off the component updater, which on a
+/// default profile fetches and then keeps refreshing an ad-blocking ruleset
+/// (Subresource Filter), on-device speech models, hyphenation data, Widevine
+/// and several trust lists — 24 MB beside the app's own data in a profile that
+/// had been running for weeks. Nothing here uses them: the webview renders the
+/// local frontend plus mail bodies sanitized into a sandboxed `srcdoc`, and it
+/// never navigates to a third-party page, because body links are handed to the
+/// OS browser (`src/lib/mail/mailFrame.ts`).
+///
+/// What it costs: the only remote request the webview can still make is an
+/// opt-in remote image, and for those the profile's copy of the revocation list
+/// stops being refreshed — leaving the one compiled into the installed WebView2
+/// runtime, which Edge updates on its own schedule.
+fn webview_browser_args() -> String {
+    format!(
+        "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection \
+         --disable-component-update \
+         --disk-cache-size={WEBVIEW_DISK_CACHE_BYTES}"
+    )
 }
 
 /// Restored (un-maximized) and minimum inner window size in logical px,
@@ -414,7 +456,10 @@ fn configure_log_plugin<R: tauri::Runtime>(log_dir: PathBuf) -> tauri::plugin::T
 
 #[cfg(test)]
 mod tests {
-    use super::{beta_endpoint_override, data_root_under, window_sizes_for, UpdateMetadata};
+    use super::{
+        beta_endpoint_override, data_root_under, webview_browser_args, window_sizes_for,
+        UpdateMetadata, WEBVIEW_DISK_CACHE_BYTES,
+    };
     use std::path::{Path, PathBuf};
     use tauri::LogicalSize;
 
@@ -526,6 +571,37 @@ mod tests {
             }
         );
         assert_eq!(min, restore);
+    }
+
+    #[test]
+    fn webview_args_repeat_the_defaults_they_replace() {
+        let args = webview_browser_args();
+
+        // wry passes these three when the app sets no arguments of its own, and
+        // stops passing them the moment it does. Dropping them here would put
+        // the PDF/mini-menu overlays and SmartScreen back.
+        for feature in ["msWebOOUI", "msPdfOOUI", "msSmartScreenProtection"] {
+            assert!(args.contains(feature), "{args} must keep {feature}");
+        }
+        assert_eq!(
+            args.matches("--disable-features=").count(),
+            1,
+            "a second --disable-features switch overrides the first instead of merging: {args}"
+        );
+    }
+
+    #[test]
+    fn webview_args_turn_off_the_component_updater_and_cap_the_cache() {
+        let args = webview_browser_args();
+
+        assert!(args.contains(" --disable-component-update"), "{args}");
+        assert!(
+            args.contains(&format!(" --disk-cache-size={WEBVIEW_DISK_CACHE_BYTES}")),
+            "{args}"
+        );
+        // 0 is not "no cache" to Chromium — it means "pick the default", which
+        // is the unbounded behaviour this switch exists to replace.
+        assert!(WEBVIEW_DISK_CACHE_BYTES > 0);
     }
 
     #[test]
