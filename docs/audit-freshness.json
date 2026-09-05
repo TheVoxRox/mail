@@ -43,7 +43,7 @@
   ],
   "docs/UPDATER_AUDIT.md": {
     "reviewedTrees": {
-      "frontend/src-tauri/src": "82fec37f53dffadd222f0a75519ea7f1a435c289",
+      "frontend/src-tauri/src": "ba62ea600b7f34a86f3d398a5caf0844594ceabd",
       "frontend/src/lib/updates.ts": "8ecc542f80e3dbaede15f04a90c4e12621776b83",
       "frontend/src/lib/components/UpdatePromptDialog.svelte": "bde66d255591e2034835ae34a7cd9a0c738a9c90",
       "frontend/scripts/generate-tauri-latest-windows.mjs": "773b1391091178f97059dbca59f4fc0585f30708",
@@ -66,6 +66,10 @@
       {
         "date": "2026-09-05",
         "note": "Two lines, and they are a rename. In windows-signed-release.yml the smoke step's display name goes from 'Sidecar CORS contract smoke' to 'Packaged sidecar smoke' and its run: invokes npm run tauri:smoke:sidecar instead of tauri:smoke:sidecar-cors. Diffed the whole file rather than trusting the title: that step is the only hunk, and within it nothing but those two lines moved — no other run: block, no with: key, no secret, no config flag, no artifact path, no step order. What the renamed script does is not part of this delta either: git records the file as a rename at 93% similarity, and the only edits inside it are the header prose, the Usage line, the temp-dir prefix and one console.log. Ran under the new name against the packaged sidecar and it reports the same three lines as before (webview origin 200 with the echoed allow-origin, foreign origin 403; boot endpoints 200; POST 201 and GET 200 over one account). The two places this audit cites the workflow are section 2 (the release always builds with --config tauri.release.conf.json, so a missing TAURI_UPDATER_PUBKEY aborts the build) and section 6 finding U-1 (tag names no longer reach a run: block); this step runs before signing, touches neither, and a step's display name reaches no claim at all. Every claim holds unchanged; verdict stays PASS. Fourth acknowledgement since the v1.10 re-anchor of 2026-08-28, against a cap of 8 — recorded rather than re-verified because re-anchoring a whole audit to absorb a step rename would be ceremony, not diligence."
+      },
+      {
+        "date": "2026-09-05",
+        "note": "One builder call and the helper behind it, in lib.rs, and neither is on the update path. The whole delta under this audit's Code paths: WebviewWindowBuilder gains .additional_browser_args(&webview_browser_args()), and the file gains that function, a WEBVIEW_DISK_CACHE_BYTES constant and two unit tests for them. Diffed the file rather than trusting the summary: the three commands this audit enumerates (check_for_update, download_pending_update, install_pending_update) are byte-identical, the generate_handler list is unchanged, PendingUpdate/DownloadedUpdate and take_expected_update are untouched, and beta_endpoint_override still rejects everything but stable/beta. capabilities/default.json still grants nothing under updater:. What the new arguments do — --disable-component-update and --disk-cache-size — is confined to the WebView2 renderer's own component downloads and HTTP cache; the updater fetches latest.json and the installer through the Rust plugin (reqwest), never through the webview, so neither transport, signature verification, the version pin nor the download-progress event can see them. The one adjacent question this raises, whether a webview that no longer refreshes its revocation-list component weakens some TLS check in the trust chain, does not reach this boundary either: the pinned endpoints are fetched outside the webview, and the package is verified against the pinned Ed25519 pubkey rather than against its transport. Every claim holds unchanged; verdict stays PASS. Fifth acknowledgement since the v1.10 re-anchor of 2026-08-28, against a cap of 8 — recorded rather than re-verified because the delta adds a renderer setting beside the update path, not on it."
       }
     ]
   },
