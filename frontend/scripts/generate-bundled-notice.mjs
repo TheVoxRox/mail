@@ -20,7 +20,11 @@
  *   3. Source-code availability statement for MPL 2.0 components — the
  *      upstream repository URL printed beside the package.
  *
- * Source of truth: the three CycloneDX SBOMs produced by `regen:sbom:all`.
+ * Source of truth: the three CycloneDX SBOMs produced by `regen:sbom:all`,
+ * with the Maven one narrowed to what the packaged jar actually carries — a
+ * NOTICE is a statement about redistribution, and the dependency tree is wider
+ * than the artifact in one direction and narrower in the other (see
+ * distributedMavenComponents below). That narrowing needs a built backend jar.
  * Run `npm run regen:sbom:all && npm run regen:notice` to render this file
  * directly, or `npm run regen:licenses:all` for the one-shot release regen
  * (inventories + SBOMs + this notice). Either way the SBOMs must be fresh
@@ -32,6 +36,7 @@
 import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { packagedArtifacts } from '../../backend/scripts/lib/packaged-artifacts.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '..', '..');
@@ -46,7 +51,7 @@ const sbomSources = [
 		ecosystem: 'npm'
 	},
 	{
-		label: 'Backend (Maven — compile / runtime artefacts)',
+		label: 'Backend (Maven — artefacts inside the shipped jar)',
 		path: path.resolve(repoRoot, 'backend', 'target', 'bom.json'),
 		ecosystem: 'maven'
 	},
@@ -131,6 +136,48 @@ function componentRepo(component) {
 	return component.externalReferences?.find((r) => r.type === 'vcs')?.url || '';
 }
 
+/*
+ * The Maven SBOM describes the dependency tree, which is deliberately wider
+ * than what ships: `repackage` in backend/pom.xml drops springdoc, swagger, the
+ * webjars and Jackson 2, and the Spring Boot starters are POM aggregators with
+ * no jar. A NOTICE listing those claims to redistribute software it does not.
+ *
+ * The SBOM itself stays as it is — CVE scanners consume it and want the build's
+ * whole surface — so the narrowing happens here, where the question is what
+ * reaches a user. The direction that matters legally is the other one:
+ * `repackage` injects spring-boot-jarmode-tools, which appears in no scope and
+ * so in no SBOM, and shipping it without a notice is the omission this fixes.
+ */
+function distributedMavenComponents(bom) {
+	const packaged = packagedArtifacts(path.resolve(repoRoot, 'backend'));
+	/*
+	 * Deduplicated by coordinate: since #395 sqlite-jdbc ships as two
+	 * classifier jars and the SBOM carries a component for each, which would
+	 * print the same package, licence and copyright twice. A notice is per
+	 * component, not per file.
+	 */
+	const seen = new Set();
+	const distributed = bom.components.filter((c) => {
+		if (!packaged.ships(c.name, c.version)) return false;
+		const coordinate = `${c.group}:${c.name}:${c.version}`;
+		if (seen.has(coordinate)) return false;
+		seen.add(coordinate);
+		return true;
+	});
+	for (const entry of packaged.injected) {
+		distributed.push({
+			group: entry.groupId,
+			name: entry.artifactId,
+			version: entry.version,
+			publisher: entry.copyright,
+			licenses: [{ license: { id: entry.license } }],
+			externalReferences: [{ type: 'vcs', url: entry.repo }]
+		});
+	}
+	packaged.assertAllAccountedFor('NOTICE.txt');
+	return distributed;
+}
+
 const licenseTexts = new Map();
 for (const file of readdirSync(templatesDir)) {
 	if (!file.endsWith('.txt')) continue;
@@ -144,8 +191,9 @@ const byLicense = new Map();
 const ecosystemCounts = new Map();
 for (const src of sbomSources) {
 	const bom = readSbom(src.path);
-	ecosystemCounts.set(src.ecosystem, bom.components.length);
-	for (const c of bom.components) {
+	const components = src.ecosystem === 'maven' ? distributedMavenComponents(bom) : bom.components;
+	ecosystemCounts.set(src.ecosystem, components.length);
+	for (const c of components) {
 		const license = componentLicense(c);
 		if (!byLicense.has(license)) byLicense.set(license, []);
 		byLicense.get(license).push({

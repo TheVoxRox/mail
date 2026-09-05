@@ -1,9 +1,22 @@
 #!/usr/bin/env node
 /**
- * Regenerates `backend/THIRD_PARTY_LICENSES.md` from the resolved Maven
- * dependency tree (compile + runtime scope only). Uses the
- * `license-maven-plugin`'s `add-third-party` goal to produce a normalized
- * licenses listing, then formats it as markdown.
+ * Regenerates `backend/THIRD_PARTY_LICENSES.md` — the list of what the backend
+ * **redistributes**, which is not the same list as what it resolves.
+ *
+ * Licence data still comes from the resolved Maven tree (compile + runtime
+ * scope) via `license-maven-plugin`'s `add-third-party` goal, because that is
+ * where licences and URLs live. Which of those entries reach a user is then
+ * decided by the packaged jar: `backend/pom.xml` drops springdoc, swagger, the
+ * webjars and Jackson 2 from `repackage`, and the Spring Boot starters are POM
+ * aggregators with no jar at all — none of them are distributed, and listing
+ * them made the inventory describe a build rather than a product.
+ *
+ * The other direction is the one that matters legally: `repackage` injects
+ * `spring-boot-jarmode-tools`, which sits in no dependency scope, so a
+ * tree-derived inventory omitted a jar that ships. A packaged jar with no entry
+ * is now a hard error (see backend/scripts/lib/packaged-artifacts.mjs).
+ *
+ * Needs a repackaged jar in `target/` — run `mvn -DskipTests package` first.
  *
  * Run before every release; do not commit `pom.xml` dependency-related
  * changes without updating this file.
@@ -15,6 +28,7 @@ import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { packagedArtifacts } from "./lib/packaged-artifacts.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const backendDir = path.resolve(here, "..");
@@ -98,19 +112,44 @@ function canonicalLicense(licenses) {
   return mapped[0];
 }
 
+const packaged = packagedArtifacts(backendDir);
+
 /** @type {Map<string, Array<{ name: string, gav: string, url: string, raw: string }>>} */
 const byLicense = new Map();
 let total = 0;
+let resolvedOnly = 0;
 for (const m of raw.matchAll(entryRe)) {
   const [, rawLicenses, name, groupId, artifactId, version, url = ""] = m;
+  if (!packaged.ships(artifactId.trim(), version.trim())) {
+    // Resolved by the build, not carried by the jar: excluded from repackage,
+    // or a POM aggregator that has no jar to carry.
+    resolvedOnly++;
+    continue;
+  }
   const lic = canonicalLicense(rawLicenses);
-  const gav = `${groupId.trim()}:${artifactId.trim()}:${version.trim()}`;
+  const classifiers = packaged.classifiers(artifactId.trim(), version.trim());
+  const suffix = classifiers.length > 0 ? ` (${classifiers.join(", ")})` : "";
+  const gav = `${groupId.trim()}:${artifactId.trim()}:${version.trim()}${suffix}`;
   total++;
   if (!byLicense.has(lic)) byLicense.set(lic, []);
   byLicense
     .get(lic)
     .push({ name: name.trim(), gav, url: url.trim(), raw: rawLicenses.trim() });
 }
+
+for (const entry of packaged.injected) {
+  const lic = entry.license;
+  total++;
+  if (!byLicense.has(lic)) byLicense.set(lic, []);
+  byLicense.get(lic).push({
+    name: entry.name,
+    gav: `${entry.groupId}:${entry.artifactId}:${entry.version}`,
+    url: entry.url,
+    raw: entry.license,
+  });
+}
+
+packaged.assertAllAccountedFor("THIRD_PARTY_LICENSES.md");
 
 const sortedLicenses = Array.from(byLicense.keys()).sort((a, b) => {
   const ca = byLicense.get(a).length;
@@ -126,7 +165,7 @@ const summary = sortedLicenses
 const lines = [
   "# Third-Party Licenses — Backend (Maven)",
   "",
-  "VoxRox Mail backend bundles or transitively depends on the following Maven artifacts. All listed entries are compile / runtime scope (test and provided scopes are excluded). Multi-licensed artifacts (e.g., Jakarta EE specs licensed under EPL-2.0 + EDL-1.0 + GPL-2.0 with Classpath Exception) are grouped under the license most relevant for redistribution.",
+  `VoxRox Mail redistributes the following Maven artifacts: every jar inside \`BOOT-INF/lib\` of the packaged backend, which is what a user's machine receives. Licence data comes from the compile / runtime dependency tree, but the tree alone would describe the build rather than the product — ${resolvedOnly} artifacts it resolves are not distributed (excluded from \`repackage\` in \`backend/pom.xml\`, or Spring Boot starters, which are POM aggregators with no jar), and one artifact that is distributed appears in no scope at all because \`repackage\` injects it. Multi-licensed artifacts (e.g., Jakarta EE specs licensed under EPL-2.0 + EDL-1.0 + GPL-2.0 with Classpath Exception) are grouped under the license most relevant for redistribution; a parenthesised suffix after the version names the classifiers the artifact ships under.`,
   "",
   `Counts: ${total} artifacts total. ${summary}.`,
   "",
@@ -150,5 +189,7 @@ for (const license of sortedLicenses) {
 
 writeFileSync(outFile, lines.join("\n"));
 console.log(
-  `Wrote ${outFile} — ${total} artifacts, ${sortedLicenses.length} license groups.`,
+  `Wrote ${outFile} — ${total} distributed artifacts (${packaged.count} jars in ` +
+    `${path.basename(packaged.fatJarPath)}), ${sortedLicenses.length} license groups; ` +
+    `${resolvedOnly} resolved-but-not-distributed artifacts left out.`,
 );
