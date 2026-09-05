@@ -1,10 +1,10 @@
 # Third-Party Licenses — Backend (Maven)
 
-VoxRox Mail backend bundles or transitively depends on the following Maven artifacts. All listed entries are compile / runtime scope (test and provided scopes are excluded). Multi-licensed artifacts (e.g., Jakarta EE specs licensed under EPL-2.0 + EDL-1.0 + GPL-2.0 with Classpath Exception) are grouped under the license most relevant for redistribution.
+VoxRox Mail redistributes the following Maven artifacts: every jar inside `BOOT-INF/lib` of the packaged backend, which is what a user's machine receives. Licence data comes from the compile / runtime dependency tree, but the tree alone would describe the build rather than the product — 27 artifacts it resolves are not distributed (excluded from `repackage` in `backend/pom.xml`, or Spring Boot starters, which are POM aggregators with no jar), and one artifact that is distributed appears in no scope at all because `repackage` injects it. Multi-licensed artifacts (e.g., Jakarta EE specs licensed under EPL-2.0 + EDL-1.0 + GPL-2.0 with Classpath Exception) are grouped under the license most relevant for redistribution; a parenthesised suffix after the version names the classifiers the artifact ships under.
 
-Counts: 132 artifacts total. 109 Apache-2.0, 10 EDL-1.0 (BSD-3-Clause), 5 EPL-2.0, 4 MIT, 2 BSD-2-Clause, 2 BSD-3-Clause.
+Counts: 106 artifacts total. 84 Apache-2.0, 10 EDL-1.0 (BSD-3-Clause), 5 EPL-2.0, 3 MIT, 2 BSD-2-Clause, 2 BSD-3-Clause.
 
-## Apache-2.0 (109)
+## Apache-2.0 (84)
 
 - **Apache Commons Lang** `org.apache.commons:commons-lang3:3.20.0` — [https://commons.apache.org/proper/commons-lang/](https://commons.apache.org/proper/commons-lang/)
 - **Apache Commons Logging** `commons-logging:commons-logging:1.3.6` — [https://commons.apache.org/proper/commons-logging/](https://commons.apache.org/proper/commons-logging/)
@@ -18,13 +18,9 @@ Counts: 132 artifacts total. 109 Apache-2.0, 10 EDL-1.0 (BSD-3-Clause), 5 EPL-2.
 - **Hibernate ORM - hibernate-core** `org.hibernate.orm:hibernate-core:7.4.5.Final` — [https://hibernate.org/orm](https://hibernate.org/orm)
 - **Hibernate Validator Engine** `org.hibernate.validator:hibernate-validator:9.1.3.Final` — [https://hibernate.org/validator](https://hibernate.org/validator)
 - **HikariCP** `com.zaxxer:HikariCP:7.0.2` — [https://github.com/brettwooldridge/HikariCP](https://github.com/brettwooldridge/HikariCP)
-- **Jackson datatype: JSR310** `com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.21.5` — [https://github.com/FasterXML/jackson-modules-java8/jackson-datatype-jsr310](https://github.com/FasterXML/jackson-modules-java8/jackson-datatype-jsr310)
 - **Jackson-annotations** `com.fasterxml.jackson.core:jackson-annotations:2.21` — [https://github.com/FasterXML/jackson](https://github.com/FasterXML/jackson)
-- **Jackson-core** `com.fasterxml.jackson.core:jackson-core:2.21.5` — [https://github.com/FasterXML/jackson-core](https://github.com/FasterXML/jackson-core)
 - **Jackson-core** `tools.jackson.core:jackson-core:3.1.5` — [https://github.com/FasterXML/jackson-core](https://github.com/FasterXML/jackson-core)
-- **jackson-databind** `com.fasterxml.jackson.core:jackson-databind:2.21.5` — [https://github.com/FasterXML/jackson](https://github.com/FasterXML/jackson)
 - **jackson-databind** `tools.jackson.core:jackson-databind:3.1.5` — [https://github.com/FasterXML/jackson](https://github.com/FasterXML/jackson)
-- **Jackson-dataformat-YAML** `com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.21.5` — [https://github.com/FasterXML/jackson-dataformats-text](https://github.com/FasterXML/jackson-dataformats-text)
 - **Jakarta Dependency Injection** `jakarta.inject:jakarta.inject-api:2.0.1` — [https://github.com/eclipse-ee4j/injection-api](https://github.com/eclipse-ee4j/injection-api)
 - **Jakarta Validation API** `jakarta.validation:jakarta.validation-api:3.1.1` — [https://beanvalidation.org](https://beanvalidation.org)
 - **JBoss Logging 3** `org.jboss.logging:jboss-logging:3.6.3.Final` — [https://www.jboss.org](https://www.jboss.org)
@@ -44,6 +40,7 @@ Counts: 132 artifacts total. 109 Apache-2.0, 10 EDL-1.0 (BSD-3-Clause), 5 EPL-2.
 - **Spring AOP** `org.springframework:spring-aop:7.0.9` — [https://github.com/spring-projects/spring-framework](https://github.com/spring-projects/spring-framework)
 - **Spring Aspects** `org.springframework:spring-aspects:7.0.9` — [https://github.com/spring-projects/spring-framework](https://github.com/spring-projects/spring-framework)
 - **Spring Beans** `org.springframework:spring-beans:7.0.9` — [https://github.com/spring-projects/spring-framework](https://github.com/spring-projects/spring-framework)
+- **Spring Boot Jarmode Tools** `org.springframework.boot:spring-boot-jarmode-tools:4.1.1` — [https://spring.io/projects/spring-boot](https://spring.io/projects/spring-boot)
 - **Spring Context** `org.springframework:spring-context:7.0.9` — [https://github.com/spring-projects/spring-framework](https://github.com/spring-projects/spring-framework)
 - **Spring Context Support** `org.springframework:spring-context-support:7.0.9` — [https://github.com/spring-projects/spring-framework](https://github.com/spring-projects/spring-framework)
 - **Spring Core** `org.springframework:spring-core:7.0.9` — [https://github.com/spring-projects/spring-framework](https://github.com/spring-projects/spring-framework)
@@ -77,21 +74,6 @@ Counts: 132 artifacts total. 109 Apache-2.0, 10 EDL-1.0 (BSD-3-Clause), 5 EPL-2.
 - **spring-boot-security-oauth2-client** `org.springframework.boot:spring-boot-security-oauth2-client:4.1.1` — [https://spring.io/projects/spring-boot](https://spring.io/projects/spring-boot)
 - **spring-boot-servlet** `org.springframework.boot:spring-boot-servlet:4.1.1` — [https://spring.io/projects/spring-boot](https://spring.io/projects/spring-boot)
 - **spring-boot-sql** `org.springframework.boot:spring-boot-sql:4.1.1` — [https://spring.io/projects/spring-boot](https://spring.io/projects/spring-boot)
-- **spring-boot-starter** `org.springframework.boot:spring-boot-starter:4.1.1` — [https://spring.io/projects/spring-boot](https://spring.io/projects/spring-boot)
-- **spring-boot-starter-actuator** `org.springframework.boot:spring-boot-starter-actuator:4.1.1` — [https://spring.io/projects/spring-boot](https://spring.io/projects/spring-boot)
-- **spring-boot-starter-data-jpa** `org.springframework.boot:spring-boot-starter-data-jpa:4.1.1` — [https://spring.io/projects/spring-boot](https://spring.io/projects/spring-boot)
-- **spring-boot-starter-flyway** `org.springframework.boot:spring-boot-starter-flyway:4.1.1` — [https://spring.io/projects/spring-boot](https://spring.io/projects/spring-boot)
-- **spring-boot-starter-jackson** `org.springframework.boot:spring-boot-starter-jackson:4.1.1` — [https://spring.io/projects/spring-boot](https://spring.io/projects/spring-boot)
-- **spring-boot-starter-jdbc** `org.springframework.boot:spring-boot-starter-jdbc:4.1.1` — [https://spring.io/projects/spring-boot](https://spring.io/projects/spring-boot)
-- **spring-boot-starter-logging** `org.springframework.boot:spring-boot-starter-logging:4.1.1` — [https://spring.io/projects/spring-boot](https://spring.io/projects/spring-boot)
-- **spring-boot-starter-mail** `org.springframework.boot:spring-boot-starter-mail:4.1.1` — [https://spring.io/projects/spring-boot](https://spring.io/projects/spring-boot)
-- **spring-boot-starter-micrometer-metrics** `org.springframework.boot:spring-boot-starter-micrometer-metrics:4.1.1` — [https://spring.io/projects/spring-boot](https://spring.io/projects/spring-boot)
-- **spring-boot-starter-oauth2-client** `org.springframework.boot:spring-boot-starter-oauth2-client:4.1.1` — [https://spring.io/projects/spring-boot](https://spring.io/projects/spring-boot)
-- **spring-boot-starter-security** `org.springframework.boot:spring-boot-starter-security:4.1.1` — [https://spring.io/projects/spring-boot](https://spring.io/projects/spring-boot)
-- **spring-boot-starter-tomcat** `org.springframework.boot:spring-boot-starter-tomcat:4.1.1` — [https://spring.io/projects/spring-boot](https://spring.io/projects/spring-boot)
-- **spring-boot-starter-tomcat-runtime** `org.springframework.boot:spring-boot-starter-tomcat-runtime:4.1.1` — [https://spring.io/projects/spring-boot](https://spring.io/projects/spring-boot)
-- **spring-boot-starter-validation** `org.springframework.boot:spring-boot-starter-validation:4.1.1` — [https://spring.io/projects/spring-boot](https://spring.io/projects/spring-boot)
-- **spring-boot-starter-web** `org.springframework.boot:spring-boot-starter-web:4.1.1` — [https://spring.io/projects/spring-boot](https://spring.io/projects/spring-boot)
 - **spring-boot-tomcat** `org.springframework.boot:spring-boot-tomcat:4.1.1` — [https://spring.io/projects/spring-boot](https://spring.io/projects/spring-boot)
 - **spring-boot-transaction** `org.springframework.boot:spring-boot-transaction:4.1.1` — [https://spring.io/projects/spring-boot](https://spring.io/projects/spring-boot)
 - **spring-boot-validation** `org.springframework.boot:spring-boot-validation:4.1.1` — [https://spring.io/projects/spring-boot](https://spring.io/projects/spring-boot)
@@ -104,14 +86,7 @@ Counts: 132 artifacts total. 109 Apache-2.0, 10 EDL-1.0 (BSD-3-Clause), 5 EPL-2.
 - **spring-security-oauth2-core** `org.springframework.security:spring-security-oauth2-core:7.1.1` — [https://spring.io/projects/spring-security](https://spring.io/projects/spring-security)
 - **spring-security-oauth2-jose** `org.springframework.security:spring-security-oauth2-jose:7.1.1` — [https://spring.io/projects/spring-security](https://spring.io/projects/spring-security)
 - **spring-security-web** `org.springframework.security:spring-security-web:7.1.1` — [https://spring.io/projects/spring-security](https://spring.io/projects/spring-security)
-- **springdoc-openapi-starter-common** `org.springdoc:springdoc-openapi-starter-common:3.1.0` — [https://springdoc.org/springdoc-openapi-starter-common/](https://springdoc.org/springdoc-openapi-starter-common/)
-- **springdoc-openapi-starter-webmvc-api** `org.springdoc:springdoc-openapi-starter-webmvc-api:3.1.0` — [https://springdoc.org/springdoc-openapi-starter-webmvc-api/](https://springdoc.org/springdoc-openapi-starter-webmvc-api/)
-- **springdoc-openapi-starter-webmvc-ui** `org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0` — [https://springdoc.org/springdoc-openapi-starter-webmvc-ui/](https://springdoc.org/springdoc-openapi-starter-webmvc-ui/)
-- **SQLite JDBC** `org.xerial:sqlite-jdbc:3.53.2.1` — [https://github.com/xerial/sqlite-jdbc](https://github.com/xerial/sqlite-jdbc)
-- **Swagger UI** `org.webjars:swagger-ui:5.32.14` — [https://www.webjars.org](https://www.webjars.org)
-- **swagger-annotations-jakarta** `io.swagger.core.v3:swagger-annotations-jakarta:2.2.52` — [https://github.com/swagger-api/swagger-core/modules/swagger-annotations-jakarta](https://github.com/swagger-api/swagger-core/modules/swagger-annotations-jakarta)
-- **swagger-core-jakarta** `io.swagger.core.v3:swagger-core-jakarta:2.2.52` — [https://github.com/swagger-api/swagger-core/modules/swagger-core-jakarta](https://github.com/swagger-api/swagger-core/modules/swagger-core-jakarta)
-- **swagger-models-jakarta** `io.swagger.core.v3:swagger-models-jakarta:2.2.52` — [https://github.com/swagger-api/swagger-core/modules/swagger-models-jakarta](https://github.com/swagger-api/swagger-core/modules/swagger-models-jakarta)
+- **SQLite JDBC** `org.xerial:sqlite-jdbc:3.53.2.1 (without-natives, natives-windows)` — [https://github.com/xerial/sqlite-jdbc](https://github.com/xerial/sqlite-jdbc)
 - **tomcat-embed-core** `org.apache.tomcat.embed:tomcat-embed-core:11.0.25` — [https://tomcat.apache.org/](https://tomcat.apache.org/)
 - **tomcat-embed-el** `org.apache.tomcat.embed:tomcat-embed-el:11.0.25` — [https://tomcat.apache.org/](https://tomcat.apache.org/)
 - **tomcat-embed-websocket** `org.apache.tomcat.embed:tomcat-embed-websocket:11.0.25` — [https://tomcat.apache.org/](https://tomcat.apache.org/)
@@ -137,12 +112,11 @@ Counts: 132 artifacts total. 109 Apache-2.0, 10 EDL-1.0 (BSD-3-Clause), 5 EPL-2.
 - **Logback Classic Module** `ch.qos.logback:logback-classic:1.5.38` — [http://logback.qos.ch/logback-classic](http://logback.qos.ch/logback-classic)
 - **Logback Core Module** `ch.qos.logback:logback-core:1.5.38` — [http://logback.qos.ch/logback-core](http://logback.qos.ch/logback-core)
 
-## MIT (4)
+## MIT (3)
 
 - **jsoup Java HTML Parser** `org.jsoup:jsoup:1.23.2` — [https://jsoup.org/](https://jsoup.org/)
 - **JUL to SLF4J bridge** `org.slf4j:jul-to-slf4j:2.0.18` — [http://www.slf4j.org](http://www.slf4j.org)
 - **SLF4J API Module** `org.slf4j:slf4j-api:2.0.18` — [http://www.slf4j.org](http://www.slf4j.org)
-- **webjars-locator-lite** `org.webjars:webjars-locator-lite:1.1.4` — [https://webjars.org](https://webjars.org)
 
 ## BSD-2-Clause (2)
 

@@ -8,12 +8,12 @@ attached to the component. The product itself is licensed under
 the terms of the LICENSE file shipped alongside this notice in the
 installation directory.
 
-Total third-party components: 620
+Total third-party components: 594
   npm    120
-  maven  132
+  maven  106
   cargo  368
 
-Generated: 2026-08-26
+Generated: 2026-09-05
 
 Machine-readable CycloneDX SBOM files for each ecosystem are
 published alongside the installer on the GitHub Releases page.
@@ -800,7 +800,7 @@ Components and their copyright notices:
 
 ------------------------------------------------------------------
 
-## MIT  —  176 component(s)
+## MIT  —  175 component(s)
 
 License text:
 
@@ -1054,7 +1054,7 @@ Components and their copyright notices:
       (no author in package.json — see git+https://github.com/unjs/jiti.git)
       git+https://github.com/unjs/jiti.git
 
-  * jsoup 1.23.1  [maven]
+  * jsoup 1.23.2  [maven]
       Jonathan Hedley
       https://github.com/jhy/jsoup
 
@@ -1486,10 +1486,6 @@ Components and their copyright notices:
       toyobayashi
       git+https://github.com/toyobayashi/wasm-util.git
 
-  * webjars-locator-lite 1.1.4  [maven]
-      (copyright not declared)
-      https://github.com/webjars/webjars-locator-lite
-
   * webview2-com 0.38.2  [cargo]
       (copyright not declared)
       https://github.com/wravery/webview2-rs
@@ -1532,7 +1528,7 @@ Components and their copyright notices:
 
 ------------------------------------------------------------------
 
-## Apache-2.0  —  117 component(s)
+## Apache-2.0  —  92 component(s)
 
 License text:
 
@@ -1791,25 +1787,9 @@ Components and their copyright notices:
       FasterXML
       http://github.com/FasterXML/jackson-core
 
-  * jackson-core 2.21.5  [maven]
-      FasterXML
-      https://github.com/FasterXML/jackson-core
-
   * jackson-databind 3.1.5  [maven]
       FasterXML
       https://github.com/FasterXML/jackson-databind
-
-  * jackson-databind 2.21.5  [maven]
-      FasterXML
-      https://github.com/FasterXML/jackson-databind
-
-  * jackson-dataformat-yaml 2.21.5  [maven]
-      FasterXML
-      https://github.com/FasterXML/jackson-dataformats-text/jackson-dataformat-yaml
-
-  * jackson-datatype-jsr310 2.21.5  [maven]
-      FasterXML
-      http://github.com/FasterXML/jackson-modules-java8/jackson-datatype-jsr310
 
   * jakarta.inject-api 2.0.1  [maven]
       Eclipse Foundation
@@ -1931,6 +1911,10 @@ Components and their copyright notices:
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
+  * spring-boot-jarmode-tools 4.1.1  [maven]
+      VMware, Inc.
+      https://github.com/spring-projects/spring-boot
+
   * spring-boot-jdbc 4.1.1  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
@@ -1968,66 +1952,6 @@ Components and their copyright notices:
       https://github.com/spring-projects/spring-boot
 
   * spring-boot-sql 4.1.1  [maven]
-      VMware, Inc.
-      https://github.com/spring-projects/spring-boot
-
-  * spring-boot-starter 4.1.1  [maven]
-      VMware, Inc.
-      https://github.com/spring-projects/spring-boot
-
-  * spring-boot-starter-actuator 4.1.1  [maven]
-      VMware, Inc.
-      https://github.com/spring-projects/spring-boot
-
-  * spring-boot-starter-data-jpa 4.1.1  [maven]
-      VMware, Inc.
-      https://github.com/spring-projects/spring-boot
-
-  * spring-boot-starter-flyway 4.1.1  [maven]
-      VMware, Inc.
-      https://github.com/spring-projects/spring-boot
-
-  * spring-boot-starter-jackson 4.1.1  [maven]
-      VMware, Inc.
-      https://github.com/spring-projects/spring-boot
-
-  * spring-boot-starter-jdbc 4.1.1  [maven]
-      VMware, Inc.
-      https://github.com/spring-projects/spring-boot
-
-  * spring-boot-starter-logging 4.1.1  [maven]
-      VMware, Inc.
-      https://github.com/spring-projects/spring-boot
-
-  * spring-boot-starter-mail 4.1.1  [maven]
-      VMware, Inc.
-      https://github.com/spring-projects/spring-boot
-
-  * spring-boot-starter-micrometer-metrics 4.1.1  [maven]
-      VMware, Inc.
-      https://github.com/spring-projects/spring-boot
-
-  * spring-boot-starter-oauth2-client 4.1.1  [maven]
-      VMware, Inc.
-      https://github.com/spring-projects/spring-boot
-
-  * spring-boot-starter-security 4.1.1  [maven]
-      VMware, Inc.
-      https://github.com/spring-projects/spring-boot
-
-  * spring-boot-starter-tomcat 4.1.1  [maven]
-      VMware, Inc.
-      https://github.com/spring-projects/spring-boot
-
-  * spring-boot-starter-tomcat-runtime 4.1.1  [maven]
-      VMware, Inc.
-      https://github.com/spring-projects/spring-boot
-
-  * spring-boot-starter-validation 4.1.1  [maven]
-      VMware, Inc.
-      https://github.com/spring-projects/spring-boot
-
-  * spring-boot-starter-web 4.1.1  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
@@ -2127,34 +2051,9 @@ Components and their copyright notices:
       Spring IO
       https://github.com/spring-projects/spring-framework
 
-  * springdoc-openapi-starter-common 3.1.0  [maven]
-      (copyright not declared)
-
-  * springdoc-openapi-starter-webmvc-api 3.1.0  [maven]
-      (copyright not declared)
-
-  * springdoc-openapi-starter-webmvc-ui 3.1.0  [maven]
-      (copyright not declared)
-
   * sqlite-jdbc 3.53.2.1  [maven]
       (copyright not declared)
       https://github.com/xerial/sqlite-jdbc
-
-  * swagger-annotations-jakarta 2.2.52  [maven]
-      (copyright not declared)
-      https://github.com/swagger-api/swagger-core/modules/swagger-annotations-jakarta
-
-  * swagger-core-jakarta 2.2.52  [maven]
-      (copyright not declared)
-      https://github.com/swagger-api/swagger-core/modules/swagger-core-jakarta
-
-  * swagger-models-jakarta 2.2.52  [maven]
-      (copyright not declared)
-      https://github.com/swagger-api/swagger-core/modules/swagger-models-jakarta
-
-  * swagger-ui 5.32.14  [maven]
-      (copyright not declared)
-      https://github.com/swagger-api/swagger-ui
 
   * sync_wrapper 1.0.2  [cargo]
       Actyx AG <developer@actyx.io>
