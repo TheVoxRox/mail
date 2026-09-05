@@ -94,11 +94,12 @@ async function exists(filePath) {
  * Resolves with { status, headers, body } for ANY response — a 403 is an
  * expected outcome here, so a non-2xx is data, not an error.
  */
-function send(url, { method = 'GET', origin, apiKey, timeoutMs, body }) {
+function send(url, { method = 'GET', origin, apiKey, timeoutMs, body, acceptLanguage }) {
 	return new Promise((resolve, reject) => {
 		const headers = {};
 		if (apiKey) headers['X-API-KEY'] = apiKey;
 		if (origin) headers.Origin = origin;
+		if (acceptLanguage) headers['Accept-Language'] = acceptLanguage;
 		const payload = body === undefined ? null : Buffer.from(JSON.stringify(body), 'utf8');
 		if (payload) {
 			headers['Content-Type'] = 'application/json';
@@ -303,6 +304,75 @@ async function assertMappedAccount(session) {
 	return `POST → 201, GET → ${listed.status} over ${accounts.length} account`;
 }
 
+/*
+ * jdk.localedata, asserted against the running image rather than trusted.
+ *
+ * The jlink module list in backend/scripts/package-sidecar-windows.ps1 carries
+ * four modules no static analysis can see, and the packaging step that
+ * recomputes that list with jdeps cannot see them either. The module itself
+ * cannot vanish unnoticed while `--include-locales` stays — jlink refuses to
+ * run without it ("jdk.localedata module was not specified with --add-modules
+ * option"). What is unguarded is the flag's *value*: `--include-locales=en`
+ * builds a perfectly good image that carries no Czech locale data at all, and a
+ * future trim that drops both the flag and the module leaves nothing behind
+ * either.
+ *
+ * It is also the one whose absence produces no exception and no log line. Every
+ * locale past the root one falls back to it, so MessageFormat runs the Long
+ * argument of a Czech message through the root NumberFormat and a screen reader
+ * reads an English "999,999" in the middle of a Czech sentence.
+ *
+ * The smallest request that reaches that path: a GET for an account id that
+ * does not exist, with Accept-Language: cs. GlobalExceptionHandler resolves
+ * error.account.notFound for the request locale and formats the id into it; cs
+ * groups with a no-break space (U+00A0 in current CLDR, U+202F in older data —
+ * both pass), and the comma is exactly what the missing module produces.
+ */
+const LOCALE_PROBE_ACCOUNT_ID = 999999;
+
+async function assertCzechNumberFormatting(session) {
+	const response = await probe(`${session.baseUrl}/v1/accounts/${LOCALE_PROBE_ACCOUNT_ID}`, {
+		origin: WEBVIEW_ORIGIN,
+		apiKey: session.apiKey,
+		acceptLanguage: 'cs',
+		timeoutMs: 5_000
+	});
+	if (response.status !== 404) {
+		throw new Error(
+			`GET /v1/accounts/${LOCALE_PROBE_ACCOUNT_ID} returned HTTP ${response.status} (expected 404 ` +
+				`for an id no fresh install has). Body: ${response.body.slice(0, 400)}`
+		);
+	}
+
+	let detail;
+	try {
+		detail = JSON.parse(response.body).detail;
+	} catch {
+		throw new Error(
+			`GET /v1/accounts/${LOCALE_PROBE_ACCOUNT_ID} returned a non-JSON body through the packaged ` +
+				`sidecar: ${response.body.slice(0, 400)}`
+		);
+	}
+	if (typeof detail !== 'string') {
+		throw new Error(
+			`The 404 ProblemDetail carried no string detail to check the locale data against: ` +
+				`${response.body.slice(0, 400)}`
+		);
+	}
+	// Escaped rather than literal: both separators are invisible in a diff.
+	if (!/999[\u00a0\u202f]999/.test(detail)) {
+		throw new Error(
+			`The Czech 404 message grouped ${LOCALE_PROBE_ACCOUNT_ID} as ` +
+				`${JSON.stringify(detail)} — expected a no-break space. The packaged runtime is missing ` +
+				`jdk.localedata, or --include-locales dropped cs: every Czech message with a number in ` +
+				`it now reads with an English separator, silently. See the module list in ` +
+				`backend/scripts/package-sidecar-windows.ps1.`
+		);
+	}
+
+	return `404 detail groups ${LOCALE_PROBE_ACCOUNT_ID} the Czech way`;
+}
+
 async function removeWithRetry(dir) {
 	// The sidecar JVM briefly keeps the SQLite db handles after the process tree
 	// is torn down; one retry clears the transient lock. The dir lives under the
@@ -348,12 +418,14 @@ try {
 	const result = await assertCorsContract(session);
 	const endpoints = await assertBootEndpoints(session);
 	const mapped = await assertMappedAccount(session);
+	const localeData = await assertCzechNumberFormatting(session);
 	console.log(
 		`OK — webview origin ${WEBVIEW_ORIGIN} → ${result.webviewStatus} ` +
 			`(Access-Control-Allow-Origin ${result.allowOriginHeader}); foreign origin → ${result.foreignStatus}.`
 	);
 	console.log(`OK - boot endpoints through ${WEBVIEW_ORIGIN}: ${endpoints.join(', ')}.`);
 	console.log(`OK - account mapped through the packaged sidecar: ${mapped}.`);
+	console.log(`OK - jdk.localedata live in the packaged runtime: ${localeData}.`);
 } catch (error) {
 	if (stderr.trim()) {
 		console.error('--- sidecar stderr (tail) ---');
