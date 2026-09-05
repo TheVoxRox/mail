@@ -97,6 +97,15 @@ someone a rework at least once. For the human-facing versions see
     `@callerless <reason>` on the declaration, reason required, in a `//`
     comment — javadoc and block comments each cost an Error Prone warning
     (`InvalidBlockTag`, `AlmostJavadoc`) on every build.
+  - `check:repackage-excludes` — the fat-jar exclude list in `backend/pom.xml`
+    is written twice, on `repackage` (what the jar contains) and on
+    `process-aot` (what AOT generates `__BeanDefinitions` for), because Maven
+    has nowhere to share it. They must match: if `process-aot` sees an artifact
+    `repackage` drops, AOT writes bean definitions for classes the jar does not
+    carry, `mvn clean verify` stays green on the full compile classpath, and
+    the sidecar dies at startup under `spring.aot.enabled=true` — the shape of
+    #393. The `openapi` profile resets both filters and must reset **both**;
+    resetting one is the same failure by another route.
   - `check:test-claims` — a test may not repeat its neighbour, and may not be
     switched off in silence. Two tests in **one file** with identical bodies
     assert the same thing under two names (#307: a refactor removed the
