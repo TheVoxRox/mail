@@ -164,6 +164,61 @@ Invoke-Step "Resolving OAuth client configuration" {
     Write-Host "  Injecting $([int]($script:oauthArgs.Count / 2)) OAuth client value(s) into the launcher."
 }
 
+# Runtime module set. Without --add-modules, jpackage bundles the default root
+# set -- java.se plus the JDK tooling modules -- which shipped jshell, javadoc,
+# the compiler, jconsole and the JDWP debug agent inside a mail client, and the
+# jlink image carried lib/ct.sym (used only by javac -release). Measured: 123 MB
+# before, 55 MB with the list below.
+#
+# The list is the union of what jdeps reports over the contents of the fat jar
+# and four additions a static analysis cannot see, each load-bearing:
+#
+#   jdk.charsets        Mail arrives in whatever charset the sender used.
+#                       java.base carries only US-ASCII, ISO-8859-1, UTF-8 and
+#                       the UTF-16/32 family; windows-1250 and ISO-8859-2 -- the
+#                       two a Czech mailbox meets daily -- live here. Without it
+#                       MessageFetcher would decode Czech mail as mojibake, not
+#                       fail.
+#   jdk.localedata      Locale data for anything past the root locale. See
+#                       --include-locales below.
+#   jdk.crypto.mscapi   Windows crypto provider, reached by name through the JCA
+#                       rather than by a symbol jdeps can follow.
+#   jdk.crypto.cryptoki Likewise, for PKCS#11.
+#
+# Adding a dependency can add a module, and the jdeps half of that no longer
+# rests on someone remembering: the "Verifying runtime module set" step below
+# recomputes it from the jar being shipped and fails the build on a module this
+# list does not carry. The four above stay a human judgement — nothing static
+# can see them.
+$runtimeModules = @(
+    'java.base',
+    'java.compiler',
+    'java.desktop',
+    'java.instrument',
+    'java.logging',
+    'java.management',
+    'java.naming',
+    'java.net.http',
+    'java.prefs',
+    'java.rmi',
+    'java.scripting',
+    'java.security.jgss',
+    'java.security.sasl',
+    'java.sql',
+    'java.sql.rowset',
+    'java.transaction.xa',
+    'java.xml',
+    'jdk.charsets',
+    'jdk.crypto.cryptoki',
+    'jdk.crypto.mscapi',
+    'jdk.jfr',
+    'jdk.localedata',
+    'jdk.management',
+    'jdk.net',
+    'jdk.unsupported',
+    'jdk.zipfs'
+)
+
 Invoke-Step "Creating Windows app-image sidecar with jpackage" {
     # JVM tuning for a single-user desktop sidecar:
     #   --enable-native-access=ALL-UNNAMED  Java 25 requires it for warning-free JNI.
@@ -187,61 +242,6 @@ Invoke-Step "Creating Windows app-image sidecar with jpackage" {
         $aotArgs += "--java-options"
         $aotArgs += "-XX:AOTCache=app\mail.aot"
     }
-
-    # Runtime module set. Without --add-modules, jpackage bundles the default
-    # root set -- java.se plus the JDK tooling modules -- which shipped jshell,
-    # javadoc, the compiler, jconsole and the JDWP debug agent inside a mail
-    # client, and the jlink image carried lib/ct.sym (used only by javac
-    # -release). Measured: 123 MB before, 55 MB with the list below.
-    #
-    # The list is the union of what jdeps reports over the exploded fat jar
-    # (BOOT-INF/classes plus every BOOT-INF/lib jar, unioned per jar because a
-    # whole-jar run dies on jakarta.transaction's module-info) and three
-    # additions a static analysis cannot see, each load-bearing:
-    #
-    #   jdk.charsets        Mail arrives in whatever charset the sender used.
-    #                       java.base carries only US-ASCII, ISO-8859-1, UTF-8
-    #                       and the UTF-16/32 family; windows-1250 and
-    #                       ISO-8859-2 -- the two a Czech mailbox meets daily --
-    #                       live here. Without it MessageFetcher would decode
-    #                       Czech mail as mojibake, not fail.
-    #   jdk.localedata      Locale data for anything past the root locale. See
-    #                       --include-locales below.
-    #   jdk.crypto.mscapi   Windows crypto provider, reached by name through the
-    #                       JCA rather than by a symbol jdeps can follow.
-    #   jdk.crypto.cryptoki Likewise, for PKCS#11.
-    #
-    # Adding a dependency can add a module. If the sidecar starts failing with
-    # NoClassDefFoundError or a missing provider after a dependency bump, this
-    # list is the first place to look: re-run the jdeps union and diff it.
-    $runtimeModules = @(
-        'java.base',
-        'java.compiler',
-        'java.desktop',
-        'java.instrument',
-        'java.logging',
-        'java.management',
-        'java.naming',
-        'java.net.http',
-        'java.prefs',
-        'java.rmi',
-        'java.scripting',
-        'java.security.jgss',
-        'java.security.sasl',
-        'java.sql',
-        'java.sql.rowset',
-        'java.transaction.xa',
-        'java.xml',
-        'jdk.charsets',
-        'jdk.crypto.cryptoki',
-        'jdk.crypto.mscapi',
-        'jdk.jfr',
-        'jdk.localedata',
-        'jdk.management',
-        'jdk.net',
-        'jdk.unsupported',
-        'jdk.zipfs'
-    ) -join ','
 
     # jlink options. --include-locales is the reason jdk.localedata can stay:
     # the module costs 10 MB whole and nothing once cut to the two locales this
@@ -272,7 +272,7 @@ Invoke-Step "Creating Windows app-image sidecar with jpackage" {
         --input $jpackageInputDir `
         --main-jar $jar.Name `
         --dest $jpackageWorkDir `
-        --add-modules $runtimeModules `
+        --add-modules ($runtimeModules -join ',') `
         --jlink-options $jlinkOptions `
         --java-options "--enable-native-access=ALL-UNNAMED" `
         --java-options "-Dfile.encoding=UTF-8" `
@@ -340,6 +340,137 @@ Invoke-Step "Verifying OAuth client configuration in launcher" {
         throw "Launcher $cfgPath still carries a 'mail-local-*' OAuth placeholder — OAuth login would fail in production."
     }
     Write-Host "  Google client-id baked into the launcher; no placeholder."
+}
+
+Invoke-Step "Verifying runtime module set" {
+    # The --add-modules list is the one decision in this script that no later
+    # gate can catch: `mvn verify` and the GreenMail ITs run on the full system
+    # JDK, so a module the app needs and the list omits fails nothing here and
+    # reaches a user as NoClassDefFoundError or a silently missing provider.
+    # This step recomputes the jdeps half of the list from the artifact being
+    # shipped. Only that half: what jlink then built needs no separate check,
+    # because jpackage fails outright on a module it cannot resolve (measured:
+    # `jlink --add-modules jdk.bogus` stops with FindException), so a declared
+    # module is either in the image or there is no image. The half no static
+    # check can reach — jdk.localedata surviving --include-locales, and the
+    # three other invisible modules — is asserted against the running artifact
+    # by frontend/scripts/tauri-sidecar-smoke.mjs.
+    #
+    # jdeps cannot read the fat jar's nested layout, and a run over the
+    # dependency jars as modules dies on the first module-info requiring a
+    # module the closure does not carry (jakarta.transaction -> jakarta
+    # .interceptor). So the analysis input is rebuilt from the jar: BOOT-INF
+    # /classes repacked as one jar -- AOT-generated classes included, since
+    # those ship too -- and every BOOT-INF/lib jar copied with module-info.class
+    # removed, which leaves jdeps reading bytecode instead of resolving a module
+    # graph. That it reads the libraries and not just the application is
+    # measured, not assumed: a jar referencing javax.smartcardio dropped into
+    # the input makes java.smartcardio appear in the output.
+    #
+    # The assertion is one-directional. --print-module-deps prints the minimal
+    # root set for jlink (java.sql never appears, being implied by
+    # java.sql.rowset), so everything jdeps names must be declared, while
+    # declared-but-unnamed is normal -- that is where the implied modules and
+    # the four reflection/service-loaded ones live.
+    $analysisDir = Join-Path $outputRootPath "module-analysis"
+    Remove-ItemWithRetry -Path $analysisDir
+    New-Item -ItemType Directory -Force -Path $analysisDir | Out-Null
+
+    try {
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $classesPrefix = 'BOOT-INF/classes/'
+        $libPrefix = 'BOOT-INF/lib/'
+        $appClassesJar = Join-Path $analysisDir "app-classes.jar"
+
+        $fatJar = [System.IO.Compression.ZipFile]::OpenRead($jar.FullName)
+        try {
+            $appJar = [System.IO.Compression.ZipFile]::Open(
+                $appClassesJar, [System.IO.Compression.ZipArchiveMode]::Create)
+            try {
+                foreach ($entry in $fatJar.Entries) {
+                    # A directory entry has an empty Name; only files carry bytes.
+                    if ([string]::IsNullOrEmpty($entry.Name)) {
+                        continue
+                    }
+                    if ($entry.FullName.StartsWith($classesPrefix)) {
+                        $copy = $appJar.CreateEntry($entry.FullName.Substring($classesPrefix.Length))
+                        $source = $entry.Open()
+                        $target = $copy.Open()
+                        try {
+                            $source.CopyTo($target)
+                        } finally {
+                            $target.Dispose()
+                            $source.Dispose()
+                        }
+                    } elseif ($entry.FullName.StartsWith($libPrefix) -and $entry.Name.EndsWith(".jar")) {
+                        [System.IO.Compression.ZipFileExtensions]::ExtractToFile(
+                            $entry, (Join-Path $analysisDir $entry.Name), $true)
+                    }
+                }
+            } finally {
+                $appJar.Dispose()
+            }
+        } finally {
+            $fatJar.Dispose()
+        }
+
+        foreach ($libJar in Get-ChildItem -LiteralPath $analysisDir -Filter "*.jar") {
+            if ($libJar.Name -eq "app-classes.jar") {
+                continue
+            }
+            $archive = [System.IO.Compression.ZipFile]::Open(
+                $libJar.FullName, [System.IO.Compression.ZipArchiveMode]::Update)
+            try {
+                @($archive.Entries | Where-Object { $_.Name -eq "module-info.class" }) |
+                    ForEach-Object { $_.Delete() }
+            } finally {
+                $archive.Dispose()
+            }
+        }
+
+        # --multi-release takes the feature version, and jdeps reports the full
+        # one ("25.0.4.1"), so the build follows the JDK it runs on instead of
+        # pinning a number that rots at the next upgrade.
+        $jdepsVersion = (& jdeps --version | Select-Object -First 1).Trim()
+        $featureVersion = ($jdepsVersion -split '\.')[0]
+        $analysedJars = @(Get-ChildItem -LiteralPath $analysisDir -Filter "*.jar" | ForEach-Object { $_.FullName })
+        $jdepsArgs = @(
+            '--multi-release', $featureVersion,
+            '--ignore-missing-deps',
+            '--print-module-deps',
+            '--class-path', (Join-Path $analysisDir '*')
+        ) + $analysedJars
+
+        $jdepsOutput = & jdeps @jdepsArgs
+        if ($LASTEXITCODE -ne 0) {
+            throw "jdeps exited with code $LASTEXITCODE while recomputing the runtime module set."
+        }
+
+        # jdeps mixes warnings into its output, so pick the line that is a module
+        # list rather than trusting a position. No such line means the analysis
+        # did not produce an answer, which fails rather than passing quietly.
+        $moduleLine = @($jdepsOutput | Where-Object { $_ -match '^[a-z][a-z0-9.]*(,[a-z][a-z0-9.]*)*$' }) |
+            Select-Object -Last 1
+        if (-not $moduleLine) {
+            throw "jdeps printed no module list over $($analysedJars.Count) analysed jar(s). Output was: " +
+                ($jdepsOutput -join ' | ')
+        }
+
+        $required = @($moduleLine -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+        $undeclared = @($required | Where-Object { $runtimeModules -notcontains $_ })
+        if ($undeclared.Count -gt 0) {
+            throw "The shipped jar needs JDK module(s) the --add-modules list does not carry: " +
+                "$($undeclared -join ', '). A dependency bump most likely added them. Add each to " +
+                "`$runtimeModules in this script (with a note saying which dependency needs it) and " +
+                "re-package — the sidecar would otherwise start and then fail at runtime with " +
+                "NoClassDefFoundError or a missing provider."
+        }
+
+        Write-Host ("  jdeps needs $($required.Count) module(s) over " +
+            "$($analysedJars.Count) analysed jar(s); all of them are declared.")
+    } finally {
+        Remove-ItemWithRetry -Path $analysisDir
+    }
 }
 
 Write-Host ""
