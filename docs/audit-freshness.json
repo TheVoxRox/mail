@@ -48,7 +48,7 @@
       "frontend/src/lib/components/UpdatePromptDialog.svelte": "bde66d255591e2034835ae34a7cd9a0c738a9c90",
       "frontend/scripts/generate-tauri-latest-windows.mjs": "773b1391091178f97059dbca59f4fc0585f30708",
       "frontend/scripts/lib/minisign.mjs": "bf76281885724b07e0a34019ae45b05042766974",
-      ".github/workflows/windows-signed-release.yml": "b1ebc663f28da2f07ef239e247a1d3e4f14d7ff9"
+      ".github/workflows/windows-signed-release.yml": "d4119917b385d98a32f500a80c213265cedc1245"
     },
     "acknowledgements": [
       {
@@ -62,6 +62,10 @@
       {
         "date": "2026-08-31",
         "note": "One line, and it sits under no claim this audit makes. actions/setup-java v5 -> v6 in the Setup Java step of windows-signed-release.yml (distribution temurin, java-version 25, cache maven) — the toolchain step that installs a JDK so the backend sidecar can be built. Diffed the whole file rather than trusting the title: that step is the only hunk, and the change is the action version alone. No run: block moved, no with: key besides the version, no secret, no config flag, no artifact path. The two places this audit cites the workflow are section 2 (the release always builds with --config tauri.release.conf.json, so a missing TAURI_UPDATER_PUBKEY aborts the build) and section 6 finding U-1 (tag names no longer reach a run: block), and neither depends on which action installs the JDK. Every claim holds unchanged; verdict stays PASS. Third acknowledgement since the v1.10 re-anchor of 2026-08-28, against a cap of 8 — recorded rather than re-verified because re-anchoring a whole audit to absorb a JDK-installer bump would be ceremony, not diligence."
+      },
+      {
+        "date": "2026-09-05",
+        "note": "Two lines, and they are a rename. In windows-signed-release.yml the smoke step's display name goes from 'Sidecar CORS contract smoke' to 'Packaged sidecar smoke' and its run: invokes npm run tauri:smoke:sidecar instead of tauri:smoke:sidecar-cors. Diffed the whole file rather than trusting the title: that step is the only hunk, and within it nothing but those two lines moved — no other run: block, no with: key, no secret, no config flag, no artifact path, no step order. What the renamed script does is not part of this delta either: git records the file as a rename at 93% similarity, and the only edits inside it are the header prose, the Usage line, the temp-dir prefix and one console.log. Ran under the new name against the packaged sidecar and it reports the same three lines as before (webview origin 200 with the echoed allow-origin, foreign origin 403; boot endpoints 200; POST 201 and GET 200 over one account). The two places this audit cites the workflow are section 2 (the release always builds with --config tauri.release.conf.json, so a missing TAURI_UPDATER_PUBKEY aborts the build) and section 6 finding U-1 (tag names no longer reach a run: block); this step runs before signing, touches neither, and a step's display name reaches no claim at all. Every claim holds unchanged; verdict stays PASS. Fourth acknowledgement since the v1.10 re-anchor of 2026-08-28, against a cap of 8 — recorded rather than re-verified because re-anchoring a whole audit to absorb a step rename would be ceremony, not diligence."
       }
     ]
   },

@@ -1,7 +1,15 @@
 /**
- * Headless release gate for the CORS contract that broke in v0.1.0.
+ * Headless release gate for the claims only the packaged sidecar can settle.
  *
- * The packaged Windows WebView2 talks to the loopback backend with
+ * Everything here is a thing that is true of the shipped artifact or of
+ * nothing: `mvn verify` and the GreenMail ITs run on the full system JDK and
+ * the full compile classpath, and `tauri dev` runs the plain JIT jar, so the
+ * configuration that reaches a user is the one no other check exercises. Each
+ * assertion lands in this one script rather than a sibling, because booting the
+ * sidecar is the expensive part and it is already paid for here.
+ *
+ * The first was CORS, which is where the file got its original name. The
+ * packaged Windows WebView2 talks to the loopback backend with
  * `Origin: http://tauri.localhost`. `tauri dev` instead serves the frontend
  * from `http://localhost:<port>`, so the webview origin only ever appears in a
  * real bundle — both a `tauri dev` run and a backend-only probe (no Origin
@@ -22,11 +30,6 @@
  *     everything AccountMapper pulls in stays unloaded. #393 shipped straight
  *     through that gap. See assertMappedAccount.
  *
- * The name says CORS because that is the regression it was built for; what it
- * really is now is the gate for claims only the packaged artifact can settle,
- * which is why each new one lands here rather than in a sibling that would pay
- * the sidecar boot a second time.
- *
  * It deliberately does NOT launch the full Tauri app: the sidecar is what
  * enforces CORS, and a headless check is deterministic on a CI runner (no
  * WebView2 / desktop session needed). It needs no backend/.env either — the
@@ -34,7 +37,7 @@
  * package-sidecar-windows.ps1 and self-bootstraps its crypto key from the
  * (isolated, temporary) data dir.
  *
- * Usage: node scripts/tauri-sidecar-cors-smoke.mjs [--exe=<path>] [--timeout-ms=<n>]
+ * Usage: node scripts/tauri-sidecar-smoke.mjs [--exe=<path>] [--timeout-ms=<n>]
  */
 
 import { spawn } from 'node:child_process';
@@ -322,10 +325,10 @@ if (!(await exists(exePath))) {
 	);
 }
 
-const dataDir = await mkdtemp(path.join(os.tmpdir(), 'voxrox-cors-smoke-'));
+const dataDir = await mkdtemp(path.join(os.tmpdir(), 'voxrox-sidecar-smoke-'));
 const sessionPath = path.join(dataDir, 'session.json');
 
-console.log(`CORS contract smoke: launching ${exePath}`);
+console.log(`Packaged sidecar smoke: launching ${exePath}`);
 console.log(`Isolated data dir: ${dataDir}`);
 
 const child = spawn(exePath, [], {
