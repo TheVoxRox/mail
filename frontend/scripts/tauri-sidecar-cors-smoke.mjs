@@ -16,7 +16,16 @@
  *     answer 2xx with JSON through the webview origin. These exercise the
  *     AOT-compiled controller + JPA + Jackson paths that only the packaged,
  *     AOT-cached sidecar runs (dev uses the plain JIT jar) and that a
- *     readiness-only probe never touches.
+ *     readiness-only probe never touches;
+ *   - an account can be created and mapped. This is the half the boot probes
+ *     cannot reach: over the empty table of a fresh install they map no row, so
+ *     everything AccountMapper pulls in stays unloaded. #393 shipped straight
+ *     through that gap. See assertMappedAccount.
+ *
+ * The name says CORS because that is the regression it was built for; what it
+ * really is now is the gate for claims only the packaged artifact can settle,
+ * which is why each new one lands here rather than in a sibling that would pay
+ * the sidecar boot a second time.
  *
  * It deliberately does NOT launch the full Tauri app: the sidecar is what
  * enforces CORS, and a headless check is deterministic on a CI runner (no
@@ -78,28 +87,40 @@ async function exists(filePath) {
 	}
 }
 
-/** GET that resolves with { status, headers, body } for ANY response (a 403 is an expected outcome here). */
-function probe(url, { origin, apiKey, timeoutMs }) {
+/**
+ * Resolves with { status, headers, body } for ANY response — a 403 is an
+ * expected outcome here, so a non-2xx is data, not an error.
+ */
+function send(url, { method = 'GET', origin, apiKey, timeoutMs, body }) {
 	return new Promise((resolve, reject) => {
 		const headers = {};
 		if (apiKey) headers['X-API-KEY'] = apiKey;
 		if (origin) headers.Origin = origin;
-		const request = http.get(url, { headers, timeout: timeoutMs }, (response) => {
-			let body = '';
+		const payload = body === undefined ? null : Buffer.from(JSON.stringify(body), 'utf8');
+		if (payload) {
+			headers['Content-Type'] = 'application/json';
+			headers['Content-Length'] = String(payload.length);
+		}
+		const request = http.request(url, { method, headers, timeout: timeoutMs }, (response) => {
+			let text = '';
 			response.setEncoding('utf8');
 			response.on('data', (chunk) => {
-				body += chunk;
+				text += chunk;
 			});
 			response.on('end', () =>
-				resolve({ status: response.statusCode ?? 0, headers: response.headers, body })
+				resolve({ status: response.statusCode ?? 0, headers: response.headers, body: text })
 			);
 		});
 		request.on('timeout', () =>
-			request.destroy(new Error(`GET ${url} timed out after ${timeoutMs} ms`))
+			request.destroy(new Error(`${method} ${url} timed out after ${timeoutMs} ms`))
 		);
 		request.on('error', reject);
+		if (payload) request.write(payload);
+		request.end();
 	});
 }
+
+const probe = (url, options) => send(url, { ...options, method: 'GET' });
 
 async function waitForSession(sessionPath, child) {
 	const deadline = Date.now() + startupTimeoutMs;
@@ -159,8 +180,12 @@ async function assertCorsContract(session) {
  * Endpoints the desktop client fetches during boot (see frontend bootstrap.ts:
  * loadClientConfig + loadAccounts). Probing them through the real webview
  * origin proves the packaged, AOT-cached sidecar can actually serve data — not
- * just answer the static readiness probe. Both are safe on the fresh isolated
- * DB: client-config is static, accounts returns an empty list.
+ * just answer the static readiness probe.
+ *
+ * On the fresh isolated DB these are the first-run shape: client-config is
+ * static and accounts is an empty list. That empty list used to be written here
+ * as the reason the probe is safe. It is also the reason it was weak — see
+ * assertMappedAccount, which runs after these and supplies the row they cannot.
  */
 const BOOT_ENDPOINTS = ['/v1/client-config', '/v1/accounts'];
 
@@ -189,6 +214,90 @@ async function assertBootEndpoints(session) {
 		results.push(`${endpoint} → ${response.status}`);
 	}
 	return results;
+}
+
+/*
+ * The one shape a fresh install does not have: an account to map.
+ *
+ * AccountMapper.toResponse calls AccountLastErrorJson.read unconditionally, and
+ * that class holds a static ObjectMapper and TypeReference — so mapping a
+ * single account is what class-initialises it, whether or not last_error is
+ * set. Over an empty table listAllAccounts maps nothing, the class is never
+ * loaded, and a dependency missing behind it has nowhere to show.
+ *
+ * That is not hypothetical. It is how #393 shipped: the packaging check did
+ * probe /v1/accounts and did get 200 — over an empty list — while the packaged
+ * sidecar died with NoClassDefFoundError on the first account a real user had.
+ * ArchitectureTest.productionCodeDoesNotUseJackson2 now guards that particular
+ * import; this guards the general case, which is any dependency the fat jar
+ * excludes and production code still reaches.
+ *
+ * Offline by construction: createAccount saves, encrypts the credentials and
+ * maps — it opens no connection (that is /test-connection), nothing here
+ * triggers a sync, and the hosts are .invalid, which RFC 2606 reserves as
+ * guaranteed not to resolve. The row dies with the temporary data dir.
+ */
+const SMOKE_ACCOUNT = {
+	accountName: 'Packaging smoke',
+	email: 'smoke@voxrox.invalid',
+	username: 'smoke@voxrox.invalid',
+	password: 'not-a-real-password',
+	imap: { host: 'imap.voxrox.invalid', port: 993, useSsl: true },
+	smtp: { host: 'smtp.voxrox.invalid', port: 465, useSsl: true }
+};
+
+async function assertMappedAccount(session) {
+	const created = await send(`${session.baseUrl}/v1/accounts`, {
+		method: 'POST',
+		origin: WEBVIEW_ORIGIN,
+		apiKey: session.apiKey,
+		timeoutMs: 10_000,
+		body: SMOKE_ACCOUNT
+	});
+	if (created.status !== 201) {
+		throw new Error(
+			`POST /v1/accounts returned HTTP ${created.status} (expected 201) through the packaged ` +
+				`sidecar. Body: ${created.body.slice(0, 400)}`
+		);
+	}
+
+	let account;
+	try {
+		account = JSON.parse(created.body);
+	} catch {
+		throw new Error(
+			`POST /v1/accounts returned a non-JSON body through the packaged sidecar ` +
+				`(AccountMapper / AOT serialization regression?): ${created.body.slice(0, 400)}`
+		);
+	}
+	if (account.email !== SMOKE_ACCOUNT.email) {
+		throw new Error(
+			`POST /v1/accounts mapped the wrong account: expected email ${SMOKE_ACCOUNT.email}, ` +
+				`got ${account.email ?? '<none>'}.`
+		);
+	}
+
+	// Again through the list path, which is the one a user's first sync hits and
+	// the one that mapped nothing while the table was empty.
+	const listed = await probe(`${session.baseUrl}/v1/accounts`, {
+		origin: WEBVIEW_ORIGIN,
+		apiKey: session.apiKey,
+		timeoutMs: 5_000
+	});
+	if (listed.status < 200 || listed.status >= 300) {
+		throw new Error(
+			`GET /v1/accounts returned HTTP ${listed.status} (expected 2xx) once an account existed.`
+		);
+	}
+	const accounts = JSON.parse(listed.body);
+	if (!Array.isArray(accounts) || accounts.length !== 1) {
+		throw new Error(
+			`GET /v1/accounts returned ${JSON.stringify(accounts).slice(0, 200)}; expected exactly ` +
+				`the one account this smoke created.`
+		);
+	}
+
+	return `POST → 201, GET → ${listed.status} over ${accounts.length} account`;
 }
 
 async function removeWithRetry(dir) {
@@ -235,11 +344,13 @@ try {
 	const session = await waitForSession(sessionPath, child);
 	const result = await assertCorsContract(session);
 	const endpoints = await assertBootEndpoints(session);
+	const mapped = await assertMappedAccount(session);
 	console.log(
 		`OK — webview origin ${WEBVIEW_ORIGIN} → ${result.webviewStatus} ` +
 			`(Access-Control-Allow-Origin ${result.allowOriginHeader}); foreign origin → ${result.foreignStatus}.`
 	);
 	console.log(`OK - boot endpoints through ${WEBVIEW_ORIGIN}: ${endpoints.join(', ')}.`);
+	console.log(`OK - account mapped through the packaged sidecar: ${mapped}.`);
 } catch (error) {
 	if (stderr.trim()) {
 		console.error('--- sidecar stderr (tail) ---');
