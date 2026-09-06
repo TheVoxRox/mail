@@ -26,6 +26,7 @@ import org.voxrox.mailbackend.feature.mail.event.MailSyncCompletedEvent;
 import org.voxrox.mailbackend.feature.mail.event.MailSyncCycleCompletedEvent;
 import org.voxrox.mailbackend.feature.mail.event.MailSyncErrorStateChangedEvent;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
+import org.voxrox.mailbackend.feature.mail.service.ImapConnectionManager.Lane;
 import org.voxrox.mailbackend.util.AuditLog;
 import org.voxrox.mailbackend.util.LogCategory;
 import org.voxrox.mailbackend.util.LogMasker;
@@ -302,8 +303,8 @@ public class MailSyncService {
         int downloadedInAbandonedAttempts = 0;
         for (int attempt = 1;; attempt++) {
             try {
-                FolderSyncOutcome outcome = imapFolderService.executeInFolder(account.getId(), folderName,
-                        Folder.READ_ONLY,
+                FolderSyncOutcome outcome = imapFolderService.executeInFolder(account.getId(), Lane.BACKGROUND,
+                        folderName, Folder.READ_ONLY,
                         (folder, uidFolder) -> syncFolderOnce(account, folderName, detectedRole, folder, uidFolder));
                 return outcome != null
                         ? outcome.plusDownloaded(downloadedInAbandonedAttempts)
@@ -570,44 +571,98 @@ public class MailSyncService {
      * On IMAP failure (network, auth, MessagingException) the method falls back to
      * the local count so a transient outage does not break the read path — the user
      * keeps seeing whatever is cached.
+     * <p>
+     * Split across both lanes, and the split is the point of this method now. The
+     * count is what the paginator announces ("page X of Y") and the only part the
+     * user is blocked on, so it runs on {@link Lane#INTERACTIVE} where no sync
+     * cycle can be in front of it — behind one it was the measured 5.0 s / 7.0 s /
+     * 59.3 s. Filling in missing messages stays on {@link Lane#BACKGROUND}, for the
+     * reason in {@link #lazyFetchPageRange}.
      */
     public long fetchServerCountAndEnsurePageLocally(AccountEntity account, String folderName, int page, int size) {
         long needed = ((long) page + 1) * size;
 
-        Long serverCount = imapFolderService.executeInFolder(account.getId(), folderName, Folder.READ_ONLY,
-                (folder, uidFolder) -> {
-                    // Read the local count INSIDE the per-account lock so a concurrent
-                    // periodic sync cannot add rows between our count read and the
-                    // sequence-range computation — that would let lazy fetch overlap
-                    // with already-saved UIDs and hit the unique constraint.
-                    long localCount = messageRepository.countByAccountIdAndFolderName(account.getId(), folderName);
+        Long serverCount = imapFolderService.executeInFolder(account.getId(), Lane.INTERACTIVE, folderName,
+                Folder.READ_ONLY, (folder, uidFolder) -> {
                     try {
-                        int count = folder.getMessageCount();
-                        if (needed > localCount && (long) count > localCount) {
-                            FolderSyncStateEntity syncState = transactionTemplate.execute(status -> syncStateService
-                                    .getOrCreateState(account.getId(), folderName, FolderRole.USER));
-                            FolderSyncContext ctx = new FolderSyncContext(account, folderName, folder, uidFolder,
-                                    syncState);
-                            int endSeq = (int) ((long) count - localCount);
-                            long target = Math.min(needed, (long) count);
-                            int startSeq = (int) Math.max(1L, (long) count - target + 1L);
-                            int fetched = messageDownloader.downloadSequenceRange(ctx, startSeq, endSeq);
-                            log.info("{} Lazy page fetch {}: page {} (seq {}-{}), {} messages added.", LogCategory.SYNC,
-                                    folderName, page, startSeq, endSeq, fetched);
-                        }
+                        long count = folder.getMessageCount();
                         folderCountCache.put(account.getId(), folderName, count);
-                        return (long) count;
+                        return count;
+                    } catch (MessagingException e) {
+                        log.warn("{} Server count unavailable for account {} folder {}: {}", LogCategory.SYNC,
+                                account.getId(), folderName, e.getMessage(), e);
+                        AuditLog.failure("lazy_page_fetch", LogMasker.maskEmail(account.getEmail()),
+                                "folder=" + folderName + " page=" + page + " " + e.getClass().getSimpleName());
+                        return null;
+                    }
+                });
+        if (serverCount == null) {
+            return messageRepository.countByAccountIdAndFolderName(account.getId(), folderName);
+        }
+        lazyFetchPageRange(account, folderName, page, needed, serverCount);
+        return serverCount;
+    }
+
+    /**
+     * Downloads the sequence range covering the requested page when the local
+     * mirror does not reach that far back.
+     *
+     * <p>
+     * Deliberately on {@link Lane#BACKGROUND} — the lane the sync cycle also uses,
+     * so the connection lock keeps serializing the two exactly as it did before the
+     * lanes existed. This is a read-modify-write: it derives a sequence range from
+     * the current local row count and inserts what that range yields, so two of
+     * them interleaving would aim at the same range and the second insert would hit
+     * the {@code (account, folder, uid)} unique constraint.
+     * {@code MessageDownloader.dropAlreadyPersisted} does not cover that case — it
+     * drops rows a concurrent writer has already <i>committed</i>, and the losing
+     * case here is two writers getting past that check at once. Moving this to the
+     * interactive lane would remove the serialization and bring back the
+     * concurrent-insert failure from the v0.1.0 smoke (bug F).
+     *
+     * <p>
+     * Only the count above it moved lanes, and the count is what the user waits
+     * for; a page that needs downloading waits for the download, which is real work
+     * rather than queuing. The cost is one extra folder open, paid only when the
+     * requested page actually falls below the mirror.
+     */
+    private void lazyFetchPageRange(AccountEntity account, String folderName, int page, long needed, long count) {
+        // Cheap pre-check outside the lock: the common case (page within the mirror)
+        // must not open a second folder just to find there is nothing to do. The
+        // authoritative count is re-read inside.
+        if (needed <= messageRepository.countByAccountIdAndFolderName(account.getId(), folderName)) {
+            return;
+        }
+        imapFolderService.executeInFolder(account.getId(), Lane.BACKGROUND, folderName, Folder.READ_ONLY,
+                (folder, uidFolder) -> {
+                    /*
+                     * Re-counted inside the connection lock: a concurrent sync cycle must not add
+                     * rows between the count and the sequence-range computation, or the range
+                     * overlaps UIDs that are already saved.
+                     */
+                    long localCount = messageRepository.countByAccountIdAndFolderName(account.getId(), folderName);
+                    if (needed <= localCount || count <= localCount) {
+                        return null;
+                    }
+                    try {
+                        FolderSyncStateEntity syncState = transactionTemplate.execute(status -> syncStateService
+                                .getOrCreateState(account.getId(), folderName, FolderRole.USER));
+                        FolderSyncContext ctx = new FolderSyncContext(account, folderName, folder, uidFolder,
+                                syncState);
+                        int endSeq = (int) (count - localCount);
+                        long target = Math.min(needed, count);
+                        int startSeq = (int) Math.max(1L, count - target + 1L);
+                        int fetched = messageDownloader.downloadSequenceRange(ctx, startSeq, endSeq);
+                        log.info("{} Lazy page fetch {}: page {} (seq {}-{}), {} messages added.", LogCategory.SYNC,
+                                folderName, page, startSeq, endSeq, fetched);
                     } catch (MessagingException e) {
                         log.warn("{} Lazy page fetch failed for account {} folder {}: {}", LogCategory.SYNC,
                                 account.getId(), folderName, e.getMessage(), e);
                         AuditLog.failure("lazy_page_fetch", LogMasker.maskEmail(account.getEmail()),
                                 "folder=" + folderName + " page=" + page + " " + e.getClass().getSimpleName());
-                        return localCount;
                     }
+                    return null;
                 });
-        return serverCount != null
-                ? serverCount
-                : messageRepository.countByAccountIdAndFolderName(account.getId(), folderName);
     }
 
     @Async("mailSyncExecutor")
@@ -671,49 +726,52 @@ public class MailSyncService {
      * below the mirror is where history continues.
      */
     private void backfillOlderMessages(AccountEntity account, String folderName) {
-        imapFolderService.executeInFolder(account.getId(), folderName, Folder.READ_ONLY, (folder, uidFolder) -> {
-            /*
-             * Counted inside the per-account lock, exactly as the lazy page fetch does it:
-             * a concurrent pass must not add rows between the count and the sequence-range
-             * computation, or the range overlaps UIDs that are already saved.
-             */
-            long localCount = messageRepository.countByAccountIdAndFolderName(account.getId(), folderName);
-            int windowLimit = mailProps.sync().localWindowLimit();
-            if (localCount >= windowLimit) {
-                /*
-                 * At the cap, MailboxMaintenanceService prunes the oldest rows after every
-                 * folder cycle. Backfilling past it would hand the pruner exactly the batch
-                 * just downloaded, and the two would trade the same messages back and forth for
-                 * as long as the user keeps opening the folder.
-                 */
-                log.debug("{} Backfill of {} stops at the local window limit ({} rows).", LogCategory.SYNC, folderName,
-                        windowLimit);
-                return null;
-            }
+        imapFolderService.executeInFolder(account.getId(), Lane.BACKGROUND, folderName, Folder.READ_ONLY,
+                (folder, uidFolder) -> {
+                    /*
+                     * Counted inside the per-account lock, exactly as the lazy page fetch does it:
+                     * a concurrent pass must not add rows between the count and the sequence-range
+                     * computation, or the range overlaps UIDs that are already saved.
+                     */
+                    long localCount = messageRepository.countByAccountIdAndFolderName(account.getId(), folderName);
+                    int windowLimit = mailProps.sync().localWindowLimit();
+                    if (localCount >= windowLimit) {
+                        /*
+                         * At the cap, MailboxMaintenanceService prunes the oldest rows after every
+                         * folder cycle. Backfilling past it would hand the pruner exactly the batch
+                         * just downloaded, and the two would trade the same messages back and forth for
+                         * as long as the user keeps opening the folder.
+                         */
+                        log.debug("{} Backfill of {} stops at the local window limit ({} rows).", LogCategory.SYNC,
+                                folderName, windowLimit);
+                        return null;
+                    }
 
-            try {
-                long endSeq = folder.getMessageCount() - localCount;
-                if (endSeq < 1) {
-                    // The mirror already reaches the oldest message on the server.
+                    try {
+                        long endSeq = folder.getMessageCount() - localCount;
+                        if (endSeq < 1) {
+                            // The mirror already reaches the oldest message on the server.
+                            return null;
+                        }
+                        long startSeq = Math.max(1L, endSeq - mailProps.sync().backfillBatchSize() + 1L);
+
+                        // USER = "do not change the existing role". Backfill targets an
+                        // already-synced folder whose role was set by performFullSyncCycle.
+                        FolderSyncStateEntity syncState = transactionTemplate.execute(status -> syncStateService
+                                .getOrCreateState(account.getId(), folderName, FolderRole.USER));
+                        FolderSyncContext ctx = new FolderSyncContext(account, folderName, folder, uidFolder,
+                                syncState);
+
+                        int fetched = messageDownloader.downloadSequenceRange(ctx, (int) startSeq, (int) endSeq);
+                        log.info("{} History backfill of {}: sequence {}-{}, {} message(s) added.", LogCategory.SYNC,
+                                folderName, startSeq, endSeq, fetched);
+                    } catch (MessagingException e) {
+                        log.error("{} Error during folder backfill {}: {}", LogCategory.SYNC, folderName,
+                                e.getMessage());
+                        AuditLog.failure("sync_backfill", LogMasker.maskEmail(account.getEmail()),
+                                "folder=" + folderName + " " + e.getClass().getSimpleName());
+                    }
                     return null;
-                }
-                long startSeq = Math.max(1L, endSeq - mailProps.sync().backfillBatchSize() + 1L);
-
-                // USER = "do not change the existing role". Backfill targets an
-                // already-synced folder whose role was set by performFullSyncCycle.
-                FolderSyncStateEntity syncState = transactionTemplate.execute(
-                        status -> syncStateService.getOrCreateState(account.getId(), folderName, FolderRole.USER));
-                FolderSyncContext ctx = new FolderSyncContext(account, folderName, folder, uidFolder, syncState);
-
-                int fetched = messageDownloader.downloadSequenceRange(ctx, (int) startSeq, (int) endSeq);
-                log.info("{} History backfill of {}: sequence {}-{}, {} message(s) added.", LogCategory.SYNC,
-                        folderName, startSeq, endSeq, fetched);
-            } catch (MessagingException e) {
-                log.error("{} Error during folder backfill {}: {}", LogCategory.SYNC, folderName, e.getMessage());
-                AuditLog.failure("sync_backfill", LogMasker.maskEmail(account.getEmail()),
-                        "folder=" + folderName + " " + e.getClass().getSimpleName());
-            }
-            return null;
-        });
+                });
     }
 }

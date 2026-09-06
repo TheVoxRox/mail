@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 import org.voxrox.mailbackend.exception.ErrorCode;
 import org.voxrox.mailbackend.exception.MailOperationException;
 import org.voxrox.mailbackend.exception.ResourceNotFoundException;
+import org.voxrox.mailbackend.feature.mail.service.ImapConnectionManager.Lane;
 import org.voxrox.mailbackend.util.LogCategory;
 
 @Component
@@ -27,16 +28,22 @@ public class ImapFolderExecutor {
 
     /**
      * Runs the action on a folder in read-only mode.
+     *
+     * <p>
+     * Every caller states its {@link Lane} — there is no default. A wrong lane is
+     * not a compile error and shows up only as latency (a user's fetch queued
+     * behind a sync, or a sync monopolizing the connection the user's work needs),
+     * which is the kind of mistake nothing downstream would catch.
      */
-    public <R> @Nullable R executeReadOnly(Long accountId, String folderName, ImapFolderAction<R> action) {
-        return execute(accountId, folderName, Folder.READ_ONLY, action);
+    public <R> @Nullable R executeReadOnly(Long accountId, Lane lane, String folderName, ImapFolderAction<R> action) {
+        return execute(accountId, lane, folderName, Folder.READ_ONLY, action);
     }
 
     /**
      * Runs the action on a folder in read-write mode.
      */
-    public <R> @Nullable R executeReadWrite(Long accountId, String folderName, ImapFolderAction<R> action) {
-        return execute(accountId, folderName, Folder.READ_WRITE, action);
+    public <R> @Nullable R executeReadWrite(Long accountId, Lane lane, String folderName, ImapFolderAction<R> action) {
+        return execute(accountId, lane, folderName, Folder.READ_WRITE, action);
     }
 
     /**
@@ -44,8 +51,9 @@ public class ImapFolderExecutor {
      * and handling errors. The lambda (store) -> { ... } now matches the
      * StoreAction interface in ImapConnectionManager.
      */
-    private <R> @Nullable R execute(Long accountId, String folderName, int mode, ImapFolderAction<R> action) {
-        return connectionManager.executeWithLock(accountId, store -> {
+    private <R> @Nullable R execute(Long accountId, Lane lane, String folderName, int mode,
+            ImapFolderAction<R> action) {
+        return connectionManager.executeWithLock(accountId, lane, store -> {
             Folder folder = null;
             try {
                 /*

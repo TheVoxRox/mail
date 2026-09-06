@@ -26,6 +26,7 @@ import org.voxrox.mailbackend.exception.ResourceNotFoundException;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
+import org.voxrox.mailbackend.feature.mail.service.ImapConnectionManager.Lane;
 
 /**
  * Unit tests for {@link MailContentService}.
@@ -109,7 +110,7 @@ class MailContentServiceTest {
 
                 // Assert: returns directly from DB, IMAP not called
                 assertThat(result).isEqualTo(CACHED_CONTENT);
-                verify(folderExecutor, never()).executeReadOnly(anyLong(), anyString(), any());
+                verify(folderExecutor, never()).executeReadOnly(anyLong(), any(), anyString(), any());
                 verify(contentPersister, never()).updateLocalCache(anyLong(), anyString());
             }
         }
@@ -128,7 +129,7 @@ class MailContentServiceTest {
                 // Because MimePartExtractor and HtmlSanitizer are static utilities, we let
                 // executeReadOnly return the sanitized body directly — we verify the logic
                 // around the cache-miss path, not MIME parsing.
-                when(folderExecutor.executeReadOnly(eq(ACCOUNT_ID), eq(FOLDER_NAME), any()))
+                when(folderExecutor.executeReadOnly(eq(ACCOUNT_ID), eq(Lane.INTERACTIVE), eq(FOLDER_NAME), any()))
                         .thenReturn(new MailContentService.FetchedBody(FETCHED_CONTENT, false));
                 when(contentPersister.updateLocalCache(MESSAGE_ID, FETCHED_CONTENT)).thenReturn(FETCHED_CONTENT);
 
@@ -137,7 +138,7 @@ class MailContentServiceTest {
 
                 // Assert
                 assertThat(result).isEqualTo(FETCHED_CONTENT);
-                verify(folderExecutor).executeReadOnly(eq(ACCOUNT_ID), eq(FOLDER_NAME), any());
+                verify(folderExecutor).executeReadOnly(eq(ACCOUNT_ID), eq(Lane.INTERACTIVE), eq(FOLDER_NAME), any());
                 verify(contentPersister).updateLocalCache(MESSAGE_ID, FETCHED_CONTENT);
             }
 
@@ -148,7 +149,7 @@ class MailContentServiceTest {
                 MessageEntity entity = createMessageEntity("   ");
                 when(messageRepository.findById(MESSAGE_ID)).thenReturn(Optional.of(entity));
 
-                when(folderExecutor.executeReadOnly(eq(ACCOUNT_ID), eq(FOLDER_NAME), any()))
+                when(folderExecutor.executeReadOnly(eq(ACCOUNT_ID), eq(Lane.INTERACTIVE), eq(FOLDER_NAME), any()))
                         .thenReturn(new MailContentService.FetchedBody(FETCHED_CONTENT, false));
                 when(contentPersister.updateLocalCache(MESSAGE_ID, FETCHED_CONTENT)).thenReturn(FETCHED_CONTENT);
 
@@ -157,7 +158,7 @@ class MailContentServiceTest {
 
                 // Assert: blank content did not pass the fast path -> IMAP is called
                 assertThat(result).isEqualTo(FETCHED_CONTENT);
-                verify(folderExecutor).executeReadOnly(eq(ACCOUNT_ID), eq(FOLDER_NAME), any());
+                verify(folderExecutor).executeReadOnly(eq(ACCOUNT_ID), eq(Lane.INTERACTIVE), eq(FOLDER_NAME), any());
                 verify(contentPersister).updateLocalCache(MESSAGE_ID, FETCHED_CONTENT);
             }
         }
@@ -176,7 +177,7 @@ class MailContentServiceTest {
                 assertThatThrownBy(() -> service.getOrFetchMessageContent(MESSAGE_ID))
                         .isInstanceOf(ResourceNotFoundException.class).hasMessageContaining(String.valueOf(MESSAGE_ID));
 
-                verify(folderExecutor, never()).executeReadOnly(anyLong(), anyString(), any());
+                verify(folderExecutor, never()).executeReadOnly(anyLong(), any(), anyString(), any());
             }
 
             @Test
@@ -188,7 +189,8 @@ class MailContentServiceTest {
 
                 // The lambda inside executeReadOnly returns null -> the message does not exist
                 // on the server
-                when(folderExecutor.executeReadOnly(eq(ACCOUNT_ID), eq(FOLDER_NAME), any())).thenReturn(null);
+                when(folderExecutor.executeReadOnly(eq(ACCOUNT_ID), eq(Lane.INTERACTIVE), eq(FOLDER_NAME), any()))
+                        .thenReturn(null);
 
                 // Act & Assert
                 assertThatThrownBy(() -> service.getOrFetchMessageContent(MESSAGE_ID))
@@ -214,7 +216,7 @@ class MailContentServiceTest {
             void oversizedFetchPersistsFlagAndReturnsPlaceholder() {
                 MessageEntity entity = createMessageEntity(null);
                 when(messageRepository.findById(MESSAGE_ID)).thenReturn(Optional.of(entity));
-                when(folderExecutor.executeReadOnly(eq(ACCOUNT_ID), eq(FOLDER_NAME), any()))
+                when(folderExecutor.executeReadOnly(eq(ACCOUNT_ID), eq(Lane.INTERACTIVE), eq(FOLDER_NAME), any()))
                         .thenReturn(new MailContentService.FetchedBody("", true));
                 stubPlaceholderMessage();
 
@@ -237,7 +239,7 @@ class MailContentServiceTest {
                 String result = service.getOrFetchMessageContent(MESSAGE_ID);
 
                 assertThat(result).contains(PLACEHOLDER_TEXT);
-                verify(folderExecutor, never()).executeReadOnly(anyLong(), anyString(), any());
+                verify(folderExecutor, never()).executeReadOnly(anyLong(), any(), anyString(), any());
                 verify(contentPersister, never()).updateLocalCache(anyLong(), anyString());
             }
 
@@ -246,7 +248,7 @@ class MailContentServiceTest {
             void failedFlagPersistStillServesPlaceholder() {
                 MessageEntity entity = createMessageEntity(null);
                 when(messageRepository.findById(MESSAGE_ID)).thenReturn(Optional.of(entity));
-                when(folderExecutor.executeReadOnly(eq(ACCOUNT_ID), eq(FOLDER_NAME), any()))
+                when(folderExecutor.executeReadOnly(eq(ACCOUNT_ID), eq(Lane.INTERACTIVE), eq(FOLDER_NAME), any()))
                         .thenReturn(new MailContentService.FetchedBody("", true));
                 doThrow(new RuntimeException("db locked")).when(contentPersister).markBodyOversize(MESSAGE_ID);
                 stubPlaceholderMessage();
@@ -267,7 +269,7 @@ class MailContentServiceTest {
                 String result = service.getOrFetchQuotableContent(MESSAGE_ID);
 
                 assertThat(result).isEmpty();
-                verify(folderExecutor, never()).executeReadOnly(anyLong(), anyString(), any());
+                verify(folderExecutor, never()).executeReadOnly(anyLong(), any(), anyString(), any());
             }
 
             @Test
@@ -275,7 +277,7 @@ class MailContentServiceTest {
             void quotableContentIsEmptyWhenOversizeDetectedOnFetch() {
                 MessageEntity entity = createMessageEntity(null);
                 when(messageRepository.findById(MESSAGE_ID)).thenReturn(Optional.of(entity));
-                when(folderExecutor.executeReadOnly(eq(ACCOUNT_ID), eq(FOLDER_NAME), any()))
+                when(folderExecutor.executeReadOnly(eq(ACCOUNT_ID), eq(Lane.INTERACTIVE), eq(FOLDER_NAME), any()))
                         .thenReturn(new MailContentService.FetchedBody("", true));
 
                 String result = service.getOrFetchQuotableContent(MESSAGE_ID);

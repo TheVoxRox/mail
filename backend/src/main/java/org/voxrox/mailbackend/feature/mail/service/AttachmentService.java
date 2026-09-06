@@ -16,6 +16,7 @@ import org.voxrox.mailbackend.exception.MailOperationException;
 import org.voxrox.mailbackend.exception.ResourceNotFoundException;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
+import org.voxrox.mailbackend.feature.mail.service.ImapConnectionManager.Lane;
 import org.voxrox.mailbackend.util.LogCategory;
 
 import module java.base;
@@ -79,7 +80,7 @@ public class AttachmentService {
         // The action either returns a written temp file or throws — it never
         // yields null, so the nullable executor result can be required here.
         return java.util.Objects.requireNonNull(folderExecutor.executeReadOnly(entity.getAccount().getId(),
-                entity.getFolderName(), (folder, uidFolder) -> {
+                Lane.INTERACTIVE, entity.getFolderName(), (folder, uidFolder) -> {
                     Path tempFile = null;
                     try {
                         jakarta.mail.Message msg = uidFolder.getMessageByUID(entity.getUid());

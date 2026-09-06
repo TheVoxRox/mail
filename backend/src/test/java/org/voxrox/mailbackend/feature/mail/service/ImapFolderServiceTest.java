@@ -34,6 +34,7 @@ import org.voxrox.mailbackend.feature.mail.dto.FolderResponse;
 import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
 import org.voxrox.mailbackend.feature.mail.repository.FolderSyncStateRepository;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
+import org.voxrox.mailbackend.feature.mail.service.ImapConnectionManager.Lane;
 
 @ExtendWith(MockitoExtension.class)
 class ImapFolderServiceTest {
@@ -59,7 +60,7 @@ class ImapFolderServiceTest {
     void setUp() {
         folderListCache = new FolderListCache();
         MailClientProperties mailProps = new MailClientProperties(new ImapProperties(993, Duration.ofSeconds(30),
-                Duration.ofSeconds(60), "imaps", "imap", ROLE_LOOKUP_TIMEOUT), null, null, null);
+                Duration.ofSeconds(60), "imaps", "imap", ROLE_LOOKUP_TIMEOUT, Duration.ofMinutes(5)), null, null, null);
         service = new ImapFolderService(imapConnectionManager, imapFolderExecutor, folderSyncStateRepository,
                 messageRepository, folderListCache, mailProps);
     }
@@ -93,7 +94,7 @@ class ImapFolderServiceTest {
             List<FolderResponse> second = service.getFolders(ACCOUNT_ID);
 
             assertThat(second).isEqualTo(first);
-            verify(imapConnectionManager, times(1)).executeWithLock(eq(ACCOUNT_ID), any());
+            verify(imapConnectionManager, times(1)).executeWithLock(eq(ACCOUNT_ID), eq(Lane.INTERACTIVE), any());
         }
 
         @Test
@@ -105,7 +106,7 @@ class ImapFolderServiceTest {
             folderListCache.invalidate(ACCOUNT_ID);
             service.getFolders(ACCOUNT_ID);
 
-            verify(imapConnectionManager, times(2)).executeWithLock(eq(ACCOUNT_ID), any());
+            verify(imapConnectionManager, times(2)).executeWithLock(eq(ACCOUNT_ID), eq(Lane.INTERACTIVE), any());
         }
 
         @Test
@@ -277,10 +278,11 @@ class ImapFolderServiceTest {
         Folder defaultFolder = mock(Folder.class);
         when(store.getDefaultFolder()).thenReturn(defaultFolder);
         when(defaultFolder.list("*")).thenReturn(folders);
-        when(imapConnectionManager.executeWithLock(eq(ACCOUNT_ID), any())).thenAnswer(invocation -> {
-            ImapConnectionManager.StoreAction<List<FolderResponse>> action = invocation.getArgument(1);
-            return action.execute(store);
-        });
+        when(imapConnectionManager.executeWithLock(eq(ACCOUNT_ID), eq(Lane.INTERACTIVE), any()))
+                .thenAnswer(invocation -> {
+                    ImapConnectionManager.StoreAction<List<FolderResponse>> action = invocation.getArgument(2);
+                    return action.execute(store);
+                });
     }
 
     private static Folder folder(String name, String fullName, int unreadCount) throws MessagingException {

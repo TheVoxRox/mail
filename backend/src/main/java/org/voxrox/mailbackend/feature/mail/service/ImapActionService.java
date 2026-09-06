@@ -11,6 +11,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.voxrox.mailbackend.core.metrics.MailMetrics;
 import org.voxrox.mailbackend.feature.mail.dto.MessageFlag;
+import org.voxrox.mailbackend.feature.mail.service.ImapConnectionManager.Lane;
 import org.voxrox.mailbackend.util.AuditLog;
 import org.voxrox.mailbackend.util.LogCategory;
 
@@ -52,12 +53,18 @@ public class ImapActionService {
     @Async("userMailExecutor")
     public void moveOnServerAsync(Long accountId, String sourceFolder, String targetFolder, long uid) {
         try {
-            folderExecutor.executeReadWrite(accountId, sourceFolder, (src, uidFolderSrc) -> {
+            folderExecutor.executeReadWrite(accountId, Lane.BACKGROUND, sourceFolder, (src, uidFolderSrc) -> {
                 Folder dest = null;
                 try {
                     log.info("{} Moving UID {} from {} to {}", LogCategory.IMAP, uid, sourceFolder, targetFolder);
 
-                    dest = connectionManager.openFolder(accountId, targetFolder, Folder.READ_WRITE);
+                    /*
+                     * src.getStore() rather than a lookup by account: the destination must be
+                     * opened on the very connection whose lock this action holds. An account has
+                     * one Store per lane now, so anything that resolves a Store by id could hand
+                     * back the other lane's.
+                     */
+                    dest = connectionManager.openFolder(src.getStore(), targetFolder, Folder.READ_WRITE);
 
                     Message msg = uidFolderSrc.getMessageByUID(uid);
                     if (msg == null) {
@@ -160,26 +167,28 @@ public class ImapActionService {
      *         absent), {@code false} when the IMAP operation failed
      */
     public boolean hardDelete(Long accountId, String folderName, long uid) {
-        Boolean expunged = folderExecutor.executeReadWrite(accountId, folderName, (folder, uidFolder) -> {
-            try {
-                Message msg = uidFolder.getMessageByUID(uid);
-                if (msg == null) {
-                    // Already gone — a concurrent cleanup path expunged or moved it first.
-                    // The desired end state already holds, so this is a no-op, not an anomaly.
-                    log.debug("{} hardDelete: UID {} already absent from folder {}, nothing to do.", LogCategory.IMAP,
-                            uid, folderName);
-                    return true;
-                }
-                msg.setFlag(Flags.Flag.DELETED, true);
-                folder.expunge();
-                log.info("{} Hard delete of UID {} from folder {} completed.", LogCategory.IMAP, uid, folderName);
-                return true;
-            } catch (MessagingException e) {
-                log.error("{} Error during hard delete of UID {} from folder {}: {}", LogCategory.IMAP, uid, folderName,
-                        e.getMessage());
-                return false;
-            }
-        });
+        Boolean expunged = folderExecutor.executeReadWrite(accountId, Lane.BACKGROUND, folderName,
+                (folder, uidFolder) -> {
+                    try {
+                        Message msg = uidFolder.getMessageByUID(uid);
+                        if (msg == null) {
+                            // Already gone — a concurrent cleanup path expunged or moved it first.
+                            // The desired end state already holds, so this is a no-op, not an anomaly.
+                            log.debug("{} hardDelete: UID {} already absent from folder {}, nothing to do.",
+                                    LogCategory.IMAP, uid, folderName);
+                            return true;
+                        }
+                        msg.setFlag(Flags.Flag.DELETED, true);
+                        folder.expunge();
+                        log.info("{} Hard delete of UID {} from folder {} completed.", LogCategory.IMAP, uid,
+                                folderName);
+                        return true;
+                    } catch (MessagingException e) {
+                        log.error("{} Error during hard delete of UID {} from folder {}: {}", LogCategory.IMAP, uid,
+                                folderName, e.getMessage());
+                        return false;
+                    }
+                });
         return Boolean.TRUE.equals(expunged);
     }
 
@@ -223,7 +232,7 @@ public class ImapActionService {
     public void updateFlagsOnServerAsync(Long accountId, String folderName, long uid, MessageFlag flag, boolean value) {
         Flags.Flag imapFlag = toJavaMailFlag(flag);
         try {
-            folderExecutor.executeReadWrite(accountId, folderName, (folder, uidFolder) -> {
+            folderExecutor.executeReadWrite(accountId, Lane.BACKGROUND, folderName, (folder, uidFolder) -> {
                 Message msg = uidFolder.getMessageByUID(uid);
                 if (msg != null) {
                     msg.setFlag(imapFlag, value);

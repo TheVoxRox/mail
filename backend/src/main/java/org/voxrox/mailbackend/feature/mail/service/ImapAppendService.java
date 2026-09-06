@@ -18,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
+import org.voxrox.mailbackend.feature.mail.service.ImapConnectionManager.Lane;
 import org.voxrox.mailbackend.util.LogCategory;
 
 /**
@@ -75,7 +76,7 @@ public class ImapAppendService {
         try {
             final String folderName = imapFolderService.findFolderNameByRoleOrThrow(accountId, role);
 
-            Boolean appended = imapConnectionManager.executeWithLock(accountId, store -> {
+            Boolean appended = imapConnectionManager.executeWithLock(accountId, Lane.BACKGROUND, store -> {
                 Folder folder = store.getFolder(folderName);
                 if (!folder.exists()) {
                     log.warn("{} Folder for role {} ({}) does not exist.", LogCategory.SMTP, role, folderName);
@@ -126,7 +127,7 @@ public class ImapAppendService {
      */
     public DraftAppendOutcome appendDraft(Long accountId, String folderName, MimeMessage message) {
         try {
-            DraftAppendOutcome outcome = imapConnectionManager.executeWithLock(accountId, store -> {
+            DraftAppendOutcome outcome = imapConnectionManager.executeWithLock(accountId, Lane.BACKGROUND, store -> {
                 Folder folder = store.getFolder(folderName);
                 if (!folder.exists()) {
                     log.warn("{} Drafts folder {} does not exist.", LogCategory.SMTP, folderName);
@@ -176,8 +177,11 @@ public class ImapAppendService {
      *         side).
      */
     public Optional<MimeMessage> fetchAndDetachMime(Long accountId, String folderName, long uid, Session session) {
-        MimeMessage detached = imapFolderService.executeInFolder(accountId, folderName, Folder.READ_ONLY,
-                (folder, uidFolder) -> {
+        // INTERACTIVE: the user pressed Send and is watching for the result. Reading
+        // the draft is short and read-only, so it belongs in front of a sync rather
+        // than behind one.
+        MimeMessage detached = imapFolderService.executeInFolder(accountId, Lane.INTERACTIVE, folderName,
+                Folder.READ_ONLY, (folder, uidFolder) -> {
                     try {
                         Message msg = uidFolder.getMessageByUID(uid);
                         if (msg == null) {
