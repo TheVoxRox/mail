@@ -5,7 +5,7 @@
 | **Version**        | 1.6                                                                                                                                                                                                                                                                                          |
 | **Date**           | 2026-09-06                                                                                                                                                                                                                                                                                   |
 | **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                           |
-| **Audited commit** | `b80c05f` (pre-squash; 1.5 anchor `885b98a`, re-verified 2026-09-02 at the ledger cap; 1.3–1.4 anchor `cad05cb`, recorded pre-squash as `3ff0c78`; 1.0–1.2 baseline: `35a06f3`)                                                                                                              |
+| **Audited commit** | `f5b75ad` (pre-squash; 1.5 anchor `885b98a`, re-verified 2026-09-02 at the ledger cap; 1.3–1.4 anchor `cad05cb`, recorded pre-squash as `3ff0c78`; 1.0–1.2 baseline: `35a06f3`)                                                                                                              |
 | **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service`, `backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java`, `backend/src/main/java/org/voxrox/mailbackend/util/SubjectNormalizer.java`, `backend/src/main/java/org/voxrox/mailbackend/core/config/mail` |
 | **Auditor**        | Claude (Fable 5) + owner review                                                                                                                                                                                                                                                              |
 | **Subsystem**      | External mail server ↔ sidecar — Boundary 1 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                       |
@@ -97,11 +97,18 @@ transport/TLS and SMTP-send claims remain static-plus-unit-tests, see
   properties of that path matter here. It cannot turn a rejected connection
   into a connection storm against the provider, which an unbacked-off retry on
   a session cap would: one attempt per account per cooldown window, counted by
-  `mail.imap.lane.fallback`. And it deliberately does **not** trigger on
-  `AuthenticationFailedException` — credentials belong to the account, so the
-  other lane would fail identically, and routing an auth failure around the
-  existing single-shot token refresh would weaken §1's retry scoping. Degraded
-  behaviour is the pre-1.6 behaviour: one connection, one queue.
+  `mail.imap.lane.fallback`, and the cooldown is consulted before the lane's
+  lock is taken so a degraded account cannot queue on it either. And it
+  deliberately does **not** trigger on `AuthenticationFailedException` —
+  credentials belong to the account, so the other lane would fail identically,
+  and routing an auth failure around the existing single-shot token refresh
+  would weaken §1's retry scoping. The **reconnect** inside that refresh goes
+  through the same degradation, which is not a weakening of it: a second auth
+  failure still classifies as persistent, but the reconnect can independently
+  hit the session cap in the moment after the old connection was closed, and
+  treating that as an error would have left the one case degradation exists for
+  uncovered. Degraded behaviour is the pre-1.6 behaviour: one connection, one
+  queue.
 - **Retry policy is scoped.** Connect is wrapped in a `RetryTemplate` that
   retries only transient network errors; `AuthenticationFailedException`
   short-circuits to the token-refresh path (no pointless backoff on a bad
@@ -391,7 +398,7 @@ one after 101.8 s — so the budget is empirically load-bearing, not decorative.
 
 ## 7. Change log
 
-- **1.6** (2026-09-06) — revised for the interactive-lane split (`b80c05f`),
+- **1.6** (2026-09-06) — revised for the interactive-lane split (`f5b75ad`),
   **because a claim stopped being true, not because the ledger filled up**. §1
   said the folder-role lookup "degrades to folder scope rather than blocking
   behind a sync that holds the connection for a whole folder cycle". With two
