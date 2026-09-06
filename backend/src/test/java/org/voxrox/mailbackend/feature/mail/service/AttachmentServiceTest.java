@@ -30,6 +30,7 @@ import org.voxrox.mailbackend.exception.ResourceNotFoundException;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
+import org.voxrox.mailbackend.feature.mail.service.ImapConnectionManager.Lane;
 
 /**
  * Unit tests for {@link AttachmentService}.
@@ -131,7 +132,8 @@ class AttachmentServiceTest {
             byte[] payload = "hello world".getBytes(StandardCharsets.UTF_8);
             Files.write(fakeDownload, payload);
 
-            when(folderExecutor.executeReadOnly(eq(ACCOUNT_ID), eq(FOLDER_NAME), any())).thenReturn(fakeDownload);
+            when(folderExecutor.executeReadOnly(eq(ACCOUNT_ID), eq(Lane.INTERACTIVE), eq(FOLDER_NAME), any()))
+                    .thenReturn(fakeDownload);
 
             // Act
             byte[] read;
@@ -157,7 +159,7 @@ class AttachmentServiceTest {
             assertThatThrownBy(() -> service.getAttachmentStreamByStableId(STABLE_ID, PART_PATH))
                     .isInstanceOf(ResourceNotFoundException.class).hasMessageContaining(STABLE_ID);
 
-            verify(folderExecutor, never()).executeReadOnly(anyLong(), anyString(), any());
+            verify(folderExecutor, never()).executeReadOnly(anyLong(), any(), anyString(), any());
         }
     }
 

@@ -71,7 +71,7 @@ class MailConnectionProbeTest {
     @BeforeEach
     void setUp() {
         ImapProperties imap = new ImapProperties(993, Duration.ofSeconds(30), Duration.ofSeconds(60), "imaps", "imap",
-                Duration.ofSeconds(1));
+                Duration.ofSeconds(1), Duration.ofMinutes(5));
         SmtpProperties smtp = new SmtpProperties(Duration.ofSeconds(15), Duration.ofSeconds(10));
         MailClientProperties props = new MailClientProperties(imap, smtp, null, null);
         probe = new MailConnectionProbe(props, oauth2TokenServiceRegistry, smtpTransportFactory);

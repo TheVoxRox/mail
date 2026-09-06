@@ -16,6 +16,7 @@ import org.voxrox.mailbackend.feature.mail.dto.FolderResponse;
 import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
 import org.voxrox.mailbackend.feature.mail.repository.FolderSyncStateRepository;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
+import org.voxrox.mailbackend.feature.mail.service.ImapConnectionManager.Lane;
 import org.voxrox.mailbackend.util.LogCategory;
 
 import module java.base;
@@ -41,11 +42,12 @@ public class ImapFolderService {
         this.mailProps = mailProps;
     }
 
-    public <R> @Nullable R executeInFolder(Long accountId, String folderName, int mode, ImapFolderAction<R> action) {
+    public <R> @Nullable R executeInFolder(Long accountId, Lane lane, String folderName, int mode,
+            ImapFolderAction<R> action) {
         if (mode == Folder.READ_WRITE) {
-            return imapFolderExecutor.executeReadWrite(accountId, folderName, action);
+            return imapFolderExecutor.executeReadWrite(accountId, lane, folderName, action);
         } else {
-            return imapFolderExecutor.executeReadOnly(accountId, folderName, action);
+            return imapFolderExecutor.executeReadOnly(accountId, lane, folderName, action);
         }
     }
 
@@ -54,8 +56,9 @@ public class ImapFolderService {
      * a fresh one. Used by the sync retry path after a transient connectivity
      * failure: the dead/half-open store that produced "failed to create new store
      * connection" must be discarded before retrying, otherwise the liveness probe
-     * in {@link ImapConnectionManager#getConnectedStore(Long)} may keep handing the
-     * same broken connection back.
+     * in {@link ImapConnectionManager#getConnectedStore(Long, Lane)} may keep
+     * handing the same broken connection back. Both lanes are dropped — see that
+     * method's caller {@code removeConnection}.
      */
     public void invalidateConnection(Long accountId) {
         imapConnectionManager.removeConnection(accountId);
@@ -76,8 +79,8 @@ public class ImapFolderService {
 
         // The action always returns a (possibly empty) list or throws — it never
         // yields null, so the nullable executor result can be required here.
-        List<FolderResponse> fresh = java.util.Objects.requireNonNull(
-                imapConnectionManager.executeWithLock(accountId, store -> listFolders(accountId, store)));
+        List<FolderResponse> fresh = java.util.Objects.requireNonNull(imapConnectionManager.executeWithLock(accountId,
+                Lane.INTERACTIVE, store -> listFolders(accountId, store)));
         folderListCache.put(accountId, fresh);
         return fresh;
     }
@@ -98,8 +101,8 @@ public class ImapFolderService {
             return cached;
         }
 
-        Optional<List<FolderResponse>> fresh = imapConnectionManager.executeWithLockOrSkip(accountId, timeout,
-                store -> listFolders(accountId, store));
+        Optional<List<FolderResponse>> fresh = imapConnectionManager.executeWithLockOrSkip(accountId, Lane.INTERACTIVE,
+                timeout, store -> listFolders(accountId, store));
         fresh.ifPresent(folders -> folderListCache.put(accountId, folders));
         return fresh;
     }

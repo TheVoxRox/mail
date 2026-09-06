@@ -21,9 +21,19 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  *            would rather have that immediately than the fuller answer after a
  *            sync cycle finishes. Only ever paid once per account thanks to the
  *            folder-list TTL cache.
+ * @param interactiveLaneRetryAfter
+ *            how long to stop attempting a second (interactive) connection for
+ *            an account after one failed. The likely cause is a server limit on
+ *            simultaneous sessions, which does not clear within a request, and
+ *            without this every interactive operation would pay a full connect
+ *            plus its retries before degrading to the shared connection —
+ *            slower than having no second lane at all. Long enough to stop
+ *            paying that repeatedly, short enough that a transient limit is not
+ *            treated as permanent.
  */
 public record ImapProperties(@Min(1) @Max(65535) @DefaultValue("993") int defaultPort,
         @NotNull @DefaultValue("30s") Duration connectionTimeout, @NotNull @DefaultValue("60s") Duration readTimeout,
         @NotBlank @DefaultValue("imaps") String protocolSsl, @NotBlank @DefaultValue("imap") String protocolStandard,
-        @NotNull @DefaultValue("1s") Duration roleLookupTimeout) {
+        @NotNull @DefaultValue("1s") Duration roleLookupTimeout,
+        @NotNull @DefaultValue("5m") Duration interactiveLaneRetryAfter) {
 }

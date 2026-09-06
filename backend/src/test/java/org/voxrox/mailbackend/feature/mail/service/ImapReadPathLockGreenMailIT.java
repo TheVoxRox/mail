@@ -27,13 +27,14 @@ import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.feature.account.service.AccountService;
 import org.voxrox.mailbackend.feature.mail.dto.FolderResponse;
 import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
+import org.voxrox.mailbackend.feature.mail.service.ImapConnectionManager.Lane;
 
 import com.icegreen.greenmail.junit5.GreenMailExtension;
 import com.icegreen.greenmail.util.ServerSetup;
 
 /**
- * Proves the read path does not queue behind a background sync holding the
- * account's IMAP connection.
+ * Proves the read path does not queue behind a background sync holding an IMAP
+ * connection — now against a real second connection rather than a timeout.
  *
  * <p>
  * The regression this guards is invisible to a unit test and to an exception
@@ -45,8 +46,18 @@ import com.icegreen.greenmail.util.ServerSetup;
  * appears to hang with no error anywhere.
  *
  * <p>
- * The latch pins the connection lock the way a running sync does, so the
- * assertion is about the real lock, not a simulated one.
+ * What the fix looks like changed once already, and the tests here with it.
+ * While an account had one connection, the read path could only <em>give
+ * up</em> on a short timeout and degrade to a folder-scoped answer. With
+ * {@link Lane#INTERACTIVE} it no longer has to: a sync on
+ * {@link Lane#BACKGROUND} holds a different connection and a different lock, so
+ * the lookup resolves properly instead of degrading. The skip path is still
+ * reachable and still tested — it now answers contention <em>within</em> the
+ * interactive lane.
+ *
+ * <p>
+ * The latches pin real connection locks the way a running sync does, so the
+ * assertions are about the real locks, not simulated ones.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "mail.client.sync.initial-delay=PT1H", "mail.client.imap.role-lookup-timeout=200ms"})
@@ -118,23 +129,11 @@ class ImapReadPathLockGreenMailIT {
     }
 
     @Test
-    @DisplayName("A role lookup gives up instead of waiting while a sync holds the connection")
-    void roleLookupSkipsWhileTheConnectionIsBusy() throws Exception {
+    @DisplayName("A role lookup resolves over IMAP while a sync holds the background connection")
+    void roleLookupResolvesWhileTheBackgroundLaneIsBusy() throws Exception {
         CountDownLatch lockHeld = new CountDownLatch(1);
         CountDownLatch releaseLock = new CountDownLatch(1);
-
-        Thread holder = new Thread(() -> imapConnectionManager.executeWithLock(account.getId(), store -> {
-            lockHeld.countDown();
-            try {
-                // Stands in for a folder cycle: the sync holds the lock across download,
-                // flag sweep and cleanup, not just for a single command.
-                releaseLock.await(LOCK_HELD_FOR.toMillis(), TimeUnit.MILLISECONDS);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-            return null;
-        }), "lock-holder");
-        holder.start();
+        Thread holder = startLaneHolder(Lane.BACKGROUND, lockHeld, releaseLock);
 
         try {
             assertThat(lockHeld.await(10, TimeUnit.SECONDS)).as("the holder thread never acquired the lock").isTrue();
@@ -144,15 +143,69 @@ class ImapReadPathLockGreenMailIT {
                     FolderRole.TRASH);
             Duration waited = Duration.ofNanos(System.nanoTime() - startedAt);
 
-            // Empty means "could not resolve" — distinct from "the account has no
-            // trash", and the signal MailFacade degrades on.
-            assertThat(trash).as("the lookup must give up, not wait for the sync").isEmpty();
+            /*
+             * Present, not empty: the whole point of the interactive lane. On one
+             * connection this could only skip and hand MailFacade a degraded, folder-scoped
+             * answer; a second connection lets the same lookup be answered properly while
+             * the sync keeps its own connection.
+             */
+            assertThat(trash).as("the lookup must resolve on its own connection, not degrade").isPresent();
+            assertThat(waited).as("returned only after the lock holder finished — it queued behind the sync")
+                    .isLessThan(LOCK_HELD_FOR);
+        } finally {
+            releaseLock.countDown();
+            holder.join(TimeUnit.SECONDS.toMillis(10));
+        }
+    }
+
+    @Test
+    @DisplayName("A role lookup still gives up when its own lane is busy")
+    void roleLookupSkipsWhenTheInteractiveLaneIsBusy() throws Exception {
+        CountDownLatch lockHeld = new CountDownLatch(1);
+        CountDownLatch releaseLock = new CountDownLatch(1);
+        Thread holder = startLaneHolder(Lane.INTERACTIVE, lockHeld, releaseLock);
+
+        try {
+            assertThat(lockHeld.await(10, TimeUnit.SECONDS)).as("the holder thread never acquired the lock").isTrue();
+
+            long startedAt = System.nanoTime();
+            Optional<List<String>> trash = imapFolderService.findFolderNamesByRoleWithoutWaiting(account.getId(),
+                    FolderRole.TRASH);
+            Duration waited = Duration.ofNanos(System.nanoTime() - startedAt);
+
+            /*
+             * The skip path did not become dead code with the lane split — it moved to a
+             * narrower case. Empty still means "could not resolve" (distinct from
+             * "the account has no trash") and is still what MailFacade degrades on; what it
+             * now answers is another interactive request, not a sync cycle, so the wait it
+             * bounds is short rather than a whole folder cycle.
+             */
+            assertThat(trash).as("the lookup must give up, not wait for the other request").isEmpty();
             assertThat(waited).as("returned only after the lock holder finished — it waited instead of skipping")
                     .isLessThan(LOCK_HELD_FOR);
         } finally {
             releaseLock.countDown();
             holder.join(TimeUnit.SECONDS.toMillis(10));
         }
+    }
+
+    /**
+     * Starts a thread that takes the lane's connection lock and keeps it, the way a
+     * folder cycle holds one across download, flag sweep and cleanup rather than
+     * for a single command.
+     */
+    private Thread startLaneHolder(Lane lane, CountDownLatch lockHeld, CountDownLatch releaseLock) {
+        Thread holder = new Thread(() -> imapConnectionManager.executeWithLock(account.getId(), lane, store -> {
+            lockHeld.countDown();
+            try {
+                releaseLock.await(LOCK_HELD_FOR.toMillis(), TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return null;
+        }), "lock-holder-" + lane);
+        holder.start();
+        return holder;
     }
 
     @Test

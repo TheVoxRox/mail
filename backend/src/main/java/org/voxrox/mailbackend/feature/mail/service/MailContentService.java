@@ -12,6 +12,7 @@ import org.voxrox.mailbackend.exception.MailOperationException;
 import org.voxrox.mailbackend.exception.ResourceNotFoundException;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
+import org.voxrox.mailbackend.feature.mail.service.ImapConnectionManager.Lane;
 import org.voxrox.mailbackend.util.HtmlSanitizer;
 import org.voxrox.mailbackend.util.LogCategory;
 import org.voxrox.mailbackend.util.MimePartExtractor;
@@ -101,7 +102,7 @@ public class MailContentService {
          * is translated by ImapFolderExecutor; IOException is wrapped here because
          * ImapFolderAction does not declare it.
          */
-        FetchedBody fetched = folderExecutor.executeReadOnly(messageEntity.getAccount().getId(),
+        FetchedBody fetched = folderExecutor.executeReadOnly(messageEntity.getAccount().getId(), Lane.INTERACTIVE,
                 messageEntity.getFolderName(), (folder, uidFolder) -> {
                     Message message = uidFolder.getMessageByUID(messageEntity.getUid());
                     if (message == null) {

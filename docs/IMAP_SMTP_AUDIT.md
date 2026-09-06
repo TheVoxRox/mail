@@ -2,10 +2,10 @@
 
 |                    |                                                                                                                                                                                                                                                                                              |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.5                                                                                                                                                                                                                                                                                          |
-| **Date**           | 2026-09-02                                                                                                                                                                                                                                                                                   |
+| **Version**        | 1.6                                                                                                                                                                                                                                                                                          |
+| **Date**           | 2026-09-06                                                                                                                                                                                                                                                                                   |
 | **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                           |
-| **Audited commit** | `885b98a` (re-verified 2026-09-02 at the ledger cap; 1.3–1.4 anchor `cad05cb`, recorded pre-squash as `3ff0c78`; 1.0–1.2 baseline: `35a06f3`)                                                                                                                                                |
+| **Audited commit** | `f5b75ad` (pre-squash; 1.5 anchor `885b98a`, re-verified 2026-09-02 at the ledger cap; 1.3–1.4 anchor `cad05cb`, recorded pre-squash as `3ff0c78`; 1.0–1.2 baseline: `35a06f3`)                                                                                                              |
 | **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service`, `backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java`, `backend/src/main/java/org/voxrox/mailbackend/util/SubjectNormalizer.java`, `backend/src/main/java/org/voxrox/mailbackend/core/config/mail` |
 | **Auditor**        | Claude (Fable 5) + owner review                                                                                                                                                                                                                                                              |
 | **Subsystem**      | External mail server ↔ sidecar — Boundary 1 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                       |
@@ -62,17 +62,53 @@ transport/TLS and SMTP-send claims remain static-plus-unit-tests, see
   unbounded either way — the record default is the floor if the key ever
   disappears — but a reader checking the claim against `SmtpProperties`
   alone would find a different number than the app runs with.
-- **Connection contention is bounded, not queued indefinitely.** New since 1.4
-  and not previously described: `ImapConnectionManager.executeWithLockOrSkip`
-  takes the per-account store lock with a timeout and returns empty instead of
-  waiting, and `ImapFolderService` uses it for folder-role lookups under
-  `mail.client.imap.role-lookup-timeout` (1 s). The listing degrades to
-  folder scope rather than blocking behind a sync that holds the connection
-  for a whole folder cycle. The direction is fail-closed for this boundary:
-  it removes an unbounded wait on a server-paced operation and adds no IMAP
-  command. It does mean an unresolvable role is indistinguishable from a busy
-  one at the call site, which is a correctness consideration, not a security
-  one — no trust decision keys off a folder role.
+- **Two connections per account, one connection setup.** Rewritten at 1.6:
+  since the interactive-lane split, `ImapConnectionManager` keys its pool and
+  its locks by `(accountId, Lane)`, so an account holds up to two TLS sockets —
+  `INTERACTIVE` for work a user waits on, `BACKGROUND` for sync cycles and the
+  server-side half of already-committed local writes. **Both are built by the
+  same `createNewConnectedStore`**, which is untouched by the split, so every
+  claim above applies per connection rather than per account: the pinned
+  `checkserveridentity`, the fail-closed `imap_oauth2_plaintext_blocked` guard,
+  the millisecond-string timeouts and the pinned `partialfetch` are all on the
+  one code path both lanes call. Verified in the tree rather than inferred —
+  the split changed the keys of two maps and added a lane parameter; it moved
+  no property, no credential and no protocol command. What the second socket
+  does change is a resource question, not a trust one: an account now opens two
+  sessions where providers cap the total, which the code treats as expected
+  (see the degradation note below) rather than as an error.
+- **Connection contention is bounded, not queued indefinitely.** New since 1.4,
+  narrowed at 1.6: `ImapConnectionManager.executeWithLockOrSkip` takes the
+  lane's store lock with a timeout and returns empty instead of waiting, and
+  `ImapFolderService` uses it for folder-role lookups under
+  `mail.client.imap.role-lookup-timeout` (1 s). Until 1.5 that timeout was what
+  kept a read from blocking behind a whole sync folder cycle; with separate
+  lanes the sync is no longer in front of it, and what the timeout now bounds
+  is contention with another interactive request. The direction is unchanged
+  and still fail-closed for this boundary: it removes an unbounded wait on a
+  server-paced operation and adds no IMAP command. An unresolvable role is
+  still indistinguishable from a busy one at the call site, which is a
+  correctness consideration, not a security one — no trust decision keys off a
+  folder role.
+- **A refused second connection degrades, it does not retry blindly.** When an
+  interactive connect fails, the action re-runs on the background lane — after
+  the interactive lock is released, never while it is held — and the lane is
+  then skipped for `mail.client.imap.interactive-lane-retry-after` (5 m). Two
+  properties of that path matter here. It cannot turn a rejected connection
+  into a connection storm against the provider, which an unbacked-off retry on
+  a session cap would: one attempt per account per cooldown window, counted by
+  `mail.imap.lane.fallback`, and the cooldown is consulted before the lane's
+  lock is taken so a degraded account cannot queue on it either. And it
+  deliberately does **not** trigger on `AuthenticationFailedException` —
+  credentials belong to the account, so the other lane would fail identically,
+  and routing an auth failure around the existing single-shot token refresh
+  would weaken §1's retry scoping. The **reconnect** inside that refresh goes
+  through the same degradation, which is not a weakening of it: a second auth
+  failure still classifies as persistent, but the reconnect can independently
+  hit the session cap in the moment after the old connection was closed, and
+  treating that as an error would have left the one case degradation exists for
+  uncovered. Degraded behaviour is the pre-1.6 behaviour: one connection, one
+  queue.
 - **Retry policy is scoped.** Connect is wrapped in a `RetryTemplate` that
   retries only transient network errors; `AuthenticationFailedException`
   short-circuits to the token-refresh path (no pointless backoff on a bad
@@ -362,6 +398,31 @@ one after 101.8 s — so the budget is empirically load-bearing, not decorative.
 
 ## 7. Change log
 
+- **1.6** (2026-09-06) — revised for the interactive-lane split (`f5b75ad`),
+  **because a claim stopped being true, not because the ledger filled up**. §1
+  said the folder-role lookup "degrades to folder scope rather than blocking
+  behind a sync that holds the connection for a whole folder cycle". With two
+  connections per account the sync is not in front of that lookup any more, so
+  the sentence described a mechanism the code no longer has — the kind of stale
+  claim an acknowledgement would have carried forward instead of catching.
+  Scope of this revision, stated so nobody reads more into it: §1 was re-checked
+  claim by claim against the current tree (pinned `checkserveridentity` on all
+  three connectors, both fail-closed OAuth2/TLS guards, the millisecond-string
+  timeouts, the pinned `partialfetch`, the scoped retry policy) and rewritten
+  where the lane split touches it; §2–§5 rest on the full 1.5 pass of
+  2026-09-02 plus the four ledger acknowledgements between, and were re-read
+  against this diff only to confirm it does not reach them — it adds a lane
+  parameter and splits `fetchServerCountAndEnsurePageLocally`, and changes no
+  parser, no cap and no header walk. Three records came out of it. (1) Both
+  lanes are built by the **same** `createNewConnectedStore`, so §1's transport
+  and credential claims now hold per connection rather than per account; the
+  split moved map keys, not properties. (2) The degradation path is bounded by
+  design: a refused second connection costs one attempt per account per
+  five-minute cooldown, so a provider session cap cannot be turned into a
+  connection storm, and an auth failure is excluded from it so the single-shot
+  token refresh stays the only auth retry. (3) The `role-lookup-timeout` claim
+  survives with a narrower meaning — it bounds contention inside one lane now,
+  not a read waiting on a sync. Verdict unchanged (**PASS**), no new finding.
 - **1.5** (2026-09-02) — re-verified against `885b98a`, **at the ledger cap
   rather than because something broke**: the acknowledgement run had reached
   six of eight and the sixth said in as many words that the next drift under

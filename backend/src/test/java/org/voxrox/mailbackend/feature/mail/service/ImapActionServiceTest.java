@@ -21,6 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.slf4j.LoggerFactory;
 import org.voxrox.mailbackend.core.metrics.MailMetrics;
 import org.voxrox.mailbackend.feature.mail.dto.MessageFlag;
+import org.voxrox.mailbackend.feature.mail.service.ImapConnectionManager.Lane;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
@@ -47,8 +48,8 @@ class ImapActionServiceTest {
     void moveOnServerAsyncShouldRecordFailureWhenExecutorThrowsBeforeAction() {
         ImapActionService service = new ImapActionService(folderExecutor, connectionManager, metrics,
                 new FolderListCache());
-        doThrow(new RuntimeException("connection down")).when(folderExecutor).executeReadWrite(eq(7L), eq("INBOX"),
-                any());
+        doThrow(new RuntimeException("connection down")).when(folderExecutor).executeReadWrite(eq(7L),
+                eq(Lane.BACKGROUND), eq("INBOX"), any());
 
         service.moveOnServerAsync(7L, "INBOX", "Archive", 42L);
 
@@ -59,12 +60,12 @@ class ImapActionServiceTest {
     void updateFlagsOnServerAsyncShouldSwallowExecutorFailure() {
         ImapActionService service = new ImapActionService(folderExecutor, connectionManager, metrics,
                 new FolderListCache());
-        doThrow(new RuntimeException("connection down")).when(folderExecutor).executeReadWrite(eq(7L), eq("INBOX"),
-                any());
+        doThrow(new RuntimeException("connection down")).when(folderExecutor).executeReadWrite(eq(7L),
+                eq(Lane.BACKGROUND), eq("INBOX"), any());
 
         service.updateFlagsOnServerAsync(7L, "INBOX", 42L, MessageFlag.SEEN, true);
 
-        verify(folderExecutor).executeReadWrite(eq(7L), eq("INBOX"), any());
+        verify(folderExecutor).executeReadWrite(eq(7L), eq(Lane.BACKGROUND), eq("INBOX"), any());
     }
 
     @Test
@@ -74,7 +75,7 @@ class ImapActionServiceTest {
 
         service.moveOnServerAsync(7L, "INBOX", "Archive", 42L);
 
-        verify(folderExecutor).executeReadWrite(eq(7L), eq("INBOX"), any());
+        verify(folderExecutor).executeReadWrite(eq(7L), eq(Lane.BACKGROUND), eq("INBOX"), any());
     }
 
     /**
@@ -171,7 +172,7 @@ class ImapActionServiceTest {
         FolderListCache folderListCache = mock(FolderListCache.class);
         ImapActionService service = new ImapActionService(folderExecutor, connectionManager, metrics, folderListCache);
         doThrow(new RuntimeException("connection down")).when(folderExecutor).executeReadWrite(eq(ACCOUNT_ID),
-                eq(DRAFTS), any());
+                eq(Lane.BACKGROUND), eq(DRAFTS), any());
 
         service.hardDeleteAsync(ACCOUNT_ID, DRAFTS, DRAFT_UID);
 
@@ -184,10 +185,11 @@ class ImapActionServiceTest {
      * given mocks.
      */
     private void stubExecutorRunsAction(Folder folder, UIDFolder uidFolder) {
-        when(folderExecutor.executeReadWrite(eq(ACCOUNT_ID), eq(DRAFTS), any())).thenAnswer(invocation -> {
-            ImapFolderAction<?> action = invocation.getArgument(2);
-            return action.apply(folder, uidFolder);
-        });
+        when(folderExecutor.executeReadWrite(eq(ACCOUNT_ID), eq(Lane.BACKGROUND), eq(DRAFTS), any()))
+                .thenAnswer(invocation -> {
+                    ImapFolderAction<?> action = invocation.getArgument(3);
+                    return action.apply(folder, uidFolder);
+                });
     }
 
     private ListAppender<ILoggingEvent> attachAppender() {

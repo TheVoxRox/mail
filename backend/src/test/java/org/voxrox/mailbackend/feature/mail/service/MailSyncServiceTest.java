@@ -39,6 +39,7 @@ import org.voxrox.mailbackend.core.config.mail.SyncProperties;
 import org.voxrox.mailbackend.core.metrics.MailMetrics;
 import org.voxrox.mailbackend.exception.MailAuthenticationException;
 import org.voxrox.mailbackend.exception.MailConnectionException;
+import org.voxrox.mailbackend.exception.ResourceNotFoundException;
 import org.voxrox.mailbackend.feature.account.AccountLastError;
 import org.voxrox.mailbackend.feature.account.AccountLastErrorCode;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
@@ -49,6 +50,7 @@ import org.voxrox.mailbackend.feature.mail.entity.FolderSyncStateEntity;
 import org.voxrox.mailbackend.feature.mail.event.MailSyncCycleCompletedEvent;
 import org.voxrox.mailbackend.feature.mail.event.MailSyncErrorStateChangedEvent;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
+import org.voxrox.mailbackend.feature.mail.service.ImapConnectionManager.Lane;
 
 /**
  * Unit tests for {@link MailSyncService}.
@@ -123,10 +125,11 @@ class MailSyncServiceTest {
      * classes that exercise behavior inside the IMAP open path.
      */
     private void stubExecuteInFolderRunCallback(Folder folder) {
-        when(imapFolderService.executeInFolder(eq(ACCOUNT_ID), any(String.class), anyInt(), any())).thenAnswer(inv -> {
-            org.voxrox.mailbackend.feature.mail.service.ImapFolderAction<?> action = inv.getArgument(3);
-            return action.apply(folder, mock(UIDFolder.class));
-        });
+        when(imapFolderService.executeInFolder(eq(ACCOUNT_ID), any(), any(String.class), anyInt(), any()))
+                .thenAnswer(inv -> {
+                    org.voxrox.mailbackend.feature.mail.service.ImapFolderAction<?> action = inv.getArgument(4);
+                    return action.apply(folder, mock(UIDFolder.class));
+                });
     }
 
     private void stubTransactionTemplateExecuteRunCallback() {
@@ -167,7 +170,7 @@ class MailSyncServiceTest {
             service.syncAllFolders(account, SyncTrigger.SCHEDULED);
 
             // runFolderCycle -> executeInFolder once per role-matched folder.
-            verify(imapFolderService, times(5)).executeInFolder(eq(ACCOUNT_ID), any(),
+            verify(imapFolderService, times(5)).executeInFolder(eq(ACCOUNT_ID), any(), any(),
                     eq(jakarta.mail.Folder.READ_ONLY), any());
             verify(lockManager).unlock(ACCOUNT_ID);
         }
@@ -292,9 +295,9 @@ class MailSyncServiceTest {
             service.syncAllFolders(account, SyncTrigger.SCHEDULED);
 
             // Only SENT ran; the skipped INBOX released nothing it never acquired.
-            verify(imapFolderService, times(1)).executeInFolder(eq(ACCOUNT_ID), eq("[Gmail]/Sent"),
+            verify(imapFolderService, times(1)).executeInFolder(eq(ACCOUNT_ID), eq(Lane.BACKGROUND), eq("[Gmail]/Sent"),
                     eq(jakarta.mail.Folder.READ_ONLY), any());
-            verify(imapFolderService, never()).executeInFolder(eq(ACCOUNT_ID), eq("INBOX"),
+            verify(imapFolderService, never()).executeInFolder(eq(ACCOUNT_ID), eq(Lane.BACKGROUND), eq("INBOX"),
                     eq(jakarta.mail.Folder.READ_ONLY), any());
             verify(lockManager, never()).unlockFolder(ACCOUNT_ID, "INBOX");
             verify(lockManager).unlockFolder(ACCOUNT_ID, "[Gmail]/Sent");
@@ -313,7 +316,7 @@ class MailSyncServiceTest {
 
             service.syncAllFolders(account, SyncTrigger.SCHEDULED);
 
-            verify(imapFolderService, times(1)).executeInFolder(eq(ACCOUNT_ID), eq("INBOX"),
+            verify(imapFolderService, times(1)).executeInFolder(eq(ACCOUNT_ID), eq(Lane.BACKGROUND), eq("INBOX"),
                     eq(jakarta.mail.Folder.READ_ONLY), any());
         }
     }
@@ -557,7 +560,7 @@ class MailSyncServiceTest {
         void noBackfillOnLaterPages() throws Exception {
             service.syncAndBackfill(account, "INBOX", 1);
 
-            verify(imapFolderService, times(1)).executeInFolder(eq(ACCOUNT_ID), eq("INBOX"),
+            verify(imapFolderService, times(1)).executeInFolder(eq(ACCOUNT_ID), eq(Lane.BACKGROUND), eq("INBOX"),
                     eq(jakarta.mail.Folder.READ_ONLY), any());
             verify(messageDownloader, never()).downloadSequenceRange(any(), anyInt(), anyInt());
         }
@@ -598,7 +601,7 @@ class MailSyncServiceTest {
 
             service.syncAndBackfill(account, "INBOX", 0);
 
-            verify(imapFolderService, never()).executeInFolder(anyLong(), any(), anyInt(), any());
+            verify(imapFolderService, never()).executeInFolder(anyLong(), any(), any(), anyInt(), any());
             verify(messageRepository, never()).countByAccountIdAndFolderName(anyLong(), any());
             verify(lockManager, never()).unlockFolder(anyLong(), any());
         }
@@ -606,8 +609,8 @@ class MailSyncServiceTest {
         @Test
         @DisplayName("Releases the folder lock even when the cycle throws")
         void releasesFolderLockOnFailure() {
-            when(imapFolderService.executeInFolder(eq(ACCOUNT_ID), eq("INBOX"), eq(jakarta.mail.Folder.READ_ONLY),
-                    any())).thenThrow(new RuntimeException("folder open failed"));
+            when(imapFolderService.executeInFolder(eq(ACCOUNT_ID), eq(Lane.BACKGROUND), eq("INBOX"),
+                    eq(jakarta.mail.Folder.READ_ONLY), any())).thenThrow(new RuntimeException("folder open failed"));
 
             service.syncAndBackfillAsync(account, "INBOX", 1);
 
@@ -617,8 +620,8 @@ class MailSyncServiceTest {
         @Test
         @DisplayName("syncAndBackfillAsync catches outermost exception and writes last_error")
         void asyncBoundaryRecordsLastError() {
-            when(imapFolderService.executeInFolder(eq(ACCOUNT_ID), eq("INBOX"), eq(jakarta.mail.Folder.READ_ONLY),
-                    any())).thenThrow(new RuntimeException("folder open failed"));
+            when(imapFolderService.executeInFolder(eq(ACCOUNT_ID), eq(Lane.BACKGROUND), eq("INBOX"),
+                    eq(jakarta.mail.Folder.READ_ONLY), any())).thenThrow(new RuntimeException("folder open failed"));
 
             service.syncAndBackfillAsync(account, "INBOX", 0);
 
@@ -668,6 +671,93 @@ class MailSyncServiceTest {
             assertThat(total).isEqualTo(1790L);
             verify(messageDownloader).downloadSequenceRange(any(), eq(1491), eq(1690));
             verify(folderCountCache).put(ACCOUNT_ID, "INBOX", 1790L);
+        }
+
+        @Test
+        @DisplayName("The count runs interactive and the download runs background — the split the lanes exist for")
+        void countIsInteractiveAndDownloadIsBackground() throws Exception {
+            Folder folder = mock(Folder.class);
+            when(messageRepository.countByAccountIdAndFolderName(ACCOUNT_ID, "INBOX")).thenReturn(100L);
+            when(folder.getMessageCount()).thenReturn(1790);
+            stubExecuteInFolderRunCallback(folder);
+            stubTransactionTemplateExecuteRunCallback();
+            when(syncStateService.getOrCreateState(eq(ACCOUNT_ID), eq("INBOX"), eq(FolderRole.USER)))
+                    .thenReturn(new FolderSyncStateEntity());
+
+            service.fetchServerCountAndEnsurePageLocally(account, "INBOX", 5, 50);
+
+            // The count is what the user is blocked on ("page X of Y"), so it must not
+            // be able to queue behind a sync cycle.
+            verify(imapFolderService).executeInFolder(eq(ACCOUNT_ID), eq(Lane.INTERACTIVE), eq("INBOX"),
+                    eq(jakarta.mail.Folder.READ_ONLY), any());
+            // The download inserts rows from a range derived from the local count, so
+            // it stays on the lane the sync cycle uses and keeps being serialized
+            // against it by the connection lock (v0.1.0 smoke, bug F).
+            verify(imapFolderService).executeInFolder(eq(ACCOUNT_ID), eq(Lane.BACKGROUND), eq("INBOX"),
+                    eq(jakarta.mail.Folder.READ_ONLY), any());
+        }
+
+        @Test
+        @DisplayName("The sequence range comes from the background SELECT's own count, not the interactive one")
+        void rangeUsesTheCountOfTheFolderItAddresses() throws Exception {
+            Folder folder = mock(Folder.class);
+            when(messageRepository.countByAccountIdAndFolderName(ACCOUNT_ID, "INBOX")).thenReturn(100L);
+            // Two messages arrive between the two SELECTs. IMAP sequence numbers are
+            // relative to the selected folder, so addressing positions in the second
+            // session with the first session's count would shift the whole range by
+            // two and silently download the wrong window.
+            when(folder.getMessageCount()).thenReturn(1790, 1792);
+            stubExecuteInFolderRunCallback(folder);
+            stubTransactionTemplateExecuteRunCallback();
+            when(syncStateService.getOrCreateState(eq(ACCOUNT_ID), eq("INBOX"), eq(FolderRole.USER)))
+                    .thenReturn(new FolderSyncStateEntity());
+
+            long total = service.fetchServerCountAndEnsurePageLocally(account, "INBOX", 5, 50);
+
+            // The paginator gets the interactive count it asked for...
+            assertThat(total).isEqualTo(1790L);
+            // ...while the range is computed from 1792: endSeq = 1792 - 100,
+            // startSeq = 1792 - min(300, 1792) + 1.
+            verify(messageDownloader).downloadSequenceRange(any(), eq(1493), eq(1692));
+        }
+
+        @Test
+        @DisplayName("A failure opening the folder for the download does not lose the server count")
+        void backgroundOpenFailureKeepsTheServerCount() throws Exception {
+            Folder folder = mock(Folder.class);
+            when(messageRepository.countByAccountIdAndFolderName(ACCOUNT_ID, "INBOX")).thenReturn(100L);
+            when(folder.getMessageCount()).thenReturn(1790);
+            // Interactive open runs the callback; the background open throws the way
+            // ImapFolderExecutor reports a folder that vanished — before the lambda,
+            // and unchecked.
+            when(imapFolderService.executeInFolder(eq(ACCOUNT_ID), eq(Lane.INTERACTIVE), any(String.class), anyInt(),
+                    any())).thenAnswer(inv -> {
+                        ImapFolderAction<?> action = inv.getArgument(4);
+                        return action.apply(folder, mock(UIDFolder.class));
+                    });
+            when(imapFolderService.executeInFolder(eq(ACCOUNT_ID), eq(Lane.BACKGROUND), any(String.class), anyInt(),
+                    any())).thenThrow(new ResourceNotFoundException("folder gone"));
+
+            long total = service.fetchServerCountAndEnsurePageLocally(account, "INBOX", 5, 50);
+
+            // The count was already fetched and cached; throwing it away would make the
+            // paginator show the local count for a folder whose real size is known.
+            assertThat(total).isEqualTo(1790L);
+            verify(folderCountCache).put(ACCOUNT_ID, "INBOX", 1790L);
+        }
+
+        @Test
+        @DisplayName("A page inside the local mirror opens no second folder")
+        void pageWithinMirrorSkipsTheBackgroundOpen() throws Exception {
+            Folder folder = mock(Folder.class);
+            when(messageRepository.countByAccountIdAndFolderName(ACCOUNT_ID, "INBOX")).thenReturn(500L);
+            when(folder.getMessageCount()).thenReturn(1790);
+            stubExecuteInFolderRunCallback(folder);
+
+            service.fetchServerCountAndEnsurePageLocally(account, "INBOX", 0, 20);
+
+            verify(imapFolderService, never()).executeInFolder(eq(ACCOUNT_ID), eq(Lane.BACKGROUND), any(), anyInt(),
+                    any());
         }
 
         @Test

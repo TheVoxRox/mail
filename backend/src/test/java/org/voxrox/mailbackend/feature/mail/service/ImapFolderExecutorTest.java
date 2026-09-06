@@ -23,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.voxrox.mailbackend.exception.ErrorCode;
 import org.voxrox.mailbackend.exception.MailOperationException;
 import org.voxrox.mailbackend.exception.ResourceNotFoundException;
+import org.voxrox.mailbackend.feature.mail.service.ImapConnectionManager.Lane;
 import org.voxrox.mailbackend.feature.mail.service.ImapConnectionManager.StoreAction;
 
 @ExtendWith(MockitoExtension.class)
@@ -42,8 +43,8 @@ class ImapFolderExecutorTest {
      * mock Store.
      */
     private void runActionAgainstStore() {
-        when(connectionManager.executeWithLock(eq(7L), any())).thenAnswer(invocation -> {
-            StoreAction<?> action = invocation.getArgument(1);
+        when(connectionManager.executeWithLock(eq(7L), any(), any())).thenAnswer(invocation -> {
+            StoreAction<?> action = invocation.getArgument(2);
             return action.execute(store);
         });
     }
@@ -60,7 +61,7 @@ class ImapFolderExecutorTest {
         ImapFolderExecutor executor = new ImapFolderExecutor(connectionManager);
 
         MailOperationException ex = assertThrows(MailOperationException.class,
-                () -> executor.executeReadOnly(7L, "INBOX", (f, uid) -> null));
+                () -> executor.executeReadOnly(7L, Lane.BACKGROUND, "INBOX", (f, uid) -> null));
         assertEquals(ErrorCode.MAIL_CONNECTION_ERROR, ex.getCode());
     }
 
@@ -73,7 +74,8 @@ class ImapFolderExecutorTest {
 
         ImapFolderExecutor executor = new ImapFolderExecutor(connectionManager);
 
-        assertThrows(ResourceNotFoundException.class, () -> executor.executeReadOnly(7L, "INBOX", (f, uid) -> null));
+        assertThrows(ResourceNotFoundException.class,
+                () -> executor.executeReadOnly(7L, Lane.BACKGROUND, "INBOX", (f, uid) -> null));
     }
 
     @Test
@@ -96,7 +98,7 @@ class ImapFolderExecutorTest {
                 new MessagingException("failed to create new store connection"));
 
         TransientImapException thrown = assertThrows(TransientImapException.class,
-                () -> executor.executeReadOnly(7L, "INBOX", (f, uid) -> {
+                () -> executor.executeReadOnly(7L, Lane.BACKGROUND, "INBOX", (f, uid) -> {
                     throw blip;
                 }));
         // Same instance — not re-wrapped, so the original cause survives to the retry

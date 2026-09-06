@@ -34,6 +34,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.voxrox.mailbackend.exception.ErrorCode;
 import org.voxrox.mailbackend.exception.MailOperationException;
 import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
+import org.voxrox.mailbackend.feature.mail.service.ImapConnectionManager.Lane;
 
 /**
  * Unit tests for {@link ImapAppendService}.
@@ -74,10 +75,11 @@ class ImapAppendServiceTest {
             // Default: the lock callback is invoked with our mock store. lenient()
             // because missingFolderRoleSkipsExecuteWithLock never reaches here
             // (findFolderNameByRoleOrThrow throws before the service takes the lock).
-            lenient().when(imapConnectionManager.executeWithLock(eq(ACCOUNT_ID), any())).thenAnswer(inv -> {
-                ImapConnectionManager.StoreAction<?> action = inv.getArgument(1);
-                return action.execute(store);
-            });
+            lenient().when(imapConnectionManager.executeWithLock(eq(ACCOUNT_ID), eq(Lane.BACKGROUND), any()))
+                    .thenAnswer(inv -> {
+                        ImapConnectionManager.StoreAction<?> action = inv.getArgument(2);
+                        return action.execute(store);
+                    });
             lenient().when(store.getFolder(FOLDER_NAME)).thenReturn(folder);
         }
 
@@ -135,7 +137,7 @@ class ImapAppendServiceTest {
 
             assertThat(service.appendByRole(ACCOUNT_ID, FolderRole.SENT, message, true)).isFalse();
 
-            verify(imapConnectionManager, never()).executeWithLock(any(), any());
+            verify(imapConnectionManager, never()).executeWithLock(any(), any(), any());
         }
     }
 
@@ -156,9 +158,9 @@ class ImapAppendServiceTest {
             UIDFolder uidFolder = mock(UIDFolder.class);
             when(uidFolder.getMessageByUID(123L)).thenReturn(null);
 
-            when(imapFolderService.executeInFolder(eq(ACCOUNT_ID), eq(FOLDER_NAME), eq(Folder.READ_ONLY), any()))
-                    .thenAnswer(inv -> {
-                        ImapFolderAction<?> action = inv.getArgument(3);
+            when(imapFolderService.executeInFolder(eq(ACCOUNT_ID), eq(Lane.INTERACTIVE), eq(FOLDER_NAME),
+                    eq(Folder.READ_ONLY), any())).thenAnswer(inv -> {
+                        ImapFolderAction<?> action = inv.getArgument(4);
                         return action.apply(folder, uidFolder);
                     });
 
@@ -182,9 +184,9 @@ class ImapAppendServiceTest {
             UIDFolder uidFolder = mock(UIDFolder.class);
             when(uidFolder.getMessageByUID(456L)).thenReturn(onServer);
 
-            when(imapFolderService.executeInFolder(eq(ACCOUNT_ID), eq(FOLDER_NAME), eq(Folder.READ_ONLY), any()))
-                    .thenAnswer(inv -> {
-                        ImapFolderAction<?> action = inv.getArgument(3);
+            when(imapFolderService.executeInFolder(eq(ACCOUNT_ID), eq(Lane.INTERACTIVE), eq(FOLDER_NAME),
+                    eq(Folder.READ_ONLY), any())).thenAnswer(inv -> {
+                        ImapFolderAction<?> action = inv.getArgument(4);
                         return action.apply(folder, uidFolder);
                     });
 

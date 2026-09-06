@@ -45,8 +45,59 @@ public class ImapConnectionManager {
      */
     private static final String OAUTH2_IMAP_ACCESS_DENIED_DETAIL = "The mail provider (OAuth2) denied IMAP access. Open Settings -> Accounts and sign in again.";
 
-    private final Map<Long, Store> connectionPool = new ConcurrentHashMap<>();
-    private final Map<Long, ReentrantLock> accountLocks = new ConcurrentHashMap<>();
+    /**
+     * Which of an account's two connections a piece of work runs on.
+     *
+     * <p>
+     * One pooled {@link Store} per account used to mean one queue: a sync holds the
+     * connection lock for a whole folder cycle — download, flag sweep, cleanup,
+     * tens of seconds on a large mailbox — and everything the user asked for waited
+     * behind it. Measured on 2026-08-31 during a screen-reader pass, the "page X of
+     * Y" announcement after switching folders arrived in 5.0 s, 7.0 s and once 59.3
+     * s. That it was queuing rather than transfer size is what a control sample
+     * showed: a 12-message folder was slower than a 1801-message one.
+     *
+     * <p>
+     * Two lanes, two {@link Store}s, two locks. Work the user is waiting for goes
+     * to {@link #INTERACTIVE} and no longer queues behind a sync at all. Everything
+     * that can finish late stays on {@link #BACKGROUND}. Within one lane the
+     * serialization contract is unchanged — a JavaMail {@code Store} is still not
+     * thread-safe, and the fair lock per (account, lane) is still the only thing
+     * protecting the protocol stream.
+     */
+    public enum Lane {
+        /**
+         * Work a user is blocked on: message body and attachment fetches, a cold folder
+         * listing, lazily paging further back. Short, bounded operations — anything
+         * long-running here would rebuild the queue this lane exists to avoid.
+         */
+        INTERACTIVE,
+        /**
+         * Sync cycles, backfill, maintenance, and the server-side half of actions whose
+         * local write already happened (move, flag propagation, draft append). May hold
+         * its connection for as long as it needs.
+         */
+        BACKGROUND
+    }
+
+    /**
+     * Pool and lock key. A record rather than a nested map because the two maps are
+     * flat everywhere else — {@code purgeAccount}, {@code shutdown} and the pool
+     * gauge all want to iterate connections, not accounts.
+     */
+    record ConnectionKey(Long accountId, Lane lane) {
+    }
+
+    private final Map<ConnectionKey, Store> connectionPool = new ConcurrentHashMap<>();
+    private final Map<ConnectionKey, ReentrantLock> accountLocks = new ConcurrentHashMap<>();
+    /**
+     * Accounts whose interactive lane recently failed to connect, and the instant
+     * it may be tried again. Keyed by account, not by {@link ConnectionKey} — only
+     * the interactive lane is ever skipped, and the background lane has nothing to
+     * fall back to. Entries are removed on expiry and on account purge, so this map
+     * stays empty in the normal case rather than growing like the lock map.
+     */
+    private final Map<Long, Instant> interactiveLaneCooldown = new ConcurrentHashMap<>();
 
     private final AccountConnectionDetailsService connectionDetailsService;
     private final AccountRepository accountRepository;
@@ -79,17 +130,21 @@ public class ImapConnectionManager {
     }
 
     /**
-     * Runs an action over a connected Store under the account lock.
+     * Runs an action over a connected Store under the lane's account lock.
      *
      * <p>
      * This is the single entry point through which all IMAP {@link Store} /
-     * {@link Folder} work must flow. The per-account fair {@link ReentrantLock}
-     * serializes every operation on one account's connection — a JavaMail
+     * {@link Folder} work must flow. The fair {@link ReentrantLock} per (account,
+     * lane) serializes every operation on that connection — a JavaMail
      * {@code Store}/{@code Folder} is not thread-safe, so two threads touching the
-     * same account's connection concurrently would corrupt the protocol stream. The
-     * lock-free fast paths in {@link #getConnectedStore(Long)} and
-     * {@link #openFolder(Long, String, int)} are safe only because their callers
-     * already hold this lock.
+     * same connection concurrently would corrupt the protocol stream. The lock-free
+     * fast path in {@link #getConnectedStore(Long, Lane)} is safe only because its
+     * callers already hold this lock.
+     *
+     * <p>
+     * Locks are per lane, so a {@link Lane#INTERACTIVE} action does not wait for a
+     * {@link Lane#BACKGROUND} sync. Never hold both lanes' locks at once — see the
+     * lock-order rule in {@code backend/docs/CONCURRENCY.md}.
      *
      * <p>
      * On {@link AuthenticationFailedException} the pool entry and the cached OAuth
@@ -102,38 +157,103 @@ public class ImapConnectionManager {
      * if auth still fails with a fresh token, the problem is persistent (revoked
      * refresh token, wrong scopes) and propagates outwards.
      */
-    public <R> @Nullable R executeWithLock(Long accountId, StoreAction<R> action) {
+    public <R> @Nullable R executeWithLock(Long accountId, Lane lane, StoreAction<R> action) {
         requireUsableAccount(accountId);
 
-        ReentrantLock lock = lockFor(accountId);
+        Lane effective = laneAfterCooldown(accountId, lane);
+        ReentrantLock lock = lockFor(accountId, effective);
         lock.lock();
         try {
-            return executeLocked(accountId, action);
+            return executeLocked(accountId, effective, action);
+        } catch (InteractiveLaneUnavailable e) {
+            // Handled below, deliberately outside the lock — see the type's javadoc.
         } finally {
             lock.unlock();
+        }
+        return executeWithLock(accountId, Lane.BACKGROUND, action);
+    }
+
+    /**
+     * Resolves the lane to actually use, so a lane known to be unavailable is never
+     * locked.
+     *
+     * <p>
+     * Checked here rather than inside the connect step for a reason worth keeping:
+     * while an account sits in the cooldown, every interactive request would
+     * otherwise take the interactive lock, discover the cooldown, throw and release
+     * — serializing all of them on a lock that guards no connection, on top of the
+     * background lock they then queue on. Degraded mode has to be no slower than
+     * the single-connection design it degrades to.
+     *
+     * <p>
+     * The cooldown can still be set while a call is in flight, so
+     * {@link #connectOrDegrade} keeps its own check; this one removes the common
+     * case, not the race.
+     */
+    private Lane laneAfterCooldown(Long accountId, Lane lane) {
+        if (lane != Lane.INTERACTIVE) {
+            return lane;
+        }
+        Instant cooldownUntil = interactiveLaneCooldown.get(accountId);
+        if (cooldownUntil == null) {
+            return Lane.INTERACTIVE;
+        }
+        if (Instant.now().isBefore(cooldownUntil)) {
+            return Lane.BACKGROUND;
+        }
+        interactiveLaneCooldown.remove(accountId, cooldownUntil);
+        return Lane.INTERACTIVE;
+    }
+
+    /**
+     * Signals that an interactive-lane connection could not be established, so the
+     * action has not run and can still be re-run elsewhere.
+     *
+     * <p>
+     * The retry happens in {@link #executeWithLock} <i>after</i> the interactive
+     * lock is released, never from inside it. Taking the background lock while
+     * holding the interactive one would put two locks in one thread's hands and
+     * make the lock order in {@code CONCURRENCY.md} a two-way graph; releasing
+     * first keeps it a line. Safe to re-run because it is thrown from the connect
+     * step, before the action executes — there is no partial effect to undo.
+     */
+    private static final class InteractiveLaneUnavailable extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+
+        /*
+         * No cause and no stack trace: this never reaches a log or a user — the reason
+         * is already logged where it is thrown, and the only handler turns it back into
+         * a normal call on the other lane. Carrying a stack trace would be pure cost on
+         * a path that exists to make things faster.
+         */
+        InteractiveLaneUnavailable() {
+            super("interactive lane unavailable", null, false, false);
         }
     }
 
     /**
      * Same as {@link #executeWithLock} but gives up instead of queuing when the
-     * account's connection is busy.
+     * lane's connection is busy.
      *
      * <p>
-     * The lock is held for a whole folder cycle by a background sync — download,
-     * flag sweep and cleanup, tens of seconds on a large mailbox. A read request
-     * serving the user's message list must never inherit that wait: waiting on a
-     * lock throws nothing and reports nothing, so the symptom is a UI that appears
-     * to hang with no error anywhere. Callers on the read path use this and degrade
-     * to whatever they can answer without IMAP.
+     * Still needed after the lane split, for a narrower reason. Waiting on a lock
+     * throws nothing and reports nothing, so a read request that queues reaches the
+     * user as a UI that silently hangs; a caller that can answer from the DB should
+     * do that rather than wait. What changed is the expected wait: on
+     * {@link Lane#INTERACTIVE} the contended case is another interactive request,
+     * not a whole sync cycle, so timeouts here now bound a short queue rather than
+     * a long one.
      *
      * @return the action's result, or empty when the lock was not acquired within
      *         {@code timeout}. Actions passed here must not return {@code null} —
      *         an empty result means "did not run".
      */
-    public <R> Optional<R> executeWithLockOrSkip(Long accountId, Duration timeout, StoreAction<R> action) {
+    public <R> Optional<R> executeWithLockOrSkip(Long accountId, Lane lane, Duration timeout, StoreAction<R> action) {
         requireUsableAccount(accountId);
 
-        ReentrantLock lock = lockFor(accountId);
+        long deadlineNanos = System.nanoTime() + timeout.toNanos();
+        Lane effective = laneAfterCooldown(accountId, lane);
+        ReentrantLock lock = lockFor(accountId, effective);
         boolean acquired;
         try {
             acquired = lock.tryLock(timeout.toMillis(), TimeUnit.MILLISECONDS);
@@ -142,20 +262,84 @@ public class ImapConnectionManager {
             return Optional.empty();
         }
         if (!acquired) {
-            log.debug("{} Connection of account {} is busy; skipping the non-blocking IMAP lookup.", LogCategory.IMAP,
-                    accountId);
+            log.debug("{} Connection of account {} ({} lane) is busy; skipping the non-blocking IMAP lookup.",
+                    LogCategory.IMAP, accountId, effective);
             metrics.incrementImapLockSkipped();
             return Optional.empty();
         }
         try {
-            return Optional.ofNullable(executeLocked(accountId, action));
+            return Optional.ofNullable(executeLocked(accountId, effective, action));
+        } catch (InteractiveLaneUnavailable e) {
+            // Handled below, outside the lock — same reasoning as in executeWithLock.
         } finally {
             lock.unlock();
         }
+        /*
+         * What is left of the caller's budget, not a fresh copy of it. The timeout is
+         * the promise this method makes — the folder-role lookup passes 1 s precisely
+         * so a read cannot sit longer than that — and handing the same Duration to the
+         * retry would let one call wait twice.
+         */
+        long remainingNanos = deadlineNanos - System.nanoTime();
+        if (remainingNanos <= 0) {
+            metrics.incrementImapLockSkipped();
+            return Optional.empty();
+        }
+        return executeWithLockOrSkip(accountId, Lane.BACKGROUND, Duration.ofNanos(remainingNanos), action);
     }
 
-    private ReentrantLock lockFor(Long accountId) {
-        return accountLocks.computeIfAbsent(accountId, k -> new ReentrantLock(true));
+    private ReentrantLock lockFor(Long accountId, Lane lane) {
+        return accountLocks.computeIfAbsent(new ConnectionKey(accountId, lane), k -> new ReentrantLock(true));
+    }
+
+    /**
+     * Connect step of {@link #executeLocked}, with the interactive lane's one
+     * degradation path.
+     *
+     * <p>
+     * A second connection is a request the server can refuse — providers cap
+     * simultaneous sessions (Gmail 15, others lower), and an account already
+     * running a sync may be at the cap. Refusing the user's work over that would be
+     * a failure mode the single-connection design never had, so the interactive
+     * lane degrades to the background one instead: slower, exactly as slow as
+     * before this class had lanes, and correct.
+     *
+     * <p>
+     * The cooldown is what keeps the fallback from costing more than it saves. A
+     * connect that fails does so after {@code connectionTimeout} and the retry
+     * template's attempts; paying that on every message the user opens would make a
+     * degraded lane worse than no lane. After one failure the lane is skipped
+     * outright until {@code interactiveLaneRetryAfter} passes.
+     */
+    private Store connectOrDegrade(Long accountId, Lane lane) throws MessagingException {
+        if (lane != Lane.INTERACTIVE) {
+            return getConnectedStore(accountId, lane);
+        }
+        Instant cooldownUntil = interactiveLaneCooldown.get(accountId);
+        if (cooldownUntil != null) {
+            if (Instant.now().isBefore(cooldownUntil)) {
+                throw new InteractiveLaneUnavailable();
+            }
+            interactiveLaneCooldown.remove(accountId, cooldownUntil);
+        }
+        try {
+            return getConnectedStore(accountId, Lane.INTERACTIVE);
+        } catch (AuthenticationFailedException e) {
+            /*
+             * Not a lane problem — the credentials are the account's, so the background
+             * lane would fail identically. Hand it to the refresh-and-retry path in
+             * executeLocked instead of degrading.
+             */
+            throw e;
+        } catch (MessagingException e) {
+            interactiveLaneCooldown.put(accountId, Instant.now().plus(mailProps.imap().interactiveLaneRetryAfter()));
+            log.warn(
+                    "{} Could not open an interactive connection for account {} ({}); "
+                            + "running on the background lane and not retrying the interactive one for {}.",
+                    LogCategory.IMAP, accountId, e.getMessage(), mailProps.imap().interactiveLaneRetryAfter());
+            metrics.incrementImapLaneFallback();
+            throw new InteractiveLaneUnavailable();
+        }
     }
 
     /*
@@ -177,19 +361,29 @@ public class ImapConnectionManager {
     /**
      * Connection acquisition plus the single-shot auth retry. Lock must be held.
      */
-    private <R> @Nullable R executeLocked(Long accountId, StoreAction<R> action) {
+    private <R> @Nullable R executeLocked(Long accountId, Lane lane, StoreAction<R> action) {
         try {
             try {
-                Store store = getConnectedStore(accountId);
+                Store store = connectOrDegrade(accountId, lane);
                 return action.execute(store);
             } catch (AuthenticationFailedException firstAuthFail) {
-                log.warn("{} IMAP auth failed for account {}, trying to refresh the token and reconnect.",
-                        LogCategory.IMAP, accountId);
+                log.warn("{} IMAP auth failed for account {} ({} lane), trying to refresh the token and reconnect.",
+                        LogCategory.IMAP, accountId, lane);
                 metrics.incrementImapAuthRefresh();
                 invalidateOauthTokenIfPresent(accountId);
-                removeConnectionLocked(accountId);
+                removeConnectionLocked(accountId, lane);
                 try {
-                    Store fresh = getConnectedStore(accountId);
+                    /*
+                     * Through connectOrDegrade, not straight to getConnectedStore. A second auth
+                     * failure must NOT degrade — credentials belong to the account, so the other
+                     * lane fails identically and the right answer is the persistent classification
+                     * below. But this reconnect can also fail for the ordinary reason the
+                     * degradation exists for: the pooled connection was just closed, and re-opening
+                     * it can hit the provider's simultaneous-session cap. Calling getConnectedStore
+                     * directly turned that into an error for the user with no cooldown recorded and
+                     * no fallback metric.
+                     */
+                    Store fresh = connectOrDegrade(accountId, lane);
                     return action.execute(fresh);
                 } catch (AuthenticationFailedException secondAuthFail) {
                     log.error("{} IMAP auth failed even after token refresh for account {}", LogCategory.IMAP,
@@ -233,21 +427,27 @@ public class ImapConnectionManager {
     }
 
     /**
-     * Opens a named folder on the account's pooled Store and returns it
+     * Opens a named folder on an <i>already held</i> Store and returns it
      * <b>open</b>. The caller owns the returned folder and MUST close it (typically
      * in a {@code finally}); this method intentionally does not, because the folder
      * outlives the call.
      *
      * <p>
-     * <b>Concurrency contract:</b> like {@link #getConnectedStore(Long)} this does
-     * not take the per-account lock itself. It is package-private precisely so that
-     * its only caller (opening a move destination from {@code ImapActionService})
-     * invokes it from <i>inside</i> an {@link #executeWithLock} action that already
-     * holds the lock. Calling it without the lock held would let a concurrent
-     * operation corrupt the shared, non-thread-safe connection.
+     * <b>Concurrency contract:</b> this does not take a lock. It is package-private
+     * precisely so that its only caller (opening a move destination from
+     * {@code ImapActionService}) invokes it from <i>inside</i> an
+     * {@link #executeWithLock} action that already holds one.
+     *
+     * <p>
+     * It takes the {@link Store} rather than an account id on purpose. Since an
+     * account has a connection per {@link Lane}, looking one up here could hand
+     * back the <i>other</i> lane's Store — a second folder opened on a connection
+     * whose lock this thread does not hold, which is the exact protocol-stream
+     * corruption the locking is there to prevent, and silent when it happens. The
+     * caller already has the right Store (its folder's own, via
+     * {@code Folder.getStore()}), so the parameter makes the wrong one unreachable.
      */
-    Folder openFolder(Long accountId, String folderName, int mode) throws MessagingException {
-        Store store = getConnectedStore(accountId);
+    Folder openFolder(Store store, String folderName, int mode) throws MessagingException {
         Folder folder = store.getFolder(folderName);
         if (!folder.isOpen()) {
             folder.open(mode);
@@ -266,35 +466,36 @@ public class ImapConnectionManager {
      *
      * <p>
      * <b>Concurrency contract:</b> the fast path returns a pooled {@link Store} and
-     * runs a liveness probe (an IMAP command) <i>without</i> taking the per-account
-     * lock. That is safe only because every caller — {@link #executeWithLock} and
-     * the package-private {@link #openFolder} reached from inside an action —
-     * already holds the account lock. Kept package-private so no code outside this
-     * package can obtain the shared, non-thread-safe Store without that lock.
+     * runs a liveness probe (an IMAP command) <i>without</i> taking the lane's
+     * lock. That is safe only because its caller ({@link #executeWithLock}, via
+     * {@link #connectOrDegrade}) already holds it. Kept package-private so no code
+     * outside this package can obtain the shared, non-thread-safe Store without
+     * that lock.
      */
-    Store getConnectedStore(Long accountId) throws MessagingException {
-        Store store = connectionPool.get(accountId);
+    Store getConnectedStore(Long accountId, Lane lane) throws MessagingException {
+        ConnectionKey key = new ConnectionKey(accountId, lane);
+        Store store = connectionPool.get(key);
 
         if (store != null && isStoreAlive(store)) {
             return store;
         }
 
-        ReentrantLock lock = accountLocks.computeIfAbsent(accountId, k -> new ReentrantLock(true));
+        ReentrantLock lock = lockFor(accountId, lane);
         lock.lock();
         try {
-            store = connectionPool.get(accountId);
+            store = connectionPool.get(key);
             if (store == null || !isStoreAlive(store)) {
                 if (store != null) {
                     try {
                         store.close();
                     } catch (Exception e) {
-                        log.debug("{} Closing a dead pooled store for account {} failed: {}", LogCategory.IMAP,
-                                accountId, e.getMessage());
+                        log.debug("{} Closing a dead pooled store for account {} ({} lane) failed: {}",
+                                LogCategory.IMAP, accountId, lane, e.getMessage());
                     }
-                    connectionPool.remove(accountId);
+                    connectionPool.remove(key);
                 }
                 store = createNewConnectedStore(accountId);
-                connectionPool.put(accountId, store);
+                connectionPool.put(key, store);
             }
             return store;
         } finally {
@@ -340,27 +541,45 @@ public class ImapConnectionManager {
      */
     public void purgeAccount(Long accountId) {
         removeConnection(accountId);
+        interactiveLaneCooldown.remove(accountId);
     }
 
     public PoolStats getPoolStats() {
         return new PoolStats(connectionPool.size(), accountLocks.size());
     }
 
-    public record PoolStats(int activeConnections, int trackedAccountLocks) {
+    /**
+     * Counts are per <b>connection</b>, not per account — an account with both
+     * lanes open contributes two to each. Named for that since the lane split:
+     * "accountLocks" in a support dump would read as a leak on a two-account
+     * install rather than as the two lanes doing their job.
+     */
+    public record PoolStats(int activeConnections, int trackedConnectionLocks) {
     }
 
     /**
-     * Closes and removes the IMAP connection for the given account. Called when an
-     * account is deleted from AccountService so that no dead TCP connection is left
-     * in memory.
+     * Closes and removes <b>both lanes'</b> IMAP connections for the given account.
+     * Called when an account is deleted from AccountService, after a re-login, and
+     * by the sync retry path after a transient failure, so that no dead TCP
+     * connection is left in memory.
+     *
+     * <p>
+     * Both lanes on purpose: every caller is reacting to something that invalidates
+     * the account's sessions as a whole (deleted, re-authenticated, network
+     * dropped), and leaving the other lane's socket behind would keep exactly the
+     * kind of half-open connection this method exists to clear. The lanes are
+     * locked and cleared one after another, never together — see the lock-order
+     * rule.
      */
     public void removeConnection(Long accountId) {
-        ReentrantLock lock = accountLocks.computeIfAbsent(accountId, k -> new ReentrantLock(true));
-        lock.lock();
-        try {
-            removeConnectionLocked(accountId);
-        } finally {
-            lock.unlock();
+        for (Lane lane : Lane.values()) {
+            ReentrantLock lock = lockFor(accountId, lane);
+            lock.lock();
+            try {
+                removeConnectionLocked(accountId, lane);
+            } finally {
+                lock.unlock();
+            }
         }
     }
 
@@ -384,21 +603,26 @@ public class ImapConnectionManager {
     }
 
     /**
-     * Variant of {@link #removeConnection(Long)} for callers that already hold
-     * {@code accountLocks.get(accountId)} (typically the retry path in
+     * Variant of {@link #removeConnection(Long)} for callers that already hold the
+     * lock of the lane being cleared (typically the retry path in
      * {@link #executeWithLock}). {@link ReentrantLock} is reentrant, but we want to
      * avoid the repeated lock/unlock bookkeeping.
+     *
+     * <p>
+     * Clears the named lane only. Touching the other lane's Store from here would
+     * mean closing a connection this thread does not hold the lock for, while
+     * another thread may be mid-command on it.
      */
-    private void removeConnectionLocked(Long accountId) {
-        Store store = connectionPool.remove(accountId);
+    private void removeConnectionLocked(Long accountId, Lane lane) {
+        Store store = connectionPool.remove(new ConnectionKey(accountId, lane));
         if (store != null) {
             try {
                 store.close();
-                log.info("{} IMAP connection for account {} closed and removed from the pool.", LogCategory.IMAP,
-                        accountId);
+                log.info("{} IMAP connection for account {} ({} lane) closed and removed from the pool.",
+                        LogCategory.IMAP, accountId, lane);
             } catch (Exception e) {
-                log.debug("{} Closing the removed IMAP connection for account {} failed: {}", LogCategory.IMAP,
-                        accountId, e.getMessage());
+                log.debug("{} Closing the removed IMAP connection for account {} ({} lane) failed: {}",
+                        LogCategory.IMAP, accountId, lane, e.getMessage());
             }
         }
     }
@@ -406,18 +630,19 @@ public class ImapConnectionManager {
     @PreDestroy
     public void shutdown() {
         log.info("{} Closing all IMAP connections ({} active)...", LogCategory.IMAP, connectionPool.size());
-        connectionPool.forEach((accountId, store) -> {
+        connectionPool.forEach((key, store) -> {
             try {
                 if (store.isConnected()) {
                     store.close();
                 }
             } catch (Exception e) {
-                log.warn("{} Error closing IMAP connection for account {}: {}", LogCategory.IMAP, accountId,
-                        e.getMessage());
+                log.warn("{} Error closing IMAP connection for account {} ({} lane): {}", LogCategory.IMAP,
+                        key.accountId(), key.lane(), e.getMessage());
             }
         });
         connectionPool.clear();
         accountLocks.clear();
+        interactiveLaneCooldown.clear();
     }
 
     private Store createNewConnectedStore(Long accountId) throws MessagingException {

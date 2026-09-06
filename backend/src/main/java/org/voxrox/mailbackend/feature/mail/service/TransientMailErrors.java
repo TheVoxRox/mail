@@ -35,7 +35,7 @@ import org.voxrox.mailbackend.util.Throwables;
  * <p>
  * {@link AuthenticationFailedException} is never transient — it has a dedicated
  * one-shot refresh-token path in
- * {@link ImapConnectionManager#executeWithLock(Long, ImapConnectionManager.StoreAction)};
+ * {@link ImapConnectionManager#executeWithLock(Long, ImapConnectionManager.Lane, ImapConnectionManager.StoreAction)};
  * a backoff cannot heal a stale or revoked token, so it is excluded even when
  * it appears wrapped deeper in the cause chain.
  */
