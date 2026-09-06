@@ -599,7 +599,7 @@ public class MailSyncService {
         if (serverCount == null) {
             return messageRepository.countByAccountIdAndFolderName(account.getId(), folderName);
         }
-        lazyFetchPageRange(account, folderName, page, needed, serverCount);
+        lazyFetchPageRange(account, folderName, page, needed);
         return serverCount;
     }
 
@@ -625,44 +625,74 @@ public class MailSyncService {
      * for; a page that needs downloading waits for the download, which is real work
      * rather than queuing. The cost is one extra folder open, paid only when the
      * requested page actually falls below the mirror.
+     *
+     * <p>
+     * <b>The message count is re-read here and the interactive one is not passed
+     * in.</b> IMAP sequence numbers are relative to the currently selected folder,
+     * so a count taken during a different SELECT cannot be used to address
+     * positions in this one: two messages arriving between the two selects shift
+     * every position by two and the range would quietly download the wrong window,
+     * leaving a gap below it that nothing fills. The count above serves the
+     * paginator; this one addresses messages, and the two must not be the same
+     * variable.
      */
-    private void lazyFetchPageRange(AccountEntity account, String folderName, int page, long needed, long count) {
+    private void lazyFetchPageRange(AccountEntity account, String folderName, int page, long needed) {
         // Cheap pre-check outside the lock: the common case (page within the mirror)
-        // must not open a second folder just to find there is nothing to do. The
-        // authoritative count is re-read inside.
+        // must not open a second folder just to find there is nothing to do. Both
+        // counts are re-read inside, where they are authoritative.
         if (needed <= messageRepository.countByAccountIdAndFolderName(account.getId(), folderName)) {
             return;
         }
-        imapFolderService.executeInFolder(account.getId(), Lane.BACKGROUND, folderName, Folder.READ_ONLY,
-                (folder, uidFolder) -> {
-                    /*
-                     * Re-counted inside the connection lock: a concurrent sync cycle must not add
-                     * rows between the count and the sequence-range computation, or the range
-                     * overlaps UIDs that are already saved.
-                     */
-                    long localCount = messageRepository.countByAccountIdAndFolderName(account.getId(), folderName);
-                    if (needed <= localCount || count <= localCount) {
+        /*
+         * Best-effort, and the try has to wrap the open as well as the action. Opening
+         * the folder is its own failure: ImapFolderExecutor turns a folder that
+         * vanished into ResourceNotFoundException and other IMAP errors into
+         * MailOperationException, both unchecked and both raised before the lambda
+         * runs. Letting either out would throw away the server count this method has
+         * already fetched and cached, and the caller would fall back to the local count
+         * for a listing whose real size it knew.
+         */
+        try {
+            imapFolderService.executeInFolder(account.getId(), Lane.BACKGROUND, folderName, Folder.READ_ONLY,
+                    (folder, uidFolder) -> {
+                        try {
+                            /*
+                             * Both counts read inside the connection lock, against this folder's own
+                             * SELECT: the local one because a concurrent sync cycle must not add rows
+                             * between the count and the sequence-range computation, the server one because
+                             * the range is expressed in this session's sequence numbers.
+                             */
+                            long localCount = messageRepository.countByAccountIdAndFolderName(account.getId(),
+                                    folderName);
+                            long count = folder.getMessageCount();
+                            if (needed <= localCount || count <= localCount) {
+                                return null;
+                            }
+                            FolderSyncStateEntity syncState = transactionTemplate.execute(status -> syncStateService
+                                    .getOrCreateState(account.getId(), folderName, FolderRole.USER));
+                            FolderSyncContext ctx = new FolderSyncContext(account, folderName, folder, uidFolder,
+                                    syncState);
+                            int endSeq = (int) (count - localCount);
+                            long target = Math.min(needed, count);
+                            int startSeq = (int) Math.max(1L, count - target + 1L);
+                            int fetched = messageDownloader.downloadSequenceRange(ctx, startSeq, endSeq);
+                            log.info("{} Lazy page fetch {}: page {} (seq {}-{}), {} messages added.", LogCategory.SYNC,
+                                    folderName, page, startSeq, endSeq, fetched);
+                        } catch (MessagingException e) {
+                            recordLazyFetchFailure(account, folderName, page, e);
+                        }
                         return null;
-                    }
-                    try {
-                        FolderSyncStateEntity syncState = transactionTemplate.execute(status -> syncStateService
-                                .getOrCreateState(account.getId(), folderName, FolderRole.USER));
-                        FolderSyncContext ctx = new FolderSyncContext(account, folderName, folder, uidFolder,
-                                syncState);
-                        int endSeq = (int) (count - localCount);
-                        long target = Math.min(needed, count);
-                        int startSeq = (int) Math.max(1L, count - target + 1L);
-                        int fetched = messageDownloader.downloadSequenceRange(ctx, startSeq, endSeq);
-                        log.info("{} Lazy page fetch {}: page {} (seq {}-{}), {} messages added.", LogCategory.SYNC,
-                                folderName, page, startSeq, endSeq, fetched);
-                    } catch (MessagingException e) {
-                        log.warn("{} Lazy page fetch failed for account {} folder {}: {}", LogCategory.SYNC,
-                                account.getId(), folderName, e.getMessage(), e);
-                        AuditLog.failure("lazy_page_fetch", LogMasker.maskEmail(account.getEmail()),
-                                "folder=" + folderName + " page=" + page + " " + e.getClass().getSimpleName());
-                    }
-                    return null;
-                });
+                    });
+        } catch (RuntimeException e) {
+            recordLazyFetchFailure(account, folderName, page, e);
+        }
+    }
+
+    private void recordLazyFetchFailure(AccountEntity account, String folderName, int page, Exception cause) {
+        log.warn("{} Lazy page fetch failed for account {} folder {}: {}", LogCategory.SYNC, account.getId(),
+                folderName, cause.getMessage(), cause);
+        AuditLog.failure("lazy_page_fetch", LogMasker.maskEmail(account.getEmail()),
+                "folder=" + folderName + " page=" + page + " " + cause.getClass().getSimpleName());
     }
 
     @Async("mailSyncExecutor")

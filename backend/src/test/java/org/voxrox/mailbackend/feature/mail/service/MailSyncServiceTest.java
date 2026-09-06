@@ -39,6 +39,7 @@ import org.voxrox.mailbackend.core.config.mail.SyncProperties;
 import org.voxrox.mailbackend.core.metrics.MailMetrics;
 import org.voxrox.mailbackend.exception.MailAuthenticationException;
 import org.voxrox.mailbackend.exception.MailConnectionException;
+import org.voxrox.mailbackend.exception.ResourceNotFoundException;
 import org.voxrox.mailbackend.feature.account.AccountLastError;
 import org.voxrox.mailbackend.feature.account.AccountLastErrorCode;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
@@ -694,6 +695,55 @@ class MailSyncServiceTest {
             // against it by the connection lock (v0.1.0 smoke, bug F).
             verify(imapFolderService).executeInFolder(eq(ACCOUNT_ID), eq(Lane.BACKGROUND), eq("INBOX"),
                     eq(jakarta.mail.Folder.READ_ONLY), any());
+        }
+
+        @Test
+        @DisplayName("The sequence range comes from the background SELECT's own count, not the interactive one")
+        void rangeUsesTheCountOfTheFolderItAddresses() throws Exception {
+            Folder folder = mock(Folder.class);
+            when(messageRepository.countByAccountIdAndFolderName(ACCOUNT_ID, "INBOX")).thenReturn(100L);
+            // Two messages arrive between the two SELECTs. IMAP sequence numbers are
+            // relative to the selected folder, so addressing positions in the second
+            // session with the first session's count would shift the whole range by
+            // two and silently download the wrong window.
+            when(folder.getMessageCount()).thenReturn(1790, 1792);
+            stubExecuteInFolderRunCallback(folder);
+            stubTransactionTemplateExecuteRunCallback();
+            when(syncStateService.getOrCreateState(eq(ACCOUNT_ID), eq("INBOX"), eq(FolderRole.USER)))
+                    .thenReturn(new FolderSyncStateEntity());
+
+            long total = service.fetchServerCountAndEnsurePageLocally(account, "INBOX", 5, 50);
+
+            // The paginator gets the interactive count it asked for...
+            assertThat(total).isEqualTo(1790L);
+            // ...while the range is computed from 1792: endSeq = 1792 - 100,
+            // startSeq = 1792 - min(300, 1792) + 1.
+            verify(messageDownloader).downloadSequenceRange(any(), eq(1493), eq(1692));
+        }
+
+        @Test
+        @DisplayName("A failure opening the folder for the download does not lose the server count")
+        void backgroundOpenFailureKeepsTheServerCount() throws Exception {
+            Folder folder = mock(Folder.class);
+            when(messageRepository.countByAccountIdAndFolderName(ACCOUNT_ID, "INBOX")).thenReturn(100L);
+            when(folder.getMessageCount()).thenReturn(1790);
+            // Interactive open runs the callback; the background open throws the way
+            // ImapFolderExecutor reports a folder that vanished — before the lambda,
+            // and unchecked.
+            when(imapFolderService.executeInFolder(eq(ACCOUNT_ID), eq(Lane.INTERACTIVE), any(String.class), anyInt(),
+                    any())).thenAnswer(inv -> {
+                        ImapFolderAction<?> action = inv.getArgument(4);
+                        return action.apply(folder, mock(UIDFolder.class));
+                    });
+            when(imapFolderService.executeInFolder(eq(ACCOUNT_ID), eq(Lane.BACKGROUND), any(String.class), anyInt(),
+                    any())).thenThrow(new ResourceNotFoundException("folder gone"));
+
+            long total = service.fetchServerCountAndEnsurePageLocally(account, "INBOX", 5, 50);
+
+            // The count was already fetched and cached; throwing it away would make the
+            // paginator show the local count for a folder whose real size is known.
+            assertThat(total).isEqualTo(1790L);
+            verify(folderCountCache).put(ACCOUNT_ID, "INBOX", 1790L);
         }
 
         @Test

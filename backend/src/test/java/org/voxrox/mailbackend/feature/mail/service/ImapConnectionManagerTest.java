@@ -381,6 +381,96 @@ class ImapConnectionManagerTest {
         }
 
         @Test
+        @DisplayName("During the cooldown the interactive lock is not even taken")
+        void cooldownDoesNotQueueOnTheInteractiveLock() throws Exception {
+            pool().put(key(Lane.BACKGROUND), aliveStore());
+            pool().put(key(Lane.INTERACTIVE), aliveStore());
+
+            CountDownLatch interactiveHeld = new CountDownLatch(1);
+            CountDownLatch releaseInteractive = new CountDownLatch(1);
+            Thread holder = new Thread(() -> manager.executeWithLock(ACCOUNT_ID, Lane.INTERACTIVE, s -> {
+                interactiveHeld.countDown();
+                try {
+                    releaseInteractive.await(HOLD_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                return null;
+            }), "interactive-lane-holder");
+            holder.setDaemon(true);
+            holder.start();
+            assertThat(interactiveHeld.await(HOLD_TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue();
+
+            /*
+             * The holder starts BEFORE the cooldown is written, or it would resolve its own
+             * lane to BACKGROUND and occupy the wrong lock — which is what the first
+             * version of this test did, and it failed for that reason rather than for the
+             * one it was written to catch.
+             */
+            cooldown().put(ACCOUNT_ID, Instant.now().plusSeconds(300));
+
+            /*
+             * The holder is here only to occupy the interactive lock: a request that
+             * resolved its lane inside the connect step would queue behind it, find the
+             * cooldown, throw and release — serializing every degraded request on a lock
+             * that guards nothing.
+             */
+            CountDownLatch degradedFinished = new CountDownLatch(1);
+            Thread degraded = new Thread(() -> {
+                manager.executeWithLock(ACCOUNT_ID, Lane.INTERACTIVE, s -> null);
+                degradedFinished.countDown();
+            }, "degraded-request");
+            degraded.setDaemon(true);
+            degraded.start();
+
+            boolean finishedWhileInteractiveHeld = degradedFinished.await(2, TimeUnit.SECONDS);
+            releaseInteractive.countDown();
+            holder.join(HOLD_TIMEOUT_SECONDS * 1000);
+            degraded.join(HOLD_TIMEOUT_SECONDS * 1000);
+
+            assertThat(finishedWhileInteractiveHeld).as("a request in cooldown must go straight to the background lane")
+                    .isTrue();
+        }
+
+        @Test
+        @DisplayName("The skip variant spends the caller's timeout once, not once per lane")
+        void skipVariantDoesNotDoubleTheTimeout() throws Exception {
+            pool().put(key(Lane.BACKGROUND), aliveStore());
+            cooldown().put(ACCOUNT_ID, Instant.now().plusSeconds(300));
+
+            CountDownLatch backgroundHeld = new CountDownLatch(1);
+            CountDownLatch releaseBackground = new CountDownLatch(1);
+            Thread holder = new Thread(() -> manager.executeWithLock(ACCOUNT_ID, Lane.BACKGROUND, s -> {
+                backgroundHeld.countDown();
+                try {
+                    releaseBackground.await(HOLD_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                return null;
+            }), "background-lane-holder");
+            holder.setDaemon(true);
+            holder.start();
+            assertThat(backgroundHeld.await(HOLD_TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue();
+
+            try {
+                long startedAt = System.nanoTime();
+                Optional<Store> result = manager.executeWithLockOrSkip(ACCOUNT_ID, Lane.INTERACTIVE,
+                        Duration.ofMillis(300), s -> s);
+                Duration waited = Duration.ofNanos(System.nanoTime() - startedAt);
+
+                assertThat(result).isEmpty();
+                // The timeout is the promise the caller relies on (the role lookup passes
+                // 1 s so a read cannot sit longer). Handing a fresh copy of it to the
+                // fallback would let one call wait twice.
+                assertThat(waited).isLessThan(Duration.ofMillis(600));
+            } finally {
+                releaseBackground.countDown();
+                holder.join(HOLD_TIMEOUT_SECONDS * 1000);
+            }
+        }
+
+        @Test
         @DisplayName("An expired cooldown lets the interactive lane be tried again")
         void expiredCooldownRetriesInteractive() throws Exception {
             Store interactive = mock(Store.class);

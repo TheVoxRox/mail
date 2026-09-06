@@ -160,16 +160,49 @@ public class ImapConnectionManager {
     public <R> @Nullable R executeWithLock(Long accountId, Lane lane, StoreAction<R> action) {
         requireUsableAccount(accountId);
 
-        ReentrantLock lock = lockFor(accountId, lane);
+        Lane effective = laneAfterCooldown(accountId, lane);
+        ReentrantLock lock = lockFor(accountId, effective);
         lock.lock();
         try {
-            return executeLocked(accountId, lane, action);
+            return executeLocked(accountId, effective, action);
         } catch (InteractiveLaneUnavailable e) {
-            // Handled below, deliberately outside the lock — see the field's javadoc.
+            // Handled below, deliberately outside the lock — see the type's javadoc.
         } finally {
             lock.unlock();
         }
         return executeWithLock(accountId, Lane.BACKGROUND, action);
+    }
+
+    /**
+     * Resolves the lane to actually use, so a lane known to be unavailable is never
+     * locked.
+     *
+     * <p>
+     * Checked here rather than inside the connect step for a reason worth keeping:
+     * while an account sits in the cooldown, every interactive request would
+     * otherwise take the interactive lock, discover the cooldown, throw and release
+     * — serializing all of them on a lock that guards no connection, on top of the
+     * background lock they then queue on. Degraded mode has to be no slower than
+     * the single-connection design it degrades to.
+     *
+     * <p>
+     * The cooldown can still be set while a call is in flight, so
+     * {@link #connectOrDegrade} keeps its own check; this one removes the common
+     * case, not the race.
+     */
+    private Lane laneAfterCooldown(Long accountId, Lane lane) {
+        if (lane != Lane.INTERACTIVE) {
+            return lane;
+        }
+        Instant cooldownUntil = interactiveLaneCooldown.get(accountId);
+        if (cooldownUntil == null) {
+            return Lane.INTERACTIVE;
+        }
+        if (Instant.now().isBefore(cooldownUntil)) {
+            return Lane.BACKGROUND;
+        }
+        interactiveLaneCooldown.remove(accountId, cooldownUntil);
+        return Lane.INTERACTIVE;
     }
 
     /**
@@ -218,7 +251,9 @@ public class ImapConnectionManager {
     public <R> Optional<R> executeWithLockOrSkip(Long accountId, Lane lane, Duration timeout, StoreAction<R> action) {
         requireUsableAccount(accountId);
 
-        ReentrantLock lock = lockFor(accountId, lane);
+        long deadlineNanos = System.nanoTime() + timeout.toNanos();
+        Lane effective = laneAfterCooldown(accountId, lane);
+        ReentrantLock lock = lockFor(accountId, effective);
         boolean acquired;
         try {
             acquired = lock.tryLock(timeout.toMillis(), TimeUnit.MILLISECONDS);
@@ -228,18 +263,29 @@ public class ImapConnectionManager {
         }
         if (!acquired) {
             log.debug("{} Connection of account {} ({} lane) is busy; skipping the non-blocking IMAP lookup.",
-                    LogCategory.IMAP, accountId, lane);
+                    LogCategory.IMAP, accountId, effective);
             metrics.incrementImapLockSkipped();
             return Optional.empty();
         }
         try {
-            return Optional.ofNullable(executeLocked(accountId, lane, action));
+            return Optional.ofNullable(executeLocked(accountId, effective, action));
         } catch (InteractiveLaneUnavailable e) {
             // Handled below, outside the lock — same reasoning as in executeWithLock.
         } finally {
             lock.unlock();
         }
-        return executeWithLockOrSkip(accountId, Lane.BACKGROUND, timeout, action);
+        /*
+         * What is left of the caller's budget, not a fresh copy of it. The timeout is
+         * the promise this method makes — the folder-role lookup passes 1 s precisely
+         * so a read cannot sit longer than that — and handing the same Duration to the
+         * retry would let one call wait twice.
+         */
+        long remainingNanos = deadlineNanos - System.nanoTime();
+        if (remainingNanos <= 0) {
+            metrics.incrementImapLockSkipped();
+            return Optional.empty();
+        }
+        return executeWithLockOrSkip(accountId, Lane.BACKGROUND, Duration.ofNanos(remainingNanos), action);
     }
 
     private ReentrantLock lockFor(Long accountId, Lane lane) {
@@ -328,11 +374,16 @@ public class ImapConnectionManager {
                 removeConnectionLocked(accountId, lane);
                 try {
                     /*
-                     * No lane degradation on this path: an auth failure is a property of the
-                     * account, not of the connection, so the background lane would fail the same
-                     * way. Let it propagate and be classified as persistent.
+                     * Through connectOrDegrade, not straight to getConnectedStore. A second auth
+                     * failure must NOT degrade — credentials belong to the account, so the other
+                     * lane fails identically and the right answer is the persistent classification
+                     * below. But this reconnect can also fail for the ordinary reason the
+                     * degradation exists for: the pooled connection was just closed, and re-opening
+                     * it can hit the provider's simultaneous-session cap. Calling getConnectedStore
+                     * directly turned that into an error for the user with no cooldown recorded and
+                     * no fallback metric.
                      */
-                    Store fresh = getConnectedStore(accountId, lane);
+                    Store fresh = connectOrDegrade(accountId, lane);
                     return action.execute(fresh);
                 } catch (AuthenticationFailedException secondAuthFail) {
                     log.error("{} IMAP auth failed even after token refresh for account {}", LogCategory.IMAP,
@@ -497,7 +548,13 @@ public class ImapConnectionManager {
         return new PoolStats(connectionPool.size(), accountLocks.size());
     }
 
-    public record PoolStats(int activeConnections, int trackedAccountLocks) {
+    /**
+     * Counts are per <b>connection</b>, not per account — an account with both
+     * lanes open contributes two to each. Named for that since the lane split:
+     * "accountLocks" in a support dump would read as a leak on a two-account
+     * install rather than as the two lanes doing their job.
+     */
+    public record PoolStats(int activeConnections, int trackedConnectionLocks) {
     }
 
     /**
