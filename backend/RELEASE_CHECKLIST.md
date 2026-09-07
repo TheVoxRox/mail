@@ -67,7 +67,7 @@ Poznámky:
 
 - [ ] Instalace je per-user (`installMode: currentUser`) — installer neukazuje volbu režimu ani nevyžaduje elevaci (UAC). Binárky jdou do `%LOCALAPPDATA%\Programs\VoxRox\Mail`.
 - [ ] Jazyk instalátoru je automaticky Czech/English podle systému; ostatní locale padají na English.
-- [ ] Desktop shortcut je volitelný checkbox.
+- [ ] Desktop shortcut vznikne **vždy** — instalátor pro něj nenabízí volbu. Šablona [nsis-installer.nsi](../frontend/src-tauri/windows/nsis-installer.nsi) volá `CreateOrUpdateDesktopShortcut` bezpodmínečně a nemá components page ani `MUI_FINISHPAGE_SHOWREADME` checkbox, kterým tuhle volbu nabízí výchozí Tauri šablona. Potlačí ho jedině `/NS` (NoShortcutMode) nebo `/UPDATE` na příkazové řádce. Ověřuje se tedy, že zkratka vznikne a míří na `${MAINBINARYNAME}.exe`, ne že jde odškrtnout.
 - [ ] Start menu shortcut vznikne jako `VoxRox\VoxRox Mail`.
 - [ ] Reinstall stejné verze projde bez ztráty dat.
 - [ ] Downgrade na starší verzi je zablokovaný.
@@ -179,10 +179,10 @@ Smoke flow:
 - [ ] Zkontrolovat, že IMAP pool nerecykluje chybně mrtvá spojení.
 - [ ] Zkontrolovat, že opakované syncy nevytvářejí duplicitní zprávy.
 - [ ] Log-scan gate po každém smoke/long runu: `Select-String -Path logs\mail.log -Pattern "ERROR|WARN"` a každý nález buď vysvětlit, nebo založit issue — tichá chybová cesta je přesně třída chyb z review 2026-06.
-- [ ] Pasivní log-watch přechodného hiccupu **D** (`failed to create new store connection`) — od #78 obalený bounded retry+backoff, transient klasifikuje [TransientMailErrors.java:39](src/main/java/org/voxrox/mailbackend/feature/mail/service/TransientMailErrors.java). Scan `logs\mail.log` na tři signály:
-  - **Zdravé:** `WARN` „Transient IMAP error during folder sync … reconnecting and retrying" ([MailSyncService.java:255](src/main/java/org/voxrox/mailbackend/feature/mail/service/MailSyncService.java)) následované zotavením v dalším pokusu — pár/den je očekávaný šum, jen zaznamenat počet.
-  - **Eskalovat (má být ~0):** `ERROR` „Folder sync … still failing after N transient-retry attempt(s)" ([MailSyncService.java:250](src/main/java/org/voxrox/mailbackend/feature/mail/service/MailSyncService.java)) = retry budget vyčerpán → prošetřit příčinu / zvětšit `mail.client.retry.*`.
-  - **Prošetřit klasifikátor:** `ERROR` „Critical error during folder sync … failed to create new store connection" ([MailSyncService.java:239](src/main/java/org/voxrox/mailbackend/feature/mail/service/MailSyncService.java)) by se pro transientní příčinu už neměl objevit; pokud ano, `TransientMailErrors` ji minul → doplnit klasifikátor.
+- [ ] Pasivní log-watch přechodného hiccupu **D** (`failed to create new store connection`) — od #78 obalený bounded retry+backoff, transient klasifikuje [TransientMailErrors.java](src/main/java/org/voxrox/mailbackend/feature/mail/service/TransientMailErrors.java). Scan `logs\mail.log` na tři signály:
+  - **Zdravé:** `WARN` „Transient IMAP error during folder sync … reconnecting and retrying" ([MailSyncService.java](src/main/java/org/voxrox/mailbackend/feature/mail/service/MailSyncService.java)) následované zotavením v dalším pokusu — pár/den je očekávaný šum, jen zaznamenat počet.
+  - **Eskalovat (má být ~0):** `ERROR` „Folder sync … still failing after N transient-retry attempt(s)" ([MailSyncService.java](src/main/java/org/voxrox/mailbackend/feature/mail/service/MailSyncService.java)) = retry budget vyčerpán → prošetřit příčinu / zvětšit `mail.client.retry.*`.
+  - **Prošetřit klasifikátor:** `ERROR` „Critical error during folder sync … failed to create new store connection" ([MailSyncService.java](src/main/java/org/voxrox/mailbackend/feature/mail/service/MailSyncService.java)) by se pro transientní příčinu už neměl objevit; pokud ano, `TransientMailErrors` ji minul → doplnit klasifikátor.
   - Při eskalaci zapsat dimenze: shlukuje se po sleep/wake nebo změně sítě? provider/složka? potvrzené zotavení v dalším cyklu?
 
 ## 8a. Docs & web sync
@@ -205,7 +205,7 @@ Smoke flow:
 - [ ] **Každý publikovaný release = plný podepsaný build.** Stabilní kanál čte `releases/latest/download/latest.json` (`frontend/src-tauri/tauri.conf.json`) a signed workflow zapíná `VITE_ENABLE_AUTO_UPDATE_CHECK=1`, takže **cokoli** publikovaného v repu se stává „latest" a všechny instalace to kontrolují při každém startu. Release publikovaný bez `latest.json` + `.sig` (třeba jen tag s poznámkami) = chyba update checku při každém startu všech instalací. Poznámky, částečné buildy apod. držet jako **draft** nebo **prerelease** (prereleasy `releases/latest` redirect přeskakuje — viz OPERATIONS.md „Release channels").
 - [ ] **Revize dočasných pinů a výjimek** (při každém release + při každém bumpu dotčené závislosti zkontrolovat removal conditions):
   - tomcat override `<tomcat.version>11.0.25</tomcat.version>` v `backend/pom.xml` — odstranit, až Spring Boot managed `tomcat.version` >= 11.0.25 (SB 4.1.1 = 11.0.24). Jediný zbylý backendový pin: obě jackson boms i log4j2 odpadly 2026-08-26 s Bootem 4.1.1.
-  - quick-xml výjimka ve vuln-scanu — removal conditions u výjimky.
+  - quick-xml výjimky `RUSTSEC-2026-0194` + `RUSTSEC-2026-0195` — **nejsou ve `vuln-scan.yml`**, ale v [.cargo/audit.toml](../frontend/src-tauri/.cargo/audit.toml); job `Tauri cargo audit (RustSec)` běží s `working-directory: frontend/src-tauri`, a odtud si `cargo audit` ten soubor bere sám. Removal condition je v komentáři u výjimky: odstranit obě (a `cargo update`), jakmile `plist`/`tauri-utils` potáhnou quick-xml >= 0.41.0 — poslední `plist` (1.9.0) drží řadu 0.39.x, takže upgrade cesta zatím není.
   - dependabot ignoruje TypeScript 7.x, protože typescript-eslint deklaruje peer `typescript >=4.8.4 <6.1.0` (viz #147). **Ten ignore není v `.github/dependabot.yml`** — drží ho vlastní stav dependabota z komentáře `@dependabot ignore this major version` na PR [#147](https://github.com/TheVoxRox/mail/pull/147) a zruší se jedině **znovuotevřením toho PR**. Kdo ho hledá v konfiguraci, nenajde nic a usoudí, že žádný neexistuje; proto to tady stojí napsané.
 
 ## 9. Release decision
