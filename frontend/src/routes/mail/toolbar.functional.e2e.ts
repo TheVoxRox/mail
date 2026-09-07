@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { openApp, setPrefs } from '../e2e-helpers';
+import { bodyFrame, openApp, setPrefs, waitForFocus } from '../e2e-helpers';
 
 const fixture = {
 	accountId: 1,
@@ -312,7 +312,9 @@ test.describe('Mail toolbar', () => {
 			await page.getByRole('checkbox', { name: 'Vybrat zprávu Projektové podklady' }).check();
 			await expect(page.getByText('1 vybraná zpráva')).toBeVisible();
 
-			await page.getByRole('button', { name: menu.trigger, exact: true }).focus();
+			const trigger = page.getByRole('button', { name: menu.trigger, exact: true });
+			await trigger.focus();
+			await waitForFocus(trigger);
 			await page.evaluate(() => {
 				const seen: string[] = [];
 				(window as unknown as { __menuFocus: string[] }).__menuFocus = seen;
@@ -352,8 +354,15 @@ test.describe('Mail toolbar', () => {
 			`**/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}/${encodeURIComponent(fixture.moveStableId)}`
 		);
 
+		// Opening a message parks focus in the body frame a frame later, so a
+		// trigger focused inside that gap has it stolen back and the key lands
+		// in the frame instead: the menu never opens. Let the move settle first.
+		await waitForFocus(bodyFrame(page));
+
 		const toolbar = page.getByRole('toolbar', { name: 'Akce se zprávami' });
-		await toolbar.getByRole('button', { name: 'Přesunout', exact: true }).focus();
+		const trigger = toolbar.getByRole('button', { name: 'Přesunout', exact: true });
+		await trigger.focus();
+		await waitForFocus(trigger);
 		await page.evaluate(() => {
 			const seen: string[] = [];
 			(window as unknown as { __menuFocus: string[] }).__menuFocus = seen;
@@ -406,8 +415,15 @@ test.describe('Mail toolbar', () => {
 			`**/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}/${encodeURIComponent(fixture.moveStableId)}`
 		);
 
+		// Opening a message parks focus in the body frame a frame later, so a
+		// trigger focused inside that gap has it stolen back and the key lands
+		// in the frame instead: the menu never opens. Let the move settle first.
+		await waitForFocus(bodyFrame(page));
+
 		const toolbar = page.getByRole('toolbar', { name: 'Akce se zprávami' });
-		await toolbar.getByRole('button', { name: 'Více', exact: true }).focus();
+		const trigger = toolbar.getByRole('button', { name: 'Více', exact: true });
+		await trigger.focus();
+		await waitForFocus(trigger);
 		await page.evaluate(() => {
 			const seen: string[] = [];
 			(window as unknown as { __menuFocus: string[] }).__menuFocus = seen;
