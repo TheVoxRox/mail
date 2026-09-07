@@ -1,12 +1,17 @@
 package org.voxrox.mailbackend.feature.mail.service;
 
+import java.util.List;
 import java.util.Locale;
 
 import jakarta.mail.AuthenticationFailedException;
 import jakarta.mail.Folder;
 import jakarta.mail.MessagingException;
+import jakarta.mail.Store;
 import jakarta.mail.UIDFolder;
+import jakarta.mail.event.MailEvent;
 
+import org.eclipse.angus.mail.imap.IMAPFolder;
+import org.eclipse.angus.mail.imap.ResyncData;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,12 +52,55 @@ public class ImapFolderExecutor {
     }
 
     /**
+     * Read-only variant that asks the server to resynchronize the caller's known
+     * window during SELECT (RFC 7162 QRESYNC) instead of leaving the client to
+     * enumerate every UID afterwards.
+     *
+     * <p>
+     * The action receives what the SELECT reported: a {@code VANISHED (EARLIER)}
+     * response becomes a {@link org.eclipse.angus.mail.imap.MessageVanishedEvent}
+     * carrying the expunged UIDs, a flag change becomes a
+     * {@link jakarta.mail.event.MessageChangedEvent}. {@code null} means the
+     * request was not honoured and the folder was opened plainly — no
+     * {@code resync} was supplied, the server does not advertise QRESYNC, or the
+     * provider handed back something that is not an {@link IMAPFolder}. An
+     * <em>empty</em> list is the opposite statement: the resynchronization ran and
+     * nothing changed. Callers must keep the two apart, because "not asked" and
+     * "asked, nothing vanished" lead to different cleanup decisions.
+     */
+    public <R> @Nullable R executeReadOnlyResynced(Long accountId, Lane lane, String folderName,
+            @Nullable ResyncRequest resync, ImapResyncFolderAction<R> action) {
+        return execute(accountId, lane, folderName, Folder.READ_ONLY, resync, action);
+    }
+
+    /**
+     * What the caller already mirrors of a folder, in the form the QRESYNC SELECT
+     * parameter needs: the {@code uidValidity} the local rows were fetched under,
+     * the MODSEQ they are current as of, and the UID range they span.
+     *
+     * <p>
+     * The range is the point of the record. QRESYNC's optional known-uids argument
+     * limits both the VANISHED and the FETCH half of the response to UIDs the
+     * client cares about (RFC 7162 §3.2.5), and this client mirrors a recency
+     * window, not the whole folder — without it a mailbox whose old mail was purged
+     * server-side would report thousands of expunged UIDs the client never held.
+     */
+    public record ResyncRequest(long uidValidity, long modSeq, long minUid, long maxUid) {
+    }
+
+    /**
      * Internal method wrapping the logic of acquiring the store, opening the folder
      * and handling errors. The lambda (store) -> { ... } now matches the
      * StoreAction interface in ImapConnectionManager.
      */
     private <R> @Nullable R execute(Long accountId, Lane lane, String folderName, int mode,
             ImapFolderAction<R> action) {
+        return execute(accountId, lane, folderName, mode, null,
+                (folder, uidFolder, resyncEvents) -> action.apply(folder, uidFolder));
+    }
+
+    private <R> @Nullable R execute(Long accountId, Lane lane, String folderName, int mode,
+            @Nullable ResyncRequest resync, ImapResyncFolderAction<R> action) {
         return connectionManager.executeWithLock(accountId, lane, store -> {
             Folder folder = null;
             try {
@@ -66,14 +114,14 @@ public class ImapFolderExecutor {
                     throw new ResourceNotFoundException("Folder '" + folderName + "' was not found on the server.");
                 }
 
-                folder.open(mode);
+                List<MailEvent> resyncEvents = openFolder(store, folder, mode, resync, folderName);
 
                 if (!(folder instanceof UIDFolder uidFolder)) {
                     throw new MailOperationException(ErrorCode.INTERNAL_ERROR,
                             "Folder " + folderName + " does not support UID operations.");
                 }
 
-                return action.apply(folder, uidFolder);
+                return action.apply(folder, uidFolder, resyncEvents);
 
             } catch (AuthenticationFailedException e) {
                 /*
@@ -142,5 +190,55 @@ public class ImapFolderExecutor {
                 }
             }
         });
+    }
+
+    /**
+     * Opens the folder, with QRESYNC resynchronization data when the caller asked
+     * for it and the server can serve it. Returns the events the SELECT produced,
+     * or {@code null} when the folder was opened plainly — see
+     * {@link #executeReadOnlyResynced} for what the two answers mean.
+     *
+     * <p>
+     * The capability is probed here rather than by the caller because the
+     * {@link Store} only exists inside the lock this class holds; asking for
+     * QRESYNC against a server that does not advertise it is a protocol error, not
+     * a graceful degradation. Angus sends the required {@code ENABLE QRESYNC}
+     * itself — it has to happen before the mailbox is selected (RFC 5161), which is
+     * exactly the window {@link IMAPFolder#open(int, ResyncData)} owns and no
+     * caller of ours does.
+     */
+    private static @Nullable List<MailEvent> openFolder(Store store, Folder folder, int mode,
+            @Nullable ResyncRequest resync, String folderName) throws MessagingException {
+        if (resync == null || !(folder instanceof IMAPFolder imapFolder)
+                || !ImapCapabilities.probe(store).hasQresync()) {
+            folder.open(mode);
+            return null;
+        }
+
+        try {
+            List<MailEvent> events = imapFolder.open(mode,
+                    new ResyncData(resync.uidValidity(), resync.modSeq(), resync.minUid(), resync.maxUid()));
+            log.debug("{} Opened folder {} with QRESYNC (uidvalidity {}, modseq {}, UIDs {}-{}): {} event(s).",
+                    LogCategory.IMAP, folderName, resync.uidValidity(), resync.modSeq(), resync.minUid(),
+                    resync.maxUid(), events == null ? 0 : events.size());
+            return events == null ? List.of() : events;
+        } catch (MessagingException e) {
+            /*
+             * Degrade instead of failing the cycle. Advertising QRESYNC and honouring it
+             * are two different things — an intermediary, or a server whose CAPABILITY
+             * outruns its SELECT, can reject the ENABLE or the parameter — and a folder
+             * that can only be opened one way must still be syncable. Without this the
+             * cycle would end in last_error, retry, and fail identically forever: an
+             * account no user could fix.
+             *
+             * Re-opening the same Folder is safe because the failure happened before it
+             * became open: Angus sets `opened` only after SELECT/EXAMINE returns, and both
+             * failure paths release the protocol and throw ahead of that.
+             */
+            log.warn("{} QRESYNC open of folder {} failed ({}); opening it plainly instead.", LogCategory.IMAP,
+                    folderName, e.getMessage());
+            folder.open(mode);
+            return null;
+        }
     }
 }

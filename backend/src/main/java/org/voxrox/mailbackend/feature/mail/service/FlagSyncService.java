@@ -1,14 +1,19 @@
 package org.voxrox.mailbackend.feature.mail.service;
 
 import jakarta.mail.*;
+import jakarta.mail.event.MailEvent;
+import jakarta.mail.event.MessageChangedEvent;
 
 import org.eclipse.angus.mail.imap.IMAPFolder;
+import org.eclipse.angus.mail.imap.MessageVanishedEvent;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.voxrox.mailbackend.core.config.MailClientProperties;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
+import org.voxrox.mailbackend.feature.mail.service.ImapCondstoreCommands.FlagChange;
 import org.voxrox.mailbackend.util.LogCategory;
 
 import module java.base;
@@ -23,10 +28,12 @@ public class FlagSyncService {
     private final MailboxMaintenanceService maintenanceService;
     private final TransactionTemplate transactionTemplate;
     private final MailClientProperties mailProps;
+    private final UidEnumerationSchedule enumerationSchedule;
 
     public FlagSyncService(MessageRepository messageRepository, SyncStateService syncStateService,
             MailboxMaintenanceService maintenanceService, TransactionTemplate transactionTemplate,
-            MailClientProperties mailProps) {
+            MailClientProperties mailProps, UidEnumerationSchedule enumerationSchedule) {
+        this.enumerationSchedule = enumerationSchedule;
         this.messageRepository = messageRepository;
         this.syncStateService = syncStateService;
         this.maintenanceService = maintenanceService;
@@ -139,6 +146,150 @@ public class FlagSyncService {
     }
 
     /**
+     * Applies what the QRESYNC SELECT already reported (RFC 7162 §3.2.5): the
+     * {@code VANISHED (EARLIER)} UIDs as deletions, the FETCH half as flag updates.
+     * Ends by storing the folder's new HIGHESTMODSEQ, which is where the next
+     * SELECT resumes from.
+     * <p>
+     * This replaces <b>both</b> per-cycle commands the CONDSTORE path needs — the
+     * {@code CHANGEDSINCE} flag fetch and the {@code UID FETCH 1:* (UID)}
+     * enumeration — because the server answered both questions while selecting the
+     * mailbox. What it does not replace is the hole scan; see
+     * {@link #cleanupDeletedViaUidEnumerationIfDue}.
+     * <p>
+     * MODSEQ is persisted <em>after</em> the events are applied, never before: a
+     * crash in between must re-report them on the next cycle rather than skip them.
+     * Both halves are idempotent, so re-reporting costs nothing.
+     */
+    public void applyResyncEvents(FolderSyncContext ctx, List<MailEvent> events) {
+        List<Long> vanished = new ArrayList<>();
+        List<FlagChange> changes = new ArrayList<>();
+
+        for (MailEvent event : events) {
+            switch (event) {
+                case MessageVanishedEvent vanishedEvent -> {
+                    for (long uid : vanishedEvent.getUIDs()) {
+                        vanished.add(uid);
+                    }
+                }
+                case MessageChangedEvent changedEvent -> {
+                    FlagChange change = toFlagChange(ctx, changedEvent);
+                    if (change != null) {
+                        changes.add(change);
+                    }
+                }
+                default -> log.debug("{} Ignoring {} from the QRESYNC SELECT of folder {}.", LogCategory.SYNC,
+                        event.getClass().getSimpleName(), ctx.folderName());
+            }
+        }
+
+        deleteVanished(ctx, vanished);
+
+        if (!changes.isEmpty()) {
+            log.debug("{} {} flag change(s) reported by the QRESYNC SELECT of folder {}.", LogCategory.SYNC,
+                    changes.size(), ctx.folderName());
+            transactionTemplate.executeWithoutResult(status -> applyFlagChanges(ctx, changes));
+        }
+
+        persistHighestModseq(ctx);
+    }
+
+    /**
+     * The full UID enumeration, but only when it is due again — the QRESYNC
+     * companion of {@link #cleanupDeletedViaUidEnumeration}, whose deletion half a
+     * QRESYNC server reports by itself.
+     *
+     * @return server-only UIDs to re-download when the scan ran, empty when it was
+     *         skipped as not due. The two are indistinguishable to the caller on
+     *         purpose: "no holes" and "did not look" both mean nothing to
+     *         re-download in this cycle.
+     */
+    public List<Long> cleanupDeletedViaUidEnumerationIfDue(FolderSyncContext ctx) throws MessagingException {
+        if (!enumerationSchedule.isDue(ctx.getAccountId(), ctx.folderName())) {
+            return List.of();
+        }
+        return cleanupDeletedViaUidEnumeration(ctx);
+    }
+
+    /**
+     * Reads UID and flags out of one FETCH response that the QRESYNC SELECT
+     * produced. The UID comes from the folder rather than the message because
+     * {@code IMAPMessage.getUID()} is protected; the value is already in the
+     * message (a QRESYNC FETCH always carries UID), so this is a lookup, not a
+     * round trip.
+     */
+    private static @Nullable FlagChange toFlagChange(FolderSyncContext ctx, MessageChangedEvent event) {
+        if (event.getMessageChangeType() != MessageChangedEvent.FLAGS_CHANGED) {
+            return null;
+        }
+        Message message = event.getMessage();
+        try {
+            long uid = ctx.uidFolder().getUID(message);
+            return new FlagChange(uid, message.isSet(Flags.Flag.SEEN), message.isSet(Flags.Flag.FLAGGED),
+                    message.isSet(Flags.Flag.ANSWERED));
+        } catch (MessagingException e) {
+            /*
+             * Benign, and the same trade as the batched path above: a change we could not
+             * read is a flag update skipped for one message. MODSEQ advances anyway, so
+             * this one is not retried — the next real change to that message brings its
+             * flags along.
+             */
+            log.warn("{} Unable to read a QRESYNC flag change in folder {}, update skipped.", LogCategory.SYNC,
+                    ctx.folderName(), e);
+            return null;
+        }
+    }
+
+    /**
+     * Deletes the vanished UIDs in batches. The server's VANISHED set is bounded by
+     * the UID <em>range</em> the client asked about, not by how many rows it holds
+     * inside that range — a mailbox whose older mail was purged server-side can
+     * name far more UIDs than the client ever had, and an unbounded {@code IN} list
+     * would eventually exceed what the database accepts in one statement.
+     */
+    private void deleteVanished(FolderSyncContext ctx, List<Long> vanishedUids) {
+        if (vanishedUids.isEmpty()) {
+            return;
+        }
+        log.debug("{} Deleting {} message(s) reported as vanished in folder {} (QRESYNC).", LogCategory.SYNC,
+                vanishedUids.size(), ctx.folderName());
+        List<List<Long>> batches = vanishedUids.stream().gather(Gatherers.windowFixed(mailProps.sync().batchSize()))
+                .toList();
+        for (List<Long> batch : batches) {
+            transactionTemplate.executeWithoutResult(status -> messageRepository
+                    .deleteAllByAccountIdAndFolderNameAndUidIn(ctx.getAccountId(), ctx.folderName(), batch));
+        }
+    }
+
+    /**
+     * Stores the HIGHESTMODSEQ the SELECT reported, so the next cycle resumes from
+     * it. A server that reports none (-1) leaves the stored value alone — the next
+     * cycle then asks from the older MODSEQ, which is redundant rather than wrong.
+     */
+    private void persistHighestModseq(FolderSyncContext ctx) {
+        if (!(ctx.folder() instanceof IMAPFolder imapFolder)) {
+            return;
+        }
+        long highestModseq;
+        try {
+            highestModseq = imapFolder.getHighestModSeq();
+        } catch (MessagingException e) {
+            log.warn(
+                    "{} Could not read HIGHESTMODSEQ of folder {} after a QRESYNC SELECT; "
+                            + "the next cycle will resync from the stored value.",
+                    LogCategory.SYNC, ctx.folderName(), e);
+            return;
+        }
+        if (highestModseq <= 0) {
+            return;
+        }
+        Long syncStateId = ctx.syncState().getId();
+        transactionTemplate
+                .executeWithoutResult(status -> syncStateService.updateLastKnownModseq(syncStateId, highestModseq));
+        ctx.syncState().setLastKnownModseq(highestModseq);
+    }
+
+    /**
      * Fallback path for servers without CONDSTORE — enumerate local UIDs and fetch
      * flags in batched ranges. O(folder size) every cycle, but works on any IMAP
      * server.
@@ -204,10 +355,11 @@ public class FlagSyncService {
      * server returns only UIDs (no metadata); the client compares them against the
      * local DB and removes anything that is missing on the server.
      * <p>
-     * Substitute for full QRESYNC SELECT VANISHED — that would be slightly more
-     * efficient (the server sends only deleted UIDs instead of all of them), but
-     * requires raw access to the SELECT command outside the {@code folder.open()}
-     * flow, which is out of scope today.
+     * The deletion half of this is what a QRESYNC server reports by itself — see
+     * {@link #applyResyncEvents} — so on those servers this runs on the slow
+     * cadence of {@link UidEnumerationSchedule} rather than every cycle. It stays
+     * the every-cycle path for CONDSTORE-only servers, which have no VANISHED to
+     * offer.
      * <p>
      * The same UID set that detects server-side deletions also reveals the reverse:
      * server-only UIDs sitting in a hole inside the mirrored window. Those are
@@ -226,8 +378,10 @@ public class FlagSyncService {
         }
 
         List<Long> localUids = messageRepository.findUidsByAccountAndFolder(ctx.getAccountId(), ctx.folderName());
-        if (localUids.isEmpty())
+        if (localUids.isEmpty()) {
+            enumerationSchedule.markRan(ctx.getAccountId(), ctx.folderName());
             return List.of();
+        }
 
         Set<Long> serverUids = ImapCondstoreCommands.fetchAllServerUids(imapFolder);
 
@@ -239,6 +393,13 @@ public class FlagSyncService {
                     .deleteAllByAccountIdAndFolderNameAndUidIn(ctx.getAccountId(), ctx.folderName(), toDelete));
         }
 
+        /*
+         * Marked here rather than on entry: a scan that died on the IMAP fetch has not
+         * happened, and letting it count would leave the folder's holes unlooked-for
+         * for a whole interval on the strength of a failed attempt — including on the
+         * cycle's own retry, which reconnects and runs this again.
+         */
+        enumerationSchedule.markRan(ctx.getAccountId(), ctx.folderName());
         return detectServerOnlyHolesInWindow(localUids, serverUids);
     }
 

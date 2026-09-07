@@ -162,6 +162,26 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
     List<Long> findUidsByAccountAndFolder(@Param("accId") Long accId, @Param("folder") String folderName);
 
     /**
+     * The UID range the folder is mirrored over, as the two ends of the same window
+     * {@link #findUidsByAccountAndFolder} spans — {@code null} when the folder has
+     * no local rows at all.
+     * <p>
+     * Two aggregates instead of reading the UID list and taking its ends: the
+     * QRESYNC SELECT needs only the bounds, and asking for them by name lets SQLite
+     * answer from the {@code (account_id, folder_name, uid)} unique index instead
+     * of materializing every UID in the folder — which is the cost this whole path
+     * exists to remove.
+     */
+    @Query("SELECT MIN(m.uid) FROM MessageEntity m WHERE m.account.id = :accId AND m.folderName = :folder")
+    @Nullable
+    Long findMinUid(@Param("accId") Long accId, @Param("folder") String folderName);
+
+    /** Upper end of {@link #findMinUid}'s range. */
+    @Query("SELECT MAX(m.uid) FROM MessageEntity m WHERE m.account.id = :accId AND m.folderName = :folder")
+    @Nullable
+    Long findMaxUid(@Param("accId") Long accId, @Param("folder") String folderName);
+
+    /**
      * Of the given candidate uids, the subset already present in the folder. Used
      * by the sync to keep a batch insert idempotent: two overlapping syncs (e.g.
      * the scheduled cycle and a send-triggered refresh) each compute their "new"

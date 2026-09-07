@@ -144,5 +144,16 @@
         "note": "Fourth note, and the smallest of the run. The whole diff under this path is one argument: MailContentService now names the IMAP lane it fetches a missing body on (Lane.INTERACTIVE) plus the import for it. Read in the tree rather than from the diff summary: getOrFetch is otherwise byte-identical — the same isBodyOversize short-circuit, the same MimePartExtractor.extractBody, the same escapePlainText for a text/plain part, the same referencedCids gate before collectInlineImages, the same HtmlSanitizer.sanitize call with the same inlineImages map, and the same IOException|RuntimeException wrap into MAIL_CONNECTION_ERROR. No sanitizer input, no cap, no branch and no persisted value moved. What the lane changes is which TCP connection the fetch travels on, which is a scheduling property; this boundary is about what happens to the bytes after they arrive, and that is untouched. Verdict stays PASS."
       }
     ]
+  },
+  "docs/IMAP_SMTP_AUDIT.md": {
+    "reviewedTrees": {
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "6e34d87918df85bb9843abac5886631c27ef0116"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-09-07",
+        "note": "Behavioural change under this path, reviewed claim by claim rather than waved through as a perf tweak. The sync cycle stopped issuing UID FETCH 1:* (UID) every cycle and now opens the folder with a QRESYNC parameter, so the SELECT itself reports expunged UIDs and flag changes. What that adds to this boundary is one new server-controlled input — the UID set in a VANISHED (EARLIER) response, which Angus parses into a long[] before our code sees it — and what it removes is a per-cycle O(server folder) FETCH. Section 1 (transport, TLS, authentication) is untouched: the diff creates no Session, sets no mail.* property and does not enter the SMTP path, and the ENABLE QRESYNC that Angus sends goes over the already-authenticated connection just before SELECT, so nothing moves ahead of the identity and OAuth-plaintext checks that section rests on. Section 2 holds: the QRESYNC FETCH carries UID, FLAGS and MODSEQ, never a body, so \"list sync fetches metadata only\" is still true and the body-fetch bound (B1-1, section 4) is on a path this diff does not touch. \"UIDVALIDITY is cross-checked\" holds and is not weakened by passing uidvalidity into SELECT — RFC 7162 has the server ignore the whole QRESYNC parameter when it does not match, and handleUidValidity still runs after every open, unchanged. The one new authority is worth naming rather than hiding in a diff: a hostile server can list UIDs in VANISHED that it never held, and the client deletes those local rows. It is the same authority the enumeration already handed it, since a UID missing from UID FETCH 1:* was deleted the same way, so the trust model does not move — the server has always been authoritative for what exists on the server. The DoS surface shrinks rather than grows: what the client parses is now bounded by the UID range it asks about instead of the whole folder, and the delete is chunked by batch-size. One more thing the diff does, and it is the opposite of a new risk: a server that advertises QRESYNC and then rejects it degrades to a plain SELECT instead of failing the cycle, so no folder becomes unsyncable. Verdict stays PASS."
+      }
+    ]
   }
 }

@@ -250,7 +250,7 @@ Hotove: **Podpisy zprav — Faze 1** (auto-insert + From-swap + manualni tlacitk
       krivka a stoji za to ji videt drive nez uzivatele. Patri k 24h soaku v
       [backend/RELEASE_CHECKLIST.md](backend/RELEASE_CHECKLIST.md).
 - `OpenApiSnapshotTest` nedeterminismus — `canonicalOpenApi` rekurzivne radi klice pred zapisem i porovnanim, snapshot i `schema.d.ts` jednorazove preskladany (2026-08-07). Overeno trema po sobe jdoucimi update behy (bajtove identicke) + ostrym behem.
-- [ ] Full QRESYNC SELECT s VANISHED — vetsi refactor `ImapFolderExecutor`; po release, pokud bude cleanup latency bottleneck.
+- [x] Full QRESYNC SELECT s VANISHED — HOTOVO 2026-09-07: cyklus uz neposila `UID FETCH 1:* (UID)` pres celou serverovou slozku; SELECT se otevira s parametrem QRESYNC a server hlasi VANISHED i zmenene priznaky sam. Odklad stal na premise, ktera neplatila: `IMAPFolder.open(int, ResyncData)` v Angusu dela ENABLE i SELECT sam, takze refactor `ImapFolderExecutor` na syrovy protokol nebyl potreba. Enumerace zustava jako hodinovy sken der ([UidEnumerationSchedule](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/UidEnumerationSchedule.java)) — VANISHED nahrazuje mazani, ne detekci der. Detail v [CHANGELOG.md](CHANGELOG.md).
 - [ ] Self-update standalone backendu (jen pokud vznikne deployment mimo Tauri bundle).
 - [ ] Dlouhodobe sledovat startup performance a velikost bundle.
 - [ ] Tauri release smoke s AOT cache (perf, NE release blocker) — `npm run tauri:build:with-sidecar` s `$EnableAotCache=$true`, zmerit desktop `appReady` cold start a zapsat do [backend/PERFORMANCE_BASELINE.md](backend/PERFORMANCE_BASELINE.md). Backend cold start uz je v gate (3,7 s); tohle je optimalizacni cislo, ne blocker.

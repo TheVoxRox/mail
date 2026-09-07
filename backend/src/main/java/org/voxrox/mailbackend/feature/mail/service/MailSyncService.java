@@ -1,6 +1,7 @@
 package org.voxrox.mailbackend.feature.mail.service;
 
 import jakarta.mail.*;
+import jakarta.mail.event.MailEvent;
 
 import org.hibernate.StaleObjectStateException;
 import org.jspecify.annotations.Nullable;
@@ -27,6 +28,7 @@ import org.voxrox.mailbackend.feature.mail.event.MailSyncCycleCompletedEvent;
 import org.voxrox.mailbackend.feature.mail.event.MailSyncErrorStateChangedEvent;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
 import org.voxrox.mailbackend.feature.mail.service.ImapConnectionManager.Lane;
+import org.voxrox.mailbackend.feature.mail.service.ImapFolderExecutor.ResyncRequest;
 import org.voxrox.mailbackend.util.AuditLog;
 import org.voxrox.mailbackend.util.LogCategory;
 import org.voxrox.mailbackend.util.LogMasker;
@@ -303,9 +305,10 @@ public class MailSyncService {
         int downloadedInAbandonedAttempts = 0;
         for (int attempt = 1;; attempt++) {
             try {
-                FolderSyncOutcome outcome = imapFolderService.executeInFolder(account.getId(), Lane.BACKGROUND,
-                        folderName, Folder.READ_ONLY,
-                        (folder, uidFolder) -> syncFolderOnce(account, folderName, detectedRole, folder, uidFolder));
+                FolderSyncOutcome outcome = imapFolderService.executeInFolderResynced(account.getId(), Lane.BACKGROUND,
+                        folderName, buildResyncRequest(account.getId(), folderName),
+                        (folder, uidFolder, resyncEvents) -> syncFolderOnce(account, folderName, detectedRole, folder,
+                                uidFolder, resyncEvents));
                 return outcome != null
                         ? outcome.plusDownloaded(downloadedInAbandonedAttempts)
                         : FolderSyncOutcome.failed(downloadedInAbandonedAttempts);
@@ -336,7 +339,7 @@ public class MailSyncService {
      * recorded as last_error and the pass reports itself as not succeeded.
      */
     private FolderSyncOutcome syncFolderOnce(AccountEntity account, String folderName, FolderRole detectedRole,
-            Folder folder, UIDFolder uidFolder) {
+            Folder folder, UIDFolder uidFolder, @Nullable List<MailEvent> resyncEvents) {
         final FolderRole role = detectedRole;
         FolderSyncStateEntity syncState = transactionTemplate
                 .execute(status -> syncStateService.getOrCreateState(account.getId(), folderName, role));
@@ -351,21 +354,7 @@ public class MailSyncService {
             boolean uidValidityOk = flagSyncService.handleUidValidity(ctx);
             if (uidValidityOk) {
                 totalDownloaded = messageDownloader.syncNewMessages(ctx);
-                ImapCapabilities caps = ImapCapabilities.probe(folder.getStore());
-                List<Long> serverOnlyHoles;
-                if (caps.hasCondstore()) {
-                    /*
-                     * RFC 7162 CONDSTORE — O(changes) instead of O(folder size) for flag sync. The
-                     * cleanup of deletions still requires UID enumeration (full QRESYNC SELECT with
-                     * VANISHED is deferred because it requires raw IMAPProtocol access), but it
-                     * runs over a lightweight UID-only fetch instead of metadata.
-                     */
-                    flagSyncService.syncMessageFlagsCondstore(ctx);
-                    serverOnlyHoles = flagSyncService.cleanupDeletedViaUidEnumeration(ctx);
-                } else {
-                    flagSyncService.syncMessageFlagsBatched(ctx);
-                    serverOnlyHoles = flagSyncService.cleanupDeletedInWindow(ctx);
-                }
+                List<Long> serverOnlyHoles = syncFlagsAndDeletions(ctx, folder, resyncEvents);
                 /*
                  * The cleanup's UID set also reveals server-only messages sitting in a hole
                  * inside the mirrored window — invisible to the user otherwise (forward sync
@@ -434,6 +423,70 @@ public class MailSyncService {
         } finally {
             metrics.recordSync(sample, outcome, totalDownloaded);
         }
+    }
+
+    /**
+     * Flag changes and deletions for one cycle, in whichever dialect the server
+     * speaks. Three paths, cheapest first:
+     * <ul>
+     * <li><b>QRESYNC</b> (RFC 7162 §3.2) — the SELECT already reported both, so
+     * this cycle issues no command of its own. The full UID enumeration stays as an
+     * hourly hole scan, not as the way deletions are found.</li>
+     * <li><b>CONDSTORE</b> — flags are O(changes) via {@code CHANGEDSINCE}, but
+     * deletions still need the UID enumeration every cycle: without VANISHED there
+     * is nothing else that names them.</li>
+     * <li><b>Neither</b> — a full sweep bounded to the local window.</li>
+     * </ul>
+     * The capability is probed only when the SELECT did not resynchronize; when it
+     * did, the server has already proven it speaks QRESYNC by answering.
+     */
+    private List<Long> syncFlagsAndDeletions(FolderSyncContext ctx, Folder folder,
+            @Nullable List<MailEvent> resyncEvents) throws MessagingException {
+        if (resyncEvents != null) {
+            flagSyncService.applyResyncEvents(ctx, resyncEvents);
+            return flagSyncService.cleanupDeletedViaUidEnumerationIfDue(ctx);
+        }
+
+        ImapCapabilities caps = ImapCapabilities.probe(folder.getStore());
+        if (caps.hasCondstore()) {
+            flagSyncService.syncMessageFlagsCondstore(ctx);
+            return flagSyncService.cleanupDeletedViaUidEnumeration(ctx);
+        }
+        flagSyncService.syncMessageFlagsBatched(ctx);
+        return flagSyncService.cleanupDeletedInWindow(ctx);
+    }
+
+    /**
+     * The QRESYNC parameters for this folder's next SELECT, or {@code null} when
+     * the folder cannot be resynchronized yet and must be opened plainly.
+     *
+     * <p>
+     * Every null here is a first-cycle condition rather than error handling. The
+     * row itself does not exist until the folder's first cycle creates it — read,
+     * never created, precisely so that asking about a folder the server does not
+     * have leaves nothing behind. A folder has no MODSEQ baseline until a CONDSTORE
+     * cycle has stored one (see {@code FlagSyncService.syncMessageFlagsCondstore}),
+     * and no UID range until it holds rows. So a fresh folder takes the plain path
+     * once and resynchronizes from the cycle after.
+     */
+    private @Nullable ResyncRequest buildResyncRequest(Long accountId, String folderName) {
+        FolderSyncStateEntity syncState = syncStateService.findState(accountId, folderName).orElse(null);
+        if (syncState == null) {
+            return null;
+        }
+
+        Long uidValidity = syncState.getUidValidity();
+        Long lastKnownModseq = syncState.getLastKnownModseq();
+        if (uidValidity == null || lastKnownModseq == null) {
+            return null;
+        }
+
+        Long minUid = messageRepository.findMinUid(accountId, folderName);
+        Long maxUid = messageRepository.findMaxUid(accountId, folderName);
+        if (minUid == null || maxUid == null) {
+            return null;
+        }
+        return new ResyncRequest(uidValidity, lastKnownModseq, minUid, maxUid);
     }
 
     /**
