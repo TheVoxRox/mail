@@ -70,11 +70,15 @@ Endpoint:
 GET /api/internal/health
 ```
 
-Je chráněný interním API klíčem ze `session.json`:
+Je chráněný interním API klíčem ze `session.json`. Pozor na skládání URL:
+`baseUrl` už `/api` obsahuje (`http://127.0.0.1:<port>/api`, viz
+[HandshakeService.java](src/main/java/org/voxrox/mailbackend/core/init/HandshakeService.java)),
+takže se za něj připojuje `/internal/...`, ne `/api/internal/...` — jinak
+vznikne `/api/api/...` a odpovědí je 404, které vypadá jako mrtvý backend:
 
 ```powershell
 $session = Get-Content "$env:LOCALAPPDATA\VoxRox\Mail\session.json" | ConvertFrom-Json
-Invoke-RestMethod "$($session.baseUrl)/api/internal/health" -Headers @{ "X-API-KEY" = $session.apiKey }
+Invoke-RestMethod "$($session.baseUrl)/internal/health" -Headers @{ "X-API-KEY" = $session.apiKey }
 ```
 
 Health obsahuje DB stav, diskspace a `sync` komponentu. `requiresReauth` účty netahají health do `DOWN`; znamenají uživatelskou akci (znovu přihlásit OAuth účet).
@@ -95,7 +99,7 @@ Windows PowerShell:
 
 ```powershell
 $session = Get-Content "$env:LOCALAPPDATA\VoxRox\Mail\session.json" | ConvertFrom-Json
-Invoke-WebRequest "$($session.baseUrl)/api/internal/diagnostic-dump" -Headers @{ "X-API-KEY" = $session.apiKey } -OutFile "$env:TEMP\mail-diagnostic.zip"
+Invoke-WebRequest "$($session.baseUrl)/internal/diagnostic-dump" -Headers @{ "X-API-KEY" = $session.apiKey } -OutFile "$env:TEMP\mail-diagnostic.zip"
 ```
 
 ## Logy
@@ -316,7 +320,7 @@ Postup:
 
 `db_backup_failed` v audit logu při startu → zkontrolovat volné místo na disku a oprávnění k `${app.data-dir}/db/`. Backup nemůže selhat tichá — pokud ano, Flyway migrate se vůbec nespustí a uživatel zůstává na předchozí verzi schémat.
 
-`Update notifikace se nezobrazuje` (Tauri klient nehlásí novou verzi) → zkontrolovat `tauri.conf.json` `bundle.updater.endpoints` URL, manifest signing key shoda s `pubkey`. U beta kanálu navíc ověřit, že release `beta` drží čerstvý `latest.json` (viz Release channels níže).
+`Update notifikace se nezobrazuje` (Tauri klient nehlásí novou verzi) → zkontrolovat `tauri.conf.json` `plugins.updater.endpoints` URL (v Tauri 2 je updater plugin, **ne** `bundle.updater` — pod `bundle` se hledá marně), manifest signing key shoda s `pubkey`. U beta kanálu navíc ověřit, že release `beta` drží čerstvý `latest.json` (viz Release channels níže).
 
 ## Release channels
 
@@ -499,16 +503,24 @@ Minimální backend ověření před vydáním:
 
 ```powershell
 $env:MAVEN_OPTS='-Duser.home=C:\dev\java\mail\backend'
-mvn.cmd "-Dmaven.repo.local=C:\dev\java\mail\backend\.m2repo" "-Dapp.data-dir=C:\dev\java\mail\backend\target\test-data" package
+mvn.cmd "-Dmaven.repo.local=C:\dev\java\mail\backend\.m2repo" "-Dapp.data-dir=C:\dev\java\mail\backend\target\test-data" clean verify
 ```
+
+`clean verify`, ne `package`: bez `clean` analyzuje SpotBugs `__BeanDefinitions`
+třídy, které v `target/` nechal předchozí `-Paot package`, a padne na
+generovaném kódu; `package` navíc neodpálí failsafe integrační testy. Stejný
+příkaz drží [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) §1.
 
 Očekávání:
 
 ```text
-Tests run: 885, Failures: 0, Errors: 0, Skipped: 0   (nebo vyšší aktuální počet)
+Failures: 0, Errors: 0, Skipped: 0   na obou sadách — surefire i failsafe
 target/mail-backend-0.1.0.jar existuje jako repackaged Spring Boot JAR
 StartupSmokeTest vytvoří crypto.bin, session.json, .ready a aplikuje Flyway V1
 ```
+
+Počet testů se sem nepíše: rotuje rychleji, než se runbook čte, a žádná brána
+ho tady nepřepočítává.
 
 Sidecar artefakt pro Windows:
 
