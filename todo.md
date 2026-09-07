@@ -219,7 +219,22 @@ zobecneni uz opravenych konkretnich pripadu, ne novy nalez. Vyjimkou je
 `timeout-minutes` v `ci.yml` — ta vzesla ze zaseknute CI pri mergovani #296
 (2026-08-19) a je uz opravena, stejne jako apt fetch pri degradovanem mirroru,
 ktery po ni zbyl (2026-08-27). Sekce je tim cela zavrena az na dve polozky
-frontendu nize.
+frontendu nize a jednu novou (knip entry globy, 2026-09-07).
+
+- [ ] **knip nemuze nahlasit nepouzity skript v `frontend/scripts/`.** Nalezeno
+      2026-09-07 pri revizi release cesty ([#422](https://github.com/TheVoxRox/mail/pull/422)):
+      `prepare-tauri-windows-signing-config.mjs` nevolalo nic, jeho vystup nikdo
+      necetl a bez certifikatu by spadl — a prezil od initial importu, protoze
+      `frontend/knip.json` ma v `entry` glob `scripts/**/*.{mjs,ts,js}`. Kazdy
+      skript je tim entry point, takze nepouzity skript nema jak byt hlaseny.
+      Java tuhle diru zavrenou ma (`check:java-callers`), pro build skripty
+      ekvivalent neexistuje. **Neni to jednoradkova zmena:** zuzeni globu na
+      skutecne entry pointy (ty, ktere vola `package.json` nebo workflow) vyrobi
+      false positives u skriptu volanych z jinych skriptu a u `*.test.mjs`, takze
+      to chce projit vsechny a rozhodnout kazdy zvlast. Levnejsi varianta, kdyby
+      se ukazala jako dost dobra: vlastni gate po vzoru `check:java-callers`,
+      ktery jen overi, ze kazdy `scripts/*.mjs` je jmenovany v `package.json`,
+      v nejakem workflow, nebo importovany jinym skriptem.
 
 - [x] Brany na mrtvy kod — HOTOVO 2026-08-24, vsech pet: `-Xdoclint:reference` a `knip:production` (#313), `check:rename-residue` (#314), `check:java-callers` (#316) a `check:test-claims`. Detail ke kazde v [CHANGELOG.md](CHANGELOG.md). Co z toho stoji za pamatovani: (1) „nema volajiciho mimo vlastni soubor" a „je mrtva" jsou dve ruzna tvrzeni a hlasi se zvlast — jinak z prvniho plyne smazani tam, kde patri zmena viditelnosti; (2) brany na sebe navazuji — CodeQL ukaze mrtvy parametr, jeho odstraneni odhali duplicitni test a `check:test-claims` ho pojmenuje; (3) nejzajimavejsi nalezy nebyly mrtvy kod, ale tri testy s `verify(never())` na metodu bez volajicich. ~~**Zbyva jedina vec z te davky:** mutacni testovani (PIT)~~ — **HOTOVO 2026-09-07**: opt-in profil `pit` v [backend/pom.xml](backend/pom.xml), spousteni a pasti popsane v komentari u profilu. Zustava **ne jako brana**, jak bylo zamysleno; prvni sweep pres `feature.mail.service.*` (30 min, 1270 mutantu, test strength 90 %) nasel 116 prezivsich a mezi nimi jeden, kvuli kteremu to celé vzniklo: na uspesne vetvi `sendEmailAsync` prezily vsechny `VoidMethodCall` mutace vcetne `Transport::sendMessage` — poslani sel smazat a sada zustala zelena. Doplnen happy-path test, ctyri z tech sesti mutantu jsou po nem mrtvi (overeno opakovanym behem, ne usudkem). Burn-down zbylych 112 se **nedela**, presne z duvodu uvedeneho v puvodnim zapisu.
 - [x] Apt fetch v `Install Tauri system deps` pri degradovanem mirroru — HOTOVO 2026-08-27 (#331): timeout na obe schemata (stall byl na https), rozliseny exit 124/137 od chyby apt, `sleep` uz jen mezi pokusy. Pinnuti mirroru **zamitnuto** — zdroje na tom image jsou mirrorlist a hostitel, na ktery apt prepnul, je ten, ktery se pak zasekl; duvod je v hlavicce [.github/workflows/ci.yml](.github/workflows/ci.yml), detail v [CHANGELOG.md](CHANGELOG.md).
