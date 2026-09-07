@@ -34,6 +34,10 @@
 	import { forwardMessage, replyToMessage } from '$lib/mail/actions.js';
 	import { deleteMessages, toggleMessageFlag, toggleMessageSeen } from '$lib/mail/mailbox.js';
 	import { loadSidebar } from '$lib/components/sidebar/loader.js';
+	// Straight from the module, never the sidebar-shell barrel: the barrel
+	// re-exports the component and would pull it out of its lazy chunk.
+	import { SIDEBAR_PANE_FRAME } from '$lib/components/ui/sidebar-shell/frame.js';
+	import { cn } from '$lib/utils.js';
 	import BootErrorView from '$lib/components/boot/BootErrorView.svelte';
 	import BootLoadingView from '$lib/components/boot/BootLoadingView.svelte';
 	import { resetUpdateStateForTests, showMockUpdateForTests } from '$lib/updates.js';
@@ -388,7 +392,19 @@
 			/>
 		{:else if $bootState.phase === 'ready' && $sessionState.status === 'ready' && $accountsState.status === 'ready'}
 			<AppRail />
-			{#await sidebarPromise then sidebarMod}
+			{#await sidebarPromise}
+				<!--
+					Holds the pane's slot open at its real width while the lazy chunk
+					loads. Not decoration: the sidebar sits left of <main>, so an empty
+					slot renders the whole content area a pane-width too far left and
+					then slides it right the instant the chunk lands — visible as a jump
+					on every cold start and every workspace switch, and the cause of a
+					flaky e2e click (see ui/sidebar-shell/frame.ts). Nothing inside it,
+					so a screen reader has nothing to announce and nothing to leave
+					behind; the real pane replaces it in the same slot.
+				-->
+				<div class={SIDEBAR_PANE_FRAME} aria-hidden="true"></div>
+			{:then sidebarMod}
 				{@const Sidebar = sidebarMod.default}
 				<Sidebar />
 			{:catch}
@@ -400,7 +416,7 @@
 					failed chunk from its cache, so navigating away and back retries.
 				-->
 				<div
-					class="flex h-full w-64 shrink-0 flex-col gap-2 border-r border-sidebar-border bg-sidebar px-3 py-4 text-sm text-muted-foreground"
+					class={cn(SIDEBAR_PANE_FRAME, 'gap-2 px-3 py-4 text-sm text-muted-foreground')}
 					role="alert"
 				>
 					{$_('app.sidebarLoadFailed')}

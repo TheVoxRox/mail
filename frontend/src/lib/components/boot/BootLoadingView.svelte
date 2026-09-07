@@ -2,6 +2,8 @@
 	import BootDiagnosticActions from '$lib/components/boot/BootDiagnosticActions.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { _ } from '$lib/i18n/index.js';
+	import { SIDEBAR_PANE_FRAME } from '$lib/components/ui/sidebar-shell/frame.js';
+	import { cn } from '$lib/utils.js';
 	import type { BootSlowLevel } from '$lib/stores/boot.js';
 
 	interface Props {
@@ -45,10 +47,7 @@
 		<div class="h-10 w-10 rounded-lg bg-sidebar-accent/20"></div>
 	</div>
 </div>
-<div
-	class="flex h-full w-64 shrink-0 flex-col gap-2 border-r border-sidebar-border bg-sidebar px-3 py-4"
-	aria-hidden="true"
->
+<div class={cn(SIDEBAR_PANE_FRAME, 'gap-2 px-3 py-4')} aria-hidden="true">
 	<div class="h-6 w-32 rounded-md bg-sidebar-accent/40"></div>
 	<div class="mt-3 flex flex-col gap-2">
 		<div class="h-4 w-full rounded-md bg-sidebar-accent/30"></div>
