@@ -57,9 +57,12 @@ final class ImapCondstoreCommands {
      * fetch: the server returns only the UID values with no headers/flags/body.
      *
      * <p>
-     * Use: detection of deleted messages (local UIDs minus server UIDs). A
-     * substitute for a full QRESYNC SELECT VANISHED, which would require raw access
-     * to the SELECT command outside the {@code folder.open()} flow.
+     * Use: detection of deleted messages (local UIDs minus server UIDs), and the
+     * server-only holes the same UID set reveals. It is the every-cycle deletion
+     * path only on a CONDSTORE-but-not-QRESYNC server; where QRESYNC is available
+     * the SELECT reports expunged UIDs itself (see
+     * {@code FlagSyncService.applyResyncEvents}) and this drops to the hourly hole
+     * scan, which is the half VANISHED does not cover.
      */
     static Set<Long> fetchAllServerUids(IMAPFolder folder) throws MessagingException {
         Object result = folder.doCommand(ImapCondstoreCommands::issueUidEnumerationCommand);
