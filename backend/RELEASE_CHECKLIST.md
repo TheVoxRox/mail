@@ -15,9 +15,8 @@ Tester:
 
 ## 1. Backend build
 
-- [x] `mvn -Dmaven.repo.local=.m2repo -Dapp.data-dir=target/test-data spotless:check`
-- [x] `mvn -Dmaven.repo.local=.m2repo -Dapp.data-dir=target/test-data package`
-- [x] Ověřit, že build hlásí `Tests run: 568, Failures: 0, Errors: 0, Skipped: 0` nebo vyšší aktuální počet.
+- [x] `mvn -Dmaven.repo.local=.m2repo -Dapp.data-dir=target/test-data clean verify` — jeden příkaz, ne `spotless:check` + `package` zvlášť. `clean` proto, že jinak SpotBugs analyzuje `__BeanDefinitions` po předchozím `-Paot package` a padne na generovaném kódu; `verify` proto, že `package` neodpálí failsafe integrační testy. Spotless i SpotBugs jedou uvnitř.
+- [x] Ověřit, že build hlásí `Failures: 0, Errors: 0, Skipped: 0` na obou sadách — surefire i failsafe. Počet testů se nezapisuje: rotuje rychleji, než se checklist čte, a žádná brána ho tady nepřepočítává.
 - [x] Vznikl artefakt `target/mail-backend-0.1.0.jar`.
 - [x] Windows sidecar balení prošlo přes `scripts/package-sidecar-windows.ps1`.
 - [x] Sidecar launcher `app/mail-x86_64-pc-windows-msvc.cfg` nese zapečené `...google.client-id` (ne `mail-local-*` placeholder). Signed workflow i `package-sidecar-dev-windows.ps1` to zajišťují; bare `package-sidecar-windows.ps1` bez OAuth env teď build shodí, pokud neběží s `-AllowPlaceholderOAuth`. **Ověřeno 2026-06-26** (`package-sidecar-dev-windows.ps1 -SkipTests`): 3 OAuth hodnoty injektnuty, vestavěný verifikační krok hlásí „Google client-id baked into the launcher; no placeholder"; `.cfg` nese `google.client-id` + `google.client-secret` + `microsoft.client-id`, žádný `mail-local-*`.
@@ -207,7 +206,7 @@ Smoke flow:
 - [ ] **Revize dočasných pinů a výjimek** (při každém release + při každém bumpu dotčené závislosti zkontrolovat removal conditions):
   - tomcat override `<tomcat.version>11.0.25</tomcat.version>` v `backend/pom.xml` — odstranit, až Spring Boot managed `tomcat.version` >= 11.0.25 (SB 4.1.1 = 11.0.24). Jediný zbylý backendový pin: obě jackson boms i log4j2 odpadly 2026-08-26 s Bootem 4.1.1.
   - quick-xml výjimka ve vuln-scanu — removal conditions u výjimky.
-  - dependabot ignore TypeScript 7.x (typescript-eslint cap < 6.1.0, viz #147).
+  - dependabot ignoruje TypeScript 7.x, protože typescript-eslint deklaruje peer `typescript >=4.8.4 <6.1.0` (viz #147). **Ten ignore není v `.github/dependabot.yml`** — drží ho vlastní stav dependabota z komentáře `@dependabot ignore this major version` na PR [#147](https://github.com/TheVoxRox/mail/pull/147) a zruší se jedině **znovuotevřením toho PR**. Kdo ho hledá v konfiguraci, nenajde nic a usoudí, že žádný neexistuje; proto to tady stojí napsané.
 
 ## 9. Release decision
 
