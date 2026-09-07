@@ -1,5 +1,6 @@
 <script lang="ts" module>
 	import { cn } from '$lib/utils.js';
+	import { SIDEBAR_PANE_FRAME } from './frame.js';
 	import type { Snippet } from 'svelte';
 	import type { HTMLAttributes } from 'svelte/elements';
 
@@ -48,10 +49,7 @@
 
 <section
 	aria-label={label}
-	class={cn(
-		'flex h-full w-68 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground',
-		className
-	)}
+	class={cn(SIDEBAR_PANE_FRAME, 'text-sidebar-foreground', className)}
 	{...restProps}
 >
 	{#if header}
