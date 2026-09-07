@@ -5,7 +5,7 @@
 | **Version**        | 1.6                                                                                                                                                                                                                                                                                          |
 | **Date**           | 2026-09-06                                                                                                                                                                                                                                                                                   |
 | **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                           |
-| **Audited commit** | `f5b75ad` (pre-squash; 1.5 anchor `885b98a`, re-verified 2026-09-02 at the ledger cap; 1.3–1.4 anchor `cad05cb`, recorded pre-squash as `3ff0c78`; 1.0–1.2 baseline: `35a06f3`)                                                                                                              |
+| **Audited commit** | `02ff962` (recorded pre-squash as `f5b75ad`; 1.5 anchor `885b98a`, re-verified 2026-09-02 at the ledger cap; 1.3–1.4 anchor `cad05cb`, recorded pre-squash as `3ff0c78`; 1.0–1.2 baseline: `35a06f3`)                                                                                        |
 | **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service`, `backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java`, `backend/src/main/java/org/voxrox/mailbackend/util/SubjectNormalizer.java`, `backend/src/main/java/org/voxrox/mailbackend/core/config/mail` |
 | **Auditor**        | Claude (Fable 5) + owner review                                                                                                                                                                                                                                                              |
 | **Subsystem**      | External mail server ↔ sidecar — Boundary 1 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                       |
@@ -398,7 +398,7 @@ one after 101.8 s — so the budget is empirically load-bearing, not decorative.
 
 ## 7. Change log
 
-- **1.6** (2026-09-06) — revised for the interactive-lane split (`f5b75ad`),
+- **1.6** (2026-09-06) — revised for the interactive-lane split (`02ff962`),
   **because a claim stopped being true, not because the ledger filled up**. §1
   said the folder-role lookup "degrades to folder scope rather than blocking
   behind a sync that holds the connection for a whole folder cycle". With two
