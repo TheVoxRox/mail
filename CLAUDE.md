@@ -114,6 +114,18 @@ someone a rework at least once. For the human-facing versions see
     unconditional `@Disabled` / `it.skip` needs a reason: the annotation
     argument in Java, a `test-skip:` comment above the call in TypeScript.
     `skipIf` states its own condition and passes.
+  - `check:e2e-focus` — an e2e test that takes focus itself may not then send a
+    key without saying where it landed. The app moves focus in that gap on
+    purpose (opening a message parks the reading cursor in the body frame a
+    frame later), so the key goes elsewhere and the test fails further down,
+    intermittently, on somebody else's PR. Two ways out, both already used
+    here: `waitForFocus(target)` between the two when the test is _about_
+    focus, or `target.press('Key')` instead of the pair when the key send is
+    incidental — Playwright focuses as part of the press, so the gap closes.
+    Only a `.focus()` the test performs itself arms it; focus arriving from a
+    click or from the app is a question the gate cannot judge and does not try
+    to. Exceptions take `// focus-settled: <reason>`. Three occurrences before
+    it existed (#284, #293, #412), the last costing four PRs in a day.
   - `check:rename-residue` (CI only) — a symbol the change stopped declaring
     may not still be named in source. It reads the **diff**, not the tree, and
     reports a name only once it is gone from code everywhere (code = the file

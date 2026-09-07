@@ -577,12 +577,10 @@ test.describe('Compose', () => {
 	test('Gmail zkratky Ctrl+Shift+C a Ctrl+Shift+B přesunou fokus na kopie', async ({ page }) => {
 		await openApp(page, '/compose');
 
-		await page.locator('#compose-body').focus();
-		await page.keyboard.press('Control+Shift+C');
+		await page.locator('#compose-body').press('Control+Shift+C');
 		await expect(page.locator('#compose-cc')).toBeFocused();
 
-		await page.locator('#compose-body').focus();
-		await page.keyboard.press('Control+Shift+B');
+		await page.locator('#compose-body').press('Control+Shift+B');
 		await expect(page.locator('#compose-bcc')).toBeFocused();
 	});
 

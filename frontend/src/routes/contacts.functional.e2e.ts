@@ -213,8 +213,7 @@ test.describe('Contacts', () => {
 		const cell = (row: number, col: number) =>
 			page.locator(`tbody [data-row-index="${row}"] [data-cell-target][data-col="${col}"]`);
 
-		await cell(0, 1).focus();
-		await page.keyboard.press('ArrowRight');
+		await cell(0, 1).press('ArrowRight');
 		await expect(cell(0, 2)).toBeFocused();
 
 		// The action buttons are cells of the row like any other.

@@ -36,6 +36,7 @@ test.describe('Seznam zpráv v režimu bez podokna čtení', () => {
 		const firstSubject = page.locator('[role="row"][data-stable-id="msg-01"] [data-col="2"]');
 		await expect(firstSubject).toBeVisible();
 		await firstSubject.focus();
+		await waitForFocus(firstSubject);
 
 		await page.keyboard.press('ArrowDown');
 
@@ -101,6 +102,7 @@ test.describe('Seznam zpráv v režimu bez podokna čtení', () => {
 		const firstSubject = page.locator('[role="row"][data-stable-id="msg-01"] [data-col="2"]');
 		await expect(firstSubject).toBeVisible();
 		await firstSubject.focus();
+		await waitForFocus(firstSubject);
 
 		await page.keyboard.press('PageDown');
 		await expect(page).toHaveURL(/\/mail\/1\/INBOX$/);
@@ -116,6 +118,7 @@ test.describe('Seznam zpráv v režimu bez podokna čtení', () => {
 		const secondSubject = page.locator('[role="row"][data-stable-id="msg-02"] [data-col="2"]');
 		await expect(secondSubject).toBeVisible();
 		await secondSubject.focus();
+		await waitForFocus(secondSubject);
 
 		await page.keyboard.press('Delete');
 
@@ -149,8 +152,7 @@ test.describe('Seznam zpráv v režimu bez podokna čtení', () => {
 		// the LAST deletion, after which no cell is left to receive focus.
 		const rows = rowsOf(page);
 		await expect(rows).toHaveCount(2);
-		await rows.first().locator('[data-col="2"]').focus();
-		await page.keyboard.press('Delete');
+		await rows.first().locator('[data-col="2"]').press('Delete');
 		await expect(rows).toHaveCount(1);
 
 		// No manual focus() here: the first deletion must have restored focus onto
@@ -209,6 +211,7 @@ test.describe('Koncepty ve split režimu', () => {
 		const firstSubject = page.locator('[role="row"][data-stable-id="draft-42"] [data-col="2"]');
 		await expect(firstSubject).toBeVisible();
 		await firstSubject.focus();
+		await waitForFocus(firstSubject);
 
 		await page.keyboard.press('ArrowDown');
 
@@ -238,6 +241,7 @@ test.describe('Seznam zpráv ve split režimu', () => {
 		const firstSubject = page.locator('[role="row"][data-stable-id="msg-01"] [data-col="2"]');
 		await expect(firstSubject).toBeVisible();
 		await firstSubject.focus();
+		await waitForFocus(firstSubject);
 
 		// A row change follows focus with the selection, so the message opens in
 		// the pane — but focus must stay on the roving grid cell. The body loads
@@ -302,6 +306,7 @@ test.describe('Seznam zpráv ve split režimu', () => {
 		const firstSubject = page.locator('[role="row"][data-stable-id="msg-01"] [data-col="2"]');
 		await expect(firstSubject).toBeVisible();
 		await firstSubject.focus();
+		await waitForFocus(firstSubject);
 
 		await page.evaluate(() => {
 			const log: string[] = [];
@@ -413,6 +418,7 @@ test.describe('Seznam zpráv ve split režimu', () => {
 		const first = page.locator('[role="row"][data-stable-id="msg-01"] [data-col="2"]');
 		await expect(first).toBeVisible();
 		await first.focus();
+		await waitForFocus(first);
 
 		// Reached by the roving selection, which is the case that breaks: the
 		// list is already mounted, so the restore fires before the navigation
@@ -434,8 +440,7 @@ test.describe('Seznam zpráv ve split režimu', () => {
 
 		const subject = page.locator('[role="row"][data-stable-id="msg-02"] [data-col="2"]');
 		await expect(subject).toBeVisible();
-		await subject.focus();
-		await page.keyboard.press('Enter');
+		await subject.press('Enter');
 		await page.waitForURL('**/mail/1/INBOX/msg-02');
 
 		// Deleting from the detail toolbar closes the detail and navigates back
@@ -459,8 +464,7 @@ test.describe('Seznam zpráv ve split režimu', () => {
 
 		const subject = page.locator('[role="row"][data-stable-id="msg-02"] [data-col="2"]');
 		await expect(subject).toBeVisible();
-		await subject.focus();
-		await page.keyboard.press('Enter');
+		await subject.press('Enter');
 		await page.waitForURL('**/mail/1/INBOX/msg-02');
 
 		await page.getByRole('link', { name: 'Zpět do složky Doručené' }).click();

@@ -49,8 +49,7 @@ test.describe('Fokus na tělo otevřené zprávy', () => {
 
 		const row = page.locator('[role="row"][data-stable-id="msg-01"]');
 		await expect(row).toBeVisible();
-		await row.focus();
-		await page.keyboard.press('Enter');
+		await row.press('Enter');
 		await page.waitForURL('**/mail/1/INBOX/msg-01');
 
 		const frame = bodyFrame(page);

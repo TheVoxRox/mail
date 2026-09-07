@@ -326,8 +326,7 @@ test.describe('Přístupnost', () => {
 				select.__showPickerCalls = (select.__showPickerCalls ?? 0) + 1;
 			};
 		});
-		await firstLabelSelect.focus();
-		await page.keyboard.press('ArrowDown');
+		await firstLabelSelect.press('ArrowDown');
 		await expect(firstLabelSelect).toHaveValue('');
 		await expect
 			.poll(() =>
@@ -393,8 +392,7 @@ test.describe('Přístupnost', () => {
 
 		// Arrow keys are the only way into the unchecked radio: a radio group is one
 		// tab stop, so row 2's control is reachable from row 1's, not by Tab.
-		await primaryRadio(1).focus();
-		await page.keyboard.press('ArrowDown');
+		await primaryRadio(1).press('ArrowDown');
 		await expect(primaryRadio(2)).toBeFocused();
 		await expect(primaryRadio(2)).toBeChecked();
 
@@ -841,8 +839,7 @@ test.describe('Přístupnost', () => {
 				};
 			});
 
-		await subjectCell(firstId).focus();
-		await page.keyboard.press('Control+End');
+		await subjectCell(firstId).press('Control+End');
 		await expect.poll(activeCell).toEqual({ stableId: lastId, col: '1' });
 
 		await page.keyboard.press('Control+Home');
