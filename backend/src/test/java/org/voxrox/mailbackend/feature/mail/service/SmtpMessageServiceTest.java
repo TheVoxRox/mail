@@ -13,7 +13,12 @@ import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.Properties;
 
+import jakarta.mail.Address;
+import jakarta.mail.Session;
+import jakarta.mail.Transport;
+import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
 
 import org.junit.jupiter.api.DisplayName;
@@ -28,10 +33,13 @@ import org.voxrox.mailbackend.core.metrics.MailMetrics;
 import org.voxrox.mailbackend.exception.AccountNotFoundException;
 import org.voxrox.mailbackend.feature.account.AccountLastError;
 import org.voxrox.mailbackend.feature.account.AccountLastErrorCode;
+import org.voxrox.mailbackend.feature.account.dto.AccountConnectionDetails;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.feature.account.service.AccountConnectionDetailsService;
 import org.voxrox.mailbackend.feature.account.service.AccountService;
+import org.voxrox.mailbackend.feature.auth.dto.AuthType;
+import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
 import org.voxrox.mailbackend.feature.mail.dto.MailRequest;
 import org.voxrox.mailbackend.feature.mail.dto.SendNotification;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
@@ -39,15 +47,22 @@ import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 /**
  * Unit tests for {@link SmtpMessageService}.
  *
- * We do not exercise actual SMTP sending — the whole pipeline is tightly
- * coupled with {@code jakarta.mail.Session.getInstance/getTransport} and a unit
- * test would require static mocking. Instead we verify:
+ * What this class verifies:
  *
  * - Early-exit paths in {@code sendDraftAsync} (draft not in DB, draft belongs
  * to a different account). - Boundary handling: any exception inside async
  * methods lands in {@code accountRepository.updateLastError(...)} and is not
  * propagated outward (the methods run in the {@code @Async} executor, so an
- * uncaught exception would have no handler).
+ * uncaught exception would have no handler). - The delivery itself, in
+ * {@code SuccessfulSend}.
+ *
+ * <p>
+ * This class used to say that the send could not be exercised because the
+ * pipeline was tightly coupled to {@code jakarta.mail.Session.getInstance} and
+ * would need static mocking. That stopped being true when the transport moved
+ * behind {@link SmtpTransportFactory}, which is mocked here like anything else
+ * — but the belief outlived the refactor, and the success branch stayed
+ * unasserted until a PIT sweep found every mutant on it alive.
  */
 @ExtendWith(MockitoExtension.class)
 class SmtpMessageServiceTest {
@@ -79,6 +94,14 @@ class SmtpMessageServiceTest {
     private SseNotificationService sseNotificationService;
     @Mock
     private DraftPersistenceService draftPersistenceService;
+
+    /**
+     * Real value rather than a mock — it is a record, and nothing here needs
+     * stubbing.
+     */
+    private static final AccountConnectionDetails CONNECTION_DETAILS = new AccountConnectionDetails(
+            "sender@example.com", "smtp.example.com", 587, false, "sender@example.com", "secret", AuthType.PASSWORD,
+            null);
 
     @InjectMocks
     private SmtpMessageService service;
@@ -320,6 +343,65 @@ class SmtpMessageServiceTest {
             ArgumentCaptor<SendNotification> sent = ArgumentCaptor.forClass(SendNotification.class);
             verify(sseNotificationService).broadcast(sent.capture());
             assertThat(sent.getValue().recoveryDraftStableId()).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("sendEmailAsync — the delivery itself")
+    class SuccessfulSend {
+
+        /**
+         * Found by a PIT sweep: every {@code VoidMethodCallMutator} on the success
+         * branch of {@code sendEmailAsync} survived, including the one that removes
+         * {@code Transport::sendMessage}. The suite exercised the method only through
+         * failure paths, so the send could be deleted outright and every test still
+         * passed — on the one code path whose failure mode is "the user believes the
+         * mail went out".
+         */
+        @Test
+        @DisplayName("A successful send transports the message, reports completion and clears the send error")
+        void successfulSendDeliversAndReportsCompletion() throws Exception {
+            AccountEntity account = new AccountEntity();
+            account.setId(ACCOUNT_ID);
+            account.setEmail("sender@example.com");
+
+            Session session = Session.getInstance(new Properties());
+            Transport transport = mock(Transport.class);
+            MimeMessage message = mock(MimeMessage.class);
+            Address[] recipients = {new InternetAddress("to@example.com")};
+
+            when(connectionDetailsService.getSmtpConnectionDetails(ACCOUNT_ID)).thenReturn(CONNECTION_DETAILS);
+            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
+            when(transportFactory.createSession(CONNECTION_DETAILS)).thenReturn(session);
+            when(transportFactory.openTransport(eq(ACCOUNT_ID), eq(session), eq(CONNECTION_DETAILS)))
+                    .thenReturn(transport);
+            when(mimeMessageBuilder.build(eq(session), eq(account), any(MailRequest.class),
+                    any(MimeMessageBuilder.AddressPolicy.class), any(MimeMessageBuilder.BodyFormat.class)))
+                    .thenReturn(message);
+            when(message.getAllRecipients()).thenReturn(recipients);
+
+            MailRequest req = new MailRequest("to@example.com", null, null, "subj", "body", null, null, null);
+            service.sendEmailAsync(ACCOUNT_ID, req, SEND_ID, null);
+
+            // The delivery actually happened — this is the assertion whose absence
+            // let the mutant live.
+            verify(transport).sendMessage(message, recipients);
+
+            // The client is told the send completed, not that it failed.
+            ArgumentCaptor<SendNotification> sent = ArgumentCaptor.forClass(SendNotification.class);
+            verify(sseNotificationService).broadcast(sent.capture());
+            assertThat(sent.getValue().type()).isEqualTo(SendNotification.TYPE_COMPLETED);
+            assertThat(sent.getValue().sendId()).isEqualTo(SEND_ID);
+
+            // Post-send bookkeeping: the copy lands in Sent and the send-pipeline
+            // error slot is cleared rather than left showing a stale failure.
+            verify(appendService).appendByRole(ACCOUNT_ID, FolderRole.SENT, message, true);
+            verify(accountRepository).clearLastErrorIfCodeIn(ACCOUNT_ID, AccountLastErrorCode.SEND_PIPELINE_CODES);
+            verify(accountRepository, never()).updateLastError(anyLong(), any(), any(LocalDateTime.class));
+
+            // Success outcome on the metric, and the transport is handed back.
+            verify(mailMetrics).recordSmtpSend(any(), eq(MailMetrics.OUTCOME_SUCCESS));
+            verify(transportFactory).closeQuietly(transport, ACCOUNT_ID);
         }
     }
 

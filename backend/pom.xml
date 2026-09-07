@@ -772,6 +772,82 @@
 
 	<profiles>
 		<!--
+			Mutacni testovani (PIT) — hleda testy, ktere nic netvrdi. Zamerne
+			NENI brana a NENI navazany na zadnou fazi: burn-down vsech prezivsich
+			mutantu by byl vlastni projekt, kdezto obcasny cileny sweep najde
+			presne to, kvuli cemu tohle vzniklo — test, ktery kod spusti, ale
+			nic o nem netvrdi, a proto projde i po regresi.
+
+			Spousteni (scope je povinny, cely strom by bezel hodiny):
+
+			  mvn -Ppit -Dpit.targetClasses=org.voxrox.mailbackend.feature.mail.service.* \
+			      -Dpit.targetTests=org.voxrox.mailbackend.* \
+			      test-compile org.pitest:pitest-maven:mutationCoverage
+
+			`test-compile` v tom prikazu je POVINNY, ne zvyk. Surefire argLine
+			nese -javaagent:${org.mockito:mockito-core:jar} a tu property plni
+			dependency:properties na fazi `initialize`; holy goal lifecycle
+			preskoci, PIT preda minionu doslovny `${...}` jako cestu k agentovi
+			a spadne na `MINION_DIED` s hlaskou o poskozenem zipu, ktera na
+			skutecnou pricinu neukazuje.
+
+			Obe hodnoty jsou JEDEN glob, ne seznam: mojo je bere jako jeden
+			<param>, takze carkami oddeleny vycet se nerozpadne a PIT hlasi
+			"No mutations found" misto chyby. Na vic balicku pust vic behu.
+			`targetTests` nechavej siroky — PIT si testy vybira podle pokryti,
+			zuzeni jen skryje mutanty, ktere zabiji test odjinud.
+
+			Report: target/pit-reports/index.html. Zajimavi jsou SURVIVED
+			mutanti v kodu, ktery test prokazatelne prochazi — tam bud chybi
+			assertion, nebo tvrdi neco jineho, nez si mysli. NO_COVERAGE je jina
+			trida nalezu (nepokryty kod), na tenhle sweep nepatri.
+
+			JaCoCo agent se PITu do cesty neplete: PIT si forkuje vlastni JVM
+			a surefire argLine do nej neputuje.
+		-->
+		<profile>
+			<id>pit</id>
+			<properties>
+				<pit.targetClasses>org.voxrox.mailbackend.*</pit.targetClasses>
+				<pit.targetTests>org.voxrox.mailbackend.*</pit.targetTests>
+			</properties>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.pitest</groupId>
+						<artifactId>pitest-maven</artifactId>
+						<version>1.30.0</version>
+						<dependencies>
+							<dependency>
+								<!-- Bez tohohle PIT sadu JUnit 5 vubec nenajde a nahlasi 0 testu. -->
+								<groupId>org.pitest</groupId>
+								<artifactId>pitest-junit5-plugin</artifactId>
+								<version>1.2.3</version>
+							</dependency>
+						</dependencies>
+						<configuration>
+							<targetClasses>
+								<param>${pit.targetClasses}</param>
+							</targetClasses>
+							<targetTests>
+								<param>${pit.targetTests}</param>
+							</targetTests>
+							<outputFormats>
+								<param>HTML</param>
+								<param>XML</param>
+							</outputFormats>
+							<!-- Stabilni cesta k reportu, at jde diffovat mezi behy. -->
+							<timestampedReports>false</timestampedReports>
+							<!-- Sweep hlasi nalezy, neshazuje build — prah by z nej udelal branu. -->
+							<failWhenNoMutations>false</failWhenNoMutations>
+							<mutationThreshold>0</mutationThreshold>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+
+		<!--
 			Spring AOT mode pro produkcni sidecar build. Generuje AOT artefakty
 			(reflection metadata, optimalizovany bean factory) do jar. Pri behu
 			je aktivuje JVM option -Dspring.aot.enabled=true (viz
