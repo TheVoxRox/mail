@@ -101,6 +101,9 @@ instead of installing an older bundle over a newer one.
 
 ## Generated config files (gitignored)
 
-`src-tauri/tauri.release.conf.json` and `src-tauri/tauri.signing.conf.json` are
-generated from environment variables and ignored by Git so release metadata is
-not committed accidentally.
+`src-tauri/tauri.release.conf.json` is generated from environment variables by
+`npm run tauri:release-config:windows` and ignored by Git so release metadata is
+not committed accidentally. It is the only generated config the release path
+uses — the workflow always builds with `--config src-tauri/tauri.release.conf.json`,
+and that file carries both the updater plugin and (when a certificate is
+configured) the Authenticode block.
