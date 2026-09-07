@@ -147,12 +147,16 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "6e34d87918df85bb9843abac5886631c27ef0116"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "eaaf61bce6f592c7263f6e212540b8ae2f310f3b"
     },
     "acknowledgements": [
       {
         "date": "2026-09-07",
         "note": "Behavioural change under this path, reviewed claim by claim rather than waved through as a perf tweak. The sync cycle stopped issuing UID FETCH 1:* (UID) every cycle and now opens the folder with a QRESYNC parameter, so the SELECT itself reports expunged UIDs and flag changes. What that adds to this boundary is one new server-controlled input — the UID set in a VANISHED (EARLIER) response, which Angus parses into a long[] before our code sees it — and what it removes is a per-cycle O(server folder) FETCH. Section 1 (transport, TLS, authentication) is untouched: the diff creates no Session, sets no mail.* property and does not enter the SMTP path, and the ENABLE QRESYNC that Angus sends goes over the already-authenticated connection just before SELECT, so nothing moves ahead of the identity and OAuth-plaintext checks that section rests on. Section 2 holds: the QRESYNC FETCH carries UID, FLAGS and MODSEQ, never a body, so \"list sync fetches metadata only\" is still true and the body-fetch bound (B1-1, section 4) is on a path this diff does not touch. \"UIDVALIDITY is cross-checked\" holds and is not weakened by passing uidvalidity into SELECT — RFC 7162 has the server ignore the whole QRESYNC parameter when it does not match, and handleUidValidity still runs after every open, unchanged. The one new authority is worth naming rather than hiding in a diff: a hostile server can list UIDs in VANISHED that it never held, and the client deletes those local rows. It is the same authority the enumeration already handed it, since a UID missing from UID FETCH 1:* was deleted the same way, so the trust model does not move — the server has always been authoritative for what exists on the server. The DoS surface shrinks rather than grows: what the client parses is now bounded by the UID range it asks about instead of the whole folder, and the delete is chunked by batch-size. One more thing the diff does, and it is the opposite of a new risk: a server that advertises QRESYNC and then rejects it degrades to a plain SELECT instead of failing the cycle, so no folder becomes unsyncable. Verdict stays PASS."
+      },
+      {
+        "date": "2026-09-07",
+        "note": "Comment only, and checked as such rather than assumed: the whole delta under this path is one javadoc block on ImapCondstoreCommands.fetchAllServerUids, which still described itself as a substitute for a QRESYNC SELECT that \"would require raw access to the SELECT command outside the folder.open() flow\" — the premise the previous commit disproved. No statement, argument list, annotation or import moved; the method issues the same UID FETCH 1:* (UID) it did before. Every claim in this audit therefore holds by construction, since none of them rests on a comment. Verdict stays PASS. Recorded as its own entry rather than folded into the one above because the two are different judgements a day apart, and the cap counts judgements."
       }
     ]
   }
