@@ -17,6 +17,7 @@ import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
 import org.voxrox.mailbackend.feature.mail.repository.FolderSyncStateRepository;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
 import org.voxrox.mailbackend.feature.mail.service.ImapConnectionManager.Lane;
+import org.voxrox.mailbackend.feature.mail.service.ImapFolderExecutor.ResyncRequest;
 import org.voxrox.mailbackend.util.LogCategory;
 
 import module java.base;
@@ -49,6 +50,18 @@ public class ImapFolderService {
         } else {
             return imapFolderExecutor.executeReadOnly(accountId, lane, folderName, action);
         }
+    }
+
+    /**
+     * Read-only open that carries the caller's QRESYNC state into the SELECT, so
+     * the server reports what changed instead of the client asking afterwards. Only
+     * the sync cycle has that state; see
+     * {@link ImapFolderExecutor#executeReadOnlyResynced} for the contract,
+     * including what a {@code null} event list means.
+     */
+    public <R> @Nullable R executeInFolderResynced(Long accountId, Lane lane, String folderName,
+            @Nullable ResyncRequest resync, ImapResyncFolderAction<R> action) {
+        return imapFolderExecutor.executeReadOnlyResynced(accountId, lane, folderName, resync, action);
     }
 
     /**

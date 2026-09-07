@@ -53,14 +53,10 @@ public final class ImapCapabilities {
      * {@code SELECT folder (QRESYNC (uidvalidity modseq))} with an untagged
      * VANISHED response instead of UID enumeration to detect deleted messages.
      * <p>
-     * <b>Deliberately unused so far</b> — the probe result is recorded, but the
-     * sync still detects deletions by UID sweep. Adopting the VANISHED path means
-     * reworking {@code ImapFolderExecutor} (the SELECT itself has to carry the
-     * QRESYNC parameters), which {@code todo.md} defers to after the release. Do
-     * not delete this as dead code: it is the gate that work switches on.
+     * Gates the resynchronized open in
+     * {@link ImapFolderExecutor#executeReadOnlyResynced}: asking a server that does
+     * not advertise QRESYNC for it is a protocol error, not a graceful degradation.
      */
-    // @callerless The probe records the capability the VANISHED rework will
-    // switch on; todo.md defers that rework past the release.
     public boolean hasQresync() {
         return qresync;
     }

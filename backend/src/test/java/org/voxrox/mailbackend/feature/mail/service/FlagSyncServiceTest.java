@@ -1,6 +1,7 @@
 package org.voxrox.mailbackend.feature.mail.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -74,6 +75,9 @@ class FlagSyncServiceTest {
     private MailboxMaintenanceService maintenanceService;
 
     @Mock
+    private UidEnumerationSchedule enumerationSchedule;
+
+    @Mock
     private Folder folder;
 
     @Mock
@@ -116,7 +120,7 @@ class FlagSyncServiceTest {
     @BeforeEach
     void setUp() {
         service = new FlagSyncService(messageRepository, syncStateService, maintenanceService,
-                inlineTransactionTemplate(), propsWithBatchSize(2));
+                inlineTransactionTemplate(), propsWithBatchSize(2), enumerationSchedule);
 
         AccountEntity account = new AccountEntity();
         account.setId(ACCOUNT_ID);
@@ -302,6 +306,213 @@ class FlagSyncServiceTest {
                     captor.capture());
             assertThat(captor.getValue()).containsExactly(11L);
             assertThat(holes).containsExactly(13L);
+        }
+    }
+
+    /**
+     * The QRESYNC path, which no integration test can reach: GreenMail advertises
+     * neither CONDSTORE nor QRESYNC, so a real SELECT never returns VANISHED here.
+     * The events are therefore built the way Angus builds them — a
+     * {@link org.eclipse.angus.mail.imap.MessageVanishedEvent} carrying raw UIDs
+     * and a {@link jakarta.mail.event.MessageChangedEvent} carrying a message whose
+     * UID the folder resolves.
+     */
+    @Nested
+    @DisplayName("QRESYNC — applying what the SELECT reported")
+    class ApplyResyncEvents {
+
+        private FolderSyncContext imapCtx;
+        private org.eclipse.angus.mail.imap.IMAPFolder imapFolder;
+
+        @BeforeEach
+        void setUpImapFolder() throws MessagingException {
+            imapFolder = org.mockito.Mockito.mock(org.eclipse.angus.mail.imap.IMAPFolder.class);
+            imapCtx = new FolderSyncContext(ctx.account(), FOLDER, imapFolder, uidFolder, syncState);
+            // Every test here reaches persistHighestModseq; the one about a server that
+            // reports none re-stubs this with -1.
+            lenient().when(imapFolder.getHighestModSeq()).thenReturn(99L);
+        }
+
+        private org.eclipse.angus.mail.imap.MessageVanishedEvent vanished(long... uids) {
+            return new org.eclipse.angus.mail.imap.MessageVanishedEvent(imapFolder, uids);
+        }
+
+        @Test
+        @DisplayName("VANISHED UIDs are deleted")
+        void vanishedUidsAreDeleted() {
+            service.applyResyncEvents(imapCtx, List.of(vanished(11L, 12L)));
+
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<List<Long>> captor = ArgumentCaptor.forClass(List.class);
+            verify(messageRepository).deleteAllByAccountIdAndFolderNameAndUidIn(eq(ACCOUNT_ID), eq(FOLDER),
+                    captor.capture());
+            assertThat(captor.getValue()).containsExactly(11L, 12L);
+        }
+
+        /**
+         * The server's VANISHED set is bounded by the UID range the client asked about,
+         * not by the rows it holds inside it, so the delete has to be chunked — an
+         * unbounded {@code IN} list eventually exceeds what the database accepts in one
+         * statement. batch-size is 2 in this fixture.
+         */
+        @Test
+        @DisplayName("A vanished set larger than batch-size is deleted in batches")
+        void vanishedUidsAreDeletedInBatches() {
+            service.applyResyncEvents(imapCtx, List.of(vanished(11L, 12L, 13L)));
+
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<List<Long>> captor = ArgumentCaptor.forClass(List.class);
+            verify(messageRepository, times(2)).deleteAllByAccountIdAndFolderNameAndUidIn(eq(ACCOUNT_ID), eq(FOLDER),
+                    captor.capture());
+            assertThat(captor.getAllValues()).containsExactly(List.of(11L, 12L), List.of(13L));
+        }
+
+        @Test
+        @DisplayName("A FETCH in the QRESYNC response updates the message's flags")
+        void flagChangesAreApplied() throws Exception {
+            Message m = mockMessage(true, false, true);
+            when(uidFolder.getUID(m)).thenReturn(10L);
+
+            service.applyResyncEvents(imapCtx, List.of(new jakarta.mail.event.MessageChangedEvent(imapFolder,
+                    jakarta.mail.event.MessageChangedEvent.FLAGS_CHANGED, m)));
+
+            verify(messageRepository).updateFlagsIfChanged(ACCOUNT_ID, FOLDER, 10L, true, false, true);
+        }
+
+        @Test
+        @DisplayName("An ENVELOPE_CHANGED event carries no flags and is ignored")
+        void envelopeChangeIsIgnored() {
+            Message m = org.mockito.Mockito.mock(Message.class);
+
+            service.applyResyncEvents(imapCtx, List.of(new jakarta.mail.event.MessageChangedEvent(imapFolder,
+                    jakarta.mail.event.MessageChangedEvent.ENVELOPE_CHANGED, m)));
+
+            verify(messageRepository, never()).updateFlagsIfChanged(anyLong(), anyString(), anyLong(),
+                    any(boolean.class), any(boolean.class), any(boolean.class));
+        }
+
+        @Test
+        @DisplayName("An unreadable flag change is skipped, not fatal")
+        void unreadableFlagChangeIsSkipped() throws Exception {
+            Message m = org.mockito.Mockito.mock(Message.class);
+            when(uidFolder.getUID(m)).thenThrow(new MessagingException("no UID"));
+
+            service.applyResyncEvents(imapCtx, List.of(new jakarta.mail.event.MessageChangedEvent(imapFolder,
+                    jakarta.mail.event.MessageChangedEvent.FLAGS_CHANGED, m)));
+
+            verify(messageRepository, never()).updateFlagsIfChanged(anyLong(), anyString(), anyLong(),
+                    any(boolean.class), any(boolean.class), any(boolean.class));
+            verify(syncStateService).updateLastKnownModseq(SYNC_STATE_ID, 99L);
+        }
+
+        /**
+         * Order, not just occurrence: MODSEQ is the resume point of the next SELECT, so
+         * storing it before the events are applied would let a crash in between skip
+         * them for good. Applying first and storing after only costs a repeated
+         * (idempotent) report.
+         */
+        @Test
+        @DisplayName("HIGHESTMODSEQ is stored after the events are applied, never before")
+        void highestModseqIsStoredLast() {
+            service.applyResyncEvents(imapCtx, List.of(vanished(11L)));
+
+            org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(messageRepository, syncStateService);
+            inOrder.verify(messageRepository).deleteAllByAccountIdAndFolderNameAndUidIn(eq(ACCOUNT_ID), eq(FOLDER),
+                    any());
+            inOrder.verify(syncStateService).updateLastKnownModseq(SYNC_STATE_ID, 99L);
+            assertThat(syncState.getLastKnownModseq()).isEqualTo(99L);
+        }
+
+        /**
+         * -1 is what {@code getHighestModSeq()} returns when the server reported none.
+         * Storing it would make the next SELECT ask to resync from a MODSEQ that never
+         * existed; keeping the previous value only costs a redundant report.
+         */
+        @Test
+        @DisplayName("A server reporting no HIGHESTMODSEQ leaves the stored value alone")
+        void absentHighestModseqIsNotStored() throws Exception {
+            when(imapFolder.getHighestModSeq()).thenReturn(-1L);
+            syncState.setLastKnownModseq(50L);
+
+            service.applyResyncEvents(imapCtx, List.of());
+
+            verify(syncStateService, never()).updateLastKnownModseq(anyLong(), anyLong());
+            assertThat(syncState.getLastKnownModseq()).isEqualTo(50L);
+        }
+    }
+
+    /**
+     * On a QRESYNC server the enumeration is no longer how deletions are found, so
+     * it runs on {@link UidEnumerationSchedule}'s slow cadence — but it is still
+     * the only thing that sees a server-only hole, so it must not be dropped.
+     */
+    @Nested
+    @DisplayName("QRESYNC — hole scan cadence")
+    class HoleScanCadence {
+
+        private FolderSyncContext imapCtx;
+        private org.eclipse.angus.mail.imap.IMAPFolder imapFolder;
+
+        @BeforeEach
+        void setUpImapFolder() {
+            imapFolder = org.mockito.Mockito.mock(org.eclipse.angus.mail.imap.IMAPFolder.class);
+            imapCtx = new FolderSyncContext(ctx.account(), FOLDER, imapFolder, uidFolder, syncState);
+        }
+
+        @Test
+        @DisplayName("Not due -> no enumeration command, no DB read, no holes")
+        void notDueSkipsTheEnumerationEntirely() throws Exception {
+            when(enumerationSchedule.isDue(ACCOUNT_ID, FOLDER)).thenReturn(false);
+
+            assertThat(service.cleanupDeletedViaUidEnumerationIfDue(imapCtx)).isEmpty();
+
+            verify(imapFolder, never()).doCommand(any());
+            verifyNoInteractions(messageRepository);
+        }
+
+        @Test
+        @DisplayName("Due -> the enumeration runs and reports the interior hole")
+        void dueRunsTheEnumeration() throws Exception {
+            when(enumerationSchedule.isDue(ACCOUNT_ID, FOLDER)).thenReturn(true);
+            when(messageRepository.findUidsByAccountAndFolder(ACCOUNT_ID, FOLDER)).thenReturn(List.of(10L, 12L));
+            when(imapFolder.doCommand(any())).thenReturn(java.util.Set.of(10L, 11L, 12L));
+
+            assertThat(service.cleanupDeletedViaUidEnumerationIfDue(imapCtx)).containsExactly(11L);
+            verify(enumerationSchedule).markRan(ACCOUNT_ID, FOLDER);
+        }
+
+        /**
+         * A scan that died on the IMAP fetch has not happened. Counting it would leave
+         * the folder's holes unlooked-for for a whole interval on the strength of a
+         * failed attempt — including on the cycle's own retry, which reconnects and
+         * calls this again.
+         */
+        @Test
+        @DisplayName("A scan that fails mid-fetch does not count as having run")
+        void failedEnumerationDoesNotMarkTheSchedule() throws Exception {
+            when(messageRepository.findUidsByAccountAndFolder(ACCOUNT_ID, FOLDER)).thenReturn(List.of(10L));
+            when(imapFolder.doCommand(any())).thenThrow(new MessagingException("connection reset"));
+
+            assertThatThrownBy(() -> service.cleanupDeletedViaUidEnumeration(imapCtx))
+                    .isInstanceOf(MessagingException.class);
+
+            verify(enumerationSchedule, never()).markRan(anyLong(), anyString());
+        }
+
+        /**
+         * The mark lives in the enumeration itself, not in the caller, so a cycle that
+         * ran it for another reason — a CONDSTORE-only server, or a folder's first
+         * cycle — also resets the clock instead of leaving a redundant scan queued
+         * right behind it.
+         */
+        @Test
+        @DisplayName("Every enumeration resets the schedule, including one nobody asked to throttle")
+        void enumerationMarksTheSchedule() throws Exception {
+            when(messageRepository.findUidsByAccountAndFolder(ACCOUNT_ID, FOLDER)).thenReturn(List.of());
+
+            service.cleanupDeletedViaUidEnumeration(imapCtx);
+
+            verify(enumerationSchedule).markRan(ACCOUNT_ID, FOLDER);
         }
     }
 

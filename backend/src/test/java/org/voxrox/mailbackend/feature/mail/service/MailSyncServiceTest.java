@@ -20,7 +20,9 @@ import java.util.Optional;
 import jakarta.mail.Folder;
 import jakarta.mail.MessagingException;
 import jakarta.mail.UIDFolder;
+import jakarta.mail.event.MailEvent;
 
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -125,10 +127,26 @@ class MailSyncServiceTest {
      * classes that exercise behavior inside the IMAP open path.
      */
     private void stubExecuteInFolderRunCallback(Folder folder) {
-        when(imapFolderService.executeInFolder(eq(ACCOUNT_ID), any(), any(String.class), anyInt(), any()))
+        /*
+         * Both open paths, and both lenient: the sync cycle goes through
+         * executeInFolderResynced and everything else through executeInFolder, so any
+         * one test uses one of them. Strict stubbing would fail every test on the other
+         * one.
+         *
+         * The resynced stub hands the action a null event list — "opened plainly",
+         * which is what a mock Folder with no Store can produce anyway — so these tests
+         * keep exercising the pre-QRESYNC branch they were written for.
+         */
+        lenient().when(imapFolderService.executeInFolder(eq(ACCOUNT_ID), any(), any(String.class), anyInt(), any()))
                 .thenAnswer(inv -> {
                     org.voxrox.mailbackend.feature.mail.service.ImapFolderAction<?> action = inv.getArgument(4);
                     return action.apply(folder, mock(UIDFolder.class));
+                });
+        lenient()
+                .when(imapFolderService.executeInFolderResynced(eq(ACCOUNT_ID), any(), any(String.class), any(), any()))
+                .thenAnswer(inv -> {
+                    org.voxrox.mailbackend.feature.mail.service.ImapResyncFolderAction<?> action = inv.getArgument(4);
+                    return action.apply(folder, mock(UIDFolder.class), null);
                 });
     }
 
@@ -169,9 +187,8 @@ class MailSyncServiceTest {
 
             service.syncAllFolders(account, SyncTrigger.SCHEDULED);
 
-            // runFolderCycle -> executeInFolder once per role-matched folder.
-            verify(imapFolderService, times(5)).executeInFolder(eq(ACCOUNT_ID), any(), any(),
-                    eq(jakarta.mail.Folder.READ_ONLY), any());
+            // runFolderCycle -> executeInFolderResynced once per role-matched folder.
+            verify(imapFolderService, times(5)).executeInFolderResynced(eq(ACCOUNT_ID), any(), any(), any(), any());
             verify(lockManager).unlock(ACCOUNT_ID);
         }
 
@@ -295,10 +312,10 @@ class MailSyncServiceTest {
             service.syncAllFolders(account, SyncTrigger.SCHEDULED);
 
             // Only SENT ran; the skipped INBOX released nothing it never acquired.
-            verify(imapFolderService, times(1)).executeInFolder(eq(ACCOUNT_ID), eq(Lane.BACKGROUND), eq("[Gmail]/Sent"),
-                    eq(jakarta.mail.Folder.READ_ONLY), any());
-            verify(imapFolderService, never()).executeInFolder(eq(ACCOUNT_ID), eq(Lane.BACKGROUND), eq("INBOX"),
-                    eq(jakarta.mail.Folder.READ_ONLY), any());
+            verify(imapFolderService, times(1)).executeInFolderResynced(eq(ACCOUNT_ID), eq(Lane.BACKGROUND),
+                    eq("[Gmail]/Sent"), any(), any());
+            verify(imapFolderService, never()).executeInFolderResynced(eq(ACCOUNT_ID), eq(Lane.BACKGROUND), eq("INBOX"),
+                    any(), any());
             verify(lockManager, never()).unlockFolder(ACCOUNT_ID, "INBOX");
             verify(lockManager).unlockFolder(ACCOUNT_ID, "[Gmail]/Sent");
             // An incomplete pass must not clear a last_error the concurrent
@@ -316,8 +333,8 @@ class MailSyncServiceTest {
 
             service.syncAllFolders(account, SyncTrigger.SCHEDULED);
 
-            verify(imapFolderService, times(1)).executeInFolder(eq(ACCOUNT_ID), eq(Lane.BACKGROUND), eq("INBOX"),
-                    eq(jakarta.mail.Folder.READ_ONLY), any());
+            verify(imapFolderService, times(1)).executeInFolderResynced(eq(ACCOUNT_ID), eq(Lane.BACKGROUND),
+                    eq("INBOX"), any(), any());
         }
     }
 
@@ -560,8 +577,10 @@ class MailSyncServiceTest {
         void noBackfillOnLaterPages() throws Exception {
             service.syncAndBackfill(account, "INBOX", 1);
 
-            verify(imapFolderService, times(1)).executeInFolder(eq(ACCOUNT_ID), eq(Lane.BACKGROUND), eq("INBOX"),
-                    eq(jakarta.mail.Folder.READ_ONLY), any());
+            verify(imapFolderService, times(1)).executeInFolderResynced(eq(ACCOUNT_ID), eq(Lane.BACKGROUND),
+                    eq("INBOX"), any(), any());
+            // The backfill open is the other method; page>0 must not reach it at all.
+            verify(imapFolderService, never()).executeInFolder(anyLong(), any(), any(), anyInt(), any());
             verify(messageDownloader, never()).downloadSequenceRange(any(), anyInt(), anyInt());
         }
 
@@ -601,6 +620,7 @@ class MailSyncServiceTest {
 
             service.syncAndBackfill(account, "INBOX", 0);
 
+            verify(imapFolderService, never()).executeInFolderResynced(anyLong(), any(), any(), any(), any());
             verify(imapFolderService, never()).executeInFolder(anyLong(), any(), any(), anyInt(), any());
             verify(messageRepository, never()).countByAccountIdAndFolderName(anyLong(), any());
             verify(lockManager, never()).unlockFolder(anyLong(), any());
@@ -609,8 +629,8 @@ class MailSyncServiceTest {
         @Test
         @DisplayName("Releases the folder lock even when the cycle throws")
         void releasesFolderLockOnFailure() {
-            when(imapFolderService.executeInFolder(eq(ACCOUNT_ID), eq(Lane.BACKGROUND), eq("INBOX"),
-                    eq(jakarta.mail.Folder.READ_ONLY), any())).thenThrow(new RuntimeException("folder open failed"));
+            when(imapFolderService.executeInFolderResynced(eq(ACCOUNT_ID), eq(Lane.BACKGROUND), eq("INBOX"), any(),
+                    any())).thenThrow(new RuntimeException("folder open failed"));
 
             service.syncAndBackfillAsync(account, "INBOX", 1);
 
@@ -620,8 +640,8 @@ class MailSyncServiceTest {
         @Test
         @DisplayName("syncAndBackfillAsync catches outermost exception and writes last_error")
         void asyncBoundaryRecordsLastError() {
-            when(imapFolderService.executeInFolder(eq(ACCOUNT_ID), eq(Lane.BACKGROUND), eq("INBOX"),
-                    eq(jakarta.mail.Folder.READ_ONLY), any())).thenThrow(new RuntimeException("folder open failed"));
+            when(imapFolderService.executeInFolderResynced(eq(ACCOUNT_ID), eq(Lane.BACKGROUND), eq("INBOX"), any(),
+                    any())).thenThrow(new RuntimeException("folder open failed"));
 
             service.syncAndBackfillAsync(account, "INBOX", 0);
 
@@ -773,6 +793,122 @@ class MailSyncServiceTest {
             assertThat(total).isEqualTo(123L);
             verify(messageDownloader, never()).downloadSequenceRange(any(), anyInt(), anyInt());
             verify(folderCountCache, never()).put(anyLong(), any(), anyLong());
+        }
+    }
+
+    /**
+     * What the cycle asks the SELECT for, and what it stops asking afterwards. No
+     * integration test can cover this: GreenMail advertises neither CONDSTORE nor
+     * QRESYNC, so a real SELECT here never resynchronizes anything.
+     */
+    @Nested
+    @DisplayName("QRESYNC — the resync request and the branch it takes")
+    class ResyncRequest {
+
+        private FolderSyncStateEntity stateWith(@Nullable Long uidValidity, @Nullable Long modseq) {
+            FolderSyncStateEntity state = new FolderSyncStateEntity();
+            state.setUidValidity(uidValidity);
+            state.setLastKnownModseq(modseq);
+            return state;
+        }
+
+        private org.voxrox.mailbackend.feature.mail.service.ImapFolderExecutor.ResyncRequest captureRequest() {
+            ArgumentCaptor<org.voxrox.mailbackend.feature.mail.service.ImapFolderExecutor.ResyncRequest> captor = ArgumentCaptor
+                    .forClass(org.voxrox.mailbackend.feature.mail.service.ImapFolderExecutor.ResyncRequest.class);
+            verify(imapFolderService).executeInFolderResynced(eq(ACCOUNT_ID), eq(Lane.BACKGROUND), eq("INBOX"),
+                    captor.capture(), any());
+            return captor.getValue();
+        }
+
+        @Test
+        @DisplayName("The request carries the mirrored UID window, so the server reports only about it")
+        void requestCarriesTheMirroredWindow() {
+            when(syncStateService.findState(ACCOUNT_ID, "INBOX")).thenReturn(Optional.of(stateWith(12L, 77L)));
+            when(messageRepository.findMinUid(ACCOUNT_ID, "INBOX")).thenReturn(10L);
+            when(messageRepository.findMaxUid(ACCOUNT_ID, "INBOX")).thenReturn(50L);
+
+            service.performFullSyncCycle(account, "INBOX", FolderRole.INBOX);
+
+            assertThat(captureRequest())
+                    .isEqualTo(new org.voxrox.mailbackend.feature.mail.service.ImapFolderExecutor.ResyncRequest(12L,
+                            77L, 10L, 50L));
+        }
+
+        @Test
+        @DisplayName("A folder with no MODSEQ baseline yet is opened plainly")
+        void folderWithoutModseqBaselineOpensPlainly() {
+            when(syncStateService.findState(ACCOUNT_ID, "INBOX")).thenReturn(Optional.of(stateWith(12L, null)));
+
+            service.performFullSyncCycle(account, "INBOX", FolderRole.INBOX);
+
+            assertThat(captureRequest()).isNull();
+        }
+
+        /**
+         * The window is what the request is for, so a folder holding no rows cannot
+         * describe one — and asking with a made-up range would tell the server the
+         * client knows about messages it does not have.
+         */
+        @Test
+        @DisplayName("A folder with no local rows is opened plainly")
+        void folderWithoutLocalRowsOpensPlainly() {
+            when(syncStateService.findState(ACCOUNT_ID, "INBOX")).thenReturn(Optional.of(stateWith(12L, 77L)));
+            when(messageRepository.findMinUid(ACCOUNT_ID, "INBOX")).thenReturn(null);
+
+            service.performFullSyncCycle(account, "INBOX", FolderRole.INBOX);
+
+            assertThat(captureRequest()).isNull();
+        }
+
+        /**
+         * The point of the whole change: when the SELECT resynchronized, the cycle
+         * issues neither the CHANGEDSINCE fetch nor the full UID enumeration — the
+         * O(server folder) command that used to run every five minutes per folder.
+         */
+        @Test
+        @DisplayName("A resynchronized SELECT replaces both per-cycle commands")
+        void resyncEventsReplaceTheCondstoreCommands() throws Exception {
+            stubTransactionTemplateExecuteRunCallback();
+            when(syncStateService.getOrCreateState(eq(ACCOUNT_ID), any(), any()))
+                    .thenReturn(new FolderSyncStateEntity());
+            when(flagSyncService.handleUidValidity(any())).thenReturn(true);
+            List<MailEvent> events = List.of();
+            when(imapFolderService.executeInFolderResynced(eq(ACCOUNT_ID), any(), any(String.class), any(), any()))
+                    .thenAnswer(inv -> {
+                        org.voxrox.mailbackend.feature.mail.service.ImapResyncFolderAction<?> action = inv
+                                .getArgument(4);
+                        return action.apply(mock(Folder.class), mock(UIDFolder.class), events);
+                    });
+
+            service.performFullSyncCycle(account, "INBOX", FolderRole.INBOX);
+
+            verify(flagSyncService).applyResyncEvents(any(), eq(events));
+            verify(flagSyncService).cleanupDeletedViaUidEnumerationIfDue(any());
+            verify(flagSyncService, never()).syncMessageFlagsCondstore(any());
+            verify(flagSyncService, never()).cleanupDeletedViaUidEnumeration(any());
+            verify(flagSyncService, never()).syncMessageFlagsBatched(any());
+        }
+
+        /**
+         * The negative of the previous test, and the reason the executor's contract
+         * separates "opened plainly" (null) from "resynchronized, nothing changed"
+         * (empty list): a server that cannot resynchronize must still get its
+         * enumeration every cycle, or deletions would stop being noticed at all.
+         */
+        @Test
+        @DisplayName("A plain open still runs the per-cycle deletion path")
+        void plainOpenStillEnumerates() throws Exception {
+            stubTransactionTemplateExecuteRunCallback();
+            when(syncStateService.getOrCreateState(eq(ACCOUNT_ID), any(), any()))
+                    .thenReturn(new FolderSyncStateEntity());
+            when(flagSyncService.handleUidValidity(any())).thenReturn(true);
+            stubExecuteInFolderRunCallback(mock(Folder.class));
+
+            service.performFullSyncCycle(account, "INBOX", FolderRole.INBOX);
+
+            verify(flagSyncService, never()).applyResyncEvents(any(), any());
+            verify(flagSyncService, never()).cleanupDeletedViaUidEnumerationIfDue(any());
+            verify(flagSyncService).cleanupDeletedInWindow(any());
         }
     }
 

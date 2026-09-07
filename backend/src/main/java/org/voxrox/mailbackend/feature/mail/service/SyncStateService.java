@@ -42,6 +42,19 @@ public class SyncStateService {
     }
 
     /**
+     * The folder's sync state if it has one, without creating it.
+     * <p>
+     * The read-only twin of {@link #getOrCreateState}, for the caller that needs
+     * the state <em>before</em> the folder is opened — the QRESYNC parameters of
+     * the SELECT are built from it. Creating the row there instead would leave one
+     * behind for every folder name that turns out not to exist on the server.
+     */
+    @Transactional(readOnly = true)
+    public Optional<FolderSyncStateEntity> findState(Long accountId, String folderName) {
+        return syncStateRepository.findByAccountIdAndFolderName(accountId, folderName);
+    }
+
+    /**
      * Targeted UPDATE of {@code last_known_uid}; bypasses JPA merge and therefore
      * also the {@code @Version} guard. Safe — sync is serialized per (account,
      * folder) via {@code SyncLockManager}.
