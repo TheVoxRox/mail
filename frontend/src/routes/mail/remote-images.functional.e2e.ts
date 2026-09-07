@@ -83,6 +83,7 @@ test('obě tlačítka baneru jsou dosažitelná Tabem mezi řádkem a tělem', a
 	const row = page.locator('[role="row"][data-stable-id="msg-02"] [data-col="2"]');
 	await expect(row).toBeVisible();
 	await row.focus();
+	await waitForFocus(row);
 
 	const focusedName = () =>
 		page.evaluate(() => {

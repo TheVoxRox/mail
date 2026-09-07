@@ -156,8 +156,7 @@ test.describe('Search', () => {
 
 		// Closing from a deep link still returns to the results the query names,
 		// even though this tab never rendered them.
-		await page.locator('main').focus();
-		await page.keyboard.press('Escape');
+		await page.locator('main').press('Escape');
 		await page.waitForURL(/\/search\/1\?q=projekt$/);
 		await expect(searchResultsGrid(page)).toBeVisible();
 	});
@@ -241,8 +240,7 @@ test.describe('Search', () => {
 
 		const subject = page.locator('[role="row"][data-stable-id="msg-01"] [data-col="1"]');
 		await expect(subject).toBeVisible();
-		await subject.focus();
-		await page.keyboard.press('Enter');
+		await subject.press('Enter');
 
 		await expect(page.getByRole('heading', { name: 'Projektové podklady' })).toBeVisible();
 		const frame = bodyFrame(page);

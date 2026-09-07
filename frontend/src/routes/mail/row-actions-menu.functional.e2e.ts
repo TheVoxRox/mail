@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { openApp, setPrefs } from '../e2e-helpers';
+import { openApp, setPrefs, waitForFocus } from '../e2e-helpers';
 
 /**
  * Row actions menu ("Akce pro zprávu …") in the message list. Delete removes
@@ -67,8 +67,7 @@ test.describe('Řádkové menu Akce', () => {
 		// The keyboard path: open the menu with Enter on the trigger and walk to
 		// Delete with the menu's own arrow-key navigation (bits-ui highlight),
 		// exactly like a keyboard user — no programmatic focus of the item.
-		await row.getByRole('button', { name: `Akce pro zprávu ${fixture.subject}` }).focus();
-		await page.keyboard.press('Enter');
+		await row.getByRole('button', { name: `Akce pro zprávu ${fixture.subject}` }).press('Enter');
 		const menu = page.getByRole('menu');
 		// Visible is not ready: the menu paints before bits-ui has placed roving
 		// focus, and ArrowUp sent into that gap wedges it. Wait for the focus.
@@ -170,7 +169,9 @@ test.describe('Řádkové menu Akce', () => {
 
 		const row = page.locator(`[role="row"][data-stable-id="${fixture.stableId}"]`);
 		await expect(row).toBeVisible();
-		await row.getByRole('button', { name: `Akce pro zprávu ${fixture.subject}` }).focus();
+		const actions = row.getByRole('button', { name: `Akce pro zprávu ${fixture.subject}` });
+		await actions.focus();
+		await waitForFocus(actions);
 
 		// Grid semantics: ArrowDown moves to the next row's actions cell instead
 		// of acting as a menubutton open key.
@@ -252,8 +253,7 @@ test.describe('Řádkové menu Akce', () => {
 		const row = page.locator(`[role="row"][data-stable-id="${fixture.stableId}"]`);
 		await expect(row).toBeVisible();
 
-		await row.getByRole('button', { name: `Akce pro zprávu ${fixture.subject}` }).focus();
-		await page.keyboard.press('Enter');
+		await row.getByRole('button', { name: `Akce pro zprávu ${fixture.subject}` }).press('Enter');
 		await expect(page.getByRole('menuitem', { name: FIRST_ITEM, exact: true })).toBeFocused();
 
 		/*
@@ -307,8 +307,7 @@ test.describe('Řádkové menu Akce', () => {
 
 		const row = page.locator(`[role="row"][data-stable-id="${fixture.stableId}"]`);
 		await expect(row).toBeVisible();
-		await row.getByRole('button', { name: `Akce pro zprávu ${fixture.subject}` }).focus();
-		await page.keyboard.press('Enter');
+		await row.getByRole('button', { name: `Akce pro zprávu ${fixture.subject}` }).press('Enter');
 		await expect(page.getByRole('menuitem', { name: FIRST_ITEM, exact: true })).toBeFocused();
 
 		// Walk up to the Move sub-trigger the way the typeahead test above does.
@@ -351,7 +350,9 @@ test.describe('Řádkové menu Akce', () => {
 
 		const row = page.locator(`[role="row"][data-stable-id="${fixture.stableId}"]`);
 		await expect(row).toBeVisible();
-		await row.getByRole('button', { name: `Akce pro zprávu ${fixture.subject}` }).focus();
+		const actions = row.getByRole('button', { name: `Akce pro zprávu ${fixture.subject}` });
+		await actions.focus();
+		await waitForFocus(actions);
 
 		/*
 		 * Counts focus events instead of polling the settled state, because the

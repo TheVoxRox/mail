@@ -126,8 +126,7 @@ test.describe('Command palette', () => {
 		const secondOptionId = await options.nth(1).getAttribute('id');
 		expect(secondOptionId).toBeTruthy();
 
-		await input.focus();
-		await page.keyboard.press('ArrowDown');
+		await input.press('ArrowDown');
 		await expect(input).toHaveAttribute('aria-activedescendant', secondOptionId!);
 		const activeOptionId = await input.getAttribute('aria-activedescendant');
 		expect(activeOptionId).toBeTruthy();

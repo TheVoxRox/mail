@@ -5,7 +5,8 @@ import {
 	openApp,
 	rowsOf,
 	setMockFlags,
-	setPrefs
+	setPrefs,
+	waitForFocus
 } from '../e2e-helpers';
 
 const accountId = 1;
@@ -959,7 +960,9 @@ test('klávesnice dojde na buňku akcí a Enter tam otevře menu místo konverza
 
 	const parent = archiveRow(page, 'arch-03');
 	await expect(parent).toBeVisible();
-	await parent.locator('[data-cell-target][data-col="3"]').focus();
+	const actionsCell = parent.locator('[data-cell-target][data-col="3"]');
+	await actionsCell.focus();
+	await waitForFocus(actionsCell);
 
 	await page.keyboard.press('End');
 	await expect(parent.locator('[data-cell-target]:focus')).toHaveAttribute('data-col', '6');

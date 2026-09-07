@@ -96,8 +96,7 @@ test.describe('Sync notifications', () => {
 		await openApp(page, '/mail/1/INBOX');
 		await page.waitForFunction(() => window.__MAIL_MSW__?.syncStreamConnected() === true);
 
-		await page.getByRole('button', { name: 'Synchronizovat' }).focus();
-		await page.keyboard.press('Enter');
+		await page.getByRole('button', { name: 'Synchronizovat' }).press('Enter');
 
 		/*
 		 * The button disables itself on activation, and `disabled` would take the
@@ -185,8 +184,7 @@ test.describe('Sync notifications', () => {
 		 * afterwards — the browser dropped it to <body>, so a keyboard user
 		 * clearing a stack had to walk the whole app again for the next one.
 		 */
-		await second.focus();
-		await page.keyboard.press('Enter');
+		await second.press('Enter');
 		await expect(first).toBeFocused();
 	});
 

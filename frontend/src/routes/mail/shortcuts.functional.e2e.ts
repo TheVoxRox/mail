@@ -132,15 +132,13 @@ test('Shift/Ctrl+Delete na fokusovaném řádku seznamu zprávu nesmaže', async
 	// the open-message handler instead of the grid row handler under test).
 	const guarded = page.locator('[role="row"][data-stable-id="msg-02"]');
 	await expect(guarded).toBeVisible();
-	await guarded.focus();
-	await page.keyboard.press('Shift+Delete');
+	await guarded.press('Shift+Delete');
 	await page.keyboard.press('Control+Delete');
 
 	// Plain Delete on another row deletes it — and completing that round-trip is a
 	// deterministic signal that the earlier modified keystrokes were processed.
 	const control = page.locator('[role="row"][data-stable-id="msg-01"]');
-	await control.focus();
-	await page.keyboard.press('Delete');
+	await control.press('Delete');
 	await expect(control).toHaveCount(0);
 
 	await expect(guarded).toBeVisible();
