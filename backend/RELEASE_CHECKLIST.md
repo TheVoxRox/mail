@@ -67,7 +67,7 @@ Poznámky:
 
 - [ ] Instalace je per-user (`installMode: currentUser`) — installer neukazuje volbu režimu ani nevyžaduje elevaci (UAC). Binárky jdou do `%LOCALAPPDATA%\Programs\VoxRox\Mail`.
 - [ ] Jazyk instalátoru je automaticky Czech/English podle systému; ostatní locale padají na English.
-- [ ] Desktop shortcut vznikne **vždy** — instalátor pro něj nenabízí volbu. Šablona [nsis-installer.nsi](../frontend/src-tauri/windows/nsis-installer.nsi) volá `CreateOrUpdateDesktopShortcut` bezpodmínečně a nemá components page ani `MUI_FINISHPAGE_SHOWREADME` checkbox, kterým tuhle volbu nabízí výchozí Tauri šablona. Potlačí ho jedině `/NS` (NoShortcutMode) nebo `/UPDATE` na příkazové řádce. Ověřuje se tedy, že zkratka vznikne a míří na `${MAINBINARYNAME}.exe`, ne že jde odškrtnout.
+- [ ] Desktop shortcut vznikne **vždy** — instalátor pro něj záměrně nenabízí volbu (rozhodnuto 2026-09-07, viz `todo.md` → Rozhodnuti). Šablona [nsis-installer.nsi](../frontend/src-tauri/windows/nsis-installer.nsi) volá `CreateOrUpdateDesktopShortcut` bezpodmínečně a nemá components page ani `MUI_FINISHPAGE_SHOWREADME` checkbox, kterým tuhle volbu nabízí výchozí Tauri šablona. Potlačí ho jedině `/NS` (NoShortcutMode) nebo `/UPDATE` na příkazové řádce. Ověřuje se tedy, že zkratka vznikne a míří na `${MAINBINARYNAME}.exe`, ne že jde odškrtnout.
 - [ ] Start menu shortcut vznikne jako `VoxRox\VoxRox Mail`.
 - [ ] Reinstall stejné verze projde bez ztráty dat.
 - [ ] Downgrade na starší verzi je zablokovaný.
