@@ -19,7 +19,9 @@
  * asymmetry is deliberate: matching the CLI is what keeps this check and a
  * manual `prettier --write` from disagreeing.
  *
- * Run with `--write` to fix instead of report.
+ * Run with `--write` to fix instead of report — except on a file prettier
+ * cannot format stably, which is reported in both modes because rewriting it
+ * does not converge. See the note by the second `prettier.format` call.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -42,6 +44,7 @@ const files = execFileSync('git', ['ls-files', '-z', '--', '*.md'], {
 	.sort();
 
 const drifted = [];
+const unstable = [];
 
 for (const relative of files) {
 	const absolute = path.join(repoRoot, relative);
@@ -50,10 +53,37 @@ for (const relative of files) {
 	const formatted = await prettier.format(source, { ...options, filepath: absolute });
 	if (formatted === source) continue;
 
+	/*
+	 * Formatting is meant to be idempotent, and when it is not, `--write`
+	 * cannot fix the file — every run produces something new and the next
+	 * check fails again. Telling the author to run `format:md` in that state
+	 * is advice they cannot follow, so name the file as unstable instead.
+	 *
+	 * Known trigger (prettier 3.9.6): a table indented to the content column
+	 * of a task-list item, `- [ ] ` then a table at column 6. Each pass
+	 * indents every row after the first by four more spaces, without bound.
+	 * The same table under a plain `-`, under `1.`, or at top level is fine.
+	 */
+	const twice = await prettier.format(formatted, { ...options, filepath: absolute });
+	if (twice !== formatted) {
+		unstable.push(relative);
+		continue;
+	}
+
 	if (write) {
 		await writeFile(absolute, formatted, 'utf8');
 	}
 	drifted.push(relative);
+}
+
+if (unstable.length > 0) {
+	throw new Error(
+		`${unstable.length} tracked Markdown file(s) cannot be formatted stably:\n` +
+			`${unstable.map((file) => `  ${file}`).join('\n')}\n` +
+			`Prettier produces different output on each pass, so --write cannot fix this.\n` +
+			`Rewrite the construct instead. One known cause is a table indented to the\n` +
+			`content column of a task-list item ("- [ ] " then a table at column 6).`
+	);
 }
 
 if (write) {
