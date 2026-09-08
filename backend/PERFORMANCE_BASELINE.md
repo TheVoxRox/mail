@@ -297,8 +297,9 @@ při téhle velikosti efektu netvrdí nic, rozhoduje až rankový test.
 
 ### Startup audit — měření 2026-09-08 (desktop bundle s AOT cache)
 
-**Stroj: pomalejší notebook** (doplněno tentýž den maintainerem, když se čísla
-rozešla s večerním měřením na desktopu — viz sekce „`appReady` v desktop
+**Stroj: notebook i7-1255U** (15W U-series, 1,7 GHz base, 16 GB — tentýž, na
+kterém se měřila pre-push brána; doplněno maintainerem tentýž den, když se čísla
+rozešla s večerním měřením na stolním PC — viz sekce „`appReady` v desktop
 bundlu"). Absolutní hodnoty téhle sekce tedy nejsou přenositelné na jiný
 hardware; poměry uvnitř ní ano.
 
@@ -360,10 +361,11 @@ nepromítne, protože jeho hodiny začínají až v `beginBoot()`. U cold běhu 
 585 ms, u warm ~400 ms.
 
 **Absolutní čísla nejsou srovnatelná s předchozí sekcí, protože každá vznikla na
-jiném stroji.** Tahle sekce je měřená na **AMD Ryzen 9 9900X** (12 jader /
-24 vláken, 4,4 GHz, 62 GB RAM), předchozí ranní na **pomalejším notebooku**
-(podle maintainera; `todo.md` popisuje jako pomalý stroj i7-1255U, 15W U-series,
-1,7 GHz base, 16 GB). Sidecar se navíc liší: ten v `src-tauri/binaries/` byl
+jiném stroji.** Tahle sekce je měřená na **stolním PC** (AMD Ryzen 9 9900X,
+12 jader / 24 vláken, 4,4 GHz, 62 GB RAM), předchozí ranní na **notebooku**
+(i7-1255U, 15W U-series, 1,7 GHz base, 16 GB — potvrzeno maintainerem, je to
+tentýž stroj, na kterém se měřila pre-push brána, viz `todo.md`). Sidecar se
+navíc liší: ten v `src-tauri/binaries/` byl
 přebalený týž den v 16:03 **bez JEP 483 AOT class cache** —
 `mail-x86_64-pc-windows-msvc.cfg` nese `-Dspring.aot.enabled=true`
 a `-XX:TieredStopAtLevel=1`, ale žádné `-XX:AOTCache`, a vedle jaru žádný cache
