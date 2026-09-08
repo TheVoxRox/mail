@@ -3,11 +3,13 @@ package org.voxrox.mailbackend.feature.account.service;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.account.entity.MailProviderEntity;
 import org.voxrox.mailbackend.feature.account.entity.MailServerConfig;
+import org.voxrox.mailbackend.feature.account.event.AccountRequiresReauthEvent;
 import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.feature.auth.dto.AuthType;
 import org.voxrox.mailbackend.feature.auth.service.OAuth2TokenServiceRegistry;
@@ -35,15 +37,17 @@ public class ExternalProviderLoginService {
     private final AccountCredentialService credentialService;
     private final OAuth2TokenServiceRegistry oauth2TokenServiceRegistry;
     private final ImapConnectionManager imapConnectionManager;
+    private final ApplicationEventPublisher eventPublisher;
 
     public ExternalProviderLoginService(AccountRepository accountRepository, AccountProviderService providerService,
             AccountCredentialService credentialService, OAuth2TokenServiceRegistry oauth2TokenServiceRegistry,
-            ImapConnectionManager imapConnectionManager) {
+            ImapConnectionManager imapConnectionManager, ApplicationEventPublisher eventPublisher) {
         this.accountRepository = accountRepository;
         this.providerService = providerService;
         this.credentialService = credentialService;
         this.oauth2TokenServiceRegistry = oauth2TokenServiceRegistry;
         this.imapConnectionManager = imapConnectionManager;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -60,6 +64,17 @@ public class ExternalProviderLoginService {
                 accountRepository.save(account);
                 AuditLog.failure("account_requires_reauth", LogMasker.maskEmail(email),
                         "id=" + account.getId() + " reason=missing_refresh_token");
+                /*
+                 * Third writer of the flag, same consequence as the other two: nothing connects
+                 * for the account from here on, so its pooled Stores are dead weight. After
+                 * commit, not inline — the purge behind this event waits on the per-account
+                 * connection lock, which must never be waited on with the single-writer SQLite
+                 * transaction open (CONCURRENCY.md rule 3). The listener could otherwise also
+                 * run before the flag is durable.
+                 */
+                Long accountId = account.getId();
+                TransactionCallbacks
+                        .runAfterCommit(() -> eventPublisher.publishEvent(new AccountRequiresReauthEvent(accountId)));
             }
         });
     }

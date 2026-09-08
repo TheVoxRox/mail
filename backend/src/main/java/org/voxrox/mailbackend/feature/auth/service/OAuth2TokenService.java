@@ -13,6 +13,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -27,6 +28,7 @@ import org.voxrox.mailbackend.exception.MailOperationException;
 import org.voxrox.mailbackend.feature.account.AccountLastError;
 import org.voxrox.mailbackend.feature.account.AccountLastErrorCode;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
+import org.voxrox.mailbackend.feature.account.event.AccountRequiresReauthEvent;
 import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.util.AuditLog;
 import org.voxrox.mailbackend.util.LogCategory;
@@ -79,6 +81,13 @@ public abstract class OAuth2TokenService {
     protected final AccountRepository accountRepository;
     protected final MailMetrics metrics;
     protected final TokenCache tokenCache;
+    /**
+     * Only use: announcing that an account now requires a new sign-in, so its
+     * pooled IMAP connections can be closed. A direct call is not available —
+     * {@code ImapConnectionManager} depends on {@code OAuth2TokenServiceRegistry},
+     * so the reverse edge would be a cycle.
+     */
+    protected final ApplicationEventPublisher eventPublisher;
 
     /*
      * Serializes the HTTP refresh per account. IMAP (under the account connection
@@ -93,10 +102,12 @@ public abstract class OAuth2TokenService {
      */
     private final ConcurrentMap<Long, ReentrantLock> refreshLocks = new ConcurrentHashMap<>();
 
-    protected OAuth2TokenService(AccountRepository accountRepository, MailMetrics metrics, TokenCache tokenCache) {
+    protected OAuth2TokenService(AccountRepository accountRepository, MailMetrics metrics, TokenCache tokenCache,
+            ApplicationEventPublisher eventPublisher) {
         this.accountRepository = accountRepository;
         this.metrics = metrics;
         this.tokenCache = tokenCache;
+        this.eventPublisher = eventPublisher;
     }
 
     /** Stable registration key. Matches {@code accounts.oauth2_provider}. */
@@ -291,6 +302,12 @@ public abstract class OAuth2TokenService {
                                             + "verify the configuration and sign in again."),
                             LocalDateTime.now());
                     log.warn("{} Account {} marked as requires_reauth.", LogCategory.AUTH, maskedEmail);
+                    /*
+                     * Inside the try on purpose: the flag is what makes the account unreachable, so
+                     * a failed UPDATE means its connections are still in use and must not be
+                     * closed. Published only after the write went through.
+                     */
+                    eventPublisher.publishEvent(new AccountRequiresReauthEvent(accountId));
                 } catch (Exception markEx) {
                     log.error("{} Failed to mark account {} as requires_reauth", LogCategory.AUTH, maskedEmail, markEx);
                     AuditLog.critical("account_reauth_marking_failed", maskedEmail, markEx.getClass().getSimpleName());

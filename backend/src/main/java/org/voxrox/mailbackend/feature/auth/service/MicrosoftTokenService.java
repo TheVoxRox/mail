@@ -3,6 +3,7 @@ package org.voxrox.mailbackend.feature.auth.service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.util.MultiValueMap;
 import org.voxrox.mailbackend.core.metrics.MailMetrics;
@@ -55,8 +56,9 @@ public final class MicrosoftTokenService extends OAuth2TokenService {
      */
     private String tokenEndpoint = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
 
-    public MicrosoftTokenService(AccountRepository accountRepository, MailMetrics metrics, TokenCache tokenCache) {
-        super(accountRepository, metrics, tokenCache);
+    public MicrosoftTokenService(AccountRepository accountRepository, MailMetrics metrics, TokenCache tokenCache,
+            ApplicationEventPublisher eventPublisher) {
+        super(accountRepository, metrics, tokenCache, eventPublisher);
     }
 
     @Override
