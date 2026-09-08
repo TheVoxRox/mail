@@ -2,6 +2,11 @@
 
 Checklist pro poslední ověření před vydáním desktop aplikace se sidecar backendem.
 
+Tenhle dokument odpovídá na otázku „prošel tenhle kandidát". Na otázku „jak se
+release vydává" — verze, tag, střih changelogu, release notes, draft vs.
+publikace, schválení — odpovídá [docs/RELEASE_PROCESS.md](../docs/RELEASE_PROCESS.md),
+který na tenhle checklist odkazuje zpátky v krocích §1, §6 a §8.
+
 Vyplňovat pro konkrétní kandidát:
 
 ```text

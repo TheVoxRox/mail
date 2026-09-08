@@ -324,6 +324,10 @@ Postup:
 
 ## Release channels
 
+Tahle sekce popisuje kanály a co se dělá, když se něco pokazí. Uspořádaný
+postup vydání (verze → changelog → tag → build → draft → publikace) je
+[docs/RELEASE_PROCESS.md](../docs/RELEASE_PROCESS.md).
+
 Updater má dva kanály. Volbu drží každá instalace v Nastavení → O aplikaci (výchozí Stabilní; webview `localStorage` klíč `mail.updateChannel`). Kanál mapuje na manifest URL Tauri shell (`check_for_update` v `frontend/src-tauri/src/lib.rs`) — webview nikdy nepředává URL, jen jméno kanálu.
 
 | Kanál    | Manifest                                                                      | Kdo ho plní                                                      |
