@@ -105,7 +105,9 @@ Klicove deltas (relativni k `uiStart=0`):
 
 ### Co overit po smoke
 
-- [ ] Cold start `appReady` median pres 3 behy
+- [x] Cold start `appReady` median pres 3 behy — **4621 ms od spawnu**, overeno
+      2026-09-08 v desktop bundlu (sekce „`appReady` v desktop bundlu" nize).
+      Z toho je 4178 ms cekani na sidecar; UI prida 45 ms.
 - [ ] Heap pri startu (`Get-Process java | Select-Object PrivateMemorySize64`)
 - [ ] Tauri okno se zobrazi do <500 ms
 - [ ] Shell-first placeholder (AppRail + sidebar gray boxes) je videt
@@ -295,6 +297,11 @@ při téhle velikosti efektu netvrdí nic, rozhoduje až rankový test.
 
 ### Startup audit — měření 2026-09-08 (desktop bundle s AOT cache)
 
+**Stroj: pomalejší notebook** (doplněno tentýž den maintainerem, když se čísla
+rozešla s večerním měřením na desktopu — viz sekce „`appReady` v desktop
+bundlu"). Absolutní hodnoty téhle sekce tedy nejsou přenositelné na jiný
+hardware; poměry uvnitř ní ano.
+
 Ten samý den a stroj jako měření výše, aby čísla šla porovnat. Release bundle
 postavený `npm run tauri:build:with-sidecar` nad sidecarem s AOT cache, měřeno
 `npm run tauri:smoke:release-startup -- --runs=3 --isolate-app-data` (isolate
@@ -314,14 +321,68 @@ vrub jpackage launcheru, spawnu z Tauri a cesty k session.json** — přesně te
 overhead, který sekce z 2026-05-19 odhadovala slovy „reálné `appReady` bude
 vyšší", ale nikdo ho nezměřil. Readiness endpoint přidává dalších ~180 ms.
 
-**Co to NEříká, a proto zůstává otevřený checkbox výše:** tohle **není
-`appReady`**. Smoke skript končí u backend readiness; plný `appReady` (paint
-okna, handshake, načtení účtů) žije v `bootState.timings` uvnitř webview a
-`tauri-release-startup-smoke.mjs` do něj nevidí. Změřit ho jde cestou, kterou
-už umí [tauri-csp-build-smoke.mjs](../frontend/scripts/tauri-csp-build-smoke.mjs)
-— spustit release binárku s WebView2 remote debuggingem a přečíst timings přes
-CDP. Do té doby platí: **desktop backend readiness 8,4 s s AOT cache**, a
-`appReady` je nad tím o neznámou, ne o nulu.
+**Co to NEříká:** tohle **není `appReady`**. Smoke skript tehdy končil u backend
+readiness; plný `appReady` (paint okna, handshake, načtení účtů) žije
+v `bootState.timings` uvnitř webview. Doměřeno téhož dne — viz následující
+sekce, která zároveň opravuje odhad cesty: CDP potřeba nebyl.
+
+## Startup audit — `appReady` v desktop bundlu, měření 2026-09-08 (večer)
+
+Doměřuje otevřený bod předchozí sekce. `npm run tauri:smoke:release-startup -- --runs=3 --isolate-app-data`,
+release `app.exe` z `tauri:build --no-bundle`.
+
+**Cesta k číslu je jiná, než předchozí sekce odhadovala, a je to důležitější
+než samotná čísla.** WebView2 remote debugging ani CDP potřeba nejsou: klient
+ta timings **už sám posílá** na `POST /api/internal/client-boot` ve statementu
+hned za `completeBoot()`, backend drží poslední snapshot a diagnostic dump je
+vydává jako `client-boot.json`. Smoke skript si tedy po readiness stáhne dump
+a přečte je — na shipnuté binárce, bez debuggeru a bez build flagu (konzolový
+log boot timings je pod `import.meta.env.DEV`, v release buildu tedy mlčí).
+Most mezi hodinami je `reportedAt`: klient ho razítkuje `new Date()` na téže
+nástěnné hodině, takže `reportedAt − spawn` dá čas od spuštění procesu.
+
+| Běh        | spawn → `uiStart` | `sidecarRunning` | `sessionFound` | `readinessOk` | `appReady` (UI hodiny) | spawn → `appReady` |
+| ---------- | ----------------: | ---------------: | -------------: | ------------: | ---------------------: | -----------------: |
+| cold       |            585 ms |            71 ms |        4403 ms |       4436 ms |                4460 ms |            5045 ms |
+| warm       |            423 ms |            32 ms |        4138 ms |       4160 ms |                4181 ms |            4604 ms |
+| warm       |            398 ms |            34 ms |        4178 ms |       4201 ms |                4223 ms |            4621 ms |
+| **medián** |        **423 ms** |        **34 ms** |    **4178 ms** |   **4201 ms** |            **4223 ms** |        **4621 ms** |
+
+**Co to říká: `appReady` není nad backend readiness o neznámou, je nad ním
+o desítky milisekund.** Od `sessionFound` k `appReady` uplyne 57 / 43 / 45 ms —
+handshake, readiness, client config a účty dohromady. Celý rozpočet startu je
+čekání na sidecar: `sessionFound` je 4,1–4,4 s a všechno ostatní v UI je šum
+proti němu. Optimalizace UI startu tedy nemá co získat; jediná páka je JVM.
+
+**Druhá věc, kterou nikdo neměřil: 400–585 ms před `uiStart`.** To je spawn
+procesu, start WebView2 a doběhnutí prvního skriptu — do `bootState` se
+nepromítne, protože jeho hodiny začínají až v `beginBoot()`. U cold běhu je to
+585 ms, u warm ~400 ms.
+
+**Absolutní čísla nejsou srovnatelná s předchozí sekcí, protože každá vznikla na
+jiném stroji.** Tahle sekce je měřená na **AMD Ryzen 9 9900X** (12 jader /
+24 vláken, 4,4 GHz, 62 GB RAM), předchozí ranní na **pomalejším notebooku**
+(podle maintainera; `todo.md` popisuje jako pomalý stroj i7-1255U, 15W U-series,
+1,7 GHz base, 16 GB). Sidecar se navíc liší: ten v `src-tauri/binaries/` byl
+přebalený týž den v 16:03 **bez JEP 483 AOT class cache** —
+`mail-x86_64-pc-windows-msvc.cfg` nese `-Dspring.aot.enabled=true`
+a `-XX:TieredStopAtLevel=1`, ale žádné `-XX:AOTCache`, a vedle jaru žádný cache
+soubor neleží.
+
+Dvě proměnné naráz tedy znamenají, že **z rozdílu 4,2 s vs 8,3 s do `.ready`
+neplyne nic o AOT cache** — 15W mobilní CPU proti dvanáctijádrovému desktopu
+vysvětlí dvojnásobek sám o sobě. Dokumentovaný zisk cache (−42,7 %, sekce
+2026-09-08 výše) stojí na kontrolovaném střídavém běhu **na jednom stroji**
+a tímhle měřením zpochybněný není.
+
+**Pravidlo, které z toho plyne a platí pro každý další zápis:** číslo startu bez
+jména stroje je nepoužitelné. Tenhle repozitář na to naráží podruhé — „brána
+běží ~50 minut" z `todo.md` je táž třída záhady a taky se rozpustila, jakmile se
+změřilo, na čem. Startupové sekce výše, které stroj neuvádějí, je proto potřeba
+brát jako čísla bez měřítka.
+
+Rozkladu `appReady` výše se nic z toho netýká: je to poměr uvnitř jednoho běhu,
+takže na rychlosti stroje nezávisí.
 
 ## Windows prikazy
 
