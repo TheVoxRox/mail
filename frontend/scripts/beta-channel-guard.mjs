@@ -12,6 +12,14 @@ import { compareSemver, parseSemver } from './lib/semver.mjs';
 // instead of skipping, so an operator always sees why. --force turns a refusal
 // into a warning: that path is reserved for a deliberate halt/re-point per the
 // OPERATIONS.md runbook.
+//
+// This is the one script named individually in knip.json's `entry`, and the
+// line is load-bearing: `.github/workflows/beta-channel.yml` runs it as
+// `node frontend/scripts/beta-channel-guard.mjs` from the repo root, and knip
+// runs with cwd `frontend/`, so its GitHub Actions plugin cannot resolve that
+// path. Every other script here is reached through package.json, an import, or
+// the vitest include - which is why the blanket `scripts/**` entry glob could
+// be dropped. Delete the entry line and knip reports this file as unused.
 
 const args = parseArgs(process.argv.slice(2));
 const newManifestPath = args.new;

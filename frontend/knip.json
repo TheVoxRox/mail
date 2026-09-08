@@ -6,7 +6,7 @@
 		"src/lib/api/type-contract.ts!",
 		"src/routes/**/*.e2e.ts",
 		"src/test-fixtures/msw/worker.ts",
-		"scripts/**/*.{mjs,ts,js}",
+		"scripts/beta-channel-guard.mjs",
 		"playwright.existing-server.config.ts"
 	],
 	"project": [
