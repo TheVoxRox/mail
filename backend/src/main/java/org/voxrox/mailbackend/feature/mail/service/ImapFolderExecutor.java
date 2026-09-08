@@ -209,36 +209,63 @@ public class ImapFolderExecutor {
      */
     private static @Nullable List<MailEvent> openFolder(Store store, Folder folder, int mode,
             @Nullable ResyncRequest resync, String folderName) throws MessagingException {
-        if (resync == null || !(folder instanceof IMAPFolder imapFolder)
-                || !ImapCapabilities.probe(store).hasQresync()) {
-            folder.open(mode);
-            return null;
+        String plainReason = plainOpenReason(store, folder, resync);
+
+        if (plainReason == null && resync != null && folder instanceof IMAPFolder imapFolder) {
+            try {
+                List<MailEvent> events = imapFolder.open(mode,
+                        new ResyncData(resync.uidValidity(), resync.modSeq(), resync.minUid(), resync.maxUid()));
+                log.debug("{} Opened folder {} with QRESYNC (uidvalidity {}, modseq {}, UIDs {}-{}): {} event(s).",
+                        LogCategory.IMAP, folderName, resync.uidValidity(), resync.modSeq(), resync.minUid(),
+                        resync.maxUid(), events == null ? 0 : events.size());
+                return events == null ? List.of() : events;
+            } catch (MessagingException e) {
+                /*
+                 * Degrade instead of failing the cycle. Advertising QRESYNC and honouring it
+                 * are two different things — an intermediary, or a server whose CAPABILITY
+                 * outruns its SELECT, can reject the ENABLE or the parameter — and a folder
+                 * that can only be opened one way must still be syncable. Without this the
+                 * cycle would end in last_error, retry, and fail identically forever: an
+                 * account no user could fix.
+                 *
+                 * Re-opening the same Folder is safe because the failure happened before it
+                 * became open: Angus sets `opened` only after SELECT/EXAMINE returns, and both
+                 * failure paths release the protocol and throw ahead of that.
+                 */
+                log.warn("{} QRESYNC open of folder {} failed ({}); opening it plainly instead.", LogCategory.IMAP,
+                        folderName, e.getMessage());
+            }
+        } else {
+            log.debug("{} Opening folder {} plainly: {}.", LogCategory.IMAP, folderName, plainReason);
         }
 
-        try {
-            List<MailEvent> events = imapFolder.open(mode,
-                    new ResyncData(resync.uidValidity(), resync.modSeq(), resync.minUid(), resync.maxUid()));
-            log.debug("{} Opened folder {} with QRESYNC (uidvalidity {}, modseq {}, UIDs {}-{}): {} event(s).",
-                    LogCategory.IMAP, folderName, resync.uidValidity(), resync.modSeq(), resync.minUid(),
-                    resync.maxUid(), events == null ? 0 : events.size());
-            return events == null ? List.of() : events;
-        } catch (MessagingException e) {
-            /*
-             * Degrade instead of failing the cycle. Advertising QRESYNC and honouring it
-             * are two different things — an intermediary, or a server whose CAPABILITY
-             * outruns its SELECT, can reject the ENABLE or the parameter — and a folder
-             * that can only be opened one way must still be syncable. Without this the
-             * cycle would end in last_error, retry, and fail identically forever: an
-             * account no user could fix.
-             *
-             * Re-opening the same Folder is safe because the failure happened before it
-             * became open: Angus sets `opened` only after SELECT/EXAMINE returns, and both
-             * failure paths release the protocol and throw ahead of that.
-             */
-            log.warn("{} QRESYNC open of folder {} failed ({}); opening it plainly instead.", LogCategory.IMAP,
-                    folderName, e.getMessage());
-            folder.open(mode);
-            return null;
+        folder.open(mode);
+        return null;
+    }
+
+    /**
+     * Why this open cannot be a resynchronized one, or {@code null} when it can.
+     *
+     * <p>
+     * It exists for the log line, and the log line exists because the skip was
+     * invisible: a server that advertises neither CONDSTORE nor QRESYNC never
+     * stores a MODSEQ baseline, so {@code resync} arrives null and the SELECT is
+     * opened plainly without a word — which reads exactly like a QRESYNC path that
+     * is broken. Telling the two apart on the seznam.cz account took reading
+     * `folder_sync_state` out of the database and walking three classes; it should
+     * take one line of the log.
+     */
+    private static @Nullable String plainOpenReason(Store store, Folder folder, @Nullable ResyncRequest resync)
+            throws MessagingException {
+        if (resync == null) {
+            return "the folder has no MODSEQ baseline or no local UID range yet";
         }
+        if (!(folder instanceof IMAPFolder)) {
+            return "the provider returned a folder that is not an IMAPFolder";
+        }
+        if (!ImapCapabilities.probe(store).hasQresync()) {
+            return "the server does not advertise QRESYNC";
+        }
+        return null;
     }
 }
