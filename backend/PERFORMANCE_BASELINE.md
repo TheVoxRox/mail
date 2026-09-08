@@ -2,6 +2,16 @@
 
 Tento soubor slouží pro ruční E18 smoke měření před releasem. Vyplnit na reálném mailboxu s 10k+ zprávami.
 
+**Pravidlo: každá měřená sekce začíná řádkem `Stroj:`.** Repozitář se střídá
+mezi dvěma stroji s ~2× rozdílem propustnosti (notebook i7-1255U, 15W U-series,
+1,7 GHz base, 16 GB × stolní PC AMD Ryzen 9 9900X, 12 jader / 24 vláken,
+4,4 GHz, 62 GB), takže startupové číslo bez jména stroje je nepoužitelné —
+srovnání napříč sekcemi z něj udělá zdánlivý rozpor, který žádný není. Sekce
+psané před tímhle pravidlem stroj neuvádějí a zpětně už dohledatelný není;
+mají proto `Stroj: nezaznamenán` a jejich absolutní čísla se srovnávat nedají.
+Relativní delty uvnitř jedné sekce platí dál — ty měřily obě varianty na tomtéž
+hardwaru.
+
 ```text
 Datum:
 Release kandidat:
@@ -53,6 +63,10 @@ rozhodnout, jestli ma smysl pokracovat s JEP 483 AOT cache (#10 v auditu).
 
 Mereni delat na **cistem profilu** (cerstve `%LOCALAPPDATA%\VoxRox\Mail`, zadne
 predchozi WAL, prazdna DB). Spustit kazdy beh **3x** a brat median, ne jeden vzorek.
+
+Stroj tahle sekce neuvadi zamerne: cisla v obou tabulkach nize jsou **cile a
+typicke rozsahy**, ne namerene hodnoty. Pravidlo `Stroj:` z uvodu plati na
+sekce, ktere neco zmerily.
 
 ### Mereni na strane backendu
 
@@ -135,6 +149,8 @@ pri zmene jaru, distribucni rozmer).
 
 ### JEP 483 AOT cache — měření 2026-05-19
 
+**Stroj: nezaznamenán** (doplněno 2026-09-08, viz pravidlo v úvodu).
+
 Provedeno po refaktoru self-injection (`MessageContentPersister`,
 `ContactBulkService`), který odstranil runtime CGLib proxy generation z
 `MailContentService`/`ContactService`. Předchozí `ObjectProvider<Self>` bránila
@@ -171,6 +187,9 @@ CI/dev iterací (training run přidává ~70 s) a 130 MB cache se neukládá do 
 Pro release build použij `-EnableAotCache`.
 
 ### Startup audit — měření 2026-06-03 (re-validace AOT po startup sweep)
+
+**Stroj: nezaznamenán** (doplněno 2026-09-08, viz pravidlo v úvodu). Sekce sama
+říká „vytížený stroj", ale ne který — pro srovnání s jinou sekcí to nestačí.
 
 Provedeno po sadě startup optimalizací (AOT cache default ON pro release,
 lazy import FE komponent, fs watch místo session pollingu, readiness single-shot
@@ -216,6 +235,10 @@ na reálném buildu, a vnímaná rychlost (shell-first placeholder, lazy sidebar
 
 ### Startup audit — měření 2026-06-11 (reálné vyloučení springdoc + NullAway sweep)
 
+**Stroj: nezaznamenán** (doplněno 2026-09-08, viz pravidlo v úvodu). Platí i pro
+větu „nevytížený stroj" níže — vytížení je jen polovina podmínek, druhá je který
+hardware.
+
 Kontext: při ověřování checklistu výše se ukázalo, že springdoc se z fat jaru
 **nikdy nevylučoval** — `spring-boot-maven-plugin` `<excludes>` vyžaduje groupId
 i artifactId a původní zápis jen s groupId tiše nematchnul nic. Opraveno přes
@@ -242,6 +265,10 @@ jsou za běhu měkké reference, jejich absence ničemu nevadí).
 bundlu zbývá změřit GUI smokem (viz výše).
 
 ### Startup audit — měření 2026-09-08 (drží `-XX:TieredStopAtLevel=1` i s AOT cache?)
+
+**Stroj: notebook i7-1255U** (15W U-series, 1,7 GHz base, 16 GB) — doplněno
+2026-09-08 z následující sekce, která o sobě říká „ten samý den a stroj jako
+měření výše" a stroj jmenuje.
 
 Kontext: bod 5 v [#392](https://github.com/TheVoxRox/mail/issues/392) ptá se, jestli
 se C1-only flag ještě vyplácí, když je AOT cache trvale zapnutá — obě optimalizace
