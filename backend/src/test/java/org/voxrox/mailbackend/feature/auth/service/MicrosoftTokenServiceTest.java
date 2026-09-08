@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.voxrox.mailbackend.exception.ErrorCode;
 import org.voxrox.mailbackend.exception.MailOperationException;
@@ -58,6 +59,9 @@ class MicrosoftTokenServiceTest {
     @Mock
     private org.voxrox.mailbackend.core.metrics.MailMetrics mailMetrics;
 
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     private MicrosoftTokenService service;
 
     private WireMockServer wireMock;
@@ -67,7 +71,7 @@ class MicrosoftTokenServiceTest {
         wireMock = new WireMockServer(WireMockConfiguration.options().dynamicPort());
         wireMock.start();
 
-        service = new MicrosoftTokenService(accountRepository, mailMetrics, new TokenCache());
+        service = new MicrosoftTokenService(accountRepository, mailMetrics, new TokenCache(), eventPublisher);
 
         ReflectionTestUtils.setField(service, "clientId", CLIENT_ID);
         ReflectionTestUtils.setField(service, "tokenEndpoint", wireMock.baseUrl() + TOKEN_PATH);

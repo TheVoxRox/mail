@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.retry.support.RetryTemplate;
 import org.voxrox.mailbackend.core.config.MailClientProperties;
 import org.voxrox.mailbackend.core.config.mail.ImapProperties;
@@ -35,6 +36,7 @@ import org.voxrox.mailbackend.exception.MailOperationException;
 import org.voxrox.mailbackend.feature.account.AccountLastError;
 import org.voxrox.mailbackend.feature.account.AccountLastErrorCode;
 import org.voxrox.mailbackend.feature.account.dto.AccountConnectionDetails;
+import org.voxrox.mailbackend.feature.account.event.AccountRequiresReauthEvent;
 import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.feature.account.service.AccountConnectionDetailsService;
 import org.voxrox.mailbackend.feature.auth.dto.AuthType;
@@ -75,6 +77,8 @@ class ImapConnectionManagerTest {
     private RetryTemplate imapRetryTemplate;
     @Mock
     private MailMetrics mailMetrics;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     private ImapConnectionManager manager;
     private static final Long ACCOUNT_ID = 42L;
@@ -88,7 +92,7 @@ class ImapConnectionManagerTest {
     @BeforeEach
     void setUp() {
         manager = new ImapConnectionManager(connectionDetailsService, accountRepository, oauth2TokenServiceRegistry,
-                mailProps, imapRetryTemplate, mailMetrics);
+                mailProps, imapRetryTemplate, mailMetrics, eventPublisher);
     }
 
     @SuppressWarnings("unchecked")
@@ -215,6 +219,13 @@ class ImapConnectionManagerTest {
                     argThat((AccountLastError err) -> err.code() == AccountLastErrorCode.OAUTH2_IMAP_ACCESS_DENIED
                             && err.fallbackMessage().contains("denied IMAP access")),
                     any());
+            /*
+             * The account is now outside findByActiveTrueAndRequiresReauthFalse and
+             * requireUsableAccount rejects it everywhere else, so both lanes' Stores would
+             * sit in the pool until the process ends. Announced rather than closed here:
+             * this runs under the lane lock, and closing takes both lanes.
+             */
+            verify(eventPublisher).publishEvent(new AccountRequiresReauthEvent(ACCOUNT_ID));
         }
 
         @Test
@@ -250,6 +261,9 @@ class ImapConnectionManagerTest {
             // PASSWORD account: no OAuth token invalidate and no requires_reauth flip.
             verifyNoInteractions(oauth2TokenServiceRegistry, oauth2TokenService);
             verify(accountRepository, never()).updateRequiresReauth(eq(ACCOUNT_ID), anyBoolean());
+            // And therefore nothing to announce: the account stays syncable, so its
+            // connections stay in the pool where the next cycle will reuse them.
+            verifyNoInteractions(eventPublisher);
         }
 
         @Test

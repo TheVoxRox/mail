@@ -9,6 +9,7 @@ import jakarta.mail.*;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.retry.support.RetryTemplate;
 import org.springframework.stereotype.Component;
@@ -21,6 +22,7 @@ import org.voxrox.mailbackend.exception.MailOperationException;
 import org.voxrox.mailbackend.feature.account.AccountLastError;
 import org.voxrox.mailbackend.feature.account.AccountLastErrorCode;
 import org.voxrox.mailbackend.feature.account.dto.AccountConnectionDetails;
+import org.voxrox.mailbackend.feature.account.event.AccountRequiresReauthEvent;
 import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.feature.account.service.AccountConnectionDetailsService;
 import org.voxrox.mailbackend.feature.auth.dto.AuthType;
@@ -105,16 +107,19 @@ public class ImapConnectionManager {
     private final MailClientProperties mailProps;
     private final RetryTemplate imapRetryTemplate;
     private final MailMetrics metrics;
+    private final ApplicationEventPublisher eventPublisher;
 
     public ImapConnectionManager(AccountConnectionDetailsService connectionDetailsService,
             AccountRepository accountRepository, OAuth2TokenServiceRegistry oauth2TokenServiceRegistry,
-            MailClientProperties mailProps, RetryTemplate imapRetryTemplate, MailMetrics metrics) {
+            MailClientProperties mailProps, RetryTemplate imapRetryTemplate, MailMetrics metrics,
+            ApplicationEventPublisher eventPublisher) {
         this.connectionDetailsService = connectionDetailsService;
         this.accountRepository = accountRepository;
         this.oauth2TokenServiceRegistry = oauth2TokenServiceRegistry;
         this.mailProps = mailProps;
         this.imapRetryTemplate = imapRetryTemplate;
         this.metrics = metrics;
+        this.eventPublisher = eventPublisher;
     }
 
     @PostConstruct
@@ -406,6 +411,15 @@ public class ImapConnectionManager {
                 accountRepository.updateLastError(accountId, AccountLastError
                         .of(AccountLastErrorCode.OAUTH2_IMAP_ACCESS_DENIED, OAUTH2_IMAP_ACCESS_DENIED_DETAIL),
                         LocalDateTime.now());
+                /*
+                 * The account just left the set anything connects for — the scheduler selects
+                 * findByActiveTrueAndRequiresReauthFalse and requireUsableAccount rejects every
+                 * other entry point — so both lanes' Stores are now idle for good. Published
+                 * rather than purged here on purpose: this runs under the lane lock and
+                 * removeConnection takes both lanes in turn, which one thread must never do
+                 * (CONCURRENCY.md rule 2). AccountReauthEventListener does it off the lock.
+                 */
+                eventPublisher.publishEvent(new AccountRequiresReauthEvent(accountId));
                 return new MailOperationException(ErrorCode.MAIL_OAUTH2_IMAP_ACCESS_DENIED,
                         OAUTH2_IMAP_ACCESS_DENIED_DETAIL, HttpStatus.UNAUTHORIZED, "error.mail.oauth2ImapAccessDenied");
             }
