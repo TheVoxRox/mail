@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { RECORDS_OF_THE_PAST } from './lib/historical-docs.mjs';
 
 /*
  * Referential integrity for paths and npm scripts named in prose.
@@ -30,11 +31,15 @@ import process from 'node:process';
 
 const repoRoot = path.join(process.cwd(), '..');
 
-/** Documents that describe the past on purpose. Their dead refs are the point. */
+/**
+ * Documents that describe the past on purpose. Their dead refs are the point.
+ *
+ * The changelogs and the archived todo come from a shared list because
+ * `check:npm-callers` has to skip exactly the same files for the same reason;
+ * the rest are historical for this gate alone.
+ */
 const HISTORICAL = [
-	'CHANGELOG.md',
-	'backend/CHANGELOG.md',
-	'todo-archive.md',
+	...RECORDS_OF_THE_PAST,
 	'backend/docs/THREADING_DESIGN.md',
 	'backend/docs/OPENAPI_AUDIT.md',
 	'docs/COMPOSE_DRAFT_LIFECYCLE.md'
