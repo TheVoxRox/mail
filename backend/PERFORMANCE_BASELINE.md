@@ -407,11 +407,83 @@ a tímhle měřením zpochybněný není.
 **Pravidlo, které z toho plyne a platí pro každý další zápis:** číslo startu bez
 jména stroje je nepoužitelné. Tenhle repozitář na to naráží podruhé — „brána
 běží ~50 minut" z `todo.md` je táž třída záhady a taky se rozpustila, jakmile se
-změřilo, na čem. Startupové sekce výše, které stroj neuvádějí, je proto potřeba
-brát jako čísla bez měřítka.
+změřilo, na čem. Startupové sekce výše, které stroj neuvádějí, nesou od
+2026-09-08 `Stroj: nezaznamenán` — jsou to čísla bez měřítka a říkají to samy.
 
 Rozkladu `appReady` výše se nic z toho netýká: je to poměr uvnitř jednoho běhu,
 takže na rychlosti stroje nezávisí.
+
+## Typeahead korespondentů — měření 2026-09-08 (syntetické)
+
+**Stroj: stolní PC** (AMD Ryzen 9 9900X, 12 jader / 24 vláken, 4,4 GHz, 62 GB,
+NVMe), Windows 11, sqlite-jdbc 3.53.2.1 — tatáž verze, kterou resolvuje backend.
+
+Otázka, kterou to zavírá, je z `todo.md` a je návrhová, ne provozní: komentář
+u `correspondent` ve V1\_\_init.sql staví na tom, že tabulka drží **nižší tisíce
+řádků na účet**, a proto jí stačí scan omezený `ux_correspondent_account_email`
+bez druhého indexu. Kdyby jich byl řád víc, přestalo by to platit a shoda podle
+jména by chtěla normalizovaný sloupec. Reálnou schránku změřit nešlo (viz níže),
+takže odpověď je z druhé strany: **kolik řádků ta cesta unese**.
+
+**Metoda:** [scripts/measure-correspondent-typeahead.java](scripts/measure-correspondent-typeahead.java),
+dva účty (aby vedoucí sloupec indexu měl co omezovat), schéma a pragmy opsané
+z V1\_\_init.sql a `application.properties`, dotaz opsaný
+z `CorrespondentRepository#search` s limitem 20 (strop API). Na velikost 50
+zahřívacích a 200 měřených iterací. `hit` = dotaz „jan" (matchuje adresy
+i jména), `miss` = „zxq" (nematchuje nic, takže netřídí — dvojice odděluje cenu
+scanu od ceny řazení).
+
+| Řádků / účet | hit p50 | hit p95 | miss p50 | upsert p50 |
+| -----------: | ------: | ------: | -------: | ---------: |
+|        1 000 | 0,31 ms | 0,34 ms |  0,21 ms |   0,019 ms |
+|        5 000 | 1,21 ms | 1,26 ms |  1,04 ms |   0,017 ms |
+|       20 000 | 5,35 ms | 5,51 ms |  4,90 ms |   0,015 ms |
+|       50 000 | 14,3 ms | 15,0 ms |  13,2 ms |   0,015 ms |
+|      100 000 | 29,9 ms | 31,3 ms |  27,3 ms |   0,015 ms |
+|      200 000 | 72,3 ms | 75,9 ms |  67,5 ms |   0,014 ms |
+|      300 000 |  224 ms |  241 ms |   211 ms |   0,014 ms |
+|      500 000 |  732 ms |  752 ms |   712 ms |   0,015 ms |
+
+Řádků 1 000 až 300 000 je jeden souvislý běh; řádek 500 000 pochází z jiného
+běhu téhož večera na tomtéž stroji.
+
+`EXPLAIN QUERY PLAN` na každé velikosti stejně:
+`SEARCH c USING INDEX ux_correspondent_account_email (account_id=?)`
+
+- `USE TEMP B-TREE FOR ORDER BY`.
+
+**Závěry:**
+
+- **Platí se za scan, ne za řazení.** Dotaz, který nematchuje nic — a nemá tedy
+  co třídit — stojí od 20k řádků výš jen o 5–9 % míň než ten, který plní limit.
+  Cena je projít rozsah indexu pro účet a ke každému řádku sáhnout do tabulky
+  (`SELECT *`), ne temp B-tree.
+- **Lineární do ~200k řádků, pak ne.** Do 200k drží zhruba 0,36 ms na tisíc
+  řádků; 300k je 2× nad lineární extrapolací a 500k 4×. Zlom sedí na to,
+  že pracovní množina přeroste `cache_size=-20000` (20 MB) a pak i cache
+  souborového systému — DB má na 200k řádcích 96 MB.
+- **Návrhový předpoklad drží s rezervou dvou řádů.** „Nižší tisíce na účet" =
+  jednotky ms; i desetitisíce jsou pod 15 ms. Druhý index ani normalizovaný
+  sloupec pro shodu podle jména tedy potřeba nejsou. Sáhnout po nich má smysl,
+  až kdyby se účet blížil ~100k různých adres — tam je dotaz na 30 ms **na
+  stisk klávesy**, protože [AddressTokenField](../frontend/src/lib/components/compose/AddressTokenField.svelte)
+  našeptávač **nedebouncuje**: každý `input` posílá požadavek a zastaralé
+  odpovědi zahazuje run token. Na 15W notebooku (druhý stroj repozitáře) čekej
+  zhruba dvojnásobek; neměřeno.
+- **Sync cesta je na velikosti tabulky nezávislá.** `upsert` přes
+  `ON CONFLICT (account_id, email)` drží 0,015 ms od tisíce do půl milionu
+  řádků — sklizeň při syncu se o růst tabulky bát nemusí.
+
+**Co to neříká:** kolik řádků má `correspondent` na **reálné plné schránce**.
+Dev profil na to nestačí a nejde z něj ani poměr: 524 zpráv a 65 řádků, jenže
+338 z těch zpráv leží v jedné složce mailing listu (pár odesílatelů, hodně
+zpráv) a Koš se Spamem se nesklízejí vůbec. Změřit to chce plný sync, a ten je
+blokovaný novým přihlášením Gmail účtu (viz `todo.md`). Práh výše je ale tak
+vysoko, že na odpověď návrhové otázky to čekat nemusí.
+
+**Další omezení:** data jsou syntetická (ASCII, rovnoměrné rozdělení jmen,
+každá desátá adresa robotí), měřeno na jednom spojení bez souběžného syncu,
+který by do téže DB psal.
 
 ## Windows prikazy
 
