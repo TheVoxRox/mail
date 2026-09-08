@@ -77,4 +77,76 @@ describe.skipIf(!fixtureHasDependencies())('check-markdown-format', () => {
 		expect(result.status).toBe(0);
 		expect(repo.run('check-markdown-format.mjs').status).toBe(0);
 	});
+
+	/*
+	 * A file prettier reformats differently on every pass. `--write` cannot fix
+	 * it — it rewrites and the next check fails again — so pointing the author
+	 * at format:md is advice they cannot follow. Both modes must say so.
+	 *
+	 * The fixture is the real construct that hit this (prettier 3.9.6): a table
+	 * indented to the content column of a task-list item. Should prettier fix
+	 * it upstream, these two tests go green for the wrong reason and the
+	 * fixture needs replacing, not deleting — the branch it covers is "output
+	 * is not idempotent", not this one table.
+	 */
+	const unstableMarkdown = [
+		'- [ ] Title.',
+		'',
+		'      | a | b |',
+		'      | --- | --- |',
+		'      | 1 | 2 |',
+		''
+	].join('\n');
+
+	it('names a file prettier cannot format stably, instead of blaming the author', () => {
+		repo.write('README.md', unstableMarkdown);
+		repo.commit();
+
+		const result = repo.run('check-markdown-format.mjs');
+
+		expect(result.status).not.toBe(0);
+		expect(result.output).toContain('README.md');
+		expect(result.output).toContain('cannot be formatted stably');
+		expect(result.output).not.toContain('Fix with');
+	});
+
+	it('refuses an unstable file in --write mode rather than rewriting it forever', () => {
+		repo.write('README.md', unstableMarkdown);
+		repo.commit();
+
+		const result = repo.run('check-markdown-format.mjs', ['--write']);
+
+		expect(result.status).not.toBe(0);
+		expect(result.output).toContain('cannot be formatted stably');
+	});
+
+	/*
+	 * Both lists come out of one loop, so reporting only the unstable one would
+	 * cost a second run to learn about drift already measured.
+	 */
+	it('names ordinary drift alongside the unstable file, not on a second run', () => {
+		repo.write('README.md', unstableMarkdown);
+		repo.write('docs/GUIDE.md', '#    Guide\n\n\n\ntext\n');
+		repo.commit();
+
+		const result = repo.run('check-markdown-format.mjs');
+		const output = result.output.replaceAll('\\', '/');
+
+		expect(result.status).not.toBe(0);
+		expect(output).toContain('cannot be formatted stably');
+		expect(output).toContain('README.md');
+		expect(output).toContain('docs/GUIDE.md');
+	});
+
+	it('says which files --write already rewrote before it hit the unstable one', () => {
+		repo.write('AAA.md', '#    Rewritten\n\n\n\ntext\n');
+		repo.write('README.md', unstableMarkdown);
+		repo.commit();
+
+		const result = repo.run('check-markdown-format.mjs', ['--write']);
+
+		expect(result.status).not.toBe(0);
+		expect(result.output).toContain('Already rewritten');
+		expect(result.output).toContain('AAA.md');
+	});
 });

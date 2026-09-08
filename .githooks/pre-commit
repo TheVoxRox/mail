@@ -65,9 +65,11 @@ if printf '%s\n' "$staged" | grep -q '\.md$'; then
 		exit 1
 	fi
 	echo "pre-commit: Markdown formatting (whole repo)..."
+	# No fix hint here: check:md prints its own, and it differs by failure. Ordinary
+	# drift says to run format:md; a file prettier cannot format stably says to
+	# rewrite the construct, because format:md rewrites it and the next run fails
+	# the same way. A hardcoded hint would contradict the second case.
 	if ! ( cd frontend && npm run --silent check:md ) ; then
-		echo "" >&2
-		echo "pre-commit: fix with: cd frontend && npm run format:md" >&2
 		exit 1
 	fi
 fi

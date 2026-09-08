@@ -6,7 +6,17 @@
 		"src/lib/api/type-contract.ts!",
 		"src/routes/**/*.e2e.ts",
 		"src/test-fixtures/msw/worker.ts",
-		"scripts/**/*.{mjs,ts,js}",
+		// Listed individually, and the line is load-bearing: beta-channel.yml runs
+		// this as `node frontend/scripts/beta-channel-guard.mjs` from the repo root,
+		// while knip runs with cwd frontend/, so its GitHub Actions plugin cannot
+		// resolve that path. Every other script is reached through package.json, an
+		// import, or the vitest include - which is why scripts/** is not an entry
+		// glob here. Drop this line and knip reports the guard as an unused file.
+		//
+		// knip models package.json and workflows, not PowerShell: a script invoked
+		// only from a .ps1 (backend/scripts/ has two that call into here) would be
+		// reported as unused and belongs on this list too, not deleted.
+		"scripts/beta-channel-guard.mjs",
 		"playwright.existing-server.config.ts"
 	],
 	"project": [
