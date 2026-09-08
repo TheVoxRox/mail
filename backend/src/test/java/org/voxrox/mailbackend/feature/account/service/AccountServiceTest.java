@@ -537,6 +537,74 @@ class AccountServiceTest {
 
             assertThat(existing.isSignatureAutoInsert()).isFalse();
         }
+
+        /*
+         * Deactivation is the only way a pooled IMAP connection goes genuinely idle:
+         * the scheduler reads findByActiveTrueAndRequiresReauthFalse, so nothing
+         * touches that Store again while the process lives.
+         */
+        @Test
+        @DisplayName("PUT that deactivates the account purges its pooled IMAP connections")
+        void deactivationPurgesPooledConnections() {
+            AccountEntity existing = createAccountEntity();
+            existing.setActive(true);
+
+            AccountUpdateRequest request = new AccountUpdateRequest(ACCOUNT_NAME, EMAIL, DISPLAY_NAME, null, true, 10L,
+                    null, null, "user", null, false);
+
+            when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(existing));
+            when(providerService.loadProviderById(10L)).thenReturn(createProvider());
+            when(accountRepository.save(existing)).thenReturn(existing);
+            when(accountMapper.toResponse(existing)).thenReturn(dummyResponse());
+
+            service.updateAccount(ACCOUNT_ID, request);
+
+            verify(imapConnectionManager).purgeAccount(ACCOUNT_ID);
+        }
+
+        @Test
+        @DisplayName("PUT that leaves the account active keeps its connections pooled")
+        void activeUpdateKeepsConnectionsPooled() {
+            AccountEntity existing = createAccountEntity();
+            existing.setActive(true);
+
+            AccountUpdateRequest request = new AccountUpdateRequest(ACCOUNT_NAME, EMAIL, DISPLAY_NAME, null, true, 10L,
+                    null, null, "user", null, true);
+
+            when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(existing));
+            when(providerService.loadProviderById(10L)).thenReturn(createProvider());
+            when(accountRepository.save(existing)).thenReturn(existing);
+            when(accountMapper.toResponse(existing)).thenReturn(dummyResponse());
+
+            service.updateAccount(ACCOUNT_ID, request);
+
+            verify(imapConnectionManager, never()).purgeAccount(anyLong());
+        }
+
+        /*
+         * The guard is on the transition, not on the resulting state. An already
+         * inactive account has no pooled connection left to purge — it was closed when
+         * it was deactivated — and purging on every save of it would take the
+         * per-account IMAP lock for nothing.
+         */
+        @Test
+        @DisplayName("PUT on an already inactive account does not purge again")
+        void repeatedInactiveUpdateDoesNotPurgeAgain() {
+            AccountEntity existing = createAccountEntity();
+            existing.setActive(false);
+
+            AccountUpdateRequest request = new AccountUpdateRequest(ACCOUNT_NAME, EMAIL, DISPLAY_NAME, null, true, 10L,
+                    null, null, "user", null, false);
+
+            when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(existing));
+            when(providerService.loadProviderById(10L)).thenReturn(createProvider());
+            when(accountRepository.save(existing)).thenReturn(existing);
+            when(accountMapper.toResponse(existing)).thenReturn(dummyResponse());
+
+            service.updateAccount(ACCOUNT_ID, request);
+
+            verify(imapConnectionManager, never()).purgeAccount(anyLong());
+        }
     }
 
     @Nested

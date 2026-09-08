@@ -103,6 +103,7 @@ public class AccountService {
         account.setEmail(request.email());
         account.setSignature(request.signature());
         account.setSignatureAutoInsert(request.signatureAutoInsert());
+        boolean wasActive = account.isActive();
         account.setActive(request.active());
 
         /*
@@ -122,6 +123,22 @@ public class AccountService {
          */
         if (wouldRotateCredentials) {
             credentialService.saveCredentials(saved, request.username(), request.password(), AuthType.PASSWORD);
+        }
+
+        /*
+         * Deactivation is the one case where a pooled IMAP connection genuinely goes
+         * idle. The scheduler reads findByActiveTrueAndRequiresReauthFalse, so a
+         * deactivated account is never synced again, while its Store stays in the pool
+         * — one per lane, for the life of the process. Everywhere else the pool is
+         * exercised every mail.client.sync.interval (5m) and a connection the server
+         * drops is replaced by the liveness probe in getConnectedStore on next use,
+         * which is why this is a purge on a state change rather than an idle timeout.
+         * Same treatment the delete path already gives it, and after commit for the
+         * same reason: a purge waits on the per-account lock and must not hold the
+         * single-writer SQLite transaction open.
+         */
+        if (wasActive && !saved.isActive()) {
+            purgeConnectionsAfterCommit(accountId);
         }
 
         AuditLog.success("account_update", LogMasker.maskEmail(saved.getEmail()),
