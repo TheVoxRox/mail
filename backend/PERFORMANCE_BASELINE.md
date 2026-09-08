@@ -105,7 +105,9 @@ Klicove deltas (relativni k `uiStart=0`):
 
 ### Co overit po smoke
 
-- [ ] Cold start `appReady` median pres 3 behy
+- [x] Cold start `appReady` median pres 3 behy — **4621 ms od spawnu**, overeno
+      2026-09-08 v desktop bundlu (sekce „`appReady` v desktop bundlu" nize).
+      Z toho je 4178 ms cekani na sidecar; UI prida 45 ms.
 - [ ] Heap pri startu (`Get-Process java | Select-Object PrivateMemorySize64`)
 - [ ] Tauri okno se zobrazi do <500 ms
 - [ ] Shell-first placeholder (AppRail + sidebar gray boxes) je videt
@@ -314,14 +316,57 @@ vrub jpackage launcheru, spawnu z Tauri a cesty k session.json** — přesně te
 overhead, který sekce z 2026-05-19 odhadovala slovy „reálné `appReady` bude
 vyšší", ale nikdo ho nezměřil. Readiness endpoint přidává dalších ~180 ms.
 
-**Co to NEříká, a proto zůstává otevřený checkbox výše:** tohle **není
-`appReady`**. Smoke skript končí u backend readiness; plný `appReady` (paint
-okna, handshake, načtení účtů) žije v `bootState.timings` uvnitř webview a
-`tauri-release-startup-smoke.mjs` do něj nevidí. Změřit ho jde cestou, kterou
-už umí [tauri-csp-build-smoke.mjs](../frontend/scripts/tauri-csp-build-smoke.mjs)
-— spustit release binárku s WebView2 remote debuggingem a přečíst timings přes
-CDP. Do té doby platí: **desktop backend readiness 8,4 s s AOT cache**, a
-`appReady` je nad tím o neznámou, ne o nulu.
+**Co to NEříká:** tohle **není `appReady`**. Smoke skript tehdy končil u backend
+readiness; plný `appReady` (paint okna, handshake, načtení účtů) žije
+v `bootState.timings` uvnitř webview. Doměřeno téhož dne — viz následující
+sekce, která zároveň opravuje odhad cesty: CDP potřeba nebyl.
+
+## Startup audit — `appReady` v desktop bundlu, měření 2026-09-08 (večer)
+
+Doměřuje otevřený bod předchozí sekce. `npm run tauri:smoke:release-startup -- --runs=3 --isolate-app-data`,
+release `app.exe` z `tauri:build --no-bundle`.
+
+**Cesta k číslu je jiná, než předchozí sekce odhadovala, a je to důležitější
+než samotná čísla.** WebView2 remote debugging ani CDP potřeba nejsou: klient
+ta timings **už sám posílá** na `POST /api/internal/client-boot` ve statementu
+hned za `completeBoot()`, backend drží poslední snapshot a diagnostic dump je
+vydává jako `client-boot.json`. Smoke skript si tedy po readiness stáhne dump
+a přečte je — na shipnuté binárce, bez debuggeru a bez build flagu (konzolový
+log boot timings je pod `import.meta.env.DEV`, v release buildu tedy mlčí).
+Most mezi hodinami je `reportedAt`: klient ho razítkuje `new Date()` na téže
+nástěnné hodině, takže `reportedAt − spawn` dá čas od spuštění procesu.
+
+| Běh        | spawn → `uiStart` | `sidecarRunning` | `sessionFound` | `readinessOk` | `appReady` (UI hodiny) | spawn → `appReady` |
+| ---------- | ----------------: | ---------------: | -------------: | ------------: | ---------------------: | -----------------: |
+| cold       |            585 ms |            71 ms |        4403 ms |       4436 ms |                4460 ms |            5045 ms |
+| warm       |            423 ms |            32 ms |        4138 ms |       4160 ms |                4181 ms |            4604 ms |
+| warm       |            398 ms |            34 ms |        4178 ms |       4201 ms |                4223 ms |            4621 ms |
+| **medián** |        **423 ms** |        **34 ms** |    **4178 ms** |   **4201 ms** |            **4223 ms** |        **4621 ms** |
+
+**Co to říká: `appReady` není nad backend readiness o neznámou, je nad ním
+o desítky milisekund.** Od `sessionFound` k `appReady` uplyne 57 / 43 / 45 ms —
+handshake, readiness, client config a účty dohromady. Celý rozpočet startu je
+čekání na sidecar: `sessionFound` je 4,1–4,4 s a všechno ostatní v UI je šum
+proti němu. Optimalizace UI startu tedy nemá co získat; jediná páka je JVM.
+
+**Druhá věc, kterou nikdo neměřil: 400–585 ms před `uiStart`.** To je spawn
+procesu, start WebView2 a doběhnutí prvního skriptu — do `bootState` se
+nepromítne, protože jeho hodiny začínají až v `beginBoot()`. U cold běhu je to
+585 ms, u warm ~400 ms.
+
+**Absolutní čísla nejsou srovnatelná s předchozí sekcí a nenahrazují ji.**
+Sidecar v `src-tauri/binaries/` byl přebalený týž den v 16:03 **bez JEP 483 AOT
+class cache** — v `mail-x86_64-pc-windows-msvc.cfg` je `-Dspring.aot.enabled=true`
+a `-XX:TieredStopAtLevel=1`, ale žádné `-XX:AOTCache`, a vedle jaru žádný cache
+soubor neleží. Přesto vyšel skoro o polovinu rychleji než ranní běh „s AOT
+cache" (4,2 s vs 8,3 s do `.ready`), což je **opačně, než dokumentovaný zisk
+cache −42,7 %**. Jedno z toho neplatí a tohle měření neříká které: nešlo
+o kontrolovaný pokus, běhy dělí půl dne a tenhle stroj má měřitelně nestabilní
+propustnost (15W CPU, termální škrcení; týž jev stál za rozptylem u pre-push
+brány). **Otevřené:** přeměřit obě konfigurace sidecaru střídavě v jednom sezení,
+jak to už dělá `measure-cold-start-windows.ps1` pro headless. Rozklad `appReady`
+výše tím ale nehýbe — je to poměr uvnitř jednoho běhu, takže na rychlosti stroje
+nezávisí.
 
 ## Windows prikazy
 
