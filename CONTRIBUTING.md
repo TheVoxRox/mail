@@ -74,7 +74,7 @@ way that reads as hundreds of real regressions.
 
 `npm run tauri:smoke:startup` is the unattended version of step 3: it runs
 `tauri:dev` for 20 s (`--duration-ms=` to change that), tees both streams to
-`frontend/target/tauri-startup-<stamp>.{stdout,stderr}.log` and stops it again,
+`frontend/target/tauri-startup-smoke-<stamp>.{stdout,stderr}.log` and stops it again,
 reporting whether the app stayed up for the full window. Use it to catch a boot
 that dies or floods the log without sitting and watching the window; the
 release-build equivalent is `tauri:smoke:release-startup`, in

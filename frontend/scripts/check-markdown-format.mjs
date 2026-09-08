@@ -76,13 +76,28 @@ for (const relative of files) {
 	drifted.push(relative);
 }
 
+/*
+ * Both problems are reported together. Throwing on `unstable` alone would hide
+ * the ordinary drift already collected in the same loop, costing a second run
+ * to learn about files the first run could have named.
+ */
 if (unstable.length > 0) {
+	const alsoDrifted =
+		drifted.length === 0
+			? ''
+			: write
+				? `\nAlready rewritten before this failure: ${drifted.length} file(s).\n` +
+					`${drifted.map((file) => `  ${file}`).join('\n')}`
+				: `\nSeparately, ${drifted.length} file(s) are merely unformatted; format:md fixes those:\n` +
+					`${drifted.map((file) => `  ${file}`).join('\n')}`;
+
 	throw new Error(
 		`${unstable.length} tracked Markdown file(s) cannot be formatted stably:\n` +
 			`${unstable.map((file) => `  ${file}`).join('\n')}\n` +
 			`Prettier produces different output on each pass, so --write cannot fix this.\n` +
 			`Rewrite the construct instead. One known cause is a table indented to the\n` +
-			`content column of a task-list item ("- [ ] " then a table at column 6).`
+			`content column of a task-list item ("- [ ] " then a table at column 6).` +
+			alsoDrifted
 	);
 }
 

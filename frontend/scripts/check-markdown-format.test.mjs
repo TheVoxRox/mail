@@ -119,4 +119,34 @@ describe.skipIf(!fixtureHasDependencies())('check-markdown-format', () => {
 		expect(result.status).not.toBe(0);
 		expect(result.output).toContain('cannot be formatted stably');
 	});
+
+	/*
+	 * Both lists come out of one loop, so reporting only the unstable one would
+	 * cost a second run to learn about drift already measured.
+	 */
+	it('names ordinary drift alongside the unstable file, not on a second run', () => {
+		repo.write('README.md', unstableMarkdown);
+		repo.write('docs/GUIDE.md', '#    Guide\n\n\n\ntext\n');
+		repo.commit();
+
+		const result = repo.run('check-markdown-format.mjs');
+		const output = result.output.replaceAll('\\', '/');
+
+		expect(result.status).not.toBe(0);
+		expect(output).toContain('cannot be formatted stably');
+		expect(output).toContain('README.md');
+		expect(output).toContain('docs/GUIDE.md');
+	});
+
+	it('says which files --write already rewrote before it hit the unstable one', () => {
+		repo.write('AAA.md', '#    Rewritten\n\n\n\ntext\n');
+		repo.write('README.md', unstableMarkdown);
+		repo.commit();
+
+		const result = repo.run('check-markdown-format.mjs', ['--write']);
+
+		expect(result.status).not.toBe(0);
+		expect(result.output).toContain('Already rewritten');
+		expect(result.output).toContain('AAA.md');
+	});
 });

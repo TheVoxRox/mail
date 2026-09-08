@@ -15,7 +15,7 @@ Tester:
 
 ## 0. Verze
 
-- [ ] Verzi měnit **jen** přes `cd frontend ; npm run bump:version <X.Y.Z>`. Sedí na pěti souborech naráz — `frontend/package.json`, `frontend/src-tauri/tauri.conf.json`, `frontend/src/lib/version.ts`, `frontend/src-tauri/Cargo.toml` a `backend/pom.xml` — a ruční editace kteréhokoli z nich rozejde zbytek. Brána `npm run check:versions` (součást `npm run check`) rozejití chytí, ale až po tom, co vznikne; skript ho nedovolí. Argument se ověřuje proti `SEMVER_RE`, takže překlep neprojde.
+- [ ] Verzi měnit **jen** přes `cd frontend ; npm run bump:version <X.Y.Z>`. Sedí naráz na všech souborech, které verzi nesou — `frontend/package.json`, `frontend/src-tauri/tauri.conf.json`, `frontend/src/lib/version.ts`, `frontend/src-tauri/Cargo.toml` a `backend/pom.xml` — a ruční editace kteréhokoli z nich rozejde zbytek. Brána `npm run check:versions` (součást `npm run check`) rozejití chytí, ale až po tom, co vznikne; skript ho nedovolí. Argument se ověřuje proti `SEMVER_RE`, takže překlep neprojde.
 
 ## 1. Backend build
 

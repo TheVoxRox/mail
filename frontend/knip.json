@@ -12,6 +12,10 @@
 		// resolve that path. Every other script is reached through package.json, an
 		// import, or the vitest include - which is why scripts/** is not an entry
 		// glob here. Drop this line and knip reports the guard as an unused file.
+		//
+		// knip models package.json and workflows, not PowerShell: a script invoked
+		// only from a .ps1 (backend/scripts/ has two that call into here) would be
+		// reported as unused and belongs on this list too, not deleted.
 		"scripts/beta-channel-guard.mjs",
 		"playwright.existing-server.config.ts"
 	],
