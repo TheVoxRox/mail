@@ -11,7 +11,13 @@
 #
 # Reviewed: 2026-06-13 (cargo audit over Cargo.lock, 597 crate deps, 0 vulns).
 # Re-reviewed: 2026-07-02 (RUSTSEC-2026-0194, see below).
+# Re-reviewed: 2026-09-08 — both temporary ignores cleared by upgrade rather than
+#   re-accepted, and RUSTSEC-2026-0190 (anyhow, unsound) was answered the same
+#   way: patched in >= 1.0.103, so `cargo update -p anyhow` took 1.0.102 -> 1.0.104
+#   instead of adding an entry here. `cargo audit` now reports nothing at all.
 # Re-review when a NEW advisory appears (the whole point of the scheduled scan).
+# Check the fixed version before adding an ID: an advisory whose fix is already
+# reachable by `cargo update` does not belong on this list.
 
 [advisories]
 ignore = [
@@ -46,17 +52,12 @@ ignore = [
     "RUSTSEC-2026-0097", # rand
 
     # --- TEMPORARY vulnerability ignores (remove as soon as upstream allows) ---
-    # quick-xml 0.38.x, two advisories published 2026-06-29: quadratic run time
-    # on duplicate-attribute checks (-0194) and unbounded namespace-declaration
-    # allocation in NsReader (-0195). Both are DoS class, no memory safety
-    # impact. Reviewed 2026-07-02: quick-xml enters the graph only via
-    # plist -> tauri-utils (Apple property-list parsing, used by
-    # tauri-build/codegen at build time); the Windows-only app never feeds
-    # attacker-controlled XML to it at runtime (mail parsing lives in the Java
-    # backend). The fix requires quick-xml >=0.41.0, but the latest plist (1.9.0)
-    # still pins the 0.39.x line, so there is no upgrade path yet.
-    # REMOVE both ignores (and `cargo update`) once plist/tauri-utils pull
-    # quick-xml >=0.41.0.
-    "RUSTSEC-2026-0194", # quick-xml — quadratic duplicate-attribute check
-    "RUSTSEC-2026-0195", # quick-xml — NsReader namespace-allocation DoS
+    # None right now. The two quick-xml entries that lived here (RUSTSEC-2026-0194
+    # and -0195, DoS class) were removed 2026-09-08: their removal condition was
+    # "once plist/tauri-utils pull quick-xml >=0.41.0", and plist 1.10.1 requires
+    # ^0.42.0, so `cargo update -p plist` moved the graph from quick-xml 0.38.4 to
+    # 0.42.0 and both advisories stopped applying. Keep this heading: an ignore
+    # added here must carry its exposure analysis and its removal condition, and
+    # the point of writing the condition down is that a later review can check it
+    # against the registry instead of re-deciding the risk.
 ]
