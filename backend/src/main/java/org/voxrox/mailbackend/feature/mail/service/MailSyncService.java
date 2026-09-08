@@ -448,6 +448,16 @@ public class MailSyncService {
         }
 
         ImapCapabilities caps = ImapCapabilities.probe(folder.getStore());
+        /*
+         * The only place the probe result is observable. Without it, a server that
+         * advertises neither capability is indistinguishable from a broken QRESYNC
+         * path: both simply never log anything, and the difference costs an hour of
+         * reading the database and the code to establish. Measured on the seznam.cz
+         * account, which advertises neither and therefore never stores a MODSEQ
+         * baseline, which is what silently keeps the QRESYNC SELECT from ever being
+         * asked for.
+         */
+        log.debug("{} Folder {} flag sync capabilities: {}.", LogCategory.IMAP, ctx.folderName(), caps);
         if (caps.hasCondstore()) {
             flagSyncService.syncMessageFlagsCondstore(ctx);
             return flagSyncService.cleanupDeletedViaUidEnumeration(ctx);

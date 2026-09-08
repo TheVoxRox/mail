@@ -115,7 +115,7 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "eaaf61bce6f592c7263f6e212540b8ae2f310f3b"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "456ed3ca284efd343ddaa45d78e2b7db3c613241"
     },
     "acknowledgements": [
       {
@@ -125,6 +125,10 @@
       {
         "date": "2026-09-07",
         "note": "Comment only, and checked as such rather than assumed: the whole delta under this path is one javadoc block on ImapCondstoreCommands.fetchAllServerUids, which still described itself as a substitute for a QRESYNC SELECT that \"would require raw access to the SELECT command outside the folder.open() flow\" — the premise the previous commit disproved. No statement, argument list, annotation or import moved; the method issues the same UID FETCH 1:* (UID) it did before. Every claim in this audit therefore holds by construction, since none of them rests on a comment. Verdict stays PASS. Recorded as its own entry rather than folded into the one above because the two are different judgements a day apart, and the cap counts judgements."
+      },
+      {
+        "date": "2026-09-08",
+        "note": "Two debug lines and a branch split under this path, read as a diff rather than waved through as \"just logging\". ImapFolderExecutor.openFolder keeps exactly the three conditions it had — a null ResyncRequest, a folder that is not an IMAPFolder, a server that does not advertise QRESYNC — and only names which of them skipped the resynchronized open; MailSyncService logs the ImapCapabilities probe result per folder cycle. Both are log.debug, and the packaged sidecar runs the prod profile, where org.voxrox.mailbackend sits at INFO, so neither line is emitted in a release build at all. What they print is a folder name and two booleans: the folder name is already logged at INFO on the same cycle by MailSyncEventListener, and no credential, token, address or message content is added, so the LogMasker boundary this audit weighs does not move. Control flow is otherwise identical — the QRESYNC attempt and its ResyncData arguments, the warn-and-degrade catch, and the plain open all stand, with the two fallback paths now converging on one folder.open(mode) instead of writing it twice. Evidence rather than assertion: the three ImapFolderExecutorTest cases that cover precisely these paths (resynchronized open, rejected QRESYNC, missing request) pass unchanged, and mvn clean verify is green. No TLS setting, authentication mechanism, connection-pool rule or protocol command moved. Verdict stays PASS."
       }
     ]
   }
