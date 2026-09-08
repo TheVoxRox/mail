@@ -239,6 +239,60 @@ jsou za běhu měkké reference, jejich absence ničemu nevadí).
 3,7 s na nevytíženém stroji bez JEP 483 cache; plný `appReady` v desktop
 bundlu zbývá změřit GUI smokem (viz výše).
 
+### Startup audit — měření 2026-09-08 (drží `-XX:TieredStopAtLevel=1` i s AOT cache?)
+
+Kontext: bod 5 v [#392](https://github.com/TheVoxRox/mail/issues/392) ptá se, jestli
+se C1-only flag ještě vyplácí, když je AOT cache trvale zapnutá — obě optimalizace
+míří na tutéž vteřinu startu a jen jedna z nich stojí CPU na výpočetně náročné
+práci. Premisa, že takovou práci má appka při prvním syncu velké schránky, byla
+v témže issue vyvrácena (první sync stahuje 100 zpráv, doplňování po 30), takže
+zbývala právě tahle otázka.
+
+**Setup:** jar `-Paot`, JDK 25.0.4.1, AOT cache 133,9 MB z
+`scripts/generate-aot-cache-windows.ps1`, prod JVM flagy, dummy crypto klíče
+z env, čerstvý tmp `APP_DATA_DIR` per běh, metrika start JVM → `.ready`.
+**15 kol, varianty střídavě a s obráceným pořadím každé druhé kolo** — blokový
+design (nejdřív všechny A, pak všechny B) předá drift zátěže stroje té variantě,
+která běžela druhá. Skript: [scripts/measure-cold-start-windows.ps1](scripts/measure-cold-start-windows.ps1).
+
+**Výsledky (n=15 na variantu):**
+
+| Varianta                          | Median | Rozsah    |                      vs. release konfigurace |
+| --------------------------------- | -----: | --------- | -------------------------------------------: |
+| AOT + `-XX:TieredStopAtLevel=1`   |   5479 | 5009–5675 |                                     baseline |
+| AOT, plný tiered (flag odstraněn) |   5226 | 5058–5646 |     −253 ms (−4,6 %), z = −1,22 → neprůkazné |
+| Bez AOT cache + flag              |   7819 | 6600–8025 | +2340 ms (+42,7 %), z = −4,67 → **průkazné** |
+
+(Mann-Whitney U; `|z| >= 1,96` = průkazné na 5 %.)
+
+**Závěry:**
+
+- **AOT cache znovu potvrzena: −2,3 s / −42,7 %.** Sedí na historických −36,7 %
+  (2026-05-19) a −35,3 % (2026-06-03), takže „AOT default ON pro release" stojí
+  na třech nezávislých měřeních.
+- **`-XX:TieredStopAtLevel=1` už měřitelný přínos na start nemá.** Dvě měření
+  téhož dne se rozešla ve **znaménku**: dřívější dvouvariantní běh dal +78 ms ve
+  prospěch flagu (z = −2,97, průkazné), tenhle třívariantní −253 ms proti němu
+  (neprůkazné). To není „jednou tak, jednou tak" — je to důkaz, že efekt leží pod
+  rozlišovací schopností téhle metody na tomhle stroji. Rozhodně to není 10–15 %,
+  kterými se flag zdůvodňuje.
+- **Rozhodnutí o flagu se tím nemění, ale jeho zdůvodnění ano.** Zůstává (žádné
+  měření neukazuje škodu a před releasem nemá smysl hýbat shipnutou JVM
+  konfigurací kvůli nule), ale argument „šetří 10–15 % startu" už neplatí.
+  Otevřená zůstává druhá polovina, kterou nikdo neměřil: **cena** C1-only na
+  výpočetní práci (MIME parsing, threading, FTS5 indexace) při prvním syncu.
+  Až bude, dá se flag rozhodnout na obou stranách místo jedné.
+- **Absolutní čísla driftují o ~15 % během hodiny na tomtéž stroji** (medián
+  s AOT 4739 ms dopoledne vs 5479 ms odpoledne). Srovnávat se dá jen uvnitř
+  jednoho běhu, nikdy napříč sekcemi tohoto dokumentu.
+
+**Tři pasti, které to měření stály jeden běh každá** (a proto jsou ve skriptu
+zakomentované): přesměrovaný, ale nečtený stdout/stderr zaplní rouru a JVM
+**zatuhne v půlce bootu** — vypadá to jako pomalý start, ne jako deadlock;
+`CryptoProperties` odmítne klíč kratší než 32 znaků a selhání se projeví až jako
+chyba bindování beanu hluboko v refreshi kontextu; a rozdíl mediánů sám o sobě
+při téhle velikosti efektu netvrdí nic, rozhoduje až rankový test.
+
 ## Windows prikazy
 
 ```powershell
