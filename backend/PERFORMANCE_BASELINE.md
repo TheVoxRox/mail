@@ -297,6 +297,11 @@ při téhle velikosti efektu netvrdí nic, rozhoduje až rankový test.
 
 ### Startup audit — měření 2026-09-08 (desktop bundle s AOT cache)
 
+**Stroj: pomalejší notebook** (doplněno tentýž den maintainerem, když se čísla
+rozešla s večerním měřením na desktopu — viz sekce „`appReady` v desktop
+bundlu"). Absolutní hodnoty téhle sekce tedy nejsou přenositelné na jiný
+hardware; poměry uvnitř ní ano.
+
 Ten samý den a stroj jako měření výše, aby čísla šla porovnat. Release bundle
 postavený `npm run tauri:build:with-sidecar` nad sidecarem s AOT cache, měřeno
 `npm run tauri:smoke:release-startup -- --runs=3 --isolate-app-data` (isolate
@@ -354,19 +359,30 @@ procesu, start WebView2 a doběhnutí prvního skriptu — do `bootState` se
 nepromítne, protože jeho hodiny začínají až v `beginBoot()`. U cold běhu je to
 585 ms, u warm ~400 ms.
 
-**Absolutní čísla nejsou srovnatelná s předchozí sekcí a nenahrazují ji.**
-Sidecar v `src-tauri/binaries/` byl přebalený týž den v 16:03 **bez JEP 483 AOT
-class cache** — v `mail-x86_64-pc-windows-msvc.cfg` je `-Dspring.aot.enabled=true`
+**Absolutní čísla nejsou srovnatelná s předchozí sekcí, protože každá vznikla na
+jiném stroji.** Tahle sekce je měřená na **AMD Ryzen 9 9900X** (12 jader /
+24 vláken, 4,4 GHz, 62 GB RAM), předchozí ranní na **pomalejším notebooku**
+(podle maintainera; `todo.md` popisuje jako pomalý stroj i7-1255U, 15W U-series,
+1,7 GHz base, 16 GB). Sidecar se navíc liší: ten v `src-tauri/binaries/` byl
+přebalený týž den v 16:03 **bez JEP 483 AOT class cache** —
+`mail-x86_64-pc-windows-msvc.cfg` nese `-Dspring.aot.enabled=true`
 a `-XX:TieredStopAtLevel=1`, ale žádné `-XX:AOTCache`, a vedle jaru žádný cache
-soubor neleží. Přesto vyšel skoro o polovinu rychleji než ranní běh „s AOT
-cache" (4,2 s vs 8,3 s do `.ready`), což je **opačně, než dokumentovaný zisk
-cache −42,7 %**. Jedno z toho neplatí a tohle měření neříká které: nešlo
-o kontrolovaný pokus, běhy dělí půl dne a tenhle stroj má měřitelně nestabilní
-propustnost (15W CPU, termální škrcení; týž jev stál za rozptylem u pre-push
-brány). **Otevřené:** přeměřit obě konfigurace sidecaru střídavě v jednom sezení,
-jak to už dělá `measure-cold-start-windows.ps1` pro headless. Rozklad `appReady`
-výše tím ale nehýbe — je to poměr uvnitř jednoho běhu, takže na rychlosti stroje
-nezávisí.
+soubor neleží.
+
+Dvě proměnné naráz tedy znamenají, že **z rozdílu 4,2 s vs 8,3 s do `.ready`
+neplyne nic o AOT cache** — 15W mobilní CPU proti dvanáctijádrovému desktopu
+vysvětlí dvojnásobek sám o sobě. Dokumentovaný zisk cache (−42,7 %, sekce
+2026-09-08 výše) stojí na kontrolovaném střídavém běhu **na jednom stroji**
+a tímhle měřením zpochybněný není.
+
+**Pravidlo, které z toho plyne a platí pro každý další zápis:** číslo startu bez
+jména stroje je nepoužitelné. Tenhle repozitář na to naráží podruhé — „brána
+běží ~50 minut" z `todo.md` je táž třída záhady a taky se rozpustila, jakmile se
+změřilo, na čem. Startupové sekce výše, které stroj neuvádějí, je proto potřeba
+brát jako čísla bez měřítka.
+
+Rozkladu `appReady` výše se nic z toho netýká: je to poměr uvnitř jednoho běhu,
+takže na rychlosti stroje nezávisí.
 
 ## Windows prikazy
 
