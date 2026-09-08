@@ -293,6 +293,36 @@ zakomentované): přesměrovaný, ale nečtený stdout/stderr zaplní rouru a JV
 chyba bindování beanu hluboko v refreshi kontextu; a rozdíl mediánů sám o sobě
 při téhle velikosti efektu netvrdí nic, rozhoduje až rankový test.
 
+### Startup audit — měření 2026-09-08 (desktop bundle s AOT cache)
+
+Ten samý den a stroj jako měření výše, aby čísla šla porovnat. Release bundle
+postavený `npm run tauri:build:with-sidecar` nad sidecarem s AOT cache, měřeno
+`npm run tauri:smoke:release-startup -- --runs=3 --isolate-app-data` (isolate
+přejmenuje existující `%LOCALAPPDATA%\VoxRox\Mail` stranou, měří na čistém
+profilu a pak ho vrátí).
+
+| Běh    | `.ready` + session.json | readiness `READY` |
+| ------ | ----------------------: | ----------------: |
+| cold   |                 8182 ms |           8329 ms |
+| warm   |                 8260 ms |           8438 ms |
+| warm   |                 9784 ms |           9937 ms |
+| median |             **8260 ms** |       **8438 ms** |
+
+**Co to říká:** headless start téhož jaru s toutéž AOT cache měl týž den medián
+5479 ms do `.ready`. Desktop bundle je na 8260 ms, tedy **~2,8 s navíc jde na
+vrub jpackage launcheru, spawnu z Tauri a cesty k session.json** — přesně ten
+overhead, který sekce z 2026-05-19 odhadovala slovy „reálné `appReady` bude
+vyšší", ale nikdo ho nezměřil. Readiness endpoint přidává dalších ~180 ms.
+
+**Co to NEříká, a proto zůstává otevřený checkbox výše:** tohle **není
+`appReady`**. Smoke skript končí u backend readiness; plný `appReady` (paint
+okna, handshake, načtení účtů) žije v `bootState.timings` uvnitř webview a
+`tauri-release-startup-smoke.mjs` do něj nevidí. Změřit ho jde cestou, kterou
+už umí [tauri-csp-build-smoke.mjs](../frontend/scripts/tauri-csp-build-smoke.mjs)
+— spustit release binárku s WebView2 remote debuggingem a přečíst timings přes
+CDP. Do té doby platí: **desktop backend readiness 8,4 s s AOT cache**, a
+`appReady` je nad tím o neznámou, ne o nulu.
+
 ## Windows prikazy
 
 ```powershell
