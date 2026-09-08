@@ -66,6 +66,20 @@ someone a rework at least once. For the human-facing versions see
     ledger grew seven run-together reviews in seventeen days without it.
   - `check:refs` — every repo path and `npm run` script named in prose or in a
     comment exists.
+  - `check:npm-callers` — the other direction of that pair: an entry in
+    `frontend/package.json` `scripts` needs something that reaches it, and the
+    report says which route does (automation, another script, documentation).
+    knip cannot see this — it treats every npm entry as an entry point, so a
+    script kept alive by a dead entry is unreportable (#425). **Documentation
+    is a route, not an exception**: a good share of the entries are reachable
+    only from prose, which holds because `check:refs` guards the other way. A
+    changelog
+    is not documentation here — it names a script because the script changed.
+    An unreachable entry is reported with "document it" ahead of "delete it":
+    of the six such entries the repo had, five were working tools and one was
+    residue (#426). Deliberate exceptions live in `EXEMPT` in the script, with
+    a reason, and expire loudly — the gate fails once one becomes reachable or
+    leaves `package.json`.
   - `check:nul` — no NUL byte in a file `.gitattributes` has not declared
     binary. One turns a source file binary for git (no diff, no blame) while
     passing every formatter and test, because it is a legal string character.

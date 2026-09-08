@@ -107,18 +107,19 @@ Conventions established during the burn-down:
 
 ### Tooling
 
-| Tool                              | When                                 | Gate                                                           |
-| --------------------------------- | ------------------------------------ | -------------------------------------------------------------- |
-| TypeScript strict + svelte-check  | `npm run check` / pre-push           | fails on any error                                             |
-| ESLint (js/ts/svelte recommended) | `npm run lint` / pre-push            | fails the run                                                  |
-| ESLint type-aware promise rules   | `src/**/*.ts`                        | `no-floating-promises`, `await-thenable` as errors             |
-| knip                              | `npm run knip` / pre-push            | unused files, exports, types, dependencies                     |
-| knip, production graph            | `npm run knip:production` / pre-push | the same, with test files out of the graph                     |
-| rename residue                    | `check:rename-residue` (CI only)     | a removed symbol still named in a comment or a test name       |
-| test claims                       | `check:test-claims` / pre-push       | duplicate test bodies in one file, tests switched off silently |
-| i18n key checks                   | `check:i18n` (also pre-commit)       | locale parity **and** unused base-locale keys fail             |
-| backend i18n key parity           | `check:i18n:backend`                 | cs/en key + placeholder parity; `messages.properties` == cs    |
-| translations whitelist            | `check:translations:strict`          | Czech diacritics outside i18n need a justified whitelist entry |
+| Tool                              | When                                 | Gate                                                            |
+| --------------------------------- | ------------------------------------ | --------------------------------------------------------------- |
+| TypeScript strict + svelte-check  | `npm run check` / pre-push           | fails on any error                                              |
+| ESLint (js/ts/svelte recommended) | `npm run lint` / pre-push            | fails the run                                                   |
+| ESLint type-aware promise rules   | `src/**/*.ts`                        | `no-floating-promises`, `await-thenable` as errors              |
+| knip                              | `npm run knip` / pre-push            | unused files, exports, types, dependencies                      |
+| knip, production graph            | `npm run knip:production` / pre-push | the same, with test files out of the graph                      |
+| npm entry callers                 | `check:npm-callers` / pre-push       | a `package.json` script entry nothing in the repository reaches |
+| rename residue                    | `check:rename-residue` (CI only)     | a removed symbol still named in a comment or a test name        |
+| test claims                       | `check:test-claims` / pre-push       | duplicate test bodies in one file, tests switched off silently  |
+| i18n key checks                   | `check:i18n` (also pre-commit)       | locale parity **and** unused base-locale keys fail              |
+| backend i18n key parity           | `check:i18n:backend`                 | cs/en key + placeholder parity; `messages.properties` == cs     |
+| translations whitelist            | `check:translations:strict`          | Czech diacritics outside i18n need a justified whitelist entry  |
 
 Policy notes:
 
@@ -142,6 +143,31 @@ Policy notes:
   (test support that happens to live under `src/`), and `--tags=-testseam`
   for the handful of exports production genuinely never calls — a reset hook
   or a teardown seam, each carrying `@testseam` next to the reason it exists.
+- **An npm entry is reachable or it is residue, and documentation counts as
+  reachable.** `check:refs` walks prose → `package.json`: an `npm run` named in
+  a document must exist. `check:npm-callers` walks it back, because nothing
+  did: `tauri:signing-config:windows` was named nowhere but in its own
+  definition from the initial import until #422 found it by hand. knip cannot
+  close this and never could — it treats every `package.json` script as an
+  entry point, so a file kept alive by a dead entry is unreportable. That was
+  measured in #425 by restoring the pre-state and running knip three times,
+  which also disproved the two fixes #424 had recorded; since #426 knip does
+  report an unused _file_ under `frontend/scripts`, and the two gates stack
+  rather than overlap — the file below, the npm entry above.
+  **The report documents before it deletes, and the order is measured**: of the
+  six entries with no caller, five turned out to be working tools that wanted a
+  line in CONTRIBUTING.md or the release checklist, and one was residue. A
+  single-verdict gate would have argued for deleting working code five times
+  out of six, which is how a gate gets switched off. So the routes are named
+  separately — a workflow or hook, another entry, documentation — and
+  **a changelog is not documentation**: it names a script _because_ the script
+  changed or was retired, and counting that would make every entry immortal
+  from the commit that touched it. Two verdicts sit beside "no caller": an
+  entry only a test names (a fixture is not a caller) and an `npm run` in a
+  workflow or script naming an entry that does not exist, which is the prose
+  check's blind spot — nothing else reads those files. Exemptions live in the
+  script with a reason and expire loudly, failing once the entry becomes
+  reachable or leaves `package.json`.
 - **A test that repeats its neighbour claims something nothing backs.**
   `check:test-claims` compares test bodies **within one file** and reports a
   pair that normalizes to the same text, plus any test switched off without a

@@ -65,7 +65,9 @@ The `*:stable` test scripts each build the app and manage their own
 `vite preview` on 4173, built with `--mode=e2e` so that `VITE_E2E_MOCK=1` puts
 the MSW mocks in front of the backend. `npm run preview:test` starts the same
 preview **without** that mode — the ordinary build, talking to a real sidecar —
-for driving the app by hand or attaching an external runner.
+for driving the app by hand or attaching an external runner. `npm run preview`
+is the step below that: bare `vite preview` over whatever `build/` already
+holds, with no build of its own, for looking at a build you just produced.
 
 Stop it before running any suite. `playwright.config.ts` sets
 `reuseExistingServer: true`, so a preview already answering on 4173 is adopted
@@ -79,6 +81,24 @@ reporting whether the app stayed up for the full window. Use it to catch a boot
 that dies or floods the log without sitting and watching the window; the
 release-build equivalent is `tauri:smoke:release-startup`, in
 [`backend/RELEASE_CHECKLIST.md`](backend/RELEASE_CHECKLIST.md) §3.
+
+`npm run tauri:dev:fresh` is step 3 with the dev profile pre-cleaned: it deletes
+the WebView2 local storage and the backend `session.json`/`.ready` under
+`%LOCALAPPDATA%\VoxRox\Mail.dev` and then starts `tauri:dev`. Reach for it when
+the UI behaves as if it remembers something — a stale preference, a session
+pointing at a port nothing listens on. It never touches `db/`, `attachments/`,
+`crypto.bin` or `logs/`, and it works on the dev root only.
+
+`npm run tauri:smoke:csp-build` checks the packaged build's CSP, which
+`check:csp` cannot reach: `tauri.conf.json` sets `script-src 'self'` with no
+`'unsafe-inline'`, so the one inline bootstrap script in the SvelteKit fallback
+`index.html` runs only if Tauri hashes it into the packaged policy — and dev and
+build inject that hash by different paths, so a clean dev console proves nothing
+about the installer. The smoke launches the release binary with WebView2 remote
+debugging, listens for `securitypolicyviolation` from document start, and
+asserts both that nothing was blocked and that the SPA actually mounted. Build
+the binary first (`npm run tauri:build:with-sidecar`); if the injection ever
+breaks, the packaged app opens on a blank window and nothing else catches it.
 
 ### Git hooks (one-time activation)
 
@@ -245,6 +265,14 @@ decide whether everything else is allowed to land.
   only tests reach and from a method that is merely too visible. A deliberate
   exception carries `@callerless <reason>` on the declaration, in a `//`
   comment — javadoc would trip Error Prone's `InvalidBlockTag`.
+- `npm run check:npm-callers` — part of `npm run check`. An entry in
+  `frontend/package.json` `scripts` needs something that reaches it: a
+  workflow or hook, another entry, or documentation. The report names the
+  route, and leads an unreachable entry with "document it" rather than
+  "delete it" — of the six entries that had no caller when this was written,
+  five were working tools nobody had written down. `prepare` and the two
+  interactive watch loops are exempt in the script itself, with a reason;
+  the exemption fails once the entry becomes reachable or disappears.
 - `npm run check:test-claims` — part of `npm run check`. Fails on two tests
   in one file with identical bodies, and on a test switched off without a
   reason (`@Disabled("…")`, or a `test-skip: …` comment above the call).
