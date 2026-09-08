@@ -13,6 +13,10 @@ Platforma:
 Tester:
 ```
 
+## 0. Verze
+
+- [ ] Verzi měnit **jen** přes `cd frontend ; npm run bump:version <X.Y.Z>`. Sedí na pěti souborech naráz — `frontend/package.json`, `frontend/src-tauri/tauri.conf.json`, `frontend/src/lib/version.ts`, `frontend/src-tauri/Cargo.toml` a `backend/pom.xml` — a ruční editace kteréhokoli z nich rozejde zbytek. Brána `npm run check:versions` (součást `npm run check`) rozejití chytí, ale až po tom, co vznikne; skript ho nedovolí. Argument se ověřuje proti `SEMVER_RE`, takže překlep neprojde.
+
 ## 1. Backend build
 
 - [x] `mvn -Dmaven.repo.local=.m2repo -Dapp.data-dir=target/test-data clean verify` — jeden příkaz, ne `spotless:check` + `package` zvlášť. `clean` proto, že jinak SpotBugs analyzuje `__BeanDefinitions` po předchozím `-Paot package` a padne na generovaném kódu; `verify` proto, že `package` neodpálí failsafe integrační testy. Spotless i SpotBugs jedou uvnitř.
@@ -62,6 +66,7 @@ Poznámky:
 - [ ] Vznikne `${app.data-dir}/.ready`.
 - [ ] UI neukáže error dialog.
 - [ ] `/api/internal/health` vrací 200 s `X-API-KEY` ze `session.json`.
+- [ ] Změřit start release buildu: `cd frontend ; npm run tauri:smoke:release-startup`. Spustí exe z `src-tauri/target/release/`, počká na sidecar a odloží report do `frontend/target/tauri-release-startup-<stamp>.json` plus oba logy. Odmítne běžet, když už nějaký backend jede (pozná to podle `session.json`) — v tom případě appku nejdřív zavřít, jinak by měřil cizí proces.
 
 ## 3a. Installer and update behavior
 

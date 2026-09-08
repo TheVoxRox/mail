@@ -61,6 +61,25 @@ npm run test:a11y:stable
 npm run tauri:dev
 ```
 
+The `*:stable` test scripts each build the app and manage their own
+`vite preview` on 4173, built with `--mode=e2e` so that `VITE_E2E_MOCK=1` puts
+the MSW mocks in front of the backend. `npm run preview:test` starts the same
+preview **without** that mode — the ordinary build, talking to a real sidecar —
+for driving the app by hand or attaching an external runner.
+
+Stop it before running any suite. `playwright.config.ts` sets
+`reuseExistingServer: true`, so a preview already answering on 4173 is adopted
+as-is: the suites then run against an unmocked build and fail wholesale, in a
+way that reads as hundreds of real regressions.
+
+`npm run tauri:smoke:startup` is the unattended version of step 3: it runs
+`tauri:dev` for 20 s (`--duration-ms=` to change that), tees both streams to
+`frontend/target/tauri-startup-<stamp>.{stdout,stderr}.log` and stops it again,
+reporting whether the app stayed up for the full window. Use it to catch a boot
+that dies or floods the log without sitting and watching the window; the
+release-build equivalent is `tauri:smoke:release-startup`, in
+[`backend/RELEASE_CHECKLIST.md`](backend/RELEASE_CHECKLIST.md) §3.
+
 ### Git hooks (one-time activation)
 
 Hooks live in the tracked `.githooks/` directory. Activate them once per clone
@@ -239,6 +258,13 @@ decide whether everything else is allowed to land.
   Java tree. A separate script because the shared implementation takes one
   target per run; CI invokes it directly from the backend job, which has no
   npm dependencies installed.
+
+  When either of those fails, `npm run check:translations` (no arguments) runs
+  the same scan in **report** mode: it lists the offending files with per-file
+  counts and exits 0, so you get the whole list in one pass instead of fixing
+  one file per red run. `--target=backend` switches trees. It is a diagnostic,
+  not a gate, which is why it is not in `npm run check`.
+
 - `npm audit --audit-level=high` — must report 0 high+ vulnerabilities.
 - `npm run test:unit:coverage` — vitest with thresholds (≥ 65% global,
   per-file 90/85/90 for `content-sanitizer.ts`, 85/80/80 for
