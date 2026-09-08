@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.voxrox.mailbackend.core.security.CryptoService;
 import org.voxrox.mailbackend.exception.ErrorCode;
@@ -34,6 +35,7 @@ import org.voxrox.mailbackend.exception.MailOperationException;
 import org.voxrox.mailbackend.feature.account.AccountLastError;
 import org.voxrox.mailbackend.feature.account.entity.AccountCredentialEntity;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
+import org.voxrox.mailbackend.feature.account.event.AccountRequiresReauthEvent;
 import org.voxrox.mailbackend.feature.account.repository.AccountCredentialRepository;
 import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 
@@ -71,6 +73,9 @@ class GoogleTokenServiceTest {
     @Mock
     private org.voxrox.mailbackend.core.metrics.MailMetrics mailMetrics;
 
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     private GoogleTokenService service;
 
     private WireMockServer wireMock;
@@ -81,7 +86,7 @@ class GoogleTokenServiceTest {
         wireMock.start();
 
         service = new GoogleTokenService(cryptoService, credentialRepository, accountRepository, mailMetrics,
-                new TokenCache());
+                new TokenCache(), eventPublisher);
 
         ReflectionTestUtils.setField(service, "clientId", CLIENT_ID);
         ReflectionTestUtils.setField(service, "clientSecret", CLIENT_SECRET);
@@ -237,6 +242,25 @@ class GoogleTokenServiceTest {
 
             verify(accountRepository).updateRequiresReauth(42L, true);
             verify(accountRepository).updateLastError(eq(42L), any(AccountLastError.class), any(LocalDateTime.class));
+            // Nothing will connect for the account from here on, so its pooled IMAP
+            // connections have to be closed by someone — the listener that reacts to
+            // this event.
+            verify(eventPublisher).publishEvent(new AccountRequiresReauthEvent(42L));
+        }
+
+        @Test
+        void dbFailureDuringMarkMustNotAnnounceTheReauth() {
+            // The flag is what makes the account unreachable. If the UPDATE did not go
+            // through, its connections are still in use and closing them would drop a
+            // live session under a running sync.
+            stubBadRequest();
+            doThrow(new RuntimeException("DB connection lost")).when(accountRepository).updateRequiresReauth(anyLong(),
+                    eq(true));
+
+            assertThatThrownBy(() -> service.getAccessToken(99L, "rt", EMAIL))
+                    .isInstanceOf(MailOperationException.class);
+
+            verify(eventPublisher, never()).publishEvent(any(AccountRequiresReauthEvent.class));
         }
 
         @Test

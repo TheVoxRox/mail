@@ -71,7 +71,8 @@
   },
   "docs/OAUTH_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/auth": "83babfd619df7402c46006a7ff5226288afe7f19"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/auth": "230e8138b5c9f72baa71ab2795d009e26d300211",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/account/service/ExternalProviderLoginService.java": "029c363ddfb5e59707b91fec6382b91be7357ff4"
     },
     "acknowledgements": [
       {
@@ -85,6 +86,10 @@
       {
         "date": "2026-08-27",
         "note": "One idiom change under this path. 7ec2793 rewrites both cache lookups in OAuth2TokenService.getAccessToken from \"cached.isPresent() && cached.get().isFresh()\" to tokenCache.get(accountId).filter(CachedToken::isFresh). Optional.filter evaluates the predicate only when a value is present, exactly as the && short-circuit did, and the cache is still read once per lookup, so the freshness decision, the double-check under the refresh lock and the fall-through to doRefresh all behave as before. No token is cached, logged or transmitted differently, and no scope, redirect URI or PKCE handling is in the diff. Verdict stays PASS."
+      },
+      {
+        "date": "2026-09-08",
+        "note": "Two paths, one change, and the second path is why this note is longer than its delta. In OAuth2TokenService.doRefresh, a permanent refresh rejection now publishes AccountRequiresReauthEvent after the updateRequiresReauth / updateLastError pair it already wrote, so a listener outside this feature can close the account's now-unreachable IMAP connections; the base constructor takes the publisher and the two subclasses pass it through. ExternalProviderLoginService.markRequiresReauthIfExists is the third writer of that flag and does the same, from TransactionCallbacks.runAfterCommit because it is @Transactional - the purge behind the event waits on the per-account connection lock, which must not be waited on with the single-writer SQLite transaction open, and before the commit the flag is not durable. Nothing about either token flow moves: the same permanent-vs-transient classification decides the branch, the refresh lock, the cache invalidate, the metric and the thrown MailOperationException are unchanged, the login path still writes exactly the credentials and account fields it did, and no scope, redirect URI, PKCE parameter, client secret or token value is read, logged or transmitted differently. The event is deliberately minimal for that reason - it carries the account id alone, so no token or address reaches a listener with no business holding either. Placement inside the existing try is checked by a mutation that moves it out: the flag is what makes the account unreachable, so an event published after a failed UPDATE would ask for live connections to be closed. Three mutations in total, each red on exactly the test that claims its rule, each verified to have reached the tests. Verdict stays PASS."
       }
     ]
   },
@@ -115,7 +120,7 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "456ed3ca284efd343ddaa45d78e2b7db3c613241"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "a010d5a09c8e955ca05b3f4c061653c295f16235"
     },
     "acknowledgements": [
       {
@@ -129,6 +134,10 @@
       {
         "date": "2026-09-08",
         "note": "Two debug lines and a branch split under this path, read as a diff rather than waved through as \"just logging\". ImapFolderExecutor.openFolder keeps exactly the three conditions it had — a null ResyncRequest, a folder that is not an IMAPFolder, a server that does not advertise QRESYNC — and only names which of them skipped the resynchronized open; MailSyncService logs the ImapCapabilities probe result per folder cycle. Both are log.debug, and the packaged sidecar runs the prod profile, where org.voxrox.mailbackend sits at INFO, so neither line is emitted in a release build at all. What they print is a folder name and two booleans: the folder name is already logged at INFO on the same cycle by MailSyncEventListener, and no credential, token, address or message content is added, so the LogMasker boundary this audit weighs does not move. Control flow is otherwise identical — the QRESYNC attempt and its ResyncData arguments, the warn-and-degrade catch, and the plain open all stand, with the two fallback paths now converging on one folder.open(mode) instead of writing it twice. Evidence rather than assertion: the three ImapFolderExecutorTest cases that cover precisely these paths (resynchronized open, rejected QRESYNC, missing request) pass unchanged, and mvn clean verify is green. No TLS setting, authentication mechanism, connection-pool rule or protocol command moved. Verdict stays PASS."
+      },
+      {
+        "date": "2026-09-08",
+        "note": "Connection lifecycle, which is this audit's own subject, so it was read as a diff rather than waved through. The delta under this path is one constructor parameter (ApplicationEventPublisher) and one statement in ImapConnectionManager.persistentAuthenticationFailure: after the requires_reauth UPDATE that was already there, an AccountRequiresReauthEvent is published so the account's pooled connections get closed. What it changes is that fewer IMAP sessions stay open, never more, and it changes nothing about how one is opened. createNewConnectedStore is untouched, so the \"two connections per account, one connection setup\" claim of section 1 holds as written, with every property it enumerates - the pinned checkserveridentity, the fail-closed imap_oauth2_plaintext_blocked guard, the millisecond-string timeouts, the pinned partialfetch - still on the single path both lanes call. No TLS setting, authentication mechanism, timeout, protocol command or credential moved. The event carries an account id and nothing else: no token, no address, no message content, so the LogMasker and secret-handling boundaries this audit weighs do not move either. The one concurrency question it raises is answered where the rule lives: publishing rather than purging in place is what keeps the manager from taking the second lane's lock while it holds the first (CONCURRENCY.md rule 2), and the listener that does the purge runs on mailEventExecutor holding nothing. Evidence rather than assertion: three mutations, each turning red exactly the test that claims its rule, each checked to have reached the tests, and mvn clean verify green. Verdict stays PASS."
       }
     ]
   }

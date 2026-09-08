@@ -3,6 +3,7 @@ package org.voxrox.mailbackend.feature.auth.service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
@@ -52,8 +53,9 @@ public final class GoogleTokenService extends OAuth2TokenService {
     private String revokeEndpoint = "https://oauth2.googleapis.com/revoke";
 
     public GoogleTokenService(CryptoService cryptoService, AccountCredentialRepository credentialRepository,
-            AccountRepository accountRepository, MailMetrics metrics, TokenCache tokenCache) {
-        super(accountRepository, metrics, tokenCache);
+            AccountRepository accountRepository, MailMetrics metrics, TokenCache tokenCache,
+            ApplicationEventPublisher eventPublisher) {
+        super(accountRepository, metrics, tokenCache, eventPublisher);
         this.cryptoService = cryptoService;
         this.credentialRepository = credentialRepository;
     }

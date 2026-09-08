@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.Optional;
@@ -18,9 +19,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.account.entity.MailProviderEntity;
 import org.voxrox.mailbackend.feature.account.entity.MailServerConfig;
+import org.voxrox.mailbackend.feature.account.event.AccountRequiresReauthEvent;
 import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.feature.auth.dto.AuthType;
 import org.voxrox.mailbackend.feature.auth.service.GoogleTokenService;
@@ -67,12 +70,15 @@ class ExternalProviderLoginServiceTest {
     @Mock
     private ImapConnectionManager imapConnectionManager;
 
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     private ExternalProviderLoginService service;
 
     @BeforeEach
     void setUp() {
         service = new ExternalProviderLoginService(accountRepository, providerService, credentialService,
-                oauth2TokenServiceRegistry, imapConnectionManager);
+                oauth2TokenServiceRegistry, imapConnectionManager, eventPublisher);
     }
 
     private AccountEntity createAccountEntity() {
@@ -110,6 +116,10 @@ class ExternalProviderLoginServiceTest {
 
             assertThat(account.isRequiresReauth()).isTrue();
             verify(accountRepository).save(account);
+            // Third writer of the flag, same consequence as the other two: the account
+            // leaves findByActiveTrueAndRequiresReauthFalse, so its pooled connections
+            // are dead weight and the listener closes them.
+            verify(eventPublisher).publishEvent(new AccountRequiresReauthEvent(ACCOUNT_ID));
         }
 
         @Test
@@ -121,6 +131,9 @@ class ExternalProviderLoginServiceTest {
             service.markRequiresReauthIfExists(EMAIL);
 
             verify(accountRepository, never()).save(any());
+            // Guarded on the transition, like the deactivation purge in AccountService:
+            // an account already marked has nothing left in the pool to close.
+            verifyNoInteractions(eventPublisher);
         }
 
         @Test

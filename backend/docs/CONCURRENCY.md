@@ -73,12 +73,28 @@ one of these, re-read its row first.
    `@Modifying` UPDATEs** (`updateRequiresReauth`, `updateLastError`,
    `clearLastError`) — no entity load, no optimistic-lock conflicts with a
    concurrently running sync.
+   - **Raising `requires_reauth` publishes `AccountRequiresReauthEvent`**, and
+     `AccountReauthEventListener` closes the account's pooled connections off
+     `mailEventExecutor`. All three writers do it, each for its own reason:
+     `OAuth2TokenService` cannot call `ImapConnectionManager` (it is on the
+     other side of the dependency, via `OAuth2TokenServiceRegistry`);
+     `ImapConnectionManager`'s own write happens under one lane's lock, where
+     rule 2 forbids reaching for the other; and
+     `ExternalProviderLoginService.markRequiresReauthIfExists` is
+     `@Transactional`, so it publishes from `runAfterCommit` under rule 3. The
+     purge is deliberate rather than
+     cosmetic: after the flag, `MailSyncScheduler` no longer selects the
+     account and `requireUsableAccount` rejects every other entry point, so an
+     untouched `Store` would sit in the pool per lane until the process ends —
+     the deactivation leak #430 closed, on the other half of the same
+     predicate. Published only after the UPDATE succeeds; a failed write means
+     the account is still reachable and its connections are still in use.
 
 ## Inventory
 
 | State                                              | Type / guard                                                                                  | Mutated by                                                                                                                                                         | Lifecycle                                                                                                                                                                                                       |
 | -------------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ImapConnectionManager.connectionPool`             | `ConcurrentHashMap<(accountId, Lane), Store>`; entries only touched under that lane lock      | `getConnectedStore` (create/evict), `removeConnection[Locked]`, `purgeAccount`                                                                                     | closed + cleared in `@PreDestroy`                                                                                                                                                                               |
+| `ImapConnectionManager.connectionPool`             | `ConcurrentHashMap<(accountId, Lane), Store>`; entries only touched under that lane lock      | `getConnectedStore` (create/evict), `removeConnection[Locked]`, `purgeAccount`, `AccountReauthEventListener`                                                       | closed + cleared in `@PreDestroy`                                                                                                                                                                               |
 | `ImapConnectionManager.accountLocks`               | `ConcurrentHashMap<(accountId, Lane), ReentrantLock(fair)>`                                   | `computeIfAbsent` on first use                                                                                                                                     | never removed (rule 4); cleared only in `@PreDestroy`                                                                                                                                                           |
 | `ImapConnectionManager.interactiveLaneCooldown`    | `ConcurrentHashMap<Long, Instant>`; no lock — a lost race costs one connect attempt           | set when an interactive connect fails, removed on expiry and by `purgeAccount`                                                                                     | empty in the normal case; cleared in `@PreDestroy`                                                                                                                                                              |
 | `SyncLockManager.activeSyncs`                      | `ConcurrentHashMap.newKeySet()`                                                               | `tryLock`/`unlock` around a whole account sync                                                                                                                     | skip-if-running semantics — a second sync of the same account is dropped, not queued                                                                                                                            |
