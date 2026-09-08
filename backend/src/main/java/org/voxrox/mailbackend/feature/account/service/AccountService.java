@@ -284,9 +284,19 @@ public class AccountService {
      * on the per-account connection lock, which a running sync cycle can hold for
      * minutes (a large folder fetch). Running that wait inside the transaction kept
      * the SQLite write transaction open the whole time — the single-writer DB then
-     * blocks every other write in the application. A sync racing the delete simply
-     * fails on the missing account row and its last_error UPDATE matches no row
-     * (no-op).
+     * blocks every other write in the application.
+     *
+     * <p>
+     * Two callers since #430, and a racing sync ends differently for each. On
+     * delete it simply fails on the missing account row, and its last_error UPDATE
+     * matches no row (no-op). On deactivation the row is still there, so the cycle
+     * runs to its end: the connection lock is taken per folder operation rather
+     * than held for the cycle, which means a cycle started before the transition —
+     * or merely queued, since MailSyncScheduler selects its accounts up front —
+     * reconnects on its next folder and re-pools a Store this purge had just
+     * closed. The cleanup is best-effort on that path by construction. Losing the
+     * race costs exactly what it was closing: one idle Store per lane, until the
+     * process ends.
      */
     private void purgeConnectionsAfterCommit(Long accountId) {
         TransactionCallbacks.runAfterCommit(() -> purgeConnectionsQuietly(accountId));
@@ -294,18 +304,19 @@ public class AccountService {
 
     /**
      * A purge failure after the commit must not surface as an error of the
-     * already-completed delete — the orphaned connection dies with the process at
-     * the latest ({@code @PreDestroy} shutdown in ImapConnectionManager).
+     * already-completed delete or deactivation — the orphaned connection dies with
+     * the process at the latest ({@code @PreDestroy} shutdown in
+     * ImapConnectionManager).
      */
     private void purgeConnectionsQuietly(Long accountId) {
-        // Cached folder list of a deleted account is dead weight — drop it first,
-        // it cannot fail and must not depend on the connection purge succeeding.
+        // Cached folder list of an account that was just deleted or switched
+        // inactive is dead weight — drop it first, it cannot fail and must not
+        // depend on the connection purge succeeding.
         folderListCache.invalidate(accountId);
         try {
             imapConnectionManager.purgeAccount(accountId);
         } catch (RuntimeException e) {
-            log.warn("{} Post-delete connection cleanup for account {} failed: {}", LogCategory.ACCOUNT, accountId,
-                    e.getMessage());
+            log.warn("{} Connection cleanup for account {} failed: {}", LogCategory.ACCOUNT, accountId, e.getMessage());
         }
     }
 
