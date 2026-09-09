@@ -1,491 +1,502 @@
 # Performance baseline
 
-Tento soubor slouží pro ruční E18 smoke měření před releasem. Vyplnit na reálném mailboxu s 10k+ zprávami.
+The record of what this app's startup and runtime actually cost, and of what
+each number was measured on. Every section below is a dated measurement; the
+scripts that produce them are [scripts/measure-cold-start-windows.ps1](scripts/measure-cold-start-windows.ps1)
+and `npm run tauri:smoke:release-startup`, and both say results belong here.
 
-**Pravidlo: každá měřená sekce začíná řádkem `Stroj:`.** Repozitář se střídá
-mezi dvěma stroji s ~2× rozdílem propustnosti (notebook i7-1255U, 15W U-series,
-1,7 GHz base, 16 GB × stolní PC AMD Ryzen 9 9900X, 12 jader / 24 vláken,
-4,4 GHz, 62 GB), takže startupové číslo bez jména stroje je nepoužitelné —
-srovnání napříč sekcemi z něj udělá zdánlivý rozpor, který žádný není. Sekce
-psané před tímhle pravidlem stroj neuvádějí a zpětně už dohledatelný není;
-mají proto `Stroj: nezaznamenán` a jejich absolutní čísla se srovnávat nedají.
-Relativní delty uvnitř jedné sekce platí dál — ty měřily obě varianty na tomtéž
-hardwaru.
+**Rule: every measured section starts with a `Machine:` line.** The repository
+alternates between two machines with a ~2× difference in throughput (laptop
+i7-1255U, 15W U-series, 1.7 GHz base, 16 GB × desktop PC AMD Ryzen 9 9900X,
+12 cores / 24 threads, 4.4 GHz, 62 GB), so a startup number without a machine
+name is unusable — comparing across sections turns it into an apparent
+contradiction that is not one. Sections written before this rule do not name a
+machine and it can no longer be recovered; they therefore carry
+`Machine: not recorded` and their absolute numbers cannot be compared. Relative
+deltas within one section still hold — those measured both variants on the same
+hardware.
 
-```text
-Datum:
-Release kandidat:
-Backend commit:
-Frontend commit:
-Platforma:
-CPU:
-RAM:
-Disk:
-JDK/runtime:
-Mailbox provider:
-Pocet uctu:
-Pocet zprav:
-Velikost priloh:
-```
+## What has never been measured
 
-## Scenar
+Everything below is startup. The **runtime** side of the original worksheet was
+never filled in, in any release candidate, so these are open gaps rather than
+numbers waiting to be copied in:
 
-1. Fresh install nebo čistý `${app.data-dir}`.
-2. Přidat reálný účet.
-3. Spustit full sync.
-4. Po syncu provést FTS5 search na známý hit a známý miss.
-5. Odeslat zprávu s přílohou.
-6. Nechat aplikaci běžet alespoň 30 minut s běžným background syncem.
+- full-sync throughput against a real 10k+ mailbox (elapsed time, messages/s),
+- FTS5 search latency on that mailbox, hit and miss,
+- peak RSS / working set and observed Java heap over a long run,
+- SQLite DB and WAL growth over that run,
+- time to send a message with a large attachment.
 
-## Metriky
-
-| Metrika                         | Hodnota | Poznamka |
-| ------------------------------- | ------: | -------- |
-| Cold start backendu po `.ready` |         |          |
-| Cas do prvniho health 200       |         |          |
-| Full sync 10k+ zprav            |         |          |
-| Pocet stazenych zprav           |         |          |
-| Prumer zprav/s                  |         |          |
-| FTS5 hit search                 |         |          |
-| FTS5 miss search                |         |          |
-| Odeslani mailu s prilohou       |         |          |
-| Max RSS / working set           |         |          |
-| Java heap max observed          |         |          |
-| SQLite DB velikost              |         |          |
-| SQLite WAL max velikost         |         |          |
-| Diagnostic dump velikost        |         |          |
+The first three matter most and none of them can be measured on the dev profile
+(524 messages). The functional side of the same smoke — that these operations
+_work_ — is owned by [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) §5 and §8;
+what is missing here is only how long they take. A new measurement goes in as a
+dated section with a `Machine:` line, in the shape of the ones below.
 
 ## Startup audit 2026-05-17 - before/after
 
-Po implementaci sady zmen z auditu startupu (todo.md sekce "Startup A Komunikace
-FE-BE"). Cilem je zmerit realny gain na cold start a vnimanou rychlost a
-rozhodnout, jestli ma smysl pokracovat s JEP 483 AOT cache (#10 v auditu).
+After implementing the set of changes from the startup audit (todo.md section
+"Startup A Komunikace FE-BE"). The goal is to measure the real gain on cold start
+and perceived speed, and to decide whether it is worth going on with the JEP 483
+AOT cache (#10 in the audit).
 
-Mereni delat na **cistem profilu** (cerstve `%LOCALAPPDATA%\VoxRox\Mail`, zadne
-predchozi WAL, prazdna DB). Spustit kazdy beh **3x** a brat median, ne jeden vzorek.
+Measure on a **clean profile** (a fresh `%LOCALAPPDATA%\VoxRox\Mail`, no previous
+WAL, an empty DB). Run each variant **3×** and take the median, not a single
+sample.
 
-Stroj tahle sekce neuvadi zamerne: cisla v obou tabulkach nize jsou **cile a
-typicke rozsahy**, ne namerene hodnoty. Pravidlo `Stroj:` z uvodu plati na
-sekce, ktere neco zmerily.
+This section deliberately names no machine: the numbers in both tables below are
+**targets and typical ranges**, not measured values. The `Machine:` rule from the
+introduction applies to sections that measured something.
 
-### Mereni na strane backendu
+### Measuring on the backend side
 
-`StartupTimingService` loguje na INFO uroven kazdou fazi (`[BOOT] Startup
-timing: phase=<klic> durationMs=<ms>`). Klicove fáze:
+`StartupTimingService` logs every phase at INFO level (`[BOOT] Startup
+timing: phase=<key> durationMs=<ms>`). The key phases:
 
-| Faze                        | Klic                                | Typicke pred zmenami |                 Cil po zmenach |
-| --------------------------- | ----------------------------------- | -------------------: | -----------------------------: |
-| Spring AppContext refresh   | (Spring `Started ... in X seconds`) |               ~3-5 s |                 -20-40 % (AOT) |
-| Flyway migrace              | `db.flyway-migrate`                 |            50-300 ms |   beze zmeny (no-op pri ready) |
-| Pre-migration backup        | `db.pre-migration-backup`           |            50-200 ms | **0 ms** (pri zadnych pending) |
-| SQLite PRAGMA verify        | `db.verify-pragmas`                 |            30-100 ms |                     beze zmeny |
-| Crypto subsystem init       | `crypto.service-init`               |               <10 ms |          beze zmeny (jiz lazy) |
-| Storage permissions         | `storage.permissions`               |             10-50 ms |                     beze zmeny |
-| Handshake session write     | `handshake.session-write`           |               <10 ms |                     beze zmeny |
-| ApplicationReadyEvent total | `spring.application-ready`          |           ~50-500 ms |          -10-20 % (mensi heap) |
+| Phase                       | Key                                 | Typical before the changes |                 Target after |
+| --------------------------- | ----------------------------------- | -------------------------: | ---------------------------: |
+| Spring AppContext refresh   | (Spring `Started ... in X seconds`) |                     ~3-5 s |               -20-40 % (AOT) |
+| Flyway migration            | `db.flyway-migrate`                 |                  50-300 ms | unchanged (no-op when ready) |
+| Pre-migration backup        | `db.pre-migration-backup`           |                  50-200 ms | **0 ms** (when none pending) |
+| SQLite PRAGMA verify        | `db.verify-pragmas`                 |                  30-100 ms |                    unchanged |
+| Crypto subsystem init       | `crypto.service-init`               |                     <10 ms |     unchanged (already lazy) |
+| Storage permissions         | `storage.permissions`               |                   10-50 ms |                    unchanged |
+| Handshake session write     | `handshake.session-write`           |                     <10 ms |                    unchanged |
+| ApplicationReadyEvent total | `spring.application-ready`          |                 ~50-500 ms |      -10-20 % (smaller heap) |
 
-Zpusob mereni:
+How to measure:
 
 ```powershell
 # 1. Fresh data dir
 Remove-Item -Recurse -Force "$env:LOCALAPPDATA\VoxRox\Mail" -ErrorAction SilentlyContinue
-# 2. Spustit Tauri release build
+# 2. Start the Tauri release build
 & "$env:ProgramFiles\VoxRox Mail\voxrox-mail.exe"
-# 3. Po startu aplikace zkopirovat log a precist
+# 3. After the application starts, copy the log and read it
 Get-Content "$env:LOCALAPPDATA\VoxRox\Mail\logs\mail.log" |
   Select-String "Startup timing" | Select-Object -First 20
 ```
 
-### Mereni na strane frontendu
+### Measuring on the frontend side
 
-`bootstrap.ts` zapisuje timings do `bootState.timings` (klice viz
+`bootstrap.ts` writes timings into `bootState.timings` (for the keys see
 [frontend/src/lib/stores/boot.ts](../frontend/src/lib/stores/boot.ts)). Dev console:
 
 ```js
 console.info("[mail] boot timings", $bootState.timings);
 ```
 
-Klicove deltas (relativni k `uiStart=0`):
+The key deltas (relative to `uiStart=0`):
 
-| Mezicas                       | Klic             |  Typicke pred |                            Cil po |
-| ----------------------------- | ---------------- | ------------: | --------------------------------: |
-| Sidecar process running       | `sidecarRunning` |     50-300 ms |                        beze zmeny |
-| `.ready` + session.json videt | `sessionFound`   | +1000-5000 ms | -300-500 ms (mensi JVM heap, AOT) |
-| Handshake OK                  | `handshakeOk`    |     +0-200 ms |      **0 ms** (smazano, mark jen) |
-| Readiness OK                  | `readinessOk`    |     +0-200 ms |  beze zmeny (1 polling roundtrip) |
-| Client config nactena         | `clientConfigOk` |   +100-300 ms |     -50 ms (paralelne s accounts) |
-| Accounts nactene              | `accountsLoaded` |   +100-500 ms |       -50 ms (paralelne s config) |
-| App ready (full shell)        | `appReady`       | ~2000-6000 ms |                      -500-1500 ms |
+| Interval                     | Key              | Typical before |                        Target after |
+| ---------------------------- | ---------------- | -------------: | ----------------------------------: |
+| Sidecar process running      | `sidecarRunning` |      50-300 ms |                           unchanged |
+| `.ready` + session.json seen | `sessionFound`   |  +1000-5000 ms | -300-500 ms (smaller JVM heap, AOT) |
+| Handshake OK                 | `handshakeOk`    |      +0-200 ms |       **0 ms** (removed, mark only) |
+| Readiness OK                 | `readinessOk`    |      +0-200 ms |     unchanged (1 polling roundtrip) |
+| Client config loaded         | `clientConfigOk` |    +100-300 ms |  -50 ms (in parallel with accounts) |
+| Accounts loaded              | `accountsLoaded` |    +100-500 ms |    -50 ms (in parallel with config) |
+| App ready (full shell)       | `appReady`       |  ~2000-6000 ms |                        -500-1500 ms |
 
-### Co overit po smoke
+### What to verify after the smoke
 
-- [x] Cold start `appReady` median pres 3 behy — **4621 ms od spawnu**, overeno
-      2026-09-08 v desktop bundlu (sekce „`appReady` v desktop bundlu" nize).
-      Z toho je 4178 ms cekani na sidecar; UI prida 45 ms.
-- [ ] Heap pri startu (`Get-Process java | Select-Object PrivateMemorySize64`)
-- [ ] Tauri okno se zobrazi do <500 ms
-- [ ] Shell-first placeholder (AppRail + sidebar gray boxes) je videt
-      okamzite po zobrazeni okna, nezustava blank screen
-- [ ] Pre-migration backup file (`db/mail.db.backup-pre-v*`) NEvznikne
-      pri startu na sjednocenem schema
-- [x] Springdoc classes v fat jaru chybi (`jar tf mail-backend-*.jar |
-Select-String springdoc` = empty) — overeno 2026-06-11 po oprave
-      vylouceni (viz mereni nize; puvodni `<excludes>` jen s groupId tise
-      nefungoval a springdoc v jaru zustaval)
-- [x] AOT artefakty v jaru pritomne (`jar tf mail-backend-*.jar |
-Select-String "__BeanDefinitions"` non-empty) — overeno 2026-06-11,
-      310 trid
-- [ ] Global bootstrap timeout: pri umelem sidecar failure (mock
-      `mail.e2e.sidecarFailure=once`) frontend zobrazí chybu **do 60 s**,
-      ne po polling smyckach (drive ~90 s)
+- [x] Cold start `appReady` median over 3 runs — **4621 ms from spawn**, verified
+      2026-09-08 in the desktop bundle (section "`appReady` in the desktop bundle"
+      below). Of that, 4178 ms is waiting for the sidecar; the UI adds 45 ms.
+- [ ] Heap at startup (`Get-Process java | Select-Object PrivateMemorySize64`)
+- [ ] The Tauri window appears within <500 ms
+- [ ] The shell-first placeholder (AppRail + sidebar gray boxes) is visible
+      immediately after the window appears, and does not stay a blank screen
+- [ ] A pre-migration backup file (`db/mail.db.backup-pre-v*`) is NOT created
+      on a start against the unified schema
+- [x] The springdoc classes are absent from the fat jar (`jar tf mail-backend-*.jar |
+Select-String springdoc` = empty) — verified 2026-06-11 after fixing the
+      exclusion (see the measurement below; the original `<excludes>` with a
+      groupId alone silently did nothing and springdoc stayed in the jar)
+- [x] The AOT artifacts are present in the jar (`jar tf mail-backend-*.jar |
+Select-String "__BeanDefinitions"` non-empty) — verified 2026-06-11,
+      310 classes
+- [ ] Global bootstrap timeout: on an artificial sidecar failure (mock
+      `mail.e2e.sidecarFailure=once`) the frontend shows the error **within 60 s**,
+      not after the polling loops (previously ~90 s)
 
-### Decision gate pro AppCDS / JEP 483 (#10)
+### Decision gate for AppCDS / JEP 483 (#10)
 
-Jestlize median cold start `appReady` po teto sade zmen je **> 3.5 s**, ma
-smysl pokracovat s JEP 483 AOT class cache (training run, build cache, deploy
-s fat jar). Pokud je median **<= 3.5 s**, gain z AOT cache (typicky +200-500 ms
-dalsi sleva) nezdovodnuje komplexitu (training run pri build, cache invalidace
-pri zmene jaru, distribucni rozmer).
+If the median cold start `appReady` after this set of changes is **> 3.5 s**, it
+is worth going on with the JEP 483 AOT class cache (training run, build cache,
+deploy with the fat jar). If the median is **<= 3.5 s**, the gain from the AOT
+cache (typically a further +200-500 ms off) does not justify the complexity
+(a training run during the build, cache invalidation when the jar changes, the
+distribution size).
 
-### JEP 483 AOT cache — měření 2026-05-19
+### JEP 483 AOT cache — measurement 2026-05-19
 
-**Stroj: nezaznamenán** (doplněno 2026-09-08, viz pravidlo v úvodu).
+**Machine: not recorded** (added 2026-09-08, see the rule in the introduction).
 
-Provedeno po refaktoru self-injection (`MessageContentPersister`,
-`ContactBulkService`), který odstranil runtime CGLib proxy generation z
-`MailContentService`/`ContactService`. Předchozí `ObjectProvider<Self>` bránila
-AOT cache restoru přes `ClassCastException`.
+Performed after the self-injection refactor (`MessageContentPersister`,
+`ContactBulkService`), which removed runtime CGLib proxy generation from
+`MailContentService`/`ContactService`. The previous `ObjectProvider<Self>`
+prevented the AOT cache restore with a `ClassCastException`.
 
 **Setup:**
 
-- Plain `java -jar mail-backend-0.1.0.jar` (bez Tauri jpackage launcheru)
-- Jar s `-Paot` (Spring AOT processing aktivní)
-- Crypto klíče dummy z env
-- `APP_DATA_DIR` = čerstvý tmp adresář per běh
-- Median ze 3 nezávislých běhů per varianta
+- Plain `java -jar mail-backend-0.1.0.jar` (without the Tauri jpackage launcher)
+- Jar built with `-Paot` (Spring AOT processing active)
+- Dummy crypto keys from env
+- `APP_DATA_DIR` = a fresh tmp directory per run
+- Median of 3 independent runs per variant
 
-**Výsledky:**
+**Results:**
 
-| Varianta                  | Median cold start |                  Delta |
-| ------------------------- | ----------------: | ---------------------: |
-| Bez AOT cache             |       **8553 ms** |               baseline |
-| S `-XX:AOTCache=mail.aot` |       **5415 ms** | **−3138 ms (−36.7 %)** |
+| Variant                      | Median cold start |                  Delta |
+| ---------------------------- | ----------------: | ---------------------: |
+| Without the AOT cache        |       **8553 ms** |               baseline |
+| With `-XX:AOTCache=mail.aot` |       **5415 ms** | **−3138 ms (−36.7 %)** |
 
-**Velikost cache:** 130.62 MB (`mail.aot`). Cache je vázaná na přesný jar hash
+**Cache size:** 130.62 MB (`mail.aot`). The cache is bound to the exact jar hash
 
-- Java verzi — při rebuildu jaru se musí regenerovat (~70 s pro training +
-  create přes `scripts/generate-aot-cache-windows.ps1`).
+- and the Java version — it has to be regenerated when the jar is rebuilt (~70 s
+  for training + create through `scripts/generate-aot-cache-windows.ps1`).
 
-**Closing the gap:** Tauri jpackage launcher má další overhead navíc nad plain
-`java -jar` (process spawn, sidecar handshake, .ready signal). Reálné `appReady`
-v desktop bundle bude vyšší než 5,4 s, ale stejná relativní úspora (~37 %) se
-zhruba propíše.
+**Closing the gap:** the Tauri jpackage launcher adds further overhead on top of
+plain `java -jar` (process spawn, sidecar handshake, .ready signal). The real
+`appReady` in the desktop bundle will be higher than 5.4 s, but roughly the same
+relative saving (~37 %) should carry over.
 
-**Decision:** AOT cache je `OPT-IN` v `scripts/package-sidecar-windows.ps1`
-přes `-EnableAotCache` switch. Build pipeline bez AOT je default kvůli rychlosti
-CI/dev iterací (training run přidává ~70 s) a 130 MB cache se neukládá do gitu.
-Pro release build použij `-EnableAotCache`.
+**Decision:** the AOT cache is `OPT-IN` in `scripts/package-sidecar-windows.ps1`
+through the `-EnableAotCache` switch. The build pipeline without AOT is the
+default because of CI/dev iteration speed (the training run adds ~70 s), and the
+130 MB cache is not stored in git. For a release build use `-EnableAotCache`.
 
-### Startup audit — měření 2026-06-03 (re-validace AOT po startup sweep)
+### Startup audit — measurement 2026-06-03 (re-validating AOT after the startup sweep)
 
-**Stroj: nezaznamenán** (doplněno 2026-09-08, viz pravidlo v úvodu). Sekce sama
-říká „vytížený stroj", ale ne který — pro srovnání s jinou sekcí to nestačí.
+**Machine: not recorded** (added 2026-09-08, see the rule in the introduction).
+The section itself says "a loaded machine", but not which one — that is not
+enough to compare it with another section.
 
-Provedeno po sadě startup optimalizací (AOT cache default ON pro release,
-lazy import FE komponent, fs watch místo session pollingu, readiness single-shot
-75→5 pokusů, `AttachmentService` cleanup přesunut z `@PostConstruct` na
-`@Async @EventListener(ApplicationReadyEvent)`). Cíl: ověřit, že AOT úspora drží
-a že přesun cleanup mimo boot thread nezhoršil cold start.
+Performed after a set of startup optimisations (AOT cache default ON for the
+release, lazy import of FE components, fs watch instead of session polling,
+readiness single-shot 75→5 attempts, `AttachmentService` cleanup moved from
+`@PostConstruct` to `@Async @EventListener(ApplicationReadyEvent)`). Goal: verify
+that the AOT saving holds and that moving the cleanup off the boot thread did not
+make the cold start worse.
 
-**Setup (shodný s 2026-05-19 pro srovnatelnost):**
+**Setup (identical to 2026-05-19 for comparability):**
 
-- Jar s `-Paot`, JDK 25.0.3 (Temurin)
-- Produkční JVM flagy: `-XX:TieredStopAtLevel=1 -Xms64m -Xmx384m -XX:+UseSerialGC --enable-native-access=ALL-UNNAMED -Dspring.aot.enabled=true`
-- Crypto klíče dummy z env, `APP_DATA_DIR` = čerstvý tmp adresář per běh
-- **Metrika:** wall-clock od startu JVM procesu do vzniku `.ready` souboru
-  (přesně signál, na který čeká frontend `loadSession`), median ze 3 běhů
-- Pozn.: měřeno na vytíženém stroji (běžely paralelní buildy), absolutní čísla
-  jsou proto vyšší než 2026-05-19; **relativní delta je robustní signál**.
+- Jar with `-Paot`, JDK 25.0.3 (Temurin)
+- Production JVM flags: `-XX:TieredStopAtLevel=1 -Xms64m -Xmx384m -XX:+UseSerialGC --enable-native-access=ALL-UNNAMED -Dspring.aot.enabled=true`
+- Dummy crypto keys from env, `APP_DATA_DIR` = a fresh tmp directory per run
+- **Metric:** wall-clock from the JVM process start to the creation of the
+  `.ready` file (exactly the signal the frontend `loadSession` waits for), median
+  of 3 runs
+- Note: measured on a loaded machine (parallel builds were running), so the
+  absolute numbers are higher than on 2026-05-19; **the relative delta is the
+  robust signal**.
 
-**Výsledky:**
+**Results:**
 
-| Varianta                  | Median cold start (→ `.ready`) |                  Delta |
-| ------------------------- | -----------------------------: | ---------------------: |
-| Bez AOT cache             |                   **10902 ms** |               baseline |
-| S `-XX:AOTCache=mail.aot` |                    **7055 ms** | **−3847 ms (−35.3 %)** |
+| Variant                      | Median cold start (→ `.ready`) |                  Delta |
+| ---------------------------- | -----------------------------: | ---------------------: |
+| Without the AOT cache        |                   **10902 ms** |               baseline |
+| With `-XX:AOTCache=mail.aot` |                    **7055 ms** | **−3847 ms (−35.3 %)** |
 
-**Velikost cache:** 128.5 MB (`mail.aot`).
+**Cache size:** 128.5 MB (`mail.aot`).
 
-**Závěry:**
+**Conclusions:**
 
-- AOT úspora **−35.3 %** potvrzuje historických −36.7 % → rozhodnutí „AOT cache
-  default ON pro release" (CI `windows-signed-release.yml`) je validované reálnými čísly.
-- Obě varianty dosáhly `.ready` čistě → `AttachmentService` cleanup je nyní mimo
-  boot critical path (běží `@Async` po `ApplicationReadyEvent`), **bez regrese** boot času.
-- **Decision gate (`appReady` > 3.5 s → AOT se vyplatí):** backend-to-`.ready`
-  s AOT je 7,0 s, plný `appReady` v desktop bundlu bude ještě vyšší → gate splněn
-  s rezervou, AOT jednoznačně opodstatněn.
-- **Otevřené pro budoucnost:** absolutní 7 s i s AOT je stále těžké. Další páky
-  (mimo scope tohoto auditu): jlink-trimmed runtime (jen použité moduly), méně
-  Spring auto-configurations, lazy bean init. Vyžadují větší zásah a vlastní měření.
+- The AOT saving of **−35.3 %** confirms the historical −36.7 % → the decision
+  "AOT cache default ON for the release" (CI `windows-signed-release.yml`) is
+  validated by real numbers.
+- Both variants reached `.ready` cleanly → the `AttachmentService` cleanup is now
+  off the boot critical path (it runs `@Async` after `ApplicationReadyEvent`),
+  **with no regression** in boot time.
+- **Decision gate (`appReady` > 3.5 s → AOT pays off):** backend-to-`.ready` with
+  AOT is 7.0 s, and the full `appReady` in the desktop bundle will be higher
+  still → the gate is met with margin, and AOT is clearly justified.
+- **Open for the future:** an absolute 7 s even with AOT is still heavy. Further
+  levers (outside the scope of this audit): a jlink-trimmed runtime (only the
+  modules used), fewer Spring auto-configurations, lazy bean init. They require a
+  larger change and their own measurement.
 
-**Stále vyžaduje GUI měření (nelze headless):** plný `appReady` (okno paint +
-handshake + accounts load) v Tauri bundlu — `frontend/scripts/tauri-release-startup-smoke.mjs`
-na reálném buildu, a vnímaná rychlost (shell-first placeholder, lazy sidebar/dialog timing).
+**Still requires a GUI measurement (cannot be done headless):** the full
+`appReady` (window paint + handshake + accounts load) in the Tauri bundle —
+`frontend/scripts/tauri-release-startup-smoke.mjs` against a real build, and
+perceived speed (shell-first placeholder, lazy sidebar/dialog timing).
 
-### Startup audit — měření 2026-06-11 (reálné vyloučení springdoc + NullAway sweep)
+### Startup audit — measurement 2026-06-11 (real springdoc exclusion + NullAway sweep)
 
-**Stroj: nezaznamenán** (doplněno 2026-09-08, viz pravidlo v úvodu). Platí i pro
-větu „nevytížený stroj" níže — vytížení je jen polovina podmínek, druhá je který
-hardware.
+**Machine: not recorded** (added 2026-09-08, see the rule in the introduction).
+This also applies to the phrase "an unloaded machine" below — load is only half
+the conditions, the other half is which hardware.
 
-Kontext: při ověřování checklistu výše se ukázalo, že springdoc se z fat jaru
-**nikdy nevylučoval** — `spring-boot-maven-plugin` `<excludes>` vyžaduje groupId
-i artifactId a původní zápis jen s groupId tiše nematchnul nic. Opraveno přes
-`<excludeGroupIds>org.springdoc</excludeGroupIds>` na exekucích `repackage` a
-`process-aot` (druhé je nutné, jinak AOT vygeneruje springdoc
-`__BeanDefinitions` classy odkazující na classy chybějící v jaru). Detail v
-[OPERATIONS.md](OPERATIONS.md), reset pro debug build dělá profil `openapi`.
+Context: while verifying the checklist above it turned out that springdoc was
+**never excluded** from the fat jar — `spring-boot-maven-plugin` `<excludes>`
+requires both groupId and artifactId, and the original entry with a groupId alone
+silently matched nothing. Fixed through
+`<excludeGroupIds>org.springdoc</excludeGroupIds>` on the `repackage` and
+`process-aot` executions (the second is necessary, otherwise AOT generates
+springdoc `__BeanDefinitions` classes referring to classes missing from the jar).
+Details in [OPERATIONS.md](OPERATIONS.md); the `openapi` profile resets it for a
+debug build.
 
-**Setup (shodný s 2026-06-03):** jar `-Paot`, JDK 25.0.3, prod JVM flagy
+**Setup (identical to 2026-06-03):** jar `-Paot`, JDK 25.0.3, prod JVM flags
 (`-XX:TieredStopAtLevel=1 -Xms64m -Xmx384m -XX:+UseSerialGC
---enable-native-access=ALL-UNNAMED -Dspring.aot.enabled=true`), dummy crypto
-klíče z env, čerstvý tmp `APP_DATA_DIR` per běh, metrika start JVM → `.ready`,
-3 běhy. Bez `-XX:AOTCache`. Stroj tentokrát nevytížený, jar čerstvě v FS cache
-— absolutní čísla nejsou 1:1 srovnatelná s 2026-06-03 (tam vytížený stroj).
+--enable-native-access=ALL-UNNAMED -Dspring.aot.enabled=true`), dummy crypto keys
+from env, a fresh tmp `APP_DATA_DIR` per run, metric JVM start → `.ready`,
+3 runs. Without `-XX:AOTCache`. The machine was unloaded this time and the jar was
+freshly in the FS cache — the absolute numbers are therefore not 1:1 comparable
+with 2026-06-03 (a loaded machine there).
 
-**Výsledky:** 3603 / 3658 / 3683 ms → **median 3658 ms** do `.ready`,
-private memory při `.ready` ~235 MB. Všechny běhy dosáhly `.ready` čistě —
-tj. AOT-enabled kontext **bootuje bez springdoc na classpath bez chyb**
-(žádné NoClassDefFoundError z AOT bean definitions; @Schema anotace na DTO
-jsou za běhu měkké reference, jejich absence ničemu nevadí).
+**Results:** 3603 / 3658 / 3683 ms → **median 3658 ms** to `.ready`,
+private memory at `.ready` ~235 MB. Every run reached `.ready` cleanly —
+i.e. the AOT-enabled context **boots without springdoc on the classpath without
+errors** (no NoClassDefFoundError from the AOT bean definitions; the @Schema
+annotations on DTOs are soft references at runtime, so their absence harms
+nothing).
 
-**Závěr:** springdoc exclusion je teď reálný a běh ověřený. Backend-to-`.ready`
-3,7 s na nevytíženém stroji bez JEP 483 cache; plný `appReady` v desktop
-bundlu zbývá změřit GUI smokem (viz výše).
+**Conclusion:** the springdoc exclusion is now real and verified by a run.
+Backend-to-`.ready` is 3.7 s on an unloaded machine without the JEP 483 cache;
+the full `appReady` in the desktop bundle remains to be measured by a GUI smoke
+(see above).
 
-### Startup audit — měření 2026-09-08 (drží `-XX:TieredStopAtLevel=1` i s AOT cache?)
+### Startup audit — measurement 2026-09-08 (does `-XX:TieredStopAtLevel=1` still hold with the AOT cache?)
 
-**Stroj: notebook i7-1255U** (15W U-series, 1,7 GHz base, 16 GB) — doplněno
-2026-09-08 z následující sekce, která o sobě říká „ten samý den a stroj jako
-měření výše" a stroj jmenuje.
+**Machine: laptop i7-1255U** (15W U-series, 1.7 GHz base, 16 GB) — added
+2026-09-08 from the following section, which says of itself "the same day and
+machine as the measurement above" and names the machine.
 
-Kontext: bod 5 v [#392](https://github.com/TheVoxRox/mail/issues/392) ptá se, jestli
-se C1-only flag ještě vyplácí, když je AOT cache trvale zapnutá — obě optimalizace
-míří na tutéž vteřinu startu a jen jedna z nich stojí CPU na výpočetně náročné
-práci. Premisa, že takovou práci má appka při prvním syncu velké schránky, byla
-v témže issue vyvrácena (první sync stahuje 100 zpráv, doplňování po 30), takže
-zbývala právě tahle otázka.
+Context: item 5 in [#392](https://github.com/TheVoxRox/mail/issues/392) asks
+whether the C1-only flag still pays off now that the AOT cache is permanently on —
+both optimisations aim at the same second of startup, and only one of them costs
+CPU on computationally heavy work. The premise that the app does such work during
+the first sync of a large mailbox was refuted in the same issue (the first sync
+downloads 100 messages, then tops up in batches of 30), so this question was what
+remained.
 
-**Setup:** jar `-Paot`, JDK 25.0.4.1, AOT cache 133,9 MB z
-`scripts/generate-aot-cache-windows.ps1`, prod JVM flagy, dummy crypto klíče
-z env, čerstvý tmp `APP_DATA_DIR` per běh, metrika start JVM → `.ready`.
-**15 kol, varianty střídavě a s obráceným pořadím každé druhé kolo** — blokový
-design (nejdřív všechny A, pak všechny B) předá drift zátěže stroje té variantě,
-která běžela druhá. Skript: [scripts/measure-cold-start-windows.ps1](scripts/measure-cold-start-windows.ps1).
+**Setup:** jar `-Paot`, JDK 25.0.4.1, a 133.9 MB AOT cache from
+`scripts/generate-aot-cache-windows.ps1`, prod JVM flags, dummy crypto keys from
+env, a fresh tmp `APP_DATA_DIR` per run, metric JVM start → `.ready`.
+**15 rounds, variants alternating and with the order reversed every other round** —
+a block design (all A first, then all B) would hand the machine's load drift to
+whichever variant ran second. Script:
+[scripts/measure-cold-start-windows.ps1](scripts/measure-cold-start-windows.ps1).
 
-**Výsledky (n=15 na variantu):**
+**Results (n=15 per variant):**
 
-| Varianta                          | Median | Rozsah    |                      vs. release konfigurace |
-| --------------------------------- | -----: | --------- | -------------------------------------------: |
-| AOT + `-XX:TieredStopAtLevel=1`   |   5479 | 5009–5675 |                                     baseline |
-| AOT, plný tiered (flag odstraněn) |   5226 | 5058–5646 |     −253 ms (−4,6 %), z = −1,22 → neprůkazné |
-| Bez AOT cache + flag              |   7819 | 6600–8025 | +2340 ms (+42,7 %), z = −4,67 → **průkazné** |
+| Variant                          | Median | Range     |                   vs. the release configuration |
+| -------------------------------- | -----: | --------- | ----------------------------------------------: |
+| AOT + `-XX:TieredStopAtLevel=1`  |   5479 | 5009–5675 |                                        baseline |
+| AOT, full tiered (flag removed)  |   5226 | 5058–5646 |   −253 ms (−4.6 %), z = −1.22 → not significant |
+| Without the AOT cache + the flag |   7819 | 6600–8025 | +2340 ms (+42.7 %), z = −4.67 → **significant** |
 
-(Mann-Whitney U; `|z| >= 1,96` = průkazné na 5 %.)
+(Mann-Whitney U; `|z| >= 1.96` = significant at 5 %.)
 
-**Závěry:**
+**Conclusions:**
 
-- **AOT cache znovu potvrzena: −2,3 s / −42,7 %.** Sedí na historických −36,7 %
-  (2026-05-19) a −35,3 % (2026-06-03), takže „AOT default ON pro release" stojí
-  na třech nezávislých měřeních.
-- **`-XX:TieredStopAtLevel=1` už měřitelný přínos na start nemá.** Dvě měření
-  téhož dne se rozešla ve **znaménku**: dřívější dvouvariantní běh dal +78 ms ve
-  prospěch flagu (z = −2,97, průkazné), tenhle třívariantní −253 ms proti němu
-  (neprůkazné). To není „jednou tak, jednou tak" — je to důkaz, že efekt leží pod
-  rozlišovací schopností téhle metody na tomhle stroji. Rozhodně to není 10–15 %,
-  kterými se flag zdůvodňuje.
-- **Rozhodnutí o flagu se tím nemění, ale jeho zdůvodnění ano.** Zůstává (žádné
-  měření neukazuje škodu a před releasem nemá smysl hýbat shipnutou JVM
-  konfigurací kvůli nule), ale argument „šetří 10–15 % startu" už neplatí.
-  Otevřená zůstává druhá polovina, kterou nikdo neměřil: **cena** C1-only na
-  výpočetní práci (MIME parsing, threading, FTS5 indexace) při prvním syncu.
-  Až bude, dá se flag rozhodnout na obou stranách místo jedné.
-- **Absolutní čísla driftují o ~15 % během hodiny na tomtéž stroji** (medián
-  s AOT 4739 ms dopoledne vs 5479 ms odpoledne). Srovnávat se dá jen uvnitř
-  jednoho běhu, nikdy napříč sekcemi tohoto dokumentu.
+- **The AOT cache is confirmed again: −2.3 s / −42.7 %.** That matches the
+  historical −36.7 % (2026-05-19) and −35.3 % (2026-06-03), so "AOT default ON for
+  the release" rests on three independent measurements.
+- **`-XX:TieredStopAtLevel=1` no longer has a measurable benefit on startup.** Two
+  measurements from the same day disagreed on the **sign**: the earlier two-variant
+  run gave +78 ms in the flag's favour (z = −2.97, significant), this three-variant
+  one −253 ms against it (not significant). That is not "sometimes one way,
+  sometimes the other" — it is evidence that the effect lies below the resolving
+  power of this method on this machine. It is certainly not the 10–15 % the flag is
+  justified with.
+- **The decision about the flag does not change, but its justification does.** It
+  stays (no measurement shows harm, and there is no point moving a shipped JVM
+  configuration before a release over nothing), but the argument "it saves 10–15 %
+  of startup" no longer holds. What stays open is the other half, which nobody
+  measured: the **cost** of C1-only on computational work (MIME parsing, threading,
+  FTS5 indexing) during the first sync. Once that exists, the flag can be decided
+  from both sides instead of one.
+- **Absolute numbers drift by ~15 % within an hour on the same machine** (a median
+  with AOT of 4739 ms in the morning vs 5479 ms in the afternoon). Comparison is
+  only valid within one run, never across sections of this document.
 
-**Tři pasti, které to měření stály jeden běh každá** (a proto jsou ve skriptu
-zakomentované): přesměrovaný, ale nečtený stdout/stderr zaplní rouru a JVM
-**zatuhne v půlce bootu** — vypadá to jako pomalý start, ne jako deadlock;
-`CryptoProperties` odmítne klíč kratší než 32 znaků a selhání se projeví až jako
-chyba bindování beanu hluboko v refreshi kontextu; a rozdíl mediánů sám o sobě
-při téhle velikosti efektu netvrdí nic, rozhoduje až rankový test.
+**Three traps that cost this measurement one run each** (and which are therefore
+commented in the script): a redirected but unread stdout/stderr fills the pipe and
+the JVM **hangs halfway through boot** — it looks like a slow start, not a
+deadlock; `CryptoProperties` rejects a key shorter than 32 characters and the
+failure only surfaces as a bean binding error deep in the context refresh; and a
+difference of medians on its own claims nothing at this effect size — the rank
+test is what decides.
 
-### Startup audit — měření 2026-09-08 (desktop bundle s AOT cache)
+### Startup audit — measurement 2026-09-08 (desktop bundle with the AOT cache)
 
-**Stroj: notebook i7-1255U** (15W U-series, 1,7 GHz base, 16 GB — tentýž, na
-kterém se měřila pre-push brána; doplněno maintainerem tentýž den, když se čísla
-rozešla s večerním měřením na stolním PC — viz sekce „`appReady` v desktop
-bundlu"). Absolutní hodnoty téhle sekce tedy nejsou přenositelné na jiný
-hardware; poměry uvnitř ní ano.
+**Machine: laptop i7-1255U** (15W U-series, 1.7 GHz base, 16 GB — the same one
+the pre-push gate was measured on; added by the maintainer the same day, when the
+numbers diverged from the evening measurement on the desktop PC — see the section
+"`appReady` in the desktop bundle"). The absolute values of this section are
+therefore not transferable to other hardware; the ratios within it are.
 
-Ten samý den a stroj jako měření výše, aby čísla šla porovnat. Release bundle
-postavený `npm run tauri:build:with-sidecar` nad sidecarem s AOT cache, měřeno
+The same day and machine as the measurement above, so that the numbers can be
+compared. A release bundle built with `npm run tauri:build:with-sidecar` over a
+sidecar with the AOT cache, measured with
 `npm run tauri:smoke:release-startup -- --runs=3 --isolate-app-data` (isolate
-přejmenuje existující `%LOCALAPPDATA%\VoxRox\Mail` stranou, měří na čistém
-profilu a pak ho vrátí).
+renames an existing `%LOCALAPPDATA%\VoxRox\Mail` aside, measures on a clean
+profile and then puts it back).
 
-| Běh    | `.ready` + session.json | readiness `READY` |
+| Run    | `.ready` + session.json | readiness `READY` |
 | ------ | ----------------------: | ----------------: |
 | cold   |                 8182 ms |           8329 ms |
 | warm   |                 8260 ms |           8438 ms |
 | warm   |                 9784 ms |           9937 ms |
 | median |             **8260 ms** |       **8438 ms** |
 
-**Co to říká:** headless start téhož jaru s toutéž AOT cache měl týž den medián
-5479 ms do `.ready`. Desktop bundle je na 8260 ms, tedy **~2,8 s navíc jde na
-vrub jpackage launcheru, spawnu z Tauri a cesty k session.json** — přesně ten
-overhead, který sekce z 2026-05-19 odhadovala slovy „reálné `appReady` bude
-vyšší", ale nikdo ho nezměřil. Readiness endpoint přidává dalších ~180 ms.
+**What it says:** a headless start of the same jar with the same AOT cache had a
+median of 5479 ms to `.ready` the same day. The desktop bundle is at 8260 ms, so
+**~2.8 s extra goes to the jpackage launcher, the spawn from Tauri and the path
+to session.json** — exactly the overhead the 2026-05-19 section estimated with the
+words "the real `appReady` will be higher", but which nobody measured. The
+readiness endpoint adds another ~180 ms.
 
-**Co to NEříká:** tohle **není `appReady`**. Smoke skript tehdy končil u backend
-readiness; plný `appReady` (paint okna, handshake, načtení účtů) žije
-v `bootState.timings` uvnitř webview. Doměřeno téhož dne — viz následující
-sekce, která zároveň opravuje odhad cesty: CDP potřeba nebyl.
+**What it does NOT say:** this **is not `appReady`**. The smoke script ended at
+backend readiness at that point; the full `appReady` (window paint, handshake,
+accounts load) lives in `bootState.timings` inside the webview. Measured the same
+day — see the following section, which also corrects the estimated route: CDP was
+not needed.
 
-## Startup audit — `appReady` v desktop bundlu, měření 2026-09-08 (večer)
+## Startup audit — `appReady` in the desktop bundle, measurement 2026-09-08 (evening)
 
-Doměřuje otevřený bod předchozí sekce. `npm run tauri:smoke:release-startup -- --runs=3 --isolate-app-data`,
-release `app.exe` z `tauri:build --no-bundle`.
+Fills in the open item of the previous section. `npm run tauri:smoke:release-startup -- --runs=3 --isolate-app-data`,
+release `app.exe` from `tauri:build --no-bundle`.
 
-**Cesta k číslu je jiná, než předchozí sekce odhadovala, a je to důležitější
-než samotná čísla.** WebView2 remote debugging ani CDP potřeba nejsou: klient
-ta timings **už sám posílá** na `POST /api/internal/client-boot` ve statementu
-hned za `completeBoot()`, backend drží poslední snapshot a diagnostic dump je
-vydává jako `client-boot.json`. Smoke skript si tedy po readiness stáhne dump
-a přečte je — na shipnuté binárce, bez debuggeru a bez build flagu (konzolový
-log boot timings je pod `import.meta.env.DEV`, v release buildu tedy mlčí).
-Most mezi hodinami je `reportedAt`: klient ho razítkuje `new Date()` na téže
-nástěnné hodině, takže `reportedAt − spawn` dá čas od spuštění procesu.
+**The route to the number is different from what the previous section estimated,
+and that matters more than the numbers themselves.** Neither WebView2 remote
+debugging nor CDP is needed: the client **already sends** those timings to
+`POST /api/internal/client-boot` in the statement right after `completeBoot()`,
+the backend keeps the last snapshot, and the diagnostic dump serves them as
+`client-boot.json`. The smoke script therefore downloads the dump after readiness
+and reads them — on the shipped binary, with no debugger and no build flag (the
+console log of boot timings is behind `import.meta.env.DEV`, so it is silent in a
+release build). The bridge between the clocks is `reportedAt`: the client stamps
+it with `new Date()` on the same wall clock, so `reportedAt − spawn` gives the
+time from the process start.
 
-| Běh        | spawn → `uiStart` | `sidecarRunning` | `sessionFound` | `readinessOk` | `appReady` (UI hodiny) | spawn → `appReady` |
-| ---------- | ----------------: | ---------------: | -------------: | ------------: | ---------------------: | -----------------: |
-| cold       |            585 ms |            71 ms |        4403 ms |       4436 ms |                4460 ms |            5045 ms |
-| warm       |            423 ms |            32 ms |        4138 ms |       4160 ms |                4181 ms |            4604 ms |
-| warm       |            398 ms |            34 ms |        4178 ms |       4201 ms |                4223 ms |            4621 ms |
-| **medián** |        **423 ms** |        **34 ms** |    **4178 ms** |   **4201 ms** |            **4223 ms** |        **4621 ms** |
+| Run        | spawn → `uiStart` | `sidecarRunning` | `sessionFound` | `readinessOk` | `appReady` (UI clock) | spawn → `appReady` |
+| ---------- | ----------------: | ---------------: | -------------: | ------------: | --------------------: | -----------------: |
+| cold       |            585 ms |            71 ms |        4403 ms |       4436 ms |               4460 ms |            5045 ms |
+| warm       |            423 ms |            32 ms |        4138 ms |       4160 ms |               4181 ms |            4604 ms |
+| warm       |            398 ms |            34 ms |        4178 ms |       4201 ms |               4223 ms |            4621 ms |
+| **median** |        **423 ms** |        **34 ms** |    **4178 ms** |   **4201 ms** |           **4223 ms** |        **4621 ms** |
 
-**Co to říká: `appReady` není nad backend readiness o neznámou, je nad ním
-o desítky milisekund.** Od `sessionFound` k `appReady` uplyne 57 / 43 / 45 ms —
-handshake, readiness, client config a účty dohromady. Celý rozpočet startu je
-čekání na sidecar: `sessionFound` je 4,1–4,4 s a všechno ostatní v UI je šum
-proti němu. Optimalizace UI startu tedy nemá co získat; jediná páka je JVM.
+**What it says: `appReady` is not above backend readiness by an unknown, it is
+above it by tens of milliseconds.** From `sessionFound` to `appReady` there are
+57 / 43 / 45 ms — handshake, readiness, client config and accounts together. The
+whole startup budget is waiting for the sidecar: `sessionFound` is 4.1–4.4 s and
+everything else in the UI is noise against it. Optimising the UI start therefore
+has nothing to gain; the only lever is the JVM.
 
-**Druhá věc, kterou nikdo neměřil: 400–585 ms před `uiStart`.** To je spawn
-procesu, start WebView2 a doběhnutí prvního skriptu — do `bootState` se
-nepromítne, protože jeho hodiny začínají až v `beginBoot()`. U cold běhu je to
-585 ms, u warm ~400 ms.
+**A second thing nobody had measured: 400–585 ms before `uiStart`.** That is the
+process spawn, the WebView2 start and the first script finishing — it does not
+show in `bootState`, because its clock only starts in `beginBoot()`. On a cold run
+it is 585 ms, on a warm one ~400 ms.
 
-**Absolutní čísla nejsou srovnatelná s předchozí sekcí, protože každá vznikla na
-jiném stroji.** Tahle sekce je měřená na **stolním PC** (AMD Ryzen 9 9900X,
-12 jader / 24 vláken, 4,4 GHz, 62 GB RAM), předchozí ranní na **notebooku**
-(i7-1255U, 15W U-series, 1,7 GHz base, 16 GB — potvrzeno maintainerem, je to
-tentýž stroj, na kterém se měřila pre-push brána, viz `todo.md`). Sidecar se
-navíc liší: ten v `src-tauri/binaries/` byl
-přebalený týž den v 16:03 **bez JEP 483 AOT class cache** —
-`mail-x86_64-pc-windows-msvc.cfg` nese `-Dspring.aot.enabled=true`
-a `-XX:TieredStopAtLevel=1`, ale žádné `-XX:AOTCache`, a vedle jaru žádný cache
-soubor neleží.
+**The absolute numbers are not comparable with the previous section, because each
+was produced on a different machine.** This section is measured on the **desktop
+PC** (AMD Ryzen 9 9900X, 12 cores / 24 threads, 4.4 GHz, 62 GB RAM), the previous
+morning one on the **laptop** (i7-1255U, 15W U-series, 1.7 GHz base, 16 GB —
+confirmed by the maintainer, it is the same machine the pre-push gate was measured
+on, see `todo.md`). The sidecar differs too: the one in `src-tauri/binaries/` was
+repackaged the same day at 16:03 **without the JEP 483 AOT class cache** —
+`mail-x86_64-pc-windows-msvc.cfg` carries `-Dspring.aot.enabled=true`
+and `-XX:TieredStopAtLevel=1`, but no `-XX:AOTCache`, and no cache file sits next
+to the jar.
 
-Dvě proměnné naráz tedy znamenají, že **z rozdílu 4,2 s vs 8,3 s do `.ready`
-neplyne nic o AOT cache** — 15W mobilní CPU proti dvanáctijádrovému desktopu
-vysvětlí dvojnásobek sám o sobě. Dokumentovaný zisk cache (−42,7 %, sekce
-2026-09-08 výše) stojí na kontrolovaném střídavém běhu **na jednom stroji**
-a tímhle měřením zpochybněný není.
+Two variables at once therefore mean that **nothing about the AOT cache follows
+from the difference of 4.2 s vs 8.3 s to `.ready`** — a 15W mobile CPU against a
+twelve-core desktop explains a factor of two on its own. The documented gain of
+the cache (−42.7 %, the 2026-09-08 section above) rests on a controlled
+alternating run **on a single machine** and is not called into question by this
+measurement.
 
-**Pravidlo, které z toho plyne a platí pro každý další zápis:** číslo startu bez
-jména stroje je nepoužitelné. Tenhle repozitář na to naráží podruhé — „brána
-běží ~50 minut" z `todo.md` je táž třída záhady a taky se rozpustila, jakmile se
-změřilo, na čem. Startupové sekce výše, které stroj neuvádějí, nesou od
-2026-09-08 `Stroj: nezaznamenán` — jsou to čísla bez měřítka a říkají to samy.
+**The rule that follows, and that applies to every further entry:** a startup
+number without a machine name is unusable. This repository hits that for the
+second time — "the gate runs ~50 minutes" from `todo.md` is the same class of
+mystery and it also dissolved as soon as someone measured what it ran on. The
+startup sections above that name no machine carry `Machine: not recorded` as of
+2026-09-08 — they are numbers without a scale, and they say so themselves.
 
-Rozkladu `appReady` výše se nic z toho netýká: je to poměr uvnitř jednoho běhu,
-takže na rychlosti stroje nezávisí.
+None of this touches the `appReady` breakdown above: it is a ratio within a single
+run, so it does not depend on the speed of the machine.
 
-## Typeahead korespondentů — měření 2026-09-08 (syntetické)
+## Correspondent typeahead — measurement 2026-09-08 (synthetic)
 
-**Stroj: stolní PC** (AMD Ryzen 9 9900X, 12 jader / 24 vláken, 4,4 GHz, 62 GB,
-NVMe), Windows 11, sqlite-jdbc 3.53.2.1 — tatáž verze, kterou resolvuje backend.
+**Machine: desktop PC** (AMD Ryzen 9 9900X, 12 cores / 24 threads, 4.4 GHz, 62 GB,
+NVMe), Windows 11, sqlite-jdbc 3.53.2.1 — the same version the backend resolves.
 
-Otázka, kterou to zavírá, je z `todo.md` a je návrhová, ne provozní: komentář
-u `correspondent` ve V1\_\_init.sql staví na tom, že tabulka drží **nižší tisíce
-řádků na účet**, a proto jí stačí scan omezený `ux_correspondent_account_email`
-bez druhého indexu. Kdyby jich byl řád víc, přestalo by to platit a shoda podle
-jména by chtěla normalizovaný sloupec. Reálnou schránku změřit nešlo (viz níže),
-takže odpověď je z druhé strany: **kolik řádků ta cesta unese**.
+The question this closes comes from `todo.md` and is a design one, not an
+operational one: the comment next to `correspondent` in V1\_\_init.sql rests on the
+table holding **low thousands of rows per account**, and therefore needing only a
+scan bounded by `ux_correspondent_account_email` without a second index. Were
+there an order of magnitude more, that would stop holding and matching by name
+would want a normalised column. A real mailbox could not be measured (see below),
+so the answer comes from the other side: **how many rows that path can carry**.
 
-**Metoda:** [scripts/measure-correspondent-typeahead.java](scripts/measure-correspondent-typeahead.java),
-dva účty (aby vedoucí sloupec indexu měl co omezovat), schéma a pragmy opsané
-z V1\_\_init.sql a `application.properties`, dotaz opsaný
-z `CorrespondentRepository#search` s limitem 20 (strop API). Na velikost 50
-zahřívacích a 200 měřených iterací. `hit` = dotaz „jan" (matchuje adresy
-i jména), `miss` = „zxq" (nematchuje nic, takže netřídí — dvojice odděluje cenu
-scanu od ceny řazení).
+**Method:** [scripts/measure-correspondent-typeahead.java](scripts/measure-correspondent-typeahead.java),
+two accounts (so that the leading index column has something to bound), the schema
+and pragmas copied from V1\_\_init.sql and `application.properties`, the query
+copied from `CorrespondentRepository#search` with a limit of 20 (the API ceiling).
+Per size: 50 warm-up and 200 measured iterations. `hit` = the query "jan" (matches
+both addresses and names), `miss` = "zxq" (matches nothing, so it does not sort —
+the pair separates the cost of the scan from the cost of the ordering).
 
-| Řádků / účet | hit p50 | hit p95 | miss p50 | upsert p50 |
-| -----------: | ------: | ------: | -------: | ---------: |
-|        1 000 | 0,31 ms | 0,34 ms |  0,21 ms |   0,019 ms |
-|        5 000 | 1,21 ms | 1,26 ms |  1,04 ms |   0,017 ms |
-|       20 000 | 5,35 ms | 5,51 ms |  4,90 ms |   0,015 ms |
-|       50 000 | 14,3 ms | 15,0 ms |  13,2 ms |   0,015 ms |
-|      100 000 | 29,9 ms | 31,3 ms |  27,3 ms |   0,015 ms |
-|      200 000 | 72,3 ms | 75,9 ms |  67,5 ms |   0,014 ms |
-|      300 000 |  224 ms |  241 ms |   211 ms |   0,014 ms |
-|      500 000 |  732 ms |  752 ms |   712 ms |   0,015 ms |
+| Rows / account | hit p50 | hit p95 | miss p50 | upsert p50 |
+| -------------: | ------: | ------: | -------: | ---------: |
+|          1,000 | 0.31 ms | 0.34 ms |  0.21 ms |   0.019 ms |
+|          5,000 | 1.21 ms | 1.26 ms |  1.04 ms |   0.017 ms |
+|         20,000 | 5.35 ms | 5.51 ms |  4.90 ms |   0.015 ms |
+|         50,000 | 14.3 ms | 15.0 ms |  13.2 ms |   0.015 ms |
+|        100,000 | 29.9 ms | 31.3 ms |  27.3 ms |   0.015 ms |
+|        200,000 | 72.3 ms | 75.9 ms |  67.5 ms |   0.014 ms |
+|        300,000 |  224 ms |  241 ms |   211 ms |   0.014 ms |
+|        500,000 |  732 ms |  752 ms |   712 ms |   0.015 ms |
 
-Řádků 1 000 až 300 000 je jeden souvislý běh; řádek 500 000 pochází z jiného
-běhu téhož večera na tomtéž stroji.
+Rows 1,000 through 300,000 are one continuous run; the 500,000 row comes from
+another run the same evening on the same machine.
 
-`EXPLAIN QUERY PLAN` na každé velikosti stejně:
+`EXPLAIN QUERY PLAN` is the same at every size:
 `SEARCH c USING INDEX ux_correspondent_account_email (account_id=?)`
 
 - `USE TEMP B-TREE FOR ORDER BY`.
 
-**Závěry:**
+**Conclusions:**
 
-- **Platí se za scan, ne za řazení.** Dotaz, který nematchuje nic — a nemá tedy
-  co třídit — stojí od 20k řádků výš jen o 5–9 % míň než ten, který plní limit.
-  Cena je projít rozsah indexu pro účet a ke každému řádku sáhnout do tabulky
-  (`SELECT *`), ne temp B-tree.
-- **Lineární do ~200k řádků, pak ne.** Do 200k drží zhruba 0,36 ms na tisíc
-  řádků; 300k je 2× nad lineární extrapolací a 500k 4×. Zlom sedí na to,
-  že pracovní množina přeroste `cache_size=-20000` (20 MB) a pak i cache
-  souborového systému — DB má na 200k řádcích 96 MB.
-- **Návrhový předpoklad drží s rezervou dvou řádů.** „Nižší tisíce na účet" =
-  jednotky ms; i desetitisíce jsou pod 15 ms. Druhý index ani normalizovaný
-  sloupec pro shodu podle jména tedy potřeba nejsou. Sáhnout po nich má smysl,
-  až kdyby se účet blížil ~100k různých adres — tam je dotaz na 30 ms **na
-  stisk klávesy**, protože [AddressTokenField](../frontend/src/lib/components/compose/AddressTokenField.svelte)
-  našeptávač **nedebouncuje**: každý `input` posílá požadavek a zastaralé
-  odpovědi zahazuje run token. Na 15W notebooku (druhý stroj repozitáře) čekej
-  zhruba dvojnásobek; neměřeno.
-- **Sync cesta je na velikosti tabulky nezávislá.** `upsert` přes
-  `ON CONFLICT (account_id, email)` drží 0,015 ms od tisíce do půl milionu
-  řádků — sklizeň při syncu se o růst tabulky bát nemusí.
+- **You pay for the scan, not for the ordering.** A query that matches nothing —
+  and so has nothing to sort — costs only 5–9 % less from 20k rows upward than one
+  that fills the limit. The cost is walking the index range for the account and
+  reaching into the table for each row (`SELECT *`), not the temp B-tree.
+- **Linear up to ~200k rows, then not.** Up to 200k it holds roughly 0.36 ms per
+  thousand rows; 300k is 2× above the linear extrapolation and 500k is 4×. The
+  break fits the working set outgrowing `cache_size=-20000` (20 MB) and then the
+  filesystem cache too — the DB is 96 MB at 200k rows.
+- **The design assumption holds with two orders of magnitude to spare.** "Low
+  thousands per account" = single-digit ms; even tens of thousands stay under
+  15 ms. Neither a second index nor a normalised column for name matching is
+  therefore needed. Reaching for them makes sense only if an account approached
+  ~100k distinct addresses — there the query is 30 ms **per keystroke**, because
+  [AddressTokenField](../frontend/src/lib/components/compose/AddressTokenField.svelte)
+  **does not debounce** the typeahead: every `input` sends a request and a run
+  token discards stale responses. On the 15W laptop (the repository's second
+  machine) expect roughly double; not measured.
+- **The sync path is independent of table size.** The `upsert` through
+  `ON CONFLICT (account_id, email)` holds at 0.015 ms from a thousand to half a
+  million rows — the harvest during a sync need not worry about the table growing.
 
-**Co to neříká:** kolik řádků má `correspondent` na **reálné plné schránce**.
-Dev profil na to nestačí a nejde z něj ani poměr: 524 zpráv a 65 řádků, jenže
-338 z těch zpráv leží v jedné složce mailing listu (pár odesílatelů, hodně
-zpráv) a Koš se Spamem se nesklízejí vůbec. Změřit to chce plný sync, a ten je
-blokovaný novým přihlášením Gmail účtu (viz `todo.md`). Práh výše je ale tak
-vysoko, že na odpověď návrhové otázky to čekat nemusí.
+**What it does not say:** how many rows `correspondent` has on a **real, full
+mailbox**. The dev profile is not enough for that, and not even the ratio can be
+taken from it: 524 messages and 65 rows, but 338 of those messages sit in one
+mailing-list folder (few senders, many messages) and Trash and Spam are not
+harvested at all. Measuring it needs a full sync, and that is blocked on a fresh
+login to the Gmail account (see `todo.md`). The threshold above is high enough
+that the design question need not wait for it.
 
-**Další omezení:** data jsou syntetická (ASCII, rovnoměrné rozdělení jmen,
-každá desátá adresa robotí), měřeno na jednom spojení bez souběžného syncu,
-který by do téže DB psal.
+**Further limitations:** the data is synthetic (ASCII, an even distribution of
+names, every tenth address a robot), measured on a single connection without a
+concurrent sync writing into the same DB.
 
-## Windows prikazy
+## Windows commands
 
 ```powershell
 $data = "$env:USERPROFILE\.voxrox\mail-backend"
@@ -497,22 +508,10 @@ Invoke-WebRequest "$($session.baseUrl)/api/internal/diagnostic-dump" -Headers @{
 Get-Item "$env:TEMP\mail-backend-diagnostic.zip" | Select-Object Name, Length
 ```
 
-## Linux/macOS prikazy
+## Linux/macOS commands
 
 ```bash
 DATA="$HOME/.voxrox/mail-backend"
 ls -lh "$DATA/db"
 ps -o pid,pcpu,rss,vsz,comm -p "$(pgrep -f mail-backend | head -n 1)"
-```
-
-## Vysledek
-
-```text
-Blockery:
-
-Regrese:
-
-Poznamky:
-
-Schvaleno:
 ```

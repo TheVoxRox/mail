@@ -13,8 +13,8 @@ neighbouring documents own:
 | [frontend/docs/WINDOWS_SIGNING.md](../frontend/docs/WINDOWS_SIGNING.md) | What the signed build produces and how it is signed                    |
 | [frontend/END_USER_README.md](../frontend/END_USER_README.md)           | How a user verifies a download                                         |
 
-Read [OPERATIONS.md](../backend/OPERATIONS.md) "Model vydávání: všechno jde
-přes betu" first if you have not: **every release goes out as a beta and is
+Read [OPERATIONS.md](../backend/OPERATIONS.md) "The release model:
+everything goes through beta" first if you have not: **every release goes out as a beta and is
 promoted to stable afterwards**, so most runs of this document produce a
 prerelease-suffixed version. The steps are identical either way; the tag shape
 is what differs, and the workflow derives the prerelease flag from it.
@@ -50,7 +50,7 @@ monorepo:
 1. Rename `## Unreleased` to `## [X.Y.Z] - YYYY-MM-DD` (the publish date, not
    the build date).
 2. Open a fresh, empty `## Unreleased` above it.
-3. Reshape the section to the subsection order in "Šablona pro nový release"
+3. Reshape the section to the subsection order in "Template for a new release"
    at the bottom of the file. Development bullets accumulate in commit order;
    a release section is read by someone who was not there, so it is grouped by
    artifact, not by the order the work happened.
@@ -181,7 +181,7 @@ Publish from the GitHub release page. From that moment:
   published release and refreshes the moving `beta` manifest. This is expected
   for both a beta ship and a stable promotion — a stable publish is how beta users
   converge onto the stable build. A **red** run of that workflow is a signal,
-  not noise: OPERATIONS "Model vydávání" explains why, and `force=true` is
+  not noise: OPERATIONS "The release model" explains why, and `force=true` is
   reserved for the HALT path.
 
 Post-publish, confirm the manifest is actually reachable at the channel URL —

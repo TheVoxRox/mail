@@ -76,14 +76,16 @@ Module-level entry points:
 
 Operations and release:
 
-- [`backend/OPERATIONS.md`](backend/OPERATIONS.md) — operations runbook (data directory, logs, recovery)
+- [`docs/RELEASE_PROCESS.md`](docs/RELEASE_PROCESS.md) — the ordered mechanics of cutting a release (version, tag, notes, draft to public, publish decision); opens with the map of what the neighbouring release docs own
+- [`backend/OPERATIONS.md`](backend/OPERATIONS.md) — operations runbook (data directory, logs, recovery, release channels)
 - [`backend/RELEASE_CHECKLIST.md`](backend/RELEASE_CHECKLIST.md) — release checklist + per-candidate smoke worksheet appendix (worksheet)
-- [`backend/PERFORMANCE_BASELINE.md`](backend/PERFORMANCE_BASELINE.md) — cold-start and runtime baselines (worksheet)
+- [`backend/PERFORMANCE_BASELINE.md`](backend/PERFORMANCE_BASELINE.md) — dated cold-start measurements and what each was measured on
 - [`frontend/docs/WINDOWS_SIGNING.md`](frontend/docs/WINDOWS_SIGNING.md) — Windows code signing + Tauri updater setup
 
 Contributing and security:
 
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — contributor guide: local setup, quality gates, commit conventions
+- [`CLAUDE.md`](CLAUDE.md) — the same repo conventions written for a coding agent: what the gates exist to catch, and the traps that are not visible in the code
 - [`SECURITY.md`](SECURITY.md) — security policy: supported versions, how to report vulnerabilities
 - [`SECURITY_THREAT_MODEL.md`](SECURITY_THREAT_MODEL.md) — security threat model (single source for boundaries, STRIDE, accepted risks)
 - [`docs/AUDIT_GUIDE.md`](docs/AUDIT_GUIDE.md) — how subsystem security audits are produced; includes the map of the six per-boundary audit docs in `docs/`
@@ -112,6 +114,7 @@ Legal / compliance:
 Live task tracking:
 
 - [`todo.md`](todo.md) — current open work (release gate items, audit follow-ups, manual smoke checklist)
+- [`todo-archive.md`](todo-archive.md) — closed work, kept for the detail behind a one-line entry in `todo.md` (snapshot)
 
 ## License
 

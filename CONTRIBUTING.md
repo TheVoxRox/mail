@@ -260,6 +260,15 @@ decide whether everything else is allowed to land.
   graph, so an export that only its own test still imports shows up. Deliberate
   exceptions (a reset hook, a teardown seam) carry an `@testseam` JSDoc tag next
   to the reason they exist; everything else on that list is dead.
+- `npm run check:java-imports` — part of `npm run check`. Fails on an unused
+  import in a tracked `.java` file. Nothing else reports one: Spotless has a
+  `removeUnusedImports` step but it is deliberately **off** here because it
+  does not understand `import module` (the reason sits next to the plugin in
+  `backend/pom.xml`), and javac has no lint for it — so a leftover survives a
+  green `mvn clean verify` indefinitely. A symbol named only in prose does not
+  count as used; a `{@link}` or `@throws` does, since those need the import to
+  resolve. Wildcard and `import module` lines are skipped rather than guessed
+  at. TypeScript is out of scope — eslint already covers it.
 - `npm run check:java-callers` — part of `npm run check`. A declaration in
   `backend/src/main` needs a caller; the report separates dead code from code
   only tests reach and from a method that is merely too visible. A deliberate
@@ -276,6 +285,28 @@ decide whether everything else is allowed to land.
 - `npm run check:test-claims` — part of `npm run check`. Fails on two tests
   in one file with identical bodies, and on a test switched off without a
   reason (`@Disabled("…")`, or a `test-skip: …` comment above the call).
+- `npm run check:e2e-focus` — part of `npm run check`. An e2e test that takes
+  focus itself may not then send a key without saying where that key lands.
+  The app moves focus in the gap on purpose — opening a message parks the
+  reading cursor in the body frame a frame later — so the key arrives
+  somewhere else and the test fails further down, intermittently, on somebody
+  else's PR. Two ways out, both already in the suite: `waitForFocus(target)`
+  between the two calls when the test is _about_ focus, or
+  `target.press('Key')` instead of the pair when the key send is incidental,
+  since Playwright focuses as part of the press. Only a `.focus()` the test
+  performs itself arms the gate; focus arriving from a click or from the app
+  is a question it cannot judge and does not try to. Exceptions take a
+  `// focus-settled: <reason>` comment.
+- `npm run check:repackage-excludes` — part of `npm run check`. The fat-jar
+  exclude list in `backend/pom.xml` is written twice — on `repackage` (what
+  the jar contains) and on `process-aot` (what AOT generates
+  `__BeanDefinitions` for) — because Maven has nowhere to share it, and the
+  gate holds the two copies equal. When `process-aot` sees an artifact
+  `repackage` drops, AOT writes bean definitions for classes the jar does not
+  carry: `mvn clean verify` stays green on the full compile classpath and the
+  sidecar dies at startup under `spring.aot.enabled=true`. The `openapi`
+  profile resets both filters and must reset **both** — resetting one is the
+  same failure by another route.
 - `npm run check:rename-residue -- --base <ref>` — CI only, like the docs
   impact check: it needs something to diff against. Fails when a symbol the
   range stopped declaring is still named in a comment, a `@DisplayName` or a
@@ -371,6 +402,19 @@ Code (comments, log messages, exception messages) is **English only**.
 The `frontend/scripts/check-translation-whitelist.mjs` script enforces
 that for both modules (`--target=frontend|backend`); non-English files
 must be added to the module's whitelist with a one-line justification.
+
+Documentation is English as well, and no gate covers it — that scan reads
+`frontend/src` and the Java tree, not `*.md`. Two files stay Czech because
+they are product rather than documentation: `PRIVACY.md` (the Czech half of a
+bilingual policy, paired with `PRIVACY.en.md`, both published on voxrox.org)
+and `frontend/END_USER_README.md` (what a Czech end user reads). A quoted
+Czech UI string inside an English doc stays as it is — it is the product's own
+text, and a translated quote stops matching the screen.
+
+`CHANGELOG.md` is written in English from 2026-09-09 on; older entries are
+Czech and stay that way, because a changelog is a dated record of what was
+written at the time. The two task files (`todo.md`, `todo-archive.md`) predate
+all of this and are left alone.
 
 ## Filing Issues and PRs
 
