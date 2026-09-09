@@ -8,13 +8,22 @@ import org.eclipse.angus.mail.imap.IMAPStore;
 /**
  * Detects the IMAP extensions that an efficient sync depends on (RFC 7162).
  * <p>
- * Capability matrix (observed in the field 2026-05-19):
- * <ul>
- * <li><b>Gmail</b> — CONDSTORE + QRESYNC</li>
- * <li><b>Outlook / Exchange Online</b> — CONDSTORE + QRESYNC</li>
- * <li><b>Seznam.cz</b> (Dovecot) — CONDSTORE + QRESYNC</li>
- * <li><b>iCloud</b> — CONDSTORE + QRESYNC</li>
- * </ul>
+ * What a given server advertises is read at runtime, per connection, and is not
+ * written down here. A table used to be, dated "observed in the field
+ * 2026-05-19" and listing CONDSTORE + QRESYNC for all four providers; when it
+ * was finally measured on 2026-09-09 three of its four rows were wrong (Gmail
+ * advertises CONDSTORE but not QRESYNC, Exchange Online neither, seznam.cz
+ * neither), and nothing had failed in the meantime to say so. A hand-kept list
+ * of someone else's capabilities has no mechanism that can notice it rotting,
+ * so this one is not kept.
+ * <p>
+ * To find out what a server actually advertises, run a sync cycle with
+ * {@code LOGGING_LEVEL_ORG_VOXROX_MAILBACKEND=DEBUG} and read the per-folder
+ * line from {@code MailSyncService} ("Folder ... flag sync capabilities"), or
+ * the line from {@code ImapFolderExecutor} naming why a folder was opened
+ * plainly. Those two are the answer; anything written in prose is a memory of
+ * one.
+ * <p>
  * For unknown / legacy servers (rare custom Cyrus pre-2010, rare corporate
  * IMAPs) the fallback path uses a full UID sweep.
  */
