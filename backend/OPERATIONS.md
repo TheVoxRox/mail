@@ -343,8 +343,10 @@ Rozhodnuto 2026-08-28. **Každá změna se vydá nejdřív jako beta a teprve po
 
 Z toho plynou dvě vlastnosti, na kterých stojí zbytek téhle sekce:
 
-- **Neexistuje stable release, který betu přeskočil.**
+- **Neexistuje stable release, který betu přeskočil** — s jedinou zaznamenanou výjimkou, prvním shipem `v0.1.0` (viz níže).
 - **Neexistuje beta, kterou nejde promotovat** — když stable potřebuje opravu, oprava jde do beta linky a promotuje se s ní. Nikdy nevzniká potřeba vydat `0.1.1` vedle běžící bety `0.2.0-beta.1`, protože `0.2.0` je z definice vydatelné.
+
+**Výjimka: první ship `v0.1.0` jde rovnou jako stable.** Rozhodnuto 2026-09-09. Model chrání stable publikum tím, že před něj předřadí beta cyklus — u prvního shipu ale žádné druhé publikum neexistuje, uzavřená beta _je_ celé publikum. Rozhoduje o tom druhá polovina: prerelease-suffixovaný tag by nechal **stabilní kanál prázdný** (redirect `releases/latest` prereleasy přeskakuje), zatímco výchozí kanál každé instalace je `stable`. Kdo si kanál v Nastavení → O aplikaci nepřepne, seděl by na kanálu bez manifestu a startovní kontrola by selhala **tiše** — background check jen `console.warn`uje, záměrně, aby při každém studeném startu nebudil dialog. Tiše nedostávat aktualizace je nejhorší tvar selhání, jaký ta cesta má. Se stable-first naopak tester, který se nastavení nikdy nedotkne, jede po stable lince a dostane každou promotion. Označení „beta" na tagu nevisí: nese ho status badge na [voxrox.org](https://voxrox.org) a titulek releasu. **Od `0.2.0` dál platí model doslova** a výjimka se neopakuje.
 
 **Proto je červený `beta-channel.yml` signál, ne šum.** Guard odmítne kandidáta staršího, než je současný beta manifest, a v tomhle modelu takový kandidát nemá jak legitimně vzniknout — červená znamená, že se stalo něco mimo model, typicky re-publikace starého tagu. **Neřešit to `force=true`**; ten je vyhrazený pro HALT níže. Nejdřív zjistit, který publish to spustil.
 
