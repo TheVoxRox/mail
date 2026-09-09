@@ -4,8 +4,8 @@
       "AccountConnectionTestRequest" : {
         "properties" : {
           "accountId" : {
+            "exclusiveMinimum" : 0,
             "format" : "int64",
-            "minimum" : 0,
             "type" : "integer"
           },
           "email" : {
@@ -339,8 +339,8 @@
         "properties" : {
           "ids" : {
             "items" : {
+              "exclusiveMinimum" : 0,
               "format" : "int64",
-              "minimum" : 0,
               "type" : "integer"
             },
             "maxItems" : 100,
@@ -530,8 +530,8 @@
           "labelIds" : {
             "description" : "Contact labels to attach, by ID. Omit or send an empty list for no labels; every ID must belong to the same account.",
             "items" : {
+              "exclusiveMinimum" : 0,
               "format" : "int64",
-              "minimum" : 0,
               "type" : "integer"
             },
             "maxItems" : 50,
@@ -602,8 +602,8 @@
           "addLabelIds" : {
             "description" : "Labels to add. Omit or send an empty list to only remove.",
             "items" : {
+              "exclusiveMinimum" : 0,
               "format" : "int64",
-              "minimum" : 0,
               "type" : "integer"
             },
             "maxItems" : 50,
@@ -612,8 +612,8 @@
           },
           "contactIds" : {
             "items" : {
+              "exclusiveMinimum" : 0,
               "format" : "int64",
-              "minimum" : 0,
               "type" : "integer"
             },
             "maxItems" : 100,
@@ -623,8 +623,8 @@
           "removeLabelIds" : {
             "description" : "Labels to remove. Omit or send an empty list to only add.",
             "items" : {
+              "exclusiveMinimum" : 0,
               "format" : "int64",
-              "minimum" : 0,
               "type" : "integer"
             },
             "maxItems" : 50,
@@ -717,8 +717,8 @@
         "properties" : {
           "source" : {
             "items" : {
+              "exclusiveMinimum" : 0,
               "format" : "int64",
-              "minimum" : 0,
               "type" : "integer"
             },
             "maxItems" : 9,
@@ -742,8 +742,8 @@
           "labelIds" : {
             "description" : "Contact labels after the patch, by ID. Replace semantics when present; omit to keep the current labels.",
             "items" : {
+              "exclusiveMinimum" : 0,
               "format" : "int64",
-              "minimum" : 0,
               "type" : "integer"
             },
             "maxItems" : 50,
@@ -819,8 +819,8 @@
           "labelIds" : {
             "description" : "Contact labels after the update, by ID. Replace semantics: omitting the field clears all labels.",
             "items" : {
+              "exclusiveMinimum" : 0,
               "format" : "int64",
-              "minimum" : 0,
               "type" : "integer"
             },
             "maxItems" : 50,
@@ -1327,8 +1327,8 @@
           "accountId" : {
             "description" : "Account the allow decision belongs to.",
             "example" : 1,
+            "exclusiveMinimum" : 0,
             "format" : "int64",
-            "minimum" : 0,
             "type" : "integer"
           },
           "senderEmail" : {

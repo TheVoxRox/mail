@@ -31,7 +31,7 @@
 		<spring-retry.version>2.0.13</spring-retry.version>
 		<jsoup.version>1.23.2</jsoup.version>
 		<commonmark.version>0.30.0</commonmark.version>
-		<springdoc.version>3.1.0</springdoc.version>
+		<springdoc.version>3.1.1</springdoc.version>
 		<!--
 			Single source of truth for the swagger-ui webjar: the dependency pin below
 			and springdoc.swagger-ui.version in application.properties (Maven-filtered)
@@ -153,9 +153,11 @@
 				swagger-ui 5.32.13. Verified in the artifact rather than the changelog:
 				the bundle inside the 5.32.13 webjar carries 3.4.13.
 
-				Load-bearing again — springdoc 3.1.0 manages 5.32.11, which is the
-				vulnerable one. Drop this once springdoc's own managed version is at or
-				past 5.32.13. Closed code-scanning alerts #130/#131.
+				No longer load-bearing as of springdoc 3.1.1, which manages 5.32.14 —
+				the very version this pin names, so both fixes above now arrive with
+				springdoc on its own. Removal is due, but it is not a one-line delete:
+				it has to take springdoc.swagger-ui.version in application.properties
+				with it (see below), so it is a change of its own. Closed code-scanning alerts #130/#131.
 
 				Moving the webjar ahead of springdoc takes TWO settings, not one: the
 				resource handler serves /swagger-ui/** out of the versioned webjar
@@ -528,7 +530,7 @@
 			<plugin>
 				<groupId>com.github.spotbugs</groupId>
 				<artifactId>spotbugs-maven-plugin</artifactId>
-				<version>4.10.4.0</version>
+				<version>4.10.4.1</version>
 				<configuration>
 					<effort>Max</effort>
 					<threshold>Medium</threshold>
@@ -700,7 +702,7 @@
 			<plugin>
 				<groupId>com.diffplug.spotless</groupId>
 				<artifactId>spotless-maven-plugin</artifactId>
-				<version>3.10.1</version>
+				<version>3.10.2</version>
 				<configuration>
 					<lineEndings>UNIX</lineEndings>
 					<java>
