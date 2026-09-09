@@ -23,16 +23,20 @@ import org.voxrox.mailbackend.core.init.StorageContextInitializer;
  * on, the developer documentation actually has to render.
  *
  * <p>
- * What this guards is the pairing of two versions. The swagger-ui webjar is
- * pinned ahead of the one springdoc manages (security fixes land in the webjar
- * long before a springdoc release picks them up), and springdoc builds the
- * {@code /swagger-ui/**} resource path from its own default version rather than
- * from what is on the classpath. So a pin without a matching
- * {@code springdoc.swagger-ui.version} serves a directory that does not exist
- * and the UI answers 404 — everything else keeps working, {@code /v3/api-docs}
- * included, which is why the OpenAPI snapshot test would not notice. Verified
- * in both directions when the pairing was introduced: dropping the version
- * property turns the index assertion below red.
+ * The index assertion below is not a weaker restatement of the api-docs one.
+ * springdoc builds the {@code /swagger-ui/**} resource path from its own
+ * default webjar version rather than from what is on the classpath, so the two
+ * can disagree and the UI answers 404 while everything else keeps working,
+ * {@code /v3/api-docs} included — which is why the OpenAPI snapshot test would
+ * not notice. That is not hypothetical: the repo carried an explicit webjar pin
+ * for two DOMPurify advisories, and holding the path resolvable took a matching
+ * {@code springdoc.swagger-ui.version} alongside it. The pin is gone now that
+ * springdoc manages a webjar new enough to carry both fixes, so the two
+ * versions agree by construction again — but the next security pin puts them
+ * back out of step, and this is the test that catches it. Measured when the pin
+ * was dropped rather than inherited from when it was added: re-adding a pin one
+ * patch behind what springdoc manages, with no version property beside it,
+ * turns the index assertion below red on a 404.
  *
  * <p>
  * Only dev is affected (both flags default to false and the production fat jar
@@ -81,10 +85,10 @@ class OpenApiEndpointEnabledTest {
     }
 
     @Test
-    @DisplayName("Swagger UI is served from the pinned webjar, not from springdoc's default version")
-    void swaggerUiIsServedFromThePinnedWebjar() throws Exception {
-        // The entry point only redirects; the resource path behind it is what the pin
-        // decides.
+    @DisplayName("Swagger UI renders, not just the API document")
+    void swaggerUiIsServed() throws Exception {
+        // The entry point only redirects; the resource path behind it is what the
+        // webjar version decides.
         assertThat(statusCode("/swagger-ui.html")).isEqualTo(302);
         assertThat(statusCode("/swagger-ui/index.html")).isEqualTo(200);
         assertThat(statusCode("/swagger-ui/swagger-ui-bundle.js")).isEqualTo(200);
