@@ -165,6 +165,11 @@ judgement call:
       the cause named before publishing over it.
 - [ ] Temporary pins and audit exceptions reviewed against their removal
       conditions (RELEASE_CHECKLIST §8b).
+- [ ] The update smoke vN-1 → vN is either done or its absence is written into
+      §9 as an accepted risk. RELEASE_CHECKLIST §3a owns the item and states the
+      first-ship exception; it is repeated here because it is the only condition
+      in this list whose failure cannot be repaired after publishing — an
+      updater cannot fix the updater.
 
 Then record the decision in §9 of the checklist — blockers, known issues,
 approved by, date. That block is the release's approval record; the release

@@ -193,10 +193,14 @@ Hotove: **Podpisy zprav — Faze 1** (auto-insert + From-swap + manualni tlacitk
 - Interactive IMAP lane — hotovo 2026-09-06 ([#402](https://github.com/TheVoxRox/mail/pull/402)): ucet ma dve IMAP spojeni,
   uzivatelske cteni nestoji ve fronte za syncem. Detail v CHANGELOG a v
   [backend/docs/CONCURRENCY.md](backend/docs/CONCURRENCY.md).
-- [ ] **Soak s JFR pred releasem pro obe lane** — zbytek predchozi polozky.
-      Lock contention se merila jen na jednom spojeni na ucet; se dvema je to jina
-      krivka a stoji za to ji videt drive nez uzivatele. Patri k 24h soaku v
-      [backend/RELEASE_CHECKLIST.md](backend/RELEASE_CHECKLIST.md).
+- [ ] **Soak s JFR pro obe lane — po releasu, ne pred nim.** Zbytek predchozi
+      polozky: lock contention se merila jen na jednom spojeni na ucet a se dvema
+      je to jina krivka. Puvodni „pred releasem" si ale odporovalo s §8
+      [backend/RELEASE_CHECKLIST.md](backend/RELEASE_CHECKLIST.md), ktere JFR +
+      JMC vede jako **volitelny post-release deep-dive**, ne jako blocker prvniho
+      releasu. Srovnano 2026-09-09 ve prospech checklistu: 24h JFR beh je den
+      wall-clocku navic na kriticke ceste a bez konkretniho podezreni nema co
+      potvrdit. Spoustec je realna stiznost na vykon nebo podezreni na leak.
 - `OpenApiSnapshotTest` nedeterminismus — `canonicalOpenApi` rekurzivne radi klice pred zapisem i porovnanim, snapshot i `schema.d.ts` jednorazove preskladany (2026-08-07). Overeno trema po sobe jdoucimi update behy (bajtove identicke) + ostrym behem.
 - [x] Full QRESYNC SELECT s VANISHED — HOTOVO 2026-09-07: cyklus uz neposila `UID FETCH 1:* (UID)` pres celou serverovou slozku; SELECT se otevira s parametrem QRESYNC a server hlasi VANISHED i zmenene priznaky sam. Odklad stal na premise, ktera neplatila: `IMAPFolder.open(int, ResyncData)` v Angusu dela ENABLE i SELECT sam, takze refactor `ImapFolderExecutor` na syrovy protokol nebyl potreba. Enumerace zustava jako hodinovy sken der ([UidEnumerationSchedule](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/UidEnumerationSchedule.java)) — VANISHED nahrazuje mazani, ne detekci der. Detail v [CHANGELOG.md](CHANGELOG.md).
 - [ ] **Overit resynchronizovany SELECT proti serveru, ktery QRESYNC inzeruje** (Gmail, Outlook). Zbylo po #429 a viselo jen v komentari **uzavreneho** #392, takze jako ukol nebylo nikde videt. Dnesni bezy tu cestu neprosly: seznam.cz neinzeruje ani CONDSTORE, ani QRESYNC, bez CONDSTORE se neulozi MODSEQ baseline, `buildResyncRequest` vrati null a resynchronizovany SELECT se nikdy nepozada — cesta je na tom uctu inertni, ne rozbita. Je to jeden beh s `LOGGING_LEVEL_ORG_VOXROX_MAILBACKEND=DEBUG` a grep: `Opened folder INBOX with QRESYNC (...)` znamena, ze cesta zabrala, `Opening folder INBOX plainly: ...` rekne, ktera ze tri podminek ji preskocila. **Pokus 2026-09-08 na to nedosahl, a duvod je jinde nez v te ceste:** dev profil ma Gmail ucet a `folder_sync_state` v nem uz **MODSEQ baseline nese** ve vsech sesti slozkach (INBOX `last_known_modseq=3660367`), takze prvni cyklus by resynchronizovany SELECT opravdu pozadal — jenze Google refresh token je `invalid_grant: Token has been expired or revoked` a sync skoncil driv, nez otevrel slozku (ucet oznacen `requires_reauth`). Beh je tedy **pripraveny a blokovany jen novym prihlasenim**: po nem staci `mvn spring-boot:run` s `APP_DATA_DIR` na `%LOCALAPPDATA%\VoxRox\Mail.dev` a `LOGGING_LEVEL_ORG_VOXROX_MAILBACKEND=DEBUG`, planovany cyklus vyrazi 10 s po startu sam. Prebalovat sidecar kvuli tomu netreba — bare backend cte tentyz dev profil.
