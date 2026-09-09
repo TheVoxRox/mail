@@ -19,6 +19,12 @@ promoted to stable afterwards**, so most runs of this document produce a
 prerelease-suffixed version. The steps are identical either way; the tag shape
 is what differs, and the workflow derives the prerelease flag from it.
 
+The one recorded exception is the **first ship, `v0.1.0`, which goes straight to
+stable** — the closed beta is the whole audience there, and a prerelease-only
+repository leaves the stable channel (every installation's default) without a
+manifest. The reasoning is in that same OPERATIONS section; from `0.2.0` on the
+model holds literally.
+
 ## 1. Version
 
 ```powershell
