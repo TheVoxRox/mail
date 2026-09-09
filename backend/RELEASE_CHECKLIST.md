@@ -96,7 +96,7 @@ Poznámky:
 Předpoklady před smoke:
 
 - [ ] `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` v release buildu jsou _reálné produkční_ hodnoty z Google Cloud Console ("Desktop app" client), ne `mail-local-*` placeholder. Bez nich Google odmítne login `Error 401: invalid_client` / "OAuth client was not found" (root cause 2026-06-17: produkční sidecar zabalený bez OAuth env → launcher `.cfg` bez `...google.client-id`; ověřit položkou v §1).
-- [ ] OAuth consent screen je publikovaný (`In production`), ne `Testing` — jinak refresh token exspiruje po 7 dnech a přihlásí se jen přidaní test users.
+- [ ] OAuth consent screen: pro v0.1.0 zůstává `Testing` a je to vědomá výjimka (rozhodnuto 2026-06-25, uzavřená beta — viz `todo.md` sekce Rozhodnutí). Cena je zapsána dopředu, ne objevená při smoke: refresh token exspiruje po **7 dnech**, takže tester se týdně přihlašuje znovu, a přihlásí se jen účet na seznamu test users. Tenhle bod se odsouhlasí jako „stav odpovídá rozhodnutí“; `In production` je podmínka až pro veřejný release.
 - [ ] Restricted scope `https://mail.google.com/` (`application.properties`) má dokončené Google verification (CASA security assessment). Bez něj externí uživatelé dostanou "unverified app" obrazovku / limit 100 uživatelů. **Blokující bod pro produkční consumer release** (protějšek MS „verified publisher").
 
 Smoke flow:
@@ -136,21 +136,56 @@ Smoke flow:
 
 ## 5. Mail workflows
 
+Ruční smoke pokrývá to, co automatizované sady pokrýt nemůžou: reálný IMAP/SMTP
+server, skutečné složky u providera, skutečného příjemce a odečítač obrazovky.
+Co jede proti MSW mockům, má vlastní e2e — tady stojí to, u čeho na reálné
+straně něco visí.
+
+### Sync a čtení
+
 - [ ] Full sync 5000+ zpráv proti reálnému IMAP účtu.
 - [ ] Otevřít detail zprávy s HTML obsahem.
 - [ ] Otevřít zprávu s přílohou.
+- [ ] Otevřít zprávu s vloženým (cid) obrázkem — obrázek se vykreslí.
+- [ ] Zpráva se vzdálenými obrázky: ve výchozím stavu blokované, „Načíst obrázky" je načte jednorázově, „Vždy od tohoto odesílatele" i při každém dalším otevření.
+- [ ] Seskupení do konverzací: zapnout, rozbalit vlákno, otevřít z něj zprávu, vypnout. Vlákno drží zprávy napříč složkami — odpověď v Odeslaných visí u originálu v Doručených.
 - [ ] FTS5 search najde očekávaný hit.
 - [ ] FTS5 search vrátí prázdný výsledek pro neexistující dotaz.
+
+### Psaní a odesílání
+
 - [ ] Odeslat nový e-mail.
 - [ ] Odeslat e-mail s 30 MB přílohou.
 - [ ] Uložit draft.
 - [ ] Odeslat uložený draft.
 - [ ] Reply.
 - [ ] Reply all.
+- [ ] Přeposlat zprávu s přílohou — příloha dorazí příjemci.
+- [ ] Markdown v editoru (`**tučně**`, `# nadpis`, `- odrážka`): přijatá zpráva nese formátování a zároveň přesně to, co se napsalo.
+- [ ] Podpis účtu se vloží do nové zprávy sám i ručním tlačítkem.
+- [ ] Našeptávač adres nabízí z adresáře i z historie korespondence.
+
+### Organizace pošty
+
 - [ ] Move to Trash.
 - [ ] Move to custom folder.
+- [ ] Přesun do složky Spam a zpět — ověřit u providera, ne jen v UI.
 - [ ] Toggle `seen`.
 - [ ] Toggle `flagged`.
+- [ ] Hromadné akce nad víc vybranými zprávami: přečtené / nepřečtené, hvězdička, přesun, smazat.
+
+### Kontakty
+
+- [ ] Vytvořit kontakt, přiřadit štítek, najít ho hledáním v kontaktech.
+- [ ] „Přidat do kontaktů" z řádku odesílatele v otevřené zprávě.
+- [ ] Sloučit duplicity a hromadně smazat.
+- [ ] Export vCard a import téhož souboru zpět — nevzniknou duplicity.
+
+### Ovládání a aplikace
+
+- [ ] Paleta příkazů (Ctrl+K): spustit příkaz, Escape vrátí fokus tam, odkud se otevřela.
+- [ ] Nastavení → Vzhled → Zavření okna: „Nechat běžet v oznamovací oblasti" — křížek okno schová, ikona v oznamovací oblasti aplikaci vrátí a nabídne ukončení. Výchozí je Ukončit aplikaci.
+- [ ] Nastavení → O aplikaci: přepnout kanál aktualizací Stabilní / Beta.
 
 ## 6. Sidecar lifecycle
 
@@ -215,7 +250,7 @@ Smoke flow:
 - [ ] **Každý publikovaný release = plný podepsaný build.** Stabilní kanál čte `releases/latest/download/latest.json` (`frontend/src-tauri/tauri.conf.json`) a signed workflow zapíná `VITE_ENABLE_AUTO_UPDATE_CHECK=1`, takže **cokoli** publikovaného v repu se stává „latest" a všechny instalace to kontrolují při každém startu. Release publikovaný bez `latest.json` + `.sig` (třeba jen tag s poznámkami) = chyba update checku při každém startu všech instalací. Poznámky, částečné buildy apod. držet jako **draft** nebo **prerelease** (prereleasy `releases/latest` redirect přeskakuje — viz OPERATIONS.md „Release channels").
 - [ ] **Revize dočasných pinů a výjimek** (při každém release + při každém bumpu dotčené závislosti zkontrolovat removal conditions):
   - tomcat override `<tomcat.version>11.0.25</tomcat.version>` v `backend/pom.xml` — odstranit, až Spring Boot managed `tomcat.version` >= 11.0.25 (SB 4.1.1 = 11.0.24). Jediný zbylý backendový pin: obě jackson boms i log4j2 odpadly 2026-08-26 s Bootem 4.1.1.
-  - quick-xml výjimky `RUSTSEC-2026-0194` + `RUSTSEC-2026-0195` — **nejsou ve `vuln-scan.yml`**, ale v [.cargo/audit.toml](../frontend/src-tauri/.cargo/audit.toml); job `Tauri cargo audit (RustSec)` běží s `working-directory: frontend/src-tauri`, a odtud si `cargo audit` ten soubor bere sám. Removal condition je v komentáři u výjimky: odstranit obě (a `cargo update`), jakmile `plist`/`tauri-utils` potáhnou quick-xml >= 0.41.0 — poslední `plist` (1.9.0) drží řadu 0.39.x, takže upgrade cesta zatím není.
+  - Dočasné `cargo audit` výjimky **nejsou ve `vuln-scan.yml`**, ale v [.cargo/audit.toml](../frontend/src-tauri/.cargo/audit.toml); job `Tauri cargo audit (RustSec)` běží s `working-directory: frontend/src-tauri` a odtud si ten soubor `cargo audit` bere sám — kdo je hledá ve workflow, nenajde nic. **Dnes tam žádná dočasná výjimka na zranitelnost není:** obě quick-xml (`RUSTSEC-2026-0194`, `RUSTSEC-2026-0195`) padly 2026-09-08 upgradem, ne dalším přijetím — `plist` 1.10.1 táhne quick-xml 0.42.0. Revize se tedy ptá, jestli nějaká nová dočasná výjimka nepřibyla; zbytek souboru jsou trvale přijaté unmaintained/unsound položky s vlastním zdůvodněním.
   - dependabot ignoruje TypeScript 7.x, protože typescript-eslint deklaruje peer `typescript >=4.8.4 <6.1.0` (viz #147). **Ten ignore není v `.github/dependabot.yml`** — drží ho vlastní stav dependabota z komentáře `@dependabot ignore this major version` na PR [#147](https://github.com/TheVoxRox/mail/pull/147) a zruší se jedině **znovuotevřením toho PR**. Kdo ho hledá v konfiguraci, nenajde nic a usoudí, že žádný neexistuje; proto to tady stojí napsané.
 
 ## 9. Release decision
@@ -235,6 +270,26 @@ Schváleno:
 Per-candidate worksheet pro ruční smoke (§3–§8 výše). §1 (backend build) a §2 (frontend automation) jsou odškrtané v checklistu výše — tady interaktivní část. _(Do 2026-07-20 samostatný soubor `RELEASE_SMOKE_v0.1.0.md`, sloučeno sem při konsolidaci dokumentace.)_
 
 **Worksheet je zformalizovaný z existujících důkazů (2026-06-23 tauri:dev smoke, 2026-06-25 Phase B signed smoke na čistém profilu, 2026-06-26 build+log-scan gate).** Hotové položky nesou datum+zdroj, otevřené `[ ]` jsou reálné mezery, které ještě nikdo neproved.
+
+### Kandidát 2026-09-09 — `9c51d9d`
+
+```text
+Release:        VoxRox Mail 0.1.0  (identifier org.voxrox.mail)
+Datum sign-off: ____________
+Backend commit: 9c51d9d
+Frontend commit:9c51d9d  (stejné monorepo)
+Platforma:      Windows 11 Pro x64
+Tester:         Lukáš Lacina
+Build původ:    lokální generálka 2026-09-09 (nepodepsaná, per-user NSIS); podepsaný build až z tagu podle RELEASE_PROCESS §3–§4
+```
+
+- [x] **§0 Verze** — `npm run check:versions` OK, `0.1.0` sedí na všech pěti souborech.
+- [x] **§1 Backend build** — `mvn -Dmaven.repo.local=.m2repo -Dapp.data-dir=target/test-data clean verify` BUILD SUCCESS, surefire i failsafe `Failures: 0, Errors: 0, Skipped: 0`, artefakt `target/mail-backend-0.1.0.jar`, Spotless i SpotBugs uvnitř běhu. Sidecar zabalen `package-sidecar-dev-windows.ps1 -SkipTests`: launcher `.cfg` nese všechny tři OAuth hodnoty a nula `mail-local-` placeholderů, výstup má `mail-x86_64-pc-windows-msvc.exe`, `app/` i `runtime/`.
+- [x] **§2 Frontend automation** — CI na tomhle commitu zelená (build, unit, functional stable, a11y stable, lint, knip, `npm run check`); `npm run check:i18n` doplněn lokálně, CI ho nepouští.
+- [ ] **§3–§8** — ruční smoke na nainstalovaném kandidátovi. Instalátor: `frontend/src-tauri/target/release/bundle/nsis/voxrox-mail-0.1.0-windows-x64-setup.exe`.
+- [ ] **§9** — release decision.
+
+Sheet níže je záznam **předchozího** kandidáta (3516bf5, červen). Jeho `[x]` nesou datum a zdroj a na tenhle build se nepřenášejí — čte se jako doklad, co už jednou prošlo, ne jako odškrtnutá položka.
 
 #### Legenda
 

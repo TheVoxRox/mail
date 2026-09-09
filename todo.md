@@ -131,7 +131,7 @@ Rozhodnuti, ktera zamykala schema, jsou hotova — adresar i format podpisu, obe
 sekci Rozhodnuti. Zbytek DB analyzy (katalog provideru mimo migraci, drift gate,
 redundantni indexy, `NOT NULL`) taky, detail v [CHANGELOG.md](CHANGELOG.md).
 
-- [ ] Projit cely `backend/RELEASE_CHECKLIST.md` pro konkretni kandidat (vc. §6 recovery a §8 long run).
+- [ ] Projit cely [backend/RELEASE_CHECKLIST.md](backend/RELEASE_CHECKLIST.md) pro konkretni kandidat (vc. §6 recovery a §8 long run). **Strojova pulka hotova 2026-09-09 pro kandidata `9c51d9d`** — §0, §1 i §2 zelene, zapsane v priloze checklistu; lokalni generalka vyrobila per-user NSIS instalator (nepodepsany, podepsany vznika az z tagu podle RELEASE_PROCESS §3–§4). Pred tim se checklist srovnal s aplikaci, protoze §5 popisovala cervnovou sadu funkci — nula zminek o kontaktech, konverzacich, Markdownu, palete, vzdalenych obrazcich i hromadnych akcich. **Zbyva rucni cast §3–§8 na nainstalovanem kandidatovi a §9.**
 - [ ] End-to-end release dry run z cisteho checkoutu: tag / draft release, Windows signed workflow, upload artefaktu, overeni instalatoru, `latest.json`, podpisu, rucni instalace na cistem profilu.
 - [x] Release proces: verze, tag, changelog, known issues, hashe artefaktu, draft vs public, approval — HOTOVO 2026-09-08: [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md), osm kroku od bumpu verze po publikaci; §6 je seznam podminek publikace, ne uvaha.
 - [x] Tvar tagu prvniho releasu — ROZHODNUTO 2026-09-09: stable `v0.1.0`, ne `v0.1.0-beta.1`. Duvod a zmerena cena obou variant v sekci Rozhodnuti.
