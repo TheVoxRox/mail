@@ -274,11 +274,14 @@ A per-candidate worksheet for the manual smoke (§3–§8 above). §1 (backend b
 
 **The worksheet is formalised from existing evidence (the 2026-06-23 tauri:dev smoke, the 2026-06-25 Phase B signed smoke on a clean profile, the 2026-06-26 build+log-scan gate).** Completed items carry a date+source; open `[ ]` items are real gaps nobody has covered yet.
 
+**The candidate is the tag, not a commit on `main`.** Evidence recorded against a branch commit goes stale the moment anything merges, which is what happened to the sheet below: §0/§1/§2 were taken on `9c51d9d` and `main` moved past it the same day. A tag is immutable, so once `v<X.Y.Z>` exists nothing that lands afterwards can invalidate a tick and the question does not come back — record the tag in `Candidate ref`, and treat a commit SHA there as provisional, valid only until the tag is cut. One window cannot be closed this way, because the process needs it: §0/§1/§2 run before the version bump and the changelog cut, and those are what gets tagged. Keep that window to minutes rather than days — it is the only stretch in which a merge can cost a re-run, and §1 is the expensive half to repeat (§2 is what CI re-takes on every push anyway). **Deliberately not written here: a rule that a docs-only commit does not invalidate §1.** It cannot be checked by being read, it has already been applied once by hand — the 2026-06-26 note in §1 above, "code unchanged since 3210e1a — only docs commits since" — and a claim nothing recomputes is the kind this repo deletes rather than maintains. If the gate ever has to run against a moving `main`, compute it instead: compare the git object ids of the paths §1 rests on, the way `check:audits` already does for the audits.
+
 ### Candidate 2026-09-09 — `9c51d9d`
 
 ```text
 Release:         VoxRox Mail 0.1.0  (identifier org.voxrox.mail)
 Sign-off date:   ____________
+Candidate ref:   9c51d9d — provisional; replaced by tag v0.1.0 once cut
 Backend commit:  9c51d9d
 Frontend commit: 9c51d9d  (the same monorepo)
 Platform:        Windows 11 Pro x64
@@ -287,7 +290,7 @@ Build origin:    local dress rehearsal 2026-09-09 (unsigned, per-user NSIS); the
 ```
 
 - [x] **§0 Version** — `npm run check:versions` OK, `0.1.0` matches on all five files.
-- [x] **§1 Backend build** — `mvn -Dmaven.repo.local=.m2repo -Dapp.data-dir=target/test-data clean verify` BUILD SUCCESS, surefire and failsafe both `Failures: 0, Errors: 0, Skipped: 0`, artifact `target/mail-backend-0.1.0.jar`, Spotless and SpotBugs inside the run. Sidecar packaged with `package-sidecar-dev-windows.ps1 -SkipTests`: the launcher `.cfg` carries all three OAuth values and zero `mail-local-` placeholders, and the output has `mail-x86_64-pc-windows-msvc.exe`, `app/` and `runtime/`.
+- [x] **§1 Backend build** — `mvn -Dmaven.repo.local=.m2repo -Dapp.data-dir=target/test-data clean verify` BUILD SUCCESS, surefire and failsafe both `Failures: 0, Errors: 0, Skipped: 0`, artifact `target/mail-backend-0.1.0.jar`, Spotless and SpotBugs inside the run. Sidecar packaged with `package-sidecar-dev-windows.ps1 -SkipTests`: the launcher `.cfg` carries all three OAuth values and zero `mail-local-` placeholders, and the output has `mail-x86_64-pc-windows-msvc.exe`, `app/` and `runtime/`. This tick covers the build and the packaging only: the last item of §1 above — a run on a clean Windows profile with no system-installed JDK — is manual, is still open, and does not carry over into it.
 - [x] **§2 Frontend automation** — CI green on this commit (build, unit, functional stable, a11y stable, lint, knip, `npm run check`); `npm run check:i18n` was run locally as CI does not run it.
 - [ ] **§3–§8** — the manual smoke on the installed candidate. Installer: `frontend/src-tauri/target/release/bundle/nsis/voxrox-mail-0.1.0-windows-x64-setup.exe`.
 - [ ] **§9** — release decision.
