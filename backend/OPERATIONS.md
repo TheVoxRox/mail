@@ -1,66 +1,66 @@
-# VoxRox Mail Backend - provozni runbook
+# VoxRox Mail Backend — operations runbook
 
-Interni udrzbarska prirucka pro single-user desktop backend. Cilem je rychle rozlisit, jestli problem lezi ve startu sidecaru, databazi, IMAP/SMTP/OAuth vrstve, nebo v klientovi.
+Internal maintenance guide for the single-user desktop backend. The goal is to tell quickly whether a problem sits in the sidecar startup, the database, the IMAP/SMTP/OAuth layer, or the client.
 
-## Zakladni cesty
+## Base paths
 
-Defaultni standalone datovy adresar backendu:
+The default standalone data directory of the backend:
 
 ```text
 ${user.home}/.voxrox/mail
 ```
 
-Desktop/Tauri release na Windows pouziva explicitni datovy adresar:
+The desktop/Tauri release on Windows uses an explicit data directory:
 
 ```text
 %LOCALAPPDATA%\VoxRox\Mail
 ```
 
-Obsah:
+Contents:
 
 ```text
-crypto.bin                         lokální master key + salt (Windows: chráněný DPAPI, formát VOXSEC1), vzniká při prvním startu
-session.json                       aktuální port, baseUrl, X-API-KEY a verze API
-.ready                             ready signal pro Tauri klienta
+crypto.bin                         local master key + salt (Windows: DPAPI-protected, VOXSEC1 format), created on the first start
+session.json                       current port, baseUrl, X-API-KEY and API version
+.ready                             ready signal for the Tauri client
 db/mail.db                 SQLite DB
-db/mail.db-wal             SQLite WAL, pokud je DB aktivní
+db/mail.db-wal             SQLite WAL, if the DB is active
 db/mail.db-shm             SQLite shared memory file
-logs/mail.log              hlavní aplikační log
+logs/mail.log              main application log
 logs/audit.log                     security/audit log
-attachments/                       lokální přílohy
-tmp/                               dočasné soubory
+attachments/                       local attachments
+tmp/                               temporary files
 ```
 
-`app.data-dir` lze přepsat JVM argumentem:
+`app.data-dir` can be overridden with a JVM argument:
 
 ```powershell
 java -jar target\mail-backend-0.1.0.jar --app.data-dir=C:\temp\mail-smoke
 ```
 
-## Start a sidecar
+## Start and sidecar
 
-Backend poslouchá defaultně jen na loopbacku:
+By default the backend listens on loopback only:
 
 ```text
 server.address=127.0.0.1
 server.port=0
 ```
 
-`server.port=0` znamená náhodný volný port vybraný Springem. Skutečný port se
-po startu zapíše do `session.json` jako `port` a `baseUrl`; klient nikdy nemá
-hádat fixní číslo portu.
+`server.port=0` means a random free port chosen by Spring. The actual port is
+written to `session.json` after startup as `port` and `baseUrl`; the client must
+never guess a fixed port number.
 
-Pro diagnostiku nebo kompatibilitu s providerem, který vyžaduje přesný OAuth
-redirect URI, lze port dočasně přepsat:
+For diagnostics, or for compatibility with a provider that requires an exact
+OAuth redirect URI, the port can be overridden temporarily:
 
 ```powershell
 java -jar target\mail-backend-0.1.0.jar --server.port=60100
 ```
 
-Při explicitně zvoleném obsazeném portu skončí backend ještě před Spring startem
-s exit code `78` a čitelnou hláškou.
+When an explicitly chosen port is already taken, the backend exits before the
+Spring start with exit code `78` and a readable message.
 
-Tauri klient má čekat na `${app.data-dir}/.ready`, potom načíst `${app.data-dir}/session.json` a používat `baseUrl` + `apiKey`. Pokud `.ready` neexistuje, hledat chybu v `logs/mail.log`.
+The Tauri client is expected to wait for `${app.data-dir}/.ready`, then read `${app.data-dir}/session.json` and use `baseUrl` + `apiKey`. If `.ready` does not appear, look for the error in `logs/mail.log`.
 
 ## Health check
 
@@ -70,30 +70,31 @@ Endpoint:
 GET /api/internal/health
 ```
 
-Je chráněný interním API klíčem ze `session.json`. Pozor na skládání URL:
-`baseUrl` už `/api` obsahuje (`http://127.0.0.1:<port>/api`, viz
+It is protected by the internal API key from `session.json`. Mind how the URL is
+assembled: `baseUrl` already contains `/api`
+(`http://127.0.0.1:<port>/api`, see
 [HandshakeService.java](src/main/java/org/voxrox/mailbackend/core/init/HandshakeService.java)),
-takže se za něj připojuje `/internal/...`, ne `/api/internal/...` — jinak
-vznikne `/api/api/...` a odpovědí je 404, které vypadá jako mrtvý backend:
+so `/internal/...` is appended to it, not `/api/internal/...` — otherwise you get
+`/api/api/...` and the answer is a 404 that looks like a dead backend:
 
 ```powershell
 $session = Get-Content "$env:LOCALAPPDATA\VoxRox\Mail\session.json" | ConvertFrom-Json
 Invoke-RestMethod "$($session.baseUrl)/internal/health" -Headers @{ "X-API-KEY" = $session.apiKey }
 ```
 
-Health obsahuje DB stav, diskspace a `sync` komponentu. `requiresReauth` účty netahají health do `DOWN`; znamenají uživatelskou akci (znovu přihlásit OAuth účet).
+Health carries the DB state, disk space and the `sync` component. `requiresReauth` accounts do not pull health `DOWN`; they mean a user action is needed (sign in to the OAuth account again).
 
 ## Diagnostic dump
 
-Interní support snapshot:
+Internal support snapshot:
 
 ```text
 GET /api/internal/diagnostic-dump
 ```
 
-Endpoint je chráněný stejným `X-API-KEY` jako health check a vrací ZIP attachment. Obsahuje `summary.json`, `accounts.json`, `folder-sync-states.json`, `message-counts.json` a `runtime.json`.
+The endpoint is protected by the same `X-API-KEY` as the health check and returns a ZIP attachment. It contains `summary.json`, `accounts.json`, `folder-sync-states.json`, `message-counts.json` and `runtime.json`.
 
-Dump záměrně neobsahuje hesla, OAuth tokeny, interní API klíč, obsah zpráv, předměty zpráv ani plné e-mailové adresy. Účty jsou uvedené s maskovaným e-mailem, providerem, typem autentizace, IMAP/SMTP host/port/SSL konfigurací, stavem reauth a příznakem, zda existuje `last_error`.
+The dump deliberately carries no passwords, OAuth tokens, internal API key, message content, message subjects or full email addresses. Accounts are listed with a masked email, the provider, the authentication type, the IMAP/SMTP host/port/SSL configuration, the reauth state and a flag for whether a `last_error` exists.
 
 Windows PowerShell:
 
@@ -102,9 +103,9 @@ $session = Get-Content "$env:LOCALAPPDATA\VoxRox\Mail\session.json" | ConvertFro
 Invoke-WebRequest "$($session.baseUrl)/internal/diagnostic-dump" -Headers @{ "X-API-KEY" = $session.apiKey } -OutFile "$env:TEMP\mail-diagnostic.zip"
 ```
 
-## Logy
+## Logs
 
-Hlavní log:
+Main log:
 
 ```text
 ${app.data-dir}/logs/mail.log
@@ -116,18 +117,18 @@ Audit log:
 ${app.data-dir}/logs/audit.log
 ```
 
-Hlavní log rotuje po `10MB`, drží 7 souborů a cap `100MB`. Audit log má delší retenci: 365 dní, `10MB` per soubor, cap `500MB`.
+The main log rotates at `10MB`, keeps 7 files and caps at `100MB`. The audit log has a longer retention: 365 days, `10MB` per file, `500MB` cap.
 
-Rychlé hledání posledních chyb ve Windows PowerShellu:
+Quick search for the latest errors in Windows PowerShell:
 
 ```powershell
 Select-String "$env:LOCALAPPDATA\VoxRox\Mail\logs\mail.log" -Pattern "ERROR|WARN|CRITICAL" | Select-Object -Last 80
 Select-String "$env:LOCALAPPDATA\VoxRox\Mail\logs\audit.log" -Pattern "FAILURE|CRITICAL" | Select-Object -Last 80
 ```
 
-## Databaze a zalohy
+## Database and backups
 
-SQLite běží s WAL:
+SQLite runs with WAL:
 
 ```text
 journal_mode=WAL
@@ -137,112 +138,118 @@ busy_timeout=5000
 cache_size=-20000
 ```
 
-Při startu backend ověřuje `PRAGMA quick_check`; cokoli jiného než `ok` fail-fastne start a zapíše `db_corruption_detected` do audit logu.
+On startup the backend verifies `PRAGMA quick_check`; anything other than `ok` fails the start fast and writes `db_corruption_detected` into the audit log.
 
-Bezpečná záloha:
+A safe backup:
 
-1. Ukončit Tauri klienta a ověřit, že neběží Java sidecar.
-2. Zkopírovat celý `${app.data-dir}` adresář, nejen samotný `.db` soubor.
-3. Pro obnovu vrátit celý adresář včetně `crypto.bin`; bez něj nepůjdou dešifrovat credentials.
+1. Quit the Tauri client and verify that no Java sidecar is running.
+2. Copy the whole `${app.data-dir}` directory, not just the `.db` file.
+3. To restore, put the whole directory back including `crypto.bin`; without it the credentials cannot be decrypted.
 
-Pozn. (Windows): `crypto.bin` je chráněný přes DPAPI v **USER scope** — odšifrovat
-ho umí jen stejný Windows uživatel na stejném stroji. Obnova zálohy pod jiným
-uživatelským účtem nebo na jiném počítači proto credentials nerozluští; účty se
-při startu označí `requiresReauth=true` a je nutné se znovu přihlásit (stejné
-chování jako při ztrátě `crypto.bin`). Maily, kontakty a další data v `mail.db`
-zůstanou čitelné — DB sama šifrovaná není.
+Note (Windows): `crypto.bin` is protected through DPAPI in **USER scope** — only
+the same Windows user on the same machine can decrypt it. Restoring a backup
+under a different user account or on a different computer therefore will not
+unlock the credentials; on startup the accounts are marked `requiresReauth=true`
+and a fresh login is required (the same behaviour as losing `crypto.bin`). Mail,
+contacts and the rest of the data in `mail.db` stay readable — the DB itself is
+not encrypted.
 
-Konzistence DB po podezřelém pádu:
+DB consistency after a suspicious crash:
 
 ```sql
 PRAGMA quick_check;
 SELECT version, success FROM flyway_schema_history ORDER BY installed_rank;
 ```
 
-`quick_check` musí vrátit `ok`; Flyway V1 musí mít `success = 1`.
+`quick_check` must return `ok`; Flyway V1 must have `success = 1`.
 
-## JVM tuning a Spring AOT
+## JVM tuning and Spring AOT
 
-Sidecar JVM (jpackage app-image, Java 25) bezi s tunigem zameneným pro single-user
-desktop scenar — narozdil od serverovych default JVM hodnot, ktere jsou
-optimalizovane pro throughput pres deg dlouhy lifetime, sidecar potrebuje
-**rychly start** a **maly heap**. Aktualni argumenty z
+The sidecar JVM (jpackage app-image, Java 25) runs with tuning aimed at the
+single-user desktop scenario — unlike the server-oriented JVM defaults, which
+are optimised for throughput over a long lifetime, the sidecar needs a **fast
+start** and a **small heap**. The current arguments from
 `backend/scripts/package-sidecar-windows.ps1`:
 
 ```text
---enable-native-access=ALL-UNNAMED  Java 25 native access (JNI) bez warningu.
--Dfile.encoding=UTF-8               Konzistentni encoding napric platformami.
--Dspring.aot.enabled=true           Aktivuje Spring AOT artefakty z jaru (viz nize).
--XX:TieredStopAtLevel=1             Jen C1 JIT (~10-15 % rychlejsi cold start).
--Xms64m / -Xmx384m                  Single-user sidecar; default Xmx (1/4 RAM)
-                                    je radove vetsi nez potreba.
--XX:+UseSerialGC                    1 GC vlakno = minimalni overhead pri startu
-                                    a maly footprint pro maly heap.
+--enable-native-access=ALL-UNNAMED  Java 25 native access (JNI) without a warning.
+-Dfile.encoding=UTF-8               Consistent encoding across platforms.
+-Dspring.aot.enabled=true           Activates the Spring AOT artifacts from the jar (see below).
+-XX:TieredStopAtLevel=1             C1 JIT only (~10-15 % faster cold start).
+-Xms64m / -Xmx384m                  Single-user sidecar; the default Xmx (1/4 RAM)
+                                    is an order of magnitude more than needed.
+-XX:+UseSerialGC                    1 GC thread = minimal startup overhead
+                                    and a small footprint for a small heap.
 ```
 
-**Spring AOT** je zapnuty pres Maven profile `aot` (`mvn -Paot package`). Profile
-pridava `spring-boot-maven-plugin` goal `process-aot`, ktery generuje
-`__BeanDefinitions.java` classy do `target/spring-aot/main/sources` a zababaluje
-je do fat jaru. Pri behu s `-Dspring.aot.enabled=true` je Spring kontextova
-trida pouzije misto reflexive bean factory, coz srazi 20-40 % cold startu
-(empirically pro tento projekt; viz `PERFORMANCE_BASELINE.md`).
+**Spring AOT** is enabled through the Maven profile `aot` (`mvn -Paot package`).
+The profile adds the `spring-boot-maven-plugin` goal `process-aot`, which
+generates `__BeanDefinitions.java` classes into `target/spring-aot/main/sources`
+and packs them into the fat jar. At runtime with `-Dspring.aot.enabled=true`
+Spring uses those context classes instead of the reflective bean factory, which
+cuts 20-40 % off the cold start (measured empirically for this project; see
+`PERFORMANCE_BASELINE.md`).
 
-AOT je `aot` profile, **NE** default — `mvn test` a `mvn spring-boot:run` ho
-nespoustia, takze dev/test build neni zpomaleny `process-aot` interne
-spustenim AppContextu pri buildu.
+AOT is the `aot` profile, **NOT** the default — `mvn test` and
+`mvn spring-boot:run` do not run it, so the dev/test build is not slowed down by
+`process-aot` starting an AppContext internally during the build.
 
-**Springdoc** (Swagger UI starter) je z fat jaru vyloucen pres
-`spring-boot-maven-plugin` `<excludeGroupIds>` na exekucich `repackage` a
-`process-aot` (POZOR: `<excludes>` vyzaduje groupId i artifactId — zapis jen
-s groupId tise nematchne nic; exclusion na `process-aot` je nutny, jinak AOT
-vygeneruje springdoc `__BeanDefinitions` odkazujici na classy chybejici v
-jaru). Snizuje fat jar o ~3 MB a zkracuje classpath scan o ~200-500 ms.
-Pro fat jar S Swagger docs (debug build):
+**Springdoc** (the Swagger UI starter) is excluded from the fat jar through
+`spring-boot-maven-plugin` `<excludeGroupIds>` on both the `repackage` and
+`process-aot` executions (CAREFUL: `<excludes>` requires both groupId and
+artifactId — an entry with groupId alone silently matches nothing; the exclusion
+on `process-aot` is necessary, otherwise AOT generates springdoc
+`__BeanDefinitions` referring to classes missing from the jar). It shrinks the
+fat jar by ~3 MB and shortens the classpath scan by ~200-500 ms.
+For a fat jar WITH Swagger docs (a debug build):
 
 ```powershell
 mvn -Popenapi -Dspringdoc.api-docs.enabled=true `
     -Dspringdoc.swagger-ui.enabled=true package
 ```
 
-Dev `mvn spring-boot:run` ma springdoc v compile classpath dal — Swagger UI
-funguje normalne pri vyvoji.
+Dev `mvn spring-boot:run` still has springdoc on the compile classpath — Swagger
+UI works normally during development.
 
-### JEP 483 AOT class cache (experimentalni, default OFF)
+### JEP 483 AOT class cache (experimental, default OFF)
 
-Java 25+ podporuje "ahead-of-time class loading & linking" — JVM si pri exit
-zapise binarni cache class loading + linking metadat, ktera se pri dalsim
-startu pripoji misto rebuildovani z jaru. V kombinaci se Spring AOT to muze
-dale zkratit cold start o ~20-40 % nad ramec ostatnich JVM optimalizaci.
+Java 25+ supports "ahead-of-time class loading & linking" — on exit the JVM
+writes a binary cache of class loading + linking metadata, which is attached on
+the next start instead of being rebuilt from the jar. Combined with Spring AOT
+this can shorten the cold start by a further ~20-40 % beyond the other JVM
+optimisations.
 
-**Default je OFF** v `package-sidecar-windows.ps1` (parameter `-EnableAotCache`).
-Cache se zapina explicitne kvuli velikosti (~115 MB vedle jaru) a vazbe na presny
-jar hash + Java verzi — pri kazdem rebuildu jaru je nutne regenerovat.
+**The default is OFF** in `package-sidecar-windows.ps1` (parameter
+`-EnableAotCache`). The cache is enabled explicitly because of its size (~115 MB
+next to the jar) and its binding to the exact jar hash + Java version — it has to
+be regenerated on every jar rebuild.
 
-> Historicka poznamka: starsi verze codebase mela v `ContactService` a
-> `MailContentService` `@Lazy <Self> self` injection, ktera padala se Spring AOT
-> (i bez `-XX:AOTCache`) na `ClassCastException` v
-> `CglibAopProxy.setCallbacks` — proxy generovana pres
-> `ContextAnnotationAutowireCandidateResolver.buildLazyResolutionProxy` dostala
-> `SerializableNoOp` misto `Dispatcher`. Bug je vyresen prechodem na
-> `ObjectProvider<Self>` (Spring native lazy resolution, ktera neprochazi pres
-> CGLib). Pokud nekdy znova ucitis `@Lazy <Self>` injection nebo ekvivalentni
-> CGLib lazy proxy, otestuj startup z `mvn -Paot package` jaru, ne jen ze
-> `spring-boot:run`.
+> Historical note: an older version of the codebase had `@Lazy <Self> self`
+> injection in `ContactService` and `MailContentService`, which failed under
+> Spring AOT (even without `-XX:AOTCache`) with a `ClassCastException` in
+> `CglibAopProxy.setCallbacks` — the proxy generated through
+> `ContextAnnotationAutowireCandidateResolver.buildLazyResolutionProxy` received
+> `SerializableNoOp` instead of `Dispatcher`. The bug was resolved by moving to
+> `ObjectProvider<Self>` (Spring native lazy resolution, which does not go
+> through CGLib). If you ever reach for `@Lazy <Self>` injection again, or an
+> equivalent CGLib lazy proxy, test the startup from a `mvn -Paot package` jar,
+> not only from `spring-boot:run`.
 
-Workflow (pri zapnuti):
+Workflow (when enabled):
 
-1. `package-sidecar-windows.ps1 -EnableAotCache` spousti `generate-aot-cache-windows.ps1`
-   po jpackage app-image stepu:
-   - phase 1 (record): JVM s `-XX:AOTMode=record -XX:AOTConfiguration=<file>`,
-     env `MAIL_AOT_TRAINING_RUN=1` aktivuje `AotTrainingExitListener`, ktery po
-     `ApplicationReadyEvent` zavola `System.exit(0)`. JVM zapise config soubor.
-   - phase 2 (create): JVM s `-XX:AOTMode=create -XX:AOTConfiguration=<file>
--XX:AOTCache=<file>` precte config a sestavi binarni cache (~100-200 MB).
-   - cache se kopíruje do `<install_dir>/app/mail.aot`.
-2. jpackage launcher pak spousti produkci s `--java-options
-"-XX:AOTCache=app\mail.aot"` (relativni path vuci install dir).
+1. `package-sidecar-windows.ps1 -EnableAotCache` runs `generate-aot-cache-windows.ps1`
+   after the jpackage app-image step:
+   - phase 1 (record): a JVM with `-XX:AOTMode=record -XX:AOTConfiguration=<file>`,
+     and the env `MAIL_AOT_TRAINING_RUN=1` activates `AotTrainingExitListener`,
+     which calls `System.exit(0)` after `ApplicationReadyEvent`. The JVM writes
+     the config file.
+   - phase 2 (create): a JVM with `-XX:AOTMode=create -XX:AOTConfiguration=<file>
+-XX:AOTCache=<file>` reads the config and builds the binary cache (~100-200 MB).
+   - the cache is copied to `<install_dir>/app/mail.aot`.
+2. The jpackage launcher then starts production with `--java-options
+"-XX:AOTCache=app\mail.aot"` (a path relative to the install dir).
 
-Manualne (experimentalne, proti `mvn package` jaru):
+Manually (experimental, against a `mvn package` jar):
 
 ```powershell
 .\scripts\generate-aot-cache-windows.ps1 `
@@ -250,193 +257,194 @@ Manualne (experimentalne, proti `mvn package` jaru):
     -CachePath target\mail.aot
 ```
 
-Cache je vazana na presny jar hash + Java verzi — pri rebuild jaru je nutne
-regenerovat. AOT record faze typicky vraci non-zero exit kvuli `Preload Warning:
-Verification failed` u Spring Security konfiguraci (SAML, OAuth2 server, LDAP) —
-warnings jsou benigní a skript je ignoruje, pokud config soubor vznikl.
+The cache is bound to the exact jar hash + Java version — it must be regenerated
+when the jar is rebuilt. The AOT record phase typically returns a non-zero exit
+because of `Preload Warning: Verification failed` on Spring Security
+configurations (SAML, OAuth2 server, LDAP) — those warnings are benign and the
+script ignores them as long as the config file was produced.
 
-### Mereni cold startu
+### Measuring the cold start
 
 ```powershell
-# Po `.ready` zapsani backend loguje souhrn:
+# After `.ready` is written, the backend logs a summary:
 Get-Content "$env:LOCALAPPDATA\VoxRox\Mail\logs\mail.log" |
   Select-String "Startup timing|Started MailBackend|spring.application-ready" |
   Select-Object -First 30
 ```
 
-Pro frontend boot timings: dev console v `tauri:dev`, store `bootState.timings`.
+For frontend boot timings: the dev console in `tauri:dev`, store `bootState.timings`.
 
 ## Update process
 
-Aktualizace přicházejí jako celý Tauri bundle (frontend + backend sidecar společně). Verzový mismatch tím pádem nemůže nastat — co podepsala release pipeline jde k uživateli atomicky.
+Updates arrive as a whole Tauri bundle (frontend + backend sidecar together). A version mismatch therefore cannot happen — what the release pipeline signed reaches the user atomically.
 
-Co se děje při startu nové verze:
+What happens when a new version starts:
 
-1. Backend se spustí ze stejného `${app.data-dir}` jako předchozí verze; data dir installer nemaže.
-2. Před `flyway.migrate()` zapíše `DatabaseBackupService` konzistentní snapshot DB přes `VACUUM INTO` jako `db/mail.db.backup-pre-v<currentAppVersion>` (idempotentní — pokud už pro danou verzi existuje, no-op). `VACUUM INTO` dělá transakčně konzistentní self-contained kopii **včetně committnutých dat, která ještě leží v necheckpointnutém `-wal`** — prostá file-copy hlavního `.db` by po nečistém shutdownu (crash / kill sidecaru) poslední transakce z WAL tiše vynechala a restore point by byl neúplný.
-3. Promaže staré zálohy mimo retention okno (default 3 nejnovější, viz `mail.backup.retention-count`).
-4. Aplikuje kumulativní Flyway migrace. Před prvním vydáním existuje jediná
-   `V1__init.sql` (starší V2/V3 byly do ní opakovaně sloučeny, viz
-   `backend/CHANGELOG.md`); od publikace v0.1.0 je zmrazená a všechny další
-   změny schématu přicházejí jako `V2+` (pravidlo v `RELEASE_CHECKLIST.md`
+1. The backend starts from the same `${app.data-dir}` as the previous version; the installer does not delete the data dir.
+2. Before `flyway.migrate()`, `DatabaseBackupService` writes a consistent snapshot of the DB through `VACUUM INTO` as `db/mail.db.backup-pre-v<currentAppVersion>` (idempotent — a no-op if one already exists for that version). `VACUUM INTO` makes a transactionally consistent, self-contained copy **including committed data still sitting in an uncheckpointed `-wal`** — a plain file copy of the main `.db` would silently drop the last transactions from the WAL after an unclean shutdown (crash / killed sidecar), and the restore point would be incomplete.
+3. It prunes old backups outside the retention window (default: the 3 newest, see `mail.backup.retention-count`).
+4. It applies the cumulative Flyway migrations. Before the first release there is
+   a single `V1__init.sql` (older V2/V3 were repeatedly folded into it, see
+   `backend/CHANGELOG.md`); from the v0.1.0 publish on it is frozen and every
+   further schema change arrives as `V2+` (the rule is in `RELEASE_CHECKLIST.md`
    §8b).
-5. `verifySqlitePragmas` ověří `PRAGMA quick_check`. Selhání → fail-fast s recovery zprávou + audit `startup_health_gate_failed`.
-6. `app_started` audit záznam zachycuje `appVersion`, `dbSchemaVersion` a `previousAppVersion` (odvozeno z nejnovějšího backup souboru).
+5. `verifySqlitePragmas` verifies `PRAGMA quick_check`. A failure → fail-fast with a recovery message + the audit event `startup_health_gate_failed`.
+6. The `app_started` audit record captures `appVersion`, `dbSchemaVersion` and `previousAppVersion` (derived from the newest backup file).
 
-Tauri klient přečte z handshake odpovědi `dbSchemaVersion` a zaloguje ho do diagnostic dumpu pro post-update support.
+The Tauri client reads `dbSchemaVersion` from the handshake response and logs it into the diagnostic dump for post-update support.
 
-Manuální fallback, pokud Tauri updater selže (síťový timeout, signature mismatch, disk full): stáhnout aktuální `voxrox-mail-<version>-windows-x64-setup.exe` z GitHub Releases ručně a spustit „přes". Datové soubory zůstanou. Downgrade běžným instalátorem je zakázaný kvůli migracím databáze.
+Manual fallback if the Tauri updater fails (network timeout, signature mismatch, disk full): download the current `voxrox-mail-<version>-windows-x64-setup.exe` from GitHub Releases by hand and run it "over" the installation. Data files are preserved. Downgrading with the ordinary installer is forbidden because of the database migrations.
 
 ### Update troubleshooting
 
-`Sidecar nestartuje po update` (audit log obsahuje `startup_health_gate_failed`) → obnovit DB z nejnovější zálohy:
+`The sidecar does not start after an update` (the audit log contains `startup_health_gate_failed`) → restore the DB from the newest backup:
 
 ```powershell
-# 1. Zastavit backend (kill Tauri / Java sidecar process)
-# 2. Najít nejnovější zálohu
+# 1. Stop the backend (kill the Tauri / Java sidecar process)
+# 2. Find the newest backup
 Get-ChildItem "$env:LOCALAPPDATA\VoxRox\Mail\db\mail.db.backup-pre-v*" |
   Sort-Object LastWriteTime -Descending | Select-Object -First 1
-# 3. Přejmenovat poškozenou DB stranou + odklidit její stale WAL/SHM (jinak by se
-#    starý WAL aplikoval na obnovenou DB a mohl ji poškodit)
+# 3. Move the damaged DB aside + clear its stale WAL/SHM (otherwise the old WAL
+#    would be applied to the restored DB and could damage it)
 Move-Item "$env:LOCALAPPDATA\VoxRox\Mail\db\mail.db" `
           "$env:LOCALAPPDATA\VoxRox\Mail\db\mail.db.broken"
 Remove-Item "$env:LOCALAPPDATA\VoxRox\Mail\db\mail.db-wal", `
             "$env:LOCALAPPDATA\VoxRox\Mail\db\mail.db-shm" -ErrorAction SilentlyContinue
-# 4. Obnovit ze zálohy (nahradit <ZALOHA> jménem souboru z kroku 2)
-Copy-Item "$env:LOCALAPPDATA\VoxRox\Mail\db\<ZALOHA>" `
+# 4. Restore from the backup (replace <BACKUP> with the file name from step 2)
+Copy-Item "$env:LOCALAPPDATA\VoxRox\Mail\db\<BACKUP>" `
           "$env:LOCALAPPDATA\VoxRox\Mail\db\mail.db"
-# 5. Spustit supportem schválený recovery build/postup (downgrade installer je blokovaný)
-# 6. Reportovat bug se snippetem audit.log
+# 5. Run the support-approved recovery build/procedure (the downgrade installer is blocked)
+# 6. Report the bug with a snippet of audit.log
 ```
 
-`Sidecar nestartuje po update` s auditem `db_migration_altered_after_apply` (detail `V<n> CHECKSUM_MISMATCH` / `DESCRIPTION_MISMATCH` / `TYPE_MISMATCH`) → **obnova ze zálohy tady NEPOMŮŽE a postup výše se na tenhle případ nevztahuje.** Databáze je v pořádku; vadný je build, který nese jinou verzi už aplikované migrace, než jaká je zapsaná ve `flyway_schema_history`. Vzniká jedině tak, že se po releasu editovala existující migrace místo přidání nové (proti tomu stojí build gate `FlywayBaselineChecksumTest`).
+`The sidecar does not start after an update` with the audit event `db_migration_altered_after_apply` (detail `V<n> CHECKSUM_MISMATCH` / `DESCRIPTION_MISMATCH` / `TYPE_MISMATCH`) → **restoring from a backup will NOT help here and the procedure above does not apply to this case.** The database is fine; the faulty part is a build carrying a different version of an already-applied migration than the one recorded in `flyway_schema_history`. It can only arise by editing an existing migration after the release instead of adding a new one (the build gate `FlywayBaselineChecksumTest` stands against that).
 
-Postup:
+Procedure:
 
-1. Z audit logu vyčíst `app_started` řádek předchozího spuštění — `dbSchemaVersion` a `dbSchemaChecksum` říkají, jaké schéma instalace reálně má.
-2. **Nespouštět `flyway repair`** jako plošnou opravu. Repair přepíše zapsané checksumy na to, co nese nový build, takže hlasité odmítnutí startu tiše promění v přijetí schématu, které databáze nemá — z nespustitelné aplikace se stane poškozená data.
-3. Oprava je roll-forward: vydat vyšší verzi, jejíž migrace odpovídají (typicky revert editace dané migrace + nová `V<n+1>__*.sql` nesoucí zamýšlenou změnu). Downgrade instalátorem je blokovaný.
-4. Pokud už vadný build odešel do kanálu, přesměrovat beta kanál na poslední dobrý tag (`beta-channel.yml`, `force=true`) — viz „Release channels".
+1. Read the `app_started` line of the previous run from the audit log — `dbSchemaVersion` and `dbSchemaChecksum` say what schema the installation actually has.
+2. **Do not run `flyway repair`** as a blanket fix. Repair overwrites the recorded checksums with whatever the new build carries, which turns a loud refusal to start into silent acceptance of a schema the database does not have — an unstartable application becomes corrupted data.
+3. The fix is roll-forward: ship a higher version whose migrations match (typically revert the edit to that migration + a new `V<n+1>__*.sql` carrying the intended change). Downgrading with the installer is blocked.
+4. If the faulty build already went out to a channel, re-point the beta channel to the last good tag (`beta-channel.yml`, `force=true`) — see "Release channels".
 
-`db_backup_failed` v audit logu při startu → zkontrolovat volné místo na disku a oprávnění k `${app.data-dir}/db/`. Backup nemůže selhat tichá — pokud ano, Flyway migrate se vůbec nespustí a uživatel zůstává na předchozí verzi schémat.
+`db_backup_failed` in the audit log at startup → check the free disk space and the permissions on `${app.data-dir}/db/`. The backup cannot fail silently — if it does, Flyway migrate does not run at all and the user stays on the previous schema version.
 
-`Update notifikace se nezobrazuje` (Tauri klient nehlásí novou verzi) → zkontrolovat `tauri.conf.json` `plugins.updater.endpoints` URL (v Tauri 2 je updater plugin, **ne** `bundle.updater` — pod `bundle` se hledá marně), manifest signing key shoda s `pubkey`. U beta kanálu navíc ověřit, že release `beta` drží čerstvý `latest.json` (viz Release channels níže).
+`The update notification does not appear` (the Tauri client does not report a new version) → check the `tauri.conf.json` `plugins.updater.endpoints` URL (in Tauri 2 the updater is a plugin, **not** `bundle.updater` — looking under `bundle` finds nothing) and that the manifest signing key matches `pubkey`. On the beta channel, additionally verify that the `beta` release holds a fresh `latest.json` (see Release channels below).
 
 ## Release channels
 
-Tahle sekce popisuje kanály a co se dělá, když se něco pokazí. Uspořádaný
-postup vydání (verze → changelog → tag → build → draft → publikace) je
-[docs/RELEASE_PROCESS.md](../docs/RELEASE_PROCESS.md).
+This section describes the channels and what to do when something goes wrong.
+The ordered release procedure (version → changelog → tag → build → draft →
+publish) is in [docs/RELEASE_PROCESS.md](../docs/RELEASE_PROCESS.md).
 
-Updater má dva kanály. Volbu drží každá instalace v Nastavení → O aplikaci (výchozí Stabilní; webview `localStorage` klíč `mail.updateChannel`). Kanál mapuje na manifest URL Tauri shell (`check_for_update` v `frontend/src-tauri/src/lib.rs`) — webview nikdy nepředává URL, jen jméno kanálu.
+The updater has two channels. Each installation holds the choice in Settings → About (default Stable; webview `localStorage` key `mail.updateChannel`). The channel maps onto a manifest URL in the Tauri shell (`check_for_update` in `frontend/src-tauri/src/lib.rs`) — the webview never passes a URL, only a channel name.
 
-| Kanál    | Manifest                                                                      | Kdo ho plní                                                      |
-| -------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| Stabilní | `releases/latest/download/latest.json` (GitHub redirect; prereleasy ignoruje) | publikace plného release                                         |
-| Beta     | `releases/download/beta/latest.json` (pohyblivý prerelease `beta`)            | workflow `.github/workflows/beta-channel.yml` při každém publish |
+| Channel | Manifest                                                                      | Who fills it                                                      |
+| ------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Stable  | `releases/latest/download/latest.json` (GitHub redirect; ignores prereleases) | publishing a full release                                         |
+| Beta    | `releases/download/beta/latest.json` (the moving `beta` prerelease)           | the workflow `.github/workflows/beta-channel.yml` on each publish |
 
-**Nikdy nepublikovat release bez `latest.json` + `.sig`** (ani „jen tag s poznámkami"): stabilní kanál je GitHub redirect na poslední ne-prerelease publish, takže holý release se okamžitě stane „latest" a každá instalace dostane chybu update checku při každém startu. Cokoliv, co není plný podepsaný build, držet jako draft nebo prerelease (revize #170).
+**Never publish a release without `latest.json` + `.sig`** (not even "just a tag with notes"): the stable channel is a GitHub redirect to the latest non-prerelease publish, so a bare release immediately becomes "latest" and every installation gets an update-check error on every start. Anything that is not a full signed build stays a draft or a prerelease (review #170).
 
-### Model vydávání: všechno jde přes betu
+### The release model: everything goes through beta
 
-Rozhodnuto 2026-08-28. **Každá změna se vydá nejdřív jako beta a teprve po otestování se promotuje na stable.** Beta není odkladiště rozdělané práce — nese hotové funkce, které už prošly testem vývojářů; beta znamená jen širší okruh uživatelů.
+Decided 2026-08-28. **Every change ships as a beta first and is promoted to stable only after testing.** Beta is not a parking place for unfinished work — it carries finished features that already passed developer testing; beta only means a wider circle of users.
 
-Z toho plynou dvě vlastnosti, na kterých stojí zbytek téhle sekce:
+Two properties follow, and the rest of this section rests on them:
 
-- **Neexistuje stable release, který betu přeskočil** — s jedinou zaznamenanou výjimkou, prvním shipem `v0.1.0` (viz níže).
-- **Neexistuje beta, kterou nejde promotovat** — když stable potřebuje opravu, oprava jde do beta linky a promotuje se s ní. Nikdy nevzniká potřeba vydat `0.1.1` vedle běžící bety `0.2.0-beta.1`, protože `0.2.0` je z definice vydatelné.
+- **There is no stable release that skipped beta** — with a single recorded exception, the first ship `v0.1.0` (see below).
+- **There is no beta that cannot be promoted** — when stable needs a fix, the fix goes into the beta line and is promoted with it. There is never a need to ship `0.1.1` alongside a running beta `0.2.0-beta.1`, because `0.2.0` is releasable by definition.
 
-**Výjimka: první ship `v0.1.0` jde rovnou jako stable.** Rozhodnuto 2026-09-09. Model chrání stable publikum tím, že před něj předřadí beta cyklus — u prvního shipu ale žádné druhé publikum neexistuje, uzavřená beta _je_ celé publikum. Rozhoduje o tom druhá polovina: prerelease-suffixovaný tag by nechal **stabilní kanál prázdný** (redirect `releases/latest` prereleasy přeskakuje), zatímco výchozí kanál každé instalace je `stable`. Kdo si kanál v Nastavení → O aplikaci nepřepne, seděl by na kanálu bez manifestu a startovní kontrola by selhala **tiše** — background check jen `console.warn`uje, záměrně, aby při každém studeném startu nebudil dialog. Tiše nedostávat aktualizace je nejhorší tvar selhání, jaký ta cesta má. Se stable-first naopak tester, který se nastavení nikdy nedotkne, jede po stable lince a dostane každou promotion. Označení „beta" na tagu nevisí: nese ho status badge na [voxrox.org](https://voxrox.org) a titulek releasu. **Od `0.2.0` dál platí model doslova** a výjimka se neopakuje.
+**Exception: the first ship `v0.1.0` goes straight to stable.** Decided 2026-09-09. The model protects the stable audience by putting a beta cycle in front of it — but at the first ship there is no second audience; the closed beta _is_ the whole audience. The second half is what decides it: a prerelease-suffixed tag would leave the **stable channel empty** (the `releases/latest` redirect skips prereleases), while the default channel of every installation is `stable`. Anyone who does not switch the channel in Settings → About would sit on a channel with no manifest, and the startup check would fail **silently** — the background check only `console.warn`s, deliberately, so that it does not raise a dialog on every cold start. Silently not receiving updates is the worst failure shape that path has. With stable-first, by contrast, a tester who never touches the settings rides the stable line and gets every promotion. The "beta" label does not hang on the tag: it is carried by the status badge on [voxrox.org](https://voxrox.org) and by the release title. **From `0.2.0` on the model holds literally** and the exception does not repeat.
 
-**Proto je červený `beta-channel.yml` signál, ne šum.** Guard odmítne kandidáta staršího, než je současný beta manifest, a v tomhle modelu takový kandidát nemá jak legitimně vzniknout — červená znamená, že se stalo něco mimo model, typicky re-publikace starého tagu. **Neřešit to `force=true`**; ten je vyhrazený pro HALT níže. Nejdřív zjistit, který publish to spustil.
+**This is why a red `beta-channel.yml` is a signal, not noise.** The guard rejects a candidate older than the current beta manifest, and in this model such a candidate has no legitimate way to arise — red means something happened outside the model, typically a re-publish of an old tag. **Do not solve it with `force=true`**; that is reserved for the HALT below. First find out which publish triggered it.
 
-**Co ten model stojí:** oprava se ke stabilním uživatelům dostane až po beta cyklu, ne hned. U uzavřené bety (~45 testerů) je to přijatelné. Kdyby oprava opravdu nemohla počkat, jsi mimo model — postup pak je: postavit `0.1.1` z tagu `v0.1.0` jen s tou opravou, publikovat (stabilní uživatelé ji dostanou), **počítat s tím, že `beta-channel.yml` skončí červeně, a nechat ho tak** (beta manifest se přepsat nesmí, poslal by testery dozadu), a fix zvlášť dostat i do beta linky jako `0.2.0-beta.2`. Do té doby jsou beta testeři na neopravené verzi — což je přesně ten důvod, proč se tahle cesta nepoužívá.
+**What the model costs:** a fix reaches stable users only after a beta cycle, not immediately. For a closed beta (~45 testers) that is acceptable. If a fix genuinely could not wait, you are outside the model — the procedure is then: build `0.1.1` from the tag `v0.1.0` with that fix alone, publish it (stable users get it), **expect `beta-channel.yml` to end red and leave it that way** (the beta manifest must not be overwritten, it would send testers backwards), and get the fix into the beta line separately as `0.2.0-beta.2`. Until then the beta testers are on an unfixed version — which is exactly why this path is not used.
 
-### Ship beta buildu
+### Shipping a beta build
 
-1. Nastavit prerelease verzi (`0.2.0-beta.1`) v `tauri.conf.json`/`package.json`/`version.ts` a tagnout `v0.2.0-beta.1`. Release workflow kontroluje shodu tag ↔ verze a prerelease-suffixovaný tag založí release s `--prerelease`; pokud release už existuje (předdraftované poznámky, částečný předchozí běh), workflow flag doplní přes `gh release edit` — bez něj by publish předal beta build do `releases/latest` redirectu stabilního kanálu.
-2. Po ručním Publish releasu `beta-channel.yml` přepíše `beta/latest.json`. Stabilní kanál build nevidí — redirect `releases/latest` prereleasy přeskakuje.
+1. Set the prerelease version (`0.2.0-beta.1`) in `tauri.conf.json`/`package.json`/`version.ts` and tag `v0.2.0-beta.1`. The release workflow checks that the tag matches the version, and a prerelease-suffixed tag creates the release with `--prerelease`; if the release already exists (pre-drafted notes, a partial earlier run), the workflow adds the flag through `gh release edit` — without it, publishing would hand the beta build to the `releases/latest` redirect of the stable channel.
+2. After a manual Publish of the release, `beta-channel.yml` overwrites `beta/latest.json`. The stable channel does not see the build — the `releases/latest` redirect skips prereleases.
 
-### Promotion na stable
+### Promotion to stable
 
-Vydat plnou verzi (bez suffixu) běžným release procesem. Publish spustí `beta-channel.yml` i tady, takže beta uživatelé konvergují na stejný stable build (SemVer: `0.2.0` > `0.2.0-beta.1`) a beta kanál nikdy nezaostává za stable.
+Ship a full version (no suffix) through the ordinary release process. Publishing triggers `beta-channel.yml` here too, so beta users converge onto the same stable build (SemVer: `0.2.0` > `0.2.0-beta.1`) and the beta channel never lags behind stable.
 
-### HALT — stažení vadné bety
+### HALT — withdrawing a faulty beta
 
-1. Vadný prerelease v GitHub Releases přepnout zpět na draft (nebo smazat) — ruční stažení instalátoru tím končí.
-2. Re-point beta manifestu na poslední dobrou verzi: Actions → „Beta Channel Manifest" → Run workflow s `tag=<poslední dobrý tag>` a `force=true`. Guard (`frontend/scripts/beta-channel-guard.mjs`) jinak downgrade manifestu odmítne — `force` je vyhrazený přesně pro tento krok.
-3. Kdo už vadnou betu nainstaloval, downgrade nedostane (`allowDowngrades: false` + DB migrace) — pro ně platí roll-forward níže.
+1. Switch the faulty prerelease in GitHub Releases back to draft (or delete it) — that ends manual installer downloads.
+2. Re-point the beta manifest to the last good version: Actions → "Beta Channel Manifest" → Run workflow with `tag=<last good tag>` and `force=true`. The guard (`frontend/scripts/beta-channel-guard.mjs`) otherwise refuses a manifest downgrade — `force` exists precisely for this step.
+3. Anyone who already installed the faulty beta will not get a downgrade (`allowDowngrades: false` + DB migrations) — for them the roll-forward below applies.
 
-### Roll-forward (oprava už nainstalované vadné verze)
+### Roll-forward (fixing an already-installed faulty version)
 
-Rollback binárky neexistuje: downgrade blokuje updater i instalátor kvůli DB migracím. Oprava se vydává jako NOVÁ vyšší verze (revert/fix kódu, verze o patch výš — např. vadná `0.2.0-beta.1` → oprava `0.2.0-beta.2`; vadná stable `0.2.0` → `0.2.1`). Pokud vadná verze poškodila data, restore z pre-migration zálohy viz „Update troubleshooting" výše.
+There is no binary rollback: both the updater and the installer block a downgrade because of the DB migrations. The fix ships as a NEW higher version (revert/fix the code, bump the patch — e.g. a faulty `0.2.0-beta.1` → fix `0.2.0-beta.2`; a faulty stable `0.2.0` → `0.2.1`). If the faulty version damaged data, restore from the pre-migration backup, see "Update troubleshooting" above.
 
-## Reset uctu
+## Account reset
 
-Preferovaný postup je smazání účtu přes aplikaci. Nouzový SQL postup pro support:
+The preferred procedure is deleting the account through the application. Emergency SQL procedure for support:
 
-1. Zastavit backend.
-2. Udělat zálohu celého `${app.data-dir}`.
-3. V SQLite smazat účet podle ID nebo e-mailu:
+1. Stop the backend.
+2. Back up the whole `${app.data-dir}`.
+3. Delete the account in SQLite by ID or by email:
 
 ```sql
 DELETE FROM accounts WHERE email = 'user@example.com';
 ```
 
-FK `ON DELETE CASCADE` smaže credentials, sync state, messages, contacts a související řádky. Po restartu uživatel účet přidá znovu.
+The FK `ON DELETE CASCADE` deletes the credentials, sync state, messages, contacts and related rows. After a restart the user adds the account again.
 
-## Rotace crypto klice
+## Crypto key rotation
 
-`crypto.bin` je trvalá lokální kotva pro šifrování credentials a interního API klíče. Nemazat ho samostatně.
+`crypto.bin` is the permanent local anchor for encrypting credentials and the internal API key. Do not delete it on its own.
 
-Na Windows je `crypto.bin` uložený v chráněném formátu `VOXSEC1`: klíč+salt jsou
-zabalené přes Windows DPAPI (`CryptProtectData`, USER scope + app entropy), takže
-soubor zkopírovaný na jiný Windows účet/stroj je nepoužitelný. Na ostatních
-platformách (a v testech) se použije identity fallback a důvěrnost stojí na
-oprávněních souboru (`rw-------`), stejně jako dřív. Starší instalace s plaintext
-`crypto.bin` se při prvním startu po update bezešvě zmigrují na `VOXSEC1` (in-place,
-beze změny klíče → bez re-encrypt DB). DPAPI USER scope nechrání proti malwaru
-běžícímu pod stejným uživatelem (unprotect pro něj projde) — to je mimo threat model.
+On Windows `crypto.bin` is stored in the protected `VOXSEC1` format: the key+salt
+are wrapped through Windows DPAPI (`CryptProtectData`, USER scope + app entropy),
+so the file copied to another Windows account/machine is unusable. On the other
+platforms (and in tests) an identity fallback is used and confidentiality rests
+on the file permissions (`rw-------`), as before. Older installations with a
+plaintext `crypto.bin` migrate seamlessly to `VOXSEC1` on the first start after
+the update (in place, with no key change → no DB re-encrypt). DPAPI USER scope
+does not protect against malware running as the same user (unprotect succeeds for
+it) — that is outside the threat model.
 
-Release a běžný Tauri desktop režim používají `crypto.bin` jako výchozí zdroj
-klíče. Lokální `backend/.env` smí obsahovat `MAIL_CRYPTO_KEY` /
-`MAIL_CRYPTO_SALT` pro explicitní backend-only override, ale Tauri dev/release
-launcher je defaultně do sidecaru nepředává. Tím release běží stejně jako
-fresh install: první start vytvoří `crypto.bin`, další starty ho znovu použijí.
-Pokud je potřeba testovat explicitní env crypto režim, spouštěj ho odděleně a
-ne proti existujícímu uživatelskému `${app.data-dir}`.
+The release and the ordinary Tauri desktop mode use `crypto.bin` as the default
+key source. A local `backend/.env` may contain `MAIL_CRYPTO_KEY` /
+`MAIL_CRYPTO_SALT` for an explicit backend-only override, but the Tauri
+dev/release launcher does not forward them to the sidecar by default. That way
+the release runs the same as a fresh install: the first start creates
+`crypto.bin`, later starts reuse it. If you need to test the explicit env crypto
+mode, run it separately and not against an existing user `${app.data-dir}`.
 
-Pokud je `crypto.fingerprint` zastaralý nebo neodpovídá aktuálnímu
-`crypto.bin`, desktop bootstrap režim ho při startu přegeneruje podle
-`crypto.bin`. Interní handshake API klíč je generovaný v paměti při každém
-startu sidecaru a zapsaný do `session.json` — žádný persistentní artefakt,
-takže ho rotace crypto materiálu netýká. Uživatelské credentials jsou
-oddělené: hesla/OAuth tokeny bez původního `crypto.bin` nebo původních env
-crypto hodnot nelze obnovit. Startup takový účet označí jako
-`requiresReauth=true`, nastaví `last_error` a aplikace pokračuje; účet je nutné
-přihlásit nebo přidat znovu.
+If `crypto.fingerprint` is stale or does not match the current `crypto.bin`, the
+desktop bootstrap mode regenerates it from `crypto.bin` at startup. The internal
+handshake API key is generated in memory on every sidecar start and written to
+`session.json` — no persistent artifact, so rotating crypto material does not
+affect it. User credentials are separate: passwords/OAuth tokens cannot be
+recovered without the original `crypto.bin` or the original env crypto values.
+Startup marks such an account as `requiresReauth=true`, sets `last_error` and the
+application continues; the account has to be signed in or added again.
 
-Praktický single-user postup rotace:
+A practical single-user rotation procedure:
 
-1. V UI odebrat všechny účty, nebo se smířit s tím, že je bude nutné přidat znovu.
-2. Zastavit backend.
-3. Zálohovat celý `${app.data-dir}`.
-4. Smazat `crypto.bin` a DB, případně celý datový adresář.
-5. Spustit backend; vytvoří nový `crypto.bin`, `session.json` a čerstvou DB.
-6. Přidat účty znovu.
+1. Remove all accounts in the UI, or accept that they will have to be added again.
+2. Stop the backend.
+3. Back up the whole `${app.data-dir}`.
+4. Delete `crypto.bin` and the DB, or the whole data directory.
+5. Start the backend; it creates a new `crypto.bin`, `session.json` and a fresh DB.
+6. Add the accounts again.
 
-Změna `MAIL_CRYPTO_KEY`/`MAIL_CRYPTO_SALT` proti existující DB bez re-encrypt migrace způsobí nečitelné credentials.
+Changing `MAIL_CRYPTO_KEY`/`MAIL_CRYPTO_SALT` against an existing DB without a re-encrypt migration results in unreadable credentials.
 
-## IMAP/SMTP diagnostika
+## IMAP/SMTP diagnostics
 
-Kontrolní pořadí:
+Order of checks:
 
-1. `/api/internal/health` - DB, disk a sync komponenta.
-2. `accounts.last_error` - poslední uživatelsky relevantní chyba účtu.
-3. `logs/mail.log` - `IMAP`, `SMTP`, `SYNC`, `AUTH` kategorie.
+1. `/api/internal/health` - DB, disk and the sync component.
+2. `accounts.last_error` - the last user-relevant error of the account.
+3. `logs/mail.log` - the `IMAP`, `SMTP`, `SYNC`, `AUTH` categories.
 4. `logs/audit.log` - `imap_auth`, `mail_send`, `account_requires_reauth`, `decrypt`, `api_key_auth`.
 
-Užitečné SQL dotazy:
+Useful SQL queries:
 
 ```sql
 SELECT id, email, active, requires_reauth, last_sync_at, last_error
@@ -448,100 +456,102 @@ FROM folder_sync_states
 ORDER BY account_id, folder_name;
 ```
 
-Pokud `requires_reauth = 1`, nejde o výpadek backendu. Uživatel musí projít OAuth login znovu.
+If `requires_reauth = 1`, this is not a backend outage. The user has to go through the OAuth login again.
 
-## OAuth tokeny a cas systemu
+## OAuth tokens and system time
 
-Google a Microsoft access tokeny se cachuji v procesu (per-account, sdileny
-in-memory `TokenCache`) a povazuji se za stale 60 sekund pred nominalni
-expiraci. Backend tim chrani IMAP/SMTP XOAUTH2 prihlaseni pred tokenem,
-ktery by expiroval tesne mezi cache hitem a pouzitim.
+Google and Microsoft access tokens are cached in the process (per account, in a
+shared in-memory `TokenCache`) and are considered stale 60 seconds before their
+nominal expiry. That is how the backend protects IMAP/SMTP XOAUTH2 logins against
+a token that would expire right between a cache hit and its use.
 
-Produkce musi bezet s aktivni synchronizaci systemoveho casu (Windows Time/NTP).
-Bez NTP muze velky clock drift zpusobit zbytecne predcasne refreshovani tokenu,
-nebo kratkodobe pouziti uz expirovaneho tokenu. Druha varianta je benigni:
-IMAP/SMTP auth fail invaliduje cache a dalsi pokus token obnovi, ale v logu se
-objevi zbytecny auth retry sum.
+Production must run with active system time synchronisation (Windows Time/NTP).
+Without NTP a large clock drift can cause needlessly early token refreshes, or a
+brief use of an already expired token. The second case is benign: an IMAP/SMTP
+auth failure invalidates the cache and the next attempt refreshes the token, but
+the log gains needless auth-retry noise.
 
 ### Microsoft refresh token revoke
 
-Microsoft Identity Platform neimplementuje RFC 7009 token revoke. Backend pri
-smazani uctu cisti pouze lokalni cache a zapise audit `token_revoke ...
-revoke=local_cache_only`; refresh token na strane Microsoftu zustava platny
-do uplynuti puvodni doby (typicky 90 dni neaktivity) nebo do explicitniho
-odvolani uzivatelem.
+The Microsoft Identity Platform does not implement RFC 7009 token revoke. On
+account deletion the backend clears only the local cache and writes the audit
+event `token_revoke ... revoke=local_cache_only`; the refresh token on
+Microsoft's side stays valid until the original period elapses (typically 90 days
+of inactivity) or until the user revokes it explicitly.
 
-Pokud uzivatel chce odvolat pristup okamzite (napr. pri ztrate zarizeni):
+If the user wants to revoke access immediately (e.g. after losing the device):
 
-1. Otevrit `https://account.microsoft.com/privacy` (osobni MSA ucet) nebo
-   `https://myapps.microsoft.com` (organizacni AAD ucet).
-2. V sekci "Apps and services" / "Apps with access" najit aplikaci podle
-   client ID a kliknout "Remove permission".
-3. Backendovy zaznam stejne uz neexistuje (deleteAccount ho zmazal),
-   takze tento krok je cisteni na strane provideru.
+1. Open `https://account.microsoft.com/privacy` (a personal MSA account) or
+   `https://myapps.microsoft.com` (an organisational AAD account).
+2. In "Apps and services" / "Apps with access", find the application by its
+   client ID and click "Remove permission".
+3. The backend record no longer exists anyway (deleteAccount removed it), so
+   this step is cleanup on the provider's side.
 
 ## Sidecar startup failures
 
-Rozlišení:
+Telling them apart:
 
 ```text
-Není session.json ani .ready       backend se nedostal přes bootstrap
-Je session.json, není .ready       backend spadl mezi handshake a ready signálem
-Je .ready, health neodpovídá      port/firewall/špatný baseUrl nebo mrtvý proces
-Health odpovídá, UI ne            problém v Tauri klientovi/API klientovi
+No session.json and no .ready      the backend did not get through bootstrap
+session.json but no .ready         the backend crashed between handshake and the ready signal
+.ready present, health silent      port/firewall/wrong baseUrl, or a dead process
+health answers, UI does not        a problem in the Tauri client / API client
 ```
 
-Co hledat v logu:
+What to look for in the log:
 
 ```text
-Explicitní port je obsazený       jiná instance backendu nebo cizí proces
-SQLite quick_check selhal         podezření na DB korupci, obnovit ze zálohy
-Crypto self-test failed           špatný nebo změněný crypto key/salt
-GOOGLE_OAUTH_CLIENT_* missing     chybí OAuth konfigurace pro dev/prod build
-MICROSOFT_OAUTH_CLIENT_* missing  chybí OAuth konfigurace pro Outlook/Exchange Online
+The explicit port is taken         another backend instance or a foreign process
+SQLite quick_check failed          suspected DB corruption, restore from a backup
+Crypto self-test failed            wrong or changed crypto key/salt
+GOOGLE_OAUTH_CLIENT_* missing      missing OAuth configuration for the dev/prod build
+MICROSOFT_OAUTH_CLIENT_* missing   missing OAuth configuration for Outlook/Exchange Online
 ```
 
-Tauri klient by měl při pádu sidecaru zkusit omezený restart a pak ukázat cestu k logům. Backend je restart-idempotentní: Flyway je no-op při shodném schématu, SQLite WAL se obnoví automaticky, IMAP spojení se navazují znovu.
+When the sidecar crashes, the Tauri client should attempt a limited restart and then show the path to the logs. The backend is restart-idempotent: Flyway is a no-op on a matching schema, the SQLite WAL recovers automatically, and IMAP connections are established again.
 
 ## Release smoke
 
-Minimální backend ověření před vydáním:
+The minimal backend verification before a release:
 
 ```powershell
 $env:MAVEN_OPTS='-Duser.home=C:\dev\java\mail\backend'
 mvn.cmd "-Dmaven.repo.local=C:\dev\java\mail\backend\.m2repo" "-Dapp.data-dir=C:\dev\java\mail\backend\target\test-data" clean verify
 ```
 
-`clean verify`, ne `package`: bez `clean` analyzuje SpotBugs `__BeanDefinitions`
-třídy, které v `target/` nechal předchozí `-Paot package`, a padne na
-generovaném kódu; `package` navíc neodpálí failsafe integrační testy. Stejný
-příkaz drží [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) §1.
+`clean verify`, not `package`: without `clean`, SpotBugs analyses the
+`__BeanDefinitions` classes left in `target/` by an earlier `-Paot package` and
+fails on generated code; `package` additionally does not fire the failsafe
+integration tests. [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) §1 holds the same
+command.
 
-Očekávání:
+Expectations:
 
 ```text
-Failures: 0, Errors: 0, Skipped: 0   na obou sadách — surefire i failsafe
-target/mail-backend-0.1.0.jar existuje jako repackaged Spring Boot JAR
-StartupSmokeTest vytvoří crypto.bin, session.json, .ready a aplikuje Flyway V1
+Failures: 0, Errors: 0, Skipped: 0   on both suites — surefire and failsafe
+target/mail-backend-0.1.0.jar exists as a repackaged Spring Boot JAR
+StartupSmokeTest creates crypto.bin, session.json, .ready and applies Flyway V1
 ```
 
-Počet testů se sem nepíše: rotuje rychleji, než se runbook čte, a žádná brána
-ho tady nepřepočítává.
+The test count is not written here: it rotates faster than the runbook is read,
+and no gate recomputes it in this file.
 
-Sidecar artefakt pro Windows:
+The sidecar artifact for Windows:
 
 ```powershell
 .\scripts\package-sidecar-windows.ps1
 ```
 
-> Vyžaduje reálné OAuth client id v prostředí (CI secrets) a jinak build shodí. Pro
-> lokální build použij `package-sidecar-dev-windows.ps1` (načte je z `.env`), nebo
-> přidej `-AllowPlaceholderOAuth` pro build bez funkčního OAuth loginu.
+> Requires a real OAuth client id in the environment (CI secrets), and fails the
+> build otherwise. For a local build use `package-sidecar-dev-windows.ps1` (which
+> reads them from `.env`), or add `-AllowPlaceholderOAuth` for a build without a
+> working OAuth login.
 
-Výstup:
+Output:
 
 ```text
 target/sidecar/x86_64-pc-windows-msvc/
 ```
 
-Do Tauri balíčku kopírovat celý adresář s `.exe`, `app/` a `runtime/`, ne jen samotný `.exe`.
+Copy the whole directory with `.exe`, `app/` and `runtime/` into the Tauri bundle, not just the `.exe` itself.

@@ -89,9 +89,12 @@ použijte aplikační heslo.
 
 ## Aktualizace
 
-Produkční build používá Tauri updater. Aplikace periodicky kontroluje novou
-verzi proti `https://github.com/TheVoxRox/mail/releases/latest/download/latest.json`
-a stahuje jen podepsané instalátory (Ed25519). Při této kontrole GitHub dočasně
+Produkční build používá Tauri updater. Aplikace se **jednou při spuštění**
+zeptá, jestli existuje novější verze, proti
+`https://github.com/TheVoxRox/mail/releases/latest/download/latest.json`
+a stahuje jen podepsané instalátory (Ed25519). **Za běhu se už sama znovu
+neptá** — další dotaz proběhne až při příštím spuštění, nebo když kontrolu
+sami vyvoláte v Nastavení → O aplikaci. Při této kontrole GitHub dočasně
 vidí vaši IP adresu a dotazovanou verzi — viz [PRIVACY.md](../PRIVACY.md).
 Kontrola se aktivuje, jakmile je publikovaný release. Downgrade na starší verzi
 není podporovaný běžným instalátorem; případný rollback řeší support podle

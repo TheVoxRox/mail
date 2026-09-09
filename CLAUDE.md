@@ -14,6 +14,23 @@ someone a rework at least once. For the human-facing versions see
 - User-visible strings live in `frontend/src/lib/i18n/messages/{cs,en}.json`
   (keys must match) and `backend/src/main/resources/messages_{cs,en}.properties`.
   Unused base-locale keys fail the gate too.
+- **Docs are English too, with two product exceptions.** No gate covers them —
+  `check:translations` scans `frontend/src` and the Java tree only, so this is
+  discipline, not a check. Czech survives in exactly two places, and both are
+  product, not documentation: `PRIVACY.md` (the Czech half of a bilingual
+  policy whose English half is `PRIVACY.en.md`, both published on voxrox.org)
+  and `frontend/END_USER_README.md` (what a Czech end user reads). Both stay
+  Czech **with diacritics**. Quoted Czech UI strings inside an English doc also
+  stay as they are — they are the product's own text, and translating a quote
+  makes it stop matching what is on screen.
+- `todo.md` and `todo-archive.md` are the standing exception to both rules:
+  Czech, diacritics-free, from before any of this was written. `todo.md` is due
+  to be taken apart after the release (its own header says where each part
+  goes), so its text gets settled as part of that move rather than in a rewrite
+  that would be thrown away. The archive is not maintained at all.
+- `CHANGELOG.md` is **written in English from 2026-09-09 on**. Entries dated
+  before that are Czech and stay so — a changelog is a dated record of what was
+  written at the time, and the file says this in its own header.
 
 ## Build and test
 
