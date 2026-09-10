@@ -18,6 +18,15 @@ Platform:
 Tester:
 ```
 
+**The boxes in this document are the template: they stay unticked.** The
+per-candidate record is the worksheet in the appendix, which is where a tick
+carries a date and a candidate ref. §1 and §2 were the exception until
+2026-09-10 — twelve boxes ticked in the body, carrying evidence from two
+candidates ago, while the same two sections were also recorded per candidate in
+the appendix. A tick with no candidate attached cannot be read by the next
+release, so the body no longer holds one. The dated `Notes:` blocks stay: they
+carry their own date and read as history, which is what they are.
+
 ## 0. Version
 
 - [ ] Change the version **only** through `cd frontend ; npm run bump:version <X.Y.Z>`. It lands at once on every file that carries the version — `frontend/package.json`, `frontend/src-tauri/tauri.conf.json`, `frontend/src/lib/version.ts`, `frontend/src-tauri/Cargo.toml` and `backend/pom.xml` — and editing any of them by hand puts the rest out of step. The gate `npm run check:versions` (part of `npm run check`) catches the divergence, but only after it exists; the script will not allow it. The argument is validated against `SEMVER_RE`, so a typo does not get through.
@@ -26,24 +35,24 @@ Tester:
 
 **Run `npm run regen:licenses:all` (Section 8a) before this build, not after it.** `NOTICE.txt` is bundled into the installer as a Tauri resource (`resources/NOTICE.txt` in [tauri.conf.json](../frontend/src-tauri/tauri.conf.json)), so a regen that changes anything once the candidate is built means the shipped package carries a component list that does not match it -- and the build has to be repeated. Section 8a is where that is verified, not where it is first run.
 
-- [x] `mvn -Dmaven.repo.local=.m2repo -Dapp.data-dir=target/test-data clean verify` — one command, not `spotless:check` + `package` separately. `clean` because otherwise SpotBugs analyses the `__BeanDefinitions` left by an earlier `-Paot package` and fails on generated code; `verify` because `package` does not fire the failsafe integration tests. Spotless and SpotBugs both run inside it.
-- [x] Verify that the build reports `Failures: 0, Errors: 0, Skipped: 0` on both suites — surefire and failsafe. The test count is not recorded: it rotates faster than the checklist is read, and no gate recomputes it here.
-- [x] The artifact `target/mail-backend-0.1.0.jar` was produced.
-- [x] The Windows sidecar packaging passed through `scripts/package-sidecar-windows.ps1`.
-- [x] The sidecar launcher `app/mail-x86_64-pc-windows-msvc.cfg` carries the baked-in `...google.client-id` (not a `mail-local-*` placeholder). Both the signed workflow and `package-sidecar-dev-windows.ps1` ensure this; a bare `package-sidecar-windows.ps1` without the OAuth env now fails the build unless it runs with `-AllowPlaceholderOAuth`. **Verified 2026-06-26** (`package-sidecar-dev-windows.ps1 -SkipTests`): 3 OAuth values injected, the built-in verification step reports "Google client-id baked into the launcher; no placeholder"; the `.cfg` carries `google.client-id` + `google.client-secret` + `microsoft.client-id`, with no `mail-local-*`.
-- [x] The sidecar output contains `mail-x86_64-pc-windows-msvc.exe`, `app/` and `runtime/`. **Verified 2026-06-26:** top-level `mail-x86_64-pc-windows-msvc.exe` (a 495 KB launcher) + `app/` (jar 77.9 MiB + `.cfg` + `.jpackage.xml`) + `runtime/` (a 123 MB bundled JRE).
+- [ ] `mvn -Dmaven.repo.local=.m2repo -Dapp.data-dir=target/test-data clean verify` — one command, not `spotless:check` + `package` separately. `clean` because otherwise SpotBugs analyses the `__BeanDefinitions` left by an earlier `-Paot package` and fails on generated code; `verify` because `package` does not fire the failsafe integration tests. Spotless and SpotBugs both run inside it.
+- [ ] Verify that the build reports `Failures: 0, Errors: 0, Skipped: 0` on both suites — surefire and failsafe. The test count is not recorded: it rotates faster than the checklist is read, and no gate recomputes it here.
+- [ ] The artifact `target/mail-backend-0.1.0.jar` was produced.
+- [ ] The Windows sidecar packaging passed through `scripts/package-sidecar-windows.ps1`.
+- [ ] The sidecar launcher `app/mail-x86_64-pc-windows-msvc.cfg` carries the baked-in `...google.client-id` (not a `mail-local-*` placeholder). Both the signed workflow and `package-sidecar-dev-windows.ps1` ensure this; a bare `package-sidecar-windows.ps1` without the OAuth env now fails the build unless it runs with `-AllowPlaceholderOAuth`. **Verified 2026-06-26** (`package-sidecar-dev-windows.ps1 -SkipTests`): 3 OAuth values injected, the built-in verification step reports "Google client-id baked into the launcher; no placeholder"; the `.cfg` carries `google.client-id` + `google.client-secret` + `microsoft.client-id`, with no `mail-local-*`.
+- [ ] The sidecar output contains `mail-x86_64-pc-windows-msvc.exe`, `app/` and `runtime/`. **Verified 2026-06-26:** top-level `mail-x86_64-pc-windows-msvc.exe` (a 495 KB launcher) + `app/` (jar 77.9 MiB + `.cfg` + `.jpackage.xml`) + `runtime/` (a 123 MB bundled JRE).
 - [ ] The release candidate runs on a clean Windows profile without a system-installed Java/JDK/JRE. Note: `runtime/` is structurally self-contained — a bundled JRE `JAVA_VERSION=25.0.3` with `bin/jli.dll`, `bin/java.dll`, `bin/server/jvm.dll` (the native launcher loads the JVM through JNI; a standalone `java.exe` is deliberately not bundled by the jpackage app-image). All that remains is a real run on a clean machine.
 
 ## 2. Frontend automation
 
 Run in the frontend repo against a dev/preview build with the backend sidecar running, or in mock mode where that is deliberate.
 
-- [x] `npm run generate:api`
-- [x] `npm run check:i18n`
-- [x] `npm run build`
-- [x] `npm run test:e2e`
-- [x] `npm run test:functional:stable`
-- [x] `npm run test:a11y`
+- [ ] `npm run generate:api`
+- [ ] `npm run check:i18n`
+- [ ] `npm run build`
+- [ ] `npm run test:e2e`
+- [ ] `npm run test:functional:stable`
+- [ ] `npm run test:a11y`
 
 Notes:
 
