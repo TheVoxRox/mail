@@ -298,6 +298,29 @@ A per-candidate worksheet for the manual smoke (§3–§8 above). §1 (backend b
 
 **The candidate is the tag, not a commit on `main`.** Evidence recorded against a branch commit goes stale the moment anything merges, which is what happened to the sheet below: §0/§1/§2 were taken on `9c51d9d` and `main` moved past it the same day. A tag is immutable, so once `v<X.Y.Z>` exists nothing that lands afterwards can invalidate a tick and the question does not come back — record the tag in `Candidate ref`, and treat a commit SHA there as provisional, valid only until the tag is cut. One window cannot be closed this way, because the process needs it: §0/§1/§2 run before the version bump and the changelog cut, and those are what gets tagged. Keep that window to minutes rather than days — it is the only stretch in which a merge can cost a re-run, and §1 is the expensive half to repeat (§2 is what CI re-takes on every push anyway). **Deliberately not written here: a rule that a docs-only commit does not invalidate §1.** It cannot be checked by being read, it has already been applied once by hand — the 2026-06-26 note in §1 above, "code unchanged since 3210e1a — only docs commits since" — and a claim nothing recomputes is the kind this repo deletes rather than maintains. If the gate ever has to run against a moving `main`, compute it instead: compare the git object ids of the paths §1 rests on, the way `check:audits` already does for the audits.
 
+### Candidate 2026-09-10 — `a2caa27`
+
+```text
+Release:         VoxRox Mail 0.1.0  (identifier org.voxrox.mail)
+Sign-off date:   ____________
+Candidate ref:   a2caa27 — provisional; replaced by tag v0.1.0 once cut
+Backend commit:  a2caa27
+Frontend commit: a2caa27  (the same monorepo)
+Platform:        Windows 11 Pro x64, machine lacina-hp-650
+Tester:          machine half automated; §3–§9 are the maintainer's
+Build origin:    local and unsigned — the signed build comes from the tag, per RELEASE_PROCESS steps 3–4
+```
+
+- [x] **§0 Version** — `npm run check:versions` OK, `0.1.0` on all five files. No bump was needed; they already carried it.
+- [x] **§1 Backend build** — `mvn -Dmaven.repo.local=.m2repo -Dapp.data-dir=target/test-data clean verify` BUILD SUCCESS in 4:24. Both suites clean, **read from the reports rather than from the console**: `target/failsafe-reports/failsafe-summary.xml` gives `completed=86 errors=0 failures=0 skipped=0 flakes=0`, and all 114 surefire test-suite XMLs carry `failures="0" errors="0" skipped="0"`. The per-class `.txt` reports are not a source for this — they omit nested classes and sum to roughly half the real count. Artifact `target/mail-backend-0.1.0.jar` produced. Sidecar packaged through `scripts/package-sidecar-windows.ps1` (via the dev wrapper with `-SkipTests`, the tests having just run): the output carries `mail-x86_64-pc-windows-msvc.exe`, `app/` and `runtime/`, the launcher is newer than the jar it wraps, and `app/mail-x86_64-pc-windows-msvc.cfg` carries the production `google.client-id`, not a `mail-local-*` placeholder. **Still open in §1:** the clean-profile run without a system-installed JDK — a physical test, not a command.
+- [x] **§2 Frontend automation** — `generate:api`, `check:i18n`, `build`, `test:e2e`, `test:functional:stable` and `test:a11y`, all green: functional 277 passed, a11y 65 passed, no flakes reported. Port 4173 was checked free beforehand, so Playwright started its own preview instead of recycling a stale one against an old build.
+- [ ] **§3–§8** — the manual smoke, on the signed build from the tag rather than on this local one.
+- [ ] **§9** — release decision.
+
+**Why this sheet still holds one commit later.** The commit that records it sits on top of `a2caa27` and touches only `CHANGELOG.md` and this file. That is not taken on trust, and not waved through as "docs-only" — the appendix refuses that rule on purpose. The git object ids of the paths §1 and §2 rest on are identical across the two commits: `backend/src` `6c59df1e87ea`, `backend/pom.xml` `dbef3f26bcc3`, `backend/scripts` `ccfeee6ca824`, `frontend/src` `9b3a3ef9972c`, `frontend/src-tauri` `47e446b51110`, `frontend/package.json` `f2a33dc2009c`, `frontend/package-lock.json` `ae0d216cfd15`. This is the computed form the appendix asks for, the same shape `npm run check:audits` uses for the audits. Any further commit before the tag needs the same check, or a re-run.
+
+The sheet for `9c51d9d` below is **superseded**, and not only by age: production Java ([ImapCapabilities.java](src/main/java/org/voxrox/mailbackend/feature/mail/service/ImapCapabilities.java)) and the bundled `NOTICE.txt` both changed after it, so its §0/§1/§2 stopped describing the tree they were taken from.
+
 ### Candidate 2026-09-09 — `9c51d9d`
 
 ```text
