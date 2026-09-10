@@ -182,10 +182,10 @@ judgement call:
 - [ ] Checklist §3–§8 filled **for this candidate**, with §9 carrying no open
       blocker.
 - [ ] `### Known issues` in the changelog section, and the same list in the
-      release body, match checklist §9 as signed. Both can be written before §9
-      exists (step 2, item 4), so this is the point where the
-      provisional version is reconciled with the decision that was actually
-      taken.
+      release body, match checklist §9 as signed. Only the changelog cut is
+      written before §9 exists (step 2, item 4); the release body is written
+      after it in step 5. This is where the provisional half is reconciled with
+      the decision that was actually taken.
 - [ ] The tag exists, points at the commit the artifacts were built from, and
       that commit is on `main` with a green CI run (step 3).
 - [ ] Assets attached: installer, `.sig`, `.sha256`, `latest.json`. **Never
