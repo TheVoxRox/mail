@@ -54,8 +54,15 @@ monorepo:
    at the bottom of the file. Development bullets accumulate in commit order;
    a release section is read by someone who was not there, so it is grouped by
    artifact, not by the order the work happened.
-4. Fill `### Known issues` from §5 below. It stays here even after the release
-   page is edited, which is the point — release notes are mutable, the
+4. Fill `### Known issues` provisionally, and reconcile it with §9 before
+   publishing. §9 of the checklist is where that list comes from, but it does
+   not exist yet at this point: it is filled after the manual smoke, and the
+   smoke runs on the build made from the tag this cut precedes. So write what
+   is already known — open blockers, accepted risks, whatever the §8b review
+   and the scan review turned up — and treat it as provisional; the condition
+   in §6 is what closes the loop. The draft body (§5) is written the same way
+   and reconciled at the same moment. The section stays here even after the
+   release page is edited, which is the point — release notes are mutable, the
    changelog entry is the record.
 
 Module changelogs (`backend/CHANGELOG.md`) stay technical and migration-facing
@@ -147,6 +154,10 @@ judgement call:
 
 - [ ] Checklist §3–§8 filled **for this candidate**, with §9 carrying no open
       blocker.
+- [ ] `### Known issues` in the changelog section, and the same list in the
+      release body, match §9 as signed. Both are written before §9 exists (§2
+      step 4), so this is the point where the provisional version is reconciled
+      with the decision that was actually taken.
 - [ ] The tag exists, points at the commit the artifacts were built from, and
       that commit is on `main` with a green CI run (§3).
 - [ ] Assets attached: installer, `.sig`, `.sha256`, `latest.json`. **Never
