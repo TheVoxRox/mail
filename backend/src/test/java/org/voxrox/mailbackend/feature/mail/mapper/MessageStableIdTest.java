@@ -67,4 +67,34 @@ class MessageStableIdTest {
 
         assertThat(withMid).isNotEqualTo(withoutMid);
     }
+
+    @Test
+    @DisplayName("two copies of one Message-ID in one folder derive the same id — the collision the caller must break")
+    void twoCopiesOfOneMessageIdCollideByDesign() {
+        // Not a defect of the derivation: the Message-ID identifies the content, and
+        // both copies genuinely carry it. A trash folder holds such pairs routinely
+        // (the inbox copy and the Sent copy of the same message, both deleted), which
+        // is why MessageDownloader.disambiguateStableIds owns the tie-break rather
+        // than this class. Pinned so a future change to the derivation cannot quietly
+        // move that responsibility without the caller noticing.
+        String inboxCopy = MessageStableId.compute(1L, "trash", "<m1@example.com>", 500L, 1L);
+        String sentCopy = MessageStableId.compute(1L, "trash", "<m1@example.com>", 900L, 1L);
+
+        assertThat(sentCopy).isEqualTo(inboxCopy);
+    }
+
+    @Test
+    @DisplayName("computeFromUid tells the two copies apart and is the same derivation the fallback uses")
+    void computeFromUidBreaksTheTie() {
+        String tieBreak = MessageStableId.computeFromUid(1L, "trash", 900L, 1L);
+
+        // Distinct from the copy that keeps the Message-ID identity...
+        assertThat(tieBreak).hasSize(32).matches("[0-9a-f]{32}")
+                .isNotEqualTo(MessageStableId.compute(1L, "trash", "<m1@example.com>", 500L, 1L));
+        // ...and from the other copy's own uid identity.
+        assertThat(tieBreak).isNotEqualTo(MessageStableId.computeFromUid(1L, "trash", 500L, 1L));
+        // One derivation, two entry points: the no-Message-ID fallback lands here too,
+        // so the tie-break cannot collide with a message that has no Message-ID.
+        assertThat(tieBreak).isEqualTo(MessageStableId.compute(1L, "trash", null, 900L, 1L));
+    }
 }

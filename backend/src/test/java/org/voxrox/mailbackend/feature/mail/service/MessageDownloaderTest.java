@@ -34,6 +34,7 @@ import org.voxrox.mailbackend.feature.mail.dto.MailDetailResponse;
 import org.voxrox.mailbackend.feature.mail.entity.FolderSyncStateEntity;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 import org.voxrox.mailbackend.feature.mail.mapper.MessageMapper;
+import org.voxrox.mailbackend.feature.mail.mapper.MessageStableId;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -287,6 +288,124 @@ class MessageDownloaderTest {
     }
 
     @Nested
+    @DisplayName("duplicate Message-ID within one folder")
+    class DuplicateMessageIdWithinFolder {
+
+        /**
+         * A trash folder collects deletions from every other folder, so deleting a
+         * message from the inbox and its own copy from Sent leaves two IMAP messages
+         * with different uids and one Message-ID — which the mapper derives one
+         * stableId from. Both must persist.
+         */
+        @Test
+        @DisplayName("Two copies of one Message-ID both persist — the higher uid moves onto the uid identity")
+        void secondCopyFallsBackToUidIdentity() throws Exception {
+            String shared = "shared-stable-id";
+            MessageEntity older = entityWith(1000L, shared);
+            MessageEntity newer = entityWith(1001L, shared);
+            stubBatch(List.of(1000L, 1001L), List.of(older, newer));
+            when(messageRepository.saveAll(List.of(older, newer))).thenReturn(List.of(older, newer));
+
+            downloader.downloadSequenceRange(context(), 1, 2);
+
+            // Neither is dropped, and the ids no longer collide.
+            verify(messageRepository).saveAll(List.of(older, newer));
+            assertThat(older.getStableId()).isEqualTo(shared);
+            assertThat(newer.getStableId()).isEqualTo(MessageStableId.computeFromUid(ACCOUNT_ID, FOLDER, 1001L, 1L));
+        }
+
+        @Test
+        @DisplayName("The lowest uid keeps the Message-ID identity regardless of the order the batch arrives in")
+        void lowestUidWinsRegardlessOfBatchOrder() throws Exception {
+            // The fetch loop walks windows downwards, so the higher uid can come first.
+            String shared = "shared-stable-id";
+            MessageEntity newer = entityWith(1001L, shared);
+            MessageEntity older = entityWith(1000L, shared);
+            stubBatch(List.of(1001L, 1000L), List.of(newer, older));
+            when(messageRepository.saveAll(List.of(newer, older))).thenReturn(List.of(newer, older));
+
+            downloader.downloadSequenceRange(context(), 1, 2);
+
+            // Same assignment as the ascending batch above — otherwise a backfill would
+            // hand the same two messages the opposite ids.
+            assertThat(older.getStableId()).isEqualTo(shared);
+            assertThat(newer.getStableId()).isEqualTo(MessageStableId.computeFromUid(ACCOUNT_ID, FOLDER, 1001L, 1L));
+        }
+
+        @Test
+        @DisplayName("Collides with a committed row: the incoming copy moves onto the uid identity")
+        void collisionAgainstAlreadyPersistedRow() throws Exception {
+            String taken = "already-persisted-stable-id";
+            MessageEntity incoming = entityWith(1001L, taken);
+            stubBatch(List.of(1001L), List.of(incoming));
+            // An earlier sync already persisted the other copy under this id.
+            when(messageRepository.findExistingStableIds(List.of(taken))).thenReturn(List.of(taken));
+            when(messageRepository.saveAll(List.of(incoming))).thenReturn(List.of(incoming));
+
+            downloader.downloadSequenceRange(context(), 1, 1);
+
+            verify(messageRepository).saveAll(List.of(incoming));
+            assertThat(incoming.getStableId()).isEqualTo(MessageStableId.computeFromUid(ACCOUNT_ID, FOLDER, 1001L, 1L));
+        }
+
+        @Test
+        @DisplayName("Both identities already taken: that copy is dropped and the rest of the batch still inserts")
+        void unplaceableCopyIsDroppedWithoutLosingTheBatch() throws Exception {
+            // Nothing a correct server produces — dropAlreadyPersisted removes a
+            // committed uid before this runs, so a row can hold the uid identity only in
+            // an inconsistent state. The guard exists so one such message cannot cost the
+            // folder its whole sync the way the stable_id collision did.
+            String shared = "shared-stable-id";
+            String byUid = MessageStableId.computeFromUid(ACCOUNT_ID, FOLDER, 1001L, 1L);
+            MessageEntity unplaceable = entityWith(1001L, shared);
+            MessageEntity other = entityWith(1002L, "other-stable-id");
+            stubBatch(List.of(1001L, 1002L), List.of(unplaceable, other));
+            when(messageRepository.findExistingStableIds(List.of(shared, "other-stable-id")))
+                    .thenReturn(List.of(shared, byUid));
+            when(messageRepository.saveAll(List.of(other))).thenReturn(List.of(other));
+
+            downloader.downloadSequenceRange(context(), 1, 2);
+
+            verify(messageRepository).saveAll(List.of(other));
+        }
+
+        @Test
+        @DisplayName("A null uid orders instead of throwing — the ordering must not become a way to lose the batch")
+        void nullUidDoesNotAbortTheBatch() throws Exception {
+            // getUid() is a boxed Long. The fetch path reads it as a primitive so this
+            // is not reachable today, but unboxing null while ordering would throw
+            // inside the batch transaction and roll the folder back — the very failure
+            // this method prevents. Pinned so the comparator cannot go back to
+            // comparingLong unnoticed.
+            MessageEntity noUid = new MessageEntity();
+            noUid.setStableId("no-uid-stable-id");
+            MessageEntity normal = entityWith(1002L, "other-stable-id");
+            stubBatch(List.of(1001L, 1002L), List.of(noUid, normal));
+            when(messageRepository.saveAll(List.of(noUid, normal))).thenReturn(List.of(noUid, normal));
+
+            downloader.downloadSequenceRange(context(), 1, 2);
+
+            verify(messageRepository).saveAll(List.of(noUid, normal));
+        }
+
+        /**
+         * Drives one batch through the fetch/map seam: {@code uids} are the server's
+         * uids in batch order, {@code entities} the rows the mapper returns for them.
+         */
+        private void stubBatch(List<Long> uids, List<MessageEntity> entities) throws Exception {
+            List<Message> messages = uids.stream().map(uid -> mock(Message.class)).toList();
+            when(folder.getMessages(1, uids.size())).thenReturn(messages.toArray(new Message[0]));
+            when(uidFolder.getUID(messages.getLast())).thenReturn(uids.getLast());
+            List<MailDetailResponse> dtos = uids.stream().map(MessageDownloaderTest::newDto).toList();
+            when(messageFetcher.fetchBatch(any(), eq(uidFolder), eq(FOLDER))).thenReturn(dtos);
+            for (int i = 0; i < uids.size(); i++) {
+                when(messageMapper.toEntity(dtos.get(i), account, FOLDER, syncState.getUidValidity()))
+                        .thenReturn(entities.get(i));
+            }
+        }
+    }
+
+    @Nested
     @DisplayName("reconcileServerOnlyUids (server-only holes)")
     class ReconcileServerOnlyUids {
 
@@ -345,6 +464,14 @@ class MessageDownloaderTest {
     private static MessageEntity entityWithUid(long uid) {
         MessageEntity entity = new MessageEntity();
         entity.setUid(uid);
+        return entity;
+    }
+
+    /** As {@link #entityWithUid}, plus the derived id the mapper would have set. */
+    private static MessageEntity entityWith(long uid, String stableId) {
+        MessageEntity entity = entityWithUid(uid);
+        entity.setStableId(stableId);
+        entity.setUidValidity(1L);
         return entity;
     }
 
