@@ -13,6 +13,13 @@ neighbouring documents own:
 | [frontend/docs/WINDOWS_SIGNING.md](../frontend/docs/WINDOWS_SIGNING.md) | What the signed build produces and how it is signed                    |
 | [frontend/END_USER_README.md](../frontend/END_USER_README.md)           | How a user verifies a download                                         |
 
+**Reading the references.** Both documents number their sections 1–8, so a bare
+number would be ambiguous: §6 is Approval here and Sidecar lifecycle there. In
+this document, **`§` always means a section of the checklist** and its own
+sections are called **steps** — "step 6" is below, "§6" is not. Sections that
+exist in only one of the two (§0, §3a, §8a, §8b, §9) carry no ambiguity, but
+take the prefix on first mention anyway.
+
 Read [OPERATIONS.md](../backend/OPERATIONS.md) "The release model:
 everything goes through beta" first if you have not: **every release goes out as a beta and is
 promoted to stable afterwards**, so most runs of this document produce a
@@ -37,8 +44,8 @@ One command, five files (`frontend/package.json`,
 hand splits the rest; `npm run check:versions` catches the split, but only
 after it exists. Details and the argument grammar: RELEASE_CHECKLIST §0.
 
-The bump is its own commit, and it carries the changelog cut from §2. The tag
-in §3 points at that commit, so the version files and the changelog must
+The bump is its own commit, and it carries the changelog cut from step 2. The tag
+in step 3 points at that commit, so the version files and the changelog must
 already say the released version at the moment it is created — otherwise the
 shipped build's own `About` screen disagrees with the release page.
 
@@ -60,11 +67,11 @@ monorepo:
    smoke runs on the build made from the tag this cut precedes. So write what
    is already known — open blockers, accepted risks, whatever the §8b review
    and the scan review turned up — and treat it as provisional; the condition
-   in §6 is what closes the loop. The draft body draws on the same list but is
-   written after §4a, so it can use the real one — the changelog cut is the only
-   one of the two that has to be provisional. The section stays here even after
-   the release page is edited, which is the point — release notes are mutable,
-   the changelog entry is the record.
+   in step 6 is what closes the loop. The draft body draws on the same list but
+   is written after step 4a, so it can use the real one — the changelog cut is
+   the only one of the two that has to be provisional. The section stays here
+   even after the release page is edited, which is the point — release notes are
+   mutable, the changelog entry is the record.
 
 Module changelogs (`backend/CHANGELOG.md`) stay technical and migration-facing
 and are not cut per release.
@@ -122,19 +129,19 @@ Two consequences for this process:
 
 - **Checksums are not a manual step.** The workflow computes the SHA-256 of
   each installer and uploads it as `<installer>.sha256`. There is nothing to
-  compute by hand; the step here is to confirm it is attached (§6).
+  compute by hand; the step here is to confirm it is attached (step 6).
 - **The release is created as a draft**, and with `--prerelease` when the tag
   carries a prerelease suffix. Nothing has reached a user yet — publishing in
-  §7 is the irreversible step.
+  step 7 is the irreversible one.
 
 ## 4a. Verify the candidate
 
-The signed build from §4 is what the checklist runs against. Download the
+The signed build from step 4 is what the checklist runs against. Download the
 installer from the draft rather than using a locally assembled one —
 RELEASE_CHECKLIST §3a refuses that build for a concrete reason: a bare
 `npm run tauri:build` ships the base updater values without a `.sig`.
 
-This is a step of its own rather than a precondition of §6 because the two
+This is a step of its own rather than a precondition of step 6 because the two
 documents interleave here and neither of them said so. It is also the longest
 stretch of the release by wall clock, and the only part that cannot be
 compressed.
@@ -143,8 +150,8 @@ compressed.
   sitting.
 - §8.2 overnight; §8a and §9 the following morning.
 - §9 is where the blockers, the known issues and the signature are recorded.
-  §5 below is written against it, and the provisional list from §2 is
-  reconciled against it in §6.
+  Step 5 below is written against it, and the provisional list from step 2 is
+  reconciled against it in step 6.
 
 ## 5. Release notes and known issues
 
@@ -176,11 +183,11 @@ judgement call:
       blocker.
 - [ ] `### Known issues` in the changelog section, and the same list in the
       release body, match checklist §9 as signed. Both can be written before §9
-      exists (step 2 of this document, item 4), so this is the point where the
+      exists (step 2, item 4), so this is the point where the
       provisional version is reconciled with the decision that was actually
       taken.
 - [ ] The tag exists, points at the commit the artifacts were built from, and
-      that commit is on `main` with a green CI run (§3).
+      that commit is on `main` with a green CI run (step 3).
 - [ ] Assets attached: installer, `.sig`, `.sha256`, `latest.json`. **Never
       publish a release without `latest.json` and `.sig`** — the stable channel
       is a redirect to the newest non-prerelease publish, so a bare release
