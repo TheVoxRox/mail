@@ -232,7 +232,7 @@ Po zmene backendu (prebalit + zkopirovat sidecar):
 
 ```powershell
 cd C:\dev\java\mail\backend
-.\scripts\package-sidecar-dev-windows.ps1 -SkipTests
+.\package-sidecar-dev-windows.ps1 -SkipTests
 cd C:\dev\java\mail\frontend
 npm run sidecar:sync:windows
 npm run tauri:dev
