@@ -60,10 +60,11 @@ monorepo:
    smoke runs on the build made from the tag this cut precedes. So write what
    is already known — open blockers, accepted risks, whatever the §8b review
    and the scan review turned up — and treat it as provisional; the condition
-   in §6 is what closes the loop. The draft body (§5) is written the same way
-   and reconciled at the same moment. The section stays here even after the
-   release page is edited, which is the point — release notes are mutable, the
-   changelog entry is the record.
+   in §6 is what closes the loop. The draft body draws on the same list (§5 of
+   this document); whichever of the two is written before the smoke carries the
+   provisional version, and both are reconciled at the same moment. The section
+   stays here even after the release page is edited, which is the point —
+   release notes are mutable, the changelog entry is the record.
 
 Module changelogs (`backend/CHANGELOG.md`) stay technical and migration-facing
 and are not cut per release.
@@ -85,7 +86,7 @@ carrying since 2026-06-17, that value is the literal branch name `main`
 (verified 2026-09-08: `target_commitish: "main"`, and
 `git/matching-refs/tags` returns an empty list, so no tag exists yet).
 Publishing it would therefore create `v0.1.0` at whatever `main` points to in
-that moment — 407 commits past the code the attached installer was built from.
+that moment, which is not the commit the attached installer was built from.
 The tag would name a tree that never shipped, and a published tag cannot be
 moved.
 
@@ -155,9 +156,10 @@ judgement call:
 - [ ] Checklist §3–§8 filled **for this candidate**, with §9 carrying no open
       blocker.
 - [ ] `### Known issues` in the changelog section, and the same list in the
-      release body, match §9 as signed. Both are written before §9 exists (§2
-      step 4), so this is the point where the provisional version is reconciled
-      with the decision that was actually taken.
+      release body, match checklist §9 as signed. Both can be written before §9
+      exists (step 2 of this document, item 4), so this is the point where the
+      provisional version is reconciled with the decision that was actually
+      taken.
 - [ ] The tag exists, points at the commit the artifacts were built from, and
       that commit is on `main` with a green CI run (§3).
 - [ ] Assets attached: installer, `.sig`, `.sha256`, `latest.json`. **Never

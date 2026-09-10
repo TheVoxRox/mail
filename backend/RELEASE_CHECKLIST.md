@@ -5,7 +5,7 @@ Checklist for the final verification before releasing the desktop application wi
 This document answers the question "did this candidate pass". The question "how a
 release is cut" — version, tag, changelog split, release notes, draft vs.
 publish, approval — is answered by [docs/RELEASE_PROCESS.md](../docs/RELEASE_PROCESS.md),
-which refers back to this checklist in its steps §1, §6 and §8.
+which refers back to this checklist wherever one of its steps needs per-candidate evidence.
 
 Fill in per candidate:
 
