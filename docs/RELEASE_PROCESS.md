@@ -60,11 +60,11 @@ monorepo:
    smoke runs on the build made from the tag this cut precedes. So write what
    is already known — open blockers, accepted risks, whatever the §8b review
    and the scan review turned up — and treat it as provisional; the condition
-   in §6 is what closes the loop. The draft body draws on the same list (§5 of
-   this document); whichever of the two is written before the smoke carries the
-   provisional version, and both are reconciled at the same moment. The section
-   stays here even after the release page is edited, which is the point —
-   release notes are mutable, the changelog entry is the record.
+   in §6 is what closes the loop. The draft body draws on the same list but is
+   written after §4a, so it can use the real one — the changelog cut is the only
+   one of the two that has to be provisional. The section stays here even after
+   the release page is edited, which is the point — release notes are mutable,
+   the changelog entry is the record.
 
 Module changelogs (`backend/CHANGELOG.md`) stay technical and migration-facing
 and are not cut per release.
@@ -126,6 +126,25 @@ Two consequences for this process:
 - **The release is created as a draft**, and with `--prerelease` when the tag
   carries a prerelease suffix. Nothing has reached a user yet — publishing in
   §7 is the irreversible step.
+
+## 4a. Verify the candidate
+
+The signed build from §4 is what the checklist runs against. Download the
+installer from the draft rather than using a locally assembled one —
+RELEASE_CHECKLIST §3a refuses that build for a concrete reason: a bare
+`npm run tauri:build` ships the base updater values without a `.sig`.
+
+This is a step of its own rather than a precondition of §6 because the two
+documents interleave here and neither of them said so. It is also the longest
+stretch of the release by wall clock, and the only part that cannot be
+compressed.
+
+- RELEASE_CHECKLIST §3–§7 on the installed candidate, then §8.1 in the same
+  sitting.
+- §8.2 overnight; §8a and §9 the following morning.
+- §9 is where the blockers, the known issues and the signature are recorded.
+  §5 below is written against it, and the provisional list from §2 is
+  reconciled against it in §6.
 
 ## 5. Release notes and known issues
 
