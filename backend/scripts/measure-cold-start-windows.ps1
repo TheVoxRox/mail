@@ -24,7 +24,7 @@
 
 .EXAMPLE
     # From backend/, after building the jar and the AOT cache:
-    #   .\scripts\package-sidecar-dev-windows.ps1 -SkipTests -EnableAotCache
+    #   .\package-sidecar-dev-windows.ps1 -SkipTests -EnableAotCache
     .\scripts\measure-cold-start-windows.ps1 -Runs 15
 
 .NOTES
@@ -59,7 +59,7 @@ if (-not $CachePath) {
 
 if (-not (Test-Path $JarPath)) { throw "Jar not found: $JarPath" }
 if (-not (Test-Path $CachePath)) {
-    throw "AOT cache not found: $CachePath. Build it: .\scripts\package-sidecar-dev-windows.ps1 -SkipTests -EnableAotCache"
+    throw "AOT cache not found: $CachePath. Build it from backend/: .\package-sidecar-dev-windows.ps1 -SkipTests -EnableAotCache"
 }
 
 $baseFlags = @(
