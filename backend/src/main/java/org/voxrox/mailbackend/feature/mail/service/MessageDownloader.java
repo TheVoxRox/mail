@@ -11,6 +11,7 @@ import org.voxrox.mailbackend.feature.contact.service.CorrespondentService;
 import org.voxrox.mailbackend.feature.mail.dto.MailDetailResponse;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 import org.voxrox.mailbackend.feature.mail.mapper.MessageMapper;
+import org.voxrox.mailbackend.feature.mail.mapper.MessageStableId;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
 import org.voxrox.mailbackend.util.LogCategory;
 
@@ -254,7 +255,7 @@ public class MessageDownloader {
         transactionTemplate.executeWithoutResult(status -> {
             List<MessageEntity> entities = dtos.stream()
                     .map(dto -> messageMapper.toEntity(dto, ctx.account(), ctx.folderName(), uidValidity)).toList();
-            List<MessageEntity> toInsert = dropAlreadyPersisted(entities, ctx);
+            List<MessageEntity> toInsert = disambiguateStableIds(dropAlreadyPersisted(entities, ctx), ctx);
             if (!toInsert.isEmpty()) {
                 List<MessageEntity> saved = messageRepository.saveAll(toInsert);
                 /*
@@ -333,6 +334,90 @@ public class MessageDownloader {
         log.debug("{} Folder {}: skipped {} message(s) a concurrent sync already persisted.", LogCategory.SYNC,
                 ctx.folderName(), entities.size() - kept.size());
         return kept;
+    }
+
+    /**
+     * Moves a message whose derived {@code stableId} is already taken onto the
+     * uid-scoped derivation, so a batch can never trip the {@code stable_id} unique
+     * constraint.
+     *
+     * <p>
+     * {@link #dropAlreadyPersisted} is the same guard for the table's other unique
+     * constraint, and on its own it is not enough: it compares uids, while
+     * {@code stableId} is derived from the Message-ID — which identifies the
+     * content, not the copy. A trash folder collects deletions from every other
+     * folder, so two distinct messages with different uids and one Message-ID are
+     * ordinary there, and the pair reached {@code saveAll} with the same id. That
+     * aborted the whole 100-message batch, and because the rollback left
+     * {@code lastKnownUid} at 0 the next sync re-downloaded the same window and
+     * failed identically — the folder stayed empty permanently rather than
+     * degrading. See
+     * {@link org.voxrox.mailbackend.feature.mail.mapper.MessageStableId} for why
+     * the tie-break reuses the uid derivation instead of inventing a third.
+     *
+     * <p>
+     * Assignment walks the batch by ascending uid so the winner does not depend on
+     * the order the fetch loop happened to produce — the windows descend while a
+     * single {@code getMessagesByUID} ascends, and a backfill would otherwise hand
+     * the same two messages the opposite ids. The already-taken set starts from the
+     * committed rows, so an incremental sync agrees with the initial one.
+     *
+     * <p>
+     * A message is dropped only when even its uid derivation is taken, which means
+     * the batch carried the same (folder, uid) twice — nothing a correct server
+     * produces, and {@link #dropAlreadyPersisted} has already removed the
+     * already-committed ones. It is kept as a guard rather than an assertion for
+     * the same reason this method exists at all: one malformed message must not
+     * cost the folder its whole sync.
+     */
+    private List<MessageEntity> disambiguateStableIds(List<MessageEntity> entities, FolderSyncContext ctx) {
+        if (entities.isEmpty()) {
+            return entities;
+        }
+        List<String> candidateIds = entities.stream().map(MessageEntity::getStableId).toList();
+        Set<String> taken = new HashSet<>(messageRepository.findExistingStableIds(candidateIds));
+
+        /*
+         * Identity, not equality: MessageEntity.equals is id-based and every entity
+         * here is still transient, so its id is null and the entity does not even equal
+         * itself — a HashSet would never match one back.
+         */
+        Set<MessageEntity> dropped = Collections.newSetFromMap(new IdentityHashMap<>());
+        int rederived = 0;
+        /*
+         * comparing + nullsFirst rather than comparingLong: getUid() is a boxed Long,
+         * and unboxing a null here would throw inside the batch transaction — rolling
+         * back the whole folder, which is the failure this method exists to prevent.
+         * The fetch path reads uid as a primitive so null is not reachable today; the
+         * guard costs a comparator and removes the way this method could turn one bad
+         * message into the same permanent-empty-folder state as the collision did.
+         */
+        Comparator<MessageEntity> byAscendingUid = Comparator.comparing(MessageEntity::getUid,
+                Comparator.nullsFirst(Comparator.naturalOrder()));
+        for (MessageEntity entity : entities.stream().sorted(byAscendingUid).toList()) {
+            if (taken.add(entity.getStableId())) {
+                continue;
+            }
+            String uidIdentity = MessageStableId.computeFromUid(ctx.getAccountId(), ctx.folderName(), entity.getUid(),
+                    entity.getUidValidity());
+            if (taken.add(uidIdentity)) {
+                entity.setStableId(uidIdentity);
+                rederived++;
+            } else {
+                dropped.add(entity);
+            }
+        }
+
+        if (rederived > 0) {
+            log.debug("{} Folder {}: {} message(s) share a Message-ID with another copy; moved onto the uid identity.",
+                    LogCategory.SYNC, ctx.folderName(), rederived);
+        }
+        if (dropped.isEmpty()) {
+            return entities;
+        }
+        log.warn("{} Folder {}: dropped {} message(s) whose uid identity is already taken (uids {}).", LogCategory.SYNC,
+                ctx.folderName(), dropped.size(), dropped.stream().map(MessageEntity::getUid).sorted().toList());
+        return entities.stream().filter(e -> !dropped.contains(e)).toList();
     }
 
     /**

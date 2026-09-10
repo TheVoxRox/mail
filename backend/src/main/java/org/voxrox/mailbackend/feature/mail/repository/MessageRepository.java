@@ -194,6 +194,21 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
     List<Long> findExistingUids(@Param("accId") Long accId, @Param("folder") String folderName,
             @Param("uids") List<Long> uids);
 
+    /**
+     * Of the given candidate stableIds, the subset already present. The sibling of
+     * {@link #findExistingUids} for the other unique constraint on the table:
+     * {@code stable_id} is derived from the Message-ID, which — unlike a uid — is
+     * not unique within a folder, so a batch can carry an id an earlier sync has
+     * already taken. See {@code MessageDownloader.disambiguateStableIds}.
+     *
+     * <p>
+     * Deliberately not scoped by account or folder: {@code stable_id} is unique
+     * across the whole table (both are already folded into the hash), and the
+     * column's UNIQUE constraint is the index this lookup rides.
+     */
+    @Query("SELECT m.stableId FROM MessageEntity m WHERE m.stableId IN :stableIds")
+    List<String> findExistingStableIds(@Param("stableIds") List<String> stableIds);
+
     @Modifying
     @Transactional
     @Query("UPDATE MessageEntity m SET m.seen = :seen, m.flagged = :flagged, m.answered = :answered "
