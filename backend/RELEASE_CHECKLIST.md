@@ -216,22 +216,35 @@ what has something riding on the real side.
 
 ## 8. Long run
 
-**Gate (proportionate for v0.1.0):** leave the app running for hours up to 24 h with sync enabled + run the log-scan gate and the memory / SQLite DB / WAL / duplicate growth checks below. **A deep JFR + JDK Mission Control analysis (lock contention) is an optional post-release deep-dive** — do it on a real performance complaint or a suspected leak, not as a blocker of the first release.
+**Gate (proportionate for v0.1.0):** run the app with sync enabled across two windows — a first hour that fits in the same sitting as §3–§7, and an overnight stretch that only wall-clock time can buy — and run the log-scan gate over both. **A deep JFR + JDK Mission Control analysis (lock contention) is an optional post-release deep-dive** — do it on a real performance complaint or a suspected leak, not as a blocker of the first release.
 
-- [ ] Leave the application running for 24 h with sync enabled.
-- [ ] _(Optional, post-release deep-dive)_ Run with JFR: `-XX:StartFlightRecording=duration=24h,filename=soak.jfr,settings=profile` (for the sidecar, add it to `--java-options` in the package script; for a dev run, to `JAVA_TOOL_OPTIONS`).
-- [ ] _(Optional, post-release deep-dive)_ Evaluate `soak.jfr` in JDK Mission Control: lock contention (Java Monitor Blocked / Park) on `accountLocks`/`refreshLocks`, exception counts, thread growth (executor leaks).
-- [ ] _(Optional, post-release deep-dive)_ Take a thread dump at the end of the run (`jcmd <pid> Thread.print`) — no orphaned/parked threads outside the known pools.
+**Why it is split, measured 2026-09-10.** The length was never about the application's own timers. Sync runs on a five-minute interval and the UID enumeration hourly, so what those exercise is bound by how many cycles pass, not by how long the clock runs. `reclaim` — the expensive maintenance pass, a WAL checkpoint plus a threshold-gated VACUUM — is scheduled at the same interval as the soak itself (`mail.client.db.reclaim-interval`, 24 h as configured today, after a 30-minute initial delay), so a 24 h run exercises it **exactly once**, at the half-hour mark, and no more than a one-hour run would; its second pass falls past the end of the run. What the long stretch actually buys is the machine's daily cycle — sleep and wake, a network change, a scheduled antivirus pass, an OAuth access token expiring while the app is up. That is why the second window is "overnight" rather than a number, and why the checks that need minutes no longer queue behind the ones that need a night. Before this split the section was one undifferentiated 24 h block, and it had never been performed once.
+
+### 8.1 First hour — the same sitting as §3–§7
+
+- [ ] Start the application with sync enabled and leave it running.
+- [ ] Check that the IMAP pool does not wrongly recycle dead connections.
+- [ ] An OAuth access token expires and is refreshed while the application keeps running. §4 covers the revoke → re-login cycle and the refresh across a restart; neither exercises an expiry under load.
+- [ ] The first `reclaim` pass (half an hour in) completes without stalling the UI or leaving the database locked — the only time this pass runs, whatever the length of the soak.
+- [ ] Log-scan gate after every smoke/long run: `Select-String -Path logs\mail.log -Pattern "ERROR|WARN"`, and either explain every hit or open an issue — a silent error path is exactly the class of bug from the 2026-06 review.
+
+### 8.2 Overnight — what only wall-clock time buys
+
+- [ ] The application is still running in the morning, having crossed at least one sleep/wake of the machine.
 - [ ] Check the memory footprint.
 - [ ] Check the growth of the SQLite DB/WAL.
-- [ ] Check that the IMAP pool does not wrongly recycle dead connections.
 - [ ] Check that repeated syncs do not create duplicate messages.
-- [ ] Log-scan gate after every smoke/long run: `Select-String -Path logs\mail.log -Pattern "ERROR|WARN"`, and either explain every hit or open an issue — a silent error path is exactly the class of bug from the 2026-06 review.
 - [ ] A passive log-watch for the transient hiccup **D** (`failed to create new store connection`) — wrapped in a bounded retry+backoff since #78, with the transient classified by [TransientMailErrors.java](src/main/java/org/voxrox/mailbackend/feature/mail/service/TransientMailErrors.java). Scan `logs\mail.log` for three signals:
   - **Healthy:** `WARN` "Transient IMAP error during folder sync … reconnecting and retrying" ([MailSyncService.java](src/main/java/org/voxrox/mailbackend/feature/mail/service/MailSyncService.java)) followed by recovery on the next attempt — a couple per day is expected noise, just record the count.
   - **Escalate (should be ~0):** `ERROR` "Folder sync … still failing after N transient-retry attempt(s)" ([MailSyncService.java](src/main/java/org/voxrox/mailbackend/feature/mail/service/MailSyncService.java)) = the retry budget is exhausted → investigate the cause / raise `mail.client.retry.*`.
   - **Investigate the classifier:** `ERROR` "Critical error during folder sync … failed to create new store connection" ([MailSyncService.java](src/main/java/org/voxrox/mailbackend/feature/mail/service/MailSyncService.java)) should no longer appear for a transient cause; if it does, `TransientMailErrors` missed it → extend the classifier.
   - On escalation, record the dimensions: does it cluster after sleep/wake or a network change? which provider/folder? was recovery confirmed on the next cycle?
+
+### Post-release deep-dive (optional, not a release blocker)
+
+- [ ] Run with JFR: `-XX:StartFlightRecording=duration=24h,filename=soak.jfr,settings=profile` (for the sidecar, add it to `--java-options` in the package script; for a dev run, to `JAVA_TOOL_OPTIONS`).
+- [ ] Evaluate `soak.jfr` in JDK Mission Control: lock contention (Java Monitor Blocked / Park) on `accountLocks`/`refreshLocks`, exception counts, thread growth (executor leaks).
+- [ ] Take a thread dump at the end of the run (`jcmd <pid> Thread.print`) — no orphaned/parked threads outside the known pools.
 
 ## 8a. Docs & web sync
 
