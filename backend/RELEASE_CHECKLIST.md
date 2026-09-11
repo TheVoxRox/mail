@@ -298,6 +298,53 @@ A per-candidate worksheet for the manual smoke (§3–§8 above). §1 (backend b
 
 **The candidate is the tag, not a commit on `main`.** Evidence recorded against a branch commit goes stale the moment anything merges, which is what happened to the sheet below: §0/§1/§2 were taken on `9c51d9d` and `main` moved past it the same day. A tag is immutable, so once `v<X.Y.Z>` exists nothing that lands afterwards can invalidate a tick and the question does not come back — record the tag in `Candidate ref`, and treat a commit SHA there as provisional, valid only until the tag is cut. One window cannot be closed this way, because the process needs it: §0/§1/§2 run before the version bump and the changelog cut, and those are what gets tagged. Keep that window to minutes rather than days — it is the only stretch in which a merge can cost a re-run, and §1 is the expensive half to repeat (§2 is what CI re-takes on every push anyway). **Deliberately not written here: a rule that a docs-only commit does not invalidate §1.** It cannot be checked by being read, it has already been applied once by hand — the 2026-06-26 note in §1 above, "code unchanged since 3210e1a — only docs commits since" — and a claim nothing recomputes is the kind this repo deletes rather than maintains. If the gate ever has to run against a moving `main`, compute it instead: compare the git object ids of the paths §1 rests on, the way `check:audits` already does for the audits.
 
+### Candidate 2026-09-11 — see the object ids below
+
+```text
+Release:         VoxRox Mail 0.1.0  (identifier org.voxrox.mail)
+Sign-off date:   ____________
+Candidate ref:   the commit this sheet lands in — provisional; replaced by tag v0.1.0 once cut
+Backend commit:  same
+Frontend commit: same  (the same monorepo)
+Platform:        Windows 11 Pro x64, machine lacina-hp-650
+Tester:          machine half automated; §3–§9 are the maintainer's
+Build origin:    local and unsigned — the signed build comes from the tag, per RELEASE_PROCESS steps 3–4
+```
+
+**This sheet names object ids rather than a SHA, and does so deliberately.** It is cut in the same commit that moves `backend/src`, so the SHA it would name does not exist while it is being written — and would stop existing at the squash-merge in any case, which is the reason `check:audits` compares object ids instead of commit ranges. The tree this sheet describes, on the seven paths §1 and §2 rest on:
+
+| path                         | object id      |
+| ---------------------------- | -------------- |
+| `backend/src`                | `6eb6fc4973c5` |
+| `backend/pom.xml`            | `dbef3f26bcc3` |
+| `backend/scripts`            | `ccfeee6ca824` |
+| `frontend/src`               | `9b3a3ef9972c` |
+| `frontend/src-tauri`         | `47e446b51110` |
+| `frontend/package.json`      | `f2a33dc2009c` |
+| `frontend/package-lock.json` | `ae0d216cfd15` |
+
+Recompute them before ticking anything below; a tick against a different `backend/src` is the failure this table exists to prevent.
+
+- [x] **§0 Version** — `npm run check:versions` OK, `0.1.0` on all five files. No bump needed; they already carried it.
+- [ ] **§1 Backend build** — **half taken, and the tick is withheld until the other half is.** `mvn -Dmaven.repo.local=.m2repo -Dapp.data-dir=target/test-data clean verify` BUILD SUCCESS in 3:51, artifact `target/mail-backend-0.1.0.jar` produced. Both suites clean, **read from the reports rather than from the console**: `target/failsafe-reports/failsafe-summary.xml` gives `completed=88 errors=0 failures=0 skipped=0 flakes=0`, and all 115 surefire test-suite XMLs carry `failures="0" errors="0" skipped="0"`. The per-class `.txt` reports are not a source for this — they omit nested classes and sum to roughly half the real count. **The console is not a source either**, which cost a run here: the first attempt reported a zero exit through the tool that launched it while the log said `BUILD FAILURE` on a `spotless:check` import ordering, so the result above is read from the log and the XMLs and not from an exit code. **Still open in §1:** the sidecar has not been repackaged through `scripts/package-sidecar-windows.ps1`, and **that is not optional on this candidate** — the defect the previous §8 surfaced lives in the sidecar, so a stale one reproduces it whatever the jar says. Also still open, as on every sheet: the clean-profile run without a system-installed JDK, a physical test rather than a command.
+- [x] **§2 Frontend automation** — **carried forward from `a2caa27`, computed rather than assumed.** All four paths §2 rests on — `frontend/src`, `frontend/src-tauri`, `frontend/package.json`, `frontend/package-lock.json` — carry object ids identical to that sheet's, so the run recorded there (functional 277, a11y 65, no flakes) describes this tree too. This is the computed form the appendix asks for, not the docs-only rule it refuses. **One dependency is not covered by those four ids:** `generate:api` derives the client from the backend's OpenAPI snapshot, so a backend change that moved a controller or a DTO would invalidate it — §1's `OpenApiSnapshot` golden is what proves this one did not, and §2 does not carry until §1 is green.
+- [ ] **§3 Fresh install** — **re-take required.** The evidence on the previous sheet is against the signed build of `db11430f`, which predates #467, #468 and the change in this commit. A new tag produces a different binary.
+- [ ] **§3a Installer behaviour** — same; nothing in the installer changed, but the artifact it installs did. Still not covered by anything: reinstalling over an existing installation, and the downgrade block.
+- [ ] **§4 Account flows** — re-take on the new signed build. Still the blocking item of the gate: it is what proves the production `client-id` is baked into the launcher `.cfg`.
+- [ ] **§5 Mail workflows** — re-take, and **the trash case is now a named item rather than part of the sweep**: a folder holding two IMAP copies of one Message-ID must persist both and report a non-null `lastSyncAt`. That is the shape of the defect §8 found, and a green suite is not evidence for it — `DuplicateMessageIdSyncIT` covers the code, not the account.
+- [ ] **§6 Sidecar lifecycle** — re-take on the new binary.
+- [ ] **§7 Diagnostics** — re-take, and **not only because the binary moved**: the dump's own content changed in this commit, `processStartedAt` and every `startedAfterProcessMs` now measuring from JVM start. The privacy half of the item is unaffected and still has to be checked by reading the dump, not by producing it.
+- [ ] **§8 Long run** — §8.1 and §8.2 both open. See the note below on what the previous attempt did and did not deliver.
+- [ ] **§9** — release decision.
+
+**What the previous candidate's §8 actually produced, and why it is not carried forward.** A diagnostic bundle and the data directory came back from the tester's machine covering 2026-09-10 13:44 to 2026-09-11 09:55. Three things are worth keeping from it:
+
+- **It found the defect the two backend fixes above answer.** Not during the long run — on the first sync after the account was added, at 14:42:52, and then 29 more times over the next three hours. §8 did its job here; what it caught was a folder that could never recover on its own.
+- **It was not an overnight soak.** The machine suspended at 17:09 and resumed at 09:51 — Hikari's housekeeper measured the gap at `16h40m47s` and the backend logged nothing across it. Real continuous running was 3 h 5 min, which is §8.1's territory, not §8.2's. **§8.2 has still never been run**, and the sheet should not be allowed to read as though it has.
+- **Resume from a long suspend is clean, and that is worth recording once.** The 200 scheduled cycles the `fixedRate` scheduler had missed all fired within one second of resume; `SyncLockManager` rejected all 200 and the pass that did run completed normally. This is an observation from one resume, not a tested property.
+
+**Why the `a2caa27` sheet below is superseded.** By the rule its own closing paragraph states: the git object id of `backend/src` moved from `6c59df1e87ea` to `6eb6fc4973c5` across #467, #468 and this commit, so §1 no longer describes the tree it was taken from. The other six paths are unchanged, which is why §2 carries and §1 does not. §3–§7 go with it for a different reason — they were taken on a signed build whose commit is named on that sheet as `db11430f`, and the sidecar inside it is the one carrying the defect.
+
 ### Candidate 2026-09-10 — `a2caa27`
 
 ```text
