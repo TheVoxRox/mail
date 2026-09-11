@@ -27,6 +27,15 @@ public class MessageDownloader {
     private static final Logger log = LoggerFactory.getLogger(MessageDownloader.class);
     private static final long UID_INCREMENT = 1L;
     private static final long UID_INITIAL = 0L;
+    /**
+     * Ordering over a boxed uid that tolerates a null rather than unboxing it. Both
+     * places {@link #disambiguateStableIds} orders uids share it, because both run
+     * inside the batch transaction: a comparator that throws there rolls the whole
+     * folder back, which is the failure that method exists to prevent. Kept as one
+     * constant so the null-tolerance cannot be present at one of them and absent at
+     * the other — it already was, and the log line was the one without it.
+     */
+    private static final Comparator<Long> UID_ORDER = Comparator.nullsFirst(Comparator.naturalOrder());
 
     private final MessageRepository messageRepository;
     private final MessageFetcher messageFetcher;
@@ -385,15 +394,14 @@ public class MessageDownloader {
         Set<MessageEntity> dropped = Collections.newSetFromMap(new IdentityHashMap<>());
         int rederived = 0;
         /*
-         * comparing + nullsFirst rather than comparingLong: getUid() is a boxed Long,
-         * and unboxing a null here would throw inside the batch transaction — rolling
-         * back the whole folder, which is the failure this method exists to prevent.
-         * The fetch path reads uid as a primitive so null is not reachable today; the
-         * guard costs a comparator and removes the way this method could turn one bad
-         * message into the same permanent-empty-folder state as the collision did.
+         * UID_ORDER rather than comparingLong: getUid() is a boxed Long, and unboxing a
+         * null here would throw inside the batch transaction — rolling back the whole
+         * folder, which is the failure this method exists to prevent. The fetch path
+         * reads uid as a primitive so null is not reachable today; the guard costs a
+         * comparator and removes the way this method could turn one bad message into
+         * the same permanent-empty-folder state as the collision did.
          */
-        Comparator<MessageEntity> byAscendingUid = Comparator.comparing(MessageEntity::getUid,
-                Comparator.nullsFirst(Comparator.naturalOrder()));
+        Comparator<MessageEntity> byAscendingUid = Comparator.comparing(MessageEntity::getUid, UID_ORDER);
         for (MessageEntity entity : entities.stream().sorted(byAscendingUid).toList()) {
             if (taken.add(entity.getStableId())) {
                 continue;
@@ -416,7 +424,8 @@ public class MessageDownloader {
             return entities;
         }
         log.warn("{} Folder {}: dropped {} message(s) whose uid identity is already taken (uids {}).", LogCategory.SYNC,
-                ctx.folderName(), dropped.size(), dropped.stream().map(MessageEntity::getUid).sorted().toList());
+                ctx.folderName(), dropped.size(),
+                dropped.stream().map(MessageEntity::getUid).sorted(UID_ORDER).toList());
         return entities.stream().filter(e -> !dropped.contains(e)).toList();
     }
 
