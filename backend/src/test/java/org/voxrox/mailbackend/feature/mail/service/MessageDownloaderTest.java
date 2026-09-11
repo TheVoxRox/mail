@@ -388,6 +388,34 @@ class MessageDownloaderTest {
             verify(messageRepository).saveAll(List.of(noUid, normal));
         }
 
+        @Test
+        @DisplayName("A null uid among two dropped copies orders too — the warn log is the method's other ordering")
+        void droppedNullUidDoesNotAbortTheBatch() throws Exception {
+            // The sibling of the case above, for the second place this method orders
+            // uids: the warn line that names what it dropped. It kept a bare sorted()
+            // when the batch ordering was given nullsFirst, and one dropped message
+            // cannot expose that — sorting a single element never calls the comparator.
+            // So it takes two, which is what this sets up.
+            MessageEntity noUid = new MessageEntity();
+            noUid.setStableId("dup-a");
+            noUid.setUidValidity(1L);
+            MessageEntity alsoUnplaceable = entityWith(1003L, "dup-b");
+            MessageEntity survivor = entityWith(1002L, "other-stable-id");
+            stubBatch(List.of(1001L, 1002L, 1003L), List.of(noUid, survivor, alsoUnplaceable));
+            // Both are unplaceable: their Message-ID identity and their uid identity are
+            // each already held by a committed row.
+            when(messageRepository.findExistingStableIds(List.of("dup-a", "other-stable-id", "dup-b")))
+                    .thenReturn(List.of("dup-a", "dup-b", MessageStableId.computeFromUid(ACCOUNT_ID, FOLDER, null, 1L),
+                            MessageStableId.computeFromUid(ACCOUNT_ID, FOLDER, 1003L, 1L)));
+            when(messageRepository.saveAll(List.of(survivor))).thenReturn(List.of(survivor));
+
+            downloader.downloadSequenceRange(context(), 1, 3);
+
+            // The two that cannot be placed are dropped, and the rest of the batch still
+            // inserts — the log line must not be what costs the folder its sync.
+            verify(messageRepository).saveAll(List.of(survivor));
+        }
+
         /**
          * Drives one batch through the fetch/map seam: {@code uids} are the server's
          * uids in batch order, {@code entities} the rows the mapper returns for them.
