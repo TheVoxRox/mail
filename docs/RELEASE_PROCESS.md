@@ -163,24 +163,54 @@ compressed.
 
 ## 5. Release notes and known issues
 
-The draft's body is what a user reads before downloading. Write it for that
-reader, not as a copy of the changelog section:
+The draft's body is what a user reads before downloading, so it is written for
+that reader and kept short: someone deciding whether to install should be done
+in about a minute. It is not a copy of the changelog section. The changelog is
+the full record, and the body links to it instead of repeating it.
 
-- **What's new** — the user-facing summary. The changelog section is the full
-  record; this is the part someone who has not read the repo cares about.
-- **Known issues** — carried over from §9 of the filled checklist, where they
-  were recorded as part of the release decision. An empty list is written as
-  "none known", not omitted: a missing section reads as an oversight, and the
-  next release's operator cannot tell the difference.
-- **Verification** — link
-  [END_USER_README.md](../frontend/END_USER_README.md), which carries the
-  `gh attestation verify` and `certutil -hashfile` commands and, more
-  importantly, explains that the `.sha256` alone is not a tamper defence
-  because it travels beside the installer. Do not restate the commands here;
-  two copies of a command drift.
-- **Install or update note** — whether this build updates in place, and
-  anything a user must do by hand. Downgrades are blocked, so an operator
-  instruction to "install the previous version" is never a valid note.
+The same four parts every release, in this order, so a reader knows where to
+look:
+
+1. **Opening** — one or two sentences on what this is, and any limit that
+   decides whether it works for the reader at all: the closed beta, the
+   platform. It comes first because it is what goes wrong when it is missed —
+   without it, a Gmail sign-in refused to an account off the tester list reads
+   as a bug.
+2. **Highlights** — three to five items in the reader's words, then a link to
+   the changelog. Not a feature inventory: a first release invites listing
+   everything, which is how the first v0.1.0 draft grew into one. Leave
+   implementation terms out (ARIA roles, DPAPI, Ed25519) and say what the
+   reader gets instead.
+3. **Install or update** — whether this build updates in place, and anything a
+   user must do by hand. Downgrades are blocked, so "install the previous
+   version" is never a valid note. While the installer is unsigned, say that
+   Windows reports an unknown publisher and link
+   [END_USER_README.md](../frontend/END_USER_README.md) for verifying the
+   download. Do not restate its `gh attestation verify` and
+   `certutil -hashfile` commands, because two copies of a command drift; the
+   README also explains why the `.sha256` alone is not a tamper defence.
+4. **Known issues** — carried over from §9 of the filled checklist, where they
+   were recorded as part of the release decision. An empty list is written as
+   "none known", not omitted: the next release's operator cannot tell a
+   missing section from an oversight.
+
+```markdown
+<one or two sentences: what this is, and the limits that decide whether it works for the reader>
+
+## Highlights
+
+- <three to five items, in the reader's words>
+
+All changes: <link to CHANGELOG.md>
+
+## Install or update
+
+<in place or not; anything done by hand; while unsigned, the unknown-publisher warning and a link to END_USER_README.md>
+
+## Known issues
+
+- <from §9, or "None known.">
+```
 
 ## 6. Approval — the publish decision
 
