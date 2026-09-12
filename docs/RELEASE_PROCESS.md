@@ -32,6 +32,14 @@ repository leaves the stable channel (every installation's default) without a
 manifest. The reasoning is in that same OPERATIONS section; from `0.2.0` on the
 model holds literally.
 
+**Where the release stands.** `npm run release:status` (from `frontend/`) reads
+the newest candidate sheet in the checklist on `main`, the tag on origin, CI for
+`main` and for the tagged commit, the signed build, the draft's assets and the
+ref and commit its installer was built from, and prints the next step of this
+document with the commands for it. It changes nothing — no fetch, no tag, no workflow run — so it is safe to run
+at any point, and it answers "where was I" from the sources themselves rather
+than from a list someone kept by hand.
+
 ## 1. Version
 
 ```powershell
