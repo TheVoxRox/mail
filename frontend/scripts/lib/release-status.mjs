@@ -20,6 +20,7 @@ const SECTION_BOX = /^- \[([ xX])\] \*\*(§\d+[a-z]?)(?:\s+([^*]+?))?\*\*/;
 const MACHINE_SECTIONS = ['§0', '§1', '§2'];
 
 export const SIGNED_WORKFLOW = 'windows-signed-release.yml';
+export const SMOKE_WORKFLOW = 'release-candidate-smoke.yml';
 const SIGNED_WORKFLOW_PATH = `.github/workflows/${SIGNED_WORKFLOW}`;
 const INSTALLER_SUFFIX = '-windows-x64-setup.exe';
 
@@ -161,6 +162,25 @@ export function pickCiResult(runs) {
  */
 export function pickSignedRun(runs, tag, tagCommit) {
 	return runs.find((run) => run.headSha === tagCommit && run.headBranch === tag) ?? null;
+}
+
+/**
+ * The candidate smoke that tested the build now attached to the draft, or
+ * null. A run counts only when its title names this tag (the workflow's
+ * `run-name`), it ran by hand or after the signed build — a pull request run
+ * tests the smoke, not the candidate — and it started after the signed build
+ * finished, because an earlier run installed an installer the draft no longer
+ * carries. gh lists runs newest first, so the first match is the newest.
+ */
+export function pickSmokeRun(runs, tag, builtAt) {
+	return (
+		runs.find(
+			(run) =>
+				run.displayTitle === `Release Candidate Smoke ${tag}` &&
+				(run.event === 'workflow_dispatch' || run.event === 'workflow_run') &&
+				(!builtAt || run.createdAt >= builtAt)
+		) ?? null
+	);
 }
 
 /**
@@ -488,6 +508,29 @@ export function decideNextStep(facts) {
 	if (facts.manifestProblems.length > 0) {
 		return step(`latest.json in the draft is wrong: ${facts.manifestProblems.join('; ')}.`);
 	}
+
+	// RELEASE_PROCESS step 4a: nothing manual is worth doing on an installer the
+	// candidate smoke has not passed.
+	const smoke = facts.smokeRun;
+	const smokeCommand = `gh workflow run ${SMOKE_WORKFLOW} --ref main -f tag=${tag}`;
+	if (!smoke) {
+		return step(
+			'Release Candidate Smoke has not run against the build now on the draft. It starts on its own ' +
+				'after a successful Windows Signed Release; run it by hand if it did not (RELEASE_PROCESS step 4a):',
+			[smokeCommand]
+		);
+	}
+	if (smoke.status !== 'completed') {
+		return step(`Release Candidate Smoke is still running for ${tag}: ${smoke.url}`);
+	}
+	if (smoke.conclusion !== 'success') {
+		return step(
+			`Release Candidate Smoke for ${tag} ended ${smoke.conclusion}: ${smoke.url}. Nothing manual is worth ` +
+				'doing on an installer that fails it. Fix and rebuild, or run it again if the runner was the cause:',
+			[smokeCommand]
+		);
+	}
+	notes.push(`Release Candidate Smoke passed on this build: ${smoke.url}`);
 
 	const scan = facts.vulnScan?.completed;
 	if (scan && scan.conclusion !== 'success') {

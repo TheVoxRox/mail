@@ -99,6 +99,10 @@ Z analyzy 2026-09-13: stroj overuje artefakt dobre, rucni zustava orchestrace a 
 - [ ] **P2 — sken diagnostickeho vypisu a logu** (§7, §8.1): vypis nad uctem proti GreenMail proskenovat na e-maily, tokeny a API klic; log podle tri signalu D misto `Select-String`.
 - [ ] **P2 — `release:cut` a kostra release notes do draftu** (RELEASE_PROCESS kroky 2 a 5).
 - [ ] **P2 — strojove sekce listu z CI** misto lokalniho behu §1/§2; overit, ze `package-sidecar-windows.ps1` pousti i failsafe.
+- [ ] **Release notes v repu** jako soubor na verzi, workflow z nej nastavi telo draftu. Dnes telo zije jen v draftu a pri jeho smazani se muselo zachranovat mimo repo; v souboru projde revizi v PR a brana muze hlidat ctyri casti a shodu Known issues s changelogem.
+- [ ] **Tag a spusteni podepsaneho buildu z CI:** workflow_dispatch z `main` s verzi vyhodnoti rozhodnuti `release:status` (list sedi, CI zelene), zalozi anotovany tag pres API a spusti build. Odpadnou rucni prikazy v terminalu.
+- [ ] **Publikace pres workflow za schvalenim:** podminky RELEASE_PROCESS kroku 6 vyhodnocene strojove, pak `gh release edit --draft=false`, chranene GitHub environment s maintainerem jako povinnym schvalovatelem. Nevratny krok zustane lidsky, ale nepujde udelat s nesplnenou podminkou.
+- [ ] **Strojova pulka listu generovana skriptem:** tabulka object ids a §0/§2 z behu CI na tagovanem commitu misto rucniho pocitani a lokalniho behu.
 - [ ] **P3 (od 0.2.0) — update smoke vN-1 → vN na runneru:** nejdriv `/UPDATE` pres bezici instalaci predchozi verze (prepis `runtime/` a `app/`), pak cely updater proti manifestu vystavenemu na runneru.
 
 ---
