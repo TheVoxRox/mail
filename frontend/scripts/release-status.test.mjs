@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	checkManifest,
 	compareObjectIds,
+	compareReleaseNotes,
 	decideNextStep,
 	findMissingAssets,
 	parseCandidateSheet,
@@ -414,6 +415,63 @@ describe('decideNextStep and the candidate smoke', () => {
 	});
 });
 
+describe('compareReleaseNotes', () => {
+	it('calls a body set from the file a match, whatever GitHub did to line endings and trailing space', () => {
+		expect(compareReleaseNotes('# Notes\n\n- one\n', '# Notes\r\n\r\n- one')).toBe('match');
+	});
+
+	it('tells a missing file apart from a body that differs or is empty', () => {
+		expect(compareReleaseNotes(null, 'anything')).toBe('missing');
+		expect(compareReleaseNotes('# Notes\n', '# Other\n')).toBe('differs');
+		expect(compareReleaseNotes('# Notes\n', '')).toBe('differs');
+		expect(compareReleaseNotes('# Notes\n', undefined)).toBe('differs');
+	});
+});
+
+describe('decideNextStep and the release notes', () => {
+	const allTicked = () => ticked(() => true);
+	const setBody = 'gh release edit v0.1.0 --notes-file docs/release-notes/v0.1.0.md';
+
+	it('asks for the notes file once every section is ticked and main has none', () => {
+		const decision = decideNextStep(facts({ sheet: allTicked(), releaseNotesFile: null }));
+
+		expect(decision.summary).toContain('main has no docs/release-notes/v0.1.0.md');
+		expect(decision.commands).toEqual([setBody]);
+	});
+
+	it('asks to set the body from the file when the draft disagrees with it', () => {
+		const decision = decideNextStep(
+			facts({
+				sheet: allTicked(),
+				releaseNotesFile: '# Notes\n',
+				release: { isDraft: true, body: '' }
+			})
+		);
+
+		expect(decision.summary).toContain('differs from docs/release-notes/v0.1.0.md');
+		expect(decision.commands).toEqual([setBody]);
+	});
+
+	it('reaches the publish step only when the draft body is the file', () => {
+		const decision = decideNextStep(
+			facts({
+				sheet: allTicked(),
+				releaseNotesFile: '# Notes\n',
+				release: { isDraft: true, body: '# Notes' }
+			})
+		);
+
+		expect(decision.summary).toContain('then publish');
+		expect(decision.commands).toEqual([]);
+	});
+
+	it('does not ask for the notes while sheet sections are still open', () => {
+		const decision = decideNextStep(facts({ releaseNotesFile: null }));
+
+		expect(decision.summary).toContain('Next on the sheet');
+	});
+});
+
 describe('checkManifest', () => {
 	const installerUrl =
 		'https://github.com/TheVoxRox/mail/releases/download/v0.1.0/voxrox-mail-0.1.0-windows-x64-setup.exe';
@@ -676,6 +734,8 @@ describe('decideNextStep', () => {
 		const decision = decideNextStep(
 			facts({
 				sheet: ticked(() => true),
+				releaseNotesFile: '# Notes\n',
+				release: { isDraft: true, body: '# Notes' },
 				vulnScan: {
 					completed: {
 						status: 'completed',

@@ -164,6 +164,23 @@ export function pickSignedRun(runs, tag, tagCommit) {
 	return runs.find((run) => run.headSha === tagCommit && run.headBranch === tag) ?? null;
 }
 
+/** Where a release's notes live: one English file per tag, the draft body being a copy of it. */
+export const releaseNotesPath = (tag) => `docs/release-notes/${tag}.md`;
+
+/**
+ * Whether the draft body is the release notes file on main: 'missing' when
+ * main has no file for the tag, 'match' when the two agree, 'differs'
+ * otherwise. Line endings and surrounding whitespace are not a difference —
+ * GitHub stores a body with CRLF and trims it, git stores the file with LF.
+ */
+export function compareReleaseNotes(file, body) {
+	if (file === null) return 'missing';
+	const normalize = (text) => (text ?? '').replace(/\r\n/g, '\n').trim();
+	return body !== null && body !== undefined && normalize(file) === normalize(body)
+		? 'match'
+		: 'differs';
+}
+
 /**
  * The candidate smoke that tested the build now attached to the draft, or
  * null. A run counts only when its title names this tag (the workflow's
@@ -545,6 +562,25 @@ export function decideNextStep(facts) {
 		return step(
 			`The draft carries the signed build of ${tag}, and ${tag} matches the ${sheet.date} sheet. ` +
 				`Next on the sheet: ${label(open[0])}.`
+		);
+	}
+	// RELEASE_PROCESS step 5: the file on main is the record, the draft body a copy.
+	const notesPath = releaseNotesPath(tag);
+	const notesCommand = `gh release edit ${tag} --notes-file ${notesPath}`;
+	const bodyState = compareReleaseNotes(facts.releaseNotesFile ?? null, facts.release?.body);
+	if (bodyState === 'missing') {
+		return step(
+			`Every section of the ${sheet.date} sheet is ticked, but main has no ${notesPath}. Write the ` +
+				'release notes (RELEASE_PROCESS step 5), merge them, then set the draft body from the file, ' +
+				'from the repository root:',
+			[notesCommand]
+		);
+	}
+	if (bodyState === 'differs') {
+		return step(
+			`The draft body differs from ${notesPath} on main. The file is the record; set the body from ` +
+				'it, from the repository root (RELEASE_PROCESS step 5):',
+			[notesCommand]
 		);
 	}
 	return step(
