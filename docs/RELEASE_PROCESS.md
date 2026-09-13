@@ -255,6 +255,22 @@ All changes: <link to CHANGELOG.md>
 - <from §9, or "None known.">
 ```
 
+**The body lives in the repository, in English, and the draft is a copy of
+it.** Each release has a file named after its tag in
+[docs/release-notes/](release-notes/) — [v0.1.0.md](release-notes/v0.1.0.md)
+is the first. Write it after §9, merge it, then set the body from the
+repository root:
+
+```bash
+gh release edit v0.1.0 --notes-file docs/release-notes/v0.1.0.md
+```
+
+Until 2026-09-13 the draft body was the only copy, so deleting a draft during a
+re-tag meant saving the text outside the repository first, and nothing reviewed
+it. `npm run release:status` now compares the draft body with the file on
+`main`, and does not reach the publish step while the file is missing or the
+two differ.
+
 ## 6. Approval — the publish decision
 
 Publish only when all of these hold. Each is a fact you can check, not a

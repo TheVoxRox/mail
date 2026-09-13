@@ -9,6 +9,7 @@ import {
 	SMOKE_WORKFLOW,
 	checkManifest,
 	compareObjectIds,
+	compareReleaseNotes,
 	decideNextStep,
 	findMissingAssets,
 	parseCandidateSheet,
@@ -23,6 +24,7 @@ import {
 	pickSmokeRun,
 	readGhAnswer,
 	readProvenance,
+	releaseNotesPath,
 	shortSha
 } from './lib/release-status.mjs';
 
@@ -115,6 +117,8 @@ const configAtMain = atMain(TAURI_CONFIG);
 const { version = null, productName = null } = configAtMain ? JSON.parse(configAtMain) : {};
 const tag = version ? `v${version}` : null;
 const tagCommit = tag ? (refs.get(`refs/tags/${tag}`) ?? null) : null;
+// Read from main like the sheet: notes that are not merged are not the record yet.
+const releaseNotesFile = tag ? atMain(releaseNotesPath(tag)) : null;
 
 const sheet = checklistAtMain ? parseCandidateSheet(checklistAtMain) : null;
 const sheetIds = sheet?.objectIds ?? [];
@@ -197,7 +201,7 @@ if (mainLocal && tag && !slug) {
 	release =
 		gh(
 			`the release for ${tag}`,
-			`release view ${tag} --repo ${slug} --json isDraft,assets,url`,
+			`release view ${tag} --repo ${slug} --json isDraft,assets,url,body`,
 			/release not found/i
 		) ?? null;
 	if (release) {
@@ -280,6 +284,7 @@ const decision = decideNextStep({
 	signedRun,
 	smokeRun,
 	release,
+	releaseNotesFile,
 	missingAssets,
 	assetProblem,
 	provenance,
@@ -361,6 +366,16 @@ if (mainLocal) {
 				);
 			}
 			out.push(`  Missing assets: ${missingAssets.join(', ') || 'none'}`);
+			const notesState = compareReleaseNotes(releaseNotesFile, release.body);
+			out.push(
+				`  Release notes: ${
+					notesState === 'missing'
+						? `no ${releaseNotesPath(tag)} on main`
+						: notesState === 'match'
+							? `the draft body is ${releaseNotesPath(tag)}`
+							: `the draft body differs from ${releaseNotesPath(tag)}`
+				}`
+			);
 			if (provenance) {
 				out.push(
 					`  Installer built from: ${shortSha(provenance.commit)} on ${provenance.ref}, by build provenance lookup`
