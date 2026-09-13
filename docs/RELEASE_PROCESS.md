@@ -225,8 +225,10 @@ All changes: <link to CHANGELOG.md>
 Publish only when all of these hold. Each is a fact you can check, not a
 judgement call:
 
-- [ ] Checklist §3–§8 filled **for this candidate**, with §9 carrying no open
-      blocker.
+- [ ] Checklist §3–§7 and §8.1 filled **for this candidate**, with §9 carrying
+      no open blocker. §8.2 is not a gate: RELEASE_CHECKLIST §8.2 records what
+      replaces it, and until that automation exists §9 records the absence of
+      the overnight run as an accepted risk.
 - [ ] `### Known issues` in the changelog section, and the same list in the
       release body, match checklist §9 as signed. Only the changelog cut is
       written before §9 exists (step 2, item 4); the release body is written
