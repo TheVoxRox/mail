@@ -1,0 +1,68 @@
+name: Release Channel Check
+
+# RELEASE_PROCESS step 7: after a release is published, confirm the update
+# channel it belongs to actually serves it — latest.json fetched through the URL
+# an installation polls (the stable releases/latest redirect, or the moving beta
+# release), naming this version, this installer and its attached signature.
+# The signed workflow uploads latest.json but never reads it back that way, so
+# until this existed a publish that left the channel on an older release looked
+# the same as one that worked.
+#
+# workflow_dispatch is here for two reasons: to re-check a channel at any time,
+# and because whether a `release` event runs this file from the default branch
+# or from the tagged commit is not something to lean on for the first release
+# after it was added. If a publish produced no run, dispatch it with the tag.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Published release tag whose channel manifest to check."
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  check-channel-manifest:
+    name: Check channel manifest
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          # Only the dependency-free script and its libs are needed.
+          sparse-checkout: frontend/scripts
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 26
+
+      - name: Check the manifest the channel serves
+        working-directory: frontend
+        # Read through env:, never interpolated into the script — U-1 in
+        # docs/UPDATER_AUDIT.md.
+        env:
+          TAG_INPUT: ${{ inputs.tag }}
+          RELEASE_EVENT_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          TAG="${TAG_INPUT:-$RELEASE_EVENT_TAG}"
+          if [ -z "$TAG" ]; then
+            echo "No tag resolved." >&2
+            exit 1
+          fi
+          if [ "$TAG" = "beta" ]; then
+            # The moving beta release holds only the manifest; it is not an app release.
+            echo "Tag 'beta' is the channel release itself; nothing to check."
+            exit 0
+          fi
+          node scripts/verify-channel-manifest.mjs "--tag=$TAG" "--repo=$GITHUB_REPOSITORY"

@@ -95,6 +95,27 @@ jobs:
             throw "Release tag $tag does not match app version $version (tauri.conf.json)."
           }
 
+          # The tag must already exist on origin and point at the commit being
+          # built. Without it, "Publish GitHub Release assets" below creates a
+          # draft whose target_commitish is the default branch, and publishing
+          # that draft creates the tag from wherever main points at that moment
+          # -- a tree this run never built, under a tag that cannot be moved
+          # once published (RELEASE_PROCESS step 3). A tag at another commit is
+          # the same failure one step later: assets from this commit published
+          # under a tag that names a different tree. Until 2026-09-13 only the
+          # process document guarded either; a branch run with release-tag set
+          # passed straight through.
+          $refs = @(git ls-remote origin "refs/tags/$tag" "refs/tags/$tag^{}")
+          if ($LASTEXITCODE -ne 0) { throw "Could not read tags from origin." }
+          if ($refs.Count -eq 0) {
+            throw "Tag $tag does not exist on origin. Create and push it first (RELEASE_PROCESS step 3), then run this workflow from it."
+          }
+          $peeled = $refs | Where-Object { $_ -match '\^\{\}$' } | Select-Object -First 1
+          $tagCommit = (($peeled ?? $refs[0]) -split '\s+')[0]
+          if ($tagCommit -ne $env:GITHUB_SHA) {
+            throw "Tag $tag points at $tagCommit, but this run builds $env:GITHUB_SHA. Run the workflow from the tag."
+          }
+
           "RELEASE_TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           Write-Host "Publishing release assets to tag $tag"
 
