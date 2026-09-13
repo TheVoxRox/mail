@@ -262,6 +262,24 @@ export function pickScan(runs) {
 }
 
 /**
+ * The machine sections a sheet stops describing when these paths move. The
+ * sheet's table names the paths §1 and §2 rest on: a backend path is §1's and a
+ * frontend path is §2's. A path under neither names both, because nothing says
+ * which section it belongs to, and re-taking one section too many is cheaper
+ * than carrying one that no longer holds. The advice used to be "re-take §1"
+ * whatever moved, which the first time it was read sent the operator to a
+ * backend build and a sidecar packaging over one line in frontend/package.json.
+ */
+function sectionsToRetake(comparison) {
+	const sections = new Set();
+	for (const row of comparison.differing) {
+		if (!row.path.startsWith('frontend/')) sections.add('§1');
+		if (!row.path.startsWith('backend/')) sections.add('§2');
+	}
+	return MACHINE_SECTIONS.filter((id) => sections.has(id));
+}
+
+/**
  * Turns the gathered facts into the one next step, in the order
  * docs/RELEASE_PROCESS.md runs: sheet, tag, CI, signed build, assets, manual
  * sections, approval. The first unmet condition wins. Nothing after it is
@@ -277,6 +295,16 @@ export function decideNextStep(facts) {
 	const notes = [...facts.localNotes];
 	const step = (summary, commands = []) => ({ summary, commands, notes });
 	const differingPaths = (comparison) => comparison.differing.map((row) => row.path).join(', ');
+	const retake = (comparison) => {
+		const sections = sectionsToRetake(comparison);
+		if (!sections.includes('§2')) {
+			notes.push(
+				"§2 carries forward by object id only once §1 is green: generate:api reads the backend's " +
+					'OpenAPI snapshot, which no frontend path covers.'
+			);
+		}
+		return `Re-take ${sections.join(' and ')} on main and start a new sheet.`;
+	};
 	const tagCommands = [
 		`git tag -a ${tag} -m "${facts.productName} ${tag}" ${mainCommit}`,
 		`git push origin ${tag}`
@@ -332,8 +360,7 @@ export function decideNextStep(facts) {
 		if (facts.sheetVsTag.state === 'differs' && facts.sheetVsMain.state === 'differs') {
 			return step(
 				`The ${sheet.date} sheet matches neither ${tag} (${shortSha(tagCommit)}) nor main ` +
-					`(${shortSha(mainCommit)}). Re-take §1 on main, and §2 if a frontend path moved, ` +
-					'and start a new sheet.'
+					`(${shortSha(mainCommit)}). ${retake(facts.sheetVsMain)}`
 			);
 		}
 	} else {
@@ -346,8 +373,7 @@ export function decideNextStep(facts) {
 		if (facts.sheetVsMain.state === 'differs') {
 			return step(
 				`main (${shortSha(mainCommit)}) differs from the ${sheet.date} sheet in ` +
-					`${differingPaths(facts.sheetVsMain)}. Re-take §1 on main, and §2 if a frontend ` +
-					'path moved, and start a new sheet.'
+					`${differingPaths(facts.sheetVsMain)}. ${retake(facts.sheetVsMain)}`
 			);
 		}
 		const unfinished = MACHINE_SECTIONS.filter(

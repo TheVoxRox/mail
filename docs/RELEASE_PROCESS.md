@@ -96,12 +96,12 @@ git push origin v<X.Y.Z>
 
 Not optional, and not the same as letting the release page create it. A GitHub
 draft release does **not** create a tag — it stores a `target_commitish` and
-creates the tag from it at publish time. For the draft this repo has been
-carrying since 2026-06-17, that value is the literal branch name `main`
-(verified 2026-09-08: `target_commitish: "main"`, and
-`git/matching-refs/tags` returns an empty list, so no tag exists yet).
-Publishing it would therefore create `v0.1.0` at whatever `main` points to in
-that moment, which is not the commit the attached installer was built from.
+creates the tag from it at publish time. The draft this repo carried from
+2026-06-17 until the release was restarted on 2026-09-12 held the literal
+branch name `main` there (verified 2026-09-08: `target_commitish: "main"`, and
+`git/matching-refs/tags` returned an empty list). Publishing such a draft
+creates the tag at whatever `main` points to in that moment, which is not the
+commit the attached installer was built from.
 The tag would name a tree that never shipped, and a published tag cannot be
 moved.
 
