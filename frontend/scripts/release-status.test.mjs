@@ -13,6 +13,7 @@ import {
 	pickProvenance,
 	pickScan,
 	pickSignedRun,
+	pickSmokeRun,
 	readGhAnswer,
 	readProvenance
 } from './lib/release-status.mjs';
@@ -95,6 +96,7 @@ function facts(overrides = {}) {
 		mainCi: 'success',
 		tagCi: 'success',
 		signedRun: { status: 'completed', conclusion: 'success', url: 'https://example.test/run' },
+		smokeRun: { status: 'completed', conclusion: 'success', url: 'https://example.test/smoke' },
 		release: { isDraft: true },
 		missingAssets: [],
 		assetProblem: null,
@@ -333,6 +335,82 @@ describe('reading what git and gh return', () => {
 			running: true
 		});
 		expect(pickScan([])).toEqual({ completed: null, running: false });
+	});
+});
+
+describe('pickSmokeRun', () => {
+	const BUILT = '2026-09-13T13:30:00Z';
+	const run = (overrides = {}) => ({
+		displayTitle: 'Release Candidate Smoke v0.1.0',
+		event: 'workflow_run',
+		status: 'completed',
+		conclusion: 'success',
+		createdAt: '2026-09-13T14:00:00Z',
+		url: 'https://example.test/smoke',
+		...overrides
+	});
+
+	it('takes the first matching run, which is the newest in the order gh lists them', () => {
+		const newest = run({ url: 'newest' });
+
+		expect(pickSmokeRun([newest, run({ url: 'older' })], 'v0.1.0', BUILT)).toBe(newest);
+	});
+
+	it('accepts a run dispatched by hand as well as one started by the signed build', () => {
+		expect(pickSmokeRun([run({ event: 'workflow_dispatch' })], 'v0.1.0', BUILT)).not.toBeNull();
+	});
+
+	it('ignores a run of another tag, including one whose tag only starts with this one', () => {
+		expect(
+			pickSmokeRun(
+				[run({ displayTitle: 'Release Candidate Smoke v0.1.0-beta.1' })],
+				'v0.1.0',
+				BUILT
+			)
+		).toBeNull();
+	});
+
+	it('ignores a pull request run, which tests the smoke rather than the candidate', () => {
+		expect(pickSmokeRun([run({ event: 'pull_request' })], 'v0.1.0', BUILT)).toBeNull();
+	});
+
+	it('ignores a run that started before the build now on the draft finished', () => {
+		expect(pickSmokeRun([run({ createdAt: '2026-09-13T13:00:00Z' })], 'v0.1.0', BUILT)).toBeNull();
+	});
+});
+
+describe('decideNextStep and the candidate smoke', () => {
+	const failedOrRunning = (status, conclusion) => ({
+		status,
+		conclusion,
+		url: 'https://example.test/smoke'
+	});
+
+	it('asks for the smoke once the draft is in order and none has run against its build', () => {
+		const decision = decideNextStep(facts({ smokeRun: null }));
+
+		expect(decision.summary).toContain('Release Candidate Smoke has not run');
+		expect(decision.commands).toEqual([
+			'gh workflow run release-candidate-smoke.yml --ref main -f tag=v0.1.0'
+		]);
+	});
+
+	it('waits for a running smoke, and stops on a failed one before the manual sections', () => {
+		const running = decideNextStep(facts({ smokeRun: failedOrRunning('in_progress', '') }));
+		const failed = decideNextStep(facts({ smokeRun: failedOrRunning('completed', 'failure') }));
+
+		expect(running.summary).toContain('still running');
+		expect(failed.summary).toContain('ended failure');
+		expect(failed.summary).not.toContain('Next on the sheet');
+	});
+
+	it('names the passed smoke and moves on to the sheet', () => {
+		const decision = decideNextStep(facts());
+
+		expect(decision.summary).toContain('Next on the sheet');
+		expect(decision.notes).toContain(
+			'Release Candidate Smoke passed on this build: https://example.test/smoke'
+		);
 	});
 });
 
@@ -576,7 +654,10 @@ describe('decideNextStep', () => {
 		const decision = decideNextStep(facts());
 
 		expect(decision.summary).toContain('Next on the sheet: §3 Fresh install.');
-		expect(decision.notes).toEqual(['Open after it: §9.']);
+		expect(decision.notes).toEqual([
+			'Release Candidate Smoke passed on this build: https://example.test/smoke',
+			'Open after it: §9.'
+		]);
 	});
 
 	it('keeps the notes about the working tree and about a same-day sheet', () => {

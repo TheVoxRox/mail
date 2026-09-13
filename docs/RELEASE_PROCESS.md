@@ -156,7 +156,10 @@ This is a step of its own rather than a precondition of step 6 because the two
 documents interleave here and neither of them said so. It is also the longest
 stretch of the release by wall clock.
 
-- Run **Release Candidate Smoke** (Actions, from `main`, with the tag). It
+- **Release Candidate Smoke** starts on its own once the signed build succeeds,
+  and `npm run release:status` reports whether it passed on the build now on
+  the draft; dispatch it by hand (Actions, from `main`, with the tag) only if it
+  did not start. It
   installs the installer attached to the draft on a clean runner and covers the
   machine half of §3, §3a and §6 — the note at the top of RELEASE_CHECKLIST §3
   lists what. A red run stops the release here: nothing manual is worth doing

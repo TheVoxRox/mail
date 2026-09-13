@@ -1,4 +1,7 @@
 name: Release Candidate Smoke
+# The tag in the title is what `npm run release:status` matches a run by: it is
+# how it finds the smoke that tested the build now attached to a tag's draft.
+run-name: Release Candidate Smoke ${{ inputs.tag || github.event.workflow_run.head_branch || github.head_ref }}
 
 # Installs the signed installer attached to a release — draft or published —
 # on a clean windows-latest profile and runs
@@ -13,12 +16,23 @@ name: Release Candidate Smoke
 # fix to the smoke would need a re-tag to take effect. The installer, not the
 # checkout, is what is under test here.
 #
+# It starts on its own after every successful Windows Signed Release, through
+# workflow_run. That event runs this file from the default branch, so the smoke
+# that runs is always the current one, and the step between the signed build
+# and the manual sections no longer depends on someone remembering it. The tag
+# is the ref the signed run was dispatched from, which that workflow's tag gate
+# requires to be the tag; a run it would have refused leaves no tag here, and
+# this run says so instead of guessing one.
+#
 # It also runs on a pull request that changes the smoke, against the release
 # for the version on that branch, so a change to it is proven on a runner
 # before it merges. With no such release there is nothing to install, and the
 # pull request run says so and stops.
 
 on:
+  workflow_run:
+    workflows: [Windows Signed Release]
+    types: [completed]
   workflow_dispatch:
     inputs:
       tag:
@@ -52,6 +66,8 @@ jobs:
     name: Install and smoke the candidate
     runs-on: windows-latest
     timeout-minutes: 30
+    # A failed or cancelled signed build attached nothing worth installing.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
 
     env:
       GH_TOKEN: ${{ github.token }}
@@ -73,8 +89,12 @@ jobs:
         env:
           TAG_INPUT: ${{ inputs.tag }}
           EVENT_NAME: ${{ github.event_name }}
+          WORKFLOW_RUN_REF: ${{ github.event.workflow_run.head_branch }}
         run: |
           $tag = "$env:TAG_INPUT".Trim()
+          if ([string]::IsNullOrWhiteSpace($tag) -and $env:EVENT_NAME -eq "workflow_run") {
+            $tag = "$env:WORKFLOW_RUN_REF".Trim()
+          }
           if ([string]::IsNullOrWhiteSpace($tag)) {
             $version = (Get-Content -Raw frontend/src-tauri/tauri.conf.json | ConvertFrom-Json).version
             $tag = "v$version"
@@ -85,6 +105,9 @@ jobs:
               Write-Host "::notice::No release exists for $tag, so there is no installer to smoke on this pull request."
               "skip=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
               exit 0
+            }
+            if ($env:EVENT_NAME -eq "workflow_run") {
+              throw "The signed build ran from $tag, which has no release. Only a build dispatched from the tag leaves a tag to smoke; dispatch this workflow with the tag."
             }
             throw "No release exists for $tag."
           }

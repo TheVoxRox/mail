@@ -6,6 +6,7 @@ import process from 'node:process';
 import { resolveObjects } from './lib/git-objects.mjs';
 import {
 	SIGNED_WORKFLOW,
+	SMOKE_WORKFLOW,
 	checkManifest,
 	compareObjectIds,
 	decideNextStep,
@@ -19,6 +20,7 @@ import {
 	pickProvenance,
 	pickScan,
 	pickSignedRun,
+	pickSmokeRun,
 	readGhAnswer,
 	readProvenance,
 	shortSha
@@ -151,6 +153,7 @@ const slug = parseGitHubSlug(run('git', ['remote', 'get-url', 'origin']).stdout)
 let mainCi = null;
 let tagCi = null;
 let signedRun = null;
+let smokeRun = null;
 let release = null;
 let installer = null;
 let missingAssets = [];
@@ -181,9 +184,14 @@ if (mainLocal && tag && !slug) {
 		tagCi = tagRuns ? pickCiResult(tagRuns) : null;
 		const signedRuns = gh(
 			'the signed builds',
-			`run list --repo ${slug} --workflow ${SIGNED_WORKFLOW} --limit 30 --json headSha,headBranch,status,conclusion,url`
+			`run list --repo ${slug} --workflow ${SIGNED_WORKFLOW} --limit 30 --json headSha,headBranch,status,conclusion,updatedAt,url`
 		);
 		signedRun = signedRuns ? pickSignedRun(signedRuns, tag, tagCommit) : null;
+		const smokeRuns = gh(
+			'the candidate smoke runs',
+			`run list --repo ${slug} --workflow ${SMOKE_WORKFLOW} --limit 30 --json displayTitle,event,status,conclusion,createdAt,url`
+		);
+		smokeRun = smokeRuns ? pickSmokeRun(smokeRuns, tag, signedRun?.updatedAt ?? null) : null;
 	}
 
 	release =
@@ -270,6 +278,7 @@ const decision = decideNextStep({
 	mainCi,
 	tagCi,
 	signedRun,
+	smokeRun,
 	release,
 	missingAssets,
 	assetProblem,
@@ -346,6 +355,11 @@ if (mainLocal) {
 		}
 		if (release) {
 			out.push(`  Release: ${release.isDraft ? 'draft' : 'published'}, ${release.url}`);
+			if (tagCommit) {
+				out.push(
+					`  Candidate smoke of that build: ${smokeRun ? `${smokeRun.conclusion || smokeRun.status}, ${smokeRun.url}` : 'none'}`
+				);
+			}
 			out.push(`  Missing assets: ${missingAssets.join(', ') || 'none'}`);
 			if (provenance) {
 				out.push(
