@@ -29,6 +29,16 @@ $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 $repoLocalPath = Join-Path $repoRoot $MavenRepoLocal
 $outputRootPath = Join-Path $repoRoot $OutputRoot
 $sidecarName = "mail-$TargetTriple"
+# What the launcher's version resource says about itself. jpackage writes
+# ProductName from --name, so the image is built under the product name and the
+# launcher is renamed to $sidecarName afterwards (see "Publishing sidecar image").
+# Without these the launcher carried ProductName "mail-x86_64-pc-windows-msvc",
+# version 1.0 and vendor "Unknown" -- which is what Task Manager showed, and what
+# a code-signing service's file metadata restrictions would have to match.
+$productName = "VoxRox Mail"
+$launcherDescription = "VoxRox Mail backend"
+$vendor = "VoxRox"
+$copyright = "Copyright (c) 2026 VoxRox"
 $jpackageInputDir = Join-Path $outputRootPath "jpackage-input"
 $jpackageWorkDir = Join-Path $outputRootPath "jpackage"
 $sidecarDir = Join-Path $outputRootPath $TargetTriple
@@ -110,6 +120,14 @@ $jar = Get-ChildItem -LiteralPath (Join-Path $repoRoot "target") -Filter "mail-b
 
 if ($null -eq $jar) {
     throw "No mail-backend jar found in target."
+}
+
+# jpackage accepts only a numeric --app-version, so a prerelease suffix such as
+# -beta.1 is dropped for the version resource. The jar name carries the pom
+# version, which check:versions keeps equal to tauri.conf.json.
+$appVersion = (($jar.BaseName -replace '^mail-backend-', '') -split '-', 2)[0]
+if ($appVersion -notmatch '^\d+(\.\d+){0,2}$') {
+    throw "Cannot derive a numeric jpackage --app-version from jar '$($jar.Name)' (got '$appVersion')."
 }
 
 Invoke-Step "Preparing output directory" {
@@ -268,7 +286,11 @@ Invoke-Step "Creating Windows app-image sidecar with jpackage" {
 
     & jpackage `
         --type app-image `
-        --name $sidecarName `
+        --name $productName `
+        --app-version $appVersion `
+        --vendor $vendor `
+        --description $launcherDescription `
+        --copyright $copyright `
         --input $jpackageInputDir `
         --main-jar $jar.Name `
         --dest $jpackageWorkDir `
@@ -289,7 +311,7 @@ Invoke-Step "Creating Windows app-image sidecar with jpackage" {
     }
 }
 
-$imageDir = Join-Path $jpackageWorkDir $sidecarName
+$imageDir = Join-Path $jpackageWorkDir $productName
 if (-not (Test-Path $imageDir)) {
     throw "jpackage output image was not created: $imageDir"
 }
@@ -309,11 +331,37 @@ if ($EnableAotCache) {
 
 Invoke-Step "Publishing sidecar image" {
     Copy-Item -Path (Join-Path $imageDir "*") -Destination $sidecarDir -Recurse -Force
+    # The launcher finds its configuration as app\<its own basename>.cfg, so the
+    # exe and the cfg are renamed together. Renaming only the exe leaves a
+    # launcher that stops on an invisible jpackage error dialog instead of
+    # starting.
+    Move-Item -LiteralPath (Join-Path $sidecarDir "$productName.exe") `
+        -Destination (Join-Path $sidecarDir "$sidecarName.exe") -Force
+    Move-Item -LiteralPath (Join-Path $sidecarDir "app\$productName.cfg") `
+        -Destination (Join-Path $sidecarDir "app\$sidecarName.cfg") -Force
 }
 
 $exePath = Join-Path $sidecarDir "$sidecarName.exe"
 if (-not (Test-Path $exePath)) {
     throw "Expected sidecar executable was not created: $exePath"
+}
+
+Invoke-Step "Verifying launcher version resource" {
+    # Read back from the published file rather than trusted from the arguments:
+    # the rename above must not lose the resource, and a jpackage that ignored an
+    # option would otherwise ship the "Unknown" vendor unnoticed.
+    $info = (Get-Item -LiteralPath $exePath).VersionInfo
+    $expected = [ordered]@{
+        ProductName    = $productName
+        ProductVersion = $appVersion
+        CompanyName    = $vendor
+    }
+    foreach ($field in $expected.Keys) {
+        if ($info.$field -ne $expected[$field]) {
+            throw "Sidecar launcher $exePath has $field '$($info.$field)', expected '$($expected[$field])'."
+        }
+    }
+    Write-Host "  $productName $appVersion by $vendor."
 }
 
 Invoke-Step "Verifying OAuth client configuration in launcher" {

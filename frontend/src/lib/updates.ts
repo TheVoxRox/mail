@@ -6,6 +6,7 @@ import { RELEASES_URL } from '$lib/version.js';
 import { toErrorMessage } from '$lib/api/errors.js';
 import { stopBackendSidecar, usesBackendSidecar } from '$lib/backend/sidecar.js';
 import { updateChannel } from '$lib/stores/updateChannel.js';
+import { updateStartupCheck } from '$lib/stores/updateStartupCheck.js';
 
 const DISMISSED_UPDATE_VERSION_KEY = 'mail.update.dismissedVersion';
 const AUTO_UPDATE_CHECK_ENABLED = import.meta.env.VITE_ENABLE_AUTO_UPDATE_CHECK === '1';
@@ -80,8 +81,18 @@ function supportsNativeUpdater(): boolean {
 	return browser && isTauri() && import.meta.env.VITE_E2E_MOCK !== '1';
 }
 
+/**
+ * The build flag decides whether a build checks at all; the user's setting
+ * decides whether this installation does. Only the startup check reads the
+ * setting — the manual check in Settings → About is the user asking.
+ */
 function shouldCheckForUpdatesOnStartup(): boolean {
-	return supportsNativeUpdater() && import.meta.env.PROD && AUTO_UPDATE_CHECK_ENABLED;
+	return (
+		supportsNativeUpdater() &&
+		import.meta.env.PROD &&
+		AUTO_UPDATE_CHECK_ENABLED &&
+		get(updateStartupCheck) === 'on'
+	);
 }
 
 async function checkForUpdate(): Promise<AvailableUpdate | null> {

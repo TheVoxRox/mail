@@ -96,6 +96,8 @@ a stahuje jen podepsané instalátory (Ed25519). **Za běhu se už sama znovu
 neptá** — další dotaz proběhne až při příštím spuštění, nebo když kontrolu
 sami vyvoláte v Nastavení → O aplikaci. Při této kontrole GitHub dočasně
 vidí vaši IP adresu a dotazovanou verzi — viz [PRIVACY.md](../PRIVACY.md).
+Kontrolu při spuštění můžete v Nastavení → O aplikaci vypnout; aplikace se pak
+ke GitHubu připojí jen tehdy, když kontrolu vyvoláte sami.
 Kontrola se aktivuje, jakmile je publikovaný release. Downgrade na starší verzi
 není podporovaný běžným instalátorem; případný rollback řeší support podle
 recovery postupu.

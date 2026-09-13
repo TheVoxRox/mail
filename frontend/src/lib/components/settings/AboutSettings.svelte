@@ -13,8 +13,11 @@
 	import { Select } from '$lib/components/ui/select/index.js';
 	import { StateMessage } from '$lib/components/ui/state-message/index.js';
 	import { Surface } from '$lib/components/ui/surface/index.js';
+	import { nativeControlClass } from '$lib/components/ui/native-control/index.js';
 	import ThirdPartyNotices from '$lib/components/settings/ThirdPartyNotices.svelte';
 	import { checkForUpdateManually } from '$lib/updates.js';
+	import { setUpdateStartupCheck, updateStartupCheck } from '$lib/stores/updateStartupCheck.js';
+	import { cn } from '$lib/utils.js';
 	import {
 		setUpdateChannel,
 		UPDATE_CHANNELS,
@@ -146,6 +149,10 @@
 		// refer to the previous channel once the preference changes.
 		updateCheckStatus = null;
 	}
+
+	function handleStartupCheckChange(event: Event) {
+		setUpdateStartupCheck((event.target as HTMLInputElement).checked);
+	}
 </script>
 
 <div class="max-w-2xl space-y-4">
@@ -169,7 +176,7 @@
 			</dd>
 		</dl>
 
-		<div class="border-t border-border pt-3">
+		<div class="space-y-3 border-t border-border pt-3">
 			<Field
 				for="update-channel-select"
 				label={$_('settings.about.versions.channel.label')}
@@ -189,6 +196,24 @@
 					</Select>
 				{/snippet}
 			</Field>
+
+			<div class="space-y-1">
+				<label class="flex items-start gap-3 text-sm">
+					<input
+						type="checkbox"
+						checked={$updateStartupCheck === 'on'}
+						onchange={handleStartupCheckChange}
+						aria-describedby="update-startup-check-hint"
+						class={cn('mt-0.5', nativeControlClass)}
+					/>
+					<span class="min-w-0 text-foreground"
+						>{$_('settings.about.versions.startupCheck.label')}</span
+					>
+				</label>
+				<p id="update-startup-check-hint" class="text-xs text-muted-foreground">
+					{$_('settings.about.versions.startupCheck.hint')}
+				</p>
+			</div>
 		</div>
 
 		<div class="flex flex-wrap items-center gap-2 border-t border-border pt-3">

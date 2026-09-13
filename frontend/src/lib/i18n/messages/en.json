@@ -702,6 +702,10 @@
 						"beta": "Beta"
 					}
 				},
+				"startupCheck": {
+					"label": "Check for updates when the application starts",
+					"hint": "When this is off, the application contacts GitHub only when you select Check for updates."
+				},
 				"update": {
 					"unsupported": "Update checks are available in the desktop app.",
 					"none": "You are using the latest version.",
