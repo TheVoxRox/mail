@@ -71,7 +71,7 @@ Notes:
 
 - [ ] Install the release candidate through the Windows NSIS installer `voxrox-mail-<version>-windows-x64-setup.exe` onto a clean profile with no existing `%LOCALAPPDATA%\VoxRox\Mail`.
 - [ ] Verify the default installation path (per-user, `installMode: currentUser`): binaries in `%LOCALAPPDATA%\Programs\VoxRox\Mail`, separate from the data in `%LOCALAPPDATA%\VoxRox\Mail`.
-- [ ] The installation folder `%LOCALAPPDATA%\Programs\VoxRox\Mail` contains the bundled sidecar `mail-x86_64-pc-windows-msvc.exe`, `app/` and `runtime/`.
+- [ ] The installation folder `%LOCALAPPDATA%\Programs\VoxRox\Mail` contains the bundled sidecar launcher `mail.exe`, `app/` and `runtime/`. The target triple in `mail-x86_64-pc-windows-msvc.exe` belongs to the build output only: Tauri strips it when it bundles `externalBin`, which the first Release Candidate Smoke run confirmed on the installed `v0.1.0` candidate.
 - [ ] Start the client.
 - [ ] The backend sidecar auto-starts.
 - [ ] `${app.data-dir}/crypto.bin` is created.
