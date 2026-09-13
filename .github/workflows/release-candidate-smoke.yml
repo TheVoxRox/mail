@@ -29,7 +29,13 @@ on:
     paths:
       - .github/workflows/release-candidate-smoke.yml
       - frontend/scripts/installed-app-smoke.mjs
+      # Everything the smoke imports, so a change to a shared lib is proven
+      # on a runner too. Keep in step with the imports at the top of the script.
       - frontend/scripts/lib/installed-app-smoke.mjs
+      - frontend/scripts/lib/data-dirs.mjs
+      - frontend/scripts/lib/process-tree.mjs
+      - frontend/scripts/lib/run.mjs
+      - frontend/scripts/lib/zip-entry.mjs
 
 permissions:
   # Draft releases are listed only for tokens with push access; nothing here

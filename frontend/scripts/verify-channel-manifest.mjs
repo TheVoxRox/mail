@@ -6,7 +6,7 @@ import {
 	releaseAssetUrl,
 	releaseProblems
 } from './lib/channel-manifest.mjs';
-import { checkManifest, pickInstaller } from './lib/release-status.mjs';
+import { checkManifest, pickInstaller, readGhAnswer } from './lib/release-status.mjs';
 import { wait } from './lib/run.mjs';
 
 /*
@@ -59,15 +59,36 @@ function fail(message) {
 	process.exit(1);
 }
 
+/** Runs gh without throwing; `stderr` carries the reason when `ok` is false. */
+function gh(args) {
+	try {
+		const stdout = execFileSync('gh', args, {
+			encoding: 'utf8',
+			stdio: ['ignore', 'pipe', 'pipe']
+		});
+		return { ok: true, stdout, stderr: '' };
+	} catch (error) {
+		return { ok: false, stdout: '', stderr: String(error.stderr || error.message).trim() };
+	}
+}
+
 const version = tag.replace(/^v/, '');
-const channel = channelFor(tag);
-const release = JSON.parse(
-	execFileSync(
-		'gh',
-		['release', 'view', tag, '--repo', repo, '--json', 'isDraft,isPrerelease,assets'],
-		{ encoding: 'utf8' }
-	)
+let channel;
+try {
+	channel = channelFor(tag);
+} catch {
+	fail(`${tag} is not a version tag`);
+}
+
+// A failed gh call is named rather than thrown: a typo in the tag and a rate
+// limit both used to end in a stack trace that said neither.
+const answer = readGhAnswer(
+	gh(['release', 'view', tag, '--repo', repo, '--json', 'isDraft,isPrerelease,assets']),
+	/release not found/i
 );
+if (answer.state === 'absent') fail(`no release exists for ${tag}`);
+if (answer.state === 'unreadable') fail(`GitHub could not be read: ${answer.reason}`);
+const release = answer.data;
 
 const upfront = releaseProblems(release, tag);
 if (upfront.length > 0) fail(upfront.join('; '));
