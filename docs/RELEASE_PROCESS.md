@@ -24,7 +24,9 @@ Read [OPERATIONS.md](../backend/OPERATIONS.md) "The release model:
 everything goes through beta" first if you have not: **every release goes out as a beta and is
 promoted to stable afterwards**, so most runs of this document produce a
 prerelease-suffixed version. The steps are identical either way; the tag shape
-is what differs, and the workflow derives the prerelease flag from it.
+is what differs, and the workflow derives the prerelease flag from it. Which
+checklist sections a run needs can differ too — see "What a release runs"
+below.
 
 The one recorded exception is the **first ship, `v0.1.0`, which goes straight to
 stable** — the closed beta is the whole audience there, and a prerelease-only
@@ -39,6 +41,36 @@ ref and commit its installer was built from, and prints the next step of this
 document with the commands for it. It changes nothing — no fetch, no tag, no workflow run — so it is safe to run
 at any point, and it answers "where was I" from the sources themselves rather
 than from a list someone kept by hand.
+
+## What a release runs
+
+From `0.2.0` every change ships twice — as a beta, then as its promotion to
+stable — and a promotion that re-ran the whole checklist would repeat half a
+day of manual testing on code the beta audience has already been using. So a
+release takes one of two shapes:
+
+- **A beta, and the first ship** (`v0.1.0`, the recorded exception to
+  beta-first): every section of RELEASE_CHECKLIST, §0 to §9.
+- **A promotion to stable** — `vX.Y.Z` shipping the code of a
+  `vX.Y.Z-beta.N` whose beta cycle ended with no open blocker. The manual
+  sections — §3 beyond what Release Candidate Smoke covers, §4–§7 and §8.1 —
+  **carry from the beta's sheet**, citing it, because they would re-test the
+  same code. What runs again is what a new build and the stable channel can
+  break: §0–§2 (the version change moves the object ids), the signed build and
+  Release Candidate Smoke, the update smoke vN-1 → vN in §3a from the previous
+  stable, §8a, §8b, §9, and Release Channel Check after publishing.
+
+The promotion shape applies only when the code did not change, and that is
+checked, not judged. Before tagging, compare the beta tag with the candidate:
+
+```bash
+git diff --name-only vX.Y.Z-beta.N main
+```
+
+It may list only the files `npm run bump:version` changes, `CHANGELOG.md`, and
+Markdown documentation. Anything else — a fix merged during the beta, a
+dependency bump — means the stable build is not the build the beta tested, and
+the release runs every section.
 
 ## 1. Version
 

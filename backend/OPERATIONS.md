@@ -367,7 +367,7 @@ Two properties follow, and the rest of this section rests on them:
 
 ### Promotion to stable
 
-Ship a full version (no suffix) through the ordinary release process. Publishing triggers `beta-channel.yml` here too, so beta users converge onto the same stable build (SemVer: `0.2.0` > `0.2.0-beta.1`) and the beta channel never lags behind stable.
+Ship a full version (no suffix) through the ordinary release process, in its promotion shape: [RELEASE_PROCESS.md](../docs/RELEASE_PROCESS.md) "What a release runs" — the machine half, the update smoke and the channel check run again, and the manual sections carry from the beta when the code did not change. Publishing triggers `beta-channel.yml` here too, so beta users converge onto the same stable build (SemVer: `0.2.0` > `0.2.0-beta.1`) and the beta channel never lags behind stable.
 
 ### HALT — withdrawing a faulty beta
 

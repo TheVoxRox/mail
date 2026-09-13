@@ -27,6 +27,8 @@ the appendix. A tick with no candidate attached cannot be read by the next
 release, so the body no longer holds one. The dated `Notes:` blocks stay: they
 carry their own date and read as history, which is what they are.
 
+**Not every release runs every section.** A promotion of a finished beta to stable carries the manual sections from the beta's sheet when the code did not change; [RELEASE_PROCESS.md](../docs/RELEASE_PROCESS.md) "What a release runs" says which sections, and how to check that the shape applies.
+
 ## 0. Version
 
 - [ ] Change the version **only** through `cd frontend ; npm run bump:version <X.Y.Z>`. It lands at once on every file that carries the version — `frontend/package.json`, `frontend/src-tauri/tauri.conf.json`, `frontend/src/lib/version.ts`, `frontend/src-tauri/Cargo.toml` and `backend/pom.xml` — and editing any of them by hand puts the rest out of step. The gate `npm run check:versions` (part of `npm run check`) catches the divergence, but only after it exists; the script will not allow it. The argument is validated against `SEMVER_RE`, so a typo does not get through.
@@ -151,55 +153,46 @@ Smoke flow:
 ## 5. Mail workflows
 
 The manual smoke covers what the automated suites cannot: a real IMAP/SMTP
-server, real folders at the provider, a real recipient and a screen reader.
-Anything that runs against the MSW mocks has its own e2e — what stands here is
-what has something riding on the real side.
+server, real folders at the provider, a real recipient, the desktop shell and a
+screen reader. **What automated tests already prove is listed at the end of
+this section instead of being repeated by hand**, each entry naming the test
+that proves it, so `check:refs` fails if a named test file disappears. Trimmed
+2026-09-13: the hand-run list had grown to cover what tests run on every push,
+and the time went into re-proving those rather than into what only a person at
+a real account can see. Where the coverage turned out thinner than it looked,
+the item stayed here.
 
-### Sync and reading
+### By hand — a real provider, a real recipient, the shell or a screen reader
 
 - [ ] A full sync of 5000+ messages against a real IMAP account.
-- [ ] Open the detail of a message with HTML content.
-- [ ] Open a message with an attachment.
-- [ ] Open a message with an embedded (cid) image — the image renders.
-- [ ] A message with remote images: blocked by default, "Load images" loads them once, "Always from this sender" also on every subsequent open.
-- [ ] Conversation grouping: turn it on, expand a thread, open a message from it, turn it off. A thread holds messages across folders — a reply in Sent hangs with the original in Inbox.
-- [ ] An FTS5 search finds the expected hit.
-- [ ] An FTS5 search returns an empty result for a non-existent query.
-
-### Composing and sending
-
-- [ ] Send a new email.
+- [ ] Open a message with an attachment and save the attachment through the desktop save dialog.
+- [ ] Send a new email with Markdown in the editor (`**bold**`, `# heading`, `- bullet`) to a real recipient: the received message carries the formatting and, at the same time, exactly what was typed.
 - [ ] Send an email with a 30 MB attachment.
-- [ ] Save a draft.
-- [ ] Send a saved draft.
-- [ ] Reply.
-- [ ] Reply all.
-- [ ] Forward a message with an attachment — the attachment reaches the recipient.
-- [ ] Markdown in the editor (`**bold**`, `# heading`, `- bullet`): the received message carries the formatting and, at the same time, exactly what was typed.
-- [ ] The account signature is inserted into a new message both automatically and through the manual button.
-- [ ] The address typeahead offers entries from the address book and from correspondence history.
-
-### Organising mail
-
-- [ ] Move to Trash.
-- [ ] Move to a custom folder.
-- [ ] Move to the Spam folder and back — verify at the provider, not just in the UI.
-- [ ] Toggle `seen`.
-- [ ] Toggle `flagged`.
-- [ ] Bulk actions over several selected messages: read / unread, star, move, delete.
-
-### Contacts
-
-- [ ] Create a contact, assign a label, find it by searching in contacts.
-- [ ] "Add to contacts" from the sender row of an open message.
-- [ ] Merge duplicates and bulk delete.
-- [ ] Export vCard and import the same file back — no duplicates are created.
-
-### Controls and the application
-
-- [ ] Command palette (Ctrl+K): run a command, and Escape returns focus to where it was opened from.
+- [ ] Save a draft, then send it — the Drafts folder at the provider no longer holds it.
+- [ ] Reply all, and forward a message with an attachment — the recipient gets the attachment and sees the reply in the same thread.
+- [ ] Move a message to Trash, to a custom folder, and to Spam and back — verify each at the provider, not just in the UI.
+- [ ] Search in contacts finds a contact by name and by e-mail. Only a unit test over a mocked repository covers it.
+- [ ] Export vCard through the desktop save dialog and import the same file back — no duplicates are created. The e2e suite runs in a browser, without that dialog.
+- [ ] Command palette (Ctrl+K) in the shell: it opens, runs a command, and Escape returns focus to where it was opened from — the shortcut reaches the app rather than the webview.
 - [ ] Settings → Appearance → Window close: "Keep running in the notification area" — the close button hides the window, and the notification-area icon brings the app back and offers to quit. The default is Quit the application.
-- [ ] Settings → About: switch the update channel between Stable and Beta.
+- [ ] Settings → About: switch the update channel between Stable and Beta. Only the channel mapping in `updates.ts` has a unit test.
+- [ ] A screen-reader pass (NVDA) over the message list, an open message and compose — the rows read as grid cells, opening a message puts the reading cursor in its body, and sending is announced.
+
+### Covered by automated tests — not repeated by hand
+
+- HTML content, declared charsets, and a cid image rendered inline: [MailContentGreenMailIT](src/test/java/org/voxrox/mailbackend/feature/mail/service/MailContentGreenMailIT.java), [sanitizer.functional.e2e.ts](../frontend/src/routes/mail/sanitizer.functional.e2e.ts).
+- Remote images blocked by default, loaded once, trusted per sender: [remote-images.functional.e2e.ts](../frontend/src/routes/mail/remote-images.functional.e2e.ts), [RemoteImageAllowlistServiceTest](src/test/java/org/voxrox/mailbackend/feature/mail/service/RemoteImageAllowlistServiceTest.java).
+- Conversation grouping, expanding a thread, members from other folders: [grouping.functional.e2e.ts](../frontend/src/routes/mail/grouping.functional.e2e.ts), [ThreadingServiceTest](src/test/java/org/voxrox/mailbackend/feature/mail/service/ThreadingServiceTest.java).
+- FTS5 search over a real SQLite index — content stays searchable, a replaced term stops matching: [MessageRepositoryIT](src/test/java/org/voxrox/mailbackend/feature/mail/repository/MessageRepositoryIT.java); the results UI in [search.functional.e2e.ts](../frontend/src/routes/search.functional.e2e.ts).
+- Reply and forward prefill, and drafts saved, replaced and reopened over IMAP: [compose.functional.e2e.ts](../frontend/src/routes/compose.functional.e2e.ts), [DraftLifecycleGreenMailIT](src/test/java/org/voxrox/mailbackend/feature/mail/service/DraftLifecycleGreenMailIT.java).
+- Markdown rendered into the HTML alternative: [MarkdownBodyRendererTest](src/test/java/org/voxrox/mailbackend/feature/mail/service/MarkdownBodyRendererTest.java).
+- The signature, inserted automatically and through the button: [signature.functional.e2e.ts](../frontend/src/routes/signature.functional.e2e.ts).
+- Address typeahead from the address book and from correspondence history: [compose.functional.e2e.ts](../frontend/src/routes/compose.functional.e2e.ts), [CorrespondentServiceTest](src/test/java/org/voxrox/mailbackend/feature/contact/service/CorrespondentServiceTest.java).
+- `seen` and `flagged` on one message, and flag changes synced over IMAP: [toolbar.functional.e2e.ts](../frontend/src/routes/mail/toolbar.functional.e2e.ts), [MailSyncGreenMailIT](src/test/java/org/voxrox/mailbackend/feature/mail/service/MailSyncGreenMailIT.java).
+- Bulk read, move and delete, and permanent deletion in Trash: [toolbar.functional.e2e.ts](../frontend/src/routes/mail/toolbar.functional.e2e.ts), [trash-delete.functional.e2e.ts](../frontend/src/routes/mail/trash-delete.functional.e2e.ts).
+- Creating a contact, labels, merge, bulk delete and vCard import: [contacts.functional.e2e.ts](../frontend/src/routes/contacts.functional.e2e.ts).
+- "Add to contacts" from the sender row of an open message: [sender-contact.functional.e2e.ts](../frontend/src/routes/mail/sender-contact.functional.e2e.ts).
+- Command palette focus return, in the browser build: [palette.functional.e2e.ts](../frontend/src/routes/palette.functional.e2e.ts).
 
 ## 6. Sidecar lifecycle
 
