@@ -17,6 +17,11 @@
 		// only from a .ps1 (backend/scripts/ has two that call into here) would be
 		// reported as unused and belongs on this list too, not deleted.
 		"scripts/beta-channel-guard.mjs",
+		// Same reason: release-candidate-smoke.yml runs this from a workflow step
+		// that knip does not resolve to a path.
+		"scripts/installed-app-smoke.mjs",
+		// And release-channel-check.yml runs this one.
+		"scripts/verify-channel-manifest.mjs",
 		"playwright.existing-server.config.ts"
 	],
 	"project": [

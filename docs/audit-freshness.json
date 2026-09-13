@@ -69,6 +69,17 @@
       }
     ]
   },
+  "docs/UPDATER_AUDIT.md": {
+    "reviewedTrees": {
+      ".github/workflows/windows-signed-release.yml": "3ebbe9565b03517177ab68fe129f48786fea9f7d"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-09-13",
+        "note": "Stricter fail-closed condition, nothing loosened. The only change under these paths is in the `Resolve release tag` step of windows-signed-release.yml: after the existing tag-versus-tauri.conf.json comparison, it reads `refs/tags/<tag>` and its peeled `^{}` from origin with `git ls-remote` and throws unless the tag exists and its commit equals `GITHUB_SHA`. Read against the claims, one by one. §2 (fail-closed build and sign pipeline): the release config, the `requireEnv` pubkey, the endpoint check, the signing-secret validation, the signing-pair gate and the manifest generator are all in steps this diff does not enter; the new condition runs before any of them and can only stop a run earlier, never let one through that the pipeline stopped before. §6 U-1 (no `${{ }}` inside any `run:` block): the added lines read `$tag`, which already arrived through `env:` as `RELEASE_TAG_INPUT` / `REF_NAME`, and `$env:GITHUB_SHA`, a runner-provided variable rather than an expression; a grep of the file finds `${{` only in `env:`, `concurrency`, `with:` and comments. Permissions and secrets: no new permission, no new secret, no new action; `git ls-remote` uses the read of the token actions/checkout already persisted. The audit makes no claim about branch runs with `release-tag` — the input is named only in the U-1 history — so no statement becomes stale by the check refusing them. The change closes the draft-before-tag trap recorded in todo.md, which is about publishing a tree nobody built, not about the trust chain this audit verifies. Verdict stays PASS."
+      }
+    ]
+  },
   "docs/OAUTH_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/feature/auth": "230e8138b5c9f72baa71ab2795d009e26d300211",

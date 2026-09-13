@@ -130,6 +130,9 @@ The first step compares the tag against `version` in
 `frontend/src-tauri/tauri.conf.json` and fails the run on a mismatch, because
 `latest.json` builds its download URL from the tag while taking its version
 field from the config — a mismatch ships a manifest whose installer URL 404s.
+The same step fails when the tag does not exist on origin or points at another
+commit than the one the run builds, which closes the draft-before-tag trap from
+step 3 by machine rather than by discipline.
 
 What the run produces, uploads and attests is described in
 [WINDOWS_SIGNING.md](../frontend/docs/WINDOWS_SIGNING.md) "Release artifacts".
@@ -151,12 +154,17 @@ RELEASE_CHECKLIST §3a refuses that build for a concrete reason: a bare
 
 This is a step of its own rather than a precondition of step 6 because the two
 documents interleave here and neither of them said so. It is also the longest
-stretch of the release by wall clock, and the only part that cannot be
-compressed.
+stretch of the release by wall clock.
 
-- RELEASE_CHECKLIST §3–§7 on the installed candidate, then §8.1 in the same
-  sitting.
-- §8.2 overnight; §8a and §9 the following morning.
+- Run **Release Candidate Smoke** (Actions, from `main`, with the tag). It
+  installs the installer attached to the draft on a clean runner and covers the
+  machine half of §3, §3a and §6 — the note at the top of RELEASE_CHECKLIST §3
+  lists what. A red run stops the release here: nothing manual is worth doing
+  on an installer that fails it.
+- RELEASE_CHECKLIST §3–§7 on the installed candidate for what the smoke does
+  not cover, then §8.1 in the same sitting.
+- §8a and §9 afterwards. §8.2 is no longer an overnight gate; RELEASE_CHECKLIST
+  §8.2 records what replaces it.
 - §9 is where the blockers, the known issues and the signature are recorded.
   Step 5 below is written against it, and the provisional list from step 2 is
   reconciled against it in step 6.
@@ -266,9 +274,13 @@ Publish from the GitHub release page. From that moment:
   not noise: OPERATIONS "The release model" explains why, and `force=true` is
   reserved for the HALT path.
 
-Post-publish, confirm the manifest is actually reachable at the channel URL —
-this is the one part of the chain that a green build does not prove, since the
-workflow uploads the asset but never fetches it back through the redirect.
+Post-publish, **Release Channel Check** confirms the manifest is reachable at
+the channel URL. It runs on the published event, fetches `latest.json` through
+the stable redirect or the beta release, and checks that it names this version,
+this installer and its signature. It is the one part of the chain that a green
+build does not prove, since the signed workflow uploads the asset but never
+fetches it back through the redirect. If a publish produced no run of it,
+dispatch it with the tag.
 
 ## 8. What the first publish turns on permanently
 

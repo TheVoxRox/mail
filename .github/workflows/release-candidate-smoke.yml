@@ -1,0 +1,130 @@
+name: Release Candidate Smoke
+
+# Installs the signed installer attached to a release — draft or published —
+# on a clean windows-latest profile and runs
+# frontend/scripts/installed-app-smoke.mjs against it: RELEASE_CHECKLIST §3,
+# part of §3a and the orphan half of §6, on the exact file a user downloads.
+# RELEASE_PROCESS step 4a runs it after the signed build and before the manual
+# sections.
+#
+# It runs from main with the tag as an input, not from the tag. A workflow run
+# from a tag uses the workflow file at the tagged commit, so a smoke started
+# that way would not exist for any candidate tagged before the smoke did, and a
+# fix to the smoke would need a re-tag to take effect. The installer, not the
+# checkout, is what is under test here.
+#
+# It also runs on a pull request that changes the smoke, against the release
+# for the version on that branch, so a change to it is proven on a runner
+# before it merges. With no such release there is nothing to install, and the
+# pull request run says so and stops.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag whose installer to install and smoke (draft or published)."
+        type: string
+        required: true
+  pull_request:
+    paths:
+      - .github/workflows/release-candidate-smoke.yml
+      - frontend/scripts/installed-app-smoke.mjs
+      - frontend/scripts/lib/installed-app-smoke.mjs
+
+permissions:
+  # Draft releases are listed only for tokens with push access; nothing here
+  # writes. attestations: read is what `gh attestation verify` reads.
+  contents: write
+  attestations: read
+
+concurrency:
+  group: release-candidate-smoke-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Install and smoke the candidate
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 26
+
+      - name: Resolve release tag
+        id: tag
+        shell: pwsh
+        # Read through env:, never interpolated into the script — U-1 in
+        # docs/UPDATER_AUDIT.md.
+        env:
+          TAG_INPUT: ${{ inputs.tag }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          $tag = "$env:TAG_INPUT".Trim()
+          if ([string]::IsNullOrWhiteSpace($tag)) {
+            $version = (Get-Content -Raw frontend/src-tauri/tauri.conf.json | ConvertFrom-Json).version
+            $tag = "v$version"
+          }
+          gh release view $tag --repo $env:GITHUB_REPOSITORY --json tagName | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            if ($env:EVENT_NAME -eq "pull_request") {
+              Write-Host "::notice::No release exists for $tag, so there is no installer to smoke on this pull request."
+              "skip=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+              exit 0
+            }
+            throw "No release exists for $tag."
+          }
+          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "Smoking the installer attached to $tag"
+
+      - name: Download and verify the installer
+        if: steps.tag.outputs.skip != 'true'
+        shell: pwsh
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          New-Item -ItemType Directory -Force -Path candidate | Out-Null
+          gh release download $env:TAG --repo $env:GITHUB_REPOSITORY --pattern "*-setup.exe" --pattern "*-setup.exe.sha256" --dir candidate
+          if ($LASTEXITCODE -ne 0) { throw "Downloading the installer from $env:TAG failed." }
+
+          $installers = @(Get-ChildItem -Path candidate -Filter "*-setup.exe")
+          if ($installers.Count -ne 1) { throw "Expected one installer on $env:TAG, found $($installers.Count)." }
+          $installer = $installers[0]
+
+          $expected = ((Get-Content -Raw "$($installer.FullName).sha256").Trim() -split '\s+')[0].ToLower()
+          $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $installer.FullName).Hash.ToLower()
+          if ($expected -ne $actual) {
+            throw "SHA-256 of $($installer.Name) is $actual; the attached .sha256 says $expected."
+          }
+
+          # The digest check above proves the download matches the file next to
+          # it; this proves the file was built by the signed workflow from this
+          # tag, which a replaced pair of assets could not fake.
+          gh attestation verify $installer.FullName --repo $env:GITHUB_REPOSITORY --signer-workflow "$env:GITHUB_REPOSITORY/.github/workflows/windows-signed-release.yml" --source-ref "refs/tags/$env:TAG"
+          if ($LASTEXITCODE -ne 0) { throw "Build provenance of $($installer.Name) does not verify for refs/tags/$env:TAG." }
+
+          "INSTALLER=$($installer.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Install and smoke
+        if: steps.tag.outputs.skip != 'true'
+        working-directory: frontend
+        shell: pwsh
+        run: node scripts/installed-app-smoke.mjs "--installer=$env:INSTALLER"
+
+      - name: Upload smoke report and application logs
+        if: always() && steps.tag.outputs.skip != 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-candidate-smoke-${{ github.run_number }}
+          path: |
+            frontend/target/installed-app-smoke-*.json
+            frontend/target/installed-app-smoke-*-logs/**
+          if-no-files-found: warn
