@@ -298,6 +298,47 @@ A per-candidate worksheet for the manual smoke (§3–§8 above). §1 (backend b
 
 **The candidate is the tag, not a commit on `main`.** Evidence recorded against a branch commit goes stale the moment anything merges, which is what happened to the sheet below: §0/§1/§2 were taken on `9c51d9d` and `main` moved past it the same day. A tag is immutable, so once `v<X.Y.Z>` exists nothing that lands afterwards can invalidate a tick and the question does not come back — record the tag in `Candidate ref`, and treat a commit SHA there as provisional, valid only until the tag is cut. One window cannot be closed this way, because the process needs it: §0/§1/§2 run before the version bump and the changelog cut, and those are what gets tagged. Keep that window to minutes rather than days — it is the only stretch in which a merge can cost a re-run, and §1 is the expensive half to repeat (§2 is what CI re-takes on every push anyway). **Deliberately not written here: a rule that a docs-only commit does not invalidate §1.** It cannot be checked by being read, it has already been applied once by hand — the 2026-06-26 note in §1 above, "code unchanged since 3210e1a — only docs commits since" — and a claim nothing recomputes is the kind this repo deletes rather than maintains. If the gate ever has to run against a moving `main`, compute it instead: compare the git object ids of the paths §1 rests on, the way `check:audits` already does for the audits. `npm run release:status` (from `frontend/`) does that for the newest sheet on `main`, against both `main` and the tag; once the tag, the signed build and the draft are in order, it names the first section still open.
 
+### Candidate 2026-09-13 — see the object ids below
+
+```text
+Release:         VoxRox Mail 0.1.0  (identifier org.voxrox.mail)
+Sign-off date:   ____________
+Candidate ref:   the commit this sheet lands in — provisional; replaced by tag v0.1.0 once cut
+Backend commit:  same
+Frontend commit: same  (the same monorepo)
+Platform:        Windows 11 Pro x64, machine STOLAK
+Tester:          machine half automated; §3–§9 are the maintainer's
+Build origin:    local and unsigned — the signed build comes from the tag, per RELEASE_PROCESS steps 3–4
+```
+
+**The first sheet after the release was restarted on 2026-09-12.** The draft and the tag `v0.1.0` were deleted: the draft's assets came from `db11430`, whose sidecar carries the trash defect #467 fixes, so nothing on GitHub describes this candidate any more and the signed build starts from nothing. The sheet names object ids for the reason the one below gives — it lands in the same commit as the changelog cut, so the SHA it would name does not exist while it is being written. The tree, on the seven paths §1 and §2 rest on:
+
+| path                         | object id      |
+| ---------------------------- | -------------- |
+| `backend/src`                | `6eb6fc4973c5` |
+| `backend/pom.xml`            | `dbef3f26bcc3` |
+| `backend/scripts`            | `ccfeee6ca824` |
+| `frontend/src`               | `9b3a3ef9972c` |
+| `frontend/src-tauri`         | `47e446b51110` |
+| `frontend/package.json`      | `cc8ff9b8c027` |
+| `frontend/package-lock.json` | `ae0d216cfd15` |
+
+Recompute them before ticking anything below; `npm run release:status` does it against `main` and against the tag.
+
+- [x] **§0 Version** — `npm run check:versions` OK, `0.1.0` on all five files. No bump needed; they already carried it.
+- [x] **§1 Backend build** — **carried forward from the 2026-09-11 sheet, computed rather than assumed.** `backend/src`, `backend/pom.xml` and `backend/scripts` carry the object ids that sheet's run was taken on, so its `clean verify`, the sidecar packaging and `tauri:smoke:sidecar` on that exact binary describe this tree too. The licence inventories carry the same way: the last `regen:licenses:all` (#457, 2026-09-10) ran before that build, and nothing it reads has moved since — `backend/pom.xml`, `frontend/package-lock.json` and `frontend/src-tauri` (which holds `Cargo.lock` and the bundled `NOTICE.txt`) are unchanged, and `frontend/package.json` moved by one `scripts` entry, not a dependency. **Still open in §1**, as on every sheet: the clean-profile run without a system-installed JDK. The `a2caa27` sheet closed it on a second machine, but on the build of `db11430`, so it does not carry.
+- [x] **§2 Frontend automation** — **re-taken**, because `frontend/package.json` moved from `f2a33dc2009c` to `cc8ff9b8c027` when #472 added the `release:status` entry. That a `scripts` line cannot change the build is a judgement, and the appendix accepts the computed form or a re-run, not a judgement — so a re-run. `generate:api`, `check:i18n`, `build`, `test:e2e`, `test:functional:stable` and `test:a11y` all exited 0: functional 277 passed, a11y 65 passed, no flakes reported, and `generate:api` left the tree unchanged. It carries into this sheet only because §1 does, since it reads the backend's OpenAPI snapshot. Port 4173 was checked free beforehand, so each run started its own preview instead of recycling a stale one.
+- [ ] **§3 Fresh install** — on the signed build from the new tag. Before it, run the WebView2 install-date check the `a2caa27` sheet describes, so the no-window finding gets its evidence this time.
+- [ ] **§3a Installer behaviour** — including reading `latest.json` from the draft by hand. Still not covered by anything: reinstalling over an existing installation, and the downgrade block.
+- [ ] **§4 Account flows** — the blocking item of the gate: it is what proves the production `client-id` is baked into the launcher `.cfg`.
+- [ ] **§5 Mail workflows** — the trash case stays a named item: a folder holding two IMAP copies of one Message-ID must persist both and report a non-null `lastSyncAt`.
+- [ ] **§6 Sidecar lifecycle** — on the new binary.
+- [ ] **§7 Diagnostics** — including the dump's `processStartedAt`, which measures from JVM start since #469; the privacy half is checked by reading the dump, not by producing it.
+- [ ] **§8 Long run** — §8.1 and §8.2 both open; §8.2 has never been run.
+- [ ] **§9** — release decision.
+
+**Why the 2026-09-11 sheet below is superseded.** `frontend/package.json` moved in #472, so its §2 — itself carried from `a2caa27` by object id — stopped describing the tree. Its §1 still does, which is why it carries above. Its §3–§8 were never taken: the release was restarted before a build of that candidate existed.
+
 ### Candidate 2026-09-11 — see the object ids below
 
 ```text

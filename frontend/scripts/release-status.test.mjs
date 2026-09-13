@@ -473,6 +473,37 @@ describe('decideNextStep', () => {
 		expect(decision.commands).toEqual([]);
 	});
 
+	it('names the section a moved path belongs to, rather than §1 whatever moved', () => {
+		const moved = (...paths) => ({
+			state: 'differs',
+			differing: paths.map((p) => ({ path: p, sheet: 'f2a33dc2009c', actual: 'cc8ff9b8c027' }))
+		});
+		const decide = (comparison) => decideNextStep(facts({ ...untagged, sheetVsMain: comparison }));
+		const frontend = decide(moved('frontend/package.json'));
+		const backend = decide(moved('backend/src'));
+		const both = decide(moved('backend/pom.xml', 'frontend/src'));
+		const neither = decide(moved('docs/RELEASE_PROCESS.md'));
+
+		expect(frontend.summary).toContain('Re-take §2 on main');
+		expect(frontend.summary).not.toContain('§1');
+		expect(frontend.notes.join(' ')).not.toContain('generate:api');
+		expect(backend.summary).toContain('Re-take §1 on main');
+		expect(backend.notes.join(' ')).toContain('generate:api');
+		expect(both.summary).toContain('Re-take §1 and §2 on main');
+		expect(neither.summary).toContain('Re-take §1 and §2 on main');
+	});
+
+	it('judges what moved on main, not on the tag, when the sheet matches neither', () => {
+		const frontendOnly = {
+			state: 'differs',
+			differing: [{ path: 'frontend/package.json', sheet: 'f2a33dc2009c', actual: 'cc8ff9b8c027' }]
+		};
+		const decision = decideNextStep(facts({ sheetVsTag: stale, sheetVsMain: frontendOnly }));
+
+		expect(decision.summary).toContain('matches neither');
+		expect(decision.summary).toContain('Re-take §2 on main');
+	});
+
 	it('suggests no tag and no re-tag on a main whose CI is not green', () => {
 		const retag = decideNextStep(facts({ sheetVsTag: stale, mainCi: 'failure' }));
 		const tag = decideNextStep(facts({ ...untagged, mainCi: null }));
