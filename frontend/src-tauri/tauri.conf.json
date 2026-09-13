@@ -38,6 +38,8 @@
 	},
 	"bundle": {
 		"active": true,
+		"publisher": "VoxRox",
+		"copyright": "Copyright (c) 2026 VoxRox",
 		"targets": "nsis",
 		"externalBin": ["binaries/mail"],
 		"resources": {

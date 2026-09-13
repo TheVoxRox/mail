@@ -702,6 +702,10 @@
 						"beta": "Beta"
 					}
 				},
+				"startupCheck": {
+					"label": "Kontrolovat aktualizace při spuštění aplikace",
+					"hint": "Když je tato volba vypnutá, aplikace se ke GitHubu připojí jen tehdy, když zvolíte Zkontrolovat aktualizace."
+				},
 				"update": {
 					"unsupported": "Kontrola aktualizací je dostupná v desktopové aplikaci.",
 					"none": "Používáte aktuální verzi.",

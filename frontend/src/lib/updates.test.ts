@@ -171,6 +171,30 @@ describe('checkForUpdateAndPrompt (startup, background)', () => {
 		// top of the failure dialog that caused the reboot.
 		expect(invokeMock.mock.calls.filter(([name]) => name === 'check_for_update')).toHaveLength(1);
 	});
+
+	it('sends no request when the user turned the startup check off', async () => {
+		window.localStorage.setItem('mail.updateStartupCheck', 'off');
+		invokeMock.mockResolvedValue({ version: '9.9.9', currentVersion: '0.1.0' });
+
+		const mod = await freshModule();
+		await mod.checkForUpdateAndPrompt();
+
+		// Off means no request at all, not a request whose answer is hidden:
+		// PRIVACY.md promises that the application then contacts GitHub only when
+		// the user asks it to.
+		expect(invokeMock).not.toHaveBeenCalled();
+		expect(get(mod.updatePromptState)).toEqual({ status: 'hidden' });
+	});
+
+	it('still answers a manual check with the startup check off', async () => {
+		window.localStorage.setItem('mail.updateStartupCheck', 'off');
+		invokeMock.mockResolvedValue({ version: '9.9.9', currentVersion: '0.1.0' });
+
+		const mod = await freshModule();
+		const result = await mod.checkForUpdateManually();
+
+		expect(result.status).toBe('available');
+	});
 });
 
 describe('checkForUpdateManually (user-initiated)', () => {

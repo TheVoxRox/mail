@@ -1,6 +1,6 @@
 # Zásady ochrany soukromí — VoxRox Mail
 
-_Verze: 2026-08-28 (návrh před prvním vydáním). Tato verze je předběžná a ještě
+_Verze: 2026-09-13 (návrh před prvním vydáním). Tato verze je předběžná a ještě
 nebyla schválena právníkem — viz sekce „Otevřené body" na konci dokumentu._
 
 _English version: [PRIVACY.en.md](PRIVACY.en.md)._
@@ -90,6 +90,9 @@ Aplikace zahájí síťovou komunikaci jen v těchto případech:
    existuje novější podepsaná verze, a případně stáhla podepsaný instalátor.
    **Za běhu se už sama znovu neptá** — další dotaz proběhne až při příštím
    spuštění, nebo když kontrolu sami vyvoláte v Nastavení → O aplikaci.
+   Tamtéž můžete kontrolu při spuštění vypnout (volba „Kontrolovat aktualizace
+   při spuštění aplikace"); aplikace se pak ke GitHubu připojí jen tehdy, když
+   kontrolu vyvoláte sami.
    Při tomto požadavku GitHub (hosting releasů) dočasně uvidí ve svých server
    lozích vaši **IP adresu** a verzi, na kterou se dotazujete — stejně jako při
    jakémkoli jiném stažení z webu. Žádná jiná data se při kontrole aktualizací
@@ -116,8 +119,9 @@ spolu s ní. Přepnete-li **Nastavení → Vzhled → Zavření okna** na „nec
 v oznamovací oblasti", probíhají body 1 a 2 výše i po zavření okna: aplikace
 se jen skryje, aby dál stahovala poštu a hlásila nové zprávy — pořád tedy běží
 a pořád se v pravidelných intervalech připojuje k vašemu e-mailovému serveru.
-**Kontrola aktualizací (bod 3) mezi ně nepatří** — ta proběhla jednou při
-spuštění a za běhu se neopakuje, ať je okno zavřené, nebo ne.
+**Kontrola aktualizací (bod 3) mezi ně nepatří** — ta proběhne nanejvýš jednou
+při spuštění (a vůbec ne, pokud ji máte vypnutou) a za běhu se neopakuje, ať je
+okno zavřené, nebo ne.
 Ukončit aplikaci pak jde přes nabídku ikony v oznamovací oblasti (**Ukončit**).
 
 ### Diagnostické reporty z klienta
@@ -145,7 +149,7 @@ Pokud přidáte účet, vstupují do hry tito poskytovatelé:
 - **Google** — pokud používáte Gmail s OAuth ([https://policies.google.com/privacy](https://policies.google.com/privacy)).
 - **Microsoft** — pokud používáte Outlook/Hotmail/Live s OAuth ([https://privacy.microsoft.com/](https://privacy.microsoft.com/)).
 - **GitHub** — aktualizace se distribuují přes GitHub Releases, takže aplikace
-  při spuštění kontroluje dostupnost nové verze proti GitHubu (viz „Jaká data
+  při spuštění, pokud to nevypnete, kontroluje dostupnost nové verze proti GitHubu (viz „Jaká data
   putují po síti" výše). GitHub při tom vidí vaši IP adresu a dotazovanou verzi
   ([https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement)).
 - **Servery hostující vzdálené obrázky ve zprávách** — vstupují do hry jen

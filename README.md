@@ -81,6 +81,7 @@ Operations and release:
 - [`backend/RELEASE_CHECKLIST.md`](backend/RELEASE_CHECKLIST.md) — release checklist + per-candidate smoke worksheet appendix (worksheet)
 - [`backend/PERFORMANCE_BASELINE.md`](backend/PERFORMANCE_BASELINE.md) — dated cold-start measurements and what each was measured on
 - [`frontend/docs/WINDOWS_SIGNING.md`](frontend/docs/WINDOWS_SIGNING.md) — Windows code signing + Tauri updater setup
+- [`CODE_SIGNING_POLICY.md`](CODE_SIGNING_POLICY.md) — what a signed release covers and who approves signing; not in effect until SignPath Foundation accepts the project
 
 Contributing and security:
 

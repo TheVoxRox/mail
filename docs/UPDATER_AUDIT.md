@@ -2,8 +2,8 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.12                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| **Date**           | 2026-09-07                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| **Version**        | 1.13                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| **Date**           | 2026-09-13                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | **Audited commit** | `0165149` (re-verified 2026-09-07, clearing five acknowledgements; v1.10/1.11 anchor: `3e71529`; v1.5–v1.9 anchor: `c6744a1`; v1.4 anchor: `cad05cb`, recorded pre-squash as `5799e8b`; v1.2/1.3 anchor: `3162e6a` (#144), v1.0/1.1 baseline: `d55b753`)                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | **Code paths**     | `frontend/src-tauri/src`, `frontend/src-tauri/tauri.conf.json`, `frontend/src-tauri/capabilities`, `frontend/src/lib/updates.ts`, `frontend/src/lib/components/UpdatePromptDialog.svelte`, `frontend/src/lib/components/UpdateFailureDialog.svelte`, `frontend/src/lib/components/settings/AboutSettings.svelte`, `.github/workflows/windows-signed-release.yml`, `.github/workflows/beta-channel.yml`, `frontend/scripts/beta-channel-guard.mjs`, `frontend/scripts/generate-tauri-latest-windows.mjs`, `frontend/scripts/verify-updater-signature.mjs`, `frontend/scripts/lib/minisign.mjs`, `frontend/scripts/prepare-tauri-windows-release-config.mjs`, `frontend/scripts/lib/tauri-config.mjs` |
@@ -177,7 +177,11 @@ renders through `{message}` in a `<span>` — Svelte text interpolation, no
   `console.warn`, no dialog) — a transient network error or an
   as-yet-unpublished release must not throw an alarming dialog on every cold
   start (announced to screen-reader users). Gated on `PROD` + Tauri +
-  `VITE_ENABLE_AUTO_UPDATE_CHECK`, and **once per process** (v1.11). The gate
+  `VITE_ENABLE_AUTO_UPDATE_CHECK` + the user's "Check for updates when the
+  application starts" setting in Settings → About (`mail.updateStartupCheck`,
+  on by default; v1.13), and **once per process** (v1.11). The setting is read
+  by this function only: turning it off removes the unattended request and
+  nothing else, since the manual check is the user asking. The gate
   is inside the function rather than at its one call site because `bootstrap()`
   is the boot path, not the startup path: it runs again on both boot-error
   retry buttons, on `sidecarRecovery` after an unexpected sidecar exit, and on
@@ -242,6 +246,8 @@ renders through `{message}` in a `<span>` — Svelte text interpolation, no
   install alone, the backend is restored when stopping it is what failed, and
   the failure is on screen before the restart begins. Each was verified by
   reverting its fix and watching that test — and only that test — fail.
+  v1.13 adds two: with the startup-check setting off the startup check sends no
+  request at all, and a manual check still answers.
 - **Not proven by any test:** that the installer really does overwrite
   `runtime/**` and `app/**` without a file-in-use failure. Only a real vN-1 → vN
   smoke shows that, and `CheckIfAppIsRunning` in the bundled NSIS template still
@@ -304,6 +310,20 @@ renders through `{message}` in a `<span>` — Svelte text interpolation, no
 
 ## 8. Change log
 
+- **1.13** (2026-09-13) — **no claim in the trust chain moved; verdict stays
+  PASS.** Not a re-verification: `Audited commit` stays `0165149`, and the drift
+  is acknowledged in [audit-freshness.json](audit-freshness.json). Two changes
+  under `Code paths`, both made to prepare the project for free code signing
+  from SignPath Foundation. (1) §5 gains a fourth gate on the startup check, the
+  "Check for updates when the application starts" setting in Settings → About
+  (`mail.updateStartupCheck`, on by default), so that an installation can make
+  no unattended request to GitHub. Only `checkForUpdateAndPrompt` reads it; the
+  manual check, the channel map, the pinned pubkey and both `expectedVersion`
+  pins are untouched, and the setting can remove a request but never add or
+  redirect one. (2) `tauri.conf.json` gains `bundle.publisher` and
+  `bundle.copyright`, which feed the Windows version resources and the NSIS
+  uninstall entry. The updater plugin reads neither, and `plugins.updater`,
+  `allowDowngrades` and the CSP are byte-identical.
 - **1.12** (2026-09-07) — **re-verification, no claim moved; verdict stays
   PASS.** Re-anchored from `3e71529` to `0165149`, clearing five standing
   acknowledgements against a cap of eight. Done before the cap forced it: at
