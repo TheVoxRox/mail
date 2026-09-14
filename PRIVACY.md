@@ -98,7 +98,8 @@ Aplikace zahájí síťovou komunikaci jen v těchto případech:
    Tamtéž můžete kontrolu při spuštění vypnout (volba „Kontrolovat aktualizace
    při spuštění aplikace"); aplikace se pak ke GitHubu připojí jen tehdy, když
    kontrolu vyvoláte sami. Stejnou otázku položí už instalátor na stránce
-   Soukromí; tichá instalace se neptá a kontrolu nechá zapnutou.
+   Soukromí; tichá instalace se neptá, ponechá dříve zvolenou odpověď, a když
+   žádná není, nechá kontrolu zapnutou.
    Při tomto požadavku GitHub (hosting releasů) dočasně uvidí ve svých server
    lozích vaši **IP adresu** a verzi, na kterou se dotazujete — stejně jako při
    jakémkoli jiném stažení z webu. Žádná jiná data se při kontrole aktualizací

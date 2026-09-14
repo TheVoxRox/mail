@@ -99,7 +99,8 @@ The application initiates network traffic only in these cases:
    can turn the startup check off in the same place ("Check for updates when
    the application starts"); the application then contacts GitHub only when
    you trigger the check yourself. The installer asks the same question on its
-   Privacy page; a silent install asks nothing and leaves the check on. During
+   Privacy page; a silent install asks nothing and keeps an earlier answer, or
+   leaves the check on if there is none. During
    this request GitHub (the release host) temporarily sees your **IP address**
    and the version you are querying in its server logs — just like any other
    download from the web. No other data is sent during the update check (the
