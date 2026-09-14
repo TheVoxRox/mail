@@ -1,6 +1,6 @@
 # Zásady ochrany soukromí — VoxRox Mail
 
-_Verze: 2026-09-13 (návrh před prvním vydáním). Tato verze je předběžná a ještě
+_Verze: 2026-09-14 (návrh před prvním vydáním). Tato verze je předběžná a ještě
 nebyla schválena právníkem — viz sekce „Otevřené body" na konci dokumentu._
 
 _English version: [PRIVACY.en.md](PRIVACY.en.md)._
@@ -53,6 +53,11 @@ Obsah:
 | `logs/audit.log`           | Bezpečnostní/auditní log (retenční doba 365 dní, max cca 500 MB).                                                                                                                                                 |
 | `tmp/`                     | Dočasné soubory (mažou se automaticky).                                                                                                                                                                           |
 
+Mimo tento adresář aplikace zapisuje jedinou hodnotu do registru Windows,
+`HKEY_CURRENT_USER\Software\VoxRox\Mail\UpdateStartupCheck`: vaši odpověď na
+otázku, zda při spuštění kontrolovat aktualizace (bod 3 níže). Zapisuje ji
+instalátor a přepínač v Nastavení → O aplikaci.
+
 ### Co je šifrované
 
 - **Hesla k IMAP/SMTP** a **OAuth tokeny** (Google, Microsoft) jsou šifrované
@@ -92,7 +97,8 @@ Aplikace zahájí síťovou komunikaci jen v těchto případech:
    spuštění, nebo když kontrolu sami vyvoláte v Nastavení → O aplikaci.
    Tamtéž můžete kontrolu při spuštění vypnout (volba „Kontrolovat aktualizace
    při spuštění aplikace"); aplikace se pak ke GitHubu připojí jen tehdy, když
-   kontrolu vyvoláte sami.
+   kontrolu vyvoláte sami. Stejnou otázku položí už instalátor na stránce
+   Soukromí; tichá instalace se neptá a kontrolu nechá zapnutou.
    Při tomto požadavku GitHub (hosting releasů) dočasně uvidí ve svých server
    lozích vaši **IP adresu** a verzi, na kterou se dotazujete — stejně jako při
    jakémkoli jiném stažení z webu. Žádná jiná data se při kontrole aktualizací

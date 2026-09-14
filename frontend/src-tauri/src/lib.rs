@@ -1,4 +1,5 @@
 mod tray;
+mod update_preference;
 
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -37,6 +38,8 @@ pub fn run() {
             check_for_update,
             download_pending_update,
             install_pending_update,
+            update_preference::get_update_startup_check,
+            update_preference::set_update_startup_check,
             tray::configure_tray,
             tray::set_tray_tooltip,
             tray::set_close_behavior

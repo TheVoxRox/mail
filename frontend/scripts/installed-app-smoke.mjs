@@ -269,6 +269,19 @@ try {
 	);
 	if (registered) installDir = registered;
 
+	// §3a privacy page: a silent install shows no pages, so it must record no
+	// answer about the startup update check. A written 0 would switch the check
+	// off for every unattended deployment, and nothing on screen would say so.
+	const recordedChoice = pwsh(
+		"(Get-ItemProperty -Path 'HKCU:\\Software\\VoxRox\\Mail' -Name UpdateStartupCheck " +
+			'-ErrorAction SilentlyContinue).UpdateStartupCheck'
+	).trim();
+	record(
+		'the silent install records no answer about the startup update check',
+		recordedChoice === '',
+		recordedChoice === '' ? '' : `UpdateStartupCheck is ${recordedChoice}`
+	);
+
 	const missing = missingEntries(
 		INSTALL_ENTRIES,
 		existsSync(installDir) ? readdirSync(installDir) : []

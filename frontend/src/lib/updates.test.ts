@@ -16,6 +16,7 @@ const {
 	browserMock,
 	isTauriMock,
 	invokeMock,
+	recordedChoiceMock,
 	usesSidecarMock,
 	stopSidecarMock,
 	bootstrapMock,
@@ -29,6 +30,7 @@ const {
 		browserMock: { value: true },
 		isTauriMock: vi.fn<() => boolean>(),
 		invokeMock: vi.fn(),
+		recordedChoiceMock: vi.fn<() => Promise<boolean | null>>(),
 		usesSidecarMock: vi.fn<() => boolean>(),
 		stopSidecarMock: vi.fn(async () => {}),
 		bootstrapMock: vi.fn(async () => {}),
@@ -50,7 +52,13 @@ vi.mock('$app/environment', () => ({
 	building: false,
 	version: 'test'
 }));
-vi.mock('@tauri-apps/api/core', () => ({ isTauri: isTauriMock, invoke: invokeMock }));
+vi.mock('@tauri-apps/api/core', () => ({
+	isTauri: isTauriMock,
+	// The read of the installer's answer goes to its own mock, so every
+	// expectation on invokeMock keeps counting update commands only.
+	invoke: (...args: [string, unknown?]) =>
+		args[0] === 'get_update_startup_check' ? recordedChoiceMock() : invokeMock(...args)
+}));
 vi.mock('@tauri-apps/api/event', () => ({ listen: listenMock }));
 vi.mock('$lib/backend/sidecar.js', () => ({
 	usesBackendSidecar: usesSidecarMock,
@@ -97,6 +105,7 @@ beforeEach(() => {
 	browserMock.value = true;
 	isTauriMock.mockReturnValue(true);
 	invokeMock.mockReset();
+	recordedChoiceMock.mockReset().mockResolvedValue(null);
 	usesSidecarMock.mockReset().mockReturnValue(true);
 	stopSidecarMock.mockReset();
 	bootstrapMock.mockReset();
@@ -194,6 +203,45 @@ describe('checkForUpdateAndPrompt (startup, background)', () => {
 		const result = await mod.checkForUpdateManually();
 
 		expect(result.status).toBe('available');
+	});
+
+	it('adopts an "off" given in the installer over the "on" the webview kept', async () => {
+		window.localStorage.setItem('mail.updateStartupCheck', 'on');
+		recordedChoiceMock.mockResolvedValue(false);
+		invokeMock.mockResolvedValue({ version: '9.9.9', currentVersion: '0.1.0' });
+
+		const mod = await freshModule();
+		await mod.checkForUpdateAndPrompt();
+
+		// The WebView2 profile survives a reinstall, so the value it kept is the
+		// answer from before; unchecking the box while reinstalling must still
+		// mean no request.
+		expect(invokeMock).not.toHaveBeenCalled();
+		expect(window.localStorage.getItem('mail.updateStartupCheck')).toBe('off');
+	});
+
+	it('adopts an "on" given in the installer over the "off" the webview kept', async () => {
+		window.localStorage.setItem('mail.updateStartupCheck', 'off');
+		recordedChoiceMock.mockResolvedValue(true);
+		invokeMock.mockResolvedValue({ version: '9.9.9', currentVersion: '0.1.0' });
+
+		const mod = await freshModule();
+		await mod.checkForUpdateAndPrompt();
+
+		expect(get(mod.updatePromptState).status).toBe('available');
+	});
+
+	it('keeps the value the webview stored when the installer recorded nothing', async () => {
+		window.localStorage.setItem('mail.updateStartupCheck', 'off');
+		recordedChoiceMock.mockResolvedValue(null);
+		invokeMock.mockResolvedValue({ version: '9.9.9', currentVersion: '0.1.0' });
+
+		const mod = await freshModule();
+		await mod.checkForUpdateAndPrompt();
+
+		// A silent install asks nothing and records nothing; that must not reset
+		// a choice the user made in Settings → About.
+		expect(invokeMock).not.toHaveBeenCalled();
 	});
 });
 
