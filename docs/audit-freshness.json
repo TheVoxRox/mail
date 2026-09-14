@@ -72,7 +72,8 @@
   "docs/UPDATER_AUDIT.md": {
     "reviewedTrees": {
       ".github/workflows/windows-signed-release.yml": "3ebbe9565b03517177ab68fe129f48786fea9f7d",
-      "frontend/src/lib/updates.ts": "f1285c65cd0ca696c5c0c29c8c78a0eea412a80e",
+      "frontend/src/lib/updates.ts": "afb68a87c467af9f4e6299c2c3478a41d0762e12",
+      "frontend/src-tauri/src": "ef211bb86ce099b20636adbc105c7fd4cc01468e",
       "frontend/src/lib/components/settings/AboutSettings.svelte": "64b520cedf9e073c0e4611c40e9c146487d7a1e4",
       "frontend/src-tauri/tauri.conf.json": "652e790059f8eae086dd57e5f10cc9a70ea0cabd"
     },
@@ -84,6 +85,10 @@
       {
         "date": "2026-09-13",
         "note": "Two changes, both preparing for free code signing from SignPath Foundation; the audit text is revised for them (v1.13) rather than re-verified. (1) updates.ts: `shouldCheckForUpdatesOnStartup` gains a fourth conjunct, `get(updateStartupCheck) === 'on'`, over a new localStorage-backed store that defaults to 'on', and AboutSettings.svelte gains the checkbox that writes it. Read against §5: the conjunct sits in the same function as the once-per-process gate and can only make it return earlier, never cause a request the other three conditions refused. `checkForUpdate`, `checkForUpdateManually`, the `channel` argument, both `expectedVersion` pins and the download → stop → install sequence are byte-identical. `persistedStore` admits only 'on' or 'off', and the value never crosses IPC, so §1's command surface and the channel map are untouched. (2) tauri.conf.json gains `bundle.publisher` and `bundle.copyright`. §3 rests on `allowDowngrades`, the CSP and `plugins.updater` (pubkey, endpoints), all byte-identical; the new keys feed Windows version resources and the NSIS uninstall entry, which no claim here mentions. windows-signed-release.yml is unchanged since the record above. Verdict stays PASS."
+      },
+      {
+        "date": "2026-09-14",
+        "note": "The installer's privacy page, read claim by claim; the audit text is revised for it (v1.14) rather than re-verified. Two paths moved. (1) frontend/src-tauri/src gains update_preference.rs and two entries in generate_handler!, get_update_startup_check() -> Option<bool> and set_update_startup_check(enabled: bool), which open or create HKCU\\Software\\VoxRox\\Mail plus the MAIL_DATA_SUFFIX suffix and read or write one DWORD. Against §1: check_for_update, download_pending_update, install_pending_update, PendingUpdate, DownloadedUpdate, beta_endpoint_override and capabilities/ are byte-identical; the new commands take a boolean or nothing, return a boolean or nothing and hold no handle to the updater, so a compromised renderer gains no route to an endpoint, a version pin or the downloaded bytes. What it can do with the setter is switch the startup check off, which the Settings checkbox already let it do. (2) updates.ts: shouldCheckForUpdatesOnStartup loses the setting conjunct, and checkForUpdateAndPrompt awaits loadUpdateStartupCheck after the once-per-process guard, then returns unless the setting is 'on'. Against §5: the setting still stands before check_for_update, so 'off' sends nothing; a recorded true restores the default single request and cannot add a second, since the guard is already set. One side effect, and it narrows: the guard is now set before the setting is read, so turning the setting on during a session no longer lets a later boot retry send the check — strictly less egress, in line with once per process. checkForUpdate, checkForUpdateManually, both expectedVersion pins and the download, stop, install sequence are untouched. The NSIS template that writes the value is outside Code paths and runs before any file is copied. Verdict stays PASS."
       }
     ]
   },
