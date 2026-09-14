@@ -69,6 +69,13 @@ ${StrLoc}
 ; perMachine layout (Program Files vs LocalAppData) after the move to
 ; installMode: currentUser.
 !define INSTALLDIRSUBPATH "Programs\VoxRox\Mail"
+; Where the privacy page records "check for updates when the application
+; starts". The application reads and writes the same value
+; (frontend/src-tauri/src/update_preference.rs, whose test holds it to these two
+; lines), so it is fixed here rather than derived from MANUFACTURER and
+; PRODUCTNAME: renaming the publisher must not orphan the answer.
+!define UPDATECHECKKEY "Software\VoxRox\Mail"
+!define UPDATECHECKVALUE "UpdateStartupCheck"
 
 Var PassiveMode
 Var UpdateMode
@@ -380,6 +387,70 @@ Function PageLeaveReinstall
   reinst_done:
 FunctionEnd
 
+; 3a. Privacy page: what the application sends over the network, and whether it
+;     may check for updates when it starts. SignPath Foundation's terms for free
+;     code signing ask for this pair -- the policy shown during installation and
+;     an option there to turn the transfer off -- and that check is the one
+;     transfer the user does not start. Passive and update runs skip it, and a
+;     silent run shows no pages: those installs ask nothing, so they record
+;     nothing and an earlier answer stays in place.
+Var PrivacyPageCheckbox
+Var UpdateCheckChoice
+Page custom PagePrivacy PageLeavePrivacy
+Function PagePrivacy
+  ${If} $PassiveMode = 1
+  ${OrIf} $UpdateMode = 1
+    Abort
+  ${EndIf}
+
+  ; Offer the answer given before: on this page earlier in the same run (Back),
+  ; else the recorded one, else on -- which is also the application's default.
+  ${If} $UpdateCheckChoice == ""
+    StrCpy $UpdateCheckChoice 1
+    ClearErrors
+    ReadRegDWORD $0 HKCU "${UPDATECHECKKEY}" "${UPDATECHECKVALUE}"
+    ${IfNot} ${Errors}
+    ${AndIf} $0 = 0
+      StrCpy $UpdateCheckChoice 0
+    ${EndIf}
+  ${EndIf}
+
+  !insertmacro MUI_HEADER_TEXT "$(privacyPageTitle)" "$(privacyPageSubtitle)"
+  nsDialogs::Create 1018
+  Pop $0
+  ${IfThen} $(^RTL) = 1 ${|} nsDialogs::SetRTL $(^RTL) ${|}
+
+  ${NSD_CreateLabel} 0 0 100% 84u "$(privacyPageText)"
+  Pop $0
+
+  ${NSD_CreateLink} 0 90u 100% 12u "$(privacyPolicyLink)"
+  Pop $0
+  ${NSD_OnClick} $0 PrivacyPageOpenPolicy
+
+  ${NSD_CreateCheckbox} 0 110u 100% 12u "$(updateStartupCheck)"
+  Pop $PrivacyPageCheckbox
+  ${If} $UpdateCheckChoice = 1
+    ${NSD_Check} $PrivacyPageCheckbox
+  ${EndIf}
+
+  ; The checkbox is the decision the page exists for, so focus starts there and
+  ; a screen reader announces it together with the page.
+  ${NSD_SetFocus} $PrivacyPageCheckbox
+  nsDialogs::Show
+FunctionEnd
+Function PrivacyPageOpenPolicy
+  Pop $0 ; the link's handle, pushed by nsDialogs
+  ExecShell "open" "$(privacyPolicyUrl)"
+FunctionEnd
+Function PageLeavePrivacy
+  ${NSD_GetState} $PrivacyPageCheckbox $0
+  ${If} $0 = ${BST_CHECKED}
+    StrCpy $UpdateCheckChoice 1
+  ${Else}
+    StrCpy $UpdateCheckChoice 0
+  ${EndIf}
+FunctionEnd
+
 ; 4. Start menu shortcut page (always skipped — folder is fixed to STARTMENUFOLDER)
 Var AppStartMenuFolder
 !if "${STARTMENUFOLDER}" != ""
@@ -461,6 +532,15 @@ FunctionEnd
 {{#each language_files}}
   !include "{{this}}"
 {{/each}}
+
+; The privacy page's strings (PagePrivacy). Tauri ships no text for a page of
+; our own, so English lives here and Czech in frontend/src-tauri/windows/Czech.nsh.
+LangString privacyPageTitle ${LANG_ENGLISH} "Privacy"
+LangString privacyPageSubtitle ${LANG_ENGLISH} "What ${PRODUCTNAME} sends over the network."
+LangString privacyPageText ${LANG_ENGLISH} "${PRODUCTNAME} keeps your mail, contacts and passwords on this computer. It connects only to the mail servers of the accounts you add and, if you sign in with Google or Microsoft, to that provider. Images from the internet in a message load only when you allow it.$\r$\n$\r$\nWhen the application starts, it also asks GitHub whether a newer version is available. GitHub sees your IP address and the version being checked, and nothing else is sent. You can change this later in Settings, section About."
+LangString privacyPolicyLink ${LANG_ENGLISH} "Read the full privacy policy"
+LangString privacyPolicyUrl ${LANG_ENGLISH} "https://voxrox.org/en/privacy/"
+LangString updateStartupCheck ${LANG_ENGLISH} "Check for updates when the application starts"
 
 Function .onInit
   ${GetOptions} $CMDLINE "/P" $PassiveMode
@@ -670,6 +750,13 @@ Section Install
   ; Save $INSTDIR in registry for future installations
   WriteRegStr SHCTX "${MANUPRODUCTKEY}" "" $INSTDIR
 
+  ; The privacy page's answer. Written only when the page was shown: a silent,
+  ; passive or /UPDATE run asked nothing, so it keeps an earlier answer, and
+  ; with none the application stays on its default.
+  ${If} $UpdateCheckChoice != ""
+    WriteRegDWORD HKCU "${UPDATECHECKKEY}" "${UPDATECHECKVALUE}" $UpdateCheckChoice
+  ${EndIf}
+
   !if "${INSTALLMODE}" == "both"
     ; Save install mode to be selected by default for the next installation such as updating
     ; or when uninstalling
@@ -853,6 +940,10 @@ Section Uninstall
   ; and if not updating
   ${If} $DeleteAppDataCheckboxState = 1
   ${AndIf} $UpdateMode <> 1
+    ; Clear the privacy page's answer, and its key once nothing else is in it
+    DeleteRegValue HKCU "${UPDATECHECKKEY}" "${UPDATECHECKVALUE}"
+    DeleteRegKey /ifempty HKCU "${UPDATECHECKKEY}"
+
     ; Clear the install location $INSTDIR from registry
     DeleteRegKey SHCTX "${MANUPRODUCTKEY}"
     DeleteRegKey /ifempty SHCTX "${MANUKEY}"

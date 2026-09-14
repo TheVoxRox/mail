@@ -1,6 +1,6 @@
 # Privacy Policy — VoxRox Mail
 
-_Version: 2026-09-13 (draft, pre-first-release). This version is preliminary
+_Version: 2026-09-14 (draft, pre-first-release). This version is preliminary
 and has not yet been reviewed by a lawyer — see "Open items" at the bottom._
 
 _Česká verze: [PRIVACY.md](PRIVACY.md)._
@@ -54,6 +54,11 @@ Contents:
 | `logs/audit.log`           | Security / audit log (retention 365 days, max ~500 MB).                                                                                                                                                                      |
 | `tmp/`                     | Temporary files (cleared automatically).                                                                                                                                                                                     |
 
+Outside that directory the application writes a single value to the Windows
+registry, `HKEY_CURRENT_USER\Software\VoxRox\Mail\UpdateStartupCheck`: your
+answer to whether it should check for updates at startup (point 3 below). The
+installer writes it, and so does the setting in Settings → About.
+
 ### What is encrypted
 
 - **IMAP/SMTP passwords** and **OAuth tokens** (Google, Microsoft) are
@@ -93,7 +98,8 @@ The application initiates network traffic only in these cases:
    startup, or when you trigger the check yourself in Settings → About. You
    can turn the startup check off in the same place ("Check for updates when
    the application starts"); the application then contacts GitHub only when
-   you trigger the check yourself. During
+   you trigger the check yourself. The installer asks the same question on its
+   Privacy page; a silent install asks nothing and leaves the check on. During
    this request GitHub (the release host) temporarily sees your **IP address**
    and the version you are querying in its server logs — just like any other
    download from the web. No other data is sent during the update check (the

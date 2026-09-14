@@ -51,8 +51,10 @@ SignPath.
 The application sends information to other networked systems only in the cases
 the [privacy policy](PRIVACY.en.md) lists: the mail servers and sign-in
 providers the user adds, remote images in a message the user chooses to load,
-and a check for updates on GitHub at startup, which the user can turn off in
-Settings → About. It collects no telemetry, analytics or crash reports.
+and a check for updates on GitHub at startup. The installer shows this summary
+with a link to the privacy policy before it installs anything, and asks whether
+the check may run; the answer can be changed later in Settings → About. The
+application collects no telemetry, analytics or crash reports.
 
 ## Reporting a problem
 
