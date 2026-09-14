@@ -37,7 +37,7 @@ carry their own date and read as history, which is what they are.
 
 **Run `npm run regen:licenses:all` (Section 8a) before this build, not after it.** `NOTICE.txt` is bundled into the installer as a Tauri resource (`resources/NOTICE.txt` in [tauri.conf.json](../frontend/src-tauri/tauri.conf.json)), so a regen that changes anything once the candidate is built means the shipped package carries a component list that does not match it -- and the build has to be repeated. Section 8a is where that is verified, not where it is first run.
 
-- [ ] `mvn -Dmaven.repo.local=.m2repo -Dapp.data-dir=target/test-data clean verify` — one command, not `spotless:check` + `package` separately. `clean` because otherwise SpotBugs analyses the `__BeanDefinitions` left by an earlier `-Paot package` and fails on generated code; `verify` because `package` does not fire the failsafe integration tests. Spotless and SpotBugs both run inside it.
+- [ ] `mvn -Dmaven.repo.local=.m2repo -Dapp.data-dir=target/test-data clean verify` — one command, not `spotless:check` + `package` separately. `clean` because otherwise SpotBugs analyses the `__BeanDefinitions` left by an earlier `-Paot package` and fails on generated code; `verify` because `package` does not fire the failsafe integration tests. Spotless and SpotBugs both run inside it. From PowerShell, quote the two `-D` arguments (`'-Dmaven.repo.local=.m2repo'`): unquoted, PowerShell splits them at the first dot and Maven stops on the unknown lifecycle phase `.repo.local=.m2repo` before building anything.
 - [ ] Verify that the build reports `Failures: 0, Errors: 0, Skipped: 0` on both suites — surefire and failsafe. The test count is not recorded: it rotates faster than the checklist is read, and no gate recomputes it here.
 - [ ] The artifact `target/mail-backend-0.1.0.jar` was produced.
 - [ ] The Windows sidecar packaging passed through `scripts/package-sidecar-windows.ps1`.
@@ -295,6 +295,47 @@ A per-candidate worksheet for the manual smoke (§3–§8 above). §1 (backend b
 **The worksheet is formalised from existing evidence (the 2026-06-23 tauri:dev smoke, the 2026-06-25 Phase B signed smoke on a clean profile, the 2026-06-26 build+log-scan gate).** Completed items carry a date+source; open `[ ]` items are real gaps nobody has covered yet.
 
 **The candidate is the tag, not a commit on `main`.** Evidence recorded against a branch commit goes stale the moment anything merges, which is what happened to the sheet below: §0/§1/§2 were taken on `9c51d9d` and `main` moved past it the same day. A tag is immutable, so once `v<X.Y.Z>` exists nothing that lands afterwards can invalidate a tick and the question does not come back — record the tag in `Candidate ref`, and treat a commit SHA there as provisional, valid only until the tag is cut. One window cannot be closed this way, because the process needs it: §0/§1/§2 run before the version bump and the changelog cut, and those are what gets tagged. Keep that window to minutes rather than days — it is the only stretch in which a merge can cost a re-run, and §1 is the expensive half to repeat (§2 is what CI re-takes on every push anyway). **Deliberately not written here: a rule that a docs-only commit does not invalidate §1.** It cannot be checked by being read, it has already been applied once by hand — the 2026-06-26 note in §1 above, "code unchanged since 3210e1a — only docs commits since" — and a claim nothing recomputes is the kind this repo deletes rather than maintains. If the gate ever has to run against a moving `main`, compute it instead: compare the git object ids of the paths §1 rests on, the way `check:audits` already does for the audits. `npm run release:status` (from `frontend/`) does that for the newest sheet on `main`, against both `main` and the tag; once the tag, the signed build and the draft are in order, it names the first section still open.
+
+### Candidate 2026-09-14 — see the object ids below
+
+```text
+Release:         VoxRox Mail 0.1.0  (identifier org.voxrox.mail)
+Sign-off date:   ____________
+Candidate ref:   the commit this sheet lands in — provisional; replaced by tag v0.1.0 once re-cut
+Backend commit:  same
+Frontend commit: same  (the same monorepo)
+Platform:        Windows 11 Pro x64, machine lacina-hp-650
+Tester:          machine half automated; §3–§9 are the maintainer's
+Build origin:    local and unsigned — the signed build comes from the re-cut tag, per RELEASE_PROCESS steps 3–4
+```
+
+**The tag is re-cut so that the release carries what the published privacy policy and SignPath Foundation's terms describe.** `v0.1.0` at `2ea2a98` predates #481 and #485: its build has neither the setting that turns the startup update check off nor the installer's privacy page, while the privacy policy on voxrox.org already describes both, and SignPath's condition that a project be "released in the form that should be signed" would point at that build. Nothing manual had been taken on it — §3–§9 of the 2026-09-13 sheet were all open — so the draft and the tag are deleted and cut again from the commit this sheet lands in. The tree, on the seven paths §1 and §2 rest on:
+
+| path                         | object id      |
+| ---------------------------- | -------------- |
+| `backend/src`                | `6eb6fc4973c5` |
+| `backend/pom.xml`            | `dbef3f26bcc3` |
+| `backend/scripts`            | `12190c2d9a67` |
+| `frontend/src`               | `0baf2b092283` |
+| `frontend/src-tauri`         | `6f67c0a6dcc3` |
+| `frontend/package.json`      | `cc8ff9b8c027` |
+| `frontend/package-lock.json` | `ae0d216cfd15` |
+
+Recompute them before ticking anything below; `npm run release:status` does it against `main` and against the tag.
+
+- [x] **§0 Version** — `npm run check:versions` OK, `0.1.0` on all five files. No bump needed; they already carried it.
+- [x] **§1 Backend build** — **re-taken**, because `backend/scripts` moved from `ccfeee6ca824` to `12190c2d9a67` in #481, which builds the launcher under the product name and renames it back; `backend/src` and `backend/pom.xml` are unchanged. `clean verify` BUILD SUCCESS in 4:07, surefire and failsafe both `Failures: 0, Errors: 0, Skipped: 0`, read from the reactor summary and from `failsafe-summary.xml` (no errors, failures, skips or flakes), and `target/mail-backend-0.1.0.jar` produced. The sidecar was packaged right after through `backend/package-sidecar-dev-windows.ps1 -SkipTests`: the launcher `.cfg` carries `google.client-id`, `google.client-secret` and `microsoft.client-id` and no `mail-local-` placeholder, the output holds the launcher, `app/` and `runtime/`, the launcher's version resource reads `VoxRox Mail 0.1.0` by `VoxRox`, and the launcher is newer than the jar it wraps. `tauri:smoke:sidecar` on that binary passed — CORS, the boot endpoints, an account round trip and Czech number formatting. `regen:licenses:all` ran before the build and moved no component: its whole output was a new `Generated:` date in `NOTICE.txt` and three `windows-*` crates swapped in order in the Tauri inventory, so nothing was committed. **Still open in §1**, as on every sheet: the clean-profile run without a system-installed JDK.
+- [x] **§2 Frontend automation** — **re-taken**, because `frontend/src` and `frontend/src-tauri` moved in #481 and #485 — the setting that turns the startup update check off, the registry bridge and the installer's privacy page. Taken after §1 was green, since `generate:api` reads the backend's OpenAPI snapshot. `generate:api` left the generated client unchanged, `check:i18n` and `build` exited 0, `test:e2e` passed with functional 277 and a11y 65, and `test:functional:stable` and `test:a11y` run on their own passed with the same counts; no flakes reported. Port 4173 was checked free before each Playwright run, so every run started its own preview instead of recycling a stale one.
+- [ ] **§3 Fresh install** — on the signed build from the re-cut tag. Release Candidate Smoke starts on its own after that build; its URL goes here as the evidence for the items the note at the top of §3 lists, which now include that a silent install records no answer about the startup update check. Before the manual part, run the WebView2 install-date check the `a2caa27` sheet describes, so the no-window finding gets its evidence this time.
+- [ ] **§3a Installer behaviour** — including the new **privacy page** item, taken with a screen reader, and reading `latest.json` from the draft by hand. Still not covered by anything: reinstalling over an existing installation, and the downgrade block.
+- [ ] **§4 Account flows** — the blocking item of the gate: it is what proves the production `client-id` is baked into the launcher `.cfg`.
+- [ ] **§5 Mail workflows** — the trash case stays a named item: a folder holding two IMAP copies of one Message-ID must persist both and report a non-null `lastSyncAt`.
+- [ ] **§6 Sidecar lifecycle** — on the new binary, whose launcher is now renamed after packaging (#481).
+- [ ] **§7 Diagnostics** — including the dump's `processStartedAt`, which measures from JVM start since #469; the privacy half is checked by reading the dump, not by producing it.
+- [ ] **§8 Long run** — §8.1 open. §8.2 does not run for this candidate and goes into §9 as an accepted risk, per the 2026-09-13 decision at the top of §8.2.
+- [ ] **§9** — release decision.
+
+**Why the 2026-09-13 sheet below is superseded.** `backend/scripts` moved in #481 and `frontend/src` and `frontend/src-tauri` in #481 and #485, so neither its §1 nor its §2 describes the tree, and its §3 evidence is a smoke of the installer built from `2ea2a98`, which the re-cut tag replaces.
 
 ### Candidate 2026-09-13 — see the object ids below
 
