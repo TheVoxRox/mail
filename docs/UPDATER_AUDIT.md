@@ -2,8 +2,8 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.14                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| **Date**           | 2026-09-14                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| **Version**        | 1.15                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| **Date**           | 2026-09-15                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | **Audited commit** | `0165149` (re-verified 2026-09-07, clearing five acknowledgements; v1.10/1.11 anchor: `3e71529`; v1.5–v1.9 anchor: `c6744a1`; v1.4 anchor: `cad05cb`, recorded pre-squash as `5799e8b`; v1.2/1.3 anchor: `3162e6a` (#144), v1.0/1.1 baseline: `d55b753`)                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | **Code paths**     | `frontend/src-tauri/src`, `frontend/src-tauri/tauri.conf.json`, `frontend/src-tauri/capabilities`, `frontend/src/lib/updates.ts`, `frontend/src/lib/components/UpdatePromptDialog.svelte`, `frontend/src/lib/components/UpdateFailureDialog.svelte`, `frontend/src/lib/components/settings/AboutSettings.svelte`, `.github/workflows/windows-signed-release.yml`, `.github/workflows/beta-channel.yml`, `frontend/scripts/beta-channel-guard.mjs`, `frontend/scripts/generate-tauri-latest-windows.mjs`, `frontend/scripts/verify-updater-signature.mjs`, `frontend/scripts/lib/minisign.mjs`, `frontend/scripts/prepare-tauri-windows-release-config.mjs`, `frontend/scripts/lib/tauri-config.mjs` |
@@ -63,6 +63,12 @@ scripts.
   handle to the update, and nothing in the install path reads it — a renderer
   that ignores, spoofs or never receives it still gets exactly the same
   signature-verified package. Its payload does reach the DOM, which §4 covers.
+  Receiving it takes `core:event:allow-listen` (and `allow-unlisten` for the
+  unsubscribe), which the capability set lacked until v1.15: every build since
+  the event was added dropped it, and the bar stayed indeterminate exactly as
+  the advisory design in §5 intends. The unit tests mock `listen` and never
+  reached the permission check. The set still grants no `emit`, so the webview
+  can receive events but cannot send one to a Rust listener.
 - A hijacked `latest.json` cannot cause code execution: it can point `url`
   anywhere, but the downloaded artifact is verified against the pinned pubkey, so
   a forged installer fails the Ed25519 check and the install aborts. Worst case
@@ -223,7 +229,9 @@ renders through `{message}` in a `<span>` — Svelte text interpolation, no
   and coarse percentage steps go through the app-wide polite live region rather
   than making the bar itself live, so a screen reader hears the transitions
   instead of a hundred percentages. Progress is advisory end to end: a shell that
-  cannot deliver the event leaves the bar indeterminate and the install proceeds.
+  cannot deliver the event leaves the bar indeterminate and the install proceeds
+  — which is what every build did until v1.15, for want of the listen
+  permission (§1).
 - A failed install **closes the prompt, surfaces the failure dialog, and only
   then** puts the backend back through `bootstrap({ restartSidecar: true })` — a
   plain respawn is not enough, the new sidecar comes up on a fresh port with a
@@ -327,6 +335,19 @@ renders through `{message}` in a `<span>` — Svelte text interpolation, no
 
 ## 8. Change log
 
+- **1.15** (2026-09-15) — the capability set gains `core:event:allow-listen`
+  and `core:event:allow-unlisten`, and §1 and §5 say what their absence did:
+  `update://download-progress` never reached the dialog in a real build, so the
+  bar stayed indeterminate, the coarse percentage announcements never fired and
+  only the phase changes reached a screen reader. Found while investigating a tray menu that did nothing, for
+  the same reason (`event.listen not allowed` in the startup log). Read against
+  §1: the new permissions let the webview receive events the shell emits, never
+  emit one, so no renderer gains a route to a command, an endpoint, a version
+  pin or the downloaded bytes; the updater permissions are still absent. The
+  event carries byte counts only, and §4 already covers them reaching the DOM.
+  A new unit test pins both permissions, because the suites that use `listen`
+  mock it. Trust chain untouched, verdict unchanged (**PASS**); the drift is
+  recorded in [audit-freshness.json](audit-freshness.json).
 - **1.14** (2026-09-14) — **no claim in the trust chain moved; verdict stays
   PASS.** Not a re-verification: `Audited commit` stays `0165149`, and the drift
   is acknowledged in [audit-freshness.json](audit-freshness.json). The installer
