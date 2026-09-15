@@ -184,7 +184,7 @@ const sha256 = (file) => createHash('sha256').update(readFileSync(file)).digest(
 /** PIDs of sidecar launchers running out of the installation directory. */
 function sidecarProcesses(installDir) {
 	const out = pwsh(
-		`@(Get-CimInstance Win32_Process -Filter "Name='mail.exe'" | ` +
+		`@(Get-CimInstance Win32_Process -Filter "Name='voxrox-mail-backend.exe'" | ` +
 			`Where-Object { $_.ExecutablePath -and $_.ExecutablePath.StartsWith(${psQuote(installDir)}, ` +
 			`[System.StringComparison]::OrdinalIgnoreCase) } | ForEach-Object { $_.ProcessId }) -join ','`
 	);
@@ -193,14 +193,16 @@ function sidecarProcesses(installDir) {
 
 async function startApp(installDir) {
 	const startedAt = Date.now();
-	const child = spawn(path.join(installDir, 'app.exe'), [], {
+	const child = spawn(path.join(installDir, 'voxrox-mail.exe'), [], {
 		cwd: installDir,
 		stdio: 'ignore',
 		windowsHide: false
 	});
 	child.once('error', () => {});
 	const exited = () =>
-		child.exitCode !== null ? { abort: `app.exe exited with code ${child.exitCode}` } : null;
+		child.exitCode !== null
+			? { abort: `voxrox-mail.exe exited with code ${child.exitCode}` }
+			: null;
 	const sessionPath = path.join(dataDir, 'session.json');
 	const readyPath = path.join(dataDir, '.ready');
 
@@ -288,7 +290,7 @@ try {
 	);
 	if (
 		!record(
-			'the installation carries app.exe, the sidecar, app, runtime, NOTICE.txt and the uninstaller',
+			'the installation carries voxrox-mail.exe, the sidecar, app, runtime, NOTICE.txt and the uninstaller',
 			missing.length === 0,
 			missing.length > 0 ? `missing ${missing.join(', ')}` : ''
 		)
@@ -296,7 +298,7 @@ try {
 		throw new Stop();
 	}
 
-	const appExe = path.join(installDir, 'app.exe');
+	const appExe = path.join(installDir, 'voxrox-mail.exe');
 	for (const [label, folder, relative] of [
 		['desktop', 'Desktop', 'VoxRox Mail.lnk'],
 		['Start menu', 'Programs', 'VoxRox\\VoxRox Mail.lnk']
@@ -308,7 +310,7 @@ try {
 				)
 			: '';
 		record(
-			`the ${label} shortcut points at app.exe`,
+			`the ${label} shortcut points at voxrox-mail.exe`,
 			samePath(target, appExe),
 			existsSync(shortcut) ? `target ${target}` : `${shortcut} does not exist`
 		);
@@ -369,7 +371,7 @@ try {
 	try {
 		const dump = await until('the webview to report boot phase ready', timeoutMs, async () => {
 			if (running.child.exitCode !== null)
-				return { abort: `app.exe exited with code ${running.child.exitCode}` };
+				return { abort: `voxrox-mail.exe exited with code ${running.child.exitCode}` };
 			const response = await request(`${baseUrl}/internal/diagnostic-dump`, apiKey, 10_000);
 			if (response.status !== 200) return { reason: `HTTP ${response.status}` };
 			const boot = readZipEntryJson(response.body, 'client-boot.json');
@@ -405,12 +407,12 @@ try {
 	await waitForExit(running.child).catch(() => null);
 	running = null;
 	const killedAt = Date.now();
-	const orphans = await until('the sidecar to follow app.exe', orphanTimeoutMs, () => {
+	const orphans = await until('the sidecar to follow voxrox-mail.exe', orphanTimeoutMs, () => {
 		const left = sidecarProcesses(installDir);
 		return left.length === 0 ? { done: true, value: [] } : { reason: `PIDs ${left.join(', ')}` };
 	}).catch(() => sidecarProcesses(installDir));
 	record(
-		'killing app.exe alone takes the sidecar with it',
+		'killing voxrox-mail.exe alone takes the sidecar with it',
 		before.length > 0 && orphans.length === 0,
 		before.length === 0
 			? 'no sidecar process was running before the kill, so nothing was proven'
@@ -469,7 +471,10 @@ try {
 			uninstallCode === 0,
 			`exit code ${uninstallCode}`
 		);
-		record('uninstalling removes app.exe', !existsSync(path.join(installDir, 'app.exe')));
+		record(
+			'uninstalling removes voxrox-mail.exe',
+			!existsSync(path.join(installDir, 'voxrox-mail.exe'))
+		);
 	}
 
 	await writeFile(

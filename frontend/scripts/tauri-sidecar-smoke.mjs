@@ -59,7 +59,7 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
  */
 const WEBVIEW_ORIGIN = 'http://tauri.localhost';
 const FOREIGN_ORIGIN = 'https://cors-probe.invalid';
-const SIDECAR_NAME = 'mail-x86_64-pc-windows-msvc.exe';
+const SIDECAR_NAME = 'voxrox-mail-backend-x86_64-pc-windows-msvc.exe';
 
 const args = new Map(
 	process.argv

@@ -260,7 +260,7 @@ describe('ensureBackendSidecar — env / lifecycle short-circuits', () => {
 		await mod.ensureBackendSidecar();
 
 		expect(mailDataDirMock).toHaveBeenCalledOnce();
-		expect(commandSidecarMock).toHaveBeenCalledWith('binaries/mail', [], {
+		expect(commandSidecarMock).toHaveBeenCalledWith('binaries/voxrox-mail-backend', [], {
 			env: { APP_DATA_DIR: '/data', MAIL_SIDECAR_WATCH_PARENT: '1' }
 		});
 		expect(handle.cmd.spawn).toHaveBeenCalledOnce();

@@ -49,11 +49,11 @@
 		},
 		{
 			"identifier": "shell:allow-spawn",
-			"allow": [{ "name": "binaries/mail", "sidecar": true, "args": false }]
+			"allow": [{ "name": "binaries/voxrox-mail-backend", "sidecar": true, "args": false }]
 		},
 		{
 			"identifier": "shell:allow-kill",
-			"allow": [{ "name": "binaries/mail", "sidecar": true, "args": false }]
+			"allow": [{ "name": "binaries/voxrox-mail-backend", "sidecar": true, "args": false }]
 		},
 		"shell:allow-open"
 	]

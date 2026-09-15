@@ -71,12 +71,12 @@
   },
   "docs/UPDATER_AUDIT.md": {
     "reviewedTrees": {
-      ".github/workflows/windows-signed-release.yml": "3ebbe9565b03517177ab68fe129f48786fea9f7d",
+      ".github/workflows/windows-signed-release.yml": "ae6d3616a176acc3c76f8801c8b00b5467b0e6da",
       "frontend/src/lib/updates.ts": "afb68a87c467af9f4e6299c2c3478a41d0762e12",
-      "frontend/src-tauri/src": "ef211bb86ce099b20636adbc105c7fd4cc01468e",
+      "frontend/src-tauri/src": "f8339ba4370a3f4cbca79815febbda38aa19447d",
       "frontend/src/lib/components/settings/AboutSettings.svelte": "64b520cedf9e073c0e4611c40e9c146487d7a1e4",
-      "frontend/src-tauri/tauri.conf.json": "652e790059f8eae086dd57e5f10cc9a70ea0cabd",
-      "frontend/src-tauri/capabilities": "859966dbd774f07148eafbf6d41c224acd497047"
+      "frontend/src-tauri/tauri.conf.json": "c95f70c76e8ce2d8c5251469052db91be19cfaa5",
+      "frontend/src-tauri/capabilities": "010c5218458c20ba922628f21fe030b00e655c18"
     },
     "acknowledgements": [
       {
@@ -98,6 +98,10 @@
       {
         "date": "2026-09-15",
         "note": "Two permissions removed, nothing added; read against section 1. The whole diff under capabilities/ is fs:allow-watch and fs:allow-unwatch leaving default.json. Neither could do anything: tauri-plugin-fs is built without its watch feature, so plugin:fs|watch is not compiled into the shell (a CDP probe of the running dev app answered \"Command watch not found\", past the ACL), and the frontend's watcher cleanup goes through plugin:resources|close, which the set never granted. The one caller, loadSession in session.ts, loses the watcher and polls as it always effectively did. Section 1's claims stand unchanged: nothing under updater: is granted, the listen/unlisten pair and the absent emit from the record above are untouched, and the fs scope list is byte-identical, so the capability set only shrinks. None of this audit's commands, pins or the verified-bytes path is in the diff. The same probe re-confirmed every other IPC command the frontend uses is allowed and that emit and shell stdin_write stay denied. Verdict stays PASS."
+      },
+      {
+        "date": "2026-09-15",
+        "note": "Executable rename, read against sections 1, 2, 3 and the section 5 install flow. No sentence of this audit names either executable, so its text is not revised. Four paths moved. (1) frontend/src-tauri/src: the whole diff is main.rs calling voxrox_mail_lib::run instead of app_lib::run, following the library crate rename in Cargo.toml, whose package became voxrox-mail and so names the installed shell voxrox-mail.exe instead of app.exe; lib.rs, tray.rs, update_preference.rs, the three updater commands, PendingUpdate, DownloadedUpdate and beta_endpoint_override are byte-identical. (2) capabilities/default.json: the shell:allow-spawn and shell:allow-kill scopes name binaries/voxrox-mail-backend instead of binaries/mail, still with sidecar: true and args: false. No permission is added or removed, nothing under updater: is granted, and the listen/unlisten pair with no emit is untouched, so section 1's surface is the same set with one renamed target. (3) tauri.conf.json: bundle.externalBin becomes binaries/voxrox-mail-backend; allowDowngrades, the CSP and plugins.updater (pubkey, endpoints), which section 3 rests on, are byte-identical. (4) windows-signed-release.yml: the two literal sidecar paths in the Authenticode sign step and the signature verification step follow the new name. Both steps keep their signing-available condition, no ${{ }} enters a run: block (U-1), and no permission, secret or action is added. A stale name there cannot ship green: sign-windows-file.ps1 runs Resolve-Path under ErrorActionPreference Stop and throws on a missing file, and independently the sync script and tauri-build both refuse to build without the renamed binary. On the install flow: the updater still hands the install to the downloaded NSIS installer, whose running-app check matches ${MAINBINARYNAME}.exe, now voxrox-mail.exe, so section 5's note that it guards only the shell stays true as written. No installation carries the old name into an update: v0.1.0 has never been published, latest.json has never offered anything to a build named app.exe, and the template's MainBinaryName cleanup for a renamed binary is not on any path this audit covers. Verdict stays PASS."
       }
     ]
   },

@@ -41,7 +41,7 @@
 		"publisher": "VoxRox",
 		"copyright": "Copyright (c) 2026 VoxRox",
 		"targets": "nsis",
-		"externalBin": ["binaries/mail"],
+		"externalBin": ["binaries/voxrox-mail-backend"],
 		"resources": {
 			"binaries/app": "app",
 			"binaries/runtime": "runtime",

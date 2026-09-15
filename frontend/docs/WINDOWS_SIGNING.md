@@ -57,7 +57,7 @@ optionally set `WINDOWS_DIGEST_ALGORITHM`, `WINDOWS_TIMESTAMP_URL`, and
 ```powershell
 npm run sidecar:sync:windows
 npm run tauri:release-config:windows
-.\scripts\sign-windows-file.ps1 -Path .\src-tauri\binaries\mail-x86_64-pc-windows-msvc.exe
+.\scripts\sign-windows-file.ps1 -Path .\src-tauri\binaries\voxrox-mail-backend-x86_64-pc-windows-msvc.exe
 npm run tauri:build -- --config src-tauri/tauri.release.conf.json
 .\scripts\verify-windows-signatures.ps1
 ```

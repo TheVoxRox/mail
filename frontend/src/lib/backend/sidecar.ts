@@ -7,7 +7,7 @@ import { toError } from '$lib/api/errors.js';
 import { delayWithAbort } from '$lib/delay.js';
 import { mailDataDir } from './data-dir';
 
-const SIDECAR_PROGRAM = 'binaries/mail';
+const SIDECAR_PROGRAM = 'binaries/voxrox-mail-backend';
 const MAX_RESTARTS = 3;
 const RESTART_WINDOW_MS = 60_000;
 const RESTART_DELAY_MS = 1_000;
@@ -330,7 +330,7 @@ function consumeE2ESidecarFailure(): Error | null {
  */
 function formatSidecarExitMessage(code: number | null, signal: number | null): string {
 	if (code === 78) {
-		return 'The application is already running in the background. Check the taskbar or Task Manager (process "mail"), or wait about 30 seconds and try again.';
+		return 'The application is already running in the background. Check the taskbar or Task Manager (process "voxrox-mail-backend"), or wait about 30 seconds and try again.';
 	}
 	if (code === 130 || code === 143) {
 		return `Backend was terminated by an external signal (code ${code}). Try restarting the application.`;

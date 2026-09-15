@@ -71,7 +71,7 @@ How to measure:
 # 1. Fresh data dir
 Remove-Item -Recurse -Force "$env:LOCALAPPDATA\VoxRox\Mail" -ErrorAction SilentlyContinue
 # 2. Start the Tauri release build
-& "$env:ProgramFiles\VoxRox Mail\voxrox-mail.exe"
+& "$env:LOCALAPPDATA\Programs\VoxRox\Mail\voxrox-mail.exe"
 # 3. After the application starts, copy the log and read it
 Get-Content "$env:LOCALAPPDATA\VoxRox\Mail\logs\mail.log" |
   Select-String "Startup timing" | Select-Object -First 20

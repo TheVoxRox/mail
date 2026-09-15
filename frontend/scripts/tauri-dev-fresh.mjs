@@ -53,7 +53,7 @@ function killWindowsTauriProcesses() {
 	if (process.platform !== 'win32') return;
 
 	/*
-	 * Kill leftover dev processes (Tauri app.exe + jpackage sidecar mail.exe)
+	 * Kill leftover dev processes (Tauri voxrox-mail.exe + jpackage sidecar)
 	 * matched by command line, so only binaries started from
 	 * src-tauri\target\debug are hit — never a production install. wmic was
 	 * removed from current Windows 11 builds, so query Win32_Process through

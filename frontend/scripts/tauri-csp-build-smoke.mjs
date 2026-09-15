@@ -64,11 +64,9 @@ function positiveInt(raw, fallback) {
 }
 
 function resolveDefaultReleaseExe() {
-	const releaseDir = path.join(rootDir, 'src-tauri', 'target', 'release');
-	// app.exe is the Tauri host (~18 MB); mail.exe in the same dir is the
-	// backend sidecar (~0.5 MB) — never launch that one as the app.
-	const candidates = [path.join(releaseDir, 'app.exe'), path.join(releaseDir, 'Mail.exe')];
-	return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0];
+	// voxrox-mail.exe is the Tauri host (~18 MB); voxrox-mail-backend.exe in the
+	// same dir is the backend sidecar (~0.5 MB) — never launch that one as the app.
+	return path.join(rootDir, 'src-tauri', 'target', 'release', 'voxrox-mail.exe');
 }
 
 /** Detects a CSP violation reported through the Log domain (console "security" sink). */
