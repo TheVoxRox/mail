@@ -4,10 +4,10 @@
 # specific to this product, never a template default like "app".
 name = "voxrox-mail"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+description = "VoxRox Mail desktop application"
+authors = ["VoxRox"]
 license-file = "../../LICENSE"
-repository = ""
+repository = "https://github.com/TheVoxRox/mail"
 edition = "2021"
 rust-version = "1.77.2"
 
