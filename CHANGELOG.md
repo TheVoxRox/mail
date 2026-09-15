@@ -12,6 +12,10 @@ see [CLAUDE.md](CLAUDE.md) for the language split across the docs.
 
 ## Unreleased
 
+### Tauri / Release
+
+- **`todo.md` catches up with the third cut of `v0.1.0`.** Its release items still said the signed build and Release Candidate Smoke of the new tag had yet to run; `npm run release:status` shows both green for the tag at `cf1c4cd`, with every asset on the draft, the draft body matching `docs/release-notes/v0.1.0.md` and `latest.json` consistent. What is left stays by hand: §3–§7 on that build, §8.1 and §9. Setting the draft body turned up a trap worth naming: a raw `gh api -X PATCH` on a draft that sends only `body` resets its `tag_name` to `untagged-…`, which would have attached the published release to the wrong tag. It was put back at once and verified. RELEASE_PROCESS already prescribes `gh release edit --notes-file`, which sends the tag name itself, so no document changes.
+
 ## [0.1.0] - 2026-09-15
 
 ### Backend
