@@ -28,9 +28,11 @@ describe('INSTALL_ENTRIES and DUMP_ENTRIES', () => {
 		const cargo = read('../src-tauri/Cargo.toml');
 		const config = JSON.parse(read('../src-tauri/tauri.conf.json'));
 
-		expect(cargo).toMatch(/^\[package\]\r?\nname = "app"$/m);
-		expect(config.bundle.externalBin).toEqual(['binaries/mail']);
-		expect(INSTALL_ENTRIES).toEqual(expect.arrayContaining(['app.exe', 'mail.exe']));
+		expect(cargo).toMatch(/^name = "voxrox-mail"$/m);
+		expect(config.bundle.externalBin).toEqual(['binaries/voxrox-mail-backend']);
+		expect(INSTALL_ENTRIES).toEqual(
+			expect.arrayContaining(['voxrox-mail.exe', 'voxrox-mail-backend.exe'])
+		);
 		expect(INSTALL_ENTRIES).toEqual(expect.arrayContaining(Object.values(config.bundle.resources)));
 	});
 
@@ -47,14 +49,15 @@ describe('INSTALL_ENTRIES and DUMP_ENTRIES', () => {
 
 describe('missingEntries', () => {
 	it('compares names the way Windows does', () => {
-		expect(missingEntries(['app.exe', 'NOTICE.txt'], ['APP.EXE', 'notice.txt'])).toEqual([]);
+		expect(
+			missingEntries(['voxrox-mail.exe', 'NOTICE.txt'], ['VOXROX-MAIL.EXE', 'notice.txt'])
+		).toEqual([]);
 	});
 
 	it('returns what is absent, in the expected order', () => {
-		expect(missingEntries(['app.exe', 'mail.exe', 'runtime'], ['runtime'])).toEqual([
-			'app.exe',
-			'mail.exe'
-		]);
+		expect(
+			missingEntries(['voxrox-mail.exe', 'voxrox-mail-backend.exe', 'runtime'], ['runtime'])
+		).toEqual(['voxrox-mail.exe', 'voxrox-mail-backend.exe']);
 	});
 });
 

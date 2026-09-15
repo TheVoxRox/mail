@@ -202,7 +202,7 @@ jobs:
       - name: cargo fmt
         run: cargo fmt --check
 
-      # The sidecar (externalBin "binaries/mail") and the bundled resources
+      # The sidecar (externalBin "binaries/voxrox-mail-backend") and the bundled resources
       # ("binaries/app", "binaries/runtime") are Windows-only artifacts produced
       # by the release packaging job; they do not exist on this Linux runner.
       # tauri-build validates their existence in the build script, so stub them
@@ -211,7 +211,7 @@ jobs:
       # committed, so it needs no stub.
       - name: Stub sidecar and resources for static checks
         run: |
-          install -Dm755 /dev/null binaries/mail-x86_64-unknown-linux-gnu
+          install -Dm755 /dev/null binaries/voxrox-mail-backend-x86_64-unknown-linux-gnu
           mkdir -p binaries/app binaries/runtime
           : > binaries/app/.stub
           : > binaries/runtime/.stub

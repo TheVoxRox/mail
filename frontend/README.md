@@ -106,8 +106,9 @@ Git; keep only `src-tauri/binaries/.gitkeep`. You can pass custom source and
 destination paths to `scripts/sync-backend-sidecar-windows.mjs` if needed.
 
 The Java backend is distributed as a Windows sidecar produced by `jpackage`:
-`mail-x86_64-pc-windows-msvc.exe` plus the generated `app/` and `runtime/`
-directories. The bundled runtime means end users do not need to install Java,
+`voxrox-mail-backend-x86_64-pc-windows-msvc.exe` plus the generated `app/` and
+`runtime/` directories; the installer carries it as `voxrox-mail-backend.exe`
+next to the desktop shell `voxrox-mail.exe`. The bundled runtime means end users do not need to install Java,
 JDK, or JRE separately.
 
 Windows builds produce a single NSIS installer:

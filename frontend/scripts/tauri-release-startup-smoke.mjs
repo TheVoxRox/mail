@@ -53,12 +53,7 @@ function positiveInt(raw, fallback) {
 }
 
 function resolveDefaultReleaseExe() {
-	const candidates = [
-		path.join(rootDir, 'src-tauri', 'target', 'release', 'app.exe'),
-		path.join(rootDir, 'src-tauri', 'target', 'release', 'mail.exe'),
-		path.join(rootDir, 'src-tauri', 'target', 'release', 'Mail.exe')
-	];
-	return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0];
+	return path.join(rootDir, 'src-tauri', 'target', 'release', 'voxrox-mail.exe');
 }
 
 async function exists(filePath) {

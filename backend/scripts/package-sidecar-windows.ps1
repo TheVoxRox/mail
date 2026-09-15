@@ -28,7 +28,7 @@ Set-StrictMode -Version Latest
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 $repoLocalPath = Join-Path $repoRoot $MavenRepoLocal
 $outputRootPath = Join-Path $repoRoot $OutputRoot
-$sidecarName = "mail-$TargetTriple"
+$sidecarName = "voxrox-mail-backend-$TargetTriple"
 # What the launcher's version resource says about itself. jpackage writes
 # ProductName from --name, so the image is built under the product name and the
 # launcher is renamed to $sidecarName afterwards (see "Publishing sidecar image").

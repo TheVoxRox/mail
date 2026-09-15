@@ -17,8 +17,8 @@ Only files built from this repository by the
 [Windows Signed Release](.github/workflows/windows-signed-release.yml) workflow:
 
 - the installer, `voxrox-mail-<version>-windows-x64-setup.exe`;
-- the desktop shell, `app.exe`;
-- the backend launcher, `mail.exe`.
+- the desktop shell, `voxrox-mail.exe`;
+- the backend launcher, `voxrox-mail-backend.exe`.
 
 The workflow runs on a GitHub-hosted runner, builds from a version tag, refuses
 to run when that tag does not name the commit it builds, and records build

@@ -10,14 +10,15 @@
 export const EXPECTED_INSTALL_SUBPATH = 'Programs\\VoxRox\\Mail';
 
 /**
- * What the installation directory has to carry. `app.exe` is the Tauri shell
- * (the Cargo package is named `app`), `mail.exe` the sidecar launcher from
- * `externalBin: binaries/mail`, and `app\` + `runtime\` the jar and the bundled
- * JRE the launcher loads.
+ * What the installation directory has to carry. `voxrox-mail.exe` is the Tauri
+ * shell (named after the Cargo package), `voxrox-mail-backend.exe` the sidecar
+ * launcher from `externalBin: binaries/voxrox-mail-backend`, and `app\` +
+ * `runtime\` the jar and the bundled JRE the launcher loads — jpackage's fixed
+ * layout, unrelated to the shell's name.
  */
 export const INSTALL_ENTRIES = [
-	'app.exe',
-	'mail.exe',
+	'voxrox-mail.exe',
+	'voxrox-mail-backend.exe',
 	'app',
 	'runtime',
 	'NOTICE.txt',

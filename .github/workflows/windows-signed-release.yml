@@ -220,7 +220,7 @@ jobs:
         if: steps.signing.outputs.available == 'true'
         working-directory: frontend
         shell: pwsh
-        run: .\scripts\sign-windows-file.ps1 -Path .\src-tauri\binaries\mail-x86_64-pc-windows-msvc.exe
+        run: .\scripts\sign-windows-file.ps1 -Path .\src-tauri\binaries\voxrox-mail-backend-x86_64-pc-windows-msvc.exe
 
       # The release config omits the Authenticode block when no certificate is
       # configured (see prepare-tauri-windows-release-config.mjs), so this signs
@@ -252,7 +252,7 @@ jobs:
         shell: pwsh
         run: |
           $paths = @(
-            ".\src-tauri\binaries\mail-x86_64-pc-windows-msvc.exe",
+            ".\src-tauri\binaries\voxrox-mail-backend-x86_64-pc-windows-msvc.exe",
             ".\src-tauri\target\release\bundle"
           )
           .\scripts\verify-windows-signatures.ps1 -Path $paths
