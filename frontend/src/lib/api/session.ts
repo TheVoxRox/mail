@@ -9,7 +9,7 @@
  */
 
 import { browser } from '$app/environment';
-import { exists, readTextFile, watchImmediate, type UnwatchFn } from '@tauri-apps/plugin-fs';
+import { exists, readTextFile } from '@tauri-apps/plugin-fs';
 import { join } from '@tauri-apps/api/path';
 import { mailDataDir } from '$lib/backend/data-dir';
 import { delayWithAbort } from '$lib/delay.js';
@@ -169,11 +169,11 @@ export interface LoadSessionOptions {
  * the session contents. Throws SessionLoadError if neither file appears
  * within `maxAttempts * delayMs`.
  *
- * Uses an fs watcher on the data directory to react to backend writes
- * instantly; falls back to plain polling on platforms / capability
- * configurations where watch is unavailable. The polling loop also remains the
- * safety net for the watch-but-no-event case (e.g. watcher attached after the
- * file already existed but before our existence check landed).
+ * Polls for both files every `delayMs`. There is deliberately no fs watcher:
+ * `tauri-plugin-fs` is built without its `watch` feature, so the one this
+ * function used to set up failed with "Command watch not found" on every boot
+ * and the loop was polling all along. Polling meets the contract, and the
+ * sidecar takes seconds to start, so a watcher would save at most one `delayMs`.
  */
 export async function loadSession(options: LoadSessionOptions = {}): Promise<SessionPayload> {
 	const { maxAttempts = 150, delayMs = 200, signal } = options;
@@ -184,78 +184,23 @@ export async function loadSession(options: LoadSessionOptions = {}): Promise<Ses
 
 	const sessionPath = await resolveSessionPath();
 	const readyPath = await resolveReadyPath();
-	const dataDir = await mailDataDir();
 
-	/*
-	 * Wake signal — `wake()` wakes the polling loop instantly. Each await on
-	 * `waitForWake()` resolves the next time `wake()` fires. The pattern
-	 * collapses the polling cadence to ~0 ms on the happy path (backend writes
-	 * the file → watch event → instant re-check) while preserving the
-	 * `delayMs` ceiling as a safety net.
-	 */
-	let resolveWake: () => void = () => {};
-	let wakePromise = new Promise<void>((r) => (resolveWake = r));
-	const wake = () => {
-		const r = resolveWake;
-		wakePromise = new Promise<void>((next) => (resolveWake = next));
-		r();
-	};
-	const waitForWake = () => wakePromise;
-
-	let unwatch: UnwatchFn | null = null;
-	try {
-		unwatch = await watchImmediate(
-			dataDir,
-			(event) => {
-				if (event.paths.some(isHandshakeFile)) wake();
-			},
-			{ recursive: false }
-		);
-	} catch {
-		/*
-		 * Watch unavailable — capability missing, dataDir does not exist yet
-		 * (first launch), or a platform-specific limitation. Polling alone
-		 * still meets the contract; the user just pays up to one delayMs more
-		 * of latency on cold start.
-		 */
-	}
-
-	try {
-		for (let attempt = 0; attempt < maxAttempts; attempt++) {
-			if (signal?.aborted) {
-				throw new SessionLoadError('Loading session.json was aborted');
-			}
-
-			if ((await exists(readyPath)) && (await exists(sessionPath))) {
-				const raw = await readTextFile(sessionPath);
-				return parseSession(raw);
-			}
-
-			await Promise.race([delayWithAbort(delayMs, signal), waitForWake()]);
+	for (let attempt = 0; attempt < maxAttempts; attempt++) {
+		if (signal?.aborted) {
+			throw new SessionLoadError('Loading session.json was aborted');
 		}
 
-		throw new SessionLoadError(
-			`.ready/session.json not found at ${sessionPath} after ${maxAttempts} attempts – is the backend running?`
-		);
-	} finally {
-		try {
-			unwatch?.();
-		} catch {
-			// best-effort cleanup; the watcher dies with the page anyway
+		if ((await exists(readyPath)) && (await exists(sessionPath))) {
+			const raw = await readTextFile(sessionPath);
+			return parseSession(raw);
 		}
-	}
-}
 
-function isHandshakeFile(path: string): boolean {
-	/*
-	 * Compare on basename — watcher emits absolute paths and we only care
-	 * about the two handshake files (.ready / session.json), never about
-	 * other files the backend may write to the data dir (db/, logs/,
-	 * attachments/) which would otherwise wake the loop for no reason.
-	 */
-	const slash = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
-	const name = slash >= 0 ? path.slice(slash + 1) : path;
-	return name === SESSION_FILE_NAME || name === READY_FILE_NAME;
+		await delayWithAbort(delayMs, signal);
+	}
+
+	throw new SessionLoadError(
+		`.ready/session.json not found at ${sessionPath} after ${maxAttempts} attempts – is the backend running?`
+	);
 }
 
 /** Builds the base URL for `/api/v1/*` endpoints from session.json baseUrl. */

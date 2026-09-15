@@ -76,7 +76,7 @@
       "frontend/src-tauri/src": "ef211bb86ce099b20636adbc105c7fd4cc01468e",
       "frontend/src/lib/components/settings/AboutSettings.svelte": "64b520cedf9e073c0e4611c40e9c146487d7a1e4",
       "frontend/src-tauri/tauri.conf.json": "652e790059f8eae086dd57e5f10cc9a70ea0cabd",
-      "frontend/src-tauri/capabilities": "e4e735c6e696b6b3b4c7ed4ab00cd95a4a1d9f43"
+      "frontend/src-tauri/capabilities": "859966dbd774f07148eafbf6d41c224acd497047"
     },
     "acknowledgements": [
       {
@@ -94,6 +94,10 @@
       {
         "date": "2026-09-15",
         "note": "Two permissions added to the capability set, read against section 1; the audit text is revised for it (v1.15) rather than re-verified. The whole diff under capabilities/ is core:event:allow-listen and core:event:allow-unlisten in default.json. They let the webview subscribe to and drop subscriptions on events the shell emits: update://download-progress from download_pending_update and the tray action event from tray.rs. Neither is an input to the install path: the progress payload is byte counts that nothing in check, download or install reads, and section 4 already covers their reaching the DOM. No emit or emit-to permission is granted, so a compromised renderer cannot inject an event into a Rust listener, and nothing under updater: is granted, so section 1's command surface (three updater commands, two startup-check commands, the channel enum, both expectedVersion pins, the verified bytes kept in Rust state) is unchanged. What the absence did is operational, not a trust question: since the event was added, no packaged build delivered progress, and the tray menu items were dead for the same reason. The listen() mocks in updates.test.ts and tray.test.ts never reached the permission check; a new eventCapability.test.ts pins both permissions and was seen failing with default.json reverted. cargo check accepts both identifiers. Verdict stays PASS."
+      },
+      {
+        "date": "2026-09-15",
+        "note": "Two permissions removed, nothing added; read against section 1. The whole diff under capabilities/ is fs:allow-watch and fs:allow-unwatch leaving default.json. Neither could do anything: tauri-plugin-fs is built without its watch feature, so plugin:fs|watch is not compiled into the shell (a CDP probe of the running dev app answered \"Command watch not found\", past the ACL), and the frontend's watcher cleanup goes through plugin:resources|close, which the set never granted. The one caller, loadSession in session.ts, loses the watcher and polls as it always effectively did. Section 1's claims stand unchanged: nothing under updater: is granted, the listen/unlisten pair and the absent emit from the record above are untouched, and the fs scope list is byte-identical, so the capability set only shrinks. None of this audit's commands, pins or the verified-bytes path is in the diff. The same probe re-confirmed every other IPC command the frontend uses is allowed and that emit and shell stdin_write stay denied. Verdict stays PASS."
       }
     ]
   },
