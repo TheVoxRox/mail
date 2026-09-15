@@ -1,5 +1,6 @@
 mod tray;
 mod update_preference;
+mod webview_defaults;
 
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -71,7 +72,7 @@ pub fn run() {
             // hydrates — already conveys that the app is starting. The frontend
             // ($lib/windowTitle via the root layout) switches it to the plain
             // app name once boot reaches 'ready'/'failed'.
-            WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
+            let main_window = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
                 .title("VoxRox Mail – načítání…")
                 .inner_size(restore_size.width, restore_size.height)
                 .min_inner_size(min_size.width, min_size.height)
@@ -79,7 +80,18 @@ pub fn run() {
                 .maximized(true)
                 .data_directory(webview_dir.clone())
                 .additional_browser_args(&webview_browser_args())
+                // Tauri's own drag-and-drop handler replaces WebView2's drop
+                // target and forwards dropped files only to Rust, so the page's
+                // `drop` never fired and neither the attachment picker nor the
+                // vCard import received a file. The frontend handles drops
+                // itself, and $lib/fileDropGuard.ts keeps a stray one from
+                // opening the file in place of the app.
+                .disable_drag_drop_handler()
                 .build()?;
+            #[cfg(windows)]
+            webview_defaults::install(&main_window);
+            #[cfg(not(windows))]
+            let _ = main_window;
 
             /*
              * Logged, not propagated: `?` here would turn "the notification

@@ -13,10 +13,10 @@
 		"windows": [],
 		"security": {
 			"csp": {
-				"default-src": "'self' asset:",
+				"default-src": "'self'",
 				"script-src": "'self'",
 				"connect-src": "'self' ipc: http://ipc.localhost http://localhost:* http://127.0.0.1:*",
-				"img-src": "'self' asset: http://asset.localhost data:",
+				"img-src": "'self' data:",
 				"style-src": "'self' 'unsafe-inline'",
 				"object-src": "'none'",
 				"base-uri": "'none'",
@@ -24,10 +24,10 @@
 				"frame-src": "'self' about:"
 			},
 			"devCsp": {
-				"default-src": "'self' asset:",
+				"default-src": "'self'",
 				"script-src": "'self'",
 				"connect-src": "'self' ipc: http://ipc.localhost http://localhost:* http://127.0.0.1:*",
-				"img-src": "'self' asset: http://asset.localhost data:",
+				"img-src": "'self' data:",
 				"style-src": "'self' 'unsafe-inline'",
 				"object-src": "'none'",
 				"base-uri": "'none'",
@@ -39,6 +39,7 @@
 	"bundle": {
 		"active": true,
 		"publisher": "VoxRox",
+		"homepage": "https://voxrox.org",
 		"copyright": "Copyright (c) 2026 VoxRox",
 		"targets": "nsis",
 		"externalBin": ["binaries/voxrox-mail-backend"],
