@@ -12,8 +12,6 @@
 		"fs:allow-read-text-file",
 		"fs:allow-exists",
 		"fs:allow-remove",
-		"fs:allow-watch",
-		"fs:allow-unwatch",
 		{
 			"identifier": "fs:scope",
 			"allow": [
