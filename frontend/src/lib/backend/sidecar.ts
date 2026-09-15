@@ -159,7 +159,8 @@ export async function restartBackendSidecar(): Promise<void> {
  *
  * Exported for the update path, which has to free the install directory before
  * the installer runs (see installPromptedUpdate in lib/updates.ts). Everywhere
- * else it is reached through `restartBackendSidecar` or the beforeunload hook.
+ * else it is reached through `restartBackendSidecar` or the unload hook
+ * (`registerSidecarShutdownHook`).
  */
 export async function stopBackendSidecar(): Promise<void> {
 	runtime.stopRequested = true;
@@ -178,15 +179,39 @@ export async function stopBackendSidecar(): Promise<void> {
 	}
 }
 
+/**
+ * Stops the sidecar when the page really goes away — a reload, or a quit that
+ * unloads the webview — and not when leaving is merely attempted.
+ *
+ * It used to stop on every `beforeunload`, and that is too early: the same
+ * event is where a leave guard (`installLeaveGuard`, used by the compose and
+ * contact forms) cancels the unload, and the webview then asks whether to
+ * leave. Choosing to stay kept the page and the unsaved form, with the backend
+ * already killed and `stopRequested` set, so nothing restarted it and every
+ * later request failed without a word. The listener was `once`, too, so it was
+ * spent by then and a later real reload left the old backend running.
+ *
+ * So `beforeunload` stops it only when nothing cancelled the unload, which
+ * keeps the old timing on every leave without a prompt, and `pagehide` covers
+ * the case that remains: the prompt was shown and the user chose to leave.
+ * Neither listener is `once`, because a cancelled leave has to leave both armed;
+ * stopping twice is harmless, as the second call finds no child.
+ *
+ * Reading `defaultPrevented` relies on SvelteKit's own `beforeunload` listener,
+ * the one that runs the leave guard, having run first. Listeners run in the
+ * order they were added, and SvelteKit adds its listener when the router starts
+ * after the first navigation, while this one is added only once the sidecar
+ * has spawned, several awaited IPC calls into bootstrap.
+ */
 function registerSidecarShutdownHook(): void {
 	if (typeof window === 'undefined') return;
-	window.addEventListener(
-		'beforeunload',
-		() => {
-			void stopBackendSidecar();
-		},
-		{ once: true }
-	);
+	window.addEventListener('beforeunload', (event) => {
+		if (event.defaultPrevented) return;
+		void stopBackendSidecar();
+	});
+	window.addEventListener('pagehide', () => {
+		void stopBackendSidecar();
+	});
 }
 
 async function spawnBackendSidecar(): Promise<void> {
@@ -221,7 +246,7 @@ async function spawnBackendSidecar(): Promise<void> {
 			/*
 			 * Arms the backend's parent-death watchdog. When this frontend process
 			 * goes away — including a force-kill (Task Manager, kill -9, a crash)
-			 * that skips stopBackendSidecar()/beforeunload — the OS closes the
+			 * that skips stopBackendSidecar() and the unload hook — the OS closes the
 			 * sidecar's stdin pipe and the backend self-terminates instead of
 			 * lingering as an orphaned JVM holding the ephemeral port and the DB.
 			 * See backend core/lifecycle/ParentProcessWatchdog.java.
