@@ -383,6 +383,80 @@ describe('handleUnexpectedExit — exit code → user-readable error message', (
 	});
 });
 
+describe('unload hook — only a leave that goes ahead stops the backend', () => {
+	const cleanups: Array<() => void> = [];
+
+	afterEach(() => {
+		cleanups.splice(0).forEach((cleanup) => cleanup());
+	});
+
+	/**
+	 * Stands in for SvelteKit's own `beforeunload` listener cancelling the unload
+	 * for a dirty leave-guarded form. Added before the sidecar spawns, as the
+	 * router's listener is in the app, so it runs ahead of the hook.
+	 */
+	function blockUnload(): () => void {
+		const block = (event: Event) => event.preventDefault();
+		window.addEventListener('beforeunload', block);
+		const unblock = () => window.removeEventListener('beforeunload', block);
+		cleanups.push(unblock);
+		return unblock;
+	}
+
+	function dispatchBeforeUnload(): void {
+		window.dispatchEvent(new Event('beforeunload', { cancelable: true }));
+	}
+
+	async function spawned(pid: number) {
+		const handle = createCommandHandle({ pid });
+		commandSidecarMock.mockReturnValue(handle.cmd);
+		const mod = await freshModule();
+		await mod.ensureBackendSidecar();
+		return { mod, handle };
+	}
+
+	it('keeps the backend running when a leave guard cancels the unload', async () => {
+		blockUnload();
+		const { mod, handle } = await spawned(301);
+
+		dispatchBeforeUnload();
+		await Promise.resolve();
+
+		expect(handle.child.kill).not.toHaveBeenCalled();
+		expect(get(mod.backendSidecarState)).toEqual({ status: 'running', pid: 301 });
+	});
+
+	it('stops the backend on pagehide when the user confirms the prompted leave', async () => {
+		blockUnload();
+		const { handle } = await spawned(302);
+
+		dispatchBeforeUnload();
+		window.dispatchEvent(new Event('pagehide'));
+
+		expect(handle.child.kill).toHaveBeenCalledOnce();
+	});
+
+	it('stops the backend on beforeunload when nothing cancels the unload', async () => {
+		const { handle } = await spawned(303);
+
+		dispatchBeforeUnload();
+
+		expect(handle.child.kill).toHaveBeenCalledOnce();
+	});
+
+	it('stays armed after a cancelled leave, so a later unguarded reload still stops the backend', async () => {
+		const unblock = blockUnload();
+		const { handle } = await spawned(304);
+
+		dispatchBeforeUnload();
+		expect(handle.child.kill).not.toHaveBeenCalled();
+
+		unblock();
+		dispatchBeforeUnload();
+		expect(handle.child.kill).toHaveBeenCalledOnce();
+	});
+});
+
 describe('restartBackendSidecar — stop + ensure cycle', () => {
 	it('kills the running child and respawns, clearing the restart-budget counter', async () => {
 		const first = createCommandHandle({ pid: 100 });

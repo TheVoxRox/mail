@@ -12,6 +12,10 @@ see [CLAUDE.md](CLAUDE.md) for the language split across the docs.
 
 ## Unreleased
 
+### Frontend
+
+- **Staying on the page at the "leave this page?" prompt no longer kills the backend.** The unload hook in [sidecar.ts](frontend/src/lib/backend/sidecar.ts) stopped the sidecar on every `beforeunload`, but that is the same event in which the leave guard of the compose and contact forms cancels an unload with unsaved changes. Choosing _Stay_ kept the page and the form while the backend was already dead, and with `stopRequested` set nothing restarted it: every later request failed and the app said nothing. F5, Ctrl+R inside a text field and _Refresh_ in the webview's context menu all reach that prompt. The listener was also `once`, so it was spent by then and the next real reload left the old backend running. **Reproduced before the fix** in `tauri:dev` driven over CDP: the prompt showed, the form survived, and the backend process was gone a second after the reload was requested. Now `beforeunload` stops the backend only when nothing cancelled the unload, which keeps the old timing for every leave without a prompt; `pagehide` stops it once a prompted leave is confirmed; and neither listener is `once`. **Verified the same way after the fix**, in three scenarios: _Stay_ leaves the same backend processes answering, _Leave_ replaces them with a new backend on a new session, and a reload without a prompt still does too. Reading `defaultPrevented` relies on SvelteKit's own `beforeunload` listener having run first. It does — SvelteKit adds it when the router starts, and this hook is added only after the sidecar has spawned — and the _Stay_ scenario is the evidence, since with the order reversed the backend would have died there. The unit tests were checked against mutations: reverting the fix fails the _cancelled leave_ and _stays armed_ tests, and restoring `once` while dropping `pagehide` fails the _stays armed_ and _confirmed leave_ tests; the unprompted-reload test pins behaviour that did not change.
+
 ## [0.1.0] - 2026-09-15
 
 ### Backend
