@@ -13,7 +13,7 @@ Total third-party components: 584
   maven  106
   cargo  365
 
-Generated: 2026-09-10
+Generated: 2026-09-15
 
 Machine-readable CycloneDX SBOM files for each ecosystem are
 published alongside the installer on the GitHub Releases page.
@@ -822,11 +822,11 @@ Components and their copyright notices:
       tyrealhu and the Svelte team
       git+https://github.com/sveltejs/acorn-typescript.git
 
-  * binding-win32-x64-msvc 1.2.5  [npm]
+  * binding-win32-x64-msvc 1.2.8  [npm]
       (no author in package.json — see git+https://github.com/rolldown/rolldown.git#packages/rolldown)
       git+https://github.com/rolldown/rolldown.git#packages/rolldown
 
-  * bits-ui 2.19.0  [npm]
+  * bits-ui 2.19.2  [npm]
       Hunter Johnston
       git+https://github.com/huntabyte/bits-ui.git
 
@@ -1206,7 +1206,7 @@ Components and their copyright notices:
       (no author in package.json — see git+https://github.com/rolldown/plugins.git#packages/pluginutils)
       git+https://github.com/rolldown/plugins.git#packages/pluginutils
 
-  * postcss 8.5.26  [npm]
+  * postcss 8.5.28  [npm]
       Andrey Sitnik
       git+https://github.com/postcss/postcss.git
 
@@ -1226,7 +1226,7 @@ Components and their copyright notices:
       Justin Ridgewell
       git+https://github.com/jridgewell/resolve-uri.git
 
-  * rolldown 1.2.5  [npm]
+  * rolldown 1.2.8  [npm]
       (no author in package.json — see git+https://github.com/rolldown/rolldown.git#packages/rolldown)
       git+https://github.com/rolldown/rolldown.git#packages/rolldown
 
@@ -1394,11 +1394,11 @@ Components and their copyright notices:
       Luca Bosin
       git+https://github.com/Wombosvideo/tw-animate-css.git
 
-  * types 0.146.0  [npm]
+  * types 0.149.0  [npm]
       Boshen and oxc contributors
       git+https://github.com/oxc-project/oxc.git#npm/oxc-types
 
-  * types 8.69.0  [npm]
+  * types 8.70.0  [npm]
       (no author in package.json — see git+https://github.com/typescript-eslint/typescript-eslint.git#packages/types)
       git+https://github.com/typescript-eslint/typescript-eslint.git#packages/types
 
@@ -1422,7 +1422,7 @@ Components and their copyright notices:
       Evan You
       git+https://github.com/tailwindlabs/tailwindcss.git#packages/@tailwindcss-vite
 
-  * vite 8.2.2  [npm]
+  * vite 8.3.0  [npm]
       Evan You
       git+https://github.com/vitejs/vite.git#packages/vite
 
@@ -2342,7 +2342,7 @@ Components and their copyright notices:
       Alexey Raspopov
       git+https://github.com/alexeyraspopov/picocolors.git
 
-  * rustls-webpki 0.103.13  [cargo]
+  * rustls-webpki 0.103.15  [cargo]
       (copyright not declared)
       https://github.com/rustls/webpki
 
@@ -2620,7 +2620,7 @@ Components and their copyright notices:
       (copyright not declared)
       https://github.com/rustls/hyper-rustls
 
-  * rustls 0.23.38  [cargo]
+  * rustls 0.23.45  [cargo]
       (copyright not declared)
       https://github.com/rustls/rustls
 

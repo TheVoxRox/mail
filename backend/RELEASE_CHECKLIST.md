@@ -296,6 +296,47 @@ A per-candidate worksheet for the manual smoke (§3–§8 above). §1 (backend b
 
 **The candidate is the tag, not a commit on `main`.** Evidence recorded against a branch commit goes stale the moment anything merges, which is what happened to the sheet below: §0/§1/§2 were taken on `9c51d9d` and `main` moved past it the same day. A tag is immutable, so once `v<X.Y.Z>` exists nothing that lands afterwards can invalidate a tick and the question does not come back — record the tag in `Candidate ref`, and treat a commit SHA there as provisional, valid only until the tag is cut. One window cannot be closed this way, because the process needs it: §0/§1/§2 run before the version bump and the changelog cut, and those are what gets tagged. Keep that window to minutes rather than days — it is the only stretch in which a merge can cost a re-run, and §1 is the expensive half to repeat (§2 is what CI re-takes on every push anyway). **Deliberately not written here: a rule that a docs-only commit does not invalidate §1.** It cannot be checked by being read, it has already been applied once by hand — the 2026-06-26 note in §1 above, "code unchanged since 3210e1a — only docs commits since" — and a claim nothing recomputes is the kind this repo deletes rather than maintains. If the gate ever has to run against a moving `main`, compute it instead: compare the git object ids of the paths §1 rests on, the way `check:audits` already does for the audits. `npm run release:status` (from `frontend/`) does that for the newest sheet on `main`, against both `main` and the tag; once the tag, the signed build and the draft are in order, it names the first section still open.
 
+### Candidate 2026-09-15 — see the object ids below
+
+```text
+Release:         VoxRox Mail 0.1.0  (identifier org.voxrox.mail)
+Sign-off date:   ____________
+Candidate ref:   the commit this sheet lands in — provisional; replaced by tag v0.1.0 once re-cut
+Backend commit:  same
+Frontend commit: same  (the same monorepo)
+Platform:        Windows 11 Pro x64, machine lacina-hp-650
+Tester:          machine half automated; §3–§9 are the maintainer's
+Build origin:    local and unsigned — the signed build comes from the re-cut tag, per RELEASE_PROCESS steps 3–4
+```
+
+**The tag is re-cut a third time, for three fixes the 2026-09-14 build does not have.** #490: the tray menu items "Synchronizovat" and "Nová zpráva" did nothing and the update dialog's progress bar never moved, because the capability set never granted `core:event:allow-listen`; a screen reader got no percentage announcements during the download. #491: `rustls` 0.23.38, which the updater uses for HTTPS, is under RUSTSEC-2026-0285. #492: a session file watcher that had never run is removed together with its two permissions. Nothing manual had been taken on the 2026-09-14 build — §3–§9 of that sheet were all open — so the draft and the tag are deleted and cut again from the commit this sheet lands in. The tree, on the seven paths §1 and §2 rest on:
+
+| path                         | object id      |
+| ---------------------------- | -------------- |
+| `backend/src`                | `6eb6fc4973c5` |
+| `backend/pom.xml`            | `dbef3f26bcc3` |
+| `backend/scripts`            | `12190c2d9a67` |
+| `frontend/src`               | `0d00dcc6ba69` |
+| `frontend/src-tauri`         | `551639e85c3a` |
+| `frontend/package.json`      | `b846b2790345` |
+| `frontend/package-lock.json` | `fe149c9e846a` |
+
+Recompute them before ticking anything below; `npm run release:status` does it against `main` and against the tag.
+
+- [x] **§0 Version** — `npm run check:versions` OK, `0.1.0` on all five files. No bump needed.
+- [x] **§1 Backend build** — **carried over from the 2026-09-14 sheet**: `backend/src`, `backend/pom.xml` and `backend/scripts` carry the same object ids, so the green `clean verify` and the sidecar packaging recorded there are of this tree. `regen:licenses:all` ran first, as the note at the top of §1 requires, and moved versions but no component: `rustls` 0.23.45 and `rustls-webpki` 0.103.15 from #491, and the npm bumps from #482 and #483 that reach the runtime inventory (`bits-ui`, `postcss`, `vite`, `rolldown` and type packages). No component was added or removed and no licence changed; the backend inventory did not move. Because versions moved, `NOTICE.txt` and both changed inventories are committed with this sheet, which is also why `frontend/src-tauri` differs from `main`.
+- [x] **§2 Frontend automation** — **re-taken**, because `frontend/src` moved in #490 and #492 and `frontend/src-tauri` in #490, #491 and #492, and after the licence regeneration so it ran on the tree this sheet records. `generate:api` left the generated client unchanged, `check:i18n` and `build` exited 0, `test:e2e` exited 0, and `test:functional:stable` and `test:a11y` run on their own passed with functional 277 and a11y 65, the counts of the 2026-09-14 sheet; no flakes reported. Port 4173 was checked free before each Playwright run, so every run started its own preview instead of recycling a stale one.
+- [ ] **§3 Fresh install** — on the signed build from the re-cut tag. Release Candidate Smoke starts on its own after that build; its URL goes here as the evidence for the items the note at the top of §3 lists. Before the manual part, run the WebView2 install-date check the `a2caa27` sheet describes, so the no-window finding gets its evidence this time.
+- [ ] **§3a Installer behaviour** — including the **privacy page** item, taken with a screen reader, and reading `latest.json` from the draft by hand. Still not covered by anything: reinstalling over an existing installation, and the downgrade block.
+- [ ] **§4 Account flows** — the blocking item of the gate: it is what proves the production `client-id` is baked into the launcher `.cfg`.
+- [ ] **§5 Mail workflows** — the trash case stays a named item: a folder holding two IMAP copies of one Message-ID must persist both and report a non-null `lastSyncAt`. New for this candidate: the tray menu items "Synchronizovat" and "Nová zpráva" each do what they say (#490).
+- [ ] **§6 Sidecar lifecycle** — on the new binary; the session handshake now polls only (#492), which it already did in every earlier build.
+- [ ] **§7 Diagnostics** — including the dump's `processStartedAt`, which measures from JVM start since #469; the privacy half is checked by reading the dump, not by producing it.
+- [ ] **§8 Long run** — §8.1 open. §8.2 does not run for this candidate and goes into §9 as an accepted risk, per the 2026-09-13 decision at the top of §8.2.
+- [ ] **§9** — release decision.
+
+**Why the 2026-09-14 sheet below is superseded.** `frontend/src` moved in #490 and #492 and `frontend/src-tauri` in #490, #491 and #492, so its §2 no longer describes the tree, and its §3 evidence would be a smoke of the installer built from `298e2e8`, which the re-cut tag replaces. Its §1 still holds and is carried over above.
+
 ### Candidate 2026-09-14 — see the object ids below
 
 ```text

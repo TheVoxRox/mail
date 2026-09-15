@@ -152,14 +152,14 @@ Counts: 335 crates total. 159 MIT OR Apache-2.0, 70 MIT, 32 Apache-2.0 OR MIT, 1
 - **windows-future** 0.2.1 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 - **windows-implement** 0.60.2 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 - **windows-interface** 0.59.3 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
-- **windows-link** 0.1.3 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 - **windows-link** 0.2.1 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
+- **windows-link** 0.1.3 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 - **windows-numerics** 0.2.0 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 - **windows-registry** 0.6.1 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
-- **windows-result** 0.3.4 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 - **windows-result** 0.4.1 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
-- **windows-strings** 0.4.2 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
+- **windows-result** 0.3.4 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 - **windows-strings** 0.5.1 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
+- **windows-strings** 0.4.2 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 - **windows-sys** 0.60.2 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 - **windows-sys** 0.61.2 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 - **windows-sys** 0.59.0 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
@@ -351,11 +351,11 @@ Counts: 335 crates total. 159 MIT OR Apache-2.0, 70 MIT, 32 Apache-2.0 OR MIT, 1
 ## Apache-2.0 OR ISC OR MIT (2)
 
 - **hyper-rustls** 0.27.9 — [https://github.com/rustls/hyper-rustls](https://github.com/rustls/hyper-rustls)
-- **rustls** 0.23.38 — [https://github.com/rustls/rustls](https://github.com/rustls/rustls)
+- **rustls** 0.23.45 — [https://github.com/rustls/rustls](https://github.com/rustls/rustls)
 
 ## ISC (2)
 
-- **rustls-webpki** 0.103.13 — [https://github.com/rustls/webpki](https://github.com/rustls/webpki)
+- **rustls-webpki** 0.103.15 — [https://github.com/rustls/webpki](https://github.com/rustls/webpki)
 - **untrusted** 0.9.0 — [https://github.com/briansmith/untrusted](https://github.com/briansmith/untrusted)
 
 ## Unlicense/MIT (2)
