@@ -296,6 +296,47 @@ A per-candidate worksheet for the manual smoke (§3–§8 above). §1 (backend b
 
 **The candidate is the tag, not a commit on `main`.** Evidence recorded against a branch commit goes stale the moment anything merges, which is what happened to the sheet below: §0/§1/§2 were taken on `9c51d9d` and `main` moved past it the same day. A tag is immutable, so once `v<X.Y.Z>` exists nothing that lands afterwards can invalidate a tick and the question does not come back — record the tag in `Candidate ref`, and treat a commit SHA there as provisional, valid only until the tag is cut. One window cannot be closed this way, because the process needs it: §0/§1/§2 run before the version bump and the changelog cut, and those are what gets tagged. Keep that window to minutes rather than days — it is the only stretch in which a merge can cost a re-run, and §1 is the expensive half to repeat (§2 is what CI re-takes on every push anyway). **Deliberately not written here: a rule that a docs-only commit does not invalidate §1.** It cannot be checked by being read, it has already been applied once by hand — the 2026-06-26 note in §1 above, "code unchanged since 3210e1a — only docs commits since" — and a claim nothing recomputes is the kind this repo deletes rather than maintains. If the gate ever has to run against a moving `main`, compute it instead: compare the git object ids of the paths §1 rests on, the way `check:audits` already does for the audits. `npm run release:status` (from `frontend/`) does that for the newest sheet on `main`, against both `main` and the tag; once the tag, the signed build and the draft are in order, it names the first section still open.
 
+### Candidate 2026-09-15, second cut — see the object ids below
+
+```text
+Release:         VoxRox Mail 0.1.0  (identifier org.voxrox.mail)
+Sign-off date:   ____________
+Candidate ref:   the commit this sheet lands in — provisional; replaced by tag v0.1.0 once re-cut
+Backend commit:  same
+Frontend commit: same  (the same monorepo)
+Platform:        Windows 11 Pro x64, machine lacina-hp-650
+Tester:          machine half automated; §3–§9 are the maintainer's
+Build origin:    local and unsigned — the signed build comes from the re-cut tag, per RELEASE_PROCESS steps 3–4
+```
+
+**The tag is cut a fourth time, for the executable rename in #495.** The build from `cf1c4cd` installs the desktop shell as `app.exe` and the backend launcher as `mail.exe`. The installer's running-app check matches the shell by executable name alone and offers to end it, so a template-default name lets an install, an uninstall or an update close an unrelated `app.exe`, and once `v0.1.0` is published a rename becomes a migration. #495 names them `voxrox-mail.exe` and `voxrox-mail-backend.exe`. Nothing manual had been taken on the `cf1c4cd` build — §3–§9 of that sheet were all open — so the draft and the tag are deleted and cut again from the commit this sheet lands in. Until then a Release Candidate Smoke run against the old draft fails on the installation's contents, because the smoke expects the new names: that is the old installer failing the new check, not a defect of this candidate. The tree, on the seven paths §1 and §2 rest on:
+
+| path                         | object id      |
+| ---------------------------- | -------------- |
+| `backend/src`                | `6eb6fc4973c5` |
+| `backend/pom.xml`            | `dbef3f26bcc3` |
+| `backend/scripts`            | `bd35a3977876` |
+| `frontend/src`               | `1e5f84ea996a` |
+| `frontend/src-tauri`         | `63ab0c3c3af6` |
+| `frontend/package.json`      | `b846b2790345` |
+| `frontend/package-lock.json` | `fe149c9e846a` |
+
+Recompute them before ticking anything below; `npm run release:status` does it against `main` and against the tag.
+
+- [x] **§0 Version** — `npm run check:versions` OK, `0.1.0` on all five files. No bump needed.
+- [x] **§1 Backend build** — **re-taken**, because `backend/scripts` moved in #495: the packaging script names the launcher. `backend/src` and `backend/pom.xml` carry the object ids of the first 2026-09-15 sheet. `mvn -Dmaven.repo.local=.m2repo -Dapp.data-dir=target/test-data clean verify` BUILD SUCCESS in 3:30, read from the reports rather than the console: `failsafe-summary.xml` gives `completed=88 errors=0 failures=0 skipped=0 flakes=0`, and none of the 115 surefire test-suite XMLs carries a failure, an error or a skip. Artifact `target/mail-backend-0.1.0.jar` produced. Sidecar packaged through `package-sidecar-dev-windows.ps1 -SkipTests`: the output carries `voxrox-mail-backend-x86_64-pc-windows-msvc.exe`, `app/` and `runtime/`, the version resource check reports `VoxRox Mail 0.1.0 by VoxRox`, three OAuth values were injected, and the built-in check reports the Google client-id baked into the launcher with no placeholder. Both ran on the #495 branch, whose three backend paths carry the ids in the table. `regen:licenses:all` ran on `main` after the merge and changed no file. Beyond §1, as evidence for the rename itself: `npm run tauri:build` produced `voxrox-mail.exe`, the generated NSIS script installs `voxrox-mail-backend.exe` with both `.cfg` names, and `tauri:smoke:release-startup -- --isolate-app-data` started the renamed shell, which spawned the renamed sidecar through the renamed capability scope. **Still open in §1:** the clean-profile run without a system-installed JDK.
+- [x] **§2 Frontend automation** — **re-taken**, because `frontend/src` and `frontend/src-tauri` moved in #495. `generate:api` ran with `--snapshot`, as no backend was running: it reads the golden `api-docs.json` that `OpenApiSnapshotTest` held in the green `clean verify` above, and it left `schema.d.ts` unchanged. `check:i18n` and `build` exited 0, `test:e2e` exited 0, and `test:functional:stable` and `test:a11y` run on their own passed with functional 277 and a11y 65, the counts of the first 2026-09-15 sheet. **One flake, recorded rather than waved away:** the first `test:functional:stable` run failed one test, "odkaz na otevřený výsledek jde otevřít přímo a přežije reload" in `search.functional.e2e.ts`, whose `waitForURL` after Escape timed out at line 160. The same test had passed minutes earlier inside `test:e2e` and passed again when the whole suite was re-run, and nothing in #495 reaches it: the e2e suites run the mocked frontend, and the only change under `frontend/src` is the sidecar program name. Port 4173 was checked free before each chain started, so every run started its own preview instead of recycling a stale one.
+- [ ] **§3 Fresh install** — on the signed build from the re-cut tag. Release Candidate Smoke starts on its own after that build; its URL goes here as the evidence for the items the note at the top of §3 lists. Before the manual part, gather evidence for the no-window finding of the `a2caa27` sheet on the machine where it happened: the WebView2 install-date check that sheet describes, and a Microsoft Defender performance recording (`New-MpPerformanceRecording`) over the install and the first launch, with the Tauri log copied before any uninstall. Defender is the maintainer's leading suspect, and the code does not favour the WebView2 hypothesis: the installer waits for the runtime install to finish, and a missing runtime ends the application rather than leaving it running without a window.
+- [ ] **§3a Installer behaviour** — including the **privacy page** item, taken with a screen reader, and reading `latest.json` from the draft by hand. Still not covered by anything: reinstalling over an existing installation, and the downgrade block.
+- [ ] **§4 Account flows** — the blocking item of the gate: it is what proves the production `client-id` is baked into the launcher `.cfg`.
+- [ ] **§5 Mail workflows** — the trash case stays a named item: a folder holding two IMAP copies of one Message-ID must persist both and report a non-null `lastSyncAt`. The tray menu items "Synchronizovat" and "Nová zpráva" each do what they say (#490).
+- [ ] **§6 Sidecar lifecycle** — on the new binaries: Task Manager lists `voxrox-mail.exe` and `voxrox-mail-backend.exe`, and killing the first takes the second with it.
+- [ ] **§7 Diagnostics** — including the dump's `processStartedAt`, which measures from JVM start since #469; the privacy half is checked by reading the dump, not by producing it.
+- [ ] **§8 Long run** — §8.1 open. §8.2 does not run for this candidate and goes into §9 as an accepted risk, per the 2026-09-13 decision at the top of §8.2.
+- [ ] **§9** — release decision.
+
+**Why the first 2026-09-15 sheet below is superseded.** `backend/scripts`, `frontend/src` and `frontend/src-tauri` moved in #495, so its §1 and §2 no longer describe the tree, and its §3 evidence would be a smoke of the installer built from `cf1c4cd`, which carries the old executable names.
+
 ### Candidate 2026-09-15 — see the object ids below
 
 ```text
