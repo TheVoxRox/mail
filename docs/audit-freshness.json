@@ -75,7 +75,8 @@
       "frontend/src/lib/updates.ts": "afb68a87c467af9f4e6299c2c3478a41d0762e12",
       "frontend/src-tauri/src": "ef211bb86ce099b20636adbc105c7fd4cc01468e",
       "frontend/src/lib/components/settings/AboutSettings.svelte": "64b520cedf9e073c0e4611c40e9c146487d7a1e4",
-      "frontend/src-tauri/tauri.conf.json": "652e790059f8eae086dd57e5f10cc9a70ea0cabd"
+      "frontend/src-tauri/tauri.conf.json": "652e790059f8eae086dd57e5f10cc9a70ea0cabd",
+      "frontend/src-tauri/capabilities": "e4e735c6e696b6b3b4c7ed4ab00cd95a4a1d9f43"
     },
     "acknowledgements": [
       {
@@ -89,6 +90,10 @@
       {
         "date": "2026-09-14",
         "note": "The installer's privacy page, read claim by claim; the audit text is revised for it (v1.14) rather than re-verified. Two paths moved. (1) frontend/src-tauri/src gains update_preference.rs and two entries in generate_handler!, get_update_startup_check() -> Option<bool> and set_update_startup_check(enabled: bool), which open or create HKCU\\Software\\VoxRox\\Mail plus the MAIL_DATA_SUFFIX suffix and read or write one DWORD. Against §1: check_for_update, download_pending_update, install_pending_update, PendingUpdate, DownloadedUpdate, beta_endpoint_override and capabilities/ are byte-identical; the new commands take a boolean or nothing, return a boolean or nothing and hold no handle to the updater, so a compromised renderer gains no route to an endpoint, a version pin or the downloaded bytes. What it can do with the setter is switch the startup check off, which the Settings checkbox already let it do. (2) updates.ts: shouldCheckForUpdatesOnStartup loses the setting conjunct, and checkForUpdateAndPrompt awaits loadUpdateStartupCheck after the once-per-process guard, then returns unless the setting is 'on'. Against §5: the setting still stands before check_for_update, so 'off' sends nothing; a recorded true restores the default single request and cannot add a second, since the guard is already set. One side effect, and it narrows: the guard is now set before the setting is read, so turning the setting on during a session no longer lets a later boot retry send the check — strictly less egress, in line with once per process. checkForUpdate, checkForUpdateManually, both expectedVersion pins and the download, stop, install sequence are untouched. The NSIS template that writes the value is outside Code paths and runs before any file is copied. Verdict stays PASS."
+      },
+      {
+        "date": "2026-09-15",
+        "note": "Two permissions added to the capability set, read against section 1; the audit text is revised for it (v1.15) rather than re-verified. The whole diff under capabilities/ is core:event:allow-listen and core:event:allow-unlisten in default.json. They let the webview subscribe to and drop subscriptions on events the shell emits: update://download-progress from download_pending_update and the tray action event from tray.rs. Neither is an input to the install path: the progress payload is byte counts that nothing in check, download or install reads, and section 4 already covers their reaching the DOM. No emit or emit-to permission is granted, so a compromised renderer cannot inject an event into a Rust listener, and nothing under updater: is granted, so section 1's command surface (three updater commands, two startup-check commands, the channel enum, both expectedVersion pins, the verified bytes kept in Rust state) is unchanged. What the absence did is operational, not a trust question: since the event was added, no packaged build delivered progress, and the tray menu items were dead for the same reason. The listen() mocks in updates.test.ts and tray.test.ts never reached the permission check; a new eventCapability.test.ts pins both permissions and was seen failing with default.json reverted. cargo check accepts both identifiers. Verdict stays PASS."
       }
     ]
   },
