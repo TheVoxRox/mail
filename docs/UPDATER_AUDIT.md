@@ -338,8 +338,8 @@ renders through `{message}` in a `<span>` — Svelte text interpolation, no
 - **1.15** (2026-09-15) — the capability set gains `core:event:allow-listen`
   and `core:event:allow-unlisten`, and §1 and §5 say what their absence did:
   `update://download-progress` never reached the dialog in a real build, so the
-  bar stayed indeterminate and a screen reader heard "progress unknown" for the
-  whole download. Found while investigating a tray menu that did nothing, for
+  bar stayed indeterminate, the coarse percentage announcements never fired and
+  only the phase changes reached a screen reader. Found while investigating a tray menu that did nothing, for
   the same reason (`event.listen not allowed` in the startup log). Read against
   §1: the new permissions let the webview receive events the shell emits, never
   emit one, so no renderer gains a route to a command, an endpoint, a version
