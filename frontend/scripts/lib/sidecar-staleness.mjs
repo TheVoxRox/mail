@@ -19,6 +19,14 @@ import path from 'node:path';
  * commit SHAs to git object ids. Hashing the working tree rather than asking
  * git also means an uncommitted edit counts, which is exactly when a developer
  * is most likely to be running a stale pair.
+ *
+ * The digest cannot see a renamed launcher, though. Renaming the sidecar (#495:
+ * `mail` → `voxrox-mail-backend`) changes the packaging script and
+ * `externalBin` in tauri.conf.json, not a byte under `backend/src/main`, so a
+ * sidecar synced before the rename still hashes as fresh — while tauri-build
+ * fails on the launcher it cannot find, with a message that names a resource
+ * path rather than a stale sidecar. So the launcher's name is checked against
+ * `externalBin` first.
  */
 
 /** Backend inputs whose content decides what a packaged sidecar contains. */
@@ -84,6 +92,40 @@ export async function recordBackendSourceHash(repoRoot) {
 	return { hash, fileCount };
 }
 
+function binariesDir(repoRoot) {
+	return path.join(repoRoot, 'frontend', 'src-tauri', 'binaries');
+}
+
+/**
+ * The launcher names tauri.conf.json expects, e.g. `voxrox-mail-backend`. Tauri
+ * looks for each one as `<name>-<target triple>` (plus `.exe` on Windows).
+ * Returns null when the config cannot be read, so the name check stays out of
+ * the way rather than guessing.
+ */
+async function expectedLauncherNames(repoRoot) {
+	try {
+		const config = JSON.parse(
+			await readFile(path.join(repoRoot, 'frontend', 'src-tauri', 'tauri.conf.json'), 'utf8')
+		);
+		const externalBin = config?.bundle?.externalBin;
+		if (!Array.isArray(externalBin)) return null;
+		return externalBin.map((entry) => path.posix.basename(entry));
+	} catch {
+		return null;
+	}
+}
+
+/** First launcher `externalBin` names that `binaries/` does not hold, with what it does hold. */
+async function findMisnamedLauncher(repoRoot) {
+	const expected = await expectedLauncherNames(repoRoot);
+	if (!expected) return null;
+	const files = (await readdir(binariesDir(repoRoot), { withFileTypes: true }))
+		.filter((d) => d.isFile() && !d.name.startsWith('.'))
+		.map((d) => d.name);
+	const missing = expected.find((name) => !files.some((file) => file.startsWith(`${name}-`)));
+	return missing ? { expectedLauncher: missing, foundLaunchers: files } : null;
+}
+
 async function findSidecarJar(repoRoot) {
 	let dirents;
 	try {
@@ -96,12 +138,16 @@ async function findSidecarJar(repoRoot) {
 }
 
 /**
- * @returns {Promise<{status: 'ok'|'missing'|'unknown'|'stale', jar?: string,
- *   expected?: string, recorded?: string}>}
+ * @returns {Promise<{status: 'ok'|'missing'|'misnamed'|'unknown'|'stale', jar?: string,
+ *   expected?: string, recorded?: string, expectedLauncher?: string,
+ *   foundLaunchers?: string[]}>}
  */
 export async function checkSidecarFreshness(repoRoot) {
 	const jar = await findSidecarJar(repoRoot);
 	if (!jar) return { status: 'missing' };
+
+	const misnamed = await findMisnamedLauncher(repoRoot);
+	if (misnamed) return { status: 'misnamed', jar, ...misnamed };
 
 	let recorded;
 	try {
@@ -137,6 +183,19 @@ export function describeStaleness(result) {
 				text: [
 					'No packaged sidecar found in frontend/src-tauri/binaries/app.',
 					'The app has no backend to start. Build and sync it first:',
+					REBUILD
+				].join('\n')
+			};
+		case 'misnamed':
+			return {
+				fatal: true,
+				text: [
+					`tauri.conf.json expects the sidecar launcher ${result.expectedLauncher}-<target triple>,`,
+					'and frontend/src-tauri/binaries does not hold one.',
+					`  found: ${result.foundLaunchers.length > 0 ? result.foundLaunchers.join(', ') : 'no launcher at all'}`,
+					'',
+					'The launcher was renamed after this sidecar was packaged — the backend sources can',
+					'still match, so the content check alone would call it fresh. Rebuild and sync:',
 					REBUILD
 				].join('\n')
 			};

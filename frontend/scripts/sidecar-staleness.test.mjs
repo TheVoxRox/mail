@@ -25,12 +25,24 @@ function write(relative, contents = 'x') {
 }
 
 const JAR = 'frontend/src-tauri/binaries/app/mail-backend-0.1.0.jar';
+const LAUNCHER = 'frontend/src-tauri/binaries/voxrox-mail-backend-x86_64-pc-windows-msvc.exe';
+
+/** The two things the launcher name is judged by: the config and what sits in binaries/. */
+function packagedSidecar(launcher = LAUNCHER) {
+	write(
+		'frontend/src-tauri/tauri.conf.json',
+		JSON.stringify({ bundle: { externalBin: ['binaries/voxrox-mail-backend'] } })
+	);
+	write('frontend/src-tauri/binaries/.gitkeep', '');
+	if (launcher) write(launcher);
+	write(JAR);
+}
 
 /** A repo whose sidecar was synced from the sources currently on disk. */
-async function syncedFixture() {
+async function syncedFixture(launcher = LAUNCHER) {
 	write('backend/src/main/java/org/voxrox/Service.java', 'class Service {}');
 	write('backend/pom.xml', '<project/>');
-	write(JAR);
+	packagedSidecar(launcher);
 	await recordBackendSourceHash(root);
 }
 
@@ -55,7 +67,7 @@ describe('sidecar freshness', () => {
 
 	it('warns without blocking when the sidecar predates the check', async () => {
 		write('backend/src/main/java/Service.java');
-		write(JAR);
+		packagedSidecar();
 
 		const result = await checkSidecarFreshness(root);
 
@@ -87,6 +99,30 @@ describe('sidecar freshness', () => {
 		expect(report.text).toContain('package-sidecar-dev-windows.ps1');
 		expect(report.text).toContain('sidecar:sync:windows');
 		expect(report.text).toContain('MAIL_ALLOW_STALE_SIDECAR=1');
+	});
+
+	it('flags a launcher renamed after packaging, although the sources still match', async () => {
+		// #495: externalBin moved from binaries/mail to binaries/voxrox-mail-backend,
+		// the old image stayed in binaries/, and its content digest was still right.
+		await syncedFixture('frontend/src-tauri/binaries/mail-x86_64-pc-windows-msvc.exe');
+
+		const result = await checkSidecarFreshness(root);
+
+		expect(result.status).toBe('misnamed');
+		const report = describeStaleness(result);
+		expect(report.fatal).toBe(true);
+		expect(report.text).toContain('voxrox-mail-backend-<target triple>');
+		expect(report.text).toContain('mail-x86_64-pc-windows-msvc.exe');
+		expect(report.text).toContain('sidecar:sync:windows');
+	});
+
+	it('flags binaries/ holding the app image but no launcher at all', async () => {
+		await syncedFixture(null);
+
+		const result = await checkSidecarFreshness(root);
+
+		expect(result.status).toBe('misnamed');
+		expect(describeStaleness(result).text).toContain('no launcher at all');
 	});
 
 	it('flags a new backend source, not only a changed one', async () => {
