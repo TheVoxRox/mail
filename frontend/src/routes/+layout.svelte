@@ -18,6 +18,7 @@
 	import { accountsState } from '$lib/stores/accounts.js';
 	import { backendSidecarState } from '$lib/backend/sidecar.js';
 	import { watchSidecarAutoRestart } from '$lib/backend/sidecarRecovery.js';
+	import { installFileDropGuard } from '$lib/fileDropGuard.js';
 	import { bootState } from '$lib/stores/boot.js';
 	import { setNativeWindowTitle } from '$lib/windowTitle.js';
 	import { _ } from '$lib/i18n/index.js';
@@ -227,6 +228,7 @@
 		 * the dead old port (see lib/backend/sidecarRecovery.ts).
 		 */
 		const stopSidecarAutoRestartWatch = watchSidecarAutoRestart();
+		const removeFileDropGuard = installFileDropGuard();
 
 		const exposeE2E = window.localStorage.getItem('mail.e2e') === '1';
 		if (exposeE2E) {
@@ -265,6 +267,7 @@
 				delete window.__MAIL_E2E__;
 			}
 			stopSidecarAutoRestartWatch();
+			removeFileDropGuard();
 			cleanupErrorReporting();
 			cleanupTheme();
 			cleanupTextSize();
