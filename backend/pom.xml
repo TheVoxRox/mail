@@ -183,6 +183,15 @@
 			<version>${greenmail.version}</version>
 			<scope>test</scope>
 		</dependency>
+		<dependency>
+			<!-- A real Dovecot in a container, for the one sync path GreenMail cannot
+			     drive: GreenMail advertises neither ENABLE, CONDSTORE nor QRESYNC, and
+			     the QRESYNC SELECT is otherwise covered by mocks alone. Needs Docker;
+			     without it the test skips itself. Version from the Spring Boot BOM. -->
+			<groupId>org.testcontainers</groupId>
+			<artifactId>testcontainers-junit-jupiter</artifactId>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 
 	<build>
