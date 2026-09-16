@@ -20,7 +20,7 @@ function makeHandlers(overrides: Partial<GlobalShortcutHandlers> = {}): GlobalSh
 		toggleFlag: vi.fn(),
 		toggleSeen: vi.fn(),
 		deleteMessage: vi.fn(),
-		printMessage: vi.fn(),
+		printCurrentView: vi.fn(),
 		...overrides
 	};
 }
@@ -195,14 +195,31 @@ describe('handleGlobalKeydown — message actions', () => {
 		const ev = makeEvent({ key: 'p', ctrlKey: true });
 		const prevent = vi.spyOn(ev, 'preventDefault');
 		handleGlobalKeydown(ev, h);
-		expect(h.printMessage).toHaveBeenCalledOnce();
+		expect(h.printCurrentView).toHaveBeenCalledOnce();
 		expect(prevent).toHaveBeenCalled();
 	});
 
-	it('Ctrl+P does nothing with no message open', () => {
+	it('Ctrl+P prints with no message open, which is where it used to do nothing', () => {
+		// Bound among the open-message shortcuts, the key reached only a message
+		// route: the folder list, contacts, settings and compose had no keyboard
+		// way to print while the context menu kept one for the mouse.
 		const h = makeHandlers();
 		handleGlobalKeydown(makeEvent({ key: 'p', ctrlKey: true }), h);
-		expect(h.printMessage).not.toHaveBeenCalled();
+		expect(h.printCurrentView).toHaveBeenCalledOnce();
+	});
+
+	it('Ctrl+P prints from a text field too, as a window-level command', () => {
+		// Same reasoning as Ctrl+N and the workspace digits: printing is not
+		// typing, so a cursor in the search box or a compose field must not
+		// swallow it.
+		const h = makeHandlers();
+		const field = document.createElement('input');
+		document.body.append(field);
+		const ev = makeEvent({ key: 'p', ctrlKey: true });
+		Object.defineProperty(ev, 'target', { value: field });
+		handleGlobalKeydown(ev, h);
+		expect(h.printCurrentView).toHaveBeenCalledOnce();
+		field.remove();
 	});
 
 	it('Ctrl+Shift+G toggles the flag', () => {

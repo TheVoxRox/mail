@@ -11,6 +11,25 @@ import { openApp } from '../e2e-helpers';
 test.describe('Tisk zprávy', () => {
 	const PAGES = /\/Type\s*\/Page[^s]/g;
 
+	test('Ctrl+P tiskne i tam, kde žádná zpráva otevřená není', async ({ page }) => {
+		// The key was bound among the open-message shortcuts, so it reached only a
+		// message route: everywhere else the keyboard had no way to print while
+		// the webview's context menu kept one for the mouse.
+		await openApp(page, '/mail/1/INBOX');
+		await page.evaluate(() => {
+			(window as unknown as { __printed: number }).__printed = 0;
+			window.print = () => {
+				(window as unknown as { __printed: number }).__printed += 1;
+			};
+		});
+
+		await page.keyboard.press('Control+p');
+
+		await expect
+			.poll(async () => page.evaluate(() => (window as unknown as { __printed: number }).__printed))
+			.toBe(1);
+	});
+
 	test('tisk skryje chrome aplikace a nechá jen zprávu', async ({ page }) => {
 		await openApp(page, '/mail/1/INBOX/msg-01');
 		await expect(page.locator('[data-print="document"]')).toBeVisible();

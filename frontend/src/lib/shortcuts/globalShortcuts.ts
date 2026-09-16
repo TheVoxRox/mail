@@ -31,7 +31,7 @@ export interface GlobalShortcutHandlers {
 	toggleFlag: () => void;
 	toggleSeen: () => void;
 	deleteMessage: () => void;
-	printMessage: () => void;
+	printCurrentView: () => void;
 }
 
 /** Returns true if the target is input-like and should receive the key instead of the handler. */
@@ -50,7 +50,7 @@ export function isEditableTarget(target: EventTarget | null): boolean {
  * Global keydown handler. Hierarchy:
  *  1) Ctrl/Cmd+K opens the palette (even in inputs).
  *  2) Palette open → handler hands the key to the palette component.
- *  3) Ctrl+1/2/3 (workspace) and Ctrl+N (new item) — also in inputs.
+ *  3) Ctrl+1/2/3 (workspace), Ctrl+N (new item) and Ctrl+P (print) — also in inputs.
  *  4) Cursor in an editable element → handler stays out.
  *  5) Outlook-style actions on the open message (reply, forward, flag, …).
  */
@@ -77,6 +77,29 @@ export function handleGlobalKeydown(event: KeyboardEvent, handlers: GlobalShortc
 	 * half-written message this way is still guarded by the compose leave guard.
 	 */
 	if (handleWorkspaceShortcut(event, handlers)) return;
+
+	/*
+	 * Print is a window-level command in Outlook too, so it sits with them and
+	 * ahead of the editable bail: printing is not typing, and a cursor left in
+	 * the search box or a compose field should not swallow it.
+	 *
+	 * It is not among the open-message shortcuts below, although that is where
+	 * it started. Bound there it reached only an open-message route, so the
+	 * folder list, contacts, settings and compose had no keyboard way to print
+	 * while the webview's context menu kept one for the mouse — the asymmetry
+	 * this app exists not to have. What reaches the paper is decided by the
+	 * print rules in app.css, which are right on every screen.
+	 */
+	if (
+		(event.ctrlKey || event.metaKey) &&
+		!event.altKey &&
+		!event.shiftKey &&
+		event.key.toLowerCase() === 'p'
+	) {
+		event.preventDefault();
+		handlers.printCurrentView();
+		return;
+	}
 
 	if (isEditableTarget(event.target)) return;
 
@@ -180,10 +203,6 @@ function handleMessageShortcut(
 		case 'f': // Forward (shadows the webview find bar).
 			event.preventDefault();
 			handlers.forward();
-			return true;
-		case 'p': // Print, Outlook's meaning for the key the webview used to take.
-			event.preventDefault();
-			handlers.printMessage();
 			return true;
 		case 'q': // Mark as read — no-op if already read.
 			event.preventDefault();

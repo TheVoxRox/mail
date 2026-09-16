@@ -3,7 +3,7 @@ import {
 	forwardMessage,
 	goToCompose,
 	goToSearch,
-	printOpenMessage,
+	printCurrentView,
 	replyToMessage,
 	syncCurrentAccount
 } from '$lib/mail/actions.js';
@@ -122,13 +122,13 @@ export function createMailCommands(options: MailCommandOptions): Command[] {
 			titleKey: 'command.print',
 			groupKey: 'mail',
 			keywords: localeKeywords(locale, ['tisk', 'vytisknout'], ['print']),
-			shortcut: SHORTCUT_LABELS.printMessage,
+			shortcut: SHORTCUT_LABELS.printCurrentView,
 			icon: 'printer',
 			contexts: ['mail'],
 			routePrefixes: ['/mail/'],
 			priority: 60,
 			available: () => true,
-			run: () => printOpenMessage()
+			run: () => printCurrentView()
 		},
 		{
 			id: 'mail.forward',
