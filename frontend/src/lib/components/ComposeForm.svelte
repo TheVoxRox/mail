@@ -558,6 +558,7 @@
 		bind:attachments
 		bind:reading={attachmentReading}
 		disabled={!prefillDone || busy}
+		dropSurface={formElement}
 		onSelectStart={() => (errorMessage = '')}
 		onError={(message) => (errorMessage = message)}
 	/>

@@ -2,10 +2,10 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.15                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| **Date**           | 2026-09-15                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| **Version**        | 1.16                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| **Date**           | 2026-09-16                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| **Audited commit** | `0165149` (re-verified 2026-09-07, clearing five acknowledgements; v1.10/1.11 anchor: `3e71529`; v1.5–v1.9 anchor: `c6744a1`; v1.4 anchor: `cad05cb`, recorded pre-squash as `5799e8b`; v1.2/1.3 anchor: `3162e6a` (#144), v1.0/1.1 baseline: `d55b753`)                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| **Audited commit** | `a471efb` (re-verified 2026-09-16, clearing seven acknowledgements; v1.5–1.15 anchor: `0165149`, itself a re-verification on 2026-09-07 clearing five; v1.10/1.11 anchor: `3e71529`; v1.5–v1.9 anchor: `c6744a1`; v1.4 anchor: `cad05cb`, recorded pre-squash as `5799e8b`; v1.2/1.3 anchor: `3162e6a` (#144), v1.0/1.1 baseline: `d55b753`)                                                                                                                                                                                                                                                                                                                                                        |
 | **Code paths**     | `frontend/src-tauri/src`, `frontend/src-tauri/tauri.conf.json`, `frontend/src-tauri/capabilities`, `frontend/src/lib/updates.ts`, `frontend/src/lib/components/UpdatePromptDialog.svelte`, `frontend/src/lib/components/UpdateFailureDialog.svelte`, `frontend/src/lib/components/settings/AboutSettings.svelte`, `.github/workflows/windows-signed-release.yml`, `.github/workflows/beta-channel.yml`, `frontend/scripts/beta-channel-guard.mjs`, `frontend/scripts/generate-tauri-latest-windows.mjs`, `frontend/scripts/verify-updater-signature.mjs`, `frontend/scripts/lib/minisign.mjs`, `frontend/scripts/prepare-tauri-windows-release-config.mjs`, `frontend/scripts/lib/tauri-config.mjs` |
 | **Subsystem**      | Tauri auto-updater — Boundary 6 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | **Verdict**        | **Security: PASS** — nothing in the trust chain, in three audits running. The one finding this audit raised (U-1, workflow script injection, **Low**) is fixed, and so is the HTTPS-only note §6 had carried since v1.0; one procedural note stays open. The v1.5 code changes came from the operational review in `todo.md`, not from this audit.                                                                                                                                                                                                                                                                                                                                                  |
@@ -45,6 +45,16 @@ scripts.
   the pending and downloaded slots, the channel map and the pinned pubkey are
   out of their reach. The value can only keep the startup check from running
   (§5); a renderer able to call the setter could already untick the checkbox.
+- **The shell's non-updater code grew without widening that surface** (v1.16).
+  [webview_defaults.rs](../frontend/src-tauri/src/webview_defaults.rs) attaches
+  two WebView2 handlers to the controller Tauri hands out — accelerator keys and
+  the context menu — and `lib.rs` builds the window with
+  `disable_drag_drop_handler()`. Neither registers a command: `generate_handler!`
+  still lists the three updater commands, the two preference commands and the
+  three tray commands, and nothing else, so the renderer's reach is the same set
+  it was. Switching Tauri's drag-and-drop handler off removes an event the shell
+  emitted and the frontend never listened for and lets a dropped file reach the
+  page as a `File`, which a file input already did; no updater path reads either.
 - **The verified bytes never cross into the renderer.** `download_pending_update`
   verifies the signature inside `Update::download` and parks the package in Rust
   managed state (`DownloadedUpdate`); `install_pending_update` installs from
@@ -138,6 +148,17 @@ smoked, but the happy path needs a full release build.
   and correctly, the WebView `connect-src` stays loopback + `ipc:` only (no
   `github.com`), i.e. the update fetch does not widen the renderer's network
   surface.
+- **The CSP and the capability set only ever narrowed** (v1.16). `csp` and
+  `devCsp` dropped `asset:` from `default-src` and `asset:` plus
+  `http://asset.localhost` from `img-src`: the asset protocol is not compiled
+  into the shell, so both allowed a scheme that could not answer. `connect-src`,
+  which this section rests on, is byte-identical, as are `allowDowngrades` and
+  `plugins.updater` (endpoints, pubkey). The capability set lost
+  `fs:allow-watch` / `fs:allow-unwatch` along with the session watcher that
+  never ran, and its `shell:allow-spawn` / `shell:allow-kill` scopes follow the
+  sidecar's new name with `sidecar: true`, `args: false` unchanged.
+  `bundle.homepage` was added and feeds the support links of the uninstall
+  entry, which no claim here touches.
 - `installMode: currentUser` / `passive` is the deliberate elevation-free
   auto-update posture already recorded as residual **AR-2** in the threat model
   (a same-user attacker who could swap the installed binary is already out of
@@ -214,8 +235,10 @@ renders through `{message}` in a `<span>` — Svelte text interpolation, no
   NSIS installer overwrites the sidecar launcher, its `app/` and the whole
   bundled JRE inside the install directory, and Windows will not overwrite a
   file a live process holds open; `install_inner` in tauri-plugin-updater ends
-  the app with `std::process::exit(0)`, so the `beforeunload` hook that normally
-  kills the sidecar never runs. The seam between the two commands is where the
+  the app with `std::process::exit(0)`, so the unload hook that normally kills
+  the sidecar (`pagehide` in [sidecar.ts](../frontend/src/lib/backend/sidecar.ts);
+  `beforeunload` until 2026-09-16) never runs — no unload event of any name
+  survives that call. The seam between the two commands is where the
   backend is stopped, which replaces that race with a sequence. Only the middle
   position is correct — stopping before the download leaves the app dead for the
   length of it — so the unit tests assert the **order**, not just the calls.
@@ -335,6 +358,28 @@ renders through `{message}` in a `<span>` — Svelte text interpolation, no
 
 ## 8. Change log
 
+- **1.16** (2026-09-16) — **re-verified against `a471efb`, clearing all seven
+  acknowledgements; verdict stays PASS.** The ledger had reached 7 of 8 with
+  every entry written inside three days, which is the run-together shape the cap
+  exists to stop, so the audit was read end to end rather than acknowledged an
+  eighth time. Four things moved under `Code paths` since `0165149` and none of
+  them touches the trust chain. (1) `frontend/src-tauri/src` gained
+  `update_preference.rs` (§1, v1.14) and `webview_defaults.rs`, and `lib.rs`
+  builds the window with `disable_drag_drop_handler()`; `generate_handler!` is
+  unchanged but for the two preference commands §1 already names, and
+  `check_for_update`, `download_pending_update`, `install_pending_update`,
+  `PendingUpdate`, `DownloadedUpdate` and `beta_endpoint_override` are
+  byte-identical to the anchor. (2) `tauri.conf.json` narrowed the CSP, renamed
+  `externalBin` and added `bundle.homepage`; `connect-src`, `allowDowngrades`
+  and `plugins.updater` are byte-identical (§3). (3) `capabilities` gained the
+  event listen/unlisten pair (v1.15), lost the two `fs` watch permissions and
+  renamed the shell scopes; nothing under `updater:` is granted, and no `emit`
+  accompanies the `listen`. (4) `updates.ts` adopts the installer's recorded
+  answer before reading the setting (v1.14); the download → stop-backend →
+  install order §5 rests on is unchanged. One sentence of §5 is revised: it named
+  the `beforeunload` hook, and the frontend now stops the sidecar on `pagehide`
+  — the claim is the same either way, since `std::process::exit(0)` outlives no
+  unload event of any name. §§1–4 and 6 stand as written.
 - **1.15** (2026-09-15) — the capability set gains `core:event:allow-listen`
   and `core:event:allow-unlisten`, and §1 and §5 say what their absence did:
   `update://download-progress` never reached the dialog in a real build, so the

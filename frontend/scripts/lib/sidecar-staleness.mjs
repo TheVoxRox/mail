@@ -115,6 +115,20 @@ async function expectedLauncherNames(repoRoot) {
 	}
 }
 
+/**
+ * `<name>-<target triple>`, with the `.exe` Windows adds. A triple is
+ * arch-vendor-sys or arch-vendor-sys-abi; matching its shape rather than just
+ * the `<name>-` prefix is what keeps `voxrox-mail` from being satisfied by
+ * `voxrox-mail-backend-x86_64-pc-windows-msvc.exe` — and those two names are
+ * the shell and the sidecar of this very repo, one a prefix of the other.
+ */
+const TARGET_TRIPLE = /^[a-z0-9_]+(?:-[a-z0-9_]+){2,3}(?:.exe)?$/;
+
+function isLauncherFor(file, name) {
+	if (!file.startsWith(`${name}-`)) return false;
+	return TARGET_TRIPLE.test(file.slice(name.length + 1));
+}
+
 /** First launcher `externalBin` names that `binaries/` does not hold, with what it does hold. */
 async function findMisnamedLauncher(repoRoot) {
 	const expected = await expectedLauncherNames(repoRoot);
@@ -122,7 +136,7 @@ async function findMisnamedLauncher(repoRoot) {
 	const files = (await readdir(binariesDir(repoRoot), { withFileTypes: true }))
 		.filter((d) => d.isFile() && !d.name.startsWith('.'))
 		.map((d) => d.name);
-	const missing = expected.find((name) => !files.some((file) => file.startsWith(`${name}-`)));
+	const missing = expected.find((name) => !files.some((file) => isLauncherFor(file, name)));
 	return missing ? { expectedLauncher: missing, foundLaunchers: files } : null;
 }
 
@@ -172,6 +186,13 @@ const REBUILD = [
  * Human-readable report, plus whether it should stop the run. `unknown` warns
  * without blocking: it means the bookkeeping file is absent, not that the
  * sidecar is wrong.
+ *
+ * `optOut` says whether MAIL_ALLOW_STALE_SIDECAR may wave this result through,
+ * and it lives here because this is where the message that advertises the
+ * variable is written. Only a digest mismatch is a tradeoff a developer can
+ * take: the pair disagrees about the API, which is a run worth having anyway.
+ * A missing or misnamed launcher is not a tradeoff at all — tauri-build cannot
+ * find the resource and fails, with the message this check exists to replace.
  */
 export function describeStaleness(result) {
 	switch (result.status) {
@@ -180,6 +201,7 @@ export function describeStaleness(result) {
 		case 'missing':
 			return {
 				fatal: true,
+				optOut: false,
 				text: [
 					'No packaged sidecar found in frontend/src-tauri/binaries/app.',
 					'The app has no backend to start. Build and sync it first:',
@@ -189,6 +211,7 @@ export function describeStaleness(result) {
 		case 'misnamed':
 			return {
 				fatal: true,
+				optOut: false,
 				text: [
 					`tauri.conf.json expects the sidecar launcher ${result.expectedLauncher}-<target triple>,`,
 					'and frontend/src-tauri/binaries does not hold one.',
@@ -202,6 +225,7 @@ export function describeStaleness(result) {
 		case 'unknown':
 			return {
 				fatal: false,
+				optOut: false,
 				text: [
 					`This sidecar predates the freshness check (no ${HASH_FILE_NAME} beside the jar),`,
 					'so whether it matches the checked-out backend cannot be told. Re-sync once to',
@@ -212,6 +236,7 @@ export function describeStaleness(result) {
 		default:
 			return {
 				fatal: true,
+				optOut: true,
 				text: [
 					'The packaged sidecar was not built from the backend sources that are checked out.',
 					`  sidecar: ${result.jar}`,

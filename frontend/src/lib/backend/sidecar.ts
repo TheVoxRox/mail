@@ -94,6 +94,8 @@ interface BackendSidecarRuntime {
 
 type BackendSidecarGlobal = typeof globalThis & {
 	__MAIL_BACKEND_SIDECAR__?: BackendSidecarRuntime;
+	/** Removes the unload hook of whichever module instance installed it. */
+	__MAIL_BACKEND_SIDECAR_UNLOAD__?: () => void;
 };
 
 const runtime = resolveRuntime();
@@ -183,35 +185,46 @@ export async function stopBackendSidecar(): Promise<void> {
  * Stops the sidecar when the page really goes away — a reload, or a quit that
  * unloads the webview — and not when leaving is merely attempted.
  *
- * It used to stop on every `beforeunload`, and that is too early: the same
- * event is where a leave guard (`installLeaveGuard`, used by the compose and
- * contact forms) cancels the unload, and the webview then asks whether to
- * leave. Choosing to stay kept the page and the unsaved form, with the backend
- * already killed and `stopRequested` set, so nothing restarted it and every
- * later request failed without a word. The listener was `once`, too, so it was
- * spent by then and a later real reload left the old backend running.
+ * `pagehide` is the whole hook, and `beforeunload` is deliberately not part of
+ * it. Stopping on `beforeunload` was too early: that is the same event in which
+ * a leave guard (`installLeaveGuard`, used by the compose and contact forms)
+ * cancels the unload, and the webview then asks whether to leave. Choosing to
+ * stay kept the page and the unsaved form with the backend already killed and
+ * `stopRequested` set, so nothing restarted it and every later request failed
+ * without a word.
  *
- * So `beforeunload` stops it only when nothing cancelled the unload, which
- * keeps the old timing on every leave without a prompt, and `pagehide` covers
- * the case that remains: the prompt was shown and the user chose to leave.
- * Neither listener is `once`, because a cancelled leave has to leave both armed;
- * stopping twice is harmless, as the second call finds no child.
+ * Reading `defaultPrevented` on that event repairs the case but not the design:
+ * it holds only while SvelteKit's own `beforeunload` listener — the one that
+ * runs the leave guard and cancels — keeps being registered before this one,
+ * which is true today by an accident of bootstrap timing and which no gate and
+ * no test can pin, since a unit test can only hand-register the order it wants
+ * to see. `pagehide` needs no order at all: it fires on every real unload,
+ * after the prompt has been answered, and never on a leave that was cancelled.
  *
- * Reading `defaultPrevented` relies on SvelteKit's own `beforeunload` listener,
- * the one that runs the leave guard, having run first. Listeners run in the
- * order they were added, and SvelteKit adds its listener when the router starts
- * after the first navigation, while this one is added only once the sidecar
- * has spawned, several awaited IPC calls into bootstrap.
+ * `persisted` is the one case it fires on a page that can still come back: a
+ * document frozen into the back/forward cache, which Alt+Left and the browser
+ * back key — both deliberately still live, see src-tauri/src/webview_defaults.rs
+ * — can restore. Killing the backend there is the same bug by another route.
+ *
+ * The remover is parked on the global rather than the module so that a module
+ * instance being replaced takes its listener with it. `runtime` cannot guard
+ * that: it lives on the global too, and both HMR and the unit tests
+ * (`vi.resetModules()` plus a wipe of `__MAIL_BACKEND_SIDECAR__`) hand the next
+ * instance a fresh one, leaving the old listener bound to a runtime nobody owns.
  */
 function registerSidecarShutdownHook(): void {
 	if (typeof window === 'undefined') return;
-	window.addEventListener('beforeunload', (event) => {
-		if (event.defaultPrevented) return;
+	const global = globalThis as BackendSidecarGlobal;
+	global.__MAIL_BACKEND_SIDECAR_UNLOAD__?.();
+
+	const onPageHide = (event: PageTransitionEvent) => {
+		if (event.persisted) return;
 		void stopBackendSidecar();
-	});
-	window.addEventListener('pagehide', () => {
-		void stopBackendSidecar();
-	});
+	};
+	window.addEventListener('pagehide', onPageHide);
+	global.__MAIL_BACKEND_SIDECAR_UNLOAD__ = () => {
+		window.removeEventListener('pagehide', onPageHide);
+	};
 }
 
 async function spawnBackendSidecar(): Promise<void> {

@@ -5,36 +5,60 @@
 //! - **Browser accelerator keys.** WebView2 leaves them on and Tauri exposes no
 //!   setting for them, so every key the frontend did not claim itself reached
 //!   the browser: F5 and Ctrl+R reloaded the app, restarting the backend with
-//!   it, and Ctrl+P opened printing for the whole window. They are switched off
-//!   per key through `IsBrowserAcceleratorKeyEnabled` rather than `Handled`,
-//!   because only the former still delivers the key to the page — the app keeps
-//!   receiving F5, Ctrl+P and the rest as ordinary keydowns and can give them
-//!   Outlook's meaning. Deny by default: Microsoft lists the browser keys as
-//!   "including but not limited to". Kept are history navigation, which the
-//!   app's URLs are built for, and F12 in debug builds, where devtools exist.
-//!   Editing and movement keys (Ctrl+C/V/X/A/Z, Home, End, Page Up/Down) are
-//!   not browser accelerators and are never affected.
-//! - **The default context menu** loses Back, Forward, Reload, Save as and
-//!   Print. Switching the whole menu off would also take Cut, Copy, Paste and
-//!   the spelling suggestions out of the compose editor.
+//!   it. They are switched off per key through `IsBrowserAcceleratorKeyEnabled`
+//!   rather than `Handled`, because only the former still delivers the key to
+//!   the page — the app keeps receiving F5 and the rest as ordinary keydowns
+//!   and can give them Outlook's meaning. Deny by default: Microsoft lists the
+//!   browser keys as "including but not limited to". Kept are history
+//!   navigation, which the app's URLs are built for, F12 in debug builds, where
+//!   devtools exist, and two groups the app has nothing of its own to put in
+//!   the place of — see `keeps_browser_handling`. Editing and movement keys
+//!   (Ctrl+C/V/X/A/Z, Home, End, Page Up/Down) are not browser accelerators and
+//!   are never affected.
+//! - **The default context menu** loses Back, Forward, Reload and Save as.
+//!   Switching the whole menu off would also take Cut, Copy, Paste and the
+//!   spelling suggestions out of the compose editor.
 //!
-//! A handler that fails to attach is logged and leaves that default in place:
-//! a mail client that starts with a browser's shortcuts beats one that does not
-//! start.
+//! Each handler is attached and reported on its own: an older runtime can carry
+//! one and not the other, and a handler that fails to attach leaves that default
+//! in place. A mail client that starts with a browser's shortcuts beats one that
+//! does not start.
 
 /// Whether a browser accelerator stays with WebView2 instead of being switched
 /// off. `alt_down` is the Alt state WebView2 reports with the key.
+///
+/// Two groups are kept although they are browser behaviour, because switching
+/// them off would remove the only way to do the thing and put nothing back:
+///
+/// - **Zoom** (Ctrl+0, Ctrl+Plus, Ctrl+Minus and their numpad twins). The app's
+///   own text size is three steps ending at an 18px root font, a little over
+///   110%, so page zoom is what carries a reader from there to the 200% that
+///   WCAG 1.4.4 asks for.
+/// - **Print** (Ctrl+P). Nothing in the app prints and the frontend binds no
+///   `p`, so denying it takes printing a message away altogether. It prints the
+///   whole window, which is also why the context menu keeps its Print entry; a
+///   print view of the message alone is the thing that would replace both.
 #[cfg_attr(not(windows), allow(dead_code))]
 pub fn keeps_browser_handling(virtual_key: u32, alt_down: bool, devtools: bool) -> bool {
+    const VK_0: u32 = 0x30;
     const VK_LEFT: u32 = 0x25;
     const VK_RIGHT: u32 = 0x27;
+    const VK_P: u32 = 0x50;
+    const VK_NUMPAD0: u32 = 0x60;
+    const VK_ADD: u32 = 0x6B;
+    const VK_SUBTRACT: u32 = 0x6D;
     const VK_F12: u32 = 0x7B;
     const VK_BROWSER_BACK: u32 = 0xA6;
     const VK_BROWSER_FORWARD: u32 = 0xA7;
+    const VK_OEM_PLUS: u32 = 0xBB;
+    const VK_OEM_MINUS: u32 = 0xBD;
     match virtual_key {
         VK_LEFT | VK_RIGHT => alt_down,
         VK_BROWSER_BACK | VK_BROWSER_FORWARD => true,
         VK_F12 => devtools,
+        // Kept as the Ctrl chords they are. Alt with the same key is nothing
+        // the browser does, and stays denied along with everything else.
+        VK_0 | VK_NUMPAD0 | VK_ADD | VK_SUBTRACT | VK_OEM_PLUS | VK_OEM_MINUS | VK_P => !alt_down,
         _ => false,
     }
 }
@@ -43,14 +67,18 @@ pub fn keeps_browser_handling(virtual_key: u32, alt_down: bool, devtools: bool) 
 /// `ICoreWebView2ContextMenuItem::Name` reports.
 #[cfg_attr(not(windows), allow(dead_code))]
 pub fn is_removed_context_menu_item(name: &str) -> bool {
-    matches!(name, "back" | "forward" | "reload" | "saveAs" | "print")
+    matches!(name, "back" | "forward" | "reload" | "saveAs")
 }
 
 #[cfg(windows)]
 pub fn install<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>) {
     let attached = window.with_webview(|webview| {
-        if let Err(err) = unsafe { windows_impl::attach(&webview.controller()) } {
-            log::error!("WebView2 browser defaults left in place: {err}");
+        let controller = webview.controller();
+        if let Err(err) = unsafe { windows_impl::attach_accelerator_keys(&controller) } {
+            log::error!("WebView2 browser accelerator keys left on: {err}");
+        }
+        if let Err(err) = unsafe { windows_impl::attach_context_menu(&controller) } {
+            log::error!("WebView2 default context menu left as it is: {err}");
         }
     });
     if let Err(err) = attached {
@@ -71,10 +99,11 @@ mod windows_impl {
     };
     use windows_core::{Interface, PWSTR};
 
-    pub unsafe fn attach(controller: &ICoreWebView2Controller) -> windows_core::Result<()> {
-        // Both handlers live as long as the webview, so the tokens are never read.
+    pub unsafe fn attach_accelerator_keys(
+        controller: &ICoreWebView2Controller,
+    ) -> windows_core::Result<()> {
+        // The handler lives as long as the webview, so the token is never read.
         let mut token = 0i64;
-
         controller.add_AcceleratorKeyPressed(
             &AcceleratorKeyPressedEventHandler::create(Box::new(|_, args| {
                 let Some(args) = args else { return Ok(()) };
@@ -104,16 +133,31 @@ mod windows_impl {
                 Ok(())
             })),
             &mut token,
-        )?;
+        )
+    }
 
+    pub unsafe fn attach_context_menu(
+        controller: &ICoreWebView2Controller,
+    ) -> windows_core::Result<()> {
+        // A runtime older than 1.0.1108.44 has no ICoreWebView2_11 and so no
+        // context menu event. Reported on its own, which is the reason this is a
+        // handler of its own: the accelerator keys are switched off either way.
         let webview = controller.CoreWebView2()?.cast::<ICoreWebView2_11>()?;
+        // The handler lives as long as the webview, so the token is never read.
+        let mut token = 0i64;
         webview.add_ContextMenuRequested(
             &ContextMenuRequestedEventHandler::create(Box::new(|_, args| {
                 let Some(args) = args else { return Ok(()) };
                 let items = args.MenuItems()?;
                 let mut count = 0u32;
                 items.Count(&mut count)?;
+                // Debug builds only: the names are what the filter matches on,
+                // and a WebView2 update renaming one would otherwise go unseen.
+                // Collected under the same cfg, so a release build does not
+                // build two vectors per right click for nobody to read.
+                #[cfg(debug_assertions)]
                 let mut removed = Vec::new();
+                #[cfg(debug_assertions)]
                 let mut kept = Vec::new();
                 for index in (0..count).rev() {
                     let mut name = PWSTR::null();
@@ -121,14 +165,15 @@ mod windows_impl {
                     let name = take_pwstr(name);
                     if is_removed_context_menu_item(&name) {
                         items.RemoveValueAtIndex(index)?;
+                        #[cfg(debug_assertions)]
                         removed.push(name);
                     } else {
+                        #[cfg(debug_assertions)]
                         kept.push(name);
                     }
                 }
-                // Debug builds only: the names are what the filter matches on,
-                // and a WebView2 update renaming one would otherwise go unseen.
-                if cfg!(debug_assertions) {
+                #[cfg(debug_assertions)]
+                {
                     removed.reverse();
                     kept.reverse();
                     log::info!("Context menu: removed {removed:?}, kept {kept:?}");
@@ -136,9 +181,7 @@ mod windows_impl {
                 Ok(())
             })),
             &mut token,
-        )?;
-
-        Ok(())
+        )
     }
 }
 
@@ -161,11 +204,28 @@ mod tests {
     }
 
     #[test]
-    fn reload_print_and_find_are_switched_off() {
-        // F5, R (Ctrl+R), P (Ctrl+P), F3, F (Ctrl+F), F7
-        for key in [0x74, 0x52, 0x50, 0x72, 0x46, 0x76] {
+    fn reload_and_find_are_switched_off() {
+        // F5, R (Ctrl+R), F3, F (Ctrl+F), F7
+        for key in [0x74, 0x52, 0x72, 0x46, 0x76] {
             assert!(!keeps_browser_handling(key, false, false), "key {key:#x}");
         }
+    }
+
+    #[test]
+    fn page_zoom_stays_with_the_browser() {
+        // Ctrl+0, Ctrl+Numpad0, Ctrl+Add, Ctrl+Subtract, Ctrl+Plus, Ctrl+Minus.
+        // The app's own text size ends a little over 110%, so this is what a
+        // reader has to reach 200% with.
+        for key in [0x30, 0x60, 0x6B, 0x6D, 0xBB, 0xBD] {
+            assert!(keeps_browser_handling(key, false, false), "key {key:#x}");
+            assert!(!keeps_browser_handling(key, true, false), "alt {key:#x}");
+        }
+    }
+
+    #[test]
+    fn printing_stays_with_the_browser_because_nothing_replaces_it() {
+        assert!(keeps_browser_handling(0x50, false, false));
+        assert!(!keeps_browser_handling(0x50, true, false));
     }
 
     #[test]
@@ -176,10 +236,11 @@ mod tests {
 
     #[test]
     fn only_navigation_and_page_entries_leave_the_context_menu() {
-        for name in ["back", "forward", "reload", "saveAs", "print"] {
+        for name in ["back", "forward", "reload", "saveAs"] {
             assert!(is_removed_context_menu_item(name), "{name}");
         }
         for name in [
+            "print",
             "cut",
             "copy",
             "paste",

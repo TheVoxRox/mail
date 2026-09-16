@@ -4,6 +4,7 @@
 	import { chipVariants } from '$lib/components/ui/chip/index.js';
 	import { cn } from '$lib/utils.js';
 	import { formatSize } from '$lib/formatters.js';
+	import { dragHasFiles, filesFromDataTransfer } from '$lib/dragPayload.js';
 	import { clientConfig } from '$lib/stores/clientConfig.js';
 	import { confirmAction } from '$lib/stores/confirmDialog.js';
 	import { _, appLocale } from '$lib/i18n/index.js';
@@ -22,6 +23,16 @@
 		onSelectStart?: () => void;
 		onError?: (message: string) => void;
 		disabled?: boolean;
+		/**
+		 * An ancestor that accepts a drop on this zone's behalf. The strip is two
+		 * lines tall between the recipients and the body, and a file dragged at
+		 * the compose window is aimed at the big empty area below it; that drop
+		 * used to bubble to the window guard unclaimed and be cancelled, so
+		 * nothing happened at all. The form lends its element rather than the
+		 * picker reaching for one, so this component still owns every drop it
+		 * accepts.
+		 */
+		dropSurface?: HTMLElement | null;
 	}
 
 	let {
@@ -29,7 +40,8 @@
 		reading = $bindable(false),
 		onSelectStart,
 		onError,
-		disabled = false
+		disabled = false,
+		dropSurface = null
 	}: Props = $props();
 	let readingFileName = $state('');
 	let dragActive = $state(false);
@@ -150,48 +162,62 @@
 		input.value = '';
 	}
 
-	function filesFromDataTransfer(dataTransfer: DataTransfer | null): File[] {
-		if (!dataTransfer) return [];
-		const files = Array.from(dataTransfer.files);
-		if (files.length > 0) return files;
-		return Array.from(dataTransfer.items)
-			.filter((item) => item.kind === 'file')
-			.map((item) => item.getAsFile())
-			.filter((file): file is File => file != null);
-	}
-
-	function dataTransferHasFiles(dataTransfer: DataTransfer | null): boolean {
-		return Boolean(
-			dataTransfer &&
-			(dataTransfer.files.length > 0 || Array.from(dataTransfer.types).includes('Files'))
-		);
-	}
-
+	/*
+	 * Each of these sits on the strip and, through `dropSurface`, on the compose
+	 * form as well, so a drop on the strip reaches them twice — the second time
+	 * as the form's. Bailing on `defaultPrevented` is what keeps such a drop
+	 * from being added twice, and it is the contract lib/fileDropGuard.ts
+	 * follows one step further out.
+	 */
 	function handleDragEnter(event: DragEvent): void {
-		if (disabled || !dataTransferHasFiles(event.dataTransfer)) return;
+		if (event.defaultPrevented || disabled || !dragHasFiles(event)) return;
 		event.preventDefault();
 		dragActive = true;
 	}
 
 	function handleDragOver(event: DragEvent): void {
-		if (disabled || !dataTransferHasFiles(event.dataTransfer)) return;
+		if (event.defaultPrevented || disabled || !dragHasFiles(event)) return;
 		event.preventDefault();
 		if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
 		dragActive = true;
 	}
 
+	/**
+	 * Clears once the pointer has left the element the handler sits on. Moving
+	 * between that element's children is not leaving it, and leaving a child for
+	 * somewhere outside is — which is why this reads `relatedTarget` rather than
+	 * comparing `target` with `currentTarget`, as it used to.
+	 */
 	function handleDragLeave(event: DragEvent): void {
-		if (event.currentTarget !== event.target) return;
+		const surface = event.currentTarget;
+		const next = event.relatedTarget;
+		if (surface instanceof Node && next instanceof Node && surface.contains(next)) return;
 		dragActive = false;
 	}
 
 	function handleDrop(event: DragEvent): void {
+		if (event.defaultPrevented) return;
 		const files = filesFromDataTransfer(event.dataTransfer);
 		if (disabled || files.length === 0) return;
 		event.preventDefault();
 		dragActive = false;
 		void addFiles(files);
 	}
+
+	$effect(() => {
+		const surface = dropSurface;
+		if (!surface) return;
+		surface.addEventListener('dragenter', handleDragEnter);
+		surface.addEventListener('dragover', handleDragOver);
+		surface.addEventListener('dragleave', handleDragLeave);
+		surface.addEventListener('drop', handleDrop);
+		return () => {
+			surface.removeEventListener('dragenter', handleDragEnter);
+			surface.removeEventListener('dragover', handleDragOver);
+			surface.removeEventListener('dragleave', handleDragLeave);
+			surface.removeEventListener('drop', handleDrop);
+		};
+	});
 
 	function handlePaste(event: ClipboardEvent): void {
 		const files = filesFromDataTransfer(event.clipboardData);
