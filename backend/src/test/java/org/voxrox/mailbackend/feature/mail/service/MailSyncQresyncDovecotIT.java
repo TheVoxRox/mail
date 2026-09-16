@@ -176,7 +176,7 @@ class MailSyncQresyncDovecotIT {
          * A baseline of -1 would be sent back in the next QRESYNC SELECT.
          */
         long baseline = storedModseq(accountId);
-        assertThat(baseline).as("MODSEQ baseline after cycle 1").isPositive();
+        // PROBE (temporary): baseline assertion removed to watch cycle 2 unfixed.
 
         // --- Another client reads the first message and expunges the second -----
         long[] changed = onInbox(inbox -> {
@@ -196,6 +196,20 @@ class MailSyncQresyncDovecotIT {
         clearInvocations(flagSyncService);
         assertThat(mailSyncService.performFullSyncCycle(account, INBOX)).as(() -> "cycle 2, " + lastError(accountId))
                 .isTrue();
+        // PROBE (temporary): what the unfixed cycle 2 leaves behind, before the spy
+        // checks.
+        long modseqAfter = storedModseq(accountId);
+        org.assertj.core.api.SoftAssertions.assertSoftly(soft -> {
+            soft.assertThat(messageRepository.findUidsByAccountAndFolder(accountId, INBOX))
+                    .as("PROBE rows after cycle 2").doesNotContain(goneUid);
+            soft.assertThat(messageRepository.countByAccountIdAndFolderNameAndSeenFalse(accountId, INBOX))
+                    .as("PROBE unseen after cycle 2").isEqualTo(1);
+            soft.assertThat(modseqAfter).as("PROBE modseq after cycle 2, baseline " + baseline).isPositive();
+            soft.assertThat(true)
+                    .as("PROBE applyResyncEvents calls: " + org.mockito.Mockito.mockingDetails(flagSyncService)
+                            .getInvocations().stream().map(i -> i.getMethod().getName()).toList())
+                    .isFalse();
+        });
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<MailEvent>> events = ArgumentCaptor.forClass(List.class);
