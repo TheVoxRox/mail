@@ -2,10 +2,10 @@
 
 |                    |                                                                                                                                                                                                                                                                                              |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.6                                                                                                                                                                                                                                                                                          |
-| **Date**           | 2026-09-06                                                                                                                                                                                                                                                                                   |
+| **Version**        | 1.7                                                                                                                                                                                                                                                                                          |
+| **Date**           | 2026-09-16                                                                                                                                                                                                                                                                                   |
 | **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                           |
-| **Audited commit** | `02ff962` (recorded pre-squash as `f5b75ad`; 1.5 anchor `885b98a`, re-verified 2026-09-02 at the ledger cap; 1.3–1.4 anchor `cad05cb`, recorded pre-squash as `3ff0c78`; 1.0–1.2 baseline: `35a06f3`)                                                                                        |
+| **Audited commit** | `9435e56` (re-verified 2026-09-16, clearing seven acknowledgements; 1.6 anchor `02ff962`, recorded pre-squash as `f5b75ad`; 1.5 anchor `885b98a`, re-verified 2026-09-02 at the ledger cap; 1.3–1.4 anchor `cad05cb`, recorded pre-squash as `3ff0c78`; 1.0–1.2 baseline: `35a06f3`)         |
 | **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service`, `backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java`, `backend/src/main/java/org/voxrox/mailbackend/util/SubjectNormalizer.java`, `backend/src/main/java/org/voxrox/mailbackend/core/config/mail` |
 | **Auditor**        | Claude (Fable 5) + owner review                                                                                                                                                                                                                                                              |
 | **Subsystem**      | External mail server ↔ sidecar — Boundary 1 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                       |
@@ -136,6 +136,19 @@ transport/TLS and SMTP-send claims remain static-plus-unit-tests, see
   skip an oversize part without buffering it whole), with a 2 MiB per-image and
   8 MiB per-message cap — so a hostile `multipart/related` cannot bloat the
   SQLite `content` column or the heap through inline images.
+- **A QRESYNC SELECT lets the server name rows to delete, within one folder**
+  (v1.7). Opening with `ResyncData` makes the server report what changed since
+  the recorded modseq, and
+  [FlagSyncService.applyResyncEvents](../backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/FlagSyncService.java)
+  turns a `MessageVanishedEvent` into deletions of the local cache rows. The
+  UIDs are server-supplied, so the scope is what matters: the delete is
+  `deleteAllByAccountIdAndFolderNameAndUidIn`, bound to the account whose
+  connection this is and the folder the SELECT was for, in batches of the
+  configured sync size. A hostile server can therefore make the client forget
+  its cached copies of that folder — which is the level of control it already
+  has over a mailbox it serves, and no worse than deleting the messages itself.
+  Nothing outside that (account, folder) can be reached, and no body, header or
+  credential is read from the event: it carries UIDs and flags.
 - **Attachment metadata is safe.** Filenames are RFC 2047-decoded for display;
   content-type is reduced to the media type before the first `;`; a negative
   `getSize()` is clamped to 0.
@@ -398,6 +411,31 @@ one after 101.8 s — so the budget is empirically load-bearing, not decorative.
 
 ## 7. Change log
 
+- **1.7** (2026-09-16) — **re-verified against `9435e56`, clearing all seven
+  acknowledgements; verdict stays PASS.** The ledger was at 7 of 8 and the gate
+  was asking for this before the cap forced it onto an unrelated PR. One path
+  moved — the `feature/mail/service` package, 646 lines over seven PRs — and
+  the whole of it is sync correctness and concurrency, not protocol handling.
+  QRESYNC/CONDSTORE plumbing accounts for most of it: `ImapFolderExecutor` can
+  open a folder with `ResyncData` and hands the resulting events to the action,
+  `MailSyncService` routes to the QRESYNC path when the open produced events and
+  to the CONDSTORE or batched path otherwise, `FlagSyncService` applies vanished
+  UIDs and flag changes, and `UidEnumerationSchedule` rate-limits the full-UID
+  fallback to once an hour per folder. §2 gains a bullet for the one new thing
+  worth writing down: the server now names rows to delete, and the delete is
+  scoped to that account and that folder. `MessageDownloader` gained a stableId
+  tie-break so a trash folder holding two copies of one Message-ID cannot abort
+  its batch; `ImapConnectionManager` publishes a reauth event instead of purging
+  connections under the lane lock (CONCURRENCY.md rule 2), and its pinned
+  properties are unchanged — `ssl.checkserveridentity`, `partialfetch` and
+  `ssl.enable` were re-read, since §1 and the §4 fix rest on them.
+  `ImapCapabilities` lost a hand-kept capability table that measurement had
+  shown wrong in three of four rows; nothing reads it, and what a server
+  advertises is probed per connection. Outside the package, `MessageFetcher`,
+  `MailContentService` and `MimePartExtractor` — the code §2, §4 and §4b are
+  about — are byte-identical to `02ff962`, so the fetch profile is still
+  metadata-only, the body cap is still `MAX_BODY_BYTES`, and both findings stay
+  fixed. §§1, 3, 3b, 4, 4b and 5 stand as written.
 - **1.6** (2026-09-06) — revised for the interactive-lane split (`02ff962`),
   **because a claim stopped being true, not because the ledger filled up**. §1
   said the folder-role lookup "degrades to folder scope rather than blocking
