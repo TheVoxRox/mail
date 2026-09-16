@@ -28,10 +28,10 @@ const JAR = 'frontend/src-tauri/binaries/app/mail-backend-0.1.0.jar';
 const LAUNCHER = 'frontend/src-tauri/binaries/voxrox-mail-backend-x86_64-pc-windows-msvc.exe';
 
 /** The two things the launcher name is judged by: the config and what sits in binaries/. */
-function packagedSidecar(launcher = LAUNCHER) {
+function packagedSidecar(launcher = LAUNCHER, externalBin = 'binaries/voxrox-mail-backend') {
 	write(
 		'frontend/src-tauri/tauri.conf.json',
-		JSON.stringify({ bundle: { externalBin: ['binaries/voxrox-mail-backend'] } })
+		JSON.stringify({ bundle: { externalBin: [externalBin] } })
 	);
 	write('frontend/src-tauri/binaries/.gitkeep', '');
 	if (launcher) write(launcher);
@@ -39,10 +39,10 @@ function packagedSidecar(launcher = LAUNCHER) {
 }
 
 /** A repo whose sidecar was synced from the sources currently on disk. */
-async function syncedFixture(launcher = LAUNCHER) {
+async function syncedFixture(launcher = LAUNCHER, externalBin) {
 	write('backend/src/main/java/org/voxrox/Service.java', 'class Service {}');
 	write('backend/pom.xml', '<project/>');
-	packagedSidecar(launcher);
+	packagedSidecar(launcher, externalBin);
 	await recordBackendSourceHash(root);
 }
 
@@ -123,6 +123,53 @@ describe('sidecar freshness', () => {
 
 		expect(result.status).toBe('misnamed');
 		expect(describeStaleness(result).text).toContain('no launcher at all');
+	});
+
+	it('does not accept a longer name that merely starts the same way', async () => {
+		// The shell is voxrox-mail and the sidecar voxrox-mail-backend, so a
+		// prefix match lets the one stand in for the other. What follows the
+		// name has to be a target triple, not just anything.
+		await syncedFixture(LAUNCHER, 'binaries/voxrox-mail');
+
+		const result = await checkSidecarFreshness(root);
+
+		expect(result.status).toBe('misnamed');
+		expect(describeStaleness(result).text).toContain('voxrox-mail-<target triple>');
+	});
+
+	/*
+	 * MAIL_ALLOW_STALE_SIDECAR is advertised in exactly one of these messages,
+	 * and 'optOut' is what says so to the caller. Running a pair that disagrees
+	 * about the API is a tradeoff a developer can take; a launcher tauri-build
+	 * cannot find is not one, and waving it through only restores the resource
+	 * error this check exists to replace.
+	 */
+	it('lets the opt-out through for a pair that merely disagrees about the API', async () => {
+		await syncedFixture();
+		write('backend/src/main/java/org/voxrox/Service.java', 'class Service { void added() {} }');
+
+		const report = describeStaleness(await checkSidecarFreshness(root));
+
+		expect(report.optOut).toBe(true);
+		expect(report.text).toContain('MAIL_ALLOW_STALE_SIDECAR=1');
+	});
+
+	it('offers no opt-out for a launcher tauri-build will not find', async () => {
+		await syncedFixture('frontend/src-tauri/binaries/mail-x86_64-pc-windows-msvc.exe');
+
+		const report = describeStaleness(await checkSidecarFreshness(root));
+
+		expect(report.optOut).toBe(false);
+		expect(report.text).not.toContain('MAIL_ALLOW_STALE_SIDECAR');
+	});
+
+	it('offers no opt-out for a sidecar that is not there at all', async () => {
+		write('backend/src/main/java/Service.java');
+
+		const report = describeStaleness(await checkSidecarFreshness(root));
+
+		expect(report.optOut).toBe(false);
+		expect(report.text).not.toContain('MAIL_ALLOW_STALE_SIDECAR');
 	});
 
 	it('flags a new backend source, not only a changed one', async () => {

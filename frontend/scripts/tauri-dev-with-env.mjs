@@ -41,14 +41,21 @@ function withDevTauriConfig(env) {
  * afternoon.
  */
 async function assertSidecarIsFresh() {
-	if (process.env.MAIL_ALLOW_STALE_SIDECAR === '1') {
-		console.log('[tauri-dev] MAIL_ALLOW_STALE_SIDECAR=1 — skipping the sidecar freshness check.');
-		return;
-	}
 	const repoRoot = path.resolve(rootDir, '..');
 	const result = await checkSidecarFreshness(repoRoot);
 	const report = describeStaleness(result);
 	if (!report) return;
+	/*
+	 * The opt-out is per result, not per run: the check decides which of its
+	 * verdicts the variable may wave through, next to the message that offers
+	 * it. Skipping the whole check here meant the variable also switched off
+	 * the launcher-name check, which advertises no opt-out because there is
+	 * nothing to opt into — tauri-build simply cannot find the resource.
+	 */
+	if (report.optOut && process.env.MAIL_ALLOW_STALE_SIDECAR === '1') {
+		console.log('[tauri-dev] MAIL_ALLOW_STALE_SIDECAR=1 — running the mismatched pair anyway.');
+		return;
+	}
 	if (!report.fatal) {
 		console.warn(`\n[tauri-dev] ${report.text}\n`);
 		return;
