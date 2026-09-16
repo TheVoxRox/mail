@@ -189,17 +189,27 @@
 
 <svelte:window bind:innerWidth />
 
+<!--
+	The list is chrome only while a message is open: with no detail route it is
+	the content, and printing it is the reasonable thing to do. `contents` keeps
+	the wrapper out of the pane's layout.
+-->
 {#snippet folderList()}
-	{#if grouped}
-		<ConversationList />
-	{:else}
-		<MessageList />
-	{/if}
+	<div class="contents" data-print={hasDetailRoute ? 'chrome' : null}>
+		{#if grouped}
+			<ConversationList />
+		{:else}
+			<MessageList />
+		{/if}
+	</div>
 {/snippet}
 
 <div class="flex flex-1 flex-col overflow-hidden bg-background">
 	<!-- `bg-muted/20`, the same bar fill as every other strip above a list. -->
-	<div class="flex items-center gap-3 border-b border-border bg-muted/20 px-3 py-2">
+	<div
+		data-print="chrome"
+		class="flex items-center gap-3 border-b border-border bg-muted/20 px-3 py-2"
+	>
 		<div class="flex min-w-0 shrink-0 items-center pr-1">
 			{#if detailIsOffMode}
 				<!--

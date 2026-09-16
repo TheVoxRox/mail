@@ -2,6 +2,9 @@
 import { createHash } from 'node:crypto';
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
+	clampMailFramePrintHeight,
+	isMailFrameHeightMessage,
+	MAX_MAIL_FRAME_PRINT_HEIGHT,
 	MAIL_FRAME_SCRIPT,
 	MAIL_FRAME_SCRIPT_SHA256,
 	MAIL_FRAME_STYLE,
@@ -399,5 +402,49 @@ describe('mailFrameKeyToEvent', () => {
 		// Synthetic events are never trusted, so they cannot loop back through
 		// the frame forwarder (which only relays isTrusted keystrokes).
 		expect(event.isTrusted).toBe(false);
+	});
+});
+
+describe('frame height reporting', () => {
+	it('accepts what the forwarder posts', () => {
+		expect(isMailFrameHeightMessage({ __voxroxMailFrameHeight: true, height: 1200 })).toBe(true);
+	});
+
+	it('rejects anything that is not that message', () => {
+		expect(isMailFrameHeightMessage(null)).toBe(false);
+		expect(isMailFrameHeightMessage({ height: 1200 })).toBe(false);
+		expect(isMailFrameHeightMessage({ __voxroxMailFrameHeight: true })).toBe(false);
+		expect(isMailFrameHeightMessage({ __voxroxMailFrameHeight: true, height: '1200' })).toBe(false);
+		expect(isMailFrameHeightMessage({ __voxroxMailFrameHeight: 'yes', height: 1200 })).toBe(false);
+	});
+
+	it('keeps a plausible height, rounded', () => {
+		expect(clampMailFramePrintHeight(1200)).toBe(1200);
+		expect(clampMailFramePrintHeight(1200.6)).toBe(1201);
+	});
+
+	it('refuses what a hostile or broken body can post in place of a height', () => {
+		// The number is authored by the mail, so every one of these is reachable.
+		expect(clampMailFramePrintHeight(Number.NaN)).toBe(0);
+		expect(clampMailFramePrintHeight(Number.POSITIVE_INFINITY)).toBe(0);
+		expect(clampMailFramePrintHeight(-5000)).toBe(0);
+		expect(clampMailFramePrintHeight(0)).toBe(0);
+	});
+
+	it('caps a height that would ask for a print of a few thousand sheets', () => {
+		expect(clampMailFramePrintHeight(50_000_000)).toBe(MAX_MAIL_FRAME_PRINT_HEIGHT);
+	});
+
+	it('measures the document from inside, because the parent cannot', () => {
+		// The sandbox is opaque-origin on purpose, so scrollHeight is unreadable
+		// from the parent; the pinned forwarder is what posts it out.
+		expect(MAIL_FRAME_SCRIPT).toContain('__voxroxMailFrameHeight');
+		expect(MAIL_FRAME_SCRIPT).toContain('scrollHeight');
+	});
+
+	it('claims Ctrl+P inside the frame, as the app binds it', () => {
+		// Same promise as Ctrl+R and Ctrl+F: the parent reacts to a synthetic
+		// replay, so only the frame can cancel the genuine event.
+		expect(MAIL_FRAME_SCRIPT).toContain('/^[kprfqu]$/i');
 	});
 });

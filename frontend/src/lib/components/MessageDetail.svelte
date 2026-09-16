@@ -141,7 +141,7 @@
 {#if $selectedMessage}
 	{@const state = $selectedMessage}
 	{@const detail = state.detail}
-	<div class="flex flex-1 flex-col overflow-y-auto" tabindex="-1">
+	<div class="flex flex-1 flex-col overflow-y-auto" tabindex="-1" data-print="document">
 		<div
 			class="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background px-3 py-2"
 		>

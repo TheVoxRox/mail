@@ -4,6 +4,8 @@
 	import {
 		buildMailFrameSrcdoc,
 		countRemoteImages,
+		clampMailFramePrintHeight,
+		isMailFrameHeightMessage,
 		isMailFrameKeyMessage,
 		isMailFrameLinkMessage,
 		isOpenableMailLink,
@@ -152,6 +154,9 @@
 	 */
 	const plainTextBody = $derived(looksLikeHtml ? mailHtmlToPlainText(content) : content);
 
+	/** Last height the frame reported, clamped. 0 until it has said anything. */
+	let printHeight = 0;
+
 	/*
 	 * The body renders in a script-sandboxed, opaque-origin iframe whose only
 	 * script is a hash-pinned forwarder (see mailFrame.ts). Accept its
@@ -175,12 +180,48 @@
 			}
 			if (isMailFrameLinkMessage(event.data)) {
 				void openBodyLink(event.data.href);
+				return;
+			}
+			if (isMailFrameHeightMessage(event.data)) {
+				printHeight = clampMailFramePrintHeight(event.data.height);
 			}
 		}
+
+		/*
+		 * On screen the frame is a fixed window onto the mail, with its own
+		 * scrollbar. On paper there is no scrolling: whatever the box does not
+		 * show is simply not printed, which is how a print of a long message used
+		 * to end mid-sentence without saying so. Between these two events the
+		 * frame is given the height its own document reported, so the body runs
+		 * onto as many sheets as it needs; Chromium paginates the frame once
+		 * nothing clips it (app.css lifts the reading path's overflow for print).
+		 *
+		 * Set on the element rather than through state, because the browser reads
+		 * the layout as soon as the last beforeprint handler returns and will not
+		 * wait for a framework to flush. Restored afterwards to exactly what was
+		 * there, so a print leaves no trace in the pane.
+		 */
+		let heightBeforePrint: string | null = null;
+		function onBeforePrint() {
+			if (printHeight <= 0 || heightBeforePrint !== null) return;
+			heightBeforePrint = node.style.height;
+			node.style.height = `${printHeight}px`;
+		}
+		function onAfterPrint() {
+			if (heightBeforePrint === null) return;
+			node.style.height = heightBeforePrint;
+			heightBeforePrint = null;
+		}
+
 		window.addEventListener('message', onMessage);
+		window.addEventListener('beforeprint', onBeforePrint);
+		window.addEventListener('afterprint', onAfterPrint);
 		return {
 			destroy() {
 				window.removeEventListener('message', onMessage);
+				window.removeEventListener('beforeprint', onBeforePrint);
+				window.removeEventListener('afterprint', onAfterPrint);
+				onAfterPrint();
 			}
 		};
 	}

@@ -44,6 +44,7 @@ frontend/src/routes/mail/list-columns.functional.e2e.ts -- Column-alignment asse
 frontend/src/routes/mail/list-navigation.functional.e2e.ts -- Off-mode list keyboard model and focus-restore assertions against Czech UI ("Seznam zpráv", live-region texts) under mail.locale = 'cs'.
 frontend/src/routes/mail/message-detail-actions.functional.e2e.ts -- Inline message-toolbar action assertions against Czech UI ("Akce se zprávami", "Odpovědět", reply subject) under mail.locale = 'cs'.
 frontend/src/routes/mail/remote-images.functional.e2e.ts -- Remote-image opt-in banner assertions against Czech UI ("Blokované vzdálené obrázky", "Načíst obrázky") under mail.locale = 'cs'.
+frontend/src/routes/mail/print.functional.e2e.ts -- Print-layout assertions against Czech UI; the test names describe what reaches the paper, and the long-body fixture uses Czech paragraph text so the sheet count is measured on the same script the app renders.
 frontend/src/routes/mail/row-actions-menu.functional.e2e.ts -- Row actions menu assertions against Czech UI ("Akce pro zprávu …", "Smazat", "Trvalé smazání") under mail.locale = 'cs'.
 frontend/src/routes/mail/sanitizer.functional.e2e.ts -- HTML sanitizer assertions reference Czech UI surrounding the message body.
 frontend/src/routes/mail/sender-contact.functional.e2e.ts -- Sender-to-contact assertions against Czech UI ("Přidat do kontaktů …", "Upravit kontakt …", "Nový kontakt") under mail.locale = 'cs'.

@@ -759,6 +759,7 @@
 		"unflag": "Zrušit hvězdičku",
 		"markRead": "Označit jako přečtené",
 		"markUnread": "Označit jako nepřečtené",
+		"print": "Vytisknout",
 		"delete": "Smazat",
 		"move": "Přesunout",
 		"moveDone": "Zpráva přesunuta do složky {folder}.",
@@ -804,7 +805,8 @@
 		"markRead": "Označit jako přečtené",
 		"markUnread": "Označit jako nepřečtené",
 		"deleteMessage": "Smazat zprávu",
-		"moveMessageToFolder": "Přesunout do složky {folder}"
+		"moveMessageToFolder": "Přesunout do složky {folder}",
+		"print": "Vytisknout zprávu"
 	},
 	"workspace": {
 		"mail": "Pošta",

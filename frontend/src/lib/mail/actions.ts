@@ -98,6 +98,21 @@ export async function replyToMessage(stableId: string, all = false): Promise<voi
 	await goto(`${resolve('/compose')}?reply=${encodeURIComponent(stableId)}&all=${all ? '1' : '0'}`);
 }
 
+/**
+ * Prints the open message.
+ *
+ * `window.print()` and nothing else, deliberately: what reaches the paper is
+ * decided by the print rules in app.css, and the body frame is given its full
+ * height by MessageContent's `beforeprint` hook. Every entry point — this
+ * action, Ctrl+P, and the webview's own context menu, which the shell keeps for
+ * exactly this reason — therefore produces the same sheet, and a second way to
+ * start a print never becomes a second layout to maintain.
+ */
+export function printOpenMessage(): void {
+	if (typeof window === 'undefined') return;
+	window.print();
+}
+
 export async function forwardMessage(stableId: string): Promise<void> {
 	await goto(`${resolve('/compose')}?forward=${encodeURIComponent(stableId)}`);
 }

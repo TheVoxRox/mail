@@ -257,3 +257,46 @@
 		outline-offset: 2px;
 	}
 }
+
+/*
+ * Paper is not a window.
+ *
+ * The app is a fixed-viewport layout: the reading path from <body> down to the
+ * message body runs through five nested boxes that are sized to the screen and
+ * clip what does not fit, so a print of a message used to be exactly one
+ * screenful of the whole application — rail, sidebar, folder list, toolbar, and
+ * whatever paragraph of the mail happened to be on screen. Two rules undo that.
+ *
+ * `data-print="chrome"` marks what is application rather than message. It is
+ * set where the pane is rendered, so it moves with the component, and on the
+ * folder list it is conditional: with no message open the list IS the content,
+ * and printing it is the reasonable thing to do.
+ *
+ * `:has([data-print='document'])` is every ancestor of the message, whatever
+ * the pane layout happens to be that day — the alternative was naming five
+ * containers that the reading-pane modes rearrange. Unclipping them lets the
+ * body run onto as many sheets as it needs; Chromium paginates the sandboxed
+ * body frame across pages once nothing clips it (measured: a 4000px frame
+ * printed as six pages).
+ */
+@media print {
+	[data-print='chrome'] {
+		display: none !important;
+	}
+
+	html,
+	body,
+	:has([data-print='document']),
+	[data-print='document'] {
+		height: auto !important;
+		max-height: none !important;
+		overflow: visible !important;
+	}
+
+	/* The frame is a window onto the mail on screen, and a sheet of it on paper. */
+	[data-print='document'] iframe {
+		border: 0 !important;
+		border-radius: 0 !important;
+		min-height: 0 !important;
+	}
+}

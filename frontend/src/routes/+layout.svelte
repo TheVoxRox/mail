@@ -32,7 +32,7 @@
 	} from '$lib/stores/workspaceMode.js';
 	import { handleGlobalKeydown } from '$lib/shortcuts/globalShortcuts.js';
 	import { selectedMessage } from '$lib/stores/selectedMessage.js';
-	import { forwardMessage, replyToMessage } from '$lib/mail/actions.js';
+	import { forwardMessage, printOpenMessage, replyToMessage } from '$lib/mail/actions.js';
 	import { deleteMessages, toggleMessageFlag, toggleMessageSeen } from '$lib/mail/mailbox.js';
 	import { loadSidebar } from '$lib/components/sidebar/loader.js';
 	// Straight from the module, never the sidebar-shell barrel: the barrel
@@ -362,7 +362,8 @@
 			forward: () => runOnOpenMessage((id) => forwardMessage(id)),
 			toggleFlag: () => runOnOpenMessage((id) => toggleMessageFlag(id)),
 			toggleSeen: () => runOnOpenMessage((id) => toggleMessageSeen(id)),
-			deleteMessage: () => runOnOpenMessage((id) => deleteMessages([id]))
+			deleteMessage: () => runOnOpenMessage((id) => deleteMessages([id])),
+			printMessage: printOpenMessage
 		});
 	}
 </script>
@@ -395,8 +396,13 @@
 			/>
 		{:else if $bootState.phase === 'ready' && $sessionState.status === 'ready' && $accountsState.status === 'ready'}
 			<AppRail />
-			{#await sidebarPromise}
-				<!--
+			<!--
+				`contents` so the wrapper adds no box to the flex row; it exists only
+				to carry data-print across the three branches of the lazy sidebar.
+			-->
+			<div class="contents" data-print="chrome">
+				{#await sidebarPromise}
+					<!--
 					Holds the pane's slot open at its real width while the lazy chunk
 					loads. Not decoration: the sidebar sits left of <main>, so an empty
 					slot renders the whole content area a pane-width too far left and
@@ -406,25 +412,26 @@
 					so a screen reader has nothing to announce and nothing to leave
 					behind; the real pane replaces it in the same slot.
 				-->
-				<div class={SIDEBAR_PANE_FRAME} aria-hidden="true"></div>
-			{:then sidebarMod}
-				{@const Sidebar = sidebarMod.default}
-				<Sidebar />
-			{:catch}
-				<!--
+					<div class={SIDEBAR_PANE_FRAME} aria-hidden="true"></div>
+				{:then sidebarMod}
+					{@const Sidebar = sidebarMod.default}
+					<Sidebar />
+				{:catch}
+					<!--
 					A lazy sidebar chunk failed to load (corrupt/missing bundle on a
 					desktop install). Render a visible, screen-reader-announced
 					message in the sidebar slot instead of silently dropping the
 					primary navigation. The loader (sidebar/loader.ts) evicts the
 					failed chunk from its cache, so navigating away and back retries.
 				-->
-				<div
-					class={cn(SIDEBAR_PANE_FRAME, 'gap-2 px-3 py-4 text-sm text-muted-foreground')}
-					role="alert"
-				>
-					{$_('app.sidebarLoadFailed')}
-				</div>
-			{/await}
+					<div
+						class={cn(SIDEBAR_PANE_FRAME, 'gap-2 px-3 py-4 text-sm text-muted-foreground')}
+						role="alert"
+					>
+						{$_('app.sidebarLoadFailed')}
+					</div>
+				{/await}
+			</div>
 			<main
 				id="main-content"
 				tabindex="-1"

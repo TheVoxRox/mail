@@ -31,6 +31,7 @@ export interface GlobalShortcutHandlers {
 	toggleFlag: () => void;
 	toggleSeen: () => void;
 	deleteMessage: () => void;
+	printMessage: () => void;
 }
 
 /** Returns true if the target is input-like and should receive the key instead of the handler. */
@@ -179,6 +180,10 @@ function handleMessageShortcut(
 		case 'f': // Forward (shadows the webview find bar).
 			event.preventDefault();
 			handlers.forward();
+			return true;
+		case 'p': // Print, Outlook's meaning for the key the webview used to take.
+			event.preventDefault();
+			handlers.printMessage();
 			return true;
 		case 'q': // Mark as read — no-op if already read.
 			event.preventDefault();

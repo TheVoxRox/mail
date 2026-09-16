@@ -27,23 +27,24 @@
 /// Whether a browser accelerator stays with WebView2 instead of being switched
 /// off. `alt_down` is the Alt state WebView2 reports with the key.
 ///
-/// Two groups are kept although they are browser behaviour, because switching
-/// them off would remove the only way to do the thing and put nothing back:
+/// One group is kept although it is browser behaviour, because switching it off
+/// would remove the only way to do the thing and put nothing back:
 ///
 /// - **Zoom** (Ctrl+0, Ctrl+Plus, Ctrl+Minus and their numpad twins). The app's
 ///   own text size is three steps ending at an 18px root font, a little over
 ///   110%, so page zoom is what carries a reader from there to the 200% that
 ///   WCAG 1.4.4 asks for.
-/// - **Print** (Ctrl+P). Nothing in the app prints and the frontend binds no
-///   `p`, so denying it takes printing a message away altogether. It prints the
-///   whole window, which is also why the context menu keeps its Print entry; a
-///   print view of the message alone is the thing that would replace both.
+/// Print is no longer among them. It was kept while nothing in the app printed,
+/// because denying it took printing a message away altogether; the app now binds
+/// Ctrl+P itself (`globalShortcuts.ts`) and prints the open message rather than
+/// the window, so the key is claimed like Ctrl+R and Ctrl+F before it. The
+/// context menu keeps its Print entry, which is not an accelerator and now
+/// reaches the same sheet through the print rules in app.css.
 #[cfg_attr(not(windows), allow(dead_code))]
 pub fn keeps_browser_handling(virtual_key: u32, alt_down: bool, devtools: bool) -> bool {
     const VK_0: u32 = 0x30;
     const VK_LEFT: u32 = 0x25;
     const VK_RIGHT: u32 = 0x27;
-    const VK_P: u32 = 0x50;
     const VK_NUMPAD0: u32 = 0x60;
     const VK_ADD: u32 = 0x6B;
     const VK_SUBTRACT: u32 = 0x6D;
@@ -58,7 +59,7 @@ pub fn keeps_browser_handling(virtual_key: u32, alt_down: bool, devtools: bool) 
         VK_F12 => devtools,
         // Kept as the Ctrl chords they are. Alt with the same key is nothing
         // the browser does, and stays denied along with everything else.
-        VK_0 | VK_NUMPAD0 | VK_ADD | VK_SUBTRACT | VK_OEM_PLUS | VK_OEM_MINUS | VK_P => !alt_down,
+        VK_0 | VK_NUMPAD0 | VK_ADD | VK_SUBTRACT | VK_OEM_PLUS | VK_OEM_MINUS => !alt_down,
         _ => false,
     }
 }
@@ -204,9 +205,9 @@ mod tests {
     }
 
     #[test]
-    fn reload_and_find_are_switched_off() {
-        // F5, R (Ctrl+R), F3, F (Ctrl+F), F7
-        for key in [0x74, 0x52, 0x72, 0x46, 0x76] {
+    fn reload_find_and_print_are_switched_off() {
+        // F5, R (Ctrl+R), P (Ctrl+P), F3, F (Ctrl+F), F7
+        for key in [0x74, 0x52, 0x50, 0x72, 0x46, 0x76] {
             assert!(!keeps_browser_handling(key, false, false), "key {key:#x}");
         }
     }
@@ -223,9 +224,10 @@ mod tests {
     }
 
     #[test]
-    fn printing_stays_with_the_browser_because_nothing_replaces_it() {
-        assert!(keeps_browser_handling(0x50, false, false));
-        assert!(!keeps_browser_handling(0x50, true, false));
+    fn print_is_the_app_s_key_now_and_not_the_browser_s() {
+        // globalShortcuts.ts binds Ctrl+P to printing the open message, so the
+        // key reaches the page as an ordinary keydown like Ctrl+R and Ctrl+F.
+        assert!(!keeps_browser_handling(0x50, false, false));
     }
 
     #[test]

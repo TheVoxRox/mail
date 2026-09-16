@@ -3,7 +3,7 @@
 	import { MenuContent, menuItemVariants } from '$lib/components/ui/menu/index.js';
 	import { selectedMessage } from '$lib/stores/selectedMessage.js';
 	import { _ } from '$lib/i18n/index.js';
-	import { forwardMessage, replyToMessage } from '$lib/mail/actions.js';
+	import { forwardMessage, printOpenMessage, replyToMessage } from '$lib/mail/actions.js';
 	import { deleteMessages, toggleMessageFlag, toggleMessageSeen } from '$lib/mail/mailbox.js';
 	import { Button, buttonVariants } from '$lib/components/ui/button/index.js';
 	import Icon, { type IconName } from '$lib/components/Icon.svelte';
@@ -11,7 +11,7 @@
 	import { cn } from '$lib/utils.js';
 
 	type ToolbarAction = {
-		id: 'reply' | 'replyAll' | 'forward' | 'flag' | 'seen' | 'delete';
+		id: 'reply' | 'replyAll' | 'forward' | 'flag' | 'seen' | 'print' | 'delete';
 		label: string;
 		variant: 'ghost' | 'destructive';
 		icon?: IconName;
@@ -89,6 +89,14 @@
 				run: toggleMessageSeen
 			},
 			{
+				id: 'print',
+				label: $_('toolbar.print'),
+				variant: 'ghost',
+				icon: 'printer',
+				ariaKeyshortcuts: 'Control+P',
+				run: () => printOpenMessage()
+			},
+			{
 				id: 'delete',
 				label: $_('toolbar.delete'),
 				variant: 'destructive',
@@ -110,6 +118,7 @@
 	right sit on the same row.
 -->
 <div
+	data-print="chrome"
 	role="toolbar"
 	aria-label={$_('toolbar.ariaLabel')}
 	class="flex min-h-9 min-w-0 flex-1 flex-nowrap items-center gap-1.5 overflow-x-auto"
