@@ -384,27 +384,17 @@ describe('handleUnexpectedExit — exit code → user-readable error message', (
 });
 
 describe('unload hook — only a leave that goes ahead stops the backend', () => {
-	const cleanups: Array<() => void> = [];
-
 	afterEach(() => {
-		cleanups.splice(0).forEach((cleanup) => cleanup());
+		const global = globalThis as { __MAIL_BACKEND_SIDECAR_UNLOAD__?: () => void };
+		global.__MAIL_BACKEND_SIDECAR_UNLOAD__?.();
+		delete global.__MAIL_BACKEND_SIDECAR_UNLOAD__;
 	});
 
-	/**
-	 * Stands in for SvelteKit's own `beforeunload` listener cancelling the unload
-	 * for a dirty leave-guarded form. Added before the sidecar spawns, as the
-	 * router's listener is in the app, so it runs ahead of the hook.
-	 */
-	function blockUnload(): () => void {
-		const block = (event: Event) => event.preventDefault();
-		window.addEventListener('beforeunload', block);
-		const unblock = () => window.removeEventListener('beforeunload', block);
-		cleanups.push(unblock);
-		return unblock;
-	}
-
-	function dispatchBeforeUnload(): void {
-		window.dispatchEvent(new Event('beforeunload', { cancelable: true }));
+	/** jsdom builds no PageTransitionEvent, and the hook reads only `persisted`. */
+	function dispatchPageHide(persisted = false): void {
+		const event = new Event('pagehide');
+		Object.defineProperty(event, 'persisted', { value: persisted });
+		window.dispatchEvent(event);
 	}
 
 	async function spawned(pid: number) {
@@ -415,45 +405,55 @@ describe('unload hook — only a leave that goes ahead stops the backend', () =>
 		return { mod, handle };
 	}
 
-	it('keeps the backend running when a leave guard cancels the unload', async () => {
-		blockUnload();
+	it('keeps the backend running while a leave is only being attempted', async () => {
 		const { mod, handle } = await spawned(301);
 
-		dispatchBeforeUnload();
+		// The event a leave guard cancels in. Whether it was cancelled or not is
+		// not this hook's business any more — nothing stops here either way.
+		window.dispatchEvent(new Event('beforeunload', { cancelable: true }));
 		await Promise.resolve();
 
 		expect(handle.child.kill).not.toHaveBeenCalled();
 		expect(get(mod.backendSidecarState)).toEqual({ status: 'running', pid: 301 });
 	});
 
-	it('stops the backend on pagehide when the user confirms the prompted leave', async () => {
-		blockUnload();
+	it('stops the backend once the page is really unloaded', async () => {
 		const { handle } = await spawned(302);
 
-		dispatchBeforeUnload();
-		window.dispatchEvent(new Event('pagehide'));
+		dispatchPageHide();
 
 		expect(handle.child.kill).toHaveBeenCalledOnce();
 	});
 
-	it('stops the backend on beforeunload when nothing cancels the unload', async () => {
+	it('stays armed through a cancelled leave, so the next real one still stops it', async () => {
 		const { handle } = await spawned(303);
 
-		dispatchBeforeUnload();
+		window.dispatchEvent(new Event('beforeunload', { cancelable: true }));
+		expect(handle.child.kill).not.toHaveBeenCalled();
+
+		dispatchPageHide();
 
 		expect(handle.child.kill).toHaveBeenCalledOnce();
 	});
 
-	it('stays armed after a cancelled leave, so a later unguarded reload still stops the backend', async () => {
-		const unblock = blockUnload();
-		const { handle } = await spawned(304);
+	it('keeps the backend when the page is only frozen into the back/forward cache', async () => {
+		const { mod, handle } = await spawned(304);
 
-		dispatchBeforeUnload();
+		dispatchPageHide(true);
+		await Promise.resolve();
+
 		expect(handle.child.kill).not.toHaveBeenCalled();
+		expect(get(mod.backendSidecarState)).toEqual({ status: 'running', pid: 304 });
+	});
 
-		unblock();
-		dispatchBeforeUnload();
-		expect(handle.child.kill).toHaveBeenCalledOnce();
+	it('takes its listener with it when a reloaded module replaces it', async () => {
+		const first = await spawned(305);
+		const second = await spawned(306);
+
+		dispatchPageHide();
+
+		expect(first.handle.child.kill).not.toHaveBeenCalled();
+		expect(second.handle.child.kill).toHaveBeenCalledOnce();
 	});
 });
 
