@@ -30,6 +30,13 @@ jobs:
     # took 25 minutes and 2026-09-11 three. 180 leaves room for a slower night
     # (09-14 crawled at ~740/min, which no sane budget covers) without going
     # near the 6h ceiling the note above is about.
+    #
+    # The first cold pull under this cap, 2026-09-16, fitted with less room than
+    # the 09-15 rate promised: 393,454 records in 166 minutes (~2,400/min), and
+    # the job ended 13.5 minutes short of the cap. A cold pull is meant to be
+    # rare now that prune-caches keeps the warm DB from being evicted, so the
+    # thin margin is recorded rather than bought with a bigger budget — if a
+    # cold night is cancelled again, this is the number to start from.
     timeout-minutes: 180
     # The SARIF upload step needs security-events: write; without an explicit
     # block the job runs with the repo's default read-only token and the upload
@@ -431,9 +438,15 @@ jobs:
     # This is worth a job because the quota is why the NVD database kept
     # vanishing. Measured 2026-09-16: the repo held 8.86 GB of a 10 GB cache
     # quota across 17 entries, 5.2 GB of it two `cargo-Linux-` caches at
-    # 2.61 GiB each, and no `nvd-` entry at all — a ~1 GB database written by a
-    # passing scan was evicted before the next night could restore it, so the
-    # scan paid for a full cold pull every time.
+    # 2.61 GiB each, and no `nvd-` entry at all. The passing scans of 09-10 and
+    # 09-11 had each saved one, 114 MB compressed, and both were gone by the
+    # next scheduled run on 09-14 — three days later, well inside the seven
+    # days of disuse that expire an entry, and together with the
+    # `cargo-cyclonedx-` and `trivy-binary-` tool caches. That is quota
+    # eviction: over the limit, GitHub removes the least recently used entries
+    # first, and an entry touched once a night is exactly that. Its own size
+    # never mattered; what pushes the repo over is a 2.61 GiB Cargo entry, and
+    # the scan then paid for a cold pull on 09-14, 09-15 and 09-16.
     #
     # A cache is scoped to the ref that wrote it: a run on `main` restores only
     # what `main` wrote, and a pull request's run adds its own on top. Both
