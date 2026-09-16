@@ -79,6 +79,7 @@ function facts(overrides = {}) {
 		sheet: {
 			date: '2026-09-11',
 			sameDate: 1,
+			headings: ['Candidate 2026-09-11 — ids'],
 			objectIds: [{ path: 'backend/src', id: '6eb6fc4973c5' }],
 			unparsedRows: [],
 			sections: [
@@ -165,10 +166,12 @@ describe('parseCandidateSheet', () => {
 		expect(sheet.unparsedRows).toEqual(['| backend/src | 6eb6fc4973c5 |']);
 	});
 
-	it('counts sheets that share the newest date and reads the first of them', () => {
+	it('names the sheets that share the newest date, the one it read first', () => {
+		// The count alone said a tie happened and left the reader to work out
+		// which sheet was used; the appendix distinguishes them in the heading.
 		const sheet = parseCandidateSheet(
 			[
-				'### Candidate 2026-09-11 — second build',
+				'### Candidate 2026-09-11, second cut — second build',
 				'- [x] **§0 Version** — second.',
 				'### Candidate 2026-09-11 — first build',
 				'- [ ] **§0 Version** — first.'
@@ -176,6 +179,10 @@ describe('parseCandidateSheet', () => {
 		);
 
 		expect(sheet.sameDate).toBe(2);
+		expect(sheet.headings).toEqual([
+			'Candidate 2026-09-11, second cut — second build',
+			'Candidate 2026-09-11 — first build'
+		]);
 		expect(sheet.sections).toEqual([{ id: '§0', title: 'Version', done: true }]);
 	});
 
@@ -722,12 +729,18 @@ describe('decideNextStep', () => {
 		const decision = decideNextStep(
 			facts({
 				localNotes: ['Your working tree says version 0.2.0.'],
-				sheet: sheetWith({ sameDate: 2 })
+				sheet: sheetWith({
+					sameDate: 2,
+					headings: ['Candidate 2026-09-11, second cut — ids', 'Candidate 2026-09-11 — ids']
+				})
 			})
 		);
 
 		expect(decision.notes[0]).toBe('Your working tree says version 0.2.0.');
 		expect(decision.notes[1]).toContain('2 sheets carry the date 2026-09-11');
+		expect(decision.notes[1]).toContain(
+			'reads "Candidate 2026-09-11, second cut — ids" and skips "Candidate 2026-09-11 — ids"'
+		);
 	});
 
 	it('carries a red completed vulnerability scan into the notes before publishing', () => {
