@@ -34,6 +34,11 @@ const label = (section) => (section.title ? `${section.id} ${section.title}` : s
  * document order — the newest while the appendix keeps sheets newest-first, as
  * it does — and `sameDate` says that a tie happened, so it is not silent.
  *
+ * `headings` carries the heading text of every sheet sharing that date, the one
+ * that won first. Saying *how many* sheets tied left the reader to go and work
+ * out which one was read; the appendix distinguishes them in the heading ("…,
+ * second cut"), so quoting it answers the question the count only raises.
+ *
  * A table row that is not a readable object id row is returned in
  * `unparsedRows` rather than skipped: a skipped `backend/src` row would take
  * that path out of the comparison, and the rest could then read as a match.
@@ -42,16 +47,18 @@ export function parseCandidateSheet(markdown) {
 	const lines = markdown.split(/\r?\n/);
 	let start = -1;
 	let date = null;
-	let sameDate = 0;
+	let headings = [];
 	lines.forEach((line, index) => {
 		const heading = SHEET_HEADING.exec(line);
 		if (!heading) return;
+		// SHEET_HEADING anchors on '### Candidate ', so the marker is exactly 4 chars.
+		const title = line.slice(4).trim();
 		if (date === null || heading[1] > date) {
 			date = heading[1];
 			start = index;
-			sameDate = 1;
+			headings = [title];
 		} else if (heading[1] === date) {
-			sameDate += 1;
+			headings.push(title);
 		}
 	});
 	if (start === -1) return null;
@@ -75,7 +82,7 @@ export function parseCandidateSheet(markdown) {
 		const box = SECTION_BOX.exec(line);
 		if (box) sections.push({ id: box[2], title: box[3]?.trim() ?? '', done: box[1] !== ' ' });
 	});
-	return { date, sameDate, objectIds, unparsedRows, sections };
+	return { date, sameDate: headings.length, headings, objectIds, unparsedRows, sections };
 }
 
 /**
@@ -363,9 +370,11 @@ export function decideNextStep(facts) {
 		);
 	}
 	if (sheet.sameDate > 1) {
+		const [used, ...skipped] = sheet.headings;
 		notes.push(
-			`${sheet.sameDate} sheets carry the date ${sheet.date}. This reads the first of them, ` +
-				'which is the newest only while the sheets are kept newest-first.'
+			`${sheet.sameDate} sheets carry the date ${sheet.date}. This reads "${used}" and skips ` +
+				`${skipped.map((title) => `"${title}"`).join(', ')} — the first in document order wins, ` +
+				'which is the newest only while the appendix keeps sheets newest-first.'
 		);
 	}
 	if (sheet.unparsedRows.length > 0) {
