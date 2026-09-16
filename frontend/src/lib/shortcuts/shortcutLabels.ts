@@ -17,5 +17,6 @@ export const SHORTCUT_LABELS = {
 	toggleFlag: 'Ctrl+Shift+G',
 	markRead: 'Ctrl+Q',
 	markUnread: 'Ctrl+U',
+	printMessage: 'Ctrl+P',
 	deleteMessage: 'Delete'
 } as const;

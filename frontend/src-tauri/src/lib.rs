@@ -121,6 +121,11 @@ pub fn run() {
 /// cap below that floor saves nothing. Measured over one 3-minute cold start on
 /// the same workload: 9.9 MB of entry files uncapped, 2.8 MB at a 2 MB cap.
 const WEBVIEW_DISK_CACHE_BYTES: u32 = 16 * 1024 * 1024;
+// 0 is not "no cache" to Chromium — it means "pick the default", which is the
+// unbounded behaviour the switch exists to replace. A const assertion rather
+// than one inside a test: the value is a constant, so the wrong value should
+// fail the build where it is edited, not a test somebody has to run.
+const _: () = assert!(WEBVIEW_DISK_CACHE_BYTES > 0);
 
 /// Chromium command line for the embedded WebView2.
 ///
@@ -614,9 +619,6 @@ mod tests {
             args.contains(&format!(" --disk-cache-size={WEBVIEW_DISK_CACHE_BYTES}")),
             "{args}"
         );
-        // 0 is not "no cache" to Chromium — it means "pick the default", which
-        // is the unbounded behaviour this switch exists to replace.
-        assert!(WEBVIEW_DISK_CACHE_BYTES > 0);
     }
 
     #[test]

@@ -69,6 +69,22 @@
       }
     ]
   },
+  "docs/UPDATER_AUDIT.md": {
+    "reviewedTrees": {
+      ".github/workflows/windows-signed-release.yml": "ae6d3616a176acc3c76f8801c8b00b5467b0e6da",
+      "frontend/src/lib/updates.ts": "afb68a87c467af9f4e6299c2c3478a41d0762e12",
+      "frontend/src-tauri/src": "dd3c9b5a86589fbf228b4538121418bd167951b9",
+      "frontend/src/lib/components/settings/AboutSettings.svelte": "64b520cedf9e073c0e4611c40e9c146487d7a1e4",
+      "frontend/src-tauri/tauri.conf.json": "4db87fe6a13af1cf4b64e657867d3826743fab5c",
+      "frontend/src-tauri/capabilities": "010c5218458c20ba922628f21fe030b00e655c18"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-09-16",
+        "note": "Ctrl+P handed from the webview to the app, read against section 1. No sentence of this audit names it; verdict stays PASS. One path moved and the whole diff is webview_defaults.rs: VK_P leaves the list of accelerators kept with the browser, because globalShortcuts.ts now binds Ctrl+P to printing the open message, and the doc comment and two tests follow. Nothing else in frontend/src-tauri/src changed -- lib.rs, tray.rs, update_preference.rs, the three updater commands, PendingUpdate, DownloadedUpdate and beta_endpoint_override are byte-identical to a2e6d43, generate_handler! exposes the same eight commands, and capabilities/, tauri.conf.json, updates.ts, AboutSettings.svelte and windows-signed-release.yml are untouched. lib.rs also moves one assertion on WEBVIEW_DISK_CACHE_BYTES out of a test into a const assertion beside the constant, which changes no value and no argument the webview is built with, and the webview_defaults.rs doc comment gains a blank line; both are clippy cleanups with no behaviour in them. The handler this edits is attached to the webview controller in setup and is unreachable from the renderer, so section 1's IPC surface is unchanged; the key it stops keeping is a browser accelerator, which no updater path reads."
+      }
+    ]
+  },
   "docs/OAUTH_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/feature/auth": "230e8138b5c9f72baa71ab2795d009e26d300211",
@@ -95,8 +111,8 @@
   },
   "docs/CONTENT_RENDERING_AUDIT.md": {
     "reviewedTrees": {
-      "frontend/src/lib/components/message-detail": "65a7c700fd6de9dc2eeaf801e4284fcf5f52017c",
-      "frontend/src/lib/mail/mailFrame.ts": "786ab5698849533399a6f73e899d1c8432c6945a",
+      "frontend/src/lib/components/message-detail": "12ac564cb9cb15ce4944f5c83a8e55391ef2a7d0",
+      "frontend/src/lib/mail/mailFrame.ts": "a182ef2390629573876912ab1c484622acd2a1f4",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailContentService.java": "74f389c930039b37fca5bfb854a7e616626540a1"
     },
     "acknowledgements": [
@@ -115,6 +131,10 @@
       {
         "date": "2026-09-06",
         "note": "Fourth note, and the smallest of the run. The whole diff under this path is one argument: MailContentService now names the IMAP lane it fetches a missing body on (Lane.INTERACTIVE) plus the import for it. Read in the tree rather than from the diff summary: getOrFetch is otherwise byte-identical — the same isBodyOversize short-circuit, the same MimePartExtractor.extractBody, the same escapePlainText for a text/plain part, the same referencedCids gate before collectInlineImages, the same HtmlSanitizer.sanitize call with the same inlineImages map, and the same IOException|RuntimeException wrap into MAIL_CONNECTION_ERROR. No sanitizer input, no cap, no branch and no persisted value moved. What the lane changes is which TCP connection the fetch travels on, which is a scheduling property; this boundary is about what happens to the bytes after they arrive, and that is untouched. Verdict stays PASS."
+      },
+      {
+        "date": "2026-09-16",
+        "note": "Printing a message reaches the body frame, read against sections 1, 2 and 3. No claim of this audit moves; verdict stays PASS. Two paths moved. (1) mailFrame.ts: the hash-pinned in-frame script gains two things. It cancels Ctrl+P alongside the keys it already claimed (the regex goes from /^[krfqu]$/i to /^[kprfqu]$/i), which is the same promise section 3 rests on for Ctrl+R and Ctrl+F -- the parent reacts to a synthetic replay, so only the frame can cancel the genuine event. And it measures its own document and posts the height out as __voxroxMailFrameHeight. That adds no capability: the frame already had window.parent.postMessage and has had it since the forwarder existed, so a body that got a script past the hash could always have posted anything it liked; what is new is that the parent listens for one more shape. It is validated on the same terms as the other two -- origin 'null' plus an exact source match to this frame's contentWindow in MessageContent.svelte, then isMailFrameHeightMessage, then clampMailFramePrintHeight, which rejects NaN, the infinities, zero and negatives and caps at 20000px. The height is applied to the iframe element between beforeprint and afterprint and restored afterwards, never to the pane on screen, so the worst a hostile height achieves is a print job up to about twenty A4 pages long that the user started themselves. Nothing about the sandbox, the frame CSP, img-src, the remote-image opt-in or the sanitizer is touched. Hashes recomputed independently rather than compared to a note, as this audit's own method section requires: MAIL_FRAME_SCRIPT 9DIi3Jm+1q0SAyuB5kl54K12o6ZiUBX8Zz8v6eITwTw= over 990 bytes and MAIL_FRAME_STYLE UXLUJbZ21yq1eqQCljjFZwc0mejRk10+TVL8FCWZ+C0= over 376 bytes, both matching the pinned constants, and mailFrame.test.ts pins them too. (2) components/message-detail: MessageContent.svelte gains the height branch described above and the beforeprint/afterprint pair, both removed on destroy; no sanitized HTML path, no new sink, and the body still never enters the app document."
       }
     ]
   },

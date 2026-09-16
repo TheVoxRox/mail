@@ -20,6 +20,7 @@ function makeHandlers(overrides: Partial<GlobalShortcutHandlers> = {}): GlobalSh
 		toggleFlag: vi.fn(),
 		toggleSeen: vi.fn(),
 		deleteMessage: vi.fn(),
+		printMessage: vi.fn(),
 		...overrides
 	};
 }
@@ -187,6 +188,21 @@ describe('handleGlobalKeydown — message actions', () => {
 		handleGlobalKeydown(ev, h);
 		expect(h.forward).toHaveBeenCalledOnce();
 		expect(prevent).toHaveBeenCalled();
+	});
+
+	it('Ctrl+P prints and prevents the default (the webview print dialog)', () => {
+		const h = openMessageHandlers();
+		const ev = makeEvent({ key: 'p', ctrlKey: true });
+		const prevent = vi.spyOn(ev, 'preventDefault');
+		handleGlobalKeydown(ev, h);
+		expect(h.printMessage).toHaveBeenCalledOnce();
+		expect(prevent).toHaveBeenCalled();
+	});
+
+	it('Ctrl+P does nothing with no message open', () => {
+		const h = makeHandlers();
+		handleGlobalKeydown(makeEvent({ key: 'p', ctrlKey: true }), h);
+		expect(h.printMessage).not.toHaveBeenCalled();
 	});
 
 	it('Ctrl+Shift+G toggles the flag', () => {

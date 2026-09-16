@@ -93,8 +93,11 @@ test('obě tlačítka baneru jsou dosažitelná Tabem mezi řádkem a tělem', a
 			return el.getAttribute('aria-label') ?? el.textContent?.trim() ?? el.tagName;
 		});
 
+	// The bound is "more stops than the toolbar has", not a measurement of it:
+	// the toolbar grows (Print was the most recent), and a bound that only just
+	// fitted turned this into a test of the button count.
 	const walk: string[] = [];
-	for (let step = 0; step < 15; step += 1) {
+	for (let step = 0; step < 30; step += 1) {
 		await page.keyboard.press('Tab');
 		const name = (await focusedName()) ?? '';
 		walk.push(name);

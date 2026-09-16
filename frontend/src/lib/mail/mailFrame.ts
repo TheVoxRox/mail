@@ -71,10 +71,10 @@ import { REMOTE_IMAGE_ATTR, sanitizeMailHtml } from './content-sanitizer.js';
  * `handleWorkspaceShortcut` bails on `metaKey`.
  */
 export const MAIL_FRAME_SCRIPT =
-	'window.addEventListener("keydown",function(e){if(!e.isTrusted)return;if(!e.altKey&&(e.ctrlKey||e.metaKey)&&(e.shiftKey?/^[rg]$/i.test(e.key):/^[krfqu]$/i.test(e.key)||e.ctrlKey&&!e.metaKey&&/^(KeyN|Digit[123]|Numpad[123])$/.test(e.code)))e.preventDefault();window.parent.postMessage({__voxroxMailFrameKey:true,key:e.key,code:e.code,ctrlKey:e.ctrlKey,metaKey:e.metaKey,altKey:e.altKey,shiftKey:e.shiftKey},"*");});window.addEventListener("click",function(e){if(!e.isTrusted)return;var a=e.target.closest?e.target.closest("a[href]"):null;if(!a)return;e.preventDefault();window.parent.postMessage({__voxroxMailFrameLink:true,href:a.href},"*");});';
+	'window.addEventListener("keydown",function(e){if(!e.isTrusted)return;if(!e.altKey&&(e.ctrlKey||e.metaKey)&&(e.shiftKey?/^[rg]$/i.test(e.key):/^[kprfqu]$/i.test(e.key)||e.ctrlKey&&!e.metaKey&&/^(KeyN|Digit[123]|Numpad[123])$/.test(e.code)))e.preventDefault();window.parent.postMessage({__voxroxMailFrameKey:true,key:e.key,code:e.code,ctrlKey:e.ctrlKey,metaKey:e.metaKey,altKey:e.altKey,shiftKey:e.shiftKey},"*");});window.addEventListener("click",function(e){if(!e.isTrusted)return;var a=e.target.closest?e.target.closest("a[href]"):null;if(!a)return;e.preventDefault();window.parent.postMessage({__voxroxMailFrameLink:true,href:a.href},"*");});var _h=0;function _r(){var n=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0);if(n===_h)return;_h=n;window.parent.postMessage({__voxroxMailFrameHeight:true,height:n},"*");}window.addEventListener("load",function(){_r();if(window.ResizeObserver)new ResizeObserver(_r).observe(document.documentElement);});';
 
 /** Base64 SHA-256 of MAIL_FRAME_SCRIPT — asserted in mailFrame.test.ts. */
-export const MAIL_FRAME_SCRIPT_SHA256 = 'edMSNLAP5VI76mC/e7yROrEhT2jCiiQXbPLr59xLyA0=';
+export const MAIL_FRAME_SCRIPT_SHA256 = '9DIi3Jm+1q0SAyuB5kl54K12o6ZiUBX8Zz8v6eITwTw=';
 
 /**
  * Base stylesheet for the mail body. The sanitizer strips every style element
@@ -203,6 +203,51 @@ export function isMailFrameLinkMessage(data: unknown): data is MailFrameLinkMess
 	if (typeof data !== 'object' || data === null) return false;
 	const d = data as Record<string, unknown>;
 	return d.__voxroxMailFrameLink === true && typeof d.href === 'string';
+}
+
+/**
+ * Largest frame height the parent will adopt for printing.
+ *
+ * The number is measured and posted by the frame, which means it is authored by
+ * the mail: a body can report whatever it likes. It buys nothing — the height
+ * is applied only between `beforeprint` and `afterprint`, never to the pane on
+ * screen — but an unclamped one would still let a message ask for a print of a
+ * few thousand sheets. 20 000 CSS pixels is a little over twenty A4 pages of
+ * body at the frame's 14px/1.6 type, which is longer than any mail that is
+ * still a mail.
+ */
+export const MAX_MAIL_FRAME_PRINT_HEIGHT = 20_000;
+
+/**
+ * Shape of the message the frame forwarder posts once it has measured itself.
+ *
+ * The frame is the only thing that can measure it: the sandbox is opaque-origin
+ * on purpose, so the parent cannot read `contentDocument.scrollHeight`. Nothing
+ * new is granted by asking — the forwarder already posts to the parent, and a
+ * body that got a script past the CSP hash could always have posted anything —
+ * so, exactly as for keys and links, the parent treats this as untrusted input
+ * and validates it.
+ */
+export interface MailFrameHeightMessage {
+	__voxroxMailFrameHeight: true;
+	height: number;
+}
+
+/** Narrowing guard for an untrusted `MessageEvent.data`. */
+export function isMailFrameHeightMessage(data: unknown): data is MailFrameHeightMessage {
+	if (typeof data !== 'object' || data === null) return false;
+	const d = data as Record<string, unknown>;
+	return d.__voxroxMailFrameHeight === true && typeof d.height === 'number';
+}
+
+/**
+ * The height the parent will actually give the frame, or 0 for "keep the one it
+ * has". Rejects what a hostile or broken body can post in place of a number:
+ * NaN and the infinities, negatives and zero, and anything over the cap.
+ */
+export function clampMailFramePrintHeight(height: number): number {
+	if (!Number.isFinite(height) || height <= 0) return 0;
+	return Math.min(Math.round(height), MAX_MAIL_FRAME_PRINT_HEIGHT);
 }
 
 /**

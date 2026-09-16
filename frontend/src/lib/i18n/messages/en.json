@@ -759,6 +759,7 @@
 		"unflag": "Remove star",
 		"markRead": "Mark as read",
 		"markUnread": "Mark as unread",
+		"print": "Print",
 		"delete": "Delete",
 		"move": "Move",
 		"moveDone": "Message moved to {folder}.",
@@ -804,7 +805,8 @@
 		"markRead": "Mark as read",
 		"markUnread": "Mark as unread",
 		"deleteMessage": "Delete message",
-		"moveMessageToFolder": "Move to {folder}"
+		"moveMessageToFolder": "Move to {folder}",
+		"print": "Print message"
 	},
 	"workspace": {
 		"mail": "Mail",

@@ -34,6 +34,7 @@
 </script>
 
 <nav
+	data-print="chrome"
 	aria-label={$_('workspace.railLandmark')}
 	class="flex h-full w-16 shrink-0 flex-col items-center border-r border-sidebar-border bg-sidebar px-2 py-3"
 >
