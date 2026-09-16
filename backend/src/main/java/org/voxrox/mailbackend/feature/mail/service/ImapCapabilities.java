@@ -20,9 +20,9 @@ import org.eclipse.angus.mail.imap.IMAPStore;
  * To find out what a server actually advertises, run a sync cycle with
  * {@code LOGGING_LEVEL_ORG_VOXROX_MAILBACKEND=DEBUG} and read the per-folder
  * line from {@code MailSyncService} ("Folder ... flag sync capabilities"), or
- * the line from {@code ImapFolderExecutor} naming why a folder was opened
- * plainly. Those two are the answer; anything written in prose is a memory of
- * one.
+ * the line from {@code ImapFolderExecutor} naming how a folder was opened and
+ * why not with more. Those two are the answer; anything written in prose is a
+ * memory of one.
  * <p>
  * For unknown / legacy servers (rare custom Cyrus pre-2010, rare corporate
  * IMAPs) the fallback path uses a full UID sweep.
@@ -31,22 +31,26 @@ public final class ImapCapabilities {
 
     private static final String CAP_CONDSTORE = "CONDSTORE";
     private static final String CAP_QRESYNC = "QRESYNC";
+    private static final String CAP_ENABLE = "ENABLE";
 
     private final boolean condstore;
     private final boolean qresync;
+    private final boolean condstoreSelect;
 
-    private ImapCapabilities(boolean condstore, boolean qresync) {
+    private ImapCapabilities(boolean condstore, boolean qresync, boolean condstoreSelect) {
         this.condstore = condstore;
         this.qresync = qresync;
+        this.condstoreSelect = condstoreSelect;
     }
 
     public static ImapCapabilities probe(Store store) throws MessagingException {
         if (!(store instanceof IMAPStore imapStore)) {
-            return new ImapCapabilities(false, false);
+            return new ImapCapabilities(false, false, false);
         }
         boolean condstoreCap = imapStore.hasCapability(CAP_CONDSTORE);
         boolean qresyncCap = imapStore.hasCapability(CAP_QRESYNC);
-        return new ImapCapabilities(condstoreCap || qresyncCap, qresyncCap);
+        boolean condstoreSelect = condstoreCap && imapStore.hasCapability(CAP_ENABLE);
+        return new ImapCapabilities(condstoreCap || qresyncCap, qresyncCap, condstoreSelect);
     }
 
     /**
@@ -70,8 +74,25 @@ public final class ImapCapabilities {
         return qresync;
     }
 
+    /**
+     * Whether the sync open can ask for CONDSTORE in the SELECT itself
+     * ({@code EXAMINE folder (CONDSTORE)}, RFC 7162 §3.1.8), which is what makes
+     * the server report HIGHESTMODSEQ in its response.
+     * <p>
+     * Narrower than {@link #hasCondstore()} on two counts, both Angus's rather than
+     * the RFC's. Angus sends {@code ENABLE CONDSTORE} before such a SELECT and
+     * refuses to when the server does not advertise ENABLE (RFC 5161); and it
+     * checks for CONDSTORE by name, so a server that advertises only QRESYNC does
+     * not qualify. Either refusal is a protocol error that makes Angus log the
+     * connection out, which is too expensive a way to find out every cycle.
+     */
+    public boolean canSelectWithCondstore() {
+        return condstoreSelect;
+    }
+
     @Override
     public String toString() {
-        return "ImapCapabilities{condstore=" + condstore + ", qresync=" + qresync + "}";
+        return "ImapCapabilities{condstore=" + condstore + ", qresync=" + qresync + ", condstoreSelect="
+                + condstoreSelect + "}";
     }
 }

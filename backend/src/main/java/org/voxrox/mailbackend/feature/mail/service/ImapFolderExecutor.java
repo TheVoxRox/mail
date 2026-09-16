@@ -60,17 +60,24 @@ public class ImapFolderExecutor {
      * The action receives what the SELECT reported: a {@code VANISHED (EARLIER)}
      * response becomes a {@link org.eclipse.angus.mail.imap.MessageVanishedEvent}
      * carrying the expunged UIDs, a flag change becomes a
-     * {@link jakarta.mail.event.MessageChangedEvent}. {@code null} means the
-     * request was not honoured and the folder was opened plainly — no
-     * {@code resync} was supplied, the server does not advertise QRESYNC, or the
-     * provider handed back something that is not an {@link IMAPFolder}. An
-     * <em>empty</em> list is the opposite statement: the resynchronization ran and
-     * nothing changed. Callers must keep the two apart, because "not asked" and
-     * "asked, nothing vanished" lead to different cleanup decisions.
+     * {@link jakarta.mail.event.MessageChangedEvent}. {@code null} means the folder
+     * was opened without resynchronization — no {@code resync} was supplied, the
+     * server does not advertise QRESYNC or rejected it, or the provider handed back
+     * something that is not an {@link IMAPFolder}. An <em>empty</em> list is the
+     * opposite statement: the resynchronization ran and nothing changed. Callers
+     * must keep the two apart, because "not asked" and "asked, nothing vanished"
+     * lead to different cleanup decisions.
+     *
+     * <p>
+     * A folder that is not resynchronized is still opened with CONDSTORE enabled
+     * where the server allows it, because the cycle that follows needs the folder's
+     * HIGHESTMODSEQ either way — see {@code openForSync}. That does not change the
+     * answer: the event list is still {@code null}.
      */
     public <R> @Nullable R executeReadOnlyResynced(Long accountId, Lane lane, String folderName,
             @Nullable ResyncRequest resync, ImapResyncFolderAction<R> action) {
-        return execute(accountId, lane, folderName, Folder.READ_ONLY, resync, action);
+        return execute(accountId, lane, folderName, Folder.READ_ONLY,
+                (store, folder) -> openForSync(store, folder, Folder.READ_ONLY, resync, folderName), action);
     }
 
     /**
@@ -89,18 +96,31 @@ public class ImapFolderExecutor {
     }
 
     /**
+     * How a folder gets opened: plainly for every caller but the sync cycle, which
+     * brings its own sequence. Returns what the SELECT reported, with the meaning
+     * {@link #executeReadOnlyResynced} gives it.
+     */
+    @FunctionalInterface
+    private interface FolderOpener {
+        @Nullable
+        List<MailEvent> open(Store store, Folder folder) throws MessagingException;
+    }
+
+    /**
      * Internal method wrapping the logic of acquiring the store, opening the folder
      * and handling errors. The lambda (store) -> { ... } now matches the
      * StoreAction interface in ImapConnectionManager.
      */
     private <R> @Nullable R execute(Long accountId, Lane lane, String folderName, int mode,
             ImapFolderAction<R> action) {
-        return execute(accountId, lane, folderName, mode, null,
-                (folder, uidFolder, resyncEvents) -> action.apply(folder, uidFolder));
+        return execute(accountId, lane, folderName, mode, (store, folder) -> {
+            folder.open(mode);
+            return null;
+        }, (folder, uidFolder, resyncEvents) -> action.apply(folder, uidFolder));
     }
 
-    private <R> @Nullable R execute(Long accountId, Lane lane, String folderName, int mode,
-            @Nullable ResyncRequest resync, ImapResyncFolderAction<R> action) {
+    private <R> @Nullable R execute(Long accountId, Lane lane, String folderName, int mode, FolderOpener opener,
+            ImapResyncFolderAction<R> action) {
         return connectionManager.executeWithLock(accountId, lane, store -> {
             Folder folder = null;
             try {
@@ -114,7 +134,7 @@ public class ImapFolderExecutor {
                     throw new ResourceNotFoundException("Folder '" + folderName + "' was not found on the server.");
                 }
 
-                List<MailEvent> resyncEvents = openFolder(store, folder, mode, resync, folderName);
+                List<MailEvent> resyncEvents = opener.open(store, folder);
 
                 if (!(folder instanceof UIDFolder uidFolder)) {
                     throw new MailOperationException(ErrorCode.INTERNAL_ERROR,
@@ -193,25 +213,71 @@ public class ImapFolderExecutor {
     }
 
     /**
-     * Opens the folder, with QRESYNC resynchronization data when the caller asked
-     * for it and the server can serve it. Returns the events the SELECT produced,
-     * or {@code null} when the folder was opened plainly — see
-     * {@link #executeReadOnlyResynced} for what the two answers mean.
+     * Opens the folder for a sync cycle, asking the SELECT for as much of the
+     * cycle's work as the server can do there. Each step is the fallback of the one
+     * before it:
+     * <ol>
+     * <li><b>QRESYNC</b>, when the caller has a {@link ResyncRequest} and the
+     * server advertises QRESYNC. The only step that returns events.</li>
+     * <li><b>CONDSTORE</b> ({@code EXAMINE folder (CONDSTORE)}): nothing is
+     * resynchronized, but the response now carries HIGHESTMODSEQ, which the cycle
+     * stores as the MODSEQ the next QRESYNC SELECT resumes from, and which a
+     * CONDSTORE-only server's cycle compares against.</li>
+     * <li><b>Plain</b>, otherwise.</li>
+     * </ol>
      *
      * <p>
-     * The capability is probed here rather than by the caller because the
-     * {@link Store} only exists inside the lock this class holds; asking for
-     * QRESYNC against a server that does not advertise it is a protocol error, not
-     * a graceful degradation. Angus sends the required {@code ENABLE QRESYNC}
-     * itself — it has to happen before the mailbox is selected (RFC 5161), which is
-     * exactly the window {@link IMAPFolder#open(int, ResyncData)} owns and no
-     * caller of ours does.
+     * The CONDSTORE step exists because a plain SELECT is not required to report
+     * HIGHESTMODSEQ at all: RFC 7162 §3.1.2.1 asks for it only once the client has
+     * issued a CONDSTORE enabling command, and Dovecot keeps to that. Without this
+     * step a Dovecot folder never had a MODSEQ to resynchronize from
+     * ({@code MailSyncQresyncDovecotIT}; what the missing value did instead is on
+     * {@code FolderSyncStateEntity.getModseqBaseline}).
+     *
+     * <p>
+     * A failed step degrades instead of failing the cycle. Advertising an extension
+     * and honouring it are two different things — an intermediary, or a server
+     * whose CAPABILITY outruns its SELECT, can reject the ENABLE or the parameter —
+     * and a folder that can only be opened one way must still be syncable. Without
+     * this the cycle would end in last_error, retry, and fail identically forever:
+     * an account no user could fix. Re-opening the same Folder is safe because the
+     * failure happened before it became open: Angus sets {@code opened} only after
+     * SELECT/EXAMINE returns, and both failure paths release the protocol and throw
+     * ahead of that.
+     *
+     * <p>
+     * Capabilities are probed here rather than by the caller because the
+     * {@link Store} only exists inside the lock this class holds; asking for an
+     * extension the server does not advertise is a protocol error, not a graceful
+     * degradation. Angus sends the required {@code ENABLE} itself — it has to
+     * happen before the mailbox is selected (RFC 5161), which is exactly the window
+     * {@link IMAPFolder#open(int, ResyncData)} owns and no caller of ours does.
+     *
+     * <p>
+     * Every step logs why it was skipped, because a skip is otherwise invisible: a
+     * server that advertises neither CONDSTORE nor QRESYNC never stores a MODSEQ
+     * baseline, so {@code resync} arrives null and the folder is opened plainly
+     * without a word — which reads exactly like a QRESYNC path that is broken.
+     * Telling the two apart on the seznam.cz account took reading
+     * `folder_sync_state` out of the database and walking three classes; it should
+     * take one line of the log.
      */
-    private static @Nullable List<MailEvent> openFolder(Store store, Folder folder, int mode,
+    private static @Nullable List<MailEvent> openForSync(Store store, Folder folder, int mode,
             @Nullable ResyncRequest resync, String folderName) throws MessagingException {
-        String plainReason = plainOpenReason(store, folder, resync);
+        if (!(folder instanceof IMAPFolder imapFolder)) {
+            log.debug("{} Opening folder {} plainly: the provider returned a folder that is not an IMAPFolder.",
+                    LogCategory.IMAP, folderName);
+            folder.open(mode);
+            return null;
+        }
+        ImapCapabilities caps = ImapCapabilities.probe(store);
 
-        if (plainReason == null && resync != null && folder instanceof IMAPFolder imapFolder) {
+        String notResynced;
+        if (resync == null) {
+            notResynced = "the folder has no MODSEQ baseline or no local UID range yet";
+        } else if (!caps.hasQresync()) {
+            notResynced = "the server does not advertise QRESYNC";
+        } else {
             try {
                 List<MailEvent> events = imapFolder.open(mode,
                         new ResyncData(resync.uidValidity(), resync.modSeq(), resync.minUid(), resync.maxUid()));
@@ -220,52 +286,30 @@ public class ImapFolderExecutor {
                         resync.maxUid(), events == null ? 0 : events.size());
                 return events == null ? List.of() : events;
             } catch (MessagingException e) {
-                /*
-                 * Degrade instead of failing the cycle. Advertising QRESYNC and honouring it
-                 * are two different things — an intermediary, or a server whose CAPABILITY
-                 * outruns its SELECT, can reject the ENABLE or the parameter — and a folder
-                 * that can only be opened one way must still be syncable. Without this the
-                 * cycle would end in last_error, retry, and fail identically forever: an
-                 * account no user could fix.
-                 *
-                 * Re-opening the same Folder is safe because the failure happened before it
-                 * became open: Angus sets `opened` only after SELECT/EXAMINE returns, and both
-                 * failure paths release the protocol and throw ahead of that.
-                 */
-                log.warn("{} QRESYNC open of folder {} failed ({}); opening it plainly instead.", LogCategory.IMAP,
-                        folderName, e.getMessage());
+                log.warn("{} QRESYNC open of folder {} failed ({}); opening it without resynchronization.",
+                        LogCategory.IMAP, folderName, e.getMessage());
+                notResynced = "the QRESYNC open failed";
             }
+        }
+
+        String noCondstore;
+        if (!caps.canSelectWithCondstore()) {
+            noCondstore = "the server does not advertise both CONDSTORE and ENABLE";
         } else {
-            log.debug("{} Opening folder {} plainly: {}.", LogCategory.IMAP, folderName, plainReason);
+            try {
+                imapFolder.open(mode, ResyncData.CONDSTORE);
+                log.debug("{} Opened folder {} with CONDSTORE (HIGHESTMODSEQ {}), not resynchronized: {}.",
+                        LogCategory.IMAP, folderName, imapFolder.getHighestModSeq(), notResynced);
+                return null;
+            } catch (MessagingException e) {
+                log.warn("{} CONDSTORE open of folder {} failed ({}); opening it plainly instead.", LogCategory.IMAP,
+                        folderName, e.getMessage());
+                noCondstore = "the CONDSTORE open failed";
+            }
         }
 
+        log.debug("{} Opening folder {} plainly: {}, and {}.", LogCategory.IMAP, folderName, notResynced, noCondstore);
         folder.open(mode);
-        return null;
-    }
-
-    /**
-     * Why this open cannot be a resynchronized one, or {@code null} when it can.
-     *
-     * <p>
-     * It exists for the log line, and the log line exists because the skip was
-     * invisible: a server that advertises neither CONDSTORE nor QRESYNC never
-     * stores a MODSEQ baseline, so {@code resync} arrives null and the SELECT is
-     * opened plainly without a word — which reads exactly like a QRESYNC path that
-     * is broken. Telling the two apart on the seznam.cz account took reading
-     * `folder_sync_state` out of the database and walking three classes; it should
-     * take one line of the log.
-     */
-    private static @Nullable String plainOpenReason(Store store, Folder folder, @Nullable ResyncRequest resync)
-            throws MessagingException {
-        if (resync == null) {
-            return "the folder has no MODSEQ baseline or no local UID range yet";
-        }
-        if (!(folder instanceof IMAPFolder)) {
-            return "the provider returned a folder that is not an IMAPFolder";
-        }
-        if (!ImapCapabilities.probe(store).hasQresync()) {
-            return "the server does not advertise QRESYNC";
-        }
         return null;
     }
 }

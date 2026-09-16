@@ -6,9 +6,12 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
@@ -20,6 +23,7 @@ import jakarta.mail.MessagingException;
 import jakarta.mail.Store;
 import jakarta.mail.UIDFolder;
 
+import org.eclipse.angus.mail.imap.ResyncData;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -116,9 +120,14 @@ class ImapFolderExecutorTest {
      * reports no QRESYNC and the resynced open degrades before it starts.
      */
     private org.eclipse.angus.mail.imap.IMAPStore qresyncStore() throws MessagingException {
-        org.eclipse.angus.mail.imap.IMAPStore imapStore = mock(org.eclipse.angus.mail.imap.IMAPStore.class);
+        org.eclipse.angus.mail.imap.IMAPStore imapStore = imapStore();
         when(imapStore.hasCapability("CONDSTORE")).thenReturn(true);
         when(imapStore.hasCapability("QRESYNC")).thenReturn(true);
+        return imapStore;
+    }
+
+    private org.eclipse.angus.mail.imap.IMAPStore imapStore() {
+        org.eclipse.angus.mail.imap.IMAPStore imapStore = mock(org.eclipse.angus.mail.imap.IMAPStore.class);
         when(connectionManager.executeWithLock(eq(7L), any(), any())).thenAnswer(invocation -> {
             StoreAction<?> action = invocation.getArgument(2);
             return action.execute(imapStore);
@@ -133,8 +142,7 @@ class ImapFolderExecutorTest {
         when(imapStore.getFolder("INBOX")).thenReturn(imapFolder);
         when(imapFolder.exists()).thenReturn(true);
         List<jakarta.mail.event.MailEvent> events = List.of();
-        when(imapFolder.open(eq(Folder.READ_ONLY), any(org.eclipse.angus.mail.imap.ResyncData.class)))
-                .thenReturn(events);
+        when(imapFolder.open(eq(Folder.READ_ONLY), any(ResyncData.class))).thenReturn(events);
 
         ImapFolderExecutor executor = new ImapFolderExecutor(connectionManager);
 
@@ -152,11 +160,12 @@ class ImapFolderExecutorTest {
      */
     @Test
     void rejectedQresyncFallsBackToAPlainOpen() throws Exception {
+        // No ENABLE advertised, so there is no CONDSTORE step in between.
         org.eclipse.angus.mail.imap.IMAPStore imapStore = qresyncStore();
         org.eclipse.angus.mail.imap.IMAPFolder imapFolder = mock(org.eclipse.angus.mail.imap.IMAPFolder.class);
         when(imapStore.getFolder("INBOX")).thenReturn(imapFolder);
         when(imapFolder.exists()).thenReturn(true);
-        when(imapFolder.open(eq(Folder.READ_ONLY), any(org.eclipse.angus.mail.imap.ResyncData.class)))
+        when(imapFolder.open(eq(Folder.READ_ONLY), any(ResyncData.class)))
                 .thenThrow(new MessagingException("QRESYNC not enabled"));
 
         ImapFolderExecutor executor = new ImapFolderExecutor(connectionManager);
@@ -174,7 +183,7 @@ class ImapFolderExecutorTest {
      * changed".
      */
     @Test
-    void withoutARequestTheFolderIsOpenedPlainly() throws Exception {
+    void withoutARequestTheFolderIsNotResynchronized() throws Exception {
         runActionAgainstStore();
         Folder uidCapableFolder = mock(Folder.class, withSettings().extraInterfaces(UIDFolder.class));
         when(store.getFolder("INBOX")).thenReturn(uidCapableFolder);
@@ -187,5 +196,120 @@ class ImapFolderExecutorTest {
 
         assertNull(seen);
         verify(uidCapableFolder).open(Folder.READ_ONLY);
+    }
+
+    /**
+     * The sync open's middle step, as Dovecot needs it: a plain SELECT there
+     * reports no HIGHESTMODSEQ, so a folder opened without CONDSTORE never gets a
+     * MODSEQ baseline and never resynchronizes. Still not a resynchronized open, so
+     * the action is told null.
+     */
+    @Test
+    void withoutARequestACondstoreServerIsOpenedWithCondstore() throws Exception {
+        org.eclipse.angus.mail.imap.IMAPStore imapStore = qresyncStore();
+        when(imapStore.hasCapability("ENABLE")).thenReturn(true);
+        org.eclipse.angus.mail.imap.IMAPFolder imapFolder = mock(org.eclipse.angus.mail.imap.IMAPFolder.class);
+        when(imapStore.getFolder("INBOX")).thenReturn(imapFolder);
+        when(imapFolder.exists()).thenReturn(true);
+
+        ImapFolderExecutor executor = new ImapFolderExecutor(connectionManager);
+
+        Object seen = executor.executeReadOnlyResynced(7L, Lane.BACKGROUND, "INBOX", null,
+                (f, uid, resyncEvents) -> resyncEvents);
+
+        assertNull(seen);
+        verify(imapFolder).open(Folder.READ_ONLY, ResyncData.CONDSTORE);
+        verify(imapFolder, never()).open(anyInt());
+    }
+
+    /**
+     * A rejected QRESYNC SELECT still leaves the folder worth a CONDSTORE one: the
+     * cycle that follows needs HIGHESTMODSEQ to store a baseline the next QRESYNC
+     * attempt can use.
+     */
+    @Test
+    void rejectedQresyncFallsBackToACondstoreOpen() throws Exception {
+        org.eclipse.angus.mail.imap.IMAPStore imapStore = qresyncStore();
+        when(imapStore.hasCapability("ENABLE")).thenReturn(true);
+        org.eclipse.angus.mail.imap.IMAPFolder imapFolder = mock(org.eclipse.angus.mail.imap.IMAPFolder.class);
+        when(imapStore.getFolder("INBOX")).thenReturn(imapFolder);
+        when(imapFolder.exists()).thenReturn(true);
+        when(imapFolder.open(eq(Folder.READ_ONLY), any(ResyncData.class))).thenAnswer(invocation -> {
+            if (!ResyncData.CONDSTORE.equals(invocation.getArgument(1))) {
+                throw new MessagingException("Invalid QRESYNC parameters");
+            }
+            return null;
+        });
+
+        ImapFolderExecutor executor = new ImapFolderExecutor(connectionManager);
+
+        Object seen = executor.executeReadOnlyResynced(7L, Lane.BACKGROUND, "INBOX",
+                new ImapFolderExecutor.ResyncRequest(1L, 2L, 3L, 4L), (f, uid, resyncEvents) -> resyncEvents);
+
+        assertNull(seen);
+        verify(imapFolder).open(Folder.READ_ONLY, ResyncData.CONDSTORE);
+        verify(imapFolder, never()).open(anyInt());
+    }
+
+    @Test
+    void rejectedCondstoreFallsBackToAPlainOpen() throws Exception {
+        org.eclipse.angus.mail.imap.IMAPStore imapStore = qresyncStore();
+        when(imapStore.hasCapability("ENABLE")).thenReturn(true);
+        org.eclipse.angus.mail.imap.IMAPFolder imapFolder = mock(org.eclipse.angus.mail.imap.IMAPFolder.class);
+        when(imapStore.getFolder("INBOX")).thenReturn(imapFolder);
+        when(imapFolder.exists()).thenReturn(true);
+        when(imapFolder.open(Folder.READ_ONLY, ResyncData.CONDSTORE))
+                .thenThrow(new MessagingException("ENABLE failed"));
+
+        ImapFolderExecutor executor = new ImapFolderExecutor(connectionManager);
+
+        Object seen = executor.executeReadOnlyResynced(7L, Lane.BACKGROUND, "INBOX", null,
+                (f, uid, resyncEvents) -> resyncEvents);
+
+        assertNull(seen);
+        verify(imapFolder).open(Folder.READ_ONLY);
+    }
+
+    /**
+     * Angus sends ENABLE before a CONDSTORE SELECT and, on a server that does not
+     * advertise it, turns the refusal into a logout. Such a server is opened
+     * plainly rather than reconnected every cycle.
+     */
+    @Test
+    void aServerWithoutEnableIsOpenedPlainly() throws Exception {
+        org.eclipse.angus.mail.imap.IMAPStore imapStore = qresyncStore();
+        when(imapStore.hasCapability("ENABLE")).thenReturn(false);
+        org.eclipse.angus.mail.imap.IMAPFolder imapFolder = mock(org.eclipse.angus.mail.imap.IMAPFolder.class);
+        when(imapStore.getFolder("INBOX")).thenReturn(imapFolder);
+        when(imapFolder.exists()).thenReturn(true);
+
+        ImapFolderExecutor executor = new ImapFolderExecutor(connectionManager);
+
+        executor.executeReadOnlyResynced(7L, Lane.BACKGROUND, "INBOX", null, (f, uid, resyncEvents) -> resyncEvents);
+
+        verify(imapFolder).open(Folder.READ_ONLY);
+        verify(imapFolder, never()).open(anyInt(), any());
+    }
+
+    /**
+     * CONDSTORE stays a sync-cycle concern. Enabling it changes every later FETCH
+     * response on the pooled connection, and a user opening a message has no use
+     * for a MODSEQ.
+     */
+    @Test
+    void anOrdinaryOpenNeverEnablesCondstore() throws Exception {
+        org.eclipse.angus.mail.imap.IMAPStore imapStore = imapStore();
+        // Lenient: the point is that the ordinary open does not even ask.
+        lenient().when(imapStore.hasCapability(anyString())).thenReturn(true);
+        org.eclipse.angus.mail.imap.IMAPFolder imapFolder = mock(org.eclipse.angus.mail.imap.IMAPFolder.class);
+        when(imapStore.getFolder("INBOX")).thenReturn(imapFolder);
+        when(imapFolder.exists()).thenReturn(true);
+
+        ImapFolderExecutor executor = new ImapFolderExecutor(connectionManager);
+
+        executor.executeReadOnly(7L, Lane.INTERACTIVE, "INBOX", (f, uid) -> null);
+
+        verify(imapFolder).open(Folder.READ_ONLY);
+        verify(imapFolder, never()).open(anyInt(), any());
     }
 }

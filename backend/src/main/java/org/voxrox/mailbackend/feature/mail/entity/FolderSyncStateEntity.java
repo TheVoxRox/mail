@@ -50,9 +50,10 @@ public class FolderSyncStateEntity {
     /**
      * Folder HIGHESTMODSEQ from the last CONDSTORE-aware synchronization. NULL =
      * the server does not advertise CONDSTORE capability, or the CONDSTORE path has
-     * not yet been used with this account (first cycle after deploy). When
-     * non-null, sync runs through {@code CHANGEDSINCE} / QRESYNC instead of a full
-     * UID sweep.
+     * not yet been used with this account (first cycle after deploy). When it holds
+     * a MODSEQ, sync runs through {@code CHANGEDSINCE} / QRESYNC instead of a full
+     * UID sweep — read it through {@link #getModseqBaseline()}, which knows what
+     * does not count as one.
      */
     @Column(name = "last_known_modseq")
     private @Nullable Long lastKnownModseq;
@@ -149,6 +150,21 @@ public class FolderSyncStateEntity {
 
     public void setLastKnownModseq(@Nullable Long lastKnownModseq) {
         this.lastKnownModseq = lastKnownModseq;
+    }
+
+    /**
+     * The MODSEQ a sync cycle can resume from, or {@code null} when there is none
+     * and the folder has to be swept.
+     * <p>
+     * A MODSEQ is positive (RFC 7162). Anything else in the column is the -1 Angus
+     * reports for "the server sent no HIGHESTMODSEQ", which builds up to 2026-09-16
+     * stored as a baseline. Resuming from it is what kept those folders stuck — the
+     * QRESYNC SELECT is rejected, and the CONDSTORE path compares -1 with -1 and
+     * finds nothing changed — so it is read as no baseline, and the next sweep
+     * replaces it with a real one.
+     */
+    public @Nullable Long getModseqBaseline() {
+        return lastKnownModseq != null && lastKnownModseq > 0 ? lastKnownModseq : null;
     }
 
     public @Nullable LocalDateTime getLastSyncAt() {

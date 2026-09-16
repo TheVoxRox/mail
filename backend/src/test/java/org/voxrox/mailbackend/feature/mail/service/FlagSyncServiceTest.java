@@ -214,6 +214,73 @@ class FlagSyncServiceTest {
             assertThat(syncState.getLastKnownModseq()).isEqualTo(77L);
         }
 
+        private FolderSyncContext imapCtxReporting(long highestModseq) throws MessagingException {
+            org.eclipse.angus.mail.imap.IMAPFolder imapFolder = org.mockito.Mockito
+                    .mock(org.eclipse.angus.mail.imap.IMAPFolder.class);
+            when(imapFolder.getHighestModSeq()).thenReturn(highestModseq);
+            return new FolderSyncContext(ctx.account(), FOLDER, imapFolder, uidFolder, syncState);
+        }
+
+        /**
+         * -1 is Angus for "the SELECT reported no HIGHESTMODSEQ" — Dovecot's answer to
+         * a folder opened without CONDSTORE. Stored, it became the MODSEQ the next
+         * QRESYNC SELECT resumed from, which the server rejects.
+         */
+        @Test
+        @DisplayName("No HIGHESTMODSEQ reported -> the sweep still runs, and -1 is not stored as a baseline")
+        void absentHighestModseqIsNotStoredAsBaseline() throws Exception {
+            FolderSyncContext imapCtx = imapCtxReporting(-1L);
+            syncState.setLastKnownModseq(null);
+            when(messageRepository.findUidsByAccountAndFolder(ACCOUNT_ID, FOLDER)).thenReturn(List.of());
+
+            service.syncMessageFlagsCondstore(imapCtx);
+
+            verify(messageRepository).findUidsByAccountAndFolder(ACCOUNT_ID, FOLDER);
+            verify(syncStateService, never()).updateLastKnownModseq(anyLong(), anyLong());
+            assertThat(syncState.getLastKnownModseq()).isNull();
+        }
+
+        /**
+         * A -1 an earlier build stored is no baseline. Read as one, it equalled the -1
+         * a plain SELECT reports, so the cycle concluded nothing had changed and missed
+         * every flag another client set, for as long as the row lived.
+         */
+        @Test
+        @DisplayName("A stored -1 is no baseline -> the folder is swept and gets a real one")
+        void storedMinusOneIsReplacedByARealBaseline() throws Exception {
+            FolderSyncContext imapCtx = imapCtxReporting(77L);
+            syncState.setLastKnownModseq(-1L);
+            when(messageRepository.findUidsByAccountAndFolder(ACCOUNT_ID, FOLDER)).thenReturn(List.of());
+
+            service.syncMessageFlagsCondstore(imapCtx);
+
+            verify((org.eclipse.angus.mail.imap.IMAPFolder) imapCtx.folder(), never()).doCommand(any());
+            verify(messageRepository).findUidsByAccountAndFolder(ACCOUNT_ID, FOLDER);
+            verify(syncStateService).updateLastKnownModseq(SYNC_STATE_ID, 77L);
+            assertThat(syncState.getLastKnownModseq()).isEqualTo(77L);
+        }
+
+        /**
+         * With a baseline in hand, a SELECT that reported none still leaves the
+         * CHANGEDSINCE fetch valid; what it cannot supply is the next baseline, so the
+         * old one stays and the next cycle asks again from there.
+         */
+        @Test
+        @DisplayName("No HIGHESTMODSEQ reported over a real baseline -> CHANGEDSINCE runs, baseline kept")
+        void absentHighestModseqKeepsTheExistingBaseline() throws Exception {
+            FolderSyncContext imapCtx = imapCtxReporting(-1L);
+            org.eclipse.angus.mail.imap.IMAPFolder imapFolder = (org.eclipse.angus.mail.imap.IMAPFolder) imapCtx
+                    .folder();
+            when(imapFolder.doCommand(any())).thenReturn(List.of());
+            syncState.setLastKnownModseq(50L);
+
+            service.syncMessageFlagsCondstore(imapCtx);
+
+            verify(imapFolder).doCommand(any());
+            verify(syncStateService, never()).updateLastKnownModseq(anyLong(), anyLong());
+            assertThat(syncState.getLastKnownModseq()).isEqualTo(50L);
+        }
+
         @Test
         @DisplayName("Non-IMAPFolder ctx -> fall back to full sweep (syncMessageFlagsBatched)")
         void nonImapFolderFallsBackToBatched() throws Exception {

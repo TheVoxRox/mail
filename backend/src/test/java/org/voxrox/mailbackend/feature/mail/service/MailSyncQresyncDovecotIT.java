@@ -64,10 +64,15 @@ import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
  *
  * <p>
  * The rows left in the database do not prove it on their own. When the QRESYNC
- * SELECT fails, the executor degrades to a plain open, and the CONDSTORE path
- * then finds the same deletion and the same flag change — a broken resync would
- * leave exactly the right rows behind. The spy on {@link FlagSyncService} is
- * what tells the two paths apart.
+ * SELECT fails, the executor degrades to an open without resynchronization, and
+ * the CONDSTORE path then finds the same deletion and the same flag change — a
+ * broken resync would leave exactly the right rows behind. The spy on
+ * {@link FlagSyncService} is what tells the two paths apart.
+ *
+ * <p>
+ * Its first run found the step before that: the MODSEQ the QRESYNC SELECT
+ * resumes from was never a real one on Dovecot, because the folder was opened
+ * without CONDSTORE and Dovecot reports HIGHESTMODSEQ only once it is enabled.
  *
  * <p>
  * Needs Docker and skips itself without it: CI runners have it, a developer
@@ -162,7 +167,7 @@ class MailSyncQresyncDovecotIT {
         AccountEntity account = createAccount();
         Long accountId = account.getId();
 
-        // --- Cycle 1: plain open, MODSEQ baseline stored ------------------------
+        // --- Cycle 1: CONDSTORE open, MODSEQ baseline stored --------------------
         assertThat(mailSyncService.performFullSyncCycle(account, INBOX)).as(() -> "cycle 1, " + lastError(accountId))
                 .isTrue();
 
@@ -171,12 +176,13 @@ class MailSyncQresyncDovecotIT {
         verify(flagSyncService, never()).applyResyncEvents(any(), any());
         /*
          * A real MODSEQ, not merely a stored one. Dovecot reports HIGHESTMODSEQ on a
-         * SELECT only once the client has enabled CONDSTORE — until then a fresh
-         * mailbox does not even track modseqs — and Angus reads a missing report as -1.
-         * A baseline of -1 would be sent back in the next QRESYNC SELECT.
+         * SELECT only once the client has enabled CONDSTORE, which is all RFC 7162
+         * asks, and Angus reads a missing report as -1. Stored as the baseline, that -1
+         * goes out in the next QRESYNC SELECT, which Dovecot rejects ("Invalid QRESYNC
+         * parameters").
          */
         long baseline = storedModseq(accountId);
-        // PROBE (temporary): baseline assertion removed to watch cycle 2 unfixed.
+        assertThat(baseline).as("MODSEQ baseline after cycle 1").isPositive();
 
         // --- Another client reads the first message and expunges the second -----
         long[] changed = onInbox(inbox -> {
@@ -196,20 +202,6 @@ class MailSyncQresyncDovecotIT {
         clearInvocations(flagSyncService);
         assertThat(mailSyncService.performFullSyncCycle(account, INBOX)).as(() -> "cycle 2, " + lastError(accountId))
                 .isTrue();
-        // PROBE (temporary): what the unfixed cycle 2 leaves behind, before the spy
-        // checks.
-        long modseqAfter = storedModseq(accountId);
-        org.assertj.core.api.SoftAssertions.assertSoftly(soft -> {
-            soft.assertThat(messageRepository.findUidsByAccountAndFolder(accountId, INBOX))
-                    .as("PROBE rows after cycle 2").doesNotContain(goneUid);
-            soft.assertThat(messageRepository.countByAccountIdAndFolderNameAndSeenFalse(accountId, INBOX))
-                    .as("PROBE unseen after cycle 2").isEqualTo(1);
-            soft.assertThat(modseqAfter).as("PROBE modseq after cycle 2, baseline " + baseline).isPositive();
-            soft.assertThat(true)
-                    .as("PROBE applyResyncEvents calls: " + org.mockito.Mockito.mockingDetails(flagSyncService)
-                            .getInvocations().stream().map(i -> i.getMethod().getName()).toList())
-                    .isFalse();
-        });
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<MailEvent>> events = ArgumentCaptor.forClass(List.class);

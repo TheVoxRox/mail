@@ -63,6 +63,48 @@ class ImapCapabilitiesTest {
     }
 
     @Test
+    @DisplayName("CONDSTORE with ENABLE -> the SELECT can enable CONDSTORE")
+    void condstoreWithEnableCanSelectWithCondstore() throws Exception {
+        IMAPStore store = mock(IMAPStore.class);
+        when(store.hasCapability("CONDSTORE")).thenReturn(true);
+        when(store.hasCapability("ENABLE")).thenReturn(true);
+
+        assertThat(ImapCapabilities.probe(store).canSelectWithCondstore()).isTrue();
+    }
+
+    /**
+     * Angus sends ENABLE before a CONDSTORE SELECT and logs the connection out when
+     * the server does not advertise it.
+     */
+    @Test
+    @DisplayName("CONDSTORE without ENABLE -> no CONDSTORE SELECT")
+    void condstoreWithoutEnableCannotSelectWithCondstore() throws Exception {
+        IMAPStore store = mock(IMAPStore.class);
+        when(store.hasCapability("CONDSTORE")).thenReturn(true);
+        when(store.hasCapability("ENABLE")).thenReturn(false);
+
+        ImapCapabilities caps = ImapCapabilities.probe(store);
+
+        assertThat(caps.hasCondstore()).isTrue();
+        assertThat(caps.canSelectWithCondstore()).isFalse();
+    }
+
+    /**
+     * QRESYNC implies CONDSTORE for the protocol, not for Angus: its CONDSTORE
+     * SELECT checks for the capability by name.
+     */
+    @Test
+    @DisplayName("QRESYNC without an explicit CONDSTORE -> no CONDSTORE SELECT")
+    void qresyncAloneCannotSelectWithCondstore() throws Exception {
+        IMAPStore store = mock(IMAPStore.class);
+        when(store.hasCapability("CONDSTORE")).thenReturn(false);
+        when(store.hasCapability("QRESYNC")).thenReturn(true);
+        when(store.hasCapability("ENABLE")).thenReturn(true);
+
+        assertThat(ImapCapabilities.probe(store).canSelectWithCondstore()).isFalse();
+    }
+
+    @Test
     @DisplayName("Both — Gmail / Outlook / Seznam / iCloud typical state")
     void bothCapabilities() throws Exception {
         IMAPStore store = mock(IMAPStore.class);

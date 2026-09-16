@@ -87,8 +87,10 @@ public class FlagSyncService {
      * After completion, store the new HIGHESTMODSEQ of the folder.
      * <p>
      * The caller (MailSyncService) must check the capability — this method assumes
-     * the server supports CONDSTORE and that IMAPFolder exposes a valid
-     * {@link IMAPFolder#getHighestModSeq()} value.
+     * the server supports CONDSTORE. It does not assume the SELECT reported
+     * HIGHESTMODSEQ: {@link IMAPFolder#getHighestModSeq()} is -1 when it did not,
+     * which happens when the folder could not be opened with CONDSTORE enabled (see
+     * {@code ImapFolderExecutor.openForSync}), and -1 is never stored.
      */
     public void syncMessageFlagsCondstore(FolderSyncContext ctx) throws MessagingException {
         if (!(ctx.folder() instanceof IMAPFolder imapFolder)) {
@@ -98,7 +100,7 @@ public class FlagSyncService {
             return;
         }
 
-        Long since = ctx.syncState().getLastKnownModseq();
+        Long since = ctx.syncState().getModseqBaseline();
         long serverHighestModseq = imapFolder.getHighestModSeq();
 
         if (since != null && since == serverHighestModseq) {
@@ -106,8 +108,6 @@ public class FlagSyncService {
                     serverHighestModseq);
             return;
         }
-
-        Long syncStateId = ctx.syncState().getId();
 
         if (since == null) {
             /*
@@ -121,9 +121,7 @@ public class FlagSyncService {
              * next cycle.
              */
             syncMessageFlagsBatched(ctx);
-            transactionTemplate.executeWithoutResult(
-                    status -> syncStateService.updateLastKnownModseq(syncStateId, serverHighestModseq));
-            ctx.syncState().setLastKnownModseq(serverHighestModseq);
+            storeModseqBaseline(ctx, serverHighestModseq);
             return;
         }
 
@@ -140,9 +138,7 @@ public class FlagSyncService {
             transactionTemplate.executeWithoutResult(status -> applyFlagChanges(ctx, changes));
         }
 
-        transactionTemplate.executeWithoutResult(
-                status -> syncStateService.updateLastKnownModseq(syncStateId, serverHighestModseq));
-        ctx.syncState().setLastKnownModseq(serverHighestModseq);
+        storeModseqBaseline(ctx, serverHighestModseq);
     }
 
     /**
@@ -263,8 +259,7 @@ public class FlagSyncService {
 
     /**
      * Stores the HIGHESTMODSEQ the SELECT reported, so the next cycle resumes from
-     * it. A server that reports none (-1) leaves the stored value alone — the next
-     * cycle then asks from the older MODSEQ, which is redundant rather than wrong.
+     * it.
      */
     private void persistHighestModseq(FolderSyncContext ctx) {
         if (!(ctx.folder() instanceof IMAPFolder imapFolder)) {
@@ -280,7 +275,21 @@ public class FlagSyncService {
                     LogCategory.SYNC, ctx.folderName(), e);
             return;
         }
+        storeModseqBaseline(ctx, highestModseq);
+    }
+
+    /**
+     * Makes {@code highestModseq} the MODSEQ the folder's next cycle resumes from —
+     * when it is one. A server that reported none gives -1 here, and that leaves
+     * the stored value alone: the next cycle then asks from the older MODSEQ, which
+     * is redundant rather than wrong, or sweeps again when there was none. Storing
+     * the -1 is what used to strand a folder; see
+     * {@link org.voxrox.mailbackend.feature.mail.entity.FolderSyncStateEntity#getModseqBaseline()}.
+     */
+    private void storeModseqBaseline(FolderSyncContext ctx, long highestModseq) {
         if (highestModseq <= 0) {
+            log.debug("{} Folder {} reported no HIGHESTMODSEQ; keeping MODSEQ baseline {}.", LogCategory.SYNC,
+                    ctx.folderName(), ctx.syncState().getModseqBaseline());
             return;
         }
         Long syncStateId = ctx.syncState().getId();
