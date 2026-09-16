@@ -32,7 +32,7 @@
 	} from '$lib/stores/workspaceMode.js';
 	import { handleGlobalKeydown } from '$lib/shortcuts/globalShortcuts.js';
 	import { selectedMessage } from '$lib/stores/selectedMessage.js';
-	import { forwardMessage, printOpenMessage, replyToMessage } from '$lib/mail/actions.js';
+	import { forwardMessage, printCurrentView, replyToMessage } from '$lib/mail/actions.js';
 	import { deleteMessages, toggleMessageFlag, toggleMessageSeen } from '$lib/mail/mailbox.js';
 	import { loadSidebar } from '$lib/components/sidebar/loader.js';
 	// Straight from the module, never the sidebar-shell barrel: the barrel
@@ -363,7 +363,7 @@
 			toggleFlag: () => runOnOpenMessage((id) => toggleMessageFlag(id)),
 			toggleSeen: () => runOnOpenMessage((id) => toggleMessageSeen(id)),
 			deleteMessage: () => runOnOpenMessage((id) => deleteMessages([id])),
-			printMessage: printOpenMessage
+			printCurrentView
 		});
 	}
 </script>
