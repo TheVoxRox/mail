@@ -133,7 +133,7 @@ class MailSyncServiceTest {
          * one test uses one of them. Strict stubbing would fail every test on the other
          * one.
          *
-         * The resynced stub hands the action a null event list — "opened plainly",
+         * The resynced stub hands the action a null event list — "not resynchronized",
          * which is what a mock Folder with no Store can produce anyway — so these tests
          * keep exercising the pre-QRESYNC branch they were written for.
          */
@@ -835,9 +835,24 @@ class MailSyncServiceTest {
         }
 
         @Test
-        @DisplayName("A folder with no MODSEQ baseline yet is opened plainly")
-        void folderWithoutModseqBaselineOpensPlainly() {
+        @DisplayName("A folder with no MODSEQ baseline yet is not resynchronized")
+        void folderWithoutModseqBaselineIsNotResynchronized() {
             when(syncStateService.findState(ACCOUNT_ID, "INBOX")).thenReturn(Optional.of(stateWith(12L, null)));
+
+            service.performFullSyncCycle(account, "INBOX", FolderRole.INBOX);
+
+            assertThat(captureRequest()).isNull();
+        }
+
+        /**
+         * The -1 Angus reports for "no HIGHESTMODSEQ", stored by builds before the
+         * CONDSTORE open. Sent as a QRESYNC parameter it is rejected — Dovecot answers
+         * "Invalid QRESYNC parameters" — so it must not be sent at all.
+         */
+        @Test
+        @DisplayName("A stored -1 is no MODSEQ baseline, so the folder is not resynchronized")
+        void storedMinusOneIsNoBaseline() {
+            when(syncStateService.findState(ACCOUNT_ID, "INBOX")).thenReturn(Optional.of(stateWith(12L, -1L)));
 
             service.performFullSyncCycle(account, "INBOX", FolderRole.INBOX);
 
@@ -850,8 +865,8 @@ class MailSyncServiceTest {
          * client knows about messages it does not have.
          */
         @Test
-        @DisplayName("A folder with no local rows is opened plainly")
-        void folderWithoutLocalRowsOpensPlainly() {
+        @DisplayName("A folder with no local rows is not resynchronized")
+        void folderWithoutLocalRowsIsNotResynchronized() {
             when(syncStateService.findState(ACCOUNT_ID, "INBOX")).thenReturn(Optional.of(stateWith(12L, 77L)));
             when(messageRepository.findMinUid(ACCOUNT_ID, "INBOX")).thenReturn(null);
 
@@ -891,7 +906,7 @@ class MailSyncServiceTest {
 
         /**
          * The negative of the previous test, and the reason the executor's contract
-         * separates "opened plainly" (null) from "resynchronized, nothing changed"
+         * separates "not resynchronized" (null) from "resynchronized, nothing changed"
          * (empty list): a server that cannot resynchronize must still get its
          * enumeration every cycle, or deletions would stop being noticed at all.
          */

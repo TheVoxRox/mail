@@ -468,7 +468,7 @@ public class MailSyncService {
 
     /**
      * The QRESYNC parameters for this folder's next SELECT, or {@code null} when
-     * the folder cannot be resynchronized yet and must be opened plainly.
+     * the folder cannot be resynchronized yet.
      *
      * <p>
      * Every null here is a first-cycle condition rather than error handling. The
@@ -476,8 +476,8 @@ public class MailSyncService {
      * never created, precisely so that asking about a folder the server does not
      * have leaves nothing behind. A folder has no MODSEQ baseline until a CONDSTORE
      * cycle has stored one (see {@code FlagSyncService.syncMessageFlagsCondstore}),
-     * and no UID range until it holds rows. So a fresh folder takes the plain path
-     * once and resynchronizes from the cycle after.
+     * and no UID range until it holds rows. So a fresh folder is opened without
+     * resynchronization once and resynchronizes from the cycle after.
      */
     private @Nullable ResyncRequest buildResyncRequest(Long accountId, String folderName) {
         FolderSyncStateEntity syncState = syncStateService.findState(accountId, folderName).orElse(null);
@@ -486,8 +486,8 @@ public class MailSyncService {
         }
 
         Long uidValidity = syncState.getUidValidity();
-        Long lastKnownModseq = syncState.getLastKnownModseq();
-        if (uidValidity == null || lastKnownModseq == null) {
+        Long modseqBaseline = syncState.getModseqBaseline();
+        if (uidValidity == null || modseqBaseline == null) {
             return null;
         }
 
@@ -496,7 +496,7 @@ public class MailSyncService {
         if (minUid == null || maxUid == null) {
             return null;
         }
-        return new ResyncRequest(uidValidity, lastKnownModseq, minUid, maxUid);
+        return new ResyncRequest(uidValidity, modseqBaseline, minUid, maxUid);
     }
 
     /**
