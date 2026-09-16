@@ -13,9 +13,24 @@ jobs:
     runs-on: ubuntu-latest
     # The NVD API can degrade to the point where the full CVE pull would run
     # past GitHub's 6h job limit (observed 2026-06-29..07-01: three runs
-    # cancelled at exactly 6h, ~75% downloaded). Fail fast and visibly instead —
-    # the Trivy SBOM gate in generate-sboms keeps CVE gating alive on such days.
-    timeout-minutes: 90
+    # cancelled at exactly 6h, ~75% downloaded), so this is capped rather than
+    # left to run — the Trivy SBOM gate in generate-sboms keeps CVE gating alive
+    # on the days it does not finish.
+    #
+    # 90 was too tight, and cost four cancelled scans in the six nights to
+    # 2026-09-15. A cold pull is ~391,000 CVE records; measured on the 09-15 run
+    # it moved at ~3,200/min and stood at 300,000 (77%) when the 90-minute kill
+    # landed, about half an hour short. Nothing was wrong with it — it was cut
+    # off. And a cancelled job never runs its cache post-step, so the next night
+    # started cold too: the budget that could not finish once was what kept it
+    # from ever being warm.
+    #
+    # The cap is per night, not per pull: the download resumes from the cached
+    # DB, so it only has to fit once. It has, when it was let to — 2026-09-10
+    # took 25 minutes and 2026-09-11 three. 180 leaves room for a slower night
+    # (09-14 crawled at ~740/min, which no sane budget covers) without going
+    # near the 6h ceiling the note above is about.
+    timeout-minutes: 180
     # The SARIF upload step needs security-events: write; without an explicit
     # block the job runs with the repo's default read-only token and the upload
     # dies with "Resource not accessible by integration".
@@ -384,7 +399,7 @@ jobs:
             "" \
             "Run: $RUN_URL" \
             "" \
-            "cancelled = the OWASP NVD pull hit the 90-min timeout (the Trivy SBOM job still gated the backend that day); failure = a gate tripped or a step errored — open the run to see which. This issue auto-closes once a scheduled scan passes.")
+            "cancelled = the OWASP NVD pull hit the job timeout (the Trivy SBOM job still gated the backend that day); failure = a gate tripped or a step errored — open the run to see which. This issue auto-closes once a scheduled scan passes.")
 
           existing=$(gh issue list --state open --label "$label" --json number --jq '.[0].number // empty')
           if [ -n "$existing" ]; then
@@ -393,6 +408,42 @@ jobs:
             gh issue create --title "Nightly vulnerability scan is failing" \
               --label "$label" --body "$body"
           fi
+
+  prune-nvd-cache:
+    name: Keep one NVD cache
+    needs: owasp-backend
+    # Runs whatever the scan did, because the entry worth keeping is written by
+    # the post-step of a job that may well have failed its gate.
+    if: ${{ always() && github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    # The only job here that writes anything through the Actions API, and the
+    # only one that needs more than the default read token.
+    permissions:
+      actions: write
+    steps:
+      # The NVD DB is ~1 GB and the key carries the run id, so every scan adds
+      # an entry rather than replacing one. Measured 2026-09-16: the repo held
+      # 8.86 GB of a 10 GB cache quota, 5.2 GB of it two Cargo caches, and no
+      # nvd- entry at all — anything written here was being evicted before the
+      # next night could restore it. Keeping exactly one costs nothing: the
+      # restore-key takes the newest, and an older copy of the same DB is dead
+      # weight the moment a newer one exists.
+      - name: Delete superseded nvd- caches
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          superseded=$(gh cache list --limit 100 --json id,key,createdAt             --jq '[.[] | select(.key | startswith("nvd-"))]
+                  | sort_by(.createdAt) | reverse | .[1:] | .[].id')
+          if [ -z "$superseded" ]; then
+            echo "No superseded nvd- cache to delete."
+            exit 0
+          fi
+          for id in $superseded; do
+            echo "Deleting cache $id"
+            gh cache delete "$id"
+          done
 
   close-failure-issue:
     name: Close tracking issue on green scan
