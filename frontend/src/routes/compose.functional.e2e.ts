@@ -381,6 +381,29 @@ test.describe('Compose', () => {
 		await expect(page.getByText('pretazena-priloha.txt')).toBeVisible();
 	});
 
+	test('přílohu lze přetáhnout i na tělo zprávy, nejen na pruh příloh', async ({ page }) => {
+		// The attachment strip is two lines tall between the recipients and the
+		// body, and the body is where a file dragged at the compose window lands.
+		// That drop used to reach the window drop guard unclaimed and be
+		// cancelled, so nothing happened at all.
+		await openApp(page, '/compose');
+
+		const dataTransfer = await page.evaluateHandle(() => {
+			const transfer = new DataTransfer();
+			transfer.items.add(
+				new File(['Obsah přílohy z těla'], 'z-tela-zpravy.txt', { type: 'text/plain' })
+			);
+			return transfer;
+		});
+
+		const messageBody = page.getByRole('textbox', { name: 'Text zprávy' });
+		await messageBody.dispatchEvent('dragenter', { dataTransfer });
+		await expect(page.getByText('Pusťte soubory pro přidání do zprávy.')).toBeVisible();
+		await messageBody.dispatchEvent('drop', { dataTransfer });
+
+		await expect(page.getByText('z-tela-zpravy.txt')).toBeVisible();
+	});
+
 	test('přílohu ze schránky lze přidat přes Ctrl+V a odeslat v payloadu', async ({ page }) => {
 		const sendBodies: unknown[] = [];
 		page.on('request', (request) => {

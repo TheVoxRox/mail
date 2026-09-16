@@ -22,6 +22,20 @@ export function dragHasFiles(event: DragEvent): boolean {
 }
 
 /**
+ * The files a drop is carrying. `files` is the list once the drop has landed;
+ * `items` is what a paste hands over, and what some sources fill instead.
+ */
+export function filesFromDataTransfer(dataTransfer: DataTransfer | null): File[] {
+	if (!dataTransfer) return [];
+	const files = Array.from(dataTransfer.files);
+	if (files.length > 0) return files;
+	return Array.from(dataTransfer.items)
+		.filter((item) => item.kind === 'file')
+		.map((item) => item.getAsFile())
+		.filter((file): file is File => file != null);
+}
+
+/**
  * True when the drag payload contains a URL — a link dragged out of another
  * window, or out of the message body.
  *
