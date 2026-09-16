@@ -34,6 +34,7 @@
 ///   own text size is three steps ending at an 18px root font, a little over
 ///   110%, so page zoom is what carries a reader from there to the 200% that
 ///   WCAG 1.4.4 asks for.
+///
 /// Print is no longer among them. It was kept while nothing in the app printed,
 /// because denying it took printing a message away altogether; the app now binds
 /// Ctrl+P itself (`globalShortcuts.ts`) and prints the open message rather than

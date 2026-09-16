@@ -41,6 +41,8 @@ see [CLAUDE.md](CLAUDE.md) for the language split across the docs.
 
 - **Two audits acknowledge the print work in [audit-freshness.json](docs/audit-freshness.json).** The content-rendering audit, because the frame script gained a height report: that adds no capability — the frame has had `window.parent.postMessage` since the forwarder existed, so a body past the hash could always post anything — but the parent now listens for one more shape, and the note records how it is validated (origin, source, guard, clamp) and that the height only ever reaches the element between `beforeprint` and `afterprint`. Both CSP hashes were recomputed independently rather than compared to a note, which is what that audit's own method section asks for: `MAIL_FRAME_SCRIPT` over 990 bytes and `MAIL_FRAME_STYLE` over 376, both matching. The updater audit, because `src-tauri/src` moved — the whole diff being VK_P leaving the keep list, in a handler the renderer cannot reach. Both verdicts stay **PASS**, and both ledgers are at 1 and 5 of 8.
 
+- **`cargo clippy` is clean again.** Two things had been left: `assert!(WEBVIEW_DISK_CACHE_BYTES > 0)` sat inside a test although it asserts a constant, which is `clippy::assertions_on_constants` and, more to the point, made the wrong value fail a test somebody has to run rather than the build where it is edited — it is now `const _: () = assert!(…)` beside the constant itself. And the doc comment rewritten for the zoom and print decision left a paragraph hanging off a list item without indentation, which `clippy::doc_lazy_continuation` reported six times. Neither changes behaviour; the point is that the next real warning is visible instead of arriving in a crowd.
+
 ## [0.1.0] - 2026-09-15
 
 ### Backend
