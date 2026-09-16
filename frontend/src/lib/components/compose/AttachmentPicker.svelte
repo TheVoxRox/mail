@@ -4,6 +4,7 @@
 	import { chipVariants } from '$lib/components/ui/chip/index.js';
 	import { cn } from '$lib/utils.js';
 	import { formatSize } from '$lib/formatters.js';
+	import { dragHasFiles } from '$lib/dragPayload.js';
 	import { clientConfig } from '$lib/stores/clientConfig.js';
 	import { confirmAction } from '$lib/stores/confirmDialog.js';
 	import { _, appLocale } from '$lib/i18n/index.js';
@@ -160,21 +161,14 @@
 			.filter((file): file is File => file != null);
 	}
 
-	function dataTransferHasFiles(dataTransfer: DataTransfer | null): boolean {
-		return Boolean(
-			dataTransfer &&
-			(dataTransfer.files.length > 0 || Array.from(dataTransfer.types).includes('Files'))
-		);
-	}
-
 	function handleDragEnter(event: DragEvent): void {
-		if (disabled || !dataTransferHasFiles(event.dataTransfer)) return;
+		if (disabled || !dragHasFiles(event)) return;
 		event.preventDefault();
 		dragActive = true;
 	}
 
 	function handleDragOver(event: DragEvent): void {
-		if (disabled || !dataTransferHasFiles(event.dataTransfer)) return;
+		if (disabled || !dragHasFiles(event)) return;
 		event.preventDefault();
 		if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
 		dragActive = true;

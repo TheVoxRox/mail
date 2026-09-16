@@ -23,7 +23,8 @@
 	import { announcePolite, pushToast } from '$lib/stores/toasts.js';
 	import ContactList from '$lib/components/ContactList.svelte';
 	import ContactForm from '$lib/components/ContactForm.svelte';
-	import { dragHasFiles, importVCardFiles } from '$lib/contacts/importVCards.js';
+	import { importVCardFiles } from '$lib/contacts/importVCards.js';
+	import { dragHasFiles } from '$lib/dragPayload.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { PageShell } from '$lib/components/ui/page-shell/index.js';
 	import { StateMessage } from '$lib/components/ui/state-message/index.js';
@@ -304,6 +305,13 @@
 		if (data.create || data.edit != null) return;
 		if (!dragHasFiles(event)) return;
 		event.preventDefault();
+		/*
+		 * Said out loud because the window drop guard says the opposite for
+		 * everything it does not recognise, and the two listeners sit on the
+		 * same target: whichever order they were added in, the zone has the
+		 * last word only if it sets its own effect (see lib/fileDropGuard.ts).
+		 */
+		if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
 		dragActive = true;
 	}
 

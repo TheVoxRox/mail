@@ -35,20 +35,6 @@ type ImportMessageFn = (
  */
 const BULK_CHUNK_SIZE = 100;
 
-/** True when the drag payload contains files (vs. text/link drags). */
-export function dragHasFiles(event: DragEvent): boolean {
-	const dt = event.dataTransfer;
-	if (!dt) return false;
-	if (dt.types && Array.from(dt.types).includes('Files')) return true;
-	if (dt.files && dt.files.length > 0) return true;
-	const items = dt.items;
-	if (!items) return false;
-	for (let i = 0; i < items.length; i++) {
-		if (items[i].kind === 'file') return true;
-	}
-	return false;
-}
-
 export function looksLikeVCardFile(file: File): boolean {
 	const type = file.type.toLowerCase();
 	if (type === 'text/vcard' || type === 'text/x-vcard') return true;
