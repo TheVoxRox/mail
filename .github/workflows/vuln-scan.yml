@@ -409,40 +409,95 @@ jobs:
               --label "$label" --body "$body"
           fi
 
-  prune-nvd-cache:
-    name: Keep one NVD cache
+  prune-caches:
+    name: Prune caches nothing will restore
     needs: owasp-backend
-    # Runs whatever the scan did, because the entry worth keeping is written by
-    # the post-step of a job that may well have failed its gate.
-    if: ${{ always() && github.event_name == 'schedule' }}
+    # Runs whatever the scan did, and on a manual run too. The entry worth
+    # keeping is written by the post-step of a job that may well have failed its
+    # gate, and which trigger fired has nothing to do with cache hygiene. The
+    # `github.event_name == 'schedule'` this started with was copied from
+    # report-failure, where it earns its place — that job must not open an issue
+    # from someone's test run — and here it only meant a `workflow_dispatch`
+    # left its entries behind.
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     # The only job here that writes anything through the Actions API, and the
-    # only one that needs more than the default read token.
+    # only one that needs more than the default read token. `pull-requests` is
+    # for telling a closed pull request from an open one; the repo is public,
+    # so the read would pass without it, but the job should say what it uses.
     permissions:
       actions: write
+      pull-requests: read
+    # This is worth a job because the quota is why the NVD database kept
+    # vanishing. Measured 2026-09-16: the repo held 8.86 GB of a 10 GB cache
+    # quota across 17 entries, 5.2 GB of it two `cargo-Linux-` caches at
+    # 2.61 GiB each, and no `nvd-` entry at all — a ~1 GB database written by a
+    # passing scan was evicted before the next night could restore it, so the
+    # scan paid for a full cold pull every time.
+    #
+    # A cache is scoped to the ref that wrote it: a run on `main` restores only
+    # what `main` wrote, and a pull request's run adds its own on top. Both
+    # steps below work inside that scope, never across it — the same day's list
+    # held a third `cargo-Linux-` entry under the key `main`'s newest carried,
+    # written by #499's merge ref, and a repo-wide "keep the newest" would have
+    # kept that one and deleted the only entry `main` can read.
+    #
+    # Deleting a cache a running job already restored does not affect that job;
+    # the download has happened by then.
     steps:
-      # The NVD DB is ~1 GB and the key carries the run id, so every scan adds
-      # an entry rather than replacing one. Measured 2026-09-16: the repo held
-      # 8.86 GB of a 10 GB cache quota, 5.2 GB of it two Cargo caches, and no
-      # nvd- entry at all — anything written here was being evicted before the
-      # next night could restore it. Keeping exactly one costs nothing: the
-      # restore-key takes the newest, and an older copy of the same DB is dead
-      # weight the moment a newer one exists.
-      - name: Delete superseded nvd- caches
+      # A pull request's caches serve only that pull request's runs, so once it
+      # is closed nothing can restore them. A Cargo.lock bump is enough to
+      # leave one behind at 2.61 GiB — dependabot opens those weekly — and
+      # eviction would take seven days of disuse to get to it. Done first, so
+      # the next step lists what is left rather than what this one removed.
+      - name: Delete caches of closed pull requests
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          superseded=$(gh cache list --limit 100 --json id,key,createdAt             --jq '[.[] | select(.key | startswith("nvd-"))]
-                  | sort_by(.createdAt) | reverse | .[1:] | .[].id')
-          if [ -z "$superseded" ]; then
-            echo "No superseded nvd- cache to delete."
-            exit 0
-          fi
-          for id in $superseded; do
-            echo "Deleting cache $id"
-            gh cache delete "$id"
+          refs=$(gh cache list --limit 100 --json ref --jq '[.[].ref | select(startswith("refs/pull/"))] | unique | .[]')
+          for ref in $refs; do
+            number=${ref#refs/pull/}
+            number=${number%%/*}
+            state=$(gh pr view "$number" --json state --jq .state)
+            if [ "$state" = OPEN ]; then
+              echo "$ref: pull request still open, kept."
+              continue
+            fi
+            # Assigned rather than looped over directly: `set -e` does not see a
+            # command substitution that fails inside a `for` list.
+            ids=$(gh cache list --ref "$ref" --limit 100 --json id --jq '.[].id')
+            for id in $ids; do
+              echo "$ref ($state): deleting cache $id"
+              gh cache delete "$id"
+            done
+          done
+
+      # Two cache families roll: their keys carry a run id or a lockfile hash,
+      # so a run adds an entry instead of replacing one, while only the newest
+      # is ever restored — `restore-keys` takes it by prefix, and an older copy
+      # is dead weight the moment a newer one exists on the same ref.
+      #
+      # `cargo-Linux-` and not `cargo-`: `cargo-audit-…` and `cargo-cyclonedx-…`
+      # are stable-keyed single entries, and folding them into the rolling
+      # family would delete the tool caches this very workflow restores.
+      - name: Delete superseded caches
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          for prefix in nvd- cargo-Linux-; do
+            superseded=$(PREFIX="$prefix" gh cache list --limit 100 --json id,key,ref,createdAt --jq '[.[] | select(.key | startswith($ENV.PREFIX))] | group_by(.ref) | .[] | sort_by(.createdAt) | .[:-1] | .[].id')
+            if [ -z "$superseded" ]; then
+              echo "$prefix: nothing superseded."
+              continue
+            fi
+            for id in $superseded; do
+              echo "$prefix: deleting cache $id"
+              gh cache delete "$id"
+            done
           done
 
   close-failure-issue:
