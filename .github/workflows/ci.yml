@@ -105,8 +105,10 @@ jobs:
 
       # `mvn verify` runs unit + integration tests AND spotbugs:check (bound in
       # backend/pom.xml). One job step, one gate — matches what a local
-      # `mvn verify` does, so a green local build means a green CI build for
-      # this job.
+      # `mvn verify` does, with one exception: MailSyncQresyncDovecotIT needs
+      # Docker, which the runner has and a developer machine may not, and it
+      # skips itself without it. A green local build without Docker therefore
+      # says nothing about that test.
       - name: Run unit + integration tests + SpotBugs
         run: mvn --batch-mode verify
 
