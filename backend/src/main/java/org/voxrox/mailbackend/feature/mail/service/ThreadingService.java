@@ -414,8 +414,10 @@ public class ThreadingService {
         // THREADING_DESIGN.md promise — otherwise getThread() would order the root
         // behind its own children (they have lower ids because they arrived first).
         renumberThreadPositions(account.getId(), msg.getThreadId(), msg);
-        log.info("{} Reconciled {} orphan thread(s) ({} message rows) onto thread {} (root {}) for account {}.",
-                LogCategory.SYNC, orphanThreadIds.size(), moved, msg.getThreadId(), mergedRoot, account.getId());
+        // The thread id is enough to find the thread. The root is a Message-ID, which
+        // often carries an address, so it stays out of the log.
+        log.info("{} Reconciled {} orphan thread(s) ({} message rows) onto thread {} for account {}.", LogCategory.SYNC,
+                orphanThreadIds.size(), moved, msg.getThreadId(), account.getId());
         // One thread_updated event per affected thread keeps the wire format
         // simple — the merged thread inherits the inbound message's id, the
         // orphans no longer exist as standalone aggregates. Deferred to after

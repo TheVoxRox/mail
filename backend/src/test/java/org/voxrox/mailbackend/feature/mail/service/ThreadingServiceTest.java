@@ -2,6 +2,7 @@ package org.voxrox.mailbackend.feature.mail.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -23,6 +24,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.slf4j.LoggerFactory;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
@@ -31,6 +33,10 @@ import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 import org.voxrox.mailbackend.feature.mail.entity.MessageReferenceEntity;
 import org.voxrox.mailbackend.feature.mail.repository.MessageReferenceRepository;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
+
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 
 /**
  * Golden-fixture tests for {@link ThreadingService}. The cases mirror the
@@ -378,6 +384,34 @@ class ThreadingServiceTest {
             assertThat(reassignCalls.get()).isEqualTo(1);
             // thread_updated should have fired (the orphan merge).
             verify(sse, atLeastOnce()).broadcast(any(ThreadUpdated.class));
+        }
+
+        @Test
+        @DisplayName("The reconciliation log names the thread, never the root Message-ID")
+        void reconciliationLogOmitsRootMessageId() {
+            MessageEntity orphan = newMessage("<c1@example.com>", "<parent.jan.novak@example.com>", null);
+            service.assignThread(orphan, ACCOUNT);
+            register(orphan);
+            when(repo.findMergeableOrphanThreadIds(eq(ACCOUNT_ID), eq("<parent.jan.novak@example.com>"), anyString()))
+                    .thenReturn(List.of(orphan.getThreadId()));
+            when(repo.reassignThreads(eq(ACCOUNT_ID), anyList(), anyString(), anyString())).thenReturn(1);
+
+            Logger logger = (Logger) LoggerFactory.getLogger(ThreadingService.class);
+            ListAppender<ILoggingEvent> appender = new ListAppender<>();
+            appender.start();
+            logger.addAppender(appender);
+            MessageEntity parent = newMessage("<parent.jan.novak@example.com>", null, null);
+            try {
+                service.assignThread(parent, ACCOUNT);
+            } finally {
+                logger.detachAppender(appender);
+            }
+
+            // A Message-ID often carries an address; the log scanner treats one as a leak.
+            assertThat(appender.list).anySatisfy(event -> assertThat(event.getFormattedMessage())
+                    .contains("Reconciled 1 orphan thread(s)").contains(parent.getThreadId()));
+            assertThat(appender.list).extracting(ILoggingEvent::getFormattedMessage)
+                    .noneMatch(message -> message.contains("jan.novak"));
         }
 
         @Test
