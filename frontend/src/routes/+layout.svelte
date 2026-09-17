@@ -16,7 +16,7 @@
 	import { initErrorReporting } from '$lib/errorReporting.js';
 	import { sessionState } from '$lib/stores/session.js';
 	import { accountsState } from '$lib/stores/accounts.js';
-	import { backendSidecarState } from '$lib/backend/sidecar.js';
+	import { backendSidecarState, isSidecarExitError } from '$lib/backend/sidecar.js';
 	import { watchSidecarAutoRestart } from '$lib/backend/sidecarRecovery.js';
 	import { installFileDropGuard } from '$lib/fileDropGuard.js';
 	import { bootState } from '$lib/stores/boot.js';
@@ -102,6 +102,13 @@
 	 * shortening is shortened where it is written.
 	 */
 	const mainLandmarkLabel = $derived(routeTitle || $_(`workspace.${currentWorkspaceMode()}`));
+
+	/** A backend exit in the user's language; any other error as it was raised. */
+	function sidecarErrorText(error: Error): string {
+		return isSidecarExitError(error)
+			? $_(error.messageKey, { values: error.values })
+			: error.message;
+	}
 
 	/*
 	 * Native OS window title (taskbar / Alt+Tab, and the name a screen reader
@@ -390,7 +397,7 @@
 	<div class="flex flex-1 overflow-hidden bg-muted/30">
 		{#if $backendSidecarState.status === 'error'}
 			<BootErrorView
-				errorMessage={$backendSidecarState.error.message}
+				errorMessage={sidecarErrorText($backendSidecarState.error)}
 				onRetry={retryBootstrap}
 				onRestart={restartBootstrap}
 			/>

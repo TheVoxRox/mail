@@ -1,20 +1,15 @@
 package org.voxrox.mailbackend.core.config;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.Statement;
-
-import javax.sql.DataSource;
 
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,8 +17,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.boot.flyway.autoconfigure.FlywayMigrationStrategy;
+import org.sqlite.SQLiteDataSource;
 import org.voxrox.mailbackend.core.backup.DatabaseBackupService;
 import org.voxrox.mailbackend.core.init.StartupTimingService;
+import org.voxrox.mailbackend.core.lifecycle.StartupFailure;
+import org.voxrox.mailbackend.core.lifecycle.StartupFailure.Reason;
 
 /**
  * Drives {@code DatabaseConfig.preMigrationBackupStrategy} against a real
@@ -62,7 +60,7 @@ class FlywayAlteredMigrationDetectionTest {
         writeBaseline("CREATE TABLE probe (id INTEGER PRIMARY KEY);");
 
         backupService = mock(DatabaseBackupService.class);
-        strategy = new DatabaseConfig(pragmaStubDataSource(), new StartupTimingService())
+        strategy = new DatabaseConfig(dataSource(), new StartupTimingService())
                 .preMigrationBackupStrategy(backupService);
     }
 
@@ -99,7 +97,9 @@ class FlywayAlteredMigrationDetectionTest {
         FlywayMigrationStrategy updateStrategy = restartStrategy(updateBackupService);
         Flyway updated = flyway();
 
-        assertThatThrownBy(() -> updateStrategy.migrate(updated)).isInstanceOf(IllegalStateException.class)
+        assertThatThrownBy(() -> updateStrategy.migrate(updated))
+                .isInstanceOfSatisfying(StartupFailure.class,
+                        failure -> assertThat(failure.reason()).isEqualTo(Reason.SCHEMA_MISMATCH))
                 .hasMessageContaining("V1").hasMessageContaining("CHECKSUM_MISMATCH")
                 .hasMessageContaining("will NOT help").hasMessageContaining("OPERATIONS.md");
 
@@ -126,27 +126,17 @@ class FlywayAlteredMigrationDetectionTest {
     }
 
     private FlywayMigrationStrategy restartStrategy(DatabaseBackupService service) {
-        return new DatabaseConfig(pragmaStubDataSource(), new StartupTimingService())
-                .preMigrationBackupStrategy(service);
+        return new DatabaseConfig(dataSource(), new StartupTimingService()).preMigrationBackupStrategy(service);
     }
 
     /**
-     * {@code DatabaseConfig} needs a {@link DataSource} for its PRAGMA
-     * verification, which this test never triggers — the migration strategy does
-     * not touch it.
+     * The same file Flyway migrates. The hook runs {@code PRAGMA quick_check} on it
+     * before anything else, so a stub that answers nothing would read as a damaged
+     * database.
      */
-    private DataSource pragmaStubDataSource() {
-        try {
-            DataSource dataSource = mock(DataSource.class);
-            Connection connection = mock(Connection.class);
-            Statement statement = mock(Statement.class);
-            ResultSet resultSet = mock(ResultSet.class);
-            when(dataSource.getConnection()).thenReturn(connection);
-            when(connection.createStatement()).thenReturn(statement);
-            when(statement.executeQuery(org.mockito.ArgumentMatchers.anyString())).thenReturn(resultSet);
-            return dataSource;
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed to stub the DataSource", e);
-        }
+    private SQLiteDataSource dataSource() {
+        SQLiteDataSource dataSource = new SQLiteDataSource();
+        dataSource.setUrl(jdbcUrl);
+        return dataSource;
     }
 }
