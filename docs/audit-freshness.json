@@ -151,12 +151,16 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "f54150f373c94373007c9a2c832860f6b0ccba9e"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "4cd67d02cf8158fbce6d83d6e6cec82073178cc6"
     },
     "acknowledgements": [
       {
         "date": "2026-09-16",
         "note": "The sync open gains a CONDSTORE step, read against sections 1 and 2. No claim of this audit moves; verdict stays PASS. Four files moved, all on the sync path. ImapFolderExecutor: executeReadOnlyResynced, still the sync cycle's only entry, now opens QRESYNC when there is a baseline, else IMAPFolder.open(mode, ResyncData.CONDSTORE) where the server advertises CONDSTORE and ENABLE, else plain, each failure degrading to the next exactly as the QRESYNC failure did at 1.7; executeReadOnly and executeReadWrite share one opener that calls folder.open(mode) and nothing else, which ImapFolderExecutorTest now pins for the read-only one. On the wire that is ENABLE CONDSTORE plus EXAMINE with the CONDSTORE parameter, and the server's answer adds one number, HIGHESTMODSEQ, plus a MODSEQ item on later untagged FETCH responses of that connection; both are parsed by Angus, and the second was already reachable, since the QRESYNC open 1.7 describes enables CONDSTORE implicitly. ImapCapabilities additionally reads ENABLE from the same post-auth capability list. FlagSyncService and MailSyncService change only which HIGHESTMODSEQ they store and resume from: a non-positive one is neither stored nor sent, and a stored -1 is read as no baseline. A hostile server can therefore choose the number it is asked to resynchronize from next time, which is less than the section 2 QRESYNC bullet already grants it; the vanished-UID delete, its (account, folder) scope and its batching are byte-identical. A rejected ENABLE or SELECT makes Angus log that pooled connection out, the same Angus-internal path a rejected QRESYNC open already took; ImapConnectionManager is untouched, so the section 1 claims (checkserveridentity, the XOAUTH2 TLS requirement, the per-lane pool and locks) stand as written. MessageFetcher, MailContentService, MimePartExtractor and the fetch profile are untouched, so sections 2 to 4b are unaffected."
+      },
+      {
+        "date": "2026-09-17",
+        "note": "One log line in ThreadingService drops the thread root Message-ID; the diff against the previous reviewed tree is that line and its comment. No claim of this audit moves, verdict stays PASS: the audit makes no claim about what the sync path logs, and removing a logged value changes no protocol handling, fetch profile or bound."
       }
     ]
   }
