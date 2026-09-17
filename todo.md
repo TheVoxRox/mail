@@ -105,7 +105,7 @@ Z analyzy 2026-09-13: stroj overuje artefakt dobre, rucni zustava orchestrace a 
 - **Strojova pulka listu generovana skriptem — zatim ne** (2026-09-13: misto generovani list zjednodusit, viz polozka nize): tabulka object ids a §0/§2 z behu CI na tagovanem commitu misto rucniho pocitani a lokalniho behu.
 - [ ] **Pred 0.2.0, nejvyssi priorita — update smoke vN-1 → vN na runneru:** nejdriv `/UPDATE` pres bezici instalaci predchozi verze (prepis `runtime/` a `app/`), pak cely updater proti manifestu vystavenemu na runneru.
 - [ ] **Zjednodusit list kandidata** na kratky zaznam: tabulka object ids, odkazy na behy (podepsany build, smoke), vysledky rucnich polozek a nalezy. Zduvodneni patri do commitu; dnes list prozou opakuje, co uz stoji v behu nebo v changelogu.
-- [ ] **Rozhodnout (maintainer): delka changelog bulletu u internich zmen.** Pravidlo „bullet ke kazdemu commitu" plati dal; otazka je, jestli interni release nastroje nepsat par vetami a detail nechat commitu, protoze changelog cte uzivatel releasu.
+- [x] **Delka changelog bulletu u internich zmen** — ROZHODNUTO 2026-09-17: interni zmeny do `### Repo`, jedna az tri vety a cislo PR, detail v commitu; pravidlo v hlavicce [CHANGELOG.md](CHANGELOG.md).
 
 ---
 

@@ -54,7 +54,10 @@ someone a rework at least once. For the human-facing versions see
 ## Documentation is part of the change
 
 - **Every commit gets a bullet in `CHANGELOG.md` under Unreleased**, in the
-  same commit — including internal cleanup. Write why, not just what.
+  same commit — including internal cleanup. A user-visible change goes under
+  its artifact and says why, not just what. Internal work (CI, tooling, tests,
+  audits, docs) goes under `### Repo` in one to three sentences with the PR
+  number; the detail belongs in the commit message.
 - `todo.md` holds live tasks only. Finished work is one line, detail moves to
   `todo-archive.md`. No implementation diaries.
 - Docs are typed: **living** (kept current), **snapshot** (dated record with a
