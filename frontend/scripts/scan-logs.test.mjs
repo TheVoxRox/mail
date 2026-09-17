@@ -102,7 +102,10 @@ describe('classify', () => {
 	it('drops everything older than since, audit records included', () => {
 		const text = [D_EXHAUSTED, OTHER_ERROR(1)].join('\n');
 		const since = new Date('2026-09-16T00:01:00.000Z');
-		const result = classify(parseMailLog(text, 'mail.log'), parseAuditLog(AUDIT_CRITICAL, 'a'), {
+		// Audit time is local and carries no offset, so the record is a full day
+		// earlier: before `since` in every time zone, on a UTC runner as here.
+		const olderAudit = AUDIT_CRITICAL.replace('2026-09-16', '2026-09-15');
+		const result = classify(parseMailLog(text, 'mail.log'), parseAuditLog(olderAudit, 'a'), {
 			since
 		});
 		expect(result.d.exhausted).toHaveLength(0);
