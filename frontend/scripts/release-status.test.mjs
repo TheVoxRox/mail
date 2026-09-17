@@ -23,9 +23,9 @@ import {
  * The CLI half of release:status runs git and gh and hands their raw answers
  * over; every choice made about those answers — which run counts, which asset
  * is the installer, what the next step is — is made in the lib, so this is
- * where the suite sits. The sheet fixture copies the shape of the real
- * 2026-09-11 sheet in backend/RELEASE_CHECKLIST.md, including the §9 box that
- * has no title.
+ * where the suite sits. The sheet fixture copies the shape of a candidate
+ * sheet in backend/RELEASE_CHECKLIST.md, including the §9 box that has no
+ * title.
  */
 
 const OLDER_SHEET = [

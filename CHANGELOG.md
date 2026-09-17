@@ -58,6 +58,7 @@ Entries before 2026-09-17 predate that split and are left as written.
 - **The nightly vulnerability scan passes again.** The OWASP job was cancelled partway through a cold NVD pull, and a cancelled job saves no cache, so every night started cold; the budget is now 180 minutes, which a cold pull needs only once (#504, #508).
 - **The Actions cache keeps the newest entry per ref and deletes what closed pull requests left behind.** Least-recently-used eviction over the 10 GB quota, pushed there by 2.6 GiB Cargo caches, was what removed the warm NVD database between nightly runs (#504, #507, #508).
 - **`npm run release:status` names the candidate sheet it read** when several share a date, instead of only counting them (#505).
+- **The release checklist keeps one short candidate sheet.** A sheet is a record: one line per section with its evidence, plus findings; a sheet replaced by a re-cut is deleted and its open findings move to the new one, which took the appendix from seven v0.1.0 sheets to one and the file from 95 kB to 48 kB (#514).
 
 ## [0.1.0] - 2026-09-15
 

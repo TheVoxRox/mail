@@ -42,7 +42,7 @@ import { readZipEntryJson } from './lib/zip-entry.mjs';
  * What it does not prove, on purpose or by limitation:
  * - A first start while WebView2 is still being installed. Hosted runners have
  *   WebView2 preinstalled, so the unresolved "no window on first launch"
- *   finding from the a2caa27 sheet cannot reproduce here.
+ *   finding on the candidate sheet cannot reproduce here.
  * - That the install needs no elevation. Hosted runners run as an
  *   administrator, so the absence of a UAC prompt is not observable.
  * - Account flows, mail against a real provider, the downgrade block (a first
