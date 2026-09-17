@@ -251,12 +251,24 @@ class SyncSoakIT {
         }
         sleep(Duration.ofSeconds(60));
         assertThat(backend.process.isAlive()).as("backend alive while the disk is full").isTrue();
-        assertThat(backend.health()).as("health while the disk is full").isEqualTo(200);
+        // A full disk may well make the database unreadable; the health check has to
+        // say so (503, DOWN) rather than fail itself (500).
+        int whileFull = backend.health();
+        event("health while the disk is full: " + whileFull);
+        assertThat(whileFull).as("health while the disk is full").isIn(200, 503);
         try {
             Files.delete(filler);
         } catch (IOException e) {
             throw new IllegalStateException("Could not free the disk", e);
         }
+        Instant deadline = Instant.now().plus(SYNC_INTERVAL.multipliedBy(12));
+        int afterwards = backend.health();
+        while (afterwards != 200 && Instant.now().isBefore(deadline)) {
+            sleep(SYNC_INTERVAL);
+            afterwards = backend.health();
+        }
+        event("health once the disk has room again: " + afterwards);
+        assertThat(afterwards).as("health once the disk has room again").isEqualTo(200);
     }
 
     private static void createAccount(Backend backend, int port) throws Exception {

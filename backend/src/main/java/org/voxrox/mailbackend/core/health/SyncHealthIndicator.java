@@ -9,6 +9,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.boot.health.contributor.Health;
 import org.springframework.boot.health.contributor.HealthIndicator;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Component;
 import org.voxrox.mailbackend.core.config.MailClientProperties;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
@@ -43,8 +44,22 @@ public class SyncHealthIndicator implements HealthIndicator {
      */
     private static final int STALE_IDS_LIMIT = 10;
 
+    /**
+     * A database that cannot be read — the soak's full disk made the read
+     * transaction fail to commit — is DOWN, which the endpoint answers with 503.
+     * Thrown, the exception reached the global handler and came back as a 500,
+     * which says the health check is broken rather than what it found.
+     */
     @Override
     public Health health() {
+        try {
+            return syncHealth();
+        } catch (DataAccessException e) {
+            return Health.down().withDetail("error", e.getClass().getSimpleName()).build();
+        }
+    }
+
+    private Health syncHealth() {
         List<AccountEntity> activeAccounts = accountRepository.findByActiveTrue();
         int active = activeAccounts.size();
 
