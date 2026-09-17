@@ -48,7 +48,8 @@
       "backend/src/main/java/org/voxrox/mailbackend/feature/contact/dto": "05e6c2053fe77b32dc61dda6da27155c892ce3c8",
       "backend/src/main/java/org/voxrox/mailbackend/feature/account/dto": "d74fd9f1ab3a5bf3660edbc9ac93866bfde403d9",
       "backend/src/main/java/org/voxrox/mailbackend/core/security": "09fb8b40a5553f99ca36f044348c0ecd91e56a93",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/controller": "c68e027fc1f6241faaa2d0021ccc4a6c88312441"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/controller": "c68e027fc1f6241faaa2d0021ccc4a6c88312441",
+      "backend/src/main/java/org/voxrox/mailbackend/core/diagnostic": "b44911434f44e4daa8904d328f449746e877cb78"
     },
     "acknowledgements": [
       {
@@ -66,6 +67,10 @@
       {
         "date": "2026-09-01",
         "note": "Follow-up to the acknowledgement above it, same day, correcting what that change got wrong. Two files move under this path. `SyncCycleNotification` gains a fourth component, `allFoldersSynced`, plus `@Schema` descriptions on it and on `newMessagesCount`; it stays an outbound SSE payload, so there is still no request DTO, no parameter and no path here — §2 input validation and the §6/A1 write-body bound have nothing new to enforce, and the 17-controller count is untouched (re-run: 17 / 4 internal / 12 @Validated / 3 @Hidden). `FolderRole` gains `deliversNewMail()`, a two-branch predicate over the enum constants. It adds no constant, so no request that binds to this enum can carry a value it could not carry before, and the 400-on-unknown-value behaviour §2 records is unchanged. Evidence: the golden api-docs.json diff is one added boolean property on one schema plus two description strings, and the regenerated schema.d.ts differs by exactly those. Nothing became required, nothing changed type. On exposure, the added field is a boolean about our own completeness, not mailbox data. Verdict stays PASS."
+      },
+      {
+        "date": "2026-09-17",
+        "note": "The diagnostic dump sheds two values it should not have carried, and §5 is revised to say so (v1.5). DiagnosticDumpService: a folder with no provider role (USER or null) is written as folder-<n>, numbered in account-and-name order and shared by folder-sync-states.json and message-counts.json; INBOX keeps its name whatever role is stored; the data, database and logs paths replace user.home with ~ (case-insensitive, only at a path boundary). No field was added and nothing reaches the endpoint that did not before, so the authentication, validation and error-hygiene claims are untouched and the verdict stays PASS. DiagnosticDumpPrivacyIT checks §5 on real data over HTTP."
       }
     ]
   },
@@ -87,7 +92,7 @@
   },
   "docs/OAUTH_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/auth": "230e8138b5c9f72baa71ab2795d009e26d300211",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/auth": "d11da6a0f414648122ccfcaca5dc75d8d167c02e",
       "backend/src/main/java/org/voxrox/mailbackend/feature/account/service/ExternalProviderLoginService.java": "029c363ddfb5e59707b91fec6382b91be7357ff4"
     },
     "acknowledgements": [
@@ -106,6 +111,10 @@
       {
         "date": "2026-09-08",
         "note": "Two paths, one change, and the second path is why this note is longer than its delta. In OAuth2TokenService.doRefresh, a permanent refresh rejection now publishes AccountRequiresReauthEvent after the updateRequiresReauth / updateLastError pair it already wrote, so a listener outside this feature can close the account's now-unreachable IMAP connections; the base constructor takes the publisher and the two subclasses pass it through. ExternalProviderLoginService.markRequiresReauthIfExists is the third writer of that flag and does the same, from TransactionCallbacks.runAfterCommit because it is @Transactional - the purge behind the event waits on the per-account connection lock, which must not be waited on with the single-writer SQLite transaction open, and before the commit the flag is not durable. Nothing about either token flow moves: the same permanent-vs-transient classification decides the branch, the refresh lock, the cache invalidate, the metric and the thrown MailOperationException are unchanged, the login path still writes exactly the credentials and account fields it did, and no scope, redirect URI, PKCE parameter, client secret or token value is read, logged or transmitted differently. The event is deliberately minimal for that reason - it carries the account id alone, so no token or address reaches a listener with no business holding either. Placement inside the existing try is checked by a mutation that moves it out: the flag is what makes the account unreachable, so an event published after a failed UPDATE would ask for live connections to be closed. Three mutations in total, each red on exactly the test that claims its rule, each verified to have reached the tests. Verdict stays PASS."
+      },
+      {
+        "date": "2026-09-17",
+        "note": "A count, not a token, moves. OAuth2TokenServiceRegistry.totalCachedTokens summed getCacheStats() per service, but every service holds the one TokenCache bean, so the diagnostic summary reported each cached token once per provider; the registry now takes the TokenCache and reads its size once, and the per-service getCacheStats/CacheStats, left without a caller, are removed. No token value, refresh path, cache key or invalidation changes, so no claim of this audit moves and the verdict stays PASS."
       }
     ]
   },

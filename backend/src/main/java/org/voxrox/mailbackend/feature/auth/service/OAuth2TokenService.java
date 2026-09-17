@@ -202,10 +202,6 @@ public abstract class OAuth2TokenService {
         tokenCache.invalidate(accountId);
     }
 
-    public final CacheStats getCacheStats() {
-        return new CacheStats(tokenCache.size());
-    }
-
     /**
      * Uncached refresh for a token that belongs to no persisted account yet — the
      * {@code accountId == null} entry into {@link #doRefresh}.
@@ -364,6 +360,4 @@ public abstract class OAuth2TokenService {
         return RestClient.builder().requestFactory(factory).build();
     }
 
-    public record CacheStats(int cachedTokens) {
-    }
 }

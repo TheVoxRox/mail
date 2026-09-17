@@ -217,7 +217,7 @@ the item stayed here.
 - [ ] The same scan reports no CRITICAL audit record and no leak — no unmasked address or Message-ID, no token, not the session API key; it exits 1 on any of them.
 - [ ] Generate `/api/internal/diagnostic-dump`.
 - [ ] The ZIP contains `summary.json`, `accounts.json`, `folder-sync-states.json`, `message-counts.json`, `runtime.json`.
-- [ ] The ZIP contains no full email addresses, OAuth tokens, internal API key or message content.
+- [ ] The ZIP contains no full email addresses, OAuth tokens, internal API key, message content, names of folders the user created, or the Windows account name. Checked by machine twice — [DiagnosticDumpPrivacyIT](src/test/java/org/voxrox/mailbackend/core/diagnostic/DiagnosticDumpPrivacyIT.java) on synced mail under `mvn verify`, and `tauri:smoke:sidecar` on the packaged sidecar in the signed build — so by hand this is reading the dump of a real installation once.
 
 ## 8. Long run
 

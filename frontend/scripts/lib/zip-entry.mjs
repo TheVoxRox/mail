@@ -35,7 +35,22 @@ function readZipEntry(buffer, name) {
 			`ZIP entry "${name}" not found. Entries: ${entries.map((e) => e.name).join(', ')}`
 		);
 	}
+	return inflateEntry(buffer, entry);
+}
 
+/**
+ * @param {Buffer} buffer complete ZIP archive
+ * @returns {{ name: string, data: Buffer }[]} every entry, uncompressed, in archive order
+ */
+export function readZipEntries(buffer) {
+	return readCentralDirectory(buffer).map((entry) => ({
+		name: entry.name,
+		data: inflateEntry(buffer, entry)
+	}));
+}
+
+function inflateEntry(buffer, entry) {
+	const { name } = entry;
 	if (buffer.readUInt32LE(entry.localHeaderOffset) !== LOCAL_SIGNATURE) {
 		throw new Error(
 			`ZIP entry "${name}" has no local header at offset ${entry.localHeaderOffset}.`
