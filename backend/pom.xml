@@ -47,6 +47,8 @@
 		-->
 		<surefireArgLine></surefireArgLine>
 		<failsafeArgLine></failsafeArgLine>
+		<!-- The accelerated soak (SyncSoakIT) runs only in the soak profile. -->
+		<failsafe.excludedGroups>soak</failsafe.excludedGroups>
 	</properties>
 
 	<dependencies>
@@ -528,6 +530,7 @@
 					     self-attaches at runtime (self-attach is deprecated and warns on
 					     JDK 25+). The jar path is resolved by maven-dependency-plugin below. -->
 					<argLine>@{failsafeArgLine} -javaagent:${org.mockito:mockito-core:jar}</argLine>
+					<excludedGroups>${failsafe.excludedGroups}</excludedGroups>
 				</configuration>
 				<executions>
 					<execution>
@@ -774,6 +777,48 @@
 			JaCoCo agent se PITu do cesty neplete: PIT si forkuje vlastni JVM
 			a surefire argLine do nej neputuje.
 		-->
+		<!--
+			Accelerated soak: mvn -Psoak verify [-Dsoak.duration=PT30M]
+			[-Dsoak.small-disk=/mnt/soak]. Packages the jar, then runs only the
+			tests tagged "soak" (SyncSoakIT), which start that jar as a process of
+			their own. Unit tests, the other integration tests, coverage and
+			SpotBugs are off: the ordinary build already runs them, and coverage
+			thresholds would fail on a run that exercises one class. The scheduled
+			.github/workflows/soak.yml is what uses it.
+		-->
+		<profile>
+			<id>soak</id>
+			<properties>
+				<failsafe.excludedGroups></failsafe.excludedGroups>
+				<jacoco.skip>true</jacoco.skip>
+				<soak.duration>PT12M</soak.duration>
+				<soak.small-disk></soak.small-disk>
+				<spotbugs.skip>true</spotbugs.skip>
+			</properties>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-surefire-plugin</artifactId>
+						<configuration>
+							<skip>true</skip>
+						</configuration>
+					</plugin>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-failsafe-plugin</artifactId>
+						<configuration>
+							<groups>soak</groups>
+							<systemPropertyVariables>
+								<soak.duration>${soak.duration}</soak.duration>
+								<soak.small-disk>${soak.small-disk}</soak.small-disk>
+							</systemPropertyVariables>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+
 		<profile>
 			<id>pit</id>
 			<properties>

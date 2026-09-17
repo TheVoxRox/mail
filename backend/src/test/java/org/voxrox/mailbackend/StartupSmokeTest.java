@@ -11,6 +11,8 @@ import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
 
+import javax.sql.DataSource;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,7 +23,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ContextConfiguration;
 import org.voxrox.mailbackend.core.config.ApplicationVersion;
+import org.voxrox.mailbackend.core.config.SqliteConnectionEviction;
 import org.voxrox.mailbackend.core.init.StorageContextInitializer;
+
+import com.zaxxer.hikari.HikariDataSource;
 
 import tools.jackson.databind.ObjectMapper;
 
@@ -68,6 +73,9 @@ class StartupSmokeTest {
     @Autowired
     ApplicationVersion applicationVersion;
 
+    @Autowired
+    DataSource dataSource;
+
     @Test
     @DisplayName("Application starts, Flyway applies V1, the provider catalog lands, and health returns 200")
     void applicationStartsAndHealthIsAvailable() throws Exception {
@@ -111,6 +119,11 @@ class StartupSmokeTest {
         HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
 
         assertThat(response.statusCode()).isEqualTo(HttpStatus.OK.value());
+
+        // The pool evicts a connection SQLite rolled back on its own
+        // (SqliteFullRecoveryTest).
+        assertThat(((HikariDataSource) dataSource).getExceptionOverrideClassName())
+                .isEqualTo(SqliteConnectionEviction.class.getName());
     }
 
     private record SessionPayload(String appName, String appVersion, String apiVersion, String minClientVersion,

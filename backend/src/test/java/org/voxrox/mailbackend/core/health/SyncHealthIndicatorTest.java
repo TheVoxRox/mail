@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.health.contributor.Health;
 import org.springframework.boot.health.contributor.Status;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.voxrox.mailbackend.core.config.MailClientProperties;
 import org.voxrox.mailbackend.core.config.mail.SyncProperties;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
@@ -48,7 +49,7 @@ class SyncHealthIndicatorTest {
         syncStateRepo = mock(FolderSyncStateRepository.class);
 
         SyncProperties sync = new SyncProperties(100, 200, SYNC_INTERVAL, Duration.ofSeconds(10), 50, 30, 300, 4, 256,
-                200, Duration.ofMinutes(30), Duration.ofSeconds(30));
+                200, Duration.ofMinutes(30), Duration.ofSeconds(30), java.time.Duration.ofHours(1));
         MailClientProperties props = new MailClientProperties(null, null, sync, null);
 
         indicator = new SyncHealthIndicator(accountRepo, syncStateRepo, props);
@@ -71,6 +72,24 @@ class SyncHealthIndicatorTest {
      */
     private static List<Object[]> rows(Object[]... rs) {
         return java.util.Arrays.asList(rs);
+    }
+
+    @Nested
+    @DisplayName("A database that cannot be read")
+    class UnreadableDatabase {
+
+        @Test
+        @DisplayName("is reported as DOWN, not thrown to the endpoint as a 500")
+        void readFailure_isDOWN() {
+            // What the soak saw with a full disk: the read transaction could not commit.
+            when(accountRepo.findByActiveTrue())
+                    .thenThrow(new DataAccessResourceFailureException("Unable to commit against JDBC Connection"));
+
+            Health h = indicator.health();
+
+            assertThat(h.getStatus()).isEqualTo(Status.DOWN);
+            assertThat(h.getDetails()).containsEntry("error", "DataAccessResourceFailureException");
+        }
     }
 
     @Nested

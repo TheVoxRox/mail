@@ -160,7 +160,8 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "4cd67d02cf8158fbce6d83d6e6cec82073178cc6"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "d9c4c774eb297812faea54dbef2b92a36471fc92",
+      "backend/src/main/java/org/voxrox/mailbackend/core/config/mail": "7ac85397ace1e22b51e91c525f6c3a60dc2b949a"
     },
     "acknowledgements": [
       {
@@ -170,6 +171,10 @@
       {
         "date": "2026-09-17",
         "note": "One log line in ThreadingService drops the thread root Message-ID; the diff against the previous reviewed tree is that line and its comment. No claim of this audit moves, verdict stays PASS: the audit makes no claim about what the sync path logs, and removing a logged value changes no protocol handling, fetch profile or bound."
+      },
+      {
+        "date": "2026-09-17",
+        "note": "A constant becomes a setting. UidEnumerationSchedule takes its interval from the new SyncProperties.uidEnumerationInterval (mail.client.sync.uid-enumeration-interval, default 1h, the value the constant held) through an @Autowired constructor; the test constructor with an injected clock is unchanged. Nothing about what the enumeration fetches or how the server is trusted moves, the default cadence is the same, and only the soak profile shortens it, so no claim of this audit moves and the verdict stays PASS."
       }
     ]
   }

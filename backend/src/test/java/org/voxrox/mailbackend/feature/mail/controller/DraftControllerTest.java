@@ -74,7 +74,7 @@ class DraftControllerTest {
     @BeforeEach
     void stubProps() {
         SyncProperties sync = new SyncProperties(100, 200, Duration.ofMinutes(5), Duration.ofSeconds(10), 50, 30, 300,
-                4, 256, 200, Duration.ofMinutes(30), Duration.ofSeconds(30));
+                4, 256, 200, Duration.ofMinutes(30), Duration.ofSeconds(30), java.time.Duration.ofHours(1));
         when(mailProps.sync()).thenReturn(sync);
         when(draftPersistenceService.prepareDraftIdentity(anyLong())).thenReturn(IDENTITY);
     }
