@@ -213,8 +213,8 @@ the item stayed here.
 
 ## 7. Diagnostics
 
-- [ ] Check `logs/mail.log` for unexpected `ERROR`s (known transients — see the log-scan gate in §8).
-- [ ] Check `logs/audit.log` for unexpected `CRITICAL`s.
+- [ ] `npm run release:scan-logs` (from `frontend/`) over the installation's logs: every ERROR and WARN group it lists is explained or has an issue. It reads the rotated `.gz` files as well, which a `Select-String` over `mail.log.*` silently does not.
+- [ ] The same scan reports no CRITICAL audit record and no leak — no unmasked address or Message-ID, no token, not the session API key; it exits 1 on any of them.
 - [ ] Generate `/api/internal/diagnostic-dump`.
 - [ ] The ZIP contains `summary.json`, `accounts.json`, `folder-sync-states.json`, `message-counts.json`, `runtime.json`.
 - [ ] The ZIP contains no full email addresses, OAuth tokens, internal API key or message content.
@@ -231,7 +231,7 @@ the item stayed here.
 - [ ] Check that the IMAP pool does not wrongly recycle dead connections.
 - [ ] An OAuth access token expires and is refreshed while the application keeps running. §4 covers the revoke → re-login cycle and the refresh across a restart; neither exercises an expiry under load.
 - [ ] The first `reclaim` pass (half an hour in) completes without stalling the UI or leaving the database locked — the only time this pass runs, whatever the length of the soak.
-- [ ] Log-scan gate after every smoke/long run: `Select-String -Path logs\mail.log -Pattern "ERROR|WARN"`, and either explain every hit or open an issue — a silent error path is exactly the class of bug from the 2026-06 review.
+- [ ] Log-scan gate after every smoke and long run: `npm run release:scan-logs -- --since <start of the run>`, and either explain every group it lists or open an issue — a silent error path is exactly the class of bug from the 2026-06 review.
 
 ### 8.2 Overnight — what only wall-clock time buys
 
@@ -241,7 +241,7 @@ the item stayed here.
 - [ ] Check the memory footprint.
 - [ ] Check the growth of the SQLite DB/WAL.
 - [ ] Check that repeated syncs do not create duplicate messages.
-- [ ] A passive log-watch for the transient hiccup **D** (`failed to create new store connection`) — wrapped in a bounded retry+backoff since #78, with the transient classified by [TransientMailErrors.java](src/main/java/org/voxrox/mailbackend/feature/mail/service/TransientMailErrors.java). Scan `logs\mail.log` for three signals:
+- [ ] A passive log-watch for the transient hiccup **D** (`failed to create new store connection`) — wrapped in a bounded retry+backoff since #78, with the transient classified by [TransientMailErrors.java](src/main/java/org/voxrox/mailbackend/feature/mail/service/TransientMailErrors.java). `npm run release:scan-logs` sorts `logs\mail.log` and its rotated files into the three signals:
   - **Healthy:** `WARN` "Transient IMAP error during folder sync … reconnecting and retrying" ([MailSyncService.java](src/main/java/org/voxrox/mailbackend/feature/mail/service/MailSyncService.java)) followed by recovery on the next attempt — a couple per day is expected noise, just record the count.
   - **Escalate (should be ~0):** `ERROR` "Folder sync … still failing after N transient-retry attempt(s)" ([MailSyncService.java](src/main/java/org/voxrox/mailbackend/feature/mail/service/MailSyncService.java)) = the retry budget is exhausted → investigate the cause / raise `mail.client.retry.*`.
   - **Investigate the classifier:** `ERROR` "Critical error during folder sync … failed to create new store connection" ([MailSyncService.java](src/main/java/org/voxrox/mailbackend/feature/mail/service/MailSyncService.java)) should no longer appear for a transient cause; if it does, `TransientMailErrors` missed it → extend the classifier.
@@ -375,11 +375,9 @@ Invoke-RestMethod "$($s.baseUrl)/internal/health" -Headers @{ 'X-API-KEY' = $s.a
 # Invoke-WebRequest "$($s.baseUrl)/internal/diagnostic-dump" -Headers @{ 'X-API-KEY' = $s.apiKey } -OutFile "$env:TEMP\diag-dump.zip"
 ```
 
-Log scan (bug D and the rest):
+Log scan, from `frontend/` (the dev build's logs are under `Mail.dev`; `--strict=true` also fails on any other ERROR):
 
 ```powershell
-$logs = "$env:LOCALAPPDATA\VoxRox\Mail\logs"
-Select-String -Path "$logs\mail.log" -Pattern 'ERROR|WARN' | Measure-Object
-Select-String -Path "$logs\mail.log","$logs\mail.log.*" -Pattern 'failed to create new store connection' | Measure-Object  # bug D <=~1/day = noise
-Select-String -Path "$logs\audit.log" -Pattern 'CRITICAL'
+npm run release:scan-logs
+npm run release:scan-logs -- --logs "$env:LOCALAPPDATA\VoxRox\Mail.dev\logs" --since 2026-09-17T08:00
 ```

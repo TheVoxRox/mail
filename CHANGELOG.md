@@ -59,6 +59,7 @@ Entries before 2026-09-17 predate that split and are left as written.
 - **The Actions cache keeps the newest entry per ref and deletes what closed pull requests left behind.** Least-recently-used eviction over the 10 GB quota, pushed there by 2.6 GiB Cargo caches, was what removed the warm NVD database between nightly runs (#504, #507, #508).
 - **`npm run release:status` names the candidate sheet it read** when several share a date, instead of only counting them (#505).
 - **The release checklist keeps one short candidate sheet.** A sheet is a record: one line per section with its evidence, plus findings; a sheet replaced by a re-cut is deleted and its open findings move to the new one, which took the appendix from seven v0.1.0 sheets to one and the file from 95 kB to 48 kB (#514).
+- **`npm run release:scan-logs` replaces the `Select-String` checks in §7 and §8 of the release checklist.** It reads the rotated `.gz` files the old search read as gzip bytes, so everything logged before midnight had counted as clean; it sorts the transient IMAP hiccup into its three states, groups every other ERROR and WARN, lists CRITICAL audit records, and fails on an unmasked address, a Message-ID, a token or the session API key (#515).
 
 ## [0.1.0] - 2026-09-15
 
