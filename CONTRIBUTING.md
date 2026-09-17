@@ -413,7 +413,8 @@ text, and a translated quote stops matching the screen.
 
 `CHANGELOG.md` is written in English from 2026-09-09 on; older entries are
 Czech and stay that way, because a changelog is a dated record of what was
-written at the time. The two task files (`todo.md`, `todo-archive.md`) predate
+written at the time. How an entry is shaped, user-visible against internal,
+is in the header of the file itself. The two task files (`todo.md`, `todo-archive.md`) predate
 all of this and are left alone.
 
 ## Filing Issues and PRs
