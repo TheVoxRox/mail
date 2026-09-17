@@ -117,14 +117,16 @@ Audit log:
 ${app.data-dir}/logs/audit.log
 ```
 
-The main log rotates at `10MB`, keeps 7 files and caps at `100MB`. The audit log has a longer retention: 365 days, `10MB` per file, `500MB` cap.
+The main log rotates daily and at `10MB`, keeps 7 days and caps at `100MB`. The audit log has a longer retention: 365 days, `10MB` per file, `500MB` cap. Both compress what they rotate out (`mail.log.2026-09-15.0.gz`, `audit.2026-09-15.0.log.gz`), so a text search over the folder sees only the live files.
 
-Quick search for the latest errors in Windows PowerShell:
+Quick search for the latest errors in the live files, in Windows PowerShell:
 
 ```powershell
 Select-String "$env:LOCALAPPDATA\VoxRox\Mail\logs\mail.log" -Pattern "ERROR|WARN|CRITICAL" | Select-Object -Last 80
 Select-String "$env:LOCALAPPDATA\VoxRox\Mail\logs\audit.log" -Pattern "FAILURE|CRITICAL" | Select-Object -Last 80
 ```
+
+The full scan, rotated files included, runs from a repository checkout against the logs folder (a copy of a user's folder works too): `npm run release:scan-logs -- --logs <folder>` from `frontend/`. It groups every ERROR and WARN, sorts the transient IMAP hiccup into its three states, lists CRITICAL audit records, and fails on anything a log must not hold — see RELEASE_CHECKLIST §7.
 
 ## Database and backups
 
