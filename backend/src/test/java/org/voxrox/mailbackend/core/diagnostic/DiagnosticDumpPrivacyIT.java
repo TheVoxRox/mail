@@ -34,6 +34,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ContextConfiguration;
+import org.voxrox.mailbackend.core.config.StorageProperties;
 import org.voxrox.mailbackend.core.init.StorageContextInitializer;
 import org.voxrox.mailbackend.feature.account.dto.AccountCreateRequest;
 import org.voxrox.mailbackend.feature.account.dto.MailServerSettings;
@@ -65,7 +66,10 @@ import tools.jackson.databind.ObjectMapper;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         // Keep the background scheduler out: the only sync runs are the explicit ones.
-        "mail.client.sync.initial-delay=PT1H"})
+        "mail.client.sync.initial-delay=PT1H",
+        // A context of its own: the other GreenMail tests share this setup,
+        // and their cached context has another data dir and session key.
+        "mail.test-context=DiagnosticDumpPrivacyIT"})
 @ContextConfiguration(initializers = StorageContextInitializer.class)
 class DiagnosticDumpPrivacyIT {
 
@@ -118,6 +122,8 @@ class DiagnosticDumpPrivacyIT {
     private TokenCache tokenCache;
     @Autowired
     private ObjectMapper objectMapper;
+    @Autowired
+    private StorageProperties storageProperties;
 
     @Test
     @DisplayName("The dump carries no address, credential, token, API key, message content or user-named folder")
@@ -135,7 +141,8 @@ class DiagnosticDumpPrivacyIT {
         assertThat(mailSyncService.performFullSyncCycle(account, CUSTOM_FOLDER)).isTrue();
         cacheToken(account.getId());
 
-        JsonNode session = objectMapper.readTree(Files.readString(DATA_DIR.resolve("session.json")));
+        JsonNode session = objectMapper
+                .readTree(Files.readString(storageProperties.getDataPath().resolve("session.json")));
         String apiKey = session.get("apiKey").asString();
         HttpResponse<byte[]> response = HttpClient.newHttpClient()
                 .send(HttpRequest
