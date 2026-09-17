@@ -270,15 +270,16 @@ async function spawnBackendSidecar(): Promise<void> {
 	command.stdout.on('data', (line) => console.info(`[mail] ${line}`));
 	command.stderr.on('data', (line) => console.warn(`[mail] ${line}`));
 	command.on('close', (payload) => {
-		void handleUnexpectedExit(
-			generation,
-			new Error(formatSidecarExitMessage(payload.code, payload.signal))
-		);
+		void handleUnexpectedExit(generation, describeSidecarExit(payload.code, payload.signal));
 	});
 	command.on('error', (message) => {
 		void handleUnexpectedExit(
 			generation,
-			new Error(`Failed to start the backend sidecar: ${message}`)
+			new SidecarExitError(
+				`Failed to start the backend sidecar: ${message}`,
+				'app.backendExit.spawnFailed',
+				{ detail: message }
+			)
 		);
 	});
 
@@ -309,6 +310,11 @@ async function handleUnexpectedExit(generation: number, error: Error): Promise<v
 
 	if (runtime.stopRequested) {
 		backendSidecarState.set({ status: 'stopped' });
+		return;
+	}
+
+	if (error instanceof SidecarExitError && error.permanent) {
+		backendSidecarState.set({ status: 'error', error });
 		return;
 	}
 
@@ -349,33 +355,110 @@ function consumeE2ESidecarFailure(): Error | null {
 	if (mode === 'always') {
 		return new Error('E2E sidecar failed to start');
 	}
+	// `exit:65` fails once as a backend exiting with that code would, so the
+	// boot error view can be checked with the text the user would read.
+	const exit = /^exit:(\d+)$/.exec(mode ?? '');
+	if (exit) {
+		localStorage.removeItem(E2E_SIDECAR_FAILURE_KEY);
+		return describeSidecarExit(Number(exit[1]), null);
+	}
 	return null;
 }
 
-/**
- * Maps a backend sidecar exit code to a user-readable message. Stays
- * consistent with `MailBackendApplication.EXIT_CONFIG = 78` (configuration /
- * startup error — typically an explicitly chosen port that was already
- * occupied).
- *
- * Deliberately does not log the raw `code=X, signal=Y` text — that belongs
- * in the dev console only (stdout/stderr handlers above), not in front of
- * the user.
- *
- * Note: this runs in the pre-i18n boot path (BootErrorView is shown before
- * svelte-i18n initialises), so the copy is in English by design — matches
- * the backend GlobalExceptionHandler English fallback.
+/*
+ * Exit codes of a start the backend refused for a reason it can name:
+ * EXIT_CONFIG in MailBackendApplication, and the reasons of
+ * core/lifecycle/StartupFailure, whose test pins the same values. They are
+ * sysexits.h codes.
  */
-function formatSidecarExitMessage(code: number | null, signal: number | null): string {
-	if (code === 78) {
-		return 'The application is already running in the background. Check the taskbar or Task Manager (process "voxrox-mail-backend"), or wait about 30 seconds and try again.';
+const EXIT_DATABASE_DAMAGED = 65;
+const EXIT_SCHEMA_MISMATCH = 70;
+const EXIT_STORAGE_UNAVAILABLE = 74;
+const EXIT_ALREADY_RUNNING = 78;
+
+type MessageValues = Record<string, string | number>;
+
+/**
+ * A backend exit the boot error view can explain. `message` stays English, for
+ * the console and the log; `messageKey` and `values` are what the view shows,
+ * in the user's language — i18n is initialised at module import, before any
+ * boot view renders. `permanent` marks an exit a restart cannot fix, so the
+ * restart budget is not spent on it and the user reads the reason at once.
+ */
+export class SidecarExitError extends Error {
+	readonly messageKey: string;
+	readonly values: MessageValues;
+	readonly permanent: boolean;
+
+	constructor(message: string, messageKey: string, values: MessageValues = {}, permanent = false) {
+		super(message);
+		this.name = 'SidecarExitError';
+		this.messageKey = messageKey;
+		this.values = values;
+		this.permanent = permanent;
 	}
-	if (code === 130 || code === 143) {
-		return `Backend was terminated by an external signal (code ${code}). Try restarting the application.`;
+}
+
+/**
+ * Whether an error carries a message key. By name rather than `instanceof`:
+ * HMR and `vi.resetModules()` hand a reader a different copy of the class than
+ * the module instance that created the error.
+ */
+export function isSidecarExitError(error: Error): error is SidecarExitError {
+	return error.name === 'SidecarExitError' && 'messageKey' in error;
+}
+
+/**
+ * Maps a backend exit to what the user is told. Deliberately does not show the
+ * raw `code=X, signal=Y` pair on its own — that belongs in the dev console
+ * (stdout/stderr handlers above) — but keeps the code in the generic cases,
+ * where it is what support will ask for.
+ */
+function describeSidecarExit(code: number | null, signal: number | null): SidecarExitError {
+	switch (code) {
+		case EXIT_DATABASE_DAMAGED:
+			return new SidecarExitError(
+				'The backend database is damaged (exit 65); it has to be restored from a backup.',
+				'app.backendExit.databaseDamaged',
+				{},
+				true
+			);
+		case EXIT_SCHEMA_MISMATCH:
+			return new SidecarExitError(
+				'This build cannot open the installed database schema (exit 70).',
+				'app.backendExit.schemaMismatch',
+				{},
+				true
+			);
+		case EXIT_STORAGE_UNAVAILABLE:
+			return new SidecarExitError(
+				'The backend cannot open its data directory (exit 74).',
+				'app.backendExit.storageUnavailable'
+			);
+		case EXIT_ALREADY_RUNNING:
+			return new SidecarExitError(
+				'The application is already running in the background (exit 78).',
+				'app.backendExit.alreadyRunning'
+			);
+		case 130:
+		case 143:
+			return new SidecarExitError(
+				`Backend was terminated by an external signal (code ${code}).`,
+				'app.backendExit.terminated',
+				{ code }
+			);
 	}
 	if (code === null && signal !== null) {
-		return `Backend was terminated by signal #${signal}. Try restarting the application.`;
+		return new SidecarExitError(
+			`Backend was terminated by signal #${signal}.`,
+			'app.backendExit.signal',
+			{ signal }
+		);
 	}
 	const codeText = code === null ? 'unknown' : String(code);
-	return `Backend failed to start (code ${codeText}). Try restarting the application; if the problem persists, check the logs.`;
+	return new SidecarExitError(
+		`Backend failed to start (code ${codeText}).`,
+		'app.backendExit.failed',
+		{ code: codeText }
+	);
 }

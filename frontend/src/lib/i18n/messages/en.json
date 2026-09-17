@@ -20,6 +20,16 @@
 		},
 		"retry": "Try again",
 		"restartBackend": "Restart service",
+		"backendExit": {
+			"databaseDamaged": "The mail database on this computer is damaged, so the application cannot start. Restarting will not help; the database has to be restored from a backup. The steps are in the user guide under “Damaged database”.",
+			"schemaMismatch": "This version of the application cannot open your data, although the data is intact. Install the latest version from voxrox.org; an older installer cannot be used.",
+			"storageUnavailable": "The application cannot open its data folder. Check that the disk is not full and that no other copy of the application is running, then try again.",
+			"alreadyRunning": "The application is already running in the background. Check the taskbar or Task Manager (process \"voxrox-mail-backend\"), or wait about 30 seconds and try again.",
+			"terminated": "The system stopped the application service (code {code}). Try starting the application again.",
+			"signal": "The application service was stopped by signal {signal}. Try starting the application again.",
+			"failed": "The application service failed to start (code {code}). Try starting the application again, and if that does not help, contact support.",
+			"spawnFailed": "The application service could not be started: {detail}"
+		},
 		"downloadDiagnostic": "Download diagnostics",
 		"downloadingDiagnostic": "Downloading diagnostics…",
 		"diagnosticUnavailable": "Diagnostics will be available after the secure backend connection is loaded.",

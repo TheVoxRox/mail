@@ -1,5 +1,6 @@
 package org.voxrox.mailbackend.core.config;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
@@ -26,28 +27,57 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.flyway.autoconfigure.FlywayMigrationStrategy;
 import org.voxrox.mailbackend.core.backup.DatabaseBackupService;
 import org.voxrox.mailbackend.core.init.StartupTimingService;
+import org.voxrox.mailbackend.core.lifecycle.StartupFailure;
+import org.voxrox.mailbackend.core.lifecycle.StartupFailure.Reason;
 
 class DatabaseConfigTest {
 
     @Test
-    @DisplayName("verifySqlitePragmas passes when quick_check returns ok")
-    void verifySqlitePragmasPassesWhenQuickCheckIsOk() throws Exception {
-        DatabaseConfig config = new DatabaseConfig(dataSourceWithResults("wal", "1", "1", "5000", "-20000", "ok"),
-                new StartupTimingService());
+    @DisplayName("verifySqlitePragmas reads the PRAGMAs and leaves the integrity check to the migration hook")
+    void verifySqlitePragmasDoesNotRepeatTheIntegrityCheck() throws Exception {
+        DataSource dataSource = dataSourceWithResults("wal", "1", "1", "5000", "-20000", "*** in database main ***");
+        DatabaseConfig config = new DatabaseConfig(dataSource, new StartupTimingService());
 
         assertThatCode(config::verifySqlitePragmas).doesNotThrowAnyException();
+        verify(dataSource.getConnection().createStatement(), never()).executeQuery("PRAGMA quick_check;");
     }
 
     @Test
-    @DisplayName("verifySqlitePragmas fail-fasts with recovery guidance when quick_check fails")
-    void verifySqlitePragmasFailsWhenQuickCheckReportsCorruption() throws Exception {
-        DatabaseConfig config = new DatabaseConfig(
+    @DisplayName("a damaged database fails startup before Flyway reads it and before any backup")
+    void preMigrationHookFailsOnDamagedDatabase() throws Exception {
+        DatabaseBackupService backupService = mock(DatabaseBackupService.class);
+        Flyway flyway = flywayWith(validationSuccess(), 1);
+        FlywayMigrationStrategy strategy = new DatabaseConfig(
                 dataSourceWithResults("wal", "1", "1", "5000", "-20000", "*** in database main ***"),
-                new StartupTimingService());
+                new StartupTimingService()).preMigrationBackupStrategy(backupService);
 
-        assertThatThrownBy(config::verifySqlitePragmas).isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Application failed to start after update").hasMessageContaining("backup-pre-v")
+        assertThatThrownBy(() -> strategy.migrate(flyway))
+                .isInstanceOfSatisfying(StartupFailure.class,
+                        failure -> assertThat(failure.reason()).isEqualTo(Reason.DATABASE_DAMAGED))
+                .hasMessageContaining("database is damaged").hasMessageContaining("backup-pre-v")
                 .hasMessageContaining("OPERATIONS.md");
+
+        // A damaged file is neither migrated nor kept as if it were a restore point.
+        verify(flyway, never()).validateWithResult();
+        verify(backupService, never()).createPreMigrationBackup();
+        verify(flyway, never()).migrate();
+    }
+
+    @Test
+    @DisplayName("a backup that cannot be written fails startup as a storage problem, before migrate")
+    void preMigrationHookFailsOnBackupFailure() throws Exception {
+        DatabaseBackupService backupService = mock(DatabaseBackupService.class);
+        when(backupService.createPreMigrationBackup())
+                .thenThrow(new IllegalStateException("Failed to create pre-migration DB backup"));
+        Flyway flyway = flywayWith(validationSuccess(), 1);
+        FlywayMigrationStrategy strategy = strategy(backupService);
+
+        assertThatThrownBy(() -> strategy.migrate(flyway))
+                .isInstanceOfSatisfying(StartupFailure.class,
+                        failure -> assertThat(failure.reason()).isEqualTo(Reason.STORAGE_UNAVAILABLE))
+                .hasMessageContaining("free disk space");
+
+        verify(flyway, never()).migrate();
     }
 
     @Test
@@ -81,7 +111,9 @@ class DatabaseConfigTest {
         Flyway flyway = flywayWith(validationFailure(CoreErrorCode.CHECKSUM_MISMATCH), 0);
         FlywayMigrationStrategy strategy = strategy(backupService);
 
-        assertThatThrownBy(() -> strategy.migrate(flyway)).isInstanceOf(IllegalStateException.class)
+        assertThatThrownBy(() -> strategy.migrate(flyway))
+                .isInstanceOfSatisfying(StartupFailure.class,
+                        failure -> assertThat(failure.reason()).isEqualTo(Reason.SCHEMA_MISMATCH))
                 .hasMessageContaining("V1 CHECKSUM_MISMATCH").hasMessageContaining("will NOT help")
                 .hasMessageContaining("OPERATIONS.md");
 

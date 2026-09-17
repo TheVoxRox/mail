@@ -140,7 +140,7 @@ busy_timeout=5000
 cache_size=-20000
 ```
 
-On startup the backend verifies `PRAGMA quick_check`; anything other than `ok` fails the start fast and writes `db_corruption_detected` into the audit log.
+On startup, before Flyway reads or migrates anything, the backend runs `PRAGMA quick_check`. A damaged file (a result other than `ok`, or a file SQLite refuses as not a database) fails the start with exit code 65 and writes `db_corruption_detected` into the audit log; a damaged database is therefore never snapshotted or migrated. A database that cannot be opened at all (a full disk, missing permissions, a file another process holds) fails with exit code 74. See "Damaged database" below and the exit code table in "Sidecar startup failures".
 
 A safe backup:
 
@@ -164,6 +164,32 @@ SELECT version, success FROM flyway_schema_history ORDER BY installed_rank;
 ```
 
 `quick_check` must return `ok`; Flyway V1 must have `success = 1`.
+
+### Damaged database
+
+The start fails with exit code 65, the application says the mail database is damaged, and `audit.log` holds `db_corruption_detected`. Restarting does not help, so the client does not spend its restart budget on it. Two ways out, in this order.
+
+**Restore the newest pre-migration backup.** A start that has a migration to apply takes one first (`db/mail.db.backup-pre-v<version>`), so the newest holds the state from just before the last schema change, and whatever changed after it is not in it. The first start of a fresh installation counts too and snapshots an empty database, so restoring that one is the same as starting empty. The procedure is covered step by step by `DatabaseRecoveryTest` (`backend/src/test/java/org/voxrox/mailbackend/core/config/DatabaseRecoveryTest.java`):
+
+```powershell
+# 1. Quit the application; Task Manager must show no voxrox-mail-backend process
+$db = "$env:LOCALAPPDATA\VoxRox\Mail\db"
+# 2. Find the newest backup
+$backup = Get-ChildItem "$db\mail.db.backup-pre-v*" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+# 3. Move the damaged database aside and remove its WAL and SHM (an old WAL would
+#    be applied to the restored file and could damage it)
+Move-Item "$db\mail.db" "$db\mail.db.broken"
+Remove-Item "$db\mail.db-wal", "$db\mail.db-shm" -ErrorAction SilentlyContinue
+# 4. Put the backup in place
+Copy-Item $backup.FullName "$db\mail.db"
+# 5. Start the application; the version that took the backup migrates it again
+```
+
+If the restored database is damaged again by that same start, the update itself is the cause: wait for a fixed version rather than retrying, because the downgrade installer is blocked.
+
+**Start with an empty database** when there is no usable backup: step 3 without step 4. The application starts as a fresh installation. Mail comes back from the servers once the accounts are added again; what lived only in the database (the accounts, contacts and labels, and drafts never saved to the server) is gone. Keep `mail.db.broken`: `sqlite3 mail.db.broken ".recover"` can often salvage part of it for support.
+
+Report the case with the `db_corruption_detected` line from `audit.log`.
 
 ## JVM tuning and Spring AOT
 
@@ -283,15 +309,16 @@ Updates arrive as a whole Tauri bundle (frontend + backend sidecar together). A 
 What happens when a new version starts:
 
 1. The backend starts from the same `${app.data-dir}` as the previous version; the installer does not delete the data dir.
-2. Before `flyway.migrate()`, `DatabaseBackupService` writes a consistent snapshot of the DB through `VACUUM INTO` as `db/mail.db.backup-pre-v<currentAppVersion>` (idempotent — a no-op if one already exists for that version). `VACUUM INTO` makes a transactionally consistent, self-contained copy **including committed data still sitting in an uncheckpointed `-wal`** — a plain file copy of the main `.db` would silently drop the last transactions from the WAL after an unclean shutdown (crash / killed sidecar), and the restore point would be incomplete.
-3. It prunes old backups outside the retention window (default: the 3 newest, see `mail.backup.retention-count`).
-4. It applies the cumulative Flyway migrations. Before the first release there is
+2. `PRAGMA quick_check` runs before anything reads or copies the database; a damaged one stops the start here (exit 65, "Damaged database").
+3. Before `flyway.migrate()`, `DatabaseBackupService` writes a consistent snapshot of the DB through `VACUUM INTO` as `db/mail.db.backup-pre-v<currentAppVersion>` (idempotent — a no-op if one already exists for that version). `VACUUM INTO` makes a transactionally consistent, self-contained copy **including committed data still sitting in an uncheckpointed `-wal`** — a plain file copy of the main `.db` would silently drop the last transactions from the WAL after an unclean shutdown (crash / killed sidecar), and the restore point would be incomplete.
+4. It prunes old backups outside the retention window (default: the 3 newest, see `mail.backup.retention-count`).
+5. It applies the cumulative Flyway migrations. Before the first release there is
    a single `V1__init.sql` (older V2/V3 were repeatedly folded into it, see
    `backend/CHANGELOG.md`); from the v0.1.0 publish on it is frozen and every
    further schema change arrives as `V2+` (the rule is in `RELEASE_CHECKLIST.md`
    §8b).
-5. `verifySqlitePragmas` verifies `PRAGMA quick_check`. A failure → fail-fast with a recovery message + the audit event `startup_health_gate_failed`.
-6. The `app_started` audit record captures `appVersion`, `dbSchemaVersion` and `previousAppVersion` (derived from the newest backup file).
+6. `verifySqlitePragmas` logs the effective PRAGMAs once the application has started.
+7. The `app_started` audit record captures `appVersion`, `dbSchemaVersion` and `previousAppVersion` (derived from the newest backup file).
 
 The Tauri client reads `dbSchemaVersion` from the handshake response and logs it into the diagnostic dump for post-update support.
 
@@ -299,27 +326,9 @@ Manual fallback if the Tauri updater fails (network timeout, signature mismatch,
 
 ### Update troubleshooting
 
-`The sidecar does not start after an update` (the audit log contains `startup_health_gate_failed`) → restore the DB from the newest backup:
+`The sidecar does not start after an update` with `db_corruption_detected` in the audit log (exit code 65) → follow "Damaged database" above.
 
-```powershell
-# 1. Stop the backend (kill the Tauri / Java sidecar process)
-# 2. Find the newest backup
-Get-ChildItem "$env:LOCALAPPDATA\VoxRox\Mail\db\mail.db.backup-pre-v*" |
-  Sort-Object LastWriteTime -Descending | Select-Object -First 1
-# 3. Move the damaged DB aside + clear its stale WAL/SHM (otherwise the old WAL
-#    would be applied to the restored DB and could damage it)
-Move-Item "$env:LOCALAPPDATA\VoxRox\Mail\db\mail.db" `
-          "$env:LOCALAPPDATA\VoxRox\Mail\db\mail.db.broken"
-Remove-Item "$env:LOCALAPPDATA\VoxRox\Mail\db\mail.db-wal", `
-            "$env:LOCALAPPDATA\VoxRox\Mail\db\mail.db-shm" -ErrorAction SilentlyContinue
-# 4. Restore from the backup (replace <BACKUP> with the file name from step 2)
-Copy-Item "$env:LOCALAPPDATA\VoxRox\Mail\db\<BACKUP>" `
-          "$env:LOCALAPPDATA\VoxRox\Mail\db\mail.db"
-# 5. Run the support-approved recovery build/procedure (the downgrade installer is blocked)
-# 6. Report the bug with a snippet of audit.log
-```
-
-`The sidecar does not start after an update` with the audit event `db_migration_altered_after_apply` (detail `V<n> CHECKSUM_MISMATCH` / `DESCRIPTION_MISMATCH` / `TYPE_MISMATCH`) → **restoring from a backup will NOT help here and the procedure above does not apply to this case.** The database is fine; the faulty part is a build carrying a different version of an already-applied migration than the one recorded in `flyway_schema_history`. It can only arise by editing an existing migration after the release instead of adding a new one (the build gate `FlywayBaselineChecksumTest` stands against that).
+`The sidecar does not start after an update` with the audit event `db_migration_altered_after_apply` (exit code 70) (detail `V<n> CHECKSUM_MISMATCH` / `DESCRIPTION_MISMATCH` / `TYPE_MISMATCH`) → **restoring from a backup will NOT help here and the procedure above does not apply to this case.** The database is fine; the faulty part is a build carrying a different version of an already-applied migration than the one recorded in `flyway_schema_history`. It can only arise by editing an existing migration after the release instead of adding a new one (the build gate `FlywayBaselineChecksumTest` stands against that).
 
 Procedure:
 
@@ -328,7 +337,7 @@ Procedure:
 3. The fix is roll-forward: ship a higher version whose migrations match (typically revert the edit to that migration + a new `V<n+1>__*.sql` carrying the intended change). Downgrading with the installer is blocked.
 4. If the faulty build already went out to a channel, re-point the beta channel to the last good tag (`beta-channel.yml`, `force=true`) — see "Release channels".
 
-`db_backup_failed` in the audit log at startup → check the free disk space and the permissions on `${app.data-dir}/db/`. The backup cannot fail silently — if it does, Flyway migrate does not run at all and the user stays on the previous schema version.
+`db_backup_failed` in the audit log at startup (exit code 74) → check the free disk space and the permissions on `${app.data-dir}/db/`. The backup cannot fail silently — if it does, Flyway migrate does not run at all and the user stays on the previous schema version.
 
 `The update notification does not appear` (the Tauri client does not report a new version) → check the `tauri.conf.json` `plugins.updater.endpoints` URL (in Tauri 2 the updater is a plugin, **not** `bundle.updater` — looking under `bundle` finds nothing) and that the manifest signing key matches `pubkey`. On the beta channel, additionally verify that the `beta` release holds a fresh `latest.json` (see Release channels below).
 
@@ -501,17 +510,27 @@ session.json but no .ready         the backend crashed between handshake and the
 health answers, UI does not        a problem in the Tauri client / API client
 ```
 
+The exit code of the backend process says which failure it was; the client shows the matching message:
+
+```text
+65   the database is damaged                        "Damaged database"
+70   this build's migrations do not match the DB     "Update troubleshooting"
+74   the database cannot be opened or written        disk space, permissions, another instance
+78   the port is taken or misconfigured              another instance is running
+1    any other failed start                         read mail.log
+```
+
 What to look for in the log:
 
 ```text
 The explicit port is taken         another backend instance or a foreign process
-SQLite quick_check failed          suspected DB corruption, restore from a backup
+SQLite database is damaged         see "Damaged database"
 Crypto self-test failed            wrong or changed crypto key/salt
 GOOGLE_OAUTH_CLIENT_* missing      missing OAuth configuration for the dev/prod build
 MICROSOFT_OAUTH_CLIENT_* missing   missing OAuth configuration for Outlook/Exchange Online
 ```
 
-When the sidecar crashes, the Tauri client should attempt a limited restart and then show the path to the logs. The backend is restart-idempotent: Flyway is a no-op on a matching schema, the SQLite WAL recovers automatically, and IMAP connections are established again.
+When the sidecar exits, the Tauri client restarts it up to three times within a minute and then shows what the exit code means; exits 65 and 70 skip the restarts, since a restart cannot fix them. The backend is restart-idempotent: Flyway is a no-op on a matching schema, the SQLite WAL recovers automatically, and IMAP connections are established again.
 
 ## Release smoke
 

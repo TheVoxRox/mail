@@ -276,6 +276,18 @@ test.describe('MSW bootstrap', () => {
 		await expect(page.getByRole('heading', { name: 'Doručené' })).toBeVisible();
 	});
 
+	test('poškozená databáze se ohlásí srozumitelně a ne jako obecné selhání', async ({ page }) => {
+		await setMockFlags(page, { e2e: true, sidecarFailure: 'exit:65' });
+
+		await page.goto('/');
+
+		await expect(page.getByRole('heading', { name: 'Nelze nastartovat aplikaci' })).toBeVisible();
+		await expect(
+			page.getByText('Databáze pošty v tomto počítači je poškozená', { exact: false })
+		).toBeVisible();
+		await expect(page.getByText('exit 65')).toHaveCount(0);
+	});
+
 	test('client error reporter pošle bezpečný payload na interní endpoint', async ({ page }) => {
 		await setMockFlags(page, { e2e: true });
 

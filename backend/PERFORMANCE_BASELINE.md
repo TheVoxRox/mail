@@ -60,6 +60,7 @@ timing: phase=<key> durationMs=<ms>`). The key phases:
 | Flyway migration            | `db.flyway-migrate`                 |                  50-300 ms | unchanged (no-op when ready) |
 | Pre-migration backup        | `db.pre-migration-backup`           |                  50-200 ms | **0 ms** (when none pending) |
 | SQLite PRAGMA verify        | `db.verify-pragmas`                 |                  30-100 ms |                    unchanged |
+| SQLite integrity check      | `db.integrity-check`                |                          — |          grows with the file |
 | Crypto subsystem init       | `crypto.service-init`               |                     <10 ms |     unchanged (already lazy) |
 | Storage permissions         | `storage.permissions`               |                   10-50 ms |                    unchanged |
 | Handshake session write     | `handshake.session-write`           |                     <10 ms |                    unchanged |

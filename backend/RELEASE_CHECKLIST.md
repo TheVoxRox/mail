@@ -207,8 +207,8 @@ the item stayed here.
 - [ ] Restarting the sidecar restores health and ordinary API calls.
 - [ ] Reboot the computer in the middle of a sync.
 - [ ] The next start goes through SQLite WAL recovery and the application continues.
-- [ ] A damaged DB (`mail.db` or the WAL) — the application starts into a readable error state, not a silent crash.
-- [ ] Restore from the backup `db/mail.db.backup-pre-v*` (the pre-migration snapshot) — after replacing the DB with the backup the app starts and the data matches the snapshot.
+- [ ] A damaged DB (`mail.db` or the WAL) — the application starts into a readable error state, not a silent crash. The backend half is covered by [DatabaseRecoveryTest](src/test/java/org/voxrox/mailbackend/core/config/DatabaseRecoveryTest.java): a file that is not a database and one with damaged pages both stop the start before Flyway, as exit 65, with nothing written. By hand only the shell half: the boot error view says the database is damaged, at once and without restarts.
+- [ ] Restore from the backup `db/mail.db.backup-pre-v*` (the pre-migration snapshot) — after replacing the DB with the backup the app starts and the data matches the snapshot. The same test follows OPERATIONS.md "Damaged database" step by step on a real file, so this needs a hand only when that procedure changes.
 - [ ] Disk full during a sync — the sync fails in a controlled way (a readable error, no DB corruption) and continues once space is freed.
 
 ## 7. Diagnostics

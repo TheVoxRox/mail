@@ -106,7 +106,8 @@ export interface MockFlags {
 	readinessDelayMs?: number;
 	readinessFailures?: number;
 	sessionDelayMs?: number;
-	sidecarFailure?: 'once' | 'always';
+	/** `exit:<code>` fails once the way a backend exiting with that code does. */
+	sidecarFailure?: 'once' | 'always' | `exit:${number}`;
 }
 
 /** Booleans go in as the '1' the readers check for; everything else as-is. */

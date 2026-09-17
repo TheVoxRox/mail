@@ -9,6 +9,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.voxrox.mailbackend.core.init.StorageContextInitializer;
 import org.voxrox.mailbackend.core.lifecycle.ParentProcessWatchdog;
+import org.voxrox.mailbackend.core.lifecycle.StartupFailure;
 
 @SpringBootApplication
 public class MailBackendApplication {
@@ -52,9 +53,10 @@ public class MailBackendApplication {
              * A failed context refresh leaves non-daemon threads behind, so the JVM would
              * keep running after "Application run failed" — the orphan sidecar then holds
              * the data dir and the next start dies with EXIT_CONFIG ("already running").
-             * Spring has already logged the failure; force the process down.
+             * Spring has already logged the failure; force the process down, with the code
+             * of a failure the client can name (StartupFailure) or 1.
              */
-            System.exit(1);
+            System.exit(StartupFailure.exitCodeOf(t));
         }
     }
 

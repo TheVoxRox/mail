@@ -152,6 +152,30 @@ zálohujte si celý adresář `%LOCALAPPDATA%\VoxRox\Mail` (bezpečný postup vi
 [OPERATIONS.md](../backend/OPERATIONS.md)). Software je poskytován „tak jak je",
 bez záruky (licence MIT).
 
+## Poškozená databáze
+
+Když aplikace při startu oznámí, že je databáze pošty poškozená, restart
+nepomůže. Databázi obnovíte ze zálohy, kterou aplikace dělá sama:
+
+1. Aplikaci zavřete. Ve Správci úloh zkontrolujte, že už neběží proces
+   `voxrox-mail-backend`.
+2. Otevřete složku `%LOCALAPPDATA%\VoxRox\Mail\db` (cestu vložte do adresního
+   řádku Průzkumníka).
+3. Soubor `mail.db` přejmenujte na `mail.db.broken`. Soubory `mail.db-wal`
+   a `mail.db-shm` smažte, pokud ve složce jsou.
+4. Najděte nejnovější soubor, jehož jméno začíná `mail.db.backup-pre-v`,
+   zkopírujte ho do stejné složky a kopii přejmenujte na `mail.db`.
+5. Spusťte aplikaci.
+
+Záloha vzniká před každou aktualizací, která mění databázi, takže v ní chybí
+to, co přibylo potom. Pošta se ze serveru stáhne znovu, ale novější kontakty
+a štítky se ztratí.
+
+Když žádná záloha není nebo obnova nepomůže, vynechte krok 4. Aplikace se pak
+spustí jako po nové instalaci a účty bude potřeba přidat znovu; pošta se ze
+serveru stáhne znovu, kontakty a štítky se ztratí. Soubor `mail.db.broken` si
+ponechte, podpora z něj často dokáže část dat zachránit.
+
 ## Licence
 
 Aplikace a zdrojový kód jsou pod licencí MIT — viz `LICENSE` v rootu repa.

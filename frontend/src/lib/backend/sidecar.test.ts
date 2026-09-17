@@ -252,6 +252,19 @@ describe('ensureBackendSidecar — env / lifecycle short-circuits', () => {
 		expect(localStorage.getItem('mail.e2e.sidecarFailure')).toBe('always');
 	});
 
+	it('fails once as a backend exit when the failure mode names an exit code', async () => {
+		vi.stubEnv('VITE_E2E_MOCK', '1');
+		localStorage.setItem('mail.e2e.sidecarFailure', 'exit:65');
+		const mod = await freshModule();
+
+		await expect(mod.ensureBackendSidecar()).rejects.toMatchObject({
+			messageKey: 'app.backendExit.databaseDamaged'
+		});
+
+		expect(localStorage.getItem('mail.e2e.sidecarFailure')).toBeNull();
+		expect(commandSidecarMock).not.toHaveBeenCalled();
+	});
+
 	it('spawns the sidecar and sets state=running with the child PID on success', async () => {
 		const handle = createCommandHandle({ pid: 42 });
 		commandSidecarMock.mockReturnValue(handle.cmd);
@@ -369,6 +382,62 @@ describe('handleUnexpectedExit — exit code → user-readable error message', (
 			status: 'error',
 			error: expect.objectContaining({ message: expect.stringContaining('code 99') })
 		});
+	});
+
+	it.each([
+		[65, 'app.backendExit.databaseDamaged'],
+		[70, 'app.backendExit.schemaMismatch']
+	])(
+		'code %i is permanent: the error shows at once, with no restart spent on it',
+		async (code, messageKey) => {
+			const { mod, handle } = await setupSpawned();
+
+			handle.emitClose(code, null);
+			await Promise.resolve();
+
+			const state = get(mod.backendSidecarState);
+			expect(state).toMatchObject({ status: 'error', error: { messageKey } });
+			// One spawn: the one setupSpawned made. A restart would have spawned again.
+			expect(commandSidecarMock).toHaveBeenCalledTimes(1);
+		}
+	);
+
+	it('code 74 (storage unavailable) may clear up, so it goes through the restart budget first', async () => {
+		const { mod, handle } = await setupSpawned();
+
+		handle.emitClose(74, null);
+		await Promise.resolve();
+		expect(get(mod.backendSidecarState)).toMatchObject({ status: 'restarting' });
+
+		await emitNTimes(() => handle.emitClose(74, null), 3);
+		expect(get(mod.backendSidecarState)).toMatchObject({
+			status: 'error',
+			error: { messageKey: 'app.backendExit.storageUnavailable' }
+		});
+	});
+
+	it('the generic exit carries its code into the translated message', async () => {
+		const { mod, handle } = await setupSpawned();
+
+		await emitNTimes(() => handle.emitClose(99, null), 4);
+
+		const state = get(mod.backendSidecarState);
+		expect(state.status).toBe('error');
+		if (state.status !== 'error') return;
+		expect(mod.isSidecarExitError(state.error)).toBe(true);
+		expect(state.error).toMatchObject({
+			messageKey: 'app.backendExit.failed',
+			values: { code: '99' }
+		});
+	});
+
+	it('isSidecarExitError tells a keyed exit from any other error', async () => {
+		const mod = await freshModule();
+
+		expect(mod.isSidecarExitError(new mod.SidecarExitError('x', 'app.backendExit.failed'))).toBe(
+			true
+		);
+		expect(mod.isSidecarExitError(new Error('x'))).toBe(false);
 	});
 
 	it('error event (process failed to spawn) is surfaced as "Failed to start the backend sidecar"', async () => {
