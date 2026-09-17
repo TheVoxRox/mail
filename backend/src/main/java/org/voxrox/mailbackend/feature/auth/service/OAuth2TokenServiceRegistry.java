@@ -20,10 +20,12 @@ import org.voxrox.mailbackend.exception.MailOperationException;
 public class OAuth2TokenServiceRegistry {
 
     private final Map<String, OAuth2TokenService> byProvider;
+    private final TokenCache tokenCache;
 
-    public OAuth2TokenServiceRegistry(List<OAuth2TokenService> services) {
+    public OAuth2TokenServiceRegistry(List<OAuth2TokenService> services, TokenCache tokenCache) {
         this.byProvider = services.stream().collect(Collectors.collectingAndThen(
                 Collectors.toMap(OAuth2TokenService::providerName, Function.identity()), Map::copyOf));
+        this.tokenCache = tokenCache;
     }
 
     /**
@@ -46,7 +48,12 @@ public class OAuth2TokenServiceRegistry {
         return svc;
     }
 
+    /**
+     * Access tokens cached across all providers. Every service holds the same
+     * {@link TokenCache} bean, keyed by account id, so the count is that one cache
+     * read once; summing it per service counted each token once per provider.
+     */
     public int totalCachedTokens() {
-        return byProvider.values().stream().mapToInt(svc -> svc.getCacheStats().cachedTokens()).sum();
+        return tokenCache.size();
     }
 }

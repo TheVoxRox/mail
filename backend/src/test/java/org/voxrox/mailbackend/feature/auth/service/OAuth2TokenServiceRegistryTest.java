@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.time.Instant;
 import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
@@ -35,7 +36,8 @@ class OAuth2TokenServiceRegistryTest {
     void resolveReturnsMatchingService() {
         OAuth2TokenService google = serviceFor("google");
         OAuth2TokenService microsoft = serviceFor("microsoft");
-        OAuth2TokenServiceRegistry registry = new OAuth2TokenServiceRegistry(List.of(google, microsoft));
+        OAuth2TokenServiceRegistry registry = new OAuth2TokenServiceRegistry(List.of(google, microsoft),
+                new TokenCache());
 
         assertThat(registry.resolve("google")).isSameAs(google);
         assertThat(registry.resolve("microsoft")).isSameAs(microsoft);
@@ -44,7 +46,8 @@ class OAuth2TokenServiceRegistryTest {
     @Test
     @DisplayName("resolve throws INTERNAL_ERROR naming the provider when none is registered")
     void resolveUnknownProviderThrows() {
-        OAuth2TokenServiceRegistry registry = new OAuth2TokenServiceRegistry(List.of(serviceFor("google")));
+        OAuth2TokenServiceRegistry registry = new OAuth2TokenServiceRegistry(List.of(serviceFor("google")),
+                new TokenCache());
 
         assertThatThrownBy(() -> registry.resolve("yahoo")).isInstanceOf(MailOperationException.class)
                 .hasMessageContaining("yahoo").extracting("code").isEqualTo(ErrorCode.INTERNAL_ERROR);
@@ -53,7 +56,8 @@ class OAuth2TokenServiceRegistryTest {
     @Test
     @DisplayName("resolve(null) — an OAUTH2 account with no provider — fails fast instead of an NPE")
     void resolveNullProviderThrows() {
-        OAuth2TokenServiceRegistry registry = new OAuth2TokenServiceRegistry(List.of(serviceFor("google")));
+        OAuth2TokenServiceRegistry registry = new OAuth2TokenServiceRegistry(List.of(serviceFor("google")),
+                new TokenCache());
 
         assertThatThrownBy(() -> registry.resolve(null)).isInstanceOf(MailOperationException.class).extracting("code")
                 .isEqualTo(ErrorCode.INTERNAL_ERROR);
@@ -65,19 +69,19 @@ class OAuth2TokenServiceRegistryTest {
         OAuth2TokenService first = serviceFor("google");
         OAuth2TokenService second = serviceFor("google");
 
-        assertThatThrownBy(() -> new OAuth2TokenServiceRegistry(List.of(first, second)))
+        assertThatThrownBy(() -> new OAuth2TokenServiceRegistry(List.of(first, second), new TokenCache()))
                 .isInstanceOf(IllegalStateException.class);
     }
 
     @Test
-    @DisplayName("totalCachedTokens sums the per-service cache stats across all providers")
-    void totalCachedTokensSumsAcrossProviders() {
-        OAuth2TokenService google = serviceFor("google");
-        OAuth2TokenService microsoft = serviceFor("microsoft");
-        when(google.getCacheStats()).thenReturn(new OAuth2TokenService.CacheStats(3));
-        when(microsoft.getCacheStats()).thenReturn(new OAuth2TokenService.CacheStats(2));
-        OAuth2TokenServiceRegistry registry = new OAuth2TokenServiceRegistry(List.of(google, microsoft));
+    @DisplayName("totalCachedTokens counts the shared cache once, not once per provider")
+    void totalCachedTokensCountsTheSharedCacheOnce() {
+        TokenCache cache = new TokenCache();
+        cache.put(1L, new CachedToken("google-token", Instant.now().plusSeconds(3600)));
+        cache.put(2L, new CachedToken("microsoft-token", Instant.now().plusSeconds(3600)));
+        OAuth2TokenServiceRegistry registry = new OAuth2TokenServiceRegistry(
+                List.of(serviceFor("google"), serviceFor("microsoft")), cache);
 
-        assertThat(registry.totalCachedTokens()).isEqualTo(5);
+        assertThat(registry.totalCachedTokens()).isEqualTo(2);
     }
 }

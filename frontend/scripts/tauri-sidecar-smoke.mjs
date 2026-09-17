@@ -47,8 +47,10 @@ import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+import { findLeaks } from './lib/log-scan.mjs';
 import { terminateProcessTree, waitForExit } from './lib/process-tree.mjs';
 import { wait } from './lib/run.mjs';
+import { readZipEntries } from './lib/zip-entry.mjs';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -106,14 +108,17 @@ function send(url, { method = 'GET', origin, apiKey, timeoutMs, body, acceptLang
 			headers['Content-Length'] = String(payload.length);
 		}
 		const request = http.request(url, { method, headers, timeout: timeoutMs }, (response) => {
-			let text = '';
-			response.setEncoding('utf8');
-			response.on('data', (chunk) => {
-				text += chunk;
+			const chunks = [];
+			response.on('data', (chunk) => chunks.push(chunk));
+			response.on('end', () => {
+				const bytes = Buffer.concat(chunks);
+				resolve({
+					status: response.statusCode ?? 0,
+					headers: response.headers,
+					body: bytes.toString('utf8'),
+					bytes
+				});
 			});
-			response.on('end', () =>
-				resolve({ status: response.statusCode ?? 0, headers: response.headers, body: text })
-			);
 		});
 		request.on('timeout', () =>
 			request.destroy(new Error(`${method} ${url} timed out after ${timeoutMs} ms`))
@@ -373,6 +378,43 @@ async function assertCzechNumberFormatting(session) {
 	return `404 detail groups ${LOCALE_PROBE_ACCOUNT_ID} the Czech way`;
 }
 
+/*
+ * RELEASE_CHECKLIST §7 on the shipped artifact. The account above exists by now,
+ * so the dump has an address, a username and a password it could leak, and the
+ * data directory sits under the user's home, whose name it could leak too. Every
+ * entry is scanned, not a list of known ones, so a file added to the dump later
+ * is covered the day it appears. DiagnosticDumpPrivacyIT checks the same claim
+ * on synced mail under mvn verify; this checks the build a user runs.
+ */
+async function assertDumpHoldsNothingPersonal(session) {
+	const response = await probe(`${session.baseUrl}/internal/diagnostic-dump`, {
+		origin: WEBVIEW_ORIGIN,
+		apiKey: session.apiKey,
+		timeoutMs: 10_000
+	});
+	if (response.status !== 200) {
+		throw new Error(
+			`GET /internal/diagnostic-dump returned HTTP ${response.status} (expected 200) through the ` +
+				`packaged sidecar.`
+		);
+	}
+	const entries = readZipEntries(response.bytes);
+	// Paths are JSON strings in the dump, so a Windows home arrives with its
+	// backslashes escaped; the escaped form is the one to look for.
+	const home = JSON.stringify(os.homedir()).slice(1, -1);
+	const secrets = [session.apiKey, SMOKE_ACCOUNT.email, SMOKE_ACCOUNT.password, home];
+	const leaks = entries.flatMap(({ name, data }) =>
+		findLeaks(data.toString('utf8'), name, { secrets })
+	);
+	if (leaks.length > 0) {
+		throw new Error(
+			`The diagnostic dump carries what it must not: ` +
+				leaks.map((leak) => `${leak.file}:${leak.line} ${leak.kind} ${leak.hint}`).join('; ')
+		);
+	}
+	return `${entries.length} entries, nothing personal`;
+}
+
 async function removeWithRetry(dir) {
 	// The sidecar JVM briefly keeps the SQLite db handles after the process tree
 	// is torn down; one retry clears the transient lock. The dir lives under the
@@ -419,6 +461,7 @@ try {
 	const endpoints = await assertBootEndpoints(session);
 	const mapped = await assertMappedAccount(session);
 	const localeData = await assertCzechNumberFormatting(session);
+	const dump = await assertDumpHoldsNothingPersonal(session);
 	console.log(
 		`OK — webview origin ${WEBVIEW_ORIGIN} → ${result.webviewStatus} ` +
 			`(Access-Control-Allow-Origin ${result.allowOriginHeader}); foreign origin → ${result.foreignStatus}.`
@@ -426,6 +469,7 @@ try {
 	console.log(`OK - boot endpoints through ${WEBVIEW_ORIGIN}: ${endpoints.join(', ')}.`);
 	console.log(`OK - account mapped through the packaged sidecar: ${mapped}.`);
 	console.log(`OK - jdk.localedata live in the packaged runtime: ${localeData}.`);
+	console.log(`OK - diagnostic dump: ${dump}.`);
 } catch (error) {
 	if (stderr.trim()) {
 		console.error('--- sidecar stderr (tail) ---');

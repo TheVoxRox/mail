@@ -92,6 +92,44 @@ class DiagnosticDumpServiceTest {
                 .contains("\"durationMs\"");
     }
 
+    @Test
+    @DisplayName("Folders the user named and the home directory stay out of the dump")
+    void createDumpKeepsUserNamedFoldersAndHomeOut() throws Exception {
+        AccountEntity account = account();
+        // Stored without its role, as a sync that was not told the role stores it.
+        FolderSyncStateEntity inbox = new FolderSyncStateEntity(account, "INBOX", FolderRole.USER);
+        FolderSyncStateEntity sent = new FolderSyncStateEntity(account, "[Gmail]/Sent Mail", FolderRole.SENT);
+        FolderSyncStateEntity invoices = new FolderSyncStateEntity(account, "Invoices Jane Doe", FolderRole.USER);
+        FolderSyncStateEntity divorce = new FolderSyncStateEntity(account, "Lawyer/Divorce", FolderRole.USER);
+
+        when(accountRepository.findAllWithDetails()).thenReturn(List.of(account));
+        when(folderSyncStateRepository.findAll()).thenReturn(List.of(invoices, inbox, divorce, sent));
+        when(messageRepository.countByAccountIdAndFolderName(1L, "Invoices Jane Doe")).thenReturn(3L);
+        when(imapConnectionManager.getPoolStats()).thenReturn(new ImapConnectionManager.PoolStats(0, 0));
+
+        String home = System.getProperty("user.home");
+        DiagnosticDumpService service = new DiagnosticDumpService(accountRepository, folderSyncStateRepository,
+                messageRepository, imapConnectionManager, oauth2TokenServiceRegistry,
+                new StorageProperties(Path.of(home, "AppData", "Local", "VoxRox", "Mail").toString()),
+                new MockEnvironment(), new ObjectMapper(), new ApplicationVersion("9.8.7-test"),
+                new ClientBootDiagnosticsService(), new StartupTimingService());
+
+        Map<String, String> entries = unzip(service.createDump());
+
+        // Numbered in account-and-name order, the same in both files that list folders.
+        for (String file : List.of("folder-sync-states.json", "message-counts.json")) {
+            assertThat(entries.get(file)).contains("\"folderName\" : \"INBOX\"")
+                    .contains("\"folderName\" : \"[Gmail]/Sent Mail\"").contains("\"folderName\" : \"folder-1\"")
+                    .contains("\"folderName\" : \"folder-2\"").doesNotContain("Invoices").doesNotContain("Jane")
+                    .doesNotContain("Divorce");
+        }
+        assertThat(entries.get("message-counts.json"))
+                .containsPattern("\"folderName\" : \"folder-1\",\\s*\"messages\" : 3");
+        assertThat(entries.get("runtime.json"))
+                .contains("\"dataDir\" : \"~" + File.separator.replace("\\", "\\\\") + "AppData")
+                .doesNotContain(home.replace("\\", "\\\\"));
+    }
+
     private AccountEntity account() {
         AccountEntity account = new AccountEntity();
         account.setId(1L);

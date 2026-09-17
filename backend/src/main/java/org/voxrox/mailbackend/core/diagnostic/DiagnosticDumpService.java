@@ -13,6 +13,7 @@ import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.account.entity.MailServerConfig;
 import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.feature.auth.service.OAuth2TokenServiceRegistry;
+import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
 import org.voxrox.mailbackend.feature.mail.entity.FolderSyncStateEntity;
 import org.voxrox.mailbackend.feature.mail.repository.FolderSyncStateRepository;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
@@ -24,6 +25,9 @@ import tools.jackson.databind.ObjectMapper;
 
 @Service
 public class DiagnosticDumpService {
+
+    /** RFC 9051 §5.1: the one mailbox name the protocol defines, in any case. */
+    private static final String INBOX = "INBOX";
 
     private final AccountRepository accountRepository;
     private final FolderSyncStateRepository folderSyncStateRepository;
@@ -56,17 +60,27 @@ public class DiagnosticDumpService {
         this.startupTimingService = startupTimingService;
     }
 
+    /**
+     * Builds the support bundle. It leaves the user's machine, so it carries only
+     * what support needs to tell states apart: an address is masked, a folder the
+     * user named is a stable pseudonym ({@code folder-3}) while a folder with a
+     * provider role keeps its name, and a path under the user's home directory
+     * starts with {@code ~} instead of the Windows account name.
+     */
     @Transactional(readOnly = true)
     public byte[] createDump() {
         List<AccountEntity> accounts = accountRepository.findAllWithDetails();
         List<FolderSyncStateEntity> folderStates = folderSyncStateRepository.findAll();
+        Map<FolderKey, String> folderLabels = folderLabels(folderStates);
 
         try (ByteArrayOutputStream buffer = new ByteArrayOutputStream();
                 ZipOutputStream zip = new ZipOutputStream(buffer, StandardCharsets.UTF_8)) {
             addJson(zip, "summary.json", summary(accounts, folderStates));
             addJson(zip, "accounts.json", accounts.stream().map(this::toAccountDump).toList());
-            addJson(zip, "folder-sync-states.json", folderStates.stream().map(this::toFolderStateDump).toList());
-            addJson(zip, "message-counts.json", folderStates.stream().map(this::toMessageCountDump).toList());
+            addJson(zip, "folder-sync-states.json",
+                    folderStates.stream().map(state -> toFolderStateDump(state, folderLabels)).toList());
+            addJson(zip, "message-counts.json",
+                    folderStates.stream().map(state -> toMessageCountDump(state, folderLabels)).toList());
             addJson(zip, "runtime.json", runtime());
             addJson(zip, "client-boot.json", clientBootDiagnosticsService.latest());
             addJson(zip, "startup-timings.json", startupTimings());
@@ -104,24 +118,81 @@ public class DiagnosticDumpService {
                 format(account.getLastSyncAt()), lastError != null && !lastError.isBlank());
     }
 
-    private FolderStateDump toFolderStateDump(FolderSyncStateEntity state) {
-        return new FolderStateDump(state.getAccount() != null ? state.getAccount().getId() : null,
-                state.getFolderName(), state.getRole() != null ? state.getRole().name() : null, state.getLastKnownUid(),
+    private FolderStateDump toFolderStateDump(FolderSyncStateEntity state, Map<FolderKey, String> folderLabels) {
+        return new FolderStateDump(accountIdOf(state), labelOf(state, folderLabels),
+                state.getRole() != null ? state.getRole().name() : null, state.getLastKnownUid(),
                 state.getUidValidity(), format(state.getLastSyncAt()));
     }
 
-    private MessageCountDump toMessageCountDump(FolderSyncStateEntity state) {
-        Long accountId = state.getAccount() != null ? state.getAccount().getId() : null;
+    private MessageCountDump toMessageCountDump(FolderSyncStateEntity state, Map<FolderKey, String> folderLabels) {
+        Long accountId = accountIdOf(state);
         long count = accountId != null
                 ? messageRepository.countByAccountIdAndFolderName(accountId, state.getFolderName())
                 : 0L;
-        return new MessageCountDump(accountId, state.getFolderName(), count);
+        return new MessageCountDump(accountId, labelOf(state, folderLabels), count);
+    }
+
+    /**
+     * The name each folder goes into the dump under. A folder the provider marks
+     * with a role keeps its name, which the provider chose, and so does INBOX,
+     * whose name the IMAP protocol fixes whatever role was stored for it; a folder
+     * the user created and named becomes {@code folder-<n>}, numbered in a stable
+     * order so the two files that list folders agree and two dumps of the same
+     * state match.
+     */
+    private static Map<FolderKey, String> folderLabels(List<FolderSyncStateEntity> states) {
+        Map<FolderKey, String> labels = new HashMap<>();
+        int next = 1;
+        List<FolderSyncStateEntity> ordered = states.stream()
+                .sorted(Comparator
+                        .comparing((FolderSyncStateEntity state) -> accountIdOf(state),
+                                Comparator.nullsFirst(Comparator.naturalOrder()))
+                        .thenComparing(FolderSyncStateEntity::getFolderName))
+                .toList();
+        for (FolderSyncStateEntity state : ordered) {
+            FolderRole role = state.getRole();
+            boolean named = (role == null || role == FolderRole.USER) && !INBOX.equalsIgnoreCase(state.getFolderName());
+            labels.put(FolderKey.of(state), named ? "folder-" + next++ : state.getFolderName());
+        }
+        return labels;
+    }
+
+    private static String labelOf(FolderSyncStateEntity state, Map<FolderKey, String> folderLabels) {
+        String label = folderLabels.get(FolderKey.of(state));
+        return label != null ? label : "folder-?";
+    }
+
+    private static @Nullable Long accountIdOf(FolderSyncStateEntity state) {
+        AccountEntity account = state.getAccount();
+        return account != null ? account.getId() : null;
+    }
+
+    /**
+     * A path with the user's home directory replaced by {@code ~}. On Windows the
+     * home directory is {@code C:\Users\<account name>}, and the data directory
+     * lives under it; the comparison ignores case because Windows paths do.
+     */
+    private static String withoutHome(String path, @Nullable String home) {
+        if (home == null || home.isBlank() || path.length() < home.length()
+                || !path.regionMatches(true, 0, home, 0, home.length())) {
+            return path;
+        }
+        String rest = path.substring(home.length());
+        return rest.isEmpty() || rest.charAt(0) == '/' || rest.charAt(0) == '\\' ? "~" + rest : path;
+    }
+
+    private record FolderKey(@Nullable Long accountId, String folderName) {
+        static FolderKey of(FolderSyncStateEntity state) {
+            return new FolderKey(accountIdOf(state), state.getFolderName());
+        }
     }
 
     private RuntimeDump runtime() {
         Runtime runtime = Runtime.getRuntime();
-        return new RuntimeDump(now(), storageProperties.getDataPath().toString(),
-                storageProperties.getDbPath().toString(), storageProperties.getLogsPath().toString(),
+        String home = System.getProperty("user.home");
+        return new RuntimeDump(now(), withoutHome(storageProperties.getDataPath().toString(), home),
+                withoutHome(storageProperties.getDbPath().toString(), home),
+                withoutHome(storageProperties.getLogsPath().toString(), home),
                 environment.getProperty("server.address", "127.0.0.1"),
                 environment.getProperty("local.server.port", environment.getProperty("server.port", "0")),
                 List.of(environment.getActiveProfiles()), System.getProperty("java.version"),
