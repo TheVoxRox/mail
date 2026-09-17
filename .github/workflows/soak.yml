@@ -1,0 +1,148 @@
+name: Soak
+
+# The accelerated soak that replaces the overnight run of RELEASE_CHECKLIST
+# §8.2 (decided 2026-09-13, see todo.md). SyncSoakIT starts the packaged backend
+# as a process of its own, keeps a GreenMail mailbox changing through a TCP
+# proxy with every interval shortened, and on a timeline drops the connections,
+# pauses the process with SIGSTOP, makes the server unreachable, kills and
+# restarts the backend and fills the disk; then it checks the database, the
+# local mirror, the heap and the WAL. The log scan runs over the backend's logs
+# afterwards. Linux on purpose: SIGSTOP and a small tmpfs are what make two of
+# the faults real, and neither exists on a Windows runner.
+#
+# The machine's own daily cycle (sleep, network changes, antivirus) is not
+# reproduced here; the beta's diagnostic dumps are how that is watched.
+
+on:
+  schedule:
+    # Saturdays at 03:30 UTC, away from the weekday vulnerability scan.
+    - cron: '30 3 * * 6'
+  workflow_dispatch:
+    inputs:
+      duration:
+        description: "How long the soak runs (ISO-8601 duration)."
+        type: string
+        default: PT30M
+  pull_request:
+    paths:
+      - .github/workflows/soak.yml
+      - backend/src/test/java/org/voxrox/mailbackend/feature/mail/service/SyncSoakIT.java
+      - backend/src/test/java/org/voxrox/mailbackend/feature/mail/service/TcpFaultProxy.java
+      - frontend/scripts/scan-logs.mjs
+      - frontend/scripts/lib/log-scan.mjs
+
+permissions:
+  contents: read
+
+concurrency:
+  group: soak-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  soak:
+    name: Accelerated soak
+    runs-on: ubuntu-latest
+    # The longest soak asked for is 30 minutes; packaging and the checks after it
+    # take a few more. The limit is a backstop against a hang, not a budget.
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 26
+
+      - name: Mount a small disk for the disk-full phase
+        run: |
+          set -euo pipefail
+          sudo mkdir -p /mnt/soak
+          sudo mount -t tmpfs -o size=192m tmpfs /mnt/soak
+          sudo chown "$(id -u):$(id -g)" /mnt/soak
+
+      - name: Run the soak
+        working-directory: backend
+        env:
+          # A pull request only proves the soak still runs; the schedule is what soaks.
+          DURATION: ${{ github.event_name == 'pull_request' && 'PT8M' || inputs.duration || 'PT30M' }}
+        run: mvn --batch-mode -Psoak verify "-Dsoak.duration=$DURATION" -Dsoak.small-disk=/mnt/soak
+
+      - name: Scan the backend logs
+        if: ${{ always() }}
+        run: node frontend/scripts/scan-logs.mjs --logs /mnt/soak/data/logs --json backend/target/soak/log-scan.json
+
+      - name: Upload the soak report and logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: soak-report
+          path: |
+            backend/target/soak/
+            /mnt/soak/data/logs/
+          if-no-files-found: warn
+          retention-days: 14
+
+  # A scheduled run nobody watches: a failure opens or comments on one tracking
+  # issue, and a green run closes it — the same shape as vuln-scan.yml.
+  report-failure:
+    name: Track soak failure
+    needs: soak
+    if: ${{ always() && github.event_name == 'schedule' && (needs.soak.result == 'failure' || needs.soak.result == 'cancelled') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update tracking issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RESULT: ${{ needs.soak.result }}
+        run: |
+          set -euo pipefail
+          label="soak-failure"
+          gh label create "$label" --color B60205 \
+            --description "Scheduled soak is failing" 2>/dev/null || true
+          body=$(printf '%s\n' \
+            "Scheduled soak did not pass ($(date -u +%Y-%m-%d)): $RESULT." \
+            "" \
+            "Run: $RUN_URL" \
+            "" \
+            "The soak-report artifact holds soak-report.json (events and samples), log-scan.json and the backend logs. This issue closes itself once a scheduled soak passes.")
+          existing=$(gh issue list --state open --label "$label" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create --title "Scheduled soak is failing" --label "$label" --body "$body"
+          fi
+
+  close-failure-issue:
+    name: Close tracking issue on a green soak
+    needs: soak
+    if: ${{ success() && github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Close any open tracking issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          label="soak-failure"
+          for n in $(gh issue list --state open --label "$label" --json number --jq '.[].number'); do
+            gh issue comment "$n" --body "Scheduled soak passed ($(date -u +%Y-%m-%d)) — $RUN_URL. Closing."
+            gh issue close "$n"
+          done

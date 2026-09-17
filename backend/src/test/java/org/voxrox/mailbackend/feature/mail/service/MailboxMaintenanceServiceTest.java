@@ -89,6 +89,6 @@ class MailboxMaintenanceServiceTest {
 
     private static SyncProperties syncProperties(int localWindowLimit) {
         return new SyncProperties(100, 200, Duration.ofMinutes(5), Duration.ofSeconds(10), 50, 30, localWindowLimit, 4,
-                256, 200, Duration.ofMinutes(30), Duration.ofSeconds(30));
+                256, 200, Duration.ofMinutes(30), Duration.ofSeconds(30), java.time.Duration.ofHours(1));
     }
 }

@@ -12,6 +12,6 @@ public record SyncProperties(@Min(1) @DefaultValue("100") int windowSize, @Min(1
         @Min(1) @DefaultValue("50") int defaultPageSize, @Min(1) @DefaultValue("30") int backfillBatchSize,
         @Min(1) @DefaultValue("10000") int localWindowLimit, @Min(1) @DefaultValue("4") int maxConcurrentAccounts,
         @Min(1) @DefaultValue("256") int searchQueryMaxLength, @Min(1) @DefaultValue("200") int apiMaxPageSize,
-        @NotNull @DefaultValue("30m") Duration sseTimeout,
-        @NotNull @DefaultValue("30s") Duration sseHeartbeatInterval) {
+        @NotNull @DefaultValue("30m") Duration sseTimeout, @NotNull @DefaultValue("30s") Duration sseHeartbeatInterval,
+        @NotNull @DefaultValue("1h") Duration uidEnumerationInterval) {
 }

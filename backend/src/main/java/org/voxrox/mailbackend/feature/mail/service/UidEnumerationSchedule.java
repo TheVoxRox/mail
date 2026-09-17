@@ -5,7 +5,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.voxrox.mailbackend.core.config.MailClientProperties;
 
 /**
  * How often a folder still pays for the full {@code UID FETCH 1:* (UID)}
@@ -35,14 +37,17 @@ import org.springframework.stereotype.Component;
 @Component
 public class UidEnumerationSchedule {
 
-    private static final Duration DEFAULT_INTERVAL = Duration.ofHours(1);
-
     private final ConcurrentHashMap<FolderKey, Instant> lastRun = new ConcurrentHashMap<>();
     private final Clock clock;
     private final Duration interval;
 
-    public UidEnumerationSchedule() {
-        this(Clock.systemUTC(), DEFAULT_INTERVAL);
+    /**
+     * The interval is {@code mail.client.sync.uid-enumeration-interval}; only the
+     * accelerated soak run shortens it.
+     */
+    @Autowired
+    public UidEnumerationSchedule(MailClientProperties mailProps) {
+        this(Clock.systemUTC(), mailProps.sync().uidEnumerationInterval());
     }
 
     // Package-private constructor for tests with an injectable Clock + interval.

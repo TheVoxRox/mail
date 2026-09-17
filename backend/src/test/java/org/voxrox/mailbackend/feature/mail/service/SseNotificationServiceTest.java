@@ -29,7 +29,7 @@ class SseNotificationServiceTest {
     @BeforeEach
     void setUp() {
         var syncProps = new SyncProperties(100, 200, Duration.ofMinutes(5), Duration.ofSeconds(10), 50, 30, 300, 4, 256,
-                200, Duration.ofMinutes(30), Duration.ofSeconds(30));
+                200, Duration.ofMinutes(30), Duration.ofSeconds(30), java.time.Duration.ofHours(1));
         var props = new MailClientProperties(mock(ImapProperties.class), mock(SmtpProperties.class), syncProps,
                 mock(RetryProperties.class));
         service = new SseNotificationService(props);

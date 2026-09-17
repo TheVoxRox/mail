@@ -504,9 +504,9 @@ class MailSyncServiceTest {
          * window limit of 300. The rest matches the shipped defaults.
          */
         private void stubSyncProperties() {
-            when(mailProps.sync()).thenReturn(
-                    new SyncProperties(100, 200, java.time.Duration.ofMinutes(5), java.time.Duration.ofSeconds(10), 50,
-                            30, 300, 4, 256, 200, java.time.Duration.ofMinutes(30), java.time.Duration.ofSeconds(30)));
+            when(mailProps.sync()).thenReturn(new SyncProperties(100, 200, java.time.Duration.ofMinutes(5),
+                    java.time.Duration.ofSeconds(10), 50, 30, 300, 4, 256, 200, java.time.Duration.ofMinutes(30),
+                    java.time.Duration.ofSeconds(30), java.time.Duration.ofHours(1)));
         }
 
         @Test

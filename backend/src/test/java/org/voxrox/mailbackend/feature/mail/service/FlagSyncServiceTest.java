@@ -109,7 +109,7 @@ class FlagSyncServiceTest {
     private MailClientProperties propsWithBatchSize(int batchSize) {
         SyncProperties sync = new SyncProperties(100, batchSize, java.time.Duration.ofMinutes(5),
                 java.time.Duration.ofSeconds(10), 50, 30, 300, 4, 256, 200, java.time.Duration.ofMinutes(30),
-                java.time.Duration.ofSeconds(30));
+                java.time.Duration.ofSeconds(30), java.time.Duration.ofHours(1));
         // FlagSyncService reads only mailProps.sync().batchSize() — imap/smtp are
         // not needed, we pass null. Validation does not run in a unit test.
         return new MailClientProperties(null, null, sync, null);

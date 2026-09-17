@@ -48,7 +48,7 @@ class SyncHealthIndicatorTest {
         syncStateRepo = mock(FolderSyncStateRepository.class);
 
         SyncProperties sync = new SyncProperties(100, 200, SYNC_INTERVAL, Duration.ofSeconds(10), 50, 30, 300, 4, 256,
-                200, Duration.ofMinutes(30), Duration.ofSeconds(30));
+                200, Duration.ofMinutes(30), Duration.ofSeconds(30), java.time.Duration.ofHours(1));
         MailClientProperties props = new MailClientProperties(null, null, sync, null);
 
         indicator = new SyncHealthIndicator(accountRepo, syncStateRepo, props);
