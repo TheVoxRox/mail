@@ -49,7 +49,7 @@
       "backend/src/main/java/org/voxrox/mailbackend/feature/account/dto": "d74fd9f1ab3a5bf3660edbc9ac93866bfde403d9",
       "backend/src/main/java/org/voxrox/mailbackend/core/security": "09fb8b40a5553f99ca36f044348c0ecd91e56a93",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/controller": "c68e027fc1f6241faaa2d0021ccc4a6c88312441",
-      "backend/src/main/java/org/voxrox/mailbackend/core/diagnostic": "b44911434f44e4daa8904d328f449746e877cb78"
+      "backend/src/main/java/org/voxrox/mailbackend/core/diagnostic": "53bf6a96218586423ad4d21d458f1ff317609f68"
     },
     "acknowledgements": [
       {
@@ -71,6 +71,10 @@
       {
         "date": "2026-09-17",
         "note": "The diagnostic dump sheds two values it should not have carried, and §5 is revised to say so (v1.5). DiagnosticDumpService: a folder with no provider role (USER or null) is written as folder-<n>, numbered in account-and-name order and shared by folder-sync-states.json and message-counts.json; INBOX keeps its name whatever role is stored; the data, database and logs paths replace user.home with ~ (case-insensitive, only at a path boundary). No field was added and nothing reaches the endpoint that did not before, so the authentication, validation and error-hygiene claims are untouched and the verdict stays PASS. DiagnosticDumpPrivacyIT checks §5 on real data over HTTP."
+      },
+      {
+        "date": "2026-09-19",
+        "note": "Comment-only change under this path, and the whole diff was read to say so: createDump gains eight javadoc lines and nothing else moves. They record why the acknowledgement above it pseudonymizes a user-named folder here while mail.log keeps the name in full — this bundle is exported to support and PRIVACY.md bounds what it may hold, whereas the log stays on the machine and the bundle carries the log directory's path but no log file. Leaving the machine is what earns the pseudonym. No statement, signature, DTO, annotation or emitted field changes, so §5 describes the same bytes it described on 2026-09-17, the controller enumeration §2 rests on cannot have moved, and springdoc reads annotations rather than javadoc, so the golden api-docs.json is absent from the diff. Verdict stays PASS."
       }
     ]
   },
