@@ -43,7 +43,7 @@ Counts: 117 packages total. 85 MIT, 14 ISC, 6 Apache-2.0, 4 MPL-2.0, 3 MIT OR Ap
 - **decimal.js** 10.6.0 — [https://github.com/MikeMcl/decimal.js](https://github.com/MikeMcl/decimal.js)
 - **deepmerge** 4.3.1 — [https://github.com/TehShrike/deepmerge](https://github.com/TehShrike/deepmerge)
 - **dequal** 2.0.3 — [https://github.com/lukeed/dequal](https://github.com/lukeed/dequal)
-- **devalue** 5.8.1 — [https://github.com/sveltejs/devalue](https://github.com/sveltejs/devalue)
+- **devalue** 5.9.4 — [https://github.com/sveltejs/devalue](https://github.com/sveltejs/devalue)
 - **enhanced-resolve** 5.24.3 — [https://github.com/webpack/enhanced-resolve](https://github.com/webpack/enhanced-resolve)
 - **es6-iterator** 2.0.3 — [https://github.com/medikoo/es6-iterator](https://github.com/medikoo/es6-iterator)
 - **esbuild** 0.28.1 — [https://github.com/evanw/esbuild](https://github.com/evanw/esbuild)

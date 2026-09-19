@@ -13,7 +13,7 @@ Total third-party components: 584
   maven  106
   cargo  365
 
-Generated: 2026-09-15
+Generated: 2026-09-19
 
 Machine-readable CycloneDX SBOM files for each ecosystem are
 published alongside the installer on the GitHub Releases page.
@@ -902,7 +902,7 @@ Components and their copyright notices:
       Jelte Fennema <github-tech@jeltef.nl>
       https://github.com/JelteF/derive_more
 
-  * devalue 5.8.1  [npm]
+  * devalue 5.9.4  [npm]
       (no author in package.json — see git+https://github.com/sveltejs/devalue.git)
       git+https://github.com/sveltejs/devalue.git
 

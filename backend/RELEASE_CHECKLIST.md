@@ -328,7 +328,7 @@ Findings:
 - <what went wrong or stays open, and what to do before the next run>
 ````
 
-### Candidate 2026-09-15 — tag `v0.1.0` (`3479416`)
+### Candidate 2026-09-19 — tag `v0.1.0` (see the object ids below)
 
 ```text
 Platform:  Windows 11 Pro x64, machine lacina-hp-650 (§0–§2)
@@ -337,31 +337,32 @@ Tester:    machine half automated; §3–§9 are the maintainer's
 
 | path                         | object id      |
 | ---------------------------- | -------------- |
-| `backend/src`                | `6eb6fc4973c5` |
-| `backend/pom.xml`            | `dbef3f26bcc3` |
+| `backend/src`                | `737194e2ed5e` |
+| `backend/pom.xml`            | `63ece934432b` |
 | `backend/scripts`            | `bd35a3977876` |
-| `frontend/src`               | `1e5f84ea996a` |
-| `frontend/src-tauri`         | `63ab0c3c3af6` |
-| `frontend/package.json`      | `b846b2790345` |
-| `frontend/package-lock.json` | `fe149c9e846a` |
+| `frontend/src`               | `231d9cd0fa14` |
+| `frontend/src-tauri`         | `bdd1f88ef2df` |
+| `frontend/package.json`      | `e46818dfa9c5` |
+| `frontend/package-lock.json` | `3d4143705c65` |
 
 - [x] **§0 Version** — `npm run check:versions` OK, `0.1.0` on all five files.
-- [x] **§1 Backend build** — `clean verify` green, both suites clean by `failsafe-summary.xml` and the surefire XMLs; sidecar packaged with the launcher, `app/`, `runtime/`, the `VoxRox Mail 0.1.0` version resource and the production Google client-id; `regen:licenses:all` changed nothing. **Open:** the run on a clean profile without a system JDK.
-- [x] **§2 Frontend automation** — `generate:api --snapshot`, `check:i18n`, `build`, `test:e2e`, `test:functional:stable` and `test:a11y` green. One flake, `search.functional.e2e.ts:160`, passed on the re-run.
-- [ ] **§3 Fresh install** — machine half: [Release Candidate Smoke](https://github.com/TheVoxRox/mail/actions/runs/34964263312) green on the [signed build](https://github.com/TheVoxRox/mail/actions/runs/34962758002) of the tag. Manual half open; take the first finding below first.
+- [x] **§1 Backend build** — `clean verify` green: surefire 1333 and failsafe 93, 0 failures and 0 errors on both. The one skip is `MailSyncQresyncDovecotIT` ("disabledWithoutDocker is true and Docker is not available"), the local condition #511 documents; CI runs it. `mail-backend-0.1.0.jar` produced; sidecar packaged with the launcher, `app/`, `runtime/` and the production Google client-id — the packaging step's own check reports "Google client-id baked into the launcher; no placeholder", 0× `mail-local-`. `regen:licenses:all` ran first and moved one version, `devalue` 5.8.1 → 5.9.4 from #520, so `NOTICE.txt` and the two inventories are committed with this sheet. **Open:** the run on a clean profile without a system JDK.
+- [x] **§2 Frontend automation** — `generate:api` (regenerated `schema.d.ts` with no drift), `check:i18n` (737 keys), `build`, and `test:e2e`, which is the wrapper that runs the functional project (283 passed) and then the a11y suite (65 passed). All green, no flake and no re-run.
+- [ ] **§3 Fresh install** — open, both halves: the machine half re-runs as Release Candidate Smoke on the signed build of this tag. Take the first finding below before the manual half.
 - [ ] **§3a Installer behaviour** — open, including the privacy page with a screen reader and `latest.json` read from the draft by hand. Never covered on any cut: reinstalling over an existing installation, and the downgrade block.
 - [ ] **§4 Account flows** — open. The Google login is the blocking item: it proves the production client-id is in the launcher `.cfg`.
 - [ ] **§5 Mail workflows** — open, including a trash folder holding two IMAP copies of one Message-ID (both persist, `lastSyncAt` is set) and the tray items "Synchronizovat" and "Nová zpráva" (#490).
 - [ ] **§6 Sidecar lifecycle** — open. Task Manager lists `voxrox-mail.exe` and `voxrox-mail-backend.exe`, and killing the first takes the second.
-- [ ] **§7 Diagnostics** — open, including the dump's `processStartedAt`; the privacy half is taken by reading the dump.
+- [ ] **§7 Diagnostics** — open, including the dump's `processStartedAt`; the privacy half is taken by reading the dump, which since #518 must show `folder-<n>` for a folder the user named and `~` where a path enters the home directory.
 - [ ] **§8 Long run** — §8.1 open; §8.2 does not run for this candidate (see §8.2).
 - [ ] **§9** — open.
 
 Findings:
 
 - **No window on the first launch after a fresh install** (the 2026-09-10 cut, build `db11430`, a second machine without a system JDK). For about three minutes the process ran without a window; an uninstall and reinstall fixed it, and the logs went with the uninstall. Unconfirmed hypotheses: the WebView2 runtime still installing, or Microsoft Defender, the maintainer's leading suspect; the code argues against WebView2, since the installer waits for that install and a missing runtime ends the app. Before the next §3 on that machine: list the install dates under `C:\Program Files (x86)\Microsoft\EdgeWebView\Application` (`Get-ChildItem … | Select-Object Name, CreationTime`), record Defender with `New-MpPerformanceRecording` over the install and the first launch, and copy the Tauri log before any uninstall. On the same machine a normal start takes about 20 s with the window shown at once.
-- **Candidates for §9 as accepted risk:** the four §6 scenarios no cut covered (reboot mid-sync, a damaged DB, restoring the pre-migration backup, disk full), §8.2, and the §3a update smoke, which has no previous version to update from on a first ship.
-- **Nothing manual carries from earlier cuts.** `v0.1.0` was re-cut several times after its first tag on `db11430`; only that first build was taken by hand, and it is gone. The reasons for each re-cut are in `CHANGELOG.md` under 0.1.0.
+- **Candidates for §9 as accepted risk — three fewer than on the previous sheet.** Of the four §6 scenarios no cut had covered, a damaged database, restoring the pre-migration backup and a full disk are now code with tests behind them (#517 `DatabaseRecoveryTest` follows the OPERATIONS.md procedure on a real file; #519 `SqliteFullRecoveryTest` plus the soak's disk-full phase), which is what this cut was taken for. **Reboot mid-sync** remains, as do §8.2 and the §3a update smoke, which has no previous version to update from on a first ship.
+- **Nothing manual carries from earlier cuts, and this is the fifth.** `v0.1.0` was first tagged on `db11430`; only that first build was taken by hand, and it is gone. That is also why this re-cut was free — §0–§2 are the machine half and §3–§9 were all open — and why the next one would not be. The reasons for each cut are in `CHANGELOG.md` under 0.1.0.
+- **Main is frozen from the cut commit.** Only a release blocker merges before §3–§9 are finished: the app is unusable, loses data, or contradicts a published claim in `PRIVACY.md` / `SECURITY.md`. Anything else found on the way is recorded here and goes to 0.1.1. Without that rule the manual sections never finish, because each merge invalidates the build they were taken on.
 
 ### Helpers
 
