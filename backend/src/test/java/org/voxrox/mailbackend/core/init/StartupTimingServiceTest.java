@@ -8,8 +8,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.voxrox.mailbackend.core.init.StartupTimingService.StartupTimingSnapshot;
 
-import module java.base;
-
 class StartupTimingServiceTest {
 
     /**

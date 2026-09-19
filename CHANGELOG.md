@@ -19,6 +19,10 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+### Repo
+
+- **An unused `import module java.base;` leaves `StartupTimingServiceTest`.** The file names only `ManagementFactory` and `StartupTimingSnapshot`, both explicitly imported, plus `java.lang` types that need no import. Verified by deleting the line and compiling rather than by reading: `test-compile` exits 0 without it. No gate could have found it — `check:java-imports` skips `import module` lines by design, Spotless's `removeUnusedImports` is off here because it does not understand that form, and javac has no unused-import lint, so the maintainer's IDE was the only thing looking. 37 files carry such a line; sweeping the rest and teaching the gate to judge them is its own task (#524).
+
 ## [0.1.0] - 2026-09-19
 
 ### Backend
