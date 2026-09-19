@@ -124,8 +124,16 @@ class MailSyncQresyncDovecotIT {
      * (auth_allow_cleartext defaults to no), and the test reaches the container
      * through a mapped port, which is neither; the extra file lifts that for this
      * container only.
+     *
+     * The suppression is for Eclipse JDT, which reports a resource leak on the
+     * constructor below. It does not model the Testcontainers extension, which
+     * starts a static container before the class and stops it after, so nothing
+     * here is left open; SpotBugs and CodeQL both agree, and a manual close would
+     * fight the extension rather than help it. Silenced so the warning stops
+     * outliving its explanation in every IDE that opens the file.
      */
     @Container
+    @SuppressWarnings("resource")
     static final GenericContainer<?> DOVECOT = new GenericContainer<>(DOVECOT_IMAGE)
             .withEnv("USER_PASSWORD", "{PLAIN}" + PASSWORD)
             .withCopyToContainer(Transferable.of("auth_allow_cleartext = yes\n"), "/etc/dovecot/conf.d/zz-it.conf")
