@@ -2,10 +2,10 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.5                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| **Date**           | 2026-09-17                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **Version**        | 1.6                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| **Date**           | 2026-09-19                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| **Audited commit** | `d45e253` (enumeration re-counted 2026-08-08; verdicts unchanged since `d55b753`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **Audited commit** | `6365fae` (every claim re-verified 2026-09-19; verdicts unchanged since `d55b753`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/mail/controller`, `backend/src/main/java/org/voxrox/mailbackend/feature/account/controller`, `backend/src/main/java/org/voxrox/mailbackend/feature/contact/controller`, `backend/src/main/java/org/voxrox/mailbackend/core/clientconfig`, `backend/src/main/java/org/voxrox/mailbackend/core/diagnostic`, `backend/src/main/java/org/voxrox/mailbackend/core/system`, `backend/src/main/java/org/voxrox/mailbackend/core/security`, `backend/src/main/java/org/voxrox/mailbackend/exception/GlobalExceptionHandler.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto`, `backend/src/main/java/org/voxrox/mailbackend/feature/contact/dto`, `backend/src/main/java/org/voxrox/mailbackend/feature/account/dto` |
 | **Subsystem**      | Sidecar REST API — Boundary 3 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | **Verdict**        | **Security: PASS** (no exploitable finding). One Low defense-in-depth finding (**A1** — unbounded JSON write-body) **fixed**; informational notes recorded.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -68,8 +68,17 @@ sync/write review (see the audit map in [AUDIT_GUIDE.md](AUDIT_GUIDE.md)).
   `SecurityConfig.PUBLIC_ENDPOINTS`). Bare-`stableId` endpoints (detail,
   content, flags, delete, reply, forward) are reachable without an `accountId`,
   but every account belongs to the same OS user, so there is no cross-tenant
-  boundary to cross. Contact endpoints are still rooted under `{accountId}` and
-  return 404 (not 403) for a foreign id, so they do not leak existence.
+  boundary to cross. The address book is app-wide rather than per-account since
+  #265, so the contact endpoints sit at `/api/v1/contacts` and
+  `/api/v1/contact-labels` and address a contact by a bare `contactId`, exactly
+  as the mail endpoints do with `stableId`; e-mail uniqueness is enforced across
+  the whole book. Only `GET /api/v1/contacts/autocomplete` still takes an
+  `accountId`, as a `@RequestParam @Positive`, because it suggests
+  correspondents seen on one account. That leaves no foreign id to probe for, so
+  the 404-rather-than-403 reasoning earlier versions of this section relied on no
+  longer applies — and does not need to: authorization here is path-independent
+  (`PUBLIC_ENDPOINTS` plus `anyRequest().authenticated()` behind the key), so
+  moving a path changes no posture.
 
 ## 2. Input validation (confirmed)
 
@@ -180,15 +189,22 @@ reads them) if the boundary is ever hardened toward a lower-trust caller.
 
 ## 7. Informational notes (no change required)
 
-- **CORS `file://*` origin.** `corsConfigurationSource` allows `file://*` (and
-  `http(s)://localhost:[*]`) with `allowCredentials(true)`. Not exploitable: API
+- **CORS `file://*` origin.** `corsConfigurationSource` allows five origin
+  patterns — `http://localhost:[*]`, `http://127.0.0.1:[*]`,
+  `http://tauri.localhost`, `tauri://localhost` and `file://*` — with
+  `allowCredentials(true)`. The two `tauri` ones are the packaged webview's own
+  origins and are why the installed app is not answered with 403 before the key
+  filter runs; there is no `https://` pattern. Not exploitable: API
   auth is a custom `X-API-KEY` **header** (not a cookie), which a cross-origin
   page cannot obtain (random port + key in `session.json`); "credentials" in the
   CORS sense (cookies/HTTP auth) only gate the OAuth session, which is
   state/PKCE-protected. Left as-is; a future tightening could drop `file://*`.
-- **Runtime paths in the dump.** `runtime.json` includes absolute data/db/log
-  paths, which contain the OS username. Acceptable for a user-initiated support
-  artifact the user chooses to share.
+- **Runtime paths in the dump — closed by #518.** `runtime.json` used to carry
+  the absolute data, database and log paths, which contain the OS username, and
+  this note accepted that as the price of a support artifact the user chooses to
+  share. It is no longer paid: the paths are written relative to `~` (§5). The
+  note stays so the reasoning that accepted it does not get re-applied to
+  something else.
 - **`ClientBootDiagnosticsController` has no `@Valid`.** Cosmetic — the DTO
   carries no bean-validation constraints and the service sanitizes every field
   (§5), so nothing is unenforced.
@@ -201,6 +217,24 @@ reads them) if the boundary is ever hardened toward a lower-trust caller.
 
 ## 9. Change log
 
+- **1.6** (2026-09-19) — **re-verified against `6365fae`**, which clears the
+  acknowledgement run in [audit-freshness.json](audit-freshness.json) at 6 of 8
+  rather than letting it reach the cap. Every claim was re-checked against the
+  code, not only the paths that had drifted; the four enumeration commands were
+  re-run and all four numbers are unchanged (17 controllers, 4 internal, 12
+  `@Validated`, 3 `@Hidden`), as are §1 authentication, §2 every named bound,
+  §3, §4, §5 and the A1 fix and its residual. Two claims had gone stale, and
+  both are the kind an acknowledgement is bad at catching, because each one
+  reads a diff for whether a verdict moves rather than for whether the prose is
+  still true. §1 said the contact endpoints were "still rooted under
+  `{accountId}`" and returned 404 for a foreign id; #265 made the address book
+  app-wide, so they sit at `/api/v1/contacts` with a bare `contactId` and there
+  is no foreign id to probe — the acknowledgement of 2026-08-08 correctly
+  judged that authorization is path-independent and therefore that no verdict
+  moved, which is why the sentence describing the paths survived anyway. §7
+  still accepted the OS username travelling in `runtime.json`, which #518 had
+  already closed and §5 had already been updated for. The verdict is unchanged:
+  **PASS**.
 - **1.5** (2026-09-17) — §5 revised, anchor unchanged (the drift in
   `core/diagnostic` is acknowledged in `audit-freshness.json`). The dump used to
   carry the names of folders the user created and, through the data paths, the
