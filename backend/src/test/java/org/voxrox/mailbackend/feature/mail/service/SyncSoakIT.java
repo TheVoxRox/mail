@@ -552,9 +552,9 @@ class SyncSoakIT {
 
         void jcmd(String command) throws IOException, InterruptedException {
             Path jcmd = Path.of(System.getProperty("java.home"), "bin", UNIX ? "jcmd" : "jcmd.exe");
-            Process process = new ProcessBuilder(jcmd.toString(), String.valueOf(this.process.pid()), command)
+            Process jcmdProcess = new ProcessBuilder(jcmd.toString(), String.valueOf(process.pid()), command)
                     .redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.DISCARD).start();
-            process.waitFor(30, TimeUnit.SECONDS);
+            jcmdProcess.waitFor(30, TimeUnit.SECONDS);
         }
 
         void signal(String name) {

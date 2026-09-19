@@ -66,6 +66,14 @@ public class DiagnosticDumpService {
      * user named is a stable pseudonym ({@code folder-3}) while a folder with a
      * provider role keeps its name, and a path under the user's home directory
      * starts with {@code ~} instead of the Windows account name.
+     *
+     * <p>
+     * The rule is this bundle's, not the log's. {@code mail.log} writes folder
+     * names in full and is meant to: it stays on the machine, this bundle records
+     * the log directory's path but carries no log file, and a report about one
+     * folder is only readable under the name the user gave it. Leaving is what
+     * earns the pseudonym, so a change that ever sends a log somewhere has to
+     * revisit it rather than copy this rule over.
      */
     @Transactional(readOnly = true)
     public byte[] createDump() {
