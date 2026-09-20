@@ -57,6 +57,13 @@ Hotove reporty do 2026-06-07 jsou zamrazene v [todo-archive.md](todo-archive.md)
 
 **Vse uzavreno** (2026-09-03). Cely tyden `504ed86..66b770a` procten proti cistemu stromu, brany zelene i pred prohlidkou — nalezy jsou tedy z cteni, ne ze stroje. Sest zbytku opraveno, posledni (fokus pri strankovani unikal do tela zpravy, 2 uniky ze 40 cyklu → 0 ze 3×40) commitem hned po nem. Detail v [todo-archive.md](todo-archive.md), opravy v [CHANGELOG.md](CHANGELOG.md).
 
+## Code review prace 16.-19. 9. (2026-09-20)
+
+Review 26 commitu `a2e6d43~1..e1e9c9d` (od #500 po #526): 10 nalezu, 8 opraveno v #527, kazdy s testem, ktery byl videt spadnout na kodu bez nej. Detail v [CHANGELOG.md](CHANGELOG.md). Zbyvaji dva a oba jsou rozhodnuti, ne oprava:
+
+- [ ] **Ctrl+P necte `defaultPrevented` — a stejne na tom je cely blok nad nim.** [globalShortcuts.ts:93](frontend/src/lib/shortcuts/globalShortcuts.ts:93) zavola `preventDefault` a tiskne bez ohledu na to, jestli udalost uz nekdo zrusil; kontrola je az na radku 115, tedy pod nim. Tyz stav ma Ctrl+K a prepinani workspace, ktere bezi jeste driv. [CLAUDE.md](CLAUDE.md) pritom rika „Ctrl+R/F/U collide with the webview, so `preventDefault` and respect `defaultPrevented`". Bud tedy ten blok kontrolu cist zacne — zmena chovani tri zkratek naraz — nebo se do CLAUDE.md dopise, ze window-level zkratky ji vedome nectou. Dnes to nic nerozbiji: zadna komponenta Ctrl+P neobsluhuje.
+- [ ] **Tisk v palete jen na `/mail/`.** [mailCommands.ts:121](frontend/src/lib/commands/mailCommands.ts:121) ma `contexts: ['mail']` a `routePrefixes: ['/mail/']`, kdezto klavesa je globalni prave proto, aby tisk sel odevsad. Na kontaktech, v nastaveni a v compose klavesa funguje, ale paleta o ni nerekne — a paleta je cesta, kterou se prikazy hledaji odecitacem. Je to rozhodnuti o tom, kam prikaz v palete patri, ne defekt.
+
 ---
 
 ## v0.1.0 smoke — bugy Faze B
