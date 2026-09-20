@@ -65,6 +65,40 @@ describe('installFileDropGuard', () => {
 		expect(drop.defaultPrevented).toBe(false);
 	});
 
+	/*
+	 * Measured against Chromium with a real drag, not assumed: a link dropped on
+	 * a checkbox fires no drop event on the page at all — it behaves like a plain
+	 * div, so nothing can claim it and the browser's own default for a link is
+	 * what runs. Every text-ish input type does take the drop and insert the
+	 * address, which is why the guard must stand aside for those and only those.
+	 */
+	it('cancels a link dropped on an input that takes no text, which a text field would have kept', () => {
+		removers.push(installFileDropGuard());
+		const box = document.createElement('input');
+		box.type = 'checkbox';
+		document.body.append(box);
+
+		const drop = dragEvent('drop', LINK_DRAG);
+		box.dispatchEvent(drop);
+
+		expect(drop.defaultPrevented).toBe(true);
+	});
+
+	it('leaves a link dropped in any text-entry input alone', () => {
+		removers.push(installFileDropGuard());
+
+		for (const type of ['text', 'search', 'url', 'email', 'tel']) {
+			const field = document.createElement('input');
+			field.type = type;
+			document.body.append(field);
+
+			const drop = dragEvent('drop', LINK_DRAG);
+			field.dispatchEvent(drop);
+
+			expect(drop.defaultPrevented, type).toBe(false);
+		}
+	});
+
 	it('leaves a text drag alone, so moving a selection in the editor still works', () => {
 		removers.push(installFileDropGuard());
 

@@ -45,7 +45,7 @@
     "reviewedTrees": {
       ".github/workflows/windows-signed-release.yml": "ae6d3616a176acc3c76f8801c8b00b5467b0e6da",
       "frontend/src/lib/updates.ts": "afb68a87c467af9f4e6299c2c3478a41d0762e12",
-      "frontend/src-tauri/src": "dd3c9b5a86589fbf228b4538121418bd167951b9",
+      "frontend/src-tauri/src": "a93633a86b4412a5ffdc568795998e86c88f79d2",
       "frontend/src/lib/components/settings/AboutSettings.svelte": "64b520cedf9e073c0e4611c40e9c146487d7a1e4",
       "frontend/src-tauri/tauri.conf.json": "4db87fe6a13af1cf4b64e657867d3826743fab5c",
       "frontend/src-tauri/capabilities": "010c5218458c20ba922628f21fe030b00e655c18"
@@ -54,6 +54,10 @@
       {
         "date": "2026-09-16",
         "note": "Ctrl+P handed from the webview to the app, read against section 1. No sentence of this audit names it; verdict stays PASS. One path moved and the whole diff is webview_defaults.rs: VK_P leaves the list of accelerators kept with the browser, because globalShortcuts.ts now binds Ctrl+P to printing the open message, and the doc comment and two tests follow. Nothing else in frontend/src-tauri/src changed -- lib.rs, tray.rs, update_preference.rs, the three updater commands, PendingUpdate, DownloadedUpdate and beta_endpoint_override are byte-identical to a2e6d43, generate_handler! exposes the same eight commands, and capabilities/, tauri.conf.json, updates.ts, AboutSettings.svelte and windows-signed-release.yml are untouched. lib.rs also moves one assertion on WEBVIEW_DISK_CACHE_BYTES out of a test into a const assertion beside the constant, which changes no value and no argument the webview is built with, and the webview_defaults.rs doc comment gains a blank line; both are clippy cleanups with no behaviour in them. The handler this edits is attached to the webview controller in setup and is unreachable from the renderer, so section 1's IPC surface is unchanged; the key it stops keeping is a browser accelerator, which no updater path reads."
+      },
+      {
+        "date": "2026-09-20",
+        "note": "A doc comment, and nothing else. Verified the way the claim demands rather than by reading the intent: every added and removed line under this path that is neither a `///` line nor blank comes back empty. The paragraph corrected is the one the acknowledgement above introduced -- it said the app now binds Ctrl+P and prints the open message, while printCurrentView calls window.print() and is documented as printing the current view on purpose, so the next reader deciding whether a key may be denied at the WebView2 level was reasoning from behaviour the app does not have. keeps_browser_handling, is_removed_context_menu_item, attach_accelerator_keys, attach_context_menu and their tests are byte-identical, and lib.rs, tray.rs, update_preference.rs, the updater commands and generate_handler! are untouched, as are capabilities/, tauri.conf.json, updates.ts, AboutSettings.svelte and windows-signed-release.yml. No updater path reads any of it. Verdict stays PASS."
       }
     ]
   },
@@ -87,8 +91,8 @@
   },
   "docs/CONTENT_RENDERING_AUDIT.md": {
     "reviewedTrees": {
-      "frontend/src/lib/components/message-detail": "12ac564cb9cb15ce4944f5c83a8e55391ef2a7d0",
-      "frontend/src/lib/mail/mailFrame.ts": "a182ef2390629573876912ab1c484622acd2a1f4",
+      "frontend/src/lib/components/message-detail": "b3fbaccfc045f8b9e0b0e7c249723571c66f8a39",
+      "frontend/src/lib/mail/mailFrame.ts": "9d91bfe4ef0c0267a4f6be9fdd528b1d1fceebb5",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailContentService.java": "74f389c930039b37fca5bfb854a7e616626540a1"
     },
     "acknowledgements": [
@@ -111,6 +115,10 @@
       {
         "date": "2026-09-16",
         "note": "Printing a message reaches the body frame, read against sections 1, 2 and 3. No claim of this audit moves; verdict stays PASS. Two paths moved. (1) mailFrame.ts: the hash-pinned in-frame script gains two things. It cancels Ctrl+P alongside the keys it already claimed (the regex goes from /^[krfqu]$/i to /^[kprfqu]$/i), which is the same promise section 3 rests on for Ctrl+R and Ctrl+F -- the parent reacts to a synthetic replay, so only the frame can cancel the genuine event. And it measures its own document and posts the height out as __voxroxMailFrameHeight. That adds no capability: the frame already had window.parent.postMessage and has had it since the forwarder existed, so a body that got a script past the hash could always have posted anything it liked; what is new is that the parent listens for one more shape. It is validated on the same terms as the other two -- origin 'null' plus an exact source match to this frame's contentWindow in MessageContent.svelte, then isMailFrameHeightMessage, then clampMailFramePrintHeight, which rejects NaN, the infinities, zero and negatives and caps at 20000px. The height is applied to the iframe element between beforeprint and afterprint and restored afterwards, never to the pane on screen, so the worst a hostile height achieves is a print job up to about twenty A4 pages long that the user started themselves. Nothing about the sandbox, the frame CSP, img-src, the remote-image opt-in or the sanitizer is touched. Hashes recomputed independently rather than compared to a note, as this audit's own method section requires: MAIL_FRAME_SCRIPT 9DIi3Jm+1q0SAyuB5kl54K12o6ZiUBX8Zz8v6eITwTw= over 990 bytes and MAIL_FRAME_STYLE UXLUJbZ21yq1eqQCljjFZwc0mejRk10+TVL8FCWZ+C0= over 376 bytes, both matching the pinned constants, and mailFrame.test.ts pins them too. (2) components/message-detail: MessageContent.svelte gains the height branch described above and the beforeprint/afterprint pair, both removed on destroy; no sanitized HTML path, no new sink, and the body still never enters the app document."
+      },
+      {
+        "date": "2026-09-20",
+        "note": "The correction to the acknowledgement above, and it narrows rather than widens. The print height the frame reports was kept as a bare number while the iframe element is reused between messages, so a print started between a new srcdoc and the new document's load applied the previous message's height; it now travels as { srcdoc, height } and printHeightFor refuses it unless the srcdoc matches the one on the element. Two paths moved, and the security-relevant half of neither does. mailFrame.ts gains a pure function, an interface and a constant, appended after clampMailFramePrintHeight: MAIL_FRAME_SCRIPT and MAIL_FRAME_STYLE are byte-identical, so both pinned hashes stand unchanged and no new inline script is authorised, and the sandbox attributes, the frame CSP, img-src, the sanitizer and the remote-image opt-in are untouched. components/message-detail: MessageContent.svelte stores the pair instead of the number and asks printHeightFor before it borrows the height; the origin 'null' check, the exact source match to this frame's contentWindow, isMailFrameHeightMessage, clampMailFramePrintHeight and the beforeprint/afterprint restore are unchanged field for field. What a hostile body can achieve therefore only shrinks: a height it posts is now refused outright once another message is open. Verdict stays PASS."
       }
     ]
   },
@@ -127,7 +135,7 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "d9c4c774eb297812faea54dbef2b92a36471fc92",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "52d81fe07b7b2944cd3d2811ccde7dc44883b316",
       "backend/src/main/java/org/voxrox/mailbackend/core/config/mail": "7ac85397ace1e22b51e91c525f6c3a60dc2b949a"
     },
     "acknowledgements": [
@@ -142,6 +150,21 @@
       {
         "date": "2026-09-17",
         "note": "A constant becomes a setting. UidEnumerationSchedule takes its interval from the new SyncProperties.uidEnumerationInterval (mail.client.sync.uid-enumeration-interval, default 1h, the value the constant held) through an @Autowired constructor; the test constructor with an injected clock is unchanged. Nothing about what the enumeration fetches or how the server is trusted moves, the default cadence is the same, and only the soak profile shortens it, so no claim of this audit moves and the verdict stays PASS."
+      },
+      {
+        "date": "2026-09-20",
+        "note": "A comment, and nothing else. Verified rather than assumed: every added and removed line under this path that is neither a javadoc line nor blank comes back empty, and the whole change is the javadoc of FlagSyncService.syncMessageFlagsCondstore. It still sent the reader to ctx.syncState().getLastKnownModseq() although the body had moved to getModseqBaseline() in the change this audit last acknowledged -- that is, to the accessor that hands back the -1 a server reporting no HIGHESTMODSEQ leaves in the column, which is what stranded a Dovecot folder. No executable line moved anywhere under feature/mail/service: TLS and authentication, the connection pool, the protocol commands, what is fetched and what is written to the log are byte-identical, and core/config/mail is untouched. Verdict stays PASS."
+      }
+    ]
+  },
+  "docs/API_SURFACE_AUDIT.md": {
+    "reviewedTrees": {
+      "backend/src/main/java/org/voxrox/mailbackend/core/diagnostic": "2f830b8f86c784029fa29108e27385672cec65be"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-09-20",
+        "note": "First note after the v1.9 re-verification of 2026-09-19, and it is what the dump omits, not what the API exposes. One path moved and the whole diff is DiagnosticDumpService: withoutHome trims a trailing separator off user.home before the prefix comparison, through a new private helper, because the comparison requires a separator after the home -- that is what keeps C:\\Users\\Lukas2 from matching the home C:\\Users\\Lukas -- and a home that already ended in one left the rest starting with a directory name, so the path came back whole with the Windows account name in it. Checked against the three things that could move a verdict here. (1) No endpoint, method, path or authentication requirement changes: the diagnostic dump is the same endpoint behind the same API key, and no controller is in this diff. (2) The response shape is identical -- the same seven JSON entries in the same ZIP, the same records, the same field names. (3) The payload can only lose what it was already meant to lose: the fix makes an existing redaction fire in a case where it silently did not, and nothing is added. Folder pseudonyms, the masked address and the rest of the bundle are untouched, and the new test drives the real createDump() with a user.home that carries a separator. Verdict stays PASS."
       }
     ]
   }

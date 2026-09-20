@@ -49,11 +49,45 @@ export function dragHasUrl(event: DragEvent): boolean {
 }
 
 /**
+ * Input types that are controls rather than places to type. Everything else is
+ * text entry, including a `type` the browser does not know: the IDL attribute
+ * reports an unknown one as `text`, which is also how it behaves.
+ *
+ * Measured against Chromium rather than reasoned about, because the whole
+ * point is what the browser does with a drop nobody claims. Dropping a link on
+ * `text`, `search`, `url`, `email`, `tel`, `password` and `textarea` fires a
+ * drop event and inserts the address; `number` fires one and discards the
+ * value, which is useless but harmless. A `checkbox` fires **no drop event at
+ * all** — it behaves exactly like a plain `div`, so nothing on the page can
+ * claim that drop, and what happens next is the browser's own default for a
+ * link. The date family is here for the same reason as `checkbox`: it is a
+ * picker, not a field, and an unmeasured target belongs on the guarded side.
+ */
+const NON_TEXT_INPUT_TYPES = new Set([
+	'button',
+	'checkbox',
+	'color',
+	'date',
+	'datetime-local',
+	'file',
+	'hidden',
+	'image',
+	'month',
+	'radio',
+	'range',
+	'reset',
+	'submit',
+	'time',
+	'week'
+]);
+
+/**
  * True when the drop landed in something that takes typed text, where dropping
  * a link inserts its address instead of following it — the compose body, which
  * is a plain textarea, and the recipient inputs.
  */
 export function isTextEntryTarget(target: EventTarget | null): boolean {
-	if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return true;
+	if (target instanceof HTMLTextAreaElement) return true;
+	if (target instanceof HTMLInputElement) return !NON_TEXT_INPUT_TYPES.has(target.type);
 	return target instanceof HTMLElement && target.isContentEditable;
 }

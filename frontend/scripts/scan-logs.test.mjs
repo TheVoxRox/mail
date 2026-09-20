@@ -197,6 +197,17 @@ describe('verdict', () => {
 	it('fails on a leak', () => {
 		expect(verdict(clean, [{}]).reasons).toEqual(['1 leak']);
 	});
+
+	it('fails on an audit log that was never read, but only when strict', () => {
+		// A clean mail.log on its own is a state this script is asked about, so
+		// the plain run stays green; §7 wants a verdict on the audit log, and
+		// "there was none to read" is not the zero the report would imply.
+		expect(verdict(clean, [], { auditScanned: false }).ok).toBe(true);
+		expect(verdict(clean, [], { strict: true, auditScanned: false })).toEqual({
+			ok: false,
+			reasons: ['no audit log to read (strict)']
+		});
+	});
 });
 
 describe('orderLogFiles', () => {
@@ -258,6 +269,22 @@ describe('scan-logs.mjs', () => {
 		expect(result.status).toBe(1);
 		expect(result.stdout).toContain('known secret: key-… (20 chars)');
 		expect(result.stdout).not.toContain('key-0123456789abcdef');
+	});
+
+	it('says the audit log was not checked rather than reporting zero CRITICAL', () => {
+		dir = mkdtempSync(path.join(os.tmpdir(), 'scan-logs-'));
+		const logs = path.join(dir, 'logs');
+		mkdirSync(logs);
+		writeFileSync(path.join(logs, 'mail.log'), `${D_RETRIED}\n`);
+
+		const plain = run('--logs', logs);
+		expect(plain.status).toBe(0);
+		expect(plain.stdout).toContain('CRITICAL audit records: NOT CHECKED');
+		expect(plain.stdout).not.toContain('CRITICAL audit records: 0');
+
+		const strict = run('--logs', logs, '--strict', 'true');
+		expect(strict.status).toBe(1);
+		expect(strict.stdout).toContain('no audit log to read (strict)');
 	});
 
 	it('passes a clean log and exits 2 without one', () => {

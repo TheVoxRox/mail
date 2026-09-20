@@ -5,6 +5,8 @@ import {
 	clampMailFramePrintHeight,
 	isMailFrameHeightMessage,
 	MAX_MAIL_FRAME_PRINT_HEIGHT,
+	NO_MAIL_FRAME_PRINT_HEIGHT,
+	printHeightFor,
 	MAIL_FRAME_SCRIPT,
 	MAIL_FRAME_SCRIPT_SHA256,
 	MAIL_FRAME_STYLE,
@@ -433,6 +435,22 @@ describe('frame height reporting', () => {
 
 	it('caps a height that would ask for a print of a few thousand sheets', () => {
 		expect(clampMailFramePrintHeight(50_000_000)).toBe(MAX_MAIL_FRAME_PRINT_HEIGHT);
+	});
+
+	it('gives the frame a height only for the document that was measured', () => {
+		const measured = { srcdoc: '<p>first</p>', height: 9000 };
+
+		expect(printHeightFor(measured, '<p>first</p>')).toBe(9000);
+		// The element is reused when another message is opened, so a measurement
+		// that belongs to the previous body must not be applied to this one: it
+		// prints blank sheets when the new message is shorter, and clips it when
+		// it is longer, which is the failure this path exists to prevent.
+		expect(printHeightFor(measured, '<p>second</p>')).toBe(0);
+	});
+
+	it('has nothing to give before the first frame has reported', () => {
+		expect(printHeightFor(NO_MAIL_FRAME_PRINT_HEIGHT, '<p>first</p>')).toBe(0);
+		expect(printHeightFor({ srcdoc: '<p>first</p>', height: 0 }, '<p>first</p>')).toBe(0);
 	});
 
 	it('measures the document from inside, because the parent cannot', () => {

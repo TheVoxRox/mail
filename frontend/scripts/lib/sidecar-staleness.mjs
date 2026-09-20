@@ -122,7 +122,7 @@ async function expectedLauncherNames(repoRoot) {
  * `voxrox-mail-backend-x86_64-pc-windows-msvc.exe` — and those two names are
  * the shell and the sidecar of this very repo, one a prefix of the other.
  */
-const TARGET_TRIPLE = /^[a-z0-9_]+(?:-[a-z0-9_]+){2,3}(?:.exe)?$/;
+const TARGET_TRIPLE = /^[a-z0-9_]+(?:-[a-z0-9_]+){2,3}(?:\.exe)?$/;
 
 function isLauncherFor(file, name) {
 	if (!file.startsWith(`${name}-`)) return false;

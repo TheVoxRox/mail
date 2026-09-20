@@ -94,9 +94,10 @@ for (const name of auditFiles) {
 }
 
 const result = classify(entries, auditRecords, { since });
-const outcome = verdict(result, leaks, { strict: args.strict === 'true' });
+const auditScanned = auditFiles.length > 0;
+const outcome = verdict(result, leaks, { strict: args.strict === 'true', auditScanned });
 const files = [...mailFiles, ...auditFiles].map((name) => path.join(logsDir, name));
-console.log(formatReport({ files, result, leaks, outcome, since }));
+console.log(formatReport({ files, result, leaks, outcome, since, auditScanned }));
 
 if (args.json) {
 	const brief = (item) => ({ file: item.file, line: item.line });
@@ -113,6 +114,7 @@ if (args.json) {
 			{
 				logsDir,
 				since: since?.toISOString() ?? null,
+				auditScanned,
 				ok: outcome.ok,
 				reasons: outcome.reasons,
 				d: {

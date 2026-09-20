@@ -6,6 +6,8 @@
 		countRemoteImages,
 		clampMailFramePrintHeight,
 		isMailFrameHeightMessage,
+		NO_MAIL_FRAME_PRINT_HEIGHT,
+		printHeightFor,
 		isMailFrameKeyMessage,
 		isMailFrameLinkMessage,
 		isOpenableMailLink,
@@ -154,8 +156,8 @@
 	 */
 	const plainTextBody = $derived(looksLikeHtml ? mailHtmlToPlainText(content) : content);
 
-	/** Last height the frame reported, clamped. 0 until it has said anything. */
-	let printHeight = 0;
+	/** Last height the frame reported, clamped, with the document it measured. */
+	let printHeight = NO_MAIL_FRAME_PRINT_HEIGHT;
 
 	/*
 	 * The body renders in a script-sandboxed, opaque-origin iframe whose only
@@ -183,7 +185,12 @@
 				return;
 			}
 			if (isMailFrameHeightMessage(event.data)) {
-				printHeight = clampMailFramePrintHeight(event.data.height);
+				// Kept with the document it describes: the element is reused when
+				// another message is opened, so the srcdoc is what tells them apart.
+				printHeight = {
+					srcdoc: node.srcdoc,
+					height: clampMailFramePrintHeight(event.data.height)
+				};
 			}
 		}
 
@@ -203,9 +210,10 @@
 		 */
 		let heightBeforePrint: string | null = null;
 		function onBeforePrint() {
-			if (printHeight <= 0 || heightBeforePrint !== null) return;
+			const height = printHeightFor(printHeight, node.srcdoc);
+			if (height <= 0 || heightBeforePrint !== null) return;
 			heightBeforePrint = node.style.height;
-			node.style.height = `${printHeight}px`;
+			node.style.height = `${height}px`;
 		}
 		function onAfterPrint() {
 			if (heightBeforePrint === null) return;

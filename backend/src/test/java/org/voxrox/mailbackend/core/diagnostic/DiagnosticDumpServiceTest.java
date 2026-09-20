@@ -130,6 +130,37 @@ class DiagnosticDumpServiceTest {
                 .doesNotContain(home.replace("\\", "\\\\"));
     }
 
+    @Test
+    @DisplayName("A home directory that already ends with a separator is still redacted")
+    void createDumpRedactsAHomeThatEndsWithASeparator() throws Exception {
+        AccountEntity account = account();
+        when(accountRepository.findAllWithDetails()).thenReturn(List.of(account));
+        when(folderSyncStateRepository.findAll()).thenReturn(List.of());
+        when(imapConnectionManager.getPoolStats()).thenReturn(new ImapConnectionManager.PoolStats(0, 0));
+
+        String home = System.getProperty("user.home");
+        String dataDir = Path.of(home, "AppData", "Local", "VoxRox", "Mail").toString();
+        // -Duser.home, or an environment that sets HOME that way. The prefix check
+        // wants a separator after the home, and one that is already there left the
+        // rest starting with a directory name -- so the path came back whole, with
+        // the account name in it and nothing saying the redaction had been skipped.
+        System.setProperty("user.home", home + File.separator);
+        try {
+            DiagnosticDumpService service = new DiagnosticDumpService(accountRepository, folderSyncStateRepository,
+                    messageRepository, imapConnectionManager, oauth2TokenServiceRegistry,
+                    new StorageProperties(dataDir), new MockEnvironment(), new ObjectMapper(),
+                    new ApplicationVersion("9.8.7-test"), new ClientBootDiagnosticsService(),
+                    new StartupTimingService());
+
+            Map<String, String> entries = unzip(service.createDump());
+
+            assertThat(entries.get("runtime.json")).contains("\"dataDir\" : \"~")
+                    .doesNotContain(home.replace("\\", "\\\\"));
+        } finally {
+            System.setProperty("user.home", home);
+        }
+    }
+
     private AccountEntity account() {
         AccountEntity account = new AccountEntity();
         account.setId(1L);

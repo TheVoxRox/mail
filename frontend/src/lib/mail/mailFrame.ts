@@ -250,6 +250,30 @@ export function clampMailFramePrintHeight(height: number): number {
 	return Math.min(Math.round(height), MAX_MAIL_FRAME_PRINT_HEIGHT);
 }
 
+/** A frame height, and the document it was measured on. */
+export interface MailFramePrintHeight {
+	srcdoc: string;
+	height: number;
+}
+
+/** Nothing measured yet. */
+export const NO_MAIL_FRAME_PRINT_HEIGHT: MailFramePrintHeight = { srcdoc: '', height: 0 };
+
+/**
+ * The height to give the frame for this print, or 0 for "keep the one it has".
+ *
+ * A measurement belongs to the document it was taken on, and the frame gets a
+ * new one whenever another message is opened or the remote images are loaded —
+ * the element is reused, so nothing else marks the change. The new document
+ * reports its own height only once it has loaded, and a print started in that
+ * gap would otherwise stretch the new body to the previous message's height:
+ * blank sheets when it is shorter, and, when it is the longer of the two, the
+ * clipped print this whole path exists to prevent.
+ */
+export function printHeightFor(measured: MailFramePrintHeight, srcdoc: string): number {
+	return measured.height > 0 && measured.srcdoc === srcdoc ? measured.height : 0;
+}
+
 /**
  * Protocols the parent will hand to the OS opener. Mirrors the sanitizer's
  * `allowedUriProtocols` (content-sanitizer.ts) so a forwarded href can only ever

@@ -36,9 +36,10 @@
 ///   WCAG 1.4.4 asks for.
 ///
 /// Print is no longer among them. It was kept while nothing in the app printed,
-/// because denying it took printing a message away altogether; the app now binds
-/// Ctrl+P itself (`globalShortcuts.ts`) and prints the open message rather than
-/// the window, so the key is claimed like Ctrl+R and Ctrl+F before it. The
+/// because denying it took printing away altogether; the app now binds Ctrl+P
+/// itself (`globalShortcuts.ts`) and prints the current view through the print
+/// rules in app.css — the open message where there is one, and the view the
+/// reader is in otherwise — so the key is claimed like Ctrl+R and Ctrl+F. The
 /// context menu keeps its Print entry, which is not an accelerator and now
 /// reaches the same sheet through the print rules in app.css.
 #[cfg_attr(not(windows), allow(dead_code))]
