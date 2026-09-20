@@ -181,12 +181,34 @@ public class DiagnosticDumpService {
      * lives under it; the comparison ignores case because Windows paths do.
      */
     private static String withoutHome(String path, @Nullable String home) {
-        if (home == null || home.isBlank() || path.length() < home.length()
-                || !path.regionMatches(true, 0, home, 0, home.length())) {
+        String root = withoutTrailingSeparator(home);
+        if (root.isEmpty() || path.length() < root.length() || !path.regionMatches(true, 0, root, 0, root.length())) {
             return path;
         }
-        String rest = path.substring(home.length());
+        String rest = path.substring(root.length());
         return rest.isEmpty() || rest.charAt(0) == '/' || rest.charAt(0) == '\\' ? "~" + rest : path;
+    }
+
+    /**
+     * {@code user.home} without the separator it may end with, because the check
+     * above requires the next character to be one — that is what keeps
+     * {@code C:\Users\Lukas2} from matching the home {@code C:\Users\Lukas}. A home
+     * that already ends in a separator ({@code -Duser.home}, or a HOME the
+     * environment set that way) therefore left {@code rest} starting with a
+     * directory name, which read as "a different directory that starts the same
+     * way", and the path came back <em>unredacted</em>: the Windows account name in
+     * the exported bundle, with nothing saying the redaction had been skipped.
+     * Failing open is the one way this must not fail.
+     */
+    private static String withoutTrailingSeparator(@Nullable String home) {
+        if (home == null || home.isBlank()) {
+            return "";
+        }
+        int end = home.length();
+        while (end > 0 && (home.charAt(end - 1) == '/' || home.charAt(end - 1) == '\\')) {
+            end--;
+        }
+        return home.substring(0, end);
     }
 
     private record FolderKey(@Nullable Long accountId, String folderName) {

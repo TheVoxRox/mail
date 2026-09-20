@@ -214,14 +214,23 @@ function maskSecret(secret) {
 	return `${secret.slice(0, 4)}… (${secret.length} chars)`;
 }
 
-/** Whether the scan should fail: anything §8.2 escalates, a CRITICAL, a leak — and with `strict`, any other ERROR. */
-export function verdict(result, leaks, { strict = false } = {}) {
+/**
+ * Whether the scan should fail: anything §8.2 escalates, a CRITICAL, a leak —
+ * and with `strict`, any other ERROR and an audit log that was never read.
+ *
+ * `auditScanned` is false when the directory held no `audit.*` file. The plain
+ * run stays green, because a clean `mail.log` on its own is a state this script
+ * is asked about; but §7 wants a verdict on the audit log, and "there was none
+ * to read" is not the zero the report would otherwise imply.
+ */
+export function verdict(result, leaks, { strict = false, auditScanned = true } = {}) {
 	const reasons = [];
 	if (result.d.exhausted.length > 0) reasons.push(`${result.d.exhausted.length} exhausted D retry`);
 	if (result.d.classifierMiss.length > 0) {
 		reasons.push(`${result.d.classifierMiss.length} D failure the classifier missed`);
 	}
 	if (result.critical.length > 0) reasons.push(`${result.critical.length} CRITICAL audit record`);
+	if (strict && !auditScanned) reasons.push('no audit log to read (strict)');
 	if (leaks.length > 0) reasons.push(`${leaks.length} leak`);
 	if (strict) {
 		const errors = result.errors.reduce((sum, group) => sum + group.count, 0);
@@ -233,7 +242,7 @@ export function verdict(result, leaks, { strict = false } = {}) {
 const where = (item) => `${item.file}:${item.line}`;
 
 /** The human report. Lists places, never the text of a leak. */
-export function formatReport({ files, result, leaks, outcome, since }) {
+export function formatReport({ files, result, leaks, outcome, since, auditScanned = true }) {
 	const out = [];
 	out.push(`Log scan over ${files.length} file(s)${since ? ` since ${since.toISOString()}` : ''}`);
 	for (const file of files) out.push(`  ${file}`);
@@ -248,7 +257,13 @@ export function formatReport({ files, result, leaks, outcome, since }) {
 		out.push(`    ${where(entry)}  ${entry.time?.toISOString() ?? ''}`);
 	}
 	out.push('');
-	out.push(`CRITICAL audit records: ${result.critical.length}`);
+	// Never a count that was not taken: with no audit file among the ones listed
+	// above, "0" reads as "checked and clean" and §7 gets ticked on nothing.
+	out.push(
+		auditScanned
+			? `CRITICAL audit records: ${result.critical.length}`
+			: 'CRITICAL audit records: NOT CHECKED — no audit log among the files above'
+	);
 	for (const record of result.critical) out.push(`  ${where(record)}  action=${record.action}`);
 	out.push('');
 	const section = (title, groups) => {

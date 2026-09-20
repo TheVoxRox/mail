@@ -83,8 +83,11 @@ public class FlagSyncService {
     /**
      * CONDSTORE-aware flag sync. Instead of enumerating every local UID and
      * comparing it with the server, fetch only messages whose MODSEQ advanced
-     * beyond {@code ctx.syncState().getLastKnownModseq()} — see RFC 7162 §3.1.5.
-     * After completion, store the new HIGHESTMODSEQ of the folder.
+     * beyond {@code ctx.syncState().getModseqBaseline()} — see RFC 7162 §3.1.5.
+     * Through the baseline and not the column: the column may hold the -1 a server
+     * that reported no HIGHESTMODSEQ left there, and resuming from that is what
+     * stranded a folder. After completion, store the new HIGHESTMODSEQ of the
+     * folder.
      * <p>
      * The caller (MailSyncService) must check the capability — this method assumes
      * the server supports CONDSTORE. It does not assume the SELECT reported

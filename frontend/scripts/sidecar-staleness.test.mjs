@@ -125,6 +125,19 @@ describe('sidecar freshness', () => {
 		expect(describeStaleness(result).text).toContain('no launcher at all');
 	});
 
+	it('does not accept a name whose extension separator is not a dot', async () => {
+		// `(?:.exe)?` left the dot unescaped, so any character stood in for it and
+		// a name that is not the launcher passed a check whose only job is to be
+		// exact about launcher names.
+		await syncedFixture(
+			'frontend/src-tauri/binaries/voxrox-mail-backend-x86_64-pc-windows-msvcXexe'
+		);
+
+		const result = await checkSidecarFreshness(root);
+
+		expect(result.status).toBe('misnamed');
+	});
+
 	it('does not accept a longer name that merely starts the same way', async () => {
 		// The shell is voxrox-mail and the sidecar voxrox-mail-backend, so a
 		// prefix match lets the one stand in for the other. What follows the

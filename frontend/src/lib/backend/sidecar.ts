@@ -313,7 +313,10 @@ async function handleUnexpectedExit(generation: number, error: Error): Promise<v
 		return;
 	}
 
-	if (error instanceof SidecarExitError && error.permanent) {
+	// By name, not `instanceof`, for the reason isSidecarExitError carries: a
+	// class identity does not survive HMR or vi.resetModules(), and getting this
+	// wrong spends the restart budget on an exit no restart can fix.
+	if (isSidecarExitError(error) && error.permanent) {
 		backendSidecarState.set({ status: 'error', error });
 		return;
 	}
