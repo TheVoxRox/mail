@@ -2,10 +2,10 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.9                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| **Date**           | 2026-09-03                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **Version**        | 2.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| **Date**           | 2026-09-21                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| **Audited commit** | `0c1b61b` (re-verified 2026-09-03; 1.7-1.8 anchor `d558098`; 1.4-1.6 anchor `cad05cb`, recorded pre-squash as `5799e8b`; 1.0–1.3 baseline: `d55b753` / `fc71cb4`)                                                                                                                                                                                                                                                                                                                       |
+| **Audited commit** | `bab8acd` (re-verified 2026-09-21; 1.9 anchor `0c1b61b`; 1.7-1.8 anchor `d558098`; 1.4-1.6 anchor `cad05cb`, recorded pre-squash as `5799e8b`; 1.0–1.3 baseline: `d55b753` / `fc71cb4`)                                                                                                                                                                                                                                                                                                 |
 | **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/util/HtmlSanitizer.java`, `backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailContentService.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/RemoteImageAllowlistService.java`, `frontend/src/lib/mail/content-sanitizer.ts`, `frontend/src/lib/mail/mailFrame.ts`, `frontend/src/lib/components/message-detail` |
 | **Subsystem**      | Untrusted email HTML rendering — Boundary 4 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                                                                                                  |
 | **Verdict**        | **Security: PASS** (no exploitable finding). F1 (dead links), F2 (embedded images + remote-image opt-in), F3 (plain-text fidelity), F4 (URLs in plain-text bodies were not links) and F5 (a link into the message opened the app's own URL) all **fixed**.                                                                                                                                                                                                                              |
@@ -57,7 +57,13 @@ IMAP raw body
 'sha256-…'; base-uri 'none'; form-action 'none'`. The only executable script
    is the hash-pinned first-party key forwarder; every mail-body script is
    blocked by hash mismatch, and inline event handlers are blocked by
-   `script-src` without `'unsafe-inline'`.
+   `script-src` without `'unsafe-inline'`. The frame has one mount point,
+   [MessageContent.svelte](../frontend/src/lib/components/message-detail/MessageContent.svelte),
+   and since v2.0 two places mount it: the reading pane and
+   [MessagePrintSheet.svelte](../frontend/src/lib/components/message-detail/MessagePrintSheet.svelte),
+   which renders the messages ticked in a list for paper, one frame per
+   message, inside an `inert`, `aria-hidden` container. Same builder, same
+   sandbox, same CSP; the sheet adds no sink.
 
 ## 2. Security verdict: PASS — verified checklist
 
@@ -95,6 +101,10 @@ IMAP raw body
       per-message / per-sender opt-in gesture (§3 F2), which promotes the inert
       attribute to `src` and relaxes the frame CSP to `img-src data: https:`
       with a `no-referrer` meta — a user-initiated, image-only exposure.
+      The print sheet for ticked messages seeds each frame from the
+      per-sender allow-list only; a per-message opt-in made in the reading
+      pane is not carried into it, so a print loads no more than opening the
+      message would.
 - [x] **Reverse tabnabbing** — `rel="noopener noreferrer nofollow"` at both layers.
 - [x] **DoS** — every read in
       [MimePartExtractor.java](../backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java)
@@ -392,6 +402,44 @@ bridge restores working links without changing the sandbox.
 
 ## 7. Change log
 
+- **2.0** (2026-09-21) — re-verified against `bab8acd`, closing the six
+  acknowledgements the ledger held rather than adding a seventh for the change
+  that prompted it: printing the messages ticked in a list (#532) mounts the
+  message-body frame a second time. Route 1 of `docs/audit-freshness.json`, so
+  the entry for this audit is deleted and `Audited commit` carries the anchor
+  again. Drift since `0c1b61b` was four files, each read in full rather than
+  taken from the six notes. `MailContentService` names the IMAP lane it fetches
+  a missing body on (one argument and its import; still `executeReadOnly`).
+  `MessageMoveControl.svelte` moved to the shared menu wrapper and lists folder
+  names, never message content. `mailFrame.ts` narrowed the in-frame
+  `preventDefault` predicate to the combinations the app claims, added Ctrl+P
+  to them, and has the forwarder measure its document and post the height; the
+  parent validates that message (`isMailFrameHeightMessage`), clamps it to
+  20 000 px, and applies it only between `beforeprint` and `afterprint` and
+  only to the document it was measured on (`printHeightFor`), so the number a
+  mail authors can stretch its own print and nothing else.
+  `MessageContent.svelte` gained that print-height handling, the
+  `shouldFocusBody` rule, a per-instance heading id and a `printOnly` mode.
+  New in the tree is `MessagePrintSheet.svelte`, which mounts `MessageContent`
+  once per ticked message — the same `buildMailFrameSrcdoc`, the same
+  `sandbox="allow-scripts"` without `allow-same-origin`, the same CSP — inside
+  an `inert`, `aria-hidden` container; its header fields are Svelte text
+  interpolation, as in `MessageHeaderCard`. A second mount of the one sink, not
+  a second sink: the `srcdoc` binding still occurs exactly once in
+  `frontend/src`. `printOnly` removes behaviour (body focus, the remote-image
+  banner) and adds a one-shot callback on the height report the parent already
+  validates; the sheet seeds remote images from the per-sender allow-list only,
+  so a print loads no more than opening the message would, and §2's tracking
+  row now says so. The §2 checklist was re-run with the §4 commands: `{@html}`
+  still 0 across `frontend/src`; the two `innerHTML` occurrences still both
+  vitest, still first-party constants; `sanitizeMailHtml` still consumed only
+  by `mailFrame.ts` (`buildMailFrameSrcdoc` and `countRemoteImages`);
+  `mailHtmlToPlainText` still only the plain-text view and the compose prefill;
+  the safelist and the 20 / 2 MiB / 8 MiB / 8 MiB caps unchanged;
+  `HtmlSanitizerTest`, `HtmlSanitizerMalformedInputTest` and
+  `MimePartExtractorTest` green, counted in the XML reports. Both CSP hashes
+  were **recomputed from the source literals** and match the constants the
+  frame CSP is built from. Verdict unchanged (**PASS**).
 - **1.9** (2026-09-03) — re-verified against `0c1b61b`, closing the six
   acknowledgements the ledger had reached rather than adding a seventh. Route 1
   of `docs/audit-freshness.json`, so the entry for this audit is deleted and

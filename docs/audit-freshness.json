@@ -93,39 +93,6 @@
       }
     ]
   },
-  "docs/CONTENT_RENDERING_AUDIT.md": {
-    "reviewedTrees": {
-      "frontend/src/lib/components/message-detail": "b3fbaccfc045f8b9e0b0e7c249723571c66f8a39",
-      "frontend/src/lib/mail/mailFrame.ts": "9d91bfe4ef0c0267a4f6be9fdd528b1d1fceebb5",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailContentService.java": "74f389c930039b37fca5bfb854a7e616626540a1"
-    },
-    "acknowledgements": [
-      {
-        "date": "2026-09-03",
-        "note": "First note after the v1.9 re-verification, and it is the folder-move dropdown, not the rendering chain. The whole diff under this path is MessageMoveControl.svelte swapping its hand-written DropdownMenu.Portal + Content for the new MenuContent wrapper: same aria-label, same focus handler, same scroll variant, same align and sideOffset, now defaults inside the component instead of attributes at the call site. Checked rather than assumed: the element that renders message content is the iframe in MessageContent.svelte, which is not in this diff, and this control lists folder names from the folder store - it never receives message HTML. Nothing here touches the sandbox, the frame CSP, the sanitizer or the remote-image opt-in. Verdict stays PASS."
-      },
-      {
-        "date": "2026-09-03",
-        "note": "Second note after the v1.9 re-verification, and it is the keydown forwarder, not the isolation. The whole diff under this path is the preventDefault predicate inside MAIL_FRAME_SCRIPT, which stops cancelling browser defaults for combinations the app never claims (Ctrl+G, and the Shift variants of the claimed letters), plus the CSP hash that necessarily follows from changing the literal. Checked rather than assumed: the sandbox attributes, the opaque origin, the frame's default-src none, the sanitizer and the remote-image opt-in are byte-identical, and the postMessage payload the frame sends its parent is unchanged field for field - nothing new reaches the parent and nothing new is admitted into the frame. The hash is the one security-relevant line here, and it stays a pin on exactly one inline script: mailFrame.test.ts recomputes it from the literal, so it cannot drift from the script it authorises. Verdict stays PASS."
-      },
-      {
-        "date": "2026-09-03",
-        "note": "Third note after the v1.9 re-verification, and it is when the body takes focus, not what the body is. The whole diff under this path is MessageContent.svelte's focus effect calling the new shouldFocusBody rule instead of computing the intent inline, so that an intent naming another message stops reading as no intent at all. Checked rather than assumed: the iframe's sandbox attributes, its srcdoc assembly, the frame CSP, the sanitizer call and the remote-image opt-in are untouched, and no new value from the message reaches the DOM - the rule takes a stable id, a mode and a boolean, and returns a boolean. The only observable change is that the reading cursor stops being pulled into the frame when two navigations overlap. Verdict stays PASS."
-      },
-      {
-        "date": "2026-09-06",
-        "note": "Fourth note, and the smallest of the run. The whole diff under this path is one argument: MailContentService now names the IMAP lane it fetches a missing body on (Lane.INTERACTIVE) plus the import for it. Read in the tree rather than from the diff summary: getOrFetch is otherwise byte-identical — the same isBodyOversize short-circuit, the same MimePartExtractor.extractBody, the same escapePlainText for a text/plain part, the same referencedCids gate before collectInlineImages, the same HtmlSanitizer.sanitize call with the same inlineImages map, and the same IOException|RuntimeException wrap into MAIL_CONNECTION_ERROR. No sanitizer input, no cap, no branch and no persisted value moved. What the lane changes is which TCP connection the fetch travels on, which is a scheduling property; this boundary is about what happens to the bytes after they arrive, and that is untouched. Verdict stays PASS."
-      },
-      {
-        "date": "2026-09-16",
-        "note": "Printing a message reaches the body frame, read against sections 1, 2 and 3. No claim of this audit moves; verdict stays PASS. Two paths moved. (1) mailFrame.ts: the hash-pinned in-frame script gains two things. It cancels Ctrl+P alongside the keys it already claimed (the regex goes from /^[krfqu]$/i to /^[kprfqu]$/i), which is the same promise section 3 rests on for Ctrl+R and Ctrl+F -- the parent reacts to a synthetic replay, so only the frame can cancel the genuine event. And it measures its own document and posts the height out as __voxroxMailFrameHeight. That adds no capability: the frame already had window.parent.postMessage and has had it since the forwarder existed, so a body that got a script past the hash could always have posted anything it liked; what is new is that the parent listens for one more shape. It is validated on the same terms as the other two -- origin 'null' plus an exact source match to this frame's contentWindow in MessageContent.svelte, then isMailFrameHeightMessage, then clampMailFramePrintHeight, which rejects NaN, the infinities, zero and negatives and caps at 20000px. The height is applied to the iframe element between beforeprint and afterprint and restored afterwards, never to the pane on screen, so the worst a hostile height achieves is a print job up to about twenty A4 pages long that the user started themselves. Nothing about the sandbox, the frame CSP, img-src, the remote-image opt-in or the sanitizer is touched. Hashes recomputed independently rather than compared to a note, as this audit's own method section requires: MAIL_FRAME_SCRIPT 9DIi3Jm+1q0SAyuB5kl54K12o6ZiUBX8Zz8v6eITwTw= over 990 bytes and MAIL_FRAME_STYLE UXLUJbZ21yq1eqQCljjFZwc0mejRk10+TVL8FCWZ+C0= over 376 bytes, both matching the pinned constants, and mailFrame.test.ts pins them too. (2) components/message-detail: MessageContent.svelte gains the height branch described above and the beforeprint/afterprint pair, both removed on destroy; no sanitized HTML path, no new sink, and the body still never enters the app document."
-      },
-      {
-        "date": "2026-09-20",
-        "note": "The correction to the acknowledgement above, and it narrows rather than widens. The print height the frame reports was kept as a bare number while the iframe element is reused between messages, so a print started between a new srcdoc and the new document's load applied the previous message's height; it now travels as { srcdoc, height } and printHeightFor refuses it unless the srcdoc matches the one on the element. Two paths moved, and the security-relevant half of neither does. mailFrame.ts gains a pure function, an interface and a constant, appended after clampMailFramePrintHeight: MAIL_FRAME_SCRIPT and MAIL_FRAME_STYLE are byte-identical, so both pinned hashes stand unchanged and no new inline script is authorised, and the sandbox attributes, the frame CSP, img-src, the sanitizer and the remote-image opt-in are untouched. components/message-detail: MessageContent.svelte stores the pair instead of the number and asks printHeightFor before it borrows the height; the origin 'null' check, the exact source match to this frame's contentWindow, isMailFrameHeightMessage, clampMailFramePrintHeight and the beforeprint/afterprint restore are unchanged field for field. What a hostile body can achieve therefore only shrinks: a height it posts is now refused outright once another message is open. Verdict stays PASS."
-      }
-    ]
-  },
   "docs/CRYPTO_STORAGE_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/core/init": "6b860914def198938000e51a328137049fffac81"
