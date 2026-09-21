@@ -47,7 +47,7 @@ tauri-plugin-updater = "2"
 # Reads and writes the installer's answer about the startup update check
 # (src/update_preference.rs). Already in the dependency tree through Tauri, so
 # this adds no crate to the build or to the notices.
-windows-registry = "0.6"
+windows-registry = "0.100"
 # The WebView2 accelerator-key and context-menu handlers (src/webview_defaults.rs)
 # are not exposed by Tauri. Same versions wry already builds with, so this adds
 # no crate either; the controller Tauri hands out is typed by webview2-com.
