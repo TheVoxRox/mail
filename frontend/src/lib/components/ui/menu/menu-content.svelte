@@ -61,6 +61,7 @@
 		aria-label={label}
 		onfocus={focusFirstMenuItem}
 		class={cn(menuContentVariants({ width, scroll }), className)}
+		data-print="chrome"
 	>
 		{@render children()}
 	</DropdownMenu.Content>

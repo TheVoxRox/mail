@@ -266,9 +266,15 @@
 		void runBulkAction('move', (stableIds) => moveMessages(stableIds, folderRef));
 	}
 
-	/** The ticked rows in the order the list shows them, which is the order on paper. */
-	function printSelected(): Promise<void> {
-		return printMessages(pageStableIds.filter((stableId) => $selectedMessageIdSet.has(stableId)));
+	/**
+	 * The ticked rows in the order the list shows them, which is the order on
+	 * paper. Not while a bulk action runs: Ctrl+P and the palette reach this past
+	 * the bar, and a delete or move in flight would take messages out from under
+	 * the fetch and fail the whole print.
+	 */
+	async function printSelected(): Promise<void> {
+		if (bulkAction) return;
+		await printMessages(pageStableIds.filter((stableId) => $selectedMessageIdSet.has(stableId)));
 	}
 
 	/*

@@ -122,6 +122,8 @@
 		"bulkPrinting": "Připravuji tisk…",
 		"printPreparing": "{count, plural, one {Připravuji tisk {count} zprávy.} other {Připravuji tisk {count} zpráv.}}",
 		"printLoadFailed": "Zprávy k tisku se nepodařilo načíst, nic se nevytisklo. Zkuste to prosím znovu.",
+		"printAlreadyPreparing": "Tisk se už připravuje.",
+		"printFailed": "Tisk se nepodařilo připravit, nic se nevytisklo. Zkuste to prosím znovu.",
 		"bulkFlagDone": "Označeno hvězdičkou: {count}.{failed, plural, =0 {} other { Selhalo: {failed}.}}",
 		"bulkUnflagDone": "Hvězdička zrušena: {count}.{failed, plural, =0 {} other { Selhalo: {failed}.}}",
 		"permanentDeleteConfirmTitle": "Trvalé smazání",

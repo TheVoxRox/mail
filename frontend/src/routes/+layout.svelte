@@ -73,9 +73,23 @@
 	$effect(() => {
 		if (!$printJob || PrintSheetComp) return;
 		void import('$lib/components/message-detail/MessagePrintSheet.svelte').then(
-			(m) => (PrintSheetComp = m.default)
+			(m) => (PrintSheetComp = m.default),
+			abandonPrintJob
 		);
 	});
+
+	/*
+	 * Only the sheet's afterprint releases a print job. A sheet that never
+	 * arrives — its chunk failed to load — or that throws while rendering would
+	 * otherwise hold printInProgress for the rest of the session: the bulk bar
+	 * stuck on "Preparing to print…" and every later print refused. Drop the job
+	 * and say that nothing was printed.
+	 */
+	function abandonPrintJob(error: unknown): void {
+		console.warn('[mail] the print sheet failed', error);
+		finishPrintJob();
+		pushToast($_('messages.printFailed'), { tone: 'error' });
+	}
 
 	/*
 	 * Sidebar is loaded per active workspace (see ./components/sidebar/
@@ -543,8 +557,10 @@
 		<ConfirmDialogComp />
 	{/if}
 	{#if $printJob && PrintSheetComp}
-		{#key $printJob.id}
-			<PrintSheetComp job={$printJob} onDone={finishPrintJob} />
-		{/key}
+		<svelte:boundary onerror={abandonPrintJob}>
+			{#key $printJob.id}
+				<PrintSheetComp job={$printJob} onDone={finishPrintJob} />
+			{/key}
+		</svelte:boundary>
 	{/if}
 </div>

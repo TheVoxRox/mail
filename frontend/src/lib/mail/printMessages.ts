@@ -61,14 +61,35 @@ async function fetchItem(stableId: string): Promise<PrintItem> {
 async function fetchAll(ids: readonly string[]): Promise<PrintItem[]> {
 	const items: PrintItem[] = new Array(ids.length);
 	let cursor = 0;
+	// One failure already cancels the job; the other workers stop taking ids
+	// rather than fetch bodies nobody will print.
+	let failed = false;
 	async function worker(): Promise<void> {
-		while (cursor < ids.length) {
+		while (!failed && cursor < ids.length) {
 			const index = cursor++;
-			items[index] = await fetchItem(ids[index] as string);
+			try {
+				items[index] = await fetchItem(ids[index] as string);
+			} catch (error) {
+				failed = true;
+				throw error;
+			}
 		}
 	}
 	await Promise.all(Array.from({ length: Math.min(FETCH_CONCURRENCY, ids.length) }, worker));
 	return items;
+}
+
+/**
+ * True while a print job runs, and says so. A second Ctrl+P or palette entry
+ * cannot start another job, and refusing it in silence would leave a screen
+ * reader user unsure the key landed — the reason Ctrl+P with nothing to print
+ * speaks too. Callers that do work before `printMessages` (a conversation list
+ * loading thread members) ask first.
+ */
+export function refusePrintWhileBusy(): boolean {
+	if (!get(printInProgress)) return false;
+	announcePolite(get(_)('messages.printAlreadyPreparing'));
+	return true;
 }
 
 /**
@@ -77,8 +98,9 @@ async function fetchAll(ids: readonly string[]): Promise<PrintItem[]> {
  * single failed fetch cancels the job and says so.
  */
 export async function printMessages(stableIds: readonly string[]): Promise<void> {
+	if (refusePrintWhileBusy()) return;
 	const ids = Array.from(new Set(stableIds));
-	if (ids.length === 0 || get(printInProgress)) return;
+	if (ids.length === 0) return;
 	printInProgress.set(true);
 	const t = get(_);
 	announcePolite(t('messages.printPreparing', { values: { count: ids.length } }));

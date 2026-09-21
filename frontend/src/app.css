@@ -280,7 +280,10 @@ main h1[tabindex='-1']:focus {
  * `data-print="chrome"` marks what is application rather than message. It is
  * set where the pane is rendered, so it moves with the component, and on the
  * folder list it is conditional: with no message open the list IS the content,
- * and printing it is the reasonable thing to do.
+ * and printing it is the reasonable thing to do. The floating layers carry it
+ * too — every dialog, every dropdown menu and the toast region — because they
+ * are fixed, and a fixed element prints on every sheet: the palette's "Print
+ * message" runs with the palette still open.
  *
  * `:has([data-print='document'])` is every ancestor of the message, whatever
  * the pane layout happens to be that day — the alternative was naming five
