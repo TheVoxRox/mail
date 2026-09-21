@@ -46,7 +46,7 @@
       ".github/workflows/windows-signed-release.yml": "ae6d3616a176acc3c76f8801c8b00b5467b0e6da",
       "frontend/src/lib/updates.ts": "afb68a87c467af9f4e6299c2c3478a41d0762e12",
       "frontend/src-tauri/src": "873b59397b8caafaf2535be92fde61f25a7f045c",
-      "frontend/src/lib/components/settings/AboutSettings.svelte": "64b520cedf9e073c0e4611c40e9c146487d7a1e4",
+      "frontend/src/lib/components/settings/AboutSettings.svelte": "89f4fafa004130cdac7dfb8c3c83cf6128dc67ad",
       "frontend/src-tauri/tauri.conf.json": "4db87fe6a13af1cf4b64e657867d3826743fab5c",
       "frontend/src-tauri/capabilities": "010c5218458c20ba922628f21fe030b00e655c18"
     },
@@ -62,6 +62,10 @@
       {
         "date": "2026-09-21",
         "note": "Print leaves the WebView2 context menu, read against section 1; no sentence of this audit names the context menu, and the verdict stays PASS. One path moved and the whole diff is webview_defaults.rs. Filtered to lines that are neither comment nor blank, it is exactly two things: is_removed_context_menu_item gains \"print\" in its matches!, and the test that pins that list is renamed and moves \"print\" from the kept names to the removed ones. The rest is doc comments saying why: the app now prints only the open message (globalShortcuts.ts), so a context-menu Print would print the folder list or settings page the key refuses to. keeps_browser_handling, attach_accelerator_keys, attach_context_menu and install are byte-identical, and lib.rs, tray.rs, update_preference.rs, the updater commands and generate_handler! are untouched, as are capabilities/, tauri.conf.json, updates.ts, AboutSettings.svelte and windows-signed-release.yml. The handler is attached to the webview controller in setup and is unreachable from the renderer, so section 1's IPC surface is unchanged, and no updater path reads a context-menu entry."
+      },
+      {
+        "date": "2026-09-21",
+        "note": "The startup update check's hint is hidden from the accessibility tree, read against section 1; no sentence of this audit names it, and the verdict stays PASS. One path moved and the whole diff is AboutSettings.svelte: the hint paragraph under the checkbox gains aria-hidden=\"true\" and a two-line comment saying why. The checkbox, its checked binding to updateStartupCheck, handleStartupCheckChange and setUpdateStartupCheck, the aria-describedby that still names the paragraph, the update channel select and the Check for updates button are byte-identical, as are frontend/src-tauri/src, capabilities/, tauri.conf.json, updates.ts and windows-signed-release.yml. Nothing the updater reads or writes moved: whether the startup check runs still comes from the registry value through the same two shell commands, and the change is to what a screen reader hears, not to what the control does."
       }
     ]
   },

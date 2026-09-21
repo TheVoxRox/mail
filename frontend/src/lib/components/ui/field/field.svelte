@@ -10,7 +10,11 @@
 		/**
 		 * Rendered with id="{for}-hint" and handed to the control through the
 		 * children snippet — without the link, screen readers skip the hint
-		 * entirely when the user tabs through the form (focus mode).
+		 * entirely when the user tabs through the form (focus mode). The
+		 * paragraph itself is aria-hidden: linked, the hint is read with the
+		 * control, and left in the tree as well it was read a second time as
+		 * the next line in browse mode. A node aria-describedby references
+		 * directly still counts when hidden, so the description stays.
 		 */
 		hint?: string | null;
 		error?: string | null;
@@ -48,7 +52,7 @@
 	{@render children?.(control)}
 
 	{#if hint}
-		<p id={fieldHintId(forId)} class="text-xs text-muted-foreground">{hint}</p>
+		<p id={fieldHintId(forId)} aria-hidden="true" class="text-xs text-muted-foreground">{hint}</p>
 	{/if}
 	{#if error}
 		<p id={errorId} class="text-xs text-destructive-foreground" role="alert">{error}</p>
