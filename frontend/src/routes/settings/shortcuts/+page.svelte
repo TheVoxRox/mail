@@ -90,6 +90,11 @@
 					scopeKey: 'settings.shortcuts.scopes.openMessage'
 				},
 				{
+					shortcut: SHORTCUT_LABELS.printCurrentView,
+					actionKey: 'settings.shortcuts.actions.printMessage',
+					scopeKey: 'settings.shortcuts.scopes.openMessageIncludingInputs'
+				},
+				{
 					shortcut: 'Escape',
 					actionKey: 'settings.shortcuts.actions.closeMessage',
 					scopeKey: 'settings.shortcuts.scopes.openMessage'

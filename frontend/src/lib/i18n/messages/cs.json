@@ -200,6 +200,7 @@
 		"bodyHeading": "Text zprávy",
 		"linkOpenError": "Odkaz se nepodařilo otevřít v prohlížeči.",
 		"linkNotOpenable": "Odkaz nemá cíl, který by šlo otevřít.",
+		"nothingToPrint": "Není otevřená žádná zpráva k tisku.",
 		"pageTitle": "Pošta – Zpráva",
 		"pageTitleWithSubject": "Pošta – {subject}",
 		"folderPageTitle": "Pošta – {folder}",
@@ -655,6 +656,7 @@
 				"markRead": "Označit jako přečtené",
 				"markUnread": "Označit jako nepřečtené",
 				"deleteMessage": "Smazat zprávu",
+				"printMessage": "Vytisknout zprávu",
 				"closeMessage": "Zavřít zprávu a vrátit fokus do seznamu",
 				"listPrevNextMessage": "Předchozí / další zpráva",
 				"listPrevNextCell": "Předchozí / další buňka řádku",
@@ -686,6 +688,7 @@
 				"contacts": "Funguje kdekoli, i v textových polích, když jsou aktivní Kontakty.",
 				"compose": "Funguje při psaní nové zprávy.",
 				"openMessage": "Funguje v otevřené zprávě.",
+				"openMessageIncludingInputs": "Funguje v otevřené zprávě, i v textových polích.",
 				"palette": "Funguje při otevřené paletě příkazů."
 			}
 		},

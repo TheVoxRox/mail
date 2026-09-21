@@ -32,6 +32,8 @@ export interface GlobalShortcutHandlers {
 	toggleSeen: () => void;
 	deleteMessage: () => void;
 	printCurrentView: () => void;
+	/** Ctrl+P with no message open: say so instead of printing the screen. */
+	announceNothingToPrint: () => void;
 }
 
 /** Returns true if the target is input-like and should receive the key instead of the handler. */
@@ -51,7 +53,8 @@ export function isEditableTarget(target: EventTarget | null): boolean {
  *  0) A closer handler already claimed the key (defaultPrevented) → stay out.
  *  1) Ctrl/Cmd+K opens the palette (even in inputs).
  *  2) Palette open → handler hands the key to the palette component.
- *  3) Ctrl+1/2/3 (workspace), Ctrl+N (new item) and Ctrl+P (print) — also in inputs.
+ *  3) Ctrl+1/2/3 (workspace), Ctrl+N (new item) and Ctrl+P (print the open
+ *     message) — also in inputs.
  *  4) Cursor in an editable element → handler stays out.
  *  5) Outlook-style actions on the open message (reply, forward, flag, …).
  */
@@ -92,16 +95,18 @@ export function handleGlobalKeydown(event: KeyboardEvent, handlers: GlobalShortc
 	if (handleWorkspaceShortcut(event, handlers)) return;
 
 	/*
-	 * Print is a window-level command in Outlook too, so it sits with them and
-	 * ahead of the editable bail: printing is not typing, and a cursor left in
-	 * the search box or a compose field should not swallow it.
+	 * Print acts on the open message, and only on it: what people print from a
+	 * mail client is mail, and printing whatever screen was showing put folder
+	 * lists and settings pages on paper. With no message open the key prints
+	 * nothing and says so — a silent no-op would leave a screen-reader user
+	 * unsure the key landed — and still prevents the default, so the webview
+	 * does not print the screen in the app's place. The webview's context menu
+	 * has no Print entry either (webview_defaults.rs), so the mouse cannot
+	 * print more than the keyboard.
 	 *
-	 * It is not among the open-message shortcuts below, although that is where
-	 * it started. Bound there it reached only an open-message route, so the
-	 * folder list, contacts, settings and compose had no keyboard way to print
-	 * while the webview's context menu kept one for the mouse — the asymmetry
-	 * this app exists not to have. What reaches the paper is decided by the
-	 * print rules in app.css, which are right on every screen.
+	 * It sits here rather than among the open-message shortcuts below because
+	 * it is ahead of the editable bail: printing is not typing, and a cursor
+	 * left in the search box while a message is open should not swallow it.
 	 */
 	if (
 		(event.ctrlKey || event.metaKey) &&
@@ -110,7 +115,8 @@ export function handleGlobalKeydown(event: KeyboardEvent, handlers: GlobalShortc
 		event.key.toLowerCase() === 'p'
 	) {
 		event.preventDefault();
-		handlers.printCurrentView();
+		if (handlers.getMessageShortcutContext()) handlers.printCurrentView();
+		else handlers.announceNothingToPrint();
 		return;
 	}
 
