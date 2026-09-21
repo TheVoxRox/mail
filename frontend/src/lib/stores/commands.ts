@@ -2,6 +2,7 @@ import { derived, writable, type Readable } from 'svelte/store';
 import type { Command } from '$lib/commands/shared.js';
 import { createAccountCommands, createFolderCommands } from '$lib/commands/accountCommands.js';
 import { createMailCommands } from '$lib/commands/mailCommands.js';
+import { printableSelection } from '$lib/mail/printMessages.js';
 import { createViewCommands } from '$lib/commands/viewCommands.js';
 import { createWorkspaceCommands } from '$lib/commands/workspaceCommands.js';
 import { activeAccountId, accountsState } from '$lib/stores/accounts.js';
@@ -22,7 +23,7 @@ export function registerDefaultCommands(): void {
 /**
  * The command registry, curried over the current pathname.
  *
- * Pathname is a parameter rather than a ninth store input because `page` now
+ * Pathname is a parameter rather than one more store input because `page` now
  * comes from `$app/state`, which is runes-backed and cannot join a
  * `derived([...])`. The consumer (CommandPalette) already reads
  * `page.url.pathname` for ranking, so it passes the same value in here and the
@@ -37,6 +38,7 @@ export const commandsFor: Readable<(pathname: string) => Command[]> = derived(
 		selectedMessage,
 		appLocale,
 		themePreference,
+		printableSelection,
 		_
 	],
 	([
@@ -47,6 +49,7 @@ export const commandsFor: Readable<(pathname: string) => Command[]> = derived(
 		$selectedMessage,
 		$appLocale,
 		$themePreference,
+		$printableSelection,
 		$t
 	]) =>
 		(pathname: string): Command[] => {
@@ -73,7 +76,8 @@ export const commandsFor: Readable<(pathname: string) => Command[]> = derived(
 					locale: $appLocale,
 					pathname,
 					selectedDetail,
-					stableId
+					stableId,
+					printableSelection: $printableSelection
 				}),
 				...createViewCommands($appLocale, $themePreference)
 			];

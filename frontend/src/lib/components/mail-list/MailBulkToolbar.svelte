@@ -1,12 +1,12 @@
 <script lang="ts" module>
 	/** The action currently running; the whole bar is disabled while one is. */
-	export type BulkAction = 'read' | 'unread' | 'delete' | 'move';
+	export type BulkAction = 'read' | 'unread' | 'delete' | 'move' | 'print';
 </script>
 
 <script lang="ts">
 	/**
 	 * The bulk-action bar above a mail list: the select-all box, what is
-	 * selected, and the Delete / Mark read / Move actions.
+	 * selected, and the Delete / Mark read / Move / Print actions.
 	 *
 	 * Shared by the flat list (MessageList) and the conversation-grouped one
 	 * (ConversationList). The two disagree only on how a selection is counted —
@@ -49,6 +49,7 @@
 		onDelete: () => void;
 		onMarkSeen: (seen: boolean) => void;
 		onMoveTo: (folderRef: string) => void;
+		onPrint: () => void;
 	}
 
 	let {
@@ -63,7 +64,8 @@
 		onClear,
 		onDelete,
 		onMarkSeen,
-		onMoveTo
+		onMoveTo,
+		onPrint
 	}: Props = $props();
 
 	let seenMenuOpen = $state(false);
@@ -145,6 +147,10 @@
 				<MoveTargetMenuItems targets={moveTargets} {onMoveTo} />
 			</MenuContent>
 		</DropdownMenu.Root>
+		<Button type="button" variant="outline" size="xs" onclick={onPrint} disabled={busy !== null}>
+			<Icon name="printer" />
+			<span>{busy === 'print' ? $_('messages.bulkPrinting') : $_('messages.bulkPrint')}</span>
+		</Button>
 	{/if}
 	{#if error}
 		<p class="basis-full text-xs text-destructive-foreground" role="alert">{error}</p>

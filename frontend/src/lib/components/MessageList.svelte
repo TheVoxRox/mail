@@ -33,6 +33,7 @@
 	import { requestBodyFocus, suppressBodyFocus } from '$lib/mail/bodyFocus.js';
 	import { deleteMessages, markMessagesSeen, moveMessages } from '$lib/mail/mailbox.js';
 	import { messagesPageInfo } from '$lib/mail/pageInfoAnnouncement.js';
+	import { printableSelection, printInProgress, printMessages } from '$lib/mail/printMessages.js';
 	import {
 		EFFECTIVE_READING_PANE_CONTEXT_KEY,
 		type EffectiveReadingPaneContext
@@ -265,6 +266,25 @@
 		void runBulkAction('move', (stableIds) => moveMessages(stableIds, folderRef));
 	}
 
+	/** The ticked rows in the order the list shows them, which is the order on paper. */
+	function printSelected(): Promise<void> {
+		return printMessages(pageStableIds.filter((stableId) => $selectedMessageIdSet.has(stableId)));
+	}
+
+	/*
+	 * Offered to Ctrl+P and the palette for as long as something is ticked. The
+	 * bar prints the same way; the selection stays, as it does after Outlook
+	 * prints.
+	 */
+	$effect(() => {
+		if (selectedCount === 0) return;
+		printableSelection.set({
+			summary: $_('messages.selectedCount', { values: { count: selectedCount } }),
+			print: printSelected
+		});
+		return () => printableSelection.set(null);
+	});
+
 	/*
 	 * One focus move, not two: `handleSelect` navigates with `keepFocus`, so
 	 * nothing takes focus off the cell and there is no reset to undo afterwards.
@@ -365,7 +385,7 @@
 				someSelected={someSelectedOnPage}
 				hasSelection={selectedCount > 0}
 				summary={$_('messages.selectedCount', { values: { count: selectedCount } })}
-				busy={bulkAction}
+				busy={bulkAction ?? ($printInProgress ? 'print' : null)}
 				{moveTargets}
 				error={bulkError}
 				onSelectAll={handleSelectAll}
@@ -373,6 +393,7 @@
 				onDelete={handleBulkDelete}
 				onMarkSeen={handleBulkMarkSeen}
 				onMoveTo={handleBulkMoveTo}
+				onPrint={() => void printSelected()}
 			/>
 
 			<!--

@@ -92,7 +92,7 @@
 				{
 					shortcut: SHORTCUT_LABELS.printCurrentView,
 					actionKey: 'settings.shortcuts.actions.printMessage',
-					scopeKey: 'settings.shortcuts.scopes.openMessageIncludingInputs'
+					scopeKey: 'settings.shortcuts.scopes.printTarget'
 				},
 				{
 					shortcut: 'Escape',

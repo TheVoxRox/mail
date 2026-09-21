@@ -294,9 +294,46 @@
 	}
 
 	/* The frame is a window onto the mail on screen, and a sheet of it on paper. */
-	[data-print='document'] iframe {
+	[data-print='document'] iframe,
+	[data-print='selection'] iframe {
 		border: 0 !important;
 		border-radius: 0 !important;
 		min-height: 0 !important;
+	}
+}
+
+/*
+ * The ticked messages (MessagePrintSheet). On screen the sheet sits off the
+ * viewport at about the printable width, laid out rather than hidden, because
+ * a frame that is not laid out reports no height and the print needs every
+ * frame's. For paper, `data-printing='selection'` on <html> swaps what prints:
+ * everything but the sheet goes, and each message starts a new sheet. Without
+ * the attribute the sheet never prints, whatever else is going on.
+ */
+[data-print='selection'] {
+	position: fixed;
+	top: 0;
+	left: -10000px;
+	width: 180mm;
+}
+
+@media print {
+	html:not([data-printing='selection']) [data-print='selection'] {
+		display: none !important;
+	}
+
+	html[data-printing='selection']
+		body
+		> :not([data-print='selection']):not(:has([data-print='selection'])) {
+		display: none !important;
+	}
+
+	html[data-printing='selection'] [data-print='selection'] {
+		position: static;
+		width: auto;
+	}
+
+	[data-print='selection'] article + article {
+		break-before: page;
 	}
 }
