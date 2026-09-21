@@ -48,6 +48,7 @@ export function isEditableTarget(target: EventTarget | null): boolean {
 
 /**
  * Global keydown handler. Hierarchy:
+ *  0) A closer handler already claimed the key (defaultPrevented) → stay out.
  *  1) Ctrl/Cmd+K opens the palette (even in inputs).
  *  2) Palette open → handler hands the key to the palette component.
  *  3) Ctrl+1/2/3 (workspace), Ctrl+N (new item) and Ctrl+P (print) — also in inputs.
@@ -55,6 +56,18 @@ export function isEditableTarget(target: EventTarget | null): boolean {
  *  5) Outlook-style actions on the open message (reply, forward, flag, …).
  */
 export function handleGlobalKeydown(event: KeyboardEvent, handlers: GlobalShortcutHandlers): void {
+	/*
+	 * This runs on the window, so every component on the path has seen the key
+	 * first. One that calls preventDefault has claimed it — the message-list grid
+	 * does for Delete on a focused row — and acting on it here as well would do
+	 * the thing twice. That holds for the window-level commands too: "they work
+	 * wherever the cursor is" means no editable field swallows them, not that a
+	 * component cannot bind one of them on purpose (Outlook's compose binds
+	 * Ctrl+K to insert a link). Nothing in the app claims Ctrl+K, Ctrl+P, Ctrl+N
+	 * or Ctrl+1-3 today, and bits-ui menus skip modified keys in their typeahead.
+	 */
+	if (event.defaultPrevented) return;
+
 	if (
 		(event.ctrlKey || event.metaKey) &&
 		!event.altKey &&
@@ -105,17 +118,12 @@ export function handleGlobalKeydown(event: KeyboardEvent, handlers: GlobalShortc
 
 	/*
 	 * Outlook-style actions on the open message. They run only when a message
-	 * is open (getMessageShortcutContext returns non-null) and the keystroke
-	 * wasn't already handled by a closer handler — the message-list grid owns
-	 * Delete/Enter/arrows on a focused row and calls preventDefault, so we bail
-	 * on event.defaultPrevented to avoid acting twice. Several of these (Ctrl+R,
-	 * Ctrl+Shift+R, Ctrl+F, Ctrl+U) shadow native webview behaviour (reload,
-	 * find, view-source); preventDefault keeps the webview from reacting.
+	 * is open (getMessageShortcutContext returns non-null). Several of these
+	 * (Ctrl+R, Ctrl+Shift+R, Ctrl+F, Ctrl+U) shadow native webview behaviour
+	 * (reload, find, view-source); preventDefault keeps the webview from reacting.
 	 */
-	if (!event.defaultPrevented) {
-		const messageCtx = handlers.getMessageShortcutContext();
-		if (messageCtx && handleMessageShortcut(event, messageCtx, handlers)) return;
-	}
+	const messageCtx = handlers.getMessageShortcutContext();
+	if (messageCtx) handleMessageShortcut(event, messageCtx, handlers);
 }
 
 /**

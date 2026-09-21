@@ -154,6 +154,26 @@ describe('handleGlobalKeydown', () => {
 		expect(h.goToPrimaryNewAction).not.toHaveBeenCalled();
 		expect(h.goToWorkspace).not.toHaveBeenCalled();
 	});
+
+	it.each([
+		{ name: 'Ctrl+K', init: { key: 'k', ctrlKey: true }, handler: 'openPalette' },
+		{ name: 'Ctrl+P', init: { key: 'p', ctrlKey: true }, handler: 'printCurrentView' },
+		{
+			name: 'Ctrl+N',
+			init: { key: 'n', ctrlKey: true, code: 'KeyN' },
+			handler: 'goToPrimaryNewAction'
+		},
+		{ name: 'Ctrl+1', init: { key: '1', ctrlKey: true, code: 'Digit1' }, handler: 'goToWorkspace' }
+	] as const)(
+		'$name defers to a closer handler that already claimed the key',
+		({ init, handler }) => {
+			const h = makeHandlers();
+			const ev = makeEvent(init);
+			ev.preventDefault(); // e.g. a future compose editor binding Ctrl+K to "insert link"
+			handleGlobalKeydown(ev, h);
+			expect(h[handler]).not.toHaveBeenCalled();
+		}
+	);
 });
 
 describe('handleGlobalKeydown — message actions', () => {
