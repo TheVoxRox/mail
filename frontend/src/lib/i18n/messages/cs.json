@@ -337,7 +337,7 @@
 			"providerPlaceholder": "— vyberte —",
 			"providerDetected": "Detekováno: {name}",
 			"providerDetailsLabel": "Detaily poskytovatele",
-			"resolving": "Hledám poskytovatele podle domény…",
+			"providerNotDetected": "Poskytovatele pro tuto doménu neznáme, vyberte ho ze seznamu nebo použijte vlastní nastavení.",
 			"serverModeLabel": "Konfigurace serveru",
 			"serverModeProvider": "Vybrat poskytovatele",
 			"serverModeCustom": "Vlastní nastavení",

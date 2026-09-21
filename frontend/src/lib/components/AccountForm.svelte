@@ -22,6 +22,7 @@
 	import { ApiError } from '$lib/api/client.js';
 	import { toErrorMessage } from '$lib/api/errors.js';
 	import { _ } from '$lib/i18n/index.js';
+	import { announcePolite } from '$lib/stores/toasts.js';
 	import { cn } from '$lib/utils.js';
 	import type {
 		AccountCreateRequest,
@@ -149,8 +150,9 @@
 	let errorMessage = $state('');
 	let fieldErrors = $state<Partial<Record<CustomFieldKey, string>>>({});
 	let connectionTestMessage = $state('');
-	let resolvingProvider = $state(false);
 	let providerResolvedFromEmail = $state(false);
+	/** The address is valid and the catalogue has no provider for its domain. */
+	let providerUnmatched = $state(false);
 	let showAdvancedProvider = $state(false);
 
 	function clearFieldErrors(): void {
@@ -223,21 +225,47 @@
 		}
 	});
 
+	/*
+	 * What auto-detection found is said once, through the persistent live region,
+	 * and only when it changes. The chip used to carry role="status" itself, and
+	 * a live region inserted already holding its text is not reliably announced;
+	 * a domain that stays unknown while the user fixes a typo in it must not
+	 * repeat the sentence either. The chip and the note stay on screen, so the
+	 * outcome can still be read in browse mode.
+	 *
+	 * There is no "looking up" state to show. The lookup is the sidecar matching
+	 * the domain against its own catalogue, over in milliseconds; as the field's
+	 * hint it only flickered, and a screen reader could never catch it.
+	 */
+	let announcedOutcome: string | null = null;
+	function announceOutcome(outcome: string, message: string): void {
+		if (announcedOutcome === outcome) return;
+		announcedOutcome = outcome;
+		announcePolite(message);
+	}
+
 	const resolver: ProviderResolver = createProviderResolver({
-		onStart: () => {
-			resolvingProvider = true;
-		},
-		onEnd: () => {
-			resolvingProvider = false;
-		},
 		onResolved: (provider) => {
 			providerId = provider.id;
 			providerResolvedFromEmail = true;
+			providerUnmatched = false;
 			if (!username) username = email.trim();
+			announceOutcome(
+				`provider:${provider.id}`,
+				$_('accounts.form.providerDetected', { values: { name: provider.name } })
+			);
 		},
 		onCleared: () => {
 			providerId = null;
 			providerResolvedFromEmail = false;
+			providerUnmatched = false;
+			announcedOutcome = null;
+		},
+		onFailed: (error) => {
+			// Only a 404 says the domain is unknown; a failed request says nothing about it.
+			if (!(error instanceof ApiError && error.status === 404)) return;
+			providerUnmatched = true;
+			announceOutcome('unmatched', $_('accounts.form.providerNotDetected'));
 		}
 	});
 
@@ -255,6 +283,8 @@
 
 	function handleProviderChange() {
 		providerResolvedFromEmail = false;
+		providerUnmatched = false;
+		announcedOutcome = null;
 		resolver.reset();
 	}
 
@@ -266,7 +296,8 @@
 		if (next === serverMode) return;
 		errorMessage = '';
 		resolver.cancel();
-		resolvingProvider = false;
+		providerUnmatched = false;
+		announcedOutcome = null;
 		if (next === 'custom') {
 			// Switching to custom keeps manual input; empty fields are filled from the current provider.
 			if (selectedProvider) {
@@ -513,11 +544,7 @@
 	aria-label={$_('accounts.form.label')}
 >
 	{#if !compact}
-		<Field
-			for="acc-email"
-			label={$_('accounts.form.email')}
-			hint={resolvingProvider ? $_('accounts.form.resolving') : $_('accounts.form.emailHint')}
-		>
+		<Field for="acc-email" label={$_('accounts.form.email')} hint={$_('accounts.form.emailHint')}>
 			{#snippet children(control)}
 				<Input
 					id="acc-email"
@@ -548,13 +575,16 @@
 		</div>
 	{/if}
 
-	{#if !compact && serverMode === 'provider' && providerResolvedFromEmail && selectedProvider && !resolvingProvider}
+	{#if !compact && serverMode === 'provider' && providerResolvedFromEmail && selectedProvider}
 		<p
 			class="-mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
-			role="status"
 		>
 			<ProviderLogo keyName={activePreset?.key} size="sm" />
 			{$_('accounts.form.providerDetected', { values: { name: selectedProvider.name } })}
+		</p>
+	{:else if !compact && serverMode === 'provider' && providerUnmatched}
+		<p class="-mt-2 text-xs text-muted-foreground">
+			{$_('accounts.form.providerNotDetected')}
 		</p>
 	{/if}
 

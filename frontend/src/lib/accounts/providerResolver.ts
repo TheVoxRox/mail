@@ -11,14 +11,20 @@ import { isValidEmailAddress } from '$lib/compose/addresses.js';
 import type { MailProviderResponse } from '$lib/types.js';
 
 interface ProviderResolverCallbacks {
-	/** Invoked once per started async attempt (only if the token is still current). */
-	onStart?: () => void;
-	/** Invoked in `finally` after every attempt (only if the token is still current). */
-	onEnd?: () => void;
 	/** Provider was successfully resolved from the given e-mail address. */
 	onResolved: (provider: MailProviderResponse, normalizedEmail: string) => void;
-	/** Resolver forgot the previous result (invalid e-mail or API failure). */
+	/**
+	 * Resolver forgot the previous outcome: a provider it had resolved (the
+	 * address changed and the lookup failed, or it stopped being valid), or a
+	 * lookup that had failed (the address stopped being valid).
+	 */
 	onCleared?: () => void;
+	/**
+	 * The lookup for a valid address failed — no template for its domain (a
+	 * 404), or the request itself. Called after onCleared when a resolved
+	 * provider is being replaced.
+	 */
+	onFailed?: (error: unknown, normalizedEmail: string) => void;
 }
 
 interface ProviderResolverOptions extends ProviderResolverCallbacks {
@@ -46,6 +52,8 @@ export function createProviderResolver(options: ProviderResolverOptions): Provid
 	let token = 0;
 	let timer: ReturnType<typeof setTimeout> | null = null;
 	let resolved = false;
+	// The last lookup for a valid address failed; an invalid address clears it.
+	let failed = false;
 
 	function cancel(): void {
 		token++;
@@ -59,13 +67,15 @@ export function createProviderResolver(options: ProviderResolverOptions): Provid
 		cancel();
 		lastResolvedEmail = null;
 		resolved = false;
+		failed = false;
 	}
 
 	async function doResolve(email: string): Promise<void> {
 		const normalizedEmail = email.trim().toLowerCase();
 		if (!normalizedEmail || !isValidEmailAddress(normalizedEmail)) {
-			if (resolved) {
+			if (resolved || failed) {
 				resolved = false;
+				failed = false;
 				lastResolvedEmail = null;
 				options.onCleared?.();
 			}
@@ -75,22 +85,22 @@ export function createProviderResolver(options: ProviderResolverOptions): Provid
 
 		const myToken = ++token;
 		timer = null;
-		options.onStart?.();
 		try {
 			const provider = await resolveFn(normalizedEmail);
 			if (myToken !== token) return;
 			resolved = true;
+			failed = false;
 			lastResolvedEmail = normalizedEmail;
 			options.onResolved(provider, normalizedEmail);
-		} catch {
+		} catch (error) {
 			if (myToken !== token) return;
 			if (resolved) {
 				resolved = false;
 				lastResolvedEmail = null;
 				options.onCleared?.();
 			}
-		} finally {
-			if (myToken === token) options.onEnd?.();
+			failed = true;
+			options.onFailed?.(error, normalizedEmail);
 		}
 	}
 

@@ -337,7 +337,7 @@
 			"providerPlaceholder": "— select —",
 			"providerDetected": "Detected: {name}",
 			"providerDetailsLabel": "Provider details",
-			"resolving": "Looking up provider by domain…",
+			"providerNotDetected": "We don't know the provider for this domain. Choose it from the list or use custom settings.",
 			"serverModeLabel": "Server configuration",
 			"serverModeProvider": "Pick a provider",
 			"serverModeCustom": "Custom settings",
