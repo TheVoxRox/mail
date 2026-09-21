@@ -210,7 +210,9 @@
 						>{$_('settings.about.versions.startupCheck.label')}</span
 					>
 				</label>
-				<p id="update-startup-check-hint" class="text-xs text-muted-foreground">
+				<!-- Read with the checkbox through aria-describedby, so hidden from the
+				     tree: as a line of its own it repeated the checkbox (see Field). -->
+				<p id="update-startup-check-hint" aria-hidden="true" class="text-xs text-muted-foreground">
 					{$_('settings.about.versions.startupCheck.hint')}
 				</p>
 			</div>

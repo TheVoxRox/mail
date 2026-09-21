@@ -1082,6 +1082,48 @@ test.describe('Přístupnost', () => {
 	});
 });
 
+/*
+ * A hint belongs to one control: it is read with that control, once. Linked by
+ * aria-describedby it is announced when focus or the reading cursor lands on
+ * the control; left in the accessibility tree as well, the next line in browse
+ * mode read the same sentence a second time. The paragraph stays on screen for
+ * sighted users and is hidden from the tree only, which leaves the description
+ * intact: a node referenced directly by aria-describedby counts even when
+ * hidden. Both halves are asserted, because either alone is the bug.
+ */
+test.describe('Nápověda k ovládacímu prvku se čte jednou', () => {
+	const cases = [
+		{
+			name: 'zaškrtávací políčko kontroly aktualizací',
+			path: '/settings/about',
+			control: (page: Page) =>
+				page.getByRole('checkbox', { name: 'Kontrolovat aktualizace při spuštění aplikace' }),
+			hint: 'Když je tato volba vypnutá, aplikace se ke GitHubu připojí jen tehdy, když zvolíte Zkontrolovat aktualizace.'
+		},
+		{
+			name: 'nápověda komponenty Field u kanálu aktualizací',
+			path: '/settings/about',
+			control: (page: Page) => page.getByRole('combobox', { name: 'Kanál aktualizací' }),
+			hint: 'Beta dostává nové verze dříve, na otestování před stabilním vydáním. Volba se projeví při příští kontrole aktualizací.'
+		},
+		{
+			name: 'nápověda k Markdownu pod textem zprávy',
+			path: '/compose',
+			control: (page: Page) => page.getByRole('textbox', { name: 'Text zprávy' }),
+			hint: 'Podporuje Markdown: **tučně**, # nadpis, - odrážka.'
+		}
+	];
+
+	for (const { name, path, control, hint } of cases) {
+		test(`${name}: popis prvku ano, samostatný řádek ne`, async ({ page }) => {
+			await openApp(page, path);
+			await expect(control(page)).toHaveAccessibleDescription(hint);
+			await expect(page.getByText(hint, { exact: true })).toBeVisible();
+			await expect(page.getByRole('paragraph').filter({ hasText: hint })).toHaveCount(0);
+		});
+	}
+});
+
 test.describe('Přístupnost – jednotlivé obrazovky', () => {
 	for (const { path, name } of routes) {
 		test(`${name} (${path}) nemá a11y porušení`, async ({ page }) => {

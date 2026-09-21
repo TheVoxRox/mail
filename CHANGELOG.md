@@ -19,9 +19,14 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+### Frontend
+
+- **A hint is read once, with the control it belongs to.** A hint under a control — the startup update check and the update channel in Settings › About, the Markdown hint under the message body, and every hint a form draws through `Field` — was announced with its control and then read again as the next line in browse mode, so a screen reader said the same sentence twice. The paragraph stays on screen and leaves the accessibility tree; the control keeps it as its description, which a directly referenced node supplies even when hidden. The contact form's hint describes the whole form and stays readable on its own, and the palette's is a dialog description, read in focus mode where no line repeats (#543).
+
 ### Repo
 
 - **The 2026-09-21 candidate sheet records the machine half of §3.** Release Candidate Smoke passed all 22 checks on the signed build of the re-cut `v0.1.0` (installer built from `a45e905`), and the sheet links that run under §3, §3a and §6 with what each section still needs by hand. Nothing is ticked: every one of them keeps a manual half (#542).
+- **The updater audit acknowledges the About page hint change.** `AboutSettings.svelte` is one of `UPDATER_AUDIT.md`'s code paths; the diff hides the startup-check hint from the accessibility tree and moves nothing the updater reads or writes. Object id and a note in [docs/audit-freshness.json](docs/audit-freshness.json), the fourth acknowledgement of eight (#543).
 
 ## [0.1.0] - 2026-09-21
 

@@ -585,9 +585,11 @@
 				on send, so nothing in the composer ever shows the formatting. That makes
 				this hint the only way to discover the feature, hence aria-describedby
 				rather than decoration a screen reader would never reach — and hence its
-				brevity, since it is re-announced every time focus enters the body.
+				brevity, since it is re-announced every time focus enters the body. The
+				paragraph is aria-hidden for the same reason as a Field hint: announced
+				with the body, it was read again as the next line in browse mode.
 			-->
-			<p id="compose-body-hint" class="pt-2 text-xs text-muted-foreground">
+			<p id="compose-body-hint" aria-hidden="true" class="pt-2 text-xs text-muted-foreground">
 				{$_('compose.markdownHint')}
 			</p>
 		{/if}
