@@ -42,6 +42,28 @@ updates:
         update-types:
           - minor
           - patch
+    # Three crates that move with Tauri, never on their own. webview2-com and
+    # windows-core type the WebView2 controller Tauri hands out
+    # (src/webview_defaults.rs), so a version wry does not build with fails to
+    # compile on Windows; windows-registry is pinned to the copy Tauri already
+    # brings (src/update_preference.rs), so a newer one adds a second crate.
+    # The CI Rust job runs on Ubuntu and does not build cfg(windows) code, so
+    # none of that shows on a dependabot PR (#539-#541, all green and all
+    # broken or wrong). Bump them by hand in Cargo.toml together with the Tauri
+    # update that moves them: `cargo tree -i webview2-com` shows wry's version.
+    ignore:
+      - dependency-name: webview2-com
+        update-types:
+          - version-update:semver-major
+          - version-update:semver-minor
+      - dependency-name: windows-core
+        update-types:
+          - version-update:semver-major
+          - version-update:semver-minor
+      - dependency-name: windows-registry
+        update-types:
+          - version-update:semver-major
+          - version-update:semver-minor
 
   - package-ecosystem: maven
     directory: /backend
