@@ -37,9 +37,10 @@
 		finishPrintJob,
 		printableSelection,
 		printJob,
+		printOpenMessage,
 		type PrintJob
 	} from '$lib/mail/printMessages.js';
-	import { forwardMessage, printCurrentView, replyToMessage } from '$lib/mail/actions.js';
+	import { forwardMessage, replyToMessage } from '$lib/mail/actions.js';
 	import { deleteMessages, toggleMessageFlag, toggleMessageSeen } from '$lib/mail/mailbox.js';
 	import { loadSidebar } from '$lib/components/sidebar/loader.js';
 	// Straight from the module, never the sidebar-shell barrel: the barrel
@@ -425,7 +426,7 @@
 			toggleFlag: () => runOnOpenMessage((id) => toggleMessageFlag(id)),
 			toggleSeen: () => runOnOpenMessage((id) => toggleMessageSeen(id)),
 			deleteMessage: () => runOnOpenMessage((id) => deleteMessages([id])),
-			printCurrentView,
+			printOpenMessage,
 			announceNothingToPrint: () => pushToast($_('detail.nothingToPrint'), { tone: 'info' }),
 			// The reading pane's root carries data-print="document"; focus in the
 			// body frame reports the iframe element, which sits inside it.

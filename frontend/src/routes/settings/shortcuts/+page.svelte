@@ -90,7 +90,7 @@
 					scopeKey: 'settings.shortcuts.scopes.openMessage'
 				},
 				{
-					shortcut: SHORTCUT_LABELS.printCurrentView,
+					shortcut: SHORTCUT_LABELS.printMessage,
 					actionKey: 'settings.shortcuts.actions.printMessage',
 					scopeKey: 'settings.shortcuts.scopes.printTarget'
 				},

@@ -3,7 +3,6 @@ import {
 	forwardMessage,
 	goToCompose,
 	goToSearch,
-	printCurrentView,
 	replyToMessage,
 	syncCurrentAccount
 } from '$lib/mail/actions.js';
@@ -14,7 +13,7 @@ import {
 	toggleMessageSeen
 } from '$lib/mail/mailbox.js';
 import { localeKeywords, type Command } from '$lib/commands/shared.js';
-import type { PrintableSelection } from '$lib/mail/printMessages.js';
+import { printOpenMessage, type PrintableSelection } from '$lib/mail/printMessages.js';
 import { SHORTCUT_LABELS } from '$lib/shortcuts/shortcutLabels.js';
 import type { FolderResponse } from '$lib/types.js';
 
@@ -160,13 +159,13 @@ export function createMailCommands(options: MailCommandOptions): Command[] {
 			titleKey: 'command.print',
 			groupKey: 'mail',
 			keywords: localeKeywords(locale, ['tisk', 'vytisknout'], ['print']),
-			shortcut: SHORTCUT_LABELS.printCurrentView,
+			shortcut: SHORTCUT_LABELS.printMessage,
 			icon: 'printer',
 			contexts: ['mail'],
 			routePrefixes: ['/mail/'],
 			priority: 60,
 			available: () => true,
-			run: () => printCurrentView()
+			run: () => printOpenMessage()
 		},
 		{
 			id: 'mail.forward',

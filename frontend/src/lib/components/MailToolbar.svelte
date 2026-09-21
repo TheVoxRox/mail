@@ -3,7 +3,8 @@
 	import { MenuContent, menuItemVariants } from '$lib/components/ui/menu/index.js';
 	import { selectedMessage } from '$lib/stores/selectedMessage.js';
 	import { _ } from '$lib/i18n/index.js';
-	import { forwardMessage, printCurrentView, replyToMessage } from '$lib/mail/actions.js';
+	import { forwardMessage, replyToMessage } from '$lib/mail/actions.js';
+	import { printOpenMessage } from '$lib/mail/printMessages.js';
 	import { deleteMessages, toggleMessageFlag, toggleMessageSeen } from '$lib/mail/mailbox.js';
 	import { Button, buttonVariants } from '$lib/components/ui/button/index.js';
 	import Icon, { type IconName } from '$lib/components/Icon.svelte';
@@ -94,7 +95,7 @@
 				variant: 'ghost',
 				icon: 'printer',
 				ariaKeyshortcuts: 'Control+P',
-				run: () => printCurrentView()
+				run: () => printOpenMessage()
 			},
 			{
 				id: 'delete',

@@ -4,9 +4,21 @@ import { get, readable } from 'svelte/store';
 vi.mock('$lib/api/mailRead.js', () => ({ getMessageDetail: vi.fn(), getMessageContent: vi.fn() }));
 vi.mock('$lib/i18n/index.js', () => ({ _: readable((key: string) => key) }));
 vi.mock('$lib/stores/toasts.js', () => ({ pushToast: vi.fn(), announcePolite: vi.fn() }));
+vi.mock('$lib/stores/selectedMessage.js', async () => {
+	const { writable } = await import('svelte/store');
+	return { selectedMessage: writable(null) };
+});
 
-import { finishPrintJob, printInProgress, printJob, printMessages } from './printMessages.js';
+import {
+	finishPrintJob,
+	openMessagePrintRefusal,
+	printInProgress,
+	printJob,
+	printMessages,
+	printOpenMessage
+} from './printMessages.js';
 import { getMessageContent, getMessageDetail } from '$lib/api/mailRead.js';
+import { selectedMessage, type SelectedMessage } from '$lib/stores/selectedMessage.js';
 import { announcePolite, pushToast } from '$lib/stores/toasts.js';
 import type { MailContentResponse, MailDetailResponse } from '$lib/types.js';
 
@@ -100,5 +112,76 @@ describe('printMessages', () => {
 		finishPrintJob();
 		expect(get(printJob)).toBeNull();
 		expect(get(printInProgress)).toBe(false);
+	});
+});
+
+describe('printing the open message', () => {
+	const open = (overrides: Partial<SelectedMessage>): SelectedMessage => ({
+		stableId: 'm',
+		detail: null,
+		content: null,
+		loading: false,
+		error: null,
+		notFound: false,
+		...overrides
+	});
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it.each([
+		{ name: 'its body is there', state: open({ content: content('m') }), refusal: null },
+		{
+			// The cached copy shown when a refresh failed: the pane shows the mail.
+			name: 'its body is there beside a failed refresh',
+			state: open({ content: content('m'), error: new Error('refresh') }),
+			refusal: null
+		},
+		{
+			name: 'its body is still loading',
+			state: open({ loading: true }),
+			refusal: 'detail.printStillLoading'
+		},
+		{
+			name: 'its header arrived and the body not yet',
+			state: open({ loading: true, detail: { stableId: 'm' } as MailDetailResponse }),
+			refusal: 'detail.printStillLoading'
+		},
+		{
+			name: 'it failed to load',
+			state: open({ error: new Error('gone') }),
+			refusal: 'detail.printUnavailable'
+		},
+		{
+			name: 'it no longer exists',
+			state: open({ notFound: true }),
+			refusal: 'detail.printUnavailable'
+		},
+		{ name: 'nothing is open', state: null, refusal: 'detail.nothingToPrint' }
+	])('when $name, the refusal is $refusal', ({ state, refusal }) => {
+		expect(openMessagePrintRefusal(state)).toBe(refusal);
+	});
+
+	it('prints once the body is there, and until then says why not', () => {
+		// This suite runs without a DOM; the one call printOpenMessage makes is stubbed.
+		const print = vi.fn();
+		vi.stubGlobal('window', { print });
+		try {
+			selectedMessage.set(open({ loading: true }));
+			printOpenMessage();
+			expect(print).not.toHaveBeenCalled();
+			expect(pushToast).toHaveBeenCalledExactlyOnceWith('detail.printStillLoading', {
+				tone: 'info'
+			});
+
+			selectedMessage.set(open({ content: content('m') }));
+			printOpenMessage();
+			expect(print).toHaveBeenCalledOnce();
+			expect(pushToast).toHaveBeenCalledOnce();
+		} finally {
+			vi.unstubAllGlobals();
+			selectedMessage.set(null);
+		}
 	});
 });

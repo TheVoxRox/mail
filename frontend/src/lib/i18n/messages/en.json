@@ -207,6 +207,8 @@
 		"linkOpenError": "Could not open the link in your browser.",
 		"linkNotOpenable": "The link has no target that can be opened.",
 		"nothingToPrint": "No message is open or selected to print.",
+		"printStillLoading": "The message is still loading. Try printing again in a moment.",
+		"printUnavailable": "The message could not be loaded, so there is nothing to print.",
 		"pageTitle": "Mail – Message",
 		"pageTitleWithSubject": "Mail – {subject}",
 		"folderPageTitle": "Mail – {folder}",

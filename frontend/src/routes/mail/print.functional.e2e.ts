@@ -23,12 +23,35 @@ test.describe('Tisk zprávy', () => {
 
 	test('Ctrl+P vytiskne otevřenou zprávu', async ({ page }) => {
 		await openApp(page, '/mail/1/INBOX/msg-01');
-		await expect(page.locator('[data-print="document"]')).toBeVisible();
+		// The body, not just the pane: until it arrives the key refuses to print.
+		await expect(page.locator('[data-print="document"] iframe')).toBeVisible();
 		await countPrints(page);
 
 		await page.keyboard.press('Control+p');
 
 		await expect.poll(async () => printed(page)).toBe(1);
+	});
+
+	/*
+	 * Until the body arrives the pane shows a placeholder, and after a failed
+	 * load an error; either used to go onto paper as if it were the mail. A
+	 * message that no longer exists is the state an e2e test can hold still —
+	 * "still loading" is a race here, so the unit suite covers it.
+	 */
+	test('Ctrl+P na zprávě, kterou se nepodařilo načíst, nic nevytiskne a řekne proč', async ({
+		page
+	}) => {
+		await openApp(page, '/mail/1/INBOX/no-such-message');
+		await expect(page.getByText('This message is no longer available')).toBeVisible();
+		await countPrints(page);
+
+		await page.keyboard.press('Control+p');
+
+		// The announcement proves the handler ran, so the zero is "refused", not "not yet".
+		await expect(page.locator('#live-region')).toContainText(
+			'The message could not be loaded, so there is nothing to print.'
+		);
+		expect(await printed(page)).toBe(0);
 	});
 
 	test('Ctrl+P bez otevřené i zaškrtnuté zprávy nic nevytiskne a řekne proč', async ({ page }) => {
@@ -320,7 +343,8 @@ test.describe('Tisk vybraných zpráv', () => {
 	}) => {
 		await setPrefs(page, { readingPane: 'right' });
 		await openApp(page, '/mail/1/INBOX/msg-01');
-		await expect(page.locator('[data-print="document"]')).toBeVisible();
+		// The body, not just the pane: until it arrives the open message refuses to print.
+		await expect(page.locator('[data-print="document"] iframe')).toBeVisible();
 		await recordPrints(page);
 
 		const box = page.getByRole('checkbox', {

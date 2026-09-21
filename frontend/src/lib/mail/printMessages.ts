@@ -1,7 +1,7 @@
 /**
- * Printing messages that are not open: the ticked rows of a mail list.
+ * Printing messages: the open one, and the ticked rows of a mail list.
  *
- * The open message prints through the reading pane itself (`printCurrentView`
+ * The open message prints through the reading pane itself (`printOpenMessage`
  * and the print rules in app.css). A ticked row has nothing on screen to print,
  * so its detail and content are fetched here and handed to MessagePrintSheet,
  * which renders each body through the same sandboxed frame the reading pane
@@ -13,8 +13,41 @@
 import { get, writable } from 'svelte/store';
 import { getMessageContent, getMessageDetail } from '$lib/api/mailRead.js';
 import { _ } from '$lib/i18n/index.js';
+import { selectedMessage, type SelectedMessage } from '$lib/stores/selectedMessage.js';
 import { announcePolite, pushToast } from '$lib/stores/toasts.js';
 import type { MailContentResponse, MailDetailResponse } from '$lib/types.js';
+
+/**
+ * Why the open message cannot be printed, as an i18n key, or null when it can.
+ * Until its body is there the reading pane shows a placeholder, and after a
+ * failed load an error — either would go onto paper as if it were the mail.
+ * A body that is there prints even beside an error: that is the cached copy
+ * shown when a refresh failed, and it is the message.
+ */
+export function openMessagePrintRefusal(message: SelectedMessage | null): string | null {
+	if (!message) return 'detail.nothingToPrint';
+	if (message.content) return null;
+	return message.loading ? 'detail.printStillLoading' : 'detail.printUnavailable';
+}
+
+/**
+ * Prints the open message. `window.print()` and nothing else, deliberately:
+ * the print rules in app.css decide what reaches the paper and
+ * MessageContent's `beforeprint` hook gives the body frame its full height, so
+ * the toolbar action, the palette entry and Ctrl+P all produce the same sheet
+ * and a second way to start a print never becomes a second layout. When the
+ * body is not there yet, or could not be loaded, it says so instead: printing
+ * nothing in silence would leave a screen reader user unsure the key landed.
+ */
+export function printOpenMessage(): void {
+	if (typeof window === 'undefined') return;
+	const refusal = openMessagePrintRefusal(get(selectedMessage));
+	if (refusal) {
+		pushToast(get(_)(refusal), { tone: 'info' });
+		return;
+	}
+	window.print();
+}
 
 export interface PrintItem {
 	stableId: string;

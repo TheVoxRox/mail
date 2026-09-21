@@ -31,7 +31,8 @@ export interface GlobalShortcutHandlers {
 	toggleFlag: () => void;
 	toggleSeen: () => void;
 	deleteMessage: () => void;
-	printCurrentView: () => void;
+	/** Prints the open message, or says why it cannot yet. */
+	printOpenMessage: () => void;
 	/** Ctrl+P with no message open and nothing ticked: say so instead of printing the screen. */
 	announceNothingToPrint: () => void;
 	/** Whether focus is inside the open message: its header, toolbar or body. */
@@ -104,7 +105,9 @@ export function handleGlobalKeydown(event: KeyboardEvent, handlers: GlobalShortc
 	 * people print from a mail client is mail, and printing whatever screen was
 	 * showing put folder lists and settings pages on paper. When both exist,
 	 * focus decides — in the open message it prints that message, anywhere else
-	 * the ticked rows, which are what a reader in the list is working with. With
+	 * the ticked rows, which are what a reader in the list is working with. An
+	 * open message whose body is still loading, or failed to load, is not
+	 * printed as its placeholder; printOpenMessage says why instead. With
 	 * neither the key prints nothing and says so — a silent no-op would leave a
 	 * screen-reader user unsure the key landed — and still prevents the default,
 	 * so the webview does not print the screen in the app's place. The webview's
@@ -123,9 +126,9 @@ export function handleGlobalKeydown(event: KeyboardEvent, handlers: GlobalShortc
 	) {
 		event.preventDefault();
 		const messageOpen = handlers.getMessageShortcutContext() !== null;
-		if (messageOpen && handlers.isFocusInOpenMessage()) handlers.printCurrentView();
+		if (messageOpen && handlers.isFocusInOpenMessage()) handlers.printOpenMessage();
 		else if (handlers.hasPrintableSelection()) handlers.printSelection();
-		else if (messageOpen) handlers.printCurrentView();
+		else if (messageOpen) handlers.printOpenMessage();
 		else handlers.announceNothingToPrint();
 		return;
 	}
