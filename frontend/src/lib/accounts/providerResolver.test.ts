@@ -36,14 +36,10 @@ describe('createProviderResolver', () => {
 
 	it('calls onResolved with provider + normalized email on success', async () => {
 		const onResolved = vi.fn();
-		const onStart = vi.fn();
-		const onEnd = vi.fn();
 		const resolveFn = vi.fn().mockResolvedValue(gmail);
-		const r = createProviderResolver({ resolveFn, onResolved, onStart, onEnd });
+		const r = createProviderResolver({ resolveFn, onResolved });
 		await r.resolveNow('  Foo@GMAIL.COM ');
 		expect(resolveFn).toHaveBeenCalledWith('foo@gmail.com');
-		expect(onStart).toHaveBeenCalledOnce();
-		expect(onEnd).toHaveBeenCalledOnce();
 		expect(onResolved).toHaveBeenCalledWith(gmail, 'foo@gmail.com');
 	});
 
@@ -87,6 +83,34 @@ describe('createProviderResolver', () => {
 		const r = createProviderResolver({ resolveFn, onResolved: () => {}, onCleared });
 		await r.resolveNow('foo@example.com');
 		expect(onCleared).not.toHaveBeenCalled();
+	});
+
+	it('reports a failed lookup through onFailed, after onCleared when it replaces a provider', async () => {
+		const calls: string[] = [];
+		const unknown = new Error('no template');
+		const resolveFn = vi.fn().mockResolvedValueOnce(gmail).mockRejectedValue(unknown);
+		const r = createProviderResolver({
+			resolveFn,
+			onResolved: () => calls.push('resolved'),
+			onCleared: () => calls.push('cleared'),
+			onFailed: (error, email) => calls.push(`failed:${email}:${error === unknown}`)
+		});
+		await r.resolveNow('foo@gmail.com');
+		await r.resolveNow('Jan@Firma.cz');
+		expect(calls).toEqual(['resolved', 'cleared', 'failed:jan@firma.cz:true']);
+	});
+
+	it('an address that stops being valid clears a failed lookup too', async () => {
+		const onCleared = vi.fn();
+		const resolveFn = vi.fn().mockRejectedValue(new Error('no template'));
+		const r = createProviderResolver({ resolveFn, onResolved: () => {}, onCleared });
+		await r.resolveNow('jan@firma.cz');
+		expect(onCleared).not.toHaveBeenCalled();
+		await r.resolveNow('jan@');
+		expect(onCleared).toHaveBeenCalledOnce();
+		// Nothing left to forget the second time.
+		await r.resolveNow('jan');
+		expect(onCleared).toHaveBeenCalledOnce();
 	});
 
 	it('debounces schedule() and only fires the latest', async () => {

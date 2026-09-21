@@ -123,6 +123,38 @@ test.describe('Accounts', () => {
 		await expect(accountName).toHaveValue('Another');
 	});
 
+	/*
+	 * What auto-detection found is said through the persistent live region, and
+	 * an unknown domain says so on screen as well. The chip used to be a
+	 * role="status" element inserted with its text already in it, which a
+	 * screen reader does not reliably announce, and an unknown domain said
+	 * nothing at all. The field's hint stays the hint: "looking up" used to
+	 * replace it for the milliseconds the lookup takes.
+	 */
+	test('ruční nastavení ohlásí nalezeného poskytovatele i neznámou doménu', async ({ page }) => {
+		await openApp(page, '/settings/accounts/new');
+		await page.getByRole('button', { name: 'Nastavit ručně' }).click();
+		await expect(page.locator('#acc-email')).toBeFocused();
+		await page.getByRole('radio', { name: 'Vybrat poskytovatele' }).click();
+		const email = page.locator('#acc-email');
+		const live = page.locator('#live-region');
+		// The same sentences also sit in the live region; what the form shows is asked of the form.
+		const form = page.getByRole('form');
+
+		await email.fill('tester@example.com');
+		await expect(page.locator('#acc-provider')).toHaveValue('1');
+		await expect(live).toContainText('Detekováno: Example Mail');
+		await expect(email).toHaveAccessibleDescription('Adresa, ze které budete posílat poštu.');
+
+		const unknown =
+			'Poskytovatele pro tuto doménu neznáme, vyberte ho ze seznamu nebo použijte vlastní nastavení.';
+		await email.fill('jan@neznama-domena.cz');
+		await expect(form.getByText(unknown)).toBeVisible();
+		await expect(live).toContainText(unknown);
+		await expect(form.getByText('Detekováno: Example Mail')).toHaveCount(0);
+		await expect(email).toHaveAccessibleDescription('Adresa, ze které budete posílat poštu.');
+	});
+
 	test('ruční výběr OAuth poskytovatele ve formuláři nabídne přihlášení místo hesla', async ({
 		page
 	}) => {
