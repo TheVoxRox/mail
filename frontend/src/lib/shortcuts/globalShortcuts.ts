@@ -32,8 +32,13 @@ export interface GlobalShortcutHandlers {
 	toggleSeen: () => void;
 	deleteMessage: () => void;
 	printCurrentView: () => void;
-	/** Ctrl+P with no message open: say so instead of printing the screen. */
+	/** Ctrl+P with no message open and nothing ticked: say so instead of printing the screen. */
 	announceNothingToPrint: () => void;
+	/** Whether focus is inside the open message: its header, toolbar or body. */
+	isFocusInOpenMessage: () => boolean;
+	/** Whether the mail list in view has ticked rows to print. */
+	hasPrintableSelection: () => boolean;
+	printSelection: () => void;
 }
 
 /** Returns true if the target is input-like and should receive the key instead of the handler. */
@@ -54,7 +59,7 @@ export function isEditableTarget(target: EventTarget | null): boolean {
  *  1) Ctrl/Cmd+K opens the palette (even in inputs).
  *  2) Palette open → handler hands the key to the palette component.
  *  3) Ctrl+1/2/3 (workspace), Ctrl+N (new item) and Ctrl+P (print the open
- *     message) — also in inputs.
+ *     message or the ticked rows) — also in inputs.
  *  4) Cursor in an editable element → handler stays out.
  *  5) Outlook-style actions on the open message (reply, forward, flag, …).
  */
@@ -95,14 +100,16 @@ export function handleGlobalKeydown(event: KeyboardEvent, handlers: GlobalShortc
 	if (handleWorkspaceShortcut(event, handlers)) return;
 
 	/*
-	 * Print acts on the open message, and only on it: what people print from a
-	 * mail client is mail, and printing whatever screen was showing put folder
-	 * lists and settings pages on paper. With no message open the key prints
-	 * nothing and says so — a silent no-op would leave a screen-reader user
-	 * unsure the key landed — and still prevents the default, so the webview
-	 * does not print the screen in the app's place. The webview's context menu
-	 * has no Print entry either (webview_defaults.rs), so the mouse cannot
-	 * print more than the keyboard.
+	 * Print acts on messages: the open one, or the rows ticked in the list. What
+	 * people print from a mail client is mail, and printing whatever screen was
+	 * showing put folder lists and settings pages on paper. When both exist,
+	 * focus decides — in the open message it prints that message, anywhere else
+	 * the ticked rows, which are what a reader in the list is working with. With
+	 * neither the key prints nothing and says so — a silent no-op would leave a
+	 * screen-reader user unsure the key landed — and still prevents the default,
+	 * so the webview does not print the screen in the app's place. The webview's
+	 * context menu has no Print entry either (webview_defaults.rs), so the mouse
+	 * cannot print more than the keyboard.
 	 *
 	 * It sits here rather than among the open-message shortcuts below because
 	 * it is ahead of the editable bail: printing is not typing, and a cursor
@@ -115,7 +122,10 @@ export function handleGlobalKeydown(event: KeyboardEvent, handlers: GlobalShortc
 		event.key.toLowerCase() === 'p'
 	) {
 		event.preventDefault();
-		if (handlers.getMessageShortcutContext()) handlers.printCurrentView();
+		const messageOpen = handlers.getMessageShortcutContext() !== null;
+		if (messageOpen && handlers.isFocusInOpenMessage()) handlers.printCurrentView();
+		else if (handlers.hasPrintableSelection()) handlers.printSelection();
+		else if (messageOpen) handlers.printCurrentView();
 		else handlers.announceNothingToPrint();
 		return;
 	}

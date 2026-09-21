@@ -33,6 +33,12 @@
 	import { handleGlobalKeydown } from '$lib/shortcuts/globalShortcuts.js';
 	import { selectedMessage } from '$lib/stores/selectedMessage.js';
 	import { pushToast } from '$lib/stores/toasts.js';
+	import {
+		finishPrintJob,
+		printableSelection,
+		printJob,
+		type PrintJob
+	} from '$lib/mail/printMessages.js';
 	import { forwardMessage, printCurrentView, replyToMessage } from '$lib/mail/actions.js';
 	import { deleteMessages, toggleMessageFlag, toggleMessageSeen } from '$lib/mail/mailbox.js';
 	import { loadSidebar } from '$lib/components/sidebar/loader.js';
@@ -59,6 +65,17 @@
 	let ConfirmDialogComp = $state<Component | null>(null);
 	let UpdatePromptDialogComp = $state<Component | null>(null);
 	let UpdateFailureDialogComp = $state<Component | null>(null);
+	/*
+	 * Loaded on the first print of ticked messages rather than prefetched: most
+	 * sessions never print, and the sheet pulls in the message-body renderer.
+	 */
+	let PrintSheetComp = $state<Component<{ job: PrintJob; onDone: () => void }> | null>(null);
+	$effect(() => {
+		if (!$printJob || PrintSheetComp) return;
+		void import('$lib/components/message-detail/MessagePrintSheet.svelte').then(
+			(m) => (PrintSheetComp = m.default)
+		);
+	});
 
 	/*
 	 * Sidebar is loaded per active workspace (see ./components/sidebar/
@@ -372,7 +389,13 @@
 			toggleSeen: () => runOnOpenMessage((id) => toggleMessageSeen(id)),
 			deleteMessage: () => runOnOpenMessage((id) => deleteMessages([id])),
 			printCurrentView,
-			announceNothingToPrint: () => pushToast($_('detail.nothingToPrint'), { tone: 'info' })
+			announceNothingToPrint: () => pushToast($_('detail.nothingToPrint'), { tone: 'info' }),
+			// The reading pane's root carries data-print="document"; focus in the
+			// body frame reports the iframe element, which sits inside it.
+			isFocusInOpenMessage: () =>
+				document.activeElement?.closest('[data-print="document"]') != null,
+			hasPrintableSelection: () => $printableSelection !== null,
+			printSelection: () => void $printableSelection?.print()
 		});
 	}
 </script>
@@ -495,5 +518,10 @@
 	{/if}
 	{#if ConfirmDialogComp}
 		<ConfirmDialogComp />
+	{/if}
+	{#if $printJob && PrintSheetComp}
+		{#key $printJob.id}
+			<PrintSheetComp job={$printJob} onDone={finishPrintJob} />
+		{/key}
 	{/if}
 </div>

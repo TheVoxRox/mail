@@ -21,7 +21,7 @@ dated snapshot of one specific run.
 | B1 external mail server | [IMAP_SMTP_AUDIT.md](../docs/IMAP_SMTP_AUDIT.md)                 | full    | 1.7     | 2026-09-16 | `9435e56`      | **PASS** — B1-1 and B1-2 (Medium DoS) fixed in code |
 | B2 OAuth handshake      | [OAUTH_AUDIT.md](../docs/OAUTH_AUDIT.md)                         | focused | 1.2     | 2026-08-15 | `cad05cb`      | **PASS** — re-verified after the guard on scopes    |
 | B3 sidecar HTTP API     | [API_SURFACE_AUDIT.md](../docs/API_SURFACE_AUDIT.md)             | full    | 1.6     | 2026-09-19 | `6365fae`      | **PASS** — A1 (Low, defense-in-depth) fixed         |
-| B4 WebView ↔ SPA        | [CONTENT_RENDERING_AUDIT.md](../docs/CONTENT_RENDERING_AUDIT.md) | full    | 1.9     | 2026-09-03 | `0c1b61b`      | **PASS** — F1/F2/F3/F4/F5 fixed                     |
+| B4 WebView ↔ SPA        | [CONTENT_RENDERING_AUDIT.md](../docs/CONTENT_RENDERING_AUDIT.md) | full    | 2.0     | 2026-09-21 | `bab8acd`      | **PASS** — F1/F2/F3/F4/F5 fixed                     |
 | B5 crypto + filesystem  | [CRYPTO_STORAGE_AUDIT.md](../docs/CRYPTO_STORAGE_AUDIT.md)       | focused | 1.1     | 2026-08-08 | `cad05cb`      | **PASS** — no code change                           |
 | B6 Tauri updater        | [UPDATER_AUDIT.md](../docs/UPDATER_AUDIT.md)                     | full    | 1.16    | 2026-09-16 | `a2e6d43`      | **PASS** — U-1 fixed, no open findings              |
 

@@ -14,6 +14,7 @@ import {
 	toggleMessageSeen
 } from '$lib/mail/mailbox.js';
 import { localeKeywords, type Command } from '$lib/commands/shared.js';
+import type { PrintableSelection } from '$lib/mail/printMessages.js';
 import { SHORTCUT_LABELS } from '$lib/shortcuts/shortcutLabels.js';
 import type { FolderResponse } from '$lib/types.js';
 
@@ -29,6 +30,8 @@ interface MailCommandOptions {
 	pathname: string;
 	selectedDetail: MessageCommandDetail;
 	stableId: string | null;
+	/** The ticked rows of the list in view, when there are any. */
+	printableSelection: PrintableSelection | null;
 }
 
 function mailRouteAvailable(pathname: string): boolean {
@@ -40,7 +43,15 @@ function messageRouteAvailable(pathname: string): boolean {
 }
 
 export function createMailCommands(options: MailCommandOptions): Command[] {
-	const { activeAccountId, folders, locale, pathname, selectedDetail, stableId } = options;
+	const {
+		activeAccountId,
+		folders,
+		locale,
+		pathname,
+		selectedDetail,
+		stableId,
+		printableSelection
+	} = options;
 	const currentFolderName = decodeURIComponent(pathname.split('/')[3] ?? '');
 	const moveTargets = folders.filter((folder) => folder.folderRef !== currentFolderName);
 	const commands: Command[] = [
@@ -86,6 +97,33 @@ export function createMailCommands(options: MailCommandOptions): Command[] {
 			run: () => syncCurrentAccount()
 		}
 	];
+
+	/*
+	 * Its own entry next to "Print message" rather than one entry that follows
+	 * focus the way Ctrl+P does: with the palette open, focus is in the palette,
+	 * so each entry says exactly what it prints. No shortcut label, because
+	 * Ctrl+P prints the ticked rows only when focus is outside the open message.
+	 */
+	if (printableSelection) {
+		commands.push({
+			id: 'mail.printSelection',
+			titleKey: 'command.printSelection',
+			titleValues: { summary: printableSelection.summary },
+			groupKey: 'mail',
+			keywords: localeKeywords(
+				locale,
+				['tisk', 'vytisknout', 'vybrane'],
+				['print', 'selected', 'selection']
+			),
+			icon: 'printer',
+			contexts: ['mail'],
+			routePrefixes: ['/mail/'],
+			priority: 58,
+			restoreFocus: true,
+			available: () => true,
+			run: () => printableSelection.print()
+		});
+	}
 
 	if (!stableId || !messageRouteAvailable(pathname)) return commands;
 

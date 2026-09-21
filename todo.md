@@ -57,12 +57,9 @@ Hotove reporty do 2026-06-07 jsou zamrazene v [todo-archive.md](todo-archive.md)
 
 **Vse uzavreno** (2026-09-03). Cely tyden `504ed86..66b770a` procten proti cistemu stromu, brany zelene i pred prohlidkou — nalezy jsou tedy z cteni, ne ze stroje. Sest zbytku opraveno, posledni (fokus pri strankovani unikal do tela zpravy, 2 uniky ze 40 cyklu → 0 ze 3×40) commitem hned po nem. Detail v [todo-archive.md](todo-archive.md), opravy v [CHANGELOG.md](CHANGELOG.md).
 
-## Code review prace 16.-19. 9. (2026-09-20)
+## Code review prace 16.-19. 9. (2026-09-20) — uzavreno
 
-Review 26 commitu `a2e6d43~1..e1e9c9d` (od #500 po #526): 10 nalezu, 8 opraveno v #527, kazdy s testem, ktery byl videt spadnout na kodu bez nej. Detail v [CHANGELOG.md](CHANGELOG.md). Zbyvaji dva a oba jsou rozhodnuti, ne oprava:
-
-- [x] Window-level zkratky (Ctrl+K/P/N/1-3) ctou `defaultPrevented` jako zbytek handleru — rozhodnuto a hotovo 2026-09-21, #529.
-- [ ] **Tisk zaskrtnutych zprav — krok 2, spolu s re-verifikaci [CONTENT_RENDERING_AUDIT.md](docs/CONTENT_RENDERING_AUDIT.md).** Rozhodnuto 2026-09-21: tisk je akce nad zpravami. Krok 1 (#530): Ctrl+P, paleta i tlacitko tisknou otevrenou zpravu, bez ni Ctrl+P ohlasi „Neni otevrena zadna zprava k tisku", „Tisk" pryc z kontextove nabidky WebView2. **Zbyva:** tisk zaskrtnutych zprav v plochem i seskupenem rezimu, tlacitko v hromadnem panelu ([MailBulkToolbar.svelte](frontend/src/lib/components/mail-list/MailBulkToolbar.svelte)) a pravidlo pro Ctrl+P podle fokusu: fokus ve zprave → otevrena, jinak zaskrtnute, jinak otevrena. Navrh pro paletu: dve polozky (otevrena / vybrane (N)) misto jedne podle fokusu, protoze po otevreni palety je fokus v ni. Co to obnasi: tela se musi nacist ([mailRead.ts](frontend/src/lib/api/mailRead.ts)) a vykreslit pres stavajici ramec, nikdy mimo nej; [MessageContent.svelte](frontend/src/lib/components/message-detail/MessageContent.svelte) potrebuje unikatni id nadpisu (dnes pevne `message-body-heading`) a vypnuty efekt fokusu do tela, takze zmena padne pod `Code paths` auditu, ktery je na 6 z 8 potvrzeni — proto spolu s re-verifikaci misto sedmeho potvrzeni. Vyber seskupeneho rezimu je lokalni stav [ConversationList.svelte](frontend/src/lib/components/ConversationList.svelte) a konverzace se na zpravy rozkladaji az pri akci ([conversationBulk.ts](frontend/src/lib/mail/conversationBulk.ts)), takze ho tisk musi dostat ven; plochy rezim uz ma store [messageSelection.ts](frontend/src/lib/stores/messageSelection.ts).
+**Vse uzavreno** (2026-09-21). Review 26 commitu `a2e6d43~1..e1e9c9d` (#500 az #526): 10 nalezu, 8 opraveno v #527. Zbyla dve rozhodnuti: window-level zkratky ctou `defaultPrevented` (#529) a tisk je akce nad zpravami, nejdriv otevrena zprava (#530), pak zaskrtnute zpravy spolu s re-verifikaci [CONTENT_RENDERING_AUDIT.md](docs/CONTENT_RENDERING_AUDIT.md) v2.0 (#532). Detail v [CHANGELOG.md](CHANGELOG.md).
 
 ---
 

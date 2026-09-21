@@ -106,7 +106,7 @@
 		"selectedCount": "{count, plural, one {{count} selected message} other {{count} selected messages}}",
 		"clearSelection": "Clear selection",
 		"bulkToolbarLabel": "Bulk actions",
-		"bulkActionsAvailable": "Bulk actions above the list: delete, mark read, move.",
+		"bulkActionsAvailable": "Bulk actions above the list: delete, mark read, move, print.",
 		"bulkMarkRead": "Read",
 		"bulkMarkingRead": "Marking…",
 		"bulkMarkReadDone": "Marked as read: {count}.{failed, plural, =0 {} other { Failed: {failed}.}}",
@@ -118,6 +118,10 @@
 		"bulkDeleteDone": "Deleted: {count}.{failed, plural, =0 {} other { Failed: {failed}.}}",
 		"bulkMove": "Move selected",
 		"bulkMoveDone": "Moved to {folder}: {count}.{failed, plural, =0 {} other { Failed: {failed}.}}",
+		"bulkPrint": "Print selected",
+		"bulkPrinting": "Preparing to print…",
+		"printPreparing": "{count, plural, one {Preparing {count} message for printing.} other {Preparing {count} messages for printing.}}",
+		"printLoadFailed": "The messages could not be loaded for printing, so nothing was printed. Please try again.",
 		"bulkFlagDone": "Starred: {count}.{failed, plural, =0 {} other { Failed: {failed}.}}",
 		"bulkUnflagDone": "Star removed: {count}.{failed, plural, =0 {} other { Failed: {failed}.}}",
 		"permanentDeleteConfirmTitle": "Permanent deletion",
@@ -200,7 +204,7 @@
 		"bodyHeading": "Message text",
 		"linkOpenError": "Could not open the link in your browser.",
 		"linkNotOpenable": "The link has no target that can be opened.",
-		"nothingToPrint": "No message is open to print.",
+		"nothingToPrint": "No message is open or selected to print.",
 		"pageTitle": "Mail – Message",
 		"pageTitleWithSubject": "Mail – {subject}",
 		"folderPageTitle": "Mail – {folder}",
@@ -656,7 +660,7 @@
 				"markRead": "Mark as read",
 				"markUnread": "Mark as unread",
 				"deleteMessage": "Delete message",
-				"printMessage": "Print message",
+				"printMessage": "Print the message or the selected messages",
 				"closeMessage": "Close the message and return focus to the list",
 				"listPrevNextMessage": "Previous / next message",
 				"listPrevNextCell": "Previous / next cell in the row",
@@ -688,7 +692,7 @@
 				"contacts": "Works anywhere, including text fields, while Contacts is active.",
 				"compose": "Works while composing a new message.",
 				"openMessage": "Works while a message is open.",
-				"openMessageIncludingInputs": "Works while a message is open, in text fields too.",
+				"printTarget": "Prints the open message when focus is in it, otherwise the selected messages. Works in text fields too.",
 				"palette": "Works while the command palette is open."
 			}
 		},
@@ -819,7 +823,8 @@
 		"markUnread": "Mark as unread",
 		"deleteMessage": "Delete message",
 		"moveMessageToFolder": "Move to {folder}",
-		"print": "Print message"
+		"print": "Print message",
+		"printSelection": "Print selection: {summary}"
 	},
 	"workspace": {
 		"mail": "Mail",

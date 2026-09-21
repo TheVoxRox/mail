@@ -22,6 +22,9 @@ function makeHandlers(overrides: Partial<GlobalShortcutHandlers> = {}): GlobalSh
 		deleteMessage: vi.fn(),
 		printCurrentView: vi.fn(),
 		announceNothingToPrint: vi.fn(),
+		isFocusInOpenMessage: () => false,
+		hasPrintableSelection: () => false,
+		printSelection: vi.fn(),
 		...overrides
 	};
 }
@@ -221,7 +224,7 @@ describe('handleGlobalKeydown — message actions', () => {
 		expect(prevent).toHaveBeenCalled();
 	});
 
-	it('Ctrl+P with no message open prints nothing and says so', () => {
+	it('Ctrl+P with no message open and nothing ticked prints nothing and says so', () => {
 		// Printing is an action on a message. Printing the screen instead put a
 		// folder list, a contact list or a settings page on paper, and a silent
 		// no-op would leave a screen-reader user wondering whether the key landed.
@@ -232,6 +235,37 @@ describe('handleGlobalKeydown — message actions', () => {
 		expect(h.printCurrentView).not.toHaveBeenCalled();
 		expect(h.announceNothingToPrint).toHaveBeenCalledOnce();
 		expect(prevent).toHaveBeenCalled();
+	});
+
+	it('Ctrl+P prints the open message when focus is in it, even with rows ticked', () => {
+		const h = openMessageHandlers(false, {
+			isFocusInOpenMessage: () => true,
+			hasPrintableSelection: () => true
+		});
+		handleGlobalKeydown(makeEvent({ key: 'p', ctrlKey: true }), h);
+		expect(h.printCurrentView).toHaveBeenCalledOnce();
+		expect(h.printSelection).not.toHaveBeenCalled();
+	});
+
+	it('Ctrl+P prints the ticked rows when focus is outside the open message', () => {
+		// Focus in the list: the ticked rows are what the reader is working with.
+		const h = openMessageHandlers(false, { hasPrintableSelection: () => true });
+		handleGlobalKeydown(makeEvent({ key: 'p', ctrlKey: true }), h);
+		expect(h.printSelection).toHaveBeenCalledOnce();
+		expect(h.printCurrentView).not.toHaveBeenCalled();
+	});
+
+	it('Ctrl+P prints the ticked rows with no message open', () => {
+		const h = makeHandlers({ hasPrintableSelection: () => true });
+		handleGlobalKeydown(makeEvent({ key: 'p', ctrlKey: true }), h);
+		expect(h.printSelection).toHaveBeenCalledOnce();
+		expect(h.announceNothingToPrint).not.toHaveBeenCalled();
+	});
+
+	it('Ctrl+P falls back to the open message when nothing is ticked, wherever focus is', () => {
+		const h = openMessageHandlers();
+		handleGlobalKeydown(makeEvent({ key: 'p', ctrlKey: true }), h);
+		expect(h.printCurrentView).toHaveBeenCalledOnce();
 	});
 
 	it('Ctrl+P prints from a text field too, as a window-level command', () => {

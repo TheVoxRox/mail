@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { openApp } from '../e2e-helpers';
+import { openApp, setPrefs } from '../e2e-helpers';
 
 /*
  * What reaches the paper. The app is a fixed-viewport layout, so before these
@@ -31,7 +31,7 @@ test.describe('Tisk zprávy', () => {
 		await expect.poll(async () => printed(page)).toBe(1);
 	});
 
-	test('Ctrl+P bez otevřené zprávy nic nevytiskne a řekne proč', async ({ page }) => {
+	test('Ctrl+P bez otevřené i zaškrtnuté zprávy nic nevytiskne a řekne proč', async ({ page }) => {
 		// Printing is an action on a message. Printing the screen put the folder
 		// list on paper, and a silent no-op would leave a screen-reader user
 		// unsure the key landed.
@@ -42,7 +42,9 @@ test.describe('Tisk zprávy', () => {
 
 		// The announcement is what proves the handler ran, so the zero below is
 		// "refused", not "not yet".
-		await expect(page.locator('#live-region')).toContainText('No message is open to print.');
+		await expect(page.locator('#live-region')).toContainText(
+			'No message is open or selected to print.'
+		);
 		expect(await printed(page)).toBe(0);
 	});
 
@@ -121,5 +123,129 @@ test.describe('Tisk zprávy', () => {
 				() => (document.querySelector('iframe') as HTMLIFrameElement).style.height
 			)
 		).toBe('');
+	});
+});
+
+/*
+ * The ticked rows. They have nothing on screen, so MessagePrintSheet renders
+ * them off screen and opens the dialog once every body has measured itself.
+ * window.print is replaced by a recorder that notes what would have gone on
+ * paper at the moment the dialog opened, and closing the dialog is the
+ * afterprint event the browser sends for a print and a cancel alike.
+ */
+test.describe('Tisk vybraných zpráv', () => {
+	type PrintRecord = { printing: string | null; ids: string[] };
+
+	const recordPrints = async (page: Page) =>
+		page.evaluate(() => {
+			const w = window as unknown as { __prints: PrintRecord[] };
+			w.__prints = [];
+			window.print = () => {
+				w.__prints.push({
+					printing: document.documentElement.dataset.printing ?? null,
+					ids: [...document.querySelectorAll<HTMLElement>('[data-print="selection"] article')].map(
+						(article) => article.dataset.stableId ?? ''
+					)
+				});
+			};
+		});
+	const prints = async (page: Page) =>
+		page.evaluate(() => (window as unknown as { __prints: PrintRecord[] }).__prints);
+	const closePrintDialog = async (page: Page) =>
+		page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+	const sheet = (page: Page) => page.locator('[data-print="selection"]');
+
+	test('tlačítko v hromadném panelu vytiskne zaškrtnuté zprávy v pořadí seznamu, každou na svůj list', async ({
+		page
+	}) => {
+		await openApp(page, '/mail/1/INBOX');
+		await recordPrints(page);
+		await page.getByRole('checkbox', { name: 'Select message Projektové podklady' }).check();
+		await page
+			.getByRole('checkbox', { name: 'Select message Testovací zpráva 2', exact: true })
+			.check();
+		const listOrder = await page
+			.locator('[role="row"][data-stable-id]')
+			.evaluateAll((rows) =>
+				rows
+					.filter((row) => row.querySelector('input[type="checkbox"]:checked'))
+					.map((row) => row.getAttribute('data-stable-id'))
+			);
+
+		await page
+			.getByRole('toolbar', { name: 'Bulk actions', exact: true })
+			.getByRole('button', { name: 'Print selected' })
+			.click();
+
+		await expect.poll(async () => (await prints(page)).length).toBe(1);
+		const [printed] = await prints(page);
+		expect(printed?.printing).toBe('selection');
+		expect(printed?.ids).toEqual(listOrder);
+		// Out of reach while it exists: no focus, nothing for a screen reader.
+		await expect(sheet(page)).toHaveAttribute('inert', '');
+		await expect(sheet(page)).toHaveAttribute('aria-hidden', 'true');
+
+		await page.emulateMedia({ media: 'print' });
+		await expect(sheet(page).locator('article').nth(1)).toHaveCSS('break-before', 'page');
+		await expect(page.getByRole('toolbar', { name: 'Bulk actions', exact: true })).toBeHidden();
+		await page.emulateMedia({ media: 'screen' });
+
+		await closePrintDialog(page);
+		await expect(sheet(page)).toHaveCount(0);
+		expect(await page.evaluate(() => document.documentElement.dataset.printing ?? null)).toBeNull();
+		// The selection stays, as it does after Outlook prints.
+		await expect(page.getByText('2 selected messages')).toBeVisible();
+	});
+
+	test('Ctrl+P tiskne zaškrtnuté, když fokus není v otevřené zprávě, a otevřenou, když je', async ({
+		page
+	}) => {
+		await setPrefs(page, { readingPane: 'right' });
+		await openApp(page, '/mail/1/INBOX/msg-01');
+		await expect(page.locator('[data-print="document"]')).toBeVisible();
+		await recordPrints(page);
+
+		const box = page.getByRole('checkbox', {
+			name: 'Select message Testovací zpráva 2',
+			exact: true
+		});
+		await box.check();
+		await box.press('Control+p');
+		await expect.poll(async () => (await prints(page)).length).toBe(1);
+		expect((await prints(page))[0]?.printing).toBe('selection');
+		await closePrintDialog(page);
+		await expect(sheet(page)).toHaveCount(0);
+
+		await page.locator('[data-print="document"]').press('Control+p');
+		await expect.poll(async () => (await prints(page)).length).toBe(2);
+		expect((await prints(page))[1]?.printing).toBeNull();
+	});
+
+	test('zaškrtnutá konverzace se vytiskne celá, od nejstarší zprávy', async ({ page }) => {
+		await setPrefs(page, { messageGrouping: 'grouped' });
+		await openApp(page, '/mail/1/ARCHIVE');
+		await recordPrints(page);
+
+		await page
+			.getByRole('checkbox', { name: /^Select conversation/ })
+			.first()
+			.check();
+		await page.getByRole('button', { name: 'Print selected' }).click();
+
+		await expect.poll(async () => (await prints(page)).length).toBe(1);
+		expect((await prints(page))[0]?.ids).toEqual(['arch-01', 'arch-02', 'arch-03']);
+	});
+
+	test('paleta nabídne tisk výběru se souhrnem z hromadného panelu', async ({ page }) => {
+		await openApp(page, '/mail/1/INBOX');
+		await page.getByRole('checkbox', { name: 'Select message Projektové podklady' }).check();
+
+		await page.keyboard.press('Control+k');
+		const input = page.locator('#command-palette-input');
+		await expect(input).toBeFocused();
+		await input.fill('print');
+		await expect(
+			page.getByRole('option', { name: /Print selection: 1 selected message/ })
+		).toBeVisible();
 	});
 });

@@ -37,6 +37,7 @@
 		moveConversationMembers,
 		type ConversationBulkContext
 	} from '$lib/mail/conversationBulk.js';
+	import { printableSelection, printInProgress, printMessages } from '$lib/mail/printMessages.js';
 	import { forwardMessage, replyToMessage } from '$lib/mail/actions.js';
 	import { createConversationSelection } from '$lib/mail/conversationSelection.js';
 	import { createThreadMemberCache } from '$lib/mail/threadMembers.js';
@@ -553,11 +554,19 @@
 		else selection.clear();
 	}
 
+	/** One conversation's selected members in the folder in view. */
+	interface ResolvedConversation {
+		memberIds: string[];
+		unreadMemberIds: string[];
+		/** The same members as summaries, in the order memberIds lists them. */
+		messages: MailSummaryResponse[];
+	}
+
 	/**
 	 * Resolves the selection — whole conversations and individually ticked
-	 * messages alike — to the union of their member stableIds in the folder in
-	 * view, loading members as needed, and which of those are unread (for the
-	 * optimistic folder badge).
+	 * messages alike — to their member stableIds in the folder in view, one
+	 * entry per conversation, loading members as needed, and which of those are
+	 * unread (for the optimistic folder badge).
 	 *
 	 * Individual ticks are re-resolved against a freshly loaded thread rather than
 	 * trusted from the cache: a message ticked before a sync may be gone by the
@@ -575,16 +584,9 @@
 	 * deleting the newest message of a thread and leaving the rest behind while
 	 * reporting success.
 	 */
-	async function resolveSelection(): Promise<{
-		memberIds: string[];
-		unreadMemberIds: string[];
-	} | null> {
+	async function resolveSelectedConversations(): Promise<ResolvedConversation[] | null> {
 		if ($conversationsState.status !== 'ready') return null;
-		// Members are naturally unique across threads (each message belongs to one
-		// thread; a thread's members exclude its representative), so plain arrays
-		// need no dedup.
-		const memberIds: string[] = [];
-		const unread: string[] = [];
+		const resolvedAll: ResolvedConversation[] = [];
 		for (const conversation of pageConversations) {
 			const wholeConversation = selection.isConversationSelected(conversation.latest.stableId);
 			const picked = selection.pickedMembersOf(conversation.threadId);
@@ -594,10 +596,39 @@
 				(stableId) => wholeConversation || picked.includes(stableId)
 			);
 			if (!resolved) return null;
-			memberIds.push(...resolved.memberIds);
-			unread.push(...resolved.unreadMemberIds);
+			resolvedAll.push(resolved);
 		}
-		return { memberIds, unreadMemberIds: unread };
+		return resolvedAll;
+	}
+
+	/** The selection as the bulk actions take it, in the order the list shows it. */
+	async function resolveSelection(): Promise<{
+		memberIds: string[];
+		unreadMemberIds: string[];
+	} | null> {
+		const resolvedAll = await resolveSelectedConversations();
+		if (!resolvedAll) return null;
+		// Members are naturally unique across threads (each message belongs to one
+		// thread; a thread's members exclude its representative), so plain arrays
+		// need no dedup.
+		return {
+			memberIds: resolvedAll.flatMap((resolved) => resolved.memberIds),
+			unreadMemberIds: resolvedAll.flatMap((resolved) => resolved.unreadMemberIds)
+		};
+	}
+
+	/**
+	 * The selection as it goes on paper: conversations in the order the list
+	 * shows them, and each one's messages oldest first, the way a thread reads.
+	 */
+	async function resolvePrintSelection(): Promise<string[] | null> {
+		const resolvedAll = await resolveSelectedConversations();
+		if (!resolvedAll) return null;
+		return resolvedAll.flatMap((resolved) =>
+			[...resolved.messages]
+				.sort((a, b) => Date.parse(a.receivedAt) - Date.parse(b.receivedAt))
+				.map((message) => message.stableId)
+		);
 	}
 
 	/**
@@ -610,14 +641,16 @@
 	async function resolveConversationMembers(
 		conversation: ConversationSummaryResponse,
 		include: (stableId: string) => boolean
-	): Promise<{ memberIds: string[]; unreadMemberIds: string[] } | null> {
+	): Promise<ResolvedConversation | null> {
 		if ($conversationsState.status !== 'ready') return null;
 		const { folderName } = $conversationsState.context;
 		const representative = conversation.latest;
 		const memberIds: string[] = [];
 		const unread: string[] = [];
+		const messages: MailSummaryResponse[] = [];
 		const take = (message: MailSummaryResponse): void => {
 			memberIds.push(message.stableId);
+			messages.push(message);
 			if (!message.seen) unread.push(message.stableId);
 		};
 		if (include(representative.stableId)) take(representative);
@@ -631,8 +664,35 @@
 				take(message);
 			}
 		}
-		return { memberIds, unreadMemberIds: unread };
+		return { memberIds, unreadMemberIds: unread, messages };
 	}
+
+	async function printSelected(): Promise<void> {
+		if (!hasSelection || bulkAction || $conversationsState.status !== 'ready') return;
+		bulkAction = 'print';
+		bulkError = null;
+		try {
+			const ids = await resolvePrintSelection();
+			if (!ids) {
+				bulkError = $_('messages.grouping.bulkResolveFailed');
+				return;
+			}
+			await printMessages(ids);
+		} finally {
+			bulkAction = null;
+		}
+	}
+
+	/*
+	 * Offered to Ctrl+P and the palette for as long as something is ticked. The
+	 * bar prints the same way; the selection stays, as it does after Outlook
+	 * prints.
+	 */
+	$effect(() => {
+		if (!hasSelection) return;
+		printableSelection.set({ summary: selectionSummary, print: printSelected });
+		return () => printableSelection.set(null);
+	});
 
 	async function runBulk(
 		action: BulkAction,
@@ -1084,7 +1144,7 @@
 				{someSelected}
 				{hasSelection}
 				summary={selectionSummary}
-				busy={bulkAction}
+				busy={bulkAction ?? ($printInProgress ? 'print' : null)}
 				{moveTargets}
 				error={bulkError}
 				onSelectAll={handleSelectAll}
@@ -1092,6 +1152,7 @@
 				onDelete={handleBulkDelete}
 				onMarkSeen={handleBulkMarkSeen}
 				onMoveTo={handleBulkMoveTo}
+				onPrint={() => void printSelected()}
 			/>
 
 			<!--

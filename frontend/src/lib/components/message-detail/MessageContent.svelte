@@ -31,6 +31,18 @@
 		senderEmail: string;
 		accountId: number;
 		remoteImagesAllowedForSender: boolean;
+		/**
+		 * Rendered for paper only, inside MessagePrintSheet, where several bodies
+		 * sit side by side in an inert container. The body never takes focus and
+		 * the remote-image banner is left out, since nobody can press it there.
+		 */
+		printOnly?: boolean;
+		/**
+		 * Print-only: called once the body has a height worth printing — when the
+		 * frame reports its measured document, or at once for plain text. The
+		 * sheet waits for every body before it opens the print dialog.
+		 */
+		onPrintReady?: () => void;
 	};
 
 	let {
@@ -39,8 +51,25 @@
 		stableId,
 		senderEmail,
 		accountId,
-		remoteImagesAllowedForSender
+		remoteImagesAllowedForSender,
+		printOnly = false,
+		onPrintReady
 	}: Props = $props();
+
+	/*
+	 * Unique per instance: the print sheet renders one of these per message next
+	 * to the reading pane's own, and a fixed id would point every
+	 * aria-labelledby at whichever section came first in the document.
+	 */
+	const uid = $props.id();
+	const headingId = `${uid}-body-heading`;
+
+	let printReadySignalled = false;
+	function signalPrintReady(): void {
+		if (!printOnly || printReadySignalled) return;
+		printReadySignalled = true;
+		onPrintReady?.();
+	}
 
 	/*
 	 * The body heading sits one level below the subject heading in
@@ -129,6 +158,7 @@
 	let focusedStableId: string | null = null;
 
 	$effect(() => {
+		if (printOnly) return;
 		const target = renderAsHtml ? frameElement : textElement;
 		if (!target) return;
 		const firstRender = focusedStableId !== stableId;
@@ -155,6 +185,11 @@
 	 * pane. Genuine plain-text bodies (not looksLikeHtml) pass through unchanged.
 	 */
 	const plainTextBody = $derived(looksLikeHtml ? mailHtmlToPlainText(content) : content);
+
+	// Plain text has no frame to wait for: its height is the element's own.
+	$effect(() => {
+		if (printOnly && !renderAsHtml && textElement) signalPrintReady();
+	});
 
 	/** Last height the frame reported, clamped, with the document it measured. */
 	let printHeight = NO_MAIL_FRAME_PRINT_HEIGHT;
@@ -191,6 +226,7 @@
 					srcdoc: node.srcdoc,
 					height: clampMailFramePrintHeight(event.data.height)
 				};
+				signalPrintReady();
 			}
 		}
 
@@ -272,14 +308,14 @@
 	aria-labelledby, so the body is reachable with the screen-reader landmark
 	key (D) as well as the heading key (H) after the initial auto-focus.
 -->
-<section class="flex-1 bg-background p-5" aria-labelledby="message-body-heading">
+<section class="flex-1 bg-background p-5" aria-labelledby={headingId}>
 	{#if heading.level === 1}
-		<h2 id="message-body-heading" class="sr-only">{$_('detail.bodyHeading')}</h2>
+		<h2 id={headingId} class="sr-only">{$_('detail.bodyHeading')}</h2>
 	{:else}
-		<h3 id="message-body-heading" class="sr-only">{$_('detail.bodyHeading')}</h3>
+		<h3 id={headingId} class="sr-only">{$_('detail.bodyHeading')}</h3>
 	{/if}
 	{#if renderAsHtml}
-		{#if showRemoteBanner}
+		{#if showRemoteBanner && !printOnly}
 			<!--
 				Opt-in banner for blocked remote images; the two buttons are the only
 				way remote content ever loads.

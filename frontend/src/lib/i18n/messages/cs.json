@@ -106,7 +106,7 @@
 		"selectedCount": "{count, plural, one {{count} vybraná zpráva} few {{count} vybrané zprávy} other {{count} vybraných zpráv}}",
 		"clearSelection": "Zrušit výběr",
 		"bulkToolbarLabel": "Hromadné akce",
-		"bulkActionsAvailable": "Hromadné akce nad seznamem: smazat, označit přečtené, přesunout.",
+		"bulkActionsAvailable": "Hromadné akce nad seznamem: smazat, označit přečtené, přesunout, vytisknout.",
 		"bulkMarkRead": "Přečtené",
 		"bulkMarkingRead": "Označuji…",
 		"bulkMarkReadDone": "Označeno jako přečtené: {count}.{failed, plural, =0 {} other { Selhalo: {failed}.}}",
@@ -118,6 +118,10 @@
 		"bulkDeleteDone": "Smazáno: {count}.{failed, plural, =0 {} other { Selhalo: {failed}.}}",
 		"bulkMove": "Přesunout vybrané",
 		"bulkMoveDone": "Přesunuto do složky {folder}: {count}.{failed, plural, =0 {} other { Selhalo: {failed}.}}",
+		"bulkPrint": "Vytisknout vybrané",
+		"bulkPrinting": "Připravuji tisk…",
+		"printPreparing": "{count, plural, one {Připravuji tisk {count} zprávy.} other {Připravuji tisk {count} zpráv.}}",
+		"printLoadFailed": "Zprávy k tisku se nepodařilo načíst, nic se nevytisklo. Zkuste to prosím znovu.",
 		"bulkFlagDone": "Označeno hvězdičkou: {count}.{failed, plural, =0 {} other { Selhalo: {failed}.}}",
 		"bulkUnflagDone": "Hvězdička zrušena: {count}.{failed, plural, =0 {} other { Selhalo: {failed}.}}",
 		"permanentDeleteConfirmTitle": "Trvalé smazání",
@@ -200,7 +204,7 @@
 		"bodyHeading": "Text zprávy",
 		"linkOpenError": "Odkaz se nepodařilo otevřít v prohlížeči.",
 		"linkNotOpenable": "Odkaz nemá cíl, který by šlo otevřít.",
-		"nothingToPrint": "Není otevřená žádná zpráva k tisku.",
+		"nothingToPrint": "Není otevřená ani vybraná žádná zpráva k tisku.",
 		"pageTitle": "Pošta – Zpráva",
 		"pageTitleWithSubject": "Pošta – {subject}",
 		"folderPageTitle": "Pošta – {folder}",
@@ -656,7 +660,7 @@
 				"markRead": "Označit jako přečtené",
 				"markUnread": "Označit jako nepřečtené",
 				"deleteMessage": "Smazat zprávu",
-				"printMessage": "Vytisknout zprávu",
+				"printMessage": "Vytisknout zprávu nebo vybrané zprávy",
 				"closeMessage": "Zavřít zprávu a vrátit fokus do seznamu",
 				"listPrevNextMessage": "Předchozí / další zpráva",
 				"listPrevNextCell": "Předchozí / další buňka řádku",
@@ -688,7 +692,7 @@
 				"contacts": "Funguje kdekoli, i v textových polích, když jsou aktivní Kontakty.",
 				"compose": "Funguje při psaní nové zprávy.",
 				"openMessage": "Funguje v otevřené zprávě.",
-				"openMessageIncludingInputs": "Funguje v otevřené zprávě, i v textových polích.",
+				"printTarget": "Vytiskne otevřenou zprávu, je-li v ní fokus, jinak vybrané zprávy. Funguje i v textových polích.",
 				"palette": "Funguje při otevřené paletě příkazů."
 			}
 		},
@@ -819,7 +823,8 @@
 		"markUnread": "Označit jako nepřečtené",
 		"deleteMessage": "Smazat zprávu",
 		"moveMessageToFolder": "Přesunout do složky {folder}",
-		"print": "Vytisknout zprávu"
+		"print": "Vytisknout zprávu",
+		"printSelection": "Vytisknout výběr: {summary}"
 	},
 	"workspace": {
 		"mail": "Pošta",
