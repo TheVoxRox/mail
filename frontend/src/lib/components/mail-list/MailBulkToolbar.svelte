@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	/** The action currently running; the whole bar is disabled while one is. */
+	/** The action currently running; the whole bar is unavailable while one is. */
 	export type BulkAction = 'read' | 'unread' | 'delete' | 'move' | 'print';
 </script>
 
@@ -13,9 +13,9 @@
 	 * messages there, conversations plus individually ticked members here —
 	 * which is why the summary arrives as ready text instead of a number.
 	 * Everything they do agree on lives here: the toolbar role, the labels, the
-	 * tri-state checkbox and the rule that an action in flight disables the
-	 * rest. A change to the bar can no longer land in one list and miss the
-	 * other.
+	 * tri-state checkbox and the rule that an action in flight makes the rest
+	 * unavailable. A change to the bar can no longer land in one list and miss
+	 * the other.
 	 *
 	 * The menus' open state and the select-all element are internal — nothing
 	 * outside reads them.
@@ -72,6 +72,33 @@
 	let moveMenuOpen = $state(false);
 	let selectAllInput = $state<HTMLInputElement | null>(null);
 
+	/*
+	 * An action in flight makes the bar unavailable with aria-disabled, never
+	 * with disabled. The control that started the action is the one holding
+	 * focus, and disabling a focused element drops focus to <body> without an
+	 * event: the user pressed Print selected and was nowhere, through the fetch,
+	 * the print dialog and after it, with nothing to bring focus back because no
+	 * navigation happened. Same reasoning as the Sync button in MailSidebar.
+	 * aria-disabled keeps the control in the focus order and still tells a
+	 * screen reader it is unavailable, so the bar itself refuses a press while
+	 * busy — the lists behind it do not all check, and a print in progress is
+	 * not their own action to know about.
+	 */
+	const idle = $derived(busy === null);
+
+	function whenIdle<A extends unknown[]>(action: (...args: A) => void): (...args: A) => void {
+		return (...args) => {
+			if (busy === null) action(...args);
+		};
+	}
+
+	// A menu cannot open while the bar is busy; closing it always goes through.
+	function menuOpenSetter(set: (open: boolean) => void): (open: boolean) => void {
+		return (open) => set(open && busy === null);
+	}
+	const setSeenMenuOpen = menuOpenSetter((open) => (seenMenuOpen = open));
+	const setMoveMenuOpen = menuOpenSetter((open) => (moveMenuOpen = open));
+
 	// The native tri-state, so the box looks the way `aria-checked="mixed"` sounds.
 	$effect(() => {
 		if (selectAllInput) selectAllInput.indeterminate = someSelected;
@@ -99,23 +126,31 @@
 		<span class="text-xs text-muted-foreground" role="status">
 			{summary}
 		</span>
-		<Button type="button" variant="ghost" size="xs" onclick={onClear} disabled={busy !== null}>
+		<Button
+			type="button"
+			variant="ghost"
+			size="xs"
+			onclick={whenIdle(onClear)}
+			aria-disabled={idle ? undefined : 'true'}
+		>
 			{$_('messages.clearSelection')}
 		</Button>
 		<Button
 			type="button"
 			variant="destructive"
 			size="xs"
-			onclick={onDelete}
-			disabled={busy !== null}
+			onclick={whenIdle(onDelete)}
+			aria-disabled={idle ? undefined : 'true'}
+			aria-busy={busy === 'delete' ? 'true' : undefined}
 		>
 			<Icon name="trash" />
 			<span>{busy === 'delete' ? $_('messages.bulkDeleting') : $_('messages.bulkDelete')}</span>
 		</Button>
-		<DropdownMenu.Root bind:open={seenMenuOpen}>
+		<DropdownMenu.Root bind:open={() => seenMenuOpen, setSeenMenuOpen}>
 			<DropdownMenu.Trigger
 				class={cn(buttonVariants({ variant: 'outline', size: 'xs' }), 'data-[state=open]:bg-muted')}
-				disabled={busy !== null}
+				aria-disabled={idle ? undefined : 'true'}
+				aria-busy={busy === 'read' || busy === 'unread' ? 'true' : undefined}
 			>
 				<Icon name="envelope" />
 				<span
@@ -126,28 +161,38 @@
 				<Icon name="chevron-down" size={16} />
 			</DropdownMenu.Trigger>
 			<MenuContent label={$_('messages.bulkSeenMenu')}>
-				<DropdownMenu.Item class={menuItemVariants()} onSelect={() => onMarkSeen(true)}>
+				<DropdownMenu.Item class={menuItemVariants()} onSelect={whenIdle(() => onMarkSeen(true))}>
 					{$_('messages.bulkMarkRead')}
 				</DropdownMenu.Item>
-				<DropdownMenu.Item class={menuItemVariants()} onSelect={() => onMarkSeen(false)}>
+				<DropdownMenu.Item class={menuItemVariants()} onSelect={whenIdle(() => onMarkSeen(false))}>
 					{$_('messages.bulkMarkUnread')}
 				</DropdownMenu.Item>
 			</MenuContent>
 		</DropdownMenu.Root>
-		<DropdownMenu.Root bind:open={moveMenuOpen}>
+		<DropdownMenu.Root bind:open={() => moveMenuOpen, setMoveMenuOpen}>
+			<!-- No move target is a lasting state, not an action in flight: that one stays disabled. -->
 			<DropdownMenu.Trigger
 				class={cn(buttonVariants({ variant: 'outline', size: 'xs' }), 'data-[state=open]:bg-muted')}
-				disabled={busy !== null || moveTargets.length === 0}
+				disabled={moveTargets.length === 0}
+				aria-disabled={idle ? undefined : 'true'}
+				aria-busy={busy === 'move' ? 'true' : undefined}
 			>
 				<Icon name="folder" />
 				<span>{busy === 'move' ? $_('toolbar.moving') : $_('messages.bulkMove')}</span>
 				<Icon name="chevron-down" size={16} />
 			</DropdownMenu.Trigger>
 			<MenuContent label={$_('messages.bulkMove')} scroll>
-				<MoveTargetMenuItems targets={moveTargets} {onMoveTo} />
+				<MoveTargetMenuItems targets={moveTargets} onMoveTo={whenIdle(onMoveTo)} />
 			</MenuContent>
 		</DropdownMenu.Root>
-		<Button type="button" variant="outline" size="xs" onclick={onPrint} disabled={busy !== null}>
+		<Button
+			type="button"
+			variant="outline"
+			size="xs"
+			onclick={whenIdle(onPrint)}
+			aria-disabled={idle ? undefined : 'true'}
+			aria-busy={busy === 'print' ? 'true' : undefined}
+		>
 			<Icon name="printer" />
 			<span>{busy === 'print' ? $_('messages.bulkPrinting') : $_('messages.bulkPrint')}</span>
 		</Button>

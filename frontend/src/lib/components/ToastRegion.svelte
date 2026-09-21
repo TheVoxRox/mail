@@ -60,11 +60,14 @@
 	Visual toasts only (sighted users). Screen-reader announcements are handled
 	by the persistent live regions in LiveAnnouncer, so these are intentionally
 	NOT live regions — otherwise a message would be announced twice.
+	data-print="chrome": a toast still on screen when the print dialog opens
+	would otherwise land on every sheet, being fixed (see app.css).
 -->
 <div
 	bind:this={regionEl}
 	role="region"
 	aria-label={$_('toast.regionLabel')}
+	data-print="chrome"
 	onfocusin={rememberFocusOrigin}
 	class="pointer-events-none fixed right-4 top-14 z-50 flex w-80 max-w-full flex-col gap-2"
 >

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { openApp, setPrefs } from '../e2e-helpers';
+import { openApp, setPrefs, waitForFocus } from '../e2e-helpers';
 
 /*
  * What reaches the paper. The app is a fixed-viewport layout, so before these
@@ -46,6 +46,56 @@ test.describe('Tisk zprávy', () => {
 			'No message is open or selected to print.'
 		);
 		expect(await printed(page)).toBe(0);
+	});
+
+	/*
+	 * Dialogs, menus and toasts are fixed, and a fixed element prints on every
+	 * sheet. The palette's "Print message" prints with the palette still open —
+	 * it closes once the command returns — so without the chrome marking the
+	 * palette went onto paper over the mail.
+	 */
+	test('paleta ani upozornění se na papír nedostanou', async ({ page }) => {
+		await openApp(page, '/mail/1/INBOX');
+		await page.keyboard.press('Control+p');
+		const toast = page
+			.getByRole('region', { name: 'Notifications' })
+			.getByText('No message is open or selected to print.');
+		await expect(toast).toBeVisible();
+		await page.keyboard.press('Control+k');
+		const palette = page.getByRole('dialog');
+		await expect(palette).toBeVisible();
+
+		await page.emulateMedia({ media: 'print' });
+		await expect(palette).toBeHidden();
+		await expect(toast).toBeHidden();
+		await page.emulateMedia({ media: 'screen' });
+	});
+
+	/*
+	 * The other half of printing from the palette: when the dialog closes the
+	 * palette is gone and focus is back where it was opened. Held as a guard, not
+	 * as a fix — the dialog's own close already returns focus there.
+	 */
+	test('Vytisknout zprávu z palety vrátí fokus tam, odkud se paleta otevřela', async ({ page }) => {
+		await openApp(page, '/mail/1/INBOX/msg-01');
+		const message = page.locator('[data-print="document"]');
+		await expect(message).toBeVisible();
+		await countPrints(page);
+		// Opening a message parks focus in the body frame a frame later; a key
+		// sent before that lands can end up in a frame not yet listening.
+		await waitForFocus(message.locator('iframe'));
+		await message.focus();
+		await waitForFocus(message);
+
+		await page.keyboard.press('Control+k');
+		const input = page.locator('#command-palette-input');
+		await expect(input).toBeFocused();
+		await input.fill('Print message');
+		await input.press('Enter');
+
+		await expect.poll(async () => printed(page)).toBe(1);
+		await expect(page.getByRole('dialog')).toHaveCount(0);
+		await expect(message).toBeFocused();
 	});
 
 	test('tisk skryje chrome aplikace a nechá jen zprávu', async ({ page }) => {
@@ -195,6 +245,74 @@ test.describe('Tisk vybraných zpráv', () => {
 		expect(await page.evaluate(() => document.documentElement.dataset.printing ?? null)).toBeNull();
 		// The selection stays, as it does after Outlook prints.
 		await expect(page.getByText('2 selected messages')).toBeVisible();
+	});
+
+	/*
+	 * The bar makes itself unavailable while an action runs, and the button that
+	 * started it is holding focus. Disabled, it dropped focus to <body> for the
+	 * fetch, the dialog and after it, and no navigation happened to bring it
+	 * back. aria-disabled keeps it where it is, so the bar refuses presses
+	 * itself: the list does not know a print is running.
+	 */
+	test('tlačítko Vytisknout vybrané drží fokus po celý tisk a panel mezitím nic nespustí', async ({
+		page
+	}) => {
+		await openApp(page, '/mail/1/INBOX');
+		await recordPrints(page);
+		await page.getByRole('checkbox', { name: 'Select message Projektové podklady' }).check();
+		const bar = page.getByRole('toolbar', { name: 'Bulk actions', exact: true });
+
+		await bar.getByRole('button', { name: 'Print selected' }).press('Enter');
+
+		await expect.poll(async () => (await prints(page)).length).toBe(1);
+		const busy = bar.getByRole('button', { name: 'Preparing to print…' });
+		await expect(busy).toBeFocused();
+		await expect(busy).toHaveAttribute('aria-disabled', 'true');
+		await expect(busy).toHaveAttribute('aria-busy', 'true');
+		const remove = bar.getByRole('button', { name: 'Delete selected' });
+		await expect(remove).toHaveAttribute('aria-disabled', 'true');
+		await remove.dispatchEvent('click');
+
+		await closePrintDialog(page);
+		await expect(bar.getByRole('button', { name: 'Print selected' })).toBeFocused();
+		// The refused Delete deleted nothing: the row and the selection are both still there.
+		await expect(page.getByText('1 selected message')).toBeVisible();
+		await expect(
+			page.getByRole('checkbox', { name: 'Select message Projektové podklady' })
+		).toBeChecked();
+	});
+
+	/*
+	 * Only the sheet's afterprint used to release a print job, so a sheet that
+	 * never arrived held it for the rest of the session: the bar stuck on
+	 * "Preparing to print…" and every later print refused. The sheet's chunk is
+	 * loaded on the first print, so going offline just before it fails exactly
+	 * that request: the messages still come, from the mock service worker, and
+	 * page.route would not see a chunk the worker fetches anyway.
+	 */
+	test('když se tiskový list nenačte, tisk se uvolní a řekne, že se nic nevytisklo', async ({
+		page,
+		context
+	}) => {
+		await openApp(page, '/mail/1/INBOX');
+		await recordPrints(page);
+		await page.getByRole('checkbox', { name: 'Select message Projektové podklady' }).check();
+		const bar = page.getByRole('toolbar', { name: 'Bulk actions', exact: true });
+
+		await context.setOffline(true);
+		try {
+			await bar.getByRole('button', { name: 'Print selected' }).press('Enter');
+
+			await expect(
+				page
+					.getByRole('region', { name: 'Notifications' })
+					.getByText('Printing could not be prepared, so nothing was printed. Please try again.')
+			).toBeVisible();
+		} finally {
+			await context.setOffline(false);
+		}
+		await expect(bar.getByRole('button', { name: 'Print selected' })).toBeEnabled();
+		expect(await prints(page)).toEqual([]);
 	});
 
 	test('Ctrl+P tiskne zaškrtnuté, když fokus není v otevřené zprávě, a otevřenou, když je', async ({

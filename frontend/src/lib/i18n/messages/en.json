@@ -122,6 +122,8 @@
 		"bulkPrinting": "Preparing to print…",
 		"printPreparing": "{count, plural, one {Preparing {count} message for printing.} other {Preparing {count} messages for printing.}}",
 		"printLoadFailed": "The messages could not be loaded for printing, so nothing was printed. Please try again.",
+		"printAlreadyPreparing": "Printing is already being prepared.",
+		"printFailed": "Printing could not be prepared, so nothing was printed. Please try again.",
 		"bulkFlagDone": "Starred: {count}.{failed, plural, =0 {} other { Failed: {failed}.}}",
 		"bulkUnflagDone": "Star removed: {count}.{failed, plural, =0 {} other { Failed: {failed}.}}",
 		"permanentDeleteConfirmTitle": "Permanent deletion",

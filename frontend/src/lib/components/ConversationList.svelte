@@ -37,7 +37,12 @@
 		moveConversationMembers,
 		type ConversationBulkContext
 	} from '$lib/mail/conversationBulk.js';
-	import { printableSelection, printInProgress, printMessages } from '$lib/mail/printMessages.js';
+	import {
+		printableSelection,
+		printInProgress,
+		printMessages,
+		refusePrintWhileBusy
+	} from '$lib/mail/printMessages.js';
 	import { forwardMessage, replyToMessage } from '$lib/mail/actions.js';
 	import { createConversationSelection } from '$lib/mail/conversationSelection.js';
 	import { createThreadMemberCache } from '$lib/mail/threadMembers.js';
@@ -669,6 +674,8 @@
 
 	async function printSelected(): Promise<void> {
 		if (!hasSelection || bulkAction || $conversationsState.status !== 'ready') return;
+		// Before resolving: that loads thread members, for a job that cannot start.
+		if (refusePrintWhileBusy()) return;
 		bulkAction = 'print';
 		bulkError = null;
 		try {

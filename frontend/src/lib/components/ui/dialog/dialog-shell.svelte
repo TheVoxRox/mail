@@ -86,9 +86,18 @@
 
 <Dialog.Root {open} {onOpenChange}>
 	<Dialog.Portal>
-		<Dialog.Overlay class="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px]" />
+		<!--
+			data-print="chrome" on both: a dialog is application, never mail. The
+			palette's "Print message" prints while the palette is still open, and
+			a fixed element prints on every sheet (see app.css).
+		-->
+		<Dialog.Overlay
+			class="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px]"
+			data-print="chrome"
+		/>
 		<Dialog.Content
 			class={cn(dialogContentVariants({ size, placement, padding, scroll }), className)}
+			data-print="chrome"
 		>
 			{@render children()}
 		</Dialog.Content>

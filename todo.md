@@ -61,6 +61,16 @@ Hotove reporty do 2026-06-07 jsou zamrazene v [todo-archive.md](todo-archive.md)
 
 **Vse uzavreno** (2026-09-21). Review 26 commitu `a2e6d43~1..e1e9c9d` (#500 az #526): 10 nalezu, 8 opraveno v #527. Zbyla dve rozhodnuti: window-level zkratky ctou `defaultPrevented` (#529) a tisk je akce nad zpravami, nejdriv otevrena zprava (#530), pak zaskrtnute zpravy spolu s re-verifikaci [CONTENT_RENDERING_AUDIT.md](docs/CONTENT_RENDERING_AUDIT.md) v2.0 (#532). Detail v [CHANGELOG.md](CHANGELOG.md).
 
+## Code review prace 21. 9. (2026-09-21)
+
+Review 19 commitu `70a6554..04545ae` (#529 az #550): 13 nalezu, 8 opraveno v #552. Zbyvajicich pet jsou rozhodnuti nebo okrajove pripady, ne defekty:
+
+- [ ] **Stav „Zjistuji poskytovatele" je od #543 jen popis pole.** [AccountForm.svelte:519](frontend/src/lib/components/AccountForm.svelte:519) dava do `hint` prubezny stav misto napovedy, a hint je ted `aria-hidden`: cte se jen pri vstupu fokusu do pole a v browse rezimu uz ho nejde docist. Rozhodnuti, jestli stav patri do `role="status"` (vedle „Rozpoznan poskytovatel"), nebo zustane vizualni.
+- [ ] **Tisk zaskrtnutych stahuje kazde telo dvakrat.** [printMessages.ts:55](frontend/src/lib/mail/printMessages.ts:55) vola detail i content soubezne a backendovy detail sam vola `getOrFetchMessageContent`, takze necachovane telo jde z IMAPu dvakrat naraz. Stejny vzor ma compose prefill; reseni je tvar API (content az po detailu, nebo metadata v detailu), ne oprava tisku.
+- [ ] **Ctrl+P tiskne i nactitajici se nebo chybovou zpravu.** [globalShortcuts.ts:125](frontend/src/lib/shortcuts/globalShortcuts.ts:125) bere za otevrenou kazdou message route se `stableId`, i kdyz detail jeste neni nebo nacteni selhalo; na papir pak jde placeholder nebo text chyby. Chce to vlastni hlasku („zprava se jeste nacita"), tedy rozhodnuti o textu.
+- [ ] **Fokus v menu z toolbaru zpravy se bere jako fokus mimo zpravu.** [+layout.svelte:432](frontend/src/routes/+layout.svelte:432) hleda `closest('[data-print="document"]')`, ale menu jsou v portalu na `<body>`. Se zaskrtnutymi radky tak Ctrl+P z otevreneho menu zpravy tiskne vyber. Okrajove.
+- [ ] **Nadpis slozky neni „novy s kazdou strankou".** [+layout.svelte:247](frontend/src/routes/+layout.svelte:247): #550 stavi na tom, ze `<h1>` je novy uzel, ale nadpis slozky zije v `mail/[accountId]/[folderName]/+layout.svelte`, ktery SvelteKit pri prepnuti slozky pouzije znovu. Pristani po prepnuti slozky tak muze dat fokus uzlu, ve kterem uz kurzor ctecky je. Overit doposlechem, nez se na tom neco meni.
+
 ---
 
 ## v0.1.0 smoke — bugy Faze B
