@@ -53,8 +53,16 @@
 		lastEmittedValue = value;
 	});
 
+	/*
+	 * Autofocus belongs to the first render. It waits for the field to be enabled,
+	 * because the composer stays disabled until prefill lands, but it fires once:
+	 * `disabled` also flips on every save and send, and re-running here pulled
+	 * focus into this field each time one of them failed.
+	 */
+	let autofocused = false;
 	$effect(() => {
-		if (!autofocus || disabled) return;
+		if (autofocused || !autofocus || disabled) return;
+		autofocused = true;
 		void tick().then(() => inputElement?.focus());
 	});
 

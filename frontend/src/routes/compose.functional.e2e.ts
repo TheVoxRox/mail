@@ -680,6 +680,65 @@ test.describe('Compose', () => {
 		await expect(page.getByRole('button', { name: 'Odeslat' })).toBeEnabled();
 	});
 
+	/*
+	 * A save or send disables the form while it runs, and a control disabled
+	 * while focused loses focus to <body>. Success navigates away, so that never
+	 * showed; a failure keeps the user here, and focus then went to Komu —
+	 * the field's autofocus ran again every time the form was re-enabled. With a
+	 * screen reader that read as the app moving you to the recipients at the
+	 * moment it said something had gone wrong.
+	 */
+	test('neúspěšné uložení konceptu vrátí fokus na tlačítko, ne do Komu', async ({ page }) => {
+		await openApp(page, '/compose');
+		await page.locator('#compose-to').fill('fail@example.com');
+		await page.locator('#compose-subject').fill('__FAIL_DRAFT__');
+		await page.locator('#compose-body').fill('Text.');
+
+		const save = page
+			.getByRole('main')
+			.getByRole('button', { name: 'Uložit koncept', exact: true });
+		await save.press('Enter');
+
+		await expect(
+			page.getByRole('alert').filter({ hasText: 'Koncept se nepodařilo uložit.' })
+		).toBeVisible();
+		await expect(save).toBeEnabled();
+		await expect(save).toBeFocused();
+	});
+
+	test('neúspěšné Ctrl+S nechá fokus v těle zprávy', async ({ page }) => {
+		await openApp(page, '/compose');
+		await page.locator('#compose-to').fill('fail@example.com');
+		await page.locator('#compose-subject').fill('__FAIL_DRAFT__');
+		const body = page.locator('#compose-body');
+		await body.fill('Text.');
+
+		await body.press('Control+s');
+
+		await expect(
+			page.getByRole('alert').filter({ hasText: 'Koncept se nepodařilo uložit.' })
+		).toBeVisible();
+		await expect(body).toBeEnabled();
+		await expect(body).toBeFocused();
+	});
+
+	test('neúspěšné odeslání vrátí fokus tam, odkud se odesílalo', async ({ page }) => {
+		await openApp(page, '/compose');
+		await page.locator('#compose-to').fill('fail@example.com');
+		await page.locator('#compose-subject').fill('__FAIL_SEND__');
+		const body = page.locator('#compose-body');
+		await body.fill('Text.');
+
+		await body.press('Control+Enter');
+
+		await expect(
+			page.getByRole('alert').filter({ hasText: 'Zprávu se nepodařilo odeslat.' })
+		).toBeVisible();
+		await expect(page).toHaveURL(/\/compose$/);
+		await expect(body).toBeEnabled();
+		await expect(body).toBeFocused();
+	});
+
 	test('autosave nové zprávy po prvním uložení používá replaces a nevytváří další nový koncept', async ({
 		page
 	}) => {
