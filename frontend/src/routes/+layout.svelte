@@ -106,11 +106,14 @@
 	 * have no label at all: their state is transitive and the generic landmark
 	 * announcement is enough.
 	 *
-	 * Named after the route, not the workspace. Measured with NVDA: after
-	 * switching folders the app moves focus here, and with the name fixed at
-	 * the workspace name the landing said just that, then began reading content —
-	 * in split mode the empty reading-pane placeholder — so the folder was
-	 * never announced at all and could only be had on demand via NVDA+T.
+	 * Named after the route, not the workspace. Measured with NVDA while focus
+	 * still landed on <main> itself: after switching folders, with the name
+	 * fixed at the workspace name, the landing said just that, then began
+	 * reading content — in split mode the empty reading-pane placeholder — so
+	 * the folder was never announced at all and could only be had on demand
+	 * via NVDA+T. Focus now lands on the page heading inside it (see
+	 * focusLandingIfUnclaimed below); the name is still what a reader says on
+	 * entering the landmark and what landmark navigation lists.
 	 *
 	 * The route title is taken whole. That used to need a strip: three settings
 	 * pages titled themselves "{app.title} – {page}" while every other route
@@ -197,29 +200,49 @@
 	});
 
 	/*
-	 * After every navigation (and after the initial load) we move focus to
-	 * <main> unless another element actively claimed it (autofocus,
-	 * programmatic focus() in a component's onMount). Without this
-	 * SvelteKit would leave focus on <body>, so a keyboard user would have
-	 * to Tab through the entire AppRail + sidebar before reaching real
-	 * content.
+	 * After every navigation (and after the initial load) we move focus to the
+	 * new page's <h1> unless another element actively claimed it (autofocus,
+	 * programmatic focus() in a component's onMount). Without this SvelteKit
+	 * would leave focus on <body>, so a keyboard user would have to Tab through
+	 * the entire AppRail + sidebar before reaching real content.
+	 *
+	 * The heading, not <main>. <main> is one element for the whole session —
+	 * routes swap what is inside it — and a screen reader reading in browse mode
+	 * usually has its cursor somewhere inside it already. Focus arriving on an
+	 * element that contains the cursor does not move the cursor, so after
+	 * Ctrl+2 both JAWS and NVDA carried on from the same spot in their buffer
+	 * and read whatever the new page had put there: the contacts pagination, a
+	 * date in the message list. DOM focus was on <main> every time, which is
+	 * why no test saw it; measured over CDP in the running app and heard with
+	 * both readers. A heading is new with every page, so the cursor cannot be
+	 * in it yet, and it is where reading the page starts. It gets tabindex=-1
+	 * here rather than in each page, so a page only has to have an <h1>; one
+	 * without a rendered <h1> falls back to <main>.
 	 *
 	 * `requestAnimationFrame` waits for Svelte to commit the new DOM and
 	 * for components to finish onMount — only then do we check
 	 * `document.activeElement` so we don't steal focus from an autofocused
 	 * input.
 	 */
-	function focusMainIfUnclaimed() {
+	function focusLandingIfUnclaimed() {
 		const active = document.activeElement;
 		const isDefaultFocus =
 			!active || active === document.body || active === document.documentElement;
 		if (!isDefaultFocus) return;
-		document.getElementById('main-content')?.focus({ preventScroll: true });
+		const main = document.getElementById('main-content');
+		const heading = main?.querySelector<HTMLElement>('h1');
+		if (heading) {
+			heading.tabIndex = -1;
+			heading.focus({ preventScroll: true });
+			// An <h1> that is not rendered (display: none) refuses focus.
+			if (document.activeElement === heading) return;
+		}
+		main?.focus({ preventScroll: true });
 	}
 
 	afterNavigate(() => {
 		if (typeof window === 'undefined') return;
-		requestAnimationFrame(focusMainIfUnclaimed);
+		requestAnimationFrame(focusLandingIfUnclaimed);
 	});
 
 	/*
@@ -239,7 +262,7 @@
 
 	$effect(() => {
 		if (!shellReady) return;
-		requestAnimationFrame(focusMainIfUnclaimed);
+		requestAnimationFrame(focusLandingIfUnclaimed);
 	});
 
 	onMount(() => {
