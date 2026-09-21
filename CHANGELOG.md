@@ -22,6 +22,7 @@ Entries before 2026-09-17 predate that split and are left as written.
 ### Frontend
 
 - **A hint is read once, with the control it belongs to.** A hint under a control — the startup update check and the update channel in Settings › About, the Markdown hint under the message body, and every hint a form draws through `Field` — was announced with its control and then read again as the next line in browse mode, so a screen reader said the same sentence twice. The paragraph stays on screen and leaves the accessibility tree; the control keeps it as its description, which a directly referenced node supplies even when hidden. The contact form's hint describes the whole form and stays readable on its own, and the palette's is a dialog description, read in focus mode where no line repeats (#543).
+- **A failed save or send leaves focus where you started it.** The composer disables itself while a draft saves or a message sends, and a disabled control drops focus onto the page. When the action then failed, the To field's autofocus, meant for opening a new message, ran again as the form came back, so a screen reader was moved to "Komu" just as the error was announced. Focus now goes back to what the action started from: the toolbar button, or the message body for Ctrl+S and Ctrl+Enter. The To field autofocuses only when the composer opens (#548).
 
 ### Repo
 

@@ -303,6 +303,19 @@
 		return true;
 	}
 
+	/*
+	 * Saving and sending disable the whole form, and a disabled control drops its
+	 * focus onto <body>. Success navigates away, so only a failure has to put it
+	 * back: to where the user acted, which is what they are about to retry from.
+	 * Left alone when something has already taken focus on purpose.
+	 */
+	async function returnFocusAfterFailure(previous: Element | null): Promise<void> {
+		await tick();
+		const active = document.activeElement;
+		if (active && active !== document.body) return;
+		if (previous instanceof HTMLElement && previous.isConnected) previous.focus();
+	}
+
 	// Guards handleSend re-entry while the attachment-reminder dialog is open
 	// (`busy` is still false there so the composer stays editable on cancel);
 	// a second confirmAction would orphan the first dialog's resolver.
@@ -310,6 +323,8 @@
 
 	async function handleSend() {
 		if (busy || confirmingSend || !prefillDone) return;
+		// Taken before the attachment reminder, which moves focus into its dialog.
+		const returnFocus = document.activeElement;
 		const acc = currentFromAccount();
 		if (!acc) {
 			recipientErrorMessage = '';
@@ -342,6 +357,7 @@
 		busyAction = 'send';
 		errorMessage = '';
 		recipientErrorMessage = '';
+		let failed = false;
 		try {
 			// Stop the autosave queue and pin the draft identity: the backend
 			// deletes the superseded draft only after successful delivery (B2),
@@ -368,10 +384,12 @@
 			await navigateWithoutPrompt(resolve('/'));
 		} catch (err) {
 			errorMessage = toErrorMessage(err);
+			failed = true;
 		} finally {
 			busy = false;
 			busyAction = null;
 		}
+		if (failed) await returnFocusAfterFailure(returnFocus);
 	}
 
 	async function saveDraftNow(options: { navigateAfterSave?: boolean } = {}): Promise<boolean> {
@@ -412,7 +430,8 @@
 	}
 
 	async function handleSaveDraft() {
-		await saveDraftNow();
+		const returnFocus = document.activeElement;
+		if (!(await saveDraftNow())) await returnFocusAfterFailure(returnFocus);
 	}
 
 	function handleDiscard() {

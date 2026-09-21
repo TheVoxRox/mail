@@ -805,6 +805,10 @@ function messageRoutes(
 		if (segments[3] === 'sync' && method === 'POST') return accepted();
 		if (segments[3] === 'send' && method === 'POST')
 			return request.json().then((body) => {
+				// Rejected before it is accepted, so the composer keeps the message.
+				if ((body as MailRequest).subject === '__FAIL_SEND__') {
+					return problem(500, 'Zprávu se nepodařilo odeslat.', 'INTERNAL_ERROR');
+				}
 				// Recorded so the SSE bridge can mirror the backend contract: delete
 				// the superseded draft on send_completed, park a recovery draft on a
 				// send_failed with no supersede (B2).
