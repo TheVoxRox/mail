@@ -27,6 +27,7 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 - **The 2026-09-21 candidate sheet records the machine half of §3.** Release Candidate Smoke passed all 22 checks on the signed build of the re-cut `v0.1.0` (installer built from `a45e905`), and the sheet links that run under §3, §3a and §6 with what each section still needs by hand. Nothing is ticked: every one of them keeps a manual half (#542).
 - **The updater audit acknowledges the About page hint change.** `AboutSettings.svelte` is one of `UPDATER_AUDIT.md`'s code paths; the diff hides the startup-check hint from the accessibility tree and moves nothing the updater reads or writes. Object id and a note in [docs/audit-freshness.json](docs/audit-freshness.json), the fourth acknowledgement of eight (#543).
+- **The candidate sheet lists what waits for the next cut of `v0.1.0`.** Fixes are batched into one re-cut, and the sheet now names the merged ones the tag does not carry yet, starting with #543, and says the re-cut has to come before §3 so no manual evidence is taken on a build that will be replaced (#544).
 
 ## [0.1.0] - 2026-09-21
 
