@@ -182,12 +182,15 @@ test.describe('Přepnutí složky', () => {
 
 	test('hlavní oblast se po přepnutí složky jmenuje podle složky', async ({ page }) => {
 		/*
-		 * After a navigation the layout moves focus to <main>, which is the only
+		 * After a navigation the layout moves focus into <main>, which is the only
 		 * automatic answer to "where am I" — the route announcer is silenced and
 		 * the list announcement below arrives seconds later and names no folder.
-		 * Heard with NVDA: with the landmark named after the workspace, landing
-		 * said "Pošta" and then began reading content (in split mode the empty
-		 * reading-pane placeholder), so the folder was never announced at all.
+		 * Heard with NVDA while focus still landed on <main> itself: with the
+		 * landmark named after the workspace, landing said "Pošta" and then began
+		 * reading content (in split mode the empty reading-pane placeholder), so
+		 * the folder was never announced at all. Focus now lands on the heading
+		 * inside it; the name is what a reader says on entering the landmark and
+		 * what landmark navigation lists.
 		 * Asserted across two folders, because a name that is merely correct once
 		 * would also pass while being a constant.
 		 */

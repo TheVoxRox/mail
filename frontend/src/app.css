@@ -179,8 +179,9 @@
  * standing in for the page load a client-side navigation never fires. This app
  * does not need that stand-in, and paid for it twice.
  *
- * It duplicated. After every navigation the app moves focus to <main>
- * (focusMainIfUnclaimed in frontend/src/routes/+layout.svelte) — the pattern
+ * It duplicated. After every navigation the app moves focus to the new page's
+ * heading (focusLandingIfUnclaimed in frontend/src/routes/+layout.svelte;
+ * <main> itself when this was written) — the pattern
  * user testing of client-side routing found people preferred — and the
  * announcer then repeated what landing there had already said. Split
  * reading-pane mode made it plain: there every arrow key is a full navigation,
@@ -215,6 +216,15 @@
  */
 #svelte-announcer {
 	display: none;
+}
+
+/*
+ * The page heading is where focus lands after a navigation
+ * (focusLandingIfUnclaimed in frontend/src/routes/+layout.svelte). It is a
+ * reading position, not a control, so it draws no focus ring.
+ */
+main h1[tabindex='-1']:focus {
+	outline: none;
 }
 
 /*

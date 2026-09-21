@@ -5,6 +5,14 @@ test.beforeEach(async ({ page }) => {
 	await setPrefs(page, { locale: 'cs', readingPane: 'right' });
 });
 
+/**
+ * Where a navigation lands: the <h1> of the <main> named `mainName`. Found
+ * through the landmark, so each assertion also holds the landmark's name.
+ */
+function landingHeading(page: import('@playwright/test').Page, mainName: string) {
+	return page.getByRole('main', { name: mainName }).getByRole('heading', { level: 1 });
+}
+
 test.describe('MSW bootstrap', () => {
 	test('běžný režim nezobrazuje diagnostickou lištu backendu', async ({ page }) => {
 		await openApp(page, '/');
@@ -119,7 +127,7 @@ test.describe('MSW bootstrap', () => {
 		 * titles verbatim; the settings page carries the "Nastavení" level because
 		 * it sits in the sidebar's primary group, the way Účty already did.
 		 */
-		await expect(page.getByRole('main', { name: 'Pošta – Kontakty' })).toBeFocused();
+		await expect(landingHeading(page, 'Pošta – Kontakty')).toBeFocused();
 
 		await page.keyboard.press('Control+3');
 		await page.waitForURL('**/settings/appearance');
@@ -132,7 +140,7 @@ test.describe('MSW bootstrap', () => {
 				.getByRole('link', { name: 'Kontakty (Ctrl+2)' })
 		).toHaveAttribute('aria-current', 'page');
 		await expect(page.getByRole('region', { name: 'Podokno kontaktů' })).toBeVisible();
-		await expect(page.getByRole('main', { name: 'Pošta – Kontakty' })).toBeFocused();
+		await expect(landingHeading(page, 'Pošta – Kontakty')).toBeFocused();
 
 		await page.keyboard.press('Control+3');
 		await page.waitForURL('**/settings/appearance');
@@ -142,7 +150,7 @@ test.describe('MSW bootstrap', () => {
 				.getByRole('link', { name: 'Nastavení (Ctrl+3)' })
 		).toHaveAttribute('aria-current', 'page');
 		await expect(page.getByRole('region', { name: 'Podokno nastavení' })).toBeVisible();
-		await expect(page.getByRole('main', { name: 'Pošta – Nastavení – Vzhled' })).toBeFocused();
+		await expect(landingHeading(page, 'Pošta – Nastavení – Vzhled')).toBeFocused();
 
 		await page.keyboard.press('Control+1');
 		await page.waitForURL('**/mail/1/INBOX');
@@ -153,11 +161,16 @@ test.describe('MSW bootstrap', () => {
 		).toHaveAttribute('aria-current', 'page');
 		await expect(page.getByRole('region', { name: 'Podokno pošty' })).toBeVisible();
 		/*
-		 * Switching workspaces must land focus on <main> (afterNavigate in
-		 * +layout.svelte), never on <body> — otherwise a keyboard user tabs
-		 * through the whole rail and sidebar before reaching the content.
+		 * Switching workspaces must land focus on the new page's heading
+		 * (afterNavigate in +layout.svelte), never on <body> — otherwise a
+		 * keyboard user tabs through the whole rail and sidebar before reaching
+		 * the content. Not on <main> either: a screen reader's cursor is usually
+		 * inside <main> already, focus on an element that contains it does not
+		 * move it, and JAWS and NVDA both read on from the same spot in the new
+		 * page. Every switch above starts with focus on the heading the previous
+		 * one landed on, which is the case that went wrong.
 		 */
-		await expect(page.getByRole('main', { name: 'Pošta – Doručené' })).toBeFocused();
+		await expect(landingHeading(page, 'Pošta – Doručené')).toBeFocused();
 	});
 
 	test('Ctrl+2 přepne prostředí i s kurzorem v hledacím poli', async ({ page }) => {
@@ -175,7 +188,7 @@ test.describe('MSW bootstrap', () => {
 
 		await page.keyboard.press('Control+2');
 		await page.waitForURL('**/contacts');
-		await expect(page.getByRole('main', { name: 'Pošta – Kontakty' })).toBeFocused();
+		await expect(landingHeading(page, 'Pošta – Kontakty')).toBeFocused();
 	});
 
 	test('nastartuje aplikaci bez backendu a přesměruje na aktivní inbox', async ({ page }) => {
