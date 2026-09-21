@@ -83,23 +83,39 @@ describe.skipIf(!fixtureHasDependencies())('check-markdown-format', () => {
 	 * it — it rewrites and the next check fails again — so pointing the author
 	 * at format:md is advice they cannot follow. Both modes must say so.
 	 *
-	 * The fixture is the real construct that hit this (prettier 3.9.6): a table
-	 * indented to the content column of a task-list item. Should prettier fix
-	 * it upstream, these two tests go green for the wrong reason and the
-	 * fixture needs replacing, not deleting — the branch it covers is "output
-	 * is not idempotent", not this one table.
+	 * The instability is manufactured, not borrowed from a prettier bug. The
+	 * fixture used to be the construct that hit this for real in prettier
+	 * 3.9.6, a table indented to the content column of a task-list item, and
+	 * 3.9.8 fixed it: the dependabot bump (#536) turned these four tests red
+	 * because the file formatted stably. What they cover is the branch "output
+	 * is not idempotent", so the fixture is now a plugin whose printer adds a
+	 * line on every pass, applied to README.md alone — unstable by
+	 * construction, whatever prettier fixes next. Every other file keeps the
+	 * Markdown parser, which the drift tests below rely on.
 	 */
-	const unstableMarkdown = [
-		'- [ ] Title.',
-		'',
-		'      | a | b |',
-		'      | --- | --- |',
-		'      | 1 | 2 |',
-		''
-	].join('\n');
+	function writeUnstableReadme() {
+		repo.write(
+			'never-settles.mjs',
+			[
+				"export const parsers = { 'never-settles': { parse: (text) => ({ type: 'root', text }), astFormat: 'never-settles', locStart: () => 0, locEnd: (node) => node.text.length } };",
+				"export const printers = { 'never-settles': { print: (path) => path.node.text + 'again\\n' } };",
+				''
+			].join('\n')
+		);
+		repo.write(
+			'.prettierrc',
+			JSON.stringify({
+				useTabs: true,
+				printWidth: 100,
+				plugins: ['./never-settles.mjs'],
+				overrides: [{ files: 'README.md', options: { parser: 'never-settles' } }]
+			})
+		);
+		repo.write('README.md', '# Title\n');
+	}
 
 	it('names a file prettier cannot format stably, instead of blaming the author', () => {
-		repo.write('README.md', unstableMarkdown);
+		writeUnstableReadme();
 		repo.commit();
 
 		const result = repo.run('check-markdown-format.mjs');
@@ -111,7 +127,7 @@ describe.skipIf(!fixtureHasDependencies())('check-markdown-format', () => {
 	});
 
 	it('refuses an unstable file in --write mode rather than rewriting it forever', () => {
-		repo.write('README.md', unstableMarkdown);
+		writeUnstableReadme();
 		repo.commit();
 
 		const result = repo.run('check-markdown-format.mjs', ['--write']);
@@ -125,7 +141,7 @@ describe.skipIf(!fixtureHasDependencies())('check-markdown-format', () => {
 	 * cost a second run to learn about drift already measured.
 	 */
 	it('names ordinary drift alongside the unstable file, not on a second run', () => {
-		repo.write('README.md', unstableMarkdown);
+		writeUnstableReadme();
 		repo.write('docs/GUIDE.md', '#    Guide\n\n\n\ntext\n');
 		repo.commit();
 
@@ -140,7 +156,7 @@ describe.skipIf(!fixtureHasDependencies())('check-markdown-format', () => {
 
 	it('says which files --write already rewrote before it hit the unstable one', () => {
 		repo.write('AAA.md', '#    Rewritten\n\n\n\ntext\n');
-		repo.write('README.md', unstableMarkdown);
+		writeUnstableReadme();
 		repo.commit();
 
 		const result = repo.run('check-markdown-format.mjs', ['--write']);
