@@ -52,4 +52,4 @@ windows-registry = "0.6"
 # are not exposed by Tauri. Same versions wry already builds with, so this adds
 # no crate either; the controller Tauri hands out is typed by webview2-com.
 webview2-com = "0.38"
-windows-core = "0.61"
+windows-core = "0.62"
