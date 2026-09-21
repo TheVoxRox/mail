@@ -59,10 +59,11 @@ for (const relative of files) {
 	 * check fails again. Telling the author to run `format:md` in that state
 	 * is advice they cannot follow, so name the file as unstable instead.
 	 *
-	 * Known trigger (prettier 3.9.6): a table indented to the content column
-	 * of a task-list item, `- [ ] ` then a table at column 6. Each pass
-	 * indents every row after the first by four more spaces, without bound.
-	 * The same table under a plain `-`, under `1.`, or at top level is fine.
+	 * The trigger that made this necessary, fixed in prettier 3.9.8: a table
+	 * indented to the content column of a task-list item, `- [ ] ` then a
+	 * table at column 6, where each pass indented every row after the first by
+	 * four more spaces, without bound. The check stays, because the next such
+	 * bug will look the same from here.
 	 */
 	const twice = await prettier.format(formatted, { ...options, filepath: absolute });
 	if (twice !== formatted) {
