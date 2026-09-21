@@ -19,6 +19,10 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+### Repo
+
+- **The 2026-09-21 candidate sheet records the machine half of §3.** Release Candidate Smoke passed all 22 checks on the signed build of the re-cut `v0.1.0` (installer built from `a45e905`), and the sheet links that run under §3, §3a and §6 with what each section still needs by hand. Nothing is ticked: every one of them keeps a manual half (#542).
+
 ## [0.1.0] - 2026-09-21
 
 ### Backend
