@@ -4,10 +4,10 @@ vi.mock('$lib/mail/actions.js', () => ({
 	forwardMessage: vi.fn(),
 	goToCompose: vi.fn(),
 	goToSearch: vi.fn(),
-	printCurrentView: vi.fn(),
 	replyToMessage: vi.fn(),
 	syncCurrentAccount: vi.fn()
 }));
+vi.mock('$lib/mail/printMessages.js', () => ({ printOpenMessage: vi.fn() }));
 vi.mock('$lib/mail/mailbox.js', () => ({
 	deleteMessages: vi.fn(),
 	moveMessages: vi.fn(),

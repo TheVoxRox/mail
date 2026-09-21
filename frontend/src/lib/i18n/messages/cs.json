@@ -207,6 +207,8 @@
 		"linkOpenError": "Odkaz se nepodařilo otevřít v prohlížeči.",
 		"linkNotOpenable": "Odkaz nemá cíl, který by šlo otevřít.",
 		"nothingToPrint": "Není otevřená ani vybraná žádná zpráva k tisku.",
+		"printStillLoading": "Zpráva se ještě načítá, zkuste tisk za chvíli.",
+		"printUnavailable": "Zprávu se nepodařilo načíst, není co vytisknout.",
 		"pageTitle": "Pošta – Zpráva",
 		"pageTitleWithSubject": "Pošta – {subject}",
 		"folderPageTitle": "Pošta – {folder}",

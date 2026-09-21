@@ -20,7 +20,7 @@ function makeHandlers(overrides: Partial<GlobalShortcutHandlers> = {}): GlobalSh
 		toggleFlag: vi.fn(),
 		toggleSeen: vi.fn(),
 		deleteMessage: vi.fn(),
-		printCurrentView: vi.fn(),
+		printOpenMessage: vi.fn(),
 		announceNothingToPrint: vi.fn(),
 		isFocusInOpenMessage: () => false,
 		hasPrintableSelection: () => false,
@@ -161,7 +161,7 @@ describe('handleGlobalKeydown', () => {
 
 	it.each([
 		{ name: 'Ctrl+K', init: { key: 'k', ctrlKey: true }, handler: 'openPalette' },
-		{ name: 'Ctrl+P', init: { key: 'p', ctrlKey: true }, handler: 'printCurrentView' },
+		{ name: 'Ctrl+P', init: { key: 'p', ctrlKey: true }, handler: 'printOpenMessage' },
 		{
 			name: 'Ctrl+N',
 			init: { key: 'n', ctrlKey: true, code: 'KeyN' },
@@ -220,7 +220,7 @@ describe('handleGlobalKeydown — message actions', () => {
 		const ev = makeEvent({ key: 'p', ctrlKey: true });
 		const prevent = vi.spyOn(ev, 'preventDefault');
 		handleGlobalKeydown(ev, h);
-		expect(h.printCurrentView).toHaveBeenCalledOnce();
+		expect(h.printOpenMessage).toHaveBeenCalledOnce();
 		expect(prevent).toHaveBeenCalled();
 	});
 
@@ -232,7 +232,7 @@ describe('handleGlobalKeydown — message actions', () => {
 		const ev = makeEvent({ key: 'p', ctrlKey: true });
 		const prevent = vi.spyOn(ev, 'preventDefault');
 		handleGlobalKeydown(ev, h);
-		expect(h.printCurrentView).not.toHaveBeenCalled();
+		expect(h.printOpenMessage).not.toHaveBeenCalled();
 		expect(h.announceNothingToPrint).toHaveBeenCalledOnce();
 		expect(prevent).toHaveBeenCalled();
 	});
@@ -243,7 +243,7 @@ describe('handleGlobalKeydown — message actions', () => {
 			hasPrintableSelection: () => true
 		});
 		handleGlobalKeydown(makeEvent({ key: 'p', ctrlKey: true }), h);
-		expect(h.printCurrentView).toHaveBeenCalledOnce();
+		expect(h.printOpenMessage).toHaveBeenCalledOnce();
 		expect(h.printSelection).not.toHaveBeenCalled();
 	});
 
@@ -252,7 +252,7 @@ describe('handleGlobalKeydown — message actions', () => {
 		const h = openMessageHandlers(false, { hasPrintableSelection: () => true });
 		handleGlobalKeydown(makeEvent({ key: 'p', ctrlKey: true }), h);
 		expect(h.printSelection).toHaveBeenCalledOnce();
-		expect(h.printCurrentView).not.toHaveBeenCalled();
+		expect(h.printOpenMessage).not.toHaveBeenCalled();
 	});
 
 	it('Ctrl+P prints the ticked rows with no message open', () => {
@@ -265,7 +265,7 @@ describe('handleGlobalKeydown — message actions', () => {
 	it('Ctrl+P falls back to the open message when nothing is ticked, wherever focus is', () => {
 		const h = openMessageHandlers();
 		handleGlobalKeydown(makeEvent({ key: 'p', ctrlKey: true }), h);
-		expect(h.printCurrentView).toHaveBeenCalledOnce();
+		expect(h.printOpenMessage).toHaveBeenCalledOnce();
 	});
 
 	it('Ctrl+P prints from a text field too, as a window-level command', () => {
@@ -278,7 +278,7 @@ describe('handleGlobalKeydown — message actions', () => {
 		const ev = makeEvent({ key: 'p', ctrlKey: true });
 		Object.defineProperty(ev, 'target', { value: field });
 		handleGlobalKeydown(ev, h);
-		expect(h.printCurrentView).toHaveBeenCalledOnce();
+		expect(h.printOpenMessage).toHaveBeenCalledOnce();
 		field.remove();
 	});
 
