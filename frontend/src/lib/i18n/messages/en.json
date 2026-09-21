@@ -200,6 +200,7 @@
 		"bodyHeading": "Message text",
 		"linkOpenError": "Could not open the link in your browser.",
 		"linkNotOpenable": "The link has no target that can be opened.",
+		"nothingToPrint": "No message is open to print.",
 		"pageTitle": "Mail – Message",
 		"pageTitleWithSubject": "Mail – {subject}",
 		"folderPageTitle": "Mail – {folder}",
@@ -655,6 +656,7 @@
 				"markRead": "Mark as read",
 				"markUnread": "Mark as unread",
 				"deleteMessage": "Delete message",
+				"printMessage": "Print message",
 				"closeMessage": "Close the message and return focus to the list",
 				"listPrevNextMessage": "Previous / next message",
 				"listPrevNextCell": "Previous / next cell in the row",
@@ -686,6 +688,7 @@
 				"contacts": "Works anywhere, including text fields, while Contacts is active.",
 				"compose": "Works while composing a new message.",
 				"openMessage": "Works while a message is open.",
+				"openMessageIncludingInputs": "Works while a message is open, in text fields too.",
 				"palette": "Works while the command palette is open."
 			}
 		},

@@ -15,9 +15,9 @@
 //!   the place of — see `keeps_browser_handling`. Editing and movement keys
 //!   (Ctrl+C/V/X/A/Z, Home, End, Page Up/Down) are not browser accelerators and
 //!   are never affected.
-//! - **The default context menu** loses Back, Forward, Reload and Save as.
-//!   Switching the whole menu off would also take Cut, Copy, Paste and the
-//!   spelling suggestions out of the compose editor.
+//! - **The default context menu** loses Back, Forward, Reload, Save as and
+//!   Print. Switching the whole menu off would also take Cut, Copy, Paste and
+//!   the spelling suggestions out of the compose editor.
 //!
 //! Each handler is attached and reported on its own: an older runtime can carry
 //! one and not the other, and a handler that fails to attach leaves that default
@@ -37,11 +37,11 @@
 ///
 /// Print is no longer among them. It was kept while nothing in the app printed,
 /// because denying it took printing away altogether; the app now binds Ctrl+P
-/// itself (`globalShortcuts.ts`) and prints the current view through the print
-/// rules in app.css — the open message where there is one, and the view the
-/// reader is in otherwise — so the key is claimed like Ctrl+R and Ctrl+F. The
-/// context menu keeps its Print entry, which is not an accelerator and now
-/// reaches the same sheet through the print rules in app.css.
+/// itself (`globalShortcuts.ts`) and prints the open message through the print
+/// rules in app.css, so the key is claimed like Ctrl+R and Ctrl+F. With no
+/// message open the app says there is nothing to print, and the context menu
+/// has lost its Print entry for the same reason: left in, it would print the
+/// folder list or settings page the key refuses to.
 #[cfg_attr(not(windows), allow(dead_code))]
 pub fn keeps_browser_handling(virtual_key: u32, alt_down: bool, devtools: bool) -> bool {
     const VK_0: u32 = 0x30;
@@ -67,10 +67,12 @@ pub fn keeps_browser_handling(virtual_key: u32, alt_down: bool, devtools: bool) 
 }
 
 /// Entries removed from WebView2's default context menu, by the names
-/// `ICoreWebView2ContextMenuItem::Name` reports.
+/// `ICoreWebView2ContextMenuItem::Name` reports. Print prints whatever the
+/// window shows, which the app does only for an open message (see
+/// `keeps_browser_handling`).
 #[cfg_attr(not(windows), allow(dead_code))]
 pub fn is_removed_context_menu_item(name: &str) -> bool {
-    matches!(name, "back" | "forward" | "reload" | "saveAs")
+    matches!(name, "back" | "forward" | "reload" | "saveAs" | "print")
 }
 
 #[cfg(windows)]
@@ -239,12 +241,14 @@ mod tests {
     }
 
     #[test]
-    fn only_navigation_and_page_entries_leave_the_context_menu() {
-        for name in ["back", "forward", "reload", "saveAs"] {
+    fn navigation_page_and_print_entries_leave_the_context_menu() {
+        // Print goes with them because the app prints only the open message:
+        // left in, the menu would print a folder list or a settings page that
+        // Ctrl+P refuses to, and the mouse would do more than the keyboard.
+        for name in ["back", "forward", "reload", "saveAs", "print"] {
             assert!(is_removed_context_menu_item(name), "{name}");
         }
         for name in [
-            "print",
             "cut",
             "copy",
             "paste",

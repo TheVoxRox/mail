@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { openApp } from '../e2e-helpers';
 
 /*
@@ -11,23 +11,39 @@ import { openApp } from '../e2e-helpers';
 test.describe('Tisk zprávy', () => {
 	const PAGES = /\/Type\s*\/Page[^s]/g;
 
-	test('Ctrl+P tiskne i tam, kde žádná zpráva otevřená není', async ({ page }) => {
-		// The key was bound among the open-message shortcuts, so it reached only a
-		// message route: everywhere else the keyboard had no way to print while
-		// the webview's context menu kept one for the mouse.
-		await openApp(page, '/mail/1/INBOX');
-		await page.evaluate(() => {
+	const countPrints = async (page: Page) =>
+		page.evaluate(() => {
 			(window as unknown as { __printed: number }).__printed = 0;
 			window.print = () => {
 				(window as unknown as { __printed: number }).__printed += 1;
 			};
 		});
+	const printed = async (page: Page) =>
+		page.evaluate(() => (window as unknown as { __printed: number }).__printed);
+
+	test('Ctrl+P vytiskne otevřenou zprávu', async ({ page }) => {
+		await openApp(page, '/mail/1/INBOX/msg-01');
+		await expect(page.locator('[data-print="document"]')).toBeVisible();
+		await countPrints(page);
 
 		await page.keyboard.press('Control+p');
 
-		await expect
-			.poll(async () => page.evaluate(() => (window as unknown as { __printed: number }).__printed))
-			.toBe(1);
+		await expect.poll(async () => printed(page)).toBe(1);
+	});
+
+	test('Ctrl+P bez otevřené zprávy nic nevytiskne a řekne proč', async ({ page }) => {
+		// Printing is an action on a message. Printing the screen put the folder
+		// list on paper, and a silent no-op would leave a screen-reader user
+		// unsure the key landed.
+		await openApp(page, '/mail/1/INBOX');
+		await countPrints(page);
+
+		await page.keyboard.press('Control+p');
+
+		// The announcement is what proves the handler ran, so the zero below is
+		// "refused", not "not yet".
+		await expect(page.locator('#live-region')).toContainText('No message is open to print.');
+		expect(await printed(page)).toBe(0);
 	});
 
 	test('tisk skryje chrome aplikace a nechá jen zprávu', async ({ page }) => {

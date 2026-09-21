@@ -21,6 +21,7 @@ function makeHandlers(overrides: Partial<GlobalShortcutHandlers> = {}): GlobalSh
 		toggleSeen: vi.fn(),
 		deleteMessage: vi.fn(),
 		printCurrentView: vi.fn(),
+		announceNothingToPrint: vi.fn(),
 		...overrides
 	};
 }
@@ -167,7 +168,8 @@ describe('handleGlobalKeydown', () => {
 	] as const)(
 		'$name defers to a closer handler that already claimed the key',
 		({ init, handler }) => {
-			const h = makeHandlers();
+			// A message is open, so Ctrl+P would otherwise print.
+			const h = makeHandlers({ getMessageShortcutContext: () => ({ seen: false }) });
 			const ev = makeEvent(init);
 			ev.preventDefault(); // e.g. a future compose editor binding Ctrl+K to "insert link"
 			handleGlobalKeydown(ev, h);
@@ -219,20 +221,24 @@ describe('handleGlobalKeydown — message actions', () => {
 		expect(prevent).toHaveBeenCalled();
 	});
 
-	it('Ctrl+P prints with no message open, which is where it used to do nothing', () => {
-		// Bound among the open-message shortcuts, the key reached only a message
-		// route: the folder list, contacts, settings and compose had no keyboard
-		// way to print while the context menu kept one for the mouse.
+	it('Ctrl+P with no message open prints nothing and says so', () => {
+		// Printing is an action on a message. Printing the screen instead put a
+		// folder list, a contact list or a settings page on paper, and a silent
+		// no-op would leave a screen-reader user wondering whether the key landed.
 		const h = makeHandlers();
-		handleGlobalKeydown(makeEvent({ key: 'p', ctrlKey: true }), h);
-		expect(h.printCurrentView).toHaveBeenCalledOnce();
+		const ev = makeEvent({ key: 'p', ctrlKey: true });
+		const prevent = vi.spyOn(ev, 'preventDefault');
+		handleGlobalKeydown(ev, h);
+		expect(h.printCurrentView).not.toHaveBeenCalled();
+		expect(h.announceNothingToPrint).toHaveBeenCalledOnce();
+		expect(prevent).toHaveBeenCalled();
 	});
 
 	it('Ctrl+P prints from a text field too, as a window-level command', () => {
 		// Same reasoning as Ctrl+N and the workspace digits: printing is not
-		// typing, so a cursor in the search box or a compose field must not
-		// swallow it.
-		const h = makeHandlers();
+		// typing, so a cursor left in the search box while a message is open
+		// must not swallow it.
+		const h = openMessageHandlers();
 		const field = document.createElement('input');
 		document.body.append(field);
 		const ev = makeEvent({ key: 'p', ctrlKey: true });

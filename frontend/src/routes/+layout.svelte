@@ -32,6 +32,7 @@
 	} from '$lib/stores/workspaceMode.js';
 	import { handleGlobalKeydown } from '$lib/shortcuts/globalShortcuts.js';
 	import { selectedMessage } from '$lib/stores/selectedMessage.js';
+	import { pushToast } from '$lib/stores/toasts.js';
 	import { forwardMessage, printCurrentView, replyToMessage } from '$lib/mail/actions.js';
 	import { deleteMessages, toggleMessageFlag, toggleMessageSeen } from '$lib/mail/mailbox.js';
 	import { loadSidebar } from '$lib/components/sidebar/loader.js';
@@ -370,7 +371,8 @@
 			toggleFlag: () => runOnOpenMessage((id) => toggleMessageFlag(id)),
 			toggleSeen: () => runOnOpenMessage((id) => toggleMessageSeen(id)),
 			deleteMessage: () => runOnOpenMessage((id) => deleteMessages([id])),
-			printCurrentView
+			printCurrentView,
+			announceNothingToPrint: () => pushToast($_('detail.nothingToPrint'), { tone: 'info' })
 		});
 	}
 </script>
