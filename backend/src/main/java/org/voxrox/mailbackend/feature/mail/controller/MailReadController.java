@@ -125,7 +125,7 @@ public class MailReadController {
         return PagedResponse.from(mailFacade.searchEmails(accountId, trimmedQuery, finalPage, finalSize));
     }
 
-    @Operation(summary = "Message detail", description = "Returns the full message detail including headers, recipients and attachment list (metadata, not content). For the message body see /content.")
+    @Operation(summary = "Message detail", description = "Returns the full message detail including headers, recipients and attachment list (metadata, not content), read from the local cache without contacting the mail server. For the message body see /content.")
     @GetMapping("/{stableId}")
     public MailDetailResponse getMessageDetail(
             @PathVariable @NotBlank(message = "{validation.notBlank}") @Size(max = 128, message = "{validation.size.max}") String stableId) {
@@ -155,7 +155,7 @@ public class MailReadController {
         return mailFacade.getThread(accountId, threadId, folderRef);
     }
 
-    @Operation(summary = "Message content (body)", description = "Returns only the message body (HTML / plain text) without headers and metadata. Use after /detail to load the body lazily.")
+    @Operation(summary = "Message content (body)", description = "Returns only the message body (HTML / plain text) without headers and metadata, fetching it from the mail server when it is not cached yet. Independent of the detail endpoint, so a client may request both at once.")
     @GetMapping("/{stableId}/content")
     public MailContentResponse getMessageContent(
             @PathVariable @NotBlank(message = "{validation.notBlank}") @Size(max = 128, message = "{validation.size.max}") String stableId) {

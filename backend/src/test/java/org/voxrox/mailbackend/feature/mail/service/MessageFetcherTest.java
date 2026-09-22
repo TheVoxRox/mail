@@ -55,8 +55,8 @@ import org.voxrox.mailbackend.feature.mail.dto.MailDetailResponse;
  * hasAttachments=true - Text-only -> hasAttachments=false - Threading:
  * Message-ID, In-Reply-To, References - Non-MimeMessage -> messageId=null -
  * Per-message MessagingException -> skip + continue with the rest -
- * folder.fetch() throws -> empty list - body, contentError, stableId are always
- * null (sync does not populate content).
+ * folder.fetch() throws -> empty list - stableId and threadId are always null
+ * (both are assigned at persistence time).
  */
 class MessageFetcherTest {
 
@@ -158,15 +158,14 @@ class MessageFetcherTest {
 
         @Test
         void syncOnlyFieldsAreNull() throws Exception {
-            // body / contentError / stableId are never populated by MessageFetcher —
-            // they belong to the persistence layer.
+            // stableId / threadId are never populated by MessageFetcher — they
+            // belong to the persistence layer.
             MimeMessage msg = register(parse(simpleEmail("Hi", "a@x", "b@y")), 1L);
 
             var dto = fetcher.fetchBatch(new Message[]{msg}, uidFolder, "INBOX").get(0);
 
             assertThat(dto.stableId()).isNull();
-            assertThat(dto.body()).isNull();
-            assertThat(dto.contentError()).isNull();
+            assertThat(dto.threadId()).isNull();
         }
 
         @Test
@@ -412,8 +411,8 @@ class MessageFetcherTest {
         }
 
         @Test
-        @DisplayName("BODYSTRUCTURE failure during MIME walk produces envelope-only stub with contentError")
-        void bodystructureFailureProducesEnvelopeOnlyStubWithContentError() throws Exception {
+        @DisplayName("BODYSTRUCTURE failure during MIME walk produces an envelope-only stub")
+        void bodystructureFailureProducesEnvelopeOnlyStub() throws Exception {
             // Simulates Seznam returning malformed BODYSTRUCTURE for a single UID:
             // envelope fields are readable (from ENVELOPE/INTERNALDATE/FLAGS), but
             // isMimeType triggers a lazy BODYSTRUCTURE fetch that fails.
@@ -440,7 +439,6 @@ class MessageFetcherTest {
             assertThat(dto.recipientsTo()).contains("b@y");
             assertThat(dto.attachments()).isEmpty();
             assertThat(dto.hasAttachments()).isFalse();
-            assertThat(dto.contentError()).contains("BODYSTRUCTURE");
         }
 
         @Test
@@ -476,8 +474,6 @@ class MessageFetcherTest {
             assertThat(dto.inReplyTo()).isNull();
             assertThat(dto.references()).isNull();
             assertThat(dto.messageId()).isNull();
-            // Header miss is not a content failure — contentError stays null.
-            assertThat(dto.contentError()).isNull();
         }
 
         @Test
@@ -504,9 +500,7 @@ class MessageFetcherTest {
             MailDetailResponse goodDto = batch.stream().filter(d -> d.uid() == 1L).findFirst().orElseThrow();
             MailDetailResponse badDto = batch.stream().filter(d -> d.uid() == 2L).findFirst().orElseThrow();
             assertThat(goodDto.subject()).isEqualTo("Good");
-            assertThat(goodDto.contentError()).isNull();
             assertThat(badDto.subject()).isEqualTo("Bad");
-            assertThat(badDto.contentError()).contains("BODYSTRUCTURE");
             assertThat(badDto.hasAttachments()).isFalse();
         }
 

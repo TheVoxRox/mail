@@ -11,7 +11,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.retry.support.RetryTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.voxrox.mailbackend.exception.AppException;
 import org.voxrox.mailbackend.exception.MailOperationException;
 import org.voxrox.mailbackend.exception.ResourceNotFoundException;
 import org.voxrox.mailbackend.exception.ValidationException;
@@ -403,15 +402,13 @@ public class MailFacade {
     }
 
     /**
-     * Returns the message detail. Metadata (subject, sender, attachments...) is
-     * always valid from the local DB. If the current content cannot be fetched from
-     * IMAP, returns the cached version from the DB (if it exists) along with the
-     * error description in {@code contentError} — the client then has a clear
-     * signal that the content may not be up-to-date.
-     * <p>
-     * Unexpected runtime errors (not {@link AppException}) are propagated to
-     * {@code GlobalExceptionHandler} — those mean a bug, not "content unavailable".
+     * Returns the message detail — headers, flags and attachment metadata — from
+     * the local DB only. The body is not part of it: {@link #getMessageContentOnly}
+     * serves it and fetches it from IMAP when it is not cached yet. Keeping the
+     * network out of the detail means it never waits on the mail server, and a
+     * client asking for both at once no longer fetches an uncached body twice.
      */
+    @Transactional(readOnly = true)
     public MailDetailResponse getEmailDetailByStableId(String stableId) {
         /*
          * findByStableIdWithAttachments loads attachments via JOIN FETCH in a single
@@ -419,14 +416,7 @@ public class MailFacade {
          */
         MessageEntity entity = messageRepository.findByStableIdWithAttachments(stableId)
                 .orElseThrow(() -> new ResourceNotFoundException("Message not found: " + stableId));
-        try {
-            String content = mailContentService.getOrFetchMessageContent(entity.getId());
-            return mapper.toDto(entity, content);
-        } catch (MailOperationException | ResourceNotFoundException e) {
-            log.warn("{} Failed to load current content of message {} ({}), returning cached + contentError.",
-                    LogCategory.SYNC, stableId, e.getCode(), e);
-            return mapper.toDto(entity, entity.getContent(), e.getMessage());
-        }
+        return mapper.toDto(entity);
     }
 
     /**

@@ -1,6 +1,6 @@
 /**
  * Store for the currently selected message – holds the detail (headers +
- * attachments) and the content (HTML/plain) with lazy fetch. A simple LRU
+ * attachments) and the content (HTML/plain), fetched together. A simple LRU
  * cache for detail/content enables fast switching between messages.
  */
 
@@ -82,14 +82,27 @@ export async function selectMessage(stableId: string): Promise<void> {
 		notFound: false
 	});
 
+	// Both requests start at once: the detail is read from the local database and
+	// the content is the body, fetched from the mail server when it is not cached,
+	// so the header does not wait for the body. The store still takes them in that
+	// order, so the body never shows under a header that is not there yet.
+	const detailRequest = detailCached ? Promise.resolve(detailCached) : getMessageDetail(stableId);
+	const contentRequest = contentCached
+		? Promise.resolve(contentCached)
+		: getMessageContent(stableId);
+	// A failed body is handled below, once the detail has settled; until then this
+	// keeps it from being reported as unhandled. When the detail fails as well,
+	// the detail's error is the one that counts.
+	void contentRequest.catch(() => undefined);
+
 	try {
-		const detail = detailCached ?? (await getMessageDetail(stableId));
+		const detail = await detailRequest;
 		if (!detailCached) touch(detailCache, stableId, detail);
 		if (token !== currentToken) return;
 
 		selectedMessage.update((s) => (s && s.stableId === stableId ? { ...s, detail } : s));
 
-		const content = contentCached ?? (await getMessageContent(stableId));
+		const content = await contentRequest;
 		if (!contentCached) touch(contentCache, stableId, content);
 		if (token !== currentToken) return;
 

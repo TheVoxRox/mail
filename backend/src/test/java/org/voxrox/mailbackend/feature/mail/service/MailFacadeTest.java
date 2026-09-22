@@ -576,17 +576,18 @@ class MailFacadeTest {
     class GetEmailDetail {
 
         @Test
-        @DisplayName("Returns the detail with freshly fetched content")
-        void shouldReturnDetailWithFreshContent() {
+        @DisplayName("Returns the mapped detail without fetching the body")
+        void shouldReturnDetailWithoutFetchingBody() {
             when(messageRepository.findByStableIdWithAttachments(STABLE_ID)).thenReturn(Optional.of(entity));
-            when(mailContentService.getOrFetchMessageContent(MESSAGE_ID)).thenReturn("<p>Fresh</p>");
-            MailDetailResponse expectedDetail = dummyDetailResponse(null);
-            when(mapper.toDto(entity, "<p>Fresh</p>")).thenReturn(expectedDetail);
+            MailDetailResponse expectedDetail = dummyDetailResponse();
+            when(mapper.toDto(entity)).thenReturn(expectedDetail);
 
             MailDetailResponse result = mailFacade.getEmailDetailByStableId(STABLE_ID);
 
             assertThat(result).isSameAs(expectedDetail);
-            verify(mapper).toDto(entity, "<p>Fresh</p>");
+            // The body is the content endpoint's: a client that asks for both at
+            // once must not send one uncached body to the mail server twice.
+            verifyNoInteractions(mailContentService);
         }
 
         @Test
@@ -596,35 +597,6 @@ class MailFacadeTest {
 
             assertThatThrownBy(() -> mailFacade.getEmailDetailByStableId(STABLE_ID))
                     .isInstanceOf(ResourceNotFoundException.class);
-        }
-
-        @Test
-        @DisplayName("On MailOperationException, returns cached content with contentError")
-        void shouldReturnCachedContentOnMailOperationException() {
-            when(messageRepository.findByStableIdWithAttachments(STABLE_ID)).thenReturn(Optional.of(entity));
-            when(mailContentService.getOrFetchMessageContent(MESSAGE_ID))
-                    .thenThrow(new MailOperationException(ErrorCode.MAIL_CONNECTION_ERROR, "IMAP down"));
-            MailDetailResponse cachedDetail = dummyDetailResponse("IMAP down");
-            when(mapper.toDto(entity, "Cached content", "IMAP down")).thenReturn(cachedDetail);
-
-            MailDetailResponse result = mailFacade.getEmailDetailByStableId(STABLE_ID);
-
-            assertThat(result).isSameAs(cachedDetail);
-            verify(mapper).toDto(entity, "Cached content", "IMAP down");
-        }
-
-        @Test
-        @DisplayName("On ResourceNotFoundException from the content service, returns cached content")
-        void shouldReturnCachedContentOnResourceNotFoundException() {
-            when(messageRepository.findByStableIdWithAttachments(STABLE_ID)).thenReturn(Optional.of(entity));
-            when(mailContentService.getOrFetchMessageContent(MESSAGE_ID))
-                    .thenThrow(new ResourceNotFoundException("Content not found"));
-            MailDetailResponse cachedDetail = dummyDetailResponse("Content not found");
-            when(mapper.toDto(entity, "Cached content", "Content not found")).thenReturn(cachedDetail);
-
-            MailDetailResponse result = mailFacade.getEmailDetailByStableId(STABLE_ID);
-
-            assertThat(result).isSameAs(cachedDetail);
         }
     }
 
@@ -1313,9 +1285,9 @@ class MailFacadeTest {
         return new MailRequest("to@example.com", "", "", subject, "body", null, null, null);
     }
 
-    private MailDetailResponse dummyDetailResponse(String contentError) {
+    private MailDetailResponse dummyDetailResponse() {
         return new MailDetailResponse(STABLE_ID, UID, FOLDER_INBOX, "Test subject", "Alice <alice@example.com>", null,
-                null, null, "body content", LocalDateTime.of(2026, 1, 15, 10, 0), false, false, false, null, null, null,
-                false, List.of(), contentError, null);
+                null, null, LocalDateTime.of(2026, 1, 15, 10, 0), false, false, false, null, null, null, false,
+                List.of(), null);
     }
 }

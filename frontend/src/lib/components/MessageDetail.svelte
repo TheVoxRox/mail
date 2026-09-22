@@ -190,15 +190,5 @@
 				remoteImagesAllowedForSender={state.content.remoteImagesAllowedForSender}
 			/>
 		{/if}
-
-		{#if detail?.contentError}
-			<div class="border-t border-border bg-background px-5 py-4">
-				<Surface variant="danger" padding="sm">
-					<StateMessage variant="error" padding="none" role="alert">
-						{detail.contentError}
-					</StateMessage>
-				</Surface>
-			</div>
-		{/if}
 	</div>
 {/if}
