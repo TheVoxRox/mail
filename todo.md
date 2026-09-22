@@ -67,6 +67,17 @@ Hotove reporty do 2026-06-07 jsou zamrazene v [todo-archive.md](todo-archive.md)
 
 ---
 
+## Nalezy auditu IMAP/SMTP 1.9 (2026-09-22)
+
+Nezavisly overovaci pruchod re-verifikace ([docs/IMAP_SMTP_AUDIT.md](docs/IMAP_SMTP_AUDIT.md) v1.9, #559) nasel ctyri otevrene nalezy. Kazdy se opravuje zvlast, s testem, ktery nejdriv uvidim spadnout; u kazdeho je rozhodnuti na maintainerovi. Po oprave aktualizovat stav nalezu v auditu i radek v [SECURITY_THREAT_MODEL.md](SECURITY_THREAT_MODEL.md).
+
+- [ ] **B1-4 (High) — IMAP s vypnutym SSL posila heslo nesifrovane.** [ImapConnectionManager.java](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/ImapConnectionManager.java) zvoli cisty `imap` bez STARTTLS. Rozhodnout: vynutit STARTTLS (jako SMTP), nebo cleartext uplne zakazat, pripadne povolit jen pro loopback s varovanim. Audit §4d.
+- [ ] **B1-3 (Medium) — rozsah `VANISHED` od serveru vycerpa haldu.** Angus v `IMAPFolder.open(int, ResyncData)` rozbali rozsah UID do jednoho pole driv, nez ho vidi nas kod. Rozhodnout mezi vlastnim QRESYNC SELECT s omezenim a navratem k CONDSTORE + enumeraci; zvazit `-XX:+ExitOnOutOfMemoryError`. Audit §4c.
+- [ ] **B1-5 (Medium) — odeslani nezmeneneho konceptu posila kopii ze serveru.** [ImapAppendService.java](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/ImapAppendService.java) ji nacte bez limitu a [SmtpMessageService.java](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/SmtpMessageService.java) ji posle jejim prijemcum. Rozhodnout: sestavit zpravu z lokalniho konceptu, nebo aspon porovnat prijemce a omezit velikost. Audit §4e.
+- [ ] **B1-6 (Low) — IMAP nema write timeout.** Doplnit `mail.<proto>.writetimeout` z nove vlastnosti. Audit §4f.
+
+---
+
 ## v0.1.0 smoke — bugy Faze B
 
 **Vse uzavreno** (2026-06-25/30). 8 bugu opraveno: FE update-dialog (#65), OAuth poll reconcile (#66), "duch" zpravy 404 A+B, SSE 30min ERROR (C), soubezny sync UNIQUE (F), HHH90003004 paginace (#70), duplicitni OAuth callback (#71/E), transient sync retry (#78/D), §6 sidecar zombie watchdog (#89/#90). Detail v [todo-archive.md](todo-archive.md); reziduum = pasivni log-watch v [backend/RELEASE_CHECKLIST.md](backend/RELEASE_CHECKLIST.md) §8.
