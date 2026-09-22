@@ -1,6 +1,8 @@
 package org.voxrox.mailbackend.feature.mail.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.atIndex;
 
 import org.eclipse.angus.mail.imap.protocol.IMAPResponse;
 import org.junit.jupiter.api.DisplayName;
@@ -125,6 +127,62 @@ class BoundedImapProtocolTest {
 
             assertThat(passed.readAtomStringList()).containsExactly("EARLIER");
             assertThat(passed.readAtom()).isEqualTo("3:5,9");
+        }
+    }
+
+    /**
+     * The other half of the class: the buffer Angus reads a response into. A
+     * literal's declared size is allocated inside Angus's reader, before the
+     * response exists for {@link BoundedImapProtocol#refusal} to look at (B1-7), so
+     * the bound sits on the one call that allocates — {@code ByteArray.grow}. That
+     * the bound is reached over the wire, and what a refusal then costs the sync,
+     * is {@code HostileImapResponseIT}'s question.
+     */
+    @Nested
+    @DisplayName("Response buffer")
+    class ResponseBuffer {
+
+        private static final int BOUND = BoundedImapProtocol.MAX_RESPONSE_BYTES;
+
+        private BoundedImapProtocol.BoundedByteArray buffer(int size) {
+            return new BoundedImapProtocol.BoundedByteArray(new byte[size], 0, size);
+        }
+
+        @Test
+        @DisplayName("Growth up to the bound passes, one byte more is refused")
+        void growthAtTheBound() {
+            buffer(128).grow(BOUND - 128);
+
+            assertThatThrownBy(() -> buffer(128).grow(BOUND - 128 + 1))
+                    .isInstanceOf(BoundedImapProtocol.OversizedResponseException.class)
+                    .hasMessageContaining(String.valueOf(BOUND));
+        }
+
+        @Test
+        @DisplayName("A grown buffer keeps its bytes and is bounded by its new size")
+        void growthIsCumulative() {
+            BoundedImapProtocol.BoundedByteArray grown = buffer(128);
+            grown.getBytes()[7] = 42;
+
+            grown.grow(BOUND - 128);
+
+            assertThat(grown.getBytes()).hasSize(BOUND).contains((byte) 42, atIndex(7));
+            assertThatThrownBy(() -> grown.grow(1)).isInstanceOf(BoundedImapProtocol.OversizedResponseException.class);
+        }
+
+        /**
+         * The increment Angus computes for a literal is {@code count + 16 - avail},
+         * which for a declared size near {@link Integer#MAX_VALUE} overflows to a
+         * negative number. Measured on Angus 2.0.5, an unbounded buffer turns that into
+         * a {@code NegativeArraySizeException} from the array it then asks for.
+         */
+        @Test
+        @DisplayName("An increment that would overflow the array length is refused, not attempted")
+        void overflowingIncrementIsRefused() {
+            assertThatThrownBy(() -> buffer(128).grow(Integer.MAX_VALUE))
+                    .isInstanceOf(BoundedImapProtocol.OversizedResponseException.class);
+            assertThatThrownBy(() -> buffer(128).grow(-1))
+                    .isInstanceOf(BoundedImapProtocol.OversizedResponseException.class);
         }
     }
 

@@ -2,14 +2,14 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.12                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **Version**        | 1.13                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | **Date**           | 2026-09-22                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | **Audited commit** | `6224cbb` (re-verified 2026-09-22, clearing six acknowledgements; 1.7–1.8 anchor `9435e56`, re-verified 2026-09-16; 1.6 anchor `02ff962`, recorded pre-squash as `f5b75ad`; 1.5 anchor `885b98a`, re-verified 2026-09-02 at the ledger cap; 1.3–1.4 anchor `cad05cb`, recorded pre-squash as `3ff0c78`; 1.0–1.2 baseline: `35a06f3`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service`, `backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java`, `backend/src/main/java/org/voxrox/mailbackend/util/SubjectNormalizer.java`, `backend/src/main/java/org/voxrox/mailbackend/core/config/mail`, `backend/src/main/java/org/voxrox/mailbackend/core/config/RetryConfig.java`, `backend/src/main/resources/application.properties`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/MessageRepository.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/MessageEntity.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/FolderSyncStateEntity.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/mapper/MessageMapper.java` |
 | **Auditor**        | Claude (Fable 5; 1.9 re-verified by Claude Opus 5) + owner review                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | **Subsystem**      | External mail server ↔ sidecar — Boundary 1 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| **Verdict**        | **Security: open findings** — three open: **B1-5** (Medium, sending an untouched draft trusts and buffers the server's copy, §4e), **B1-7** (Medium, a declared literal size is allocated before a byte arrives, found at 1.11, §4g), **B1-6** (Low, no IMAP write timeout, §4f). Fixed in code: **B1-3** (Medium, a server-stated size exhausted the heap before our code ran, 2026-09-22, §4c), **B1-4** (High, IMAP password login without TLS when SSL was off, 2026-09-22, §4d), **B1-1** (Medium, unbounded body fetch, 2026-07-10, §4) and **B1-2** (Medium, quadratic subject normalization, 2026-08-08, §4b). Informational notes in §5.                                                                                                                                                          |
+| **Verdict**        | **Security: open findings** — two open: **B1-5** (Medium, sending an untouched draft trusts and buffers the server's copy, §4e), **B1-6** (Low, no IMAP write timeout, §4f). Fixed in code: **B1-7** (Medium, a declared literal size was allocated before a byte arrived, found at 1.11, fixed 2026-09-22, §4g), **B1-3** (Medium, a server-stated size exhausted the heap before our code ran, 2026-09-22, §4c), **B1-4** (High, IMAP password login without TLS when SSL was off, 2026-09-22, §4d), **B1-1** (Medium, unbounded body fetch, 2026-07-10, §4) and **B1-2** (Medium, quadratic subject normalization, 2026-08-08, §4b). Informational notes in §5.                                                                                                                                         |
 
 Full per-subsystem audit of the path **"raw IMAP/SMTP wire → parsed → stored /
 sent"**. After the mail body (Boundary 4), this is the second-largest
@@ -608,8 +608,10 @@ version of the fix: it fails against that version, which read every local UID.
 **Residual.** A folder with more than 2,000,000 messages cannot be opened. A
 live VANISHED above 100,000 UIDs from an honest server — another client
 expunging that many while a sync has the folder selected — costs one retried
-cycle. The size a literal declares is a separate route, not covered here:
-B1-7 (§4g). `-XX:+ExitOnOutOfMemoryError` for the packaged JVM was held back
+cycle. The size a literal declares is a separate route, not covered here — it
+is allocated lower down, in the buffer this class hands Angus rather than in
+the response it checks: B1-7 (§4g), since fixed in the same class.
+`-XX:+ExitOnOutOfMemoryError` for the packaged JVM was held back
 until this fix (decided 2026-09-22), since until then a hostile server could
 have turned it into a crash loop; it shipped once this landed, so a heap that
 is exhausted anyway now ends the process — which the client restarts — instead
@@ -717,7 +719,7 @@ connection, a cost to weigh against the lane count.
 
 **Status: open**, tracked in `todo.md`.
 
-## 4g. Finding B1-7 (Medium) — a declared literal size is allocated before a byte arrives — **OPEN**
+## 4g. Finding B1-7 (Medium) — a declared literal size is allocated before a byte arrives — **FIXED**
 
 **What.** An IMAP literal announces its length (`{n}` at the end of a
 line), and Angus's `ResponseInputStream.readResponse` grows its buffer to
@@ -743,7 +745,57 @@ connection's socket, or `ByteArray.grow` in a buffer the protocol hands
 Angus. Which, and the bound (a literal legitimately carries a whole message
 when partial fetch is off), is a design decision at fix time.
 
-**Status: open**, tracked in `todo.md`.
+**Fix (shipped 2026-09-22).** The second of the two, because the first is not
+reachable: `Protocol` builds its own socket and keeps the stream in a private
+field, so no wrapper can be put under `ResponseInputStream` without reflection,
+while `getResponseBuffer()` is `protected` and `ByteArray.grow` is public and
+non-final. `BoundedImapProtocol` therefore hands Angus a `BoundedByteArray`,
+which refuses to grow past `MAX_RESPONSE_BYTES` = **32 MiB**. Reading the
+bytecode of Angus 2.0.5 pins why that is enough of a hook: `readResponse` takes
+every byte of a response through `ba.grow`, the buffer's doubling for a long
+line included, and `Response` reads only `getBytes()` and `getCount()` back off
+it — so wrapping the caller's buffer keeps its backing array in use and changes
+nothing else. The override must return non-null, because `readResponse` makes a
+plain `ByteArray` of its own for a null, which no bound would reach.
+
+32 MiB is set the way B1-3's bounds are: far above what this client asks for,
+far below what hurts it. `partialfetch` is pinned on (§1) and Angus's
+`fetchsize` default is 16 KiB, so a body literal is three orders of magnitude
+under the bound however heavy the message; the headroom is for a server that
+ignores the partial request, and above it `MimePartExtractor`'s 8 MiB cap (§4)
+would have served the placeholder anyway.
+
+The refusal reaches the connection the same way B1-3's does. `grow` cannot
+declare a checked exception, so it throws an unchecked one and
+`readResponse()` turns it into the `IOException` that Angus ends the command
+with. It catches every `RuntimeException` there, not only that one, and the
+reason is the two shapes a literal takes at the top of the `int` range, both
+measured on 2.0.5: a declared size in 2147483603..2147483631 overflows the
+array length inside `grow` (`NegativeArraySizeException`), and 2147483632 and
+up overflow Angus's own "does it fit" test, so it skips the grow and reads past
+the buffer (`IndexOutOfBoundsException`). Neither allocates anything, so the
+bound does not see them — but an unchecked exception crossing `readResponse`
+leaves the connection mid-response in the pool, where the next command would
+read the rest of this one as its own reply, since `ImapFolderExecutor` turns a
+`RuntimeException` into a `MailOperationException` and closes only the folder.
+A genuine parser fault is handled the same way on purpose: the connection's
+state is unknown either way, and the cause is kept for the log.
+
+**Dynamic verification.** `HostileImapResponseIT` gains both shapes over the
+wire — a literal one byte past the bound, and one declared at
+`Integer.MAX_VALUE`. Against the unfixed code the first ends the pass in
+`SocketTimeoutException: Read timed out` about ten seconds later, having
+allocated the 32 MiB first; it was run that way and seen to fail.
+`BoundedImapProtocolTest` pins the bound at its edge, that a grown buffer keeps
+its bytes, and that an increment which would overflow the array length is
+refused rather than attempted.
+
+**Residual.** A single IMAP response above 32 MiB cannot be read. Nothing the
+client asks for reaches that with partial fetch on; a server that ignores it
+and serves a part larger than 32 MiB in one literal ends the connection instead
+of the message being skipped.
+
+**Status: fixed.**
 
 ## 5. Informational notes (no change required)
 
@@ -812,6 +864,23 @@ when partial fetch is off), is a design decision at fix time.
 
 ## 7. Change log
 
+- **1.13** (2026-09-22) — **B1-7 fixed** (#563). Of the two places §4g named
+  for the bound, only one is reachable: `Protocol` builds its own socket and
+  keeps the stream private, so nothing can be put under `ResponseInputStream`
+  without reflection, while `getResponseBuffer()` is `protected` and
+  `ByteArray.grow` is public and non-final. The buffer `BoundedImapProtocol`
+  hands Angus is now a `BoundedByteArray` bounded at 32 MiB, which also covers
+  the doubling that reads a long line. Reading the 2.0.5 bytecode for the fix
+  turned up two shapes the bound cannot see, both measured: a declared size in
+  2147483603..2147483631 overflows the array length inside `grow`, and
+  2147483632 and up overflow Angus's own fit test so it skips the grow and reads
+  past the buffer. Neither allocates, but either would leave a connection
+  mid-response in the pool, so `readResponse()` closes the connection on any
+  `RuntimeException` from the read, not only on the refusal.
+  `HostileImapResponseIT` covers both over the wire and the first was seen
+  failing without the bound; `BoundedImapProtocolTest` pins the bound's edge.
+  §4g and the verdict follow. Drift under `Code paths` acknowledged, since only
+  §4g was re-read against this change. B1-5 and B1-6 stay open.
 - **1.12** (2026-09-22) — **the packaged JVM exits on the first
   OutOfMemoryError** (#562). Not a finding of its own: it is the mitigation
   §4c's residual said was waiting for the B1-3 fix, which removed the crash
