@@ -108,38 +108,6 @@
       }
     ]
   },
-  "docs/IMAP_SMTP_AUDIT.md": {
-    "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "29a9875d83dcd866502123e9f800d8a2403c5fb6",
-      "backend/src/main/java/org/voxrox/mailbackend/core/config/mail": "7ac85397ace1e22b51e91c525f6c3a60dc2b949a"
-    },
-    "acknowledgements": [
-      {
-        "date": "2026-09-16",
-        "note": "The sync open gains a CONDSTORE step, read against sections 1 and 2. No claim of this audit moves; verdict stays PASS. Four files moved, all on the sync path. ImapFolderExecutor: executeReadOnlyResynced, still the sync cycle's only entry, now opens QRESYNC when there is a baseline, else IMAPFolder.open(mode, ResyncData.CONDSTORE) where the server advertises CONDSTORE and ENABLE, else plain, each failure degrading to the next exactly as the QRESYNC failure did at 1.7; executeReadOnly and executeReadWrite share one opener that calls folder.open(mode) and nothing else, which ImapFolderExecutorTest now pins for the read-only one. On the wire that is ENABLE CONDSTORE plus EXAMINE with the CONDSTORE parameter, and the server's answer adds one number, HIGHESTMODSEQ, plus a MODSEQ item on later untagged FETCH responses of that connection; both are parsed by Angus, and the second was already reachable, since the QRESYNC open 1.7 describes enables CONDSTORE implicitly. ImapCapabilities additionally reads ENABLE from the same post-auth capability list. FlagSyncService and MailSyncService change only which HIGHESTMODSEQ they store and resume from: a non-positive one is neither stored nor sent, and a stored -1 is read as no baseline. A hostile server can therefore choose the number it is asked to resynchronize from next time, which is less than the section 2 QRESYNC bullet already grants it; the vanished-UID delete, its (account, folder) scope and its batching are byte-identical. A rejected ENABLE or SELECT makes Angus log that pooled connection out, the same Angus-internal path a rejected QRESYNC open already took; ImapConnectionManager is untouched, so the section 1 claims (checkserveridentity, the XOAUTH2 TLS requirement, the per-lane pool and locks) stand as written. MessageFetcher, MailContentService, MimePartExtractor and the fetch profile are untouched, so sections 2 to 4b are unaffected."
-      },
-      {
-        "date": "2026-09-17",
-        "note": "One log line in ThreadingService drops the thread root Message-ID; the diff against the previous reviewed tree is that line and its comment. No claim of this audit moves, verdict stays PASS: the audit makes no claim about what the sync path logs, and removing a logged value changes no protocol handling, fetch profile or bound."
-      },
-      {
-        "date": "2026-09-17",
-        "note": "A constant becomes a setting. UidEnumerationSchedule takes its interval from the new SyncProperties.uidEnumerationInterval (mail.client.sync.uid-enumeration-interval, default 1h, the value the constant held) through an @Autowired constructor; the test constructor with an injected clock is unchanged. Nothing about what the enumeration fetches or how the server is trusted moves, the default cadence is the same, and only the soak profile shortens it, so no claim of this audit moves and the verdict stays PASS."
-      },
-      {
-        "date": "2026-09-20",
-        "note": "A comment, and nothing else. Verified rather than assumed: every added and removed line under this path that is neither a javadoc line nor blank comes back empty, and the whole change is the javadoc of FlagSyncService.syncMessageFlagsCondstore. It still sent the reader to ctx.syncState().getLastKnownModseq() although the body had moved to getModseqBaseline() in the change this audit last acknowledged -- that is, to the accessor that hands back the -1 a server reporting no HIGHESTMODSEQ leaves in the column, which is what stranded a Dovecot folder. No executable line moved anywhere under feature/mail/service: TLS and authentication, the connection pool, the protocol commands, what is fetched and what is written to the log are byte-identical, and core/config/mail is untouched. Verdict stays PASS."
-      },
-      {
-        "date": "2026-09-22",
-        "note": "The message detail stops fetching the body, and v1.8 rewrites the two section 2 sentences that described that fetch. Four files moved under feature/mail/service. MailFacade.getEmailDetailByStableId no longer calls MailContentService and is a read-only transaction over the local DB; the body path, getMessageContentOnly into MailContentService.getOrFetchMessageContent, is unchanged, so the lazy fetch on open and the section 4 body cap stand. MessageFetcher: the catch around extractAttachmentMetadata keeps its three types and the envelope-only stub, and no longer copies the exception message onto the DTO, which MessageMapper.toEntity never read; the FetchProfile is untouched. DraftPersistenceService passes the record one argument fewer and the same values otherwise. MailContentService: one comment. No TLS or authentication setting, connection pool, lane, fetch profile, MIME walk, bound or header walk moved. Verdict stays PASS."
-      },
-      {
-        "date": "2026-09-22",
-        "note": "A refactor with no change of behaviour: the sync gets its own record for a fetched message. FetchedMessage is new, and MessageFetcher, MessageDownloader and DraftPersistenceService produce or pass it where they passed MailDetailResponse; the fields that reach MessageMapper.toEntity, and the columns they fill, are the same. The FetchProfile, the per-message and batch catches, the envelope-only stub on a failed MIME walk and the header reads are untouched; toFetchedMessage is the renamed mapToResponse, and DraftPersistenceService reads the append outcome once before unboxing its uid. No TLS or authentication setting, connection pool, lane, bound or header walk moved. Verdict stays PASS."
-      }
-    ]
-  },
   "docs/API_SURFACE_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/core/diagnostic": "2f830b8f86c784029fa29108e27385672cec65be",
