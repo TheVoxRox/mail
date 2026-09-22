@@ -16,7 +16,7 @@ name: Soak
 on:
   schedule:
     # Saturdays at 03:30 UTC, away from the weekday vulnerability scan.
-    - cron: "30 3 * * 6"
+    - cron: '30 3 * * 6'
   workflow_dispatch:
     inputs:
       duration:

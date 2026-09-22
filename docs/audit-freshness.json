@@ -139,5 +139,16 @@
         "note": "A comment, and nothing else: the two changed lines of MailContentService are the comment on the catch around body extraction. It said the wrapped exception lets MailFacade surface a contentError on the cached body; the message detail no longer calls this service and the field is gone, so it now says the caller gets a typed mail error instead of a 500. The sanitize call, the cid collection, the plain-text escape, the byte cap and the oversize flag are byte-identical, and the body still reaches the frame only through /content, which returns what this service produced. Verdict stays PASS."
       }
     ]
+  },
+  "docs/IMAP_SMTP_AUDIT.md": {
+    "reviewedTrees": {
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "bd2e673cf2b0df2c190a775ff177be19b05f9b04"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-09-22",
+        "note": "The fix for B1-4, recorded in the audit itself as v1.10 (sections 1 and 4d). Three files moved under feature/mail/service: ImapTransportSecurity is new and sets ssl.enable, the pinned checkserveridentity and, without implicit SSL, starttls.enable and starttls.required; ImapConnectionManager.createNewConnectedStore and MailConnectionProbe.testImap call it in place of the two properties each set by hand, and neither changes anything else. Re-read against sections 1 and 4d, which the change is about, and against the rest of section 1: the OAuth2 plaintext guard, the timeouts, partialfetch, the lanes, the retry policy and the degradation path are untouched, and so is everything after section 1. The finding moves from open to fixed; the other verdicts do not move."
+      }
+    ]
   }
 }
