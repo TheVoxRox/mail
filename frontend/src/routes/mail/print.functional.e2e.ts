@@ -363,6 +363,32 @@ test.describe('Tisk vybraných zpráv', () => {
 		expect((await prints(page))[1]?.printing).toBeNull();
 	});
 
+	/*
+	 * A menu renders in a portal on <body>, away from the toolbar that opened
+	 * it, so focus in the message's Move menu counted as focus outside the
+	 * message, and with rows ticked Ctrl+P printed those instead.
+	 */
+	test('Ctrl+P z menu v nástrojové liště otevřené zprávy tiskne tu zprávu, ne zaškrtnuté', async ({
+		page
+	}) => {
+		await setPrefs(page, { readingPane: 'right' });
+		await openApp(page, '/mail/1/INBOX/msg-01');
+		await expect(page.locator('[data-print="document"] iframe')).toBeVisible();
+		await recordPrints(page);
+		await page
+			.getByRole('checkbox', { name: 'Select message Testovací zpráva 2', exact: true })
+			.check();
+
+		await page
+			.getByRole('toolbar', { name: 'Message actions' })
+			.getByRole('button', { name: 'Move' })
+			.click();
+		await page.getByRole('menu', { name: 'Move' }).getByRole('menuitem').first().press('Control+p');
+
+		await expect.poll(async () => (await prints(page)).length).toBe(1);
+		expect((await prints(page))[0]?.printing).toBeNull();
+	});
+
 	test('zaškrtnutá konverzace se vytiskne celá, od nejstarší zprávy', async ({ page }) => {
 		await setPrefs(page, { messageGrouping: 'grouped' });
 		await openApp(page, '/mail/1/ARCHIVE');
