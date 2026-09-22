@@ -161,16 +161,12 @@ public class FlagSyncService {
      * Both halves are idempotent, so re-reporting costs nothing.
      */
     public void applyResyncEvents(FolderSyncContext ctx, List<MailEvent> events) {
-        List<Long> vanished = new ArrayList<>();
+        List<long[]> vanished = new ArrayList<>();
         List<FlagChange> changes = new ArrayList<>();
 
         for (MailEvent event : events) {
             switch (event) {
-                case MessageVanishedEvent vanishedEvent -> {
-                    for (long uid : vanishedEvent.getUIDs()) {
-                        vanished.add(uid);
-                    }
-                }
+                case MessageVanishedEvent vanishedEvent -> vanished.add(vanishedEvent.getUIDs());
                 case MessageChangedEvent changedEvent -> {
                     FlagChange change = toFlagChange(ctx, changedEvent);
                     if (change != null) {
@@ -240,13 +236,33 @@ public class FlagSyncService {
     }
 
     /**
-     * Deletes the vanished UIDs in batches. The server's VANISHED set is bounded by
-     * the UID <em>range</em> the client asked about, not by how many rows it holds
-     * inside that range — a mailbox whose older mail was purged server-side can
-     * name far more UIDs than the client ever had, and an unbounded {@code IN} list
-     * would eventually exceed what the database accepts in one statement.
+     * Deletes the local rows among the vanished UIDs, in batches.
+     * <p>
+     * Only UIDs the folder holds are collected, so what this keeps is bounded by
+     * the local mirror, not by what the server chose to name (IMAP/SMTP audit
+     * B1-3). The two differ even on an honest server: a VANISHED set covers the UID
+     * <em>range</em> the client asked about, not the rows it holds inside it, so a
+     * mailbox whose older mail was purged server-side names far more UIDs than the
+     * client ever had. A hostile one need not keep to the range at all — RFC 7162
+     * only says it "should" — and {@link BoundedImapProtocol} caps the set only at
+     * a size Angus can expand, up to a million UIDs this would otherwise box one by
+     * one. The batches are for the database: one bounded {@code IN} list per
+     * statement.
      */
-    private void deleteVanished(FolderSyncContext ctx, List<Long> vanishedUids) {
+    private void deleteVanished(FolderSyncContext ctx, List<long[]> reported) {
+        if (reported.isEmpty()) {
+            return;
+        }
+        Set<Long> held = new HashSet<>(
+                messageRepository.findUidsByAccountAndFolder(ctx.getAccountId(), ctx.folderName()));
+        List<Long> vanishedUids = new ArrayList<>();
+        for (long[] uids : reported) {
+            for (long uid : uids) {
+                if (held.remove(uid)) {
+                    vanishedUids.add(uid);
+                }
+            }
+        }
         if (vanishedUids.isEmpty()) {
             return;
         }

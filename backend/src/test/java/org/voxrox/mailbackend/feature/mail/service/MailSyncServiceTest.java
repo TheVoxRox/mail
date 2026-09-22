@@ -860,6 +860,32 @@ class MailSyncServiceTest {
         }
 
         /**
+         * The widest range a VANISHED (EARLIER) may be asked about: a server keeping to
+         * the known-UID range can then never exceed what BoundedImapProtocol accepts.
+         * One UID wider and the folder takes the CONDSTORE path instead.
+         */
+        @Test
+        @DisplayName("A window up to the VANISHED bound is resynchronized, one UID wider is not (audit B1-3)")
+        void windowWiderThanTheVanishedBoundIsNotResynchronized() {
+            long bound = BoundedImapProtocol.MAX_EARLIER_VANISHED_UIDS;
+            when(syncStateService.findState(ACCOUNT_ID, "INBOX")).thenReturn(Optional.of(stateWith(12L, 77L)));
+            when(messageRepository.findMinUid(ACCOUNT_ID, "INBOX")).thenReturn(1L);
+            when(messageRepository.findMaxUid(ACCOUNT_ID, "INBOX")).thenReturn(bound, bound + 1);
+
+            service.performFullSyncCycle(account, "INBOX", FolderRole.INBOX);
+            service.performFullSyncCycle(account, "INBOX", FolderRole.INBOX);
+
+            ArgumentCaptor<org.voxrox.mailbackend.feature.mail.service.ImapFolderExecutor.ResyncRequest> captor = ArgumentCaptor
+                    .forClass(org.voxrox.mailbackend.feature.mail.service.ImapFolderExecutor.ResyncRequest.class);
+            verify(imapFolderService, times(2)).executeInFolderResynced(eq(ACCOUNT_ID), eq(Lane.BACKGROUND),
+                    eq("INBOX"), captor.capture(), any());
+            assertThat(captor.getAllValues()).containsExactly(
+                    new org.voxrox.mailbackend.feature.mail.service.ImapFolderExecutor.ResyncRequest(12L, 77L, 1L,
+                            bound),
+                    null);
+        }
+
+        /**
          * The window is what the request is for, so a folder holding no rows cannot
          * describe one — and asking with a made-up range would tell the server the
          * client knows about messages it does not have.

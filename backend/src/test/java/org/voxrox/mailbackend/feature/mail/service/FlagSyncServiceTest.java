@@ -404,9 +404,15 @@ class FlagSyncServiceTest {
             return new org.eclipse.angus.mail.imap.MessageVanishedEvent(imapFolder, uids);
         }
 
+        private void holdLocally(Long... uids) {
+            when(messageRepository.findUidsByAccountAndFolder(ACCOUNT_ID, FOLDER)).thenReturn(List.of(uids));
+        }
+
         @Test
         @DisplayName("VANISHED UIDs are deleted")
         void vanishedUidsAreDeleted() {
+            holdLocally(10L, 11L, 12L);
+
             service.applyResyncEvents(imapCtx, List.of(vanished(11L, 12L)));
 
             @SuppressWarnings("unchecked")
@@ -417,14 +423,14 @@ class FlagSyncServiceTest {
         }
 
         /**
-         * The server's VANISHED set is bounded by the UID range the client asked about,
-         * not by the rows it holds inside it, so the delete has to be chunked — an
-         * unbounded {@code IN} list eventually exceeds what the database accepts in one
-         * statement. batch-size is 2 in this fixture.
+         * A folder can hold more rows than one {@code IN} list should carry, so the
+         * delete is chunked. batch-size is 2 in this fixture.
          */
         @Test
         @DisplayName("A vanished set larger than batch-size is deleted in batches")
         void vanishedUidsAreDeletedInBatches() {
+            holdLocally(11L, 12L, 13L);
+
             service.applyResyncEvents(imapCtx, List.of(vanished(11L, 12L, 13L)));
 
             @SuppressWarnings("unchecked")
@@ -432,6 +438,37 @@ class FlagSyncServiceTest {
             verify(messageRepository, times(2)).deleteAllByAccountIdAndFolderNameAndUidIn(eq(ACCOUNT_ID), eq(FOLDER),
                     captor.capture());
             assertThat(captor.getAllValues()).containsExactly(List.of(11L, 12L), List.of(13L));
+        }
+
+        /**
+         * What the delete keeps in memory is bounded by the rows the folder holds, not
+         * by what the server named (audit B1-3): a VANISHED set covers a UID range, and
+         * a hostile server need not keep even to that.
+         */
+        @Test
+        @DisplayName("Only UIDs the folder holds are collected, however many the server names")
+        void onlyHeldUidsAreCollected() {
+            holdLocally(5L, 400_000L);
+            long[] named = java.util.stream.LongStream.rangeClosed(1, 500_000).toArray();
+
+            service.applyResyncEvents(imapCtx, List.of(vanished(named)));
+
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<List<Long>> captor = ArgumentCaptor.forClass(List.class);
+            verify(messageRepository).deleteAllByAccountIdAndFolderNameAndUidIn(eq(ACCOUNT_ID), eq(FOLDER),
+                    captor.capture());
+            assertThat(captor.getValue()).containsExactly(5L, 400_000L);
+        }
+
+        @Test
+        @DisplayName("A vanished set naming nothing the folder holds deletes nothing")
+        void vanishedSetWithoutHeldUidsDeletesNothing() {
+            holdLocally(1L, 2L);
+
+            service.applyResyncEvents(imapCtx, List.of(vanished(7L, 8L)));
+
+            verify(messageRepository, never()).deleteAllByAccountIdAndFolderNameAndUidIn(anyLong(), anyString(), any());
+            verify(syncStateService).updateLastKnownModseq(SYNC_STATE_ID, 99L);
         }
 
         @Test
@@ -481,6 +518,8 @@ class FlagSyncServiceTest {
         @Test
         @DisplayName("HIGHESTMODSEQ is stored after the events are applied, never before")
         void highestModseqIsStoredLast() {
+            holdLocally(11L);
+
             service.applyResyncEvents(imapCtx, List.of(vanished(11L)));
 
             org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(messageRepository, syncStateService);

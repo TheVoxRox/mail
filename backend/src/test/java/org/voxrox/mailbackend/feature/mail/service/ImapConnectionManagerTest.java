@@ -17,6 +17,7 @@ import java.util.concurrent.TimeUnit;
 import jakarta.mail.AuthenticationFailedException;
 import jakarta.mail.Folder;
 import jakarta.mail.MessagingException;
+import jakarta.mail.Provider;
 import jakarta.mail.Session;
 import jakarta.mail.Store;
 
@@ -26,6 +27,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -787,6 +789,34 @@ class ImapConnectionManagerTest {
             assertThat(captured.getProperty("mail.imap.starttls.enable")).isEqualTo("true");
             assertThat(captured.getProperty("mail.imap.starttls.required")).isEqualTo("true");
             assertThat(captured.getProperty("mail.imap.ssl.checkserveridentity")).isEqualTo("true");
+        }
+
+        @Test
+        @DisplayName("The store is the bounded one, registered before it is asked for (audit B1-3)")
+        void storeIsTheBoundedOne() throws Exception {
+            Store dead = mock(Store.class);
+            when(dead.isConnected()).thenReturn(false);
+            pool().put(key(Lane.BACKGROUND), dead);
+            when(connectionDetailsService.getImapConnectionDetails(ACCOUNT_ID)).thenReturn(passwordDetails());
+            stubInteractiveRetryAfter(Duration.ofMinutes(5));
+            Session session = mock(Session.class);
+            lenient().when(session.getStore("imaps")).thenReturn(mock(Store.class));
+
+            Throwable thrown;
+            try (MockedStatic<Session> sessions = mockStatic(Session.class)) {
+                sessions.when(() -> Session.getInstance(any(Properties.class))).thenReturn(session);
+                // How the mocked connect ends is not the question.
+                thrown = catchThrowable(() -> manager.getConnectedStore(ACCOUNT_ID, Lane.BACKGROUND));
+            }
+
+            ArgumentCaptor<Provider> provider = ArgumentCaptor.forClass(Provider.class);
+            InOrder order = inOrder(session);
+            order.verify(session).setProvider(provider.capture());
+            order.verify(session).getStore("imaps");
+            assertThat(provider.getValue().getType()).isEqualTo(Provider.Type.STORE);
+            assertThat(provider.getValue().getProtocol()).isEqualTo("imaps");
+            assertThat(provider.getValue().getClassName()).as("the connect ended with %s", thrown)
+                    .isEqualTo(BoundedImapStore.class.getName());
         }
     }
 
