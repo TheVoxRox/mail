@@ -684,11 +684,9 @@ public class ImapConnectionManager {
         int port = (details.port() > 0) ? details.port() : mailProps.imap().defaultPort();
         props.put("mail." + protocol + ".port", String.valueOf(port));
 
-        props.put("mail." + protocol + ".ssl.enable", String.valueOf(details.useSsl()));
-        // Explicit server-identity (hostname) check on the TLS handshake; a no-op on
-        // the
-        // plaintext protocol but present so the implicit-SSL path cannot regress.
-        props.put("mail." + protocol + ".ssl.checkserveridentity", "true");
+        // Implicit SSL, or required STARTTLS with the same identity check — never
+        // cleartext (audit B1-4).
+        ImapTransportSecurity.configure(props, protocol, details.useSsl());
 
         /*
          * Pin partial fetch ON (the Angus default) rather than trusting it: the B1-1

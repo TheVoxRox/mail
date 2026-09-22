@@ -16,7 +16,7 @@ name: Soak
 on:
   schedule:
     # Saturdays at 03:30 UTC, away from the weekday vulnerability scan.
-    - cron: '30 3 * * 6'
+    - cron: "30 3 * * 6"
   workflow_dispatch:
     inputs:
       duration:
@@ -28,6 +28,7 @@ on:
       - .github/workflows/soak.yml
       - backend/src/test/java/org/voxrox/mailbackend/feature/mail/service/SyncSoakIT.java
       - backend/src/test/java/org/voxrox/mailbackend/feature/mail/service/TcpFaultProxy.java
+      - backend/src/test/java/org/voxrox/mailbackend/feature/mail/service/TestTls.java
       - frontend/scripts/scan-logs.mjs
       - frontend/scripts/lib/log-scan.mjs
 

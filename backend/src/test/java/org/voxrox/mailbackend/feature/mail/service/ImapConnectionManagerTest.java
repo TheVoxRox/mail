@@ -2,6 +2,7 @@ package org.voxrox.mailbackend.feature.mail.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.Mockito.*;
 
 import java.lang.reflect.Field;
@@ -9,12 +10,14 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import jakarta.mail.AuthenticationFailedException;
 import jakarta.mail.Folder;
 import jakarta.mail.MessagingException;
+import jakarta.mail.Session;
 import jakarta.mail.Store;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -22,7 +25,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.retry.support.RetryTemplate;
@@ -746,6 +751,42 @@ class ImapConnectionManagerTest {
             verifyNoInteractions(oauth2TokenServiceRegistry, oauth2TokenService);
             // The retry template is not called at all — the guard runs before it.
             verifyNoInteractions(imapRetryTemplate);
+        }
+    }
+
+    @Nested
+    @DisplayName("Transport security")
+    class TransportSecurity {
+
+        @Test
+        @DisplayName("PASSWORD account without implicit SSL gets required STARTTLS, never cleartext (audit B1-4)")
+        void passwordWithoutSslRequiresStartTls() throws Exception {
+            Store dead = mock(Store.class);
+            when(dead.isConnected()).thenReturn(false);
+            pool().put(key(Lane.BACKGROUND), dead);
+            when(connectionDetailsService.getImapConnectionDetails(ACCOUNT_ID))
+                    .thenReturn(new AccountConnectionDetails("user@example.com", "imap.example.com", 143,
+                            /* useSsl */ false, "user@example.com", "secret", AuthType.PASSWORD, null));
+            stubInteractiveRetryAfter(Duration.ofMinutes(5));
+            Session session = mock(Session.class);
+            lenient().when(session.getStore("imap")).thenReturn(mock(Store.class));
+            ArgumentCaptor<Properties> props = ArgumentCaptor.forClass(Properties.class);
+
+            Throwable thrown;
+            try (MockedStatic<Session> sessions = mockStatic(Session.class)) {
+                sessions.when(() -> Session.getInstance(props.capture())).thenReturn(session);
+                // Only the session's properties matter here; how the mocked connect
+                // ends is not the question.
+                thrown = catchThrowable(() -> manager.getConnectedStore(ACCOUNT_ID, Lane.BACKGROUND));
+            }
+
+            assertThat(props.getAllValues()).as("no session was built; the connect ended with %s", thrown).hasSize(1);
+            Properties captured = props.getValue();
+            assertThat(captured.getProperty("mail.store.protocol")).isEqualTo("imap");
+            assertThat(captured.getProperty("mail.imap.ssl.enable")).isEqualTo("false");
+            assertThat(captured.getProperty("mail.imap.starttls.enable")).isEqualTo("true");
+            assertThat(captured.getProperty("mail.imap.starttls.required")).isEqualTo("true");
+            assertThat(captured.getProperty("mail.imap.ssl.checkserveridentity")).isEqualTo("true");
         }
     }
 

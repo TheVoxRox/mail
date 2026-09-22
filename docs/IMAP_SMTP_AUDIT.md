@@ -2,14 +2,14 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.9                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| **Version**        | 1.10                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | **Date**           | 2026-09-22                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | **Audited commit** | `6224cbb` (re-verified 2026-09-22, clearing six acknowledgements; 1.7–1.8 anchor `9435e56`, re-verified 2026-09-16; 1.6 anchor `02ff962`, recorded pre-squash as `f5b75ad`; 1.5 anchor `885b98a`, re-verified 2026-09-02 at the ledger cap; 1.3–1.4 anchor `cad05cb`, recorded pre-squash as `3ff0c78`; 1.0–1.2 baseline: `35a06f3`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service`, `backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java`, `backend/src/main/java/org/voxrox/mailbackend/util/SubjectNormalizer.java`, `backend/src/main/java/org/voxrox/mailbackend/core/config/mail`, `backend/src/main/java/org/voxrox/mailbackend/core/config/RetryConfig.java`, `backend/src/main/resources/application.properties`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/MessageRepository.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/MessageEntity.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/FolderSyncStateEntity.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/mapper/MessageMapper.java` |
 | **Auditor**        | Claude (Fable 5; 1.9 re-verified by Claude Opus 5) + owner review                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | **Subsystem**      | External mail server ↔ sidecar — Boundary 1 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| **Verdict**        | **Security: open findings** — four found at 1.9 by the independent verification pass and not yet fixed: **B1-4** (High, IMAP password login without TLS when SSL is off, §4d), **B1-3** (Medium, a QRESYNC `VANISHED` range exhausts the heap, §4c), **B1-5** (Medium, sending an untouched draft trusts and buffers the server's copy, §4e), **B1-6** (Low, no IMAP write timeout, §4f). Fixed in code: **B1-1** (Medium, unbounded body fetch, 2026-07-10, §4) and **B1-2** (Medium, quadratic subject normalization, 2026-08-08, §4b). Informational notes in §5.                                                                                                                                                                                                                                       |
+| **Verdict**        | **Security: open findings** — three found at 1.9 by the independent verification pass and not yet fixed: **B1-3** (Medium, a QRESYNC `VANISHED` range exhausts the heap, §4c), **B1-5** (Medium, sending an untouched draft trusts and buffers the server's copy, §4e), **B1-6** (Low, no IMAP write timeout, §4f). Fixed in code: **B1-4** (High, IMAP password login without TLS when SSL was off, 2026-09-22, §4d), **B1-1** (Medium, unbounded body fetch, 2026-07-10, §4) and **B1-2** (Medium, quadratic subject normalization, 2026-08-08, §4b). Informational notes in §5.                                                                                                                                                                                                                         |
 
 Full per-subsystem audit of the path **"raw IMAP/SMTP wire → parsed → stored /
 sent"**. After the mail body (Boundary 4), this is the second-largest
@@ -27,13 +27,16 @@ verification pass found the pattern alone does not reach them).
 Method was static-only at 1.0; since 1.2 the fetch → parse → persist path also
 has a dynamic hostile-content harness (`MailContentGreenMailIT`, see §4) —
 transport/TLS and SMTP-send claims remain static-plus-unit-tests, see
-[AUDIT_GUIDE.md](AUDIT_GUIDE.md), and for the IMAP store not even that: its
-`checkserveridentity`, `partialfetch` and timeout pins have no unit test
-(the probe's and the SMTP factory's do), only the OAuth2 plaintext guard is
-tested. Three narrower claims have gained dynamic cover since 1.7, and cover
+[AUDIT_GUIDE.md](AUDIT_GUIDE.md). For the IMAP store that was thinner still until
+1.10: its `checkserveridentity`, `partialfetch` and timeout pins had no unit
+test (the probe's and the SMTP factory's did). Since the B1-4 fix its TLS
+settings are unit-tested on both paths, and every GreenMail IT connects over
+IMAPS with a certificate naming `127.0.0.1` (`TestTls`), so the accepting half
+of the identity pin now runs on every sync IT; the rejecting half — a
+certificate for another name — has no dynamic test. Three narrower claims have gained dynamic cover since 1.7, and cover
 only what they exercise: `SyncConnectionFaultGreenMailIT` shows a network that
 goes quiet failing the sync pass rather than hanging it (asserted within 60 s,
-with the read timeout set to 3 s, over plaintext IMAP), `OAuthTokenExpiryGreenMailIT`
+with the read timeout set to 3 s; over IMAPS since 1.10), `OAuthTokenExpiryGreenMailIT`
 a rejected access token refreshed once and a revoked refresh token turned into
 a sign-in request (§1, retry scoping), and `MailSyncQresyncDovecotIT` a
 deletion and a flag change learnt from the QRESYNC SELECT against Dovecot 2.4.5
@@ -56,10 +59,11 @@ corrections listed in the 1.9 change-log entry.
   ([MailConnectionProbe](../backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailConnectionProbe.java)) —
   not left to the Angus Mail default, so a spoofed-server (B1-S) TLS handshake
   is rejected on identity mismatch. The pin only means something when there is
-  a handshake: an IMAP account whose SSL setting is off gets the plain `imap`
-  protocol with no STARTTLS at all, and the code's own comment calls the pin a
-  no-op there — finding **B1-4** (§4d). 1.0–1.8 headed this bullet "always
-  on".
+  a handshake, and until 1.10 an IMAP account whose SSL setting was off got
+  the plain `imap` protocol with no STARTTLS at all — finding **B1-4** (§4d),
+  fixed: every IMAP connection is now TLS, implicit or required STARTTLS, set
+  for the pool and the probe alike in `ImapTransportSecurity`, so the pin
+  applies to every one. 1.0–1.8 headed this bullet "always on".
 - **OAuth2 token never travels in cleartext — fail-closed on BOTH protocols.**
   The XOAUTH2 SASL payload carries the bearer token, so a non-TLS socket would
   leak it. IMAP fails fast with a **CRITICAL** audit event
@@ -67,7 +71,9 @@ corrections listed in the 1.9 change-log entry.
   SSL (`ImapConnectionManager` §createNewConnectedStore); SMTP enforces the
   equivalent via `requireSslForOAuth2` (implicit SSL **or** mandatory STARTTLS)
   before every open. This closes B1-I (STARTTLS-strip) for the token.
-- **STARTTLS is required, not opportunistic.** `mail.smtp.starttls.required=true`
+- **STARTTLS is required, not opportunistic — on both protocols since 1.10.** For IMAP,
+  `ImapTransportSecurity` sets `mail.imap.starttls.enable` and
+  `.required` whenever implicit SSL is off (B1-4). For SMTP, `mail.smtp.starttls.required=true`
   is set on every session that is not implicit SSL — the two are alternatives,
   and `requireSslForOAuth2` accepts either — so a stripped/absent upgrade fails
   instead of silently sending cleartext. (1.0–1.4 wrote "always set", which
@@ -103,8 +109,8 @@ corrections listed in the 1.9 change-log entry.
   the millisecond-string timeouts and the pinned `partialfetch` are all on the
   one code path both lanes call. (1.6–1.8 said "up to two TLS sockets"; a
   Store is not one socket — Angus opens further protocol connections on it
-  lazily, for example when a second folder is opened on the same Store — and
-  they are TLS only when the account's SSL setting is on.) Verified in the tree rather than inferred —
+  lazily, for example when a second folder is opened on the same Store — and,
+  since the B1-4 fix, every one of them is TLS.) Verified in the tree rather than inferred —
   the split changed the keys of two maps and added a lane parameter; it moved
   no property, no credential and no protocol command. What the second socket
   does change is a resource question, not a trust one: an account now opens two
@@ -531,7 +537,7 @@ OOM into a restart the supervisor handles. Design decision at fix time.
 
 **Status: open**, tracked in `todo.md`.
 
-## 4d. Finding B1-4 (High) — IMAP password login without TLS when SSL is off — **OPEN**
+## 4d. Finding B1-4 (High) — IMAP password login without TLS when SSL is off — **FIXED**
 
 **What.** An account's IMAP settings carry a free `useSsl` flag
 (`MailServerSettings.useSsl`, the SSL checkbox in manual setup). With it off,
@@ -557,7 +563,32 @@ exist at all (a local bridge on `127.0.0.1`, for instance) is a product
 decision; if it stays, it belongs behind a loopback-only check and a visible
 warning.
 
-**Status: open**, tracked in `todo.md`.
+**Fix (shipped 2026-09-22).** An unchecked SSL box now means STARTTLS, and
+STARTTLS is required: `ImapTransportSecurity.configure` sets
+`mail.imap.starttls.enable` and `mail.imap.starttls.required` whenever implicit
+SSL is off, alongside the `ssl.enable` and `checkserveridentity` settings it now
+owns, and both the connection pool and the credential probe build their
+sessions through it, so the two cannot drift apart. A server that does not
+offer STARTTLS — or a network that strips it — fails the connect before any
+credential is sent. The OAuth2 guard of §1 stays as it was. The account
+form's note under the server settings, which said STARTTLS was not supported,
+now says what the box does.
+
+**Regression tests.** `ImapConnectionManagerTest.passwordWithoutSslRequiresStartTls`
+and `MailConnectionProbeTest.passwordWithoutSslRequiresStartTls` pin the
+properties on each path; `ImapStartTlsRequiredGreenMailIT` points the probe at
+a GreenMail IMAP server, which implements no STARTTLS, and requires the connect
+to fail. All three were run against the unfixed code and fail there — the IT
+because the probe logged in over cleartext without complaint. The GreenMail
+ITs, which all connected over plaintext IMAP, now use IMAPS with the shared
+test certificate, and `MailSyncQresyncDovecotIT` keeps its SSL setting off
+against a Dovecot that requires TLS, so it exercises the STARTTLS path against
+a real server (CI only, it needs Docker).
+
+**Residual.** An account that relied on cleartext IMAP stops connecting, which
+is the intent; no loopback exception was made (decided 2026-09-22).
+
+**Status: fixed.**
 
 ## 4e. Finding B1-5 (Medium) — sending an untouched draft trusts and buffers the server's copy — **OPEN**
 
@@ -671,6 +702,15 @@ connection, a cost to weigh against the lane count.
 
 ## 7. Change log
 
+- **1.10** (2026-09-22) — **B1-4 fixed** (#560): an IMAP account whose SSL
+  setting is off gets required STARTTLS instead of a cleartext login, through
+  one `ImapTransportSecurity` shared by the pool and the probe (§4d). §1 now
+  states STARTTLS-required for both protocols, and the method statement the
+  new dynamic cover: the GreenMail ITs run over IMAPS with a certificate for
+  `127.0.0.1`, and a new IT proves a server without STARTTLS is refused.
+  Drift under `Code paths` acknowledged in the ledger rather than re-anchored,
+  since only §1 and §4d were re-read against this change. B1-3, B1-5 and B1-6
+  stay open.
 - **1.9** (2026-09-22) — **re-verified against `6224cbb`, clearing all six
   acknowledgements; four new findings, all open, so the verdict changes from
   PASS to open findings.** The ledger was at 6 of 8 and the check asked for
