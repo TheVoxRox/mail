@@ -1,15 +1,15 @@
 # VoxRox Mail — IMAP/SMTP Protocol Layer Audit
 
-|                    |                                                                                                                                                                                                                                                                                              |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.8                                                                                                                                                                                                                                                                                          |
-| **Date**           | 2026-09-22                                                                                                                                                                                                                                                                                   |
-| **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                           |
-| **Audited commit** | `9435e56` (re-verified 2026-09-16, clearing seven acknowledgements; 1.6 anchor `02ff962`, recorded pre-squash as `f5b75ad`; 1.5 anchor `885b98a`, re-verified 2026-09-02 at the ledger cap; 1.3–1.4 anchor `cad05cb`, recorded pre-squash as `3ff0c78`; 1.0–1.2 baseline: `35a06f3`)         |
-| **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service`, `backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java`, `backend/src/main/java/org/voxrox/mailbackend/util/SubjectNormalizer.java`, `backend/src/main/java/org/voxrox/mailbackend/core/config/mail` |
-| **Auditor**        | Claude (Fable 5) + owner review                                                                                                                                                                                                                                                              |
-| **Subsystem**      | External mail server ↔ sidecar — Boundary 1 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                       |
-| **Verdict**        | **Security: PASS** — no exploitable finding. Two Medium DoS gaps found and **fixed in code**: **B1-1** (unbounded body fetch, 2026-07-10, §4) and **B1-2** (quadratic subject normalization, 2026-08-08, §4b); two Low informational notes (§5).                                             |
+|                    |                                                                                                                                                                                                                                                                                                                                                                           |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Version**        | 1.9                                                                                                                                                                                                                                                                                                                                                                       |
+| **Date**           | 2026-09-22                                                                                                                                                                                                                                                                                                                                                                |
+| **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                        |
+| **Audited commit** | `6224cbb` (re-verified 2026-09-22, clearing six acknowledgements; 1.7–1.8 anchor `9435e56`, re-verified 2026-09-16; 1.6 anchor `02ff962`, recorded pre-squash as `f5b75ad`; 1.5 anchor `885b98a`, re-verified 2026-09-02 at the ledger cap; 1.3–1.4 anchor `cad05cb`, recorded pre-squash as `3ff0c78`; 1.0–1.2 baseline: `35a06f3`)                                      |
+| **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service`, `backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java`, `backend/src/main/java/org/voxrox/mailbackend/util/SubjectNormalizer.java`, `backend/src/main/java/org/voxrox/mailbackend/core/config/mail`, `backend/src/main/java/org/voxrox/mailbackend/core/config/RetryConfig.java` |
+| **Auditor**        | Claude (Fable 5) + owner review                                                                                                                                                                                                                                                                                                                                           |
+| **Subsystem**      | External mail server ↔ sidecar — Boundary 1 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                    |
+| **Verdict**        | **Security: PASS** — no exploitable finding. Two Medium DoS gaps found and **fixed in code**: **B1-1** (unbounded body fetch, 2026-07-10, §4) and **B1-2** (quadratic subject normalization, 2026-08-08, §4b); two Low informational notes (§5).                                                                                                                          |
 
 Full per-subsystem audit of the path **"raw IMAP/SMTP wire → parsed → stored /
 sent"**. After the mail body (Boundary 4), this is the second-largest
@@ -23,7 +23,14 @@ header). Enumeration anchor — the mail service classes:
 Method was static-only at 1.0; since 1.2 the fetch → parse → persist path also
 has a dynamic hostile-content harness (`MailContentGreenMailIT`, see §4) —
 transport/TLS and SMTP-send claims remain static-plus-unit-tests, see
-[AUDIT_GUIDE.md](AUDIT_GUIDE.md).
+[AUDIT_GUIDE.md](AUDIT_GUIDE.md). Three narrower claims have gained dynamic
+cover since 1.7, and cover only what they exercise: `SyncConnectionFaultGreenMailIT`
+shows a network that goes quiet failing the sync pass within the IMAP read
+timeout (§1), `OAuthTokenExpiryGreenMailIT` a rejected access token refreshed
+once and a revoked refresh token turned into a sign-in request (§1, retry
+scoping), and `MailSyncQresyncDovecotIT` a deletion and a flag change learnt
+from the QRESYNC SELECT against Dovecot 2.4.5 (§2). The last runs in CI only;
+without Docker it is skipped.
 
 ## 1. Transport & authentication (confirmed)
 
@@ -61,7 +68,11 @@ transport/TLS and SMTP-send claims remain static-plus-unit-tests, see
   on the binding record, which for SMTP is a shorter 15 s. Nothing is
   unbounded either way — the record default is the floor if the key ever
   disappears — but a reader checking the claim against `SmtpProperties`
-  alone would find a different number than the app runs with.
+  alone would find a different number than the app runs with. The SMTP
+  **read** timeout (`mail.smtp.timeout`) is set too, and it is the one value
+  that does come from the record: `application.properties` has no
+  `mail.client.smtp.read-timeout` key, so it runs at the `@DefaultValue` of
+  10 s. Earlier versions named only the SMTP connect timeout (added at 1.9).
 - **Two connections per account, one connection setup.** Rewritten at 1.6:
   since the interactive-lane split, `ImapConnectionManager` keys its pool and
   its locks by `(accountId, Lane)`, so an account holds up to two TLS sockets —
@@ -109,10 +120,21 @@ transport/TLS and SMTP-send claims remain static-plus-unit-tests, see
   treating that as an error would have left the one case degradation exists for
   uncovered. Degraded behaviour is the pre-1.6 behaviour: one connection, one
   queue.
-- **Retry policy is scoped.** Connect is wrapped in a `RetryTemplate` that
-  retries only transient network errors; `AuthenticationFailedException`
-  short-circuits to the token-refresh path (no pointless backoff on a bad
-  token).
+- **Retry policy is scoped.** Connect is wrapped in a `RetryTemplate`
+  ([RetryConfig](../backend/src/main/java/org/voxrox/mailbackend/core/config/RetryConfig.java))
+  whose policy names what it retries: `SocketTimeoutException`,
+  `ConnectException`, `SSLException` and `IOException`, matched through the
+  cause chain, up to `mail.client.retry.max-attempts` (3) with jittered
+  exponential backoff. `AuthenticationFailedException` is listed as
+  **not** retryable, so it short-circuits to the token-refresh path (no
+  pointless backoff on a bad token). Stated this precisely at 1.9 because
+  1.0–1.8 wrote "retries only transient network errors", and `SSLException`
+  is wider than that: a certificate or hostname rejection is retried too.
+  That costs time, not safety — every attempt runs the same handshake with
+  the same `checkserveridentity`, so each one fails the same way and the
+  connect still fails closed. `RetryConfig` joined `Code paths` at 1.9 for
+  the same reason: this claim rests on it, and the freshness check could not
+  see it change.
 
 ## 2. Fetch → parse → persist pipeline (confirmed, except §4)
 
@@ -149,6 +171,20 @@ transport/TLS and SMTP-send claims remain static-plus-unit-tests, see
   has over a mailbox it serves, and no worse than deleting the messages itself.
   Nothing outside that (account, folder) can be reached, and no body, header or
   credential is read from the event: it carries UIDs and flags.
+- **A folder without a QRESYNC baseline opens with CONDSTORE, and the server
+  picks the modseq it is asked from next time** (carried up at 1.9 from the
+  ledger). `ImapFolderExecutor.executeReadOnlyResynced` opens QRESYNC when
+  there is a stored baseline, else `IMAPFolder.open(mode, ResyncData.CONDSTORE)`
+  where the server advertises both CONDSTORE and ENABLE, else plainly — each
+  failure degrading to the next. On the wire that is `ENABLE CONDSTORE` plus an
+  `EXAMINE` with the CONDSTORE parameter; the answer adds `HIGHESTMODSEQ` and
+  a `MODSEQ` item on later FETCH responses, both parsed by Angus.
+  `FlagSyncService` stores the server's `HIGHESTMODSEQ` as the next baseline
+  and neither stores nor sends a non-positive one. A hostile server therefore
+  chooses the number it will be asked to resynchronize from — less than the
+  bullet above already grants it, since it could simply report vanished UIDs.
+  The delete path, its (account, folder) scope and its batching are the same
+  for every open mode.
 - **Attachment metadata is safe.** Filenames are RFC 2047-decoded for display;
   content-type is reduced to the media type before the first `;`; a negative
   `getSize()` is clamped to 0.
@@ -156,17 +192,17 @@ transport/TLS and SMTP-send claims remain static-plus-unit-tests, see
 - **The parse those claims sit on is now exercised, not assumed.** Every claim
   above describes what happens _after_ jakarta.mail has turned
   attacker-controlled bytes into a part tree, and until 2026-08-31 no test
-  asked it to do that: all seventeen cases in `MimePartExtractorTest` hand the
+  asked it to do that: every case in `MimePartExtractorTest` hands the
   extractor a tree the test built, and even its "malformed multipart" case is a
   Mockito mock returning a String — the shape a bad parse leaves behind, not
-  the parse. `MimePartExtractorHostileMimeTest` now runs sixteen raw messages
-  (truncated parts, missing boundaries, a boundary token inside the content,
-  bogus charsets and encodings, `message/rfc822` nesting, nesting past
+  the parse. `MimePartExtractorHostileMimeTest` now runs a corpus of raw
+  messages (truncated parts, missing boundaries, a boundary token inside the
+  content, bogus charsets and encodings, `message/rfc822` nesting, nesting past
   `MAX_DEPTH`) through the four entry points. It asserts **invariants**, not
   recorded output: that the two attachment walks agree, and that the depth
   bound both binds and lets shallower trees through. Which of these inputs the
-  library throws on is deliberately not pinned — four of the sixteen do today,
-  and throwing is inside the contract, since the caller catches it: the sync
+  library throws on is deliberately not pinned — some do today — and throwing
+  is inside the contract, since the caller catches it: the sync
   keeps the envelope-only stub (proven by `MalformedBodyStructureSyncIT`) and
   the content endpoint answers with a typed mail error.
 - **Measured while writing that test:** `MAX_DEPTH` bounds _work_, not stack. A
@@ -241,8 +277,12 @@ belongs to this boundary.
 - **Header-bound fields still reject CR/LF.** `requireSingleLine` guards the
   subject, `In-Reply-To`, `References` and the attachment content type — the
   #145 hardening noted at 1.3, re-verified here unchanged.
-- **Drafts remain single-part `text/plain`,** so the IMAP APPEND payload shape
-  is still the one §2's persistence claims were written against.
+- **A draft's body stays a single `text/plain` part** (`BodyFormat.PLAIN` in
+  `MimeMessageBuilder`; attachments, when there are any, sit beside it in a
+  `multipart/mixed`), so the IMAP APPEND payload never carries the rendered
+  alternative and its shape is still the one §2's persistence claims were
+  written against. 1.5–1.8 wrote "drafts remain single-part", which a draft
+  with an attachment is not; the claim was always about the body.
 
 ## 4. Finding B1-1 (Medium) — unbounded message-body fetch — **FIXED**
 
@@ -384,9 +424,12 @@ one after 101.8 s — so the budget is empirically load-bearing, not decorative.
   in descending date order. Two things bound it, and both were measured against
   the code rather than assumed. Each body is capped at 8 MiB by the B1-1 fix,
   and — the larger effect — `content` is **null for a message nobody has
-  opened**: the sync path persists through `MessageMapper`, which never sets it
-  ("usually null during sync; the body is fetched separately"), and
-  `MessageContentPersister` fills it on first open. The worst case is therefore
+  opened**: the sync path persists through `MessageMapper.toEntity`, which
+  has no body to set — the `FetchedMessage` it maps carries none — and
+  `MessageContentPersister` is the only production code that writes `content`,
+  on first open (re-checked at 1.9 by grepping `backend/src/main` for callers
+  of `setContent(` and for JPQL or SQL writing the column; the comment 1.5
+  quoted from the mapper is gone). The worst case is therefore
   a long thread the user has already read that the server keeps extending, not
   an arbitrary sync. Recorded rather than fixed: a body-free projection for the
   renumber would remove the heap term from both call sites and is worth its own
@@ -412,6 +455,40 @@ one after 101.8 s — so the budget is empirically load-bearing, not decorative.
 
 ## 7. Change log
 
+- **1.9** (2026-09-22) — **re-verified against `6224cbb`, clearing all six
+  acknowledgements; verdict stays PASS, no new finding.** The ledger was at 6
+  of 8 and the check asked for this ahead of the cap. Since `9435e56` thirteen
+  files moved under `Code paths` over six PRs: the CONDSTORE open step (#509),
+  a log line dropping a Message-ID (#516), the UID-enumeration interval as a
+  setting (#519), a javadoc (#527), the message detail no longer fetching the
+  body (#555) and the sync's own `FetchedMessage` record (#557). Every claim
+  of §§1–5 was then re-read against the tree rather than against those diffs:
+  the three `checkserveridentity` pins, the IMAP and SMTP OAuth2 TLS guards,
+  STARTTLS-required in the non-SSL branch, the timeout values and their
+  source, the per-lane pool, lock timeout, cooldown and the reconnect through
+  `connectOrDegrade`, the fetch profile, the stub catch, all four `MAX_DEPTH`
+  walks, the inline-image subtypes and caps, the QRESYNC and enumeration
+  deletes and their (account, folder) scope, attachment metadata handling,
+  `formatAddress`, the allow-list normalization, the three subject-fallback
+  guards, `MAX_REFERENCES_WALK`, the UIDVALIDITY reset, the §3b renderer
+  settings and `requireSingleLine` sites, the B1-1 and B1-2 bounds and their
+  regression tests, and both §5 notes. Six corrections, none moving a verdict:
+  (1) §1's retry bullet said "retries only transient network errors", but the
+  policy also retries `SSLException`, so a certificate or hostname rejection
+  is retried up to three times before it fails — closed either way, only
+  slower; the bullet now names the policy, and `RetryConfig`, which the claim
+  rests on, joins `Code paths`. (2) §1 now names the SMTP read timeout, 10 s
+  from the record default, since no property sets it. (3) §3b said drafts are
+  single-part; a draft with an attachment is `multipart/mixed`, and the claim
+  was always about the body part. (4) §5 quoted a `MessageMapper` comment that
+  #555 rewrote and #557 removed; the note now rests on who writes `content`,
+  checked by grep. (5) §2 dropped the test and corpus counts nothing
+  recomputes. (6) The method statement names the dynamic cover added since
+  1.7. The CONDSTORE note from the first acknowledgement is carried up into §2,
+  since the ledger entry is deleted with this change. In the threat model the
+  Boundary 1 introduction still named `35a06f3` as the verification anchor,
+  four anchors later; it and the slow-server row are corrected with
+  this version.
 - **1.8** (2026-09-22) — a documentation revision over acknowledged drift, so
   the anchor stays `9435e56`; verdict stays PASS. The message detail stopped
   fetching the body (#555), and two sentences in §2 described that fetch. The
