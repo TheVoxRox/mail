@@ -278,9 +278,12 @@ test.describe('Mail toolbar', () => {
 	test('hromadné smazání nepřečtených aktualizuje počet v nadpisu složky', async ({ page }) => {
 		await openApp(page, `/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
 
-		// INBOX starts with 3 unread (msg-01/02/03) in the fixtures.
+		// INBOX starts with 3 unread (msg-01/02/03) in the fixtures. The name is
+		// the heading's own text, not an aria-label over hidden content: JAWS
+		// has nothing to put its reading cursor on in a heading like that.
 		const heading = page.getByRole('heading', { level: 1 });
-		await expect(heading).toHaveAccessibleName(/3 nepřečten/);
+		await expect(heading).toHaveAccessibleName('Doručené 3 nepřečtené');
+		await expect(heading).not.toHaveAttribute('aria-label');
 
 		// Deleting two unread messages must drop the heading badge immediately —
 		// the trash move is async, so a server re-fetch would leave it stale.
@@ -291,7 +294,7 @@ test.describe('Mail toolbar', () => {
 		await page.getByRole('button', { name: 'Smazat vybrané' }).click();
 
 		await expect(page.getByRole('status').filter({ hasText: 'Smazáno: 2.' })).toBeVisible();
-		await expect(heading).toHaveAccessibleName(/1 nepřečten/);
+		await expect(heading).toHaveAccessibleName('Doručené 1 nepřečtená');
 	});
 
 	/*

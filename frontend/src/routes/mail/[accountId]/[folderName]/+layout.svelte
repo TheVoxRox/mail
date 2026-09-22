@@ -130,11 +130,7 @@
 	const hasDetailRoute = $derived(Boolean(stableId));
 	const folderEntry = $derived($folders.find((folder) => folder.folderRef === folderName));
 	const unreadCount = $derived(folderEntry?.unreadCount ?? 0);
-	const folderHeadingLabel = $derived(
-		unreadCount > 0
-			? `${folderLabel} ${$_('nav.unreadBadge', { values: { count: unreadCount } })}`
-			: folderLabel
-	);
+	const unreadText = $derived($_('nav.unreadBadge', { values: { count: unreadCount } }));
 
 	/*
 	 * Off mode with an open message: the detail is the dominant page
@@ -232,20 +228,35 @@
 					<span class="truncate">{folderLabel}</span>
 				</a>
 			{:else}
-				<h1
-					class="flex min-w-0 items-baseline gap-2 px-2 text-title font-semibold text-foreground"
-					aria-label={folderHeadingLabel}
-				>
-					<span class="truncate" aria-hidden="true">{folderLabel}</span>
-					{#if unreadCount > 0}
-						<span
-							class="shrink-0 min-w-5 rounded-full bg-primary/10 px-1.5 py-0.5 text-center text-caption font-semibold text-primary"
-							aria-hidden="true"
-						>
-							{unreadCount}
-						</span>
-					{/if}
-				</h1>
+				<!--
+					Two things keep a reader's cursor on this heading when focus
+					lands on it, both heard with JAWS on 2026-09-22, which parked
+					its cursor on the start of <main> without either (NVDA did
+					not). The name is the heading's own text, not an aria-label
+					over hidden content: JAWS puts its cursor on the text of the
+					focused element, and a heading whose text is all aria-hidden
+					has none. And the heading is keyed by account and folder:
+					SvelteKit reuses this layout for every folder, and a heading
+					focused again after its text changed, as a folder switch from
+					the palette did, left JAWS on <main> too. The count is read
+					from the sr-only text; the badge only shows it.
+				-->
+				{#key `${accountId}:${folderName}`}
+					<h1
+						class="flex min-w-0 items-baseline gap-2 px-2 text-title font-semibold text-foreground"
+					>
+						<span class="truncate">{folderLabel}</span>
+						{#if unreadCount > 0}
+							<span class="sr-only">{unreadText}</span>
+							<span
+								class="shrink-0 min-w-5 rounded-full bg-primary/10 px-1.5 py-0.5 text-center text-caption font-semibold text-primary"
+								aria-hidden="true"
+							>
+								{unreadCount}
+							</span>
+						{/if}
+					</h1>
+				{/key}
 			{/if}
 		</div>
 	</div>

@@ -64,6 +64,8 @@
 	interface Props {
 		open: boolean;
 		onOpenChange: (open: boolean) => void;
+		/** Called once the dialog has finished opening or closing, content included. */
+		onOpenChangeComplete?: (open: boolean) => void;
 		size?: DialogSize;
 		placement?: DialogPlacement;
 		padding?: DialogPadding;
@@ -75,6 +77,7 @@
 	let {
 		open,
 		onOpenChange,
+		onOpenChangeComplete,
 		size = 'md',
 		placement = 'center',
 		padding = 'default',
@@ -84,7 +87,7 @@
 	}: Props = $props();
 </script>
 
-<Dialog.Root {open} {onOpenChange}>
+<Dialog.Root {open} {onOpenChange} {onOpenChangeComplete}>
 	<Dialog.Portal>
 		<!--
 			data-print="chrome" on both: a dialog is application, never mail. The
