@@ -30,7 +30,6 @@ import org.voxrox.mailbackend.core.config.MailClientProperties;
 import org.voxrox.mailbackend.core.config.mail.SyncProperties;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.contact.service.CorrespondentService;
-import org.voxrox.mailbackend.feature.mail.dto.MailDetailResponse;
 import org.voxrox.mailbackend.feature.mail.entity.FolderSyncStateEntity;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 import org.voxrox.mailbackend.feature.mail.mapper.MessageMapper;
@@ -134,7 +133,7 @@ class MessageDownloaderTest {
             Message message = mock(Message.class);
             when(folder.getMessages(151, 250)).thenReturn(new Message[]{message});
             when(uidFolder.getUID(message)).thenReturn(1000L);
-            MailDetailResponse dto = newDto(1000L);
+            FetchedMessage dto = fetchedMessage(1000L);
             when(messageFetcher.fetchBatch(any(), eq(uidFolder), eq(FOLDER))).thenReturn(List.of(dto));
             when(messageMapper.toEntity(dto, account, FOLDER, syncState.getUidValidity()))
                     .thenReturn(new MessageEntity());
@@ -184,7 +183,7 @@ class MessageDownloaderTest {
             when(uidFolder.getUIDNext()).thenReturn(1001L);
             when(uidFolder.getMessagesByUID(951L, 1000L)).thenReturn(new Message[]{message});
             when(uidFolder.getUID(message)).thenReturn(1000L);
-            MailDetailResponse dto = newDto(1000L);
+            FetchedMessage dto = fetchedMessage(1000L);
             when(messageFetcher.fetchBatch(any(), eq(uidFolder), eq(FOLDER))).thenReturn(List.of(dto));
             when(messageMapper.toEntity(dto, account, FOLDER, syncState.getUidValidity()))
                     .thenReturn(new MessageEntity());
@@ -233,7 +232,7 @@ class MessageDownloaderTest {
             Message message = mock(Message.class);
             when(folder.getMessages(1491, 1690)).thenReturn(new Message[]{message});
             when(uidFolder.getUID(message)).thenReturn(500L);
-            MailDetailResponse dto = newDto(500L);
+            FetchedMessage dto = fetchedMessage(500L);
             when(messageFetcher.fetchBatch(any(), eq(uidFolder), eq(FOLDER))).thenReturn(List.of(dto));
             when(messageMapper.toEntity(dto, account, FOLDER, syncState.getUidValidity()))
                     .thenReturn(new MessageEntity());
@@ -267,8 +266,8 @@ class MessageDownloaderTest {
             when(uidFolder.getUIDNext()).thenReturn(1002L);
             when(uidFolder.getMessagesByUID(951L, 1001L)).thenReturn(new Message[]{m1, m2});
             when(uidFolder.getUID(m2)).thenReturn(1001L);
-            MailDetailResponse dto1 = newDto(1000L);
-            MailDetailResponse dto2 = newDto(1001L);
+            FetchedMessage dto1 = fetchedMessage(1000L);
+            FetchedMessage dto2 = fetchedMessage(1001L);
             when(messageFetcher.fetchBatch(any(), eq(uidFolder), eq(FOLDER))).thenReturn(List.of(dto1, dto2));
             MessageEntity e1 = entityWithUid(1000L);
             MessageEntity e2 = entityWithUid(1001L);
@@ -424,7 +423,7 @@ class MessageDownloaderTest {
             List<Message> messages = uids.stream().map(uid -> mock(Message.class)).toList();
             when(folder.getMessages(1, uids.size())).thenReturn(messages.toArray(new Message[0]));
             when(uidFolder.getUID(messages.getLast())).thenReturn(uids.getLast());
-            List<MailDetailResponse> dtos = uids.stream().map(MessageDownloaderTest::newDto).toList();
+            List<FetchedMessage> dtos = uids.stream().map(MessageDownloaderTest::fetchedMessage).toList();
             when(messageFetcher.fetchBatch(any(), eq(uidFolder), eq(FOLDER))).thenReturn(dtos);
             for (int i = 0; i < uids.size(); i++) {
                 when(messageMapper.toEntity(dtos.get(i), account, FOLDER, syncState.getUidValidity()))
@@ -455,7 +454,7 @@ class MessageDownloaderTest {
             Message m = mock(Message.class);
             when(uidFolder.getMessagesByUID(new long[]{11L})).thenReturn(new Message[]{m});
             when(uidFolder.getUID(m)).thenReturn(11L);
-            MailDetailResponse dto = newDto(11L);
+            FetchedMessage dto = fetchedMessage(11L);
             when(messageFetcher.fetchBatch(any(), eq(uidFolder), eq(FOLDER))).thenReturn(List.of(dto));
             MessageEntity entity = entityWithUid(11L);
             when(messageMapper.toEntity(dto, account, FOLDER, syncState.getUidValidity())).thenReturn(entity);
@@ -509,15 +508,14 @@ class MessageDownloaderTest {
         when(folder.getMessageCount()).thenReturn(endSeq);
         when(folder.getMessages(startSeq, endSeq)).thenReturn(new Message[]{message});
         when(uidFolder.getUID(message)).thenReturn(messageUid);
-        MailDetailResponse dto = newDto(messageUid);
+        FetchedMessage dto = fetchedMessage(messageUid);
         when(messageFetcher.fetchBatch(any(), eq(uidFolder), eq(FOLDER))).thenReturn(List.of(dto));
         when(messageMapper.toEntity(dto, account, FOLDER, syncState.getUidValidity())).thenReturn(new MessageEntity());
         return message;
     }
 
-    private static MailDetailResponse newDto(long uid) {
-        return new MailDetailResponse("stable-" + uid, uid, FOLDER, "Subject", "from@example.com", "to@example.com",
-                null, null, LocalDateTime.of(2026, 1, 1, 10, 0), false, false, false, null, null, null, false,
-                List.of(), null);
+    private static FetchedMessage fetchedMessage(long uid) {
+        return new FetchedMessage(uid, "Subject", "from@example.com", "to@example.com", null, null,
+                LocalDateTime.of(2026, 1, 1, 10, 0), false, false, false, null, null, null, List.of());
     }
 }

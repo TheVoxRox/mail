@@ -1286,8 +1286,8 @@ class MailFacadeTest {
     }
 
     private MailDetailResponse dummyDetailResponse() {
-        return new MailDetailResponse(STABLE_ID, UID, FOLDER_INBOX, "Test subject", "Alice <alice@example.com>", null,
-                null, null, LocalDateTime.of(2026, 1, 15, 10, 0), false, false, false, null, null, null, false,
-                List.of(), null);
+        return new MailDetailResponse(STABLE_ID, FOLDER_INBOX, "Test subject", "Alice <alice@example.com>", null, null,
+                null, LocalDateTime.of(2026, 1, 15, 10, 0), false, false, false, null, null, null, false, List.of(),
+                null);
     }
 }

@@ -16,7 +16,6 @@ import org.voxrox.mailbackend.feature.account.service.AccountService;
 import org.voxrox.mailbackend.feature.mail.dto.AttachmentResponse;
 import org.voxrox.mailbackend.feature.mail.dto.DraftRequest;
 import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
-import org.voxrox.mailbackend.feature.mail.dto.MailDetailResponse;
 import org.voxrox.mailbackend.feature.mail.dto.MailRequest;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 import org.voxrox.mailbackend.feature.mail.mapper.MessageMapper;
@@ -321,7 +320,9 @@ public class DraftPersistenceService {
      */
     private void upsertLocalDraftRow(AccountEntity account, DraftIdentity identity, DraftRequest request,
             MimeMessage message, ImapAppendService.DraftAppendOutcome outcome) {
-        if (outcome.uid() == null || outcome.uidValidity() == null) {
+        Long uid = outcome.uid();
+        Long uidValidity = outcome.uidValidity();
+        if (uid == null || uidValidity == null) {
             log.debug("{} Draft {} appended without APPENDUID; the local row appears with the next sync.",
                     LogCategory.SMTP, identity.stableId());
             return;
@@ -339,11 +340,10 @@ public class DraftPersistenceService {
             String sender = (from != null && from.length > 0)
                     ? MessageFetcher.formatAddress(from[0])
                     : account.getEmail();
-            MailDetailResponse dto = new MailDetailResponse(null, outcome.uid(), identity.draftsFolder(),
-                    request.subject(), sender, request.to(), request.cc(), request.bcc(), LocalDateTime.now(), false,
-                    false, false, identity.messageId(), request.inReplyTo(), request.references(),
-                    !attachments.isEmpty(), attachments, null);
-            MessageEntity entity = messageMapper.toEntity(dto, account, identity.draftsFolder(), outcome.uidValidity());
+            FetchedMessage appended = new FetchedMessage(uid, request.subject(), sender, request.to(), request.cc(),
+                    request.bcc(), LocalDateTime.now(), false, false, false, identity.messageId(), request.inReplyTo(),
+                    request.references(), attachments);
+            MessageEntity entity = messageMapper.toEntity(appended, account, identity.draftsFolder(), uidValidity);
             if (!identity.stableId().equals(entity.getStableId())) {
                 // Never expected — both sides derive from the same Message-ID. Guards
                 // against a silent contract drift between the two derivations.
