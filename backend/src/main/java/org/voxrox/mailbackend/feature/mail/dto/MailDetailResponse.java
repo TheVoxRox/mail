@@ -5,19 +5,17 @@ import java.util.List;
 
 import org.jspecify.annotations.Nullable;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-
 import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
- * Everything about a message except its body, which {@link MailContentResponse}
- * carries. Most components are nullable: the record mirrors whatever the
- * (potentially malformed) MIME message carried, and {@code stableId}/
- * {@code threadId} are assigned only at persistence time.
+ * Everything about a stored message except its body, which
+ * {@link MailContentResponse} carries; built from the local database only.
+ * Header components are nullable because they mirror whatever the (potentially
+ * malformed) MIME message carried. What the sync holds before a message is
+ * stored is a different record, {@code FetchedMessage}.
  */
 public record MailDetailResponse(
         @Schema(description = "Stable message identifier for the REST API. The client sends it to the detail, content and action endpoints.") @Nullable String stableId,
-        @JsonIgnore @Schema(hidden = true) Long uid,
         @Schema(description = "Folder the message lives in (folderRef). Lets the client warn before DELETE on a message"
                 + " whose folder has the TRASH role — there the delete is permanent (server-side expunge), not a move"
                 + " to trash.") String folderName,

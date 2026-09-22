@@ -12,7 +12,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.voxrox.mailbackend.feature.mail.dto.AttachmentResponse;
-import org.voxrox.mailbackend.feature.mail.dto.MailDetailResponse;
 import org.voxrox.mailbackend.util.LogCategory;
 import org.voxrox.mailbackend.util.MimePartExtractor;
 
@@ -22,7 +21,7 @@ import module java.base;
 public class MessageFetcher {
     private static final Logger log = LoggerFactory.getLogger(MessageFetcher.class);
 
-    public List<MailDetailResponse> fetchBatch(Message[] messages, UIDFolder uidFolder, String folderName) {
+    public List<FetchedMessage> fetchBatch(Message[] messages, UIDFolder uidFolder, String folderName) {
         if (messages == null || messages.length == 0) {
             return new ArrayList<>();
         }
@@ -49,22 +48,22 @@ public class MessageFetcher {
 
             folder.fetch(messages, fetchProfile);
 
-            List<MailDetailResponse> responses = new ArrayList<>();
+            List<FetchedMessage> fetched = new ArrayList<>();
             for (Message message : messages) {
                 try {
-                    responses.add(mapToResponse(message, uidFolder, folderName));
+                    fetched.add(toFetchedMessage(message, uidFolder, folderName));
                 } catch (MessagingException | IOException e) {
                     log.error("{} Failed to map a message in {}: {}", LogCategory.IMAP, folderName, e.getMessage());
                 }
             }
-            return responses;
+            return fetched;
         } catch (MessagingException e) {
             log.error("{} Critical IMAP communication error in {}: {}", LogCategory.IMAP, folderName, e.getMessage());
             return new ArrayList<>();
         }
     }
 
-    private MailDetailResponse mapToResponse(Message message, UIDFolder uidFolder, String folderName)
+    private FetchedMessage toFetchedMessage(Message message, UIDFolder uidFolder, String folderName)
             throws MessagingException, IOException {
         long uid = uidFolder.getUID(message);
 
@@ -133,15 +132,8 @@ public class MessageFetcher {
             }
         }
 
-        // stableId is generated later in MessageMapper at persistence time.
-        // threadId is assigned by ThreadingService at persistence time (see
-        // MessageDownloader.saveMessagesBatchAtomic); the fetch layer never
-        // populates it.
-        String stableId = null;
-        String threadId = null;
-
-        return new MailDetailResponse(stableId, uid, folderName, safeSubject, sender, to, cc, bcc, receivedAt, seen,
-                flagged, answered, messageId, inReplyTo, references, !attachments.isEmpty(), attachments, threadId);
+        return new FetchedMessage(uid, safeSubject, sender, to, cc, bcc, receivedAt, seen, flagged, answered, messageId,
+                inReplyTo, references, attachments);
     }
 
     private @Nullable String joinAddresses(@Nullable Address[] addresses) {

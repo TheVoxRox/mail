@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.voxrox.mailbackend.core.config.MailClientProperties;
 import org.voxrox.mailbackend.feature.contact.service.CorrespondentService;
-import org.voxrox.mailbackend.feature.mail.dto.MailDetailResponse;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 import org.voxrox.mailbackend.feature.mail.mapper.MessageMapper;
 import org.voxrox.mailbackend.feature.mail.mapper.MessageStableId;
@@ -126,9 +125,9 @@ public class MessageDownloader {
             return 0;
         }
 
-        List<MailDetailResponse> dtos = messageFetcher.fetchBatch(messages, ctx.uidFolder(), ctx.folderName());
-        saveMessagesBatchAtomic(dtos, ctx, messages);
-        return dtos.size();
+        List<FetchedMessage> downloaded = messageFetcher.fetchBatch(messages, ctx.uidFolder(), ctx.folderName());
+        saveMessagesBatchAtomic(downloaded, ctx, messages);
+        return downloaded.size();
     }
 
     /**
@@ -176,9 +175,9 @@ public class MessageDownloader {
         if (messages == null || messages.length == 0) {
             return 0;
         }
-        List<MailDetailResponse> dtos = messageFetcher.fetchBatch(messages, ctx.uidFolder(), ctx.folderName());
-        saveMessagesBatchAtomic(dtos, ctx, messages);
-        return dtos.size();
+        List<FetchedMessage> downloaded = messageFetcher.fetchBatch(messages, ctx.uidFolder(), ctx.folderName());
+        saveMessagesBatchAtomic(downloaded, ctx, messages);
+        return downloaded.size();
     }
 
     /**
@@ -223,9 +222,9 @@ public class MessageDownloader {
             if (messages.length == 0) {
                 continue;
             }
-            List<MailDetailResponse> dtos = messageFetcher.fetchBatch(messages, ctx.uidFolder(), ctx.folderName());
-            saveMessagesBatchAtomic(dtos, ctx, messages);
-            total += dtos.size();
+            List<FetchedMessage> downloaded = messageFetcher.fetchBatch(messages, ctx.uidFolder(), ctx.folderName());
+            saveMessagesBatchAtomic(downloaded, ctx, messages);
+            total += downloaded.size();
         }
         if (total > 0) {
             log.info("{} Reconciled {} server-only message(s) missing from the local mirror in {}.", LogCategory.SYNC,
@@ -243,15 +242,16 @@ public class MessageDownloader {
             Message[] messages = ctx.uidFolder().getMessagesByUID(currentStart, currentEnd);
 
             if (messages != null && messages.length > 0) {
-                List<MailDetailResponse> dtos = messageFetcher.fetchBatch(messages, ctx.uidFolder(), ctx.folderName());
-                saveMessagesBatchAtomic(dtos, ctx, messages);
-                totalDownloaded += dtos.size();
+                List<FetchedMessage> downloaded = messageFetcher.fetchBatch(messages, ctx.uidFolder(),
+                        ctx.folderName());
+                saveMessagesBatchAtomic(downloaded, ctx, messages);
+                totalDownloaded += downloaded.size();
             }
         }
         return totalDownloaded;
     }
 
-    private void saveMessagesBatchAtomic(List<MailDetailResponse> dtos, FolderSyncContext ctx, Message[] messages) {
+    private void saveMessagesBatchAtomic(List<FetchedMessage> downloaded, FolderSyncContext ctx, Message[] messages) {
         /*
          * FlagSyncService.handleUidValidity runs before any download and resolves the
          * folder's UIDVALIDITY (persisting the server value on the first pass), so it
@@ -262,8 +262,9 @@ public class MessageDownloader {
         Long uidValidity = Objects.requireNonNull(ctx.syncState().getUidValidity(),
                 "UIDValidity must be resolved before messages are downloaded");
         transactionTemplate.executeWithoutResult(status -> {
-            List<MessageEntity> entities = dtos.stream()
-                    .map(dto -> messageMapper.toEntity(dto, ctx.account(), ctx.folderName(), uidValidity)).toList();
+            List<MessageEntity> entities = downloaded.stream()
+                    .map(message -> messageMapper.toEntity(message, ctx.account(), ctx.folderName(), uidValidity))
+                    .toList();
             List<MessageEntity> toInsert = disambiguateStableIds(dropAlreadyPersisted(entities, ctx), ctx);
             if (!toInsert.isEmpty()) {
                 List<MessageEntity> saved = messageRepository.saveAll(toInsert);

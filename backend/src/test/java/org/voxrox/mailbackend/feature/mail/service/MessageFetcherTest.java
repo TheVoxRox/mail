@@ -32,7 +32,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.voxrox.mailbackend.feature.mail.dto.MailDetailResponse;
 
 /**
  * Unit tests for {@link MessageFetcher}.
@@ -55,8 +54,7 @@ import org.voxrox.mailbackend.feature.mail.dto.MailDetailResponse;
  * hasAttachments=true - Text-only -> hasAttachments=false - Threading:
  * Message-ID, In-Reply-To, References - Non-MimeMessage -> messageId=null -
  * Per-message MessagingException -> skip + continue with the rest -
- * folder.fetch() throws -> empty list - stableId and threadId are always null
- * (both are assigned at persistence time).
+ * folder.fetch() throws -> empty list.
  */
 class MessageFetcherTest {
 
@@ -143,7 +141,7 @@ class MessageFetcherTest {
             var batch = fetcher.fetchBatch(new Message[]{msg}, uidFolder, "INBOX");
 
             assertThat(batch).hasSize(1);
-            MailDetailResponse dto = batch.get(0);
+            FetchedMessage dto = batch.get(0);
             assertThat(dto.uid()).isEqualTo(42L);
             assertThat(dto.subject()).isEqualTo("Hello world");
             assertThat(dto.sender()).contains("alice@example.com");
@@ -154,18 +152,6 @@ class MessageFetcherTest {
             assertThat(dto.references()).isEqualTo("<root@example.com> <prev@example.com>");
             assertThat(dto.hasAttachments()).isFalse();
             assertThat(dto.attachments()).isEmpty();
-        }
-
-        @Test
-        void syncOnlyFieldsAreNull() throws Exception {
-            // stableId / threadId are never populated by MessageFetcher — they
-            // belong to the persistence layer.
-            MimeMessage msg = register(parse(simpleEmail("Hi", "a@x", "b@y")), 1L);
-
-            var dto = fetcher.fetchBatch(new Message[]{msg}, uidFolder, "INBOX").get(0);
-
-            assertThat(dto.stableId()).isNull();
-            assertThat(dto.threadId()).isNull();
         }
 
         @Test
@@ -361,7 +347,7 @@ class MessageFetcherTest {
         void perMessageExceptionSkipsAndContinues() throws Exception {
             MimeMessage good = register(parse(simpleEmail("Good", "a@x", "b@y")), 1L);
 
-            // A mock that throws on getSubject — fails in mapToResponse, not in fetch.
+            // A mock that throws on getSubject — fails in toFetchedMessage, not in fetch.
             Message bad = mock(Message.class);
             when(bad.getSubject()).thenThrow(new MessagingException("subject read failed"));
             uidMap.put(bad, 2L);
@@ -432,7 +418,7 @@ class MessageFetcherTest {
             var batch = fetcher.fetchBatch(new Message[]{msg}, uidFolder, "INBOX");
 
             assertThat(batch).hasSize(1);
-            MailDetailResponse dto = batch.get(0);
+            FetchedMessage dto = batch.get(0);
             assertThat(dto.uid()).isEqualTo(99L);
             assertThat(dto.subject()).isEqualTo("Newsletter");
             assertThat(dto.sender()).contains("a@x");
@@ -467,7 +453,7 @@ class MessageFetcherTest {
             var batch = fetcher.fetchBatch(new Message[]{msg}, uidFolder, "INBOX");
 
             assertThat(batch).hasSize(1);
-            MailDetailResponse dto = batch.get(0);
+            FetchedMessage dto = batch.get(0);
             assertThat(dto.uid()).isEqualTo(55L);
             assertThat(dto.subject()).isEqualTo("Standalone");
             assertThat(dto.sender()).contains("a@x");
@@ -497,8 +483,8 @@ class MessageFetcherTest {
             var batch = fetcher.fetchBatch(new Message[]{good, bad}, uidFolder, "INBOX");
 
             assertThat(batch).hasSize(2);
-            MailDetailResponse goodDto = batch.stream().filter(d -> d.uid() == 1L).findFirst().orElseThrow();
-            MailDetailResponse badDto = batch.stream().filter(d -> d.uid() == 2L).findFirst().orElseThrow();
+            FetchedMessage goodDto = batch.stream().filter(d -> d.uid() == 1L).findFirst().orElseThrow();
+            FetchedMessage badDto = batch.stream().filter(d -> d.uid() == 2L).findFirst().orElseThrow();
             assertThat(goodDto.subject()).isEqualTo("Good");
             assertThat(badDto.subject()).isEqualTo("Bad");
             assertThat(badDto.hasAttachments()).isFalse();
@@ -528,7 +514,7 @@ class MessageFetcherTest {
             var batch = fetcher.fetchBatch(new Message[]{msg}, uidFolder, "INBOX");
 
             assertThat(batch).hasSize(1);
-            MailDetailResponse dto = batch.get(0);
+            FetchedMessage dto = batch.get(0);
             assertThat(dto.uid()).isEqualTo(7L);
             assertThat(dto.subject()).isEqualTo("Plain");
             assertThat(dto.sender()).isNull();

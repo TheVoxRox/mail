@@ -12,6 +12,7 @@ import org.voxrox.mailbackend.feature.mail.dto.MailDetailResponse;
 import org.voxrox.mailbackend.feature.mail.dto.MailSummaryResponse;
 import org.voxrox.mailbackend.feature.mail.entity.AttachmentEntity;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
+import org.voxrox.mailbackend.feature.mail.service.FetchedMessage;
 
 @Component
 public class MessageMapper {
@@ -22,65 +23,62 @@ public class MessageMapper {
         this.messageSource = messageSource;
     }
 
-    public MessageEntity toEntity(MailDetailResponse dto, AccountEntity account, String folderName, Long uidValidity) {
+    public MessageEntity toEntity(FetchedMessage fetched, AccountEntity account, String folderName, Long uidValidity) {
         MessageEntity entity = new MessageEntity();
 
         // Deterministic, identity-derived id (survives a folder re-download) instead
         // of a random UUID — see MessageStableId for why this matters for "ghost" 404s.
         entity.setStableId(
-                MessageStableId.compute(account.getId(), folderName, dto.messageId(), dto.uid(), uidValidity));
+                MessageStableId.compute(account.getId(), folderName, fetched.messageId(), fetched.uid(), uidValidity));
 
         // Message metadata
         entity.setAccount(account);
         entity.setFolderName(folderName);
-        entity.setUid(dto.uid());
+        entity.setUid(fetched.uid());
         entity.setUidValidity(uidValidity);
 
-        // Content
-        entity.setSubject(blankToNull(dto.subject()));
-        entity.setSender(blankToNull(dto.sender()));
-        entity.setRecipientsTo(dto.recipientsTo());
-        entity.setRecipientsCc(dto.recipientsCc());
-        entity.setRecipientsBcc(dto.recipientsBcc());
+        // Headers
+        entity.setSubject(blankToNull(fetched.subject()));
+        entity.setSender(blankToNull(fetched.sender()));
+        entity.setRecipientsTo(fetched.recipientsTo());
+        entity.setRecipientsCc(fetched.recipientsCc());
+        entity.setRecipientsBcc(fetched.recipientsBcc());
         // No body: sync fetches metadata only, and MailContentService fills the
         // body in on first open.
 
-        // Flags and timestamps. The column is NOT NULL; MessageFetcher already
-        // defaults a missing Date header to now(), this mirrors that for any
-        // other producer of the DTO.
-        entity.setReceivedAt(Objects.requireNonNullElse(dto.receivedAt(), java.time.LocalDateTime.now()));
-        entity.setSeen(dto.seen());
-        entity.setFlagged(dto.flagged());
-        entity.setAnswered(dto.answered());
+        // Flags and timestamps. The column is NOT NULL, and so is the record
+        // component: MessageFetcher defaults a missing Date header to now().
+        entity.setReceivedAt(fetched.receivedAt());
+        entity.setSeen(fetched.seen());
+        entity.setFlagged(fetched.flagged());
+        entity.setAnswered(fetched.answered());
 
         // Threading
-        entity.setMessageId(dto.messageId());
-        entity.setInReplyTo(dto.inReplyTo());
-        entity.setReferences(dto.references());
+        entity.setMessageId(fetched.messageId());
+        entity.setInReplyTo(fetched.inReplyTo());
+        entity.setReferences(fetched.references());
 
         // Attachments
-        if (dto.attachments() != null) {
-            dto.attachments().forEach(attDto -> {
-                AttachmentEntity att = new AttachmentEntity();
-                att.setPartPath(attDto.partPath());
-                att.setFileName(attDto.fileName());
-                att.setContentType(attDto.contentType());
-                att.setSize(attDto.size());
-                entity.addAttachment(att);
-            });
-        }
+        fetched.attachments().forEach(metadata -> {
+            AttachmentEntity att = new AttachmentEntity();
+            att.setPartPath(metadata.partPath());
+            att.setFileName(metadata.fileName());
+            att.setContentType(metadata.contentType());
+            att.setSize(metadata.size());
+            entity.addAttachment(att);
+        });
 
-        entity.setHasAttachments(dto.hasAttachments());
+        entity.setHasAttachments(fetched.hasAttachments());
 
         return entity;
     }
 
     public MailDetailResponse toDto(MessageEntity entity) {
-        return new MailDetailResponse(entity.getStableId(), entity.getUid(), entity.getFolderName(),
-                displaySubject(entity.getSubject()), displaySender(entity.getSender()), entity.getRecipientsTo(),
-                entity.getRecipientsCc(), entity.getRecipientsBcc(), entity.getReceivedAt(), entity.isSeen(),
-                entity.isFlagged(), entity.isAnswered(), entity.getMessageId(), entity.getInReplyTo(),
-                entity.getReferences(), entity.isHasAttachments(),
+        return new MailDetailResponse(entity.getStableId(), entity.getFolderName(), displaySubject(entity.getSubject()),
+                displaySender(entity.getSender()), entity.getRecipientsTo(), entity.getRecipientsCc(),
+                entity.getRecipientsBcc(), entity.getReceivedAt(), entity.isSeen(), entity.isFlagged(),
+                entity.isAnswered(), entity.getMessageId(), entity.getInReplyTo(), entity.getReferences(),
+                entity.isHasAttachments(),
                 entity.getAttachments().stream().map(AttachmentResponse::fromEntity).toList(), entity.getThreadId());
     }
 
