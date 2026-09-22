@@ -80,8 +80,7 @@ final class HostileImapServer implements AutoCloseable {
     }
 
     private void serve(Socket client) {
-        try (client) {
-            BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream(), US_ASCII));
+        try (client; BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream(), US_ASCII))) {
             OutputStream out = client.getOutputStream();
             send(out, List.of("* OK [CAPABILITY " + CAPABILITIES + "] test server ready"));
             String line;
