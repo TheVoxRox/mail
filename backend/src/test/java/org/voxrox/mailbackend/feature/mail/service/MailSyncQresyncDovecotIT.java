@@ -279,11 +279,14 @@ class MailSyncQresyncDovecotIT {
     /**
      * A second mail client: its own IMAP session, outside the backend's pooled
      * connection. Closing with {@code expunge=true} makes a DELETED flag take
-     * effect at once, as a real client would.
+     * effect at once, as a real client would. It upgrades with STARTTLS too: the
+     * container requires TLS and offers no login mechanism before it.
      */
     private static <T> T onInbox(InboxAction<T> action) throws Exception {
         Properties props = new Properties();
         props.put("mail.store.protocol", "imap");
+        props.put("mail.imap.starttls.enable", "true");
+        props.put("mail.imap.starttls.required", "true");
         Session session = Session.getInstance(props);
         Store store = session.getStore("imap");
         store.connect(DOVECOT.getHost(), DOVECOT.getMappedPort(IMAP_PORT), LOGIN, PASSWORD);
