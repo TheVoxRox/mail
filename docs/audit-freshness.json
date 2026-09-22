@@ -110,7 +110,7 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "17fee41b79b09a3d70d4efbf87e5a928e06279e8",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "28f88d2f3aa793e778241bec0dff3ff8e1b9b3dc",
       "backend/src/main/java/org/voxrox/mailbackend/core/config/mail": "7ac85397ace1e22b51e91c525f6c3a60dc2b949a"
     },
     "acknowledgements": [
@@ -133,6 +133,10 @@
       {
         "date": "2026-09-22",
         "note": "The message detail stops fetching the body, and v1.8 rewrites the two section 2 sentences that described that fetch. Four files moved under feature/mail/service. MailFacade.getEmailDetailByStableId no longer calls MailContentService and is a read-only transaction over the local DB; the body path, getMessageContentOnly into MailContentService.getOrFetchMessageContent, is unchanged, so the lazy fetch on open and the section 4 body cap stand. MessageFetcher: the catch around extractAttachmentMetadata keeps its three types and the envelope-only stub, and no longer copies the exception message onto the DTO, which MessageMapper.toEntity never read; the FetchProfile is untouched. DraftPersistenceService passes the record one argument fewer and the same values otherwise. MailContentService: one comment. No TLS or authentication setting, connection pool, lane, fetch profile, MIME walk, bound or header walk moved. Verdict stays PASS."
+      },
+      {
+        "date": "2026-09-22",
+        "note": "A refactor with no change of behaviour: the sync gets its own record for a fetched message. FetchedMessage is new, and MessageFetcher, MessageDownloader and DraftPersistenceService produce or pass it where they passed MailDetailResponse; the fields that reach MessageMapper.toEntity, and the columns they fill, are the same. The FetchProfile, the per-message and batch catches, the envelope-only stub on a failed MIME walk and the header reads are untouched; toFetchedMessage is the renamed mapToResponse. No TLS or authentication setting, connection pool, lane, bound or header walk moved. Verdict stays PASS."
       }
     ]
   },
@@ -140,7 +144,7 @@
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/core/diagnostic": "2f830b8f86c784029fa29108e27385672cec65be",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/controller": "9e1abcc70816cca08513be07583428c14aa03b27",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "4bae0363e3dd353d3bb294c7b6a6e52669b9891c"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "5933ad511c4a63850a3bb0ef8e59c98f849d0e4e"
     },
     "acknowledgements": [
       {
@@ -150,6 +154,10 @@
       {
         "date": "2026-09-22",
         "note": "The message detail stops fetching the body. Two paths moved. dto: MailDetailResponse loses body and contentError, and its javadoc now says it carries everything but the body; no field is added, and the record is a response, so no request-body size limit or validation constraint is involved. controller: the OpenAPI descriptions of GET /messages/{stableId} and GET /messages/{stableId}/content now say which of the two contacts the mail server; the mappings, the path variables with their @NotBlank and @Size, and the returned types are unchanged. No endpoint, method, path, authentication rule or error mapping moves, the controller enumeration is the same, and one response loses two fields, which narrows what it discloses. Verdict stays PASS."
+      },
+      {
+        "date": "2026-09-22",
+        "note": "MailDetailResponse loses the uid component that @JsonIgnore and @Schema(hidden) kept out of the response, because the sync no longer builds this record: it has its own, FetchedMessage, in feature/mail/service. Only the javadoc and that one component moved under dto. The OpenAPI snapshot is byte-identical (OpenApiSnapshotTest passes without an update run), so no endpoint, field, constraint or disclosed value changes, and the record is still a response, never a request body. Verdict stays PASS."
       }
     ]
   },
