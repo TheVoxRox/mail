@@ -25,6 +25,7 @@
 			"schemaMismatch": "Tato verze aplikace neumí otevřít vaše data, přestože jsou v pořádku. Nainstalujte nejnovější verzi z voxrox.org, starší instalátor použít nejde.",
 			"storageUnavailable": "Aplikace nemůže otevřít svou datovou složku. Zkontrolujte, že disk není plný a že neběží jiná kopie aplikace, a zkuste to znovu.",
 			"alreadyRunning": "Aplikace už běží na pozadí. Podívejte se na hlavní panel nebo do Správce úloh (proces „voxrox-mail-backend“), nebo zhruba 30 sekund počkejte a zkuste to znovu.",
+			"outOfMemory": "Službě aplikace došla paměť a sama se ukončila (kód 3). Spusťte aplikaci znovu. Pokud se to opakuje, bývá na vině jedna nadměrně velká zpráva ve schránce — kontaktujte podporu.",
 			"terminated": "Službu aplikace ukončil systém (kód {code}). Zkuste aplikaci spustit znovu.",
 			"signal": "Službu aplikace ukončil signál {signal}. Zkuste aplikaci spustit znovu.",
 			"failed": "Službu aplikace se nepodařilo spustit (kód {code}). Zkuste aplikaci spustit znovu, a pokud to nepomůže, kontaktujte podporu.",

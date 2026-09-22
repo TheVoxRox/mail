@@ -208,7 +208,17 @@ start** and a **small heap**. The current arguments from
                                     is an order of magnitude more than needed.
 -XX:+UseSerialGC                    1 GC thread = minimal startup overhead
                                     and a small footprint for a small heap.
+-XX:+ExitOnOutOfMemoryError         Exit(3) on the first OutOfMemoryError. The
+                                    default keeps the JVM alive with a thread
+                                    killed mid-operation; the client's sidecar
+                                    supervisor restarts an exited process.
 ```
+
+A packaging step verifies that all of the above reached the published
+`app/<launcher>.cfg` — an option jpackage fails to write is otherwise
+invisible, since the sidecar starts and serves mail without it. Exit 3 is the
+JVM's, not one of the backend's own sysexits.h codes, and the client names it
+as an out-of-memory stop (`frontend/src/lib/backend/sidecar.ts`).
 
 **Spring AOT** is enabled through the Maven profile `aot` (`mvn -Paot package`).
 The profile adds the `spring-boot-maven-plugin` goal `process-aot`, which

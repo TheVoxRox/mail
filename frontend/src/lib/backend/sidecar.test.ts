@@ -416,6 +416,23 @@ describe('handleUnexpectedExit — exit code → user-readable error message', (
 		});
 	});
 
+	it('code 3 (the JVM exit on OutOfMemoryError) restarts first, then reads as out of memory', async () => {
+		const { mod, handle } = await setupSpawned();
+
+		// The packaged launcher's -XX:+ExitOnOutOfMemoryError. Restarting is the
+		// whole point of exiting, so it must not be treated as permanent — and the
+		// error the user eventually reads must not say the backend failed to start.
+		handle.emitClose(3, null);
+		await Promise.resolve();
+		expect(get(mod.backendSidecarState)).toMatchObject({ status: 'restarting' });
+
+		await emitNTimes(() => handle.emitClose(3, null), 3);
+		expect(get(mod.backendSidecarState)).toMatchObject({
+			status: 'error',
+			error: { messageKey: 'app.backendExit.outOfMemory' }
+		});
+	});
+
 	it('the generic exit carries its code into the translated message', async () => {
 		const { mod, handle } = await setupSpawned();
 

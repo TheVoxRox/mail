@@ -2,7 +2,7 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.11                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **Version**        | 1.12                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | **Date**           | 2026-09-22                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | **Audited commit** | `6224cbb` (re-verified 2026-09-22, clearing six acknowledgements; 1.7–1.8 anchor `9435e56`, re-verified 2026-09-16; 1.6 anchor `02ff962`, recorded pre-squash as `f5b75ad`; 1.5 anchor `885b98a`, re-verified 2026-09-02 at the ledger cap; 1.3–1.4 anchor `cad05cb`, recorded pre-squash as `3ff0c78`; 1.0–1.2 baseline: `35a06f3`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
@@ -384,8 +384,9 @@ twice and can exhaust the heap (packaged `-Xmx384m`).
 strong preconditions: it requires (a) a hostile/compromised/MITM'd mail server —
 already a semi-trusted party with larger levers over your own mailbox, and (b)
 the user to open the specific oversized message (bodies are lazy-fetched, not
-pulled during sync). An OOM crashes the sidecar or, since the packaged JVM
-runs without `-XX:+ExitOnOutOfMemoryError`, may leave it running degraded;
+pulled during sync). An OOM crashes the sidecar or — as the packaged JVM ran
+until 2026-09-22, when `-XX:+ExitOnOutOfMemoryError` shipped (§4c residual) —
+may leave it running degraded;
 when the process does exit, the frontend's sidecar supervisor relaunches it
 (1.0–1.8 credited the parent-process watchdog, which only makes the backend
 exit when its parent dies), and the poisoned body is never persisted (the OOM happens before
@@ -609,8 +610,12 @@ live VANISHED above 100,000 UIDs from an honest server — another client
 expunging that many while a sync has the folder selected — costs one retried
 cycle. The size a literal declares is a separate route, not covered here:
 B1-7 (§4g). `-XX:+ExitOnOutOfMemoryError` for the packaged JVM was held back
-until this fix (decided 2026-09-22), since until now a hostile server could
-have turned it into a crash loop.
+until this fix (decided 2026-09-22), since until then a hostile server could
+have turned it into a crash loop; it shipped once this landed, so a heap that
+is exhausted anyway now ends the process — which the client restarts — instead
+of leaving a JVM whose sync thread was killed mid-lane. A packaging step
+verifies the flag reached the launcher's `.cfg`, and the client names exit 3
+as an out-of-memory stop rather than a failed start.
 
 **Status: fixed.**
 
@@ -807,6 +812,18 @@ when partial fetch is off), is a design decision at fix time.
 
 ## 7. Change log
 
+- **1.12** (2026-09-22) — **the packaged JVM exits on the first
+  OutOfMemoryError** (#562). Not a finding of its own: it is the mitigation
+  §4c's residual said was waiting for the B1-3 fix, which removed the crash
+  loop a hostile server could otherwise have driven. What it changes is what a
+  heap exhaustion costs — the process ends and the client's supervisor
+  restarts it, instead of a JVM that keeps serving with whichever thread hit
+  the error killed, which for a sync thread means the lane's lock is never
+  released and that account never syncs again. A packaging step now checks
+  that every JVM option reached the published launcher `.cfg`; an option
+  jpackage fails to write is otherwise invisible, since the sidecar starts and
+  serves mail without it. §4 and §4c follow. No finding changes state: B1-5,
+  B1-6 and B1-7 stay open.
 - **1.11** (2026-09-22) — **B1-3 fixed, its scope corrected; B1-7 found**
   (#561). Reading the Angus bytecode again for the fix showed the QRESYNC open
   is one of three routes by which a server-stated size is allocated before our

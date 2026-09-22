@@ -379,6 +379,18 @@ const EXIT_SCHEMA_MISMATCH = 70;
 const EXIT_STORAGE_UNAVAILABLE = 74;
 const EXIT_ALREADY_RUNNING = 78;
 
+/*
+ * Not a sysexits.h code and not one the backend chooses: HotSpot exits 3 from
+ * report_java_out_of_memory when the packaged launcher's
+ * -XX:+ExitOnOutOfMemoryError is set (backend/scripts/package-sidecar-windows.ps1,
+ * where a step verifies the flag reached the .cfg). Nothing on our side exits 3
+ * — the backend's own codes are the four above and 1 — so in this process the
+ * code means only that, and the generic "failed to start" wording would be
+ * doubly wrong: the backend had started, and starting it again is exactly the
+ * right advice.
+ */
+const EXIT_OUT_OF_MEMORY = 3;
+
 type MessageValues = Record<string, string | number>;
 
 /**
@@ -442,6 +454,11 @@ function describeSidecarExit(code: number | null, signal: number | null): Sideca
 			return new SidecarExitError(
 				'The application is already running in the background (exit 78).',
 				'app.backendExit.alreadyRunning'
+			);
+		case EXIT_OUT_OF_MEMORY:
+			return new SidecarExitError(
+				'The backend ran out of memory and stopped itself (exit 3).',
+				'app.backendExit.outOfMemory'
 			);
 		case 130:
 		case 143:
