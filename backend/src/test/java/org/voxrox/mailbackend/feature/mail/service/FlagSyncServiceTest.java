@@ -404,14 +404,15 @@ class FlagSyncServiceTest {
             return new org.eclipse.angus.mail.imap.MessageVanishedEvent(imapFolder, uids);
         }
 
-        private void holdLocally(Long... uids) {
-            when(messageRepository.findUidsByAccountAndFolder(ACCOUNT_ID, FOLDER)).thenReturn(List.of(uids));
+        private void holdRange(long min, long max) {
+            when(messageRepository.findMinUid(ACCOUNT_ID, FOLDER)).thenReturn(min);
+            when(messageRepository.findMaxUid(ACCOUNT_ID, FOLDER)).thenReturn(max);
         }
 
         @Test
         @DisplayName("VANISHED UIDs are deleted")
         void vanishedUidsAreDeleted() {
-            holdLocally(10L, 11L, 12L);
+            holdRange(10L, 12L);
 
             service.applyResyncEvents(imapCtx, List.of(vanished(11L, 12L)));
 
@@ -423,13 +424,13 @@ class FlagSyncServiceTest {
         }
 
         /**
-         * A folder can hold more rows than one {@code IN} list should carry, so the
+         * A server can name more UIDs than one {@code IN} list should carry, so the
          * delete is chunked. batch-size is 2 in this fixture.
          */
         @Test
         @DisplayName("A vanished set larger than batch-size is deleted in batches")
         void vanishedUidsAreDeletedInBatches() {
-            holdLocally(11L, 12L, 13L);
+            holdRange(11L, 13L);
 
             service.applyResyncEvents(imapCtx, List.of(vanished(11L, 12L, 13L)));
 
@@ -441,29 +442,58 @@ class FlagSyncServiceTest {
         }
 
         /**
-         * What the delete keeps in memory is bounded by the rows the folder holds, not
-         * by what the server named (audit B1-3): a VANISHED set covers a UID range, and
-         * a hostile server need not keep even to that.
+         * A VANISHED set covers a UID range, and a hostile server need not keep even to
+         * the one it was asked about (audit B1-3). What lies outside the local range
+         * cannot be a local row, so it never costs a statement. batch-size is 2 in this
+         * fixture.
          */
         @Test
-        @DisplayName("Only UIDs the folder holds are collected, however many the server names")
-        void onlyHeldUidsAreCollected() {
-            holdLocally(5L, 400_000L);
+        @DisplayName("UIDs outside the local range never reach the database, however many the server names")
+        void uidsOutsideLocalRangeAreDropped() {
+            holdRange(100L, 104L);
             long[] named = java.util.stream.LongStream.rangeClosed(1, 500_000).toArray();
 
             service.applyResyncEvents(imapCtx, List.of(vanished(named)));
 
             @SuppressWarnings("unchecked")
             ArgumentCaptor<List<Long>> captor = ArgumentCaptor.forClass(List.class);
-            verify(messageRepository).deleteAllByAccountIdAndFolderNameAndUidIn(eq(ACCOUNT_ID), eq(FOLDER),
+            verify(messageRepository, times(3)).deleteAllByAccountIdAndFolderNameAndUidIn(eq(ACCOUNT_ID), eq(FOLDER),
                     captor.capture());
-            assertThat(captor.getValue()).containsExactly(5L, 400_000L);
+            assertThat(captor.getAllValues()).containsExactly(List.of(100L, 101L), List.of(102L, 103L), List.of(104L));
+        }
+
+        /**
+         * The folder may hold far more rows than vanished. Reading all of them to
+         * filter one deletion made every cycle that reported any cost as much as a full
+         * UID listing, which is what QRESYNC exists to avoid.
+         */
+        @Test
+        @DisplayName("The folder's own UIDs are not read to find the ones that vanished")
+        void localUidsAreNotRead() {
+            holdRange(1L, 800_000L);
+
+            service.applyResyncEvents(imapCtx, List.of(vanished(123_456L)));
+
+            verify(messageRepository, never()).findUidsByAccountAndFolder(anyLong(), anyString());
+            verify(messageRepository).deleteAllByAccountIdAndFolderNameAndUidIn(ACCOUNT_ID, FOLDER, List.of(123_456L));
         }
 
         @Test
-        @DisplayName("A vanished set naming nothing the folder holds deletes nothing")
-        void vanishedSetWithoutHeldUidsDeletesNothing() {
-            holdLocally(1L, 2L);
+        @DisplayName("A vanished set wholly outside the local range deletes nothing")
+        void vanishedSetOutsideLocalRangeDeletesNothing() {
+            holdRange(1L, 2L);
+
+            service.applyResyncEvents(imapCtx, List.of(vanished(7L, 8L)));
+
+            verify(messageRepository, never()).deleteAllByAccountIdAndFolderNameAndUidIn(anyLong(), anyString(), any());
+            verify(syncStateService).updateLastKnownModseq(SYNC_STATE_ID, 99L);
+        }
+
+        @Test
+        @DisplayName("A vanished set for a folder without local rows deletes nothing")
+        void vanishedSetForEmptyFolderDeletesNothing() {
+            when(messageRepository.findMinUid(ACCOUNT_ID, FOLDER)).thenReturn(null);
+            when(messageRepository.findMaxUid(ACCOUNT_ID, FOLDER)).thenReturn(null);
 
             service.applyResyncEvents(imapCtx, List.of(vanished(7L, 8L)));
 
@@ -518,7 +548,7 @@ class FlagSyncServiceTest {
         @Test
         @DisplayName("HIGHESTMODSEQ is stored after the events are applied, never before")
         void highestModseqIsStoredLast() {
-            holdLocally(11L);
+            holdRange(11L, 11L);
 
             service.applyResyncEvents(imapCtx, List.of(vanished(11L)));
 

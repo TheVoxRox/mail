@@ -61,12 +61,27 @@ final class BoundedImapProtocol extends IMAPProtocol {
     private static final Logger log = LoggerFactory.getLogger(BoundedImapProtocol.class);
 
     /**
-     * Messages in one folder. The message cache holds a reference per message, so
-     * this is 40 MB of references with compressed pointers, a tenth of the packaged
-     * 384 MB heap, and an order of magnitude past any mailbox a desktop client
-     * opens.
+     * Messages in one folder. Priced per connection, since that is what a hostile
+     * server gets to size, with compressed pointers:
+     * <ul>
+     * <li>The SELECT's count sizes the message cache, 4 bytes a message: 8 MB
+     * here.</li>
+     * <li>A later EXISTS on the open folder costs up to three times that.
+     * {@code IMAPFolder.handleResponse} allocates a {@code Message[]} for the new
+     * messages whether or not anyone listens, the cache grows its array, and a
+     * cache that has seen an EXPUNGE grows its sequence-number array too: 24 MB
+     * when a folder opened empty is then told it holds the full count.</li>
+     * </ul>
+     * An account opens several such connections at once. Its two Stores open one
+     * per open folder: a move's source and destination on one, a body fetch on the
+     * other. Three at 24 MB is 72 MB, under a fifth of the packaged 384 MB heap.
+     * That is also less than the sync itself allocates for an honest folder this
+     * size on a CONDSTORE server. A folder wider than
+     * {@link #MAX_EARLIER_VANISHED_UIDS} is not resynchronized, so its deletions
+     * are found by listing every UID on the server into a set. The bound still
+     * leaves twice the size at which the sync stops using QRESYNC.
      */
-    static final int MAX_MESSAGES = 10_000_000;
+    static final int MAX_MESSAGES = 2_000_000;
 
     /**
      * UIDs in one {@code VANISHED (EARLIER)}: 8 MB of {@code long}. The sync asks

@@ -142,7 +142,7 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "6b1be0bd6b5389f7b7cdb80639d440244bd1bee5"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "a31feb199fc22173bd40bf74a12567bac24f8597"
     },
     "acknowledgements": [
       {
@@ -151,7 +151,7 @@
       },
       {
         "date": "2026-09-22",
-        "note": "The fix for B1-3, recorded in the audit itself as v1.11 (sections 2, 4c and 4g). Under feature/mail/service, BoundedImapStore and BoundedImapProtocol are new: the store makes every connection a BoundedImapProtocol, whose readResponse refuses EXISTS above 10M and VANISHED on a connection without QRESYNC, above 1M UIDs (EARLIER) or 100k (untagged), or unparseable. ImapConnectionManager.createNewConnectedStore and MailConnectionProbe.testImap register the store on the session before getStore and change nothing else; MailSyncService.buildResyncRequest returns null for a local UID range wider than the EARLIER bound; FlagSyncService.deleteVanished keeps only the vanished UIDs the folder holds. Re-read against section 2's two QRESYNC bullets and section 4c, which the change is about, and against section 1's connection setup, which it touches only by the added registration: TLS, timeouts, partialfetch, lanes and retries are untouched, and so is the fetch-parse-persist path after the open. B1-3 moves from open to fixed; B1-7, found while reading for the fix, is new and open; the other verdicts do not move."
+        "note": "The fix for B1-3, recorded in the audit itself as v1.11 (sections 2, 4c and 4g). Under feature/mail/service, BoundedImapStore and BoundedImapProtocol are new: the store makes every connection a BoundedImapProtocol, whose readResponse refuses EXISTS above 2M and VANISHED on a connection without QRESYNC, above 1M UIDs (EARLIER) or 100k (untagged), or unparseable. ImapConnectionManager.createNewConnectedStore and MailConnectionProbe.testImap register the store on the session before getStore and change nothing else; MailSyncService.buildResyncRequest returns null for a local UID range wider than the EARLIER bound; FlagSyncService.deleteVanished streams the named UIDs into batches clamped to the local UID range, reading only its two ends. Re-read against section 2's two QRESYNC bullets and section 4c, which the change is about, and against section 1's connection setup, which it touches only by the added registration: TLS, timeouts, partialfetch, lanes and retries are untouched, and so is the fetch-parse-persist path after the open. B1-3 moves from open to fixed; B1-7, found while reading for the fix, is new and open; the other verdicts do not move."
       }
     ]
   }

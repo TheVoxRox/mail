@@ -214,8 +214,8 @@ corrections listed in the 1.9 change-log entry.
   did not weigh until 1.9 is the cost of materializing those UIDs: Angus
   expands the server's range before our code sees the event, and a single
   short range exhausts the heap — finding **B1-3** (§4c), fixed at 1.11 by a
-  check on every response ahead of Angus, with the delete now keeping only
-  the UIDs the folder holds.
+  check on every response ahead of Angus, with the delete now streaming the
+  UIDs into batches, clamped to the folder's local UID range.
 - **A folder without a QRESYNC baseline opens with CONDSTORE, and the server
   picks the modseq it is asked from next time** (carried up at 1.9 from the
   ledger). `ImapFolderExecutor.executeReadOnlyResynced` opens QRESYNC when
@@ -545,7 +545,7 @@ the credential probe before their `getStore`; its connections are a
 `BoundedImapProtocol`, whose `readResponse` — the one point between the wire
 and Angus's parse — holds each response to a bound before returning it:
 
-- EXISTS at most 10,000,000 (40 MB of references at most);
+- EXISTS at most 2,000,000 (priced below);
 - no VANISHED at all on a connection that has not enabled QRESYNC: the
   EARLIER form answers a QRESYNC SELECT or a `UID FETCH (VANISHED)`, and the
   other replaces EXPUNGE once QRESYNC is enabled (RFC 7162 §3.2.10), so such
@@ -555,6 +555,22 @@ and Angus's parse — holds each response to a bound before returning it:
   a descending range, which Angus would size wrongly, and a line Angus's reader
   cannot parse are refused as well.
 
+A count under the EXISTS bound is allocated, not refused, so the bound is
+priced per connection, with compressed pointers:
+
+- 4 bytes a message for the cache the SELECT sizes.
+- Up to 12 for a later EXISTS on the open folder. `IMAPFolder.handleResponse`
+  allocates a `Message[]` for the new messages whether or not anyone listens,
+  and grows the cache array. Once an EXPUNGE has been seen, it grows the
+  sequence-number array as well.
+
+An account holds three such connections at once: a move's source and
+destination on the `BACKGROUND` Store, and a body fetch on the `INTERACTIVE`
+one. So one server can take at most 72 MB, under a fifth of the heap. That is
+also less than the sync's own UID listing takes for an honest CONDSTORE folder
+of that size. The first version of the fix allowed 10,000,000, priced as
+40 MB for the SELECT alone, which let one server take 240 MB.
+
 A refusal is an `IOException`, which Angus turns into a synthetic BYE: the
 command fails with a `ConnectionException`, the connection closes, and the
 sync records the failure as for any dropped connection. A `ProtocolException`
@@ -562,9 +578,14 @@ would not do — `Protocol.command` skips a response that fails that way. So
 that a server keeping to the known-UID range cannot be refused, the sync asks
 for QRESYNC only when the folder's local UID range is narrower than the
 VANISHED (EARLIER) bound (`MailSyncService.buildResyncRequest`); a wider
-folder takes the CONDSTORE path. `FlagSyncService.deleteVanished` now keeps
-only the vanished UIDs the folder holds, so what it holds is bounded by the
-local mirror, not by what the server named.
+folder takes the CONDSTORE path. `FlagSyncService.deleteVanished` no longer
+materializes the server's UIDs. It streams them into batches of the sync size
+and deletes each batch as it fills. UIDs outside the folder's local range are
+dropped first, using only its two ends from the index, because they cannot
+be local rows. So memory stays at one batch, whatever the server names. The
+first version of the fix intersected the set with every local UID instead,
+which bounded memory by the local mirror, but read the whole folder on every
+cycle that reported any deletion.
 
 **Regression tests.** `HostileImapResponseIT` syncs from an IMAP server
 written for the test (`HostileImapServer`, over TLS), which answers the open
@@ -577,11 +598,13 @@ with it; with the fix, each pass records a sync error and the next ordinary
 answer syncs again. `BoundedImapProtocolTest` pins each bound at its edge on
 responses parsed by Angus; `ImapConnectionManagerTest` and
 `MailConnectionProbeTest` that both paths register the bounded store before
-asking for one; `FlagSyncServiceTest` and `MailSyncServiceTest` the local-UID
-filter and the QRESYNC range limit. The new tests in those last four classes
-were run against the unfixed code and fail there.
+asking for one; `FlagSyncServiceTest` and `MailSyncServiceTest` the
+local-range clamp and the QRESYNC range limit. The new tests in those last
+four classes were run against the unfixed code and fail there. The exception
+is `FlagSyncServiceTest.localUidsAreNotRead`, which guards against the first
+version of the fix: it fails against that version, which read every local UID.
 
-**Residual.** A folder with more than 10,000,000 messages cannot be opened. A
+**Residual.** A folder with more than 2,000,000 messages cannot be opened. A
 live VANISHED above 100,000 UIDs from an honest server — another client
 expunging that many while a sync has the folder selected — costs one retried
 cycle. The size a literal declares is a separate route, not covered here:
@@ -791,7 +814,11 @@ when partial fetch is off), is a design decision at fix time.
   §4c is retitled and the option of dropping QRESYNC, which would have closed
   none of them, was not taken. The fix is a check on every IMAP response
   ahead of Angus (`BoundedImapStore`, `BoundedImapProtocol`), a QRESYNC range
-  no wider than the VANISHED bound, and a delete that keeps only held UIDs;
+  no wider than the VANISHED bound, and a delete that streams the named UIDs
+  in batches clamped to the local range. Review of the PR brought EXISTS down
+  from 10,000,000 to 2,000,000, priced over three connections rather than one
+  SELECT. It also replaced an intersection with every local UID, which read
+  the whole folder on each cycle that reported a deletion.
   `HostileImapResponseIT` shows the unfixed code ending the sync in an
   `OutOfMemoryError`. The same reading found B1-7 (Medium, §4g): a literal's
   declared size is allocated before its bytes arrive, measured at about
