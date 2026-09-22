@@ -31,6 +31,7 @@
 		workspaceHref
 	} from '$lib/stores/workspaceMode.js';
 	import { handleGlobalKeydown } from '$lib/shortcuts/globalShortcuts.js';
+	import { focusAnchor } from '$lib/shortcuts/focusAnchor.js';
 	import { selectedMessage } from '$lib/stores/selectedMessage.js';
 	import { pushToast } from '$lib/stores/toasts.js';
 	import {
@@ -429,9 +430,11 @@
 			printOpenMessage,
 			announceNothingToPrint: () => pushToast($_('detail.nothingToPrint'), { tone: 'info' }),
 			// The reading pane's root carries data-print="document"; focus in the
-			// body frame reports the iframe element, which sits inside it.
+			// body frame reports the iframe element, which sits inside it. A menu
+			// opened from the message toolbar lives in a portal, so it counts
+			// where its trigger is.
 			isFocusInOpenMessage: () =>
-				document.activeElement?.closest('[data-print="document"]') != null,
+				focusAnchor(document.activeElement)?.closest('[data-print="document"]') != null,
 			hasPrintableSelection: () => $printableSelection !== null,
 			printSelection: () => void $printableSelection?.print()
 		});
