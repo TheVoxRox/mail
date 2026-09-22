@@ -249,6 +249,37 @@ test.describe('Command palette', () => {
 		await expect(archiveLink).toBeFocused();
 	});
 
+	/*
+	 * The palette closes only after the command's navigation has finished, so
+	 * the landing that runs after a navigation still found focus in the
+	 * palette's input and left it alone; the dialog then returned focus to a
+	 * heading the new page had replaced, and focus ended on <body>. A reader
+	 * started at the top of the window instead of the new page's heading.
+	 */
+	for (const target of [
+		{ query: 'Přejít do složky Archiv', heading: 'Archiv' },
+		{ query: 'Přepnout na Kontakty', heading: 'Kontakty' }
+	]) {
+		test(`„${target.query}" z palety posadí fokus na nadpis nové stránky`, async ({ page }) => {
+			await openApp(page, `/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
+			const before = page.getByRole('heading', { level: 1, name: /^Doručené/ });
+			await expect(before).toBeFocused();
+			// Focus coming back to the same heading with new text left JAWS on
+			// <main>, so the heading has to be a new element, not a renamed one.
+			await before.evaluate((heading) => heading.setAttribute('data-e2e-previous', ''));
+
+			await openPalette(page);
+			const input = page.locator('#command-palette-input');
+			await input.fill(target.query);
+			await expect(page.getByRole('option', { name: new RegExp(target.query) })).toBeVisible();
+			await input.press('Enter');
+
+			await expect(page.getByRole('dialog', { name: 'Příkazy' })).toBeHidden();
+			await expect(page.getByRole('heading', { level: 1, name: target.heading })).toBeFocused();
+			await expect(page.locator('h1[data-e2e-previous]')).toHaveCount(0);
+		});
+	}
+
 	test('dvojité Ctrl+K nerozbije obnovu fokusu po Escape', async ({ page }) => {
 		await openApp(page, '/');
 		// The global keydown listener attaches on hydration; the E2E hook

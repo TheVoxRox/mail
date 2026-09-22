@@ -138,19 +138,52 @@
 		moveSelection(event.key === 'ArrowDown' ? 1 : -1);
 	}
 
+	/*
+	 * A command that does not restore focus navigates or moves focus itself
+	 * (delete, move), so it runs once the palette is gone. Run under the open
+	 * dialog, the dialog's focus trap pulled back every focus the command made
+	 * — the landing on the new page's heading among them — and then returned
+	 * focus to what was focused before the palette opened. When the command had
+	 * replaced that element, focus fell to <body> and a screen reader started
+	 * at the top of the window. Such a command reports a failure by toast
+	 * alone, because the palette is closed by then.
+	 */
+	let runAfterClose: Command | null = null;
+
+	function reportFailure(err: unknown): string {
+		const message = $_('palette.commandFailed', { values: { message: toErrorMessage(err) } });
+		pushToast(message, { tone: 'error' });
+		return message;
+	}
+
 	async function execute(command: Command): Promise<void> {
 		executionError = '';
+		if (!command.restoreFocus) {
+			runAfterClose = command;
+			closePalette({ restoreFocus: false });
+			return;
+		}
 		try {
 			await command.run();
-			closePalette({ restoreFocus: command.restoreFocus ?? false });
+			closePalette({ restoreFocus: true });
 		} catch (err) {
-			const detail = toErrorMessage(err);
-			const message = $_('palette.commandFailed', { values: { message: detail } });
-			executionError = message;
-			pushToast(message, { tone: 'error' });
+			executionError = reportFailure(err);
 			await tick();
 			inputElement?.focus();
 		}
+	}
+
+	function handleOpenChangeComplete(open: boolean): void {
+		if (open || !runAfterClose) return;
+		const command = runAfterClose;
+		runAfterClose = null;
+		void (async () => {
+			try {
+				await command.run();
+			} catch (err) {
+				reportFailure(err);
+			}
+		})();
 	}
 
 	function handleOpenChange(open: boolean): void {
@@ -161,6 +194,7 @@
 <DialogShell
 	open={$paletteOpen}
 	onOpenChange={handleOpenChange}
+	onOpenChangeComplete={handleOpenChangeComplete}
 	size="2xl"
 	placement="top"
 	padding="none"

@@ -61,11 +61,9 @@ Hotove reporty do 2026-06-07 jsou zamrazene v [todo-archive.md](todo-archive.md)
 
 **Vse uzavreno** (2026-09-21). Review 26 commitu `a2e6d43~1..e1e9c9d` (#500 az #526): 10 nalezu, 8 opraveno v #527. Zbyla dve rozhodnuti: window-level zkratky ctou `defaultPrevented` (#529) a tisk je akce nad zpravami, nejdriv otevrena zprava (#530), pak zaskrtnute zpravy spolu s re-verifikaci [CONTENT_RENDERING_AUDIT.md](docs/CONTENT_RENDERING_AUDIT.md) v2.0 (#532). Detail v [CHANGELOG.md](CHANGELOG.md).
 
-## Code review prace 21. 9. (2026-09-21)
+## Code review prace 21. 9. (2026-09-21) — uzavreno
 
-Review 19 commitu `70a6554..04545ae` (#529 az #550): 13 nalezu, 8 opraveno v #552, tisk nenactene zpravy v #553, hlaseni detekce poskytovatele v #554, dvoji stahovani tela v #555 (detail uz tela nestahuje), Ctrl+P z menu toolbaru zpravy v #556. Zbyva jeden okrajovy pripad, ne defekt:
-
-- [ ] **Nadpis slozky neni „novy s kazdou strankou".** [+layout.svelte:249](frontend/src/routes/+layout.svelte:249): #550 stavi na tom, ze `<h1>` je novy uzel, ale nadpis slozky zije v `mail/[accountId]/[folderName]/+layout.svelte`, ktery SvelteKit pri prepnuti slozky pouzije znovu. Pristani po prepnuti slozky tak muze dat fokus uzlu, ve kterem uz kurzor ctecky je. Overit doposlechem, nez se na tom neco meni.
+**Vse uzavreno** (2026-09-22). Review 19 commitu `70a6554..04545ae` (#529 az #550): 13 nalezu, 8 opraveno v #552, dalsi v #553 az #556, posledni (nadpis slozky znovu pouzity pri prepnuti slozky) v #558 po doposlechu s NVDA i JAWS. Doposlech nasel u JAWS jeste druhou pricinu (`aria-label` nad skrytym textem) a pri oprave vyplula chyba palety (prikaz bezel pod jejim focus trapem). Oddeleni zaznamu synchronizace od REST DTO v #557. Detail v [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
