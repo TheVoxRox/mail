@@ -76,8 +76,11 @@ import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
  *
  * <p>
  * Needs Docker and skips itself without it: CI runners have it, a developer
- * machine may not. The connection is plain IMAP on the container's non-TLS
- * port, so this covers the protocol exchange, not the TLS setup.
+ * machine may not. The account's SSL setting is off, so the backend upgrades
+ * the connection with STARTTLS, which it requires (audit B1-4); Dovecot
+ * presents the shared test certificate from {@link TestTls} and refuses
+ * cleartext itself, so this also covers the STARTTLS path against a real
+ * server.
  */
 @Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
@@ -92,7 +95,8 @@ class MailSyncQresyncDovecotIT {
     /*
      * dovecot/dovecot:2.4.5, the rootless image, pinned by digest rather than by
      * tag: a tag can be republished, and this test is evidence only for the server
-     * it actually ran against. The rootless image serves IMAP without TLS on 31143.
+     * it actually ran against. The rootless image serves IMAP on 31143; the
+     * configuration below adds STARTTLS to it.
      */
     private static final DockerImageName DOVECOT_IMAGE = DockerImageName
             .parse("dovecot/dovecot@sha256:c807be4fb5a97d9c3a90770569d3a6c4cbdcb36742ad41f90409cbd929166553");
@@ -119,11 +123,12 @@ class MailSyncQresyncDovecotIT {
     }
 
     /*
-     * The image's passdb accepts any user whose password matches USER_PASSWORD.
-     * Dovecot 2.4 refuses LOGIN on a connection that is neither TLS nor local
-     * (auth_allow_cleartext defaults to no), and the test reaches the container
-     * through a mapped port, which is neither; the extra file lifts that for this
-     * container only.
+     * The image's passdb accepts any user whose password matches USER_PASSWORD. The
+     * extra configuration turns TLS on with the shared test certificate and makes
+     * it required, so Dovecot offers STARTTLS on the IMAP port and refuses LOGIN
+     * before it — the same posture the backend holds on its side. (Until STARTTLS
+     * became required, this file instead lifted Dovecot's refusal of cleartext
+     * LOGIN, auth_allow_cleartext, for the plain connection.)
      *
      * The suppression is for Eclipse JDT, which reports a resource leak on the
      * constructor below. It does not model the Testcontainers extension, which
@@ -136,8 +141,14 @@ class MailSyncQresyncDovecotIT {
     @SuppressWarnings("resource")
     static final GenericContainer<?> DOVECOT = new GenericContainer<>(DOVECOT_IMAGE)
             .withEnv("USER_PASSWORD", "{PLAIN}" + PASSWORD)
-            .withCopyToContainer(Transferable.of("auth_allow_cleartext = yes\n"), "/etc/dovecot/conf.d/zz-it.conf")
-            .withExposedPorts(IMAP_PORT).waitingFor(Wait.forLogMessage(".*starting up for.*\\n", 1));
+            .withCopyToContainer(Transferable.of(TestTls.certificatePem(), 0644), "/etc/dovecot/it-tls/cert.pem")
+            .withCopyToContainer(Transferable.of(TestTls.privateKeyPem(), 0644), "/etc/dovecot/it-tls/key.pem")
+            .withCopyToContainer(Transferable.of("""
+                    ssl = required
+                    ssl_server_cert_file = /etc/dovecot/it-tls/cert.pem
+                    ssl_server_key_file = /etc/dovecot/it-tls/key.pem
+                    """), "/etc/dovecot/conf.d/zz-it.conf").withExposedPorts(IMAP_PORT)
+            .waitingFor(Wait.forLogMessage(".*starting up for.*\\n", 1));
 
     @AfterAll
     static void clearSystemProperties() {
@@ -268,11 +279,14 @@ class MailSyncQresyncDovecotIT {
     /**
      * A second mail client: its own IMAP session, outside the backend's pooled
      * connection. Closing with {@code expunge=true} makes a DELETED flag take
-     * effect at once, as a real client would.
+     * effect at once, as a real client would. It upgrades with STARTTLS too: the
+     * container requires TLS and offers no login mechanism before it.
      */
     private static <T> T onInbox(InboxAction<T> action) throws Exception {
         Properties props = new Properties();
         props.put("mail.store.protocol", "imap");
+        props.put("mail.imap.starttls.enable", "true");
+        props.put("mail.imap.starttls.required", "true");
         Session session = Session.getInstance(props);
         Store store = session.getStore("imap");
         store.connect(DOVECOT.getHost(), DOVECOT.getMappedPort(IMAP_PORT), LOGIN, PASSWORD);

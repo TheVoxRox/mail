@@ -350,7 +350,7 @@
 			"host": "Hostitel",
 			"port": "Port",
 			"useSsl": "Šifrování SSL/TLS",
-			"starttlsNote": "STARTTLS zatím není podporováno — pro většinu poskytovatelů zvolte SSL/TLS na portech 993 (IMAP) a 465 (SMTP).",
+			"starttlsNote": "Bez SSL/TLS se spojení zašifruje pomocí STARTTLS. Když ho server nenabízí, spojení se nenaváže a heslo se nikdy nepošle nešifrovaně. Pro většinu poskytovatelů zvolte SSL/TLS na portech 993 (IMAP) a 465 (SMTP).",
 			"errorImapHostRequired": "Vyplňte hostitele IMAP serveru.",
 			"errorSmtpHostRequired": "Vyplňte hostitele SMTP serveru.",
 			"errorPortRange": "Port musí být v rozsahu 1–65535.",

@@ -44,6 +44,7 @@ import org.voxrox.mailbackend.feature.account.service.AccountService;
 import org.voxrox.mailbackend.feature.auth.service.TokenCache;
 import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
 import org.voxrox.mailbackend.feature.mail.service.MailSyncService;
+import org.voxrox.mailbackend.feature.mail.service.TestTls;
 
 import com.icegreen.greenmail.junit5.GreenMailExtension;
 import com.icegreen.greenmail.user.GreenMailUser;
@@ -86,6 +87,9 @@ class DiagnosticDumpPrivacyIT {
 
     static {
         try {
+            // Before the extension below opens GreenMail's TLS listener: the backend
+            // connects to it over TLS only (audit B1-4).
+            TestTls.install();
             deleteRecursively(DATA_DIR);
             Files.createDirectories(DATA_DIR.resolve("logs"));
             System.setProperty("app.data-dir", DATA_DIR.toString());
@@ -101,7 +105,7 @@ class DiagnosticDumpPrivacyIT {
 
     @RegisterExtension
     static GreenMailExtension greenMail = new GreenMailExtension(
-            new ServerSetup(0, "127.0.0.1", ServerSetup.PROTOCOL_IMAP)).withPerMethodLifecycle(false);
+            new ServerSetup(0, "127.0.0.1", ServerSetup.PROTOCOL_IMAPS)).withPerMethodLifecycle(false);
 
     @AfterAll
     static void clearSystemProperties() {
@@ -129,13 +133,13 @@ class DiagnosticDumpPrivacyIT {
     @DisplayName("The dump carries no address, credential, token, API key, message content or user-named folder")
     void dumpHoldsNothingPersonal() throws Exception {
         GreenMailUser user = greenMail.setUser(EMAIL, LOGIN, PASSWORD);
-        MailServerSettings server = new MailServerSettings("127.0.0.1", greenMail.getImap().getPort(), false);
+        MailServerSettings server = new MailServerSettings("127.0.0.1", greenMail.getImaps().getPort(), true);
         accountService.createAccount(
                 new AccountCreateRequest("Canary account", null, EMAIL, null, server, server, LOGIN, PASSWORD));
         AccountEntity account = accountRepository.findByEmail(EMAIL).orElseThrow();
 
         user.deliver(GreenMailUtil.createTextEmail(EMAIL, "canary.sender.4417@example.com", SUBJECT, BODY,
-                greenMail.getImap().getServerSetup()));
+                greenMail.getImaps().getServerSetup()));
         appendToCustomFolder();
         assertThat(mailSyncService.performFullSyncCycle(account, "INBOX", FolderRole.INBOX)).isTrue();
         assertThat(mailSyncService.performFullSyncCycle(account, CUSTOM_FOLDER)).isTrue();
@@ -172,8 +176,8 @@ class DiagnosticDumpPrivacyIT {
      */
     private void appendToCustomFolder() throws Exception {
         Session session = Session.getInstance(new Properties());
-        try (Store store = session.getStore("imap")) {
-            store.connect("127.0.0.1", greenMail.getImap().getPort(), LOGIN, PASSWORD);
+        try (Store store = session.getStore("imaps")) {
+            store.connect("127.0.0.1", greenMail.getImaps().getPort(), LOGIN, PASSWORD);
             Folder folder = store.getFolder(CUSTOM_FOLDER);
             assertThat(folder.create(Folder.HOLDS_MESSAGES)).isTrue();
             MimeMessage message = new MimeMessage(session);

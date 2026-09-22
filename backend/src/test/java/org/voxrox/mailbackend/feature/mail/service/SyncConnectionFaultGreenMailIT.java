@@ -64,6 +64,9 @@ class SyncConnectionFaultGreenMailIT {
 
     static {
         try {
+            // Before the extension below opens GreenMail's TLS listener: the backend
+            // connects to it over TLS only (audit B1-4).
+            TestTls.install();
             deleteRecursively(DATA_DIR);
             Files.createDirectories(DATA_DIR.resolve("logs"));
             System.setProperty("app.data-dir", DATA_DIR.toString());
@@ -79,7 +82,7 @@ class SyncConnectionFaultGreenMailIT {
 
     @RegisterExtension
     static GreenMailExtension greenMail = new GreenMailExtension(
-            new ServerSetup(0, "127.0.0.1", ServerSetup.PROTOCOL_IMAP)).withPerMethodLifecycle(false);
+            new ServerSetup(0, "127.0.0.1", ServerSetup.PROTOCOL_IMAPS)).withPerMethodLifecycle(false);
 
     private static TcpFaultProxy proxy;
 
@@ -110,12 +113,12 @@ class SyncConnectionFaultGreenMailIT {
     @BeforeEach
     void setUp() throws Exception {
         if (proxy == null) {
-            proxy = new TcpFaultProxy("127.0.0.1", greenMail.getImap().getPort());
+            proxy = new TcpFaultProxy("127.0.0.1", greenMail.getImaps().getPort());
         }
         proxy.restore();
         user = greenMail.setUser(EMAIL, LOGIN, PASSWORD);
         account = accountRepository.findByEmail(EMAIL).orElseGet(() -> {
-            MailServerSettings server = new MailServerSettings("127.0.0.1", proxy.port(), false);
+            MailServerSettings server = new MailServerSettings("127.0.0.1", proxy.port(), true);
             accountService.createAccount(
                     new AccountCreateRequest("Fault IT", null, EMAIL, null, server, server, LOGIN, PASSWORD));
             return accountRepository.findByEmail(EMAIL).orElseThrow();
@@ -204,7 +207,7 @@ class SyncConnectionFaultGreenMailIT {
 
     private void deliver(String subject) {
         user.deliver(GreenMailUtil.createTextEmail(EMAIL, "sender@example.com", subject, "body",
-                greenMail.getImap().getServerSetup()));
+                greenMail.getImaps().getServerSetup()));
     }
 
     private static void deleteRecursively(Path path) throws Exception {

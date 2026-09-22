@@ -76,6 +76,9 @@ class ImapReadPathLockGreenMailIT {
 
     static {
         try {
+            // Before the extension below opens GreenMail's TLS listener: the backend
+            // connects to it over TLS only (audit B1-4).
+            TestTls.install();
             deleteRecursively(DATA_DIR);
             Files.createDirectories(DATA_DIR.resolve("logs"));
             System.setProperty("app.data-dir", DATA_DIR.toString());
@@ -91,7 +94,7 @@ class ImapReadPathLockGreenMailIT {
 
     @RegisterExtension
     static GreenMailExtension greenMail = new GreenMailExtension(
-            new ServerSetup(0, "127.0.0.1", ServerSetup.PROTOCOL_IMAP)).withPerMethodLifecycle(false);
+            new ServerSetup(0, "127.0.0.1", ServerSetup.PROTOCOL_IMAPS)).withPerMethodLifecycle(false);
 
     @AfterAll
     static void clearSystemProperties() {
@@ -119,7 +122,7 @@ class ImapReadPathLockGreenMailIT {
     void setUpAccount() {
         greenMail.setUser(EMAIL, LOGIN, PASSWORD);
         account = accountRepository.findByEmail(EMAIL).orElseGet(() -> {
-            MailServerSettings server = new MailServerSettings("127.0.0.1", greenMail.getImap().getPort(), false);
+            MailServerSettings server = new MailServerSettings("127.0.0.1", greenMail.getImaps().getPort(), true);
             accountService.createAccount(
                     new AccountCreateRequest("Lock IT", null, EMAIL, null, server, server, LOGIN, PASSWORD));
             return accountRepository.findByEmail(EMAIL).orElseThrow();

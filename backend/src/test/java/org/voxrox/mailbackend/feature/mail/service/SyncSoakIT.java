@@ -112,10 +112,14 @@ class SyncSoakIT {
         Files.createDirectories(WORK);
         Files.createDirectories(dataDir);
 
-        GreenMail greenMail = new GreenMail(new ServerSetup(0, "127.0.0.1", ServerSetup.PROTOCOL_IMAP));
+        // The backend reaches a mail server over TLS only (audit B1-4): GreenMail
+        // serves IMAPS with the shared test certificate, which this JVM trusts and
+        // the backend process is told to trust below.
+        TestTls.install();
+        GreenMail greenMail = new GreenMail(new ServerSetup(0, "127.0.0.1", ServerSetup.PROTOCOL_IMAPS));
         greenMail.start();
         GreenMailUser user = greenMail.setUser(EMAIL, LOGIN, PASSWORD);
-        int imapPort = greenMail.getImap().getPort();
+        int imapPort = greenMail.getImaps().getPort();
         AtomicBoolean generating = new AtomicBoolean(true);
         AtomicInteger delivered = new AtomicInteger();
         Thread generator = null;
@@ -272,7 +276,7 @@ class SyncSoakIT {
     }
 
     private static void createAccount(Backend backend, int port) throws Exception {
-        Map<String, Object> server = Map.of("host", "127.0.0.1", "port", port, "useSsl", false);
+        Map<String, Object> server = Map.of("host", "127.0.0.1", "port", port, "useSsl", true);
         Map<String, Object> body = Map.of("accountName", "Soak", "email", EMAIL, "username", LOGIN, "password",
                 PASSWORD, "imap", server, "smtp", server);
         HttpResponse<String> response = backend.send(HttpRequest.newBuilder(backend.uri("/v1/accounts"))
@@ -416,7 +420,7 @@ class SyncSoakIT {
     }
 
     private static Store imapStore(int port) throws Exception {
-        Store store = Session.getInstance(new Properties()).getStore("imap");
+        Store store = Session.getInstance(new Properties()).getStore("imaps");
         store.connect("127.0.0.1", port, LOGIN, PASSWORD);
         return store;
     }
@@ -475,8 +479,10 @@ class SyncSoakIT {
                 Files.deleteIfExists(dataDir.resolve(".ready"));
                 Files.deleteIfExists(dataDir.resolve("session.json"));
                 Path java = Path.of(System.getProperty("java.home"), "bin", UNIX ? "java" : "java.exe");
-                List<String> command = new ArrayList<>(List.of(java.toString(), "-Xmx256m", "-jar",
-                        packagedJar().toString(), "--app.data-dir=" + dataDir,
+                List<String> command = new ArrayList<>(List.of(java.toString(), "-Xmx256m",
+                        "-Djavax.net.ssl.trustStore=" + TestTls.keystoreFile(), "-Djavax.net.ssl.trustStoreType=PKCS12",
+                        "-Djavax.net.ssl.trustStorePassword=" + TestTls.PASSWORD, "-jar", packagedJar().toString(),
+                        "--app.data-dir=" + dataDir,
                         "--spring.security.oauth2.client.registration.google.client-id=soak",
                         "--spring.security.oauth2.client.registration.google.client-secret=soak",
                         "--spring.security.oauth2.client.registration.microsoft.client-id=soak",

@@ -7,17 +7,10 @@ import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.KeyStore;
 import java.util.Comparator;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
-
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManagerFactory;
 
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
@@ -53,12 +46,11 @@ import com.icegreen.greenmail.util.ServerSetup;
  * WireMock stands in for Google's token endpoint and says what the next refresh
  * returns.
  * <p>
- * The backend refuses XOAUTH2 without TLS, so GreenMail serves IMAPS with a
- * certificate made for {@code localhost} when the class loads, and the JVM's
- * default TLS context trusts it for the duration of the class. The account
- * reaches GreenMail through {@link TcpFaultProxy}: dropping the connections is
- * what makes the next pass authenticate again, the moment a real server ends a
- * session whose token expired.
+ * The backend refuses XOAUTH2 without TLS, so GreenMail serves IMAPS with the
+ * shared test certificate from {@link TestTls}, which the JVM's default TLS
+ * context trusts. The account reaches GreenMail through {@link TcpFaultProxy}:
+ * dropping the connections is what makes the next pass authenticate again, the
+ * moment a real server ends a session whose token expired.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "mail.client.sync.initial-delay=PT1H", "mail.client.imap.read-timeout=5s",
@@ -71,8 +63,6 @@ class OAuthTokenExpiryGreenMailIT {
 
     private static final Path DATA_DIR = Path.of("target", "test-tmp", "OAuthTokenExpiryGreenMailIT").toAbsolutePath()
             .normalize();
-    private static final Path KEYSTORE = DATA_DIR.resolve("tls").resolve("greenmail.p12");
-    private static final String STORE_PASSWORD = "changeit";
 
     // An OAuth account needs a provider the catalog knows by domain. Nothing
     // reaches
@@ -85,12 +75,8 @@ class OAuthTokenExpiryGreenMailIT {
         try {
             deleteRecursively(DATA_DIR);
             Files.createDirectories(DATA_DIR.resolve("logs"));
-            createKeystore();
-            // Read by GreenMail when it opens its TLS listener, which the extension
-            // below does after this block.
-            System.setProperty("greenmail.tls.keystore.file", KEYSTORE.toString());
-            System.setProperty("greenmail.tls.keystore.password", STORE_PASSWORD);
-            System.setProperty("greenmail.tls.key.password", STORE_PASSWORD);
+            // Before the extension below opens GreenMail's TLS listener.
+            TestTls.install();
             System.setProperty("app.data-dir", DATA_DIR.toString());
             System.setProperty("logging.file.name", DATA_DIR.resolve("logs").resolve("mail.log").toString());
             System.setProperty("spring.security.oauth2.client.registration.google.client-id", "dummy-client-id");
@@ -106,40 +92,25 @@ class OAuthTokenExpiryGreenMailIT {
     static GreenMailExtension greenMail = new GreenMailExtension(
             new ServerSetup(0, "127.0.0.1", ServerSetup.PROTOCOL_IMAPS)).withPerMethodLifecycle(false);
 
-    private static @Nullable SSLContext previousTls;
     private static @Nullable TcpFaultProxy proxy;
     private static @Nullable WireMockServer tokenEndpoint;
 
     @BeforeAll
-    static void trustTheTestCertificate() throws Exception {
-        previousTls = SSLContext.getDefault();
-        KeyStore trusted = KeyStore.getInstance("PKCS12");
-        try (InputStream in = Files.newInputStream(KEYSTORE)) {
-            trusted.load(in, STORE_PASSWORD.toCharArray());
-        }
-        TrustManagerFactory trust = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-        trust.init(trusted);
-        SSLContext context = SSLContext.getInstance("TLS");
-        context.init(null, trust.getTrustManagers(), null);
-        SSLContext.setDefault(context);
-
+    static void startTokenEndpoint() {
         tokenEndpoint = new WireMockServer(WireMockConfiguration.options().dynamicPort());
         tokenEndpoint.start();
     }
 
     @AfterAll
     static void tearDown() throws Exception {
-        if (previousTls != null) {
-            SSLContext.setDefault(previousTls);
-        }
         if (proxy != null) {
             proxy.close();
         }
         if (tokenEndpoint != null) {
             tokenEndpoint.stop();
         }
-        for (String property : List.of("greenmail.tls.keystore.file", "greenmail.tls.keystore.password",
-                "greenmail.tls.key.password", "app.data-dir", "logging.file.name",
+        // The greenmail.tls.* properties belong to TestTls and stay for the JVM.
+        for (String property : List.of("app.data-dir", "logging.file.name",
                 "spring.security.oauth2.client.registration.google.client-id",
                 "spring.security.oauth2.client.registration.google.client-secret",
                 "spring.security.oauth2.client.registration.microsoft.client-id")) {
@@ -233,25 +204,6 @@ class OAuthTokenExpiryGreenMailIT {
     private void deliver(GreenMailUser user, String subject) {
         user.deliver(GreenMailUtil.createTextEmail(EMAIL, "sender@example.com", subject, "body",
                 greenMail.getImaps().getServerSetup()));
-    }
-
-    /**
-     * A throwaway certificate for {@code localhost}, made with the JDK's own
-     * keytool so nothing key-shaped is committed. The backend checks the server's
-     * name, and GreenMail's bundled certificate names nobody.
-     */
-    private static void createKeystore() throws Exception {
-        Files.createDirectories(KEYSTORE.getParent());
-        Path keytool = Path.of(System.getProperty("java.home"), "bin",
-                System.getProperty("os.name").startsWith("Windows") ? "keytool.exe" : "keytool");
-        Process process = new ProcessBuilder(keytool.toString(), "-genkeypair", "-alias", "greenmail", "-keyalg", "RSA",
-                "-keysize", "2048", "-validity", "2", "-dname", "CN=localhost", "-ext",
-                "SAN=dns:localhost,ip:127.0.0.1", "-storetype", "PKCS12", "-keystore", KEYSTORE.toString(),
-                "-storepass", STORE_PASSWORD, "-keypass", STORE_PASSWORD).redirectErrorStream(true).start();
-        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-        if (!process.waitFor(60, TimeUnit.SECONDS) || process.exitValue() != 0) {
-            throw new IllegalStateException("keytool failed: " + output);
-        }
     }
 
     private static void deleteRecursively(Path path) throws Exception {

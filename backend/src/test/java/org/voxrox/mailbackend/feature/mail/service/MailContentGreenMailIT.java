@@ -93,6 +93,9 @@ class MailContentGreenMailIT {
 
     static {
         try {
+            // Before the extension below opens GreenMail's TLS listener: the backend
+            // connects to it over TLS only (audit B1-4).
+            TestTls.install();
             deleteRecursively(DATA_DIR);
             Files.createDirectories(DATA_DIR.resolve("logs"));
             System.setProperty("app.data-dir", DATA_DIR.toString());
@@ -106,10 +109,13 @@ class MailContentGreenMailIT {
         }
     }
 
-    /** Plain IMAP on an ephemeral loopback port; started once for the class. */
+    /**
+     * IMAPS with the shared test certificate on an ephemeral loopback port; started
+     * once for the class.
+     */
     @RegisterExtension
     static GreenMailExtension greenMail = new GreenMailExtension(
-            new ServerSetup(0, "127.0.0.1", ServerSetup.PROTOCOL_IMAP)).withPerMethodLifecycle(false);
+            new ServerSetup(0, "127.0.0.1", ServerSetup.PROTOCOL_IMAPS)).withPerMethodLifecycle(false);
 
     @AfterAll
     static void clearSystemProperties() {
@@ -140,8 +146,8 @@ class MailContentGreenMailIT {
     void setUpAccount() {
         user = greenMail.setUser(EMAIL, LOGIN, PASSWORD);
         account = accountRepository.findByEmail(EMAIL).orElseGet(() -> {
-            int imapPort = greenMail.getImap().getPort();
-            MailServerSettings server = new MailServerSettings("127.0.0.1", imapPort, false);
+            int imapPort = greenMail.getImaps().getPort();
+            MailServerSettings server = new MailServerSettings("127.0.0.1", imapPort, true);
             accountService.createAccount(
                     new AccountCreateRequest("Content IT", null, EMAIL, null, server, server, LOGIN, PASSWORD));
             return accountRepository.findByEmail(EMAIL).orElseThrow();
@@ -314,10 +320,10 @@ class MailContentGreenMailIT {
      */
     private void deleteOnServer(String subject) throws Exception {
         Properties props = new Properties();
-        props.put("mail.store.protocol", "imap");
+        props.put("mail.store.protocol", "imaps");
         Session session = Session.getInstance(props);
-        Store store = session.getStore("imap");
-        store.connect("127.0.0.1", greenMail.getImap().getPort(), LOGIN, PASSWORD);
+        Store store = session.getStore("imaps");
+        store.connect("127.0.0.1", greenMail.getImaps().getPort(), LOGIN, PASSWORD);
         try {
             Folder inbox = store.getFolder(INBOX);
             inbox.open(Folder.READ_WRITE);

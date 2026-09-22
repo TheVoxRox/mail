@@ -28,6 +28,7 @@ on:
       - .github/workflows/soak.yml
       - backend/src/test/java/org/voxrox/mailbackend/feature/mail/service/SyncSoakIT.java
       - backend/src/test/java/org/voxrox/mailbackend/feature/mail/service/TcpFaultProxy.java
+      - backend/src/test/java/org/voxrox/mailbackend/feature/mail/service/TestTls.java
       - frontend/scripts/scan-logs.mjs
       - frontend/scripts/lib/log-scan.mjs
 

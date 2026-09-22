@@ -350,7 +350,7 @@
 			"host": "Host",
 			"port": "Port",
 			"useSsl": "SSL/TLS encryption",
-			"starttlsNote": "STARTTLS is not yet supported — for most providers, pick SSL/TLS on ports 993 (IMAP) and 465 (SMTP).",
+			"starttlsNote": "Without SSL/TLS the connection is encrypted with STARTTLS. If the server does not offer it, no connection is made and the password is never sent unencrypted. For most providers, pick SSL/TLS on ports 993 (IMAP) and 465 (SMTP).",
 			"errorImapHostRequired": "Fill in the IMAP host.",
 			"errorSmtpHostRequired": "Fill in the SMTP host.",
 			"errorPortRange": "Port must be between 1 and 65535.",

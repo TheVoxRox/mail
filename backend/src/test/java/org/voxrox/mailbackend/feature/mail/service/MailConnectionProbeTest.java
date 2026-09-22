@@ -128,11 +128,13 @@ class MailConnectionProbeTest {
             assertThat(props.getProperty("mail.imaps.timeout")).isEqualTo("60000");
             assertThat(props.getProperty("mail.imaps.connectiontimeout")).isEqualTo("30000");
             assertThat(props.getProperty("mail.imaps.auth.mechanisms")).isNull();
+            // Implicit SSL needs no upgrade.
+            assertThat(props.getProperty("mail.imaps.starttls.required")).isNull();
         }
 
         @Test
-        @DisplayName("PASSWORD over plaintext uses the standard protocol and skips OAuth mechanism")
-        void passwordOverPlaintextUsesStandardProtocol() throws Exception {
+        @DisplayName("PASSWORD without implicit SSL uses the standard protocol with required STARTTLS (audit B1-4)")
+        void passwordWithoutSslRequiresStartTls() throws Exception {
             Session sessionMock = mock(Session.class);
             Store storeMock = mock(Store.class);
             when(sessionMock.getStore("imap")).thenReturn(storeMock);
@@ -149,8 +151,11 @@ class MailConnectionProbeTest {
             Properties props = propsCaptor.getValue();
             assertThat(props.getProperty("mail.store.protocol")).isEqualTo("imap");
             assertThat(props.getProperty("mail.imap.ssl.enable")).isEqualTo("false");
-            // Set unconditionally; a no-op on the plaintext protocol but present so the
-            // implicit-SSL path can never regress to an unverified identity.
+            // No implicit SSL means STARTTLS, and a server that does not offer it fails
+            // the probe instead of receiving the password in cleartext.
+            assertThat(props.getProperty("mail.imap.starttls.enable")).isEqualTo("true");
+            assertThat(props.getProperty("mail.imap.starttls.required")).isEqualTo("true");
+            // The upgraded connection checks the server's identity like an implicit one.
             assertThat(props.getProperty("mail.imap.ssl.checkserveridentity")).isEqualTo("true");
             assertThat(props.getProperty("mail.imap.auth.mechanisms")).isNull();
         }
