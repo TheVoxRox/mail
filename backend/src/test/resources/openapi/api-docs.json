@@ -965,12 +965,6 @@
             },
             "type" : "array"
           },
-          "body" : {
-            "type" : "string"
-          },
-          "contentError" : {
-            "type" : "string"
-          },
           "flagged" : {
             "type" : "boolean"
           },
@@ -4324,7 +4318,7 @@
         "tags" : [ "Messages — Actions" ]
       },
       "get" : {
-        "description" : "Returns the full message detail including headers, recipients and attachment list (metadata, not content). For the message body see /content.",
+        "description" : "Returns the full message detail including headers, recipients and attachment list (metadata, not content), read from the local cache without contacting the mail server. For the message body see /content.",
         "operationId" : "getMessageDetail",
         "parameters" : [ {
           "in" : "path",
@@ -4463,7 +4457,7 @@
     },
     "/api/v1/messages/{stableId}/content" : {
       "get" : {
-        "description" : "Returns only the message body (HTML / plain text) without headers and metadata. Use after /detail to load the body lazily.",
+        "description" : "Returns only the message body (HTML / plain text) without headers and metadata, fetching it from the mail server when it is not cached yet. Independent of the detail endpoint, so a client may request both at once.",
         "operationId" : "getMessageContent",
         "parameters" : [ {
           "in" : "path",

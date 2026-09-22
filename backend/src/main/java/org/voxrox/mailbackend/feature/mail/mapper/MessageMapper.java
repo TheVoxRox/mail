@@ -42,7 +42,8 @@ public class MessageMapper {
         entity.setRecipientsTo(dto.recipientsTo());
         entity.setRecipientsCc(dto.recipientsCc());
         entity.setRecipientsBcc(dto.recipientsBcc());
-        entity.setContent(dto.body()); // Usually null during sync; the body is fetched separately.
+        // No body: sync fetches metadata only, and MailContentService fills the
+        // body in on first open.
 
         // Flags and timestamps. The column is NOT NULL; MessageFetcher already
         // defaults a missing Date header to now(), this mirrors that for any
@@ -74,23 +75,13 @@ public class MessageMapper {
         return entity;
     }
 
-    public MailDetailResponse toDto(MessageEntity entity, @Nullable String content) {
-        return toDto(entity, content, null);
-    }
-
-    /**
-     * Variant for the case when the current body could not be fetched. {@code body}
-     * typically holds the cached version from the DB (may be null) and the client
-     * is informed about the issue via {@code contentError}.
-     */
-    public MailDetailResponse toDto(MessageEntity entity, @Nullable String content, @Nullable String contentError) {
+    public MailDetailResponse toDto(MessageEntity entity) {
         return new MailDetailResponse(entity.getStableId(), entity.getUid(), entity.getFolderName(),
                 displaySubject(entity.getSubject()), displaySender(entity.getSender()), entity.getRecipientsTo(),
-                entity.getRecipientsCc(), entity.getRecipientsBcc(), content, entity.getReceivedAt(), entity.isSeen(),
+                entity.getRecipientsCc(), entity.getRecipientsBcc(), entity.getReceivedAt(), entity.isSeen(),
                 entity.isFlagged(), entity.isAnswered(), entity.getMessageId(), entity.getInReplyTo(),
                 entity.getReferences(), entity.isHasAttachments(),
-                entity.getAttachments().stream().map(AttachmentResponse::fromEntity).toList(), contentError,
-                entity.getThreadId());
+                entity.getAttachments().stream().map(AttachmentResponse::fromEntity).toList(), entity.getThreadId());
     }
 
     /**

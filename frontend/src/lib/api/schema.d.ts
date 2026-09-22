@@ -677,7 +677,7 @@ export interface paths {
 		};
 		/**
 		 * Message detail
-		 * @description Returns the full message detail including headers, recipients and attachment list (metadata, not content). For the message body see /content.
+		 * @description Returns the full message detail including headers, recipients and attachment list (metadata, not content), read from the local cache without contacting the mail server. For the message body see /content.
 		 */
 		get: operations['getMessageDetail'];
 		put?: never;
@@ -721,7 +721,7 @@ export interface paths {
 		};
 		/**
 		 * Message content (body)
-		 * @description Returns only the message body (HTML / plain text) without headers and metadata. Use after /detail to load the body lazily.
+		 * @description Returns only the message body (HTML / plain text) without headers and metadata, fetching it from the mail server when it is not cached yet. Independent of the detail endpoint, so a client may request both at once.
 		 */
 		get: operations['getMessageContent'];
 		put?: never;
@@ -1291,8 +1291,6 @@ export interface components {
 		MailDetailResponse: {
 			answered?: boolean;
 			attachments?: components['schemas']['AttachmentResponse'][];
-			body?: string;
-			contentError?: string;
 			flagged?: boolean;
 			/** @description Folder the message lives in (folderRef). Lets the client warn before DELETE on a message whose folder has the TRASH role — there the delete is permanent (server-side expunge), not a move to trash. */
 			folderName?: string;

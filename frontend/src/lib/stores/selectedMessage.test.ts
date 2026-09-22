@@ -31,6 +31,9 @@ function content(): MailContentResponse {
 beforeEach(() => {
 	getMessageDetailMock.mockReset();
 	getMessageContentMock.mockReset();
+	// The body is requested alongside the detail on every path, the failing
+	// ones included, so it needs an answer even where a test is not about it.
+	getMessageContentMock.mockResolvedValue(content());
 	reloadCurrentPageMock.mockReset();
 	selectedMessage.set(null);
 });
@@ -76,5 +79,59 @@ describe('selectMessage', () => {
 		expect(state?.error).not.toBeNull();
 		expect(state?.notFound).toBe(false);
 		expect(reloadCurrentPageMock).not.toHaveBeenCalled();
+	});
+
+	it('asks for the body without waiting for the detail', async () => {
+		let resolveDetail!: (value: MailDetailResponse) => void;
+		getMessageDetailMock.mockReturnValue(new Promise((resolve) => (resolveDetail = resolve)));
+		getMessageContentMock.mockResolvedValue(content());
+
+		const selecting = selectMessage('par-1');
+
+		expect(getMessageContentMock).toHaveBeenCalledWith('par-1');
+		resolveDetail(detail('par-1'));
+		await selecting;
+		expect(get(selectedMessage)?.content).not.toBeNull();
+	});
+
+	it('holds a body that arrives first until the detail is there', async () => {
+		let resolveDetail!: (value: MailDetailResponse) => void;
+		getMessageDetailMock.mockReturnValue(new Promise((resolve) => (resolveDetail = resolve)));
+		getMessageContentMock.mockResolvedValue(content());
+
+		const selecting = selectMessage('order-1');
+		await Promise.resolve();
+
+		expect(get(selectedMessage)?.content).toBeNull();
+		resolveDetail(detail('order-1'));
+		await selecting;
+		const state = get(selectedMessage);
+		expect(state?.detail).not.toBeNull();
+		expect(state?.content).not.toBeNull();
+	});
+
+	it('keeps the header when only the body fails', async () => {
+		getMessageDetailMock.mockResolvedValue(detail('body-err-1'));
+		getMessageContentMock.mockRejectedValue(new ApiError(502, 'Bad Gateway', null));
+
+		await selectMessage('body-err-1');
+
+		const state = get(selectedMessage);
+		expect(state?.detail).not.toBeNull();
+		expect(state?.content).toBeNull();
+		expect(state?.error).not.toBeNull();
+		expect(state?.loading).toBe(false);
+	});
+
+	it('reports a detail failure once when the body fails with it', async () => {
+		getMessageDetailMock.mockRejectedValue(new ApiError(404, 'Not Found', null));
+		getMessageContentMock.mockRejectedValue(new ApiError(404, 'Not Found', null));
+
+		await selectMessage('ghost-2');
+
+		const state = get(selectedMessage);
+		expect(state?.notFound).toBe(true);
+		expect(state?.error).toBeNull();
+		expect(reloadCurrentPageMock).toHaveBeenCalledOnce();
 	});
 });

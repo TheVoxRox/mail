@@ -63,9 +63,8 @@ Hotove reporty do 2026-06-07 jsou zamrazene v [todo-archive.md](todo-archive.md)
 
 ## Code review prace 21. 9. (2026-09-21)
 
-Review 19 commitu `70a6554..04545ae` (#529 az #550): 13 nalezu, 8 opraveno v #552, tisk nenactene zpravy v #553, hlaseni detekce poskytovatele v #554. Zbyvajici tri jsou rozhodnuti nebo okrajove pripady, ne defekty:
+Review 19 commitu `70a6554..04545ae` (#529 az #550): 13 nalezu, 8 opraveno v #552, tisk nenactene zpravy v #553, hlaseni detekce poskytovatele v #554, dvoji stahovani tela v #555 (detail uz tela nestahuje). Zbyvajici dva jsou okrajove pripady, ne defekty:
 
-- [ ] **Tisk zaskrtnutych stahuje kazde telo dvakrat.** [printMessages.ts:88](frontend/src/lib/mail/printMessages.ts:88) vola detail i content soubezne a backendovy detail sam vola `getOrFetchMessageContent`, takze necachovane telo jde z IMAPu dvakrat naraz. Stejny vzor ma compose prefill; reseni je tvar API (content az po detailu, nebo metadata v detailu), ne oprava tisku.
 - [ ] **Fokus v menu z toolbaru zpravy se bere jako fokus mimo zpravu.** [+layout.svelte:433](frontend/src/routes/+layout.svelte:433) hleda `closest('[data-print="document"]')`, ale menu jsou v portalu na `<body>`. Se zaskrtnutymi radky tak Ctrl+P z otevreneho menu zpravy tiskne vyber. Okrajove.
 - [ ] **Nadpis slozky neni „novy s kazdou strankou".** [+layout.svelte:248](frontend/src/routes/+layout.svelte:248): #550 stavi na tom, ze `<h1>` je novy uzel, ale nadpis slozky zije v `mail/[accountId]/[folderName]/+layout.svelte`, ktery SvelteKit pri prepnuti slozky pouzije znovu. Pristani po prepnuti slozky tak muze dat fokus uzlu, ve kterem uz kurzor ctecky je. Overit doposlechem, nez se na tom neco meni.
 

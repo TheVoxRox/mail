@@ -130,8 +130,8 @@ public class MailContentService {
                         return new FetchedBody(HtmlSanitizer.sanitize(rawText, inlineImages), false);
                     } catch (IOException | RuntimeException e) {
                         // RuntimeException too: a malformed MIME structure can throw an
-                        // unchecked JavaMail error. Wrap it so MailFacade surfaces a
-                        // contentError on the cached body instead of a 500.
+                        // unchecked JavaMail error. Wrap it so the caller gets a typed
+                        // mail error instead of a 500.
                         throw new MailOperationException(ErrorCode.MAIL_CONNECTION_ERROR,
                                 "Error while extracting message text: " + e.getMessage());
                     }

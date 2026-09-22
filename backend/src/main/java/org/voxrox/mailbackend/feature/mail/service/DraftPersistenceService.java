@@ -340,9 +340,9 @@ public class DraftPersistenceService {
                     ? MessageFetcher.formatAddress(from[0])
                     : account.getEmail();
             MailDetailResponse dto = new MailDetailResponse(null, outcome.uid(), identity.draftsFolder(),
-                    request.subject(), sender, request.to(), request.cc(), request.bcc(), null, LocalDateTime.now(),
-                    false, false, false, identity.messageId(), request.inReplyTo(), request.references(),
-                    !attachments.isEmpty(), attachments, null, null);
+                    request.subject(), sender, request.to(), request.cc(), request.bcc(), LocalDateTime.now(), false,
+                    false, false, identity.messageId(), request.inReplyTo(), request.references(),
+                    !attachments.isEmpty(), attachments, null);
             MessageEntity entity = messageMapper.toEntity(dto, account, identity.draftsFolder(), outcome.uidValidity());
             if (!identity.stableId().equals(entity.getStableId())) {
                 // Never expected — both sides derive from the same Message-ID. Guards

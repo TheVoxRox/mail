@@ -105,7 +105,6 @@ function makeDetail(summary: MailSummaryResponse): MailDetailResponse {
 		recipientsTo: 'tester@example.com',
 		recipientsCc: '',
 		recipientsBcc: '',
-		body: `Text zprávy ${summary.subject}`,
 		receivedAt: summary.receivedAt,
 		seen: summary.seen,
 		flagged: summary.flagged,
@@ -114,9 +113,17 @@ function makeDetail(summary: MailSummaryResponse): MailDetailResponse {
 		inReplyTo: '',
 		references: '',
 		hasAttachments: summary.hasAttachments,
-		attachments,
-		contentError: null
+		attachments
 	};
+}
+
+/**
+ * The plain text of a fixture message: what a reply or forward quotes, and what
+ * the content endpoint serves for a seeded message that has no content of its
+ * own. The backend quotes the real body; the mock keeps one line per message.
+ */
+export function plainBodyFor(detail: MailDetailResponse): string {
+	return `Text zprávy ${detail.subject}`;
 }
 
 function pageOf<T>(content: T[], page: number, size: number): PagedResponse<T> {
@@ -1009,7 +1016,6 @@ export function draftToSummary(
 		recipientsTo: body.to ?? '',
 		recipientsCc: body.cc ?? '',
 		recipientsBcc: body.bcc ?? '',
-		body: body.body ?? '',
 		inReplyTo: body.inReplyTo ?? '',
 		references: body.references ?? '',
 		hasAttachments: Boolean(body.attachments?.length)
@@ -1048,7 +1054,7 @@ export function replyFor(stableId: string, all: boolean): MailRequest {
 		to: all ? `${detail.sender}, ${detail.recipientsTo}` : detail.sender,
 		cc: all ? detail.recipientsCc : undefined,
 		subject: detail.subject.startsWith('Re:') ? detail.subject : `Re: ${detail.subject}`,
-		body: `\n\n--- Původní zpráva ---\n${detail.body ?? ''}`,
+		body: `\n\n--- Původní zpráva ---\n${plainBodyFor(detail)}`,
 		inReplyTo: detail.messageId,
 		references: detail.references || detail.messageId
 	};
@@ -1059,6 +1065,6 @@ export function forwardFor(stableId: string): MailRequest {
 	return {
 		to: '',
 		subject: detail.subject.startsWith('Fwd:') ? detail.subject : `Fwd: ${detail.subject}`,
-		body: `\n\n--- Přeposlaná zpráva ---\n${detail.body ?? ''}`
+		body: `\n\n--- Přeposlaná zpráva ---\n${plainBodyFor(detail)}`
 	};
 }

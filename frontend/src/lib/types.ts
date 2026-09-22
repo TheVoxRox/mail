@@ -238,7 +238,6 @@ export interface MailDetailResponse {
 	recipientsCc: string;
 	/** Only present on the user's own draft/sent copies; received mail never carries Bcc. */
 	recipientsBcc: string;
-	body: string | null;
 	receivedAt: string;
 	seen: boolean;
 	flagged: boolean;
@@ -248,7 +247,6 @@ export interface MailDetailResponse {
 	references: string;
 	hasAttachments: boolean;
 	attachments: AttachmentResponse[];
-	contentError: string | null;
 }
 
 export interface MailContentResponse {

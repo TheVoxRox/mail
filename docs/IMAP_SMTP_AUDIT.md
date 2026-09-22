@@ -2,8 +2,8 @@
 
 |                    |                                                                                                                                                                                                                                                                                              |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.7                                                                                                                                                                                                                                                                                          |
-| **Date**           | 2026-09-16                                                                                                                                                                                                                                                                                   |
+| **Version**        | 1.8                                                                                                                                                                                                                                                                                          |
+| **Date**           | 2026-09-22                                                                                                                                                                                                                                                                                   |
 | **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                           |
 | **Audited commit** | `9435e56` (re-verified 2026-09-16, clearing seven acknowledgements; 1.6 anchor `02ff962`, recorded pre-squash as `f5b75ad`; 1.5 anchor `885b98a`, re-verified 2026-09-02 at the ledger cap; 1.3–1.4 anchor `cad05cb`, recorded pre-squash as `3ff0c78`; 1.0–1.2 baseline: `35a06f3`)         |
 | **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service`, `backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java`, `backend/src/main/java/org/voxrox/mailbackend/util/SubjectNormalizer.java`, `backend/src/main/java/org/voxrox/mailbackend/core/config/mail` |
@@ -123,9 +123,9 @@ transport/TLS and SMTP-send claims remain static-plus-unit-tests, see
   open (§4), so a sync over a large mailbox never buffers bodies.
 - **Malformed structure fails soft, per message.** A bad `BODYSTRUCTURE`
   (observed from Seznam) is caught — including `RuntimeException` — and the
-  message is persisted as an **envelope-only stub** (`contentError` recorded);
-  the detail endpoint retries later. One bad message cannot break the list
-  page.
+  message is persisted as an **envelope-only stub** (no body, no attachments);
+  opening it retries the body fetch through the content endpoint, which reports
+  its own failure. One bad message cannot break the list page.
 - **MIME parsing is depth-bounded.** Every recursive walk
   ([MimePartExtractor](../backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java):
   body, inline images, attachment metadata, has-attachments) is capped at
@@ -166,8 +166,9 @@ transport/TLS and SMTP-send claims remain static-plus-unit-tests, see
   recorded output: that the two attachment walks agree, and that the depth
   bound both binds and lets shallower trees through. Which of these inputs the
   library throws on is deliberately not pinned — four of the sixteen do today,
-  and throwing is inside the contract, since the caller catches it and records
-  `contentError` (proven by `MalformedBodyStructureSyncIT`).
+  and throwing is inside the contract, since the caller catches it: the sync
+  keeps the envelope-only stub (proven by `MalformedBodyStructureSyncIT`) and
+  the content endpoint answers with a typed mail error.
 - **Measured while writing that test:** `MAX_DEPTH` bounds _work_, not stack. A
   copy of the extractor with the depth guard removed walks 100, 1000 and 3000
   levels of nesting and still returns the body, so a `StackOverflowError`
@@ -411,6 +412,20 @@ one after 101.8 s — so the budget is empirically load-bearing, not decorative.
 
 ## 7. Change log
 
+- **1.8** (2026-09-22) — a documentation revision over acknowledged drift, so
+  the anchor stays `9435e56`; verdict stays PASS. The message detail stopped
+  fetching the body (#555), and two sentences in §2 described that fetch. The
+  stub bullet said the detail endpoint retries a malformed message's body; the
+  content endpoint does that now, and it is the one that reports a failure.
+  Both that bullet and the hostile-MIME bullet also said the stub records
+  `contentError`, which was **not true when written**: `MessageFetcher` put the
+  message on its DTO, `MessageMapper.toEntity` never read it, and
+  `MalformedBodyStructureSyncIT` asserts the stub's shape (no body, no
+  attachments), not an error. The field is gone from the DTO with this change,
+  so both sentences now say what the IT proves. Nothing else in §2 moves: the
+  fetch profile is untouched, and the catch around the MIME walk still catches
+  the same three types and keeps the envelope; it only stops copying the
+  exception message onto a field nobody read.
 - **1.7** (2026-09-16) — **re-verified against `9435e56`, clearing all seven
   acknowledgements; verdict stays PASS.** The ledger was at 7 of 8 and the gate
   was asking for this before the cap forced it onto an unrelated PR. One path

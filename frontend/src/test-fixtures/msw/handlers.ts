@@ -6,6 +6,7 @@ import {
 	forwardFor,
 	getFolderMessages,
 	listPage,
+	plainBodyFor,
 	removeMessageEverywhere,
 	replaceFolderMessages,
 	replyFor,
@@ -881,7 +882,7 @@ function messageRoutes(
 	if (segments[2] === 'forward' && method === 'GET') return HttpResponse.json(forwardFor(stableId));
 	if (segments[2] === 'content' && method === 'GET') {
 		return HttpResponse.json(
-			fixtureState.messageContents[stableId] ?? { content: detail.body ?? '' }
+			fixtureState.messageContents[stableId] ?? { content: plainBodyFor(detail) }
 		);
 	}
 	if (segments[2] === 'attachments' && method === 'GET') {

@@ -65,12 +65,11 @@ class MessageMapperTest {
                 42L, // uid
                 "INBOX", // folderName — informational; toEntity takes the folder as a parameter
                 "Test subject", "John Doe <john@example.com>", "recipient@example.com", "cc@example.com",
-                "bcc@example.com", "<p>Message body</p>", RECEIVED_AT, true, // seen
+                "bcc@example.com", RECEIVED_AT, true, // seen
                 false, // flagged
                 true, // answered
                 "<msg-001@example.com>", "<reply-to@example.com>", "<ref1@example.com> <ref2@example.com>", false, // hasAttachments
                 null, // attachments
-                null, // contentError
                 null); // threadId — assigned by ThreadingService, not by the fetch layer
     }
 
@@ -79,8 +78,8 @@ class MessageMapperTest {
                 new AttachmentResponse("1.2", "image.png", "image/png", 2048));
 
         return new MailDetailResponse(null, 42L, "INBOX", "Message with attachment", "sender@example.com",
-                "recipient@example.com", null, null, null, RECEIVED_AT, false, true, false, "<msg-002@example.com>",
-                null, null, true, attachments, null, null);
+                "recipient@example.com", null, null, RECEIVED_AT, false, true, false, "<msg-002@example.com>", null,
+                null, true, attachments, null);
     }
 
     private MessageEntity createEntity() {
@@ -149,13 +148,14 @@ class MessageMapperTest {
             assertThat(result.getUid()).isEqualTo(42L);
             assertThat(result.getUidValidity()).isEqualTo(12345L);
 
-            // Assert - body
+            // Assert - headers
             assertThat(result.getSubject()).isEqualTo("Test subject");
             assertThat(result.getSender()).isEqualTo("John Doe <john@example.com>");
             assertThat(result.getRecipientsTo()).isEqualTo("recipient@example.com");
             assertThat(result.getRecipientsCc()).isEqualTo("cc@example.com");
             assertThat(result.getRecipientsBcc()).isEqualTo("bcc@example.com");
-            assertThat(result.getContent()).isEqualTo("<p>Message body</p>");
+            // Sync fetches metadata only; the body is filled in on first open.
+            assertThat(result.getContent()).isNull();
 
             // Assert - flags and timestamp
             assertThat(result.getReceivedAt()).isEqualTo(RECEIVED_AT);
@@ -236,14 +236,13 @@ class MessageMapperTest {
     class ToDto {
 
         @Test
-        @DisplayName("maps the entity onto MailDetailResponse with the right content")
+        @DisplayName("maps the entity onto MailDetailResponse")
         void mapsEntityToDto() {
             // Arrange
             var entity = createEntity();
-            String content = "<p>Fresh content from IMAP</p>";
 
             // Act
-            MailDetailResponse result = mapper.toDto(entity, content);
+            MailDetailResponse result = mapper.toDto(entity);
 
             // Assert
             assertThat(result.stableId()).isEqualTo("abc123def456");
@@ -253,7 +252,6 @@ class MessageMapperTest {
             assertThat(result.recipientsTo()).isEqualTo("recipient@example.com");
             assertThat(result.recipientsCc()).isEqualTo("cc@example.com");
             assertThat(result.recipientsBcc()).isEqualTo("bcc@example.com");
-            assertThat(result.body()).isEqualTo(content);
             assertThat(result.receivedAt()).isEqualTo(RECEIVED_AT);
             assertThat(result.seen()).isTrue();
             assertThat(result.flagged()).isFalse();
@@ -263,23 +261,6 @@ class MessageMapperTest {
             assertThat(result.references()).isEqualTo("<ref1@example.com> <ref2@example.com>");
             assertThat(result.hasAttachments()).isFalse();
             assertThat(result.attachments()).isEmpty();
-            assertThat(result.contentError()).isNull();
-        }
-
-        @Test
-        @DisplayName("with contentError - populates the error message")
-        void withContentError_populatesIt() {
-            // Arrange
-            var entity = createEntity();
-            String cachedContent = "<p>Cached older version</p>";
-            String error = "IMAP fetch failed: connection timeout";
-
-            // Act
-            MailDetailResponse result = mapper.toDto(entity, cachedContent, error);
-
-            // Assert
-            assertThat(result.body()).isEqualTo(cachedContent);
-            assertThat(result.contentError()).isEqualTo("IMAP fetch failed: connection timeout");
         }
 
         @Test
@@ -290,7 +271,7 @@ class MessageMapperTest {
             entity.setSender(null);
             LocaleContextHolder.setLocale(Locale.ENGLISH);
 
-            MailDetailResponse result = mapper.toDto(entity, "<p>Body</p>");
+            MailDetailResponse result = mapper.toDto(entity);
 
             assertThat(result.subject()).isEqualTo("(No subject)");
             assertThat(result.sender()).isEqualTo("[Unknown sender]");
@@ -303,7 +284,7 @@ class MessageMapperTest {
             var entity = createEntityWithAttachments();
 
             // Act
-            MailDetailResponse result = mapper.toDto(entity, null);
+            MailDetailResponse result = mapper.toDto(entity);
 
             // Assert
             assertThat(result.hasAttachments()).isTrue();

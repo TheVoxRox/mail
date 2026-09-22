@@ -206,8 +206,8 @@ class MailReadControllerTest {
     @DisplayName("GET detail → 200")
     void detailOk() throws Exception {
         MailDetailResponse dto = new MailDetailResponse("abc123", 42L, "INBOX", "subj", "from@x.cz", "to@x.cz", null,
-                null, "<p>body</p>", LocalDateTime.of(2026, 1, 1, 10, 0), true, false, false, "<msgid>", null, null,
-                false, List.of(), null, null);
+                null, LocalDateTime.of(2026, 1, 1, 10, 0), true, false, false, "<msgid>", null, null, false, List.of(),
+                null);
         when(mailFacade.getEmailDetailByStableId("abc123")).thenReturn(dto);
 
         mockMvc.perform(get("/api/v1/messages/abc123")).andExpect(status().isOk())

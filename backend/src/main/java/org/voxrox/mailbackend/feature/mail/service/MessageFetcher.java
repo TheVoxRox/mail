@@ -96,10 +96,9 @@ public class MessageFetcher {
         // MIME structure traversal triggers a lazy BODYSTRUCTURE fetch. Some IMAP
         // servers (e.g. Seznam) occasionally return malformed BODYSTRUCTURE for
         // individual messages — persist an envelope-only stub so the message still
-        // appears in the list. The detail endpoint will retry the content fetch and
-        // surface contentError dynamically (see MailFacade.getEmailDetailByStableId).
+        // appears in the list. Opening it retries the body fetch through the content
+        // endpoint, which reports its own failure (see MailContentService).
         List<AttachmentResponse> attachments;
-        String contentError = null;
         try {
             attachments = MimePartExtractor.extractAttachmentMetadata(message, "");
         } catch (MessagingException | IOException | RuntimeException e) {
@@ -111,7 +110,6 @@ public class MessageFetcher {
                             + "Persisting envelope-only stub; body and attachments unavailable until next sync.",
                     LogCategory.IMAP, uid, folderName, e.getMessage());
             attachments = List.of();
-            contentError = e.getMessage();
         }
 
         // Threading headers (In-Reply-To, References, Message-ID) are pre-fetched by
@@ -142,9 +140,8 @@ public class MessageFetcher {
         String stableId = null;
         String threadId = null;
 
-        return new MailDetailResponse(stableId, uid, folderName, safeSubject, sender, to, cc, bcc, null, receivedAt,
-                seen, flagged, answered, messageId, inReplyTo, references, !attachments.isEmpty(), attachments,
-                contentError, threadId);
+        return new MailDetailResponse(stableId, uid, folderName, safeSubject, sender, to, cc, bcc, receivedAt, seen,
+                flagged, answered, messageId, inReplyTo, references, !attachments.isEmpty(), attachments, threadId);
     }
 
     private @Nullable String joinAddresses(@Nullable Address[] addresses) {
