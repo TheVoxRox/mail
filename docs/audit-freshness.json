@@ -110,7 +110,7 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "52d81fe07b7b2944cd3d2811ccde7dc44883b316",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "17fee41b79b09a3d70d4efbf87e5a928e06279e8",
       "backend/src/main/java/org/voxrox/mailbackend/core/config/mail": "7ac85397ace1e22b51e91c525f6c3a60dc2b949a"
     },
     "acknowledgements": [
@@ -129,17 +129,38 @@
       {
         "date": "2026-09-20",
         "note": "A comment, and nothing else. Verified rather than assumed: every added and removed line under this path that is neither a javadoc line nor blank comes back empty, and the whole change is the javadoc of FlagSyncService.syncMessageFlagsCondstore. It still sent the reader to ctx.syncState().getLastKnownModseq() although the body had moved to getModseqBaseline() in the change this audit last acknowledged -- that is, to the accessor that hands back the -1 a server reporting no HIGHESTMODSEQ leaves in the column, which is what stranded a Dovecot folder. No executable line moved anywhere under feature/mail/service: TLS and authentication, the connection pool, the protocol commands, what is fetched and what is written to the log are byte-identical, and core/config/mail is untouched. Verdict stays PASS."
+      },
+      {
+        "date": "2026-09-22",
+        "note": "The message detail stops fetching the body, and v1.8 rewrites the two section 2 sentences that described that fetch. Four files moved under feature/mail/service. MailFacade.getEmailDetailByStableId no longer calls MailContentService and is a read-only transaction over the local DB; the body path, getMessageContentOnly into MailContentService.getOrFetchMessageContent, is unchanged, so the lazy fetch on open and the section 4 body cap stand. MessageFetcher: the catch around extractAttachmentMetadata keeps its three types and the envelope-only stub, and no longer copies the exception message onto the DTO, which MessageMapper.toEntity never read; the FetchProfile is untouched. DraftPersistenceService passes the record one argument fewer and the same values otherwise. MailContentService: one comment. No TLS or authentication setting, connection pool, lane, fetch profile, MIME walk, bound or header walk moved. Verdict stays PASS."
       }
     ]
   },
   "docs/API_SURFACE_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/core/diagnostic": "2f830b8f86c784029fa29108e27385672cec65be"
+      "backend/src/main/java/org/voxrox/mailbackend/core/diagnostic": "2f830b8f86c784029fa29108e27385672cec65be",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/controller": "9e1abcc70816cca08513be07583428c14aa03b27",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "4bae0363e3dd353d3bb294c7b6a6e52669b9891c"
     },
     "acknowledgements": [
       {
         "date": "2026-09-20",
         "note": "First note after the v1.9 re-verification of 2026-09-19, and it is what the dump omits, not what the API exposes. One path moved and the whole diff is DiagnosticDumpService: withoutHome trims a trailing separator off user.home before the prefix comparison, through a new private helper, because the comparison requires a separator after the home -- that is what keeps C:\\Users\\Lukas2 from matching the home C:\\Users\\Lukas -- and a home that already ended in one left the rest starting with a directory name, so the path came back whole with the Windows account name in it. Checked against the three things that could move a verdict here. (1) No endpoint, method, path or authentication requirement changes: the diagnostic dump is the same endpoint behind the same API key, and no controller is in this diff. (2) The response shape is identical -- the same seven JSON entries in the same ZIP, the same records, the same field names. (3) The payload can only lose what it was already meant to lose: the fix makes an existing redaction fire in a case where it silently did not, and nothing is added. Folder pseudonyms, the masked address and the rest of the bundle are untouched, and the new test drives the real createDump() with a user.home that carries a separator. Verdict stays PASS."
+      },
+      {
+        "date": "2026-09-22",
+        "note": "The message detail stops fetching the body. Two paths moved. dto: MailDetailResponse loses body and contentError, and its javadoc now says it carries everything but the body; no field is added, and the record is a response, so no request-body size limit or validation constraint is involved. controller: the OpenAPI descriptions of GET /messages/{stableId} and GET /messages/{stableId}/content now say which of the two contacts the mail server; the mappings, the path variables with their @NotBlank and @Size, and the returned types are unchanged. No endpoint, method, path, authentication rule or error mapping moves, the controller enumeration is the same, and one response loses two fields, which narrows what it discloses. Verdict stays PASS."
+      }
+    ]
+  },
+  "docs/CONTENT_RENDERING_AUDIT.md": {
+    "reviewedTrees": {
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailContentService.java": "590401e5f38d85cfe9e482486932308c3d0e022d"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-09-22",
+        "note": "A comment, and nothing else: the two changed lines of MailContentService are the comment on the catch around body extraction. It said the wrapped exception lets MailFacade surface a contentError on the cached body; the message detail no longer calls this service and the field is gone, so it now says the caller gets a typed mail error instead of a 500. The sanitize call, the cid collection, the plain-text escape, the byte cap and the oversize flag are byte-identical, and the body still reaches the frame only through /content, which returns what this service produced. Verdict stays PASS."
       }
     ]
   }
