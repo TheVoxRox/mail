@@ -142,7 +142,7 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "a31feb199fc22173bd40bf74a12567bac24f8597"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "2f88a220d4225b1021143e780501c21e9c490127"
     },
     "acknowledgements": [
       {
@@ -152,6 +152,10 @@
       {
         "date": "2026-09-22",
         "note": "The fix for B1-3, recorded in the audit itself as v1.11 (sections 2, 4c and 4g). Under feature/mail/service, BoundedImapStore and BoundedImapProtocol are new: the store makes every connection a BoundedImapProtocol, whose readResponse refuses EXISTS above 2M and VANISHED on a connection without QRESYNC, above 1M UIDs (EARLIER) or 100k (untagged), or unparseable. ImapConnectionManager.createNewConnectedStore and MailConnectionProbe.testImap register the store on the session before getStore and change nothing else; MailSyncService.buildResyncRequest returns null for a local UID range wider than the EARLIER bound; FlagSyncService.deleteVanished streams the named UIDs into batches clamped to the local UID range, reading only its two ends. Re-read against section 2's two QRESYNC bullets and section 4c, which the change is about, and against section 1's connection setup, which it touches only by the added registration: TLS, timeouts, partialfetch, lanes and retries are untouched, and so is the fetch-parse-persist path after the open. B1-3 moves from open to fixed; B1-7, found while reading for the fix, is new and open; the other verdicts do not move."
+      },
+      {
+        "date": "2026-09-22",
+        "note": "The fix for B1-7, recorded in the audit itself as v1.13 (section 4g). One file under feature/mail/service changes: BoundedImapProtocol gains getResponseBuffer(), which hands Angus a BoundedByteArray refusing to grow one response past 32 MiB, and a catch in readResponse() that turns any RuntimeException from the read into the same connection-closing IOException as a refused response. Nothing else in the class moves -- the EXISTS and VANISHED bounds of B1-3 and their parsing are untouched -- and no other file under the path changes. Re-read against section 4g, which the change is about, and against section 4c, whose residual named the literal as a separate route and now names it fixed. Section 1's connection setup, section 2's pipeline and everything after them are untouched. The finding moves from open to fixed; the other verdicts do not move."
       }
     ]
   }

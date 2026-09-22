@@ -3,6 +3,7 @@ package org.voxrox.mailbackend.feature.mail.service;
 import java.io.IOException;
 import java.util.Properties;
 
+import org.eclipse.angus.mail.iap.ByteArray;
 import org.eclipse.angus.mail.iap.ProtocolException;
 import org.eclipse.angus.mail.iap.Response;
 import org.eclipse.angus.mail.imap.protocol.IMAPProtocol;
@@ -38,6 +39,15 @@ import org.voxrox.mailbackend.util.LogCategory;
  * allocations: Angus parses a response only after reading it in full through
  * here, so the check sees each response before anything is sized from it.
  * <p>
+ * A fourth size is stated lower down, and needs a second hook. A literal
+ * announces its length as {@code {n}} at the end of a line, and
+ * {@code ResponseInputStream.readResponse} grows the buffer to hold {@code n}
+ * before the literal's first byte arrives — before the response exists as an
+ * object {@link #refusal} could look at (B1-7). Its one allocation point is
+ * {@code ByteArray.grow}, on the buffer {@link #getResponseBuffer()} hands
+ * Angus, so the buffer this class hands over is a {@link BoundedByteArray} that
+ * refuses to grow past {@link #MAX_RESPONSE_BYTES}.
+ * <p>
  * A refusal is an {@link IOException} on purpose. Angus ends a command that
  * fails to read a response with a synthetic BYE, so the command fails with a
  * {@code ConnectionException}, the folder or store closes, and the sync records
@@ -45,11 +55,6 @@ import org.voxrox.mailbackend.util.LogCategory;
  * not do: {@code Protocol.command} logs and <em>skips</em> a response that
  * fails that way, which here would quietly drop an EXISTS and leave Angus
  * counting a folder wrongly.
- * <p>
- * What this does not bound: the size a <em>literal</em> declares.
- * {@code ResponseInputStream} grows its buffer for a {@code {n}} before the
- * response exists as an object this class could look at — a separate finding
- * (B1-7) with a separate fix.
  * <p>
  * The check keeps no state of its own, and it must not start to. The superclass
  * constructor reads the server greeting through {@link #readResponse()}, which
@@ -101,6 +106,28 @@ final class BoundedImapProtocol extends IMAPProtocol {
      */
     static final long MAX_LIVE_VANISHED_UIDS = 100_000;
 
+    /**
+     * Bytes one response may occupy, which is what a literal's declared size buys a
+     * hostile server (B1-7). Measured against Angus 2.0.5 on the packaged 384 MB
+     * heap: {@code {300000000}} followed by nothing allocates 300,000,042 bytes and
+     * holds them until the read timeout, and {@code {2000000000}} ends in an
+     * {@code OutOfMemoryError}.
+     * <p>
+     * 32 MiB is far above any literal this client asks for and far below what hurts
+     * it. Bodies are fetched in partial fetches — {@code partialfetch} is pinned on
+     * in {@code ImapConnectionManager} and Angus's {@code fetchsize} default is 16
+     * KiB — so a body literal is three orders of magnitude under the bound,
+     * whatever the message weighs; the largest single literal left is a header
+     * block or an envelope string. The headroom is for a server that ignores the
+     * partial request and answers with the whole part: that stays readable up to 32
+     * MiB, above which {@code MimePartExtractor}'s own 8 MiB cap would have served
+     * the "message too large" placeholder anyway.
+     */
+    static final int MAX_RESPONSE_BYTES = 32 * 1024 * 1024;
+
+    /** What Angus starts a response buffer at when it is handed none. */
+    private static final int INITIAL_RESPONSE_BYTES = 128;
+
     BoundedImapProtocol(String name, String host, int port, Properties props, boolean isSSL, MailLogger logger)
             throws IOException, ProtocolException {
         super(name, host, port, props, isSSL, logger);
@@ -108,7 +135,31 @@ final class BoundedImapProtocol extends IMAPProtocol {
 
     @Override
     public Response readResponse() throws IOException, ProtocolException {
-        Response response = super.readResponse();
+        Response response;
+        try {
+            response = super.readResponse();
+        } catch (RuntimeException e) {
+            /*
+             * A response Angus cannot read leaves the connection mid-response, with the
+             * bytes of whatever it was reading still to come, so it must not go back to the
+             * pool: the next command would parse the remainder as its own reply. An
+             * unchecked exception would leave it there, because ImapFolderExecutor turns
+             * one into a MailOperationException and closes only the folder.
+             *
+             * The refusal from BoundedByteArray arrives this way, and so do the two shapes
+             * a literal takes at the top of the int range, both measured: a declared size
+             * in 2147483603..2147483631 overflows the array length inside grow
+             * (NegativeArraySizeException), and 2147483632 and up overflow the
+             * "does it fit" test so Angus skips the grow and reads past the buffer
+             * (IndexOutOfBoundsException). Neither allocates anything, which is why the
+             * bound alone does not cover them. A genuine parser fault lands here too and is
+             * handled the same way on purpose — the connection's state is unknown either
+             * way — with the cause kept for the log.
+             */
+            log.warn("{} Could not read a response from IMAP server {} ({}). Closing the connection.", LogCategory.IMAP,
+                    host, e.toString());
+            throw new ImplausibleResponseException("the response could not be read (" + e + ")", e);
+        }
         if (response instanceof IMAPResponse imapResponse) {
             String refusal = refusal(imapResponse, isEnabled("QRESYNC"));
             if (refusal != null) {
@@ -118,6 +169,60 @@ final class BoundedImapProtocol extends IMAPProtocol {
             }
         }
         return response;
+    }
+
+    /**
+     * The buffer Angus reads the next response into: the one it was given for a
+     * body fetch, or a fresh one of the size Angus would have made itself, in
+     * either case bounded. Angus reads only {@code getBytes()} and
+     * {@code getCount()} back off it, so wrapping the caller's buffer keeps its
+     * backing array in use and changes nothing else.
+     * <p>
+     * It must be non-null: {@code ResponseInputStream.readResponse} makes a plain
+     * {@code ByteArray} of its own for a null, which no bound would reach.
+     */
+    @Override
+    protected ByteArray getResponseBuffer() {
+        ByteArray reused = super.getResponseBuffer();
+        return reused == null
+                ? new BoundedByteArray(new byte[INITIAL_RESPONSE_BYTES], 0, INITIAL_RESPONSE_BYTES)
+                : new BoundedByteArray(reused.getBytes(), reused.getStart(), reused.getCount());
+    }
+
+    /**
+     * A response buffer that will not grow past {@link #MAX_RESPONSE_BYTES}. Both
+     * of Angus's growth paths run through here: the doubling that reads a long
+     * line, and the one jump to a literal's declared size, which is the one a
+     * server chooses.
+     */
+    static final class BoundedByteArray extends ByteArray {
+
+        BoundedByteArray(byte[] bytes, int start, int count) {
+            super(bytes, start, count);
+        }
+
+        @Override
+        public void grow(int increment) {
+            int current = getBytes().length;
+            // Subtraction rather than current + increment, which overflows for exactly
+            // the increments this refuses.
+            if (increment < 0 || current > MAX_RESPONSE_BYTES - increment) {
+                throw new OversizedResponseException(current, increment);
+            }
+            super.grow(increment);
+        }
+    }
+
+    /**
+     * Thrown from {@link BoundedByteArray#grow}, which cannot declare a checked
+     * exception. {@link #readResponse()} turns it into the connection-closing
+     * {@link ImplausibleResponseException}; it must not escape this class.
+     */
+    static final class OversizedResponseException extends RuntimeException {
+
+        OversizedResponseException(int current, int increment) {
+            super("a response asking to grow " + current + " bytes by " + increment + " past " + MAX_RESPONSE_BYTES);
+        }
     }
 
     /**
@@ -194,6 +299,10 @@ final class BoundedImapProtocol extends IMAPProtocol {
     static final class ImplausibleResponseException extends IOException {
         ImplausibleResponseException(String reason) {
             super("Refused an implausible IMAP response: " + reason);
+        }
+
+        ImplausibleResponseException(String reason, Throwable cause) {
+            super("Refused an implausible IMAP response: " + reason, cause);
         }
     }
 }

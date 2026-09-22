@@ -131,6 +131,47 @@ class HostileImapResponseIT {
         assertThat(after.getLastError()).contains("implausible IMAP response").contains("VANISHED");
     }
 
+    /**
+     * B1-7. Angus grows its buffer to the size the literal declares before the
+     * literal's first byte arrives, so the size is the server's and the allocation
+     * happens below the response check above. The declared size here is just past
+     * the bound rather than the 2 GB the audit measured: what the bound refuses is
+     * the point, and against the unfixed code this still fails — there it is the
+     * read timeout that ends the pass, three seconds later and with a socket error,
+     * not a refusal.
+     */
+    @Test
+    @DisplayName("A folder open that declares a literal larger than any response fails the pass instead of the heap")
+    void anOversizedLiteralFailsThePass() {
+        SERVER.answerOpenWith("* OK [ALERT] {" + (BoundedImapProtocol.MAX_RESPONSE_BYTES + 1) + "}");
+
+        AccountEntity after = pass();
+
+        assertThat(after.getLastErrorCode()).isNotNull();
+        assertThat(after.getLastError()).contains("implausible IMAP response").contains("could not be read");
+    }
+
+    /**
+     * The shape of B1-7 the bound cannot see. Angus decides whether to grow by
+     * comparing {@code count + 16} against the room left, and for a size this close
+     * to {@link Integer#MAX_VALUE} that sum overflows to a negative number, so it
+     * grows nothing and reads past the buffer instead. Nothing is allocated and
+     * nothing reaches {@code ByteArray.grow}; what makes it matter is that the
+     * unchecked exception would otherwise leave a connection mid-response in the
+     * pool, where the next command would read the rest of this one as its own
+     * reply.
+     */
+    @Test
+    @DisplayName("A literal declared at the top of the int range ends the connection, not the pass in a stuck state")
+    void aLiteralAtTheTopOfTheRangeFailsThePass() {
+        SERVER.answerOpenWith("* OK [ALERT] {" + Integer.MAX_VALUE + "}");
+
+        AccountEntity after = pass();
+
+        assertThat(after.getLastErrorCode()).isNotNull();
+        assertThat(after.getLastError()).contains("implausible IMAP response").contains("could not be read");
+    }
+
     @Test
     @DisplayName("A refused response costs one pass: the next ordinary answer syncs again")
     void theNextOrdinaryAnswerSyncsAgain() {
