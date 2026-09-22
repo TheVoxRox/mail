@@ -161,16 +161,12 @@ public class FlagSyncService {
      * Both halves are idempotent, so re-reporting costs nothing.
      */
     public void applyResyncEvents(FolderSyncContext ctx, List<MailEvent> events) {
-        List<Long> vanished = new ArrayList<>();
+        List<long[]> vanished = new ArrayList<>();
         List<FlagChange> changes = new ArrayList<>();
 
         for (MailEvent event : events) {
             switch (event) {
-                case MessageVanishedEvent vanishedEvent -> {
-                    for (long uid : vanishedEvent.getUIDs()) {
-                        vanished.add(uid);
-                    }
-                }
+                case MessageVanishedEvent vanishedEvent -> vanished.add(vanishedEvent.getUIDs());
                 case MessageChangedEvent changedEvent -> {
                     FlagChange change = toFlagChange(ctx, changedEvent);
                     if (change != null) {
@@ -240,24 +236,38 @@ public class FlagSyncService {
     }
 
     /**
-     * Deletes the vanished UIDs in batches. The server's VANISHED set is bounded by
-     * the UID <em>range</em> the client asked about, not by how many rows it holds
-     * inside that range — a mailbox whose older mail was purged server-side can
-     * name far more UIDs than the client ever had, and an unbounded {@code IN} list
-     * would eventually exceed what the database accepts in one statement.
+     * Deletes the local rows among the vanished UIDs, one batch at a time.
+     * <p>
+     * What the server names is bounded only by {@link BoundedImapProtocol}, at a
+     * million UIDs — more than the folder holds even on an honest server: a
+     * VANISHED set covers the UID <em>range</em> the client asked about, not the
+     * rows it holds inside it, so a mailbox whose older mail was purged server-side
+     * names far more UIDs than the client ever had. So neither side is materialized
+     * (IMAP/SMTP audit B1-3). The server's UIDs stream into batches of the
+     * configured sync size, each deleted as it fills, and the folder's own UIDs are
+     * never read: a batch that names rows the folder does not hold simply deletes
+     * nothing. What is read is the two ends of the local range, which the index
+     * answers. A UID outside them cannot be a local row, so dropping those costs a
+     * comparison instead of a statement — which is what a server that ignores the
+     * known-UID range (RFC 7162 says only "should") would otherwise buy itself.
      */
-    private void deleteVanished(FolderSyncContext ctx, List<Long> vanishedUids) {
-        if (vanishedUids.isEmpty()) {
+    private void deleteVanished(FolderSyncContext ctx, List<long[]> reported) {
+        if (reported.isEmpty()) {
             return;
         }
-        log.debug("{} Deleting {} message(s) reported as vanished in folder {} (QRESYNC).", LogCategory.SYNC,
-                vanishedUids.size(), ctx.folderName());
-        List<List<Long>> batches = vanishedUids.stream().gather(Gatherers.windowFixed(mailProps.sync().batchSize()))
-                .toList();
-        for (List<Long> batch : batches) {
-            transactionTemplate.executeWithoutResult(status -> messageRepository
-                    .deleteAllByAccountIdAndFolderNameAndUidIn(ctx.getAccountId(), ctx.folderName(), batch));
+        Long localMin = messageRepository.findMinUid(ctx.getAccountId(), ctx.folderName());
+        Long localMax = messageRepository.findMaxUid(ctx.getAccountId(), ctx.folderName());
+        if (localMin == null || localMax == null) {
+            return;
         }
+        long min = localMin;
+        long max = localMax;
+        log.debug("{} {} UID(s) reported as vanished in folder {} (QRESYNC); deleting those within {}-{}.",
+                LogCategory.SYNC, reported.stream().mapToLong(uids -> uids.length).sum(), ctx.folderName(), min, max);
+        reported.stream().flatMapToLong(Arrays::stream).filter(uid -> uid >= min && uid <= max).boxed()
+                .gather(Gatherers.windowFixed(mailProps.sync().batchSize()))
+                .forEach(batch -> transactionTemplate.executeWithoutResult(status -> messageRepository
+                        .deleteAllByAccountIdAndFolderNameAndUidIn(ctx.getAccountId(), ctx.folderName(), batch)));
     }
 
     /**

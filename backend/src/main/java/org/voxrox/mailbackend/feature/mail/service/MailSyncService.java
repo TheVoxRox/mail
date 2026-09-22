@@ -468,15 +468,16 @@ public class MailSyncService {
 
     /**
      * The QRESYNC parameters for this folder's next SELECT, or {@code null} when
-     * the folder cannot be resynchronized yet.
+     * the folder cannot be resynchronized, yet or at all.
      *
      * <p>
-     * Every null here is a first-cycle condition rather than error handling. The
-     * row itself does not exist until the folder's first cycle creates it — read,
-     * never created, precisely so that asking about a folder the server does not
-     * have leaves nothing behind. A folder has no MODSEQ baseline until a CONDSTORE
-     * cycle has stored one (see {@code FlagSyncService.syncMessageFlagsCondstore}),
-     * and no UID range until it holds rows. So a fresh folder is opened without
+     * Every null but the last is a first-cycle condition rather than error
+     * handling; the last is a UID range too wide to ask about. The row itself does
+     * not exist until the folder's first cycle creates it — read, never created,
+     * precisely so that asking about a folder the server does not have leaves
+     * nothing behind. A folder has no MODSEQ baseline until a CONDSTORE cycle has
+     * stored one (see {@code FlagSyncService.syncMessageFlagsCondstore}), and no
+     * UID range until it holds rows. So a fresh folder is opened without
      * resynchronization once and resynchronizes from the cycle after.
      */
     private @Nullable ResyncRequest buildResyncRequest(Long accountId, String folderName) {
@@ -494,6 +495,17 @@ public class MailSyncService {
         Long minUid = messageRepository.findMinUid(accountId, folderName);
         Long maxUid = messageRepository.findMaxUid(accountId, folderName);
         if (minUid == null || maxUid == null) {
+            return null;
+        }
+        /*
+         * A range wider than a VANISHED (EARLIER) may name would let a server that
+         * keeps to it be refused by BoundedImapProtocol, and the next SELECT would ask
+         * about the same range. Such a folder takes the CONDSTORE path instead, which
+         * needs no bound: it enumerates UIDs rather than being told them.
+         */
+        if (maxUid - minUid >= BoundedImapProtocol.MAX_EARLIER_VANISHED_UIDS) {
+            log.debug("{} Folder {} spans UIDs {}-{}, wider than one VANISHED may name; not resynchronizing it.",
+                    LogCategory.SYNC, folderName, minUid, maxUid);
             return null;
         }
         return new ResyncRequest(uidValidity, modseqBaseline, minUid, maxUid);

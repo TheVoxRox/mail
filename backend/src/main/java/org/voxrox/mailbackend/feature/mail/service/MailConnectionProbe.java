@@ -66,7 +66,10 @@ public class MailConnectionProbe {
 
         Store store = null;
         try {
-            store = Session.getInstance(props).getStore(protocol);
+            Session session = Session.getInstance(props);
+            // The same bounded store the connection pool uses — see BoundedImapStore.
+            BoundedImapStore.install(session, protocol);
+            store = session.getStore(protocol);
             if (details.authType() == AuthType.OAUTH2) {
                 OAuth2TokenService tokenService = oauth2TokenServiceRegistry.resolve(details.oauth2Provider());
                 String accessToken = tokenService.getAccessToken(accountId, details.passwordOrSecret(),

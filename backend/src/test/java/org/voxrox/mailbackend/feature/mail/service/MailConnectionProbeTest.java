@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -20,6 +21,7 @@ import java.util.Properties;
 
 import jakarta.mail.AuthenticationFailedException;
 import jakarta.mail.MessagingException;
+import jakarta.mail.Provider;
 import jakarta.mail.Session;
 import jakarta.mail.Store;
 import jakarta.mail.Transport;
@@ -30,6 +32,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -98,6 +101,26 @@ class MailConnectionProbeTest {
                     .isInstanceOf(MailConnectionException.class).hasMessageContaining("SSL/TLS");
 
             verifyNoInteractions(oauth2TokenServiceRegistry, smtpTransportFactory);
+        }
+
+        @Test
+        @DisplayName("The probe opens the same bounded store the pool does (audit B1-3)")
+        void probeUsesTheBoundedStore() throws Exception {
+            Session sessionMock = mock(Session.class);
+            when(sessionMock.getStore("imaps")).thenReturn(mock(Store.class));
+
+            try (MockedStatic<Session> staticSession = mockStatic(Session.class)) {
+                staticSession.when(() -> Session.getInstance(any(Properties.class))).thenReturn(sessionMock);
+
+                probe.testImap(ACCOUNT_ID, passwordDetails(true));
+            }
+
+            ArgumentCaptor<Provider> provider = ArgumentCaptor.forClass(Provider.class);
+            InOrder order = inOrder(sessionMock);
+            order.verify(sessionMock).setProvider(provider.capture());
+            order.verify(sessionMock).getStore("imaps");
+            assertThat(provider.getValue().getProtocol()).isEqualTo("imaps");
+            assertThat(provider.getValue().getClassName()).isEqualTo(BoundedImapStore.class.getName());
         }
 
         @Test

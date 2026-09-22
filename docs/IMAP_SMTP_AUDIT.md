@@ -2,14 +2,14 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.10                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **Version**        | 1.11                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | **Date**           | 2026-09-22                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | **Audited commit** | `6224cbb` (re-verified 2026-09-22, clearing six acknowledgements; 1.7–1.8 anchor `9435e56`, re-verified 2026-09-16; 1.6 anchor `02ff962`, recorded pre-squash as `f5b75ad`; 1.5 anchor `885b98a`, re-verified 2026-09-02 at the ledger cap; 1.3–1.4 anchor `cad05cb`, recorded pre-squash as `3ff0c78`; 1.0–1.2 baseline: `35a06f3`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service`, `backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java`, `backend/src/main/java/org/voxrox/mailbackend/util/SubjectNormalizer.java`, `backend/src/main/java/org/voxrox/mailbackend/core/config/mail`, `backend/src/main/java/org/voxrox/mailbackend/core/config/RetryConfig.java`, `backend/src/main/resources/application.properties`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/MessageRepository.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/MessageEntity.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/FolderSyncStateEntity.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/mapper/MessageMapper.java` |
 | **Auditor**        | Claude (Fable 5; 1.9 re-verified by Claude Opus 5) + owner review                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | **Subsystem**      | External mail server ↔ sidecar — Boundary 1 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| **Verdict**        | **Security: open findings** — three found at 1.9 by the independent verification pass and not yet fixed: **B1-3** (Medium, a QRESYNC `VANISHED` range exhausts the heap, §4c), **B1-5** (Medium, sending an untouched draft trusts and buffers the server's copy, §4e), **B1-6** (Low, no IMAP write timeout, §4f). Fixed in code: **B1-4** (High, IMAP password login without TLS when SSL was off, 2026-09-22, §4d), **B1-1** (Medium, unbounded body fetch, 2026-07-10, §4) and **B1-2** (Medium, quadratic subject normalization, 2026-08-08, §4b). Informational notes in §5.                                                                                                                                                                                                                         |
+| **Verdict**        | **Security: open findings** — three open: **B1-5** (Medium, sending an untouched draft trusts and buffers the server's copy, §4e), **B1-7** (Medium, a declared literal size is allocated before a byte arrives, found at 1.11, §4g), **B1-6** (Low, no IMAP write timeout, §4f). Fixed in code: **B1-3** (Medium, a server-stated size exhausted the heap before our code ran, 2026-09-22, §4c), **B1-4** (High, IMAP password login without TLS when SSL was off, 2026-09-22, §4d), **B1-1** (Medium, unbounded body fetch, 2026-07-10, §4) and **B1-2** (Medium, quadratic subject normalization, 2026-08-08, §4b). Informational notes in §5.                                                                                                                                                          |
 
 Full per-subsystem audit of the path **"raw IMAP/SMTP wire → parsed → stored /
 sent"**. After the mail body (Boundary 4), this is the second-largest
@@ -41,6 +41,8 @@ a rejected access token refreshed once and a revoked refresh token turned into
 a sign-in request (§1, retry scoping), and `MailSyncQresyncDovecotIT` a
 deletion and a flag change learnt from the QRESYNC SELECT against Dovecot 2.4.5
 (§2). The last needs Docker and is skipped without it; CI always has Docker.
+Since 1.11 `HostileImapResponseIT` syncs from an IMAP server written for the
+test, which answers a folder open with sizes no real server sends (§4c).
 **Verification at 1.9** was done twice: by the author of the version, and
 then, as [AUDIT_GUIDE.md](AUDIT_GUIDE.md) §5 requires, by a separate agent
 without the author's context, which re-checked every claim against the tree
@@ -211,7 +213,9 @@ corrections listed in the 1.9 change-log entry.
   credential is read from the event: it carries UIDs and flags. What this bullet
   did not weigh until 1.9 is the cost of materializing those UIDs: Angus
   expands the server's range before our code sees the event, and a single
-  short range exhausts the heap — finding **B1-3** (§4c).
+  short range exhausts the heap — finding **B1-3** (§4c), fixed at 1.11 by a
+  check on every response ahead of Angus, with the delete now streaming the
+  UIDs into batches, clamped to the folder's local UID range.
 - **A folder without a QRESYNC baseline opens with CONDSTORE, and the server
   picks the modseq it is asked from next time** (carried up at 1.9 from the
   ledger). `ImapFolderExecutor.executeReadOnlyResynced` opens QRESYNC when
@@ -504,38 +508,111 @@ normalizes in under a millisecond.
 Both were run against the reverted fix and both fail there — the pathological
 one after 101.8 s — so the budget is empirically load-bearing, not decorative.
 
-## 4c. Finding B1-3 (Medium) — a QRESYNC `VANISHED` range exhausts the heap — **OPEN**
+## 4c. Finding B1-3 (Medium) — a server-stated size exhausts the heap before our code runs — **FIXED**
 
-**What.** A folder with a QRESYNC baseline opens through Angus
-`IMAPFolder.open(int, ResyncData)`, which turns the server's
-`VANISHED (EARLIER)` response into a `MessageVanishedEvent` by expanding the
-UID set with `UIDSet.toArray(set, uidnext)` — a `new long[size]` whose size is
-computed from the server's ranges, **before any of our code runs** (read in the
-Angus 2.0.5 bytecode at 1.9). The ranges and UIDNEXT both come from the server,
-so one short response line such as `* VANISHED (EARLIER) 1:200000000` asks for
-about 1.6 GB of `long` on the packaged 384 MB heap, and
-`FlagSyncService.applyResyncEvents` would then box every UID into a
-`List<Long>` before batching. The javadoc there assumes the server honours the
-UID range the request names; a hostile one need not. §2's QRESYNC bullet is
-right that the event carries only UIDs — the cost is in materializing them.
+**What.** Angus allocates from sizes the server states, while it is still
+parsing the response and before any of our code sees it. 1.9 found this on the
+QRESYNC open and titled it for that path; the fix, reading the same bytecode
+again at 1.11, found the QRESYNC open is one route of three, and all three
+exist on every folder open the backend makes:
 
-**Severity: Medium** (_DoS recoverable by restart_), with B1-2's weaker
-precondition: it runs during automatic sync, with no user interaction,
-whenever the server advertises QRESYNC and the folder has a baseline. It needs
-a hostile or compromised server; TLS keeps a network attacker out (B1-4
-aside). The `OutOfMemoryError` lands in the sync thread, and without
-`-XX:+ExitOnOutOfMemoryError` the process may stay up degraded instead of
-restarting.
+- `* n EXISTS` sizes the folder's message cache (`MessageCache`, one
+  reference per message) in every `IMAPFolder.open`.
+- `* VANISHED (EARLIER) set` is expanded into one `long` per UID
+  (`UIDSet.toArray(set, uidnext)`, UIDNEXT also the server's). `MailboxInfo`
+  collects VANISHED from _any_ SELECT or EXAMINE reply, so the plain and the
+  CONDSTORE open expand it too, whether or not QRESYNC was asked for.
+- `* VANISHED set` (untagged) is expanded the same way by
+  `IMAPFolder.handleResponse`, plus a message object per UID, whenever a
+  folder is open, without checking that QRESYNC was ever enabled.
 
-**Recommendation.** The expansion happens inside Angus, so it cannot be
-bounded from the event: either stop handing the resynchronizing open to Angus
-(issue the QRESYNC `SELECT` and parse `VANISHED` with a bound of our own, or
-drop QRESYNC and rely on CONDSTORE for flags and the UID enumeration for
-deletions, the path used before #416), or bound what the server can name
-before trusting it. Separately, `-XX:+ExitOnOutOfMemoryError` would turn any
-OOM into a restart the supervisor handles. Design decision at fix time.
+One short line of either kind asks for more than the packaged 384 MB heap
+holds. `FlagSyncService.applyResyncEvents` then boxed every vanished UID into
+a `List<Long>` before batching — the one part of this that was our code.
+Dropping QRESYNC, one of the options 1.9 listed, would have closed none of
+the three: a hostile server sends VANISHED whether it was asked for or not.
 
-**Status: open**, tracked in `todo.md`.
+**Severity: Medium** (_DoS recoverable by restart_): automatic sync, no user
+interaction, needs a hostile or compromised server; TLS keeps a network
+attacker out. An allocation that large fails before it takes memory, so the
+process stays up, but the `OutOfMemoryError` escapes the sync's
+`catch (Exception)`: nothing is recorded, and the pass skips its remaining
+folders.
+
+**Fix (shipped 2026-09-22).** Every IMAP store the backend opens is now a
+`BoundedImapStore`, registered on the session by the connection pool and by
+the credential probe before their `getStore`; its connections are a
+`BoundedImapProtocol`, whose `readResponse` — the one point between the wire
+and Angus's parse — holds each response to a bound before returning it:
+
+- EXISTS at most 2,000,000 (priced below);
+- no VANISHED at all on a connection that has not enabled QRESYNC: the
+  EARLIER form answers a QRESYNC SELECT or a `UID FETCH (VANISHED)`, and the
+  other replaces EXPUNGE once QRESYNC is enabled (RFC 7162 §3.2.10), so such
+  a client has asked for neither;
+- VANISHED (EARLIER) at most 1,000,000 UIDs, untagged VANISHED at most 100,000
+  (it also costs a message object per UID), counted with Angus's own parser;
+  a descending range, which Angus would size wrongly, and a line Angus's reader
+  cannot parse are refused as well.
+
+A count under the EXISTS bound is allocated, not refused, so the bound is
+priced per connection, with compressed pointers:
+
+- 4 bytes a message for the cache the SELECT sizes.
+- Up to 12 for a later EXISTS on the open folder. `IMAPFolder.handleResponse`
+  allocates a `Message[]` for the new messages whether or not anyone listens,
+  and grows the cache array. Once an EXPUNGE has been seen, it grows the
+  sequence-number array as well.
+
+An account holds three such connections at once: a move's source and
+destination on the `BACKGROUND` Store, and a body fetch on the `INTERACTIVE`
+one. So one server can take at most 72 MB, under a fifth of the heap. That is
+also less than the sync's own UID listing takes for an honest CONDSTORE folder
+of that size. The first version of the fix allowed 10,000,000, priced as
+40 MB for the SELECT alone, which let one server take 240 MB.
+
+A refusal is an `IOException`, which Angus turns into a synthetic BYE: the
+command fails with a `ConnectionException`, the connection closes, and the
+sync records the failure as for any dropped connection. A `ProtocolException`
+would not do — `Protocol.command` skips a response that fails that way. So
+that a server keeping to the known-UID range cannot be refused, the sync asks
+for QRESYNC only when the folder's local UID range is narrower than the
+VANISHED (EARLIER) bound (`MailSyncService.buildResyncRequest`); a wider
+folder takes the CONDSTORE path. `FlagSyncService.deleteVanished` no longer
+materializes the server's UIDs. It streams them into batches of the sync size
+and deletes each batch as it fills. UIDs outside the folder's local range are
+dropped first, using only its two ends from the index, because they cannot
+be local rows. So memory stays at one batch, whatever the server names. The
+first version of the fix intersected the set with every local UID instead,
+which bounded memory by the local mirror, but read the whole folder on every
+cycle that reported any deletion.
+
+**Regression tests.** `HostileImapResponseIT` syncs from an IMAP server
+written for the test (`HostileImapServer`, over TLS), which answers the open
+with `* 2147483583 EXISTS` or with `* VANISHED (EARLIER) 1:2147483647` under a
+lifted UIDNEXT. Run against the unfixed code, both end in
+`OutOfMemoryError: Requested array size exceeds VM limit` thrown out of the
+sync (from `MessageCache.ensureCapacity` and from `UIDSet.toArray`, both via
+the plain `IMAPFolder.open(int)`), and the error took the failsafe fork down
+with it; with the fix, each pass records a sync error and the next ordinary
+answer syncs again. `BoundedImapProtocolTest` pins each bound at its edge on
+responses parsed by Angus; `ImapConnectionManagerTest` and
+`MailConnectionProbeTest` that both paths register the bounded store before
+asking for one; `FlagSyncServiceTest` and `MailSyncServiceTest` the
+local-range clamp and the QRESYNC range limit. The new tests in those last
+four classes were run against the unfixed code and fail there. The exception
+is `FlagSyncServiceTest.localUidsAreNotRead`, which guards against the first
+version of the fix: it fails against that version, which read every local UID.
+
+**Residual.** A folder with more than 2,000,000 messages cannot be opened. A
+live VANISHED above 100,000 UIDs from an honest server — another client
+expunging that many while a sync has the folder selected — costs one retried
+cycle. The size a literal declares is a separate route, not covered here:
+B1-7 (§4g). `-XX:+ExitOnOutOfMemoryError` for the packaged JVM was held back
+until this fix (decided 2026-09-22), since until now a hostile server could
+have turned it into a crash loop.
+
+**Status: fixed.**
 
 ## 4d. Finding B1-4 (High) — IMAP password login without TLS when SSL is off — **FIXED**
 
@@ -635,6 +712,34 @@ connection, a cost to weigh against the lane count.
 
 **Status: open**, tracked in `todo.md`.
 
+## 4g. Finding B1-7 (Medium) — a declared literal size is allocated before a byte arrives — **OPEN**
+
+**What.** An IMAP literal announces its length (`{n}` at the end of a
+line), and Angus's `ResponseInputStream.readResponse` grows its buffer to
+`n` before reading the literal's bytes. `n` is the server's. Measured
+against Angus 2.0.5 on a 384 MB heap (at 1.11, through
+`IMAPProtocol.readResponse` over a stream): a declared `{2000000000}` fails
+at once with `OutOfMemoryError`, and a declared `{300000000}` followed by
+three bytes takes about 300 MB of heap before the stream ends. On a socket the
+server simply stops sending, and the buffer stays allocated until the read
+timeout — long enough for the rest of the process to run out. Any response can
+carry a literal, the ones the sync fetches included, so it needs no user
+action. The allocation happens before the response exists as an object, so
+`BoundedImapProtocol` (§4c) cannot see it; and B1-1's 8 MiB body cap (§4)
+bounds the bytes our code reads, not the buffer a partial fetch's literal
+declares.
+
+**Severity: Medium** (_DoS recoverable by restart_), the same precondition as
+B1-3: a hostile or compromised server, automatic sync.
+
+**Recommendation.** Refuse a declared size above a bound before Angus reads
+it, which means sitting under `ResponseInputStream` — a stream wrapper on the
+connection's socket, or `ByteArray.grow` in a buffer the protocol hands
+Angus. Which, and the bound (a literal legitimately carries a whole message
+when partial fetch is off), is a design decision at fix time.
+
+**Status: open**, tracked in `todo.md`.
+
 ## 5. Informational notes (no change required)
 
 - **Thread renumbering reads whole entities.**
@@ -702,6 +807,25 @@ connection, a cost to weigh against the lane count.
 
 ## 7. Change log
 
+- **1.11** (2026-09-22) — **B1-3 fixed, its scope corrected; B1-7 found**
+  (#561). Reading the Angus bytecode again for the fix showed the QRESYNC open
+  is one of three routes by which a server-stated size is allocated before our
+  code runs — EXISTS, and VANISHED in either form, on every folder open — so
+  §4c is retitled and the option of dropping QRESYNC, which would have closed
+  none of them, was not taken. The fix is a check on every IMAP response
+  ahead of Angus (`BoundedImapStore`, `BoundedImapProtocol`), a QRESYNC range
+  no wider than the VANISHED bound, and a delete that streams the named UIDs
+  in batches clamped to the local range. Review of the PR brought EXISTS down
+  from 10,000,000 to 2,000,000, priced over three connections rather than one
+  SELECT. It also replaced an intersection with every local UID, which read
+  the whole folder on each cycle that reported a deletion.
+  `HostileImapResponseIT` shows the unfixed code ending the sync in an
+  `OutOfMemoryError`. The same reading found B1-7 (Medium, §4g): a literal's
+  declared size is allocated before its bytes arrive, measured at about
+  300 MB for a `{300000000}` followed by three bytes. §2's QRESYNC bullet and
+  the method statement point at the fix. Drift under `Code paths`
+  acknowledged in the ledger, since only §2, §4c and §4g were re-read against
+  this change. B1-5, B1-6 and B1-7 stay open.
 - **1.10** (2026-09-22) — **B1-4 fixed** (#560): an IMAP account whose SSL
   setting is off gets required STARTTLS instead of a cleartext login, through
   one `ImapTransportSecurity` shared by the pool and the probe (§4d). §1 now

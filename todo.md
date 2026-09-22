@@ -69,10 +69,12 @@ Hotove reporty do 2026-06-07 jsou zamrazene v [todo-archive.md](todo-archive.md)
 
 ## Nalezy auditu IMAP/SMTP 1.9 (2026-09-22)
 
-Nezavisly overovaci pruchod re-verifikace ([docs/IMAP_SMTP_AUDIT.md](docs/IMAP_SMTP_AUDIT.md) v1.9, #559) nasel ctyri otevrene nalezy. Kazdy se opravuje zvlast, s testem, ktery nejdriv uvidim spadnout; u kazdeho je rozhodnuti na maintainerovi. Po oprave aktualizovat stav nalezu v auditu i radek v [SECURITY_THREAT_MODEL.md](SECURITY_THREAT_MODEL.md).
+Nezavisly overovaci pruchod re-verifikace ([docs/IMAP_SMTP_AUDIT.md](docs/IMAP_SMTP_AUDIT.md) v1.9, #559) nasel ctyri otevrene nalezy; paty (B1-7) se nasel pri oprave B1-3. Kazdy se opravuje zvlast, s testem, ktery nejdriv uvidim spadnout; u kazdeho je rozhodnuti na maintainerovi. Po oprave aktualizovat stav nalezu v auditu i radek v [SECURITY_THREAT_MODEL.md](SECURITY_THREAT_MODEL.md).
 
 - [x] **B1-4 (High)** — HOTOVO 2026-09-22 (#560): IMAP bez SSL pouziva povinne STARTTLS, bez vyjimky pro loopback; integracni testy bezi pres IMAPS se sdilenym testovacim certifikatem. Audit §4d.
-- [ ] **B1-3 (Medium) — rozsah `VANISHED` od serveru vycerpa haldu.** Angus v `IMAPFolder.open(int, ResyncData)` rozbali rozsah UID do jednoho pole driv, nez ho vidi nas kod. Rozhodnout mezi vlastnim QRESYNC SELECT s omezenim a navratem k CONDSTORE + enumeraci; zvazit `-XX:+ExitOnOutOfMemoryError`. Audit §4c.
+- [x] **B1-3 (Medium)** — HOTOVO 2026-09-22 (#561): kazda odpoved IMAP serveru se pred Angusem porovna s limity (`BoundedImapProtocol`: EXISTS, VANISHED), QRESYNC zustava. Nalez byl sirsi nez QRESYNC: stejne alokace dela i obycejne otevreni slozky. Audit §4c.
+- [ ] **B1-7 (Medium) — deklarovana velikost literalu se alokuje predem.** `ResponseInputStream` zvetsi buffer na `{n}` od serveru driv, nez dorazi prvni bajt, a strazce z B1-3 to nevidi. Rozhodnout, kde to omezit (obal socketu, nebo `ByteArray.grow`) a jaky limit. Audit §4g.
+- [ ] **`-XX:+ExitOnOutOfMemoryError` pro zabaleny sidecar** — rozhodnuto 2026-09-22: samostatny PR hned po B1-3, do `--java-options` v [backend/scripts/package-sidecar-windows.ps1](backend/scripts/package-sidecar-windows.ps1).
 - [ ] **B1-5 (Medium) — odeslani nezmeneneho konceptu posila kopii ze serveru.** [ImapAppendService.java](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/ImapAppendService.java) ji nacte bez limitu a [SmtpMessageService.java](backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/SmtpMessageService.java) ji posle jejim prijemcum. Rozhodnout: sestavit zpravu z lokalniho konceptu, nebo aspon porovnat prijemce a omezit velikost. Audit §4e.
 - [ ] **B1-6 (Low) — IMAP nema write timeout.** Doplnit `mail.<proto>.writetimeout` z nove vlastnosti. Audit §4f.
 

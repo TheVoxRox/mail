@@ -10,7 +10,9 @@ import java.security.cert.Certificate;
 import java.util.Base64;
 import java.util.concurrent.TimeUnit;
 
+import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.TrustManagerFactory;
 
 import org.jspecify.annotations.Nullable;
@@ -112,6 +114,23 @@ public final class TestTls {
             return pem("PRIVATE KEY", key.getEncoded());
         } catch (Exception e) {
             throw new IllegalStateException("Could not export the test private key", e);
+        }
+    }
+
+    /**
+     * A server socket factory presenting the certificate, for a test server this
+     * class does not otherwise reach: one written in the test itself
+     * ({@link HostileImapServer}).
+     */
+    public static SSLServerSocketFactory serverSocketFactory() {
+        try {
+            KeyManagerFactory keys = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+            keys.init(keystore(), PASSWORD.toCharArray());
+            SSLContext context = SSLContext.getInstance("TLS");
+            context.init(keys.getKeyManagers(), null, null);
+            return context.getServerSocketFactory();
+        } catch (Exception e) {
+            throw new IllegalStateException("Could not build the test TLS server socket factory", e);
         }
     }
 
