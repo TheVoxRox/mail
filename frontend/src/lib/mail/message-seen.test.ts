@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('$lib/api/mailAction.js', () => ({
 	setMessageFlag: vi.fn().mockResolvedValue(undefined)
@@ -15,6 +15,7 @@ vi.mock('$lib/stores/selectedMessage.js', () => ({
 
 import {
 	markMessageSeen,
+	overruleAutoMarkSeen,
 	resetSeenTrackerForSelection,
 	shouldMarkSelectedMessageSeen,
 	type MessageSeenTracker
@@ -136,12 +137,95 @@ describe('shouldMarkSelectedMessageSeen', () => {
 });
 
 describe('markMessageSeen', () => {
+	beforeEach(() => {
+		// What the user asked for lives until the selection moves, so each test
+		// starts from a fresh open of the message rather than from the last one's
+		// record (the module keeps it, vitest's mock reset does not reach it).
+		resetSeenTrackerForSelection('msg-42', {
+			selectedStableId: 'other',
+			markingSeenFor: null,
+			seenAttemptedFor: null
+		});
+	});
+
 	it('calls API, local cache update, detail patch and invalidate', async () => {
 		await markMessageSeen('msg-42');
 		expect(setMessageFlag).toHaveBeenCalledWith('msg-42', 'seen', true);
 		expect(markSeenLocally).toHaveBeenCalledWith('msg-42', true);
 		expect(patchSelectedMessageDetail).toHaveBeenCalledWith('msg-42', { seen: true });
 		expect(invalidateMessage).toHaveBeenCalledWith('msg-42');
+	});
+
+	it('yields to a user who asked for unread while it was in flight', async () => {
+		/*
+		 * The window is the request itself: a reader who opens a message and puts
+		 * it back as unread presses inside it. Patching the detail to read here
+		 * would undo that on screen, and leaving the server alone would let the
+		 * flag settle on whichever of the two requests the backend saw last - so
+		 * the state the user asked for is re-sent once this one has landed.
+		 */
+		let finish = () => {};
+		vi.mocked(setMessageFlag).mockImplementationOnce(
+			() => new Promise<void>((resolve) => (finish = resolve))
+		);
+		const inFlight = markMessageSeen('msg-42');
+
+		overruleAutoMarkSeen('msg-42', false);
+		finish();
+		await inFlight;
+
+		expect(patchSelectedMessageDetail).not.toHaveBeenCalled();
+		expect(markSeenLocally).not.toHaveBeenCalled();
+		expect(vi.mocked(setMessageFlag).mock.calls).toEqual([
+			['msg-42', 'seen', true],
+			['msg-42', 'seen', false]
+		]);
+		expect(invalidateMessage).toHaveBeenCalledWith('msg-42');
+	});
+
+	it('marks read as usual when the user asked for read as well', async () => {
+		// Ctrl+Q inside the same window asks for what the open was doing anyway;
+		// nothing to undo, and no second request to send.
+		let finish = () => {};
+		vi.mocked(setMessageFlag).mockImplementationOnce(
+			() => new Promise<void>((resolve) => (finish = resolve))
+		);
+		const inFlight = markMessageSeen('msg-42');
+
+		overruleAutoMarkSeen('msg-42', true);
+		finish();
+		await inFlight;
+
+		expect(patchSelectedMessageDetail).toHaveBeenCalledWith('msg-42', { seen: true });
+		expect(vi.mocked(setMessageFlag).mock.calls).toEqual([['msg-42', 'seen', true]]);
+	});
+
+	it('does not run at all when the user got there first', async () => {
+		// The other side of the same window: the press can also land before this
+		// starts, and then sending it would ask the backend for the opposite of
+		// what the user just asked for - and write the answer over their state.
+		overruleAutoMarkSeen('msg-42', false);
+
+		await markMessageSeen('msg-42');
+
+		expect(setMessageFlag).not.toHaveBeenCalled();
+		expect(patchSelectedMessageDetail).not.toHaveBeenCalled();
+	});
+
+	it('holds nothing against the next open of the same message', async () => {
+		// The record belongs to one open: a message overruled, left and opened
+		// again is marked read like any other.
+		overruleAutoMarkSeen('msg-42', false);
+		resetSeenTrackerForSelection('msg-42', {
+			selectedStableId: null,
+			markingSeenFor: null,
+			seenAttemptedFor: null
+		});
+
+		await markMessageSeen('msg-42');
+
+		expect(patchSelectedMessageDetail).toHaveBeenCalledWith('msg-42', { seen: true });
+		expect(vi.mocked(setMessageFlag).mock.calls).toEqual([['msg-42', 'seen', true]]);
 	});
 
 	it('propagates API errors before touching local state', async () => {

@@ -42,7 +42,7 @@
 		type PrintJob
 	} from '$lib/mail/printMessages.js';
 	import { forwardMessage, replyToMessage } from '$lib/mail/actions.js';
-	import { deleteMessages, toggleMessageFlag, toggleMessageSeen } from '$lib/mail/mailbox.js';
+	import { deleteMessages, markMessagesSeen, toggleMessageFlag } from '$lib/mail/mailbox.js';
 	import { loadSidebar } from '$lib/components/sidebar/loader.js';
 	// Straight from the module, never the sidebar-shell barrel: the barrel
 	// re-exports the component and would pull it out of its lazy chunk.
@@ -416,16 +416,13 @@
 			isPaletteOpen: () => $paletteOpen,
 			goToPrimaryNewAction,
 			goToWorkspace,
-			getMessageShortcutContext: () => {
-				const selected = $selectedMessage;
-				if (!selected?.stableId || !isOpenMessageRoute(page.url.pathname)) return null;
-				return { seen: selected.detail?.seen ?? false };
-			},
+			isMessageOpen: () =>
+				Boolean($selectedMessage?.stableId) && isOpenMessageRoute(page.url.pathname),
 			reply: () => runOnOpenMessage((id) => replyToMessage(id, false)),
 			replyAll: () => runOnOpenMessage((id) => replyToMessage(id, true)),
 			forward: () => runOnOpenMessage((id) => forwardMessage(id)),
 			toggleFlag: () => runOnOpenMessage((id) => toggleMessageFlag(id)),
-			toggleSeen: () => runOnOpenMessage((id) => toggleMessageSeen(id)),
+			setSeen: (seen) => runOnOpenMessage((id) => markMessagesSeen([id], seen)),
 			deleteMessage: () => runOnOpenMessage((id) => deleteMessages([id])),
 			printOpenMessage,
 			announceNothingToPrint: () => pushToast($_('detail.nothingToPrint'), { tone: 'info' }),

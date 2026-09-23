@@ -12,24 +12,23 @@
  */
 import type { WorkspaceMode } from '$lib/stores/workspaceMode.js';
 
-/** Context for the message-action shortcuts; null when no message is open. */
-export interface MessageShortcutContext {
-	/** Whether the open message is currently marked as read. */
-	seen: boolean;
-}
-
 export interface GlobalShortcutHandlers {
 	openPalette: () => void;
 	isPaletteOpen: () => boolean;
 	goToPrimaryNewAction: () => Promise<void> | void;
 	goToWorkspace: (mode: WorkspaceMode) => Promise<void> | void;
-	/** Returns the open-message context, or null when no message is open. */
-	getMessageShortcutContext: () => MessageShortcutContext | null;
+	/** Whether a message is open, which is what the message actions below need. */
+	isMessageOpen: () => boolean;
 	reply: () => void;
 	replyAll: () => void;
 	forward: () => void;
 	toggleFlag: () => void;
-	toggleSeen: () => void;
+	/**
+	 * Marks the open message read or unread. Not a toggle: Ctrl+Q and Ctrl+U each
+	 * name a direction, and deriving it from the message's current state made the
+	 * press depend on a flag that arrives late (see the switch below).
+	 */
+	setSeen: (seen: boolean) => void;
 	deleteMessage: () => void;
 	/** Prints the open message, or says why it cannot yet. */
 	printOpenMessage: () => void;
@@ -125,7 +124,7 @@ export function handleGlobalKeydown(event: KeyboardEvent, handlers: GlobalShortc
 		event.key.toLowerCase() === 'p'
 	) {
 		event.preventDefault();
-		const messageOpen = handlers.getMessageShortcutContext() !== null;
+		const messageOpen = handlers.isMessageOpen();
 		if (messageOpen && handlers.isFocusInOpenMessage()) handlers.printOpenMessage();
 		else if (handlers.hasPrintableSelection()) handlers.printSelection();
 		else if (messageOpen) handlers.printOpenMessage();
@@ -137,12 +136,11 @@ export function handleGlobalKeydown(event: KeyboardEvent, handlers: GlobalShortc
 
 	/*
 	 * Outlook-style actions on the open message. They run only when a message
-	 * is open (getMessageShortcutContext returns non-null). Several of these
+	 * is open (isMessageOpen). Several of these
 	 * (Ctrl+R, Ctrl+Shift+R, Ctrl+F, Ctrl+U) shadow native webview behaviour
 	 * (reload, find, view-source); preventDefault keeps the webview from reacting.
 	 */
-	const messageCtx = handlers.getMessageShortcutContext();
-	if (messageCtx) handleMessageShortcut(event, messageCtx, handlers);
+	if (handlers.isMessageOpen()) handleMessageShortcut(event, handlers);
 }
 
 /**
@@ -183,14 +181,10 @@ function handleWorkspaceShortcut(event: KeyboardEvent, handlers: GlobalShortcutH
 /**
  * Outlook-compatible shortcuts for the open message. Returns true when the
  * keystroke was consumed. Mark-as-read/unread are split across Ctrl+Q and
- * Ctrl+U (matching Outlook) and become no-ops when the message is already in
- * the requested state, but still consume the key so the webview never reacts.
+ * Ctrl+U (matching Outlook); each asks for its own direction and consumes the
+ * key, so the webview never reacts.
  */
-function handleMessageShortcut(
-	event: KeyboardEvent,
-	ctx: MessageShortcutContext,
-	handlers: GlobalShortcutHandlers
-): boolean {
+function handleMessageShortcut(event: KeyboardEvent, handlers: GlobalShortcutHandlers): boolean {
 	// Delete (no modifiers) → delete the open message.
 	if (
 		event.key === 'Delete' &&
@@ -231,13 +225,23 @@ function handleMessageShortcut(
 			event.preventDefault();
 			handlers.forward();
 			return true;
-		case 'q': // Mark as read — no-op if already read.
+		/*
+		 * Both ask for a state rather than for a change, and neither checks
+		 * whether the message is in it already. The check used to be here, reading
+		 * the open message's `seen` flag — and opening a message marks it read
+		 * through a request that patches that flag only once it returns, so Ctrl+U
+		 * pressed in that window read "already unread", dropped the press without
+		 * a sound, and the message then settled as read. Asking for the state the
+		 * key names cannot go stale; a message already in it costs one idempotent
+		 * request and gains the announcement that the press did something.
+		 */
+		case 'q': // Mark as read.
 			event.preventDefault();
-			if (!ctx.seen) handlers.toggleSeen();
+			handlers.setSeen(true);
 			return true;
-		case 'u': // Mark as unread (shadows view-source) — no-op if already unread.
+		case 'u': // Mark as unread (shadows view-source).
 			event.preventDefault();
-			if (ctx.seen) handlers.toggleSeen();
+			handlers.setSeen(false);
 			return true;
 		default:
 			return false;

@@ -57,6 +57,9 @@ declare global {
 			pushSyncRecovered: (accountId?: number) => void;
 			/** True once a client subscribed — a push before that is dropped. */
 			syncStreamConnected: () => boolean;
+			/** Holds every answer to a flag change, so a test can act inside that window. */
+			holdFlagResponses: () => void;
+			releaseFlagResponses: () => void;
 			pushSendCompleted: () => void;
 			pushSendFailed: (errorCode?: string) => void;
 			setReadinessDelayMs: (delayMs: number) => void;
