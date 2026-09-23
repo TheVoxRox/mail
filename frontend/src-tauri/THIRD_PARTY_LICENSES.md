@@ -262,7 +262,7 @@ Counts: 335 crates total. 159 MIT OR Apache-2.0, 70 MIT, 32 Apache-2.0 OR MIT, 1
 - **tauri-codegen** 2.6.3 — [https://github.com/tauri-apps/tauri](https://github.com/tauri-apps/tauri)
 - **tauri-macros** 2.6.3 — [https://github.com/tauri-apps/tauri](https://github.com/tauri-apps/tauri)
 - **tauri-plugin-fs** 2.5.2 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
-- **tauri-plugin-http** 2.6.0 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
+- **tauri-plugin-http** 2.6.1 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
 - **tauri-plugin-log** 2.9.1 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
 - **tauri-plugin-shell** 2.3.6 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
 - **tauri-plugin-single-instance** 2.4.4 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)

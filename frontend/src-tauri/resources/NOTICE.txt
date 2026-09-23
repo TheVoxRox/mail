@@ -13,7 +13,7 @@ Total third-party components: 584
   maven  106
   cargo  365
 
-Generated: 2026-09-19
+Generated: 2026-09-23
 
 Machine-readable CycloneDX SBOM files for each ecosystem are
 published alongside the installer on the GitHub Releases page.
@@ -322,7 +322,7 @@ Components and their copyright notices:
       (no author in package.json — see git+https://github.com/tauri-apps/plugins-workspace.git)
       git+https://github.com/tauri-apps/plugins-workspace.git
 
-  * plugin-http 2.6.0  [npm]
+  * plugin-http 2.6.1  [npm]
       (no author in package.json — see git+https://github.com/tauri-apps/plugins-workspace.git)
       git+https://github.com/tauri-apps/plugins-workspace.git
 
@@ -1278,7 +1278,7 @@ Components and their copyright notices:
       QOS.ch
       https://github.com/qos-ch/slf4j/slf4j-parent/slf4j-api
 
-  * sourcemap-codec 1.5.5  [npm]
+  * sourcemap-codec 1.6.0  [npm]
       Justin Ridgewell
       git+https://github.com/jridgewell/sourcemaps.git#packages/sourcemap-codec
 
@@ -1310,9 +1310,9 @@ Components and their copyright notices:
       David Clark
       git+https://github.com/focus-trap/tabbable.git
 
-  * tailwind-merge 3.6.0  [npm]
+  * tailwind-merge 3.7.0  [npm]
       Dany Castillo
-      git+https://github.com/dcastil/tailwind-merge.git
+      git+https://github.com/dcastil/tailwind-merge.git#packages/tailwind-merge
 
   * tailwind-variants 3.3.1  [npm]
       Junior Garcia
@@ -2144,7 +2144,7 @@ Components and their copyright notices:
       Tauri Programme within The Commons Conservancy
       https://github.com/tauri-apps/plugins-workspace
 
-  * tauri-plugin-http 2.6.0  [cargo]
+  * tauri-plugin-http 2.6.1  [cargo]
       Tauri Programme within The Commons Conservancy
       https://github.com/tauri-apps/plugins-workspace
 
@@ -2358,7 +2358,7 @@ Components and their copyright notices:
       Brian Smith <brian@briansmith.org>
       https://github.com/briansmith/untrusted
 
-  * yaml 2.9.0  [npm]
+  * yaml 2.9.1  [npm]
       Eemeli Aro
       git+https://github.com/eemeli/yaml.git
 
