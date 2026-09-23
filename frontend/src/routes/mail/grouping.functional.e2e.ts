@@ -1131,6 +1131,16 @@ test.describe('Otevřená zpráva v seskupeném režimu', () => {
 		const inbox = page.getByRole('link', { name: /^Doručené/ });
 		await openGroupedMessage(page, 'INBOX', 'msg-01');
 		await page.getByRole('button', { name: 'Označit jako nepřečtené', exact: true }).click();
+		/*
+		 * Waited for by the button flipping its label, not by the badge, which
+		 * reads three on both sides of the toggle and so says nothing about it
+		 * having landed. The delete that follows reads the same state this label
+		 * is drawn from, and on CI it went first: the message was still marked
+		 * read and there was nothing to subtract.
+		 */
+		await expect(
+			page.getByRole('button', { name: 'Označit jako přečtené', exact: true })
+		).toBeVisible();
 		await expect(inbox).toHaveAccessibleName('Doručené 3 nepřečtené');
 
 		await page.keyboard.press('Delete');
