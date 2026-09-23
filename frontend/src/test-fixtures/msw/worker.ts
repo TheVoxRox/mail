@@ -7,6 +7,8 @@ import {
 	setConnectionTestAuthFailure,
 	setContactsBrokenRow,
 	setContactsLegacyShape,
+	holdFlagResponses,
+	releaseFlagResponses,
 	setFolderAuthFailure,
 	setMailPageSize,
 	setReadinessDelayMs,
@@ -112,6 +114,7 @@ export async function installE2EBypass(): Promise<void> {
 		worker,
 		reset: () => {
 			closeSyncStreams();
+			releaseFlagResponses();
 			setReadinessDelayMs(0);
 			setReadinessFailures(0);
 			setFolderAuthFailure(false);
@@ -130,6 +133,8 @@ export async function installE2EBypass(): Promise<void> {
 		syncStreamConnected,
 		pushSendCompleted,
 		pushSendFailed,
+		holdFlagResponses,
+		releaseFlagResponses,
 		setReadinessDelayMs,
 		setReadinessFailures,
 		setFolderAuthFailure,

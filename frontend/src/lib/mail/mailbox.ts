@@ -43,6 +43,7 @@ import {
 } from '$lib/mail/currentListing.js';
 import { closeOpenDetail } from '$lib/mail/detailHost.js';
 import { folderLabel } from '$lib/mail/folderLabel.js';
+import { overruleAutoMarkSeen } from '$lib/mail/message-seen.js';
 import { announcePolite, pushToast } from '$lib/stores/toasts.js';
 
 interface BulkResult {
@@ -359,6 +360,10 @@ export async function markMessagesSeen(
 	const result = await executeBulkMessageAction({
 		ids: stableIds,
 		perItem: async (id) => {
+			// Recorded before the request goes out: opening a message marks it read
+			// on its own, and a user acting while that is in flight is acting on the
+			// newer intention (see message-seen.ts).
+			overruleAutoMarkSeen(id, seen);
 			await setMessageFlag(id, 'seen', seen);
 			markSeenLocally(id, seen);
 			patchSelectedMessageDetail(id, { seen });

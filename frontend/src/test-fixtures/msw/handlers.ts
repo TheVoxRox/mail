@@ -154,6 +154,8 @@ function validateAccountPayload(
 let vCardExportDelayMs = 0;
 let failNextVCardExport = false;
 let readinessDelayMs = 0;
+let flagResponsesHeld = false;
+const heldFlagResponses: (() => void)[] = [];
 let readinessFailures = 0;
 let folderAuthFailure = false;
 let connectionTestAuthFailure = false;
@@ -171,6 +173,27 @@ export function failNextVCardExportOnce(): void {
 
 export function setReadinessDelayMs(delayMs: number): void {
 	readinessDelayMs = Math.max(0, delayMs);
+}
+
+/**
+ * Holds every answer to a flag change until {@link releaseFlagResponses}, the
+ * fixture's stand-in for a backend busy with something else. The change itself
+ * is applied when the request arrives, as a server handling them in arrival
+ * order would; only the answer waits.
+ *
+ * A gate rather than a delay because what a test needs is for its keystroke to
+ * be *inside* that window, and a wall-clock delay only makes that likely — on a
+ * loaded machine the window closed first and the test measured the case it was
+ * not written for.
+ */
+export function holdFlagResponses(): void {
+	flagResponsesHeld = true;
+}
+
+/** Lets every held flag answer through, and stops holding new ones. */
+export function releaseFlagResponses(): void {
+	flagResponsesHeld = false;
+	for (const release of heldFlagResponses.splice(0)) release();
 }
 
 export function setReadinessFailures(count: number): void {
@@ -872,6 +895,11 @@ function messageRoutes(
 					)
 				);
 			}
+		}
+		if (flagResponsesHeld) {
+			return new Promise<MockResponse>((resolve) => {
+				heldFlagResponses.push(() => resolve(noContent()));
+			});
 		}
 		return noContent();
 	}

@@ -21,6 +21,7 @@ import { adjustFolderUnread, folders as folderList } from '$lib/stores/folders.j
 import { invalidateMessage, selectedMessage } from '$lib/stores/selectedMessage.js';
 import { closeOpenDetail } from '$lib/mail/detailHost.js';
 import { folderLabel } from '$lib/mail/folderLabel.js';
+import { overruleAutoMarkSeen } from '$lib/mail/message-seen.js';
 import { _ } from '$lib/i18n/index.js';
 import { announcePolite, pushToast } from '$lib/stores/toasts.js';
 
@@ -130,7 +131,12 @@ export async function markConversationMembersSeen(
 	ctx: ConversationBulkContext
 ): Promise<boolean> {
 	if (memberIds.length === 0) return false;
-	const outcome = await runPerItem(memberIds, (id) => setMessageFlag(id, 'seen', seen));
+	const outcome = await runPerItem(memberIds, (id) => {
+		// Same as the flat pipeline: a member being marked here may be the message
+		// that is open, whose own mark-as-read can still be in flight.
+		overruleAutoMarkSeen(id, seen);
+		return setMessageFlag(id, 'seen', seen);
+	});
 	// Marking read clears unread members; marking unread re-adds members that were seen.
 	const unread = new Set(ctx.unreadMemberIds);
 	const delta = seen

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, type Mock } from 'vitest';
 import {
 	handleGlobalKeydown,
 	isEditableTarget,
@@ -13,12 +13,12 @@ function makeHandlers(overrides: Partial<GlobalShortcutHandlers> = {}): GlobalSh
 		goToPrimaryNewAction: vi.fn(),
 		goToWorkspace: vi.fn(),
 		// No open message by default — message-action tests opt in via overrides.
-		getMessageShortcutContext: () => null,
+		isMessageOpen: () => false,
 		reply: vi.fn(),
 		replyAll: vi.fn(),
 		forward: vi.fn(),
 		toggleFlag: vi.fn(),
-		toggleSeen: vi.fn(),
+		setSeen: vi.fn(),
 		deleteMessage: vi.fn(),
 		printOpenMessage: vi.fn(),
 		announceNothingToPrint: vi.fn(),
@@ -172,7 +172,7 @@ describe('handleGlobalKeydown', () => {
 		'$name defers to a closer handler that already claimed the key',
 		({ init, handler }) => {
 			// A message is open, so Ctrl+P would otherwise print.
-			const h = makeHandlers({ getMessageShortcutContext: () => ({ seen: false }) });
+			const h = makeHandlers({ isMessageOpen: () => true });
 			const ev = makeEvent(init);
 			ev.preventDefault(); // e.g. a future compose editor binding Ctrl+K to "insert link"
 			handleGlobalKeydown(ev, h);
@@ -183,10 +183,9 @@ describe('handleGlobalKeydown', () => {
 
 describe('handleGlobalKeydown — message actions', () => {
 	function openMessageHandlers(
-		seen = false,
 		overrides: Partial<GlobalShortcutHandlers> = {}
 	): GlobalShortcutHandlers {
-		return makeHandlers({ getMessageShortcutContext: () => ({ seen }), ...overrides });
+		return makeHandlers({ isMessageOpen: () => true, ...overrides });
 	}
 
 	it('Ctrl+R replies and prevents the default (reload)', () => {
@@ -238,7 +237,7 @@ describe('handleGlobalKeydown — message actions', () => {
 	});
 
 	it('Ctrl+P prints the open message when focus is in it, even with rows ticked', () => {
-		const h = openMessageHandlers(false, {
+		const h = openMessageHandlers({
 			isFocusInOpenMessage: () => true,
 			hasPrintableSelection: () => true
 		});
@@ -249,7 +248,7 @@ describe('handleGlobalKeydown — message actions', () => {
 
 	it('Ctrl+P prints the ticked rows when focus is outside the open message', () => {
 		// Focus in the list: the ticked rows are what the reader is working with.
-		const h = openMessageHandlers(false, { hasPrintableSelection: () => true });
+		const h = openMessageHandlers({ hasPrintableSelection: () => true });
 		handleGlobalKeydown(makeEvent({ key: 'p', ctrlKey: true }), h);
 		expect(h.printSelection).toHaveBeenCalledOnce();
 		expect(h.printOpenMessage).not.toHaveBeenCalled();
@@ -288,34 +287,35 @@ describe('handleGlobalKeydown — message actions', () => {
 		expect(h.toggleFlag).toHaveBeenCalledOnce();
 	});
 
-	it('Ctrl+Q marks an unread message as read', () => {
-		const h = openMessageHandlers(false);
-		handleGlobalKeydown(makeEvent({ key: 'q', ctrlKey: true }), h);
-		expect(h.toggleSeen).toHaveBeenCalledOnce();
-	});
-
-	it('Ctrl+Q is a no-op when the message is already read (but consumes the key)', () => {
-		const h = openMessageHandlers(true);
+	it('Ctrl+Q asks for read and consumes the key', () => {
+		const h = openMessageHandlers();
 		const ev = makeEvent({ key: 'q', ctrlKey: true });
 		const prevent = vi.spyOn(ev, 'preventDefault');
 		handleGlobalKeydown(ev, h);
-		expect(h.toggleSeen).not.toHaveBeenCalled();
+		expect(h.setSeen).toHaveBeenCalledWith(true);
 		expect(prevent).toHaveBeenCalled();
 	});
 
-	it('Ctrl+U marks a read message as unread and prevents the default (view-source)', () => {
-		const h = openMessageHandlers(true);
+	it('Ctrl+U asks for unread and prevents the default (view-source)', () => {
+		const h = openMessageHandlers();
 		const ev = makeEvent({ key: 'u', ctrlKey: true });
 		const prevent = vi.spyOn(ev, 'preventDefault');
 		handleGlobalKeydown(ev, h);
-		expect(h.toggleSeen).toHaveBeenCalledOnce();
+		expect(h.setSeen).toHaveBeenCalledWith(false);
 		expect(prevent).toHaveBeenCalled();
 	});
 
-	it('Ctrl+U is a no-op when the message is already unread', () => {
-		const h = openMessageHandlers(false);
+	it('asks for the state the key names without consulting the message', () => {
+		/*
+		 * The handler has no way to look at the message's flag any more, which is
+		 * the point: it used to, and opening a message marks it read through a
+		 * request that sets that flag only once it returns — so Ctrl+U pressed in
+		 * that window read "already unread" and was dropped without a sound.
+		 */
+		const h = openMessageHandlers();
 		handleGlobalKeydown(makeEvent({ key: 'u', ctrlKey: true }), h);
-		expect(h.toggleSeen).not.toHaveBeenCalled();
+		handleGlobalKeydown(makeEvent({ key: 'u', ctrlKey: true }), h);
+		expect((h.setSeen as Mock).mock.calls).toEqual([[false], [false]]);
 	});
 
 	it('Delete deletes the open message', () => {
