@@ -18,7 +18,7 @@ Counts: 117 packages total. 85 MIT, 14 ISC, 6 Apache-2.0, 4 MPL-2.0, 3 MIT OR Ap
 - **@jridgewell/gen-mapping** 0.3.13 — [https://github.com/jridgewell/sourcemaps](https://github.com/jridgewell/sourcemaps)
 - **@jridgewell/remapping** 2.3.5 — [https://github.com/jridgewell/sourcemaps](https://github.com/jridgewell/sourcemaps)
 - **@jridgewell/resolve-uri** 3.1.2 — [https://github.com/jridgewell/resolve-uri](https://github.com/jridgewell/resolve-uri)
-- **@jridgewell/sourcemap-codec** 1.5.5 — [https://github.com/jridgewell/sourcemaps](https://github.com/jridgewell/sourcemaps)
+- **@jridgewell/sourcemap-codec** 1.6.0 — [https://github.com/jridgewell/sourcemaps](https://github.com/jridgewell/sourcemaps)
 - **@jridgewell/trace-mapping** 0.3.31 — [https://github.com/jridgewell/sourcemaps](https://github.com/jridgewell/sourcemaps)
 - **@oxc-project/types** 0.149.0 — [https://github.com/oxc-project/oxc](https://github.com/oxc-project/oxc)
 - **@polka/url** 1.0.0-next.29 — [https://github.com/lukeed/polka](https://github.com/lukeed/polka)
@@ -79,7 +79,7 @@ Counts: 117 packages total. 85 MIT, 14 ISC, 6 Apache-2.0, 4 MPL-2.0, 3 MIT OR Ap
 - **svelte** 5.57.0 — [https://github.com/sveltejs/svelte](https://github.com/sveltejs/svelte)
 - **svelte-i18n** 4.0.1 — [https://github.com/kaisermann/svelte-i18n](https://github.com/kaisermann/svelte-i18n)
 - **tabbable** 6.4.0 — [https://github.com/focus-trap/tabbable](https://github.com/focus-trap/tabbable)
-- **tailwind-merge** 3.6.0 — [https://github.com/dcastil/tailwind-merge](https://github.com/dcastil/tailwind-merge)
+- **tailwind-merge** 3.7.0 — [https://github.com/dcastil/tailwind-merge](https://github.com/dcastil/tailwind-merge)
 - **tailwind-variants** 3.3.1 — [https://github.com/heroui-inc/tailwind-variants](https://github.com/heroui-inc/tailwind-variants)
 - **tailwindcss** 4.3.3 — [https://github.com/tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss)
 - **tapable** 2.3.3 — [https://github.com/webpack/tapable](https://github.com/webpack/tapable)
@@ -107,7 +107,7 @@ Counts: 117 packages total. 85 MIT, 14 ISC, 6 Apache-2.0, 4 MPL-2.0, 3 MIT OR Ap
 - **picocolors** 1.1.1 — [https://github.com/alexeyraspopov/picocolors](https://github.com/alexeyraspopov/picocolors)
 - **timers-ext** 0.1.8 — [https://github.com/medikoo/timers-ext](https://github.com/medikoo/timers-ext)
 - **type** 2.7.3 — [https://github.com/medikoo/type](https://github.com/medikoo/type)
-- **yaml** 2.9.0 — [https://github.com/eemeli/yaml](https://github.com/eemeli/yaml)
+- **yaml** 2.9.1 — [https://github.com/eemeli/yaml](https://github.com/eemeli/yaml)
 
 ## Apache-2.0 (6)
 
@@ -128,7 +128,7 @@ Counts: 117 packages total. 85 MIT, 14 ISC, 6 Apache-2.0, 4 MPL-2.0, 3 MIT OR Ap
 ## MIT OR Apache-2.0 (3)
 
 - **@tauri-apps/plugin-fs** 2.5.2 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
-- **@tauri-apps/plugin-http** 2.6.0 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
+- **@tauri-apps/plugin-http** 2.6.1 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
 - **@tauri-apps/plugin-shell** 2.3.6 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
 
 ## BSD-3-Clause (2)
