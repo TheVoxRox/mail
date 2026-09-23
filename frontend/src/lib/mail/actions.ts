@@ -13,23 +13,12 @@ import {
 	requestListFocusRestore,
 	selectedMessage
 } from '$lib/stores/selectedMessage.js';
-import { messagesState } from '$lib/stores/messages.js';
 import {
 	currentWorkspaceMode,
 	workspaceHref,
 	type WorkspaceMode
 } from '$lib/stores/workspaceMode.js';
-
-function currentFolderHref(): string {
-	const state = get(messagesState);
-	if (state.status === 'idle') {
-		return resolve('/');
-	}
-	return resolve('/mail/[accountId]/[folderName]', {
-		accountId: String(state.context.accountId),
-		folderName: encodeURIComponent(state.context.folderName)
-	});
-}
+import { currentFolderHref } from '$lib/mail/currentListing.js';
 
 export async function goToWorkspaceMode(mode: WorkspaceMode): Promise<void> {
 	await goto(workspaceHref(mode));

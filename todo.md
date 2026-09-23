@@ -80,6 +80,14 @@ Nezavisly overovaci pruchod re-verifikace ([docs/IMAP_SMTP_AUDIT.md](docs/IMAP_S
 
 ---
 
+## Seskupeny rezim — zbytek po #566 (2026-09-23)
+
+Plocha pipeline v [frontend/src/lib/mail/mailbox.ts](frontend/src/lib/mail/mailbox.ts) zna jen `messagesState`, ktery se v seskupenem rezimu nikdy nenacte, pritom akce nad otevrenou zpravou (lista, zkratka, paleta) jdou vzdy pres ni. #566 dotahl tri dusledky (predmet v ohlaseni, potvrzeni trvaleho smazani, navrat do slozky). Zbyva ctvrty:
+
+- [ ] **Po smazani nebo presunu otevrene zpravy se seskupeny seznam neprenacte, odpocet neprectenych se neupravi a fokus nema kam pristat.** Snapshot neprectenych ([mailbox.ts:177](frontend/src/lib/mail/mailbox.ts:177)) i hledani sousedniho radku ([mailbox.ts:134](frontend/src/lib/mail/mailbox.ts:134)) ctou jen plochy seznam, takze v seskupenem rezimu radek smazane zpravy zustava do dalsiho sync eventu, badge slozky nepreskoci a po zavreni detailu se fokus nema o co oprit. Cesta pres [conversationBulk.ts](frontend/src/lib/mail/conversationBulk.ts) si to resi sama (`reloadCurrentConversationsPage`), takze na vyber je bud ji z pipeline zavolat, nebo pipeline naucit druhy store cely. **Bez e2e:** opravy z #566 e2e maji ([grouping.functional.e2e.ts](frontend/src/routes/mail/grouping.functional.e2e.ts), sekce „Otevrena zprava v seskupenem rezimu"), tenhle zbytek ne.
+
+---
+
 ## v0.1.0 smoke — bugy Faze B
 
 **Vse uzavreno** (2026-06-25/30). 8 bugu opraveno: FE update-dialog (#65), OAuth poll reconcile (#66), "duch" zpravy 404 A+B, SSE 30min ERROR (C), soubezny sync UNIQUE (F), HHH90003004 paginace (#70), duplicitni OAuth callback (#71/E), transient sync retry (#78/D), §6 sidecar zombie watchdog (#89/#90). Detail v [todo-archive.md](todo-archive.md); reziduum = pasivni log-watch v [backend/RELEASE_CHECKLIST.md](backend/RELEASE_CHECKLIST.md) §8.

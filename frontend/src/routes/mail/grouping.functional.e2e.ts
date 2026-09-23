@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import {
+	bodyFrame,
 	conversationGrid,
 	messageGrid,
 	openApp,
@@ -1040,5 +1041,63 @@ test.describe('Fokus po řádkové akci v seskupeném režimu', () => {
 		// column the user was in, because it still names the same message.
 		await expect(archiveMember(page, 'arch-01').locator('[data-cell-target]:focus')).toHaveCount(1);
 		await expect(page.locator('[data-cell-target]:focus')).toHaveAttribute('data-col', '6');
+	});
+});
+
+/*
+ * The grouped view lists from the conversations store, and the flat `messages`
+ * store is never loaded while it is on screen — but every action on the OPEN
+ * message (the toolbar, its shortcut, the palette) goes through the flat
+ * pipeline in `mail/mailbox.ts`. Anything that pipeline read out of the flat
+ * store therefore came back empty here, and no e2e covered the combination.
+ */
+test.describe('Otevřená zpráva v seskupeném režimu', () => {
+	async function openArchiveMessage(page: Page): Promise<void> {
+		await openApp(page, `/mail/${accountId}/ARCHIVE`);
+		await archiveRow(page, 'arch-03').locator('[data-cell-target][data-col="3"]').click();
+		await page.waitForURL(`**/mail/${accountId}/ARCHIVE/arch-03`);
+		await expect(page.getByRole('toolbar', { name: 'Akce se zprávami' })).toBeVisible();
+		/*
+		 * Opening a message parks focus in the body frame a frame later, and a key
+		 * sent inside that gap can be lost: pressing on an element focuses it first,
+		 * so the app takes focus back between the two halves of the press and CI
+		 * dropped one Delete there while the same test passed locally. Wait for the
+		 * app's own move to land, then send the key from the keyboard — the frame
+		 * forwards it to the global handler (mail/mailFrame.ts), which is how a
+		 * reader's keystroke arrives here too.
+		 */
+		const frame = bodyFrame(page);
+		await expect(frame).toBeVisible();
+		await waitForFocus(frame);
+	}
+
+	test('smazání klávesou Delete ohlásí předmět smazané zprávy', async ({ page }) => {
+		await openArchiveMessage(page);
+
+		await page.keyboard.press('Delete');
+
+		await expect(
+			page.getByRole('status').filter({ hasText: 'Zpráva smazána: Re: Plán vydání' })
+		).toBeVisible();
+	});
+
+	test('smazání se vrátí do složky, ve které zpráva byla', async ({ page }) => {
+		await openArchiveMessage(page);
+
+		await page.keyboard.press('Delete');
+
+		// Not the inbox: closing goes back to the folder the grouped view is
+		// listing, which is the only store that knows it here.
+		await page.waitForURL(`**/mail/${accountId}/ARCHIVE`);
+		await expect(conversationGrid(page)).toBeVisible();
+	});
+
+	test('Esc se vrátí do složky, ve které zpráva byla', async ({ page }) => {
+		await openArchiveMessage(page);
+
+		await page.keyboard.press('Escape');
+
+		await page.waitForURL(`**/mail/${accountId}/ARCHIVE`);
+		await expect(archiveRow(page, 'arch-03')).toBeVisible();
 	});
 });

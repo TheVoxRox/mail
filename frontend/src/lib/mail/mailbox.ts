@@ -8,12 +8,12 @@
  * `commands/*`) should not orchestrate these steps manually.
  */
 import { goto } from '$app/navigation';
-import { resolve } from '$app/paths';
 import { get } from 'svelte/store';
 import { deleteMessage, moveMessage, setMessageFlag } from '$lib/api/mailAction.js';
 import { getMessageDetail } from '$lib/api/mailRead.js';
 import { folders as folderList, adjustFolderUnread } from '$lib/stores/folders.js';
 import { searchState } from '$lib/stores/search.js';
+import { conversationsState } from '$lib/stores/conversations.js';
 import { confirmAction } from '$lib/stores/confirmDialog.js';
 import {
 	clearSelection,
@@ -34,6 +34,7 @@ import {
 import { setMessageSelection } from '$lib/stores/messageSelection.js';
 import { _ } from '$lib/i18n/index.js';
 import { toErrorMessage } from '$lib/api/errors.js';
+import { currentFolderHref, listingContexts } from '$lib/mail/currentListing.js';
 import { closeOpenDetail } from '$lib/mail/detailHost.js';
 import { folderLabel } from '$lib/mail/folderLabel.js';
 import { announcePolite, pushToast } from '$lib/stores/toasts.js';
@@ -75,26 +76,53 @@ function currentMessagesState(): MessagesState {
 	return get(messagesState);
 }
 
-/** Subject of a list row for outcome announcements; falls back when empty. */
-function messageSubjectLabel(stableId: string): string {
-	const fallback = get(_)('messages.noSubject');
-	const state = currentMessagesState();
-	if (state.status !== 'ready') return fallback;
-	const subject = state.page.content
-		.find((message) => message.stableId === stableId)
-		?.subject?.trim();
-	return subject ? subject : fallback;
+/** A subject worth announcing, or nothing — blank and whitespace-only alike. */
+function spokenSubject(subject: string | null | undefined): string | undefined {
+	const trimmed = subject?.trim();
+	return trimmed ? trimmed : undefined;
 }
 
-function currentFolderHref(): string {
-	const state = currentMessagesState();
-	if (state.status === 'idle') {
-		return resolve('/');
-	}
-	return resolve('/mail/[accountId]/[folderName]', {
-		accountId: String(state.context.accountId),
-		folderName: encodeURIComponent(state.context.folderName)
-	});
+/**
+ * Subject of a message for an outcome announcement, from whichever screen
+ * knows it; falls back only when none of them does.
+ *
+ * The flat list is not the only place these actions start from. The grouped
+ * view lists from its own store and never loads this one, search results sit
+ * in a third, and a message opened from any of them is deleted from the detail
+ * toolbar, its shortcut or the command palette — all of which land here.
+ * Reading the flat rows alone made every one of those announce "(no subject)"
+ * for a message that had one; in grouped mode, where this store stays idle,
+ * that was every delete of an open message.
+ *
+ * The open detail answers last because it is the one source that knows a
+ * single message rather than a list — right when the action came from the
+ * detail, silent otherwise.
+ */
+function messageSubjectLabel(stableId: string): string {
+	const messages = currentMessagesState();
+	const listRow =
+		messages.status === 'ready'
+			? messages.page.content.find((message) => message.stableId === stableId)
+			: undefined;
+	const search = get(searchState);
+	const searchRow =
+		search.status === 'ready'
+			? search.page.content.find((message) => message.stableId === stableId)
+			: undefined;
+	const conversations = get(conversationsState);
+	const conversationRow =
+		conversations.status === 'ready'
+			? conversations.page.content.find((row) => row.latest.stableId === stableId)?.latest
+			: undefined;
+	const open = get(selectedMessage);
+	const openDetail = open?.stableId === stableId ? open.detail : null;
+	return (
+		spokenSubject(listRow?.subject) ??
+		spokenSubject(searchRow?.subject) ??
+		spokenSubject(conversationRow?.subject) ??
+		spokenSubject(openDetail?.subject) ??
+		get(_)('messages.noSubject')
+	);
 }
 
 /**
@@ -325,33 +353,46 @@ function announceSingleOutcome(
 /**
  * True when any of the targeted messages sits in the trash folder — there a
  * delete is permanent (server-side expunge), not a move to trash, so it needs
- * an explicit confirmation. The folder of each message is resolved from what
- * the UI is showing: the current list page, the search results and — only for
- * an id neither of them shows — the open message detail (its `folderName`
- * exists for exactly this check, but it can be served from a stale cache, so
- * fresh rows win). An id none of them can resolve falls back to the folder
- * the list is browsing, which is known even while the list is still loading
- * or errored — the safe direction: a false positive costs one extra dialog,
- * a false negative permanently deletes without asking.
+ * an explicit confirmation. The folder of each message is resolved from
+ * everything the UI is showing: the flat list page, the search results, the
+ * grouped list, and the open message detail, whose `folderName` exists for
+ * exactly this check.
+ *
+ * Any of them placing the message in the trash is enough to ask. They can
+ * disagree — the detail cache survives a background sync that moved the
+ * message, and the store the mounted view does not use keeps whatever it held
+ * before — and an extra dialog is the cheap half of being wrong: a false
+ * positive costs one press, a false negative permanently deletes without
+ * asking. For the same reason an id none of them knows falls back to the
+ * folder being listed, which is known even while the list is still loading or
+ * errored, and in grouped mode is known only to the conversations store —
+ * where its absence used to make the answer "not the trash" by default.
  */
 function anyMessageInTrash(stableIds: readonly string[]): boolean {
 	const trashRef = get(folderList).find((folder) => folder.role === 'TRASH')?.folderRef;
 	if (!trashRef) return false;
-	const folderOf = new Map<string, string>();
+	const foldersOf = new Map<string, string[]>();
+	const note = (stableId: string, folderName: string) => {
+		const known = foldersOf.get(stableId);
+		if (known) known.push(folderName);
+		else foldersOf.set(stableId, [folderName]);
+	};
 	const messages = currentMessagesState();
 	if (messages.status === 'ready') {
-		for (const message of messages.page.content) folderOf.set(message.stableId, message.folderName);
+		for (const message of messages.page.content) note(message.stableId, message.folderName);
 	}
 	const search = get(searchState);
 	if (search.status === 'ready') {
-		for (const message of search.page.content) folderOf.set(message.stableId, message.folderName);
+		for (const message of search.page.content) note(message.stableId, message.folderName);
+	}
+	const conversations = get(conversationsState);
+	if (conversations.status === 'ready') {
+		for (const row of conversations.page.content) note(row.latest.stableId, row.latest.folderName);
 	}
 	const selected = get(selectedMessage);
-	if (selected?.detail && !folderOf.has(selected.stableId)) {
-		folderOf.set(selected.stableId, selected.detail.folderName);
-	}
-	const contextFolder = messages.status !== 'idle' ? messages.context.folderName : undefined;
-	return stableIds.some((id) => (folderOf.get(id) ?? contextFolder) === trashRef);
+	if (selected?.detail) note(selected.stableId, selected.detail.folderName);
+	const browsedFolders = listingContexts().map((listing) => listing.folderName);
+	return stableIds.some((id) => (foldersOf.get(id) ?? browsedFolders).includes(trashRef));
 }
 
 export async function deleteMessages(stableIds: readonly string[]): Promise<BulkResult> {
