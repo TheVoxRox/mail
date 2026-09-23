@@ -1052,10 +1052,12 @@ test.describe('Fokus po řádkové akci v seskupeném režimu', () => {
  * store therefore came back empty here, and no e2e covered the combination.
  */
 test.describe('Otevřená zpráva v seskupeném režimu', () => {
-	async function openArchiveMessage(page: Page): Promise<void> {
-		await openApp(page, `/mail/${accountId}/ARCHIVE`);
-		await archiveRow(page, 'arch-03').locator('[data-cell-target][data-col="3"]').click();
-		await page.waitForURL(`**/mail/${accountId}/ARCHIVE/arch-03`);
+	async function openGroupedMessage(page: Page, folder: string, stableId: string): Promise<void> {
+		await openApp(page, `/mail/${accountId}/${folder}`);
+		await conversationGrid(page)
+			.locator(`[role="row"][data-stable-id="${stableId}"] [data-cell-target][data-col="3"]`)
+			.click();
+		await page.waitForURL(`**/mail/${accountId}/${folder}/${stableId}`);
 		await expect(page.getByRole('toolbar', { name: 'Akce se zprávami' })).toBeVisible();
 		/*
 		 * Opening a message parks focus in the body frame a frame later, and a key
@@ -1070,6 +1072,8 @@ test.describe('Otevřená zpráva v seskupeném režimu', () => {
 		await expect(frame).toBeVisible();
 		await waitForFocus(frame);
 	}
+
+	const openArchiveMessage = (page: Page) => openGroupedMessage(page, 'ARCHIVE', 'arch-03');
 
 	test('smazání klávesou Delete ohlásí předmět smazané zprávy', async ({ page }) => {
 		await openArchiveMessage(page);
@@ -1090,6 +1094,62 @@ test.describe('Otevřená zpráva v seskupeném režimu', () => {
 		// listing, which is the only store that knows it here.
 		await page.waitForURL(`**/mail/${accountId}/ARCHIVE`);
 		await expect(conversationGrid(page)).toBeVisible();
+	});
+
+	test('smazání přepíše seznam, i když vlákno zůstává', async ({ page }) => {
+		/*
+		 * The thread keeps two of its three ARCHIVE messages, so its row stays and
+		 * is re-represented by the next newest, with the badge down to two. The
+		 * grouped store has no local patch that could work that out - which is why
+		 * the row used to sit there unchanged until the next sync.
+		 */
+		await openArchiveMessage(page);
+
+		await page.keyboard.press('Delete');
+
+		await page.waitForURL(`**/mail/${accountId}/ARCHIVE`);
+		const row = archiveRow(page, 'arch-02');
+		await expect(row).toBeVisible();
+		await expect(row.getByText('konverzace, 2 zprávy')).toBeAttached();
+		await expect(anyArchiveRow(page, 'arch-03')).toHaveCount(0);
+		// And the reading cursor is on the thread that was being read, not on
+		// <body> where a closed detail otherwise drops it.
+		await expect(row.locator('[data-cell-target]:focus')).toHaveCount(1);
+	});
+
+	test('smazání nepřečtené zprávy sníží odznak složky', async ({ page }) => {
+		/*
+		 * The badge is adjusted optimistically from the list the mutation came
+		 * from, and the grouped one answered for no list at all, so the count sat
+		 * there until a sync corrected it.
+		 *
+		 * Marked unread first, deliberately: opening a message marks it read, so
+		 * without that step there is nothing left for the delete to subtract - in
+		 * either view. The badge is unchanged by both of those (nothing adjusts it
+		 * on open), which is why it still reads three here.
+		 */
+		const inbox = page.getByRole('link', { name: /^Doručené/ });
+		await openGroupedMessage(page, 'INBOX', 'msg-01');
+		await page.getByRole('button', { name: 'Označit jako nepřečtené', exact: true }).click();
+		/*
+		 * Waited for by the button flipping its label, not by the badge, which
+		 * reads three on both sides of the toggle and so says nothing about it
+		 * having landed. The delete that follows reads the same state this label
+		 * is drawn from, and on CI it went first: the message was still marked
+		 * read and there was nothing to subtract.
+		 */
+		await expect(
+			page.getByRole('button', { name: 'Označit jako přečtené', exact: true })
+		).toBeVisible();
+		await expect(inbox).toHaveAccessibleName('Doručené 3 nepřečtené');
+
+		await page.keyboard.press('Delete');
+
+		await page.waitForURL(`**/mail/${accountId}/INBOX`);
+		// The badge first: it is what this test is about, and asserting the row
+		// before it would make the test fail on the refetch above instead.
+		await expect(inbox).toHaveAccessibleName('Doručené 2 nepřečtené');
+		await expect(page.locator('[role="row"][data-stable-id="msg-01"]')).toHaveCount(0);
 	});
 
 	test('Esc se vrátí do složky, ve které zpráva byla', async ({ page }) => {

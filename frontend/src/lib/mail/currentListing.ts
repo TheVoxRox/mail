@@ -43,6 +43,19 @@ export function listingContexts(): ListingContext[] {
 	);
 }
 
+/**
+ * True when the grouped view is the one on screen and has a page to refresh.
+ *
+ * The flat store is patched in place after every mutation (`removeMessageLocally`
+ * and friends); the grouped store has no such patch, because a conversation
+ * that loses a message can change both its counts and which message represents
+ * it — and the replacement may not be on the page. So the pipeline refetches
+ * instead, and this is the question it asks first.
+ */
+export function groupedListingIsShowing(): boolean {
+	return get(messageGrouping) === 'grouped' && get(conversationsState).status !== 'idle';
+}
+
 /** The folder the mounted view is listing, or `null` when nothing is listed yet. */
 export function currentListingContext(): ListingContext | null {
 	return listingContexts()[0] ?? null;

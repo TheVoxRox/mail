@@ -50,6 +50,11 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import MessageFlags from '$lib/components/MessageFlags.svelte';
 	import MessageRowActionsMenu from '$lib/components/MessageRowActionsMenu.svelte';
+	import {
+		clearListFocusRestore,
+		listFocusRestore,
+		type ListFocusRestore
+	} from '$lib/stores/selectedMessage.js';
 	import { announcePolite } from '$lib/stores/toasts.js';
 	import { nativeControlClass } from '$lib/components/ui/native-control/index.js';
 	import { focusRingInset } from '$lib/components/ui/focus-ring/index.js';
@@ -857,6 +862,73 @@
 		const frame = requestAnimationFrame(() => {
 			grid.moveTo(target, col);
 			pendingRowFocus = null;
+		});
+		return () => cancelAnimationFrame(frame);
+	});
+
+	/**
+	 * The row a restore request from the message pipeline points at.
+	 *
+	 * A conversation is named by its thread, because a delete that leaves other
+	 * messages of it in the folder keeps the row while changing which message
+	 * represents it; the fallback is the neighbouring row, for when the thread
+	 * goes with the message. A plain row request names a message, which is a
+	 * conversation here whenever it is the one that represents it.
+	 */
+	function restoreRowIndex(restore: ListFocusRestore, rows: VisibleRow[]): number {
+		const rowOf = (stableId: string) =>
+			rows.findIndex((row) =>
+				row.kind === 'conversation'
+					? row.conversation.latest.stableId === stableId
+					: row.message.stableId === stableId
+			);
+		if (restore.kind === 'emptied') return -1;
+		if (restore.kind === 'row') return rowOf(restore.stableId);
+		const own = rows.findIndex(
+			(row) => row.kind === 'conversation' && row.conversation.threadId === restore.threadId
+		);
+		if (own >= 0) return own;
+		return restore.fallbackStableId === null ? -1 : rowOf(restore.fallbackStableId);
+	}
+
+	/*
+	 * The other restore, and the reason it is not `pendingRowFocus`: an action on
+	 * the OPEN message goes through the flat pipeline (mail/mailbox.ts) even
+	 * here, and with the reading pane off this list is not mounted while that
+	 * happens — so the request travels in a store and is answered after the
+	 * refetched page lands. Without it the reading cursor fell to `<body>` on
+	 * every close of a message the grouped view had opened.
+	 */
+	$effect(() => {
+		const restore = $listFocusRestore;
+		if (!restore || $conversationsState.status !== 'ready' || !gridElement) return;
+		const rows = visibleRows;
+		if (rows.length === 0) return; // The empty-state effect below answers instead.
+		// An expanded thread's members are still refetching; landing now would
+		// put the cursor on a row that is about to move.
+		if (memberCache.loadingCount > 0) return;
+		const index = restoreRowIndex(restore, rows);
+		if (index < 0) {
+			// Nothing here to land on — the request belongs to the flat list, which
+			// is the mounted one whenever this is not. Dropped rather than kept, so
+			// it cannot answer itself on some later page.
+			clearListFocusRestore();
+			return;
+		}
+		const frame = requestAnimationFrame(() => {
+			grid.moveTo(index, readingAnchorCol(rows[index].kind));
+			clearListFocusRestore();
+		});
+		return () => cancelAnimationFrame(frame);
+	});
+
+	/** The same, once the folder has no rows left at all. */
+	$effect(() => {
+		if (!$listFocusRestore || !emptyStateElement) return;
+		const target = emptyStateElement;
+		const frame = requestAnimationFrame(() => {
+			target.focus();
+			clearListFocusRestore();
 		});
 		return () => cancelAnimationFrame(frame);
 	});

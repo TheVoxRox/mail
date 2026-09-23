@@ -639,8 +639,18 @@ export function conversationsOf(
 		.map(([key, folderMembers]) => {
 			const latest = [...folderMembers].sort((a, b) => b.receivedAt.localeCompare(a.receivedAt))[0];
 			const members = pool.filter((message) => normalizeSubject(message.subject) === key);
+			/*
+			 * Rooted at the thread's oldest message, not at whichever message
+			 * represents it in this folder right now. A conversation id names the
+			 * conversation in the backend, so it survives its newest message being
+			 * deleted — and code leans on that: the restore of the reading cursor
+			 * after the open message is deleted asks for the thread it was in, and
+			 * an id that moved with the representative made that request resolve to
+			 * nothing. Deleting the root still changes it, which no fixture does.
+			 */
+			const root = [...members].sort((a, b) => a.receivedAt.localeCompare(b.receivedAt))[0];
 			return {
-				threadId: `thread-${latest.stableId}`,
+				threadId: `thread-${(root ?? latest).stableId}`,
 				latest,
 				messageCount: members.length,
 				// Folder-scoped on purpose, like the backend: marking read from this
@@ -728,10 +738,11 @@ function survivesCollapse(
 
 /**
  * Reconstructs a thread for the {@code /threads/{threadId}} mock. Fixture thread
- * ids are `thread-${representative.stableId}` (see {@link conversationsOf}), so
- * this finds that representative, then collects the messages sharing its
- * normalized subject, ascending by receivedAt (the threadPosition proxy).
- * Returns null when the id resolves to no message (404).
+ * ids are `thread-${root.stableId}` (see {@link conversationsOf}), so this finds
+ * that message, then collects the ones sharing its normalized subject, ascending
+ * by receivedAt (the threadPosition proxy). Returns null when the id resolves to
+ * no message (404) — which is also what a deleted root gives, as the backend
+ * would not.
  *
  * `folderName` scopes the members to that folder's conversation view via
  * {@link conversationPool} — the same set its `messageCount` was taken from, so
@@ -745,11 +756,11 @@ export function threadOf(
 	threadId: string,
 	folderName?: string
 ): ThreadResponse | null {
-	const representativeId = threadId.replace(/^thread-/, '');
+	const rootId = threadId.replace(/^thread-/, '');
 	const all = accountMessages(accountId);
-	const representative = all.find((message) => message.stableId === representativeId);
-	if (!representative) return null;
-	const subjectKey = normalizeSubject(representative.subject);
+	const anchor = all.find((message) => message.stableId === rootId);
+	if (!anchor) return null;
+	const subjectKey = normalizeSubject(anchor.subject);
 	const inThread = (message: MailSummaryResponse) =>
 		normalizeSubject(message.subject) === subjectKey;
 	const byReceivedAt = (a: MailSummaryResponse, b: MailSummaryResponse) =>
