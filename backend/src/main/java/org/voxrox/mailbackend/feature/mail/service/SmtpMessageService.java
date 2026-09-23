@@ -21,6 +21,7 @@ import org.voxrox.mailbackend.feature.mail.dto.MailRequest;
 import org.voxrox.mailbackend.feature.mail.dto.SendNotification;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 import org.voxrox.mailbackend.util.AuditLog;
+import org.voxrox.mailbackend.util.HeaderAddresses;
 import org.voxrox.mailbackend.util.LogCategory;
 import org.voxrox.mailbackend.util.LogMasker;
 
@@ -211,6 +212,22 @@ public class SmtpMessageService {
             }
             MimeMessage detached = detachedOpt.get();
 
+            if (recipientsDiffer(draft, detached)) {
+                log.warn("{} Refusing to send draft {} for account {}: the copy on the server names different"
+                        + " recipients than the one stored locally.", LogCategory.SMTP, stableId, accountId);
+                outcome = MailMetrics.OUTCOME_FAILURE;
+                AuditLog.failure("mail_send", "account=" + accountId,
+                        "draft=" + stableId + " reason=draft_changed_on_server");
+                accountRepository
+                        .updateLastError(accountId,
+                                AccountLastError.of(AccountLastErrorCode.DRAFT_CHANGED_ON_SERVER,
+                                        "The draft on the server no longer matches the one stored here."),
+                                LocalDateTime.now());
+                sseNotificationService.broadcast(SendNotification.failed(sendId, accountId,
+                        AccountLastErrorCode.DRAFT_CHANGED_ON_SERVER.name()));
+                return;
+            }
+
             // Clear \Draft — a sent message is no longer a draft.
             detached.setFlag(Flags.Flag.DRAFT, false);
             detached.setSentDate(Date.from(Instant.now()));
@@ -248,6 +265,75 @@ public class SmtpMessageService {
             transportFactory.closeQuietly(transport, accountId);
             metrics.recordSmtpSend(sample, outcome);
         }
+    }
+
+    /**
+     * Whether the copy fetched from the server addresses anyone the locally stored
+     * draft does not, or vice versa (IMAP/SMTP audit B1-5).
+     * <p>
+     * Sending an untouched draft sends the server's copy to the recipients <em>that
+     * copy</em> names, so a hostile or compromised IMAP server could add a Bcc to
+     * mail the user sends themselves, on the user's own action. What the two sides
+     * mean differs by where the draft was written, and the guarantee follows:
+     * <ul>
+     * <li>Composed here — {@code DraftPersistenceService} writes the row from what
+     * the user typed, not from a re-read, so this compares the server's copy
+     * against the user's own intent.</li>
+     * <li>Composed in another client — the row comes from the sync, so this
+     * compares the server's copy now against its copy at the last sync. It catches
+     * a change made in that window, not one made before this client ever saw the
+     * draft.</li>
+     * </ul>
+     * Addresses only: display names are cosmetic and a server that rewrites one has
+     * changed nothing about where the mail goes. Order and duplicates do not count
+     * either — both sides are read as sets.
+     */
+    private static boolean recipientsDiffer(MessageEntity draft, MimeMessage fetched) throws MessagingException {
+        Set<String> stored = addressSet(draft.getRecipientsTo(), draft.getRecipientsCc(), draft.getRecipientsBcc());
+        Set<String> onServer = new HashSet<>();
+        for (Message.RecipientType type : List.of(Message.RecipientType.TO, Message.RecipientType.CC,
+                Message.RecipientType.BCC)) {
+            Address[] addresses = fetched.getRecipients(type);
+            if (addresses == null) {
+                continue;
+            }
+            for (Address address : addresses) {
+                onServer.add(normalizeAddress(address.toString()));
+            }
+        }
+        onServer.remove("");
+        return !stored.equals(onServer);
+    }
+
+    /** The addresses named by raw header fields, lower-cased and de-duplicated. */
+    private static Set<String> addressSet(@Nullable String... rawFields) {
+        Set<String> addresses = new HashSet<>();
+        for (String raw : rawFields) {
+            if (raw == null || raw.isBlank()) {
+                continue;
+            }
+            // The same tokenizer the harvest and the send path use, so the three cannot
+            // drift apart on what counts as an address in a header field.
+            for (InternetAddress token : HeaderAddresses.parseValidTokens(raw)) {
+                String address = token.getAddress();
+                if (address != null && !address.isBlank()) {
+                    addresses.add(normalizeAddress(address));
+                }
+            }
+        }
+        return addresses;
+    }
+
+    /**
+     * An address reduced to what decides where mail goes. A display name around it
+     * is dropped when one is there to parse; the rest is trimmed and lower-cased,
+     * which is stricter than RFC 5321 allows for the local part but is what every
+     * mailbox this client meets does.
+     */
+    private static String normalizeAddress(String raw) {
+        InternetAddress[] tokens = HeaderAddresses.parseValidTokens(raw);
+        String address = tokens.length == 1 && tokens[0].getAddress() != null ? tokens[0].getAddress() : raw;
+        return address.trim().toLowerCase(Locale.ROOT);
     }
 
     /**

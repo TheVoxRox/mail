@@ -4,7 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -16,11 +18,13 @@ import java.util.Optional;
 import java.util.Properties;
 
 import jakarta.mail.Address;
+import jakarta.mail.Message;
 import jakarta.mail.Session;
 import jakarta.mail.Transport;
 import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
 
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -402,6 +406,110 @@ class SmtpMessageServiceTest {
             // Success outcome on the metric, and the transport is handed back.
             verify(mailMetrics).recordSmtpSend(any(), eq(MailMetrics.OUTCOME_SUCCESS));
             verify(transportFactory).closeQuietly(transport, ACCOUNT_ID);
+        }
+    }
+
+    /**
+     * IMAP/SMTP audit B1-5. Sending an untouched draft sends the copy the server
+     * holds, to the recipients <em>that copy</em> names — so a hostile or
+     * compromised IMAP server could add a Bcc to mail the user sends themselves, on
+     * the user's own action, without the user ever seeing it.
+     */
+    @Nested
+    @DisplayName("sendDraftAsync — the server's copy must address who the stored draft addresses")
+    class DraftRecipientCheck {
+
+        private MessageEntity storedDraft(@Nullable String to, @Nullable String cc, @Nullable String bcc) {
+            AccountEntity account = new AccountEntity();
+            account.setId(ACCOUNT_ID);
+            account.setEmail("sender@example.com");
+
+            MessageEntity draft = new MessageEntity();
+            draft.setStableId(STABLE_ID);
+            draft.setAccount(account);
+            draft.setFolderName("Drafts");
+            draft.setUid(42L);
+            draft.setRecipientsTo(to);
+            draft.setRecipientsCc(cc);
+            draft.setRecipientsBcc(bcc);
+            return draft;
+        }
+
+        private Transport sendWith(MessageEntity draft, MimeMessage onServer) throws Exception {
+            Session session = Session.getInstance(new Properties());
+            Transport transport = mock(Transport.class);
+
+            when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(draft));
+            when(connectionDetailsService.getSmtpConnectionDetails(ACCOUNT_ID)).thenReturn(CONNECTION_DETAILS);
+            when(transportFactory.createSession(CONNECTION_DETAILS)).thenReturn(session);
+            lenient().when(transportFactory.openTransport(eq(ACCOUNT_ID), eq(session), eq(CONNECTION_DETAILS)))
+                    .thenReturn(transport);
+            when(appendService.fetchAndDetachMime(ACCOUNT_ID, "Drafts", 42L, session))
+                    .thenReturn(Optional.of(onServer));
+
+            service.sendDraftAsync(ACCOUNT_ID, STABLE_ID, SEND_ID);
+            return transport;
+        }
+
+        private MimeMessage serverCopy(@Nullable String to, @Nullable String cc, @Nullable String bcc)
+                throws Exception {
+            MimeMessage message = new MimeMessage(Session.getInstance(new Properties()));
+            if (to != null) {
+                message.setRecipients(Message.RecipientType.TO, to);
+            }
+            if (cc != null) {
+                message.setRecipients(Message.RecipientType.CC, cc);
+            }
+            if (bcc != null) {
+                message.setRecipients(Message.RecipientType.BCC, bcc);
+            }
+            message.setText("body");
+            message.saveChanges();
+            return message;
+        }
+
+        @Test
+        @DisplayName("A Bcc the stored draft does not carry stops the send")
+        void addedBccIsRefused() throws Exception {
+            MessageEntity draft = storedDraft("to@example.com", null, null);
+
+            Transport transport = sendWith(draft, serverCopy("to@example.com", null, "eavesdropper@example.test"));
+
+            verify(transport, never()).sendMessage(any(), any());
+            verify(accountRepository).updateLastError(eq(ACCOUNT_ID),
+                    argThat(error -> error.code() == AccountLastErrorCode.DRAFT_CHANGED_ON_SERVER),
+                    any(LocalDateTime.class));
+
+            ArgumentCaptor<SendNotification> sent = ArgumentCaptor.forClass(SendNotification.class);
+            verify(sseNotificationService).broadcast(sent.capture());
+            assertThat(sent.getValue().type()).isEqualTo(SendNotification.TYPE_FAILED);
+            assertThat(sent.getValue().errorCode()).isEqualTo(AccountLastErrorCode.DRAFT_CHANGED_ON_SERVER.name());
+
+            // The draft is left where it is: refusing to send must not also destroy the
+            // only copy of what the user wrote.
+            verifyNoInteractions(imapActionService);
+        }
+
+        @Test
+        @DisplayName("A recipient swapped for another stops the send")
+        void swappedRecipientIsRefused() throws Exception {
+            MessageEntity draft = storedDraft("to@example.com", null, null);
+
+            Transport transport = sendWith(draft, serverCopy("attacker@example.test", null, null));
+
+            verify(transport, never()).sendMessage(any(), any());
+        }
+
+        @Test
+        @DisplayName("The same addresses in another order, case or display name still send")
+        void cosmeticDifferencesStillSend() throws Exception {
+            MessageEntity draft = storedDraft("Bob <bob@example.com>, ann@example.com", "carol@example.com", null);
+
+            Transport transport = sendWith(draft,
+                    serverCopy("ANN@Example.com, \"Bob B\" <Bob@EXAMPLE.com>", "Carol <carol@example.com>", null));
+
+            verify(transport).sendMessage(any(), any());
+            verify(accountRepository, never()).updateLastError(anyLong(), any(), any(LocalDateTime.class));
         }
     }
 

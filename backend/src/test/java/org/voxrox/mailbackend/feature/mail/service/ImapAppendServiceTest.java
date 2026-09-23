@@ -1,6 +1,7 @@
 package org.voxrox.mailbackend.feature.mail.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -198,6 +199,44 @@ class ImapAppendServiceTest {
             assertThat(detached.getHeader("Message-ID")).containsExactly("<original@example.com>");
             // Detached: re-parsed instance, not the same object as onServer.
             assertThat(detached).isNotSameAs(onServer);
+        }
+
+        /**
+         * IMAP/SMTP audit B1-5. The server states no size for a fetch, it simply sends,
+         * so the bound is the only thing between a hostile server and as much heap as
+         * it cares to spend. The oversized message here writes its bytes straight to
+         * the stream instead of holding them, so the test costs the bound and not twice
+         * the draft.
+         */
+        @Test
+        @DisplayName("A draft larger than the bound is refused instead of buffered")
+        void oversizedDraftIsRefused() throws Exception {
+            Folder folder = mock(Folder.class);
+            UIDFolder uidFolder = mock(UIDFolder.class);
+            when(uidFolder.getMessageByUID(789L)).thenReturn(endlessMessage(session));
+
+            when(imapFolderService.executeInFolder(eq(ACCOUNT_ID), eq(Lane.INTERACTIVE), eq(FOLDER_NAME),
+                    eq(Folder.READ_ONLY), any())).thenAnswer(inv -> {
+                        ImapFolderAction<?> action = inv.getArgument(4);
+                        return action.apply(folder, uidFolder);
+                    });
+
+            assertThatThrownBy(() -> service.fetchAndDetachMime(ACCOUNT_ID, FOLDER_NAME, 789L, session))
+                    .isInstanceOf(MailOperationException.class)
+                    .hasMessageContaining(String.valueOf(ImapAppendService.MAX_DRAFT_BYTES));
+        }
+
+        /** A message that writes more bytes than the bound and keeps none of them. */
+        private static MimeMessage endlessMessage(Session session) {
+            return new MimeMessage(session) {
+                @Override
+                public void writeTo(java.io.OutputStream out) throws java.io.IOException {
+                    byte[] chunk = new byte[64 * 1024];
+                    for (long written = 0; written <= ImapAppendService.MAX_DRAFT_BYTES; written += chunk.length) {
+                        out.write(chunk, 0, chunk.length);
+                    }
+                }
+            };
         }
     }
 }
