@@ -323,6 +323,18 @@
 			return () => cancelAnimationFrame(frame);
 		}
 
+		/*
+		 * The grouped list's shape, which only it can resolve (a thread rather
+		 * than a message). Reaching this list means the grouped one is not
+		 * mounted and will not be until the preference is toggled, by which time
+		 * the request is stale — so it is dropped here rather than left to answer
+		 * itself later.
+		 */
+		if (restore.kind !== 'row') {
+			clearListFocusRestore();
+			return;
+		}
+
 		if (!gridElement) return;
 		const idx = $messagesState.page.content.findIndex((m) => m.stableId === restore.stableId);
 		if (idx < 0) return;

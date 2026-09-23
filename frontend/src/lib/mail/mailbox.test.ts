@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('$app/navigation', () => ({
 	goto: vi.fn().mockResolvedValue(undefined)
@@ -51,6 +51,7 @@ vi.mock('$lib/stores/selectedMessage.js', async () => {
 		clearSelection: vi.fn(),
 		invalidateMessage: vi.fn(),
 		patchSelectedMessageDetail: vi.fn(),
+		requestConversationFocusRestore: vi.fn(),
 		requestListFocusRestore: vi.fn(),
 		requestEmptyListFocus: vi.fn()
 	};
@@ -59,7 +60,8 @@ vi.mock('$lib/stores/selectedMessage.js', async () => {
 vi.mock('$lib/stores/conversations.js', async () => {
 	const { writable } = await import('svelte/store');
 	return {
-		conversationsState: writable({ status: 'idle' })
+		conversationsState: writable({ status: 'idle' }),
+		reloadCurrentConversationsPage: vi.fn()
 	};
 });
 
@@ -105,7 +107,13 @@ import { folders } from '$lib/stores/folders.js';
 import { searchState } from '$lib/stores/search.js';
 import { confirmAction } from '$lib/stores/confirmDialog.js';
 import { messagesState } from '$lib/stores/messages.js';
-import { conversationsState } from '$lib/stores/conversations.js';
+import { conversationsState, reloadCurrentConversationsPage } from '$lib/stores/conversations.js';
+import { adjustFolderUnread } from '$lib/stores/folders.js';
+import {
+	requestConversationFocusRestore,
+	requestListFocusRestore
+} from '$lib/stores/selectedMessage.js';
+import { messageGrouping } from '$lib/stores/uiLayout.js';
 import { pushToast } from '$lib/stores/toasts.js';
 import { selectedMessage } from '$lib/stores/selectedMessage.js';
 import type { Writable } from 'svelte/store';
@@ -117,6 +125,10 @@ const searchStore = searchState as unknown as Writable<unknown>;
 const selectedStore = selectedMessage as unknown as Writable<unknown>;
 const conversationsStore = conversationsState as unknown as Writable<unknown>;
 const pushToastMock = pushToast as Mock;
+const reloadConversationsMock = reloadCurrentConversationsPage as Mock;
+const adjustFolderUnreadMock = adjustFolderUnread as Mock;
+const requestConversationFocusRestoreMock = requestConversationFocusRestore as Mock;
+const requestListFocusRestoreMock = requestListFocusRestore as Mock;
 const confirmActionMock = confirmAction as Mock;
 const deleteMessageMock = deleteMessage as Mock;
 
@@ -173,7 +185,10 @@ function readyConversations(folderName: string, rows: RowSpec[]) {
 	};
 }
 
-function openMessage(stableId: string, detail: { subject?: string; folderName: string }) {
+function openMessage(
+	stableId: string,
+	detail: { subject?: string; folderName: string; seen?: boolean }
+) {
 	return { stableId, detail, content: null, loading: false, error: null, notFound: false };
 }
 
@@ -455,5 +470,73 @@ describe('deleteMessages - the subject the single-delete outcome names', () => {
 		expect(pushToastMock).toHaveBeenCalledWith(expect.stringContaining('messages.noSubject'), {
 			tone: 'success'
 		});
+	});
+});
+
+describe('deleteMessages - the listing the grouped view is left with', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		foldersStore.set(folderList());
+		messagesStore.set({ status: 'idle' });
+		searchStore.set({ status: 'idle' });
+		conversationsStore.set({ status: 'idle' });
+		selectedStore.set(null);
+		// The grouped view on screen is what leaves the flat store idle.
+		messageGrouping.set('grouped');
+	});
+
+	afterEach(() => {
+		messageGrouping.set('flat');
+	});
+
+	it('refetches the grouped page, which has no local patch to mirror', async () => {
+		conversationsStore.set(readyConversations('INBOX', [{ stableId: 'c1' }, { stableId: 'c2' }]));
+
+		await deleteMessages(['c1']);
+
+		expect(reloadConversationsMock).toHaveBeenCalledOnce();
+	});
+
+	it('leaves the grouped page alone while the flat list is the one showing', async () => {
+		messageGrouping.set('flat');
+		messagesStore.set(readyRows('INBOX', [{ stableId: 'm1' }]));
+		conversationsStore.set(readyConversations('INBOX', [{ stableId: 'c1' }]));
+
+		await deleteMessages(['m1']);
+
+		expect(reloadConversationsMock).not.toHaveBeenCalled();
+	});
+
+	it('points focus at the thread the message represented, neighbour as fallback', async () => {
+		// The thread survives whenever another of its messages is still in the
+		// folder, and then it is the row the user was reading - but which message
+		// represents it has changed, so it can only be named by thread.
+		conversationsStore.set(readyConversations('INBOX', [{ stableId: 'c1' }, { stableId: 'c2' }]));
+		selectedStore.set(openMessage('c1', { folderName: 'INBOX' }));
+
+		await deleteMessages(['c1']);
+
+		expect(requestConversationFocusRestoreMock).toHaveBeenCalledWith('t-c1', 'c2');
+		expect(requestListFocusRestoreMock).not.toHaveBeenCalled();
+	});
+
+	it('subtracts an unread message from the folder badge', async () => {
+		conversationsStore.set(readyConversations('INBOX', [{ stableId: 'c1' }]));
+		selectedStore.set(openMessage('c1', { folderName: 'INBOX', seen: false }));
+
+		await deleteMessages(['c1']);
+
+		expect(adjustFolderUnreadMock).toHaveBeenCalledWith(1, 'INBOX', -1);
+	});
+
+	it('leaves the badge alone for a message already read', async () => {
+		// The open detail is the copy the app patches when a message is opened,
+		// so it is what says whether the badge still counts it.
+		conversationsStore.set(readyConversations('INBOX', [{ stableId: 'c1' }]));
+		selectedStore.set(openMessage('c1', { folderName: 'INBOX', seen: true }));
+
+		await deleteMessages(['c1']);
+
+		expect(adjustFolderUnreadMock).not.toHaveBeenCalled();
 	});
 });

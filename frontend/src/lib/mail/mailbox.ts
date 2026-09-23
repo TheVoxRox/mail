@@ -13,12 +13,13 @@ import { deleteMessage, moveMessage, setMessageFlag } from '$lib/api/mailAction.
 import { getMessageDetail } from '$lib/api/mailRead.js';
 import { folders as folderList, adjustFolderUnread } from '$lib/stores/folders.js';
 import { searchState } from '$lib/stores/search.js';
-import { conversationsState } from '$lib/stores/conversations.js';
+import { conversationsState, reloadCurrentConversationsPage } from '$lib/stores/conversations.js';
 import { confirmAction } from '$lib/stores/confirmDialog.js';
 import {
 	clearSelection,
 	invalidateMessage,
 	patchSelectedMessageDetail,
+	requestConversationFocusRestore,
 	requestEmptyListFocus,
 	requestListFocusRestore,
 	selectedMessage,
@@ -34,7 +35,12 @@ import {
 import { setMessageSelection } from '$lib/stores/messageSelection.js';
 import { _ } from '$lib/i18n/index.js';
 import { toErrorMessage } from '$lib/api/errors.js';
-import { currentFolderHref, listingContexts } from '$lib/mail/currentListing.js';
+import {
+	currentFolderHref,
+	currentListingContext,
+	groupedListingIsShowing,
+	listingContexts
+} from '$lib/mail/currentListing.js';
 import { closeOpenDetail } from '$lib/mail/detailHost.js';
 import { folderLabel } from '$lib/mail/folderLabel.js';
 import { announcePolite, pushToast } from '$lib/stores/toasts.js';
@@ -126,25 +132,78 @@ function messageSubjectLabel(stableId: string): string {
 }
 
 /**
+ * Whether a message was still unread just before the mutation, from whatever
+ * holds its state; `false` when nothing does, so an unknown message is never
+ * subtracted from a folder's badge.
+ *
+ * The open detail answers first here, unlike the subject above. It is the copy
+ * the app keeps patched — opening a message marks it read through
+ * `patchSelectedMessageDetail` — while a grouped row is never patched locally,
+ * so trusting the row would subtract a message that had already been counted
+ * as read the moment it was opened.
+ */
+function wasUnread(stableId: string): boolean {
+	const open = get(selectedMessage);
+	if (open?.stableId === stableId && open.detail) return !open.detail.seen;
+	const messages = currentMessagesState();
+	if (messages.status === 'ready') {
+		const row = messages.page.content.find((message) => message.stableId === stableId);
+		if (row) return !row.seen;
+	}
+	const conversations = get(conversationsState);
+	if (conversations.status === 'ready') {
+		const row = conversations.page.content.find((entry) => entry.latest.stableId === stableId);
+		if (row) return !row.latest.seen;
+	}
+	return false;
+}
+
+/**
  * Where focus goes once `stableId` leaves the list. `null` means the row is
  * not on the page the list is showing (the action came from search results, or
  * from another page), so this list has no say; `emptied` means it was the last
  * row and only the empty state is left to receive focus.
+ *
+ * Both listings answer, because both can be the one the user came from and the
+ * one they are dropped back into — and the grouped list, which is never
+ * mounted while a message is open in `off` mode, cannot work this out for
+ * itself afterwards: by then the row is gone and the page has been refetched.
  */
 function focusTargetAfterRemoving(stableId: string): ListFocusRestore | null {
 	const state = currentMessagesState();
-	if (state.status !== 'ready') return null;
-	const index = state.page.content.findIndex((message) => message.stableId === stableId);
+	if (state.status === 'ready') {
+		const index = state.page.content.findIndex((message) => message.stableId === stableId);
+		if (index >= 0) {
+			const neighbour =
+				state.page.content[index + 1]?.stableId ?? state.page.content[index - 1]?.stableId ?? null;
+			return neighbour ? { kind: 'row', stableId: neighbour } : { kind: 'emptied' };
+		}
+	}
+	const conversations = get(conversationsState);
+	if (conversations.status !== 'ready') return null;
+	const rows = conversations.page.content;
+	const index = rows.findIndex((row) => row.latest.stableId === stableId);
+	// Only a conversation's representative is resolvable here: a member of an
+	// expanded thread lives in the list's own cache, which this store does not
+	// carry. That row keeps the list's own restore (`pendingRowFocus`), because
+	// a member is opened from a list that stays mounted.
 	if (index < 0) return null;
-	const neighbour =
-		state.page.content[index + 1]?.stableId ?? state.page.content[index - 1]?.stableId ?? null;
-	return neighbour ? { kind: 'row', stableId: neighbour } : { kind: 'emptied' };
+	const neighbour = rows[index + 1] ?? rows[index - 1] ?? null;
+	const threadId = rows[index].threadId;
+	// A thread the backfill has not processed yet is a singleton, so its row
+	// goes with the message and only the neighbour is left to land on.
+	if (threadId === null) {
+		return neighbour ? { kind: 'row', stableId: neighbour.latest.stableId } : { kind: 'emptied' };
+	}
+	return { kind: 'conversation', threadId, fallbackStableId: neighbour?.latest.stableId ?? null };
 }
 
 /** Applies a target from `focusTargetAfterRemoving`; a null target asks for nothing. */
 function requestFocusTarget(target: ListFocusRestore | null | undefined): void {
 	if (!target) return;
 	if (target.kind === 'row') requestListFocusRestore(target.stableId);
+	else if (target.kind === 'conversation')
+		requestConversationFocusRestore(target.threadId, target.fallbackStableId);
 	else requestEmptyListFocus();
 }
 
@@ -173,20 +232,16 @@ async function executeBulkMessageAction(options: ExecuteBulkOptions): Promise<Bu
 
 	// Snapshot which ids were unread and where — before the mutation, while the
 	// rows are still in the list — for the optimistic folder-unread adjustment.
+	// The folder comes from whichever listing is on screen, so the badge follows
+	// a delete in the grouped view as it does in the flat one.
 	let unreadBefore: { accountId: number; folderName: string; ids: Set<string> } | null = null;
 	if (options.adjustSourceFolderUnread) {
-		const state = currentMessagesState();
-		if (state.status === 'ready') {
-			const unread = new Set(
-				ids.filter((id) => {
-					const message = state.page.content.find((m) => m.stableId === id);
-					return message != null && !message.seen;
-				})
-			);
+		const listing = currentListingContext();
+		if (listing) {
 			unreadBefore = {
-				accountId: state.context.accountId,
-				folderName: state.context.folderName,
-				ids: unread
+				accountId: listing.accountId,
+				folderName: listing.folderName,
+				ids: new Set(ids.filter((id) => wasUnread(id)))
 			};
 		}
 	}
@@ -207,6 +262,22 @@ async function executeBulkMessageAction(options: ExecuteBulkOptions): Promise<Bu
 
 	if (options.pruneSelection) {
 		setMessageSelection(failedIds);
+	}
+
+	/*
+	 * Each action patches the flat list in place as its items settle; the
+	 * grouped list has no such patch (see groupedListingIsShowing) and used to
+	 * keep showing the message until the next sync event — as a row that was
+	 * gone, or with counts and a representative that had moved on. It refetches
+	 * instead, exactly as the grouped view's own actions do.
+	 *
+	 * Deliberately not awaited: the store goes to `loading` at once, which is
+	 * what the list's restore below waits on, and holding the open message on
+	 * screen for a round trip would be a worse answer than a list that redraws
+	 * a moment later.
+	 */
+	if (result.succeeded > 0 && groupedListingIsShowing()) {
+		void reloadCurrentConversationsPage();
 	}
 
 	if (options.clearDetailIfAffected) {
@@ -251,7 +322,10 @@ async function executeBulkMessageAction(options: ExecuteBulkOptions): Promise<Bu
 	if (unreadBefore && result.succeeded > 0) {
 		const ctx = unreadBefore;
 		const removedUnread = succeededIds.filter((id) => ctx.ids.has(id)).length;
-		adjustFolderUnread(ctx.accountId, ctx.folderName, -removedUnread);
+		// Nothing unread went: a zero adjustment writes the folder list back
+		// unchanged, which redraws the sidebar for no news. Same guard the
+		// grouped view's own pipeline keeps.
+		if (removedUnread > 0) adjustFolderUnread(ctx.accountId, ctx.folderName, -removedUnread);
 	}
 
 	if (options.toastKey) {

@@ -27,11 +27,21 @@ export const selectedMessage = writable<SelectedMessage | null>(null);
 
 /**
  * Where the message list should put focus after a mutation took away the
- * control the user was on. `row` names the message to land on; `emptied` says
- * the list has no rows left, so the empty-state message is the only place
- * focus can go — without it focus would fall to `<body>`.
+ * control the user was on.
+ *
+ * `row` names a message to land on: the flat list's neighbouring row, and in
+ * the grouped list the conversation that message represents. `conversation` is
+ * the grouped list's own shape — a thread survives a delete whenever another of
+ * its messages is still in the folder, and then it is the row the user was
+ * reading, but which message represents it has changed, so it is named by
+ * thread and carries a neighbouring row for when it does not survive.
+ * `emptied` says the list has no rows left, so the empty-state message is the
+ * only place focus can go — without it focus would fall to `<body>`.
  */
-export type ListFocusRestore = { kind: 'row'; stableId: string } | { kind: 'emptied' };
+export type ListFocusRestore =
+	| { kind: 'row'; stableId: string }
+	| { kind: 'conversation'; threadId: string; fallbackStableId: string | null }
+	| { kind: 'emptied' };
 
 export const listFocusRestore = writable<ListFocusRestore | null>(null);
 
@@ -57,6 +67,14 @@ export function clearSelection(): void {
 
 export function requestListFocusRestore(stableId: string): void {
 	listFocusRestore.set({ kind: 'row', stableId });
+}
+
+/** The grouped list's restore request — see {@link ListFocusRestore}. */
+export function requestConversationFocusRestore(
+	threadId: string,
+	fallbackStableId: string | null
+): void {
+	listFocusRestore.set({ kind: 'conversation', threadId, fallbackStableId });
 }
 
 /** The mutation removed the last row — focus belongs on the empty state. */
