@@ -1042,3 +1042,52 @@ test.describe('Fokus po řádkové akci v seskupeném režimu', () => {
 		await expect(page.locator('[data-cell-target]:focus')).toHaveAttribute('data-col', '6');
 	});
 });
+
+/*
+ * The grouped view lists from the conversations store, and the flat `messages`
+ * store is never loaded while it is on screen — but every action on the OPEN
+ * message (the toolbar, its shortcut, the palette) goes through the flat
+ * pipeline in `mail/mailbox.ts`. Anything that pipeline read out of the flat
+ * store therefore came back empty here, and no e2e covered the combination.
+ */
+test.describe('Otevřená zpráva v seskupeném režimu', () => {
+	async function openArchiveMessage(page: Page): Promise<void> {
+		await openApp(page, `/mail/${accountId}/ARCHIVE`);
+		await archiveRow(page, 'arch-03').locator('[data-cell-target][data-col="3"]').click();
+		await page.waitForURL(`**/mail/${accountId}/ARCHIVE/arch-03`);
+		await expect(page.getByRole('toolbar', { name: 'Akce se zprávami' })).toBeVisible();
+	}
+
+	test('smazání klávesou Delete ohlásí předmět smazané zprávy', async ({ page }) => {
+		await openArchiveMessage(page);
+
+		// Pressed on the element rather than after focusing it: opening a message
+		// parks focus itself a frame later, and `press` closes that gap (see
+		// waitForFocus in e2e-helpers).
+		await page.locator('#main-content').press('Delete');
+
+		await expect(
+			page.getByRole('status').filter({ hasText: 'Zpráva smazána: Re: Plán vydání' })
+		).toBeVisible();
+	});
+
+	test('smazání se vrátí do složky, ve které zpráva byla', async ({ page }) => {
+		await openArchiveMessage(page);
+
+		await page.locator('#main-content').press('Delete');
+
+		// Not the inbox: closing goes back to the folder the grouped view is
+		// listing, which is the only store that knows it here.
+		await page.waitForURL(`**/mail/${accountId}/ARCHIVE`);
+		await expect(conversationGrid(page)).toBeVisible();
+	});
+
+	test('Esc se vrátí do složky, ve které zpráva byla', async ({ page }) => {
+		await openArchiveMessage(page);
+
+		await page.locator('#main-content').press('Escape');
+
+		await page.waitForURL(`**/mail/${accountId}/ARCHIVE`);
+		await expect(archiveRow(page, 'arch-03')).toBeVisible();
+	});
+});
