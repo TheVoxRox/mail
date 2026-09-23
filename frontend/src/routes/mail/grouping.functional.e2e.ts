@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import {
+	bodyFrame,
 	conversationGrid,
 	messageGrid,
 	openApp,
@@ -1056,15 +1057,24 @@ test.describe('Otevřená zpráva v seskupeném režimu', () => {
 		await archiveRow(page, 'arch-03').locator('[data-cell-target][data-col="3"]').click();
 		await page.waitForURL(`**/mail/${accountId}/ARCHIVE/arch-03`);
 		await expect(page.getByRole('toolbar', { name: 'Akce se zprávami' })).toBeVisible();
+		/*
+		 * Opening a message parks focus in the body frame a frame later, and a key
+		 * sent inside that gap can be lost: pressing on an element focuses it first,
+		 * so the app takes focus back between the two halves of the press and CI
+		 * dropped one Delete there while the same test passed locally. Wait for the
+		 * app's own move to land, then send the key from the keyboard — the frame
+		 * forwards it to the global handler (mail/mailFrame.ts), which is how a
+		 * reader's keystroke arrives here too.
+		 */
+		const frame = bodyFrame(page);
+		await expect(frame).toBeVisible();
+		await waitForFocus(frame);
 	}
 
 	test('smazání klávesou Delete ohlásí předmět smazané zprávy', async ({ page }) => {
 		await openArchiveMessage(page);
 
-		// Pressed on the element rather than after focusing it: opening a message
-		// parks focus itself a frame later, and `press` closes that gap (see
-		// waitForFocus in e2e-helpers).
-		await page.locator('#main-content').press('Delete');
+		await page.keyboard.press('Delete');
 
 		await expect(
 			page.getByRole('status').filter({ hasText: 'Zpráva smazána: Re: Plán vydání' })
@@ -1074,7 +1084,7 @@ test.describe('Otevřená zpráva v seskupeném režimu', () => {
 	test('smazání se vrátí do složky, ve které zpráva byla', async ({ page }) => {
 		await openArchiveMessage(page);
 
-		await page.locator('#main-content').press('Delete');
+		await page.keyboard.press('Delete');
 
 		// Not the inbox: closing goes back to the folder the grouped view is
 		// listing, which is the only store that knows it here.
@@ -1085,7 +1095,7 @@ test.describe('Otevřená zpráva v seskupeném režimu', () => {
 	test('Esc se vrátí do složky, ve které zpráva byla', async ({ page }) => {
 		await openArchiveMessage(page);
 
-		await page.locator('#main-content').press('Escape');
+		await page.keyboard.press('Escape');
 
 		await page.waitForURL(`**/mail/${accountId}/ARCHIVE`);
 		await expect(archiveRow(page, 'arch-03')).toBeVisible();
