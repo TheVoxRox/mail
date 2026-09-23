@@ -21,7 +21,8 @@ public enum AccountLastErrorCode {
     SMTP_SEND_FAILED("account.lastError.smtpSendFailed", "detail"),
     DRAFT_SAVE_FAILED("account.lastError.draftSaveFailed", "detail"),
     DRAFT_SEND_FAILED("account.lastError.draftSendFailed", "detail"),
-    DRAFT_NOT_FOUND_ON_SERVER("account.lastError.draftNotFoundOnServer");
+    DRAFT_NOT_FOUND_ON_SERVER("account.lastError.draftNotFoundOnServer"),
+    DRAFT_CHANGED_ON_SERVER("account.lastError.draftChangedOnServer");
     // spotless:on
 
     /**
@@ -35,7 +36,7 @@ public enum AccountLastErrorCode {
      * ({@code SmtpMessageService}, {@code DraftPersistenceService}).
      */
     public static final List<String> SEND_PIPELINE_CODES = List.of(SMTP_SEND_FAILED.name(), DRAFT_SAVE_FAILED.name(),
-            DRAFT_SEND_FAILED.name(), DRAFT_NOT_FOUND_ON_SERVER.name());
+            DRAFT_SEND_FAILED.name(), DRAFT_NOT_FOUND_ON_SERVER.name(), DRAFT_CHANGED_ON_SERVER.name());
 
     private final String messageKey;
     // List.of() below is immutable; the checker only sees the List interface.

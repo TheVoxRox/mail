@@ -2,14 +2,14 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.13                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **Version**        | 1.14                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | **Date**           | 2026-09-22                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | **Audited commit** | `6224cbb` (re-verified 2026-09-22, clearing six acknowledgements; 1.7–1.8 anchor `9435e56`, re-verified 2026-09-16; 1.6 anchor `02ff962`, recorded pre-squash as `f5b75ad`; 1.5 anchor `885b98a`, re-verified 2026-09-02 at the ledger cap; 1.3–1.4 anchor `cad05cb`, recorded pre-squash as `3ff0c78`; 1.0–1.2 baseline: `35a06f3`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service`, `backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java`, `backend/src/main/java/org/voxrox/mailbackend/util/SubjectNormalizer.java`, `backend/src/main/java/org/voxrox/mailbackend/core/config/mail`, `backend/src/main/java/org/voxrox/mailbackend/core/config/RetryConfig.java`, `backend/src/main/resources/application.properties`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/MessageRepository.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/MessageEntity.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/FolderSyncStateEntity.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/mapper/MessageMapper.java` |
 | **Auditor**        | Claude (Fable 5; 1.9 re-verified by Claude Opus 5) + owner review                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | **Subsystem**      | External mail server ↔ sidecar — Boundary 1 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| **Verdict**        | **Security: open findings** — two open: **B1-5** (Medium, sending an untouched draft trusts and buffers the server's copy, §4e), **B1-6** (Low, no IMAP write timeout, §4f). Fixed in code: **B1-7** (Medium, a declared literal size was allocated before a byte arrived, found at 1.11, fixed 2026-09-22, §4g), **B1-3** (Medium, a server-stated size exhausted the heap before our code ran, 2026-09-22, §4c), **B1-4** (High, IMAP password login without TLS when SSL was off, 2026-09-22, §4d), **B1-1** (Medium, unbounded body fetch, 2026-07-10, §4) and **B1-2** (Medium, quadratic subject normalization, 2026-08-08, §4b). Informational notes in §5.                                                                                                                                         |
+| **Verdict**        | **Security: open findings** — one open: **B1-6** (Low, no IMAP write timeout, §4f). Fixed in code: **B1-5** (Medium, sending an untouched draft trusted and buffered the server's copy, 2026-09-22, §4e — with a residual: the body and headers of a draft composed in another client are bounded but still unverified), **B1-7** (Medium, a declared literal size was allocated before a byte arrived, found at 1.11, fixed 2026-09-22, §4g), **B1-3** (Medium, a server-stated size exhausted the heap before our code ran, 2026-09-22, §4c), **B1-4** (High, IMAP password login without TLS when SSL was off, 2026-09-22, §4d), **B1-1** (Medium, unbounded body fetch, 2026-07-10, §4) and **B1-2** (Medium, quadratic subject normalization, 2026-08-08, §4b). Informational notes in §5.            |
 
 Full per-subsystem audit of the path **"raw IMAP/SMTP wire → parsed → stored /
 sent"**. After the mail body (Boundary 4), this is the second-largest
@@ -674,7 +674,7 @@ is the intent; no loopback exception was made (decided 2026-09-22).
 
 **Status: fixed.**
 
-## 4e. Finding B1-5 (Medium) — sending an untouched draft trusts and buffers the server's copy — **OPEN**
+## 4e. Finding B1-5 (Medium) — sending an untouched draft trusts and buffers the server's copy — **FIXED**
 
 **What.** A draft the user did not edit is sent as the server holds it:
 `ImapAppendService.fetchAndDetachMime` writes the server's message into a
@@ -699,7 +699,57 @@ the stored ones and refuse on a mismatch, and bound the fetch the way B1-1
 bounds bodies. The as-is path exists to keep a draft composed in another
 client intact, so which of these is a product decision at fix time.
 
-**Status: open**, tracked in `todo.md`.
+**Fix (shipped 2026-09-22).** The second of the two, decided at fix time: the
+as-is path exists so a draft composed in another client keeps its attachments
+and formatting, and rebuilding from the row would lose both.
+`SmtpMessageService.sendDraftAsync` now compares the fetched copy's To, Cc and
+Bcc against the stored row's three fields before handing it to the transport,
+and refuses the send on a mismatch — a new `DRAFT_CHANGED_ON_SERVER`, recorded
+in `last_error` and broadcast to the client, with the draft left where it is so
+a refusal does not also destroy the only copy of what the user wrote.
+Addresses only: a display name is cosmetic, and a server that rewrites one has
+changed nothing about where the mail goes. Both sides are read as sets through
+`HeaderAddresses.parseValidTokens`, the same tokenizer the send and harvest
+paths use, and lower-cased, so order, duplicates and case do not count.
+
+**What the comparison is worth depends on where the draft was written**, and
+the finding is only half closed by it:
+
+- Composed here — `DraftPersistenceService` writes the row from what the user
+  typed (`request.to()/cc()/bcc()`), not from a re-read, so this compares the
+  server's copy against the user's own intent.
+- Composed in another client — the row comes from the sync, so this compares
+  the server's copy now against its copy at the last sync. It catches a change
+  made in that window, not one made before this client ever saw the draft.
+
+The body and the remaining headers are still the server's on both paths. That
+is the part rebuilding from the row would have closed and this does not; it
+stays as a known limit rather than a finding, because for a draft composed
+elsewhere there is nothing local to rebuild from.
+
+`ImapAppendService.fetchAndDetachMime` also bounds the fetch at
+`MAX_DRAFT_BYTES` = **40 MiB**, through a `ByteArrayOutputStream` that refuses
+the first byte past it and hands its buffer out without the third copy
+`toByteArray()` was making. The server states no size here — it simply sends —
+so the bound is the only thing between a hostile server and as much heap as it
+cares to spend. 40 MiB is above what any provider accepts for sending (base64
+inflates attachments by about a third, so Gmail's 25 MB ceiling reaches the
+wire at roughly 35 MB), so a draft past it could not have been sent anyway and
+now fails on the fetch rather than at the SMTP server.
+
+**Dynamic verification.** `SmtpMessageServiceTest` covers an added Bcc and a
+swapped recipient, both refused with nothing transported, and the same
+addresses in another order, case and display name still sending — the guard
+against a check that is merely strict. Both refusal tests were run against the
+neutered comparison and fail there, with `transport.sendMessage` invoked: the
+tampered draft goes out. `ImapAppendServiceTest` covers the bound with a
+message that writes past it.
+
+**Residual.** A draft larger than 40 MiB of raw MIME cannot be sent. The body
+and headers of a draft composed in another client are still taken from the
+server, bounded but unverified.
+
+**Status: fixed**, with the residual above.
 
 ## 4f. Finding B1-6 (Low) — no IMAP write timeout — **OPEN**
 
@@ -864,6 +914,21 @@ of the message being skipped.
 
 ## 7. Change log
 
+- **1.14** (2026-09-22) — **B1-5 fixed, with a residual** (#564). Of the two
+  remedies §4e named, the comparison rather than the rebuild: the as-is path
+  exists so a draft composed in another client keeps its attachments and
+  formatting, and rebuilding from the row would lose both. The send now refuses
+  a fetched copy whose To, Cc and Bcc do not match the stored row's, as sets of
+  addresses, and the fetch is bounded at 40 MiB. What that comparison is worth
+  turns on where the draft was written, which §4e now states: composed here,
+  the row is what the user typed, so it is checked against intent; composed
+  elsewhere, the row is the sync's copy, so only a change since the last sync is
+  caught. The body and the remaining headers stay the server's either way —
+  recorded as a residual, not a finding, because for a draft composed elsewhere
+  there is nothing local to rebuild from. Both refusal tests were seen failing
+  against the neutered comparison, with the tampered draft transported. §4e and
+  the verdict follow. Drift under `Code paths` acknowledged, since only §4e was
+  re-read against this change. B1-6 stays open.
 - **1.13** (2026-09-22) — **B1-7 fixed** (#563). Of the two places §4g named
   for the bound, only one is reachable: `Protocol` builds its own socket and
   keeps the stream private, so nothing can be put under `ResponseInputStream`

@@ -142,7 +142,7 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "2f88a220d4225b1021143e780501c21e9c490127"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "5d2e3a4c54c8f809fd0d5704fb45e2fa6bce00eb"
     },
     "acknowledgements": [
       {
@@ -156,6 +156,10 @@
       {
         "date": "2026-09-22",
         "note": "The fix for B1-7, recorded in the audit itself as v1.13 (section 4g). One file under feature/mail/service changes: BoundedImapProtocol gains getResponseBuffer(), which hands Angus a BoundedByteArray refusing to grow one response past 32 MiB, and a catch in readResponse() that turns any RuntimeException from the read into the same connection-closing IOException as a refused response. Nothing else in the class moves -- the EXISTS and VANISHED bounds of B1-3 and their parsing are untouched -- and no other file under the path changes. Re-read against section 4g, which the change is about, and against section 4c, whose residual named the literal as a separate route and now names it fixed. Section 1's connection setup, section 2's pipeline and everything after them are untouched. The finding moves from open to fixed; the other verdicts do not move."
+      },
+      {
+        "date": "2026-09-22",
+        "note": "The fix for B1-5, recorded in the audit itself as v1.14 (section 4e). Two files move under feature/mail/service, and nothing else does. ImapAppendService.fetchAndDetachMime writes the fetched draft into a ByteArrayOutputStream that refuses the first byte past 40 MiB and hands its buffer to the parser without the third copy toByteArray() was making; the detach itself -- writeTo then re-parse -- is otherwise the same call sequence. SmtpMessageService.sendDraftAsync compares the fetched copy's To, Cc and Bcc against the stored row's three fields before the transport sees the message, and on a mismatch records DRAFT_CHANGED_ON_SERVER, broadcasts the failure and returns with the draft left where it is; the send that follows an equal comparison is byte-for-byte the path that was there. Both sides of the comparison are read through HeaderAddresses.parseValidTokens, which MimeMessageBuilder already uses to build a draft's headers, so the two cannot disagree about what counts as an address and a draft this app wrote cannot be refused over tokenizing. Re-read against section 4e, which the change is about, and against what the diff could otherwise have reached: section 1's connection setup is untouched (no TLS property, timeout, lane or retry is in it), section 2's fetch-parse-persist pipeline is untouched (the fetch changed is the interactive one behind Send, not the sync's), and the bounds of B1-3 and B1-7 in BoundedImapProtocol are not in the diff. B1-5 moves from open to fixed, with the residual section 4e now states: the body and the remaining headers of a draft composed in another client stay the server's, bounded but unverified. The other verdicts do not move; B1-6 stays open."
       }
     ]
   }

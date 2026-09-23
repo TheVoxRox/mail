@@ -17,6 +17,8 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.voxrox.mailbackend.exception.ErrorCode;
+import org.voxrox.mailbackend.exception.MailOperationException;
 import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
 import org.voxrox.mailbackend.feature.mail.service.ImapConnectionManager.Lane;
 import org.voxrox.mailbackend.util.LogCategory;
@@ -165,16 +167,37 @@ public class ImapAppendService {
     }
 
     /**
+     * Raw MIME bytes a draft fetched back off the server may take (IMAP/SMTP audit
+     * B1-5). The server states no size here — it simply sends — so without a bound
+     * a hostile or compromised one answers the fetch with as much as it likes, and
+     * the bytes are held twice over: once as the array read off the wire, once as
+     * the parsed {@link MimeMessage}'s own copy.
+     * <p>
+     * 40 MiB is above what any mail provider accepts for sending — base64 inflates
+     * attachments by about a third, so a 25 MB attachment set, Gmail's ceiling,
+     * reaches the wire at roughly 35 MB — and 80 MB of the packaged 384 MB heap at
+     * its worst. A draft past it could not have been sent anyway; this way it fails
+     * on the fetch rather than at the SMTP server.
+     */
+    static final int MAX_DRAFT_BYTES = 40 * 1024 * 1024;
+
+    /**
      * Fetches a MIME message from IMAP and returns it as a detached
      * {@link MimeMessage} that no longer depends on the original Store/Folder (it
      * can be safely sent over SMTP after the IMAP connection is closed). The
      * implementation uses {@code writeTo(bytes) + new
      * MimeMessage(parseStream)} — the canonical Jakarta Mail pattern for detach
      * (the copy constructor has known issues with multipart parts).
+     * <p>
+     * The write is bounded at {@link #MAX_DRAFT_BYTES} and stops at the first byte
+     * past it, so an oversized answer costs the bound rather than whatever the
+     * server chose to send.
      *
      * @return {@link Optional#empty()} if the message with the given UID does not
      *         exist in the folder (typically a race with deletion on the other
      *         side).
+     * @throws MailOperationException
+     *             if the server answers with more than {@link #MAX_DRAFT_BYTES}.
      */
     public Optional<MimeMessage> fetchAndDetachMime(Long accountId, String folderName, long uid, Session session) {
         // INTERACTIVE: the user pressed Send and is watching for the result. Reading
@@ -187,13 +210,57 @@ public class ImapAppendService {
                         if (msg == null) {
                             return null;
                         }
-                        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-                        msg.writeTo(bos);
-                        return new MimeMessage(session, new ByteArrayInputStream(bos.toByteArray()));
+                        BoundedByteArrayOutputStream bytes = new BoundedByteArrayOutputStream(MAX_DRAFT_BYTES);
+                        msg.writeTo(bytes);
+                        // Reads the buffer in place rather than through toByteArray(), which would
+                        // copy the whole draft a third time.
+                        return new MimeMessage(session, bytes.toInputStream());
                     } catch (java.io.IOException e) {
                         throw new MessagingException("Error reading MIME bytes from IMAP", e);
                     }
                 });
         return Optional.ofNullable(detached);
+    }
+
+    /**
+     * A {@link ByteArrayOutputStream} that refuses to hold more than a bound, and
+     * that hands its buffer out without copying it.
+     * <p>
+     * The refusal is a {@link MailOperationException} rather than an
+     * {@link java.io.IOException}: the caller above wraps an IOException as "error
+     * reading MIME bytes", which for a draft the server made too large says nothing
+     * the user can act on, and the send pipeline reports an {@code AppException} as
+     * itself.
+     */
+    private static final class BoundedByteArrayOutputStream extends ByteArrayOutputStream {
+
+        private final int limit;
+
+        BoundedByteArrayOutputStream(int limit) {
+            this.limit = limit;
+        }
+
+        ByteArrayInputStream toInputStream() {
+            return new ByteArrayInputStream(buf, 0, count);
+        }
+
+        @Override
+        public synchronized void write(int b) {
+            checkRoomFor(1);
+            super.write(b);
+        }
+
+        @Override
+        public synchronized void write(byte[] source, int offset, int length) {
+            checkRoomFor(length);
+            super.write(source, offset, length);
+        }
+
+        private void checkRoomFor(int length) {
+            if (length > limit - count) {
+                throw new MailOperationException(ErrorCode.MAIL_CONNECTION_ERROR,
+                        "The draft on the server is larger than " + limit + " bytes and was not sent.");
+            }
+        }
     }
 }
