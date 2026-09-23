@@ -136,7 +136,7 @@ class ImapConnectionManagerTest {
 
     private void stubInteractiveRetryAfter(Duration retryAfter) {
         when(mailProps.imap()).thenReturn(new ImapProperties(993, Duration.ofSeconds(30), Duration.ofSeconds(60),
-                "imaps", "imap", Duration.ofSeconds(1), retryAfter));
+                Duration.ofSeconds(60), "imaps", "imap", Duration.ofSeconds(1), retryAfter));
     }
 
     @Nested
@@ -789,6 +789,12 @@ class ImapConnectionManagerTest {
             assertThat(captured.getProperty("mail.imap.starttls.enable")).isEqualTo("true");
             assertThat(captured.getProperty("mail.imap.starttls.required")).isEqualTo("true");
             assertThat(captured.getProperty("mail.imap.ssl.checkserveridentity")).isEqualTo("true");
+            // Every socket bound, the write one included (audit B1-6). The scheduler
+            // goes in as an object, so getProperty cannot see it.
+            assertThat(captured.getProperty("mail.imap.timeout")).isEqualTo("60000");
+            assertThat(captured.getProperty("mail.imap.connectiontimeout")).isEqualTo("30000");
+            assertThat(captured.getProperty("mail.imap.writetimeout")).isEqualTo("60000");
+            assertThat(captured.get("mail.imap.executor.writetimeout")).isNotNull();
         }
 
         @Test

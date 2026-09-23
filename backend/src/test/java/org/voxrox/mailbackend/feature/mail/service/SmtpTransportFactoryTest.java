@@ -166,6 +166,10 @@ class SmtpTransportFactoryTest {
             assertThat(session.getProperty("mail.smtp.timeout")).isEqualTo("10000");
             assertThat(session.getProperty("mail.smtp.connectiontimeout")).isEqualTo("15000");
             assertThat(session.getProperty("mail.smtp.writetimeout")).isEqualTo("10000");
+            // One scheduler behind that timeout for the whole app rather than one per
+            // transport, and a transport here is per message sent (audit B1-6).
+            assertThat(session.getProperties().get("mail.smtp.executor.writetimeout"))
+                    .isSameAs(MailWriteTimeoutScheduler.shared());
         }
     }
 

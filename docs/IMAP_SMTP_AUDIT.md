@@ -1,15 +1,15 @@
 # VoxRox Mail — IMAP/SMTP Protocol Layer Audit
 
-|                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.14                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| **Date**           | 2026-09-22                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| **Audited commit** | `6224cbb` (re-verified 2026-09-22, clearing six acknowledgements; 1.7–1.8 anchor `9435e56`, re-verified 2026-09-16; 1.6 anchor `02ff962`, recorded pre-squash as `f5b75ad`; 1.5 anchor `885b98a`, re-verified 2026-09-02 at the ledger cap; 1.3–1.4 anchor `cad05cb`, recorded pre-squash as `3ff0c78`; 1.0–1.2 baseline: `35a06f3`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service`, `backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java`, `backend/src/main/java/org/voxrox/mailbackend/util/SubjectNormalizer.java`, `backend/src/main/java/org/voxrox/mailbackend/core/config/mail`, `backend/src/main/java/org/voxrox/mailbackend/core/config/RetryConfig.java`, `backend/src/main/resources/application.properties`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/MessageRepository.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/MessageEntity.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/FolderSyncStateEntity.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/mapper/MessageMapper.java` |
-| **Auditor**        | Claude (Fable 5; 1.9 re-verified by Claude Opus 5) + owner review                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| **Subsystem**      | External mail server ↔ sidecar — Boundary 1 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| **Verdict**        | **Security: open findings** — one open: **B1-6** (Low, no IMAP write timeout, §4f). Fixed in code: **B1-5** (Medium, sending an untouched draft trusted and buffered the server's copy, 2026-09-22, §4e — with a residual: the body and headers of a draft composed in another client are bounded but still unverified), **B1-7** (Medium, a declared literal size was allocated before a byte arrived, found at 1.11, fixed 2026-09-22, §4g), **B1-3** (Medium, a server-stated size exhausted the heap before our code ran, 2026-09-22, §4c), **B1-4** (High, IMAP password login without TLS when SSL was off, 2026-09-22, §4d), **B1-1** (Medium, unbounded body fetch, 2026-07-10, §4) and **B1-2** (Medium, quadratic subject normalization, 2026-08-08, §4b). Informational notes in §5.            |
+|                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Version**        | 1.15                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| **Date**           | 2026-09-23                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| **Audited commit** | `6224cbb` (re-verified 2026-09-22, clearing six acknowledgements; 1.7–1.8 anchor `9435e56`, re-verified 2026-09-16; 1.6 anchor `02ff962`, recorded pre-squash as `f5b75ad`; 1.5 anchor `885b98a`, re-verified 2026-09-02 at the ledger cap; 1.3–1.4 anchor `cad05cb`, recorded pre-squash as `3ff0c78`; 1.0–1.2 baseline: `35a06f3`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service`, `backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java`, `backend/src/main/java/org/voxrox/mailbackend/util/SubjectNormalizer.java`, `backend/src/main/java/org/voxrox/mailbackend/core/config/mail`, `backend/src/main/java/org/voxrox/mailbackend/core/config/RetryConfig.java`, `backend/src/main/resources/application.properties`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/MessageRepository.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/MessageEntity.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/FolderSyncStateEntity.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/mapper/MessageMapper.java`                          |
+| **Auditor**        | Claude (Fable 5; 1.9 re-verified by Claude Opus 5) + owner review                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| **Subsystem**      | External mail server ↔ sidecar — Boundary 1 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **Verdict**        | **Security: PASS** — no open findings. Fixed in code: **B1-6** (Low, IMAP bounded reads and connects but not writes, 2026-09-23, §4f), **B1-5** (Medium, sending an untouched draft trusted and buffered the server's copy, 2026-09-22, §4e — with a residual: the body and headers of a draft composed in another client are bounded but still unverified), **B1-7** (Medium, a declared literal size was allocated before a byte arrived, found at 1.11, fixed 2026-09-22, §4g), **B1-3** (Medium, a server-stated size exhausted the heap before our code ran, 2026-09-22, §4c), **B1-4** (High, IMAP password login without TLS when SSL was off, 2026-09-22, §4d), **B1-1** (Medium, unbounded body fetch, 2026-07-10, §4) and **B1-2** (Medium, quadratic subject normalization, 2026-08-08, §4b). Informational notes in §5. |
 
 Full per-subsystem audit of the path **"raw IMAP/SMTP wire → parsed → stored /
 sent"**. After the mail body (Boundary 4), this is the second-largest
@@ -50,7 +50,7 @@ and disassembled the Angus 2.0.5 jar where a claim rested on library
 behaviour. The second pass found the four open findings and most of the
 corrections listed in the 1.9 change-log entry.
 
-## 1. Transport & authentication (confirmed, except B1-4 and B1-6)
+## 1. Transport & authentication (confirmed)
 
 - **Hostname verification on every TLS connection.** `mail.<proto>.ssl.checkserveridentity=true`
   is set explicitly on the IMAP store
@@ -86,8 +86,9 @@ corrections listed in the 1.9 change-log entry.
   connect 30 s — passed as `String.valueOf(duration.toMillis())` (a raw
   `Duration` is silently ignored by JavaMail's `PropUtil`; the code handles
   this correctly). Closes B1-D (slow-server hang), the regression that
-  Phase 6.15 fixed — for reads; IMAP sets no write timeout, finding **B1-6**
-  (§4f). Where the numbers live matters and is worth stating: the
+  Phase 6.15 fixed. IMAP had no write timeout until the B1-6 fix (§4f); it
+  sets one now, as SMTP always has. Where the numbers live matters and is
+  worth stating: the
   IMAP pair and the SMTP connect timeout come from `application.properties`
   (`mail.client.imap.connection-timeout` / `.read-timeout`,
   `mail.client.smtp.connection-timeout`), **not** from the `@DefaultValue`
@@ -751,7 +752,7 @@ server, bounded but unverified.
 
 **Status: fixed**, with the residual above.
 
-## 4f. Finding B1-6 (Low) — no IMAP write timeout — **OPEN**
+## 4f. Finding B1-6 (Low) — no IMAP write timeout — **FIXED**
 
 **What.** The IMAP stores set `mail.<proto>.timeout` (read) and
 `.connectiontimeout` but no `.writetimeout` (`ImapConnectionManager`,
@@ -767,7 +768,38 @@ can stall more cheaply by not answering, which the read timeout covers.
 `mail.client.imap.write-timeout`. Angus implements it with a scheduler per
 connection, a cost to weigh against the lane count.
 
-**Status: open**, tracked in `todo.md`.
+**Fix (shipped 2026-09-23).** The recommendation, with the cost it named not
+paid. `ImapSocketTimeouts` now sets all three bounds for the pool and the
+probe alike — the third helper of that shape, beside `ImapTransportSecurity`,
+and for the same reason: the two paths cannot disagree about a session's
+settings if only one place writes them. The value comes from a new
+`mail.client.imap.write-timeout`, 60 s, the read timeout's number.
+
+It can sit that high because of what it bounds: one `write` call, not a
+command. Angus schedules a task per write and cancels it on return, so what has
+to finish inside the budget is a socket buffer draining, not an APPEND — a
+large message on a slow link never runs into it, while a server that has
+stopped reading hits it on the first write past the window.
+
+The scheduler is shared rather than left to Angus, which otherwise builds a
+`ScheduledThreadPoolExecutor` per connection: an account holds two IMAP
+connections and each open folder another, and `SmtpTransportFactory` opens a
+transport per message sent, so the default would have cost a platform thread
+apiece. The session names one instead, under
+`mail.<proto>.executor.writetimeout`, which Angus reads as an object rather
+than as a string; `MailWriteTimeoutScheduler` holds it, one daemon thread that
+times out when idle, and SMTP now names it too. It is deliberately never shut
+down: a socket outlives the bean that opened it during shutdown, and scheduling
+on a stopped executor would fail the write the timeout exists to protect.
+
+Verified over a socket, not by reading the property back, because a key Angus
+does not recognize leaves the connection as unbounded as it was with nothing to
+say so: `ImapSocketTimeoutsTest` writes to a server that accepts the
+connection and then reads nothing from it. With the bound the write fails in
+about a second; with it removed the write never returns and the test ends
+thirty seconds later on its own timeout, which is the finding.
+
+**Status: fixed**, in the same version as this note.
 
 ## 4g. Finding B1-7 (Medium) — a declared literal size is allocated before a byte arrives — **FIXED**
 
@@ -914,6 +946,18 @@ of the message being skipped.
 
 ## 7. Change log
 
+- **1.15** (2026-09-23) — **B1-6 fixed, no findings left open** (#565). The
+  write timeout §4f asked for, from a new `mail.client.imap.write-timeout`,
+  set for the connection pool and the credential probe by one helper so the two
+  cannot drift apart. The cost the recommendation weighed is not paid: the
+  session names a shared scheduler under
+  `mail.<proto>.executor.writetimeout`, so Angus stops building one per
+  connection, and SMTP — a transport per message sent — names it too. Proved
+  over a socket against a server that accepts and never reads: bounded, the
+  write fails in about a second; unbounded, it never returns, which was the
+  finding. §1's timeout claim and §4f follow, and the verdict returns to
+  **PASS**. Drift under `Code paths` acknowledged, since only §1 and §4f were
+  re-read against this change.
 - **1.14** (2026-09-22) — **B1-5 fixed, with a residual** (#564). Of the two
   remedies §4e named, the comparison rather than the rebuild: the as-is path
   exists so a draft composed in another client keeps its attachments and

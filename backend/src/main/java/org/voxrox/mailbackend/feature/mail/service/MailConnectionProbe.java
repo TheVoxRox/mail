@@ -56,9 +56,8 @@ public class MailConnectionProbe {
         props.put("mail." + protocol + ".port", String.valueOf(details.port()));
         // The same TLS settings the connection pool uses — see ImapTransportSecurity.
         ImapTransportSecurity.configure(props, protocol, details.useSsl());
-        props.put("mail." + protocol + ".timeout", String.valueOf(mailProperties.imap().readTimeout().toMillis()));
-        props.put("mail." + protocol + ".connectiontimeout",
-                String.valueOf(mailProperties.imap().connectionTimeout().toMillis()));
+        // The same socket bounds the connection pool uses — see ImapSocketTimeouts.
+        ImapSocketTimeouts.configure(props, protocol, mailProperties.imap());
 
         if (details.authType() == AuthType.OAUTH2) {
             MailAuthMechanisms.configureOAuth2(props, protocol);

@@ -73,8 +73,8 @@ class MailConnectionProbeTest {
 
     @BeforeEach
     void setUp() {
-        ImapProperties imap = new ImapProperties(993, Duration.ofSeconds(30), Duration.ofSeconds(60), "imaps", "imap",
-                Duration.ofSeconds(1), Duration.ofMinutes(5));
+        ImapProperties imap = new ImapProperties(993, Duration.ofSeconds(30), Duration.ofSeconds(60),
+                Duration.ofSeconds(60), "imaps", "imap", Duration.ofSeconds(1), Duration.ofMinutes(5));
         SmtpProperties smtp = new SmtpProperties(Duration.ofSeconds(15), Duration.ofSeconds(10));
         MailClientProperties props = new MailClientProperties(imap, smtp, null, null);
         probe = new MailConnectionProbe(props, oauth2TokenServiceRegistry, smtpTransportFactory);
@@ -150,6 +150,10 @@ class MailConnectionProbeTest {
             assertThat(props.getProperty("mail.imaps.ssl.checkserveridentity")).isEqualTo("true");
             assertThat(props.getProperty("mail.imaps.timeout")).isEqualTo("60000");
             assertThat(props.getProperty("mail.imaps.connectiontimeout")).isEqualTo("30000");
+            // The probe is bounded in every direction the pool is (audit B1-6). The
+            // scheduler goes in as an object, so getProperty cannot see it.
+            assertThat(props.getProperty("mail.imaps.writetimeout")).isEqualTo("60000");
+            assertThat(props.get("mail.imaps.executor.writetimeout")).isNotNull();
             assertThat(props.getProperty("mail.imaps.auth.mechanisms")).isNull();
             // Implicit SSL needs no upgrade.
             assertThat(props.getProperty("mail.imaps.starttls.required")).isNull();

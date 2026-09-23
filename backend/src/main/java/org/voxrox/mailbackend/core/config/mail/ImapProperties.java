@@ -13,6 +13,14 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * IMAP client tuning: default port, protocol names, socket timeouts and the
  * budget a read request may spend resolving a folder role.
  *
+ * @param writeTimeout
+ *            how long one {@code write} to the server may block before the
+ *            socket is closed under it (IMAP/SMTP audit B1-6). It bounds a
+ *            single write call, not a whole command, so a slow link never runs
+ *            into it: what has to finish inside the budget is one socket buffer
+ *            draining, not an APPEND. Without it a server that stops reading
+ *            blocks the writing thread for good, and with it that thread's
+ *            account lane.
  * @param roleLookupTimeout
  *            how long a read request may wait for the account's IMAP connection
  *            when resolving a folder role it cannot answer from the DB. Short
@@ -33,7 +41,8 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  */
 public record ImapProperties(@Min(1) @Max(65535) @DefaultValue("993") int defaultPort,
         @NotNull @DefaultValue("30s") Duration connectionTimeout, @NotNull @DefaultValue("60s") Duration readTimeout,
-        @NotBlank @DefaultValue("imaps") String protocolSsl, @NotBlank @DefaultValue("imap") String protocolStandard,
+        @NotNull @DefaultValue("60s") Duration writeTimeout, @NotBlank @DefaultValue("imaps") String protocolSsl,
+        @NotBlank @DefaultValue("imap") String protocolStandard,
         @NotNull @DefaultValue("1s") Duration roleLookupTimeout,
         @NotNull @DefaultValue("5m") Duration interactiveLaneRetryAfter) {
 }

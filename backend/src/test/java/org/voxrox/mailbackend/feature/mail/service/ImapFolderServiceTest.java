@@ -59,8 +59,10 @@ class ImapFolderServiceTest {
     @BeforeEach
     void setUp() {
         folderListCache = new FolderListCache();
-        MailClientProperties mailProps = new MailClientProperties(new ImapProperties(993, Duration.ofSeconds(30),
-                Duration.ofSeconds(60), "imaps", "imap", ROLE_LOOKUP_TIMEOUT, Duration.ofMinutes(5)), null, null, null);
+        MailClientProperties mailProps = new MailClientProperties(
+                new ImapProperties(993, Duration.ofSeconds(30), Duration.ofSeconds(60), Duration.ofSeconds(60), "imaps",
+                        "imap", ROLE_LOOKUP_TIMEOUT, Duration.ofMinutes(5)),
+                null, null, null);
         service = new ImapFolderService(imapConnectionManager, imapFolderExecutor, folderSyncStateRepository,
                 messageRepository, folderListCache, mailProps);
     }

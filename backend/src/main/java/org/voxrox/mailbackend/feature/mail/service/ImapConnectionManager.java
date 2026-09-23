@@ -697,15 +697,9 @@ public class ImapConnectionManager {
          */
         props.put("mail." + protocol + ".partialfetch", "true");
 
-        /*
-         * JavaMail's PropUtil only reads String/Integer values from Properties — a raw
-         * Duration object is silently ignored, leaving the connection with no effective
-         * timeout. Always pass String.valueOf(...).toMillis(), matching what
-         * MailConnectionProbe does for the credential test path.
-         */
-        props.put("mail." + protocol + ".timeout", String.valueOf(mailProps.imap().readTimeout().toMillis()));
-        props.put("mail." + protocol + ".connectiontimeout",
-                String.valueOf(mailProps.imap().connectionTimeout().toMillis()));
+        // Read, connect and write bounds, the last of them since audit B1-6 — see
+        // ImapSocketTimeouts, which the credential probe shares.
+        ImapSocketTimeouts.configure(props, protocol, mailProps.imap());
 
         if (details.authType() == AuthType.OAUTH2) {
             MailAuthMechanisms.configureOAuth2(props, protocol);

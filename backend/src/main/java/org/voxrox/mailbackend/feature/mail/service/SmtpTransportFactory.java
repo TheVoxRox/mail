@@ -69,6 +69,9 @@ public class SmtpTransportFactory {
         props.put("mail.smtp.timeout", timeoutMs);
         props.put("mail.smtp.connectiontimeout", smtpConnTimeoutMs);
         props.put("mail.smtp.writetimeout", timeoutMs);
+        // Without this Angus builds a scheduler for the write timeout per transport,
+        // and a transport here is per message sent — see MailWriteTimeoutScheduler.
+        props.put("mail.smtp.executor.writetimeout", MailWriteTimeoutScheduler.shared());
 
         // Verify the server certificate hostname on the TLS handshake (implicit SSL and
         // STARTTLS alike), set explicitly rather than relying on the Angus Mail
