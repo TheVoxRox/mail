@@ -142,7 +142,9 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "5d2e3a4c54c8f809fd0d5704fb45e2fa6bce00eb"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "4e7d12c6e7e54412ee7bef51510b393a0e67af38",
+      "backend/src/main/java/org/voxrox/mailbackend/core/config/mail": "229a3e22af9f96689722e9844ccffca4027b401d",
+      "backend/src/main/resources/application.properties": "de96924cc7d5db069cac2e3de07324c50e5b666c"
     },
     "acknowledgements": [
       {
@@ -160,6 +162,10 @@
       {
         "date": "2026-09-22",
         "note": "The fix for B1-5, recorded in the audit itself as v1.14 (section 4e). Two files move under feature/mail/service, and nothing else does. ImapAppendService.fetchAndDetachMime writes the fetched draft into a ByteArrayOutputStream that refuses the first byte past 40 MiB and hands its buffer to the parser without the third copy toByteArray() was making; the detach itself -- writeTo then re-parse -- is otherwise the same call sequence. SmtpMessageService.sendDraftAsync compares the fetched copy's To, Cc and Bcc against the stored row's three fields before the transport sees the message, and on a mismatch records DRAFT_CHANGED_ON_SERVER, broadcasts the failure and returns with the draft left where it is; the send that follows an equal comparison is byte-for-byte the path that was there. Both sides of the comparison are read through HeaderAddresses.parseValidTokens, which MimeMessageBuilder already uses to build a draft's headers, so the two cannot disagree about what counts as an address and a draft this app wrote cannot be refused over tokenizing. Re-read against section 4e, which the change is about, and against what the diff could otherwise have reached: section 1's connection setup is untouched (no TLS property, timeout, lane or retry is in it), section 2's fetch-parse-persist pipeline is untouched (the fetch changed is the interactive one behind Send, not the sync's), and the bounds of B1-3 and B1-7 in BoundedImapProtocol are not in the diff. B1-5 moves from open to fixed, with the residual section 4e now states: the body and the remaining headers of a draft composed in another client stay the server's, bounded but unverified. The other verdicts do not move; B1-6 stays open."
+      },
+      {
+        "date": "2026-09-23",
+        "note": "The fix for B1-6, recorded in the audit itself as v1.15 (section 4f). Three paths move. Under feature/mail/service, the two timeout puts leave ImapConnectionManager and MailConnectionProbe for the new ImapSocketTimeouts, which writes the same two and adds .writetimeout and .executor.writetimeout; the new MailWriteTimeoutScheduler holds the shared scheduler those name, and SmtpTransportFactory gains one put for it beside the write timeout it already set. No other behaviour in those files changes: no connection setup, no TLS property, no lane, retry or bound of B1-3 or B1-7 is in the diff. Under core/config/mail, ImapProperties gains a writeTimeout component, and application.properties the mail.client.imap.write-timeout key it binds. Re-read against section 4f, which the change is about, and against section 1, whose timeout claim named the missing write timeout and now records it as set. Section 2's fetch-parse-persist pipeline, the send path of section 4e and everything after are untouched. B1-6 moves from open to fixed; it was the last finding open, so the verdict returns to PASS with B1-5's residual carried as stated there."
       }
     ]
   }

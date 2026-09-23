@@ -46,8 +46,8 @@ class ImapStartTlsRequiredGreenMailIT {
     @BeforeEach
     void setUp() {
         greenMail.setUser("plain@greenmail.local", LOGIN, PASSWORD);
-        ImapProperties imap = new ImapProperties(993, Duration.ofSeconds(5), Duration.ofSeconds(5), "imaps", "imap",
-                Duration.ofSeconds(1), Duration.ofMinutes(5));
+        ImapProperties imap = new ImapProperties(993, Duration.ofSeconds(5), Duration.ofSeconds(5),
+                Duration.ofSeconds(5), "imaps", "imap", Duration.ofSeconds(1), Duration.ofMinutes(5));
         SmtpProperties smtp = new SmtpProperties(Duration.ofSeconds(5), Duration.ofSeconds(5));
         probe = new MailConnectionProbe(new MailClientProperties(imap, smtp, null, null),
                 mock(OAuth2TokenServiceRegistry.class), mock(SmtpTransportFactory.class));

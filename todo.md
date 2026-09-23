@@ -69,14 +69,14 @@ Hotove reporty do 2026-06-07 jsou zamrazene v [todo-archive.md](todo-archive.md)
 
 ## Nalezy auditu IMAP/SMTP 1.9 (2026-09-22)
 
-Nezavisly overovaci pruchod re-verifikace ([docs/IMAP_SMTP_AUDIT.md](docs/IMAP_SMTP_AUDIT.md) v1.9, #559) nasel ctyri otevrene nalezy; paty (B1-7) se nasel pri oprave B1-3. Kazdy se opravuje zvlast, s testem, ktery nejdriv uvidim spadnout; u kazdeho je rozhodnuti na maintainerovi. Po oprave aktualizovat stav nalezu v auditu i radek v [SECURITY_THREAT_MODEL.md](SECURITY_THREAT_MODEL.md).
+Nezavisly overovaci pruchod re-verifikace ([docs/IMAP_SMTP_AUDIT.md](docs/IMAP_SMTP_AUDIT.md) v1.9, #559) nasel ctyri otevrene nalezy; paty (B1-7) se nasel pri oprave B1-3. Kazdy se opravoval zvlast, s testem, ktery nejdriv spadl. **Vse uzavreno** (2026-09-23), verdikt auditu se vratil na PASS.
 
 - [x] **B1-4 (High)** — HOTOVO 2026-09-22 (#560): IMAP bez SSL pouziva povinne STARTTLS, bez vyjimky pro loopback; integracni testy bezi pres IMAPS se sdilenym testovacim certifikatem. Audit §4d.
 - [x] **B1-3 (Medium)** — HOTOVO 2026-09-22 (#561): kazda odpoved IMAP serveru se pred Angusem porovna s limity (`BoundedImapProtocol`: EXISTS, VANISHED), QRESYNC zustava. Nalez byl sirsi nez QRESYNC: stejne alokace dela i obycejne otevreni slozky. Audit §4c.
 - [x] **B1-7 (Medium)** — HOTOVO 2026-09-22 (#563): buffer, ktery protokol podava Angusu, je `BoundedByteArray` s limitem 32 MiB na odpoved; obal socketu nebyl pouzitelny (`Protocol` si stream drzi privatne). Deklarace na horni hrane `int` nealokuje nic, ale Angus cte za buffer — proto kazda `RuntimeException` ze cteni take zavira spojeni. Audit §4g.
 - [x] **`-XX:+ExitOnOutOfMemoryError` pro zabaleny sidecar** — HOTOVO 2026-09-22 (#562): flag v `--java-options`, novy krok packagingu overuje vsechny JVM volby v publikovanem `.cfg`, a klient pojmenuje exit 3 jako dosla pamet misto „nepodarilo se spustit".
 - [x] **B1-5 (Medium)** — HOTOVO 2026-09-22 (#564): ze dvou moznosti padlo porovnani prijemcu, ne sestaveni zpravy z lokalniho radku — as-is cesta existuje prave proto, aby koncept psany v jinem klientovi neprisel o prilohy a formatovani. Odeslani odmitne kopii ze serveru, jejiz To, Cc a Bcc se neshoduji s ulozenym radkem (mnoziny adres, na poradi, velikosti pismen ani zobrazovanem jmene nezalezi), novym kodem `DRAFT_CHANGED_ON_SERVER`; koncept zustava, kde je. Fetch je omezeny na 40 MiB. Zbytek: telo a ostatni hlavicky konceptu psaneho jinde zustavaji serverove — vedeny jako residual, ne jako nalez. Audit §4e.
-- [ ] **B1-6 (Low) — IMAP nema write timeout.** Doplnit `mail.<proto>.writetimeout` z nove vlastnosti. Audit §4f.
+- [x] **B1-6 (Low)** — HOTOVO 2026-09-23 (#565): `mail.<proto>.writetimeout` z nove vlastnosti `mail.client.imap.write-timeout` (60 s), pro pool i probe jednim pomocnikem, aby se nerozesly. Omezuje jeden `write`, ne prikaz — proto snese hodnotu read timeoutu a velky APPEND po pomale lince o nej nezakopne. Scheduler, ktery by Angus jinak stavel na kazde spojeni, je jeden sdileny (`...executor.writetimeout`); pouziva ho i SMTP, kde je transport na kazdou odeslanou zpravu. Overeno po drate proti serveru, ktery spojeni prijme a nic z nej necte. Audit §4f.
 
 ---
 
