@@ -21,7 +21,13 @@ vi.mock('$lib/stores/selectedMessage.js', () => ({
 }));
 vi.mock('$lib/mail/detailHost.js', () => ({ closeOpenDetail: vi.fn(() => Promise.resolve(true)) }));
 vi.mock('$lib/mail/folderLabel.js', () => ({ folderLabel: () => 'Folder' }));
-vi.mock('$lib/i18n/index.js', () => ({ _: readable((key: string) => key) }));
+// The key, plus the values when there are any — what a toast names is part of
+// what these tests assert.
+vi.mock('$lib/i18n/index.js', () => ({
+	_: readable((key: string, options?: { values?: Record<string, unknown> }) =>
+		options?.values ? `${key} ${JSON.stringify(options.values)}` : key
+	)
+}));
 vi.mock('$lib/stores/toasts.js', () => ({ pushToast: vi.fn(), announcePolite: vi.fn() }));
 
 import {
@@ -131,6 +137,62 @@ describe('conversationBulk', () => {
 		expect(done).toBe(false);
 		expect(setMessageFlag).not.toHaveBeenCalled();
 		expect(reloadCurrentConversationsPage).not.toHaveBeenCalled();
+	});
+
+	describe('what a delete says it deleted', () => {
+		/*
+		 * A delete of the open message names it; the grouped list's row menu and
+		 * bulk bar used to answer with a bare count for the same act, which says
+		 * neither which conversation went nor that it took three messages.
+		 */
+		const toast = () => vi.mocked(pushToast).mock.calls[0];
+
+		it('names a single message by its own subject, like a delete of the open message', async () => {
+			await deleteConversationMembers(['a'], {
+				...ctx('ARCHIVE'),
+				named: { subject: 'Release plan' }
+			});
+			expect(toast()).toEqual([
+				'toolbar.deleteDoneNamed {"subject":"Release plan"}',
+				{ tone: 'success' }
+			]);
+		});
+
+		it('names a conversation and says how many of its messages went', async () => {
+			await deleteConversationMembers(['a', 'b', 'c'], {
+				...ctx('ARCHIVE'),
+				named: { subject: 'Re: Release plan' }
+			});
+			expect(toast()).toEqual([
+				'messages.grouping.deleteDoneNamed {"count":3,"subject":"Re: Release plan"}',
+				{ tone: 'success' }
+			]);
+		});
+
+		it('says a blank subject is missing rather than naming nothing', async () => {
+			await deleteConversationMembers(['a'], { ...ctx('ARCHIVE'), named: { subject: '  ' } });
+			expect(toast()?.[0]).toBe('toolbar.deleteDoneNamed {"subject":"messages.noSubject"}');
+		});
+
+		it('counts a selection spanning several conversations', async () => {
+			await deleteConversationMembers(['a', 'b'], ctx('ARCHIVE'));
+			expect(toast()).toEqual([
+				'messages.bulkDeleteDone {"count":2,"failed":0}',
+				{ tone: 'success' }
+			]);
+		});
+
+		it('counts a partial failure instead of naming what did not all go', async () => {
+			vi.mocked(deleteMessage).mockRejectedValueOnce(new Error('offline'));
+			await deleteConversationMembers(['a', 'b'], {
+				...ctx('ARCHIVE'),
+				named: { subject: 'Re: Release plan' }
+			});
+			expect(toast()).toEqual([
+				'messages.bulkDeleteDone {"count":1,"failed":1}',
+				{ tone: 'error' }
+			]);
+		});
 	});
 
 	it('keeps the selection when every item failed', async () => {

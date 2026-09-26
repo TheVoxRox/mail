@@ -32,6 +32,13 @@ export interface ConversationBulkContext {
 	folderRole: string | undefined;
 	/** Member ids currently unread, for the optimistic source-folder badge. */
 	unreadMemberIds: readonly string[];
+	/**
+	 * Set when the action covers one conversation, so a delete can say which:
+	 * `subject` is the message's own when a single message is all it covers,
+	 * the conversation's otherwise. Left out for a selection spanning several
+	 * conversations, which is reported as a count.
+	 */
+	named?: { subject: string | undefined };
 }
 
 interface RunOutcome {
@@ -71,6 +78,29 @@ function reportOutcome(
 	);
 }
 
+/**
+ * A delete that covered one conversation says what went, the way a delete of
+ * the open message does (`toolbar.deleteDoneNamed`, in mail/mailbox.ts): a
+ * bare count told a screen-reader user neither which message it was nor, for
+ * a conversation, that it took more than one. A selection spanning several
+ * conversations, and any outcome with a failure in it, keeps the count.
+ */
+function reportDeleted(outcome: RunOutcome, named: ConversationBulkContext['named']): void {
+	const count = outcome.succeeded.length;
+	if (!named || count === 0 || outcome.failed.length > 0) {
+		reportOutcome(outcome, 'messages.bulkDeleteDone');
+		return;
+	}
+	const t = get(_);
+	const subject = named.subject?.trim() || t('messages.noSubject');
+	pushToast(
+		count === 1
+			? t('toolbar.deleteDoneNamed', { values: { subject } })
+			: t('messages.grouping.deleteDoneNamed', { values: { count, subject } }),
+		{ tone: 'success' }
+	);
+}
+
 /** Closes the reading-pane detail if the open message was among those removed. */
 async function closeDetailIfRemoved(removedIds: readonly string[]): Promise<void> {
 	const open = get(selectedMessage)?.stableId;
@@ -99,7 +129,7 @@ export async function deleteConversationMembers(
 	const removedUnread = outcome.succeeded.filter((id) => unread.has(id)).length;
 	if (removedUnread > 0) adjustFolderUnread(ctx.accountId, ctx.folderName, -removedUnread);
 	await reloadCurrentConversationsPage();
-	reportOutcome(outcome, 'messages.bulkDeleteDone');
+	reportDeleted(outcome, ctx.named);
 	// Nothing changed server-side when every item failed — keep the selection so
 	// the user can retry without reselecting.
 	return outcome.succeeded.length > 0;

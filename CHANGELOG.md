@@ -19,6 +19,10 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+### Frontend
+
+- **A delete from the grouped list now says what it deleted, as a delete of the open message always has.** The row actions menu and the bulk bar of the conversation view reported a bare count ("Smazáno: 3."), which told a screen-reader user neither which message went nor that deleting one conversation row had taken three. A single message is now announced by its own subject ("Zpráva smazána: …"), the same sentence the open message's delete uses, and one conversation — whole or only some of its ticked messages — by its subject and how many of its messages went ("Smazány 3 zprávy z konverzace: …"). A selection across several conversations, and any delete in which something failed, keeps the count.
+
 ## [0.1.0] - 2026-09-23
 
 ### Backend
