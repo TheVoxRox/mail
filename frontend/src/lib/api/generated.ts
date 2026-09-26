@@ -12,11 +12,8 @@ export type AccountUpdateRequest = Schema<'AccountUpdateRequest'>;
 export type MailProviderResponse = Schema<'MailProviderResponse'>;
 export type FolderResponse = Schema<'FolderResponse'>;
 
-export type AttachmentRequest = Schema<'AttachmentRequest'>;
-export type AttachmentResponse = Schema<'AttachmentResponse'>;
 export type MailRequest = Schema<'MailRequest'>;
 export type DraftRequest = Schema<'DraftRequest'>;
-export type SendAcceptedResponse = Schema<'SendAcceptedResponse'>;
 export type MailSummaryResponse = Schema<'MailSummaryResponse'>;
 export type MailDetailResponse = Schema<'MailDetailResponse'>;
 export type MailContentResponse = Schema<'MailContentResponse'>;
@@ -40,10 +37,8 @@ export type ContactResponse = Schema<'ContactResponse'>;
 export type ContactAutocompleteResponse = Schema<'ContactAutocompleteResponse'>;
 export type BulkContactCreateRequest = Schema<'BulkContactCreateRequest'>;
 export type BulkContactCreateResponse = Schema<'BulkContactCreateResponse'>;
-export type BulkContactCreateResult = Schema<'BulkContactCreateResult'>;
 export type BulkContactDeleteRequest = Schema<'BulkContactDeleteRequest'>;
 export type BulkContactDeleteResponse = Schema<'BulkContactDeleteResponse'>;
-export type BulkContactDeleteResult = Schema<'BulkContactDeleteResult'>;
 
 export type PagedMailSummaryResponse = Schema<'PagedResponseMailSummaryResponse'>;
 export type PagedConversationSummaryResponse = Schema<'PagedResponseConversationSummaryResponse'>;
