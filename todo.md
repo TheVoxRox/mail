@@ -80,6 +80,19 @@ Nezavisly overovaci pruchod re-verifikace ([docs/IMAP_SMTP_AUDIT.md](docs/IMAP_S
 
 ---
 
+## Nalezy overeni auditu B3 1.7 (2026-09-26)
+
+Nezavisly overovaci pruchod (AUDIT_GUIDE §5) nad [docs/API_SURFACE_AUDIT.md](docs/API_SURFACE_AUDIT.md) v1.7 (#574) probehl az po zapisu verdiktu — v1.7 proto zatim neni overena. Verdikt PASS vecne drzi: text vyjimky dostane jen drzitel API klice (vlastni WebView) a `/error` ho v produkci vynechava. Oprava zatim odlozena.
+
+- [ ] **§3 „No exception message ... reaches the client" neplati od `d55b753`.** Chyby mailove vrstvy posilaji text cizi vyjimky do `detail` a `messageArgs`: `MailConnectionProbe.java:84,104` (`"... failed: " + e.getMessage()`) → sablona `error.mail.connectionFailed=... {0}` (`messages_en.properties:18`), dal `ImapFolderExecutor`, `ImapConnectionManager`, `MailContentService`, `OAuth2TokenService`. Test to primo tvrdi (`GlobalExceptionHandlerTest`, `MailConnectionProbeTest`). Opravit §3 a zapsat jako informativni poznamku v §7; „controlled" u `AppException` je prehnane.
+- [ ] **Kotva vs. §3.** Nova veta „`application.properties` is the only configuration file the jar carries" plati az od #574 (`77abf9b`), ne na kotve `6365fae` ani v tagu `v0.1.0` (`d626a9b`). Bud §3 napsat ke kotve s datovanou poznamkou po kotve, nebo prekotvit s plnym preoverenim. Upresnit: jen soubory `application*` (v jaru je i `logback-spring.xml`), a „no profile can turn them back on" plati jen uvnitr jaru — konfigurace mimo jar (env, `config/` v pracovnim adresari) to umi.
+- [ ] **Zapis 1.7 v change logu auditu:** chybi dve ze ctyr nastaveni profilu `dev` (`include-exception`, `include-binding-errors`); „only documented use" byl i `-Dspring.profiles.active=dev` na jakemkoli spusteni; „No code under this audit's paths changed" plati jen pro diff #574.
+- [ ] **Code paths auditu jsou pro §3 uzke** — pridat `application.properties` a `exception/`; proto `check:audits` smazani souboru v #574 nevidel.
+- [ ] Po oprave: novy nezavisly overovaci pruchod, teprve pak zapsat verdikt (index v `backend/SECURITY_RELEASE_CHECK.md`, radek v threat modelu).
+- [ ] Vedlejsi: poznamka B3 z 2026-09-20 v [docs/audit-freshness.json](docs/audit-freshness.json) odkazuje na „v1.9 re-verification", B3 ale mel re-verifikaci ve v1.6.
+
+---
+
 ## Seskupeny rezim — uzavreno (2026-09-23)
 
 **Vse uzavreno.** Plocha pipeline v [frontend/src/lib/mail/mailbox.ts](frontend/src/lib/mail/mailbox.ts) znala jen `messagesState`, ktery se v seskupenem rezimu nikdy nenacte, pritom akce nad otevrenou zpravou (lista, zkratka, paleta) jdou vzdy pres ni. #566 dotahl tri dusledky (predmet v ohlaseni, potvrzeni trvaleho smazani, navrat do slozky), #567 ctvrty (seznam, odznak slozky, cteci kurzor po smazani). Detail v [CHANGELOG.md](CHANGELOG.md).
