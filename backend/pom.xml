@@ -219,6 +219,33 @@
 										<ignore/>
 									</action>
 								</pluginExecution>
+								<!--
+									The plugin ships its own m2e metadata asking to run on every
+									incremental build, so an IDE on m2e (the VS Code Java
+									extension included) runs spotless:check on each save once
+									the goal is bound to verify. Inside that IDE's Eclipse
+									runtime the Eclipse JDT formatter step fails on every file,
+									while the same check from the command line - on the IDE's
+									own JRE 21 as well - passes; the marker blames the
+									formatter version, but that line is a hint Spotless appends
+									to any formatter error. The format stays enforced where it
+									was: mvn verify and the CI "Backend quality" job. The
+									command line never reads this mapping.
+								-->
+								<pluginExecution>
+									<pluginExecutionFilter>
+										<groupId>com.diffplug.spotless</groupId>
+										<artifactId>spotless-maven-plugin</artifactId>
+										<versionRange>[3.0.0,)</versionRange>
+										<goals>
+											<goal>apply</goal>
+											<goal>check</goal>
+										</goals>
+									</pluginExecutionFilter>
+									<action>
+										<ignore/>
+									</action>
+								</pluginExecution>
 							</pluginExecutions>
 						</lifecycleMappingMetadata>
 					</configuration>
