@@ -782,6 +782,10 @@ test.describe('Výběr jednotlivých zpráv ve vlákně', () => {
 		await expect(archiveRow(page, 'arch-01')).toBeVisible();
 		await expect(archiveRow(page, 'arch-03')).toHaveCount(0);
 		await expect(archiveMember(page, 'arch-02')).toHaveCount(0);
+		// Part of one conversation is still one conversation to name.
+		await expect(
+			page.getByRole('status').filter({ hasText: 'Smazány 2 zprávy z konverzace: Re: Plán vydání' })
+		).toBeVisible();
 	});
 
 	test('opětovné zaškrtnutí všech členů se sloučí zpět na výběr konverzace', async ({ page }) => {
@@ -829,6 +833,9 @@ test.describe('Hromadné akce nad konverzacemi', () => {
 		// ARCHIVE members out — the folder empties and the treegrid unmounts.
 		await expect(conversationGrid(page)).toHaveCount(0);
 		await expect(page.locator('[role="row"][data-stable-id="arch-03"]')).toHaveCount(0);
+		await expect(
+			page.getByRole('status').filter({ hasText: 'Smazány 3 zprávy z konverzace: Re: Plán vydání' })
+		).toBeVisible();
 
 		// Folder-scoped semantics: the received reply in the same thread must
 		// survive a bulk delete fired from the ARCHIVE view.
@@ -877,6 +884,11 @@ test.describe('Řádkové menu Akce v seskupeném režimu', () => {
 
 		await expect(conversationGrid(page)).toHaveCount(0);
 		await expect(page.locator('[role="row"][data-stable-id="arch-03"]')).toHaveCount(0);
+		// Named, as a delete of the open message is — and counted in this folder
+		// only, without the inbox copy the thread also holds.
+		await expect(
+			page.getByRole('status').filter({ hasText: 'Smazány 3 zprávy z konverzace: Re: Plán vydání' })
+		).toBeVisible();
 
 		await openApp(page, `/mail/${accountId}/INBOX`);
 		await expect(
@@ -899,6 +911,10 @@ test.describe('Řádkové menu Akce v seskupeném režimu', () => {
 		// Only that message goes; the conversation and its other members stay.
 		await expect(archiveMember(page, 'arch-01')).toHaveCount(0);
 		await expect(archiveRow(page, 'arch-03')).toBeVisible();
+		// By its own subject, which is not the one the conversation row shows.
+		await expect(
+			page.getByRole('status').filter({ hasText: 'Zpráva smazána: Plán vydání' })
+		).toBeVisible();
 	});
 
 	test('člen z jiné složky menu nemá a buňka říká proč', async ({ page }) => {

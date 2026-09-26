@@ -570,6 +570,11 @@
 		unreadMemberIds: string[];
 		/** The same members as summaries, in the order memberIds lists them. */
 		messages: MailSummaryResponse[];
+		/**
+		 * What an outcome calls these members: the message's own subject when it
+		 * is the only one, the conversation's otherwise.
+		 */
+		subject: string | undefined;
 	}
 
 	/**
@@ -615,15 +620,20 @@
 	async function resolveSelection(): Promise<{
 		memberIds: string[];
 		unreadMemberIds: string[];
+		named: ConversationBulkContext['named'];
 	} | null> {
 		const resolvedAll = await resolveSelectedConversations();
 		if (!resolvedAll) return null;
+		// A ticked member the thread no longer holds resolves to nothing; it must
+		// not turn a one-conversation action into a count.
+		const acting = resolvedAll.filter((resolved) => resolved.memberIds.length > 0);
 		// Members are naturally unique across threads (each message belongs to one
 		// thread; a thread's members exclude its representative), so plain arrays
 		// need no dedup.
 		return {
-			memberIds: resolvedAll.flatMap((resolved) => resolved.memberIds),
-			unreadMemberIds: resolvedAll.flatMap((resolved) => resolved.unreadMemberIds)
+			memberIds: acting.flatMap((resolved) => resolved.memberIds),
+			unreadMemberIds: acting.flatMap((resolved) => resolved.unreadMemberIds),
+			named: acting.length === 1 ? { subject: acting[0]?.subject } : undefined
 		};
 	}
 
@@ -674,7 +684,8 @@
 				take(message);
 			}
 		}
-		return { memberIds, unreadMemberIds: unread, messages };
+		const subject = messages.length === 1 ? messages[0]?.subject : representative.subject;
+		return { memberIds, unreadMemberIds: unread, messages, subject };
 	}
 
 	async function printSelected(): Promise<void> {
@@ -722,13 +733,14 @@
 				bulkError = $_('messages.grouping.bulkResolveFailed');
 				return;
 			}
-			const { memberIds, unreadMemberIds } = resolved;
+			const { memberIds, unreadMemberIds, named } = resolved;
 			const { accountId, folderName } = $conversationsState.context;
 			const ctx: ConversationBulkContext = {
 				accountId,
 				folderName,
 				folderRole: currentFolderRole,
-				unreadMemberIds
+				unreadMemberIds,
+				named
 			};
 			const done = await run(memberIds, ctx);
 			if (done) selection.clear();
@@ -965,7 +977,8 @@
 					? await resolveConversationMembers(row.conversation, () => true)
 					: {
 							memberIds: [row.message.stableId],
-							unreadMemberIds: row.message.seen ? [] : [row.message.stableId]
+							unreadMemberIds: row.message.seen ? [] : [row.message.stableId],
+							subject: row.message.subject
 						};
 			if (!resolved) {
 				bulkError = $_('messages.grouping.bulkResolveFailed');
@@ -976,7 +989,8 @@
 				accountId,
 				folderName,
 				folderRole: currentFolderRole,
-				unreadMemberIds: resolved.unreadMemberIds
+				unreadMemberIds: resolved.unreadMemberIds,
+				named: { subject: resolved.subject }
 			});
 			/*
 			 * Only now: the action has awaited its own reload, so the rows the

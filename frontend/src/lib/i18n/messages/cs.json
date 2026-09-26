@@ -154,6 +154,7 @@
 			"revealed": "{count, plural, one {Zobrazena {count} zpráva vlákna} few {Zobrazeny {count} zprávy vlákna} other {Zobrazeno {count} zpráv vlákna}}",
 			"collapsed": "Konverzace sbalena",
 			"bulkResolveFailed": "Konverzaci se nepodařilo načíst, akce byla zrušena. Zkuste to prosím znovu.",
+			"deleteDoneNamed": "{count, plural, one {Smazána {count} zpráva z konverzace: {subject}} few {Smazány {count} zprávy z konverzace: {subject}} other {Smazáno {count} zpráv z konverzace: {subject}}}",
 			"selectConversation": "Vybrat konverzaci {subject}",
 			"selectMemberFrom": "Vybrat zprávu od {counterpart}, {date}",
 			"selectMemberTo": "Vybrat zprávu pro {counterpart}, {date}",
