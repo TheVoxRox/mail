@@ -246,8 +246,10 @@ mvn -Popenapi -Dspringdoc.api-docs.enabled=true `
     -Dspringdoc.swagger-ui.enabled=true package
 ```
 
-Dev `mvn spring-boot:run` still has springdoc on the compile classpath — Swagger
-UI works normally during development.
+A standalone `mvn spring-boot:run` keeps springdoc on the classpath, but serves
+`/v3/api-docs` and Swagger UI only when started with `MAIL_OPENAPI_ENABLED=true`
+and `MAIL_SWAGGER_UI_ENABLED=true`; both default to `false` in
+`application.properties`.
 
 ### JEP 483 AOT class cache (experimental, default OFF)
 
