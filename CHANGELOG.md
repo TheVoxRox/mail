@@ -23,6 +23,10 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 - **A delete from the grouped list now says what it deleted, as a delete of the open message always has.** The row actions menu and the bulk bar of the conversation view reported a bare count ("Smazáno: 3."), which told a screen-reader user neither which message went nor that deleting one conversation row had taken three. A single message is now announced by its own subject ("Zpráva smazána: …"), the same sentence the open message's delete uses, and one conversation — whole or only some of its ticked messages — by its subject and how many of its messages went ("Smazány 3 zprávy z konverzace: …"). A selection across several conversations, and any delete in which something failed, keeps the count.
 
+### Repo
+
+- **The IDE no longer runs Spotless on every save (#571).** The plugin's own m2e metadata made the VS Code Java extension run `spotless:check` on each incremental build once the goal was bound to `verify` (#233), and inside that Eclipse runtime the JDT formatter step fails on every file, while the same check passes from the command line — on the IDE's own JRE 21 too. `backend/pom.xml` now tells m2e to ignore the plugin, as it already did for SpotBugs; `mvn verify` and the CI "Backend quality" job enforce the format as before.
+
 ## [0.1.0] - 2026-09-23
 
 ### Backend
