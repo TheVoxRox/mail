@@ -549,8 +549,8 @@ When the sidecar exits, the Tauri client restarts it up to three times within a 
 The minimal backend verification before a release:
 
 ```powershell
-$env:MAVEN_OPTS='-Duser.home=C:\dev\java\mail\backend'
-mvn.cmd "-Dmaven.repo.local=C:\dev\java\mail\backend\.m2repo" "-Dapp.data-dir=C:\dev\java\mail\backend\target\test-data" clean verify
+# from backend/
+mvn '-Dapp.data-dir=target/test-data' clean verify
 ```
 
 `clean verify`, not `package`: without `clean`, SpotBugs analyses the

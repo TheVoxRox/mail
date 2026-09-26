@@ -4,7 +4,7 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
-### Local Maven repo (created by -Dmaven.repo.local=.m2repo) ###
+### Local Maven repo (only with an explicit -MavenRepoLocal .m2repo or -Dmaven.repo.local=.m2repo) ###
 .m2/
 .m2repo/
 

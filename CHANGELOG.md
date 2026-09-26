@@ -35,6 +35,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 - **Two notes still described the standalone backend run as it no longer is (#575).** [backend/OPERATIONS.md](backend/OPERATIONS.md) said Swagger UI "works normally" under `mvn spring-boot:run`, but springdoc serves nothing unless `MAIL_OPENAPI_ENABLED` and `MAIL_SWAGGER_UI_ENABLED` are set, and both default to `false`. `todo.md` kept a finished item saying the `swagger-ui` pin still had to be paired with a springdoc property, although the pin itself was removed in 0.1.0.
 
+- **Packaging the sidecar uses Maven's own local repository instead of a second one in `backend/.m2repo` (#576).** `package-sidecar-windows.ps1` passed `-Dmaven.repo.local=.m2repo` with no recorded reason, so every machine kept two copies of the backend's dependencies (about 400 MB each), and the signed release job downloaded all of them on every run, because `setup-java`'s `cache: maven` restores `~/.m2` and the script never looked there. `-MavenRepoLocal` still takes a path for a build that wants a repository of its own. The release smoke in [OPERATIONS.md](backend/OPERATIONS.md) and release checklist §1 drop the flag too, along with a `user.home` override left over from an old sandbox.
+
 ## [0.1.0] - 2026-09-23
 
 ### Backend

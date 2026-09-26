@@ -1,6 +1,9 @@
 param(
     [string] $MavenCommand = "mvn.cmd",
-    [string] $MavenRepoLocal = ".m2repo",
+    # Empty means Maven's own local repository (~/.m2/repository), the one every
+    # other mvn call here uses and the one setup-java's `cache: maven` restores
+    # in CI. A path relative to backend/ gives the build a repository of its own.
+    [string] $MavenRepoLocal = "",
     [string] $TargetTriple = "x86_64-pc-windows-msvc",
     [string] $OutputRoot = "target\sidecar",
     [switch] $SkipTests,
@@ -26,7 +29,6 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
-$repoLocalPath = Join-Path $repoRoot $MavenRepoLocal
 $outputRootPath = Join-Path $repoRoot $OutputRoot
 $sidecarName = "voxrox-mail-backend-$TargetTriple"
 # What the launcher's version resource says about itself. jpackage writes
@@ -93,10 +95,13 @@ Invoke-Step "Building Spring Boot jar" {
     # runtime they are activated by the -Dspring.aot.enabled=true JVM option
     # (see the jpackage invocation below).
     $mavenArgs = @(
-        "-Dmaven.repo.local=$repoLocalPath",
         "-Paot",
         "package"
     )
+
+    if ($MavenRepoLocal) {
+        $mavenArgs += "-Dmaven.repo.local=$(Join-Path $repoRoot $MavenRepoLocal)"
+    }
 
     if ($SkipTests) {
         $mavenArgs += "-DskipTests"
