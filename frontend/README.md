@@ -2,7 +2,7 @@
 
 [![CI](../../actions/workflows/ci.yml/badge.svg)](../../actions/workflows/ci.yml)
 
-Desktop mail client frontend built with SvelteKit 2 (Svelte 5), Tailwind CSS 4, Playwright, and Tauri 2. Three main workspace modes: `Mail`, `Contacts`, `Settings`. Talks to a backend that runs either as a Tauri sidecar (desktop) or separately (browser mode); browser mode can also run fully mocked through MSW.
+Desktop mail client frontend built with SvelteKit 2 (Svelte 5), Tailwind CSS 4, Playwright, and Tauri 2. Three main workspace modes: `Mail`, `Contacts`, `Settings`. Talks to a backend that runs as a Tauri sidecar; outside Tauri (browser mode) it runs only against the MSW mocks.
 
 Repo-wide overview and the full doc map live in the monorepo root [`../README.md`](../README.md). This file is frontend-specific.
 
@@ -11,7 +11,7 @@ Repo-wide overview and the full doc map live in the monorepo root [`../README.md
 - Node.js 26
 - npm
 - Rust toolchain for Tauri builds
-- Running backend for browser mode, or packaged backend sidecar for Tauri mode
+- Packaged backend sidecar for Tauri mode; browser mode needs no backend
 
 ## Local Development
 
@@ -21,13 +21,19 @@ Install dependencies:
 npm install
 ```
 
-Start the frontend in browser mode:
+Start the frontend in browser mode, against the MSW mocks — the fixtures the
+Playwright suites use:
 
 ```sh
-npm run dev
+npm run dev -- --mode e2e
 ```
 
-Start the Tauri desktop shell:
+A bare `npm run dev` stops at boot with
+`Cannot read properties of undefined (reading 'invoke')`: finding the backend
+goes through Tauri's file-system API, which a plain browser does not have.
+
+Start the Tauri desktop shell (needs the packaged sidecar, see
+[Tauri Sidecar Build](#tauri-sidecar-build)):
 
 ```sh
 npm run tauri:dev
@@ -36,9 +42,10 @@ npm run tauri:dev
 ## Backend Handshake
 
 In Tauri mode the frontend starts the backend as a sidecar before reading the
-handshake files. In browser mode the backend still has to run separately.
+handshake files. Browser mode has no handshake: the MSW mocks hand the app a
+fixed session.
 
-The backend writes readiness and session files to:
+The backend writes readiness and session files to (`Mail.dev` for dev runs):
 
 ```text
 %LOCALAPPDATA%\VoxRox\Mail\session.json
@@ -81,11 +88,15 @@ self-disable is what keeps production users from seeing secondary failures.
 
 ## Tauri Sidecar Build
 
-Build the backend sidecar image first from the backend repository:
+Build the backend sidecar image first, from `backend/`:
 
 ```powershell
-.\scripts\package-sidecar-windows.ps1
+.\package-sidecar-dev-windows.ps1 -SkipTests
 ```
+
+It bakes the OAuth client ids from `backend/.env` into the launcher and then
+runs `scripts/package-sidecar-windows.ps1`, which on its own expects those ids
+in the environment, as CI provides them.
 
 Then copy it into the Tauri bundle input and build the desktop app:
 
@@ -94,7 +105,8 @@ npm run sidecar:sync:windows
 npm run tauri:build
 ```
 
-For a one-shot Windows release build:
+The same two steps in one command (it syncs the sidecar, it does not package
+it):
 
 ```powershell
 npm run tauri:build:with-sidecar
@@ -128,10 +140,13 @@ consolidated under one vendor folder:
   logs\           mail-frontend.log + backend logs + audit.log
   db\             SQLite (accounts, messages, drafts)
   attachments\
-  crypto.bin      deterministic crypto key
+  crypto.bin      local master key, generated on first start
   session.json    backend handshake payload
   .ready          backend readiness sentinel
 ```
+
+The backend's part of this folder is described in full in
+[`../backend/OPERATIONS.md`](../backend/OPERATIONS.md).
 
 Tauri's bundle identifier remains `org.voxrox.mail` for app identity, code
 signing, and updater stability — but data location is decoupled from it. The
@@ -164,31 +179,24 @@ npm run test:a11y:stable
 
 Desktop sidecar crypto: `tauri:dev` reads `backend/.env` for OAuth/dev values,
 but it does not pass `MAIL_CRYPTO_KEY` or `MAIL_CRYPTO_SALT` by default. The
-desktop release path uses the local `%LOCALAPPDATA%\VoxRox\Mail\crypto.bin`
-bootstrap.
+sidecar uses the local `crypto.bin` bootstrap instead, in
+`%LOCALAPPDATA%\VoxRox\Mail.dev` for a dev run.
 Use `npm run tauri:dev -- --include-backend-env-crypto` only for an explicit
 backend-env crypto test against a matching data directory.
 
 ## API Types
 
-When the backend OpenAPI schema changes:
+When the backend OpenAPI schema changes, refresh the golden snapshot in the
+backend first, then generate the types from it:
 
 ```sh
-npm run generate:api
+cd ../backend && mvn -Dopenapi.snapshot.update=true test -Dtest=OpenApiSnapshotTest
+cd ../frontend && npm run generate:api
 ```
 
-By default this uses the backend golden snapshot, so the backend does not need to run and the
-production sidecar does not need to expose `/v3/api-docs`.
-
-You can also override the schema URL manually:
-
-```powershell
-$session = Get-Content "$env:LOCALAPPDATA\VoxRox\Mail\session.json" | ConvertFrom-Json
-$origin = $session.baseUrl -replace '/api$', ''
-$env:OPENAPI_URL = "$origin/v3/api-docs"
-npm run generate:api:live
-Remove-Item Env:\OPENAPI_URL
-```
+The snapshot is also what `check:api` compares `schema.d.ts` against, so the
+backend does not need to run. There is no live variant: the packaged sidecar
+leaves springdoc out of the jar and serves no `/v3/api-docs`.
 
 ## Tests
 

@@ -33,9 +33,12 @@ Requires Node.js 26, JDK 25, Rust toolchain (for Tauri build), Windows.
 
 ```bash
 cd backend
-cp .env.example .env       # fill in OAuth values; leave MAIL_CRYPTO_* empty for desktop bootstrap
-mvn -Dmaven.repo.local=.m2repo spring-boot:run
+cp .env.example .env                          # fill in OAuth values; leave MAIL_CRYPTO_* empty for desktop bootstrap
+./package-sidecar-dev-windows.ps1 -SkipTests  # jpackage image with the OAuth client ids from .env baked in
 ```
+
+Without OAuth values in `.env` the packaging stops; pass `-AllowPlaceholderOAuth`
+to build a sidecar whose OAuth login will not work.
 
 ### 2. Frontend (Tauri dev)
 
@@ -45,6 +48,11 @@ npm install
 npm run sidecar:sync:windows   # copies the backend artifact into src-tauri/binaries/
 npm run tauri:dev
 ```
+
+Tauri starts the sidecar itself, with the values from `backend/.env`; there is
+no backend process to launch by hand. `tauri:dev` refuses a sidecar packaged
+from other backend sources than the ones checked out, so after a backend change
+repeat step 1 and the sync.
 
 In desktop mode Tauri does not forward `MAIL_CRYPTO_KEY`/`MAIL_CRYPTO_SALT`
 from `backend/.env`; the backend creates and uses a local `crypto.bin` instead.
@@ -58,8 +66,11 @@ For a browser-only dev run (MSW mocks, no backend):
 
 ```bash
 cd frontend
-npm run dev
+npm run dev -- --mode e2e
 ```
+
+A bare `npm run dev` does not start in a plain browser: finding the backend
+goes through Tauri's file-system API.
 
 ## Documentation
 

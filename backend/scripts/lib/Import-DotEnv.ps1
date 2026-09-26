@@ -2,8 +2,7 @@
 # Import-DotEnv — shared .env loader for the backend dev scripts.
 #
 # Parses a KEY=value .env file and sets the variables into the current process
-# environment. Centralises the loop that used to live inline in run-dev.ps1 so
-# every dev wrapper parses .env the same way. Dot-source it:
+# environment. Dot-source it:
 #
 #   . (Join-Path $PSScriptRoot 'scripts\lib\Import-DotEnv.ps1')
 #   $n = Import-DotEnv -Path $envFile

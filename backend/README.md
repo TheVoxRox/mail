@@ -20,15 +20,21 @@ Repo-wide overview and the full doc map live in the monorepo root
 
 ```bash
 cd backend
-cp .env.example .env          # fill in OAuth values; leave MAIL_CRYPTO_* empty
-mvn -Dmaven.repo.local=.m2repo spring-boot:run
+cp .env.example .env                          # fill in OAuth values; leave MAIL_CRYPTO_* empty
+./package-sidecar-dev-windows.ps1 -SkipTests  # sidecar image with the OAuth client ids from .env
 ```
 
+Then `npm run sidecar:sync:windows` and `npm run tauri:dev` from `frontend/`:
+Tauri starts the sidecar itself and hands it the values from `.env`.
+
 The backend listens on a random port and writes `session.json` + `.ready` to
-`${user.home}/.voxrox/mail/` by default. Override the data directory with
-`--app.data-dir=<path>` or the `APP_DATA_DIR` env var — the latter is how the
-Tauri shell points the sidecar at `%LOCALAPPDATA%\VoxRox\Mail`. See
-[`OPERATIONS.md`](OPERATIONS.md) for the full layout.
+the data directory Tauri passes in `APP_DATA_DIR` — `%LOCALAPPDATA%\VoxRox\Mail`,
+`Mail.dev` for dev runs. See [`OPERATIONS.md`](OPERATIONS.md) for the full layout.
+
+A bare `mvn spring-boot:run` still starts a standalone backend, but it reads no
+`.env`: OAuth falls back to the non-working `mail-local-*` placeholder client
+ids, and the data directory to `${user.home}/.voxrox/mail/` unless
+`--app.data-dir=<path>` or `APP_DATA_DIR` says otherwise.
 
 ## Test, package, sidecar
 
