@@ -99,7 +99,9 @@ someone a rework at least once. For the human-facing versions see
     of the six such entries the repo had, five were working tools and one was
     residue (#426). Deliberate exceptions live in `EXEMPT` in the script, with
     a reason, and expire loudly — the gate fails once one becomes reachable or
-    leaves `package.json`.
+    leaves `package.json`. It also fails two entries that run the same
+    command: each name of such a pair has its own callers, so reachability
+    passes the copy for as long as anything names it (#572, #573).
   - `check:nul` — no NUL byte in a file `.gitattributes` has not declared
     binary. One turns a source file binary for git (no diff, no blame) while
     passing every formatter and test, because it is a legal string character.

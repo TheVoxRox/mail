@@ -37,6 +37,15 @@ import { RECORDS_OF_THE_PAST } from './lib/historical-docs.mjs';
  * for this purpose (see HISTORICAL) — it records that a script once existed,
  * which is the opposite of a reason to keep it.
  *
+ * It also fails two entries that run the same command. Reachability cannot see
+ * that case, since each name of the pair has its own callers: the copy keeps
+ * passing for as long as anything names it. Both found so far were left behind
+ * by a change that made one entry do what the other did —
+ * `generate:api:snapshot` once `generate:api` defaulted to the snapshot (#572),
+ * and `test:a11y:stable` once `test:a11y` moved onto the same runner (#573).
+ * The comparison is on the command text with its whitespace collapsed, so two
+ * commands that differ only in spacing count as one.
+ *
  * Usage: node scripts/check-npm-callers.mjs
  */
 
@@ -274,8 +283,20 @@ for (const [name, reason] of Object.entries(EXEMPT)) {
 	}
 }
 
+/** command -> the entries that run it, kept only where there is more than one. */
+const byCommand = new Map();
+for (const [name, value] of Object.entries(scripts)) {
+	const command = String(value).trim().replace(/\s+/g, ' ');
+	byCommand.set(command, [...(byCommand.get(command) ?? []), name]);
+}
+const duplicates = [...byCommand].filter(([, entries]) => entries.length > 1);
+
 const problems =
-	findings.unreachable.length + findings.testOnly.length + broken.length + staleExemptions.length;
+	findings.unreachable.length +
+	findings.testOnly.length +
+	broken.length +
+	staleExemptions.length +
+	duplicates.length;
 
 if (problems === 0) {
 	// Every exemption names a live entry, or one of them would be a finding
@@ -289,8 +310,9 @@ if (problems === 0) {
 	process.exit(0);
 }
 
-// Not "entries nothing reaches": two of the four sections below are about a
-// reference that names nothing, and about an exemption that stopped holding.
+// Not "entries nothing reaches": three of the five sections below are about a
+// reference that names nothing, an exemption that stopped holding, and one
+// command under two names.
 console.error(`Problems with the npm scripts in ${PACKAGE_JSON}:\n`);
 
 if (findings.unreachable.length > 0) {
@@ -331,6 +353,17 @@ if (staleExemptions.length > 0) {
 	console.error(`  exemptions that no longer hold (${staleExemptions.length}):`);
 	for (const problem of staleExemptions) console.error(`      ${problem}`);
 	console.error('');
+}
+
+if (duplicates.length > 0) {
+	console.error(`  one command under more than one name (${duplicates.length}):`);
+	for (const [command, entries] of duplicates) {
+		console.error(`      ${entries.join(', ')}  → ${command}`);
+	}
+	console.error(
+		'    Keep the name the callers use, move the others onto it and delete the copy.\n' +
+			'    A copy passes every other check for as long as anything still names it.\n'
+	);
 }
 
 process.exitCode = 1;

@@ -279,6 +279,56 @@ describe('check-npm-callers', () => {
 	});
 
 	/*
+	 * Both names of the pair have callers, so reachability passes them; only
+	 * comparing the commands sees that one of them is a copy. The shape of
+	 * `test:a11y` / `test:a11y:stable` before #573.
+	 */
+	it('fails on two entries that run the same command, naming both', () => {
+		seed({
+			'test:a11y': 'node scripts/run.mjs src/routes/a11y.e2e.ts',
+			'test:a11y:stable': 'node scripts/run.mjs src/routes/a11y.e2e.ts'
+		});
+		repo.write('CONTRIBUTING.md', 'Run `npm run test:a11y`.\n');
+		repo.write('.github/workflows/ci.yml', 'run: npm run test:a11y:stable\n');
+		repo.commit();
+
+		const result = repo.run('check-npm-callers.mjs');
+
+		expect(result.status).toBe(1);
+		expect(result.stderr).toContain('one command under more than one name');
+		expect(result.stderr).toContain(
+			'test:a11y, test:a11y:stable  → node scripts/run.mjs src/routes/a11y.e2e.ts'
+		);
+	});
+
+	it('treats two commands that differ only in spacing as one', () => {
+		seed({ 'gen:a': 'node scripts/gen.mjs', 'gen:b': 'node  scripts/gen.mjs ' });
+		repo.write('CONTRIBUTING.md', 'Run `npm run gen:a` or `npm run gen:b`.\n');
+		repo.commit();
+
+		const result = repo.run('check-npm-callers.mjs');
+
+		expect(result.status).toBe(1);
+		expect(result.stderr).toContain('gen:a, gen:b');
+	});
+
+	it('does not count one script under different arguments as a copy', () => {
+		seed({
+			'check:translations': 'node scripts/check-translation-whitelist.mjs',
+			'check:translations:strict': 'node scripts/check-translation-whitelist.mjs --mode=strict'
+		});
+		repo.write(
+			'CONTRIBUTING.md',
+			'Run `npm run check:translations` or `npm run check:translations:strict`.\n'
+		);
+		repo.commit();
+
+		const result = repo.run('check-npm-callers.mjs');
+
+		expect(result.status).toBe(0);
+	});
+
+	/*
 	 * Resolution is over tracked files, like every other gate here: an untracked
 	 * file exists on one machine, and a check whose answer depends on that is
 	 * green locally and red for everyone else.

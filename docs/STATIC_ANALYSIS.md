@@ -114,7 +114,7 @@ Conventions established during the burn-down:
 | ESLint type-aware promise rules   | `src/**/*.ts`                        | `no-floating-promises`, `await-thenable` as errors              |
 | knip                              | `npm run knip` / pre-push            | unused files, exports, types, dependencies                      |
 | knip, production graph            | `npm run knip:production` / pre-push | the same, with test files out of the graph                      |
-| npm entry callers                 | `check:npm-callers` / pre-push       | a `package.json` script entry nothing in the repository reaches |
+| npm entry callers                 | `check:npm-callers` / pre-push       | a script entry nothing reaches, or two entries with one command |
 | rename residue                    | `check:rename-residue` (CI only)     | a removed symbol still named in a comment or a test name        |
 | test claims                       | `check:test-claims` / pre-push       | duplicate test bodies in one file, tests switched off silently  |
 | i18n key checks                   | `check:i18n` (also pre-commit)       | locale parity **and** unused base-locale keys fail              |

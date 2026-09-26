@@ -172,9 +172,9 @@ npm run check
 npm run lint
 npm run build
 npm run tauri:build
-npm run test:functional:stable
-npm run test:performance:stable
-npm run test:a11y:stable
+npm run test:functional
+npm run test:performance
+npm run test:a11y
 ```
 
 Desktop sidecar crypto: `tauri:dev` reads `backend/.env` for OAuth/dev values,
@@ -203,19 +203,19 @@ leaves springdoc out of the jar and serves no `/v3/api-docs`.
 Main frontend journeys run against the SvelteKit preview server:
 
 ```sh
-npm run test:functional:stable
+npm run test:functional
 ```
 
 Accessibility suite:
 
 ```sh
-npm run test:a11y:stable
+npm run test:a11y
 ```
 
 Initial-load performance baseline:
 
 ```sh
-npm run test:performance:stable
+npm run test:performance
 ```
 
 The performance test records shell-ready time, inbox-ready time, navigation timing,
@@ -235,8 +235,8 @@ The workflow is split into 9 jobs; five of them are this module's:
   `npm run knip:production`
 - `check`: `npm run check` (includes `check:api` schema-drift)
 - `test-unit`: `npm run test:unit:coverage`
-- `test-functional`: `npm run test:functional:stable`
-- `test-a11y`: `npm run test:a11y:stable`
+- `test-functional`: `npm run test:functional`
+- `test-a11y`: `npm run test:a11y`
 
 The rest cover the other modules and the release artifacts: `backend`
 (`mvn verify`, translation + i18n lints), `tauri` (`cargo check`, `cargo

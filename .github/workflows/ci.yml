@@ -426,7 +426,7 @@ jobs:
           exit 1
 
       - name: Run functional tests
-        run: npm run test:functional:stable
+        run: npm run test:functional
 
       - name: Upload Playwright artifacts
         if: failure()
@@ -480,7 +480,7 @@ jobs:
           exit 1
 
       - name: Run accessibility tests
-        run: npm run test:a11y:stable
+        run: npm run test:a11y
 
       - name: Upload Playwright artifacts
         if: failure()

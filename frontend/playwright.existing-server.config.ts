@@ -1,12 +1,10 @@
-import { defineConfig } from '@playwright/test';
+import base from './playwright.config';
 
-export default defineConfig({
-	testMatch: '**/*.e2e.{ts,js}',
-	projects: [
-		{ name: 'a11y', testMatch: '**/a11y.e2e.ts' },
-		{ name: 'functional', testMatch: '**/*.functional.e2e.ts' }
-	],
-	use: {
-		baseURL: 'http://127.0.0.1:4173'
-	}
-});
+/*
+ * The default config minus its webServer, for scripts/run-playwright-with-preview.mjs,
+ * which starts the preview itself. Derived rather than restated so the projects
+ * and baseURL live in one place.
+ */
+const { webServer: _webServer, ...config } = base;
+
+export default config;
