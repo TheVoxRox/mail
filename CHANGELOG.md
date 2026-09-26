@@ -33,6 +33,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 - **Files nothing used are gone, and one of them had a security audit saying the opposite of the truth (#574).** `application-dev.properties` was documented, in its own header and in B3 [API_SURFACE_AUDIT.md](docs/API_SURFACE_AUDIT.md) §3, as never shipping, yet it sat in every jar, inactive unless the `dev` profile was switched on. Its only use was a standalone `mvn spring-boot:run`, so it is deleted and the audit corrected (v1.7, verdict unchanged). The rest had been left over since the initial import: the Svelte logo from the project template, which `+layout.svelte` injected as a second favicon on top of the VoxRox one; two `+page.ts` holding only `export {}`; the shadcn-svelte CLI config, whose `add` would now overwrite the heavily reworked `ui/` components; and `backend/.gitattributes`, which only repeated the root file. knip no longer skips `generated.ts`, and the five aliases nothing imported, which that skip had hidden, are gone.
 
+- **Two notes still described the standalone backend run as it no longer is (#575).** [backend/OPERATIONS.md](backend/OPERATIONS.md) said Swagger UI "works normally" under `mvn spring-boot:run`, but springdoc serves nothing unless `MAIL_OPENAPI_ENABLED` and `MAIL_SWAGGER_UI_ENABLED` are set, and both default to `false`. `todo.md` kept a finished item saying the `swagger-ui` pin still had to be paired with a springdoc property, although the pin itself was removed in 0.1.0.
+
 ## [0.1.0] - 2026-09-23
 
 ### Backend
