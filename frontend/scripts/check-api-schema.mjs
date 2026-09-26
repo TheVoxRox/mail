@@ -47,7 +47,7 @@ async function main() {
 			throw new Error(
 				[
 					'Frontend API schema is out of date with backend/src/test/resources/openapi/api-docs.json.',
-					'Run `npm run generate:api:snapshot` from frontend/ and commit src/lib/api/schema.d.ts.'
+					'Run `npm run generate:api` from frontend/ and commit src/lib/api/schema.d.ts.'
 				].join('\n')
 			);
 		}

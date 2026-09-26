@@ -373,7 +373,7 @@ Many files in the repo are auto-generated — do not hand-edit them.
 
 | File                                               | Regenerate command                                                                  |
 | -------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `frontend/src/lib/api/schema.d.ts`                 | `npm run generate:api:snapshot` (from `frontend/`)                                  |
+| `frontend/src/lib/api/schema.d.ts`                 | `npm run generate:api` (from `frontend/`)                                           |
 | `backend/src/test/resources/openapi/api-docs.json` | `mvn -Dopenapi.snapshot.update=true test -Dtest=OpenApiSnapshotTest` (from backend) |
 | `frontend/THIRD_PARTY_LICENSES.md`                 | `npm run regen:licenses` (from `frontend/`)                                         |
 | `backend/THIRD_PARTY_LICENSES.md`                  | `node backend/scripts/regen-third-party-licenses.mjs`                               |

@@ -8,8 +8,7 @@
 # The packaging script itself (scripts/package-sidecar-windows.ps1) stays a pure
 # function of the environment — CI provides the OAuth values as secrets, never
 # from a file. This wrapper is the local-dev convenience that sources them from
-# .env first, mirroring run-dev.ps1. All arguments are forwarded to the
-# packaging script.
+# .env first. All arguments are forwarded to the packaging script.
 #
 # Arguments are forwarded through the automatic $args on purpose, which is the
 # only form that keeps switches as switches: splatting a [string[]] collected by

@@ -38,7 +38,7 @@ function seed(snapshot = SNAPSHOT) {
 }
 
 /**
- * Produces what the gate expects, the same way `npm run generate:api:snapshot`
+ * Produces what the gate expects, the same way `npm run generate:api`
  * does — openapi-typescript, then prettier with the repo config.
  */
 function generateSchema() {
@@ -95,7 +95,7 @@ describe.skipIf(!fixtureHasDependencies())('check-api-schema', { timeout: 30_000
 		expect(result.status).toBe(1);
 		expect(result.output).toContain('out of date');
 		// The message has to name the fix, or the failure is a puzzle.
-		expect(result.output).toContain('generate:api:snapshot');
+		expect(result.output).toContain('npm run generate:api`');
 	});
 
 	it('passes when the committed schema is what the snapshot generates', () => {
