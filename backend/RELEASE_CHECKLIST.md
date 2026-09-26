@@ -52,9 +52,7 @@ Run in the frontend repo against a dev/preview build with the backend sidecar ru
 - [ ] `npm run generate:api`
 - [ ] `npm run check:i18n`
 - [ ] `npm run build`
-- [ ] `npm run test:e2e`
-- [ ] `npm run test:functional:stable`
-- [ ] `npm run test:a11y`
+- [ ] `npm run test:e2e` (the functional suite, then the a11y suite)
 
 Notes:
 

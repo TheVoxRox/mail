@@ -5,7 +5,7 @@
 #
 # Deliberately NOT run here (too slow to force on every push; they belong in
 # CI / a manual pre-release pass):
-#   - Playwright e2e (test:functional:stable, test:a11y:stable)
+#   - Playwright e2e (test:functional, test:a11y)
 #   - backend `mvn verify`
 #   - Tauri `cargo check` / `cargo clippy`
 #

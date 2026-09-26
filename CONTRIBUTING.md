@@ -54,14 +54,15 @@ npm ci
 npm run lint
 npm run check
 npm run test:unit
-npm run test:functional:stable
-npm run test:a11y:stable
+npm run test:functional
+npm run test:a11y
 
 # 3. Dev run (Tauri desktop)
 npm run tauri:dev
 ```
 
-The `*:stable` test scripts each build the app and manage their own
+The Playwright scripts (`test:functional`, `test:a11y`, `test:performance`
+and `test:e2e`, which runs the first two) each build the app and manage their own
 `vite preview` on 4173, built with `--mode=e2e` so that `VITE_E2E_MOCK=1` puts
 the MSW mocks in front of the backend. `npm run preview:test` starts the same
 preview **without** that mode — the ordinary build, talking to a real sidecar —
@@ -281,7 +282,9 @@ decide whether everything else is allowed to land.
   "delete it" — of the six entries that had no caller when this was written,
   five were working tools nobody had written down. `prepare` and the two
   interactive watch loops are exempt in the script itself, with a reason;
-  the exemption fails once the entry becomes reachable or disappears.
+  the exemption fails once the entry becomes reachable or disappears. Two
+  entries that run the same command fail too: keep the name the callers use
+  and move the others onto it.
 - `npm run check:test-claims` — part of `npm run check`. Fails on two tests
   in one file with identical bodies, and on a test switched off without a
   reason (`@Disabled("…")`, or a `test-skip: …` comment above the call).
@@ -328,9 +331,9 @@ decide whether everything else is allowed to land.
 - `npm run test:unit:coverage` — vitest with thresholds (≥ 65% global,
   per-file 90/85/90 for `content-sanitizer.ts`, 85/80/80 for
   `client.ts`).
-- `npm run test:functional:stable` — Playwright functional.
-- `npm run test:a11y:stable` — Playwright a11y.
-- `npm run test:performance:stable` — initial-load budget.
+- `npm run test:functional` — Playwright functional.
+- `npm run test:a11y` — Playwright a11y.
+- `npm run test:performance` — initial-load budget.
 
 **Tauri Rust (`cd frontend/src-tauri && cargo check && cargo clippy`)**
 

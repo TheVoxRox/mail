@@ -19,8 +19,8 @@ I have run the relevant gates locally and they are **all green**:
 - [ ] `npm run check:rename-residue -- --base <ref>` (frontend) — leftovers of a rename
 - [ ] `npm run check` (frontend) — version sync, schema drift, svelte-check
 - [ ] `npm run test:unit:coverage` (frontend) — passing thresholds
-- [ ] `npm run test:functional:stable` (frontend)
-- [ ] `npm run test:a11y:stable` (frontend)
+- [ ] `npm run test:functional` (frontend)
+- [ ] `npm run test:a11y` (frontend)
 - [ ] `cargo check && cargo clippy -- -D warnings` (Tauri)
 
 ## Docs & Web Sync (delete if not applicable)
