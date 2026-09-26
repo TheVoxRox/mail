@@ -1,5 +1,4 @@
 <script lang="ts">
-	import favicon from '$lib/assets/favicon.svg';
 	import AppRail from '$lib/components/AppRail.svelte';
 	import LiveAnnouncer from '$lib/components/LiveAnnouncer.svelte';
 	import ToastRegion from '$lib/components/ToastRegion.svelte';
@@ -439,7 +438,6 @@
 </script>
 
 <svelte:head>
-	<link rel="icon" href={favicon} />
 	<title>{$_('app.title')}</title>
 </svelte:head>
 
