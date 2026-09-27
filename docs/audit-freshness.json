@@ -110,7 +110,7 @@
   },
   "docs/API_SURFACE_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/core/diagnostic": "2f830b8f86c784029fa29108e27385672cec65be",
+      "backend/src/main/java/org/voxrox/mailbackend/core/diagnostic": "7bc5dc4ac701a53df95b7fbe68d9a8d68c731954",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/controller": "9e1abcc70816cca08513be07583428c14aa03b27",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "5933ad511c4a63850a3bb0ef8e59c98f849d0e4e"
     },
@@ -126,6 +126,10 @@
       {
         "date": "2026-09-22",
         "note": "MailDetailResponse loses the uid component that @JsonIgnore and @Schema(hidden) kept out of the response, because the sync no longer builds this record: it has its own, FetchedMessage, in feature/mail/service. Only the javadoc and that one component moved under dto. The OpenAPI snapshot is byte-identical (OpenApiSnapshotTest passes without an update run), so no endpoint, field, constraint or disclosed value changes, and the record is still a response, never a request body. Verdict stays PASS."
+      },
+      {
+        "date": "2026-09-27",
+        "note": "The client-boot route is cut to its route-id shape. One path moved: ClientBootDiagnosticsService.sanitizeRoute keeps a route only up to its first segment that is not a static lowercase word or a [param] placeholder, after cutting the query and fragment as before. It fixes a privacy gap the verification pass over 1.8 found (section 5): the client reported window.location.pathname, a boot re-runs from the open page when the user restarts a failed backend, and /mail/<id>/<folder>/<message> put the name of a user-created folder into client-boot.json in the dump, which section 5 says it never carries. (1) No endpoint, method, path, authentication rule or error mapping changes: POST /api/internal/client-boot is the same endpoint behind the same key, with the same request record and 202. (2) The dump's shape is the same seven entries; client-boot.json keeps its fields. (3) What the dump carries can only shrink: a route loses segments, nothing is added. DiagnosticDumpPrivacyIT now posts a report with the folder route and fails without the fix. The audit itself is re-verified in the follow-up that re-anchors it, which deletes this entry. Verdict stays PASS."
       }
     ]
   },

@@ -12,6 +12,12 @@ public class ClientBootDiagnosticsService {
     private static final long MAX_TIMING_MS = 10 * 60 * 1000L;
     private static final Set<String> ALLOWED_TIMINGS = Set.of("uiStart", "sidecarSpawnRequested", "sidecarRunning",
             "sessionFound", "handshakeOk", "readinessOk", "clientConfigOk", "accountsLoaded", "appReady");
+    /**
+     * A static segment of a route id ({@code settings}, {@code auth}) or a
+     * parameter placeholder ({@code [accountId]}). A segment that carries a value —
+     * an account id, an encoded folder name, a message id — matches neither.
+     */
+    private static final Pattern ROUTE_ID_SEGMENT = Pattern.compile("[a-z]+(-[a-z]+)*|\\[[A-Za-z]+\\]");
 
     private final AtomicReference<ClientBootDiagnosticsSnapshot> latest = new AtomicReference<>();
 
@@ -65,6 +71,14 @@ public class ClientBootDiagnosticsService {
         return stripped.length() > MAX_TEXT_LENGTH ? stripped.substring(0, MAX_TEXT_LENGTH) : stripped;
     }
 
+    /**
+     * The route as a SvelteKit route id ({@code /mail/[accountId]/[folderName]}),
+     * which is what the client sends. Anything else is cut at its first segment
+     * that is not shaped like a route id's, so a path with values in it
+     * ({@code /mail/7/<folder>/<message>}) keeps only {@code /mail}: the dump goes
+     * to support, and the name of a folder the user created is what it must not
+     * carry.
+     */
     private @Nullable String sanitizeRoute(@Nullable String value) {
         String route = sanitizeText(value);
         if (route == null) {
@@ -76,7 +90,18 @@ public class ClientBootDiagnosticsService {
         if (hashIndex >= 0 && (cutIndex < 0 || hashIndex < cutIndex)) {
             cutIndex = hashIndex;
         }
-        return cutIndex >= 0 ? route.substring(0, cutIndex) : route;
+        String path = cutIndex >= 0 ? route.substring(0, cutIndex) : route;
+        if (!path.startsWith("/")) {
+            return null;
+        }
+        StringBuilder kept = new StringBuilder();
+        for (String segment : path.substring(1).split("/", -1)) {
+            if (!ROUTE_ID_SEGMENT.matcher(segment).matches()) {
+                break;
+            }
+            kept.append('/').append(segment);
+        }
+        return kept.isEmpty() ? "/" : kept.toString();
     }
 
     private String now() {

@@ -1,3 +1,4 @@
+import { page } from '$app/state';
 import { httpFetch } from './http.js';
 import { requireSession } from '$lib/stores/session.js';
 import type { BootState, BootTimings } from '$lib/stores/boot.js';
@@ -49,9 +50,12 @@ function buildPayload(state: BootState): ClientBootDiagnosticsPayload {
 		timings: state.timings,
 		userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
 		language: typeof navigator !== 'undefined' ? navigator.language : null,
-		route:
-			typeof window !== 'undefined'
-				? `${window.location.pathname}${window.location.search}${window.location.hash}`
-				: null
+		/*
+		 * The route id (`/mail/[accountId]/[folderName]/[stableId]`), not the path:
+		 * the report ends up in the diagnostic dump a user sends to support, and a
+		 * path carries the account, the name of the folder and the message. The
+		 * backend cuts anything that is not shaped like a route id as well.
+		 */
+		route: page.route.id
 	};
 }

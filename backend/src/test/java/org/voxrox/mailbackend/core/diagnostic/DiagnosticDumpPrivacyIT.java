@@ -57,10 +57,11 @@ import tools.jackson.databind.ObjectMapper;
 /**
  * The privacy half of RELEASE_CHECKLIST §7, against real data instead of mocks:
  * an account synced from a live IMAP server, a folder the user named, message
- * content, a cached OAuth token and the session API key all exist, and none of
- * them may be in the diagnostic dump a user sends to support. The dump is
- * fetched the way the client fetches it, over HTTP with the key, so the
- * controller and the ZIP are the ones a user gets.
+ * content, a cached OAuth token, the session API key and a client-boot report
+ * from a route inside that folder all exist, and none of the personal values
+ * may be in the diagnostic dump a user sends to support. The dump is fetched
+ * the way the client fetches it, over HTTP with the key, so the controller and
+ * the ZIP are the ones a user gets.
  * <p>
  * Every value checked for is a canary: a string that appears nowhere else, so
  * finding it anywhere in any entry is a leak, whatever the entry's shape.
@@ -81,6 +82,8 @@ class DiagnosticDumpPrivacyIT {
     private static final String LOGIN = "canary-login-4417";
     private static final String PASSWORD = "canary-password-4417";
     private static final String CUSTOM_FOLDER = "Canary Lawyer 4417";
+    // How the frontend puts the folder into a route: encodeURIComponent.
+    private static final String ENCODED_CUSTOM_FOLDER = "Canary%20Lawyer%204417";
     private static final String SUBJECT = "Canary subject 4417";
     private static final String BODY = "Canary body text 4417";
     private static final String TOKEN = "ya29.canary-access-token-4417-abcdefghijklmnop";
@@ -148,6 +151,8 @@ class DiagnosticDumpPrivacyIT {
         JsonNode session = objectMapper
                 .readTree(Files.readString(storageProperties.getDataPath().resolve("session.json")));
         String apiKey = session.get("apiKey").asString();
+        reportClientBoot(session.get("baseUrl").asString(), apiKey,
+                "/mail/" + account.getId() + "/" + ENCODED_CUSTOM_FOLDER + "/0123abcd");
         HttpResponse<byte[]> response = HttpClient.newHttpClient()
                 .send(HttpRequest
                         .newBuilder(URI.create(session.get("baseUrl").asString() + "/internal/diagnostic-dump"))
@@ -156,17 +161,18 @@ class DiagnosticDumpPrivacyIT {
 
         Map<String, String> entries = unzip(response.body());
         assertThat(entries).containsKeys("summary.json", "accounts.json", "folder-sync-states.json",
-                "message-counts.json", "runtime.json");
+                "message-counts.json", "runtime.json", "client-boot.json");
         String home = System.getProperty("user.home");
         for (Map.Entry<String, String> entry : entries.entrySet()) {
             assertThat(entry.getValue()).as(entry.getKey()).doesNotContain(EMAIL, "canary.owner", LOGIN, PASSWORD,
-                    "canary.sender", SUBJECT, BODY, CUSTOM_FOLDER, TOKEN, apiKey,
+                    "canary.sender", SUBJECT, BODY, CUSTOM_FOLDER, ENCODED_CUSTOM_FOLDER, TOKEN, apiKey,
                     objectMapper.writeValueAsString(home).replace("\"", ""));
         }
 
         // The dump still says what support needs.
         assertThat(entries.get("accounts.json")).contains("c***7@greenmail.local");
         assertThat(entries.get("folder-sync-states.json")).contains("\"INBOX\"").contains("\"folder-1\"");
+        assertThat(objectMapper.readTree(entries.get("client-boot.json")).get("route").asString()).isEqualTo("/mail");
         assertThat(objectMapper.readTree(entries.get("summary.json")).get("oauthCachedTokens").asInt()).isEqualTo(1);
     }
 
@@ -200,6 +206,22 @@ class DiagnosticDumpPrivacyIT {
         constructor.setAccessible(true);
         Method put = TokenCache.class.getMethod("put", Long.class, cachedToken);
         put.invoke(tokenCache, accountId, constructor.newInstance(TOKEN, Instant.now().plusSeconds(3600)));
+    }
+
+    /**
+     * Posts a client-boot report the way a client does, with the route of an open
+     * message in the user's own folder. The dump carries the latest report, and a
+     * boot runs from whatever route is open when the user restarts the backend.
+     */
+    private void reportClientBoot(String baseUrl, String apiKey, String route) throws Exception {
+        String body = objectMapper.writeValueAsString(
+                Map.of("reportedAt", Instant.now().toString(), "phase", "ready", "slowLevel", "none", "timings",
+                        Map.of("appReady", 1200L), "userAgent", "Canary", "language", "cs", "route", route));
+        HttpResponse<Void> response = HttpClient.newHttpClient()
+                .send(HttpRequest.newBuilder(URI.create(baseUrl + "/internal/client-boot")).header("X-API-KEY", apiKey)
+                        .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(body))
+                        .build(), HttpResponse.BodyHandlers.discarding());
+        assertThat(response.statusCode()).isEqualTo(202);
     }
 
     private static Map<String, String> unzip(byte[] zipBytes) throws Exception {
