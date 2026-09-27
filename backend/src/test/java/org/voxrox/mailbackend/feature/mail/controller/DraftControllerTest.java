@@ -38,6 +38,7 @@ import org.voxrox.mailbackend.core.config.mail.SyncProperties;
 import org.voxrox.mailbackend.core.security.InternalApiKeyProvider;
 import org.voxrox.mailbackend.exception.ValidationException;
 import org.voxrox.mailbackend.feature.mail.dto.DraftRequest;
+import org.voxrox.mailbackend.feature.mail.dto.MailRequest;
 import org.voxrox.mailbackend.feature.mail.dto.MailSummaryResponse;
 import org.voxrox.mailbackend.feature.mail.service.DraftPersistenceService;
 import org.voxrox.mailbackend.feature.mail.service.MailFacade;
@@ -121,6 +122,31 @@ class DraftControllerTest {
         mockMvc.perform(post("/api/v1/accounts/7/drafts").contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(bad))).andExpect(status().isBadRequest())
                 .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON));
+
+        verifyNoInteractions(draftPersistenceService, smtpService);
+    }
+
+    @Test
+    @DisplayName("POST draft — body over the size cap -> 400 (payload bound, audit B3 A1)")
+    void saveDraftBodyTooLong() throws Exception {
+        DraftRequest bad = new DraftRequest(null, null, null, null, "a".repeat(10 * 1024 * 1024 + 1), List.of(), null,
+                null);
+
+        mockMvc.perform(post("/api/v1/accounts/7/drafts").contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(bad))).andExpect(status().isBadRequest());
+
+        verifyNoInteractions(draftPersistenceService, smtpService);
+    }
+
+    @Test
+    @DisplayName("POST draft — more than 50 attachments -> 400 (attachment-count bound, audit B3 A1)")
+    void saveDraftTooManyAttachments() throws Exception {
+        List<MailRequest.AttachmentRequest> many = java.util.stream.IntStream.rangeClosed(1, 51)
+                .mapToObj(i -> new MailRequest.AttachmentRequest("f" + i + ".txt", "text/plain", "ZGF0YQ==")).toList();
+        DraftRequest bad = new DraftRequest(null, null, null, null, null, many, null, null);
+
+        mockMvc.perform(post("/api/v1/accounts/7/drafts").contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(bad))).andExpect(status().isBadRequest());
 
         verifyNoInteractions(draftPersistenceService, smtpService);
     }

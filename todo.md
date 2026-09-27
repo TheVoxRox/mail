@@ -85,7 +85,6 @@ Nezavisly overovaci pruchod re-verifikace ([docs/IMAP_SMTP_AUDIT.md](docs/IMAP_S
 Preovereni [docs/API_SURFACE_AUDIT.md](docs/API_SURFACE_AUDIT.md) proti `55fdd1b` nechalo verdikt PASS a zapsalo tyto veci jako informativni poznamky (§4, §7) a v popisu metody. Bezpecnostne nic z toho neni nalez; jde o spravny stav, cisty log a srozumitelnou hlasku. Oprava kodu pod `Code paths` auditu znamena potvrzeni v [docs/audit-freshness.json](docs/audit-freshness.json) nebo preovereni.
 
 - [ ] **Text cizi vyjimky v odpovedi.** Tri cesty (§3 auditu): osm mist sklada zpravu `MailConnectionException` / `MailOperationException` z `e.getMessage()` a ta jde jako `{0}` do `detail` a `messageArgs`; a `safeDetail(e)` v syncu, SMTP a ulozeni konceptu zapisuje text do `lastErrorArgs.detail`, ktery vraci kazdy endpoint uctu — u syncu z `catch (Exception)`, takze i SQL z Hibernate; a `/api/internal/health` s `show-details=always`, kde databazovy indikator vraci tridu a text vyjimky (a disk-space absolutni pracovni adresar). Uzivatel tak u prvnich dvou vidi anglicky text knihovny, serveru nebo databaze vlozeny do ceske hlasky. Zvazit kod chyby misto textu a text nechat jen v logu.
-- [ ] **`ApiKeyFilter` nema test na spatny klic.** Fail-fast 401 (`ApiKeyFilter.java:53`) a porovnani v konstantnim case jsou v auditu jen staticky overene; test by drzel aspon 401 bez prupustu do retezce. Totez meze `DraftRequest` (A1): test maji jen meze `MailRequest`.
 
 ---
 
