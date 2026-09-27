@@ -1,15 +1,15 @@
 # VoxRox Mail — Sidecar HTTP API Surface Audit
 
-|                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.8                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| **Date**           | 2026-09-27                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| **Applies to**     | VoxRox Mail V0.1.0, cut at or after the audited commit — the draft `v0.1.0` tag (`d626a9b`) predates #574 and #577 (§3, §6)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| **Audited commit** | `2fb87ab` (every claim re-verified 2026-09-27)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/mail/controller`, `backend/src/main/java/org/voxrox/mailbackend/feature/account/controller`, `backend/src/main/java/org/voxrox/mailbackend/feature/contact/controller`, `backend/src/main/java/org/voxrox/mailbackend/core/clientconfig`, `backend/src/main/java/org/voxrox/mailbackend/core/diagnostic`, `backend/src/main/java/org/voxrox/mailbackend/core/system`, `backend/src/main/java/org/voxrox/mailbackend/core/security`, `backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java`, `backend/src/main/java/org/voxrox/mailbackend/core/init/HandshakeService.java`, `backend/src/main/java/org/voxrox/mailbackend/exception`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/AttachmentService.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto`, `backend/src/main/java/org/voxrox/mailbackend/feature/contact/dto`, `backend/src/main/java/org/voxrox/mailbackend/feature/account/dto`, `backend/src/main/resources/application.properties` |
-| **Auditor**        | Claude (1.0 in #134; 1.8 re-verified by Claude Opus 5.5) + owner review                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| **Subsystem**      | Sidecar REST API — Boundary 3 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| **Verdict**        | **Security: PASS** (no exploitable finding). Two Low findings **fixed**: **A1** (unbounded JSON write-body) and **A2** (a user-named folder in the dump's client-boot route); informational notes recorded.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+|                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Version**        | 1.8                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| **Date**           | 2026-09-27                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| **Applies to**     | VoxRox Mail V0.1.0, cut at or after the audited commit — the draft `v0.1.0` tag (`d626a9b`) predates #574, #577 and #578 (§3, §6)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| **Audited commit** | `2fb87ab` (every claim re-verified 2026-09-27)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/mail/controller`, `backend/src/main/java/org/voxrox/mailbackend/feature/account/controller`, `backend/src/main/java/org/voxrox/mailbackend/feature/contact/controller`, `backend/src/main/java/org/voxrox/mailbackend/core/clientconfig`, `backend/src/main/java/org/voxrox/mailbackend/core/diagnostic`, `backend/src/main/java/org/voxrox/mailbackend/core/system`, `backend/src/main/java/org/voxrox/mailbackend/core/security`, `backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java`, `backend/src/main/java/org/voxrox/mailbackend/core/init/HandshakeService.java`, `backend/src/main/java/org/voxrox/mailbackend/exception`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/AttachmentService.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto`, `backend/src/main/java/org/voxrox/mailbackend/feature/contact/dto`, `backend/src/main/java/org/voxrox/mailbackend/feature/account/dto`, `backend/src/main/java/org/voxrox/mailbackend/feature/account/mapper/AccountMapper.java`, `backend/src/main/java/org/voxrox/mailbackend/util/LogMasker.java`, `backend/src/main/resources/application.properties`, `frontend/src/lib/api/clientBootDiagnostics.ts` |
+| **Auditor**        | Claude (1.0 in #134; 1.8 re-verified by Claude Opus 5.5) + owner review                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| **Subsystem**      | Sidecar REST API — Boundary 3 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| **Verdict**        | **Security: PASS** (no exploitable finding). Three Low findings **fixed**: **A1** (unbounded JSON write-body), **A2** (a user-named folder in the dump's client-boot route) and **A3** (a user-named folder kept by name in the dump's folder lists); informational notes recorded.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 Per-subsystem release audit of the **loopback HTTP API** the Tauri WebView calls:
 authentication (`X-API-KEY`), request authorization, input validation on every
@@ -17,24 +17,34 @@ controller, error-response hygiene, attachment streaming (path traversal), and
 the diagnostic/data-exposure endpoints. Method: static trace of the Spring
 Security filter chain, enumeration of all 17 `@RestController`s (13 public +
 the 4 `/api/internal` ones) and their request DTOs, and a data-flow check of
-the two highest-risk paths (attachment download, diagnostic dump). Dynamic
-cover is limited to three tests: a request without the key redirected to login
-(`SecurityDispatcherTypeTest`), the dump's privacy on real data
-(`DiagnosticDumpPrivacyIT`, §5 and A2) and the `MailRequest` caps of A1
-(`MailWriteControllerTest`, §6). Every other claim rests on a static trace,
-even where a unit test happens to cover it — among them the wrong-key 401, the
-constant-time comparison and the `DraftRequest` caps.
+the two highest-risk paths (attachment download, diagnostic dump). The audit
+relies on these tests as dynamic cover: a request without the key redirected
+to login (`SecurityDispatcherTypeTest`), the dump's privacy on real data
+(`DiagnosticDumpPrivacyIT`, §5, A2 and A3), the regression tests each finding
+in §6 names, and the throwaway probes the 1.8 change log describes for the
+statuses in §4 and §7. Other claims rest on a static trace, even where a unit
+test also covers them (several §2 bounds have one). Nothing tests the wrong-key
+401, the constant-time comparison or the `DraftRequest` caps of A1.
 
-`Code paths` covers the chokepoints the sections trace. Some of what they cite
-is knowingly left out, because it changes often for reasons that rarely touch
-this boundary and would run the acknowledgement cap down: the services that
-write the exception text of §3, the error mapping in `ImapFolderExecutor`
-(§4), the merge cap in `ContactService` (§2), the message bundles,
-`backend/pom.xml` (§1) and the rest of `backend/src/main/resources`. A literal
-pathspec also cannot see a file appear beside the ones it names, which is how
-#574's deletion went unseen. Where a claim rests on a list of such files, §3
-gives the command that regenerates the list; the rest are re-read by each
-re-verification.
+`Code paths` covers the chokepoints the sections trace. What else they cite is
+knowingly left out, because it changes often for reasons that rarely touch this
+boundary and would run the acknowledgement cap down:
+
+- §1: `backend/pom.xml` (the springdoc exclusion).
+- §2: the service and types behind the named bounds (`ContactService`,
+  `EmailLabel`, `SyncProperties`, `ClientConfigProperties`).
+- §3: the services that write exception text (the mail and auth services, the
+  sync, SMTP send and draft save), `ContactBulkService`, `AccountLastErrorCode`,
+  the message bundles, and the rest of `backend/src/main/resources`.
+- §4: the error mapping in `ImapFolderExecutor`.
+- §5: `StartupTimingService` and `ImapConnectionManager`'s pool statistics.
+- §6: the client caps behind A1's residual (`AttachmentPicker.svelte` and the
+  client-config store).
+
+A literal pathspec also sees only the files it names: 1.7's paths named no
+resource at all, which is how #574's deletion of one went unseen. Where a claim
+rests on a list of such files, §3 gives the command that regenerates the list;
+the rest are re-read by each re-verification.
 
 Regenerate the enumeration every count below rests on (the `\b` matters —
 without it `@RestControllerAdvice` on `GlobalExceptionHandler` inflates the
@@ -87,8 +97,9 @@ audit map in [AUDIT_GUIDE.md](AUDIT_GUIDE.md)).
   the allow-list: because `oauth2Login()` is configured without a login page of
   its own, `GET /login` serves the generated page listing the two providers,
   `/logout` redirects to `/login?logout`, and `/default-ui.css` serves that
-  page's stylesheet. They show nothing beyond the provider names the OAuth flow
-  exposes anyway, and change no stored data.
+  page's stylesheet. A CORS preflight (`OPTIONS`) on `/api/**` is answered by
+  the CORS filter the same way. They show nothing beyond the provider names the
+  OAuth flow exposes anyway, and change no stored data.
 - **Internal endpoints are behind the key.** `/api/internal/**`
   (diagnostic-dump, threading recompute, correspondent rebuild, client-boot,
   actuator `health`) is not in the allow-list, so it inherits
@@ -173,8 +184,8 @@ grep -rnE -A2 'new Mail(Connection|Operation)Exception\(' backend/src/main/java 
 ```
 
 **Outside the handlers, an account's last error carries the same kind of
-text.** Every account endpoint returns `lastError` and `lastErrorArgs`
-(`AccountResponse`), and three services store a caught exception's
+text.** Every endpoint that returns an `AccountResponse` carries `lastError`
+and `lastErrorArgs`, and three services store a caught exception's
 `getMessage()` in them as `detail`: the sync (for an error it does not
 recognise as a connection or sign-in failure), SMTP send and draft save.
 `AccountMapper` renders it through the `account.lastError.*` templates
@@ -188,12 +199,25 @@ Regenerate the sites:
 grep -rn '"detail", safeDetail' backend/src/main/java   # 4 sites in 3 services
 ```
 
+**The health endpoint is a third path.** `GET /api/internal/health` shows its
+details (`management.endpoint.health.show-details=always`), and Spring's own
+database indicator reports a failure as `error`, the exception's class and
+message, so a JDBC or SQLite error's text reaches the key holder there. The
+disk-space indicator also returns the absolute working directory, which
+usually contains the Windows account name. The project's own
+`SyncHealthIndicator` gives only an exception's class name. The client does not
+call this endpoint. Same recipient; §7.
+
+The bulk contact endpoints also return, per failed item, an `AppException`'s
+own message — the English fallback text the app wrote, not a library's.
+
 An error Spring MVC never sees — raised in the filter chain, or sent with
 `sendError` — ends at Spring Boot's `/error` instead, and production keeps that
 page bare: `spring.web.error.include-message=never` and
-`include-stacktrace=never` in `application.properties`. The page's other two
-switches, `include-exception` and `include-binding-errors`, are not pinned and
-stay at the framework defaults (`false`, `never`). `application.properties` is
+`include-stacktrace=never` in `application.properties`. The page's other
+switches are not pinned and stay at the framework defaults: `include-exception`
+(`false`), `include-binding-errors` (`never`) and `include-path` (`always`,
+which returns only the request's own path). `application.properties` is
 the only `application*` file among the jar's resources, so no profile can
 loosen these settings from inside the jar:
 
@@ -246,14 +270,16 @@ metadata: app and API versions, counts, IMAP pool stats, cached-token
 host/port/SSL + auth-type name + last sync time + booleans (`active`,
 `requiresReauth`, `lastErrorPresent`), folder sync state (UIDs), message
 counts, JVM/runtime info, the backend's startup timings, and the latest
-client-boot snapshot (below). A folder the user created is named by a
-pseudonym (`folder-<n>`, the same in both files that list folders) and only a
-folder with a provider role, or `INBOX`, keeps its name; the data, database and
+client-boot snapshot (below). Every folder but `INBOX`, whose name IMAP fixes,
+is named by a pseudonym (`folder-<n>`, the same in both files that list
+folders), and its `role` says which system folder it is (A3); the data, database and
 log paths replace the user's home directory with `~`, so the Windows account
 name does not travel either. The client-boot snapshot keeps its route only in
 route-id shape (A2). `DiagnosticDumpPrivacyIT` fetches the dump over HTTP after
-a real sync, a cached token and a client-boot report sent from a route inside
-the user's folder, and finds none of the canary values in any entry. **No**
+a real sync of two folders the user named — one of them with a role keyword in
+its name, synced under the role detection gives it — a cached token and a
+client-boot report sent from a route inside a user's folder, and finds none of
+the canary values in any entry. **No**
 credentials, OAuth tokens, message
 bodies, subjects, or senders; the `lastError` text is reduced to a boolean.
 [ClientBootDiagnosticsService](../backend/src/main/java/org/voxrox/mailbackend/core/diagnostic/ClientBootDiagnosticsService.java)
@@ -271,7 +297,7 @@ value — A2), and only the latest snapshot is retained (no unbounded growth).
 multipart, so `spring.servlet.multipart.max-file-size/​max-request-size=50MB`
 does **not** apply to them. Before the fix, `body` had no length cap, the
 `attachments` list had no count cap, and the only bound — per-attachment
-`@Size(max = 70 MB)` on `base64Data` — is evaluated by bean-validation **after**
+`@Size(max = 70 MiB)` on `base64Data` — is evaluated by bean-validation **after**
 Jackson has already deserialized the whole payload into memory. A caller in
 possession of the API key could therefore submit an arbitrarily large JSON body
 (large `body`, or many large attachments) and exhaust the sidecar heap.
@@ -294,8 +320,11 @@ tests: `MailWriteControllerTest.sendBodyTooLong` and `sendTooManyAttachments`
 (both assert 400 + no service call).
 
 **Residual (accepted).** The per-field `@Size` caps run post-deserialization, so
-the true pre-deserialization aggregate bound (worst case ≈ 50 × 70 MB) is not
-closed in code. Accepted for V0.1.0 for the same reason the finding is Low
+the true pre-deserialization aggregate bound is not closed in code. It is not
+even 50 × 70 MiB: the address fields (`to`, `cc`, `bcc`) and the threading
+headers (`inReplyTo`, `references`) carry no `@Size` on either DTO, and
+Jackson's own limits stop only a single string over 100 million characters,
+with no limit on the whole document. Accepted for V0.1.0 for the same reason the finding is Low
 (loopback + authenticated + same-user out of scope + client-enforced 25 MB
 total). **Upgrade path:** a container-level `Content-Length` request-size filter
 on the write endpoints (rejecting oversize bodies with 413 before Jackson
@@ -333,6 +362,35 @@ route that carries values starts them with a numeric account or record id.
 **Upgrade path:** a server-side list of the static segments, if a route ever
 gains a free-text segment before its first id.
 
+### A3 (Low) — a user-named folder kept by name in the dump's folder lists — FIXED 2026-09-27
+
+**What.** Since #518 the dump kept the name of a folder with a role, on the
+premise that the provider chose it. When a server does not mark a folder with
+a special-use attribute, the role comes from the folder's own name instead
+(`FolderRole.fromNameFallback`, a substring match): a folder the user called
+"Newsletter from Dr Novak" is `NEWSLETTERS` whatever the server says, and one
+called "Robinson" is `TRASH` when nothing else claimed Trash. The account pass
+syncs such a folder under that role, and it went into
+`folder-sync-states.json` and `message-counts.json` under its real name. Found
+by the third verification pass over 1.8, shown at runtime.
+
+**Severity: Low**, for the reasons A2 gives: no boundary is crossed, and the
+dump carried a personal value that §5 and the privacy policy say it does not.
+
+**Fix (#578).**
+[DiagnosticDumpService](../backend/src/main/java/org/voxrox/mailbackend/core/diagnostic/DiagnosticDumpService.java)
+keeps only `INBOX`'s name and gives every other folder a pseudonym. The stored
+state cannot tell a provider's name from a user's, so this is the rule that
+needs no such judgement; the `role` next to each pseudonym still says which
+system folder it is. Regression tests: `DiagnosticDumpPrivacyIT` syncs a folder
+named with a role keyword under the role `ImapFolderService` detects for it
+(`NEWSLETTERS`, asserted) and finds the name in no entry;
+`DiagnosticDumpServiceTest` checks the pseudonyms and the roles next to them.
+Both fail against the unfixed service.
+
+**Residual.** None in the dump. Support loses the provider's own spelling of a
+system folder's name, which the role replaces.
+
 ## 7. Informational notes (no change required)
 
 - **CORS `file://*` origin.** `corsConfigurationSource` allows five origin
@@ -355,16 +413,17 @@ gains a free-text segment before its first id.
 - **`ClientBootDiagnosticsController` has no `@Valid`.** Cosmetic — the DTO
   carries no bean-validation constraints and the service sanitizes every field
   (§5), so nothing is unenforced.
-- **Exception text reaches the client (§3).** Through the mail-layer errors
-  and through an account's last error, and it has at every anchor: the throw
-  sites, and the last error a failed send stores, were already there at
-  `d55b753`, the first. Not a finding, because of
-  who receives it. The recipient is whoever holds the API key — the app's own
-  WebView, which shows the text to the user whose mail server, provider or
-  database produced it, or a same-user process, which the threat model puts out
-  of scope and which could read the same text in `mail.log`, where the handler
-  and the sync log it. Versions up to 1.7 said the opposite; see 1.8 in the
-  change log.
+- **Exception text reaches the client (§3).** Through the mail-layer errors,
+  an account's last error and the health endpoint's details. It has at every
+  anchor: the throw sites, and the last error a failed send stores, were
+  already there at `d55b753`, the first. Not a finding, because of who
+  receives it. The recipient is whoever holds the API key — the app's own
+  WebView, which shows the first two to the user whose mail server, provider
+  or database produced them and never calls the health endpoint, or a
+  same-user process, which the threat model puts out of scope and which can
+  read the database and `mail.log`, where the handler and the sync log the same
+  text, directly. The same holds for the working directory the health endpoint
+  returns. Versions up to 1.7 said the opposite; see 1.8 in the change log.
 - **Framework-level request errors reach the catch-all.** A request Spring MVC
   rejects before the controller runs — a path variable that is not a number,
   an HTTP method the path does not map — has no handler of its own, so the
@@ -406,22 +465,36 @@ gains a free-text segment before its first id.
   not accept it either. It found a second path for exception text, an
   account's last error, through which SQL can reach the client (§3). It found
   **A2**: the client-boot route put a user-named folder into the dump (§6,
-  fixed in #577). It found that the widened `Code paths` still could not see a
-  file appear beside the ones it names, the case of #574 (the method statement
-  now says what is knowingly left out, and §3 regenerates those lists), and
+  fixed in #577). It found that the widened `Code paths` still saw only the
+  files they name, so a profile file added or removed beside
+  `application.properties` — the case of #574 — would still go unseen (the
+  method statement now says what is knowingly left out, and §3 regenerates
+  those lists), and
   that `Applies to V0.1.0` clashed with a draft tag that predates #574. It also
   found §1's keyless surface incomplete (Spring Security's own `/login`,
   `/logout` and stylesheet), the method statement's dynamic cover overstated,
   draft-send counted among A1's JSON-body endpoints, two endpoints missing from
   the bare-`stableId` list, both Tauri origins called the packaged one, and the
-  scope paragraph still naming no audit for Boundary 1. All of it is fixed
-  here, and the threat model's B3 **S** row, which said the key filter rejects
-  a request without the key, is corrected with it. The header gains the
-  `Auditor` row §2 of the guide requires. The four enumeration commands give
-  the same numbers (17, 4, 12, 3); three new ones regenerate §3's lists. The
-  statuses in §4 and §7 come from throwaway MockMvc and HTTP probes that are
-  not in the tree. The new anchor clears the acknowledgements recorded since
-  1.6. The verdict is unchanged: **PASS**.
+  scope paragraph still naming no audit for Boundary 1. A third pass over the
+  result found **A3**: role detection also reads a role from a folder's own
+  name, so a folder the user named "Newsletter ..." kept that name in the
+  dump's folder lists (§6, fixed in #578). It found a third path for exception
+  text, the health endpoint's details (§3), and the list of what `Code paths`
+  leaves out still incomplete, which is why that list now goes section by
+  section and the paths gain `AccountMapper`, `LogMasker` and the client half
+  of A2. Smaller corrections from it: the CORS preflight among the keyless
+  paths, the dynamic cover restated, the error page's third default
+  (`include-path`), the bulk contact endpoints' own messages, A1's residual
+  (the address and threading fields are unbounded, and the cap is 70 MiB),
+  and, in the threat model, the B3 **S**, **T**, **I** and **D** rows. All of
+  it is fixed here; the **S** row, which said the key filter rejects a request
+  without the key, now says the default-deny refuses any request outside the
+  public paths without the right key. The header gains the `Auditor` row §2 of
+  the guide requires. The four enumeration commands give the same numbers (17,
+  4, 12, 3); three new ones regenerate §3's lists. The statuses in §4 and §7
+  come from throwaway MockMvc and HTTP probes that are not in the tree. The new
+  anchor clears the acknowledgements recorded since 1.6. The verdict is
+  unchanged: **PASS**.
 - **1.7** (2026-09-26) — §3 corrected, anchor unchanged. It said the dev-only
   `application-dev.properties` override "never ships", and it did: the file sat
   in `src/main/resources`, so every jar carried it as
