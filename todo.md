@@ -80,6 +80,17 @@ Nezavisly overovaci pruchod re-verifikace ([docs/IMAP_SMTP_AUDIT.md](docs/IMAP_S
 
 ---
 
+## Navazujici ukoly z preovereni auditu B3 1.8 (2026-09-27)
+
+Preovereni [docs/API_SURFACE_AUDIT.md](docs/API_SURFACE_AUDIT.md) proti `55fdd1b` nechalo verdikt PASS a zapsalo tyto veci jako informativni poznamky (§4, §7) a v popisu metody. Bezpecnostne nic z toho neni nalez; jde o spravny stav, cisty log a srozumitelnou hlasku. Oprava kodu pod `Code paths` auditu znamena potvrzeni v [docs/audit-freshness.json](docs/audit-freshness.json) nebo preovereni.
+
+- [ ] **Text cizi vyjimky v odpovedi.** Tri cesty (§3 auditu): osm mist sklada zpravu `MailConnectionException` / `MailOperationException` z `e.getMessage()` a ta jde jako `{0}` do `detail` a `messageArgs`; a `safeDetail(e)` v syncu, SMTP a ulozeni konceptu zapisuje text do `lastErrorArgs.detail`, ktery vraci kazdy endpoint uctu — u syncu z `catch (Exception)`, takze i SQL z Hibernate; a `/api/internal/health` s `show-details=always`, kde databazovy indikator vraci tridu a text vyjimky (a disk-space absolutni pracovni adresar). Uzivatel tak u prvnich dvou vidi anglicky text knihovny, serveru nebo databaze vlozeny do ceske hlasky. Zvazit kod chyby misto textu a text nechat jen v logu.
+- [ ] **Chyby frameworku konci v catch-all.** Necislo v path variable i nemapovana HTTP metoda vraci 500 s pevnou hlaskou a CRITICAL log se stack trace (overeno MockMvc sondou) — `GlobalExceptionHandler.java:220` je jediny handler, ktery je chyti. Doplnit handlery pro 400/405/415 nebo dedit z `ResponseEntityExceptionHandler`.
+- [ ] **`partPath` prilohy.** Necislo → 500 `MAIL_CONNECTION_ERROR`; index za posledni casti → 404 „Folder ... was not found", protoze heuristika v `ImapFolderExecutor.java:172` bere kazde „not found". Validovat `partPath` uz v `MailReadController.java:185` (`@Pattern`) a pro chybejici cast vratit vlastni not-found.
+- [ ] **`ApiKeyFilter` nema test na spatny klic.** Fail-fast 401 (`ApiKeyFilter.java:53`) a porovnani v konstantnim case jsou v auditu jen staticky overene; test by drzel aspon 401 bez prupustu do retezce. Totez meze `DraftRequest` (A1): test maji jen meze `MailRequest`.
+
+---
+
 ## Seskupeny rezim — uzavreno (2026-09-23)
 
 **Vse uzavreno.** Plocha pipeline v [frontend/src/lib/mail/mailbox.ts](frontend/src/lib/mail/mailbox.ts) znala jen `messagesState`, ktery se v seskupenem rezimu nikdy nenacte, pritom akce nad otevrenou zpravou (lista, zkratka, paleta) jdou vzdy pres ni. #566 dotahl tri dusledky (predmet v ohlaseni, potvrzeni trvaleho smazani, navrat do slozky), #567 ctvrty (seznam, odznak slozky, cteci kurzor po smazani). Detail v [CHANGELOG.md](CHANGELOG.md).

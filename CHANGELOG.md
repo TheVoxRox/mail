@@ -43,6 +43,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 - **Packaging the sidecar uses Maven's own local repository instead of a second one in `backend/.m2repo` (#576).** `package-sidecar-windows.ps1` passed `-Dmaven.repo.local=.m2repo` with no recorded reason, so every machine kept two copies of the backend's dependencies (about 400 MB each), and the signed release job downloaded all of them on every run, because `setup-java`'s `cache: maven` restores `~/.m2` and the script never looked there. `-MavenRepoLocal` still takes a path for a build that wants a repository of its own. The release smoke in [OPERATIONS.md](backend/OPERATIONS.md) and release checklist §1 drop the flag too, along with a `user.home` override left over from an old sandbox.
 
+- **The B3 audit is re-verified against current code and says what does reach the client (#579).** 1.7 was recorded before the independent pass [AUDIT_GUIDE.md](docs/AUDIT_GUIDE.md) §5 requires, and that pass found that "no exception message reaches the client" never held; [API_SURFACE_AUDIT.md](docs/API_SURFACE_AUDIT.md) 1.8 re-verifies every claim through four independent passes, names the three paths by which exception text reaches the holder of the API key, records the diagnostic-dump findings A2 and A3 (fixed in #577 and #578), and corrects the threat model's B3 rows. The verdict stays PASS, and the code-side follow-ups are in `todo.md`.
+
 ## [0.1.0] - 2026-09-23
 
 ### Backend
