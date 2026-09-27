@@ -8,6 +8,7 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -127,6 +128,7 @@ public class MailSyncService {
         try {
             log.info("{} Starting account sync: {}", LogCategory.SYNC, LogMasker.maskEmail(account.getEmail()));
             List<FolderResponse> folders = imapFolderService.getFolders(account.getId());
+            reconcileStoredRoles(account, folders);
 
             List<FolderRole> rolesToSync = List.of(FolderRole.INBOX, FolderRole.SENT, FolderRole.DRAFTS,
                     FolderRole.JUNK, FolderRole.TRASH, FolderRole.NEWSLETTERS);
@@ -249,6 +251,24 @@ public class MailSyncService {
                     .publishEvent(new MailSyncErrorStateChangedEvent(accountId, errorCodeAfterPass, Instant.now()));
         } catch (Exception e) {
             log.warn("{} Could not evaluate the sync error state of account {}: {}", LogCategory.SYNC, accountId,
+                    e.getMessage());
+        }
+    }
+
+    /**
+     * Stores the roles the listing just detected, lowering as well as raising (see
+     * {@link SyncStateService#reconcileRoles}). The listing is the only point in a
+     * pass that sees every folder's role at once. A failure is logged and the pass
+     * goes on: the stored roles stay as they were, which is what the pass worked
+     * with before this step existed, and the next pass tries again.
+     */
+    private void reconcileStoredRoles(AccountEntity account, List<FolderResponse> folders) {
+        Map<String, FolderRole> detected = new HashMap<>();
+        folders.forEach(f -> detected.put(f.folderRef(), f.role()));
+        try {
+            syncStateService.reconcileRoles(account.getId(), detected);
+        } catch (DataAccessException e) {
+            log.warn("{} Could not reconcile stored folder roles for account {}: {}", LogCategory.SYNC, account.getId(),
                     e.getMessage());
         }
     }

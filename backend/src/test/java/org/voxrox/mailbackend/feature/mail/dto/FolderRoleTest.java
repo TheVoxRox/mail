@@ -33,19 +33,46 @@ class FolderRoleTest {
     @DisplayName("fromNameFallback")
     class FromNameFallback {
 
-        @ParameterizedTest
-        @CsvSource({"Sent,SENT", "Odeslané,SENT", "Trash,TRASH", "Koš,TRASH", "Smazané,TRASH", "Drafts,DRAFTS",
-                "Rozepsané,DRAFTS", "Spam,JUNK", "Junk,JUNK", "Archive,ARCHIVE", "Archiv,ARCHIVE",
-                // Seznam.cz "Bulk" / "Hromadné" — non-RFC, name-based only.
-                "Bulk,NEWSLETTERS", "Hromadné,NEWSLETTERS", "Newsletters,NEWSLETTERS"})
-        void detectsRoleFromName(String name, FolderRole expected) {
+        @ParameterizedTest(name = "{0} -> {1}")
+        @CsvSource({
+                // The technical names Seznam.cz and Outlook.com return.
+                "sent,SENT", "trash,TRASH", "drafts,DRAFTS", "spam,JUNK", "newsletters,NEWSLETTERS", "Sent,SENT",
+                "Deleted,TRASH", "Drafts,DRAFTS", "Junk,JUNK",
+                // Common English names (Thunderbird, Outlook desktop, Apple Mail, Yahoo).
+                "Sent Items,SENT", "Sent Messages,SENT", "Deleted Items,TRASH", "Deleted Messages,TRASH",
+                "Junk E-mail,JUNK", "Bulk,JUNK", "Archive,ARCHIVE", "Archives,ARCHIVE",
+                // Czech, with the diacritics a server returns and without.
+                "Odeslané,SENT", "Odeslaná pošta,SENT", "Koš,TRASH", "Kos,TRASH", "Smazané,TRASH",
+                "Odstraněná pošta,TRASH", "Koncepty,DRAFTS", "Rozepsané,DRAFTS", "Nevyžádaná pošta,JUNK",
+                "Archiv,ARCHIVE", "Hromadné,NEWSLETTERS"})
+        void detectsRoleFromWholeName(String name, FolderRole expected) {
             assertThat(FolderRole.fromNameFallback(name)).isEqualTo(expected);
         }
 
+        @ParameterizedTest(name = "{0} -> {1}")
+        @CsvSource({"INBOX.Sent,SENT", "INBOX/Trash,TRASH", "inbox.drafts,DRAFTS", "[Gmail]/Koš,TRASH",
+                "[Google Mail]/Sent Mail,SENT", "'  SENT   ITEMS ',SENT"})
+        void ignoresNamespacePrefixCaseAndWhitespace(String name, FolderRole expected) {
+            assertThat(FolderRole.fromNameFallback(name)).isEqualTo(expected);
+        }
+
+        /*
+         * The substring match these replace gave every one of them a role: "bin" made
+         * Robinson and Sabina the trash, "sent" made Presentations the Sent folder, and
+         * a subfolder called Sent anywhere in the tree became the one mail was filed
+         * to.
+         */
+        @ParameterizedTest(name = "{0}")
+        @CsvSource({"Robinson", "Sabina", "Cabinet", "Presentations", "Sentimental", "Archiv 2024",
+                "Newsletter from Dr Novak", "Draft contracts", "Spam reports", "Košík", "Odeslané faktury",
+                "Projects/Sent", "INBOX.Projects.Trash", "[Gmail]Koš", "Projects", "INBOX", "''"})
+        void leavesEveryOtherNameToTheUser(String name) {
+            assertThat(FolderRole.fromNameFallback(name)).isEqualTo(FolderRole.USER);
+        }
+
         @Test
-        @DisplayName("Unknown name maps to USER")
-        void unknownNameIsUser() {
-            assertThat(FolderRole.fromNameFallback("Projects")).isEqualTo(FolderRole.USER);
+        @DisplayName("A null name is a user folder")
+        void nullNameIsUser() {
             assertThat(FolderRole.fromNameFallback(null)).isEqualTo(FolderRole.USER);
         }
     }
