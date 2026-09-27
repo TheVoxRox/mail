@@ -37,6 +37,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- **The IMAP/SMTP audit is re-verified against `f6ae132` and no longer passes (#584).** [IMAP_SMTP_AUDIT.md](docs/IMAP_SMTP_AUDIT.md) 1.16 clears the seven acknowledgements; its independent pass measured what the text had only priced and found five findings (B1-8 to B1-12, three of them Medium) and reopened B1-5, so the verdict is open findings until the fixes land. The threat model and the verdict index follow.
+
 - **The API key filter and the draft payload caps have tests of their own (#583).** The B3 audit named both as covered by a static trace only: nothing checked that a wrong `X-API-KEY` ends the request with 401 and an audit record before the rest of the chain, or that `DraftRequest` caps its body and attachment count as `MailRequest` does. `ApiKeyFilterTest` covers the right, wrong and missing key, and fails when the filter lets a wrong key through; `DraftControllerTest` gains the two cap tests.
 
 - **The IDE no longer runs Spotless on every save (#571).** The plugin's own m2e metadata made the VS Code Java extension run `spotless:check` on each incremental build once the goal was bound to `verify` (#233), and inside that Eclipse runtime the JDT formatter step fails on every file, while the same check passes from the command line — on the IDE's own JRE 21 too. `backend/pom.xml` now tells m2e to ignore the plugin, as it already did for SpotBugs; `mvn verify` and the CI "Backend quality" job enforce the format as before.
