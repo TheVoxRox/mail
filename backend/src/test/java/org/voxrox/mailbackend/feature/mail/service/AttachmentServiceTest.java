@@ -6,10 +6,13 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -17,6 +20,17 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.Optional;
+import java.util.Properties;
+
+import jakarta.activation.DataHandler;
+import jakarta.mail.Folder;
+import jakarta.mail.Part;
+import jakarta.mail.Session;
+import jakarta.mail.UIDFolder;
+import jakarta.mail.internet.MimeBodyPart;
+import jakarta.mail.internet.MimeMessage;
+import jakarta.mail.internet.MimeMultipart;
+import jakarta.mail.util.ByteArrayDataSource;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,6 +41,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.voxrox.mailbackend.core.config.StorageProperties;
 import org.voxrox.mailbackend.exception.ResourceNotFoundException;
+import org.voxrox.mailbackend.exception.ValidationException;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
@@ -159,6 +174,109 @@ class AttachmentServiceTest {
             assertThatThrownBy(() -> service.getAttachmentStreamByStableId(STABLE_ID, PART_PATH))
                     .isInstanceOf(ResourceNotFoundException.class).hasMessageContaining(STABLE_ID);
 
+            verify(folderExecutor, never()).executeReadOnly(anyLong(), any(), anyString(), any());
+        }
+    }
+
+    /**
+     * The download lambda itself, run against real MIME messages: the executor mock
+     * calls it with a folder whose message is built here, written out and parsed
+     * back, so its structure is what a server's bytes produce.
+     */
+    @Nested
+    @DisplayName("Finding the part")
+    class FindingThePart {
+
+        private final Session session = Session.getInstance(new Properties());
+
+        private MimeMessage parsed(MimeMessage message) throws Exception {
+            message.saveChanges();
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+            message.writeTo(bytes);
+            return new MimeMessage(session, new ByteArrayInputStream(bytes.toByteArray()));
+        }
+
+        private MimeBodyPart pdf(byte[] data) throws Exception {
+            MimeBodyPart part = new MimeBodyPart();
+            part.setDataHandler(new DataHandler(new ByteArrayDataSource(data, "application/pdf")));
+            part.setFileName("scan.pdf");
+            part.setDisposition(Part.ATTACHMENT);
+            return part;
+        }
+
+        private MimeMessage multipart(byte[] attachment) throws Exception {
+            MimeBodyPart text = new MimeBodyPart();
+            text.setText("See the attachment.", StandardCharsets.UTF_8.name());
+            MimeMultipart multipart = new MimeMultipart();
+            multipart.addBodyPart(text);
+            multipart.addBodyPart(pdf(attachment));
+            MimeMessage message = new MimeMessage(session);
+            message.setContent(multipart);
+            return parsed(message);
+        }
+
+        private void serverHas(MimeMessage message) throws Exception {
+            when(messageRepository.findByStableId(STABLE_ID)).thenReturn(Optional.of(createEntity()));
+            UIDFolder uidFolder = mock(UIDFolder.class);
+            when(uidFolder.getMessageByUID(UID)).thenReturn(message);
+            when(folderExecutor.executeReadOnly(eq(ACCOUNT_ID), eq(Lane.INTERACTIVE), eq(FOLDER_NAME), any()))
+                    .thenAnswer(invocation -> {
+                        ImapFolderAction<?> action = invocation.getArgument(3);
+                        return action.apply(mock(Folder.class), uidFolder);
+                    });
+        }
+
+        private byte[] download(String partPath) throws Exception {
+            try (InputStream in = createService().getAttachmentStreamByStableId(STABLE_ID, partPath)) {
+                return in.readAllBytes();
+            }
+        }
+
+        @Test
+        @DisplayName("A part of a multipart message is found by its number")
+        void findsAPartOfAMultipart() throws Exception {
+            byte[] pdf = "%PDF-1.7 multipart".getBytes(StandardCharsets.US_ASCII);
+            serverHas(multipart(pdf));
+
+            assertThat(download("2")).isEqualTo(pdf);
+        }
+
+        @Test
+        @DisplayName("A message whose whole body is the attachment gives it as part 1")
+        void findsTheBodyOfASinglePartMessage() throws Exception {
+            // MimePartExtractor gives such an attachment the path "1"; RFC 3501
+            // numbers a single-part body 1 as well.
+            byte[] pdf = "%PDF-1.7 single".getBytes(StandardCharsets.US_ASCII);
+            MimeMessage message = new MimeMessage(session);
+            message.setDataHandler(new DataHandler(new ByteArrayDataSource(pdf, "application/pdf")));
+            message.setFileName("scan.pdf");
+            message.setDisposition(Part.ATTACHMENT);
+            serverHas(parsed(message));
+
+            assertThat(download("1")).isEqualTo(pdf);
+        }
+
+        @Test
+        @DisplayName("A number past the last part is a not-found naming the attachment, not the folder")
+        void reportsAMissingPartAsTheAttachment() throws Exception {
+            serverHas(multipart(new byte[]{1, 2, 3}));
+
+            assertThatThrownBy(() -> download("3")).isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("MIME part 3").hasMessageNotContaining("Folder")
+                    .extracting(e -> ((ResourceNotFoundException) e).getMessageKey())
+                    .isEqualTo("error.attachment.partNotFound");
+            assertThatThrownBy(() -> download("1.1")).isInstanceOf(ResourceNotFoundException.class);
+        }
+
+        @Test
+        @DisplayName("A malformed path is a validation error before any IMAP work")
+        void rejectsAMalformedPathBeforeImap() {
+            AttachmentService service = createService();
+
+            for (String path : new String[]{"x", "0", "1.0", "01", "1..2", "-1"}) {
+                assertThatThrownBy(() -> service.getAttachmentStreamByStableId(STABLE_ID, path)).as(path)
+                        .isInstanceOf(ValidationException.class);
+            }
             verify(folderExecutor, never()).executeReadOnly(anyLong(), any(), anyString(), any());
         }
     }

@@ -2,6 +2,7 @@ package org.voxrox.mailbackend.feature.mail.controller;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
@@ -22,6 +23,7 @@ import org.voxrox.mailbackend.feature.mail.dto.MailContentResponse;
 import org.voxrox.mailbackend.feature.mail.dto.MailDetailResponse;
 import org.voxrox.mailbackend.feature.mail.dto.MailSummaryResponse;
 import org.voxrox.mailbackend.feature.mail.dto.ThreadResponse;
+import org.voxrox.mailbackend.feature.mail.service.AttachmentService;
 import org.voxrox.mailbackend.feature.mail.service.MailFacade;
 import org.voxrox.mailbackend.util.LogCategory;
 
@@ -182,7 +184,7 @@ public class MailReadController {
     @GetMapping("/{stableId}/attachments/{partPath:.+}")
     public ResponseEntity<StreamingResponseBody> downloadAttachment(
             @PathVariable @NotBlank(message = "{validation.notBlank}") @Size(max = 128, message = "{validation.size.max}") String stableId,
-            @PathVariable @NotBlank(message = "{validation.notBlank}") @Size(max = 64, message = "{validation.size.max}") String partPath,
+            @PathVariable @NotBlank(message = "{validation.notBlank}") @Size(max = 64, message = "{validation.size.max}") @Pattern(regexp = AttachmentService.PART_PATH_PATTERN, message = "{validation.attachment.partPath}") String partPath,
             @RequestParam(required = false) @Size(max = 255, message = "{validation.size.max}") String fileName) {
 
         final String finalFileName = (fileName != null && !fileName.isBlank()) ? fileName : DEFAULT_FILENAME;

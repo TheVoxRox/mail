@@ -14,6 +14,7 @@ import org.voxrox.mailbackend.core.config.StorageProperties;
 import org.voxrox.mailbackend.exception.ErrorCode;
 import org.voxrox.mailbackend.exception.MailOperationException;
 import org.voxrox.mailbackend.exception.ResourceNotFoundException;
+import org.voxrox.mailbackend.exception.ValidationException;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
 import org.voxrox.mailbackend.feature.mail.service.ImapConnectionManager.Lane;
@@ -24,6 +25,15 @@ import module java.base;
 @Service
 public class AttachmentService {
     private static final Logger log = LoggerFactory.getLogger(AttachmentService.class);
+
+    /**
+     * A MIME part path the way {@code MimePartExtractor} writes it and IMAP numbers
+     * parts (RFC 3501 §6.4.5): positive part numbers joined by dots, "1" or
+     * "2.1.3". The download endpoint validates against it too, so a malformed path
+     * is a 400 before any IMAP work.
+     */
+    public static final String PART_PATH_PATTERN = "[1-9][0-9]*(\\.[1-9][0-9]*)*";
+    private static final Pattern PART_PATH = Pattern.compile(PART_PATH_PATTERN);
 
     private final ImapFolderExecutor folderExecutor;
     private final MessageRepository messageRepository;
@@ -59,6 +69,16 @@ public class AttachmentService {
     public InputStream getAttachmentStreamByStableId(String stableId, String partPath) {
         log.debug("{} Attachment request: stableId={}, path={}", LogCategory.ATTACHMENT, stableId, partPath);
 
+        /*
+         * Checked here as well as on the endpoint, and before the folder executor: an
+         * exception the download lambda raised for a malformed path would reach the
+         * executor, which turns anything but a not-found or a mail operation error into
+         * a 500.
+         */
+        if (!PART_PATH.matcher(partPath).matches()) {
+            throw new ValidationException("Invalid attachment part path.", "validation.attachment.partPath");
+        }
+
         MessageEntity entity = messageRepository.findByStableId(stableId)
                 .orElseThrow(() -> new ResourceNotFoundException("Message " + stableId + " not found."));
 
@@ -90,7 +110,7 @@ public class AttachmentService {
                                     "Message uid=" + entity.getUid() + " does not exist on the server.");
                         }
 
-                        Part part = findPartByPath(msg, partPath);
+                        Part part = findPartByPath(msg, partPath, partPath);
 
                         tempFile = Files.createTempFile(privateTempDir, "attach_" + stableId + "_", ".tmp");
 
@@ -167,36 +187,57 @@ public class AttachmentService {
     }
 
     /**
-     * Recursively looks up a specific MIME part by the given path (e.g. "2.1").
+     * The MIME part at {@code path} ("2.1"), numbered the way IMAP numbers parts
+     * (RFC 3501 §6.4.5) and {@code MimePartExtractor} writes them. The path has
+     * already matched {@link #PART_PATH_PATTERN}.
+     *
+     * <p>
+     * A path that leads nowhere is a {@link ResourceNotFoundException} naming the
+     * attachment. It used to be a {@link MessagingException}, which the folder
+     * executor reads by its text: "not found" in it became "Folder 'INBOX' was not
+     * found on the server", a 404 about the wrong thing.
      */
-    private Part findPartByPath(Part parent, String path) throws MessagingException, IOException {
-        if (path == null || path.isEmpty())
-            return parent;
+    private Part findPartByPath(Part part, String path, String fullPath) throws MessagingException, IOException {
+        String[] segments = path.split("\\.", 2);
+        int index = partIndex(segments[0], fullPath);
+        Object content = part.getContent();
 
-        String[] parts = path.split("\\.", 2);
-        int targetIdx;
-        try {
-            targetIdx = Integer.parseInt(parts[0]) - 1;
-        } catch (NumberFormatException e) {
-            throw new MessagingException("Invalid attachment path format: " + parts[0]);
-        }
-
-        Object content = parent.getContent();
-
+        // An encapsulated message (message/rfc822) is numbered from its own body.
         if (content instanceof jakarta.mail.Message innerMsg) {
-            return findPartByPath(innerMsg, path);
+            return findPartByPath(innerMsg, path, fullPath);
         }
 
-        if (content instanceof Multipart mp) {
-            if (targetIdx >= 0 && targetIdx < mp.getCount()) {
-                Part child = mp.getBodyPart(targetIdx);
-                if (parts.length == 1)
-                    return child;
-                return findPartByPath(child, parts[1]);
+        if (content instanceof Multipart multipart) {
+            if (index >= multipart.getCount()) {
+                throw partNotFound(fullPath);
             }
+            Part child = multipart.getBodyPart(index);
+            return segments.length == 1 ? child : findPartByPath(child, segments[1], fullPath);
         }
 
-        throw new MessagingException("MIME part '" + path + "' was not found in the e-mail.");
+        // A message whose body is not multipart has that body as its part 1, and "1"
+        // is the path the extractor gives an attachment that is a whole message's
+        // body. Only a message: a single part inside a multipart has no parts below.
+        if (index == 0 && segments.length == 1 && part instanceof jakarta.mail.Message) {
+            return part;
+        }
+        throw partNotFound(fullPath);
+    }
+
+    /**
+     * Zero-based index of a part number; one too large for an int finds no part.
+     */
+    private static int partIndex(String segment, String fullPath) {
+        try {
+            return Integer.parseInt(segment) - 1;
+        } catch (NumberFormatException e) {
+            throw partNotFound(fullPath);
+        }
+    }
+
+    private static ResourceNotFoundException partNotFound(String fullPath) {
+        return new ResourceNotFoundException("MIME part " + fullPath + " was not found in the message.",
+                "error.attachment.partNotFound");
     }
 
     /**
