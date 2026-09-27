@@ -155,12 +155,17 @@
   "docs/API_SURFACE_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "ce8fadfbdbd2e206f24c9b05a520836dd261eeea",
-      "backend/src/main/java/org/voxrox/mailbackend/core/diagnostic": "87acd1071bc62a2779c216e424e7ae9b391d3ab6"
+      "backend/src/main/java/org/voxrox/mailbackend/core/diagnostic": "87acd1071bc62a2779c216e424e7ae9b391d3ab6",
+      "backend/src/main/java/org/voxrox/mailbackend/exception": "25a165dcfe824aed62c104e02f90e92885485163"
     },
     "acknowledgements": [
       {
         "date": "2026-09-27",
         "note": "Folder role detection by name matches whole names only. Two paths moved. dto: FolderRole.fromNameFallback compares the whole name, after lower-casing, removing diacritics, collapsing whitespace and dropping one INBOX./INBOX//[Gmail]//[Google Mail]/ prefix, against a list of English and Czech system folder names, instead of testing for substrings; 'bulk' moves from NEWSLETTERS to JUNK. core/diagnostic: only the javadoc of DiagnosticDumpService.folderLabels changes, to say the fallback now matches whole names; the rule it documents (every folder but INBOX is a pseudonym, A3) is unchanged. Checked against what the audit claims. (1) No endpoint, method, path, authentication rule, DTO field, validation constraint or error mapping moves: FolderRole is an enum the API returns as a folder's role, with the same constants. (2) What a response or the dump discloses does not grow: a folder can only lose a role it wrongly had, and the dump names it the same way either way. (3) Section 6's A3 text describes the fallback as a substring match; that was true at the anchor 55fdd1b and is recorded here as history, not rewritten. DiagnosticDumpPrivacyIT now checks both that a folder with a role word in its name stays USER on a real IMAP server and that a user folder named exactly 'Newsletters' is still a pseudonym. Verdict stays PASS."
+      },
+      {
+        "date": "2026-09-27",
+        "note": "Requests Spring MVC rejects before a controller runs get their own status. One path moved, exception/. GlobalExceptionHandler gains handleTypeMismatch (MethodArgumentTypeMismatchException -> 400 VALIDATION_ERROR with a violation naming the parameter; the value is not echoed) and handleRejectedRequest (405 METHOD_NOT_ALLOWED, 415 UNSUPPORTED_MEDIA_TYPE, 406 NOT_ACCEPTABLE, other ServletRequestBindingException -> 400 BAD_REQUEST), which sends the status and headers the exception carries as an ErrorResponse (Allow on 405, Accept on 415) and logs one WARN line; a 5xx binding failure (MissingPathVariableException) still goes to the catch-all. ErrorCode gains the three codes. Checked against the audit's claims. (1) No endpoint, path or authentication rule moves: these handlers run only for requests that already passed the security chain and failed in Spring MVC. (2) Error-response hygiene holds and narrows the catch-all's reach: every new message is a fixed bundle text with at most the HTTP method or the parameter name as argument, no exception text and no stack. (3) Section 7's note 'Framework-level request errors reach the catch-all' was true at the anchor 55fdd1b and is superseded by this change; the next re-verification rewrites it. FrameworkRequestRejectionTest covers each case through MockMvc and fails with 500 against the old handler. Verdict stays PASS."
       }
     ]
   }

@@ -17,18 +17,26 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSource;
 import org.springframework.context.NoSuchMessageException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.validation.ObjectError;
+import org.springframework.web.ErrorResponse;
+import org.springframework.web.HttpMediaTypeNotAcceptableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.bind.ServletRequestBindingException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.voxrox.mailbackend.util.LogCategory;
 
@@ -148,6 +156,91 @@ public class GlobalExceptionHandler {
                 "error.validation.missingParam", "MissingServletRequestParameter")));
         problem.setProperty("timestamp", Instant.now());
         return problem;
+    }
+
+    /**
+     * A path variable or request parameter whose value does not convert to the
+     * declared type ({@code /account/abc/folder} for a {@code Long accountId}).
+     * Bean validation never sees it — conversion fails first — so without this
+     * handler it reached the catch-all as a 500 with a CRITICAL stack trace. The
+     * value is not echoed back; the parameter's name is enough to say what was
+     * wrong.
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ProblemDetail handleTypeMismatch(MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
+        String name = ex.getName();
+        log.warn("{} Parameter of the wrong type at {}: {}", LogCategory.ERROR, request.getRequestURI(), name);
+
+        Object[] args = new Object[]{name};
+        String fallback = "Invalid value for parameter: " + name;
+        String message = Objects
+                .requireNonNullElse(resolveMessage("error.validation.typeMismatch", args, fallback, request), fallback);
+        return validationProblem(request, "error.validation.typeMismatch", args, message,
+                List.of(violation(name, message, "error.validation.typeMismatch", "TypeMismatch")));
+    }
+
+    /**
+     * A request Spring MVC turns away before a controller method runs: a method the
+     * path does not map (405), a body type the endpoint does not consume (415), an
+     * {@code Accept} it cannot produce (406), or a required header or other part it
+     * cannot bind (400). Each exception carries its status and the headers the
+     * protocol asks for — {@code Allow} on a 405, {@code Accept} on a 415 — as an
+     * {@link ErrorResponse}, and they go out with the problem. The catch-all used
+     * to answer all of them 500 and log a CRITICAL stack trace for what is the
+     * caller's mistake; this logs one WARN line. A missing request parameter is a
+     * binding failure too, but keeps its own, more specific handler above.
+     */
+    @ExceptionHandler({HttpRequestMethodNotSupportedException.class, HttpMediaTypeNotSupportedException.class,
+            HttpMediaTypeNotAcceptableException.class, ServletRequestBindingException.class})
+    public ResponseEntity<ProblemDetail> handleRejectedRequest(Exception ex, HttpServletRequest request) {
+        ErrorResponse rejection = (ErrorResponse) ex;
+        HttpStatusCode status = rejection.getStatusCode();
+        if (status.is5xxServerError()) {
+            // A path variable the mapping declares but the handler cannot find
+            // (MissingPathVariableException) is a binding failure on our side, not the
+            // caller's: it stays with the catch-all and its CRITICAL log line.
+            return ResponseEntity.internalServerError().body(handleGeneric(ex, request));
+        }
+        log.warn("{} Request rejected at {} with {}: {}", LogCategory.ERROR, request.getRequestURI(), status.value(),
+                ex.getMessage());
+
+        ErrorCode code;
+        String messageKey;
+        Object[] args = new Object[0];
+        String fallback;
+        switch (ex) {
+            case HttpRequestMethodNotSupportedException e -> {
+                code = ErrorCode.METHOD_NOT_ALLOWED;
+                messageKey = "error.request.methodNotAllowed";
+                args = new Object[]{e.getMethod()};
+                fallback = "The " + e.getMethod() + " method is not allowed at this address.";
+            }
+            case HttpMediaTypeNotSupportedException _ -> {
+                code = ErrorCode.UNSUPPORTED_MEDIA_TYPE;
+                messageKey = "error.request.unsupportedMediaType";
+                fallback = "The format of the request body is not supported.";
+            }
+            case HttpMediaTypeNotAcceptableException _ -> {
+                code = ErrorCode.NOT_ACCEPTABLE;
+                messageKey = "error.request.notAcceptable";
+                fallback = "The response cannot be produced in a format the request accepts.";
+            }
+            default -> {
+                code = ErrorCode.BAD_REQUEST;
+                messageKey = "error.badRequest.binding";
+                fallback = "The request is missing a required part or has one that cannot be read.";
+            }
+        }
+
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(status,
+                resolveMessage(messageKey, args, fallback, request));
+        problem.setType(ERROR_TYPE_BASE.resolve(code.name().toLowerCase(Locale.ROOT)));
+        problem.setInstance(URI.create(request.getRequestURI()));
+        problem.setProperty("errorCode", code.name());
+        problem.setProperty("messageKey", messageKey);
+        problem.setProperty("messageArgs", args);
+        problem.setProperty("timestamp", Instant.now());
+        return ResponseEntity.status(status).headers(rejection.getHeaders()).body(problem);
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
