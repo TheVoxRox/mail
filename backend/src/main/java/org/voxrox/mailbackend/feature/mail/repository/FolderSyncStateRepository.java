@@ -37,19 +37,29 @@ public interface FolderSyncStateRepository extends JpaRepository<FolderSyncState
      *
      * <p>
      * A list, not an {@link Optional}: nothing constrains the role to be unique.
-     * {@code FolderRole.fromNameFallback} claims TRASH from a substring match on
-     * several localized names (see that method), and {@code SyncStateService} never
-     * retires a stale row, so a mailbox holding both a localized trash folder and a
-     * "Recycle bin" legitimately produces two rows — with an {@code Optional}
-     * return that threw {@code IncorrectResultSizeDataAccessException} at every
-     * caller, including read paths that merely need to know which folders to skip.
-     * Ordered by name so the single-value caller
-     * ({@code ImapFolderService.findFolderNameByRole}) picks the same folder on
-     * every call.
+     * Without SPECIAL-USE, {@code FolderRole.fromNameFallback} takes each of
+     * several names for the trash (see that method), so a mailbox holding both a
+     * "Trash" and a "Deleted Items" legitimately produces two rows — with an
+     * {@code Optional} return that threw
+     * {@code IncorrectResultSizeDataAccessException} at every caller, including
+     * read paths that merely need to know which folders to skip. Ordered by name so
+     * the single-value caller ({@code ImapFolderService.findFolderNameByRole})
+     * picks the same folder on every call.
      */
     @Query("SELECT f.folderName FROM FolderSyncStateEntity f "
             + "WHERE f.account.id = :accountId AND f.role = :role ORDER BY f.folderName ASC")
     List<String> findFolderNamesByRole(@Param("accountId") Long accountId, @Param("role") FolderRole role);
+
+    /**
+     * Sets one row's role and nothing else. A targeted UPDATE rather than a save of
+     * the entity, like the {@code update*} methods below: a folder cycle running
+     * alongside advances {@code lastKnownUid} with a targeted UPDATE that does not
+     * bump {@code @Version}, and merging an entity loaded before it would write the
+     * old value back without any conflict being raised.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE FolderSyncStateEntity s SET s.role = :role WHERE s.id = :id")
+    void updateRole(@Param("id") Long id, @Param("role") FolderRole role);
 
     /**
      * For each account in {@code accountIds} returns the most recent

@@ -7,6 +7,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -16,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
@@ -106,6 +109,46 @@ class SyncStateServiceTest {
             FolderSyncStateEntity result = service.getOrCreateState(ACCOUNT_ID, FOLDER, FolderRole.USER);
 
             assertThat(result.getRole()).isEqualTo(FolderRole.USER);
+            verify(syncStateRepository, never()).save(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("reconcileRoles")
+    class ReconcileRoles {
+
+        private FolderSyncStateEntity state(long id, String folderName, FolderRole role) {
+            FolderSyncStateEntity state = new FolderSyncStateEntity(new AccountEntity(), folderName, role);
+            ReflectionTestUtils.setField(state, "id", id);
+            return state;
+        }
+
+        @Test
+        @DisplayName("Lowers a stored role the detection no longer gives, and raises one it now gives")
+        void correctsBothWays() {
+            FolderSyncStateEntity robinson = state(1L, "Robinson", FolderRole.TRASH);
+            FolderSyncStateEntity sent = state(2L, "Sent", FolderRole.USER);
+            when(syncStateRepository.findByAccountId(ACCOUNT_ID)).thenReturn(List.of(robinson, sent));
+
+            int changed = service.reconcileRoles(ACCOUNT_ID,
+                    Map.of("Robinson", FolderRole.USER, "Sent", FolderRole.SENT));
+
+            assertThat(changed).isEqualTo(2);
+            verify(syncStateRepository).updateRole(1L, FolderRole.USER);
+            verify(syncStateRepository).updateRole(2L, FolderRole.SENT);
+        }
+
+        @Test
+        @DisplayName("Writes nothing for a role that already matches or a folder the listing does not show")
+        void leavesMatchingAndUnlistedFoldersAlone() {
+            FolderSyncStateEntity trash = state(1L, "Trash", FolderRole.TRASH);
+            FolderSyncStateEntity gone = state(2L, "Old folder", FolderRole.TRASH);
+            when(syncStateRepository.findByAccountId(ACCOUNT_ID)).thenReturn(List.of(trash, gone));
+
+            int changed = service.reconcileRoles(ACCOUNT_ID, Map.of("Trash", FolderRole.TRASH));
+
+            assertThat(changed).isZero();
+            verify(syncStateRepository, never()).updateRole(any(), any());
             verify(syncStateRepository, never()).save(any());
         }
     }

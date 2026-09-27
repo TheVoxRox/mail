@@ -182,11 +182,11 @@ class ImapFolderServiceTest {
             when(systemTrash.getType()).thenReturn(Folder.HOLDS_MESSAGES);
             when(systemTrash.getAttributes()).thenReturn(new String[]{"\\Trash"});
 
-            // User-created label whose name contains "koš" — must not be misclassified
-            // as TRASH because the system trash has already claimed the role.
+            // A user label carrying a system folder's exact name — the name fallback alone
+            // would take it for the trash, so only the claim by SPECIAL-USE keeps it out.
             IMAPFolder userLabel = mock(IMAPFolder.class);
-            when(userLabel.getName()).thenReturn("[Gmail]Koš");
-            when(userLabel.getFullName()).thenReturn("[Gmail]Koš");
+            when(userLabel.getName()).thenReturn("Trash");
+            when(userLabel.getFullName()).thenReturn("Trash");
             when(userLabel.getUnreadMessageCount()).thenReturn(0);
             when(userLabel.getType()).thenReturn(Folder.HOLDS_MESSAGES);
             when(userLabel.getAttributes()).thenReturn(new String[0]);
@@ -198,8 +198,38 @@ class ImapFolderServiceTest {
             assertThat(result).hasSize(2);
             assertThat(result).filteredOn(r -> r.folderRef().equals("[Gmail]/Koš")).singleElement()
                     .extracting(FolderResponse::role).isEqualTo(FolderRole.TRASH);
-            assertThat(result).filteredOn(r -> r.folderRef().equals("[Gmail]Koš")).singleElement()
+            assertThat(result).filteredOn(r -> r.folderRef().equals("Trash")).singleElement()
                     .extracting(FolderResponse::role).isEqualTo(FolderRole.USER);
+        }
+
+        @Test
+        @DisplayName("A user folder whose name only contains a system folder's name stays a user folder")
+        void nameContainingARoleWordStaysUser() throws Exception {
+            // No SPECIAL-USE and no trash anywhere: the old substring match made
+            // "Robinson" the trash ("bin"), where deletes then went and were final.
+            Folder robinson = folder("Robinson", "Robinson", 0);
+            Folder presentations = folder("Presentations", "Presentations", 0);
+            mockFolderListing(robinson, presentations);
+
+            List<FolderResponse> result = service.getFolders(ACCOUNT_ID);
+
+            assertThat(result).extracting(FolderResponse::role).containsOnly(FolderRole.USER);
+        }
+
+        @Test
+        @DisplayName("Yahoo's spam folder \"Bulk\" (\\Junk) resolves to JUNK, not NEWSLETTERS")
+        void bulkWithJunkAttributeIsJunk() throws Exception {
+            IMAPFolder folder = mock(IMAPFolder.class);
+            when(folder.getName()).thenReturn("Bulk");
+            when(folder.getFullName()).thenReturn("Bulk");
+            when(folder.getUnreadMessageCount()).thenReturn(0);
+            when(folder.getType()).thenReturn(Folder.HOLDS_MESSAGES);
+            when(folder.getAttributes()).thenReturn(new String[]{"\\Junk"});
+            mockFolderListing(folder);
+
+            List<FolderResponse> result = service.getFolders(ACCOUNT_ID);
+
+            assertThat(result).singleElement().extracting(FolderResponse::role).isEqualTo(FolderRole.JUNK);
         }
 
         @Test

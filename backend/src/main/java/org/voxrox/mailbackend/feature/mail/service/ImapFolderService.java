@@ -139,9 +139,10 @@ public class ImapFolderService {
          * Two-pass role detection. Pass 1 assigns the "strong" role from INBOX,
          * NEWSLETTERS-by-name (seznam.cz quirk), or RFC 6154 SPECIAL-USE attributes —
          * no name fallback yet. Pass 2 applies the name fallback only for roles not
-         * already claimed in pass 1, so a stray user label like "[Gmail]Koš" or
-         * "Archiv 2024" cannot impersonate the system Trash/Archive when the real one
-         * was detected via SPECIAL-USE.
+         * already claimed in pass 1, so a user folder that happens to carry a system
+         * folder's exact name ("Trash" beside Gmail's "[Gmail]/Trash") cannot
+         * impersonate it when the real one was detected via SPECIAL-USE. The fallback
+         * itself matches whole names only (see FolderRole.fromNameFallback).
          */
         FolderRole[] primary = new FolderRole[folders.size()];
         EnumSet<FolderRole> claimed = EnumSet.noneOf(FolderRole.class);

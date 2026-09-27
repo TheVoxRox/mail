@@ -1,11 +1,14 @@
 package org.voxrox.mailbackend.feature.mail.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
 import org.voxrox.mailbackend.feature.mail.entity.FolderSyncStateEntity;
 import org.voxrox.mailbackend.feature.mail.repository.FolderSyncStateRepository;
+import org.voxrox.mailbackend.util.LogCategory;
 
 import module java.base;
 
@@ -14,6 +17,8 @@ import module java.base;
  */
 @Service
 public class SyncStateService {
+
+    private static final Logger log = LoggerFactory.getLogger(SyncStateService.class);
 
     private final FolderSyncStateRepository syncStateRepository;
     private final AccountRepository accountRepository;
@@ -27,6 +32,11 @@ public class SyncStateService {
      * Returns the sync state for the given folder with role detection. If the state
      * does not exist, creates it with the detected role. If it exists with a USER
      * role and we now have a better detection, the role is updated.
+     *
+     * <p>
+     * Only ever upward: most callers pass {@code USER} for "not known here" rather
+     * than "detected as a user folder", so a USER argument cannot lower a stored
+     * role. {@link #reconcileRoles} is what does, from a folder listing.
      */
     @Transactional
     public FolderSyncStateEntity getOrCreateState(Long accountId, String folderName, FolderRole detectedRole) {
@@ -39,6 +49,35 @@ public class SyncStateService {
             return state;
         }).orElseGet(() -> syncStateRepository.save(
                 new FolderSyncStateEntity(accountRepository.getReferenceById(accountId), folderName, detectedRole)));
+    }
+
+    /**
+     * Brings the stored roles of an account's folders in line with a fresh
+     * detection, in both directions, and returns how many it changed.
+     *
+     * <p>
+     * A folder listing detects every folder's role, so unlike
+     * {@link #getOrCreateState} it can also lower one: a stored role that the
+     * current detection no longer gives — a user folder that an earlier, looser
+     * name match took for the trash, or a folder whose SPECIAL-USE attribute the
+     * server has since moved — would otherwise stay, and keep deciding where a
+     * deleted message goes. Folders missing from {@code detectedRoles} are left
+     * alone. Each change is a targeted UPDATE of the role alone (see
+     * {@link FolderSyncStateRepository#updateRole}).
+     */
+    @Transactional
+    public int reconcileRoles(Long accountId, Map<String, FolderRole> detectedRoles) {
+        int changed = 0;
+        for (FolderSyncStateEntity state : syncStateRepository.findByAccountId(accountId)) {
+            FolderRole detected = detectedRoles.get(state.getFolderName());
+            if (detected != null && detected != state.getRole()) {
+                log.info("{} Folder role corrected: account {}, folder {}, {} -> {}", LogCategory.SYNC, accountId,
+                        state.getFolderName(), state.getRole(), detected);
+                syncStateRepository.updateRole(state.getId(), detected);
+                changed++;
+            }
+        }
+        return changed;
     }
 
     /**

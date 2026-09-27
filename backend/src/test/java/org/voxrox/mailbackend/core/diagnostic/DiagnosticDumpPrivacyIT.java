@@ -15,6 +15,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.zip.ZipEntry;
@@ -86,9 +87,13 @@ class DiagnosticDumpPrivacyIT {
     private static final String CUSTOM_FOLDER = "Canary Lawyer 4417";
     // How the frontend puts the folder into a route: encodeURIComponent.
     private static final String ENCODED_CUSTOM_FOLDER = "Canary%20Lawyer%204417";
-    // A folder the user named, but with a word in it that role detection reads
-    // as a role (FolderRole.fromNameFallback), so it is stored as NEWSLETTERS.
-    private static final String ROLE_NAMED_FOLDER = "Newsletter Canary Novak 4417";
+    // A folder the user named with a role word in it. Role detection once took any
+    // name containing one as that role (FolderRole.fromNameFallback); it must now
+    // stay a user folder.
+    private static final String ROLE_WORD_FOLDER = "Newsletter Canary Novak 4417";
+    // A folder the user created under a system folder's exact name: without
+    // SPECIAL-USE, the one way a user's own folder still gets a role.
+    private static final String SYSTEM_NAMED_FOLDER = "Newsletters";
     private static final String SUBJECT = "Canary subject 4417";
     private static final String BODY = "Canary body text 4417";
     private static final String TOKEN = "ya29.canary-access-token-4417-abcdefghijklmnop";
@@ -151,14 +156,19 @@ class DiagnosticDumpPrivacyIT {
         user.deliver(GreenMailUtil.createTextEmail(EMAIL, "canary.sender.4417@example.com", SUBJECT, BODY,
                 greenMail.getImaps().getServerSetup()));
         appendToFolder(CUSTOM_FOLDER);
-        appendToFolder(ROLE_NAMED_FOLDER);
+        appendToFolder(ROLE_WORD_FOLDER);
+        appendToFolder(SYSTEM_NAMED_FOLDER);
         assertThat(mailSyncService.performFullSyncCycle(account, "INBOX", FolderRole.INBOX)).isTrue();
         assertThat(mailSyncService.performFullSyncCycle(account, CUSTOM_FOLDER)).isTrue();
-        // With the role the account pass forwards: the one folder listing detects.
-        FolderResponse roleNamed = imapFolderService.getFolders(account.getId()).stream()
-                .filter(f -> ROLE_NAMED_FOLDER.equals(f.folderRef())).findFirst().orElseThrow();
-        assertThat(roleNamed.role()).isEqualTo(FolderRole.NEWSLETTERS);
-        assertThat(mailSyncService.performFullSyncCycle(account, ROLE_NAMED_FOLDER, roleNamed.role())).isTrue();
+        // Each with the role the account pass forwards: the one the folder listing
+        // detects.
+        List<FolderResponse> listed = imapFolderService.getFolders(account.getId());
+        FolderRole roleWordRole = roleOf(listed, ROLE_WORD_FOLDER);
+        FolderRole systemNamedRole = roleOf(listed, SYSTEM_NAMED_FOLDER);
+        assertThat(roleWordRole).isEqualTo(FolderRole.USER);
+        assertThat(systemNamedRole).isEqualTo(FolderRole.NEWSLETTERS);
+        assertThat(mailSyncService.performFullSyncCycle(account, ROLE_WORD_FOLDER, roleWordRole)).isTrue();
+        assertThat(mailSyncService.performFullSyncCycle(account, SYSTEM_NAMED_FOLDER, systemNamedRole)).isTrue();
         cacheToken(account.getId());
 
         JsonNode session = objectMapper
@@ -178,14 +188,15 @@ class DiagnosticDumpPrivacyIT {
         String home = System.getProperty("user.home");
         for (Map.Entry<String, String> entry : entries.entrySet()) {
             assertThat(entry.getValue()).as(entry.getKey()).doesNotContain(EMAIL, "canary.owner", LOGIN, PASSWORD,
-                    "canary.sender", SUBJECT, BODY, CUSTOM_FOLDER, ENCODED_CUSTOM_FOLDER, "Canary Novak", TOKEN, apiKey,
+                    "canary.sender", SUBJECT, BODY, CUSTOM_FOLDER, ENCODED_CUSTOM_FOLDER, "Canary Novak",
+                    "\"" + SYSTEM_NAMED_FOLDER + "\"", TOKEN, apiKey,
                     objectMapper.writeValueAsString(home).replace("\"", ""));
         }
 
         // The dump still says what support needs.
         assertThat(entries.get("accounts.json")).contains("c***7@greenmail.local");
         assertThat(entries.get("folder-sync-states.json")).contains("\"INBOX\"").contains("\"folder-1\"")
-                .contains("\"folder-2\"").contains("\"NEWSLETTERS\"");
+                .contains("\"folder-2\"").contains("\"folder-3\"").contains("\"NEWSLETTERS\"");
         assertThat(objectMapper.readTree(entries.get("client-boot.json")).get("route").asString()).isEqualTo("/mail");
         assertThat(objectMapper.readTree(entries.get("summary.json")).get("oauthCachedTokens").asInt()).isEqualTo(1);
     }
@@ -220,6 +231,10 @@ class DiagnosticDumpPrivacyIT {
         constructor.setAccessible(true);
         Method put = TokenCache.class.getMethod("put", Long.class, cachedToken);
         put.invoke(tokenCache, accountId, constructor.newInstance(TOKEN, Instant.now().plusSeconds(3600)));
+    }
+
+    private static FolderRole roleOf(List<FolderResponse> folders, String folderRef) {
+        return folders.stream().filter(f -> folderRef.equals(f.folderRef())).findFirst().orElseThrow().role();
     }
 
     /**

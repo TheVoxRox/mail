@@ -148,10 +148,13 @@ public class DiagnosticDumpService {
      * in its {@code role}.
      *
      * <p>
-     * A role does not prove the provider chose the name. Role detection falls back
-     * to the name itself ({@link FolderRole#fromNameFallback}), so a folder the
-     * user called "Newsletter from Dr Novak" is stored as {@code NEWSLETTERS}, and
-     * keeping role folders' names put that name in the bundle.
+     * A role does not prove the provider chose the name. Without SPECIAL-USE, role
+     * detection falls back to the name itself
+     * ({@link FolderRole#fromNameFallback}), so a folder the user created as
+     * "Archive" is stored as {@code ARCHIVE}; and until that fallback matched whole
+     * names only, a folder the user called "Newsletter from Dr Novak" was stored as
+     * {@code NEWSLETTERS}. Keeping role folders' names put such names in the
+     * bundle.
      */
     private static Map<FolderKey, String> folderLabels(List<FolderSyncStateEntity> states) {
         Map<FolderKey, String> labels = new HashMap<>();

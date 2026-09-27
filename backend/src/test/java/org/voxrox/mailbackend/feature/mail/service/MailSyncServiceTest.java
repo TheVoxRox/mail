@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -15,6 +16,7 @@ import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import jakarta.mail.Folder;
@@ -32,6 +34,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -189,6 +192,37 @@ class MailSyncServiceTest {
 
             // runFolderCycle -> executeInFolderResynced once per role-matched folder.
             verify(imapFolderService, times(5)).executeInFolderResynced(eq(ACCOUNT_ID), any(), any(), any(), any());
+            verify(lockManager).unlock(ACCOUNT_ID);
+        }
+
+        @Test
+        @DisplayName("Stores the roles the listing detected for every folder, not only the synced ones")
+        void reconcilesStoredRolesFromTheListing() {
+            when(lockManager.tryLock(eq(ACCOUNT_ID), anyBoolean())).thenReturn(true);
+            when(imapFolderService.getFolders(ACCOUNT_ID))
+                    .thenReturn(List.of(new FolderResponse("INBOX", "INBOX", FolderRole.INBOX),
+                            new FolderResponse("Robinson", "Robinson", FolderRole.USER)));
+
+            service.syncAllFolders(account, SyncTrigger.SCHEDULED);
+
+            verify(syncStateService).reconcileRoles(ACCOUNT_ID,
+                    Map.of("INBOX", FolderRole.INBOX, "Robinson", FolderRole.USER));
+        }
+
+        @Test
+        @DisplayName("A failure to store the detected roles does not stop the pass")
+        void reconcileFailureDoesNotStopThePass() {
+            when(lockManager.tryLock(eq(ACCOUNT_ID), anyBoolean())).thenReturn(true);
+            when(imapFolderService.getFolders(ACCOUNT_ID))
+                    .thenReturn(List.of(new FolderResponse("INBOX", "INBOX", FolderRole.INBOX)));
+            doThrow(new DataAccessResourceFailureException("database is locked")).when(syncStateService)
+                    .reconcileRoles(eq(ACCOUNT_ID), any());
+
+            service.syncAllFolders(account, SyncTrigger.SCHEDULED);
+
+            verify(imapFolderService).executeInFolderResynced(eq(ACCOUNT_ID), any(), eq("INBOX"), any(), any());
+            verify(accountRepository, never()).updateLastError(eq(ACCOUNT_ID), any(AccountLastError.class),
+                    any(LocalDateTime.class));
             verify(lockManager).unlock(ACCOUNT_ID);
         }
 
