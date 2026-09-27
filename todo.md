@@ -82,7 +82,7 @@ Nezavisly overovaci pruchod re-verifikace ([docs/IMAP_SMTP_AUDIT.md](docs/IMAP_S
 
 ## Navazujici ukoly z preovereni auditu B3 1.8 (2026-09-27)
 
-Preovereni [docs/API_SURFACE_AUDIT.md](docs/API_SURFACE_AUDIT.md) proti `ANCHOR` nechalo verdikt PASS a zapsalo tyto veci jako informativni poznamky (§4, §7). Bezpecnostne nic z toho neni nalez; jde o spravny stav, cisty log a srozumitelnou hlasku. Oprava kodu pod `Code paths` auditu znamena potvrzeni v [docs/audit-freshness.json](docs/audit-freshness.json) nebo preovereni.
+Preovereni [docs/API_SURFACE_AUDIT.md](docs/API_SURFACE_AUDIT.md) proti `2fb87ab` nechalo verdikt PASS a zapsalo tyto veci jako informativni poznamky (§4, §7). Bezpecnostne nic z toho neni nalez; jde o spravny stav, cisty log a srozumitelnou hlasku. Oprava kodu pod `Code paths` auditu znamena potvrzeni v [docs/audit-freshness.json](docs/audit-freshness.json) nebo preovereni.
 
 - [ ] **Text cizi vyjimky v odpovedi.** Dve cesty (prikazy v §3 auditu): osm mist sklada zpravu `MailConnectionException` / `MailOperationException` z `e.getMessage()` a ta jde jako `{0}` do `detail` a `messageArgs`; a `safeDetail(e)` v syncu, SMTP a ulozeni konceptu zapisuje text do `lastErrorArgs.detail`, ktery vraci kazdy endpoint uctu — u syncu z `catch (Exception)`, takze i SQL z Hibernate. Uzivatel tak vidi anglicky text knihovny, serveru nebo databaze vlozeny do ceske hlasky. Zvazit kod chyby misto textu a text nechat jen v logu.
 - [ ] **Chyby frameworku konci v catch-all.** Necislo v path variable i nemapovana HTTP metoda vraci 500 s pevnou hlaskou a CRITICAL log se stack trace (overeno MockMvc sondou) — `GlobalExceptionHandler.java:220` je jediny handler, ktery je chyti. Doplnit handlery pro 400/405/415 nebo dedit z `ResponseEntityExceptionHandler`.
