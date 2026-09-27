@@ -80,16 +80,14 @@ Nezavisly overovaci pruchod re-verifikace ([docs/IMAP_SMTP_AUDIT.md](docs/IMAP_S
 
 ---
 
-## Nalezy overeni auditu B3 1.7 (2026-09-26)
+## Navazujici ukoly z preovereni auditu B3 1.8 (2026-09-27)
 
-Nezavisly overovaci pruchod (AUDIT_GUIDE §5) nad [docs/API_SURFACE_AUDIT.md](docs/API_SURFACE_AUDIT.md) v1.7 (#574) probehl az po zapisu verdiktu — v1.7 proto zatim neni overena. Verdikt PASS vecne drzi: text vyjimky dostane jen drzitel API klice (vlastni WebView) a `/error` ho v produkci vynechava. Oprava zatim odlozena.
+Preovereni [docs/API_SURFACE_AUDIT.md](docs/API_SURFACE_AUDIT.md) proti `dd2225d` nechalo verdikt PASS a zapsalo tyto veci jako informativni poznamky (§4, §7). Bezpecnostne nic z toho neni nalez; jde o spravny stav, cisty log a srozumitelnou hlasku. Oprava kodu pod `Code paths` auditu znamena potvrzeni v [docs/audit-freshness.json](docs/audit-freshness.json) nebo preovereni.
 
-- [ ] **§3 „No exception message ... reaches the client" neplati od `d55b753`.** Chyby mailove vrstvy posilaji text cizi vyjimky do `detail` a `messageArgs`: `MailConnectionProbe.java:84,104` (`"... failed: " + e.getMessage()`) → sablona `error.mail.connectionFailed=... {0}` (`messages_en.properties:18`), dal `ImapFolderExecutor`, `ImapConnectionManager`, `MailContentService`, `OAuth2TokenService`. Test to primo tvrdi (`GlobalExceptionHandlerTest`, `MailConnectionProbeTest`). Opravit §3 a zapsat jako informativni poznamku v §7; „controlled" u `AppException` je prehnane.
-- [ ] **Kotva vs. §3.** Nova veta „`application.properties` is the only configuration file the jar carries" plati az od #574 (`77abf9b`), ne na kotve `6365fae` ani v tagu `v0.1.0` (`d626a9b`). Bud §3 napsat ke kotve s datovanou poznamkou po kotve, nebo prekotvit s plnym preoverenim. Upresnit: jen soubory `application*` (v jaru je i `logback-spring.xml`), a „no profile can turn them back on" plati jen uvnitr jaru — konfigurace mimo jar (env, `config/` v pracovnim adresari) to umi.
-- [ ] **Zapis 1.7 v change logu auditu:** chybi dve ze ctyr nastaveni profilu `dev` (`include-exception`, `include-binding-errors`); „only documented use" byl i `-Dspring.profiles.active=dev` na jakemkoli spusteni; „No code under this audit's paths changed" plati jen pro diff #574.
-- [ ] **Code paths auditu jsou pro §3 uzke** — pridat `application.properties` a `exception/`; proto `check:audits` smazani souboru v #574 nevidel.
-- [ ] Po oprave: novy nezavisly overovaci pruchod, teprve pak zapsat verdikt (index v `backend/SECURITY_RELEASE_CHECK.md`, radek v threat modelu).
-- [ ] Vedlejsi: poznamka B3 z 2026-09-20 v [docs/audit-freshness.json](docs/audit-freshness.json) odkazuje na „v1.9 re-verification", B3 ale mel re-verifikaci ve v1.6.
+- [ ] **Text cizi vyjimky v odpovedi.** Osm mist (prikaz v §3 auditu) sklada zpravu `MailConnectionException` / `MailOperationException` z `e.getMessage()` a ta jde jako `{0}` do `detail` a `messageArgs`. Uzivatel tak vidi anglicky text knihovny nebo serveru vlozeny do ceske hlasky. Zvazit kod chyby misto textu a text nechat jen v logu.
+- [ ] **Chyby frameworku konci v catch-all.** Necislo v path variable i nemapovana HTTP metoda vraci 500 s pevnou hlaskou a CRITICAL log se stack trace (overeno MockMvc sondou) — `GlobalExceptionHandler.java:220` je jediny handler, ktery je chyti. Doplnit handlery pro 400/405/415 nebo dedit z `ResponseEntityExceptionHandler`.
+- [ ] **`partPath` prilohy.** Necislo → 500 `MAIL_CONNECTION_ERROR`; index za posledni casti → 404 „Folder ... was not found", protoze heuristika v `ImapFolderExecutor.java:172` bere kazde „not found". Validovat `partPath` uz v `MailReadController.java:185` (`@Pattern`) a pro chybejici cast vratit vlastni not-found.
+- [ ] **`ApiKeyFilter` nema test na spatny klic.** Fail-fast 401 (`ApiKeyFilter.java:53`) a porovnani v konstantnim case jsou v auditu jen staticky overene; test by drzel aspon 401 bez prupustu do retezce.
 
 ---
 
