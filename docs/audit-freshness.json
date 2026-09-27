@@ -121,7 +121,7 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "ba0cca2153c26a8beed074afcd12a6aab1b4c1f8",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "b5c2ffd74d0cc08dbee6836fa6c6b7dd770d0841",
       "backend/src/main/java/org/voxrox/mailbackend/core/config/mail": "229a3e22af9f96689722e9844ccffca4027b401d",
       "backend/src/main/resources/application.properties": "de96924cc7d5db069cac2e3de07324c50e5b666c"
     },
@@ -149,6 +149,10 @@
       {
         "date": "2026-09-27",
         "note": "Stored folder roles are reconciled with each account pass's folder listing. Three files under feature/mail/service moved. SyncStateService gains reconcileRoles, which sets a stored role to the one the listing detected, lowering as well as raising, through a new targeted FolderSyncStateRepository.updateRole (the role column only, so a last_known_uid a concurrent folder cycle advanced is never written back; FolderSyncStateRepositoryIT checks it on SQLite). MailSyncService.syncAllFolders calls it right after getFolders and logs and continues if it fails. ImapFolderService changes a comment only: role detection by name now matches whole names (FolderRole, outside this audit's paths). Checked against the audit's claims. (1) No IMAP command, TLS setting, timeout, retry or connection path changes: the listing is the same LIST/STATUS, and reconcile is a local DB write outside any IMAP lock. (2) Sync and write paths keep their order and locking; a pass that cannot reconcile runs as before. (3) The effect is on which folder a role resolves to (trash for delete, Sent for append), which can only move from a wrongly detected folder to the right one or to none. Verdict unchanged."
+      },
+      {
+        "date": "2026-09-27",
+        "note": "Attachment part lookup. Only AttachmentService moved under feature/mail/service: it validates the part path before the folder executor and, inside the download lambda, resolves the path the way RFC 3501 numbers parts (a message's non-multipart body is its part 1) and reports a path that leads nowhere as ResourceNotFoundException rather than a MessagingException. Checked against this audit's claims. (1) No IMAP command, fetch size, bound, TLS setting, timeout or lock changes: the lambda still fetches the message by UID in a READ_ONLY folder on the interactive lane and copies one part's stream to a private temp file. (2) The ImapFolderExecutor heuristic that reads 'not found' in a MessagingException as a missing folder is untouched; this path simply no longer feeds it. (3) A malformed path now fails before any IMAP work, which can only remove server round trips. Verdict unchanged."
       }
     ]
   },
@@ -156,7 +160,9 @@
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "ce8fadfbdbd2e206f24c9b05a520836dd261eeea",
       "backend/src/main/java/org/voxrox/mailbackend/core/diagnostic": "87acd1071bc62a2779c216e424e7ae9b391d3ab6",
-      "backend/src/main/java/org/voxrox/mailbackend/exception": "25a165dcfe824aed62c104e02f90e92885485163"
+      "backend/src/main/java/org/voxrox/mailbackend/exception": "25a165dcfe824aed62c104e02f90e92885485163",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/controller": "030d483f7b65f8dc5777572ad2a453e909b18519",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/AttachmentService.java": "1e01496d854fe1fef31f338bc2c0d54ec9683d91"
     },
     "acknowledgements": [
       {
@@ -166,6 +172,10 @@
       {
         "date": "2026-09-27",
         "note": "Requests Spring MVC rejects before a controller runs get their own status. One path moved, exception/. GlobalExceptionHandler gains handleTypeMismatch (MethodArgumentTypeMismatchException -> 400 VALIDATION_ERROR with a violation naming the parameter; the value is not echoed) and handleRejectedRequest (405 METHOD_NOT_ALLOWED, 415 UNSUPPORTED_MEDIA_TYPE, 406 NOT_ACCEPTABLE, other ServletRequestBindingException -> 400 BAD_REQUEST), which sends the status and headers the exception carries as an ErrorResponse (Allow on 405, Accept on 415) and logs one WARN line; a 5xx binding failure (MissingPathVariableException) still goes to the catch-all. ErrorCode gains the three codes. Checked against the audit's claims. (1) No endpoint, path or authentication rule moves: these handlers run only for requests that already passed the security chain and failed in Spring MVC. (2) Error-response hygiene holds and narrows the catch-all's reach: every new message is a fixed bundle text with at most the HTTP method or the parameter name as argument, no exception text and no stack. (3) Section 7's note 'Framework-level request errors reach the catch-all' was true at the anchor 55fdd1b and is superseded by this change; the next re-verification rewrites it. FrameworkRequestRejectionTest covers each case through MockMvc and fails with 500 against the old handler. Verdict stays PASS."
+      },
+      {
+        "date": "2026-09-27",
+        "note": "Attachment part paths are validated and resolved the way IMAP numbers parts. Two paths moved. controller: MailReadController.downloadAttachment adds @Pattern(AttachmentService.PART_PATH_PATTERN) to partPath, positive part numbers joined by dots, next to the @NotBlank and @Size(max = 64) it had. AttachmentService validates the same pattern before the folder executor, and findPartByPath throws ResourceNotFoundException(error.attachment.partNotFound) for a path that leads nowhere instead of a MessagingException the executor misread as a missing folder, and returns a message's non-multipart body as its part 1, the path MimePartExtractor gives such an attachment, which could not be downloaded before. Checked against section 4's claims. (1) No traversal path opens: partPath is still only ever an index into jakarta.mail Multipart children, never a filesystem path, and the temp file is still created after findPartByPath with the stored stableId as prefix. (2) Section 4's 'the request then fails with the wrong status' and section 7's note on the attachment path were true at the anchor 55fdd1b and are superseded; a malformed path is now a 400 before any IMAP work and a missing part a 404 naming the attachment. (3) No endpoint, method or authentication rule moves. AttachmentServiceTest runs the download lambda on parsed MIME messages and MailReadControllerTest the 400s; against the old code they fail, and the single-part download errors with 'MIME part 1 was not found'. Verdict stays PASS."
       }
     ]
   }

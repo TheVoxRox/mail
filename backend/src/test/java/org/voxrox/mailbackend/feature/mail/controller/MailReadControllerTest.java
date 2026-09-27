@@ -3,6 +3,7 @@ package org.voxrox.mailbackend.feature.mail.controller;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -18,6 +19,8 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration;
 import org.springframework.boot.security.oauth2.client.autoconfigure.OAuth2ClientAutoConfiguration;
@@ -272,6 +275,16 @@ class MailReadControllerTest {
         mockMvc.perform(get("/api/v1/messages/abc123/attachments/1.2").param("fileName", "soubor šťávnatý.pdf"))
                 .andExpect(status().isOk()).andExpect(header().string("Content-Disposition", org.hamcrest.Matchers
                         .containsString("filename*=UTF-8''soubor%20%C5%A1%C5%A5%C3%A1vnat%C3%BD.pdf")));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"x", "0", "1.0", "01", "1..2", "2.a"})
+    @DisplayName("GET attachment — a part path that is not a MIME part number -> 400 before the facade")
+    void downloadAttachmentMalformedPartPath(String partPath) throws Exception {
+        mockMvc.perform(get("/api/v1/messages/abc123/attachments/" + partPath)).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"));
+
+        verifyNoInteractions(mailFacade);
     }
 
     @Test
