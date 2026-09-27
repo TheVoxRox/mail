@@ -18,9 +18,11 @@ the diagnostic/data-exposure endpoints. Method: static trace of the Spring
 Security filter chain, enumeration of all 17 `@RestController`s (13 public +
 the 4 `/api/internal` ones) and their request DTOs, and a data-flow check of
 the two highest-risk paths (attachment download, diagnostic dump). The audit
-relies on these tests as dynamic cover: a request without the key redirected
-to login (`SecurityDispatcherTypeTest`), the dump's privacy on real data
-(`DiagnosticDumpPrivacyIT`, §5, A2 and A3), the regression tests each finding
+relies on these tests as dynamic cover: a request without the key answered
+302 (`SecurityDispatcherTypeTest`), the dump's privacy on real data
+(`DiagnosticDumpPrivacyIT`, §5, A2 and A3; the `~` in the dump's paths is
+covered by `DiagnosticDumpServiceTest`, since the IT's data directory need not
+sit under the home directory), the regression tests each finding
 in §6 names, and the throwaway probes the 1.8 change log describes for the
 statuses in §4 and §7. Other claims rest on a static trace, even where a unit
 test also covers them (several §2 bounds have one). Nothing tests the wrong-key
@@ -30,16 +32,20 @@ test also covers them (several §2 bounds have one). Nothing tests the wrong-key
 knowingly left out, because it changes often for reasons that rarely touch this
 boundary and would run the acknowledgement cap down:
 
-- §1: `backend/pom.xml` (the springdoc exclusion).
+- §1: `backend/pom.xml` (the springdoc exclusion), the committed OpenAPI
+  snapshot, and `FileSystemService` (the private permissions on
+  `session.json`).
 - §2: the service and types behind the named bounds (`ContactService`,
   `EmailLabel`, `SyncProperties`, `ClientConfigProperties`).
 - §3: the services that write exception text (the mail and auth services, the
   sync, SMTP send and draft save), `ContactBulkService`, `AccountLastErrorCode`,
-  the message bundles, and the rest of `backend/src/main/resources`.
+  `SyncHealthIndicator`, the message bundles, and the rest of
+  `backend/src/main/resources`.
 - §4: the error mapping in `ImapFolderExecutor`.
 - §5: `StartupTimingService` and `ImapConnectionManager`'s pool statistics.
 - §6: the client caps behind A1's residual (`AttachmentPicker.svelte` and the
-  client-config store).
+  client-config store), and the client's routes (`frontend/src/routes`), which
+  A2's residual rests on.
 
 A literal pathspec also sees only the files it names: 1.7's paths named no
 resource at all, which is how #574's deletion of one went unseen. Where a claim
@@ -72,8 +78,10 @@ audit map in [AUDIT_GUIDE.md](AUDIT_GUIDE.md)).
 
 - **Chokepoint.** [ApiKeyFilter](../backend/src/main/java/org/voxrox/mailbackend/core/security/ApiKeyFilter.java)
   runs before `UsernamePasswordAuthenticationFilter`. A present-but-wrong
-  `X-API-KEY` is rejected **fail-fast** with 401 and an `AuditLog.failure`
-  entry; a matching key populates the `SecurityContext`; a request without the
+  `X-API-KEY` on a request that reaches it is rejected **fail-fast** with 401
+  and an `AuditLog.failure` entry (logout and CORS preflights are answered by
+  filters ahead of it, so a wrong key there changes nothing); a matching key
+  populates the `SecurityContext`; a request without the
   header passes through unauthenticated and is left to the default-deny
   below. The comparison is
   constant-time (`MessageDigest.isEqual` over SHA-256 digests of both sides — no
@@ -97,8 +105,9 @@ audit map in [AUDIT_GUIDE.md](AUDIT_GUIDE.md)).
   the allow-list: because `oauth2Login()` is configured without a login page of
   its own, `GET /login` serves the generated page listing the two providers,
   `/logout` redirects to `/login?logout`, and `/default-ui.css` serves that
-  page's stylesheet. A CORS preflight (`OPTIONS`) on `/api/**` is answered by
-  the CORS filter the same way. They show nothing beyond the provider names the
+  page's stylesheet. A CORS preflight (`OPTIONS`) on any path is answered by
+  the CORS filter the same way: 200 with an empty body, or 403 on `/api/**` for
+  an origin that is not on the list. They show nothing beyond the provider names the
   OAuth flow exposes anyway, and change no stored data.
 - **Internal endpoints are behind the key.** `/api/internal/**`
   (diagnostic-dump, threading recompute, correspondent rebuild, client-boot,
@@ -206,7 +215,10 @@ message, so a JDBC or SQLite error's text reaches the key holder there. The
 disk-space indicator also returns the absolute working directory, which
 usually contains the Windows account name. The project's own
 `SyncHealthIndicator` gives only an exception's class name. The client does not
-call this endpoint. Same recipient; §7.
+call this endpoint. Same recipient; §7. One mail-layer message carries a local
+path of its own: when an attachment's temp file disappears before its stream
+opens — a race — `AttachmentService` reports the file's absolute path under the
+data directory, which contains the Windows account name, in `detail`.
 
 The bulk contact endpoints also return, per failed item, an `AppException`'s
 own message — the English fallback text the app wrote, not a library's.
@@ -423,7 +435,7 @@ system folder's name, which the role replaces.
   same-user process, which the threat model puts out of scope and which can
   read the database and `mail.log`, where the handler and the sync log the same
   text, directly. The same holds for the working directory the health endpoint
-  returns. Versions up to 1.7 said the opposite; see 1.8 in the change log.
+  returns and the temp-file path of an attachment race. Versions up to 1.7 said the opposite; see 1.8 in the change log.
 - **Framework-level request errors reach the catch-all.** A request Spring MVC
   rejects before the controller runs — a path variable that is not a number,
   an HTTP method the path does not map — has no handler of its own, so the
@@ -492,8 +504,13 @@ system folder's name, which the role replaces.
   public paths without the right key. The header gains the `Auditor` row §2 of
   the guide requires. The four enumeration commands give the same numbers (17,
   4, 12, 3); three new ones regenerate §3's lists. The statuses in §4 and §7
-  come from throwaway MockMvc and HTTP probes that are not in the tree. The new
-  anchor clears the acknowledgements recorded since 1.6. The verdict is
+  come from throwaway MockMvc and HTTP probes that are not in the tree. A fourth
+  independent pass accepted the result, reproducing the runtime claims and the
+  regression tests' failures against the unfixed code; its minor corrections
+  are applied here (preflights on any path, the wrong-key 401 only where the
+  key filter is reached, an attachment race's temp path in §3, what the privacy
+  IT does and does not cover, and more of what `Code paths` leaves out). The
+  new anchor clears the acknowledgements recorded since 1.6. The verdict is
   unchanged: **PASS**.
 - **1.7** (2026-09-26) — §3 corrected, anchor unchanged. It said the dev-only
   `application-dev.properties` override "never ships", and it did: the file sat
