@@ -62,10 +62,10 @@ public class DiagnosticDumpService {
 
     /**
      * Builds the support bundle. It leaves the user's machine, so it carries only
-     * what support needs to tell states apart: an address is masked, a folder the
-     * user named is a stable pseudonym ({@code folder-3}) while a folder with a
-     * provider role keeps its name, and a path under the user's home directory
-     * starts with {@code ~} instead of the Windows account name.
+     * what support needs to tell states apart: an address is masked, every folder
+     * but INBOX is a stable pseudonym ({@code folder-3}) next to its role, and a
+     * path under the user's home directory starts with {@code ~} instead of the
+     * Windows account name.
      *
      * <p>
      * The rule is this bundle's, not the log's. {@code mail.log} writes folder
@@ -141,12 +141,17 @@ public class DiagnosticDumpService {
     }
 
     /**
-     * The name each folder goes into the dump under. A folder the provider marks
-     * with a role keeps its name, which the provider chose, and so does INBOX,
-     * whose name the IMAP protocol fixes whatever role was stored for it; a folder
-     * the user created and named becomes {@code folder-<n>}, numbered in a stable
-     * order so the two files that list folders agree and two dumps of the same
-     * state match.
+     * The name each folder goes into the dump under. INBOX keeps its name, which
+     * the IMAP protocol fixes; every other folder becomes {@code folder-<n>},
+     * numbered in a stable order so the two files that list folders agree and two
+     * dumps of the same state match. Which system folder a pseudonym stands for is
+     * in its {@code role}.
+     *
+     * <p>
+     * A role does not prove the provider chose the name. Role detection falls back
+     * to the name itself ({@link FolderRole#fromNameFallback}), so a folder the
+     * user called "Newsletter from Dr Novak" is stored as {@code NEWSLETTERS}, and
+     * keeping role folders' names put that name in the bundle.
      */
     private static Map<FolderKey, String> folderLabels(List<FolderSyncStateEntity> states) {
         Map<FolderKey, String> labels = new HashMap<>();
@@ -158,9 +163,8 @@ public class DiagnosticDumpService {
                         .thenComparing(FolderSyncStateEntity::getFolderName))
                 .toList();
         for (FolderSyncStateEntity state : ordered) {
-            FolderRole role = state.getRole();
-            boolean named = (role == null || role == FolderRole.USER) && !INBOX.equalsIgnoreCase(state.getFolderName());
-            labels.put(FolderKey.of(state), named ? "folder-" + next++ : state.getFolderName());
+            boolean inbox = INBOX.equalsIgnoreCase(state.getFolderName());
+            labels.put(FolderKey.of(state), inbox ? state.getFolderName() : "folder-" + next++);
         }
         return labels;
     }

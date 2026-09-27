@@ -42,7 +42,9 @@ import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.feature.account.service.AccountService;
 import org.voxrox.mailbackend.feature.auth.service.TokenCache;
+import org.voxrox.mailbackend.feature.mail.dto.FolderResponse;
 import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
+import org.voxrox.mailbackend.feature.mail.service.ImapFolderService;
 import org.voxrox.mailbackend.feature.mail.service.MailSyncService;
 import org.voxrox.mailbackend.feature.mail.service.TestTls;
 
@@ -84,6 +86,9 @@ class DiagnosticDumpPrivacyIT {
     private static final String CUSTOM_FOLDER = "Canary Lawyer 4417";
     // How the frontend puts the folder into a route: encodeURIComponent.
     private static final String ENCODED_CUSTOM_FOLDER = "Canary%20Lawyer%204417";
+    // A folder the user named, but with a word in it that role detection reads
+    // as a role (FolderRole.fromNameFallback), so it is stored as NEWSLETTERS.
+    private static final String ROLE_NAMED_FOLDER = "Newsletter Canary Novak 4417";
     private static final String SUBJECT = "Canary subject 4417";
     private static final String BODY = "Canary body text 4417";
     private static final String TOKEN = "ya29.canary-access-token-4417-abcdefghijklmnop";
@@ -126,6 +131,8 @@ class DiagnosticDumpPrivacyIT {
     @Autowired
     private MailSyncService mailSyncService;
     @Autowired
+    private ImapFolderService imapFolderService;
+    @Autowired
     private TokenCache tokenCache;
     @Autowired
     private ObjectMapper objectMapper;
@@ -143,9 +150,15 @@ class DiagnosticDumpPrivacyIT {
 
         user.deliver(GreenMailUtil.createTextEmail(EMAIL, "canary.sender.4417@example.com", SUBJECT, BODY,
                 greenMail.getImaps().getServerSetup()));
-        appendToCustomFolder();
+        appendToFolder(CUSTOM_FOLDER);
+        appendToFolder(ROLE_NAMED_FOLDER);
         assertThat(mailSyncService.performFullSyncCycle(account, "INBOX", FolderRole.INBOX)).isTrue();
         assertThat(mailSyncService.performFullSyncCycle(account, CUSTOM_FOLDER)).isTrue();
+        // With the role the account pass forwards: the one folder listing detects.
+        FolderResponse roleNamed = imapFolderService.getFolders(account.getId()).stream()
+                .filter(f -> ROLE_NAMED_FOLDER.equals(f.folderRef())).findFirst().orElseThrow();
+        assertThat(roleNamed.role()).isEqualTo(FolderRole.NEWSLETTERS);
+        assertThat(mailSyncService.performFullSyncCycle(account, ROLE_NAMED_FOLDER, roleNamed.role())).isTrue();
         cacheToken(account.getId());
 
         JsonNode session = objectMapper
@@ -165,13 +178,14 @@ class DiagnosticDumpPrivacyIT {
         String home = System.getProperty("user.home");
         for (Map.Entry<String, String> entry : entries.entrySet()) {
             assertThat(entry.getValue()).as(entry.getKey()).doesNotContain(EMAIL, "canary.owner", LOGIN, PASSWORD,
-                    "canary.sender", SUBJECT, BODY, CUSTOM_FOLDER, ENCODED_CUSTOM_FOLDER, TOKEN, apiKey,
+                    "canary.sender", SUBJECT, BODY, CUSTOM_FOLDER, ENCODED_CUSTOM_FOLDER, "Canary Novak", TOKEN, apiKey,
                     objectMapper.writeValueAsString(home).replace("\"", ""));
         }
 
         // The dump still says what support needs.
         assertThat(entries.get("accounts.json")).contains("c***7@greenmail.local");
-        assertThat(entries.get("folder-sync-states.json")).contains("\"INBOX\"").contains("\"folder-1\"");
+        assertThat(entries.get("folder-sync-states.json")).contains("\"INBOX\"").contains("\"folder-1\"")
+                .contains("\"folder-2\"").contains("\"NEWSLETTERS\"");
         assertThat(objectMapper.readTree(entries.get("client-boot.json")).get("route").asString()).isEqualTo("/mail");
         assertThat(objectMapper.readTree(entries.get("summary.json")).get("oauthCachedTokens").asInt()).isEqualTo(1);
     }
@@ -180,11 +194,11 @@ class DiagnosticDumpPrivacyIT {
      * A second client creates the folder and files a message there, as a user
      * would.
      */
-    private void appendToCustomFolder() throws Exception {
+    private void appendToFolder(String name) throws Exception {
         Session session = Session.getInstance(new Properties());
         try (Store store = session.getStore("imaps")) {
             store.connect("127.0.0.1", greenMail.getImaps().getPort(), LOGIN, PASSWORD);
-            Folder folder = store.getFolder(CUSTOM_FOLDER);
+            Folder folder = store.getFolder(name);
             assertThat(folder.create(Folder.HOLDS_MESSAGES)).isTrue();
             MimeMessage message = new MimeMessage(session);
             message.setFrom(new InternetAddress("canary.sender.4417@example.com"));

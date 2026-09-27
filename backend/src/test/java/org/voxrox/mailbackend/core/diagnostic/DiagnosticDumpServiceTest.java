@@ -93,7 +93,7 @@ class DiagnosticDumpServiceTest {
     }
 
     @Test
-    @DisplayName("Folders the user named and the home directory stay out of the dump")
+    @DisplayName("Only INBOX keeps its name in the dump, and the home directory stays out")
     void createDumpKeepsUserNamedFoldersAndHomeOut() throws Exception {
         AccountEntity account = account();
         // Stored without its role, as a sync that was not told the role stores it.
@@ -101,9 +101,12 @@ class DiagnosticDumpServiceTest {
         FolderSyncStateEntity sent = new FolderSyncStateEntity(account, "[Gmail]/Sent Mail", FolderRole.SENT);
         FolderSyncStateEntity invoices = new FolderSyncStateEntity(account, "Invoices Jane Doe", FolderRole.USER);
         FolderSyncStateEntity divorce = new FolderSyncStateEntity(account, "Lawyer/Divorce", FolderRole.USER);
+        // Named by the user, but role detection reads "Newsletter" in the name as a
+        // role.
+        FolderSyncStateEntity novak = new FolderSyncStateEntity(account, "Newsletter Dr Novak", FolderRole.NEWSLETTERS);
 
         when(accountRepository.findAllWithDetails()).thenReturn(List.of(account));
-        when(folderSyncStateRepository.findAll()).thenReturn(List.of(invoices, inbox, divorce, sent));
+        when(folderSyncStateRepository.findAll()).thenReturn(List.of(invoices, inbox, divorce, novak, sent));
         when(messageRepository.countByAccountIdAndFolderName(1L, "Invoices Jane Doe")).thenReturn(3L);
         when(imapConnectionManager.getPoolStats()).thenReturn(new ImapConnectionManager.PoolStats(0, 0));
 
@@ -119,10 +122,15 @@ class DiagnosticDumpServiceTest {
         // Numbered in account-and-name order, the same in both files that list folders.
         for (String file : List.of("folder-sync-states.json", "message-counts.json")) {
             assertThat(entries.get(file)).contains("\"folderName\" : \"INBOX\"")
-                    .contains("\"folderName\" : \"[Gmail]/Sent Mail\"").contains("\"folderName\" : \"folder-1\"")
-                    .contains("\"folderName\" : \"folder-2\"").doesNotContain("Invoices").doesNotContain("Jane")
-                    .doesNotContain("Divorce");
+                    .contains("\"folderName\" : \"folder-1\"").contains("\"folderName\" : \"folder-2\"")
+                    .contains("\"folderName\" : \"folder-3\"").contains("\"folderName\" : \"folder-4\"")
+                    .doesNotContain("Invoices").doesNotContain("Jane").doesNotContain("Divorce").doesNotContain("Novak")
+                    .doesNotContain("Sent Mail");
         }
+        // Which system folder a pseudonym stands for is in its role.
+        assertThat(entries.get("folder-sync-states.json"))
+                .containsPattern("\"folderName\" : \"folder-3\",\\s*\"role\" : \"NEWSLETTERS\"")
+                .containsPattern("\"folderName\" : \"folder-4\",\\s*\"role\" : \"SENT\"");
         assertThat(entries.get("message-counts.json"))
                 .containsPattern("\"folderName\" : \"folder-1\",\\s*\"messages\" : 3");
         assertThat(entries.get("runtime.json"))
