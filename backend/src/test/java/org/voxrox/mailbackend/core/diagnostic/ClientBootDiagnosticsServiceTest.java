@@ -28,4 +28,29 @@ class ClientBootDiagnosticsServiceTest {
         assertThat(snapshot.language()).isEqualTo("cs");
         assertThat(snapshot.route()).isEqualTo("/settings/about");
     }
+
+    @Test
+    @DisplayName("A route id is kept whole: it names the page and carries no value")
+    void routeIdIsKept() {
+        assertThat(routeOf("/mail/[accountId]/[folderName]/[stableId]"))
+                .isEqualTo("/mail/[accountId]/[folderName]/[stableId]");
+        assertThat(routeOf("/settings/accounts/new")).isEqualTo("/settings/accounts/new");
+        assertThat(routeOf("/")).isEqualTo("/");
+    }
+
+    @Test
+    @DisplayName("A path with values is cut before the first one, so a folder the user named never gets in")
+    void pathWithValuesIsCut() {
+        assertThat(routeOf("/mail/7/Canary%20Lawyer%204417/0123abcd")).isEqualTo("/mail");
+        assertThat(routeOf("/settings/accounts/12")).isEqualTo("/settings/accounts");
+        assertThat(routeOf("/search/3?q=lawyer")).isEqualTo("/search");
+        assertThat(routeOf("not-a-path")).isNull();
+    }
+
+    private static String routeOf(String route) {
+        ClientBootDiagnosticsService service = new ClientBootDiagnosticsService();
+        service.update(
+                new ClientBootDiagnosticsRequest("2026-09-27T10:00:00Z", "ready", "none", Map.of(), null, null, route));
+        return service.latest().route();
+    }
 }
