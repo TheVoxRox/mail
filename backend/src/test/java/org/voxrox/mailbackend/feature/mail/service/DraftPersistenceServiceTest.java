@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -21,6 +22,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -32,8 +34,10 @@ import org.voxrox.mailbackend.feature.account.service.AccountService;
 import org.voxrox.mailbackend.feature.mail.dto.DraftRequest;
 import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
 import org.voxrox.mailbackend.feature.mail.dto.MailRequest;
+import org.voxrox.mailbackend.feature.mail.entity.DraftRecipientsEntity;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 import org.voxrox.mailbackend.feature.mail.mapper.MessageMapper;
+import org.voxrox.mailbackend.feature.mail.repository.DraftRecipientsRepository;
 
 /**
  * Unit tests for {@link DraftPersistenceService} — the draft-message lifecycle
@@ -74,6 +78,8 @@ class DraftPersistenceServiceTest {
     private MessageMapper messageMapper;
     @Mock
     private AccountRepository accountRepository;
+    @Mock
+    private DraftRecipientsRepository draftRecipientsRepository;
 
     @InjectMocks
     private DraftPersistenceService service;
@@ -149,6 +155,8 @@ class DraftPersistenceServiceTest {
 
             verify(imapActionService).hardDelete(ACCOUNT_ID, "Drafts", 100L);
             verify(messageService).deleteByStableId(STABLE_ID);
+            // The replaced revision's typed recipients go with it (B1-5).
+            verify(draftRecipientsRepository).deleteById(STABLE_ID);
             // Conditional clear scoped to send-pipeline codes — a successful draft
             // save must not wipe a standing sync error (shared last_error slot).
             verify(accountRepository).clearLastErrorIfCodeIn(eq(ACCOUNT_ID), any());
@@ -240,6 +248,10 @@ class DraftPersistenceServiceTest {
                     new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null, IDENTITY);
 
             verify(messageService).insertIfAbsent(mapped);
+            // Kept although the row holds what the user typed: the sync rewrites the row
+            // from the server's copy whenever the server presents the draft anew (B1-5).
+            verify(draftRecipientsRepository).save(any());
+            verify(draftRecipientsRepository, never()).deleteById(any());
         }
 
         @Test
@@ -262,20 +274,77 @@ class DraftPersistenceServiceTest {
         }
 
         @Test
-        @DisplayName("Append without APPENDUID -> no local row (defers to the next sync)")
-        void appendWithoutUidSkipsUpsert() throws Exception {
+        @DisplayName("Append without APPENDUID -> no local row, the typed recipients kept (B1-5)")
+        void appendWithoutUidKeepsTheTypedRecipients() throws Exception {
+            savesWithoutAppendUid();
+
+            service.saveDraftAsync(ACCOUNT_ID, new DraftRequest("to@example.com", "cc@example.com", "bcc@example.com",
+                    "subj", "body", null, null, null), null, IDENTITY);
+
+            verify(messageService, never()).insertIfAbsent(any());
+            verifyNoInteractions(messageMapper);
+            ArgumentCaptor<DraftRecipientsEntity> kept = ArgumentCaptor.forClass(DraftRecipientsEntity.class);
+            verify(draftRecipientsRepository).save(kept.capture());
+            assertThat(kept.getValue().getStableId()).isEqualTo(IDENTITY.stableId());
+            assertThat(kept.getValue().getRecipientsTo()).isEqualTo("to@example.com");
+            assertThat(kept.getValue().getRecipientsCc()).isEqualTo("cc@example.com");
+            assertThat(kept.getValue().getRecipientsBcc()).isEqualTo("bcc@example.com");
+            verify(draftRecipientsRepository, never()).deleteById(any());
+        }
+
+        /**
+         * Once the server holds the draft it can announce it, and a sync can give it a
+         * row before the append even returns; an entry written after the append leaves
+         * a window in which the draft can be sent with nothing to check it against.
+         */
+        @Test
+        @DisplayName("The typed recipients are kept before the append, not after it (B1-5)")
+        void recipientsAreKeptBeforeTheAppend() throws Exception {
+            savesWithoutAppendUid();
+
+            service.saveDraftAsync(ACCOUNT_ID,
+                    new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null, IDENTITY);
+
+            InOrder order = inOrder(draftRecipientsRepository, appendService);
+            order.verify(draftRecipientsRepository).save(any());
+            order.verify(appendService).appendDraft(eq(ACCOUNT_ID), eq(IDENTITY.draftsFolder()), any());
+        }
+
+        @Test
+        @DisplayName("Keeping recipients drops the account's week-old entries whose draft has no row")
+        void keepingRecipientsDropsOrphanedEntries() throws Exception {
+            savesWithoutAppendUid();
+            LocalDateTime before = LocalDateTime.now();
+
+            service.saveDraftAsync(ACCOUNT_ID,
+                    new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null, IDENTITY);
+
+            ArgumentCaptor<LocalDateTime> cutoff = ArgumentCaptor.forClass(LocalDateTime.class);
+            verify(draftRecipientsRepository).deleteOrphansSavedBefore(eq(ACCOUNT_ID), cutoff.capture());
+            assertThat(cutoff.getValue()).isBetween(before.minusDays(7), LocalDateTime.now().minusDays(7));
+        }
+
+        @Test
+        @DisplayName("Recipients that cannot be kept cost the check, not the save")
+        void failingToKeepRecipientsDoesNotFailTheSave() throws Exception {
+            savesWithoutAppendUid();
+            when(draftRecipientsRepository.save(any())).thenThrow(new RuntimeException("database is locked"));
+
+            service.saveDraftAsync(ACCOUNT_ID,
+                    new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null, IDENTITY);
+
+            verify(accountRepository).clearLastErrorIfCodeIn(eq(ACCOUNT_ID), any());
+            verify(accountRepository, never()).updateLastError(anyLong(), any(AccountLastError.class),
+                    any(LocalDateTime.class));
+        }
+
+        private void savesWithoutAppendUid() throws Exception {
             AccountEntity account = new AccountEntity();
             account.setId(ACCOUNT_ID);
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
             when(mimeMessageBuilder.build(any(), any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
             when(appendService.appendDraft(eq(ACCOUNT_ID), eq(IDENTITY.draftsFolder()), any()))
                     .thenReturn(new ImapAppendService.DraftAppendOutcome(true, null, null));
-
-            service.saveDraftAsync(ACCOUNT_ID,
-                    new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null, IDENTITY);
-
-            verify(messageService, never()).insertIfAbsent(any());
-            verifyNoInteractions(messageMapper);
         }
     }
 
@@ -304,6 +373,7 @@ class DraftPersistenceServiceTest {
 
             verify(imapActionService).hardDelete(ACCOUNT_ID, "Drafts", 100L);
             verify(messageService).deleteByStableId(STABLE_ID);
+            verify(draftRecipientsRepository).deleteById(STABLE_ID);
         }
 
         @Test

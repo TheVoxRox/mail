@@ -17,9 +17,11 @@ import org.voxrox.mailbackend.feature.mail.dto.AttachmentResponse;
 import org.voxrox.mailbackend.feature.mail.dto.DraftRequest;
 import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
 import org.voxrox.mailbackend.feature.mail.dto.MailRequest;
+import org.voxrox.mailbackend.feature.mail.entity.DraftRecipientsEntity;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 import org.voxrox.mailbackend.feature.mail.mapper.MessageMapper;
 import org.voxrox.mailbackend.feature.mail.mapper.MessageStableId;
+import org.voxrox.mailbackend.feature.mail.repository.DraftRecipientsRepository;
 import org.voxrox.mailbackend.util.AuditLog;
 import org.voxrox.mailbackend.util.LogCategory;
 import org.voxrox.mailbackend.util.MimePartExtractor;
@@ -53,10 +55,18 @@ public class DraftPersistenceService {
     private final MimeMessageBuilder mimeMessageBuilder;
     private final MessageMapper messageMapper;
     private final AccountRepository accountRepository;
+    private final DraftRecipientsRepository draftRecipientsRepository;
+
+    /**
+     * The age past which a typed-recipients entry whose draft has no row is dropped
+     * by the account's next save (see {@link #keepTypedRecipients}).
+     */
+    private static final Duration DRAFT_RECIPIENTS_TTL = Duration.ofDays(7);
 
     public DraftPersistenceService(AccountService accountService, ImapFolderService imapFolderService,
             MessageService messageService, ImapActionService imapActionService, ImapAppendService appendService,
-            MimeMessageBuilder mimeMessageBuilder, MessageMapper messageMapper, AccountRepository accountRepository) {
+            MimeMessageBuilder mimeMessageBuilder, MessageMapper messageMapper, AccountRepository accountRepository,
+            DraftRecipientsRepository draftRecipientsRepository) {
         this.accountService = accountService;
         this.imapFolderService = imapFolderService;
         this.messageService = messageService;
@@ -65,6 +75,7 @@ public class DraftPersistenceService {
         this.mimeMessageBuilder = mimeMessageBuilder;
         this.messageMapper = messageMapper;
         this.accountRepository = accountRepository;
+        this.draftRecipientsRepository = draftRecipientsRepository;
     }
 
     /**
@@ -162,6 +173,7 @@ public class DraftPersistenceService {
                 try {
                     imapActionService.hardDelete(accountId, oldFolder, oldUid);
                     messageService.deleteByStableId(replacesStableId);
+                    forgetTypedRecipients(replacesStableId);
                 } catch (Exception cleanupEx) {
                     log.warn("{} Failed to delete previous draft revision {} (UID {} in {}): {}", LogCategory.SMTP,
                             replacesStableId, oldUid, oldFolder, cleanupEx.getMessage());
@@ -210,6 +222,7 @@ public class DraftPersistenceService {
         message.saveChanges();
         message.setHeader("Message-ID", identity.messageId());
 
+        keepTypedRecipients(account, identity, request);
         var appendOutcome = appendService.appendDraft(account.getId(), identity.draftsFolder(), message);
         if (appendOutcome.appended()) {
             upsertLocalDraftRow(account, identity, request, message, appendOutcome);
@@ -279,6 +292,7 @@ public class DraftPersistenceService {
             }
             imapActionService.hardDelete(accountId, draft.getFolderName(), draft.getUid());
             messageService.deleteByStableId(stableId);
+            forgetTypedRecipients(stableId);
         } catch (Exception e) {
             log.warn("{} Failed to delete superseded draft {} after a successful send: {}", LogCategory.SMTP, stableId,
                     e.getMessage());
@@ -355,6 +369,57 @@ public class DraftPersistenceService {
         } catch (Exception e) {
             log.warn("{} Failed to upsert the local row for draft {} — it appears with the next sync instead: {}",
                     LogCategory.SMTP, identity.stableId(), e.getMessage());
+        }
+    }
+
+    /**
+     * Keeps what the user addressed the draft to, for {@code SmtpMessageService} to
+     * check the server's copy against when the draft is sent untouched. The draft's
+     * row cannot serve: the sync writes it from the server's copy whenever it
+     * creates it — without APPENDUID, after a UIDVALIDITY change, or when the
+     * server expunges the draft and presents it again under a new UID — and the
+     * check would then compare the server against itself (B1-5).
+     *
+     * <p>
+     * Written before the append, not after it: once the server holds the draft it
+     * can announce it and a send can follow at once. Best-effort like the row: a
+     * failure here costs this draft the check against what was typed, not the save.
+     * The account's entries older than {@link #DRAFT_RECIPIENTS_TTL} whose draft
+     * has no row go at the same time.
+     */
+    private void keepTypedRecipients(AccountEntity account, DraftIdentity identity, DraftRequest request) {
+        try {
+            LocalDateTime now = LocalDateTime.now();
+            draftRecipientsRepository.deleteOrphansSavedBefore(account.getId(), now.minus(DRAFT_RECIPIENTS_TTL));
+            draftRecipientsRepository.save(new DraftRecipientsEntity(identity.stableId(), account, request.to(),
+                    request.cc(), request.bcc(), now));
+        } catch (Exception e) {
+            log.warn("{} Could not keep the recipients of draft {}; sending it untouched checks the row instead: {}",
+                    LogCategory.SMTP, identity.stableId(), e.getMessage());
+        }
+    }
+
+    /**
+     * What the user addressed a draft saved here to, as
+     * {@link #keepTypedRecipients} kept it; empty for a draft composed in another
+     * client, or saved before the entry could be written.
+     */
+    public Optional<DraftRecipientsEntity> typedRecipients(String stableId) {
+        return draftRecipientsRepository.findById(stableId);
+    }
+
+    /**
+     * Drops the typed recipients of a draft this client has just deleted or sent.
+     * Every autosave deletes the revision it replaces, so this keeps the entries to
+     * about one per draft; what it misses has no row and goes with the next save
+     * once it is {@link #DRAFT_RECIPIENTS_TTL} old.
+     */
+    public void forgetTypedRecipients(String stableId) {
+        try {
+            draftRecipientsRepository.deleteById(stableId);
+        } catch (Exception e) {
+            log.debug("{} Could not drop the kept recipients of draft {}; the next save drops them: {}",
+                    LogCategory.SMTP, stableId, e.getMessage());
         }
     }
 

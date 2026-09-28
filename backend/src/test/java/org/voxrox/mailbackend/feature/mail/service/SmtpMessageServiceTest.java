@@ -46,6 +46,7 @@ import org.voxrox.mailbackend.feature.auth.dto.AuthType;
 import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
 import org.voxrox.mailbackend.feature.mail.dto.MailRequest;
 import org.voxrox.mailbackend.feature.mail.dto.SendNotification;
+import org.voxrox.mailbackend.feature.mail.entity.DraftRecipientsEntity;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 
 /**
@@ -510,6 +511,43 @@ class SmtpMessageServiceTest {
 
             verify(transport).sendMessage(any(), any());
             verify(accountRepository, never()).updateLastError(anyLong(), any(), any(LocalDateTime.class));
+        }
+
+        /**
+         * B1-5. The row of a draft saved here is the sync's whenever the server makes
+         * the sync create it — no APPENDUID, a UIDVALIDITY change, the draft presented
+         * under a new UID — and then carries the server's Bcc as well.
+         */
+        @Test
+        @DisplayName("A draft saved here is checked against what the user typed, not against a row the sync wrote")
+        void draftSavedHereIsCheckedAgainstTheTypedRecipients() throws Exception {
+            MessageEntity rowFromServer = storedDraft("to@example.com", null, "eavesdropper@example.test");
+            when(draftPersistenceService.typedRecipients(STABLE_ID))
+                    .thenReturn(Optional.of(new DraftRecipientsEntity(STABLE_ID, rowFromServer.getAccount(),
+                            "to@example.com", null, null, LocalDateTime.now())));
+
+            Transport transport = sendWith(rowFromServer,
+                    serverCopy("to@example.com", null, "eavesdropper@example.test"));
+
+            verify(transport, never()).sendMessage(any(), any());
+            verify(accountRepository).updateLastError(eq(ACCOUNT_ID),
+                    argThat(error -> error.code() == AccountLastErrorCode.DRAFT_CHANGED_ON_SERVER),
+                    any(LocalDateTime.class));
+            verify(draftPersistenceService, never()).forgetTypedRecipients(any());
+        }
+
+        @Test
+        @DisplayName("A draft saved here whose copy names what the user typed sends, and its kept recipients go")
+        void draftSavedHereMatchingTheTypedRecipientsSends() throws Exception {
+            MessageEntity draft = storedDraft("to@example.com", null, null);
+            when(draftPersistenceService.typedRecipients(STABLE_ID))
+                    .thenReturn(Optional.of(new DraftRecipientsEntity(STABLE_ID, draft.getAccount(), "to@example.com",
+                            null, null, LocalDateTime.now())));
+
+            Transport transport = sendWith(draft, serverCopy("to@example.com", null, null));
+
+            verify(transport).sendMessage(any(), any());
+            verify(draftPersistenceService).forgetTypedRecipients(STABLE_ID);
         }
     }
 
