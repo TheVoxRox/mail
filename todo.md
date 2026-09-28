@@ -80,6 +80,19 @@ Nezavisly overovaci pruchod re-verifikace ([docs/IMAP_SMTP_AUDIT.md](docs/IMAP_S
 
 ---
 
+## Nalezy z preovereni auditu IMAP/SMTP 1.16 (2026-09-27)
+
+Preovereni [docs/IMAP_SMTP_AUDIT.md](docs/IMAP_SMTP_AUDIT.md) proti `f6ae132` zmenilo verdikt z PASS na otevrene nalezy; vsech sest nasel nezavisly pruchod: B1-8, B1-9 a B1-10 merenim proti nepratelskemu serveru, B1-5, B1-11 a B1-12 ctenim kodu. Kazda oprava je samostatne PR s potvrzenim v [docs/audit-freshness.json](docs/audit-freshness.json) a zvysenim verze auditu.
+
+- [ ] **B1-10 (Medium)** — Angus parsuje `BODYSTRUCTURE` rekurzi bez meze; `StackOverflowError` projde vsemi handlery az po interceptor `@Async`, ktery ji jen zaloguje, a sync skonci v kazdem cyklu, nic nezapise. Audit §4j.
+- [ ] **B1-8 (Medium)** — limity jsou na odpoved, ale Angus drzi vsechny odpovedi prikazu do jeho konce: 60x VANISHED (EARLIER) = 499 MB; vlastni vypis `UID FETCH 1:* (UID)` drzi 308 B na zpravu (500k = 154 MB), kazdy cyklus bez resynchronizujiciho SELECT na serveru s CONDSTORE nebo QRESYNC (vzdy na CONDSTORE bez QRESYNC). Rozpocet na prikaz + vypis UID bez sbirani odpovedi. Audit §4h.
+- [ ] **B1-9 (Medium)** — lazy stranka stahuje cely rozsah najednou (2M pozic = 394 MB pred FETCH). Rozhodnuto 2026-09-27: strankovani jen do `local-window-limit` (10 000), na posledni strance poznamka „Starsi zpravy jsou jen na serveru", pocet ve slozce zustava serverovy, stahovani po davkach. Audit §4i.
+- [ ] **B1-5 znovu otevreno (Medium)** — kontrola prijemcu plati pro koncept psany tady jen s APPENDUID; bez nej radek zapise sync z kopie serveru. Audit §4e.
+- [ ] **B1-11 (Low)** — `MessageEntity.getFromEmailOnly` spadne na `>` pred prvnim `<`; zpravu nejde otevrit. Audit §4k.
+- [ ] **B1-12 (Medium)** — hledani casti prilohy nacte textovou cast na ceste (i telo jednodilne textove zpravy) celou do pameti (`getContent()`). Audit §4l.
+
+---
+
 ## Navazujici ukoly z preovereni auditu B3 1.8 (2026-09-27)
 
 Preovereni [docs/API_SURFACE_AUDIT.md](docs/API_SURFACE_AUDIT.md) proti `55fdd1b` nechalo verdikt PASS a zapsalo tyto veci jako informativni poznamky (§4, §7) a v popisu metody. Bezpecnostne nic z toho neni nalez; jde o spravny stav, cisty log a srozumitelnou hlasku. Oprava kodu pod `Code paths` auditu znamena potvrzeni v [docs/audit-freshness.json](docs/audit-freshness.json) nebo preovereni.

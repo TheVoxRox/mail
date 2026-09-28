@@ -1,15 +1,15 @@
 # VoxRox Mail — IMAP/SMTP Protocol Layer Audit
 
-|                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.15                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| **Date**           | 2026-09-23                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| **Audited commit** | `6224cbb` (re-verified 2026-09-22, clearing six acknowledgements; 1.7–1.8 anchor `9435e56`, re-verified 2026-09-16; 1.6 anchor `02ff962`, recorded pre-squash as `f5b75ad`; 1.5 anchor `885b98a`, re-verified 2026-09-02 at the ledger cap; 1.3–1.4 anchor `cad05cb`, recorded pre-squash as `3ff0c78`; 1.0–1.2 baseline: `35a06f3`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service`, `backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java`, `backend/src/main/java/org/voxrox/mailbackend/util/SubjectNormalizer.java`, `backend/src/main/java/org/voxrox/mailbackend/core/config/mail`, `backend/src/main/java/org/voxrox/mailbackend/core/config/RetryConfig.java`, `backend/src/main/resources/application.properties`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/MessageRepository.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/MessageEntity.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/FolderSyncStateEntity.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/mapper/MessageMapper.java`                          |
-| **Auditor**        | Claude (Fable 5; 1.9 re-verified by Claude Opus 5) + owner review                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| **Subsystem**      | External mail server ↔ sidecar — Boundary 1 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| **Verdict**        | **Security: PASS** — no open findings. Fixed in code: **B1-6** (Low, IMAP bounded reads and connects but not writes, 2026-09-23, §4f), **B1-5** (Medium, sending an untouched draft trusted and buffered the server's copy, 2026-09-22, §4e — with a residual: the body and headers of a draft composed in another client are bounded but still unverified), **B1-7** (Medium, a declared literal size was allocated before a byte arrived, found at 1.11, fixed 2026-09-22, §4g), **B1-3** (Medium, a server-stated size exhausted the heap before our code ran, 2026-09-22, §4c), **B1-4** (High, IMAP password login without TLS when SSL was off, 2026-09-22, §4d), **B1-1** (Medium, unbounded body fetch, 2026-07-10, §4) and **B1-2** (Medium, quadratic subject normalization, 2026-08-08, §4b). Informational notes in §5. |
+|                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Version**        | 1.16                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **Date**           | 2026-09-27                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| **Audited commit** | `f6ae132` (re-verified 2026-09-27, clearing seven acknowledgements; 1.9–1.15 anchor `6224cbb`, re-verified 2026-09-22, clearing six acknowledgements; 1.7–1.8 anchor `9435e56`, re-verified 2026-09-16; 1.6 anchor `02ff962`, recorded pre-squash as `f5b75ad`; 1.5 anchor `885b98a`, re-verified 2026-09-02 at the ledger cap; 1.3–1.4 anchor `cad05cb`, recorded pre-squash as `3ff0c78`; 1.0–1.2 baseline: `35a06f3`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service`, `backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java`, `backend/src/main/java/org/voxrox/mailbackend/util/SubjectNormalizer.java`, `backend/src/main/java/org/voxrox/mailbackend/util/HeaderAddresses.java`, `backend/src/main/java/org/voxrox/mailbackend/core/config/mail`, `backend/src/main/java/org/voxrox/mailbackend/core/config/RetryConfig.java`, `backend/src/main/resources/application.properties`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/MessageRepository.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/MessageEntity.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/FolderSyncStateEntity.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/mapper/MessageMapper.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto/FolderRole.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/FolderSyncStateRepository.java`                                                                                                                                                                                                                      |
+| **Auditor**        | Claude (Fable 5; 1.9 re-verified by Claude Opus 5, 1.16 by Claude Opus 5.5) + owner review                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| **Subsystem**      | External mail server ↔ sidecar — Boundary 1 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| **Verdict**        | **Security: open findings** — six, all found by the 1.16 verification pass: **B1-8** (Medium, every bound is per response while Angus holds a whole command's responses, §4h), **B1-9** (Medium, the lazy page fetch allocates for every position down to the page, §4i), **B1-10** (Medium, Angus parses a BODYSTRUCTURE by unbounded recursion, §4j), **B1-12** (Medium, the attachment lookup reads a text part on the path whole into memory on download, §4l), **B1-5** (Medium, reopened: without APPENDUID the comparison checks the server's copy against itself, §4e), and **B1-11** (Low, a sender label with `>` before `<` breaks opening the message, §4k). Fixed in code: **B1-6** (Low, IMAP bounded reads and connects but not writes, 2026-09-23, §4f), **B1-7** (Medium, a declared literal size was allocated before a byte arrived, found at 1.11, fixed 2026-09-22, §4g), **B1-3** (Medium, a server-stated size exhausted the heap before our code ran, 2026-09-22, §4c — per response; what a command adds up to is B1-8), **B1-4** (High, IMAP password login without TLS when SSL was off, 2026-09-22, §4d), **B1-1** (Medium, unbounded body fetch, 2026-07-10, §4) and **B1-2** (Medium, quadratic subject normalization, 2026-08-08, §4b). Informational notes in §5. |
 
 Full per-subsystem audit of the path **"raw IMAP/SMTP wire → parsed → stored /
 sent"**. After the mail body (Boundary 4), this is the second-largest
@@ -23,15 +23,19 @@ header). Enumeration anchor — the mail service classes:
 plus the classes that pattern misses and the audit covers: `ThreadingService`,
 `SubjectNormalizer`, `RemoteImageAllowlistService`, `MarkdownBodyRenderer`,
 `AttachmentService` and `DraftPersistenceService` (listed at 1.9, after the
-verification pass found the pattern alone does not reach them).
+verification pass found the pattern alone does not reach them), and
+`HeaderAddresses`, `ThreadingBackfillService` and `UidEnumerationSchedule`
+(listed at 1.16, for the same reason).
 Method was static-only at 1.0; since 1.2 the fetch → parse → persist path also
 has a dynamic hostile-content harness (`MailContentGreenMailIT`, see §4) —
 transport/TLS and SMTP-send claims remain static-plus-unit-tests, see
 [AUDIT_GUIDE.md](AUDIT_GUIDE.md). For the IMAP store that was thinner still until
 1.10: its `checkserveridentity`, `partialfetch` and timeout pins had no unit
 test (the probe's and the SMTP factory's did). Since the B1-4 fix its TLS
-settings are unit-tested on both paths, and every GreenMail IT connects over
-IMAPS with a certificate naming `127.0.0.1` (`TestTls`), so the accepting half
+settings are unit-tested on both paths, and every GreenMail IT but one connects over
+IMAPS with a certificate naming `127.0.0.1` (`TestTls`) — the exception is
+`ImapStartTlsRequiredGreenMailIT`, which uses plain IMAP by design, to prove a
+server without STARTTLS is refused (1.10–1.15 said "every") — so the accepting half
 of the identity pin now runs on every sync IT; the rejecting half — a
 certificate for another name — has no dynamic test. Three narrower claims have gained dynamic cover since 1.7, and cover
 only what they exercise: `SyncConnectionFaultGreenMailIT` shows a network that
@@ -49,6 +53,28 @@ without the author's context, which re-checked every claim against the tree
 and disassembled the Angus 2.0.5 jar where a claim rested on library
 behaviour. The second pass found the four open findings and most of the
 corrections listed in the 1.9 change-log entry.
+**Verification at 1.16** was done the same way, and the separate agent went
+further than reading: it ran throwaway tests against a hostile server written
+for them and measured what the heap and the stack do. All six open findings
+are its, and so are most of the corrections in the 1.16 change-log entry.
+
+`Code paths` covers the classes the sections trace. What else they cite is
+knowingly left out, because it changes often for reasons that rarely touch
+this boundary and would run the acknowledgement cap down:
+
+- `backend/pom.xml`, which decides the Angus version (2.0.5, through the Spring
+  Boot parent). §4c, §4g and §4h–§4j rest on Angus internals read from its
+  bytecode, so a different version invalidates them; the version is named
+  wherever a claim depends on it.
+- `backend/scripts/package-sidecar-windows.ps1`, which sets the packaged heap
+  (`-Xmx384m`) and `-XX:+ExitOnOutOfMemoryError`, the numbers §4, §4b, §4c and
+  §4h–§4i price against.
+- `MailReadController` and `DraftController`, whose `@Min(0)` is the only
+  bound on a listing's page number (§4i); both are B3's to trace
+  ([API_SURFACE_AUDIT.md](API_SURFACE_AUDIT.md)).
+- `CorrespondentService`, which harvests addresses from the stored headers for
+  the compose typeahead (§3), and the client's `ComposeForm.svelte`, whose
+  choice of the as-is send path for an untouched draft §4e rests on.
 
 ## 1. Transport & authentication (confirmed)
 
@@ -131,7 +157,14 @@ corrections listed in the 1.9 change-log entry.
   server-paced operation and adds no IMAP command. An unresolvable role is
   still indistinguishable from a busy one at the call site, which is a
   correctness consideration, not a security one — no trust decision keys off a
-  folder role.
+  folder role. A destructive one does, though: the trash's role decides where
+  a deleted message goes and that deleting one already there expunges it,
+  Sent's where a sent copy is appended, and Drafts' whether a message may be
+  hard-deleted as the draft a save or a send replaces
+  (`DraftPersistenceService.isReplaceableDraft`). A role on the wrong folder
+  therefore costs mail rather than trust; see §5 for how a user's own folder
+  could get one until 1.16 (corrected at 1.16; 1.5–1.15 stopped at "no trust
+  decision").
 - **A refused second connection degrades, it does not retry blindly.** When an
   interactive connect fails, the action re-runs on the background lane — after
   the interactive lock is released, never while it is held — and the lane is
@@ -167,17 +200,24 @@ corrections listed in the 1.9 change-log entry.
   the same reason: this claim rests on it, and the freshness check could not
   see it change. There is a **second retry layer** above this one, which 1.0–1.8
   did not mention: `MailSyncService.runFolderCycle` re-runs a whole folder
-  cycle after an SSL or I/O error (`TransientMailErrors`), up to the same
-  `max-attempts`. It fails closed the same way — each run repeats the same
-  handshake — and adds cycles, not trust.
+  cycle after an error `TransientMailErrors` counts as transient, up to the
+  same `max-attempts`: an SSL or I/O error, an unknown host, a store or folder
+  the server closed, or Angus's "failed to create new store connection"
+  (1.9–1.15 said "an SSL or I/O error"). It fails closed the same way — each
+  run repeats the same handshake — and adds cycles, not trust.
 
-## 2. Fetch → parse → persist pipeline (confirmed, except B1-3)
+## 2. Fetch → parse → persist pipeline (confirmed, except B1-8, B1-9 and B1-10)
 
 - **List sync fetches metadata only.**
   [MessageFetcher.fetchBatch](../backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MessageFetcher.java)
   uses a `FetchProfile` of ENVELOPE + UID + FLAGS + CONTENT_INFO + the three
   threading headers — **not** the body. Bodies are fetched lazily on message
   open (§4), so a sync over a large mailbox never buffers bodies.
+- **A listing page below the mirror is downloaded by the request.** The sync
+  keeps a window of recent mail; a page older than that is fetched when the
+  user asks for it (`MailSyncService.lazyFetchPageRange`), and, unlike the
+  other download paths, in one range from the mirror's edge down to the page —
+  finding **B1-9** (§4i, added at 1.16).
 - **Malformed structure fails soft, per message.** A bad `BODYSTRUCTURE`
   (observed from Seznam) is caught — including `RuntimeException` — and the
   message is persisted as an **envelope-only stub** (no body, no attachments);
@@ -186,14 +226,22 @@ corrections listed in the 1.9 change-log entry.
   `RuntimeException` catch is the MIME walk's; the per-message catch around it
   takes only `MessagingException` and `IOException` (skip and continue), and a
   failed batch `folder.fetch` drops the whole batch (precision added at 1.9).
+  All of that is downstream of Angus's own parse of the `BODYSTRUCTURE`,
+  which happens while the FETCH response is read and is not covered by any of
+  it: a structure nested deeply enough overflows the stack there, and the
+  `StackOverflowError` passes every catch on the way but Spring's `@Async`
+  interceptor, which only logs it — finding **B1-10**
+  (§4j, added at 1.16).
 - **MIME parsing is depth-bounded.** Every recursive walk
   ([MimePartExtractor](../backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java):
   body, inline images, attachment metadata, has-attachments) is capped at
   `MAX_DEPTH = 20`; a `Content-Type: multipart/*` whose content is not actually
   a `Multipart` degrades to empty instead of throwing a `ClassCastException`.
-  One MIME walk outside the extractor is **not** under that bound:
+  Two MIME walks outside the extractor are **not** under that bound:
   `AttachmentService.findPartByPath`, whose `message/rfc822` unwrap consumes no
-  path segment (§5).
+  path segment (§5), and Angus's `BODYSTRUCTURE` parser, which recurses once
+  per level of the structure the server reports (B1-10, §4j; 1.9–1.15 named
+  only the first).
 - **Inline images are strictly bounded.** Only `cid:`-referenced, raster
   subtypes are read, each via `readBounded` (reads `cap+1` bytes to detect and
   skip an oversize part without buffering it whole), with a 2 MiB per-image and
@@ -216,7 +264,9 @@ corrections listed in the 1.9 change-log entry.
   expands the server's range before our code sees the event, and a single
   short range exhausts the heap — finding **B1-3** (§4c), fixed at 1.11 by a
   check on every response ahead of Angus, with the delete now streaming the
-  UIDs into batches, clamped to the folder's local UID range.
+  UIDs into batches, clamped to the folder's local UID range. The check is per
+  response, and one SELECT can carry any number of them: finding **B1-8**
+  (§4h, added at 1.16).
 - **A folder without a QRESYNC baseline opens with CONDSTORE, and the server
   picks the modseq it is asked from next time** (carried up at 1.9 from the
   ledger). `ImapFolderExecutor.executeReadOnlyResynced` opens QRESYNC when
@@ -264,11 +314,13 @@ corrections listed in the 1.9 change-log entry.
 - **Measured while writing that test:** `MAX_DEPTH` bounds _work_, not stack. A
   copy of the extractor with the depth guard removed walks 100, 1000 and 3000
   levels of nesting and still returns the body, so a `StackOverflowError`
-  escaping into the sync is not the failure mode the bound prevents. An earlier
+  escaping into the sync is not the failure mode the bound prevents. One does
+  escape into the sync, from Angus's parse of the `BODYSTRUCTURE` rather than
+  from this walk (B1-10, §4j; 1.4–1.15 read this bullet as ruling it out). An earlier
   version of the test asserted no `Error` escapes and was deleted once that
   measurement showed it could not fail.
 
-## 3. Header handling & threading (confirmed)
+## 3. Header handling & threading (confirmed, except B1-11)
 
 - **`From` is display-formatted, never trusted.** `formatAddress` decodes the
   personal part and builds a `"Personal <email>"` label. Headers flow into the
@@ -289,6 +341,10 @@ corrections listed in the 1.9 change-log entry.
   reports as `senderEmail` — not the real sender. "The one security-load path"
   is too narrow as well: the same address feeds the reply target and the
   autocomplete history (`CorrespondentService`). See §5 for the severity.
+  The recovery also throws when the label has a `>` before its first `<`
+  (`"Shop > News" <x@y>`): the substring's end comes before its start, and
+  opening the message fails every time — finding **B1-11** (§4k, added at
+  1.16).
 - **Subject now participates in threading — bounded, marker-gated.** Versions
   1.0–1.2 recorded that subject clustering was deliberately skipped. That is no
   longer true: #221 added a subject fallback
@@ -568,10 +624,16 @@ priced per connection, with compressed pointers:
 
 An account holds three such connections at once: a move's source and
 destination on the `BACKGROUND` Store, and a body fetch on the `INTERACTIVE`
-one. So one server can take at most 72 MB, under a fifth of the heap. That is
-also less than the sync's own UID listing takes for an honest CONDSTORE folder
-of that size. The first version of the fix allowed 10,000,000, priced as
-40 MB for the SELECT alone, which let one server take 240 MB.
+one. So the arrays a server's EXISTS counts size on its connections take at
+most 72 MB, under a fifth of the heap — the arrays, not the `IMAPMessage`
+objects a caller then asks the cache for, which §4i prices at 197 bytes each. The first version of the fix allowed 10,000,000,
+priced as 40 MB for the SELECT alone, which let one server take 240 MB.
+1.11–1.15 wrote "one server can take at most 72 MB", and that was never
+true: the bounds are per response, Angus holds every response of a command
+until the command ends, and neither the count of those responses nor their
+sum is bounded — finding **B1-8** (§4h). The sentence that followed, that the
+sync's own UID listing of an honest folder that size takes more, was true and
+is part of the same finding.
 
 A refusal is an `IOException`, which Angus turns into a synthetic BYE: the
 command fails with a `ConnectionException`, the connection closes, and the
@@ -616,7 +678,9 @@ the response it checks: B1-7 (§4g), since fixed in the same class.
 until this fix (decided 2026-09-22), since until then a hostile server could
 have turned it into a crash loop; it shipped once this landed, so a heap that
 is exhausted anyway now ends the process — which the client restarts — instead
-of leaving a JVM whose sync thread was killed mid-lane. A packaging step
+of leaving a JVM whose sync thread was killed mid-lane. The premise did not
+hold: B1-8 (§4h) is a route to that crash loop the per-response bounds leave
+open (added at 1.16). A packaging step
 verifies the flag reached the launcher's `.cfg`, and the client names exit 3
 as an out-of-memory stop rather than a failed start.
 
@@ -675,7 +739,7 @@ is the intent; no loopback exception was made (decided 2026-09-22).
 
 **Status: fixed.**
 
-## 4e. Finding B1-5 (Medium) — sending an untouched draft trusts and buffers the server's copy — **FIXED**
+## 4e. Finding B1-5 (Medium) — sending an untouched draft trusts and buffers the server's copy — **REOPENED**
 
 **What.** A draft the user did not edit is sent as the server holds it:
 `ImapAppendService.fetchAndDetachMime` writes the server's message into a
@@ -710,18 +774,39 @@ in `last_error` and broadcast to the client, with the draft left where it is so
 a refusal does not also destroy the only copy of what the user wrote.
 Addresses only: a display name is cosmetic, and a server that rewrites one has
 changed nothing about where the mail goes. Both sides are read as sets through
-`HeaderAddresses.parseValidTokens`, the same tokenizer the send and harvest
-paths use, and lower-cased, so order, duplicates and case do not count.
+`HeaderAddresses.parseValidTokens`, the same tokenizer the draft-save and
+harvest paths use, and lower-cased, so order, duplicates and case do not count.
+(1.14–1.15 said the send path uses it too. The draft-save path does; a send
+parses its recipients with `InternetAddress.parse`, the `STRICT` branch of
+`MimeMessageBuilder`.)
 
 **What the comparison is worth depends on where the draft was written**, and
 the finding is only half closed by it:
 
 - Composed here — `DraftPersistenceService` writes the row from what the user
   typed (`request.to()/cc()/bcc()`), not from a re-read, so this compares the
-  server's copy against the user's own intent.
+  server's copy against the user's own intent. **Only when the server answers
+  the APPEND with an APPENDUID** (RFC 4315): the row needs the UID, and
+  without one `upsertLocalDraftRow` writes nothing and leaves the row to the
+  next sync, which takes it from the server's copy, Bcc included. The draft
+  is then in the case below, although it was written here.
 - Composed in another client — the row comes from the sync, so this compares
   the server's copy now against its copy at the last sync. It catches a change
   made in that window, not one made before this client ever saw the draft.
+
+That condition is the server's to withhold, and withholding it reopens the
+finding (1.16, from the verification pass; 1.14–1.15 stated the first case
+without it). A hostile server leaves out APPENDUID, adds a Bcc to its copy
+before the next sync, and the sync writes the altered recipients into the
+row; the user opens the draft, sends it unedited (`ComposeForm` takes the
+as-is path for an untouched draft), and the comparison checks the server's
+copy against itself. Severity stays **Medium**, the finding's own: the same
+adversary, the same outcome, on a path the fix was written to close.
+**Recommendation:** keep what the user typed independently of the UID —
+write the recipients the save sent with the draft's identity even when no
+APPENDUID comes back, or refuse the as-is send of a draft saved here whose
+row the sync wrote — so a draft composed in this client is compared against
+the user's intent whatever the server answers.
 
 The body and the remaining headers are still the server's on both paths. That
 is the part rebuilding from the row would have closed and this does not; it
@@ -750,7 +835,8 @@ message that writes past it.
 and headers of a draft composed in another client are still taken from the
 server, bounded but unverified.
 
-**Status: fixed**, with the residual above.
+**Status: reopened at 1.16** — the recipient check holds for a draft composed
+here only when the server returns APPENDUID.
 
 ## 4f. Finding B1-6 (Low) — no IMAP write timeout — **FIXED**
 
@@ -855,13 +941,19 @@ reason is the two shapes a literal takes at the top of the `int` range, both
 measured on 2.0.5: a declared size in 2147483603..2147483631 overflows the
 array length inside `grow` (`NegativeArraySizeException`), and 2147483632 and
 up overflow Angus's own "does it fit" test, so it skips the grow and reads past
-the buffer (`IndexOutOfBoundsException`). Neither allocates anything, so the
-bound does not see them — but an unchecked exception crossing `readResponse`
+the buffer (`IndexOutOfBoundsException`). The first shape does reach `grow`,
+and the bounded buffer refuses it there before the overflow can happen
+(`BoundedImapProtocolTest.overflowingIncrementIsRefused`); only the second
+bypasses the bound, since it allocates nothing (1.13–1.15 said neither shape
+reaches it). An unchecked exception crossing `readResponse`
 leaves the connection mid-response in the pool, where the next command would
 read the rest of this one as its own reply, since `ImapFolderExecutor` turns a
 `RuntimeException` into a `MailOperationException` and closes only the folder.
 A genuine parser fault is handled the same way on purpose: the connection's
-state is unknown either way, and the cause is kept for the log.
+state is unknown either way, and the cause is kept for the log. That holds
+for a fault that is a `RuntimeException`. One that is an `Error` is not
+caught, and Angus's `BODYSTRUCTURE` parser raises one — B1-10 (§4j; 1.13–1.15
+said every parser fault).
 
 **Dynamic verification.** `HostileImapResponseIT` gains both shapes over the
 wire — a literal one byte past the bound, and one declared at
@@ -878,6 +970,193 @@ and serves a part larger than 32 MiB in one literal ends the connection instead
 of the message being skipped.
 
 **Status: fixed.**
+
+## 4h. Finding B1-8 (Medium) — every bound is per response, and a command's responses add up — **OPEN**
+
+**What.** Angus's `Protocol.command` collects every response a command
+receives into one list and hands the list back when the tagged completion
+arrives; the caller acts on the responses only then (read from the 2.0.5
+bytecode). B1-3's checks and B1-7's buffer each hold **one** response to a
+bound, so what a command holds at once is bounded by nothing. Two measurements
+at 1.16:
+
+- **Hostile**, by the verification pass. A server that advertises QRESYNC
+  answers a QRESYNC SELECT with 60 lines of `* VANISHED (EARLIER) 1:1000000`
+  (about 2 KB) under a raised UIDNEXT. Each line is inside the 1,000,000 bound.
+  `IMAPFolder.open` expands each into its own `long[]` and
+  `MessageVanishedEvent`, and keeps all of them until it returns: 60,000,000
+  UIDs, **499 MB** retained, against the packaged 384 MB heap. The
+  preconditions are the server's to meet — it advertises QRESYNC, and the
+  folder has a MODSEQ baseline and a local UID range narrower than 1,000,000
+  (`MailSyncService.buildResyncRequest`) — and they are the normal state from
+  a folder's second cycle on, in automatic sync. Nothing about the shape is
+  particular to VANISHED: any response the bounds admit can be repeated, up to
+  32 MiB at a time.
+- **Honest**, by the author. The sync's UID listing, `UID FETCH 1:* (UID)`
+  (`ImapCondstoreCommands.fetchAllServerUids`), gets one response per message
+  in the folder, and all of them are held until the listing ends. Measured
+  over TLS through `BoundedImapStore`: 500,000 messages retained **154 MB**
+  (147 MiB), 308 bytes a response, before the `HashSet<Long>` built from
+  them; the verification pass reproduced it at 154.8 MB. The listing runs on every cycle
+  whose SELECT did not resynchronize, on a server with CONDSTORE or QRESYNC,
+  because then nothing else names deletions
+  (`MailSyncService.syncFlagsAndDeletions`): always on a server with CONDSTORE
+  but not QRESYNC, and on a QRESYNC server whenever a folder cannot be
+  resynchronized — among other cases its first cycle, a folder without a
+  MODSEQ baseline, one whose local UID range spans 1,000,000 or more (§4c), and
+  after a QRESYNC open that failed. After a
+  resynchronizing SELECT it runs hourly, as the hole scan, and on a server with
+  neither capability not at all. At the 2,000,000 the EXISTS bound admits, the
+  listing alone would take about 600 MB, and up to four accounts sync at once
+  (`mail.client.sync.max-concurrent-accounts`).
+
+On the packaged JVM either shape ends in `-XX:+ExitOnOutOfMemoryError`: the
+process exits 3, the client restarts it as a recoverable stop, and the next
+sync pass runs into the same folder — the crash loop §4c's residual held the
+flag back for.
+
+**Severity: Medium** (_DoS_), B1-3's: automatic sync, no user interaction, a
+hostile or compromised server — or, for the listing, an honest folder large
+enough. A restart does not end it: the next pass meets the same folder.
+
+**Recommendation.** A budget per command, besides the bounds per response:
+charge each response read since the last tagged one for its bytes, for a fixed
+share of the objects around them, and for the UIDs a VANISHED names, and
+refuse the command past the budget the way B1-3's refusals close the
+connection. The client's own commands whose answers grow with the folder
+cannot sit under such a budget and should stop collecting: the UID listing
+can read and drop its responses one at a time instead of going through
+`Protocol.command`, so what it costs is the set it builds. The same question
+has to be asked of the other commands that answer per message rather than per
+batch — `CHANGEDSINCE` over `1:*`, and the changed-flag FETCH responses of a
+QRESYNC SELECT. The budget itself is a decision at fix time.
+
+**Status: open.**
+
+## 4i. Finding B1-9 (Medium) — the lazy page fetch allocates for every position down to the page — **OPEN**
+
+**What.** A listing page below the local mirror is downloaded by the request
+that asks for it (`MailFacade.getEmails` → `MailSyncService.lazyFetchPageRange`).
+The range runs from the mirror's lower edge down to the requested page —
+`endSeq = count − localCount`, `startSeq = count − needed + 1`, clamped to 1 —
+and `MessageDownloader.downloadSequenceRange` takes it in a single
+`folder.getMessages(startSeq, endSeq)` and a single `MessageFetcher.fetchBatch`.
+The other download paths work in windows or batches; this one does not. The
+page number is bounded only by `@Min(0)` on the two listing endpoints — the
+folder listing (`MailReadController`) and the drafts listing
+(`DraftController`, through `MailFacade.listDrafts`) — and the flat
+list's last-page button asks for the last page, so one click asks for every
+message between the mirror and the oldest one in the folder. The verification
+pass measured the first step alone, against a server answering
+`* 2000000 EXISTS`, which the B1-3 bound admits: `getMessages(1, 2000000)`
+retained **394 MB**, 197 bytes a message, before a FETCH was sent. The FETCH
+then holds a response per message (B1-8) and the parsed envelopes on top. An
+honest folder takes the same path: its own size sets the range.
+
+What the request downloads is not kept either. `MailboxMaintenanceService`
+prunes a folder back to `mail.client.sync.local-window-limit` (10,000 rows)
+after the next folder cycle, and the page-0 backfill already stops at that
+limit for that reason; the lazy fetch alone ignores it.
+
+**Severity: Medium**, B1-1's shape: a user action, routine in a large folder,
+with the heap as its cost — on the packaged JVM an exit, which the client
+restarts.
+
+**Recommendation.** Never extend the mirror past the local window limit,
+which is as deep as the pruner keeps it, and download the rest in batches of
+the sync size. Decided with the owner at 1.16 (2026-09-27): the listing
+paginates only that deep, its last page says the older mail is on the server
+only, and the folder's message count keeps the server's number.
+
+**Status: open.**
+
+## 4j. Finding B1-10 (Medium) — Angus parses a BODYSTRUCTURE by unbounded recursion — **OPEN**
+
+**What.** The `BODYSTRUCTURE` constructor in Angus 2.0.5 builds the part tree
+by calling itself once per level of nesting, with no limit. The structure is
+the server's description of a message's MIME, so its depth is what the server
+says, and the list sync asks for it in every batch (`CONTENT_INFO` in
+`MessageFetcher`'s `FetchProfile`). Measured by the verification pass: parsed
+in isolation, 5,000 levels (about 50 KB) overflow the stack and 3,000 do not;
+over the wire, an unsolicited `* 1 FETCH (BODYSTRUCTURE …)` of 200,000 levels
+(2,000,061 bytes, well under B1-7's 32 MiB) made `folder.open` throw
+`StackOverflowError` through `BoundedImapStore`, and left the store connected.
+Every handler of ours and of Angus's on the way catches exceptions, not errors:
+`BoundedImapProtocol.readResponse` takes `RuntimeException`, Angus's
+`Protocol.command` `IOException` and `ProtocolException`, `MessageFetcher`
+`MessagingException`, and `ImapFolderExecutor`, the folder cycle and
+`syncAllFolders` `Exception`. The error ends in Spring's `@Async`
+interceptor around the pass, which takes any `Throwable` and only logs it
+(no `AsyncConfigurer`, so `SimpleAsyncUncaughtExceptionHandler`).
+One such message therefore ends the account's sync pass on every cycle,
+before anything is recorded in `last_error` and before the folders after it
+are synced. `-XX:+ExitOnOutOfMemoryError` does not apply: the process stays
+up, and the sync stops.
+
+A hostile or compromised server can send it, and so can any sender whose
+message reaches the recipient's server through a path that accepts MIME
+nested that deeply and whose server then describes it so. Postfix, by
+default, refuses mail nested deeper than 100 levels (`mime_nesting_limit`);
+which other providers cap nesting, and where, was not checked.
+
+**Severity: Medium** (_DoS_): automatic sync, no user interaction, and it
+outlasts a restart, which the rubric's Medium line (_DoS recoverable by
+restart_) does not describe. The rubric has no DoS line above it — High is
+credential exposure or lasting loss of integrity, and nothing is lost here —
+so it stays Medium on B1-3's reasoning, as B1-8 does.
+
+**Recommendation.** Refuse the response before Angus parses it when its
+parentheses nest deeper than a bound (the MIME walks' `MAX_DEPTH` is 20, far
+below any stack limit), or treat an `Error` from the parse the way
+`readResponse` treats a `RuntimeException` and close the connection. Either
+way the sync has to be able to record the folder as failed and go on with the
+next; whether the message itself can then be kept as an envelope-only stub,
+as §2's malformed-structure path does, is a decision at fix time.
+
+**Status: open.**
+
+## 4k. Finding B1-11 (Low) — a sender label with `>` before `<` breaks opening the message — **OPEN**
+
+**What.** `MessageEntity.getFromEmailOnly` recovers the address from the stored
+`Personal <email>` label as the text between the first `<` and the first `>`.
+When the personal part holds a `>` — `From: "Shop > News" <x@y>` — the first
+`>` comes before the first `<`, and `substring` throws
+`StringIndexOutOfBoundsException`. The content endpoint reads the address on
+every open (`MailFacade`), so the message cannot be opened, and a reply to it
+cannot be prefilled (`MailDraftService`). Any sender can choose such a name.
+
+**Severity: Low**: one message, nothing lost, and the sender gains a message
+that will not open. It rests on the same recovery as the §5 note on the `From`
+label, and storing the parsed address instead of recovering it would close
+both.
+
+**Status: open.**
+
+## 4l. Finding B1-12 (Medium) — the attachment lookup reads a text part on the path whole into memory — **OPEN**
+
+**What.** `AttachmentService.findPartByPath` asks each part it descends
+through for its `getContent()` before looking at what it is — the message
+itself, then every part on the path but the one it returns. For a multipart
+that is the `Multipart`, and for most single parts a stream. For a `text/plain`, `text/html` or `text/xml`
+part it is the whole body decoded into a `String`, sized by the server. So a
+message whose only body is text is read into the heap whatever path is asked
+for, before `Files.copy` streams the part a second time from
+`getInputStream()`, and so is a text part the path runs through, and the
+download §5 calls disk-bounded is not. #582 made the body of a single-part
+message downloadable as part 1 — the path the extractor gives an attachment
+that is a whole message's body — but did not add the read: the lookup made
+the same call before #582 and then failed.
+
+**Severity: Medium**, B1-1's shape before its fix: a user action, a body of
+the server's choosing read whole into the heap, which nothing bounds — B1-1's
+8 MiB cap is the extractor's and B1-7's 32 MiB is one response — and on the
+packaged JVM an exit, which the client restarts. B1-9 is Medium on the same
+grounds.
+
+**Recommendation.** Decide from the part's type, and ask for content only
+where it is a multipart or an encapsulated message.
+
+**Status: open.**
 
 ## 5. Informational notes (no change required)
 
@@ -915,7 +1194,10 @@ of the message being skipped.
   buffers the attachment in memory, the file lands in the app's own
   `<data-dir>\tmp` (1.0–1.8 said "the user's own temp dir"), and it is
   unlinked on stream close. Lower impact than B1-1; the same
-  read-cap-and-reject approach would close it if ever desired.
+  read-cap-and-reject approach would close it if ever desired. One lookup
+  step before the copy is not disk-bounded: a text part it descends through,
+  or the body of a single-part text message, it reads whole into memory —
+  B1-12 (§4l, added at 1.16).
 
 - **Attachment part lookup follows `message/rfc822` without a bound** (added
   at 1.9). `AttachmentService.findPartByPath` walks the stored part path, but
@@ -929,8 +1211,35 @@ of the message being skipped.
   target and the reported `senderEmail`. Low: it moves the F2 image-loading
   trade-off onto an address the sender chose, and a prefilled reply is shown
   to the user before it is sent. Quoting the personal part in `formatAddress`,
-  or storing the parsed address separately, would close it.
+  or storing the parsed address separately, would close it. The same recovery
+  throws on a label with a `>` before its first `<`, which is B1-11 (§4k).
 
+- **A role read from a folder's name matches whole names only** (added at
+  1.16). Without SPECIAL-USE, `ImapFolderService` takes a folder's role from its
+  name through `FolderRole.fromNameFallback`, and until #580 any name
+  containing a keyword qualified: "Robinson" contains "bin" and became the
+  trash, where deletes then went, final for a message already in it;
+  "Presentations" became Sent. The name now has to be a known system folder
+  name as a whole (case, diacritics and whitespace aside, below at most one
+  namespace prefix: `INBOX.`, `INBOX/`, `[Gmail]/` or `[Google Mail]/`), and each account pass reconciles the stored
+  roles with the listing in both directions (`SyncStateService.reconcileRoles`,
+  a targeted UPDATE of the role column, so it cannot write back a
+  `last_known_uid` a concurrent cycle advanced). Recorded here, not as a
+  finding: it needed a user's own folder name rather than a hostile server —
+  which can name and mark its folders as it likes anyway — and it was fixed
+  when found. `FolderRole` and `FolderSyncStateRepository` join `Code paths`
+  at 1.16, since this note rests on them.
+- **`ImapFolderExecutor` reads "not found" in any `MessagingException` as a
+  missing folder** (added at 1.16). The executor classifies the exceptions an
+  action throws by their text, and one that says "not found" becomes
+  `ResourceNotFoundException` "Folder '…' was not found on the server",
+  whatever was not found. Until #582 the attachment lookup fed it — a part
+  number past the last part, and a single-part message's body, which the lookup
+  could not find as part 1, both came back as a missing folder. The lookup now
+  reports its own not-found and resolves part 1 as RFC 3501 numbers it; the
+  heuristic itself is unchanged, so another action whose server error happens
+  to say "not found" is still misreported. A correctness concern — the
+  request fails either way, under the wrong name.
 - **UIDVALIDITY is checked per sync cycle, not per operation** (added at 1.9,
   see §3). Low: acting on another message needs the server to renumber the
   mailbox between two cycles — which it can do at will, but only to its own
@@ -945,6 +1254,70 @@ of the message being skipped.
 - [backend/SECURITY_RELEASE_CHECK.md](../backend/SECURITY_RELEASE_CHECK.md) — per-release security gate.
 
 ## 7. Change log
+
+- **1.16** (2026-09-27) — **re-verified against `f6ae132`, clearing all seven
+  acknowledgements; six findings open, B1-5 among them, so the verdict changes
+  from PASS to open findings.** The ledger was at 7 of 8. Every claim was
+  re-read against the code at the new anchor, not only where the paths moved.
+  The version was verified twice, as at 1.9. The author's pass carried up the
+  two acknowledgements the document did not yet hold, since re-verification
+  deletes the ledger: #580 made role detection by name match whole names and
+  made each account pass reconcile stored roles in both directions (§5, new
+  note; §1, whose "no trust decision keys off a folder role" now says which
+  destructive decisions do); #582 made the attachment lookup resolve part 1 of
+  a single-part message and report a missing part as such, which leaves
+  `ImapFolderExecutor`'s "not found" heuristic without that caller but not gone
+  (§5, new note). `FolderRole` and `FolderSyncStateRepository` joined `Code
+paths` for that note. The author found nothing wrong with the five fixes
+  1.10–1.15 recorded and proposed PASS. The separate agent then ran throwaway
+  tests against a hostile server and measured what that text only priced, and
+  refused it:
+  - **B1-8** (Medium, §4h): the bounds of B1-3 and B1-7 hold per response,
+    and Angus keeps every response of a command until the command ends. 60
+    VANISHED (EARLIER) lines of one SELECT retained 499 MB. The author then
+    measured the client's own UID listing at 308 bytes a message held
+    (154 MB for 500,000), on every cycle whose SELECT did not resynchronize on
+    a server with CONDSTORE or QRESYNC — always where it has CONDSTORE without
+    QRESYNC. §4c's "one server can take at most 72 MB" was never true.
+  - **B1-9** (Medium, §4i): the lazy page fetch asks for every position
+    between the mirror and the requested page in one call, 197 bytes a
+    message before any FETCH (394 MB for 2,000,000), on one click; the
+    owner decided the direction of the fix the same day.
+  - **B1-10** (Medium, §4j): Angus parses a `BODYSTRUCTURE` by recursing once
+    per level, and the `StackOverflowError` 200,000 levels raise passes every
+    catch but the `@Async` interceptor's, which only logs it, so the sync
+    stops on every cycle with nothing recorded. §2's two bullets and §4g's
+    "every parser fault" are corrected with it.
+  - **B1-5 reopened** (Medium, §4e): the recipient check compares against
+    what the user typed only when the server returns APPENDUID; without it
+    the row is the server's copy.
+  - **B1-11** (Low, §4k): a sender label with `>` before `<` makes the address
+    recovery throw, so the message cannot be opened.
+  - **B1-12** (Medium, §4l): the attachment lookup reads a text part it
+    descends through, or a single-part text message's whole body, into memory
+    before the disk-bounded copy. A second verification pass raised it from
+    Low: it is B1-1's shape before that fix.
+
+  Corrections from the same pass: the threat model's Boundary 1 introduction
+  said "open findings" beside "None is open" since 1.15; Drafts' role gates a
+  hard delete (§1); the second retry layer retries more than SSL and I/O
+  errors (§1); only one of the two literal overflow shapes bypasses the bound
+  (§4g); the send path parses recipients with `InternetAddress.parse`, not the
+  draft tokenizer (§4e); the role prefixes include `INBOX/` and
+  `[Google Mail]/` (§5); one GreenMail IT uses plain IMAP by design (method);
+  the enumeration misses `HeaderAddresses`, `ThreadingBackfillService` and
+  `UidEnumerationSchedule` (method). `HeaderAddresses` joins `Code paths`; the
+  method statement now lists what the paths knowingly leave out — the Angus
+  version in `backend/pom.xml` and the packaged heap in
+  `package-sidecar-windows.ps1` among them. The second pass also corrected
+  the listing measurement, whose 147 was MiB, and when the listing runs
+  (§4h), what §4c's 72 MB prices, the handlers a `StackOverflowError` meets
+  (§4j) and the range of the §1 attribution; it added the drafts listing to
+  §4i, `ComposeForm` and `CorrespondentService` to what the paths leave out,
+  and a §2 bullet for the lazy fetch. A third pass, over those corrections,
+  found the `@Async` interceptor still missing where §2, this entry and the
+  threat model said nothing catches the error, and the cases of the listing
+  incomplete.
 
 - **1.15** (2026-09-23) — **B1-6 fixed, no findings left open** (#565). The
   write timeout §4f asked for, from a new `mail.client.imap.write-timeout`,
