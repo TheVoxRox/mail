@@ -125,7 +125,7 @@
       "backend/src/main/java/org/voxrox/mailbackend/core/diagnostic": "87acd1071bc62a2779c216e424e7ae9b391d3ab6",
       "backend/src/main/java/org/voxrox/mailbackend/exception": "25a165dcfe824aed62c104e02f90e92885485163",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/controller": "030d483f7b65f8dc5777572ad2a453e909b18519",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/AttachmentService.java": "1e01496d854fe1fef31f338bc2c0d54ec9683d91"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/AttachmentService.java": "8404006a95a3005e8af5beec987de2d253553e34"
     },
     "acknowledgements": [
       {
@@ -139,17 +139,25 @@
       {
         "date": "2026-09-27",
         "note": "Attachment part paths are validated and resolved the way IMAP numbers parts. Two paths moved. controller: MailReadController.downloadAttachment adds @Pattern(AttachmentService.PART_PATH_PATTERN) to partPath, positive part numbers joined by dots, next to the @NotBlank and @Size(max = 64) it had. AttachmentService validates the same pattern before the folder executor, and findPartByPath throws ResourceNotFoundException(error.attachment.partNotFound) for a path that leads nowhere instead of a MessagingException the executor misread as a missing folder, and returns a message's non-multipart body as its part 1, the path MimePartExtractor gives such an attachment, which could not be downloaded before. Checked against section 4's claims. (1) No traversal path opens: partPath is still only ever an index into jakarta.mail Multipart children, never a filesystem path, and the temp file is still created after findPartByPath with the stored stableId as prefix. (2) Section 4's 'the request then fails with the wrong status' and section 7's note on the attachment path were true at the anchor 55fdd1b and are superseded; a malformed path is now a 400 before any IMAP work and a missing part a 404 naming the attachment. (3) No endpoint, method or authentication rule moves. AttachmentServiceTest runs the download lambda on parsed MIME messages and MailReadControllerTest the 400s; against the old code they fail, and the single-part download errors with 'MIME part 1 was not found'. Verdict stays PASS."
+      },
+      {
+        "date": "2026-09-28",
+        "note": "The attachment lookup asks only a container for its content (IMAP/SMTP audit B1-12, recorded there as v1.18). One path moved, AttachmentService.java: findPartByPath calls getContent() only when isMimeType says multipart/* or message/rfc822, so a text part is no longer read whole into memory on the way to the copy. Read against section 4: the lookup still only indexes into Multipart children and never touches the filesystem, the temp-file name and the response headers are untouched, and the statuses section 7 and the #582 note describe (400 for a malformed path before any IMAP work, 404 naming the attachment for a missing part) are unchanged. Verdict stays PASS."
       }
     ]
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "f52a7a94f073342eeec0e3ffb778e5106ed3f2c3"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "8475563e48e8b29424d7bc045a1f6b58ed64c27a"
     },
     "acknowledgements": [
       {
         "date": "2026-09-28",
         "note": "The fix for B1-10, recorded in the audit itself as v1.17 (section 4j). One file under feature/mail/service changes: BoundedImapProtocol.readResponse performs IMAPProtocol.readResponse's two steps itself, as Angus 2.0.5 does (the IMAPResponse constructor, then FetchResponse for a FETCH), and between them measures how deeply a FETCH's parentheses nest, skipping quoted strings and literals; past MAX_NESTING = 256 it throws NestedTooDeepException, a ProtocolException, which Protocol.command skips. A response that is not a FETCH is not measured and goes back unchanged. The EXISTS and VANISHED bounds of B1-3, the bounded buffer of B1-7 and the RuntimeException catch are untouched, apart from its comment, which now says an Error is prevented before the parse rather than caught. No other file under the path changes. Re-read against sections 2, 4c, 4g and 4j, which the same change updates; the verdict stays open findings for the five others."
+      },
+      {
+        "date": "2026-09-28",
+        "note": "The fix for B1-12, recorded in the audit itself as v1.18 (section 4l). One file under feature/mail/service changes: AttachmentService.findPartByPath asks a part for getContent() only when isMimeType says multipart/* or message/rfc822, and otherwise treats the content as absent, so the multipart and encapsulated-message branches, the part-1 fallback for a single-part body and the not-found paths behave as before, and a text part is no longer read to find it. Its javadoc gains the reason. Nothing else in the class moves -- the path validation, the temp-file copy, the integrity check and the cleanup are untouched -- and no other file under the path changes. Re-read against sections 4l and 5 (the attachment download note), which the same change updates; the verdict stays open findings for the four others."
       }
     ]
   }

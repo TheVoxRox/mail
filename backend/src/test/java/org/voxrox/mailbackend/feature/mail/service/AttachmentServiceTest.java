@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -254,6 +255,23 @@ class AttachmentServiceTest {
             serverHas(parsed(message));
 
             assertThat(download("1")).isEqualTo(pdf);
+        }
+
+        @Test
+        @DisplayName("A text body is found without being read whole into memory")
+        void findsATextBodyWithoutReadingIt() throws Exception {
+            // B1-12: the content of a text part is its body decoded into one String,
+            // as large as the server makes it; the download streams the part anyway.
+            MimeMessage message = new MimeMessage(session);
+            message.setText("Meeting notes", StandardCharsets.UTF_8.name());
+            message.setFileName("notes.txt");
+            message.setDisposition(Part.ATTACHMENT);
+            MimeMessage onServer = spy(parsed(message));
+            serverHas(onServer);
+
+            assertThat(download("1")).isEqualTo("Meeting notes".getBytes(StandardCharsets.UTF_8));
+            assertThatThrownBy(() -> download("1.1")).isInstanceOf(ResourceNotFoundException.class);
+            verify(onServer, never()).getContent();
         }
 
         @Test
