@@ -11,6 +11,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.retry.support.RetryTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.voxrox.mailbackend.core.dto.WindowedPage;
 import org.voxrox.mailbackend.exception.MailOperationException;
 import org.voxrox.mailbackend.exception.ResourceNotFoundException;
 import org.voxrox.mailbackend.exception.ValidationException;
@@ -165,8 +166,8 @@ public class MailFacade {
         } else {
             // Either the count is stale OR the page falls beyond the local window —
             // open IMAP for a fresh count, and lazy-fetch the missing range if
-            // required so the user can browse the whole folder without us
-            // mirroring it up front. Catches the narrow runtime-exception band
+            // required so the user can browse as deep as the local window
+            // without us mirroring it up front. Catches the narrow runtime-exception band
             // (IMAP wrappers throw RuntimeException for connection issues); checked
             // exceptions are handled inside the helper.
             try {
@@ -181,7 +182,9 @@ public class MailFacade {
         Pageable pageable = PageRequest.of(page, size);
         Page<MailSummaryResponse> localPage = messageRepository.findSummariesByAccountAndFolder(accountId, folderName,
                 pageable);
-        return new PageImpl<>(localPage.getContent(), pageable, serverCount);
+        // The count stays the server's; the pager ends where the lazy fetch stops
+        // extending the mirror (B1-9).
+        return new WindowedPage<>(localPage.getContent(), pageable, serverCount, mailSyncService.listingDepth());
     }
 
     /**

@@ -148,7 +148,7 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "1cb45f91ffc4a2c729166363adcedc1a333bb711",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "df0fa48205fb47da4ffb3ed9debd3a3d9857e533",
       "backend/src/main/java/org/voxrox/mailbackend/util/HeaderAddresses.java": "f46de1567411a60b85ac28c2e650a3af5024b304",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/MessageEntity.java": "7b9f8cbd5bbf72a6f3931a446c417d73d8772341",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/DraftRecipientsEntity.java": "4ca68c3223596e5538f5722c6f5d86edaa8d932c",
@@ -170,6 +170,10 @@
       {
         "date": "2026-09-28",
         "note": "The fix for B1-5, recorded in the audit itself as v1.20 (section 4e). Two files under feature/mail/service change. DraftPersistenceService writes the To, Cc and Bcc of every draft save into draft_recipients before the APPEND (keepTypedRecipients, which also drops the account's entries over a week old whose draft has no row), deletes the entry of a revision it replaces and of a superseded draft, and exposes typedRecipients and forgetTypedRecipients; the APPEND, the row upsert and the replace guard are otherwise untouched. SmtpMessageService.sendDraftAsync checks the fetched copy against the kept entry when there is one and against the row otherwise (expectedRecipients), and drops the entry after a delivered draft is deleted; the comparison itself, the 40 MiB bound and the refusal path are unchanged. No other file under the path changes. The two new paths, DraftRecipientsEntity and DraftRecipientsRepository, did not exist at the audited commit and are added to Code paths by this version; the repository's one query is the orphan cleanup, whose NOT EXISTS row condition DraftRecipientsRepositoryIT exercises on SQLite. Re-read against section 4e, which the same change updates; the verdict stays open findings for the two others."
+      },
+      {
+        "date": "2026-09-28",
+        "note": "The fix for B1-9, recorded in the audit itself as v1.21 (section 4i). Two files under feature/mail/service change. MailSyncService gains listingDepth(), the local window limit; lazyFetchPageRange skips the folder open when the mirror is already at that depth, caps its target at it, and downloads the remaining sequence range in windows of mail.client.sync.window-size, newest first, instead of one downloadSequenceRange call; the two counts, the lanes and the failure handling are unchanged. MailFacade.getEmails returns a WindowedPage (core/dto, outside the audited paths) built with that depth, so the total stays the server count while the page count stops at the depth, and PagedResponse reports olderOnServer. No other file under the path changes. Re-read against sections 2 and 4i, which the same change updates; the verdict stays open findings for B1-8."
       }
     ]
   }

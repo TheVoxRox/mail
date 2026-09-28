@@ -160,6 +160,7 @@ let readinessFailures = 0;
 let folderAuthFailure = false;
 let connectionTestAuthFailure = false;
 let mailPageSizeOverride: number | null = null;
+let mailListingDepthOverride: number | null = null;
 let contactsLegacyShape = false;
 let contactsBrokenRow = false;
 
@@ -217,6 +218,29 @@ export function setConnectionTestAuthFailure(enabled: boolean): void {
  */
 export function setMailPageSize(size: number | null): void {
 	mailPageSizeOverride = size && size > 0 ? size : null;
+}
+
+/*
+ * Cuts the folder listing at a depth (driven by the `mail.e2e.mailListingDepth`
+ * localStorage flag), the way the backend cuts a folder past its local window
+ * (B1-9): the total stays the folder's, the pages stop at the depth, and the
+ * last of them says older mail is on the server only. The fixture folder holds
+ * 25 messages, so the cut is untestable without a smaller depth.
+ */
+export function setMailListingDepth(depth: number | null): void {
+	mailListingDepthOverride = depth && depth > 0 ? depth : null;
+}
+
+function windowedListing<T>(listing: PagedResponse<T>): PagedResponse<T> {
+	if (mailListingDepthOverride === null) return listing;
+	const browsable = Math.min(listing.totalElements, mailListingDepthOverride);
+	const totalPages = Math.max(1, Math.ceil(browsable / listing.size));
+	return {
+		...listing,
+		totalPages,
+		last: listing.page >= totalPages - 1,
+		olderOnServer: listing.totalElements > mailListingDepthOverride
+	};
 }
 
 /**
@@ -854,7 +878,9 @@ function messageRoutes(
 		}
 		if (segments[3] === 'folder' && method === 'GET') {
 			const folderName = url.searchParams.get('folderRef') ?? decodeSegment(segments[4]);
-			return HttpResponse.json(listPage(getFolderMessages(accountId, folderName), url));
+			return HttpResponse.json(
+				windowedListing(listPage(getFolderMessages(accountId, folderName), url))
+			);
 		}
 		if (segments[3] === 'search' && method === 'GET') {
 			const q = (url.searchParams.get('q') ?? '').toLowerCase();

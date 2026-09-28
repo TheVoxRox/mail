@@ -1,5 +1,13 @@
 import { expect, test, type Locator } from '@playwright/test';
-import { bodyFrame, messageGrid, openApp, rowsOf, setPrefs, waitForFocus } from '../e2e-helpers';
+import {
+	bodyFrame,
+	messageGrid,
+	openApp,
+	rowsOf,
+	setMockFlags,
+	setPrefs,
+	waitForFocus
+} from '../e2e-helpers';
 
 /*
  * What a screen reader does to the grid instead of pressing Enter. In browse
@@ -507,5 +515,32 @@ test.describe('Seznam zpráv ve split režimu', () => {
 		// it — but stays out of the tab order so the cell is what gets announced.
 		const link = row.locator('a[href$="/msg-01"]');
 		await expect(link).toHaveAttribute('tabindex', '-1');
+	});
+});
+
+/*
+ * B1-9: a folder deeper than the local window pages only that deep, while the
+ * count keeps the folder's size. The mock cuts the 25 fixture messages at 20,
+ * so with pages of 10 the folder reads as 25 messages over two pages, and the
+ * last of them has to say where the other five are.
+ */
+test.describe('Složka hlubší než lokální okno', () => {
+	test('poslední strana řekne, že starší zprávy jsou jen na serveru', async ({ page }) => {
+		await setMockFlags(page, { mailPageSize: 10, mailListingDepth: 20 });
+		await openApp(page, '/mail/1/INBOX');
+
+		const pagination = page.getByRole('navigation', { name: 'Stránkování zpráv' });
+		const note = page.getByText('Starší zprávy jsou jen na serveru.', { exact: true });
+		await expect(pagination).toContainText('Strana 1 z 2, 25 zpráv');
+		await expect(note).toHaveCount(0);
+
+		await pagination.getByRole('button', { name: 'Poslední »' }).click();
+
+		await expect(pagination).toContainText('Strana 2 z 2, 25 zpráv');
+		await expect(pagination.getByRole('button', { name: 'Poslední »' })).toBeDisabled();
+		await expect(note).toBeVisible();
+		await expect(page.locator('#live-region')).toContainText(
+			'Strana 2 z 2, 25 zpráv. Starší zprávy jsou jen na serveru.'
+		);
 	});
 });

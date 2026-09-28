@@ -10,6 +10,7 @@ import {
 	holdFlagResponses,
 	releaseFlagResponses,
 	setFolderAuthFailure,
+	setMailListingDepth,
 	setMailPageSize,
 	setReadinessDelayMs,
 	setReadinessFailures,
@@ -91,6 +92,9 @@ export async function installE2EBypass(): Promise<void> {
 			window.localStorage.getItem('mail.e2e.connectionTestAuthFailure') === '1'
 		);
 		setMailPageSize(Number(window.localStorage.getItem('mail.e2e.mailPageSize') ?? 0) || null);
+		setMailListingDepth(
+			Number(window.localStorage.getItem('mail.e2e.mailListingDepth') ?? 0) || null
+		);
 		await worker.start({
 			quiet: true,
 			onUnhandledRequest: 'bypass',
@@ -121,6 +125,7 @@ export async function installE2EBypass(): Promise<void> {
 			setConnectionTestAuthFailure(false);
 			setVCardExportDelayMs(0);
 			setMailPageSize(null);
+			setMailListingDepth(null);
 			resetFixtures();
 			applyFixtureFlags();
 			worker.resetHandlers(...handlers);

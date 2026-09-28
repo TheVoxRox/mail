@@ -30,6 +30,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.retry.support.RetryTemplate;
 import org.voxrox.mailbackend.core.config.RetryConfig;
+import org.voxrox.mailbackend.core.dto.PagedResponse;
 import org.voxrox.mailbackend.exception.ErrorCode;
 import org.voxrox.mailbackend.exception.MailOperationException;
 import org.voxrox.mailbackend.exception.ResourceNotFoundException;
@@ -120,6 +121,9 @@ class MailFacadeTest {
         entity.setSender("Alice <alice@example.com>");
         entity.setReceivedAt(LocalDateTime.of(2026, 1, 15, 10, 0));
         entity.setContent("Cached content");
+
+        // The shipped listing depth; lenient because most tests never list a folder.
+        lenient().when(mailSyncService.listingDepth()).thenReturn(10_000);
     }
 
     @Nested
@@ -314,6 +318,44 @@ class MailFacadeTest {
             Page<MailSummaryResponse> result = mailFacade.getEmails(ACCOUNT_ID, FOLDER_INBOX, 0, 20);
 
             assertThat(result.getTotalElements()).isEqualTo(42L);
+        }
+
+        /**
+         * B1-9. The count says how much mail the folder holds; the pager ends where the
+         * lazy fetch stops extending the mirror, so a last-page click no longer asks
+         * for every message down to the oldest.
+         */
+        @Test
+        @DisplayName("A folder larger than the listing depth keeps the server's count and pages only that deep")
+        void folderLargerThanTheDepthPagesOnlyThatDeep() {
+            when(mailSyncService.listingDepth()).thenReturn(300);
+            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
+            when(messageRepository.findSummariesByAccountAndFolder(eq(ACCOUNT_ID), eq(FOLDER_INBOX),
+                    any(Pageable.class))).thenReturn(new PageImpl<>(List.of()));
+            when(folderCountCache.get(ACCOUNT_ID, FOLDER_INBOX)).thenReturn(OptionalLong.empty());
+            when(mailSyncService.fetchServerCountAndEnsurePageLocally(account, FOLDER_INBOX, 14, 20)).thenReturn(1790L);
+
+            Page<MailSummaryResponse> result = mailFacade.getEmails(ACCOUNT_ID, FOLDER_INBOX, 14, 20);
+
+            assertThat(result.getTotalElements()).isEqualTo(1790L);
+            assertThat(result.getTotalPages()).isEqualTo(15);
+            assertThat(result.isLast()).isTrue();
+            assertThat(PagedResponse.from(result).olderOnServer()).isTrue();
+        }
+
+        @Test
+        @DisplayName("A folder within the listing depth pages to its end and has nothing only on the server")
+        void folderWithinTheDepthPagesToItsEnd() {
+            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
+            when(messageRepository.findSummariesByAccountAndFolder(eq(ACCOUNT_ID), eq(FOLDER_INBOX),
+                    any(Pageable.class))).thenReturn(new PageImpl<>(List.of()));
+            when(folderCountCache.get(ACCOUNT_ID, FOLDER_INBOX)).thenReturn(OptionalLong.empty());
+            when(mailSyncService.fetchServerCountAndEnsurePageLocally(account, FOLDER_INBOX, 0, 20)).thenReturn(1790L);
+
+            Page<MailSummaryResponse> result = mailFacade.getEmails(ACCOUNT_ID, FOLDER_INBOX, 0, 20);
+
+            assertThat(result.getTotalPages()).isEqualTo(90);
+            assertThat(PagedResponse.from(result).olderOnServer()).isFalse();
         }
     }
 

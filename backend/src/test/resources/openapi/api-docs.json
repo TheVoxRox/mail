@@ -1196,6 +1196,9 @@
           "last" : {
             "type" : "boolean"
           },
+          "olderOnServer" : {
+            "type" : "boolean"
+          },
           "page" : {
             "format" : "int32",
             "type" : "integer"
@@ -1229,6 +1232,9 @@
           "last" : {
             "type" : "boolean"
           },
+          "olderOnServer" : {
+            "type" : "boolean"
+          },
           "page" : {
             "format" : "int32",
             "type" : "integer"
@@ -1260,6 +1266,9 @@
             "type" : "boolean"
           },
           "last" : {
+            "type" : "boolean"
+          },
+          "olderOnServer" : {
             "type" : "boolean"
           },
           "page" : {

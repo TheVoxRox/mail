@@ -102,6 +102,8 @@ export interface MockFlags {
 	inboxThreadMember?: boolean;
 	trashThreadMember?: boolean;
 	mailPageSize?: number;
+	/** Cuts the folder listing at this many messages, as the backend does past its local window. */
+	mailListingDepth?: number;
 	noAccounts?: boolean;
 	readinessDelayMs?: number;
 	readinessFailures?: number;

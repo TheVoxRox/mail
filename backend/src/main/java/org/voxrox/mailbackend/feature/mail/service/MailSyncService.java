@@ -649,12 +649,22 @@ public class MailSyncService {
     }
 
     /**
+     * How deep a folder listing can be browsed: the local window limit, which is as
+     * deep as the lazy fetch extends the mirror and as deep as
+     * {@code MailboxMaintenanceService} keeps it (IMAP/SMTP audit B1-9). Past it
+     * the mail is on the server only.
+     */
+    public int listingDepth() {
+        return mailProps.sync().localWindowLimit();
+    }
+
+    /**
      * Synchronous helper for the read path: opens the folder, reads the server's
      * message count (used as {@code totalElements} so the paginator reflects the
      * real folder size, not just what we hold locally), and lazy-fetches the IMAP
      * sequence range that covers the requested page when it falls below the local
-     * cache. With this in place the user can navigate to any page without us
-     * mirroring the whole folder up front.
+     * cache. With this in place the user can navigate as deep as
+     * {@link #listingDepth} without us mirroring the folder up front.
      * <p>
      * The "local = contiguous newest" invariant holds because lazy fetch only fires
      * when {@code (page+1)*size > localCount} and fills the range immediately below
@@ -735,7 +745,9 @@ public class MailSyncService {
         // Cheap pre-check outside the lock: the common case (page within the mirror)
         // must not open a second folder just to find there is nothing to do. Both
         // counts are re-read inside, where they are authoritative.
-        if (needed <= messageRepository.countByAccountIdAndFolderName(account.getId(), folderName)) {
+        long depth = listingDepth();
+        long localBefore = messageRepository.countByAccountIdAndFolderName(account.getId(), folderName);
+        if (needed <= localBefore || localBefore >= depth) {
             return;
         }
         /*
@@ -760,7 +772,13 @@ public class MailSyncService {
                             long localCount = messageRepository.countByAccountIdAndFolderName(account.getId(),
                                     folderName);
                             long count = folder.getMessageCount();
-                            if (needed <= localCount || count <= localCount) {
+                            /*
+                             * Never past the listing depth (B1-9): a page below it would be pruned again
+                             * after the next folder cycle, and the range down to a deep page was taken in
+                             * one getMessages and one FETCH, as large as the folder made it.
+                             */
+                            long target = Math.min(Math.min(needed, count), depth);
+                            if (target <= localCount) {
                                 return null;
                             }
                             FolderSyncStateEntity syncState = transactionTemplate.execute(status -> syncStateService
@@ -768,9 +786,15 @@ public class MailSyncService {
                             FolderSyncContext ctx = new FolderSyncContext(account, folderName, folder, uidFolder,
                                     syncState);
                             int endSeq = (int) (count - localCount);
-                            long target = Math.min(needed, count);
                             int startSeq = (int) Math.max(1L, count - target + 1L);
-                            int fetched = messageDownloader.downloadSequenceRange(ctx, startSeq, endSeq);
+                            // In windows of the sync's size, newest first, so each getMessages and
+                            // FETCH holds one window rather than the whole range.
+                            int window = mailProps.sync().windowSize();
+                            int fetched = 0;
+                            for (int high = endSeq; high >= startSeq; high -= window) {
+                                int low = Math.max(startSeq, high - window + 1);
+                                fetched += messageDownloader.downloadSequenceRange(ctx, low, high);
+                            }
                             log.info("{} Lazy page fetch {}: page {} (seq {}-{}), {} messages added.", LogCategory.SYNC,
                                     folderName, page, startSeq, endSeq, fetched);
                         } catch (MessagingException e) {

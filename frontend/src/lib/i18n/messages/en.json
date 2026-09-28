@@ -185,6 +185,7 @@
 		"lastPage": "Last »",
 		"jumpLabel": "Go to page",
 		"jumpButton": "Go",
+		"olderOnServer": "Older messages are on the server only.",
 		"unknownSender": "(unknown sender)",
 		"noRecipient": "(no recipient)"
 	},

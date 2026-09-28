@@ -32,7 +32,7 @@
 	import type { FolderResponse, MailSummaryResponse } from '$lib/types.js';
 	import { requestBodyFocus, suppressBodyFocus } from '$lib/mail/bodyFocus.js';
 	import { deleteMessages, markMessagesSeen, moveMessages } from '$lib/mail/mailbox.js';
-	import { messagesPageInfo } from '$lib/mail/pageInfoAnnouncement.js';
+	import { messagesPageInfo, olderMailOnServerOnly } from '$lib/mail/pageInfoAnnouncement.js';
 	import { printableSelection, printInProgress, printMessages } from '$lib/mail/printMessages.js';
 	import {
 		EFFECTIVE_READING_PANE_CONTEXT_KEY,
@@ -548,6 +548,16 @@
 			</div>
 		</div>
 
+		<!--
+			The pager ends where the local mirror does; the count keeps the
+			folder's real size. Without this the last page would read as the
+			folder's oldest mail (B1-9). The page announcement says it as well.
+		-->
+		{#if olderMailOnServerOnly(pageData)}
+			<p class="border-t border-border px-4 py-2 text-xs text-muted-foreground">
+				{$_('messages.olderOnServer')}
+			</p>
+		{/if}
 		<Pagination
 			page={pageData.page}
 			totalPages={pageData.totalPages}
