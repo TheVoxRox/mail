@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createGateRepo } from './test-support/gate-repo.mjs';
 
@@ -51,6 +52,25 @@ describe('check-unused-java-imports', () => {
 		expect(result.output).toContain('backend/src/main/java/org/example/Sample.java:4 Optional');
 		// The used one must not be dragged in with it.
 		expect(result.output).not.toContain('List');
+	});
+
+	/*
+	 * A hook in a linked worktree runs with GIT_DIR exported, and git then takes
+	 * the current directory, frontend/, for the top of the tree. The gate asked
+	 * git for the root and read frontend/backend/..., which is not there, so a
+	 * push from a worktree stopped here.
+	 */
+	it('reads the repository from a hook that exports GIT_DIR, as a linked worktree does', () => {
+		repo.write(
+			'backend/src/main/java/org/example/Sample.java',
+			javaFile({ imports: ['import java.util.Optional;'] })
+		);
+		repo.commit();
+
+		const result = repo.run(SCRIPT, [], { env: { GIT_DIR: path.join(repo.root, '.git') } });
+
+		expect(result.status).toBe(1);
+		expect(result.output).toContain('backend/src/main/java/org/example/Sample.java:3 Optional');
 	});
 
 	/*

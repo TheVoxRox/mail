@@ -121,6 +121,24 @@ describe('check-no-nul-bytes', () => {
 	});
 
 	/*
+	 * A hook in a linked worktree runs with GIT_DIR exported, and git then takes
+	 * the current directory, frontend/, for the top of the tree. Asked for the
+	 * root, git answered frontend/, every file was read from under it, none was
+	 * there, and the gate passed the NUL it exists to catch.
+	 */
+	it('reads the files from a hook that exports GIT_DIR, as a linked worktree does', () => {
+		repo.writeBytes('src/app.ts', withNul("export const sep = 'a", "b';\n"));
+		repo.commit();
+
+		const result = repo.run('check-no-nul-bytes.mjs', [], {
+			env: { GIT_DIR: path.join(repo.root, '.git') }
+		});
+
+		expect(result.status).toBe(1);
+		expect(result.stderr).toContain('src/app.ts');
+	});
+
+	/*
 	 * The whole point of deferring to .gitattributes rather than an extension
 	 * list in the script: real binaries are declared once, in the file git
 	 * itself reads, instead of being guessed at from a list that goes stale.

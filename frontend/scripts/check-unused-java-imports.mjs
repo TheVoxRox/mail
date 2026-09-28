@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 /*
  * Refuses an unused import in a tracked Java file.
@@ -24,7 +25,14 @@ import path from 'node:path';
  *   node scripts/check-unused-java-imports.mjs
  */
 
-const repoRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+/*
+ * From where this script lives, frontend/scripts, two levels below the root,
+ * not from `git rev-parse --show-toplevel`: a hook in a linked worktree runs
+ * with GIT_DIR exported, which makes git take the current directory, frontend/,
+ * for the top of the tree. A push from a worktree stopped here, reading
+ * frontend/backend/..., which does not exist.
+ */
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /**
  * What a Java source file means, minus the parts that cannot reference a type.

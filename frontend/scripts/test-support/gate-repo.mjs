@@ -32,6 +32,21 @@ import { fileURLToPath } from 'node:url';
  * the real repository and reporting on it, which is a test that passes for the
  * wrong reason.
  */
+/*
+ * Git's own list of the variables that point it at a repository — GIT_DIR,
+ * GIT_WORK_TREE, GIT_INDEX_FILE and the rest — dropped from this process before
+ * any fixture runs git. A hook exports them (the pre-push hook of a linked
+ * worktree exports GIT_DIR), and the gate suites run inside that hook as part
+ * of test:unit: every fixture `git add` and `git commit` would otherwise land
+ * in the repository being pushed. A test that wants one back passes it to
+ * run() on purpose.
+ */
+for (const name of execFileSync('git', ['rev-parse', '--local-env-vars'], { encoding: 'utf8' })
+	.split('\n')
+	.filter(Boolean)) {
+	delete process.env[name];
+}
+
 const scriptsDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const realNodeModules = path.resolve(scriptsDir, '..', 'node_modules');
 
@@ -154,14 +169,15 @@ export function createGateRepo() {
 
 		/**
 		 * Runs a gate script the way `npm run` does — from `frontend/`, as its
-		 * own process, so the exit code is the real one.
+		 * own process, so the exit code is the real one. `env` adds variables to
+		 * the process's own, for a test about how a gate runs inside a hook.
 		 */
-		run(scriptName, args = []) {
+		run(scriptName, args = [], { env = {} } = {}) {
 			install(scriptName);
 			const result = spawnSync(
 				process.execPath,
 				[path.join(frontend, 'scripts', scriptName), ...args],
-				{ cwd: frontend, encoding: 'utf8' }
+				{ cwd: frontend, encoding: 'utf8', env: { ...process.env, ...env } }
 			);
 			return {
 				status: result.status,

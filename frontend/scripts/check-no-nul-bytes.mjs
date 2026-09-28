@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { closeSync, constants, fstatSync, openSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
 /*
  * Refuses a NUL byte in a file the repo has not declared binary.
@@ -31,11 +32,15 @@ import process from 'node:process';
  */
 
 /*
- * Asked of git rather than derived from cwd: `npm run` starts this in
- * frontend/, the pre-commit hook starts it from the repo root, and both have
- * to resolve the same tree.
+ * From where this script lives, frontend/scripts, two levels below the root.
+ * Not from cwd: `npm run` starts this in frontend/, the pre-commit hook starts
+ * it from the repo root, and both have to resolve the same tree. Not from
+ * `git rev-parse --show-toplevel` either: a hook in a linked worktree runs with
+ * GIT_DIR exported, which makes git take the current directory, frontend/, for
+ * the top of the tree. There this gate read every file from the wrong place,
+ * found nothing to read, and passed a NUL byte it should have reported.
  */
-const repoRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const stagedOnly = process.argv.includes('--staged');
 
 function git(args) {

@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createGateRepo } from './test-support/gate-repo.mjs';
 
@@ -90,6 +91,26 @@ describe('check-eol-normalization', () => {
 		// The remedy is the non-obvious half: the reflexes people reach for
 		// first (checkout, reset) leave the file dirty, as the test below shows.
 		expect(result.stderr).toContain('git add --renormalize mvnw.cmd');
+	});
+
+	/*
+	 * A hook in a linked worktree runs with GIT_DIR exported, and git then takes
+	 * the current directory, frontend/, for the top of the tree. This gate only
+	 * ever asked git, which reads the blobs and their attributes from the index,
+	 * so it held up there when the NUL and Java-import gates beside it did not;
+	 * this pins that it still does now that the three find the root one way.
+	 */
+	it('reads the repository from a hook that exports GIT_DIR, as a linked worktree does', () => {
+		repo.write('keep.ts', LF('export const ok = true;'));
+		repo.commit();
+		commitUnfilteredBlob('mvnw.cmd', CRLF('@echo off', 'echo build'));
+
+		const result = repo.run('check-eol-normalization.mjs', [], {
+			env: { GIT_DIR: path.join(repo.root, '.git') }
+		});
+
+		expect(result.status).toBe(1);
+		expect(result.stderr).toContain('mvnw.cmd');
 	});
 
 	/*
