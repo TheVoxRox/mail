@@ -4,8 +4,10 @@ import java.io.IOException;
 import java.util.Properties;
 
 import org.eclipse.angus.mail.iap.ByteArray;
+import org.eclipse.angus.mail.iap.Protocol;
 import org.eclipse.angus.mail.iap.ProtocolException;
 import org.eclipse.angus.mail.iap.Response;
+import org.eclipse.angus.mail.imap.protocol.FetchResponse;
 import org.eclipse.angus.mail.imap.protocol.IMAPProtocol;
 import org.eclipse.angus.mail.imap.protocol.IMAPResponse;
 import org.eclipse.angus.mail.imap.protocol.UIDSet;
@@ -48,13 +50,33 @@ import org.voxrox.mailbackend.util.LogCategory;
  * Angus, so the buffer this class hands over is a {@link BoundedByteArray} that
  * refuses to grow past {@link #MAX_RESPONSE_BYTES}.
  * <p>
- * A refusal is an {@link IOException} on purpose. Angus ends a command that
- * fails to read a response with a synthetic BYE, so the command fails with a
- * {@code ConnectionException}, the folder or store closes, and the sync records
- * the failure like any dropped connection. A {@link ProtocolException} would
- * not do: {@code Protocol.command} logs and <em>skips</em> a response that
- * fails that way, which here would quietly drop an EXISTS and leave Angus
- * counting a folder wrongly.
+ * One more thing a response states is not a size but a depth. Angus parses a
+ * FETCH's {@code BODYSTRUCTURE} by calling itself once per level of nesting,
+ * and enough levels overflow the stack of the thread reading it (B1-10). The
+ * {@link StackOverflowError} is an {@code Error}, which nothing between here
+ * and Spring's {@code @Async} interceptor catches, and that one only logs it,
+ * so the sync pass ended unrecorded on every cycle. Catching it is not the fix:
+ * an overflow can land inside a class initializer and leave that class unusable
+ * for the life of the process. So {@link #readResponse()} measures how deeply a
+ * FETCH nests after reading it and before Angus parses it, and drops one past
+ * {@link #MAX_NESTING}.
+ * <p>
+ * A refusal of a size is an {@link IOException} on purpose. Angus ends a
+ * command that fails to read a response with a synthetic BYE, so the command
+ * fails with a {@code ConnectionException}, the folder or store closes, and the
+ * sync records the failure like any dropped connection. A
+ * {@link ProtocolException} would not do: {@code Protocol.command} logs and
+ * <em>skips</em> a response that fails that way, which here would quietly drop
+ * an EXISTS and leave Angus counting a folder wrongly.
+ * <p>
+ * A FETCH nested too deeply is the one response dropped that way, and on
+ * purpose too. It has been read in full, so the connection is in step. It
+ * describes one message, whose structure a sender may have chosen rather than
+ * the server, and closing the connection over it would stop the folder's sync
+ * at that message on every cycle, since the sync downloads the newest mail
+ * first. Dropped, it leaves Angus without that message's items: it loads the
+ * envelope and flags with FETCHes of their own, and loading the structure
+ * fails, which the sync already keeps as an envelope-only stub.
  * <p>
  * The check keeps no state of its own, and it must not start to. The superclass
  * constructor reads the server greeting through {@link #readResponse()}, which
@@ -125,6 +147,18 @@ final class BoundedImapProtocol extends IMAPProtocol {
      */
     static final int MAX_RESPONSE_BYTES = 32 * 1024 * 1024;
 
+    /**
+     * Levels of parentheses one FETCH response may nest, which bounds the recursion
+     * of Angus's {@code BODYSTRUCTURE} parser (B1-10). A structure spends one level
+     * per MIME level and a few around them — the FETCH list, the structure's own
+     * pair, a parameter list, a disposition — so 256 admits MIME nested some 250
+     * deep, where {@code MimePartExtractor} walks 20 and Postfix by default accepts
+     * 100. The audit measured Angus 2.0.5 at 3,000 levels parsing and 5,000
+     * overflowing on a test thread's stack, so the bound leaves an order of
+     * magnitude for a thread that is already deep, or small.
+     */
+    static final int MAX_NESTING = 256;
+
     /** What Angus starts a response buffer at when it is handed none. */
     private static final int INITIAL_RESPONSE_BYTES = 128;
 
@@ -137,7 +171,7 @@ final class BoundedImapProtocol extends IMAPProtocol {
     public Response readResponse() throws IOException, ProtocolException {
         Response response;
         try {
-            response = super.readResponse();
+            response = readNestingChecked();
         } catch (RuntimeException e) {
             /*
              * A response Angus cannot read leaves the connection mid-response, with the
@@ -146,15 +180,17 @@ final class BoundedImapProtocol extends IMAPProtocol {
              * unchecked exception would leave it there, because ImapFolderExecutor turns
              * one into a MailOperationException and closes only the folder.
              *
-             * The refusal from BoundedByteArray arrives this way, and so do the two shapes
-             * a literal takes at the top of the int range, both measured: a declared size
-             * in 2147483603..2147483631 overflows the array length inside grow
-             * (NegativeArraySizeException), and 2147483632 and up overflow the
-             * "does it fit" test so Angus skips the grow and reads past the buffer
-             * (IndexOutOfBoundsException). Neither allocates anything, which is why the
-             * bound alone does not cover them. A genuine parser fault lands here too and is
-             * handled the same way on purpose — the connection's state is unknown either
-             * way — with the cause kept for the log.
+             * The refusal from BoundedByteArray arrives this way, and so does the one shape
+             * of a literal at the top of the int range that gets past it, both measured: a
+             * declared size in 2147483603..2147483631 would overflow the array length
+             * inside grow, which the bounded buffer refuses first, and 2147483632 and up
+             * overflow the "does it fit" test, so Angus skips the grow and reads past the
+             * buffer (IndexOutOfBoundsException) having allocated nothing. A genuine parser
+             * fault lands here too and is handled the same way on purpose — the
+             * connection's state is unknown either way — with the cause kept for the log.
+             * An Error is not caught: the one a parse of hostile input used to raise, a
+             * StackOverflowError, is prevented before the parse instead, by dropping a
+             * FETCH nested past MAX_NESTING unparsed.
              */
             log.warn("{} Could not read a response from IMAP server {} ({}). Closing the connection.", LogCategory.IMAP,
                     host, e.toString());
@@ -163,12 +199,41 @@ final class BoundedImapProtocol extends IMAPProtocol {
         if (response instanceof IMAPResponse imapResponse) {
             String refusal = refusal(imapResponse, isEnabled("QRESYNC"));
             if (refusal != null) {
-                log.warn("{} Refused an implausible response from IMAP server {}: {}. Closing the connection.",
-                        LogCategory.IMAP, host, refusal);
-                throw new ImplausibleResponseException(refusal);
+                throw refused(refusal);
             }
         }
         return response;
+    }
+
+    /**
+     * {@code IMAPProtocol.readResponse} with the nesting check between its two
+     * steps. Angus's own reads the whole response and then, in the same call,
+     * parses a FETCH's items, which is where a {@code BODYSTRUCTURE} is parsed; the
+     * check has to come between the two. Both steps are Angus's own constructors,
+     * called the way {@code IMAPProtocol.readResponse} calls them in 2.0.5 — a
+     * FETCH is the only response it parses further, and so the only one measured. A
+     * later Angus may read responses differently, so
+     * {@code BoundedImapProtocolTest} pins the version.
+     */
+    private Response readNestingChecked() throws IOException, ProtocolException {
+        NestingCheckedResponse response = new NestingCheckedResponse(this);
+        if (!response.keyEquals("FETCH")) {
+            return response;
+        }
+        if (response.nestsDeeperThan(MAX_NESTING)) {
+            log.warn(
+                    "{} Dropped a FETCH response from IMAP server {} nested more than {} levels deep; "
+                            + "the message it describes is left without its structure.",
+                    LogCategory.IMAP, host, MAX_NESTING);
+            throw new NestedTooDeepException();
+        }
+        return new FetchResponse(response, getFetchItems(), this);
+    }
+
+    private ImplausibleResponseException refused(String reason) {
+        log.warn("{} Refused an implausible response from IMAP server {}: {}. Closing the connection.",
+                LogCategory.IMAP, host, reason);
+        return new ImplausibleResponseException(reason);
     }
 
     /**
@@ -210,6 +275,82 @@ final class BoundedImapProtocol extends IMAPProtocol {
                 throw new OversizedResponseException(current, increment);
             }
             super.grow(increment);
+        }
+    }
+
+    /**
+     * A response as Angus reads it, before a FETCH's items are parsed, with the one
+     * question {@link #readNestingChecked()} asks of it. A subclass because the
+     * bytes are Angus's protected fields: this reads them in place, where
+     * {@code toString()} would copy up to {@link #MAX_RESPONSE_BYTES} of them.
+     */
+    static final class NestingCheckedResponse extends IMAPResponse {
+
+        NestingCheckedResponse(Protocol protocol) throws IOException, ProtocolException {
+            super(protocol);
+        }
+
+        NestingCheckedResponse(String line) throws IOException, ProtocolException {
+            super(line);
+        }
+
+        /**
+         * Whether the response's parentheses nest more than {@code bound} levels deep
+         * anywhere, counted as Angus's parser meets them: a quoted string and a literal
+         * are data, so what they hold does not count. Stops at the first level past the
+         * bound, and never recurses itself.
+         */
+        boolean nestsDeeperThan(int bound) {
+            int depth = 0;
+            for (int i = 0; i < size; i++) {
+                switch (buffer[i]) {
+                    case '"' -> i = closingQuote(i);
+                    case '{' -> i = endOfLiteral(i);
+                    case '(' -> {
+                        if (++depth > bound) {
+                            return true;
+                        }
+                    }
+                    case ')' -> depth = Math.max(0, depth - 1);
+                    default -> {
+                        // Anything else is inside an atom or between tokens.
+                    }
+                }
+            }
+            return false;
+        }
+
+        /**
+         * Index of the quote that closes the string opening at {@code open}, skipping
+         * an escaped quote; the end of the response when nothing closes it.
+         */
+        private int closingQuote(int open) {
+            for (int i = open + 1; i < size; i++) {
+                if (buffer[i] == '\\') {
+                    i++;
+                } else if (buffer[i] == '"') {
+                    return i;
+                }
+            }
+            return size;
+        }
+
+        /**
+         * Index of the last byte of the literal {@code open} starts — {@code {n}}
+         * ending its line, then {@code n} bytes of data — or {@code open} itself when
+         * the brace starts no literal. The buffer already holds the whole literal:
+         * Angus reads it in before the response exists.
+         */
+        private int endOfLiteral(int open) {
+            int i = open + 1;
+            long length = 0;
+            while (i < size && buffer[i] >= '0' && buffer[i] <= '9' && length <= size) {
+                length = length * 10 + (buffer[i] - '0');
+                i++;
+            }
+            boolean literal = i > open + 1 && length <= size && i + 2 < size && buffer[i] == '}'
+                    && buffer[i + 1] == '\r' && buffer[i + 2] == '\n';
+            return literal ? (int) Math.min(size, i + 2 + length) : open;
         }
     }
 
@@ -303,6 +444,16 @@ final class BoundedImapProtocol extends IMAPProtocol {
 
         ImplausibleResponseException(String reason, Throwable cause) {
             super("Refused an implausible IMAP response: " + reason, cause);
+        }
+    }
+
+    /**
+     * A FETCH nested past {@link #MAX_NESTING}, dropped unparsed; see the class for
+     * why it is a ProtocolException.
+     */
+    static final class NestedTooDeepException extends ProtocolException {
+        NestedTooDeepException() {
+            super("Dropped an IMAP FETCH response nested more than " + MAX_NESTING + " levels deep");
         }
     }
 }

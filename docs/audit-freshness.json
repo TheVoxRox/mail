@@ -141,5 +141,16 @@
         "note": "Attachment part paths are validated and resolved the way IMAP numbers parts. Two paths moved. controller: MailReadController.downloadAttachment adds @Pattern(AttachmentService.PART_PATH_PATTERN) to partPath, positive part numbers joined by dots, next to the @NotBlank and @Size(max = 64) it had. AttachmentService validates the same pattern before the folder executor, and findPartByPath throws ResourceNotFoundException(error.attachment.partNotFound) for a path that leads nowhere instead of a MessagingException the executor misread as a missing folder, and returns a message's non-multipart body as its part 1, the path MimePartExtractor gives such an attachment, which could not be downloaded before. Checked against section 4's claims. (1) No traversal path opens: partPath is still only ever an index into jakarta.mail Multipart children, never a filesystem path, and the temp file is still created after findPartByPath with the stored stableId as prefix. (2) Section 4's 'the request then fails with the wrong status' and section 7's note on the attachment path were true at the anchor 55fdd1b and are superseded; a malformed path is now a 400 before any IMAP work and a missing part a 404 naming the attachment. (3) No endpoint, method or authentication rule moves. AttachmentServiceTest runs the download lambda on parsed MIME messages and MailReadControllerTest the 400s; against the old code they fail, and the single-part download errors with 'MIME part 1 was not found'. Verdict stays PASS."
       }
     ]
+  },
+  "docs/IMAP_SMTP_AUDIT.md": {
+    "reviewedTrees": {
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "f52a7a94f073342eeec0e3ffb778e5106ed3f2c3"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-09-28",
+        "note": "The fix for B1-10, recorded in the audit itself as v1.17 (section 4j). One file under feature/mail/service changes: BoundedImapProtocol.readResponse performs IMAPProtocol.readResponse's two steps itself, as Angus 2.0.5 does (the IMAPResponse constructor, then FetchResponse for a FETCH), and between them measures how deeply a FETCH's parentheses nest, skipping quoted strings and literals; past MAX_NESTING = 256 it throws NestedTooDeepException, a ProtocolException, which Protocol.command skips. A response that is not a FETCH is not measured and goes back unchanged. The EXISTS and VANISHED bounds of B1-3, the bounded buffer of B1-7 and the RuntimeException catch are untouched, apart from its comment, which now says an Error is prevented before the parse rather than caught. No other file under the path changes. Re-read against sections 2, 4c, 4g and 4j, which the same change updates; the verdict stays open findings for the five others."
+      }
+    ]
   }
 }
