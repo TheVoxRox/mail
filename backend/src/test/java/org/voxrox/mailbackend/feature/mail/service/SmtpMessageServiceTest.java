@@ -268,7 +268,8 @@ class SmtpMessageServiceTest {
             ArgumentCaptor<AccountLastError> err = ArgumentCaptor.forClass(AccountLastError.class);
             verify(accountRepository).updateLastError(eq(ACCOUNT_ID), err.capture(), any(LocalDateTime.class));
             assertThat(err.getValue().code()).isEqualTo(AccountLastErrorCode.DRAFT_SEND_FAILED);
-            assertThat(err.getValue().fallbackMessage()).startsWith("Draft send failed:").contains("DB unavailable");
+            assertThat(err.getValue().fallbackMessage()).startsWith("Draft send failed:")
+                    .doesNotContain("DB unavailable");
             verifyNoInteractions(mailMetrics, transportFactory, appendService, imapActionService,
                     draftPersistenceService);
 

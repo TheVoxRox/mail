@@ -331,7 +331,7 @@ public abstract class OAuth2TokenService {
                 providerDisplayName(), maskedEmail, e);
         AuditLog.critical("token_refresh", maskedEmail, e.getClass().getSimpleName());
         metrics.recordOauthRefresh(MailMetrics.OUTCOME_FAILURE);
-        return new MailOperationException(ErrorCode.INTERNAL_ERROR, "Access token refresh failed: " + e.getMessage());
+        return new MailOperationException(ErrorCode.INTERNAL_ERROR, "Access token refresh failed", e);
     }
 
     private static long parseExpiresIn(@Nullable Object raw) {

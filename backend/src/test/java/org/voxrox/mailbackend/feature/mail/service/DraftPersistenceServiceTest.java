@@ -26,6 +26,7 @@ import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.voxrox.mailbackend.feature.account.AccountLastError;
 import org.voxrox.mailbackend.feature.account.AccountLastErrorCode;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
@@ -106,14 +107,17 @@ class DraftPersistenceServiceTest {
         @Test
         @DisplayName("Exception while loading the draft being replaced -> updateLastError")
         void replaceLookupFailureRecordsLastError() {
-            when(messageService.getByStableId(STABLE_ID)).thenThrow(new RuntimeException("DB unavailable"));
+            when(messageService.getByStableId(STABLE_ID)).thenThrow(
+                    new DataAccessResourceFailureException("could not execute statement [select * from messages]"));
 
             service.saveDraftAsync(ACCOUNT_ID, draftRequest(), STABLE_ID, IDENTITY);
 
             ArgumentCaptor<AccountLastError> err = ArgumentCaptor.forClass(AccountLastError.class);
             verify(accountRepository).updateLastError(eq(ACCOUNT_ID), err.capture(), any(LocalDateTime.class));
             assertThat(err.getValue().code()).isEqualTo(AccountLastErrorCode.DRAFT_SAVE_FAILED);
-            assertThat(err.getValue().fallbackMessage()).startsWith("Draft save failed:").contains("DB unavailable");
+            // The cause, not the database's text (API surface audit, §3).
+            assertThat(err.getValue().args()).containsExactly(java.util.Map.entry("cause", "STORAGE"));
+            assertThat(err.getValue().fallbackMessage()).startsWith("Draft save failed:").doesNotContain("select");
             verify(imapActionService, never()).hardDelete(anyLong(), anyString(), anyLong());
         }
 

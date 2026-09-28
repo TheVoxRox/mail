@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.voxrox.mailbackend.exception.MailFailureCause;
 import org.voxrox.mailbackend.feature.account.AccountLastError;
 import org.voxrox.mailbackend.feature.account.AccountLastErrorCode;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
@@ -163,7 +164,7 @@ public class DraftPersistenceService {
                 AuditLog.failure("draft_save", "account=" + accountId, "append_failed");
                 accountRepository.updateLastError(accountId,
                         AccountLastError.of(AccountLastErrorCode.DRAFT_SAVE_FAILED,
-                                java.util.Map.of("detail", "append to Drafts folder failed"),
+                                java.util.Map.of(AccountLastErrorCode.CAUSE, MailFailureCause.SERVER_REJECTED.name()),
                                 "Draft save failed: append to Drafts folder failed"),
                         LocalDateTime.now());
                 return;
@@ -184,9 +185,9 @@ public class DraftPersistenceService {
         } catch (Exception e) {
             log.error("{} Draft save failed for account ID {}", LogCategory.SMTP, accountId, e);
             AuditLog.failure("draft_save", "account=" + accountId, e.getClass().getSimpleName());
-            accountRepository.updateLastError(accountId,
-                    AccountLastError.of(AccountLastErrorCode.DRAFT_SAVE_FAILED,
-                            java.util.Map.of("detail", safeDetail(e)), "Draft save failed: " + safeDetail(e)),
+            MailFailureCause failure = MailFailureCause.classify(e);
+            accountRepository.updateLastError(accountId, AccountLastError.of(AccountLastErrorCode.DRAFT_SAVE_FAILED,
+                    java.util.Map.of(AccountLastErrorCode.CAUSE, failure.name()), "Draft save failed: " + failure),
                     LocalDateTime.now());
         }
     }
@@ -441,9 +442,5 @@ public class DraftPersistenceService {
                     LogCategory.SMTP, accountId, e.getMessage());
             return false;
         }
-    }
-
-    private static String safeDetail(Exception e) {
-        return e.getMessage() == null || e.getMessage().isBlank() ? "" : e.getMessage();
     }
 }

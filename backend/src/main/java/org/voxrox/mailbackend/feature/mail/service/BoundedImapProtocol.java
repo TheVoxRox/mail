@@ -15,6 +15,7 @@ import org.eclipse.angus.mail.util.MailLogger;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.voxrox.mailbackend.exception.MailFailureCause;
 import org.voxrox.mailbackend.util.LogCategory;
 
 /**
@@ -583,11 +584,11 @@ final class BoundedImapProtocol extends IMAPProtocol {
      */
     static final class ImplausibleResponseException extends IOException {
         ImplausibleResponseException(String reason) {
-            super("Refused an implausible IMAP response: " + reason);
+            super(MailFailureCause.REFUSED_RESPONSE_MARKER + ": " + reason);
         }
 
         ImplausibleResponseException(String reason, Throwable cause) {
-            super("Refused an implausible IMAP response: " + reason, cause);
+            super(MailFailureCause.REFUSED_RESPONSE_MARKER + ": " + reason, cause);
         }
     }
 

@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.voxrox.mailbackend.core.metrics.MailMetrics;
+import org.voxrox.mailbackend.exception.MailFailureCause;
 import org.voxrox.mailbackend.feature.account.AccountLastError;
 import org.voxrox.mailbackend.feature.account.AccountLastErrorCode;
 import org.voxrox.mailbackend.feature.account.dto.AccountConnectionDetails;
@@ -364,8 +365,9 @@ public class SmtpMessageService {
         // broadcast must run even if persisting last_error fails — otherwise a DB error
         // while recording the failure would leave the send "sending…" forever.
         try {
-            accountRepository.updateLastError(accountId,
-                    AccountLastError.of(code, java.util.Map.of("detail", safeDetail(e)), messagePrefix + safeDetail(e)),
+            MailFailureCause failure = MailFailureCause.classify(e);
+            accountRepository.updateLastError(accountId, AccountLastError.of(code,
+                    java.util.Map.of(AccountLastErrorCode.CAUSE, failure.name()), messagePrefix + failure),
                     LocalDateTime.now());
         } catch (Exception dbEx) {
             log.error("{} Failed to persist last_error for account {} while recording a send failure: {}",
@@ -373,10 +375,6 @@ public class SmtpMessageService {
         }
         sseNotificationService
                 .broadcast(SendNotification.failed(sendId, accountId, code.name(), recoveryDraftStableId));
-    }
-
-    private static String safeDetail(Exception e) {
-        return e.getMessage() == null || e.getMessage().isBlank() ? "" : e.getMessage();
     }
 
 }

@@ -60,6 +60,7 @@ class ImapStartTlsRequiredGreenMailIT {
                 greenMail.getImap().getPort(), /* useSsl */ false, LOGIN, PASSWORD, AuthType.PASSWORD, null);
 
         assertThatThrownBy(() -> probe.testImap(1L, plaintext)).isInstanceOf(MailConnectionException.class)
-                .hasMessageContaining("STARTTLS");
+                // The server's own words stay on the cause, for the log (API surface audit §3).
+                .hasStackTraceContaining("STARTTLS");
     }
 }

@@ -17,6 +17,7 @@ import org.voxrox.mailbackend.core.config.MailClientProperties;
 import org.voxrox.mailbackend.core.metrics.MailMetrics;
 import org.voxrox.mailbackend.exception.MailAuthenticationException;
 import org.voxrox.mailbackend.exception.MailConnectionException;
+import org.voxrox.mailbackend.exception.MailFailureCause;
 import org.voxrox.mailbackend.feature.account.AccountLastError;
 import org.voxrox.mailbackend.feature.account.AccountLastErrorCode;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
@@ -601,6 +602,12 @@ public class MailSyncService {
      * string is still better than nothing.
      */
     private static @Nullable AccountLastErrorCode classifyCause(Throwable e) {
+        // A refused server response ends the connection the way a network failure
+        // does, but telling the user to check their connection would send them the
+        // wrong way: the generic code carries the refused-response cause instead.
+        if (MailFailureCause.classify(e) == MailFailureCause.REFUSED_RESPONSE) {
+            return null;
+        }
         for (Throwable cause = e; cause != null; cause = cause.getCause()) {
             if (cause instanceof MailAuthenticationException) {
                 return AccountLastErrorCode.MAIL_SYNC_AUTH_FAILED;
@@ -612,11 +619,15 @@ public class MailSyncService {
         return null;
     }
 
+    /*
+     * The fallback text stored beside the code names the exception's class and the
+     * cause, never its message: that is a library's, a server's or a database's
+     * text — the SQL of a failed statement, for one — and it is logged where the
+     * failure is caught (API surface audit, §3).
+     */
     private static AccountLastError buildFolderSyncError(String folderName, Throwable e) {
-        String base = "Folder sync " + folderName + " failed: " + e.getClass().getSimpleName();
-        if (e.getMessage() != null && !e.getMessage().isBlank()) {
-            base = base + ": " + e.getMessage();
-        }
+        MailFailureCause failure = MailFailureCause.classify(e);
+        String base = "Folder sync " + folderName + " failed: " + e.getClass().getSimpleName() + " (" + failure + ")";
         if (base.length() > LAST_ERROR_MAX_LENGTH) {
             base = base.substring(0, LAST_ERROR_MAX_LENGTH);
         }
@@ -625,27 +636,18 @@ public class MailSyncService {
             return AccountLastError.of(cause, Map.of(), base);
         }
         return AccountLastError.of(AccountLastErrorCode.MAIL_SYNC_FOLDER_FAILED,
-                Map.of("folder", folderName, "detail", safeDetail(e)), base);
+                Map.of("folder", folderName, AccountLastErrorCode.CAUSE, failure.name()), base);
     }
 
     private static AccountLastError buildAccountSyncError(Exception e) {
-        String base = "Account sync failed: " + e.getClass().getSimpleName();
-        if (e.getMessage() != null && !e.getMessage().isBlank()) {
-            base = base + ": " + e.getMessage();
-        }
-        if (base.length() > LAST_ERROR_MAX_LENGTH) {
-            base = base.substring(0, LAST_ERROR_MAX_LENGTH);
-        }
+        MailFailureCause failure = MailFailureCause.classify(e);
+        String base = "Account sync failed: " + e.getClass().getSimpleName() + " (" + failure + ")";
         AccountLastErrorCode cause = classifyCause(e);
         if (cause != null) {
             return AccountLastError.of(cause, Map.of(), base);
         }
-        return AccountLastError.of(AccountLastErrorCode.MAIL_SYNC_ACCOUNT_FAILED, Map.of("detail", safeDetail(e)),
-                base);
-    }
-
-    private static String safeDetail(Throwable e) {
-        return e.getMessage() == null || e.getMessage().isBlank() ? "" : e.getMessage();
+        return AccountLastError.of(AccountLastErrorCode.MAIL_SYNC_ACCOUNT_FAILED,
+                Map.of(AccountLastErrorCode.CAUSE, failure.name()), base);
     }
 
     /**

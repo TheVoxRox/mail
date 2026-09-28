@@ -113,6 +113,28 @@ class GlobalExceptionHandlerTest {
             assertThat(problem.getProperties().get("messageKey")).isEqualTo("error.mail.connectionFailed");
             assertThat(problem.getType()).isEqualTo(ERROR_TYPE_BASE.resolve("mail_connection_error"));
         }
+
+        /**
+         * API surface audit §3: eight throw sites built the message from a caught
+         * exception's text, which reached the client in detail and messageArgs — a
+         * server's reply, a host name, a TLS error — in English, inside the Czech
+         * message.
+         */
+        @Test
+        @DisplayName("A wrapped failure is reported by its cause, in the reader's language, never by its own text")
+        void wrappedFailureIsReportedByItsCause() {
+            when(request.getLocale()).thenReturn(Locale.ENGLISH);
+            var ex = new MailOperationException(ErrorCode.MAIL_CONNECTION_ERROR,
+                    "Failed to communicate with the server", new jakarta.mail.MessagingException("imap.example.com",
+                            new java.net.UnknownHostException("imap.example.com: Name or service not known")));
+
+            ProblemDetail problem = handler.handleAppException(ex, request);
+
+            assertThat(problem.getDetail()).isEqualTo("Mail operation failed: the server could not be found")
+                    .doesNotContain("imap.example.com");
+            assertThat((Object[]) problem.getProperties().get("messageArgs"))
+                    .containsExactly(MailFailureCause.UNKNOWN_HOST);
+        }
     }
 
     @Nested

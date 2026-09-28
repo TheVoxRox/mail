@@ -174,7 +174,7 @@ public class ImapFolderExecutor {
                 }
 
                 throw new MailOperationException(ErrorCode.MAIL_CONNECTION_ERROR,
-                        "Failed to communicate with the server: " + e.getMessage());
+                        "Failed to communicate with the server", e);
 
             } catch (ResourceNotFoundException | MailOperationException e) {
                 // AppException subtypes — pass through to GlobalExceptionHandler unchanged
@@ -190,7 +190,7 @@ public class ImapFolderExecutor {
                 throw e;
             } catch (Exception e) {
                 log.error("{} Unexpected error: {}", LogCategory.IMAP, e.getMessage(), e);
-                throw new MailOperationException(ErrorCode.INTERNAL_ERROR, "Unexpected IMAP error: " + e.getMessage());
+                throw new MailOperationException(ErrorCode.INTERNAL_ERROR, "Unexpected IMAP error", e);
             } finally {
                 if (folder != null && folder.isOpen()) {
                     try {
