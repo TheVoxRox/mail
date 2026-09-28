@@ -102,6 +102,7 @@ class HostileImapResponseIT {
     void setUp() {
         SERVER.answerOpenWith();
         SERVER.listUids(0);
+        SERVER.authenticateWith();
         account = accountRepository.findByEmail(EMAIL).orElseGet(() -> {
             MailServerSettings server = new MailServerSettings("127.0.0.1", SERVER.port(), true);
             accountService.createAccount(
@@ -235,6 +236,25 @@ class HostileImapResponseIT {
                 (folder, uidFolder) -> ImapCondstoreCommands.fetchAllServerUids((IMAPFolder) folder));
 
         assertThat(uids).hasSize(250_000).contains(1L, 250_000L);
+    }
+
+    /**
+     * B1-8. Angus collects the responses to AUTHENTICATE in a loop of its own, not
+     * in {@code Protocol.command}, so a budget charged only there let a server
+     * flood the sign-in. A fresh connection is forced so the pass signs in again.
+     */
+    @Test
+    @DisplayName("A sign-in answered with responses past one command's budget fails the pass instead of the heap")
+    void anAuthenticateFloodFailsThePass() {
+        String[] filler = new String[250_000];
+        Arrays.fill(filler, "* OK still here");
+        SERVER.authenticateWith(filler);
+        imapFolderService.invalidateConnection(account.getId());
+
+        AccountEntity after = pass();
+
+        assertThat(after.getLastErrorCode()).isNotNull();
+        assertThat(after.getLastError()).contains("passed");
     }
 
     @Test

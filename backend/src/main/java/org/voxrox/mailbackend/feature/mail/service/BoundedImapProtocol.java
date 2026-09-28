@@ -3,7 +3,6 @@ package org.voxrox.mailbackend.feature.mail.service;
 import java.io.IOException;
 import java.util.Properties;
 
-import org.eclipse.angus.mail.iap.Argument;
 import org.eclipse.angus.mail.iap.ByteArray;
 import org.eclipse.angus.mail.iap.Protocol;
 import org.eclipse.angus.mail.iap.ProtocolException;
@@ -79,9 +78,9 @@ import org.voxrox.mailbackend.util.LogCategory;
  * envelope and flags with FETCHes of their own, and loading the structure
  * fails, which the sync already keeps as an envelope-only stub.
  * <p>
- * The bounds above are per response; {@link #command} adds one per command
- * (B1-8), because Angus holds all of a command's responses until the tagged
- * one, and refuses the response that overspends it the same way.
+ * The bounds above are per response; {@link #readResponse()} adds one per
+ * command (B1-8), because Angus holds all of a command's responses until the
+ * tagged one, and refuses the response that overspends it the same way.
  * <p>
  * The superclass constructor reads the server greeting through
  * {@link #readResponse()}, which runs before any field of this class is
@@ -167,22 +166,24 @@ final class BoundedImapProtocol extends IMAPProtocol {
 
     /**
      * What the responses of one command may add up to, as {@link CommandBudget}
-     * charges them (B1-8). Every bound above holds one response, and
-     * {@code Protocol.command} keeps every response of a command until the tagged
-     * one arrives, so without this a server that repeats a response the bounds
-     * admit — 60 {@code VANISHED (EARLIER)} lines held 499 MB at 1.16 — sums past
-     * the heap.
+     * charges them (B1-8). Every bound above holds one response, and Angus keeps
+     * every response of a command until the tagged one arrives —
+     * {@code Protocol.command} does, and so does its authentication, in a loop of
+     * its own — so without this a server that repeats a response the bounds admit
+     * (60 {@code VANISHED (EARLIER)} lines held 499 MB at 1.16) sums past the heap.
+     * Every untagged response is charged, up to the tagged one that ends the
+     * command.
      * <p>
      * Twice {@link #MAX_RESPONSE_BYTES}, so the one command that may legitimately
      * carry a response that large still fits, with the same room again for the
      * responses around it. The client's own commands whose answers grow with the
-     * folder do not go through {@code Protocol.command} and are not charged:
-     * {@code ImapCondstoreCommands} reads the UID listing and the
-     * {@code CHANGEDSINCE} flags one response at a time. What is left is small per
-     * message and batched (envelopes, bodies in 16 KiB partial fetches), or a
-     * SELECT's report of what changed since the last cycle; a QRESYNC SELECT that a
-     * mass flag change pushes past the budget is refused and
-     * {@code ImapFolderExecutor} opens the folder again without resynchronization.
+     * folder are not charged: {@code ImapCondstoreCommands} reads the UID listing
+     * and the {@code CHANGEDSINCE} flags one response at a time, keeps what it
+     * needs, and bounds that itself. What is left is small per message and batched
+     * (envelopes, bodies in 16 KiB partial fetches), or a SELECT's report of what
+     * changed since the last cycle; a QRESYNC SELECT that a mass flag change pushes
+     * past the budget is refused and {@code ImapFolderExecutor} opens the folder
+     * again without resynchronization.
      */
     static final long MAX_COMMAND_BYTES = 2L * MAX_RESPONSE_BYTES;
 
@@ -211,13 +212,16 @@ final class BoundedImapProtocol extends IMAPProtocol {
     private static final int INITIAL_RESPONSE_BYTES = 128;
 
     /*
-     * The budget of the command in progress, null outside Protocol.command. No
-     * initializer: the constructor reads the greeting through readResponse before
-     * any field of this class is initialized, and an initializer would run after
-     * that read. Volatile because Angus does not promise that the thread reading a
-     * response is the one that sent the command, though today it always is.
+     * The budget of the command in progress, started by its first untagged response
+     * and ended by its tagged one, and whether the command is being read one
+     * response at a time. No initializers: the constructor reads the greeting
+     * through readResponse before any field of this class is initialized, and an
+     * initializer would run after that read. Volatile because Angus does not
+     * promise that the thread reading a response is the one that sent the command,
+     * though today it always is.
      */
     private volatile @Nullable CommandBudget budget;
+    private volatile boolean oneAtATime;
 
     BoundedImapProtocol(String name, String host, int port, Properties props, boolean isSSL, MailLogger logger)
             throws IOException, ProtocolException {
@@ -225,20 +229,14 @@ final class BoundedImapProtocol extends IMAPProtocol {
     }
 
     /**
-     * {@code Protocol.command} under a {@link CommandBudget}: the one place Angus
-     * collects a command's responses before anyone acts on them, so the one place
-     * their sum has to be bounded. A command read another way — Angus's
-     * authentication, or {@code ImapCondstoreCommands} reading responses one at a
-     * time — holds only the response in hand and is not charged.
+     * Whether the command in progress is read one response at a time by a caller
+     * that keeps none of them — {@code ImapCondstoreCommands.readEach} — and so is
+     * not charged to a {@link CommandBudget}. Everything else is: not only
+     * {@code Protocol.command}, but Angus's authentication too, which collects the
+     * responses to AUTHENTICATE in a loop of its own until the tagged one.
      */
-    @Override
-    public synchronized Response[] command(String command, @Nullable Argument args) {
-        budget = new CommandBudget();
-        try {
-            return super.command(command, args);
-        } finally {
-            budget = null;
-        }
+    void readingOneAtATime(boolean on) {
+        oneAtATime = on;
     }
 
     @Override
@@ -277,8 +275,15 @@ final class BoundedImapProtocol extends IMAPProtocol {
                 throw refused(refusal);
             }
         }
-        CommandBudget current = budget;
-        if (current != null && !response.isTagged()) {
+        if (response.isTagged()) {
+            // The command is complete; whatever comes next is charged afresh.
+            budget = null;
+        } else if (!oneAtATime) {
+            CommandBudget current = budget;
+            if (current == null) {
+                current = new CommandBudget();
+                budget = current;
+            }
             long vanished = response instanceof IMAPResponse imapResponse && imapResponse.keyEquals("VANISHED")
                     ? vanishedUids(imapResponse)
                     : 0;
@@ -548,8 +553,9 @@ final class BoundedImapProtocol extends IMAPProtocol {
     /**
      * What one command's responses have cost so far (B1-8): each response its bytes
      * on the wire plus {@link #RESPONSE_OVERHEAD_BYTES}, and the UIDs its VANISHED
-     * names. A new one per {@code Protocol.command}, so nothing carries over from
-     * one command into the next.
+     * names. A new one per command, started by its first untagged response and
+     * dropped at its tagged one, so nothing carries over from one command into the
+     * next.
      */
     static final class CommandBudget {
 

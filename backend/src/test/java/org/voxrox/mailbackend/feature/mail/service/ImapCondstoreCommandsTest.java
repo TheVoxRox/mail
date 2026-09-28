@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -12,12 +13,14 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
 import jakarta.mail.Flags;
 import jakarta.mail.MessagingException;
 
+import org.eclipse.angus.mail.iap.Argument;
 import org.eclipse.angus.mail.iap.ProtocolException;
 import org.eclipse.angus.mail.iap.Response;
 import org.eclipse.angus.mail.imap.IMAPFolder;
@@ -27,6 +30,7 @@ import org.eclipse.angus.mail.imap.protocol.IMAPProtocol;
 import org.eclipse.angus.mail.imap.protocol.UID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 import org.voxrox.mailbackend.feature.mail.service.ImapCondstoreCommands.FlagChange;
 
 /**
@@ -194,5 +198,48 @@ class ImapCondstoreCommandsTest {
         assertThat(changes.get(1)).extracting(FlagChange::seen, FlagChange::flagged, FlagChange::answered)
                 .containsExactly(false, false, false);
         verify(protocol, never()).command(any(), any());
+    }
+
+    /**
+     * B1-8. Reading one response at a time bounds nothing by itself: the caller
+     * keeps a UID or a change per response, and a server can send more responses
+     * than a folder may hold messages.
+     */
+    @Test
+    @DisplayName("Past the limit the rest is read and dropped, and the command fails once it is complete")
+    void pastTheLimitTheCommandFailsInStep() throws Exception {
+        IMAPProtocol protocol = mock(IMAPProtocol.class);
+        FetchResponse first = uidOnlyResponse(1L);
+        FetchResponse second = uidOnlyResponse(2L);
+        FetchResponse third = uidOnlyResponse(3L);
+        Response tagged = stubStream(protocol, first, second, third);
+        List<Response> kept = new ArrayList<>();
+
+        assertThatThrownBy(() -> ImapCondstoreCommands.readEach(protocol, "UID FETCH", new Argument(), 2, kept::add))
+                .isInstanceOf(ProtocolException.class).hasMessageContaining("more than the 2");
+        assertThat(kept).containsExactly(first, second);
+        // Read to its completion, so the connection is in step for the next command.
+        verify(protocol).handleResult(tagged);
+    }
+
+    /**
+     * B1-8. The bounded protocol charges every response to its per-command budget
+     * unless told the command is read one at a time; a listing charged there would
+     * be refused past 64 MiB.
+     */
+    @Test
+    @DisplayName("A bounded protocol is told when a command is read one response at a time, and when it ends")
+    void boundedProtocolKnowsWhenResponsesAreStreamed() throws Exception {
+        BoundedImapProtocol protocol = mock(BoundedImapProtocol.class);
+        FetchResponse first = uidOnlyResponse(1L);
+        stubStream(protocol, first);
+
+        ImapCondstoreCommands.readEach(protocol, "UID FETCH", new Argument(), 10, r -> {
+        });
+
+        InOrder order = inOrder(protocol);
+        order.verify(protocol).readingOneAtATime(true);
+        order.verify(protocol, times(2)).readResponse();
+        order.verify(protocol).readingOneAtATime(false);
     }
 }

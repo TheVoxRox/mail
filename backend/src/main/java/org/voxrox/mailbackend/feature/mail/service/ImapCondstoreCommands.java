@@ -85,7 +85,7 @@ final class ImapCondstoreCommands {
         args.writeArgument(changedSince);
 
         List<FlagChange> changes = new ArrayList<>();
-        readEach(protocol, "UID FETCH", args, r -> {
+        readEach(protocol, "UID FETCH", args, BoundedImapProtocol.MAX_MESSAGES, r -> {
             if (r instanceof FetchResponse fr) {
                 FlagChange change = parseFlagChange(fr);
                 if (change != null) {
@@ -104,7 +104,7 @@ final class ImapCondstoreCommands {
         args.writeArgument(attrs);
 
         Set<Long> uids = new HashSet<>();
-        readEach(protocol, "UID FETCH", args, r -> {
+        readEach(protocol, "UID FETCH", args, BoundedImapProtocol.MAX_MESSAGES, r -> {
             if (r instanceof FetchResponse fr) {
                 UID uidItem = fr.getItem(UID.class);
                 if (uidItem != null) {
@@ -133,50 +133,76 @@ final class ImapCondstoreCommands {
      * it with a BYE; and the tagged response of this command, or the BYE, goes to
      * {@code handleResult}. Synchronized on the protocol as {@code command} is.
      * {@code BoundedImapProtocolTest} pins the Angus version this was read against.
+     *
+     * <p>
      * Not charged to {@code BoundedImapProtocol}'s per-command budget, which exists
-     * for what a command collects.
+     * for what a command collects; the bound here is on what {@code each} keeps. It
+     * gets at most {@code limit} responses — for a per-message answer, as many as a
+     * folder may hold messages — and past that the rest of the command is read and
+     * dropped and the command fails once it is complete, so the connection stays in
+     * step and nothing a server sends can grow the caller's set or list further.
      */
-    static void readEach(IMAPProtocol protocol, String command, Argument args, Consumer<Response> each)
+    static void readEach(IMAPProtocol protocol, String command, Argument args, long limit, Consumer<Response> each)
             throws ProtocolException {
         synchronized (protocol) {
-            String tag;
+            BoundedImapProtocol bounded = protocol instanceof BoundedImapProtocol b ? b : null;
+            if (bounded != null) {
+                bounded.readingOneAtATime(true);
+            }
             try {
-                tag = protocol.writeCommand(command, args);
-            } catch (Exception e) {
-                protocol.handleResult(Response.byeResponse(e));
-                return;
-            }
-            Response bye = null;
-            Response tagged = null;
-            while (tagged == null) {
-                Response r;
-                try {
-                    r = protocol.readResponse();
-                } catch (IOException e) {
-                    if (bye == null) {
-                        bye = Response.byeResponse(e);
-                    }
-                    break;
-                } catch (ProtocolException e) {
-                    continue;
+                readEachLocked(protocol, command, args, limit, each);
+            } finally {
+                if (bounded != null) {
+                    bounded.readingOneAtATime(false);
                 }
-                if (r.isBYE()) {
-                    bye = r;
-                    continue;
-                }
-                if (r.isTagged() && tag.equals(r.getTag())) {
-                    tagged = r;
-                } else {
-                    each.accept(r);
-                }
-                protocol.notifyResponseHandlers(new Response[]{r});
             }
-            if (bye != null) {
-                protocol.notifyResponseHandlers(new Response[]{bye});
-                protocol.handleResult(bye);
-            } else {
-                protocol.handleResult(Objects.requireNonNull(tagged));
+        }
+    }
+
+    private static void readEachLocked(IMAPProtocol protocol, String command, Argument args, long limit,
+            Consumer<Response> each) throws ProtocolException {
+        String tag;
+        try {
+            tag = protocol.writeCommand(command, args);
+        } catch (Exception e) {
+            protocol.handleResult(Response.byeResponse(e));
+            return;
+        }
+        Response bye = null;
+        Response tagged = null;
+        long handed = 0;
+        while (tagged == null) {
+            Response r;
+            try {
+                r = protocol.readResponse();
+            } catch (IOException e) {
+                if (bye == null) {
+                    bye = Response.byeResponse(e);
+                }
+                break;
+            } catch (ProtocolException e) {
+                continue;
             }
+            if (r.isBYE()) {
+                bye = r;
+                continue;
+            }
+            if (r.isTagged() && tag.equals(r.getTag())) {
+                tagged = r;
+            } else if (++handed <= limit) {
+                each.accept(r);
+            }
+            protocol.notifyResponseHandlers(new Response[]{r});
+        }
+        if (bye != null) {
+            protocol.notifyResponseHandlers(new Response[]{bye});
+            protocol.handleResult(bye);
+            return;
+        }
+        protocol.handleResult(Objects.requireNonNull(tagged));
+        if (handed > limit) {
+            throw new ProtocolException(command + " answered with " + handed + " responses, more than the " + limit
+                    + " a folder may hold messages");
         }
     }
 
