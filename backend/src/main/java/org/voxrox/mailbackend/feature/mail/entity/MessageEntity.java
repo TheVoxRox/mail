@@ -11,6 +11,7 @@ import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 import org.jspecify.annotations.Nullable;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
+import org.voxrox.mailbackend.util.HeaderAddresses;
 import org.voxrox.mailbackend.util.LogMasker;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -158,13 +159,14 @@ public class MessageEntity {
     public MessageEntity() {
     }
 
+    /**
+     * The address in the stored {@code sender} label, read by
+     * {@link HeaderAddresses#labelAddress}; empty when there is no sender.
+     */
     public String getFromEmailOnly() {
         if (sender == null || sender.isBlank())
             return "";
-        if (sender.contains("<") && sender.contains(">")) {
-            return sender.substring(sender.indexOf("<") + 1, sender.indexOf(">")).trim();
-        }
-        return sender.trim();
+        return HeaderAddresses.labelAddress(sender);
     }
 
     public void addAttachment(AttachmentEntity attachment) {

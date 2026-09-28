@@ -88,7 +88,7 @@ Preovereni [docs/IMAP_SMTP_AUDIT.md](docs/IMAP_SMTP_AUDIT.md) proti `f6ae132` zm
 - [ ] **B1-8 (Medium)** — limity jsou na odpoved, ale Angus drzi vsechny odpovedi prikazu do jeho konce: 60x VANISHED (EARLIER) = 499 MB; vlastni vypis `UID FETCH 1:* (UID)` drzi 308 B na zpravu (500k = 154 MB), kazdy cyklus bez resynchronizujiciho SELECT na serveru s CONDSTORE nebo QRESYNC (vzdy na CONDSTORE bez QRESYNC). Rozpocet na prikaz + vypis UID bez sbirani odpovedi. Audit §4h.
 - [ ] **B1-9 (Medium)** — lazy stranka stahuje cely rozsah najednou (2M pozic = 394 MB pred FETCH). Rozhodnuto 2026-09-27: strankovani jen do `local-window-limit` (10 000), na posledni strance poznamka „Starsi zpravy jsou jen na serveru", pocet ve slozce zustava serverovy, stahovani po davkach. Audit §4i.
 - [ ] **B1-5 znovu otevreno (Medium)** — kontrola prijemcu plati pro koncept psany tady jen s APPENDUID; bez nej radek zapise sync z kopie serveru. Audit §4e.
-- [ ] **B1-11 (Low)** — `MessageEntity.getFromEmailOnly` spadne na `>` pred prvnim `<`; zpravu nejde otevrit. Audit §4k.
+- [x] **B1-11 (Low)** — HOTOVO 2026-09-28 (#593): adresa odesilatele se cte z posledniho `<…>` stitku (`HeaderAddresses.labelAddress`/`parseLabel`), i pro naseptavac; zavira i poznamku §5 o jmene, ktere urcuje adresu. Audit §4k.
 - [x] **B1-12 (Medium)** — HOTOVO 2026-09-28 (#592): `findPartByPath` se pta na obsah jen multipart a vnorene zpravy (`isMimeType`), textove telo uz se necte do pameti. Audit §4l.
 
 ---

@@ -104,6 +104,27 @@ class CorrespondentServiceTest {
             assertThat(harvestedEmails()).containsExactly("jana@example.com");
         }
 
+        /**
+         * B1-11. An incoming sender is the stored label, which does not quote the name
+         * ({@code MessageFetcher.formatAddress}); read as a header field it tokenizes
+         * into the name's address as well.
+         */
+        @Test
+        @DisplayName("a sender whose name holds an address is harvested under the address the mail came from")
+        void senderNameHoldingAnAddress() {
+            harvestIncoming("Alice <alice@evil.example> <alice@example.com>");
+
+            assertThat(harvestedEmails()).containsExactly("alice@example.com");
+        }
+
+        @Test
+        @DisplayName("a sender whose name holds a comma keeps the whole name")
+        void senderNameWithComma() {
+            harvestIncoming("Novak, Jan <jan@example.com>");
+
+            verify(correspondentRepository).upsert(ACCOUNT_ID, "jan@example.com", "Novak, Jan", 0, 1, SEEN_AT);
+        }
+
         @Test
         @DisplayName("an unparseable field harvests nothing rather than failing")
         void unparseableFieldIsSilent() {
