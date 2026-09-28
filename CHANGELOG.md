@@ -39,6 +39,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- **`MailReadControllerTest` finishes each attachment download inside its own test (#591).** The download body streams on another thread after the request returns, and the three download tests left it running, so it could call the mocked facade during the next test — once in CI a malformed-path test that expects no such call failed on #590. The tests now dispatch the async result and assert the body as well.
+
 - **The hostile-server tests cover a message structure nested past any stack (#590).** `HostileImapResponseIT` sends a structure 200,000 levels deep over the wire and `MailSyncGreenMailIT` a real message nested 296 levels beside an ordinary one; the first fails without the check and both fail when the response is refused rather than dropped, which was run and seen. `BoundedImapProtocolTest` pins the Angus version the protocol hooks were read against. The IMAP/SMTP audit goes to 1.17 with B1-10 fixed and the threat model to 2.47; drift acknowledged.
 
 - **The IMAP/SMTP audit is re-verified against `f6ae132` and no longer passes (#589).** [IMAP_SMTP_AUDIT.md](docs/IMAP_SMTP_AUDIT.md) 1.16 clears the seven acknowledgements; its independent pass measured what the text had only priced and found five findings (B1-8 to B1-12, four of them Medium) and reopened B1-5, so the verdict is open findings until the fixes land. The threat model and the verdict index follow.

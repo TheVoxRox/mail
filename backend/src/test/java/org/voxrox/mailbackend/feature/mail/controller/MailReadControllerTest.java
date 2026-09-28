@@ -5,10 +5,12 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.io.ByteArrayInputStream;
@@ -33,6 +35,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.voxrox.mailbackend.core.config.MailClientProperties;
 import org.voxrox.mailbackend.core.config.mail.SyncProperties;
 import org.voxrox.mailbackend.core.security.InternalApiKeyProvider;
@@ -240,19 +245,30 @@ class MailReadControllerTest {
                 .andExpect(jsonPath("$.remoteImagesAllowedForSender").value(false));
     }
 
+    /**
+     * Performs a download and lets its body finish inside the test. The body is a
+     * {@code StreamingResponseBody}, which runs on another thread after
+     * {@code perform} returns; left unfinished it called the facade during
+     * whichever test ran next, and a test there that expects no call to the facade
+     * failed intermittently (seen in CI on
+     * {@link #downloadAttachmentMalformedPartPath}).
+     */
+    private ResultActions download(MockHttpServletRequestBuilder builder) throws Exception {
+        MvcResult started = mockMvc.perform(builder).andExpect(request().asyncStarted()).andReturn();
+        return mockMvc.perform(asyncDispatch(started));
+    }
+
     @Test
     @DisplayName("GET attachment — Content-Disposition with both ASCII and UTF-8 name, PDF mime type")
     void downloadAttachmentOk() throws Exception {
-        // The body is streamed via StreamingResponseBody (async) and MockMvc
-        // does not produce it without a dispatch; we therefore verify the
-        // headers set synchronously in the controller (content-type, disposition).
         when(mailFacade.getAttachment(eq("abc123"), eq("1.2")))
                 .thenReturn(new ByteArrayInputStream("PDF-DATA".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
 
-        mockMvc.perform(get("/api/v1/messages/abc123/attachments/1.2").param("fileName", "report.pdf"))
+        download(get("/api/v1/messages/abc123/attachments/1.2").param("fileName", "report.pdf"))
                 .andExpect(status().isOk()).andExpect(header().string("Content-Type", "application/pdf"))
                 .andExpect(header().string("Content-Disposition",
-                        "attachment; filename=\"report.pdf\"; filename*=UTF-8''report.pdf"));
+                        "attachment; filename=\"report.pdf\"; filename*=UTF-8''report.pdf"))
+                .andExpect(content().string("PDF-DATA"));
     }
 
     @Test
@@ -261,10 +277,11 @@ class MailReadControllerTest {
         when(mailFacade.getAttachment(anyString(), anyString()))
                 .thenReturn(new ByteArrayInputStream(new byte[]{1, 2, 3}));
 
-        mockMvc.perform(get("/api/v1/messages/abc123/attachments/1.2")).andExpect(status().isOk())
+        download(get("/api/v1/messages/abc123/attachments/1.2")).andExpect(status().isOk())
                 .andExpect(header().string("Content-Disposition",
                         "attachment; filename=\"unnamed\"; filename*=UTF-8''unnamed"))
-                .andExpect(content().contentType(MediaType.APPLICATION_OCTET_STREAM));
+                .andExpect(content().contentType(MediaType.APPLICATION_OCTET_STREAM))
+                .andExpect(content().bytes(new byte[]{1, 2, 3}));
     }
 
     @Test
@@ -272,7 +289,7 @@ class MailReadControllerTest {
     void downloadAttachmentUtf8Name() throws Exception {
         when(mailFacade.getAttachment(anyString(), anyString())).thenReturn(new ByteArrayInputStream(new byte[0]));
 
-        mockMvc.perform(get("/api/v1/messages/abc123/attachments/1.2").param("fileName", "soubor šťávnatý.pdf"))
+        download(get("/api/v1/messages/abc123/attachments/1.2").param("fileName", "soubor šťávnatý.pdf"))
                 .andExpect(status().isOk()).andExpect(header().string("Content-Disposition", org.hamcrest.Matchers
                         .containsString("filename*=UTF-8''soubor%20%C5%A1%C5%A5%C3%A1vnat%C3%BD.pdf")));
     }
