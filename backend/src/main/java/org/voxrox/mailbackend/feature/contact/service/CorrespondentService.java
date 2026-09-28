@@ -136,7 +136,7 @@ public class CorrespondentService {
         boolean outgoing = input.role() == FolderRole.SENT || input.role() == FolderRole.DRAFTS;
         List<HarvestedAddress> addresses = outgoing
                 ? parseAll(input.recipientsTo(), input.recipientsCc(), input.recipientsBcc())
-                : parseAll(input.sender());
+                : parseSender(input.sender());
         if (addresses.isEmpty()) {
             return;
         }
@@ -204,9 +204,8 @@ public class CorrespondentService {
      * <p>
      * Tokenizing is {@link HeaderAddresses#parseValidTokens}, shared with
      * {@code MimeMessageBuilder} so the send path and the harvest path cannot drift
-     * apart on what counts as an address. What is left here is the harvest's own
-     * part: normalizing the address and deciding what display name is worth
-     * keeping.
+     * apart on what counts as an address. The harvest's own part is
+     * {@link #harvested}.
      */
     private static List<HarvestedAddress> parseField(@Nullable String raw) {
         if (raw == null || raw.isBlank()) {
@@ -215,17 +214,45 @@ public class CorrespondentService {
         InternetAddress[] tokens = HeaderAddresses.parseValidTokens(raw);
         List<HarvestedAddress> parsed = new ArrayList<>(tokens.length);
         for (InternetAddress token : tokens) {
-            String address = token.getAddress();
-            if (address == null || address.isBlank()) {
-                continue;
+            HarvestedAddress harvested = harvested(token);
+            if (harvested != null) {
+                parsed.add(harvested);
             }
-            String email = normalizeEmail(address);
-            if (email.length() > MAX_EMAIL_LENGTH) {
-                continue;
-            }
-            parsed.add(new HarvestedAddress(email, cleanDisplayName(token.getPersonal(), email)));
         }
         return parsed;
+    }
+
+    /**
+     * The sender of an incoming message, from its stored label. The label is
+     * {@code personal <address>} with the name unquoted, so it is read by
+     * {@link HeaderAddresses#parseLabel} rather than tokenized as a header field: a
+     * name holding a comma or an address of its own would come out as tokens of its
+     * own, and {@code "Alice <a@evil>" <a@real>} put {@code a@evil} into the
+     * typeahead under the name Alice (B1-11).
+     */
+    private static List<HarvestedAddress> parseSender(@Nullable String label) {
+        if (label == null || label.isBlank()) {
+            return List.of();
+        }
+        InternetAddress sender = HeaderAddresses.parseLabel(label);
+        HarvestedAddress harvested = sender == null ? null : harvested(sender);
+        return harvested == null ? List.of() : List.of(harvested);
+    }
+
+    /**
+     * The harvest's own part of reading an address: normalizing it and deciding
+     * what display name is worth keeping; {@code null} for one not worth storing.
+     */
+    private static @Nullable HarvestedAddress harvested(InternetAddress token) {
+        String address = token.getAddress();
+        if (address == null || address.isBlank()) {
+            return null;
+        }
+        String email = normalizeEmail(address);
+        if (email.length() > MAX_EMAIL_LENGTH) {
+            return null;
+        }
+        return new HarvestedAddress(email, cleanDisplayName(token.getPersonal(), email));
     }
 
     /**

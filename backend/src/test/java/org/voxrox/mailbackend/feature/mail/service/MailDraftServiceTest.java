@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDateTime;
 
+import jakarta.mail.internet.InternetAddress;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -315,6 +317,34 @@ class MailDraftServiceTest {
         @Test
         void shouldUsePlainEmailWhenNoAngleBrackets() {
             MessageEntity orig = newMessage("alice@example.com", "Hi");
+
+            MailRequest reply = service.createReplyDraft(orig, "x", false);
+
+            assertThat(reply.to()).isEqualTo("alice@example.com");
+        }
+
+        /**
+         * B1-11. The label comes from {@code MessageFetcher.formatAddress}, which does
+         * not quote the personal part, so a name holding {@code >} puts it before the
+         * address's {@code <}.
+         */
+        @Test
+        @DisplayName("A sender name holding '>' still gives the sender's address")
+        void nameWithClosingBracket() throws Exception {
+            String label = MessageFetcher.formatAddress(new InternetAddress("\"Shop > News\" <news@shop.example>"));
+            MessageEntity orig = newMessage(label, "Hi");
+
+            MailRequest reply = service.createReplyDraft(orig, "x", false);
+
+            assertThat(reply.to()).isEqualTo("news@shop.example");
+        }
+
+        @Test
+        @DisplayName("An address inside the sender name does not replace the sender's own")
+        void addressInsideTheName() throws Exception {
+            String label = MessageFetcher
+                    .formatAddress(new InternetAddress("\"Alice <alice@evil.example>\" <alice@example.com>"));
+            MessageEntity orig = newMessage(label, "Hi");
 
             MailRequest reply = service.createReplyDraft(orig, "x", false);
 

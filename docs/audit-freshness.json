@@ -148,7 +148,9 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "8475563e48e8b29424d7bc045a1f6b58ed64c27a"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "8475563e48e8b29424d7bc045a1f6b58ed64c27a",
+      "backend/src/main/java/org/voxrox/mailbackend/util/HeaderAddresses.java": "f46de1567411a60b85ac28c2e650a3af5024b304",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/MessageEntity.java": "7b9f8cbd5bbf72a6f3931a446c417d73d8772341"
     },
     "acknowledgements": [
       {
@@ -158,6 +160,10 @@
       {
         "date": "2026-09-28",
         "note": "The fix for B1-12, recorded in the audit itself as v1.18 (section 4l). One file under feature/mail/service changes: AttachmentService.findPartByPath asks a part for getContent() only when isMimeType says multipart/* or message/rfc822, and otherwise treats the content as absent, so the multipart and encapsulated-message branches, the part-1 fallback for a single-part body and the not-found paths behave as before, and a text part is no longer read to find it. Its javadoc gains the reason. Nothing else in the class moves -- the path validation, the temp-file copy, the integrity check and the cleanup are untouched -- and no other file under the path changes. Re-read against sections 4l and 5 (the attachment download note), which the same change updates; the verdict stays open findings for the four others."
+      },
+      {
+        "date": "2026-09-28",
+        "note": "The fix for B1-11, recorded in the audit itself as v1.19 (section 4k). Two files under the audited paths change. HeaderAddresses gains labelAddress, which reads the address from a sender label's last <...> when the label ends with one and otherwise returns the label trimmed, and parseLabel, which pairs that address with the text before it as the personal name and returns null when it does not validate; parseValidTokens is untouched. MessageEntity.getFromEmailOnly now calls labelAddress instead of taking the text between the first < and the first >, and still returns an empty string for a missing sender. Nothing else in either file moves. CorrespondentService, outside the audited paths, reads the incoming sender through parseLabel instead of parseValidTokens. Re-read against sections 3, 4k and 5 (the note on the From label), which the same change updates; the verdict stays open findings for the three others."
       }
     ]
   }
