@@ -215,8 +215,8 @@ this boundary and would run the acknowledgement cap down:
   open (§4), so a sync over a large mailbox never buffers bodies.
 - **A listing page below the mirror is downloaded by the request.** The sync
   keeps a window of recent mail; a page older than that is fetched when the
-  user asks for it (`MailSyncService.lazyFetchPageRange`), and unlike the other
-  download paths in one range from the mirror's edge down to the page —
+  user asks for it (`MailSyncService.lazyFetchPageRange`), and, unlike the
+  other download paths, in one range from the mirror's edge down to the page —
   finding **B1-9** (§4i, added at 1.16).
 - **Malformed structure fails soft, per message.** A bad `BODYSTRUCTURE`
   (observed from Seznam) is caught — including `RuntimeException` — and the
@@ -229,7 +229,8 @@ this boundary and would run the acknowledgement cap down:
   All of that is downstream of Angus's own parse of the `BODYSTRUCTURE`,
   which happens while the FETCH response is read and is not covered by any of
   it: a structure nested deeply enough overflows the stack there, and the
-  `StackOverflowError` passes every catch on the way — finding **B1-10**
+  `StackOverflowError` passes every catch on the way but Spring's `@Async`
+  interceptor, which only logs it — finding **B1-10**
   (§4j, added at 1.16).
 - **MIME parsing is depth-bounded.** Every recursive walk
   ([MimePartExtractor](../backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java):
@@ -994,14 +995,16 @@ at 1.16:
 - **Honest**, by the author. The sync's UID listing, `UID FETCH 1:* (UID)`
   (`ImapCondstoreCommands.fetchAllServerUids`), gets one response per message
   in the folder, and all of them are held until the listing ends. Measured
-  over TLS through `BoundedImapStore`: 500,000 messages retained **155 MB**
-  (147 MiB), about 310 bytes a response, before the `HashSet<Long>` built from
-  them; the verification pass reproduced it. The listing runs on every cycle
+  over TLS through `BoundedImapStore`: 500,000 messages retained **154 MB**
+  (147 MiB), 308 bytes a response, before the `HashSet<Long>` built from
+  them; the verification pass reproduced it at 154.8 MB. The listing runs on every cycle
   whose SELECT did not resynchronize, on a server with CONDSTORE or QRESYNC,
   because then nothing else names deletions
   (`MailSyncService.syncFlagsAndDeletions`): always on a server with CONDSTORE
-  but not QRESYNC, and on a QRESYNC server in a folder's first cycle and in a
-  folder whose local UID range is 1,000,000 or wider (§4c). After a
+  but not QRESYNC, and on a QRESYNC server whenever a folder cannot be
+  resynchronized — among other cases its first cycle, a folder without a
+  MODSEQ baseline, one whose local UID range spans 1,000,000 or more (§4c), and
+  after a QRESYNC open that failed. After a
   resynchronizing SELECT it runs hourly, as the hole scan, and on a server with
   neither capability not at all. At the 2,000,000 the EXISTS bound admits, the
   listing alone would take about 600 MB, and up to four accounts sync at once
@@ -1078,7 +1081,7 @@ in isolation, 5,000 levels (about 50 KB) overflow the stack and 3,000 do not;
 over the wire, an unsolicited `* 1 FETCH (BODYSTRUCTURE …)` of 200,000 levels
 (2,000,061 bytes, well under B1-7's 32 MiB) made `folder.open` throw
 `StackOverflowError` through `BoundedImapStore`, and left the store connected.
-Every handler on the way catches exceptions, not errors:
+Every handler of ours and of Angus's on the way catches exceptions, not errors:
 `BoundedImapProtocol.readResponse` takes `RuntimeException`, Angus's
 `Protocol.command` `IOException` and `ProtocolException`, `MessageFetcher`
 `MessagingException`, and `ImapFolderExecutor`, the folder cycle and
@@ -1134,7 +1137,7 @@ both.
 **What.** `AttachmentService.findPartByPath` asks each part it descends
 through for its `getContent()` before looking at what it is — the message
 itself, then every part on the path but the one it returns. For a multipart
-that is the `Multipart`, and for most single parts a stream. For a `text/*`
+that is the `Multipart`, and for most single parts a stream. For a `text/plain`, `text/html` or `text/xml`
 part it is the whole body decoded into a `String`, sized by the server. So a
 message whose only body is text is read into the heap whatever path is asked
 for, before `Files.copy` streams the part a second time from
@@ -1272,16 +1275,18 @@ paths` for that note. The author found nothing wrong with the five fixes
   - **B1-8** (Medium, §4h): the bounds of B1-3 and B1-7 hold per response,
     and Angus keeps every response of a command until the command ends. 60
     VANISHED (EARLIER) lines of one SELECT retained 499 MB. The author then
-    measured the client's own UID listing at about 310 bytes a message held
-    (155 MB for 500,000), on every cycle whose SELECT did not resynchronize —
-    always where the server has CONDSTORE without QRESYNC. §4c's "one server can take at most 72 MB" was never true.
+    measured the client's own UID listing at 308 bytes a message held
+    (154 MB for 500,000), on every cycle whose SELECT did not resynchronize on
+    a server with CONDSTORE or QRESYNC — always where it has CONDSTORE without
+    QRESYNC. §4c's "one server can take at most 72 MB" was never true.
   - **B1-9** (Medium, §4i): the lazy page fetch asks for every position
     between the mirror and the requested page in one call, 197 bytes a
     message before any FETCH (394 MB for 2,000,000), on one click; the
     owner decided the direction of the fix the same day.
   - **B1-10** (Medium, §4j): Angus parses a `BODYSTRUCTURE` by recursing once
     per level, and the `StackOverflowError` 200,000 levels raise passes every
-    catch, so the sync stops on every cycle. §2's two bullets and §4g's
+    catch but the `@Async` interceptor's, which only logs it, so the sync
+    stops on every cycle with nothing recorded. §2's two bullets and §4g's
     "every parser fault" are corrected with it.
   - **B1-5 reopened** (Medium, §4e): the recipient check compares against
     what the user typed only when the server returns APPENDUID; without it
@@ -1309,7 +1314,10 @@ paths` for that note. The author found nothing wrong with the five fixes
   (§4h), what §4c's 72 MB prices, the handlers a `StackOverflowError` meets
   (§4j) and the range of the §1 attribution; it added the drafts listing to
   §4i, `ComposeForm` and `CorrespondentService` to what the paths leave out,
-  and a §2 bullet for the lazy fetch.
+  and a §2 bullet for the lazy fetch. A third pass, over those corrections,
+  found the `@Async` interceptor still missing where §2, this entry and the
+  threat model said nothing catches the error, and the cases of the listing
+  incomplete.
 
 - **1.15** (2026-09-23) — **B1-6 fixed, no findings left open** (#565). The
   write timeout §4f asked for, from a new `mail.client.imap.write-timeout`,
