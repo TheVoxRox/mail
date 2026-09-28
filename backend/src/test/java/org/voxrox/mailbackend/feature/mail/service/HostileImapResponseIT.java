@@ -5,8 +5,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.Comparator;
+import java.util.Set;
 
+import jakarta.mail.Folder;
+
+import org.eclipse.angus.mail.imap.IMAPFolder;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -21,6 +26,7 @@ import org.voxrox.mailbackend.feature.account.dto.MailServerSettings;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.feature.account.service.AccountService;
+import org.voxrox.mailbackend.feature.mail.service.ImapConnectionManager.Lane;
 
 /**
  * A sync against a server that answers the folder open with a size meant to
@@ -87,12 +93,15 @@ class HostileImapResponseIT {
     private AccountRepository accountRepository;
     @Autowired
     private MailSyncService mailSyncService;
+    @Autowired
+    private ImapFolderService imapFolderService;
 
     private AccountEntity account;
 
     @BeforeEach
     void setUp() {
         SERVER.answerOpenWith();
+        SERVER.listUids(0);
         account = accountRepository.findByEmail(EMAIL).orElseGet(() -> {
             MailServerSettings server = new MailServerSettings("127.0.0.1", SERVER.port(), true);
             accountService.createAccount(
@@ -190,6 +199,42 @@ class HostileImapResponseIT {
         AccountEntity after = pass();
 
         assertThat(after.getLastErrorCode()).isNull();
+    }
+
+    /**
+     * B1-8. Each line is a response the per-response checks pass; 250,000 of them
+     * are three megabytes on the wire and, with the objects Angus parses each into,
+     * past one command's budget. Against the unfixed protocol nothing refuses them
+     * and the pass completes, holding them all until the SELECT ends.
+     */
+    @Test
+    @DisplayName("A folder open whose responses add up past one command's budget fails the pass instead of the heap")
+    void responsesAddingUpPastTheBudgetFailThePass() {
+        String[] filler = new String[250_000];
+        Arrays.fill(filler, "* OK still here");
+        SERVER.answerOpenWith(filler);
+
+        AccountEntity after = pass();
+
+        assertThat(after.getLastErrorCode()).isNotNull();
+        assertThat(after.getLastError()).contains("implausible IMAP response").contains("passed");
+    }
+
+    /**
+     * B1-8, the honest half. The UID listing answers once per message, so a large
+     * folder's listing is as long as the hostile open above; it is read one
+     * response at a time and not charged, so it lists the folder whole.
+     */
+    @Test
+    @DisplayName("A UID listing longer than one command's budget is read whole, one response at a time")
+    void aLongUidListingIsReadWhole() {
+        SERVER.answerOpenWith("* 250000 EXISTS");
+        SERVER.listUids(250_000);
+
+        Set<Long> uids = imapFolderService.executeInFolder(account.getId(), Lane.BACKGROUND, "INBOX", Folder.READ_ONLY,
+                (folder, uidFolder) -> ImapCondstoreCommands.fetchAllServerUids((IMAPFolder) folder));
+
+        assertThat(uids).hasSize(250_000).contains(1L, 250_000L);
     }
 
     @Test

@@ -19,8 +19,9 @@ import module java.base;
  * {@link IMAPFolder#doCommand(IMAPFolder.ProtocolCommand)}. Angus Mail only
  * exposes {@link IMAPFolder#getHighestModSeq()} from the high-level API; the
  * {@code CHANGEDSINCE} parameter in UID FETCH and the UID-only enumeration for
- * cleanup must be built manually via
- * {@link IMAPProtocol#command(String, Argument)}.
+ * cleanup must be built manually. Both are read through {@link #readEach}, not
+ * {@link IMAPProtocol#command(String, Argument)}, because they answer once per
+ * message.
  */
 final class ImapCondstoreCommands {
 
@@ -83,22 +84,15 @@ final class ImapCondstoreCommands {
         changedSince.writeNumber(sinceModseq);
         args.writeArgument(changedSince);
 
-        Response[] responses = protocol.command("UID FETCH", args);
-        if (responses.length == 0) {
-            throw new ProtocolException("Empty response to UID FETCH ... CHANGEDSINCE");
-        }
         List<FlagChange> changes = new ArrayList<>();
-        for (int i = 0; i < responses.length - 1; i++) {
-            Response r = responses[i];
+        readEach(protocol, "UID FETCH", args, r -> {
             if (r instanceof FetchResponse fr) {
                 FlagChange change = parseFlagChange(fr);
                 if (change != null) {
                     changes.add(change);
                 }
             }
-        }
-        protocol.notifyResponseHandlers(responses);
-        protocol.handleResult(responses[responses.length - 1]);
+        });
         return changes;
     }
 
@@ -109,23 +103,81 @@ final class ImapCondstoreCommands {
         attrs.writeAtom("UID");
         args.writeArgument(attrs);
 
-        Response[] responses = protocol.command("UID FETCH", args);
-        if (responses.length == 0) {
-            throw new ProtocolException("Empty response to UID FETCH 1:* (UID)");
-        }
         Set<Long> uids = new HashSet<>();
-        for (int i = 0; i < responses.length - 1; i++) {
-            Response r = responses[i];
+        readEach(protocol, "UID FETCH", args, r -> {
             if (r instanceof FetchResponse fr) {
                 UID uidItem = fr.getItem(UID.class);
                 if (uidItem != null) {
                     uids.add(uidItem.uid);
                 }
             }
-        }
-        protocol.notifyResponseHandlers(responses);
-        protocol.handleResult(responses[responses.length - 1]);
+        });
         return uids;
+    }
+
+    /**
+     * {@code Protocol.command} without the collecting (IMAP/SMTP audit B1-8). Both
+     * commands here answer once per message in the folder — every message for the
+     * UID listing, every changed one for {@code CHANGEDSINCE} — and
+     * {@code Protocol.command} holds all of those responses until the tagged one:
+     * 308 bytes each, 154 MB for a 500,000-message folder, before the set built
+     * from them. This reads them one at a time, hands each to {@code each} and to
+     * the folder's response handlers, and keeps none, so what the command costs is
+     * what {@code each} keeps.
+     *
+     * <p>
+     * It does what {@code Protocol.command} does in Angus 2.0.5, read from its
+     * bytecode, in the same order: a write that fails ends the command with a
+     * synthetic BYE; a response that fails to parse ({@code ProtocolException}) is
+     * skipped; a BYE is kept to end the command with; an {@code IOException} ends
+     * it with a BYE; and the tagged response of this command, or the BYE, goes to
+     * {@code handleResult}. Synchronized on the protocol as {@code command} is.
+     * {@code BoundedImapProtocolTest} pins the Angus version this was read against.
+     * Not charged to {@code BoundedImapProtocol}'s per-command budget, which exists
+     * for what a command collects.
+     */
+    static void readEach(IMAPProtocol protocol, String command, Argument args, Consumer<Response> each)
+            throws ProtocolException {
+        synchronized (protocol) {
+            String tag;
+            try {
+                tag = protocol.writeCommand(command, args);
+            } catch (Exception e) {
+                protocol.handleResult(Response.byeResponse(e));
+                return;
+            }
+            Response bye = null;
+            Response tagged = null;
+            while (tagged == null) {
+                Response r;
+                try {
+                    r = protocol.readResponse();
+                } catch (IOException e) {
+                    if (bye == null) {
+                        bye = Response.byeResponse(e);
+                    }
+                    break;
+                } catch (ProtocolException e) {
+                    continue;
+                }
+                if (r.isBYE()) {
+                    bye = r;
+                    continue;
+                }
+                if (r.isTagged() && tag.equals(r.getTag())) {
+                    tagged = r;
+                } else {
+                    each.accept(r);
+                }
+                protocol.notifyResponseHandlers(new Response[]{r});
+            }
+            if (bye != null) {
+                protocol.notifyResponseHandlers(new Response[]{bye});
+                protocol.handleResult(bye);
+            } else {
+                protocol.handleResult(Objects.requireNonNull(tagged));
+            }
+        }
     }
 
     private static @Nullable FlagChange parseFlagChange(FetchResponse fr) {

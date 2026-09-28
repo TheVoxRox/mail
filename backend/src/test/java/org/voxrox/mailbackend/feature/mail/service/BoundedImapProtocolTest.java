@@ -286,6 +286,62 @@ class BoundedImapProtocolTest {
         assertThat(pom.getProperty("version")).isEqualTo("2.0.5");
     }
 
+    /**
+     * B1-8. Every bound above holds one response, and Protocol.command keeps all of
+     * a command's responses until the tagged one: at 1.16, 60 VANISHED (EARLIER)
+     * lines, each inside its bound, held 499 MB.
+     */
+    @Nested
+    @DisplayName("Command budget")
+    class CommandBudgetRules {
+
+        @Test
+        @DisplayName("A command's responses may add up to the budget, and the one that passes it is refused")
+        void bytesAddUpToTheBudget() {
+            BoundedImapProtocol.CommandBudget budget = new BoundedImapProtocol.CommandBudget();
+            int perResponse = 1024 * 1024 - BoundedImapProtocol.RESPONSE_OVERHEAD_BYTES;
+            long fits = BoundedImapProtocol.MAX_COMMAND_BYTES / (1024 * 1024);
+
+            for (long i = 0; i < fits; i++) {
+                assertThat(budget.charge(perResponse, 0)).as("response %d", i).isNull();
+            }
+            assertThat(budget.charge(0, 0)).contains("passed").contains("bytes");
+        }
+
+        @Test
+        @DisplayName("Short responses are charged for the objects around them, not just their bytes")
+        void shortResponsesCarryTheirOverhead() {
+            BoundedImapProtocol.CommandBudget budget = new BoundedImapProtocol.CommandBudget();
+            // "* 1 FETCH (UID 1)": cheap on the wire, 308 bytes in the heap.
+            long cost = 17 + BoundedImapProtocol.RESPONSE_OVERHEAD_BYTES;
+            long fits = BoundedImapProtocol.MAX_COMMAND_BYTES / cost;
+
+            for (long i = 0; i < fits; i++) {
+                budget.charge(17, 0);
+            }
+            assertThat(budget.charge(17, 0)).isNotNull();
+        }
+
+        @Test
+        @DisplayName("VANISHED responses may name as many UIDs together as a folder holds messages, and no more")
+        void vanishedUidsAddUp() {
+            BoundedImapProtocol.CommandBudget budget = new BoundedImapProtocol.CommandBudget();
+
+            assertThat(budget.charge(40, BoundedImapProtocol.MAX_EARLIER_VANISHED_UIDS)).isNull();
+            assertThat(budget.charge(40, BoundedImapProtocol.MAX_EARLIER_VANISHED_UIDS)).isNull();
+            assertThat(budget.charge(40, 1)).contains("VANISHED");
+        }
+
+        @Test
+        @DisplayName("A VANISHED response is counted by the UIDs it names, in either form")
+        void vanishedUidsAreCounted() throws Exception {
+            assertThat(BoundedImapProtocol.vanishedUids(response("* VANISHED (EARLIER) 1:1000000")))
+                    .isEqualTo(1_000_000);
+            assertThat(BoundedImapProtocol.vanishedUids(response("* VANISHED 5,7:9"))).isEqualTo(4);
+            assertThat(BoundedImapProtocol.vanishedUids(response("* VANISHED"))).isZero();
+        }
+    }
+
     @Test
     @DisplayName("Every other response passes untouched, whatever number it carries")
     void otherResponsesPass() throws Exception {

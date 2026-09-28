@@ -38,6 +38,7 @@ final class HostileImapServer implements AutoCloseable {
     private final Set<Socket> open = ConcurrentHashMap.newKeySet();
     private final ExecutorService threads = Executors.newVirtualThreadPerTaskExecutor();
     private volatile List<String> openResponse = List.of();
+    private volatile int uidListing;
 
     HostileImapServer() throws IOException {
         this.server = TestTls.serverSocketFactory().createServerSocket(0, 50, InetAddress.getLoopbackAddress());
@@ -55,6 +56,16 @@ final class HostileImapServer implements AutoCloseable {
      */
     void answerOpenWith(String... lines) {
         openResponse = List.of(lines);
+    }
+
+    /**
+     * How many messages every later {@code UID FETCH} lists, one
+     * {@code * n FETCH (UID n)} each — the answer to the sync's UID listing for a
+     * folder that size (IMAP/SMTP audit B1-8). Zero answers with nothing but the
+     * completion.
+     */
+    void listUids(int count) {
+        uidListing = count;
     }
 
     @Override
@@ -119,9 +130,21 @@ final class HostileImapServer implements AutoCloseable {
                 lines.add(tag + " OK [" + (command.equals("EXAMINE") ? "READ-ONLY" : "READ-WRITE") + "] done");
                 yield lines;
             }
+            case "UID" ->
+                arguments.toUpperCase(Locale.ROOT).startsWith("FETCH") ? uidListing(tag) : List.of(tag + " OK done");
             case "LOGOUT" -> List.of("* BYE logging out", tag + " OK done");
             default -> List.of(tag + " OK done");
         };
+    }
+
+    private List<String> uidListing(String tag) {
+        int count = uidListing;
+        List<String> lines = new ArrayList<>(count + 1);
+        for (int n = 1; n <= count; n++) {
+            lines.add("* " + n + " FETCH (UID " + n + ")");
+        }
+        lines.add(tag + " OK done");
+        return lines;
     }
 
     private static void send(OutputStream out, List<String> lines) throws IOException {
