@@ -1,5 +1,7 @@
 import { execFileSync } from 'node:child_process';
+import path from 'node:path';
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
 /*
  * Refuses an index blob whose line endings contradict .gitattributes.
@@ -31,10 +33,16 @@ import process from 'node:process';
  */
 
 /*
- * Asked of git rather than derived from cwd, so `npm run` from frontend/ and a
- * hook started at the repo root resolve the same tree.
+ * From where this script lives, frontend/scripts, two levels below the root.
+ * Not from cwd: `npm run` starts this in frontend/ and a hook may start it at
+ * the repo root, and both have to resolve the same tree. Not from
+ * `git rev-parse --show-toplevel` either: a hook in a linked worktree runs with
+ * GIT_DIR exported, which makes git take the current directory, frontend/, for
+ * the top of the tree. This gate survived that, since it reads only what git
+ * answers, but the NUL and Java-import gates did not, and the three now find
+ * the root the same way.
  */
-const repoRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /*
  * `-z` NUL-terminates the records, so a path containing a newline cannot split
