@@ -25,6 +25,12 @@ export interface PagedResponse<T> {
 	totalElements: number;
 	first: boolean;
 	last: boolean;
+	/**
+	 * The listing holds more than can be browsed: a folder past the local window
+	 * pages only that deep, while totalElements keeps the folder's real size.
+	 * Absent from listings that are never cut (contacts, search).
+	 */
+	olderOnServer?: boolean;
 }
 
 // ─── Accounts & providers ──────────────────────────────────────────────────

@@ -1376,6 +1376,7 @@ export interface components {
 			content?: components['schemas']['ContactResponse'][];
 			first?: boolean;
 			last?: boolean;
+			olderOnServer?: boolean;
 			/** Format: int32 */
 			page?: number;
 			/** Format: int32 */
@@ -1389,6 +1390,7 @@ export interface components {
 			content?: components['schemas']['ConversationSummaryResponse'][];
 			first?: boolean;
 			last?: boolean;
+			olderOnServer?: boolean;
 			/** Format: int32 */
 			page?: number;
 			/** Format: int32 */
@@ -1402,6 +1404,7 @@ export interface components {
 			content?: components['schemas']['MailSummaryResponse'][];
 			first?: boolean;
 			last?: boolean;
+			olderOnServer?: boolean;
 			/** Format: int32 */
 			page?: number;
 			/** Format: int32 */

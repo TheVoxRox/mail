@@ -7,11 +7,13 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
@@ -31,6 +33,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
@@ -691,6 +694,21 @@ class MailSyncServiceTest {
     @DisplayName("fetchServerCountAndEnsurePageLocally")
     class FetchServerCountAndEnsurePageLocally {
 
+        /**
+         * The shipped defaults: a download window of 100 and a listing depth of 10,000.
+         * Lenient because a count that fails never reaches the lazy fetch.
+         */
+        @BeforeEach
+        void stubSyncProperties() {
+            lenient().when(mailProps.sync()).thenReturn(syncProperties(10_000));
+        }
+
+        private SyncProperties syncProperties(int localWindowLimit) {
+            return new SyncProperties(100, 200, java.time.Duration.ofMinutes(5), java.time.Duration.ofSeconds(10), 50,
+                    30, localWindowLimit, 4, 256, 200, java.time.Duration.ofMinutes(30),
+                    java.time.Duration.ofSeconds(30), java.time.Duration.ofHours(1));
+        }
+
         @Test
         @DisplayName("local cache covers the page -> no lazy fetch, returns server count and refreshes cache")
         void noLazyFetchWhenLocalCovers() throws Exception {
@@ -707,7 +725,7 @@ class MailSyncServiceTest {
         }
 
         @Test
-        @DisplayName("page beyond local cache -> lazy-fetches the correct sequence range, returns server count")
+        @DisplayName("page beyond local cache -> lazy-fetches the range in windows of 100, returns server count")
         void lazyFetchesWhenPageBeyondLocal() throws Exception {
             Folder folder = mock(Folder.class);
             when(messageRepository.countByAccountIdAndFolderName(ACCOUNT_ID, "INBOX")).thenReturn(100L);
@@ -717,13 +735,16 @@ class MailSyncServiceTest {
             when(syncStateService.getOrCreateState(eq(ACCOUNT_ID), eq("INBOX"), eq(FolderRole.USER)))
                     .thenReturn(new FolderSyncStateEntity());
             // page 5, size 50 -> needed = 300; endSeq = 1790 - 100 = 1690; startSeq = 1790
-            // - 300 + 1 = 1491
-            when(messageDownloader.downloadSequenceRange(any(), eq(1491), eq(1690))).thenReturn(200);
+            // - 300 + 1 = 1491; newest window first.
+            when(messageDownloader.downloadSequenceRange(any(), anyInt(), anyInt())).thenReturn(100);
 
             long total = service.fetchServerCountAndEnsurePageLocally(account, "INBOX", 5, 50);
 
             assertThat(total).isEqualTo(1790L);
-            verify(messageDownloader).downloadSequenceRange(any(), eq(1491), eq(1690));
+            InOrder windows = inOrder(messageDownloader);
+            windows.verify(messageDownloader).downloadSequenceRange(any(), eq(1591), eq(1690));
+            windows.verify(messageDownloader).downloadSequenceRange(any(), eq(1491), eq(1590));
+            windows.verifyNoMoreInteractions();
             verify(folderCountCache).put(ACCOUNT_ID, "INBOX", 1790L);
         }
 
@@ -771,8 +792,9 @@ class MailSyncServiceTest {
             // The paginator gets the interactive count it asked for...
             assertThat(total).isEqualTo(1790L);
             // ...while the range is computed from 1792: endSeq = 1792 - 100,
-            // startSeq = 1792 - min(300, 1792) + 1.
-            verify(messageDownloader).downloadSequenceRange(any(), eq(1493), eq(1692));
+            // startSeq = 1792 - min(300, 1792) + 1, in two windows.
+            verify(messageDownloader).downloadSequenceRange(any(), eq(1593), eq(1692));
+            verify(messageDownloader).downloadSequenceRange(any(), eq(1493), eq(1592));
         }
 
         @Test
@@ -798,6 +820,48 @@ class MailSyncServiceTest {
             // paginator show the local count for a folder whose real size is known.
             assertThat(total).isEqualTo(1790L);
             verify(folderCountCache).put(ACCOUNT_ID, "INBOX", 1790L);
+        }
+
+        /**
+         * B1-9. The range down to a deep page used to be taken whole: a click on the
+         * last page of a large folder asked for every message between the mirror and
+         * the oldest one, and what it downloaded was pruned again after the next cycle.
+         */
+        @Test
+        @DisplayName("A page below the listing depth downloads only down to the depth")
+        void deepPageStopsAtTheListingDepth() throws Exception {
+            when(mailProps.sync()).thenReturn(syncProperties(300));
+            Folder folder = mock(Folder.class);
+            when(messageRepository.countByAccountIdAndFolderName(ACCOUNT_ID, "INBOX")).thenReturn(250L);
+            when(folder.getMessageCount()).thenReturn(1790);
+            stubExecuteInFolderRunCallback(folder);
+            stubTransactionTemplateExecuteRunCallback();
+            when(syncStateService.getOrCreateState(eq(ACCOUNT_ID), eq("INBOX"), eq(FolderRole.USER)))
+                    .thenReturn(new FolderSyncStateEntity());
+
+            // The last page of the folder: needed = 1800, capped at the depth of 300, so
+            // endSeq = 1790 - 250 = 1540 and startSeq = 1790 - 300 + 1 = 1491.
+            long total = service.fetchServerCountAndEnsurePageLocally(account, "INBOX", 35, 50);
+
+            assertThat(total).isEqualTo(1790L);
+            verify(messageDownloader).downloadSequenceRange(any(), eq(1491), eq(1540));
+            verifyNoMoreInteractions(messageDownloader);
+        }
+
+        @Test
+        @DisplayName("A mirror at the listing depth downloads nothing, however deep the page")
+        void mirrorAtTheDepthDownloadsNothing() throws Exception {
+            when(mailProps.sync()).thenReturn(syncProperties(300));
+            Folder folder = mock(Folder.class);
+            when(messageRepository.countByAccountIdAndFolderName(ACCOUNT_ID, "INBOX")).thenReturn(300L);
+            when(folder.getMessageCount()).thenReturn(1790);
+            stubExecuteInFolderRunCallback(folder);
+
+            long total = service.fetchServerCountAndEnsurePageLocally(account, "INBOX", 35, 50);
+
+            assertThat(total).isEqualTo(1790L);
+            verify(imapFolderService, never()).executeInFolder(eq(ACCOUNT_ID), eq(Lane.BACKGROUND), any(), anyInt(),
+                    any());
         }
 
         @Test
