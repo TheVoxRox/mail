@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.atIndex;
 
+import java.util.Properties;
+
 import org.eclipse.angus.mail.imap.protocol.IMAPResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -184,6 +186,104 @@ class BoundedImapProtocolTest {
             assertThatThrownBy(() -> buffer(128).grow(-1))
                     .isInstanceOf(BoundedImapProtocol.OversizedResponseException.class);
         }
+    }
+
+    /**
+     * B1-10: how deep a response nests, measured before Angus parses it, because
+     * its {@code BODYSTRUCTURE} parser recurses once per level. That the check sits
+     * in front of that parse on a real connection is
+     * {@code HostileImapResponseIT}'s question.
+     */
+    @Nested
+    @DisplayName("Nesting")
+    class Nesting {
+
+        private static final int BOUND = BoundedImapProtocol.MAX_NESTING;
+
+        private static boolean nestsTooDeep(String line) throws Exception {
+            return new BoundedImapProtocol.NestingCheckedResponse(line).nestsDeeperThan(BOUND);
+        }
+
+        /**
+         * The FETCH list itself is one level, so the parentheses inside get the rest.
+         */
+        private static String fetchNested(int levels) {
+            return "* 1 FETCH " + "(".repeat(levels) + ")".repeat(levels);
+        }
+
+        @Test
+        @DisplayName("Nesting up to the bound passes, one level more is refused")
+        void nestingAtTheBound() throws Exception {
+            assertThat(nestsTooDeep(fetchNested(BOUND))).isFalse();
+            assertThat(nestsTooDeep(fetchNested(BOUND + 1))).isTrue();
+        }
+
+        @Test
+        @DisplayName("Depth is the deepest point, not the number of lists")
+        void siblingListsDoNotAddUp() throws Exception {
+            String siblings = "* 1 FETCH (" + "(x) ".repeat(BOUND * 4) + ")";
+
+            assertThat(nestsTooDeep(siblings)).isFalse();
+        }
+
+        @Test
+        @DisplayName("Parentheses inside a quoted string or a literal are data, not depth")
+        void stringsAndLiteralsDoNotCount() throws Exception {
+            String deep = "(".repeat(BOUND + 1);
+
+            assertThat(nestsTooDeep("* 1 FETCH (BODY[HEADER] \"" + deep + "\")")).isFalse();
+            assertThat(nestsTooDeep("* 1 FETCH (BODY[HEADER] \"a \\\" " + deep + "\")")).isFalse();
+            assertThat(nestsTooDeep("* 1 FETCH (BODY[] {" + deep.length() + "}\r\n" + deep + ")")).isFalse();
+        }
+
+        @Test
+        @DisplayName("A brace that starts no literal leaves what follows it counted")
+        void aBraceThatIsNoLiteralIsCounted() throws Exception {
+            String deep = "(".repeat(BOUND + 1);
+
+            assertThat(nestsTooDeep("* OK [ALERT] {3} " + deep)).isTrue();
+            assertThat(nestsTooDeep("* OK [ALERT] {} " + deep)).isTrue();
+        }
+
+        @Test
+        @DisplayName("A literal longer than the response ends the scan instead of running past it")
+        void aLiteralPastTheEndIsNotFollowed() throws Exception {
+            assertThat(nestsTooDeep("* 1 FETCH (BODY[] {999}\r\n(((")).isFalse();
+        }
+
+        @Test
+        @DisplayName("An ordinary structure passes: a multipart with a text part and an attachment")
+        void anOrdinaryStructurePasses() throws Exception {
+            String structure = "* 3 FETCH (UID 7 BODYSTRUCTURE ((\"text\" \"plain\" (\"charset\" \"utf-8\") NIL NIL"
+                    + " \"quoted-printable\" 120 4 NIL NIL NIL NIL)(\"application\" \"pdf\" (\"name\" \"a (1).pdf\")"
+                    + " NIL NIL \"base64\" 5000 NIL (\"attachment\" (\"filename\" \"a (1).pdf\")) NIL NIL)"
+                    + " \"mixed\" (\"boundary\" \"b1\") NIL NIL NIL))";
+
+            assertThat(nestsTooDeep(structure)).isFalse();
+        }
+    }
+
+    /**
+     * {@link BoundedImapProtocol} hooks into Angus below its public API — the
+     * response buffer's {@code grow}, the two steps of {@code readResponse}, the
+     * protected bytes of a response — and the IMAP/SMTP audit's B1-3, B1-7 and
+     * B1-10 sections rest on reading them in this version's bytecode. A different
+     * Angus may do any of it differently while every test here still passes on
+     * responses it parses itself, so the version is pinned: a dependency update
+     * that moves it fails here, and passes once those hooks are re-read against the
+     * new bytecode and this number is moved with them.
+     */
+    @Test
+    @DisplayName("Angus is the version the protocol hooks were verified against")
+    void angusIsTheVerifiedVersion() throws Exception {
+        Properties pom = new Properties();
+        try (var in = IMAPResponse.class.getClassLoader()
+                .getResourceAsStream("META-INF/maven/org.eclipse.angus/angus-mail/pom.properties")) {
+            assertThat(in).as("angus-mail's pom.properties").isNotNull();
+            pom.load(in);
+        }
+
+        assertThat(pom.getProperty("version")).isEqualTo("2.0.5");
     }
 
     @Test

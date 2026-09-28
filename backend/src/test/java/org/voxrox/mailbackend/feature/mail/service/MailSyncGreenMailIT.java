@@ -2,16 +2,26 @@ package org.voxrox.mailbackend.feature.mail.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Properties;
 
+import jakarta.activation.DataHandler;
 import jakarta.mail.Flags;
 import jakarta.mail.Folder;
+import jakarta.mail.Message;
+import jakarta.mail.MessagingException;
+import jakarta.mail.Part;
 import jakarta.mail.Session;
 import jakarta.mail.Store;
+import jakarta.mail.internet.MimeBodyPart;
+import jakarta.mail.internet.MimeMessage;
+import jakarta.mail.internet.MimeMultipart;
+import jakarta.mail.util.ByteArrayDataSource;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,6 +37,7 @@ import org.voxrox.mailbackend.feature.account.dto.MailServerSettings;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.feature.account.service.AccountService;
+import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
 
 import com.icegreen.greenmail.junit5.GreenMailExtension;
@@ -49,7 +60,8 @@ import com.icegreen.greenmail.util.ServerSetup;
  * One sequential scenario instead of isolated test methods: the phases
  * deliberately share server + DB state (initial download → flag change →
  * server-side delete), which is exactly the lifecycle a real mailbox goes
- * through between two scheduler ticks.
+ * through between two scheduler ticks. The one test beside it works in a folder
+ * of its own.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         // Keep the background scheduler out of the test — sync runs are explicit.
@@ -190,6 +202,90 @@ class MailSyncGreenMailIT {
         assertThat(messageRepository.findUidsByAccountAndFolder(account.getId(), INBOX)).contains(holeUid);
     }
 
+    /**
+     * B1-10. A message whose structure nests past
+     * {@link BoundedImapProtocol#MAX_NESTING} has its FETCH response dropped
+     * unparsed. Angus then loads that message's envelope with a FETCH of its own
+     * and fails to load its structure, which the sync keeps as an envelope-only
+     * stub, and the message beside it syncs whole. A folder of its own, so the
+     * lifecycle above keeps its counts.
+     */
+    @Test
+    @DisplayName("A message nested past the bound is kept by its envelope, and the folder syncs on")
+    void aMessageNestedPastTheBoundIsKeptAsAStub() throws Exception {
+        String folderName = "Nested";
+        withFolder(folderName, folder -> {
+            folder.create(Folder.HOLDS_MESSAGES);
+            folder.open(Folder.READ_WRITE);
+            try {
+                folder.appendMessages(
+                        new Message[]{nestedMessage(BoundedImapProtocol.MAX_NESTING + 40), messageWithAttachment()});
+            } finally {
+                folder.close(false);
+            }
+        });
+
+        assertThat(mailSyncService.performFullSyncCycle(account, folderName)).isTrue();
+
+        MessageEntity nested = storedByMessageId("<nested@greenmail.local>");
+        assertThat(nested.getSubject()).isEqualTo("Nested deep");
+        assertThat(nested.getSender()).isEqualTo("sender@example.com");
+        assertThat(nested.isHasAttachments()).isFalse();
+        MessageEntity ordinary = storedByMessageId("<ordinary@greenmail.local>");
+        assertThat(ordinary.isHasAttachments()).isTrue();
+        assertThat(accountRepository.findById(account.getId()).orElseThrow().getLastError()).isNull();
+    }
+
+    private MessageEntity storedByMessageId(String messageId) {
+        List<MessageEntity> rows = messageRepository.findByAccountIdAndMessageId(account.getId(), messageId);
+        assertThat(rows).as(messageId).hasSize(1);
+        return rows.getFirst();
+    }
+
+    /**
+     * A message of {@code levels} multiparts one inside the next around a PDF, the
+     * attachment the extractor would report were the structure readable.
+     */
+    private static MimeMessage nestedMessage(int levels) throws Exception {
+        StringBuilder mime = new StringBuilder();
+        mime.append("From: sender@example.com\r\nTo: ").append(EMAIL).append("\r\nSubject: Nested deep\r\n")
+                .append("Message-ID: <nested@greenmail.local>\r\nMIME-Version: 1.0\r\n");
+        for (int level = 0; level < levels; level++) {
+            mime.append("Content-Type: multipart/mixed; boundary=\"b").append(level).append("\"\r\n\r\n--b")
+                    .append(level).append("\r\n");
+        }
+        mime.append("Content-Type: application/pdf; name=\"deep.pdf\"\r\n")
+                .append("Content-Disposition: attachment; filename=\"deep.pdf\"\r\n\r\n%PDF-1.7\r\n");
+        for (int level = levels - 1; level >= 0; level--) {
+            mime.append("--b").append(level).append("--\r\n");
+        }
+        return new MimeMessage(Session.getInstance(new Properties()),
+                new ByteArrayInputStream(mime.toString().getBytes(StandardCharsets.US_ASCII)));
+    }
+
+    private static MimeMessage messageWithAttachment() throws Exception {
+        MimeBodyPart text = new MimeBodyPart();
+        text.setText("See the attachment.", StandardCharsets.UTF_8.name());
+        MimeBodyPart pdf = new MimeBodyPart();
+        pdf.setDataHandler(new DataHandler(
+                new ByteArrayDataSource("%PDF-1.7".getBytes(StandardCharsets.US_ASCII), "application/pdf")));
+        pdf.setFileName("ordinary.pdf");
+        pdf.setDisposition(Part.ATTACHMENT);
+        MimeMultipart multipart = new MimeMultipart(text, pdf);
+        MimeMessage message = new MimeMessage(Session.getInstance(new Properties())) {
+            @Override
+            protected void updateMessageID() throws MessagingException {
+                setHeader("Message-ID", "<ordinary@greenmail.local>");
+            }
+        };
+        message.setFrom("sender@example.com");
+        message.setRecipients(Message.RecipientType.TO, EMAIL);
+        message.setSubject("Ordinary");
+        message.setContent(multipart);
+        message.saveChanges();
+        return message;
+    }
+
     private void deliver(String subject, String body) {
         user.deliver(GreenMailUtil.createTextEmail(EMAIL, "sender@example.com", subject, body,
                 greenMail.getImaps().getServerSetup()));
@@ -207,19 +303,30 @@ class MailSyncGreenMailIT {
      * client would.
      */
     private void mutateInbox(InboxMutation mutation) throws Exception {
-        Properties props = new Properties();
-        props.put("mail.store.protocol", "imaps");
-        Session session = Session.getInstance(props);
-        Store store = session.getStore("imaps");
-        store.connect("127.0.0.1", greenMail.getImaps().getPort(), LOGIN, PASSWORD);
-        try {
-            Folder inbox = store.getFolder(INBOX);
+        withFolder(INBOX, inbox -> {
             inbox.open(Folder.READ_WRITE);
             try {
                 mutation.apply(inbox);
             } finally {
                 inbox.close(true);
             }
+        });
+    }
+
+    @FunctionalInterface
+    private interface FolderAction {
+        void apply(Folder folder) throws Exception;
+    }
+
+    /** The second client of {@link #mutateInbox}, on any folder, left unopened. */
+    private void withFolder(String name, FolderAction action) throws Exception {
+        Properties props = new Properties();
+        props.put("mail.store.protocol", "imaps");
+        Session session = Session.getInstance(props);
+        Store store = session.getStore("imaps");
+        store.connect("127.0.0.1", greenMail.getImaps().getPort(), LOGIN, PASSWORD);
+        try {
+            action.apply(store.getFolder(name));
         } finally {
             store.close();
         }

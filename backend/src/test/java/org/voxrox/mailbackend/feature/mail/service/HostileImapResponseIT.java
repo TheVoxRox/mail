@@ -172,6 +172,26 @@ class HostileImapResponseIT {
         assertThat(after.getLastError()).contains("implausible IMAP response").contains("could not be read");
     }
 
+    /**
+     * B1-10. Angus parses a {@code BODYSTRUCTURE} by calling itself once per level,
+     * while it reads the FETCH response, and the {@link StackOverflowError} that
+     * enough levels raise is an {@code Error}: no handler between the wire and the
+     * scheduler catches one, so the pass ended with nothing recorded. 200,000
+     * levels is about 2 MB, under the response bound, and overflows any thread
+     * stack a JVM starts with. The response is dropped unparsed instead, and the
+     * connection, which has read it in full, goes on; what that leaves of the
+     * message it describes is {@code MailSyncGreenMailIT}'s question.
+     */
+    @Test
+    @DisplayName("A message structure nested past any stack is dropped, and the pass goes on")
+    void aStructureNestedPastTheStackIsDropped() {
+        SERVER.answerOpenWith(nestedBodyStructureFetch(200_000));
+
+        AccountEntity after = pass();
+
+        assertThat(after.getLastErrorCode()).isNull();
+    }
+
     @Test
     @DisplayName("A refused response costs one pass: the next ordinary answer syncs again")
     void theNextOrdinaryAnswerSyncsAgain() {
@@ -192,6 +212,18 @@ class HostileImapResponseIT {
         MailSyncService direct = AopTestUtils.getUltimateTargetObject(mailSyncService);
         direct.syncAllFolders(accountRepository.findById(account.getId()).orElseThrow(), SyncTrigger.SCHEDULED);
         return accountRepository.findById(account.getId()).orElseThrow();
+    }
+
+    /**
+     * An unsolicited FETCH whose structure is {@code levels} multiparts deep around
+     * one text part — each level one pair of parentheses and a subtype.
+     */
+    static String nestedBodyStructureFetch(int levels) {
+        StringBuilder line = new StringBuilder("* 1 FETCH (UID 5 BODYSTRUCTURE ");
+        line.repeat("(", levels);
+        line.append("\"text\" \"plain\" NIL NIL NIL \"7bit\" 1 1)");
+        line.repeat(" \"mixed\")", levels - 1);
+        return line.append(')').toString();
     }
 
     private static void deleteRecursively(Path path) throws Exception {
