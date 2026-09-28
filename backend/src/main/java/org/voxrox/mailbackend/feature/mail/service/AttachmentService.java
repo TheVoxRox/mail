@@ -196,11 +196,18 @@ public class AttachmentService {
      * attachment. It used to be a {@link MessagingException}, which the folder
      * executor reads by its text: "not found" in it became "Folder 'INBOX' was not
      * found on the server", a 404 about the wrong thing.
+     *
+     * <p>
+     * A part's content is asked for only where its type says it holds parts. For a
+     * multipart or an encapsulated message the content is their structure, but for
+     * anything else it is the part's data decoded whole — a text body as one
+     * {@code String}, as large as the server makes it — which the download then
+     * streams a second time from {@code getInputStream()} (B1-12).
      */
     private Part findPartByPath(Part part, String path, String fullPath) throws MessagingException, IOException {
         String[] segments = path.split("\\.", 2);
         int index = partIndex(segments[0], fullPath);
-        Object content = part.getContent();
+        Object content = part.isMimeType("multipart/*") || part.isMimeType("message/rfc822") ? part.getContent() : null;
 
         // An encapsulated message (message/rfc822) is numbered from its own body.
         if (content instanceof jakarta.mail.Message innerMsg) {
