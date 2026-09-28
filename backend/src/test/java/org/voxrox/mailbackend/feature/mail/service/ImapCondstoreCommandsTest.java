@@ -4,9 +4,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Set;
 
@@ -71,33 +76,96 @@ class ImapCondstoreCommandsTest {
         return fr;
     }
 
+    /**
+     * Answers the command with {@code untagged}, then its tagged completion, one
+     * response per read, the way the wire does.
+     */
+    private static Response stubStream(IMAPProtocol protocol, Response... untagged) throws Exception {
+        Response tagged = mock(Response.class);
+        when(tagged.isTagged()).thenReturn(true);
+        when(tagged.getTag()).thenReturn("A7");
+        when(protocol.writeCommand(eq("UID FETCH"), any())).thenReturn("A7");
+        Response[] rest = new Response[untagged.length];
+        System.arraycopy(untagged, 1, rest, 0, untagged.length - 1);
+        rest[untagged.length - 1] = tagged;
+        when(protocol.readResponse()).thenReturn(untagged[0], rest);
+        return tagged;
+    }
+
     @Test
     @DisplayName("fetchAllServerUids collects every UID and skips responses without a UID item")
     void fetchAllServerUidsCollectsUids() throws Exception {
         IMAPFolder folder = mock(IMAPFolder.class);
         IMAPProtocol protocol = mock(IMAPProtocol.class);
         // Build the response mocks first — their own stubbing must complete before the
-        // protocol.command(...) stubbing starts, or Mockito reports unfinished
-        // stubbing.
+        // protocol's stubbing starts, or Mockito reports unfinished stubbing.
         FetchResponse first = uidOnlyResponse(10L);
         FetchResponse second = uidOnlyResponse(20L);
         FetchResponse noUid = mock(FetchResponse.class);
         when(noUid.getItem(UID.class)).thenReturn(null);
-        Response status = mock(Response.class); // trailing tagged status response, consumed as the result
-        when(protocol.command(eq("UID FETCH"), any())).thenReturn(new Response[]{first, second, noUid, status});
+        Response tagged = stubStream(protocol, first, second, noUid);
         stubDoCommand(folder, protocol);
 
         Set<Long> uids = ImapCondstoreCommands.fetchAllServerUids(folder);
 
         assertThat(uids).containsExactlyInAnyOrder(10L, 20L);
+        verify(protocol).handleResult(tagged);
+    }
+
+    /**
+     * B1-8. Protocol.command holds every response of a command until the tagged
+     * one, and the listing answers once per message in the folder: 154 MB for
+     * 500,000 messages, measured at audit 1.16.
+     */
+    @Test
+    @DisplayName("The UID listing reads one response at a time and never lets Protocol.command collect them")
+    void uidListingIsNotCollected() throws Exception {
+        IMAPFolder folder = mock(IMAPFolder.class);
+        IMAPProtocol protocol = mock(IMAPProtocol.class);
+        FetchResponse first = uidOnlyResponse(10L);
+        FetchResponse second = uidOnlyResponse(20L);
+        stubStream(protocol, first, second);
+        stubDoCommand(folder, protocol);
+
+        ImapCondstoreCommands.fetchAllServerUids(folder);
+
+        verify(protocol, never()).command(any(), any());
+        // Each response reaches the folder's handlers on its own, the tagged one too.
+        verify(protocol, times(3)).notifyResponseHandlers(any());
     }
 
     @Test
-    @DisplayName("fetchAllServerUids surfaces an empty server response as a MessagingException")
-    void fetchAllServerUidsEmptyResponseThrows() throws Exception {
+    @DisplayName("A response that does not parse is skipped, as Protocol.command skips it")
+    void unparseableResponseIsSkipped() throws Exception {
         IMAPFolder folder = mock(IMAPFolder.class);
         IMAPProtocol protocol = mock(IMAPProtocol.class);
-        when(protocol.command(eq("UID FETCH"), any())).thenReturn(new Response[0]);
+        FetchResponse first = uidOnlyResponse(10L);
+        Response tagged = mock(Response.class);
+        when(tagged.isTagged()).thenReturn(true);
+        when(tagged.getTag()).thenReturn("A7");
+        when(protocol.writeCommand(eq("UID FETCH"), any())).thenReturn("A7");
+        when(protocol.readResponse()).thenThrow(new ProtocolException("garbled")).thenReturn(first, tagged);
+        stubDoCommand(folder, protocol);
+
+        assertThat(ImapCondstoreCommands.fetchAllServerUids(folder)).containsExactly(10L);
+    }
+
+    @Test
+    @DisplayName("A connection lost mid-listing ends the command with a BYE, and the listing fails")
+    void lostConnectionEndsWithBye() throws Exception {
+        IMAPFolder folder = mock(IMAPFolder.class);
+        IMAPProtocol protocol = mock(IMAPProtocol.class);
+        FetchResponse first = uidOnlyResponse(10L);
+        when(protocol.writeCommand(eq("UID FETCH"), any())).thenReturn("A7");
+        when(protocol.readResponse()).thenReturn(first).thenThrow(new IOException("connection reset"));
+        // What Angus's handleResult does with a BYE.
+        doAnswer(invocation -> {
+            Response result = invocation.getArgument(0);
+            if (result.isBYE()) {
+                throw new ProtocolException("connection lost");
+            }
+            return null;
+        }).when(protocol).handleResult(any());
         stubDoCommand(folder, protocol);
 
         assertThatThrownBy(() -> ImapCondstoreCommands.fetchAllServerUids(folder))
@@ -115,9 +183,7 @@ class ImapCondstoreCommandsTest {
         FetchResponse missingFlags = mock(FetchResponse.class);
         when(missingFlags.getItem(UID.class)).thenReturn(uidItem(7L));
         when(missingFlags.getItem(FLAGS.class)).thenReturn(null);
-        Response status = mock(Response.class);
-        when(protocol.command(eq("UID FETCH"), any()))
-                .thenReturn(new Response[]{seenAndAnswered, noFlagsSet, missingFlags, status});
+        stubStream(protocol, seenAndAnswered, noFlagsSet, missingFlags);
         stubDoCommand(folder, protocol);
 
         List<FlagChange> changes = ImapCondstoreCommands.fetchFlagChangesSince(folder, 42L);
@@ -127,5 +193,6 @@ class ImapCondstoreCommandsTest {
                 .containsExactly(true, false, true);
         assertThat(changes.get(1)).extracting(FlagChange::seen, FlagChange::flagged, FlagChange::answered)
                 .containsExactly(false, false, false);
+        verify(protocol, never()).command(any(), any());
     }
 }

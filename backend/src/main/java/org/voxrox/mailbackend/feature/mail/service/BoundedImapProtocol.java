@@ -3,6 +3,7 @@ package org.voxrox.mailbackend.feature.mail.service;
 import java.io.IOException;
 import java.util.Properties;
 
+import org.eclipse.angus.mail.iap.Argument;
 import org.eclipse.angus.mail.iap.ByteArray;
 import org.eclipse.angus.mail.iap.Protocol;
 import org.eclipse.angus.mail.iap.ProtocolException;
@@ -78,9 +79,14 @@ import org.voxrox.mailbackend.util.LogCategory;
  * envelope and flags with FETCHes of their own, and loading the structure
  * fails, which the sync already keeps as an envelope-only stub.
  * <p>
- * The check keeps no state of its own, and it must not start to. The superclass
- * constructor reads the server greeting through {@link #readResponse()}, which
- * runs before any field of this class is initialized.
+ * The bounds above are per response; {@link #command} adds one per command
+ * (B1-8), because Angus holds all of a command's responses until the tagged
+ * one, and refuses the response that overspends it the same way.
+ * <p>
+ * The superclass constructor reads the server greeting through
+ * {@link #readResponse()}, which runs before any field of this class is
+ * initialized. So the per-response checks keep no state, and the one field the
+ * budget needs has no initializer — null is what that first read must see.
  * {@link #isEnabled(String)} is safe there: Angus null-checks its set.
  */
 final class BoundedImapProtocol extends IMAPProtocol {
@@ -159,19 +165,87 @@ final class BoundedImapProtocol extends IMAPProtocol {
      */
     static final int MAX_NESTING = 256;
 
+    /**
+     * What the responses of one command may add up to, as {@link CommandBudget}
+     * charges them (B1-8). Every bound above holds one response, and
+     * {@code Protocol.command} keeps every response of a command until the tagged
+     * one arrives, so without this a server that repeats a response the bounds
+     * admit — 60 {@code VANISHED (EARLIER)} lines held 499 MB at 1.16 — sums past
+     * the heap.
+     * <p>
+     * Twice {@link #MAX_RESPONSE_BYTES}, so the one command that may legitimately
+     * carry a response that large still fits, with the same room again for the
+     * responses around it. The client's own commands whose answers grow with the
+     * folder do not go through {@code Protocol.command} and are not charged:
+     * {@code ImapCondstoreCommands} reads the UID listing and the
+     * {@code CHANGEDSINCE} flags one response at a time. What is left is small per
+     * message and batched (envelopes, bodies in 16 KiB partial fetches), or a
+     * SELECT's report of what changed since the last cycle; a QRESYNC SELECT that a
+     * mass flag change pushes past the budget is refused and
+     * {@code ImapFolderExecutor} opens the folder again without resynchronization.
+     */
+    static final long MAX_COMMAND_BYTES = 2L * MAX_RESPONSE_BYTES;
+
+    /**
+     * What each response costs {@link CommandBudget} beyond its bytes on the wire:
+     * the objects Angus parses it into. Measured at 1.16 for the smallest response
+     * a folder answers per message, {@code * n FETCH (UID u)}: 308 bytes retained
+     * for some 25 on the wire. Without the charge a server could send a few million
+     * short lines that are cheap on the wire and not in the heap.
+     */
+    static final int RESPONSE_OVERHEAD_BYTES = 280;
+
+    /**
+     * UIDs the VANISHED responses of one command may name together (B1-8). Each is
+     * bounded on its own ({@link #MAX_EARLIER_VANISHED_UIDS}), and
+     * {@code IMAPFolder.open} expands all of them into {@code long[]}s it holds
+     * until it returns. As many as a folder may hold messages
+     * ({@link #MAX_MESSAGES}): 16 MB of UIDs, and more than an honest server can
+     * report as vanished from a local range the resync asks about, which
+     * {@code MailSyncService.buildResyncRequest} keeps under
+     * {@link #MAX_EARLIER_VANISHED_UIDS}.
+     */
+    static final long MAX_COMMAND_VANISHED_UIDS = MAX_MESSAGES;
+
     /** What Angus starts a response buffer at when it is handed none. */
     private static final int INITIAL_RESPONSE_BYTES = 128;
+
+    /*
+     * The budget of the command in progress, null outside Protocol.command. No
+     * initializer: the constructor reads the greeting through readResponse before
+     * any field of this class is initialized, and an initializer would run after
+     * that read. Volatile because Angus does not promise that the thread reading a
+     * response is the one that sent the command, though today it always is.
+     */
+    private volatile @Nullable CommandBudget budget;
 
     BoundedImapProtocol(String name, String host, int port, Properties props, boolean isSSL, MailLogger logger)
             throws IOException, ProtocolException {
         super(name, host, port, props, isSSL, logger);
     }
 
+    /**
+     * {@code Protocol.command} under a {@link CommandBudget}: the one place Angus
+     * collects a command's responses before anyone acts on them, so the one place
+     * their sum has to be bounded. A command read another way — Angus's
+     * authentication, or {@code ImapCondstoreCommands} reading responses one at a
+     * time — holds only the response in hand and is not charged.
+     */
+    @Override
+    public synchronized Response[] command(String command, @Nullable Argument args) {
+        budget = new CommandBudget();
+        try {
+            return super.command(command, args);
+        } finally {
+            budget = null;
+        }
+    }
+
     @Override
     public Response readResponse() throws IOException, ProtocolException {
-        Response response;
+        Read read;
         try {
-            response = readNestingChecked();
+            read = readNestingChecked();
         } catch (RuntimeException e) {
             /*
              * A response Angus cannot read leaves the connection mid-response, with the
@@ -196,10 +270,21 @@ final class BoundedImapProtocol extends IMAPProtocol {
                     host, e.toString());
             throw new ImplausibleResponseException("the response could not be read (" + e + ")", e);
         }
+        Response response = read.response();
         if (response instanceof IMAPResponse imapResponse) {
             String refusal = refusal(imapResponse, isEnabled("QRESYNC"));
             if (refusal != null) {
                 throw refused(refusal);
+            }
+        }
+        CommandBudget current = budget;
+        if (current != null && !response.isTagged()) {
+            long vanished = response instanceof IMAPResponse imapResponse && imapResponse.keyEquals("VANISHED")
+                    ? vanishedUids(imapResponse)
+                    : 0;
+            String overspent = current.charge(read.wireSize(), vanished);
+            if (overspent != null) {
+                throw refused(overspent);
             }
         }
         return response;
@@ -215,10 +300,10 @@ final class BoundedImapProtocol extends IMAPProtocol {
      * later Angus may read responses differently, so
      * {@code BoundedImapProtocolTest} pins the version.
      */
-    private Response readNestingChecked() throws IOException, ProtocolException {
+    private Read readNestingChecked() throws IOException, ProtocolException {
         NestingCheckedResponse response = new NestingCheckedResponse(this);
         if (!response.keyEquals("FETCH")) {
-            return response;
+            return new Read(response, response.wireSize());
         }
         if (response.nestsDeeperThan(MAX_NESTING)) {
             log.warn(
@@ -227,7 +312,14 @@ final class BoundedImapProtocol extends IMAPProtocol {
                     LogCategory.IMAP, host, MAX_NESTING);
             throw new NestedTooDeepException();
         }
-        return new FetchResponse(response, getFetchItems(), this);
+        return new Read(new FetchResponse(response, getFetchItems(), this), response.wireSize());
+    }
+
+    /**
+     * A response as Angus parsed it, and its length on the wire, which the budget
+     * charges.
+     */
+    private record Read(Response response, int wireSize) {
     }
 
     private ImplausibleResponseException refused(String reason) {
@@ -292,6 +384,11 @@ final class BoundedImapProtocol extends IMAPProtocol {
 
         NestingCheckedResponse(String line) throws IOException, ProtocolException {
             super(line);
+        }
+
+        /** The response's length as read, literals included. */
+        int wireSize() {
+            return size;
         }
 
         /**
@@ -431,6 +528,47 @@ final class BoundedImapProtocol extends IMAPProtocol {
             count += size;
         }
         return count;
+    }
+
+    /**
+     * How many UIDs a VANISHED response names, read the way {@link #refusal} reads
+     * it — so a response it let through parses here too — and counted only up to
+     * one past {@link #MAX_COMMAND_VANISHED_UIDS}, which is all the budget needs.
+     */
+    static long vanishedUids(IMAPResponse response) {
+        IMAPResponse copy = new IMAPResponse(response);
+        try {
+            copy.readAtomStringList();
+            return Math.max(0, uidCount(copy.readAtom(), MAX_COMMAND_VANISHED_UIDS));
+        } catch (RuntimeException e) {
+            return 0;
+        }
+    }
+
+    /**
+     * What one command's responses have cost so far (B1-8): each response its bytes
+     * on the wire plus {@link #RESPONSE_OVERHEAD_BYTES}, and the UIDs its VANISHED
+     * names. A new one per {@code Protocol.command}, so nothing carries over from
+     * one command into the next.
+     */
+    static final class CommandBudget {
+
+        private long bytes;
+        private long vanishedUids;
+
+        /** Charges one untagged response: the reason to refuse it, or null. */
+        @Nullable
+        String charge(int wireBytes, long vanished) {
+            bytes += wireBytes + (long) RESPONSE_OVERHEAD_BYTES;
+            vanishedUids += vanished;
+            if (bytes > MAX_COMMAND_BYTES) {
+                return "one command's responses passed " + MAX_COMMAND_BYTES + " bytes";
+            }
+            if (vanishedUids > MAX_COMMAND_VANISHED_UIDS) {
+                return "one command's VANISHED responses named more than " + MAX_COMMAND_VANISHED_UIDS + " UIDs";
+            }
+            return null;
+        }
     }
 
     /**

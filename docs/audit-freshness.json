@@ -148,7 +148,7 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "df0fa48205fb47da4ffb3ed9debd3a3d9857e533",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "0db0b7e836fc6910e0592667eb8fadcfb76461fb",
       "backend/src/main/java/org/voxrox/mailbackend/util/HeaderAddresses.java": "f46de1567411a60b85ac28c2e650a3af5024b304",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/MessageEntity.java": "7b9f8cbd5bbf72a6f3931a446c417d73d8772341",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/DraftRecipientsEntity.java": "4ca68c3223596e5538f5722c6f5d86edaa8d932c",
@@ -174,6 +174,10 @@
       {
         "date": "2026-09-28",
         "note": "The fix for B1-9, recorded in the audit itself as v1.21 (section 4i). Two files under feature/mail/service change. MailSyncService gains listingDepth(), the local window limit; lazyFetchPageRange skips the folder open when the mirror is already at that depth, caps its target at it, and downloads the remaining sequence range in windows of mail.client.sync.window-size, newest first, instead of one downloadSequenceRange call; the two counts, the lanes and the failure handling are unchanged. MailFacade.getEmails returns a WindowedPage (core/dto, outside the audited paths) built with that depth, so the total stays the server count while the page count stops at the depth, and PagedResponse reports olderOnServer. No other file under the path changes. Re-read against sections 2 and 4i, which the same change updates; the verdict stays open findings for B1-8."
+      },
+      {
+        "date": "2026-09-28",
+        "note": "The fix for B1-8, recorded in the audit itself as v1.22 (section 4h). Two files under feature/mail/service change. BoundedImapProtocol overrides Protocol.command to put each command under a CommandBudget, charges every untagged response readResponse returns inside it (wire size from NestingCheckedResponse.wireSize plus RESPONSE_OVERHEAD_BYTES, and the UIDs a VANISHED names via vanishedUids) and refuses the one that passes MAX_COMMAND_BYTES or MAX_COMMAND_VANISHED_UIDS with the existing ImplausibleResponseException; the per-response refusals, the bounded buffer and the nesting check are unchanged, and the class javadoc on its fields is rewritten for the two it now has. ImapCondstoreCommands sends the UID listing and CHANGEDSINCE through readEach, a copy of Protocol.command that hands each response on instead of collecting it; what the two commands parse is unchanged. No other file under the path changes. Re-read against sections 2, 4c and 4h, which the same change updates; nothing stays open, and the verdict waits for an independent pass."
       }
     ]
   }
