@@ -148,7 +148,7 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "0db0b7e836fc6910e0592667eb8fadcfb76461fb",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "d7b18d6032a57b8b516a4fea94f1bb38efa55da8",
       "backend/src/main/java/org/voxrox/mailbackend/util/HeaderAddresses.java": "f46de1567411a60b85ac28c2e650a3af5024b304",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/MessageEntity.java": "7b9f8cbd5bbf72a6f3931a446c417d73d8772341",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/DraftRecipientsEntity.java": "4ca68c3223596e5538f5722c6f5d86edaa8d932c",
@@ -178,6 +178,10 @@
       {
         "date": "2026-09-28",
         "note": "The fix for B1-8, recorded in the audit itself as v1.22 (section 4h). Two files under feature/mail/service change. BoundedImapProtocol overrides Protocol.command to put each command under a CommandBudget, charges every untagged response readResponse returns inside it (wire size from NestingCheckedResponse.wireSize plus RESPONSE_OVERHEAD_BYTES, and the UIDs a VANISHED names via vanishedUids) and refuses the one that passes MAX_COMMAND_BYTES or MAX_COMMAND_VANISHED_UIDS with the existing ImplausibleResponseException; the per-response refusals, the bounded buffer and the nesting check are unchanged, and the class javadoc on its fields is rewritten for the two it now has. ImapCondstoreCommands sends the UID listing and CHANGEDSINCE through readEach, a copy of Protocol.command that hands each response on instead of collecting it; what the two commands parse is unchanged. No other file under the path changes. Re-read against sections 2, 4c and 4h, which the same change updates; nothing stays open, and the verdict waits for an independent pass."
+      },
+      {
+        "date": "2026-09-28",
+        "note": "The completion of the B1-8 fix, recorded in the audit itself as v1.23 (section 4h). Two files under feature/mail/service change. BoundedImapProtocol drops its override of Protocol.command and charges every untagged response in readResponse to a CommandBudget started by the first and dropped at the tagged one, unless readingOneAtATime says the command is streamed; that covers the AUTHENTICATE loops of IMAPProtocol, which collect outside command. ImapCondstoreCommands.readEach sets and clears that flag and hands on at most MAX_MESSAGES responses, draining the rest and failing after the tagged completion. The budget values, the per-response bounds and what the two commands parse are unchanged. No other file under the path changes. Re-read against section 4h, which the same change updates; nothing is open, and the verdict waits for an independent pass."
       }
     ]
   }

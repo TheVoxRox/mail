@@ -32,13 +32,14 @@ import java.util.concurrent.Executors;
  */
 final class HostileImapServer implements AutoCloseable {
 
-    private static final String CAPABILITIES = "IMAP4rev1";
+    private static final String BASE_CAPABILITIES = "IMAP4rev1";
 
     private final ServerSocket server;
     private final Set<Socket> open = ConcurrentHashMap.newKeySet();
     private final ExecutorService threads = Executors.newVirtualThreadPerTaskExecutor();
     private volatile List<String> openResponse = List.of();
     private volatile int uidListing;
+    private volatile List<String> authenticateResponse = List.of();
 
     HostileImapServer() throws IOException {
         this.server = TestTls.serverSocketFactory().createServerSocket(0, 50, InetAddress.getLoopbackAddress());
@@ -68,6 +69,21 @@ final class HostileImapServer implements AutoCloseable {
         uidListing = count;
     }
 
+    /**
+     * From the next connection on, offers {@code AUTH=PLAIN}, so the client signs
+     * in with {@code AUTHENTICATE PLAIN} rather than {@code LOGIN}, and answers it
+     * with these untagged lines before the completion. Angus collects the responses
+     * to AUTHENTICATE in a loop of its own, outside {@code Protocol.command}
+     * (IMAP/SMTP audit B1-8). Called with nothing, it stops offering the mechanism.
+     */
+    void authenticateWith(String... lines) {
+        authenticateResponse = List.of(lines);
+    }
+
+    private String capabilities() {
+        return authenticateResponse.isEmpty() ? BASE_CAPABILITIES : BASE_CAPABILITIES + " AUTH=PLAIN";
+    }
+
     @Override
     public void close() throws IOException {
         server.close();
@@ -93,13 +109,27 @@ final class HostileImapServer implements AutoCloseable {
     private void serve(Socket client) {
         try (client; BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream(), US_ASCII))) {
             OutputStream out = client.getOutputStream();
-            send(out, List.of("* OK [CAPABILITY " + CAPABILITIES + "] test server ready"));
+            send(out, List.of("* OK [CAPABILITY " + capabilities() + "] test server ready"));
             String line;
+            String authenticating = null;
             while ((line = in.readLine()) != null) {
+                if (authenticating != null) {
+                    // The client's SASL response to the "+" below; any credentials do.
+                    List<String> lines = new ArrayList<>(authenticateResponse);
+                    lines.add(authenticating + " OK [CAPABILITY " + capabilities() + "] authenticated");
+                    send(out, lines);
+                    authenticating = null;
+                    continue;
+                }
                 String[] parts = line.split(" ", 3);
                 String tag = parts[0];
                 String command = parts.length > 1 ? parts[1].toUpperCase(Locale.ROOT) : "";
                 String arguments = parts.length > 2 ? parts[2] : "";
+                if (command.equals("AUTHENTICATE")) {
+                    authenticating = tag;
+                    send(out, List.of("+ "));
+                    continue;
+                }
                 send(out, answer(tag, command, arguments));
                 if (command.equals("LOGOUT")) {
                     return;
@@ -114,8 +144,8 @@ final class HostileImapServer implements AutoCloseable {
 
     private List<String> answer(String tag, String command, String arguments) {
         return switch (command) {
-            case "CAPABILITY" -> List.of("* CAPABILITY " + CAPABILITIES, tag + " OK done");
-            case "LOGIN" -> List.of(tag + " OK [CAPABILITY " + CAPABILITIES + "] logged in");
+            case "CAPABILITY" -> List.of("* CAPABILITY " + capabilities(), tag + " OK done");
+            case "LOGIN" -> List.of(tag + " OK [CAPABILITY " + capabilities() + "] logged in");
             case "LIST",
                     "LSUB" ->
                 List.of(arguments.endsWith("\"\"")

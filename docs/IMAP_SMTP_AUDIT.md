@@ -2,7 +2,7 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.22                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| **Version**        | 1.23                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | **Date**           | 2026-09-28                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | **Audited commit** | `f6ae132` (re-verified 2026-09-27, clearing seven acknowledgements; 1.9–1.15 anchor `6224cbb`, re-verified 2026-09-22, clearing six acknowledgements; 1.7–1.8 anchor `9435e56`, re-verified 2026-09-16; 1.6 anchor `02ff962`, recorded pre-squash as `f5b75ad`; 1.5 anchor `885b98a`, re-verified 2026-09-02 at the ledger cap; 1.3–1.4 anchor `cad05cb`, recorded pre-squash as `3ff0c78`; 1.0–1.2 baseline: `35a06f3`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -1086,9 +1086,9 @@ has to be asked of the other commands that answer per message rather than per
 batch — `CHANGEDSINCE` over `1:*`, and the changed-flag FETCH responses of a
 QRESYNC SELECT. The budget itself is a decision at fix time.
 
-**Fix (shipped 2026-09-28).** Both halves of the recommendation.
-`BoundedImapProtocol` overrides `command`, the one place Angus collects a
-command's responses, and charges each untagged response read there to a
+**Fix (shipped 2026-09-28, completed at 1.23).** Both halves of the
+recommendation. `BoundedImapProtocol.readResponse` charges every untagged
+response up to the tagged one that completes the command to a
 `CommandBudget`: its bytes on the wire plus `RESPONSE_OVERHEAD_BYTES` = 280,
 the objects around the smallest response at the 308 bytes measured at 1.16,
 and the UIDs a VANISHED names. The budget is `MAX_COMMAND_BYTES` = **64 MiB**,
@@ -1099,20 +1099,31 @@ refused as B1-3's are: an `IOException`, a synthetic BYE, the connection
 closed, the pass failed. The values are the owner's decision of 2026-09-28 to
 take them from the bounds already in the class rather than from a measurement
 on real accounts. The 60-line VANISHED SELECT of 1.16 now ends at its third
-line.
+line. At 1.22 the charge sat in an override of `Protocol.command`, which the
+author took for the one place Angus collects responses; reviewing the fix
+before its verification pass, the author found that Angus's authentication
+collects the responses to AUTHENTICATE in a loop of its own, until the tagged
+one, so a server offering `AUTH=PLAIN` (or XOAUTH2, for the OAuth accounts)
+could flood the sign-in past any budget. Charging in `readResponse` covers
+both, and anything else that reads the same way.
 
 The client's own commands that answer once per message no longer go through
 `Protocol.command`. `ImapCondstoreCommands.readEach` does what that method
 does in Angus 2.0.5 — read from its bytecode, step for step and in the same
 order — but hands each response to the caller and to the folder's handlers and
-keeps none, so the UID listing costs the set it builds and `CHANGEDSINCE` the
-list of changes; neither is charged, since neither collects. The other
+keeps none, and tells `BoundedImapProtocol` so, which leaves those responses
+uncharged; the UID listing costs the set it builds and `CHANGEDSINCE` the
+list of changes. That set is bounded too, since 1.23: `readEach` hands on at
+most as many responses as a folder may hold messages (`MAX_MESSAGES`), reads
+and drops the rest, and fails the command once it is complete, so the
+connection stays in step. At 1.22 nothing bounded it — the per-response
+bounds do not count responses, and a server could answer the listing with more
+distinct UIDs than the heap holds — which the author found in the same review. The other
 per-message answer §4h named, the changed-flag FETCHes of a QRESYNC SELECT,
 stays under the budget: a mass flag change that pushes one past it is refused,
 and `ImapFolderExecutor.openForSync` opens the folder again with CONDSTORE in
 the same pass, whose `CHANGEDSINCE` is read one response at a time.
-Authentication reads its own few responses outside `command` and is not
-charged.
+Authentication is charged like any other command.
 
 **Dynamic verification.** `HostileImapResponseIT` answers a folder open with
 250,000 `* OK` lines — each passes every per-response check, three megabytes
@@ -1129,10 +1140,18 @@ on short responses, the VANISHED sum, and the count of either VANISHED form.
 No test drives a QRESYNC server — `HostileImapServer` and GreenMail advertise
 neither QRESYNC nor CONDSTORE — so the reopening after a refused QRESYNC SELECT
 rests on `openForSync`'s existing handling of a failed QRESYNC open, not on a
-test of this refusal.
+test of this refusal. For the 1.23 half, `HostileImapResponseIT` offers
+`AUTH=PLAIN` and answers AUTHENTICATE with 250,000 `* OK` lines: the pass
+fails with the budget's refusal, and with the charge back in `command` alone
+it completes, which was run and seen. `ImapCondstoreCommandsTest` gives
+`readEach` a limit of two against three responses: it keeps two, reads the
+command to its completion and fails; without the limit it keeps all three,
+which was run and seen. It also checks `readEach` tells a
+`BoundedImapProtocol` when a command is read one response at a time, and
+when it ends.
 
-**Residual.** The UID set and the change list still grow with the folder: a
-`HashSet<Long>` of the 2,000,000 UIDs the EXISTS bound admits is about 100 MB,
+**Residual.** The UID set and the change list still grow with the folder, up
+to `MAX_MESSAGES` entries: a `HashSet<Long>` of 2,000,000 UIDs is about 100 MB,
 the price of enumerating deletions rather than being told them. The budget
 bounds one command, not an account: one account's three connections at the
 budget together hold 192 MiB, half the packaged heap, and a second hostile
@@ -1516,6 +1535,18 @@ fails there, with the call made twice; it was run that way and seen to fail.
 - [backend/SECURITY_RELEASE_CHECK.md](../backend/SECURITY_RELEASE_CHECK.md) — per-release security gate.
 
 ## 7. Change log
+
+- **1.23** (2026-09-28) — **B1-8's fix completed** (#598), by its author,
+  reviewing it ahead of the verification pass. Two holes in 1.22's version: the
+  budget sat in an override of `Protocol.command`, and Angus's authentication
+  collects the responses to AUTHENTICATE in a loop of its own, so a server could
+  flood the sign-in; and the UID listing and `CHANGEDSINCE`, read one response
+  at a time, kept a UID or a change per response with nothing bounding how many.
+  The budget now charges every untagged response in `readResponse` up to the
+  tagged one, except a command `readEach` reads one at a time, and `readEach`
+  hands on at most `MAX_MESSAGES` responses (§4h). The verdict stays **all
+  findings fixed, verification pending**. Drift acknowledged, anchor unchanged
+  at `f6ae132`.
 
 - **1.22** (2026-09-28) — **B1-8 fixed** (#596), and with it every finding the
   1.16 verification pass found or reopened. One command's collected responses
