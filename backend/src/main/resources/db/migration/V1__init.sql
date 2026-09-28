@@ -587,3 +587,37 @@ CREATE TABLE correspondent (
 
 CREATE UNIQUE INDEX ux_correspondent_account_email
     ON correspondent (account_id, email);
+
+
+-- =====================================================================
+-- 14) DRAFT RECIPIENTS — what the user addressed a draft saved here to,
+-- kept for as long as the draft can be sent.
+--
+-- Sending an untouched draft sends the server's copy, and checks that its
+-- recipients are the ones the user meant (IMAP_SMTP_AUDIT.md, B1-5). The
+-- draft's messages row cannot say what the user meant: the sync writes it
+-- from the server's copy whenever it creates it, which the server can cause
+-- at will — by withholding APPENDUID (RFC 4315) so the save cannot write the
+-- row itself, by changing UIDVALIDITY, or by presenting the draft under a
+-- new UID. An entry here is written by the save and read by the send.
+--
+-- Keyed by the draft's stable id, which derives from the Message-ID the
+-- client minted, so it is known before the server answers; every save writes
+-- its entry before the APPEND. Deleted with the draft when this client
+-- deletes it (the revision an autosave replaces, a sent draft); an entry
+-- over a week old whose draft has no row is dropped by the account's next
+-- save. A draft composed in another client has no entry, and its check
+-- falls back to the row.
+-- =====================================================================
+CREATE TABLE draft_recipients (
+    stable_id      VARCHAR(32)  PRIMARY KEY,
+    account_id     INTEGER      NOT NULL,
+    recipients_to  TEXT,
+    recipients_cc  TEXT,
+    recipients_bcc TEXT,
+    saved_at       DATETIME     NOT NULL,
+    FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_draft_recipients_account_saved
+    ON draft_recipients (account_id, saved_at);

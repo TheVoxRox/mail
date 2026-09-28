@@ -212,7 +212,7 @@ public class SmtpMessageService {
             }
             MimeMessage detached = detachedOpt.get();
 
-            if (recipientsDiffer(draft, detached)) {
+            if (recipientsDiffer(expectedRecipients(draft), detached)) {
                 log.warn("{} Refusing to send draft {} for account {}: the copy on the server names different"
                         + " recipients than the one stored locally.", LogCategory.SMTP, stableId, accountId);
                 outcome = MailMetrics.OUTCOME_FAILURE;
@@ -250,6 +250,7 @@ public class SmtpMessageService {
                  */
                 imapActionService.hardDelete(accountId, draftFolder, draftUid);
                 messageService.deleteByStableId(stableId);
+                draftPersistenceService.forgetTypedRecipients(stableId);
                 accountRepository.clearLastErrorIfCodeIn(accountId, AccountLastErrorCode.SEND_PIPELINE_CODES);
             } catch (Exception bookkeepingEx) {
                 log.warn("{} Post-send bookkeeping failed for sent draft {} (UID {} in {}): {}", LogCategory.SMTP,
@@ -268,28 +269,38 @@ public class SmtpMessageService {
     }
 
     /**
-     * Whether the copy fetched from the server addresses anyone the locally stored
-     * draft does not, or vice versa (IMAP/SMTP audit B1-5).
-     * <p>
-     * Sending an untouched draft sends the server's copy to the recipients <em>that
-     * copy</em> names, so a hostile or compromised IMAP server could add a Bcc to
-     * mail the user sends themselves, on the user's own action. What the two sides
-     * mean differs by where the draft was written, and the guarantee follows:
+     * Who the draft should go to, as far as this client knows (IMAP/SMTP audit
+     * B1-5). Sending an untouched draft sends the server's copy to the recipients
+     * <em>that copy</em> names, so a hostile or compromised IMAP server could add a
+     * Bcc to mail the user sends themselves, on the user's own action. What this
+     * side means differs by where the draft was written, and the guarantee follows:
      * <ul>
-     * <li>Composed here — {@code DraftPersistenceService} writes the row from what
-     * the user typed, not from a re-read, so this compares the server's copy
-     * against the user's own intent.</li>
-     * <li>Composed in another client — the row comes from the sync, so this
-     * compares the server's copy now against its copy at the last sync. It catches
-     * a change made in that window, not one made before this client ever saw the
-     * draft.</li>
+     * <li>Composed here — the recipients the user typed, which
+     * {@code DraftPersistenceService} keeps apart from the row for as long as the
+     * draft lives. Not the row: the sync writes that from the server's copy
+     * whenever it creates it, which the server can cause at will by withholding
+     * APPENDUID, changing UIDVALIDITY or presenting the draft under a new UID.</li>
+     * <li>Composed in another client — the row, which comes from the sync, so the
+     * check compares the server's copy now against its copy at the last sync. It
+     * catches a change made in that window, not one made before this client ever
+     * saw the draft.</li>
      * </ul>
-     * Addresses only: display names are cosmetic and a server that rewrites one has
-     * changed nothing about where the mail goes. Order and duplicates do not count
-     * either — both sides are read as sets.
      */
-    private static boolean recipientsDiffer(MessageEntity draft, MimeMessage fetched) throws MessagingException {
-        Set<String> stored = addressSet(draft.getRecipientsTo(), draft.getRecipientsCc(), draft.getRecipientsBcc());
+    private Set<String> expectedRecipients(MessageEntity draft) {
+        return draftPersistenceService.typedRecipients(draft.getStableId())
+                .map(typed -> addressSet(typed.getRecipientsTo(), typed.getRecipientsCc(), typed.getRecipientsBcc()))
+                .orElseGet(
+                        () -> addressSet(draft.getRecipientsTo(), draft.getRecipientsCc(), draft.getRecipientsBcc()));
+    }
+
+    /**
+     * Whether the copy fetched from the server addresses anyone
+     * {@link #expectedRecipients} does not, or vice versa. Addresses only: display
+     * names are cosmetic and a server that rewrites one has changed nothing about
+     * where the mail goes. Order and duplicates do not count either — both sides
+     * are read as sets.
+     */
+    private static boolean recipientsDiffer(Set<String> stored, MimeMessage fetched) throws MessagingException {
         Set<String> onServer = new HashSet<>();
         for (Message.RecipientType type : List.of(Message.RecipientType.TO, Message.RecipientType.CC,
                 Message.RecipientType.BCC)) {
