@@ -92,7 +92,7 @@ public class AttachmentService {
             return new DeleteOnCloseFileInputStream(tempFile.toFile());
         } catch (FileNotFoundException e) {
             throw new MailOperationException(ErrorCode.INTERNAL_ERROR,
-                    "Temp file disappeared before the stream was opened: " + tempFile);
+                    "Temp file disappeared before the stream was opened: " + tempFile, e);
         }
     }
 
@@ -151,7 +151,7 @@ public class AttachmentService {
                             throw me;
                         }
                         throw new MailOperationException(ErrorCode.INTERNAL_ERROR,
-                                "Error while downloading the attachment: " + e.getMessage());
+                                "Error while downloading the attachment", e);
                     }
                 }));
     }

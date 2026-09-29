@@ -71,7 +71,7 @@
   },
   "docs/OAUTH_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/auth": "d11da6a0f414648122ccfcaca5dc75d8d167c02e",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/auth": "96aef705763ef82181cf9c22bb0b1b39ccd7a595",
       "backend/src/main/java/org/voxrox/mailbackend/feature/account/service/ExternalProviderLoginService.java": "029c363ddfb5e59707b91fec6382b91be7357ff4"
     },
     "acknowledgements": [
@@ -94,6 +94,10 @@
       {
         "date": "2026-09-17",
         "note": "A count, not a token, moves. OAuth2TokenServiceRegistry.totalCachedTokens summed getCacheStats() per service, but every service holds the one TokenCache bean, so the diagnostic summary reported each cached token once per provider; the registry now takes the TokenCache and reads its size once, and the per-service getCacheStats/CacheStats, left without a caller, are removed. No token value, refresh path, cache key or invalidation changes, so no claim of this audit moves and the verdict stays PASS."
+      },
+      {
+        "date": "2026-09-28",
+        "note": "The exception-text change of API_SURFACE_AUDIT.md 1.9: a new MailFailureCause enum in the exception package classifies a caught exception into a stable cause code, and MailConnectionException / MailOperationException gained constructors that take the cause and pass the classification, not the text, as the message argument. Under this audit's paths only OAuth2TokenService.tokenRefreshFailure changes: the refresh failure passes the caught exception as the cause of its MailOperationException instead of appending its text. The token flow, what is sent to the provider, storage and the refresh-rejection handling are unchanged, so no claim of this audit moves."
       }
     ]
   },
@@ -110,12 +114,16 @@
   },
   "docs/CONTENT_RENDERING_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailContentService.java": "590401e5f38d85cfe9e482486932308c3d0e022d"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailContentService.java": "e6aadcf3e05ae61504c360c32fa426a4b79c7e12"
     },
     "acknowledgements": [
       {
         "date": "2026-09-22",
         "note": "A comment, and nothing else: the two changed lines of MailContentService are the comment on the catch around body extraction. It said the wrapped exception lets MailFacade surface a contentError on the cached body; the message detail no longer calls this service and the field is gone, so it now says the caller gets a typed mail error instead of a 500. The sanitize call, the cid collection, the plain-text escape, the byte cap and the oversize flag are byte-identical, and the body still reaches the frame only through /content, which returns what this service produced. Verdict stays PASS."
+      },
+      {
+        "date": "2026-09-28",
+        "note": "The exception-text change of API_SURFACE_AUDIT.md 1.9: a new MailFailureCause enum in the exception package classifies a caught exception into a stable cause code, and MailConnectionException / MailOperationException gained constructors that take the cause and pass the classification, not the text, as the message argument. Under this audit's paths only MailContentService changes, in one line: the failure to extract a message's text passes the caught exception as the cause of its MailOperationException instead of appending its text to the message. What the service extracts, sanitizes or renders is unchanged, so no claim of this audit moves."
       }
     ]
   },
@@ -123,9 +131,10 @@
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "ce8fadfbdbd2e206f24c9b05a520836dd261eeea",
       "backend/src/main/java/org/voxrox/mailbackend/core/diagnostic": "87acd1071bc62a2779c216e424e7ae9b391d3ab6",
-      "backend/src/main/java/org/voxrox/mailbackend/exception": "25a165dcfe824aed62c104e02f90e92885485163",
+      "backend/src/main/java/org/voxrox/mailbackend/exception": "f73df495696d2ba9bde5f20998a1c409fcc163df",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/controller": "030d483f7b65f8dc5777572ad2a453e909b18519",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/AttachmentService.java": "8404006a95a3005e8af5beec987de2d253553e34"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/AttachmentService.java": "9268a3771c4d41070b4fcb958ba98394a2f16917",
+      "backend/src/main/resources/application.properties": "3efe345be25b54d3c452e670dcfeb2a4fcc4b9a3"
     },
     "acknowledgements": [
       {
@@ -143,16 +152,21 @@
       {
         "date": "2026-09-28",
         "note": "The attachment lookup asks only a container for its content (IMAP/SMTP audit B1-12, recorded there as v1.18). One path moved, AttachmentService.java: findPartByPath calls getContent() only when isMimeType says multipart/* or message/rfc822, so a text part is no longer read whole into memory on the way to the copy. Read against section 4: the lookup still only indexes into Multipart children and never touches the filesystem, the temp-file name and the response headers are untouched, and the statuses section 7 and the #582 note describe (400 for a malformed path before any IMAP work, 404 naming the attachment for a missing part) are unchanged. Verdict stays PASS."
+      },
+      {
+        "date": "2026-09-28",
+        "note": "The exception-text change of API_SURFACE_AUDIT.md 1.9: a new MailFailureCause enum in the exception package classifies a caught exception into a stable cause code, and MailConnectionException / MailOperationException gained constructors that take the cause and pass the classification, not the text, as the message argument. Recorded in the audit itself as v1.9 (sections 3 and 7). Under this audit's paths: the exception package (MailFailureCause added, the two mail exceptions' constructors, GlobalExceptionHandler untouched), AttachmentService (the download failure and the temp-file race pass their exception as the cause, so the path stays in the log), and application.properties (health show-details=never). The claims about authentication, validation, attachment streaming and the diagnostic dump are unaffected; the verdict stays PASS."
       }
     ]
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "d7b18d6032a57b8b516a4fea94f1bb38efa55da8",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "350b18c8c8de70fb71cebf5179a16f745e03abb3",
       "backend/src/main/java/org/voxrox/mailbackend/util/HeaderAddresses.java": "f46de1567411a60b85ac28c2e650a3af5024b304",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/MessageEntity.java": "7b9f8cbd5bbf72a6f3931a446c417d73d8772341",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/DraftRecipientsEntity.java": "4ca68c3223596e5538f5722c6f5d86edaa8d932c",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "0d2769cf5095aa3354cba7ea634d7428fb2dc309"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "0d2769cf5095aa3354cba7ea634d7428fb2dc309",
+      "backend/src/main/resources/application.properties": "3efe345be25b54d3c452e670dcfeb2a4fcc4b9a3"
     },
     "acknowledgements": [
       {
@@ -182,6 +196,10 @@
       {
         "date": "2026-09-28",
         "note": "The completion of the B1-8 fix, recorded in the audit itself as v1.23 (section 4h). Two files under feature/mail/service change. BoundedImapProtocol drops its override of Protocol.command and charges every untagged response in readResponse to a CommandBudget started by the first and dropped at the tagged one, unless readingOneAtATime says the command is streamed; that covers the AUTHENTICATE loops of IMAPProtocol, which collect outside command. ImapCondstoreCommands.readEach sets and clears that flag and hands on at most MAX_MESSAGES responses, draining the rest and failing after the tagged completion. The budget values, the per-response bounds and what the two commands parse are unchanged. No other file under the path changes. Re-read against section 4h, which the same change updates; nothing is open, and the verdict waits for an independent pass."
+      },
+      {
+        "date": "2026-09-28",
+        "note": "The exception-text change of API_SURFACE_AUDIT.md 1.9: a new MailFailureCause enum in the exception package classifies a caught exception into a stable cause code, and MailConnectionException / MailOperationException gained constructors that take the cause and pass the classification, not the text, as the message argument. Under this audit's paths: the throw sites in ImapConnectionManager, ImapFolderExecutor, MailConnectionProbe, AttachmentService and MailContentService pass the caught exception as the cause; MailSyncService, SmtpMessageService and DraftPersistenceService store the cause under lastErrorArgs \"cause\" instead of the text under \"detail\", with a fallback naming the class and cause; MailSyncService.classifyCause no longer maps a refused server response to the connection-failure code, so the generic code carries the refused-response cause; BoundedImapProtocol builds its refusal text from MailFailureCause.REFUSED_RESPONSE_MARKER, the same text as before; application.properties hides health details. No bound, budget, parse or sync decision changes, so no claim of this audit moves; its verification pass is under way separately."
       }
     ]
   }

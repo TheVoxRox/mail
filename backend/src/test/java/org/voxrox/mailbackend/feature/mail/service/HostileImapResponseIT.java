@@ -125,8 +125,7 @@ class HostileImapResponseIT {
 
         AccountEntity after = pass();
 
-        assertThat(after.getLastErrorCode()).isNotNull();
-        assertThat(after.getLastError()).contains("implausible IMAP response").contains("EXISTS");
+        assertRefused(after, "EXISTS 2147483583 is outside");
     }
 
     @Test
@@ -137,8 +136,7 @@ class HostileImapResponseIT {
 
         AccountEntity after = pass();
 
-        assertThat(after.getLastErrorCode()).isNotNull();
-        assertThat(after.getLastError()).contains("implausible IMAP response").contains("VANISHED");
+        assertRefused(after, "VANISHED");
     }
 
     /**
@@ -157,8 +155,7 @@ class HostileImapResponseIT {
 
         AccountEntity after = pass();
 
-        assertThat(after.getLastErrorCode()).isNotNull();
-        assertThat(after.getLastError()).contains("implausible IMAP response").contains("could not be read");
+        assertRefused(after, "could not be read");
     }
 
     /**
@@ -178,8 +175,7 @@ class HostileImapResponseIT {
 
         AccountEntity after = pass();
 
-        assertThat(after.getLastErrorCode()).isNotNull();
-        assertThat(after.getLastError()).contains("implausible IMAP response").contains("could not be read");
+        assertRefused(after, "could not be read");
     }
 
     /**
@@ -217,8 +213,7 @@ class HostileImapResponseIT {
 
         AccountEntity after = pass();
 
-        assertThat(after.getLastErrorCode()).isNotNull();
-        assertThat(after.getLastError()).contains("implausible IMAP response").contains("passed");
+        assertRefused(after, "passed");
     }
 
     /**
@@ -253,8 +248,7 @@ class HostileImapResponseIT {
 
         AccountEntity after = pass();
 
-        assertThat(after.getLastErrorCode()).isNotNull();
-        assertThat(after.getLastError()).contains("passed");
+        assertRefused(after, "passed");
     }
 
     @Test
@@ -274,9 +268,47 @@ class HostileImapResponseIT {
      * throws — before this returns.
      */
     private AccountEntity pass() {
+        logMark = logLength();
         MailSyncService direct = AopTestUtils.getUltimateTargetObject(mailSyncService);
         direct.syncAllFolders(accountRepository.findById(account.getId()).orElseThrow(), SyncTrigger.SCHEDULED);
         return accountRepository.findById(account.getId()).orElseThrow();
+    }
+
+    /**
+     * A pass a refusal ended. The account records the refused-response cause, which
+     * the user is told in their language; which response was refused, and why, is
+     * in the log the pass wrote, where the text of a failure goes (API surface
+     * audit §3) — so the reason is looked for in what this pass added to it.
+     */
+    private void assertRefused(AccountEntity after, String reason) {
+        assertThat(after.getLastErrorCode()).isNotNull();
+        assertThat(after.getLastErrorArgs()).contains("REFUSED_RESPONSE");
+        assertThat(after.getLastError()).doesNotContain(reason);
+        assertThat(logSinceMark()).contains(reason);
+    }
+
+    private long logMark;
+
+    private static Path log() {
+        return DATA_DIR.resolve("logs").resolve("mail.log");
+    }
+
+    private static long logLength() {
+        try {
+            return Files.exists(log()) ? Files.size(log()) : 0;
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
+    }
+
+    private String logSinceMark() {
+        try {
+            byte[] bytes = Files.readAllBytes(log());
+            return new String(bytes, (int) logMark, bytes.length - (int) logMark,
+                    java.nio.charset.StandardCharsets.UTF_8);
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
     }
 
     /**

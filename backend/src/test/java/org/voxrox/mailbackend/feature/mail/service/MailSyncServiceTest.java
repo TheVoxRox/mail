@@ -241,8 +241,11 @@ class MailSyncServiceTest {
             ArgumentCaptor<AccountLastError> captor = ArgumentCaptor.forClass(AccountLastError.class);
             verify(accountRepository).updateLastError(eq(ACCOUNT_ID), captor.capture(), any(LocalDateTime.class));
             assertThat(captor.getValue().code()).isEqualTo(AccountLastErrorCode.MAIL_SYNC_ACCOUNT_FAILED);
+            // The exception's own text stays in the log the catch writes, out of what an
+            // account endpoint returns (API surface audit, §3).
             assertThat(captor.getValue().fallbackMessage()).contains("Account sync failed").contains("RuntimeException")
-                    .contains("boom");
+                    .doesNotContain("boom");
+            assertThat(captor.getValue().args()).containsExactly(java.util.Map.entry("cause", "UNEXPECTED"));
         }
 
         @Test
@@ -265,9 +268,10 @@ class MailSyncServiceTest {
             verify(accountRepository).updateLastError(eq(ACCOUNT_ID), captor.capture(), any(LocalDateTime.class));
             assertThat(captor.getValue().code()).isEqualTo(AccountLastErrorCode.MAIL_SYNC_CONNECTION_FAILED);
             assertThat(captor.getValue().args()).isEmpty();
-            // The developer string survives where it belongs: the stored fallback, which
-            // is what a log or a support dump reads.
-            assertThat(captor.getValue().fallbackMessage()).contains("timeout 30000");
+            // The developer string survives where it belongs, in the log the catch
+            // writes; the stored fallback names the class and the cause, not the text.
+            assertThat(captor.getValue().fallbackMessage()).contains("MailConnectionException")
+                    .doesNotContain("timeout 30000");
         }
 
         @Test
@@ -686,7 +690,8 @@ class MailSyncServiceTest {
             verify(accountRepository).updateLastError(eq(ACCOUNT_ID), captor.capture(), any(LocalDateTime.class));
             assertThat(captor.getValue().code()).isEqualTo(AccountLastErrorCode.MAIL_SYNC_FOLDER_FAILED);
             assertThat(captor.getValue().fallbackMessage()).contains("Folder sync INBOX failed")
-                    .contains("RuntimeException").contains("folder open failed");
+                    .contains("RuntimeException").doesNotContain("folder open failed");
+            assertThat(captor.getValue().args()).containsEntry("folder", "INBOX").containsEntry("cause", "UNEXPECTED");
         }
     }
 
@@ -1093,7 +1098,7 @@ class MailSyncServiceTest {
             verify(accountRepository).updateLastError(eq(ACCOUNT_ID), captor.capture(), any(LocalDateTime.class));
             assertThat(captor.getValue().code()).isEqualTo(AccountLastErrorCode.MAIL_SYNC_FOLDER_FAILED);
             assertThat(captor.getValue().fallbackMessage()).contains("Folder sync INBOX failed")
-                    .contains("RuntimeException").contains("IMAP timeout");
+                    .contains("RuntimeException").doesNotContain("IMAP timeout");
         }
 
         @Test

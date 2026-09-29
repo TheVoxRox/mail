@@ -397,8 +397,7 @@ public class ImapConnectionManager {
                 }
             }
         } catch (MessagingException | IOException e) {
-            throw new MailConnectionException("Critical IMAP error for account " + accountId + ": " + e.getMessage(),
-                    e);
+            throw new MailConnectionException("Critical IMAP error for account " + accountId, e);
         }
     }
 

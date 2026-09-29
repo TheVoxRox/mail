@@ -291,7 +291,7 @@ class ImapConnectionManagerTest {
 
             assertThatThrownBy(() -> manager.executeWithLock(ACCOUNT_ID, Lane.BACKGROUND, s -> {
                 throw new java.io.IOException("network down");
-            })).isInstanceOf(MailConnectionException.class).hasMessageContaining("network down");
+            })).isInstanceOf(MailConnectionException.class).cause().hasMessageContaining("network down");
         }
     }
 

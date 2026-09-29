@@ -2,7 +2,7 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.8                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| **Version**        | 1.9                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | **Date**           | 2026-09-27                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | **Applies to**     | VoxRox Mail V0.1.0, cut at or after the audited commit — the draft `v0.1.0` tag (`d626a9b`) predates #574, #577 and #578 (§3, §6)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | **Audited commit** | `55fdd1b` (every claim re-verified 2026-09-27)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -171,54 +171,53 @@ text the handlers do return:
   exception's `messageArgs`, and falls back to the exception's own message when
   there is no key or it does not resolve. Most subclasses put an id, a limit, a
   name or the request's own value (an unknown flag type) into those arguments.
-  **The mail layer does not.**
-  `MailConnectionException` and `MailOperationException` pass their whole
-  message as `{0}` of `error.mail.connectionFailed` /
-  `error.mail.operationFailed`, and eight throw sites build that message from a
-  caught exception's `getMessage()`: the IMAP and SMTP connection test, the
-  IMAP connection manager and folder executor, attachment download,
-  message-text extraction and the OAuth token refresh. Whenever one of them
-  ends a request, the text a mail library or a provider wrote — a server's
-  reply, a host name, a TLS or HTTP error — reaches the client in `detail`, and
-  again in `messageArgs`. §7 records why this is not a finding. A rejected login
-  is kept out: the connection test maps `AuthenticationFailedException` to
-  `MailAuthenticationException`, which does not carry the server's text.
+  **The mail layer puts a cause code there** (since 1.9). A
+  `MailConnectionException` or `MailOperationException` that wraps a caught
+  exception carries a `MailFailureCause` as the `{0}` of
+  `error.mail.connectionFailed` / `error.mail.operationFailed` — connection,
+  unknown host, timeout, TLS, rejected sign-in, rejected request, rejected
+  recipients, refused response, local database, local file or unexpected —
+  which the message source renders in the request's language and JSON renders
+  by name. The caught exception stays the cause, and its text goes to the log
+  the handler writes; until 1.9 eight throw sites built the message from it
+  instead, so a server's reply, a host name or a TLS error reached `detail`
+  and `messageArgs` in English, inside the Czech sentence. A mail exception
+  thrown with no cause still passes the message the app wrote as `{0}`: an
+  English sentence, not a library's (the OAuth sign-in messages among them).
 
-Regenerate the throw sites (the `-A2` catches a message built on the line after
-the constructor call):
+Regenerate the throw sites that build a message from a caught exception (the
+`-A2` catches a message built on the line after the constructor call):
 
 ```sh
 grep -rnE -A2 'new Mail(Connection|Operation)Exception\(' backend/src/main/java \
-  | grep 'getMessage()'                        # 8 throw sites
+  | grep 'getMessage()'                        # 0 throw sites since 1.9
 ```
 
-**Outside the handlers, an account's last error carries the same kind of
-text.** Every endpoint that returns an `AccountResponse` carries `lastError`
-and `lastErrorArgs`, and three services store a caught exception's
-`getMessage()` in them as `detail`: the sync (for an error it does not
-recognise as a connection or sign-in failure), SMTP send and draft save.
-`AccountMapper` renders it through the `account.lastError.*` templates
-(`Unexpected error: {0}`). The sync stores it from a `catch (Exception)`, so a
-persistence error qualifies too, and Hibernate's `JDBCException` puts the SQL
-statement in its message — so the text of a statement, with its parameters as
-`?`, can reach `GET /api/v1/accounts` this way. Same recipient as above; §7.
-Regenerate the sites:
+**An account's last error carries a cause code too.** Every endpoint that
+returns an `AccountResponse` carries `lastError` and `lastErrorArgs`. The
+sync, SMTP send and draft save store a failure's `MailFailureCause` under
+`cause`, never its text, and `AccountMapper` renders it through the
+`account.lastError.*` templates in the reader's language; a stored argument
+that is not a cause's name renders as the unexpected one. The fallback text
+stored beside the code names the exception's class and the cause. Until 1.9
+they stored `getMessage()` as `detail` — for the sync from a
+`catch (Exception)`, so Hibernate's text of a failed SQL statement could reach
+`GET /api/v1/accounts`. Regenerate the sites that store a cause:
 
 ```sh
-grep -rn '"detail", safeDetail' backend/src/main/java   # 4 sites in 3 services
+grep -rn 'AccountLastErrorCode.CAUSE' backend/src/main/java   # 5 sites in 3 services
 ```
 
-**The health endpoint is a third path.** `GET /api/internal/health` shows its
-details (`management.endpoint.health.show-details=always`), and Spring's own
-database indicator reports a failure as `error`, the exception's class and
-message, so a JDBC or SQLite error's text reaches the key holder there. The
-disk-space indicator also returns the absolute working directory, which
-usually contains the Windows account name. The project's own
-`SyncHealthIndicator` gives only an exception's class name. The client does not
-call this endpoint. Same recipient; §7. One mail-layer message carries a local
-path of its own: when an attachment's temp file disappears before its stream
-opens — a race — `AttachmentService` reports the file's absolute path under the
-data directory, which contains the Windows account name, in `detail`.
+**The health endpoint shows statuses only** (since 1.9).
+`GET /api/internal/health` lists its components by name and status
+(`management.endpoint.health.show-details=never`,
+`show-components=always`). Until 1.9 it showed their details: Spring's
+database indicator reports a failure as the exception's class and message, and
+the disk-space indicator the absolute working directory, which usually
+contains the Windows account name. Nothing read more than the status. The one
+mail-layer message that carried a local path of its own, the temp file an
+attachment race loses, now reports the local-file cause and keeps the path in
+the log.
 
 The bulk contact endpoints also return, per failed item, an `AppException`'s
 own message — the English fallback text the app wrote, not a library's.
@@ -425,11 +424,13 @@ system folder's name, which the role replaces.
 - **`ClientBootDiagnosticsController` has no `@Valid`.** Cosmetic — the DTO
   carries no bean-validation constraints and the service sanitizes every field
   (§5), so nothing is unenforced.
-- **Exception text reaches the client (§3).** Through the mail-layer errors,
-  an account's last error and the health endpoint's details. It has at every
-  anchor: the throw sites, and the last error a failed send stores, were
-  already there at `d55b753`, the first. Not a finding, because of who
-  receives it. The recipient is whoever holds the API key — the app's own
+- **Exception text reached the client (§3), until 1.9.** Through the
+  mail-layer errors, an account's last error and the health endpoint's
+  details. It had at every anchor until 1.9: the throw sites, and the last
+  error a failed send stores, were already there at `d55b753`, the first.
+  Not a finding, because of who receives it, and closed at 1.9 for the user's
+  sake rather than for security: the text was a library's, in English, inside
+  a Czech sentence. The recipient is whoever holds the API key — the app's own
   WebView, which shows the first two to the user whose mail server, provider
   or database produced them and never calls the health endpoint, or a
   same-user process, which the threat model puts out of scope and which can
@@ -451,6 +452,14 @@ system folder's name, which the role replaces.
 - [backend/SECURITY_RELEASE_CHECK.md](../backend/SECURITY_RELEASE_CHECK.md) — per-release security gate.
 
 ## 9. Change log
+
+- **1.9** (2026-09-28) — **exception text kept out of responses** (#599).
+  The mail layer and an account's last error carry a `MailFailureCause`,
+  rendered in the reader's language, instead of a caught exception's text,
+  which goes to the log only; the health endpoint shows statuses without
+  details; the attachment temp-file race no longer reports its path (§3). §7's
+  note says it held until 1.9. Verdict unchanged; drift acknowledged, anchor
+  unchanged at `55fdd1b`.
 
 - **1.8** (2026-09-27) — **re-verified against `55fdd1b`**, every claim,
   after the independent pass that [AUDIT_GUIDE.md](AUDIT_GUIDE.md) §5 requires

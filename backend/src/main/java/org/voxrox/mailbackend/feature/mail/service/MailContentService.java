@@ -133,7 +133,7 @@ public class MailContentService {
                         // unchecked JavaMail error. Wrap it so the caller gets a typed
                         // mail error instead of a 500.
                         throw new MailOperationException(ErrorCode.MAIL_CONNECTION_ERROR,
-                                "Error while extracting message text: " + e.getMessage());
+                                "Error while extracting message text", e);
                     }
                 });
 

@@ -81,7 +81,7 @@ public class MailConnectionProbe {
         } catch (AuthenticationFailedException e) {
             throw rejectedLogin(e);
         } catch (MessagingException | RuntimeException e) {
-            throw new MailConnectionException("IMAP test connection failed: " + e.getMessage(), e);
+            throw new MailConnectionException("IMAP test connection failed", e);
         } finally {
             if (store != null) {
                 try {
@@ -101,7 +101,7 @@ public class MailConnectionProbe {
         } catch (AuthenticationFailedException e) {
             throw rejectedLogin(e);
         } catch (MessagingException | RuntimeException e) {
-            throw new MailConnectionException("SMTP test connection failed: " + e.getMessage(), e);
+            throw new MailConnectionException("SMTP test connection failed", e);
         } finally {
             smtpTransportFactory.closeQuietly(transport, accountId);
         }

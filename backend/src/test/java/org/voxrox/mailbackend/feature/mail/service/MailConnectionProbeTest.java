@@ -200,7 +200,7 @@ class MailConnectionProbeTest {
                 staticSession.when(() -> Session.getInstance(any(Properties.class))).thenReturn(sessionMock);
 
                 assertThatThrownBy(() -> probe.testImap(ACCOUNT_ID, passwordDetails(true)))
-                        .isInstanceOf(MailConnectionException.class).hasMessageContaining("auth failed");
+                        .isInstanceOf(MailConnectionException.class).cause().hasMessageContaining("auth failed");
             }
 
             verify(storeMock).close();
@@ -286,7 +286,7 @@ class MailConnectionProbeTest {
                 staticSession.when(() -> Session.getInstance(any(Properties.class))).thenReturn(sessionMock);
 
                 assertThatThrownBy(() -> probe.testImap(ACCOUNT_ID, oauthDetails(true)))
-                        .isInstanceOf(MailConnectionException.class).hasMessageContaining("provider down");
+                        .isInstanceOf(MailConnectionException.class).cause().hasMessageContaining("provider down");
             }
 
             verify(storeMock, never()).connect(anyString(), anyInt(), anyString(), anyString());
@@ -322,7 +322,7 @@ class MailConnectionProbeTest {
                     .thenThrow(new MessagingException("smtp auth failed"));
 
             assertThatThrownBy(() -> probe.testSmtp(ACCOUNT_ID, details)).isInstanceOf(MailConnectionException.class)
-                    .hasMessageContaining("smtp auth failed");
+                    .cause().hasMessageContaining("smtp auth failed");
 
             verify(smtpTransportFactory).closeQuietly(null, ACCOUNT_ID);
         }
@@ -351,7 +351,7 @@ class MailConnectionProbeTest {
             when(smtpTransportFactory.createSession(details)).thenThrow(new IllegalStateException("session boom"));
 
             assertThatThrownBy(() -> probe.testSmtp(ACCOUNT_ID, details)).isInstanceOf(MailConnectionException.class)
-                    .hasMessageContaining("session boom");
+                    .cause().hasMessageContaining("session boom");
 
             verify(smtpTransportFactory).closeQuietly(null, ACCOUNT_ID);
         }

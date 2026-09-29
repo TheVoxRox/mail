@@ -120,19 +120,42 @@ class AccountMapperTest {
         @DisplayName("structured lastError is localized per request locale and propagates code/args")
         void structuredLastErrorIsLocalized() {
             var account = createAccount();
-            account.setLastError("Folder sync INBOX failed: RuntimeException: boom");
+            account.setLastError("Folder sync INBOX failed: JDBCException (STORAGE)");
             account.setLastErrorCode(AccountLastErrorCode.MAIL_SYNC_FOLDER_FAILED.name());
-            account.setLastErrorArgs(AccountLastErrorJson.write(java.util.Map.of("folder", "INBOX", "detail", "boom")));
+            account.setLastErrorArgs(
+                    AccountLastErrorJson.write(java.util.Map.of("folder", "INBOX", "cause", "STORAGE")));
             LocaleContextHolder.setLocale(Locale.ENGLISH);
 
             AccountResponse response = mapper.toResponse(account);
 
             // The exception class name is deliberately not in the rendered text: this
-            // string is read out loud, and "RuntimeException" is not something to say
-            // to a user.
-            assertThat(response.lastError()).isEqualTo("Unexpected error in folder INBOX: boom");
+            // string is read out loud, and "JDBCException" is not something to say to a
+            // user. Nor is the exception's own text, which is not even stored.
+            assertThat(response.lastError()).isEqualTo("Sync of folder INBOX failed: the app's local database failed");
             assertThat(response.lastErrorCode()).isEqualTo("MAIL_SYNC_FOLDER_FAILED");
-            assertThat(response.lastErrorArgs()).containsEntry("folder", "INBOX").containsEntry("detail", "boom");
+            assertThat(response.lastErrorArgs()).containsEntry("folder", "INBOX").containsEntry("cause", "STORAGE");
+        }
+
+        /**
+         * API surface audit §3: the last error used to carry the caught exception's
+         * text as "detail", SQL included. A row written that way (a development
+         * database from before the change) renders the generic cause, not the text.
+         */
+        @Test
+        @DisplayName("A last error stored with a detail text renders the generic cause, not the text")
+        void storedDetailTextIsNotRendered() {
+            var account = createAccount();
+            account.setLastError("Account sync failed: JDBCException: could not execute statement [insert into ...]");
+            account.setLastErrorCode(AccountLastErrorCode.MAIL_SYNC_ACCOUNT_FAILED.name());
+            account.setLastErrorArgs(AccountLastErrorJson
+                    .write(java.util.Map.of("detail", "could not execute statement [insert into messages ...]")));
+            LocaleContextHolder.setLocale(Locale.ENGLISH);
+
+            AccountResponse response = mapper.toResponse(account);
+
+            assertThat(response.lastError())
+                    .isEqualTo("Sync failed: unexpected error, the details are in the app's log")
+                    .doesNotContain("insert");
         }
 
         @Test
@@ -141,14 +164,14 @@ class AccountMapperTest {
             var account = createAccount();
             account.setLastError("Stored fallback");
             account.setLastErrorCode(AccountLastErrorCode.SMTP_SEND_FAILED.name());
-            account.setLastErrorArgs(AccountLastErrorJson.write(java.util.Map.of("detail", "timeout")));
+            account.setLastErrorArgs(AccountLastErrorJson.write(java.util.Map.of("cause", "TIMEOUT")));
             LocaleContextHolder.setLocale(Locale.forLanguageTag("cs"));
 
             AccountResponse response = mapper.toResponse(account);
 
-            assertThat(response.lastError()).isEqualTo("Odesílání selhalo: timeout");
+            assertThat(response.lastError()).isEqualTo("Odesílání selhalo: server neodpověděl včas");
             assertThat(response.lastErrorCode()).isEqualTo("SMTP_SEND_FAILED");
-            assertThat(response.lastErrorArgs()).containsEntry("detail", "timeout");
+            assertThat(response.lastErrorArgs()).containsEntry("cause", "TIMEOUT");
         }
 
         @Test
