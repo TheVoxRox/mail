@@ -1,6 +1,7 @@
 package org.voxrox.mailbackend.feature.mail.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -102,6 +103,7 @@ class HostileImapResponseIT {
     void setUp() {
         SERVER.answerOpenWith();
         SERVER.listUids(0);
+        SERVER.padUidListingWith();
         SERVER.authenticateWith();
         account = accountRepository.findByEmail(EMAIL).orElseGet(() -> {
             MailServerSettings server = new MailServerSettings("127.0.0.1", SERVER.port(), true);
@@ -199,6 +201,26 @@ class HostileImapResponseIT {
     }
 
     /**
+     * B1-8, from the 1.24 verification pass. {@code Protocol.command} collects a
+     * tagged response whose tag is not its own and reads on; a budget that started
+     * over at any tagged response let a server reset it every thousand lines and
+     * send the 1.16 flood regardless.
+     */
+    @Test
+    @DisplayName("Tagged lines with a foreign tag do not reset one command's budget")
+    void foreignTaggedLinesDoNotResetTheBudget() {
+        String[] lines = new String[250_000];
+        for (int i = 0; i < lines.length; i++) {
+            lines[i] = i % 1000 == 999 ? "zz" + i + " OK not your command" : "* OK still here";
+        }
+        SERVER.answerOpenWith(lines);
+
+        AccountEntity after = pass();
+
+        assertRefused(after, "passed");
+    }
+
+    /**
      * B1-8. Each line is a response the per-response checks pass; 250,000 of them
      * are three megabytes on the wire and, with the objects Angus parses each into,
      * past one command's budget. Against the unfixed protocol nothing refuses them
@@ -231,6 +253,47 @@ class HostileImapResponseIT {
                 (folder, uidFolder) -> ImapCondstoreCommands.fetchAllServerUids((IMAPFolder) folder));
 
         assertThat(uids).hasSize(250_000).contains(1L, 250_000L);
+    }
+
+    /**
+     * B1-8, from the 1.24 verification pass. {@code IMAPFolder}'s response handler
+     * records a UID-table entry for each UID a FETCH gives a message and keeps it
+     * while the folder is open, so a listing handed to it grew the table by an
+     * entry a line — past what the listing itself keeps, and past the folder's
+     * message count, since one message can be renamed without end.
+     */
+    @Test
+    @DisplayName("The UID listing leaves nothing behind in the folder's UID table")
+    void theUidListingLeavesTheFolderTableEmpty() {
+        SERVER.answerOpenWith("* 1 EXISTS");
+        SERVER.listUidsOfOneMessage(100_000);
+
+        int recorded = imapFolderService.executeInFolder(account.getId(), Lane.BACKGROUND, "INBOX", Folder.READ_ONLY,
+                (folder, uidFolder) -> {
+                    ImapCondstoreCommands.fetchAllServerUids((IMAPFolder) folder);
+                    return uidTableSize((IMAPFolder) folder);
+                });
+
+        assertThat(recorded).isZero();
+    }
+
+    /**
+     * B1-8, from the 1.24 verification pass. Only the listing's FETCH responses go
+     * uncharged, to a caller that bounds what it keeps; anything else a server puts
+     * among them reaches the folder's handlers and is charged as in any command.
+     */
+    @Test
+    @DisplayName("Responses other than FETCH among the UID listing's are charged to its budget")
+    void aListingPaddedPastTheBudgetIsRefused() {
+        String[] filler = new String[250_000];
+        Arrays.fill(filler, "* OK still here");
+        SERVER.padUidListingWith(filler);
+        logMark = logLength();
+
+        assertThatThrownBy(() -> imapFolderService.executeInFolder(account.getId(), Lane.BACKGROUND, "INBOX",
+                Folder.READ_ONLY, (folder, uidFolder) -> ImapCondstoreCommands.fetchAllServerUids((IMAPFolder) folder)))
+                .isInstanceOf(RuntimeException.class);
+        assertThat(logSinceMark()).contains("passed");
     }
 
     /**
@@ -308,6 +371,21 @@ class HostileImapResponseIT {
                     java.nio.charset.StandardCharsets.UTF_8);
         } catch (java.io.IOException e) {
             throw new java.io.UncheckedIOException(e);
+        }
+    }
+
+    /**
+     * The entries in the folder's UID table, a protected field Angus fills from the
+     * FETCH responses its handler is given.
+     */
+    private static int uidTableSize(IMAPFolder folder) {
+        try {
+            java.lang.reflect.Field field = IMAPFolder.class.getDeclaredField("uidTable");
+            field.setAccessible(true);
+            java.util.Map<?, ?> table = (java.util.Map<?, ?>) field.get(folder);
+            return table == null ? 0 : table.size();
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("Angus no longer has IMAPFolder.uidTable", e);
         }
     }
 

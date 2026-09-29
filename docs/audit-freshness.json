@@ -158,5 +158,16 @@
         "note": "The exception-text change of API_SURFACE_AUDIT.md 1.9: a new MailFailureCause enum in the exception package classifies a caught exception into a stable cause code, and MailConnectionException / MailOperationException gained constructors that take the cause and pass the classification, not the text, as the message argument. Recorded in the audit itself as v1.9 (sections 3 and 7). Under this audit's paths: the exception package (MailFailureCause added, the two mail exceptions' constructors, GlobalExceptionHandler untouched), AttachmentService (the download failure and the temp-file race pass their exception as the cause, so the path stays in the log), and application.properties (health show-details=never). The claims about authentication, validation, attachment streaming and the diagnostic dump are unaffected; the verdict stays PASS."
       }
     ]
+  },
+  "docs/IMAP_SMTP_AUDIT.md": {
+    "reviewedTrees": {
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "d25efca28a191b55adeee0db05724ac5fe18d76b"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-09-29",
+        "note": "The second fix for B1-8, recorded in the audit itself as v1.25 (section 4h), and finding B1-14 (section 4n), which it turned up. Two files under feature/mail/service change. BoundedImapProtocol overrides writeCommand to start a new CommandBudget there, and readResponse charges every response until the next command, tagged or not, except an untagged FETCH while readingOneAtATime is set; the per-response bounds, the budget values and the refusal are unchanged, and the javadoc on the budget and the flag says what is now charged. ImapCondstoreCommands.readEach hands an untagged FETCH to its caller and to no response handler, still notifies every other response, and past its limit clears readingOneAtATime so the responses it drops are charged; the write, the BYE handling, handleResult and the failure past the limit are unchanged. No other file under the path changes. Re-read against sections 4h, 4m and 4n, which the same change updates; the verdict stays open findings."
+      }
+    ]
   }
 }
