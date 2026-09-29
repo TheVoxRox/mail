@@ -121,9 +121,8 @@ final class ImapCondstoreCommands {
      * UID listing, every changed one for {@code CHANGEDSINCE} — and
      * {@code Protocol.command} holds all of those responses until the tagged one:
      * 308 bytes each, 154 MB for a 500,000-message folder, before the set built
-     * from them. This reads them one at a time, hands each to {@code each} and to
-     * the folder's response handlers, and keeps none, so what the command costs is
-     * what {@code each} keeps.
+     * from them. This reads them one at a time, hands each to {@code each}, and
+     * keeps none, so what the command costs is what {@code each} keeps.
      *
      * <p>
      * It does what {@code Protocol.command} does in Angus 2.0.5, read from its
@@ -133,14 +132,28 @@ final class ImapCondstoreCommands {
      * it with a BYE; and the tagged response of this command, or the BYE, goes to
      * {@code handleResult}. Synchronized on the protocol as {@code command} is.
      * {@code BoundedImapProtocolTest} pins the Angus version this was read against.
+     * One difference: an untagged FETCH goes to {@code each} and to no response
+     * handler. {@code IMAPFolder}'s handler makes an {@code IMAPMessage} for the
+     * sequence number a FETCH names and a UID-table entry for each UID it has not
+     * seen on that message, and keeps both while the folder is open — for the
+     * listing, one of each per message, which is the cost this method exists to
+     * avoid, and for a server that repeats a sequence number with ever new UIDs, an
+     * entry per line without end (IMAP/SMTP audit B1-8, reopened at 1.24). No
+     * caller reads what the handler would have recorded: the listing's answer is
+     * the returned set, and a later {@code getMessagesByUID} asks the server for
+     * any UID the folder does not know.
      *
      * <p>
-     * Not charged to {@code BoundedImapProtocol}'s per-command budget, which exists
-     * for what a command collects; the bound here is on what {@code each} keeps. It
-     * gets at most {@code limit} responses — for a per-message answer, as many as a
-     * folder may hold messages — and past that the rest of the command is read and
-     * dropped and the command fails once it is complete, so the connection stays in
-     * step and nothing a server sends can grow the caller's set or list further.
+     * The FETCH responses {@code each} is handed are not charged to
+     * {@code BoundedImapProtocol}'s per-command budget, which exists for what a
+     * command collects; the bound on them is what {@code each} keeps. Every other
+     * response is charged, as in any command. {@code each} gets at most
+     * {@code limit} responses — for a per-message answer, as many as a folder may
+     * hold messages — and past that the rest of the command is read and dropped,
+     * charged to the budget like everything else, and the command fails once it is
+     * complete: the connection stays in step, nothing a server sends grows the
+     * caller's set or list further, and a server that does not stop is refused once
+     * the budget is spent.
      */
     static void readEach(IMAPProtocol protocol, String command, Argument args, long limit, Consumer<Response> each)
             throws ProtocolException {
@@ -150,7 +163,7 @@ final class ImapCondstoreCommands {
                 bounded.readingOneAtATime(true);
             }
             try {
-                readEachLocked(protocol, command, args, limit, each);
+                readEachLocked(protocol, command, args, limit, each, bounded);
             } finally {
                 if (bounded != null) {
                     bounded.readingOneAtATime(false);
@@ -160,7 +173,7 @@ final class ImapCondstoreCommands {
     }
 
     private static void readEachLocked(IMAPProtocol protocol, String command, Argument args, long limit,
-            Consumer<Response> each) throws ProtocolException {
+            Consumer<Response> each, @Nullable BoundedImapProtocol bounded) throws ProtocolException {
         String tag;
         try {
             tag = protocol.writeCommand(command, args);
@@ -191,8 +204,13 @@ final class ImapCondstoreCommands {
                 tagged = r;
             } else if (++handed <= limit) {
                 each.accept(r);
+            } else if (handed == limit + 1 && bounded != null) {
+                // Dropped from here on, so charged like any other command's responses.
+                bounded.readingOneAtATime(false);
             }
-            protocol.notifyResponseHandlers(new Response[]{r});
+            if (!(r instanceof FetchResponse)) {
+                protocol.notifyResponseHandlers(new Response[]{r});
+            }
         }
         if (bye != null) {
             protocol.notifyResponseHandlers(new Response[]{bye});

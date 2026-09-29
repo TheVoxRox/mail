@@ -39,6 +39,8 @@ final class HostileImapServer implements AutoCloseable {
     private final ExecutorService threads = Executors.newVirtualThreadPerTaskExecutor();
     private volatile List<String> openResponse = List.of();
     private volatile int uidListing;
+    private volatile boolean uidListingOneMessage;
+    private volatile List<String> uidListingPadding = List.of();
     private volatile List<String> authenticateResponse = List.of();
 
     HostileImapServer() throws IOException {
@@ -67,6 +69,26 @@ final class HostileImapServer implements AutoCloseable {
      */
     void listUids(int count) {
         uidListing = count;
+        uidListingOneMessage = false;
+    }
+
+    /**
+     * Like {@link #listUids}, but every line names sequence number 1, each time
+     * with a new UID — one message the server keeps renaming, which a folder's
+     * response handler records a UID-table entry for per line (IMAP/SMTP audit
+     * B1-8, reopened at 1.24).
+     */
+    void listUidsOfOneMessage(int count) {
+        uidListing = count;
+        uidListingOneMessage = true;
+    }
+
+    /**
+     * Untagged lines every later {@code UID FETCH} sends ahead of its listing —
+     * responses a listing read one at a time does not hand to its caller.
+     */
+    void padUidListingWith(String... lines) {
+        uidListingPadding = List.of(lines);
     }
 
     /**
@@ -169,9 +191,10 @@ final class HostileImapServer implements AutoCloseable {
 
     private List<String> uidListing(String tag) {
         int count = uidListing;
-        List<String> lines = new ArrayList<>(count + 1);
+        boolean oneMessage = uidListingOneMessage;
+        List<String> lines = new ArrayList<>(uidListingPadding);
         for (int n = 1; n <= count; n++) {
-            lines.add("* " + n + " FETCH (UID " + n + ")");
+            lines.add("* " + (oneMessage ? 1 : n) + " FETCH (UID " + n + ")");
         }
         lines.add(tag + " OK done");
         return lines;

@@ -30,6 +30,7 @@ import org.eclipse.angus.mail.imap.protocol.IMAPProtocol;
 import org.eclipse.angus.mail.imap.protocol.UID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.voxrox.mailbackend.feature.mail.service.ImapCondstoreCommands.FlagChange;
 
@@ -134,8 +135,28 @@ class ImapCondstoreCommandsTest {
         ImapCondstoreCommands.fetchAllServerUids(folder);
 
         verify(protocol, never()).command(any(), any());
-        // Each response reaches the folder's handlers on its own, the tagged one too.
-        verify(protocol, times(3)).notifyResponseHandlers(any());
+    }
+
+    /**
+     * B1-8, reopened at 1.24. {@code IMAPFolder}'s handler keeps a message object
+     * and a UID-table entry for what a FETCH names, while the folder is open; the
+     * listing's FETCH responses go to the caller alone. Everything else still
+     * reaches the handlers, as it would from {@code Protocol.command}.
+     */
+    @Test
+    @DisplayName("The listing's FETCH responses reach no response handler, and every other response does")
+    void listingFetchesReachNoHandler() throws Exception {
+        IMAPProtocol protocol = mock(IMAPProtocol.class);
+        FetchResponse listed = uidOnlyResponse(10L);
+        Response exists = mock(Response.class);
+        Response tagged = stubStream(protocol, listed, exists);
+
+        ImapCondstoreCommands.readEach(protocol, "UID FETCH", new Argument(), 10, r -> {
+        });
+
+        ArgumentCaptor<Response[]> notified = ArgumentCaptor.captor();
+        verify(protocol, times(2)).notifyResponseHandlers(notified.capture());
+        assertThat(notified.getAllValues()).extracting(batch -> batch[0]).containsExactly(exists, tagged);
     }
 
     @Test
@@ -239,6 +260,31 @@ class ImapCondstoreCommandsTest {
 
         InOrder order = inOrder(protocol);
         order.verify(protocol).readingOneAtATime(true);
+        order.verify(protocol, times(2)).readResponse();
+        order.verify(protocol).readingOneAtATime(false);
+    }
+
+    /**
+     * B1-8, reopened at 1.24. Past the limit the rest of the command is dropped
+     * rather than handed on, and a server that never ends it would keep the sync
+     * reading; charged to the budget, it is refused once that is spent.
+     */
+    @Test
+    @DisplayName("Past the limit a bounded protocol charges the rest of the command")
+    void pastTheLimitTheRestIsCharged() throws Exception {
+        BoundedImapProtocol protocol = mock(BoundedImapProtocol.class);
+        FetchResponse first = uidOnlyResponse(1L);
+        FetchResponse second = uidOnlyResponse(2L);
+        FetchResponse third = uidOnlyResponse(3L);
+        stubStream(protocol, first, second, third);
+
+        assertThatThrownBy(() -> ImapCondstoreCommands.readEach(protocol, "UID FETCH", new Argument(), 1, r -> {
+        })).isInstanceOf(ProtocolException.class);
+
+        InOrder order = inOrder(protocol);
+        order.verify(protocol).readingOneAtATime(true);
+        order.verify(protocol, times(2)).readResponse();
+        order.verify(protocol).readingOneAtATime(false);
         order.verify(protocol, times(2)).readResponse();
         order.verify(protocol).readingOneAtATime(false);
     }
