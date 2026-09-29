@@ -161,12 +161,16 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "d25efca28a191b55adeee0db05724ac5fe18d76b"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "b31862135df5519fecd1992f5c8687b8783fc03e"
     },
     "acknowledgements": [
       {
         "date": "2026-09-29",
         "note": "The second fix for B1-8, recorded in the audit itself as v1.25 (section 4h), and finding B1-14 (section 4n), which it turned up. Two files under feature/mail/service change. BoundedImapProtocol overrides writeCommand to start a new CommandBudget there, and readResponse charges every response until the next command, tagged or not, except an untagged FETCH while readingOneAtATime is set; the per-response bounds, the budget values and the refusal are unchanged, and the javadoc on the budget and the flag says what is now charged. ImapCondstoreCommands.readEach hands an untagged FETCH to its caller and to no response handler, still notifies every other response, and past its limit clears readingOneAtATime so the responses it drops are charged; the write, the BYE handling, handleResult and the failure past the limit are unchanged. No other file under the path changes. Re-read against sections 4h, 4m and 4n, which the same change updates; the verdict stays open findings."
+      },
+      {
+        "date": "2026-09-29",
+        "note": "The fix for B1-13, recorded in the audit itself as v1.26 (section 4m). One file under feature/mail/service changes: BoundedImapProtocol gains MAX_SELECTION_EXPUNGE_STEPS (1,000 x MAX_MESSAGES), a SelectionBudget field started afresh in writeCommand for a SELECT or EXAMINE, and a charge in readResponse after the per-response refusal: SelectionBudget records the largest EXISTS and charges each EXPUNGE, and each UID of a live VANISHED (liveVanishedUids, zero for the EARLIER form), that count plus the entries already expunged, refusing past the cap with the existing ImplausibleResponseException. The class javadoc and the field comment name the new budget. The command budget, the per-response bounds, the nesting check and the streamed FETCH handling are unchanged, and no other file under the path changes. Re-read against section 4m, which the same change updates; the verdict stays open findings."
       }
     ]
   }

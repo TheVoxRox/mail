@@ -278,6 +278,48 @@ class HostileImapResponseIT {
     }
 
     /**
+     * B1-13. Angus spends a pass over the folder's message cache on each EXPUNGE,
+     * so a short line repeated costs the sync thread time rather than memory: 0.45
+     * ms each at 2,000,000 messages, measured at 1.26, and the command budget alone
+     * admitted some 229,000 a command. The EXPUNGEs ride on the UID listing because
+     * the folder's handler sees responses only once the folder is open.
+     */
+    @Test
+    @DisplayName("EXPUNGEs past the selected folder's budget fail the command instead of occupying the sync")
+    void anExpungeFloodIsRefused() {
+        SERVER.answerOpenWith("* 2000000 EXISTS");
+        String[] expunges = new String[2_000];
+        Arrays.fill(expunges, "* 1 EXPUNGE");
+        SERVER.padUidListingWith(expunges);
+        logMark = logLength();
+
+        assertThatThrownBy(() -> imapFolderService.executeInFolder(account.getId(), Lane.BACKGROUND, "INBOX",
+                Folder.READ_ONLY, (folder, uidFolder) -> ImapCondstoreCommands.fetchAllServerUids((IMAPFolder) folder)))
+                .isInstanceOf(RuntimeException.class);
+        assertThat(logSinceMark()).contains("EXPUNGE responses since the folder was selected");
+    }
+
+    /**
+     * B1-13. The budget is per selected folder, not per connection: a pooled
+     * connection that selects the folder again starts over.
+     */
+    @Test
+    @DisplayName("Each folder open starts its own EXPUNGE budget")
+    void eachOpenStartsItsOwnExpungeBudget() {
+        SERVER.answerOpenWith("* 2000000 EXISTS");
+        String[] expunges = new String[600];
+        Arrays.fill(expunges, "* 1 EXPUNGE");
+        SERVER.padUidListingWith(expunges);
+
+        for (int open = 0; open < 2; open++) {
+            Set<Long> uids = imapFolderService.executeInFolder(account.getId(), Lane.BACKGROUND, "INBOX",
+                    Folder.READ_ONLY,
+                    (folder, uidFolder) -> ImapCondstoreCommands.fetchAllServerUids((IMAPFolder) folder));
+            assertThat(uids).as("open %d", open).isEmpty();
+        }
+    }
+
+    /**
      * B1-8, from the 1.24 verification pass. Only the listing's FETCH responses go
      * uncharged, to a caller that bounds what it keeps; anything else a server puts
      * among them reaches the folder's handlers and is charged as in any command.
