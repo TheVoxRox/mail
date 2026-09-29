@@ -86,7 +86,13 @@ Preovereni [docs/IMAP_SMTP_AUDIT.md](docs/IMAP_SMTP_AUDIT.md) proti `f6ae132` zm
 
 - [x] **B1-10 (Medium)** — HOTOVO 2026-09-28 (#590): FETCH vnoreny hloubeji nez 256 urovni se zahodi pred parsovanim (`ProtocolException`, kterou `Protocol.command` preskoci), zprava zustane jako stub jen s obalkou a slozka se synchronizuje dal. Zavreni spojeni by slozku zastavilo na te zprave v kazdem cyklu. Audit §4j.
 - [x] **B1-8 (Medium)** — HOTOVO 2026-09-28 (#596): rozpocet na prikaz v `BoundedImapProtocol.command` (64 MiB drat + 280 B na odpoved, 2 000 000 UID z VANISHED), vypis UID a `CHANGEDSINCE` ctou odpovedi po jedne (`ImapCondstoreCommands.readEach`). Hodnoty dle best practice bez mereni (rozhodnuti 2026-09-28). Doplneno (#598): rozpocet uctuje kazdou netagovanou odpoved v `readResponse` (pokryva i AUTHENTICATE), `readEach` preda nejvys `MAX_MESSAGES` odpovedi. Audit §4h.
-- [ ] **Nezavisly overovaci pruchod B1** — vsechny nalezy 1.16 opravene (#590–#596), verdikt je „verification pending"; PASS jen po pruchodu jinou session/agentem nez autorem oprav (AUDIT_GUIDE §5), proti novemu `Audited commit`.
+- [x] **Nezavisly overovaci pruchod B1** — HOTOVO 2026-09-29 (#600): audit 1.24 proti `b606f97`, verdikt open findings; pruchod znovu otevrel B1-5, B1-8, B1-10, B1-11, B1-12 a nasel B1-13.
+- [ ] **B1-8 znovu (Medium)** — (a) tagovana odpoved s cizim tagem nulovala rozpocet (zmereno IT); (b) `readEach` predava FETCH handlerum slozky, `IMAPFolder` drzi zaznam na kazde UID. Audit §4h.
+- [ ] **B1-13 (Medium)** — kazdy EXPUNGE stoji pruchod polem slozky (MessageCache), pocet nic neomezuje. Audit §4m.
+- [ ] **B1-10 znovu (Medium)** — `"` v sekci `BODY[…]` oklame kontrolu hloubky. Audit §4j.
+- [ ] **B1-12 znovu (Medium)** — cast popsana jako multipart / message/rfc822 v single-part forme se cte cela. Audit §4l.
+- [ ] **B1-5 znovu (Medium)** — napsani prijemci klicovani stableId s nazvem slozky Koncepty; osirele zaznamy mizi po tydnu. Klicovat (ucet, Message-ID). Audit §4e.
+- [ ] **B1-11 znovu (Low)** — frontend `senderContact.ts` cte prvni `<`/`>`. Audit §4k.
 - [x] **B1-9 (Medium)** — HOTOVO 2026-09-28 (#595): liny fetch konci na `local-window-limit` (10 000) a stahuje po oknech 100; vypis drzi serverovy pocet, strankuje jen do te hloubky (`WindowedPage`, `olderOnServer`) a na posledni strane rika „Starsi zpravy jsou jen na serveru". Audit §4i.
 - [x] **B1-5 znovu otevreno (Medium)** — HOTOVO 2026-09-28 (#594): napsani prijemci se drzi mimo radek konceptu (`draft_recipients`, zapis pred APPEND) a odeslani porovnava s nimi; kryje i zmenu UIDVALIDITY a koncept vraceny pod novym UID. Zbytek: koncept pod novym Message-ID nejde s ulozenim svazat. Audit §4e.
 - [x] **B1-11 (Low)** — HOTOVO 2026-09-28 (#593): adresa odesilatele se cte z posledniho `<…>` stitku (`HeaderAddresses.labelAddress`/`parseLabel`), i pro naseptavac; zavira i poznamku §5 o jmene, ktere urcuje adresu. Audit §4k.

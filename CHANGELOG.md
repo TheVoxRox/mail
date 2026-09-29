@@ -55,6 +55,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- **The IMAP/SMTP audit is re-verified against `b606f97` and has open findings again (#600).** [IMAP_SMTP_AUDIT.md](docs/IMAP_SMTP_AUDIT.md) 1.24 clears the eight acknowledgements; its independent pass reopened five of the fixes recorded at 1.17–1.23 (B1-5, B1-8, B1-10, B1-11, B1-12) and found B1-13, the cost of an EXPUNGE. The threat model and the verdict index follow.
+
 - **Three repo gates find the repository from a linked worktree, and the gate tests no longer write into the repository they run in (#597).** A hook in a linked worktree runs with GIT_DIR exported, and `git rev-parse --show-toplevel` then answers frontend/: `check:java-imports` failed every push from a worktree and `check:nul` passed a NUL byte without reading a file. They and `check:eol` now take the root from where the script lives. The gate suites run inside that same hook as part of `test:unit`, and their throwaway fixtures inherited GIT_DIR, which once set `core.bare=true` and a test identity in a real repository's config; the fixture harness now drops git's repository variables first, and a test of its own holds it to that.
 
 - **`MailReadControllerTest` finishes each attachment download inside its own test (#591).** The download body streams on another thread after the request returns, and the three download tests left it running, so it could call the mocked facade during the next test — once in CI a malformed-path test that expects no such call failed on #590. The tests now dispatch the async result and assert the body as well.
