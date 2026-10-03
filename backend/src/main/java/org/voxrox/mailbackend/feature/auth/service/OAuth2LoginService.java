@@ -63,7 +63,8 @@ public class OAuth2LoginService {
             log.warn("{} Provider {} did not return an e-mail claim — login rejected.", LogCategory.AUTH, providerName);
             AuditLog.failure("oauth2_login", "<missing-email>", "provider=" + providerName + " missing_email");
             throw new MailOperationException(ErrorCode.MAIL_AUTHENTICATION_FAILED,
-                    "The provider did not return an e-mail address. Repeat the sign-in.", HttpStatus.UNAUTHORIZED);
+                    "The provider did not return an e-mail address. Repeat the sign-in.", HttpStatus.UNAUTHORIZED,
+                    "error.mail.oauth2NoEmail");
         }
 
         String maskedEmail = LogMasker.maskEmail(email);
@@ -74,7 +75,7 @@ public class OAuth2LoginService {
             AuditLog.failure("oauth2_login", maskedEmail, "provider=" + providerName + " missing_external_id");
             throw new MailOperationException(ErrorCode.MAIL_AUTHENTICATION_FAILED,
                     "The provider did not return a stable user identifier. Repeat the sign-in.",
-                    HttpStatus.UNAUTHORIZED);
+                    HttpStatus.UNAUTHORIZED, "error.mail.oauth2NoUserId");
         }
 
         log.info("{} Processing OAuth2 login (provider={}) for: {}", LogCategory.AUTH, providerName, maskedEmail);
@@ -95,7 +96,7 @@ public class OAuth2LoginService {
             externalProviderLoginService.markRequiresReauthIfExists(email);
             throw new MailOperationException(ErrorCode.MAIL_AUTHENTICATION_FAILED,
                     "The provider did not return a refresh token. Repeat the sign-in and confirm access.",
-                    HttpStatus.UNAUTHORIZED);
+                    HttpStatus.UNAUTHORIZED, "error.mail.oauth2NoRefreshToken");
         }
 
         /*

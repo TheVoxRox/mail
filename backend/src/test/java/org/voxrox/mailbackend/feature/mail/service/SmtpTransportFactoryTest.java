@@ -93,7 +93,12 @@ class SmtpTransportFactoryTest {
             assertThatThrownBy(() -> SmtpTransportFactory.requireSslForOAuth2(ACCOUNT_ID, plaintextSession, d))
                     .isInstanceOf(MailOperationException.class).hasMessageContaining("STARTTLS")
                     .satisfies(ex -> assertThat(((MailOperationException) ex).getCode())
-                            .isEqualTo(ErrorCode.MAIL_CONNECTION_ERROR));
+                            .isEqualTo(ErrorCode.MAIL_CONNECTION_ERROR))
+                    .satisfies(ex -> {
+                        assertThat(((MailOperationException) ex).getMessageKey())
+                                .isEqualTo("error.mail.oauth2RequiresTls");
+                        assertThat(((MailOperationException) ex).getMessageArgs()).containsExactly("SMTP");
+                    });
         }
 
         @Test

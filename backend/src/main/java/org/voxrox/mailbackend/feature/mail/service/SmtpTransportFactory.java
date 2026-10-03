@@ -10,6 +10,7 @@ import jakarta.mail.Transport;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.voxrox.mailbackend.core.config.MailClientProperties;
 import org.voxrox.mailbackend.exception.ErrorCode;
@@ -183,7 +184,8 @@ public class SmtpTransportFactory {
             AuditLog.critical("smtp_oauth2_plaintext_blocked", LogMasker.maskEmail(details.email()),
                     "account=" + accountId);
             throw new MailOperationException(ErrorCode.MAIL_CONNECTION_ERROR,
-                    "OAuth2 accounts require implicit SSL or mandatory STARTTLS for SMTP (account " + accountId + ")");
+                    "OAuth2 accounts require implicit SSL or mandatory STARTTLS for SMTP (account " + accountId + ")",
+                    HttpStatus.INTERNAL_SERVER_ERROR, "error.mail.oauth2RequiresTls", "SMTP");
         }
     }
 }

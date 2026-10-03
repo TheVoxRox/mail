@@ -44,7 +44,8 @@ public class MailConnectionProbe {
 
     public void testImap(Long accountId, AccountConnectionDetails details) {
         if (details.authType() == AuthType.OAUTH2 && !details.useSsl()) {
-            throw new MailConnectionException("OAuth2 accounts require an SSL/TLS connection for IMAP.");
+            throw new MailConnectionException("OAuth2 accounts require an SSL/TLS connection for IMAP.",
+                    "error.mail.oauth2RequiresTls", "IMAP");
         }
 
         String protocol = details.useSsl()

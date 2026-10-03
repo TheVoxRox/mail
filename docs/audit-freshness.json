@@ -71,7 +71,7 @@
   },
   "docs/OAUTH_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/auth": "96aef705763ef82181cf9c22bb0b1b39ccd7a595",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/auth": "069709c250c638c93ce945718853cd9b80689d45",
       "backend/src/main/java/org/voxrox/mailbackend/feature/account/service/ExternalProviderLoginService.java": "029c363ddfb5e59707b91fec6382b91be7357ff4"
     },
     "acknowledgements": [
@@ -98,6 +98,10 @@
       {
         "date": "2026-09-28",
         "note": "The exception-text change of API_SURFACE_AUDIT.md 1.9: a new MailFailureCause enum in the exception package classifies a caught exception into a stable cause code, and MailConnectionException / MailOperationException gained constructors that take the cause and pass the classification, not the text, as the message argument. Under this audit's paths only OAuth2TokenService.tokenRefreshFailure changes: the refresh failure passes the caught exception as the cause of its MailOperationException instead of appending its text. The token flow, what is sent to the provider, storage and the refresh-rejection handling are unchanged, so no claim of this audit moves."
+      },
+      {
+        "date": "2026-10-03",
+        "note": "The mail layer's own English sentences kept out of responses, recorded in API_SURFACE_AUDIT.md as v1.10. Under this audit's paths only the message keys of six throws change. OAuth2LoginService's three rejections (no e-mail, no stable user id, no refresh token) name error.mail.oauth2NoEmail, oauth2NoUserId and oauth2NoRefreshToken instead of passing their English sentence as the argument of error.mail.operationFailed; OAuth2TokenService's missing stored refresh token names error.mail.accountRequiresReauth, a token response without access_token error.mail.oauth2NoAccessToken and a permanent refresh rejection error.mail.oauth2AuthorizationRevoked, the last two with the provider's display name (Google, Microsoft) as their one argument. Error codes, statuses, the order of the guards, markRequiresReauthIfExists, the refresh lock, the cache invalidation, the requires_reauth marking, the metrics and the log and audit lines are unchanged, and no token, scope, redirect URI or PKCE parameter is read, logged or sent differently, so no claim of this audit moves. Verdict stays PASS."
       }
     ]
   },
@@ -131,7 +135,7 @@
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "ce8fadfbdbd2e206f24c9b05a520836dd261eeea",
       "backend/src/main/java/org/voxrox/mailbackend/core/diagnostic": "87acd1071bc62a2779c216e424e7ae9b391d3ab6",
-      "backend/src/main/java/org/voxrox/mailbackend/exception": "f73df495696d2ba9bde5f20998a1c409fcc163df",
+      "backend/src/main/java/org/voxrox/mailbackend/exception": "d68f77d17961742e16d1d0cf56c8cd619a6965ff",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/controller": "030d483f7b65f8dc5777572ad2a453e909b18519",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/AttachmentService.java": "9268a3771c4d41070b4fcb958ba98394a2f16917",
       "backend/src/main/resources/application.properties": "3efe345be25b54d3c452e670dcfeb2a4fcc4b9a3"
@@ -156,12 +160,16 @@
       {
         "date": "2026-09-28",
         "note": "The exception-text change of API_SURFACE_AUDIT.md 1.9: a new MailFailureCause enum in the exception package classifies a caught exception into a stable cause code, and MailConnectionException / MailOperationException gained constructors that take the cause and pass the classification, not the text, as the message argument. Recorded in the audit itself as v1.9 (sections 3 and 7). Under this audit's paths: the exception package (MailFailureCause added, the two mail exceptions' constructors, GlobalExceptionHandler untouched), AttachmentService (the download failure and the temp-file race pass their exception as the cause, so the path stays in the log), and application.properties (health show-details=never). The claims about authentication, validation, attachment streaming and the diagnostic dump are unaffected; the verdict stays PASS."
+      },
+      {
+        "date": "2026-10-03",
+        "note": "The mail layer's own English sentences kept out of responses, recorded in the audit itself as v1.10 (section 3). One path moves, exception/: MailConnectionException(String) and MailOperationException(ErrorCode, String, HttpStatus), which passed the message as the {0} of error.mail.connectionFailed / operationFailed, are removed, and MailOperationException(ErrorCode, String) now passes MailFailureCause.UNEXPECTED there and keeps its message for the log. The cause-taking and key-taking constructors, MailFailureCause and GlobalExceptionHandler are unchanged. Every former caller either names a key of its own or is a guard on the app's own state, which now reads as unexpected. Read against section 3, which the same change updates; authentication, validation, attachment streaming and the diagnostic dump are not touched. Verdict stays PASS."
       }
     ]
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "c64dafb1d1fdb3117417a3fc5416a658158c6a86"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "dc43dd5bba0bedd2b548648e2dd756f96be074f8"
     },
     "acknowledgements": [
       {
@@ -175,6 +183,10 @@
       {
         "date": "2026-09-29",
         "note": "The second fix for B1-10, recorded in the audit itself as v1.27 (section 4j), with section 4n widened by reading alone. One file under feature/mail/service changes: BoundedImapProtocol.NestingCheckedResponse.nestsDeeperThan, at depth 1, skips from a BODY[ in any case (opensBodySection, BODY_SECTION) to the next ] or the end of the response (sectionEnd), as Angus 2.0.5 reads a BODY section with readString; the quoted-string and literal skipping, the bound and everything else in the class are unchanged, and no other file under the path changes. Re-read against sections 4j and 4n, which the same change updates; the verdict stays open findings."
+      },
+      {
+        "date": "2026-10-03",
+        "note": "The mail layer's own English sentences kept out of responses, recorded in API_SURFACE_AUDIT.md as v1.10. Five files under feature/mail/service change, in the text a throw carries and nowhere else. The OAuth-without-TLS guards in ImapConnectionManager, MailConnectionProbe (IMAP) and SmtpTransportFactory (SMTP) name error.mail.oauth2RequiresTls with the protocol as argument; each still throws before any socket opens, with the same audit line, error code and status. ImapFolderService.findFolderNameByRoleOrThrow names error.mail.folderRoleNotFound with the role's display name as a message-source-resolvable argument (mail.folderRole.<ROLE>), same code and status. ImapAppendService changes only a comment and its import: the oversized-draft refusal still stops at the first byte past MAX_DRAFT_BYTES, and the send pipeline reports it by its MailFailureCause as before. No read, bound, budget or protocol handling moves, so no claim of this audit moves; the verdict stays open findings."
       }
     ]
   }

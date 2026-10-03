@@ -3,9 +3,6 @@ package org.voxrox.mailbackend.exception;
 import org.springframework.http.HttpStatus;
 
 public final class MailConnectionException extends AppException {
-    public MailConnectionException(String msg) {
-        this(msg, "error.mail.connectionFailed", msg);
-    }
 
     /**
      * A connection failure wrapping what caused it. The user is told the
