@@ -445,6 +445,9 @@ final class BoundedImapProtocol extends IMAPProtocol {
      */
     static final class NestingCheckedResponse extends IMAPResponse {
 
+        /** The item whose section Angus reads raw; see {@link #nestsDeeperThan}. */
+        private static final String BODY_SECTION = "BODY[";
+
         NestingCheckedResponse(Protocol protocol) throws IOException, ProtocolException {
             super(protocol);
         }
@@ -463,6 +466,16 @@ final class BoundedImapProtocol extends IMAPProtocol {
          * anywhere, counted as Angus's parser meets them: a quoted string and a literal
          * are data, so what they hold does not count. Stops at the first level past the
          * bound, and never recurses itself.
+         * <p>
+         * The section of a {@code BODY[...]} item is data too, but read Angus's way,
+         * not as a string: {@code BODY}'s constructor takes everything up to the next
+         * {@code ]} with {@code readString(']')}, quotes, braces and parentheses alike.
+         * Read as tokens, a {@code "} or a {@code {n}} in a section would open a string
+         * or a literal that Angus never sees, and hide the structure after it (B1-10,
+         * reopened at 1.24). Angus parses items only in the FETCH list itself, so that
+         * is the one depth a section is looked for at; a {@code BODY[} in an item name
+         * Angus does not know fails the parse there, before anything after it is
+         * parsed.
          */
         boolean nestsDeeperThan(int bound) {
             int depth = 0;
@@ -476,12 +489,47 @@ final class BoundedImapProtocol extends IMAPProtocol {
                         }
                     }
                     case ')' -> depth = Math.max(0, depth - 1);
+                    case 'B', 'b' -> {
+                        if (depth == 1 && opensBodySection(i)) {
+                            i = sectionEnd(i + BODY_SECTION.length());
+                        }
+                    }
                     default -> {
                         // Anything else is inside an atom or between tokens.
                     }
                 }
             }
             return false;
+        }
+
+        /**
+         * Whether {@code BODY[} starts at {@code at}, in any case, as Angus's
+         * {@code FetchResponse} matches item names.
+         */
+        private boolean opensBodySection(int at) {
+            if (at + BODY_SECTION.length() > size) {
+                return false;
+            }
+            for (int k = 0; k < BODY_SECTION.length(); k++) {
+                if (Character.toUpperCase((char) buffer[at + k]) != BODY_SECTION.charAt(k)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        /**
+         * Index of the {@code ]} that ends the section starting at {@code from}, as
+         * {@code readString(']')} finds it; the end of the response when there is none,
+         * where Angus fails the parse.
+         */
+        private int sectionEnd(int from) {
+            for (int i = from; i < size; i++) {
+                if (buffer[i] == ']') {
+                    return i;
+                }
+            }
+            return size;
         }
 
         /**

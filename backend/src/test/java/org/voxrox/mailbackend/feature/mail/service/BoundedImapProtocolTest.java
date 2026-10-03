@@ -236,6 +236,28 @@ class BoundedImapProtocolTest {
             assertThat(nestsTooDeep("* 1 FETCH (BODY[] {" + deep.length() + "}\r\n" + deep + ")")).isFalse();
         }
 
+        /**
+         * B1-10, reopened at 1.24. Angus reads a {@code BODY[...]} section up to its
+         * {@code ]} as raw text, so a quote or a literal marker inside it opens
+         * nothing, and the structure after it is parsed.
+         */
+        @Test
+        @DisplayName("A quote or a literal marker inside a BODY section opens nothing, as in Angus")
+        void aBodySectionIsReadRaw() throws Exception {
+            String deep = "(".repeat(BOUND + 1) + "\"text\" \"plain\" NIL NIL NIL \"7bit\" 1 1" + ")".repeat(BOUND + 1);
+            String rest = "] NIL BODYSTRUCTURE " + deep + ")";
+
+            assertThat(nestsTooDeep("* 1 FETCH (BODY[x\"" + rest)).isTrue();
+            assertThat(nestsTooDeep("* 1 FETCH (body[x\"" + rest)).isTrue();
+            assertThat(nestsTooDeep("* 1 FETCH (UID 5 BODY[{" + rest.length() + "}\r\n" + rest)).isTrue();
+        }
+
+        @Test
+        @DisplayName("A BODY section without its closing bracket ends the scan, where Angus fails the parse")
+        void anUnclosedSectionEndsTheScan() throws Exception {
+            assertThat(nestsTooDeep("* 1 FETCH (BODY[x " + "(".repeat(BOUND + 1))).isFalse();
+        }
+
         @Test
         @DisplayName("A brace that starts no literal leaves what follows it counted")
         void aBraceThatIsNoLiteralIsCounted() throws Exception {
