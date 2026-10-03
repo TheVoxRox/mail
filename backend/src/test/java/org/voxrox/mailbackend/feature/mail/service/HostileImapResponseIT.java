@@ -201,6 +201,21 @@ class HostileImapResponseIT {
     }
 
     /**
+     * B1-10, reopened at 1.24. Angus reads a {@code BODY[...]} section raw up to
+     * its {@code ]}, so a quote inside one opens no string for Angus; read as a
+     * token, it hid the structure after it from the check, and Angus parsed it.
+     */
+    @Test
+    @DisplayName("A quote inside a BODY section does not hide the structure after it from the check")
+    void aQuoteInABodySectionDoesNotHideTheStructure() {
+        SERVER.answerOpenWith(nestedBodyStructureFetch(200_000).replace("(UID 5 ", "(UID 5 BODY[x\"] NIL "));
+
+        AccountEntity after = pass();
+
+        assertThat(after.getLastErrorCode()).isNull();
+    }
+
+    /**
      * B1-8, from the 1.24 verification pass. {@code Protocol.command} collects a
      * tagged response whose tag is not its own and reads on; a budget that started
      * over at any tagged response let a server reset it every thousand lines and

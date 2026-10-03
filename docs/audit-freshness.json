@@ -161,7 +161,7 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "b31862135df5519fecd1992f5c8687b8783fc03e"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "c64dafb1d1fdb3117417a3fc5416a658158c6a86"
     },
     "acknowledgements": [
       {
@@ -171,6 +171,10 @@
       {
         "date": "2026-09-29",
         "note": "The fix for B1-13, recorded in the audit itself as v1.26 (section 4m). One file under feature/mail/service changes: BoundedImapProtocol gains MAX_SELECTION_EXPUNGE_STEPS (1,000 x MAX_MESSAGES), a SelectionBudget field started afresh in writeCommand for a SELECT or EXAMINE, and a charge in readResponse after the per-response refusal: SelectionBudget records the largest EXISTS and charges each EXPUNGE, and each UID of a live VANISHED (liveVanishedUids, zero for the EARLIER form), that count plus the entries already expunged, refusing past the cap with the existing ImplausibleResponseException. The class javadoc and the field comment name the new budget. The command budget, the per-response bounds, the nesting check and the streamed FETCH handling are unchanged, and no other file under the path changes. Re-read against section 4m, which the same change updates; the verdict stays open findings."
+      },
+      {
+        "date": "2026-09-29",
+        "note": "The second fix for B1-10, recorded in the audit itself as v1.27 (section 4j), with section 4n widened by reading alone. One file under feature/mail/service changes: BoundedImapProtocol.NestingCheckedResponse.nestsDeeperThan, at depth 1, skips from a BODY[ in any case (opensBodySection, BODY_SECTION) to the next ] or the end of the response (sectionEnd), as Angus 2.0.5 reads a BODY section with readString; the quoted-string and literal skipping, the bound and everything else in the class are unchanged, and no other file under the path changes. Re-read against sections 4j and 4n, which the same change updates; the verdict stays open findings."
       }
     ]
   }
