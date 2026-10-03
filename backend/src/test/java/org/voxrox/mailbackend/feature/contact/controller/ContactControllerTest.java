@@ -333,8 +333,8 @@ class ContactControllerTest {
     @Test
     @DisplayName("DELETE /{cid}/emails/{eid} last -> 400 VALIDATION_ERROR")
     void deleteEmailLast() throws Exception {
-        org.mockito.Mockito.doThrow(new ValidationException("Contact must have at least one email address."))
-                .when(contactService).deleteEmail(CONTACT_ID, 1L);
+        org.mockito.Mockito.doThrow(new ValidationException("Contact must have at least one email address.",
+                "validation.contact.emailRequired")).when(contactService).deleteEmail(CONTACT_ID, 1L);
 
         mockMvc.perform(delete("/api/v1/contacts/{cid}/emails/{eid}", CONTACT_ID, 1L))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"));
@@ -343,8 +343,8 @@ class ContactControllerTest {
     @Test
     @DisplayName("DELETE /{cid}/emails/{eid} not found -> 404 RESOURCE_NOT_FOUND")
     void deleteEmailMissing() throws Exception {
-        org.mockito.Mockito.doThrow(new ResourceNotFoundException("Email with ID 999 for contact 42 was not found."))
-                .when(contactService).deleteEmail(CONTACT_ID, 999L);
+        org.mockito.Mockito.doThrow(new ResourceNotFoundException("Email with ID 999 for contact 42 was not found.",
+                "error.contact.emailNotFound")).when(contactService).deleteEmail(CONTACT_ID, 999L);
 
         mockMvc.perform(delete("/api/v1/contacts/{cid}/emails/{eid}", CONTACT_ID, 999L))
                 .andExpect(status().isNotFound()).andExpect(jsonPath("$.errorCode").value("RESOURCE_NOT_FOUND"));
@@ -367,8 +367,8 @@ class ContactControllerTest {
     @Test
     @DisplayName("PATCH /{cid}/emails/{eid}/primary non-existing emailId -> 404")
     void setPrimaryEmailMissing() throws Exception {
-        when(contactService.setPrimaryEmail(CONTACT_ID, 999L))
-                .thenThrow(new ResourceNotFoundException("Email with ID 999 for contact 42 was not found."));
+        when(contactService.setPrimaryEmail(CONTACT_ID, 999L)).thenThrow(new ResourceNotFoundException(
+                "Email with ID 999 for contact 42 was not found.", "error.contact.emailNotFound"));
 
         mockMvc.perform(patch("/api/v1/contacts/{cid}/emails/{eid}/primary", CONTACT_ID, 999L))
                 .andExpect(status().isNotFound()).andExpect(jsonPath("$.errorCode").value("RESOURCE_NOT_FOUND"));
@@ -520,20 +520,22 @@ class ContactControllerTest {
     void mergeContactsExceedsEmailLimit() throws Exception {
         ContactMergeRequest req = new ContactMergeRequest(List.of(20L));
         when(contactService.merge(eq(CONTACT_ID), any(ContactMergeRequest.class))).thenThrow(new ValidationException(
-                "After merging the contact would have 11 emails, maximum is 10. Reduce addresses before merging."));
+                "After merging the contact would have 11 emails, maximum is 10. Reduce addresses before merging.",
+                "validation.contactMerge.tooManyEmails", 11, 10));
 
         mockMvc.perform(post("/api/v1/contacts/{tid}/merge", CONTACT_ID).contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req))).andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("11 emails")));
+                .andExpect(jsonPath("$.messageKey").value("validation.contactMerge.tooManyEmails"))
+                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("11")));
     }
 
     @Test
     @DisplayName("POST /{tid}/merge se source = target → 400 VALIDATION_ERROR ze service")
     void mergeContactsTargetInSource() throws Exception {
         ContactMergeRequest req = new ContactMergeRequest(List.of(CONTACT_ID));
-        when(contactService.merge(eq(CONTACT_ID), any(ContactMergeRequest.class)))
-                .thenThrow(new ValidationException("Target contact must not also be in the source list."));
+        when(contactService.merge(eq(CONTACT_ID), any(ContactMergeRequest.class))).thenThrow(new ValidationException(
+                "Target contact must not also be in the source list.", "validation.contactMerge.targetInSource"));
 
         mockMvc.perform(post("/api/v1/contacts/{tid}/merge", CONTACT_ID).contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req))).andExpect(status().isBadRequest())

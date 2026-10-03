@@ -189,7 +189,8 @@ class MailWriteControllerTest {
     @Test
     @DisplayName("GET reply — message not found -> 404 RESOURCE_NOT_FOUND")
     void replyNotFound() throws Exception {
-        when(mailFacade.prepareReply("missing", false)).thenThrow(new ResourceNotFoundException("Message not found"));
+        when(mailFacade.prepareReply("missing", false))
+                .thenThrow(new ResourceNotFoundException("Message not found", "error.message.notFound"));
 
         mockMvc.perform(get("/api/v1/messages/missing/reply")).andExpect(status().isNotFound())
                 .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))

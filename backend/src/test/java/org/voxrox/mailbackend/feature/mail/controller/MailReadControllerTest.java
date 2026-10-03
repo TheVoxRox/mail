@@ -226,7 +226,7 @@ class MailReadControllerTest {
     @DisplayName("GET detail — not found -> 404 ProblemDetail")
     void detailNotFound() throws Exception {
         when(mailFacade.getEmailDetailByStableId("missing"))
-                .thenThrow(new ResourceNotFoundException("Message missing not found"));
+                .thenThrow(new ResourceNotFoundException("Message missing not found", "error.message.notFound"));
 
         mockMvc.perform(get("/api/v1/messages/missing")).andExpect(status().isNotFound())
                 .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
@@ -346,7 +346,8 @@ class MailReadControllerTest {
     @DisplayName("GET /account/{id}/threads/{tid} — service throws ResourceNotFoundException -> 404")
     void getThreadNotFound() throws Exception {
         when(mailFacade.getThread(7L, "unknown", null))
-                .thenThrow(new org.voxrox.mailbackend.exception.ResourceNotFoundException("Thread not found: unknown"));
+                .thenThrow(new org.voxrox.mailbackend.exception.ResourceNotFoundException("Thread not found: unknown",
+                        "error.thread.notFound"));
 
         mockMvc.perform(get("/api/v1/messages/account/7/threads/unknown")).andExpect(status().isNotFound())
                 .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))

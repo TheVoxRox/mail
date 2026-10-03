@@ -497,7 +497,8 @@ public class ContactService {
 
         ContactEmailEntity target = entity.getEmails().stream().filter(e -> emailId.equals(e.getId())).findFirst()
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "E-mail with id=" + emailId + " for contact " + contactId + " not found."));
+                        "E-mail with id=" + emailId + " for contact " + contactId + " not found.",
+                        "error.contact.emailNotFound"));
 
         if (entity.getEmails().size() == 1) {
             throw new ValidationException("At least one e-mail address is required.",
@@ -529,7 +530,8 @@ public class ContactService {
 
         ContactEmailEntity target = entity.getEmails().stream().filter(e -> emailId.equals(e.getId())).findFirst()
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "E-mail with id=" + emailId + " for contact " + contactId + " not found."));
+                        "E-mail with id=" + emailId + " for contact " + contactId + " not found.",
+                        "error.contact.emailNotFound"));
 
         // Demote the current primary and flush first, so the DB briefly holds zero
         // primaries, before promoting the target. A single-pass flag swap lets

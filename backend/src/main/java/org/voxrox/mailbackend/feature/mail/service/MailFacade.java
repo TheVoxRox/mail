@@ -98,15 +98,15 @@ public class MailFacade {
      * recipe). The reads involved need no shared transaction.
      */
     public MailRequest prepareReply(String stableId, boolean replyAll) {
-        MessageEntity original = messageService.getByStableId(stableId)
-                .orElseThrow(() -> new ResourceNotFoundException("Message not found: " + stableId));
+        MessageEntity original = messageService.getByStableId(stableId).orElseThrow(
+                () -> new ResourceNotFoundException("Message not found: " + stableId, "error.message.notFound"));
         String content = fetchContentSafe(original);
         return mailDraftService.createReplyDraft(original, content, replyAll);
     }
 
     public MailRequest prepareForward(String stableId) {
-        MessageEntity original = messageService.getByStableId(stableId)
-                .orElseThrow(() -> new ResourceNotFoundException("Message not found: " + stableId));
+        MessageEntity original = messageService.getByStableId(stableId).orElseThrow(
+                () -> new ResourceNotFoundException("Message not found: " + stableId, "error.message.notFound"));
         String content = fetchContentSafe(original);
         return mailDraftService.createForwardDraft(original, content);
     }
@@ -122,10 +122,10 @@ public class MailFacade {
      * existence of other users' messages is not leaked.
      */
     public MessageEntity verifyDraftForSend(Long accountId, String stableId) {
-        MessageEntity entity = messageService.getByStableId(stableId)
-                .orElseThrow(() -> new ResourceNotFoundException("Draft not found: " + stableId));
+        MessageEntity entity = messageService.getByStableId(stableId).orElseThrow(
+                () -> new ResourceNotFoundException("Draft not found: " + stableId, "error.draft.notFound"));
         if (!entity.getAccount().getId().equals(accountId)) {
-            throw new ResourceNotFoundException("Draft not found: " + stableId);
+            throw new ResourceNotFoundException("Draft not found: " + stableId, "error.draft.notFound");
         }
         String draftsFolder = imapFolderService.findFolderNameByRoleOrThrow(accountId, FolderRole.DRAFTS);
         if (!draftsFolder.equals(entity.getFolderName())) {
@@ -417,8 +417,8 @@ public class MailFacade {
          * findByStableIdWithAttachments loads attachments via JOIN FETCH in a single
          * query instead of lazy N+1 selects.
          */
-        MessageEntity entity = messageRepository.findByStableIdWithAttachments(stableId)
-                .orElseThrow(() -> new ResourceNotFoundException("Message not found: " + stableId));
+        MessageEntity entity = messageRepository.findByStableIdWithAttachments(stableId).orElseThrow(
+                () -> new ResourceNotFoundException("Message not found: " + stableId, "error.message.notFound"));
         return mapper.toDto(entity);
     }
 
@@ -474,7 +474,7 @@ public class MailFacade {
         List<MailSummaryResponse> summaries = messageRepository.findSummariesByAccountIdAndThreadId(accountId,
                 threadId);
         if (summaries.isEmpty()) {
-            throw new ResourceNotFoundException("Thread not found: " + threadId);
+            throw new ResourceNotFoundException("Thread not found: " + threadId, "error.thread.notFound");
         }
         // No Stream.findFirst() here — the single element may legitimately be null
         // (root without a Message-ID) and findFirst() throws NPE on a null element.
@@ -597,7 +597,8 @@ public class MailFacade {
      */
     public void moveToTrash(String stableId) {
         MessageEntity entity = messageService.getByStableId(stableId)
-                .orElseThrow(() -> new ResourceNotFoundException("Message not found for deletion: " + stableId));
+                .orElseThrow(() -> new ResourceNotFoundException("Message not found for deletion: " + stableId,
+                        "error.message.notFound"));
 
         Long accountId = entity.getAccount().getId();
 
@@ -652,7 +653,8 @@ public class MailFacade {
             throw new ValidationException("Target folder must not be empty.", "validation.mail.targetFolderRequired");
         }
         MessageEntity entity = messageService.getByStableId(stableId)
-                .orElseThrow(() -> new ResourceNotFoundException("Message not found for move: " + stableId));
+                .orElseThrow(() -> new ResourceNotFoundException("Message not found for move: " + stableId,
+                        "error.message.notFound"));
 
         Long accountId = entity.getAccount().getId();
         String sourceFolder = entity.getFolderName();
@@ -669,7 +671,8 @@ public class MailFacade {
         boolean targetExists = imapFolderService.getFolders(accountId).stream()
                 .anyMatch(f -> targetFolderRef.equals(f.folderRef()));
         if (!targetExists) {
-            throw new ResourceNotFoundException("Target folder does not exist: " + targetFolderRef);
+            throw new ResourceNotFoundException("Target folder does not exist: " + targetFolderRef,
+                    "error.folder.notFoundOnServer");
         }
 
         executeMove(entity, targetFolderRef, "mail_move");
@@ -709,7 +712,8 @@ public class MailFacade {
      */
     public void updateMessageFlag(String stableId, MessageFlag flag, boolean value) {
         MessageEntity entity = messageService.getByStableId(stableId)
-                .orElseThrow(() -> new ResourceNotFoundException("Message not found for flag update: " + stableId));
+                .orElseThrow(() -> new ResourceNotFoundException("Message not found for flag update: " + stableId,
+                        "error.message.notFound"));
 
         withDbWriteRetry(() -> {
             switch (flag) {
@@ -737,8 +741,8 @@ public class MailFacade {
      * byte cap.
      */
     public MailContentResponse getMessageContentOnly(String stableId) {
-        MessageEntity entity = messageService.getByStableId(stableId)
-                .orElseThrow(() -> new ResourceNotFoundException("Message not found: " + stableId));
+        MessageEntity entity = messageService.getByStableId(stableId).orElseThrow(
+                () -> new ResourceNotFoundException("Message not found: " + stableId, "error.message.notFound"));
         String content = mailContentService.getOrFetchMessageContent(entity.getId());
         // Metadata for the remote-image opt-in (audit F2): the bare sender is the
         // allow-list key, and whether it is already trusted lets the client auto-load.

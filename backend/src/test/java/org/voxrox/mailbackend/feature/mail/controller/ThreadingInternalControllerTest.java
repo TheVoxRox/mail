@@ -64,7 +64,8 @@ class ThreadingInternalControllerTest {
     @Test
     @DisplayName("POST recompute for a missing account -> 404 and the backfill never runs")
     void recomputeUnknownAccountIsNotFound() throws Exception {
-        when(accountService.getAccountOrThrow(99L)).thenThrow(new ResourceNotFoundException("Account not found: 99"));
+        when(accountService.getAccountOrThrow(99L))
+                .thenThrow(new ResourceNotFoundException("Account not found: 99", "error.account.notFound", 99L));
 
         mockMvc.perform(post("/api/internal/threading/recompute").param("accountId", "99"))
                 .andExpect(status().isNotFound());

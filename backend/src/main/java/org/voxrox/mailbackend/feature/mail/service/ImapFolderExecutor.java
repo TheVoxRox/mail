@@ -131,7 +131,8 @@ public class ImapFolderExecutor {
                 folder = store.getFolder(folderName);
 
                 if (!folder.exists()) {
-                    throw new ResourceNotFoundException("Folder '" + folderName + "' was not found on the server.");
+                    throw new ResourceNotFoundException("Folder '" + folderName + "' was not found on the server.",
+                            "error.folder.notFoundOnServer");
                 }
 
                 List<MailEvent> resyncEvents = opener.open(store, folder);
@@ -170,7 +171,8 @@ public class ImapFolderExecutor {
                  */
                 String errorMsg = e.getMessage() == null ? "" : e.getMessage().toLowerCase(Locale.ROOT);
                 if (errorMsg.contains("not found") || errorMsg.contains("no such folder")) {
-                    throw new ResourceNotFoundException("Folder '" + folderName + "' was not found on the server.");
+                    throw new ResourceNotFoundException("Folder '" + folderName + "' was not found on the server.",
+                            "error.folder.notFoundOnServer");
                 }
 
                 throw new MailOperationException(ErrorCode.MAIL_CONNECTION_ERROR,

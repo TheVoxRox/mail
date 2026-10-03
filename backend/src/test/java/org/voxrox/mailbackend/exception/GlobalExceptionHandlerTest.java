@@ -115,6 +115,25 @@ class GlobalExceptionHandlerTest {
         }
 
         /**
+         * Until the message-only constructor went, a missing message read "The
+         * requested resource was not found: Message not found: abc123" — the log's
+         * English sentence and an internal id, as the argument of the generic key.
+         */
+        @Test
+        @DisplayName("A missing resource reads in the reader's language, without the log's sentence or its id")
+        void missingResourceReadsWithoutTheLogSentence() {
+            when(request.getLocale()).thenReturn(Locale.ENGLISH);
+            var ex = new ResourceNotFoundException("Message not found: abc123", "error.message.notFound");
+
+            ProblemDetail problem = handler.handleAppException(ex, request);
+
+            assertCommonFields(problem, HttpStatus.NOT_FOUND, ErrorCode.RESOURCE_NOT_FOUND.name());
+            assertThat(problem.getDetail())
+                    .isEqualTo("The message was not found. It may have been deleted or moved in the meantime.")
+                    .doesNotContain("abc123");
+        }
+
+        /**
          * A failure without a cause used to pass the app's own English sentence as {0},
          * so a guard such as a provider with no registered implementation read "Mail
          * operation failed: No implementation is registered for OAuth2 provider 'x'."

@@ -189,7 +189,7 @@ class MailFacadeTest {
             entity.setContent(null);
             when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(entity));
             when(mailContentService.getOrFetchQuotableContent(MESSAGE_ID))
-                    .thenThrow(new ResourceNotFoundException("Content not found"));
+                    .thenThrow(new ResourceNotFoundException("Content not found", "error.message.notFound"));
             MailRequest expectedDraft = dummyMailRequest("Re: Test subject");
             when(mailDraftService.createReplyDraft(entity, "", false)).thenReturn(expectedDraft);
 
@@ -747,7 +747,9 @@ class MailFacadeTest {
             when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> mailFacade.moveToFolder(STABLE_ID, TARGET))
-                    .isInstanceOf(ResourceNotFoundException.class);
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .extracting(e -> ((ResourceNotFoundException) e).getMessageKey())
+                    .isEqualTo("error.message.notFound");
             verifyNoInteractions(imapActionService);
         }
 
@@ -769,7 +771,9 @@ class MailFacadeTest {
                     .thenReturn(List.of(new FolderResponse("Inbox", FOLDER_INBOX, 0, FolderRole.INBOX)));
 
             assertThatThrownBy(() -> mailFacade.moveToFolder(STABLE_ID, TARGET))
-                    .isInstanceOf(ResourceNotFoundException.class);
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .extracting(e -> ((ResourceNotFoundException) e).getMessageKey())
+                    .isEqualTo("error.folder.notFoundOnServer");
             verify(imapActionService, never()).moveOnServerAsync(anyLong(), anyString(), anyString(), anyLong());
             verify(messageService, never()).deleteByStableId(anyString());
         }

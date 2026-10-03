@@ -192,7 +192,8 @@ class DraftControllerTest {
     @DisplayName("GET drafts — size over apiMaxPageSize -> 400 VALIDATION_ERROR")
     void listDraftsSizeTooBig() throws Exception {
         mockMvc.perform(get("/api/v1/accounts/7/drafts").param("size", "500")).andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"));
+                .andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.messageKey").value("validation.pageSizeTooLarge"));
     }
 
     @Test

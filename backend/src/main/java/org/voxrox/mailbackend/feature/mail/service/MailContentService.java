@@ -79,7 +79,8 @@ public class MailContentService {
 
     private String getOrFetch(Long messageInternalId, boolean placeholderWhenOversize) {
         MessageEntity messageEntity = messageRepository.findById(messageInternalId)
-                .orElseThrow(() -> new ResourceNotFoundException("Message id=" + messageInternalId + " not found."));
+                .orElseThrow(() -> new ResourceNotFoundException("Message id=" + messageInternalId + " not found.",
+                        "error.message.notFound"));
 
         if (messageEntity.isBodyOversize()) {
             // B1-1: the body blew the extractor's byte cap on an earlier open.
@@ -140,7 +141,8 @@ public class MailContentService {
         if (fetched == null) {
             log.warn("{} Message uid={} no longer exists on the server.", LogCategory.SYNC, messageEntity.getUid());
             throw new ResourceNotFoundException(
-                    "Message uid=" + messageEntity.getUid() + " no longer exists on the server.");
+                    "Message uid=" + messageEntity.getUid() + " no longer exists on the server.",
+                    "error.message.goneFromServer");
         }
 
         if (fetched.oversize()) {
