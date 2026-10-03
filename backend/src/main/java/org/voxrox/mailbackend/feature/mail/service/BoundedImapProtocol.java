@@ -82,12 +82,14 @@ import org.voxrox.mailbackend.util.LogCategory;
  * <p>
  * The bounds above are per response; {@link #readResponse()} adds one per
  * command (B1-8), because Angus holds all of a command's responses until the
- * tagged one, and refuses the response that overspends it the same way.
+ * tagged one, and refuses the response that overspends it the same way. And one
+ * per selected folder on what is spent in time rather than memory: each EXPUNGE
+ * costs Angus a pass over the folder, however short its line (B1-13).
  * <p>
  * The superclass constructor reads the server greeting through
  * {@link #readResponse()}, which runs before any field of this class is
- * initialized. So the per-response checks keep no state, and the one field the
- * budget needs has no initializer — null is what that first read must see.
+ * initialized. So the per-response checks keep no state, and the fields the
+ * budgets need have no initializer — null is what that first read must see.
  * {@link #isEnabled(String)} is safe there: Angus null-checks its set.
  */
 final class BoundedImapProtocol extends IMAPProtocol {
@@ -211,6 +213,24 @@ final class BoundedImapProtocol extends IMAPProtocol {
      */
     static final long MAX_COMMAND_VANISHED_UIDS = MAX_MESSAGES;
 
+    /**
+     * What the EXPUNGEs of one selected folder may cost together, in the steps
+     * {@link SelectionBudget} counts (B1-13). Angus's {@code MessageCache} handles
+     * each EXPUNGE, and each UID of a live VANISHED it knows, with a pass over an
+     * array as long as the folder, so a server repeating {@code * 1 EXPUNGE} spends
+     * the sync thread's time rather than the heap: measured at 1.26, 0.45 ms an
+     * EXPUNGE at 2,000,000 messages and linear in their number, where the command
+     * budget alone admitted some 229,000 a command, command after command.
+     * <p>
+     * A thousand EXPUNGEs in the largest folder {@link #MAX_MESSAGES} admits, about
+     * half a second at that rate, or a hundred thousand in a folder of 20,000. This
+     * client expunges one message per folder it opens; more come only from other
+     * clients while the folder is selected, and a burst past the budget costs a
+     * retried cycle, not the folder: the reconnected SELECT reports what is left in
+     * its EXISTS count, with no EXPUNGE to process.
+     */
+    static final long MAX_SELECTION_EXPUNGE_STEPS = 1_000L * MAX_MESSAGES;
+
     /** What Angus starts a response buffer at when it is handed none. */
     private static final int INITIAL_RESPONSE_BYTES = 128;
 
@@ -225,6 +245,12 @@ final class BoundedImapProtocol extends IMAPProtocol {
      */
     private volatile @Nullable CommandBudget budget;
     private volatile boolean oneAtATime;
+    /*
+     * What the EXPUNGEs of the folder selected on this connection have cost,
+     * started afresh by the SELECT or EXAMINE that selects it. Same initializer and
+     * visibility reasoning as the two above.
+     */
+    private volatile @Nullable SelectionBudget selection;
 
     BoundedImapProtocol(String name, String host, int port, Properties props, boolean isSSL, MailLogger logger)
             throws IOException, ProtocolException {
@@ -249,11 +275,15 @@ final class BoundedImapProtocol extends IMAPProtocol {
      * budget starts over: a command's end is not a response the server can be
      * trusted to mark, since it may send tagged lines that are not the command's
      * own, and every command the client sends — {@code Protocol.command}, the
-     * AUTHENTICATE loops, {@code readEach} — begins here.
+     * AUTHENTICATE loops, {@code readEach} — begins here. A SELECT or EXAMINE also
+     * starts a fresh {@link SelectionBudget}, for the folder it selects.
      */
     @Override
     public String writeCommand(String command, @Nullable Argument args) throws IOException, ProtocolException {
         budget = null;
+        if ("SELECT".equalsIgnoreCase(command) || "EXAMINE".equalsIgnoreCase(command)) {
+            selection = null;
+        }
         return super.writeCommand(command, args);
     }
 
@@ -291,6 +321,15 @@ final class BoundedImapProtocol extends IMAPProtocol {
             String refusal = refusal(imapResponse, isEnabled("QRESYNC"));
             if (refusal != null) {
                 throw refused(refusal);
+            }
+            SelectionBudget folder = selection;
+            if (folder == null) {
+                folder = new SelectionBudget();
+                selection = folder;
+            }
+            String overworked = folder.charge(imapResponse);
+            if (overworked != null) {
+                throw refused(overworked);
             }
         }
         /*
@@ -597,6 +636,64 @@ final class BoundedImapProtocol extends IMAPProtocol {
                 return "one command's VANISHED responses named more than " + MAX_COMMAND_VANISHED_UIDS + " UIDs";
             }
             return null;
+        }
+    }
+
+    /**
+     * What the EXPUNGEs of one selected folder have cost Angus so far (B1-13), in
+     * steps of the pass {@code MessageCache.expungeMessage} makes over its array:
+     * each EXPUNGE, and each UID a live VANISHED names, charged the length that
+     * array may have reached — the largest EXISTS since the folder was selected,
+     * plus the expunged entries Angus keeps in it until the folder closes. An upper
+     * bound: Angus ignores an EXPUNGE past its count, and a VANISHED UID it does
+     * not know. A new one per selection, started by {@link #writeCommand} for a
+     * SELECT or EXAMINE, so it spans every command sent to the open folder.
+     */
+    static final class SelectionBudget {
+
+        private long largestExists;
+        private long expunged;
+        private long steps;
+
+        /** Charges one untagged response: the reason to refuse it, or null. */
+        @Nullable
+        String charge(IMAPResponse response) {
+            if (response.keyEquals("EXISTS")) {
+                largestExists = Math.max(largestExists, response.getNumber());
+                return null;
+            }
+            long count;
+            if (response.keyEquals("EXPUNGE")) {
+                count = 1;
+            } else if (response.keyEquals("VANISHED")) {
+                count = liveVanishedUids(response);
+            } else {
+                return null;
+            }
+            steps += count * (largestExists + expunged);
+            expunged += count;
+            return steps > MAX_SELECTION_EXPUNGE_STEPS
+                    ? "the EXPUNGE responses since the folder was selected passed " + MAX_SELECTION_EXPUNGE_STEPS
+                            + " steps of the message cache"
+                    : null;
+        }
+    }
+
+    /**
+     * The UIDs of a live VANISHED — the form that replaces EXPUNGE once QRESYNC is
+     * enabled, and the only one Angus expunges messages for; zero for the EARLIER
+     * form, which answers a SELECT or UID FETCH, and for a response that does not
+     * parse. Called after {@link #refusal}, which has bounded the set.
+     */
+    static long liveVanishedUids(IMAPResponse response) {
+        IMAPResponse copy = new IMAPResponse(response);
+        try {
+            if (copy.readAtomStringList() != null) {
+                return 0;
+            }
+            return Math.max(0, uidCount(copy.readAtom(), MAX_LIVE_VANISHED_UIDS));
+        } catch (RuntimeException e) {
+            return 0;
         }
     }
 

@@ -89,7 +89,7 @@ Preovereni [docs/IMAP_SMTP_AUDIT.md](docs/IMAP_SMTP_AUDIT.md) proti `f6ae132` zm
 - [x] **Nezavisly overovaci pruchod B1** — HOTOVO 2026-09-29 (#600): audit 1.24 proti `b606f97`, verdikt open findings; pruchod znovu otevrel B1-5, B1-8, B1-10, B1-11, B1-12 a nasel B1-13.
 - [x] **B1-8 znovu (Medium)** — HOTOVO 2026-09-29 (#601): rozpocet zacina jen v `writeCommand`, FETCH z `readEach` nejdou handlerum, zbytek i to za limitem se uctuje. Audit §4h.
 - [ ] **B1-14 (Medium)** — handler slozky drzi z uctovanych FETCH (`uidTable`, `IMAPMessage`) az do zavreni slozky, pres prikazy se to scita (zmereno 100 000 zaznamu z jednoho prikazu). Limit na otevrenou slozku, pocitany od SELECT/EXAMINE; poctive hromadne akce se musi vejit. Audit §4n.
-- [ ] **B1-13 (Medium)** — kazdy EXPUNGE stoji pruchod polem slozky (MessageCache), pocet nic neomezuje. Audit §4m.
+- [x] **B1-13 (Medium)** — HOTOVO 2026-09-29 (#602): zmereno 0,45 ms na EXPUNGE pri 2 000 000 zpravach; `SelectionBudget` od SELECT/EXAMINE uctuje EXPUNGE a UID ziveho VANISHED velikosti slozky, strop 1 000 × MAX_MESSAGES kroku. Audit §4m.
 - [ ] **B1-10 znovu (Medium)** — `"` v sekci `BODY[…]` oklame kontrolu hloubky. Audit §4j.
 - [ ] **B1-12 znovu (Medium)** — cast popsana jako multipart / message/rfc822 v single-part forme se cte cela. Audit §4l.
 - [ ] **B1-5 znovu (Medium)** — napsani prijemci klicovani stableId s nazvem slozky Koncepty; osirele zaznamy mizi po tydnu. Klicovat (ucet, Message-ID). Audit §4e.

@@ -287,6 +287,72 @@ class BoundedImapProtocolTest {
     }
 
     /**
+     * B1-13. Angus spends a pass over the folder on each EXPUNGE; measured at 1.26,
+     * 0.45 ms an EXPUNGE at 2,000,000 messages.
+     */
+    @Nested
+    @DisplayName("Selection budget")
+    class SelectionBudgetRules {
+
+        @Test
+        @DisplayName("The largest folder admits just under a thousand EXPUNGEs, and the next one is refused")
+        void expungesAreChargedTheFolderSize() throws Exception {
+            BoundedImapProtocol.SelectionBudget budget = new BoundedImapProtocol.SelectionBudget();
+            assertThat(budget.charge(response("* " + BoundedImapProtocol.MAX_MESSAGES + " EXISTS"))).isNull();
+
+            assertThat(expungesUntilRefused(budget)).isEqualTo(999);
+        }
+
+        @Test
+        @DisplayName("The folder's largest count prices an EXPUNGE, not its latest")
+        void theLargestCountStays() throws Exception {
+            BoundedImapProtocol.SelectionBudget budget = new BoundedImapProtocol.SelectionBudget();
+            budget.charge(response("* " + BoundedImapProtocol.MAX_MESSAGES + " EXISTS"));
+            budget.charge(response("* 1 EXISTS"));
+
+            assertThat(expungesUntilRefused(budget)).isEqualTo(999);
+        }
+
+        /**
+         * Each EXPUNGE is charged the array Angus may hold: the largest EXISTS count
+         * plus the entries earlier EXPUNGEs left in it, so the thousandth at
+         * {@code MAX_MESSAGES} passes the budget by the 499,500 those add.
+         */
+        private static int expungesUntilRefused(BoundedImapProtocol.SelectionBudget budget) throws Exception {
+            int admitted = 0;
+            String refusal;
+            while ((refusal = budget.charge(response("* 1 EXPUNGE"))) == null) {
+                admitted++;
+            }
+            assertThat(refusal).contains("EXPUNGE");
+            return admitted;
+        }
+
+        @Test
+        @DisplayName("A live VANISHED is charged per UID, and the EARLIER form not at all")
+        void liveVanishedIsChargedPerUid() throws Exception {
+            BoundedImapProtocol.SelectionBudget budget = new BoundedImapProtocol.SelectionBudget();
+            budget.charge(response("* " + BoundedImapProtocol.MAX_MESSAGES + " EXISTS"));
+
+            assertThat(budget.charge(response("* VANISHED (EARLIER) 1:1000000"))).isNull();
+            assertThat(budget.charge(response("* VANISHED 1:990"))).isNull();
+            assertThat(budget.charge(response("* VANISHED 991:1000"))).contains("EXPUNGE");
+        }
+
+        @Test
+        @DisplayName("Other responses cost nothing")
+        void otherResponsesAreFree() throws Exception {
+            BoundedImapProtocol.SelectionBudget budget = new BoundedImapProtocol.SelectionBudget();
+            budget.charge(response("* " + BoundedImapProtocol.MAX_MESSAGES + " EXISTS"));
+
+            for (int i = 0; i < 10_000; i++) {
+                assertThat(budget.charge(response("* 1 FETCH (UID 1)"))).isNull();
+            }
+            assertThat(budget.charge(response("* OK still here"))).isNull();
+        }
+    }
+
+    /**
      * B1-8. Every bound above holds one response, and Protocol.command keeps all of
      * a command's responses until the tagged one: at 1.16, 60 VANISHED (EARLIER)
      * lines, each inside its bound, held 499 MB.
