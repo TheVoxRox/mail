@@ -260,7 +260,8 @@ class MailSyncServiceTest {
              */
             when(lockManager.tryLock(eq(ACCOUNT_ID), anyBoolean())).thenReturn(true);
             when(imapFolderService.getFolders(ACCOUNT_ID))
-                    .thenThrow(new MailConnectionException("Critical IMAP error for account 1: timeout 30000"));
+                    .thenThrow(new MailConnectionException("Critical IMAP error for account 1: timeout 30000",
+                            new java.net.SocketTimeoutException("Read timed out")));
 
             service.syncAllFolders(account, SyncTrigger.SCHEDULED);
 

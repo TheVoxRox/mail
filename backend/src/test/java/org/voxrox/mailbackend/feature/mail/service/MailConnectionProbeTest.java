@@ -98,7 +98,9 @@ class MailConnectionProbeTest {
         @DisplayName("OAuth2 over plaintext is rejected before any socket open — defense in depth")
         void oauth2WithoutSslIsRejectedEarly() {
             assertThatThrownBy(() -> probe.testImap(ACCOUNT_ID, oauthDetails(false)))
-                    .isInstanceOf(MailConnectionException.class).hasMessageContaining("SSL/TLS");
+                    .isInstanceOf(MailConnectionException.class).hasMessageContaining("SSL/TLS")
+                    .satisfies(e -> assertThat(((MailConnectionException) e).getMessageKey())
+                            .isEqualTo("error.mail.oauth2RequiresTls"));
 
             verifyNoInteractions(oauth2TokenServiceRegistry, smtpTransportFactory);
         }

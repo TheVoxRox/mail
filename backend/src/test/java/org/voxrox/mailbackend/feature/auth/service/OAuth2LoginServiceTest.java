@@ -105,7 +105,8 @@ class OAuth2LoginServiceTest {
         stubClaims(null, EXTERNAL_ID, REFRESH_TOKEN);
 
         assertThatThrownBy(() -> service.processLogin(PROVIDER, oauth2User, authorizedClient))
-                .isInstanceOf(MailOperationException.class).hasMessageContaining("e-mail");
+                .isInstanceOf(MailOperationException.class).hasMessageContaining("e-mail")
+                .extracting(e -> ((MailOperationException) e).getMessageKey()).isEqualTo("error.mail.oauth2NoEmail");
 
         verify(externalProviderLoginService, never()).processExternalProviderLogin(anyString(), any(), any(), any(),
                 any());
@@ -118,7 +119,8 @@ class OAuth2LoginServiceTest {
         stubClaims(EMAIL, "  ", REFRESH_TOKEN);
 
         assertThatThrownBy(() -> service.processLogin(PROVIDER, oauth2User, authorizedClient))
-                .isInstanceOf(MailOperationException.class).hasMessageContaining("identifier");
+                .isInstanceOf(MailOperationException.class).hasMessageContaining("identifier")
+                .extracting(e -> ((MailOperationException) e).getMessageKey()).isEqualTo("error.mail.oauth2NoUserId");
 
         verify(externalProviderLoginService, never()).processExternalProviderLogin(anyString(), any(), any(), any(),
                 any());
@@ -130,7 +132,9 @@ class OAuth2LoginServiceTest {
         stubClaims(EMAIL, EXTERNAL_ID, null);
 
         assertThatThrownBy(() -> service.processLogin(PROVIDER, oauth2User, authorizedClient))
-                .isInstanceOf(MailOperationException.class).hasMessageContaining("refresh token");
+                .isInstanceOf(MailOperationException.class).hasMessageContaining("refresh token")
+                .extracting(e -> ((MailOperationException) e).getMessageKey())
+                .isEqualTo("error.mail.oauth2NoRefreshToken");
 
         verify(externalProviderLoginService).markRequiresReauthIfExists(EMAIL);
         verify(externalProviderLoginService, never()).processExternalProviderLogin(anyString(), any(), any(), any(),

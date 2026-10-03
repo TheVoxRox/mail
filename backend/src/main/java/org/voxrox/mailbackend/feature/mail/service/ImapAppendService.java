@@ -18,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.voxrox.mailbackend.exception.ErrorCode;
+import org.voxrox.mailbackend.exception.MailFailureCause;
 import org.voxrox.mailbackend.exception.MailOperationException;
 import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
 import org.voxrox.mailbackend.feature.mail.service.ImapConnectionManager.Lane;
@@ -227,10 +228,10 @@ public class ImapAppendService {
      * that hands its buffer out without copying it.
      * <p>
      * The refusal is a {@link MailOperationException} rather than an
-     * {@link java.io.IOException}: the caller above wraps an IOException as "error
-     * reading MIME bytes", which for a draft the server made too large says nothing
-     * the user can act on, and the send pipeline reports an {@code AppException} as
-     * itself.
+     * {@link java.io.IOException}, which the caller above would wrap as "error
+     * reading MIME bytes" and so lose the reason in the log. The send pipeline
+     * reports any failure to the user by its {@link MailFailureCause}, so the text
+     * stays in the log either way.
      */
     private static final class BoundedByteArrayOutputStream extends ByteArrayOutputStream {
 

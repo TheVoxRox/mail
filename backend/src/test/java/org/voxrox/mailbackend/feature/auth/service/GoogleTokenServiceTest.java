@@ -138,7 +138,18 @@ class GoogleTokenServiceTest {
                     .withHeader("Content-Type", "application/json").withBody("{\"token_type\":\"Bearer\"}")));
 
             assertThatThrownBy(() -> service.getAccessToken(1L, "rt", EMAIL)).isInstanceOf(MailOperationException.class)
-                    .extracting("code").isEqualTo(ErrorCode.INTERNAL_ERROR);
+                    .extracting("code", "messageKey")
+                    .containsExactly(ErrorCode.INTERNAL_ERROR, "error.mail.oauth2NoAccessToken");
+        }
+
+        @Test
+        @DisplayName("No stored refresh token asks for a new sign-in without calling the provider")
+        void missingStoredRefreshTokenAsksForSignIn() {
+            assertThatThrownBy(() -> service.getAccessToken(1L, null, EMAIL)).isInstanceOf(MailOperationException.class)
+                    .extracting("code", "messageKey")
+                    .containsExactly(ErrorCode.MAIL_ACCOUNT_REQUIRES_REAUTH, "error.mail.accountRequiresReauth");
+
+            wireMock.verify(0, postRequestedFor(urlEqualTo(TOKEN_PATH)));
         }
     }
 
@@ -237,8 +248,10 @@ class GoogleTokenServiceTest {
             stubBadRequest();
 
             assertThatThrownBy(() -> service.getAccessToken(42L, "rt", EMAIL))
-                    .isInstanceOf(MailOperationException.class).extracting("code")
-                    .isEqualTo(ErrorCode.MAIL_AUTHENTICATION_FAILED);
+                    .isInstanceOf(MailOperationException.class)
+                    .satisfies(e -> assertThat(((MailOperationException) e).getMessageArgs()).containsExactly("Google"))
+                    .extracting("code", "messageKey")
+                    .containsExactly(ErrorCode.MAIL_AUTHENTICATION_FAILED, "error.mail.oauth2AuthorizationRevoked");
 
             verify(accountRepository).updateRequiresReauth(42L, true);
             verify(accountRepository).updateLastError(eq(42L), any(AccountLastError.class), any(LocalDateTime.class));

@@ -7,6 +7,8 @@ import jakarta.mail.Store;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.support.DefaultMessageSourceResolvable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.voxrox.mailbackend.core.config.MailClientProperties;
 import org.voxrox.mailbackend.exception.ErrorCode;
@@ -287,15 +289,17 @@ public class ImapFolderService {
      * {@link MailOperationException} with {@link ErrorCode#FOLDER_ROLE_NOT_FOUND}
      * when no folder is detected for the role. Used by call sites that cannot
      * proceed without the folder (send a draft, move to trash, archive a sent
-     * message), so the resolve-or-fail decision and its English fallback message
-     * live here once instead of being duplicated per caller. The fallback text only
-     * surfaces when client-side i18n fails — the frontend resolves user copy from
-     * the errorCode.
+     * message), so the resolve-or-fail decision and its message live here once
+     * instead of being duplicated per caller. The client shows the message as the
+     * server renders it, so the folder is named as the folder list names it, in the
+     * request's language; the English text with the account id stays in the log.
      */
     public String findFolderNameByRoleOrThrow(Long accountId, FolderRole role) {
-        return findFolderNameByRole(accountId, role)
-                .orElseThrow(() -> new MailOperationException(ErrorCode.FOLDER_ROLE_NOT_FOUND,
-                        "Account " + accountId + " has no detectable folder for role " + role + "."));
+        return findFolderNameByRole(accountId, role).orElseThrow(() -> new MailOperationException(
+                ErrorCode.FOLDER_ROLE_NOT_FOUND,
+                "Account " + accountId + " has no detectable folder for role " + role + ".",
+                HttpStatus.INTERNAL_SERVER_ERROR, "error.mail.folderRoleNotFound",
+                new DefaultMessageSourceResolvable(new String[]{"mail.folderRole." + role.name()}, role.name())));
     }
 
     private int resolveUnreadCount(Folder folder, Long accountId, String folderName) {

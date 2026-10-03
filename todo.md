@@ -107,7 +107,8 @@ Preovereni [docs/IMAP_SMTP_AUDIT.md](docs/IMAP_SMTP_AUDIT.md) proti `f6ae132` zm
 Preovereni [docs/API_SURFACE_AUDIT.md](docs/API_SURFACE_AUDIT.md) proti `55fdd1b` nechalo verdikt PASS a zapsalo tyto veci jako informativni poznamky (§4, §7) a v popisu metody. Bezpecnostne nic z toho neni nalez; jde o spravny stav, cisty log a srozumitelnou hlasku. Oprava kodu pod `Code paths` auditu znamena potvrzeni v [docs/audit-freshness.json](docs/audit-freshness.json) nebo preovereni.
 
 - [x] **Text cizi vyjimky v odpovedi.** — HOTOVO 2026-09-28 (#599): `MailFailureCause` (kod pricina misto textu) v chybach posty i v `lastErrorArgs` (`cause` misto `detail`), text jen v logu; health `show-details=never`; cesta k temp souboru pryc z `detail`. Audit B3 §3 (1.9).
-- [ ] **Anglicke vlastni texty v chybach posty.** Vyjimky posty bez priciny dal davaji jako `{0}` do ceske hlasky anglickou vetu aplikace (hlavne OAuth: `OAuth2LoginService`, `OAuth2TokenService`, registry; `ImapFolderService` role, `ImapAppendService` limit, `SmtpTransportFactory`). Kazdou prevest na vlastni klic v bundlech. Nalezeno pri #599.
+- [x] **Anglicke vlastni texty v chybach posty.** — HOTOVO 2026-10-03 (#607): vyjimka posty bez priciny ma vlastni klic (OAuth prihlaseni a tokeny, OAuth bez TLS, chybejici slozka pro roli pojmenovana jako v seznamu slozek), strazni podminky nad stavem aplikace ctou jako neocekavana chyba; konstruktory s anglickou vetou jako `{0}` odstraneny. Audit B3 §3 (1.10).
+- [ ] **Anglicke texty v `ResourceNotFoundException(String)` a `ValidationException(String)`.** Stejny vzor mimo postu: anglicka veta aplikace jako `{0}` ceske hlasky (kontakty, stitky, `MailFacade`, OAuth callback). Vycet da prikaz v [docs/API_SURFACE_AUDIT.md](docs/API_SURFACE_AUDIT.md) §3. Kazde misto vlastni klic, nebo obecna hlaska; konstruktor s holou zpravou pak odstranit. Nalezeno pri #607.
 
 ---
 

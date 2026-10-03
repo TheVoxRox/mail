@@ -2,6 +2,7 @@ package org.voxrox.mailbackend.feature.mail.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
@@ -13,6 +14,7 @@ import static org.mockito.Mockito.when;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 
 import jakarta.mail.Folder;
 import jakarta.mail.MessagingException;
@@ -26,6 +28,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.support.ResourceBundleMessageSource;
 import org.voxrox.mailbackend.core.config.MailClientProperties;
 import org.voxrox.mailbackend.core.config.mail.ImapProperties;
 import org.voxrox.mailbackend.exception.ErrorCode;
@@ -302,6 +305,30 @@ class ImapFolderServiceTest {
             assertThatThrownBy(() -> service.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.DRAFTS))
                     .isInstanceOf(MailOperationException.class).extracting(e -> ((MailOperationException) e).getCode())
                     .isEqualTo(ErrorCode.FOLDER_ROLE_NOT_FOUND);
+        }
+
+        /**
+         * The client shows the message as the server renders it. It used to read
+         * "Account 1 has no detectable folder for role DRAFTS." inside the Czech
+         * sentence.
+         */
+        @Test
+        @DisplayName("The missing folder is named as the folder list names it, in the reader's language")
+        void namesTheMissingFolderInTheReadersLanguage() throws Exception {
+            when(folderSyncStateRepository.findFolderNamesByRole(ACCOUNT_ID, FolderRole.DRAFTS)).thenReturn(List.of());
+            mockFolderListing(folder("INBOX", "INBOX", 0));
+            ResourceBundleMessageSource messages = new ResourceBundleMessageSource();
+            messages.setBasename("messages");
+            messages.setDefaultEncoding("UTF-8");
+            messages.setFallbackToSystemLocale(false);
+
+            MailOperationException ex = catchThrowableOfType(MailOperationException.class,
+                    () -> service.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.DRAFTS));
+
+            assertThat(messages.getMessage(ex.getMessageKey(), ex.getMessageArgs(), Locale.ENGLISH))
+                    .isEqualTo("No Drafts folder was found in the account.");
+            assertThat(messages.getMessage(ex.getMessageKey(), ex.getMessageArgs(), Locale.forLanguageTag("cs")))
+                    .endsWith(" Rozepsané.").doesNotContain("DRAFTS");
         }
     }
 

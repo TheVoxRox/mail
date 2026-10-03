@@ -672,7 +672,8 @@ public class ImapConnectionManager {
             AuditLog.critical("imap_oauth2_plaintext_blocked", LogMasker.maskEmail(details.email()),
                     "account=" + accountId);
             throw new MailConnectionException(
-                    "OAuth2 account requires an SSL/TLS connection for IMAP (account " + accountId + ")");
+                    "OAuth2 account requires an SSL/TLS connection for IMAP (account " + accountId + ")",
+                    "error.mail.oauth2RequiresTls", "IMAP");
         }
 
         Properties props = new Properties();

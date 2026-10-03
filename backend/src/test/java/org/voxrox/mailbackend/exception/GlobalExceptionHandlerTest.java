@@ -104,14 +104,36 @@ class GlobalExceptionHandlerTest {
         @Test
         @DisplayName("MailConnectionException -> 503, errorCode MAIL_CONNECTION_ERROR")
         void mailConnectionError_returns503() {
-            var ex = new MailConnectionException("IMAP timeout");
+            var ex = new MailConnectionException("IMAP timeout", new java.net.SocketTimeoutException("Read timed out"));
 
             ProblemDetail problem = handler.handleAppException(ex, request);
 
             assertCommonFields(problem, HttpStatus.SERVICE_UNAVAILABLE, ErrorCode.MAIL_CONNECTION_ERROR.name());
-            assertThat(problem.getDetail()).isEqualTo("Spojení s poštovním serverem selhalo: IMAP timeout");
+            assertThat(problem.getDetail()).isEqualTo("Spojení s poštovním serverem selhalo: server neodpověděl včas");
             assertThat(problem.getProperties().get("messageKey")).isEqualTo("error.mail.connectionFailed");
             assertThat(problem.getType()).isEqualTo(ERROR_TYPE_BASE.resolve("mail_connection_error"));
+        }
+
+        /**
+         * A failure without a cause used to pass the app's own English sentence as {0},
+         * so a guard such as a provider with no registered implementation read "Mail
+         * operation failed: No implementation is registered for OAuth2 provider 'x'."
+         * The sentence is for the log.
+         */
+        @Test
+        @DisplayName("A failure without a cause or a key of its own reads as unexpected, never as its English text")
+        void failureWithoutCauseReadsAsUnexpected() {
+            when(request.getLocale()).thenReturn(Locale.ENGLISH);
+            var ex = new MailOperationException(ErrorCode.INTERNAL_ERROR,
+                    "No implementation is registered for OAuth2 provider 'x'.");
+
+            ProblemDetail problem = handler.handleAppException(ex, request);
+
+            assertThat(problem.getDetail())
+                    .isEqualTo("Mail operation failed: unexpected error, the details are in the app's log")
+                    .doesNotContain("provider");
+            assertThat((Object[]) problem.getProperties().get("messageArgs"))
+                    .containsExactly(MailFailureCause.UNEXPECTED);
         }
 
         /**

@@ -149,8 +149,8 @@ class AccountConnectionTestServiceTest {
         when(providerService.loadProviderById(10L)).thenReturn(provider);
         AccountConnectionTestRequest request = new AccountConnectionTestRequest(null, "user@example.com", 10L, null,
                 null, "user@example.com", "secret");
-        org.mockito.Mockito.doThrow(new MailConnectionException("IMAP fail")).when(mailConnectionProbe)
-                .testImap(org.mockito.Mockito.isNull(), org.mockito.Mockito.any());
+        org.mockito.Mockito.doThrow(new MailConnectionException("IMAP fail", new java.net.ConnectException("refused")))
+                .when(mailConnectionProbe).testImap(org.mockito.Mockito.isNull(), org.mockito.Mockito.any());
 
         assertThatThrownBy(() -> service.testConnection(request)).isInstanceOf(MailConnectionException.class)
                 .hasMessageContaining("IMAP fail");

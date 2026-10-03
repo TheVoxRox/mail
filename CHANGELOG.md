@@ -21,6 +21,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Backend
 
+- **Mail errors no longer put the app's own English sentence inside a Czech message (#607).** Since #599 a failure is reported by its cause, but one with no cause still showed the English sentence the app wrote for its log: an OAuth sign-in the provider answered incompletely, an expired or revoked authorization, an OAuth account without an encrypted connection, an account with no Drafts or Trash folder. Each now has a message of its own in the reader's language, and a missing folder is named as the folder list names it. A check on the app's own state that the user cannot act on reads as an unexpected error, with the detail in the log.
+
 - **A mail server can no longer crash the mail sync with a deeply nested message structure by hiding it behind a quote (#604).** The check #590 added reads how deeply a message's structure nests before the mail library does, but it read one part of a server's answer differently from the library, so a quotation mark there hid the structure after it from the check and the library crashed on it. The check now reads that part the way the library does.
 
 - **A mail server can no longer keep the app busy by reporting the same message deleted over and over (#602).** The mail library spends a pass over the whole folder on every such report — half a millisecond each in a folder of two million messages — and nothing limited how many a server sent, so one could occupy the app's mail sync for minutes at a time. The reports a folder receives while it is open now count against a limit scaled to the folder's size, about half a second's work; past it the connection is closed and the next sync starts afresh.

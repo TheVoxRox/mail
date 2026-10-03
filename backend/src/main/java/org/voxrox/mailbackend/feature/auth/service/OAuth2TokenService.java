@@ -170,7 +170,7 @@ public abstract class OAuth2TokenService {
         if (refreshToken == null || refreshToken.isBlank()) {
             throw new MailOperationException(ErrorCode.MAIL_ACCOUNT_REQUIRES_REAUTH,
                     providerDisplayName() + " account has no stored refresh token; sign in again.",
-                    HttpStatus.UNAUTHORIZED);
+                    HttpStatus.UNAUTHORIZED, "error.mail.accountRequiresReauth");
         }
 
         ReentrantLock refreshLock = refreshLocks.computeIfAbsent(accountId, id -> new ReentrantLock());
@@ -245,7 +245,8 @@ public abstract class OAuth2TokenService {
 
             if (response == null || !response.containsKey("access_token")) {
                 throw new MailOperationException(ErrorCode.INTERNAL_ERROR,
-                        providerDisplayName() + " OAuth provider did not return an access_token.");
+                        providerDisplayName() + " OAuth provider did not return an access_token.",
+                        HttpStatus.INTERNAL_SERVER_ERROR, "error.mail.oauth2NoAccessToken", providerDisplayName());
             }
 
             String accessToken = (String) response.get("access_token");
@@ -312,7 +313,8 @@ public abstract class OAuth2TokenService {
 
             metrics.recordOauthRefresh(MailMetrics.OUTCOME_AUTH_REVOKED);
             throw new MailOperationException(ErrorCode.MAIL_AUTHENTICATION_FAILED,
-                    providerDisplayName() + " authorization has expired or been revoked.", HttpStatus.UNAUTHORIZED);
+                    providerDisplayName() + " authorization has expired or been revoked.", HttpStatus.UNAUTHORIZED,
+                    "error.mail.oauth2AuthorizationRevoked", providerDisplayName());
         } catch (MailOperationException e) {
             metrics.recordOauthRefresh(MailMetrics.OUTCOME_FAILURE);
             throw e;
