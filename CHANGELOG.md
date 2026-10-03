@@ -59,6 +59,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- **The print e2e test for Ctrl+P on an open message waits for focus to land in the message body before it presses the key (#606).** Opening a message moves focus into the body frame a frame later, and a key sent before that can land in a frame not yet listening; CI lost the test's Ctrl+P on #604 with the focus in the frame at the end. The palette test in the same file already waited.
+
 - **`brace-expansion` is bumped to 2.1.7 and 5.0.12 in the frontend lockfile (#605).** Three advisories against it (GHSA-q2hr-2g5m-vwhr, GHSA-qhr7-859c-m2p7, GHSA-6j4f-fj2g-mc7p) tripped the npm audit gate, which failed the nightly scan from 2026-09-29 and every PR's Lint check. It reaches the tree only through dev tooling (eslint, openapi-typescript), so nothing shipped changes.
 
 - **The IMAP/SMTP audit is re-verified against `b606f97` and has open findings again (#600).** [IMAP_SMTP_AUDIT.md](docs/IMAP_SMTP_AUDIT.md) 1.24 clears the eight acknowledgements; its independent pass reopened five of the fixes recorded at 1.17–1.23 (B1-5, B1-8, B1-10, B1-11, B1-12) and found B1-13, the cost of an EXPUNGE. The threat model and the verdict index follow.

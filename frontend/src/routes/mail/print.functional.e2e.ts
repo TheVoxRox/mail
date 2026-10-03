@@ -24,8 +24,13 @@ test.describe('Tisk zprávy', () => {
 	test('Ctrl+P vytiskne otevřenou zprávu', async ({ page }) => {
 		await openApp(page, '/mail/1/INBOX/msg-01');
 		// The body, not just the pane: until it arrives the key refuses to print.
-		await expect(page.locator('[data-print="document"] iframe')).toBeVisible();
+		const frame = page.locator('[data-print="document"] iframe');
+		await expect(frame).toBeVisible();
 		await countPrints(page);
+		// Opening a message parks focus in the body frame a frame later; a key
+		// sent before that lands can end up in a frame not yet listening, which
+		// is how CI lost this Ctrl+P with the focus in the frame at the end.
+		await waitForFocus(frame);
 
 		await page.keyboard.press('Control+p');
 
