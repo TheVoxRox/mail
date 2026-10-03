@@ -61,7 +61,7 @@ public class ThreadingInternalController {
         if (account == null) {
             // accountService throws if missing; defensive null guard for the
             // future where the signature might change.
-            throw new ResourceNotFoundException("Account not found: " + accountId);
+            throw new ResourceNotFoundException("Account not found: " + accountId, "error.account.notFound", accountId);
         }
         log.info("{} Internal threading recompute requested for account {}.", LogCategory.API, accountId);
         int assigned = backfillService.backfillAccount(account);

@@ -71,7 +71,7 @@
   },
   "docs/OAUTH_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/auth": "069709c250c638c93ce945718853cd9b80689d45",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/auth": "059fd8905ee5541782f8bfa2027c927e68be4775",
       "backend/src/main/java/org/voxrox/mailbackend/feature/account/service/ExternalProviderLoginService.java": "029c363ddfb5e59707b91fec6382b91be7357ff4"
     },
     "acknowledgements": [
@@ -102,6 +102,10 @@
       {
         "date": "2026-10-03",
         "note": "The mail layer's own English sentences kept out of responses, recorded in API_SURFACE_AUDIT.md as v1.10. Under this audit's paths only the message keys of six throws change. OAuth2LoginService's three rejections (no e-mail, no stable user id, no refresh token) name error.mail.oauth2NoEmail, oauth2NoUserId and oauth2NoRefreshToken instead of passing their English sentence as the argument of error.mail.operationFailed; OAuth2TokenService's missing stored refresh token names error.mail.accountRequiresReauth, a token response without access_token error.mail.oauth2NoAccessToken and a permanent refresh rejection error.mail.oauth2AuthorizationRevoked, the last two with the provider's display name (Google, Microsoft) as their one argument. Error codes, statuses, the order of the guards, markRequiresReauthIfExists, the refresh lock, the cache invalidation, the requires_reauth marking, the metrics and the log and audit lines are unchanged, and no token, scope, redirect URI or PKCE parameter is read, logged or sent differently, so no claim of this audit moves. Verdict stays PASS."
+      },
+      {
+        "date": "2026-10-03",
+        "note": "Every not-found and validation error names a message key of its own, recorded in API_SURFACE_AUDIT.md as v1.11: ResourceNotFoundException(String) and ValidationException(String), which passed the message as the {0} of a generic key, are removed, and each site that used them names a key. Under this audit's paths only OAuth2CallbackController.success changes: its two rejections, a call outside a completed login flow and an authorized client missing from the store, name validation.oauth2.loginNotCompleted. The checks themselves, their order, the processLogin call, the removal of the in-memory authorized client and the redirect are unchanged, and no token, scope, redirect URI or PKCE parameter is read, logged or sent differently, so no claim of this audit moves. Verdict stays PASS. This is the eighth acknowledgement: the next change under these paths needs the audit re-verified."
       }
     ]
   },
@@ -118,7 +122,7 @@
   },
   "docs/CONTENT_RENDERING_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailContentService.java": "e6aadcf3e05ae61504c360c32fa426a4b79c7e12"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailContentService.java": "b356d6be05d7986431d3e78c198862baad50edae"
     },
     "acknowledgements": [
       {
@@ -128,6 +132,10 @@
       {
         "date": "2026-09-28",
         "note": "The exception-text change of API_SURFACE_AUDIT.md 1.9: a new MailFailureCause enum in the exception package classifies a caught exception into a stable cause code, and MailConnectionException / MailOperationException gained constructors that take the cause and pass the classification, not the text, as the message argument. Under this audit's paths only MailContentService changes, in one line: the failure to extract a message's text passes the caught exception as the cause of its MailOperationException instead of appending its text to the message. What the service extracts, sanitizes or renders is unchanged, so no claim of this audit moves."
+      },
+      {
+        "date": "2026-10-03",
+        "note": "Every not-found and validation error names a message key of its own, recorded in API_SURFACE_AUDIT.md as v1.11: ResourceNotFoundException(String) and ValidationException(String), which passed the message as the {0} of a generic key, are removed, and each site that used them names a key. Under this audit's path MailContentService changes in two throws: a message missing from the database names error.message.notFound, and one no longer on the server error.message.goneFromServer. What the service extracts, sanitizes, caps or renders is unchanged, so no claim of this audit moves. Verdict stays PASS."
       }
     ]
   },
@@ -135,9 +143,9 @@
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "ce8fadfbdbd2e206f24c9b05a520836dd261eeea",
       "backend/src/main/java/org/voxrox/mailbackend/core/diagnostic": "87acd1071bc62a2779c216e424e7ae9b391d3ab6",
-      "backend/src/main/java/org/voxrox/mailbackend/exception": "d68f77d17961742e16d1d0cf56c8cd619a6965ff",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/controller": "030d483f7b65f8dc5777572ad2a453e909b18519",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/AttachmentService.java": "9268a3771c4d41070b4fcb958ba98394a2f16917",
+      "backend/src/main/java/org/voxrox/mailbackend/exception": "77be43817c7e3a256512274f640c54e380fc3e24",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/controller": "449ccc7bf7489dafdf4219c628677bd073590c3c",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/AttachmentService.java": "b3034f89e4d290932c97916e9cf48205c51325d3",
       "backend/src/main/resources/application.properties": "3efe345be25b54d3c452e670dcfeb2a4fcc4b9a3"
     },
     "acknowledgements": [
@@ -164,12 +172,16 @@
       {
         "date": "2026-10-03",
         "note": "The mail layer's own English sentences kept out of responses, recorded in the audit itself as v1.10 (section 3). One path moves, exception/: MailConnectionException(String) and MailOperationException(ErrorCode, String, HttpStatus), which passed the message as the {0} of error.mail.connectionFailed / operationFailed, are removed, and MailOperationException(ErrorCode, String) now passes MailFailureCause.UNEXPECTED there and keeps its message for the log. The cause-taking and key-taking constructors, MailFailureCause and GlobalExceptionHandler are unchanged. Every former caller either names a key of its own or is a guard on the app's own state, which now reads as unexpected. Read against section 3, which the same change updates; authentication, validation, attachment streaming and the diagnostic dump are not touched. Verdict stays PASS."
+      },
+      {
+        "date": "2026-10-03",
+        "note": "Every not-found and validation error names a message key of its own, recorded in API_SURFACE_AUDIT.md as v1.11: ResourceNotFoundException(String) and ValidationException(String), which passed the message as the {0} of a generic key, are removed, and each site that used them names a key. Recorded in the audit itself as v1.11 (section 3). Under this audit's paths: exception/ (the two constructors removed, javadoc on the remaining ones), feature/mail/controller (DraftController's page-size check names validation.pageSizeTooLarge with the limit and the requested size, as MailReadController and ContactController already did; ThreadingInternalController's missing account names error.account.notFound), and AttachmentService (a missing message names error.message.notFound, one gone from the server error.message.goneFromServer). Statuses, error codes, the validation itself, attachment streaming and the diagnostic dump are unchanged. Verdict stays PASS."
       }
     ]
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "dc43dd5bba0bedd2b548648e2dd756f96be074f8"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "9d68d6c8459d0bc9381836a1056606dbba43a6d4"
     },
     "acknowledgements": [
       {
@@ -187,6 +199,10 @@
       {
         "date": "2026-10-03",
         "note": "The mail layer's own English sentences kept out of responses, recorded in API_SURFACE_AUDIT.md as v1.10. Five files under feature/mail/service change, in the text a throw carries and nowhere else. The OAuth-without-TLS guards in ImapConnectionManager, MailConnectionProbe (IMAP) and SmtpTransportFactory (SMTP) name error.mail.oauth2RequiresTls with the protocol as argument; each still throws before any socket opens, with the same audit line, error code and status. ImapFolderService.findFolderNameByRoleOrThrow names error.mail.folderRoleNotFound with the role's display name as a message-source-resolvable argument (mail.folderRole.<ROLE>), same code and status. ImapAppendService changes only a comment and its import: the oversized-draft refusal still stops at the first byte past MAX_DRAFT_BYTES, and the send pipeline reports it by its MailFailureCause as before. No read, bound, budget or protocol handling moves, so no claim of this audit moves; the verdict stays open findings."
+      },
+      {
+        "date": "2026-10-03",
+        "note": "Every not-found and validation error names a message key of its own, recorded in API_SURFACE_AUDIT.md as v1.11: ResourceNotFoundException(String) and ValidationException(String), which passed the message as the {0} of a generic key, are removed, and each site that used them names a key. Under feature/mail/service four files change, in the key a throw names and nowhere else: MailFacade (a missing message, draft or conversation, and a move target missing from the folder list), AttachmentService and MailContentService (a missing message, and one no longer on the server), and ImapFolderExecutor (a folder the server reports missing, error.folder.notFoundOnServer). Which condition throws, when, and with which status and code is unchanged, and no read, bound, budget or protocol handling moves, so no claim of this audit moves; the verdict stays open findings."
       }
     ]
   }

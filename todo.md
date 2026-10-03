@@ -108,7 +108,8 @@ Preovereni [docs/API_SURFACE_AUDIT.md](docs/API_SURFACE_AUDIT.md) proti `55fdd1b
 
 - [x] **Text cizi vyjimky v odpovedi.** — HOTOVO 2026-09-28 (#599): `MailFailureCause` (kod pricina misto textu) v chybach posty i v `lastErrorArgs` (`cause` misto `detail`), text jen v logu; health `show-details=never`; cesta k temp souboru pryc z `detail`. Audit B3 §3 (1.9).
 - [x] **Anglicke vlastni texty v chybach posty.** — HOTOVO 2026-10-03 (#607): vyjimka posty bez priciny ma vlastni klic (OAuth prihlaseni a tokeny, OAuth bez TLS, chybejici slozka pro roli pojmenovana jako v seznamu slozek), strazni podminky nad stavem aplikace ctou jako neocekavana chyba; konstruktory s anglickou vetou jako `{0}` odstraneny. Audit B3 §3 (1.10).
-- [ ] **Anglicke texty v `ResourceNotFoundException(String)` a `ValidationException(String)`.** Stejny vzor mimo postu: anglicka veta aplikace jako `{0}` ceske hlasky (kontakty, stitky, `MailFacade`, OAuth callback). Vycet da prikaz v [docs/API_SURFACE_AUDIT.md](docs/API_SURFACE_AUDIT.md) §3. Kazde misto vlastni klic, nebo obecna hlaska; konstruktor s holou zpravou pak odstranit. Nalezeno pri #607.
+- [x] **Anglicke texty v `ResourceNotFoundException` a `ValidationException`.** — HOTOVO 2026-10-03 (#608): 23 mist dostalo vlastni klic (chybejici zprava, koncept, konverzace, slozka, adresa kontaktu, zprava uz na serveru neni, OAuth callback mimo prihlaseni, velikost stranky konceptu), konstruktory s holou zpravou odstraneny. Audit B3 §3 (1.11).
+- [ ] **Audit OAuth na limitu potvrzeni (8/8 od #608).** Dalsi zmena pod `feature/auth` nebo `ExternalProviderLoginService` neprojde `check:audits`, dokud se [docs/OAUTH_AUDIT.md](docs/OAUTH_AUDIT.md) znovu neoveri (bump `Audited commit`, zaznam v change logu, smazat ledger). Overovat v jine session nez ta, ktera psala opravy.
 
 ---
 

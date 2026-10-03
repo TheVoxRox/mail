@@ -95,14 +95,16 @@ public class OAuth2CallbackController {
          * parameters — reject cleanly instead of an NPE/500.
          */
         if (authToken == null || oauth2User == null) {
-            throw new ValidationException("OAuth2 callback invoked outside a completed login flow.");
+            throw new ValidationException("OAuth2 callback invoked outside a completed login flow.",
+                    "validation.oauth2.loginNotCompleted");
         }
         String providerName = authToken.getAuthorizedClientRegistrationId();
         OAuth2AuthorizedClient authorizedClient = authorizedClientService.loadAuthorizedClient(providerName,
                 authToken.getName());
         if (authorizedClient == null) {
             throw new ValidationException(
-                    "OAuth2 authorized client for provider '" + providerName + "' was not found in the session.");
+                    "OAuth2 authorized client for provider '" + providerName + "' was not found in the session.",
+                    "validation.oauth2.loginNotCompleted");
         }
         oauth2LoginService.processLogin(providerName, oauth2User, authorizedClient);
         /*

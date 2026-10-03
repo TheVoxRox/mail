@@ -818,7 +818,7 @@ class MailSyncServiceTest {
                         return action.apply(folder, mock(UIDFolder.class));
                     });
             when(imapFolderService.executeInFolder(eq(ACCOUNT_ID), eq(Lane.BACKGROUND), any(String.class), anyInt(),
-                    any())).thenThrow(new ResourceNotFoundException("folder gone"));
+                    any())).thenThrow(new ResourceNotFoundException("folder gone", "error.folder.notFoundOnServer"));
 
             long total = service.fetchServerCountAndEnsurePageLocally(account, "INBOX", 5, 50);
 
