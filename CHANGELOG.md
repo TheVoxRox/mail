@@ -61,6 +61,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- **`brace-expansion` is bumped to 2.1.7 and 5.0.12 in the frontend lockfile (#605).** Three advisories against it (GHSA-q2hr-2g5m-vwhr, GHSA-qhr7-859c-m2p7, GHSA-6j4f-fj2g-mc7p) tripped the npm audit gate, which failed the nightly scan from 2026-09-29 and every PR's Lint check. It reaches the tree only through dev tooling (eslint, openapi-typescript), so nothing shipped changes.
+
 - **The IMAP/SMTP audit is re-verified against `b606f97` and has open findings again (#600).** [IMAP_SMTP_AUDIT.md](docs/IMAP_SMTP_AUDIT.md) 1.24 clears the eight acknowledgements; its independent pass reopened five of the fixes recorded at 1.17–1.23 (B1-5, B1-8, B1-10, B1-11, B1-12) and found B1-13, the cost of an EXPUNGE. The threat model and the verdict index follow.
 
 - **Three repo gates find the repository from a linked worktree, and the gate tests no longer write into the repository they run in (#597).** A hook in a linked worktree runs with GIT_DIR exported, and `git rev-parse --show-toplevel` then answers frontend/: `check:java-imports` failed every push from a worktree and `check:nul` passed a NUL byte without reading a file. They and `check:eol` now take the root from where the script lives. The gate suites run inside that same hook as part of `test:unit`, and their throwaway fixtures inherited GIT_DIR, which once set `core.bare=true` and a test identity in a real repository's config; the fixture harness now drops git's repository variables first, and a test of its own holds it to that.
