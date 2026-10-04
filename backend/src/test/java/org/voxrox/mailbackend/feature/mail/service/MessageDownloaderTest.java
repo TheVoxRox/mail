@@ -3,16 +3,21 @@ package org.voxrox.mailbackend.feature.mail.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import jakarta.mail.Folder;
 import jakarta.mail.Message;
@@ -23,6 +28,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -219,6 +225,86 @@ class MessageDownloaderTest {
 
             assertThat(downloaded).isZero();
             verify(syncStateService, never()).updateLastKnownUid(any(), any());
+        }
+    }
+
+    /**
+     * IMAP/SMTP audit B1-14. The folder holds every message it downloads until it
+     * closes, so a catch-up no longer takes the whole new range in one open folder:
+     * at most the local window, newest first, and the rows from before it go, so
+     * the gap cannot read as a hole the same pass downloads after all.
+     */
+    @Nested
+    @DisplayName("syncNewMessages — a catch-up is bounded by the local window")
+    class BoundedCatchUp {
+
+        /** Windows of two UIDs and a local window of three messages. */
+        private final SyncProperties small = new SyncProperties(2, 200, Duration.ofMinutes(5), Duration.ofSeconds(10),
+                50, 30, 3, 4, 256, 200, Duration.ofMinutes(30), Duration.ofSeconds(30), Duration.ofHours(1));
+
+        @Test
+        @DisplayName("Past the window only the newest new messages come down, and the rows below them go")
+        void downloadsTheNewestAndDropsTheRowsBelow() throws Exception {
+            when(mailProps.sync()).thenReturn(small);
+            syncState.setLastKnownUid(10L);
+            when(uidFolder.getUIDNext()).thenReturn(21L);
+            Message m17 = onServer(17L);
+            Message m18 = onServer(18L);
+            Message m19 = onServer(19L);
+            Message m20 = onServer(20L);
+            when(uidFolder.getMessagesByUID(19L, 20L)).thenReturn(new Message[]{m19, m20});
+            when(uidFolder.getMessagesByUID(17L, 18L)).thenReturn(new Message[]{m17, m18});
+            fetchesWhatItIsGiven();
+
+            int downloaded = downloader.syncNewMessages(context());
+
+            assertThat(downloaded).isEqualTo(3);
+            ArgumentCaptor<Message[]> batches = ArgumentCaptor.forClass(Message[].class);
+            verify(messageFetcher, times(2)).fetchBatch(batches.capture(), eq(uidFolder), eq(FOLDER));
+            assertThat(batches.getAllValues().get(1)).containsExactly(m18);
+            verify(uidFolder, never()).getMessagesByUID(15L, 16L);
+            verify(messageRepository).deleteOlderThan(ACCOUNT_ID, FOLDER, 18L);
+            assertThat(syncState.getLastKnownUid()).isEqualTo(20L);
+        }
+
+        @Test
+        @DisplayName("A catch-up within the window comes down whole and drops nothing")
+        void aCatchUpWithinTheWindowDropsNothing() throws Exception {
+            when(mailProps.sync()).thenReturn(small);
+            syncState.setLastKnownUid(17L);
+            when(uidFolder.getUIDNext()).thenReturn(21L);
+            Message m18 = onServer(18L);
+            Message m19 = onServer(19L);
+            Message m20 = onServer(20L);
+            when(uidFolder.getMessagesByUID(19L, 20L)).thenReturn(new Message[]{m19, m20});
+            when(uidFolder.getMessagesByUID(18L, 18L)).thenReturn(new Message[]{m18});
+            fetchesWhatItIsGiven();
+
+            int downloaded = downloader.syncNewMessages(context());
+
+            assertThat(downloaded).isEqualTo(3);
+            verify(messageRepository, never()).deleteOlderThan(any(), any(), anyLong());
+        }
+
+        private final Map<Message, Long> uids = new HashMap<>();
+
+        private Message onServer(long uid) throws Exception {
+            Message message = mock(Message.class);
+            uids.put(message, uid);
+            lenient().when(uidFolder.getUID(message)).thenReturn(uid);
+            return message;
+        }
+
+        private void fetchesWhatItIsGiven() throws Exception {
+            when(messageFetcher.fetchBatch(any(), eq(uidFolder), eq(FOLDER))).thenAnswer(invocation -> {
+                List<FetchedMessage> fetched = new ArrayList<>();
+                for (Message message : (Message[]) invocation.getArgument(0)) {
+                    fetched.add(fetchedMessage(uids.getOrDefault(message, -1L)));
+                }
+                return fetched;
+            });
+            lenient().when(messageMapper.toEntity(any(), eq(account), eq(FOLDER), eq(syncState.getUidValidity())))
+                    .thenAnswer(invocation -> new MessageEntity());
         }
     }
 

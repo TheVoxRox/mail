@@ -233,20 +233,63 @@ public class MessageDownloader {
         return total;
     }
 
+    /**
+     * Downloads the new messages between {@code startUid} and {@code endUid},
+     * newest first, and no more of them than the folder keeps
+     * ({@code local-window-limit}). The folder holds every message it downloads
+     * until it closes, and the whole range used to come down in one open folder: a
+     * catch-up after another client moved a few hundred thousand messages in held
+     * them all at once, only for the pruner to delete everything below the newest
+     * {@code local-window-limit} afterwards (IMAP/SMTP audit B1-14). Past the limit
+     * the older new messages stay on the server, where the lazy page fetch reaches
+     * them, as it reaches any message below the window.
+     * <p>
+     * When the limit cuts the range short, the folder's rows from before the
+     * catch-up sit below a gap of skipped messages. The pruner would delete them at
+     * the end of the pass, but the pass looks for holes in the mirrored UID window
+     * first, and would take that gap for one and download it after all. So every
+     * row below the oldest message the catch-up reached goes at once — by UID, not
+     * by count, so a message the fetch dropped cannot leave an old row standing
+     * below the gap — and the mirror is the newest new messages, as the pruner
+     * would leave it.
+     */
     private int downloadRangeInternal(FolderSyncContext ctx, long startUid, long endUid) throws MessagingException {
         int windowSize = mailProps.sync().windowSize();
+        int limit = mailProps.sync().localWindowLimit();
         int totalDownloaded = 0;
+        boolean cutShort = false;
+        Message oldestReached = null;
 
         for (long currentEnd = endUid; currentEnd >= startUid; currentEnd -= windowSize) {
+            if (totalDownloaded >= limit) {
+                cutShort = true;
+                break;
+            }
             long currentStart = Math.max(currentEnd - windowSize + UID_INCREMENT, startUid);
             Message[] messages = ctx.uidFolder().getMessagesByUID(currentStart, currentEnd);
 
             if (messages != null && messages.length > 0) {
+                int room = limit - totalDownloaded;
+                if (messages.length > room) {
+                    // Ascending by sequence number, hence by UID: the newest are the last.
+                    messages = Arrays.copyOfRange(messages, messages.length - room, messages.length);
+                    cutShort = true;
+                }
+                oldestReached = messages[0];
                 List<FetchedMessage> downloaded = messageFetcher.fetchBatch(messages, ctx.uidFolder(),
                         ctx.folderName());
                 saveMessagesBatchAtomic(downloaded, ctx, messages);
                 totalDownloaded += downloaded.size();
             }
+        }
+
+        if (cutShort && oldestReached != null) {
+            long threshold = ctx.uidFolder().getUID(oldestReached);
+            int dropped = messageRepository.deleteOlderThan(ctx.getAccountId(), ctx.folderName(), threshold);
+            log.info(
+                    "{} Catch-up in {} stopped at the newest {} new messages (from UID {}); older ones stay on the "
+                            + "server, and {} older local row(s) went with them.",
+                    LogCategory.SYNC, ctx.folderName(), totalDownloaded, threshold, dropped);
         }
         return totalDownloaded;
     }
