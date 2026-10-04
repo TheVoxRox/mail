@@ -285,6 +285,11 @@ test.describe('Command palette', () => {
 		// The global keydown listener attaches on hydration; the E2E hook
 		// appearing proves the layout has mounted.
 		await page.waitForFunction(() => typeof window.__MAIL_E2E__?.openPalette === 'function');
+		// "/" redirects to the inbox only once the folders have loaded, after the
+		// hook is there, and the new page then moves focus to its heading. Focusing
+		// the link before that let the landing take focus back, so the palette
+		// opened from the heading and Escape returned there (CI, twice).
+		await expect(page.getByRole('heading', { level: 1, name: /^Doručené/ })).toBeFocused();
 
 		const archiveLink = page.getByRole('link', { name: 'Archiv' });
 		await archiveLink.focus();
