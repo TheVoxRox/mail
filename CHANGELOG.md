@@ -75,6 +75,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- **The OAuth audit is re-verified against `64633fe` and no longer passes (#621).** [OAUTH_AUDIT.md](docs/OAUTH_AUDIT.md) 1.3 clears its eight acknowledgements; its independent pass found B2-1 (High, open) — the session an OAuth sign-in leaves in the system browser passes the sidecar API's default-deny without the API key — and corrected four claims. The threat model, the verdict index and [API_SURFACE_AUDIT.md](docs/API_SURFACE_AUDIT.md) 1.12 follow.
+
 - **The palette e2e test for a double Ctrl+K waits for the inbox to take focus before it focuses the Archive link (#619).** "/" redirects to the inbox only once the folders have loaded, and the new page then moves focus to its heading; when that landed after the test focused the link, the palette opened from the heading and Escape returned there. CI failed it on 2026-09-28 and on #618. On a CPU throttled eightfold the old order lost the link's focus to the landing once in fifteen runs, and the new one passed all fifteen.
 
 - **The release checklist lists what has merged since #598 as waiting for the next cut (#618).** Its own rule says each fix adds its number when it merges, and #599 to #617 had not; the list now names them, so the re-cut before section 3 can be checked against it.
