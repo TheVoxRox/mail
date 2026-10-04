@@ -109,7 +109,16 @@ Preovereni [docs/API_SURFACE_AUDIT.md](docs/API_SURFACE_AUDIT.md) proti `55fdd1b
 - [x] **Text cizi vyjimky v odpovedi.** — HOTOVO 2026-09-28 (#599): `MailFailureCause` (kod pricina misto textu) v chybach posty i v `lastErrorArgs` (`cause` misto `detail`), text jen v logu; health `show-details=never`; cesta k temp souboru pryc z `detail`. Audit B3 §3 (1.9).
 - [x] **Anglicke vlastni texty v chybach posty.** — HOTOVO 2026-10-03 (#607): vyjimka posty bez priciny ma vlastni klic (OAuth prihlaseni a tokeny, OAuth bez TLS, chybejici slozka pro roli pojmenovana jako v seznamu slozek), strazni podminky nad stavem aplikace ctou jako neocekavana chyba; konstruktory s anglickou vetou jako `{0}` odstraneny. Audit B3 §3 (1.10).
 - [x] **Anglicke texty v `ResourceNotFoundException` a `ValidationException`.** — HOTOVO 2026-10-03 (#608): 23 mist dostalo vlastni klic (chybejici zprava, koncept, konverzace, slozka, adresa kontaktu, zprava uz na serveru neni, OAuth callback mimo prihlaseni, velikost stranky konceptu), konstruktory s holou zpravou odstraneny. Audit B3 §3 (1.11).
-- [ ] **Audit OAuth na limitu potvrzeni (8/8 od #608).** Dalsi zmena pod `feature/auth` nebo `ExternalProviderLoginService` neprojde `check:audits`, dokud se [docs/OAUTH_AUDIT.md](docs/OAUTH_AUDIT.md) znovu neoveri (bump `Audited commit`, zaznam v change logu, smazat ledger). Overovat v jine session nez ta, ktera psala opravy.
+- [x] **Audit OAuth na limitu potvrzeni (8/8 od #608).** — HOTOVO 2026-10-04 (#621): preovereno proti `64633fe`, zaznam v ledgeru smazan; verdikt **open finding** B2-1, ukoly v sekci nize.
+
+---
+
+## Navazujici ukoly z preovereni auditu B2 1.3 (2026-10-04)
+
+Preovereni [docs/OAUTH_AUDIT.md](docs/OAUTH_AUDIT.md) proti `64633fe` naslo B2-1 (High, otevreny) a zapsalo pet informativnich poznamek (§4). Oprava kodu pod `Code paths` auditu B2 (u B2-1 i B3, oba drzi `SecurityConfig.java`) znamena potvrzeni v [docs/audit-freshness.json](docs/audit-freshness.json) nebo preovereni.
+
+- [ ] **B2-1 (High): session z OAuth prihlaseni v systemovem prohlizeci projde default-deny API bez `X-API-KEY`.** `anyRequest().authenticated()` prijme i `OAuth2AuthenticationToken`, ktery Spring po prihlaseni drzi v session, a CORS pousti kazdy `http://localhost:*` s credentials. Doporuceni (audit §3): `ApiKeyFilter` prideli vlastni authority a mimo `PUBLIC_ENDPOINTS` se vyzaduje ona (`hasAuthority` misto `authenticated()`); navic ukoncit session na konci flow, pri uspechu i pri zamitnuti v `/success`. Regresni test ma tvar probe z auditu: tri requesty prihlaseni proti WireMock providerovi, pak volani API se session a bez klice musi byt odmitnuto. Rozhodnout, zda pred §3 release (oprava = dalsi re-cut).
+- [ ] **Drobnosti z B2 §4.** `finally` kolem `processLogin`, aby authorized client nezustal v pameti po zamitnutem prihlaseni; `markRequiresReauthIfExists` zapisuje `reason=missing_refresh_token` i pro scope guard; javadoc `pkceAuthorizationRequestResolver` rika `client_secret_post`, Spring pouziva `client_secret_basic`; e-mailovy fallback ve `findOrCreateExternalAccount` jde napric providery; v konzolich Google a Entra overit registrace redirect URI (komentare v repu se rozchazi: Mobile and desktop vs. Web).
 
 ---
 
