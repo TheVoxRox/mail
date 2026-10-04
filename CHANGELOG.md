@@ -71,6 +71,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- **The release checklist lists what has merged since #598 as waiting for the next cut (#618).** Its own rule says each fix adds its number when it merges, and #599 to #617 had not; the list now names them, so the re-cut before section 3 can be checked against it.
+
 - **The Maven wrapper moves to Maven 3.10.0 and NullAway to 0.14.2 (#611).** The wrapper's Maven is what CodeQL's autobuild builds the Java database with, and its `Analyze (java-kotlin)` check passed on it. Dependabot committed `backend/mvnw.cmd` through the GitHub API with CRLF in the index, which `check:eol` refuses; the PR renormalizes it to what `.gitattributes` declares.
 
 - **The print e2e test for Ctrl+P on an open message waits for focus to land in the message body before it presses the key (#606).** Opening a message moves focus into the body frame a frame later, and a key sent before that can land in a frame not yet listening; CI lost the test's Ctrl+P on #604 with the focus in the frame at the end. The palette test in the same file already waited.
