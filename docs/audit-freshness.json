@@ -181,7 +181,8 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "9d68d6c8459d0bc9381836a1056606dbba43a6d4"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "9d68d6c8459d0bc9381836a1056606dbba43a6d4",
+      "frontend/src/lib/contacts/senderContact.ts": "ff82cd85fcc833a3f99bb64bc46e012fd95df072"
     },
     "acknowledgements": [
       {
@@ -203,6 +204,10 @@
       {
         "date": "2026-10-03",
         "note": "Every not-found and validation error names a message key of its own, recorded in API_SURFACE_AUDIT.md as v1.11: ResourceNotFoundException(String) and ValidationException(String), which passed the message as the {0} of a generic key, are removed, and each site that used them names a key. Under feature/mail/service four files change, in the key a throw names and nowhere else: MailFacade (a missing message, draft or conversation, and a move target missing from the folder list), AttachmentService and MailContentService (a missing message, and one no longer on the server), and ImapFolderExecutor (a folder the server reports missing, error.folder.notFoundOnServer). Which condition throws, when, and with which status and code is unchanged, and no read, bound, budget or protocol handling moves, so no claim of this audit moves; the verdict stays open findings."
+      },
+      {
+        "date": "2026-10-04",
+        "note": "The second fix for B1-11, recorded in the audit itself as v1.28 (section 4k), which also adds frontend/src/lib/contacts/senderContact.ts to Code paths: it is the fifth reader of the sender label, missed at 1.19 and found by the 1.24 pass. senderContactSeed now takes the address from the label's last < to a closing > that ends the label, and the label itself otherwise, with the text before that < as the name, which is HeaderAddresses.labelAddress and parseLabel's rule; the validity check and the name split are unchanged. Nothing under feature/mail/service changes. Re-read against section 4k, which the same change updates; the verdict stays open findings."
       }
     ]
   }

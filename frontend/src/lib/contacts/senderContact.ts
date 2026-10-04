@@ -9,11 +9,15 @@
  * has to be rendered, so both halves are read from it here.
  *
  * The address is taken the way the backend takes it in
- * `MessageEntity.getFromEmailOnly`: between the angle brackets when they are
- * there, the whole string otherwise. What the backend does not do — and this
- * does — is refuse the result when it is not an address at all: `sender` may be
- * the localized "(unknown sender)" fallback, and no contact can be seeded from
- * that.
+ * `HeaderAddresses.labelAddress`: what the label's last `<…>` holds when the
+ * label ends with one, the whole string otherwise. `formatAddress` writes the
+ * address last and does not quote the personal part, so any bracket a name
+ * holds comes before it. The first `<` and the first `>` used to decide it, so
+ * a name holding an address of its own — `Alice <a@evil> <a@real>` — prefilled
+ * the form with that one (IMAP/SMTP audit B1-11). What the backend does not do
+ * — and this does — is refuse the result when it is not an address at all:
+ * `sender` may be the localized "(unknown sender)" fallback, and no contact can
+ * be seeded from that.
  */
 
 import { isValidEmailAddress } from '$lib/compose/addresses.js';
@@ -30,11 +34,10 @@ export function senderContactSeed(sender: string | null | undefined): SenderCont
 	if (!sender) return null;
 
 	const raw = sender.trim();
-	const open = raw.indexOf('<');
-	const close = raw.indexOf('>');
-	const bracketed = open >= 0 && close > open;
+	const open = raw.lastIndexOf('<');
+	const bracketed = open >= 0 && raw.endsWith('>');
 
-	const email = (bracketed ? raw.slice(open + 1, close) : raw).trim();
+	const email = (bracketed ? raw.slice(open + 1, -1) : raw).trim();
 	if (!isValidEmailAddress(email)) return null;
 
 	// A bare address carries no name, and the address must not become one —
