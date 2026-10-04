@@ -1,15 +1,15 @@
 # VoxRox Mail — IMAP/SMTP Protocol Layer Audit
 
-|                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.30                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| **Date**           | 2026-09-29                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| **Audited commit** | `b606f97` (re-verified 2026-09-29, clearing eight acknowledgements; 1.16–1.23 anchor `f6ae132`, re-verified 2026-09-27, clearing seven acknowledgements; 1.9–1.15 anchor `6224cbb`, re-verified 2026-09-22, clearing six acknowledgements; 1.7–1.8 anchor `9435e56`, re-verified 2026-09-16; 1.6 anchor `02ff962`, recorded pre-squash as `f5b75ad`; 1.5 anchor `885b98a`, re-verified 2026-09-02 at the ledger cap; 1.3–1.4 anchor `cad05cb`, recorded pre-squash as `3ff0c78`; 1.0–1.2 baseline: `35a06f3`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service`, `backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java`, `backend/src/main/java/org/voxrox/mailbackend/util/SubjectNormalizer.java`, `backend/src/main/java/org/voxrox/mailbackend/util/HeaderAddresses.java`, `backend/src/main/java/org/voxrox/mailbackend/core/config/mail`, `backend/src/main/java/org/voxrox/mailbackend/core/config/RetryConfig.java`, `backend/src/main/resources/application.properties`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/MessageRepository.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/MessageEntity.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/FolderSyncStateEntity.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/mapper/MessageMapper.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto/FolderRole.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/FolderSyncStateRepository.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/DraftRecipientsEntity.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java`, `backend/src/main/java/org/voxrox/mailbackend/core/dto/WindowedPage.java`, `backend/src/main/java/org/voxrox/mailbackend/core/dto/PagedResponse.java`, `frontend/src/lib/contacts/senderContact.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| **Auditor**        | Claude (Fable 5; 1.9 re-verified by Claude Opus 5, 1.16 and 1.24 by Claude Opus 5.5, each verified by a separate agent) + owner review                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| **Subsystem**      | External mail server ↔ sidecar — Boundary 1 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| **Verdict**        | **Security: open findings** — two: one the 1.24 verification pass reopened, and one the author found fixing B1-8 at 1.25: **B1-14** (Medium, what an open folder keeps from its commands' FETCH responses adds up across them for a hostile server; an honest catch-up is bounded since 1.30, §4n) and **B1-12** (Medium, reopened: a part whose structure is described in single-part form is still read whole, §4l). Fixed in code: **B1-5** (Medium, sending an untouched draft trusted the server's copy, found at 1.9, fixed 2026-09-22, reopened at 1.16, fixed again 2026-09-28, reopened at 1.24 and fixed again 2026-10-04, §4e), **B1-11** (Low, a sender label with `>` before `<` made a message unopenable, found at 1.16, fixed 2026-09-28, reopened at 1.24 for the frontend's contact prefill and fixed again 2026-10-04, §4k), **B1-10** (Medium, Angus parsed a BODYSTRUCTURE by unbounded recursion, found at 1.16, fixed 2026-09-28, reopened at 1.24 and fixed again 2026-09-29, §4j), **B1-13** (Medium, each EXPUNGE cost a pass over the folder and nothing bounded how many a server sent, found at 1.24, fixed 2026-09-29, §4m), **B1-8** (Medium, every bound was per response while Angus holds a whole command's responses, found at 1.16, fixed 2026-09-28, reopened at 1.24 and fixed again 2026-09-29, §4h), **B1-9** (Medium, the lazy page fetch allocated for every position down to the page, found at 1.16, fixed 2026-09-28, §4i), **B1-6** (Low, IMAP bounded reads and connects but not writes, 2026-09-23, §4f), **B1-7** (Medium, a declared literal size was allocated before a byte arrived, found at 1.11, fixed 2026-09-22, §4g), **B1-3** (Medium, a server-stated size exhausted the heap before our code ran, 2026-09-22, §4c — per response; what a command adds up to is B1-8), **B1-4** (High, IMAP password login without TLS when SSL was off, 2026-09-22, §4d), **B1-1** (Medium, unbounded body fetch, 2026-07-10, §4) and **B1-2** (Medium, quadratic subject normalization, 2026-08-08, §4b). Informational notes in §5. |
+|                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Version**        | 1.31                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| **Date**           | 2026-10-04                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| **Audited commit** | `64633fe` (re-verified 2026-10-04, clearing eight acknowledgements; 1.24–1.30 anchor `b606f97`, re-verified 2026-09-29, clearing eight acknowledgements; 1.16–1.23 anchor `f6ae132`, re-verified 2026-09-27, clearing seven acknowledgements; 1.9–1.15 anchor `6224cbb`, re-verified 2026-09-22, clearing six acknowledgements; 1.7–1.8 anchor `9435e56`, re-verified 2026-09-16; 1.6 anchor `02ff962`, recorded pre-squash as `f5b75ad`; 1.5 anchor `885b98a`, re-verified 2026-09-02 at the ledger cap; 1.3–1.4 anchor `cad05cb`, recorded pre-squash as `3ff0c78`; 1.0–1.2 baseline: `35a06f3`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service`, `backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java`, `backend/src/main/java/org/voxrox/mailbackend/util/SubjectNormalizer.java`, `backend/src/main/java/org/voxrox/mailbackend/util/HeaderAddresses.java`, `backend/src/main/java/org/voxrox/mailbackend/core/config/mail`, `backend/src/main/java/org/voxrox/mailbackend/core/config/RetryConfig.java`, `backend/src/main/resources/application.properties`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/MessageRepository.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/MessageEntity.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/FolderSyncStateEntity.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/mapper/MessageMapper.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto/FolderRole.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/FolderSyncStateRepository.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/DraftRecipientsEntity.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java`, `backend/src/main/java/org/voxrox/mailbackend/core/dto/WindowedPage.java`, `backend/src/main/java/org/voxrox/mailbackend/core/dto/PagedResponse.java`, `frontend/src/lib/contacts/senderContact.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **Auditor**        | Claude (Fable 5; 1.9 re-verified by Claude Opus 5, 1.16 and 1.24 by Claude Opus 5.5, each verified by a separate agent; 1.31 is a separate agent's pass over the fixes of 1.25–1.30, by Claude Opus 5.5) + owner review                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **Subsystem**      | External mail server ↔ sidecar — Boundary 1 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| **Verdict**        | **Security: open findings** — four: two the 1.31 verification pass reopened, one the 1.24 pass reopened, and one the author found fixing B1-8 at 1.25: **B1-10** (Medium, reopened at 1.31: the nesting check still does not read every FETCH item as Angus does, and seven shapes — a FLAGS list among them — hide a nesting that overflows the stack, measured, §4j), **B1-5** (Medium, reopened at 1.31: the kept recipients' count grows by saves whenever a save cannot find the revision it replaces, which the server decides, so a thousand autosaves push out the entry of a draft it hides, §4e), **B1-14** (Medium, what an open folder keeps from its commands' FETCH responses adds up across them for a hostile server; an honest catch-up is bounded since 1.30, §4n) and **B1-12** (Medium, reopened at 1.24: a part whose structure is described in single-part form is still read whole, §4l). Fixed in code: **B1-11** (Low, a sender label with `>` before `<` made a message unopenable, found at 1.16, fixed 2026-09-28, reopened at 1.24 for the frontend's contact prefill and fixed again 2026-10-04, confirmed at 1.31, §4k), **B1-13** (Medium, each EXPUNGE cost a pass over the folder and nothing bounded how many a server sent, found at 1.24, fixed 2026-09-29, confirmed at 1.31, §4m), **B1-8** (Medium, every bound was per response while Angus holds a whole command's responses, found at 1.16, fixed 2026-09-28, reopened at 1.24 and fixed again 2026-09-29, confirmed at 1.31, §4h), **B1-9** (Medium, the lazy page fetch allocated for every position down to the page, found at 1.16, fixed 2026-09-28, §4i), **B1-6** (Low, IMAP bounded reads and connects but not writes, 2026-09-23, §4f), **B1-7** (Medium, a declared literal size was allocated before a byte arrived, found at 1.11, fixed 2026-09-22, §4g), **B1-3** (Medium, a server-stated size exhausted the heap before our code ran, 2026-09-22, §4c — per response; what a command adds up to is B1-8), **B1-4** (High, IMAP password login without TLS when SSL was off, 2026-09-22, §4d), **B1-1** (Medium, unbounded body fetch, 2026-07-10, §4) and **B1-2** (Medium, quadratic subject normalization, 2026-08-08, §4b). Informational notes in §5. |
 
 Full per-subsystem audit of the path **"raw IMAP/SMTP wire → parsed → stored /
 sent"**. After the mail body (Boundary 4), this is the second-largest
@@ -57,6 +57,18 @@ corrections listed in the 1.9 change-log entry.
 further than reading: it ran throwaway tests against a hostile server written
 for them and measured what the heap and the stack do. All six open findings
 are its, and so are most of the corrections in the 1.16 change-log entry.
+**Verification at 1.31** was a separate agent's pass over the six fixes the
+author recorded at 1.25–1.30, written in one session. It took none of their
+"Fixed" sections, acknowledgement notes or commit messages as evidence: it
+re-derived each fix from the code at `64633fe`, read Angus 2.0.5's
+`FetchResponse` and every item constructor it calls from the bytecode, and
+measured over TLS against `HostileImapServer` with a throwaway IT that was
+not committed. Claims resting only on files byte-identical to `b606f97` —
+everything under `Code paths` but the files #601–#616 changed, which `git
+diff --stat b606f97 64633fe` over those paths lists — carry the 1.24
+verification; their key values (the pinned properties, the timeouts, the
+retry policy, the extractor's, renderer's and draft-fetch caps) were
+spot-checked against the tree, not re-traced end to end.
 
 `Code paths` covers the classes the sections trace. What else they cite is
 knowingly left out, because it changes often for reasons that rarely touch
@@ -233,7 +245,9 @@ this boundary and would run the acknowledgement cap down:
   `StackOverflowError` passed every catch on the way but Spring's `@Async`
   interceptor, which only logs it — finding **B1-10** (§4j, added at 1.16).
   Since its fix (1.17) a FETCH nested past 256 levels is dropped before that
-  parse, and the message it describes takes the stub this bullet describes.
+  parse, and the message it describes takes the stub this bullet describes —
+  when the check sees the nesting, which a hostile server can still hide from
+  it (B1-10, reopened at 1.31).
 - **MIME parsing is depth-bounded.** Every recursive walk
   ([MimePartExtractor](../backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java):
   body, inline images, attachment metadata, has-attachments) is capped at
@@ -243,8 +257,9 @@ this boundary and would run the acknowledgement cap down:
   `AttachmentService.findPartByPath`, whose `message/rfc822` unwrap consumes no
   path segment (§5), and Angus's `BODYSTRUCTURE` parser, which recurses once
   per level of the structure the server reports — bounded since 1.17 by the
-  nesting check in front of it, at 256 levels (B1-10, §4j; 1.9–1.15 named
-  only the first).
+  nesting check in front of it, at 256 levels, for a server that does not hide
+  the nesting from the check, which a hostile one can (B1-10, §4j, reopened at
+  1.31; 1.9–1.15 named only the first).
 - **Inline images are strictly bounded.** Only `cid:`-referenced, raster
   subtypes are read, each via `readBounded` (reads `cap+1` bytes to detect and
   skip an oversize part without buffering it whole), with a 2 MiB per-image and
@@ -321,7 +336,8 @@ this boundary and would run the acknowledgement cap down:
   escaping into the sync is not the failure mode the bound prevents. One did
   escape into the sync until 1.17, from Angus's parse of the `BODYSTRUCTURE`
   rather than from this walk (B1-10, §4j; 1.4–1.15 read this bullet as ruling
-  it out). An earlier
+  it out), and still does from a hostile server that hides the nesting from
+  the check (measured at 1.31, when B1-10 was reopened). An earlier
   version of the test asserted no `Error` escapes and was deleted once that
   measurement showed it could not fail.
 
@@ -911,7 +927,8 @@ Orphans no longer go by age: each save keeps the account's newest
 `KEPT_DRAFT_RECIPIENTS` (1,000) entries and drops the older ones. Only the
 user's own saves add entries, and each replaces the revision before it, so
 the count grows by drafts rather than by saves; a server hiding a draft
-cannot outlast it, only a thousand drafts of the user's own work could. The
+cannot outlast it, only a thousand drafts of the user's own work could (not
+so whatever the server answers, which the 1.31 reopening below shows). The
 schema change is in `V1__init.sql`, since nothing is deployed.
 
 **Dynamic verification (1.29).** `DraftRecipientsRepositoryIT` runs on
@@ -924,11 +941,39 @@ row's account and Message-ID, so the send finds them through those alone,
 and refuses a copy with an added Bcc. Neither was run against the old code:
 the API both call changed with it.
 
-**Status: fixed at 1.29**, with the residual above: a draft the server
-presents under a Message-ID of its own is still checked like one composed
-elsewhere. Fixed at 1.14 and 1.20; reopened at 1.16, when the recipient check
-held for a draft composed here only when the server returned APPENDUID, and
-at 1.24, for the key and the age limit.
+**Reopened at 1.31** (Medium, from the verification pass; read, not
+measured). The key holds. The save keeps the entry under the Message-ID it
+minted (`<uuid@voxrox.org>`), the sync writes a row's Message-ID as the
+server's ENVELOPE reports it, and the send looks the entry up by the row's
+account and Message-ID, so a draft the server moves to another folder with
+its Message-ID intact is still checked against what was typed. The count
+does not hold as written. A save forgets the entry of the revision it
+replaces only when it finds that revision's row, in the account's current
+Drafts folder, and the server then deletes it (`saveDraftAsync`); otherwise it
+adds its own entry and forgets none. All three conditions are the server's.
+Without APPENDUID the replaced revision has no row until a sync writes one,
+and autosaves come 3 s after the user pauses (`STEADY_SAVE_DEBOUNCE_MS` in
+`frontend/src/lib/compose/session.ts`) while the sync runs every 5 min; a
+moved `\Drafts` role makes `isReplaceableDraft` refuse the old row; a refused
+delete skips the forget. So the entries grow by saves, not by drafts, and a
+server that hides one draft and withholds APPENDUID has that draft's entry
+pushed out by a thousand of the user's autosaves — hours of composing, spread
+over however long the server cares to wait — and then presents it with a Bcc
+added: the case the 1.20 and 1.29 fixes were written to close. An honest
+server without UIDPLUS inflates the count the same way, and keeps each
+superseded revision the next save came too early to find, since the save
+cannot address it to delete it.
+**Recommendation:** a bound the server's answers cannot drive — entries that
+grow by drafts whatever the server answers, for instance retiring a replaced
+revision's entry by what this client minted for it rather than by its row, or
+a bound saves cannot plausibly reach; which, at fix time.
+
+**Status: reopened at 1.31.** Fixed at 1.14, 1.20 and 1.29; reopened at
+1.16, when the recipient check held for a draft composed here only when the
+server returned APPENDUID, at 1.24, for the key and the age limit, and at
+1.31, for what the count counts. The residual above stands as well: a draft
+the server presents under a Message-ID of its own is checked like one
+composed elsewhere.
 
 ## 4f. Finding B1-6 (Low) — no IMAP write timeout — **FIXED**
 
@@ -1045,7 +1090,9 @@ A genuine parser fault is handled the same way on purpose: the connection's
 state is unknown either way, and the cause is kept for the log. That holds
 for a fault that is a `RuntimeException`. One that is an `Error` is not
 caught; the one Angus's `BODYSTRUCTURE` parser raised is prevented before the
-parse since B1-10's fix (§4j; 1.13–1.15 said every parser fault).
+parse since B1-10's fix (§4j; 1.13–1.15 said every parser fault), unless a
+hostile server hides the nesting from the check, which it still can (B1-10,
+reopened at 1.31).
 
 **Dynamic verification.** `HostileImapResponseIT` gains both shapes over the
 wire — a literal one byte past the bound, and one declared at
@@ -1249,6 +1296,17 @@ with 250,000 `* OK` lines, and the listing is refused at the budget.
 `ImapCondstoreCommandsTest` pins the two seams: which responses reach a
 handler, and that a bounded protocol charges what `readEach` drops past its
 limit.
+
+**Confirmed at 1.31**, re-derived from the code and from Angus 2.0.5's
+bytecode. `writeCommand` is the only place a budget starts: it drops the
+current one, and `readResponse` makes the next at the first response it
+reads. Every path that sends a command reaches it — `Protocol.command`,
+`authlogin`, `authplain`, `authntlm`, `authoauth2` and the SASL
+authenticator all call `writeCommand`, the continuation data of an
+AUTHENTICATE goes to the output stream without a new budget, and the client
+sends no IDLE. `readEach` hands an untagged FETCH to no handler and every
+other response to them, and the uncharged flag is cleared past its limit and
+in a `finally`. The suites named above pass at `64633fe`.
 
 **Status: fixed at 1.25**, with the residual above. What the folder keeps from
 the charged FETCH responses outlives the command that brought them, and adds
@@ -1460,7 +1518,56 @@ lower-case item name and a literal marker in a section to the nesting after
 it, and a section without its `]` to the end of the scan; with the section read
 as tokens both tests fail, which was run and seen.
 
-**Status: fixed at 1.27**, with the residual above.
+**Reopened at 1.31** (Medium, from the verification pass; measured). This
+settles what the 1.27 fix left to verify — whether the check reads every
+FETCH item the way Angus parses it — and the answer is no. Read from Angus
+2.0.5's bytecode, `FetchResponse.parse` hands each item to a constructor of
+its own, and several of them consume bytes without tokenizing them:
+
+- `FLAGS` reads its list with `IMAPResponse.readSimpleList`, raw from `(` to
+  the first `)`. A `"` or a `{n}` inside it is a flag's text to Angus and a
+  string or a literal to the check; a `(` inside it leaves the check a level
+  deeper than Angus, where it no longer looks for a `BODY[` section.
+- A NIL is recognized by its first letter. `parseString`, which reads the
+  strings, literals and NILs of `ENVELOPE`, `RFC822`, `BODY` and
+  `BODYSTRUCTURE`, takes an `N` or `n` and skips the next two bytes unread, and
+  `BODYSTRUCTURE`'s and `ENVELOPE`'s own NIL tests do the same.
+- A literal is taken from its `{n}` without the CRLF the check requires:
+  `parseString` skips the two bytes after `}` unread and then `n` more, where
+  the check, finding no CRLF, reads on.
+- `BODY` consumes the byte after its section's `]` whatever it is
+  (`readByte`), and the byte after an origin's number (`skip(1)`).
+
+Each lets a `"` stand where the check opens a string Angus never sees, so the
+structure after it goes uncounted and Angus parses it by recursion. Measured
+over TLS with a throwaway IT against `HostileImapServer`, each placed ahead of
+the 200,000-level structure of the 1.17 test: `FLAGS (")`, `FLAGS ({n}` with
+the literal holding `) BODYSTRUCTURE …`, `FLAGS (((a)` ahead of a `BODY[x"]`,
+`RFC822 N"x`, `RFC822 {3}xx"ab`, `BODY[]"NIL` and `BODY[]<0" NIL`. All seven
+end the pass in a `StackOverflowError` from the `BODYSTRUCTURE` constructor,
+the 1.16 failure: the account's sync stops on every cycle with nothing
+recorded. The same structure without them is dropped and the pass completes,
+so the check was in place.
+
+A sender cannot produce these. Each is malformed IMAP that a conforming
+server does not write — a quote in a FLAGS list, a NIL that is not one, a
+literal that does not end its line — so it takes a hostile or compromised
+server, and the severity stays **Medium**, B1-10's own.
+
+**Recommendation.** Stop modelling Angus's item parsers one reading at a
+time: three versions of the check have now been bypassed by the next
+reading. Either port into the scan what `FetchResponse.parse` and each item
+constructor of 2.0.5 consume — the FLAGS list to its first `)`, a NIL as one
+letter and two unread bytes, a literal from its `}` and two unread bytes,
+BODY's byte after `]` and after an origin — pinned to the version as the
+hooks already are; or count every parenthesis of the response, inside quoted
+strings and literal data too, accepting that a message whose envelope,
+structure or body chunk opens more than 256 then loses its structure or its
+body. Skipping literal data alone is not safe: `FLAGS` reads on into a
+literal's data. Which of the two is a decision at fix time.
+
+**Status: reopened at 1.31.** Fixed at 1.17 and 1.27; reopened at 1.24, for a
+quote in a `BODY` section, and at 1.31, for the other items.
 
 ## 4k. Finding B1-11 (Low) — a sender label with `>` before `<` breaks opening the message — **FIXED**
 
@@ -1530,6 +1637,13 @@ brackets; against the old reading the first prefilled `alice@evil.example`,
 the second seeded nothing, which hides the add-contact offer, and the third accepted the label, which was
 run and seen.
 
+**Confirmed at 1.31**, by reading. `senderContactSeed` takes the label apart
+as `HeaderAddresses.labelAddress` and `parseLabel` do: the last `<` when the
+trimmed label ends with `>`, the label itself otherwise, and the text before
+that `<` as the name. No sixth reader was found: the frontend's other uses of
+the sender label display it. `senderContact.test.ts` and `HeaderAddressesTest`
+pass at `64633fe`.
+
 **Status: fixed at 1.28**, with the residual above.
 
 ## 4l. Finding B1-12 (Medium) — the attachment lookup reads a text part on the path whole into memory — **REOPENED**
@@ -1587,6 +1701,14 @@ or `MimeMessage(Session, InputStream)`. The "reads no body at all" and
 object, judged by the structure it parsed rather than by the declared type,
 and otherwise treat the part as a leaf.
 
+**Still open at 1.31**, re-read rather than measured. `findPartByPath` still
+decides by `isMimeType` (#608 changed only the message keys its exceptions
+name), and in Angus 2.0.5's bytecode `IMAPMessage.getDataHandler` builds an
+`IMAPMultipartDataSource` only for a structure parsed in multipart form
+(`BODYSTRUCTURE.isMulti`) and an `IMAPNestedMessage` only for a nested one
+with an envelope on an IMAP4rev1 server; everything else falls through to
+`MimeMessage`'s own handler.
+
 **Status: reopened at 1.24.**
 
 ## 4m. Finding B1-13 (Medium) — each EXPUNGE costs a pass over the folder, and a server can send them without end — **FIXED**
@@ -1628,7 +1750,9 @@ selection, plus the expunged entries Angus keeps in it until the folder closes.
 Past `MAX_SELECTION_EXPUNGE_STEPS` = 1,000 × `MAX_MESSAGES` = 2,000,000,000
 steps the response is refused as B1-3's are: the connection closed, the command
 failed. That is 999 EXPUNGEs at 2,000,000 messages, about half a second at the
-measured rate, or a hundred thousand in a folder of 20,000. The charge is an
+measured rate, or some 46,000 in a folder of 20,000 (1.26–1.30 said a hundred
+thousand, which leaves out the expunged entries each EXPUNGE is also charged
+for; the javadoc of `MAX_SELECTION_EXPUNGE_STEPS` still says so). The charge is an
 upper bound — Angus ignores an EXPUNGE past its count and a VANISHED UID it does
 not know — and the EARLIER form is not charged, since Angus expands it without
 expunging. The value is the author's, under the owner's standing decision of
@@ -1654,6 +1778,14 @@ this one has it selected, costs a retried cycle, not the folder: the
 reconnected SELECT reports what is left in its EXISTS count, with no EXPUNGE to
 process.
 
+**Confirmed at 1.31**, by reading and by the suites above, which pass at
+`64633fe`. A selection budget starts only at a SELECT or EXAMINE the client
+writes, and is charged for every response the connection reads, the FETCH
+responses `readEach` leaves uncharged included: the selection charge comes
+before the command budget's exemption. The bounds were recounted with the
+class's own charge, one EXPUNGE at a time, which gave the 999 above and the
+corrected 46,000.
+
 **Status: fixed at 1.26**, with the residual above.
 
 ## 4n. Finding B1-14 (Medium) — what the folder keeps from FETCH responses adds up across the commands of one open folder — **OPEN**
@@ -1667,10 +1799,14 @@ command runs; what the handler kept from them outlives it. Measured at 1.25:
 `HostileImapResponseIT` answers one `getMessageByUID` with 100,000 lines
 renaming the folder's one message — about 30 MB of the 64 MiB budget, so
 admitted — and the folder's UID table holds 100,000 entries after the command
-ends. A sync pass opens a folder once and sends a command per batch of 200 new
-messages, up to the 10,000-message local window: some fifty commands, each of
-which can leave some 220,000 entries, eleven million in all, at about 50 bytes
-each by object layout (not measured) — past the heap. With EXISTS at the
+ends. A sync pass opens a folder once and, for new mail, sends two commands
+per window of 100 UIDs — the `getMessagesByUID` that names the window and the
+`fetch` that loads it — up to the 10,000-message local window: at least two
+hundred commands, each of which can leave some 220,000 entries, over forty
+million in all, at about 50 bytes each by object layout (not measured) — past
+the heap. (1.25–1.30 said a command per batch of 200 and some fifty commands,
+eleven million entries; `downloadRangeInternal` goes by `window-size`, not
+`batch-size`. The conclusion is the same.) With EXISTS at the
 2,000,000 B1-3 admits, FETCH responses naming every sequence number make an
 `IMAPMessage` for each as well. Found by the author while fixing B1-8's
 reopening; the streamed listing, its largest instance, no longer hands its
@@ -1732,6 +1868,24 @@ the fourth is never fetched, and the rows below the oldest of them are
 deleted. Against the old download all four came down, which was run and
 seen. A catch-up within the window comes down whole and deletes nothing.
 
+**Verified at 1.31.** The honest half, re-derived from
+`downloadRangeInternal`: windows from the newest UID down, the count checked
+before each window, the last window trimmed to its newest messages, and —
+only when the range was cut short — `deleteOlderThan` by the UID of the
+oldest message reached, before `syncFlagsAndDeletions` looks for holes; the
+pruner runs after the cycle (`enforceLocalWindowLimitAsync`). The count is of
+messages the fetch mapped, not of messages the folder was handed, so a window
+whose fetch maps nothing does not count towards it; that is the hostile
+half's question, not the honest one's. The 1.30 correction holds:
+`saveMessagesBatchAtomic` moves the last known UID to the top of each batch
+and the first batch is the newest, and `reconcileServerOnlyUids` downloads
+every hole the UID listing reveals, in batches of `batch-size` within one
+open folder, with no count bound but the listing's own `MAX_MESSAGES`. The
+hostile half was measured again with the throwaway IT: one `getMessageByUID`
+answered with 100,000 lines renaming the folder's one message left 100,000
+entries in its UID table, as at 1.25. `MessageDownloaderTest` passes at
+`64633fe`.
+
 **Status: open.** Still open: the hostile half — what the charged FETCH
 responses leave in the open folder, bounded in bytes, at a size measured from
 an honest pass — and the count of holes the reconcile path downloads.
@@ -1776,7 +1930,9 @@ an honest pass — and the count of holes the reconcile path downloads.
   step before the copy was not disk-bounded until 1.18: a text part it
   descended through, or the body of a single-part text message, it read whole
   into memory — B1-12 (§4l, added at 1.16). It now asks only a multipart or an
-  encapsulated message for its content.
+  encapsulated message for its content, judged by the declared type, which a
+  server can still make read a part whole (B1-12, reopened at 1.24; this note
+  said nothing of it until 1.31).
 
 - **Attachment part lookup follows `message/rfc822` without a bound** (added
   at 1.9). `AttachmentService.findPartByPath` walks the stored part path, but
@@ -1786,7 +1942,9 @@ an honest pass — and the count of holes the reconcile path downloads.
   user-initiated download and ends in a `StackOverflowError` on that request.
   Since 1.17 the chain is bounded all the same: the lookup walks the structure
   Angus parsed from a FETCH, and a FETCH nested past 256 levels is dropped
-  (B1-10, §4j), so the recursion stays in the hundreds of frames.
+  (B1-10, §4j), so the recursion stays in the hundreds of frames. A server
+  that hides the nesting from the check (B1-10, reopened at 1.31) gets its
+  overflow earlier, in Angus's parse of that FETCH, before this lookup runs.
 
 - **The `From` label decided the address used downstream** (added at 1.9,
   see §3; closed at 1.19). A personal name containing `<…>` became the
@@ -1837,6 +1995,36 @@ an honest pass — and the count of holes the reconcile path downloads.
 - [backend/SECURITY_RELEASE_CHECK.md](../backend/SECURITY_RELEASE_CHECK.md) — per-release security gate.
 
 ## 7. Change log
+
+- **1.31** (2026-10-04) — **re-verified against `64633fe`, clearing all eight
+  acknowledgements; two fixes reopened, so four findings are open** (#620).
+  A separate agent's pass over the six fixes 1.25–1.30 recorded, re-derived
+  from the code and Angus 2.0.5's bytecode rather than from their write-ups,
+  with a throwaway IT over TLS where a claim is measured (method statement):
+  - **B1-10 reopened** (Medium, §4j; measured). It settles the item 1.27 left
+    to verify: the check does not read every FETCH item as Angus does. FLAGS
+    reads its list raw to the first `)`, a NIL is one letter and two unread
+    bytes, a literal needs no CRLF, and BODY consumes the byte after its `]`
+    and after an origin, so a `"` in any of those places hides the nesting.
+    Seven shapes, `FLAGS (")` among them, each end the pass in a
+    `StackOverflowError` from the `BODYSTRUCTURE` constructor.
+  - **B1-5 reopened** (Medium, §4e; read). The Message-ID key holds; the
+    count does not, since a save forgets the replaced revision's entry only
+    when it finds that revision's row, and a server that withholds APPENDUID
+    decides that it does not, so the entries grow by saves and a thousand
+    autosaves push out a hidden draft's entry.
+  - **Confirmed**: B1-8 (§4h), B1-13 (§4m), B1-11 (§4k) and B1-14's honest
+    half (§4n), each re-derived and its suites run. B1-12 and B1-14's hostile
+    half stay open; the latter re-measured, 100,000 UID-table entries from one
+    admitted command.
+
+  Corrections: §4m's "a hundred thousand in a folder of 20,000" is some 46,000
+  (the charge counts the expunged entries too; the constant's javadoc says
+  the same and is left for the next change to that class); §4n counted the
+  commands of a pass by `batch-size` and is now at least two hundred, by
+  `window-size`; §5's attachment note now says B1-12 is open again. §2, §4g
+  and §5 qualify their statements that the nesting check prevents the
+  overflow.
 
 - **1.30** (2026-10-04) — **B1-14, honest half fixed** (#616): a catch-up
   downloads at most `local-window-limit` new messages in one open folder,

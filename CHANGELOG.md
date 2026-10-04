@@ -75,6 +75,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- **The IMAP/SMTP audit is re-verified against `64633fe`, and its verification pass reopens B1-10 and B1-5 (#620).** [IMAP_SMTP_AUDIT.md](docs/IMAP_SMTP_AUDIT.md) 1.31 clears the eight acknowledgements and confirms the fixes for B1-8, B1-13, B1-11 and B1-14's honest half. The nesting check still does not read every FETCH item as Angus does: a quote in a FLAGS list, after a NIL, in a literal without its line end, or after a BODY section hides the nesting, and seven such shapes, measured over TLS, end the sync in a `StackOverflowError` again. The kept draft recipients grow by saves whenever a save cannot find the revision it replaces, which a server withholding APPENDUID decides. Four findings are open; the threat model and the verdict index follow.
+
 - **The palette e2e test for a double Ctrl+K waits for the inbox to take focus before it focuses the Archive link (#619).** "/" redirects to the inbox only once the folders have loaded, and the new page then moves focus to its heading; when that landed after the test focused the link, the palette opened from the heading and Escape returned there. CI failed it on 2026-09-28 and on #618. On a CPU throttled eightfold the old order lost the link's focus to the landing once in fifteen runs, and the new one passed all fifteen.
 
 - **The release checklist lists what has merged since #598 as waiting for the next cut (#618).** Its own rule says each fix adds its number when it merges, and #599 to #617 had not; the list now names them, so the re-cut before section 3 can be checked against it.
