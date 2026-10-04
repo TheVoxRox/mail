@@ -75,6 +75,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- **The release checklist lists what has merged since #598 as waiting for the next cut (#618).** Its own rule says each fix adds its number when it merges, and #599 to #617 had not; the list now names them, so the re-cut before section 3 can be checked against it.
+
 - **Frontend dependencies, combined with the Tauri bump (#617).** bits-ui 2.19.4, Svelte 5.57.1, Vite 8.3.2, Vitest 5.0.3, ESLint 10.11.0, typescript-eslint 8.71.0, knip 6.39.0, Prettier 3.9.9 and smaller bumps, from dependabot's #613 and #614, which go in with #615's Rust half in one PR so the JavaScript and Rust sides of Tauri never stand at different versions.
 
 - **The Maven wrapper moves to Maven 3.10.0 and NullAway to 0.14.2 (#611).** The wrapper's Maven is what CodeQL's autobuild builds the Java database with, and its `Analyze (java-kotlin)` check passed on it. Dependabot committed `backend/mvnw.cmd` through the GitHub API with CRLF in the index, which `check:eol` refuses; the PR renormalizes it to what `.gitattributes` declares.
