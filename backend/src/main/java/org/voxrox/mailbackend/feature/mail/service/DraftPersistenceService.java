@@ -59,10 +59,13 @@ public class DraftPersistenceService {
     private final DraftRecipientsRepository draftRecipientsRepository;
 
     /**
-     * The age past which a typed-recipients entry whose draft has no row is dropped
-     * by the account's next save (see {@link #keepTypedRecipients}).
+     * How many typed-recipients entries an account keeps, newest first (see
+     * {@link #keepTypedRecipients}). Each save replaces the revision before it, so
+     * this counts drafts saved here and neither sent nor deleted by this client — a
+     * thousand of those is far past any real mailbox, and the bound is what stops
+     * entries for drafts deleted elsewhere from piling up.
      */
-    private static final Duration DRAFT_RECIPIENTS_TTL = Duration.ofDays(7);
+    static final int KEPT_DRAFT_RECIPIENTS = 1_000;
 
     public DraftPersistenceService(AccountService accountService, ImapFolderService imapFolderService,
             MessageService messageService, ImapActionService imapActionService, ImapAppendService appendService,
@@ -133,6 +136,7 @@ public class DraftPersistenceService {
              */
             String oldFolder = null;
             Long oldUid = null;
+            String oldMessageId = null;
             if (replacesStableId != null && !replacesStableId.isBlank()) {
                 MessageEntity old = messageService.getByStableId(replacesStableId).orElse(null);
                 if (old == null) {
@@ -149,6 +153,7 @@ public class DraftPersistenceService {
                 } else {
                     oldFolder = old.getFolderName();
                     oldUid = old.getUid();
+                    oldMessageId = old.getMessageId();
                 }
             }
 
@@ -174,7 +179,7 @@ public class DraftPersistenceService {
                 try {
                     imapActionService.hardDelete(accountId, oldFolder, oldUid);
                     messageService.deleteByStableId(replacesStableId);
-                    forgetTypedRecipients(replacesStableId);
+                    forgetTypedRecipients(accountId, oldMessageId);
                 } catch (Exception cleanupEx) {
                     log.warn("{} Failed to delete previous draft revision {} (UID {} in {}): {}", LogCategory.SMTP,
                             replacesStableId, oldUid, oldFolder, cleanupEx.getMessage());
@@ -293,7 +298,7 @@ public class DraftPersistenceService {
             }
             imapActionService.hardDelete(accountId, draft.getFolderName(), draft.getUid());
             messageService.deleteByStableId(stableId);
-            forgetTypedRecipients(stableId);
+            forgetTypedRecipients(accountId, draft.getMessageId());
         } catch (Exception e) {
             log.warn("{} Failed to delete superseded draft {} after a successful send: {}", LogCategory.SMTP, stableId,
                     e.getMessage());
@@ -385,15 +390,15 @@ public class DraftPersistenceService {
      * Written before the append, not after it: once the server holds the draft it
      * can announce it and a send can follow at once. Best-effort like the row: a
      * failure here costs this draft the check against what was typed, not the save.
-     * The account's entries older than {@link #DRAFT_RECIPIENTS_TTL} whose draft
-     * has no row go at the same time.
+     * The entry is keyed by the Message-ID this save minted, which no folder the
+     * server moves the draft to changes. The account's entries beyond its newest
+     * {@link #KEPT_DRAFT_RECIPIENTS} go at the same time.
      */
     private void keepTypedRecipients(AccountEntity account, DraftIdentity identity, DraftRequest request) {
         try {
-            LocalDateTime now = LocalDateTime.now();
-            draftRecipientsRepository.deleteOrphansSavedBefore(account.getId(), now.minus(DRAFT_RECIPIENTS_TTL));
-            draftRecipientsRepository.save(new DraftRecipientsEntity(identity.stableId(), account, request.to(),
-                    request.cc(), request.bcc(), now));
+            draftRecipientsRepository.deleteAllButNewest(account.getId(), KEPT_DRAFT_RECIPIENTS - 1);
+            draftRecipientsRepository.save(new DraftRecipientsEntity(account.getId(), identity.messageId(),
+                    request.to(), request.cc(), request.bcc(), LocalDateTime.now()));
         } catch (Exception e) {
             log.warn("{} Could not keep the recipients of draft {}; sending it untouched checks the row instead: {}",
                     LogCategory.SMTP, identity.stableId(), e.getMessage());
@@ -402,25 +407,31 @@ public class DraftPersistenceService {
 
     /**
      * What the user addressed a draft saved here to, as
-     * {@link #keepTypedRecipients} kept it; empty for a draft composed in another
-     * client, or saved before the entry could be written.
+     * {@link #keepTypedRecipients} kept it under the draft's Message-ID; empty for
+     * a draft composed in another client, one the server presents under a
+     * Message-ID of its own, or one saved before the entry could be written.
      */
-    public Optional<DraftRecipientsEntity> typedRecipients(String stableId) {
-        return draftRecipientsRepository.findById(stableId);
+    public Optional<DraftRecipientsEntity> typedRecipients(Long accountId, @Nullable String messageId) {
+        return messageId == null
+                ? Optional.empty()
+                : draftRecipientsRepository.findById(new DraftRecipientsEntity.Key(accountId, messageId));
     }
 
     /**
      * Drops the typed recipients of a draft this client has just deleted or sent.
      * Every autosave deletes the revision it replaces, so this keeps the entries to
-     * about one per draft; what it misses has no row and goes with the next save
-     * once it is {@link #DRAFT_RECIPIENTS_TTL} old.
+     * about one per draft; what it misses goes once the account has
+     * {@link #KEPT_DRAFT_RECIPIENTS} newer ones.
      */
-    public void forgetTypedRecipients(String stableId) {
+    public void forgetTypedRecipients(Long accountId, @Nullable String messageId) {
+        if (messageId == null) {
+            return;
+        }
         try {
-            draftRecipientsRepository.deleteById(stableId);
+            draftRecipientsRepository.deleteById(new DraftRecipientsEntity.Key(accountId, messageId));
         } catch (Exception e) {
-            log.debug("{} Could not drop the kept recipients of draft {}; the next save drops them: {}",
-                    LogCategory.SMTP, stableId, e.getMessage());
+            log.debug("{} Could not drop the kept recipients of draft {} of account {}: {}", LogCategory.SMTP,
+                    messageId, accountId, e.getMessage());
         }
     }
 

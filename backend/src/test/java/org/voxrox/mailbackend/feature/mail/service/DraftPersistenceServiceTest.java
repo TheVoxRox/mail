@@ -60,6 +60,7 @@ class DraftPersistenceServiceTest {
     private static final Long ACCOUNT_ID = 11L;
     private static final Long OTHER_ACCOUNT_ID = 22L;
     private static final String STABLE_ID = "draft-stable-id";
+    private static final String MESSAGE_ID = "<draft@voxrox.org>";
     private static final DraftPersistenceService.DraftIdentity IDENTITY = new DraftPersistenceService.DraftIdentity(
             "<test-draft@voxrox.org>", "Drafts", "stable-new-revision");
 
@@ -94,6 +95,7 @@ class DraftPersistenceServiceTest {
             account.setId(ACCOUNT_ID);
             MessageEntity old = new MessageEntity();
             old.setStableId(STABLE_ID);
+            old.setMessageId(MESSAGE_ID);
             old.setAccount(account);
             old.setFolderName("Drafts");
             old.setUid(100L);
@@ -160,7 +162,7 @@ class DraftPersistenceServiceTest {
             verify(imapActionService).hardDelete(ACCOUNT_ID, "Drafts", 100L);
             verify(messageService).deleteByStableId(STABLE_ID);
             // The replaced revision's typed recipients go with it (B1-5).
-            verify(draftRecipientsRepository).deleteById(STABLE_ID);
+            verify(draftRecipientsRepository).deleteById(new DraftRecipientsEntity.Key(ACCOUNT_ID, MESSAGE_ID));
             // Conditional clear scoped to send-pipeline codes — a successful draft
             // save must not wipe a standing sync error (shared last_error slot).
             verify(accountRepository).clearLastErrorIfCodeIn(eq(ACCOUNT_ID), any());
@@ -289,7 +291,7 @@ class DraftPersistenceServiceTest {
             verifyNoInteractions(messageMapper);
             ArgumentCaptor<DraftRecipientsEntity> kept = ArgumentCaptor.forClass(DraftRecipientsEntity.class);
             verify(draftRecipientsRepository).save(kept.capture());
-            assertThat(kept.getValue().getStableId()).isEqualTo(IDENTITY.stableId());
+            assertThat(kept.getValue().getMessageId()).isEqualTo(IDENTITY.messageId());
             assertThat(kept.getValue().getRecipientsTo()).isEqualTo("to@example.com");
             assertThat(kept.getValue().getRecipientsCc()).isEqualTo("cc@example.com");
             assertThat(kept.getValue().getRecipientsBcc()).isEqualTo("bcc@example.com");
@@ -315,17 +317,18 @@ class DraftPersistenceServiceTest {
         }
 
         @Test
-        @DisplayName("Keeping recipients drops the account's week-old entries whose draft has no row")
-        void keepingRecipientsDropsOrphanedEntries() throws Exception {
+        @DisplayName("Keeping recipients drops the account's entries beyond its newest, by count and not by age")
+        void keepingRecipientsKeepsTheNewestEntries() throws Exception {
             savesWithoutAppendUid();
-            LocalDateTime before = LocalDateTime.now();
 
             service.saveDraftAsync(ACCOUNT_ID,
                     new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null, IDENTITY);
 
-            ArgumentCaptor<LocalDateTime> cutoff = ArgumentCaptor.forClass(LocalDateTime.class);
-            verify(draftRecipientsRepository).deleteOrphansSavedBefore(eq(ACCOUNT_ID), cutoff.capture());
-            assertThat(cutoff.getValue()).isBetween(before.minusDays(7), LocalDateTime.now().minusDays(7));
+            // One fewer than the bound, so the entry this save adds makes it whole.
+            InOrder order = inOrder(draftRecipientsRepository);
+            order.verify(draftRecipientsRepository).deleteAllButNewest(ACCOUNT_ID,
+                    DraftPersistenceService.KEPT_DRAFT_RECIPIENTS - 1);
+            order.verify(draftRecipientsRepository).save(any());
         }
 
         @Test
@@ -361,6 +364,7 @@ class DraftPersistenceServiceTest {
             account.setId(ACCOUNT_ID);
             MessageEntity draft = new MessageEntity();
             draft.setStableId(STABLE_ID);
+            draft.setMessageId(MESSAGE_ID);
             draft.setAccount(account);
             draft.setFolderName("Drafts");
             draft.setUid(100L);
@@ -377,7 +381,7 @@ class DraftPersistenceServiceTest {
 
             verify(imapActionService).hardDelete(ACCOUNT_ID, "Drafts", 100L);
             verify(messageService).deleteByStableId(STABLE_ID);
-            verify(draftRecipientsRepository).deleteById(STABLE_ID);
+            verify(draftRecipientsRepository).deleteById(new DraftRecipientsEntity.Key(ACCOUNT_ID, MESSAGE_ID));
         }
 
         @Test

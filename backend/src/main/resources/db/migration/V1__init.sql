@@ -601,21 +601,27 @@ CREATE UNIQUE INDEX ux_correspondent_account_email
 -- row itself, by changing UIDVALIDITY, or by presenting the draft under a
 -- new UID. An entry here is written by the save and read by the send.
 --
--- Keyed by the draft's stable id, which derives from the Message-ID the
--- client minted, so it is known before the server answers; every save writes
--- its entry before the APPEND. Deleted with the draft when this client
--- deletes it (the revision an autosave replaces, a sent draft); an entry
--- over a week old whose draft has no row is dropped by the account's next
--- save. A draft composed in another client has no entry, and its check
--- falls back to the row.
+-- Keyed by the account and the Message-ID the client minted for the save,
+-- which is known before the server answers and which no folder the server
+-- moves the draft to changes; every save writes its entry before the
+-- APPEND. Not by the stable id: that hashes the Drafts folder's name too, so
+-- a server moving the \Drafts role gave the draft an id with no entry.
+-- Deleted with the draft when this client deletes it (the revision an
+-- autosave replaces, a sent draft); beyond that, each save keeps the
+-- account's newest entries, as many as DraftPersistenceService's
+-- KEPT_DRAFT_RECIPIENTS. Not by age: a server could hide a draft for as long
+-- as an age limit ran, and only the user's own saves add entries. A draft
+-- composed in another client has no entry, and its check falls back to the
+-- row.
 -- =====================================================================
 CREATE TABLE draft_recipients (
-    stable_id      VARCHAR(32)  PRIMARY KEY,
     account_id     INTEGER      NOT NULL,
+    message_id     VARCHAR(255) NOT NULL,
     recipients_to  TEXT,
     recipients_cc  TEXT,
     recipients_bcc TEXT,
     saved_at       DATETIME     NOT NULL,
+    PRIMARY KEY (account_id, message_id),
     FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
 );
 
