@@ -21,6 +21,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Backend
 
+- **Catching up on a folder that received a huge number of messages at once no longer tries to hold them all in memory (#616).** When another program moved a few hundred thousand messages into a folder, the next sync downloaded every one of them in a single pass, holding them all until the folder closed — enough to run the app out of memory — only to delete all but the newest it keeps for a folder right afterwards. It now downloads only those newest messages; the older ones stay on the server and appear as you page down, as older mail always has.
+
 - **A draft keeps its check against the recipients you typed even if the mail server moves it to another folder (#610).** Sending a draft unedited sends the server's copy, so the app checks that copy's recipients against the ones you typed and refuses the send if a server added someone. Those typed recipients were filed under an id that includes the Drafts folder's name, so a server that moved the draft to another folder, or hid it for a week, left the check comparing the server's copy with itself. They are now filed under the account and the message's own id, which a move does not change, and kept until you have saved a thousand newer drafts rather than for a week.
 
 - **"Not found" and invalid-request errors speak the reader's language too (#608).** After #607 the rest of the API still answered a missing message, draft, conversation, folder or contact address, and the sign-in window opened outside a sign-in, with "The requested resource was not found: Message not found: …" — the English sentence the app wrote for its log, internal ids included. Each now has a message of its own that says what is missing and, where it helps, why: a message deleted or moved in another program, a folder deleted or renamed on the server.
@@ -74,6 +76,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 ### Repo
 
 - **Frontend dependencies, combined with the Tauri bump (#617).** bits-ui 2.19.4, Svelte 5.57.1, Vite 8.3.2, Vitest 5.0.3, ESLint 10.11.0, typescript-eslint 8.71.0, knip 6.39.0, Prettier 3.9.9 and smaller bumps, from dependabot's #613 and #614, which go in with #615's Rust half in one PR so the JavaScript and Rust sides of Tauri never stand at different versions.
+
+- **The Maven wrapper moves to Maven 3.10.0 and NullAway to 0.14.2 (#611).** The wrapper's Maven is what CodeQL's autobuild builds the Java database with, and its `Analyze (java-kotlin)` check passed on it. Dependabot committed `backend/mvnw.cmd` through the GitHub API with CRLF in the index, which `check:eol` refuses; the PR renormalizes it to what `.gitattributes` declares.
 
 - **The print e2e test for Ctrl+P on an open message waits for focus to land in the message body before it presses the key (#606).** Opening a message moves focus into the body frame a frame later, and a key sent before that can land in a frame not yet listening; CI lost the test's Ctrl+P on #604 with the focus in the frame at the end. The palette test in the same file already waited.
 
