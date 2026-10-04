@@ -69,9 +69,15 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 - **A delete from the grouped list now says what it deleted, as a delete of the open message always has.** The row actions menu and the bulk bar of the conversation view reported a bare count ("Smazáno: 3."), which told a screen-reader user neither which message went nor that deleting one conversation row had taken three. A single message is now announced by its own subject ("Zpráva smazána: …"), the same sentence the open message's delete uses, and one conversation — whole or only some of its ticked messages — by its subject and how many of its messages went ("Smazány 3 zprávy z konverzace: …"). A selection across several conversations, and any delete in which something failed, keeps the count.
 
+### Tauri / Release
+
+- **Tauri 2.12.1 (#617).** It brings wry 0.57, whose fix (tauri-apps/wry#1799) the app has been waiting for: minimizing the window while it was still starting left the app running in the tray with no window and no way to open one. The fix is upstream's; checking it on a release build is still a manual step (`todo.md`). The Tauri plugins move with it on both sides — fs 2.6.0, http 2.8.0, shell 2.4.0, and on the Rust side updater 2.13.1, single-instance 2.5.2 and log 2.10.0 — and `webview2-com` 0.39 and `windows-core` 0.62 are raised by hand to the versions the new wry builds with, since dependabot ignores them and the Ubuntu CI does not compile the Windows-only code that uses them; that was built on Windows.
+
 ### Repo
 
 - **The release checklist lists what has merged since #598 as waiting for the next cut (#618).** Its own rule says each fix adds its number when it merges, and #599 to #617 had not; the list now names them, so the re-cut before section 3 can be checked against it.
+
+- **Frontend dependencies, combined with the Tauri bump (#617).** bits-ui 2.19.4, Svelte 5.57.1, Vite 8.3.2, Vitest 5.0.3, ESLint 10.11.0, typescript-eslint 8.71.0, knip 6.39.0, Prettier 3.9.9 and smaller bumps, from dependabot's #613 and #614, which go in with #615's Rust half in one PR so the JavaScript and Rust sides of Tauri never stand at different versions.
 
 - **The Maven wrapper moves to Maven 3.10.0 and NullAway to 0.14.2 (#611).** The wrapper's Maven is what CodeQL's autobuild builds the Java database with, and its `Analyze (java-kotlin)` check passed on it. Dependabot committed `backend/mvnw.cmd` through the GitHub API with CRLF in the index, which `check:eol` refuses; the PR renormalizes it to what `.gitattributes` declares.
 
