@@ -75,6 +75,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- **Pushing from a linked worktree no longer breaks the repository it pushes from (#620).** The pre-push hook of a linked worktree exports `GIT_DIR`, and two unit tests ran git in their own process with it: `gate-repo.test.mjs`'s `git init` re-initialised the real repository and set `core.bare=true` in the config every worktree shares, which left the main checkout unusable, and `a11y-target.test.ts`'s `git ls-files` listed nothing. #597 had made the gate harness drop those variables but not these two tests. Both now drop them for their own git calls; under a simulated hook the whole unit suite passes and leaves a throwaway repository's config untouched, where the old tests set `core.bare=true` in it.
+
 - **The palette e2e test for a double Ctrl+K waits for the inbox to take focus before it focuses the Archive link (#619).** "/" redirects to the inbox only once the folders have loaded, and the new page then moves focus to its heading; when that landed after the test focused the link, the palette opened from the heading and Escape returned there. CI failed it on 2026-09-28 and on #618. On a CPU throttled eightfold the old order lost the link's focus to the landing once in fifteen runs, and the new one passed all fifteen.
 
 - **The release checklist lists what has merged since #598 as waiting for the next cut (#618).** Its own rule says each fix adds its number when it merges, and #599 to #617 had not; the list now names them, so the re-cut before section 3 can be checked against it.
