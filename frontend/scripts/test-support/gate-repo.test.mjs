@@ -13,11 +13,24 @@ import { expect, it } from 'vitest';
  * pushed: on 2026-09-28 that set core.bare=true and a test identity in the
  * real repository's config. Here the inherited GIT_DIR points at a throwaway
  * repository instead, and the harness has to leave it alone.
+ *
+ * The test's own git calls need the same care, and did not have it: run from
+ * that hook, its `git init` re-initialised the real repository, set
+ * core.bare=true in the config every worktree shares, and broke the main
+ * checkout (2026-10-04). So they run without the variables that point git at a
+ * repository, and the child gets only the GIT_DIR this test means it to have.
  */
+const gitEnv = { ...process.env };
+for (const name of execFileSync('git', ['rev-parse', '--local-env-vars'], { encoding: 'utf8' })
+	.split('\n')
+	.filter(Boolean)) {
+	delete gitEnv[name];
+}
+
 it('a fixture ignores a GIT_DIR the process inherited', () => {
 	const outside = mkdtempSync(path.join(os.tmpdir(), 'voxrox-outside-'));
 	try {
-		execFileSync('git', ['init', '--quiet'], { cwd: outside });
+		execFileSync('git', ['init', '--quiet'], { cwd: outside, env: gitEnv });
 		const harness = pathToFileURL(
 			path.join(path.dirname(fileURLToPath(import.meta.url)), 'gate-repo.mjs')
 		).href;
@@ -31,7 +44,7 @@ it('a fixture ignores a GIT_DIR the process inherited', () => {
 		].join('\n');
 
 		const child = spawnSync(process.execPath, ['--input-type=module', '-e', script], {
-			env: { ...process.env, GIT_DIR: path.join(outside, '.git') },
+			env: { ...gitEnv, GIT_DIR: path.join(outside, '.git') },
 			encoding: 'utf8'
 		});
 
@@ -41,6 +54,7 @@ it('a fixture ignores a GIT_DIR the process inherited', () => {
 		// ...and wrote nothing into the repository the variable named.
 		const config = execFileSync('git', ['config', '--local', '--list'], {
 			cwd: outside,
+			env: gitEnv,
 			encoding: 'utf8'
 		});
 		expect(config).toContain('core.bare=false');

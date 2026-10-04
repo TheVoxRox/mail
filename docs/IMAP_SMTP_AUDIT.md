@@ -1997,7 +1997,7 @@ an honest pass — and the count of holes the reconcile path downloads.
 ## 7. Change log
 
 - **1.31** (2026-10-04) — **re-verified against `64633fe`, clearing all eight
-  acknowledgements; two fixes reopened, so four findings are open** (#620).
+  acknowledgements; two fixes reopened, so four findings are open** (#622).
   A separate agent's pass over the six fixes 1.25–1.30 recorded, re-derived
   from the code and Angus 2.0.5's bytecode rather than from their write-ups,
   with a throwaway IT over TLS where a claim is measured (method statement):
