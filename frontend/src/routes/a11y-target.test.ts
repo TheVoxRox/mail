@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
+import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { FORCED_RULES, WCAG_TAGS } from './a11y-target.js';
@@ -76,10 +77,20 @@ describe('WCAG conformance target', () => {
 describe('axe scans in the e2e suites', () => {
 	/*
 	 * Tracked files only, so an editor's scratch copy neither fails the gate nor
-	 * hides a real one.
+	 * hides a real one. Without the variables that point git at a repository:
+	 * the pre-push hook of a linked worktree exports GIT_DIR, and with it git
+	 * takes the cwd for the top of the work tree, so `ls-files src` from
+	 * frontend/ listed nothing and the push failed here.
 	 */
+	const gitEnv = { ...process.env };
+	for (const name of execFileSync('git', ['rev-parse', '--local-env-vars'], { encoding: 'utf8' })
+		.split('\n')
+		.filter(Boolean)) {
+		delete gitEnv[name];
+	}
 	const e2eFiles = execFileSync('git', ['ls-files', '-z', 'src'], {
 		cwd: frontendRoot,
+		env: gitEnv,
 		encoding: 'utf8',
 		maxBuffer: 64 * 1024 * 1024
 	})
