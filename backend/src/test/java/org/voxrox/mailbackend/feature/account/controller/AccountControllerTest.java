@@ -213,9 +213,10 @@ class AccountControllerTest {
     void putOnOAuth2RejectedAsValidationError() throws Exception {
         AccountUpdateRequest req = new AccountUpdateRequest("My Acc", "a@b.cz", "Me", null, true, 1L, null, null,
                 "user", "stolenpassword", true);
-        when(accountService.updateAccount(eq(5L), any()))
-                .thenThrow(new ValidationException("OAuth2 account cannot be updated by changing password or username. "
-                        + "To change credentials, go through the Google login flow again."));
+        when(accountService.updateAccount(eq(5L), any())).thenThrow(new ValidationException(
+                "OAuth2 account cannot be updated by changing password or username. "
+                        + "To change credentials, go through the Google login flow again.",
+                "validation.account.oauth2CredentialsReadOnly"));
 
         mockMvc.perform(put("/api/v1/accounts/5").contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req))).andExpect(status().isBadRequest())

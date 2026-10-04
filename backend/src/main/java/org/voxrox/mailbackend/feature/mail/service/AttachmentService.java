@@ -79,8 +79,8 @@ public class AttachmentService {
             throw new ValidationException("Invalid attachment part path.", "validation.attachment.partPath");
         }
 
-        MessageEntity entity = messageRepository.findByStableId(stableId)
-                .orElseThrow(() -> new ResourceNotFoundException("Message " + stableId + " not found."));
+        MessageEntity entity = messageRepository.findByStableId(stableId).orElseThrow(
+                () -> new ResourceNotFoundException("Message " + stableId + " not found.", "error.message.notFound"));
 
         // Phase 1: download the attachment from the server into a temp file (under the
         // IMAP lock)
@@ -107,7 +107,8 @@ public class AttachmentService {
 
                         if (msg == null) {
                             throw new ResourceNotFoundException(
-                                    "Message uid=" + entity.getUid() + " does not exist on the server.");
+                                    "Message uid=" + entity.getUid() + " does not exist on the server.",
+                                    "error.message.goneFromServer");
                         }
 
                         Part part = findPartByPath(msg, partPath, partPath);

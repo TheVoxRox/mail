@@ -51,7 +51,9 @@ class OAuth2CallbackControllerTest {
         // /api/v1/auth/oauth2/** is permitAll (post-login redirect target), so a
         // direct GET arrives with no authentication and Spring injects nulls.
         assertThatThrownBy(() -> controller.success(null, null)).isInstanceOf(ValidationException.class)
-                .hasMessageContaining("outside a completed login flow");
+                .hasMessageContaining("outside a completed login flow")
+                .extracting(e -> ((ValidationException) e).getMessageKey())
+                .isEqualTo("validation.oauth2.loginNotCompleted");
     }
 
     @Test
@@ -82,6 +84,8 @@ class OAuth2CallbackControllerTest {
         when(token.getName()).thenReturn("principal");
         when(authorizedClientService.loadAuthorizedClient("google", "principal")).thenReturn(null);
 
-        assertThatThrownBy(() -> controller.success(token, user)).isInstanceOf(ValidationException.class);
+        assertThatThrownBy(() -> controller.success(token, user)).isInstanceOf(ValidationException.class)
+                .extracting(e -> ((ValidationException) e).getMessageKey())
+                .isEqualTo("validation.oauth2.loginNotCompleted");
     }
 }

@@ -138,8 +138,8 @@ class ContactBulkServiceTest {
         ContactCreateRequest r1 = new ContactCreateRequest(List.of(emailReq("a@x.cz"), emailReq("a@x.cz")), null, "A",
                 null, null);
 
-        when(contactService.createContact(r1))
-                .thenThrow(new ValidationException("Email a@x.cz is listed multiple times."));
+        when(contactService.createContact(r1)).thenThrow(new ValidationException(
+                "Email a@x.cz is listed multiple times.", "validation.contact.emailDuplicateInRequest", "a@x.cz"));
 
         BulkContactCreateResponse response = bulkService.bulkCreate(new BulkContactCreateRequest(List.of(r1)));
 

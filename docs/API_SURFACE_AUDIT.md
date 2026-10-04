@@ -2,7 +2,7 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.10                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| **Version**        | 1.11                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | **Date**           | 2026-09-27                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | **Applies to**     | VoxRox Mail V0.1.0, cut at or after the audited commit — the draft `v0.1.0` tag (`d626a9b`) predates #574, #577 and #578 (§3, §6)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | **Audited commit** | `55fdd1b` (every claim re-verified 2026-09-27)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -181,15 +181,16 @@ text the handlers do return:
   by name. The caught exception stays the cause, and its text goes to the log
   the handler writes; until 1.9 eight throw sites built the message from it
   instead, so a server's reply, a host name or a TLS error reached `detail`
-  and `messageArgs` in English, inside the Czech sentence. A mail exception
-  thrown with no cause carries a message key of its own (since 1.10) — the
-  OAuth sign-in and token messages, the OAuth-without-TLS guards, a missing
-  folder for a role, named as the folder list names it — or, for a guard on
-  the app's own state the user cannot act on, the unexpected cause. Until 1.10
-  it passed the English sentence the app wrote as `{0}`; the constructors that
-  did so are gone. `ResourceNotFoundException(String)` and
-  `ValidationException(String)` still do, across the API rather than in the
-  mail layer.
+  and `messageArgs` in English, inside the Czech sentence. An exception thrown
+  with no cause carries a message key of its own: in the mail layer since 1.10
+  — the OAuth sign-in and token messages, the OAuth-without-TLS guards, a
+  missing folder for a role, named as the folder list names it — or, for a
+  guard on the app's own state the user cannot act on, the unexpected cause;
+  and since 1.11 every `ResourceNotFoundException` and `ValidationException`
+  as well. Until then each passed the English sentence the app wrote for its
+  log, with ids in it, as the `{0}` of a generic key. The constructors that
+  took a message alone are gone, so a throw site that names no key does not
+  compile.
 
 Regenerate the throw sites that build a message from a caught exception (the
 `-A2` catches a message built on the line after the constructor call):
@@ -197,14 +198,6 @@ Regenerate the throw sites that build a message from a caught exception (the
 ```sh
 grep -rnE -A2 'new Mail(Connection|Operation)Exception\(' backend/src/main/java \
   | grep 'getMessage()'                        # 0 throw sites since 1.9
-```
-
-Regenerate the sites that still pass the app's own sentence as `{0}` — a
-constructor taking only a message, without a key:
-
-```sh
-grep -rnE 'new (ResourceNotFound|Validation)Exception\(' backend/src/main/java \
-  | grep -vE 'Exception\("[^"]*", "error\.'
 ```
 
 **An account's last error carries a cause code too.** Every endpoint that
@@ -466,6 +459,16 @@ system folder's name, which the role replaces.
 - [backend/SECURITY_RELEASE_CHECK.md](../backend/SECURITY_RELEASE_CHECK.md) — per-release security gate.
 
 ## 9. Change log
+
+- **1.11** (2026-10-03) — **every not-found and validation error names a key
+  of its own** (#608). The message-only constructors of
+  `ResourceNotFoundException` and `ValidationException` are removed, and the
+  sites that used them name a key: a missing message, draft, conversation,
+  folder or contact address, a message gone from the server, the OAuth
+  callback outside a login flow, and the drafts page size (§3). The listing
+  command 1.10 added is gone with them; it also counted keyed multi-line
+  calls. Verdict unchanged; drift acknowledged, anchor unchanged at
+  `55fdd1b`.
 
 - **1.10** (2026-10-03) — **the mail layer's own English sentences kept out
   of responses** (#607). A mail exception without a cause carries a message

@@ -119,7 +119,8 @@ public class DraftController {
         int maxPageSize = mailProps.sync().apiMaxPageSize();
         if (finalSize > maxPageSize) {
             throw new ValidationException(
-                    "Page size exceeds the maximum of " + maxPageSize + " (requested: " + finalSize + ").");
+                    "Page size exceeds the maximum of " + maxPageSize + " (requested: " + finalSize + ").",
+                    "validation.pageSizeTooLarge", maxPageSize, finalSize);
         }
 
         log.debug("{} Listing drafts for account {} (page {}, size {})", LogCategory.API, accountId, finalPage,

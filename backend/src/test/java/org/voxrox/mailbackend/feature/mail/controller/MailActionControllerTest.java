@@ -139,8 +139,8 @@ class MailActionControllerTest {
     @Test
     @DisplayName("POST /move — facade throws ResourceNotFoundException -> 404")
     void moveNotFound() throws Exception {
-        doThrow(new ResourceNotFoundException("Target folder does not exist: X")).when(mailFacade)
-                .moveToFolder(eq("abc123"), eq("X"));
+        doThrow(new ResourceNotFoundException("Target folder does not exist: X", "error.folder.notFoundOnServer"))
+                .when(mailFacade).moveToFolder(eq("abc123"), eq("X"));
 
         mockMvc.perform(post("/api/v1/messages/abc123/move").contentType(MediaType.APPLICATION_JSON)
                 .content(MAPPER.writeValueAsString(new MoveRequest("X")))).andExpect(status().isNotFound())
@@ -150,7 +150,8 @@ class MailActionControllerTest {
     @Test
     @DisplayName("POST /move — source == target throws ValidationException -> 400")
     void moveSameSourceTarget() throws Exception {
-        doThrow(new ValidationException("Source and target folder are the same: INBOX")).when(mailFacade)
+        doThrow(new ValidationException("Source and target folder are the same: INBOX",
+                "validation.mail.sameSourceAndTargetFolder", "INBOX")).when(mailFacade)
                 .moveToFolder(eq("abc123"), eq("INBOX"));
 
         mockMvc.perform(post("/api/v1/messages/abc123/move").contentType(MediaType.APPLICATION_JSON)
