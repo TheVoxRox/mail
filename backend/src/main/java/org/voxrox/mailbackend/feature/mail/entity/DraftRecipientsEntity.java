@@ -1,13 +1,11 @@
 package org.voxrox.mailbackend.feature.mail.entity;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 
 import jakarta.persistence.*;
 
-import org.hibernate.annotations.OnDelete;
-import org.hibernate.annotations.OnDeleteAction;
 import org.jspecify.annotations.Nullable;
-import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 
 /**
  * The recipients the user gave a draft saved here, kept for as long as the
@@ -15,26 +13,30 @@ import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
  * checks its recipients against these rather than against the draft's row,
  * which the sync writes from the server's copy whenever the server presents the
  * draft anew (IMAP/SMTP audit, B1-5). See {@code V1__init.sql} section 14.
+ * <p>
+ * Keyed by the account and the Message-ID the save minted, which no folder the
+ * server moves the draft to changes. The draft's stable id hashes the Drafts
+ * folder's name as well, so keying by it lost the entry when the server moved
+ * the {@code \Drafts} role. The account is the bare id: the foreign key in the
+ * schema removes the entry with its account, and nothing navigates from an
+ * entry back to it.
  */
 @Entity
 @Table(name = "draft_recipients")
+@IdClass(DraftRecipientsEntity.Key.class)
 public class DraftRecipientsEntity {
 
-    @Id
-    @Column(name = "stable_id", length = 32)
-    private String stableId;
+    /** The primary key: an account and a Message-ID it saved a draft under. */
+    public record Key(Long accountId, String messageId) implements Serializable {
+    }
 
-    /*
-     * Written by the constructor and read only by Hibernate when it persists the
-     * account_id FK, as in CorrespondentEntity: the FK is what removes the entry
-     * with its account and what the stale-entry delete filters on, and nothing
-     * navigates from an entry back to its account.
-     */
-    @SuppressWarnings("UnusedVariable")
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "account_id", nullable = false)
-    @OnDelete(action = OnDeleteAction.CASCADE)
-    private AccountEntity account;
+    @Id
+    @Column(name = "account_id", nullable = false)
+    private Long accountId;
+
+    @Id
+    @Column(name = "message_id", length = 255, nullable = false)
+    private String messageId;
 
     @Column(name = "recipients_to", columnDefinition = "TEXT")
     private @Nullable String recipientsTo;
@@ -51,18 +53,18 @@ public class DraftRecipientsEntity {
     protected DraftRecipientsEntity() {
     }
 
-    public DraftRecipientsEntity(String stableId, AccountEntity account, @Nullable String recipientsTo,
+    public DraftRecipientsEntity(Long accountId, String messageId, @Nullable String recipientsTo,
             @Nullable String recipientsCc, @Nullable String recipientsBcc, LocalDateTime savedAt) {
-        this.stableId = stableId;
-        this.account = account;
+        this.accountId = accountId;
+        this.messageId = messageId;
         this.recipientsTo = recipientsTo;
         this.recipientsCc = recipientsCc;
         this.recipientsBcc = recipientsBcc;
         this.savedAt = savedAt;
     }
 
-    public String getStableId() {
-        return stableId;
+    public String getMessageId() {
+        return messageId;
     }
 
     public @Nullable String getRecipientsTo() {

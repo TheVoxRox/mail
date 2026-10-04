@@ -251,7 +251,7 @@ public class SmtpMessageService {
                  */
                 imapActionService.hardDelete(accountId, draftFolder, draftUid);
                 messageService.deleteByStableId(stableId);
-                draftPersistenceService.forgetTypedRecipients(stableId);
+                draftPersistenceService.forgetTypedRecipients(accountId, draft.getMessageId());
                 accountRepository.clearLastErrorIfCodeIn(accountId, AccountLastErrorCode.SEND_PIPELINE_CODES);
             } catch (Exception bookkeepingEx) {
                 log.warn("{} Post-send bookkeeping failed for sent draft {} (UID {} in {}): {}", LogCategory.SMTP,
@@ -278,9 +278,11 @@ public class SmtpMessageService {
      * <ul>
      * <li>Composed here — the recipients the user typed, which
      * {@code DraftPersistenceService} keeps apart from the row for as long as the
-     * draft lives. Not the row: the sync writes that from the server's copy
-     * whenever it creates it, which the server can cause at will by withholding
-     * APPENDUID, changing UIDVALIDITY or presenting the draft under a new UID.</li>
+     * draft lives, under the Message-ID the save minted, so a server that moves the
+     * draft to another folder does not lose them. Not the row: the sync writes that
+     * from the server's copy whenever it creates it, which the server can cause at
+     * will by withholding APPENDUID, changing UIDVALIDITY or presenting the draft
+     * under a new UID.</li>
      * <li>Composed in another client — the row, which comes from the sync, so the
      * check compares the server's copy now against its copy at the last sync. It
      * catches a change made in that window, not one made before this client ever
@@ -288,7 +290,7 @@ public class SmtpMessageService {
      * </ul>
      */
     private Set<String> expectedRecipients(MessageEntity draft) {
-        return draftPersistenceService.typedRecipients(draft.getStableId())
+        return draftPersistenceService.typedRecipients(draft.getAccount().getId(), draft.getMessageId())
                 .map(typed -> addressSet(typed.getRecipientsTo(), typed.getRecipientsCc(), typed.getRecipientsBcc()))
                 .orElseGet(
                         () -> addressSet(draft.getRecipientsTo(), draft.getRecipientsCc(), draft.getRecipientsBcc()));

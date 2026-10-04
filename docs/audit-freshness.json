@@ -181,8 +181,10 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "9d68d6c8459d0bc9381836a1056606dbba43a6d4",
-      "frontend/src/lib/contacts/senderContact.ts": "ff82cd85fcc833a3f99bb64bc46e012fd95df072"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "25298744b22755dec432cfe85a8ac605947eacea",
+      "frontend/src/lib/contacts/senderContact.ts": "ff82cd85fcc833a3f99bb64bc46e012fd95df072",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/DraftRecipientsEntity.java": "308ec4de2e4f9c782b2070af8c2fd792d758d93c",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "6e649f25de9e18f636b6f20df3558359a667787c"
     },
     "acknowledgements": [
       {
@@ -208,6 +210,10 @@
       {
         "date": "2026-10-04",
         "note": "The second fix for B1-11, recorded in the audit itself as v1.28 (section 4k), which also adds frontend/src/lib/contacts/senderContact.ts to Code paths: it is the fifth reader of the sender label, missed at 1.19 and found by the 1.24 pass. senderContactSeed now takes the address from the label's last < to a closing > that ends the label, and the label itself otherwise, with the text before that < as the name, which is HeaderAddresses.labelAddress and parseLabel's rule; the validity check and the name split are unchanged. Nothing under feature/mail/service changes. Re-read against section 4k, which the same change updates; the verdict stays open findings."
+      },
+      {
+        "date": "2026-10-04",
+        "note": "The third fix for B1-5, recorded in the audit itself as v1.29 (section 4e). DraftRecipientsEntity is keyed by the account id and the Message-ID the save minted (an @IdClass record Key), no longer by the stable id, and drops its ManyToOne to the account: the foreign key in V1__init.sql removes the entry with its account, as before. DraftRecipientsRepository replaces deleteOrphansSavedBefore (a week's age, orphans only) with deleteAllButNewest, a native delete of the account's entries older than its newest keep. Under feature/mail/service, DraftPersistenceService keeps the entry under identity.messageId(), trims to KEPT_DRAFT_RECIPIENTS (1,000) per account before the save, and looks up and forgets entries by account and Message-ID, taking the Message-ID of the replaced or superseded revision from its row; SmtpMessageService.expectedRecipients and the post-send forget use the draft row's account and Message-ID. The entry is still written before the APPEND, the comparison, the refusal, DRAFT_CHANGED_ON_SERVER, the fallback to the row and the 40 MiB fetch bound are unchanged, and no other file under the path changes. Re-read against section 4e, which the same change updates; the verdict stays open findings."
       }
     ]
   }
