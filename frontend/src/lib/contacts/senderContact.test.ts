@@ -70,4 +70,23 @@ describe('senderContactSeed', () => {
 	it('refuses a malformed address inside the brackets', () => {
 		expect(senderContactSeed('Jana Novak <jana@>')).toBeNull();
 	});
+
+	/*
+	 * IMAP/SMTP audit B1-11. The label is `personal <address>` with the personal
+	 * part unquoted, so the address is the last `<…>`; brackets in the name come
+	 * before it and must not decide it.
+	 */
+	it('takes the address from the last brackets when the name holds an address of its own', () => {
+		expect(senderContactSeed('Alice <alice@evil.example> <alice@example.com>')?.email).toBe(
+			'alice@example.com'
+		);
+	});
+
+	it('reads a name holding a closing bracket', () => {
+		expect(senderContactSeed('Shop > News <news@shop.example>')?.email).toBe('news@shop.example');
+	});
+
+	it('refuses a label whose brackets do not end it, as the backend reads it', () => {
+		expect(senderContactSeed('Jana <jana@example.com> extra')).toBeNull();
+	});
 });

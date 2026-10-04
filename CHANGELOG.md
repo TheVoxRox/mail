@@ -59,6 +59,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- **Adding a message's sender to contacts no longer prefills an address hidden in the sender's name (#609).** The form read the address between the first angle brackets of the sender line, so a name such as `Alice <alice@other.example>` put that address into the form instead of the one the message came from, and a name holding `>` hid the offer to add the sender at all. It now reads the sender line the way the rest of the app does, from its last brackets.
+
 - **The last page of a folder larger than the app keeps says that older messages are on the server only (#595).** The folder's message count stays the server's, so without the note that page would read as the folder's oldest mail. A screen reader hears it with the page announcement.
 
 - **A delete from the grouped list now says what it deleted, as a delete of the open message always has.** The row actions menu and the bulk bar of the conversation view reported a bare count ("Smazáno: 3."), which told a screen-reader user neither which message went nor that deleting one conversation row had taken three. A single message is now announced by its own subject ("Zpráva smazána: …"), the same sentence the open message's delete uses, and one conversation — whole or only some of its ticked messages — by its subject and how many of its messages went ("Smazány 3 zprávy z konverzace: …"). A selection across several conversations, and any delete in which something failed, keeps the count.
