@@ -69,6 +69,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- **The Maven wrapper moves to Maven 3.10.0 and NullAway to 0.14.2 (#611).** The wrapper's Maven is what CodeQL's autobuild builds the Java database with, and its `Analyze (java-kotlin)` check passed on it. Dependabot committed `backend/mvnw.cmd` through the GitHub API with CRLF in the index, which `check:eol` refuses; the PR renormalizes it to what `.gitattributes` declares.
+
 - **The print e2e test for Ctrl+P on an open message waits for focus to land in the message body before it presses the key (#606).** Opening a message moves focus into the body frame a frame later, and a key sent before that can land in a frame not yet listening; CI lost the test's Ctrl+P on #604 with the focus in the frame at the end. The palette test in the same file already waited.
 
 - **`brace-expansion` is bumped to 2.1.7 and 5.0.12 in the frontend lockfile (#605).** Three advisories against it (GHSA-q2hr-2g5m-vwhr, GHSA-qhr7-859c-m2p7, GHSA-6j4f-fj2g-mc7p) tripped the npm audit gate, which failed the nightly scan from 2026-09-29 and every PR's Lint check. It reaches the tree only through dev tooling (eslint, openapi-typescript), so nothing shipped changes.
