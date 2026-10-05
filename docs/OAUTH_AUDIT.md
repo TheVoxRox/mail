@@ -1,15 +1,15 @@
 # VoxRox Mail — OAuth Handshake Audit
 
-|                    |                                                                                                                                                                                                                                                                                                                                                                                         |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.4                                                                                                                                                                                                                                                                                                                                                                                     |
-| **Date**           | 2026-10-05                                                                                                                                                                                                                                                                                                                                                                              |
-| **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                      |
-| **Audited commit** | `64633fe` (every claim re-verified 2026-10-04; 1.1 and 1.2: `cad05cb`, recorded pre-squash as `5799e8b`; 1.0 baseline: `d55b753`)                                                                                                                                                                                                                                                       |
-| **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/auth`, `backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java`, `backend/src/main/java/org/voxrox/mailbackend/core/config/OAuth2CompletedStateTracker.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/account/service/ExternalProviderLoginService.java`, `backend/src/main/resources/static` |
-| **Auditor**        | Claude (Fable 5) + owner review; 1.3 re-verified by Claude Opus 5.5                                                                                                                                                                                                                                                                                                                     |
-| **Subsystem**      | OAuth handshake — Boundary 2 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                 |
-| **Verdict**        | **Security: PASS** — **B2-1** (High) **fixed** 2026-10-05, awaiting the independent verification pass of AUDIT_GUIDE §5: the session an OAuth sign-in leaves in the system browser passed the sidecar API's default-deny without the `X-API-KEY`; the API now requires the key's own authority, and `/success` ends the session (§3). Every other claim re-verified at 1.3.             |
+|                    |                                                                                                                                                                                                                                                                                                                                                                                          |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Version**        | 1.5                                                                                                                                                                                                                                                                                                                                                                                      |
+| **Date**           | 2026-10-05                                                                                                                                                                                                                                                                                                                                                                               |
+| **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                       |
+| **Audited commit** | `55f4afa` (the delta since `64633fe`, B2-1's fix, verified 2026-10-05; the code under `Code paths` is otherwise byte-identical to `64633fe`, where every claim was re-verified 2026-10-04; 1.1 and 1.2: `cad05cb`, recorded pre-squash as `5799e8b`; 1.0 baseline: `d55b753`)                                                                                                            |
+| **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/auth`, `backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java`, `backend/src/main/java/org/voxrox/mailbackend/core/config/OAuth2CompletedStateTracker.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/account/service/ExternalProviderLoginService.java`, `backend/src/main/resources/static`  |
+| **Auditor**        | Claude (Fable 5) + owner review; 1.3 re-verified by Claude Opus 5.5; 1.5 the verification pass over B2-1's fix, by Claude Opus 5.5, a separate agent from the author of 1.4                                                                                                                                                                                                              |
+| **Subsystem**      | OAuth handshake — Boundary 2 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                  |
+| **Verdict**        | **Security: PASS** — **B2-1** (High) **fixed** 2026-10-05 and confirmed by the independent verification pass of AUDIT_GUIDE §5 (1.5): the session an OAuth sign-in leaves in the system browser passed the sidecar API's default-deny without the `X-API-KEY`; the API now requires the key's own authority, and `/success` ends the session (§3). Every other claim re-verified at 1.3. |
 
 Focused verification audit of the boundary **"OAuth provider ↔ system browser ↔
 sidecar"**: every mitigation claimed by the Boundary 2 STRIDE rows was traced to
@@ -265,8 +265,34 @@ OAuth endpoints themselves stay keyless by design (§1). Narrowing the CORS
 list and dropping `file://*` remain tightenings of their own
 ([API_SURFACE_AUDIT.md](API_SURFACE_AUDIT.md) §7).
 
-**Status.** Fixed in code, 2026-10-05. Recorded at 1.3, fixed at 1.4; the
-independent verification pass is still to run.
+**Verified (1.5)** by the independent pass, against `55f4afa`. Read: the
+whole delta since `64633fe` is the fix — `SecurityConfig`'s last rule and
+`OAuth2CallbackController.success`, plus `ApiKeyFilter`, outside these paths —
+and no other `SecurityFilterChain`, `@PreAuthorize` or authorities mapper
+exists in `backend/src/main`, so the authorities an OAuth sign-in's token
+carries are Spring's own; the probe below printed them as `OAUTH2_USER`, the
+granted scopes prefixed `SCOPE_` and `FACTOR_AUTHORIZATION_CODE` — a provider
+cannot name one `API_CLIENT`. Measured with a throwaway copy of
+`OAuth2SignInSessionTest` that drove the same sign-in through MockMvc and
+also over HTTP on the sidecar's port, with the cookies the container set:
+after the callback, the session without the key was answered 403 on every
+path outside `PUBLIC_ENDPOINTS` tried (accounts, including `PUT` and `DELETE`,
+contacts, readiness, client-config, the SSE stream, all four `/api/internal`
+endpoints and `health`, an unmapped path); with the key 200, with a wrong key
+401, with neither 302 to `/login`. The OAuth endpoints and Spring's own login
+page still answered it, as §1 means them to. Over HTTP the callback changed
+the session id, and after `/success` the cookie it had set was anonymous (302
+to `/login`; a second `/success` with it, 400 `loginNotCompleted`). What the
+desktop client needs is unchanged: with the key alone the SSE stream started,
+the diagnostic dump, `health` and `client-boot` answered 200 or 202, and a
+CORS preflight from `http://tauri.localhost` 200; every call in
+`frontend/src/lib/api` sends the key as a header. `OAuth2SignInSessionTest`,
+`ApiKeyFilterTest` and `OAuth2CallbackControllerTest` pass. Not reproduced:
+the regression test's failure against the unfixed code, which the pass did
+not run, so that sentence above rests on the author's run.
+
+**Status.** Fixed in code, 2026-10-05. Recorded at 1.3, fixed at 1.4,
+confirmed at 1.5.
 
 ## 4. Informational notes (no change required)
 
@@ -328,6 +354,19 @@ independent verification pass is still to run.
 
 ## 6. Change log
 
+- **1.5** (2026-10-05) — **B2-1's fix confirmed** by the independent
+  verification pass of [AUDIT_GUIDE.md](AUDIT_GUIDE.md) §5 (#628), which read the
+  whole delta since `64633fe` — the fix and nothing else — and measured it with
+  a throwaway copy of the regression test, through MockMvc and over HTTP: the
+  session a sign-in leaves is refused with 403 everywhere outside
+  `PUBLIC_ENDPOINTS`, `/success` ends it, and the key, the SSE stream and the
+  internal endpoints work as before (§3, "Verified"). The regression test's
+  failure against the unfixed code was not reproduced and is marked as the
+  author's run. The anchor moves to `55f4afa`, since nothing else under the
+  `Code paths` changed, which clears the acknowledgement 1.4 recorded. Verdict
+  **PASS**, without the pending caveat. The threat model's B2-1 row and the
+  verdict index follow, as does [API_SURFACE_AUDIT.md](API_SURFACE_AUDIT.md)
+  1.14, which re-verified its own §1 in the same pass.
 - **1.4** (2026-10-05) — **B2-1 fixed** (§3): `ApiKeyFilter` grants an
   authority of its own and the chain requires it outside `PUBLIC_ENDPOINTS`,
   so the session a sign-in leaves authorizes the OAuth endpoints only; `/success`
