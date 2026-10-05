@@ -95,6 +95,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- **The IMAP/SMTP audit records the independent pass over B1-5's 1.40 fix (#639).** Every claim of 1.40 held, checked against the code and by removing each part of the fix in turn, and the pass reopened B1-5 for two routes it measured: a save can look its draft up before the save it names has recorded it, and that record's write fails at once beside another database writer. Audit 1.41; the fix follows separately.
+
 - **The IMAP/SMTP audit is re-verified against `c386fed` (#638).** An independent pass over the fixes of 1.38 and 1.39 confirmed both, against Angus's and jakarta.mail's bytecode and by reverting each fix and watching its tests fail, and found the B1-5 route fixed above; the seven acknowledgements in `docs/audit-freshness.json` are cleared, and that fix starts a new ledger pending its own pass.
 
 - **A javadoc in `SecurityConfig` names the client authentication Google actually uses (#636).** It said `client_secret_post`; the `google` registration uses Spring's default, `client_secret_basic` (OAuth audit §4 note). Comment only.
