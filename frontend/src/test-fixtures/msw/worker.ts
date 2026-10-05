@@ -97,7 +97,7 @@ export async function installE2EBypass(): Promise<void> {
 		);
 		await worker.start({
 			quiet: true,
-			onUnhandledRequest: 'bypass',
+			onUnhandledFrame: 'bypass',
 			serviceWorker: {
 				url: '/mockServiceWorker.js'
 			}

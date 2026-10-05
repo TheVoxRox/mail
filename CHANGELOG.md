@@ -79,6 +79,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- **The test fixtures move to msw 3 (#626).** msw 3 renames the worker option `onUnhandledRequest` to `onUnhandledFrame`, and its service worker script has to match the library, so `frontend/static/mockServiceWorker.js` is regenerated with `msw init`; dependabot changes only the manifest and the lockfile. The e2e and accessibility suites, which run against that worker, pass unchanged.
+
 - **The IMAP/SMTP audit is re-verified against `64633fe`, and its verification pass reopens B1-10 and B1-5 (#622).** [IMAP_SMTP_AUDIT.md](docs/IMAP_SMTP_AUDIT.md) 1.31 clears the eight acknowledgements and confirms the fixes for B1-8, B1-13, B1-11 and B1-14's honest half. The nesting check still does not read every FETCH item as Angus does: a quote in a FLAGS list, after a NIL, in a literal without its line end, or after a BODY section hides the nesting, and seven such shapes, measured over TLS, end the sync in a `StackOverflowError` again. The kept draft recipients grow by saves whenever a save cannot find the revision it replaces, which a server withholding APPENDUID decides. Four findings are open; the threat model and the verdict index follow.
 
 - **The OAuth audit is re-verified against `64633fe` and no longer passes (#621).** [OAUTH_AUDIT.md](docs/OAUTH_AUDIT.md) 1.3 clears its eight acknowledgements; its independent pass found B2-1 (High, open) — the session an OAuth sign-in leaves in the system browser passes the sidecar API's default-deny without the API key — and corrected four claims. The threat model, the verdict index and [API_SURFACE_AUDIT.md](docs/API_SURFACE_AUDIT.md) 1.12 follow.
