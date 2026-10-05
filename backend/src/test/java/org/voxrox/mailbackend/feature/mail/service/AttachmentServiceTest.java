@@ -35,6 +35,8 @@ import jakarta.mail.internet.MimePartDataSource;
 import jakarta.mail.util.ByteArrayDataSource;
 
 import org.eclipse.angus.mail.imap.IMAPMessage;
+import org.eclipse.angus.mail.imap.IMAPMultipartDataSource;
+import org.eclipse.angus.mail.imap.protocol.BODYSTRUCTURE;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -299,8 +301,12 @@ class AttachmentServiceTest {
 
         /**
          * The other side of B1-12: a multipart Angus built from the structure it parsed
-         * is descended into, as before. The handler holds the parts as an object, so
-         * asking for them reads no body.
+         * is descended into. Its handler is Angus's own
+         * {@code IMAPMultipartDataSource}, which is itself a
+         * {@code MimePartDataSource}; the 1.34 lookup tested for that superclass alone
+         * and made every multipart from the server a leaf, so no attachment in one
+         * could be downloaded. A test that modelled the handler as an object holding
+         * the parts passed against it.
          */
         @Test
         @DisplayName("A multipart built from the server's structure is descended into")
@@ -309,8 +315,30 @@ class AttachmentServiceTest {
             Object parts = multipart(pdf).getContent();
             IMAPMessage onServer = mock(IMAPMessage.class);
             when(onServer.isMimeType("multipart/*")).thenReturn(true);
-            when(onServer.getDataHandler()).thenReturn(new DataHandler(parts, "multipart/mixed"));
+            when(onServer.getDataHandler()).thenReturn(
+                    new DataHandler(new IMAPMultipartDataSource(onServer, new BODYSTRUCTURE[0], null, onServer) {
+                    }));
             when(onServer.getContent()).thenReturn(parts);
+            serverHas(onServer);
+
+            assertThat(download("2")).isEqualTo(pdf);
+        }
+
+        /**
+         * A nested message with an envelope: Angus 2.0.5 hands an
+         * {@code IMAPNestedMessage} to a {@code DataHandler} as an object, so its
+         * content is that message and reading it fetches no body.
+         */
+        @Test
+        @DisplayName("A nested message built from the server's structure is descended into")
+        void aNestedMessageFromTheStructureIsDescended() throws Exception {
+            byte[] pdf = "%PDF-1.7 nested".getBytes(StandardCharsets.US_ASCII);
+            MimeMessage inner = multipart(pdf);
+            IMAPMessage onServer = mock(IMAPMessage.class);
+            when(onServer.isMimeType("multipart/*")).thenReturn(false);
+            when(onServer.isMimeType("message/rfc822")).thenReturn(true);
+            when(onServer.getDataHandler()).thenReturn(new DataHandler(inner, "message/rfc822"));
+            when(onServer.getContent()).thenReturn(inner);
             serverHas(onServer);
 
             assertThat(download("2")).isEqualTo(pdf);

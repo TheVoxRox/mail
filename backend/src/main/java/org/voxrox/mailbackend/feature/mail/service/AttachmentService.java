@@ -1,7 +1,9 @@
 package org.voxrox.mailbackend.feature.mail.service;
 
+import jakarta.activation.DataSource;
 import jakarta.mail.MessagingException;
 import jakarta.mail.Multipart;
+import jakarta.mail.MultipartDataSource;
 import jakarta.mail.Part;
 import jakarta.mail.internet.MimePartDataSource;
 
@@ -250,6 +252,12 @@ public class AttachmentService {
      * its envelope. Such a part is a leaf here: a message is still its own part 1,
      * streamed, and a path below it is not found.
      * <p>
+     * {@code IMAPMultipartDataSource} is itself a {@link MimePartDataSource} — it
+     * extends it to implement {@link MultipartDataSource} — so the parts it holds
+     * are recognized by that interface first. Testing for the superclass alone made
+     * every multipart from the server a leaf, and no attachment in one could be
+     * downloaded (B1-12, regressed at 1.34).
+     * <p>
      * A part that is not on the server has its bytes in memory already, and its
      * content is parsed from them.
      */
@@ -260,7 +268,8 @@ public class AttachmentService {
         if (!(part instanceof IMAPMessage) && !(part instanceof IMAPBodyPart)) {
             return true;
         }
-        return !(part.getDataHandler().getDataSource() instanceof MimePartDataSource);
+        DataSource source = part.getDataHandler().getDataSource();
+        return source instanceof MultipartDataSource || !(source instanceof MimePartDataSource);
     }
 
     /**
