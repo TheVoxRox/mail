@@ -28,6 +28,21 @@ updates:
         update-types:
           - minor
           - patch
+    # SvelteKit 3 is deferred until after v0.1.0 (#624, #625 closed). Its two
+    # majors move together — adapter-static 4 requires Kit 3 and adapter-static
+    # 3 refuses it — so dependabot's separate PRs cannot even install. Beyond
+    # the mechanical part ($lib becomes #lib, the config moves into
+    # vite.config.ts), it changes how goto keeps focus and makes a link to the
+    # current page reload its data, both on the screen-reader path, which wants
+    # a listening session rather than a release-eve bump. To start the
+    # migration, delete both entries and bump the pair in one PR by hand.
+    ignore:
+      - dependency-name: '@sveltejs/kit'
+        update-types:
+          - version-update:semver-major
+      - dependency-name: '@sveltejs/adapter-static'
+        update-types:
+          - version-update:semver-major
 
   - package-ecosystem: cargo
     directory: /frontend/src-tauri
