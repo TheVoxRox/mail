@@ -233,11 +233,11 @@ public class SecurityConfig {
      * <p>
      * Spring Security enables PKCE automatically only for public clients. Microsoft
      * is one ({@code client-authentication-method=none}), but Google is configured
-     * as a confidential client ({@code client_secret_post} with a secret), so
-     * without this customizer no {@code code_challenge} would be sent on the Google
-     * flow. OAuth 2.1 and the OAuth Security BCP recommend PKCE for <em>all</em>
-     * clients as defense against authorization-code injection, and Google accepts a
-     * {@code client_secret} together with a {@code code_verifier}.
+     * as a confidential client ({@code client_secret_basic}, Spring's default, with
+     * a secret), so without this customizer no {@code code_challenge} would be sent
+     * on the Google flow. OAuth 2.1 and the OAuth Security BCP recommend PKCE for
+     * <em>all</em> clients as defense against authorization-code injection, and
+     * Google accepts a {@code client_secret} together with a {@code code_verifier}.
      */
     @Bean
     public OAuth2AuthorizationRequestResolver pkceAuthorizationRequestResolver(

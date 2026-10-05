@@ -127,7 +127,7 @@ Preovereni [docs/OAUTH_AUDIT.md](docs/OAUTH_AUDIT.md) proti `64633fe` naslo B2-1
 - [x] **B2-1 (High)** — HOTOVO 2026-10-05 (#623): `hasAuthority(API_CLIENT)` misto `authenticated()`, `/success` ukoncuje session; audit B2 1.4, B3 1.13.
 - [x] **B2-1 overit nezavislym pruchodem** — HOTOVO 2026-10-05 (#628): audit B2 1.5 proti `55f4afa`, oprava potvrzena merenim (MockMvc i HTTP), verdikt PASS bez vyhrady; B3 preoveren jako 1.14.
 - [ ] **Rozhodnout, zda oprava B2-1 jde do 0.1.0** (= dalsi re-cut).
-- [ ] **Drobnosti z B2 §4.** (`finally` kolem `processLogin` hotovo s B2-1, #623.) `markRequiresReauthIfExists` zapisuje `reason=missing_refresh_token` i pro scope guard; javadoc `pkceAuthorizationRequestResolver` rika `client_secret_post`, Spring pouziva `client_secret_basic`; e-mailovy fallback ve `findOrCreateExternalAccount` jde napric providery; v konzolich Google a Entra overit registrace redirect URI (komentare v repu se rozchazi: Mobile and desktop vs. Web).
+- [ ] **Drobnosti z B2 §4.** (`finally` kolem `processLogin` hotovo s B2-1, #623.) `markRequiresReauthIfExists` zapisuje `reason=missing_refresh_token` i pro scope guard; ~~javadoc `client_secret_post`~~ opraveno (#636); e-mailovy fallback ve `findOrCreateExternalAccount` jde napric providery; v konzolich Google a Entra overit registrace redirect URI (komentare v repu se rozchazi: Mobile and desktop vs. Web).
 
 ---
 
