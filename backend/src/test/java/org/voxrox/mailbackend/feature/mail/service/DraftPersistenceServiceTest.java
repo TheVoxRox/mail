@@ -144,6 +144,8 @@ class DraftPersistenceServiceTest {
             verify(accountRepository).updateLastError(eq(ACCOUNT_ID), err.capture(), any(LocalDateTime.class));
             assertThat(err.getValue().code()).isEqualTo(AccountLastErrorCode.DRAFT_SAVE_FAILED);
             verify(accountRepository, never()).clearLastErrorIfCodeIn(anyLong(), any());
+            // The old revision is still the current one, so its entry stays current.
+            verify(draftRecipientsRepository, never()).markSuperseded(anyLong(), anyString(), any());
         }
 
         @Test
@@ -324,11 +326,60 @@ class DraftPersistenceServiceTest {
             service.saveDraftAsync(ACCOUNT_ID,
                     new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null, IDENTITY);
 
-            // One fewer than the bound, so the entry this save adds makes it whole.
+            // One fewer current entry than the bound, so the entry this save adds makes it
+            // whole; the superseded ones have a bound of their own (B1-5).
             InOrder order = inOrder(draftRecipientsRepository);
-            order.verify(draftRecipientsRepository).deleteAllButNewest(ACCOUNT_ID,
+            order.verify(draftRecipientsRepository).deleteCurrentButNewest(ACCOUNT_ID,
                     DraftPersistenceService.KEPT_DRAFT_RECIPIENTS - 1);
+            order.verify(draftRecipientsRepository).deleteSupersededButNewest(ACCOUNT_ID,
+                    DraftPersistenceService.KEPT_DRAFT_RECIPIENTS);
             order.verify(draftRecipientsRepository).save(any());
+        }
+
+        @Test
+        @DisplayName("The entry carries the stableId the next save will name as the revision it replaces")
+        void theEntryCarriesTheMintedStableId() throws Exception {
+            savesWithoutAppendUid();
+
+            service.saveDraftAsync(ACCOUNT_ID,
+                    new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null, IDENTITY);
+
+            ArgumentCaptor<DraftRecipientsEntity> kept = ArgumentCaptor.forClass(DraftRecipientsEntity.class);
+            verify(draftRecipientsRepository).save(kept.capture());
+            assertThat(kept.getValue().getStableId()).isEqualTo(IDENTITY.stableId());
+            assertThat(kept.getValue().getMessageId()).isEqualTo(IDENTITY.messageId());
+        }
+
+        /**
+         * B1-5, reopened at 1.31: a save used to retire the replaced revision's entry
+         * only when it found that revision's row and the server deleted it, so a server
+         * without APPENDUID made the entries grow by saves. The revision the client
+         * names is marked superseded whatever the server answers.
+         */
+        @Test
+        @DisplayName("A save marks the revision it replaces superseded even when the server gave it no row (B1-5)")
+        void aSaveMarksTheReplacedRevisionWithoutItsRow() throws Exception {
+            savesWithoutAppendUid();
+            when(messageService.getByStableId("stable-previous-revision")).thenReturn(Optional.empty());
+
+            service.saveDraftAsync(ACCOUNT_ID,
+                    new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null),
+                    "stable-previous-revision", IDENTITY);
+
+            verify(draftRecipientsRepository).markSuperseded(eq(ACCOUNT_ID), eq("stable-previous-revision"),
+                    any(LocalDateTime.class));
+            verify(imapActionService, never()).hardDelete(anyLong(), anyString(), anyLong());
+        }
+
+        @Test
+        @DisplayName("A save that replaces nothing marks nothing superseded")
+        void aFirstSaveMarksNothing() throws Exception {
+            savesWithoutAppendUid();
+
+            service.saveDraftAsync(ACCOUNT_ID,
+                    new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null, IDENTITY);
+
+            verify(draftRecipientsRepository, never()).markSuperseded(anyLong(), anyString(), any());
         }
 
         @Test

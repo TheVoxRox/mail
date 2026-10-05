@@ -38,6 +38,14 @@ public class DraftRecipientsEntity {
     @Column(name = "message_id", length = 255, nullable = false)
     private String messageId;
 
+    /**
+     * The stableId the save minted for the draft with its Message-ID: what the next
+     * save names as the revision it replaces, so the entry can be marked superseded
+     * without the server's row.
+     */
+    @Column(name = "stable_id", length = 32)
+    private @Nullable String stableId;
+
     @Column(name = "recipients_to", columnDefinition = "TEXT")
     private @Nullable String recipientsTo;
 
@@ -50,13 +58,22 @@ public class DraftRecipientsEntity {
     @Column(name = "saved_at", nullable = false)
     private LocalDateTime savedAt;
 
+    /**
+     * When a later save of this client replaced the revision; null while it is
+     * current.
+     */
+    @Column(name = "superseded_at")
+    private @Nullable LocalDateTime supersededAt;
+
     protected DraftRecipientsEntity() {
     }
 
-    public DraftRecipientsEntity(Long accountId, String messageId, @Nullable String recipientsTo,
-            @Nullable String recipientsCc, @Nullable String recipientsBcc, LocalDateTime savedAt) {
+    public DraftRecipientsEntity(Long accountId, String messageId, @Nullable String stableId,
+            @Nullable String recipientsTo, @Nullable String recipientsCc, @Nullable String recipientsBcc,
+            LocalDateTime savedAt) {
         this.accountId = accountId;
         this.messageId = messageId;
+        this.stableId = stableId;
         this.recipientsTo = recipientsTo;
         this.recipientsCc = recipientsCc;
         this.recipientsBcc = recipientsBcc;
@@ -65,6 +82,14 @@ public class DraftRecipientsEntity {
 
     public String getMessageId() {
         return messageId;
+    }
+
+    public @Nullable String getStableId() {
+        return stableId;
+    }
+
+    public @Nullable LocalDateTime getSupersededAt() {
+        return supersededAt;
     }
 
     public @Nullable String getRecipientsTo() {
