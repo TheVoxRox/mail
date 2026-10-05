@@ -28,6 +28,30 @@
 			Remove this override once the managed Tomcat version is >= 11.0.25.
 		-->
 		<tomcat.version>11.0.25</tomcat.version>
+		<!--
+			Security override: Spring Boot 4.1.1 manages the Jackson 3 bom at 3.1.5,
+			which is affected by CVE-2026-89407 (ReDoS in jackson-core's
+			looksLikeValidNumber), CVE-2026-89425 (unbounded error token in the
+			DataInput parser), CVE-2026-68497 (Duration / XMLGregorianCalendar number
+			parse), CVE-2026-91776 (unknown polymorphic type ids retained) and
+			CVE-2026-91777 (quadratic forward-reference completion); fixed upstream
+			in 3.1.7, which also covers 3.1.6's fix for CVE-2026-68497. This is the
+			primary JSON stack and it ships in the sidecar, but none of the five is
+			triggerable here: the code enables no polymorphic typing and no object
+			identity, binds no XMLGregorianCalendar, never parses from a DataInput,
+			and no request body coerces a string into a floating-point field. Remove
+			this override once the managed jackson-bom version is >= 3.1.7.
+		-->
+		<jackson-bom.version>3.1.7</jackson-bom.version>
+		<!--
+			Security override: Spring Boot 4.1.1 manages the Jackson 2 bridge bom at
+			2.21.5, affected by the same five advisories (fixed upstream in 2.21.7).
+			Jackson 2 reaches the build only through springdoc and is excluded from
+			the shipped jar (see the repackage excludes below), so it never runs in
+			the app; the pin keeps the SBOM scan honest about the build. Remove this
+			override once the managed jackson-2-bom version is >= 2.21.7.
+		-->
+		<jackson-2-bom.version>2.21.7</jackson-2-bom.version>
 		<spring-retry.version>2.0.13</spring-retry.version>
 		<jsoup.version>1.23.2</jsoup.version>
 		<commonmark.version>0.30.0</commonmark.version>
