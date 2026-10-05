@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 import jakarta.persistence.EntityManager;
@@ -197,6 +198,55 @@ class DraftRecipientsRepositoryIT {
         em.clear();
     }
 
+    /**
+     * B1-5, found by the verification pass over 1.39: a stored revision sets aside
+     * the earlier revisions of its draft by their chain, whichever of them its save
+     * named, and leaves the rest alone — itself, a newer revision of the chain that
+     * a slow save stored late must not set aside, another draft's chain, and
+     * another account's entries.
+     */
+    @Test
+    @DisplayName("A stored revision sets aside only the account's earlier current entries of its chain")
+    void setsAsideOnlyTheEarlierEntriesOfTheChain() {
+        AccountEntity account = newAccount("user@example.com");
+        AccountEntity other = newAccount("other@example.com");
+        // SQLite keeps milliseconds, so the time read back is compared at that
+        // precision.
+        LocalDateTime start = LocalDateTime.now().minusHours(1).truncatedTo(ChronoUnit.MILLIS);
+        keep("<stored-before@voxrox.org>", "stable-a", "chain", account, start);
+        keep("<rejected@voxrox.org>", "stable-b", "chain", account, start.plusMinutes(1));
+        repository.markSuperseded(account.getId(), "stable-b", start.plusMinutes(1));
+        keep("<stored@voxrox.org>", "stable-c", "chain", account, start.plusMinutes(2));
+        keep("<newer@voxrox.org>", "stable-d", "chain", account, start.plusMinutes(3));
+        keep("<another-draft@voxrox.org>", "stable-e", "another-chain", account, start);
+        keep("<other-account@voxrox.org>", "stable-a", "chain", other, start);
+        em.clear();
+
+        assertThat(repository.supersedeEarlierInChain(account.getId(), "chain", "<stored@voxrox.org>",
+                start.plusMinutes(2), start.plusMinutes(4))).isEqualTo(1);
+        em.clear();
+
+        assertThat(repository.findAll()).filteredOn(entry -> entry.getSupersededAt() == null)
+                .extracting(DraftRecipientsEntity::getMessageId).containsExactlyInAnyOrder("<stored@voxrox.org>",
+                        "<newer@voxrox.org>", "<another-draft@voxrox.org>", "<other-account@voxrox.org>");
+        assertThat(repository.findAll()).filteredOn(entry -> "<rejected@voxrox.org>".equals(entry.getMessageId()))
+                .extracting(DraftRecipientsEntity::getSupersededAt).as("an entry already set aside keeps its time")
+                .containsExactly(start.plusMinutes(1));
+    }
+
+    @Test
+    @DisplayName("A revision's chain is found by its account and stableId, and by no other account's")
+    void findsTheChainByAccountAndStableId() {
+        AccountEntity account = newAccount("user@example.com");
+        AccountEntity other = newAccount("other@example.com");
+        keep("<draft@voxrox.org>", "stable-draft", "chain", account, LocalDateTime.now());
+        em.clear();
+
+        assertThat(repository.findChainId(account.getId(), "stable-draft")).contains("chain");
+        assertThat(repository.findChainId(other.getId(), "stable-draft")).isEmpty();
+        assertThat(repository.findChainId(account.getId(), "stable-unknown")).isEmpty();
+    }
+
     @Test
     @DisplayName("Marking a revision superseded touches only that account's current entry with the stableId")
     void marksOnlyTheNamedCurrentEntry() {
@@ -242,8 +292,12 @@ class DraftRecipientsRepositoryIT {
     }
 
     private void keep(String messageId, String stableId, AccountEntity account, LocalDateTime savedAt) {
-        repository.saveAndFlush(
-                new DraftRecipientsEntity(account.getId(), messageId, stableId, "to@example.com", null, null, savedAt));
+        keep(messageId, stableId, null, account, savedAt);
+    }
+
+    private void keep(String messageId, String stableId, String chainId, AccountEntity account, LocalDateTime savedAt) {
+        repository.saveAndFlush(new DraftRecipientsEntity(account.getId(), messageId, stableId, chainId,
+                "to@example.com", null, null, savedAt));
     }
 
     private AccountEntity newAccount(String email) {

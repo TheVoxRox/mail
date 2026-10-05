@@ -101,38 +101,14 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "e9b7d8d2d2bccc35483ee3f660b50caab3608984",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/DraftRecipientsEntity.java": "8fe876fff0ba59e8992440d53be4c15564da2f99",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "0b3db02e11a3a827b90f038b4df77210eb4eab3f"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "b4ad4c6cb9e9c02e521bdafb8533d553f1a9dab5",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/DraftRecipientsEntity.java": "65bc9a79beb770bc4698b26c5148c66e9ccb6f25",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "5c0758f3a2e2131f35ba95ae1fbada0e6374f5a9"
     },
     "acknowledgements": [
       {
         "date": "2026-10-05",
-        "note": "B1-10 fixed again, recorded in the audit itself as v1.32 (section 4j). One file under feature/mail/service changes, BoundedImapProtocol: the scan NestingCheckedResponse.nestsDeeperThan is gone, and a FETCH is parsed through DepthBoundedFetchResponse, a FetchResponse whose overrides of readByte, skip, isNextNonSpace, readString and readStringList count the levels Angus's own parse opens (lists open at once, plus every address with a NIL host) and stop the parse past MAX_NESTING (256), after which the response is dropped with NestedTooDeepException as before. The other bounds of the class (response bytes, EXISTS, VANISHED, the command and selection budgets) are unchanged; the javadoc of MAX_SELECTION_EXPUNGE_STEPS is corrected (some 46,000 EXPUNGEs in a folder of 20,000, not a hundred thousand). Verdict stays open findings (B1-5, B1-12, B1-14)."
-      },
-      {
-        "date": "2026-10-05",
-        "note": "B1-12 fixed again, recorded in the audit itself as v1.34 (section 4l, and the section 5 note on the attachment download). One file under feature/mail/service changes, AttachmentService: findPartByPath asks a part for its content through holdsParts, which keeps the multipart/* or message/rfc822 type test and, for an IMAPMessage or IMAPBodyPart, also requires a handler that is not MimeMessage's own over a MimePartDataSource, so a part the server describes in single-part form is a leaf and streamed rather than fetched and parsed whole. The download's temp file, its streaming copy, the path validation and the not-found keys are unchanged. Verdict stays open findings (B1-5, B1-14, B1-15)."
-      },
-      {
-        "date": "2026-10-05",
-        "note": "B1-15 fixed, recorded in the audit itself as v1.35 (sections 4o and 4j). Two files under feature/mail/service change. BoundedImapProtocol: DepthBoundedFetchResponse notes after every overridden call whether the index moved, and MAX_STALLED_CALLS (64) calls in a row that did not stop the parse with ParseStalled, which parseFetch turns into StalledParseException and the response is dropped like an over-deep one; group markers are now forgotten once the count of lists drops below the lowest level they were counted at, so they count per address list. ImapFolderExecutor: a comment corrected (the MailOperationException it throws keeps its cause), no code change. The other bounds of the class are unchanged. Verdict stays open findings (B1-5, B1-14)."
-      },
-      {
-        "date": "2026-10-05",
-        "note": "B1-5 fixed again, recorded in the audit itself as v1.36 (section 4e). DraftRecipientsEntity gains stableId (the stableId the save minted with its Message-ID) and supersededAt; DraftRecipientsRepository replaces deleteAllButNewest with deleteCurrentButNewest and deleteSupersededButNewest, which bound current and superseded entries apart, and adds markSuperseded, by account and stableId; DraftPersistenceService keeps the stableId with the entry, prunes both kinds before keeping a new one, and after a stored append marks the revision the client names as replaced superseded, whatever the server answered. The recipient check on send, its lookup by account and Message-ID, and the drop of an entry whose revision the server deleted are unchanged. Schema: two columns and an index in V1__init.sql, pre-release. Verdict: open finding (B1-14)."
-      },
-      {
-        "date": "2026-10-05",
-        "note": "B1-14 reconcile path bounded, recorded in the audit itself as v1.37 (section 4n). Two files under feature/mail/service change. MessageDownloader.reconcileServerOnlyUids takes how many messages the pass already downloaded; the holes share the room left in local-window-limit with them, none come down when there is no room, and past the room only the newest holes come down and the rows below the oldest of them are deleted by UID (MessageRepository.deleteOlderThan), as downloadRangeInternal does for a catch-up cut short. MailSyncService passes the pass count. The cleanup that finds the holes, the batch save and the forward cursor are unchanged. Verdict stays open finding (B1-14, its hostile half)."
-      },
-      {
-        "date": "2026-10-05",
-        "note": "B1-12 regression fixed, recorded in IMAP_SMTP_AUDIT.md as v1.38 (section 4l). AttachmentService.holdsParts recognizes a MultipartDataSource before testing for MimePartDataSource: Angus 2.0.5's IMAPMultipartDataSource extends MimePartDataSource, so the #630 test made every multipart from the server a leaf and its attachments undownloadable. The fall-through over a plain MimePartDataSource is still a leaf; path validation, the temp file and the streaming copy are unchanged. Verdict stays open finding (B1-14)."
-      },
-      {
-        "date": "2026-10-05",
-        "note": "B1-5 failed-APPEND gap fixed and the independent pass over 1.37 recorded, in the audit itself as v1.39 (sections 4e, 4j, 4n, 4o). One file under feature/mail/service changes, DraftPersistenceService: appendDraftMessage sets the new revision's typed-recipients entry aside (markSuperseded by its own stableId) whenever the APPEND does not store it, by a false outcome or an exception, and the helper markReplacedRevision is renamed setAside. The save order (entry before the APPEND), the mark of a replaced revision after a stored one, the two bounds and the send-time lookup are unchanged. Verdict stays open finding (B1-14). The ledger is now 7/8: the audit is due a re-verification."
+        "note": "B1-5 fixed at the gap the 1.40 re-verification found, recorded in the audit itself as v1.40 (section 4e); the fix is this PR's own and waits for an independent pass, so the anchor stays at c386fed and this records the drift. Three paths move. DraftRecipientsEntity gains chainId (column chain_id, added to V1__init.sql in place with an index on account_id and chain_id) and its getter, and its constructor takes the chain after the stableId. DraftRecipientsRepository gains findChainId (the chain of the account's entry under a stableId) and supersedeEarlierInChain (sets aside the account's current entries of a chain saved no later than the stored revision, the revision itself excluded); markSuperseded is unchanged and now serves only the failed save's own entry, and the javadoc of deleteCurrentButNewest names both. Under feature/mail/service only DraftPersistenceService changes: appendDraftMessage takes the replaced stableId, works out the chain (the named revision's, or a new one under the save's own stableId), keeps the entry with that chain and one savedAt, sets its own entry aside on a failed APPEND as since 1.39, and after a stored one calls supersedeEarlierInChain; saveDraftAsync no longer sets aside the named revision itself, which the chain covers, and saveRecoveryDraft passes no replaced revision. The hard delete of the replaced revision's row, the send path, the recipient comparison and the bounds are untouched. What moves is which entries count as current, which only narrows them: the send still finds an entry by account and Message-ID, current or superseded. Verdict stays open finding (B1-14)."
       }
     ]
   },

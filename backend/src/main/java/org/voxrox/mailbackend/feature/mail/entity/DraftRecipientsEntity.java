@@ -40,11 +40,21 @@ public class DraftRecipientsEntity {
 
     /**
      * The stableId the save minted for the draft with its Message-ID: what the next
-     * save names as the revision it replaces, so the entry can be marked superseded
+     * save names as the revision it replaces, so that save finds the draft's chain
      * without the server's row.
      */
     @Column(name = "stable_id", length = 32)
     private @Nullable String stableId;
+
+    /**
+     * The stableId of the draft's first revision saved here, inherited by every
+     * save that names a revision of the draft as the one it replaces: a stored save
+     * sets aside every earlier current entry of its chain, so the draft keeps one
+     * current entry even when the revision a save names is one the server rejected,
+     * which no later save names (B1-5).
+     */
+    @Column(name = "chain_id", length = 32)
+    private @Nullable String chainId;
 
     @Column(name = "recipients_to", columnDefinition = "TEXT")
     private @Nullable String recipientsTo;
@@ -68,12 +78,13 @@ public class DraftRecipientsEntity {
     protected DraftRecipientsEntity() {
     }
 
-    public DraftRecipientsEntity(Long accountId, String messageId, @Nullable String stableId,
+    public DraftRecipientsEntity(Long accountId, String messageId, @Nullable String stableId, @Nullable String chainId,
             @Nullable String recipientsTo, @Nullable String recipientsCc, @Nullable String recipientsBcc,
             LocalDateTime savedAt) {
         this.accountId = accountId;
         this.messageId = messageId;
         this.stableId = stableId;
+        this.chainId = chainId;
         this.recipientsTo = recipientsTo;
         this.recipientsCc = recipientsCc;
         this.recipientsBcc = recipientsBcc;
@@ -86,6 +97,10 @@ public class DraftRecipientsEntity {
 
     public @Nullable String getStableId() {
         return stableId;
+    }
+
+    public @Nullable String getChainId() {
+        return chainId;
     }
 
     public @Nullable LocalDateTime getSupersededAt() {
