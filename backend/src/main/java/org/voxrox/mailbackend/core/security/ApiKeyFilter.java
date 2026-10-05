@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -20,6 +21,15 @@ import module java.base;
 public class ApiKeyFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(ApiKeyFilter.class);
+
+    /**
+     * The authority a request holds only by presenting this process's key. The
+     * chain requires it outside the public endpoints, rather than any
+     * authentication: the OAuth sign-in leaves an {@code OAuth2AuthenticationToken}
+     * in the system browser's session, and that token must authorize nothing but
+     * the sign-in itself (audit B2-1).
+     */
+    public static final String API_CLIENT_AUTHORITY = "API_CLIENT";
 
     private final InternalApiKeyProvider apiKeyProvider;
 
@@ -36,7 +46,7 @@ public class ApiKeyFilter extends OncePerRequestFilter {
         if (clientKey != null) {
             if (secureCompare(clientKey, apiKeyProvider.getKey())) {
                 UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken("desktop-client",
-                        null, List.of());
+                        null, List.of(new SimpleGrantedAuthority(API_CLIENT_AUTHORITY)));
                 SecurityContextHolder.getContext().setAuthentication(auth);
             } else {
                 /*

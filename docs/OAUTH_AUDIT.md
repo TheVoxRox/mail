@@ -2,14 +2,14 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                         |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.3                                                                                                                                                                                                                                                                                                                                                                                     |
-| **Date**           | 2026-10-04                                                                                                                                                                                                                                                                                                                                                                              |
+| **Version**        | 1.4                                                                                                                                                                                                                                                                                                                                                                                     |
+| **Date**           | 2026-10-05                                                                                                                                                                                                                                                                                                                                                                              |
 | **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                      |
 | **Audited commit** | `64633fe` (every claim re-verified 2026-10-04; 1.1 and 1.2: `cad05cb`, recorded pre-squash as `5799e8b`; 1.0 baseline: `d55b753`)                                                                                                                                                                                                                                                       |
 | **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/auth`, `backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java`, `backend/src/main/java/org/voxrox/mailbackend/core/config/OAuth2CompletedStateTracker.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/account/service/ExternalProviderLoginService.java`, `backend/src/main/resources/static` |
 | **Auditor**        | Claude (Fable 5) + owner review; 1.3 re-verified by Claude Opus 5.5                                                                                                                                                                                                                                                                                                                     |
 | **Subsystem**      | OAuth handshake — Boundary 2 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                 |
-| **Verdict**        | **Security: open finding** — **B2-1** (High, open): the session an OAuth sign-in leaves in the system browser passes the sidecar API's default-deny without the `X-API-KEY` (§3). Every other claim re-verified; four corrected (§1, §2), five informational notes added (§4).                                                                                                          |
+| **Verdict**        | **Security: PASS** — **B2-1** (High) **fixed** 2026-10-05, awaiting the independent verification pass of AUDIT_GUIDE §5: the session an OAuth sign-in leaves in the system browser passed the sidecar API's default-deny without the `X-API-KEY`; the API now requires the key's own authority, and `/success` ends the session (§3). Every other claim re-verified at 1.3.             |
 
 Focused verification audit of the boundary **"OAuth provider ↔ system browser ↔
 sidecar"**: every mitigation claimed by the Boundary 2 STRIDE rows was traced to
@@ -35,7 +35,8 @@ Google and Microsoft token-service tests (a permanent refresh rejection marks
 `/oauth2/authorization/google`, `/login/oauth2/code/google` and
 `/api/v1/auth/oauth2/success` against WireMock token and user-info endpoints
 (`openid` dropped from the requested scopes, so no id_token has to be signed),
-then calling the API with the session that flow left (§3). Not done: a sign-in
+then calling the API with the session that flow left (§3). Since 1.4 that
+probe is committed as `OAuth2SignInSessionTest`. Not done: a sign-in
 against a real provider; a real browser — which cookie a browser sends from
 which origin is reasoned from the browsers' documented defaults in §3, not
 measured; and the provider consoles (redirect-URI registrations, consent-screen
@@ -176,7 +177,7 @@ path, Boundary 5), `ApiKeyFilter` (Boundary 3) and the client's
 
 ## 3. Findings
 
-### B2-1 — The sign-in's browser session stands in for the API key (High, open)
+### B2-1 — The sign-in's browser session stood in for the API key (High) — **FIXED**
 
 **What.** The OAuth flow runs in the system browser and needs a session for the
 state, the PKCE verifier and the authorized client
@@ -236,7 +237,36 @@ Narrowing CORS's `http://localhost:[*]` and marking the session cookie
 of the regression test: the same three requests, after which the API call must
 be refused.
 
-**Status.** Open. Recorded in this re-verification, not fixed by it.
+**Fix** (2026-10-05, 1.4). Both halves of the recommendation.
+`ApiKeyFilter` grants the request it authenticates an authority of its own,
+`API_CLIENT`, and the chain requires that authority outside
+`PUBLIC_ENDPOINTS` (`anyRequest().hasAuthority(...)` in `SecurityConfig`),
+so the session's `OAuth2AuthenticationToken` authorizes the OAuth endpoints
+and nothing else: a request carrying it and no key is answered 403, a request
+with neither is still redirected to `/login` (302). `OAuth2CallbackController.success`
+invalidates the session and clears the security context in a `finally`, on
+success and on every rejection, so the sign-in no longer lingers for the
+container's idle timeout either. The authority closes the window between the
+callback and `/success` that ending the session alone would leave.
+
+**Regression test.** `OAuth2SignInSessionTest` is the probe of the method
+statement, committed: the authorization redirect and the callback against
+WireMock token and user-info endpoints, then `GET /api/v1/accounts` with the
+session, no key and `Origin: http://localhost:5173` must be 403; `/success`
+must leave the session invalidated; the key must still answer 200. Reverting
+the fix in `backend/src/main` turns the first two red (200 instead of 403, a
+session still valid). `ApiKeyFilterTest` asserts the granted authority and
+`OAuth2CallbackControllerTest` the invalidation on the rejection paths.
+
+**Residual.** CORS still answers every `http://localhost:*` origin with
+credentials and CSRF protection stays off; both matter again only for a
+request that authenticates by cookie, which the API no longer accepts. The
+OAuth endpoints themselves stay keyless by design (§1). Narrowing the CORS
+list and dropping `file://*` remain tightenings of their own
+([API_SURFACE_AUDIT.md](API_SURFACE_AUDIT.md) §7).
+
+**Status.** Fixed in code, 2026-10-05. Recorded at 1.3, fixed at 1.4; the
+independent verification pass is still to run.
 
 ## 4. Informational notes (no change required)
 
@@ -258,6 +288,7 @@ be refused.
   log, response or file sees them, and an adversary who can read the JVM's
   memory is out of the threat model's scope (§1) — so a note, not a finding. A `finally` around
   `processLogin` would make the comment beside the removal true on every path.
+  **Done at 1.4**, with B2-1's fix: the removal sits in that `finally`.
 - **A refresh-token reason on the scope guard** (new in 1.3).
   `markRequiresReauthIfExists` writes `reason=missing_refresh_token` to
   `audit.log` for both of its callers, the granted-scope guard included, and
@@ -292,11 +323,21 @@ be refused.
 
 - [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md) — Boundary 2 STRIDE matrix.
 - [CRYPTO_STORAGE_AUDIT.md](CRYPTO_STORAGE_AUDIT.md) — Boundary 5 (token-at-rest path).
-- [API_SURFACE_AUDIT.md](API_SURFACE_AUDIT.md) — Boundary 3 (public OAuth endpoints allow-list; the default-deny B2-1 passes).
+- [API_SURFACE_AUDIT.md](API_SURFACE_AUDIT.md) — Boundary 3 (public OAuth endpoints allow-list; the default-deny B2-1 passed until 1.4).
 - [backend/SECURITY_RELEASE_CHECK.md](../backend/SECURITY_RELEASE_CHECK.md) — per-release security gate.
 
 ## 6. Change log
 
+- **1.4** (2026-10-05) — **B2-1 fixed** (§3): `ApiKeyFilter` grants an
+  authority of its own and the chain requires it outside `PUBLIC_ENDPOINTS`,
+  so the session a sign-in leaves authorizes the OAuth endpoints only; `/success`
+  ends that session on success and on every rejection, and removes the
+  authorized client in a `finally` (the §4 note on a rejected sign-in). The
+  probe of the method statement is committed as `OAuth2SignInSessionTest`.
+  Verdict **PASS**, pending the independent verification pass; anchor unchanged
+  at `64633fe`, the drift acknowledged in `docs/audit-freshness.json`. The
+  threat model's B2-1 row and B3's S row follow, as do §1 and §7 of
+  [API_SURFACE_AUDIT.md](API_SURFACE_AUDIT.md) (1.13).
 - **1.3** (2026-10-04) — **re-verified against `64633fe`**, clearing the eight
   acknowledgements recorded since 2026-08-08 (the scope guard of #273, comment
   and javadoc moves, the `requires_reauth` event of #439, the cache count of

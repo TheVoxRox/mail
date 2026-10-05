@@ -106,7 +106,9 @@
       "backend/src/main/java/org/voxrox/mailbackend/exception": "77be43817c7e3a256512274f640c54e380fc3e24",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/controller": "449ccc7bf7489dafdf4219c628677bd073590c3c",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/AttachmentService.java": "b3034f89e4d290932c97916e9cf48205c51325d3",
-      "backend/src/main/resources/application.properties": "3efe345be25b54d3c452e670dcfeb2a4fcc4b9a3"
+      "backend/src/main/resources/application.properties": "3efe345be25b54d3c452e670dcfeb2a4fcc4b9a3",
+      "backend/src/main/java/org/voxrox/mailbackend/core/security": "7c83e879d6b43b8fe6292e311814b60a136968b3",
+      "backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java": "f6f48952c1d502365f4397311d15855c93b68025"
     },
     "acknowledgements": [
       {
@@ -136,6 +138,22 @@
       {
         "date": "2026-10-03",
         "note": "Every not-found and validation error names a message key of its own, recorded in API_SURFACE_AUDIT.md as v1.11: ResourceNotFoundException(String) and ValidationException(String), which passed the message as the {0} of a generic key, are removed, and each site that used them names a key. Recorded in the audit itself as v1.11 (section 3). Under this audit's paths: exception/ (the two constructors removed, javadoc on the remaining ones), feature/mail/controller (DraftController's page-size check names validation.pageSizeTooLarge with the limit and the requested size, as MailReadController and ContactController already did; ThreadingInternalController's missing account names error.account.notFound), and AttachmentService (a missing message names error.message.notFound, one gone from the server error.message.goneFromServer). Statuses, error codes, the validation itself, attachment streaming and the diagnostic dump are unchanged. Verdict stays PASS."
+      },
+      {
+        "date": "2026-10-05",
+        "note": "B2-1 fixed, recorded in OAUTH_AUDIT.md 1.4 and in this audit as v1.13 (sections 1 and 7). Under this audit's paths: ApiKeyFilter grants the request it authenticates the authority API_CLIENT, and SecurityConfig ends the chain with anyRequest().hasAuthority(API_CLIENT) instead of authenticated(), so the session an OAuth sign-in leaves authorizes the keyless OAuth paths and nothing else (403 without the key; a request with neither still gets the 302 to /login). The key check itself, the wrong-key 401, PUBLIC_ENDPOINTS, the dispatcher-type rule and the CORS list are unchanged. The default-deny is stronger, not moved; verdict stays PASS."
+      }
+    ]
+  },
+  "docs/OAUTH_AUDIT.md": {
+    "reviewedTrees": {
+      "backend/src/main/java/org/voxrox/mailbackend/feature/auth": "3036eff6bd7f9e0c3535c92f45586884d07d23aa",
+      "backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java": "f6f48952c1d502365f4397311d15855c93b68025"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-10-05",
+        "note": "B2-1 fixed, recorded in the audit itself as v1.4 (section 3, and the section 4 note on a rejected sign-in). Under this audit's paths: SecurityConfig requires the authority ApiKeyFilter grants (hasAuthority instead of authenticated()), so the session's OAuth2AuthenticationToken authorizes the OAuth endpoints only; OAuth2CallbackController.success invalidates the session and clears the security context in a finally on every outcome, and removes the authorized client in a finally around processLogin. The flow itself (start validation, state, PKCE, the success and failure handlers, the duplicate-callback gate, the four login guards) is unchanged; a benign duplicate callback still lands on the success page because the completed-state tracker lives outside the session. Verdict PASS, pending the independent verification pass."
       }
     ]
   }

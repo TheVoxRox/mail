@@ -1,10 +1,13 @@
 package org.voxrox.mailbackend.feature.auth.controller;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
@@ -88,31 +91,50 @@ public class OAuth2CallbackController {
             + "and sends the user to a static page the client captures. The client should not call this "
             + "endpoint directly — the entry point is /api/v1/auth/oauth2/start?provider=...")
     @GetMapping("/success")
-    public String success(OAuth2AuthenticationToken authToken, @AuthenticationPrincipal OAuth2User oauth2User) {
-        /*
-         * The endpoint is permitAll (it is the post-login redirect target), so a direct
-         * anonymous GET arrives without authentication and Spring injects null for both
-         * parameters — reject cleanly instead of an NPE/500.
-         */
-        if (authToken == null || oauth2User == null) {
-            throw new ValidationException("OAuth2 callback invoked outside a completed login flow.",
-                    "validation.oauth2.loginNotCompleted");
+    public String success(OAuth2AuthenticationToken authToken, @AuthenticationPrincipal OAuth2User oauth2User,
+            HttpServletRequest request) {
+        try {
+            /*
+             * The endpoint is permitAll (it is the post-login redirect target), so a direct
+             * anonymous GET arrives without authentication and Spring injects null for both
+             * parameters — reject cleanly instead of an NPE/500.
+             */
+            if (authToken == null || oauth2User == null) {
+                throw new ValidationException("OAuth2 callback invoked outside a completed login flow.",
+                        "validation.oauth2.loginNotCompleted");
+            }
+            String providerName = authToken.getAuthorizedClientRegistrationId();
+            OAuth2AuthorizedClient authorizedClient = authorizedClientService.loadAuthorizedClient(providerName,
+                    authToken.getName());
+            if (authorizedClient == null) {
+                throw new ValidationException(
+                        "OAuth2 authorized client for provider '" + providerName + "' was not found in the session.",
+                        "validation.oauth2.loginNotCompleted");
+            }
+            try {
+                oauth2LoginService.processLogin(providerName, oauth2User, authorizedClient);
+            } finally {
+                /*
+                 * On success the refresh token is persisted encrypted by now; on a rejected
+                 * login it is not wanted at all. Either way drop the plaintext copy Spring
+                 * keeps in the in-memory authorized-client store so it does not outlive the
+                 * login flow.
+                 */
+                authorizedClientService.removeAuthorizedClient(providerName, authToken.getName());
+            }
+            return "redirect:/auth-finished.html";
+        } finally {
+            /*
+             * The flow is over, whatever its outcome: end the system browser's session so
+             * the sign-in it carries does not outlive it. The chain no longer accepts that
+             * sign-in for the API (audit B2-1), and this keeps it from lingering for the
+             * container's idle timeout.
+             */
+            HttpSession session = request.getSession(false);
+            if (session != null) {
+                session.invalidate();
+            }
+            SecurityContextHolder.clearContext();
         }
-        String providerName = authToken.getAuthorizedClientRegistrationId();
-        OAuth2AuthorizedClient authorizedClient = authorizedClientService.loadAuthorizedClient(providerName,
-                authToken.getName());
-        if (authorizedClient == null) {
-            throw new ValidationException(
-                    "OAuth2 authorized client for provider '" + providerName + "' was not found in the session.",
-                    "validation.oauth2.loginNotCompleted");
-        }
-        oauth2LoginService.processLogin(providerName, oauth2User, authorizedClient);
-        /*
-         * The refresh token is persisted encrypted at this point; drop the plaintext
-         * copy Spring keeps in the in-memory authorized-client store so it does not
-         * outlive the login flow.
-         */
-        authorizedClientService.removeAuthorizedClient(providerName, authToken.getName());
-        return "redirect:/auth-finished.html";
     }
 }
