@@ -93,7 +93,7 @@ public class OAuth2LoginService {
             log.warn("{} Provider {} did not return a refresh token for {} — login rejected.", LogCategory.AUTH,
                     providerName, maskedEmail);
             AuditLog.failure("oauth2_login", maskedEmail, "provider=" + providerName + " missing_refresh_token");
-            externalProviderLoginService.markRequiresReauthIfExists(email);
+            externalProviderLoginService.markRequiresReauthIfExists(providerName, externalId, "missing_refresh_token");
             throw new MailOperationException(ErrorCode.MAIL_AUTHENTICATION_FAILED,
                     "The provider did not return a refresh token. Repeat the sign-in and confirm access.",
                     HttpStatus.UNAUTHORIZED, "error.mail.oauth2NoRefreshToken");
@@ -128,7 +128,7 @@ public class OAuth2LoginService {
                 log.warn("{} Provider {} did not grant the mail scopes ({}) for {} — login rejected.", LogCategory.AUTH,
                         providerName, missing, maskedEmail);
                 AuditLog.failure("oauth2_login", maskedEmail, "provider=" + providerName + " missing_scope=" + missing);
-                externalProviderLoginService.markRequiresReauthIfExists(email);
+                externalProviderLoginService.markRequiresReauthIfExists(providerName, externalId, "missing_scope");
                 throw new MailOperationException(ErrorCode.MAIL_OAUTH2_SCOPE_NOT_GRANTED,
                         "The provider did not grant access to the mailbox. Sign in again and confirm access to e-mail.",
                         HttpStatus.UNAUTHORIZED, "error.mail.oauth2ScopeNotGranted");
