@@ -2,9 +2,11 @@ package org.voxrox.mailbackend.feature.mail.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -227,6 +229,24 @@ class HostileImapResponseIT {
         SERVER.answerOpenWith(nestedBodyStructureFetch(200_000).replace("(UID 5 ", "(UID 5 FLAGS (\") "));
 
         AccountEntity after = pass();
+
+        assertThat(after.getLastErrorCode()).isNull();
+    }
+
+    /**
+     * B1-15. Angus's {@code parseBodyExtension} loops for ever on an extension
+     * element it cannot read, a bare atom, and nothing in the loop reads from the
+     * socket or throws; measured at 1.33, the pass span in the parse at full CPU
+     * and the account was never synced again. The parse is now stopped once it
+     * stops consuming, and the response dropped.
+     */
+    @Test
+    @DisplayName("A body extension the parser cannot read is dropped, and the pass goes on")
+    void anUnreadableBodyExtensionIsDropped() {
+        SERVER.answerOpenWith(
+                "* 1 FETCH (UID 5 BODYSTRUCTURE (\"text\" \"plain\" NIL NIL NIL \"7bit\" 1 1" + " NIL NIL NIL (x)))");
+
+        AccountEntity after = assertTimeoutPreemptively(Duration.ofSeconds(60), this::pass);
 
         assertThat(after.getLastErrorCode()).isNull();
     }
