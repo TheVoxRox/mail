@@ -156,9 +156,10 @@ public class ImapFolderExecutor {
 
             } catch (MessagingException e) {
                 /*
-                 * Log with the full stack trace — the exception is converted into a
-                 * MailOperationException below (whose constructor carries no cause), so this is
-                 * the last place the original stack is visible.
+                 * Log with the full stack trace — the exception is converted below, into a
+                 * ResourceNotFoundException that carries no cause or a MailOperationException
+                 * that keeps it, so on the first path this is the last place the original stack
+                 * is visible.
                  */
                 log.error("{} IMAP error in folder {}: {}", LogCategory.IMAP, folderName, e.getMessage(), e);
 

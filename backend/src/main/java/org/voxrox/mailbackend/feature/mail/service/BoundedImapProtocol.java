@@ -74,14 +74,15 @@ import org.voxrox.mailbackend.util.LogCategory;
  * <em>skips</em> a response that fails that way, which here would quietly drop
  * an EXISTS and leave Angus counting a folder wrongly.
  * <p>
- * A FETCH nested too deeply is the one response dropped that way, and on
- * purpose too. It has been read in full, so the connection is in step. It
- * describes one message, whose structure a sender may have chosen rather than
- * the server, and closing the connection over it would stop the folder's sync
- * at that message on every cycle, since the sync downloads the newest mail
- * first. Dropped, it leaves Angus without that message's items: it loads the
- * envelope and flags with FETCHes of their own, and loading the structure
- * fails, which the sync already keeps as an envelope-only stub.
+ * A FETCH nested too deeply is the one response dropped that way, with one
+ * whose parse stops consuming it (B1-15), and on purpose too. It has been read
+ * in full, so the connection is in step. It describes one message, whose
+ * structure a sender may have chosen rather than the server, and closing the
+ * connection over it would stop the folder's sync at that message on every
+ * cycle, since the sync downloads the newest mail first. Dropped, it leaves
+ * Angus without that message's items: it loads the envelope and flags with
+ * FETCHes of their own, and loading the structure fails, which the sync already
+ * keeps as an envelope-only stub.
  * <p>
  * The bounds above are per response; {@link #readResponse()} adds one per
  * command (B1-8), because Angus holds all of a command's responses until the
@@ -174,6 +175,18 @@ final class BoundedImapProtocol extends IMAPProtocol {
      * small.
      */
     static final int MAX_NESTING = 256;
+
+    /**
+     * Calls in a row Angus's parse of one FETCH may make through
+     * {@link DepthBoundedFetchResponse}'s methods without consuming a byte, past
+     * which the parse has stopped making progress and is dropped (B1-15). Angus
+     * 2.0.5's {@code parseBodyExtension} loops on an element it cannot read, a bare
+     * atom, calling {@code readString} and {@code isNextNonSpace} at the same index
+     * for ever. An honest parse makes a few such calls in a row at most — an
+     * {@code isNextNonSpace} that finds no {@code )} before the read that consumes
+     * the next element — so 64 leaves a wide margin.
+     */
+    static final int MAX_STALLED_CALLS = 64;
 
     /**
      * What the responses of one command may add up to, as {@link CommandBudget}
@@ -399,6 +412,10 @@ final class BoundedImapProtocol extends IMAPProtocol {
                             + "the message it describes is left without its structure.",
                     LogCategory.IMAP, host, MAX_NESTING);
             throw new NestedTooDeepException();
+        } catch (ParseStalled e) {
+            log.warn("{} Dropped a FETCH response from IMAP server {} that the parser stopped consuming; "
+                    + "the message it describes is left without its structure.", LogCategory.IMAP, host);
+            throw new StalledParseException();
         }
     }
 
@@ -507,8 +524,16 @@ final class BoundedImapProtocol extends IMAPProtocol {
      * grow with groups nested inside groups, and 10,000 of them overflow the stack.
      * An address is a {@code (}, four {@code readString}s and a {@code )}, and
      * starts or ends a group exactly when the fourth, the host, is NIL; each such
-     * address is counted, and the count is never taken back, since nothing Angus
-     * consumes says where a group ends.</li>
+     * address is counted. Nothing Angus consumes says where a group ends, but every
+     * group of a list ends when the list does: the recursion happens only inside
+     * the list's own loop, where the count of lists never drops below the list's
+     * level, and it has returned by the time the list's {@code )} is consumed. So
+     * the addresses counted are forgotten once the count of lists drops below the
+     * level they were counted at, and an envelope's groups do not add up with the
+     * next envelope's.</li>
+     * <li><b>Progress.</b> Every one of these methods notes whether the parse has
+     * consumed anything since the last; {@link #MAX_STALLED_CALLS} in a row without
+     * a byte consumed stop it with {@link ParseStalled} (B1-15).</li>
      * </ul>
      * The bound is on the two together. A miscount can only be one way that
      * matters: a level counted that Angus did not open costs an honest response at
@@ -531,6 +556,14 @@ final class BoundedImapProtocol extends IMAPProtocol {
          */
         private int addressStage;
         private boolean addressHostNil;
+        /** The lowest level of lists at which an address now counted was read. */
+        private int groupLevel;
+        /**
+         * Where the last call left the parse, and how many calls in a row left it
+         * there.
+         */
+        private int lastIndex;
+        private int stalledCalls;
 
         DepthBoundedFetchResponse(IMAPResponse response, FetchItem @Nullable [] fetchItems, Protocol protocol)
                 throws IOException, ProtocolException {
@@ -549,6 +582,7 @@ final class BoundedImapProtocol extends IMAPProtocol {
                 }
                 addressStage = 0;
             }
+            progress();
             return b;
         }
 
@@ -561,6 +595,7 @@ final class BoundedImapProtocol extends IMAPProtocol {
             }
             addressStage = 0;
             super.skip(count);
+            progress();
         }
 
         @Override
@@ -570,14 +605,16 @@ final class BoundedImapProtocol extends IMAPProtocol {
                 if (c == '(') {
                     open();
                 } else if (c == ')') {
+                    close();
                     if (addressStage == 5 && addressHostNil) {
+                        groupLevel = groupMarkers == 0 ? depth : Math.min(groupLevel, depth);
                         groupMarkers++;
                         checkBound();
                     }
-                    close();
                 }
             }
             addressStage = 0;
+            progress();
             return consumed;
         }
 
@@ -592,6 +629,7 @@ final class BoundedImapProtocol extends IMAPProtocol {
             } else {
                 addressStage = 0;
             }
+            progress();
             return read;
         }
 
@@ -626,6 +664,19 @@ final class BoundedImapProtocol extends IMAPProtocol {
             if (depth > 0) {
                 depth--;
             }
+            if (depth < groupLevel) {
+                groupMarkers = 0;
+                groupLevel = 0;
+            }
+        }
+
+        private void progress() {
+            if (index != lastIndex) {
+                lastIndex = index;
+                stalledCalls = 0;
+            } else if (++stalledCalls > MAX_STALLED_CALLS) {
+                throw new ParseStalled();
+            }
         }
 
         private void checkBound() {
@@ -646,6 +697,19 @@ final class BoundedImapProtocol extends IMAPProtocol {
 
         NestingLimitReached() {
             super("nested past " + MAX_NESTING + " levels", null, false, false);
+        }
+    }
+
+    /**
+     * Thrown from inside Angus's parse by {@link DepthBoundedFetchResponse} when it
+     * stops consuming the response; {@link #parseFetch} turns it into
+     * {@link StalledParseException}, and it must not escape this class. No stack
+     * trace, as for {@link NestingLimitReached}.
+     */
+    static final class ParseStalled extends RuntimeException {
+
+        ParseStalled() {
+            super("no byte consumed in " + MAX_STALLED_CALLS + " calls", null, false, false);
         }
     }
 
@@ -849,6 +913,16 @@ final class BoundedImapProtocol extends IMAPProtocol {
     static final class NestedTooDeepException extends ProtocolException {
         NestedTooDeepException() {
             super("Dropped an IMAP FETCH response nested more than " + MAX_NESTING + " levels deep");
+        }
+    }
+
+    /**
+     * A FETCH whose parse stopped consuming it, dropped there (B1-15); a
+     * ProtocolException for the same reason as {@link NestedTooDeepException}.
+     */
+    static final class StalledParseException extends ProtocolException {
+        StalledParseException() {
+            super("Dropped an IMAP FETCH response whose parse made no progress in " + MAX_STALLED_CALLS + " calls");
         }
     }
 }

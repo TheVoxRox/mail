@@ -3,8 +3,10 @@ package org.voxrox.mailbackend.feature.mail.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.atIndex;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.Mockito.mock;
 
+import java.time.Duration;
 import java.util.Properties;
 
 import org.eclipse.angus.mail.iap.Protocol;
@@ -210,14 +212,21 @@ class BoundedImapProtocolTest {
 
         private static final String LEAF = "(\"text\" \"plain\" NIL NIL NIL \"7bit\" 1 1)";
 
-        /** "parsed", "dropped", or the exception the parse ended in. */
+        /**
+         * "parsed", "dropped", "stalled", or the exception the parse ended in. Under a
+         * time limit, so a parse that loops fails the test instead of hanging it.
+         */
         private static String parse(String line) throws Exception {
-            try {
-                BoundedImapProtocol.parseFetch(new IMAPResponse(line), null, mock(Protocol.class), "test");
-                return "parsed";
-            } catch (BoundedImapProtocol.NestedTooDeepException e) {
-                return "dropped";
-            }
+            return assertTimeoutPreemptively(Duration.ofSeconds(10), () -> {
+                try {
+                    BoundedImapProtocol.parseFetch(new IMAPResponse(line), null, mock(Protocol.class), "test");
+                    return "parsed";
+                } catch (BoundedImapProtocol.NestedTooDeepException e) {
+                    return "dropped";
+                } catch (BoundedImapProtocol.StalledParseException e) {
+                    return "stalled";
+                }
+            });
         }
 
         /** A structure of {@code levels} multiparts around one text part. */
@@ -313,6 +322,38 @@ class BoundedImapProtocolTest {
             assertThat(parse(
                     "* 1 FETCH (ENVELOPE (NIL \"s\" (" + addresses + ") NIL (" + groups + ") NIL NIL NIL NIL NIL))"))
                     .isEqualTo("parsed");
+        }
+
+        /**
+         * Found by the 1.33 verification pass: groups add up across envelopes, but they
+         * nest only within one address list, so the count is forgotten when the list
+         * closes. Before that, a message forwarding 126 messages, each sent to
+         * {@code undisclosed-recipients:;}, was dropped though Angus parses it.
+         */
+        @Test
+        @DisplayName("Groups in many envelopes do not add up: a message forwarding 200 messages with a group each parses")
+        void groupsInSeparateEnvelopesDoNotAddUp() throws Exception {
+            String envelope = "(NIL \"s\" ((NIL NIL \"a\" \"example.com\")) NIL NIL"
+                    + " ((NIL NIL \"undisclosed-recipients\" NIL)(NIL NIL NIL NIL)) NIL NIL NIL NIL)";
+            String forwarded = "(\"message\" \"rfc822\" NIL NIL NIL \"7bit\" 100 " + envelope + " " + LEAF + " 5)";
+
+            assertThat(parse("* 1 FETCH (BODYSTRUCTURE (" + forwarded.repeat(200) + " \"mixed\"))"))
+                    .isEqualTo("parsed");
+        }
+
+        /**
+         * B1-15. Angus's {@code parseBodyExtension} reads an element that is neither a
+         * list, a number nor a string with {@code readString}, which consumes nothing
+         * for a bare atom, and loops back to the same index for ever. Both branches
+         * that reach it: a single part's extension data, and a multipart's.
+         */
+        @Test
+        @DisplayName("A body extension the parser cannot read is dropped instead of looping for ever")
+        void anUnreadableBodyExtensionIsDropped() throws Exception {
+            assertThat(parse("* 1 FETCH (UID 5 BODYSTRUCTURE (\"text\" \"plain\" NIL NIL NIL \"7bit\" 1 1"
+                    + " NIL NIL NIL (x)))")).isEqualTo("stalled");
+            assertThat(parse("* 1 FETCH (UID 5 BODYSTRUCTURE (" + LEAF + " \"mixed\" NIL NIL NIL (x)))"))
+                    .isEqualTo("stalled");
         }
 
         @Test
