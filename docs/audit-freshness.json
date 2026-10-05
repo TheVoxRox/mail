@@ -99,64 +99,6 @@
       }
     ]
   },
-  "docs/API_SURFACE_AUDIT.md": {
-    "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "ce8fadfbdbd2e206f24c9b05a520836dd261eeea",
-      "backend/src/main/java/org/voxrox/mailbackend/core/diagnostic": "87acd1071bc62a2779c216e424e7ae9b391d3ab6",
-      "backend/src/main/java/org/voxrox/mailbackend/exception": "77be43817c7e3a256512274f640c54e380fc3e24",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/controller": "449ccc7bf7489dafdf4219c628677bd073590c3c",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/AttachmentService.java": "b3034f89e4d290932c97916e9cf48205c51325d3",
-      "backend/src/main/resources/application.properties": "3efe345be25b54d3c452e670dcfeb2a4fcc4b9a3",
-      "backend/src/main/java/org/voxrox/mailbackend/core/security": "7c83e879d6b43b8fe6292e311814b60a136968b3",
-      "backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java": "f6f48952c1d502365f4397311d15855c93b68025"
-    },
-    "acknowledgements": [
-      {
-        "date": "2026-09-27",
-        "note": "Folder role detection by name matches whole names only. Two paths moved. dto: FolderRole.fromNameFallback compares the whole name, after lower-casing, removing diacritics, collapsing whitespace and dropping one INBOX./INBOX//[Gmail]//[Google Mail]/ prefix, against a list of English and Czech system folder names, instead of testing for substrings; 'bulk' moves from NEWSLETTERS to JUNK. core/diagnostic: only the javadoc of DiagnosticDumpService.folderLabels changes, to say the fallback now matches whole names; the rule it documents (every folder but INBOX is a pseudonym, A3) is unchanged. Checked against what the audit claims. (1) No endpoint, method, path, authentication rule, DTO field, validation constraint or error mapping moves: FolderRole is an enum the API returns as a folder's role, with the same constants. (2) What a response or the dump discloses does not grow: a folder can only lose a role it wrongly had, and the dump names it the same way either way. (3) Section 6's A3 text describes the fallback as a substring match; that was true at the anchor 55fdd1b and is recorded here as history, not rewritten. DiagnosticDumpPrivacyIT now checks both that a folder with a role word in its name stays USER on a real IMAP server and that a user folder named exactly 'Newsletters' is still a pseudonym. Verdict stays PASS."
-      },
-      {
-        "date": "2026-09-27",
-        "note": "Requests Spring MVC rejects before a controller runs get their own status. One path moved, exception/. GlobalExceptionHandler gains handleTypeMismatch (MethodArgumentTypeMismatchException -> 400 VALIDATION_ERROR with a violation naming the parameter; the value is not echoed) and handleRejectedRequest (405 METHOD_NOT_ALLOWED, 415 UNSUPPORTED_MEDIA_TYPE, 406 NOT_ACCEPTABLE, other ServletRequestBindingException -> 400 BAD_REQUEST), which sends the status and headers the exception carries as an ErrorResponse (Allow on 405, Accept on 415) and logs one WARN line; a 5xx binding failure (MissingPathVariableException) still goes to the catch-all. ErrorCode gains the three codes. Checked against the audit's claims. (1) No endpoint, path or authentication rule moves: these handlers run only for requests that already passed the security chain and failed in Spring MVC. (2) Error-response hygiene holds and narrows the catch-all's reach: every new message is a fixed bundle text with at most the HTTP method or the parameter name as argument, no exception text and no stack. (3) Section 7's note 'Framework-level request errors reach the catch-all' was true at the anchor 55fdd1b and is superseded by this change; the next re-verification rewrites it. FrameworkRequestRejectionTest covers each case through MockMvc and fails with 500 against the old handler. Verdict stays PASS."
-      },
-      {
-        "date": "2026-09-27",
-        "note": "Attachment part paths are validated and resolved the way IMAP numbers parts. Two paths moved. controller: MailReadController.downloadAttachment adds @Pattern(AttachmentService.PART_PATH_PATTERN) to partPath, positive part numbers joined by dots, next to the @NotBlank and @Size(max = 64) it had. AttachmentService validates the same pattern before the folder executor, and findPartByPath throws ResourceNotFoundException(error.attachment.partNotFound) for a path that leads nowhere instead of a MessagingException the executor misread as a missing folder, and returns a message's non-multipart body as its part 1, the path MimePartExtractor gives such an attachment, which could not be downloaded before. Checked against section 4's claims. (1) No traversal path opens: partPath is still only ever an index into jakarta.mail Multipart children, never a filesystem path, and the temp file is still created after findPartByPath with the stored stableId as prefix. (2) Section 4's 'the request then fails with the wrong status' and section 7's note on the attachment path were true at the anchor 55fdd1b and are superseded; a malformed path is now a 400 before any IMAP work and a missing part a 404 naming the attachment. (3) No endpoint, method or authentication rule moves. AttachmentServiceTest runs the download lambda on parsed MIME messages and MailReadControllerTest the 400s; against the old code they fail, and the single-part download errors with 'MIME part 1 was not found'. Verdict stays PASS."
-      },
-      {
-        "date": "2026-09-28",
-        "note": "The attachment lookup asks only a container for its content (IMAP/SMTP audit B1-12, recorded there as v1.18). One path moved, AttachmentService.java: findPartByPath calls getContent() only when isMimeType says multipart/* or message/rfc822, so a text part is no longer read whole into memory on the way to the copy. Read against section 4: the lookup still only indexes into Multipart children and never touches the filesystem, the temp-file name and the response headers are untouched, and the statuses section 7 and the #582 note describe (400 for a malformed path before any IMAP work, 404 naming the attachment for a missing part) are unchanged. Verdict stays PASS."
-      },
-      {
-        "date": "2026-09-28",
-        "note": "The exception-text change of API_SURFACE_AUDIT.md 1.9: a new MailFailureCause enum in the exception package classifies a caught exception into a stable cause code, and MailConnectionException / MailOperationException gained constructors that take the cause and pass the classification, not the text, as the message argument. Recorded in the audit itself as v1.9 (sections 3 and 7). Under this audit's paths: the exception package (MailFailureCause added, the two mail exceptions' constructors, GlobalExceptionHandler untouched), AttachmentService (the download failure and the temp-file race pass their exception as the cause, so the path stays in the log), and application.properties (health show-details=never). The claims about authentication, validation, attachment streaming and the diagnostic dump are unaffected; the verdict stays PASS."
-      },
-      {
-        "date": "2026-10-03",
-        "note": "The mail layer's own English sentences kept out of responses, recorded in the audit itself as v1.10 (section 3). One path moves, exception/: MailConnectionException(String) and MailOperationException(ErrorCode, String, HttpStatus), which passed the message as the {0} of error.mail.connectionFailed / operationFailed, are removed, and MailOperationException(ErrorCode, String) now passes MailFailureCause.UNEXPECTED there and keeps its message for the log. The cause-taking and key-taking constructors, MailFailureCause and GlobalExceptionHandler are unchanged. Every former caller either names a key of its own or is a guard on the app's own state, which now reads as unexpected. Read against section 3, which the same change updates; authentication, validation, attachment streaming and the diagnostic dump are not touched. Verdict stays PASS."
-      },
-      {
-        "date": "2026-10-03",
-        "note": "Every not-found and validation error names a message key of its own, recorded in API_SURFACE_AUDIT.md as v1.11: ResourceNotFoundException(String) and ValidationException(String), which passed the message as the {0} of a generic key, are removed, and each site that used them names a key. Recorded in the audit itself as v1.11 (section 3). Under this audit's paths: exception/ (the two constructors removed, javadoc on the remaining ones), feature/mail/controller (DraftController's page-size check names validation.pageSizeTooLarge with the limit and the requested size, as MailReadController and ContactController already did; ThreadingInternalController's missing account names error.account.notFound), and AttachmentService (a missing message names error.message.notFound, one gone from the server error.message.goneFromServer). Statuses, error codes, the validation itself, attachment streaming and the diagnostic dump are unchanged. Verdict stays PASS."
-      },
-      {
-        "date": "2026-10-05",
-        "note": "B2-1 fixed, recorded in OAUTH_AUDIT.md 1.4 and in this audit as v1.13 (sections 1 and 7). Under this audit's paths: ApiKeyFilter grants the request it authenticates the authority API_CLIENT, and SecurityConfig ends the chain with anyRequest().hasAuthority(API_CLIENT) instead of authenticated(), so the session an OAuth sign-in leaves authorizes the keyless OAuth paths and nothing else (403 without the key; a request with neither still gets the 302 to /login). The key check itself, the wrong-key 401, PUBLIC_ENDPOINTS, the dispatcher-type rule and the CORS list are unchanged. The default-deny is stronger, not moved; verdict stays PASS."
-      }
-    ]
-  },
-  "docs/OAUTH_AUDIT.md": {
-    "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/auth": "3036eff6bd7f9e0c3535c92f45586884d07d23aa",
-      "backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java": "f6f48952c1d502365f4397311d15855c93b68025"
-    },
-    "acknowledgements": [
-      {
-        "date": "2026-10-05",
-        "note": "B2-1 fixed, recorded in the audit itself as v1.4 (section 3, and the section 4 note on a rejected sign-in). Under this audit's paths: SecurityConfig requires the authority ApiKeyFilter grants (hasAuthority instead of authenticated()), so the session's OAuth2AuthenticationToken authorizes the OAuth endpoints only; OAuth2CallbackController.success invalidates the session and clears the security context in a finally on every outcome, and removes the authorized client in a finally around processLogin. The flow itself (start validation, state, PKCE, the success and failure handlers, the duplicate-callback gate, the four login guards) is unchanged; a benign duplicate callback still lands on the success page because the completed-state tracker lives outside the session. Verdict PASS, pending the independent verification pass."
-      }
-    ]
-  },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "c96a472a25ff0cdf10fc9cff57c2945433a58ba5"
