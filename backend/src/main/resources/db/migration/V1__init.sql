@@ -607,17 +607,26 @@ CREATE UNIQUE INDEX ux_correspondent_account_email
 -- APPEND. Not by the stable id: that hashes the Drafts folder's name too, so
 -- a server moving the \Drafts role gave the draft an id with no entry.
 -- Deleted with the draft when this client deletes it (the revision an
--- autosave replaces, a sent draft); beyond that, each save keeps the
--- account's newest entries, as many as DraftPersistenceService's
+-- autosave replaces, a sent draft). An entry is current until a later
+-- stored save of the same draft sets it aside (superseded_at), or its own
+-- save fails; each save keeps the account's newest current entries and its
+-- newest superseded ones apart, as many of each as DraftPersistenceService's
 -- KEPT_DRAFT_RECIPIENTS. Not by age: a server could hide a draft for as long
 -- as an age limit ran, and only the user's own saves add entries. A draft
 -- composed in another client has no entry, and its check falls back to the
 -- row.
+--
+-- stable_id is the stableId the save minted, which the next save names as
+-- the revision it replaces. chain_id is the stable_id of the draft's first
+-- revision saved here, inherited by every save that names a revision of the
+-- draft, so a stored save can set aside every earlier revision of its draft
+-- even when the revision it names is one the server rejected.
 -- =====================================================================
 CREATE TABLE draft_recipients (
     account_id     INTEGER      NOT NULL,
     message_id     VARCHAR(255) NOT NULL,
     stable_id      VARCHAR(32),
+    chain_id       VARCHAR(32),
     recipients_to  TEXT,
     recipients_cc  TEXT,
     recipients_bcc TEXT,
@@ -632,3 +641,6 @@ CREATE INDEX idx_draft_recipients_account_saved
 
 CREATE INDEX idx_draft_recipients_account_stable
     ON draft_recipients (account_id, stable_id);
+
+CREATE INDEX idx_draft_recipients_account_chain
+    ON draft_recipients (account_id, chain_id);

@@ -21,6 +21,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Backend
 
+- **A mail server that refuses only some of your draft saves can no longer wear down the protection on drafts you send unedited (#638).** After a save the server refused, the next save named the refused revision as the one it replaced, so the last revision the server had stored was never retired. A server refusing every other save could therefore, after a couple of thousand autosaves, push out the record of a draft it was hiding and then present that draft with a recipient added. Each saved revision now belongs to its draft, and a stored save retires every earlier revision of that draft, whichever one it names. Changes `V1__init.sql`; a development database needs resetting.
+
 - **The JSON library the app runs on moves to Jackson 3.1.7, past five advisories published in the week before (#637).** None of them can be triggered in the app: they need polymorphic types, object identities, XML calendar values, a parser fed from a `DataInput`, or a request field that turns text into a decimal number, and the app uses none of these. They are fixed anyway because the release scan fails on the version, not on what the app does with it. Spring Boot 4.1.1 still manages 3.1.5, so `backend/pom.xml` pins the bom again, with Jackson 2 at 2.21.7 for the build tools that use it; Jackson 2 does not ship in the app.
 
 - **A mail server that refuses to store your drafts can no longer wear down the protection on drafts you send unedited either (#635).** #632 kept a server from doing it by withholding what the app needs to tidy up after an autosave; a server that rejected every autosave outright could still do it, because each rejected save left a record of its own. A rejected save's record is now set aside like a replaced one, so it counts against the other set-aside records only. Every rejected save already shows as a failed draft save.
@@ -92,6 +94,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 - **Tauri 2.12.1 (#617).** It brings wry 0.57, whose fix (tauri-apps/wry#1799) the app has been waiting for: minimizing the window while it was still starting left the app running in the tray with no window and no way to open one. The fix is upstream's; checking it on a release build is still a manual step (`todo.md`). The Tauri plugins move with it on both sides — fs 2.6.0, http 2.8.0, shell 2.4.0, and on the Rust side updater 2.13.1, single-instance 2.5.2 and log 2.10.0 — and `webview2-com` 0.39 and `windows-core` 0.62 are raised by hand to the versions the new wry builds with, since dependabot ignores them and the Ubuntu CI does not compile the Windows-only code that uses them; that was built on Windows.
 
 ### Repo
+
+- **The IMAP/SMTP audit is re-verified against `c386fed` (#638).** An independent pass over the fixes of 1.38 and 1.39 confirmed both, against Angus's and jakarta.mail's bytecode and by reverting each fix and watching its tests fail, and found the B1-5 route fixed above; the seven acknowledgements in `docs/audit-freshness.json` are cleared, and that fix starts a new ledger pending its own pass.
 
 - **A javadoc in `SecurityConfig` names the client authentication Google actually uses (#636).** It said `client_secret_post`; the `google` registration uses Spring's default, `client_secret_basic` (OAuth audit §4 note). Comment only.
 

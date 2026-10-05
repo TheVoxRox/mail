@@ -147,6 +147,8 @@ class DraftPersistenceServiceTest {
             // The old revision is still the current one, so its entry stays current, and
             // the new revision the server did not store is set aside instead (B1-5).
             verify(draftRecipientsRepository, never()).markSuperseded(eq(ACCOUNT_ID), eq(STABLE_ID), any());
+            verify(draftRecipientsRepository, never()).supersedeEarlierInChain(anyLong(), anyString(), anyString(),
+                    any(), any());
             verify(draftRecipientsRepository).markSuperseded(eq(ACCOUNT_ID), eq(IDENTITY.stableId()),
                     any(LocalDateTime.class));
         }
@@ -356,21 +358,27 @@ class DraftPersistenceServiceTest {
         /**
          * B1-5, reopened at 1.31: a save used to retire the replaced revision's entry
          * only when it found that revision's row and the server deleted it, so a server
-         * without APPENDUID made the entries grow by saves. The revision the client
-         * names is marked superseded whatever the server answers.
+         * without APPENDUID made the entries grow by saves. Since the pass over 1.39 a
+         * stored save sets aside every earlier revision of the draft, by the chain of
+         * the revision the client names, whatever the server answers.
          */
         @Test
-        @DisplayName("A save marks the revision it replaces superseded even when the server gave it no row (B1-5)")
-        void aSaveMarksTheReplacedRevisionWithoutItsRow() throws Exception {
+        @DisplayName("A stored save sets aside the earlier revisions of its draft even when the server gave it no row (B1-5)")
+        void aSaveSetsAsideTheEarlierRevisionsWithoutTheirRow() throws Exception {
             savesWithoutAppendUid();
             when(messageService.getByStableId("stable-previous-revision")).thenReturn(Optional.empty());
+            when(draftRecipientsRepository.findChainId(ACCOUNT_ID, "stable-previous-revision"))
+                    .thenReturn(Optional.of("stable-first-revision"));
 
             service.saveDraftAsync(ACCOUNT_ID,
                     new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null),
                     "stable-previous-revision", IDENTITY);
 
-            verify(draftRecipientsRepository).markSuperseded(eq(ACCOUNT_ID), eq("stable-previous-revision"),
-                    any(LocalDateTime.class));
+            ArgumentCaptor<DraftRecipientsEntity> kept = ArgumentCaptor.forClass(DraftRecipientsEntity.class);
+            verify(draftRecipientsRepository).save(kept.capture());
+            assertThat(kept.getValue().getChainId()).isEqualTo("stable-first-revision");
+            verify(draftRecipientsRepository).supersedeEarlierInChain(eq(ACCOUNT_ID), eq("stable-first-revision"),
+                    eq(IDENTITY.messageId()), any(LocalDateTime.class), any(LocalDateTime.class));
             verify(imapActionService, never()).hardDelete(anyLong(), anyString(), anyLong());
         }
 
@@ -397,16 +405,22 @@ class DraftPersistenceServiceTest {
             order.verify(draftRecipientsRepository).save(any());
             order.verify(draftRecipientsRepository).markSuperseded(eq(ACCOUNT_ID), eq(IDENTITY.stableId()),
                     any(LocalDateTime.class));
+            verify(draftRecipientsRepository, never()).supersedeEarlierInChain(anyLong(), anyString(), anyString(),
+                    any(), any());
         }
 
         @Test
-        @DisplayName("A save that replaces nothing marks nothing superseded")
-        void aFirstSaveMarksNothing() throws Exception {
+        @DisplayName("A save that replaces nothing starts a chain of its own and sets nothing else aside")
+        void aFirstSaveStartsItsOwnChain() throws Exception {
             savesWithoutAppendUid();
 
             service.saveDraftAsync(ACCOUNT_ID,
                     new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null, IDENTITY);
 
+            ArgumentCaptor<DraftRecipientsEntity> kept = ArgumentCaptor.forClass(DraftRecipientsEntity.class);
+            verify(draftRecipientsRepository).save(kept.capture());
+            assertThat(kept.getValue().getChainId()).isEqualTo(IDENTITY.stableId());
+            verify(draftRecipientsRepository, never()).findChainId(anyLong(), anyString());
             verify(draftRecipientsRepository, never()).markSuperseded(anyLong(), anyString(), any());
         }
 
