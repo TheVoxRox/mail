@@ -286,6 +286,10 @@ polozky frontendu padly 2026-08-28.
 
 ---
 
+## Po v0.1.0 — zavislosti
+
+- [ ] **SvelteKit 3 + adapter-static 4 — migrace az po vydani v0.1.0.** Rozhodnuto 2026-10-05: dependabot PR #624 a #625 zavreny (kazdy zvlast nejde nainstalovat, adapter-static 3 odmita Kit 3), ignore obou majoru v `.github/dependabot.yml` (#629); spustit = smazat oba zaznamy a zvednout dvojici jednim PR rucne. Predpoklady uz splnujeme (Node 22.17+, TS 6, Svelte 5.57.1, Vite 8, vite-plugin-svelte 7). Co nas zasahne podle oficialniho pruvodce `migrating-to-sveltekit-3` (vetsinu udela `npx sv migrate sveltekit-3`): (1) `$lib` -> `#lib` pres pole `imports` v `package.json`, ~950 importu ve 208 souborech, pripony uz maji; (2) konfigurace ze `svelte.config.js` do pluginu `sveltekit()` ve `vite.config.ts`, navazne `eslint.config.js` (importuje svelte.config.js) a `tsconfig.json` (`extends: "$app/tsconfig"` + include/exclude); (3) `$app/environment` -> `$app/env` (17 souboru); (4) `invalidateAll` -> `refreshAll` (2 mista). **Zmeny chovani, ktere chteji poslech se ctenkou:** (a) `goto` slucuje `keepFocus` a `noScroll` do `reset: false`, ktere drzi fokus i scroll — 5 volani, 3 jen s `keepFocus` (MessageList, mail/actions, mail/mailbox) by nove drzela i scroll; (b) odkaz na aktualni stranku nove dela `refreshAll()` misto nicehoz (aktivace prave otevrene slozky v postrannim panelu). Navic: kontrola nove verze aplikace kazdou hodinu a pri navratu do okna (`version.pollInterval`), v Tauri jen lokalni dotaz — vypnout. Netyka se nas: SSR, formulare, cookies, CSRF, remote funkce, `$app/stores`, service worker; `resolve()` volame jen s ID rout, ty si `/` nechavaji.
+
 ## Produktove funkce (backlog)
 
 Hotove: **Podpisy zprav — Faze 1** (auto-insert + From-swap + manualni tlacitko + per-ucet prepinac, smoke 2026-06-23) a **Tabulka kontaktu** (sloupec Aktualizovano odebran) — detail v [todo-archive.md](todo-archive.md).

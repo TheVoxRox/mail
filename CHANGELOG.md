@@ -79,6 +79,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- **Dependabot stops offering SvelteKit 3 until after v0.1.0 (#629).** Its two major bumps (#624, #625) cannot install apart, and the migration changes how navigation keeps focus and what a link to the current page does; both are closed, and `.github/dependabot.yml` ignores the two majors with a note on how to start the migration.
+
 - **The API surface audit is re-verified against `55f4afa`, and the verification pass confirms the B2-1 and B1-10 fixes and finds B1-15 (#628).** [API_SURFACE_AUDIT.md](docs/API_SURFACE_AUDIT.md) 1.14 clears the eight acknowledgements at the ledger's cap, still **PASS**, and corrects the claims #580–#583 had superseded; [OAUTH_AUDIT.md](docs/OAUTH_AUDIT.md) 1.5 confirms B2-1's fix by measurement and moves its anchor. [IMAP_SMTP_AUDIT.md](docs/IMAP_SMTP_AUDIT.md) 1.33 confirms B1-10's fix against Angus 2.0.5's source and records B1-15 (Medium, open): Angus's body-extension parse loops forever on an element it cannot read.
 
 - **The test fixtures move to msw 3 (#626).** msw 3 renames the worker option `onUnhandledRequest` to `onUnhandledFrame`, and its service worker script has to match the library, so `frontend/static/mockServiceWorker.js` is regenerated with `msw init`; dependabot changes only the manifest and the lockfile. The e2e and accessibility suites, which run against that worker, pass unchanged.
