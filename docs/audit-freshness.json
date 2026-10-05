@@ -101,12 +101,27 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "c96a472a25ff0cdf10fc9cff57c2945433a58ba5"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "1fcc7f927eedec956f060320336f23d893423bbd"
     },
     "acknowledgements": [
       {
         "date": "2026-10-05",
         "note": "B1-10 fixed again, recorded in the audit itself as v1.32 (section 4j). One file under feature/mail/service changes, BoundedImapProtocol: the scan NestingCheckedResponse.nestsDeeperThan is gone, and a FETCH is parsed through DepthBoundedFetchResponse, a FetchResponse whose overrides of readByte, skip, isNextNonSpace, readString and readStringList count the levels Angus's own parse opens (lists open at once, plus every address with a NIL host) and stop the parse past MAX_NESTING (256), after which the response is dropped with NestedTooDeepException as before. The other bounds of the class (response bytes, EXISTS, VANISHED, the command and selection budgets) are unchanged; the javadoc of MAX_SELECTION_EXPUNGE_STEPS is corrected (some 46,000 EXPUNGEs in a folder of 20,000, not a hundred thousand). Verdict stays open findings (B1-5, B1-12, B1-14)."
+      },
+      {
+        "date": "2026-10-05",
+        "note": "B1-12 fixed again, recorded in the audit itself as v1.34 (section 4l, and the section 5 note on the attachment download). One file under feature/mail/service changes, AttachmentService: findPartByPath asks a part for its content through holdsParts, which keeps the multipart/* or message/rfc822 type test and, for an IMAPMessage or IMAPBodyPart, also requires a handler that is not MimeMessage's own over a MimePartDataSource, so a part the server describes in single-part form is a leaf and streamed rather than fetched and parsed whole. The download's temp file, its streaming copy, the path validation and the not-found keys are unchanged. Verdict stays open findings (B1-5, B1-14, B1-15)."
+      }
+    ]
+  },
+  "docs/API_SURFACE_AUDIT.md": {
+    "reviewedTrees": {
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/AttachmentService.java": "93e7f9bb1964e01d29587200963019bce07d5e70"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-10-05",
+        "note": "B1-12 fixed again (IMAP_SMTP_AUDIT.md 1.34, section 4l). Under this audit's paths only AttachmentService changes, inside findPartByPath: a part on the server is asked for its content only when Angus built its parts from the parsed structure (holdsParts), otherwise it is a leaf. Section 4's claims hold unchanged: the part path is validated before any IMAP work, the download streams to a temp file under <data-dir>/tmp that is unlinked on close, and a missing part is a 404 naming the attachment. Verdict stays PASS."
       }
     ]
   }

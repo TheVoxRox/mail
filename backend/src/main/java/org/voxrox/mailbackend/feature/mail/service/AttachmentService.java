@@ -3,7 +3,10 @@ package org.voxrox.mailbackend.feature.mail.service;
 import jakarta.mail.MessagingException;
 import jakarta.mail.Multipart;
 import jakarta.mail.Part;
+import jakarta.mail.internet.MimePartDataSource;
 
+import org.eclipse.angus.mail.imap.IMAPBodyPart;
+import org.eclipse.angus.mail.imap.IMAPMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -208,7 +211,7 @@ public class AttachmentService {
     private Part findPartByPath(Part part, String path, String fullPath) throws MessagingException, IOException {
         String[] segments = path.split("\\.", 2);
         int index = partIndex(segments[0], fullPath);
-        Object content = part.isMimeType("multipart/*") || part.isMimeType("message/rfc822") ? part.getContent() : null;
+        Object content = holdsParts(part) ? part.getContent() : null;
 
         // An encapsulated message (message/rfc822) is numbered from its own body.
         if (content instanceof jakarta.mail.Message innerMsg) {
@@ -230,6 +233,34 @@ public class AttachmentService {
             return part;
         }
         throw partNotFound(fullPath);
+    }
+
+    /**
+     * Whether the part's content is parts to descend into, and asking for it reads
+     * no body (B1-12). The declared type decides only that it may hold parts: a
+     * text part's content is its whole body as one String.
+     * <p>
+     * For a part on the server the type is not enough either. Angus 2.0.5 builds
+     * the parts from the structure it parsed — an {@code IMAPMultipartDataSource}
+     * for a structure in multipart form, an {@code IMAPNestedMessage} for a nested
+     * message with an envelope — and leaves anything else to {@code MimeMessage}'s
+     * own handler over a {@link MimePartDataSource}. That one's content is the
+     * whole part fetched and parsed in memory, and a server gets it by describing a
+     * {@code multipart/*} in single-part form, or a {@code message/rfc822} without
+     * its envelope. Such a part is a leaf here: a message is still its own part 1,
+     * streamed, and a path below it is not found.
+     * <p>
+     * A part that is not on the server has its bytes in memory already, and its
+     * content is parsed from them.
+     */
+    private static boolean holdsParts(Part part) throws MessagingException {
+        if (!part.isMimeType("multipart/*") && !part.isMimeType("message/rfc822")) {
+            return false;
+        }
+        if (!(part instanceof IMAPMessage) && !(part instanceof IMAPBodyPart)) {
+            return true;
+        }
+        return !(part.getDataHandler().getDataSource() instanceof MimePartDataSource);
     }
 
     /**
