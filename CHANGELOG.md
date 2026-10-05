@@ -21,6 +21,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Backend
 
+- **The JSON library the app runs on moves to Jackson 3.1.7, past five advisories published in the week before (#637).** None of them can be triggered in the app: they need polymorphic types, object identities, XML calendar values, a parser fed from a `DataInput`, or a request field that turns text into a decimal number, and the app uses none of these. They are fixed anyway because the release scan fails on the version, not on what the app does with it. Spring Boot 4.1.1 still manages 3.1.5, so `backend/pom.xml` pins the bom again, with Jackson 2 at 2.21.7 for the build tools that use it; Jackson 2 does not ship in the app.
+
 - **A mail server that refuses to store your drafts can no longer wear down the protection on drafts you send unedited either (#635).** #632 kept a server from doing it by withholding what the app needs to tidy up after an autosave; a server that rejected every autosave outright could still do it, because each rejected save left a record of its own. A rejected save's record is now set aside like a replaced one, so it counts against the other set-aside records only. Every rejected save already shows as a failed draft save.
 
 - **Attachments in messages with more than one part download again (#634).** The change in #630 that keeps attachment downloads from loading a whole message into memory mistook the mail library's ordinary description of a multi-part message for the suspicious kind, so every attachment in such a message was reported as not found. No released build carried it; the protection #630 added stays.
