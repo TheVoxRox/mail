@@ -31,8 +31,10 @@ import jakarta.mail.UIDFolder;
 import jakarta.mail.internet.MimeBodyPart;
 import jakarta.mail.internet.MimeMessage;
 import jakarta.mail.internet.MimeMultipart;
+import jakarta.mail.internet.MimePartDataSource;
 import jakarta.mail.util.ByteArrayDataSource;
 
+import org.eclipse.angus.mail.imap.IMAPMessage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -272,6 +274,46 @@ class AttachmentServiceTest {
             assertThat(download("1")).isEqualTo("Meeting notes".getBytes(StandardCharsets.UTF_8));
             assertThatThrownBy(() -> download("1.1")).isInstanceOf(ResourceNotFoundException.class);
             verify(onServer, never()).getContent();
+        }
+
+        /**
+         * B1-12, reopened at 1.24. A server can name {@code multipart/mixed} in a
+         * structure of single-part form; Angus 2.0.5 then builds no parts from it and
+         * leaves the message to {@code MimeMessage}'s own handler, whose content is the
+         * whole body fetched and parsed in memory. The handler here is that one.
+         */
+        @Test
+        @DisplayName("A multipart the server describes in single-part form is not read whole")
+        void aMultipartWithoutAStructureIsALeaf() throws Exception {
+            byte[] body = "--b\r\n\r\nraw\r\n--b--\r\n".getBytes(StandardCharsets.US_ASCII);
+            IMAPMessage onServer = mock(IMAPMessage.class);
+            when(onServer.isMimeType("multipart/*")).thenReturn(true);
+            when(onServer.getDataHandler()).thenReturn(new DataHandler(new MimePartDataSource(onServer)));
+            when(onServer.getInputStream()).thenAnswer(invocation -> new ByteArrayInputStream(body));
+            serverHas(onServer);
+
+            assertThat(download("1")).isEqualTo(body);
+            assertThatThrownBy(() -> download("1.1")).isInstanceOf(ResourceNotFoundException.class);
+            verify(onServer, never()).getContent();
+        }
+
+        /**
+         * The other side of B1-12: a multipart Angus built from the structure it parsed
+         * is descended into, as before. The handler holds the parts as an object, so
+         * asking for them reads no body.
+         */
+        @Test
+        @DisplayName("A multipart built from the server's structure is descended into")
+        void aMultipartFromTheStructureIsDescended() throws Exception {
+            byte[] pdf = "%PDF-1.7 structure".getBytes(StandardCharsets.US_ASCII);
+            Object parts = multipart(pdf).getContent();
+            IMAPMessage onServer = mock(IMAPMessage.class);
+            when(onServer.isMimeType("multipart/*")).thenReturn(true);
+            when(onServer.getDataHandler()).thenReturn(new DataHandler(parts, "multipart/mixed"));
+            when(onServer.getContent()).thenReturn(parts);
+            serverHas(onServer);
+
+            assertThat(download("2")).isEqualTo(pdf);
         }
 
         @Test
