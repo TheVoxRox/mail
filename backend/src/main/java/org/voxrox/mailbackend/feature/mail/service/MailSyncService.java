@@ -383,7 +383,7 @@ public class MailSyncService {
                  * folder's unread badge. Re-download them so the mirror is contiguous; they
                  * count as downloaded so the completion event refreshes the client.
                  */
-                totalDownloaded += messageDownloader.reconcileServerOnlyUids(ctx, serverOnlyHoles);
+                totalDownloaded += messageDownloader.reconcileServerOnlyUids(ctx, serverOnlyHoles, totalDownloaded);
             } else {
                 /*
                  * UID validity has changed — the IMAP server has reset the mailbox state. That

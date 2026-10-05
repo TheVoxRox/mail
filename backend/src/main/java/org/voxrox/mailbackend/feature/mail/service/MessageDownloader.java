@@ -198,16 +198,42 @@ public class MessageDownloader {
      * {@link #dropAlreadyPersisted} keeps it idempotent and {@code lastKnownUid}
      * only ever advances upward (an interior hole never regresses the forward
      * cursor).
+     * <p>
+     * Normally zero, but not bounded by anything the server cannot choose: the open
+     * folder holds every message it downloads until it closes, and a gap can be as
+     * wide as the folder — the cursor of a catch-up that ended mid-way has moved
+     * past everything below its first, newest batch, or another client moves a few
+     * hundred thousand messages into the middle of the window (IMAP/SMTP audit
+     * B1-14). So the holes share the pass's room in the local window with the new
+     * messages it has already downloaded ({@code alreadyDownloaded}). With no room
+     * left they wait for the next pass; with more holes than room only the newest
+     * come down, and the folder's rows below the oldest of them go at once, by UID,
+     * as a catch-up cut short leaves the mirror (see
+     * {@link #downloadRangeInternal}): the older holes and the rows between them
+     * stay on the server, where the lazy page fetch reaches them.
      *
      * @return the number of messages actually re-downloaded
      */
-    public int reconcileServerOnlyUids(FolderSyncContext ctx, List<Long> holeUids) throws MessagingException {
+    public int reconcileServerOnlyUids(FolderSyncContext ctx, List<Long> holeUids, int alreadyDownloaded)
+            throws MessagingException {
         if (holeUids.isEmpty()) {
             return 0;
         }
+        int room = mailProps.sync().localWindowLimit() - alreadyDownloaded;
+        if (room <= 0) {
+            log.info(
+                    "{} {} server-only message(s) missing from the local mirror in {} wait for the next pass: "
+                            + "this one has filled the local window.",
+                    LogCategory.SYNC, holeUids.size(), ctx.folderName());
+            return 0;
+        }
+        // Ascending by UID (detectServerOnlyHolesInWindow sorts them): the newest are
+        // the last.
+        boolean cutShort = holeUids.size() > room;
+        List<Long> holes = cutShort ? holeUids.subList(holeUids.size() - room, holeUids.size()) : holeUids;
         int batchSize = mailProps.sync().batchSize();
         int total = 0;
-        for (List<Long> batch : holeUids.stream().gather(Gatherers.windowFixed(batchSize)).toList()) {
+        for (List<Long> batch : holes.stream().gather(Gatherers.windowFixed(batchSize)).toList()) {
             long[] uids = batch.stream().mapToLong(Long::longValue).toArray();
             Message[] fetched = ctx.uidFolder().getMessagesByUID(uids);
             if (fetched == null) {
@@ -229,6 +255,14 @@ public class MessageDownloader {
         if (total > 0) {
             log.info("{} Reconciled {} server-only message(s) missing from the local mirror in {}.", LogCategory.SYNC,
                     total, ctx.folderName());
+        }
+        if (cutShort) {
+            long threshold = holes.getFirst();
+            int dropped = messageRepository.deleteOlderThan(ctx.getAccountId(), ctx.folderName(), threshold);
+            log.info(
+                    "{} Reconcile in {} stopped at the newest {} of {} server-only message(s) (from UID {}); older "
+                            + "ones stay on the server, and {} older local row(s) went with them.",
+                    LogCategory.SYNC, ctx.folderName(), holes.size(), holeUids.size(), threshold, dropped);
         }
         return total;
     }

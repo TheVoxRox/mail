@@ -101,7 +101,7 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "6b43c31219950eb66d9cdfc2b6439ed3b5cc7705",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "da88caad896e53553599f9e2aeeada0843d58ec8",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/DraftRecipientsEntity.java": "8fe876fff0ba59e8992440d53be4c15564da2f99",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "0b3db02e11a3a827b90f038b4df77210eb4eab3f"
     },
@@ -121,6 +121,10 @@
       {
         "date": "2026-10-05",
         "note": "B1-5 fixed again, recorded in the audit itself as v1.36 (section 4e). DraftRecipientsEntity gains stableId (the stableId the save minted with its Message-ID) and supersededAt; DraftRecipientsRepository replaces deleteAllButNewest with deleteCurrentButNewest and deleteSupersededButNewest, which bound current and superseded entries apart, and adds markSuperseded, by account and stableId; DraftPersistenceService keeps the stableId with the entry, prunes both kinds before keeping a new one, and after a stored append marks the revision the client names as replaced superseded, whatever the server answered. The recipient check on send, its lookup by account and Message-ID, and the drop of an entry whose revision the server deleted are unchanged. Schema: two columns and an index in V1__init.sql, pre-release. Verdict: open finding (B1-14)."
+      },
+      {
+        "date": "2026-10-05",
+        "note": "B1-14 reconcile path bounded, recorded in the audit itself as v1.37 (section 4n). Two files under feature/mail/service change. MessageDownloader.reconcileServerOnlyUids takes how many messages the pass already downloaded; the holes share the room left in local-window-limit with them, none come down when there is no room, and past the room only the newest holes come down and the rows below the oldest of them are deleted by UID (MessageRepository.deleteOlderThan), as downloadRangeInternal does for a catch-up cut short. MailSyncService passes the pass count. The cleanup that finds the holes, the batch save and the forward cursor are unchanged. Verdict stays open finding (B1-14, its hostile half)."
       }
     ]
   },
