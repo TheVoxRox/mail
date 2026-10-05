@@ -87,7 +87,7 @@ class DraftRecipientsRepositoryIT {
         keep("<other@voxrox.org>", other, now.minusDays(30));
         em.clear();
 
-        int dropped = repository.deleteAllButNewest(account.getId(), 2);
+        int dropped = repository.deleteCurrentButNewest(account.getId(), 2);
 
         assertThat(dropped).isEqualTo(2);
         assertThat(repository.findAll()).extracting(DraftRecipientsEntity::getMessageId)
@@ -102,13 +102,122 @@ class DraftRecipientsRepositoryIT {
         keep("<new@voxrox.org>", account, LocalDateTime.now());
         em.clear();
 
-        assertThat(repository.deleteAllButNewest(account.getId(), 2)).isZero();
+        assertThat(repository.deleteCurrentButNewest(account.getId(), 2)).isZero();
         assertThat(repository.findAll()).hasSize(2);
     }
 
+    /**
+     * B1-5, reopened at 1.31: the entries used to share one count, and a save
+     * retired the revision it replaced only when the server let it, so a server
+     * without APPENDUID had a hidden draft's entry pushed out by the user's
+     * autosaves. Each save now marks the revision it replaces superseded, and the
+     * two kinds are bounded apart.
+     * <p>
+     * The bound here is three, as the service's is a thousand: a draft being saved
+     * holds two current entries for the moment of a save, since the new one is kept
+     * before the append and the old one marked after it, so the hidden draft needs
+     * the third place.
+     */
+    @Test
+    @DisplayName("Autosaves of one draft never push out another draft's entry (B1-5)")
+    void autosavesDoNotPushOutAnotherDraft() {
+        AccountEntity account = newAccount("user@example.com");
+
+        autosave(account, 10, true);
+
+        assertThat(repository.findAll()).filteredOn(entry -> entry.getSupersededAt() == null)
+                .extracting(DraftRecipientsEntity::getMessageId)
+                .containsExactlyInAnyOrder("<hidden@voxrox.org>", "<rev10@voxrox.org>");
+        // Pruned to the bound before each save, then one more marked after it.
+        assertThat(repository.findAll()).filteredOn(entry -> entry.getSupersededAt() != null)
+                .hasSizeLessThanOrEqualTo(BOUND + 1);
+    }
+
+    /**
+     * The same autosaves without the mark — what a save did until 1.36 when the
+     * server gave it no row to delete — push the hidden draft's entry out.
+     */
+    @Test
+    @DisplayName("Without the mark, the same autosaves push the hidden draft's entry out")
+    void withoutTheMarkAutosavesPushItOut() {
+        AccountEntity account = newAccount("user@example.com");
+
+        autosave(account, 10, false);
+
+        assertThat(repository.findAll()).extracting(DraftRecipientsEntity::getMessageId)
+                .doesNotContain("<hidden@voxrox.org>");
+    }
+
+    private static final int BOUND = 3;
+
+    /**
+     * A hidden draft's entry, then {@code saves} saves of another draft in the
+     * service's order: prune both kinds, keep the new revision's entry, and — when
+     * {@code mark} — mark the revision it replaced superseded.
+     */
+    private void autosave(AccountEntity account, int saves, boolean mark) {
+        LocalDateTime start = LocalDateTime.now().minusHours(1);
+        keep("<hidden@voxrox.org>", "stable-hidden", account, start);
+        String previous = null;
+        for (int save = 1; save <= saves; save++) {
+            repository.deleteCurrentButNewest(account.getId(), BOUND - 1);
+            repository.deleteSupersededButNewest(account.getId(), BOUND);
+            keep("<rev" + save + "@voxrox.org>", "stable-rev" + save, account, start.plusMinutes(save));
+            if (mark && previous != null) {
+                repository.markSuperseded(account.getId(), previous, start.plusMinutes(save));
+            }
+            previous = "stable-rev" + save;
+        }
+        em.clear();
+    }
+
+    @Test
+    @DisplayName("Marking a revision superseded touches only that account's current entry with the stableId")
+    void marksOnlyTheNamedCurrentEntry() {
+        AccountEntity account = newAccount("user@example.com");
+        AccountEntity other = newAccount("other@example.com");
+        LocalDateTime now = LocalDateTime.now();
+        keep("<a@voxrox.org>", "stable-a", account, now);
+        keep("<b@voxrox.org>", "stable-b", account, now);
+        keep("<other@voxrox.org>", "stable-a", other, now);
+        em.clear();
+
+        assertThat(repository.markSuperseded(account.getId(), "stable-a", now)).isEqualTo(1);
+        assertThat(repository.markSuperseded(account.getId(), "stable-a", now.plusMinutes(1)))
+                .as("an entry already superseded keeps its time").isZero();
+        em.clear();
+
+        assertThat(repository.findAll()).filteredOn(entry -> entry.getSupersededAt() != null)
+                .extracting(DraftRecipientsEntity::getMessageId).containsExactly("<a@voxrox.org>");
+    }
+
+    @Test
+    @DisplayName("Each kind is bounded on its own: superseded entries neither count against nor push out current ones")
+    void theTwoKindsAreBoundedApart() {
+        AccountEntity account = newAccount("user@example.com");
+        LocalDateTime now = LocalDateTime.now();
+        keep("<current-old@voxrox.org>", "stable-current-old", account, now.minusMinutes(10));
+        for (int i = 1; i <= 3; i++) {
+            keep("<sup" + i + "@voxrox.org>", "stable-sup" + i, account, now.minusMinutes(5 - i));
+            repository.markSuperseded(account.getId(), "stable-sup" + i, now);
+        }
+        em.clear();
+
+        assertThat(repository.deleteCurrentButNewest(account.getId(), 1)).isZero();
+        assertThat(repository.deleteSupersededButNewest(account.getId(), 1)).isEqualTo(2);
+        em.clear();
+
+        assertThat(repository.findAll()).extracting(DraftRecipientsEntity::getMessageId)
+                .containsExactlyInAnyOrder("<current-old@voxrox.org>", "<sup3@voxrox.org>");
+    }
+
     private void keep(String messageId, AccountEntity account, LocalDateTime savedAt) {
+        keep(messageId, null, account, savedAt);
+    }
+
+    private void keep(String messageId, String stableId, AccountEntity account, LocalDateTime savedAt) {
         repository.saveAndFlush(
-                new DraftRecipientsEntity(account.getId(), messageId, "to@example.com", null, null, savedAt));
+                new DraftRecipientsEntity(account.getId(), messageId, stableId, "to@example.com", null, null, savedAt));
     }
 
     private AccountEntity newAccount(String email) {

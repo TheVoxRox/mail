@@ -617,13 +617,18 @@ CREATE UNIQUE INDEX ux_correspondent_account_email
 CREATE TABLE draft_recipients (
     account_id     INTEGER      NOT NULL,
     message_id     VARCHAR(255) NOT NULL,
+    stable_id      VARCHAR(32),
     recipients_to  TEXT,
     recipients_cc  TEXT,
     recipients_bcc TEXT,
     saved_at       DATETIME     NOT NULL,
+    superseded_at  DATETIME,
     PRIMARY KEY (account_id, message_id),
     FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_draft_recipients_account_saved
     ON draft_recipients (account_id, saved_at);
+
+CREATE INDEX idx_draft_recipients_account_stable
+    ON draft_recipients (account_id, stable_id);

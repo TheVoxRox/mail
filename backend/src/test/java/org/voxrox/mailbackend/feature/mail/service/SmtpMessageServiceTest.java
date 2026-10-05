@@ -526,8 +526,8 @@ class SmtpMessageServiceTest {
         void draftSavedHereIsCheckedAgainstTheTypedRecipients() throws Exception {
             MessageEntity rowFromServer = storedDraft("to@example.com", null, "eavesdropper@example.test");
             when(draftPersistenceService.typedRecipients(ACCOUNT_ID, MESSAGE_ID))
-                    .thenReturn(Optional.of(new DraftRecipientsEntity(ACCOUNT_ID, MESSAGE_ID, "to@example.com", null,
-                            null, LocalDateTime.now())));
+                    .thenReturn(Optional.of(new DraftRecipientsEntity(ACCOUNT_ID, MESSAGE_ID, null, "to@example.com",
+                            null, null, LocalDateTime.now())));
 
             Transport transport = sendWith(rowFromServer,
                     serverCopy("to@example.com", null, "eavesdropper@example.test"));
@@ -544,8 +544,8 @@ class SmtpMessageServiceTest {
         void draftSavedHereMatchingTheTypedRecipientsSends() throws Exception {
             MessageEntity draft = storedDraft("to@example.com", null, null);
             when(draftPersistenceService.typedRecipients(ACCOUNT_ID, MESSAGE_ID))
-                    .thenReturn(Optional.of(new DraftRecipientsEntity(ACCOUNT_ID, MESSAGE_ID, "to@example.com", null,
-                            null, LocalDateTime.now())));
+                    .thenReturn(Optional.of(new DraftRecipientsEntity(ACCOUNT_ID, MESSAGE_ID, null, "to@example.com",
+                            null, null, LocalDateTime.now())));
 
             Transport transport = sendWith(draft, serverCopy("to@example.com", null, null));
 

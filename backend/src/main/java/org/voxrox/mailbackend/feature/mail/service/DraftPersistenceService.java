@@ -59,11 +59,16 @@ public class DraftPersistenceService {
     private final DraftRecipientsRepository draftRecipientsRepository;
 
     /**
-     * How many typed-recipients entries an account keeps, newest first (see
-     * {@link #keepTypedRecipients}). Each save replaces the revision before it, so
-     * this counts drafts saved here and neither sent nor deleted by this client — a
-     * thousand of those is far past any real mailbox, and the bound is what stops
-     * entries for drafts deleted elsewhere from piling up.
+     * How many typed-recipients entries an account keeps of each kind, newest first
+     * (see {@link #keepTypedRecipients}). Current entries count drafts saved here
+     * and neither sent nor deleted by this client — a thousand of those is far past
+     * any real mailbox, and the bound is what stops entries for drafts deleted
+     * elsewhere from piling up. Superseded entries count revisions a later save
+     * replaced but the server kept; they grow by saves, and are bounded apart so
+     * they cannot push out a current one (B1-5, reopened at 1.31). A draft being
+     * saved holds two current entries for the moment of the save — the new one is
+     * kept before the append, the old one marked after it — so a thousand current
+     * entries are some 999 drafts.
      */
     static final int KEPT_DRAFT_RECIPIENTS = 1_000;
 
@@ -174,6 +179,8 @@ public class DraftPersistenceService {
                         LocalDateTime.now());
                 return;
             }
+
+            markReplacedRevision(accountId, replacesStableId);
 
             if (oldFolder != null && oldUid != null) {
                 try {
@@ -391,14 +398,17 @@ public class DraftPersistenceService {
      * can announce it and a send can follow at once. Best-effort like the row: a
      * failure here costs this draft the check against what was typed, not the save.
      * The entry is keyed by the Message-ID this save minted, which no folder the
-     * server moves the draft to changes. The account's entries beyond its newest
-     * {@link #KEPT_DRAFT_RECIPIENTS} go at the same time.
+     * server moves the draft to changes, and carries the stableId the next save
+     * will name as the revision it replaces. The account's current entries beyond
+     * its newest {@link #KEPT_DRAFT_RECIPIENTS}, and its superseded ones beyond as
+     * many, go at the same time.
      */
     private void keepTypedRecipients(AccountEntity account, DraftIdentity identity, DraftRequest request) {
         try {
-            draftRecipientsRepository.deleteAllButNewest(account.getId(), KEPT_DRAFT_RECIPIENTS - 1);
+            draftRecipientsRepository.deleteCurrentButNewest(account.getId(), KEPT_DRAFT_RECIPIENTS - 1);
+            draftRecipientsRepository.deleteSupersededButNewest(account.getId(), KEPT_DRAFT_RECIPIENTS);
             draftRecipientsRepository.save(new DraftRecipientsEntity(account.getId(), identity.messageId(),
-                    request.to(), request.cc(), request.bcc(), LocalDateTime.now()));
+                    identity.stableId(), request.to(), request.cc(), request.bcc(), LocalDateTime.now()));
         } catch (Exception e) {
             log.warn("{} Could not keep the recipients of draft {}; sending it untouched checks the row instead: {}",
                     LogCategory.SMTP, identity.stableId(), e.getMessage());
@@ -418,10 +428,32 @@ public class DraftPersistenceService {
     }
 
     /**
-     * Drops the typed recipients of a draft this client has just deleted or sent.
-     * Every autosave deletes the revision it replaces, so this keeps the entries to
-     * about one per draft; what it misses goes once the account has
-     * {@link #KEPT_DRAFT_RECIPIENTS} newer ones.
+     * Marks the typed recipients of the revision a save has just replaced
+     * superseded, by the stableId the client names, once the new revision is
+     * stored. Whether the server lets the save find and delete the old revision
+     * does not decide it, so a server that withholds APPENDUID or refuses the
+     * delete makes the superseded entries grow, not the current ones (B1-5,
+     * reopened at 1.31). The entry stays, for a revision the server keeps and the
+     * user may still send, until {@link #KEPT_DRAFT_RECIPIENTS} newer superseded
+     * ones push it out. Best-effort like the entry itself.
+     */
+    private void markReplacedRevision(Long accountId, @Nullable String replacesStableId) {
+        if (replacesStableId == null || replacesStableId.isBlank()) {
+            return;
+        }
+        try {
+            draftRecipientsRepository.markSuperseded(accountId, replacesStableId, LocalDateTime.now());
+        } catch (Exception e) {
+            log.debug("{} Could not mark the kept recipients of draft {} of account {} superseded: {}",
+                    LogCategory.SMTP, replacesStableId, accountId, e.getMessage());
+        }
+    }
+
+    /**
+     * Drops the typed recipients of a draft this client has just deleted or sent,
+     * or of a revision a save replaced and the server let it delete. What it misses
+     * goes once the account has {@link #KEPT_DRAFT_RECIPIENTS} newer entries of the
+     * same kind.
      */
     public void forgetTypedRecipients(Long accountId, @Nullable String messageId) {
         if (messageId == null) {
