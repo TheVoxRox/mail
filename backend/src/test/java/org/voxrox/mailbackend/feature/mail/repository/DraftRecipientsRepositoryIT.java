@@ -148,6 +148,32 @@ class DraftRecipientsRepositoryIT {
                 .doesNotContain("<hidden@voxrox.org>");
     }
 
+    /**
+     * The same push-out by a server rejecting every APPEND, found by the
+     * verification pass over 1.37: each save keeps its entry before the append, the
+     * previous revision stays current, and only setting the rejected revision's
+     * entry aside keeps the current ones from growing.
+     */
+    @Test
+    @DisplayName("Rejected saves never push out another draft's entry either (B1-5)")
+    void rejectedSavesDoNotPushOutAnotherDraft() {
+        AccountEntity account = newAccount("user@example.com");
+        LocalDateTime start = LocalDateTime.now().minusHours(1);
+        keep("<hidden@voxrox.org>", "stable-hidden", account, start);
+        keep("<stored@voxrox.org>", "stable-stored", account, start.plusSeconds(1));
+        for (int save = 1; save <= 10; save++) {
+            repository.deleteCurrentButNewest(account.getId(), BOUND - 1);
+            repository.deleteSupersededButNewest(account.getId(), BOUND);
+            keep("<rejected" + save + "@voxrox.org>", "stable-rejected" + save, account, start.plusMinutes(save));
+            repository.markSuperseded(account.getId(), "stable-rejected" + save, start.plusMinutes(save));
+        }
+        em.clear();
+
+        assertThat(repository.findAll()).filteredOn(entry -> entry.getSupersededAt() == null)
+                .extracting(DraftRecipientsEntity::getMessageId)
+                .containsExactlyInAnyOrder("<hidden@voxrox.org>", "<stored@voxrox.org>");
+    }
+
     private static final int BOUND = 3;
 
     /**

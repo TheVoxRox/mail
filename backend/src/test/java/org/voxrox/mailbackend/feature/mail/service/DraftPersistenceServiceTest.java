@@ -144,8 +144,11 @@ class DraftPersistenceServiceTest {
             verify(accountRepository).updateLastError(eq(ACCOUNT_ID), err.capture(), any(LocalDateTime.class));
             assertThat(err.getValue().code()).isEqualTo(AccountLastErrorCode.DRAFT_SAVE_FAILED);
             verify(accountRepository, never()).clearLastErrorIfCodeIn(anyLong(), any());
-            // The old revision is still the current one, so its entry stays current.
-            verify(draftRecipientsRepository, never()).markSuperseded(anyLong(), anyString(), any());
+            // The old revision is still the current one, so its entry stays current, and
+            // the new revision the server did not store is set aside instead (B1-5).
+            verify(draftRecipientsRepository, never()).markSuperseded(eq(ACCOUNT_ID), eq(STABLE_ID), any());
+            verify(draftRecipientsRepository).markSuperseded(eq(ACCOUNT_ID), eq(IDENTITY.stableId()),
+                    any(LocalDateTime.class));
         }
 
         @Test
@@ -369,6 +372,31 @@ class DraftPersistenceServiceTest {
             verify(draftRecipientsRepository).markSuperseded(eq(ACCOUNT_ID), eq("stable-previous-revision"),
                     any(LocalDateTime.class));
             verify(imapActionService, never()).hardDelete(anyLong(), anyString(), anyLong());
+        }
+
+        /**
+         * B1-5, found by the verification pass over 1.37: the entry is kept before the
+         * append, so a server rejecting every APPEND left one more current entry per
+         * autosave, the previous revision staying current too, and pushed out a hidden
+         * draft's entry that way.
+         */
+        @Test
+        @DisplayName("An APPEND that throws sets the new revision's entry aside too (B1-5)")
+        void aFailingAppendSetsTheNewEntryAside() throws Exception {
+            AccountEntity account = new AccountEntity();
+            account.setId(ACCOUNT_ID);
+            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
+            when(mimeMessageBuilder.build(any(), any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
+            when(appendService.appendDraft(eq(ACCOUNT_ID), eq(IDENTITY.draftsFolder()), any()))
+                    .thenThrow(new IllegalStateException("connection lost during APPEND"));
+
+            service.saveDraftAsync(ACCOUNT_ID,
+                    new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null, IDENTITY);
+
+            InOrder order = inOrder(draftRecipientsRepository);
+            order.verify(draftRecipientsRepository).save(any());
+            order.verify(draftRecipientsRepository).markSuperseded(eq(ACCOUNT_ID), eq(IDENTITY.stableId()),
+                    any(LocalDateTime.class));
         }
 
         @Test

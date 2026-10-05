@@ -180,7 +180,7 @@ public class DraftPersistenceService {
                 return;
             }
 
-            markReplacedRevision(accountId, replacesStableId);
+            setAside(accountId, replacesStableId);
 
             if (oldFolder != null && oldUid != null) {
                 try {
@@ -236,11 +236,27 @@ public class DraftPersistenceService {
         message.setHeader("Message-ID", identity.messageId());
 
         keepTypedRecipients(account, identity, request);
-        var appendOutcome = appendService.appendDraft(account.getId(), identity.draftsFolder(), message);
-        if (appendOutcome.appended()) {
-            upsertLocalDraftRow(account, identity, request, message, appendOutcome);
+        boolean appended = false;
+        try {
+            var appendOutcome = appendService.appendDraft(account.getId(), identity.draftsFolder(), message);
+            appended = appendOutcome.appended();
+            if (appended) {
+                upsertLocalDraftRow(account, identity, request, message, appendOutcome);
+            }
+        } finally {
+            if (!appended) {
+                /*
+                 * The entry kept above is for a revision the server did not store, so it must
+                 * not take a current place: a server rejecting every APPEND would otherwise
+                 * grow the current entries by one per autosave, the previous revision staying
+                 * current too, and push out a hidden draft's entry that way (B1-5, found by the
+                 * verification pass over 1.37). Set aside rather than dropped, in case the
+                 * server stored it after all and presents it later.
+                 */
+                setAside(account.getId(), identity.stableId());
+            }
         }
-        return appendOutcome.appended();
+        return appended;
     }
 
     /**
@@ -428,24 +444,26 @@ public class DraftPersistenceService {
     }
 
     /**
-     * Marks the typed recipients of the revision a save has just replaced
-     * superseded, by the stableId the client names, once the new revision is
-     * stored. Whether the server lets the save find and delete the old revision
-     * does not decide it, so a server that withholds APPENDUID or refuses the
-     * delete makes the superseded entries grow, not the current ones (B1-5,
-     * reopened at 1.31). The entry stays, for a revision the server keeps and the
+     * Marks the typed recipients of a revision that is no longer the draft's
+     * current one superseded, by the stableId this client minted for it: the
+     * revision a save has just replaced, once the new one is stored, or the new
+     * revision itself when the server did not store it. Neither depends on the
+     * server's answers — whether a save finds and deletes the old revision, or
+     * whether the append succeeds — so a server that withholds APPENDUID, refuses a
+     * delete or rejects every APPEND makes the superseded entries grow, not the
+     * current ones (B1-5). The entry stays, for a revision the server keeps and the
      * user may still send, until {@link #KEPT_DRAFT_RECIPIENTS} newer superseded
      * ones push it out. Best-effort like the entry itself.
      */
-    private void markReplacedRevision(Long accountId, @Nullable String replacesStableId) {
-        if (replacesStableId == null || replacesStableId.isBlank()) {
+    private void setAside(Long accountId, @Nullable String stableId) {
+        if (stableId == null || stableId.isBlank()) {
             return;
         }
         try {
-            draftRecipientsRepository.markSuperseded(accountId, replacesStableId, LocalDateTime.now());
+            draftRecipientsRepository.markSuperseded(accountId, stableId, LocalDateTime.now());
         } catch (Exception e) {
             log.debug("{} Could not mark the kept recipients of draft {} of account {} superseded: {}",
-                    LogCategory.SMTP, replacesStableId, accountId, e.getMessage());
+                    LogCategory.SMTP, stableId, accountId, e.getMessage());
         }
     }
 
