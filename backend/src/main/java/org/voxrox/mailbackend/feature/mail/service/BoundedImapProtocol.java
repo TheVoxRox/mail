@@ -8,6 +8,7 @@ import org.eclipse.angus.mail.iap.ByteArray;
 import org.eclipse.angus.mail.iap.Protocol;
 import org.eclipse.angus.mail.iap.ProtocolException;
 import org.eclipse.angus.mail.iap.Response;
+import org.eclipse.angus.mail.imap.protocol.FetchItem;
 import org.eclipse.angus.mail.imap.protocol.FetchResponse;
 import org.eclipse.angus.mail.imap.protocol.IMAPProtocol;
 import org.eclipse.angus.mail.imap.protocol.IMAPResponse;
@@ -54,14 +55,16 @@ import org.voxrox.mailbackend.util.LogCategory;
  * <p>
  * One more thing a response states is not a size but a depth. Angus parses a
  * FETCH's {@code BODYSTRUCTURE} by calling itself once per level of nesting,
- * and enough levels overflow the stack of the thread reading it (B1-10). The
+ * and an {@code ENVELOPE}'s address groups the same way, and enough levels
+ * overflow the stack of the thread reading it (B1-10). The
  * {@link StackOverflowError} is an {@code Error}, which nothing between here
  * and Spring's {@code @Async} interceptor catches, and that one only logs it,
  * so the sync pass ended unrecorded on every cycle. Catching it is not the fix:
  * an overflow can land inside a class initializer and leave that class unusable
- * for the life of the process. So {@link #readResponse()} measures how deeply a
- * FETCH nests after reading it and before Angus parses it, and drops one past
- * {@link #MAX_NESTING}.
+ * for the life of the process. So {@link #readResponse()} has Angus parse a
+ * FETCH through {@link DepthBoundedFetchResponse}, which counts the levels
+ * Angus's own parser opens as it opens them and stops the parse past
+ * {@link #MAX_NESTING}, and drops that response.
  * <p>
  * A refusal of a size is an {@link IOException} on purpose. Angus ends a
  * command that fails to read a response with a synthetic BYE, so the command
@@ -157,14 +160,18 @@ final class BoundedImapProtocol extends IMAPProtocol {
     static final int MAX_RESPONSE_BYTES = 32 * 1024 * 1024;
 
     /**
-     * Levels of parentheses one FETCH response may nest, which bounds the recursion
-     * of Angus's {@code BODYSTRUCTURE} parser (B1-10). A structure spends one level
-     * per MIME level and a few around them — the FETCH list, the structure's own
-     * pair, a parameter list, a disposition — so 256 admits MIME nested some 250
-     * deep, where {@code MimePartExtractor} walks 20 and Postfix by default accepts
-     * 100. The audit measured Angus 2.0.5 at 3,000 levels parsing and 5,000
-     * overflowing on a test thread's stack, so the bound leaves an order of
-     * magnitude for a thread that is already deep, or small.
+     * Levels Angus's parse of one FETCH response may open, which bounds the
+     * recursion of its {@code BODYSTRUCTURE} and address-group parsers (B1-10), as
+     * {@link DepthBoundedFetchResponse} counts them: the lists open at once, plus
+     * every address that starts or ends a group. A structure spends one level per
+     * MIME level and a few around them — the FETCH list, the structure's own pair,
+     * a parameter list, a disposition — so 256 admits MIME nested some 250 deep,
+     * where {@code MimePartExtractor} walks 20 and Postfix by default accepts 100;
+     * and an envelope that names a hundred groups. The audit measured Angus 2.0.5
+     * on a test thread's stack: a structure 3,000 levels deep parses and 5,000
+     * overflow, and 3,000 nested address groups parse and 10,000 overflow. The
+     * bound leaves an order of magnitude for a thread that is already deep, or
+     * small.
      */
     static final int MAX_NESTING = 256;
 
@@ -222,12 +229,14 @@ final class BoundedImapProtocol extends IMAPProtocol {
      * EXPUNGE at 2,000,000 messages and linear in their number, where the command
      * budget alone admitted some 229,000 a command, command after command.
      * <p>
-     * A thousand EXPUNGEs in the largest folder {@link #MAX_MESSAGES} admits, about
-     * half a second at that rate, or a hundred thousand in a folder of 20,000. This
-     * client expunges one message per folder it opens; more come only from other
-     * clients while the folder is selected, and a burst past the budget costs a
-     * retried cycle, not the folder: the reconnected SELECT reports what is left in
-     * its EXISTS count, with no EXPUNGE to process.
+     * Just under a thousand EXPUNGEs in the largest folder {@link #MAX_MESSAGES}
+     * admits, about half a second at that rate, or some 46,000 in a folder of
+     * 20,000: each one lengthens the next pass, since Angus keeps the expunged
+     * entry until the folder closes, so k of them in a folder of n cost
+     * {@code k·n + k(k-1)/2} steps. This client expunges one message per folder it
+     * opens; more come only from other clients while the folder is selected, and a
+     * burst past the budget costs a retried cycle, not the folder: the reconnected
+     * SELECT reports what is left in its EXISTS count, with no EXPUNGE to process.
      */
     static final long MAX_SELECTION_EXPUNGE_STEPS = 1_000L * MAX_MESSAGES;
 
@@ -309,8 +318,8 @@ final class BoundedImapProtocol extends IMAPProtocol {
              * fault lands here too and is handled the same way on purpose — the
              * connection's state is unknown either way — with the cause kept for the log.
              * An Error is not caught: the one a parse of hostile input used to raise, a
-             * StackOverflowError, is prevented before the parse instead, by dropping a
-             * FETCH nested past MAX_NESTING unparsed.
+             * StackOverflowError, is prevented instead, by stopping the parse of a FETCH
+             * once it opens more than MAX_NESTING levels and dropping the response.
              */
             log.warn("{} Could not read a response from IMAP server {} ({}). Closing the connection.", LogCategory.IMAP,
                     host, e.toString());
@@ -358,28 +367,39 @@ final class BoundedImapProtocol extends IMAPProtocol {
     }
 
     /**
-     * {@code IMAPProtocol.readResponse} with the nesting check between its two
-     * steps. Angus's own reads the whole response and then, in the same call,
-     * parses a FETCH's items, which is where a {@code BODYSTRUCTURE} is parsed; the
-     * check has to come between the two. Both steps are Angus's own constructors,
-     * called the way {@code IMAPProtocol.readResponse} calls them in 2.0.5 — a
-     * FETCH is the only response it parses further, and so the only one measured. A
-     * later Angus may read responses differently, so
-     * {@code BoundedImapProtocolTest} pins the version.
+     * {@code IMAPProtocol.readResponse} with the FETCH parse depth-bounded. Angus's
+     * own reads the whole response and then, in the same call, parses a FETCH's
+     * items, which is where a {@code BODYSTRUCTURE} and an {@code ENVELOPE} are
+     * parsed; this makes the same two calls, the way
+     * {@code IMAPProtocol.readResponse} makes them in 2.0.5, with the second one
+     * through {@link DepthBoundedFetchResponse}. A FETCH is the only response Angus
+     * parses further, and so the only one bounded. A later Angus may read responses
+     * differently, so {@code BoundedImapProtocolTest} pins the version.
      */
     private Read readNestingChecked() throws IOException, ProtocolException {
-        NestingCheckedResponse response = new NestingCheckedResponse(this);
+        WireSizedResponse response = new WireSizedResponse(this);
         if (!response.keyEquals("FETCH")) {
             return new Read(response, response.wireSize());
         }
-        if (response.nestsDeeperThan(MAX_NESTING)) {
+        return new Read(parseFetch(response, getFetchItems(), this, host), response.wireSize());
+    }
+
+    /**
+     * Angus's parse of a FETCH, stopped once it opens more than
+     * {@link #MAX_NESTING} levels: then the response is dropped, with
+     * {@link NestedTooDeepException}.
+     */
+    static FetchResponse parseFetch(IMAPResponse response, FetchItem @Nullable [] fetchItems, Protocol protocol,
+            String host) throws IOException, ProtocolException {
+        try {
+            return new DepthBoundedFetchResponse(response, fetchItems, protocol);
+        } catch (NestingLimitReached e) {
             log.warn(
                     "{} Dropped a FETCH response from IMAP server {} nested more than {} levels deep; "
                             + "the message it describes is left without its structure.",
                     LogCategory.IMAP, host, MAX_NESTING);
             throw new NestedTooDeepException();
         }
-        return new Read(new FetchResponse(response, getFetchItems(), this), response.wireSize());
     }
 
     /**
@@ -438,131 +458,194 @@ final class BoundedImapProtocol extends IMAPProtocol {
     }
 
     /**
-     * A response as Angus reads it, before a FETCH's items are parsed, with the one
-     * question {@link #readNestingChecked()} asks of it. A subclass because the
-     * bytes are Angus's protected fields: this reads them in place, where
-     * {@code toString()} would copy up to {@link #MAX_RESPONSE_BYTES} of them.
+     * A response as Angus reads it, before a FETCH's items are parsed, with its
+     * length on the wire. A subclass because the length is Angus's protected field.
      */
-    static final class NestingCheckedResponse extends IMAPResponse {
+    static final class WireSizedResponse extends IMAPResponse {
 
-        /** The item whose section Angus reads raw; see {@link #nestsDeeperThan}. */
-        private static final String BODY_SECTION = "BODY[";
-
-        NestingCheckedResponse(Protocol protocol) throws IOException, ProtocolException {
+        WireSizedResponse(Protocol protocol) throws IOException, ProtocolException {
             super(protocol);
-        }
-
-        NestingCheckedResponse(String line) throws IOException, ProtocolException {
-            super(line);
         }
 
         /** The response's length as read, literals included. */
         int wireSize() {
             return size;
         }
+    }
 
+    /**
+     * A FETCH as Angus 2.0.5 parses it, counting the levels the parse opens as it
+     * opens them, and stopping it with {@link NestingLimitReached} past
+     * {@link #MAX_NESTING} — before the recursion can come near the end of the
+     * stack (B1-10).
+     * <p>
+     * The count is taken from Angus's parser itself rather than from a scan of the
+     * bytes beforehand. Three scans in turn modelled how Angus tokenizes a FETCH —
+     * quoted strings, literals, a {@code BODY} section, then each item's own
+     * reading — and each was bypassed by the next reading it did not model: a
+     * {@code "} where the scan saw a string and Angus a flag or a NIL (reopened at
+     * 1.24 and 1.31). Here nothing is modelled about where data ends: the parser
+     * consumes every byte through the methods overridden below, and they see what
+     * it consumes as structure and what as data.
+     * <p>
+     * Every recursion of the parse in 2.0.5 starts by consuming a {@code (}: a
+     * {@code BODYSTRUCTURE} with {@code readByte}, a body-extension list with
+     * {@code skip(1)}, an address with {@code readByte}. So:
+     * <ul>
+     * <li><b>Lists.</b> A {@code (} consumed by {@code readByte}, {@code skip} or
+     * {@code isNextNonSpace} opens a level; a {@code )} consumed by
+     * {@code readByte} or {@code isNextNonSpace} closes one. Within the parse each
+     * such close ends a list the same frame opened, so the count is the lists open
+     * at once. The one {@code )} that is data to Angus, the byte {@code BODY}
+     * consumes after its section, can only come at the top of the FETCH list, and
+     * the count stops at zero, so it can hide one level at most. The lists
+     * {@code readStringList} reads are data — it opens them by moving the index,
+     * not through these methods — so the {@code )} it consumes with
+     * {@code isNextNonSpace} is not counted either.</li>
+     * <li><b>Address groups.</b> An address opens and closes its own list before
+     * the next address recurses inside its group, so the lists open at once do not
+     * grow with groups nested inside groups, and 10,000 of them overflow the stack.
+     * An address is a {@code (}, four {@code readString}s and a {@code )}, and
+     * starts or ends a group exactly when the fourth, the host, is NIL; each such
+     * address is counted, and the count is never taken back, since nothing Angus
+     * consumes says where a group ends.</li>
+     * </ul>
+     * The bound is on the two together. A miscount can only be one way that
+     * matters: a level counted that Angus did not open costs an honest response at
+     * worst, and a level opened uncounted is what the above rules out for 2.0.5.
+     * <p>
+     * No field has an initializer: {@code FetchResponse}'s constructor parses,
+     * through these overrides, before an initializer would run.
+     */
+    static final class DepthBoundedFetchResponse extends FetchResponse {
+
+        /** Lists open in the parse. */
+        private int depth;
+        /** Addresses read with a NIL host: group starts and ends. */
+        private int groupMarkers;
+        /** Inside {@code readStringList}, whose list is data. */
+        private int inStringList;
         /**
-         * Whether the response's parentheses nest more than {@code bound} levels deep
-         * anywhere, counted as Angus's parser meets them: a quoted string and a literal
-         * are data, so what they hold does not count. Stops at the first level past the
-         * bound, and never recurses itself.
-         * <p>
-         * The section of a {@code BODY[...]} item is data too, but read Angus's way,
-         * not as a string: {@code BODY}'s constructor takes everything up to the next
-         * {@code ]} with {@code readString(']')}, quotes, braces and parentheses alike.
-         * Read as tokens, a {@code "} or a {@code {n}} in a section would open a string
-         * or a literal that Angus never sees, and hide the structure after it (B1-10,
-         * reopened at 1.24). Angus parses items only in the FETCH list itself, so that
-         * is the one depth a section is looked for at; a {@code BODY[} in an item name
-         * Angus does not know fails the parse there, before anything after it is
-         * parsed.
+         * Where the parse is in what may be an address: 0 none, 1 after its {@code (},
+         * 2 to 5 after its first to fourth string.
          */
-        boolean nestsDeeperThan(int bound) {
-            int depth = 0;
-            for (int i = 0; i < size; i++) {
-                switch (buffer[i]) {
-                    case '"' -> i = closingQuote(i);
-                    case '{' -> i = endOfLiteral(i);
-                    case '(' -> {
-                        if (++depth > bound) {
-                            return true;
-                        }
+        private int addressStage;
+        private boolean addressHostNil;
+
+        DepthBoundedFetchResponse(IMAPResponse response, FetchItem @Nullable [] fetchItems, Protocol protocol)
+                throws IOException, ProtocolException {
+            super(response, fetchItems, protocol);
+        }
+
+        @Override
+        public byte readByte() {
+            byte b = super.readByte();
+            if (b == '(') {
+                open();
+                addressStage = 1;
+            } else {
+                if (b == ')') {
+                    close();
+                }
+                addressStage = 0;
+            }
+            return b;
+        }
+
+        @Override
+        public void skip(int count) {
+            for (int i = index; i < Math.min(size, index + count); i++) {
+                if (buffer[i] == '(') {
+                    open();
+                }
+            }
+            addressStage = 0;
+            super.skip(count);
+        }
+
+        @Override
+        public boolean isNextNonSpace(char c) {
+            boolean consumed = super.isNextNonSpace(c);
+            if (consumed && inStringList == 0) {
+                if (c == '(') {
+                    open();
+                } else if (c == ')') {
+                    if (addressStage == 5 && addressHostNil) {
+                        groupMarkers++;
+                        checkBound();
                     }
-                    case ')' -> depth = Math.max(0, depth - 1);
-                    case 'B', 'b' -> {
-                        if (depth == 1 && opensBodySection(i)) {
-                            i = sectionEnd(i + BODY_SECTION.length());
-                        }
-                    }
-                    default -> {
-                        // Anything else is inside an atom or between tokens.
-                    }
+                    close();
                 }
             }
-            return false;
+            addressStage = 0;
+            return consumed;
         }
 
-        /**
-         * Whether {@code BODY[} starts at {@code at}, in any case, as Angus's
-         * {@code FetchResponse} matches item names.
-         */
-        private boolean opensBodySection(int at) {
-            if (at + BODY_SECTION.length() > size) {
-                return false;
-            }
-            for (int k = 0; k < BODY_SECTION.length(); k++) {
-                if (Character.toUpperCase((char) buffer[at + k]) != BODY_SECTION.charAt(k)) {
-                    return false;
+        @Override
+        public @Nullable String readString() {
+            String read = super.readString();
+            if (addressStage >= 1 && addressStage <= 4) {
+                if (addressStage == 4) {
+                    addressHostNil = read == null;
                 }
+                addressStage++;
+            } else {
+                addressStage = 0;
             }
-            return true;
+            return read;
         }
 
-        /**
-         * Index of the {@code ]} that ends the section starting at {@code from}, as
-         * {@code readString(']')} finds it; the end of the response when there is none,
-         * where Angus fails the parse.
-         */
-        private int sectionEnd(int from) {
-            for (int i = from; i < size; i++) {
-                if (buffer[i] == ']') {
-                    return i;
-                }
+        @Override
+        public String @Nullable [] readStringList() {
+            inStringList++;
+            addressStage = 0;
+            try {
+                return super.readStringList();
+            } finally {
+                inStringList--;
             }
-            return size;
         }
 
-        /**
-         * Index of the quote that closes the string opening at {@code open}, skipping
-         * an escaped quote; the end of the response when nothing closes it.
-         */
-        private int closingQuote(int open) {
-            for (int i = open + 1; i < size; i++) {
-                if (buffer[i] == '\\') {
-                    i++;
-                } else if (buffer[i] == '"') {
-                    return i;
-                }
+        @Override
+        public String @Nullable [] readAtomStringList() {
+            inStringList++;
+            addressStage = 0;
+            try {
+                return super.readAtomStringList();
+            } finally {
+                inStringList--;
             }
-            return size;
         }
 
-        /**
-         * Index of the last byte of the literal {@code open} starts — {@code {n}}
-         * ending its line, then {@code n} bytes of data — or {@code open} itself when
-         * the brace starts no literal. The buffer already holds the whole literal:
-         * Angus reads it in before the response exists.
-         */
-        private int endOfLiteral(int open) {
-            int i = open + 1;
-            long length = 0;
-            while (i < size && buffer[i] >= '0' && buffer[i] <= '9' && length <= size) {
-                length = length * 10 + (buffer[i] - '0');
-                i++;
+        private void open() {
+            depth++;
+            checkBound();
+        }
+
+        private void close() {
+            if (depth > 0) {
+                depth--;
             }
-            boolean literal = i > open + 1 && length <= size && i + 2 < size && buffer[i] == '}'
-                    && buffer[i + 1] == '\r' && buffer[i + 2] == '\n';
-            return literal ? (int) Math.min(size, i + 2 + length) : open;
+        }
+
+        private void checkBound() {
+            if (depth + groupMarkers > MAX_NESTING) {
+                throw new NestingLimitReached();
+            }
+        }
+    }
+
+    /**
+     * Thrown from inside Angus's parse by {@link DepthBoundedFetchResponse}, whose
+     * overrides cannot declare a checked exception; {@link #parseFetch} turns it
+     * into {@link NestedTooDeepException}, and it must not escape this class. No
+     * stack trace: it is thrown on purpose, from up to {@link #MAX_NESTING} levels
+     * down.
+     */
+    static final class NestingLimitReached extends RuntimeException {
+
+        NestingLimitReached() {
+            super("nested past " + MAX_NESTING + " levels", null, false, false);
         }
     }
 
@@ -760,8 +843,8 @@ final class BoundedImapProtocol extends IMAPProtocol {
     }
 
     /**
-     * A FETCH nested past {@link #MAX_NESTING}, dropped unparsed; see the class for
-     * why it is a ProtocolException.
+     * A FETCH nested past {@link #MAX_NESTING}, dropped with its parse stopped
+     * there; see the class for why it is a ProtocolException.
      */
     static final class NestedTooDeepException extends ProtocolException {
         NestedTooDeepException() {

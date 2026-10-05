@@ -3,9 +3,11 @@ package org.voxrox.mailbackend.feature.mail.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.atIndex;
+import static org.mockito.Mockito.mock;
 
 import java.util.Properties;
 
+import org.eclipse.angus.mail.iap.Protocol;
 import org.eclipse.angus.mail.imap.protocol.IMAPResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -189,9 +191,9 @@ class BoundedImapProtocolTest {
     }
 
     /**
-     * B1-10: how deep a response nests, measured before Angus parses it, because
-     * its {@code BODYSTRUCTURE} parser recurses once per level. That the check sits
-     * in front of that parse on a real connection is
+     * B1-10: Angus's parse of a FETCH, stopped once it opens more than the bound,
+     * because its {@code BODYSTRUCTURE} and address-group parsers recurse once per
+     * level. That the parse goes through this on a real connection is
      * {@code HostileImapResponseIT}'s question.
      */
     @Nested
@@ -200,88 +202,129 @@ class BoundedImapProtocolTest {
 
         private static final int BOUND = BoundedImapProtocol.MAX_NESTING;
 
-        private static boolean nestsTooDeep(String line) throws Exception {
-            return new BoundedImapProtocol.NestingCheckedResponse(line).nestsDeeperThan(BOUND);
+        /**
+         * Deep enough to overflow Angus's parse on a test thread's stack: measured at
+         * 1.16, 5,000 levels of structure overflow and 3,000 parse.
+         */
+        private static final int OVERFLOWING = 20_000;
+
+        private static final String LEAF = "(\"text\" \"plain\" NIL NIL NIL \"7bit\" 1 1)";
+
+        /** "parsed", "dropped", or the exception the parse ended in. */
+        private static String parse(String line) throws Exception {
+            try {
+                BoundedImapProtocol.parseFetch(new IMAPResponse(line), null, mock(Protocol.class), "test");
+                return "parsed";
+            } catch (BoundedImapProtocol.NestedTooDeepException e) {
+                return "dropped";
+            }
+        }
+
+        /** A structure of {@code levels} multiparts around one text part. */
+        private static String multipartNested(int levels) {
+            return "(".repeat(levels) + LEAF + " \"mixed\")".repeat(levels);
+        }
+
+        private static String fetchWithStructure(String before, int levels) {
+            return "* 1 FETCH (" + before + "BODYSTRUCTURE " + multipartNested(levels) + ")";
         }
 
         /**
-         * The FETCH list itself is one level, so the parentheses inside get the rest.
+         * The FETCH list is one level and the text part another, so the multiparts get
+         * the rest.
          */
-        private static String fetchNested(int levels) {
-            return "* 1 FETCH " + "(".repeat(levels) + ")".repeat(levels);
-        }
-
         @Test
-        @DisplayName("Nesting up to the bound passes, one level more is refused")
+        @DisplayName("Nesting up to the bound parses, one level more is dropped")
         void nestingAtTheBound() throws Exception {
-            assertThat(nestsTooDeep(fetchNested(BOUND))).isFalse();
-            assertThat(nestsTooDeep(fetchNested(BOUND + 1))).isTrue();
+            assertThat(parse(fetchWithStructure("", BOUND - 2))).isEqualTo("parsed");
+            assertThat(parse(fetchWithStructure("", BOUND - 1))).isEqualTo("dropped");
         }
 
         @Test
-        @DisplayName("Depth is the deepest point, not the number of lists")
-        void siblingListsDoNotAddUp() throws Exception {
-            String siblings = "* 1 FETCH (" + "(x) ".repeat(BOUND * 4) + ")";
-
-            assertThat(nestsTooDeep(siblings)).isFalse();
+        @DisplayName("A structure deep enough to overflow the stack is dropped, not overflowed")
+        void anOverflowingStructureIsDropped() throws Exception {
+            assertThat(parse(fetchWithStructure("", OVERFLOWING))).isEqualTo("dropped");
         }
 
         @Test
-        @DisplayName("Parentheses inside a quoted string or a literal are data, not depth")
-        void stringsAndLiteralsDoNotCount() throws Exception {
-            String deep = "(".repeat(BOUND + 1);
+        @DisplayName("Depth is the deepest point, not the number of parts")
+        void siblingPartsDoNotAddUp() throws Exception {
+            String siblings = "* 1 FETCH (BODYSTRUCTURE (" + LEAF.repeat(BOUND * 4) + " \"mixed\"))";
 
-            assertThat(nestsTooDeep("* 1 FETCH (BODY[HEADER] \"" + deep + "\")")).isFalse();
-            assertThat(nestsTooDeep("* 1 FETCH (BODY[HEADER] \"a \\\" " + deep + "\")")).isFalse();
-            assertThat(nestsTooDeep("* 1 FETCH (BODY[] {" + deep.length() + "}\r\n" + deep + ")")).isFalse();
+            assertThat(parse(siblings)).isEqualTo("parsed");
+        }
+
+        @Test
+        @DisplayName("Parentheses inside a quoted string, a literal or a flag are data, not depth")
+        void dataDoesNotCount() throws Exception {
+            String deep = "(".repeat(OVERFLOWING);
+
+            assertThat(parse("* 1 FETCH (BODY[HEADER] \"" + deep + "\")")).isEqualTo("parsed");
+            assertThat(parse("* 1 FETCH (BODY[] {" + deep.length() + "}\r\n" + deep + ")")).isEqualTo("parsed");
+            assertThat(parse("* 1 FETCH (FLAGS (" + deep + "))")).isEqualTo("parsed");
         }
 
         /**
-         * B1-10, reopened at 1.24. Angus reads a {@code BODY[...]} section up to its
-         * {@code ]} as raw text, so a quote or a literal marker inside it opens
-         * nothing, and the structure after it is parsed.
+         * The shapes each earlier scan was bypassed by, at 1.24 and 1.31: a {@code "}
+         * or a literal marker where the scan saw a string or a literal and Angus a
+         * section, a flag, a NIL, literal data or an origin, so the structure after it
+         * went uncounted and overflowed the stack. The count now comes from Angus's own
+         * parse, so it meets the structure wherever Angus does.
          */
         @Test
-        @DisplayName("A quote or a literal marker inside a BODY section opens nothing, as in Angus")
-        void aBodySectionIsReadRaw() throws Exception {
-            String deep = "(".repeat(BOUND + 1) + "\"text\" \"plain\" NIL NIL NIL \"7bit\" 1 1" + ")".repeat(BOUND + 1);
-            String rest = "] NIL BODYSTRUCTURE " + deep + ")";
+        @DisplayName("Every shape that hid a structure from the earlier scans is dropped")
+        void theShapesThatBypassedTheScanAreDropped() throws Exception {
+            String literalRest = ") BODYSTRUCTURE " + multipartNested(OVERFLOWING) + ")";
+            assertThat(parse("* 1 FETCH (FLAGS ({" + literalRest.length() + "}\r\n" + literalRest))
+                    .as("FLAGS read raw into a literal's data").isEqualTo("dropped");
 
-            assertThat(nestsTooDeep("* 1 FETCH (BODY[x\"" + rest)).isTrue();
-            assertThat(nestsTooDeep("* 1 FETCH (body[x\"" + rest)).isTrue();
-            assertThat(nestsTooDeep("* 1 FETCH (UID 5 BODY[{" + rest.length() + "}\r\n" + rest)).isTrue();
+            for (String before : new String[]{"BODY[x\"] NIL ", "body[x\"] NIL ", "FLAGS (\") ",
+                    "FLAGS (((a) BODY[x\"] NIL ", "RFC822 N\"x ", "RFC822 {3}xx\"ab ", "BODY[]\"NIL ",
+                    "BODY[]<0\" NIL "}) {
+                assertThat(parse(fetchWithStructure(before, OVERFLOWING))).as(before).isEqualTo("dropped");
+            }
+        }
+
+        /** An envelope whose To list nests {@code levels} groups, one in another. */
+        private static String envelopeWithNestedGroups(int levels) {
+            return "* 1 FETCH (ENVELOPE (NIL \"s\" (" + "(NIL NIL \"g\" NIL)".repeat(levels)
+                    + "(NIL NIL \"a\" \"example.com\")) NIL NIL NIL NIL NIL NIL NIL))";
+        }
+
+        /**
+         * Found at 1.32: Angus parses a group's members inside the group's own parse,
+         * so a group starting inside a group recurses, while every address closes its
+         * parentheses before the next begins. Measured at 1.32: 10,000 such groups, 170
+         * KB, overflow the stack, and no count of parentheses sees them.
+         */
+        @Test
+        @DisplayName("Address groups nested deep enough to overflow the stack are dropped")
+        void nestedAddressGroupsAreDropped() throws Exception {
+            assertThat(parse(envelopeWithNestedGroups(OVERFLOWING))).isEqualTo("dropped");
+            assertThat(parse(envelopeWithNestedGroups(BOUND))).isEqualTo("dropped");
         }
 
         @Test
-        @DisplayName("A BODY section without its closing bracket ends the scan, where Angus fails the parse")
-        void anUnclosedSectionEndsTheScan() throws Exception {
-            assertThat(nestsTooDeep("* 1 FETCH (BODY[x " + "(".repeat(BOUND + 1))).isFalse();
+        @DisplayName("An envelope with ordinary groups and many addresses parses")
+        void ordinaryGroupsParse() throws Exception {
+            String addresses = "(NIL NIL \"a\" \"example.com\")".repeat(BOUND * 4);
+            String groups = "(NIL NIL \"team\" NIL)(NIL NIL \"b\" \"example.com\")(NIL NIL NIL NIL)".repeat(50);
+
+            assertThat(parse(
+                    "* 1 FETCH (ENVELOPE (NIL \"s\" (" + addresses + ") NIL (" + groups + ") NIL NIL NIL NIL NIL))"))
+                    .isEqualTo("parsed");
         }
 
         @Test
-        @DisplayName("A brace that starts no literal leaves what follows it counted")
-        void aBraceThatIsNoLiteralIsCounted() throws Exception {
-            String deep = "(".repeat(BOUND + 1);
-
-            assertThat(nestsTooDeep("* OK [ALERT] {3} " + deep)).isTrue();
-            assertThat(nestsTooDeep("* OK [ALERT] {} " + deep)).isTrue();
-        }
-
-        @Test
-        @DisplayName("A literal longer than the response ends the scan instead of running past it")
-        void aLiteralPastTheEndIsNotFollowed() throws Exception {
-            assertThat(nestsTooDeep("* 1 FETCH (BODY[] {999}\r\n(((")).isFalse();
-        }
-
-        @Test
-        @DisplayName("An ordinary structure passes: a multipart with a text part and an attachment")
-        void anOrdinaryStructurePasses() throws Exception {
+        @DisplayName("An ordinary structure parses: a multipart with a text part, an attachment and extension data")
+        void anOrdinaryStructureParses() throws Exception {
             String structure = "* 3 FETCH (UID 7 BODYSTRUCTURE ((\"text\" \"plain\" (\"charset\" \"utf-8\") NIL NIL"
-                    + " \"quoted-printable\" 120 4 NIL NIL NIL NIL)(\"application\" \"pdf\" (\"name\" \"a (1).pdf\")"
-                    + " NIL NIL \"base64\" 5000 NIL (\"attachment\" (\"filename\" \"a (1).pdf\")) NIL NIL)"
+                    + " \"quoted-printable\" 120 4 NIL NIL (\"en\" \"cs\") NIL)(\"application\" \"pdf\""
+                    + " (\"name\" \"a (1).pdf\") NIL NIL \"base64\" 5000 NIL (\"attachment\""
+                    + " (\"filename\" \"a (1).pdf\")) NIL NIL (1 (2 \"x\")))"
                     + " \"mixed\" (\"boundary\" \"b1\") NIL NIL NIL))";
 
-            assertThat(nestsTooDeep(structure)).isFalse();
+            assertThat(parse(structure)).isEqualTo("parsed");
         }
     }
 
