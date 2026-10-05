@@ -108,7 +108,8 @@ public class SecurityConfig {
                 /*
                  * OAuth2 login needs a short-lived session for state/PKCE and the
                  * AuthorizedClient. Other /api/** endpoints stay behind the ApiKeyFilter and do
-                 * not create sessions of their own.
+                 * not create sessions of their own. The /success endpoint ends the session when
+                 * the flow ends (OAuth2CallbackController).
                  */
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
 
@@ -125,8 +126,13 @@ public class SecurityConfig {
                          * Spring Security pattern for async endpoints.
                          */
                         .dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR).permitAll()
-                        .requestMatchers(PUBLIC_ENDPOINTS.toArray(String[]::new)).permitAll().anyRequest()
-                        .authenticated())
+                        .requestMatchers(PUBLIC_ENDPOINTS.toArray(String[]::new)).permitAll()
+                        /*
+                         * The key's own authority, not any authentication: the OAuth sign-in
+                         * authenticates the system browser's session too, and `authenticated()`
+                         * accepted that session in place of the key (audit B2-1).
+                         */
+                        .anyRequest().hasAuthority(ApiKeyFilter.API_CLIENT_AUTHORITY))
 
                 /*
                  * Explicit oauth2Login keeps Spring filters for the start/callback flow even

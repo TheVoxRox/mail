@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import ch.qos.logback.classic.Logger;
@@ -73,6 +74,9 @@ class ApiKeyFilterTest {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         assertThat(authentication).isNotNull();
         assertThat(authentication.getName()).isEqualTo("desktop-client");
+        // The chain requires this authority, not just any authentication (audit B2-1).
+        assertThat(authentication.getAuthorities()).extracting(GrantedAuthority::getAuthority)
+                .containsExactly(ApiKeyFilter.API_CLIENT_AUTHORITY);
         assertThat(audit.list).isEmpty();
     }
 
