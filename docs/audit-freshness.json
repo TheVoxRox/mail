@@ -138,7 +138,8 @@
   },
   "docs/API_SURFACE_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/AttachmentService.java": "baa9d415fdfe7fcb76ee7eaca3db731e4f115c4f"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/AttachmentService.java": "baa9d415fdfe7fcb76ee7eaca3db731e4f115c4f",
+      "backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java": "69fc4c0197c480dc39ba3c38dece6874faec8d17"
     },
     "acknowledgements": [
       {
@@ -148,6 +149,21 @@
       {
         "date": "2026-10-05",
         "note": "B1-12 regression fixed, recorded in IMAP_SMTP_AUDIT.md as v1.38 (section 4l). AttachmentService.holdsParts recognizes a MultipartDataSource before testing for MimePartDataSource: Angus 2.0.5's IMAPMultipartDataSource extends MimePartDataSource, so the #630 test made every multipart from the server a leaf and its attachments undownloadable. The fall-through over a plain MimePartDataSource is still a leaf; path validation, the temp file and the streaming copy are unchanged. Section 4 of this audit holds unchanged. Verdict stays PASS."
+      },
+      {
+        "date": "2026-10-05",
+        "note": "A javadoc in SecurityConfig.pkceAuthorizationRequestResolver now names client_secret_basic, Spring's default for the google registration, where it said client_secret_post (OAUTH_AUDIT.md section 4 note). Comment only: the filter chain, PKCE, CORS and the handlers are unchanged. Verdict unchanged."
+      }
+    ]
+  },
+  "docs/OAUTH_AUDIT.md": {
+    "reviewedTrees": {
+      "backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java": "69fc4c0197c480dc39ba3c38dece6874faec8d17"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-10-05",
+        "note": "A javadoc in SecurityConfig.pkceAuthorizationRequestResolver now names client_secret_basic, Spring's default for the google registration, where it said client_secret_post (OAUTH_AUDIT.md section 4 note). Comment only: the filter chain, PKCE, CORS and the handlers are unchanged. Verdict unchanged."
       }
     ]
   }
