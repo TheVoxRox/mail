@@ -525,7 +525,7 @@ class MessageDownloaderTest {
         @Test
         @DisplayName("Empty hole list is a no-op — no server round-trip")
         void emptyHolesIsNoop() throws Exception {
-            int reconciled = downloader.reconcileServerOnlyUids(context(), List.of());
+            int reconciled = downloader.reconcileServerOnlyUids(context(), List.of(), 0);
 
             assertThat(reconciled).isZero();
             verify(uidFolder, never()).getMessagesByUID(any(long[].class));
@@ -546,7 +546,7 @@ class MessageDownloaderTest {
             when(messageMapper.toEntity(dto, account, FOLDER, syncState.getUidValidity())).thenReturn(entity);
             when(messageRepository.saveAll(List.of(entity))).thenReturn(List.of(entity));
 
-            int reconciled = downloader.reconcileServerOnlyUids(context(), List.of(11L));
+            int reconciled = downloader.reconcileServerOnlyUids(context(), List.of(11L), 0);
 
             assertThat(reconciled).isEqualTo(1);
             verify(uidFolder).getMessagesByUID(new long[]{11L});
@@ -563,10 +563,63 @@ class MessageDownloaderTest {
             // The server no longer has UID 11 (expunged in the meantime) -> null slot.
             when(uidFolder.getMessagesByUID(new long[]{11L})).thenReturn(new Message[]{null});
 
-            int reconciled = downloader.reconcileServerOnlyUids(context(), List.of(11L));
+            int reconciled = downloader.reconcileServerOnlyUids(context(), List.of(11L), 0);
 
             assertThat(reconciled).isZero();
             verify(messageFetcher, never()).fetchBatch(any(), any(), any());
+        }
+
+        /** A local window of three messages, batches of 50. */
+        private final SyncProperties small = new SyncProperties(2, 200, Duration.ofMinutes(5), Duration.ofSeconds(10),
+                50, 30, 3, 4, 256, 200, Duration.ofMinutes(30), Duration.ofSeconds(30), Duration.ofHours(1));
+
+        /**
+         * B1-14: a gap as wide as the folder — a catch-up that ended mid-way, or
+         * another client moving messages into the window — used to come down whole in
+         * one open folder. Only the newest holes that fit the window come down, and the
+         * rows below the oldest of them go, as after a catch-up cut short.
+         */
+        @Test
+        @DisplayName("Past the window only the newest holes come down, and the rows below them go (B1-14)")
+        void reconcilesOnlyTheNewestHolesThatFit() throws Exception {
+            when(mailProps.sync()).thenReturn(small);
+            syncState.setLastKnownUid(100L);
+            Message m30 = mock(Message.class);
+            Message m40 = mock(Message.class);
+            when(uidFolder.getMessagesByUID(new long[]{30L, 40L})).thenReturn(new Message[]{m30, m40});
+            when(messageFetcher.fetchBatch(any(), eq(uidFolder), eq(FOLDER))).thenReturn(List.of());
+
+            int reconciled = downloader.reconcileServerOnlyUids(context(), List.of(10L, 20L, 30L, 40L), 1);
+
+            assertThat(reconciled).isZero();
+            verify(uidFolder).getMessagesByUID(new long[]{30L, 40L});
+            verify(messageRepository).deleteOlderThan(ACCOUNT_ID, FOLDER, 30L);
+        }
+
+        @Test
+        @DisplayName("Holes that fit the window come down whole and drop nothing")
+        void holesThatFitDropNothing() throws Exception {
+            when(mailProps.sync()).thenReturn(small);
+            when(uidFolder.getMessagesByUID(new long[]{10L, 20L}))
+                    .thenReturn(new Message[]{mock(Message.class), mock(Message.class)});
+            when(messageFetcher.fetchBatch(any(), eq(uidFolder), eq(FOLDER))).thenReturn(List.of());
+
+            downloader.reconcileServerOnlyUids(context(), List.of(10L, 20L), 1);
+
+            verify(uidFolder).getMessagesByUID(new long[]{10L, 20L});
+            verify(messageRepository, never()).deleteOlderThan(any(), any(), anyLong());
+        }
+
+        @Test
+        @DisplayName("A pass that has filled the window leaves the holes for the next one, and drops nothing")
+        void aFullWindowLeavesTheHolesForTheNextPass() throws Exception {
+            when(mailProps.sync()).thenReturn(small);
+
+            int reconciled = downloader.reconcileServerOnlyUids(context(), List.of(10L, 20L), 3);
+
+            assertThat(reconciled).isZero();
+            verify(uidFolder, never()).getMessagesByUID(any(long[].class));
+            verify(messageRepository, never()).deleteOlderThan(any(), any(), anyLong());
         }
     }
 
