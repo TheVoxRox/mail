@@ -101,7 +101,7 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "cb7e83a886361622fe05e1d4337436497601c2b9",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "e9b7d8d2d2bccc35483ee3f660b50caab3608984",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/DraftRecipientsEntity.java": "8fe876fff0ba59e8992440d53be4c15564da2f99",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "0b3db02e11a3a827b90f038b4df77210eb4eab3f"
     },
@@ -129,6 +129,10 @@
       {
         "date": "2026-10-05",
         "note": "B1-12 regression fixed, recorded in IMAP_SMTP_AUDIT.md as v1.38 (section 4l). AttachmentService.holdsParts recognizes a MultipartDataSource before testing for MimePartDataSource: Angus 2.0.5's IMAPMultipartDataSource extends MimePartDataSource, so the #630 test made every multipart from the server a leaf and its attachments undownloadable. The fall-through over a plain MimePartDataSource is still a leaf; path validation, the temp file and the streaming copy are unchanged. Verdict stays open finding (B1-14)."
+      },
+      {
+        "date": "2026-10-05",
+        "note": "B1-5 failed-APPEND gap fixed and the independent pass over 1.37 recorded, in the audit itself as v1.39 (sections 4e, 4j, 4n, 4o). One file under feature/mail/service changes, DraftPersistenceService: appendDraftMessage sets the new revision's typed-recipients entry aside (markSuperseded by its own stableId) whenever the APPEND does not store it, by a false outcome or an exception, and the helper markReplacedRevision is renamed setAside. The save order (entry before the APPEND), the mark of a replaced revision after a stored one, the two bounds and the send-time lookup are unchanged. Verdict stays open finding (B1-14). The ledger is now 7/8: the audit is due a re-verification."
       }
     ]
   },

@@ -21,6 +21,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Backend
 
+- **A mail server that refuses to store your drafts can no longer wear down the protection on drafts you send unedited either (#635).** #632 kept a server from doing it by withholding what the app needs to tidy up after an autosave; a server that rejected every autosave outright could still do it, because each rejected save left a record of its own. A rejected save's record is now set aside like a replaced one, so it counts against the other set-aside records only. Every rejected save already shows as a failed draft save.
+
 - **Attachments in messages with more than one part download again (#634).** The change in #630 that keeps attachment downloads from loading a whole message into memory mistook the mail library's ordinary description of a multi-part message for the suspicious kind, so every attachment in such a message was reported as not found. No released build carried it; the protection #630 added stays.
 
 - **Filling gaps in a folder's message list no longer tries to download them all at once (#633).** When the app finds messages on the server that are missing from the middle of the list it keeps — after the app was closed in the middle of catching up, or after another program moved many messages into a folder — it downloaded every one of them in one go, which for a large enough gap could run the app out of memory. It now downloads at most as many as a folder keeps, newest first, as catching up on new mail has done since #616; the older ones stay on the server and appear as you page down.
