@@ -216,6 +216,38 @@ class HostileImapResponseIT {
     }
 
     /**
+     * B1-10, reopened at 1.31. Angus reads a FLAGS list raw to its first {@code )},
+     * so a quote in it opens no string for Angus; a scan that read it as one hid
+     * the structure after it. The depth now comes from Angus's own parse, which
+     * meets the structure where it is.
+     */
+    @Test
+    @DisplayName("A quote inside a FLAGS list does not hide the structure after it")
+    void aQuoteInAFlagsListDoesNotHideTheStructure() {
+        SERVER.answerOpenWith(nestedBodyStructureFetch(200_000).replace("(UID 5 ", "(UID 5 FLAGS (\") "));
+
+        AccountEntity after = pass();
+
+        assertThat(after.getLastErrorCode()).isNull();
+    }
+
+    /**
+     * B1-10, found at 1.32. Angus parses a group's members inside the group's own
+     * parse, so a group starting inside a group recurses, though each address
+     * closes its parentheses before the next begins; 100,000 of them are 1.7 MB.
+     */
+    @Test
+    @DisplayName("Address groups nested past any stack are dropped, and the pass goes on")
+    void addressGroupsNestedPastTheStackAreDropped() {
+        SERVER.answerOpenWith("* 1 FETCH (UID 5 ENVELOPE (NIL \"s\" (" + "(NIL NIL \"g\" NIL)".repeat(100_000)
+                + "(NIL NIL \"a\" \"example.com\")) NIL NIL NIL NIL NIL NIL NIL))");
+
+        AccountEntity after = pass();
+
+        assertThat(after.getLastErrorCode()).isNull();
+    }
+
+    /**
      * B1-8, from the 1.24 verification pass. {@code Protocol.command} collects a
      * tagged response whose tag is not its own and reads on; a budget that started
      * over at any tagged response let a server reset it every thousand lines and

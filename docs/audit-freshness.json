@@ -156,5 +156,16 @@
         "note": "B2-1 fixed, recorded in the audit itself as v1.4 (section 3, and the section 4 note on a rejected sign-in). Under this audit's paths: SecurityConfig requires the authority ApiKeyFilter grants (hasAuthority instead of authenticated()), so the session's OAuth2AuthenticationToken authorizes the OAuth endpoints only; OAuth2CallbackController.success invalidates the session and clears the security context in a finally on every outcome, and removes the authorized client in a finally around processLogin. The flow itself (start validation, state, PKCE, the success and failure handlers, the duplicate-callback gate, the four login guards) is unchanged; a benign duplicate callback still lands on the success page because the completed-state tracker lives outside the session. Verdict PASS, pending the independent verification pass."
       }
     ]
+  },
+  "docs/IMAP_SMTP_AUDIT.md": {
+    "reviewedTrees": {
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "c96a472a25ff0cdf10fc9cff57c2945433a58ba5"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-10-05",
+        "note": "B1-10 fixed again, recorded in the audit itself as v1.32 (section 4j). One file under feature/mail/service changes, BoundedImapProtocol: the scan NestingCheckedResponse.nestsDeeperThan is gone, and a FETCH is parsed through DepthBoundedFetchResponse, a FetchResponse whose overrides of readByte, skip, isNextNonSpace, readString and readStringList count the levels Angus's own parse opens (lists open at once, plus every address with a NIL host) and stop the parse past MAX_NESTING (256), after which the response is dropped with NestedTooDeepException as before. The other bounds of the class (response bytes, EXISTS, VANISHED, the command and selection budgets) are unchanged; the javadoc of MAX_SELECTION_EXPUNGE_STEPS is corrected (some 46,000 EXPUNGEs in a folder of 20,000, not a hundred thousand). Verdict stays open findings (B1-5, B1-12, B1-14)."
+      }
+    ]
   }
 }
