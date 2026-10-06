@@ -564,6 +564,23 @@ class BoundedImapProtocolTest {
             assertThat(BoundedImapProtocol.openFolderBudget(props, "imap"))
                     .isEqualTo(BoundedImapProtocol.DEFAULT_OPEN_FOLDER_BUDGET);
         }
+
+        /**
+         * Only {@link BoundedImapStore#install} writes the property, from a checked
+         * value; a value it did not write leaves the connection bounded by the default
+         * rather than failing it.
+         */
+        @Test
+        @DisplayName("A budget the session carries that is not a positive number falls back to the default")
+        void anUnusableBudgetFallsBackToTheDefault() {
+            Properties props = new Properties();
+            for (String value : new String[]{"128MB", "", "0", "-5", "99999999999999999999"}) {
+                props.put("mail.imaps." + BoundedImapProtocol.OPEN_FOLDER_BUDGET_PROPERTY, value);
+
+                assertThat(BoundedImapProtocol.openFolderBudget(props, "imaps")).as(value)
+                        .isEqualTo(BoundedImapProtocol.DEFAULT_OPEN_FOLDER_BUDGET);
+            }
+        }
     }
 
     /**

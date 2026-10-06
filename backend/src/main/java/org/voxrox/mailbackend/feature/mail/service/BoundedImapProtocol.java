@@ -356,13 +356,23 @@ final class BoundedImapProtocol extends IMAPProtocol {
 
     /**
      * The open-folder budget a session carries for {@code protocol}, or
-     * {@link #DEFAULT_OPEN_FOLDER_BUDGET} when it carries none: a session this
-     * backend opens always carries one, written by {@link BoundedImapStore#install}
-     * from a value its configuration has already checked to be positive.
+     * {@link #DEFAULT_OPEN_FOLDER_BUDGET} when it carries none it can use: a
+     * session this backend opens always carries one, written by
+     * {@link BoundedImapStore#install} from a value its configuration has already
+     * checked to be positive. Anything else falls back to the default rather than
+     * failing the connection, since the default is a bound too.
      */
     static long openFolderBudget(Properties props, String protocol) {
         String value = props.getProperty("mail." + protocol + "." + OPEN_FOLDER_BUDGET_PROPERTY);
-        return value == null ? DEFAULT_OPEN_FOLDER_BUDGET : Long.parseLong(value);
+        if (value == null) {
+            return DEFAULT_OPEN_FOLDER_BUDGET;
+        }
+        try {
+            long budget = Long.parseLong(value.trim());
+            return budget > 0 ? budget : DEFAULT_OPEN_FOLDER_BUDGET;
+        } catch (NumberFormatException e) {
+            return DEFAULT_OPEN_FOLDER_BUDGET;
+        }
     }
 
     private long openFolderBudget() {
