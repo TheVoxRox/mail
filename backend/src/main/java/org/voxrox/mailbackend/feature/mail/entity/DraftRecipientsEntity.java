@@ -49,9 +49,9 @@ public class DraftRecipientsEntity {
     /**
      * The stableId of the draft's first revision saved here, inherited by every
      * save that names a revision of the draft as the one it replaces: a stored save
-     * sets aside every earlier current entry of its chain, so the draft keeps one
-     * current entry even when the revision a save names is one the server rejected,
-     * which no later save names (B1-5).
+     * sets aside every earlier entry of its chain not already set aside, so the
+     * draft keeps one current entry even when the revision a save names is one the
+     * server rejected, which no later save names (B1-5).
      */
     @Column(name = "chain_id", length = 32)
     private @Nullable String chainId;
@@ -77,8 +77,18 @@ public class DraftRecipientsEntity {
     private long savedSeq;
 
     /**
-     * When a later save of this client replaced the revision; null while it is
-     * current.
+     * When the server stored the revision; null while its save is accepted but has
+     * not stored it, waiting for the server or failed. Only a stored revision takes
+     * a current place: an entry current from acceptance let a server that held the
+     * APPEND lane keep a thousand autosaves current and push out a hidden draft's
+     * entry (B1-5, reopened at 1.46).
+     */
+    @Column(name = "stored_at")
+    private @Nullable LocalDateTime storedAt;
+
+    /**
+     * When a later stored save of this client replaced the revision; null while it
+     * is current, or accepted and not yet stored.
      */
     @Column(name = "superseded_at")
     private @Nullable LocalDateTime supersededAt;
@@ -101,6 +111,10 @@ public class DraftRecipientsEntity {
 
     public @Nullable String getChainId() {
         return chainId;
+    }
+
+    public @Nullable LocalDateTime getStoredAt() {
+        return storedAt;
     }
 
     public @Nullable LocalDateTime getSupersededAt() {

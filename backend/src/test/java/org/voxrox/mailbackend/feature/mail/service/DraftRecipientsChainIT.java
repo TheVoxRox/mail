@@ -218,7 +218,9 @@ class DraftRecipientsChainIT {
      * the save is accepted, and only a failed APPEND set it aside, so a save whose
      * task stopped before its APPEND left its entry current, and each further save
      * of the draft, naming it, added another. A reply carrying a folded
-     * {@code References} header fails the message build every time.
+     * {@code References} header failed the message build every time. Since 1.47
+     * such an entry is never current: it becomes so only once its revision is
+     * stored.
      */
     @Test
     @DisplayName("Saves whose message cannot be built leave no current entry behind (B1-5)")
@@ -234,6 +236,43 @@ class DraftRecipientsChainIT {
         assertThat(currentEntries()).containsExactly(hidden.messageId());
     }
 
+    /**
+     * Found by the pass over 1.44 (B1-5, reopened at 1.46). The entry counted as
+     * current from the save's acceptance until its task settled it, and the bound
+     * prunes the current entries at every acceptance, so a server holding the lane
+     * the APPEND waits for kept every later save waiting with a current entry: the
+     * thousandth such autosave deleted a hidden draft's entry, though every APPEND
+     * was then stored and nothing was recorded. An entry is now current only once
+     * its revision is stored. Here every save is accepted before any runs, as while
+     * the lane is held, and they then run in order.
+     */
+    @Test
+    @DisplayName("Saves waiting for the server take no current place from another draft (B1-5)")
+    void savesWaitingForTheLaneTakeNoCurrentPlace() {
+        DraftPersistenceService.DraftIdentity hidden = save(null, true);
+        List<DraftPersistenceService.DraftIdentity> accepted = new ArrayList<>();
+        List<String> named = new ArrayList<>();
+        String replaces = null;
+        for (int revision = 1; revision <= DraftPersistenceService.KEPT_DRAFT_RECIPIENTS; revision++) {
+            DraftPersistenceService.DraftIdentity identity = service.acceptDraftSave(account.getId(), request(),
+                    replaces);
+            accepted.add(identity);
+            named.add(replaces);
+            replaces = identity.stableId();
+        }
+
+        assertThat(repository.findById(new DraftRecipientsEntity.Key(account.getId(), hidden.messageId())))
+                .as("the hidden draft's entry outlasts the saves waiting for the lane").isPresent();
+        assertThat(currentEntries()).containsExactly(hidden.messageId());
+
+        storeNext.set(true);
+        for (int i = 0; i < accepted.size(); i++) {
+            service.saveDraftAsync(account.getId(), request(), named.get(i), accepted.get(i));
+        }
+
+        assertThat(currentEntries()).containsExactlyInAnyOrder(hidden.messageId(), accepted.getLast().messageId());
+    }
+
     /** One save, accepted and run the way the controller sends it. */
     private DraftPersistenceService.DraftIdentity save(String replaces, boolean stored) {
         DraftPersistenceService.DraftIdentity identity = service.acceptDraftSave(account.getId(), request(), replaces);
@@ -246,8 +285,12 @@ class DraftRecipientsChainIT {
         return new DraftRequest("to@example.com", null, null, "subject", "body", null, null, null);
     }
 
+    /**
+     * Entries whose revision the server stored and no later stored save set aside.
+     */
     private List<String> currentEntries() {
-        return repository.findAll().stream().filter(entry -> entry.getSupersededAt() == null)
+        return repository.findAll().stream()
+                .filter(entry -> entry.getStoredAt() != null && entry.getSupersededAt() == null)
                 .map(DraftRecipientsEntity::getMessageId).toList();
     }
 

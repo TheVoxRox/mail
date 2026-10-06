@@ -609,14 +609,16 @@ CREATE UNIQUE INDEX ux_correspondent_account_email
 -- Drafts folder's name too, so a server moving the \Drafts role gave the
 -- draft an id with no entry.
 -- Deleted with the draft when this client deletes it (the revision an
--- autosave replaces, a sent draft). An entry is current until a later
--- stored save of the same draft sets it aside (superseded_at), or its own
--- save fails; each save keeps the account's newest current entries and its
--- newest superseded ones apart, as many of each as DraftPersistenceService's
--- KEPT_DRAFT_RECIPIENTS. Not by age: a server could hide a draft for as long
--- as an age limit ran, and only the user's own saves add entries. A draft
--- composed in another client has no entry, and its check falls back to the
--- row.
+-- autosave replaces, a sent draft). An entry becomes current once the
+-- server has stored its revision (stored_at), and stays so until a later
+-- stored save of the same draft sets it aside (superseded_at); until then it
+-- is only accepted, whether its save is still waiting for the server or has
+-- failed, and takes no current place. Each save keeps the account's newest
+-- current entries and its newest other ones apart, as many of each as
+-- DraftPersistenceService's KEPT_DRAFT_RECIPIENTS. Not by age: a server
+-- could hide a draft for as long as an age limit ran, and only the user's
+-- own saves add entries. A draft composed in another client has no entry,
+-- and its check falls back to the row.
 --
 -- stable_id is the stableId the save minted, which the next save names as
 -- the revision it replaces. chain_id is the stable_id of the draft's first
@@ -637,6 +639,7 @@ CREATE TABLE draft_recipients (
     recipients_bcc TEXT,
     saved_at       DATETIME     NOT NULL,
     saved_seq      INTEGER      NOT NULL,
+    stored_at      DATETIME,
     superseded_at  DATETIME,
     PRIMARY KEY (account_id, message_id),
     FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
