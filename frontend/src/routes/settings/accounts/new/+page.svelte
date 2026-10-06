@@ -9,7 +9,7 @@
 	import { loadAccounts, setActiveAccount } from '$lib/stores/accounts.js';
 	import { pushToast } from '$lib/stores/toasts.js';
 	import { startOAuthLogin } from '$lib/api/googleAuth.js';
-	import { pollForOAuthAccount } from '$lib/accounts/oauthPoll.js';
+	import { pollForOAuthAccount, signedInAccountFor } from '$lib/accounts/oauthPoll.js';
 	import { delayWithAbort } from '$lib/delay.js';
 	import { isValidEmailAddress } from '$lib/compose/addresses.js';
 	import {
@@ -25,7 +25,7 @@
 	import { Surface } from '$lib/components/ui/surface/index.js';
 	import { _ } from '$lib/i18n/index.js';
 	import { onDestroy } from 'svelte';
-	import type { AccountCreateRequest, AccountUpdateRequest } from '$lib/types.js';
+	import type { AccountCreateRequest, AccountResponse, AccountUpdateRequest } from '$lib/types.js';
 
 	const customPreset = KNOWN_PRESETS.find((p) => p.key === 'custom')!;
 
@@ -157,13 +157,14 @@
 	// stops polling immediately.
 	let oauthAbort: AbortController | null = null;
 
-	async function waitForOauthAccount(email: string) {
+	async function waitForOauthAccount(email: string, baseline: AccountResponse[]) {
 		oauthAbort?.abort();
 		const controller = new AbortController();
 		oauthAbort = controller;
 
 		const match = await pollForOAuthAccount({
 			email,
+			baseline,
 			listAccounts,
 			sleep: (ms) => delayWithAbort(ms, controller.signal),
 			shouldContinue: () => !controller.signal.aborted
@@ -211,9 +212,16 @@
 		googleError = null;
 		oauthStarting = true;
 		try {
+			// What the poll measures the sign-in against: an account counts as added
+			// only once the sign-in has made it, not because it already had the address.
+			const baseline = await listAccounts();
+			if (signedInAccountFor(baseline, oauthEmail)) {
+				googleError = $_('accounts.wizard.oauthAccountExists', { values: { email: oauthEmail } });
+				return;
+			}
 			await startOAuthLogin(oauthProvider);
 			step = { kind: 'oauth-waiting', preset, email: oauthEmail };
-			void waitForOauthAccount(oauthEmail);
+			void waitForOauthAccount(oauthEmail, baseline);
 		} catch (err) {
 			googleError = toErrorMessage(err);
 		} finally {

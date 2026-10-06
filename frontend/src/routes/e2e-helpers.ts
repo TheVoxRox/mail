@@ -105,6 +105,8 @@ export interface MockFlags {
 	/** Cuts the folder listing at this many messages, as the backend does past its local window. */
 	mailListingDepth?: number;
 	noAccounts?: boolean;
+	/** Adds a Gmail account a Google sign-in owns (`oauth.user@gmail.com`). */
+	oauthAccount?: boolean;
 	readinessDelayMs?: number;
 	readinessFailures?: number;
 	sessionDelayMs?: number;

@@ -592,6 +592,43 @@ export function seedInboxThreadMember(): E2EFixtureState {
  * an account, so it outlives the last mailbox — the harvested correspondence
  * cache (`correspondentsByAccount`) is the per-account half and does go.
  */
+/**
+ * A Gmail account a Google sign-in owns, beside the two password accounts. The
+ * add-account wizard refuses its address before it opens the browser, since
+ * signing in with it again would only renew that account's sign-in.
+ */
+export function seedOAuthAccount(): E2EFixtureState {
+	fixtureState.accounts = [
+		...fixtureState.accounts,
+		{
+			id: 3,
+			accountName: 'Gmail',
+			email: 'oauth.user@gmail.com',
+			displayName: null,
+			signature: null,
+			signatureAutoInsert: true,
+			providerId: null,
+			providerName: 'Gmail',
+			imapHost: 'imap.gmail.com',
+			imapPort: 993,
+			imapUseSsl: true,
+			smtpHost: 'smtp.gmail.com',
+			smtpPort: 465,
+			smtpUseSsl: true,
+			username: 'oauth.user@gmail.com',
+			authType: 'OAUTH2',
+			oauth2Provider: 'google',
+			active: true,
+			requiresReauth: false,
+			lastSyncAt: null,
+			lastError: null,
+			lastErrorCode: null,
+			lastErrorArgs: {}
+		}
+	];
+	return fixtureState;
+}
+
 export function clearAccounts(): E2EFixtureState {
 	fixtureState.accounts = [];
 	fixtureState.foldersByAccount = {};

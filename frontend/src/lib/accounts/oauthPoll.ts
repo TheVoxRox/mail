@@ -8,6 +8,12 @@
  * budget is generous and a final reconcile catches an account that is created
  * right as the budget expires — otherwise the user is told the login failed for
  * an account that actually exists.
+ *
+ * The account must be one the sign-in made, measured against the list as it
+ * stood before the sign-in started: new, or a password account the sign-in took
+ * over (the backend's upgrade). Matching by address alone found an account that
+ * already had the address on the first poll, and the wizard reported it added
+ * before the user had signed in at all.
  */
 
 export const OAUTH_POLL_FAST_INTERVAL_MS = 2000;
@@ -17,9 +23,19 @@ export const OAUTH_POLL_FAST_ATTEMPTS = 15;
 // first-time consent could narrowly outlast — see the final reconcile below.
 export const OAUTH_POLL_MAX_ATTEMPTS = 129;
 
-export interface OAuthPollOptions<A extends { id: number; email: string }> {
+/** The account fields the poll reads. */
+export interface OAuthPollAccount {
+	id: number;
+	email: string;
+	/** Set once a sign-in owns the account; null for a password account. */
+	oauth2Provider: string | null;
+}
+
+export interface OAuthPollOptions<A extends OAuthPollAccount> {
 	/** Address the user is signing in with; matched case-insensitively. */
 	email: string;
+	/** The account list from before the sign-in started. */
+	baseline: readonly A[];
 	/** Fetches the current account list (one poll). Network errors are ignored. */
 	listAccounts: () => Promise<A[]>;
 	/** Resolves after the given delay; injected so tests can run instantly. */
@@ -32,17 +48,20 @@ export interface OAuthPollOptions<A extends { id: number; email: string }> {
  * Resolves with the matching account once it appears, or `null` if the budget
  * (plus a final grace reconcile) is exhausted or polling is aborted.
  */
-export async function pollForOAuthAccount<A extends { id: number; email: string }>(
+export async function pollForOAuthAccount<A extends OAuthPollAccount>(
 	options: OAuthPollOptions<A>
 ): Promise<A | null> {
-	const { email, listAccounts, sleep, shouldContinue } = options;
-	const target = email.trim().toLowerCase();
+	const { email, baseline, listAccounts, sleep, shouldContinue } = options;
 	const active = () => (shouldContinue ? shouldContinue() : true);
+	const signedInBefore = new Set(baseline.filter(isSignedIn).map((a) => a.id));
 
 	const findMatch = async (): Promise<A | null> => {
 		try {
 			const accounts = await listAccounts();
-			return accounts.find((a) => a.email.trim().toLowerCase() === target) ?? null;
+			return (
+				accounts.find((a) => hasAddress(a, email) && isSignedIn(a) && !signedInBefore.has(a.id)) ??
+				null
+			);
 		} catch {
 			// Network blip — treat as "not yet" and keep polling.
 			return null;
@@ -67,4 +86,25 @@ export async function pollForOAuthAccount<A extends { id: number; email: string 
 	if (!active()) return null;
 	await sleep(OAUTH_POLL_SLOW_INTERVAL_MS);
 	return active() ? await findMatch() : null;
+}
+
+/**
+ * The account a sign-in already owns under this address, if any. Signing in
+ * with it again would only renew that account's sign-in, not add one, so the
+ * wizard refuses it before opening the browser; renewing has its own control in
+ * the account list.
+ */
+export function signedInAccountFor<A extends OAuthPollAccount>(
+	accounts: readonly A[],
+	email: string
+): A | undefined {
+	return accounts.find((a) => hasAddress(a, email) && isSignedIn(a));
+}
+
+function hasAddress(account: OAuthPollAccount, email: string): boolean {
+	return account.email.trim().toLowerCase() === email.trim().toLowerCase();
+}
+
+function isSignedIn(account: OAuthPollAccount): boolean {
+	return account.oauth2Provider != null;
 }
