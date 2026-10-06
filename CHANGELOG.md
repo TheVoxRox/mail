@@ -99,6 +99,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- **The IMAP/SMTP audit records the independent pass over B1-5's 1.42 fix (#643).** Every claim of 1.42 held, checked against the code, by removing parts of the fix in turn and by rerunning the 1.41 burst through the real executor. The pass reopened B1-5 all the same: a save whose task fails before its APPEND keeps its entry current. It also found that a reply to a message whose `References` header is folded can be neither saved nor sent. Both fixes follow in their own PRs.
+
 - **`DraftRecipientsChainIT` runs on the production SQLite pragmas and pool (#641).** On the IT profile's single pooled connection a second writer waits for the pool, never for SQLite's lock, so the test could not show the lock conflict B1-5 reopened for; a read-then-write fails there at once under WAL and four connections. IMAP/SMTP audit 1.42 records the fix.
 
 - **`source-map-js` is bumped to 1.2.2 and `smol-toml` to 1.9.0 in the frontend lockfile (#642).** GHSA-68fv-2mgg-jv7q (high, event-loop denial of service through a crafted source map) put one high finding in npm audit, which failed the Lint check of every PR from 2026-10-06; GHSA-r4xh-jqrq-34v2 (moderate, quadratic TOML parse) goes with it. Both run only at build or lint time — `source-map-js` under the Tailwind Vite plugin, PostCSS, jsdom and the coverage reporter, `smol-toml` under knip — so the built app does not change.
