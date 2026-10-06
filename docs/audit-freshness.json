@@ -101,7 +101,7 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "3df42a1372fdf9317e47ef74f2b797ca4435b4f7",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "62af9b1c0c921b8e8f61f90b53551da56c6b99f3",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/DraftRecipientsEntity.java": "646bc4caa74b8d4b2fcc5826d4d561d81311e8f9",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "ae77176c3ad930bf43911f025c13fdf7661be451"
     },
@@ -117,6 +117,10 @@
       {
         "date": "2026-10-06",
         "note": "B1-5 fixed again as the 1.43 pass recommended, recorded in the audit itself as v1.44 (section 4e); the fix is this PR's own and waits for an independent pass, so the anchor stays at c386fed and this records the drift. One path moves: under feature/mail/service only DraftPersistenceService changes. saveDraftAsync sets the save's entry aside in a finally unless the task stored the revision, which covers a false APPEND outcome, an exception from the APPEND and one from before it (the replaced row's lookup, the account, the message build); appendDraftMessage no longer sets anything aside, and saveRecoveryDraft applies the same rule in a finally of its own. A task whose APPEND was stored and whose local upsert then threw now sets its entry aside as well, where it used to stay current; the send still finds an entry by account and Message-ID, current or superseded. acceptDraftSave, the chain lookup, the INSERT, the bounds, the send path and the recipient comparison are untouched. Verdict back to open finding (B1-14)."
+      },
+      {
+        "date": "2026-10-06",
+        "note": "The folded-header note the 1.43 pass added to section 3b, fixed and recorded in the audit itself as v1.45; functional, so no claim of a finding moves and the anchor stays at c386fed. One path moves: under feature/mail/service only MessageFetcher changes. getHeader, which reads In-Reply-To and References for the sync, removes CR and LF from the value (RFC 5322 unfolding; MimeUtility.unfold would keep a line break the wire escaped with a backslash). A reply built from the stored References therefore no longer trips MimeMessageBuilder.requireSingleLine, which is unchanged and still refuses a line break from any other source. Threading is unaffected: it splits References on whitespace, which the line break of a fold was part of, so it finds the same Message-IDs, and it matches In-Reply-To whole, where a single Message-ID unfolds to itself. Verdict stays open finding (B1-14)."
       }
     ]
   },
