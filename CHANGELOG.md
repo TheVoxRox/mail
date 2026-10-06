@@ -105,6 +105,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- **The IMAP/SMTP audit records the independent pass over B1-5's 1.44 fix (#647).** Every claim of 1.44 held, checked by taking every way out of a draft save and by removing each part of the fix in turn. The pass reopened B1-5 all the same: a server that holds the connection a draft's upload waits for keeps every later save waiting, each counted as a current draft from the moment it was accepted, so a thousand autosaves during one hold push out a hidden draft's kept recipients. It also found that a reply to a message whose subject decodes to a line break can be neither saved nor sent; both fixes follow in their own PRs.
+
 - **The IMAP/SMTP audit records the independent pass over B1-5's 1.42 fix (#643).** Every claim of 1.42 held, checked against the code, by removing parts of the fix in turn and by rerunning the 1.41 burst through the real executor. The pass reopened B1-5 all the same: a save whose task fails before its APPEND keeps its entry current. It also found that a reply to a message whose `References` header is folded can be neither saved nor sent. Both fixes follow in their own PRs.
 
 - **`DraftRecipientsChainIT` runs on the production SQLite pragmas and pool (#641).** On the IT profile's single pooled connection a second writer waits for the pool, never for SQLite's lock, so the test could not show the lock conflict B1-5 reopened for; a read-then-write fails there at once under WAL and four connections. IMAP/SMTP audit 1.42 records the fix.
