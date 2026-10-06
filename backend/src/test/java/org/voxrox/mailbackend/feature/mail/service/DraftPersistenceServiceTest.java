@@ -16,6 +16,7 @@ import static org.mockito.Mockito.when;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
+import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 
 import org.junit.jupiter.api.DisplayName;
@@ -421,6 +422,46 @@ class DraftPersistenceServiceTest {
         }
 
         /**
+         * B1-5, reopened at 1.43: since 1.42 the entry is kept when the save is
+         * accepted, before the task runs, and only a failed APPEND set it aside, so a
+         * task that stopped before the APPEND left it current. A reply carrying a
+         * folded {@code References} header fails the message build every time, so each
+         * of its autosaves added a current entry.
+         */
+        @Test
+        @DisplayName("A save whose message cannot be built sets its entry aside (B1-5)")
+        void aSaveThatCannotBeBuiltSetsItsEntryAside() throws Exception {
+            AccountEntity account = new AccountEntity();
+            account.setId(ACCOUNT_ID);
+            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
+            when(mimeMessageBuilder.build(any(), any(), any(), any(), any()))
+                    .thenThrow(new MessagingException("Illegal line break in References"));
+
+            service.saveDraftAsync(ACCOUNT_ID,
+                    new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null, IDENTITY);
+
+            verify(draftRecipientsRepository).markSuperseded(eq(ACCOUNT_ID), eq(IDENTITY.stableId()),
+                    any(LocalDateTime.class));
+            verifyNoInteractions(appendService);
+        }
+
+        /** B1-5, reopened at 1.43: the same for a task that stops before the build. */
+        @Test
+        @DisplayName("A save that stops on the revision it replaces sets its entry aside (B1-5)")
+        void aSaveThatStopsOnTheReplacedRowSetsItsEntryAside() {
+            when(messageService.getByStableId("stable-previous-revision"))
+                    .thenThrow(new DataAccessResourceFailureException("database is locked"));
+
+            service.saveDraftAsync(ACCOUNT_ID,
+                    new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null),
+                    "stable-previous-revision", IDENTITY);
+
+            verify(draftRecipientsRepository).markSuperseded(eq(ACCOUNT_ID), eq(IDENTITY.stableId()),
+                    any(LocalDateTime.class));
+            verifyNoInteractions(appendService);
+        }
+
+        /**
          * B1-5, reopened at 1.41: an entry that could not be written cost the draft its
          * check against what was typed, and the revision was appended anyway, to be
          * checked against the server's own copy. A save without its entry is now not
@@ -558,6 +599,32 @@ class DraftPersistenceServiceTest {
 
             assertThat(recoveryId).isNotBlank();
             verify(appendService).appendDraft(eq(ACCOUNT_ID), eq("Drafts"), any());
+        }
+
+        /**
+         * B1-5, reopened at 1.43: the recovery draft keeps its entry before the build,
+         * and a build that failed was caught without setting the entry aside.
+         */
+        @Test
+        @DisplayName("saveRecoveryDraft: a message that cannot be built sets its kept entry aside")
+        void saveRecoveryDraftSetsItsEntryAsideWhenTheBuildFails() throws Exception {
+            AccountEntity account = new AccountEntity();
+            account.setId(ACCOUNT_ID);
+            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
+            when(imapFolderService.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.DRAFTS)).thenReturn("Drafts");
+            when(mimeMessageBuilder.build(any(), any(), any(), any(), any()))
+                    .thenThrow(new MessagingException("Illegal line break in References"));
+
+            String recoveryId = service.saveRecoveryDraft(ACCOUNT_ID,
+                    new MailRequest("to@example.com", null, null, "subj", "body", null, null, null));
+
+            assertThat(recoveryId).isNull();
+            ArgumentCaptor<String> kept = ArgumentCaptor.forClass(String.class);
+            verify(draftRecipientsRepository).insertEntry(eq(ACCOUNT_ID), any(), kept.capture(), any(), any(), any(),
+                    any(), any());
+            verify(draftRecipientsRepository).markSuperseded(eq(ACCOUNT_ID), eq(kept.getValue()),
+                    any(LocalDateTime.class));
+            verifyNoInteractions(appendService);
         }
     }
 }
