@@ -95,6 +95,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- **`source-map-js` is bumped to 1.2.2 and `smol-toml` to 1.9.0 in the frontend lockfile (#642).** GHSA-68fv-2mgg-jv7q (high, event-loop denial of service through a crafted source map) put one high finding in npm audit, which failed the Lint check of every PR from 2026-10-06; GHSA-r4xh-jqrq-34v2 (moderate, quadratic TOML parse) goes with it. Both run only at build or lint time — `source-map-js` under the Tailwind Vite plugin, PostCSS, jsdom and the coverage reporter, `smol-toml` under knip — so the built app does not change.
+
 - **The IMAP/SMTP audit records the independent pass over B1-5's 1.40 fix (#639).** Every claim of 1.40 held, checked against the code and by removing each part of the fix in turn, and the pass reopened B1-5 for two routes it measured: a save can look its draft up before the save it names has recorded it, and that record's write fails at once beside another database writer. Audit 1.41; the fix follows separately.
 
 - **The IMAP/SMTP audit is re-verified against `c386fed` (#638).** An independent pass over the fixes of 1.38 and 1.39 confirmed both, against Angus's and jakarta.mail's bytecode and by reverting each fix and watching its tests fail, and found the B1-5 route fixed above; the seven acknowledgements in `docs/audit-freshness.json` are cleared, and that fix starts a new ledger pending its own pass.
