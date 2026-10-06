@@ -20,6 +20,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.voxrox.mailbackend.exception.AccountAlreadyExistsException;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.account.entity.MailProviderEntity;
 import org.voxrox.mailbackend.feature.account.entity.MailServerConfig;
@@ -35,7 +36,7 @@ import org.voxrox.mailbackend.feature.mail.service.ImapConnectionManager;
  * Unit tests for {@link ExternalProviderLoginService} — the OAuth2 provider
  * login provisioning split out of {@link AccountService}. Covers the two public
  * entry points driven by {@code OAuth2LoginService}:
- * {@code markRequiresReauthIfExists} (missing refresh token) and
+ * {@code markRequiresReauthIfExists} (missing refresh token or mail scope) and
  * {@code processExternalProviderLogin} (account routing by external id / e-mail
  * / new account, credential rotation, reauth clear).
  *
@@ -110,9 +111,10 @@ class ExternalProviderLoginServiceTest {
         void shouldSetRequiresReauthWhenAccountExistsAndNotAlreadyMarked() {
             AccountEntity account = createAccountEntity();
             account.setRequiresReauth(false);
-            when(accountRepository.findByEmail(EMAIL)).thenReturn(Optional.of(account));
+            when(accountRepository.findByOauth2ProviderAndExternalId(GoogleTokenService.PROVIDER_NAME, "ext-1"))
+                    .thenReturn(Optional.of(account));
 
-            service.markRequiresReauthIfExists(EMAIL);
+            service.markRequiresReauthIfExists(GoogleTokenService.PROVIDER_NAME, "ext-1", "missing_refresh_token");
 
             assertThat(account.isRequiresReauth()).isTrue();
             verify(accountRepository).save(account);
@@ -126,9 +128,10 @@ class ExternalProviderLoginServiceTest {
         void shouldNotUpdateWhenAlreadyMarked() {
             AccountEntity account = createAccountEntity();
             account.setRequiresReauth(true);
-            when(accountRepository.findByEmail(EMAIL)).thenReturn(Optional.of(account));
+            when(accountRepository.findByOauth2ProviderAndExternalId(GoogleTokenService.PROVIDER_NAME, "ext-1"))
+                    .thenReturn(Optional.of(account));
 
-            service.markRequiresReauthIfExists(EMAIL);
+            service.markRequiresReauthIfExists(GoogleTokenService.PROVIDER_NAME, "ext-1", "missing_scope");
 
             verify(accountRepository, never()).save(any());
             // Guarded on the transition, like the deactivation purge in AccountService:
@@ -136,13 +139,23 @@ class ExternalProviderLoginServiceTest {
             verifyNoInteractions(eventPublisher);
         }
 
+        /**
+         * OAuth audit §4: the account was found by the address, so a rejected sign-in
+         * of another identity — another provider's account with the same address, or an
+         * OAuth attempt at an account still on a password — stopped that account
+         * syncing. Only the account the signing-in identity owns is marked.
+         */
         @Test
-        void shouldDoNothingWhenAccountDoesNotExist() {
-            when(accountRepository.findByEmail("unknown@example.com")).thenReturn(Optional.empty());
+        @DisplayName("An account the identity does not own is not marked, whatever its address")
+        void shouldNotMarkAnAccountTheIdentityDoesNotOwn() {
+            when(accountRepository.findByOauth2ProviderAndExternalId(GoogleTokenService.PROVIDER_NAME, "ext-other"))
+                    .thenReturn(Optional.empty());
 
-            service.markRequiresReauthIfExists("unknown@example.com");
+            service.markRequiresReauthIfExists(GoogleTokenService.PROVIDER_NAME, "ext-other", "missing_refresh_token");
 
+            verify(accountRepository, never()).findByEmail(any());
             verify(accountRepository, never()).save(any());
+            verifyNoInteractions(eventPublisher);
         }
     }
 
@@ -246,6 +259,55 @@ class ExternalProviderLoginServiceTest {
                     "token");
 
             verify(credentialService).saveCredentials(eq(existing), eq(EMAIL), eq("token"), eq(AuthType.OAUTH2));
+        }
+
+        /**
+         * OAuth audit §4, "The e-mail fallback crosses providers": the address is the
+         * second lookup, and it used to take whatever row held it. A Microsoft account
+         * whose sign-in name is a Gmail address then took over the Gmail account,
+         * replacing its token. Only a row no sign-in owns yet — the upgrade from a
+         * password — may be taken by its address.
+         */
+        @Test
+        @DisplayName("An address held by another provider's sign-in is refused, not taken over")
+        void shouldRefuseAnAddressBoundToAnotherProvider() {
+            AccountEntity existing = createAccountEntity();
+            existing.setOauth2Provider("microsoft");
+            existing.setExternalId("ms-oid");
+            when(providerService.resolveProvider(EMAIL, null)).thenReturn(createProvider());
+            when(accountRepository.findByOauth2ProviderAndExternalId(GoogleTokenService.PROVIDER_NAME, "ext-new"))
+                    .thenReturn(Optional.empty());
+            when(accountRepository.findByEmail(EMAIL)).thenReturn(Optional.of(existing));
+
+            assertThatThrownBy(() -> service.processExternalProviderLogin(GoogleTokenService.PROVIDER_NAME, EMAIL,
+                    "User Name", "ext-new", "token")).isInstanceOf(AccountAlreadyExistsException.class);
+
+            verify(credentialService, never()).saveCredentials(any(), any(), any(), any());
+            assertThat(existing.getOauth2Provider()).isEqualTo("microsoft");
+            assertThat(existing.getExternalId()).isEqualTo("ms-oid");
+        }
+
+        /**
+         * The same at one provider: Google's {@code sub} and Microsoft's {@code oid}
+         * are the user's stable id, so another id is another person — a personal and a
+         * work Microsoft account can share an address.
+         */
+        @Test
+        @DisplayName("An address held by another identity at the same provider is refused too")
+        void shouldRefuseAnAddressBoundToAnotherIdentityOfTheSameProvider() {
+            AccountEntity existing = createAccountEntity();
+            existing.setOauth2Provider(GoogleTokenService.PROVIDER_NAME);
+            existing.setExternalId("ext-old");
+            when(providerService.resolveProvider(EMAIL, null)).thenReturn(createProvider());
+            when(accountRepository.findByOauth2ProviderAndExternalId(GoogleTokenService.PROVIDER_NAME, "ext-new"))
+                    .thenReturn(Optional.empty());
+            when(accountRepository.findByEmail(EMAIL)).thenReturn(Optional.of(existing));
+
+            assertThatThrownBy(() -> service.processExternalProviderLogin(GoogleTokenService.PROVIDER_NAME, EMAIL,
+                    "User Name", "ext-new", "token")).isInstanceOf(AccountAlreadyExistsException.class);
+
+            verify(credentialService, never()).saveCredentials(any(), any(), any(), any());
+            assertThat(existing.getExternalId()).isEqualTo("ext-old");
         }
 
         @Test

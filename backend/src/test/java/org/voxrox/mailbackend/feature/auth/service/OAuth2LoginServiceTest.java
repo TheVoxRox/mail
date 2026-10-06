@@ -110,7 +110,7 @@ class OAuth2LoginServiceTest {
 
         verify(externalProviderLoginService, never()).processExternalProviderLogin(anyString(), any(), any(), any(),
                 any());
-        verify(externalProviderLoginService, never()).markRequiresReauthIfExists(any());
+        verify(externalProviderLoginService, never()).markRequiresReauthIfExists(any(), any(), any());
     }
 
     @Test
@@ -136,7 +136,7 @@ class OAuth2LoginServiceTest {
                 .extracting(e -> ((MailOperationException) e).getMessageKey())
                 .isEqualTo("error.mail.oauth2NoRefreshToken");
 
-        verify(externalProviderLoginService).markRequiresReauthIfExists(EMAIL);
+        verify(externalProviderLoginService).markRequiresReauthIfExists(PROVIDER, EXTERNAL_ID, "missing_refresh_token");
         verify(externalProviderLoginService, never()).processExternalProviderLogin(anyString(), any(), any(), any(),
                 any());
     }
@@ -159,7 +159,7 @@ class OAuth2LoginServiceTest {
                 .satisfies(ex -> assertThat(((MailOperationException) ex).getCode())
                         .isEqualTo(ErrorCode.MAIL_OAUTH2_SCOPE_NOT_GRANTED));
 
-        verify(externalProviderLoginService).markRequiresReauthIfExists(EMAIL);
+        verify(externalProviderLoginService).markRequiresReauthIfExists(PROVIDER, EXTERNAL_ID, "missing_scope");
         verify(externalProviderLoginService, never()).processExternalProviderLogin(anyString(), any(), any(), any(),
                 any());
     }

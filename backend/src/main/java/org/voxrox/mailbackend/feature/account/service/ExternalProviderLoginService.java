@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.voxrox.mailbackend.exception.AccountAlreadyExistsException;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.account.entity.MailProviderEntity;
 import org.voxrox.mailbackend.feature.account.entity.MailServerConfig;
@@ -51,19 +52,24 @@ public class ExternalProviderLoginService {
     }
 
     /**
-     * If an account for the given e-mail exists, marks it as requires_reauth.
-     * Called from the OAuth flow when the provider did not return a refresh token —
-     * existing credentials stay untouched (may still work), but the scheduler will
-     * skip the account until the user goes through a clean re-login.
+     * Marks the account this sign-in's identity owns as requires_reauth, if there
+     * is one. Called from the OAuth flow when the provider returned no refresh
+     * token or did not grant the mail scope — {@code reason} says which, for the
+     * audit log. Existing credentials stay untouched (they may still work), but the
+     * scheduler skips the account until the user goes through a clean re-login.
+     * <p>
+     * Found by the identity, not the address: a rejected sign-in of another
+     * identity whose address matches an account — another provider's, or one still
+     * on a password — used to stop that account syncing (OAuth audit §4).
      */
     @Transactional
-    public void markRequiresReauthIfExists(String email) {
-        accountRepository.findByEmail(email).ifPresent(account -> {
+    public void markRequiresReauthIfExists(String providerName, String externalId, String reason) {
+        accountRepository.findByOauth2ProviderAndExternalId(providerName, externalId).ifPresent(account -> {
             if (!account.isRequiresReauth()) {
                 account.setRequiresReauth(true);
                 accountRepository.save(account);
-                AuditLog.failure("account_requires_reauth", LogMasker.maskEmail(email),
-                        "id=" + account.getId() + " reason=missing_refresh_token");
+                AuditLog.failure("account_requires_reauth", LogMasker.maskEmail(account.getEmail()),
+                        "id=" + account.getId() + " reason=" + reason);
                 /*
                  * Third writer of the flag, same consequence as the other two: nothing connects
                  * for the account from here on, so its pooled Stores are dead weight. After
@@ -90,9 +96,13 @@ public class ExternalProviderLoginService {
      * identifier at the provider, preferred even when the primary e-mail has
      * changed in the meantime;</li>
      * <li>e-mail — upgrade path from a PASSWORD account to OAUTH2 (the user
-     * previously had a password and is now setting up OAuth);</li>
+     * previously had a password and is now setting up OAuth), only for a row no
+     * sign-in owns yet;</li>
      * <li>new account.</li>
      * </ol>
+     *
+     * @throws AccountAlreadyExistsException
+     *             when the address belongs to an account another sign-in owns
      */
     @Transactional
     public void processExternalProviderLogin(String providerName, String email, @Nullable String name,
@@ -178,10 +188,30 @@ public class ExternalProviderLoginService {
         }
     }
 
+    /**
+     * The account this sign-in belongs to: the one its identity owns, else the one
+     * its address names if no sign-in owns that yet (the upgrade from a password),
+     * else a new one. An address another identity owns — another provider, or
+     * another user at this one, since Google's {@code sub} and Microsoft's
+     * {@code oid} are the user's stable id — is refused rather than taken over: a
+     * Microsoft account whose sign-in name is a Gmail address used to re-bind the
+     * Gmail account and replace its token (OAuth audit §4). The address is unique
+     * across accounts, so there is no second row to create either.
+     */
     private AccountEntity findOrCreateExternalAccount(String providerName, String email, String externalId,
             @Nullable MailProviderEntity provider, String providerLabel) {
         return accountRepository.findByOauth2ProviderAndExternalId(providerName, externalId)
-                .or(() -> accountRepository.findByEmail(email)).orElseGet(() -> {
+                .or(() -> accountRepository.findByEmail(email).map(byEmail -> {
+                    if (byEmail.getOauth2Provider() != null || byEmail.getExternalId() != null) {
+                        log.warn(
+                                "{} Sign-in to {} (provider={}) refused: the address belongs to account {}, "
+                                        + "which another sign-in (provider={}) owns.",
+                                LogCategory.AUTH, LogMasker.maskEmail(email), providerName, byEmail.getId(),
+                                byEmail.getOauth2Provider());
+                        throw new AccountAlreadyExistsException(email);
+                    }
+                    return byEmail;
+                })).orElseGet(() -> {
                     String maskedEmail = LogMasker.maskEmail(email);
                     String accountName = accountNameFromEmail(email, providerLabel);
                     log.info("{} Creating new account '{}' for {} ({})", LogCategory.AUTH, accountName, providerLabel,

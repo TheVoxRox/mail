@@ -2,7 +2,7 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                          |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.5                                                                                                                                                                                                                                                                                                                                                                                      |
+| **Version**        | 1.6                                                                                                                                                                                                                                                                                                                                                                                      |
 | **Date**           | 2026-10-05                                                                                                                                                                                                                                                                                                                                                                               |
 | **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                       |
 | **Audited commit** | `55f4afa` (the delta since `64633fe`, B2-1's fix, verified 2026-10-05; the code under `Code paths` is otherwise byte-identical to `64633fe`, where every claim was re-verified 2026-10-04; 1.1 and 1.2: `cad05cb`, recorded pre-squash as `5799e8b`; 1.0 baseline: `d55b753`)                                                                                                            |
@@ -155,9 +155,12 @@ path, Boundary 5), `ApiKeyFilter` (Boundary 3) and the client's
   only with a refresh token in hand. The benign-duplicate-callback path
   redirects to `auth-finished.html` and never reaches the account, so a stale
   success cannot resurrect a dead account. A login that returns without a
-  refresh token or without the required mail scopes flags an existing account
-  rather than clearing it — the failing guards run before persistence, so the
-  incomplete grant can neither create an account nor revive one.
+  refresh token or without the required mail scopes flags the account its
+  identity owns, if there is one, rather than clearing it — the failing guards
+  run before persistence, so the incomplete grant can neither create an
+  account nor revive one. Since 1.6 that account is found by
+  `(oauth2_provider, external_id)`, not by the address, so the rejected
+  sign-in of another identity leaves an account with the same address alone.
 - **`client_secret` is Google-only** and injected via env
   (`GOOGLE_OAUTH_CLIENT_SECRET`, a secret of the signed-release workflow that
   `package-sidecar-windows.ps1` passes to the build, refusing a placeholder
@@ -320,7 +323,8 @@ confirmed at 1.5.
   `audit.log` for both of its callers, the granted-scope guard included, and
   its javadoc names only the refresh-token case. The `oauth2_login` failure
   entry just before it names the real reason, so the trail is complete, but the
-  second line misleads.
+  second line misleads. **Done at 1.6**: the caller passes the reason
+  (`missing_refresh_token` or `missing_scope`), and the javadoc names both.
 - **The e-mail fallback crosses providers** (new in 1.3).
   `findOrCreateExternalAccount` matches on `(oauth2_provider, external_id)` and
   then on the e-mail, whichever provider the matched row belongs to, and
@@ -331,12 +335,28 @@ confirmed at 1.5.
   identity and replaces its stored token. The user has to complete that
   sign-in themselves, the row keeps its server settings, so the mail server
   refuses the mismatched token, and signing in with the right account restores
-  it: one account's availability, no access gained — a note.
+  it: one account's availability, no access gained — a note. **Done at 1.6**:
+  the address finds only a row no sign-in owns yet, the upgrade from a
+  password the fallback was written for. An address held by another identity —
+  another provider, or another user at the same one, since `sub` and `oid` are
+  stable per user — refuses the sign-in with `AccountAlreadyExistsException`
+  (409, `error.account.alreadyExists`) and leaves the row and its token as
+  they are; the address is unique across accounts, so there is no second row
+  to create. The same lookup marked the account `requires_reauth` on a
+  rejected sign-in, stopping another identity's account from syncing;
+  `markRequiresReauthIfExists` now finds the account by
+  `(oauth2_provider, external_id)` (§2). `ExternalProviderLoginServiceTest`
+  covers both refusals, which fail against the 1.5 code, where the sign-in goes
+  through and takes the row (run and seen), and the mark by identity, whose
+  signature changed with it.
+  The `email_verified` part stays a note: with the fallback limited to rows on
+  a password, an unverified address can reach only an account no sign-in
+  owns, and the mail server still decides whether the token opens it.
 - **A javadoc names the wrong client authentication** (new in 1.3).
   `SecurityConfig.pkceAuthorizationRequestResolver` describes Google as
   `client_secret_post`; the `google` registration uses Spring's default,
   `client_secret_basic`, which `application.properties` does not override. No
-  effect on PKCE.
+  effect on PKCE. **Done** in #636.
 - **Provider-console state is outside a static trace** (new in 1.3). Redirect
   URI registrations and consent-screen status live in the Google Cloud and
   Entra consoles. The repository's comments disagree about Microsoft:
@@ -354,6 +374,13 @@ confirmed at 1.5.
 
 ## 6. Change log
 
+- **1.6** (2026-10-05) — **two §4 notes acted on** (#640): the e-mail fallback
+  of `findOrCreateExternalAccount` takes only a row no sign-in owns yet and
+  refuses an address another identity holds, and `markRequiresReauthIfExists`
+  finds the account by the signing-in identity and logs the real reason. The
+  javadoc note is marked done by #636. One §2 claim follows. Verdict stays
+  **PASS**; the anchor stays at `55f4afa` and the drift is acknowledged in
+  `docs/audit-freshness.json`.
 - **1.5** (2026-10-05) — **B2-1's fix confirmed** by the independent
   verification pass of [AUDIT_GUIDE.md](AUDIT_GUIDE.md) §5 (#628), which read the
   whole delta since `64633fe` — the fix and nothing else — and measured it with

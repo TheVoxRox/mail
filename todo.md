@@ -129,8 +129,10 @@ Preovereni [docs/OAUTH_AUDIT.md](docs/OAUTH_AUDIT.md) proti `64633fe` naslo B2-1
 
 - [x] **B2-1 (High)** — HOTOVO 2026-10-05 (#623): `hasAuthority(API_CLIENT)` misto `authenticated()`, `/success` ukoncuje session; audit B2 1.4, B3 1.13.
 - [x] **B2-1 overit nezavislym pruchodem** — HOTOVO 2026-10-05 (#628): audit B2 1.5 proti `55f4afa`, oprava potvrzena merenim (MockMvc i HTTP), verdikt PASS bez vyhrady; B3 preoveren jako 1.14.
-- [ ] **Rozhodnout, zda oprava B2-1 jde do 0.1.0** (= dalsi re-cut).
-- [ ] **Drobnosti z B2 §4.** (`finally` kolem `processLogin` hotovo s B2-1, #623.) `markRequiresReauthIfExists` zapisuje `reason=missing_refresh_token` i pro scope guard; ~~javadoc `client_secret_post`~~ opraveno (#636); e-mailovy fallback ve `findOrCreateExternalAccount` jde napric providery; v konzolich Google a Entra overit registrace redirect URI (komentare v repu se rozchazi: Mobile and desktop vs. Web).
+- [x] **Rozhodnout, zda oprava B2-1 jde do 0.1.0** — ROZHODNUTO 2026-10-05 (maintainer): ano, jde do 0.1.0 dalsim re-cutem; cut az po nezavislem pruchodu nad B1 1.40.
+- [x] **Drobnosti z B2 §4** — HOTOVO 2026-10-05 (#640): e-mailovy fallback bere jen ucet bez OAuth vazby (prechod z hesla), adresa cizi identity prihlaseni odmitne (`AccountAlreadyExistsException`); `markRequiresReauthIfExists` hleda ucet podle identity a pise skutecny duvod. Audit B2 1.6. (`finally` kolem `processLogin` #623, javadoc #636.)
+- [ ] **Redirect URI v konzolich Google a Entra** — overit registrace rucne (komentare v repu se rozchazi: `application.properties` rika Mobile and desktop, `googleAuth.ts` Web). Na maintainerovi; audit B2 §4.
+- [ ] **Pruvodce OAuth ohlasi „ucet pridan“ i bez prihlaseni**, kdyz ucet se zadanou adresou uz existuje: `pollForOAuthAccount` (`frontend/src/lib/accounts/oauthPoll.ts`) hleda podle zadane adresy, ne podle vysledku prihlaseni, takze najde existujici ucet pri prvnim dotazu. Pruvodce by mel existujici adresu odmitnout pred spustenim OAuth (opetovne prihlaseni ma vlastni cestu).
 
 ---
 
