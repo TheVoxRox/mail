@@ -60,15 +60,18 @@ public class DraftPersistenceService {
 
     /**
      * How many typed-recipients entries an account keeps of each kind, newest first
-     * (see {@link #keepTypedRecipients}). Current entries count drafts saved here
-     * and neither sent nor deleted by this client — a thousand of those is far past
-     * any real mailbox, and the bound is what stops entries for drafts deleted
-     * elsewhere from piling up. Superseded entries count revisions a later save
-     * replaced but the server kept; they grow by saves, and are bounded apart so
-     * they cannot push out a current one (B1-5, reopened at 1.31). A draft being
-     * saved holds two current entries for the moment of the save — the new one is
-     * kept before the append, the old one marked after it — so a thousand current
-     * entries are some 999 drafts.
+     * (see {@link #keepTypedRecipients}). Current entries count the drafts saved
+     * here whose last revision no send or delete of this client has retired: a
+     * draft still open, one deleted elsewhere, one the user discarded mid-compose
+     * (a discard forgets no entry), and one sent whose clean-up found no row to
+     * delete, which is nearly every send while a server withholds APPENDUID. A
+     * thousand is far past any real mailbox, and the bound is what stops those from
+     * piling up. Superseded entries count revisions a later save replaced but the
+     * server kept; they grow by saves, and are bounded apart so they cannot push
+     * out a current one (B1-5, reopened at 1.31). A draft being saved holds two
+     * current entries for the moment of the save — the new one is kept before the
+     * request is accepted, the old one set aside after the append — so a thousand
+     * current entries are some 999 drafts.
      */
     static final int KEPT_DRAFT_RECIPIENTS = 1_000;
 
@@ -115,14 +118,35 @@ public class DraftPersistenceService {
     }
 
     /**
+     * Accepts a draft save: reserves its identity ({@link #prepareDraftIdentity})
+     * and keeps what the user typed, with the draft's chain, before the controller
+     * answers 202 and dispatches {@link #saveDraftAsync}. Synchronous on purpose
+     * (B1-5, reopened at 1.41). The client names the stableId of this 202 in its
+     * next save, and that save looks its chain up by it, so the entry must exist by
+     * then; written in the async task, it raced the next request, and a server
+     * holding the APPEND lane could split the chain. And nothing is appended
+     * without it: an entry that cannot be written fails the save here, visibly,
+     * rather than leaving a revision checked against the server's own copy.
+     *
+     * @throws RuntimeException
+     *             when the chain cannot be looked up or the entry cannot be
+     *             written; nothing has been dispatched then.
+     */
+    public DraftIdentity acceptDraftSave(Long accountId, DraftRequest request, @Nullable String replacesStableId) {
+        DraftIdentity identity = prepareDraftIdentity(accountId);
+        keepTypedRecipients(accountId, identity, request, chainOf(accountId, replacesStableId, identity.stableId()));
+        return identity;
+    }
+
+    /**
      * Asynchronously saves a draft to the IMAP Drafts folder. The MIME message is
      * assembled with the same pipeline as
      * {@code SmtpMessageService#sendEmailAsync}, but it is not sent anywhere and
      * the {@code \Draft} flag is set. The message persists under {@code identity}
-     * (from {@link #prepareDraftIdentity}): its Message-ID is assigned before the
-     * append, so the stableId the controller already returned in the 202 is the one
-     * the row gets — immediately when the server supports UIDPLUS (local upsert),
-     * otherwise with the next sync.
+     * (from {@link #acceptDraftSave}, which has kept what the user typed by then):
+     * its Message-ID is assigned before the append, so the stableId the controller
+     * already returned in the 202 is the one the row gets — immediately when the
+     * server supports UIDPLUS (local upsert), otherwise with the next sync.
      *
      * When {@code replacesStableId} is provided, the old draft is hard-deleted
      * (IMAP expunge + DB row) after a successful append. Order matters: append-new
@@ -163,7 +187,7 @@ public class DraftPersistenceService {
             }
 
             AccountEntity account = accountService.getAccountOrThrow(accountId);
-            if (!appendDraftMessage(account, identity, request, replacesStableId)) {
+            if (!appendDraftMessage(account, identity, request)) {
                 /*
                  * The new revision could not be stored. Keep the previous draft intact and
                  * surface the failure — deleting the old copy now would destroy the only
@@ -219,12 +243,12 @@ public class DraftPersistenceService {
      * constant for why the round-trip through Drafts would otherwise lose it.
      *
      * <p>
-     * {@code replacesStableId} is the revision the client names as the one this
-     * save replaces, or null; it decides which draft the typed recipients belong
-     * to, not what is deleted.
+     * The typed recipients are kept before this runs, by {@link #acceptDraftSave}
+     * or {@link #saveRecoveryDraft}; this sets them aside or retires the draft's
+     * earlier revisions by the outcome.
      */
-    private boolean appendDraftMessage(AccountEntity account, DraftIdentity identity, DraftRequest request,
-            @Nullable String replacesStableId) throws MessagingException, java.io.UnsupportedEncodingException {
+    private boolean appendDraftMessage(AccountEntity account, DraftIdentity identity, DraftRequest request)
+            throws MessagingException, java.io.UnsupportedEncodingException {
         Session session = Session.getInstance(new Properties());
         MimeMessage message = mimeMessageBuilder.build(session, account, request.toMailRequest(),
                 MimeMessageBuilder.AddressPolicy.DRAFT, MimeMessageBuilder.BodyFormat.PLAIN);
@@ -238,9 +262,6 @@ public class DraftPersistenceService {
         message.saveChanges();
         message.setHeader("Message-ID", identity.messageId());
 
-        String chainId = chainOf(account.getId(), replacesStableId, identity.stableId());
-        LocalDateTime savedAt = LocalDateTime.now();
-        keepTypedRecipients(account, identity, request, chainId, savedAt);
         boolean appended = false;
         try {
             var appendOutcome = appendService.appendDraft(account.getId(), identity.draftsFolder(), message);
@@ -251,7 +272,7 @@ public class DraftPersistenceService {
         } finally {
             if (!appended) {
                 /*
-                 * The entry kept above is for a revision the server did not store, so it must
+                 * The entry kept before is for a revision the server did not store, so it must
                  * not take a current place: a server rejecting every APPEND would otherwise
                  * grow the current entries by one per autosave, the previous revision staying
                  * current too, and push out a hidden draft's entry that way (B1-5, found by the
@@ -262,7 +283,7 @@ public class DraftPersistenceService {
             }
         }
         if (appended) {
-            supersedeEarlierRevisions(account.getId(), chainId, identity.messageId(), savedAt);
+            supersedeEarlierRevisions(account.getId(), identity);
         }
         return appended;
     }
@@ -273,6 +294,11 @@ public class DraftPersistenceService {
      * recoverable copy — the composer is typically unmounted by the time the async
      * outcome arrives, and without this the content exists nowhere.
      *
+     * <p>
+     * Unlike a save, the recovery draft is appended even when its typed recipients
+     * cannot be kept: it is the only copy of what the user wrote, and losing it is
+     * worse than its untouched send being checked against the server's copy.
+     *
      * @return the recovery draft's stableId, or {@code null} when it could not be
      *         saved (the failure notification then carries no pointer).
      */
@@ -282,7 +308,13 @@ public class DraftPersistenceService {
             AccountEntity account = accountService.getAccountOrThrow(accountId);
             DraftRequest draftRequest = new DraftRequest(request.to(), request.cc(), request.bcc(), request.subject(),
                     request.body(), request.attachments(), request.inReplyTo(), request.references());
-            if (appendDraftMessage(account, identity, draftRequest, null)) {
+            try {
+                keepTypedRecipients(accountId, identity, draftRequest, identity.stableId());
+            } catch (Exception e) {
+                log.warn("{} Could not keep the recipients of recovery draft {}; sending it untouched checks the row "
+                        + "instead: {}", LogCategory.SMTP, identity.stableId(), e.getMessage());
+            }
+            if (appendDraftMessage(account, identity, draftRequest)) {
                 log.info("{} Failed send parked as recovery draft {} for account {}.", LogCategory.SMTP,
                         identity.stableId(), accountId);
                 return identity.stableId();
@@ -418,27 +450,27 @@ public class DraftPersistenceService {
      * check would then compare the server against itself (B1-5).
      *
      * <p>
-     * Written before the append, not after it: once the server holds the draft it
-     * can announce it and a send can follow at once. Best-effort like the row: a
-     * failure here costs this draft the check against what was typed, not the save.
-     * The entry is keyed by the Message-ID this save minted, which no folder the
-     * server moves the draft to changes, and carries the stableId the next save
+     * Written before the save is accepted ({@link #acceptDraftSave}), so before the
+     * append — once the server holds the draft it can announce it and a send can
+     * follow at once — and before the client can name the revision in its next
+     * save. The entry is keyed by the Message-ID this save minted, which no folder
+     * the server moves the draft to changes, and carries the stableId the next save
      * will name as the revision it replaces and the chain of the draft it belongs
-     * to. The account's current entries beyond its newest
-     * {@link #KEPT_DRAFT_RECIPIENTS}, and its superseded ones beyond as many, go at
-     * the same time.
+     * to. Written by a plain INSERT, which waits for SQLite's write lock where the
+     * merge {@code save} did failed at once
+     * ({@link DraftRecipientsRepository#insertEntry}). The account's current
+     * entries beyond its newest {@link #KEPT_DRAFT_RECIPIENTS}, and its superseded
+     * ones beyond as many, go at the same time.
+     *
+     * @throws RuntimeException
+     *             when the entry cannot be written; the caller decides whether the
+     *             draft may be appended without it.
      */
-    private void keepTypedRecipients(AccountEntity account, DraftIdentity identity, DraftRequest request,
-            String chainId, LocalDateTime savedAt) {
-        try {
-            draftRecipientsRepository.deleteCurrentButNewest(account.getId(), KEPT_DRAFT_RECIPIENTS - 1);
-            draftRecipientsRepository.deleteSupersededButNewest(account.getId(), KEPT_DRAFT_RECIPIENTS);
-            draftRecipientsRepository.save(new DraftRecipientsEntity(account.getId(), identity.messageId(),
-                    identity.stableId(), chainId, request.to(), request.cc(), request.bcc(), savedAt));
-        } catch (Exception e) {
-            log.warn("{} Could not keep the recipients of draft {}; sending it untouched checks the row instead: {}",
-                    LogCategory.SMTP, identity.stableId(), e.getMessage());
-        }
+    private void keepTypedRecipients(Long accountId, DraftIdentity identity, DraftRequest request, String chainId) {
+        draftRecipientsRepository.deleteCurrentButNewest(accountId, KEPT_DRAFT_RECIPIENTS - 1);
+        draftRecipientsRepository.deleteSupersededButNewest(accountId, KEPT_DRAFT_RECIPIENTS);
+        draftRecipientsRepository.insertEntry(accountId, identity.messageId(), identity.stableId(), chainId,
+                request.to(), request.cc(), request.bcc(), LocalDateTime.now());
     }
 
     /**
@@ -457,21 +489,16 @@ public class DraftPersistenceService {
      * The draft a save's typed recipients belong to: the chain of the revision the
      * client names as the one it replaces, or a new chain, named by this save's own
      * stableId, when it names none or one with no entry here — the first save of a
-     * compose, or the first save here of a draft composed elsewhere. Best-effort: a
-     * failed lookup starts a new chain, which costs the draft's earlier revisions
-     * their setting aside, not the save.
+     * compose, or the first save here of a draft composed elsewhere. Every stableId
+     * a save of this client returned has its entry by then, since
+     * {@link #acceptDraftSave} writes it before the 202. A failed lookup fails the
+     * save rather than starting a chain the draft's earlier revisions are not in.
      */
     private String chainOf(Long accountId, @Nullable String replacesStableId, String stableId) {
         if (replacesStableId == null || replacesStableId.isBlank()) {
             return stableId;
         }
-        try {
-            return draftRecipientsRepository.findChainId(accountId, replacesStableId).orElse(stableId);
-        } catch (Exception e) {
-            log.debug("{} Could not find the draft that revision {} of account {} belongs to: {}", LogCategory.SMTP,
-                    replacesStableId, accountId, e.getMessage());
-            return stableId;
-        }
+        return draftRecipientsRepository.findChainId(accountId, replacesStableId).orElse(stableId);
     }
 
     /**
@@ -485,16 +512,19 @@ public class DraftPersistenceService {
      * autosaves (B1-5, found by the verification pass over 1.39). Decided by the
      * chain this client keeps, not by the server's answers. The entries stay, for
      * revisions the server keeps and the user may still send, until
-     * {@link #KEPT_DRAFT_RECIPIENTS} newer superseded ones push them out.
-     * Best-effort like the entry itself.
+     * {@link #KEPT_DRAFT_RECIPIENTS} newer superseded ones push them out. The chain
+     * is the one the stored revision's own entry carries; a recovery draft whose
+     * entry could not be written has none and sets nothing aside. Best-effort: the
+     * draft is stored by now.
      */
-    private void supersedeEarlierRevisions(Long accountId, String chainId, String messageId, LocalDateTime savedAt) {
+    private void supersedeEarlierRevisions(Long accountId, DraftIdentity identity) {
         try {
-            draftRecipientsRepository.supersedeEarlierInChain(accountId, chainId, messageId, savedAt,
-                    LocalDateTime.now());
+            draftRecipientsRepository.findChainId(accountId, identity.stableId())
+                    .ifPresent(chainId -> draftRecipientsRepository.supersedeEarlierInChain(accountId, chainId,
+                            identity.messageId(), LocalDateTime.now()));
         } catch (Exception e) {
-            log.debug("{} Could not set aside the earlier revisions of draft chain {} of account {}: {}",
-                    LogCategory.SMTP, chainId, accountId, e.getMessage());
+            log.debug("{} Could not set aside the earlier revisions of draft {} of account {}: {}", LogCategory.SMTP,
+                    identity.stableId(), accountId, e.getMessage());
         }
     }
 

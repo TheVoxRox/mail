@@ -69,26 +69,26 @@ public class DraftRecipientsEntity {
     private LocalDateTime savedAt;
 
     /**
+     * The order the entries were written in, one more than the largest in the
+     * table: what "newest" and "saved no later" go by, since the wall clock can
+     * step back.
+     */
+    @Column(name = "saved_seq", nullable = false)
+    private long savedSeq;
+
+    /**
      * When a later save of this client replaced the revision; null while it is
      * current.
      */
     @Column(name = "superseded_at")
     private @Nullable LocalDateTime supersededAt;
 
+    /**
+     * For JPA only: an entry is written by
+     * {@code DraftRecipientsRepository.insertEntry}, a plain INSERT, never through
+     * the persistence context (B1-5, reopened at 1.41).
+     */
     protected DraftRecipientsEntity() {
-    }
-
-    public DraftRecipientsEntity(Long accountId, String messageId, @Nullable String stableId, @Nullable String chainId,
-            @Nullable String recipientsTo, @Nullable String recipientsCc, @Nullable String recipientsBcc,
-            LocalDateTime savedAt) {
-        this.accountId = accountId;
-        this.messageId = messageId;
-        this.stableId = stableId;
-        this.chainId = chainId;
-        this.recipientsTo = recipientsTo;
-        this.recipientsCc = recipientsCc;
-        this.recipientsBcc = recipientsBcc;
-        this.savedAt = savedAt;
     }
 
     public String getMessageId() {

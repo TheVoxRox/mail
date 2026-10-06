@@ -604,8 +604,10 @@ CREATE UNIQUE INDEX ux_correspondent_account_email
 -- Keyed by the account and the Message-ID the client minted for the save,
 -- which is known before the server answers and which no folder the server
 -- moves the draft to changes; every save writes its entry before the
--- APPEND. Not by the stable id: that hashes the Drafts folder's name too, so
--- a server moving the \Drafts role gave the draft an id with no entry.
+-- request is accepted, so before the APPEND and before the client can name
+-- the revision in its next save. Not by the stable id: that hashes the
+-- Drafts folder's name too, so a server moving the \Drafts role gave the
+-- draft an id with no entry.
 -- Deleted with the draft when this client deletes it (the revision an
 -- autosave replaces, a sent draft). An entry is current until a later
 -- stored save of the same draft sets it aside (superseded_at), or its own
@@ -620,7 +622,10 @@ CREATE UNIQUE INDEX ux_correspondent_account_email
 -- the revision it replaces. chain_id is the stable_id of the draft's first
 -- revision saved here, inherited by every save that names a revision of the
 -- draft, so a stored save can set aside every earlier revision of its draft
--- even when the revision it names is one the server rejected.
+-- even when the revision it names is one the server rejected. saved_seq
+-- orders the entries as they were written, one more than the largest in
+-- the table: "newest" and "saved no later" go by it rather than by
+-- saved_at, which a clock step can reorder.
 -- =====================================================================
 CREATE TABLE draft_recipients (
     account_id     INTEGER      NOT NULL,
@@ -631,13 +636,14 @@ CREATE TABLE draft_recipients (
     recipients_cc  TEXT,
     recipients_bcc TEXT,
     saved_at       DATETIME     NOT NULL,
+    saved_seq      INTEGER      NOT NULL,
     superseded_at  DATETIME,
     PRIMARY KEY (account_id, message_id),
     FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_draft_recipients_account_saved
-    ON draft_recipients (account_id, saved_at);
+CREATE INDEX idx_draft_recipients_account_seq
+    ON draft_recipients (account_id, saved_seq);
 
 CREATE INDEX idx_draft_recipients_account_stable
     ON draft_recipients (account_id, stable_id);

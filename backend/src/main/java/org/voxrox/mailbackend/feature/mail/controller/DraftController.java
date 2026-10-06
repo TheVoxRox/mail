@@ -32,9 +32,9 @@ import module java.base;
  * REST API for drafts. Saving runs asynchronously via
  * {@link DraftPersistenceService#saveDraftAsync}; the endpoint returns 202
  * Accepted immediately, carrying the deterministic stableId the draft persists
- * under (the Message-ID is assigned before dispatch, see
- * {@link DraftPersistenceService#prepareDraftIdentity}). Sending an existing
- * draft over SMTP runs via {@link SmtpMessageService#sendDraftAsync}.
+ * under (the Message-ID is assigned and the typed recipients kept before
+ * dispatch, see {@link DraftPersistenceService#acceptDraftSave}). Sending an
+ * existing draft over SMTP runs via {@link SmtpMessageService#sendDraftAsync}.
  *
  * Updating an existing draft = {@code POST ?replaces={stableId}}: after the new
  * revision is saved, the old one is removed. PUT is deliberately not exposed
@@ -71,7 +71,10 @@ public class DraftController {
             @PathVariable @Positive(message = "{validation.positive}") Long accountId,
             @RequestParam(required = false) @Size(max = 128, message = "{validation.size.max}") String replaces,
             @Valid @RequestBody DraftRequest request) {
-        DraftPersistenceService.DraftIdentity identity = draftPersistenceService.prepareDraftIdentity(accountId);
+        // The typed recipients are kept here, before the 202 hands the stableId to the
+        // client to name in its next save (B1-5, reopened at 1.41).
+        DraftPersistenceService.DraftIdentity identity = draftPersistenceService.acceptDraftSave(accountId, request,
+                replaces);
         log.info("{} Saving draft for account {} (replaces={}, stableId={})", LogCategory.API, accountId, replaces,
                 identity.stableId());
         draftPersistenceService.saveDraftAsync(accountId, request, replaces, identity);

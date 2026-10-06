@@ -77,7 +77,7 @@ class DraftControllerTest {
         SyncProperties sync = new SyncProperties(100, 200, Duration.ofMinutes(5), Duration.ofSeconds(10), 50, 30, 300,
                 4, 256, 200, Duration.ofMinutes(30), Duration.ofSeconds(30), java.time.Duration.ofHours(1));
         when(mailProps.sync()).thenReturn(sync);
-        when(draftPersistenceService.prepareDraftIdentity(anyLong())).thenReturn(IDENTITY);
+        when(draftPersistenceService.acceptDraftSave(anyLong(), any(), any())).thenReturn(IDENTITY);
     }
 
     private DraftRequest emptyDraft() {
@@ -104,6 +104,8 @@ class DraftControllerTest {
                 .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(emptyDraft())))
                 .andExpect(status().isAccepted()).andExpect(jsonPath("$.stableId").value(IDENTITY.stableId()));
 
+        // The typed recipients join the chain of the named revision before the 202.
+        verify(draftPersistenceService).acceptDraftSave(eq(7L), any(DraftRequest.class), eq("abc123"));
         verify(draftPersistenceService).saveDraftAsync(eq(7L), any(DraftRequest.class), eq("abc123"), eq(IDENTITY));
     }
 

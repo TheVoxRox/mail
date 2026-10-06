@@ -101,21 +101,26 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "b4ad4c6cb9e9c02e521bdafb8533d553f1a9dab5",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/DraftRecipientsEntity.java": "65bc9a79beb770bc4698b26c5148c66e9ccb6f25",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "5c0758f3a2e2131f35ba95ae1fbada0e6374f5a9"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "ba2cf0349d6f77677d19ccd923f858bdc479c1f5",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/DraftRecipientsEntity.java": "646bc4caa74b8d4b2fcc5826d4d561d81311e8f9",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "ae77176c3ad930bf43911f025c13fdf7661be451"
     },
     "acknowledgements": [
       {
         "date": "2026-10-05",
         "note": "B1-5 fixed at the gap the 1.40 re-verification found, recorded in the audit itself as v1.40 (section 4e); the fix is this PR's own and waits for an independent pass, so the anchor stays at c386fed and this records the drift. Three paths move. DraftRecipientsEntity gains chainId (column chain_id, added to V1__init.sql in place with an index on account_id and chain_id) and its getter, and its constructor takes the chain after the stableId. DraftRecipientsRepository gains findChainId (the chain of the account's entry under a stableId) and supersedeEarlierInChain (sets aside the account's current entries of a chain saved no later than the stored revision, the revision itself excluded); markSuperseded is unchanged and now serves only the failed save's own entry, and the javadoc of deleteCurrentButNewest names both. Under feature/mail/service only DraftPersistenceService changes: appendDraftMessage takes the replaced stableId, works out the chain (the named revision's, or a new one under the save's own stableId), keeps the entry with that chain and one savedAt, sets its own entry aside on a failed APPEND as since 1.39, and after a stored one calls supersedeEarlierInChain; saveDraftAsync no longer sets aside the named revision itself, which the chain covers, and saveRecoveryDraft passes no replaced revision. The hard delete of the replaced revision's row, the send path, the recipient comparison and the bounds are untouched. What moves is which entries count as current, which only narrows them: the send still finds an entry by account and Message-ID, current or superseded. Verdict stays open finding (B1-14)."
+      },
+      {
+        "date": "2026-10-06",
+        "note": "B1-5 fixed again as the 1.41 pass recommended, recorded in the audit itself as v1.42 (section 4e); the fix is this PR's own and waits for an independent pass, so the anchor stays at c386fed and this records the drift. Three paths move. DraftRecipientsEntity loses its constructor (an entry is never written through the persistence context any more) and gains savedSeq (column saved_seq, added to V1__init.sql in place, its index replacing the one on saved_at). DraftRecipientsRepository gains insertEntry, a plain INSERT that numbers the entry one past the table's largest saved_seq in the same statement; deleteCurrentButNewest, deleteSupersededButNewest and supersedeEarlierInChain order by saved_seq instead of saved_at, and the last no longer takes a time bound. Under feature/mail/service only DraftPersistenceService changes: acceptDraftSave, called by DraftController before the 202, mints the identity, looks up the chain and writes the entry, and any failure there fails the request before dispatch; appendDraftMessage no longer writes the entry or takes the replaced stableId, and after a stored APPEND sets aside by the chain the stored revision's own entry carries; saveRecoveryDraft writes its entry first and appends even if that fails, logged; chainOf and keepTypedRecipients no longer swallow errors. The send path, the recipient comparison and the bounds' sizes are untouched. Verdict stays open finding (B1-14)."
       }
     ]
   },
   "docs/API_SURFACE_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/AttachmentService.java": "baa9d415fdfe7fcb76ee7eaca3db731e4f115c4f",
-      "backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java": "69fc4c0197c480dc39ba3c38dece6874faec8d17"
+      "backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java": "69fc4c0197c480dc39ba3c38dece6874faec8d17",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/controller": "692ba8438145523812508bf00fb95e2a69ca6bc5"
     },
     "acknowledgements": [
       {
@@ -129,6 +134,10 @@
       {
         "date": "2026-10-05",
         "note": "A javadoc in SecurityConfig.pkceAuthorizationRequestResolver now names client_secret_basic, Spring's default for the google registration, where it said client_secret_post (OAUTH_AUDIT.md section 4 note). Comment only: the filter chain, PKCE, CORS and the handlers are unchanged. Verdict unchanged."
+      },
+      {
+        "date": "2026-10-06",
+        "note": "B1-5 fixed again, recorded in IMAP_SMTP_AUDIT.md as v1.42 (section 4e). Under this audit's paths only DraftController.saveDraft changes: it calls DraftPersistenceService.acceptDraftSave instead of prepareDraftIdentity, which also writes the typed recipients before the 202, so a database failure there now answers the POST with the generic error instead of failing the async save. The mapping, the path and query validation (@Positive accountId, @Size replaces), the @Valid body bounds and the 202 with its stableId are unchanged, and nothing new is exposed. Verdict unchanged."
       }
     ]
   },

@@ -9,8 +9,16 @@ import static org.mockito.Mockito.when;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.Statement;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+
+import javax.sql.DataSource;
 
 import jakarta.mail.internet.MimeMessage;
 
@@ -32,6 +40,7 @@ import org.voxrox.mailbackend.feature.account.entity.MailServerConfig;
 import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.feature.account.service.AccountService;
 import org.voxrox.mailbackend.feature.mail.dto.DraftRequest;
+import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
 import org.voxrox.mailbackend.feature.mail.entity.DraftRecipientsEntity;
 import org.voxrox.mailbackend.feature.mail.mapper.MessageMapper;
 import org.voxrox.mailbackend.feature.mail.repository.DraftRecipientsRepository;
@@ -39,9 +48,11 @@ import org.voxrox.mailbackend.feature.mail.repository.DraftRecipientsRepository;
 /**
  * {@link DraftPersistenceService} keeping typed recipients in a real SQLite
  * database, with the IMAP side stubbed so the test decides which APPENDs the
- * server stores (IMAP/SMTP audit B1-5). No test transaction: each repository
- * call commits on its own, as it does in the running app, so what a later query
- * sees is what an earlier one wrote.
+ * server stores (IMAP/SMTP audit B1-5). A save goes the way the controller
+ * sends it: {@code acceptDraftSave} before the 202, then
+ * {@code saveDraftAsync}. No test transaction: each repository call commits on
+ * its own, as it does in the running app, so what a later query sees is what an
+ * earlier one wrote.
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -63,14 +74,20 @@ class DraftRecipientsChainIT {
             throw new IllegalStateException("Cannot create directory for SQLite test DB: " + DB_DIR, e);
         }
         Path dbFile = DB_DIR.resolve("test.db");
-        registry.add("spring.datasource.url",
-                () -> "jdbc:sqlite:" + dbFile.toAbsolutePath() + "?foreign_keys=ON&busy_timeout=5000");
+        // The production pragmas and pool (application.properties), not the IT
+        // profile's single connection: with one connection a second writer waits for
+        // the pool, never for SQLite's lock, and no lock conflict can happen at all.
+        registry.add("spring.datasource.url", () -> "jdbc:sqlite:" + dbFile.toAbsolutePath()
+                + "?journal_mode=WAL&synchronous=NORMAL&foreign_keys=ON&busy_timeout=5000");
+        registry.add("spring.datasource.hikari.maximum-pool-size", () -> "4");
     }
 
     @Autowired
     private DraftRecipientsRepository repository;
     @Autowired
     private AccountRepository accountRepository;
+    @Autowired
+    private DataSource dataSource;
 
     private final ImapAppendService appendService = mock(ImapAppendService.class);
     /** Whether the server stores the next APPEND; it answers without APPENDUID. */
@@ -83,13 +100,15 @@ class DraftRecipientsChainIT {
         account = newAccount("user@example.com");
         AccountService accountService = mock(AccountService.class);
         when(accountService.getAccountOrThrow(account.getId())).thenReturn(account);
+        ImapFolderService folders = mock(ImapFolderService.class);
+        when(folders.findFolderNameByRoleOrThrow(account.getId(), FolderRole.DRAFTS)).thenReturn("Drafts");
         MimeMessageBuilder builder = mock(MimeMessageBuilder.class);
         when(builder.build(any(), any(), any(), any(), any())).thenAnswer(invocation -> mock(MimeMessage.class));
         when(appendService.appendDraft(anyLong(), anyString(), any()))
                 .thenAnswer(invocation -> new ImapAppendService.DraftAppendOutcome(storeNext.get(), null, null));
         // No message rows: without APPENDUID a save writes none, so a replaced
         // revision is never found and never deleted from the server.
-        service = new DraftPersistenceService(accountService, mock(ImapFolderService.class), mock(MessageService.class),
+        service = new DraftPersistenceService(accountService, folders, mock(MessageService.class),
                 mock(ImapActionService.class), appendService, builder, mock(MessageMapper.class),
                 mock(AccountRepository.class), repository);
     }
@@ -106,24 +125,108 @@ class DraftRecipientsChainIT {
     @Test
     @DisplayName("Saves after a rejected one still leave the draft a single current entry (B1-5)")
     void aRejectedSaveDoesNotLeaveTheStoredRevisionCurrent() {
-        save("hidden", null, true);
-        String previous = null;
+        DraftPersistenceService.DraftIdentity hidden = save(null, true);
+        DraftPersistenceService.DraftIdentity previous = null;
+        DraftPersistenceService.DraftIdentity lastStored = null;
         for (int revision = 1; revision <= 10; revision++) {
-            save("rev" + revision, previous, revision % 2 == 1);
-            previous = "stable-rev" + revision;
+            boolean stored = revision % 2 == 1;
+            previous = save(previous == null ? null : previous.stableId(), stored);
+            if (stored) {
+                lastStored = previous;
+            }
         }
 
-        assertThat(repository.findAll()).filteredOn(entry -> entry.getSupersededAt() == null)
-                .extracting(DraftRecipientsEntity::getMessageId)
-                .containsExactlyInAnyOrder("<hidden@voxrox.org>", "<rev9@voxrox.org>");
+        assertThat(currentEntries()).containsExactlyInAnyOrder(hidden.messageId(), lastStored.messageId());
     }
 
-    /** One save, naming {@code replaces} the way the client does. */
-    private void save(String name, String replaces, boolean stored) {
+    /**
+     * Found by the pass over 1.40 (B1-5, reopened at 1.41). The entry was written
+     * by the async save, after the 202 had handed its stableId to the client, so
+     * the next save could look its chain up before the entry existed — and a server
+     * holding the APPEND lane while saves queued, then answering fast, made exactly
+     * that happen, splitting the chain with every APPEND stored. The entry is now
+     * written when the save is accepted. Here every save is accepted before any
+     * async save runs, and those then run newest first.
+     */
+    @Test
+    @DisplayName("The chain holds when the save a revision names has not run yet (B1-5)")
+    void theChainHoldsBeforeTheNamedSaveRuns() {
+        DraftPersistenceService.DraftIdentity hidden = save(null, true);
+        List<DraftPersistenceService.DraftIdentity> accepted = new ArrayList<>();
+        List<String> named = new ArrayList<>();
+        String replaces = null;
+        for (int revision = 1; revision <= 5; revision++) {
+            DraftPersistenceService.DraftIdentity identity = service.acceptDraftSave(account.getId(), request(),
+                    replaces);
+            accepted.add(identity);
+            named.add(replaces);
+            replaces = identity.stableId();
+        }
+        storeNext.set(true);
+        for (int i = accepted.size() - 1; i >= 0; i--) {
+            service.saveDraftAsync(account.getId(), request(), named.get(i), accepted.get(i));
+        }
+
+        assertThat(currentEntries()).containsExactlyInAnyOrder(hidden.messageId(), accepted.getLast().messageId());
+        assertThat(repository.findAll()).extracting(DraftRecipientsEntity::getChainId)
+                .filteredOn(chain -> !hidden.stableId().equals(chain)).containsOnly(accepted.getFirst().stableId());
+    }
+
+    /**
+     * Found by the pass over 1.40 (B1-5, reopened at 1.41). The entry was written
+     * by {@code save}, a merge — a SELECT, then the INSERT — and SQLite refuses
+     * that read's upgrade to a write while another connection holds the write lock,
+     * or once one has committed since the read, without waiting out
+     * {@code busy_timeout}: the revision went without an entry and was checked
+     * against the server's own copy. Here another connection holds the write lock
+     * and commits while the entry waits for it; a read-then-write in its place
+     * fails with {@code SQLITE_BUSY} at once.
+     */
+    @Test
+    @DisplayName("The entry is written even when another connection writes meanwhile (B1-5)")
+    void theEntryWaitsOutAConcurrentWriter() throws Exception {
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        Thread writer;
+        try (Connection holder = dataSource.getConnection()) {
+            holder.setAutoCommit(false);
+            try (Statement statement = holder.createStatement()) {
+                statement.executeUpdate("UPDATE accounts SET display_name = 'held' WHERE id = " + account.getId());
+            }
+            writer = Thread.ofPlatform().start(() -> {
+                try {
+                    repository.insertEntry(account.getId(), "<waiting@voxrox.org>", "stable-waiting", "stable-waiting",
+                            "to@example.com", null, null, LocalDateTime.now());
+                } catch (Throwable e) {
+                    failure.set(e);
+                }
+            });
+            writer.join(300);
+            assertThat(failure.get()).as("the entry waits for the lock rather than failing").isNull();
+            assertThat(writer.isAlive()).as("still waiting while the other connection holds the lock").isTrue();
+            holder.commit();
+        }
+        writer.join(10_000);
+
+        assertThat(failure.get()).isNull();
+        assertThat(repository.findAll()).extracting(DraftRecipientsEntity::getMessageId)
+                .containsExactly("<waiting@voxrox.org>");
+    }
+
+    /** One save, accepted and run the way the controller sends it. */
+    private DraftPersistenceService.DraftIdentity save(String replaces, boolean stored) {
+        DraftPersistenceService.DraftIdentity identity = service.acceptDraftSave(account.getId(), request(), replaces);
         storeNext.set(stored);
-        service.saveDraftAsync(account.getId(),
-                new DraftRequest("to@example.com", null, null, "subject", "body", null, null, null), replaces,
-                new DraftPersistenceService.DraftIdentity("<" + name + "@voxrox.org>", "Drafts", "stable-" + name));
+        service.saveDraftAsync(account.getId(), request(), replaces, identity);
+        return identity;
+    }
+
+    private static DraftRequest request() {
+        return new DraftRequest("to@example.com", null, null, "subject", "body", null, null, null);
+    }
+
+    private List<String> currentEntries() {
+        return repository.findAll().stream().filter(entry -> entry.getSupersededAt() == null)
+                .map(DraftRecipientsEntity::getMessageId).toList();
     }
 
     private AccountEntity newAccount(String email) {
