@@ -18,6 +18,7 @@ import org.eclipse.angus.mail.util.PropUtil;
 import org.eclipse.angus.mail.util.SocketFetcher;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.util.unit.DataSize;
 import org.voxrox.mailbackend.core.config.mail.ImapProperties;
 
 /**
@@ -92,6 +93,6 @@ class ImapSocketTimeoutsTest {
 
     private static ImapProperties imapProperties(Duration writeTimeout) {
         return new ImapProperties(993, Duration.ofSeconds(30), Duration.ofSeconds(60), writeTimeout, "imaps", "imap",
-                Duration.ofSeconds(1), Duration.ofMinutes(5));
+                Duration.ofSeconds(1), Duration.ofMinutes(5), DataSize.ofMegabytes(64));
     }
 }

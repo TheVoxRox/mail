@@ -7,13 +7,18 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.Mockito.mock;
 
 import java.time.Duration;
+import java.util.Map;
 import java.util.Properties;
 
 import org.eclipse.angus.mail.iap.Protocol;
+import org.eclipse.angus.mail.imap.protocol.FetchResponse;
 import org.eclipse.angus.mail.imap.protocol.IMAPResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.context.properties.bind.Binder;
+import org.springframework.boot.context.properties.source.MapConfigurationPropertySource;
+import org.voxrox.mailbackend.core.config.mail.ImapProperties;
 
 /**
  * The bounds {@link BoundedImapProtocol} holds a server response to, one rule
@@ -446,7 +451,7 @@ class BoundedImapProtocolTest {
         }
 
         @Test
-        @DisplayName("Other responses cost nothing")
+        @DisplayName("Other responses cost the EXPUNGE budget nothing")
         void otherResponsesAreFree() throws Exception {
             BoundedImapProtocol.SelectionBudget budget = new BoundedImapProtocol.SelectionBudget();
             budget.charge(response("* " + BoundedImapProtocol.MAX_MESSAGES + " EXISTS"));
@@ -455,6 +460,126 @@ class BoundedImapProtocolTest {
                 assertThat(budget.charge(response("* 1 FETCH (UID 1)"))).isNull();
             }
             assertThat(budget.charge(response("* OK still here"))).isNull();
+        }
+    }
+
+    /**
+     * B1-14. Angus's folder keeps what the FETCH responses handed to it give its
+     * messages until it closes, across commands, so the selection budget sums it;
+     * that the store charges it over the wire is {@code HostileImapResponseIT}'s
+     * question.
+     */
+    @Nested
+    @DisplayName("Open-folder budget")
+    class OpenFolderBudgetRules {
+
+        private static FetchResponse fetch(String line) throws Exception {
+            return BoundedImapProtocol.parseFetch(new IMAPResponse(line), null, mock(Protocol.class), "test");
+        }
+
+        @Test
+        @DisplayName("What a folder keeps adds up to its budget, and the FETCH that passes it is refused")
+        void keptAddsUpToTheBudget() {
+            BoundedImapProtocol.SelectionBudget budget = new BoundedImapProtocol.SelectionBudget();
+
+            assertThat(budget.chargeKept(600, 1000)).isNull();
+            assertThat(budget.chargeKept(400, 1000)).isNull();
+            assertThat(budget.chargeKept(1, 1000)).contains("budget of 1000 bytes")
+                    .contains("mail.client.imap.open-folder-budget");
+        }
+
+        /**
+         * A bare UID costs a FETCH list and nothing parsed into an object, so the
+         * charge is its bytes, the one list, and the response.
+         */
+        @Test
+        @DisplayName("A FETCH is charged its bytes, each object its parse made, and the response")
+        void aFetchIsChargedItsObjects() throws Exception {
+            assertThat(BoundedImapProtocol.keptBytes(fetch("* 1 FETCH (UID 5)"), 17, false)).isEqualTo(
+                    17 + BoundedImapProtocol.PARSED_OBJECT_BYTES + BoundedImapProtocol.RESPONSE_OVERHEAD_BYTES);
+        }
+
+        /**
+         * Measured at 1.49: Angus keeps a user flag a second time, lower-cased, so each
+         * flag is two objects; with the FETCH list and the flag list, six for two
+         * flags.
+         */
+        @Test
+        @DisplayName("Each flag counts twice, for the lower-cased copy Angus keeps of it")
+        void flagsCountTwice() throws Exception {
+            assertThat(BoundedImapProtocol.keptBytes(fetch("* 1 FETCH (FLAGS (\\Seen Urgent))"), 33, false)).isEqualTo(
+                    33 + 6L * BoundedImapProtocol.PARSED_OBJECT_BYTES + BoundedImapProtocol.RESPONSE_OVERHEAD_BYTES);
+        }
+
+        @Test
+        @DisplayName("A fetch of content leaves its body data uncharged, every other fetch is charged it")
+        void contentDataIsNotCharged() throws Exception {
+            String data = "x".repeat(5000);
+            FetchResponse body = fetch("* 1 FETCH (BODY[1]<0> {5000}\r\n" + data + ")");
+            FetchResponse rfc822 = fetch("* 1 FETCH (RFC822.TEXT {5000}\r\n" + data + ")");
+
+            for (FetchResponse response : new FetchResponse[]{body, rfc822}) {
+                long charged = BoundedImapProtocol.keptBytes(response, 5100, false);
+                assertThat(BoundedImapProtocol.keptBytes(response, 5100, true)).isEqualTo(charged - 5000);
+            }
+        }
+
+        /**
+         * What Angus 2.0.5's {@code IMAPMessage}, {@code IMAPBodyPart} and
+         * {@code IMAPInputStream} ask for: the first group to read content, the second
+         * to load headers they keep.
+         */
+        @Test
+        @DisplayName("Content is the whole message, a part or its text; headers and anything unknown are charged")
+        void contentSections() {
+            for (String section : new String[]{"", "1", "1.2.3", "TEXT", "1.TEXT", "2.text"}) {
+                assertThat(BoundedImapProtocol.isContentSection(section)).as(section).isTrue();
+            }
+            assertThat(BoundedImapProtocol.isContentSection(null)).isTrue();
+            for (String section : new String[]{"HEADER", "HEADER.FIELDS (Message-ID)", "HEADER.FIELDS.NOT (X)",
+                    "1.MIME", "1.2.MIME", "1.HEADER", "2.HEADER.FIELDS (To)", "1.X", "TEXT.1"}) {
+                assertThat(BoundedImapProtocol.isContentSection(section)).as(section).isFalse();
+            }
+        }
+
+        @Test
+        @DisplayName("The configuration's default is the protocol's")
+        void theConfigurationDefaultIsTheProtocols() {
+            ImapProperties unset = new Binder(new MapConfigurationPropertySource(Map.of()))
+                    .bindOrCreate("mail.client.imap", ImapProperties.class);
+
+            assertThat(unset.openFolderBudget().toBytes()).isEqualTo(BoundedImapProtocol.DEFAULT_OPEN_FOLDER_BUDGET);
+        }
+
+        @Test
+        @DisplayName("A connection takes the budget its session carries, and the default when it carries none")
+        void theSessionCarriesTheBudget() {
+            Properties props = new Properties();
+            assertThat(BoundedImapProtocol.openFolderBudget(props, "imaps"))
+                    .isEqualTo(BoundedImapProtocol.DEFAULT_OPEN_FOLDER_BUDGET);
+
+            props.put("mail.imaps." + BoundedImapProtocol.OPEN_FOLDER_BUDGET_PROPERTY, "4096");
+
+            assertThat(BoundedImapProtocol.openFolderBudget(props, "imaps")).isEqualTo(4096);
+            assertThat(BoundedImapProtocol.openFolderBudget(props, "imap"))
+                    .isEqualTo(BoundedImapProtocol.DEFAULT_OPEN_FOLDER_BUDGET);
+        }
+
+        /**
+         * Only {@link BoundedImapStore#install} writes the property, from a checked
+         * value; a value it did not write leaves the connection bounded by the default
+         * rather than failing it.
+         */
+        @Test
+        @DisplayName("A budget the session carries that is not a positive number falls back to the default")
+        void anUnusableBudgetFallsBackToTheDefault() {
+            Properties props = new Properties();
+            for (String value : new String[]{"64MB", "", "0", "-5", "99999999999999999999"}) {
+                props.put("mail.imaps." + BoundedImapProtocol.OPEN_FOLDER_BUDGET_PROPERTY, value);
+
+                assertThat(BoundedImapProtocol.openFolderBudget(props, "imaps")).as(value)
+                        .isEqualTo(BoundedImapProtocol.DEFAULT_OPEN_FOLDER_BUDGET);
+            }
         }
     }
 

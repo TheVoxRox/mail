@@ -18,6 +18,7 @@ import static org.mockito.Mockito.when;
 
 import java.time.Duration;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicLong;
 
 import jakarta.mail.AuthenticationFailedException;
 import jakarta.mail.MessagingException;
@@ -36,6 +37,7 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.util.unit.DataSize;
 import org.voxrox.mailbackend.core.config.MailClientProperties;
 import org.voxrox.mailbackend.core.config.mail.ImapProperties;
 import org.voxrox.mailbackend.core.config.mail.SmtpProperties;
@@ -74,7 +76,8 @@ class MailConnectionProbeTest {
     @BeforeEach
     void setUp() {
         ImapProperties imap = new ImapProperties(993, Duration.ofSeconds(30), Duration.ofSeconds(60),
-                Duration.ofSeconds(60), "imaps", "imap", Duration.ofSeconds(1), Duration.ofMinutes(5));
+                Duration.ofSeconds(60), "imaps", "imap", Duration.ofSeconds(1), Duration.ofMinutes(5),
+                DataSize.ofMegabytes(64));
         SmtpProperties smtp = new SmtpProperties(Duration.ofSeconds(15), Duration.ofSeconds(10));
         MailClientProperties props = new MailClientProperties(imap, smtp, null, null);
         probe = new MailConnectionProbe(props, oauth2TokenServiceRegistry, smtpTransportFactory);
@@ -106,10 +109,17 @@ class MailConnectionProbeTest {
         }
 
         @Test
-        @DisplayName("The probe opens the same bounded store the pool does (audit B1-3)")
+        @DisplayName("The probe opens the same bounded store the pool does, with its open-folder budget "
+                + "(audit B1-3, B1-14)")
         void probeUsesTheBoundedStore() throws Exception {
             Session sessionMock = mock(Session.class);
-            when(sessionMock.getStore("imaps")).thenReturn(mock(Store.class));
+            Properties sessionProps = new Properties();
+            when(sessionMock.getProperties()).thenReturn(sessionProps);
+            AtomicLong budgetAtGetStore = new AtomicLong();
+            when(sessionMock.getStore("imaps")).thenAnswer(invocation -> {
+                budgetAtGetStore.set(BoundedImapProtocol.openFolderBudget(sessionProps, "imaps"));
+                return mock(Store.class);
+            });
 
             try (MockedStatic<Session> staticSession = mockStatic(Session.class)) {
                 staticSession.when(() -> Session.getInstance(any(Properties.class))).thenReturn(sessionMock);
@@ -123,12 +133,23 @@ class MailConnectionProbeTest {
             order.verify(sessionMock).getStore("imaps");
             assertThat(provider.getValue().getProtocol()).isEqualTo("imaps");
             assertThat(provider.getValue().getClassName()).isEqualTo(BoundedImapStore.class.getName());
+            assertThat(budgetAtGetStore).hasValue(DataSize.ofMegabytes(64).toBytes());
+        }
+
+        /**
+         * A session mock with the properties a real session has, which
+         * {@link BoundedImapStore#install} writes the open-folder budget into.
+         */
+        private static Session sessionMock() {
+            Session session = mock(Session.class);
+            when(session.getProperties()).thenReturn(new Properties());
+            return session;
         }
 
         @Test
         @DisplayName("PASSWORD + SSL — connects with username/password and closes the store in finally")
         void passwordOverSslConnectsAndClosesStore() throws Exception {
-            Session sessionMock = mock(Session.class);
+            Session sessionMock = sessionMock();
             Store storeMock = mock(Store.class);
             when(sessionMock.getStore("imaps")).thenReturn(storeMock);
             ArgumentCaptor<Properties> propsCaptor = ArgumentCaptor.forClass(Properties.class);
@@ -164,7 +185,7 @@ class MailConnectionProbeTest {
         @Test
         @DisplayName("PASSWORD without implicit SSL uses the standard protocol with required STARTTLS (audit B1-4)")
         void passwordWithoutSslRequiresStartTls() throws Exception {
-            Session sessionMock = mock(Session.class);
+            Session sessionMock = sessionMock();
             Store storeMock = mock(Store.class);
             when(sessionMock.getStore("imap")).thenReturn(storeMock);
             ArgumentCaptor<Properties> propsCaptor = ArgumentCaptor.forClass(Properties.class);
@@ -192,7 +213,7 @@ class MailConnectionProbeTest {
         @Test
         @DisplayName("MessagingException from connect is wrapped in MailConnectionException and the store is still closed")
         void connectFailureWrapsAndClosesStore() throws Exception {
-            Session sessionMock = mock(Session.class);
+            Session sessionMock = sessionMock();
             Store storeMock = mock(Store.class);
             when(sessionMock.getStore("imaps")).thenReturn(storeMock);
             doThrow(new MessagingException("auth failed")).when(storeMock).connect("imap.example.com", 993,
@@ -212,7 +233,7 @@ class MailConnectionProbeTest {
         @Test
         @DisplayName("A rejected login surfaces as MailAuthenticationException, not as a connection failure carrying the raw server reply")
         void authenticationFailureIsNotAConnectionFailure() throws Exception {
-            Session sessionMock = mock(Session.class);
+            Session sessionMock = sessionMock();
             Store storeMock = mock(Store.class);
             when(sessionMock.getStore("imaps")).thenReturn(storeMock);
             doThrow(new AuthenticationFailedException(
@@ -237,7 +258,7 @@ class MailConnectionProbeTest {
         @Test
         @DisplayName("Close exception in finally is swallowed so the original error reaches the caller")
         void closeExceptionIsSwallowed() throws Exception {
-            Session sessionMock = mock(Session.class);
+            Session sessionMock = sessionMock();
             Store storeMock = mock(Store.class);
             when(sessionMock.getStore("imaps")).thenReturn(storeMock);
             doThrow(new MessagingException("close failed")).when(storeMock).close();
@@ -252,7 +273,7 @@ class MailConnectionProbeTest {
         @Test
         @DisplayName("OAuth2 + SSL resolves the provider token service and connects with an access token, not the stored refresh-token secret")
         void oauth2SuccessAuthenticatesWithAccessToken() throws Exception {
-            Session sessionMock = mock(Session.class);
+            Session sessionMock = sessionMock();
             Store storeMock = mock(Store.class);
             when(sessionMock.getStore("imaps")).thenReturn(storeMock);
             when(oauth2TokenServiceRegistry.resolve("google")).thenReturn(tokenService);
@@ -278,7 +299,7 @@ class MailConnectionProbeTest {
         @Test
         @DisplayName("RuntimeException from token resolution is wrapped in MailConnectionException; store is still closed and connect is never reached")
         void oauthTokenResolutionRuntimeFailureIsWrapped() throws Exception {
-            Session sessionMock = mock(Session.class);
+            Session sessionMock = sessionMock();
             Store storeMock = mock(Store.class);
             when(sessionMock.getStore("imaps")).thenReturn(storeMock);
             when(oauth2TokenServiceRegistry.resolve("google")).thenReturn(tokenService);

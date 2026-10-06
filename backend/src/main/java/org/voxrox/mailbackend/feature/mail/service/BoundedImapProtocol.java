@@ -2,16 +2,19 @@ package org.voxrox.mailbackend.feature.mail.service;
 
 import java.io.IOException;
 import java.util.Properties;
+import java.util.regex.Pattern;
 
 import org.eclipse.angus.mail.iap.Argument;
 import org.eclipse.angus.mail.iap.ByteArray;
 import org.eclipse.angus.mail.iap.Protocol;
 import org.eclipse.angus.mail.iap.ProtocolException;
 import org.eclipse.angus.mail.iap.Response;
+import org.eclipse.angus.mail.imap.protocol.BODY;
 import org.eclipse.angus.mail.imap.protocol.FetchItem;
 import org.eclipse.angus.mail.imap.protocol.FetchResponse;
 import org.eclipse.angus.mail.imap.protocol.IMAPProtocol;
 import org.eclipse.angus.mail.imap.protocol.IMAPResponse;
+import org.eclipse.angus.mail.imap.protocol.RFC822DATA;
 import org.eclipse.angus.mail.imap.protocol.UIDSet;
 import org.eclipse.angus.mail.util.MailLogger;
 import org.jspecify.annotations.Nullable;
@@ -86,9 +89,11 @@ import org.voxrox.mailbackend.util.LogCategory;
  * <p>
  * The bounds above are per response; {@link #readResponse()} adds one per
  * command (B1-8), because Angus holds all of a command's responses until the
- * tagged one, and refuses the response that overspends it the same way. And one
- * per selected folder on what is spent in time rather than memory: each EXPUNGE
- * costs Angus a pass over the folder, however short its line (B1-13).
+ * tagged one, and refuses the response that overspends it the same way. And two
+ * per selected folder: on what is spent in time rather than memory, since each
+ * EXPUNGE costs Angus a pass over the folder, however short its line (B1-13),
+ * and on what the folder keeps of the FETCH responses it is handed, which
+ * outlives the command that brought it (B1-14).
  * <p>
  * The superclass constructor reads the server greeting through
  * {@link #readResponse()}, which runs before any field of this class is
@@ -253,6 +258,69 @@ final class BoundedImapProtocol extends IMAPProtocol {
      */
     static final long MAX_SELECTION_EXPUNGE_STEPS = 1_000L * MAX_MESSAGES;
 
+    /**
+     * What one selected folder may keep from the FETCH responses handed to it, as
+     * {@link #keptBytes} estimates the heap it takes, unless
+     * {@code mail.client.imap.open-folder-budget} says otherwise (B1-14). Angus
+     * keeps what a FETCH gives a message — envelope, structure, flags, headers, a
+     * UID-table entry — until the folder closes, whether or not it was asked for,
+     * and every command to the open folder adds to it, so the command budget bounds
+     * each of them and nothing bounded the sum.
+     * <p>
+     * An estimate, not a measurement of an honest pass, and configurable for that
+     * reason. The sync opens a folder for one pass and the user's actions open it
+     * for one action, so a selection is one of those. Ordinary new mail fits many
+     * times over; the largest honest pass does not, by choice. A pass that catches
+     * up {@code local-window-limit} (10,000) new messages is charged 88 MB at the
+     * 8.8 KB an ordinary message costs (envelope with five addresses, a three-part
+     * structure, three threading headers), and on a server without CONDSTORE some
+     * 1.5 KB more for each mirrored message, whose flags and UIDs the pass reads
+     * through the folder — up to twice the window before the pruner runs, 30 MB.
+     * Such a pass is refused like any implausible response: the connection closes,
+     * which releases what the folder kept, the batches stored so far stay, newest
+     * first, and the sync's next attempt opens the folder again and brings the rest
+     * down as holes; what a pass's attempts leave, the next pass takes.
+     * <p>
+     * The owner chose that cost over a budget the largest pass fits in
+     * (2026-10-06), because the budget is per connection: an account has two that
+     * may each hold a folder open, each with up to {@link #MAX_COMMAND_BYTES} of a
+     * command's responses besides. What a hostile server can make one folder keep
+     * is the budget scaled by the worst ratio measured at 1.49 of what a response
+     * leaves to what it is charged — 82 bytes an object against 96, and 268 bytes
+     * against 403 for a response that makes Angus create a message — some 58 MB, so
+     * the two connections together some 2 × (58 + 67) MB of the packaged 384 MB
+     * heap, where 128 MiB would have allowed 2 × (115 + 67).
+     * <p>
+     * The budget has to hold what a pass spends on the window it already mirrors,
+     * plus one batch: below that, every attempt is refused at the same point and
+     * the folder's sync stops there. At the defaults that is up to some 30 MB and 2
+     * MB.
+     */
+    static final long DEFAULT_OPEN_FOLDER_BUDGET = 64L * 1024 * 1024;
+
+    /**
+     * What {@link #keptBytes} charges a FETCH for each object its parse made
+     * ({@link DepthBoundedFetchResponse#parsedObjects}), on top of its bytes.
+     * Measured at 1.49 against Angus 2.0.5, as the heap retained by the items a
+     * folder keeps less their bytes on the wire, per object: 82 for a bare UID, 73
+     * for an ordinary message, 66 for a structure dense with parameters, 67 for a
+     * capitalised flag (counted twice), 25 for an envelope dense with addresses.
+     * Per byte on the wire the same items cost from 2.5 to 18 times their size, so
+     * a charge by bytes alone would leave the budget one a server could exceed
+     * eighteen-fold.
+     */
+    static final int PARSED_OBJECT_BYTES = 96;
+
+    /**
+     * The session property, under {@code mail.<protocol>.}, that carries
+     * {@code mail.client.imap.open-folder-budget} to the protocol in bytes;
+     * {@link BoundedImapStore#install} writes it.
+     */
+    static final String OPEN_FOLDER_BUDGET_PROPERTY = "voxrox.openfolderbudget";
+
+    /** The body sections {@link #isContentSection} counts as content. */
+    private static final Pattern CONTENT_SECTION = Pattern.compile("(?i)(\\d+(\\.\\d+)*)?(\\.?TEXT)?");
+
     /** What Angus starts a response buffer at when it is handed none. */
     private static final int INITIAL_RESPONSE_BYTES = 128;
 
@@ -273,10 +341,100 @@ final class BoundedImapProtocol extends IMAPProtocol {
      * visibility reasoning as the two above.
      */
     private volatile @Nullable SelectionBudget selection;
+    /*
+     * Whether the command in progress fetches content for a caller that reads it
+     * and lets it go (see fetchSectionBody). Same initializer and visibility
+     * reasoning as the three above.
+     */
+    private volatile boolean fetchingContent;
+    /*
+     * What the open-folder budget is on this connection. Zero while the constructor
+     * reads the greeting, before it is assigned; openFolderBudget() reads the
+     * default then.
+     */
+    private final long configuredOpenFolderBudget;
 
     BoundedImapProtocol(String name, String host, int port, Properties props, boolean isSSL, MailLogger logger)
             throws IOException, ProtocolException {
         super(name, host, port, props, isSSL, logger);
+        configuredOpenFolderBudget = openFolderBudget(props, name);
+    }
+
+    /**
+     * The open-folder budget a session carries for {@code protocol}, or
+     * {@link #DEFAULT_OPEN_FOLDER_BUDGET} when it carries none it can use: a
+     * session this backend opens always carries one, written by
+     * {@link BoundedImapStore#install} from a value its configuration has already
+     * checked to be positive. Anything else falls back to the default rather than
+     * failing the connection, since the default is a bound too.
+     */
+    static long openFolderBudget(Properties props, String protocol) {
+        String value = props.getProperty("mail." + protocol + "." + OPEN_FOLDER_BUDGET_PROPERTY);
+        if (value == null) {
+            return DEFAULT_OPEN_FOLDER_BUDGET;
+        }
+        try {
+            long budget = Long.parseLong(value.trim());
+            return budget > 0 ? budget : DEFAULT_OPEN_FOLDER_BUDGET;
+        } catch (NumberFormatException e) {
+            return DEFAULT_OPEN_FOLDER_BUDGET;
+        }
+    }
+
+    private long openFolderBudget() {
+        long configured = configuredOpenFolderBudget;
+        return configured > 0 ? configured : DEFAULT_OPEN_FOLDER_BUDGET;
+    }
+
+    /**
+     * Every body section Angus fetches comes through here: the content of a message
+     * or a part, an attachment in 16 KiB pieces, and the headers of a message or a
+     * part. The content goes to a caller that reads it and lets it go, so its data
+     * is not charged to the {@link SelectionBudget} (B1-14); the folder's handler
+     * takes only flags, UIDs and MODSEQs from the responses. Headers are charged:
+     * {@code IMAPMessage} and {@code IMAPBodyPart} keep what they load this way.
+     * <p>
+     * Which of the two a fetch is goes by the section the client asked for, never
+     * by the one the server's answer names. Angus returns the one {@code BODY} a
+     * response carries for the message whatever section it names, so a server that
+     * labelled the headers it was asked for as content would otherwise have them
+     * kept uncharged.
+     */
+    @Override
+    protected BODY fetchSectionBody(int msgno, @Nullable String section, String body) throws ProtocolException {
+        fetchingContent = isContentSection(section);
+        try {
+            return super.fetchSectionBody(msgno, section, body);
+        } finally {
+            fetchingContent = false;
+        }
+    }
+
+    /**
+     * {@link #fetchSectionBody} for a server that speaks IMAP4 rather than
+     * IMAP4rev1: the whole message ({@code what} null) or its text is content, its
+     * headers are not.
+     */
+    @Override
+    public RFC822DATA fetchRFC822(int msgno, @Nullable String what) throws ProtocolException {
+        fetchingContent = what == null || "TEXT".equalsIgnoreCase(what);
+        try {
+            return super.fetchRFC822(msgno, what);
+        } finally {
+            fetchingContent = false;
+        }
+    }
+
+    /**
+     * Whether a body section names content rather than headers: the whole message
+     * (none), a part's number, or {@code TEXT}, alone or after a part's number —
+     * what Angus's {@code IMAPMessage}, {@code IMAPBodyPart} and
+     * {@code IMAPInputStream} ask for to read content. Anything else is charged:
+     * {@code HEADER}, {@code HEADER.FIELDS (…)}, a part's {@code MIME}, and any
+     * section this does not know.
+     */
+    static boolean isContentSection(@Nullable String section) {
+        return section == null || CONTENT_SECTION.matcher(section).matches();
     }
 
     /**
@@ -353,6 +511,25 @@ final class BoundedImapProtocol extends IMAPProtocol {
             if (overworked != null) {
                 throw refused(overworked);
             }
+            /*
+             * What the folder keeps of a FETCH (B1-14). Not a FETCH that readEach streams
+             * to its caller, which goes to no handler, as for the command budget below.
+             */
+            if (response instanceof FetchResponse fetch && !oneAtATime) {
+                long budget = openFolderBudget();
+                long before = folder.kept();
+                String overkept = folder.chargeKept(keptBytes(fetch, read.wireSize(), fetchingContent), budget);
+                if (overkept != null) {
+                    throw refused(overkept);
+                }
+                // Once per selection, so an honest folder nearing the budget shows in the
+                // log before it is refused.
+                if (before <= budget / 2 && folder.kept() > budget / 2) {
+                    log.warn("{} A folder open on IMAP server {} keeps over half of its {}-byte budget from FETCH "
+                            + "responses (mail.client.imap.open-folder-budget); past it the connection is closed.",
+                            LogCategory.IMAP, host, budget);
+                }
+            }
         }
         /*
          * Every response is charged, tagged or not, until writeCommand starts the next
@@ -424,6 +601,38 @@ final class BoundedImapProtocol extends IMAPProtocol {
      * charges.
      */
     private record Read(Response response, int wireSize) {
+    }
+
+    /**
+     * What a FETCH may leave in the selected folder, as the heap it takes: its
+     * bytes on the wire, {@link #PARSED_OBJECT_BYTES} for each object its parse
+     * made, and {@link #RESPONSE_OVERHEAD_BYTES} for the response (B1-14). An upper
+     * bound for everything measured at 1.49, and for an ordinary message about a
+     * third over what it keeps.
+     * <p>
+     * The whole response is charged, whatever was asked for: {@code IMAPFolder}'s
+     * fetch gives a message every item a response names, a whole body included,
+     * which Angus parses into the message and keeps. The one exception is a fetch
+     * of content ({@link #fetchSectionBody}): there Angus hands the body item to
+     * the caller and the folder's handler takes no body from any response, so the
+     * data of every body item in the command's responses goes uncharged.
+     */
+    static long keptBytes(FetchResponse fetch, int wireBytes, boolean content) {
+        long objects = fetch instanceof DepthBoundedFetchResponse counted ? counted.parsedObjects() : 0;
+        long bytes = wireBytes;
+        if (content) {
+            for (int i = 0; i < fetch.getItemCount(); i++) {
+                ByteArray data = switch (fetch.getItem(i)) {
+                    case BODY body -> body.getByteArray();
+                    case RFC822DATA rfc822 -> rfc822.getByteArray();
+                    default -> null;
+                };
+                if (data != null) {
+                    bytes -= data.getCount();
+                }
+            }
+        }
+        return Math.max(0, bytes) + objects * PARSED_OBJECT_BYTES + RESPONSE_OVERHEAD_BYTES;
     }
 
     private ImplausibleResponseException refused(String reason) {
@@ -564,10 +773,27 @@ final class BoundedImapProtocol extends IMAPProtocol {
          */
         private int lastIndex;
         private int stalledCalls;
+        /**
+         * Objects the parse has made: every string, byte array and list it read, and
+         * every list it opened (an address, a structure, an envelope). What a folder
+         * keeps of a FETCH costs per object far more than per byte on the wire, so the
+         * selection budget charges this count (B1-14). Counted, not modelled, for the
+         * reason the depth is: every object Angus 2.0.5 makes from a FETCH comes out of
+         * one of these methods. A list read with {@code readStringList} counts once
+         * here and each of its strings once in {@code readString} or
+         * {@code readAtomString}, which it calls; {@code readSimpleList} reads its
+         * items itself, so they count there.
+         */
+        private long parsedObjects;
 
         DepthBoundedFetchResponse(IMAPResponse response, FetchItem @Nullable [] fetchItems, Protocol protocol)
                 throws IOException, ProtocolException {
             super(response, fetchItems, protocol);
+        }
+
+        /** What the parse made, as {@link #parsedObjects} counts it. */
+        long parsedObjects() {
+            return parsedObjects;
         }
 
         @Override
@@ -630,6 +856,41 @@ final class BoundedImapProtocol extends IMAPProtocol {
                 addressStage = 0;
             }
             progress();
+            return made(read);
+        }
+
+        @Override
+        public @Nullable String readString(char delim) {
+            return made(super.readString(delim));
+        }
+
+        @Override
+        public @Nullable String readAtom() {
+            return made(super.readAtom());
+        }
+
+        @Override
+        public @Nullable String readAtomString() {
+            return made(super.readAtomString());
+        }
+
+        @Override
+        public @Nullable ByteArray readByteArray() {
+            return made(super.readByteArray());
+        }
+
+        /**
+         * A FETCH's {@code FLAGS}, the one list Angus reads this way: each item counts
+         * twice, since {@code Flags} keeps a user flag in a table keyed by its
+         * lower-cased copy, a second string whenever the flag has a capital — measured
+         * at 1.49, 134 bytes a flag against some 80 for every other object.
+         */
+        @Override
+        public String @Nullable [] readSimpleList() {
+            String[] read = super.readSimpleList();
+            if (read != null) {
+                parsedObjects += 1 + 2L * read.length;
+            }
             return read;
         }
 
@@ -638,7 +899,7 @@ final class BoundedImapProtocol extends IMAPProtocol {
             inStringList++;
             addressStage = 0;
             try {
-                return super.readStringList();
+                return made(super.readStringList());
             } finally {
                 inStringList--;
             }
@@ -649,14 +910,22 @@ final class BoundedImapProtocol extends IMAPProtocol {
             inStringList++;
             addressStage = 0;
             try {
-                return super.readAtomStringList();
+                return made(super.readAtomStringList());
             } finally {
                 inStringList--;
             }
         }
 
+        private <T> @Nullable T made(@Nullable T read) {
+            if (read != null) {
+                parsedObjects++;
+            }
+            return read;
+        }
+
         private void open() {
             depth++;
+            parsedObjects++;
             checkBound();
         }
 
@@ -843,12 +1112,34 @@ final class BoundedImapProtocol extends IMAPProtocol {
      * bound: Angus ignores an EXPUNGE past its count, and a VANISHED UID it does
      * not know. A new one per selection, started by {@link #writeCommand} for a
      * SELECT or EXAMINE, so it spans every command sent to the open folder.
+     * <p>
+     * It also sums what the folder keeps of the FETCH responses it is handed, as
+     * {@link #keptBytes} estimates it (B1-14).
      */
     static final class SelectionBudget {
 
         private long largestExists;
         private long expunged;
         private long steps;
+        private long kept;
+
+        /** What the folder keeps of its FETCH responses so far, in estimated bytes. */
+        long kept() {
+            return kept;
+        }
+
+        /**
+         * Charges what one FETCH leaves in the folder against {@code budget}: the
+         * reason to refuse it, or null.
+         */
+        @Nullable
+        String chargeKept(long bytes, long budget) {
+            kept += bytes;
+            return kept > budget
+                    ? "the FETCH responses kept since the folder was selected passed its budget of " + budget
+                            + " bytes (mail.client.imap.open-folder-budget)"
+                    : null;
+        }
 
         /** Charges one untagged response: the reason to refuse it, or null. */
         @Nullable

@@ -11,8 +11,10 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import jakarta.mail.Folder;
+import jakarta.mail.Message;
 
 import org.eclipse.angus.mail.imap.IMAPFolder;
 import org.junit.jupiter.api.AfterAll;
@@ -49,6 +51,9 @@ import org.voxrox.mailbackend.feature.mail.service.ImapConnectionManager.Lane;
         "mail.client.sync.initial-delay=PT1H", "mail.client.imap.read-timeout=3s",
         "mail.client.imap.connection-timeout=3s", "mail.client.retry.initial-delay=100ms",
         "mail.client.retry.max-delay=300ms",
+        // A quarter of the default open-folder budget (B1-14), so the tests of it run
+        // in seconds, and show that the configured value is the one in force.
+        "mail.client.imap.open-folder-budget=16MB",
         // A context of its own, so the data dir above is the one in use.
         "mail.test-context=HostileImapResponseIT"})
 @ContextConfiguration(initializers = StorageContextInitializer.class)
@@ -107,6 +112,7 @@ class HostileImapResponseIT {
         SERVER.listUids(0);
         SERVER.padUidListingWith();
         SERVER.authenticateWith();
+        SERVER.answerFetchWith();
         account = accountRepository.findByEmail(EMAIL).orElseGet(() -> {
             MailServerSettings server = new MailServerSettings("127.0.0.1", SERVER.port(), true);
             accountService.createAccount(
@@ -384,6 +390,124 @@ class HostileImapResponseIT {
                     (folder, uidFolder) -> ImapCondstoreCommands.fetchAllServerUids((IMAPFolder) folder));
             assertThat(uids).as("open %d", open).isEmpty();
         }
+    }
+
+    /**
+     * The open-folder budget configured above, in bytes, as the log states it.
+     */
+    private static final String BUDGET = String.valueOf(16L * 1024 * 1024);
+
+    /**
+     * Renamings of the folder's one message per command: each line some 400 bytes
+     * against the open-folder budget, so one command keeps 12 of its 16 MB, inside
+     * one command's budget too, and two pass it.
+     */
+    private static final int RENAMES = 30_000;
+
+    /**
+     * B1-14. {@code IMAPFolder}'s handler keeps a UID-table entry for each UID a
+     * FETCH gives a message until the folder closes, and one command's budget ends
+     * with the command: measured at 1.25, one admitted {@code getMessageByUID} left
+     * 100,000 entries, and a pass sends hundreds of commands. What the folder keeps
+     * is now summed from the SELECT, and the warning at half of it is what a
+     * tester's log shows before a folder runs into it.
+     */
+    @Test
+    @DisplayName("What a folder keeps adds up across its commands, and the command that passes the budget is refused")
+    void keptResponsesAddUpAcrossCommands() {
+        SERVER.answerOpenWith("* 1 EXISTS");
+        SERVER.listUidsOfOneMessage(RENAMES);
+        logMark = logLength();
+        AtomicInteger admitted = new AtomicInteger();
+
+        assertThatThrownBy(() -> imapFolderService.executeInFolder(account.getId(), Lane.BACKGROUND, "INBOX",
+                Folder.READ_ONLY, (folder, uidFolder) -> {
+                    for (int command = 0; command < 3; command++) {
+                        // A UID the answer never names, so Angus asks each time rather than
+                        // finding it in the table the last answer filled.
+                        uidFolder.getMessageByUID(RENAMES + 1L + command);
+                        admitted.incrementAndGet();
+                    }
+                    return null;
+                })).isInstanceOf(RuntimeException.class);
+
+        assertThat(admitted).hasValue(1);
+        assertThat(logSinceMark()).contains("keeps over half of its " + BUDGET + "-byte budget")
+                .contains("passed its budget of " + BUDGET + " bytes (mail.client.imap.open-folder-budget)");
+    }
+
+    @Test
+    @DisplayName("Each folder open starts its own open-folder budget")
+    void eachOpenStartsItsOwnKeptBudget() {
+        SERVER.answerOpenWith("* 1 EXISTS");
+        SERVER.listUidsOfOneMessage(RENAMES);
+
+        for (int open = 0; open < 2; open++) {
+            Message found = imapFolderService.executeInFolder(account.getId(), Lane.BACKGROUND, "INBOX",
+                    Folder.READ_ONLY, (folder, uidFolder) -> uidFolder.getMessageByUID(1));
+            assertThat(found).as("open %d", open).isNotNull();
+        }
+    }
+
+    /**
+     * A body section the size Angus never asks for, so few commands pass the
+     * budget.
+     */
+    private static final int PIECE = 256 * 1024;
+
+    /** Pieces read in one open: 25 MB, past the 16 MB budget were they charged. */
+    private static final int PIECES = 100;
+
+    private static String bodyAnswer(String section) {
+        return "* 1 FETCH (BODY[" + section + "]<0> {" + PIECE + "}\r\n" + "x".repeat(PIECE) + ")";
+    }
+
+    /**
+     * B1-14, the honest half. A message's content and its attachments are read in
+     * pieces that go to the caller and are let go, whatever they add up to; only
+     * what the folder keeps is charged.
+     */
+    @Test
+    @DisplayName("Content read in pieces is not charged to the open folder, whatever it adds up to")
+    void contentIsNotCharged() {
+        SERVER.answerOpenWith("* 1 EXISTS");
+        SERVER.answerFetchWith(bodyAnswer("1"));
+
+        Object read = imapFolderService.executeInFolder(account.getId(), Lane.BACKGROUND, "INBOX", Folder.READ_ONLY,
+                (folder, uidFolder) -> ((IMAPFolder) folder).doCommand(protocol -> {
+                    int pieces = 0;
+                    for (; pieces < PIECES; pieces++) {
+                        protocol.peekBody(1, "1", pieces * PIECE, PIECE, null);
+                    }
+                    return pieces;
+                }));
+
+        assertThat(read).isEqualTo(PIECES);
+    }
+
+    /**
+     * B1-14. Angus keeps the headers it loads through a body fetch — a part's
+     * {@code MIME} section here, which {@code IMAPBodyPart} loads — and returns the
+     * one body item an answer carries whatever section it names. So the section the
+     * client asked for decides the charge, not the one the server named: this
+     * answer calls the headers content.
+     */
+    @Test
+    @DisplayName("Headers asked for are charged, though the server's answer calls them content")
+    void headersAreChargedWhateverTheAnswerCallsThem() {
+        SERVER.answerOpenWith("* 1 EXISTS");
+        SERVER.answerFetchWith(bodyAnswer("1"));
+        logMark = logLength();
+
+        assertThatThrownBy(() -> imapFolderService.executeInFolder(account.getId(), Lane.BACKGROUND, "INBOX",
+                Folder.READ_ONLY, (folder, uidFolder) -> ((IMAPFolder) folder).doCommand(protocol -> {
+                    for (int pieces = 0; pieces < PIECES; pieces++) {
+                        protocol.peekBody(1, "1.MIME");
+                    }
+                    return null;
+                }))).isInstanceOf(RuntimeException.class);
+
+        assertThat(logSinceMark()).contains("passed its budget of " + BUDGET + " bytes");
     }
 
     /**
