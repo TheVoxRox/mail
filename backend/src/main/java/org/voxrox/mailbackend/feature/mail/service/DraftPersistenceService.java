@@ -158,6 +158,7 @@ public class DraftPersistenceService {
     public void saveDraftAsync(Long accountId, DraftRequest request, String replacesStableId, DraftIdentity identity) {
         log.info("{} Saving draft for account ID: {} (replaces={})", LogCategory.SMTP, accountId, replacesStableId);
 
+        boolean stored = false;
         try {
             /*
              * Resolve the old draft before the append so we remember its UID/folder. The
@@ -203,6 +204,7 @@ public class DraftPersistenceService {
                         LocalDateTime.now());
                 return;
             }
+            stored = true;
 
             if (oldFolder != null && oldUid != null) {
                 try {
@@ -223,6 +225,22 @@ public class DraftPersistenceService {
             accountRepository.updateLastError(accountId, AccountLastError.of(AccountLastErrorCode.DRAFT_SAVE_FAILED,
                     java.util.Map.of(AccountLastErrorCode.CAUSE, failure.name()), "Draft save failed: " + failure),
                     LocalDateTime.now());
+        } finally {
+            if (!stored) {
+                /*
+                 * The entry was kept when the save was accepted, before this task ran, and a
+                 * revision this task did not store must not take a current place. A server
+                 * rejecting every APPEND would otherwise grow the current entries by one per
+                 * autosave, the previous revision staying current too, and push out a hidden
+                 * draft's entry that way (B1-5, found by the verification pass over 1.37). So
+                 * would a task that stops before its APPEND — on the replaced row, the account
+                 * or the message build, which refuses every save of a reply to a message with a
+                 * folded References header — which until 1.43 nothing set aside, as only the
+                 * APPEND's failure did (B1-5, reopened at 1.43). Set aside rather than dropped,
+                 * in case the server stored it after all and presents it later.
+                 */
+                setAside(accountId, identity.stableId());
+            }
         }
     }
 
@@ -244,8 +262,9 @@ public class DraftPersistenceService {
      *
      * <p>
      * The typed recipients are kept before this runs, by {@link #acceptDraftSave}
-     * or {@link #saveRecoveryDraft}; this sets them aside or retires the draft's
-     * earlier revisions by the outcome.
+     * or {@link #saveRecoveryDraft}. A stored revision retires the draft's earlier
+     * ones here; one this did not store, by a {@code false} outcome or by any
+     * exception, the caller sets aside, since only it sees every way out.
      */
     private boolean appendDraftMessage(AccountEntity account, DraftIdentity identity, DraftRequest request)
             throws MessagingException, java.io.UnsupportedEncodingException {
@@ -262,30 +281,13 @@ public class DraftPersistenceService {
         message.saveChanges();
         message.setHeader("Message-ID", identity.messageId());
 
-        boolean appended = false;
-        try {
-            var appendOutcome = appendService.appendDraft(account.getId(), identity.draftsFolder(), message);
-            appended = appendOutcome.appended();
-            if (appended) {
-                upsertLocalDraftRow(account, identity, request, message, appendOutcome);
-            }
-        } finally {
-            if (!appended) {
-                /*
-                 * The entry kept before is for a revision the server did not store, so it must
-                 * not take a current place: a server rejecting every APPEND would otherwise
-                 * grow the current entries by one per autosave, the previous revision staying
-                 * current too, and push out a hidden draft's entry that way (B1-5, found by the
-                 * verification pass over 1.37). Set aside rather than dropped, in case the
-                 * server stored it after all and presents it later.
-                 */
-                setAside(account.getId(), identity.stableId());
-            }
+        var appendOutcome = appendService.appendDraft(account.getId(), identity.draftsFolder(), message);
+        if (!appendOutcome.appended()) {
+            return false;
         }
-        if (appended) {
-            supersedeEarlierRevisions(account.getId(), identity);
-        }
-        return appended;
+        upsertLocalDraftRow(account, identity, request, message, appendOutcome);
+        supersedeEarlierRevisions(account.getId(), identity);
+        return true;
     }
 
     /**
@@ -303,8 +305,11 @@ public class DraftPersistenceService {
      *         saved (the failure notification then carries no pointer).
      */
     public @Nullable String saveRecoveryDraft(Long accountId, MailRequest request) {
+        DraftIdentity reserved = null;
+        boolean stored = false;
         try {
             DraftIdentity identity = prepareDraftIdentity(accountId);
+            reserved = identity;
             AccountEntity account = accountService.getAccountOrThrow(accountId);
             DraftRequest draftRequest = new DraftRequest(request.to(), request.cc(), request.bcc(), request.subject(),
                     request.body(), request.attachments(), request.inReplyTo(), request.references());
@@ -314,7 +319,8 @@ public class DraftPersistenceService {
                 log.warn("{} Could not keep the recipients of recovery draft {}; sending it untouched checks the row "
                         + "instead: {}", LogCategory.SMTP, identity.stableId(), e.getMessage());
             }
-            if (appendDraftMessage(account, identity, draftRequest)) {
+            stored = appendDraftMessage(account, identity, draftRequest);
+            if (stored) {
                 log.info("{} Failed send parked as recovery draft {} for account {}.", LogCategory.SMTP,
                         identity.stableId(), accountId);
                 return identity.stableId();
@@ -324,6 +330,11 @@ public class DraftPersistenceService {
             log.warn("{} Could not park the failed send as a draft for account {}: {}", LogCategory.SMTP, accountId,
                     e.getMessage());
             return null;
+        } finally {
+            if (!stored && reserved != null) {
+                // As for a save (see saveDraftAsync): whichever way the park failed (B1-5).
+                setAside(accountId, reserved.stableId());
+            }
         }
     }
 
@@ -529,12 +540,13 @@ public class DraftPersistenceService {
     }
 
     /**
-     * Sets aside the typed recipients of a revision whose save the server did not
-     * store, by the stableId this client minted for it, so a server that rejects
-     * every APPEND makes the superseded entries grow, not the current ones (B1-5).
-     * The entry stays, in case the server stored the revision after all, until
-     * {@link #KEPT_DRAFT_RECIPIENTS} newer superseded ones push it out. Best-effort
-     * like the entry itself.
+     * Sets aside the typed recipients of a revision whose save stored nothing — the
+     * server rejected its APPEND, or the save stopped before it — by the stableId
+     * this client minted for it, so a server that rejects every APPEND, or mail
+     * whose replies the message builder refuses, makes the superseded entries grow,
+     * not the current ones (B1-5). The entry stays, in case the server stored the
+     * revision after all, until {@link #KEPT_DRAFT_RECIPIENTS} newer superseded
+     * ones push it out. Best-effort like the entry itself.
      */
     private void setAside(Long accountId, String stableId) {
         try {

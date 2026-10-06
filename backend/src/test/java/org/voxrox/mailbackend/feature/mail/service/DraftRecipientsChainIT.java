@@ -20,6 +20,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import javax.sql.DataSource;
 
+import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -90,6 +91,7 @@ class DraftRecipientsChainIT {
     private DataSource dataSource;
 
     private final ImapAppendService appendService = mock(ImapAppendService.class);
+    private final MimeMessageBuilder builder = mock(MimeMessageBuilder.class);
     /** Whether the server stores the next APPEND; it answers without APPENDUID. */
     private final AtomicBoolean storeNext = new AtomicBoolean(true);
     private AccountEntity account;
@@ -102,7 +104,6 @@ class DraftRecipientsChainIT {
         when(accountService.getAccountOrThrow(account.getId())).thenReturn(account);
         ImapFolderService folders = mock(ImapFolderService.class);
         when(folders.findFolderNameByRoleOrThrow(account.getId(), FolderRole.DRAFTS)).thenReturn("Drafts");
-        MimeMessageBuilder builder = mock(MimeMessageBuilder.class);
         when(builder.build(any(), any(), any(), any(), any())).thenAnswer(invocation -> mock(MimeMessage.class));
         when(appendService.appendDraft(anyLong(), anyString(), any()))
                 .thenAnswer(invocation -> new ImapAppendService.DraftAppendOutcome(storeNext.get(), null, null));
@@ -210,6 +211,27 @@ class DraftRecipientsChainIT {
         assertThat(failure.get()).isNull();
         assertThat(repository.findAll()).extracting(DraftRecipientsEntity::getMessageId)
                 .containsExactly("<waiting@voxrox.org>");
+    }
+
+    /**
+     * Found by the pass over 1.42 (B1-5, reopened at 1.43). The entry is kept when
+     * the save is accepted, and only a failed APPEND set it aside, so a save whose
+     * task stopped before its APPEND left its entry current, and each further save
+     * of the draft, naming it, added another. A reply carrying a folded
+     * {@code References} header fails the message build every time.
+     */
+    @Test
+    @DisplayName("Saves whose message cannot be built leave no current entry behind (B1-5)")
+    void savesThatCannotBeBuiltLeaveNoCurrentEntry() throws Exception {
+        DraftPersistenceService.DraftIdentity hidden = save(null, true);
+        when(builder.build(any(), any(), any(), any(), any()))
+                .thenThrow(new MessagingException("Illegal line break in References"));
+        String replaces = null;
+        for (int revision = 1; revision <= 10; revision++) {
+            replaces = save(replaces, true).stableId();
+        }
+
+        assertThat(currentEntries()).containsExactly(hidden.messageId());
     }
 
     /** One save, accepted and run the way the controller sends it. */

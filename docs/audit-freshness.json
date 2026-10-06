@@ -101,7 +101,7 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "ba2cf0349d6f77677d19ccd923f858bdc479c1f5",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "3df42a1372fdf9317e47ef74f2b797ca4435b4f7",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/DraftRecipientsEntity.java": "646bc4caa74b8d4b2fcc5826d4d561d81311e8f9",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "ae77176c3ad930bf43911f025c13fdf7661be451"
     },
@@ -113,6 +113,10 @@
       {
         "date": "2026-10-06",
         "note": "B1-5 fixed again as the 1.41 pass recommended, recorded in the audit itself as v1.42 (section 4e); the fix is this PR's own and waits for an independent pass, so the anchor stays at c386fed and this records the drift. Three paths move. DraftRecipientsEntity loses its constructor (an entry is never written through the persistence context any more) and gains savedSeq (column saved_seq, added to V1__init.sql in place, its index replacing the one on saved_at). DraftRecipientsRepository gains insertEntry, a plain INSERT that numbers the entry one past the table's largest saved_seq in the same statement; deleteCurrentButNewest, deleteSupersededButNewest and supersedeEarlierInChain order by saved_seq instead of saved_at, and the last no longer takes a time bound. Under feature/mail/service only DraftPersistenceService changes: acceptDraftSave, called by DraftController before the 202, mints the identity, looks up the chain and writes the entry, and any failure there fails the request before dispatch; appendDraftMessage no longer writes the entry or takes the replaced stableId, and after a stored APPEND sets aside by the chain the stored revision's own entry carries; saveRecoveryDraft writes its entry first and appends even if that fails, logged; chainOf and keepTypedRecipients no longer swallow errors. The send path, the recipient comparison and the bounds' sizes are untouched. Verdict stays open finding (B1-14)."
+      },
+      {
+        "date": "2026-10-06",
+        "note": "B1-5 fixed again as the 1.43 pass recommended, recorded in the audit itself as v1.44 (section 4e); the fix is this PR's own and waits for an independent pass, so the anchor stays at c386fed and this records the drift. One path moves: under feature/mail/service only DraftPersistenceService changes. saveDraftAsync sets the save's entry aside in a finally unless the task stored the revision, which covers a false APPEND outcome, an exception from the APPEND and one from before it (the replaced row's lookup, the account, the message build); appendDraftMessage no longer sets anything aside, and saveRecoveryDraft applies the same rule in a finally of its own. A task whose APPEND was stored and whose local upsert then threw now sets its entry aside as well, where it used to stay current; the send still finds an entry by account and Message-ID, current or superseded. acceptDraftSave, the chain lookup, the INSERT, the bounds, the send path and the recipient comparison are untouched. Verdict back to open finding (B1-14)."
       }
     ]
   },
