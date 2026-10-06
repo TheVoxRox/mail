@@ -20,6 +20,8 @@ import module java.base;
 @Service
 public class MessageFetcher {
     private static final Logger log = LoggerFactory.getLogger(MessageFetcher.class);
+    /** What {@link #getHeader} removes to unfold a header. */
+    private static final Pattern LINE_BREAK = Pattern.compile("[\r\n]");
 
     public List<FetchedMessage> fetchBatch(Message[] messages, UIDFolder uidFolder, String folderName) {
         if (messages == null || messages.length == 0) {
@@ -186,10 +188,21 @@ public class MessageFetcher {
         }
     }
 
+    /**
+     * The header's first value, unfolded. Jakarta Mail returns a header as the wire
+     * folded it, line break included, and RFC 5322 folds a header past 78
+     * characters, which a {@code References} of two Message-IDs usually is. A reply
+     * carries the original's {@code References} into its own, and
+     * {@link MimeMessageBuilder} refuses a line break in a header, so a value
+     * stored folded made every reply to the message impossible to save or send
+     * (IMAP/SMTP audit §3b, found by the pass over 1.42). Unfolding is removing the
+     * line breaks; {@link MimeUtility#unfold} would keep one the wire escaped with
+     * a backslash, which the builder refuses just the same.
+     */
     private @Nullable String getHeader(Message msg, String headerName) throws MessagingException {
         String[] headers = msg.getHeader(headerName);
         if (headers != null && headers.length > 0) {
-            return headers[0];
+            return LINE_BREAK.matcher(headers[0]).replaceAll("");
         }
         return null;
     }

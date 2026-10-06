@@ -154,6 +154,27 @@ class MessageFetcherTest {
             assertThat(dto.attachments()).isEmpty();
         }
 
+        /**
+         * RFC 5322 folds a header past 78 characters, and Jakarta Mail returns it with
+         * the line break in. A reply carries the original's References into its own,
+         * and MimeMessageBuilder refuses a line break in a header, so a reply a few
+         * messages into a thread could be neither saved nor sent (IMAP/SMTP audit §3b,
+         * found by the pass over 1.42).
+         */
+        @Test
+        void foldedThreadingHeadersAreStoredUnfolded() throws Exception {
+            String raw = "" + "From: a@x\r\n" + "To: b@y\r\n" + "Message-ID: <msg-3@example.com>\r\n"
+                    + "In-Reply-To: <prev@example.com>\r\n <other@example.com>\r\n"
+                    + "References: <root@example.com>\r\n <prev@example.com>\r\n\t<more@example.com>\r\n" + "\r\n"
+                    + "x\r\n";
+            MimeMessage msg = register(parse(raw), 3L);
+
+            var dto = fetcher.fetchBatch(new Message[]{msg}, uidFolder, "INBOX").get(0);
+
+            assertThat(dto.inReplyTo()).isEqualTo("<prev@example.com> <other@example.com>");
+            assertThat(dto.references()).isEqualTo("<root@example.com> <prev@example.com>\t<more@example.com>");
+        }
+
         @Test
         void blankSubjectFallsBack() throws Exception {
             String raw = "" + "From: a@x\r\n" + "To: b@y\r\n" + "Subject:    \r\n" + "\r\n" + "x\r\n";
