@@ -136,7 +136,8 @@ Preovereni [docs/OAUTH_AUDIT.md](docs/OAUTH_AUDIT.md) proti `64633fe` naslo B2-1
 - [x] **Rozhodnout, zda oprava B2-1 jde do 0.1.0** — ROZHODNUTO 2026-10-05 (maintainer): ano, jde do 0.1.0 dalsim re-cutem; cut az po nezavislem pruchodu nad B1 1.40.
 - [x] **Drobnosti z B2 §4** — HOTOVO 2026-10-05 (#640): e-mailovy fallback bere jen ucet bez OAuth vazby (prechod z hesla), adresa cizi identity prihlaseni odmitne (`AccountAlreadyExistsException`); `markRequiresReauthIfExists` hleda ucet podle identity a pise skutecny duvod. Audit B2 1.6. (`finally` kolem `processLogin` #623, javadoc #636.)
 - [ ] **Redirect URI v konzolich Google a Entra** — overit registrace rucne (komentare v repu se rozchazi: `application.properties` rika Mobile and desktop, `googleAuth.ts` Web). Na maintainerovi; audit B2 §4.
-- [ ] **Pruvodce OAuth ohlasi „ucet pridan“ i bez prihlaseni**, kdyz ucet se zadanou adresou uz existuje: `pollForOAuthAccount` (`frontend/src/lib/accounts/oauthPoll.ts`) hleda podle zadane adresy, ne podle vysledku prihlaseni, takze najde existujici ucet pri prvnim dotazu. Pruvodce by mel existujici adresu odmitnout pred spustenim OAuth (opetovne prihlaseni ma vlastni cestu).
+- [x] **Pruvodce OAuth ohlasi „ucet pridan“ i bez prihlaseni** — HOTOVO 2026-10-06 (#646): adresu, kterou uz vlastni prihlaseny ucet, pruvodce odmitne pred otevrenim prohlizece (odkaz na Znovu prihlasit); jinak se ceka na zmenu proti snimku uctu z doby pred prihlasenim (novy ucet, nebo heslovy ucet prevzaty prihlasenim).
+- [ ] **Pruvodce OAuth: prihlaseni jinou identitou, nez je zadana adresa** — dobehne do timeoutu (`oauthWaitingTimeout`), i kdyz backend ucet pro tu identitu zalozil, protoze pruvodce ceka jen na zadanou adresu. Snimek uctu z #646 by stacilo porovnat i pro ostatni adresy.
 
 ---
 

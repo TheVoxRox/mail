@@ -70,6 +70,32 @@ test.describe('Accounts', () => {
 		await expect(page.locator('#acc-imap-host')).toHaveCount(0);
 	});
 
+	/*
+	 * The wizard matched the sign-in by the typed address alone, so an address an
+	 * account already had was found on the first poll and reported added before the
+	 * user had signed in. An address a sign-in owns is now refused before the
+	 * browser opens: signing in again would only renew that account's sign-in.
+	 */
+	test('adresu, kterou už vlastní přihlášený účet, průvodce odmítne před otevřením prohlížeče', async ({
+		page
+	}) => {
+		await setMockFlags(page, { oauthAccount: true });
+		await openApp(page, '/settings/accounts/new');
+
+		await page.locator('#wizard-email').fill('OAuth.User@gmail.com');
+		await page.getByRole('button', { name: 'Pokračovat' }).click();
+		await page.getByRole('button', { name: 'Přihlásit přes Google' }).click();
+
+		await expect(page.getByRole('alert')).toHaveText(
+			'Účet OAuth.User@gmail.com už v aplikaci je. Pokud vyžaduje nové přihlášení, použijte u něj v seznamu účtů tlačítko Znovu přihlásit.'
+		);
+		// Still on the sign-in step: nothing was started, so nothing is awaited.
+		await expect(
+			page.getByRole('heading', { name: 'Přihlášení k účtu OAuth.User@gmail.com' })
+		).toBeVisible();
+		await expect(page.getByText('Čekám na dokončení v prohlížeči…')).toHaveCount(0);
+	});
+
 	test('Outlook e-mail otevře OAuth panel s Microsoft CTA bez IMAP formuláře', async ({ page }) => {
 		await openApp(page, '/settings/accounts/new');
 

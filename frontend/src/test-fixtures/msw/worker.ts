@@ -31,6 +31,7 @@ import {
 	clearAccounts,
 	resetFixtures,
 	seedInboxThreadMember,
+	seedOAuthAccount,
 	seedTrashThreadMembers
 } from './fixtures.js';
 import type { SessionPayload } from '$lib/api/session.js';
@@ -68,6 +69,9 @@ function applyFixtureFlags(): void {
 	}
 	if (window.localStorage.getItem('mail.e2e.inboxThreadMember') === '1') {
 		seedInboxThreadMember();
+	}
+	if (window.localStorage.getItem('mail.e2e.oauthAccount') === '1') {
+		seedOAuthAccount();
 	}
 	/*
 	 * Response-shape flags, unlike the failure switches above, are read here

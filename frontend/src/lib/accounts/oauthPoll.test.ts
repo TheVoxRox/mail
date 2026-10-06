@@ -2,12 +2,16 @@ import { describe, expect, it, vi } from 'vitest';
 import {
 	OAUTH_POLL_MAX_ATTEMPTS,
 	pollForOAuthAccount,
+	signedInAccountFor,
+	type OAuthPollAccount,
 	type OAuthPollOptions
 } from './oauthPoll.js';
 
-type TestAccount = { id: number; email: string };
+type TestAccount = OAuthPollAccount;
 
-const ACCOUNT: TestAccount = { id: 1, email: 'test.user@gmail.com' };
+const ACCOUNT: TestAccount = { id: 1, email: 'test.user@gmail.com', oauth2Provider: 'google' };
+/** The same address as a password account, before a sign-in takes it over. */
+const PASSWORD_ACCOUNT: TestAccount = { ...ACCOUNT, oauth2Provider: null };
 
 /** sleep is injected and resolves instantly so the ~10-min budget runs in ms. */
 function baseOptions(
@@ -16,6 +20,7 @@ function baseOptions(
 ): OAuthPollOptions<TestAccount> {
 	return {
 		email: 'test.user@gmail.com',
+		baseline: [],
 		listAccounts,
 		sleep: async () => {},
 		...overrides
@@ -28,12 +33,12 @@ describe('pollForOAuthAccount', () => {
 		const listAccounts = vi.fn(async () => {
 			calls += 1;
 			// Appears on the 3rd poll, with different casing than the query.
-			return calls >= 3 ? [{ id: 1, email: 'Test.User@Gmail.com' }] : [];
+			return calls >= 3 ? [{ ...ACCOUNT, email: 'Test.User@Gmail.com' }] : [];
 		});
 
 		const result = await pollForOAuthAccount(baseOptions(listAccounts));
 
-		expect(result).toEqual({ id: 1, email: 'Test.User@Gmail.com' });
+		expect(result).toEqual({ ...ACCOUNT, email: 'Test.User@Gmail.com' });
 		expect(calls).toBe(3);
 	});
 
@@ -91,5 +96,54 @@ describe('pollForOAuthAccount', () => {
 		expect(result).toBeNull();
 		// Far fewer than the full budget — it bailed out, not timed out.
 		expect(listAccounts.mock.calls.length).toBeLessThan(OAUTH_POLL_MAX_ATTEMPTS);
+	});
+
+	/*
+	 * The wizard matched by address alone, so an account that already had the
+	 * address was found on the first poll and reported added before the user had
+	 * signed in at all.
+	 */
+	it('does not count an account a sign-in already owned before this one started', async () => {
+		const listAccounts = vi.fn(async () => [ACCOUNT]);
+
+		const result = await pollForOAuthAccount(baseOptions(listAccounts, { baseline: [ACCOUNT] }));
+
+		expect(result).toBeNull();
+		expect(listAccounts).toHaveBeenCalledTimes(OAUTH_POLL_MAX_ATTEMPTS + 1);
+	});
+
+	it('counts a password account once the sign-in has taken it over', async () => {
+		let calls = 0;
+		const listAccounts = vi.fn(async () => {
+			calls += 1;
+			return calls >= 3 ? [ACCOUNT] : [PASSWORD_ACCOUNT];
+		});
+
+		const result = await pollForOAuthAccount(
+			baseOptions(listAccounts, { baseline: [PASSWORD_ACCOUNT] })
+		);
+
+		expect(result).toEqual(ACCOUNT);
+		expect(calls).toBe(3);
+	});
+
+	it('does not count a password account the sign-in has not taken over', async () => {
+		const listAccounts = vi.fn(async () => [PASSWORD_ACCOUNT]);
+
+		const result = await pollForOAuthAccount(
+			baseOptions(listAccounts, { baseline: [PASSWORD_ACCOUNT] })
+		);
+
+		expect(result).toBeNull();
+	});
+});
+
+describe('signedInAccountFor', () => {
+	it('finds the account a sign-in owns under the address, whatever its casing', () => {
+		expect(signedInAccountFor([ACCOUNT], ' Test.User@Gmail.com ')).toEqual(ACCOUNT);
+	});
+
+	it('leaves a password account under the address to the sign-in, which upgrades it', () => {
+		expect(signedInAccountFor([PASSWORD_ACCOUNT], ACCOUNT.email)).toBeUndefined();
 	});
 });
