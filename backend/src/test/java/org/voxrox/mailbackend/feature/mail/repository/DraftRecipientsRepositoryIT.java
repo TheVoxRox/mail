@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.UUID;
 
 import jakarta.persistence.EntityManager;
@@ -75,17 +76,39 @@ class DraftRecipientsRepositoryIT {
         assertThat(repository.findById(new DraftRecipientsEntity.Key(other.getId(), "<draft@voxrox.org>"))).isEmpty();
     }
 
+    /**
+     * B1-5, reopened at 1.46: an entry counted as current from the save's
+     * acceptance, so the saves a server kept waiting for the APPEND lane took
+     * current places. It becomes current only once its revision is stored.
+     */
     @Test
-    @DisplayName("Only the account's entries older than its newest few are dropped, however recent they are")
+    @DisplayName("An entry is current only once its revision is stored, and only that account's (B1-5)")
+    void anEntryIsCurrentOnlyOnceStored() {
+        AccountEntity account = newAccount("user@example.com");
+        AccountEntity other = newAccount("other@example.com");
+        LocalDateTime now = LocalDateTime.now();
+        keep("<draft@voxrox.org>", "stable-a", "chain", account, now);
+        keep("<other-account@voxrox.org>", "stable-a", "chain", other, now);
+        em.clear();
+
+        assertThat(currentEntries()).as("accepted, not yet stored").isEmpty();
+        assertThat(repository.markStored(account.getId(), "chain", "<draft@voxrox.org>", now)).isEqualTo(1);
+        em.clear();
+
+        assertThat(currentEntries()).containsExactly("<draft@voxrox.org>");
+    }
+
+    @Test
+    @DisplayName("Only the account's current entries older than its newest few are dropped, however recent they are")
     void keepsTheAccountsNewestEntries() {
         AccountEntity account = newAccount("user@example.com");
         AccountEntity other = newAccount("other@example.com");
         LocalDateTime now = LocalDateTime.now();
-        keep("<a@voxrox.org>", account, now.minusMinutes(4));
-        keep("<b@voxrox.org>", account, now.minusMinutes(3));
-        keep("<c@voxrox.org>", account, now.minusMinutes(2));
-        keep("<d@voxrox.org>", account, now.minusMinutes(1));
-        keep("<other@voxrox.org>", other, now.minusDays(30));
+        stored("<a@voxrox.org>", account, now.minusMinutes(4));
+        stored("<b@voxrox.org>", account, now.minusMinutes(3));
+        stored("<c@voxrox.org>", account, now.minusMinutes(2));
+        stored("<d@voxrox.org>", account, now.minusMinutes(1));
+        stored("<other@voxrox.org>", other, now.minusDays(30));
         em.clear();
 
         int dropped = repository.deleteCurrentButNewest(account.getId(), 2);
@@ -99,8 +122,8 @@ class DraftRecipientsRepositoryIT {
     @DisplayName("An account with no more entries than it keeps loses none, however old they are")
     void dropsNothingWithinTheBound() {
         AccountEntity account = newAccount("user@example.com");
-        keep("<old@voxrox.org>", account, LocalDateTime.now().minusYears(1));
-        keep("<new@voxrox.org>", account, LocalDateTime.now());
+        stored("<old@voxrox.org>", account, LocalDateTime.now().minusYears(1));
+        stored("<new@voxrox.org>", account, LocalDateTime.now());
         em.clear();
 
         assertThat(repository.deleteCurrentButNewest(account.getId(), 2)).isZero();
@@ -111,13 +134,12 @@ class DraftRecipientsRepositoryIT {
      * B1-5, reopened at 1.31: the entries used to share one count, and a save
      * retired the revision it replaced only when the server let it, so a server
      * without APPENDUID had a hidden draft's entry pushed out by the user's
-     * autosaves. Each save now marks the revision it replaces superseded, and the
-     * two kinds are bounded apart.
+     * autosaves. Each stored save now sets aside the earlier revisions of its
+     * draft, and the two kinds are bounded apart.
      * <p>
-     * The bound here is three, as the service's is a thousand: a draft being saved
-     * holds two current entries for the moment of a save, since the new one is kept
-     * before the append and the old one marked after it, so the hidden draft needs
-     * the third place.
+     * The bound here is three, as the service's is a thousand, and the current
+     * entries are pruned to one fewer before each save, as the service prunes them,
+     * leaving the place the save's revision takes once stored.
      */
     @Test
     @DisplayName("Autosaves of one draft never push out another draft's entry (B1-5)")
@@ -126,21 +148,20 @@ class DraftRecipientsRepositoryIT {
 
         autosave(account, 10, true);
 
-        assertThat(repository.findAll()).filteredOn(entry -> entry.getSupersededAt() == null)
-                .extracting(DraftRecipientsEntity::getMessageId)
-                .containsExactlyInAnyOrder("<hidden@voxrox.org>", "<rev10@voxrox.org>");
-        // Pruned to the bound before each save, then one more marked after it.
+        assertThat(currentEntries()).containsExactlyInAnyOrder("<hidden@voxrox.org>", "<rev10@voxrox.org>");
+        // Pruned to the bound before each save, then one more set aside after it.
         assertThat(repository.findAll()).filteredOn(entry -> entry.getSupersededAt() != null)
                 .hasSizeLessThanOrEqualTo(BOUND + 1);
     }
 
     /**
-     * The same autosaves without the mark — what a save did until 1.36 when the
-     * server gave it no row to delete — push the hidden draft's entry out.
+     * The same autosaves with each revision in a draft of its own — a save that
+     * retires nothing, what a save did until 1.36 when the server gave it no row to
+     * delete — push the hidden draft's entry out.
      */
     @Test
-    @DisplayName("Without the mark, the same autosaves push the hidden draft's entry out")
-    void withoutTheMarkAutosavesPushItOut() {
+    @DisplayName("Without the chain, the same autosaves push the hidden draft's entry out")
+    void withoutTheChainAutosavesPushItOut() {
         AccountEntity account = newAccount("user@example.com");
 
         autosave(account, 10, false);
@@ -151,49 +172,47 @@ class DraftRecipientsRepositoryIT {
 
     /**
      * The same push-out by a server rejecting every APPEND, found by the
-     * verification pass over 1.37: each save keeps its entry before the append, the
-     * previous revision stays current, and only setting the rejected revision's
-     * entry aside keeps the current ones from growing.
+     * verification pass over 1.37, and by one keeping every save waiting, found by
+     * the pass over 1.44: each save keeps its entry before the append, and only
+     * keeping a revision the server has not stored out of the current entries keeps
+     * them from growing.
      */
     @Test
-    @DisplayName("Rejected saves never push out another draft's entry either (B1-5)")
+    @DisplayName("Saves that store nothing never push out another draft's entry either (B1-5)")
     void rejectedSavesDoNotPushOutAnotherDraft() {
         AccountEntity account = newAccount("user@example.com");
         LocalDateTime start = LocalDateTime.now().minusHours(1);
-        keep("<hidden@voxrox.org>", "stable-hidden", account, start);
-        keep("<stored@voxrox.org>", "stable-stored", account, start.plusSeconds(1));
+        stored("<hidden@voxrox.org>", account, start);
+        stored("<stored@voxrox.org>", account, start.plusSeconds(1));
         for (int save = 1; save <= 10; save++) {
             repository.deleteCurrentButNewest(account.getId(), BOUND - 1);
-            repository.deleteSupersededButNewest(account.getId(), BOUND);
-            keep("<rejected" + save + "@voxrox.org>", "stable-rejected" + save, account, start.plusMinutes(save));
-            repository.markSuperseded(account.getId(), "stable-rejected" + save, start.plusMinutes(save));
+            repository.deleteNotCurrentButNewest(account.getId(), BOUND);
+            keep("<rejected" + save + "@voxrox.org>", "stable-rejected" + save, "stable-<stored@voxrox.org>", account,
+                    start.plusMinutes(save));
         }
         em.clear();
 
-        assertThat(repository.findAll()).filteredOn(entry -> entry.getSupersededAt() == null)
-                .extracting(DraftRecipientsEntity::getMessageId)
-                .containsExactlyInAnyOrder("<hidden@voxrox.org>", "<stored@voxrox.org>");
+        assertThat(currentEntries()).containsExactlyInAnyOrder("<hidden@voxrox.org>", "<stored@voxrox.org>");
     }
 
     private static final int BOUND = 3;
 
     /**
-     * A hidden draft's entry, then {@code saves} saves of another draft in the
-     * service's order: prune both kinds, keep the new revision's entry, and — when
-     * {@code mark} — mark the revision it replaced superseded.
+     * A hidden draft's entry, then {@code saves} stored saves of another draft in
+     * the service's order: prune both kinds, keep the new revision's entry, and
+     * store it — in the draft's chain when {@code inChain}, so it sets the earlier
+     * revisions aside, and otherwise in a chain of its own.
      */
-    private void autosave(AccountEntity account, int saves, boolean mark) {
+    private void autosave(AccountEntity account, int saves, boolean inChain) {
         LocalDateTime start = LocalDateTime.now().minusHours(1);
-        keep("<hidden@voxrox.org>", "stable-hidden", account, start);
-        String previous = null;
+        stored("<hidden@voxrox.org>", account, start);
         for (int save = 1; save <= saves; save++) {
             repository.deleteCurrentButNewest(account.getId(), BOUND - 1);
-            repository.deleteSupersededButNewest(account.getId(), BOUND);
-            keep("<rev" + save + "@voxrox.org>", "stable-rev" + save, account, start.plusMinutes(save));
-            if (mark && previous != null) {
-                repository.markSuperseded(account.getId(), previous, start.plusMinutes(save));
-            }
-            previous = "stable-rev" + save;
+            repository.deleteNotCurrentButNewest(account.getId(), BOUND);
+            String messageId = "<rev" + save + "@voxrox.org>";
+            String chainId = inChain ? "stable-rev1" : "stable-rev" + save;
+            keep(messageId, "stable-rev" + save, chainId, account, start.plusMinutes(save));
+            repository.markStored(account.getId(), chainId, messageId, start.plusMinutes(save));
         }
         em.clear();
     }
@@ -201,37 +220,69 @@ class DraftRecipientsRepositoryIT {
     /**
      * B1-5, found by the verification pass over 1.39: a stored revision sets aside
      * the earlier revisions of its draft by their chain, whichever of them its save
-     * named, and leaves the rest alone — itself, a newer revision of the chain that
-     * a slow save stored late must not set aside, another draft's chain, and
-     * another account's entries.
+     * named, and leaves the rest alone — a newer revision of the chain, another
+     * draft's chain, and another account's entries. Since 1.47 the same statement
+     * makes the stored revision current, and an earlier revision still waiting for
+     * the server is set aside with the stored ones.
      */
     @Test
-    @DisplayName("A stored revision sets aside only the account's earlier current entries of its chain")
+    @DisplayName("A stored revision becomes current and sets aside only the account's earlier entries of its chain")
     void setsAsideOnlyTheEarlierEntriesOfTheChain() {
         AccountEntity account = newAccount("user@example.com");
         AccountEntity other = newAccount("other@example.com");
         // SQLite keeps milliseconds, so the time read back is compared at that
         // precision.
         LocalDateTime start = LocalDateTime.now().minusHours(1).truncatedTo(ChronoUnit.MILLIS);
-        keep("<stored-before@voxrox.org>", "stable-a", "chain", account, start);
-        keep("<rejected@voxrox.org>", "stable-b", "chain", account, start.plusMinutes(1));
-        repository.markSuperseded(account.getId(), "stable-b", start.plusMinutes(1));
-        keep("<stored@voxrox.org>", "stable-c", "chain", account, start.plusMinutes(2));
-        keep("<newer@voxrox.org>", "stable-d", "chain", account, start.plusMinutes(3));
+        keep("<set-aside-before@voxrox.org>", "stable-o", "chain", account, start);
+        keep("<stored-before@voxrox.org>", "stable-a", "chain", account, start.plusMinutes(1));
+        repository.markStored(account.getId(), "chain", "<stored-before@voxrox.org>", start.plusMinutes(1));
+        keep("<waiting@voxrox.org>", "stable-b", "chain", account, start.plusMinutes(2));
+        keep("<stored@voxrox.org>", "stable-c", "chain", account, start.plusMinutes(3));
+        keep("<newer@voxrox.org>", "stable-d", "chain", account, start.plusMinutes(4));
         keep("<another-draft@voxrox.org>", "stable-e", "another-chain", account, start);
+        repository.markStored(account.getId(), "another-chain", "<another-draft@voxrox.org>", start);
         keep("<other-account@voxrox.org>", "stable-a", "chain", other, start);
+        repository.markStored(other.getId(), "chain", "<other-account@voxrox.org>", start);
         em.clear();
 
-        assertThat(repository.supersedeEarlierInChain(account.getId(), "chain", "<stored@voxrox.org>",
-                start.plusMinutes(4))).isEqualTo(1);
+        assertThat(repository.markStored(account.getId(), "chain", "<stored@voxrox.org>", start.plusMinutes(5)))
+                .isEqualTo(3);
         em.clear();
 
-        assertThat(repository.findAll()).filteredOn(entry -> entry.getSupersededAt() == null)
-                .extracting(DraftRecipientsEntity::getMessageId).containsExactlyInAnyOrder("<stored@voxrox.org>",
-                        "<newer@voxrox.org>", "<another-draft@voxrox.org>", "<other-account@voxrox.org>");
-        assertThat(repository.findAll()).filteredOn(entry -> "<rejected@voxrox.org>".equals(entry.getMessageId()))
-                .extracting(DraftRecipientsEntity::getSupersededAt).as("an entry already set aside keeps its time")
-                .containsExactly(start.plusMinutes(1));
+        assertThat(currentEntries()).containsExactlyInAnyOrder("<stored@voxrox.org>", "<another-draft@voxrox.org>",
+                "<other-account@voxrox.org>");
+        assertThat(entry("<set-aside-before@voxrox.org>").getSupersededAt())
+                .as("an entry already set aside keeps its time").isEqualTo(start.plusMinutes(1));
+        assertThat(entry("<waiting@voxrox.org>").getSupersededAt()).as("an earlier save still waiting is set aside")
+                .isEqualTo(start.plusMinutes(5));
+        assertThat(entry("<newer@voxrox.org>")).as("a later save is left to its own outcome")
+                .extracting(DraftRecipientsEntity::getStoredAt, DraftRecipientsEntity::getSupersededAt)
+                .containsExactly(null, null);
+    }
+
+    /**
+     * A save overtaken by a later one of its draft: its entry was set aside when
+     * the later revision was stored, and it does not become current when its own
+     * APPEND is stored at last. Until 1.47 the later revision's entry, current from
+     * acceptance, stood beside the overtaken one's while it waited.
+     */
+    @Test
+    @DisplayName("A revision a later stored one has set aside stays so when it is stored late")
+    void aRevisionSetAsideStaysSoWhenStoredLate() {
+        AccountEntity account = newAccount("user@example.com");
+        LocalDateTime now = LocalDateTime.now();
+        keep("<slow@voxrox.org>", "stable-a", "chain", account, now);
+        keep("<fast@voxrox.org>", "stable-b", "chain", account, now.plusSeconds(1));
+        em.clear();
+
+        assertThat(repository.markStored(account.getId(), "chain", "<fast@voxrox.org>", now)).isEqualTo(2);
+        assertThat(repository.markStored(account.getId(), "chain", "<slow@voxrox.org>", now.plusSeconds(1))).isZero();
+        assertThat(repository.markStored(account.getId(), "chain", "<unknown@voxrox.org>", now))
+                .as("a revision with no entry here changes nothing").isZero();
+        em.clear();
+
+        assertThat(currentEntries()).containsExactly("<fast@voxrox.org>");
+        assertThat(entry("<slow@voxrox.org>").getStoredAt()).isNull();
     }
 
     /**
@@ -246,15 +297,14 @@ class DraftRecipientsRepositoryIT {
         AccountEntity account = newAccount("user@example.com");
         LocalDateTime now = LocalDateTime.now();
         keep("<before-the-step@voxrox.org>", "stable-a", "chain", account, now);
+        repository.markStored(account.getId(), "chain", "<before-the-step@voxrox.org>", now);
         keep("<after-the-step@voxrox.org>", "stable-b", "chain", account, now.minusHours(1));
         em.clear();
 
-        assertThat(repository.supersedeEarlierInChain(account.getId(), "chain", "<after-the-step@voxrox.org>", now))
-                .isEqualTo(1);
+        assertThat(repository.markStored(account.getId(), "chain", "<after-the-step@voxrox.org>", now)).isEqualTo(2);
         em.clear();
 
-        assertThat(repository.findAll()).filteredOn(entry -> entry.getSupersededAt() == null)
-                .extracting(DraftRecipientsEntity::getMessageId).containsExactly("<after-the-step@voxrox.org>");
+        assertThat(currentEntries()).containsExactly("<after-the-step@voxrox.org>");
     }
 
     @Test
@@ -262,8 +312,8 @@ class DraftRecipientsRepositoryIT {
     void newestGoesByTheOrderWritten() {
         AccountEntity account = newAccount("user@example.com");
         LocalDateTime now = LocalDateTime.now();
-        keep("<written-first@voxrox.org>", account, now);
-        keep("<written-last@voxrox.org>", account, now.minusHours(1));
+        stored("<written-first@voxrox.org>", account, now);
+        stored("<written-last@voxrox.org>", account, now.minusHours(1));
         em.clear();
 
         assertThat(repository.deleteCurrentButNewest(account.getId(), 1)).isEqualTo(1);
@@ -286,57 +336,60 @@ class DraftRecipientsRepositoryIT {
         assertThat(repository.findChainId(account.getId(), "stable-unknown")).isEmpty();
     }
 
+    /**
+     * Current entries on one side; on the other, revisions set aside and a save
+     * still waiting for the server, which until 1.47 counted as current (B1-5,
+     * reopened at 1.46).
+     */
     @Test
-    @DisplayName("Marking a revision superseded touches only that account's current entry with the stableId")
-    void marksOnlyTheNamedCurrentEntry() {
-        AccountEntity account = newAccount("user@example.com");
-        AccountEntity other = newAccount("other@example.com");
-        LocalDateTime now = LocalDateTime.now();
-        keep("<a@voxrox.org>", "stable-a", account, now);
-        keep("<b@voxrox.org>", "stable-b", account, now);
-        keep("<other@voxrox.org>", "stable-a", other, now);
-        em.clear();
-
-        assertThat(repository.markSuperseded(account.getId(), "stable-a", now)).isEqualTo(1);
-        assertThat(repository.markSuperseded(account.getId(), "stable-a", now.plusMinutes(1)))
-                .as("an entry already superseded keeps its time").isZero();
-        em.clear();
-
-        assertThat(repository.findAll()).filteredOn(entry -> entry.getSupersededAt() != null)
-                .extracting(DraftRecipientsEntity::getMessageId).containsExactly("<a@voxrox.org>");
-    }
-
-    @Test
-    @DisplayName("Each kind is bounded on its own: superseded entries neither count against nor push out current ones")
+    @DisplayName("Each kind is bounded on its own: entries not current neither count against nor push out current ones")
     void theTwoKindsAreBoundedApart() {
         AccountEntity account = newAccount("user@example.com");
         LocalDateTime now = LocalDateTime.now();
-        keep("<current-old@voxrox.org>", "stable-current-old", account, now.minusMinutes(10));
-        for (int i = 1; i <= 3; i++) {
-            keep("<sup" + i + "@voxrox.org>", "stable-sup" + i, account, now.minusMinutes(5 - i));
-            repository.markSuperseded(account.getId(), "stable-sup" + i, now);
-        }
+        stored("<current-old@voxrox.org>", account, now.minusMinutes(10));
+        keep("<rev1@voxrox.org>", "stable-rev1", "chain", account, now.minusMinutes(4));
+        keep("<rev2@voxrox.org>", "stable-rev2", "chain", account, now.minusMinutes(3));
+        keep("<rev3@voxrox.org>", "stable-rev3", "chain", account, now.minusMinutes(2));
+        repository.markStored(account.getId(), "chain", "<rev3@voxrox.org>", now);
+        keep("<waiting@voxrox.org>", "stable-rev4", "chain", account, now.minusMinutes(1));
         em.clear();
 
-        assertThat(repository.deleteCurrentButNewest(account.getId(), 1)).isZero();
-        assertThat(repository.deleteSupersededButNewest(account.getId(), 1)).isEqualTo(2);
+        assertThat(repository.deleteCurrentButNewest(account.getId(), 2)).isZero();
+        assertThat(repository.deleteNotCurrentButNewest(account.getId(), 1)).isEqualTo(2);
         em.clear();
 
         assertThat(repository.findAll()).extracting(DraftRecipientsEntity::getMessageId)
-                .containsExactlyInAnyOrder("<current-old@voxrox.org>", "<sup3@voxrox.org>");
+                .containsExactlyInAnyOrder("<current-old@voxrox.org>", "<rev3@voxrox.org>", "<waiting@voxrox.org>");
     }
 
     private void keep(String messageId, AccountEntity account, LocalDateTime savedAt) {
-        keep(messageId, null, account, savedAt);
-    }
-
-    private void keep(String messageId, String stableId, AccountEntity account, LocalDateTime savedAt) {
-        keep(messageId, stableId, null, account, savedAt);
+        keep(messageId, null, null, account, savedAt);
     }
 
     private void keep(String messageId, String stableId, String chainId, AccountEntity account, LocalDateTime savedAt) {
         // The way the service writes an entry, numbered in the order of these calls.
         repository.insertEntry(account.getId(), messageId, stableId, chainId, "to@example.com", null, null, savedAt);
+    }
+
+    /** An entry kept and stored as the first revision of a draft of its own. */
+    private void stored(String messageId, AccountEntity account, LocalDateTime savedAt) {
+        String stableId = "stable-" + messageId;
+        keep(messageId, stableId, stableId, account, savedAt);
+        repository.markStored(account.getId(), stableId, messageId, savedAt);
+    }
+
+    /**
+     * Entries whose revision the server stored and no later stored save set aside.
+     */
+    private List<String> currentEntries() {
+        return repository.findAll().stream()
+                .filter(entry -> entry.getStoredAt() != null && entry.getSupersededAt() == null)
+                .map(DraftRecipientsEntity::getMessageId).toList();
+    }
+
+    private DraftRecipientsEntity entry(String messageId) {
+        return repository.findAll().stream().filter(candidate -> messageId.equals(candidate.getMessageId())).findFirst()
+                .orElseThrow();
     }
 
     private AccountEntity newAccount(String email) {

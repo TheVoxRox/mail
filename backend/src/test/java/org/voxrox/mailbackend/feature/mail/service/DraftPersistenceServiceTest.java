@@ -147,12 +147,8 @@ class DraftPersistenceServiceTest {
             assertThat(err.getValue().code()).isEqualTo(AccountLastErrorCode.DRAFT_SAVE_FAILED);
             verify(accountRepository, never()).clearLastErrorIfCodeIn(anyLong(), any());
             // The old revision is still the current one, so its entry stays current, and
-            // the new revision the server did not store is set aside instead (B1-5).
-            verify(draftRecipientsRepository, never()).markSuperseded(eq(ACCOUNT_ID), eq(STABLE_ID), any());
-            verify(draftRecipientsRepository, never()).supersedeEarlierInChain(anyLong(), anyString(), anyString(),
-                    any());
-            verify(draftRecipientsRepository).markSuperseded(eq(ACCOUNT_ID), eq(IDENTITY.stableId()),
-                    any(LocalDateTime.class));
+            // the new revision the server did not store takes no current place (B1-5).
+            verify(draftRecipientsRepository, never()).markStored(anyLong(), anyString(), anyString(), any());
         }
 
         @Test
@@ -331,12 +327,14 @@ class DraftPersistenceServiceTest {
             service.acceptDraftSave(ACCOUNT_ID,
                     new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null);
 
-            // One fewer current entry than the bound, so the entry this save adds makes it
-            // whole; the superseded ones have a bound of their own (B1-5).
+            // One fewer current entry than the bound, so this save's revision makes it
+            // whole
+            // once stored; the entries that are not current have a bound of their own
+            // (B1-5).
             InOrder order = inOrder(draftRecipientsRepository);
             order.verify(draftRecipientsRepository).deleteCurrentButNewest(ACCOUNT_ID,
                     DraftPersistenceService.KEPT_DRAFT_RECIPIENTS - 1);
-            order.verify(draftRecipientsRepository).deleteSupersededButNewest(ACCOUNT_ID,
+            order.verify(draftRecipientsRepository).deleteNotCurrentButNewest(ACCOUNT_ID,
                     DraftPersistenceService.KEPT_DRAFT_RECIPIENTS);
             order.verify(draftRecipientsRepository).insertEntry(eq(ACCOUNT_ID), any(), any(), any(), any(), any(),
                     any(), any());
@@ -376,10 +374,11 @@ class DraftPersistenceServiceTest {
          * only when it found that revision's row and the server deleted it, so a server
          * without APPENDUID made the entries grow by saves. Since the pass over 1.39 a
          * stored save sets aside every earlier revision of the draft, by the chain its
-         * own entry carries, whatever the server answers.
+         * own entry carries, whatever the server answers, and since 1.47 that is also
+         * what makes its own entry current.
          */
         @Test
-        @DisplayName("A stored save sets aside the earlier revisions of its draft even when the server gave it no row (B1-5)")
+        @DisplayName("A stored save becomes current and sets aside the earlier revisions of its draft even when the server gave it no row (B1-5)")
         void aSaveSetsAsideTheEarlierRevisionsWithoutTheirRow() throws Exception {
             savesWithoutAppendUid();
             when(messageService.getByStableId("stable-previous-revision")).thenReturn(Optional.empty());
@@ -390,9 +389,8 @@ class DraftPersistenceServiceTest {
                     new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null),
                     "stable-previous-revision", IDENTITY);
 
-            verify(draftRecipientsRepository).supersedeEarlierInChain(eq(ACCOUNT_ID), eq("stable-first-revision"),
+            verify(draftRecipientsRepository).markStored(eq(ACCOUNT_ID), eq("stable-first-revision"),
                     eq(IDENTITY.messageId()), any(LocalDateTime.class));
-            verify(draftRecipientsRepository, never()).markSuperseded(anyLong(), anyString(), any());
             verify(imapActionService, never()).hardDelete(anyLong(), anyString(), anyLong());
         }
 
@@ -403,8 +401,8 @@ class DraftPersistenceServiceTest {
          * draft's entry that way.
          */
         @Test
-        @DisplayName("An APPEND that throws sets the new revision's entry aside too (B1-5)")
-        void aFailingAppendSetsTheNewEntryAside() throws Exception {
+        @DisplayName("An APPEND that throws leaves the new revision's entry out of the current ones (B1-5)")
+        void aFailingAppendDoesNotMakeTheNewEntryCurrent() throws Exception {
             AccountEntity account = new AccountEntity();
             account.setId(ACCOUNT_ID);
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
@@ -415,22 +413,19 @@ class DraftPersistenceServiceTest {
             service.saveDraftAsync(ACCOUNT_ID,
                     new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null, IDENTITY);
 
-            verify(draftRecipientsRepository).markSuperseded(eq(ACCOUNT_ID), eq(IDENTITY.stableId()),
-                    any(LocalDateTime.class));
-            verify(draftRecipientsRepository, never()).supersedeEarlierInChain(anyLong(), anyString(), anyString(),
-                    any());
+            verify(draftRecipientsRepository, never()).markStored(anyLong(), anyString(), anyString(), any());
         }
 
         /**
          * B1-5, reopened at 1.43: since 1.42 the entry is kept when the save is
          * accepted, before the task runs, and only a failed APPEND set it aside, so a
          * task that stopped before the APPEND left it current. A reply carrying a
-         * folded {@code References} header fails the message build every time, so each
+         * folded {@code References} header failed the message build every time, so each
          * of its autosaves added a current entry.
          */
         @Test
-        @DisplayName("A save whose message cannot be built sets its entry aside (B1-5)")
-        void aSaveThatCannotBeBuiltSetsItsEntryAside() throws Exception {
+        @DisplayName("A save whose message cannot be built leaves its entry out of the current ones (B1-5)")
+        void aSaveThatCannotBeBuiltDoesNotMakeItsEntryCurrent() throws Exception {
             AccountEntity account = new AccountEntity();
             account.setId(ACCOUNT_ID);
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
@@ -440,15 +435,14 @@ class DraftPersistenceServiceTest {
             service.saveDraftAsync(ACCOUNT_ID,
                     new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null, IDENTITY);
 
-            verify(draftRecipientsRepository).markSuperseded(eq(ACCOUNT_ID), eq(IDENTITY.stableId()),
-                    any(LocalDateTime.class));
+            verify(draftRecipientsRepository, never()).markStored(anyLong(), anyString(), anyString(), any());
             verifyNoInteractions(appendService);
         }
 
         /** B1-5, reopened at 1.43: the same for a task that stops before the build. */
         @Test
-        @DisplayName("A save that stops on the revision it replaces sets its entry aside (B1-5)")
-        void aSaveThatStopsOnTheReplacedRowSetsItsEntryAside() {
+        @DisplayName("A save that stops on the revision it replaces leaves its entry out of the current ones (B1-5)")
+        void aSaveThatStopsOnTheReplacedRowDoesNotMakeItsEntryCurrent() {
             when(messageService.getByStableId("stable-previous-revision"))
                     .thenThrow(new DataAccessResourceFailureException("database is locked"));
 
@@ -456,8 +450,7 @@ class DraftPersistenceServiceTest {
                     new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null),
                     "stable-previous-revision", IDENTITY);
 
-            verify(draftRecipientsRepository).markSuperseded(eq(ACCOUNT_ID), eq(IDENTITY.stableId()),
-                    any(LocalDateTime.class));
+            verify(draftRecipientsRepository, never()).markStored(anyLong(), anyString(), anyString(), any());
             verifyNoInteractions(appendService);
         }
 
@@ -551,12 +544,18 @@ class DraftPersistenceServiceTest {
             when(mimeMessageBuilder.build(any(), any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
             when(appendService.appendDraft(eq(ACCOUNT_ID), eq("Drafts"), any()))
                     .thenReturn(new ImapAppendService.DraftAppendOutcome(true, null, null));
+            when(draftRecipientsRepository.findChainId(eq(ACCOUNT_ID), anyString()))
+                    .thenAnswer(invocation -> Optional.of(invocation.getArgument(1, String.class)));
 
             String recoveryId = service.saveRecoveryDraft(ACCOUNT_ID,
                     new MailRequest("to@example.com", null, null, "subj", "body", null, null, null));
 
             assertThat(recoveryId).isNotBlank();
             verify(appendService).appendDraft(eq(ACCOUNT_ID), eq("Drafts"), any());
+            // The stored recovery draft is a draft of its own, its entry the current one
+            // (B1-5; the pass over 1.44 found no test that would see it set aside).
+            verify(draftRecipientsRepository).markStored(eq(ACCOUNT_ID), eq(recoveryId), anyString(),
+                    any(LocalDateTime.class));
         }
 
         @Test
@@ -574,6 +573,8 @@ class DraftPersistenceServiceTest {
                     new MailRequest("to@example.com", null, null, "subj", "body", null, null, null));
 
             assertThat(recoveryId).isNull();
+            // Its entry takes no current place (B1-5; until 1.47 no test covered it).
+            verify(draftRecipientsRepository, never()).markStored(anyLong(), anyString(), anyString(), any());
         }
 
         /**
@@ -606,8 +607,8 @@ class DraftPersistenceServiceTest {
          * and a build that failed was caught without setting the entry aside.
          */
         @Test
-        @DisplayName("saveRecoveryDraft: a message that cannot be built sets its kept entry aside")
-        void saveRecoveryDraftSetsItsEntryAsideWhenTheBuildFails() throws Exception {
+        @DisplayName("saveRecoveryDraft: a message that cannot be built leaves its kept entry out of the current ones")
+        void saveRecoveryDraftDoesNotMakeItsEntryCurrentWhenTheBuildFails() throws Exception {
             AccountEntity account = new AccountEntity();
             account.setId(ACCOUNT_ID);
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
@@ -619,11 +620,9 @@ class DraftPersistenceServiceTest {
                     new MailRequest("to@example.com", null, null, "subj", "body", null, null, null));
 
             assertThat(recoveryId).isNull();
-            ArgumentCaptor<String> kept = ArgumentCaptor.forClass(String.class);
-            verify(draftRecipientsRepository).insertEntry(eq(ACCOUNT_ID), any(), kept.capture(), any(), any(), any(),
-                    any(), any());
-            verify(draftRecipientsRepository).markSuperseded(eq(ACCOUNT_ID), eq(kept.getValue()),
-                    any(LocalDateTime.class));
+            verify(draftRecipientsRepository).insertEntry(eq(ACCOUNT_ID), any(), any(), any(), any(), any(), any(),
+                    any());
+            verify(draftRecipientsRepository, never()).markStored(anyLong(), anyString(), anyString(), any());
             verifyNoInteractions(appendService);
         }
     }
