@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import jakarta.mail.AuthenticationFailedException;
 import jakarta.mail.Folder;
@@ -33,6 +34,7 @@ import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.retry.support.RetryTemplate;
+import org.springframework.util.unit.DataSize;
 import org.voxrox.mailbackend.core.config.MailClientProperties;
 import org.voxrox.mailbackend.core.config.mail.ImapProperties;
 import org.voxrox.mailbackend.core.metrics.MailMetrics;
@@ -136,7 +138,7 @@ class ImapConnectionManagerTest {
 
     private void stubInteractiveRetryAfter(Duration retryAfter) {
         when(mailProps.imap()).thenReturn(new ImapProperties(993, Duration.ofSeconds(30), Duration.ofSeconds(60),
-                Duration.ofSeconds(60), "imaps", "imap", Duration.ofSeconds(1), retryAfter));
+                Duration.ofSeconds(60), "imaps", "imap", Duration.ofSeconds(1), retryAfter, DataSize.ofMegabytes(128)));
     }
 
     @Nested
@@ -798,7 +800,8 @@ class ImapConnectionManagerTest {
         }
 
         @Test
-        @DisplayName("The store is the bounded one, registered before it is asked for (audit B1-3)")
+        @DisplayName("The store is the bounded one, registered with its open-folder budget before it is asked for "
+                + "(audit B1-3, B1-14)")
         void storeIsTheBoundedOne() throws Exception {
             Store dead = mock(Store.class);
             when(dead.isConnected()).thenReturn(false);
@@ -806,7 +809,15 @@ class ImapConnectionManagerTest {
             when(connectionDetailsService.getImapConnectionDetails(ACCOUNT_ID)).thenReturn(passwordDetails());
             stubInteractiveRetryAfter(Duration.ofMinutes(5));
             Session session = mock(Session.class);
-            lenient().when(session.getStore("imaps")).thenReturn(mock(Store.class));
+            Properties sessionProps = new Properties();
+            when(session.getProperties()).thenReturn(sessionProps);
+            // What the store's connections would read had they opened when it was asked
+            // for; an assertion here would be caught with the connect's own failure.
+            AtomicLong budgetAtGetStore = new AtomicLong();
+            lenient().when(session.getStore("imaps")).thenAnswer(invocation -> {
+                budgetAtGetStore.set(BoundedImapProtocol.openFolderBudget(sessionProps, "imaps"));
+                return mock(Store.class);
+            });
 
             Throwable thrown;
             try (MockedStatic<Session> sessions = mockStatic(Session.class)) {
@@ -823,6 +834,7 @@ class ImapConnectionManagerTest {
             assertThat(provider.getValue().getProtocol()).isEqualTo("imaps");
             assertThat(provider.getValue().getClassName()).as("the connect ended with %s", thrown)
                     .isEqualTo(BoundedImapStore.class.getName());
+            assertThat(budgetAtGetStore).hasValue(DataSize.ofMegabytes(128).toBytes());
         }
     }
 

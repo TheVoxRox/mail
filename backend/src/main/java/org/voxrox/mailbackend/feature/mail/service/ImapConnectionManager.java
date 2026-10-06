@@ -707,7 +707,7 @@ public class ImapConnectionManager {
 
         Session session = Session.getInstance(props);
         // Server-stated sizes checked before Angus allocates for them (audit B1-3).
-        BoundedImapStore.install(session, protocol);
+        BoundedImapStore.install(session, protocol, mailProps.imap());
         Store store = session.getStore(protocol);
 
         /*

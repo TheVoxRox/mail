@@ -101,9 +101,11 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "ca11eea96829e69c539890f310ea79e1d6ae2f6a",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "099c4c814166ab6336d8eb0eda0c0f00e9b70524",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/DraftRecipientsEntity.java": "fce713a21a537f6fee1fc6d1959a6a6ffdc9ced0",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "3cd58427c6626b2409d39e9c3eda20c3cca5fd64"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "3cd58427c6626b2409d39e9c3eda20c3cca5fd64",
+      "backend/src/main/java/org/voxrox/mailbackend/core/config/mail": "68cbe14b9522312d25898b1263292d5b0458cda5",
+      "backend/src/main/resources/application.properties": "ca160a4947ecd3695843641e8fc6c4e4abd8805f"
     },
     "acknowledgements": [
       {
@@ -125,6 +127,10 @@
       {
         "date": "2026-10-06",
         "note": "B1-5 fixed again as the 1.46 pass recommended first, recorded in the audit itself as v1.47 (section 4e); the fix is this PR's own and waits for an independent pass, so the anchor stays at c386fed and this records the drift. Three paths move. DraftRecipientsEntity gains storedAt (column stored_at, added to V1__init.sql in place) and its getter: an entry is accepted when written and current only once stored. DraftRecipientsRepository: deleteCurrentButNewest counts only stored entries not set aside, deleteSupersededButNewest becomes deleteNotCurrentButNewest over the rest (set aside, or accepted and not stored), supersedeEarlierInChain becomes markStored, one UPDATE that sets stored_at on the stored revision and sets aside every earlier entry of its chain not set aside already, current or accepted, and markSuperseded is removed. Under feature/mail/service only DraftPersistenceService changes: appendDraftMessage calls markStored right after a stored APPEND, before the row upsert; the finally blocks of saveDraftAsync and saveRecoveryDraft and setAside are removed, since an entry no save stored is never current. acceptDraftSave, the chain lookup, the INSERT, the bounds' sizes, the send path and the recipient comparison are untouched. Verdict back to open finding (B1-14)."
+      },
+      {
+        "date": "2026-10-06",
+        "note": "B1-14 fixed, its hostile half, recorded in the audit itself as v1.49 (section 4n); the fix is this PR's own and waits for an independent pass, so the anchor stays at c386fed and this records the drift. Three paths move. Under feature/mail/service: BoundedImapProtocol's SelectionBudget, started at each SELECT or EXAMINE, also sums keptBytes for every FETCH response handed to the folder (its bytes on the wire, 96 for each object DepthBoundedFetchResponse counts in Angus's parse, 280 for the response) and refuses the one past the budget as the other refusals are, an ImplausibleResponseException that closes the connection; fetchSectionBody and fetchRFC822 leave the body data of a fetch of content uncharged, judged by the section the client asked for; the budget is read from a session property that BoundedImapStore.install now writes, so ImapConnectionManager and MailConnectionProbe pass it the IMAP properties. core/config/mail: ImapProperties gains openFolderBudget, a DataSize defaulting to 128MB that must be positive. application.properties sets mail.client.imap.open-folder-budget=128MB with a comment. The per-response bounds of B1-3, B1-7, B1-10 and B1-15, B1-8's command budget and B1-13's EXPUNGE budget are unchanged; the change adds one refusal and moves no other claim. Verdict open finding (B1-5)."
       }
     ]
   },
@@ -132,7 +138,8 @@
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/AttachmentService.java": "baa9d415fdfe7fcb76ee7eaca3db731e4f115c4f",
       "backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java": "69fc4c0197c480dc39ba3c38dece6874faec8d17",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/controller": "692ba8438145523812508bf00fb95e2a69ca6bc5"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/controller": "692ba8438145523812508bf00fb95e2a69ca6bc5",
+      "backend/src/main/resources/application.properties": "ca160a4947ecd3695843641e8fc6c4e4abd8805f"
     },
     "acknowledgements": [
       {
@@ -150,6 +157,10 @@
       {
         "date": "2026-10-06",
         "note": "B1-5 fixed again, recorded in IMAP_SMTP_AUDIT.md as v1.42 (section 4e). Under this audit's paths only DraftController.saveDraft changes: it calls DraftPersistenceService.acceptDraftSave instead of prepareDraftIdentity, which also writes the typed recipients before the 202, so a database failure there now answers the POST with the generic error instead of failing the async save. The mapping, the path and query validation (@Positive accountId, @Size replaces), the @Valid body bounds and the 202 with its stableId are unchanged, and nothing new is exposed. Verdict unchanged."
+      },
+      {
+        "date": "2026-10-06",
+        "note": "B1-14 fixed, recorded in IMAP_SMTP_AUDIT.md as v1.49 (section 4n). Under this audit's paths only application.properties changes: it gains mail.client.imap.open-folder-budget=128MB, a bound on what an open IMAP folder keeps, with its comment. No server, security, CORS, actuator, OpenAPI or other key this audit reads moves, and no endpoint is added or changed. Verdict stays PASS."
       }
     ]
   },

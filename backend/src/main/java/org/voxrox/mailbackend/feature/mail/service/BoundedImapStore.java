@@ -10,6 +10,7 @@ import jakarta.mail.URLName;
 import org.eclipse.angus.mail.iap.ProtocolException;
 import org.eclipse.angus.mail.imap.IMAPStore;
 import org.eclipse.angus.mail.imap.protocol.IMAPProtocol;
+import org.voxrox.mailbackend.core.config.mail.ImapProperties;
 
 /**
  * Angus's IMAP store, except that every connection it opens is a
@@ -34,10 +35,14 @@ public final class BoundedImapStore extends IMAPStore {
     }
 
     /**
-     * Makes this class the session's store for {@code protocol}. Called on every
-     * session that opens an IMAP store, before its {@code getStore}.
+     * Makes this class the session's store for {@code protocol}, and hands its
+     * connections the open-folder budget (B1-14) the way Angus hands them
+     * everything else, as a session property they read when they open. Called on
+     * every session that opens an IMAP store, before its {@code getStore}.
      */
-    static void install(Session session, String protocol) throws NoSuchProviderException {
+    static void install(Session session, String protocol, ImapProperties imap) throws NoSuchProviderException {
+        session.getProperties().put("mail." + protocol + "." + BoundedImapProtocol.OPEN_FOLDER_BUDGET_PROPERTY,
+                String.valueOf(imap.openFolderBudget().toBytes()));
         session.setProvider(
                 new Provider(Provider.Type.STORE, protocol, BoundedImapStore.class.getName(), "VoxRox Mail", null));
     }

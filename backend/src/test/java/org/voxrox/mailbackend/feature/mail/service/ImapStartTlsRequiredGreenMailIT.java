@@ -9,6 +9,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.springframework.util.unit.DataSize;
 import org.voxrox.mailbackend.core.config.MailClientProperties;
 import org.voxrox.mailbackend.core.config.mail.ImapProperties;
 import org.voxrox.mailbackend.core.config.mail.SmtpProperties;
@@ -47,7 +48,8 @@ class ImapStartTlsRequiredGreenMailIT {
     void setUp() {
         greenMail.setUser("plain@greenmail.local", LOGIN, PASSWORD);
         ImapProperties imap = new ImapProperties(993, Duration.ofSeconds(5), Duration.ofSeconds(5),
-                Duration.ofSeconds(5), "imaps", "imap", Duration.ofSeconds(1), Duration.ofMinutes(5));
+                Duration.ofSeconds(5), "imaps", "imap", Duration.ofSeconds(1), Duration.ofMinutes(5),
+                DataSize.ofMegabytes(128));
         SmtpProperties smtp = new SmtpProperties(Duration.ofSeconds(5), Duration.ofSeconds(5));
         probe = new MailConnectionProbe(new MailClientProperties(imap, smtp, null, null),
                 mock(OAuth2TokenServiceRegistry.class), mock(SmtpTransportFactory.class));

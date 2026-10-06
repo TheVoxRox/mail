@@ -42,6 +42,7 @@ final class HostileImapServer implements AutoCloseable {
     private volatile boolean uidListingOneMessage;
     private volatile List<String> uidListingPadding = List.of();
     private volatile List<String> authenticateResponse = List.of();
+    private volatile List<String> fetchResponse = List.of();
 
     HostileImapServer() throws IOException {
         this.server = TestTls.serverSocketFactory().createServerSocket(0, 50, InetAddress.getLoopbackAddress());
@@ -100,6 +101,15 @@ final class HostileImapServer implements AutoCloseable {
      */
     void authenticateWith(String... lines) {
         authenticateResponse = List.of(lines);
+    }
+
+    /**
+     * Untagged lines every later {@code FETCH} by sequence number is answered with
+     * before its completion, whatever it asked for — a body section, say, under
+     * whichever section name the test chooses (IMAP/SMTP audit B1-14).
+     */
+    void answerFetchWith(String... lines) {
+        fetchResponse = List.of(lines);
     }
 
     private String capabilities() {
@@ -184,6 +194,11 @@ final class HostileImapServer implements AutoCloseable {
             }
             case "UID" ->
                 arguments.toUpperCase(Locale.ROOT).startsWith("FETCH") ? uidListing(tag) : List.of(tag + " OK done");
+            case "FETCH" -> {
+                List<String> lines = new ArrayList<>(fetchResponse);
+                lines.add(tag + " OK done");
+                yield lines;
+            }
             case "LOGOUT" -> List.of("* BYE logging out", tag + " OK done");
             default -> List.of(tag + " OK done");
         };
