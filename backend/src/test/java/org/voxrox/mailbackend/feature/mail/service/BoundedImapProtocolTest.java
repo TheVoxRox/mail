@@ -574,7 +574,7 @@ class BoundedImapProtocolTest {
         @DisplayName("A budget the session carries that is not a positive number falls back to the default")
         void anUnusableBudgetFallsBackToTheDefault() {
             Properties props = new Properties();
-            for (String value : new String[]{"128MB", "", "0", "-5", "99999999999999999999"}) {
+            for (String value : new String[]{"64MB", "", "0", "-5", "99999999999999999999"}) {
                 props.put("mail.imaps." + BoundedImapProtocol.OPEN_FOLDER_BUDGET_PROPERTY, value);
 
                 assertThat(BoundedImapProtocol.openFolderBudget(props, "imaps")).as(value)

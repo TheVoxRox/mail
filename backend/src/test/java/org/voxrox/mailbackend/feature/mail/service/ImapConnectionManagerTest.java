@@ -138,7 +138,7 @@ class ImapConnectionManagerTest {
 
     private void stubInteractiveRetryAfter(Duration retryAfter) {
         when(mailProps.imap()).thenReturn(new ImapProperties(993, Duration.ofSeconds(30), Duration.ofSeconds(60),
-                Duration.ofSeconds(60), "imaps", "imap", Duration.ofSeconds(1), retryAfter, DataSize.ofMegabytes(128)));
+                Duration.ofSeconds(60), "imaps", "imap", Duration.ofSeconds(1), retryAfter, DataSize.ofMegabytes(64)));
     }
 
     @Nested
@@ -834,7 +834,7 @@ class ImapConnectionManagerTest {
             assertThat(provider.getValue().getProtocol()).isEqualTo("imaps");
             assertThat(provider.getValue().getClassName()).as("the connect ended with %s", thrown)
                     .isEqualTo(BoundedImapStore.class.getName());
-            assertThat(budgetAtGetStore).hasValue(DataSize.ofMegabytes(128).toBytes());
+            assertThat(budgetAtGetStore).hasValue(DataSize.ofMegabytes(64).toBytes());
         }
     }
 

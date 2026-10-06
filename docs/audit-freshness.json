@@ -101,11 +101,11 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "d282f7b08aae0319f7f6b5fea905a5175571321d",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "cde0011e2af31a63b8d1aee440066635480c2eaf",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/DraftRecipientsEntity.java": "fce713a21a537f6fee1fc6d1959a6a6ffdc9ced0",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "3cd58427c6626b2409d39e9c3eda20c3cca5fd64",
-      "backend/src/main/java/org/voxrox/mailbackend/core/config/mail": "68cbe14b9522312d25898b1263292d5b0458cda5",
-      "backend/src/main/resources/application.properties": "ca160a4947ecd3695843641e8fc6c4e4abd8805f"
+      "backend/src/main/java/org/voxrox/mailbackend/core/config/mail": "de23ff18504252f94add497b4e3ca5a763ae6e47",
+      "backend/src/main/resources/application.properties": "455e9042b8808b1cf87884e0836d68be97c49aec"
     },
     "acknowledgements": [
       {
@@ -130,7 +130,7 @@
       },
       {
         "date": "2026-10-06",
-        "note": "B1-14 fixed, its hostile half, recorded in the audit itself as v1.49 (section 4n); the fix is this PR's own and waits for an independent pass, so the anchor stays at c386fed and this records the drift. Three paths move. Under feature/mail/service: BoundedImapProtocol's SelectionBudget, started at each SELECT or EXAMINE, also sums keptBytes for every FETCH response handed to the folder (its bytes on the wire, 96 for each object DepthBoundedFetchResponse counts in Angus's parse, 280 for the response) and refuses the one past the budget as the other refusals are, an ImplausibleResponseException that closes the connection; fetchSectionBody and fetchRFC822 leave the body data of a fetch of content uncharged, judged by the section the client asked for; the budget is read from a session property that BoundedImapStore.install now writes, falling back to the default for a value that is not a positive number, so ImapConnectionManager and MailConnectionProbe pass it the IMAP properties. core/config/mail: ImapProperties gains openFolderBudget, a DataSize defaulting to 128MB that must be positive. application.properties sets mail.client.imap.open-folder-budget=128MB with a comment. The per-response bounds of B1-3, B1-7, B1-10 and B1-15, B1-8's command budget and B1-13's EXPUNGE budget are unchanged; the change adds one refusal and moves no other claim. Verdict open finding (B1-5)."
+        "note": "B1-14 fixed, its hostile half, recorded in the audit itself as v1.49 (section 4n); the fix is this PR's own and waits for an independent pass, so the anchor stays at c386fed and this records the drift. Three paths move. Under feature/mail/service: BoundedImapProtocol's SelectionBudget, started at each SELECT or EXAMINE, also sums keptBytes for every FETCH response handed to the folder (its bytes on the wire, 96 for each object DepthBoundedFetchResponse counts in Angus's parse, 280 for the response) and refuses the one past the budget as the other refusals are, an ImplausibleResponseException that closes the connection; fetchSectionBody and fetchRFC822 leave the body data of a fetch of content uncharged, judged by the section the client asked for; the budget is read from a session property that BoundedImapStore.install now writes, falling back to the default for a value that is not a positive number, so ImapConnectionManager and MailConnectionProbe pass it the IMAP properties. core/config/mail: ImapProperties gains openFolderBudget, a DataSize defaulting to 64MB that must be positive. application.properties sets mail.client.imap.open-folder-budget=64MB with a comment. The per-response bounds of B1-3, B1-7, B1-10 and B1-15, B1-8's command budget and B1-13's EXPUNGE budget are unchanged; the change adds one refusal and moves no other claim. Verdict open finding (B1-5)."
       }
     ]
   },
@@ -139,7 +139,7 @@
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/AttachmentService.java": "baa9d415fdfe7fcb76ee7eaca3db731e4f115c4f",
       "backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java": "69fc4c0197c480dc39ba3c38dece6874faec8d17",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/controller": "692ba8438145523812508bf00fb95e2a69ca6bc5",
-      "backend/src/main/resources/application.properties": "ca160a4947ecd3695843641e8fc6c4e4abd8805f"
+      "backend/src/main/resources/application.properties": "455e9042b8808b1cf87884e0836d68be97c49aec"
     },
     "acknowledgements": [
       {
@@ -160,7 +160,7 @@
       },
       {
         "date": "2026-10-06",
-        "note": "B1-14 fixed, recorded in IMAP_SMTP_AUDIT.md as v1.49 (section 4n). Under this audit's paths only application.properties changes: it gains mail.client.imap.open-folder-budget=128MB, a bound on what an open IMAP folder keeps, with its comment. No server, security, CORS, actuator, OpenAPI or other key this audit reads moves, and no endpoint is added or changed. Verdict stays PASS."
+        "note": "B1-14 fixed, recorded in IMAP_SMTP_AUDIT.md as v1.49 (section 4n). Under this audit's paths only application.properties changes: it gains mail.client.imap.open-folder-budget=64MB, a bound on what an open IMAP folder keeps, with its comment. No server, security, CORS, actuator, OpenAPI or other key this audit reads moves, and no endpoint is added or changed. Verdict stays PASS."
       }
     ]
   },

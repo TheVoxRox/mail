@@ -51,7 +51,7 @@ import org.voxrox.mailbackend.feature.mail.service.ImapConnectionManager.Lane;
         "mail.client.sync.initial-delay=PT1H", "mail.client.imap.read-timeout=3s",
         "mail.client.imap.connection-timeout=3s", "mail.client.retry.initial-delay=100ms",
         "mail.client.retry.max-delay=300ms",
-        // An eighth of the default open-folder budget (B1-14), so the tests of it run
+        // A quarter of the default open-folder budget (B1-14), so the tests of it run
         // in seconds, and show that the configured value is the one in force.
         "mail.client.imap.open-folder-budget=16MB",
         // A context of its own, so the data dir above is the one in use.

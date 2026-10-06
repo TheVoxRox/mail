@@ -93,6 +93,6 @@ class ImapSocketTimeoutsTest {
 
     private static ImapProperties imapProperties(Duration writeTimeout) {
         return new ImapProperties(993, Duration.ofSeconds(30), Duration.ofSeconds(60), writeTimeout, "imaps", "imap",
-                Duration.ofSeconds(1), Duration.ofMinutes(5), DataSize.ofMegabytes(128));
+                Duration.ofSeconds(1), Duration.ofMinutes(5), DataSize.ofMegabytes(64));
     }
 }

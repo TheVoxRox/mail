@@ -77,7 +77,7 @@ class MailConnectionProbeTest {
     void setUp() {
         ImapProperties imap = new ImapProperties(993, Duration.ofSeconds(30), Duration.ofSeconds(60),
                 Duration.ofSeconds(60), "imaps", "imap", Duration.ofSeconds(1), Duration.ofMinutes(5),
-                DataSize.ofMegabytes(128));
+                DataSize.ofMegabytes(64));
         SmtpProperties smtp = new SmtpProperties(Duration.ofSeconds(15), Duration.ofSeconds(10));
         MailClientProperties props = new MailClientProperties(imap, smtp, null, null);
         probe = new MailConnectionProbe(props, oauth2TokenServiceRegistry, smtpTransportFactory);
@@ -133,7 +133,7 @@ class MailConnectionProbeTest {
             order.verify(sessionMock).getStore("imaps");
             assertThat(provider.getValue().getProtocol()).isEqualTo("imaps");
             assertThat(provider.getValue().getClassName()).isEqualTo(BoundedImapStore.class.getName());
-            assertThat(budgetAtGetStore).hasValue(DataSize.ofMegabytes(128).toBytes());
+            assertThat(budgetAtGetStore).hasValue(DataSize.ofMegabytes(64).toBytes());
         }
 
         /**

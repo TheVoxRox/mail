@@ -269,28 +269,34 @@ final class BoundedImapProtocol extends IMAPProtocol {
      * <p>
      * An estimate, not a measurement of an honest pass, and configurable for that
      * reason. The sync opens a folder for one pass and the user's actions open it
-     * for one action, so a selection is one of those. The largest honest one is a
-     * pass that catches up {@code local-window-limit} (10,000) new messages: 88 MB
-     * at the 8.8 KB an ordinary message is charged (envelope with five addresses, a
-     * three-part structure, three threading headers), and on a server without
-     * CONDSTORE some 1.5 KB more for each mirrored message, whose flags and UIDs
-     * the pass reads through the folder — up to twice the window before the pruner
-     * runs, 30 MB. Heavier messages pass the budget: the attempt is refused like
-     * any implausible response, the connection closes, which releases what the
-     * folder kept, the batches stored so far stay, newest first, and the sync's
-     * next attempt opens the folder again and brings the rest down as holes.
+     * for one action, so a selection is one of those. Ordinary new mail fits many
+     * times over; the largest honest pass does not, by choice. A pass that catches
+     * up {@code local-window-limit} (10,000) new messages is charged 88 MB at the
+     * 8.8 KB an ordinary message costs (envelope with five addresses, a three-part
+     * structure, three threading headers), and on a server without CONDSTORE some
+     * 1.5 KB more for each mirrored message, whose flags and UIDs the pass reads
+     * through the folder — up to twice the window before the pruner runs, 30 MB.
+     * Such a pass is refused like any implausible response: the connection closes,
+     * which releases what the folder kept, the batches stored so far stay, newest
+     * first, and the sync's next attempt opens the folder again and brings the rest
+     * down as holes; what a pass's attempts leave, the next pass takes.
+     * <p>
+     * The owner chose that cost over a budget the largest pass fits in
+     * (2026-10-06), because the budget is per connection: an account has two that
+     * may each hold a folder open, each with up to {@link #MAX_COMMAND_BYTES} of a
+     * command's responses besides. What a hostile server can make one folder keep
+     * is the budget scaled by the worst ratio measured at 1.49 of what a response
+     * leaves to what it is charged — 82 bytes an object against 96, and 268 bytes
+     * against 403 for a response that makes Angus create a message — some 58 MB, so
+     * the two connections together some 2 × (58 + 67) MB of the packaged 384 MB
+     * heap, where 128 MiB would have allowed 2 × (115 + 67).
      * <p>
      * The budget has to hold what a pass spends on the window it already mirrors,
      * plus one batch: below that, every attempt is refused at the same point and
-     * the folder's sync stops there. At the defaults that is some 15 MB and 2 MB.
-     * <p>
-     * Its heap side, per connection: what a hostile server can make the folder keep
-     * is the budget scaled by the worst ratio measured at 1.49 of what a response
-     * leaves to what it is charged — 82 bytes an object against 96, and 268 bytes
-     * against 403 for a response that makes Angus create a message — some 115 MB of
-     * the packaged 384 MB heap.
+     * the folder's sync stops there. At the defaults that is up to some 30 MB and 2
+     * MB.
      */
-    static final long DEFAULT_OPEN_FOLDER_BUDGET = 128L * 1024 * 1024;
+    static final long DEFAULT_OPEN_FOLDER_BUDGET = 64L * 1024 * 1024;
 
     /**
      * What {@link #keptBytes} charges a FETCH for each object its parse made
