@@ -223,7 +223,7 @@ class DraftRecipientsRepositoryIT {
         em.clear();
 
         assertThat(repository.supersedeEarlierInChain(account.getId(), "chain", "<stored@voxrox.org>",
-                start.plusMinutes(2), start.plusMinutes(4))).isEqualTo(1);
+                start.plusMinutes(4))).isEqualTo(1);
         em.clear();
 
         assertThat(repository.findAll()).filteredOn(entry -> entry.getSupersededAt() == null)
@@ -232,6 +232,45 @@ class DraftRecipientsRepositoryIT {
         assertThat(repository.findAll()).filteredOn(entry -> "<rejected@voxrox.org>".equals(entry.getMessageId()))
                 .extracting(DraftRecipientsEntity::getSupersededAt).as("an entry already set aside keeps its time")
                 .containsExactly(start.plusMinutes(1));
+    }
+
+    /**
+     * B1-5, from the pass over 1.40: "earlier" went by {@code saved_at}, so after
+     * the clock stepped back — a DST fall-back, a time correction — the revision
+     * saved before stayed current until a save passed its time. It goes by the
+     * order the entries were written in.
+     */
+    @Test
+    @DisplayName("A revision written before the stored one is set aside even if the clock has since stepped back")
+    void earlierGoesByTheOrderWrittenNotTheClock() {
+        AccountEntity account = newAccount("user@example.com");
+        LocalDateTime now = LocalDateTime.now();
+        keep("<before-the-step@voxrox.org>", "stable-a", "chain", account, now);
+        keep("<after-the-step@voxrox.org>", "stable-b", "chain", account, now.minusHours(1));
+        em.clear();
+
+        assertThat(repository.supersedeEarlierInChain(account.getId(), "chain", "<after-the-step@voxrox.org>", now))
+                .isEqualTo(1);
+        em.clear();
+
+        assertThat(repository.findAll()).filteredOn(entry -> entry.getSupersededAt() == null)
+                .extracting(DraftRecipientsEntity::getMessageId).containsExactly("<after-the-step@voxrox.org>");
+    }
+
+    @Test
+    @DisplayName("The newest entries an account keeps are the last written, whatever their time")
+    void newestGoesByTheOrderWritten() {
+        AccountEntity account = newAccount("user@example.com");
+        LocalDateTime now = LocalDateTime.now();
+        keep("<written-first@voxrox.org>", account, now);
+        keep("<written-last@voxrox.org>", account, now.minusHours(1));
+        em.clear();
+
+        assertThat(repository.deleteCurrentButNewest(account.getId(), 1)).isEqualTo(1);
+        em.clear();
+
+        assertThat(repository.findAll()).extracting(DraftRecipientsEntity::getMessageId)
+                .containsExactly("<written-last@voxrox.org>");
     }
 
     @Test
@@ -296,8 +335,8 @@ class DraftRecipientsRepositoryIT {
     }
 
     private void keep(String messageId, String stableId, String chainId, AccountEntity account, LocalDateTime savedAt) {
-        repository.saveAndFlush(new DraftRecipientsEntity(account.getId(), messageId, stableId, chainId,
-                "to@example.com", null, null, savedAt));
+        // The way the service writes an entry, numbered in the order of these calls.
+        repository.insertEntry(account.getId(), messageId, stableId, chainId, "to@example.com", null, null, savedAt);
     }
 
     private AccountEntity newAccount(String email) {

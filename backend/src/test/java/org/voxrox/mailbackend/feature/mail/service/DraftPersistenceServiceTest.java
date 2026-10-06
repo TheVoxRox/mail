@@ -1,6 +1,7 @@
 package org.voxrox.mailbackend.feature.mail.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -148,7 +149,7 @@ class DraftPersistenceServiceTest {
             // the new revision the server did not store is set aside instead (B1-5).
             verify(draftRecipientsRepository, never()).markSuperseded(eq(ACCOUNT_ID), eq(STABLE_ID), any());
             verify(draftRecipientsRepository, never()).supersedeEarlierInChain(anyLong(), anyString(), anyString(),
-                    any(), any());
+                    any());
             verify(draftRecipientsRepository).markSuperseded(eq(ACCOUNT_ID), eq(IDENTITY.stableId()),
                     any(LocalDateTime.class));
         }
@@ -261,9 +262,8 @@ class DraftPersistenceServiceTest {
                     new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null, IDENTITY);
 
             verify(messageService).insertIfAbsent(mapped);
-            // Kept although the row holds what the user typed: the sync rewrites the row
-            // from the server's copy whenever the server presents the draft anew (B1-5).
-            verify(draftRecipientsRepository).save(any());
+            // The typed recipients stay: the sync rewrites the row from the server's copy
+            // whenever the server presents the draft anew (B1-5).
             verify(draftRecipientsRepository, never()).deleteById(any());
         }
 
@@ -287,49 +287,48 @@ class DraftPersistenceServiceTest {
         }
 
         @Test
-        @DisplayName("Append without APPENDUID -> no local row, the typed recipients kept (B1-5)")
-        void appendWithoutUidKeepsTheTypedRecipients() throws Exception {
-            savesWithoutAppendUid();
+        @DisplayName("Accepting a save keeps what the user typed under the minted identity (B1-5)")
+        void acceptingASaveKeepsTheTypedRecipients() {
+            acceptsSaves();
 
-            service.saveDraftAsync(ACCOUNT_ID, new DraftRequest("to@example.com", "cc@example.com", "bcc@example.com",
-                    "subj", "body", null, null, null), null, IDENTITY);
+            DraftPersistenceService.DraftIdentity identity = service.acceptDraftSave(ACCOUNT_ID, new DraftRequest(
+                    "to@example.com", "cc@example.com", "bcc@example.com", "subj", "body", null, null, null), null);
 
-            verify(messageService, never()).insertIfAbsent(any());
-            verifyNoInteractions(messageMapper);
-            ArgumentCaptor<DraftRecipientsEntity> kept = ArgumentCaptor.forClass(DraftRecipientsEntity.class);
-            verify(draftRecipientsRepository).save(kept.capture());
-            assertThat(kept.getValue().getMessageId()).isEqualTo(IDENTITY.messageId());
-            assertThat(kept.getValue().getRecipientsTo()).isEqualTo("to@example.com");
-            assertThat(kept.getValue().getRecipientsCc()).isEqualTo("cc@example.com");
-            assertThat(kept.getValue().getRecipientsBcc()).isEqualTo("bcc@example.com");
-            verify(draftRecipientsRepository, never()).deleteById(any());
+            // The stableId the next save will name as the revision it replaces, and the
+            // Message-ID the send looks the entry up by.
+            verify(draftRecipientsRepository).insertEntry(eq(ACCOUNT_ID), eq(identity.messageId()),
+                    eq(identity.stableId()), eq(identity.stableId()), eq("to@example.com"), eq("cc@example.com"),
+                    eq("bcc@example.com"), any(LocalDateTime.class));
+            verifyNoInteractions(appendService);
         }
 
         /**
-         * Once the server holds the draft it can announce it, and a sync can give it a
-         * row before the append even returns; an entry written after the append leaves
-         * a window in which the draft can be sent with nothing to check it against.
+         * B1-5, reopened at 1.41: the entry was written in the async task, after the
+         * 202 had handed its stableId to the client, so the next save could look the
+         * chain up before the entry existed. It is written before the save is accepted,
+         * and the async save writes none.
          */
         @Test
-        @DisplayName("The typed recipients are kept before the append, not after it (B1-5)")
-        void recipientsAreKeptBeforeTheAppend() throws Exception {
+        @DisplayName("The entry is written when the save is accepted, not by the async save (B1-5)")
+        void theAsyncSaveWritesNoEntry() throws Exception {
             savesWithoutAppendUid();
 
             service.saveDraftAsync(ACCOUNT_ID,
                     new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null, IDENTITY);
 
-            InOrder order = inOrder(draftRecipientsRepository, appendService);
-            order.verify(draftRecipientsRepository).save(any());
-            order.verify(appendService).appendDraft(eq(ACCOUNT_ID), eq(IDENTITY.draftsFolder()), any());
+            verify(appendService).appendDraft(eq(ACCOUNT_ID), eq(IDENTITY.draftsFolder()), any());
+            verify(draftRecipientsRepository, never()).insertEntry(any(), any(), any(), any(), any(), any(), any(),
+                    any());
+            verify(draftRecipientsRepository, never()).save(any());
         }
 
         @Test
         @DisplayName("Keeping recipients drops the account's entries beyond its newest, by count and not by age")
-        void keepingRecipientsKeepsTheNewestEntries() throws Exception {
-            savesWithoutAppendUid();
+        void keepingRecipientsKeepsTheNewestEntries() {
+            acceptsSaves();
 
-            service.saveDraftAsync(ACCOUNT_ID,
-                    new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null, IDENTITY);
+            service.acceptDraftSave(ACCOUNT_ID,
+                    new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null);
 
             // One fewer current entry than the bound, so the entry this save adds makes it
             // whole; the superseded ones have a bound of their own (B1-5).
@@ -338,47 +337,61 @@ class DraftPersistenceServiceTest {
                     DraftPersistenceService.KEPT_DRAFT_RECIPIENTS - 1);
             order.verify(draftRecipientsRepository).deleteSupersededButNewest(ACCOUNT_ID,
                     DraftPersistenceService.KEPT_DRAFT_RECIPIENTS);
-            order.verify(draftRecipientsRepository).save(any());
+            order.verify(draftRecipientsRepository).insertEntry(eq(ACCOUNT_ID), any(), any(), any(), any(), any(),
+                    any(), any());
         }
 
         @Test
-        @DisplayName("The entry carries the stableId the next save will name as the revision it replaces")
-        void theEntryCarriesTheMintedStableId() throws Exception {
-            savesWithoutAppendUid();
+        @DisplayName("A save naming a revision joins that revision's chain when it is accepted (B1-5)")
+        void anAcceptedSaveJoinsTheNamedRevisionsChain() {
+            acceptsSaves();
+            when(draftRecipientsRepository.findChainId(ACCOUNT_ID, "stable-previous-revision"))
+                    .thenReturn(Optional.of("stable-first-revision"));
 
-            service.saveDraftAsync(ACCOUNT_ID,
-                    new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null, IDENTITY);
+            DraftPersistenceService.DraftIdentity identity = service.acceptDraftSave(ACCOUNT_ID,
+                    new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null),
+                    "stable-previous-revision");
 
-            ArgumentCaptor<DraftRecipientsEntity> kept = ArgumentCaptor.forClass(DraftRecipientsEntity.class);
-            verify(draftRecipientsRepository).save(kept.capture());
-            assertThat(kept.getValue().getStableId()).isEqualTo(IDENTITY.stableId());
-            assertThat(kept.getValue().getMessageId()).isEqualTo(IDENTITY.messageId());
+            verify(draftRecipientsRepository).insertEntry(eq(ACCOUNT_ID), eq(identity.messageId()),
+                    eq(identity.stableId()), eq("stable-first-revision"), any(), any(), any(),
+                    any(LocalDateTime.class));
+        }
+
+        @Test
+        @DisplayName("A save that replaces nothing starts a chain of its own")
+        void aFirstSaveStartsItsOwnChain() {
+            acceptsSaves();
+
+            DraftPersistenceService.DraftIdentity identity = service.acceptDraftSave(ACCOUNT_ID,
+                    new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null);
+
+            verify(draftRecipientsRepository).insertEntry(eq(ACCOUNT_ID), eq(identity.messageId()),
+                    eq(identity.stableId()), eq(identity.stableId()), any(), any(), any(), any(LocalDateTime.class));
+            verify(draftRecipientsRepository, never()).findChainId(anyLong(), anyString());
         }
 
         /**
          * B1-5, reopened at 1.31: a save used to retire the replaced revision's entry
          * only when it found that revision's row and the server deleted it, so a server
          * without APPENDUID made the entries grow by saves. Since the pass over 1.39 a
-         * stored save sets aside every earlier revision of the draft, by the chain of
-         * the revision the client names, whatever the server answers.
+         * stored save sets aside every earlier revision of the draft, by the chain its
+         * own entry carries, whatever the server answers.
          */
         @Test
         @DisplayName("A stored save sets aside the earlier revisions of its draft even when the server gave it no row (B1-5)")
         void aSaveSetsAsideTheEarlierRevisionsWithoutTheirRow() throws Exception {
             savesWithoutAppendUid();
             when(messageService.getByStableId("stable-previous-revision")).thenReturn(Optional.empty());
-            when(draftRecipientsRepository.findChainId(ACCOUNT_ID, "stable-previous-revision"))
+            when(draftRecipientsRepository.findChainId(ACCOUNT_ID, IDENTITY.stableId()))
                     .thenReturn(Optional.of("stable-first-revision"));
 
             service.saveDraftAsync(ACCOUNT_ID,
                     new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null),
                     "stable-previous-revision", IDENTITY);
 
-            ArgumentCaptor<DraftRecipientsEntity> kept = ArgumentCaptor.forClass(DraftRecipientsEntity.class);
-            verify(draftRecipientsRepository).save(kept.capture());
-            assertThat(kept.getValue().getChainId()).isEqualTo("stable-first-revision");
             verify(draftRecipientsRepository).supersedeEarlierInChain(eq(ACCOUNT_ID), eq("stable-first-revision"),
-                    eq(IDENTITY.messageId()), any(LocalDateTime.class), any(LocalDateTime.class));
+                    eq(IDENTITY.messageId()), any(LocalDateTime.class));
+            verify(draftRecipientsRepository, never()).markSuperseded(anyLong(), anyString(), any());
             verify(imapActionService, never()).hardDelete(anyLong(), anyString(), anyLong());
         }
 
@@ -401,41 +414,37 @@ class DraftPersistenceServiceTest {
             service.saveDraftAsync(ACCOUNT_ID,
                     new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null, IDENTITY);
 
-            InOrder order = inOrder(draftRecipientsRepository);
-            order.verify(draftRecipientsRepository).save(any());
-            order.verify(draftRecipientsRepository).markSuperseded(eq(ACCOUNT_ID), eq(IDENTITY.stableId()),
+            verify(draftRecipientsRepository).markSuperseded(eq(ACCOUNT_ID), eq(IDENTITY.stableId()),
                     any(LocalDateTime.class));
             verify(draftRecipientsRepository, never()).supersedeEarlierInChain(anyLong(), anyString(), anyString(),
-                    any(), any());
+                    any());
         }
 
+        /**
+         * B1-5, reopened at 1.41: an entry that could not be written cost the draft its
+         * check against what was typed, and the revision was appended anyway, to be
+         * checked against the server's own copy. A save without its entry is now not
+         * accepted, so nothing is appended and the client reports the failed save.
+         */
         @Test
-        @DisplayName("A save that replaces nothing starts a chain of its own and sets nothing else aside")
-        void aFirstSaveStartsItsOwnChain() throws Exception {
-            savesWithoutAppendUid();
+        @DisplayName("A save whose typed recipients cannot be kept is not accepted, and nothing is appended (B1-5)")
+        void aSaveWithoutItsEntryIsNotAccepted() {
+            acceptsSaves();
+            when(draftRecipientsRepository.insertEntry(any(), any(), any(), any(), any(), any(), any(), any()))
+                    .thenThrow(new RuntimeException("database is locked"));
 
-            service.saveDraftAsync(ACCOUNT_ID,
-                    new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null, IDENTITY);
+            assertThatThrownBy(() -> service.acceptDraftSave(ACCOUNT_ID,
+                    new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null))
+                    .hasMessageContaining("database is locked");
 
-            ArgumentCaptor<DraftRecipientsEntity> kept = ArgumentCaptor.forClass(DraftRecipientsEntity.class);
-            verify(draftRecipientsRepository).save(kept.capture());
-            assertThat(kept.getValue().getChainId()).isEqualTo(IDENTITY.stableId());
-            verify(draftRecipientsRepository, never()).findChainId(anyLong(), anyString());
-            verify(draftRecipientsRepository, never()).markSuperseded(anyLong(), anyString(), any());
+            verifyNoInteractions(appendService);
         }
 
-        @Test
-        @DisplayName("Recipients that cannot be kept cost the check, not the save")
-        void failingToKeepRecipientsDoesNotFailTheSave() throws Exception {
-            savesWithoutAppendUid();
-            when(draftRecipientsRepository.save(any())).thenThrow(new RuntimeException("database is locked"));
-
-            service.saveDraftAsync(ACCOUNT_ID,
-                    new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null, IDENTITY);
-
-            verify(accountRepository).clearLastErrorIfCodeIn(eq(ACCOUNT_ID), any());
-            verify(accountRepository, never()).updateLastError(anyLong(), any(AccountLastError.class),
-                    any(LocalDateTime.class));
+        private void acceptsSaves() {
+            AccountEntity account = new AccountEntity();
+            account.setId(ACCOUNT_ID);
+            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
+            when(imapFolderService.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.DRAFTS)).thenReturn("Drafts");
         }
 
         private void savesWithoutAppendUid() throws Exception {
@@ -524,6 +533,31 @@ class DraftPersistenceServiceTest {
                     new MailRequest("to@example.com", null, null, "subj", "body", null, null, null));
 
             assertThat(recoveryId).isNull();
+        }
+
+        /**
+         * The one draft appended without its entry: the recovery draft is the only copy
+         * of what the user wrote, and losing it is worse than its untouched send being
+         * checked against the server's copy (B1-5, 1.42).
+         */
+        @Test
+        @DisplayName("saveRecoveryDraft: recipients that cannot be kept do not stop the content being parked")
+        void saveRecoveryDraftParksContentWithoutItsEntry() throws Exception {
+            AccountEntity account = new AccountEntity();
+            account.setId(ACCOUNT_ID);
+            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
+            when(imapFolderService.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.DRAFTS)).thenReturn("Drafts");
+            when(mimeMessageBuilder.build(any(), any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
+            when(appendService.appendDraft(eq(ACCOUNT_ID), eq("Drafts"), any()))
+                    .thenReturn(new ImapAppendService.DraftAppendOutcome(true, null, null));
+            when(draftRecipientsRepository.insertEntry(any(), any(), any(), any(), any(), any(), any(), any()))
+                    .thenThrow(new RuntimeException("database is locked"));
+
+            String recoveryId = service.saveRecoveryDraft(ACCOUNT_ID,
+                    new MailRequest("to@example.com", null, null, "subj", "body", null, null, null));
+
+            assertThat(recoveryId).isNotBlank();
+            verify(appendService).appendDraft(eq(ACCOUNT_ID), eq("Drafts"), any());
         }
     }
 }

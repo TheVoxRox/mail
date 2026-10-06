@@ -525,9 +525,8 @@ class SmtpMessageServiceTest {
         @DisplayName("A draft saved here is checked against what the user typed, not against a row the sync wrote")
         void draftSavedHereIsCheckedAgainstTheTypedRecipients() throws Exception {
             MessageEntity rowFromServer = storedDraft("to@example.com", null, "eavesdropper@example.test");
-            when(draftPersistenceService.typedRecipients(ACCOUNT_ID, MESSAGE_ID))
-                    .thenReturn(Optional.of(new DraftRecipientsEntity(ACCOUNT_ID, MESSAGE_ID, null, null,
-                            "to@example.com", null, null, LocalDateTime.now())));
+            DraftRecipientsEntity typed = typedTo("to@example.com");
+            when(draftPersistenceService.typedRecipients(ACCOUNT_ID, MESSAGE_ID)).thenReturn(Optional.of(typed));
 
             Transport transport = sendWith(rowFromServer,
                     serverCopy("to@example.com", null, "eavesdropper@example.test"));
@@ -543,15 +542,24 @@ class SmtpMessageServiceTest {
         @DisplayName("A draft saved here whose copy names what the user typed sends, and its kept recipients go")
         void draftSavedHereMatchingTheTypedRecipientsSends() throws Exception {
             MessageEntity draft = storedDraft("to@example.com", null, null);
-            when(draftPersistenceService.typedRecipients(ACCOUNT_ID, MESSAGE_ID))
-                    .thenReturn(Optional.of(new DraftRecipientsEntity(ACCOUNT_ID, MESSAGE_ID, null, null,
-                            "to@example.com", null, null, LocalDateTime.now())));
+            DraftRecipientsEntity typed = typedTo("to@example.com");
+            when(draftPersistenceService.typedRecipients(ACCOUNT_ID, MESSAGE_ID)).thenReturn(Optional.of(typed));
 
             Transport transport = sendWith(draft, serverCopy("to@example.com", null, null));
 
             verify(transport).sendMessage(any(), any());
             verify(draftPersistenceService).forgetTypedRecipients(ACCOUNT_ID, MESSAGE_ID);
         }
+    }
+
+    /**
+     * What the user typed for a draft saved here. The entry has no public
+     * constructor, being written only by a plain INSERT, so it is a mock.
+     */
+    private static DraftRecipientsEntity typedTo(String to) {
+        DraftRecipientsEntity entry = mock(DraftRecipientsEntity.class);
+        when(entry.getRecipientsTo()).thenReturn(to);
+        return entry;
     }
 
     // Note: the OAuth2 SSL guard has lived in SmtpTransportFactory since the
