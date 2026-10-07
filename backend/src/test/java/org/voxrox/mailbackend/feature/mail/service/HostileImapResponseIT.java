@@ -13,6 +13,7 @@ import java.util.Comparator;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import jakarta.mail.FetchProfile;
 import jakarta.mail.Folder;
 import jakarta.mail.Message;
 
@@ -508,6 +509,45 @@ class HostileImapResponseIT {
                 }))).isInstanceOf(RuntimeException.class);
 
         assertThat(logSinceMark()).contains("passed its budget of " + BUDGET + " bytes");
+    }
+
+    /**
+     * B1-19, found by the pass over 1.56. A fetch that asks for some headers merges
+     * a header item into the headers a message already holds one header at a time,
+     * each scanning the whole list, and {@code IMAPFolder.fetch} hands the message
+     * every item of the command's answers: a second item of 80,000 headers, within
+     * the budget, cost some 52 s on the sync's thread (measured by the pass), and
+     * this answer 18.5 s on a desktop where it now takes 0.03 s. A message now
+     * merges a bounded number of header lines, and the item past it is not merged,
+     * so the fetch ends at once and the message keeps what it held.
+     */
+    @Test
+    @DisplayName("A header item merged into a message past its bound is skipped, not scanned header by header")
+    void aHeaderItemPastTheMergeBoundIsSkipped() {
+        StringBuilder headers = new StringBuilder();
+        for (int n = 0; n < 80_000; n++) {
+            // Names of one length, so each comparison of the scan reads them through.
+            headers.append('x').append(100_000 + n).append(": v\r\n");
+        }
+        SERVER.answerOpenWith("* 1 EXISTS");
+        SERVER.answerFetchWith(headerFetch("Message-ID: <first@example.test>\r\n"), headerFetch(headers.toString()));
+
+        String messageId = assertTimeoutPreemptively(Duration.ofSeconds(5), () -> imapFolderService
+                .executeInFolder(account.getId(), Lane.BACKGROUND, "INBOX", Folder.READ_ONLY, (folder, uidFolder) -> {
+                    Message message = folder.getMessage(1);
+                    FetchProfile profile = new FetchProfile();
+                    profile.add("Message-ID");
+                    folder.fetch(new Message[]{message}, profile);
+                    return message.getHeader("Message-ID")[0];
+                }));
+
+        assertThat(messageId).isEqualTo("<first@example.test>");
+    }
+
+    /** One message's answer to a fetch of some headers: these header lines. */
+    private static String headerFetch(String headerLines) {
+        String data = headerLines + "\r\n";
+        return "* 1 FETCH (BODY[HEADER.FIELDS (Message-ID)] {" + data.length() + "}\r\n" + data + ")";
     }
 
     /**
