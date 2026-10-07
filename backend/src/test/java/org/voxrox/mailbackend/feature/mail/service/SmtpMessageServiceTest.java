@@ -535,11 +535,11 @@ class SmtpMessageServiceTest {
             verify(accountRepository).updateLastError(eq(ACCOUNT_ID),
                     argThat(error -> error.code() == AccountLastErrorCode.DRAFT_CHANGED_ON_SERVER),
                     any(LocalDateTime.class));
-            verify(draftPersistenceService, never()).forgetTypedRecipients(any(), any());
+            verify(draftPersistenceService, never()).setAsideTypedRecipients(any(), any());
         }
 
         @Test
-        @DisplayName("A draft saved here whose copy names what the user typed sends, and its kept recipients go")
+        @DisplayName("A draft saved here whose copy names what the user typed sends, and its kept recipients are set aside")
         void draftSavedHereMatchingTheTypedRecipientsSends() throws Exception {
             MessageEntity draft = storedDraft("to@example.com", null, null);
             DraftRecipientsEntity typed = typedTo("to@example.com");
@@ -548,7 +548,9 @@ class SmtpMessageServiceTest {
             Transport transport = sendWith(draft, serverCopy("to@example.com", null, null));
 
             verify(transport).sendMessage(any(), any());
-            verify(draftPersistenceService).forgetTypedRecipients(ACCOUNT_ID, MESSAGE_ID);
+            // Set aside, not dropped: the server can claim the delete after the send and
+            // keep the draft (B1-5, reopened at 1.57).
+            verify(draftPersistenceService).setAsideTypedRecipients(ACCOUNT_ID, MESSAGE_ID);
         }
     }
 

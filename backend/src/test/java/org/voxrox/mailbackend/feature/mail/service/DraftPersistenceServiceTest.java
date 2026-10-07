@@ -12,6 +12,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
@@ -166,8 +167,11 @@ class DraftPersistenceServiceTest {
 
             verify(imapActionService).hardDelete(ACCOUNT_ID, "Drafts", 100L);
             verify(messageService).deleteByStableId(STABLE_ID);
-            // The replaced revision's typed recipients go with it (B1-5).
-            verify(draftRecipientsRepository).deleteEntry(ACCOUNT_ID, MESSAGE_ID);
+            // The replaced revision's typed recipients stay, whatever the server answered
+            // to the delete: the save only looks up the chain to make its own entry
+            // current (B1-5, reopened at 1.57).
+            verify(draftRecipientsRepository).findChainId(ACCOUNT_ID, IDENTITY.stableId());
+            verifyNoMoreInteractions(draftRecipientsRepository);
             // Conditional clear scoped to send-pipeline codes — a successful draft
             // save must not wipe a standing sync error (shared last_error slot).
             verify(accountRepository).clearLastErrorIfCodeIn(eq(ACCOUNT_ID), any());
@@ -261,7 +265,6 @@ class DraftPersistenceServiceTest {
             verify(messageService).insertIfAbsent(mapped);
             // The typed recipients stay: the sync rewrites the row from the server's copy
             // whenever the server presents the draft anew (B1-5).
-            verify(draftRecipientsRepository, never()).deleteEntry(any(), any());
             verify(draftRecipientsRepository, never()).deleteById(any());
         }
 
@@ -512,7 +515,7 @@ class DraftPersistenceServiceTest {
         }
 
         @Test
-        @DisplayName("deleteSupersededDraft: own Drafts message -> hard-deleted")
+        @DisplayName("deleteSupersededDraft: own Drafts message -> hard-deleted, its typed recipients set aside")
         void deleteSupersededHardDeletesOwnDraft() {
             when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(ownDraft()));
             when(imapFolderService.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.DRAFTS)).thenReturn("Drafts");
@@ -521,7 +524,10 @@ class DraftPersistenceServiceTest {
 
             verify(imapActionService).hardDelete(ACCOUNT_ID, "Drafts", 100L);
             verify(messageService).deleteByStableId(STABLE_ID);
-            verify(draftRecipientsRepository).deleteEntry(ACCOUNT_ID, MESSAGE_ID);
+            // Set aside, not dropped: the server can claim the delete and keep the draft
+            // (B1-5, reopened at 1.57).
+            verify(draftRecipientsRepository).setAside(eq(ACCOUNT_ID), eq(MESSAGE_ID), any(LocalDateTime.class));
+            verifyNoMoreInteractions(draftRecipientsRepository);
         }
 
         @Test

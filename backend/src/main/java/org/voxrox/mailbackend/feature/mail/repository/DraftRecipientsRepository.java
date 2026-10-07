@@ -45,8 +45,9 @@ public interface DraftRecipientsRepository extends JpaRepository<DraftRecipients
      * besides {@code chainId}, the draft being saved. A draft is a chain, as old as
      * its newest entry, and goes whole: no save of another draft pushes out one of
      * its revisions, only newer drafts, and only the user starts one. What they
-     * lose are drafts deleted somewhere this client does not see, a sent one whose
-     * clean-up the server refused, and a draft the server hides.
+     * lose are drafts deleted somewhere this client does not see, sent ones, whose
+     * entries stay set aside whatever the server answers to their delete, and a
+     * draft the server hides.
      * <p>
      * Whole because the server chooses which revision of a draft to present. Until
      * IMAP/SMTP audit 1.54 the entries were bounded by account in two kinds, heads
@@ -79,11 +80,13 @@ public interface DraftRecipientsRepository extends JpaRepository<DraftRecipients
      * {@code keep}: entries a later save of the same draft has followed and that
      * are not current — set aside, or accepted and never stored. The draft's
      * current entry and its newest are never among them. They grow by the draft's
-     * own saves, one for every revision a server kept after the save that replaced
-     * it, by refusing the delete or by withholding what the save needed to address
-     * it, so only that draft's later saves push one out, and the revision a server
-     * can then present is that many saves older than the one the user last saw.
-     * Newest by {@code saved_seq}.
+     * own saves, one per save, since a replaced revision keeps its entry whatever
+     * the server answers to its delete, so only that draft's later saves push one
+     * out, and the revision a server can then present is that many saves older than
+     * the one the user last saw. Until IMAP/SMTP audit 1.58 a save dropped the
+     * entry of the revision it replaced once the server answered the delete, and a
+     * server that claimed the delete and kept the revision presented it after one
+     * autosave (B1-5, reopened at 1.57). Newest by {@code saved_seq}.
      */
     @Transactional
     @Modifying
@@ -104,19 +107,25 @@ public interface DraftRecipientsRepository extends JpaRepository<DraftRecipients
             @Param("keep") int keep);
 
     /**
-     * Drops the account's entry for {@code messageId}, if there is one. A plain
-     * DELETE for the reason {@link #insertEntry} is a plain INSERT:
-     * {@code deleteById} reads the entry and then writes in one transaction, and
-     * SQLite refuses that read's upgrade to a write at once when another connection
-     * writes between them, which left the entry in place (measured by the pass over
-     * 1.47); starting with the write, it waits for the lock like any other writer.
+     * Sets aside the account's entry for {@code messageId}, unless it is set aside
+     * already: a revision this client has just sent is no longer its draft's
+     * current one. Set aside rather than dropped, since a server can claim the
+     * delete that follows the send and keep the revision, and present it again; the
+     * entry then stays with its draft like any other revision set aside (B1-5,
+     * reopened at 1.57). A plain UPDATE for the reason {@link #insertEntry} is a
+     * plain INSERT: a read and then a write in one transaction is refused at once
+     * when another connection writes between them (measured for {@code deleteById}
+     * by the pass over 1.47); starting with the write, it waits for the lock like
+     * any other writer.
      */
     @Transactional
     @Modifying
     @Query(value = """
-            DELETE FROM draft_recipients WHERE account_id = :accountId AND message_id = :messageId
+            UPDATE draft_recipients SET superseded_at = :at
+            WHERE account_id = :accountId AND message_id = :messageId AND superseded_at IS NULL
             """, nativeQuery = true)
-    int deleteEntry(@Param("accountId") Long accountId, @Param("messageId") String messageId);
+    int setAside(@Param("accountId") Long accountId, @Param("messageId") String messageId,
+            @Param("at") LocalDateTime at);
 
     /**
      * The chain of the account's entry minted under {@code stableId}: what a save

@@ -458,6 +458,41 @@ class DraftRecipientsRepositoryIT {
                 .containsExactly("<written-last@voxrox.org>");
     }
 
+    /**
+     * What a send does to the entry of the draft it sent (B1-5, reopened at 1.57):
+     * sets it aside, the only entry it touches, and keeps it. An entry already set
+     * aside keeps its time.
+     */
+    @Test
+    @DisplayName("A sent draft's entry is set aside and kept, and no other entry is touched")
+    void aSentDraftsEntryIsSetAsideAndKept() {
+        AccountEntity account = newAccount("user@example.com");
+        AccountEntity other = newAccount("other@example.com");
+        LocalDateTime start = LocalDateTime.now().minusHours(1).truncatedTo(ChronoUnit.MILLIS);
+        stored("<sent@voxrox.org>", account, start);
+        stored("<another-draft@voxrox.org>", account, start);
+        keep("<earlier@voxrox.org>", "stable-a", "chain", account, start);
+        keep("<later@voxrox.org>", "stable-b", "chain", account, start.plusMinutes(1));
+        repository.markStored(account.getId(), "chain", "<later@voxrox.org>", start.plusMinutes(1));
+        keep("<sent@voxrox.org>", "stable-sent", "chain-sent", other, start);
+        repository.markStored(other.getId(), "chain-sent", "<sent@voxrox.org>", start);
+        em.clear();
+
+        assertThat(repository.setAside(account.getId(), "<sent@voxrox.org>", start.plusMinutes(5))).isEqualTo(1);
+        assertThat(repository.setAside(account.getId(), "<earlier@voxrox.org>", start.plusMinutes(5)))
+                .as("an entry already set aside").isZero();
+        assertThat(repository.setAside(account.getId(), "<unknown@voxrox.org>", start.plusMinutes(5))).isZero();
+        em.clear();
+
+        assertThat(repository.findAll()).hasSize(5);
+        assertThat(currentEntries()).containsExactlyInAnyOrder("<another-draft@voxrox.org>", "<later@voxrox.org>",
+                "<sent@voxrox.org>");
+        assertThat(repository.findById(new DraftRecipientsEntity.Key(account.getId(), "<sent@voxrox.org>"))).get()
+                .extracting(DraftRecipientsEntity::getSupersededAt).isEqualTo(start.plusMinutes(5));
+        assertThat(entry("<earlier@voxrox.org>").getSupersededAt()).as("an entry already set aside keeps its time")
+                .isEqualTo(start.plusMinutes(1));
+    }
+
     @Test
     @DisplayName("A revision's chain is found by its account and stableId, and by no other account's")
     void findsTheChainByAccountAndStableId() {
