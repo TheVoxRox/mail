@@ -101,7 +101,7 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "e51e79fcd22305baa9380bac6783564b07056f3a",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "67a508ebd90f702554a0d3f6ffc01574d72796f2",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/DraftRecipientsEntity.java": "3a30c865980b7e1effb458ab38ddda80dd3693f7",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "6fa2070414385e7d895b3d7aede39b4eb326749f"
     },
@@ -113,6 +113,10 @@
       {
         "date": "2026-10-07",
         "note": "B1-17 fixed as the 1.52 pass recommended, recorded in the audit itself as v1.55 (section 4q); the fix is this PR's own and waits for an independent pass, so the anchor stays at 4e1b8d7 and this records the drift. Under feature/mail/service only BoundedImapProtocol changes: DepthBoundedFetchResponse reads an address's mailbox as well as its host, counts the groups started and not ended in the list being read, forgets them with the list as it forgets the group markers, and stops the parse with NestedGroup when a group starts while another is open; parseFetch drops that response with NestedGroupException, a ProtocolException like NestedTooDeepException, and the class javadoc names it. The per-response bounds of B1-3, B1-7 and B1-10, the stalled-parse stop of B1-15, B1-8's command budget and the selection budget of B1-13 and B1-14 are unchanged; the change adds one drop and moves no other claim. Verdict open findings (B1-14, B1-16)."
+      },
+      {
+        "date": "2026-10-07",
+        "note": "B1-16 fixed as the 1.52 pass recommended, recorded in the audit itself as v1.56 (section 4p); the fix is this PR's own and waits for an independent pass, so the anchor stays at 4e1b8d7 and this records the drift. Under feature/mail/service only BoundedImapProtocol changes: keptBytes charges every body item outside a content fetch as the headers it becomes, through headerBytes and headerBlock, which count the headers as InternetHeaders.load makes them, lines split as LineInputStream splits them; HEADER_LINE_BYTES is new, and the javadocs of keptBytes and DEFAULT_OPEN_FOLDER_BUDGET follow (an ordinary message 9.7 KB rather than 8.8). The refusal is the selection budget's as before, and nothing else moves. Verdict open finding (B1-14)."
       }
     ]
   },
