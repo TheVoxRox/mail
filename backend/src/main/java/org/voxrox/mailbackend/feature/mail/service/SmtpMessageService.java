@@ -229,7 +229,9 @@ public class SmtpMessageService {
                 return;
             }
 
-            // Clear \Draft — a sent message is no longer a draft.
+            // Clear \Draft — a sent message is no longer a draft. Saving updates the
+            // top-level headers only: the draft is an UntouchedDraft, whose content
+            // goes out as the server holds it, never parsed into parts (B1-18).
             detached.setFlag(Flags.Flag.DRAFT, false);
             detached.setSentDate(Date.from(Instant.now()));
             detached.saveChanges();

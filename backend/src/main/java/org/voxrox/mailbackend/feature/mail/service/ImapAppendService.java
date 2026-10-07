@@ -183,22 +183,40 @@ public class ImapAppendService {
     static final int MAX_DRAFT_BYTES = 40 * 1024 * 1024;
 
     /**
+     * What the header block of a draft fetched back for an untouched send may cost
+     * once parsed, charged as {@link BoundedImapProtocol#headerBytes} charges a
+     * body item: {@link BoundedImapProtocol#HEADER_LINE_BYTES} a header and the
+     * block's bytes twice more (IMAP/SMTP audit B1-18). {@code MimeMessage} loads
+     * every line of the block into {@code InternetHeaders}, some 26 times its size
+     * for short lines, which within {@link #MAX_DRAFT_BYTES} came to 1,046 MiB
+     * (measured by the pass over 1.56). An honest draft's block is some kilobytes,
+     * a reply deep in a thread some more for its {@code References}; this admits a
+     * block of 128 KiB, some three thousand recipients of 40 bytes, and what the
+     * address parse then keeps, some 76 bytes an address at its densest
+     * ({@code a,a,a}, measured), stays near 5 MB.
+     */
+    static final int MAX_DRAFT_HEADER_BYTES = 256 * 1024;
+
+    /**
      * Fetches a MIME message from IMAP and returns it as a detached
      * {@link MimeMessage} that no longer depends on the original Store/Folder (it
-     * can be safely sent over SMTP after the IMAP connection is closed). The
-     * implementation uses {@code writeTo(bytes) + new
-     * MimeMessage(parseStream)} — the canonical Jakarta Mail pattern for detach
-     * (the copy constructor has known issues with multipart parts).
+     * can be safely sent over SMTP after the IMAP connection is closed): the
+     * message's bytes are written out and parsed again.
      * <p>
      * The write is bounded at {@link #MAX_DRAFT_BYTES} and stops at the first byte
      * past it, so an oversized answer costs the bound rather than whatever the
-     * server chose to send.
+     * server chose to send. The header block is then charged against
+     * {@link #MAX_DRAFT_HEADER_BYTES} before it is parsed, and only that block is:
+     * the message is an {@link UntouchedDraft}, whose content goes out as the
+     * server holds it, never parsed into parts (B1-18).
      *
      * @return {@link Optional#empty()} if the message with the given UID does not
      *         exist in the folder (typically a race with deletion on the other
      *         side).
      * @throws MailOperationException
-     *             if the server answers with more than {@link #MAX_DRAFT_BYTES}.
+     *             if the server answers with more than {@link #MAX_DRAFT_BYTES}, or
+     *             with a header block that would cost more than
+     *             {@link #MAX_DRAFT_HEADER_BYTES}.
      */
     public Optional<MimeMessage> fetchAndDetachMime(Long accountId, String folderName, long uid, Session session) {
         // INTERACTIVE: the user pressed Send and is watching for the result. Reading
@@ -213,9 +231,10 @@ public class ImapAppendService {
                         }
                         BoundedByteArrayOutputStream bytes = new BoundedByteArrayOutputStream(MAX_DRAFT_BYTES);
                         msg.writeTo(bytes);
+                        bytes.checkHeaderBlock();
                         // Reads the buffer in place rather than through toByteArray(), which would
                         // copy the whole draft a third time.
-                        return new MimeMessage(session, bytes.toInputStream());
+                        return new UntouchedDraft(session, bytes.toInputStream());
                     } catch (java.io.IOException e) {
                         throw new MessagingException("Error reading MIME bytes from IMAP", e);
                     }
@@ -245,6 +264,20 @@ public class ImapAppendService {
             return new ByteArrayInputStream(buf, 0, count);
         }
 
+        /**
+         * Refuses a draft whose header block would cost more than
+         * {@link #MAX_DRAFT_HEADER_BYTES} once parsed, counted on the bytes as held
+         * before anything parses them (B1-18).
+         */
+        synchronized void checkHeaderBlock() {
+            long charge = BoundedImapProtocol.headerBytes(buf, 0, count);
+            if (charge > MAX_DRAFT_HEADER_BYTES) {
+                throw new MailOperationException(ErrorCode.MAIL_CONNECTION_ERROR,
+                        "The headers of the draft on the server would take " + charge + " bytes, more than "
+                                + MAX_DRAFT_HEADER_BYTES + ", and it was not sent.");
+            }
+        }
+
         @Override
         public synchronized void write(int b) {
             checkRoomFor(1);
@@ -262,6 +295,50 @@ public class ImapAppendService {
                 throw new MailOperationException(ErrorCode.MAIL_CONNECTION_ERROR,
                         "The draft on the server is larger than " + limit + " bytes and was not sent.");
             }
+        }
+    }
+
+    /**
+     * A draft fetched back for an untouched send, which goes out as the server
+     * holds it: its header block is parsed, and its content is not (IMAP/SMTP audit
+     * B1-18). {@code MimeMessage.saveChanges} marks a message modified and updates
+     * the headers of every part, which parses a multipart content into its parts,
+     * each part's header block into {@code InternetHeaders} and each nested
+     * multipart the same way; the bound on the top-level block then left every
+     * other block uncharged, and a draft of 5 MB with a million header lines in its
+     * second part ran a 64 MB heap out of memory where this sent it (measured).
+     * Here saving updates only what the send changes at the top, the
+     * {@code MIME-Version}, the {@code Date} and the {@code Message-ID}, and leaves
+     * the message unmodified, so {@code writeTo} writes those headers and then
+     * copies the content byte for byte. That is what went out before as well: the
+     * parts were updated on a copy that saving then dropped, and the content was
+     * copied as held (measured: three drafts, the bytes the same either way). What
+     * changes is that nothing parses the content, so a multipart whose boundary
+     * never appears, which that parse refused, now goes out as the server holds it.
+     * Nothing else on the send path reads the content: the recipient check, the
+     * SMTP envelope and the Sent append read the top-level headers, and the SMTP
+     * transport converts content to 8-bit only under
+     * {@code mail.smtp.allow8bitmime}, which this application never sets.
+     */
+    static final class UntouchedDraft extends MimeMessage {
+
+        UntouchedDraft(Session session, java.io.InputStream in) throws MessagingException {
+            super(session, in);
+        }
+
+        @Override
+        public void saveChanges() throws MessagingException {
+            saved = true;
+            updateHeaders();
+        }
+
+        @Override
+        protected synchronized void updateHeaders() throws MessagingException {
+            setHeader("MIME-Version", "1.0");
+            if (getHeader("Date") == null) {
+                setSentDate(java.util.Date.from(java.time.Instant.now()));
+            }
+            updateMessageID();
         }
     }
 }

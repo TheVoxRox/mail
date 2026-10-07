@@ -226,6 +226,124 @@ class ImapAppendServiceTest {
                     .hasMessageContaining(String.valueOf(ImapAppendService.MAX_DRAFT_BYTES));
         }
 
+        /**
+         * IMAP/SMTP audit B1-18. {@code MimeMessage} loads every line of the header
+         * block into {@code InternetHeaders}, some 26 times its size for short lines,
+         * and within the 40 MiB bound on the draft that came to a gigabyte. The block
+         * is charged before it is parsed; here one header past the bound.
+         */
+        @Test
+        @DisplayName("A draft whose header block would cost more than the bound once parsed is refused")
+        void headerBlockPastTheBoundIsRefused() throws Exception {
+            serve(901L, rawMessage("a:b\r\n".repeat(shortHeadersWithinBound() + 1) + "\r\nbody\r\n"));
+
+            assertThatThrownBy(() -> service.fetchAndDetachMime(ACCOUNT_ID, FOLDER_NAME, 901L, session))
+                    .isInstanceOf(MailOperationException.class)
+                    .hasMessageContaining(String.valueOf(ImapAppendService.MAX_DRAFT_HEADER_BYTES));
+        }
+
+        @Test
+        @DisplayName("A draft whose header block costs no more than the bound is parsed")
+        void headerBlockWithinTheBoundIsParsed() throws Exception {
+            serve(902L, rawMessage("a:b\r\n".repeat(shortHeadersWithinBound()) + "\r\nbody\r\n"));
+
+            Optional<MimeMessage> result = service.fetchAndDetachMime(ACCOUNT_ID, FOLDER_NAME, 902L, session);
+
+            assertThat(result).isPresent();
+            assertThat(result.get().getHeader("a")).hasSize(shortHeadersWithinBound());
+        }
+
+        /**
+         * B1-18. {@code saveChanges} on a parsed {@code MimeMessage} marks it modified
+         * and updates the headers of every part, which parses a multipart content into
+         * its parts and each part's header block into {@code InternetHeaders}, none of
+         * which the bound on the top-level block charges. The untouched draft updates
+         * its top-level headers only. Here the second part carries 200,000 header
+         * lines, which that parse turns into some 26 MB or more; saving and writing the
+         * untouched draft allocates a small fraction of it, measured on this thread.
+         */
+        @Test
+        @DisplayName("Saving and writing an untouched draft never parses its parts' headers")
+        void savingAnUntouchedDraftParsesNoPart() throws Exception {
+            String content = "--B\r\nContent-Type: text/plain\r\n\r\nhello\r\n--B\r\nContent-Type: text/plain\r\n"
+                    + "a:b\r\n".repeat(200_000) + "\r\nbody\r\n--B--\r\n";
+            serve(903L,
+                    rawMessage("From: a@example.com\r\nTo: b@example.com\r\nSubject: s\r\n"
+                            + "Message-ID: <original@example.com>\r\nMIME-Version: 1.0\r\n"
+                            + "Content-Type: multipart/mixed; boundary=\"B\"\r\n\r\n" + content));
+            MimeMessage detached = service.fetchAndDetachMime(ACCOUNT_ID, FOLDER_NAME, 903L, session).orElseThrow();
+            var threads = (com.sun.management.ThreadMXBean) java.lang.management.ManagementFactory.getThreadMXBean();
+            assertThat(threads.isThreadAllocatedMemoryEnabled()).as("allocation is measured on this JVM").isTrue();
+
+            long before = threads.getCurrentThreadAllocatedBytes();
+            detached.setSentDate(java.util.Date.from(java.time.Instant.now()));
+            detached.saveChanges();
+            detached.writeTo(java.io.OutputStream.nullOutputStream(), new String[]{"Bcc", "Content-Length"});
+            long allocated = threads.getCurrentThreadAllocatedBytes() - before;
+
+            assertThat(allocated).as("bytes allocated saving and writing the draft").isLessThan(4L * 1024 * 1024);
+        }
+
+        /**
+         * What an untouched draft sends: its own top-level headers, updated as every
+         * send updated them, and its content byte for byte as the server holds it,
+         * which is what saving a parsed message sent as well.
+         */
+        @Test
+        @DisplayName("An untouched draft sends its content as the server holds it")
+        void untouchedDraftSendsItsContentAsHeld() throws Exception {
+            String content = String.join("\r\n", "--B", "Content-Type: text/plain", "", "hello", "--B",
+                    "Content-Type: application/octet-stream", "", "attachment", "--B--", "");
+            serve(904L,
+                    rawMessage("From: a@example.com\r\nTo: b@example.com\r\nSubject: s\r\n"
+                            + "Message-ID: <original@example.com>\r\nMIME-Version: 1.0\r\n"
+                            + "Content-Type: multipart/mixed; boundary=\"B\"\r\n\r\n" + content));
+
+            MimeMessage detached = service.fetchAndDetachMime(ACCOUNT_ID, FOLDER_NAME, 904L, session).orElseThrow();
+            detached.setSentDate(java.util.Date.from(java.time.Instant.now()));
+            detached.saveChanges();
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            detached.writeTo(out, new String[]{"Bcc", "Content-Length"});
+
+            String sent = out.toString(java.nio.charset.StandardCharsets.US_ASCII);
+            assertThat(sent.substring(sent.indexOf("\r\n\r\n") + 4)).isEqualTo(content);
+            assertThat(detached.getHeader("To")).containsExactly("b@example.com");
+            assertThat(detached.getHeader("MIME-Version")).containsExactly("1.0");
+            assertThat(detached.getHeader("Date")).hasSize(1);
+            // Saving gives the message a Message-ID of its own, as every send did.
+            assertThat(detached.getHeader("Message-ID")).doesNotContain("<original@example.com>");
+        }
+
+        /**
+         * How many headers {@code a:b}, five bytes with their line end, cost no more
+         * than {@link ImapAppendService#MAX_DRAFT_HEADER_BYTES} once parsed.
+         */
+        private static int shortHeadersWithinBound() {
+            return ImapAppendService.MAX_DRAFT_HEADER_BYTES / (BoundedImapProtocol.HEADER_LINE_BYTES + 2 * 5);
+        }
+
+        private void serve(long uid, MimeMessage onServer) throws Exception {
+            Folder folder = mock(Folder.class);
+            UIDFolder uidFolder = mock(UIDFolder.class);
+            when(uidFolder.getMessageByUID(uid)).thenReturn(onServer);
+            when(imapFolderService.executeInFolder(eq(ACCOUNT_ID), eq(Lane.INTERACTIVE), eq(FOLDER_NAME),
+                    eq(Folder.READ_ONLY), any())).thenAnswer(inv -> {
+                        ImapFolderAction<?> action = inv.getArgument(4);
+                        return action.apply(folder, uidFolder);
+                    });
+        }
+
+        /** A message on the server that writes exactly these bytes. */
+        private MimeMessage rawMessage(String raw) {
+            byte[] bytes = raw.getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+            return new MimeMessage(session) {
+                @Override
+                public void writeTo(java.io.OutputStream out) throws java.io.IOException {
+                    out.write(bytes);
+                }
+            };
+        }
+
         /** A message that writes more bytes than the bound and keeps none of them. */
         private static MimeMessage endlessMessage(Session session) {
             return new MimeMessage(session) {
