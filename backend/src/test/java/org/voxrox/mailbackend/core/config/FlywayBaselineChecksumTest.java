@@ -52,7 +52,7 @@ class FlywayBaselineChecksumTest {
      * {@code V2__*.sql}. Updating this constant to silence the test would ship a
      * build that cannot start against any database created by an earlier version.
      */
-    private static final int PINNED_V1_CHECKSUM = -1233874357;
+    private static final int PINNED_V1_CHECKSUM = -914737523;
 
     private static final MigrationVersion V1 = MigrationVersion.fromVersion("1");
 

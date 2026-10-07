@@ -59,21 +59,27 @@ public class DraftPersistenceService {
     private final DraftRecipientsRepository draftRecipientsRepository;
 
     /**
-     * How many typed-recipients entries an account keeps of each kind, newest first
-     * (see {@link #keepTypedRecipients}). Heads are a draft's current entry and its
-     * newest, one entry when its last save was stored and two at most, so they
-     * count the drafts saved here that no send or delete of this client has
-     * retired: a draft still open, one deleted elsewhere, one the user discarded
-     * mid-compose (a discard forgets no entry), and one sent whose clean-up found
-     * no row to delete, which is nearly every send while a server withholds
-     * APPENDUID. A thousand is far past any real mailbox, and the bound is what
-     * stops those from piling up. The other kind counts the rest: revisions a later
-     * save of their draft followed that are not current — kept by the server after
-     * the save that replaced them, or never stored. They grow by saves, and are
-     * bounded apart so they cannot push out a head (B1-5, reopened at 1.31, 1.46
-     * and 1.48).
+     * How many drafts an account keeps typed recipients for, each with all its
+     * entries, newest draft first (see {@link #keepTypedRecipients}). A draft is a
+     * chain of revisions saved here, so this counts the drafts no send or delete of
+     * this client has retired: a draft still open, one deleted elsewhere, one the
+     * user discarded mid-compose (a discard forgets no entry), and one sent whose
+     * clean-up found no row to delete, which is nearly every send while a server
+     * withholds APPENDUID. Only the user starts a draft, so a thousand is a
+     * thousand messages composed since, and the bound is what stops those from
+     * piling up (B1-5, reopened at 1.31, 1.46, 1.48 and 1.53).
      */
-    static final int KEPT_DRAFT_RECIPIENTS = 1_000;
+    static final int KEPT_DRAFTS = 1_000;
+
+    /**
+     * How many of a draft's followed revisions — replaced by a later save of the
+     * same draft and not current — keep their entries, newest first. A server that
+     * keeps the replaced revisions keeps one per autosave, so they need a bound of
+     * their own, and only the draft's own saves can reach it: the oldest revision a
+     * server can present without its entry is a hundred autosaves behind the one
+     * the user last saw, a draft that visibly is not the one they were writing.
+     */
+    static final int KEPT_REVISIONS_PER_DRAFT = 100;
 
     public DraftPersistenceService(AccountService accountService, ImapFolderService imapFolderService,
             MessageService messageService, ImapActionService imapActionService, ImapAppendService appendService,
@@ -453,20 +459,28 @@ public class DraftPersistenceService {
      * merge {@code save} did failed at once
      * ({@link DraftRecipientsRepository#insertEntry}). The entry is accepted, not
      * current: it becomes current only once the server stores the revision
-     * ({@link #markStored}). It is its draft's newest from the start, though, and
-     * so a head, whatever the server does with the save; the revision it follows
-     * stops being one unless it is current. The account's heads beyond its newest
-     * {@link #KEPT_DRAFT_RECIPIENTS} less one, the place this entry takes, and its
-     * followed entries beyond its newest {@link #KEPT_DRAFT_RECIPIENTS}, go at the
-     * same time ({@link DraftRecipientsRepository#deleteHeadsButNewest}).
+     * ({@link #markStored}). A save that starts a draft — its chain is its own
+     * stableId — drops the account's drafts beyond its newest {@link #KEPT_DRAFTS}
+     * less one, the place the new draft takes, each with every entry it has
+     * ({@link DraftRecipientsRepository#deleteDraftsButNewest}); only such a save
+     * adds a draft, so the others skip that statement, which reads every entry of
+     * the account (some 80 ms over a hundred thousand, against some 12 for a save
+     * of a draft already kept, measured). Every save drops its draft's followed
+     * revisions beyond its newest {@link #KEPT_REVISIONS_PER_DRAFT} less one, the
+     * place the revision it follows takes
+     * ({@link DraftRecipientsRepository#deleteRevisionsButNewest}). Whatever the
+     * server does with this save or any other, no other draft's saves push out a
+     * revision of this one.
      *
      * @throws RuntimeException
      *             when the entry cannot be written; the caller decides whether the
      *             draft may be appended without it.
      */
     private void keepTypedRecipients(Long accountId, DraftIdentity identity, DraftRequest request, String chainId) {
-        draftRecipientsRepository.deleteHeadsButNewest(accountId, KEPT_DRAFT_RECIPIENTS - 1);
-        draftRecipientsRepository.deleteFollowedButNewest(accountId, KEPT_DRAFT_RECIPIENTS);
+        if (chainId.equals(identity.stableId())) {
+            draftRecipientsRepository.deleteDraftsButNewest(accountId, chainId, KEPT_DRAFTS - 1);
+        }
+        draftRecipientsRepository.deleteRevisionsButNewest(accountId, chainId, KEPT_REVISIONS_PER_DRAFT - 1);
         draftRecipientsRepository.insertEntry(accountId, identity.messageId(), identity.stableId(), chainId,
                 request.to(), request.cc(), request.bcc(), LocalDateTime.now());
     }
@@ -511,11 +525,11 @@ public class DraftPersistenceService {
      * by the verification pass over 1.39). Decided by the chain this client keeps,
      * not by the server's answers. The entries set aside stay, for revisions the
      * server keeps and the user may still send, until
-     * {@link #KEPT_DRAFT_RECIPIENTS} newer followed ones push them out. The chain
-     * is the one the stored revision's own entry carries; a recovery draft whose
-     * entry could not be written has none and changes nothing. Best-effort: the
-     * draft is stored by now, and an entry left accepted stays its draft's newest,
-     * a head, until the draft's next save (B1-5, reopened at 1.48).
+     * {@link #KEPT_REVISIONS_PER_DRAFT} newer revisions of the same draft push them
+     * out, or the draft goes whole. The chain is the one the stored revision's own
+     * entry carries; a recovery draft whose entry could not be written has none and
+     * changes nothing. Best-effort: the draft is stored by now, and an entry left
+     * accepted stays with its draft like any other (B1-5, reopened at 1.48).
      */
     private void markStored(Long accountId, DraftIdentity identity) {
         try {
@@ -533,8 +547,7 @@ public class DraftPersistenceService {
      * or of a revision a save replaced and the server let it delete. A plain DELETE
      * that waits for SQLite's write lock
      * ({@link DraftRecipientsRepository#deleteEntry}). What it still misses goes
-     * once the account has {@link #KEPT_DRAFT_RECIPIENTS} newer entries of the same
-     * kind.
+     * with its draft, once the account has {@link #KEPT_DRAFTS} newer drafts.
      */
     public void forgetTypedRecipients(Long accountId, @Nullable String messageId) {
         if (messageId == null) {

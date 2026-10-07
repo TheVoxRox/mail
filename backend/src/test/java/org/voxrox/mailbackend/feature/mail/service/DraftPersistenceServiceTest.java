@@ -3,6 +3,7 @@ package org.voxrox.mailbackend.feature.mail.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -320,23 +321,23 @@ class DraftPersistenceServiceTest {
         }
 
         @Test
-        @DisplayName("Keeping recipients drops the account's entries beyond its newest, by count and not by age")
+        @DisplayName("Keeping recipients drops the account's drafts beyond its newest, by count and not by age")
         void keepingRecipientsKeepsTheNewestEntries() {
             acceptsSaves();
 
-            service.acceptDraftSave(ACCOUNT_ID,
+            DraftPersistenceService.DraftIdentity identity = service.acceptDraftSave(ACCOUNT_ID,
                     new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null);
 
-            // One head fewer than the bound, so this save's entry, its draft's newest from
-            // the start, makes it whole; the followed entries have a bound of their own
-            // (B1-5).
+            // The saved draft, a new chain here, kept besides one draft fewer than the
+            // bound, and of its followed revisions one fewer, the place the revision this
+            // save follows takes (B1-5).
             InOrder order = inOrder(draftRecipientsRepository);
-            order.verify(draftRecipientsRepository).deleteHeadsButNewest(ACCOUNT_ID,
-                    DraftPersistenceService.KEPT_DRAFT_RECIPIENTS - 1);
-            order.verify(draftRecipientsRepository).deleteFollowedButNewest(ACCOUNT_ID,
-                    DraftPersistenceService.KEPT_DRAFT_RECIPIENTS);
-            order.verify(draftRecipientsRepository).insertEntry(eq(ACCOUNT_ID), any(), any(), any(), any(), any(),
-                    any(), any());
+            order.verify(draftRecipientsRepository).deleteDraftsButNewest(ACCOUNT_ID, identity.stableId(),
+                    DraftPersistenceService.KEPT_DRAFTS - 1);
+            order.verify(draftRecipientsRepository).deleteRevisionsButNewest(ACCOUNT_ID, identity.stableId(),
+                    DraftPersistenceService.KEPT_REVISIONS_PER_DRAFT - 1);
+            order.verify(draftRecipientsRepository).insertEntry(eq(ACCOUNT_ID), any(), any(), eq(identity.stableId()),
+                    any(), any(), any(), any());
         }
 
         @Test
@@ -353,6 +354,10 @@ class DraftPersistenceServiceTest {
             verify(draftRecipientsRepository).insertEntry(eq(ACCOUNT_ID), eq(identity.messageId()),
                     eq(identity.stableId()), eq("stable-first-revision"), any(), any(), any(),
                     any(LocalDateTime.class));
+            // It adds no draft, so it drops none; only its own revisions are bounded.
+            verify(draftRecipientsRepository, never()).deleteDraftsButNewest(any(), any(), anyInt());
+            verify(draftRecipientsRepository).deleteRevisionsButNewest(ACCOUNT_ID, "stable-first-revision",
+                    DraftPersistenceService.KEPT_REVISIONS_PER_DRAFT - 1);
         }
 
         @Test

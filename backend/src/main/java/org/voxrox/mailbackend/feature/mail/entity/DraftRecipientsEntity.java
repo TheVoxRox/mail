@@ -51,10 +51,11 @@ public class DraftRecipientsEntity {
      * save that names a revision of the draft as the one it replaces: a stored save
      * sets aside every earlier entry of its chain not already set aside, so the
      * draft keeps one current entry even when the revision a save names is one the
-     * server rejected, which no later save names (B1-5).
+     * server rejected, which no later save names (B1-5). The account keeps its
+     * typed recipients by draft, a chain whole or not at all.
      */
-    @Column(name = "chain_id", length = 32)
-    private @Nullable String chainId;
+    @Column(name = "chain_id", length = 32, nullable = false)
+    private String chainId;
 
     @Column(name = "recipients_to", columnDefinition = "TEXT")
     private @Nullable String recipientsTo;
@@ -81,9 +82,9 @@ public class DraftRecipientsEntity {
      * not stored it, waiting for the server or failed. Only a stored revision
      * becomes current: an entry current from acceptance let a server that held the
      * APPEND lane keep a thousand autosaves current and push out a hidden draft's
-     * entry (B1-5, reopened at 1.46). A draft's newest entry is bounded with the
-     * current ones whatever this says, so a revision the server has not stored is
-     * not left to the saves to push out (reopened at 1.48).
+     * entry (B1-5, reopened at 1.46). Whatever this says, an entry goes only with
+     * its whole draft or behind a hundred later revisions of that draft, so no
+     * other draft's saves push it out (reopened at 1.48 and 1.53).
      */
     @Column(name = "stored_at")
     private @Nullable LocalDateTime storedAt;
@@ -111,7 +112,7 @@ public class DraftRecipientsEntity {
         return stableId;
     }
 
-    public @Nullable String getChainId() {
+    public String getChainId() {
         return chainId;
     }
 
