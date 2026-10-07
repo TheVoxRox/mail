@@ -677,7 +677,17 @@ final class BoundedImapProtocol extends IMAPProtocol {
      * ({@link #headerBlock}).
      */
     static long headerBytes(ByteArray data) {
-        HeaderBlock block = headerBlock(data.getBytes(), data.getStart(), data.getStart() + data.getCount());
+        return headerBytes(data.getBytes(), data.getStart(), data.getStart() + data.getCount());
+    }
+
+    /**
+     * {@link #headerBytes(ByteArray)} for the bytes from {@code start} to
+     * {@code end}: what parsing the header block at their start into
+     * {@code InternetHeaders} keeps, past the bytes themselves. Also charges the
+     * untouched send's draft, which {@code MimeMessage} loads the same way (B1-18).
+     */
+    static long headerBytes(byte[] bytes, int start, int end) {
+        HeaderBlock block = headerBlock(bytes, start, end);
         return block.headers() * HEADER_LINE_BYTES + 2L * block.length();
     }
 

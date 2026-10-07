@@ -101,7 +101,7 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "1bab9c4fdbfacc814bbdada93373d0ed7938ff02",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "1c46eee0f141d62c3ca6eedbf6948af6e0490e43",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/DraftRecipientsEntity.java": "3a30c865980b7e1effb458ab38ddda80dd3693f7",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "53ea6840a3eddac96bfd8ecf0becf23d7e8fe836"
     },
@@ -121,6 +121,10 @@
       {
         "date": "2026-10-07",
         "note": "B1-5 fixed again as the 1.57 pass recommended, recorded in the audit itself as v1.58 (section 4e); the fix is this PR's own and waits for an independent pass, so the anchor stays at 4e1b8d7 and this records the drift. Two paths move. Under feature/mail/service, DraftPersistenceService: saveDraftAsync no longer forgets the replaced revision's entry after its delete, which markStored has already set aside, and forgetTypedRecipients becomes setAsideTypedRecipients, which deleteSupersededDraft calls; SmtpMessageService.sendDraftAsync calls it in place of the forget; javadocs follow. DraftRecipientsRepository: setAside, a plain UPDATE of superseded_at on the named entry when it is not set aside yet, replaces deleteEntry; the javadocs of deleteDraftsButNewest and deleteRevisionsButNewest follow. DraftRecipientsEntity is unchanged. The INSERT, the chain lookup, markStored, both bounds and the send's recipient check are unchanged, so only section 4e moves. Verdict open findings (B1-14, B1-18, B1-19)."
+      },
+      {
+        "date": "2026-10-07",
+        "note": "B1-18 fixed as the 1.57 pass recommended and wider, recorded in the audit itself as v1.59 (section 4r); the fix is this PR's own and waits for an independent pass, so the anchor stays at 4e1b8d7 and this records the drift. One path moves, feature/mail/service, in three files. ImapAppendService: fetchAndDetachMime charges the draft's header block on the bytes as held (BoundedByteArrayOutputStream.checkHeaderBlock) before the parse and refuses one past MAX_DRAFT_HEADER_BYTES (256 KiB), and returns an UntouchedDraft, a MimeMessage whose saveChanges updates MIME-Version, Date and Message-ID only and leaves the message unmodified, so its content is copied as held and never parsed into parts; javadocs follow. BoundedImapProtocol: headerBytes gains an overload on a byte array, which the ByteArray one now calls; headerBlock, HEADER_LINE_BYTES, keptBytes and every bound are unchanged. SmtpMessageService: a comment by saveChanges. The recipient check, the SMTP send and the Sent append are unchanged, so only section 4r moves, and section 4e's 40 MiB bound with it as the bytes the send holds. Verdict open findings (B1-14, B1-19)."
       }
     ]
   },
