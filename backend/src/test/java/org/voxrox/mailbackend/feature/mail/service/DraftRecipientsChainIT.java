@@ -214,6 +214,35 @@ class DraftRecipientsChainIT {
     }
 
     /**
+     * Noted by the pass over 1.47. Forgetting an entry went through
+     * {@code deleteById}, a read and then a write in one transaction, which SQLite
+     * refuses at once beside another connection's write, whether that one then
+     * commits or rolls back: the entry stayed, and the failure was only logged.
+     * Here another connection holds the write lock and commits while the forget
+     * waits for it.
+     */
+    @Test
+    @DisplayName("Forgetting an entry waits out another connection's write instead of leaving the entry")
+    void forgettingWaitsOutAConcurrentWriter() throws Exception {
+        DraftPersistenceService.DraftIdentity sent = save(null, true);
+        Thread forget;
+        try (Connection holder = dataSource.getConnection()) {
+            holder.setAutoCommit(false);
+            try (Statement statement = holder.createStatement()) {
+                statement.executeUpdate("UPDATE accounts SET display_name = 'held' WHERE id = " + account.getId());
+            }
+            forget = Thread.ofPlatform().start(() -> service.forgetTypedRecipients(account.getId(), sent.messageId()));
+            forget.join(300);
+            assertThat(forget.isAlive()).as("still waiting while the other connection holds the lock").isTrue();
+            holder.commit();
+        }
+        forget.join(10_000);
+
+        assertThat(forget.isAlive()).isFalse();
+        assertThat(repository.findById(new DraftRecipientsEntity.Key(account.getId(), sent.messageId()))).isEmpty();
+    }
+
+    /**
      * Found by the pass over 1.42 (B1-5, reopened at 1.43). The entry is kept when
      * the save is accepted, and only a failed APPEND set it aside, so a save whose
      * task stopped before its APPEND left its entry current, and each further save
@@ -271,6 +300,64 @@ class DraftRecipientsChainIT {
         }
 
         assertThat(currentEntries()).containsExactlyInAnyOrder(hidden.messageId(), accepted.getLast().messageId());
+    }
+
+    /**
+     * Found by the pass over 1.47 (B1-5, reopened at 1.48). The entries that are
+     * not current shared one bound per account, and a draft's last revision is not
+     * current while its save waits for the lane: some thousand autosaves of another
+     * draft, on a server that withholds APPENDUID so every replaced revision's
+     * entry stays, pushed it out, and the draft kept no entry. A draft's newest is
+     * now bounded with the current entries. Here the draft's last save is accepted
+     * and held, as while a server holds the lane, then released.
+     */
+    @Test
+    @DisplayName("A draft's last save held by the server outlasts another draft's autosaves (B1-5)")
+    void aHeldLastSaveOutlastsAnotherDraftsAutosaves() {
+        DraftPersistenceService.DraftIdentity stored = save(null, true);
+        DraftPersistenceService.DraftIdentity held = service.acceptDraftSave(account.getId(), request(),
+                stored.stableId());
+
+        autosaveAnotherDraft();
+
+        assertThat(repository.findById(new DraftRecipientsEntity.Key(account.getId(), held.messageId())))
+                .as("the held revision's entry").isPresent();
+        storeNext.set(true);
+        service.saveDraftAsync(account.getId(), request(), stored.stableId(), held);
+        assertThat(currentEntries()).contains(held.messageId()).doesNotContain(stored.messageId());
+    }
+
+    /**
+     * The second route of 1.48: the server answers the draft's last APPEND NO but
+     * keeps the revision, so it is never made current, with no hold at all; against
+     * the 1.44 code too.
+     */
+    @Test
+    @DisplayName("A draft's last save the server answered NO outlasts another draft's autosaves (B1-5)")
+    void aLastSaveAnsweredNoOutlastsAnotherDraftsAutosaves() {
+        DraftPersistenceService.DraftIdentity stored = save(null, true);
+        DraftPersistenceService.DraftIdentity refused = save(stored.stableId(), false);
+
+        autosaveAnotherDraft();
+
+        assertThat(repository.findById(new DraftRecipientsEntity.Key(account.getId(), refused.messageId())))
+                .as("the refused revision's entry").isPresent();
+        assertThat(repository.findById(new DraftRecipientsEntity.Key(account.getId(), stored.messageId())))
+                .as("the stored revision's entry, still current").isPresent();
+    }
+
+    /**
+     * Autosaves of a new draft, each stored without APPENDUID, so each replaced
+     * revision's entry stays, set aside: two more than an account keeps entries of
+     * a kind, since the bound is applied before each save and the last stored
+     * revision is current, which is what it takes to push out the one before them
+     * when they share a bound.
+     */
+    private void autosaveAnotherDraft() {
+        String replaces = null;
+        for (int revision = 0; revision <= DraftPersistenceService.KEPT_DRAFT_RECIPIENTS + 1; revision++) {
+            replaces = save(replaces, true).stableId();
+        }
     }
 
     /** One save, accepted and run the way the controller sends it. */

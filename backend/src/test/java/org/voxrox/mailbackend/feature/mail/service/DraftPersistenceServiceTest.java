@@ -37,7 +37,6 @@ import org.voxrox.mailbackend.feature.account.service.AccountService;
 import org.voxrox.mailbackend.feature.mail.dto.DraftRequest;
 import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
 import org.voxrox.mailbackend.feature.mail.dto.MailRequest;
-import org.voxrox.mailbackend.feature.mail.entity.DraftRecipientsEntity;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 import org.voxrox.mailbackend.feature.mail.mapper.MessageMapper;
 import org.voxrox.mailbackend.feature.mail.repository.DraftRecipientsRepository;
@@ -167,7 +166,7 @@ class DraftPersistenceServiceTest {
             verify(imapActionService).hardDelete(ACCOUNT_ID, "Drafts", 100L);
             verify(messageService).deleteByStableId(STABLE_ID);
             // The replaced revision's typed recipients go with it (B1-5).
-            verify(draftRecipientsRepository).deleteById(new DraftRecipientsEntity.Key(ACCOUNT_ID, MESSAGE_ID));
+            verify(draftRecipientsRepository).deleteEntry(ACCOUNT_ID, MESSAGE_ID);
             // Conditional clear scoped to send-pipeline codes — a successful draft
             // save must not wipe a standing sync error (shared last_error slot).
             verify(accountRepository).clearLastErrorIfCodeIn(eq(ACCOUNT_ID), any());
@@ -261,6 +260,7 @@ class DraftPersistenceServiceTest {
             verify(messageService).insertIfAbsent(mapped);
             // The typed recipients stay: the sync rewrites the row from the server's copy
             // whenever the server presents the draft anew (B1-5).
+            verify(draftRecipientsRepository, never()).deleteEntry(any(), any());
             verify(draftRecipientsRepository, never()).deleteById(any());
         }
 
@@ -327,14 +327,13 @@ class DraftPersistenceServiceTest {
             service.acceptDraftSave(ACCOUNT_ID,
                     new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null);
 
-            // One fewer current entry than the bound, so this save's revision makes it
-            // whole
-            // once stored; the entries that are not current have a bound of their own
+            // One head fewer than the bound, so this save's entry, its draft's newest from
+            // the start, makes it whole; the followed entries have a bound of their own
             // (B1-5).
             InOrder order = inOrder(draftRecipientsRepository);
-            order.verify(draftRecipientsRepository).deleteCurrentButNewest(ACCOUNT_ID,
+            order.verify(draftRecipientsRepository).deleteHeadsButNewest(ACCOUNT_ID,
                     DraftPersistenceService.KEPT_DRAFT_RECIPIENTS - 1);
-            order.verify(draftRecipientsRepository).deleteNotCurrentButNewest(ACCOUNT_ID,
+            order.verify(draftRecipientsRepository).deleteFollowedButNewest(ACCOUNT_ID,
                     DraftPersistenceService.KEPT_DRAFT_RECIPIENTS);
             order.verify(draftRecipientsRepository).insertEntry(eq(ACCOUNT_ID), any(), any(), any(), any(), any(),
                     any(), any());
@@ -517,7 +516,7 @@ class DraftPersistenceServiceTest {
 
             verify(imapActionService).hardDelete(ACCOUNT_ID, "Drafts", 100L);
             verify(messageService).deleteByStableId(STABLE_ID);
-            verify(draftRecipientsRepository).deleteById(new DraftRecipientsEntity.Key(ACCOUNT_ID, MESSAGE_ID));
+            verify(draftRecipientsRepository).deleteEntry(ACCOUNT_ID, MESSAGE_ID);
         }
 
         @Test

@@ -614,11 +614,12 @@ CREATE UNIQUE INDEX ux_correspondent_account_email
 -- stored save of the same draft sets it aside (superseded_at); until then it
 -- is only accepted, whether its save is still waiting for the server or has
 -- failed, and takes no current place. Each save keeps the account's newest
--- current entries and its newest other ones apart, as many of each as
--- DraftPersistenceService's KEPT_DRAFT_RECIPIENTS. Not by age: a server
--- could hide a draft for as long as an age limit ran, and only the user's
--- own saves add entries. A draft composed in another client has no entry,
--- and its check falls back to the row.
+-- heads - the entry a draft is current at and each draft's newest, whatever
+-- its state, two a draft at most - and its newest other ones apart, as
+-- many of each as DraftPersistenceService's KEPT_DRAFT_RECIPIENTS. Not by
+-- age: a server could hide a draft for as long as an age limit ran, and
+-- only the user's own saves add entries. A draft composed in another
+-- client has no entry, and its check falls back to the row.
 --
 -- stable_id is the stableId the save minted, which the next save names as
 -- the revision it replaces. chain_id is the stable_id of the draft's first

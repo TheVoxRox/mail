@@ -78,10 +78,12 @@ public class DraftRecipientsEntity {
 
     /**
      * When the server stored the revision; null while its save is accepted but has
-     * not stored it, waiting for the server or failed. Only a stored revision takes
-     * a current place: an entry current from acceptance let a server that held the
+     * not stored it, waiting for the server or failed. Only a stored revision
+     * becomes current: an entry current from acceptance let a server that held the
      * APPEND lane keep a thousand autosaves current and push out a hidden draft's
-     * entry (B1-5, reopened at 1.46).
+     * entry (B1-5, reopened at 1.46). A draft's newest entry is bounded with the
+     * current ones whatever this says, so a revision the server has not stored is
+     * not left to the saves to push out (reopened at 1.48).
      */
     @Column(name = "stored_at")
     private @Nullable LocalDateTime storedAt;

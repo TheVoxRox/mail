@@ -41,53 +41,88 @@ public interface DraftRecipientsRepository extends JpaRepository<DraftRecipients
             @Param("recipientsBcc") @Nullable String recipientsBcc, @Param("savedAt") LocalDateTime savedAt);
 
     /**
-     * Drops the account's current entries — revisions the server stored that no
-     * later stored save of this client has set aside — older than its newest
-     * {@code keep}: drafts deleted somewhere this client does not see, and a draft
-     * the server hides. Only a draft the user starts adds a current entry, since an
-     * entry becomes current only once its revision is stored and in the same
-     * statement sets aside every earlier revision of its draft
-     * ({@link #markStored}), whatever the server answers, so these grow by drafts
-     * and not by saves, and only the user's further drafts can push one out. An age
-     * limit, the rule until IMAP/SMTP audit 1.29, was the server's to outlast
-     * (B1-5); a single count over every entry, the rule until 1.36, was the
-     * server's to fill, since a save retired the revision it replaced only when the
-     * server let it find and delete that revision; until 1.40 a save retired only
-     * the revision it named, which after a rejected save was the rejected one; and
-     * until 1.47 an entry was current from the save's acceptance, so the saves a
-     * server kept waiting counted here. Newest by {@code saved_seq}, the order the
-     * entries were written in.
+     * Drops the account's heads older than its newest {@code keep}. A head is an
+     * entry its draft is current at — a revision the server stored that no later
+     * stored save of this client has set aside — or its draft's newest, whatever
+     * its state: a draft holds two at most, so these grow by drafts and not by
+     * saves, and only the user's further drafts can push one out. What they lose
+     * are drafts deleted somewhere this client does not see, and a draft the server
+     * hides.
+     * <p>
+     * The newest counts whatever its state because a draft's last revision is not
+     * always current: while its save waits for the server, when the server answers
+     * its APPEND NO but keeps it, or when the statement that makes it current
+     * fails. Bounded with the saves, as until IMAP/SMTP audit 1.50, it was pushed
+     * out by some thousand autosaves of another draft, and the draft kept none
+     * (B1-5, reopened at 1.48). Earlier rules were each the server's to defeat: an
+     * age limit until 1.29, a single count over every entry until 1.36, a save
+     * retiring only the revision it named until 1.40, and a current place from the
+     * save's acceptance until 1.47.
+     * <p>
+     * A draft's newest is the entry of its chain with the largest
+     * {@code saved_seq}, found once for the whole statement rather than per row,
+     * which on a draft with a thousand set-aside revisions costs a quadratic scan
+     * at every save. Newest by {@code saved_seq}, the order the entries were
+     * written in, which is unique.
      */
     @Transactional
     @Modifying
     @Query(value = """
             DELETE FROM draft_recipients
-            WHERE account_id = :accountId AND stored_at IS NOT NULL AND superseded_at IS NULL
+            WHERE account_id = :accountId
+              AND ((stored_at IS NOT NULL AND superseded_at IS NULL)
+                   OR saved_seq IN (SELECT MAX(saved_seq) FROM draft_recipients
+                                    WHERE account_id = :accountId GROUP BY chain_id))
               AND saved_seq < (SELECT saved_seq FROM draft_recipients
-                               WHERE account_id = :accountId AND stored_at IS NOT NULL AND superseded_at IS NULL
+                               WHERE account_id = :accountId
+                                 AND ((stored_at IS NOT NULL AND superseded_at IS NULL)
+                                      OR saved_seq IN (SELECT MAX(saved_seq) FROM draft_recipients
+                                                       WHERE account_id = :accountId GROUP BY chain_id))
                                ORDER BY saved_seq DESC LIMIT 1 OFFSET :keep - 1)
             """, nativeQuery = true)
-    int deleteCurrentButNewest(@Param("accountId") Long accountId, @Param("keep") int keep);
+    int deleteHeadsButNewest(@Param("accountId") Long accountId, @Param("keep") int keep);
 
     /**
-     * Drops the account's entries that are not current — set aside, or accepted and
-     * not stored — older than its newest {@code keep}. They grow by saves: one for
-     * every revision a server kept after the save that replaced it, by refusing the
-     * delete or by withholding what the save needed to address it, one for every
-     * save that stored nothing, and one for every save still waiting for the
-     * server. Kept apart from the current ones so that autosaves push out only each
-     * other. Newest by {@code saved_seq}.
+     * Drops the account's followed entries older than its newest {@code keep}: the
+     * entries that are not heads ({@link #deleteHeadsButNewest}), so revisions a
+     * later save of the same draft has followed and that are not current — set
+     * aside, or accepted and not stored. They grow by saves: one for every revision
+     * a server kept after the save that replaced it, by refusing the delete or by
+     * withholding what the save needed to address it, and one for every save that
+     * was followed before it stored anything. Kept apart from the heads so that
+     * autosaves push out only each other. Newest by {@code saved_seq}.
      */
     @Transactional
     @Modifying
     @Query(value = """
             DELETE FROM draft_recipients
-            WHERE account_id = :accountId AND (stored_at IS NULL OR superseded_at IS NOT NULL)
+            WHERE account_id = :accountId
+              AND (stored_at IS NULL OR superseded_at IS NOT NULL)
+              AND saved_seq NOT IN (SELECT MAX(saved_seq) FROM draft_recipients
+                                    WHERE account_id = :accountId GROUP BY chain_id)
               AND saved_seq < (SELECT saved_seq FROM draft_recipients
-                               WHERE account_id = :accountId AND (stored_at IS NULL OR superseded_at IS NOT NULL)
+                               WHERE account_id = :accountId
+                                 AND (stored_at IS NULL OR superseded_at IS NOT NULL)
+                                 AND saved_seq NOT IN (SELECT MAX(saved_seq) FROM draft_recipients
+                                                       WHERE account_id = :accountId GROUP BY chain_id)
                                ORDER BY saved_seq DESC LIMIT 1 OFFSET :keep - 1)
             """, nativeQuery = true)
-    int deleteNotCurrentButNewest(@Param("accountId") Long accountId, @Param("keep") int keep);
+    int deleteFollowedButNewest(@Param("accountId") Long accountId, @Param("keep") int keep);
+
+    /**
+     * Drops the account's entry for {@code messageId}, if there is one. A plain
+     * DELETE for the reason {@link #insertEntry} is a plain INSERT:
+     * {@code deleteById} reads the entry and then writes in one transaction, and
+     * SQLite refuses that read's upgrade to a write at once when another connection
+     * writes between them, which left the entry in place (measured by the pass over
+     * 1.47); starting with the write, it waits for the lock like any other writer.
+     */
+    @Transactional
+    @Modifying
+    @Query(value = """
+            DELETE FROM draft_recipients WHERE account_id = :accountId AND message_id = :messageId
+            """, nativeQuery = true)
+    int deleteEntry(@Param("accountId") Long accountId, @Param("messageId") String messageId);
 
     /**
      * The chain of the account's entry minted under {@code stableId}: what a save
