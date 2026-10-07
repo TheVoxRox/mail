@@ -78,14 +78,15 @@ import org.voxrox.mailbackend.util.LogCategory;
  * an EXISTS and leave Angus counting a folder wrongly.
  * <p>
  * A FETCH nested too deeply is the one response dropped that way, with one
- * whose parse stops consuming it (B1-15), and on purpose too. It has been read
- * in full, so the connection is in step. It describes one message, whose
- * structure a sender may have chosen rather than the server, and closing the
- * connection over it would stop the folder's sync at that message on every
- * cycle, since the sync downloads the newest mail first. Dropped, it leaves
- * Angus without that message's items: it loads the envelope and flags with
- * FETCHes of their own, and loading the structure fails, which the sync already
- * keeps as an envelope-only stub.
+ * whose parse stops consuming it (B1-15) and one with an address group inside
+ * another (B1-17), and on purpose too. It has been read in full, so the
+ * connection is in step. It describes one message, whose structure a sender may
+ * have chosen rather than the server, and closing the connection over it would
+ * stop the folder's sync at that message on every cycle, since the sync
+ * downloads the newest mail first. Dropped, it leaves Angus without that
+ * message's items: it loads the envelope and flags with FETCHes of their own,
+ * and loading the structure fails, which the sync already keeps as an
+ * envelope-only stub.
  * <p>
  * The bounds above are per response; {@link #readResponse()} adds one per
  * command (B1-8), because Angus holds all of a command's responses until the
@@ -589,6 +590,12 @@ final class BoundedImapProtocol extends IMAPProtocol {
                             + "the message it describes is left without its structure.",
                     LogCategory.IMAP, host, MAX_NESTING);
             throw new NestedTooDeepException();
+        } catch (NestedGroup e) {
+            log.warn(
+                    "{} Dropped a FETCH response from IMAP server {} with an address group inside another; "
+                            + "the message it describes is left without its envelope or structure.",
+                    LogCategory.IMAP, host);
+            throw new NestedGroupException();
         } catch (ParseStalled e) {
             log.warn("{} Dropped a FETCH response from IMAP server {} that the parser stopped consuming; "
                     + "the message it describes is left without its structure.", LogCategory.IMAP, host);
@@ -740,6 +747,16 @@ final class BoundedImapProtocol extends IMAPProtocol {
      * the addresses counted are forgotten once the count of lists drops below the
      * level they were counted at, and an envelope's groups do not add up with the
      * next envelope's.</li>
+     * <li><b>Groups inside groups.</b> A counted address with a NIL mailbox ends a
+     * group and one with a mailbox starts one. A group that starts while another of
+     * its list is open stops the parse with {@link NestedGroup} (B1-17): Angus
+     * builds a group's address from its members' text after reading them, so each
+     * level of nesting held the whole subtree's text again — 200 levels, 4,487
+     * bytes on the wire, held 264,513 characters — inside the parse, before any
+     * bound on a response could refuse it. RFC 5322 has no group inside a group.
+     * The parse stops at the inner group's {@code )}, before Angus reads its
+     * members. Open groups are forgotten with the list, as the count above is, so a
+     * group a list leaves open does not carry into the next.</li>
      * <li><b>Progress.</b> Every one of these methods notes whether the parse has
      * consumed anything since the last; {@link #MAX_STALLED_CALLS} in a row without
      * a byte consumed stop it with {@link ParseStalled} (B1-15).</li>
@@ -764,9 +781,12 @@ final class BoundedImapProtocol extends IMAPProtocol {
          * 2 to 5 after its first to fourth string.
          */
         private int addressStage;
+        private boolean addressMailboxNil;
         private boolean addressHostNil;
         /** The lowest level of lists at which an address now counted was read. */
         private int groupLevel;
+        /** Groups started and not yet ended in the list being read. */
+        private int openGroups;
         /**
          * Where the last call left the parse, and how many calls in a row left it
          * there.
@@ -836,6 +856,14 @@ final class BoundedImapProtocol extends IMAPProtocol {
                         groupLevel = groupMarkers == 0 ? depth : Math.min(groupLevel, depth);
                         groupMarkers++;
                         checkBound();
+                        if (!addressMailboxNil) {
+                            if (openGroups > 0) {
+                                throw new NestedGroup();
+                            }
+                            openGroups++;
+                        } else if (openGroups > 0) {
+                            openGroups--;
+                        }
                     }
                 }
             }
@@ -848,7 +876,9 @@ final class BoundedImapProtocol extends IMAPProtocol {
         public @Nullable String readString() {
             String read = super.readString();
             if (addressStage >= 1 && addressStage <= 4) {
-                if (addressStage == 4) {
+                if (addressStage == 3) {
+                    addressMailboxNil = read == null;
+                } else if (addressStage == 4) {
                     addressHostNil = read == null;
                 }
                 addressStage++;
@@ -936,6 +966,7 @@ final class BoundedImapProtocol extends IMAPProtocol {
             if (depth < groupLevel) {
                 groupMarkers = 0;
                 groupLevel = 0;
+                openGroups = 0;
             }
         }
 
@@ -966,6 +997,19 @@ final class BoundedImapProtocol extends IMAPProtocol {
 
         NestingLimitReached() {
             super("nested past " + MAX_NESTING + " levels", null, false, false);
+        }
+    }
+
+    /**
+     * Thrown from inside Angus's parse by {@link DepthBoundedFetchResponse} at an
+     * address group that starts inside another; {@link #parseFetch} turns it into
+     * {@link NestedGroupException}, and it must not escape this class. No stack
+     * trace, as for {@link NestingLimitReached}.
+     */
+    static final class NestedGroup extends RuntimeException {
+
+        NestedGroup() {
+            super("an address group inside another", null, false, false);
         }
     }
 
@@ -1204,6 +1248,17 @@ final class BoundedImapProtocol extends IMAPProtocol {
     static final class NestedTooDeepException extends ProtocolException {
         NestedTooDeepException() {
             super("Dropped an IMAP FETCH response nested more than " + MAX_NESTING + " levels deep");
+        }
+    }
+
+    /**
+     * A FETCH with an address group inside another, dropped with its parse stopped
+     * there (B1-17); a ProtocolException for the same reason as
+     * {@link NestedTooDeepException}.
+     */
+    static final class NestedGroupException extends ProtocolException {
+        NestedGroupException() {
+            super("Dropped an IMAP FETCH response with an address group inside another");
         }
     }
 

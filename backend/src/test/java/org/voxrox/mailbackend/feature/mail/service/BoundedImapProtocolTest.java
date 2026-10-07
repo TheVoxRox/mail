@@ -218,8 +218,9 @@ class BoundedImapProtocolTest {
         private static final String LEAF = "(\"text\" \"plain\" NIL NIL NIL \"7bit\" 1 1)";
 
         /**
-         * "parsed", "dropped", "stalled", or the exception the parse ended in. Under a
-         * time limit, so a parse that loops fails the test instead of hanging it.
+         * "parsed", "dropped", "nested group", "stalled", or the exception the parse
+         * ended in. Under a time limit, so a parse that loops fails the test instead of
+         * hanging it.
          */
         private static String parse(String line) throws Exception {
             return assertTimeoutPreemptively(Duration.ofSeconds(10), () -> {
@@ -228,6 +229,8 @@ class BoundedImapProtocolTest {
                     return "parsed";
                 } catch (BoundedImapProtocol.NestedTooDeepException e) {
                     return "dropped";
+                } catch (BoundedImapProtocol.NestedGroupException e) {
+                    return "nested group";
                 } catch (BoundedImapProtocol.StalledParseException e) {
                     return "stalled";
                 }
@@ -301,21 +304,61 @@ class BoundedImapProtocolTest {
 
         /** An envelope whose To list nests {@code levels} groups, one in another. */
         private static String envelopeWithNestedGroups(int levels) {
-            return "* 1 FETCH (ENVELOPE (NIL \"s\" (" + "(NIL NIL \"g\" NIL)".repeat(levels)
-                    + "(NIL NIL \"a\" \"example.com\")) NIL NIL NIL NIL NIL NIL NIL))";
+            return envelopeWithNestedGroups(levels, "\"a\"");
+        }
+
+        /** The same, with {@code personal} as the innermost address's name. */
+        private static String envelopeWithNestedGroups(int levels, String personal) {
+            return "* 1 FETCH (ENVELOPE (NIL \"s\" (" + "(NIL NIL \"g\" NIL)".repeat(levels) + "(" + personal
+                    + " NIL \"a\" \"example.com\")) NIL NIL NIL NIL NIL NIL NIL))";
         }
 
         /**
          * Found at 1.32: Angus parses a group's members inside the group's own parse,
          * so a group starting inside a group recurses, while every address closes its
          * parentheses before the next begins. Measured at 1.32: 10,000 such groups, 170
-         * KB, overflow the stack, and no count of parentheses sees them.
+         * KB, overflow the stack, and no count of parentheses sees them. Since 1.55 the
+         * second group already stops the parse (B1-17, below), well before the bound.
          */
         @Test
         @DisplayName("Address groups nested deep enough to overflow the stack are dropped")
         void nestedAddressGroupsAreDropped() throws Exception {
-            assertThat(parse(envelopeWithNestedGroups(OVERFLOWING))).isEqualTo("dropped");
-            assertThat(parse(envelopeWithNestedGroups(BOUND))).isEqualTo("dropped");
+            assertThat(parse(envelopeWithNestedGroups(OVERFLOWING))).isEqualTo("nested group");
+            assertThat(parse(envelopeWithNestedGroups(BOUND))).isEqualTo("nested group");
+        }
+
+        /**
+         * B1-17, found by the pass over 1.49. Angus sets a group's address to its name,
+         * a colon and every member's text, so each level of groups nested inside the
+         * bound held the whole subtree's text again: 200 levels around a
+         * 1,000-character name, 4,487 bytes on the wire, held 264,513 characters, all
+         * inside the parse. RFC 5322 has no group inside a group, so the first one that
+         * starts while another is open stops the parse.
+         */
+        @Test
+        @DisplayName("A group inside a group is dropped, however shallow (B1-17)")
+        void aGroupInsideAGroupIsDropped() throws Exception {
+            assertThat(parse(envelopeWithNestedGroups(2))).isEqualTo("nested group");
+            assertThat(parse(envelopeWithNestedGroups(200, "\"" + "n".repeat(1_000) + "\""))).isEqualTo("nested group");
+            assertThat(parse("* 1 FETCH (ENVELOPE (NIL \"s\" ((NIL NIL \"g\" NIL)(NIL NIL \"a\" \"example.com\")"
+                    + "(NIL NIL \"h\" NIL)(NIL NIL NIL NIL)(NIL NIL NIL NIL)) NIL NIL NIL NIL NIL NIL NIL))"))
+                    .as("a second group started before the first ends").isEqualTo("nested group");
+        }
+
+        /**
+         * What an honest envelope carries: groups one after another, each ended before
+         * the next starts, a stray end at the top, and a group a list leaves open,
+         * which ends with its list and does not carry into the next.
+         */
+        @Test
+        @DisplayName("Groups one after another, a stray end and a group left open with its list all parse (B1-17)")
+        void groupsThatDoNotNestParse() throws Exception {
+            String oneAfterAnother = "(NIL NIL \"team\" NIL)(NIL NIL \"b\" \"example.com\")(NIL NIL NIL NIL)"
+                    + "(NIL NIL \"others\" NIL)(NIL NIL NIL NIL)(NIL NIL NIL NIL)(NIL NIL \"c\" \"example.com\")";
+            String leftOpen = "(NIL NIL \"undisclosed-recipients\" NIL)";
+
+            assertThat(parse("* 1 FETCH (ENVELOPE (NIL \"s\" (" + oneAfterAnother + ") NIL NIL (" + leftOpen + ") ("
+                    + leftOpen + ") NIL NIL NIL))")).isEqualTo("parsed");
         }
 
         @Test
