@@ -9,6 +9,8 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
 import java.util.Properties;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import jakarta.mail.Address;
 import jakarta.mail.BodyPart;
@@ -17,6 +19,7 @@ import jakarta.mail.MessagingException;
 import jakarta.mail.Multipart;
 import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
+import jakarta.mail.internet.MimeUtility;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -469,6 +472,30 @@ class MimeMessageBuilderTest {
             assertThat(msgNull.getHeader("References")).isNull();
             assertThat(msgBlank.getHeader("In-Reply-To")).isNull();
             assertThat(msgBlank.getHeader("References")).isNull();
+        }
+
+        /**
+         * Found by the pass over 1.47 (IMAP/SMTP audit section 3b, 1.48): the sync
+         * stores {@code References} unfolded, and the builder wrote it as one line, so
+         * a reply into a thread of 30 messages went out with a 1,691-character line,
+         * past the 998 RFC 5322 allows.
+         */
+        @Test
+        @DisplayName("A long References header goes out folded, every line within RFC 5322's limit, and unfolds intact")
+        void longReferencesAreFolded() throws Exception {
+            String references = IntStream.rangeClosed(1, 30)
+                    .mapToObj(i -> "<message-" + i + "-in-a-long-thread@mail.example.com>")
+                    .collect(Collectors.joining(" "));
+
+            MimeMessage msg = buildSend(
+                    req("to@example.com", null, null, "s", "b", List.of(), "<message-30@example.com>", references));
+
+            assertThat(toMime(msg).split("\r\n")).as("every line of the message")
+                    .allSatisfy(line -> assertThat(line.length()).isLessThanOrEqualTo(998));
+            String folded = msg.getHeader("References")[0];
+            assertThat(("References: " + folded).split("\r\n")).as("the header's lines").hasSizeGreaterThan(1)
+                    .allSatisfy(line -> assertThat(line.length()).isLessThanOrEqualTo(78));
+            assertThat(MimeUtility.unfold(folded)).isEqualTo(references);
         }
     }
 

@@ -101,7 +101,7 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "f9d130f07813ee70b226a01074c32762bf0df38c",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "6641b54ac007aa7ee4e31c56c33142b18ab5cb61",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/DraftRecipientsEntity.java": "17cde0b5e8115ed8c415ea4822bbfe2dc4b8cd80",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "cd0dd19dc736b03fe9d4b054497505e3e697b6fc",
       "backend/src/main/java/org/voxrox/mailbackend/core/config/mail": "de23ff18504252f94add497b4e3ca5a763ae6e47",
@@ -135,6 +135,10 @@
       {
         "date": "2026-10-07",
         "note": "B1-5 fixed again as the 1.48 pass recommended, recorded in the audit itself as v1.50 (section 4e); the fix is this PR's own and waits for an independent pass, so the anchor stays at c386fed and this records the drift. Three paths move. DraftRecipientsRepository: deleteCurrentButNewest becomes deleteHeadsButNewest, over the entries a draft is current at and each draft's newest by saved_seq within its chain whatever its state (one grouped MAX subquery per statement), and deleteNotCurrentButNewest becomes deleteFollowedButNewest over the rest, entries a later save of their draft followed that are not current; deleteEntry is added, a plain DELETE by account and Message-ID. Under feature/mail/service only DraftPersistenceService changes: keepTypedRecipients prunes with the two new methods at the same sizes and in the same order before the INSERT, and forgetTypedRecipients uses deleteEntry instead of deleteById; javadoc follows. DraftRecipientsEntity changes in javadoc only. acceptDraftSave, the chain lookup, the INSERT, markStored, the send's lookup by Message-ID and the recipient comparison are untouched. V1__init.sql changes in its schema comment only and is outside this audit's paths. Verdict no open finding, the fixes of 1.49 and 1.50 each pending their pass."
+      },
+      {
+        "date": "2026-10-07",
+        "note": "The long-References note the 1.47 pass added to section 3b, fixed and recorded in the audit itself as v1.51; functional, so no claim of a finding moves and the anchor stays at c386fed. One path moves: under feature/mail/service only MimeMessageBuilder changes. build folds the References value with MimeUtility.fold at the spaces between its Message-IDs before setHeader, after requireSingleLine has checked the value as the client sent it, so the header goes out on lines within RFC 5322's 998 characters; In-Reply-To, the subject, the addresses and the body are written as before. This is the eighth acknowledgement: the next change under this audit's paths needs the audit re-verified. Verdict no open finding, the fixes of 1.49 and 1.50 each pending their pass."
       }
     ]
   },

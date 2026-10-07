@@ -135,7 +135,12 @@ public class MimeMessageBuilder {
         }
         String references = request.references();
         if (references != null && !references.isBlank()) {
-            message.setHeader("References", requireSingleLine(references, "References"));
+            // Folded at the spaces between its Message-IDs: the sync stores the header
+            // unfolded, and a thread of some thirty messages ran past RFC 5322's 998
+            // characters on one line (IMAP/SMTP audit section 3b, 1.48). Jakarta Mail
+            // writes a header as it is set, and folds only address headers itself.
+            message.setHeader("References",
+                    MimeUtility.fold("References: ".length(), requireSingleLine(references, "References")));
         }
 
         Multipart multipart = new MimeMultipart();
