@@ -62,22 +62,25 @@ public class DraftPersistenceService {
      * How many drafts an account keeps typed recipients for, each with all its
      * entries, newest draft first (see {@link #keepTypedRecipients}). A draft is a
      * chain of revisions saved here, so this counts the drafts no send or delete of
-     * this client has retired: a draft still open, one deleted elsewhere, one the
-     * user discarded mid-compose (a discard forgets no entry), and one sent whose
-     * clean-up found no row to delete, which is nearly every send while a server
-     * withholds APPENDUID. Only the user starts a draft, so a thousand is a
-     * thousand messages composed since, and the bound is what stops those from
-     * piling up (B1-5, reopened at 1.31, 1.46, 1.48 and 1.53).
+     * this client has retired, and none is retired before this bound: a draft still
+     * open, one deleted elsewhere, one the user discarded mid-compose (a discard
+     * forgets no entry), and one sent, whose entries are set aside rather than
+     * dropped since a server can claim the delete after the send and keep the
+     * draft. Only the user starts a draft, so a thousand is a thousand messages
+     * composed since, and the bound is what stops those from piling up (B1-5,
+     * reopened at 1.31, 1.46, 1.48, 1.53 and 1.57).
      */
     static final int KEPT_DRAFTS = 1_000;
 
     /**
      * How many of a draft's followed revisions — replaced by a later save of the
-     * same draft and not current — keep their entries, newest first. A server that
-     * keeps the replaced revisions keeps one per autosave, so they need a bound of
-     * their own, and only the draft's own saves can reach it: the oldest revision a
-     * server can present without its entry is a hundred autosaves behind the one
-     * the user last saw, a draft that visibly is not the one they were writing.
+     * same draft and not current — keep their entries, newest first. A replaced
+     * revision keeps its entry whatever the server answers to its delete, since a
+     * server can claim the delete and keep the revision (B1-5, reopened at 1.57),
+     * so a draft adds one per autosave and they need a bound of their own; only the
+     * draft's own saves can reach it. The newest revision a server can present
+     * without its entry is a hundred autosaves behind the one the user last saw, a
+     * draft that visibly is not the one they were writing.
      */
     static final int KEPT_REVISIONS_PER_DRAFT = 100;
 
@@ -167,7 +170,11 @@ public class DraftPersistenceService {
      * (IMAP expunge + DB row) after a successful append. Order matters: append-new
      * must succeed, otherwise the user would lose content. A failed hard-delete is
      * logged but does not fail the operation — the duplicate is reconciled by the
-     * next sync.
+     * next sync. The old revision's typed recipients stay, set aside by the
+     * append's {@link #markStored}, whatever the server answered to the delete: a
+     * server can claim it and keep the revision, and until 1.58 that one autosave
+     * left the revision before the newest with no entry, its untouched send checked
+     * against the server's own copy (B1-5, reopened at 1.57).
      */
     @Async("userMailExecutor")
     public void saveDraftAsync(Long accountId, DraftRequest request, String replacesStableId, DraftIdentity identity) {
@@ -180,7 +187,6 @@ public class DraftPersistenceService {
              */
             String oldFolder = null;
             Long oldUid = null;
-            String oldMessageId = null;
             if (replacesStableId != null && !replacesStableId.isBlank()) {
                 MessageEntity old = messageService.getByStableId(replacesStableId).orElse(null);
                 if (old == null) {
@@ -197,7 +203,6 @@ public class DraftPersistenceService {
                 } else {
                     oldFolder = old.getFolderName();
                     oldUid = old.getUid();
-                    oldMessageId = old.getMessageId();
                 }
             }
 
@@ -223,7 +228,6 @@ public class DraftPersistenceService {
                 try {
                     imapActionService.hardDelete(accountId, oldFolder, oldUid);
                     messageService.deleteByStableId(replacesStableId);
-                    forgetTypedRecipients(accountId, oldMessageId);
                 } catch (Exception cleanupEx) {
                     log.warn("{} Failed to delete previous draft revision {} (UID {} in {}): {}", LogCategory.SMTP,
                             replacesStableId, oldUid, oldFolder, cleanupEx.getMessage());
@@ -360,7 +364,7 @@ public class DraftPersistenceService {
             }
             imapActionService.hardDelete(accountId, draft.getFolderName(), draft.getUid());
             messageService.deleteByStableId(stableId);
-            forgetTypedRecipients(accountId, draft.getMessageId());
+            setAsideTypedRecipients(accountId, draft.getMessageId());
         } catch (Exception e) {
             log.warn("{} Failed to delete superseded draft {} after a successful send: {}", LogCategory.SMTP, stableId,
                     e.getMessage());
@@ -543,20 +547,26 @@ public class DraftPersistenceService {
     }
 
     /**
-     * Drops the typed recipients of a draft this client has just deleted or sent,
-     * or of a revision a save replaced and the server let it delete. A plain DELETE
-     * that waits for SQLite's write lock
-     * ({@link DraftRecipientsRepository#deleteEntry}). What it still misses goes
-     * with its draft, once the account has {@link #KEPT_DRAFTS} newer drafts.
+     * Sets aside the typed recipients of a draft this client has just sent: the
+     * revision is no longer its draft's current one, but its entry stays. The send
+     * then deletes the draft, and a server can claim that delete and keep it; were
+     * the entry dropped, as it was until 1.58, the server could present the sent
+     * revision again with a Bcc added and its untouched send would be checked
+     * against the server's own copy (B1-5, reopened at 1.57). The entry goes with
+     * its draft, once the account has {@link #KEPT_DRAFTS} newer drafts, or as a
+     * followed revision when the user saves the draft again. A plain UPDATE that
+     * waits for SQLite's write lock ({@link DraftRecipientsRepository#setAside}).
+     * Best-effort: the message is delivered by now, and an entry left current still
+     * keeps what the user typed.
      */
-    public void forgetTypedRecipients(Long accountId, @Nullable String messageId) {
+    public void setAsideTypedRecipients(Long accountId, @Nullable String messageId) {
         if (messageId == null) {
             return;
         }
         try {
-            draftRecipientsRepository.deleteEntry(accountId, messageId);
+            draftRecipientsRepository.setAside(accountId, messageId, LocalDateTime.now());
         } catch (Exception e) {
-            log.debug("{} Could not drop the kept recipients of draft {} of account {}: {}", LogCategory.SMTP,
+            log.debug("{} Could not set aside the kept recipients of sent draft {} of account {}: {}", LogCategory.SMTP,
                     messageId, accountId, e.getMessage());
         }
     }

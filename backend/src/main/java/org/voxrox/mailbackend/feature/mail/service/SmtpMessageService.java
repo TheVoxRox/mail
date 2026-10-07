@@ -251,7 +251,7 @@ public class SmtpMessageService {
                  */
                 imapActionService.hardDelete(accountId, draftFolder, draftUid);
                 messageService.deleteByStableId(stableId);
-                draftPersistenceService.forgetTypedRecipients(accountId, draft.getMessageId());
+                draftPersistenceService.setAsideTypedRecipients(accountId, draft.getMessageId());
                 accountRepository.clearLastErrorIfCodeIn(accountId, AccountLastErrorCode.SEND_PIPELINE_CODES);
             } catch (Exception bookkeepingEx) {
                 log.warn("{} Post-send bookkeeping failed for sent draft {} (UID {} in {}): {}", LogCategory.SMTP,

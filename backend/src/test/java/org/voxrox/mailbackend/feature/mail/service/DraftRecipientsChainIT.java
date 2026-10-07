@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.nio.file.Files;
@@ -14,6 +15,7 @@ import java.sql.Statement;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -26,6 +28,8 @@ import jakarta.mail.internet.MimeMessage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
@@ -43,6 +47,7 @@ import org.voxrox.mailbackend.feature.account.service.AccountService;
 import org.voxrox.mailbackend.feature.mail.dto.DraftRequest;
 import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
 import org.voxrox.mailbackend.feature.mail.entity.DraftRecipientsEntity;
+import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 import org.voxrox.mailbackend.feature.mail.mapper.MessageMapper;
 import org.voxrox.mailbackend.feature.mail.repository.DraftRecipientsRepository;
 
@@ -62,6 +67,8 @@ import org.voxrox.mailbackend.feature.mail.repository.DraftRecipientsRepository;
 @Sql(statements = {"DELETE FROM draft_recipients", "DELETE FROM messages", "DELETE FROM account_credentials",
         "DELETE FROM accounts"}, executionPhase = ExecutionPhase.BEFORE_TEST_METHOD)
 class DraftRecipientsChainIT {
+
+    private static final long ROW_UID = 41L;
 
     private static final Path DB_DIR = Path
             .of("target", "test-tmp", "DraftRecipientsChainIT", UUID.randomUUID().toString()).toAbsolutePath()
@@ -92,6 +99,8 @@ class DraftRecipientsChainIT {
 
     private final ImapAppendService appendService = mock(ImapAppendService.class);
     private final MimeMessageBuilder builder = mock(MimeMessageBuilder.class);
+    private final MessageService messageService = mock(MessageService.class);
+    private final ImapActionService imapActionService = mock(ImapActionService.class);
     /** Whether the server stores the next APPEND; it answers without APPENDUID. */
     private final AtomicBoolean storeNext = new AtomicBoolean(true);
     private AccountEntity account;
@@ -107,11 +116,11 @@ class DraftRecipientsChainIT {
         when(builder.build(any(), any(), any(), any(), any())).thenAnswer(invocation -> mock(MimeMessage.class));
         when(appendService.appendDraft(anyLong(), anyString(), any()))
                 .thenAnswer(invocation -> new ImapAppendService.DraftAppendOutcome(storeNext.get(), null, null));
-        // No message rows: without APPENDUID a save writes none, so a replaced
-        // revision is never found and never deleted from the server.
-        service = new DraftPersistenceService(accountService, folders, mock(MessageService.class),
-                mock(ImapActionService.class), appendService, builder, mock(MessageMapper.class),
-                mock(AccountRepository.class), repository);
+        // No message rows unless a test gives one: without APPENDUID a save writes
+        // none, so a replaced revision is never found and never deleted from the
+        // server.
+        service = new DraftPersistenceService(accountService, folders, messageService, imapActionService, appendService,
+                builder, mock(MessageMapper.class), mock(AccountRepository.class), repository);
     }
 
     /**
@@ -214,32 +223,80 @@ class DraftRecipientsChainIT {
     }
 
     /**
-     * Noted by the pass over 1.47. Forgetting an entry went through
-     * {@code deleteById}, a read and then a write in one transaction, which SQLite
-     * refuses at once beside another connection's write, whether that one then
-     * commits or rolls back: the entry stayed, and the failure was only logged.
-     * Here another connection holds the write lock and commits while the forget
-     * waits for it.
+     * Noted by the pass over 1.47, for what was then a forget: a read and then a
+     * write in one transaction, which SQLite refuses at once beside another
+     * connection's write, whether that one then commits or rolls back; the entry
+     * stayed as it was, and the failure was only logged. A sent draft's entry is
+     * set aside since 1.58 rather than dropped, by a plain UPDATE. Here another
+     * connection holds the write lock and commits while the update waits for it.
      */
     @Test
-    @DisplayName("Forgetting an entry waits out another connection's write instead of leaving the entry")
-    void forgettingWaitsOutAConcurrentWriter() throws Exception {
+    @DisplayName("Setting a sent draft's entry aside waits out another connection's write")
+    void settingAsideWaitsOutAConcurrentWriter() throws Exception {
         DraftPersistenceService.DraftIdentity sent = save(null, true);
-        Thread forget;
+        Thread setAside;
         try (Connection holder = dataSource.getConnection()) {
             holder.setAutoCommit(false);
             try (Statement statement = holder.createStatement()) {
                 statement.executeUpdate("UPDATE accounts SET display_name = 'held' WHERE id = " + account.getId());
             }
-            forget = Thread.ofPlatform().start(() -> service.forgetTypedRecipients(account.getId(), sent.messageId()));
-            forget.join(300);
-            assertThat(forget.isAlive()).as("still waiting while the other connection holds the lock").isTrue();
+            setAside = Thread.ofPlatform()
+                    .start(() -> service.setAsideTypedRecipients(account.getId(), sent.messageId()));
+            setAside.join(300);
+            assertThat(setAside.isAlive()).as("still waiting while the other connection holds the lock").isTrue();
             holder.commit();
         }
-        forget.join(10_000);
+        setAside.join(10_000);
 
-        assertThat(forget.isAlive()).isFalse();
-        assertThat(repository.findById(new DraftRecipientsEntity.Key(account.getId(), sent.messageId()))).isEmpty();
+        assertThat(setAside.isAlive()).isFalse();
+        assertThat(currentEntries()).isEmpty();
+        assertThat(repository.findById(new DraftRecipientsEntity.Key(account.getId(), sent.messageId())))
+                .as("the sent draft's entry, kept").isPresent();
+    }
+
+    /**
+     * Found by the pass over 1.54 (B1-5, reopened at 1.57). A save that replaces a
+     * revision the server gave it a row for deletes that revision and then forgot
+     * its entry, whatever the server answered: refused, or claimed while the
+     * message stayed, which the client cannot tell from a delete. The server then
+     * hid the newest revision and presented the one before it with a Bcc added,
+     * after one autosave, and its untouched send was checked against the server's
+     * own copy. The entry now stays, set aside by the save that replaced it.
+     */
+    @ParameterizedTest(name = "server answers the delete {0}")
+    @ValueSource(booleans = {false, true})
+    @DisplayName("A replaced revision keeps its entry whatever the server answers to its delete (B1-5)")
+    void aReplacedRevisionKeepsItsEntryWhateverTheDeleteAnswers(boolean deleteClaimed) {
+        when(imapActionService.hardDelete(anyLong(), anyString(), anyLong())).thenReturn(deleteClaimed);
+        DraftPersistenceService.DraftIdentity first = save(null, true);
+        giveRow(first);
+        DraftPersistenceService.DraftIdentity newest = save(first.stableId(), true);
+
+        verify(imapActionService).hardDelete(account.getId(), "Drafts", ROW_UID);
+        assertThat(repository.findById(new DraftRecipientsEntity.Key(account.getId(), first.messageId())))
+                .as("the replaced revision's entry, which the server may still present").isPresent();
+        assertThat(currentEntries()).containsExactly(newest.messageId());
+    }
+
+    /**
+     * The send paths forgot the same way after their delete (1.57). A draft sent
+     * from the composer deletes the draft it supersedes; a server that claims the
+     * delete and keeps it can present it again, and its untouched send is checked
+     * against the entry, set aside rather than dropped.
+     */
+    @Test
+    @DisplayName("A draft a send superseded keeps its entry, set aside, when the server claims the delete (B1-5)")
+    void aSupersededDraftKeepsItsEntryWhenTheDeleteIsClaimed() {
+        when(imapActionService.hardDelete(anyLong(), anyString(), anyLong())).thenReturn(true);
+        DraftPersistenceService.DraftIdentity sent = save(null, true);
+        giveRow(sent);
+
+        service.deleteSupersededDraft(account.getId(), sent.stableId());
+
+        verify(imapActionService).hardDelete(account.getId(), "Drafts", ROW_UID);
+        assertThat(repository.findById(new DraftRecipientsEntity.Key(account.getId(), sent.messageId())))
+                .as("the sent draft's entry").isPresent();
+        assertThat(currentEntries()).isEmpty();
     }
 
     /**
@@ -418,6 +475,20 @@ class DraftRecipientsChainIT {
 
     private static DraftRequest request() {
         return new DraftRequest("to@example.com", null, null, "subject", "body", null, null, null);
+    }
+
+    /**
+     * The row a save with APPENDUID writes for its revision, which is what lets a
+     * later save, or a send, address the revision on the server and delete it.
+     */
+    private void giveRow(DraftPersistenceService.DraftIdentity revision) {
+        MessageEntity row = new MessageEntity();
+        row.setAccount(account);
+        row.setFolderName("Drafts");
+        row.setUid(ROW_UID);
+        row.setMessageId(revision.messageId());
+        row.setStableId(revision.stableId());
+        when(messageService.getByStableId(revision.stableId())).thenReturn(Optional.of(row));
     }
 
     /**

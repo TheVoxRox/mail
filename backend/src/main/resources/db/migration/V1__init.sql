@@ -608,10 +608,12 @@ CREATE UNIQUE INDEX ux_correspondent_account_email
 -- the revision in its next save. Not by the stable id: that hashes the
 -- Drafts folder's name too, so a server moving the \Drafts role gave the
 -- draft an id with no entry.
--- Deleted with the draft when this client deletes it (the revision an
--- autosave replaces, a sent draft). An entry becomes current once the
+-- Kept when this client deletes the revision (the one an autosave
+-- replaces, a sent draft), whatever the server answers: a server can claim
+-- the delete and keep the revision. An entry becomes current once the
 -- server has stored its revision (stored_at), and stays so until a later
--- stored save of the same draft sets it aside (superseded_at); until then it
+-- stored save of the same draft, or a send of it, sets it aside
+-- (superseded_at); until then it
 -- is only accepted, whether its save is still waiting for the server or has
 -- failed, and takes no current place. Each save keeps the account's newest
 -- drafts whole, as many as DraftPersistenceService's KEPT_DRAFTS, a draft

@@ -101,9 +101,9 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "67a508ebd90f702554a0d3f6ffc01574d72796f2",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "1bab9c4fdbfacc814bbdada93373d0ed7938ff02",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/DraftRecipientsEntity.java": "3a30c865980b7e1effb458ab38ddda80dd3693f7",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "6fa2070414385e7d895b3d7aede39b4eb326749f"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "53ea6840a3eddac96bfd8ecf0becf23d7e8fe836"
     },
     "acknowledgements": [
       {
@@ -117,6 +117,10 @@
       {
         "date": "2026-10-07",
         "note": "B1-16 fixed as the 1.52 pass recommended, recorded in the audit itself as v1.56 (section 4p); the fix is this PR's own and waits for an independent pass, so the anchor stays at 4e1b8d7 and this records the drift. Under feature/mail/service only BoundedImapProtocol changes: keptBytes charges every body item outside a content fetch as the headers it becomes, through headerBytes and headerBlock, which count the headers as InternetHeaders.load makes them, lines split as LineInputStream splits them; HEADER_LINE_BYTES is new, and the javadocs of keptBytes and DEFAULT_OPEN_FOLDER_BUDGET follow (an ordinary message 9.7 KB rather than 8.8). The refusal is the selection budget's as before, and nothing else moves. Verdict open finding (B1-14)."
+      },
+      {
+        "date": "2026-10-07",
+        "note": "B1-5 fixed again as the 1.57 pass recommended, recorded in the audit itself as v1.58 (section 4e); the fix is this PR's own and waits for an independent pass, so the anchor stays at 4e1b8d7 and this records the drift. Two paths move. Under feature/mail/service, DraftPersistenceService: saveDraftAsync no longer forgets the replaced revision's entry after its delete, which markStored has already set aside, and forgetTypedRecipients becomes setAsideTypedRecipients, which deleteSupersededDraft calls; SmtpMessageService.sendDraftAsync calls it in place of the forget; javadocs follow. DraftRecipientsRepository: setAside, a plain UPDATE of superseded_at on the named entry when it is not set aside yet, replaces deleteEntry; the javadocs of deleteDraftsButNewest and deleteRevisionsButNewest follow. DraftRecipientsEntity is unchanged. The INSERT, the chain lookup, markStored, both bounds and the send's recipient check are unchanged, so only section 4e moves. Verdict open findings (B1-14, B1-18, B1-19)."
       }
     ]
   },
