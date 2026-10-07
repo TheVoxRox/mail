@@ -99,7 +99,7 @@ class DraftRecipientsRepositoryIT {
     }
 
     @Test
-    @DisplayName("Only the account's current entries older than its newest few are dropped, however recent they are")
+    @DisplayName("Only the account's heads older than its newest few are dropped, however recent they are")
     void keepsTheAccountsNewestEntries() {
         AccountEntity account = newAccount("user@example.com");
         AccountEntity other = newAccount("other@example.com");
@@ -111,7 +111,7 @@ class DraftRecipientsRepositoryIT {
         stored("<other@voxrox.org>", other, now.minusDays(30));
         em.clear();
 
-        int dropped = repository.deleteCurrentButNewest(account.getId(), 2);
+        int dropped = repository.deleteHeadsButNewest(account.getId(), 2);
 
         assertThat(dropped).isEqualTo(2);
         assertThat(repository.findAll()).extracting(DraftRecipientsEntity::getMessageId)
@@ -126,7 +126,7 @@ class DraftRecipientsRepositoryIT {
         stored("<new@voxrox.org>", account, LocalDateTime.now());
         em.clear();
 
-        assertThat(repository.deleteCurrentButNewest(account.getId(), 2)).isZero();
+        assertThat(repository.deleteHeadsButNewest(account.getId(), 2)).isZero();
         assertThat(repository.findAll()).hasSize(2);
     }
 
@@ -175,7 +175,8 @@ class DraftRecipientsRepositoryIT {
      * verification pass over 1.37, and by one keeping every save waiting, found by
      * the pass over 1.44: each save keeps its entry before the append, and only
      * keeping a revision the server has not stored out of the current entries keeps
-     * them from growing.
+     * them from growing. The rejected draft holds two heads, its stored revision
+     * and its newest.
      */
     @Test
     @DisplayName("Saves that store nothing never push out another draft's entry either (B1-5)")
@@ -185,8 +186,8 @@ class DraftRecipientsRepositoryIT {
         stored("<hidden@voxrox.org>", account, start);
         stored("<stored@voxrox.org>", account, start.plusSeconds(1));
         for (int save = 1; save <= 10; save++) {
-            repository.deleteCurrentButNewest(account.getId(), BOUND - 1);
-            repository.deleteNotCurrentButNewest(account.getId(), BOUND);
+            repository.deleteHeadsButNewest(account.getId(), BOUND - 1);
+            repository.deleteFollowedButNewest(account.getId(), BOUND);
             keep("<rejected" + save + "@voxrox.org>", "stable-rejected" + save, "stable-<stored@voxrox.org>", account,
                     start.plusMinutes(save));
         }
@@ -195,7 +196,45 @@ class DraftRecipientsRepositoryIT {
         assertThat(currentEntries()).containsExactlyInAnyOrder("<hidden@voxrox.org>", "<stored@voxrox.org>");
     }
 
-    private static final int BOUND = 3;
+    /**
+     * B1-5, reopened at 1.48. A draft's newest revision is not current while its
+     * save waits for the server, when the server answers the APPEND NO but keeps
+     * the revision, or when the statement that makes it current fails, and the
+     * entries that are not current shared one bound with every other draft's saves:
+     * some thousand autosaves of another draft, on a server that withholds
+     * APPENDUID so each replaced revision's entry stays, pushed it out, and the
+     * draft kept none. A draft's newest is a head whatever its state.
+     */
+    @Test
+    @DisplayName("A draft's newest entry not yet stored outlasts any number of another draft's autosaves (B1-5)")
+    void aDraftsNewestEntryOutlastsAnotherDraftsAutosaves() {
+        AccountEntity account = newAccount("user@example.com");
+        LocalDateTime start = LocalDateTime.now().minusHours(1);
+        keep("<x1@voxrox.org>", "stable-x1", "chain-x", account, start);
+        repository.markStored(account.getId(), "chain-x", "<x1@voxrox.org>", start);
+        keep("<x2@voxrox.org>", "stable-x2", "chain-x", account, start.plusSeconds(1));
+        for (int save = 1; save <= 10; save++) {
+            repository.deleteHeadsButNewest(account.getId(), BOUND - 1);
+            repository.deleteFollowedButNewest(account.getId(), BOUND);
+            String messageId = "<y" + save + "@voxrox.org>";
+            keep(messageId, "stable-y" + save, "chain-y", account, start.plusMinutes(save));
+            repository.markStored(account.getId(), "chain-y", messageId, start.plusMinutes(save));
+        }
+        em.clear();
+
+        assertThat(repository.findAll()).extracting(DraftRecipientsEntity::getMessageId)
+                .as("the draft's newest entry and the one it is current at")
+                .contains("<x1@voxrox.org>", "<x2@voxrox.org>");
+        // Followed entries pruned to the bound before each save, one more set aside
+        // after it, and the draft's head.
+        assertThat(repository.findAll()).filteredOn(entry -> "chain-y".equals(entry.getChainId())).hasSize(BOUND + 2);
+    }
+
+    /**
+     * Four, as the service's is a thousand: a draft whose last save is not stored
+     * holds two heads, its current entry and its newest.
+     */
+    private static final int BOUND = 4;
 
     /**
      * A hidden draft's entry, then {@code saves} stored saves of another draft in
@@ -207,8 +246,8 @@ class DraftRecipientsRepositoryIT {
         LocalDateTime start = LocalDateTime.now().minusHours(1);
         stored("<hidden@voxrox.org>", account, start);
         for (int save = 1; save <= saves; save++) {
-            repository.deleteCurrentButNewest(account.getId(), BOUND - 1);
-            repository.deleteNotCurrentButNewest(account.getId(), BOUND);
+            repository.deleteHeadsButNewest(account.getId(), BOUND - 1);
+            repository.deleteFollowedButNewest(account.getId(), BOUND);
             String messageId = "<rev" + save + "@voxrox.org>";
             String chainId = inChain ? "stable-rev1" : "stable-rev" + save;
             keep(messageId, "stable-rev" + save, chainId, account, start.plusMinutes(save));
@@ -316,7 +355,7 @@ class DraftRecipientsRepositoryIT {
         stored("<written-last@voxrox.org>", account, now.minusHours(1));
         em.clear();
 
-        assertThat(repository.deleteCurrentButNewest(account.getId(), 1)).isEqualTo(1);
+        assertThat(repository.deleteHeadsButNewest(account.getId(), 1)).isEqualTo(1);
         em.clear();
 
         assertThat(repository.findAll()).extracting(DraftRecipientsEntity::getMessageId)
@@ -337,12 +376,13 @@ class DraftRecipientsRepositoryIT {
     }
 
     /**
-     * Current entries on one side; on the other, revisions set aside and a save
-     * still waiting for the server, which until 1.47 counted as current (B1-5,
-     * reopened at 1.46).
+     * Heads on one side — each draft's current entry and its newest, here a save
+     * still waiting for the server, which until 1.47 counted as current and until
+     * 1.50 was bounded with the saves (B1-5, reopened at 1.46 and 1.48); on the
+     * other, the revisions a later save of their draft followed, set aside.
      */
     @Test
-    @DisplayName("Each kind is bounded on its own: entries not current neither count against nor push out current ones")
+    @DisplayName("Each kind is bounded on its own: followed entries neither count against nor push out heads")
     void theTwoKindsAreBoundedApart() {
         AccountEntity account = newAccount("user@example.com");
         LocalDateTime now = LocalDateTime.now();
@@ -354,12 +394,16 @@ class DraftRecipientsRepositoryIT {
         keep("<waiting@voxrox.org>", "stable-rev4", "chain", account, now.minusMinutes(1));
         em.clear();
 
-        assertThat(repository.deleteCurrentButNewest(account.getId(), 2)).isZero();
-        assertThat(repository.deleteNotCurrentButNewest(account.getId(), 1)).isEqualTo(2);
+        assertThat(repository.deleteHeadsButNewest(account.getId(), 3)).isZero();
+        assertThat(repository.deleteFollowedButNewest(account.getId(), 1)).isEqualTo(1);
         em.clear();
 
+        assertThat(repository.findAll()).extracting(DraftRecipientsEntity::getMessageId).containsExactlyInAnyOrder(
+                "<current-old@voxrox.org>", "<rev2@voxrox.org>", "<rev3@voxrox.org>", "<waiting@voxrox.org>");
+        assertThat(repository.deleteHeadsButNewest(account.getId(), 2)).as("the oldest head goes first").isEqualTo(1);
+        em.clear();
         assertThat(repository.findAll()).extracting(DraftRecipientsEntity::getMessageId)
-                .containsExactlyInAnyOrder("<current-old@voxrox.org>", "<rev3@voxrox.org>", "<waiting@voxrox.org>");
+                .containsExactlyInAnyOrder("<rev2@voxrox.org>", "<rev3@voxrox.org>", "<waiting@voxrox.org>");
     }
 
     private void keep(String messageId, AccountEntity account, LocalDateTime savedAt) {

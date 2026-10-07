@@ -60,16 +60,18 @@ public class DraftPersistenceService {
 
     /**
      * How many typed-recipients entries an account keeps of each kind, newest first
-     * (see {@link #keepTypedRecipients}). Current entries count the drafts saved
-     * here whose last stored revision no send or delete of this client has retired:
-     * a draft still open, one deleted elsewhere, one the user discarded mid-compose
-     * (a discard forgets no entry), and one sent whose clean-up found no row to
-     * delete, which is nearly every send while a server withholds APPENDUID. A
-     * thousand is far past any real mailbox, and the bound is what stops those from
-     * piling up. The other kind counts the rest: revisions a later save replaced
-     * but the server kept, saves that stored nothing, and saves still waiting for
-     * the server. They grow by saves, and are bounded apart so they cannot push out
-     * a current one (B1-5, reopened at 1.31 and 1.46).
+     * (see {@link #keepTypedRecipients}). Heads are a draft's current entry and its
+     * newest, one entry when its last save was stored and two at most, so they
+     * count the drafts saved here that no send or delete of this client has
+     * retired: a draft still open, one deleted elsewhere, one the user discarded
+     * mid-compose (a discard forgets no entry), and one sent whose clean-up found
+     * no row to delete, which is nearly every send while a server withholds
+     * APPENDUID. A thousand is far past any real mailbox, and the bound is what
+     * stops those from piling up. The other kind counts the rest: revisions a later
+     * save of their draft followed that are not current — kept by the server after
+     * the save that replaced them, or never stored. They grow by saves, and are
+     * bounded apart so they cannot push out a head (B1-5, reopened at 1.31, 1.46
+     * and 1.48).
      */
     static final int KEPT_DRAFT_RECIPIENTS = 1_000;
 
@@ -148,11 +150,12 @@ public class DraftPersistenceService {
      *
      * The entry kept at acceptance becomes current only once the APPEND has stored
      * the revision ({@link #appendDraftMessage}). A task that stores nothing,
-     * whichever way it leaves, or that waits or never runs, leaves it accepted and
-     * outside the current count, with nothing to set aside. Until 1.46 the entry
-     * was current from acceptance and each way out had to set it aside; a task that
-     * was still waiting had not left, so a server holding the APPEND lane kept
-     * every later autosave current (B1-5, reopened at 1.43 and 1.46).
+     * whichever way it leaves, or that waits or never runs, leaves it accepted,
+     * with nothing to set aside: it holds its draft's newest place until the
+     * draft's next save, and current only its own. Until 1.46 the entry was current
+     * from acceptance and each way out had to set it aside; a task that was still
+     * waiting had not left, so a server holding the APPEND lane kept every later
+     * autosave current (B1-5, reopened at 1.43 and 1.46).
      *
      * When {@code replacesStableId} is provided, the old draft is hard-deleted
      * (IMAP expunge + DB row) after a successful append. Order matters: append-new
@@ -449,19 +452,21 @@ public class DraftPersistenceService {
      * to. Written by a plain INSERT, which waits for SQLite's write lock where the
      * merge {@code save} did failed at once
      * ({@link DraftRecipientsRepository#insertEntry}). The entry is accepted, not
-     * current: it takes a current place only once the server stores the revision
-     * ({@link #markStored}). The account's current entries beyond its newest
-     * {@link #KEPT_DRAFT_RECIPIENTS} less one, the place this save's revision takes
-     * once stored, and its other entries beyond its newest
-     * {@link #KEPT_DRAFT_RECIPIENTS}, go at the same time.
+     * current: it becomes current only once the server stores the revision
+     * ({@link #markStored}). It is its draft's newest from the start, though, and
+     * so a head, whatever the server does with the save; the revision it follows
+     * stops being one unless it is current. The account's heads beyond its newest
+     * {@link #KEPT_DRAFT_RECIPIENTS} less one, the place this entry takes, and its
+     * followed entries beyond its newest {@link #KEPT_DRAFT_RECIPIENTS}, go at the
+     * same time ({@link DraftRecipientsRepository#deleteHeadsButNewest}).
      *
      * @throws RuntimeException
      *             when the entry cannot be written; the caller decides whether the
      *             draft may be appended without it.
      */
     private void keepTypedRecipients(Long accountId, DraftIdentity identity, DraftRequest request, String chainId) {
-        draftRecipientsRepository.deleteCurrentButNewest(accountId, KEPT_DRAFT_RECIPIENTS - 1);
-        draftRecipientsRepository.deleteNotCurrentButNewest(accountId, KEPT_DRAFT_RECIPIENTS);
+        draftRecipientsRepository.deleteHeadsButNewest(accountId, KEPT_DRAFT_RECIPIENTS - 1);
+        draftRecipientsRepository.deleteFollowedButNewest(accountId, KEPT_DRAFT_RECIPIENTS);
         draftRecipientsRepository.insertEntry(accountId, identity.messageId(), identity.stableId(), chainId,
                 request.to(), request.cc(), request.bcc(), LocalDateTime.now());
     }
@@ -506,11 +511,11 @@ public class DraftPersistenceService {
      * by the verification pass over 1.39). Decided by the chain this client keeps,
      * not by the server's answers. The entries set aside stay, for revisions the
      * server keeps and the user may still send, until
-     * {@link #KEPT_DRAFT_RECIPIENTS} newer ones that are not current push them out.
-     * The chain is the one the stored revision's own entry carries; a recovery
-     * draft whose entry could not be written has none and changes nothing.
-     * Best-effort: the draft is stored by now, and an entry left accepted is
-     * outside the current count.
+     * {@link #KEPT_DRAFT_RECIPIENTS} newer followed ones push them out. The chain
+     * is the one the stored revision's own entry carries; a recovery draft whose
+     * entry could not be written has none and changes nothing. Best-effort: the
+     * draft is stored by now, and an entry left accepted stays its draft's newest,
+     * a head, until the draft's next save (B1-5, reopened at 1.48).
      */
     private void markStored(Long accountId, DraftIdentity identity) {
         try {
@@ -525,16 +530,18 @@ public class DraftPersistenceService {
 
     /**
      * Drops the typed recipients of a draft this client has just deleted or sent,
-     * or of a revision a save replaced and the server let it delete. What it misses
-     * goes once the account has {@link #KEPT_DRAFT_RECIPIENTS} newer entries of the
-     * same kind.
+     * or of a revision a save replaced and the server let it delete. A plain DELETE
+     * that waits for SQLite's write lock
+     * ({@link DraftRecipientsRepository#deleteEntry}). What it still misses goes
+     * once the account has {@link #KEPT_DRAFT_RECIPIENTS} newer entries of the same
+     * kind.
      */
     public void forgetTypedRecipients(Long accountId, @Nullable String messageId) {
         if (messageId == null) {
             return;
         }
         try {
-            draftRecipientsRepository.deleteById(new DraftRecipientsEntity.Key(accountId, messageId));
+            draftRecipientsRepository.deleteEntry(accountId, messageId);
         } catch (Exception e) {
             log.debug("{} Could not drop the kept recipients of draft {} of account {}: {}", LogCategory.SMTP,
                     messageId, accountId, e.getMessage());

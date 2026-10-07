@@ -101,9 +101,9 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "cde0011e2af31a63b8d1aee440066635480c2eaf",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/DraftRecipientsEntity.java": "fce713a21a537f6fee1fc6d1959a6a6ffdc9ced0",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "3cd58427c6626b2409d39e9c3eda20c3cca5fd64",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "f9d130f07813ee70b226a01074c32762bf0df38c",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/DraftRecipientsEntity.java": "17cde0b5e8115ed8c415ea4822bbfe2dc4b8cd80",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "cd0dd19dc736b03fe9d4b054497505e3e697b6fc",
       "backend/src/main/java/org/voxrox/mailbackend/core/config/mail": "de23ff18504252f94add497b4e3ca5a763ae6e47",
       "backend/src/main/resources/application.properties": "455e9042b8808b1cf87884e0836d68be97c49aec"
     },
@@ -131,6 +131,10 @@
       {
         "date": "2026-10-06",
         "note": "B1-14 fixed, its hostile half, recorded in the audit itself as v1.49 (section 4n); the fix is this PR's own and waits for an independent pass, so the anchor stays at c386fed and this records the drift. Three paths move. Under feature/mail/service: BoundedImapProtocol's SelectionBudget, started at each SELECT or EXAMINE, also sums keptBytes for every FETCH response handed to the folder (its bytes on the wire, 96 for each object DepthBoundedFetchResponse counts in Angus's parse, 280 for the response) and refuses the one past the budget as the other refusals are, an ImplausibleResponseException that closes the connection; fetchSectionBody and fetchRFC822 leave the body data of a fetch of content uncharged, judged by the section the client asked for; the budget is read from a session property that BoundedImapStore.install now writes, falling back to the default for a value that is not a positive number, so ImapConnectionManager and MailConnectionProbe pass it the IMAP properties. core/config/mail: ImapProperties gains openFolderBudget, a DataSize defaulting to 64MB that must be positive. application.properties sets mail.client.imap.open-folder-budget=64MB with a comment. The per-response bounds of B1-3, B1-7, B1-10 and B1-15, B1-8's command budget and B1-13's EXPUNGE budget are unchanged; the change adds one refusal and moves no other claim. Verdict open finding (B1-5)."
+      },
+      {
+        "date": "2026-10-07",
+        "note": "B1-5 fixed again as the 1.48 pass recommended, recorded in the audit itself as v1.50 (section 4e); the fix is this PR's own and waits for an independent pass, so the anchor stays at c386fed and this records the drift. Three paths move. DraftRecipientsRepository: deleteCurrentButNewest becomes deleteHeadsButNewest, over the entries a draft is current at and each draft's newest by saved_seq within its chain whatever its state (one grouped MAX subquery per statement), and deleteNotCurrentButNewest becomes deleteFollowedButNewest over the rest, entries a later save of their draft followed that are not current; deleteEntry is added, a plain DELETE by account and Message-ID. Under feature/mail/service only DraftPersistenceService changes: keepTypedRecipients prunes with the two new methods at the same sizes and in the same order before the INSERT, and forgetTypedRecipients uses deleteEntry instead of deleteById; javadoc follows. DraftRecipientsEntity changes in javadoc only. acceptDraftSave, the chain lookup, the INSERT, markStored, the send's lookup by Message-ID and the recipient comparison are untouched. V1__init.sql changes in its schema comment only and is outside this audit's paths. Verdict no open finding, the fixes of 1.49 and 1.50 each pending their pass."
       }
     ]
   },
