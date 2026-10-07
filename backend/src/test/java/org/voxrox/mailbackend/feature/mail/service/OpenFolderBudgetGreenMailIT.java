@@ -42,12 +42,14 @@ import com.icegreen.greenmail.util.ServerSetup;
  * point. GreenMail advertises no CONDSTORE, so each pass here reads the flags
  * and the UIDs of every mirrored message through the folder, the costliest
  * honest pass there is. The budget, window and batch are small so the test runs
- * in seconds; the ratios are the point.
+ * in seconds; the ratios are the point. The budget was 1 MB until 1.61, when
+ * the charge for an ordinary message about doubled (B1-14): at 1 MB every
+ * attempt then stopped at the same point, the floor above.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         // The only sync runs are the explicit ones below.
         "mail.client.sync.initial-delay=PT1H", "mail.client.sync.window-size=50", "mail.client.sync.batch-size=50",
-        "mail.client.imap.open-folder-budget=1MB"})
+        "mail.client.imap.open-folder-budget=1664KB"})
 @ContextConfiguration(initializers = StorageContextInitializer.class)
 class OpenFolderBudgetGreenMailIT {
 
@@ -150,7 +152,7 @@ class OpenFolderBudgetGreenMailIT {
             byte[] bytes = Files.readAllBytes(log());
             String since = new String(bytes, (int) mark, bytes.length - (int) mark,
                     java.nio.charset.StandardCharsets.UTF_8);
-            return since.lines().filter(line -> line.contains("passed its budget of 1048576 bytes")).count();
+            return since.lines().filter(line -> line.contains("passed its budget of 1703936 bytes")).count();
         } catch (java.io.IOException e) {
             throw new java.io.UncheckedIOException(e);
         }

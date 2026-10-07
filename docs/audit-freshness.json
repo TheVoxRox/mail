@@ -101,7 +101,7 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "e7afbb958def0d6e7457d5fc79f7168a0edfdbfb",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "eb6fd97e9aa774c7855c63fa7636fcfb14c25de8",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/DraftRecipientsEntity.java": "3a30c865980b7e1effb458ab38ddda80dd3693f7",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "53ea6840a3eddac96bfd8ecf0becf23d7e8fe836"
     },
@@ -129,6 +129,10 @@
       {
         "date": "2026-10-07",
         "note": "B1-19 fixed, by neither way the 1.57 pass recommended, recorded in the audit itself as v1.60 (section 4s); the fix is this PR's own and waits for an independent pass, so the anchor stays at 4e1b8d7 and this records the drift. One path moves, feature/mail/service. BoundedImapStore overrides both newIMAPFolder forms Angus calls to make a BoundedImapFolder (new), whose newIMAPMessage makes a BoundedImapMessage (new); its handleFetchItem counts with BoundedImapProtocol.headerBlock the header lines of an item Angus would merge (a header item, not all headers asked for, headers already held) and does not hand Angus an item past MAX_MERGED_HEADER_LINES (256) over the message's life; the folder logs one line. Nothing else in the folder or the message changes, and BoundedImapProtocol, every budget and every other bound are unchanged, so only section 4s moves. The folder and message classes now make every folder and message of every IMAP connection, which the whole IT suite, GreenMail and the hostile server alike, ran through green. Verdict open finding (B1-14)."
+      },
+      {
+        "date": "2026-10-07",
+        "note": "B1-14 fixed again as the 1.52 pass recommended, and wider, recorded in the audit itself as v1.61 (section 4n); the fix is this PR's own and waits for an independent pass, so the anchor stays at 4e1b8d7 and this records the drift. One path moves, feature/mail/service, in one file. BoundedImapProtocol: DepthBoundedFetchResponse counts readNumber and readLong as objects and the characters of every string read (readString, readString(delim), readAtom, readAtomString, the items of readSimpleList) as copiedChars, twice inside an open address group; keptBytes adds COPIED_CHAR_BYTES (2) a character, HEADER_SET_BYTES (1,024) for each charged body item and STRUCTURE_PART_BYTES (1,280) for each part of a BODYSTRUCTURE (structureParts, new); the javadocs of DEFAULT_OPEN_FOLDER_BUDGET and keptBytes are restated for the 1.61 measurements and three connections. headerBytes, headerBlock, the depth, group and stall checks, the budget's value and every other bound are unchanged, so only section 4n moves. Verdict all findings fixed, verification pending."
       }
     ]
   },

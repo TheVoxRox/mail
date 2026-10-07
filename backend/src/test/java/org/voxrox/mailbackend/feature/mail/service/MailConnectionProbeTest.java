@@ -63,6 +63,12 @@ import org.voxrox.mailbackend.feature.auth.service.OAuth2TokenServiceRegistry;
 class MailConnectionProbeTest {
 
     private static final Long ACCOUNT_ID = 42L;
+    /**
+     * The open-folder budget configured here; not the default, so a session that
+     * lacks it reads the default back and fails the assertion, rather than passing
+     * it (IMAP/SMTP audit B1-14, from the pass over 1.49).
+     */
+    private static final DataSize OPEN_FOLDER_BUDGET = DataSize.ofMegabytes(48);
 
     @Mock
     private OAuth2TokenServiceRegistry oauth2TokenServiceRegistry;
@@ -77,7 +83,7 @@ class MailConnectionProbeTest {
     void setUp() {
         ImapProperties imap = new ImapProperties(993, Duration.ofSeconds(30), Duration.ofSeconds(60),
                 Duration.ofSeconds(60), "imaps", "imap", Duration.ofSeconds(1), Duration.ofMinutes(5),
-                DataSize.ofMegabytes(64));
+                OPEN_FOLDER_BUDGET);
         SmtpProperties smtp = new SmtpProperties(Duration.ofSeconds(15), Duration.ofSeconds(10));
         MailClientProperties props = new MailClientProperties(imap, smtp, null, null);
         probe = new MailConnectionProbe(props, oauth2TokenServiceRegistry, smtpTransportFactory);
@@ -133,7 +139,7 @@ class MailConnectionProbeTest {
             order.verify(sessionMock).getStore("imaps");
             assertThat(provider.getValue().getProtocol()).isEqualTo("imaps");
             assertThat(provider.getValue().getClassName()).isEqualTo(BoundedImapStore.class.getName());
-            assertThat(budgetAtGetStore).hasValue(DataSize.ofMegabytes(64).toBytes());
+            assertThat(budgetAtGetStore).hasValue(OPEN_FOLDER_BUDGET.toBytes());
         }
 
         /**
