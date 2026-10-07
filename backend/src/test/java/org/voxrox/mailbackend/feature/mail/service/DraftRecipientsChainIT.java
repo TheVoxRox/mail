@@ -282,7 +282,7 @@ class DraftRecipientsChainIT {
         List<DraftPersistenceService.DraftIdentity> accepted = new ArrayList<>();
         List<String> named = new ArrayList<>();
         String replaces = null;
-        for (int revision = 1; revision <= DraftPersistenceService.KEPT_DRAFT_RECIPIENTS; revision++) {
+        for (int revision = 1; revision <= DraftPersistenceService.KEPT_DRAFTS; revision++) {
             DraftPersistenceService.DraftIdentity identity = service.acceptDraftSave(account.getId(), request(),
                     replaces);
             accepted.add(identity);
@@ -307,9 +307,9 @@ class DraftRecipientsChainIT {
      * not current shared one bound per account, and a draft's last revision is not
      * current while its save waits for the lane: some thousand autosaves of another
      * draft, on a server that withholds APPENDUID so every replaced revision's
-     * entry stays, pushed it out, and the draft kept no entry. A draft's newest is
-     * now bounded with the current entries. Here the draft's last save is accepted
-     * and held, as while a server holds the lane, then released.
+     * entry stays, pushed it out, and the draft kept no entry. An account now keeps
+     * its entries by draft. Here the draft's last save is accepted and held, as
+     * while a server holds the lane, then released.
      */
     @Test
     @DisplayName("A draft's last save held by the server outlasts another draft's autosaves (B1-5)")
@@ -347,15 +347,63 @@ class DraftRecipientsChainIT {
     }
 
     /**
+     * Found by the pass over 1.50 (B1-5, reopened at 1.53). The revisions a later
+     * save of their draft had followed shared one bound per account with every
+     * other draft's saves, so the revision before a draft's newest, which a server
+     * keeps when it withholds APPENDUID, lost its entry at another draft's 1,002nd
+     * autosave, and the server could then present it in place of the newest. An
+     * account now keeps its entries by draft.
+     */
+    @Test
+    @DisplayName("A draft's replaced revisions outlast another draft's autosaves (B1-5)")
+    void aDraftsReplacedRevisionsOutlastAnotherDraftsAutosaves() {
+        DraftPersistenceService.DraftIdentity first = save(null, true);
+        DraftPersistenceService.DraftIdentity second = save(first.stableId(), true);
+        DraftPersistenceService.DraftIdentity newest = save(second.stableId(), true);
+
+        autosaveAnotherDraft();
+
+        assertThat(repository.findById(new DraftRecipientsEntity.Key(account.getId(), second.messageId())))
+                .as("the revision before the newest, which the server keeps").isPresent();
+        assertThat(repository.findById(new DraftRecipientsEntity.Key(account.getId(), first.messageId())))
+                .as("the first revision, which the server keeps too").isPresent();
+        assertThat(currentEntries()).contains(newest.messageId());
+    }
+
+    /**
+     * What a draft's own saves leave of its replaced revisions: the newest
+     * {@code KEPT_REVISIONS_PER_DRAFT} of them and its current entry, the oldest
+     * going first.
+     */
+    @Test
+    @DisplayName("A draft's own autosaves bound the replaced revisions it keeps")
+    void aDraftsOwnSavesBoundItsReplacedRevisions() {
+        List<DraftPersistenceService.DraftIdentity> saved = new ArrayList<>();
+        String replaces = null;
+        for (int revision = 1; revision <= DraftPersistenceService.KEPT_REVISIONS_PER_DRAFT + 20; revision++) {
+            DraftPersistenceService.DraftIdentity identity = save(replaces, true);
+            saved.add(identity);
+            replaces = identity.stableId();
+        }
+
+        assertThat(repository.findAll()).hasSize(DraftPersistenceService.KEPT_REVISIONS_PER_DRAFT + 1);
+        assertThat(repository.findById(new DraftRecipientsEntity.Key(account.getId(), saved.get(18).messageId())))
+                .as("the newest revision past the bound").isEmpty();
+        assertThat(repository.findById(new DraftRecipientsEntity.Key(account.getId(), saved.get(19).messageId())))
+                .as("the oldest revision within it").isPresent();
+        assertThat(currentEntries()).containsExactly(saved.getLast().messageId());
+    }
+
+    /**
      * Autosaves of a new draft, each stored without APPENDUID, so each replaced
-     * revision's entry stays, set aside: two more than an account keeps entries of
-     * a kind, since the bound is applied before each save and the last stored
-     * revision is current, which is what it takes to push out the one before them
-     * when they share a bound.
+     * revision's entry stays, set aside: 1,002, what it took to push out another
+     * draft's entry while an account bounded its entries in two kinds of a thousand
+     * each (until 1.54), the bound applied before each save and the last stored
+     * revision current.
      */
     private void autosaveAnotherDraft() {
         String replaces = null;
-        for (int revision = 0; revision <= DraftPersistenceService.KEPT_DRAFT_RECIPIENTS + 1; revision++) {
+        for (int revision = 0; revision <= DraftPersistenceService.KEPT_DRAFTS + 1; revision++) {
             replaces = save(replaces, true).stableId();
         }
     }

@@ -614,12 +614,13 @@ CREATE UNIQUE INDEX ux_correspondent_account_email
 -- stored save of the same draft sets it aside (superseded_at); until then it
 -- is only accepted, whether its save is still waiting for the server or has
 -- failed, and takes no current place. Each save keeps the account's newest
--- heads - the entry a draft is current at and each draft's newest, whatever
--- its state, two a draft at most - and its newest other ones apart, as
--- many of each as DraftPersistenceService's KEPT_DRAFT_RECIPIENTS. Not by
--- age: a server could hide a draft for as long as an age limit ran, and
--- only the user's own saves add entries. A draft composed in another
--- client has no entry, and its check falls back to the row.
+-- drafts whole, as many as DraftPersistenceService's KEPT_DRAFTS, a draft
+-- being a chain as old as its newest entry, and of the saved draft the
+-- revisions a later save of it followed, its newest KEPT_REVISIONS_PER_DRAFT;
+-- so no draft's saves push out another draft's revisions. Not by age: a
+-- server could hide a draft for as long as an age limit ran, and only the
+-- user's own saves add entries. A draft composed in another client has no
+-- entry, and its check falls back to the row.
 --
 -- stable_id is the stableId the save minted, which the next save names as
 -- the revision it replaces. chain_id is the stable_id of the draft's first
@@ -634,7 +635,7 @@ CREATE TABLE draft_recipients (
     account_id     INTEGER      NOT NULL,
     message_id     VARCHAR(255) NOT NULL,
     stable_id      VARCHAR(32),
-    chain_id       VARCHAR(32),
+    chain_id       VARCHAR(32)  NOT NULL,
     recipients_to  TEXT,
     recipients_cc  TEXT,
     recipients_bcc TEXT,
@@ -653,4 +654,4 @@ CREATE INDEX idx_draft_recipients_account_stable
     ON draft_recipients (account_id, stable_id);
 
 CREATE INDEX idx_draft_recipients_account_chain
-    ON draft_recipients (account_id, chain_id);
+    ON draft_recipients (account_id, chain_id, saved_seq);
