@@ -10,6 +10,7 @@ import org.eclipse.angus.mail.iap.Protocol;
 import org.eclipse.angus.mail.iap.ProtocolException;
 import org.eclipse.angus.mail.iap.Response;
 import org.eclipse.angus.mail.imap.protocol.BODY;
+import org.eclipse.angus.mail.imap.protocol.BODYSTRUCTURE;
 import org.eclipse.angus.mail.imap.protocol.FetchItem;
 import org.eclipse.angus.mail.imap.protocol.FetchResponse;
 import org.eclipse.angus.mail.imap.protocol.IMAPProtocol;
@@ -272,30 +273,32 @@ final class BoundedImapProtocol extends IMAPProtocol {
      * reason. The sync opens a folder for one pass and the user's actions open it
      * for one action, so a selection is one of those. Ordinary new mail fits many
      * times over; the largest honest pass does not, by choice. A pass that catches
-     * up {@code local-window-limit} (10,000) new messages is charged 97 MB at the
-     * 9.7 KB an ordinary message costs (envelope with five addresses, a three-part
-     * structure, three threading headers, which since 1.56 are charged as the
-     * headers they become, 0.8 KB of it), and on a server without CONDSTORE some
-     * 1.5 KB more for each mirrored message, whose flags and UIDs the pass reads
-     * through the folder — up to twice the window before the pruner runs, 30 MB.
-     * Such a pass is refused like any implausible response: the connection closes,
-     * which releases what the folder kept, the batches stored so far stay, newest
-     * first, and the sync's next attempt opens the folder again and brings the rest
-     * down as holes; what a pass's attempts leave, the next pass takes.
+     * up {@code local-window-limit} (10,000) new messages is charged 164 MB at the
+     * 16.4 KB an ordinary message costs since 1.61 (envelope with six addresses, a
+     * three-part structure, three threading headers; 8.7 KB before, computed with
+     * this charge), and on a server without CONDSTORE some 1.7 KB more for each
+     * mirrored message, whose flags and UIDs the pass reads through the folder — up
+     * to twice the window before the pruner runs, 35 MB. Such a pass is refused
+     * like any implausible response: the connection closes, which releases what the
+     * folder kept, the batches stored so far stay, newest first, and the sync's
+     * next attempt opens the folder again and brings the rest down as holes; what a
+     * pass's attempts leave, the next pass takes.
      * <p>
      * The owner chose that cost over a budget the largest pass fits in
-     * (2026-10-06), because the budget is per connection: an account has two that
-     * may each hold a folder open, each with up to {@link #MAX_COMMAND_BYTES} of a
-     * command's responses besides. What a hostile server can make one folder keep
-     * is the budget scaled by the worst ratio measured at 1.49 of what a response
-     * leaves to what it is charged — 82 bytes an object against 96, and 268 bytes
-     * against 403 for a response that makes Angus create a message — some 58 MB, so
-     * the two connections together some 2 × (58 + 67) MB of the packaged 384 MB
-     * heap, where 128 MiB would have allowed 2 × (115 + 67).
+     * (2026-10-06), because the budget is per connection: an account has three that
+     * may each hold a folder open — the two lanes, and a background move opens its
+     * destination on a connection of its own (1.52) — each with up to
+     * {@link #MAX_COMMAND_BYTES} of a command's responses besides. What a hostile
+     * server can make one folder keep is the budget scaled by the worst ratio
+     * measured at 1.61 of what a folder keeps to what it is charged, 0.88 for
+     * header lines — some 59 MB, so the three connections together some 3 × (59 +
+     * 67) MB, about the packaged 384 MB heap (computed, not measured). At 1.49 the
+     * bound was stated for two connections and from shapes the sync's own reads
+     * exceed.
      * <p>
      * The budget has to hold what a pass spends on the window it already mirrors,
      * plus one batch: below that, every attempt is refused at the same point and
-     * the folder's sync stops there. At the defaults that is up to some 30 MB and 2
+     * the folder's sync stops there. At the defaults that is up to some 35 MB and 2
      * MB.
      */
     static final long DEFAULT_OPEN_FOLDER_BUDGET = 64L * 1024 * 1024;
@@ -327,6 +330,38 @@ final class BoundedImapProtocol extends IMAPProtocol {
      * three fields, 192 bytes on the wire, keeps some 736.
      */
     static final int HEADER_LINE_BYTES = 128;
+
+    /**
+     * What {@link #keptBytes} charges for each character of every string the parse
+     * read, past its bytes on the wire: a second copy, at two bytes a character
+     * (B1-14, reopened at 1.52). What a folder keeps holds copies of what it read:
+     * a user flag with a capital beside its lower-cased copy, a subject and a
+     * personal name decoded beside their encoded form once the sync reads them, an
+     * RFC 2231 parameter encoded and decoded (all measured at 1.61, at up to twice
+     * the charge without this). Inside an address group each character counts twice
+     * over, since the group's address repeats its members' text.
+     */
+    static final int COPIED_CHAR_BYTES = 2;
+
+    /**
+     * What {@link #keptBytes} charges for each header set a body item becomes,
+     * besides its lines ({@link #headerBytes}): Angus loads the item into an
+     * {@code InternetHeaders} made by the constructor without arguments, which
+     * holds a placeholder for some forty standard headers before a line is read,
+     * 905 bytes (measured at 1.61).
+     */
+    static final int HEADER_SET_BYTES = 1024;
+
+    /**
+     * What {@link #keptBytes} charges for each part of a {@code BODYSTRUCTURE}, the
+     * message's own included. The sync reads every message's structure for its
+     * attachments ({@code MimePartExtractor}), and the message then keeps a data
+     * source and a multipart over its parts, each part an {@code IMAPBodyPart} with
+     * a header set of its own; a nested message besides. Measured at 1.61: the
+     * sync's reads added some 4.7 KB to an ordinary message of three parts, past
+     * what its parse was charged, which left it kept at 1.33 times its charge.
+     */
+    static final int STRUCTURE_PART_BYTES = 1280;
 
     /**
      * The session property, under {@code mail.<protocol>.}, that carries
@@ -629,11 +664,16 @@ final class BoundedImapProtocol extends IMAPProtocol {
     /**
      * What a FETCH may leave in the selected folder, as the heap it takes: its
      * bytes on the wire, {@link #PARSED_OBJECT_BYTES} for each object its parse
-     * made, {@link #RESPONSE_OVERHEAD_BYTES} for the response (B1-14), and the
-     * headers each charged body item becomes ({@link #headerBytes}, B1-16), so a
-     * response the header lines would take past the budget is refused before Angus
-     * loads them. An upper bound for everything measured at 1.49 and 1.56, and for
-     * an ordinary message about a third over what it keeps.
+     * made, numbers included, {@link #COPIED_CHAR_BYTES} for each character of its
+     * strings, {@link #RESPONSE_OVERHEAD_BYTES} for the response (B1-14), the
+     * headers each charged body item becomes ({@link #headerBytes}, B1-16) in a
+     * header set of its own ({@link #HEADER_SET_BYTES}), and
+     * {@link #STRUCTURE_PART_BYTES} for each part of a structure, which the sync's
+     * read makes into a part (B1-14, reopened at 1.52), so a response the header
+     * lines would take past the budget is refused before Angus loads them. An upper
+     * bound for every shape measured at 1.61, through the sync's own reads: at most
+     * 0.88 of the charge, for header lines, and an ordinary message of three parts
+     * at 0.71.
      * <p>
      * The whole response is charged, whatever was asked for: {@code IMAPFolder}'s
      * fetch gives a message every item a response names, a whole body included,
@@ -643,13 +683,23 @@ final class BoundedImapProtocol extends IMAPProtocol {
      * data of every body item in the command's responses goes uncharged.
      */
     static long keptBytes(FetchResponse fetch, int wireBytes, boolean content) {
-        long objects = fetch instanceof DepthBoundedFetchResponse counted ? counted.parsedObjects() : 0;
+        long objects = 0;
+        long copiedChars = 0;
+        if (fetch instanceof DepthBoundedFetchResponse counted) {
+            objects = counted.parsedObjects();
+            copiedChars = counted.copiedChars();
+        }
         long bytes = wireBytes;
         long headers = 0;
+        long parts = 0;
         for (int i = 0; i < fetch.getItemCount(); i++) {
             ByteArray data = switch (fetch.getItem(i)) {
                 case BODY body -> body.getByteArray();
                 case RFC822DATA rfc822 -> rfc822.getByteArray();
+                case BODYSTRUCTURE structure -> {
+                    parts += structureParts(structure);
+                    yield null;
+                }
                 default -> null;
             };
             if (data == null) {
@@ -658,10 +708,28 @@ final class BoundedImapProtocol extends IMAPProtocol {
             if (content) {
                 bytes -= data.getCount();
             } else {
-                headers += headerBytes(data);
+                headers += HEADER_SET_BYTES + headerBytes(data);
             }
         }
-        return Math.max(0, bytes) + objects * PARSED_OBJECT_BYTES + headers + RESPONSE_OVERHEAD_BYTES;
+        return Math.max(0, bytes) + objects * PARSED_OBJECT_BYTES + copiedChars * COPIED_CHAR_BYTES
+                + parts * STRUCTURE_PART_BYTES + headers + RESPONSE_OVERHEAD_BYTES;
+    }
+
+    /**
+     * The parts of a structure, itself included, each a part the sync's read of the
+     * structure makes ({@link #STRUCTURE_PART_BYTES}). As deep as the parse that
+     * made it, which {@link #MAX_NESTING} bounds.
+     */
+    static long structureParts(BODYSTRUCTURE structure) {
+        long parts = 1;
+        if (structure.bodies != null) {
+            for (BODYSTRUCTURE part : structure.bodies) {
+                if (part != null) {
+                    parts += structureParts(part);
+                }
+            }
+        }
+        return parts;
     }
 
     /**
@@ -902,9 +970,19 @@ final class BoundedImapProtocol extends IMAPProtocol {
          * one of these methods. A list read with {@code readStringList} counts once
          * here and each of its strings once in {@code readString} or
          * {@code readAtomString}, which it calls; {@code readSimpleList} reads its
-         * items itself, so they count there.
+         * items itself, so they count there. A number read counts as one too
+         * ({@code readNumber}, {@code readLong}): a UID item read as nothing but a
+         * number makes an entry in the folder's UID table, 64 bytes, which a charge by
+         * its bytes alone left at six times the charge (B1-14, reopened at 1.52;
+         * measured at 1.61).
          */
         private long parsedObjects;
+        /**
+         * Characters of the strings the parse read, each counted once more inside an
+         * open address group, which {@link #keptBytes} charges a second copy of
+         * ({@link #COPIED_CHAR_BYTES}).
+         */
+        private long copiedChars;
 
         DepthBoundedFetchResponse(IMAPResponse response, FetchItem @Nullable [] fetchItems, Protocol protocol)
                 throws IOException, ProtocolException {
@@ -914,6 +992,11 @@ final class BoundedImapProtocol extends IMAPProtocol {
         /** What the parse made, as {@link #parsedObjects} counts it. */
         long parsedObjects() {
             return parsedObjects;
+        }
+
+        /** The characters the parse read, as {@link #copiedChars} counts them. */
+        long copiedChars() {
+            return copiedChars;
         }
 
         @Override
@@ -986,22 +1069,34 @@ final class BoundedImapProtocol extends IMAPProtocol {
                 addressStage = 0;
             }
             progress();
-            return made(read);
+            return made(copied(read));
         }
 
         @Override
         public @Nullable String readString(char delim) {
-            return made(super.readString(delim));
+            return made(copied(super.readString(delim)));
         }
 
         @Override
         public @Nullable String readAtom() {
-            return made(super.readAtom());
+            return made(copied(super.readAtom()));
         }
 
         @Override
         public @Nullable String readAtomString() {
-            return made(super.readAtomString());
+            return made(copied(super.readAtomString()));
+        }
+
+        @Override
+        public int readNumber() {
+            parsedObjects++;
+            return super.readNumber();
+        }
+
+        @Override
+        public long readLong() {
+            parsedObjects++;
+            return super.readLong();
         }
 
         @Override
@@ -1020,6 +1115,9 @@ final class BoundedImapProtocol extends IMAPProtocol {
             String[] read = super.readSimpleList();
             if (read != null) {
                 parsedObjects += 1 + 2L * read.length;
+                for (String item : read) {
+                    copied(item);
+                }
             }
             return read;
         }
@@ -1049,6 +1147,17 @@ final class BoundedImapProtocol extends IMAPProtocol {
         private <T> @Nullable T made(@Nullable T read) {
             if (read != null) {
                 parsedObjects++;
+            }
+            return read;
+        }
+
+        /**
+         * Counts a string's characters for the copy {@link #keptBytes} charges, twice
+         * inside an open address group, whose address repeats its members' text.
+         */
+        private @Nullable String copied(@Nullable String read) {
+            if (read != null) {
+                copiedChars += (long) read.length() * (openGroups > 0 ? 2 : 1);
             }
             return read;
         }

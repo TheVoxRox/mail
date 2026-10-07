@@ -72,6 +72,13 @@ import org.voxrox.mailbackend.feature.mail.service.ImapConnectionManager.Lane;
 @ExtendWith(MockitoExtension.class)
 class ImapConnectionManagerTest {
 
+    /**
+     * The open-folder budget configured here; not the default, so a session that
+     * lacks it reads the default back and fails the assertion, rather than passing
+     * it (IMAP/SMTP audit B1-14, from the pass over 1.49).
+     */
+    private static final DataSize OPEN_FOLDER_BUDGET = DataSize.ofMegabytes(48);
+
     @Mock
     private AccountConnectionDetailsService connectionDetailsService;
     @Mock
@@ -138,7 +145,7 @@ class ImapConnectionManagerTest {
 
     private void stubInteractiveRetryAfter(Duration retryAfter) {
         when(mailProps.imap()).thenReturn(new ImapProperties(993, Duration.ofSeconds(30), Duration.ofSeconds(60),
-                Duration.ofSeconds(60), "imaps", "imap", Duration.ofSeconds(1), retryAfter, DataSize.ofMegabytes(64)));
+                Duration.ofSeconds(60), "imaps", "imap", Duration.ofSeconds(1), retryAfter, OPEN_FOLDER_BUDGET));
     }
 
     @Nested
@@ -834,7 +841,7 @@ class ImapConnectionManagerTest {
             assertThat(provider.getValue().getProtocol()).isEqualTo("imaps");
             assertThat(provider.getValue().getClassName()).as("the connect ended with %s", thrown)
                     .isEqualTo(BoundedImapStore.class.getName());
-            assertThat(budgetAtGetStore).hasValue(DataSize.ofMegabytes(64).toBytes());
+            assertThat(budgetAtGetStore).hasValue(OPEN_FOLDER_BUDGET.toBytes());
         }
     }
 

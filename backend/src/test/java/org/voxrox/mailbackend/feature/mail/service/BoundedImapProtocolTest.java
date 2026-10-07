@@ -16,6 +16,7 @@ import java.util.Properties;
 import jakarta.mail.internet.InternetHeaders;
 
 import org.eclipse.angus.mail.iap.Protocol;
+import org.eclipse.angus.mail.imap.protocol.BODYSTRUCTURE;
 import org.eclipse.angus.mail.imap.protocol.FetchResponse;
 import org.eclipse.angus.mail.imap.protocol.IMAPResponse;
 import org.junit.jupiter.api.DisplayName;
@@ -537,14 +538,80 @@ class BoundedImapProtocolTest {
         }
 
         /**
-         * A bare UID costs a FETCH list and nothing parsed into an object, so the
-         * charge is its bytes, the one list, and the response.
+         * A bare UID costs a FETCH list and the number it reads, so the charge is its
+         * bytes, two objects, and the response.
          */
         @Test
         @DisplayName("A FETCH is charged its bytes, each object its parse made, and the response")
         void aFetchIsChargedItsObjects() throws Exception {
             assertThat(BoundedImapProtocol.keptBytes(fetch("* 1 FETCH (UID 5)"), 17, false)).isEqualTo(
-                    17 + BoundedImapProtocol.PARSED_OBJECT_BYTES + BoundedImapProtocol.RESPONSE_OVERHEAD_BYTES);
+                    17 + 2L * BoundedImapProtocol.PARSED_OBJECT_BYTES + BoundedImapProtocol.RESPONSE_OVERHEAD_BYTES);
+        }
+
+        /**
+         * B1-14, reopened at 1.52. A UID item is read as nothing but a number, which
+         * the count missed, and the folder makes each one an entry in its UID table, 64
+         * bytes: 200,000 of them in one response were kept at six times their charge
+         * (measured at 1.61). Every number read is now an object.
+         */
+        @Test
+        @DisplayName("Every number the parse reads is charged as an object")
+        void everyNumberIsAnObject() throws Exception {
+            assertThat(BoundedImapProtocol.keptBytes(fetch("* 1 FETCH (UID 5 UID 6)"), 23, false)).isEqualTo(
+                    23 + 3L * BoundedImapProtocol.PARSED_OBJECT_BYTES + BoundedImapProtocol.RESPONSE_OVERHEAD_BYTES);
+        }
+
+        /**
+         * B1-14, reopened at 1.52. What a folder keeps holds copies of strings it read,
+         * a subject decoded beside its encoded form, say, so each character is charged
+         * a second copy; and a group's address repeats its members' text, so inside a
+         * group, a third.
+         */
+        @Test
+        @DisplayName("Every string's characters are charged a second copy, and a third inside an address group")
+        void stringsAreChargedACopy() throws Exception {
+            String shortSubject = "* 1 FETCH (ENVELOPE (NIL \"s\" NIL NIL NIL NIL NIL NIL NIL NIL))";
+            String longSubject = "* 1 FETCH (ENVELOPE (NIL \"ssss\" NIL NIL NIL NIL NIL NIL NIL NIL))";
+            assertThat(BoundedImapProtocol.keptBytes(fetch(longSubject), longSubject.length(), false)
+                    - BoundedImapProtocol.keptBytes(fetch(shortSubject), shortSubject.length(), false))
+                    .isEqualTo(3 + 3L * BoundedImapProtocol.COPIED_CHAR_BYTES);
+
+            String shortMember = groupTo("m");
+            String longMember = groupTo("mmmm");
+            assertThat(BoundedImapProtocol.keptBytes(fetch(longMember), longMember.length(), false)
+                    - BoundedImapProtocol.keptBytes(fetch(shortMember), shortMember.length(), false))
+                    .as("a member's mailbox, inside the group")
+                    .isEqualTo(3 + 2 * 3L * BoundedImapProtocol.COPIED_CHAR_BYTES);
+        }
+
+        private static String groupTo(String member) {
+            return "* 1 FETCH (ENVELOPE (NIL \"s\" NIL NIL NIL ((NIL NIL \"team\" NIL)(NIL NIL \"" + member
+                    + "\" \"example.com\")(NIL NIL NIL NIL)) NIL NIL NIL NIL))";
+        }
+
+        /**
+         * B1-14, reopened at 1.52, as measured at 1.61. The sync reads every message's
+         * structure for its attachments, and each part becomes an {@code IMAPBodyPart}
+         * with a header set of its own: an ordinary message of three parts kept 1.33
+         * times its charge, and 20,000 empty parts 3.4 times. Each part is charged, the
+         * message's own and a nested message's included.
+         */
+        @Test
+        @DisplayName("Each part of a structure is charged as the part the sync's read makes of it")
+        void eachStructurePartIsCharged() throws Exception {
+            FetchResponse mixed = fetch("* 1 FETCH (BODYSTRUCTURE ((\"TEXT\" \"PLAIN\" NIL NIL NIL \"7BIT\" 1 1)"
+                    + "(\"TEXT\" \"HTML\" NIL NIL NIL \"7BIT\" 1 1)(\"MESSAGE\" \"RFC822\" NIL NIL NIL \"7BIT\" 1 "
+                    + "(NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL) (\"TEXT\" \"PLAIN\" NIL NIL NIL \"7BIT\" 1 1) 1) "
+                    + "\"MIXED\"))");
+            BODYSTRUCTURE structure = (BODYSTRUCTURE) mixed.getItem(0);
+            BoundedImapProtocol.DepthBoundedFetchResponse counted = (BoundedImapProtocol.DepthBoundedFetchResponse) mixed;
+
+            assertThat(BoundedImapProtocol.structureParts(structure))
+                    .as("the message, three parts, and the nested message's own").isEqualTo(5);
+            assertThat(BoundedImapProtocol.keptBytes(mixed, 100, false)).isEqualTo(100
+                    + counted.parsedObjects() * BoundedImapProtocol.PARSED_OBJECT_BYTES
+                    + counted.copiedChars() * BoundedImapProtocol.COPIED_CHAR_BYTES
+                    + 5L * BoundedImapProtocol.STRUCTURE_PART_BYTES + BoundedImapProtocol.RESPONSE_OVERHEAD_BYTES);
         }
 
         /**
@@ -556,7 +623,8 @@ class BoundedImapProtocolTest {
         @DisplayName("Each flag counts twice, for the lower-cased copy Angus keeps of it")
         void flagsCountTwice() throws Exception {
             assertThat(BoundedImapProtocol.keptBytes(fetch("* 1 FETCH (FLAGS (\\Seen Urgent))"), 33, false)).isEqualTo(
-                    33 + 6L * BoundedImapProtocol.PARSED_OBJECT_BYTES + BoundedImapProtocol.RESPONSE_OVERHEAD_BYTES);
+                    33 + 6L * BoundedImapProtocol.PARSED_OBJECT_BYTES + 11L * BoundedImapProtocol.COPIED_CHAR_BYTES
+                            + BoundedImapProtocol.RESPONSE_OVERHEAD_BYTES);
         }
 
         @Test
@@ -569,9 +637,10 @@ class BoundedImapProtocolTest {
             for (FetchResponse response : new FetchResponse[]{body, rfc822}) {
                 long charged = BoundedImapProtocol.keptBytes(response, 5100, false);
                 // Every other fetch is charged the data as the headers it becomes too:
-                // one line, so one header, and its bytes twice more (B1-16).
-                assertThat(BoundedImapProtocol.keptBytes(response, 5100, true))
-                        .isEqualTo(charged - 5000 - (BoundedImapProtocol.HEADER_LINE_BYTES + 2 * 5000));
+                // one line, so one header, and its bytes twice more (B1-16), in a header
+                // set of its own (B1-14).
+                assertThat(BoundedImapProtocol.keptBytes(response, 5100, true)).isEqualTo(charged - 5000
+                        - (BoundedImapProtocol.HEADER_SET_BYTES + BoundedImapProtocol.HEADER_LINE_BYTES + 2 * 5000));
             }
         }
 
