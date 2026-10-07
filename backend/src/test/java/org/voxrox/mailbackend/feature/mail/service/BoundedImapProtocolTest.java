@@ -6,9 +6,14 @@ import static org.assertj.core.api.Assertions.atIndex;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.Mockito.mock;
 
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Properties;
+
+import jakarta.mail.internet.InternetHeaders;
 
 import org.eclipse.angus.mail.iap.Protocol;
 import org.eclipse.angus.mail.imap.protocol.FetchResponse;
@@ -563,8 +568,61 @@ class BoundedImapProtocolTest {
 
             for (FetchResponse response : new FetchResponse[]{body, rfc822}) {
                 long charged = BoundedImapProtocol.keptBytes(response, 5100, false);
-                assertThat(BoundedImapProtocol.keptBytes(response, 5100, true)).isEqualTo(charged - 5000);
+                // Every other fetch is charged the data as the headers it becomes too:
+                // one line, so one header, and its bytes twice more (B1-16).
+                assertThat(BoundedImapProtocol.keptBytes(response, 5100, true))
+                        .isEqualTo(charged - 5000 - (BoundedImapProtocol.HEADER_LINE_BYTES + 2 * 5000));
             }
+        }
+
+        /**
+         * B1-16, found by the pass over 1.49. A header section is one object to the
+         * parse, but Jakarta Mail makes each of its lines a header with two strings,
+         * some 126 bytes for a five-byte line, after every check has admitted the
+         * response: one response inside the 32 MiB bound was some 800 MB once loaded.
+         * Charged as the headers it becomes, a section of 500,000 such lines, 2.5 MB on
+         * the wire, is past the default budget before Angus loads it.
+         */
+        @Test
+        @DisplayName("A header section is charged as the headers it becomes, past the budget before they are made")
+        void aHeaderSectionIsChargedAsItsHeaders() throws Exception {
+            String section = "a:b\r\n".repeat(500_000) + "\r\n";
+            String line = "* 1 FETCH (UID 1 BODY[HEADER.FIELDS (X)] {" + section.length() + "}\r\n" + section + ")";
+
+            assertThat(BoundedImapProtocol.keptBytes(fetch(line), line.length() + 2, false))
+                    .isGreaterThan(BoundedImapProtocol.DEFAULT_OPEN_FOLDER_BUDGET);
+        }
+
+        /**
+         * The count has to be the headers {@code InternetHeaders.load} makes, line ends
+         * and all: a line end it splits at and the count did not would hide a header,
+         * and a CR CR LF taken for two would end the block early. Checked against
+         * Jakarta Mail itself.
+         */
+        @Test
+        @DisplayName("Headers are counted as Jakarta Mail makes them, whatever ends the lines")
+        void headersAreCountedAsJakartaMailMakesThem() throws Exception {
+            for (String block : new String[]{"a:b\r\nc:d\r\n\r\nbody\r\ne:f\r\n", "a:b\nc:d\n\ne:f\n", "a:b\rc:d\r\r",
+                    "a:b\r\r\nc:d\r\r\ne:f\r\n\r\n", "a:b\r\r\rc:d\r\n", "a:b\r\n c\r\n\td\r\ne:f\r\n\r\n",
+                    " x\r\na:b\r\n", "no colon at all\r\n\r\n", "a:b", "", "\r\na:b\r\n"}) {
+                byte[] bytes = block.getBytes(StandardCharsets.ISO_8859_1);
+                long made = Collections.list(new InternetHeaders(new ByteArrayInputStream(bytes)).getAllHeaderLines())
+                        .size();
+
+                assertThat(BoundedImapProtocol.headerBlock(bytes, 0, bytes.length).headers())
+                        .as(block.replace("\r", "\\r").replace("\n", "\\n")).isEqualTo(made);
+            }
+        }
+
+        @Test
+        @DisplayName("The header block ends at the first empty line, and a folded line belongs to the header before it")
+        void theHeaderBlockEndsAtTheFirstEmptyLine() {
+            byte[] bytes = "a:b\r\n folded\r\nc:d\r\n\r\nthe body, not headers\r\n".getBytes(StandardCharsets.US_ASCII);
+
+            assertThat(BoundedImapProtocol.headerBlock(bytes, 0, bytes.length))
+                    .isEqualTo(new BoundedImapProtocol.HeaderBlock(2, 19));
+            assertThat(BoundedImapProtocol.headerBlock(bytes, 5, bytes.length).headers())
+                    .as("a folded first line is a header of its own").isEqualTo(2);
         }
 
         /**

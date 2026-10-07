@@ -272,9 +272,10 @@ final class BoundedImapProtocol extends IMAPProtocol {
      * reason. The sync opens a folder for one pass and the user's actions open it
      * for one action, so a selection is one of those. Ordinary new mail fits many
      * times over; the largest honest pass does not, by choice. A pass that catches
-     * up {@code local-window-limit} (10,000) new messages is charged 88 MB at the
-     * 8.8 KB an ordinary message costs (envelope with five addresses, a three-part
-     * structure, three threading headers), and on a server without CONDSTORE some
+     * up {@code local-window-limit} (10,000) new messages is charged 97 MB at the
+     * 9.7 KB an ordinary message costs (envelope with five addresses, a three-part
+     * structure, three threading headers, which since 1.56 are charged as the
+     * headers they become, 0.8 KB of it), and on a server without CONDSTORE some
      * 1.5 KB more for each mirrored message, whose flags and UIDs the pass reads
      * through the folder — up to twice the window before the pruner runs, 30 MB.
      * Such a pass is refused like any implausible response: the connection closes,
@@ -311,6 +312,21 @@ final class BoundedImapProtocol extends IMAPProtocol {
      * eighteen-fold.
      */
     static final int PARSED_OBJECT_BYTES = 96;
+
+    /**
+     * What {@link #headerBytes} charges for each header Jakarta Mail makes of a
+     * body item, besides the header block's bytes twice more (B1-16). A header
+     * section is one object to the parse, so the per-object charge saw one, while
+     * each of its lines becomes an {@code InternetHeader} with two strings.
+     * Measured at 1.56 against Jakarta Mail 2.1.5, as the heap
+     * {@code InternetHeaders} retains against what {@link #keptBytes} charges the
+     * whole FETCH: 0.90 for 200,000 lines {@code a:b} (128.6 bytes a header, 25.7
+     * times their 5 on the wire, which 1.52 found), 0.95 with each line ended by a
+     * CR alone, 0.68 for 1,000-character names with a colon (2,164 bytes a header,
+     * the name kept besides the line), 0.61 for folded lines; an honest section of
+     * three fields, 192 bytes on the wire, keeps some 736.
+     */
+    static final int HEADER_LINE_BYTES = 128;
 
     /**
      * The session property, under {@code mail.<protocol>.}, that carries
@@ -613,9 +629,11 @@ final class BoundedImapProtocol extends IMAPProtocol {
     /**
      * What a FETCH may leave in the selected folder, as the heap it takes: its
      * bytes on the wire, {@link #PARSED_OBJECT_BYTES} for each object its parse
-     * made, and {@link #RESPONSE_OVERHEAD_BYTES} for the response (B1-14). An upper
-     * bound for everything measured at 1.49, and for an ordinary message about a
-     * third over what it keeps.
+     * made, {@link #RESPONSE_OVERHEAD_BYTES} for the response (B1-14), and the
+     * headers each charged body item becomes ({@link #headerBytes}, B1-16), so a
+     * response the header lines would take past the budget is refused before Angus
+     * loads them. An upper bound for everything measured at 1.49 and 1.56, and for
+     * an ordinary message about a third over what it keeps.
      * <p>
      * The whole response is charged, whatever was asked for: {@code IMAPFolder}'s
      * fetch gives a message every item a response names, a whole body included,
@@ -627,19 +645,91 @@ final class BoundedImapProtocol extends IMAPProtocol {
     static long keptBytes(FetchResponse fetch, int wireBytes, boolean content) {
         long objects = fetch instanceof DepthBoundedFetchResponse counted ? counted.parsedObjects() : 0;
         long bytes = wireBytes;
-        if (content) {
-            for (int i = 0; i < fetch.getItemCount(); i++) {
-                ByteArray data = switch (fetch.getItem(i)) {
-                    case BODY body -> body.getByteArray();
-                    case RFC822DATA rfc822 -> rfc822.getByteArray();
-                    default -> null;
-                };
-                if (data != null) {
-                    bytes -= data.getCount();
-                }
+        long headers = 0;
+        for (int i = 0; i < fetch.getItemCount(); i++) {
+            ByteArray data = switch (fetch.getItem(i)) {
+                case BODY body -> body.getByteArray();
+                case RFC822DATA rfc822 -> rfc822.getByteArray();
+                default -> null;
+            };
+            if (data == null) {
+                continue;
+            }
+            if (content) {
+                bytes -= data.getCount();
+            } else {
+                headers += headerBytes(data);
             }
         }
-        return Math.max(0, bytes) + objects * PARSED_OBJECT_BYTES + RESPONSE_OVERHEAD_BYTES;
+        return Math.max(0, bytes) + objects * PARSED_OBJECT_BYTES + headers + RESPONSE_OVERHEAD_BYTES;
+    }
+
+    /**
+     * What Jakarta Mail keeps of the header block at the start of a body item, past
+     * its bytes on the wire (B1-16): {@link #HEADER_LINE_BYTES} for each header and
+     * the block's bytes twice more. A folder's handler loads every body item it is
+     * handed into {@code InternetHeaders} — a header section as the message's
+     * headers, anything else through {@code MimeMessage.parse}, which loads the
+     * headers at its start the same way — and {@code InternetHeaders.load} makes
+     * each line that does not start with a space or a tab an
+     * {@code InternetHeader}, keeping the line as a string and its name, up to the
+     * colon or the whole line, as another, until the first empty line
+     * ({@link #headerBlock}).
+     */
+    static long headerBytes(ByteArray data) {
+        HeaderBlock block = headerBlock(data.getBytes(), data.getStart(), data.getStart() + data.getCount());
+        return block.headers() * HEADER_LINE_BYTES + 2L * block.length();
+    }
+
+    /**
+     * The header block at the start of {@code bytes} from {@code start} to
+     * {@code end}, as {@code InternetHeaders.load} reads it: the headers it makes,
+     * one for each line before the first empty one that does not start with a space
+     * or a tab, and the block's length. Lines are split the way
+     * {@code LineInputStream} splits them — at an LF, a CR LF, a CR CR LF, or a CR
+     * alone — since a line end it splits at and this did not would hide a header,
+     * and a CR CR LF read as two ends would end the block early. The first line
+     * counts whatever it starts with: {@code load} keeps a folded first line as a
+     * header of its own, and one of spaces alone as none, the one place this counts
+     * one more.
+     */
+    static HeaderBlock headerBlock(byte[] bytes, int start, int end) {
+        long headers = 0;
+        int i = start;
+        while (i < end) {
+            int line = i;
+            while (i < end && bytes[i] != '\n' && bytes[i] != '\r') {
+                i++;
+            }
+            if (i == line) {
+                break;
+            }
+            if (line == start || (bytes[line] != ' ' && bytes[line] != '\t')) {
+                headers++;
+            }
+            i = afterLineEnd(bytes, i, end);
+        }
+        return new HeaderBlock(headers, i - start);
+    }
+
+    /** What {@link #headerBlock} found. */
+    record HeaderBlock(long headers, int length) {
+    }
+
+    /**
+     * Where the line end at {@code i} stops, as {@code LineInputStream} reads it.
+     */
+    private static int afterLineEnd(byte[] bytes, int i, int end) {
+        if (i >= end || bytes[i] == '\n') {
+            return Math.min(i + 1, end);
+        }
+        if (i + 1 < end && bytes[i + 1] == '\n') {
+            return i + 2;
+        }
+        if (i + 2 < end && bytes[i + 1] == '\r' && bytes[i + 2] == '\n') {
+            return i + 3;
+        }
+        return i + 1;
     }
 
     private ImplausibleResponseException refused(String reason) {
