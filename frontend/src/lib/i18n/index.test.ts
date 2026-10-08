@@ -30,6 +30,7 @@ vi.mock('$app/environment', () => ({
 }));
 
 type I18nModule = typeof import('./index.js');
+type AppLocale = import('./index.js').AppLocale;
 
 function installLocalStorageStub(initial: Record<string, string> = {}): Map<string, string> {
 	const store = new Map<string, string>(Object.entries(initial));
@@ -215,42 +216,52 @@ describe('bulk outcome messages — the failure clause only when there is a fail
 	 * without a suffix argument threaded through five call sites.
 	 *
 	 * Asserted by equality, not by substring: the e2e locators match on
-	 * substring, so they would still pass if the clause came back as
-	 * "Selhalo: 0." on the end.
+	 * substring, so they would still pass if a clause about zero failures
+	 * came back on the end.
 	 */
 	const cases: Array<[string, Record<string, string | number>, string, string]> = [
-		['messages.bulkDeleteDone', { count: 4 }, 'Smazáno: 4.', 'Smazáno: 4. Selhalo: 2.'],
+		[
+			'messages.bulkDeleteDone',
+			{ count: 4 },
+			'Smazány 4 zprávy.',
+			'Smazány 4 zprávy, 2 zprávy se nepodařilo smazat.'
+		],
 		[
 			'messages.bulkMarkReadDone',
 			{ count: 3 },
-			'Označeno jako přečtené: 3.',
-			'Označeno jako přečtené: 3. Selhalo: 2.'
+			'Označeny 3 zprávy jako přečtené.',
+			'Označeny 3 zprávy jako přečtené, 2 zprávy se nepodařilo označit.'
 		],
 		[
 			'messages.bulkMarkUnreadDone',
 			{ count: 3 },
-			'Označeno jako nepřečtené: 3.',
-			'Označeno jako nepřečtené: 3. Selhalo: 2.'
+			'Označeny 3 zprávy jako nepřečtené.',
+			'Označeny 3 zprávy jako nepřečtené, 2 zprávy se nepodařilo označit.'
 		],
 		[
 			'messages.bulkMoveDone',
 			{ count: 3, folder: 'Archiv' },
-			'Přesunuto do složky Archiv: 3.',
-			'Přesunuto do složky Archiv: 3. Selhalo: 2.'
+			'Přesunuty 3 zprávy do složky Archiv.',
+			'Přesunuty 3 zprávy do složky Archiv, 2 zprávy se nepodařilo přesunout.'
 		],
 		[
 			'messages.bulkFlagDone',
 			{ count: 3 },
-			'Označeno hvězdičkou: 3.',
-			'Označeno hvězdičkou: 3. Selhalo: 2.'
+			'Označeny 3 zprávy hvězdičkou.',
+			'Označeny 3 zprávy hvězdičkou, 2 zprávy se nepodařilo označit.'
 		],
 		[
 			'messages.bulkUnflagDone',
 			{ count: 3 },
-			'Hvězdička zrušena: 3.',
-			'Hvězdička zrušena: 3. Selhalo: 2.'
+			'Hvězdička zrušena u 3 zpráv.',
+			'Hvězdička zrušena u 3 zpráv, u 2 zpráv se to nepodařilo.'
 		],
-		['contacts.bulkDeleteDone', { deleted: 5 }, 'Smazáno: 5.', 'Smazáno: 5. Selhalo: 2.'],
+		[
+			'contacts.bulkDeleteDone',
+			{ deleted: 5 },
+			'Smazáno 5 kontaktů.',
+			'Smazáno 5 kontaktů, 2 kontakty se nepodařilo smazat.'
+		],
 		['contacts.vcardImportDone', { created: 7 }, 'Importováno: 7.', 'Importováno: 7. Selhalo: 2.'],
 		[
 			'contacts.vcardImportDoneSkipped',
@@ -270,6 +281,122 @@ describe('bulk outcome messages — the failure clause only when there is a fail
 		const mod = await freshModule();
 		mod.setLocale('cs');
 		expect(get(mod._)(key, { values: { ...values, failed: 2 } })).toBe(withFail);
+	});
+});
+
+describe('bulk outcome messages — a sentence about messages, not a label and a count', () => {
+	/*
+	 * "Smazáno: 2." left a screen-reader user to supply what was deleted. Each
+	 * outcome is a sentence that names what it acted on and agrees with the
+	 * number. A partial failure joins it with a short tail; when nothing
+	 * succeeded, the message says only what failed, in full, instead of
+	 * opening with a zero.
+	 */
+	const cases: Array<[AppLocale, string, Record<string, string | number>, string]> = [
+		['cs', 'messages.bulkDeleteDone', { count: 1, failed: 0 }, 'Smazána 1 zpráva.'],
+		['cs', 'messages.bulkDeleteDone', { count: 3, failed: 0 }, 'Smazány 3 zprávy.'],
+		['cs', 'messages.bulkDeleteDone', { count: 5, failed: 0 }, 'Smazáno 5 zpráv.'],
+		[
+			'cs',
+			'messages.bulkDeleteDone',
+			{ count: 1, failed: 1 },
+			'Smazána 1 zpráva, 1 zprávu se nepodařilo smazat.'
+		],
+		['cs', 'messages.bulkDeleteDone', { count: 0, failed: 5 }, '5 zpráv se nepodařilo smazat.'],
+		[
+			'cs',
+			'messages.bulkMarkReadDone',
+			{ count: 1, failed: 0 },
+			'Označena 1 zpráva jako přečtená.'
+		],
+		['cs', 'messages.bulkMarkReadDone', { count: 5, failed: 0 }, 'Označeno 5 zpráv jako přečtené.'],
+		[
+			'cs',
+			'messages.bulkMarkReadDone',
+			{ count: 0, failed: 1 },
+			'1 zprávu se nepodařilo označit jako přečtenou.'
+		],
+		[
+			'cs',
+			'messages.bulkMarkUnreadDone',
+			{ count: 0, failed: 2 },
+			'2 zprávy se nepodařilo označit jako nepřečtené.'
+		],
+		[
+			'cs',
+			'messages.bulkMoveDone',
+			{ count: 1, failed: 0, folder: 'Archiv' },
+			'Přesunuta 1 zpráva do složky Archiv.'
+		],
+		[
+			'cs',
+			'messages.bulkMoveDone',
+			{ count: 0, failed: 5, folder: 'Archiv' },
+			'5 zpráv se nepodařilo přesunout do složky Archiv.'
+		],
+		['cs', 'messages.bulkFlagDone', { count: 5, failed: 0 }, 'Označeno 5 zpráv hvězdičkou.'],
+		[
+			'cs',
+			'messages.bulkFlagDone',
+			{ count: 0, failed: 2 },
+			'2 zprávy se nepodařilo označit hvězdičkou.'
+		],
+		['cs', 'messages.bulkUnflagDone', { count: 1, failed: 0 }, 'Hvězdička zrušena u 1 zprávy.'],
+		[
+			'cs',
+			'messages.bulkUnflagDone',
+			{ count: 1, failed: 1 },
+			'Hvězdička zrušena u 1 zprávy, u 1 zprávy se to nepodařilo.'
+		],
+		[
+			'cs',
+			'messages.bulkUnflagDone',
+			{ count: 0, failed: 2 },
+			'U 2 zpráv se hvězdičku nepodařilo zrušit.'
+		],
+		['cs', 'contacts.bulkDeleteDone', { deleted: 1, failed: 0 }, 'Smazán 1 kontakt.'],
+		['cs', 'contacts.bulkDeleteDone', { deleted: 2, failed: 0 }, 'Smazány 2 kontakty.'],
+		['cs', 'contacts.bulkDeleteDone', { deleted: 0, failed: 1 }, '1 kontakt se nepodařilo smazat.'],
+		['en', 'messages.bulkDeleteDone', { count: 1, failed: 0 }, '1 message deleted.'],
+		[
+			'en',
+			'messages.bulkDeleteDone',
+			{ count: 2, failed: 1 },
+			'2 messages deleted, 1 could not be.'
+		],
+		['en', 'messages.bulkDeleteDone', { count: 0, failed: 2 }, '2 messages could not be deleted.'],
+		[
+			'en',
+			'messages.bulkMarkReadDone',
+			{ count: 3, failed: 2 },
+			'3 messages marked as read, 2 could not be.'
+		],
+		[
+			'en',
+			'messages.bulkMoveDone',
+			{ count: 0, failed: 1, folder: 'Archive' },
+			'1 message could not be moved to Archive.'
+		],
+		['en', 'messages.bulkFlagDone', { count: 1, failed: 0 }, '1 message starred.'],
+		[
+			'en',
+			'messages.bulkUnflagDone',
+			{ count: 3, failed: 2 },
+			'Star removed from 3 messages, but not from 2.'
+		],
+		[
+			'en',
+			'messages.bulkUnflagDone',
+			{ count: 0, failed: 1 },
+			'The star could not be removed from 1 message.'
+		],
+		['en', 'contacts.bulkDeleteDone', { deleted: 3, failed: 0 }, '3 contacts deleted.']
+	];
+
+	it.each(cases)('%s %s %o', async (locale, key, values, expected) => {
+		const mod = await freshModule();
+		mod.setLocale(locale);
+		expect(get(mod._)(key, { values })).toBe(expected);
 	});
 });
 

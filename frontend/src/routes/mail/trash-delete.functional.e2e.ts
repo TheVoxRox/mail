@@ -58,7 +58,7 @@ test.describe('Trvalé mazání v koši', () => {
 		await dialog.getByRole('button', { name: 'Smazat trvale' }).click();
 
 		await expect(
-			page.getByRole('region', { name: 'Oznámení' }).getByText('Smazáno: 2.')
+			page.getByRole('region', { name: 'Oznámení' }).getByText('Smazány 2 zprávy.')
 		).toBeVisible();
 		await expect(page.locator(`[role="row"][data-stable-id="${fixture.trashIds[0]}"]`)).toHaveCount(
 			0

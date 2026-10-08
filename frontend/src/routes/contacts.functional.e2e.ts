@@ -443,7 +443,7 @@ test.describe('Contacts', () => {
 		await bulkDialog.getByRole('button', { name: 'Smazat' }).click();
 
 		await expect(
-			page.getByRole('region', { name: 'Oznámení' }).getByText('Smazáno: 2.')
+			page.getByRole('region', { name: 'Oznámení' }).getByText('Smazány 2 kontakty.')
 		).toBeVisible();
 		await expect(page.getByText('Jana Novak')).toHaveCount(0);
 		await expect(page.getByText('Bulk Delete')).toHaveCount(0);
