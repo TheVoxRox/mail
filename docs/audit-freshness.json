@@ -99,48 +99,6 @@
       }
     ]
   },
-  "docs/IMAP_SMTP_AUDIT.md": {
-    "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "fc677e8bc60d9927badca257c74a3f0b87fe9410",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/DraftRecipientsEntity.java": "3a30c865980b7e1effb458ab38ddda80dd3693f7",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "53ea6840a3eddac96bfd8ecf0becf23d7e8fe836",
-      "backend/src/main/java/org/voxrox/mailbackend/util/SubjectNormalizer.java": "4f540c84f7de593981628cf3ca6eed988719e8f0"
-    },
-    "acknowledgements": [
-      {
-        "date": "2026-10-07",
-        "note": "B1-5 fixed again as the 1.53 pass recommended, recorded in the audit itself as v1.54 (section 4e); the fix is this PR's own and waits for an independent pass, so the anchor stays at 4e1b8d7 and this records the drift. Three paths move. Under feature/mail/service only DraftPersistenceService changes: keepTypedRecipients drops the account's drafts beyond its newest KEPT_DRAFTS (1,000), each chain whole, on a save that starts a draft only, and the saved draft's followed revisions beyond its newest KEPT_REVISIONS_PER_DRAFT (100), replacing the account-wide bounds of heads and followed entries; the javadocs that named them follow. DraftRecipientsRepository: deleteDraftsButNewest and deleteRevisionsButNewest replace deleteHeadsButNewest and deleteFollowedButNewest. DraftRecipientsEntity: chain_id is not null, javadocs. The INSERT, the chain lookup, markStored, the forget and the send's lookup by Message-ID are unchanged, so only section 4e's bound moves. Verdict open findings (B1-14, B1-16, B1-17)."
-      },
-      {
-        "date": "2026-10-07",
-        "note": "B1-17 fixed as the 1.52 pass recommended, recorded in the audit itself as v1.55 (section 4q); the fix is this PR's own and waits for an independent pass, so the anchor stays at 4e1b8d7 and this records the drift. Under feature/mail/service only BoundedImapProtocol changes: DepthBoundedFetchResponse reads an address's mailbox as well as its host, counts the groups started and not ended in the list being read, forgets them with the list as it forgets the group markers, and stops the parse with NestedGroup when a group starts while another is open; parseFetch drops that response with NestedGroupException, a ProtocolException like NestedTooDeepException, and the class javadoc names it. The per-response bounds of B1-3, B1-7 and B1-10, the stalled-parse stop of B1-15, B1-8's command budget and the selection budget of B1-13 and B1-14 are unchanged; the change adds one drop and moves no other claim. Verdict open findings (B1-14, B1-16)."
-      },
-      {
-        "date": "2026-10-07",
-        "note": "B1-16 fixed as the 1.52 pass recommended, recorded in the audit itself as v1.56 (section 4p); the fix is this PR's own and waits for an independent pass, so the anchor stays at 4e1b8d7 and this records the drift. Under feature/mail/service only BoundedImapProtocol changes: keptBytes charges every body item outside a content fetch as the headers it becomes, through headerBytes and headerBlock, which count the headers as InternetHeaders.load makes them, lines split as LineInputStream splits them; HEADER_LINE_BYTES is new, and the javadocs of keptBytes and DEFAULT_OPEN_FOLDER_BUDGET follow (an ordinary message 9.7 KB rather than 8.8). The refusal is the selection budget's as before, and nothing else moves. Verdict open finding (B1-14)."
-      },
-      {
-        "date": "2026-10-07",
-        "note": "B1-5 fixed again as the 1.57 pass recommended, recorded in the audit itself as v1.58 (section 4e); the fix is this PR's own and waits for an independent pass, so the anchor stays at 4e1b8d7 and this records the drift. Two paths move. Under feature/mail/service, DraftPersistenceService: saveDraftAsync no longer forgets the replaced revision's entry after its delete, which markStored has already set aside, and forgetTypedRecipients becomes setAsideTypedRecipients, which deleteSupersededDraft calls; SmtpMessageService.sendDraftAsync calls it in place of the forget; javadocs follow. DraftRecipientsRepository: setAside, a plain UPDATE of superseded_at on the named entry when it is not set aside yet, replaces deleteEntry; the javadocs of deleteDraftsButNewest and deleteRevisionsButNewest follow. DraftRecipientsEntity is unchanged. The INSERT, the chain lookup, markStored, both bounds and the send's recipient check are unchanged, so only section 4e moves. Verdict open findings (B1-14, B1-18, B1-19)."
-      },
-      {
-        "date": "2026-10-07",
-        "note": "B1-18 fixed as the 1.57 pass recommended and wider, recorded in the audit itself as v1.59 (section 4r); the fix is this PR's own and waits for an independent pass, so the anchor stays at 4e1b8d7 and this records the drift. One path moves, feature/mail/service, in three files. ImapAppendService: fetchAndDetachMime charges the draft's header block on the bytes as held (BoundedByteArrayOutputStream.checkHeaderBlock) before the parse and refuses one past MAX_DRAFT_HEADER_BYTES (256 KiB), and returns an UntouchedDraft, a MimeMessage whose saveChanges updates MIME-Version, Date and Message-ID only and leaves the message unmodified, so its content is copied as held and never parsed into parts; javadocs follow. BoundedImapProtocol: headerBytes gains an overload on a byte array, which the ByteArray one now calls; headerBlock, HEADER_LINE_BYTES, keptBytes and every bound are unchanged. SmtpMessageService: a comment by saveChanges. The recipient check, the SMTP send and the Sent append are unchanged, so only section 4r moves, and section 4e's 40 MiB bound with it as the bytes the send holds. Verdict open findings (B1-14, B1-19)."
-      },
-      {
-        "date": "2026-10-07",
-        "note": "B1-19 fixed, by neither way the 1.57 pass recommended, recorded in the audit itself as v1.60 (section 4s); the fix is this PR's own and waits for an independent pass, so the anchor stays at 4e1b8d7 and this records the drift. One path moves, feature/mail/service. BoundedImapStore overrides both newIMAPFolder forms Angus calls to make a BoundedImapFolder (new), whose newIMAPMessage makes a BoundedImapMessage (new); its handleFetchItem counts with BoundedImapProtocol.headerBlock the header lines of an item Angus would merge (a header item, not all headers asked for, headers already held) and does not hand Angus an item past MAX_MERGED_HEADER_LINES (256) over the message's life; the folder logs one line. Nothing else in the folder or the message changes, and BoundedImapProtocol, every budget and every other bound are unchanged, so only section 4s moves. The folder and message classes now make every folder and message of every IMAP connection, which the whole IT suite, GreenMail and the hostile server alike, ran through green. Verdict open finding (B1-14)."
-      },
-      {
-        "date": "2026-10-07",
-        "note": "B1-14 fixed again as the 1.52 pass recommended, and wider, recorded in the audit itself as v1.61 (section 4n); the fix is this PR's own and waits for an independent pass, so the anchor stays at 4e1b8d7 and this records the drift. One path moves, feature/mail/service, in one file. BoundedImapProtocol: DepthBoundedFetchResponse counts readNumber and readLong as objects and the characters of every string read (readString, readString(delim), readAtom, readAtomString, the items of readSimpleList) as copiedChars, twice inside an open address group; keptBytes adds COPIED_CHAR_BYTES (2) a character, HEADER_SET_BYTES (1,024) for each charged body item and STRUCTURE_PART_BYTES (1,280) for each part of a BODYSTRUCTURE (structureParts, new); the javadocs of DEFAULT_OPEN_FOLDER_BUDGET and keptBytes are restated for the 1.61 measurements and three connections. headerBytes, headerBlock, the depth, group and stall checks, the budget's value and every other bound are unchanged, so only section 4n moves. Verdict all findings fixed, verification pending."
-      },
-      {
-        "date": "2026-10-08",
-        "note": "The subject note the 1.44 pass added to section 3b, fixed as it recommended and recorded in the audit itself as v1.63; functional, so no claim of a finding moves, and the fix waits for the next independent pass with those of 1.58 to 1.61, so the anchor stays at 4e1b8d7 and this records the drift. Two paths move. Under feature/mail/service only MessageFetcher changes: toFetchedMessage reads the subject through singleLineSubject, which replaces each run of CR and LF in what getSubject returns with one space before the blank check, and the pattern getHeader uses to unfold In-Reply-To and References becomes that run (LINE_BREAKS, [\\r\\n]+), which removes the same characters as before. util/SubjectNormalizer.java changes in a javadoc only: MAX_NORMALIZED_LENGTH's note that MessageFetcher takes getSubject() verbatim now says only its line breaks are replaced; the cap, normalize and storedNorm are byte-identical. No bound moves: the subject's length is still the server's, which section 4b's cap on the normalized key answers, and replacing a run with one space never lengthens it. requireSingleLine is unchanged and still refuses a line break from the client, and the untouched send of section 4e, which sends the server's copy without the builder, does not read the stored subject. This is the eighth record, the cap: the next drift under these paths needs the audit re-verified."
-      }
-    ]
-  },
   "docs/API_SURFACE_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/AttachmentService.java": "baa9d415fdfe7fcb76ee7eaca3db731e4f115c4f",
