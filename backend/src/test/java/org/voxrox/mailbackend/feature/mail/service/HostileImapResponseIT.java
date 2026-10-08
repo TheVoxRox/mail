@@ -275,6 +275,26 @@ class HostileImapResponseIT {
     }
 
     /**
+     * B1-20, found by the pass over 1.61. The sync reads every message's type,
+     * which Angus renders from the structure's parameters, and Jakarta Mail writes
+     * a long value in segments of 60, each with the name again: this name and
+     * value, 60 KB on the wire, held 16.9 MB, some 92 times what the response was
+     * charged. The response is dropped once parsed, before anything renders it, and
+     * the pass goes on.
+     */
+    @Test
+    @DisplayName("A structure whose part would render a type past the bound is dropped, and the pass goes on")
+    void aTypePastTheBoundIsDropped() {
+        SERVER.answerOpenWith("* 1 FETCH (UID 5 BODYSTRUCTURE (\"application\" \"x\" (\"" + "n".repeat(30_000) + "\" \""
+                + "v".repeat(30_000) + "\") NIL NIL \"7bit\" 0))");
+
+        AccountEntity after = pass();
+
+        assertThat(after.getLastErrorCode()).isNull();
+        assertThat(logSinceMark()).contains("gives a part a content type of more than");
+    }
+
+    /**
      * B1-8, from the 1.24 verification pass. {@code Protocol.command} collects a
      * tagged response whose tag is not its own and reads on; a budget that started
      * over at any tagged response let a server reset it every thousand lines and
