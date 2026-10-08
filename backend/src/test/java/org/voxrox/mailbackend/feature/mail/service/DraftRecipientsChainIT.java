@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -300,6 +301,72 @@ class DraftRecipientsChainIT {
     }
 
     /**
+     * The residual of 1.40. The save after a rejected one names the rejected
+     * revision, which the server never stored and so has no row, and the last
+     * stored revision was named by no save: it stayed on the server as a second
+     * copy of the draft. A stored save now deletes every earlier revision of its
+     * draft the server still holds a row for.
+     */
+    @Test
+    @DisplayName("A save after a rejected one deletes the last stored revision, so the draft keeps one copy")
+    void aSaveAfterARejectedOneLeavesNoSecondCopy() {
+        DraftPersistenceService.DraftIdentity stored = save(null, true);
+        giveRow(stored, 11);
+        DraftPersistenceService.DraftIdentity rejected = save(stored.stableId(), false);
+        verify(imapActionService, never()).hardDelete(anyLong(), anyString(), anyLong());
+
+        save(rejected.stableId(), true);
+
+        verify(imapActionService).hardDelete(account.getId(), "Drafts", 11L);
+    }
+
+    /**
+     * The same gap on the send: a send after a rejected autosave names the rejected
+     * revision as the draft it supersedes, and the last stored one stayed in Drafts
+     * after the message went out.
+     */
+    @Test
+    @DisplayName("A send after a rejected save deletes the last stored revision from Drafts")
+    void aSendAfterARejectedSaveLeavesNoDraftBehind() {
+        DraftPersistenceService.DraftIdentity stored = save(null, true);
+        giveRow(stored, 12);
+        DraftPersistenceService.DraftIdentity rejected = save(stored.stableId(), false);
+
+        service.deleteSupersededDraft(account.getId(), rejected.stableId());
+
+        verify(imapActionService).hardDelete(account.getId(), "Drafts", 12L);
+        assertThat(repository.findById(new DraftRecipientsEntity.Key(account.getId(), stored.messageId())))
+                .as("the deleted revision's entry, set aside and kept").get()
+                .extracting(DraftRecipientsEntity::getSupersededAt).isNotNull();
+    }
+
+    /**
+     * What a save deletes besides the revision it names is bounded by its draft and
+     * its order: another draft's revision stays, and so does a later revision of
+     * its own draft, one whose save ran first.
+     */
+    @Test
+    @DisplayName("A save deletes only earlier revisions of its own draft")
+    void aSaveDeletesOnlyEarlierRevisionsOfItsOwnDraft() {
+        DraftPersistenceService.DraftIdentity other = save(null, true);
+        giveRow(other, 31);
+        DraftPersistenceService.DraftIdentity first = save(null, true);
+        giveRow(first, 32);
+        DraftPersistenceService.DraftIdentity second = service.acceptDraftSave(account.getId(), request(),
+                first.stableId());
+        DraftPersistenceService.DraftIdentity third = service.acceptDraftSave(account.getId(), request(),
+                second.stableId());
+        giveRow(third, 34);
+        storeNext.set(true);
+
+        service.saveDraftAsync(account.getId(), request(), first.stableId(), second);
+
+        verify(imapActionService).hardDelete(account.getId(), "Drafts", 32L);
+        verify(imapActionService, never()).hardDelete(account.getId(), "Drafts", 31L);
+        verify(imapActionService, never()).hardDelete(account.getId(), "Drafts", 34L);
+    }
+
+    /**
      * Found by the pass over 1.42 (B1-5, reopened at 1.43). The entry is kept when
      * the save is accepted, and only a failed APPEND set it aside, so a save whose
      * task stopped before its APPEND left its entry current, and each further save
@@ -482,10 +549,14 @@ class DraftRecipientsChainIT {
      * later save, or a send, address the revision on the server and delete it.
      */
     private void giveRow(DraftPersistenceService.DraftIdentity revision) {
+        giveRow(revision, ROW_UID);
+    }
+
+    private void giveRow(DraftPersistenceService.DraftIdentity revision, long uid) {
         MessageEntity row = new MessageEntity();
         row.setAccount(account);
         row.setFolderName("Drafts");
-        row.setUid(ROW_UID);
+        row.setUid(uid);
         row.setMessageId(revision.messageId());
         row.setStableId(revision.stableId());
         when(messageService.getByStableId(revision.stableId())).thenReturn(Optional.of(row));

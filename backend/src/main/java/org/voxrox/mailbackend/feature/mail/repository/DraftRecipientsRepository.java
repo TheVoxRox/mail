@@ -1,6 +1,7 @@
 package org.voxrox.mailbackend.feature.mail.repository;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import org.jspecify.annotations.Nullable;
@@ -139,6 +140,24 @@ public interface DraftRecipientsRepository extends JpaRepository<DraftRecipients
             LIMIT 1
             """, nativeQuery = true)
     Optional<String> findChainId(@Param("accountId") Long accountId, @Param("stableId") String stableId);
+
+    /**
+     * The stableIds of the account's revisions of the same draft as
+     * {@code stableId}, its chain, written before it, newest first: the copies a
+     * stored save or a send leaves the server one too many of when the revision the
+     * client names is not the last one the server stored. Empty when
+     * {@code stableId} has no entry here. Bounded by the entries a chain keeps.
+     */
+    @Query(value = """
+            SELECT stable_id FROM draft_recipients
+            WHERE account_id = :accountId AND stable_id IS NOT NULL
+              AND chain_id = (SELECT chain_id FROM draft_recipients
+                              WHERE account_id = :accountId AND stable_id = :stableId LIMIT 1)
+              AND saved_seq < (SELECT saved_seq FROM draft_recipients
+                               WHERE account_id = :accountId AND stable_id = :stableId LIMIT 1)
+            ORDER BY saved_seq DESC
+            """, nativeQuery = true)
+    List<String> findEarlierRevisions(@Param("accountId") Long accountId, @Param("stableId") String stableId);
 
     /**
      * Makes the account's entry for the stored revision {@code messageId} its

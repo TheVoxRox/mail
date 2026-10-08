@@ -169,8 +169,10 @@ class DraftPersistenceServiceTest {
             verify(messageService).deleteByStableId(STABLE_ID);
             // The replaced revision's typed recipients stay, whatever the server answered
             // to the delete: the save only looks up the chain to make its own entry
-            // current (B1-5, reopened at 1.57).
+            // current (B1-5, reopened at 1.57), and its earlier revisions to delete the
+            // copies the server still holds.
             verify(draftRecipientsRepository).findChainId(ACCOUNT_ID, IDENTITY.stableId());
+            verify(draftRecipientsRepository).findEarlierRevisions(ACCOUNT_ID, IDENTITY.stableId());
             verifyNoMoreInteractions(draftRecipientsRepository);
             // Conditional clear scoped to send-pipeline codes — a successful draft
             // save must not wipe a standing sync error (shared last_error slot).
@@ -527,6 +529,7 @@ class DraftPersistenceServiceTest {
             // Set aside, not dropped: the server can claim the delete and keep the draft
             // (B1-5, reopened at 1.57).
             verify(draftRecipientsRepository).setAside(eq(ACCOUNT_ID), eq(MESSAGE_ID), any(LocalDateTime.class));
+            verify(draftRecipientsRepository).findEarlierRevisions(ACCOUNT_ID, STABLE_ID);
             verifyNoMoreInteractions(draftRecipientsRepository);
         }
 

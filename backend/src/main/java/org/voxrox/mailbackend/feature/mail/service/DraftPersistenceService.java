@@ -166,15 +166,17 @@ public class DraftPersistenceService {
      * waiting had not left, so a server holding the APPEND lane kept every later
      * autosave current (B1-5, reopened at 1.43 and 1.46).
      *
-     * When {@code replacesStableId} is provided, the old draft is hard-deleted
-     * (IMAP expunge + DB row) after a successful append. Order matters: append-new
-     * must succeed, otherwise the user would lose content. A failed hard-delete is
-     * logged but does not fail the operation — the duplicate is reconciled by the
-     * next sync. The old revision's typed recipients stay, set aside by the
-     * append's {@link #markStored}, whatever the server answered to the delete: a
-     * server can claim it and keep the revision, and until 1.58 that one autosave
-     * left the revision before the newest with no entry, its untouched send checked
-     * against the server's own copy (B1-5, reopened at 1.57).
+     * After a successful append the draft's earlier revisions are hard-deleted
+     * (IMAP expunge + DB row): the one {@code replacesStableId} names, and every
+     * other earlier revision of the draft the server still holds a row for
+     * ({@link #replacedRevisions}). Order matters: append-new must succeed,
+     * otherwise the user would lose content. A failed hard-delete is logged but
+     * does not fail the operation; the next stored save deletes the copy it left.
+     * The old revision's typed recipients stay, set aside by the append's
+     * {@link #markStored}, whatever the server answered to the delete: a server can
+     * claim it and keep the revision, and until 1.58 that one autosave left the
+     * revision before the newest with no entry, its untouched send checked against
+     * the server's own copy (B1-5, reopened at 1.57).
      */
     @Async("userMailExecutor")
     public void saveDraftAsync(Long accountId, DraftRequest request, String replacesStableId, DraftIdentity identity) {
@@ -182,29 +184,10 @@ public class DraftPersistenceService {
 
         try {
             /*
-             * Resolve the old draft before the append so we remember its UID/folder. The
-             * actual delete runs only after a successful append.
+             * Resolve the old revisions before the append so we remember their UIDs and
+             * folders. The actual delete runs only after a successful append.
              */
-            String oldFolder = null;
-            Long oldUid = null;
-            if (replacesStableId != null && !replacesStableId.isBlank()) {
-                MessageEntity old = messageService.getByStableId(replacesStableId).orElse(null);
-                if (old == null) {
-                    log.warn("{} replaces: draft {} not found, continuing without deleting the old one.",
-                            LogCategory.SMTP, replacesStableId);
-                } else if (!isReplaceableDraft(accountId, old)) {
-                    /*
-                     * The replaces target is only ever hard-deleted (IMAP expunge) if it is this
-                     * account's own message in the Drafts folder. A wrong stableId (client bug)
-                     * must never expunge received mail or another account's message — keep it.
-                     */
-                    log.warn("{} replaces: {} is not a Drafts message of account {}; keeping it.", LogCategory.SMTP,
-                            replacesStableId, accountId);
-                } else {
-                    oldFolder = old.getFolderName();
-                    oldUid = old.getUid();
-                }
-            }
+            List<MessageEntity> replaced = replacedRevisions(accountId, replacesStableId, identity.stableId());
 
             AccountEntity account = accountService.getAccountOrThrow(accountId);
             if (!appendDraftMessage(account, identity, request)) {
@@ -224,13 +207,13 @@ public class DraftPersistenceService {
                 return;
             }
 
-            if (oldFolder != null && oldUid != null) {
+            for (MessageEntity old : replaced) {
                 try {
-                    imapActionService.hardDelete(accountId, oldFolder, oldUid);
-                    messageService.deleteByStableId(replacesStableId);
+                    imapActionService.hardDelete(accountId, old.getFolderName(), old.getUid());
+                    messageService.deleteByStableId(old.getStableId());
                 } catch (Exception cleanupEx) {
                     log.warn("{} Failed to delete previous draft revision {} (UID {} in {}): {}", LogCategory.SMTP,
-                            replacesStableId, oldUid, oldFolder, cleanupEx.getMessage());
+                            old.getStableId(), old.getUid(), old.getFolderName(), cleanupEx.getMessage());
                 }
             }
 
@@ -347,28 +330,37 @@ public class DraftPersistenceService {
      * ownership/folder guard as the {@code replaces} flow — a wrong id must never
      * expunge received mail. Best-effort: the message is already delivered, so a
      * failure here only leaves a stale draft for the user or the next sync to
-     * reconcile.
+     * reconcile. The draft's earlier revisions the server still holds a row for go
+     * as well, for the reason a stored save deletes them
+     * ({@link #replacedRevisions}): after a rejected autosave the send names a
+     * revision the server never stored, and the last stored one stayed in Drafts
+     * after the message went out.
      */
     public void deleteSupersededDraft(Long accountId, String stableId) {
         try {
             MessageEntity draft = awaitSupersededDraft(stableId);
             if (draft == null) {
-                log.warn("{} supersedes: draft {} not found (after {} attempts); nothing to delete.", LogCategory.SMTP,
-                        stableId, SUPERSEDE_DRAFT_LOOKUP_ATTEMPTS);
-                return;
-            }
-            if (!isReplaceableDraft(accountId, draft)) {
+                log.warn("{} supersedes: draft {} not found (after {} attempts).", LogCategory.SMTP, stableId,
+                        SUPERSEDE_DRAFT_LOOKUP_ATTEMPTS);
+            } else if (!isReplaceableDraft(accountId, draft)) {
                 log.warn("{} supersedes: {} is not a Drafts message of account {}; keeping it.", LogCategory.SMTP,
                         stableId, accountId);
-                return;
+            } else {
+                deleteSentRevision(accountId, draft);
             }
-            imapActionService.hardDelete(accountId, draft.getFolderName(), draft.getUid());
-            messageService.deleteByStableId(stableId);
-            setAsideTypedRecipients(accountId, draft.getMessageId());
+            for (MessageEntity earlier : earlierRevisionRows(accountId, stableId)) {
+                deleteSentRevision(accountId, earlier);
+            }
         } catch (Exception e) {
             log.warn("{} Failed to delete superseded draft {} after a successful send: {}", LogCategory.SMTP, stableId,
                     e.getMessage());
         }
+    }
+
+    private void deleteSentRevision(Long accountId, MessageEntity draft) {
+        imapActionService.hardDelete(accountId, draft.getFolderName(), draft.getUid());
+        messageService.deleteByStableId(draft.getStableId());
+        setAsideTypedRecipients(accountId, draft.getMessageId());
     }
 
     /**
@@ -568,6 +560,60 @@ public class DraftPersistenceService {
         } catch (Exception e) {
             log.debug("{} Could not set aside the kept recipients of sent draft {} of account {}: {}", LogCategory.SMTP,
                     messageId, accountId, e.getMessage());
+        }
+    }
+
+    /**
+     * The rows of the revisions a stored save deletes from the server: the one the
+     * client names, and every earlier revision of the same draft the server still
+     * holds a row for. The client names the stableId the previous save returned,
+     * which the 202 returns before that save's APPEND has an outcome
+     * ({@code saveOnce} in {@code frontend/src/lib/compose/session.ts}), so after a
+     * rejected save it names a revision the server never stored, which has no row:
+     * the last stored revision was named by no save and stayed on the server as a
+     * second copy of the draft (IMAP/SMTP audit §4e, the residual of 1.40). A
+     * delete that failed left one the same way. Each row passes the guard the named
+     * one does.
+     */
+    private List<MessageEntity> replacedRevisions(Long accountId, @Nullable String replacesStableId, String stableId) {
+        Map<String, MessageEntity> rows = new LinkedHashMap<>();
+        if (replacesStableId != null && !replacesStableId.isBlank()) {
+            MessageEntity old = messageService.getByStableId(replacesStableId).orElse(null);
+            if (old == null) {
+                log.warn("{} replaces: draft {} not found, continuing without deleting it.", LogCategory.SMTP,
+                        replacesStableId);
+            } else if (!isReplaceableDraft(accountId, old)) {
+                /*
+                 * The replaces target is only ever hard-deleted (IMAP expunge) if it is this
+                 * account's own message in the Drafts folder. A wrong stableId (client bug)
+                 * must never expunge received mail or another account's message — keep it.
+                 */
+                log.warn("{} replaces: {} is not a Drafts message of account {}; keeping it.", LogCategory.SMTP,
+                        replacesStableId, accountId);
+            } else {
+                rows.put(replacesStableId, old);
+            }
+        }
+        for (MessageEntity earlier : earlierRevisionRows(accountId, stableId)) {
+            rows.putIfAbsent(earlier.getStableId(), earlier);
+        }
+        return List.copyOf(rows.values());
+    }
+
+    /**
+     * The rows of the earlier revisions of {@code stableId}'s draft that the server
+     * still holds in this account's Drafts. Best-effort: a failed lookup leaves the
+     * copies for the next save or send rather than failing this one.
+     */
+    private List<MessageEntity> earlierRevisionRows(Long accountId, String stableId) {
+        try {
+            return draftRecipientsRepository.findEarlierRevisions(accountId, stableId).stream()
+                    .flatMap(earlier -> messageService.getByStableId(earlier).stream())
+                    .filter(row -> isReplaceableDraft(accountId, row)).toList();
+        } catch (RuntimeException e) {
+            log.warn("{} Could not look up the earlier revisions of draft {}: {}", LogCategory.SMTP, stableId,
+                    e.getMessage());
+            return List.of();
         }
     }
 
