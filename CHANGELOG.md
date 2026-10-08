@@ -151,6 +151,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- **`todo.md` records what the text and formatting audit left open (#677).** After #674 to #676 the audit still found Czech quotes closed with a straight quote, English quotes mixed straight and curly, the em dash in Czech text where Czech uses the en dash, two Settings window titles without "Nastavení", three badge styles, three link-styled button styles and a few one-off sizes and weights. It also notes that the a11y per-screen scans may run before the page's data has loaded.
+
 - **The axe scans judge the contrast of one-character text, and class merging knows the app's font sizes (#675).** axe files failing text of a single character under "incomplete", so the unread count above passed every scan; `color-contrast` now runs with `ignoreLength`, and `a11y-target.test.ts` checks the option still exists in axe. The per-screen scan of Mail missed the old badge even with the option, so a new scan waits for the count before checking it, and fails on the old badge. `cn` and `tv` share one tailwind-merge configuration in `utils.ts`, which `utils.test.ts` checks against the `--text-*` sizes in `app.css`, and ESLint refuses a merger imported straight from the library. The `text-title` step leaves the type scale, and `check:typography` no longer offers it.
 
 - **The mail toolbar loses its unused `compactText` field (#674).** No action ever set it, so its branch, the last uppercase label in the frontend, never rendered.
