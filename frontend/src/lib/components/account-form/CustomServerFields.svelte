@@ -32,7 +32,7 @@
 </script>
 
 <fieldset class="space-y-4 rounded-md border border-border bg-muted/30 p-4">
-	<legend class="px-1 text-xs font-semibold text-muted-foreground">
+	<legend class="px-1 text-sm font-semibold text-foreground">
 		{$_('accounts.form.customServerLegend')}
 	</legend>
 	<p class="text-xs text-muted-foreground">{$_('accounts.form.customServerHint')}</p>
