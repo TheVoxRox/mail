@@ -203,7 +203,7 @@ test.describe('Mail toolbar', () => {
 			.getByRole('checkbox', { name: 'Vybrat zprávu Testovací zpráva 6', exact: true })
 			.check();
 		await page.getByRole('button', { name: 'Smazat vybrané' }).click();
-		await expect(page.getByRole('status').filter({ hasText: 'Smazáno: 2.' })).toBeVisible();
+		await expect(page.getByRole('status').filter({ hasText: 'Smazány 2 zprávy.' })).toBeVisible();
 		expect(deleteRequests).toHaveLength(2);
 		await expect(page.locator('[role="row"][data-stable-id="msg-05"]')).toHaveCount(0);
 		await expect(page.locator('[role="row"][data-stable-id="msg-06"]')).toHaveCount(0);
@@ -293,7 +293,7 @@ test.describe('Mail toolbar', () => {
 			.check();
 		await page.getByRole('button', { name: 'Smazat vybrané' }).click();
 
-		await expect(page.getByRole('status').filter({ hasText: 'Smazáno: 2.' })).toBeVisible();
+		await expect(page.getByRole('status').filter({ hasText: 'Smazány 2 zprávy.' })).toBeVisible();
 		await expect(heading).toHaveAccessibleName('Doručené 1 nepřečtená');
 	});
 

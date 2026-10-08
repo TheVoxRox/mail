@@ -121,6 +121,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- **Deleting several messages is announced as a sentence that says what went (#673).** A bulk delete announced "Smazáno: 2.", a bare number a screen-reader user had to complete for themselves. It now says "Smazány 2 zprávy.", the noun agreeing with the count; a partial failure reads "Smazány 3 zprávy, 2 zprávy se nepodařilo smazat." instead of tacking on "Selhalo: 2.", and a delete where nothing went through says only what failed. Deleting several contacts says the same of contacts.
+
 - **Mail with no account is named for what it is, and says why it is empty (#672).** Its window title and landmark said "Pošta – Vítejte", a greeting the screen never showed. Focus goes straight to Add account, so for a screen reader those names were all there was about the page, and the sentence saying an account is needed was skipped. They now say "Pošta – Žádný účet", and the button carries that sentence as its description. An account whose server lists no folder used to get the same card and be told to add an account; it now gets its own, "Pošta – Žádné složky", with a link to the account list.
 
 - **Signing in to add an account as someone other than the address you typed now adds it, and says so (#671).** The browser lets you sign in as anyone, and the app adds the account of the identity you signed in with; the wizard waited only for the address you had typed, so it ran out of time after some ten minutes and told you the sign-in was taking long, though the account had been added. It now accepts any account the sign-in made, prefers the typed address, and when the account came under another address, tells you which one, since nothing else on screen would.

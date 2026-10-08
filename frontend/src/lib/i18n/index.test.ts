@@ -30,6 +30,7 @@ vi.mock('$app/environment', () => ({
 }));
 
 type I18nModule = typeof import('./index.js');
+type AppLocale = import('./index.js').AppLocale;
 
 function installLocalStorageStub(initial: Record<string, string> = {}): Map<string, string> {
 	const store = new Map<string, string>(Object.entries(initial));
@@ -219,7 +220,12 @@ describe('bulk outcome messages — the failure clause only when there is a fail
 	 * "Selhalo: 0." on the end.
 	 */
 	const cases: Array<[string, Record<string, string | number>, string, string]> = [
-		['messages.bulkDeleteDone', { count: 4 }, 'Smazáno: 4.', 'Smazáno: 4. Selhalo: 2.'],
+		[
+			'messages.bulkDeleteDone',
+			{ count: 4 },
+			'Smazány 4 zprávy.',
+			'Smazány 4 zprávy, 2 zprávy se nepodařilo smazat.'
+		],
 		[
 			'messages.bulkMarkReadDone',
 			{ count: 3 },
@@ -250,7 +256,12 @@ describe('bulk outcome messages — the failure clause only when there is a fail
 			'Hvězdička zrušena: 3.',
 			'Hvězdička zrušena: 3. Selhalo: 2.'
 		],
-		['contacts.bulkDeleteDone', { deleted: 5 }, 'Smazáno: 5.', 'Smazáno: 5. Selhalo: 2.'],
+		[
+			'contacts.bulkDeleteDone',
+			{ deleted: 5 },
+			'Smazáno 5 kontaktů.',
+			'Smazáno 5 kontaktů, 2 kontakty se nepodařilo smazat.'
+		],
 		['contacts.vcardImportDone', { created: 7 }, 'Importováno: 7.', 'Importováno: 7. Selhalo: 2.'],
 		[
 			'contacts.vcardImportDoneSkipped',
@@ -270,6 +281,44 @@ describe('bulk outcome messages — the failure clause only when there is a fail
 		const mod = await freshModule();
 		mod.setLocale('cs');
 		expect(get(mod._)(key, { values: { ...values, failed: 2 } })).toBe(withFail);
+	});
+});
+
+describe('bulk delete outcome — a sentence about messages, not a bare count', () => {
+	/*
+	 * "Smazáno: 2." left a screen-reader user to supply what was deleted. The
+	 * sentence names it and agrees with the number, and a delete where nothing
+	 * succeeded says only what failed instead of opening with a zero.
+	 */
+	const cases: Array<[AppLocale, string, Record<string, number>, string]> = [
+		['cs', 'messages.bulkDeleteDone', { count: 1, failed: 0 }, 'Smazána 1 zpráva.'],
+		['cs', 'messages.bulkDeleteDone', { count: 3, failed: 0 }, 'Smazány 3 zprávy.'],
+		['cs', 'messages.bulkDeleteDone', { count: 5, failed: 0 }, 'Smazáno 5 zpráv.'],
+		[
+			'cs',
+			'messages.bulkDeleteDone',
+			{ count: 1, failed: 1 },
+			'Smazána 1 zpráva, 1 zprávu se nepodařilo smazat.'
+		],
+		['cs', 'messages.bulkDeleteDone', { count: 0, failed: 5 }, '5 zpráv se nepodařilo smazat.'],
+		['cs', 'contacts.bulkDeleteDone', { deleted: 1, failed: 0 }, 'Smazán 1 kontakt.'],
+		['cs', 'contacts.bulkDeleteDone', { deleted: 2, failed: 0 }, 'Smazány 2 kontakty.'],
+		['cs', 'contacts.bulkDeleteDone', { deleted: 0, failed: 1 }, '1 kontakt se nepodařilo smazat.'],
+		['en', 'messages.bulkDeleteDone', { count: 1, failed: 0 }, '1 message deleted.'],
+		[
+			'en',
+			'messages.bulkDeleteDone',
+			{ count: 2, failed: 1 },
+			'2 messages deleted, 1 message could not be deleted.'
+		],
+		['en', 'messages.bulkDeleteDone', { count: 0, failed: 2 }, '2 messages could not be deleted.'],
+		['en', 'contacts.bulkDeleteDone', { deleted: 3, failed: 0 }, '3 contacts deleted.']
+	];
+
+	it.each(cases)('%s %s %o', async (locale, key, values, expected) => {
+		const mod = await freshModule();
+		mod.setLocale(locale);
+		expect(get(mod._)(key, { values })).toBe(expected);
 	});
 });
 
