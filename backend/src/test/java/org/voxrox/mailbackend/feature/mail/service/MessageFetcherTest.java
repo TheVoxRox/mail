@@ -32,6 +32,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Unit tests for {@link MessageFetcher}.
@@ -173,6 +175,18 @@ class MessageFetcherTest {
 
             assertThat(dto.inReplyTo()).isEqualTo("<prev@example.com> <other@example.com>");
             assertThat(dto.references()).isEqualTo("<root@example.com> <prev@example.com>\t<more@example.com>");
+        }
+
+        @ParameterizedTest
+        @DisplayName("A subject that decodes to a line break is stored on one line")
+        @ValueSource(strings = {"=?UTF-8?Q?Invoice=0D=0Adue?=", "=?UTF-8?Q?Invoice=0Adue?=",
+                "=?UTF-8?B?SW52b2ljZQ0KZHVl?="})
+        void subjectDecodingToALineBreakIsStoredOnOneLine(String encoded) throws Exception {
+            MimeMessage msg = register(parse(simpleEmail(encoded, "a@x", "b@y")), 4L);
+
+            var dto = fetcher.fetchBatch(new Message[]{msg}, uidFolder, "INBOX").get(0);
+
+            assertThat(dto.subject()).isEqualTo("Invoice due");
         }
 
         @Test

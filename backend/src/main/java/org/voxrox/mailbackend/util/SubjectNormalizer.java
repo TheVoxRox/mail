@@ -62,11 +62,11 @@ public final class SubjectNormalizer {
      * Hard cap on the subject we are willing to normalize (audit finding B1-2). The
      * header is attacker-controlled — a hostile or compromised mail server picks
      * its length, and nothing upstream bounds it: {@code MessageFetcher} takes
-     * {@code getSubject()} verbatim and SQLite ignores the {@code VARCHAR(500)} the
-     * schema declares. The column's own intent is 500 characters and RFC 5322
-     * recommends far less, so 1000 is generous for every legitimate subject while
-     * keeping the work per message trivially bounded. Truncation only affects the
-     * grouping key; the stored subject is untouched.
+     * {@code getSubject()} whole, only its line breaks replaced, and SQLite ignores
+     * the {@code VARCHAR(500)} the schema declares. The column's own intent is 500
+     * characters and RFC 5322 recommends far less, so 1000 is generous for every
+     * legitimate subject while keeping the work per message trivially bounded.
+     * Truncation only affects the grouping key; the stored subject is untouched.
      */
     private static final int MAX_NORMALIZED_LENGTH = 1000;
 
