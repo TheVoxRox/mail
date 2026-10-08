@@ -177,6 +177,38 @@ class MessageFetcherTest {
             assertThat(dto.references()).isEqualTo("<root@example.com> <prev@example.com>\t<more@example.com>");
         }
 
+        /**
+         * Angus returns the envelope's Message-ID as the server sent it, and a literal
+         * can carry a line break; a reply carries the Message-ID into its own
+         * {@code In-Reply-To} and {@code References}, which the message builder refuses
+         * with a line break in them (IMAP/SMTP audit §5, from the pass over 1.63).
+         * Stood in for here by the value such an envelope gives.
+         */
+        @Test
+        void envelopeMessageIdWithALineBreakIsStoredOnOneLine() throws Exception {
+            MimeMessage msg = register(new MimeMessage(parse(simpleEmail("x", "a@x", "b@y"))) {
+                @Override
+                public String getMessageID() {
+                    return "<msg-6@exa\r\nmple.com>";
+                }
+            }, 6L);
+
+            var dto = fetcher.fetchBatch(new Message[]{msg}, uidFolder, "INBOX").get(0);
+
+            assertThat(dto.messageId()).isEqualTo("<msg-6@example.com>");
+        }
+
+        @Test
+        void foldedMessageIdHeaderIsStoredOnOneLine() throws Exception {
+            String raw = "" + "From: a@x\r\n" + "To: b@y\r\n" + "Message-ID: <msg-7@example.com>\r\n (a comment)\r\n"
+                    + "\r\n" + "x\r\n";
+            MimeMessage msg = register(parse(raw), 7L);
+
+            var dto = fetcher.fetchBatch(new Message[]{msg}, uidFolder, "INBOX").get(0);
+
+            assertThat(dto.messageId()).isEqualTo("<msg-7@example.com> (a comment)");
+        }
+
         @ParameterizedTest
         @DisplayName("A subject that decodes to a line break is stored on one line")
         @ValueSource(strings = {"=?UTF-8?Q?Invoice=0D=0Adue?=", "=?UTF-8?Q?Invoice=0Adue?=",
