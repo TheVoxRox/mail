@@ -14,9 +14,22 @@
 	import { Surface } from '$lib/components/ui/surface/index.js';
 	import { _ } from '$lib/i18n/index.js';
 
-	let emptyMail = $state(false);
+	/*
+	 * The two places Mail can stop for good, which used to share one card: an
+	 * account whose server lists no folder was told to start by adding an
+	 * account — the one it already had.
+	 */
+	let empty = $state<'noAccounts' | 'noFolders' | null>(null);
 	let loadError = $state<string | null>(null);
 	let handledContext = $state<string | null>(null);
+
+	const pageTitle = $derived(
+		empty === 'noAccounts'
+			? $_('root.noAccountsPageTitle')
+			: empty === 'noFolders'
+				? $_('root.noFoldersPageTitle')
+				: $_('workspace.mail')
+	);
 
 	/*
 	 * Only the cold cases reach here: `+page.ts` redirects from cache before this
@@ -33,10 +46,10 @@
 		if (handledContext === context) return;
 		handledContext = context;
 
-		emptyMail = false;
+		empty = null;
 		loadError = null;
 		if (state.accounts.length === 0) {
-			emptyMail = true;
+			empty = 'noAccounts';
 			return;
 		}
 
@@ -49,7 +62,9 @@
 		});
 		const entry = pickEntryFolder(folders);
 		if (!entry) {
-			emptyMail = true;
+			// A failed load is not an empty mailbox; the alert already says what
+			// went wrong.
+			if (loadError === null) empty = 'noFolders';
 			return;
 		}
 
@@ -77,9 +92,15 @@
 	the user actually stays on may claim that name; on the way through, the
 	landmark says the workspace being entered and the status line below says a
 	wait is on, which is the truth in the one case that still gets here.
+
+	The name says which state this is rather than greeting. It used to be
+	"Welcome", a word the card never shows: with no account the button takes
+	focus on its own, so the window title and the landmark are all a screen
+	reader says about the page, and a greeting did not say why Mail had nowhere
+	to open.
 -->
 <svelte:head>
-	<title>{emptyMail ? $_('root.pageTitle') : $_('workspace.mail')}</title>
+	<title>{pageTitle}</title>
 </svelte:head>
 
 <div class="flex h-full items-center justify-center text-sm text-muted-foreground">
@@ -87,15 +108,34 @@
 		<Surface variant="danger" role="alert" class="max-w-md text-center">
 			{loadError}
 		</Surface>
-	{:else if emptyMail}
+	{:else if empty}
 		<div
 			class="max-w-md rounded-md border border-border bg-card p-6 text-center text-card-foreground"
 		>
 			<h1 class="text-title font-semibold">{$_('workspace.mail')}</h1>
-			<p class="mt-2 text-sm text-muted-foreground">{$_('accounts.none')}</p>
-			<Button autofocus class="mt-4" onclick={() => goto(resolve('/settings/accounts/new'))}>
-				{$_('accounts.addAccount')}
-			</Button>
+			<!-- Focus goes straight to the action, which a reader would announce
+			     by its name alone; the description is what says why it is there. -->
+			<p id="empty-mail-reason" class="mt-2 text-sm text-muted-foreground">
+				{empty === 'noAccounts' ? $_('accounts.none') : $_('root.noFolders')}
+			</p>
+			{#if empty === 'noAccounts'}
+				<Button
+					autofocus
+					aria-describedby="empty-mail-reason"
+					class="mt-4"
+					onclick={() => goto(resolve('/settings/accounts/new'))}
+				>
+					{$_('accounts.addAccount')}
+				</Button>
+			{:else}
+				<Button
+					aria-describedby="empty-mail-reason"
+					class="mt-4"
+					href={resolve('/settings/accounts')}
+				>
+					{$_('root.goToAccounts')}
+				</Button>
+			{/if}
 		</div>
 	{:else}
 		<span role="status">{$_('root.loadingMail')}</span>

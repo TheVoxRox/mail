@@ -4,7 +4,7 @@
  * `/` decides which folder Mail opens on, and the decision used to be made by
  * the page component — so the app navigated *to* `/`, rendered it, moved focus
  * into its `<main>`, and only then navigated on. A screen reader read the stop
- * out: `<main>` is named after the route title, which is the accountless
+ * out: `<main>` is named after the route title, which was then the accountless
  * welcome screen's ("Posta - Vitejte"), so the user heard a screen they were
  * not on and were never going to see. Measured on 2026-09-03 over an NVDA
  * session, on the ordinary return from Settings to Mail as much as on Esc out
