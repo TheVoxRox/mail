@@ -121,6 +121,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- **Keyboard shortcuts are written in the interface's font (#676).** The browser's default style gave them a monospace face, Consolas on Windows, so the shortcuts page and the Ctrl+N hint on New message and New contact read in a different typeface from the command palette and everything around them. A screen reader reporting the font announced "Consolas 8". They now use the interface font, as Outlook's menus do, and on the shortcuts page, where the shortcut is the content, they are 14px like the action beside them instead of 11px.
+
 - **Dates in the message list are no longer larger than the subject, and every page title is one size, larger than the sidebar's (#675).** The helper that combines style classes did not know the app's own small size and dropped it whenever a text colour followed. Dates and status icons in the message list, the conversation list and search results came out at 16px, larger than the subject and sender beside them, and the initials in contact avatars at 14px. Page titles were 15px in Mail and 16px in Contacts and Settings. All of them are now the size they were meant to have. Page titles are 18px everywhere, the size of an open message's subject, so they stand above the sidebar's 16px title instead of below it. The "no labels yet" note in the Contacts sidebar grows from 11px to the 12px of other hints.
 
 - **The unread count on the current folder or label meets the contrast WCAG asks for (#675).** Its tinted pill sat on the tint of the current item, and the number fell to 4.38:1 in the light theme, short of 4.5:1. On the current item the pill is now plain, at 6.3:1.

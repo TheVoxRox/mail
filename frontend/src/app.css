@@ -106,7 +106,7 @@
 @theme inline {
 	/*
 	 * Semantic typography scale. Take font sizes ONLY from here:
-	 * text-caption (11px, list metadata, shortcuts, badges) → text-xs (12px,
+	 * text-caption (11px, list metadata, shortcut hints, badges) → text-xs (12px,
 	 * hints) → text-sm (14px, default body, section and group headings)
 	 * → text-base (16px, sidebar pane and dialog titles) → text-lg (18px,
 	 * page titles: every <h1>, the message subject included).
@@ -169,6 +169,18 @@
 
 	::selection {
 		background: color-mix(in oklch, var(--primary) 22%, transparent);
+	}
+
+	/*
+	 * A shortcut is written in the interface's own font, as Outlook writes
+	 * "Ctrl+R" in its menus. Preflight gives <kbd> the monospace stack, which
+	 * on Windows is Consolas, so the shortcuts page and the Ctrl+N hints read
+	 * in another typeface than the command palette, whose shortcuts are spans.
+	 */
+	kbd {
+		font-family: inherit;
+		font-feature-settings: inherit;
+		font-variation-settings: inherit;
 	}
 }
 
