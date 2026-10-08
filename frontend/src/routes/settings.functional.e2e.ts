@@ -113,3 +113,23 @@ test.describe('Settings – appearance', () => {
 		await expectArrowDownOpensSelect(select);
 	});
 });
+
+test.describe('Settings – shortcuts', () => {
+	test('zkratka je psaná písmem a velikostí textu vedle ní', async ({ page }) => {
+		// Preflight gives <kbd> the monospace stack (Consolas on Windows), which
+		// set every shortcut on this page apart from the rest of the interface.
+		await openApp(page, '/settings/shortcuts');
+
+		const row = page.getByRole('listitem').filter({ hasText: 'Nová zpráva' }).first();
+		const typeface = (locator: Locator) =>
+			locator.evaluate((element) => {
+				const style = getComputedStyle(element);
+				return { family: style.fontFamily, size: style.fontSize };
+			});
+
+		await expect(row.locator('kbd')).toHaveText('Ctrl+N');
+		expect(await typeface(row.locator('kbd'))).toEqual(
+			await typeface(row.getByText('Nová zpráva', { exact: true }))
+		);
+	});
+});
