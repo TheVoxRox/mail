@@ -174,7 +174,7 @@ test.describe('Mail toolbar', () => {
 		await page.getByRole('button', { name: 'Označit jako…', exact: true }).click();
 		await page.getByRole('menuitem', { name: 'Přečtené', exact: true }).click();
 		await expect(
-			page.getByRole('status').filter({ hasText: 'Označeno jako přečtené: 2.' })
+			page.getByRole('status').filter({ hasText: 'Označeny 2 zprávy jako přečtené.' })
 		).toBeVisible();
 		expect(flagRequests).toHaveLength(2);
 		expect(
@@ -190,7 +190,7 @@ test.describe('Mail toolbar', () => {
 		await page.getByRole('button', { name: 'Přesunout vybrané' }).click();
 		await page.getByRole('menuitem', { name: 'Archiv', exact: true }).click();
 		await expect(
-			page.getByRole('status').filter({ hasText: 'Přesunuto do složky Archiv: 2.' })
+			page.getByRole('status').filter({ hasText: 'Přesunuty 2 zprávy do složky Archiv.' })
 		).toBeVisible();
 		expect(moveBodies).toEqual([{ folderRef: 'ARCHIVE' }, { folderRef: 'ARCHIVE' }]);
 		await expect(page.locator('[role="row"][data-stable-id="msg-03"]')).toHaveCount(0);
@@ -251,7 +251,7 @@ test.describe('Mail toolbar', () => {
 		await page.getByRole('menuitem', { name: 'Nepřečtené', exact: true }).click();
 
 		await expect(
-			page.getByRole('status').filter({ hasText: 'Označeno jako nepřečtené: 2.' })
+			page.getByRole('status').filter({ hasText: 'Označeny 2 zprávy jako nepřečtené.' })
 		).toBeVisible();
 		expect(flagRequests).toHaveLength(2);
 		expect(
