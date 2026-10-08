@@ -80,7 +80,7 @@ test.describe('MSW bootstrap', () => {
 		await expect(page.getByRole('button', { name: 'Přidat účet' })).toBeFocused();
 	});
 
-	test('uvítací obrazovka bez účtu se jako oblast jmenuje podle route', async ({ page }) => {
+	test('obrazovka bez účtu se jako oblast jmenuje podle svého stavu', async ({ page }) => {
 		/*
 		 * The last route with no title of its own. It inherited the layout's bare
 		 * `app.title`, and since <main> is named after the route title, the
@@ -91,13 +91,45 @@ test.describe('MSW bootstrap', () => {
 		 * button takes focus on its own, so the layout deliberately leaves focus
 		 * alone and nothing announces the page. The name only pays off on the
 		 * landmark key, which is why nothing noticed it was wrong.
+		 *
+		 * For the same reason it names the state rather than greeting: it was
+		 * "Vitejte", which the card never shows, and the sentence that does say
+		 * why Mail is empty was skipped once focus went past it to the button.
 		 */
 		await setMockFlags(page, { noAccounts: true });
 
 		await openApp(page, '/');
 
-		await expect(page.getByRole('button', { name: 'Přidat účet' })).toBeVisible();
-		await expect(page.locator('#main-content')).toHaveAttribute('aria-label', 'Pošta – Vítejte');
+		const addAccount = page.getByRole('button', { name: 'Přidat účet' });
+		await expect(addAccount).toBeFocused();
+		await expect(addAccount).toHaveAccessibleDescription('Začněte přidáním e-mailového účtu.');
+		await expect(page.locator('#main-content')).toHaveAttribute('aria-label', 'Pošta – Žádný účet');
+		await expect(page).toHaveTitle('Pošta – Žádný účet');
+	});
+
+	test('účet bez složek neradí přidat účet, který už existuje', async ({ page }) => {
+		/*
+		 * The same card served both stops, so an account whose server lists no
+		 * folder was told to start by adding an account. The Gmail fixture has
+		 * no folders, which is the state; picking it as the active account is
+		 * what makes `/` stop on it rather than on the first account's INBOX.
+		 */
+		await setMockFlags(page, { oauthAccount: true });
+		await setPrefs(page, { activeAccountId: 3 });
+
+		await openApp(page, '/');
+
+		await expect(page.getByText('Tento účet nemá žádné složky.')).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Přidat účet' })).toHaveCount(0);
+		await expect(page.locator('#main-content')).toHaveAttribute(
+			'aria-label',
+			'Pošta – Žádné složky'
+		);
+
+		const toAccounts = page.getByRole('link', { name: 'Přejít na účty' });
+		await expect(toAccounts).toHaveAccessibleDescription('Tento účet nemá žádné složky.');
+		await toAccounts.click();
+		await page.waitForURL('**/settings/accounts');
 	});
 
 	test('klávesové zkratky Ctrl+1, Ctrl+2 a Ctrl+3 přepínají workspace módy', async ({ page }) => {
@@ -544,6 +576,9 @@ test.describe('Vstup do Pošty', () => {
 	type Recorded = { landmarks: string[]; transit: string[] };
 	type RecorderWindow = Window & { __recorded: Recorded };
 
+	/** What `/` is called where it stops; a pass through it may say neither. */
+	const STOP_NAMES = ['Pošta – Žádný účet', 'Pošta – Žádné složky'];
+
 	/**
 	 * Records every value `<main>`'s accessible name takes, and every `role=status`
 	 * line that is ever built, for the whole life of the document. Both are what a
@@ -644,7 +679,7 @@ test.describe('Vstup do Pošty', () => {
 		const recorded = await readRecorded(page);
 		// The stop itself: the welcome screen's name, on a route the user is only
 		// passing through.
-		expect(recorded.landmarks).not.toContain('Pošta – Vítejte');
+		expect(recorded.landmarks.filter((name) => STOP_NAMES.includes(name))).toEqual([]);
 		// And its live region, which read itself out on the way past.
 		expect(recorded.transit).not.toContain('Načítám poštu…');
 		// The landing that should happen still does.
@@ -665,7 +700,7 @@ test.describe('Vstup do Pošty', () => {
 		await expect(page.getByRole('heading', { name: 'Doručené' })).toBeVisible();
 
 		const recorded = await readRecorded(page);
-		expect(recorded.landmarks).not.toContain('Pošta – Vítejte');
+		expect(recorded.landmarks.filter((name) => STOP_NAMES.includes(name))).toEqual([]);
 		expect(recorded.landmarks).toContain('Pošta – Doručené');
 	});
 });

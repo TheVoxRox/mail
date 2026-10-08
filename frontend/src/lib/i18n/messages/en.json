@@ -854,7 +854,10 @@
 		"goToAccounts": "Go to accounts"
 	},
 	"root": {
-		"pageTitle": "Mail – Welcome",
+		"noAccountsPageTitle": "Mail – No account",
+		"noFoldersPageTitle": "Mail – No folders",
+		"noFolders": "This account has no folders.",
+		"goToAccounts": "Go to accounts",
 		"loadingMail": "Loading mail…"
 	},
 	"update": {
