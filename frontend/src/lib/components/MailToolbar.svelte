@@ -16,7 +16,6 @@
 		label: string;
 		variant: 'ghost' | 'destructive';
 		icon?: IconName;
-		compactText?: string;
 		/** Shortcut in ARIA token form (e.g. "Control+R") for aria-keyshortcuts,
 		 * so screen readers announce it without polluting the accessible name.
 		 * Matches the handlers wired in globalShortcuts.ts. */
@@ -139,9 +138,6 @@
 						<Icon name={action.icon} />
 					{/if}
 					{#if compact}
-						{#if action.compactText}
-							<span class="text-caption font-semibold uppercase">{action.compactText}</span>
-						{/if}
 						<span class="sr-only">{action.label}</span>
 					{:else}
 						<span>{action.label}</span>

@@ -255,7 +255,7 @@
 					{#each groupedCommands as group (group.groupKey)}
 						<BitsCommand.Group value={group.groupKey}>
 							<BitsCommand.GroupHeading
-								class="px-2 pb-1 pt-3 text-caption font-semibold uppercase tracking-[0.16em] text-muted-foreground first:pt-0"
+								class="px-2 pb-1 pt-3 text-sm font-semibold text-muted-foreground first:pt-0"
 							>
 								{group.groupLabel}
 							</BitsCommand.GroupHeading>
