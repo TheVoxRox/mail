@@ -33,11 +33,13 @@ import org.jspecify.annotations.Nullable;
  * its life, counted as the item's header block
  * ({@link BoundedImapProtocol#headerBlock}) whether or not Angus then adds each
  * one. An item past that is not merged: the message keeps the headers it holds,
- * and a header it was asked for and did not get is loaded whole when it is read
- * ({@code IMAPMessage.loadHeaders}), as for a message the fetch said nothing
- * about. A merge then costs at most this bound times the headers held, and
- * those were each charged to the open-folder budget when they arrived (B1-16),
- * so what one open folder can spend merging is bounded by the two together.
+ * and a header it was asked for and did not get is fetched by itself when it is
+ * read ({@code IMAPMessage.getHeader} asks for that field alone and appends
+ * what comes back with {@code InternetHeaders.load}, charged as a header
+ * section), as for a message the fetch said nothing about. A merge then costs
+ * at most this bound times the headers held, and those were each charged to the
+ * open-folder budget when they arrived (B1-16), so what one open folder can
+ * spend merging is bounded by the two together.
  */
 final class BoundedImapMessage extends IMAPMessage {
 

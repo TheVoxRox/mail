@@ -1,8 +1,12 @@
 package org.voxrox.mailbackend.feature.mail.service;
 
 import java.io.IOException;
+import java.util.Enumeration;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.regex.Pattern;
+
+import jakarta.mail.internet.ParameterList;
 
 import org.eclipse.angus.mail.iap.Argument;
 import org.eclipse.angus.mail.iap.ByteArray;
@@ -196,6 +200,30 @@ final class BoundedImapProtocol extends IMAPProtocol {
     static final int MAX_STALLED_CALLS = 64;
 
     /**
+     * The longest content type, as {@link #partTypeChars} counts it, that a part of
+     * a {@code BODYSTRUCTURE} may render to; a FETCH with a longer one is dropped
+     * (B1-20). The sync reads every message's type, and Angus renders it from the
+     * structure's parameters and keeps it while the folder is open; Jakarta Mail
+     * splits a value longer than 60 characters into segments and writes the
+     * parameter's name again in each, so the type grows with the product of the
+     * name's length and the value's. A 60 KB line of a 30,000-character name and
+     * value rendered to 15 million characters and held 16.9 MB, some 92 times what
+     * its response was charged (measured by the pass over 1.61). The split itself
+     * copies the rest of the value at every segment, so its time grows the same
+     * way. An honest type stays under a thousand: a 255-character file name, split
+     * into five segments, counts some 400.
+     */
+    static final int MAX_TYPE_CHARS = 16 * 1024;
+
+    /**
+     * What {@link #partTypeChars} counts for each segment Jakarta Mail writes a
+     * parameter as, besides the name: {@code "; "}, the {@code "\r\n\t"} that may
+     * start a line, a {@code *}, up to ten digits and another {@code *} for its
+     * number, {@code =} and the value's quotes.
+     */
+    private static final int TYPE_SEGMENT_CHARS = 20;
+
+    /**
      * What the responses of one command may add up to, as {@link CommandBudget}
      * charges them (B1-8). Every bound above holds one response, and Angus keeps
      * every response of a command until the tagged one arrives —
@@ -273,15 +301,16 @@ final class BoundedImapProtocol extends IMAPProtocol {
      * reason. The sync opens a folder for one pass and the user's actions open it
      * for one action, so a selection is one of those. Ordinary new mail fits many
      * times over; the largest honest pass does not, by choice. A pass that catches
-     * up {@code local-window-limit} (10,000) new messages is charged 164 MB at the
-     * 16.4 KB an ordinary message costs since 1.61 (envelope with six addresses, a
-     * three-part structure, three threading headers; 8.7 KB before, computed with
-     * this charge), and on a server without CONDSTORE some 1.7 KB more for each
-     * mirrored message, whose flags and UIDs the pass reads through the folder — up
-     * to twice the window before the pruner runs, 35 MB. Such a pass is refused
-     * like any implausible response: the connection closes, which releases what the
-     * folder kept, the batches stored so far stay, newest first, and the sync's
-     * next attempt opens the folder again and brings the rest down as holes; what a
+     * up {@code local-window-limit} (10,000) new messages is charged some 169 MB at
+     * the 16.9 KB an ordinary message costs since 1.65 (envelope with six
+     * addresses, a three-part structure, three threading headers; 16.4 KB at 1.61,
+     * before the rendered types, and 8.7 KB before that, computed with this
+     * charge), and on a server without CONDSTORE some 1.7 KB more for each mirrored
+     * message, whose flags and UIDs the pass reads through the folder — up to twice
+     * the window before the pruner runs, 35 MB. Such a pass is refused like any
+     * implausible response: the connection closes, which releases what the folder
+     * kept, the batches stored so far stay, newest first, and the sync's next
+     * attempt opens the folder again and brings the rest down as holes; what a
      * pass's attempts leave, the next pass takes.
      * <p>
      * The owner chose that cost over a budget the largest pass fits in
@@ -290,11 +319,13 @@ final class BoundedImapProtocol extends IMAPProtocol {
      * destination on a connection of its own (1.52) — each with up to
      * {@link #MAX_COMMAND_BYTES} of a command's responses besides. What a hostile
      * server can make one folder keep is the budget scaled by the worst ratio
-     * measured at 1.61 of what a folder keeps to what it is charged, 0.88 for
-     * header lines — some 59 MB, so the three connections together some 3 × (59 +
-     * 67) MB, about the packaged 384 MB heap (computed, not measured). At 1.49 the
+     * measured of what a folder keeps to what it is charged, 0.88 for header lines
+     * at 1.61 — some 59 MB, so the three connections together some 3 × (59 + 67)
+     * MB, about the packaged 384 MB heap (computed, not measured). At 1.49 the
      * bound was stated for two connections and from shapes the sync's own reads
-     * exceed.
+     * exceed, and at 1.61 without the types the sync's read renders, two shapes of
+     * which kept more than their charge (B1-20, found by the pass over 1.61): since
+     * 1.65 they are charged, and kept at most 0.66 of it (measured).
      * <p>
      * The budget has to hold what a pass spends on the window it already mirrors,
      * plus one batch: below that, every attempt is refused at the same point and
@@ -629,10 +660,27 @@ final class BoundedImapProtocol extends IMAPProtocol {
     /**
      * Angus's parse of a FETCH, stopped once it opens more than
      * {@link #MAX_NESTING} levels: then the response is dropped, with
-     * {@link NestedTooDeepException}.
+     * {@link NestedTooDeepException}. A parsed structure with a part whose type
+     * would render past {@link #MAX_TYPE_CHARS} is dropped too, with
+     * {@link OversizedTypeException}, before anything renders it (B1-20).
      */
     static FetchResponse parseFetch(IMAPResponse response, FetchItem @Nullable [] fetchItems, Protocol protocol,
             String host) throws IOException, ProtocolException {
+        FetchResponse fetch = parseBounded(response, fetchItems, protocol, host);
+        for (int i = 0; i < fetch.getItemCount(); i++) {
+            if (fetch.getItem(i) instanceof BODYSTRUCTURE structure && longestType(structure) > MAX_TYPE_CHARS) {
+                log.warn(
+                        "{} Dropped a FETCH response from IMAP server {} whose structure gives a part a content type "
+                                + "of more than {} characters; the message it describes is left without its structure.",
+                        LogCategory.IMAP, host, MAX_TYPE_CHARS);
+                throw new OversizedTypeException();
+            }
+        }
+        return fetch;
+    }
+
+    private static FetchResponse parseBounded(IMAPResponse response, FetchItem @Nullable [] fetchItems,
+            Protocol protocol, String host) throws IOException, ProtocolException {
         try {
             return new DepthBoundedFetchResponse(response, fetchItems, protocol);
         } catch (NestingLimitReached e) {
@@ -669,11 +717,14 @@ final class BoundedImapProtocol extends IMAPProtocol {
      * headers each charged body item becomes ({@link #headerBytes}, B1-16) in a
      * header set of its own ({@link #HEADER_SET_BYTES}), and
      * {@link #STRUCTURE_PART_BYTES} for each part of a structure, which the sync's
-     * read makes into a part (B1-14, reopened at 1.52), so a response the header
-     * lines would take past the budget is refused before Angus loads them. An upper
-     * bound for every shape measured at 1.61, through the sync's own reads: at most
-     * 0.88 of the charge, for header lines, and an ordinary message of three parts
-     * at 0.71.
+     * read makes into a part (B1-14, reopened at 1.52), and the type each part
+     * renders to, another copy at {@link #COPIED_CHAR_BYTES} a character
+     * ({@link #typeChars}, B1-20), so a response the header lines would take past
+     * the budget is refused before Angus loads them. An upper bound for every shape
+     * measured at 1.61, through the sync's own reads: at most 0.88 of the charge,
+     * for header lines, and an ordinary message of three parts at 0.71; and at 1.65
+     * for the parameters a type renders, at most 0.66, a value of quotes and a long
+     * name over a long value under {@link #MAX_TYPE_CHARS} among them.
      * <p>
      * The whole response is charged, whatever was asked for: {@code IMAPFolder}'s
      * fetch gives a message every item a response names, a whole body included,
@@ -698,6 +749,7 @@ final class BoundedImapProtocol extends IMAPProtocol {
                 case RFC822DATA rfc822 -> rfc822.getByteArray();
                 case BODYSTRUCTURE structure -> {
                     parts += structureParts(structure);
+                    copiedChars += typeChars(structure);
                     yield null;
                 }
                 default -> null;
@@ -730,6 +782,78 @@ final class BoundedImapProtocol extends IMAPProtocol {
             }
         }
         return parts;
+    }
+
+    /**
+     * The characters of the content types the parts of a structure render to, each
+     * as {@link #partTypeChars} counts it: a copy the folder keeps, charged as one
+     * (B1-20).
+     */
+    static long typeChars(BODYSTRUCTURE structure) {
+        long chars = partTypeChars(structure);
+        if (structure.bodies != null) {
+            for (BODYSTRUCTURE part : structure.bodies) {
+                if (part != null) {
+                    chars += typeChars(part);
+                }
+            }
+        }
+        return chars;
+    }
+
+    /** The longest type any part of a structure renders to. */
+    static long longestType(BODYSTRUCTURE structure) {
+        long longest = partTypeChars(structure);
+        if (structure.bodies != null) {
+            for (BODYSTRUCTURE part : structure.bodies) {
+                if (part != null) {
+                    longest = Math.max(longest, longestType(part));
+                }
+            }
+        }
+        return longest;
+    }
+
+    /**
+     * An upper bound on the characters of the type one part renders to, as Angus
+     * renders it — {@code new ContentType(type, subtype, cParams).toString()}, in
+     * {@code IMAPMessage.getContentType} for a message and in the constructor of
+     * {@code IMAPBodyPart} for each of its parts (read from Angus 2.0.5). Counted
+     * the way Jakarta Mail 2.1.5's {@code ParameterList.toString} writes a value it
+     * holds as a plain string, which a parameter the server named plainly is:
+     * longer than 60 characters, split into segments of 60, each with the name
+     * again and {@link #TYPE_SEGMENT_CHARS}; a quote, a backslash, a CR or an LF
+     * escaped, a space or a tab possibly preceded by a fold's CR LF, and a CR or an
+     * LF possibly followed by the space {@code MimeUtility} makes safe with. A
+     * value the server encoded (RFC 2231) is written as it came, unsplit, which the
+     * wire bytes and the copy charge already pay for; it is counted here by its
+     * decoded value, which is the most this can see.
+     */
+    private static long partTypeChars(BODYSTRUCTURE part) {
+        long chars = 1L + length(part.type) + length(part.subtype);
+        ParameterList params = part.cParams;
+        if (params == null) {
+            return chars;
+        }
+        for (Enumeration<String> names = params.getNames(); names.hasMoreElements();) {
+            String name = names.nextElement();
+            String value = Objects.requireNonNullElse(params.get(name), "");
+            long segments = Math.max(1, (value.length() + 59) / 60);
+            chars += segments * (name.length() + TYPE_SEGMENT_CHARS);
+            for (int i = 0; i < value.length(); i++) {
+                chars += switch (value.charAt(i)) {
+                    case '"', '\\' -> 2;
+                    case ' ', '\t' -> 3;
+                    case '\r', '\n' -> 5;
+                    default -> 1;
+                };
+            }
+        }
+        return chars;
+    }
+
+    private static int length(@Nullable String s) {
+        return s == null ? 0 : s.length();
     }
 
     /**
@@ -1468,6 +1592,18 @@ final class BoundedImapProtocol extends IMAPProtocol {
     static final class NestedGroupException extends ProtocolException {
         NestedGroupException() {
             super("Dropped an IMAP FETCH response with an address group inside another");
+        }
+    }
+
+    /**
+     * A FETCH whose structure gives a part a type past {@link #MAX_TYPE_CHARS},
+     * dropped once parsed and before anything renders it (B1-20); a
+     * ProtocolException for the same reason as {@link NestedTooDeepException}.
+     */
+    static final class OversizedTypeException extends ProtocolException {
+        OversizedTypeException() {
+            super("Dropped an IMAP FETCH response whose structure gives a part a content type of more than "
+                    + MAX_TYPE_CHARS + " characters");
         }
     }
 

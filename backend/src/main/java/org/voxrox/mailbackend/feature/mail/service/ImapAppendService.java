@@ -176,9 +176,11 @@ public class ImapAppendService {
      * <p>
      * 40 MiB is above what any mail provider accepts for sending — base64 inflates
      * attachments by about a third, so a 25 MB attachment set, Gmail's ceiling,
-     * reaches the wire at roughly 35 MB — and 80 MB of the packaged 384 MB heap at
-     * its worst. A draft past it could not have been sent anyway; this way it fails
-     * on the fetch rather than at the SMTP server.
+     * reaches the wire at roughly 35 MB — and some 104 MiB of the packaged 384 MB
+     * heap at its worst: the bytes are read into a buffer that doubles as it grows,
+     * 64 MiB for a draft past 32, beside the content's copy (measured by the pass
+     * over 1.59). A draft past it could not have been sent anyway; this way it
+     * fails on the fetch rather than at the SMTP server.
      */
     static final int MAX_DRAFT_BYTES = 40 * 1024 * 1024;
 

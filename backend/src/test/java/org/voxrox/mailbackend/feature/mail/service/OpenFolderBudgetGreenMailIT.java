@@ -49,9 +49,14 @@ import com.icegreen.greenmail.util.ServerSetup;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         // The only sync runs are the explicit ones below.
         "mail.client.sync.initial-delay=PT1H", "mail.client.sync.window-size=50", "mail.client.sync.batch-size=50",
-        "mail.client.imap.open-folder-budget=1664KB"})
+        "mail.client.imap.open-folder-budget=" + OpenFolderBudgetGreenMailIT.BUDGET_KB + "KB"})
 @ContextConfiguration(initializers = StorageContextInitializer.class)
 class OpenFolderBudgetGreenMailIT {
+
+    /**
+     * The budget the test runs under; the log names it in bytes when it refuses.
+     */
+    static final int BUDGET_KB = 1664;
 
     private static final Path DATA_DIR = Path.of("target", "test-tmp", "OpenFolderBudgetGreenMailIT").toAbsolutePath()
             .normalize();
@@ -152,7 +157,8 @@ class OpenFolderBudgetGreenMailIT {
             byte[] bytes = Files.readAllBytes(log());
             String since = new String(bytes, (int) mark, bytes.length - (int) mark,
                     java.nio.charset.StandardCharsets.UTF_8);
-            return since.lines().filter(line -> line.contains("passed its budget of 1703936 bytes")).count();
+            return since.lines().filter(line -> line.contains("passed its budget of " + BUDGET_KB * 1024 + " bytes"))
+                    .count();
         } catch (java.io.IOException e) {
             throw new java.io.UncheckedIOException(e);
         }

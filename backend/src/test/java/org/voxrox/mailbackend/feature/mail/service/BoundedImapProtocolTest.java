@@ -13,6 +13,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Properties;
 
+import jakarta.mail.internet.ContentType;
 import jakarta.mail.internet.InternetHeaders;
 
 import org.eclipse.angus.mail.iap.Protocol;
@@ -239,6 +240,8 @@ class BoundedImapProtocolTest {
                     return "nested group";
                 } catch (BoundedImapProtocol.StalledParseException e) {
                     return "stalled";
+                } catch (BoundedImapProtocol.OversizedTypeException e) {
+                    return "oversized type";
                 }
             });
         }
@@ -420,6 +423,88 @@ class BoundedImapProtocolTest {
                     + " \"mixed\" (\"boundary\" \"b1\") NIL NIL NIL))";
 
             assertThat(parse(structure)).isEqualTo("parsed");
+        }
+
+        private static String partWith(String parameters) {
+            return "(\"application\" \"x\" " + parameters + " NIL NIL \"7bit\" 1)";
+        }
+
+        /**
+         * B1-20, found by the pass over 1.61. Angus renders a part's type from the
+         * structure's parameters when the sync reads it, and Jakarta Mail writes a
+         * value longer than 60 characters in segments, each with the name again, so the
+         * type grows with the product of the two lengths: a name and a value of 30,000
+         * characters each, 60 KB on the wire, held 16.9 MB. A part whose type would
+         * render past the bound is dropped once parsed, before anything renders it,
+         * wherever it is in the structure. Quotes count twice, as Jakarta Mail escapes
+         * each.
+         */
+        @Test
+        @DisplayName("A part whose type would render past the bound is dropped, wherever it is (B1-20)")
+        void aTypePastTheBoundIsDropped() throws Exception {
+            String longPair = "(\"" + "n".repeat(2_000) + "\" \"" + "v".repeat(2_000) + "\")";
+
+            assertThat(parse("* 1 FETCH (BODYSTRUCTURE " + partWith(longPair) + ")")).isEqualTo("oversized type");
+            assertThat(parse("* 1 FETCH (BODYSTRUCTURE (" + LEAF + partWith(longPair) + " \"mixed\"))"))
+                    .as("a part of a multipart").isEqualTo("oversized type");
+            assertThat(parse("* 1 FETCH (BODYSTRUCTURE (" + LEAF + " \"mixed\" " + longPair + "))"))
+                    .as("the multipart's own parameters").isEqualTo("oversized type");
+            assertThat(parse("* 1 FETCH (BODYSTRUCTURE " + partWith("(\"n\" \"" + "\\\"".repeat(8_000) + "\")") + ")"))
+                    .as("a value of quotes").isEqualTo("oversized type");
+        }
+
+        /**
+         * What an honest type comes to: a 255-character file name, the longest a file
+         * system gives, split into five segments, with a charset beside it, counts some
+         * 400 characters, a fortieth of the bound.
+         */
+        @Test
+        @DisplayName("An honest type parses: a long file name stays far under the bound (B1-20)")
+        void anHonestTypeParses() throws Exception {
+            String line = "* 1 FETCH (BODYSTRUCTURE "
+                    + partWith("(\"name\" \"" + "f".repeat(251) + ".pdf\" \"charset\" \"utf-8\")") + ")";
+
+            assertThat(parse(line)).isEqualTo("parsed");
+            FetchResponse fetch = new BoundedImapProtocol.DepthBoundedFetchResponse(new IMAPResponse(line), null,
+                    mock(Protocol.class));
+            assertThat(BoundedImapProtocol.typeChars((BODYSTRUCTURE) fetch.getItem(0))).isBetween(300L, 500L);
+        }
+
+        /**
+         * The count has to be an upper bound on what Jakarta Mail renders, or a server
+         * can render past the bound and past the charge. Every shape a plainly named
+         * value can take that makes the rendering longer than the value: segments,
+         * escapes, folds at spaces and tabs, and a CR or an LF, which a literal
+         * carries; names long and short, and many parameters. Counted against
+         * {@code ContentType.toString} itself, the call Angus makes.
+         */
+        @Test
+        @DisplayName("The type count bounds what Jakarta Mail renders, for every shape a value can take (B1-20)")
+        void theTypeCountBoundsTheRendering() throws Exception {
+            String[] values = {"", "v", "v".repeat(60), "v".repeat(61), "v".repeat(10_000), "\"".repeat(3_000),
+                    "\\".repeat(3_000), " ".repeat(3_000), "a b".repeat(2_000), "\t".repeat(3_000),
+                    "\r\n".repeat(1_500), "\r".repeat(3_000), "\n".repeat(3_000), "a\r\nb \"c\"\t\\".repeat(500),
+                    "€".repeat(3_000)};
+            for (int nameLength : new int[]{1, 8, 300}) {
+                String name = "n".repeat(nameLength);
+                for (String value : values) {
+                    String literal = "{" + value.getBytes(StandardCharsets.UTF_8).length + "}\r\n" + value;
+                    assertRenderingBounded("(\"" + name + "\" " + literal + ")");
+                }
+            }
+            assertRenderingBounded("(" + "\"p\" \"q\" ".repeat(500) + ")");
+        }
+
+        private static void assertRenderingBounded(String parameters) throws Exception {
+            FetchResponse fetch = new BoundedImapProtocol.DepthBoundedFetchResponse(
+                    new IMAPResponse("* 1 FETCH (BODYSTRUCTURE " + partWith(parameters) + ")"), null,
+                    mock(Protocol.class));
+            BODYSTRUCTURE part = (BODYSTRUCTURE) fetch.getItem(0);
+            String rendered = new ContentType(part.type, part.subtype, part.cParams).toString();
+
+            assertThat(BoundedImapProtocol.typeChars(part))
+                    .as("%s", parameters.length() > 80 ? parameters.substring(0, 80) : parameters)
+                    .isGreaterThanOrEqualTo(rendered.length());
         }
     }
 
@@ -608,9 +693,13 @@ class BoundedImapProtocolTest {
 
             assertThat(BoundedImapProtocol.structureParts(structure))
                     .as("the message, three parts, and the nested message's own").isEqualTo(5);
+            assertThat(BoundedImapProtocol.typeChars(structure))
+                    .as("TEXT/PLAIN twice, TEXT/HTML, MESSAGE/RFC822 and multipart/MIXED, none with parameters")
+                    .isEqualTo(10 + 10 + 9 + 14 + 15);
             assertThat(BoundedImapProtocol.keptBytes(mixed, 100, false)).isEqualTo(100
                     + counted.parsedObjects() * BoundedImapProtocol.PARSED_OBJECT_BYTES
-                    + counted.copiedChars() * BoundedImapProtocol.COPIED_CHAR_BYTES
+                    + (counted.copiedChars() + BoundedImapProtocol.typeChars(structure))
+                            * BoundedImapProtocol.COPIED_CHAR_BYTES
                     + 5L * BoundedImapProtocol.STRUCTURE_PART_BYTES + BoundedImapProtocol.RESPONSE_OVERHEAD_BYTES);
         }
 
