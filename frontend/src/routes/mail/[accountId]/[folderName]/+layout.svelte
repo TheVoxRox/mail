@@ -242,9 +242,7 @@
 					from the sr-only text; the badge only shows it.
 				-->
 				{#key `${accountId}:${folderName}`}
-					<h1
-						class="flex min-w-0 items-baseline gap-2 px-2 text-title font-semibold text-foreground"
-					>
+					<h1 class="flex min-w-0 items-baseline gap-2 px-2 text-lg font-semibold text-foreground">
 						<span class="truncate">{folderLabel}</span>
 						{#if unreadCount > 0}
 							<span class="sr-only">{unreadText}</span>

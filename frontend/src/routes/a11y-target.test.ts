@@ -5,7 +5,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { FORCED_RULES, WCAG_TAGS } from './a11y-target.js';
+import { CHECK_OPTIONS, FORCED_RULES, WCAG_TAGS } from './a11y-target.js';
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -19,6 +19,7 @@ const require = createRequire(import.meta.url);
 const axe = createRequire(require.resolve('@axe-core/playwright'))('axe-core') as {
 	version: string;
 	getRules: () => { ruleId: string; tags: string[] }[];
+	_audit: { checks: Record<string, { options: Record<string, unknown> } | undefined> };
 };
 
 const ruleset = axe.getRules();
@@ -70,6 +71,19 @@ describe('WCAG conformance target', () => {
 				rule?.tags.some((tag) => WCAG_TAGS.includes(tag)),
 				`${ruleId} carries no level tag from the target`
 			).toBe(true);
+		}
+	});
+
+	it('sets only check options that exist and differ from axe defaults', () => {
+		// axe ignores an option it does not know, so a key it renamed would go
+		// on reading like a setting while the check ran on its default.
+		for (const [checkId, { options }] of Object.entries(CHECK_OPTIONS)) {
+			const defaults = axe._audit.checks[checkId]?.options;
+			expect(defaults, `${checkId} is not a check in axe-core ${axe.version}`).toBeDefined();
+			for (const [key, value] of Object.entries(options)) {
+				expect(defaults, `${checkId} has no option ${key}`).toHaveProperty(key);
+				expect(defaults?.[key], `${checkId}.${key} is already the default`).not.toEqual(value);
+			}
 		}
 	});
 });

@@ -112,7 +112,7 @@
 		<div
 			class="max-w-md rounded-md border border-border bg-card p-6 text-center text-card-foreground"
 		>
-			<h1 class="text-title font-semibold">{$_('workspace.mail')}</h1>
+			<h1 class="text-lg font-semibold">{$_('workspace.mail')}</h1>
 			<!-- Focus goes straight to the action, which a reader would announce
 			     by its name alone; the description is what says why it is there. -->
 			<p id="empty-mail-reason" class="mt-2 text-sm text-muted-foreground">

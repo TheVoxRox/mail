@@ -14,7 +14,7 @@
 	import ContactLabelsDialog from '$lib/components/ContactLabelsDialog.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
-	import { SidebarNavItem } from '$lib/components/ui/sidebar-nav-item/index.js';
+	import { SidebarNavItem, sidebarNavBadge } from '$lib/components/ui/sidebar-nav-item/index.js';
 	import { SidebarSection } from '$lib/components/ui/sidebar-section/index.js';
 	import { SidebarShell } from '$lib/components/ui/sidebar-shell/index.js';
 	import Icon from '$lib/components/Icon.svelte';
@@ -139,10 +139,7 @@
 
 {#snippet countBadge(count: number, showZero: boolean)}
 	{#if showZero || count > 0}
-		<span
-			class="min-w-5 rounded-full bg-primary/10 px-1.5 py-0.5 text-center text-caption font-semibold text-primary"
-			aria-label={$_('contacts.totalCount', { values: { count } })}
-		>
+		<span class={sidebarNavBadge} aria-label={$_('contacts.totalCount', { values: { count } })}>
 			{count}
 		</span>
 	{/if}
@@ -209,7 +206,7 @@
 			</ul>
 
 			{#if labelItems.length === 0}
-				<p class="px-2 py-1 text-caption text-muted-foreground">{$_('contacts.noLabelsYet')}</p>
+				<p class="px-2.5 py-1 text-xs text-muted-foreground">{$_('contacts.noLabelsYet')}</p>
 			{/if}
 		</SidebarSection>
 	</nav>

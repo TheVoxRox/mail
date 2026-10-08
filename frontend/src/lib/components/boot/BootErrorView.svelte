@@ -29,7 +29,7 @@
 
 <main id="main-content" tabindex="-1" class="flex flex-1 items-center justify-center p-8">
 	<div class="max-w-md text-center">
-		<h1 class="text-title font-semibold text-destructive-foreground">{$_('app.bootFailed')}</h1>
+		<h1 class="text-lg font-semibold text-destructive-foreground">{$_('app.bootFailed')}</h1>
 		<p class="mt-2 text-sm text-muted-foreground">{errorMessage}</p>
 		<Button class="mt-4" onclick={onRetry}>{$_('app.retry')}</Button>
 		{#if onDownloadDiagnostic}

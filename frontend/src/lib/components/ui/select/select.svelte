@@ -1,9 +1,9 @@
 <script lang="ts" module>
-	import { cn, type WithElementRef } from '$lib/utils.js';
+	import { cn, tv, type WithElementRef } from '$lib/utils.js';
 	import { focusRing } from '../focus-ring/index.js';
 	import type { Snippet } from 'svelte';
 	import type { HTMLSelectAttributes } from 'svelte/elements';
-	import { type VariantProps, tv } from 'tailwind-variants';
+	import type { VariantProps } from 'tailwind-variants';
 
 	export const selectVariants = tv({
 		base: `block rounded-md border border-input bg-background text-foreground shadow-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/20 ${focusRing}`,

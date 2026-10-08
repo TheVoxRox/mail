@@ -3,16 +3,17 @@
  *
  * Font sizes must come from the semantic scale defined in `src/app.css`:
  * `text-caption` (11px) → `text-xs` (12px) → `text-sm` (14px, default body)
- * → `text-title` (15px, page title) → `text-base` (16px, section/sidebar)
- * → `text-lg` (18px, message subject).
+ * → `text-base` (16px, sidebar pane and dialog titles) → `text-lg` (18px,
+ * page titles).
  *
  * Arbitrary Tailwind font-size utilities — `text-[0.72rem]`, `text-[11px]` — are
  * how the scale eroded before (a dozen near-identical one-off sizes nobody could
  * tell apart). This check fails the build on any such utility so a new size is a
  * deliberate scale addition in app.css, not an inline accident.
  *
- * If a genuinely new size is needed, add a `--text-*` token to app.css and use
- * the generated utility instead of widening this allowlist.
+ * If a genuinely new size is needed, add a `--text-*` token to app.css (and to
+ * `twMergeConfig` in src/lib/utils.ts) and use the generated utility instead of
+ * widening this allowlist.
  */
 
 import { readdir, readFile } from 'node:fs/promises';
@@ -52,9 +53,9 @@ for await (const file of svelteFiles(srcDir)) {
 if (violations.length > 0) {
 	throw new Error(
 		`Found ${violations.length} arbitrary font-size utilit${violations.length === 1 ? 'y' : 'ies'}. ` +
-			`Use the semantic scale (text-caption/xs/sm/title/base/lg) from src/app.css instead.\n` +
+			`Use the semantic scale (text-caption/xs/sm/base/lg) from src/app.css instead.\n` +
 			`${violations.join('\n')}\n` +
-			`If a new size is genuinely needed, add a --text-* token to app.css.`
+			`If a new size is genuinely needed, add a --text-* token to app.css and its name to twMergeConfig in src/lib/utils.ts.`
 	);
 }
 

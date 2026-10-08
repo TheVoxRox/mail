@@ -1,8 +1,8 @@
 <script lang="ts" module>
-	import { cn } from '$lib/utils.js';
+	import { cn, tv } from '$lib/utils.js';
 	import type { Snippet } from 'svelte';
 	import type { HTMLAttributes } from 'svelte/elements';
-	import { type VariantProps, tv } from 'tailwind-variants';
+	import type { VariantProps } from 'tailwind-variants';
 
 	export const stateMessageVariants = tv({
 		base: 'text-sm',

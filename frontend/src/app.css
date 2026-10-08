@@ -106,15 +106,16 @@
 @theme inline {
 	/*
 	 * Semantic typography scale. Take font sizes ONLY from here:
-	 * text-caption (11px) → text-xs (12px) → text-sm (14px, default body)
-	 * → text-title (15px, page title) → text-base (16px, sections/sidebar)
-	 * → text-lg (18px, message subject).
-	 * No arbitrary `text-[…rem]` — see the check:typography lint.
+	 * text-caption (11px, list metadata, shortcuts, badges) → text-xs (12px,
+	 * hints) → text-sm (14px, default body, section and group headings)
+	 * → text-base (16px, sidebar pane and dialog titles) → text-lg (18px,
+	 * page titles: every <h1>, the message subject included).
+	 * A page title outranks the sidebar's, so h1 stays the largest step.
+	 * No arbitrary `text-[…rem]` — see the check:typography lint. A size
+	 * added here also goes into `twMergeConfig` in src/lib/utils.ts.
 	 */
 	--text-caption: 0.6875rem;
 	--text-caption--line-height: 1rem;
-	--text-title: 0.9375rem;
-	--text-title--line-height: 1.4;
 	/*
 	 * Corner radii. Take them ONLY from here, i.e. rounded-sm/md/lg/xl (or
 	 * rounded-full for pills) — Tailwind's bare `rounded` is its own 4px

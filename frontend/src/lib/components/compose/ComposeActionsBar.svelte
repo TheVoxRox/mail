@@ -33,7 +33,7 @@
 </script>
 
 <div class="flex items-center justify-between border-b border-border p-4">
-	<h1 class="text-title font-semibold">{$_('compose.heading')}</h1>
+	<h1 class="text-lg font-semibold">{$_('compose.heading')}</h1>
 	<div class="flex items-center gap-2">
 		<AutosaveStatus {autosaving} {autoSavedAt} {autosaveError} />
 		{#if canInsertSignature}

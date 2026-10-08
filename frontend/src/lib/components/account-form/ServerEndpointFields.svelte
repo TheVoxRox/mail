@@ -2,7 +2,7 @@
 	/**
 	 * One IMAP/SMTP endpoint group (host + port + "use SSL") for the custom
 	 * server form. Rendered twice by {@link CustomServerFields} — the only
-	 * differences between the IMAP and SMTP blocks are the id prefix, heading
+	 * differences between the IMAP and SMTP blocks are the id prefix, legend
 	 * and host placeholder, so they share this component.
 	 *
 	 * The ids stay `{idPrefix}-host` / `{idPrefix}-port` (e.g. `acc-imap-host`)
@@ -47,39 +47,47 @@
 	const portErrorId = $derived(`${portId}-error`);
 </script>
 
-<div class={cn('space-y-2', separated && 'border-t border-border/60 pt-3')}>
-	<p class="text-sm font-medium text-foreground">{heading}</p>
-	<div class="grid gap-3 sm:grid-cols-[1fr_7.5rem]">
-		<Field for={hostId} label={$_('accounts.form.host')} error={hostError} errorId={hostErrorId}>
-			{#snippet children(control)}
-				<Input
-					id={hostId}
-					type="text"
-					bind:value={host}
-					required
-					maxlength={255}
-					{placeholder}
-					autocomplete="off"
-					{...control}
-				/>
-			{/snippet}
-		</Field>
-		<Field for={portId} label={$_('accounts.form.port')} error={portError} errorId={portErrorId}>
-			{#snippet children(control)}
-				<Input
-					id={portId}
-					type="number"
-					min={1}
-					max={65535}
-					bind:value={port}
-					required
-					{...control}
-				/>
-			{/snippet}
-		</Field>
-	</div>
-	<label class="flex items-center gap-2 text-sm">
-		<input type="checkbox" bind:checked={useSsl} class={nativeControlClass} />
-		<span>{$_('accounts.form.useSsl')}</span>
-	</label>
+<!--
+	A fieldset, not a paragraph styled as a heading: both blocks hold a "Host", a
+	"Port" and an SSL checkbox, and the legend is the only thing that tells a
+	screen reader which server a field belongs to (WCAG 1.3.1). The divider stays
+	on the wrapper, since a fieldset draws its legend into its top border.
+-->
+<div class={cn(separated && 'border-t border-border/60 pt-3')}>
+	<fieldset class="space-y-2">
+		<legend class="block text-sm font-medium text-foreground">{heading}</legend>
+		<div class="grid gap-3 sm:grid-cols-[1fr_7.5rem]">
+			<Field for={hostId} label={$_('accounts.form.host')} error={hostError} errorId={hostErrorId}>
+				{#snippet children(control)}
+					<Input
+						id={hostId}
+						type="text"
+						bind:value={host}
+						required
+						maxlength={255}
+						{placeholder}
+						autocomplete="off"
+						{...control}
+					/>
+				{/snippet}
+			</Field>
+			<Field for={portId} label={$_('accounts.form.port')} error={portError} errorId={portErrorId}>
+				{#snippet children(control)}
+					<Input
+						id={portId}
+						type="number"
+						min={1}
+						max={65535}
+						bind:value={port}
+						required
+						{...control}
+					/>
+				{/snippet}
+			</Field>
+		</div>
+		<label class="flex items-center gap-2 text-sm">
+			<input type="checkbox" bind:checked={useSsl} class={nativeControlClass} />
+			<span>{$_('accounts.form.useSsl')}</span>
+		</label>
+	</fieldset>
 </div>

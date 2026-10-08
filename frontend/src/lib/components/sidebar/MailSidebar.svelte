@@ -14,7 +14,7 @@
 	import AccountSwitcher from '$lib/components/AccountSwitcher.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import { SidebarNavItem } from '$lib/components/ui/sidebar-nav-item/index.js';
+	import { SidebarNavItem, sidebarNavBadge } from '$lib/components/ui/sidebar-nav-item/index.js';
 	import { SidebarSection } from '$lib/components/ui/sidebar-section/index.js';
 	import { SidebarShell } from '$lib/components/ui/sidebar-shell/index.js';
 	import { Surface } from '$lib/components/ui/surface/index.js';
@@ -216,7 +216,7 @@
 								{#snippet badge()}
 									{#if folder.unreadCount > 0}
 										<span
-											class="min-w-5 rounded-full bg-primary/10 px-1.5 py-0.5 text-center text-caption font-semibold text-primary"
+											class={sidebarNavBadge}
 											aria-label={$_('nav.unreadBadge', { values: { count: folder.unreadCount } })}
 										>
 											{folder.unreadCount}
