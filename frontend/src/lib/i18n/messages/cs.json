@@ -390,6 +390,7 @@
 			"oauthWaitingHeading": "Čekám na dokončení v prohlížeči…",
 			"oauthWaitingHint": "Až se přihlásíte k účtu {email}, automaticky ho přidáme.",
 			"oauthWaitingTimeout": "Přihlášení přes OAuth trvá déle, než je obvyklé. Pokud jste ho v prohlížeči dokončili, účet už mohl být přidán — zkontrolujte seznam účtů, nebo to zkuste znovu.",
+			"oauthAddedAsOther": "V prohlížeči jste se přihlásili jako {email}, a tak byl přidán účet s touto adresou.",
 			"oauthAccountExists": "Účet {email} už v aplikaci je. Pokud vyžaduje nové přihlášení, použijte u něj v seznamu účtů tlačítko Znovu přihlásit.",
 			"cancel": "Zrušit",
 			"formPageDescription": "Zkontrolujte údaje k účtu a doplňte přihlášení k poštovnímu serveru.",

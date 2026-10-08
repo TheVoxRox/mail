@@ -390,6 +390,7 @@
 			"oauthWaitingHeading": "Waiting for the browser to finish…",
 			"oauthWaitingHint": "Once you sign in to {email}, we'll add it automatically.",
 			"oauthWaitingTimeout": "OAuth sign-in is taking longer than expected. If you finished it in your browser, the account may already have been added — check the account list, or try again.",
+			"oauthAddedAsOther": "You signed in as {email} in your browser, so the account was added under that address.",
 			"oauthAccountExists": "{email} is already in the app. If it needs you to sign in again, use Re-sign in next to it in the account list.",
 			"cancel": "Cancel",
 			"formPageDescription": "Review the account details and add your mail server credentials.",
