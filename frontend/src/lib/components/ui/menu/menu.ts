@@ -16,7 +16,7 @@
  * below: a menu that *sounds* different depending on where it was opened from
  * is the same defect one sense over.
  */
-import { tv } from 'tailwind-variants';
+import { tv } from '$lib/utils.js';
 
 /**
  * `onfocus` for a menu panel. Moves focus off the container in the same task

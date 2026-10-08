@@ -43,3 +43,18 @@ export const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'
 export const FORCED_RULES = {
 	'label-content-name-mismatch': { enabled: true }
 };
+
+/**
+ * Check options the scans run with. axe merges them into each check's own
+ * defaults, so only the keys named here change.
+ *
+ * `color-contrast` with `ignoreLength`: by default axe declines to judge text
+ * of one character and files a failing one under "incomplete", which a scan
+ * reading `violations` never sees. One character is exactly what the count
+ * badges show ("3" unread), and the badge on the current sidebar item sat at
+ * 4.38:1 against the 4.5:1 of WCAG 1.4.3 while every scan stayed green. The
+ * criterion has no length exemption, so the scans do not take one either.
+ */
+export const CHECK_OPTIONS = {
+	'color-contrast': { options: { ignoreLength: true } }
+};

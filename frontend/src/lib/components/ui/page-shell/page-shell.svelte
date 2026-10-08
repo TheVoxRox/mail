@@ -7,7 +7,6 @@
 		description?: string | null;
 		class?: string;
 		contentClass?: string;
-		titleClass?: string;
 		actions?: Snippet;
 		children?: Snippet;
 	}
@@ -17,7 +16,6 @@
 		description = null,
 		class: className,
 		contentClass,
-		titleClass,
 		actions,
 		children
 	}: Props = $props();
@@ -35,7 +33,7 @@
 	<div class="border-b border-border bg-background px-6 py-4">
 		<div class="flex items-center justify-between gap-3">
 			<div class="min-w-0">
-				<h1 class={cn('truncate text-title font-semibold text-foreground', titleClass)}>
+				<h1 class="truncate text-lg font-semibold text-foreground">
 					{title}
 				</h1>
 				{#if description}

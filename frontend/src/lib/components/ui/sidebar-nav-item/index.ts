@@ -1,3 +1,3 @@
-import Root from './sidebar-nav-item.svelte';
+import Root, { sidebarNavBadge } from './sidebar-nav-item.svelte';
 
-export { Root as SidebarNavItem };
+export { Root as SidebarNavItem, sidebarNavBadge };

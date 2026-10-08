@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Locator, type Page } from '@playwright/test';
-import { FORCED_RULES, WCAG_TAGS } from './a11y-target.js';
+import { CHECK_OPTIONS, FORCED_RULES, WCAG_TAGS } from './a11y-target.js';
 import type { MessageBodyView, MessageGrouping, ReadingPane } from '$lib/stores/uiLayout.js';
 import type { TextSize } from '$lib/stores/textSize.js';
 import type { ThemePreference } from '$lib/stores/theme.js';
@@ -209,4 +209,12 @@ export const rowsOf = (root: Page | Locator): Locator =>
  * come before `withTags()`, which writes `runOnly` into it.
  */
 export const wcagScan = (page: Page): AxeBuilder =>
-	new AxeBuilder({ page }).options({ rules: FORCED_RULES }).withTags(WCAG_TAGS);
+	new AxeBuilder({ page }).options(scanOptions()).withTags(WCAG_TAGS);
+
+/**
+ * A fresh object per scan, since `withTags()` writes into it. axe reads
+ * `checks` from the run options (`getCheckOption` in axe-core) though its
+ * `RunOptions` type leaves the key out, and a returned object, unlike a
+ * literal at the call, is not refused for the extra key.
+ */
+const scanOptions = () => ({ rules: FORCED_RULES, checks: CHECK_OPTIONS });

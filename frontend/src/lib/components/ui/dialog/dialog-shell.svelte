@@ -1,7 +1,7 @@
 <script lang="ts" module>
-	import { cn } from '$lib/utils.js';
+	import { cn, tv } from '$lib/utils.js';
 	import type { Snippet } from 'svelte';
-	import { type VariantProps, tv } from 'tailwind-variants';
+	import type { VariantProps } from 'tailwind-variants';
 
 	/**
 	 * The modal surface every dialog in the app sits on: the dimmed overlay, the

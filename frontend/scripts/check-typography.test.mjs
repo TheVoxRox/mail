@@ -45,10 +45,14 @@ describe('check-typography', () => {
 		expect(result.output).toContain('text-[0.8125rem]');
 	});
 
-	it('fails on a hard-coded px size', () => {
+	it('fails on a hard-coded px size, pointing at the scale that exists', () => {
 		repo.write('frontend/src/lib/A.svelte', '<p class="text-[13px]">Small</p>\n');
 
-		expect(repo.run('check-typography.mjs').status).not.toBe(0);
+		const result = repo.run('check-typography.mjs');
+
+		expect(result.status).not.toBe(0);
+		// The steps app.css defines; a retired one (text-title) must not be offered.
+		expect(result.output).toContain('(text-caption/xs/sm/base/lg)');
 	});
 
 	/*

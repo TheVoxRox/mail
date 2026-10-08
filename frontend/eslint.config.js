@@ -78,6 +78,31 @@ export default defineConfig(
 		}
 	},
 	{
+		// Class merging goes through `$lib/utils.js`, which teaches tailwind-merge
+		// the font sizes app.css adds. A merger imported straight from the
+		// library does not know them and drops `text-caption` before a colour.
+		files: ['src/**/*.{ts,svelte}'],
+		ignores: ['src/lib/utils.ts'],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					paths: [
+						{
+							name: 'tailwind-merge',
+							message: "Use cn from '$lib/utils.js', which knows app.css's font sizes."
+						},
+						{
+							name: 'tailwind-variants',
+							importNames: ['tv', 'createTV', 'cn', 'cnMerge'],
+							message: "Use tv or cn from '$lib/utils.js', which know app.css's font sizes."
+						}
+					]
+				}
+			]
+		}
+	},
+	{
 		rules: {
 			'svelte/button-has-type': 'error',
 			// Allow dynamic goto() with query strings and folder names taken from

@@ -740,6 +740,49 @@ test.describe('Přístupnost', () => {
 		await expect(page.locator('#acc-imap-host')).toBeVisible();
 	});
 
+	test('počet nepřečtených u aktuální složky má dostatečný kontrast', async ({ page }) => {
+		// The badge's tint once stacked on the current item's and fell to 4.38:1.
+		// The per-screen scan below did not catch it, so this one waits for the
+		// count before scanning; the number is one character, which axe judges
+		// only with ignoreLength (CHECK_OPTIONS in a11y-target.ts).
+		await openApp(page, '/mail/1/INBOX');
+		const badge = page.getByRole('link', { name: /^Doručené/ }).getByLabel('3 nepřečtené');
+		await expect(badge).toHaveText('3');
+		await expect(badge.locator('xpath=..')).toHaveAttribute('aria-current', 'page');
+
+		const results = await wcagScan(page)
+			.include('a[aria-current="page"] [aria-label="3 nepřečtené"]')
+			.analyze();
+
+		expect(results.violations).toEqual([]);
+		// Passing on no node would also leave violations empty.
+		expect(results.passes.map((rule) => rule.id)).toContain('color-contrast');
+	});
+
+	test('vlastní server řadí stejně pojmenovaná pole do skupin IMAP a SMTP', async ({ page }) => {
+		// Both blocks hold a "Hostitel", a "Port" and an SSL checkbox. Only the group
+		// name tells a screen reader which server a field belongs to (WCAG 1.3.1).
+		await openApp(page, '/settings/accounts/new');
+		await page.getByRole('button', { name: 'Nastavit ručně' }).click();
+		await page.getByRole('radio', { name: 'Vlastní nastavení' }).click();
+
+		for (const [name, prefix] of [
+			['IMAP (příchozí pošta)', 'acc-imap'],
+			['SMTP (odchozí pošta)', 'acc-smtp']
+		]) {
+			const group = page.getByRole('group', { name, exact: true });
+			await expect(group.getByRole('textbox', { name: 'Hostitel' })).toHaveAttribute(
+				'id',
+				`${prefix}-host`
+			);
+			await expect(group.getByRole('spinbutton', { name: 'Port' })).toHaveAttribute(
+				'id',
+				`${prefix}-port`
+			);
+			await expect(group.getByRole('checkbox', { name: 'Šifrování SSL/TLS' })).toHaveCount(1);
+		}
+	});
+
 	test('compose validace, autosave stav a dialog neuložených změn jsou přístupné', async ({
 		page
 	}) => {

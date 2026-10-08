@@ -330,7 +330,7 @@
 >
 	<div class="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
 		<div class="min-w-0">
-			<h1 class="text-title font-semibold text-foreground">
+			<h1 class="text-lg font-semibold text-foreground">
 				{isEdit ? $_('contacts.editFormHeading') : $_('contacts.formHeading')}
 			</h1>
 			<!-- Linked via aria-describedby on the form — an unreferenced hint is
