@@ -101,9 +101,10 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "eb6fd97e9aa774c7855c63fa7636fcfb14c25de8",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "fc677e8bc60d9927badca257c74a3f0b87fe9410",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/DraftRecipientsEntity.java": "3a30c865980b7e1effb458ab38ddda80dd3693f7",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "53ea6840a3eddac96bfd8ecf0becf23d7e8fe836"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "53ea6840a3eddac96bfd8ecf0becf23d7e8fe836",
+      "backend/src/main/java/org/voxrox/mailbackend/util/SubjectNormalizer.java": "4f540c84f7de593981628cf3ca6eed988719e8f0"
     },
     "acknowledgements": [
       {
@@ -133,6 +134,10 @@
       {
         "date": "2026-10-07",
         "note": "B1-14 fixed again as the 1.52 pass recommended, and wider, recorded in the audit itself as v1.61 (section 4n); the fix is this PR's own and waits for an independent pass, so the anchor stays at 4e1b8d7 and this records the drift. One path moves, feature/mail/service, in one file. BoundedImapProtocol: DepthBoundedFetchResponse counts readNumber and readLong as objects and the characters of every string read (readString, readString(delim), readAtom, readAtomString, the items of readSimpleList) as copiedChars, twice inside an open address group; keptBytes adds COPIED_CHAR_BYTES (2) a character, HEADER_SET_BYTES (1,024) for each charged body item and STRUCTURE_PART_BYTES (1,280) for each part of a BODYSTRUCTURE (structureParts, new); the javadocs of DEFAULT_OPEN_FOLDER_BUDGET and keptBytes are restated for the 1.61 measurements and three connections. headerBytes, headerBlock, the depth, group and stall checks, the budget's value and every other bound are unchanged, so only section 4n moves. Verdict all findings fixed, verification pending."
+      },
+      {
+        "date": "2026-10-08",
+        "note": "The subject note the 1.44 pass added to section 3b, fixed as it recommended and recorded in the audit itself as v1.63; functional, so no claim of a finding moves, and the fix waits for the next independent pass with those of 1.58 to 1.61, so the anchor stays at 4e1b8d7 and this records the drift. Two paths move. Under feature/mail/service only MessageFetcher changes: toFetchedMessage reads the subject through singleLineSubject, which replaces each run of CR and LF in what getSubject returns with one space before the blank check, and the pattern getHeader uses to unfold In-Reply-To and References becomes that run (LINE_BREAKS, [\\r\\n]+), which removes the same characters as before. util/SubjectNormalizer.java changes in a javadoc only: MAX_NORMALIZED_LENGTH's note that MessageFetcher takes getSubject() verbatim now says only its line breaks are replaced; the cap, normalize and storedNorm are byte-identical. No bound moves: the subject's length is still the server's, which section 4b's cap on the normalized key answers, and replacing a run with one space never lengthens it. requireSingleLine is unchanged and still refuses a line break from the client, and the untouched send of section 4e, which sends the server's copy without the builder, does not read the stored subject. This is the eighth record, the cap: the next drift under these paths needs the audit re-verified."
       }
     ]
   },

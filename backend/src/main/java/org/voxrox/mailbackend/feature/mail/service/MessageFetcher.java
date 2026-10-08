@@ -20,8 +20,11 @@ import module java.base;
 @Service
 public class MessageFetcher {
     private static final Logger log = LoggerFactory.getLogger(MessageFetcher.class);
-    /** What {@link #getHeader} removes to unfold a header. */
-    private static final Pattern LINE_BREAK = Pattern.compile("[\r\n]");
+    /**
+     * A run of line breaks: what {@link #getHeader} removes to unfold a header, and
+     * what {@link #singleLineSubject} replaces with a space.
+     */
+    private static final Pattern LINE_BREAKS = Pattern.compile("[\r\n]+");
 
     public List<FetchedMessage> fetchBatch(Message[] messages, UIDFolder uidFolder, String folderName) {
         if (messages == null || messages.length == 0) {
@@ -69,7 +72,7 @@ public class MessageFetcher {
             throws MessagingException, IOException {
         long uid = uidFolder.getUID(message);
 
-        String subject = message.getSubject();
+        String subject = singleLineSubject(message);
         String safeSubject = (subject != null && !subject.isBlank()) ? subject : null;
 
         String sender = null;
@@ -189,6 +192,22 @@ public class MessageFetcher {
     }
 
     /**
+     * The message's subject, decoded, on one line. Angus unfolds a subject before
+     * it decodes it, so a line break left in one came out of an encoded word
+     * ({@code =?UTF-8?Q?Invoice=0D=0Adue?=}) or is one unfolding keeps. A reply and
+     * a forward carry the subject into their own, and {@link MimeMessageBuilder}
+     * refuses a line break in a header, so a subject stored with one made every
+     * reply to the message and every forward of it impossible to save or send
+     * (IMAP/SMTP audit §3b, found by the pass over 1.44). A run of line breaks
+     * becomes one space, as unfolding leaves one where it removes a fold, so the
+     * words on either side stay apart.
+     */
+    private static @Nullable String singleLineSubject(Message msg) throws MessagingException {
+        String subject = msg.getSubject();
+        return subject == null ? null : LINE_BREAKS.matcher(subject).replaceAll(" ");
+    }
+
+    /**
      * The header's first value, unfolded. Jakarta Mail returns a header as the wire
      * folded it, line break included, and RFC 5322 folds a header past 78
      * characters, which a {@code References} of two Message-IDs usually is. A reply
@@ -202,7 +221,7 @@ public class MessageFetcher {
     private @Nullable String getHeader(Message msg, String headerName) throws MessagingException {
         String[] headers = msg.getHeader(headerName);
         if (headers != null && headers.length > 0) {
-            return LINE_BREAK.matcher(headers[0]).replaceAll("");
+            return LINE_BREAKS.matcher(headers[0]).replaceAll("");
         }
         return null;
     }

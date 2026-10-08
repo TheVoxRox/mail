@@ -16,6 +16,7 @@ import jakarta.mail.Session;
 import jakarta.mail.Store;
 import jakarta.mail.internet.MimeMessage;
 
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -26,7 +27,6 @@ import org.springframework.test.context.ContextConfiguration;
 import org.voxrox.mailbackend.core.init.StorageContextInitializer;
 import org.voxrox.mailbackend.feature.account.dto.AccountCreateRequest;
 import org.voxrox.mailbackend.feature.account.dto.MailServerSettings;
-import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.feature.account.service.AccountService;
 import org.voxrox.mailbackend.feature.mail.dto.DraftRequest;
@@ -39,14 +39,15 @@ import com.icegreen.greenmail.user.GreenMailUser;
 import com.icegreen.greenmail.util.ServerSetup;
 
 /**
- * A reply to a message whose {@code References} header the wire folded, over a
- * live IMAP connection (GreenMail): sync, reply prefill, draft save, the way
- * the app runs them. Found by the verification pass over IMAP/SMTP audit 1.42
- * (§3b): the sync stored the folded value with its line break, the reply
- * carried it into its own {@code References}, and the message builder refused
- * the line break, so no save of the reply reached the server and its send
- * failed the same way. RFC 5322 folds a header past 78 characters, which a
- * {@code References} of two Message-IDs usually is.
+ * A reply to a message whose header reaches the sync with a line break in it,
+ * over a live IMAP connection (GreenMail): sync, reply prefill, draft save, the
+ * way the app runs them. The reply carries the original's header into its own,
+ * and the message builder refuses a line break in a header, so while the sync
+ * stored one no save of the reply reached the server and its send failed the
+ * same way (IMAP/SMTP audit §3b). Two shapes: a {@code References} the wire
+ * folded, as RFC 5322 folds a header past 78 characters, found by the pass over
+ * 1.42; and a subject whose encoded word decodes to a line break, found by the
+ * pass over 1.44.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "mail.client.sync.initial-delay=PT1H", "mail.test-context=ReplyToFoldedHeaderGreenMailIT"})
@@ -109,10 +110,41 @@ class ReplyToFoldedHeaderGreenMailIT {
     @Autowired
     private MessageService messageService;
 
+    /** The test account, created once: GreenMail and the context outlive a test. */
+    private static @Nullable Long accountId;
+
     @Test
     @DisplayName("A reply to a message with a folded References header is saved to the server")
     void aReplyToAFoldedReferencesHeaderIsSaved() throws Exception {
-        GreenMailUser user = greenMail.setUser(EMAIL, LOGIN, PASSWORD);
+        long account = account();
+
+        MessageEntity original = deliverAndSync(account, "<third@greenmail.local>", "Subject: Re: a thread",
+                "In-Reply-To: <second-in-the-thread@greenmail.local>",
+                "References: <first-in-the-thread@greenmail.local>\r\n <second-in-the-thread@greenmail.local>");
+        assertThat(original.getReferences())
+                .isEqualTo("<first-in-the-thread@greenmail.local> <second-in-the-thread@greenmail.local>");
+
+        assertReplyIsSaved(account, original);
+    }
+
+    @Test
+    @DisplayName("A reply to a message whose subject decodes to a line break is saved to the server")
+    void aReplyToASubjectDecodingToALineBreakIsSaved() throws Exception {
+        long account = account();
+
+        MessageEntity original = deliverAndSync(account, "<invoice@greenmail.local>",
+                "Subject: =?UTF-8?Q?Invoice=0D=0Adue?=");
+        assertThat(original.getSubject()).isEqualTo("Invoice due");
+
+        assertReplyIsSaved(account, original);
+    }
+
+    private long account() throws Exception {
+        Long id = accountId;
+        if (id != null) {
+            return id;
+        }
+        greenMail.setUser(EMAIL, LOGIN, PASSWORD);
         // The Drafts folder must exist before any backend folder listing so the
         // DRAFTS role resolves (GreenMail advertises no SPECIAL-USE).
         withStore(store -> {
@@ -124,35 +156,41 @@ class ReplyToFoldedHeaderGreenMailIT {
         MailServerSettings server = new MailServerSettings("127.0.0.1", greenMail.getImaps().getPort(), true);
         accountService.createAccount(
                 new AccountCreateRequest("Reply IT", null, EMAIL, null, server, server, LOGIN, PASSWORD));
-        AccountEntity account = accountRepository.findByEmail(EMAIL).orElseThrow();
-        Long accountId = account.getId();
+        id = accountRepository.findByEmail(EMAIL).orElseThrow().getId();
+        accountId = id;
+        return id;
+    }
 
-        String raw = "From: Sender <sender@greenmail.local>\r\n" + "To: " + EMAIL + "\r\n" + "Subject: Re: a thread\r\n"
-                + "Message-ID: <third@greenmail.local>\r\n" + "In-Reply-To: <second-in-the-thread@greenmail.local>\r\n"
-                + "References: <first-in-the-thread@greenmail.local>\r\n"
-                + " <second-in-the-thread@greenmail.local>\r\n" + "Date: Mon, 5 Oct 2026 10:00:00 +0200\r\n"
-                + "MIME-Version: 1.0\r\n" + "Content-Type: text/plain; charset=UTF-8\r\n" + "\r\n" + "Hello\r\n";
+    /** Delivers a message with the given header lines to the inbox and syncs it. */
+    private MessageEntity deliverAndSync(long account, String messageId, String... headers) throws Exception {
+        String raw = "From: Sender <sender@greenmail.local>\r\n" + "To: " + EMAIL + "\r\n"
+                + String.join("\r\n", headers) + "\r\n" + "Message-ID: " + messageId + "\r\n"
+                + "Date: Mon, 5 Oct 2026 10:00:00 +0200\r\n" + "MIME-Version: 1.0\r\n"
+                + "Content-Type: text/plain; charset=UTF-8\r\n" + "\r\n" + "Hello\r\n";
+        GreenMailUser user = greenMail.getUserManager().getUserByEmail(EMAIL);
         user.deliver(new MimeMessage(Session.getInstance(new Properties()),
                 new ByteArrayInputStream(raw.getBytes(StandardCharsets.US_ASCII))));
 
-        assertThat(mailSyncService.performFullSyncCycle(account, INBOX)).isTrue();
-        MessageEntity original = messageRepository.findByAccountIdAndMessageId(accountId, "<third@greenmail.local>")
-                .getFirst();
-        assertThat(original.getReferences())
-                .isEqualTo("<first-in-the-thread@greenmail.local> <second-in-the-thread@greenmail.local>");
+        assertThat(mailSyncService.performFullSyncCycle(accountRepository.findById(account).orElseThrow(), INBOX))
+                .isTrue();
+        return messageRepository.findByAccountIdAndMessageId(account, messageId).getFirst();
+    }
+
+    /** Prefills a reply to the message and saves it as the app does. */
+    private void assertReplyIsSaved(long account, MessageEntity original) throws Exception {
+        int draftsBefore = serverDraftCount();
 
         MailRequest reply = mailFacade.prepareReply(original.getStableId(), false);
         DraftRequest draft = new DraftRequest(reply.to(), reply.cc(), reply.bcc(), reply.subject(), reply.body(),
                 reply.attachments(), reply.inReplyTo(), reply.references());
-        DraftPersistenceService.DraftIdentity identity = draftPersistenceService.acceptDraftSave(accountId, draft,
-                null);
-        draftPersistenceService.saveDraftAsync(accountId, draft, null, identity);
+        DraftPersistenceService.DraftIdentity identity = draftPersistenceService.acceptDraftSave(account, draft, null);
+        draftPersistenceService.saveDraftAsync(account, draft, null, identity);
 
         // The APPENDUID upsert makes the row addressable without a sync: the save was
         // built and stored.
         await(() -> messageService.getByStableId(identity.stableId()).isPresent());
-        assertThat(serverDraftCount()).isEqualTo(1);
-        assertThat(accountRepository.findById(accountId).orElseThrow().getLastErrorCode()).isNull();
+        assertThat(serverDraftCount()).isEqualTo(draftsBefore + 1);
+        assertThat(accountRepository.findById(account).orElseThrow().getLastErrorCode()).isNull();
     }
 
     private int serverDraftCount() throws Exception {
