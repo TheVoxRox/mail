@@ -143,6 +143,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- **The mail toolbar loses its unused `compactText` field (#674).** No action ever set it, so its branch, the last uppercase label in the frontend, never rendered.
+
 - **`todo.md` plans a different approach to a mail server's denial of service, after the release (#669).** Since 1.49 the B1 audit bounded memory by estimating, shape by shape, what the mail library keeps of a server's answer, and each independent pass found a shape the estimate missed. Four tasks replace that: bound an account's memory by construction, stop syncing an account that keeps crashing the sidecar, rate a denial of service that reaches only its own account as Low, and give each verification pass a stated end.
 
 - **The IMAP/SMTP audit records the independent pass over the fixes of 1.65 and 1.66, is re-verified, and passes with one finding accepted (#668).** The B1-20 fix (#666), which also closed B1-14 again, and the Message-ID fix (#667) both hold. The pass found B1-21 (Low): a parameter encoded with a long charset keeps about as much memory as it is charged, not the 0.88 of it that the remaining risk accepted in #663 was computed from, so three hostile connections at their limits would now pass the app's memory rather than come close to it. The outcome is the same restart with no leak, and the owner accepted it for 0.1.0; the per-account memory budget planned after the release closes both. The audit's anchor moves to `6ff9ded`.
