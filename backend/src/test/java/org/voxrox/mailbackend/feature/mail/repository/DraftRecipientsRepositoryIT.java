@@ -506,6 +506,26 @@ class DraftRecipientsRepositoryIT {
         assertThat(repository.findChainId(account.getId(), "stable-unknown")).isEmpty();
     }
 
+    @Test
+    @DisplayName("A revision's earlier revisions are its own draft's, written before it, newest first")
+    void findsTheEarlierRevisionsOfTheChain() {
+        AccountEntity account = newAccount("user@example.com");
+        AccountEntity other = newAccount("other@example.com");
+        LocalDateTime now = LocalDateTime.now();
+        keep("<a1@voxrox.org>", "stable-a1", "chain-a", account, now);
+        keep("<b1@voxrox.org>", "stable-b1", "chain-b", account, now);
+        keep("<a2@voxrox.org>", "stable-a2", "chain-a", account, now);
+        keep("<a1@other.org>", "stable-o1", "chain-a", other, now);
+        keep("<a3@voxrox.org>", "stable-a3", "chain-a", account, now);
+        keep("<a4@voxrox.org>", "stable-a4", "chain-a", account, now);
+        em.clear();
+
+        assertThat(repository.findEarlierRevisions(account.getId(), "stable-a3"))
+                .as("not another draft's, another account's or a later one").containsExactly("stable-a2", "stable-a1");
+        assertThat(repository.findEarlierRevisions(account.getId(), "stable-a1")).isEmpty();
+        assertThat(repository.findEarlierRevisions(account.getId(), "stable-unknown")).isEmpty();
+    }
+
     private void keep(String messageId, AccountEntity account, LocalDateTime savedAt) {
         keep(messageId, null, "chain-" + messageId, account, savedAt);
     }

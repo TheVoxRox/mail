@@ -99,6 +99,18 @@
       }
     ]
   },
+  "docs/IMAP_SMTP_AUDIT.md": {
+    "reviewedTrees": {
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "ff7f8fc27f0325cce769ef6d32ab1b7970224447",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "9529c23f5e6525d047964bbe6f7342c525ddbdca"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-10-08",
+        "note": "The residual of 1.40 in section 4e (a second copy of the draft after a rejected save), fixed and recorded in the audit itself as v1.68; functional, so no claim of a finding moves and the anchor stays at 6ff9ded. Two paths move. DraftRecipientsRepository gains findEarlierRevisions, a read: the stableIds of the account's entries in the chain of a given stableId written before it by saved_seq, empty when that stableId has no entry. Under feature/mail/service only DraftPersistenceService changes: saveDraftAsync resolves, before the APPEND as before, the named revision's row and the rows of the chain's earlier revisions (replacedRevisions, earlierRevisionRows), each through isReplaceableDraft, and after a stored APPEND hard-deletes each and its row; deleteSupersededDraft does the same for the draft a send supersedes and also sets aside each deleted revision's entry, as it does the named one's. No entry is deleted or written by the new code, so 1.58's claim that entries go only by the two bounds holds; DraftPersistenceServiceTest still pins that the save and the send touch the repository only to read, besides the send's set-aside. The guard, the APPEND, markStored and the recipient check are unchanged."
+      }
+    ]
+  },
   "docs/API_SURFACE_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/AttachmentService.java": "baa9d415fdfe7fcb76ee7eaca3db731e4f115c4f",
