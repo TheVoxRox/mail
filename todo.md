@@ -172,7 +172,7 @@ Preovereni [docs/OAUTH_AUDIT.md](docs/OAUTH_AUDIT.md) proti `64633fe` naslo B2-1
 - [x] **Drobnosti z B2 §4** — HOTOVO 2026-10-05 (#640): e-mailovy fallback bere jen ucet bez OAuth vazby (prechod z hesla), adresa cizi identity prihlaseni odmitne (`AccountAlreadyExistsException`); `markRequiresReauthIfExists` hleda ucet podle identity a pise skutecny duvod. Audit B2 1.6. (`finally` kolem `processLogin` #623, javadoc #636.)
 - [ ] **Redirect URI v konzolich Google a Entra** — overit registrace rucne (komentare v repu se rozchazi: `application.properties` rika Mobile and desktop, `googleAuth.ts` Web). Na maintainerovi; audit B2 §4.
 - [x] **Pruvodce OAuth ohlasi „ucet pridan“ i bez prihlaseni** — HOTOVO 2026-10-06 (#646): adresu, kterou uz vlastni prihlaseny ucet, pruvodce odmitne pred otevrenim prohlizece (odkaz na Znovu prihlasit); jinak se ceka na zmenu proti snimku uctu z doby pred prihlasenim (novy ucet, nebo heslovy ucet prevzaty prihlasenim).
-- [ ] **Pruvodce OAuth: prihlaseni jinou identitou, nez je zadana adresa** — dobehne do timeoutu (`oauthWaitingTimeout`), i kdyz backend ucet pro tu identitu zalozil, protoze pruvodce ceka jen na zadanou adresu. Snimek uctu z #646 by stacilo porovnat i pro ostatni adresy.
+- [x] **Pruvodce OAuth: prihlaseni jinou identitou, nez je zadana adresa** — HOTOVO 2026-10-08 (#671): `pollForOAuthAccount` bere kazdy ucet, ktery prihlaseni zalozilo nebo prevzalo (snimek z #646), zadanou adresu upredni; toast rekne, pod jakou adresou se ucet pridal.
 
 ---
 

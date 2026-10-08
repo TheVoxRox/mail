@@ -9,7 +9,11 @@
 	import { loadAccounts, setActiveAccount } from '$lib/stores/accounts.js';
 	import { pushToast } from '$lib/stores/toasts.js';
 	import { startOAuthLogin } from '$lib/api/googleAuth.js';
-	import { pollForOAuthAccount, signedInAccountFor } from '$lib/accounts/oauthPoll.js';
+	import {
+		isOtherIdentity,
+		pollForOAuthAccount,
+		signedInAccountFor
+	} from '$lib/accounts/oauthPoll.js';
 	import { delayWithAbort } from '$lib/delay.js';
 	import { isValidEmailAddress } from '$lib/compose/addresses.js';
 	import {
@@ -175,7 +179,12 @@
 			await loadAccounts();
 			setActiveAccount(match.id);
 			void triggerInitialSync(match.id);
-			pushToast($_('accounts.createdToast'), { tone: 'success' });
+			pushToast(
+				isOtherIdentity(match, email)
+					? $_('accounts.wizard.oauthAddedAsOther', { values: { email: match.email } })
+					: $_('accounts.createdToast'),
+				{ tone: 'success' }
+			);
 			await goto(resolve('/settings/accounts'));
 			return;
 		}

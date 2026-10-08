@@ -14,6 +14,11 @@
  * over (the backend's upgrade). Matching by address alone found an account that
  * already had the address on the first poll, and the wizard reported it added
  * before the user had signed in at all.
+ *
+ * The address the user typed is preferred, not required: the browser lets them
+ * sign in as anyone, and the backend adds the account of the identity they
+ * signed in with. Waiting for the typed address alone ran the poll out for an
+ * account that had been added, and told the user the sign-in was taking long.
  */
 
 export const OAUTH_POLL_FAST_INTERVAL_MS = 2000;
@@ -32,7 +37,10 @@ export interface OAuthPollAccount {
 }
 
 export interface OAuthPollOptions<A extends OAuthPollAccount> {
-	/** Address the user is signing in with; matched case-insensitively. */
+	/**
+	 * Address the user typed; an account the sign-in made under it is preferred,
+	 * matched case-insensitively, over one it made under another identity.
+	 */
 	email: string;
 	/** The account list from before the sign-in started. */
 	baseline: readonly A[];
@@ -57,11 +65,8 @@ export async function pollForOAuthAccount<A extends OAuthPollAccount>(
 
 	const findMatch = async (): Promise<A | null> => {
 		try {
-			const accounts = await listAccounts();
-			return (
-				accounts.find((a) => hasAddress(a, email) && isSignedIn(a) && !signedInBefore.has(a.id)) ??
-				null
-			);
+			const made = (await listAccounts()).filter((a) => isSignedIn(a) && !signedInBefore.has(a.id));
+			return made.find((a) => hasAddress(a, email)) ?? made[0] ?? null;
 		} catch {
 			// Network blip — treat as "not yet" and keep polling.
 			return null;
@@ -99,6 +104,14 @@ export function signedInAccountFor<A extends OAuthPollAccount>(
 	email: string
 ): A | undefined {
 	return accounts.find((a) => hasAddress(a, email) && isSignedIn(a));
+}
+
+/**
+ * Whether the sign-in added the account under another address than the one the
+ * user typed, which the wizard then says, since nothing else on screen would.
+ */
+export function isOtherIdentity(account: OAuthPollAccount, email: string): boolean {
+	return !hasAddress(account, email);
 }
 
 function hasAddress(account: OAuthPollAccount, email: string): boolean {
