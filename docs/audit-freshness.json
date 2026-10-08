@@ -99,21 +99,6 @@
       }
     ]
   },
-  "docs/IMAP_SMTP_AUDIT.md": {
-    "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "1771d01a61633e552e1d603e2443f256f2d5094e"
-    },
-    "acknowledgements": [
-      {
-        "date": "2026-10-08",
-        "note": "B1-20 fixed, and B1-14 with it, as the pass over 1.61 recommended (its second way), recorded in the audit itself as v1.65 (sections 4t and 4n); the fix is this PR's own and waits for an independent pass, so the anchor stays at 77df058 and this records the drift. One path moves, feature/mail/service, in three files. BoundedImapProtocol: partTypeChars counts the most a BODYSTRUCTURE part's content type can render to, as Jakarta Mail 2.1.5's ParameterList.toString writes a plainly named value (segments of 60 with the name again and 20 characters each, a quote, backslash, CR or LF escaped, a fold before a space or tab, a space after a CR or LF); parseFetch drops a FETCH with a part past MAX_TYPE_CHARS (16,384) with OversizedTypeException, a ProtocolException like B1-17's, after the parse and before anything renders the type; keptBytes adds every part's count (typeChars) to the copied characters, at COPIED_CHAR_BYTES. The depth, group and stall checks, headerBytes, the per-object, header-set and per-part charges, every other bound and the budget's value are unchanged. The javadocs of keptBytes and DEFAULT_OPEN_FOLDER_BUDGET restate the measured ratios and the ordinary message's charge (16.9 KB); ImapAppendService changes only MAX_DRAFT_BYTES's javadoc (the 104 MiB peak 1.64 measured) and BoundedImapMessage only its class javadoc (a missing header is fetched by itself, 1.64), neither a line of code. So sections 4n and 4t move, and 4r and 4s only as far as 1.64 already corrected them. Verdict all findings fixed, verification pending."
-      },
-      {
-        "date": "2026-10-08",
-        "note": "The Message-ID note the pass over 1.63 added to section 5, fixed and recorded in the audit itself as v1.66; functional, so no claim of a finding moves, and the fix waits for the independent pass with 1.65's, so the anchor stays at 77df058 and this records the drift. One path moves: under feature/mail/service only MessageFetcher changes. toFetchedMessage removes CR and LF from what getMessageID returns with LINE_BREAKS, the pattern getHeader unfolds In-Reply-To and References with, whose javadoc now names this use as well. Nothing else reads or bounds the Message-ID differently: its length is still the server's, removing characters never lengthens it, and requireSingleLine is unchanged and still refuses a line break from the client. Threading compares the stored Message-ID with References stored unfolded since 1.45, so the two now agree on a value the server folded. The untouched send of section 4e checks recipients, not the Message-ID."
-      }
-    ]
-  },
   "docs/API_SURFACE_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/AttachmentService.java": "baa9d415fdfe7fcb76ee7eaca3db731e4f115c4f",
