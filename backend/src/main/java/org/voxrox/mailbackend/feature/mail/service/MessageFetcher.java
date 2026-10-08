@@ -21,8 +21,9 @@ import module java.base;
 public class MessageFetcher {
     private static final Logger log = LoggerFactory.getLogger(MessageFetcher.class);
     /**
-     * A run of line breaks: what {@link #getHeader} removes to unfold a header, and
-     * what {@link #singleLineSubject} replaces with a space.
+     * A run of line breaks: what {@link #getHeader} removes to unfold a header, as
+     * {@code toFetchedMessage} does from the Message-ID, and what
+     * {@link #singleLineSubject} replaces with a space.
      */
     private static final Pattern LINE_BREAKS = Pattern.compile("[\r\n]+");
 
@@ -130,7 +131,13 @@ public class MessageFetcher {
         String messageId = null;
         if (message instanceof MimeMessage mime) {
             try {
-                messageId = mime.getMessageID();
+                // Unfolded like the threading headers: Angus returns the envelope's
+                // Message-ID as the server sent it, a literal may carry a line break, and a
+                // reply carries the Message-ID into its In-Reply-To and References, which
+                // MimeMessageBuilder refuses with one (IMAP/SMTP audit §5, from the pass
+                // over 1.63). Threading matches it against References stored unfolded.
+                String id = mime.getMessageID();
+                messageId = id == null ? null : LINE_BREAKS.matcher(id).replaceAll("");
             } catch (MessagingException e) {
                 log.warn("{} Failed to read Message-ID for UID {} in {}: {}", LogCategory.IMAP, uid, folderName,
                         e.getMessage());
