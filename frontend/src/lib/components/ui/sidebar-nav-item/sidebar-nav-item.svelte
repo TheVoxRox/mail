@@ -1,5 +1,6 @@
 <script lang="ts" module>
 	import { cn, tv } from '$lib/utils.js';
+	import { badgeVariants } from '../badge/index.js';
 	import { focusRing } from '../focus-ring/index.js';
 	import type { Snippet } from 'svelte';
 
@@ -26,8 +27,10 @@
 	 * `ignoreLength` (CHECK_OPTIONS in routes/a11y-target.ts): by default it
 	 * files failing text of one character under "incomplete".
 	 */
-	export const sidebarNavBadge =
-		'min-w-5 rounded-full bg-primary/10 px-1.5 py-0.5 text-center text-caption font-semibold text-primary in-aria-[current=page]:bg-background';
+	export const sidebarNavBadge = badgeVariants({
+		kind: 'count',
+		class: 'in-aria-[current=page]:bg-background'
+	});
 
 	export type SidebarNavItemProps = {
 		active?: boolean;

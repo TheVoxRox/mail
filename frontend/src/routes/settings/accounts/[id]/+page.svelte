@@ -7,6 +7,7 @@
 	import { toErrorMessage } from '$lib/api/errors.js';
 	import { getProvider } from '$lib/api/providers.js';
 	import { loadAccounts } from '$lib/stores/accounts.js';
+	import { badgeVariants } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { PageShell } from '$lib/components/ui/page-shell/index.js';
 	import { StateMessage } from '$lib/components/ui/state-message/index.js';
@@ -98,10 +99,7 @@
 	{:else}
 		<Surface as="section" class="max-w-2xl">
 			{#if account.providerId == null}
-				<p
-					class="mb-3 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
-					aria-label={$_('accounts.customAccountBadge')}
-				>
+				<p class={badgeVariants({ class: 'mb-3' })} aria-label={$_('accounts.customAccountBadge')}>
 					<span aria-hidden="true">★</span>
 					{account.providerName ?? $_('accounts.customAccountBadge')}
 				</p>

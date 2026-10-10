@@ -27,6 +27,7 @@
 		type EffectiveReadingPaneContext
 	} from '$lib/mail/readingPaneContext.js';
 	import { cn } from '$lib/utils.js';
+	import { badgeVariants } from '$lib/components/ui/badge/index.js';
 	import { buttonVariants } from '$lib/components/ui/button/index.js';
 
 	let { children } = $props();
@@ -246,10 +247,7 @@
 						<span class="truncate">{folderLabel}</span>
 						{#if unreadCount > 0}
 							<span class="sr-only">{unreadText}</span>
-							<span
-								class="shrink-0 min-w-5 rounded-full bg-primary/10 px-1.5 py-0.5 text-center text-caption font-semibold text-primary"
-								aria-hidden="true"
-							>
+							<span class={badgeVariants({ kind: 'count' })} aria-hidden="true">
 								{unreadCount}
 							</span>
 						{/if}

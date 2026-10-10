@@ -58,6 +58,7 @@
 	import { announcePolite } from '$lib/stores/toasts.js';
 	import { nativeControlClass } from '$lib/components/ui/native-control/index.js';
 	import { focusRingInset } from '$lib/components/ui/focus-ring/index.js';
+	import { badgeVariants } from '$lib/components/ui/badge/index.js';
 	import type {
 		ConversationSummaryResponse,
 		FolderResponse,
@@ -1571,10 +1572,7 @@
 									{/if}
 									<span class="truncate">{message.subject || $_('messages.noSubject')}</span>
 									{#if displayedCount(row.conversation) > 1}
-										<span
-											class="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-caption font-semibold text-primary"
-											aria-hidden="true"
-										>
+										<span class={badgeVariants({ kind: 'count' })} aria-hidden="true">
 											{displayedCount(row.conversation)}
 										</span>
 										<span class="sr-only">{conversationLabel(row.conversation)}.</span>
@@ -1640,10 +1638,7 @@
 										<!-- Cross-folder member (e.g. an archived reply inside the inbox
 									     conversation): tag it with its home folder so the row is
 									     unambiguous both visually and for a screen reader. -->
-										<span
-											class="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-caption font-medium text-muted-foreground"
-											aria-hidden="true"
-										>
+										<span class={badgeVariants({ tone: 'muted' })} aria-hidden="true">
 											{memberFolderName}
 										</span>
 										<span class="sr-only"

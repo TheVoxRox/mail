@@ -25,7 +25,7 @@
 			"schemaMismatch": "Tato verze aplikace neumí otevřít vaše data, přestože jsou v pořádku. Nainstalujte nejnovější verzi z voxrox.org, starší instalátor použít nejde.",
 			"storageUnavailable": "Aplikace nemůže otevřít svou datovou složku. Zkontrolujte, že disk není plný a že neběží jiná kopie aplikace, a zkuste to znovu.",
 			"alreadyRunning": "Aplikace už běží na pozadí. Podívejte se na hlavní panel nebo do Správce úloh (proces „voxrox-mail-backend“), nebo zhruba 30 sekund počkejte a zkuste to znovu.",
-			"outOfMemory": "Službě aplikace došla paměť a sama se ukončila (kód 3). Spusťte aplikaci znovu. Pokud se to opakuje, bývá na vině jedna nadměrně velká zpráva ve schránce — kontaktujte podporu.",
+			"outOfMemory": "Službě aplikace došla paměť a sama se ukončila (kód 3). Spusťte aplikaci znovu. Pokud se to opakuje, bývá na vině jedna nadměrně velká zpráva ve schránce – kontaktujte podporu.",
 			"terminated": "Službu aplikace ukončil systém (kód {code}). Zkuste aplikaci spustit znovu.",
 			"signal": "Službu aplikace ukončil signál {signal}. Zkuste aplikaci spustit znovu.",
 			"failed": "Službu aplikace se nepodařilo spustit (kód {code}). Zkuste aplikaci spustit znovu, a pokud to nepomůže, kontaktujte podporu.",
@@ -40,7 +40,7 @@
 		"sseOnline": "online",
 		"sseConnecting": "připojování…",
 		"sseOffline": "offline",
-		"sseIdle": "—"
+		"sseIdle": "–"
 	},
 	"common": {
 		"cancel": "Zrušit",
@@ -84,8 +84,8 @@
 		"landmark": "Hledání v poště",
 		"label": "Vyhledat zprávy",
 		"placeholder": "Hledat ve zprávách…",
-		"resultsTitle": "Výsledky vyhledávání „{query}\"",
-		"pageTitle": "Pošta – Hledání „{query}\"",
+		"resultsTitle": "Výsledky vyhledávání „{query}“",
+		"pageTitle": "Pošta – Hledání „{query}“",
 		"searchingStatus": "Hledám…",
 		"resultsAnnounce": "Nalezeno {totalCount}.",
 		"noResults": "Žádné zprávy neodpovídají dotazu.",
@@ -204,7 +204,7 @@
 		"attachmentsListLabel": "Přílohy",
 		"attachmentDownloadDone": "Příloha {name} stažena.",
 		"contentLoading": "Načítám obsah…",
-		"notFound": "Tato zpráva už není dostupná — mohla být přesunuta nebo smazána. Seznam jsme obnovili.",
+		"notFound": "Tato zpráva už není dostupná – mohla být přesunuta nebo smazána. Seznam jsme obnovili.",
 		"iframeTitle": "Obsah zprávy",
 		"bodyHeading": "Text zprávy",
 		"linkOpenError": "Odkaz se nepodařilo otevřít v prohlížeči.",
@@ -312,7 +312,7 @@
 		"reauth": "Znovu přihlásit",
 		"reauthStarting": "Otevírám prohlížeč…",
 		"deleteAccount": "Smazat účet",
-		"deleteConfirm": "Opravdu smazat účet „{name}\"?",
+		"deleteConfirm": "Opravdu smazat účet „{name}“?",
 		"deleteConfirmTitle": "Smazat účet",
 		"deletedToast": "Účet odstraněn.",
 		"savedToast": "Změny účtu uloženy.",
@@ -327,7 +327,7 @@
 		"form": {
 			"label": "Účet",
 			"accountName": "Název účtu",
-			"accountNameHint": "Pro vaši orientaci, např. „Práce\" nebo „Soukromá pošta\".",
+			"accountNameHint": "Pro vaši orientaci, např. „Práce“ nebo „Soukromá pošta“.",
 			"email": "E-mail",
 			"emailHint": "Adresa, ze které budete posílat poštu.",
 			"displayName": "Zobrazované jméno",
@@ -337,7 +337,7 @@
 			"signaturePlaceholder": "S pozdravem, Jan Novák",
 			"signatureAutoInsert": "Vkládat podpis automaticky do nových zpráv",
 			"provider": "Poskytovatel",
-			"providerPlaceholder": "— vyberte —",
+			"providerPlaceholder": "– vyberte –",
 			"providerDetected": "Detekováno: {name}",
 			"providerDetailsLabel": "Detaily poskytovatele",
 			"providerNotDetected": "Poskytovatele pro tuto doménu neznáme, vyberte ho ze seznamu nebo použijte vlastní nastavení.",
@@ -361,7 +361,7 @@
 			"username": "Uživatelské jméno",
 			"usernameHint": "Pro většinu poskytovatelů je to vaše e-mailová adresa.",
 			"password": "Heslo",
-			"passwordEditHint": "— ponechte prázdné, pokud měnit nechcete",
+			"passwordEditHint": "– ponechte prázdné, pokud měnit nechcete",
 			"appPasswordWarning": "Pro {provider} potřebujete heslo aplikace, ne hlavní heslo k účtu.",
 			"appPasswordHelp": "Otevřít návod",
 			"oauthAvailable": "{provider} umožňuje bezpečné přihlášení, heslo zadávat nemusíte.",
@@ -389,7 +389,7 @@
 			"oauthWaitingPageDescription": "Dokončete přihlášení v prohlížeči. Až to uděláte, vrátíme se sem.",
 			"oauthWaitingHeading": "Čekám na dokončení v prohlížeči…",
 			"oauthWaitingHint": "Až se přihlásíte k účtu {email}, automaticky ho přidáme.",
-			"oauthWaitingTimeout": "Přihlášení přes OAuth trvá déle, než je obvyklé. Pokud jste ho v prohlížeči dokončili, účet už mohl být přidán — zkontrolujte seznam účtů, nebo to zkuste znovu.",
+			"oauthWaitingTimeout": "Přihlášení přes OAuth trvá déle, než je obvyklé. Pokud jste ho v prohlížeči dokončili, účet už mohl být přidán – zkontrolujte seznam účtů, nebo to zkuste znovu.",
 			"oauthAddedAsOther": "V prohlížeči jste se přihlásili jako {email}, a tak byl přidán účet s touto adresou.",
 			"oauthAccountExists": "Účet {email} už v aplikaci je. Pokud vyžaduje nové přihlášení, použijte u něj v seznamu účtů tlačítko Znovu přihlásit.",
 			"cancel": "Zrušit",
@@ -460,7 +460,7 @@
 		"bulkDeleteDone": "{deleted, plural, =0 {} one {Smazán {deleted} kontakt} few {Smazány {deleted} kontakty} other {Smazáno {deleted} kontaktů}}{failed, plural, =0 {.} other {{deleted, plural, =0 {{failed, plural, one {{failed} kontakt} few {{failed} kontakty} other {{failed} kontaktů}} se nepodařilo smazat.} other {, {failed, plural, one {{failed} kontakt} few {{failed} kontakty} other {{failed} kontaktů}} se nepodařilo smazat.}}}}",
 		"mergeAction": "Sloučit",
 		"mergeDialogTitle": "Sloučit kontakty",
-		"mergeDialogIntro": "Vyberte hlavní kontakt — ostatní budou sloučeny do něj a smazány. Jméno, příjmení a hlavní e-mail se převezmou z hlavního kontaktu, e-maily ze zbylých se přidají bez duplicit, poznámky se zřetězí.",
+		"mergeDialogIntro": "Vyberte hlavní kontakt – ostatní budou sloučeny do něj a smazány. Jméno, příjmení a hlavní e-mail se převezmou z hlavního kontaktu, e-maily ze zbylých se přidají bez duplicit, poznámky se zřetězí.",
 		"mergeNeedsTwo": "Pro sloučení vyberte aspoň dva kontakty.",
 		"mergeTargetLegend": "Hlavní kontakt po sloučení",
 		"mergeContactEmailCount": "{count, plural, one {{count} e-mail} few {{count} e-maily} other {{count} e-mailů}}",
@@ -480,7 +480,7 @@
 		"loading": "Načítám…",
 		"empty": "Žádné kontakty.",
 		"emptyLabeled": "Žádný kontakt se štítkem {label}.",
-		"renderError": "Seznam kontaktů se nepodařilo zobrazit — data ze služby pošty mají neočekávanou podobu.",
+		"renderError": "Seznam kontaktů se nepodařilo zobrazit – data ze služby pošty mají neočekávanou podobu.",
 		"renderErrorRetry": "Načíst kontakty znovu",
 		"sortLabel": "Řadit podle",
 		"sortOptions": {
@@ -506,7 +506,7 @@
 		"editContact": "Upravit kontakt {label}",
 		"delete": "Smazat",
 		"deleteContact": "Smazat kontakt {label}",
-		"deleteConfirm": "Smazat kontakt „{label}\"?",
+		"deleteConfirm": "Smazat kontakt „{label}“?",
 		"deleteConfirmTitle": "Smazat kontakt",
 		"deleteDone": "Kontakt smazán.",
 		"discardEditTitle": "Neuložené změny",
@@ -579,7 +579,7 @@
 			"intro": "Upravte téma a rozložení čtení zpráv.",
 			"theme": {
 				"heading": "Téma",
-				"hint": "Volba se projeví ihned. „Podle systému\" přebírá nastavení operačního systému.",
+				"hint": "Volba se projeví ihned. „Podle systému“ přebírá nastavení operačního systému.",
 				"options": {
 					"system": "Podle systému",
 					"light": "Světlé",
@@ -642,7 +642,7 @@
 			"label": "Jazyk"
 		},
 		"shortcuts": {
-			"pageTitle": "Pošta – Klávesové zkratky",
+			"pageTitle": "Pošta – Nastavení – Klávesové zkratky",
 			"intro": "Přehled zkratek dostupných v aplikaci.",
 			"groups": {
 				"navigation": "Navigace",
@@ -710,7 +710,7 @@
 			"loading": "Účty se ještě nenačetly."
 		},
 		"about": {
-			"pageTitle": "Pošta – O aplikaci",
+			"pageTitle": "Pošta – Nastavení – O aplikaci",
 			"intro": "Základní informace o aplikaci a stav připojení ke službě pošty.",
 			"versions": {
 				"heading": "Verze",
@@ -743,7 +743,7 @@
 				"heading": "Stav aplikace",
 				"notifications": "Synchronizace:",
 				"lastSync": "Poslední synchronizace:",
-				"lastSyncValue": "{folder} — {count, plural, =0 {bez nových zpráv} one {{count} nová zpráva} few {{count} nové zprávy} other {{count} nových zpráv}}",
+				"lastSyncValue": "{folder} – {count, plural, =0 {bez nových zpráv} one {{count} nová zpráva} few {{count} nové zprávy} other {{count} nových zpráv}}",
 				"noSyncYet": "Zatím neproběhla žádná synchronizace.",
 				"ready": "Aplikace je připojená ke službě pošty.",
 				"loading": "Aplikace se připojuje ke službě pošty…",
@@ -891,7 +891,7 @@
 		"sendCompleted": "Zpráva odeslána příjemci {recipient}.",
 		"sendFailed": "Zprávu se nepodařilo odeslat příjemci {recipient}.",
 		"sendFailedRecoveryDraft": "Zprávu se nepodařilo odeslat příjemci {recipient}. Obsah je uložen ve složce Rozepsané.",
-		"sendUnverified": "Výsledek odeslání příjemci {recipient} se nepodařilo ověřit — zkontrolujte složku Odeslané.",
+		"sendUnverified": "Výsledek odeslání příjemci {recipient} se nepodařilo ověřit – zkontrolujte složku Odeslané.",
 		"syncFailed": "Synchronizace účtu {account} selhala. Nová pošta zatím nechodí.",
 		"syncFailedDetail": "Synchronizace účtu {account} selhala: {detail}",
 		"syncRecovered": "Synchronizace účtu {account} znovu funguje."

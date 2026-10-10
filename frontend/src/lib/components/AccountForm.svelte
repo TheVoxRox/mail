@@ -11,6 +11,7 @@
 	} from '$lib/accounts/accountFormValidation.js';
 	import AccountAppPasswordNotice from '$lib/components/AccountAppPasswordNotice.svelte';
 	import CustomServerFields from '$lib/components/account-form/CustomServerFields.svelte';
+	import { badgeVariants } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Field } from '$lib/components/ui/field/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
@@ -576,9 +577,7 @@
 	{/if}
 
 	{#if !compact && serverMode === 'provider' && providerResolvedFromEmail && selectedProvider}
-		<p
-			class="-mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
-		>
+		<p class={badgeVariants({ class: '-mt-2 gap-1.5' })}>
 			<ProviderLogo keyName={activePreset?.key} size="sm" />
 			{$_('accounts.form.providerDetected', { values: { name: selectedProvider.name } })}
 		</p>
