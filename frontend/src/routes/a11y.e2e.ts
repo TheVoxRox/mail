@@ -4,6 +4,7 @@ import {
 	bodyFrame,
 	contactGrid,
 	conversationGrid,
+	expectNoFindings,
 	messageGrid,
 	openApp,
 	rowsOf,
@@ -11,7 +12,6 @@ import {
 	setMockFlags,
 	setPrefs,
 	waitForFocus,
-	waitForAnimations,
 	waitForRootRedirect,
 	wcagScan,
 	type MockFlags
@@ -168,9 +168,8 @@ test.describe('Přístupnost', () => {
 		// `/` lands in the inbox; scan that, not the boot screen it starts on.
 		await waitForRootRedirect(page);
 		await expect(rowsOf(messageGrid(page)).first()).toBeVisible();
-		await waitForAnimations(page);
 		const results = await wcagScan(page).analyze();
-		expect(results.violations).toEqual([]);
+		await expectNoFindings(page, results);
 	});
 
 	test('skip-link odkazy jsou přítomné a funkční', async ({ page }) => {
@@ -285,7 +284,7 @@ test.describe('Přístupnost', () => {
 		await expect(parent.locator('input[type="checkbox"]')).toHaveAttribute('aria-checked', 'mixed');
 
 		const results = await wcagScan(page).analyze();
-		expect(results.violations).toEqual([]);
+		await expectNoFindings(page, results);
 	});
 
 	test('indikátor selhané synchronizace nemá a11y porušení', async ({ page }) => {
@@ -315,7 +314,7 @@ test.describe('Přístupnost', () => {
 		 * is what keeps it fixed.
 		 */
 		const results = await wcagScan(page).analyze();
-		expect(results.violations).toEqual([]);
+		await expectNoFindings(page, results);
 	});
 
 	test('search landmark není vnořený v navigaci (pošta i kontakty)', async ({ page }) => {
@@ -490,7 +489,7 @@ test.describe('Přístupnost', () => {
 		// The route-level sweep scans the create form with a single address, where
 		// the group no longer exists — this is now the only axe pass that sees it.
 		const results = await wcagScan(page).analyze();
-		expect(results.violations).toEqual([]);
+		await expectNoFindings(page, results);
 
 		// Arrow keys are the only way into the unchecked radio: a radio group is one
 		// tab stop, so row 2's control is reachable from row 1's, not by Tab.
@@ -666,7 +665,7 @@ test.describe('Přístupnost', () => {
 		await expect(preview.getByRole('heading', { name: /Po sloučení \(3 e-maily\)/ })).toBeVisible();
 
 		const results = await wcagScan(page).include('[role="dialog"]').analyze();
-		expect(results.violations).toEqual([]);
+		await expectNoFindings(page, results);
 	});
 
 	test('dialog správy štítků nemá a11y porušení a potvrzení mazání je živé', async ({ page }) => {
@@ -686,7 +685,7 @@ test.describe('Přístupnost', () => {
 		await expect(confirm).toContainText('Smazat štítek Klienti?');
 
 		const results = await wcagScan(page).include('[role="dialog"]').analyze();
-		expect(results.violations).toEqual([]);
+		await expectNoFindings(page, results);
 
 		// Cancelling returns focus to the button that raised the prompt rather
 		// than dropping it to <body> when the strip leaves the DOM.
@@ -734,7 +733,7 @@ test.describe('Přístupnost', () => {
 		await expect(klienti).toHaveAccessibleName(/má jen část výběru/);
 
 		const results = await wcagScan(page).include('[role="dialog"]').analyze();
-		expect(results.violations).toEqual([]);
+		await expectNoFindings(page, results);
 	});
 
 	test('AppRail je přítomný a aktivní tlačítko odpovídá módu', async ({ page }) => {
@@ -856,7 +855,7 @@ test.describe('Přístupnost', () => {
 			.include('a[aria-current="page"] [aria-label="3 nepřečtené"]')
 			.analyze();
 
-		expect(results.violations).toEqual([]);
+		await expectNoFindings(page, results);
 		// Passing on no node would also leave violations empty.
 		expect(results.passes.map((rule) => rule.id)).toContain('color-contrast');
 	});
@@ -1104,6 +1103,33 @@ test.describe('Přístupnost', () => {
 		expect(page.url()).toBe(beforeUrl);
 	});
 
+	test('zaškrtávátko kontaktu má ukazovátkový cíl 24×24 a netrefa neotevře úpravu', async ({
+		page
+	}) => {
+		// WCAG 2.5.8 as in the mail list, with one difference that made it a
+		// failure rather than a judgement call: a click on the row's background
+		// opens the contact, so the box sat inside another target and a near miss
+		// opened the editor. The label is the target now, and it must stay out of
+		// the row's activation.
+		await openApp(page, '/contacts');
+		// Page-rooted, not grid-rooted: it is also the `has` of the label below,
+		// and a `has` locator resolves inside the label, where the grid is not.
+		const box = page.getByRole('checkbox', { name: /^Vybrat kontakt/ }).first();
+		await expect(box).toBeVisible();
+		const label = page.locator('label').filter({ has: box });
+		await expect(label).toHaveCount(1);
+		const target = await label.boundingBox();
+		expect(target).not.toBeNull();
+		expect(target!.width).toBeGreaterThanOrEqual(24);
+		expect(target!.height).toBeGreaterThanOrEqual(24);
+
+		const before = page.url();
+		await label.click({ position: { x: 2, y: 2 } });
+		await expect(box).toBeChecked();
+		expect(page.url()).toBe(before);
+		await expect(page.getByRole('form', { name: 'Úprava kontaktu' })).toHaveCount(0);
+	});
+
 	test('výsledky hledání tvoří grid s navigací po buňkách a otevření přesune fokus na text zprávy', async ({
 		page
 	}) => {
@@ -1206,7 +1232,7 @@ test.describe('Přístupnost', () => {
 
 		const results = await wcagScan(page).include('[role="dialog"]').analyze();
 
-		expect(results.violations).toEqual([]);
+		await expectNoFindings(page, results);
 	});
 
 	test('command palette drží fokus ve vyhledávání a aktivní příkaz předává přes combobox', async ({
@@ -1284,9 +1310,8 @@ test.describe('Přístupnost – jednotlivé obrazovky', () => {
 			if (flags) await setMockFlags(page, flags);
 			await openApp(page, path);
 			await expect(ready(page)).toBeVisible();
-			await waitForAnimations(page);
 			const results = await wcagScan(page).analyze();
-			expect(results.violations).toEqual([]);
+			await expectNoFindings(page, results);
 		});
 
 		test(`${name} (${path}) má živou oblast, skip-link a main landmark`, async ({ page }) => {
@@ -1308,7 +1333,7 @@ test.describe('Přístupnost – stránky po přihlášení OAuth', () => {
 			await page.goto(`/${file}${query}`);
 			await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
 			const results = await wcagScan(page).analyze();
-			expect(results.violations).toEqual([]);
+			await expectNoFindings(page, results);
 		});
 
 		// WCAG 3.1.2, which axe cannot judge: the page is `lang="cs"`, so without

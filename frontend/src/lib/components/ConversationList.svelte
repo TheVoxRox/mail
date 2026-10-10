@@ -1448,6 +1448,7 @@
 								class="col-start-2 row-span-2 flex items-start justify-center pt-3"
 								onclick={(e) => e.stopPropagation()}
 							>
+								<!-- 24px, the WCAG 2.5.8 minimum, so the target meets it by size. -->
 								<button
 									type="button"
 									{...grid.cell(rowIndex, COL_EXPAND)}
@@ -1464,7 +1465,7 @@
 												})}
 									onclick={() => void toggleExpand(row.conversation, 'firstMember')}
 									class={cn(
-										'flex size-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted',
+										'flex size-6 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted',
 										focusRingInset
 									)}
 								>

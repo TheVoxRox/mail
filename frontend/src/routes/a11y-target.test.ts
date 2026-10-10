@@ -130,4 +130,16 @@ describe('axe scans in the e2e suites', () => {
 			expect(offenders).toEqual([]);
 		}
 	);
+
+	/*
+	 * A scan judged by its `violations` alone passes whatever axe could not
+	 * decide, and that is where a dropped aria-label sat while the suite was
+	 * green (#680).
+	 */
+	it('judges every scan with expectNoFindings, not by its violations alone', () => {
+		const offenders = e2eFiles.filter((file) =>
+			/\.violations\b/.test(readFileSync(path.join(frontendRoot, file), 'utf8'))
+		);
+		expect(offenders).toEqual([]);
+	});
 });

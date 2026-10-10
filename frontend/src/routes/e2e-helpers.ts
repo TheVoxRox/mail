@@ -205,13 +205,221 @@ export const rowsOf = (root: Page | Locator): Locator =>
  * rest moved to 2.2.
  *
  * Returns the builder rather than the results so a caller can still narrow the
- * context (`.include('[role="dialog"]')`) before calling `.analyze()`.
+ * context (`.include('[role="dialog"]')`) before calling `.analyze()`, which
+ * first waits for running animations to end (`waitForAnimations`). Judge what
+ * it returns with `expectNoFindings`.
  *
  * Order matters: `options()` replaces the whole options object, so it has to
  * come before `withTags()`, which writes `runOnly` into it.
  */
 export const wcagScan = (page: Page): AxeBuilder =>
-	new AxeBuilder({ page }).options(scanOptions()).withTags(WCAG_TAGS);
+	new SettledAxeBuilder(page).options(scanOptions()).withTags(WCAG_TAGS);
+
+class SettledAxeBuilder extends AxeBuilder {
+	constructor(private readonly target: Page) {
+		super({ page: target });
+	}
+
+	override async analyze(): Promise<AxeResults> {
+		await waitForAnimations(this.target);
+		return super.analyze();
+	}
+}
+
+type AxeResults = Awaited<ReturnType<AxeBuilder['analyze']>>;
+type AxeNode = AxeResults['incomplete'][number]['nodes'][number];
+
+/**
+ * Fails on what axe found, and on what it could not decide unless that has
+ * been judged against the criterion and passes.
+ *
+ * axe files a result it cannot settle under `incomplete`, and a scan that reads
+ * only `violations` passes it. That is not a corner case here: a label on a
+ * paragraph, which the browser dropped so a screen reader heard a bare
+ * "Vlastní", came back as an incomplete `aria-prohibited-attr` and every scan
+ * stayed green (#680). So an incomplete fails the test until a case in
+ * `REVIEWED_INCOMPLETE` covers it, and a case says why the criterion is met,
+ * narrowly enough that a different element with the same rule still fails.
+ *
+ * It does not make axe see more than it does. The 16px contact checkbox inside
+ * a clickable row failed 2.5.8 without axe reporting it at all, the row not
+ * being focusable, so that one is held by its own geometry test (#681).
+ */
+export async function expectNoFindings(page: Page, results: AxeResults): Promise<void> {
+	expect(results.violations).toEqual([]);
+	const undecided: string[] = [];
+	for (const rule of results.incomplete) {
+		for (const node of rule.nodes) {
+			const covered = await Promise.all(
+				REVIEWED_INCOMPLETE.filter((judged) => judged.rule === rule.id).map((judged) =>
+					judged.covers(page, node)
+				)
+			);
+			if (!covered.includes(true)) {
+				undecided.push(`${rule.id} ${node.target.join(' ')}: ${node.failureSummary ?? ''}`);
+			}
+		}
+	}
+	expect(undecided).toEqual([]);
+}
+
+/**
+ * Whether the text of the element at `selector` meets WCAG 1.4.3 over its own
+ * background, for the case axe gives up on. Runs in the page through
+ * `page.evaluate`, so it refers to nothing outside itself.
+ *
+ * Strict where it cannot see: a background image, an opacity below 1 or a
+ * foreign element between the text and the first opaque background (sampled
+ * at nine points across the element) all make it answer false, and the result
+ * then stays undecided and fails the scan.
+ */
+function meetsContrastOverOwnBackground(selector: unknown): boolean {
+	type Rgba = [number, number, number, number];
+	const el = typeof selector === 'string' ? document.querySelector(selector) : null;
+	if (!el) return false;
+
+	// Any CSS colour, oklch() included, resolved by painting one pixel.
+	const canvas = document.createElement('canvas');
+	canvas.width = 1;
+	canvas.height = 1;
+	const ctx = canvas.getContext('2d', { willReadFrequently: true });
+	if (!ctx) return false;
+	const rgba = (css: string): Rgba => {
+		ctx.clearRect(0, 0, 1, 1);
+		ctx.fillStyle = css;
+		ctx.fillRect(0, 0, 1, 1);
+		const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
+		return [r, g, b, a / 255];
+	};
+	const over = (top: Rgba, bottom: Rgba): Rgba => [
+		top[0] * top[3] + bottom[0] * (1 - top[3]),
+		top[1] * top[3] + bottom[1] * (1 - top[3]),
+		top[2] * top[3] + bottom[2] * (1 - top[3]),
+		1
+	];
+
+	const layers: Rgba[] = [];
+	let opaque: Element | null = null;
+	for (let node: Element | null = el; node; node = node.parentElement) {
+		const style = getComputedStyle(node);
+		if (style.backgroundImage !== 'none' || Number(style.opacity) < 1) return false;
+		const colour = rgba(style.backgroundColor);
+		if (colour[3] > 0) layers.push(colour);
+		if (colour[3] === 1) {
+			opaque = node;
+			break;
+		}
+	}
+	if (!opaque) return false;
+
+	const box = el.getBoundingClientRect();
+	for (const fx of [0.05, 0.5, 0.95]) {
+		for (const fy of [0.25, 0.5, 0.75]) {
+			const stack = document.elementsFromPoint(
+				box.left + box.width * fx,
+				box.top + box.height * fy
+			);
+			const at = stack.indexOf(el);
+			if (at < 0) return false;
+			for (const below of stack.slice(at + 1)) {
+				if (!below.contains(el)) return false;
+				if (below === opaque) break;
+			}
+		}
+	}
+
+	let background = layers[layers.length - 1];
+	for (let i = layers.length - 2; i >= 0; i--) background = over(layers[i], background);
+	const style = getComputedStyle(el);
+	const text = over(rgba(style.color), background);
+	const luminance = ([r, g, b]: Rgba) => {
+		const [lr, lg, lb] = [r, g, b].map((channel) => {
+			const c = channel / 255;
+			return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+		});
+		return 0.2126 * lr + 0.7152 * lg + 0.0722 * lb;
+	};
+	const [light, dark] = [luminance(text), luminance(background)].sort((a, b) => b - a);
+	const ratio = (light + 0.05) / (dark + 0.05);
+	const size = parseFloat(style.fontSize);
+	const large = size >= 24 || (Number(style.fontWeight) >= 700 && size >= 18.66);
+	return ratio >= (large ? 3 : 4.5);
+}
+
+/** The axe check data of a node, by check: what `messageKey` it carries. */
+const messageKeys = (node: AxeNode): string[] =>
+	[...node.any, ...node.all, ...node.none].flatMap((check) => {
+		const data = check.data as { messageKey?: unknown } | null | undefined;
+		return typeof data?.messageKey === 'string' ? [data.messageKey] : [];
+	});
+
+const REVIEWED_INCOMPLETE: ReadonlyArray<{
+	rule: string;
+	/** Why the criterion is met. */
+	reason: string;
+	covers: (page: Page, node: AxeNode) => Promise<boolean>;
+}> = [
+	{
+		rule: 'color-contrast',
+		reason:
+			'The element holds a lone symbol, not text: the ▾ of a select, the ★ of a badge, both ' +
+			'aria-hidden beside text that says the same. 1.4.3 is about text.',
+		covers: async (_page, node) => messageKeys(node).includes('nonBmp')
+	},
+	{
+		rule: 'color-contrast',
+		reason:
+			'axe could not settle the background because the element overlaps others (a dialog ' +
+			'over the page). Decided in the page instead: at points across the element, everything ' +
+			'between it and the first opaque background must be its own ancestors, and the ratio ' +
+			'against those backgrounds must meet 1.4.3.',
+		covers: (page, node) =>
+			messageKeys(node).includes('elmPartiallyObscuring')
+				? page.evaluate(meetsContrastOverOwnBackground, node.target[0])
+				: Promise.resolve(false)
+	},
+	{
+		rule: 'label-content-name-mismatch',
+		reason:
+			'The visible label holds no letter or digit (the × of a toast), and 2.5.3 concerns ' +
+			'labels made of text; there is no visible word for the spoken name to contain.',
+		covers: (page, node) =>
+			page.evaluate((selector) => {
+				const el = typeof selector === 'string' ? document.querySelector(selector) : null;
+				if (!el) return false;
+				const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+				let visible = '';
+				for (let text = walker.nextNode(); text; text = walker.nextNode()) {
+					const box = text.parentElement?.getBoundingClientRect();
+					// sr-only text is clipped to a 1px box: spoken, not seen.
+					if (box && box.width > 1 && box.height > 1) visible += text.textContent ?? '';
+				}
+				return visible.trim() !== '' && !/[\p{L}\p{N}]/u.test(visible);
+			}, node.target[0])
+	},
+	{
+		rule: 'target-size',
+		reason:
+			'Decided by geometry in the page, per element (WCAG 2.5.8). A grid cell is a focus ' +
+			'position of the roving tabindex, not a pointer target: a click on it reaches the row. ' +
+			'A checkbox inside a label has the label as its target, which axe does not merge; it ' +
+			'passes at 24 × 24. A link inside a data row passes as Equivalent: a click on the row ' +
+			'background opens what the link opens (rowActivation.ts), and the row is at least 24px tall.',
+		covers: (page, node) =>
+			page.evaluate((selector) => {
+				const el = typeof selector === 'string' ? document.querySelector(selector) : null;
+				if (!el) return false;
+				if (el.matches('[role="gridcell"], [role="rowheader"]')) return true;
+				const label = el.matches('input') ? el.closest('label') : null;
+				if (label) {
+					const box = label.getBoundingClientRect();
+					return box.width >= 24 && box.height >= 24;
+				}
+				const row = el.matches('a[href]') ? el.closest('[role="row"], tr') : null;
+				return row !== null && row.getBoundingClientRect().height >= 24;
+			}, node.target[0])
+	}
+];
 
 /**
  * A fresh object per scan, since `withTags()` writes into it. axe reads
@@ -229,9 +437,10 @@ const scanOptions = () => ({ rules: FORCED_RULES, checks: CHECK_OPTIONS });
  * turns from the muted disabled look to the primary one over `transition-all`,
  * and a scan on a loaded machine once read both its colours about 83% of the
  * way there, at 3.43:1. That is a colour the user sees only in passing, so the
- * scan waits for the end state. Infinite animations (a spinner) are left out — they never finish.
+ * scan waits for the end state. Infinite animations (a spinner) are left out:
+ * they never finish.
  */
-export async function waitForAnimations(page: Page): Promise<void> {
+async function waitForAnimations(page: Page): Promise<void> {
 	await page.evaluate(() =>
 		Promise.all(
 			document

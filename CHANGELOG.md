@@ -123,6 +123,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- **A near miss on a contact's checkbox ticks it instead of opening the contact (#681).** The box was 16px inside a row that opens the contact when you click its background, so a click a few pixels off opened the editor; WCAG 2.5.8 asks for a 24px target there. The 24px around the box is now its target, as in the message list. The button that expands a conversation in the grouped list grows from 20px to 24px for the same criterion.
+
 - **The badge on an account with hand-typed servers says "Vlastní konfigurace" to a screen reader too (#680).** It showed the provider name the backend gives such an account, a bare "Vlastní", and carried the full wording in an `aria-label`. A paragraph may not be named that way, so the browser dropped the label and a screen reader heard only "Vlastní". The badge now shows "Vlastní konfigurace" as its text, for everyone.
 
 - **Czech text uses Czech quotation marks and dashes, and English text curly quotes throughout (#678).** Six Czech messages opened a quotation with „ and closed it with a straight ", among them the search results heading, the window title of a search and the confirmations for deleting an account or a contact; they now close with “. Ten Czech messages used the English em dash (—) where Czech uses the spaced en dash (–) that the window titles already had, and so did one error message of the backend. Two English messages used straight quotes where the rest use curly ones.
@@ -160,6 +162,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 - **Tauri 2.12.1 (#617).** It brings wry 0.57, whose fix (tauri-apps/wry#1799) the app has been waiting for: minimizing the window while it was still starting left the app running in the tray with no window and no way to open one. The fix is upstream's; checking it on a release build is still a manual step (`todo.md`). The Tauri plugins move with it on both sides — fs 2.6.0, http 2.8.0, shell 2.4.0, and on the Rust side updater 2.13.1, single-instance 2.5.2 and log 2.10.0 — and `webview2-com` 0.39 and `windows-core` 0.62 are raised by hand to the versions the new wry builds with, since dependabot ignores them and the Ubuntu CI does not compile the Windows-only code that uses them; that was built on Windows.
 
 ### Repo
+
+- **An axe scan fails on what axe could not decide, unless that has been judged (#681).** axe files a result it cannot settle under "incomplete", which the scans never read, and the dropped label of #680 sat there. `expectNoFindings` now fails on an incomplete that no case in `REVIEWED_INCOMPLETE` covers; the cases decide target size, contrast over an overlapped background and a symbol-only label by measuring the page. Every scan also waits for running animations first, and `a11y-target.test.ts` refuses a scan judged by its violations alone.
 
 - **The per-screen axe scans measure the loaded page instead of the boot screen (#679).** `openApp` returns once `<main>` exists, which the boot screen already satisfies, so all fourteen scans read the same "waiting for the backend" screen; each route now names something only its loaded page has, the scan waits for it and for running transitions to end, and the duplicate `/contacts` entry runs without accounts as its name says. The frontend route `/auth/finished` is deleted: the backend ends every sign-in on its own static page, so nothing reached it; those static pages are scanned instead.
 
