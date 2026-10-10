@@ -632,6 +632,14 @@
 					"tray": "Keep running in the notification area",
 					"quit": "Quit the application"
 				}
+			},
+			"toastDismissal": {
+				"heading": "Closing notifications",
+				"hint": "Error notifications always stay until you close them. The others close by themselves after a few seconds unless you choose otherwise here; while the pointer or focus is on them, the countdown stops.",
+				"options": {
+					"auto": "Close after a few seconds",
+					"manual": "Keep until I close them"
+				}
 			}
 		},
 		"language": {

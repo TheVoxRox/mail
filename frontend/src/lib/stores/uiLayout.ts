@@ -64,3 +64,25 @@ export const closeAction = persistedStore<CloseAction>('mail.closeAction', CLOSE
 export function setCloseAction(value: CloseAction): void {
 	closeAction.set(value);
 }
+
+export const TOAST_DISMISSALS = ['auto', 'manual'] as const;
+export type ToastDismissal = (typeof TOAST_DISMISSALS)[number];
+
+/**
+ * Whether a toast that is not an error closes by itself after a few seconds.
+ *
+ * A toast that vanishes on a timer is a time limit on reading it, and WCAG
+ * 2.2.1 lets one stand only if the user can turn it off (or extend it tenfold),
+ * so `manual` keeps every toast until it is closed. Error toasts never close by
+ * themselves either way; while the pointer or focus is on a toast its clock
+ * stops (ToastRegion).
+ */
+export const toastDismissal = persistedStore<ToastDismissal>(
+	'mail.toastDismissal',
+	TOAST_DISMISSALS,
+	'auto'
+);
+
+export function setToastDismissal(value: ToastDismissal): void {
+	toastDismissal.set(value);
+}

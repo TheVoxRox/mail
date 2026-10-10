@@ -1,6 +1,12 @@
 <script lang="ts">
 	import { tick } from 'svelte';
-	import { toasts, dismissToast, type ToastTone } from '$lib/stores/toasts.js';
+	import {
+		toasts,
+		dismissToast,
+		pauseToastCountdowns,
+		resumeToastCountdowns,
+		type ToastTone
+	} from '$lib/stores/toasts.js';
 	import { _ } from '$lib/i18n/index.js';
 	import { focusRing } from '$lib/components/ui/focus-ring/index.js';
 	import { cn } from '$lib/utils.js';
@@ -26,6 +32,53 @@
 			focusReturn = from;
 		}
 	}
+
+	/*
+	 * The clocks stop while the pointer or focus is on a toast, so the one being
+	 * read or about to be closed does not go mid-sentence (WCAG 2.2.1). The
+	 * region itself takes no pointer events; over and out bubble up from the
+	 * toasts, and a move between two toasts is not a leave.
+	 */
+	let pointerInside = false;
+	let focusInside = false;
+
+	function syncCountdowns(): void {
+		if (pointerInside || focusInside) pauseToastCountdowns();
+		else resumeToastCountdowns();
+	}
+
+	const leftRegion = (to: EventTarget | null) => !(to instanceof Node && regionEl?.contains(to));
+
+	function handleFocusIn(event: FocusEvent): void {
+		rememberFocusOrigin(event);
+		focusInside = true;
+		syncCountdowns();
+	}
+
+	function handleFocusOut(event: FocusEvent): void {
+		if (!leftRegion(event.relatedTarget)) return;
+		focusInside = false;
+		syncCountdowns();
+	}
+
+	function handlePointerOver(): void {
+		pointerInside = true;
+		syncCountdowns();
+	}
+
+	function handlePointerOut(event: PointerEvent): void {
+		if (!leftRegion(event.relatedTarget)) return;
+		pointerInside = false;
+		syncCountdowns();
+	}
+
+	// The last toast going takes the pointer and focus with it, without an out event.
+	$effect(() => {
+		if ($toasts.length > 0) return;
+		pointerInside = false;
+		focusInside = false;
+		resumeToastCountdowns();
+	});
 
 	/**
 	 * Dismissing removes the focused element from the DOM, and nothing used to
@@ -68,7 +121,10 @@
 	role="region"
 	aria-label={$_('toast.regionLabel')}
 	data-print="chrome"
-	onfocusin={rememberFocusOrigin}
+	onfocusin={handleFocusIn}
+	onfocusout={handleFocusOut}
+	onpointerover={handlePointerOver}
+	onpointerout={handlePointerOut}
 	class="pointer-events-none fixed right-4 top-14 z-50 flex w-80 max-w-full flex-col gap-2"
 >
 	{#each $toasts as toast (toast.id)}

@@ -778,7 +778,8 @@ test.describe('Přístupnost', () => {
 			{ id: 'reading-pane-select', heading: 'Rozložení podokna čtení' },
 			{ id: 'message-grouping-select', heading: 'Seskupení zpráv ve složce' },
 			{ id: 'close-action-select', heading: 'Co udělá zavření okna' },
-			{ id: 'message-body-select', heading: 'Výchozí zobrazení obsahu zprávy' }
+			{ id: 'message-body-select', heading: 'Výchozí zobrazení obsahu zprávy' },
+			{ id: 'toast-dismissal-select', heading: 'Zavírání oznámení' }
 		];
 		for (const { id, heading } of cards) {
 			await expect(page.getByRole('heading', { level: 2, name: heading })).toBeVisible();
@@ -884,6 +885,23 @@ test.describe('Přístupnost', () => {
 		}
 	});
 
+	test('pole účtu říkají, jaký údaj o uživateli sbírají (1.3.5)', async ({ page }) => {
+		await openApp(page, '/settings/accounts/1');
+		const form = page.getByRole('form', { name: 'Účet' });
+		await expect(form).toBeVisible();
+		for (const [label, purpose] of [
+			['E-mail', 'email'],
+			['Zobrazované jméno', 'name'],
+			['Uživatelské jméno', 'username'],
+			['Heslo', 'current-password']
+		]) {
+			await expect(form.getByLabel(label, { exact: true })).toHaveAttribute(
+				'autocomplete',
+				purpose
+			);
+		}
+	});
+
 	test('odznak účtu s vlastním serverem zní stejně, jak vypadá', async ({ page }) => {
 		// Read from the accessibility tree, which is what a screen reader gets: an
 		// aria-label on the paragraph showed up in the DOM and nowhere else.
@@ -957,6 +975,121 @@ test.describe('Přístupnost', () => {
 		await expect(
 			page.locator(`[role="row"][data-stable-id="${mailFixture.stableId}"]`)
 		).not.toHaveAttribute('aria-current', 'page');
+	});
+
+	test('seznam i detail v podokně čtení se posouvají, místo aby se ořízly', async ({ page }) => {
+		// The split pane's sections were plain blocks, so `flex-1` on what they hold
+		// did nothing: the message grid grew to all 25 rows and the open message to
+		// its full height, and the section's overflow-hidden cut both off. Neither
+		// scrolled under a mouse wheel; only keyboard focus, which scrolls clipped
+		// boxes too, still reached the rest. A short window makes both overflow.
+		await page.setViewportSize({ width: 1280, height: 520 });
+		await openApp(
+			page,
+			`/mail/${mailFixture.accountId}/${mailFixture.folderName}/${mailFixture.stableId}`
+		);
+		await expect(rowsOf(messageGrid(page)).first()).toBeVisible();
+		await expect(page.getByRole('region', { name: 'Text zprávy' })).toBeVisible();
+
+		for (const scroller of [messageGrid(page), page.locator('[data-print="document"]')]) {
+			await expect
+				.poll(() =>
+					scroller.evaluate((el) => {
+						const section = el.closest('section')!.getBoundingClientRect();
+						return {
+							insideSection: el.getBoundingClientRect().bottom <= section.bottom + 0.5,
+							scrolls: el.scrollHeight > el.clientHeight
+						};
+					})
+				)
+				.toEqual({ insideSection: true, scrolls: true });
+		}
+	});
+
+	test('oznámení se nezavře samo, dokud je na něm ukazatel nebo fokus (2.2.1)', async ({
+		page
+	}) => {
+		// The page clock stands in for the seconds a toast waits; it runs on its
+		// own between the steps, as a real one does.
+		await page.clock.install();
+		await openApp(
+			page,
+			`/mail/${mailFixture.accountId}/${mailFixture.folderName}/${mailFixture.stableId}`
+		);
+		await expect(page.getByRole('region', { name: 'Text zprávy' })).toBeVisible();
+		await page.getByRole('button', { name: /brief\.pdf/ }).click();
+		const toast = page
+			.getByRole('region', { name: 'Oznámení' })
+			.getByRole('status')
+			.filter({ hasText: 'Příloha brief.pdf stažena.' });
+		await expect(toast).toBeVisible();
+
+		await toast.hover();
+		await page.clock.runFor(10_000);
+		await expect(toast).toBeVisible();
+
+		const close = toast.getByRole('button');
+		await close.focus();
+		await page.mouse.move(0, 0);
+		await page.clock.runFor(10_000);
+		await expect(toast).toBeVisible();
+
+		await page.locator('main').focus();
+		await page.clock.runFor(10_000);
+		await expect(toast).toHaveCount(0);
+	});
+
+	test('s volbou nechat oznámení do zavření se nezavře ani bez ukazatele (2.2.1)', async ({
+		page
+	}) => {
+		await setPrefs(page, { toastDismissal: 'manual' });
+		await page.clock.install();
+		await openApp(
+			page,
+			`/mail/${mailFixture.accountId}/${mailFixture.folderName}/${mailFixture.stableId}`
+		);
+		await expect(page.getByRole('region', { name: 'Text zprávy' })).toBeVisible();
+		await page.getByRole('button', { name: /brief\.pdf/ }).click();
+		const toast = page
+			.getByRole('region', { name: 'Oznámení' })
+			.getByRole('status')
+			.filter({ hasText: 'Příloha brief.pdf stažena.' });
+		await expect(toast).toBeVisible();
+		await page.mouse.move(0, 0);
+		await page.clock.runFor(60_000);
+		await expect(toast).toBeVisible();
+	});
+
+	test('fokus v posunutém detailu zprávy nezapadne pod lištu nástrojů (2.4.11)', async ({
+		page
+	}) => {
+		// Read to the end of a message that scrolls, then move focus back up: the
+		// attachment button landed under the sticky toolbar, entirely hidden, and
+		// nothing scrolled, because the toolbar sits inside the area the browser
+		// scrolls focus into. Shift+Tab out of the body did the same in the running
+		// app; focus() is the same scroll without depending on which element of
+		// the message body the key reaches first.
+		await page.setViewportSize({ width: 1280, height: 520 });
+		await openApp(
+			page,
+			`/mail/${mailFixture.accountId}/${mailFixture.folderName}/${mailFixture.stableId}`
+		);
+		await expect(page.getByRole('region', { name: 'Text zprávy' })).toBeVisible();
+		// Opening parks focus in the body a frame later; let it, or it takes
+		// focus back from the button below.
+		await waitForFocus(bodyFrame(page));
+		const pane = page.locator('[data-print="document"]');
+		await expect
+			.poll(() => pane.evaluate((el) => el.scrollHeight - el.clientHeight))
+			.toBeGreaterThan(100);
+		await pane.evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
+
+		const attachment = page.getByRole('button', { name: /brief\.pdf/ });
+		await attachment.focus();
+		await waitForFocus(attachment);
+		const toolbar = await pane.locator('> .sticky').boundingBox();
+		const target = await attachment.boundingBox();
+		expect(target!.y).toBeGreaterThanOrEqual(toolbar!.y + toolbar!.height);
 	});
 
 	test('MessageList podporuje Home, End, PageDown a PageUp', async ({ page }) => {

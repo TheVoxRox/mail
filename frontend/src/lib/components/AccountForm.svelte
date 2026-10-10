@@ -550,6 +550,7 @@
 				<Input
 					id="acc-email"
 					type="email"
+					autocomplete="email"
 					bind:value={email}
 					bind:ref={emailInputEl}
 					oninput={scheduleResolve}
@@ -594,7 +595,13 @@
 			hint={$_('accounts.form.displayNameHint')}
 		>
 			{#snippet children(control)}
-				<Input id="acc-displayName" type="text" bind:value={displayName} {...control} />
+				<Input
+					id="acc-displayName"
+					type="text"
+					autocomplete="name"
+					bind:value={displayName}
+					{...control}
+				/>
 			{/snippet}
 		</Field>
 
@@ -739,7 +746,14 @@
 			hint={$_('accounts.form.usernameHint')}
 		>
 			{#snippet children(control)}
-				<Input id="acc-username" type="text" bind:value={username} required {...control} />
+				<Input
+					id="acc-username"
+					type="text"
+					autocomplete="username"
+					bind:value={username}
+					required
+					{...control}
+				/>
 			{/snippet}
 		</Field>
 	{/if}
@@ -754,13 +768,17 @@
 		hint={mode === 'edit' ? $_('accounts.form.passwordEditHint') : null}
 	>
 		{#snippet children(control)}
+			<!--
+				The mail account's existing password, not a new one: WCAG 1.3.5 asks the
+				field to say which, as the e-mail, name and username fields above do.
+			-->
 			<Input
 				id="acc-password"
 				type="password"
 				bind:value={password}
 				bind:ref={passwordInputEl}
 				required={mode === 'create'}
-				autocomplete="new-password"
+				autocomplete="current-password"
 				{...control}
 			/>
 		{/snippet}

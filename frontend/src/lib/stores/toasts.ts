@@ -1,4 +1,5 @@
-import { writable } from 'svelte/store';
+import { get, writable } from 'svelte/store';
+import { toastDismissal } from './uiLayout.js';
 
 export type ToastTone = 'info' | 'success' | 'error';
 
@@ -6,7 +7,7 @@ interface Toast {
 	id: number;
 	message: string;
 	tone: ToastTone;
-	/** auto-dismiss delay in ms; 0 or negative means persistent */
+	/** auto-dismiss delay in ms; 0 or negative means persistent, as does the `manual` toastDismissal preference */
 	ttl: number;
 }
 
@@ -32,7 +33,56 @@ export const assertiveAnnouncements = writable<LiveAnnouncement[]>([]);
 const ANNOUNCEMENT_CLEAR_MS = 1500;
 
 let nextId = 1;
-const timers = new Map<number, ReturnType<typeof setTimeout>>();
+
+/**
+ * The auto-dismiss clock of each toast that has one. `handle` is null while
+ * the clocks are paused, and `remaining` is what is left of the toast's time
+ * from `startedAt` on.
+ */
+interface Countdown {
+	handle: ReturnType<typeof setTimeout> | null;
+	remaining: number;
+	startedAt: number;
+}
+const countdowns = new Map<number, Countdown>();
+let paused = false;
+
+function run(id: number, countdown: Countdown): void {
+	countdown.startedAt = Date.now();
+	countdown.handle = setTimeout(() => dismissToast(id), countdown.remaining);
+}
+
+/**
+ * Stops every toast's clock, for as long as the pointer or focus is on the
+ * toasts (ToastRegion): a message being read or about to be closed should not
+ * close under the reader. WCAG 2.2.1.
+ */
+export function pauseToastCountdowns(): void {
+	if (paused) return;
+	paused = true;
+	for (const countdown of countdowns.values()) {
+		if (countdown.handle === null) continue;
+		clearTimeout(countdown.handle);
+		countdown.handle = null;
+		countdown.remaining -= Date.now() - countdown.startedAt;
+	}
+}
+
+/** Restarts the clocks `pauseToastCountdowns` stopped, each with the time it had left. */
+export function resumeToastCountdowns(): void {
+	if (!paused) return;
+	paused = false;
+	for (const [id, countdown] of countdowns) run(id, countdown);
+}
+
+// A user who turns automatic closing off means the toasts already on screen too.
+toastDismissal.subscribe((value) => {
+	if (value !== 'manual') return;
+	for (const countdown of countdowns.values()) {
+		if (countdown.handle !== null) clearTimeout(countdown.handle);
+	}
+	countdowns.clear();
+});
 
 export function pushToast(
 	message: string,
@@ -47,9 +97,10 @@ export function pushToast(
 	};
 	toasts.update((list) => [...list, toast]);
 	announce(toast.message, toast.tone === 'error');
-	if (toast.ttl > 0) {
-		const handle = setTimeout(() => dismissToast(id), toast.ttl);
-		timers.set(id, handle);
+	if (toast.ttl > 0 && get(toastDismissal) === 'auto') {
+		const countdown: Countdown = { handle: null, remaining: toast.ttl, startedAt: Date.now() };
+		countdowns.set(id, countdown);
+		if (!paused) run(id, countdown);
 	}
 	return id;
 }
@@ -72,10 +123,10 @@ export function announcePolite(message: string): void {
 }
 
 export function dismissToast(id: number): void {
-	const handle = timers.get(id);
-	if (handle) {
-		clearTimeout(handle);
-		timers.delete(id);
+	const countdown = countdowns.get(id);
+	if (countdown) {
+		if (countdown.handle !== null) clearTimeout(countdown.handle);
+		countdowns.delete(id);
 	}
 	toasts.update((list) => list.filter((t) => t.id !== id));
 }
