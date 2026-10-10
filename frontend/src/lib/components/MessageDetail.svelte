@@ -141,7 +141,18 @@
 {#if $selectedMessage}
 	{@const state = $selectedMessage}
 	{@const detail = state.detail}
-	<div class="flex flex-1 flex-col overflow-y-auto" tabindex="-1" data-print="document">
+	<!--
+		scroll-pt-14 keeps the sticky toolbar out of the area the browser scrolls a
+		focused element into (WCAG 2.4.11). Without it, Shift+Tab from the body of
+		a message read to its end put the attachment button under the toolbar,
+		entirely hidden, and nothing scrolled. 3.5rem clears the 53px toolbar and
+		scales with it under the text size setting.
+	-->
+	<div
+		class="flex flex-1 scroll-pt-14 flex-col overflow-y-auto"
+		tabindex="-1"
+		data-print="document"
+	>
 		<div
 			class="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background px-3 py-2"
 		>

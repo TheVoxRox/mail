@@ -632,6 +632,14 @@
 					"tray": "Nechat běžet v oznamovací oblasti",
 					"quit": "Ukončit aplikaci"
 				}
+			},
+			"toastDismissal": {
+				"heading": "Zavírání oznámení",
+				"hint": "Chybová oznámení zůstávají vždy, dokud je nezavřete. Ostatní se zavřou samy po několika sekundách, pokud tu nevyberete jinak; dokud je na nich ukazatel myši nebo fokus, odpočet stojí.",
+				"options": {
+					"auto": "Zavřít po několika sekundách",
+					"manual": "Nechat, dokud je nezavřu"
+				}
 			}
 		},
 		"language": {

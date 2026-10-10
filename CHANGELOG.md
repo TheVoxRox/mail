@@ -123,6 +123,16 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- **The message list and the open message scroll when the reading pane is on the right or at the bottom (#682).** The two halves of the split view did not pass their height on, so the list grew to all its rows and the message to its full length, and both were cut off at the bottom of the window with nothing to scroll. The mouse wheel did nothing there, and a short window, large text or zoom hid the end of a message. Each half now scrolls on its own.
+
+- **Focus no longer disappears under the toolbar of an open message (#682).** In a message read to its end, moving focus back up to an attachment or the sender put it under the toolbar that stays at the top, entirely hidden, and nothing scrolled (WCAG 2.4.11). The browser now keeps the toolbar's height clear when it scrolls focus into view.
+
+- **Notifications that close by themselves wait while you read them, and can stay until you close them (#682).** A notification other than an error closed after five or six seconds, whatever the reader was doing (WCAG 2.2.1). Its countdown now stops while the pointer or focus is on it, and Settings › Appearance has a choice to keep notifications until you close them. Error notifications still always stay.
+
+- **Text fields, selects and text areas have an edge you can see (#682).** Their border was a pale grey at 1.4:1 against the page in the light theme and 1.6:1 in the dark one, and that border is the only thing that tells a field apart from the surface it sits on; WCAG 1.4.11 asks 3:1. The border is now darker in the light theme and brighter in the dark one, at least 3:1 against every surface a field appears on. The outline buttons of the dark theme keep the fill they had.
+
+- **The account form says which fields hold your e-mail, name, username and password (#682).** The fields carry the `autocomplete` purpose WCAG 1.3.5 asks for, so assistive tools that fill or mark known fields recognise them. The password field said it was a new password; it is the account's current one.
+
 - **A near miss on a contact's checkbox ticks it instead of opening the contact (#681).** The box was 16px inside a row that opens the contact when you click its background, so a click a few pixels off opened the editor; WCAG 2.5.8 asks for a 24px target there. The 24px around the box is now its target, as in the message list. The button that expands a conversation in the grouped list grows from 20px to 24px for the same criterion.
 
 - **The badge on an account with hand-typed servers says "Vlastní konfigurace" to a screen reader too (#680).** It showed the provider name the backend gives such an account, a bare "Vlastní", and carried the full wording in an `aria-label`. A paragraph may not be named that way, so the browser dropped the label and a screen reader heard only "Vlastní". The badge now shows "Vlastní konfigurace" as its text, for everyone.

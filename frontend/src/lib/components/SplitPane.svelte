@@ -145,7 +145,7 @@
 	bind:clientWidth
 	bind:clientHeight
 >
-	<section class="min-h-0 overflow-hidden">
+	<section class="flex min-h-0 flex-col overflow-hidden">
 		{@render first()}
 	</section>
 
@@ -174,7 +174,7 @@
 		></div>
 	</div>
 
-	<section class="min-h-0 overflow-hidden">
+	<section class="flex min-h-0 flex-col overflow-hidden">
 		{@render second()}
 	</section>
 </div>

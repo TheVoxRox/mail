@@ -1,7 +1,12 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Locator, type Page } from '@playwright/test';
 import { CHECK_OPTIONS, FORCED_RULES, WCAG_TAGS } from './a11y-target.js';
-import type { MessageBodyView, MessageGrouping, ReadingPane } from '$lib/stores/uiLayout.js';
+import type {
+	MessageBodyView,
+	MessageGrouping,
+	ReadingPane,
+	ToastDismissal
+} from '$lib/stores/uiLayout.js';
 import type { TextSize } from '$lib/stores/textSize.js';
 import type { ThemePreference } from '$lib/stores/theme.js';
 
@@ -80,6 +85,7 @@ export interface AppPrefs {
 	messageBodyView?: MessageBodyView;
 	theme?: ThemePreference;
 	textSize?: TextSize;
+	toastDismissal?: ToastDismissal;
 	activeAccountId?: number;
 }
 

@@ -14,10 +14,13 @@
 		setMessageBodyView,
 		setMessageGrouping,
 		setReadingPane,
+		setToastDismissal,
 		type CloseAction,
 		type MessageBodyView,
 		type MessageGrouping,
-		type ReadingPane
+		type ReadingPane,
+		toastDismissal,
+		type ToastDismissal
 	} from '$lib/stores/uiLayout.js';
 
 	const THEME_OPTIONS: ReadonlyArray<ThemePreference> = ['system', 'light', 'dark'];
@@ -26,6 +29,7 @@
 	const MESSAGE_BODY_OPTIONS: ReadonlyArray<MessageBodyView> = ['html', 'plain'];
 	const GROUPING_OPTIONS: ReadonlyArray<MessageGrouping> = ['flat', 'grouped'];
 	const CLOSE_ACTION_OPTIONS: ReadonlyArray<CloseAction> = ['tray', 'quit'];
+	const TOAST_DISMISSAL_OPTIONS: ReadonlyArray<ToastDismissal> = ['auto', 'manual'];
 
 	function handleThemeChange(event: Event) {
 		const value = (event.target as HTMLSelectElement).value as ThemePreference;
@@ -55,6 +59,11 @@
 	function handleCloseActionChange(event: Event) {
 		const value = (event.target as HTMLSelectElement).value as CloseAction;
 		setCloseAction(value);
+	}
+
+	function handleToastDismissalChange(event: Event) {
+		const value = (event.target as HTMLSelectElement).value as ToastDismissal;
+		setToastDismissal(value);
 	}
 </script>
 
@@ -151,5 +160,12 @@
 		value: $messageBodyView,
 		onchange: handleMessageBodyChange,
 		options: MESSAGE_BODY_OPTIONS
+	})}
+	{@render selectCard({
+		id: 'toast-dismissal-select',
+		section: 'toastDismissal',
+		value: $toastDismissal,
+		onchange: handleToastDismissalChange,
+		options: TOAST_DISMISSAL_OPTIONS
 	})}
 </div>

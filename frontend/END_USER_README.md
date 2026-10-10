@@ -21,6 +21,10 @@ IMAP/SMTP servery a poskytuje API pro uživatelské rozhraní.
   Přepnete-li Nastavení → Vzhled → Zavření okna na „nechat běžet", zavření
   okna aplikaci jen skryje a ta dál stahuje poštu a hlásí nové zprávy; ukončit
   ji pak jde přes nabídku ikony v oznamovací oblasti.
+- Oznámení v pravém horním rohu: chybová zůstávají, dokud je nezavřete,
+  ostatní se po několika sekundách zavřou sama. Dokud je na oznámení ukazatel
+  myši nebo fokus, odpočet stojí. V Nastavení → Vzhled → Zavírání oznámení je
+  můžete nechat zobrazená všechna, dokud je nezavřete.
 - Hromadné akce se zprávami: označení jako přečtené, mazání, přesun a spam.
 - Správa kontaktů, vlastní štítky kontaktů (Rodina, Klienti, …) a export
   kontaktů do vCard.
