@@ -6,6 +6,7 @@
 	import { toErrorMessage } from '$lib/api/errors.js';
 	import { startOAuthLogin } from '$lib/api/googleAuth.js';
 	import Icon from '$lib/components/Icon.svelte';
+	import { badgeVariants } from '$lib/components/ui/badge/index.js';
 	import { ListRow } from '$lib/components/ui/list-row/index.js';
 	import { PageShell } from '$lib/components/ui/page-shell/index.js';
 	import { StateMessage } from '$lib/components/ui/state-message/index.js';
@@ -59,16 +60,10 @@
 	}
 
 	function accountStatusClass(account: AccountResponse): string {
-		if (account.requiresReauth) {
-			return 'border-warning/30 bg-warning/10 text-warning-foreground';
-		}
-		if (account.lastErrorCode) {
-			return 'border-destructive/30 bg-destructive/10 text-destructive-foreground';
-		}
-		if (!account.active) {
-			return 'border-border bg-muted text-muted-foreground';
-		}
-		return 'border-success/30 bg-success/10 text-success-foreground';
+		if (account.requiresReauth) return badgeVariants({ tone: 'warning' });
+		if (account.lastErrorCode) return badgeVariants({ tone: 'danger' });
+		if (!account.active) return badgeVariants({ tone: 'neutral' });
+		return badgeVariants({ tone: 'success' });
 	}
 
 	async function handleReauth(account: AccountResponse) {
@@ -151,9 +146,7 @@
 										<p class="min-w-0 truncate font-medium text-foreground">
 											{accountTitle(account)}
 										</p>
-										<span
-											class={`shrink-0 rounded-full border px-2 py-0.5 text-caption font-medium leading-4 ${accountStatusClass(account)}`}
-										>
+										<span class={accountStatusClass(account)}>
 											{accountStatusLabel(account)}
 										</span>
 									</div>

@@ -3,6 +3,7 @@
 	import { toErrorMessage } from '$lib/api/errors.js';
 	import { _ } from '$lib/i18n/index.js';
 	import { pushToast } from '$lib/stores/toasts.js';
+	import { badgeVariants } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { DialogDescription, DialogShell, DialogTitle } from '$lib/components/ui/dialog/index.js';
 	import { StateMessage } from '$lib/components/ui/state-message/index.js';
@@ -142,16 +143,12 @@
 						<li class="flex flex-wrap items-center gap-1.5">
 							<span class="truncate">{entry.email}</span>
 							{#if entry.primary}
-								<span
-									class="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-caption font-medium text-primary"
-								>
+								<span class={badgeVariants()}>
 									{$_('contacts.emailPrimary')}
 								</span>
 							{/if}
 							{#if !entry.fromTarget}
-								<span
-									class="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-caption font-medium text-muted-foreground"
-								>
+								<span class={badgeVariants({ tone: 'muted' })}>
 									{$_('contacts.mergeFromSource')}
 								</span>
 							{/if}

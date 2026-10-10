@@ -113,7 +113,7 @@ test.describe('Přístupnost', () => {
 		await shortcutsLink.focus();
 		await shortcutsLink.press('Enter');
 		await expect(page).toHaveURL(/\/settings\/shortcuts/);
-		await expect(page).toHaveTitle('Pošta – Klávesové zkratky');
+		await expect(page).toHaveTitle('Pošta – Nastavení – Klávesové zkratky');
 		await expect(announcer).not.toBeEmpty();
 
 		/*

@@ -110,7 +110,7 @@
 	aria-label={$_('messages.bulkToolbarLabel')}
 	class="flex min-h-11 flex-wrap items-center gap-2 border-b border-border/80 bg-muted/20 px-3 py-2"
 >
-	<label class="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+	<label class="flex items-center gap-2 text-xs text-muted-foreground">
 		<input
 			bind:this={selectAllInput}
 			type="checkbox"

@@ -34,7 +34,7 @@ test.describe('Search', () => {
 		await openApp(page, '/search/1?q=projekt');
 
 		await expect(
-			page.getByRole('heading', { name: 'Výsledky vyhledávání „projekt"' })
+			page.getByRole('heading', { name: 'Výsledky vyhledávání „projekt“' })
 		).toBeVisible();
 
 		const results = searchResultsGrid(page);

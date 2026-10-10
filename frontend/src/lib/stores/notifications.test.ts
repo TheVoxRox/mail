@@ -102,7 +102,7 @@ describe('pending send outcome handling', () => {
 		const remaining = get(toasts);
 		expect(remaining).toHaveLength(1);
 		expect(remaining[0].message).toBe(
-			'Výsledek odeslání příjemci jana@example.com se nepodařilo ověřit — zkontrolujte složku Odeslané.'
+			'Výsledek odeslání příjemci jana@example.com se nepodařilo ověřit – zkontrolujte složku Odeslané.'
 		);
 		expect(remaining[0].tone).toBe('error');
 

@@ -335,7 +335,7 @@
 			</h1>
 			<!-- Linked via aria-describedby on the form — an unreferenced hint is
 			     skipped entirely when tabbing through the form in focus mode. -->
-			<p id="contact-form-hint" class="mt-0.5 text-xs text-muted-foreground">
+			<p id="contact-form-hint" class="mt-1 text-sm text-muted-foreground">
 				{$_('contacts.formHint')}
 			</p>
 		</div>
