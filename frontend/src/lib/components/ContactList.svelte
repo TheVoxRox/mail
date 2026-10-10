@@ -581,17 +581,28 @@
 						onkeydown={(event: KeyboardEvent) => handleRowKeydown(event, contact, rowIndex)}
 					>
 						<td role="gridcell" class="px-3 py-3 align-top">
-							<input
-								type="checkbox"
-								{...grid.cell(rowIndex, COL_SELECT)}
-								class={cn('mt-0.5', nativeControlClass)}
-								checked={selectedIds.includes(contact.id)}
-								onchange={(event) => toggleSelected(contact.id, event.currentTarget.checked)}
-								disabled={bulkBusy}
-								aria-label={$_('contacts.selectContact', {
-									values: { label: contactLabel(contact) }
-								})}
-							/>
+							<!--
+								The box stays 16px; the label around it is the pointer target
+								and carries the 24px minimum (WCAG 2.5.8). The row around it is
+								a target too (a click on its background opens the contact), so
+								the spacing exception cannot apply and a near miss used to open
+								the editor instead of ticking the box. A click on a label is not
+								a row background click (rowActivation.ts). The negative margins
+								keep the box where its old mt-0.5 put it.
+							-->
+							<label class="-mt-0.5 -ml-1 flex size-6 cursor-pointer items-center justify-center">
+								<input
+									type="checkbox"
+									{...grid.cell(rowIndex, COL_SELECT)}
+									class={nativeControlClass}
+									checked={selectedIds.includes(contact.id)}
+									onchange={(event) => toggleSelected(contact.id, event.currentTarget.checked)}
+									disabled={bulkBusy}
+									aria-label={$_('contacts.selectContact', {
+										values: { label: contactLabel(contact) }
+									})}
+								/>
+							</label>
 						</td>
 						<th
 							role="rowheader"

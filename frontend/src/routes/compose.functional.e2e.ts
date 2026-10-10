@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { openApp, setPrefs, wcagScan } from './e2e-helpers';
+import { expectNoFindings, openApp, setPrefs, wcagScan } from './e2e-helpers';
 
 test.beforeEach(async ({ page }) => {
 	await setPrefs(page, { locale: 'cs', readingPane: 'right' });
@@ -555,7 +555,7 @@ test.describe('Compose', () => {
 		// Scoped to the form element, not to a name: the composer's form is
 		// deliberately unnamed, so it is no longer addressable by aria-label.
 		const results = await wcagScan(page).include('#main-content form').analyze();
-		expect(results.violations).toEqual([]);
+		await expectNoFindings(page, results);
 	});
 
 	test('Ctrl+Enter odešle novou zprávu z editoru', async ({ page }) => {
