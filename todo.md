@@ -342,7 +342,17 @@ Zbytek auditu, po kterem prisly #674, #675 a #676. Prosly texty v `cs.json`/`en.
 - [ ] **8. Tlacitka vypadajici jako odkaz — samostatne PR:** tri podoby. Primarni barva s podtrzenim pri najeti ([AccountForm.svelte:677](frontend/src/lib/components/AccountForm.svelte:677)), tlumene 12px ([AccountForm.svelte:845](frontend/src/lib/components/AccountForm.svelte:845), [settings/accounts/new/+page.svelte:291](frontend/src/routes/settings/accounts/new/+page.svelte:291), 311, 330, 357, 384) a tlumene 14px „← Zpet na Ucty" ([settings/accounts/new/+page.svelte:256](frontend/src/routes/settings/accounts/new/+page.svelte:256), [settings/accounts/[id]/+page.svelte:87](frontend/src/routes/settings/accounts/[id]/+page.svelte:87)). Varianta `link` tlacitka ([button.svelte:40](frontend/src/lib/components/ui/button/button.svelte:40)) existuje, ale tahle mista ji nepouzivaji. Sloucit do jedne nebo dvou variant.
 - [ ] **9. „Od:" a „Komu:" — doporuceno nechat:** v detailu zpravy tmave ([MessageHeaderCard.svelte:126](frontend/src/lib/components/message-detail/MessageHeaderCard.svelte:126)), pri psani tlumene ([RecipientFields.svelte:56](frontend/src/lib/components/compose/RecipientFields.svelte:56)). Jiny kontext (metadata proti popisku pole), zavrit jako rozhodnuti, pokud to nevadi.
 - [ ] **10. Duplicitni nadpis v pruvodci uctem:** pri „Nastavit rucne" je nadpis kroku ([settings/accounts/new/+page.svelte:378](frontend/src/routes/settings/accounts/new/+page.svelte:378), `accounts.wizard.presets.custom`) i legenda skupiny ([CustomServerFields.svelte:36](frontend/src/lib/components/account-form/CustomServerFields.svelte:36), `accounts.form.customServerLegend`) shodne „Vlastni IMAP/SMTP", takze odecitac cte totez dvakrat po sobe.
-- [ ] **11. Skeny jednotlivych obrazovek v a11y sade mozna bezi pred nactenim dat:** sken `/mail/1/INBOX` ([a11y.e2e.ts:1172](frontend/src/routes/a11y.e2e.ts:1172)) prosel i se starym odznakem s kontrastem 4,45 : 1, cileny test, ktery na odznak pocka, spadl. `openApp` ([e2e-helpers.ts:64](frontend/src/routes/e2e-helpers.ts:64)) ceka jen na `waitForShell`. Hypoteza, neovereno: skeny tedy mohou merit jen stav nacitani. Overit, co sken na kazde route vidi, a pripadne dat kazde route podminku pripravenosti.
+- [x] **11. Skeny jednotlivych obrazovek merily spousteci obrazovku — HOTOVO 2026-10-10 (#679):** hypoteza potvrzena (vsech 14 skenu videlo stejnych 8 prvku „Cekam na bezpecne pripojeni k backendu…"), kazda route ma podminku pripravenosti. Detail v [CHANGELOG.md](CHANGELOG.md).
+
+---
+
+## WCAG 2.2 AA (cil od 2026-10-10)
+
+Automaticky sken (axe, tagy az po `wcag22aa`) uz meri nactene stranky (#679), ale pokryje mensinu kriterii. Zbytek je rucni prochod kriterii A a AA proti bezici aplikaci; nalezy sem, opravy po PR.
+
+- [ ] **Odznak „Vlastni konfigurace" v detailu uctu:** `aria-label` na `<p>` ([settings/accounts/[id]/+page.svelte](frontend/src/routes/settings/accounts/[id]/+page.svelte)), odstavec jmeno nesmi nest, takze odecitac cte viditelny text (jmeno poskytovatele). Mock ma u vsech uctu poskytovatele, takze se odznak v zadnem skenu nevykresli.
+- [ ] **2.5.8 Target Size v gridech:** axe vraci `incomplete` pro zaskrtavatka 16 × 16 a odkazy predmetu 20 px vysoke v radcich seznamu zprav a vysledku hledani. Rozhodnout s vyjimkou „Equivalent" (cely radek otevira totez) a „Spacing", vysledek zapsat k testu.
+- [ ] **Rucni prochod zbylych kriterii A/AA:** mimo jine 1.3.5 (autocomplete u e-mailu a jmena v uctu), 1.4.4 a 1.4.10 (200 % a 400 % zoom), 1.4.12 (rozestupy textu), 1.4.13 (obsah pri najeti), 2.2.1 (automaticky mizici toasty), 2.4.11 (fokus zakryty lepkavou listou), 2.5.7 (tazeni delice podoken), 3.2.6, 3.3.7, 3.3.8 (prihlaseni heslem: vlozeni ze schranky).
 
 ---
 

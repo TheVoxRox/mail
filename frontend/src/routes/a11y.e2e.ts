@@ -1,6 +1,8 @@
-import { expect, test, type Page } from '@playwright/test';
+import { fileURLToPath } from 'node:url';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import {
 	bodyFrame,
+	contactGrid,
 	conversationGrid,
 	messageGrid,
 	openApp,
@@ -9,8 +11,10 @@ import {
 	setMockFlags,
 	setPrefs,
 	waitForFocus,
+	waitForAnimations,
 	waitForRootRedirect,
-	wcagScan
+	wcagScan,
+	type MockFlags
 } from './e2e-helpers';
 
 test.setTimeout(60000);
@@ -25,30 +29,118 @@ const mailFixture = {
  * Every screen of the app that must pass the basic a11y check.
  * `/` is not listed — it redirects right away; the other tests below cover it.
  *
- * Parameterized routes use the placeholder `1`; when the backend is not
- * running (the `npm run preview` case), the screens stay in an error/waiting
- * state — that is fine for the axe scan, they just must not contain
- * accessibility violations.
+ * `ready` is what the scan waits for, and it has to be the page's own content.
+ * `openApp` returns once `<main>` exists, which is already true of the boot
+ * screen ("Čekám na bezpečné připojení k backendu…"), and that is what every
+ * scan here used to measure: the same eight elements on all fourteen routes,
+ * while the data and most of the controls arrived after axe had finished. The
+ * scans stayed green through a badge that failed 1.4.3 for that reason (#675).
+ * So `ready` names something only the loaded page has — its data where it has
+ * any, its heading where it does not.
  */
-const routes: ReadonlyArray<{ path: string; name: string }> = [
-	{ path: '/settings/appearance', name: 'Nastavení vzhledu' },
-	{ path: '/settings/language', name: 'Nastavení jazyka' },
-	{ path: '/settings/shortcuts', name: 'Nastavení klávesových zkratek' },
-	{ path: '/settings/about', name: 'Nastavení aplikace' },
-	{ path: '/settings/accounts', name: 'Seznam účtů' },
-	{ path: '/settings/accounts/new', name: 'Nový účet' },
-	{ path: '/settings/accounts/1', name: 'Detail účtu' },
-	{ path: '/compose', name: 'Nová zpráva' },
-	{ path: '/contacts', name: 'Kontakty bez účtu' },
-	{ path: '/contacts', name: 'Kontakty' },
-	{ path: '/contacts?create=1', name: 'Nový kontakt' },
-	{ path: '/search/1?q=test', name: 'Hledání' },
-	{ path: '/mail/1/INBOX', name: 'Výpis složky' },
+const routes: ReadonlyArray<{
+	path: string;
+	name: string;
+	ready: (page: Page) => Locator;
+	flags?: MockFlags;
+}> = [
+	{
+		path: '/settings/appearance',
+		name: 'Nastavení vzhledu',
+		ready: (page) => page.getByRole('combobox', { name: 'Téma' })
+	},
+	{
+		path: '/settings/language',
+		name: 'Nastavení jazyka',
+		ready: (page) => page.getByRole('combobox', { name: 'Jazyk' })
+	},
+	{
+		path: '/settings/shortcuts',
+		name: 'Nastavení klávesových zkratek',
+		ready: (page) => page.getByRole('heading', { name: 'Navigace' })
+	},
+	{
+		path: '/settings/about',
+		name: 'Nastavení aplikace',
+		ready: (page) => page.getByText('Aplikace je připojená ke službě pošty.')
+	},
+	{
+		path: '/settings/accounts',
+		name: 'Seznam účtů',
+		ready: (page) => page.getByText('tester@example.com')
+	},
+	{
+		path: '/settings/accounts/new',
+		name: 'Nový účet',
+		ready: (page) => page.getByRole('form', { name: 'Detekce poskytovatele podle e-mailu' })
+	},
+	{
+		path: '/settings/accounts/1',
+		name: 'Detail účtu',
+		ready: (page) => page.getByRole('form', { name: 'Účet' })
+	},
+	{
+		path: '/compose',
+		name: 'Nová zpráva',
+		// Send is disabled until the prefill is done; the body field is there before it.
+		ready: (page) => page.getByRole('button', { name: 'Odeslat' }).and(page.locator(':enabled'))
+	},
+	{
+		path: '/contacts',
+		name: 'Kontakty bez účtu',
+		ready: (page) => contactGrid(page).getByRole('row').nth(1),
+		flags: { noAccounts: true }
+	},
+	{
+		path: '/contacts',
+		name: 'Kontakty',
+		ready: (page) => contactGrid(page).getByRole('row').nth(1)
+	},
+	{
+		path: '/contacts?create=1',
+		name: 'Nový kontakt',
+		ready: (page) => page.getByRole('form', { name: 'Nový kontakt' })
+	},
+	{
+		path: '/search/1?q=test',
+		name: 'Hledání',
+		ready: (page) => rowsOf(searchResultsGrid(page)).first()
+	},
+	{
+		path: '/mail/1/INBOX',
+		name: 'Výpis složky',
+		ready: (page) => rowsOf(messageGrid(page)).first()
+	},
 	{
 		path: `/mail/${mailFixture.accountId}/${mailFixture.folderName}/${mailFixture.stableId}`,
-		name: 'Detail zprávy'
+		name: 'Detail zprávy',
+		ready: (page) => bodyFrame(page).contentFrame().locator('body')
+	}
+];
+
+/**
+ * The pages the system browser shows at the end of an OAuth sign-in. The
+ * backend serves them from its own static resources, so they are not part of
+ * the frontend build, but they are as much the product as any screen of it.
+ * Served here at the preview origin through `page.route`, which keeps them on
+ * http as the backend does; the failure page's script reads `?reason=`.
+ */
+const STATIC_DIR = fileURLToPath(
+	new URL('../../../backend/src/main/resources/static/', import.meta.url)
+);
+const oauthPages = [
+	{
+		file: 'auth-finished.html',
+		query: '',
+		name: 'Přihlášení dokončeno',
+		englishName: 'Login Successful'
 	},
-	{ path: '/auth/finished', name: 'Návrat z OAuth' }
+	{
+		file: 'auth-failed.html',
+		query: '?reason=invalid_grant',
+		name: 'Přihlášení se nezdařilo',
+		englishName: 'Login Failed'
+	}
 ];
 
 async function openPalette(page: Page): Promise<void> {
@@ -67,6 +159,10 @@ test.beforeEach(async ({ page }) => {
 test.describe('Přístupnost', () => {
 	test('hlavní stránka nemá a11y porušení', async ({ page }) => {
 		await openApp(page, '/');
+		// `/` lands in the inbox; scan that, not the boot screen it starts on.
+		await waitForRootRedirect(page);
+		await expect(rowsOf(messageGrid(page)).first()).toBeVisible();
+		await waitForAnimations(page);
 		const results = await wcagScan(page).analyze();
 		expect(results.violations).toEqual([]);
 	});
@@ -1168,19 +1264,46 @@ test.describe('Nápověda k ovládacímu prvku se čte jednou', () => {
 });
 
 test.describe('Přístupnost – jednotlivé obrazovky', () => {
-	for (const { path, name } of routes) {
+	for (const { path, name, ready, flags } of routes) {
 		test(`${name} (${path}) nemá a11y porušení`, async ({ page }) => {
+			if (flags) await setMockFlags(page, flags);
 			await openApp(page, path);
+			await expect(ready(page)).toBeVisible();
+			await waitForAnimations(page);
 			const results = await wcagScan(page).analyze();
 			expect(results.violations).toEqual([]);
 		});
 
 		test(`${name} (${path}) má živou oblast, skip-link a main landmark`, async ({ page }) => {
+			if (flags) await setMockFlags(page, flags);
 			await openApp(page, path);
+			await expect(ready(page)).toBeVisible();
 			await expect(page.locator('a[href="#main-content"]')).toBeAttached();
 			await expect(page.getByRole('link', { name: 'Přejít na klávesové zkratky' })).toBeAttached();
 			await expect(page.locator('main#main-content')).toBeAttached();
 			await expect(page.locator('#live-region[aria-live="polite"]')).toBeAttached();
+		});
+	}
+});
+
+test.describe('Přístupnost – stránky po přihlášení OAuth', () => {
+	for (const { file, query, name, englishName } of oauthPages) {
+		test(`${name} (${file}) nemá a11y porušení`, async ({ page }) => {
+			await page.route(`**/${file}*`, (route) => route.fulfill({ path: STATIC_DIR + file }));
+			await page.goto(`/${file}${query}`);
+			await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
+			const results = await wcagScan(page).analyze();
+			expect(results.violations).toEqual([]);
+		});
+
+		// WCAG 3.1.2, which axe cannot judge: the page is `lang="cs"`, so without
+		// its own `lang` the English half is read with Czech pronunciation.
+		test(`${name} (${file}) označí anglickou polovinu jako angličtinu`, async ({ page }) => {
+			await page.route(`**/${file}*`, (route) => route.fulfill({ path: STATIC_DIR + file }));
+			await page.goto(`/${file}${query}`);
+			const heading = page.getByRole('heading', { name: englishName, exact: true });
+			await expect(heading).toBeVisible();
+			expect(await heading.evaluate((el) => el.closest('[lang]')?.getAttribute('lang'))).toBe('en');
 		});
 	}
 });

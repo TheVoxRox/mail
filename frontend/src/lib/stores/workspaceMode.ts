@@ -5,9 +5,7 @@ export type WorkspaceMode = 'mail' | 'contacts' | 'settings';
 
 export function detectWorkspaceMode(pathname: string): WorkspaceMode {
 	if (pathname.startsWith('/contacts')) return 'contacts';
-	if (pathname.startsWith('/settings') || pathname.startsWith('/auth/finished')) {
-		return 'settings';
-	}
+	if (pathname.startsWith('/settings')) return 'settings';
 	return 'mail';
 }
 

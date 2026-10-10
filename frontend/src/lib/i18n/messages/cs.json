@@ -847,12 +847,6 @@
 	"railSwitch": {
 		"goToMode": "{mode} ({shortcut})"
 	},
-	"auth": {
-		"pageTitle": "Pošta – Přihlášení dokončeno",
-		"heading": "Přihlášení dokončeno",
-		"description": "Můžete toto okno zavřít. V aplikaci za {countdown, plural, one {{countdown} sekundu} few {{countdown} sekundy} other {{countdown} sekund}} pokračujeme na správu účtů.",
-		"goToAccounts": "Přejít na účty"
-	},
 	"root": {
 		"noAccountsPageTitle": "Pošta – Žádný účet",
 		"noFoldersPageTitle": "Pošta – Žádné složky",

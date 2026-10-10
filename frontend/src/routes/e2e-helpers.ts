@@ -218,3 +218,24 @@ export const wcagScan = (page: Page): AxeBuilder =>
  * literal at the call, is not refused for the extra key.
  */
 const scanOptions = () => ({ rules: FORCED_RULES, checks: CHECK_OPTIONS });
+
+/**
+ * Wait for every finite animation and CSS transition on the page to end.
+ *
+ * axe reads colours as computed at the moment it looks, and a control that has
+ * just changed state is still on its way between two palettes: Send in compose
+ * turns from the muted disabled look to the primary one over `transition-all`,
+ * and a scan on a loaded machine once read both its colours about 83% of the
+ * way there, at 3.43:1. That is a colour the user sees only in passing, so the
+ * scan waits for the end state. Infinite animations (a spinner) are left out — they never finish.
+ */
+export async function waitForAnimations(page: Page): Promise<void> {
+	await page.evaluate(() =>
+		Promise.all(
+			document
+				.getAnimations()
+				.filter((animation) => animation.effect?.getComputedTiming().endTime !== Infinity)
+				.map((animation) => animation.finished.catch(() => undefined))
+		)
+	);
+}
