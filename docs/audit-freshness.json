@@ -145,7 +145,8 @@
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java": "69fc4c0197c480dc39ba3c38dece6874faec8d17",
       "backend/src/main/java/org/voxrox/mailbackend/feature/auth": "4c2a4d33b484b310cd2d8600a85cf35b0eb15c69",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/account/service/ExternalProviderLoginService.java": "95fc7e1068ba6a65fd3be33a1be6998bf1d6bd1b"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/account/service/ExternalProviderLoginService.java": "95fc7e1068ba6a65fd3be33a1be6998bf1d6bd1b",
+      "backend/src/main/resources/static": "1166bfbda92e49253a54485f349cbb7911c6dac7"
     },
     "acknowledgements": [
       {
@@ -155,6 +156,10 @@
       {
         "date": "2026-10-05",
         "note": "Two section 4 notes acted on, recorded in the audit itself as v1.6. ExternalProviderLoginService: findOrCreateExternalAccount still looks up (oauth2_provider, external_id) first, then the address, but the address now takes only a row with no oauth2_provider and no external_id (the password upgrade the fallback was written for); a row another identity owns makes the sign-in throw AccountAlreadyExistsException (409, error.account.alreadyExists) before any write, so the row, its binding and its token stay as they are, inside the same transaction that rolls back. markRequiresReauthIfExists takes (providerName, externalId, reason) and finds the account by findByOauth2ProviderAndExternalId instead of findByEmail, and the audit line carries the reason. Under feature/auth only OAuth2LoginService changes: its two callers pass providerName, externalId (validated non-blank by the guard before them) and missing_refresh_token or missing_scope. The four guards, their order, the flag's one clearing path, PKCE, the redirect handling, the session end at /success and the token storage are untouched. What moves narrows what a sign-in may touch: an account another identity owns can no longer be re-bound or flagged by it. Verdict stays PASS."
+      },
+      {
+        "date": "2026-10-10",
+        "note": "auth-finished.html and auth-failed.html, the pages the system browser shows after a sign-in, change for WCAG 2.2 only: the English half of each is marked lang=\"en\" (3.1.2), the reason line on the failure page is #4b5563 instead of #6b7280 on #f3f4f6 (4.39:1 to 1.4.3's 4.5:1), and its Czech text uses the en dash. Markup and CSS only: the inline script that writes ?reason= with textContent, the redirect targets and the public-endpoint list are unchanged. Verdict unchanged."
       }
     ]
   }

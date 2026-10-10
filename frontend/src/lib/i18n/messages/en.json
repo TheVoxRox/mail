@@ -847,12 +847,6 @@
 	"railSwitch": {
 		"goToMode": "Go to {mode} ({shortcut})"
 	},
-	"auth": {
-		"pageTitle": "Mail – Sign-in finished",
-		"heading": "Sign-in finished",
-		"description": "You can close this window. Returning to account management in {countdown, plural, one {{countdown} second} other {{countdown} seconds}}.",
-		"goToAccounts": "Go to accounts"
-	},
 	"root": {
 		"noAccountsPageTitle": "Mail – No account",
 		"noFoldersPageTitle": "Mail – No folders",
