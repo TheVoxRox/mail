@@ -63,7 +63,13 @@
 	--success: oklch(0.62 0.13 162);
 	--success-foreground: oklch(0.45 0.11 162);
 	--border: oklch(0.905 0.012 250);
-	--input: oklch(0.88 0.014 250);
+	/*
+	 * The edge of a text field, select or textarea: the one thing that tells
+	 * the field apart from the surface around it, so WCAG 1.4.11 asks 3:1
+	 * against every surface a field sits on; app-tokens.test.ts checks both
+	 * themes. The lighter edge it replaced was well short of that.
+	 */
+	--input: oklch(0.64 0.014 250);
 	--ring: oklch(0.58 0.095 218);
 	--sidebar: oklch(0.975 0.009 250);
 	--sidebar-foreground: oklch(0.22 0.02 250);
@@ -94,7 +100,8 @@
 	--success: oklch(0.7 0.14 162);
 	--success-foreground: oklch(0.8 0.13 162);
 	--border: oklch(1 0 0 / 12%);
-	--input: oklch(1 0 0 / 16%);
+	/* 3:1 against every surface, as above (1.4.11). */
+	--input: oklch(1 0 0 / 40%);
 	--ring: oklch(0.72 0.11 218);
 	--sidebar: oklch(0.19 0.02 250);
 	--sidebar-foreground: oklch(0.985 0 0);
