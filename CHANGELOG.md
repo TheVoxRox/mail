@@ -123,6 +123,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- **The badge on an account with hand-typed servers says "Vlastní konfigurace" to a screen reader too (#680).** It showed the provider name the backend gives such an account, a bare "Vlastní", and carried the full wording in an `aria-label`. A paragraph may not be named that way, so the browser dropped the label and a screen reader heard only "Vlastní". The badge now shows "Vlastní konfigurace" as its text, for everyone.
+
 - **Czech text uses Czech quotation marks and dashes, and English text curly quotes throughout (#678).** Six Czech messages opened a quotation with „ and closed it with a straight ", among them the search results heading, the window title of a search and the confirmations for deleting an account or a contact; they now close with “. Ten Czech messages used the English em dash (—) where Czech uses the spaced en dash (–) that the window titles already had, and so did one error message of the backend. Two English messages used straight quotes where the rest use curly ones.
 
 - **The Keyboard shortcuts and About pages have window titles that place them in Settings (#678).** The other Settings pages are titled "Pošta – Nastavení – …", but these two were "Pošta – Klávesové zkratky" and "Pošta – O aplikaci". A screen reader reads the title when the page changes, so the difference was heard, not only seen.
