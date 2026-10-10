@@ -107,6 +107,8 @@ export interface MockFlags {
 	noAccounts?: boolean;
 	/** Adds a Gmail account a Google sign-in owns (`oauth.user@gmail.com`). */
 	oauthAccount?: boolean;
+	/** Adds a password account on hand-typed servers, id 4, with no provider. */
+	customAccount?: boolean;
 	readinessDelayMs?: number;
 	readinessFailures?: number;
 	sessionDelayMs?: number;

@@ -350,7 +350,7 @@ Zbytek auditu, po kterem prisly #674, #675 a #676. Prosly texty v `cs.json`/`en.
 
 Automaticky sken (axe, tagy az po `wcag22aa`) uz meri nactene stranky (#679), ale pokryje mensinu kriterii. Zbytek je rucni prochod kriterii A a AA proti bezici aplikaci; nalezy sem, opravy po PR.
 
-- [ ] **Odznak „Vlastni konfigurace" v detailu uctu:** `aria-label` na `<p>` ([settings/accounts/[id]/+page.svelte](frontend/src/routes/settings/accounts/[id]/+page.svelte)), odstavec jmeno nesmi nest, takze odecitac cte viditelny text (jmeno poskytovatele). Mock ma u vsech uctu poskytovatele, takze se odznak v zadnem skenu nevykresli.
+- [x] **Odznak „Vlastni konfigurace" v detailu uctu — HOTOVO 2026-10-10 (#680):** prohlizec `aria-label` na `<p>` zahodil, odecitac slysel jen „Vlastni". axe to hlasil jen jako `incomplete` (`aria-prohibited-attr`), proto sken prosel.
 - [ ] **2.5.8 Target Size v gridech:** axe vraci `incomplete` pro zaskrtavatka 16 × 16 a odkazy predmetu 20 px vysoke v radcich seznamu zprav a vysledku hledani. Rozhodnout s vyjimkou „Equivalent" (cely radek otevira totez) a „Spacing", vysledek zapsat k testu.
 - [ ] **Rucni prochod zbylych kriterii A/AA:** mimo jine 1.3.5 (autocomplete u e-mailu a jmena v uctu), 1.4.4 a 1.4.10 (200 % a 400 % zoom), 1.4.12 (rozestupy textu), 1.4.13 (obsah pri najeti), 2.2.1 (automaticky mizici toasty), 2.4.11 (fokus zakryty lepkavou listou), 2.5.7 (tazeni delice podoken), 3.2.6, 3.3.7, 3.3.8 (prihlaseni heslem: vlozeni ze schranky).
 

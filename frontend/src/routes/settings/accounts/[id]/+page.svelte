@@ -98,10 +98,18 @@
 		<StateMessage padding="none">{$_('common.loading')}</StateMessage>
 	{:else}
 		<Surface as="section" class="max-w-2xl">
+			<!--
+				The badge says what it means in its own text. It used to show the
+				provider name, which for an account without a provider is the
+				backend's one-word account.provider.custom, and put
+				accounts.customAccountBadge in an aria-label: a paragraph may not be
+				named, so the browser dropped the label and a screen reader heard the
+				one word alone.
+			-->
 			{#if account.providerId == null}
-				<p class={badgeVariants({ class: 'mb-3' })} aria-label={$_('accounts.customAccountBadge')}>
+				<p class={badgeVariants({ class: 'mb-3' })}>
 					<span aria-hidden="true">★</span>
-					{account.providerName ?? $_('accounts.customAccountBadge')}
+					{$_('accounts.customAccountBadge')}
 				</p>
 			{/if}
 			<AccountForm

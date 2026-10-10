@@ -80,6 +80,12 @@ const routes: ReadonlyArray<{
 		ready: (page) => page.getByRole('form', { name: 'Účet' })
 	},
 	{
+		path: '/settings/accounts/4',
+		name: 'Detail účtu s vlastním serverem',
+		ready: (page) => page.getByRole('form', { name: 'Účet' }),
+		flags: { customAccount: true }
+	},
+	{
 		path: '/compose',
 		name: 'Nová zpráva',
 		// Send is disabled until the prefill is done; the body field is there before it.
@@ -877,6 +883,15 @@ test.describe('Přístupnost', () => {
 			);
 			await expect(group.getByRole('checkbox', { name: 'Šifrování SSL/TLS' })).toHaveCount(1);
 		}
+	});
+
+	test('odznak účtu s vlastním serverem zní stejně, jak vypadá', async ({ page }) => {
+		// Read from the accessibility tree, which is what a screen reader gets: an
+		// aria-label on the paragraph showed up in the DOM and nowhere else.
+		await setMockFlags(page, { customAccount: true });
+		await openApp(page, '/settings/accounts/4');
+		await expect(page.getByRole('form', { name: 'Účet' })).toBeVisible();
+		await expect(page.getByRole('main')).toMatchAriaSnapshot('- paragraph: Vlastní konfigurace');
 	});
 
 	test('compose validace, autosave stav a dialog neuložených změn jsou přístupné', async ({

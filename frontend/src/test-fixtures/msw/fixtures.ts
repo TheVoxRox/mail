@@ -629,6 +629,44 @@ export function seedOAuthAccount(): E2EFixtureState {
 	return fixtureState;
 }
 
+/**
+ * A password account on servers typed in by hand. The backend gives such an
+ * account no provider and names it by `account.provider.custom`, so the
+ * account screen shows its "custom configuration" badge — which no other
+ * fixture account reaches.
+ */
+export function seedCustomAccount(): E2EFixtureState {
+	fixtureState.accounts = [
+		...fixtureState.accounts,
+		{
+			id: 4,
+			accountName: 'Firemní server',
+			email: 'tester@firma.test',
+			displayName: null,
+			signature: null,
+			signatureAutoInsert: true,
+			providerId: null,
+			providerName: 'Vlastní',
+			imapHost: 'mail.firma.test',
+			imapPort: 993,
+			imapUseSsl: true,
+			smtpHost: 'mail.firma.test',
+			smtpPort: 465,
+			smtpUseSsl: true,
+			username: 'tester@firma.test',
+			authType: 'PASSWORD',
+			oauth2Provider: null,
+			active: true,
+			requiresReauth: false,
+			lastSyncAt: null,
+			lastError: null,
+			lastErrorCode: null,
+			lastErrorArgs: {}
+		}
+	];
+	return fixtureState;
+}
+
 export function clearAccounts(): E2EFixtureState {
 	fixtureState.accounts = [];
 	fixtureState.foldersByAccount = {};
