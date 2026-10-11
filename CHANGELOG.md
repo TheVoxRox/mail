@@ -123,6 +123,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- **The message list can be sized from Settings › Appearance, without dragging the divider (#692).** The divider between the list and the reading pane could only be dragged or, once focused, moved with the arrow keys, and WCAG 2.5.7 asks for a way that needs neither. "Velikost seznamu zpráv" offers Smaller, Default and Larger, for the list's width beside the pane and its height above it; it stores what the divider stores, so Mail opens with the divider there and a drag carries on from it. After a drag the setting reads "Vlastní (nastavená děličem)".
+
 - **The text of an open message follows Settings › Appearance › Text size (#689).** The message body renders in a frame that is a document of its own, so the setting, which scales the rest of the window, never reached it: the body stayed at 14px at every step. It is now 13.1px at Small, 14px at Medium and 15.75px at Large, the same proportion as the interface. The frame still admits exactly one stylesheet, pinned by hash in its content security policy; there is now one per step.
 
 - **The side pane can be hidden in a wide window too, and stays hidden until shown again (#691).** The button at the top of the rail, which #687 showed only in a narrow window, is now always there, as Outlook's is: in a wide window it hides the pane, giving the content its width, and docks it again, and the app remembers which. A hidden pane works as a narrow window's does: Ctrl+Y slides it in over the content and Escape folds it away again.

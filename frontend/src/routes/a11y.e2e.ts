@@ -798,6 +798,7 @@ test.describe('Přístupnost', () => {
 			{ id: 'theme-select', heading: 'Téma' },
 			{ id: 'text-size-select', heading: 'Velikost textu' },
 			{ id: 'reading-pane-select', heading: 'Rozložení podokna čtení' },
+			{ id: 'list-size-select', heading: 'Velikost seznamu zpráv' },
 			{ id: 'message-grouping-select', heading: 'Seskupení zpráv ve složce' },
 			{ id: 'close-action-select', heading: 'Co udělá zavření okna' },
 			{ id: 'message-body-select', heading: 'Výchozí zobrazení obsahu zprávy' },
@@ -828,6 +829,30 @@ test.describe('Přístupnost', () => {
 		await expect(messageBodySelect).toHaveCount(1);
 		await expect(messageBodySelect).toHaveAccessibleDescription(/tělo zprávy/);
 		await expect(messageBodySelect.locator('option')).toHaveText(['HTML', 'Prostý text']);
+	});
+
+	test('velikost seznamu jde nastavit jedním kliknutím, bez tažení děliče (2.5.7)', async ({
+		page
+	}) => {
+		// The divider sizes the list by dragging or by the arrow keys; 2.5.7 asks
+		// for a way that needs neither, and the presets in Settings are it.
+		await openApp(page, '/settings/appearance');
+		const listSize = page.getByRole('combobox', { name: 'Velikost seznamu zpráv' });
+		await expect(listSize).toHaveValue('default');
+		await expect(listSize.locator('option')).toHaveText(['Menší', 'Výchozí', 'Větší']);
+		await listSize.selectOption('larger');
+
+		await openApp(page, `/mail/${mailFixture.accountId}/${mailFixture.folderName}`);
+		const divider = page.locator('[role="separator"][aria-orientation="vertical"]');
+		await expect(divider).toHaveAttribute('aria-valuenow', '50');
+
+		// A step of the divider leaves the presets. Settings then says so, with
+		// "Vlastní" shown but not something to choose.
+		await divider.press('ArrowRight');
+		await expect(divider).toHaveAttribute('aria-valuenow', '55');
+		await openApp(page, '/settings/appearance');
+		await expect(listSize).toHaveValue('custom');
+		await expect(listSize.locator('option[value="custom"]')).toBeDisabled();
 	});
 
 	test('nový účet vystavuje provider/custom přepínač a chybové stavy přes role', async ({

@@ -611,6 +611,16 @@
 					"off": "Skryté"
 				}
 			},
+			"listSize": {
+				"heading": "Velikost seznamu zpráv",
+				"hint": "Šířka seznamu vedle podokna čtení, nebo jeho výška, když je podokno dole. Dělič mezi nimi jde také přetáhnout, nebo posouvat šipkami.",
+				"options": {
+					"smaller": "Menší",
+					"default": "Výchozí",
+					"larger": "Větší",
+					"custom": "Vlastní (nastavená děličem)"
+				}
+			},
 			"splitPane": {
 				"vertical": "Změnit šířku seznamu a detailu zprávy",
 				"horizontal": "Změnit výšku seznamu a detailu zprávy"
