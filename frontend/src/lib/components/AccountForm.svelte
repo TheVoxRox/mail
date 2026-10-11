@@ -684,13 +684,14 @@
 							</span>
 						</div>
 					</div>
-					<button
+					<Button
 						type="button"
-						class="text-primary hover:underline"
+						variant="link"
+						size="xs"
 						onclick={() => (showAdvancedProvider = true)}
 					>
 						{$_('accounts.form.provider')}…
-					</button>
+					</Button>
 				</div>
 			{:else}
 				<Field
@@ -875,13 +876,9 @@
 				: $_('accounts.form.testConnection')}
 		</Button>
 		{#if compact && onSwitchToAdvanced}
-			<button
-				type="button"
-				class="text-xs text-muted-foreground hover:text-foreground hover:underline"
-				onclick={onSwitchToAdvanced}
-			>
+			<Button type="button" variant="link" size="sm" onclick={onSwitchToAdvanced}>
 				{$_('accounts.wizard.quick.showAdvanced')}
-			</button>
+			</Button>
 		{/if}
 	</div>
 </form>
