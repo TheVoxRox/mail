@@ -19,6 +19,7 @@ class DatabaseMaintenanceServiceTest {
 
     private static final String OPTIMIZE = "PRAGMA optimize(0x10002)";
     private static final String CHECKPOINT = "PRAGMA wal_checkpoint(TRUNCATE)";
+    private static final String PASSIVE_CHECKPOINT = "PRAGMA wal_checkpoint(PASSIVE)";
     private static final String VACUUM = "VACUUM";
     private static final long MIN_FREE_PAGES = 2000;
     private static final double FREE_RATIO = 0.25;
@@ -28,6 +29,19 @@ class DatabaseMaintenanceServiceTest {
 
     private DatabaseMaintenanceService service() {
         return new DatabaseMaintenanceService(jdbcTemplate, MIN_FREE_PAGES, FREE_RATIO);
+    }
+
+    @Test
+    void checkpointRunsAPassiveCheckpoint() {
+        service().checkpoint();
+        verify(jdbcTemplate).execute(PASSIVE_CHECKPOINT);
+    }
+
+    @Test
+    void checkpointSwallowsFailuresSoTheScheduleKeepsRunning() {
+        doThrow(new DataAccessResourceFailureException("db locked")).when(jdbcTemplate).execute(PASSIVE_CHECKPOINT);
+
+        assertThatCode(() -> service().checkpoint()).doesNotThrowAnyException();
     }
 
     @Test
