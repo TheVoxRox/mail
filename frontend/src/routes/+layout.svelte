@@ -30,6 +30,13 @@
 		workspaceHref
 	} from '$lib/stores/workspaceMode.js';
 	import { handleGlobalKeydown } from '$lib/shortcuts/globalShortcuts.js';
+	import {
+		closePane,
+		goToPane,
+		paneNarrow,
+		paneOpen,
+		syncPaneToWidth
+	} from '$lib/stores/workspacePane.js';
 	import { focusAnchor } from '$lib/shortcuts/focusAnchor.js';
 	import { selectedMessage } from '$lib/stores/selectedMessage.js';
 	import { pushToast } from '$lib/stores/toasts.js';
@@ -257,8 +264,50 @@
 
 	afterNavigate(() => {
 		if (typeof window === 'undefined') return;
+		// A folder or page picked in the folded pane closes it, as in Outlook,
+		// and the page's heading then takes focus like after any navigation.
+		closePane();
 		requestAnimationFrame(focusLandingIfUnclaimed);
 	});
+
+	$effect(() => {
+		syncPaneToWidth($paneNarrow);
+	});
+
+	/*
+	 * Escape is the popup's while one is open: a dialog, menu or list the pane
+	 * opened closes first, and the pane on the next press. The key can still
+	 * reach the pane in that state, when it comes before the dialog has moved
+	 * focus into itself, and then closed the two together.
+	 */
+	const PANE_POPUPS = '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]';
+
+	function handlePaneKeydown(event: KeyboardEvent) {
+		if (!$paneNarrow || !$paneOpen || event.key !== 'Escape' || event.defaultPrevented) return;
+		if ([...document.querySelectorAll(PANE_POPUPS)].some((el) => el.checkVisibility())) return;
+		event.preventDefault();
+		closePane({ returnFocus: true });
+	}
+
+	/*
+	 * The folded pane lies over the content, so focus that leaves it for the
+	 * content would sit underneath (WCAG 2.4.11): close it when that happens.
+	 * Only then. A dialog or menu the pane opens lives in a portal outside it
+	 * and hands focus back to its trigger in the pane when it closes, the rail
+	 * beside the pane is not covered by it, and focus going nowhere (another
+	 * window) has not left it.
+	 *
+	 * Judged a frame later, where focus has settled, and by where it is rather
+	 * than where it is not: an earlier "anywhere but a dialog" rule closed the
+	 * pane under a dialog's trigger once in a while, when the dialog passed
+	 * focus through a helper of its focus trap on the way in.
+	 */
+	function handlePaneFocusOut() {
+		if (!$paneNarrow || !$paneOpen) return;
+		requestAnimationFrame(() => {
+			if (document.activeElement?.closest('#main-content')) closePane();
+		});
+	}
 
 	/*
 	 * The boot and error views carry their own `<main id="main-content">`, so a
@@ -415,6 +464,7 @@
 			isPaletteOpen: () => $paletteOpen,
 			goToPrimaryNewAction,
 			goToWorkspace,
+			goToPane,
 			isMessageOpen: () =>
 				Boolean($selectedMessage?.stableId) && isOpenMessageRoute(page.url.pathname),
 			reply: () => runOnOpenMessage((id) => replyToMessage(id, false)),
@@ -464,11 +514,35 @@
 			/>
 		{:else if $bootState.phase === 'ready' && $sessionState.status === 'ready' && $accountsState.status === 'ready'}
 			<AppRail />
+			{#if $paneNarrow && $paneOpen}
+				<!--
+					Click-away for the pointer, over the content and not the rail, so
+					the toggle stays clickable. Hidden from assistive technology:
+					Escape and leaving the pane with Tab close it from the keyboard.
+				-->
+				<div
+					class="fixed inset-y-0 right-0 left-16 z-30 bg-black/40"
+					aria-hidden="true"
+					data-print="chrome"
+					onclick={() => closePane({ returnFocus: true })}
+				></div>
+			{/if}
 			<!--
-				`contents` so the wrapper adds no box to the flex row; it exists only
-				to carry data-print across the three branches of the lazy sidebar.
+				Docked, `contents`, so the wrapper adds no box to the flex row and
+				only carries data-print across the three branches of the lazy
+				sidebar. In a narrow window (stores/workspacePane.ts) it is the
+				folded pane instead: out of the row, over the content when open,
+				and `hidden` when not, which also takes it out of the tab order and
+				the landmark list until the toggle or Ctrl+Y brings it back.
 			-->
-			<div class="contents" data-print="chrome">
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div
+				class={$paneNarrow ? 'fixed inset-y-0 left-16 z-40 flex shadow-2xl' : 'contents'}
+				hidden={$paneNarrow && !$paneOpen}
+				data-print="chrome"
+				onkeydown={handlePaneKeydown}
+				onfocusout={handlePaneFocusOut}
+			>
 				{#await sidebarPromise}
 					<!--
 					Holds the pane's slot open at its real width while the lazy chunk

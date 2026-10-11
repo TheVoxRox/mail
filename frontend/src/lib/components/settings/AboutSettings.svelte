@@ -158,7 +158,9 @@
 <div class="max-w-2xl space-y-4">
 	<Surface as="section" class="space-y-3">
 		<h2 class="text-sm font-semibold">{$_('settings.about.versions.heading')}</h2>
-		<dl class="grid grid-cols-[9rem_1fr] gap-x-3 gap-y-2 text-sm">
+		<dl
+			class="grid grid-cols-1 gap-x-3 gap-y-1 text-sm sm:grid-cols-[9rem_minmax(0,1fr)] sm:gap-y-2"
+		>
 			<dt class="text-muted-foreground">{$_('settings.about.versions.frontend')}</dt>
 			<dd>{CLIENT_VERSION}</dd>
 
@@ -256,7 +258,9 @@
 			{$_(connectionStatus.textKey)}
 		</p>
 
-		<dl class="grid grid-cols-[9rem_1fr] gap-x-3 gap-y-2 text-sm">
+		<dl
+			class="grid grid-cols-1 gap-x-3 gap-y-1 text-sm sm:grid-cols-[9rem_minmax(0,1fr)] sm:gap-y-2"
+		>
 			<dt class="text-muted-foreground">{$_('settings.about.connection.notifications')}</dt>
 			<dd class="inline-flex items-center gap-1.5">
 				<span class={`h-1.5 w-1.5 rounded-full ${notificationStatus.dotClass}`} aria-hidden="true"
@@ -324,7 +328,9 @@
 	{#if showTechnicalDiagnostics}
 		<Surface as="section" class="space-y-3">
 			<h2 class="text-sm font-semibold">{$_('settings.about.session.heading')}</h2>
-			<dl class="grid grid-cols-[8rem_1fr] gap-x-3 gap-y-2 text-sm">
+			<dl
+				class="grid grid-cols-1 gap-x-3 gap-y-1 text-sm sm:grid-cols-[8rem_minmax(0,1fr)] sm:gap-y-2"
+			>
 				<dt class="text-muted-foreground">{$_('app.sessionLabel')}</dt>
 				<dd>
 					{#if $sessionState.status === 'ready'}

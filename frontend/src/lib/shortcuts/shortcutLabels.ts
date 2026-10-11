@@ -11,6 +11,7 @@ export const SHORTCUT_LABELS = {
 	workspaceMail: 'Ctrl+1',
 	workspaceContacts: 'Ctrl+2',
 	workspaceSettings: 'Ctrl+3',
+	workspacePane: 'Ctrl+Y',
 	reply: 'Ctrl+R',
 	replyAll: 'Ctrl+Shift+R',
 	forward: 'Ctrl+F',

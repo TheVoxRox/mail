@@ -393,7 +393,7 @@
 <div
 	class="flex min-h-11 flex-wrap items-center gap-3 border-b border-border bg-muted/20 px-4 py-2 text-xs"
 >
-	<div class="flex min-w-0 items-center gap-1.5">
+	<div class="flex min-w-0 flex-wrap items-center gap-1.5">
 		<label class="text-muted-foreground" for="contacts-sort">{$_('contacts.sortLabel')}</label>
 		<Select
 			id="contacts-sort"
@@ -407,7 +407,7 @@
 			{/each}
 		</Select>
 	</div>
-	<div class="flex min-w-0 items-center gap-1.5">
+	<div class="flex min-w-0 flex-wrap items-center gap-1.5">
 		<label class="text-muted-foreground" for="contacts-label-filter">
 			{$_('contacts.labelFilterLabel')}
 		</label>

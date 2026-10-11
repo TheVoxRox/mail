@@ -675,6 +675,7 @@
 				"mail": "Go to Mail",
 				"contacts": "Go to Contacts",
 				"settings": "Go to Settings",
+				"pane": "Go to the side pane; in a narrow window, slide it out",
 				"newMessage": "New message",
 				"reply": "Reply",
 				"replyAll": "Reply to all",
@@ -708,6 +709,7 @@
 			},
 			"scopes": {
 				"globalIncludingInputs": "Works anywhere, including text fields.",
+				"outsideTextFields": "Works outside text fields, where Ctrl+Y is Redo.",
 				"messageGrid": "Works in the message list and in search results.",
 				"contactList": "Works in the contact list.",
 				"contactForm": "Works in the contact form; asks first when there are unsaved changes.",
@@ -856,7 +858,8 @@
 		"railLandmark": "Workspace switcher",
 		"mailSidebarLabel": "Mail pane",
 		"contactsSidebarLabel": "Contacts pane",
-		"settingsSidebarLabel": "Settings pane"
+		"settingsSidebarLabel": "Settings pane",
+		"paneToggle": "{pane} ({shortcut})"
 	},
 	"railSwitch": {
 		"goToMode": "Go to {mode} ({shortcut})"

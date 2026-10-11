@@ -675,6 +675,7 @@
 				"mail": "Přejít na Poštu",
 				"contacts": "Přejít na Kontakty",
 				"settings": "Přejít na Nastavení",
+				"pane": "Přejít do postranního podokna; v úzkém okně ho vysune",
 				"newMessage": "Nová zpráva",
 				"reply": "Odpovědět",
 				"replyAll": "Odpovědět všem",
@@ -708,6 +709,7 @@
 			},
 			"scopes": {
 				"globalIncludingInputs": "Funguje kdekoli, i v textových polích.",
+				"outsideTextFields": "Funguje mimo textová pole; v nich je Ctrl+Y Znovu.",
 				"messageGrid": "Funguje v seznamu zpráv a ve výsledcích hledání.",
 				"contactList": "Funguje v seznamu kontaktů.",
 				"contactForm": "Funguje ve formuláři kontaktu; při neuložených změnách se zeptá.",
@@ -856,7 +858,8 @@
 		"railLandmark": "Přepínač prostředí",
 		"mailSidebarLabel": "Podokno pošty",
 		"contactsSidebarLabel": "Podokno kontaktů",
-		"settingsSidebarLabel": "Podokno nastavení"
+		"settingsSidebarLabel": "Podokno nastavení",
+		"paneToggle": "{pane} ({shortcut})"
 	},
 	"railSwitch": {
 		"goToMode": "{mode} ({shortcut})"

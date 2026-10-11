@@ -666,3 +666,48 @@ export function zoomLosses(page: Page): Promise<string[]> {
 		return losses;
 	});
 }
+
+/**
+ * What the page loses when it has to reflow to 320 CSS px, the width of a
+ * 1280px window at 400% zoom (WCAG 1.4.10), on a viewport the caller has
+ * narrowed to it. Everything `zoomLosses` reports, and two things it lets
+ * pass because 1.4.4 allows them: a container that scrolls sideways, unless
+ * it holds a table or grid, which the criterion exempts as two-dimensional
+ * content; and an element its own container cuts off at the side, outermost
+ * only, which is how a button can disappear without any text being clipped.
+ */
+export async function reflowLosses(page: Page): Promise<string[]> {
+	const losses = await zoomLosses(page);
+	const more = await page.evaluate(() => {
+		const found: string[] = [];
+		const text = (el: Element) => (el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 50);
+		const grids = 'table, [role="grid"], [role="treegrid"], [role="table"]';
+		const twoDimensional = (el: Element) => el.matches(grids) || el.querySelector(grids) !== null;
+		for (const el of document.querySelectorAll('body *')) {
+			if (!(el instanceof HTMLElement) || !el.offsetParent) continue;
+			if (!/auto|scroll/.test(getComputedStyle(el).overflowX)) continue;
+			if (el.scrollWidth <= el.clientWidth + 1 || twoDimensional(el)) continue;
+			found.push(`scrolls sideways: <${el.tagName.toLowerCase()}> "${text(el)}"`);
+		}
+		const cutBy = (el: Element): Element | null => {
+			const box = el.getBoundingClientRect();
+			for (let up = el.parentElement; up; up = up.parentElement) {
+				const overflow = getComputedStyle(up).overflowX;
+				if (overflow === 'visible') continue;
+				if (/auto|scroll/.test(overflow)) return null; // reachable, judged above
+				const edge = up.getBoundingClientRect();
+				return box.right > edge.right + 1 || box.left < edge.left - 1 ? up : null;
+			}
+			return null;
+		};
+		for (const el of document.querySelectorAll('body *')) {
+			if (!(el instanceof HTMLElement) || !el.offsetParent || el.closest(grids)) continue;
+			const box = el.getBoundingClientRect();
+			if (box.width <= 1 || box.height <= 1) continue;
+			if (!cutBy(el) || (el.parentElement && cutBy(el.parentElement))) continue;
+			found.push(`cut off by its container: <${el.tagName.toLowerCase()}> "${text(el)}"`);
+		}
+		return found;
+	});
+	return [...losses, ...more];
+}

@@ -47,7 +47,12 @@
 		<div class="h-10 w-10 rounded-lg bg-sidebar-accent/20"></div>
 	</div>
 </div>
-<div class={cn(SIDEBAR_PANE_FRAME, 'gap-2 px-3 py-4')} aria-hidden="true">
+<!--
+	Not drawn in a narrow window, where the real pane is folded away
+	(stores/workspacePane.ts): `max-md` is the same 48rem line, and a skeleton
+	the shell does not have would shift the content when it replaced it.
+-->
+<div class={cn(SIDEBAR_PANE_FRAME, 'gap-2 px-3 py-4 max-md:hidden')} aria-hidden="true">
 	<div class="h-6 w-32 rounded-md bg-sidebar-accent/40"></div>
 	<div class="mt-3 flex flex-col gap-2">
 		<div class="h-4 w-full rounded-md bg-sidebar-accent/30"></div>
