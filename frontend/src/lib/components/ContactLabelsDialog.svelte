@@ -71,7 +71,14 @@
 	async function handleCreate(event: SubmitEvent): Promise<void> {
 		event.preventDefault();
 		const name = newName.trim();
-		if (name.length === 0 || creating) return;
+		if (creating) return;
+		// Said rather than prevented: a disabled Add is not a tab stop, and Enter
+		// in the empty field did nothing at all (WCAG 3.3.1).
+		if (name.length === 0) {
+			createError = $_('contacts.labelNameRequired');
+			newNameInput?.focus();
+			return;
+		}
 		creating = true;
 		createError = null;
 		try {
@@ -111,7 +118,12 @@
 	async function submitRename(event: SubmitEvent, labelId: number): Promise<void> {
 		event.preventDefault();
 		const name = renameValue.trim();
-		if (name.length === 0 || renameBusy) return;
+		if (renameBusy) return;
+		if (name.length === 0) {
+			renameError = $_('contacts.labelNameRequired');
+			document.getElementById(`contact-label-rename-${labelId}`)?.focus();
+			return;
+		}
 		renameBusy = true;
 		renameError = null;
 		try {
@@ -191,7 +203,7 @@
 				aria-describedby={createError ? 'contact-label-new-error' : undefined}
 			/>
 		</div>
-		<Button type="submit" disabled={creating || newName.trim().length === 0}>
+		<Button type="submit" disabled={creating}>
 			{$_('contacts.addLabel')}
 		</Button>
 	</form>
@@ -238,11 +250,7 @@
 										: undefined}
 								/>
 							</div>
-							<Button
-								type="submit"
-								size="xs"
-								disabled={renameBusy || renameValue.trim().length === 0}
-							>
+							<Button type="submit" size="xs" disabled={renameBusy}>
 								{$_('contacts.save')}
 							</Button>
 							<Button

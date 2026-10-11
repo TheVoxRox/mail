@@ -56,6 +56,12 @@
 	let googleButtonEl = $state<HTMLButtonElement | null>(null);
 
 	let canSubmitEmail = $derived(isValidEmailAddress(email));
+	/**
+	 * Set by a Continue the address could not pass. Continue used to be
+	 * disabled instead, which said nothing: a disabled button is not a tab
+	 * stop, and Enter in the field did nothing either (WCAG 3.3.1).
+	 */
+	let emailError = $state<string | null>(null);
 
 	let useCompactForm = $derived(
 		step.kind === 'form' && step.preset.backendName != null && !showAdvanced
@@ -84,7 +90,14 @@
 
 	async function handleEmailSubmit(event?: SubmitEvent) {
 		event?.preventDefault();
-		if (!canSubmitEmail) return;
+		if (!canSubmitEmail) {
+			emailError = $_(
+				email.trim() ? 'accounts.form.errorEmailInvalid' : 'accounts.form.errorEmailRequired'
+			);
+			emailInputEl?.focus();
+			return;
+		}
+		emailError = null;
 		const trimmed = email.trim();
 		step = { kind: 'detecting' };
 		try {
@@ -264,24 +277,33 @@
 			<h2 class="mb-4 text-sm font-semibold">{$_('accounts.wizard.emailHeading')}</h2>
 
 			<form
+				novalidate
 				onsubmit={handleEmailSubmit}
 				class="space-y-3"
 				aria-label={$_('accounts.wizard.emailFormLabel')}
 			>
-				<Field for="wizard-email" label={$_('accounts.form.email')}>
-					<Input
-						id="wizard-email"
-						type="email"
-						bind:value={email}
-						bind:ref={emailInputEl}
-						placeholder="name@example.com"
-						required
-						autocomplete="email"
-					/>
+				<Field
+					for="wizard-email"
+					label={$_('accounts.form.email')}
+					error={emailError}
+					errorId="wizard-email-error"
+				>
+					{#snippet children(control)}
+						<Input
+							id="wizard-email"
+							type="email"
+							bind:value={email}
+							bind:ref={emailInputEl}
+							placeholder="name@example.com"
+							required
+							autocomplete="email"
+							{...control}
+						/>
+					{/snippet}
 				</Field>
 
 				<div class="flex flex-wrap items-center gap-2">
-					<Button type="submit" size="sm" disabled={!canSubmitEmail || step.kind === 'detecting'}>
+					<Button type="submit" size="sm" disabled={step.kind === 'detecting'}>
 						{step.kind === 'detecting'
 							? $_('accounts.wizard.detecting')
 							: $_('accounts.wizard.continue')}

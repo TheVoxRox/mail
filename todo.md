@@ -357,7 +357,8 @@ Automaticky sken (axe, tagy az po `wcag22aa`) uz meri nactene stranky (#679), al
 - [ ] **2.5.7 Dragging Movements — odlozeno (rozhodnuto 2026-10-10):** delic podoken ([SplitPane.svelte](frontend/src/lib/components/SplitPane.svelte)) jde menit jen tazenim nebo klavesnici, alternativa pro jedno kliknuti chybi (napr. tlacitka zmensit/zvetsit/vychozi na delici).
 - [x] **1.4.12 Text Spacing — HOTOVO 2026-10-11 (#683):** s rozestupy z normy se text nikde neorizne ani nepretece (obrazovky, dialogy, seskupeny seznam, toast), takze bez zmeny aplikace; obrazovky hlida `textSpacingLosses` ([e2e-helpers.ts](frontend/src/routes/e2e-helpers.ts)).
 - [x] **2.4.3, 2.4.7 a 1.4.11 u fokusu — HOTOVO 2026-10-11 (#685):** Tab projde kazdou obrazovku v obou motivech a porovna snimek kazde zastavky s fokusem a bez nej (`focusIndicatorLosses` v [e2e-helpers.ts](frontend/src/routes/e2e-helpers.ts)); poradi odpovida rozvrzeni. Opraveno: rolovaci obsah `PageShell` a „Pridat prilohu" bez indikatoru, prepinac serveru 1,67 : 1, obrys prohlizece na pul sily 1,9 : 1. Fokus, ktery aplikace sama zaparkuje v tele zpravy, indikator nema, stejne jako nadpis stranky: je to cteci pozice, ne ovladaci prvek.
-- [ ] **Rucni prochod, zbytek:** 1.4.4 vizualne pri 200 % zoomu, 1.4.11 u ikon a stavu ovladacich prvku, 3.3.1 a 3.3.3 (chyby formularu).
+- [x] **3.3.1 a 3.3.3 Chyby formularu — HOTOVO 2026-10-11 (#686):** formular uctu kontroluje e-mail, nazev, poskytovatele, uzivatele a heslo sam (backend vracel jeden radek s Java nazvy poli a fokus nechal na tlacitku), kazde chybne pole ma vlastni hlasku a fokus jde na prvni. „Pokracovat" v pruvodci a tlacitka v dialogu stitku uz nejsou zakazana, ale reknou, co chybi. Hlasky o adrese ukazuji tvar jmeno@domena.cz. Kontakt a psani zpravy chyby hlasily spravne uz predtim.
+- [ ] **Rucni prochod, zbytek:** 1.4.4 vizualne pri 200 % zoomu, 1.4.11 u ikon a stavu ovladacich prvku.
 
 ---
 
