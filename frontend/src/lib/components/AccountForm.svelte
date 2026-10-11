@@ -14,6 +14,7 @@
 	import { badgeVariants } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Field } from '$lib/components/ui/field/index.js';
+	import { focusRingWithin } from '$lib/components/ui/focus-ring/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
 	import ProviderLogo from '$lib/components/ProviderLogo.svelte';
@@ -531,7 +532,8 @@
 
 	const segmentedClasses = (selected: boolean) =>
 		cn(
-			'flex-1 cursor-pointer rounded-md border px-3 py-1.5 text-center text-sm transition-colors focus-within:ring-2 focus-within:ring-ring/40',
+			'flex-1 cursor-pointer rounded-md border px-3 py-1.5 text-center text-sm transition-colors',
+			focusRingWithin,
 			selected
 				? 'border-primary bg-primary/10 text-primary'
 				: 'border-border bg-background text-muted-foreground hover:text-foreground hover:bg-muted/40'

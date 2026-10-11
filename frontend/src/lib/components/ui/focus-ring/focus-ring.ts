@@ -34,3 +34,22 @@ export const focusRing =
  */
 export const focusRingInset =
 	'outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring';
+
+/**
+ * For a scroll container that is a tab stop of its own so the keyboard can
+ * scroll it (`PageShell`). An outline drawn inside the edge rather than an
+ * inset ring: an inset box-shadow is painted under the container's children,
+ * so the page header's own background covered the top of it.
+ */
+export const focusRingScrollArea =
+	'outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-ring';
+
+/**
+ * For a visible box whose focusable element is hidden inside it: the label
+ * around the attachment picker's sr-only file input, a segmented choice around
+ * its transparent radio. The box draws the ring while that element has
+ * keyboard focus, and a click on the label does not. The transparent outline
+ * stands in for `outline-hidden`, which the hidden element cannot show.
+ */
+export const focusRingWithin =
+	'has-focus-visible:border-ring has-focus-visible:ring-2 has-focus-visible:ring-ring has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-transparent';

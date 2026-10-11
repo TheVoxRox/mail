@@ -114,9 +114,12 @@ const rules = [
 	},
 	{
 		id: 'inline-focus-ring',
-		pattern:
-			/(?:focus|focus-visible|group-focus-visible|peer-focus-visible):(?:ring|outline)[-\w[\]/.]*/g,
-		hint: `Import focusRing / focusRingInset from ${FOCUS_RING_MODULE.replaceAll(path.sep, '/')} instead.`,
+		// Any variant that names focus rather than a list of them: the list had
+		// no `focus-within:`, and a server-mode switch drew its ring through it
+		// at 40% of --ring, 1.67:1 against the light page (#685). The bracket
+		// branch is the arbitrary spelling, `has-[:focus-visible]:`.
+		pattern: /(?:[\w-]*focus[\w-]*|[\w-]*\[[^\]\s]*focus[^\]\s]*\]):(?:ring|outline)[-\w[\]/.]*/g,
+		hint: `Import a focus ring from ${FOCUS_RING_MODULE.replaceAll(path.sep, '/')} instead.`,
 		skip: (relative) => relative.startsWith(FOCUS_RING_MODULE)
 	},
 	{

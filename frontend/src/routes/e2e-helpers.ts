@@ -456,3 +456,116 @@ async function waitForAnimations(page: Page): Promise<void> {
 		)
 	);
 }
+
+/**
+ * Tab stops whose focus indicator cannot be seen (WCAG 2.4.7), or does not
+ * reach 3:1 against what was there before it (1.4.11).
+ *
+ * Walks the page with Tab until a stop comes round again, and photographs
+ * each stop's box, 4px wider for a ring drawn outside it, once with focus and
+ * once with focus taken away. A stop fails when no pixel changes, or when no
+ * pixel changes by 3:1 or more in relative luminance. How large the indicator
+ * is goes unjudged; that is 2.4.13, at AAA. A control hidden inside a visible
+ * box, such as an sr-only file input in its label, is measured on the
+ * smallest box around it wider and taller than 2px, which is where its
+ * indicator has to be. Transitions are switched off for the walk, so each
+ * photograph shows a finished state.
+ */
+export async function focusIndicatorLosses(page: Page): Promise<string[]> {
+	const still = await page.addStyleTag({
+		content: '*, *::before, *::after { transition: none !important; animation: none !important; }'
+	});
+	await page.evaluate(() => {
+		(document.activeElement as HTMLElement | null)?.blur();
+		(window as unknown as { focusWalk: Set<Element> }).focusWalk = new Set();
+	});
+	const viewport = page.viewportSize() ?? { width: 1280, height: 720 };
+	const losses: string[] = [];
+	for (let press = 0; press < 200; press++) {
+		await page.keyboard.press('Tab');
+		const stop = await page.evaluate(() => {
+			const walk = (window as unknown as { focusWalk: Set<Element> }).focusWalk;
+			const el = document.activeElement as HTMLElement | null;
+			if (!el || el === document.body) return { kind: 'outside' as const };
+			if (walk.has(el)) return { kind: el === [...walk].at(-1) ? 'same' : 'done' } as const;
+			walk.add(el);
+			let box: Element = el;
+			while (box.parentElement) {
+				const rect = box.getBoundingClientRect();
+				if (rect.width > 2 && rect.height > 2) break;
+				box = box.parentElement;
+			}
+			const { x, y, width, height } = box.getBoundingClientRect();
+			const name =
+				el.getAttribute('aria-label') ??
+				(el as HTMLInputElement).labels?.[0]?.textContent ??
+				el.textContent ??
+				'';
+			const role = el.getAttribute('role');
+			return {
+				kind: 'stop' as const,
+				box: { x, y, width, height },
+				label: `${role ?? el.tagName.toLowerCase()} "${name.replace(/\s+/g, ' ').trim().slice(0, 40)}"`
+			};
+		});
+		if (stop.kind === 'done') break;
+		if (stop.kind !== 'stop') continue;
+		const left = Math.max(0, Math.floor(stop.box.x - 4));
+		const top = Math.max(0, Math.floor(stop.box.y - 4));
+		const clip = {
+			x: left,
+			y: top,
+			width: Math.max(
+				1,
+				Math.min(viewport.width, Math.ceil(stop.box.x + stop.box.width + 4)) - left
+			),
+			height: Math.max(
+				1,
+				Math.min(viewport.height, Math.ceil(stop.box.y + stop.box.height + 4)) - top
+			)
+		};
+		const focused = await page.screenshot({ clip });
+		const target = await page.evaluateHandle(() => document.activeElement as HTMLElement);
+		await target.evaluate((el) => el.blur());
+		const blurred = await page.screenshot({ clip });
+		await target.evaluate((el) => el.focus({ preventScroll: true }));
+		await target.dispose();
+		const strongest = await page.evaluate(
+			async ([withFocus, withoutFocus]) => {
+				const pixels = async (png: string) => {
+					const image = new Image();
+					image.src = `data:image/png;base64,${png}`;
+					await image.decode();
+					const canvas = document.createElement('canvas');
+					canvas.width = image.width;
+					canvas.height = image.height;
+					const context = canvas.getContext('2d');
+					if (!context) throw new Error('No 2D canvas to compare focus screenshots on.');
+					context.drawImage(image, 0, 0);
+					return context.getImageData(0, 0, image.width, image.height).data;
+				};
+				const channel = (value: number) => {
+					const s = value / 255;
+					return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+				};
+				const luminance = (data: Uint8ClampedArray, i: number) =>
+					0.2126 * channel(data[i]) + 0.7152 * channel(data[i + 1]) + 0.0722 * channel(data[i + 2]);
+				const a = await pixels(withFocus);
+				const b = await pixels(withoutFocus);
+				let best: number | null = null;
+				for (let i = 0; i < a.length; i += 4) {
+					if (a[i] === b[i] && a[i + 1] === b[i + 1] && a[i + 2] === b[i + 2]) continue;
+					const la = luminance(a, i);
+					const lb = luminance(b, i);
+					best = Math.max(best ?? 1, (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05));
+				}
+				return best;
+			},
+			[focused.toString('base64'), blurred.toString('base64')] as const
+		);
+		if (strongest === null) losses.push(`no indicator: ${stop.label}`);
+		else if (strongest < 3) losses.push(`${strongest.toFixed(2)}:1: ${stop.label}`);
+	}
+	await still.evaluate((style) => (style as HTMLStyleElement).remove());
+	return losses;
+}
