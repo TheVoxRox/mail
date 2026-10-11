@@ -436,6 +436,55 @@ const REVIEWED_INCOMPLETE: ReadonlyArray<{
 const scanOptions = () => ({ rules: FORCED_RULES, checks: CHECK_OPTIONS });
 
 /**
+ * Text that the WCAG 1.4.12 text spacing pushes out of its box: line height
+ * 1.5, letter spacing 0.12em, word spacing 0.16em and 2em after a paragraph,
+ * the values the criterion says a page must take without losing content.
+ *
+ * Applies them for one measurement and takes them off again, and reports each
+ * element holding text of its own that overflows with them and did not
+ * without, whether its box clips the text or lets it run over its
+ * neighbours. Left out on purpose: a box that cuts its text with an ellipsis,
+ * which the list columns do at any spacing and whose full text the opened
+ * item shows, and the 1px boxes of screen-reader-only text, which are clipped
+ * by design.
+ */
+export function textSpacingLosses(page: Page): Promise<string[]> {
+	return page.evaluate(() => {
+		const overflowing = () => {
+			const found = new Map<Element, string>();
+			for (const el of document.querySelectorAll('body *')) {
+				if (!(el instanceof HTMLElement) || !el.offsetParent) continue;
+				const box = el.getBoundingClientRect();
+				if (box.width <= 1 || box.height <= 1) continue;
+				const ownText = [...el.childNodes].some(
+					(node) => node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim()
+				);
+				if (!ownText) continue;
+				const style = getComputedStyle(el);
+				if (style.textOverflow === 'ellipsis') continue;
+				const down = el.scrollHeight > el.clientHeight + 1;
+				const across = el.scrollWidth > el.clientWidth + 1;
+				if (!down && !across) continue;
+				const clips = /hidden|clip/.test(down ? style.overflowY : style.overflowX);
+				const text = (el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 60);
+				found.set(el, `${clips ? 'cut off' : 'runs over'} ${down ? 'below' : 'beside'}: "${text}"`);
+			}
+			return found;
+		};
+
+		const before = overflowing();
+		const spacing = document.createElement('style');
+		spacing.textContent =
+			'*, *::before, *::after { line-height: 1.5 !important; letter-spacing: 0.12em !important;' +
+			' word-spacing: 0.16em !important; } p { margin-bottom: 2em !important; }';
+		document.head.append(spacing);
+		const after = overflowing();
+		spacing.remove();
+		return [...after].filter(([el]) => !before.has(el)).map(([, line]) => line);
+	});
+}
+
+/**
  * Wait for every finite animation and CSS transition on the page to end.
  *
  * axe reads colours as computed at the moment it looks, and a control that has

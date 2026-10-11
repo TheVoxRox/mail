@@ -12,6 +12,7 @@ import {
 	searchResultsGrid,
 	setMockFlags,
 	setPrefs,
+	textSpacingLosses,
 	waitForFocus,
 	waitForRootRedirect,
 	wcagScan,
@@ -1471,6 +1472,13 @@ test.describe('Přístupnost – jednotlivé obrazovky', () => {
 			await expect(page.getByRole('link', { name: 'Přejít na klávesové zkratky' })).toBeAttached();
 			await expect(page.locator('main#main-content')).toBeAttached();
 			await expect(page.locator('#live-region[aria-live="polite"]')).toBeAttached();
+		});
+
+		test(`${name} (${path}) unese rozestupy textu (1.4.12)`, async ({ page }) => {
+			if (flags) await setMockFlags(page, flags);
+			await openApp(page, path);
+			await expect(ready(page)).toBeVisible();
+			expect(await textSpacingLosses(page)).toEqual([]);
 		});
 	}
 });
