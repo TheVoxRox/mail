@@ -3,6 +3,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { _ } from '$lib/i18n/index.js';
 	import { SIDEBAR_PANE_FRAME } from '$lib/components/ui/sidebar-shell/frame.js';
+	import { paneCollapsed } from '$lib/stores/workspacePane.js';
 	import { cn } from '$lib/utils.js';
 	import type { BootSlowLevel } from '$lib/stores/boot.js';
 
@@ -49,10 +50,14 @@
 </div>
 <!--
 	Not drawn in a narrow window, where the real pane is folded away
-	(stores/workspacePane.ts): `max-md` is the same 48rem line, and a skeleton
-	the shell does not have would shift the content when it replaced it.
+	(stores/workspacePane.ts), nor where the user folded it away: `max-md` is the
+	same 48rem line, and a skeleton the shell does not have would shift the
+	content when it replaced it.
 -->
-<div class={cn(SIDEBAR_PANE_FRAME, 'gap-2 px-3 py-4 max-md:hidden')} aria-hidden="true">
+<div
+	class={cn(SIDEBAR_PANE_FRAME, 'gap-2 px-3 py-4 max-md:hidden', $paneCollapsed && 'hidden')}
+	aria-hidden="true"
+>
 	<div class="h-6 w-32 rounded-md bg-sidebar-accent/40"></div>
 	<div class="mt-3 flex flex-col gap-2">
 		<div class="h-4 w-full rounded-md bg-sidebar-accent/30"></div>

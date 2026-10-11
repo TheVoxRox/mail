@@ -123,6 +123,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- **The side pane can be hidden in a wide window too, and stays hidden until shown again (#691).** The button at the top of the rail, which #687 showed only in a narrow window, is now always there, as Outlook's is: in a wide window it hides the pane, giving the content its width, and docks it again, and the app remembers which. A hidden pane works as a narrow window's does: Ctrl+Y slides it in over the content and Escape folds it away again.
+
 - **Closing the command palette returns focus to where Ctrl+K was pressed, every time (#690).** Two things moved focus as the palette closed: the palette's own restore and the dialog library's, which ran last and went to whatever was focused when the dialog's focus trap started. When the palette's search field had taken focus first, that was the field itself, gone a moment later, and focus fell to the top of the window. That matches the one CI failure of the palette's focus test, which did not reproduce locally. The palette now makes that move itself, to the element it remembered.
 
 - **The text buttons and back links of the account screens look and behave alike (#688).** "Nastavit ručně", "Zadat jiný e-mail", "Použít IMAP a heslo aplikace", "Pokročilé nastavení", "Poskytovatel…" and "← Zpět na Účty" came in three looks: grey 12px, grey 14px and coloured, and the grey ones were hard to tell from plain text. They now share the link style of the app's buttons, in its colour, underlined under the pointer, at the size of the buttons beside them, and with the app's focus ring instead of the browser's.

@@ -11,10 +11,8 @@
 	import {
 		WORKSPACE_PANE_ID,
 		WORKSPACE_PANE_TOGGLE_ID,
-		closePane,
-		openPane,
-		paneNarrow,
-		paneOpen
+		paneShown,
+		togglePane
 	} from '$lib/stores/workspacePane.js';
 	import { cn } from '$lib/utils.js';
 
@@ -62,26 +60,25 @@
 	class="flex h-full w-16 shrink-0 flex-col items-center border-r border-sidebar-border bg-sidebar px-2 py-3"
 >
 	<div class="flex w-full flex-col items-center gap-2">
-		{#if $paneNarrow}
-			<!--
-				Only while the pane is folded away (stores/workspacePane.ts). Named
-				after the pane it opens, with the state in aria-expanded rather than
-				in a name that changes, so the reader hears "sbaleno" / "rozbaleno".
-			-->
-			<button
-				type="button"
-				id={WORKSPACE_PANE_TOGGLE_ID}
-				class={railItemClass(false)}
-				aria-expanded={$paneOpen}
-				aria-controls={WORKSPACE_PANE_ID}
-				aria-keyshortcuts="Control+Y"
-				aria-label={paneToggleLabel}
-				title={paneToggleLabel}
-				onclick={() => ($paneOpen ? closePane({ returnFocus: true }) : openPane())}
-			>
-				<Icon name="bars-3" size={20} />
-			</button>
-		{/if}
+		<!--
+			Shows and hides the pane (stores/workspacePane.ts): slides it in over
+			the content in a narrow window, docks it or folds it away in a wide one.
+			Named after the pane, with the state in aria-expanded rather than in a
+			name that changes, so the reader hears "sbaleno" / "rozbaleno".
+		-->
+		<button
+			type="button"
+			id={WORKSPACE_PANE_TOGGLE_ID}
+			class={railItemClass(false)}
+			aria-expanded={$paneShown}
+			aria-controls={WORKSPACE_PANE_ID}
+			aria-keyshortcuts="Control+Y"
+			aria-label={paneToggleLabel}
+			title={paneToggleLabel}
+			onclick={togglePane}
+		>
+			<Icon name="bars-3" size={20} />
+		</button>
 		{#each items as item (item.mode)}
 			{@const active = currentWorkspaceMode() === item.mode}
 			<a
