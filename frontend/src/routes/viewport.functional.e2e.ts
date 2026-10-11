@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { openApp, setPrefs, waitForFocus } from './e2e-helpers';
+import { openApp, reflowLosses, setPrefs, waitForFocus } from './e2e-helpers';
 
 const mailDetailPath = '/mail/1/INBOX/msg-01';
 
@@ -72,6 +72,9 @@ test.describe('Podokno v úzkém okně', () => {
 		await expect(page.getByRole('heading', { level: 1, name: /^Doručené/ })).toBeFocused();
 		await expect(pane(page)).toHaveCount(0);
 		await expect(toggle(page)).toHaveAttribute('aria-expanded', 'false');
+		// The shortcut is in the name; aria-keyshortcuts as well made a reader
+		// that speaks both say it twice.
+		await expect(toggle(page)).not.toHaveAttribute('aria-keyshortcuts');
 
 		await toggle(page).click();
 		await expect(toggle(page)).toHaveAttribute('aria-expanded', 'true');
@@ -193,4 +196,61 @@ test.describe('Podokno v úzkém okně', () => {
 		await expect(toggle(page)).toBeFocused();
 		await expect(toggle(page)).toHaveAttribute('aria-expanded', 'false');
 	});
+
+	test('tlačítko podokno vysunuté přes Ctrl+Y zasune a až další stisk ho ukotví', async ({
+		page
+	}) => {
+		// The button said "rozbaleno" over a pane slid out by Ctrl+Y, and a press
+		// docked the pane instead of putting it away: the state it reported did
+		// not change, and the overlay a mouse user meant to close stayed.
+		await openAt(page, '/mail/1/INBOX', 1280, 720);
+		const main = page.locator('main#main-content');
+		const docked = await main.evaluate((el) => el.getBoundingClientRect().left);
+		await toggle(page).click();
+		await expect(pane(page)).toHaveCount(0);
+		await page.keyboard.press('Control+y');
+		await waitForFocus(pane(page).getByRole('link', { name: /^Doručené/ }));
+		await expect(toggle(page)).toHaveAttribute('aria-expanded', 'true');
+
+		await toggle(page).click();
+		await expect(pane(page)).toHaveCount(0);
+		await expect(toggle(page)).toHaveAttribute('aria-expanded', 'false');
+		await expect(toggle(page)).toBeFocused();
+
+		await toggle(page).click();
+		await expect(pane(page)).toBeVisible();
+		await expect(toggle(page)).toHaveAttribute('aria-expanded', 'true');
+		expect(await main.evaluate((el) => el.getBoundingClientRect().left)).toBe(docked);
+	});
+
+	/*
+	 * 320 CSS px is the width the fold is for (a 1280px window at 400%), and
+	 * the rail with a pane at its docked width is wider than that: 64 + 272px,
+	 * 72 + 306px at the large text size. A fixed box cannot be scrolled to, so
+	 * the pane's right edge, where the unread counts sit, was simply cut off.
+	 */
+	for (const [path, name] of [
+		['/mail/1/INBOX', 'Podokno pošty'],
+		['/contacts', 'Podokno kontaktů'],
+		['/settings/appearance', 'Podokno nastavení']
+	] as const) {
+		for (const [textSize, sizeName] of [
+			['medium', 'běžné'],
+			['large', 'velké']
+		] as const) {
+			test(`${name} se na šířce 320 px vejde do okna, ${sizeName} písmo (1.4.10)`, async ({
+				page
+			}) => {
+				await setPrefs(page, { textSize });
+				await openAt(page, path, 320, 256);
+				await toggle(page, name).click();
+				await expect(pane(page, name)).toBeVisible();
+
+				expect(
+					await pane(page, name).evaluate((el) => el.getBoundingClientRect().right)
+				).toBeLessThanOrEqual(320);
+				expect(await reflowLosses(page)).toEqual([]);
+			});
+		}
+	}
 });

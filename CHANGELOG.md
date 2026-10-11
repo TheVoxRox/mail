@@ -123,6 +123,20 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- **The side pane fits the window when it slides in at 320 CSS px (#693).** At that width, a 1280px window at 400% zoom, the rail and the pane at its docked width came to 336px, 378px at the large text size, and the pane lies over the content where nothing scrolls to it, so its right edge, with the unread counts, was cut off (WCAG 1.4.10). The pane now narrows to the width beside the rail.
+
+- **The account form announces the error it moves focus to, not every error at once (#693).** Since #686 the form marks every wrong field together, and each of their errors was announced as it appeared: a screen reader was handed several announcements at once, and the move of focus to the first field cut them off. Only the first is announced now; the others are read with their fields as you reach them.
+
+- **A notification no longer hides the control that has focus (#693).** Notifications kept until closed stay over the top right of the content, where the message list's row actions and dates sit when the reading pane is below, and a control there that took focus was under them, with no way to put them away short of moving focus (WCAG 2.4.11). The stack now moves to the bottom of the window whenever it covers less of the focused control there.
+
+- **The add-account wizard fits a 320 CSS px window past its first step (#693).** Its text buttons became link-style buttons in #688, which did not wrap, so "Použít IMAP a heslo aplikace" ran out of its card, and at the large text size out of the window; the sign-in offer and the "Vybrat poskytovatele / Vlastní nastavení" choice of the account form did the same at the large text size (WCAG 1.4.10). They wrap now.
+
+- **The provider details in the account form are read with their name (#693).** The box that shows the detected provider's servers was named "Detaily poskytovatele" on an element that may not carry a name, so the browser dropped it, the defect #680 fixed on the custom-server badge; it is now a named group.
+
+- **The pane button puts away a pane that Ctrl+Y slid out, and says its shortcut once (#693).** With the pane hidden in a wide window and slid out by Ctrl+Y, the button docked it instead, and reported "rozbaleno" before and after the press; it now hides the pane, and the next press docks it. It also carried Ctrl+Y both in its name and as a keyboard shortcut property, so a screen reader that reads both said it twice.
+
+- **Outline buttons in the dark theme have the edge they had before #682 (#693).** The edge of a form field was raised to 3:1 for WCAG 1.4.11, and outline buttons, which take that colour in the dark theme, came out with a bright frame the light theme does not have. They take a share of it now that matches the earlier edge.
+
 - **The message list can be sized from Settings › Appearance, without dragging the divider (#692).** The divider between the list and the reading pane could only be dragged or, once focused, moved with the arrow keys, and WCAG 2.5.7 asks for a way that needs neither. "Velikost seznamu zpráv" offers Smaller, Default and Larger, for the list's width beside the pane and its height above it; it stores what the divider stores, so Mail opens with the divider there and a drag carries on from it. After a drag the setting reads "Vlastní (nastavená děličem)".
 
 - **The text of an open message follows Settings › Appearance › Text size (#689).** The message body renders in a frame that is a document of its own, so the setting, which scales the rest of the window, never reached it: the body stayed at 14px at every step. It is now 13.1px at Small, 14px at Medium and 15.75px at Large, the same proportion as the interface. The frame still admits exactly one stylesheet, pinned by hash in its content security policy; there is now one per step.
@@ -192,6 +206,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 - **Tauri 2.12.1 (#617).** It brings wry 0.57, whose fix (tauri-apps/wry#1799) the app has been waiting for: minimizing the window while it was still starting left the app running in the tray with no window and no way to open one. The fix is upstream's; checking it on a release build is still a manual step (`todo.md`). The Tauri plugins move with it on both sides — fs 2.6.0, http 2.8.0, shell 2.4.0, and on the Rust side updater 2.13.1, single-instance 2.5.2 and log 2.10.0 — and `webview2-com` 0.39 and `windows-core` 0.62 are raised by hand to the versions the new wry builds with, since dependabot ignores them and the Ubuntu CI does not compile the Windows-only code that uses them; that was built on Windows.
 
 ### Repo
+
+- **The message-body frame cancels Ctrl+Y like the app's other shortcuts, and the content rendering audit records it as reviewed drift (#693).** The frame's key forwarder is meant to cancel every combination the app claims, and Ctrl+Y, the pane shortcut since #687, was missing; its script hash is recomputed. The a11y suite also gains checks for the wizard steps past the e-mail, for toasts kept clear of focus, and for a toast closed with the mouse leaving the others counting down.
 
 - **The content rendering audit records the per-text-size frame styles of #689 as reviewed drift (#689).** Its frame claim holds as written: one script and one stylesheet, each pinned by hash; there are now three stylesheets to choose from, and `mailFrame.test.ts` recomputes all three hashes.
 

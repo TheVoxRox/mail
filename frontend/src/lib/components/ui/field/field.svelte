@@ -19,6 +19,13 @@
 		hint?: string | null;
 		error?: string | null;
 		errorId?: string;
+		/**
+		 * Whether the error is announced as it appears (`role="alert"`). A form
+		 * that marks several fields at once announces only the one it moves
+		 * focus to: the others are read with their fields, and a screen reader
+		 * handed every one of them at once loses them to the focus move.
+		 */
+		announce?: boolean;
 		labelClass?: string;
 		/**
 		 * Receives the `aria-describedby` / `aria-invalid` the control needs to
@@ -35,6 +42,7 @@
 		hint = null,
 		error = null,
 		errorId,
+		announce = true,
 		labelClass,
 		children
 	}: Props = $props();
@@ -55,6 +63,12 @@
 		<p id={fieldHintId(forId)} aria-hidden="true" class="text-xs text-muted-foreground">{hint}</p>
 	{/if}
 	{#if error}
-		<p id={errorId} class="text-xs text-destructive-foreground" role="alert">{error}</p>
+		<p
+			id={errorId}
+			class="text-xs text-destructive-foreground"
+			role={announce ? 'alert' : undefined}
+		>
+			{error}
+		</p>
 	{/if}
 </div>

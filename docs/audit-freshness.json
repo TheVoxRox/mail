@@ -87,8 +87,8 @@
   "docs/CONTENT_RENDERING_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailContentService.java": "b356d6be05d7986431d3e78c198862baad50edae",
-      "frontend/src/lib/mail/mailFrame.ts": "665d76ee7f40bce9424f21d6a597ed2a761ed6e5",
-      "frontend/src/lib/components/message-detail": "5dd3f4828459eda9d482530678702c07ef4771ea"
+      "frontend/src/lib/mail/mailFrame.ts": "7155f90df686845c62312749e5012897f4af80d5",
+      "frontend/src/lib/components/message-detail": "0ca74b734243d5be68174599421026b792d0ca6a"
     },
     "acknowledgements": [
       {
@@ -106,6 +106,10 @@
       {
         "date": "2026-10-11",
         "note": "#689: the body frame's base stylesheet becomes one per text-size step, read against section 3 (Frame -- defense in depth). The claim holds as written: the frame's <meta> CSP is still default-src 'none' with script-src and style-src each pinned to one sha256, base-uri and form-action 'none', the sandbox is still allow-scripts without allow-same-origin, and the forwarder script and its hash are byte-identical. What moved: MAIL_FRAME_STYLE and MAIL_FRAME_STYLE_SHA256 are now tables keyed by small/medium/large, generated from one template whose only variable is the frame's root font size (15/16/18px from stores/textSize.ts); the body's 14px became 0.875rem; mailFrameCsp(loadRemoteImages, textSize) names the hash of the one step it is given, so a frame admits its own style and not the other two; MessageContent.svelte passes the current text size to buildMailFrameSrcdoc and is otherwise unchanged. The 'recompute the CSP hashes' method note still applies, three times: the three hashes were derived from the generated strings with SHA-256/base64 and match, and mailFrame.test.ts recomputes them. No sanitizer, remote-image, link-relay or height-relay code changed. Verdict unchanged."
+      },
+      {
+        "date": "2026-10-11",
+        "note": "The forwarder's preventDefault predicate gains Ctrl+Y, read against section 3 (Frame -- defense in depth). The app claims Ctrl+Y for the workspace pane since #687, and the predicate is meant to mirror what handleGlobalKeydown claims, so the genuine keystroke in the frame is cancelled as Ctrl+R and Ctrl+P are; the letter class /^[kprfqu]$/i became /^[kprfquy]$/i and nothing else in the script moved. Cancelling a default grants the frame nothing: what it posts out is unchanged (every isTrusted keydown was already relayed), and so are the link relay and the height relay. MAIL_FRAME_SCRIPT_SHA256 was recomputed from the new string with SHA-256/base64 and mailFrame.test.ts recomputes it; the CSP still pins script-src to that one hash, the sandbox is still allow-scripts without allow-same-origin. Under message-detail, MessageHeaderCard.svelte adds min-h-0 to the class of the inline address link, a layout change only. No sanitizer or remote-image code changed. Verdict unchanged."
       }
     ]
   },

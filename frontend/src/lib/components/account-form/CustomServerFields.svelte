@@ -8,7 +8,7 @@
 	 */
 	import ServerEndpointFields from './ServerEndpointFields.svelte';
 	import { _ } from '$lib/i18n/index.js';
-	import type { CustomFieldKey } from '$lib/accounts/accountFormValidation.js';
+	import type { AccountFieldKey, CustomFieldKey } from '$lib/accounts/accountFormValidation.js';
 
 	interface Props {
 		imapHost: string;
@@ -18,6 +18,8 @@
 		smtpPort: number | null;
 		smtpUseSsl: boolean;
 		fieldErrors: Partial<Record<CustomFieldKey, string>>;
+		/** The one field of the whole form whose error is announced (AccountForm). */
+		announcedField: AccountFieldKey | null;
 	}
 
 	let {
@@ -27,7 +29,8 @@
 		smtpHost = $bindable(),
 		smtpPort = $bindable(),
 		smtpUseSsl = $bindable(),
-		fieldErrors
+		fieldErrors,
+		announcedField
 	}: Props = $props();
 </script>
 
@@ -46,6 +49,8 @@
 		bind:useSsl={imapUseSsl}
 		hostError={fieldErrors.imapHost ?? null}
 		portError={fieldErrors.imapPort ?? null}
+		announceHostError={announcedField === 'imapHost'}
+		announcePortError={announcedField === 'imapPort'}
 	/>
 
 	<ServerEndpointFields
@@ -57,6 +62,8 @@
 		bind:useSsl={smtpUseSsl}
 		hostError={fieldErrors.smtpHost ?? null}
 		portError={fieldErrors.smtpPort ?? null}
+		announceHostError={announcedField === 'smtpHost'}
+		announcePortError={announcedField === 'smtpPort'}
 		separated
 	/>
 

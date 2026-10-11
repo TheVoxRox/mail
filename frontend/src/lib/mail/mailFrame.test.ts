@@ -256,7 +256,10 @@ describe('MAIL_FRAME_SCRIPT keyboard forwarding', () => {
 		['r', 'KeyR'],
 		['f', 'KeyF'],
 		['q', 'KeyQ'],
-		['u', 'KeyU']
+		['u', 'KeyU'],
+		// Into the workspace pane (globalShortcuts.ts); matched by `key`, since Y
+		// and Z swap places on the Czech layout.
+		['y', 'KeyZ']
 	])('cancels Ctrl+%s, which the app claims', (key, code) => {
 		expect(press({ key, code, ctrlKey: true })).toBe(true);
 	});
@@ -309,6 +312,7 @@ describe('MAIL_FRAME_SCRIPT keyboard forwarding', () => {
 		['f', 'KeyF'],
 		['q', 'KeyQ'],
 		['u', 'KeyU'],
+		['y', 'KeyY'],
 		['n', 'KeyN'],
 		['1', 'Digit1']
 	])('leaves Ctrl+Shift+%s alone, which the app claims only without Shift', (key, code) => {
@@ -490,6 +494,6 @@ describe('frame height reporting', () => {
 	it('claims Ctrl+P inside the frame, as the app binds it', () => {
 		// Same promise as Ctrl+R and Ctrl+F: the parent reacts to a synthetic
 		// replay, so only the frame can cancel the genuine event.
-		expect(MAIL_FRAME_SCRIPT).toContain('/^[kprfqu]$/i');
+		expect(MAIL_FRAME_SCRIPT).toContain('/^[kprfquy]$/i');
 	});
 });
