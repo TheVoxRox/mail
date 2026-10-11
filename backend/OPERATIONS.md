@@ -169,7 +169,7 @@ SELECT version, success FROM flyway_schema_history ORDER BY installed_rank;
 
 The start fails with exit code 65, the application says the mail database is damaged, and `audit.log` holds `db_corruption_detected`. Restarting does not help, so the client does not spend its restart budget on it. Two ways out, in this order.
 
-**Restore the newest pre-migration backup.** A start that has a migration to apply takes one first (`db/mail.db.backup-pre-v<version>`), so the newest holds the state from just before the last schema change, and whatever changed after it is not in it. The first start of a fresh installation counts too and snapshots an empty database, so restoring that one is the same as starting empty. The procedure is covered step by step by `DatabaseRecoveryTest` (`backend/src/test/java/org/voxrox/mailbackend/core/config/DatabaseRecoveryTest.java`):
+**Restore the newest pre-migration backup.** A start that has a migration to apply takes one first (`db/mail.db.backup-pre-v<version>`), so the newest holds the state from just before the last schema change, and whatever changed after it is not in it. The first start of a fresh installation takes none: its database is empty, and a snapshot of it would restore nothing, so an installation that has never had an update to apply has no backup. The procedure is covered step by step by `DatabaseRecoveryTest` (`backend/src/test/java/org/voxrox/mailbackend/core/config/DatabaseRecoveryTest.java`):
 
 ```powershell
 # 1. Quit the application; Task Manager must show no voxrox-mail-backend process

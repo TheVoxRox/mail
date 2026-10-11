@@ -93,6 +93,18 @@ class DatabaseConfigTest {
     }
 
     @Test
+    @DisplayName("pre-migration hook skips the backup of a fresh, empty database and still migrates it")
+    void preMigrationHookSkipsBackupOfEmptyDatabase() throws Exception {
+        DatabaseBackupService backupService = mock(DatabaseBackupService.class);
+        Flyway flyway = flywayWith(validationSuccess(), 1);
+
+        strategy(backupService, 0).migrate(flyway);
+
+        verify(backupService, never()).createPreMigrationBackup();
+        verify(flyway).migrate();
+    }
+
+    @Test
     @DisplayName("pre-migration hook skips the backup when nothing is pending")
     void preMigrationHookSkipsBackupWhenUpToDate() throws Exception {
         DatabaseBackupService backupService = mock(DatabaseBackupService.class);
@@ -137,10 +149,19 @@ class DatabaseConfigTest {
         verify(flyway).migrate();
     }
 
+    /** A strategy over a database that already holds a schema. */
     private FlywayMigrationStrategy strategy(DatabaseBackupService backupService) throws Exception {
-        DatabaseConfig config = new DatabaseConfig(dataSourceWithResults("wal", "1", "1", "5000", "-20000", "ok"),
-                new StartupTimingService());
-        return config.preMigrationBackupStrategy(backupService);
+        return strategy(backupService, 1);
+    }
+
+    private FlywayMigrationStrategy strategy(DatabaseBackupService backupService, int schemaObjects) throws Exception {
+        DataSource dataSource = dataSourceWithResults("wal", "1", "1", "5000", "-20000", "ok");
+        ResultSet count = mock(ResultSet.class);
+        when(count.next()).thenReturn(true, false);
+        when(count.getInt(1)).thenReturn(schemaObjects);
+        when(dataSource.getConnection().createStatement().executeQuery("SELECT count(*) FROM sqlite_master;"))
+                .thenReturn(count);
+        return new DatabaseConfig(dataSource, new StartupTimingService()).preMigrationBackupStrategy(backupService);
     }
 
     private Flyway flywayWith(ValidateResult validation, int pendingCount) {

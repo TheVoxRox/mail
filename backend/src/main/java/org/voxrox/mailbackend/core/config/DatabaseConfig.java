@@ -84,7 +84,10 @@ public class DatabaseConfig {
      * (copies the entire SQLite file aside) and used to run on every startup; in 99
      * % of cases there is nothing to migrate — the schema matches, no pending
      * migrations. The backup runs only when Flyway reports at least one pending
-     * migration, so a normal cold start does not pay this latency.
+     * migration, so a normal cold start does not pay this latency. The first start
+     * of a fresh installation has every migration pending but nothing to keep: its
+     * database has just been created empty, and a snapshot of it restored only an
+     * empty database while taking one of the retained backup slots.
      * <p>
      * The second trigger is an altered applied migration (see
      * {@link #ALTERED_APPLIED_MIGRATION_CODES}). That state is <em>not</em>
@@ -107,10 +110,12 @@ public class DatabaseConfig {
             List<ValidateOutput> alteredMigrations = alteredAppliedMigrations(flyway.validateWithResult());
             boolean hasPendingMigrations = flyway.info().pending().length > 0;
 
-            if (hasPendingMigrations || !alteredMigrations.isEmpty()) {
+            if (!alteredMigrations.isEmpty() || (hasPendingMigrations && !isEmptyDatabase())) {
                 long backupStarted = startupTimingService.start();
                 createBackup(databaseBackupService);
                 startupTimingService.record("db.pre-migration-backup", backupStarted);
+            } else if (hasPendingMigrations) {
+                log.info("{} Empty database (first start), skipping pre-migration backup.", LogCategory.DATABASE);
             } else {
                 log.info("{} No pending migrations, skipping pre-migration backup.", LogCategory.DATABASE);
             }
@@ -149,6 +154,24 @@ public class DatabaseConfig {
             throw damaged(problem, null);
         }
         log.info("{} SQLite quick_check=ok", LogCategory.DATABASE);
+    }
+
+    /**
+     * Whether the database holds no schema object at all, which is the state SQLite
+     * creates a new file in. A database that could not be read counts as not empty:
+     * the snapshot is then taken, and a failure to write it is reported by
+     * {@link #createBackup} as it always was.
+     */
+    private boolean isEmptyDatabase() {
+        try (Connection connection = dataSource.getConnection();
+                Statement statement = connection.createStatement();
+                ResultSet rs = statement.executeQuery("SELECT count(*) FROM sqlite_master;")) {
+            return rs.next() && rs.getInt(1) == 0;
+        } catch (SQLException e) {
+            log.warn("{} Could not tell whether the database is empty, taking the pre-migration backup: {}",
+                    LogCategory.DATABASE, e.getMessage());
+            return false;
+        }
     }
 
     private static @Nullable String quickCheckProblem(ResultSet rs) throws SQLException {

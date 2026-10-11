@@ -69,7 +69,8 @@ class FlywayAlteredMigrationDetectionTest {
     void firstStartAppliesPendingBaseline() {
         assertThatCode(() -> strategy.migrate(flyway())).doesNotThrowAnyException();
 
-        verify(backupService).createPreMigrationBackup();
+        // Pending, but over an empty database: there is nothing to snapshot yet.
+        verify(backupService, never()).createPreMigrationBackup();
     }
 
     @Test
