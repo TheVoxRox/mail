@@ -89,13 +89,15 @@
 <!--
 	The address action, in whichever of its two states. Inline with the address
 	it belongs to, so it stays on the same line and baseline as the sender —
-	the accessible name is what says which address it means.
+	the accessible name is what says which address it means. `min-h-0` drops the
+	minimum height a link-style button keeps for its own line: inline in a
+	sentence it takes the line's height, as WCAG 2.5.8 allows a target in text.
 -->
 {#snippet addressLink(href: string, text: string, label: string)}
 	<Button
 		variant="link"
 		size="sm"
-		class="ml-1.5 h-auto p-0 align-baseline"
+		class="ml-1.5 h-auto min-h-0 p-0 align-baseline"
 		{href}
 		aria-label={label}
 	>

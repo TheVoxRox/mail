@@ -151,6 +151,8 @@
 	let verifyingCredentials = $state(false);
 	let errorMessage = $state('');
 	let fieldErrors = $state<Partial<Record<AccountFieldKey, string>>>({});
+	/** The one field whose error is announced as it appears (see showFieldErrors). */
+	let announcedField = $state<AccountFieldKey | null>(null);
 	let connectionTestMessage = $state('');
 	let providerResolvedFromEmail = $state(false);
 	/** The address is valid and the catalogue has no provider for its domain. */
@@ -159,6 +161,7 @@
 
 	function clearFieldErrors(): void {
 		fieldErrors = {};
+		announcedField = null;
 	}
 
 	function focusFieldById(id: string): void {
@@ -346,11 +349,16 @@
 	 * field this form does not show goes to the message above the buttons
 	 * instead: the compact wizard form has no provider select, and a provider
 	 * list that has not loaded yet still has to be told.
+	 *
+	 * Only the first error is announced (`announcedField`). It is the one focus
+	 * goes to, and the announcement is what speaks it when focus is already
+	 * there (Enter in that field); the rest are read with their fields.
 	 */
 	function showFieldErrors(errors: AccountFieldError[]): void {
 		const shown = errors.filter((error) => document.getElementById(FIELD_INPUT_IDS[error.field]));
 		const unshown = errors.filter((error) => !shown.includes(error));
 		fieldErrors = Object.fromEntries(shown.map((error) => [error.field, $_(error.messageKey)]));
+		announcedField = shown[0]?.field ?? null;
 		errorMessage = unshown.map((error) => $_(error.messageKey)).join(' ');
 		if (shown.length > 0) focusFieldById(FIELD_INPUT_IDS[shown[0].field]);
 	}
@@ -548,6 +556,7 @@
 			hint={$_('accounts.form.emailHint')}
 			error={fieldErrors.email}
 			errorId={errorIdOf('email')}
+			announce={announcedField === 'email'}
 		>
 			{#snippet children(control)}
 				<Input
@@ -563,8 +572,13 @@
 			{/snippet}
 		</Field>
 	{:else if email && selectedProvider}
+		<!--
+			A group, so the name holds: on a <div> with no role the browser drops an
+			aria-label, as it did the custom-server badge's on a <p> (#680).
+		-->
 		<div
 			class="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs"
+			role="group"
 			aria-label={$_('accounts.form.providerDetailsLabel')}
 		>
 			<div class="flex min-w-0 items-center gap-2">
@@ -614,6 +628,7 @@
 			hint={$_('accounts.form.accountNameHint')}
 			error={fieldErrors.accountName}
 			errorId={errorIdOf('accountName')}
+			announce={announcedField === 'accountName'}
 		>
 			{#snippet children(control)}
 				<Input
@@ -633,7 +648,12 @@
 			<legend class="block text-sm font-medium text-foreground">
 				{$_('accounts.form.serverModeLabel')}
 			</legend>
-			<div class="flex gap-2">
+			<!--
+				Wraps: side by side, the two choices ran past the window at 320 CSS px
+				and the large text size, and the fieldset will not shrink below them
+				(WCAG 1.4.10).
+			-->
+			<div class="flex flex-wrap gap-2">
 				<label class={cn('relative', segmentedClasses(serverMode === 'provider'))}>
 					<input
 						type="radio"
@@ -670,8 +690,10 @@
 
 		{#if serverMode === 'provider'}
 			{#if providerDropdownHidden && selectedProvider}
+				<!-- A group for the name to hold, as above. -->
 				<div
 					class="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs"
+					role="group"
 					aria-label={$_('accounts.form.providerDetailsLabel')}
 				>
 					<div class="flex min-w-0 items-center gap-2">
@@ -699,6 +721,7 @@
 					label={$_('accounts.form.provider')}
 					error={fieldErrors.provider}
 					errorId={errorIdOf('provider')}
+					announce={announcedField === 'provider'}
 				>
 					{#snippet children(control)}
 						<Select
@@ -734,7 +757,18 @@
 								values: { provider: $_(`accounts.wizard.presets.${oauthCtaPreset.key}`) }
 							})}
 						</p>
-						<Button type="button" variant="outline" size="sm" onclick={handleUseOAuth}>
+						<!--
+							Wraps, unlike a Button's usual single line: two cards deep, the
+							label ran out of its card at 320 CSS px and the large text size
+							(WCAG 1.4.10).
+						-->
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							class="h-auto min-h-7 whitespace-normal text-left"
+							onclick={handleUseOAuth}
+						>
 							{$_(`accounts.wizard.${oauthCtaPreset.key}.loginButton`)}
 						</Button>
 					</div>
@@ -749,6 +783,7 @@
 				bind:smtpPort
 				bind:smtpUseSsl
 				{fieldErrors}
+				{announcedField}
 			/>
 		{/if}
 	{/if}
@@ -760,6 +795,7 @@
 			hint={$_('accounts.form.usernameHint')}
 			error={fieldErrors.username}
 			errorId={errorIdOf('username')}
+			announce={announcedField === 'username'}
 		>
 			{#snippet children(control)}
 				<Input
@@ -784,6 +820,7 @@
 		hint={mode === 'edit' ? $_('accounts.form.passwordEditHint') : null}
 		error={fieldErrors.password}
 		errorId={errorIdOf('password')}
+		announce={announcedField === 'password'}
 	>
 		{#snippet children(control)}
 			<!--

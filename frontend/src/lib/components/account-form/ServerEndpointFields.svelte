@@ -25,6 +25,9 @@
 		useSsl: boolean;
 		hostError?: string | null;
 		portError?: string | null;
+		/** Whether that error is the form's one announced error (Field's `announce`). */
+		announceHostError?: boolean;
+		announcePortError?: boolean;
 		/** Adds the divider above the SMTP block. */
 		separated?: boolean;
 	}
@@ -38,6 +41,8 @@
 		useSsl = $bindable(),
 		hostError = null,
 		portError = null,
+		announceHostError = true,
+		announcePortError = true,
 		separated = false
 	}: Props = $props();
 
@@ -57,7 +62,13 @@
 	<fieldset class="space-y-2">
 		<legend class="block text-sm font-medium text-foreground">{heading}</legend>
 		<div class="grid gap-3 sm:grid-cols-[1fr_7.5rem]">
-			<Field for={hostId} label={$_('accounts.form.host')} error={hostError} errorId={hostErrorId}>
+			<Field
+				for={hostId}
+				label={$_('accounts.form.host')}
+				error={hostError}
+				errorId={hostErrorId}
+				announce={announceHostError}
+			>
 				{#snippet children(control)}
 					<Input
 						id={hostId}
@@ -71,7 +82,13 @@
 					/>
 				{/snippet}
 			</Field>
-			<Field for={portId} label={$_('accounts.form.port')} error={portError} errorId={portErrorId}>
+			<Field
+				for={portId}
+				label={$_('accounts.form.port')}
+				error={portError}
+				errorId={portErrorId}
+				announce={announcePortError}
+			>
 				{#snippet children(control)}
 					<Input
 						id={portId}

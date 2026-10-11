@@ -72,12 +72,64 @@
 		syncCountdowns();
 	}
 
-	// The last toast going takes the pointer and focus with it, without an out event.
+	/*
+	 * The stack lies over the content, and one kept until closed (errors, or
+	 * every toast under the `manual` dismissal) can stay over a control that
+	 * then takes focus: the row actions and dates of the list run along the
+	 * right edge under it. When it covers the element that has focus outside
+	 * it, it moves to the other end of the window if it covers less of that
+	 * element there (WCAG 2.4.11, and 2.4.12 where it can). An element too
+	 * large to get out of the way of, such as the message body, leaves it be.
+	 *
+	 * The other end is worked out rather than tried, so nothing is drawn in
+	 * between: the same toasts, shifted by the distance between the two
+	 * positions, which are the `top-14` and `bottom-4` of the classes below.
+	 */
+	let placement = $state<'top' | 'bottom'>('top');
+	const TOP_OFFSET_REM = 3.5;
+	const BOTTOM_OFFSET_REM = 1;
+
+	function coveredArea(box: DOMRect, shift: number): number {
+		let area = 0;
+		for (const toast of regionEl?.children ?? []) {
+			const r = toast.getBoundingClientRect();
+			const width = Math.min(r.right, box.right) - Math.max(r.left, box.left);
+			const height = Math.min(r.bottom + shift, box.bottom) - Math.max(r.top + shift, box.top);
+			if (width > 0 && height > 0) area += width * height;
+		}
+		return area;
+	}
+
+	function keepClearOf(target: Element | null): void {
+		// Every focus move in the app comes through here: no toast, no layout read.
+		if (!regionEl || regionEl.childElementCount === 0) return;
+		if (!(target instanceof Element) || regionEl.contains(target)) return;
+		const box = target.getBoundingClientRect();
+		const here = coveredArea(box, 0);
+		if (here === 0) return;
+		const stack = regionEl.getBoundingClientRect();
+		const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+		const shift =
+			placement === 'top'
+				? window.innerHeight - BOTTOM_OFFSET_REM * rem - stack.bottom
+				: TOP_OFFSET_REM * rem - stack.top;
+		if (coveredArea(box, shift) < here) placement = placement === 'top' ? 'bottom' : 'top';
+	}
+
+	// A toast that arrives over the focused element, or one that grows the stack.
+	$effect(() => {
+		if ($toasts.length === 0) return;
+		keepClearOf(document.activeElement);
+	});
+
+	// The last toast going takes the pointer and focus with it, without an out
+	// event, and the next stack starts at the top again.
 	$effect(() => {
 		if ($toasts.length > 0) return;
 		pointerInside = false;
 		focusInside = false;
 		resumeToastCountdowns();
+		placement = 'top';
 	});
 
 	/**
@@ -125,7 +177,10 @@
 	onfocusout={handleFocusOut}
 	onpointerover={handlePointerOver}
 	onpointerout={handlePointerOut}
-	class="pointer-events-none fixed right-4 top-14 z-50 flex w-80 max-w-full flex-col gap-2"
+	class={cn(
+		'pointer-events-none fixed right-4 z-50 flex w-80 max-w-full flex-col gap-2',
+		placement === 'top' ? 'top-14' : 'bottom-4'
+	)}
 >
 	{#each $toasts as toast (toast.id)}
 		<div
@@ -155,3 +210,5 @@
 		</div>
 	{/each}
 </div>
+
+<svelte:document onfocusin={(event) => keepClearOf(event.target as Element | null)} />

@@ -922,6 +922,11 @@ test.describe('Přístupnost', () => {
 			);
 		}
 		await expect(page.locator('#acc-email')).toBeFocused();
+		// One announcement, for the field focus went to. With every error an
+		// alert, a screen reader was handed six at once and the focus move cut
+		// them off; the rest are read with their fields.
+		await expect(page.locator('#main-content').getByRole('alert')).toHaveCount(1);
+		await expect(page.locator('#acc-email-error')).toHaveAttribute('role', 'alert');
 
 		await page.locator('#acc-email').fill('jan.example.com');
 		await page.getByRole('button', { name: 'Vytvořit účet' }).click();
@@ -929,6 +934,72 @@ test.describe('Přístupnost', () => {
 			/Zadejte e-mail ve tvaru jmeno@domena\.cz\.$/
 		);
 	});
+
+	test('kroky průvodce za e-mailem nemají a11y porušení', async ({ page }) => {
+		// The per-screen scans see the wizard's first step only. The provider
+		// details on the later ones were a <div> named by aria-label, a name the
+		// browser drops without a role, which axe files as undecided.
+		await openApp(page, '/settings/accounts/new');
+		await page.locator('#wizard-email').fill('jana@gmail.com');
+		await page.getByRole('button', { name: 'Pokračovat' }).click();
+		const useImap = page.getByRole('button', { name: 'Použít IMAP a heslo aplikace' });
+		await expect(useImap).toBeVisible();
+		await expectNoFindings(page, await wcagScan(page).analyze());
+
+		// The full form, with the detected provider in a box of its own.
+		await useImap.click();
+		await expect(page.locator('#acc-username')).toBeVisible();
+		await expectNoFindings(page, await wcagScan(page).analyze());
+		await expect(page.getByRole('group', { name: 'Detaily poskytovatele' })).toBeVisible();
+
+		// The compact form of a password provider has the other such box.
+		await page.getByRole('button', { name: 'Zadat jiný e-mail' }).click();
+		await page.locator('#wizard-email').fill('jana@seznam.cz');
+		await page.getByRole('button', { name: 'Pokračovat' }).click();
+		await expect(page.getByRole('heading', { name: 'Detekováno: Seznam.cz' })).toBeVisible();
+		await expectNoFindings(page, await wcagScan(page).analyze());
+		await expect(page.getByRole('group', { name: 'Detaily poskytovatele' })).toBeVisible();
+	});
+
+	for (const [textSize, sizeName] of [
+		['medium', 'běžné'],
+		['large', 'velké']
+	] as const) {
+		test(`kroky průvodce za e-mailem se přeskládají na šířku 320 px, ${sizeName} písmo (1.4.10)`, async ({
+			page
+		}) => {
+			// The per-screen reflow scan sees the wizard's first step only. The
+			// text buttons of the later ones became link-style Buttons (#688), which
+			// did not wrap: "Použít IMAP a heslo aplikace" ran 25px out of its card,
+			// and at the large text size 41px out of the window. Inside the page's
+			// scroll area and a pixel short of the edge, reflowLosses let the first
+			// pass, hence the check on the cards themselves.
+			const outsideTheirCard = () =>
+				page.evaluate(() =>
+					[...document.querySelectorAll('main section button, main section a')]
+						.filter((el) => {
+							const box = el.getBoundingClientRect();
+							const card = el.closest('section')!.getBoundingClientRect();
+							return box.right > card.right + 1 || box.left < card.left - 1;
+						})
+						.map((el) => (el.textContent ?? '').trim())
+				);
+			await setPrefs(page, { textSize });
+			await page.setViewportSize({ width: 320, height: 256 });
+			await openApp(page, '/settings/accounts/new');
+			await page.locator('#wizard-email').fill('jana@gmail.com');
+			await page.getByRole('button', { name: 'Pokračovat' }).click();
+			const useImap = page.getByRole('button', { name: 'Použít IMAP a heslo aplikace' });
+			await expect(useImap).toBeVisible();
+			expect(await outsideTheirCard()).toEqual([]);
+			expect(await reflowLosses(page)).toEqual([]);
+
+			await useImap.click();
+			await expect(page.locator('#acc-password')).toBeVisible();
+			expect(await outsideTheirCard()).toEqual([]);
+			expect(await reflowLosses(page)).toEqual([]);
+		});
+	}
 
 	test('průvodce účtem řekne, proč nemůže pokračovat (3.3.1)', async ({ page }) => {
 		// Continue used to be disabled until the address was valid: not a tab
@@ -1180,6 +1251,96 @@ test.describe('Přístupnost', () => {
 		await page.locator('main').focus();
 		await page.clock.runFor(10_000);
 		await expect(toast).toHaveCount(0);
+	});
+
+	test('zavření oznámení myší nenechá odpočet ostatních zastavený (2.2.1)', async ({ page }) => {
+		// The clocks stop while the pointer is on a toast. Closing the one under
+		// the pointer takes the node the pointer was on out of the page, and the
+		// region's resume rests on Chromium then sending the next pointerout from
+		// the nearest ancestor still there, the region itself. With no pointerout
+		// handled at all this test fails, so it holds that behaviour.
+		await page.clock.install();
+		await openApp(
+			page,
+			`/mail/${mailFixture.accountId}/${mailFixture.folderName}/${mailFixture.stableId}`
+		);
+		await expect(page.getByRole('region', { name: 'Text zprávy' })).toBeVisible();
+		const attachment = page.getByRole('button', { name: /^brief\.pdf/ });
+		const toasts = page
+			.getByRole('region', { name: 'Oznámení' })
+			.getByRole('status')
+			.filter({ hasText: 'Příloha brief.pdf stažena.' });
+		await attachment.click();
+		await expect(toasts).toHaveCount(1);
+		await attachment.click();
+		await expect(toasts).toHaveCount(2);
+
+		await toasts.last().getByRole('button').click();
+		await expect(toasts).toHaveCount(1);
+		// Off the toasts, and focus with it: nothing holds the clocks any more.
+		await page.getByRole('heading', { level: 1 }).first().click();
+		await page.clock.runFor(10_000);
+		await expect(toasts).toHaveCount(0);
+	});
+
+	test('oznámení ustoupí prvku s fokusem, který by zakrylo (2.4.11)', async ({ page }) => {
+		// Kept until closed, a stack of toasts lies over the top right of the
+		// content for good. With the reading pane below, the list's row actions
+		// and dates sit there, and one that took focus was under the stack, all
+		// of it once a toast ran to a few lines, with nothing to put the stack
+		// away short of moving focus.
+		await setPrefs(page, { toastDismissal: 'manual', readingPane: 'bottom' });
+		await openApp(
+			page,
+			`/mail/${mailFixture.accountId}/${mailFixture.folderName}/${mailFixture.stableId}`
+		);
+		await expect(page.getByRole('region', { name: 'Text zprávy' })).toBeVisible();
+		const attachment = page.getByRole('button', { name: /^brief\.pdf/ });
+		const region = page.getByRole('region', { name: 'Oznámení' });
+		for (let count = 1; count <= 3; count++) {
+			await attachment.click();
+			await expect(region.getByRole('status')).toHaveCount(count);
+		}
+
+		// Whether any toast overlaps the element marked data-covered-by-toast.
+		const overlapped = () =>
+			region.evaluate((el) => {
+				const target = document.querySelector('[data-covered-by-toast]');
+				if (!target) return null;
+				const box = target.getBoundingClientRect();
+				return [...el.children].some((toast) => {
+					const r = toast.getBoundingClientRect();
+					return (
+						r.left < box.right && r.right > box.left && r.top < box.bottom && r.bottom > box.top
+					);
+				});
+			});
+		// A focus stop in the content that the stack lies over where it stands,
+		// and small enough for the stack to be out of its way somewhere.
+		await region.evaluate((el) => {
+			const toasts = [...el.children].map((toast) => toast.getBoundingClientRect());
+			const control = [
+				...document.querySelectorAll<HTMLElement>(
+					'main button, main a[href], main select, main [tabindex]'
+				)
+			].find((candidate) => {
+				const box = candidate.getBoundingClientRect();
+				return (
+					candidate.offsetParent !== null &&
+					box.width <= 320 &&
+					box.height <= 100 &&
+					toasts.some(
+						(r) =>
+							r.left < box.right && r.right > box.left && r.top < box.bottom && r.bottom > box.top
+					)
+				);
+			});
+			control?.setAttribute('data-covered-by-toast', '');
+		});
+		expect(await overlapped()).toBe(true);
+
+		await page.locator('[data-covered-by-toast]').focus();
+		await expect.poll(overlapped).toBe(false);
 	});
 
 	test('s volbou nechat oznámení do zavření se nezavře ani bez ukazatele (2.2.1)', async ({
@@ -1467,6 +1628,10 @@ test.describe('Přístupnost', () => {
 		await expect(page.locator('#acc-imap-host-error')).toContainText(
 			'Vyplňte hostitele IMAP serveru.'
 		);
+		// Marked as well, and read with its field rather than announced beside
+		// the IMAP one: the form announces the error focus goes to.
+		await expect(page.locator('#acc-smtp-host')).toHaveAttribute('aria-invalid', 'true');
+		await expect(page.locator('#acc-smtp-host-error')).not.toHaveAttribute('role', 'alert');
 
 		await imapHost.fill('imap.example.com');
 		await page.locator('#acc-imap-port').fill('99999');

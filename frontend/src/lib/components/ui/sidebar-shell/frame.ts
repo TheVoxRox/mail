@@ -20,6 +20,12 @@
  * A plain module rather than an export from sidebar-shell.svelte (or its
  * barrel): importing either would pull the component into the main bundle and
  * undo the per-workspace code splitting that sidebar/loader.ts exists for.
+ *
+ * The width gives way to the window beside the rail (its `w-16`), which only
+ * a folded pane ever meets: docked, the pane is in a window of at least 48rem
+ * (stores/workspacePane.ts). Folded at 320 CSS px, the rail and a full-width
+ * pane came to 336px, 378px at the large text size, and a fixed pane cannot be
+ * scrolled to, so its right edge was cut off (WCAG 1.4.10).
  */
 export const SIDEBAR_PANE_FRAME =
-	'flex h-full w-68 shrink-0 flex-col border-r border-sidebar-border bg-sidebar';
+	'flex h-full w-68 max-w-[calc(100vw-4rem)] shrink-0 flex-col border-r border-sidebar-border bg-sidebar';

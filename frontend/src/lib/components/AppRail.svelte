@@ -64,7 +64,9 @@
 			Shows and hides the pane (stores/workspacePane.ts): slides it in over
 			the content in a narrow window, docks it or folds it away in a wide one.
 			Named after the pane, with the state in aria-expanded rather than in a
-			name that changes, so the reader hears "sbaleno" / "rozbaleno".
+			name that changes, so the reader hears "sbaleno" / "rozbaleno". The
+			shortcut is in the name, as on the workspace links below, and so not in
+			aria-keyshortcuts as well: a reader that speaks both said it twice.
 		-->
 		<button
 			type="button"
@@ -72,7 +74,6 @@
 			class={railItemClass(false)}
 			aria-expanded={$paneShown}
 			aria-controls={WORKSPACE_PANE_ID}
-			aria-keyshortcuts="Control+Y"
 			aria-label={paneToggleLabel}
 			title={paneToggleLabel}
 			onclick={togglePane}

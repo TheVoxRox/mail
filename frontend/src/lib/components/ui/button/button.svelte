@@ -22,8 +22,15 @@
 		variants: {
 			variant: {
 				default: 'bg-primary text-primary-foreground [a]:hover:bg-primary/80',
+				/*
+				 * The dark edge is a share of --input, which is a field's edge and
+				 * was raised to 40% white for 1.4.11: at 40% of that it is the 16%
+				 * white it was, so the button did not turn heavier in the dark theme
+				 * than in the light one, where it keeps --border. Its label names
+				 * it; 1.4.11 does not ask a button for a visible boundary.
+				 */
 				outline:
-					'border-border bg-background hover:bg-muted hover:text-foreground dark:bg-input/10 dark:border-input dark:hover:bg-input/20 aria-expanded:bg-muted aria-expanded:text-foreground',
+					'border-border bg-background hover:bg-muted hover:text-foreground dark:bg-input/10 dark:border-input/40 dark:hover:bg-input/20 aria-expanded:bg-muted aria-expanded:text-foreground',
 				secondary:
 					'bg-secondary text-secondary-foreground hover:bg-secondary/80 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground',
 				ghost:
@@ -37,7 +44,14 @@
 				 */
 				destructive:
 					'border-destructive/30 bg-background text-destructive-foreground hover:bg-destructive/10 dark:border-destructive/50 dark:bg-background dark:hover:bg-destructive/20',
-				link: 'text-primary underline-offset-4 hover:underline'
+				/*
+				 * Wraps like the text it stands for. The label is often a phrase (the
+				 * wizard's offer to use IMAP instead), and the base's no-wrap and no-shrink
+				 * ran it out of its card and past the window at 320 CSS px (WCAG
+				 * 1.4.10). The size's height becomes a minimum (compoundVariants), so a
+				 * label on one line looks as before.
+				 */
+				link: 'shrink whitespace-normal text-left text-primary underline-offset-4 hover:underline'
 			},
 			size: {
 				default:
@@ -59,6 +73,12 @@
 				'icon-lg': 'size-9'
 			}
 		},
+		compoundVariants: [
+			{ variant: 'link', size: 'default', class: 'h-auto min-h-8' },
+			{ variant: 'link', size: 'xs', class: 'h-auto min-h-6' },
+			{ variant: 'link', size: 'sm', class: 'h-auto min-h-7' },
+			{ variant: 'link', size: 'lg', class: 'h-auto min-h-9' }
+		],
 		defaultVariants: {
 			variant: 'default',
 			size: 'default'

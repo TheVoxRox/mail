@@ -112,15 +112,21 @@ export function closePane(options?: { returnFocus?: boolean }): void {
  * and out. In a wide one it docks the pane or folds it away, and remembers
  * which; folding it while focus is in it hands focus to the toggle rather than
  * hiding the focused control.
+ *
+ * A folded pane Ctrl+Y has slid out is put away first, in either window, so
+ * every press turns what aria-expanded reports: docking it straight from there
+ * left the toggle "expanded" before and after, and the overlay stayed.
  */
 export function togglePane(): void {
+	if (get(paneFolded) && get(openState)) {
+		closePane({ returnFocus: true });
+		return;
+	}
 	if (get(paneNarrow)) {
-		if (get(openState)) closePane({ returnFocus: true });
-		else openPane();
+		openPane();
 		return;
 	}
 	if (get(paneCollapsed)) {
-		openState.set(false);
 		dockPreference.set('docked');
 		return;
 	}
