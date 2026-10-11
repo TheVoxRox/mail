@@ -21,6 +21,7 @@ import {
 	type MailFrameKeyMessage,
 	type MailFrameLinkMessage
 } from './mailFrame.js';
+import { ROOT_FONT_SIZE, TEXT_SIZES } from '$lib/stores/textSize.js';
 
 // The frame renders with remote images blocked until the user opts in, so the
 // default flag is what the pinned hashes below have to hold for.
@@ -43,21 +44,40 @@ describe('MAIL_FRAME_SCRIPT_SHA256', () => {
 });
 
 describe('MAIL_FRAME_STYLE_SHA256', () => {
-	it('matches the actual SHA-256 of the base stylesheet', () => {
+	it.each(TEXT_SIZES)('matches the actual SHA-256 of the %s base stylesheet', (size) => {
 		// If this fails, the CSP hash no longer pins the base style and the frame
 		// would block it — mail bodies would render unstyled (default black text,
 		// no light background). Update the constant to the value below.
-		const actual = createHash('sha256').update(MAIL_FRAME_STYLE, 'utf8').digest('base64');
-		expect(actual).toBe(MAIL_FRAME_STYLE_SHA256);
+		const actual = createHash('sha256').update(MAIL_FRAME_STYLE[size], 'utf8').digest('base64');
+		expect(actual).toBe(MAIL_FRAME_STYLE_SHA256[size]);
 	});
 
-	it('is referenced by the frame CSP style-src', () => {
-		expect(defaultCsp).toContain(`style-src 'sha256-${MAIL_FRAME_STYLE_SHA256}'`);
+	it('is referenced by the frame CSP style-src, the medium one by default', () => {
+		expect(defaultCsp).toContain(`style-src 'sha256-${MAIL_FRAME_STYLE_SHA256.medium}'`);
 	});
 
-	it('keeps the mail surface light regardless of app theme', () => {
-		expect(MAIL_FRAME_STYLE).toContain('color-scheme:light');
-		expect(MAIL_FRAME_STYLE).toContain('background:#ffffff');
+	it.each(TEXT_SIZES)('admits the %s style alone in that size’s CSP', (size) => {
+		const csp = mailFrameCsp(false, size);
+		expect(csp).toContain(`style-src 'sha256-${MAIL_FRAME_STYLE_SHA256[size]}';`);
+		for (const other of TEXT_SIZES.filter((s) => s !== size)) {
+			expect(csp).not.toContain(MAIL_FRAME_STYLE_SHA256[other]);
+		}
+	});
+
+	it.each(TEXT_SIZES)('keeps the %s mail surface light regardless of app theme', (size) => {
+		expect(MAIL_FRAME_STYLE[size]).toContain('color-scheme:light');
+		expect(MAIL_FRAME_STYLE[size]).toContain('background:#ffffff');
+	});
+
+	it('sizes the body against the app’s root size for each step', () => {
+		// The frame is its own document, so the app's <html> font size never
+		// reaches it; each step carries the app's own value instead.
+		for (const size of TEXT_SIZES) {
+			expect(MAIL_FRAME_STYLE[size]).toContain(
+				`:root{color-scheme:light;font-size:${ROOT_FONT_SIZE[size]}}`
+			);
+			expect(MAIL_FRAME_STYLE[size]).toContain('font-size:0.875rem');
+		}
 	});
 });
 
@@ -67,8 +87,15 @@ describe('buildMailFrameSrcdoc', () => {
 		expect(doc).toContain('<meta http-equiv="Content-Security-Policy"');
 		expect(doc).toContain(`script-src 'sha256-${MAIL_FRAME_SCRIPT_SHA256}'`);
 		expect(doc).toContain(`<script>${MAIL_FRAME_SCRIPT}</script>`);
-		expect(doc).toContain(`<style>${MAIL_FRAME_STYLE}</style>`);
+		expect(doc).toContain(`<style>${MAIL_FRAME_STYLE.medium}</style>`);
 		expect(doc).toContain('<p>hello</p>');
+	});
+
+	it('carries the style and the CSP hash of the text size it is given', () => {
+		const doc = buildMailFrameSrcdoc('<p>hello</p>', { textSize: 'large' });
+		expect(doc).toContain(`<style>${MAIL_FRAME_STYLE.large}</style>`);
+		expect(doc).toContain(`style-src 'sha256-${MAIL_FRAME_STYLE_SHA256.large}'`);
+		expect(doc).not.toContain(MAIL_FRAME_STYLE.medium);
 	});
 
 	it('still sanitizes hostile mail HTML before embedding it', () => {

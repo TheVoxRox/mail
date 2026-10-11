@@ -15,8 +15,12 @@ import { persistedStore } from './persisted.js';
 export const TEXT_SIZES = ['small', 'medium', 'large'] as const;
 export type TextSize = (typeof TEXT_SIZES)[number];
 
-/** Root font-size per step. `medium` matches the browser default (16px). */
-const ROOT_FONT_SIZE: Record<TextSize, string> = {
+/**
+ * Root font-size per step. `medium` matches the browser default (16px). The
+ * message-body frame takes the same values (mail/mailFrame.ts): it is a
+ * document of its own, which this root size never reaches.
+ */
+export const ROOT_FONT_SIZE: Record<TextSize, string> = {
 	small: '15px',
 	medium: '16px',
 	large: '18px'
