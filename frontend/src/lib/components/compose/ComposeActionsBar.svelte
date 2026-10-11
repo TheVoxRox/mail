@@ -32,9 +32,9 @@
 	}: Props = $props();
 </script>
 
-<div class="flex items-center justify-between border-b border-border p-4">
+<div class="flex flex-wrap items-center justify-between gap-2 border-b border-border p-4">
 	<h1 class="text-lg font-semibold">{$_('compose.heading')}</h1>
-	<div class="flex items-center gap-2">
+	<div class="flex flex-wrap items-center gap-2">
 		<AutosaveStatus {autosaving} {autoSavedAt} {autosaveError} />
 		{#if canInsertSignature}
 			<Button variant="ghost" size="sm" onclick={onInsertSignature} disabled={!prefillDone || busy}>

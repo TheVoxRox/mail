@@ -5,9 +5,9 @@
 	import { createProviderResolver, type ProviderResolver } from '$lib/accounts/providerResolver.js';
 	import {
 		FIELD_INPUT_IDS,
-		validateCustomServer,
-		type CustomFieldError,
-		type CustomFieldKey
+		validateAccountForm,
+		type AccountFieldError,
+		type AccountFieldKey
 	} from '$lib/accounts/accountFormValidation.js';
 	import AccountAppPasswordNotice from '$lib/components/AccountAppPasswordNotice.svelte';
 	import CustomServerFields from '$lib/components/account-form/CustomServerFields.svelte';
@@ -150,7 +150,7 @@
 	let testingConnection = $state(false);
 	let verifyingCredentials = $state(false);
 	let errorMessage = $state('');
-	let fieldErrors = $state<Partial<Record<CustomFieldKey, string>>>({});
+	let fieldErrors = $state<Partial<Record<AccountFieldKey, string>>>({});
 	let connectionTestMessage = $state('');
 	let providerResolvedFromEmail = $state(false);
 	/** The address is valid and the catalogue has no provider for its domain. */
@@ -323,14 +323,40 @@
 		resolver.cancel();
 	});
 
-	function validateCustom(): CustomFieldError | null {
-		return validateCustomServer({ imapHost, imapPort, smtpHost, smtpPort });
+	function formErrors(purpose: 'save' | 'test'): AccountFieldError[] {
+		return validateAccountForm({
+			purpose,
+			compact,
+			passwordRequired: mode === 'create',
+			serverMode,
+			providerId,
+			email,
+			accountName,
+			username,
+			password,
+			imapHost,
+			imapPort,
+			smtpHost,
+			smtpPort
+		});
 	}
 
-	function applyCustomError(error: CustomFieldError): void {
-		fieldErrors = { [error.field]: $_(error.messageKey) };
-		focusFieldById(FIELD_INPUT_IDS[error.field]);
+	/**
+	 * Marks every invalid field and moves focus to the first. An error whose
+	 * field this form does not show goes to the message above the buttons
+	 * instead: the compact wizard form has no provider select, and a provider
+	 * list that has not loaded yet still has to be told.
+	 */
+	function showFieldErrors(errors: AccountFieldError[]): void {
+		const shown = errors.filter((error) => document.getElementById(FIELD_INPUT_IDS[error.field]));
+		const unshown = errors.filter((error) => !shown.includes(error));
+		fieldErrors = Object.fromEntries(shown.map((error) => [error.field, $_(error.messageKey)]));
+		errorMessage = unshown.map((error) => $_(error.messageKey)).join(' ');
+		if (shown.length > 0) focusFieldById(FIELD_INPUT_IDS[shown[0].field]);
 	}
+
+	/** The id of a field's error message, which the field's description points at. */
+	const errorIdOf = (field: AccountFieldKey) => `${FIELD_INPUT_IDS[field]}-error`;
 
 	function buildServerPayload(): {
 		providerId?: number | null;
@@ -352,17 +378,10 @@
 		connectionTestMessage = '';
 		clearFieldErrors();
 
-		if (serverMode === 'provider') {
-			if (!providerId) {
-				errorMessage = $_('accounts.form.errorSelectProvider');
-				return;
-			}
-		} else {
-			const customError = validateCustom();
-			if (customError) {
-				applyCustomError(customError);
-				return;
-			}
+		const errors = formErrors('save');
+		if (errors.length > 0) {
+			showFieldErrors(errors);
+			return;
 		}
 
 		busy = true;
@@ -477,37 +496,13 @@
 		}
 	}
 
-	type ConnectionTestError =
-		{ kind: 'message'; messageKey: string } | { kind: 'field'; error: CustomFieldError };
-
-	function validateConnectionTest(): ConnectionTestError | null {
-		if (serverMode === 'provider') {
-			if (!providerId) {
-				return { kind: 'message', messageKey: 'accounts.form.errorSelectProvider' };
-			}
-		} else {
-			const customError = validateCustom();
-			if (customError) {
-				return { kind: 'field', error: customError };
-			}
-		}
-		if (mode === 'create' && !password) {
-			return { kind: 'message', messageKey: 'accounts.form.errorPasswordRequiredForTest' };
-		}
-		return null;
-	}
-
 	async function handleTestConnection() {
 		errorMessage = '';
 		connectionTestMessage = '';
 		clearFieldErrors();
-		const validationError = validateConnectionTest();
-		if (validationError) {
-			if (validationError.kind === 'field') {
-				applyCustomError(validationError.error);
-			} else {
-				errorMessage = $_(validationError.messageKey);
-			}
+		const errors = formErrors('test');
+		if (errors.length > 0) {
+			showFieldErrors(errors);
 			return;
 		}
 
@@ -547,7 +542,13 @@
 	aria-label={$_('accounts.form.label')}
 >
 	{#if !compact}
-		<Field for="acc-email" label={$_('accounts.form.email')} hint={$_('accounts.form.emailHint')}>
+		<Field
+			for="acc-email"
+			label={$_('accounts.form.email')}
+			hint={$_('accounts.form.emailHint')}
+			error={fieldErrors.email}
+			errorId={errorIdOf('email')}
+		>
 			{#snippet children(control)}
 				<Input
 					id="acc-email"
@@ -611,6 +612,8 @@
 			for="acc-accountName"
 			label={$_('accounts.form.accountName')}
 			hint={$_('accounts.form.accountNameHint')}
+			error={fieldErrors.accountName}
+			errorId={errorIdOf('accountName')}
 		>
 			{#snippet children(control)}
 				<Input
@@ -690,28 +693,36 @@
 					</button>
 				</div>
 			{:else}
-				<Field for="acc-provider" label={$_('accounts.form.provider')}>
-					<Select
-						id="acc-provider"
-						bind:value={providerId}
-						required
-						width="full"
-						onchange={handleProviderChange}
-					>
-						<option value={null} disabled>{$_('accounts.form.providerPlaceholder')}</option>
-						{#each providers as p (p.id)}
-							<option value={p.id}>{p.name}</option>
-						{/each}
-					</Select>
-					{#if selectedProvider}
-						<div class="flex items-center gap-2 text-xs text-muted-foreground">
-							<ProviderLogo keyName={activePreset?.key} size="sm" />
-							<span>
-								IMAP {selectedProvider.imapHost}:{selectedProvider.imapPort}, SMTP
-								{selectedProvider.smtpHost}:{selectedProvider.smtpPort}
-							</span>
-						</div>
-					{/if}
+				<Field
+					for="acc-provider"
+					label={$_('accounts.form.provider')}
+					error={fieldErrors.provider}
+					errorId={errorIdOf('provider')}
+				>
+					{#snippet children(control)}
+						<Select
+							id="acc-provider"
+							bind:value={providerId}
+							required
+							width="full"
+							onchange={handleProviderChange}
+							{...control}
+						>
+							<option value={null} disabled>{$_('accounts.form.providerPlaceholder')}</option>
+							{#each providers as p (p.id)}
+								<option value={p.id}>{p.name}</option>
+							{/each}
+						</Select>
+						{#if selectedProvider}
+							<div class="flex items-center gap-2 text-xs text-muted-foreground">
+								<ProviderLogo keyName={activePreset?.key} size="sm" />
+								<span>
+									IMAP {selectedProvider.imapHost}:{selectedProvider.imapPort}, SMTP
+									{selectedProvider.smtpHost}:{selectedProvider.smtpPort}
+								</span>
+							</div>
+						{/if}
+					{/snippet}
 				</Field>
 			{/if}
 			{#if oauthCtaPreset}
@@ -746,6 +757,8 @@
 			for="acc-username"
 			label={$_('accounts.form.username')}
 			hint={$_('accounts.form.usernameHint')}
+			error={fieldErrors.username}
+			errorId={errorIdOf('username')}
 		>
 			{#snippet children(control)}
 				<Input
@@ -768,6 +781,8 @@
 		for="acc-password"
 		label={$_('accounts.form.password')}
 		hint={mode === 'edit' ? $_('accounts.form.passwordEditHint') : null}
+		error={fieldErrors.password}
+		errorId={errorIdOf('password')}
 	>
 		{#snippet children(control)}
 			<!--

@@ -235,7 +235,7 @@ test.describe('Compose', () => {
 		await page.waitForURL('**/compose');
 		await expect(page.locator('#compose-to')).toHaveAttribute('aria-invalid', 'true');
 		await expect(page.locator('#compose-to-error')).toContainText(
-			'Neplatná adresa: neplatna-adresa'
+			'Adresa neplatna-adresa není platná. Zadejte ji ve tvaru jmeno@domena.cz.'
 		);
 		await expect(page.locator('#compose-body')).toHaveValue('Tato zpráva nesmí odejít.');
 	});

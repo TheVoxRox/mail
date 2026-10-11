@@ -61,7 +61,7 @@
 				bind:value={fromAccountId}
 				{disabled}
 				class={cn(
-					'flex-1 border-0 bg-transparent py-2.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-50',
+					'min-w-0 flex-1 border-0 bg-transparent py-2.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-50',
 					focusRingInset
 				)}
 			>

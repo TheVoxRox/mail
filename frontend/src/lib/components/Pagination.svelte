@@ -138,7 +138,7 @@
 
 <nav
 	aria-label={landmarkLabel}
-	class="flex items-center justify-between gap-2 border-t border-border bg-muted px-4 py-2 text-xs"
+	class="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-muted px-4 py-2 text-xs"
 >
 	<span class="text-muted-foreground">
 		{$_(keys.pageInfo, {
@@ -149,7 +149,7 @@
 			}
 		})}
 	</span>
-	<div class="flex items-center gap-1">
+	<div class="flex flex-wrap items-center gap-1">
 		<Button
 			bind:ref={firstButtonEl}
 			variant="outline"

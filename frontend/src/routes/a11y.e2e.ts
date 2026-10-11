@@ -16,6 +16,7 @@ import {
 	waitForFocus,
 	waitForRootRedirect,
 	wcagScan,
+	zoomLosses,
 	type MockFlags
 } from './e2e-helpers';
 
@@ -834,14 +835,96 @@ test.describe('Přístupnost', () => {
 		await page.locator('#acc-password').fill('secret123');
 		await page.getByRole('button', { name: 'Vytvořit účet' }).click();
 
-		await expect(page.getByRole('alert')).toContainText('Vyberte poskytovatele.');
-		await expect(page.locator('#acc-provider')).toBeVisible();
+		const provider = page.locator('#acc-provider');
+		await expect(provider).toHaveAttribute('aria-invalid', 'true');
+		await expect(provider).toHaveAccessibleDescription('Vyberte poskytovatele.');
+		await expect(provider).toBeFocused();
 
 		await page.getByRole('radio', { name: 'Vlastní nastavení' }).click();
 		await page.getByRole('button', { name: 'Vytvořit účet' }).click();
 
-		await expect(page.getByRole('alert')).toContainText('Vyplňte hostitele IMAP serveru.');
-		await expect(page.locator('#acc-imap-host')).toBeVisible();
+		await expect(page.locator('#acc-imap-host')).toHaveAccessibleDescription(
+			'Vyplňte hostitele IMAP serveru.'
+		);
+		await expect(page.locator('#acc-smtp-host')).toHaveAccessibleDescription(
+			'Vyplňte hostitele SMTP serveru.'
+		);
+		await expect(page.locator('#acc-imap-host')).toBeFocused();
+	});
+
+	test('formulář účtu označí každé chybné pole a řekne, co do něj patří (3.3.1, 3.3.3)', async ({
+		page
+	}) => {
+		// The backend checked these fields too, and answered with one line that
+		// named them by their Java names ("accountName: …"), no field marked
+		// invalid and focus left on the button.
+		await openApp(page, '/settings/accounts/new');
+		await page.getByRole('button', { name: 'Nastavit ručně' }).click();
+		await page.getByRole('button', { name: 'Vytvořit účet' }).click();
+
+		for (const [id, message] of [
+			['acc-email', 'Vyplňte e-mail.'],
+			['acc-accountName', 'Vyplňte název účtu.'],
+			['acc-imap-host', 'Vyplňte hostitele IMAP serveru.'],
+			['acc-smtp-host', 'Vyplňte hostitele SMTP serveru.'],
+			['acc-username', 'Vyplňte uživatelské jméno.'],
+			['acc-password', 'Vyplňte heslo.']
+		]) {
+			const field = page.locator(`#${id}`);
+			await expect(field).toHaveAttribute('aria-invalid', 'true');
+			// The error comes after the field's hint, where there is one.
+			await expect(field).toHaveAccessibleDescription(
+				new RegExp(`${message.replaceAll('.', '\\.')}$`)
+			);
+		}
+		await expect(page.locator('#acc-email')).toBeFocused();
+
+		await page.locator('#acc-email').fill('jan.example.com');
+		await page.getByRole('button', { name: 'Vytvořit účet' }).click();
+		await expect(page.locator('#acc-email')).toHaveAccessibleDescription(
+			/Zadejte e-mail ve tvaru jmeno@domena\.cz\.$/
+		);
+	});
+
+	test('průvodce účtem řekne, proč nemůže pokračovat (3.3.1)', async ({ page }) => {
+		// Continue used to be disabled until the address was valid: not a tab
+		// stop, so a keyboard user never reached it, and Enter did nothing.
+		await openApp(page, '/settings/accounts/new');
+		const email = page.getByRole('textbox', { name: 'E-mail' });
+		await expect(email).toBeFocused();
+
+		await email.press('Enter');
+		await expect(email).toHaveAttribute('aria-invalid', 'true');
+		await expect(email).toHaveAccessibleDescription('Vyplňte e-mail.');
+
+		await email.fill('jan');
+		await page.getByRole('button', { name: 'Pokračovat' }).click();
+		await expect(email).toHaveAccessibleDescription('Zadejte e-mail ve tvaru jmeno@domena.cz.');
+		await expect(email).toBeFocused();
+	});
+
+	test('dialog štítků řekne, že chybí název, místo zakázaného tlačítka (3.3.1)', async ({
+		page
+	}) => {
+		await openApp(page, '/contacts');
+		await page
+			.getByRole('region', { name: 'Podokno kontaktů' })
+			.getByRole('button', { name: 'Spravovat štítky' })
+			.click();
+		const dialog = page.getByRole('dialog', { name: 'Štítky kontaktů' });
+		const name = dialog.getByLabel('Název nového štítku');
+
+		await dialog.getByRole('button', { name: 'Přidat štítek' }).click();
+		await expect(name).toHaveAttribute('aria-invalid', 'true');
+		await expect(name).toHaveAccessibleDescription('Vyplňte název štítku.');
+		await expect(name).toBeFocused();
+
+		await dialog.getByRole('button', { name: 'Upravit štítek Klienti' }).click();
+		const rename = dialog.getByLabel('Nový název štítku Klienti');
+		await rename.fill('');
+		await rename.press('Enter');
+		await expect(rename).toHaveAccessibleDescription('Vyplňte název štítku.');
+		await expect(rename).toBeFocused();
 	});
 
 	test('počet nepřečtených u aktuální složky má dostatečný kontrast', async ({ page }) => {
@@ -1469,6 +1552,15 @@ test.describe('Přístupnost – jednotlivé obrazovky', () => {
 				expect(await focusIndicatorLosses(page)).toEqual([]);
 			});
 		}
+
+		test(`${name} (${path}) unese zvětšení na 200 % (1.4.4)`, async ({ page }) => {
+			// The app opens maximized, and a 1280px window at 200% is 640 CSS px.
+			await page.setViewportSize({ width: 640, height: 400 });
+			if (flags) await setMockFlags(page, flags);
+			await openApp(page, path);
+			await expect(ready(page)).toBeVisible();
+			expect(await zoomLosses(page)).toEqual([]);
+		});
 
 		test(`${name} (${path}) nemá a11y porušení`, async ({ page }) => {
 			if (flags) await setMockFlags(page, flags);

@@ -618,3 +618,51 @@ export async function focusIndicatorLosses(page: Page): Promise<string[]> {
 	await still.evaluate((style) => (style as HTMLStyleElement).remove());
 	return losses;
 }
+
+/**
+ * What the page loses at 200% zoom (WCAG 1.4.4), on a viewport the caller has
+ * narrowed to the CSS width that zoom leaves: the app opens maximized, and a
+ * 1280px window at 200% is 640 CSS px wide.
+ *
+ * Reports an element in `<main>` that reaches past the right edge with no
+ * scroll container around it to bring it back, outermost only, and text whose
+ * own box clips it. At this width a clip is a loss whether or not it was
+ * there before, so unlike `textSpacingLosses` nothing is compared; text cut
+ * with an ellipsis is still left out, for the reason given there.
+ */
+export function zoomLosses(page: Page): Promise<string[]> {
+	return page.evaluate(() => {
+		const losses: string[] = [];
+		const text = (el: Element) => (el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 50);
+		const scrolls = (el: Element) => /auto|scroll/.test(getComputedStyle(el).overflowX);
+		const pastEdge = (el: Element) => {
+			const box = el.getBoundingClientRect();
+			return box.right > innerWidth + 1 && box.left < innerWidth;
+		};
+		for (const el of document.querySelectorAll('main *')) {
+			if (!(el instanceof HTMLElement) || !el.offsetParent || !pastEdge(el)) continue;
+			if (el.parentElement && pastEdge(el.parentElement) && !scrolls(el.parentElement)) continue;
+			let scroller: Element | null = el.parentElement;
+			while (scroller && !scrolls(scroller)) scroller = scroller.parentElement;
+			if (!scroller)
+				losses.push(`past the right edge: <${el.tagName.toLowerCase()}> "${text(el)}"`);
+		}
+		for (const el of document.querySelectorAll('body *')) {
+			if (!(el instanceof HTMLElement) || !el.offsetParent) continue;
+			const box = el.getBoundingClientRect();
+			if (box.width <= 1 || box.height <= 1) continue;
+			const ownText = [...el.childNodes].some(
+				(node) => node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim()
+			);
+			if (!ownText) continue;
+			const style = getComputedStyle(el);
+			if (style.textOverflow === 'ellipsis') continue;
+			const down = el.scrollHeight > el.clientHeight + 1;
+			const across = el.scrollWidth > el.clientWidth + 1;
+			if (!down && !across) continue;
+			if (!/hidden|clip/.test(down ? style.overflowY : style.overflowX)) continue;
+			losses.push(`cut off ${down ? 'below' : 'beside'}: "${text(el)}"`);
+		}
+		return losses;
+	});
+}
