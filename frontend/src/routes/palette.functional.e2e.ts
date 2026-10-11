@@ -69,15 +69,18 @@ test.describe('Command palette', () => {
 		await expect(mailOption).not.toContainText('Alt+1');
 	});
 
-	test('klíčová slova se zobrazí až po zadání dotazu', async ({ page }) => {
-		await openApp(page, '/');
+	test('vyhledávací klíčová slova nejsou součástí jména příkazu', async ({ page }) => {
+		await openApp(page, `/mail/${fixture.accountId}/${fixture.folderName}`);
 
 		await openPalette(page);
-		const mailOption = page.getByRole('option', { name: /Přepnout na Poštu/ });
-		await expect(mailOption).not.toContainText('posta, prepnout na postu, mail');
+		await page.locator('#command-palette-input').fill('od');
+		const sentOption = page.getByRole('option', { name: /Přejít do složky Odeslané/ });
 
-		await page.locator('#command-palette-input').fill('posta');
-		await expect(mailOption).toContainText('posta, prepnout na postu, mail');
+		// Keywords are aliases for matching: the folder name again, its IMAP path,
+		// 'slozka' without diacritics. Rendered under the title, a screen reader
+		// read "Odeslané Odeslané, …, slozka" as the option's name.
+		await expect(sentOption).toHaveAccessibleName('Přejít do složky Odeslané');
+		await expect(sentOption).toHaveText('Přejít do složky Odeslané');
 	});
 
 	test('ve výchozím pořadí řadí přepnutí workspace před jednorázové view akce', async ({

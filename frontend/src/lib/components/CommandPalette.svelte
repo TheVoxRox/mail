@@ -85,7 +85,6 @@
 		return groups;
 	});
 
-	const hasQuery = $derived(query.trim().length > 0);
 	const resultsAnnouncement = $derived.by(() => {
 		if (filteredCommands.length === 0) {
 			return $_('palette.noResultsLive');
@@ -281,14 +280,14 @@
 												<Icon name={entry.command.icon} size={16} />
 											</span>
 										{/if}
-										<span class="min-w-0 flex-1">
-											<span class="block truncate text-sm font-medium">{entry.title}</span>
-											{#if hasQuery && entry.command.keywords && entry.command.keywords.length > 0}
-												<span class="block truncate text-xs text-muted-foreground">
-													{entry.command.keywords.slice(0, 3).join(', ')}
-												</span>
-											{/if}
-										</span>
+										<!--
+											The title is the whole name. Keywords are search aliases —
+											diacritic-free Czech, raw IMAP paths, the title's own
+											folder name — so shown here they became part of the
+											option's accessible name and a screen reader read them
+											after the title on every match.
+										-->
+										<span class="min-w-0 flex-1 truncate text-sm font-medium">{entry.title}</span>
 										{#if entry.command.shortcut}
 											<span
 												class="rounded-md border border-border px-2 py-1 text-caption text-muted-foreground"
