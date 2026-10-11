@@ -49,12 +49,29 @@ export function contextScore(command: Command, pathname: string): number {
 	return contextBoost + routeBoost + (command.priority ?? 0);
 }
 
+const WORD_CHARACTER = /[\p{L}\p{N}]/u;
+
+function includesAtWordStart(text: string, query: string): boolean {
+	for (let index = text.indexOf(query); index !== -1; index = text.indexOf(query, index + 1)) {
+		if (index === 0 || !WORD_CHARACTER.test(text[index - 1])) return true;
+	}
+	return false;
+}
+
+/**
+ * A query that starts a word of the title outranks one that only sits inside
+ * a word. In Czech, "od" starts "Odeslane" (Sent) in "Go to folder Sent" and
+ * sits inside "Podokno" (pane) in the three reading pane commands. Both used
+ * to score as a title substring, so command priority alone decided and the
+ * folder being typed came last, behind the pane commands.
+ */
 export function textMatchScore(entry: VisibleCommand, normalizedQuery: string): number {
 	if (!normalizedQuery) return 0;
 	const normalizedTitle = normalizeText(entry.title);
 	if (normalizedTitle === normalizedQuery) return 120;
 	if (normalizedTitle.startsWith(normalizedQuery)) return 100;
 	if (entry.searchText.startsWith(normalizedQuery)) return 90;
+	if (includesAtWordStart(normalizedTitle, normalizedQuery)) return 85;
 	if (normalizedTitle.includes(normalizedQuery)) return 75;
 	return 50;
 }

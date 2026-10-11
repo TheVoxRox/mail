@@ -131,6 +131,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- **A command palette query that starts a word ranks that command first (#697).** Typing "od" listed the three reading pane commands, "Podokno čtení …", ahead of "Přejít do složky Odeslané", because the palette scored a query found anywhere in a title alike, and the pane commands carry a higher priority. A query that starts a word of the title now ranks above one that only sits inside a word, so Sent comes first and the pane commands follow.
+
 - **A command palette result reads as its name alone (#696).** Once you typed a query, each result showed a second line with three of the words it can be found by, and a screen reader read that line as part of the result's name. Those words are search aliases, not text meant to be read: the folder name a second time, the folder's path on the mail server and Czech written without diacritics, so typing "od" read the Sent folder as "Přejít do složky Odeslané Odeslané, [Gmail]/Odeslaná pošta, slozka". The line is gone; the words still find the command.
 
 - **The side pane fits the window when it slides in at 320 CSS px (#693).** At that width, a 1280px window at 400% zoom, the rail and the pane at its docked width came to 336px, 378px at the large text size, and the pane lies over the content where nothing scrolls to it, so its right edge, with the unread counts, was cut off (WCAG 1.4.10). The pane now narrows to the width beside the rail.
