@@ -46,7 +46,7 @@
       ".github/workflows/windows-signed-release.yml": "ae6d3616a176acc3c76f8801c8b00b5467b0e6da",
       "frontend/src/lib/updates.ts": "afb68a87c467af9f4e6299c2c3478a41d0762e12",
       "frontend/src-tauri/src": "873b59397b8caafaf2535be92fde61f25a7f045c",
-      "frontend/src/lib/components/settings/AboutSettings.svelte": "89f4fafa004130cdac7dfb8c3c83cf6128dc67ad",
+      "frontend/src/lib/components/settings/AboutSettings.svelte": "19e6e48ff9b482cb1e778630829fe6890af9c985",
       "frontend/src-tauri/tauri.conf.json": "4db87fe6a13af1cf4b64e657867d3826743fab5c",
       "frontend/src-tauri/capabilities": "010c5218458c20ba922628f21fe030b00e655c18"
     },
@@ -66,6 +66,10 @@
       {
         "date": "2026-09-21",
         "note": "The startup update check's hint is hidden from the accessibility tree, read against section 1; no sentence of this audit names it, and the verdict stays PASS. One path moved and the whole diff is AboutSettings.svelte: the hint paragraph under the checkbox gains aria-hidden=\"true\" and a two-line comment saying why. The checkbox, its checked binding to updateStartupCheck, handleStartupCheckChange and setUpdateStartupCheck, the aria-describedby that still names the paragraph, the update channel select and the Check for updates button are byte-identical, as are frontend/src-tauri/src, capabilities/, tauri.conf.json, updates.ts and windows-signed-release.yml. Nothing the updater reads or writes moved: whether the startup check runs still comes from the registry value through the same two shell commands, and the change is to what a screen reader hears, not to what the control does."
+      },
+      {
+        "date": "2026-10-11",
+        "note": "Class attributes only, from #687 (WCAG 1.4.10). The three description lists on the About page -- versions, connection, session -- change their grid from a fixed first column (grid-cols-[9rem_1fr], [8rem_1fr]) to one column below Tailwind's sm and the same two columns above it with minmax(0,1fr), so the page reflows at 320 CSS px instead of scrolling sideways. Verified on the diff rather than by intent: the only changed lines in this path are those three <dl> opening tags, each reflowed by Prettier over three lines; no script, binding, handler or text moves, and the update channel select, the check for updates and everything they render are byte-identical. No other path under this audit changed. Verdict stays PASS."
       }
     ]
   },
