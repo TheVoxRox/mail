@@ -9,9 +9,12 @@ import org.springframework.stereotype.Service;
 import org.voxrox.mailbackend.util.LogCategory;
 
 /**
- * Periodic SQLite housekeeping. Two independent passes on separate cadences:
+ * Periodic SQLite housekeeping. Three independent passes on separate cadences:
  *
  * <ol>
+ * <li><b>WAL checkpoint</b> ({@link #checkpoint()}, ~5 min) — moves committed
+ * transactions from the {@code -wal} sidecar into the main database file, so
+ * {@code mail.db} on its own holds the data up to a few minutes ago.</li>
  * <li><b>Planner statistics</b> ({@link #optimize()}, ~6h) — keeps the
  * query-planner's histograms fresh so it picks index-based plans. Without them
  * the worst case is {@code MessageRepository.findMergeableOrphanThreadIds} — an
@@ -48,6 +51,37 @@ public class DatabaseMaintenanceService {
         this.jdbcTemplate = jdbcTemplate;
         this.vacuumMinFreePages = vacuumMinFreePages;
         this.vacuumFreeRatio = vacuumFreeRatio;
+    }
+
+    /**
+     * Copies the committed transactions in the WAL into the main database file.
+     * <p>
+     * Nothing else did it often enough. SQLite's own autocheckpoint runs only once
+     * the WAL passes 1000 pages (about 4 MB), {@link #reclaimSpace()} first runs
+     * half an hour after startup, and the checkpoint SQLite makes when the last
+     * connection closes never happens: the desktop client ends the sidecar with a
+     * kill, which closes no connection. A user who opens the app for a few minutes
+     * at a time therefore kept everything written since the database was created in
+     * {@code mail.db-wal}, with {@code mail.db} itself as empty as the day it was
+     * made. SQLite reads the two together and nothing is lost that way, but
+     * {@code mail.db} alone is what the privacy policy tells a user to copy to
+     * export their data, and what anyone copies who does not know the sidecar file
+     * matters.
+     * <p>
+     * {@code PASSIVE} because it waits on nothing: it copies what no reader still
+     * needs and leaves the rest for the next pass, so a sync writing at the same
+     * moment is neither blocked nor failed. Resetting the WAL file's size stays
+     * with the daily {@code TRUNCATE} in {@link #reclaimSpace()}. A pass with
+     * nothing new in the WAL writes nothing.
+     */
+    @Scheduled(initialDelayString = "${mail.client.db.checkpoint-initial-delay:PT1M}", fixedDelayString = "${mail.client.db.checkpoint-interval:PT5M}")
+    public void checkpoint() {
+        try {
+            jdbcTemplate.execute("PRAGMA wal_checkpoint(PASSIVE)");
+            log.debug("{} WAL checkpoint (PASSIVE) done.", LogCategory.DATABASE);
+        } catch (RuntimeException e) {
+            log.warn("{} WAL checkpoint (PASSIVE) failed: {}", LogCategory.DATABASE, e.getMessage());
+        }
     }
 
     /**

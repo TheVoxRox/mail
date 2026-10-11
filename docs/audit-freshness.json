@@ -117,7 +117,8 @@
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "ff7f8fc27f0325cce769ef6d32ab1b7970224447",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "9529c23f5e6525d047964bbe6f7342c525ddbdca",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/MessageEntity.java": "f3f30cd4be6904739e50a7c4a58212c6d9679cf1"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/MessageEntity.java": "f3f30cd4be6904739e50a7c4a58212c6d9679cf1",
+      "backend/src/main/resources/application.properties": "a7b797ed11b516292bda5e14ce271bcff0085729"
     },
     "acknowledgements": [
       {
@@ -127,6 +128,10 @@
       {
         "date": "2026-10-11",
         "note": "Schema housekeeping, no claim of a finding moves and the anchor stays at 6ff9ded. One path moves: MessageEntity gains bodyText, mapped to the new messages.body_text column, and setContent now sets it to BodyText.of(content) (jsoup text() of the cached HTML, null exactly when content is). message_search and its triggers read body_text instead of content, so the index holds the visible text of a body rather than its markup; nothing else reads the column. MessageContentPersister is still the only production caller of setContent, and nothing writes body_text on its own, so B1-1's claim that content stays NULL for an oversized body, and the index with it never sees a placeholder, holds for body_text too. For the informational note on thread renumbering in section 5: the managed entities it loads now carry body_text as well, which is no longer than content (text() only drops markup and decodes entities) and null for a message nobody has opened, so the note's worst case stays an opened long thread and the body text each loaded entity holds at most doubles; the note's 'not measured' stands. V1__init.sql also moves the long text columns of messages to the end of the row, which no audited path depends on."
+      },
+      {
+        "date": "2026-10-11",
+        "note": "Under this audit's paths only application.properties changes: two keys, mail.client.db.checkpoint-initial-delay=PT1M and mail.client.db.checkpoint-interval=PT5M, schedule a WAL checkpoint pass (PRAGMA wal_checkpoint(PASSIVE)) in DatabaseMaintenanceService, which is in core/maintenance, outside this audit's paths. No mail.client.imap.*, mail.client.sync.* or SMTP key moves, so no bound a finding rests on changes. PASSIVE waits on no reader or writer, so the sync's write transactions are neither blocked nor failed by it."
       }
     ]
   },
@@ -135,7 +140,7 @@
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/AttachmentService.java": "baa9d415fdfe7fcb76ee7eaca3db731e4f115c4f",
       "backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java": "69fc4c0197c480dc39ba3c38dece6874faec8d17",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/controller": "692ba8438145523812508bf00fb95e2a69ca6bc5",
-      "backend/src/main/resources/application.properties": "455e9042b8808b1cf87884e0836d68be97c49aec"
+      "backend/src/main/resources/application.properties": "a7b797ed11b516292bda5e14ce271bcff0085729"
     },
     "acknowledgements": [
       {
@@ -157,6 +162,10 @@
       {
         "date": "2026-10-06",
         "note": "B1-14 fixed, recorded in IMAP_SMTP_AUDIT.md as v1.49 (section 4n). Under this audit's paths only application.properties changes: it gains mail.client.imap.open-folder-budget=64MB, a bound on what an open IMAP folder keeps, with its comment. No server, security, CORS, actuator, OpenAPI or other key this audit reads moves, and no endpoint is added or changed. Verdict stays PASS."
+      },
+      {
+        "date": "2026-10-11",
+        "note": "Under this audit's paths only application.properties changes: it gains mail.client.db.checkpoint-initial-delay=PT1M and mail.client.db.checkpoint-interval=PT5M, the schedule of a new DatabaseMaintenanceService pass that runs PRAGMA wal_checkpoint(PASSIVE), and the comment above the maintenance keys now names three passes instead of two. No key this audit relies on moves (server.address, server.port, the spring.web.error include-* settings, springdoc.*); no endpoint, filter or response shape changes, and DatabaseMaintenanceService is outside this audit's paths."
       }
     ]
   },
