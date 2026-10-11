@@ -887,6 +887,20 @@ test.describe('Přístupnost', () => {
 		}
 	});
 
+	test('ruční nastavení nepojmenuje skupinu serverů stejně jako nadpis kroku', async ({ page }) => {
+		// The step heading names the choice, as "Detekováno: Google" names a
+		// detected provider. The server fields under it were a group of the same
+		// name, so a screen reader announced "Vlastní IMAP/SMTP" twice.
+		await openApp(page, '/settings/accounts/new');
+		await page.getByRole('button', { name: 'Nastavit ručně' }).click();
+
+		await expect(page.getByRole('heading', { name: 'Vlastní IMAP/SMTP' })).toBeVisible();
+		await expect(page.getByRole('group', { name: 'Vlastní IMAP/SMTP' })).toHaveCount(0);
+		const servers = page.getByRole('group', { name: 'Poštovní servery', exact: true });
+		await expect(servers.getByRole('group', { name: 'IMAP (příchozí pošta)' })).toBeVisible();
+		await expect(servers.getByRole('group', { name: 'SMTP (odchozí pošta)' })).toBeVisible();
+	});
+
 	test('pole účtu říkají, jaký údaj o uživateli sbírají (1.3.5)', async ({ page }) => {
 		await openApp(page, '/settings/accounts/1');
 		const form = page.getByRole('form', { name: 'Účet' });

@@ -346,7 +346,7 @@
 			"serverModeCustom": "Vlastní nastavení",
 			"serverModeSwitchToProviderWarning": "Po výběru šablony se vlastní IMAP/SMTP nastavení přepíšou hodnotami šablony.",
 			"serverModeSwitchToCustomWarning": "Po přepnutí na vlastní nastavení se reference na šablonu zruší.",
-			"customServerLegend": "Vlastní IMAP/SMTP",
+			"customServerLegend": "Poštovní servery",
 			"customServerHint": "Zadejte hostitele a porty pro příchozí (IMAP) i odchozí (SMTP) server. Údaje najdete v dokumentaci poskytovatele e-mailu.",
 			"imapHeading": "IMAP (příchozí pošta)",
 			"smtpHeading": "SMTP (odchozí pošta)",
