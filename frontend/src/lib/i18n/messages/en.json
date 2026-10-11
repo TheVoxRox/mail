@@ -346,7 +346,7 @@
 			"serverModeCustom": "Custom settings",
 			"serverModeSwitchToProviderWarning": "Picking a provider template will overwrite your current IMAP/SMTP settings with the template values.",
 			"serverModeSwitchToCustomWarning": "Switching to custom settings clears the link to the provider template.",
-			"customServerLegend": "Custom IMAP/SMTP",
+			"customServerLegend": "Mail servers",
 			"customServerHint": "Enter the host and ports for both your incoming (IMAP) and outgoing (SMTP) servers. You'll find these in your e-mail provider's documentation.",
 			"imapHeading": "IMAP (incoming)",
 			"smtpHeading": "SMTP (outgoing)",
