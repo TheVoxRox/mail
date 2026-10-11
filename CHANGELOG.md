@@ -223,6 +223,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- **`todo.md` asks for the API and updater audits to be re-verified before the next cut (#699).** #698 left their ledgers at 7 and 6 of 8 acknowledgements, and past the cap the next change under their code paths could pass only by re-verifying the audit on an unrelated pull request.
+
 - **The PBKDF2 iteration count is a constant in `CryptoService`, no longer the property `mail.crypto.pbkdf2-iterations` (#698).** It is part of the stored ciphertext's format, so changing it would have locked every account out; `CryptoServiceTest` now pins a ciphertext written by the production constructor. The updater, crypto and OAuth audits, the threat model and the verdict index record the three changes of #698.
 
 - **The message-body frame cancels Ctrl+Y like the app's other shortcuts, and the content rendering audit records it as reviewed drift (#693).** The frame's key forwarder is meant to cancel every combination the app claims, and Ctrl+Y, the pane shortcut since #687, was missing; its script hash is recomputed. The a11y suite also gains checks for the wizard steps past the e-mail, for toasts kept clear of focus, and for a toast closed with the mouse leaving the others counting down.
