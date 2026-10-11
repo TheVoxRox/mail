@@ -263,6 +263,24 @@ test.describe('Přístupnost', () => {
 		).toHaveCount(0);
 	});
 
+	test('text zprávy se řídí nastavením velikosti textu (1.4.4)', async ({ page }) => {
+		// The body frame is a document of its own, which the root font size of
+		// the app never reached: the body stayed at 14px at every step. A style
+		// the frame's CSP refused would leave the browser's 16px.
+		for (const [textSize, fontSize] of [
+			['small', '13.125px'],
+			['medium', '14px'],
+			['large', '15.75px']
+		] as const) {
+			await setPrefs(page, { textSize });
+			await openApp(
+				page,
+				`/mail/${mailFixture.accountId}/${mailFixture.folderName}/${mailFixture.stableId}`
+			);
+			await expect(bodyFrame(page).contentFrame().locator('body')).toHaveCSS('font-size', fontSize);
+		}
+	});
+
 	test('rozbalený konverzační treegrid nemá a11y porušení', async ({ page }) => {
 		await setPrefs(page, { messageGrouping: 'grouped' });
 		await openApp(page, `/mail/${mailFixture.accountId}/ARCHIVE`);

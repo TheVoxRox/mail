@@ -123,6 +123,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- **The text of an open message follows Settings › Appearance › Text size (#689).** The message body renders in a frame that is a document of its own, so the setting, which scales the rest of the window, never reached it: the body stayed at 14px at every step. It is now 13.1px at Small, 14px at Medium and 15.75px at Large, the same proportion as the interface. The frame still admits exactly one stylesheet, pinned by hash in its content security policy; there is now one per step.
+
 - **The side pane can be hidden in a wide window too, and stays hidden until shown again (#691).** The button at the top of the rail, which #687 showed only in a narrow window, is now always there, as Outlook's is: in a wide window it hides the pane, giving the content its width, and docks it again, and the app remembers which. A hidden pane works as a narrow window's does: Ctrl+Y slides it in over the content and Escape folds it away again.
 
 - **Closing the command palette returns focus to where Ctrl+K was pressed, every time (#690).** Two things moved focus as the palette closed: the palette's own restore and the dialog library's, which ran last and went to whatever was focused when the dialog's focus trap started. When the palette's search field had taken focus first, that was the field itself, gone a moment later, and focus fell to the top of the window. That matches the one CI failure of the palette's focus test, which did not reproduce locally. The palette now makes that move itself, to the element it remembered.
@@ -188,6 +190,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 - **Tauri 2.12.1 (#617).** It brings wry 0.57, whose fix (tauri-apps/wry#1799) the app has been waiting for: minimizing the window while it was still starting left the app running in the tray with no window and no way to open one. The fix is upstream's; checking it on a release build is still a manual step (`todo.md`). The Tauri plugins move with it on both sides — fs 2.6.0, http 2.8.0, shell 2.4.0, and on the Rust side updater 2.13.1, single-instance 2.5.2 and log 2.10.0 — and `webview2-com` 0.39 and `windows-core` 0.62 are raised by hand to the versions the new wry builds with, since dependabot ignores them and the Ubuntu CI does not compile the Windows-only code that uses them; that was built on Windows.
 
 ### Repo
+
+- **The content rendering audit records the per-text-size frame styles of #689 as reviewed drift (#689).** Its frame claim holds as written: one script and one stylesheet, each pinned by hash; there are now three stylesheets to choose from, and `mailFrame.test.ts` recomputes all three hashes.
 
 - **The a11y suite checks every screen at 320 CSS px, and the folded pane has its own tests (#687).** `reflowLosses` in `e2e-helpers.ts` adds to `zoomLosses` a container that scrolls sideways, unless it holds a table or grid, and an element its own container cuts off. `viewport.functional.e2e.ts` covers opening and closing the folded pane, a dialog opened from it, narrowing the window with focus in it, and Ctrl+Y in a wide window. The updater audit records the About page's layout change as reviewed drift: class attributes only.
 

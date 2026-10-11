@@ -32,6 +32,7 @@
  * would silently break every shortcut) fails the build.
  */
 
+import { ROOT_FONT_SIZE, type TextSize } from '$lib/stores/textSize.js';
 import { REMOTE_IMAGE_ATTR, sanitizeMailHtml } from './content-sanitizer.js';
 
 /**
@@ -77,19 +78,37 @@ export const MAIL_FRAME_SCRIPT =
 export const MAIL_FRAME_SCRIPT_SHA256 = '9DIi3Jm+1q0SAyuB5kl54K12o6ZiUBX8Zz8v6eITwTw=';
 
 /**
- * Base stylesheet for the mail body. The sanitizer strips every style element
- * and attribute from the mail, so this is the ONLY styling in the frame — and
- * it deliberately stays light in both app themes: mail HTML is authored against
- * a white background, so rendering it on the app's dark background makes
- * default-black text unreadable. Colors are the hex equivalents of the app's
- * light-theme tokens (foreground, primary, border, muted-foreground). Kept on
- * one line so its bytes — and therefore its CSP hash — stay stable.
+ * Base stylesheet for the mail body, one per text-size step. The sanitizer
+ * strips every style element and attribute from the mail, so this is the ONLY
+ * styling in the frame — and it deliberately stays light in both app themes:
+ * mail HTML is authored against a white background, so rendering it on the
+ * app's dark background makes default-black text unreadable. Colors are the hex
+ * equivalents of the app's light-theme tokens (foreground, primary, border,
+ * muted-foreground). Kept on one line so its bytes — and therefore its CSP hash
+ * — stay stable.
+ *
+ * One per step because the frame is a document of its own: the root font size
+ * the text-size setting puts on the app's `<html>` never reaches it, and the
+ * body sat at 14px whatever the setting while the rest of the window grew. Each
+ * style sets the frame's root to the app's value for its step and the body to
+ * 0.875rem, which is the 14px the medium step always had. A frame carries one
+ * of them, and its CSP admits that one only.
  */
-export const MAIL_FRAME_STYLE =
-	':root{color-scheme:light}body{margin:12px;background:#ffffff;color:#0b1219;font-family:system-ui,sans-serif;font-size:14px;line-height:1.6;overflow-wrap:break-word}a{color:#00566b}img{max-width:100%;height:auto}table{max-width:100%;border-collapse:collapse}blockquote{margin:8px 0 8px 4px;padding-left:12px;border-left:3px solid #dae0e8;color:#4b5763}pre{white-space:pre-wrap}';
+const frameStyle = (rootFontSize: string) =>
+	`:root{color-scheme:light;font-size:${rootFontSize}}body{margin:12px;background:#ffffff;color:#0b1219;font-family:system-ui,sans-serif;font-size:0.875rem;line-height:1.6;overflow-wrap:break-word}a{color:#00566b}img{max-width:100%;height:auto}table{max-width:100%;border-collapse:collapse}blockquote{margin:8px 0 8px 4px;padding-left:12px;border-left:3px solid #dae0e8;color:#4b5763}pre{white-space:pre-wrap}`;
 
-/** Base64 SHA-256 of MAIL_FRAME_STYLE — asserted in mailFrame.test.ts. */
-export const MAIL_FRAME_STYLE_SHA256 = 'UXLUJbZ21yq1eqQCljjFZwc0mejRk10+TVL8FCWZ+C0=';
+export const MAIL_FRAME_STYLE: Record<TextSize, string> = {
+	small: frameStyle(ROOT_FONT_SIZE.small),
+	medium: frameStyle(ROOT_FONT_SIZE.medium),
+	large: frameStyle(ROOT_FONT_SIZE.large)
+};
+
+/** Base64 SHA-256 of each MAIL_FRAME_STYLE — asserted in mailFrame.test.ts. */
+export const MAIL_FRAME_STYLE_SHA256: Record<TextSize, string> = {
+	small: 'ueGVO8AfCm5f4wkhfnmw8f52sqx9b4Qa4xbAvOCMGr0=',
+	medium: 'STU7Z4JM4ZeUyDnrHFfChrf7wAdWiJ6apTSwX2R1kwc=',
+	large: 'kLNfSCLg+fy4B3SDXwsRtS1cGcrrUKOb70fhhzVMcuM='
+};
 
 /**
  * CSP enforced inside the frame: nothing loads by default, inline images stay
@@ -104,11 +123,11 @@ export const MAIL_FRAME_STYLE_SHA256 = 'UXLUJbZ21yq1eqQCljjFZwc0mejRk10+TVL8FCWZ
  * load. Everything else — script/style/`default-src`, the opaque-origin sandbox
  * — stays locked; `http` (cleartext) images are never allowed.
  */
-export function mailFrameCsp(loadRemoteImages = false): string {
+export function mailFrameCsp(loadRemoteImages = false, textSize: TextSize = 'medium'): string {
 	const imgSrc = loadRemoteImages ? 'img-src data: https:' : 'img-src data:';
 	return (
 		`default-src 'none'; ${imgSrc}; script-src 'sha256-${MAIL_FRAME_SCRIPT_SHA256}'; ` +
-		`style-src 'sha256-${MAIL_FRAME_STYLE_SHA256}'; base-uri 'none'; form-action 'none'`
+		`style-src 'sha256-${MAIL_FRAME_STYLE_SHA256[textSize]}'; base-uri 'none'; form-action 'none'`
 	);
 }
 
@@ -145,13 +164,15 @@ export function countRemoteImages(rawHtml: string): number {
  * Wraps sanitized mail HTML into the full sandboxed document served via srcdoc.
  * `loadRemoteImages` promotes preserved remote images to real `src`s and relaxes
  * the frame CSP `img-src` to allow `https:`; a `no-referrer` meta keeps any such
- * load from leaking a referrer.
+ * load from leaking a referrer. `textSize` picks the base style (see
+ * MAIL_FRAME_STYLE).
  */
 export function buildMailFrameSrcdoc(
 	rawHtml: string,
-	opts: { loadRemoteImages?: boolean } = {}
+	opts: { loadRemoteImages?: boolean; textSize?: TextSize } = {}
 ): string {
 	const loadRemoteImages = opts.loadRemoteImages ?? false;
+	const textSize = opts.textSize ?? 'medium';
 	let body = sanitizeMailHtml(rawHtml);
 	if (loadRemoteImages) {
 		body = promoteRemoteImages(body);
@@ -159,8 +180,8 @@ export function buildMailFrameSrcdoc(
 	return (
 		'<!doctype html><html><head><meta charset="utf-8">' +
 		'<meta name="referrer" content="no-referrer">' +
-		`<meta http-equiv="Content-Security-Policy" content="${mailFrameCsp(loadRemoteImages)}">` +
-		`<style>${MAIL_FRAME_STYLE}</style>` +
+		`<meta http-equiv="Content-Security-Policy" content="${mailFrameCsp(loadRemoteImages, textSize)}">` +
+		`<style>${MAIL_FRAME_STYLE[textSize]}</style>` +
 		`<script>${MAIL_FRAME_SCRIPT}</script>` +
 		`</head><body>${body}</body></html>`
 	);

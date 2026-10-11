@@ -19,6 +19,7 @@
 	import { pushToast } from '$lib/stores/toasts.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { messageBodyView } from '$lib/stores/uiLayout.js';
+	import { textSize } from '$lib/stores/textSize.js';
 	import {
 		MESSAGE_HEADING_CONTEXT_KEY,
 		type MessageHeadingContext
@@ -366,7 +367,7 @@
 			use:mailFrame
 			title={$_('detail.iframeTitle')}
 			sandbox="allow-scripts"
-			srcdoc={buildMailFrameSrcdoc(content, { loadRemoteImages })}
+			srcdoc={buildMailFrameSrcdoc(content, { loadRemoteImages, textSize: $textSize })}
 			class="h-[65vh] min-h-96 w-full rounded-md border border-border bg-white"
 		></iframe>
 	{:else}
