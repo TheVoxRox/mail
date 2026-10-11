@@ -131,6 +131,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- **A command palette result reads as its name alone (#696).** Once you typed a query, each result showed a second line with three of the words it can be found by, and a screen reader read that line as part of the result's name. Those words are search aliases, not text meant to be read: the folder name a second time, the folder's path on the mail server and Czech written without diacritics, so typing "od" read the Sent folder as "Přejít do složky Odeslané Odeslané, [Gmail]/Odeslaná pošta, slozka". The line is gone; the words still find the command.
+
 - **The side pane fits the window when it slides in at 320 CSS px (#693).** At that width, a 1280px window at 400% zoom, the rail and the pane at its docked width came to 336px, 378px at the large text size, and the pane lies over the content where nothing scrolls to it, so its right edge, with the unread counts, was cut off (WCAG 1.4.10). The pane now narrows to the width beside the rail.
 
 - **The account form announces the error it moves focus to, not every error at once (#693).** Since #686 the form marks every wrong field together, and each of their errors was announced as it appeared: a screen reader was handed several announcements at once, and the move of focus to the first field cut them off. Only the first is announced now; the others are read with their fields as you reach them.
