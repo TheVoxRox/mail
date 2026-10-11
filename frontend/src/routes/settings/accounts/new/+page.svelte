@@ -264,12 +264,9 @@
 	contentClass="max-w-4xl space-y-4"
 >
 	{#snippet actions()}
-		<a
-			href={resolve('/settings/accounts')}
-			class="text-sm text-muted-foreground hover:text-foreground hover:underline"
-		>
+		<Button variant="link" size="sm" href={resolve('/settings/accounts')}>
 			{$_('accounts.backToList')}
-		</a>
+		</Button>
 	{/snippet}
 
 	{#if step.kind === 'email' || step.kind === 'detecting'}
@@ -308,13 +305,9 @@
 							? $_('accounts.wizard.detecting')
 							: $_('accounts.wizard.continue')}
 					</Button>
-					<button
-						type="button"
-						class="text-xs text-muted-foreground hover:text-foreground hover:underline"
-						onclick={chooseCustomDirectly}
-					>
+					<Button type="button" variant="link" size="sm" onclick={chooseCustomDirectly}>
 						{$_('accounts.wizard.manualSetup')}
-					</button>
+					</Button>
 				</div>
 			</form>
 		</Surface>
@@ -327,13 +320,9 @@
 						{$_('accounts.wizard.oauthConfirmHeading', { values: { email: step.email } })}
 					</h2>
 				</div>
-				<button
-					type="button"
-					onclick={backToEmail}
-					class="text-xs text-muted-foreground hover:text-foreground hover:underline"
-				>
+				<Button type="button" variant="link" size="sm" onclick={backToEmail}>
 					{$_('accounts.wizard.backToEmail')}
-				</button>
+				</Button>
 			</div>
 			<p class="mb-3 text-xs text-muted-foreground">
 				{$_(`accounts.wizard.${step.preset.key}.description`)}
@@ -347,13 +336,9 @@
 			>
 				{$_(`accounts.wizard.${step.preset.key}.loginButton`)}
 			</Button>
-			<button
-				type="button"
-				class="ml-3 text-xs text-muted-foreground hover:text-foreground hover:underline"
-				onclick={handleUseImapInstead}
-			>
+			<Button type="button" variant="link" size="sm" class="ml-3" onclick={handleUseImapInstead}>
 				{$_('accounts.wizard.useImapInstead')}
-			</button>
+			</Button>
 			{#if googleError}
 				<p class="mt-2 text-xs text-destructive-foreground" role="alert">{googleError}</p>
 			{/if}
@@ -373,13 +358,9 @@
 						</p>
 					</div>
 				</div>
-				<button
-					type="button"
-					onclick={backToEmail}
-					class="text-xs text-muted-foreground hover:text-foreground hover:underline"
-				>
+				<Button type="button" variant="link" size="sm" onclick={backToEmail}>
 					{$_('accounts.wizard.backToEmail')}
-				</button>
+				</Button>
 			</div>
 			<div class="mt-4">
 				<Button variant="outline" size="sm" onclick={cancelOauthWaiting}>
@@ -400,13 +381,9 @@
 							: $_('accounts.wizard.presets.custom')}
 					</h2>
 				</div>
-				<button
-					type="button"
-					onclick={backToEmail}
-					class="text-xs text-muted-foreground hover:text-foreground hover:underline"
-				>
+				<Button type="button" variant="link" size="sm" onclick={backToEmail}>
 					{$_('accounts.wizard.backToEmail')}
-				</button>
+				</Button>
 			</div>
 
 			<AccountForm
