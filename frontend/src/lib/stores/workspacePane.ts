@@ -9,13 +9,18 @@
  * slides in over the content on demand, as Outlook's folder pane does in a
  * narrow window: the toggle at the top of the rail, or Ctrl+Y, opens it.
  *
+ * In a wide window the same toggle folds the pane away by choice and docks it
+ * again, as Outlook's does, and the choice is remembered. A pane folded that
+ * way behaves as a narrow window's does: Ctrl+Y slides it in for a moment.
+ *
  * rem in the query is the browser default, not the root font size the text
  * size setting moves, so the line falls at the same window width at every
  * text size. It is the same line as Tailwind's `max-md:`, which the boot
  * skeleton uses for the same pane.
  */
 import { browser } from '$app/environment';
-import { get, readable, writable } from 'svelte/store';
+import { derived, get, readable, writable } from 'svelte/store';
+import { persistedStore } from './persisted.js';
 
 export const NARROW_PANE_QUERY = '(width < 48rem)';
 
@@ -34,13 +39,35 @@ export const paneNarrow = readable(false, (set) => {
 	return () => query.removeEventListener('change', onChange);
 });
 
+const dockPreference = persistedStore<'docked' | 'collapsed'>(
+	'mail.workspacePane',
+	['docked', 'collapsed'],
+	'docked'
+);
+
+/** Whether the user folded the pane away with the toggle in a wide window. */
+export const paneCollapsed = derived(dockPreference, (value) => value === 'collapsed');
+
+/** Whether the pane is folded away: by a narrow window, or by the user. */
+export const paneFolded = derived(
+	[paneNarrow, paneCollapsed],
+	([narrow, collapsed]) => narrow || collapsed
+);
+
 const openState = writable(false);
 
 /** Whether the folded pane is out over the content. Meaningless while docked. */
 export const paneOpen = { subscribe: openState.subscribe };
 
+/** What the toggle reports in aria-expanded: whether the pane can be seen. */
+export const paneShown = derived([paneFolded, paneOpen], ([folded, open]) => !folded || open);
+
 function paneElement(): HTMLElement | null {
 	return browser ? document.getElementById(WORKSPACE_PANE_ID) : null;
+}
+
+function toggleElement(): HTMLElement | null {
+	return browser ? document.getElementById(WORKSPACE_PANE_TOGGLE_ID) : null;
 }
 
 /**
@@ -77,22 +104,44 @@ export function closePane(options?: { returnFocus?: boolean }): void {
 	// nothing holds. Let go of it first.
 	if (pane?.contains(document.activeElement)) (document.activeElement as HTMLElement).blur();
 	openState.set(false);
-	if (options?.returnFocus) document.getElementById(WORKSPACE_PANE_TOGGLE_ID)?.focus();
+	if (options?.returnFocus) toggleElement()?.focus();
 }
 
 /**
- * Keeps the open state in step with the window. Docking resets it, so the
- * next fold starts closed. Folding the pane while focus is in it would hide
- * the focused control and drop focus to `<body>`, which is what zooming in
- * from the folder list did; the pane comes out over the content instead.
+ * The toggle at the top of the rail. In a narrow window it slides the pane in
+ * and out. In a wide one it docks the pane or folds it away, and remembers
+ * which; folding it while focus is in it hands focus to the toggle rather than
+ * hiding the focused control.
  */
-export function syncPaneToWidth(narrow: boolean): void {
-	if (!narrow) openState.set(false);
+export function togglePane(): void {
+	if (get(paneNarrow)) {
+		if (get(openState)) closePane({ returnFocus: true });
+		else openPane();
+		return;
+	}
+	if (get(paneCollapsed)) {
+		openState.set(false);
+		dockPreference.set('docked');
+		return;
+	}
+	if (paneElement()?.contains(document.activeElement)) toggleElement()?.focus();
+	dockPreference.set('collapsed');
+}
+
+/**
+ * Keeps the open state in step with the window and the user's choice. Docking
+ * resets it, so the next fold starts closed. Folding the pane while focus is
+ * in it would hide the focused control and drop focus to `<body>`, which is
+ * what zooming in from the folder list did; the pane comes out over the
+ * content instead.
+ */
+export function syncPaneToFold(folded: boolean): void {
+	if (!folded) openState.set(false);
 	else if (paneElement()?.contains(document.activeElement)) openState.set(true);
 }
 
 /** Ctrl+Y, Outlook's "go to the folder pane": opens the pane first when it is folded. */
 export function goToPane(): void {
-	if (get(paneNarrow)) openPane();
+	if (get(paneFolded)) openPane();
 	else focusPane();
 }

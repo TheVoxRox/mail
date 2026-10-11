@@ -33,9 +33,9 @@
 	import {
 		closePane,
 		goToPane,
-		paneNarrow,
+		paneFolded,
 		paneOpen,
-		syncPaneToWidth
+		syncPaneToFold
 	} from '$lib/stores/workspacePane.js';
 	import { focusAnchor } from '$lib/shortcuts/focusAnchor.js';
 	import { selectedMessage } from '$lib/stores/selectedMessage.js';
@@ -271,7 +271,7 @@
 	});
 
 	$effect(() => {
-		syncPaneToWidth($paneNarrow);
+		syncPaneToFold($paneFolded);
 	});
 
 	/*
@@ -283,7 +283,7 @@
 	const PANE_POPUPS = '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]';
 
 	function handlePaneKeydown(event: KeyboardEvent) {
-		if (!$paneNarrow || !$paneOpen || event.key !== 'Escape' || event.defaultPrevented) return;
+		if (!$paneFolded || !$paneOpen || event.key !== 'Escape' || event.defaultPrevented) return;
 		if ([...document.querySelectorAll(PANE_POPUPS)].some((el) => el.checkVisibility())) return;
 		event.preventDefault();
 		closePane({ returnFocus: true });
@@ -303,7 +303,7 @@
 	 * focus through a helper of its focus trap on the way in.
 	 */
 	function handlePaneFocusOut() {
-		if (!$paneNarrow || !$paneOpen) return;
+		if (!$paneFolded || !$paneOpen) return;
 		requestAnimationFrame(() => {
 			if (document.activeElement?.closest('#main-content')) closePane();
 		});
@@ -514,7 +514,7 @@
 			/>
 		{:else if $bootState.phase === 'ready' && $sessionState.status === 'ready' && $accountsState.status === 'ready'}
 			<AppRail />
-			{#if $paneNarrow && $paneOpen}
+			{#if $paneFolded && $paneOpen}
 				<!--
 					Click-away for the pointer, over the content and not the rail, so
 					the toggle stays clickable. Hidden from assistive technology:
@@ -530,15 +530,16 @@
 			<!--
 				Docked, `contents`, so the wrapper adds no box to the flex row and
 				only carries data-print across the three branches of the lazy
-				sidebar. In a narrow window (stores/workspacePane.ts) it is the
-				folded pane instead: out of the row, over the content when open,
-				and `hidden` when not, which also takes it out of the tab order and
-				the landmark list until the toggle or Ctrl+Y brings it back.
+				sidebar. Folded, in a narrow window or by the user's choice
+				(stores/workspacePane.ts), it is the folded pane instead: out of
+				the row, over the content when open, and `hidden` when not, which
+				also takes it out of the tab order and the landmark list until the
+				toggle or Ctrl+Y brings it back.
 			-->
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<div
-				class={$paneNarrow ? 'fixed inset-y-0 left-16 z-40 flex shadow-2xl' : 'contents'}
-				hidden={$paneNarrow && !$paneOpen}
+				class={$paneFolded ? 'fixed inset-y-0 left-16 z-40 flex shadow-2xl' : 'contents'}
+				hidden={$paneFolded && !$paneOpen}
 				data-print="chrome"
 				onkeydown={handlePaneKeydown}
 				onfocusout={handlePaneFocusOut}
