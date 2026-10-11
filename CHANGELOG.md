@@ -173,6 +173,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- **The a11y suite checks every screen against the text spacing of WCAG 1.4.12 (#683).** `textSpacingLosses` in `e2e-helpers.ts` applies the line, letter, word and paragraph spacing the criterion names and reports text that then overflows its box or is cut off where it was not before; text cut with an ellipsis and screen-reader-only text are left out. No screen loses any text, and neither did the dialogs, the grouped list or a notification in a one-off probe, so the app does not change.
+
 - **An axe scan fails on what axe could not decide, unless that has been judged (#681).** axe files a result it cannot settle under "incomplete", which the scans never read, and the dropped label of #680 sat there. `expectNoFindings` now fails on an incomplete that no case in `REVIEWED_INCOMPLETE` covers; the cases decide target size, contrast over an overlapped background and a symbol-only label by measuring the page. Every scan also waits for running animations first, and `a11y-target.test.ts` refuses a scan judged by its violations alone.
 
 - **The per-screen axe scans measure the loaded page instead of the boot screen (#679).** `openApp` returns once `<main>` exists, which the boot screen already satisfies, so all fourteen scans read the same "waiting for the backend" screen; each route now names something only its loaded page has, the scan waits for it and for running transitions to end, and the duplicate `/contacts` entry runs without accounts as its name says. The frontend route `/auth/finished` is deleted: the backend ends every sign-in on its own static page, so nothing reached it; those static pages are scanned instead.
