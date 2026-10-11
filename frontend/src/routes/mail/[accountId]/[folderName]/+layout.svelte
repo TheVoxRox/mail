@@ -7,6 +7,7 @@
 	import MessageList from '$lib/components/MessageList.svelte';
 	import ConversationList from '$lib/components/ConversationList.svelte';
 	import SplitPane from '$lib/components/SplitPane.svelte';
+	import { LIST_SIZE_PERCENT, SPLIT_SIZE_KEYS } from '$lib/stores/listSize.js';
 	import { accountsState, setActiveAccount } from '$lib/stores/accounts.js';
 	import { folders } from '$lib/stores/folders.js';
 	import { loadPage, messagesState } from '$lib/stores/messages.js';
@@ -260,8 +261,8 @@
 	{#if effectiveReadingPane === 'right'}
 		<SplitPane
 			orientation="vertical"
-			storageKey="mail.splitSize.right"
-			initialPercent={35}
+			storageKey={SPLIT_SIZE_KEYS.right}
+			initialPercent={LIST_SIZE_PERCENT.default.right}
 			ariaLabel={$_('settings.appearance.splitPane.vertical')}
 		>
 			{#snippet first()}
@@ -279,8 +280,8 @@
 	{:else if effectiveReadingPane === 'bottom'}
 		<SplitPane
 			orientation="horizontal"
-			storageKey="mail.splitSize.bottom"
-			initialPercent={45}
+			storageKey={SPLIT_SIZE_KEYS.bottom}
+			initialPercent={LIST_SIZE_PERCENT.default.bottom}
 			ariaLabel={$_('settings.appearance.splitPane.horizontal')}
 		>
 			{#snippet first()}

@@ -5,6 +5,7 @@
 	import { Surface } from '$lib/components/ui/surface/index.js';
 	import { themePreference, setThemePreference, type ThemePreference } from '$lib/stores/theme.js';
 	import { textSize, setTextSize, type TextSize } from '$lib/stores/textSize.js';
+	import { currentListSize, LIST_SIZES, setListSize, type ListSize } from '$lib/stores/listSize.js';
 	import {
 		closeAction,
 		messageBodyView,
@@ -46,6 +47,22 @@
 		setReadingPane(value);
 	}
 
+	/*
+	 * Read once here: the divider in Mail is the only other writer, and it is
+	 * not on screen while this page is. "custom" names a size a drag left
+	 * between the presets; it is shown, never chosen.
+	 */
+	let listSize = $state<ListSize | 'custom'>(currentListSize());
+	const listSizeOptions = $derived<readonly string[]>(
+		listSize === 'custom' ? [...LIST_SIZES, 'custom'] : LIST_SIZES
+	);
+
+	function handleListSizeChange(event: Event) {
+		const value = (event.target as HTMLSelectElement).value as ListSize;
+		setListSize(value);
+		listSize = value;
+	}
+
 	function handleMessageBodyChange(event: Event) {
 		const value = (event.target as HTMLSelectElement).value as MessageBodyView;
 		setMessageBodyView(value);
@@ -73,6 +90,7 @@
 	value: string;
 	onchange: (event: Event) => void;
 	options: readonly string[];
+	disabledOptions?: readonly string[];
 })}
 	<Surface as="section" class="space-y-3">
 		<h2 id={`${setting.id}-label`} class="text-sm font-semibold">
@@ -89,7 +107,7 @@
 					{...control}
 				>
 					{#each setting.options as option (option)}
-						<option value={option}>
+						<option value={option} disabled={setting.disabledOptions?.includes(option)}>
 							{$_(`settings.appearance.${setting.section}.options.${option}`)}
 						</option>
 					{/each}
@@ -134,6 +152,14 @@
 		value: $readingPane,
 		onchange: handleReadingPaneChange,
 		options: READING_PANE_OPTIONS
+	})}
+	{@render selectCard({
+		id: 'list-size-select',
+		section: 'listSize',
+		value: listSize,
+		onchange: handleListSizeChange,
+		options: listSizeOptions,
+		disabledOptions: ['custom']
 	})}
 	{@render selectCard({
 		id: 'message-grouping-select',

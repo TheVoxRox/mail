@@ -611,6 +611,16 @@
 					"off": "Hidden"
 				}
 			},
+			"listSize": {
+				"heading": "Message list size",
+				"hint": "The width of the list beside the reading pane, or its height when the pane is below. The divider between them can also be dragged or moved with the arrow keys.",
+				"options": {
+					"smaller": "Smaller",
+					"default": "Default",
+					"larger": "Larger",
+					"custom": "Custom (set with the divider)"
+				}
+			},
 			"splitPane": {
 				"vertical": "Resize the message list and detail panes",
 				"horizontal": "Resize the message list and detail panes vertically"
