@@ -32,7 +32,8 @@
 		| 'chevron-down'
 		| 'chevron-right'
 		| 'check'
-		| 'ellipsis-horizontal';
+		| 'ellipsis-horizontal'
+		| 'bars-3';
 
 	const PATHS: Record<IconName, string> = {
 		inbox:
@@ -88,7 +89,8 @@
 		'chevron-right': 'm8.25 4.5 7.5 7.5-7.5 7.5',
 		check: 'm4.5 12.75 6 6 9-13.5',
 		'ellipsis-horizontal':
-			'M6.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm6 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm6 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z'
+			'M6.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm6 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm6 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z',
+		'bars-3': 'M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5'
 	};
 
 	const SOLID_FILL: Partial<Record<IconName, boolean>> = {

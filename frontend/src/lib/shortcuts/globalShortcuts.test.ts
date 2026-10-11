@@ -12,6 +12,7 @@ function makeHandlers(overrides: Partial<GlobalShortcutHandlers> = {}): GlobalSh
 		isPaletteOpen: () => false,
 		goToPrimaryNewAction: vi.fn(),
 		goToWorkspace: vi.fn(),
+		goToPane: vi.fn(),
 		// No open message by default — message-action tests opt in via overrides.
 		isMessageOpen: () => false,
 		reply: vi.fn(),
@@ -179,6 +180,33 @@ describe('handleGlobalKeydown', () => {
 			expect(h[handler]).not.toHaveBeenCalled();
 		}
 	);
+
+	it('Ctrl+Y goes to the workspace pane and consumes the key', () => {
+		const h = makeHandlers();
+		const ev = makeEvent({ key: 'y', ctrlKey: true, code: 'KeyY' });
+		handleGlobalKeydown(ev, h);
+		expect(h.goToPane).toHaveBeenCalledOnce();
+		expect(ev.defaultPrevented).toBe(true);
+	});
+
+	it('Ctrl+Y follows the letter, not the key position, so the Czech layout works', () => {
+		// On QWERTZ the key that types y sits where QWERTY has z.
+		const h = makeHandlers();
+		handleGlobalKeydown(makeEvent({ key: 'y', ctrlKey: true, code: 'KeyZ' }), h);
+		expect(h.goToPane).toHaveBeenCalledOnce();
+	});
+
+	it('Ctrl+Y in a text field stays Redo', () => {
+		const h = makeHandlers();
+		const input = document.createElement('input');
+		document.body.appendChild(input);
+		const ev = makeEvent({ key: 'y', ctrlKey: true, code: 'KeyY' });
+		Object.defineProperty(ev, 'target', { value: input });
+		handleGlobalKeydown(ev, h);
+		document.body.removeChild(input);
+		expect(h.goToPane).not.toHaveBeenCalled();
+		expect(ev.defaultPrevented).toBe(false);
+	});
 });
 
 describe('handleGlobalKeydown — message actions', () => {

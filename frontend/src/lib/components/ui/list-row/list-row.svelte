@@ -5,7 +5,7 @@
 	import type { VariantProps } from 'tailwind-variants';
 
 	export const listRowVariants = tv({
-		base: 'flex justify-between text-sm transition-colors hover:bg-muted/40',
+		base: 'flex flex-wrap justify-between text-sm transition-colors hover:bg-muted/40',
 		variants: {
 			align: {
 				start: 'items-start',
@@ -45,8 +45,14 @@
 	}: ListRowProps = $props();
 </script>
 
+<!--
+	The content keeps 12rem, or the whole row where that is less, and the row
+	wraps: in a narrow window the actions move under the content instead of
+	squeezing it to nothing, which hid an account's name and address at 320 CSS
+	px (WCAG 1.4.10). Where the row has the room, nothing moves.
+-->
 <li class={cn(listRowVariants({ align, density }), className)} {...restProps}>
-	<div class="min-w-0 flex-1">
+	<div class="min-w-[min(12rem,100%)] flex-1">
 		{@render children?.()}
 	</div>
 	{#if actions}

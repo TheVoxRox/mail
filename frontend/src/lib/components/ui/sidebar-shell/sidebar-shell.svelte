@@ -1,4 +1,5 @@
 <script lang="ts" module>
+	import { WORKSPACE_PANE_ID } from '$lib/stores/workspacePane.js';
 	import { cn } from '$lib/utils.js';
 	import { SIDEBAR_PANE_FRAME } from './frame.js';
 	import type { Snippet } from 'svelte';
@@ -47,7 +48,9 @@
 	const contentTag = $derived(contentNavLabel ? 'nav' : 'div');
 </script>
 
+<!-- One pane at a time, so one id: the rail's toggle controls it and Ctrl+Y moves into it. -->
 <section
+	id={WORKSPACE_PANE_ID}
 	aria-label={label}
 	class={cn(SIDEBAR_PANE_FRAME, 'text-sidebar-foreground', className)}
 	{...restProps}

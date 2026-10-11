@@ -17,6 +17,8 @@ export interface GlobalShortcutHandlers {
 	isPaletteOpen: () => boolean;
 	goToPrimaryNewAction: () => Promise<void> | void;
 	goToWorkspace: (mode: WorkspaceMode) => Promise<void> | void;
+	/** Ctrl+Y: into the workspace pane, sliding it out first when the window has folded it away. */
+	goToPane: () => void;
 	/** Whether a message is open, which is what the message actions below need. */
 	isMessageOpen: () => boolean;
 	reply: () => void;
@@ -61,7 +63,8 @@ export function isEditableTarget(target: EventTarget | null): boolean {
  *  3) Ctrl+1/2/3 (workspace), Ctrl+N (new item) and Ctrl+P (print the open
  *     message or the ticked rows) — also in inputs.
  *  4) Cursor in an editable element → handler stays out.
- *  5) Outlook-style actions on the open message (reply, forward, flag, …).
+ *  5) Ctrl+Y into the workspace pane.
+ *  6) Outlook-style actions on the open message (reply, forward, flag, …).
  */
 export function handleGlobalKeydown(event: KeyboardEvent, handlers: GlobalShortcutHandlers): void {
 	/*
@@ -133,6 +136,23 @@ export function handleGlobalKeydown(event: KeyboardEvent, handlers: GlobalShortc
 	}
 
 	if (isEditableTarget(event.target)) return;
+
+	/*
+	 * Ctrl+Y is Outlook's "go to the folder pane". It sits after the editable
+	 * bail because in a text field it is Redo, which the field keeps. `key`
+	 * rather than `code`: Y and Z swap places on the Czech layout, and the
+	 * shortcut means the key that types y.
+	 */
+	if (
+		(event.ctrlKey || event.metaKey) &&
+		!event.altKey &&
+		!event.shiftKey &&
+		event.key.toLowerCase() === 'y'
+	) {
+		event.preventDefault();
+		handlers.goToPane();
+		return;
+	}
 
 	/*
 	 * Outlook-style actions on the open message. They run only when a message

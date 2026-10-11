@@ -8,6 +8,7 @@ import {
 	focusIndicatorLosses,
 	messageGrid,
 	openApp,
+	reflowLosses,
 	rowsOf,
 	searchResultsGrid,
 	setMockFlags,
@@ -1560,6 +1561,16 @@ test.describe('Přístupnost – jednotlivé obrazovky', () => {
 			await openApp(page, path);
 			await expect(ready(page)).toBeVisible();
 			expect(await zoomLosses(page)).toEqual([]);
+		});
+
+		test(`${name} (${path}) se přeskládá na šířku 320 px (1.4.10)`, async ({ page }) => {
+			// 400% zoom of a 1280px window. Below 768px the workspace pane folds
+			// away (stores/workspacePane.ts), so the content has the width to itself.
+			await page.setViewportSize({ width: 320, height: 256 });
+			if (flags) await setMockFlags(page, flags);
+			await openApp(page, path);
+			await expect(ready(page)).toBeVisible();
+			expect(await reflowLosses(page)).toEqual([]);
 		});
 
 		test(`${name} (${path}) nemá a11y porušení`, async ({ page }) => {

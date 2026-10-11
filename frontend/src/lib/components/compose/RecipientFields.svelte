@@ -112,7 +112,10 @@
 			{disabled}
 			aria-invalid={subjectError ? 'true' : undefined}
 			aria-describedby={subjectError ? subjectErrorId : undefined}
-			class={cn('flex-1 border-0 bg-transparent py-2.5 text-sm text-foreground', focusRingInset)}
+			class={cn(
+				'min-w-0 flex-1 border-0 bg-transparent py-2.5 text-sm text-foreground',
+				focusRingInset
+			)}
 		/>
 	</div>
 	{#if subjectError}
