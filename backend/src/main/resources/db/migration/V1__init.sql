@@ -181,6 +181,18 @@ CREATE TABLE folder_sync_state (
 
 -- =====================================================================
 -- 5) MESSAGES — individual messages (metadata + body cache).
+--
+-- Column order carries weight here: the long text columns come last, the
+-- cached body very last. SQLite stores a row as one record and spills what
+-- does not fit the page into a linked chain of overflow pages, so reading
+-- any column that sits after a long value walks that value's whole chain.
+-- The conversation listing reads received_at, seen and thread_id of every
+-- row in the folder on each page load; with the body in front of them that
+-- read every cached body of the folder (measured: 259 ms against 45 ms per
+-- page over 20,000 rows, 70 % of them carrying a 40 KB body). ALTER TABLE
+-- ADD COLUMN appends behind `content`, so a column added later belongs
+-- in front of it through a table rebuild — MessagesColumnOrderTest fails
+-- until it is.
 -- =====================================================================
 CREATE TABLE messages (
     id               INTEGER       PRIMARY KEY AUTOINCREMENT,
@@ -191,12 +203,6 @@ CREATE TABLE messages (
     uid_validity     INTEGER       NOT NULL,
     subject          VARCHAR(500),
     sender           VARCHAR(255),
-    recipients_to    TEXT,
-    recipients_cc    TEXT,
-    -- Bcc exists only on the user's own draft/sent copies (received mail never
-    -- carries the header). Deliberately NOT indexed in message_search.
-    recipients_bcc   TEXT,
-    content          TEXT,
     -- Set when the body exceeded the extractor's byte cap (audit B1-1):
     -- content stays NULL, the API serves a localized placeholder and never
     -- re-fetches the oversized body from IMAP.
@@ -207,7 +213,6 @@ CREATE TABLE messages (
     answered         BOOLEAN       NOT NULL DEFAULT 0,
     message_id       VARCHAR(255),
     in_reply_to      VARCHAR(255),
-    reply_references TEXT,
     -- Normal form of `subject` (reply/forward markers stripped, whitespace
     -- collapsed, lowercased) — the key for the threading subject-fallback.
     -- Assigned by ThreadingService together with thread_id; empty string when
@@ -233,6 +238,25 @@ CREATE TABLE messages (
     thread_id              TEXT,
     thread_root_message_id TEXT,
     thread_position        INTEGER,
+    -- Long text from here on (see the column-order note above). A bulk
+    -- mailing can carry a few hundred recipients, and a long thread's
+    -- References header runs to kilobytes.
+    recipients_to    TEXT,
+    recipients_cc    TEXT,
+    -- Bcc exists only on the user's own draft/sent copies (received mail never
+    -- carries the header). Deliberately NOT indexed in message_search.
+    recipients_bcc   TEXT,
+    reply_references TEXT,
+    -- The visible text of `content`, without markup: what message_search
+    -- indexes. Indexing `content` itself made HTML element and attribute names
+    -- (table, td, width, ...) about half of a cached body's search terms, so a
+    -- search for such a word matched every HTML message the user had opened.
+    -- Written together with `content` by MessageEntity.setContent, NULL
+    -- exactly when `content` is.
+    body_text        TEXT,
+    -- The body cache: sanitized HTML, filled the first time the message is
+    -- opened. Last of all, as the longest value a row holds.
+    content          TEXT,
     FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
 );
 
@@ -482,15 +506,17 @@ CREATE TABLE remote_image_sender (
 
 -- =====================================================================
 -- 12) FTS5 SEARCH — full-text index over messages.
---     Indexes subject + sender + content + recipients (TO and CC), so the
---     user can search for "mail from/to/about".
+--     Indexes subject + sender + body_text + recipients (TO and CC), so the
+--     user can search for "mail from/to/about". The body is indexed through
+--     body_text, its plain text, not through the HTML in content (see the
+--     note on body_text in the messages table).
 --     External content (content='messages') = the data is not duplicated;
 --     FTS5 reads it from messages on query via rowid.
 -- =====================================================================
 CREATE VIRTUAL TABLE message_search USING fts5(
     subject,
     sender,
-    content,
+    body_text,
     recipients_to,
     recipients_cc,
     content='messages',
@@ -500,9 +526,9 @@ CREATE VIRTUAL TABLE message_search USING fts5(
 -- Trigger: after INSERT into messages, add a row to the FTS index.
 CREATE TRIGGER messages_ai AFTER INSERT ON messages BEGIN
     INSERT INTO message_search(
-        rowid, subject, sender, content, recipients_to, recipients_cc
+        rowid, subject, sender, body_text, recipients_to, recipients_cc
     ) VALUES (
-        new.id, new.subject, new.sender, new.content, new.recipients_to, new.recipients_cc
+        new.id, new.subject, new.sender, new.body_text, new.recipients_to, new.recipients_cc
     );
 END;
 
@@ -510,9 +536,9 @@ END;
 -- The 'delete' command requires the same values as the original insert (FTS5 contract).
 CREATE TRIGGER messages_ad AFTER DELETE ON messages BEGIN
     INSERT INTO message_search(
-        message_search, rowid, subject, sender, content, recipients_to, recipients_cc
+        message_search, rowid, subject, sender, body_text, recipients_to, recipients_cc
     ) VALUES (
-        'delete', old.id, old.subject, old.sender, old.content, old.recipients_to, old.recipients_cc
+        'delete', old.id, old.subject, old.sender, old.body_text, old.recipients_to, old.recipients_cc
     );
 END;
 
@@ -523,16 +549,16 @@ END;
 -- columns the index does not cover. Pairs with @DynamicUpdate on
 -- MessageEntity (Hibernate emits SET only for dirty columns), so entity
 -- flushes that do not touch these columns skip the reindex entirely.
-CREATE TRIGGER messages_au AFTER UPDATE OF subject, sender, content, recipients_to, recipients_cc ON messages BEGIN
+CREATE TRIGGER messages_au AFTER UPDATE OF subject, sender, body_text, recipients_to, recipients_cc ON messages BEGIN
     INSERT INTO message_search(
-        message_search, rowid, subject, sender, content, recipients_to, recipients_cc
+        message_search, rowid, subject, sender, body_text, recipients_to, recipients_cc
     ) VALUES (
-        'delete', old.id, old.subject, old.sender, old.content, old.recipients_to, old.recipients_cc
+        'delete', old.id, old.subject, old.sender, old.body_text, old.recipients_to, old.recipients_cc
     );
     INSERT INTO message_search(
-        rowid, subject, sender, content, recipients_to, recipients_cc
+        rowid, subject, sender, body_text, recipients_to, recipients_cc
     ) VALUES (
-        new.id, new.subject, new.sender, new.content, new.recipients_to, new.recipients_cc
+        new.id, new.subject, new.sender, new.body_text, new.recipients_to, new.recipients_cc
     );
 END;
 

@@ -113,9 +113,9 @@ class DatabaseRecoveryTest {
     @DisplayName("the OPERATIONS.md restore brings a damaged database back from the pre-migration backup")
     void restoreFromPreMigrationBackup() throws Exception {
         start("1.0.0");
-        // The install itself had a migration to apply, so it left a snapshot too: an
-        // empty one, as OPERATIONS.md warns.
-        assertThat(dbFile.resolveSibling("mail.db.backup-pre-v1.0.0")).exists();
+        // The install had a migration to apply but an empty database, so it left no
+        // snapshot behind: one of it would only restore an empty database.
+        assertThat(backups()).isEmpty();
         insertMarkers();
 
         // An update with a migration: the hook snapshots the database first.

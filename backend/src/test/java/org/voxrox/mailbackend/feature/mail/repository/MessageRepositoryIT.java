@@ -112,7 +112,7 @@ class MessageRepositoryIT {
 
     /**
      * FTS trigger guard: the V1 {@code messages_au} trigger is scoped via
-     * {@code AFTER UPDATE OF subject, sender, content, recipients_*}, and the
+     * {@code AFTER UPDATE OF subject, sender, body_text, recipients_*}, and the
      * entity carries {@code @DynamicUpdate} so flag-only flushes never mention
      * those columns. These tests pin both directions of that contract against the
      * real SQLite schema: a flag-only UPDATE leaves the index intact and
@@ -149,6 +149,36 @@ class MessageRepositoryIT {
                 .isEmpty();
         assertThat(messageRepository.fullTextSearchIds("novyobsah*", account.getId(), pageable).getContent())
                 .extracting(Number::longValue).containsExactly(message.getId());
+    }
+
+    @Test
+    @DisplayName("An HTML body is searchable by its visible text only, not by its markup, links or inline images")
+    void htmlBodyIsIndexedByVisibleTextOnly() {
+        AccountEntity account = newAccount("fts-html@example.com");
+        MessageEntity message = newMessage(account, 1L, "<h@example.com>", null, "T-fts3", "<h@example.com>");
+        message.setContent("""
+                <table width="100%" cellpadding="0"><tbody><tr>
+                <td>prvnibunka</td><td>druhabunka</td>
+                </tr></tbody></table>
+                <p><a href="https://odkazdomena.example/cesta">textodkazu</a></p>
+                <img src="data:image/png;base64,QmFzZTY0b2JyYXplaw==">
+                """);
+        messageRepository.saveAndFlush(message);
+
+        var pageable = org.springframework.data.domain.PageRequest.of(0, 10);
+        // The visible words are found, including the second of two adjacent cells,
+        // which only works if the cells' text did not run together into one token.
+        for (String visible : List.of("prvnibunka*", "druhabunka*", "textodkazu*")) {
+            assertThat(messageRepository.fullTextSearchIds(visible, account.getId(), pageable).getContent()).as(visible)
+                    .extracting(Number::longValue).containsExactly(message.getId());
+        }
+        // Element and attribute names, a link's address and an inline image's
+        // base64 are not the message's words.
+        for (String markup : List.of("tbody*", "cellpadding*", "width*", "odkazdomena*", "QmFzZTY0b2JyYXplaw*")) {
+            assertThat(messageRepository.fullTextSearchIds(markup, account.getId(), pageable).getContent()).as(markup)
+                    .isEmpty();
+        }
+        assertThat(message.getBodyText()).isEqualTo("prvnibunka druhabunka textodkazu");
     }
 
     @Test

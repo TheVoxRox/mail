@@ -116,12 +116,17 @@
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "ff7f8fc27f0325cce769ef6d32ab1b7970224447",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "9529c23f5e6525d047964bbe6f7342c525ddbdca"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "9529c23f5e6525d047964bbe6f7342c525ddbdca",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/MessageEntity.java": "f3f30cd4be6904739e50a7c4a58212c6d9679cf1"
     },
     "acknowledgements": [
       {
         "date": "2026-10-08",
         "note": "The residual of 1.40 in section 4e (a second copy of the draft after a rejected save), fixed and recorded in the audit itself as v1.68; functional, so no claim of a finding moves and the anchor stays at 6ff9ded. Two paths move. DraftRecipientsRepository gains findEarlierRevisions, a read: the stableIds of the account's entries in the chain of a given stableId written before it by saved_seq, empty when that stableId has no entry. Under feature/mail/service only DraftPersistenceService changes: saveDraftAsync resolves, before the APPEND as before, the named revision's row and the rows of the chain's earlier revisions (replacedRevisions, earlierRevisionRows), each through isReplaceableDraft, and after a stored APPEND hard-deletes each and its row; deleteSupersededDraft does the same for the draft a send supersedes and also sets aside each deleted revision's entry, as it does the named one's. No entry is deleted or written by the new code, so 1.58's claim that entries go only by the two bounds holds; DraftPersistenceServiceTest still pins that the save and the send touch the repository only to read, besides the send's set-aside. The guard, the APPEND, markStored and the recipient check are unchanged."
+      },
+      {
+        "date": "2026-10-11",
+        "note": "Schema housekeeping, no claim of a finding moves and the anchor stays at 6ff9ded. One path moves: MessageEntity gains bodyText, mapped to the new messages.body_text column, and setContent now sets it to BodyText.of(content) (jsoup text() of the cached HTML, null exactly when content is). message_search and its triggers read body_text instead of content, so the index holds the visible text of a body rather than its markup; nothing else reads the column. MessageContentPersister is still the only production caller of setContent, and nothing writes body_text on its own, so B1-1's claim that content stays NULL for an oversized body, and the index with it never sees a placeholder, holds for body_text too. For the informational note on thread renumbering in section 5: the managed entities it loads now carry body_text as well, which is no longer than content (text() only drops markup and decodes entities) and null for a message nobody has opened, so the note's worst case stays an opened long thread and the body text each loaded entity holds at most doubles; the note's 'not measured' stands. V1__init.sql also moves the long text columns of messages to the end of the row, which no audited path depends on."
       }
     ]
   },

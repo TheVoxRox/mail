@@ -11,6 +11,7 @@ import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 import org.jspecify.annotations.Nullable;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
+import org.voxrox.mailbackend.util.BodyText;
 import org.voxrox.mailbackend.util.HeaderAddresses;
 import org.voxrox.mailbackend.util.LogMasker;
 
@@ -18,8 +19,8 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 /*
  * @DynamicUpdate: Hibernate emits SET only for dirty columns. Required for the
- * scoped FTS trigger (V1 baseline: AFTER UPDATE OF subject, sender, content,
- * recipients_*) to be effective — a full-column UPDATE would mention `content`
+ * scoped FTS trigger (V1 baseline: AFTER UPDATE OF subject, sender, body_text,
+ * recipients_*) to be effective — a full-column UPDATE would mention `body_text`
  * on every flush (e.g. ThreadingService setting thread columns right after
  * insert) and force a pointless FTS re-tokenization of the whole body.
  */
@@ -80,6 +81,15 @@ public class MessageEntity {
     @Lob
     @Column(columnDefinition = "TEXT")
     private @Nullable String content;
+
+    /**
+     * The visible text of {@link #content}, which is what the message_search FTS
+     * index reads instead of the HTML. Derived in {@link #setContent}, never set on
+     * its own.
+     */
+    @Lob
+    @Column(name = "body_text", columnDefinition = "TEXT")
+    private @Nullable String bodyText;
 
     /**
      * Set when the message body exceeded the extractor's byte cap (IMAP/SMTP audit
@@ -289,8 +299,18 @@ public class MessageEntity {
         return content;
     }
 
+    /**
+     * Caches the body and, with it, the plain text the full-text index reads. Both
+     * are set here and nowhere else, so {@code body_text} can never describe
+     * another body than {@code content} holds.
+     */
     public void setContent(@Nullable String content) {
         this.content = content;
+        this.bodyText = BodyText.of(content);
+    }
+
+    public @Nullable String getBodyText() {
+        return bodyText;
     }
 
     public boolean isBodyOversize() {
