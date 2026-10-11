@@ -48,7 +48,9 @@
       "frontend/src-tauri/src": "873b59397b8caafaf2535be92fde61f25a7f045c",
       "frontend/src/lib/components/settings/AboutSettings.svelte": "19e6e48ff9b482cb1e778630829fe6890af9c985",
       "frontend/src-tauri/tauri.conf.json": "4db87fe6a13af1cf4b64e657867d3826743fab5c",
-      "frontend/src-tauri/capabilities": "010c5218458c20ba922628f21fe030b00e655c18"
+      "frontend/src-tauri/capabilities": "010c5218458c20ba922628f21fe030b00e655c18",
+      "frontend/src/lib/bootstrap.ts": "100339171d7b91d8232e749df0e0d088a0b571d2",
+      "frontend/src/lib/components/boot/BootErrorView.svelte": "3ded98510feb85eed12e8965b7dde754bd011401"
     },
     "acknowledgements": [
       {
@@ -70,17 +72,27 @@
       {
         "date": "2026-10-11",
         "note": "Class attributes only, from #687 (WCAG 1.4.10). The three description lists on the About page -- versions, connection, session -- change their grid from a fixed first column (grid-cols-[9rem_1fr], [8rem_1fr]) to one column below Tailwind's sm and the same two columns above it with minmax(0,1fr), so the page reflows at 320 CSS px instead of scrolling sideways. Verified on the diff rather than by intent: the only changed lines in this path are those three <dl> opening tags, each reflowed by Prettier over three lines; no script, binding, handler or text moves, and the update channel select, the check for updates and everything they render are byte-identical. No other path under this audit changed. Verdict stays PASS."
+      },
+      {
+        "date": "2026-10-11",
+        "note": "Recorded in the audit itself as v1.17: the startup update check also runs when the boot fails, and the boot error view offers the manual check. bootstrap.ts and BootErrorView.svelte join Code paths with this entry, since both now start an updater request. bootstrap.ts is byte-identical to a2e6d43 but for the catch of runBootstrap: after the generation guard it computes the failBoot result as before (the timeout error preferred when the boot timer aborted), calls checkForUpdateAndPrompt without awaiting it, and throws. BootErrorView.svelte gains a Check for updates button that calls checkForUpdateManually and a role=status line rendering settings.about.versions.update.<status>, the same keys and calls as AboutSettings; besides that it carries #675's text-title -> text-lg on its heading, a class only. updates.ts, the shell commands, capabilities, tauri.conf.json and the release workflow are untouched, so section 1's surface, the pin, the endpoints and the version pins are what they were; the guard that makes the startup check once per process sits inside checkForUpdateAndPrompt and still runs before any request. Verdict stays PASS."
       }
     ]
   },
   "docs/CRYPTO_STORAGE_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/core/init": "6b860914def198938000e51a328137049fffac81"
+      "backend/src/main/java/org/voxrox/mailbackend/core/init": "6b860914def198938000e51a328137049fffac81",
+      "backend/src/main/java/org/voxrox/mailbackend/core/security/CryptoService.java": "df4472da20af9ad59377f11b282535b75dbb5b17",
+      "backend/src/main/java/org/voxrox/mailbackend/core/security/CryptoProperties.java": "3595302c4b8c43f9dda3f35d0e59373b2aa7a7e6"
     },
     "acknowledgements": [
       {
         "date": "2026-09-11",
         "note": "Change under this path, read rather than waved through as a timing tweak. StartupTimingService swapped its reference clock: the anchor for processStartedAt and for every phase's startedAfterProcessMs moved from an Instant.now() taken in the class's own static initialiser to ManagementFactory.getRuntimeMXBean().getStartTime(), with a wall-clock constant recording how much boot had already passed when the class loaded. Section 1 is untouched by it: the diff does not enter StorageContextInitializer, reads or writes no crypto.bin, touches neither the VOXSEC1 format, the DPAPI USER-scope call, the buffer zeroing, the atomic private-permissioned write, nor the constant-time crypto.fingerprint comparison, and adds no path by which any of them could be reached earlier or skipped. The class holds no secret and opens no file. Section 2 holds: CryptoService is not in the diff, and the one place where boot timing and that section intersect - the self-test \"warmed off the boot path\" claim - is about when the self-test runs, which this change does not move; it only changes what a later dump reports about the time that had already elapsed. The new dependency is java.management, read-only and already in the sidecar's --add-modules list; it is an MXBean read, not a JNI or FFM call, so the \"pure Java FFM (no JNI)\" hygiene claim of section 1 is about a path this does not join. Section 3 residuals are unaffected - nothing about mail.db plaintext at rest or the same-user-malware exclusion turns on a clock source. The one observable effect outside the boundary is that startup-timings.json in the diagnostic dump now reports a start roughly four seconds earlier and correspondingly larger phase offsets: the same data category as before, no new field and no new value class, and the dump's privacy check is RELEASE_CHECKLIST section 7, which is flagged for a re-take on this candidate for exactly this reason."
+      },
+      {
+        "date": "2026-10-11",
+        "note": "Recorded in the audit itself as v1.2: the PBKDF2 iteration count moves from CryptoProperties (mail.crypto.pbkdf2-iterations, @Min 1000, default 600000) to a private constant PBKDF2_ITERATIONS = 600_000 in CryptoService, and CryptoProperties.java joins Code paths with this entry, so a format value cannot come back as a property unseen. The bean constructor is now @Autowired and passes the constant to a package-private constructor that takes the count, which CryptoServiceTest uses with 1000; getOrDeriveKey reads the field where it read the property. Section 2 holds with the same values: AES/GCM, 12-byte IV, 128-bit tag, PBKDF2WithHmacSHA256 at 600,000 over global salt || accountId to 256 bits, accountId as AAD, the self-test, the LRU and the shutdown hygiene are byte-identical, and a ciphertext pinned in CryptoServiceTest from the production constructor decrypts (changing the constant to 700_000 fails it, run and seen). Section 1 is untouched: core/init and core/security/secret did not change. Verdict stays PASS."
       }
     ]
   },
@@ -118,7 +130,7 @@
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "ff7f8fc27f0325cce769ef6d32ab1b7970224447",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "9529c23f5e6525d047964bbe6f7342c525ddbdca",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/MessageEntity.java": "f3f30cd4be6904739e50a7c4a58212c6d9679cf1",
-      "backend/src/main/resources/application.properties": "a7b797ed11b516292bda5e14ce271bcff0085729"
+      "backend/src/main/resources/application.properties": "e32931284645050519fd545b10ab30f24bf048c9"
     },
     "acknowledgements": [
       {
@@ -132,6 +144,10 @@
       {
         "date": "2026-10-11",
         "note": "Under this audit's paths only application.properties changes: two keys, mail.client.db.checkpoint-initial-delay=PT1M and mail.client.db.checkpoint-interval=PT5M, schedule a WAL checkpoint pass (PRAGMA wal_checkpoint(PASSIVE)) in DatabaseMaintenanceService, which is in core/maintenance, outside this audit's paths. No mail.client.imap.*, mail.client.sync.* or SMTP key moves, so no bound a finding rests on changes. PASSIVE waits on no reader or writer, so the sync's write transactions are neither blocked nor failed by it."
+      },
+      {
+        "date": "2026-10-11",
+        "note": "Under this audit's paths only application.properties changes: mail.crypto.pbkdf2-iterations=600000 is removed, because the count is now a constant in CryptoService (CRYPTO_STORAGE_AUDIT.md v1.2), and the comment above the crypto keys names it among the format constants. No mail.client.imap.*, mail.client.sync.* or SMTP key moves, so no bound a finding rests on changes. Verdict unchanged."
       }
     ]
   },
@@ -140,7 +156,8 @@
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/AttachmentService.java": "baa9d415fdfe7fcb76ee7eaca3db731e4f115c4f",
       "backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java": "69fc4c0197c480dc39ba3c38dece6874faec8d17",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/controller": "692ba8438145523812508bf00fb95e2a69ca6bc5",
-      "backend/src/main/resources/application.properties": "a7b797ed11b516292bda5e14ce271bcff0085729"
+      "backend/src/main/resources/application.properties": "e32931284645050519fd545b10ab30f24bf048c9",
+      "backend/src/main/java/org/voxrox/mailbackend/core/security": "bf06b6c7cf1862d9740043da320004127de2fde0"
     },
     "acknowledgements": [
       {
@@ -166,6 +183,10 @@
       {
         "date": "2026-10-11",
         "note": "Under this audit's paths only application.properties changes: it gains mail.client.db.checkpoint-initial-delay=PT1M and mail.client.db.checkpoint-interval=PT5M, the schedule of a new DatabaseMaintenanceService pass that runs PRAGMA wal_checkpoint(PASSIVE), and the comment above the maintenance keys now names three passes instead of two. No key this audit relies on moves (server.address, server.port, the spring.web.error include-* settings, springdoc.*); no endpoint, filter or response shape changes, and DatabaseMaintenanceService is outside this audit's paths."
+      },
+      {
+        "date": "2026-10-11",
+        "note": "Two paths move, both for the PBKDF2 iteration count becoming a constant in CryptoService (CRYPTO_STORAGE_AUDIT.md v1.2). application.properties loses mail.crypto.pbkdf2-iterations=600000, and the comment above the crypto keys says why. Under core/security only CryptoService.java and CryptoProperties.java change: the count moves from the record into a constant behind an @Autowired constructor, which is the B5 audit's subject; ApiKeyFilter, the chokepoint section 1 rests on, and everything else in the directory are byte-identical to 55f4afa. No key this audit relies on moves (server.address, server.port, the spring.web.error include-* settings, springdoc.*, the actuator exposure); no endpoint, filter or response shape changes. Verdict unchanged."
       }
     ]
   },

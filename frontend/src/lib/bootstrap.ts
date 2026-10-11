@@ -213,9 +213,19 @@ async function runBootstrap({
 		 * BootTimeoutError is more informative, so we prefer it when
 		 * signal.reason === timeoutError.
 		 */
-		if (signal.aborted && signal.reason === timeoutError) {
-			throw failBoot(timeoutError);
-		}
-		throw failBoot(err);
+		const failure =
+			signal.aborted && signal.reason === timeoutError ? failBoot(timeoutError) : failBoot(err);
+		/*
+		 * The startup update check runs on this path too, not only after a boot
+		 * that succeeded. The updater lives in the shell and needs nothing from
+		 * the backend, while a release whose backend does not start on some
+		 * machine is exactly the one that needs the next release — checking
+		 * only after a good boot left that installation with no way to receive
+		 * the fix but a manual download. Once per process, as on success (the
+		 * guard is inside the function), so a retry from the error view does
+		 * not ask GitHub again.
+		 */
+		void checkForUpdateAndPrompt();
+		throw failure;
 	}
 }

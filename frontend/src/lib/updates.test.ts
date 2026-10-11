@@ -172,9 +172,10 @@ describe('checkForUpdateAndPrompt (startup, background)', () => {
 		await mod.checkForUpdateAndPrompt();
 		await mod.checkForUpdateAndPrompt();
 
-		// bootstrap() fires this at the end of every boot, and a boot happens
-		// again on both error-view retry buttons, on sidecar recovery, and on the
-		// restart installPromptedUpdate performs after a failed install. Each of
+		// bootstrap() fires this at the end of every boot, failed or not
+		// (bootstrap.test.ts), and a boot happens again on both error-view retry
+		// buttons, on sidecar recovery, and on the restart installPromptedUpdate
+		// performs after a failed install. Each of
 		// those was another unattended request to GitHub — more egress than
 		// PRIVACY.md promises, and on the failed-install path a prompt raised on
 		// top of the failure dialog that caused the reboot.

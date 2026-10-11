@@ -1,15 +1,15 @@
 # VoxRox Mail — Crypto & Local Storage Audit
 
-|                    |                                                                                                                                                                                                                                                                            |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.1                                                                                                                                                                                                                                                                        |
-| **Date**           | 2026-08-08                                                                                                                                                                                                                                                                 |
-| **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                         |
-| **Audited commit** | `cad05cb` (re-verified 2026-08-08, recorded pre-squash as `5799e8b`; 1.0 baseline: `d55b753`)                                                                                                                                                                              |
-| **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/core/security/CryptoService.java`, `backend/src/main/java/org/voxrox/mailbackend/core/security/secret`, `backend/src/main/java/org/voxrox/mailbackend/core/init`, `backend/src/main/java/org/voxrox/mailbackend/core/backup` |
-| **Auditor**        | Claude (Fable 5) + owner review                                                                                                                                                                                                                                            |
-| **Subsystem**      | Credential crypto + local filesystem — Boundary 5 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                               |
-| **Verdict**        | **Security: PASS** (no exploitable finding, no code change).                                                                                                                                                                                                               |
+|                    |                                                                                                                                                                                                                                                                                                                                                                |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Version**        | 1.2                                                                                                                                                                                                                                                                                                                                                            |
+| **Date**           | 2026-10-11                                                                                                                                                                                                                                                                                                                                                     |
+| **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                             |
+| **Audited commit** | `cad05cb` (re-verified 2026-08-08, recorded pre-squash as `5799e8b`; 1.0 baseline: `d55b753`)                                                                                                                                                                                                                                                                  |
+| **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/core/security/CryptoService.java`, `backend/src/main/java/org/voxrox/mailbackend/core/security/CryptoProperties.java`, `backend/src/main/java/org/voxrox/mailbackend/core/security/secret`, `backend/src/main/java/org/voxrox/mailbackend/core/init`, `backend/src/main/java/org/voxrox/mailbackend/core/backup` |
+| **Auditor**        | Claude (Fable 5) + owner review                                                                                                                                                                                                                                                                                                                                |
+| **Subsystem**      | Credential crypto + local filesystem — Boundary 5 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                   |
+| **Verdict**        | **Security: PASS** (no exploitable finding, no code change).                                                                                                                                                                                                                                                                                                   |
 
 Focused verification audit of the boundary **"filesystem ↔ sidecar"**: every
 mitigation claimed by the Boundary 5 STRIDE rows was traced to its code path,
@@ -49,9 +49,14 @@ and [WindowsDpapiSecretStore](../backend/src/main/java/org/voxrox/mailbackend/co
 - **AES/GCM-256**, fresh random 12-byte IV per operation, 128-bit tag. The
   algorithm constants are deliberately code (not config) — they are part of
   the on-disk ciphertext format.
-- **Per-account key**: PBKDF2WithHmacSHA256, **600,000 iterations** (config
-  floor 1,000, default 600k), salt = global salt ‖ accountId, 256-bit output.
-  Keys are cached in a bounded LRU.
+- **Per-account key**: PBKDF2WithHmacSHA256, **600,000 iterations**, salt =
+  global salt ‖ accountId, 256-bit output. Keys are cached in a bounded LRU.
+  The iteration count is a constant beside the AES/GCM ones (v1.2): it is part
+  of the format, since another count derives another key and every stored
+  credential then fails its tag. A package-private constructor takes a lower
+  count for unit tests; the bean is built through the `@Autowired` one, which
+  passes the constant. `CryptoServiceTest` pins a ciphertext written by the
+  production constructor, so a change to any format constant fails the build.
 - **`accountId` bound as AAD** — a ciphertext moved between accounts fails the
   GCM tag, so credentials cannot be swapped across account rows even by direct
   DB edits.
@@ -83,6 +88,16 @@ and [WindowsDpapiSecretStore](../backend/src/main/java/org/voxrox/mailbackend/co
 
 ## 5. Change log
 
+- **1.2** (2026-10-11) — the PBKDF2 iteration count moves from the property
+  `mail.crypto.pbkdf2-iterations` (floor 1,000, default 600k) to a constant in
+  `CryptoService`; §2 says why. Found in a review of what is hard to change
+  after the first release: the property invited raising the count as tuning,
+  which would have made every installation's credentials undecryptable and
+  logged each one as a CRITICAL tag mismatch — the shape of the 210k → 600k
+  move this repository once needed a migration service for. The value, the KDF,
+  the salt layout, the AAD and the ciphertext layout are unchanged, so nothing
+  already encrypted is affected. Verdict unchanged (**PASS**); the drift is
+  acknowledged, anchor unchanged at `cad05cb`.
 - **1.1** (2026-08-08) — re-verified against `5799e8b` after `check:audits`
   reported two commits of drift, neither of which touches key material or the
   storage guards: #155 rewrites a backup-filename `substring` as a null-safe

@@ -2,8 +2,8 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                          |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.6                                                                                                                                                                                                                                                                                                                                                                                      |
-| **Date**           | 2026-10-05                                                                                                                                                                                                                                                                                                                                                                               |
+| **Version**        | 1.7                                                                                                                                                                                                                                                                                                                                                                                      |
+| **Date**           | 2026-10-11                                                                                                                                                                                                                                                                                                                                                                               |
 | **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                       |
 | **Audited commit** | `55f4afa` (the delta since `64633fe`, B2-1's fix, verified 2026-10-05; the code under `Code paths` is otherwise byte-identical to `64633fe`, where every claim was re-verified 2026-10-04; 1.1 and 1.2: `cad05cb`, recorded pre-squash as `5799e8b`; 1.0 baseline: `d55b753`)                                                                                                            |
 | **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/auth`, `backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java`, `backend/src/main/java/org/voxrox/mailbackend/core/config/OAuth2CompletedStateTracker.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/account/service/ExternalProviderLoginService.java`, `backend/src/main/resources/static`  |
@@ -342,7 +342,12 @@ confirmed at 1.5.
   stable per user — refuses the sign-in with `AccountAlreadyExistsException`
   (409, `error.account.alreadyExists`) and leaves the row and its token as
   they are; the address is unique across accounts, so there is no second row
-  to create. The same lookup marked the account `requires_reauth` on a
+  to create. Until 1.7 that held only for the same spelling: `accounts.email`
+  compared case-sensitively, so an address in other case missed the row, and
+  the sign-in created a second account for the same mailbox instead of being
+  refused or upgrading the password row. The column is now `COLLATE NOCASE` in
+  `V1__init.sql`, which the unique index and `findByEmail` both follow
+  (`AccountRepositoryIT`). The same lookup marked the account `requires_reauth` on a
   rejected sign-in, stopping another identity's account from syncing;
   `markRequiresReauthIfExists` now finds the account by
   `(oauth2_provider, external_id)` (§2). `ExternalProviderLoginServiceTest`
@@ -374,6 +379,15 @@ confirmed at 1.5.
 
 ## 6. Change log
 
+- **1.7** (2026-10-11) — **one §4 claim corrected and made true.** "The address
+  is unique across accounts" rested on `ux_accounts_email`, which compared case
+  by case, so a provider spelling the address in other case found no row and
+  the sign-in created a second account for the mailbox; no row changed hands
+  and no access was gained. Found in a review of what is hard to change after
+  the first release, where tightening a unique index means merging the
+  duplicates it already holds. `accounts.email` is now `COLLATE NOCASE` in
+  `V1__init.sql`. Nothing under `Code paths` changed, so the anchor stays at
+  `55f4afa`; verdict unchanged (**PASS**).
 - **1.6** (2026-10-05) — **two §4 notes acted on** (#640): the e-mail fallback
   of `findOrCreateExternalAccount` takes only a row no sign-in owns yet and
   refuses an address another identity holds, and `markRequiresReauthIfExists`

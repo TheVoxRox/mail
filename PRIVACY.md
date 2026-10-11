@@ -94,7 +94,10 @@ Aplikace zahájí síťovou komunikaci jen v těchto případech:
    pokud si v Nastavení → O aplikaci zvolíte beta kanál, aby zjistila, zda
    existuje novější podepsaná verze, a případně stáhla podepsaný instalátor.
    **Za běhu se už sama znovu neptá** — další dotaz proběhne až při příštím
-   spuštění, nebo když kontrolu sami vyvoláte v Nastavení → O aplikaci.
+   spuštění, nebo když kontrolu sami vyvoláte v Nastavení → O aplikaci či na
+   obrazovce, kterou aplikace ukáže, když se nepodaří spustit. Při spuštění se
+   ptá i tehdy, když se spustit nepodaří, protože opravou takové chyby bývá
+   právě nová verze.
    Tamtéž můžete kontrolu při spuštění vypnout (volba „Kontrolovat aktualizace
    při spuštění aplikace"); aplikace se pak ke GitHubu připojí jen tehdy, když
    kontrolu vyvoláte sami. Stejnou otázku položí už instalátor na stránce

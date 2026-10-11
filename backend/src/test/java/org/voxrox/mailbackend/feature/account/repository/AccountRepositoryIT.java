@@ -1,6 +1,7 @@
 package org.voxrox.mailbackend.feature.account.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
+import org.springframework.dao.DataAccessException;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -117,6 +119,35 @@ class AccountRepositoryIT {
 
         // Template is gone.
         assertThat(providerRepository.findById(providerId)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("An address is found and kept unique whatever its case, and stored as typed")
+    void addressLookupAndUniquenessIgnoreCase() {
+        Long typed = accountRepository.saveAndFlush(account("Jan.Novak@Example.com")).getId();
+        em.clear();
+
+        // What the password form and the OAuth fallback ask before writing.
+        assertThat(accountRepository.existsByEmail("jan.novak@example.com")).isTrue();
+        assertThat(accountRepository.findByEmail("JAN.NOVAK@EXAMPLE.COM")).map(AccountEntity::getId).contains(typed);
+        assertThat(accountRepository.existsByEmailAndIdNot("jan.novak@example.com", typed + 1)).isTrue();
+        assertThat(accountRepository.findById(typed)).map(AccountEntity::getEmail).contains("Jan.Novak@Example.com");
+
+        // And the index, for a writer that did not ask. Hibernate wraps the SQLite
+        // unique violation as JpaSystemException, hence the common base and the
+        // constraint pinned by name (as in ContactRepositoryIT).
+        assertThatThrownBy(() -> accountRepository.saveAndFlush(account("jan.novak@example.com")))
+                .isInstanceOf(DataAccessException.class).hasMessageContaining("accounts.email");
+    }
+
+    private static AccountEntity account(String email) {
+        AccountEntity account = new AccountEntity();
+        account.setAccountName("Test Account");
+        account.setEmail(email);
+        account.setActive(true);
+        account.setImapConfig(new MailServerConfig("imap.example.com", 993, true));
+        account.setSmtpConfig(new MailServerConfig("smtp.example.com", 465, true));
+        return account;
     }
 
     @Test

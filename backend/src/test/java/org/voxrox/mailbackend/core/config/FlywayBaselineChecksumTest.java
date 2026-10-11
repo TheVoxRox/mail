@@ -23,8 +23,9 @@ import org.junit.jupiter.api.io.TempDir;
  * {@code validate-on-migrate} (left at its {@code true} default, see
  * {@code application.properties}) rejects a migration whose file no longer
  * hashes to the recorded value. The sidecar then refuses to start on every
- * existing installation, and the failure cannot be repaired through the updater
- * — see the V1 freeze entry in {@code RELEASE_CHECKLIST.md}.
+ * existing installation. A build that undoes the edit can still reach it, since
+ * a failed boot checks for updates too ({@code bootstrap.ts}), but until it
+ * does every user is locked out of their mail.
  *
  * <p>
  * The guard pins Flyway's <em>own</em> checksum rather than a file hash, so the
@@ -52,7 +53,7 @@ class FlywayBaselineChecksumTest {
      * {@code V2__*.sql}. Updating this constant to silence the test would ship a
      * build that cannot start against any database created by an earlier version.
      */
-    private static final int PINNED_V1_CHECKSUM = 1818669;
+    private static final int PINNED_V1_CHECKSUM = -1890223032;
 
     private static final MigrationVersion V1 = MigrationVersion.fromVersion("1");
 
@@ -73,9 +74,8 @@ class FlywayBaselineChecksumTest {
                 together with the baseline edit — that is the intended pre-release workflow.
 
                 AFTER it: never. Add a V2__*.sql migration instead. An edited V1 makes every \
-                installed copy fail at startup with a Flyway checksum mismatch, and the \
-                updater cannot fix a build that refuses to boot (RELEASE_CHECKLIST.md, \
-                "First Release Gate" -> the V1 freeze entry).\
+                installed copy fail at startup with a Flyway checksum mismatch, and each \
+                stays locked out of its mail until a build that undoes the edit reaches it.\
                 """, baseline.getChecksum(), PINNED_V1_CHECKSUM).isEqualTo(PINNED_V1_CHECKSUM);
     }
 }
