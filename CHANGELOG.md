@@ -123,6 +123,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- **Keyboard focus shows on every stop Tab reaches, at 3:1 or more (#685).** Tab stopped on the scrolling content of every Settings and Contacts page and showed nothing there, and the same on "Přidat přílohu" in a new message, whose file field hides inside its button (WCAG 2.4.7). The content area now draws an outline inside its edge while it has focus, and the attachment button a ring. The switch between a provider and custom settings in the account form drew its ring at 40% strength, 1.67:1 against the light page, and links and text buttons that keep the browser's own outline, "← Zpět na Účty" and "Nastavit ručně" among them, drew it at half strength, about 1.9:1, where WCAG 1.4.11 asks 3:1. Both are at full strength now.
+
 - **Setting up an account by hand no longer has a screen reader say "Vlastní IMAP/SMTP" twice (#684).** The step's heading names the choice, as "Detekováno: Google" names a detected provider, and the server fields under it were a group with the same name, so the words came again on the way into the first field. The group is now "Poštovní servery" ("Mail servers" in English), in an account's settings as well.
 
 - **The message list and the open message scroll when the reading pane is on the right or at the bottom (#682).** The two halves of the split view did not pass their height on, so the list grew to all its rows and the message to its full length, and both were cut off at the bottom of the window with nothing to scroll. The mouse wheel did nothing there, and a short window, large text or zoom hid the end of a message. Each half now scrolls on its own.
@@ -174,6 +176,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 - **Tauri 2.12.1 (#617).** It brings wry 0.57, whose fix (tauri-apps/wry#1799) the app has been waiting for: minimizing the window while it was still starting left the app running in the tray with no window and no way to open one. The fix is upstream's; checking it on a release build is still a manual step (`todo.md`). The Tauri plugins move with it on both sides — fs 2.6.0, http 2.8.0, shell 2.4.0, and on the Rust side updater 2.13.1, single-instance 2.5.2 and log 2.10.0 — and `webview2-com` 0.39 and `windows-core` 0.62 are raised by hand to the versions the new wry builds with, since dependabot ignores them and the Ubuntu CI does not compile the Windows-only code that uses them; that was built on Windows.
 
 ### Repo
+
+- **The a11y suite tabs through every screen in both themes and fails a stop whose focus cannot be seen or is fainter than 3:1 (#685).** `focusIndicatorLosses` in `e2e-helpers.ts` photographs each stop with focus and without, and judges the pixels that change. `check:design` now treats a ring or outline under any variant that names focus as a focus ring; its list had no `focus-within:`, which is how the switch ring above got past it.
 
 - **The a11y suite checks every screen against the text spacing of WCAG 1.4.12 (#683).** `textSpacingLosses` in `e2e-helpers.ts` applies the line, letter, word and paragraph spacing the criterion names and reports text that then overflows its box or is cut off where it was not before; text cut with an ellipsis and screen-reader-only text are left out. No screen loses any text, and neither did the dialogs, the grouped list or a notification in a one-off probe, so the app does not change.
 

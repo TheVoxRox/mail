@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { focusRingScrollArea } from '$lib/components/ui/focus-ring/index.js';
 	import { cn } from '$lib/utils.js';
 
 	interface Props {
@@ -29,7 +30,10 @@
 	this area inside the parent <main> landmark.
 -->
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-<section tabindex="0" class={cn('flex-1 overflow-y-auto bg-background outline-hidden', className)}>
+<section
+	tabindex="0"
+	class={cn('flex-1 overflow-y-auto bg-background', focusRingScrollArea, className)}
+>
 	<div class="border-b border-border bg-background px-6 py-4">
 		<div class="flex items-center justify-between gap-3">
 			<div class="min-w-0">

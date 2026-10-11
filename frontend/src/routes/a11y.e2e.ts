@@ -5,6 +5,7 @@ import {
 	contactGrid,
 	conversationGrid,
 	expectNoFindings,
+	focusIndicatorLosses,
 	messageGrid,
 	openApp,
 	rowsOf,
@@ -1454,6 +1455,21 @@ test.describe('Nápověda k ovládacímu prvku se čte jednou', () => {
 
 test.describe('Přístupnost – jednotlivé obrazovky', () => {
 	for (const { path, name, ready, flags } of routes) {
+		for (const [theme, themeName] of [
+			['light', 'světlý'],
+			['dark', 'tmavý']
+		] as const) {
+			test(`${name} (${path}) ukáže fokus na každé zastávce Tabu, ${themeName} motiv (2.4.7, 1.4.11)`, async ({
+				page
+			}) => {
+				await setPrefs(page, { theme });
+				if (flags) await setMockFlags(page, flags);
+				await openApp(page, path);
+				await expect(ready(page)).toBeVisible();
+				expect(await focusIndicatorLosses(page)).toEqual([]);
+			});
+		}
+
 		test(`${name} (${path}) nemá a11y porušení`, async ({ page }) => {
 			if (flags) await setMockFlags(page, flags);
 			await openApp(page, path);

@@ -2,6 +2,7 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { chipVariants } from '$lib/components/ui/chip/index.js';
+	import { focusRingWithin } from '$lib/components/ui/focus-ring/index.js';
 	import { cn } from '$lib/utils.js';
 	import { formatSize } from '$lib/formatters.js';
 	import { dragHasFiles, filesFromDataTransfer } from '$lib/dragPayload.js';
@@ -258,6 +259,7 @@
 	<label
 		class={cn(
 			chipVariants({ tone: 'outline' }),
+			focusRingWithin,
 			disabled
 				? 'cursor-not-allowed bg-muted text-muted-foreground'
 				: 'cursor-pointer hover:bg-muted'

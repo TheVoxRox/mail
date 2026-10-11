@@ -137,6 +137,35 @@ describe('check-design', () => {
 			expect(run().status).not.toBe(0);
 		});
 
+		it('fails on a ring for focus inside the element, which the rule once missed', () => {
+			repo.write(
+				'frontend/src/lib/A.svelte',
+				'<label class="focus-within:ring-2 focus-within:ring-ring/40">x</label>\n'
+			);
+
+			const result = run();
+
+			expect(result.status).not.toBe(0);
+			expect(result.output).toContain('focus-within:ring-2');
+		});
+
+		it('fails on a ring for a focused descendant, in either spelling', () => {
+			repo.write(
+				'frontend/src/lib/A.svelte',
+				'<label class="has-focus-visible:ring-2">x</label>\n'
+			);
+			repo.write(
+				'frontend/src/lib/B.svelte',
+				'<label class="has-[:focus-visible]:outline-2">x</label>\n'
+			);
+
+			const result = run();
+
+			expect(result.status).not.toBe(0);
+			expect(result.output).toContain('has-focus-visible:ring-2');
+			expect(result.output).toContain('has-[:focus-visible]:outline-2');
+		});
+
 		it('allows the focus-ring module to spell it out', () => {
 			repo.write(
 				'frontend/src/lib/components/ui/focus-ring/focus-ring.ts',

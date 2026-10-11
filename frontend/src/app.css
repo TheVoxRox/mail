@@ -166,8 +166,14 @@
 }
 
 @layer base {
+	/*
+	 * The colour of the browser's own focus outline, which links and text
+	 * buttons without a focus ring of their own still draw. Full --ring, as in
+	 * ui/focus-ring: at the 50% this once had it measured about 1.9:1 against
+	 * the light page, under the 3:1 of WCAG 1.4.11 (#685).
+	 */
 	* {
-		@apply border-border outline-ring/50;
+		@apply border-border outline-ring;
 	}
 
 	body {
