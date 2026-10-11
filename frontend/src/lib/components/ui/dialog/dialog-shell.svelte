@@ -66,6 +66,12 @@
 		onOpenChange: (open: boolean) => void;
 		/** Called once the dialog has finished opening or closing, content included. */
 		onOpenChangeComplete?: (open: boolean) => void;
+		/**
+		 * bits-ui's close-autofocus, run as the content unmounts. Call
+		 * `preventDefault` to stop it returning focus to what was focused when
+		 * the dialog opened, and place focus yourself.
+		 */
+		onCloseAutoFocus?: (event: Event) => void;
 		size?: DialogSize;
 		placement?: DialogPlacement;
 		padding?: DialogPadding;
@@ -78,6 +84,7 @@
 		open,
 		onOpenChange,
 		onOpenChangeComplete,
+		onCloseAutoFocus,
 		size = 'md',
 		placement = 'center',
 		padding = 'default',
@@ -99,6 +106,7 @@
 			data-print="chrome"
 		/>
 		<Dialog.Content
+			{onCloseAutoFocus}
 			class={cn(dialogContentVariants({ size, placement, padding, scroll }), className)}
 			data-print="chrome"
 		>

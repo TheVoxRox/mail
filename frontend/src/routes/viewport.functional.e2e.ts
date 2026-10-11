@@ -149,9 +149,48 @@ test.describe('Podokno v úzkém okně', () => {
 	test('v širokém okně podokno zůstává a Ctrl+Y do něj přesune fokus', async ({ page }) => {
 		await openAt(page, '/mail/1/INBOX', 1280, 720);
 		await expect(page.getByRole('heading', { level: 1, name: /^Doručené/ })).toBeFocused();
-		await expect(page.getByRole('button', { name: /^Podokno pošty/ })).toHaveCount(0);
+		await expect(toggle(page)).toHaveAttribute('aria-expanded', 'true');
 
 		await page.keyboard.press('Control+y');
 		await waitForFocus(pane(page).getByRole('link', { name: /^Doručené/ }));
+	});
+
+	test('v širokém okně tlačítko podokno skryje, zapamatuje si to a zase ho ukotví', async ({
+		page
+	}) => {
+		await openAt(page, '/mail/1/INBOX', 1280, 720);
+		const main = page.locator('main#main-content');
+		const docked = await main.evaluate((el) => el.getBoundingClientRect().left);
+
+		await toggle(page).click();
+		await expect(pane(page)).toHaveCount(0);
+		await expect(toggle(page)).toHaveAttribute('aria-expanded', 'false');
+		await expect(toggle(page)).toBeFocused();
+		// The content takes the pane's width, not just its pixels.
+		expect(await main.evaluate((el) => el.getBoundingClientRect().left)).toBeLessThan(docked);
+
+		await page.reload();
+		await expect(page.locator('#workspace-pane [aria-current="page"]')).toBeAttached();
+		await expect(pane(page)).toHaveCount(0);
+
+		await toggle(page).click();
+		await expect(pane(page)).toBeVisible();
+		await expect(toggle(page)).toHaveAttribute('aria-expanded', 'true');
+		expect(await main.evaluate((el) => el.getBoundingClientRect().left)).toBe(docked);
+	});
+
+	test('podokno skryté v širokém okně vysune Ctrl+Y jen nakrátko', async ({ page }) => {
+		await openAt(page, '/mail/1/INBOX', 1280, 720);
+		await toggle(page).click();
+		await expect(pane(page)).toHaveCount(0);
+
+		await page.keyboard.press('Control+y');
+		await waitForFocus(pane(page).getByRole('link', { name: /^Doručené/ }));
+		await expect(toggle(page)).toHaveAttribute('aria-expanded', 'true');
+
+		await page.keyboard.press('Escape');
+		await expect(pane(page)).toHaveCount(0);
+		await expect(toggle(page)).toBeFocused();
+		await expect(toggle(page)).toHaveAttribute('aria-expanded', 'false');
 	});
 });

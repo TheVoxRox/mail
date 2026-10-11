@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { get } from 'svelte/store';
-import { closePalette, openPalette, paletteOpen } from './palette.js';
+import { closePalette, openPalette, paletteCloseAutoFocus, paletteOpen } from './palette.js';
 
 vi.mock('$app/environment', () => ({
 	browser: true,
@@ -93,5 +93,64 @@ describe('palette store', () => {
 		await flushFocusRestore();
 
 		expect(document.activeElement).not.toBe(button);
+	});
+
+	describe('the dialog close', () => {
+		const closeEvent = () => new Event('focusScope.onCloseAutoFocus', { cancelable: true });
+
+		it('hands focus to the element closePalette chose, in place of bits-ui', async () => {
+			const button = mountButton();
+			const paletteInput = document.createElement('input');
+			document.body.appendChild(paletteInput);
+			button.focus();
+			openPalette();
+			paletteInput.focus();
+			closePalette();
+			await flushFocusRestore();
+			// bits-ui's own move would have gone to the input it saw focused first.
+			paletteInput.focus();
+
+			const event = closeEvent();
+			paletteCloseAutoFocus(event);
+
+			expect(event.defaultPrevented).toBe(true);
+			expect(document.activeElement).toBe(button);
+		});
+
+		it('still returns focus for a command that runs after the close', async () => {
+			// restoreFocus: false skips the immediate restore only. The command
+			// runs once the dialog is gone and starts from where the palette was
+			// opened, as it did when bits-ui made this move: printing relies on it.
+			const button = mountButton();
+			const paletteInput = document.createElement('input');
+			document.body.appendChild(paletteInput);
+			button.focus();
+			openPalette();
+			paletteInput.focus();
+			closePalette({ restoreFocus: false });
+			await flushFocusRestore();
+			expect(document.activeElement).toBe(paletteInput);
+
+			const event = closeEvent();
+			paletteCloseAutoFocus(event);
+
+			expect(event.defaultPrevented).toBe(true);
+			expect(document.activeElement).toBe(button);
+		});
+
+		it('moves nothing when the element left the DOM', async () => {
+			const button = mountButton();
+			const other = mountButton();
+			button.focus();
+			openPalette();
+			closePalette();
+			await flushFocusRestore();
+			button.remove();
+			other.focus();
+
+			paletteCloseAutoFocus(closeEvent());
+
+			expect(document.activeElement).toBe(other);
+		});
 	});
 });
