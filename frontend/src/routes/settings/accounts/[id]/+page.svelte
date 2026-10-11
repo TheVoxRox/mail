@@ -82,12 +82,9 @@
 	contentClass="max-w-4xl"
 >
 	{#snippet actions()}
-		<a
-			href={resolve('/settings/accounts')}
-			class="text-sm text-muted-foreground hover:text-foreground hover:underline"
-		>
+		<Button variant="link" size="sm" href={resolve('/settings/accounts')}>
 			{$_('accounts.backToList')}
-		</a>
+		</Button>
 	{/snippet}
 
 	{#if loadError}
