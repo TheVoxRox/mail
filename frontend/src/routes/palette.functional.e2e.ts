@@ -83,6 +83,21 @@ test.describe('Command palette', () => {
 		await expect(sentOption).toHaveText('Přejít do složky Odeslané');
 	});
 
+	test('dotaz na začátek slova řadí nad shodu uprostřed slova', async ({ page }) => {
+		await openApp(page, `/mail/${fixture.accountId}/${fixture.folderName}`);
+
+		await openPalette(page);
+		const input = page.locator('#command-palette-input');
+		await input.fill('od');
+
+		// "od" starts "Odeslané" but sits inside "Podokno", which carries the
+		// higher command priority and used to win on it.
+		const options = page.getByRole('listbox', { name: 'Výsledky příkazů' }).getByRole('option');
+		await expect(options.first()).toHaveAccessibleName('Přejít do složky Odeslané');
+		await expect(input).toHaveAttribute('aria-activedescendant', 'palette-option-folder-SENT');
+		await expect(options.nth(1)).toHaveAccessibleName(/^Podokno čtení/);
+	});
+
 	test('ve výchozím pořadí řadí přepnutí workspace před jednorázové view akce', async ({
 		page
 	}) => {

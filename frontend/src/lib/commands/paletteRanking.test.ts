@@ -168,8 +168,25 @@ describe('textMatchScore', () => {
 		expect(textMatchScore(ePrefixOnly, 'compose')).toBe(90);
 	});
 
-	it('75 for title substring', () => {
-		expect(textMatchScore(e, 'mail')).toBe(75);
+	it('85 for a title word start past the first word', () => {
+		expect(textMatchScore(e, 'mail')).toBe(85);
+		expect(textMatchScore(e, 'ma')).toBe(85);
+	});
+
+	it('85 when a later occurrence starts a word though the first sits inside one', () => {
+		const repeated = entry({ id: 'b', title: 'Podokno odeslane', group: 'view' });
+		expect(textMatchScore(repeated, 'od')).toBe(85);
+	});
+
+	it('85 for a word start after punctuation', () => {
+		const punctuated = entry({ id: 'c', title: 'Folder [Gmail]/Sent', group: 'nav' });
+		expect(textMatchScore(punctuated, 'gmail')).toBe(85);
+		expect(textMatchScore(punctuated, 'sent')).toBe(85);
+	});
+
+	it('75 for a title substring inside a word', () => {
+		expect(textMatchScore(e, 'end')).toBe(75);
+		expect(textMatchScore(e, 'ail')).toBe(75);
 	});
 
 	it('50 for non-title, non-prefix keyword substring', () => {
@@ -213,6 +230,31 @@ describe('sortByRelevance', () => {
 		const e2 = entry({ id: 'b', title: 'Foo Bar', group: 'mail', baseIndex: 1 });
 		const sorted = sortByRelevance([e1, e2], 'send', '/');
 		expect(sorted[0].command.id).toBe('a');
+	});
+
+	it('a word start in the title outranks a higher-priority command matching inside a word', () => {
+		// The palette's own numbers on /mail/1/INBOX for the query "od": the
+		// reading pane commands carry priority 14, the folder commands 10, and
+		// both are mail-context commands under a /mail/ route prefix.
+		const mailCommand = { contexts: ['mail' as const], routePrefixes: ['/mail/'] };
+		const pane = entry({
+			id: 'view.reading.right',
+			title: 'Podokno cteni vpravo',
+			group: 'view',
+			priority: 14,
+			baseIndex: 0,
+			...mailCommand
+		});
+		const sent = entry({
+			id: 'folder.SENT',
+			title: 'Prejit do slozky Odeslane',
+			group: 'nav',
+			priority: 10,
+			baseIndex: 1,
+			...mailCommand
+		});
+		const sorted = sortByRelevance([pane, sent], 'od', '/mail/1/INBOX');
+		expect(sorted.map((e) => e.command.id)).toEqual(['folder.SENT', 'view.reading.right']);
 	});
 
 	it('context match changes ranking when no query', () => {
