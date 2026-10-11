@@ -185,6 +185,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- **The content rendering audit records the per-text-size frame styles of #689 as reviewed drift (#689).** Its frame claim holds as written: one script and one stylesheet, each pinned by hash; there are now three stylesheets to choose from, and `mailFrame.test.ts` recomputes all three hashes.
+
 - **The a11y suite checks every screen at 320 CSS px, and the folded pane has its own tests (#687).** `reflowLosses` in `e2e-helpers.ts` adds to `zoomLosses` a container that scrolls sideways, unless it holds a table or grid, and an element its own container cuts off. `viewport.functional.e2e.ts` covers opening and closing the folded pane, a dialog opened from it, narrowing the window with focus in it, and Ctrl+Y in a wide window. The updater audit records the About page's layout change as reviewed drift: class attributes only.
 
 - **The a11y suite checks every screen at the width 200% zoom leaves (#686).** `zoomLosses` in `e2e-helpers.ts` reports content in `<main>` past the right edge with nothing to scroll it back, and text its own box cuts off. The account form's validation in `accountFormValidation.ts` returns every error at once instead of the first, which its unit suite now covers.

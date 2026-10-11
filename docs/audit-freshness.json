@@ -86,7 +86,9 @@
   },
   "docs/CONTENT_RENDERING_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailContentService.java": "b356d6be05d7986431d3e78c198862baad50edae"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailContentService.java": "b356d6be05d7986431d3e78c198862baad50edae",
+      "frontend/src/lib/mail/mailFrame.ts": "665d76ee7f40bce9424f21d6a597ed2a761ed6e5",
+      "frontend/src/lib/components/message-detail": "5dd3f4828459eda9d482530678702c07ef4771ea"
     },
     "acknowledgements": [
       {
@@ -100,6 +102,10 @@
       {
         "date": "2026-10-03",
         "note": "Every not-found and validation error names a message key of its own, recorded in API_SURFACE_AUDIT.md as v1.11: ResourceNotFoundException(String) and ValidationException(String), which passed the message as the {0} of a generic key, are removed, and each site that used them names a key. Under this audit's path MailContentService changes in two throws: a message missing from the database names error.message.notFound, and one no longer on the server error.message.goneFromServer. What the service extracts, sanitizes, caps or renders is unchanged, so no claim of this audit moves. Verdict stays PASS."
+      },
+      {
+        "date": "2026-10-11",
+        "note": "#689: the body frame's base stylesheet becomes one per text-size step, read against section 3 (Frame -- defense in depth). The claim holds as written: the frame's <meta> CSP is still default-src 'none' with script-src and style-src each pinned to one sha256, base-uri and form-action 'none', the sandbox is still allow-scripts without allow-same-origin, and the forwarder script and its hash are byte-identical. What moved: MAIL_FRAME_STYLE and MAIL_FRAME_STYLE_SHA256 are now tables keyed by small/medium/large, generated from one template whose only variable is the frame's root font size (15/16/18px from stores/textSize.ts); the body's 14px became 0.875rem; mailFrameCsp(loadRemoteImages, textSize) names the hash of the one step it is given, so a frame admits its own style and not the other two; MessageContent.svelte passes the current text size to buildMailFrameSrcdoc and is otherwise unchanged. The 'recompute the CSP hashes' method note still applies, three times: the three hashes were derived from the generated strings with SHA-256/base64 and match, and mailFrame.test.ts recomputes them. No sanitizer, remote-image, link-relay or height-relay code changed. Verdict unchanged."
       }
     ]
   },
