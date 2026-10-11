@@ -5,7 +5,7 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import { DialogDescription, DialogShell, DialogTitle } from '$lib/components/ui/dialog/index.js';
 	import { commandsFor, type Command } from '$lib/stores/commands.js';
-	import { closePalette, paletteOpen } from '$lib/stores/palette.js';
+	import { closePalette, paletteCloseAutoFocus, paletteOpen } from '$lib/stores/palette.js';
 	import { pushToast } from '$lib/stores/toasts.js';
 	import { toErrorMessage } from '$lib/api/errors.js';
 	import { _ } from '$lib/i18n/index.js';
@@ -195,6 +195,7 @@
 	open={$paletteOpen}
 	onOpenChange={handleOpenChange}
 	onOpenChangeComplete={handleOpenChangeComplete}
+	onCloseAutoFocus={paletteCloseAutoFocus}
 	size="2xl"
 	placement="top"
 	padding="none"
