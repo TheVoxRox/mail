@@ -321,6 +321,26 @@ test.describe('MSW bootstrap', () => {
 		await expect(page.getByRole('heading', { name: 'Doručené' })).toBeVisible();
 	});
 
+	test('selhání startu nabídne kontrolu aktualizací, která nepotřebuje backend', async ({
+		page
+	}) => {
+		await setMockFlags(page, { e2e: true, sidecarFailure: 'once' });
+
+		await page.goto('/');
+
+		await expect(page.getByRole('heading', { name: 'Nelze nastartovat aplikaci' })).toBeVisible();
+		const check = page.getByRole('button', { name: 'Zkontrolovat aktualizace' });
+		await check.click();
+
+		// The mocked build has no updater, so it answers as Settings → About does
+		// there; what this pins is that the button reaches the check and the
+		// answer reaches the status region, with no backend behind either.
+		await expect(page.getByRole('main').getByRole('status')).toHaveText(
+			'Kontrola aktualizací je dostupná v desktopové aplikaci.'
+		);
+		await expect(check).toBeFocused();
+	});
+
 	test('poškozená databáze se ohlásí srozumitelně a ne jako obecné selhání', async ({ page }) => {
 		await setMockFlags(page, { e2e: true, sidecarFailure: 'exit:65' });
 

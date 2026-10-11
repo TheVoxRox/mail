@@ -95,7 +95,10 @@ The application initiates network traffic only in these cases:
    you opt into the beta channel in Settings → About, to check whether a newer
    signed release exists, and downloads the signed installer if so. **It does
    not ask again while running** — the next request happens at the next
-   startup, or when you trigger the check yourself in Settings → About. You
+   startup, or when you trigger the check yourself in Settings → About or on
+   the screen the application shows when it fails to start. The startup check
+   runs even when the start fails, since a new version is usually what fixes
+   such a failure. You
    can turn the startup check off in the same place ("Check for updates when
    the application starts"); the application then contacts GitHub only when
    you trigger the check yourself. The installer asks the same question on its

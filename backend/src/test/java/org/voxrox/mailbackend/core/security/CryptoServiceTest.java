@@ -15,7 +15,8 @@ import org.voxrox.mailbackend.core.init.StartupTimingService;
  * Unit tests for {@link CryptoService}.
  *
  * No Spring context — {@link CryptoProperties} is a record, instantiated
- * directly. PBKDF2 iterations are set to the minimum (1000) so tests stay fast.
+ * directly. PBKDF2 iterations are lowered to 1000 through the test constructor
+ * so tests stay fast; {@code OnDiskFormat} alone runs the production count.
  *
  * Covers security-critical invariants: - round-trip encrypt/decrypt - AAD
  * account-id binding (ciphertext of account A must not decrypt as account B) -
@@ -26,6 +27,7 @@ class CryptoServiceTest {
 
     private static final String TEST_KEY = "this-is-a-32-char-test-secret!!!";
     private static final String TEST_SALT = "test-salt-value";
+    private static final int TEST_ITERATIONS = 1000;
 
     private CryptoService crypto;
 
@@ -35,11 +37,48 @@ class CryptoServiceTest {
     }
 
     private static CryptoService newCryptoService(String key, String salt) {
-        // Low PBKDF2 iterations — tests must be fast.
-        CryptoProperties props = new CryptoProperties(key, salt, 1000, 10);
-        CryptoService service = new CryptoService(props, new StartupTimingService());
+        // Low PBKDF2 iterations through the test seam — tests must be fast.
+        return initialized(
+                new CryptoService(new CryptoProperties(key, salt, 10), new StartupTimingService(), TEST_ITERATIONS));
+    }
+
+    private static CryptoService initialized(CryptoService service) {
         service.init(); // @PostConstruct does not run automatically in a unit test
         return service;
+    }
+
+    @Nested
+    @DisplayName("On-disk format")
+    class OnDiskFormat {
+
+        /**
+         * {@code "voxrox-format-pin"} for account 42 under {@code TEST_KEY} and
+         * {@code TEST_SALT}, encrypted once by a service built the way the application
+         * builds it. Every installation's stored credentials are in this format; a
+         * change to the IV layout, the AAD, the salt layout, the key length or the
+         * iteration count makes this fail before it makes them unreadable.
+         */
+        private static final String PINNED_CIPHERTEXT = "+vJgxbAVGV5dhc8tz/1J5Z+QYiRJTSpCShz3iepyavbOtZVUModFpHTtdb//";
+
+        private CryptoService production() {
+            return initialized(
+                    new CryptoService(new CryptoProperties(TEST_KEY, TEST_SALT, 10), new StartupTimingService()));
+        }
+
+        @Test
+        @DisplayName("a ciphertext written by an earlier build still decrypts")
+        void pinnedCiphertextStillDecrypts() {
+            assertThat(production().decrypt(PINNED_CIPHERTEXT, 42L)).isEqualTo("voxrox-format-pin");
+        }
+
+        @Test
+        @DisplayName("the iteration count is part of the format, so another count cannot read it")
+        void anotherIterationCountCannotDecrypt() {
+            // Why the count is a constant and not a property: a "tuning" change to it
+            // reads as tampering on every stored credential.
+            assertThatThrownBy(() -> crypto.decrypt(PINNED_CIPHERTEXT, 42L))
+                    .isInstanceOf(CryptoOperationException.class).hasMessageContaining("integrity");
+        }
     }
 
     @Nested

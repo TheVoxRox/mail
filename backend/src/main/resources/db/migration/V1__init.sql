@@ -92,10 +92,20 @@ CREATE TABLE mail_providers (
 -- compose auto-inserts it; replies and forwards are never auto-filled (the user
 -- inserts it from the compose toolbar). NOT NULL DEFAULT 1 = historical
 -- always-on behaviour for accounts created before the toggle existed.
+--
+-- email is COLLATE NOCASE: Jan.Novak@seznam.cz and jan.novak@seznam.cz are the
+-- same mailbox, so every comparison on the column — the unique index below,
+-- and through it AccountRepository's findByEmail / existsByEmail — ignores
+-- case. With the default BINARY collation the same mailbox could be added
+-- twice, and a sign-in whose provider spells the address in other case missed
+-- the password account it was meant to upgrade (ExternalProviderLoginService)
+-- and created a second one beside it. The address is stored as typed. NOCASE
+-- folds ASCII only; a non-ASCII local part compares exactly, as SQLite has no
+-- Unicode case folding without ICU.
 CREATE TABLE accounts (
     id                    INTEGER       PRIMARY KEY AUTOINCREMENT,
     account_name          VARCHAR(255),
-    email                 VARCHAR(255),
+    email                 VARCHAR(255)  COLLATE NOCASE,
     display_name          VARCHAR(255),
     provider_id           INTEGER,
     imap_host             VARCHAR(255)  NOT NULL,
@@ -124,7 +134,8 @@ CREATE TABLE accounts (
 --    per provider (Google "sub" vs. Microsoft "oid" in separate spaces).
 -- SQLite already treats NULL as distinct inside a UNIQUE index, but the
 -- partial index makes it explicit and consistent with
--- ux_contact_emails_contact_primary.
+-- ux_contact_emails_contact_primary. ux_accounts_email takes the column's
+-- NOCASE collation, so it is unique regardless of case.
 CREATE UNIQUE INDEX ux_accounts_email
     ON accounts (email)
     WHERE email IS NOT NULL;

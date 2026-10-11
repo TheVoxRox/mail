@@ -6,6 +6,7 @@ import jakarta.annotation.PreDestroy;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
@@ -40,19 +41,41 @@ public class CryptoService {
     private static final int GCM_TAG_LENGTH_BIT = 128;
     private static final int GCM_IV_LENGTH_BYTE = 12;
     private static final int DERIVED_KEY_LENGTH_BIT = 256;
+    /*
+     * The iteration count is as much a part of the format as the constants above:
+     * the same secret and salt at another count derive another key, so a stored
+     * ciphertext fails its GCM tag. It was the property
+     * mail.crypto.pbkdf2-iterations until 0.1.0, which made raising it look like a
+     * tuning change when it would have locked every account out at once — and
+     * reported each lock-out as tampering. The ciphertext carries no version, so a
+     * new count needs a format version and a re-encrypt path first.
+     */
+    private static final int PBKDF2_ITERATIONS = 600_000;
 
     private final Map<Long, SecretKey> keyCache;
     private final CryptoProperties cryptoProperties;
     private final StartupTimingService startupTimingService;
+    private final int pbkdf2Iterations;
     private final AtomicBoolean selfTestPassed = new AtomicBoolean(false);
     private final Object selfTestLock = new Object();
 
     private char[] mainSecret;
     private byte[] globalSalt;
 
+    @Autowired
     public CryptoService(CryptoProperties cryptoProperties, StartupTimingService startupTimingService) {
+        this(cryptoProperties, startupTimingService, PBKDF2_ITERATIONS);
+    }
+
+    /**
+     * Test seam for the iteration count, which unit tests lower so that each of
+     * their many derivations stays cheap. Not configuration: the application only
+     * ever builds this class through the constructor above.
+     */
+    CryptoService(CryptoProperties cryptoProperties, StartupTimingService startupTimingService, int pbkdf2Iterations) {
         this.cryptoProperties = cryptoProperties;
         this.startupTimingService = startupTimingService;
+        this.pbkdf2Iterations = pbkdf2Iterations;
         LinkedHashMap<Long, SecretKey> lruMap = new LinkedHashMap<>(cryptoProperties.maxCacheSize() + 1, 0.75f, true) {
             @Override
             protected boolean removeEldestEntry(Map.Entry<Long, SecretKey> eldest) {
@@ -212,7 +235,7 @@ public class CryptoService {
                 byte[] accountSpecificSalt = ByteBuffer.allocate(globalSalt.length + 8).put(globalSalt)
                         .putLong(accountId).array();
 
-                KeySpec spec = new PBEKeySpec(mainSecret, accountSpecificSalt, cryptoProperties.pbkdf2Iterations(),
+                KeySpec spec = new PBEKeySpec(mainSecret, accountSpecificSalt, pbkdf2Iterations,
                         DERIVED_KEY_LENGTH_BIT);
 
                 SecretKey derived = new SecretKeySpec(factory.generateSecret(spec).getEncoded(), "AES");

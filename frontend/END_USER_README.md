@@ -98,7 +98,10 @@ zeptá, jestli existuje novější verze, proti
 `https://github.com/TheVoxRox/mail/releases/latest/download/latest.json`
 a stahuje jen podepsané instalátory (Ed25519). **Za běhu se už sama znovu
 neptá** — další dotaz proběhne až při příštím spuštění, nebo když kontrolu
-sami vyvoláte v Nastavení → O aplikaci. Při této kontrole GitHub dočasně
+sami vyvoláte v Nastavení → O aplikaci. Když se aplikaci nepodaří spustit,
+nabídne tlačítko **Zkontrolovat aktualizace** i na obrazovce s chybou a při
+spuštění se zeptá i tak, protože opravou takové chyby bývá právě nová verze.
+Při této kontrole GitHub dočasně
 vidí vaši IP adresu a dotazovanou verzi — viz [PRIVACY.md](../PRIVACY.md).
 Kontrolu při spuštění můžete v Nastavení → O aplikaci vypnout; aplikace se pak
 ke GitHubu připojí jen tehdy, když kontrolu vyvoláte sami. Na totéž se ptá už

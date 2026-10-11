@@ -42,6 +42,12 @@ public interface AccountRepository extends JpaRepository<AccountEntity, Long> {
     @EntityGraph(attributePaths = {"provider"})
     List<AccountEntity> findByActiveTrueAndRequiresReauthFalse();
 
+    /*
+     * The three address lookups below ignore case without saying so in their names:
+     * accounts.email is COLLATE NOCASE (V1__init.sql), and SQLite compares a column
+     * with a bound value under the column's collation. A derived ...IgnoreCase
+     * query would wrap both sides in upper() to the same effect.
+     */
     @Transactional(readOnly = true)
     Optional<AccountEntity> findByEmail(String email);
 
