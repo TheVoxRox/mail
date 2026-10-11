@@ -16,6 +16,7 @@ import {
 	waitForFocus,
 	waitForRootRedirect,
 	wcagScan,
+	zoomLosses,
 	type MockFlags
 } from './e2e-helpers';
 
@@ -1551,6 +1552,15 @@ test.describe('Přístupnost – jednotlivé obrazovky', () => {
 				expect(await focusIndicatorLosses(page)).toEqual([]);
 			});
 		}
+
+		test(`${name} (${path}) unese zvětšení na 200 % (1.4.4)`, async ({ page }) => {
+			// The app opens maximized, and a 1280px window at 200% is 640 CSS px.
+			await page.setViewportSize({ width: 640, height: 400 });
+			if (flags) await setMockFlags(page, flags);
+			await openApp(page, path);
+			await expect(ready(page)).toBeVisible();
+			expect(await zoomLosses(page)).toEqual([]);
+		});
 
 		test(`${name} (${path}) nemá a11y porušení`, async ({ page }) => {
 			if (flags) await setMockFlags(page, flags);
