@@ -68,7 +68,8 @@ class DiagnosticLogRedactorTest {
      */
     static Stream<Arguments> sharedVectors() throws IOException {
         JsonNode file;
-        try (InputStream in = DiagnosticLogRedactorTest.class.getResourceAsStream("/diagnostic/redaction-vectors.json")) {
+        try (InputStream in = DiagnosticLogRedactorTest.class
+                .getResourceAsStream("/diagnostic/redaction-vectors.json")) {
             file = new ObjectMapper().readTree(Objects.requireNonNull(in, "redaction-vectors.json"));
         }
         String apiKey = file.get("apiKey").asString();
