@@ -156,35 +156,25 @@ a o tom, komu ho pošlete, rozhodujete vy.
 
 Balíček obsahuje:
 
-- **stav aplikace**: verze, počty účtů, složek a zpráv, stav synchronizace,
-  poslední chybu každého účtu (jako kód, ne jako text), konfiguraci serverů
-  účtů (host, port, SSL), maskované e-mailové adresy (`j***k@seznam.cz`),
-  údaje o běhu (verze Javy a Windows, paměť, velikost databáze, volné místo na
-  disku), časy spuštění a stav všech vláken aplikace;
-- **kopii logů** ze složky `logs/` (`mail.log`, `audit.log` a
-  `mail-frontend.log` včetně starších souborů, nejvýš 24 MB textu, novější
-  přednostně). Před uložením do ZIPu se v ní:
-  - každá e-mailová adresa zamaskuje,
-  - každá složka kromě Doručené pošty (INBOX) nahradí označením `folder-1`,
-    `folder-2`…, stejným jako ve zbytku balíčku,
-  - název účtu, zobrazované jméno a přihlašovací jméno nahradí označením účtu,
-  - domovská složka Windows nahradí znakem `~` a jméno uživatele Windows
-    označením `[user]`,
-  - tokeny a interní API klíč nahradí.
+- **stav aplikace**: verze, počty účtů, složek a zpráv, názvy synchronizovaných
+  složek, stav synchronizace, poslední chybu každého účtu (jako kód, ne jako
+  text), konfiguraci serverů účtů (host, port, SSL), maskované e-mailové adresy
+  (`j***k@seznam.cz`), údaje o běhu (verze Javy a Windows, paměť, velikost
+  databáze, volné místo na disku), časy spuštění a stav všech vláken aplikace;
+- **logy** ze složky `logs/` (`mail.log`, `audit.log` a `mail-frontend.log`
+  včetně starších souborů, nejvýš 24 MB textu, novější přednostně), tak jak
+  jsou uložené ve vašem počítači. Obsahují tedy i názvy složek a účtů, cesty
+  k souborům aplikace (s vaší domovskou složkou a jménem uživatele Windows)
+  a technické texty chyb tak, jak je vrátil e-mailový server nebo knihovna,
+  které mohou obsahovat například jméno odesílatele z hlavičky zprávy. Jako
+  pojistka se v nich před uložením do ZIPu zamaskuje každá e-mailová adresa,
+  kterou nezamaskovala už sama aplikace (typicky v textu chyby od serveru),
+  a nahradí se tokeny a interní API klíč, které v logu být nemají.
 
 Balíček **neobsahuje** hesla, OAuth tokeny, obsah zpráv, předměty ani přílohy.
-
-Logy ovšem zapisují i technické texty chyb tak, jak je vrátil e-mailový server
-nebo knihovna. Ty v balíčku zůstávají, protože bez nich se chyba dohledat
-nedá; adresy v nich jsou zamaskované, ale mohou obsahovat například jméno
-odesílatele z hlavičky zprávy. Ve starších řádcích může zůstat také název
-složky, kterou aplikace od posledního spuštění nevylistovala ani
-nesynchronizovala (třeba složky smazané před pár dny), a název složky nebo
-účtu či jméno uživatele Windows, které má méně než tři znaky nebo žádné
-písmeno (např. „2025“). Název účtu, který aplikace sama odvodila z adresy
-(např. „Gmail“), zůstává také: neříká nic, co by nebylo vidět ze zamaskované
-adresy. Než ZIP pošlete, můžete ho otevřít a projít: logy v něm jsou obyčejné
-textové soubory.
+Než ZIP pošlete, můžete ho otevřít a projít: logy v něm jsou obyčejné textové
+soubory. Pokud ho přikládáte k veřejnému hlášení (například na GitHubu), uvidí
+jeho obsah kdokoli.
 
 ## Třetí strany
 

@@ -167,14 +167,14 @@ export function classify(entries, auditRecords, { since = null } = {}) {
  * the literal `secrets` (the session API key, a test password). The match
  * itself is never returned, only a masked hint, so the report can be pasted.
  *
- * A folder the user named is deliberately not on that list. The log on the
- * machine keeps it: a folder name is the user's own word for their own mailbox,
- * which is what makes a report about one folder readable at all, and the log
- * does not leave the machine as it is. What leaves is the diagnostic dump, and
- * its copy of the logs has been through DiagnosticLogRedactor, which replaces
- * each name with the `folder-<n>` the rest of the dump uses — so a scan of an
- * unpacked dump's `logs/` finds none, and a scan of the live folder is not
- * asked to.
+ * A folder the user named is deliberately not on that list, nor a path under
+ * the home directory. A folder name is the user's own word for their own
+ * mailbox, which is what makes a report about one folder readable at all, and
+ * the diagnostic dump carries the logs with those names in them: what the
+ * user's own log holds may go to the developers the user sends it to. What this
+ * looks for is what no log may hold, and DiagnosticLogRedactor takes the same
+ * shapes out of the dump's copy, so a scan of an unpacked dump's `logs/` finds
+ * none of them.
  */
 export function findLeaks(text, file, { secrets = [] } = {}) {
 	const leaks = [];

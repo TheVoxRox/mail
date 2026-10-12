@@ -101,8 +101,8 @@ function buildPayload(input: ClientErrorReportInput): ClientErrorReportPayload {
 		column: Number.isFinite(input.column) ? (input.column ?? null) : null,
 		/*
 		 * The route id (`/mail/[accountId]/[folderName]`), not the path, as in
-		 * clientBootDiagnostics.ts: the report goes into the log the diagnostic
-		 * bundle carries, and a path names the account, the folder and the message.
+		 * clientBootDiagnostics.ts: the same error on the same page then reads as
+		 * the same line in the log, whichever folder or message was open.
 		 */
 		route: page.route.id,
 		userAgent: typeof navigator !== 'undefined' ? truncate(navigator.userAgent) : null,

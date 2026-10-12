@@ -99,7 +99,7 @@ class DiagnosticLogExportTest {
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         List<DiagnosticLogExport.LogFileDump> files;
         try (ZipOutputStream zip = new ZipOutputStream(buffer, StandardCharsets.UTF_8)) {
-            files = DiagnosticLogExport.write(zip, logs, DiagnosticLogRedactor.builder().build(), budget);
+            files = DiagnosticLogExport.write(zip, logs, new DiagnosticLogRedactor(null), budget);
         }
         Map<String, String> entries = new LinkedHashMap<>();
         try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(buffer.toByteArray()),

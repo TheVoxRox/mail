@@ -76,9 +76,8 @@ public class ClientBootDiagnosticsService {
      * The route as a SvelteKit route id ({@code /mail/[accountId]/[folderName]}),
      * which is what the client sends. Anything else is cut at its first segment
      * that is not shaped like a route id's, so a path with values in it
-     * ({@code /mail/7/<folder>/<message>}) keeps only {@code /mail}: the dump goes
-     * to support, and the name of a folder the user created is what it must not
-     * carry.
+     * ({@code /mail/7/<folder>/<message>}) keeps only {@code /mail}: a boot report
+     * is about the page, and the route id names it the same way in every report.
      */
     static @Nullable String sanitizeRoute(@Nullable String value) {
         String route = sanitizeText(value);

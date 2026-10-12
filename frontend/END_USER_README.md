@@ -123,11 +123,11 @@ Neošetřené chyby rozhraní aplikace zapisuje do svého lokálního logu
 (`logs/mail.log`), nikam je neodesílá.
 
 Když narazíte na chybu, otevřete **Nastavení → O aplikaci** a stiskněte
-**Stáhnout diagnostiku**. Uloží se ZIP se stavem aplikace a s kopií jejích
-logů, který můžete přiložit k hlášení chyby. Adresy, názvy složek, jména účtů
-a jméno uživatele Windows jsou v něm nahrazené, hesla, tokeny ani obsah zpráv
-v něm nejsou. Co přesně obsahuje a co v něm zůstává, popisuje
-[PRIVACY.md](../PRIVACY.md) v části „Diagnostický balíček“.
+**Stáhnout diagnostiku**. Uloží se ZIP se stavem aplikace a s jejími logy,
+který můžete přiložit k hlášení chyby. Logy v něm jsou tak, jak je aplikace
+ukládá ve vašem počítači, tedy i s názvy složek a účtů; hesla, tokeny ani obsah
+zpráv v něm nejsou a e-mailové adresy jsou zamaskované. Co přesně obsahuje,
+popisuje [PRIVACY.md](../PRIVACY.md) v části „Diagnostický balíček“.
 
 Release build také zapisuje lokální data a logy aplikace. Na Windows jsou v:
 

@@ -121,7 +121,7 @@ message bodies/subjects and unmasked PII.
 
 Residue / notes:
 
-- The backend sink `/internal/client-errors` does **not exist** yet (the frontend self-disables on HTTP 404); once it does, it must log bounded and without echoing PII/stacks into `audit.log`. _Resolved 2026-10-12 (#700): the sink writes one `[CLIENT]` WARN line into `mail.log` and nothing into `audit.log`; every field is cut to a fixed length, at most 20 reports a minute are written, and the route and a page source are cut to the SvelteKit route id. From the same change the diagnostic dump carries a redacted copy of the logs (`DiagnosticLogRedactor`), so "the log stays on the machine" holds for the log itself, not for what the user exports._
+- The backend sink `/internal/client-errors` does **not exist** yet (the frontend self-disables on HTTP 404); once it does, it must log bounded and without echoing PII/stacks into `audit.log`. _Resolved 2026-10-12 (#700): the sink writes one `[CLIENT]` WARN line into `mail.log` and nothing into `audit.log`; every field is cut to a fixed length, at most 20 reports a minute are written, and the route and a page source are cut to the SvelteKit route id. From the same change the diagnostic dump carries the logs as they are on disk, with an unmasked address, a token shape and the API key taken out (`DiagnosticLogRedactor`), so "the log stays on the machine" holds until the user sends the bundle._
 - `LogMasker.maskEmail` keeps the full domain (`j***k@seznam.cz`) — a deliberate trade-off for debugging. `AccountEntity.toString` keeps `displayName`/`accountName` (user labels, not a unique identifier).
 
 ## Log hygiene re-audit (2026-07-10)

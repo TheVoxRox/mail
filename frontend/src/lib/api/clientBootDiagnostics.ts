@@ -54,9 +54,9 @@ function buildPayload(state: BootState): ClientBootDiagnosticsPayload {
 		language: typeof navigator !== 'undefined' ? navigator.language : null,
 		/*
 		 * The route id (`/mail/[accountId]/[folderName]/[stableId]`), not the path:
-		 * the report ends up in the diagnostic dump a user sends to support, and a
-		 * path carries the account, the name of the folder and the message. The
-		 * backend cuts anything that is not shaped like a route id as well.
+		 * a boot report is about the page, and the route id names it the same way
+		 * in every report. The backend cuts anything that is not shaped like a
+		 * route id as well.
 		 */
 		route: page.route.id,
 		// The dump has the backend's version from the backend itself; this one is

@@ -161,36 +161,26 @@ computer, and who you send it to is your decision.
 The bundle contains:
 
 - **the state of the app**: versions, numbers of accounts, folders and
-  messages, synchronization status, each account's last error (as a code, not
-  as text), each account's server configuration (host, port, SSL), masked
-  e-mail addresses (`j***k@seznam.cz`), runtime details (Java and Windows
-  versions, memory, database size, free disk space), startup timings and the
-  state of every thread of the app;
-- **a copy of the logs** from the `logs/` folder (`mail.log`, `audit.log` and
+  messages, the names of synchronized folders, synchronization status, each
+  account's last error (as a code, not as text), each account's server
+  configuration (host, port, SSL), masked e-mail addresses (`j***k@seznam.cz`),
+  runtime details (Java and Windows versions, memory, database size, free disk
+  space), startup timings and the state of every thread of the app;
+- **the logs** from the `logs/` folder (`mail.log`, `audit.log` and
   `mail-frontend.log` including older files, at most 24 MB of text, newest
-  first). Before it goes into the ZIP:
-  - every e-mail address is masked,
-  - every folder except the Inbox (INBOX) is replaced by a label `folder-1`,
-    `folder-2`…, the same as in the rest of the bundle,
-  - the account name, display name and login name are replaced by a label for
-    the account,
-  - the Windows home folder is replaced by `~` and the Windows user name by
-    `[user]`,
-  - tokens and the internal API key are replaced.
+  first), as they are stored on your computer. They therefore hold folder and
+  account names, the paths of the app's files (with your home folder and
+  Windows user name) and the technical text of errors as the mail server or a
+  library returned it, which can hold, for example, a sender's name from a
+  message header. As a safety net, before they go into the ZIP every e-mail
+  address the app did not already mask (typically in an error text from a
+  server) is masked, and tokens and the internal API key, which a log must not
+  hold, are replaced.
 
 The bundle **does not contain** passwords, OAuth tokens, message bodies,
-subjects or attachments.
-
-The logs do, however, record the technical text of errors as the mail server or
-a library returned it. That text stays in the bundle, because a bug cannot be
-traced without it; the addresses in it are masked, but it can hold, for
-example, a sender's name from a message header. Older lines can also still
-name a folder the app has not listed or synchronized since it last started
-(such as one deleted a few days ago), and a folder name, account name or
-Windows user name shorter than three characters or with no letter in it (such
-as "2025"). An account name the app derived from the address itself (such as
-"Gmail") stays too: it says nothing the masked address does not. You can open
-the ZIP and read it before you send it: the logs in it are plain text files.
+subjects or attachments. You can open the ZIP and read it before you send it:
+the logs in it are plain text files. If you attach it to a public report (on
+GitHub, for example), anyone can read what is in it.
 
 ## Third parties
 

@@ -2,6 +2,8 @@ package org.voxrox.mailbackend.core.diagnostic;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
@@ -29,12 +31,10 @@ import org.voxrox.mailbackend.feature.account.entity.MailServerConfig;
 import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.feature.auth.dto.AuthType;
 import org.voxrox.mailbackend.feature.auth.service.OAuth2TokenServiceRegistry;
-import org.voxrox.mailbackend.feature.mail.dto.FolderResponse;
 import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
 import org.voxrox.mailbackend.feature.mail.entity.FolderSyncStateEntity;
 import org.voxrox.mailbackend.feature.mail.repository.FolderSyncStateRepository;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
-import org.voxrox.mailbackend.feature.mail.service.FolderListCache;
 import org.voxrox.mailbackend.feature.mail.service.ImapConnectionManager;
 
 import module java.base;
@@ -69,8 +69,6 @@ class DiagnosticDumpServiceTest {
 
     @TempDir
     Path dataDir;
-
-    private final FolderListCache folderListCache = new FolderListCache();
 
     @BeforeEach
     void handshake() {
@@ -127,24 +125,38 @@ class DiagnosticDumpServiceTest {
         assertThat(entries.get("runtime.json")).contains("\"usableDiskBytes\"").contains("\"dbFileBytes\"");
     }
 
+    @Test
+    @DisplayName("Folders go in under their own names, the same in both files that list them, next to their role")
+    void foldersGoInUnderTheirNames() throws Exception {
+        AccountEntity account = account();
+        FolderSyncStateEntity inbox = new FolderSyncStateEntity(account, "INBOX", FolderRole.INBOX);
+        FolderSyncStateEntity sent = new FolderSyncStateEntity(account, "[Gmail]/Sent Mail", FolderRole.SENT);
+        FolderSyncStateEntity divorce = new FolderSyncStateEntity(account, "Lawyer/Divorce", FolderRole.USER);
+        when(accountRepository.findAllWithDetails()).thenReturn(List.of(account));
+        when(folderSyncStateRepository.findAll()).thenReturn(List.of(inbox, sent, divorce));
+        when(messageRepository.countByAccountIdAndFolderName(eq(1L), anyString()))
+                .thenAnswer(call -> "Lawyer/Divorce".equals(call.getArgument(1)) ? 3L : 0L);
+
+        Map<String, String> entries = unzip(service(new StorageProperties(dataDir.toString()), new MockEnvironment(),
+                new ClientBootDiagnosticsService(), new StartupTimingService()).createDump());
+
+        for (String file : List.of("folder-sync-states.json", "message-counts.json")) {
+            assertThat(entries.get(file)).contains("\"folderName\" : \"INBOX\"")
+                    .contains("\"folderName\" : \"[Gmail]/Sent Mail\"").contains("\"folderName\" : \"Lawyer/Divorce\"");
+        }
+        assertThat(entries.get("folder-sync-states.json"))
+                .containsPattern("\"folderName\" : \"\\[Gmail]/Sent Mail\",\\s*\"role\" : \"SENT\"");
+        assertThat(entries.get("message-counts.json"))
+                .containsPattern("\"folderName\" : \"Lawyer/Divorce\",\\s*\"messages\" : 3");
+    }
+
     // The data directories below sit under the real home, where the redaction
     // applies, and do not exist: the dump reads them and writes nothing there.
     @Test
-    @DisplayName("Only INBOX keeps its name in the dump, and the home directory stays out")
-    void createDumpKeepsUserNamedFoldersAndHomeOut() throws Exception {
-        AccountEntity account = account();
-        // Stored without its role, as a sync that was not told the role stores it.
-        FolderSyncStateEntity inbox = new FolderSyncStateEntity(account, "INBOX", FolderRole.USER);
-        FolderSyncStateEntity sent = new FolderSyncStateEntity(account, "[Gmail]/Sent Mail", FolderRole.SENT);
-        FolderSyncStateEntity invoices = new FolderSyncStateEntity(account, "Invoices Jane Doe", FolderRole.USER);
-        FolderSyncStateEntity divorce = new FolderSyncStateEntity(account, "Lawyer/Divorce", FolderRole.USER);
-        // Named by the user, but role detection reads "Newsletter" in the name as a
-        // role.
-        FolderSyncStateEntity novak = new FolderSyncStateEntity(account, "Newsletter Dr Novak", FolderRole.NEWSLETTERS);
-
-        when(accountRepository.findAllWithDetails()).thenReturn(List.of(account));
-        when(folderSyncStateRepository.findAll()).thenReturn(List.of(invoices, inbox, divorce, novak, sent));
-        when(messageRepository.countByAccountIdAndFolderName(1L, "Invoices Jane Doe")).thenReturn(3L);
+    @DisplayName("A data path under the home directory goes into runtime.json with ~ for the home")
+    void runtimePathsStartWithTheHome() throws Exception {
+        when(accountRepository.findAllWithDetails()).thenReturn(List.of(account()));
+        when(folderSyncStateRepository.findAll()).thenReturn(List.of());
 
         String home = System.getProperty("user.home");
         DiagnosticDumpService service = service(
@@ -153,20 +165,6 @@ class DiagnosticDumpServiceTest {
 
         Map<String, String> entries = unzip(service.createDump());
 
-        // Numbered in account-and-name order, the same in both files that list folders.
-        for (String file : List.of("folder-sync-states.json", "message-counts.json")) {
-            assertThat(entries.get(file)).contains("\"folderName\" : \"INBOX\"")
-                    .contains("\"folderName\" : \"folder-1\"").contains("\"folderName\" : \"folder-2\"")
-                    .contains("\"folderName\" : \"folder-3\"").contains("\"folderName\" : \"folder-4\"")
-                    .doesNotContain("Invoices").doesNotContain("Jane").doesNotContain("Divorce").doesNotContain("Novak")
-                    .doesNotContain("Sent Mail");
-        }
-        // Which system folder a pseudonym stands for is in its role.
-        assertThat(entries.get("folder-sync-states.json"))
-                .containsPattern("\"folderName\" : \"folder-3\",\\s*\"role\" : \"NEWSLETTERS\"")
-                .containsPattern("\"folderName\" : \"folder-4\",\\s*\"role\" : \"SENT\"");
-        assertThat(entries.get("message-counts.json"))
-                .containsPattern("\"folderName\" : \"folder-1\",\\s*\"messages\" : 3");
         assertThat(entries.get("runtime.json"))
                 .contains("\"dataDir\" : \"~" + File.separator.replace("\\", "\\\\") + "AppData")
                 .doesNotContain(home.replace("\\", "\\\\"));
@@ -200,8 +198,8 @@ class DiagnosticDumpServiceTest {
     }
 
     @Test
-    @DisplayName("The account's last error goes in by code and arguments, its folder under the folder's pseudonym")
-    void lastErrorGoesInByCodeWithTheFolderPseudonymised() throws Exception {
+    @DisplayName("The account's last error goes in by code and the arguments the code names")
+    void lastErrorGoesInByCodeAndArguments() throws Exception {
         AccountEntity account = account();
         account.setLastErrorCode(AccountLastErrorCode.MAIL_SYNC_FOLDER_FAILED.name());
         account.setLastErrorArgs(AccountLastErrorJson
@@ -215,25 +213,17 @@ class DiagnosticDumpServiceTest {
 
         JsonNode lastError = new ObjectMapper().readTree(entries.get("accounts.json")).get(0).get("lastError");
         assertThat(lastError.get("code").asString()).isEqualTo("MAIL_SYNC_FOLDER_FAILED");
-        assertThat(lastError.get("args").get("folder").asString()).isEqualTo("folder-1");
+        assertThat(lastError.get("args").get("folder").asString()).isEqualTo("Lawyer/Divorce");
         assertThat(lastError.get("args").get("cause").asString()).isEqualTo("CONNECTION_FAILED");
         // An argument the code does not name stays out, and so does the stored text.
-        assertThat(entries.get("accounts.json")).doesNotContain("Jane Doe").doesNotContain("Divorce")
-                .doesNotContain("plain-secret");
+        assertThat(entries.get("accounts.json")).doesNotContain("Jane Doe").doesNotContain("plain-secret");
     }
 
     @Test
-    @DisplayName("The logs go in under logs/, newest first, with names, addresses, keys and the home replaced")
-    void logsGoInRedacted() throws Exception {
-        AccountEntity account = account();
-        account.setAccountName("Work Mailbox");
-        account.setDisplayName("Jane Canary");
-        FolderSyncStateEntity divorce = new FolderSyncStateEntity(account, "Lawyer/Divorce", FolderRole.USER);
-        when(accountRepository.findAllWithDetails()).thenReturn(List.of(account));
-        when(folderSyncStateRepository.findAll()).thenReturn(List.of(divorce));
-        // A folder only ever listed, never synchronised: a move target, say.
-        folderListCache.put(1L, List.of(new FolderResponse("Taxes 2025", "Taxes 2025", 0, FolderRole.USER)));
-        folderListCache.invalidate(1L);
+    @DisplayName("The logs go in under logs/ as on disk, newest first, with only addresses, tokens and the key replaced")
+    void logsGoInAsOnDisk() throws Exception {
+        when(accountRepository.findAllWithDetails()).thenReturn(List.of(account()));
+        when(folderSyncStateRepository.findAll()).thenReturn(List.of());
 
         String home = System.getProperty("user.home");
         Path logs = Files.createDirectories(dataDir.resolve("logs"));
@@ -264,55 +254,34 @@ class DiagnosticDumpServiceTest {
                 .contains("logs/mail.log", "logs/mail.log.2026-10-11.0", "logs/audit.log", "logs/mail-frontend.log")
                 .doesNotContain("logs/mail.log.2026-10-10.0.gz.tmp");
         String mailLog = entries.get("logs/mail.log");
-        assertThat(mailLog).contains("Initial sync of folder folder-1: done").contains("/folders/folder-1/messages")
-                .contains("from INBOX to folder-2")
-                .contains("550 <j***k@example.org> unknown, sender account-1-name of account-1")
-                .contains("Session data written to ~" + File.separator + "AppData").contains("key [api-key]")
-                .contains("token [token]").contains("\tat org.voxrox.Foo.bar(Foo.java:12)")
-                // The line's own head stays as written, so the copy still parses.
+        // What the log on disk holds goes in as it is: folder names, account names,
+        // request paths and the home directory.
+        assertThat(mailLog).contains("Initial sync of folder Lawyer/Divorce: done")
+                .contains("/folders/Lawyer%2FDivorce/messages").contains("from INBOX to Taxes 2025")
+                .contains("sender Jane Canary of Work Mailbox")
+                .contains("Session data written to " + home + File.separator + "AppData")
+                .contains("\tat org.voxrox.Foo.bar(Foo.java:12)")
                 .contains("2026-10-12T10:00:00.000+02:00  INFO 1 --- [mail] [main] o.v.m.MailSyncService : ");
+        // What no log may hold does not: the server's address, the key, the token.
+        assertThat(mailLog).contains("550 <j***k@example.org> unknown").contains("key [api-key]")
+                .contains("token [token]");
         for (Map.Entry<String, String> entry : entries.entrySet()) {
-            assertThat(entry.getValue()).as(entry.getKey()).doesNotContain("Divorce", "Taxes", "jane.novak", "Jane",
-                    "Work Mailbox", API_KEY, "ya29.abcdefghij", home);
+            assertThat(entry.getValue()).as(entry.getKey()).doesNotContain("jane.novak", API_KEY, "ya29.abcdefghij");
         }
         assertThat(entries.get("logs/mail.log.2026-10-11.0")).contains("older line");
-        assertThat(entries.get("logs/mail-frontend.log")).contains("Data root: ~");
+        assertThat(entries.get("logs/mail-frontend.log")).contains("Data root: " + home);
 
         JsonNode manifest = new ObjectMapper().readTree(entries.get("manifest.json"));
         assertThat(manifest.get("logs").valueStream().map(log -> log.get("file").asString()).toList())
                 .containsExactly("mail.log", "mail-frontend.log", "audit.log", "mail.log.2026-10-11.0.gz");
         assertThat(manifest.get("logs").get(0).get("status").asString()).isEqualTo("complete");
-        assertThat(manifest.get("logsLeftOutBecause").isNull()).isTrue();
-        assertThat(manifest.get("redactions").get("knownValues").asLong()).isPositive();
+        assertThat(manifest.get("redactions").get("addresses").asLong()).isEqualTo(1);
+        assertThat(manifest.get("redactions").get("apiKeys").asLong()).isEqualTo(1);
     }
 
     @Test
-    @DisplayName("A folder name two accounts share carries both labels, and a default account name stays")
-    void sharedFolderNamesAndDefaultAccountNames() throws Exception {
-        AccountEntity first = account();
-        // The name the app gives an account: its address's domain label.
-        first.setAccountName("Example");
-        AccountEntity second = account();
-        second.setId(2L);
-        second.setEmail("other@example.org");
-        second.setAccountName("Private");
-        when(accountRepository.findAllWithDetails()).thenReturn(List.of(first, second));
-        when(folderSyncStateRepository.findAll())
-                .thenReturn(List.of(new FolderSyncStateEntity(first, "Sent", FolderRole.SENT),
-                        new FolderSyncStateEntity(second, "Sent", FolderRole.SENT)));
-        Path logs = Files.createDirectories(dataDir.resolve("logs"));
-        Files.writeString(logs.resolve("mail.log"),
-                "2026-10-12T10:00:00.000+02:00  INFO 1 --- [mail] [main] o.v.m.X : [SYNC] Example account 2 Private Sent\n");
-
-        Map<String, String> entries = unzip(service(new StorageProperties(dataDir.toString()), new MockEnvironment(),
-                new ClientBootDiagnosticsService(), new StartupTimingService()).createDump());
-
-        assertThat(entries.get("logs/mail.log")).contains("[SYNC] Example account 2 account-2 folder-1|folder-2");
-    }
-
-    @Test
-    @DisplayName("A database that cannot be read still leaves a bundle, without the logs it cannot redact")
-    void unreadableDatabaseLeavesTheLogsOut() throws Exception {
+    @DisplayName("A database that cannot be read still leaves a bundle with the runtime, the threads and the logs")
+    void unreadableDatabaseStillLeavesTheLogs() throws Exception {
         when(transactionManager.getTransaction(any()))
                 .thenThrow(new CannotCreateTransactionException("Connection is not available, request timed out"));
         Path logs = Files.createDirectories(dataDir.resolve("logs"));
@@ -321,20 +290,19 @@ class DiagnosticDumpServiceTest {
         Map<String, String> entries = unzip(service(new StorageProperties(dataDir.toString()), new MockEnvironment(),
                 new ClientBootDiagnosticsService(), new StartupTimingService()).createDump());
 
-        assertThat(entries.keySet()).contains("runtime.json", "threads.txt", "manifest.json")
-                .doesNotContain("accounts.json", "logs/mail.log");
+        assertThat(entries.keySet()).contains("runtime.json", "threads.txt", "manifest.json", "logs/mail.log")
+                .doesNotContain("accounts.json");
+        assertThat(entries.get("logs/mail.log")).contains("a line naming the folder Lawyer/Divorce");
         JsonNode manifest = new ObjectMapper().readTree(entries.get("manifest.json"));
         assertThat(manifest.get("sections").get(0).get("status").asString())
                 .isEqualTo("unreadable: CannotCreateTransactionException");
-        assertThat(manifest.get("logsLeftOutBecause").asString()).contains("folder names");
-        assertThat(entries.get("manifest.json")).doesNotContain("request timed out");
     }
 
     private DiagnosticDumpService service(StorageProperties storage, MockEnvironment environment,
             ClientBootDiagnosticsService clientBoot, StartupTimingService startupTimings) {
         return new DiagnosticDumpService(accountRepository, folderSyncStateRepository, messageRepository,
-                imapConnectionManager, oauth2TokenServiceRegistry, folderListCache, handshakeService, storage,
-                environment, new ObjectMapper(), new ApplicationVersion("9.8.7-test"), clientBoot, startupTimings,
+                imapConnectionManager, oauth2TokenServiceRegistry, handshakeService, storage, environment,
+                new ObjectMapper(), new ApplicationVersion("9.8.7-test"), clientBoot, startupTimings,
                 transactionManager);
     }
 

@@ -23,8 +23,9 @@ import module java.base;
  *
  * <p>
  * The route is cut to its SvelteKit route id as in {@code client-boot.json},
- * and so is the path of a source that is a page rather than a script: a path
- * carries the account, the folder and the message.
+ * and so is the path of a source that is a page rather than a script: the same
+ * error on the same page then reads as the same line, whichever account,
+ * folder or message was open; the log lines around it name those.
  */
 @Service
 public class ClientErrorReportService {

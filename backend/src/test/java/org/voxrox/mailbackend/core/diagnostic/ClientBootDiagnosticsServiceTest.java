@@ -40,7 +40,7 @@ class ClientBootDiagnosticsServiceTest {
     }
 
     @Test
-    @DisplayName("A path with values is cut before the first one, so a folder the user named never gets in")
+    @DisplayName("A path with values is cut before the first one, leaving the page it is on")
     void pathWithValuesIsCut() {
         assertThat(routeOf("/mail/7/Canary%20Lawyer%204417/0123abcd")).isEqualTo("/mail");
         assertThat(routeOf("/settings/accounts/12")).isEqualTo("/settings/accounts");
