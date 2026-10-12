@@ -41,48 +41,6 @@
     "Both clocks reset the same way: re-verify the audit, bump `Audited commit`,",
     "and delete the entry from this file."
   ],
-  "docs/UPDATER_AUDIT.md": {
-    "reviewedTrees": {
-      ".github/workflows/windows-signed-release.yml": "ae6d3616a176acc3c76f8801c8b00b5467b0e6da",
-      "frontend/src/lib/updates.ts": "dbb35144c202291b358e8407db33a592fcbc2ae6",
-      "frontend/src-tauri/src": "773f1fefaa341efd4d168ab638ab8562d8dab9c8",
-      "frontend/src/lib/components/settings/AboutSettings.svelte": "19e6e48ff9b482cb1e778630829fe6890af9c985",
-      "frontend/src-tauri/tauri.conf.json": "4db87fe6a13af1cf4b64e657867d3826743fab5c",
-      "frontend/src-tauri/capabilities": "010c5218458c20ba922628f21fe030b00e655c18",
-      "frontend/src/lib/bootstrap.ts": "100339171d7b91d8232e749df0e0d088a0b571d2",
-      "frontend/src/lib/components/boot/BootErrorView.svelte": "3ded98510feb85eed12e8965b7dde754bd011401"
-    },
-    "acknowledgements": [
-      {
-        "date": "2026-09-16",
-        "note": "Ctrl+P handed from the webview to the app, read against section 1. No sentence of this audit names it; verdict stays PASS. One path moved and the whole diff is webview_defaults.rs: VK_P leaves the list of accelerators kept with the browser, because globalShortcuts.ts now binds Ctrl+P to printing the open message, and the doc comment and two tests follow. Nothing else in frontend/src-tauri/src changed -- lib.rs, tray.rs, update_preference.rs, the three updater commands, PendingUpdate, DownloadedUpdate and beta_endpoint_override are byte-identical to a2e6d43, generate_handler! exposes the same eight commands, and capabilities/, tauri.conf.json, updates.ts, AboutSettings.svelte and windows-signed-release.yml are untouched. lib.rs also moves one assertion on WEBVIEW_DISK_CACHE_BYTES out of a test into a const assertion beside the constant, which changes no value and no argument the webview is built with, and the webview_defaults.rs doc comment gains a blank line; both are clippy cleanups with no behaviour in them. The handler this edits is attached to the webview controller in setup and is unreachable from the renderer, so section 1's IPC surface is unchanged; the key it stops keeping is a browser accelerator, which no updater path reads."
-      },
-      {
-        "date": "2026-09-20",
-        "note": "A doc comment, and nothing else. Verified the way the claim demands rather than by reading the intent: every added and removed line under this path that is neither a `///` line nor blank comes back empty. The paragraph corrected is the one the acknowledgement above introduced -- it said the app now binds Ctrl+P and prints the open message, while printCurrentView calls window.print() and is documented as printing the current view on purpose, so the next reader deciding whether a key may be denied at the WebView2 level was reasoning from behaviour the app does not have. keeps_browser_handling, is_removed_context_menu_item, attach_accelerator_keys, attach_context_menu and their tests are byte-identical, and lib.rs, tray.rs, update_preference.rs, the updater commands and generate_handler! are untouched, as are capabilities/, tauri.conf.json, updates.ts, AboutSettings.svelte and windows-signed-release.yml. No updater path reads any of it. Verdict stays PASS."
-      },
-      {
-        "date": "2026-09-21",
-        "note": "Print leaves the WebView2 context menu, read against section 1; no sentence of this audit names the context menu, and the verdict stays PASS. One path moved and the whole diff is webview_defaults.rs. Filtered to lines that are neither comment nor blank, it is exactly two things: is_removed_context_menu_item gains \"print\" in its matches!, and the test that pins that list is renamed and moves \"print\" from the kept names to the removed ones. The rest is doc comments saying why: the app now prints only the open message (globalShortcuts.ts), so a context-menu Print would print the folder list or settings page the key refuses to. keeps_browser_handling, attach_accelerator_keys, attach_context_menu and install are byte-identical, and lib.rs, tray.rs, update_preference.rs, the updater commands and generate_handler! are untouched, as are capabilities/, tauri.conf.json, updates.ts, AboutSettings.svelte and windows-signed-release.yml. The handler is attached to the webview controller in setup and is unreachable from the renderer, so section 1's IPC surface is unchanged, and no updater path reads a context-menu entry."
-      },
-      {
-        "date": "2026-09-21",
-        "note": "The startup update check's hint is hidden from the accessibility tree, read against section 1; no sentence of this audit names it, and the verdict stays PASS. One path moved and the whole diff is AboutSettings.svelte: the hint paragraph under the checkbox gains aria-hidden=\"true\" and a two-line comment saying why. The checkbox, its checked binding to updateStartupCheck, handleStartupCheckChange and setUpdateStartupCheck, the aria-describedby that still names the paragraph, the update channel select and the Check for updates button are byte-identical, as are frontend/src-tauri/src, capabilities/, tauri.conf.json, updates.ts and windows-signed-release.yml. Nothing the updater reads or writes moved: whether the startup check runs still comes from the registry value through the same two shell commands, and the change is to what a screen reader hears, not to what the control does."
-      },
-      {
-        "date": "2026-10-11",
-        "note": "Class attributes only, from #687 (WCAG 1.4.10). The three description lists on the About page -- versions, connection, session -- change their grid from a fixed first column (grid-cols-[9rem_1fr], [8rem_1fr]) to one column below Tailwind's sm and the same two columns above it with minmax(0,1fr), so the page reflows at 320 CSS px instead of scrolling sideways. Verified on the diff rather than by intent: the only changed lines in this path are those three <dl> opening tags, each reflowed by Prettier over three lines; no script, binding, handler or text moves, and the update channel select, the check for updates and everything they render are byte-identical. No other path under this audit changed. Verdict stays PASS."
-      },
-      {
-        "date": "2026-10-11",
-        "note": "Recorded in the audit itself as v1.17: the startup update check also runs when the boot fails, and the boot error view offers the manual check. bootstrap.ts and BootErrorView.svelte join Code paths with this entry, since both now start an updater request. bootstrap.ts is byte-identical to a2e6d43 but for the catch of runBootstrap: after the generation guard it computes the failBoot result as before (the timeout error preferred when the boot timer aborted), calls checkForUpdateAndPrompt without awaiting it, and throws. BootErrorView.svelte gains a Check for updates button that calls checkForUpdateManually and a role=status line rendering settings.about.versions.update.<status>, the same keys and calls as AboutSettings; besides that it carries #675's text-title -> text-lg on its heading, a class only. updates.ts, the shell commands, capabilities, tauri.conf.json and the release workflow are untouched, so section 1's surface, the pin, the endpoints and the version pins are what they were; the guard that makes the startup check once per process sits inside checkForUpdateAndPrompt and still runs before any request. Verdict stays PASS."
-      },
-      {
-        "date": "2026-10-12",
-        "note": "Logs without the backend. Under src-tauri/src, lib.rs registers three app commands from the new logs.rs (export_logs, log_sidecar_stderr, log_sidecar_exit), manages the logs folder path, and gives tauri-plugin-log a 1 MB file with two older ones kept; export_logs zips the logs folder into the Downloads folder on a blocking thread (zip crate already in the tree through the updater, no compression feature, so Cargo.lock gains an edge and no crate), and the two log commands write bounded lines into mail-frontend.log. None of them takes a path or URL from the webview, touches the updater, its endpoints, the pubkey or the pending/downloaded update state. In updates.ts only supportsNativeUpdater changes: its body moves to the shared hasNativeShell() (nativeShell.ts), the same expression (browser && isTauri() && VITE_E2E_MOCK !== 1). check_for_update, download_pending_update, install_pending_update, capabilities, tauri.conf.json and the release workflows are untouched. Verdict stays PASS."
-      }
-    ]
-  },
   "docs/CRYPTO_STORAGE_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/core/init": "6b860914def198938000e51a328137049fffac81",
@@ -152,51 +110,6 @@
       {
         "date": "2026-10-11",
         "note": "Under this audit's paths only application.properties changes: mail.crypto.pbkdf2-iterations=600000 is removed, because the count is now a constant in CryptoService (CRYPTO_STORAGE_AUDIT.md v1.2), and the comment above the crypto keys names it among the format constants. No mail.client.imap.*, mail.client.sync.* or SMTP key moves, so no bound a finding rests on changes. Verdict unchanged."
-      }
-    ]
-  },
-  "docs/API_SURFACE_AUDIT.md": {
-    "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/AttachmentService.java": "baa9d415fdfe7fcb76ee7eaca3db731e4f115c4f",
-      "backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java": "69fc4c0197c480dc39ba3c38dece6874faec8d17",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/controller": "692ba8438145523812508bf00fb95e2a69ca6bc5",
-      "backend/src/main/resources/application.properties": "e32931284645050519fd545b10ab30f24bf048c9",
-      "backend/src/main/java/org/voxrox/mailbackend/core/security": "bf06b6c7cf1862d9740043da320004127de2fde0",
-      "backend/src/main/java/org/voxrox/mailbackend/core/diagnostic": "ca406c8b2d989dea7a1b56d18a41c77d9bda194b",
-      "frontend/src/lib/api/clientBootDiagnostics.ts": "0a6707f1ff10d18281be6671f2ca6fead38285c9"
-    },
-    "acknowledgements": [
-      {
-        "date": "2026-10-05",
-        "note": "B1-12 fixed again (IMAP_SMTP_AUDIT.md 1.34, section 4l). Under this audit's paths only AttachmentService changes, inside findPartByPath: a part on the server is asked for its content only when Angus built its parts from the parsed structure (holdsParts), otherwise it is a leaf. Section 4's claims hold unchanged: the part path is validated before any IMAP work, the download streams to a temp file under <data-dir>/tmp that is unlinked on close, and a missing part is a 404 naming the attachment. Verdict stays PASS."
-      },
-      {
-        "date": "2026-10-05",
-        "note": "B1-12 regression fixed, recorded in IMAP_SMTP_AUDIT.md as v1.38 (section 4l). AttachmentService.holdsParts recognizes a MultipartDataSource before testing for MimePartDataSource: Angus 2.0.5's IMAPMultipartDataSource extends MimePartDataSource, so the #630 test made every multipart from the server a leaf and its attachments undownloadable. The fall-through over a plain MimePartDataSource is still a leaf; path validation, the temp file and the streaming copy are unchanged. Section 4 of this audit holds unchanged. Verdict stays PASS."
-      },
-      {
-        "date": "2026-10-05",
-        "note": "A javadoc in SecurityConfig.pkceAuthorizationRequestResolver now names client_secret_basic, Spring's default for the google registration, where it said client_secret_post (OAUTH_AUDIT.md section 4 note). Comment only: the filter chain, PKCE, CORS and the handlers are unchanged. Verdict unchanged."
-      },
-      {
-        "date": "2026-10-06",
-        "note": "B1-5 fixed again, recorded in IMAP_SMTP_AUDIT.md as v1.42 (section 4e). Under this audit's paths only DraftController.saveDraft changes: it calls DraftPersistenceService.acceptDraftSave instead of prepareDraftIdentity, which also writes the typed recipients before the 202, so a database failure there now answers the POST with the generic error instead of failing the async save. The mapping, the path and query validation (@Positive accountId, @Size replaces), the @Valid body bounds and the 202 with its stableId are unchanged, and nothing new is exposed. Verdict unchanged."
-      },
-      {
-        "date": "2026-10-06",
-        "note": "B1-14 fixed, recorded in IMAP_SMTP_AUDIT.md as v1.49 (section 4n). Under this audit's paths only application.properties changes: it gains mail.client.imap.open-folder-budget=64MB, a bound on what an open IMAP folder keeps, with its comment. No server, security, CORS, actuator, OpenAPI or other key this audit reads moves, and no endpoint is added or changed. Verdict stays PASS."
-      },
-      {
-        "date": "2026-10-11",
-        "note": "Under this audit's paths only application.properties changes: it gains mail.client.db.checkpoint-initial-delay=PT1M and mail.client.db.checkpoint-interval=PT5M, the schedule of a new DatabaseMaintenanceService pass that runs PRAGMA wal_checkpoint(PASSIVE), and the comment above the maintenance keys now names three passes instead of two. No key this audit relies on moves (server.address, server.port, the spring.web.error include-* settings, springdoc.*); no endpoint, filter or response shape changes, and DatabaseMaintenanceService is outside this audit's paths."
-      },
-      {
-        "date": "2026-10-11",
-        "note": "Two paths move, both for the PBKDF2 iteration count becoming a constant in CryptoService (CRYPTO_STORAGE_AUDIT.md v1.2). application.properties loses mail.crypto.pbkdf2-iterations=600000, and the comment above the crypto keys says why. Under core/security only CryptoService.java and CryptoProperties.java change: the count moves from the record into a constant behind an @Autowired constructor, which is the B5 audit's subject; ApiKeyFilter, the chokepoint section 1 rests on, and everything else in the directory are byte-identical to 55f4afa. No key this audit relies on moves (server.address, server.port, the spring.web.error include-* settings, springdoc.*, the actuator exposure); no endpoint, filter or response shape changes. Verdict unchanged."
-      },
-      {
-        "date": "2026-10-12",
-        "note": "The diagnostic dump carries the logs (#700). Under core/diagnostic the dump gains the logs folder as it is on disk within a 24 MB budget (DiagnosticLogExport), with only an unmasked address, a token shape and the session API key replaced (DiagnosticLogRedactor), threads.txt (DiagnosticThreadDump), manifest.json, each account's last error by code and the arguments the code names (the stored text left out), the schema version, file sizes and free disk space; a dump that cannot read the database still carries the runtime, the threads and the logs. By the owner's decision of 2026-10-12, what the user's own log holds may go to the developers the user sends the bundle to, so folders go into folder-sync-states.json, message-counts.json and the logs under their own names: the pseudonyms that fixed A2 and A3 (#577, #578) are withdrawn as policy, not regressed. One endpoint is added, POST /api/internal/client-errors (ClientErrorReportController), which writes a bounded [CLIENT] WARN line into mail.log: it is not among SecurityConfig.PUBLIC_ENDPOINTS, so anyRequest().hasAuthority(API_CLIENT_AUTHORITY) puts it behind the key like client-boot, it is @Hidden and under springdoc.paths-to-exclude, every field is cut before it is logged, at most 20 reports a minute are written, and the route and a page source are cut by the route sanitizer client-boot uses. clientBootDiagnostics.ts adds the frontend's version to the boot report. Read against sections 1, 3 and 5: no keyless path is added and no error response changes; DiagnosticDumpPrivacyIT scans every entry, logs/ included, for the credential, content, full-address, token and API-key canaries after a real sync, and tauri:smoke:sidecar's leak scan covers every entry. The verdict does not move on what was read, but section 5 and the A2/A3 entries describe a dump without logs and with pseudonyms, and section 1's endpoint list lacks client-errors. This is the eighth acknowledgement: the re-verification todo.md plans before the re-cut has to rewrite those sections against this change."
       }
     ]
   },
