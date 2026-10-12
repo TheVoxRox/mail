@@ -116,6 +116,22 @@ class FolderListCacheTest {
         assertThat(cache.seenFolderRefs().get(8L)).containsExactly("Archive");
     }
 
+    @Test
+    @DisplayName("The folder names seen stop growing at ten thousand an account")
+    void seenFolderRefsAreBounded() {
+        FolderListCache cache = new FolderListCache(Clock.fixed(T0, ZoneOffset.UTC), TTL);
+        for (int listing = 0; listing < 3; listing++) {
+            List<FolderResponse> folders = new ArrayList<>();
+            for (int i = 0; i < 5_000; i++) {
+                String name = "Listing " + listing + " folder " + i;
+                folders.add(new FolderResponse(name, name, 0, FolderRole.USER));
+            }
+            cache.put(7L, folders);
+        }
+
+        assertThat(cache.seenFolderRefs().get(7L)).hasSize(10_000);
+    }
+
     /**
      * The javadoc on {@code put} promises the snapshot cannot be mutated through
      * the caller's list. Both halves are asserted, because only the second one
