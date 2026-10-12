@@ -2,14 +2,14 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.16                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **Version**        | 1.18                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | **Date**           | 2026-10-12                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| **Applies to**     | VoxRox Mail V0.1.0, cut at or after the audited commit — the draft `v0.1.0` tag (`d626a9b`) predates #574, #577, #578, #623 and #700 (§1, §3, §5, §6)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| **Audited commit** | `5def679` (every claim re-verified 2026-10-12, clearing eight acknowledgements at the ledger's cap; 1.14 anchor `55f4afa`, re-verified 2026-10-05; 1.8–1.13 anchor `55fdd1b`, re-verified 2026-09-27)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| **Applies to**     | VoxRox Mail V0.1.0, cut at or after the audited commit — the draft `v0.1.0` tag (`d626a9b`) predates #574, #577, #578, #623, #700, #704 and the 1.18 fix (§1, §3, §5, §6)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| **Audited commit** | `66a0377` (the 1.17 pass read the whole delta since `5def679`, which is #704 alone; the 1.18 fix is acknowledged in the ledger; 1.15 anchor `5def679`, every claim re-verified 2026-10-12, clearing eight acknowledgements at the ledger's cap; 1.14 anchor `55f4afa`, re-verified 2026-10-05; 1.8–1.13 anchor `55fdd1b`, re-verified 2026-09-27)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/mail/controller`, `backend/src/main/java/org/voxrox/mailbackend/feature/account/controller`, `backend/src/main/java/org/voxrox/mailbackend/feature/contact/controller`, `backend/src/main/java/org/voxrox/mailbackend/core/clientconfig`, `backend/src/main/java/org/voxrox/mailbackend/core/diagnostic`, `backend/src/main/java/org/voxrox/mailbackend/core/system`, `backend/src/main/java/org/voxrox/mailbackend/core/security`, `backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java`, `backend/src/main/java/org/voxrox/mailbackend/core/init/HandshakeService.java`, `backend/src/main/java/org/voxrox/mailbackend/exception`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/AttachmentService.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto`, `backend/src/main/java/org/voxrox/mailbackend/feature/contact/dto`, `backend/src/main/java/org/voxrox/mailbackend/feature/account/dto`, `backend/src/main/java/org/voxrox/mailbackend/feature/account/mapper/AccountMapper.java`, `backend/src/main/java/org/voxrox/mailbackend/util/LogMasker.java`, `backend/src/main/resources/application.properties`, `frontend/src/lib/api/clientBootDiagnostics.ts`, `frontend/src-tauri/src/logs.rs`, `frontend/src-tauri/src/redact.rs` |
-| **Auditor**        | Claude (1.0 in #134; 1.8 re-verified by Claude Opus 5.5; 1.14 re-verified by Claude Opus 5.5, a separate agent from the author of 1.9–1.13; 1.15 re-verified by Claude, an independent agent and not the author of #700 or #701) + owner review                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| **Auditor**        | Claude (1.0 in #134; 1.8 re-verified by Claude Opus 5.5; 1.14 re-verified by Claude Opus 5.5, a separate agent from the author of 1.9–1.13; 1.15 re-verified by Claude, an independent agent and not the author of #700 or #701; 1.17 the independent pass over #704 by Claude, a session that wrote neither #701 nor #704, which then wrote the 1.18 fix) + owner review                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | **Subsystem**      | Sidecar REST API — Boundary 3 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| **Verdict**        | **Security: PASS** for the HTTP API. **A4** (Low, raised by the 1.15 pass: the shell's Save logs ZIP carried the logs without the redaction the diagnostic dump applies) is **fixed** in 1.16, with the independent pass over the fix still to come (§6). **A1** (unbounded JSON write-body) is fixed, its pre-deserialization residual accepted. **A2** and **A3** (a user-named folder in the dump) were fixed on 2026-09-27 and are **superseded by the owner's decision of 2026-10-12** that what the user's own log holds may go to the developers the user sends the bundle to (§5, §6). Informational notes recorded. The default-deny of §1 was passed by the session an OAuth sign-in leaves in the browser: **B2-1** (High), fixed 2026-10-05 and confirmed by the independent verification pass, recorded in [OAUTH_AUDIT.md](OAUTH_AUDIT.md).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| **Verdict**        | **Security: PASS** for the HTTP API. **A4** (Low, raised by the 1.15 pass: the shell's Save logs ZIP carried the logs without the redaction the diagnostic dump applies) was fixed in 1.16; the independent pass of 1.17 measured the Rust port writing other output than the dump's redactor and reopened it, and 1.18 **fixes it again**, with the independent pass over that fix still to come (§6). **A1** (unbounded JSON write-body) is fixed, its pre-deserialization residual accepted. **A2** and **A3** (a user-named folder in the dump) were fixed on 2026-09-27 and are **superseded by the owner's decision of 2026-10-12** that what the user's own log holds may go to the developers the user sends the bundle to (§5, §6). Informational notes recorded. The default-deny of §1 was passed by the session an OAuth sign-in leaves in the browser: **B2-1** (High), fixed 2026-10-05 and confirmed by the independent verification pass, recorded in [OAUTH_AUDIT.md](OAUTH_AUDIT.md).                                                                                                                                                                                                                                                                                                                                                           |
 
 Per-subsystem release audit of the **loopback HTTP API** the Tauri WebView calls:
 authentication (`X-API-KEY`), request authorization, input validation on every
@@ -27,7 +27,10 @@ refused without the key, ended by `/success`, and the key still accepted
 (`DiagnosticDumpPrivacyIT`, §5; the `~` in the dump's paths is covered by
 `DiagnosticDumpServiceTest`, since the IT's data directory need not sit under
 the home directory); what the dump's copy of the logs keeps and what it
-replaces (`DiagnosticDumpServiceTest`, `DiagnosticLogRedactorTest`, §5); the
+replaces (`DiagnosticDumpServiceTest`, `DiagnosticLogRedactorTest`, §5); that
+the shell's Save logs ZIP replaces the same, line for line (the vectors in
+`backend/src/test/resources/diagnostic/redaction-vectors.json`, which
+`DiagnosticLogRedactorTest` and the tests of `redact.rs` both run, A4); the
 bounds on a client error report (`ClientErrorReportServiceTest`, §5); the
 statuses of requests Spring MVC rejects (`FrameworkRequestRejectionTest`, §7)
 and of a malformed attachment part path (`MailReadControllerTest`, §4); the
@@ -66,6 +69,21 @@ The four enumeration commands below and the three of §3 were re-run. Static
 only: this pass built nothing and ran no test or probe. Where it cites a test,
 that test passed in the CI run of `main` at `5def679`, `DiagnosticDumpPrivacyIT`
 among them.
+
+**Method (1.17).** The independent pass over A4's fix (#704), by a session
+that wrote neither #701 nor #704. The delta under `Code paths` since `5def679`
+is #704 alone (`git diff 5def679 66a0377 -- <Code paths>`: `logs.rs`,
+`redact.rs` and a javadoc of `DiagnosticLogRedactor`), read in full, and the
+anchor moved to `66a0377` on it. That `session.json` sits in the folder above
+`logs/` was traced through the three places that name the data root
+(`lib.rs`, `data-dir.ts`, `app.data-dir`). Measured, with throwaway probes that
+are not in the tree: `redact.rs` and `DiagnosticLogRedactor` run over one file
+of lines, 54 written by hand and 50,000 random ones from a fixed seed built of
+the characters the two could disagree on, and the outputs diffed, then judged
+with the address and token patterns of `log-scan.mjs`; and thirteen
+neutralizations of the fix, each a one-line change to `logs.rs` or `redact.rs`,
+run against `logs::tests` and `redact::tests`. The tests cited passed locally.
+What it found is under A4 (§6), and the fix that followed is 1.18.
 
 `Code paths` covers the chokepoints the sections trace. What else they cite is
 knowingly left out, because it changes often for reasons that rarely touch this
@@ -421,7 +439,14 @@ masked as `LogMasker` masks one. The JSON entries do not pass through it; they
 are built from fields, and the one address field is masked (§7). It matches
 shapes, so what it does not recognize passes: an address URL-encoded in a
 logged request path (`%40`), a token of another shape, or the key of an
-earlier session, which authorizes nothing.
+earlier session, which authorizes nothing. Two more were measured at 1.17: an
+address that runs on into a `-`, `_` or digit with no shorter domain to fall
+back to (`jan.novak@firma.cz-2025`; with one, as in
+`jan.novak@mail.firma.cz-2025`, the local part is masked), and an address
+that follows the one before it with only a character an address may hold
+between them (the second of `a@b.cz'c@d.cz`), because no match starts right
+after such a character. The vectors of A4 pin each of these as it is, so
+closing one is a change to both redactors.
 
 **Tested on real data.** `DiagnosticDumpPrivacyIT` fetches the dump over HTTP
 with the key after a real sync of `INBOX` and of a folder the user named, with
@@ -606,7 +631,7 @@ asserts that the user's folder name is in the dump, and
 the same in both files, next to their role. The residual above went with the
 pseudonyms.
 
-### A4 (Low) — the shell's Save logs ZIP carries the logs without the dump's redaction — FIXED 2026-10-12
+### A4 (Low) — the shell's Save logs ZIP carries the logs without the dump's redaction — FIXED 2026-10-12, REOPENED BY THE 1.17 PASS, FIXED AGAIN IN 1.18
 
 **What.** #701 gave the boot error screen **Save logs** for a backend that does
 not start. The Tauri command `export_logs`
@@ -653,14 +678,74 @@ masked address is left; token shapes and the key are replaced) and
 rotated `.gz` with a bearer token carries none of them, folder names kept;
 the newest lines survive the budget).
 
-**Residual.** What §5 says the dump's safety net misses, this one misses too:
-an address URL-encoded as `%40`, a token shape outside the list, a key from an
-earlier session. The two implementations are kept in step by hand; each
-comment names the other.
+**Independent pass (1.17): reopened.** The mechanism of the fix holds,
+measured. Every line of every file reaches the ZIP through `redact.rs`: the
+ZIP has two writes, a redacted line and `about.txt`, and making the copy write
+the raw line fails `logs::tests`. A rotated `.gz` goes in unpacked under its
+name less `.gz`; the key comes from `session.json` in the data root, which
+`lib.rs`, `data-dir.ts` and `app.data-dir` agree is the folder above `logs/`;
+a file over the budget keeps its newest lines. Eleven of the thirteen
+neutralizations failed a test. "The same rules" did not hold. Over the 50,054
+lines the two redactors wrote different output for 6,504; judged by the
+patterns of `log-scan.mjs`, 4,119 of those kept an address in the ZIP that the
+dump masked, 274 the other way round, and 644 a token only the ZIP kept. The
+lines were random and built for adjacency, so the counts show the direction,
+not a rate. Three causes, each shown on a line of its own:
 
-**Upgrade path.** One set of test vectors run against both implementations
-would keep them from drifting apart. The independent pass over this fix is
-still to come (AUDIT_GUIDE §5).
+- **An address whose end runs on** into a `-`, `_` or digit. Java's
+  backtracking falls back to the longest shorter domain that does not run on
+  and masks the local part; the port dropped the match whole, so
+  `jan.novak@mail.firma.cz-2025`, `student@is.cuni.cz2` and a Message-ID
+  `<20261012.abc@mail.example.com-1>` stayed whole in the ZIP. Its
+  `char::is_alphanumeric` also took a combining mark such as U+0345 for a
+  letter, which Java's `[\p{L}\p{N}_-]` does not.
+- **Where a match may start.** The port refused a start only right after a
+  `*`, where Java's lookbehind refuses one after any character an address may
+  hold, and after a refused match it went on from the match's end, where Java
+  goes on from after its `@`. Each then masked what the other missed:
+  `a@b.cz-c@d.cz`, `a@b.cz'c@d.cz`.
+- **Tokens.** Java reads `\w`, `\b` and `\s` as ASCII, Rust as Unicode, so a
+  token right after a non-ASCII letter (`éBearer …`) stayed in the ZIP,
+  and one holding a non-ASCII letter or after a no-break space went further
+  than the dump's.
+
+Two neutralizations went unnoticed: dropping the check after a match, and
+dropping four of the seven token shapes (`eyJ`, `Ew`, `dXNlcj`, the OAuth
+parameter), which no test exercised. Severity stays Low, for the reasons
+above; the finding is reopened because what it is about, the ZIP carrying
+what the dump carries, was the fix's claim.
+
+**Fix (1.18).** `redact.rs` writes what `DiagnosticLogRedactor` writes. The
+lookbehind, the lookahead and the fallback are done by hand around each match,
+in the order Java's backtracking arrives at the same match: an end that runs
+on falls back to the top-level domain after an earlier dot, latest first; a
+start right after a `*` or a character an address may hold is refused, and so
+is an address with no end to fall back to, and the next start tried is the
+first after its `@`. The lookahead is the class Java's is,
+`[\p{L}\p{N}_-]`. The token patterns spell out Java's ASCII `\w`, `\b` and `\s`,
+in one pass and in `log-scan.mjs`'s order; the refresh token's lookbehind is
+checked by hand and the search goes on from the next character after it, as
+Java's does; and Java's `\b` counts a non-spacing mark on a letter or digit as
+part of the word whatever `\w` means, which the port follows too. What keeps the
+two in step is
+`backend/src/test/resources/diagnostic/redaction-vectors.json`: log lines, each
+with what it becomes and why, run by `DiagnosticLogRedactorTest` and by
+`redact::tests`, the misses of §5 included, so a rule changed in one
+redactor and not the other fails a build. Measured on throwaway probes:
+over the 1.17 corpus and two more built the same way from other seeds, 750,162
+lines in all, the two write byte-identical output and count the same
+replacements; and all thirteen neutralizations of the new code (the two
+the 1.17 pass found unnoticed among them) fail a test.
+
+**Residual.** What §5 says the dump's safety net misses, this one misses too,
+now the same lines: an address URL-encoded as `%40`, a token shape outside the
+list, a key from an earlier session, and the two shapes 1.17 measured. A local
+part holding a character outside the Basic Multilingual Plane is masked with
+that character whole here and split by Java's UTF-16 `charAt` there, the one
+known difference in output; the vectors hold no such address.
+
+**Upgrade path.** Done in 1.18: the shared vectors. The independent pass over
+1.18 is still to come (AUDIT_GUIDE §5).
 
 ## 7. Informational notes (no change required)
 
@@ -736,6 +821,29 @@ still to come (AUDIT_GUIDE §5).
 
 ## 9. Change log
 
+- **1.18** (2026-10-12) — **A4 fixed again** by the session that ran the 1.17
+  pass, anchor unchanged at `66a0377` (the drift is acknowledged in the
+  ledger): `redact.rs` does Java's lookbehind, lookahead and backtracking by
+  hand and spells out Java's ASCII `\w`, `\b` and `\s`, and
+  `backend/src/test/resources/diagnostic/redaction-vectors.json` runs in
+  `DiagnosticLogRedactorTest` and in `redact::tests`, so the two redactors are
+  held to the same output by a build rather than by hand. Measured: identical
+  output over the 1.17 corpus and two more from other seeds, and all thirteen
+  neutralizations of the new code fail a test. §5 and A4's residual name the two
+  shapes 1.17 found both redactors miss; the intro names the vectors among the
+  dynamic cover. The independent pass over 1.18 is to come. Verdict: **PASS**,
+  A4 fixed.
+- **1.17** (2026-10-12) — **the independent pass over A4's fix (#704)**, by a
+  session that wrote neither #701 nor #704; **anchor moved to `66a0377`**, the
+  delta since `5def679` being #704 alone. The mechanism holds: every line goes
+  through `redact.rs`, `.gz` files are unpacked, the key comes from
+  `session.json` above `logs/`, the newest lines survive the budget. "The same
+  rules as `DiagnosticLogRedactor`" does not: run over the same 50,054 lines,
+  the two wrote different output for 6,504, three causes recorded under A4
+  (an address that runs on, where a match may start, ASCII against Unicode
+  token classes), and two of thirteen neutralizations went unnoticed by the
+  tests. **A4 reopened (Low)**. Verdict: **PASS for the HTTP API, A4 (Low)
+  open**.
 - **1.16** (2026-10-12) — **A4 fixed** (#704) by the author of #701, anchor
   unchanged at `5def679` (the drift is acknowledged in the ledger): the Save
   logs ZIP now passes every line through `redact.rs`, a Rust port of
