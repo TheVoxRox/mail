@@ -47,6 +47,10 @@ tauri-plugin-updater = "2"
 # Already in the tree through tauri-plugin-updater, without compression: the
 # logs ZIP stores its files (logs.rs), so no compression crate comes with it.
 zip = { version = "4", default-features = false }
+# Both already in the tree (regex through tauri-utils and the plugins, flate2
+# through png): redact.rs and the unpacking of rotated .gz logs in logs.rs.
+regex = "1"
+flate2 = "1"
 
 [target.'cfg(windows)'.dependencies]
 # Reads and writes the installer's answer about the startup update check

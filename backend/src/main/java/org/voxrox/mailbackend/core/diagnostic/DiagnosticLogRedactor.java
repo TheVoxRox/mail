@@ -18,6 +18,12 @@ import module java.base;
  * {@code 550 <someone@example.org> unknown} from an SMTP server is logged as it
  * came. This replaces only what breaks that rule, so a line that keeps it goes
  * into the bundle unchanged.
+ *
+ * <p>
+ * The shell's Save logs ZIP, the stand-in for this bundle when the backend does
+ * not start, applies the same rules in
+ * {@code frontend/src-tauri/src/redact.rs}. Keep the two in step: a rule added
+ * to one and not the other makes the two ZIPs answer to different policies.
  */
 final class DiagnosticLogRedactor {
 

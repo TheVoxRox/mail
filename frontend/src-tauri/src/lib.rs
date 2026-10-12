@@ -1,4 +1,5 @@
 mod logs;
+mod redact;
 mod tray;
 mod update_preference;
 mod webview_defaults;
