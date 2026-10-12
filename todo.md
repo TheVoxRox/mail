@@ -209,7 +209,7 @@ redundantni indexy, `NOT NULL`) taky, detail v [CHANGELOG.md](CHANGELOG.md).
 - [ ] **Google OAuth — Publish + CASA pro verejnost.** Projekt `VoxRox` je zatim **Testing** (External). Restricted scope `https://mail.google.com/` ([application.properties:90](backend/src/main/resources/application.properties)) vyzaduje pro public **Publish + CASA verifikaci** (Tier 2, per-projekt, placene/rocni). Pro v0.1.0 se NEresi — closed beta zustava Testing bez CASA (viz Rozhodnuti + [[project_v0.1.0_closed_beta_smoke]]). Produkcni creds + consent screen uz hotove (archive). Vetsi blok nez creds → soucast produkcni OAuth readiness.
 - [ ] Privacy/legal balicek — CZ+EN draft hotov ([PRIVACY.md](PRIVACY.md) / [PRIVACY.en.md](PRIVACY.en.md)); support email, security disclosure kontakt ([SECURITY.md](SECURITY.md)) i Tauri updater URL doplneny. Zbyva uz jen **pravni review** (GDPR "spravce dat" pro org. nasazeni).
 - [ ] Third-party license audit — inventare + bundled NOTICE.txt + SBOM hotove; pred kazdym release regenerovat (`npm run regen:licenses:all`). Overeno 2026-06-30: regen = 0 license drift (631 komponent). Dalsi beh az pri samotnem release (tam se NOTICE.txt commituje) — do te doby NEopakovat.
-- [x] **Re-verifikovat audity API (B3) a updateru (B6) pred re-cutem v0.1.0** — HOTOVO 2026-10-12 (#PR): B3 1.15 a B6 1.18 proti `5def679`, oba zaznamy z ledgeru smazane; B3 nasel A4 (Low, otevreny: „Ulozit logy" nese logy bez redakce), rozhodnuti je na vlastnikovi.
+- [x] **Re-verifikovat audity API (B3) a updateru (B6) pred re-cutem v0.1.0** — HOTOVO 2026-10-12 (#702): B3 1.15 a B6 1.18 proti `5def679`, oba zaznamy z ledgeru smazane; B3 nasel A4 (Low, otevreny: „Ulozit logy" nese logy bez redakce), rozhodnuti je na vlastnikovi.
 
 ---
 

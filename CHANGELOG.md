@@ -228,7 +228,7 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
-- **The API and updater audits are re-verified against `5def679`, which clears both of their acknowledgement ledgers (#PR).** The API audit now describes the diagnostic bundle of #700 and the client error endpoint, and records the owner's decision that the bundle may carry what the user's own log holds, which supersedes A2 and A3; the updater audit lists the log commands #701 added to the shell. The API pass found A4 (Low, open): the Save logs ZIP of #701 carries the logs without the address and token redaction the diagnostic bundle applies.
+- **The API and updater audits are re-verified against `5def679`, which clears both of their acknowledgement ledgers (#702).** The API audit now describes the diagnostic bundle of #700 and the client error endpoint, and records the owner's decision that the bundle may carry what the user's own log holds, which supersedes A2 and A3; the updater audit lists the log commands #701 added to the shell. The API pass found A4 (Low, open): the Save logs ZIP of #701 carries the logs without the address and token redaction the diagnostic bundle applies.
 
 - **`todo.md` asks for the API and updater audits to be re-verified before the next cut (#699).** #698 left their ledgers at 7 and 6 of 8 acknowledgements, and past the cap the next change under their code paths could pass only by re-verifying the audit on an unrelated pull request.
 
