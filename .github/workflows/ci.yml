@@ -244,7 +244,8 @@ jobs:
       # cargo check on a cold cache; the cache above keeps it once a Cargo.lock
       # change has saved a cache with it.
       - name: cargo test (log redactor)
-        run: cargo test --lib -- redact::
+        # Quoted: a plain scalar ending in ':' reads as a mapping key.
+        run: "cargo test --lib -- redact::"
 
       - name: Cache cargo-audit binary
         id: cargo-audit-cache
