@@ -1,0 +1,207 @@
+{
+  "about": [
+    "What a log line becomes on its way into a ZIP of the logs. Both redactors run every vector:",
+    "DiagnosticLogRedactor (the diagnostic bundle, DiagnosticLogRedactorTest) and",
+    "frontend/src-tauri/src/redact.rs (the Save logs ZIP, its own tests), so a rule changed in one",
+    "and not the other fails a build. The known misses are pinned too, so improving one is a",
+    "decision to change both. apiKey is the session key each vector runs with."
+  ],
+  "apiKey": "canary-api-key-4417-abcdefghij",
+  "vectors": [
+    {
+      "line": "Initial sync of folder Lawyer/Divorce for j***k@seznam.cz in C:\\Users\\Lukas\\AppData",
+      "redacted": "Initial sync of folder Lawyer/Divorce for j***k@seznam.cz in C:\\Users\\Lukas\\AppData",
+      "why": "a line that keeps the rules is unchanged: an address the app masked, a folder name, a path"
+    },
+    {
+      "line": "550 <jürgen.müller@example.de> unknown",
+      "redacted": "550 <j***r@example.de> unknown",
+      "why": "an address a server wrote is masked whole, its local part Unicode-aware"
+    },
+    {
+      "line": "550 o'brien.jan@firma.cz: unknown",
+      "redacted": "550 o***n@firma.cz: unknown",
+      "why": "an apostrophe belongs to the local part"
+    },
+    {
+      "line": "References <CAFoo=Xy+abc@mail.gmail.com>",
+      "redacted": "References <C***c@mail.gmail.com>",
+      "why": "a Message-ID's '=' and '+' belong to the local part"
+    },
+    {
+      "line": "Starting account sync: j***k@seznam.cz",
+      "redacted": "Starting account sync: j***k@seznam.cz",
+      "why": "a masked address is left: no match starts right after a '*'"
+    },
+    {
+      "line": "x*jan@firma.cz",
+      "redacted": "x*jan@firma.cz",
+      "why": "no match starts right after a '*'"
+    },
+    {
+      "line": "C:/Users/x/jan@firma.cz/file",
+      "redacted": "C:/Users/x/j***n@firma.cz/file",
+      "why": "'/' is not in the local part, so a path in front of an address stays"
+    },
+    {
+      "line": "Folder Archive/jan.novak@mail.firma.cz-2025",
+      "redacted": "Folder Archive/j***k@mail.firma.cz-2025",
+      "why": "followed by '-', the address falls back to the longest domain that is not: the local part is masked"
+    },
+    {
+      "line": "rcpt to:student@is.cuni.cz2 failed",
+      "redacted": "rcpt to:s***t@is.cuni.cz2 failed",
+      "why": "followed by a digit, the same fallback"
+    },
+    {
+      "line": "Message-ID <20261012.abc@mail.example.com-1>",
+      "redacted": "Message-ID <2***c@mail.example.com-1>",
+      "why": "the same fallback in a Message-ID"
+    },
+    {
+      "line": "jan@mail.example.czya29",
+      "redacted": "j***n@mail.example.czya29",
+      "why": "a top-level domain running into letters and digits falls back to an earlier dot"
+    },
+    {
+      "line": "Folder Archive/jan.novak@firma.cz-2025",
+      "redacted": "Folder Archive/jan.novak@firma.cz-2025",
+      "why": "followed by '-' with no shorter domain to fall back to, the address is left (a known miss, API_SURFACE_AUDIT.md section 5)"
+    },
+    {
+      "line": "jan@firma.czͅ x",
+      "redacted": "j***n@firma.czͅ x",
+      "why": "a combining mark after the domain is not a letter or digit, so the address is whole"
+    },
+    {
+      "line": "a@b.cz-c@d.cz",
+      "redacted": "a@b***c@d.cz",
+      "why": "a match that fails its end does not stop one starting after its '@'"
+    },
+    {
+      "line": "To: a@b.cz'c@d.cz",
+      "redacted": "To: a***@b.cz'c@d.cz",
+      "why": "no match starts right after a character an address may hold, even the end of the last match (a known miss, API_SURFACE_AUDIT.md section 5)"
+    },
+    {
+      "line": "用户@例子.广告",
+      "redacted": "用***@例子.广告",
+      "why": "letters of any script, in the local part and the domain"
+    },
+    {
+      "line": "a@b.cd and ab@cd.ef",
+      "redacted": "a***@b.cd and a***@cd.ef",
+      "why": "one- and two-character local parts, masked as LogMasker masks them"
+    },
+    {
+      "line": "jan%40firma.cz",
+      "redacted": "jan%40firma.cz",
+      "why": "an address URL-encoded as %40 is not one (a known miss, API_SURFACE_AUDIT.md section 5)"
+    },
+    {
+      "line": "Authorization: Bearer abcdefghijklmnopqrstuvwxyz",
+      "redacted": "Authorization: [token]",
+      "why": "bearer credential"
+    },
+    {
+      "line": "Bearer abcdefghijklmnopqrstuvwxyz",
+      "redacted": "Bearer abcdefghijklmnopqrstuvwxyz",
+      "why": "a no-break space is not the whitespace the bearer shape takes"
+    },
+    {
+      "line": "got ya29.a0AfH6SMBabcdefghijklmnop",
+      "redacted": "got [token]",
+      "why": "Google access token"
+    },
+    {
+      "line": "ya29.a0AfH6SMBabcdefghijklmnopé-tail",
+      "redacted": "[token]é-tail",
+      "why": "a token takes ASCII word characters only"
+    },
+    {
+      "line": "přihlášeníBearer abcdefghijklmnopqrstuvwxyz",
+      "redacted": "přihlášení[token]",
+      "why": "a non-ASCII letter is not a word character, so a token right after one starts at a word boundary"
+    },
+    {
+      "line": "refresh 1//0abcdefghijklmnopqrst",
+      "redacted": "refresh [token]",
+      "why": "Google refresh token"
+    },
+    {
+      "line": "é1//0abcdefghijklmnopqrst",
+      "redacted": "é[token]",
+      "why": "a refresh token right after a non-ASCII letter"
+    },
+    {
+      "line": "path /1//0abcdefghijklmnopqrst",
+      "redacted": "path /1//0abcdefghijklmnopqrst",
+      "why": "no refresh token right after a '/'"
+    },
+    {
+      "line": "a1//0abcdefghijklmnopqrst",
+      "redacted": "a1//0abcdefghijklmnopqrst",
+      "why": "no refresh token right after a word character"
+    },
+    {
+      "line": "a1//dXNlcj1abcdefghijklmnopqrstu",
+      "redacted": "a1//[token]",
+      "why": "a refresh token refused at its start does not hide a token that starts inside it"
+    },
+    {
+      "line": "id eyJhbGciOiJIUzI1.eyJzdWIiOiIx.SflKxwRJSMeK",
+      "redacted": "id [token]",
+      "why": "JSON web token"
+    },
+    {
+      "line": "ms EwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+      "redacted": "ms [token]",
+      "why": "Microsoft access token"
+    },
+    {
+      "line": "xoauth dXNlcj1qYW5AZmlybWEuY3oBYXV0aD1CZWFyZXIg",
+      "redacted": "xoauth [token]",
+      "why": "XOAUTH2 initial response"
+    },
+    {
+      "line": "access_token=abcdefgh12345 ok",
+      "redacted": "[token] ok",
+      "why": "OAuth parameter"
+    },
+    {
+      "line": "\"refresh_token\": \"abcdefgh12345\"",
+      "redacted": "\"[token]\"",
+      "why": "OAuth parameter, quoted"
+    },
+    {
+      "line": "access_token=Zmailřabcdefgh",
+      "redacted": "access_token=Zmailřabcdefgh",
+      "why": "an OAuth parameter value takes ASCII characters only"
+    },
+    {
+      "line": "Žͅid_token: abcdefgh12345",
+      "redacted": "Žͅid_token: abcdefgh12345",
+      "why": "a non-spacing mark on a letter is part of the word for Java's \\b, so no token starts after it"
+    },
+    {
+      "line": " ͅid_token: abcdefgh12345",
+      "redacted": " ͅ[token]",
+      "why": "a non-spacing mark with no letter under it is not, so the token starts after it"
+    },
+    {
+      "line": "X-API-KEY canary-api-key-4417-abcdefghij rejected",
+      "redacted": "X-API-KEY [api-key] rejected",
+      "why": "the session API key"
+    },
+    {
+      "line": "canary-api-key-4417-abcdefghij@firma.cz",
+      "redacted": "[api-key]@firma.cz",
+      "why": "the key goes first, so what is left is no address"
+    },
+    {
+      "line": "token for jan@firma.cz is Bearer abcdefghijklmnopqrstuvwxyz",
+      "redacted": "token for j***n@firma.cz is [token]",
+      "why": "an address and a token on one line"
+    }
+  ]
+}

@@ -43,25 +43,27 @@
   ],
   "docs/API_SURFACE_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/core/diagnostic": "2f832eb8f280cc887d4cddb443697d9e9b01ed9a",
-      "frontend/src-tauri/src/logs.rs": "8ccc54b6ca27a2c4d86647e605817ecf76bdcb59",
-      "frontend/src-tauri/src/redact.rs": "c6a91390c53516375efb3b8e894657d138afad7c"
+      "frontend/src-tauri/src/redact.rs": "bb1643df6f90b202a38acb9b75084c41e33cf874"
     },
     "acknowledgements": [
       {
         "date": "2026-10-12",
-        "note": "A4 fixed and recorded in the audit itself as v1.16; anchor unchanged at 5def679. Under core/diagnostic only a javadoc changes: DiagnosticLogRedactor names its Rust twin, redact.rs. logs.rs passes every line of the Save logs ZIP through redact.rs (unmasked addresses masked as LogMasker masks them, the token shapes of log-scan.mjs, the API key read from session.json next to the logs folder), unpacks rotated .gz files under their names without .gz, budgets text and keeps a file's newest lines, as section 5 says the dump does. No endpoint, filter, DTO, error response or dump entry changes. A4's residual now is section 5's: what the safety net does not catch. The independent pass over the fix is to come (AUDIT_GUIDE section 5). Verdict PASS."
+        "note": "A4 fixed again and recorded in the audit itself as v1.18; anchor unchanged at 66a0377, where the independent pass of v1.17 left it. Only redact.rs moves under Code paths: it now does the Java pattern's lookbehind, lookahead and backtracking by hand around each match (an address that runs on falls back to an earlier dot, latest first; a start after '*' or a local-part character is refused and the next start tried is after its '@'; the lookahead is [\\p{L}\\p{N}_-]), and its token pattern spells out Java's ASCII \\w, \\b and \\s, with the refresh token's lookbehind and Java's word-boundary rule for a non-spacing mark checked by hand. logs.rs, the copy into the ZIP and the key from session.json are unchanged. The shared vectors (backend/src/test/resources/diagnostic/redaction-vectors.json, outside Code paths) run in DiagnosticLogRedactorTest and redact::tests; DiagnosticLogRedactor itself is unchanged, so the dump writes what it wrote. No endpoint, filter, DTO, error response or dump entry changes. The independent pass over v1.18 is to come (AUDIT_GUIDE section 5). Verdict PASS."
       }
     ]
   },
   "docs/UPDATER_AUDIT.md": {
     "reviewedTrees": {
-      "frontend/src-tauri/src": "6f8852166ac87643eb477c2e0d1e8026a674b130"
+      "frontend/src-tauri/src": "0a75ddda4b30b74c09e59c8377664ac63645104d"
     },
     "acknowledgements": [
       {
         "date": "2026-10-12",
         "note": "Under src-tauri/src the Save logs path of section 1 changes (API_SURFACE_AUDIT.md A4, fixed in its v1.16): logs.rs passes each line through the new redact.rs and unpacks rotated .gz files with flate2, and export_logs also reads session.json next to the logs folder for the key to replace; lib.rs gains `mod redact`. The command list is unchanged: export_logs, log_sidecar_stderr and log_sidecar_exit, none taking a path, URL, key or version from the renderer. regex and flate2 were already in the tree, so Cargo.lock gains edges and no crate. check_for_update, download_pending_update, install_pending_update, PendingUpdate, DownloadedUpdate, the channel map and the pubkey are untouched. Verdict stays PASS."
+      },
+      {
+        "date": "2026-10-12",
+        "note": "Under src-tauri/src only redact.rs changes (API_SURFACE_AUDIT.md A4, fixed again in its v1.18): the redactor of the Save logs ZIP now writes what DiagnosticLogRedactor writes, the Java lookaround and backtracking done by hand and the token pattern on Java's ASCII classes. It is a pure function of a line, called only from logs.rs, which does not change; the command list, lib.rs and Cargo.toml do not change either, and no crate is added. check_for_update, download_pending_update, install_pending_update, PendingUpdate, DownloadedUpdate, the channel map and the pubkey are untouched. Verdict stays PASS."
       }
     ]
   },

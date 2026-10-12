@@ -4,6 +4,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+
+import module java.base;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 class DiagnosticLogRedactorTest {
 
@@ -53,5 +60,31 @@ class DiagnosticLogRedactorTest {
         assertThat(redactor.redact(HEAD + "X-API-KEY canary-api-key-4417-abcdefghij rejected"))
                 .isEqualTo(HEAD + "X-API-KEY [api-key] rejected");
         assertThat(redactor.counts()).isEqualTo(new DiagnosticLogRedactor.Counts(0, 3, 1));
+    }
+
+    /*
+     * The vectors the shell's Save logs ZIP runs too, in redact.rs: the same line
+     * comes out of both redactors the same, known misses included.
+     */
+    static Stream<Arguments> sharedVectors() throws IOException {
+        JsonNode file;
+        try (InputStream in = DiagnosticLogRedactorTest.class
+                .getResourceAsStream("/diagnostic/redaction-vectors.json")) {
+            file = new ObjectMapper().readTree(Objects.requireNonNull(in, "redaction-vectors.json"));
+        }
+        String apiKey = file.get("apiKey").asString();
+        List<Arguments> vectors = new ArrayList<>();
+        for (JsonNode vector : file.get("vectors")) {
+            vectors.add(Arguments.of(vector.get("why").asString(), apiKey, vector.get("line").asString(),
+                    vector.get("redacted").asString()));
+        }
+        return vectors.stream();
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("sharedVectors")
+    @DisplayName("A shared vector comes out as the shell's Save logs ZIP writes it")
+    void sharedVectorComesOutAsTheShellWritesIt(String why, String apiKey, String line, String redacted) {
+        assertThat(new DiagnosticLogRedactor(apiKey).redact(line)).as(why).isEqualTo(redacted);
     }
 }
