@@ -352,7 +352,7 @@ mod tests {
     }
 
     /// The vectors `DiagnosticLogRedactorTest` runs too: the same line comes out
-    /// of both redactors the same.
+    /// of both redactors the same, with the same replacements counted.
     #[test]
     fn the_shared_vectors_come_out_as_the_backend_writes_them() {
         let file: serde_json::Value = serde_json::from_str(include_str!(
@@ -366,10 +366,14 @@ mod tests {
             let line = vector["line"].as_str().expect("line");
             let redacted = vector["redacted"].as_str().expect("redacted");
             let why = vector["why"].as_str().expect("why");
+            let counts = ["addresses", "tokens", "apiKeys"]
+                .map(|kind| vector[kind].as_u64().expect("a count"));
+            let mut redactor = Redactor::new(Some(key.clone()));
+            assert_eq!(redactor.redact(line), redacted, "{why}");
             assert_eq!(
-                Redactor::new(Some(key.clone())).redact(line),
-                redacted,
-                "{why}"
+                [redactor.addresses, redactor.tokens, redactor.api_keys],
+                counts,
+                "counts: {why}"
             );
         }
     }

@@ -64,7 +64,8 @@ class DiagnosticLogRedactorTest {
 
     /*
      * The vectors the shell's Save logs ZIP runs too, in redact.rs: the same line
-     * comes out of both redactors the same, known misses included.
+     * comes out of both redactors the same, with the same replacements counted,
+     * known misses included.
      */
     static Stream<Arguments> sharedVectors() throws IOException {
         JsonNode file;
@@ -76,7 +77,9 @@ class DiagnosticLogRedactorTest {
         List<Arguments> vectors = new ArrayList<>();
         for (JsonNode vector : file.get("vectors")) {
             vectors.add(Arguments.of(vector.get("why").asString(), apiKey, vector.get("line").asString(),
-                    vector.get("redacted").asString()));
+                    vector.get("redacted").asString(),
+                    new DiagnosticLogRedactor.Counts(vector.get("addresses").asLong(), vector.get("tokens").asLong(),
+                            vector.get("apiKeys").asLong())));
         }
         return vectors.stream();
     }
@@ -84,7 +87,11 @@ class DiagnosticLogRedactorTest {
     @ParameterizedTest(name = "{0}")
     @MethodSource("sharedVectors")
     @DisplayName("A shared vector comes out as the shell's Save logs ZIP writes it")
-    void sharedVectorComesOutAsTheShellWritesIt(String why, String apiKey, String line, String redacted) {
-        assertThat(new DiagnosticLogRedactor(apiKey).redact(line)).as(why).isEqualTo(redacted);
+    void sharedVectorComesOutAsTheShellWritesIt(String why, String apiKey, String line, String redacted,
+            DiagnosticLogRedactor.Counts counts) {
+        DiagnosticLogRedactor redactor = new DiagnosticLogRedactor(apiKey);
+
+        assertThat(redactor.redact(line)).as(why).isEqualTo(redacted);
+        assertThat(redactor.counts()).as(why).isEqualTo(counts);
     }
 }
