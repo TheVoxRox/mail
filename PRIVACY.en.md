@@ -1,6 +1,6 @@
 # Privacy Policy — VoxRox Mail
 
-_Version: 2026-09-14 (draft, pre-first-release). This version is preliminary
+_Version: 2026-10-12 (draft, pre-first-release). This version is preliminary
 and has not yet been reviewed by a lawyer — see "Open items" at the bottom._
 
 _Česká verze: [PRIVACY.md](PRIVACY.md)._
@@ -12,7 +12,8 @@ third party — except those you choose yourself by adding an e-mail account
 (your e-mail provider, and optionally Google or Microsoft for OAuth login),
 except the check for available updates on GitHub, and except remote images in
 a message whose loading you explicitly allow (both: see "What data leaves the
-device").
+device"). Logs leave your computer only if you send a diagnostic bundle
+yourself (see "Diagnostic bundle").
 
 VoxRox does not operate a backend server for this application, does not store
 your data in the cloud, and does not collect telemetry, analytics or crash
@@ -52,6 +53,7 @@ Contents:
 | `attachments/`             | Local copies of attachments downloaded from the server.                                                                                                                                                                      |
 | `logs/mail.log`            | Application log (rotates, max 7 files × 10 MB, total ~100 MB).                                                                                                                                                               |
 | `logs/audit.log`           | Security / audit log (retention 365 days, max ~500 MB).                                                                                                                                                                      |
+| `logs/mail-frontend.log`   | Application window log (max 40 kB, then it starts over).                                                                                                                                                                     |
 | `tmp/`                     | Temporary files (cleared automatically).                                                                                                                                                                                     |
 
 Outside that directory the application writes a single value to the Windows
@@ -139,19 +141,46 @@ from the notification area icon menu (**Quit**).
 
 ### Diagnostic reports from the client
 
-The frontend is prepared to send technical errors (JavaScript exceptions,
-failed API calls) to the **local** backend endpoint
-`POST /api/internal/client-errors`, which runs on 127.0.0.1 on your computer.
-This endpoint is not implemented yet — on the first failed attempt (HTTP 404)
-the frontend disables reporting. Once it exists, it will still be a loopback
-write to your local logs only; the reports **never leave your device** and are
-not sent to VoxRox or any third party.
+Uncaught interface errors (JavaScript exceptions) are sent by the frontend to
+the **local** backend endpoint `POST /api/internal/client-errors`, which runs
+on 127.0.0.1 on your computer, and the backend writes them into
+`logs/mail.log`. A record holds the kind and text of the error, its stack
+trace, the script it came from and the general shape of the page, such as
+`/mail/[accountId]/[folderName]` — without the account number, the folder name
+or the message. At most 20 records a minute are written. The records **do not
+leave your device** by themselves and are not sent to VoxRox or any third
+party.
 
-If you contact support and provide a manually exported diagnostic bundle
-(`GET /api/internal/diagnostic-dump`), that bundle contains only masked
-e-mail addresses, account configuration (host, port, SSL), synchronization
-status and runtime metrics. It **does not contain** credentials, OAuth
-tokens, message bodies or subjects.
+### Diagnostic bundle
+
+The **Download diagnostics** button (Settings → About, or the screen shown when
+the app has trouble starting) saves a ZIP you can send to the developers when
+you report a bug. Nothing is sent automatically: the file is saved on your
+computer, and who you send it to is your decision.
+
+The bundle contains:
+
+- **the state of the app**: versions, numbers of accounts, folders and
+  messages, the names of synchronized folders, synchronization status, each
+  account's last error (as a code, not as text), each account's server
+  configuration (host, port, SSL), masked e-mail addresses (`j***k@seznam.cz`),
+  runtime details (Java and Windows versions, memory, database size, free disk
+  space), startup timings and the state of every thread of the app;
+- **the logs** from the `logs/` folder (`mail.log`, `audit.log` and
+  `mail-frontend.log` including older files, at most 24 MB of text, newest
+  first), as they are stored on your computer. They therefore hold folder and
+  account names, the paths of the app's files (with your home folder and
+  Windows user name) and the technical text of errors as the mail server or a
+  library returned it, which can hold, for example, a sender's name from a
+  message header. As a safety net, before they go into the ZIP every e-mail
+  address the app did not already mask (typically in an error text from a
+  server) is masked, and tokens and the internal API key, which a log must not
+  hold, are replaced.
+
+The bundle **does not contain** passwords, OAuth tokens, message bodies,
+subjects or attachments. You can open the ZIP and read it before you send it:
+the logs in it are plain text files. If you attach it to a public report (on
+GitHub, for example), anyone can read what is in it.
 
 ## Third parties
 

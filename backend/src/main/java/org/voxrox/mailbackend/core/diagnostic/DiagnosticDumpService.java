@@ -1,23 +1,28 @@
 package org.voxrox.mailbackend.core.diagnostic;
 
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.voxrox.mailbackend.MailBackendApplication;
 import org.voxrox.mailbackend.core.config.ApplicationVersion;
 import org.voxrox.mailbackend.core.config.StorageProperties;
 import org.voxrox.mailbackend.core.init.HandshakeService;
 import org.voxrox.mailbackend.core.init.StartupTimingService;
+import org.voxrox.mailbackend.feature.account.AccountLastErrorCode;
+import org.voxrox.mailbackend.feature.account.AccountLastErrorJson;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.account.entity.MailServerConfig;
 import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.feature.auth.service.OAuth2TokenServiceRegistry;
-import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
 import org.voxrox.mailbackend.feature.mail.entity.FolderSyncStateEntity;
 import org.voxrox.mailbackend.feature.mail.repository.FolderSyncStateRepository;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
 import org.voxrox.mailbackend.feature.mail.service.ImapConnectionManager;
+import org.voxrox.mailbackend.util.LogCategory;
 import org.voxrox.mailbackend.util.LogMasker;
 
 import module java.base;
@@ -26,77 +31,113 @@ import tools.jackson.databind.ObjectMapper;
 @Service
 public class DiagnosticDumpService {
 
-    /** RFC 9051 §5.1: the one mailbox name the protocol defines, in any case. */
-    private static final String INBOX = "INBOX";
+    private static final Logger log = LoggerFactory.getLogger(DiagnosticDumpService.class);
 
     private final AccountRepository accountRepository;
     private final FolderSyncStateRepository folderSyncStateRepository;
     private final MessageRepository messageRepository;
     private final ImapConnectionManager imapConnectionManager;
     private final OAuth2TokenServiceRegistry oauth2TokenServiceRegistry;
+    private final HandshakeService handshakeService;
     private final StorageProperties storageProperties;
     private final Environment environment;
     private final ObjectMapper objectMapper;
     private final ApplicationVersion applicationVersion;
     private final ClientBootDiagnosticsService clientBootDiagnosticsService;
     private final StartupTimingService startupTimingService;
+    private final TransactionTemplate readOnlyTransaction;
 
     public DiagnosticDumpService(AccountRepository accountRepository,
             FolderSyncStateRepository folderSyncStateRepository, MessageRepository messageRepository,
             ImapConnectionManager imapConnectionManager, OAuth2TokenServiceRegistry oauth2TokenServiceRegistry,
-            StorageProperties storageProperties, Environment environment, ObjectMapper objectMapper,
-            ApplicationVersion applicationVersion, ClientBootDiagnosticsService clientBootDiagnosticsService,
-            StartupTimingService startupTimingService) {
+            HandshakeService handshakeService, StorageProperties storageProperties, Environment environment,
+            ObjectMapper objectMapper, ApplicationVersion applicationVersion,
+            ClientBootDiagnosticsService clientBootDiagnosticsService, StartupTimingService startupTimingService,
+            PlatformTransactionManager transactionManager) {
         this.accountRepository = accountRepository;
         this.folderSyncStateRepository = folderSyncStateRepository;
         this.messageRepository = messageRepository;
         this.imapConnectionManager = imapConnectionManager;
         this.oauth2TokenServiceRegistry = oauth2TokenServiceRegistry;
+        this.handshakeService = handshakeService;
         this.storageProperties = storageProperties;
         this.environment = environment;
         this.objectMapper = objectMapper;
         this.applicationVersion = applicationVersion;
         this.clientBootDiagnosticsService = clientBootDiagnosticsService;
         this.startupTimingService = startupTimingService;
+        this.readOnlyTransaction = new TransactionTemplate(transactionManager);
+        this.readOnlyTransaction.setReadOnly(true);
     }
 
     /**
-     * Builds the support bundle. It leaves the user's machine, so it carries only
-     * what support needs to tell states apart: an address is masked, every folder
-     * but INBOX is a stable pseudonym ({@code folder-3}) next to its role, and a
-     * path under the user's home directory starts with {@code ~} instead of the
-     * Windows account name.
+     * Builds the support bundle the user sends to the developers: the app's state
+     * from the database, the runtime, every thread, and the logs as they are on
+     * disk. What the user's own log holds may go to the people the user sends it
+     * to, folder names and paths included; what no log may hold, an unmasked
+     * address, a token or the session API key, the {@link DiagnosticLogRedactor}
+     * takes out of the copy. Passwords, tokens and message content are in no part.
      *
      * <p>
-     * The rule is this bundle's, not the log's. {@code mail.log} writes folder
-     * names in full and is meant to: it stays on the machine, this bundle records
-     * the log directory's path but carries no log file, and a report about one
-     * folder is only readable under the name the user gave it. Leaving is what
-     * earns the pseudonym, so a change that ever sends a log somewhere has to
-     * revisit it rather than copy this rule over.
+     * Each part is made on its own: the bundle is wanted most when something is
+     * stuck, and a database that does not answer must not cost the thread dump that
+     * shows why, or the logs that say what led there.
      */
-    @Transactional(readOnly = true)
     public byte[] createDump() {
-        List<AccountEntity> accounts = accountRepository.findAllWithDetails();
-        List<FolderSyncStateEntity> folderStates = folderSyncStateRepository.findAll();
-        Map<FolderKey, String> folderLabels = folderLabels(folderStates);
+        String generatedAt = now();
+        // First, before building the rest adds to what the threads are doing.
+        String threads = DiagnosticThreadDump.capture();
+        List<SectionDump> sections = new ArrayList<>();
+        State state = readState(sections);
+        DiagnosticLogRedactor redactor = new DiagnosticLogRedactor(handshakeService.getOrCreateApiKey());
 
         try (ByteArrayOutputStream buffer = new ByteArrayOutputStream();
                 ZipOutputStream zip = new ZipOutputStream(buffer, StandardCharsets.UTF_8)) {
-            addJson(zip, "summary.json", summary(accounts, folderStates));
-            addJson(zip, "accounts.json", accounts.stream().map(this::toAccountDump).toList());
-            addJson(zip, "folder-sync-states.json",
-                    folderStates.stream().map(state -> toFolderStateDump(state, folderLabels)).toList());
-            addJson(zip, "message-counts.json",
-                    folderStates.stream().map(state -> toMessageCountDump(state, folderLabels)).toList());
+            if (state != null) {
+                addJson(zip, "summary.json", state.summary());
+                addJson(zip, "accounts.json", state.accounts());
+                addJson(zip, "folder-sync-states.json", state.folderStates());
+                addJson(zip, "message-counts.json", state.messageCounts());
+            }
             addJson(zip, "runtime.json", runtime());
             addJson(zip, "client-boot.json", clientBootDiagnosticsService.latest());
             addJson(zip, "startup-timings.json", startupTimings());
+            addText(zip, "threads.txt", threads, redactor);
+            List<DiagnosticLogExport.LogFileDump> logs = DiagnosticLogExport.write(zip, storageProperties.getLogsPath(),
+                    redactor, DiagnosticLogExport.DEFAULT_BUDGET_BYTES);
+            addJson(zip, "manifest.json", new ManifestDump(generatedAt, appVersion(), sections,
+                    DiagnosticLogExport.DEFAULT_BUDGET_BYTES, logs, redactor.counts()));
             zip.finish();
             return buffer.toByteArray();
         } catch (IOException e) {
             throw new IllegalStateException("Failed to create diagnostic dump.", e);
         }
+    }
+
+    /**
+     * What the dump reads from the database, in one read-only transaction, or
+     * {@code null} when it could not be read. The failure is logged in full, so the
+     * bundle's copy of the log says why, and named in the manifest by its class.
+     */
+    private @Nullable State readState(List<SectionDump> sections) {
+        try {
+            State state = readOnlyTransaction.execute(status -> buildState());
+            sections.add(new SectionDump("database", "read"));
+            return state;
+        } catch (RuntimeException e) {
+            log.warn("{} The diagnostic dump could not read the database; it goes without accounts and folders.",
+                    LogCategory.ERROR, e);
+            sections.add(new SectionDump("database", "unreadable: " + e.getClass().getSimpleName()));
+            return null;
+        }
+    }
+
+    private State buildState() {
+        List<AccountEntity> accounts = accountRepository.findAllWithDetails();
+        List<FolderSyncStateEntity> folderStates = folderSyncStateRepository.findAll();
+        return new State(summary(accounts, folderStates), accounts.stream().map(this::toAccountDump).toList(),
+                folderStates.stream().map(this::toFolderStateDump).toList(),
+                folderStates.stream().map(this::toMessageCountDump).toList());
     }
 
     private SummaryDump summary(List<AccountEntity> accounts, List<FolderSyncStateEntity> folderStates) {
@@ -106,7 +147,7 @@ public class DiagnosticDumpService {
                 .count();
 
         return new SummaryDump(now(), MailBackendApplication.APP_NAME, appVersion(), HandshakeService.API_VERSION,
-                HandshakeService.MIN_CLIENT_VERSION,
+                HandshakeService.MIN_CLIENT_VERSION, handshakeService.getHandshake().dbSchemaVersion(),
                 new CountDump(accounts.size(), activeAccounts, requiresReauthAccounts, syncableAccounts,
                         folderStates.size(), messageRepository.count()),
                 imapConnectionManager.getPoolStats(), oauth2TokenServiceRegistry.totalCachedTokens());
@@ -123,58 +164,44 @@ public class DiagnosticDumpService {
                 account.isRequiresReauth(), provider != null ? provider.getName() : "Vlastni",
                 credentials != null && credentials.getAuthType() != null ? credentials.getAuthType().name() : null,
                 toServerDump(account.getImapConfig()), toServerDump(account.getSmtpConfig()),
-                format(account.getLastSyncAt()), lastError != null && !lastError.isBlank());
+                format(account.getLastSyncAt()), lastError != null && !lastError.isBlank(), toLastErrorDump(account));
     }
 
-    private FolderStateDump toFolderStateDump(FolderSyncStateEntity state, Map<FolderKey, String> folderLabels) {
-        return new FolderStateDump(accountIdOf(state), labelOf(state, folderLabels),
+    /**
+     * The account's last error by its code and arguments, which say what failed and
+     * why ({@code cause} is a {@code MailFailureCause} name, never an exception's
+     * text). An argument the code does not name is left out. The stored text is
+     * left out too: it is the exception's, and the log line the failure wrote
+     * carries it with its stack.
+     */
+    private @Nullable LastErrorDump toLastErrorDump(AccountEntity account) {
+        Optional<AccountLastErrorCode> code = AccountLastErrorCode.fromCode(account.getLastErrorCode());
+        if (code.isEmpty()) {
+            return null;
+        }
+        Map<String, String> stored = AccountLastErrorJson.read(account.getLastErrorArgs());
+        Map<String, String> args = new TreeMap<>();
+        for (String name : code.get().argNames()) {
+            String value = stored.get(name);
+            if (value != null) {
+                args.put(name, value);
+            }
+        }
+        return new LastErrorDump(code.get().name(), args);
+    }
+
+    private FolderStateDump toFolderStateDump(FolderSyncStateEntity state) {
+        return new FolderStateDump(accountIdOf(state), state.getFolderName(),
                 state.getRole() != null ? state.getRole().name() : null, state.getLastKnownUid(),
                 state.getUidValidity(), format(state.getLastSyncAt()));
     }
 
-    private MessageCountDump toMessageCountDump(FolderSyncStateEntity state, Map<FolderKey, String> folderLabels) {
+    private MessageCountDump toMessageCountDump(FolderSyncStateEntity state) {
         Long accountId = accountIdOf(state);
         long count = accountId != null
                 ? messageRepository.countByAccountIdAndFolderName(accountId, state.getFolderName())
                 : 0L;
-        return new MessageCountDump(accountId, labelOf(state, folderLabels), count);
-    }
-
-    /**
-     * The name each folder goes into the dump under. INBOX keeps its name, which
-     * the IMAP protocol fixes; every other folder becomes {@code folder-<n>},
-     * numbered in a stable order so the two files that list folders agree and two
-     * dumps of the same state match. Which system folder a pseudonym stands for is
-     * in its {@code role}.
-     *
-     * <p>
-     * A role does not prove the provider chose the name. Without SPECIAL-USE, role
-     * detection falls back to the name itself
-     * ({@link FolderRole#fromNameFallback}), so a folder the user created as
-     * "Archive" is stored as {@code ARCHIVE}; and until that fallback matched whole
-     * names only, a folder the user called "Newsletter from Dr Novak" was stored as
-     * {@code NEWSLETTERS}. Keeping role folders' names put such names in the
-     * bundle.
-     */
-    private static Map<FolderKey, String> folderLabels(List<FolderSyncStateEntity> states) {
-        Map<FolderKey, String> labels = new HashMap<>();
-        int next = 1;
-        List<FolderSyncStateEntity> ordered = states.stream()
-                .sorted(Comparator
-                        .comparing((FolderSyncStateEntity state) -> accountIdOf(state),
-                                Comparator.nullsFirst(Comparator.naturalOrder()))
-                        .thenComparing(FolderSyncStateEntity::getFolderName))
-                .toList();
-        for (FolderSyncStateEntity state : ordered) {
-            boolean inbox = INBOX.equalsIgnoreCase(state.getFolderName());
-            labels.put(FolderKey.of(state), inbox ? state.getFolderName() : "folder-" + next++);
-        }
-        return labels;
-    }
-
-    private static String labelOf(FolderSyncStateEntity state, Map<FolderKey, String> folderLabels) {
-        String label = folderLabels.get(FolderKey.of(state));
-        return label != null ? label : "folder-?";
+        return new MessageCountDump(accountId, state.getFolderName(), count);
     }
 
     private static @Nullable Long accountIdOf(FolderSyncStateEntity state) {
@@ -218,15 +245,11 @@ public class DiagnosticDumpService {
         return home.substring(0, end);
     }
 
-    private record FolderKey(@Nullable Long accountId, String folderName) {
-        static FolderKey of(FolderSyncStateEntity state) {
-            return new FolderKey(accountIdOf(state), state.getFolderName());
-        }
-    }
-
     private RuntimeDump runtime() {
         Runtime runtime = Runtime.getRuntime();
         String home = System.getProperty("user.home");
+        Path dbFile = storageProperties.getDbPath()
+                .resolve(environment.getProperty("spring.application.name", MailBackendApplication.APP_NAME) + ".db");
         return new RuntimeDump(now(), withoutHome(storageProperties.getDataPath().toString(), home),
                 withoutHome(storageProperties.getDbPath().toString(), home),
                 withoutHome(storageProperties.getLogsPath().toString(), home),
@@ -234,7 +257,27 @@ public class DiagnosticDumpService {
                 environment.getProperty("local.server.port", environment.getProperty("server.port", "0")),
                 List.of(environment.getActiveProfiles()), System.getProperty("java.version"),
                 System.getProperty("os.name"), System.getProperty("os.version"), runtime.availableProcessors(),
-                runtime.maxMemory(), runtime.totalMemory(), runtime.freeMemory());
+                runtime.maxMemory(), runtime.totalMemory(), runtime.freeMemory(), sizeOf(dbFile),
+                sizeOf(dbFile.resolveSibling(dbFile.getFileName() + "-wal")),
+                usableSpace(storageProperties.getDataPath()));
+    }
+
+    /** {@code -1} when there is no such file or it cannot be read. */
+    private static long sizeOf(Path file) {
+        try {
+            return Files.size(file);
+        } catch (IOException e) {
+            return -1;
+        }
+    }
+
+    /** {@code -1} when the volume cannot be asked. */
+    private static long usableSpace(Path path) {
+        try {
+            return Files.getFileStore(path).getUsableSpace();
+        } catch (IOException e) {
+            return -1;
+        }
     }
 
     private StartupTimingsDump startupTimings() {
@@ -257,6 +300,15 @@ public class DiagnosticDumpService {
         zip.closeEntry();
     }
 
+    private static void addText(ZipOutputStream zip, String entryName, String text, DiagnosticLogRedactor redactor)
+            throws IOException {
+        zip.putNextEntry(new ZipEntry(entryName));
+        for (String line : text.split("\\R", -1)) {
+            zip.write((redactor.redact(line) + "\n").getBytes(StandardCharsets.UTF_8));
+        }
+        zip.closeEntry();
+    }
+
     private String appVersion() {
         return applicationVersion.value();
     }
@@ -269,8 +321,19 @@ public class DiagnosticDumpService {
         return value != null ? value.toString() : null;
     }
 
+    private record State(SummaryDump summary, List<AccountDump> accounts, List<FolderStateDump> folderStates,
+            List<MessageCountDump> messageCounts) {
+    }
+
+    private record SectionDump(String name, String status) {
+    }
+
+    private record ManifestDump(String generatedAt, String appVersion, List<SectionDump> sections, long logBudgetBytes,
+            List<DiagnosticLogExport.LogFileDump> logs, DiagnosticLogRedactor.Counts redactions) {
+    }
+
     private record SummaryDump(String generatedAt, String appName, String appVersion, String apiVersion,
-            String minClientVersion, CountDump counts, ImapConnectionManager.PoolStats imapPool,
+            String minClientVersion, String dbSchemaVersion, CountDump counts, ImapConnectionManager.PoolStats imapPool,
             int oauthCachedTokens) {
     }
 
@@ -280,7 +343,10 @@ public class DiagnosticDumpService {
 
     private record AccountDump(Long id, String maskedEmail, boolean active, boolean requiresReauth, String providerName,
             @Nullable String authType, @Nullable ServerDump imap, @Nullable ServerDump smtp,
-            @Nullable String lastSyncAt, boolean lastErrorPresent) {
+            @Nullable String lastSyncAt, boolean lastErrorPresent, @Nullable LastErrorDump lastError) {
+    }
+
+    private record LastErrorDump(String code, Map<String, String> args) {
     }
 
     private record ServerDump(String host, Integer port, boolean useSsl) {
@@ -295,7 +361,8 @@ public class DiagnosticDumpService {
 
     private record RuntimeDump(String generatedAt, String dataDir, String dbDir, String logsDir, String serverAddress,
             String serverPort, List<String> activeProfiles, String javaVersion, String osName, String osVersion,
-            int availableProcessors, long maxMemoryBytes, long totalMemoryBytes, long freeMemoryBytes) {
+            int availableProcessors, long maxMemoryBytes, long totalMemoryBytes, long freeMemoryBytes, long dbFileBytes,
+            long dbWalFileBytes, long usableDiskBytes) {
     }
 
     private record StartupTimingsDump(String processStartedAt,

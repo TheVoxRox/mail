@@ -12,6 +12,7 @@ vi.mock('$lib/stores/session.js', () => ({ requireSession: requireSessionMock })
 vi.mock('./http.js', () => ({ httpFetch: httpFetchMock }));
 
 import { reportClientBootDiagnostics } from './clientBootDiagnostics.js';
+import { CLIENT_VERSION } from '$lib/version.js';
 
 describe('reportClientBootDiagnostics', () => {
 	it('reports the route id, never the path with the folder and message in it', async () => {
@@ -29,8 +30,12 @@ describe('reportClientBootDiagnostics', () => {
 
 		const [url, init] = httpFetchMock.mock.calls[0] as [string, RequestInit];
 		expect(url).toBe('http://127.0.0.1:51234/api/internal/client-boot');
-		const payload = JSON.parse(init.body as string) as { route: string | null };
+		const payload = JSON.parse(init.body as string) as {
+			route: string | null;
+			clientVersion: string;
+		};
 		expect(payload.route).toBe('/mail/[accountId]/[folderName]/[stableId]');
+		expect(payload.clientVersion).toBe(CLIENT_VERSION);
 		expect(init.body).not.toContain('Canary');
 	});
 });

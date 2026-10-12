@@ -15,8 +15,10 @@ Per-subsystem release audit of the **loopback HTTP API** the Tauri WebView calls
 authentication (`X-API-KEY`), request authorization, input validation on every
 controller, error-response hygiene, attachment streaming (path traversal), and
 the diagnostic/data-exposure endpoints. Method: static trace of the Spring
-Security filter chain, enumeration of all 17 `@RestController`s (13 public +
-the 4 `/api/internal` ones) and their request DTOs, and a data-flow check of
+Security filter chain, enumeration of all 18 `@RestController`s (13 public +
+the 5 `/api/internal` ones) and their request DTOs (client-errors, the fifth
+internal one, only through the ledger's acknowledgement of 2026-10-12), and a
+data-flow check of
 the two highest-risk paths (attachment download, diagnostic dump). The audit
 relies on these tests as dynamic cover: a request without the key answered
 302 (`SecurityDispatcherTypeTest`); a wrong key answered 401 with an audit
@@ -77,10 +79,10 @@ redirect pages and is deliberately outside the count):
 
 ```sh
 C=$(grep -rlE '@RestController\b' backend/src/main/java)
-echo "$C" | wc -l                              # 17 controllers
-echo "$C" | xargs grep -l '/api/internal' | wc -l   # 4 internal (13 public)
+echo "$C" | wc -l                              # 18 controllers
+echo "$C" | xargs grep -l '/api/internal' | wc -l   # 5 internal (13 public)
 echo "$C" | xargs grep -l '@Validated' | wc -l      # 12 @Validated
-echo "$C" | xargs grep -l '@Hidden' | wc -l         # 3 hidden from OpenAPI
+echo "$C" | xargs grep -l '@Hidden' | wc -l         # 4 hidden from OpenAPI
 ```
 
 Scope is Boundary 3 (sidecar ↔ WebView, loopback + `X-API-KEY`). The
@@ -178,11 +180,13 @@ audit map in [AUDIT_GUIDE.md](AUDIT_GUIDE.md)).
 
 ## 2. Input validation (confirmed)
 
-Twelve of the 17 controllers are `@Validated` — every one that declares
-constrained parameters. The five without it give bean validation nothing to
+Twelve of the 18 controllers are `@Validated` — every one that declares
+constrained parameters. The six without it give bean validation nothing to
 enforce: four expose parameterless endpoints (system readiness, client-config,
-diagnostic-dump, the SSE notification stream) and the fifth, client-boot,
-sanitizes its DTO field-by-field in the service instead (§7). Path/query params
+diagnostic-dump, the SSE notification stream) and the other two sanitize their
+DTO field-by-field in the service instead: client-boot (§7), and client-errors,
+which came after this audit's anchor and is in the ledger's acknowledgement of
+2026-10-12 rather than in this pass. Path/query params
 carry `@Positive`, `@NotBlank`, `@Size`, `@Min`, and request bodies are
 `@Valid @RequestBody` with per-field constraints on the DTOs. Pagination is capped server-side
 (`apiMaxPageSize`), search queries are length-bounded (`searchQueryMaxLength`),

@@ -27,7 +27,8 @@ public class ClientBootDiagnosticsService {
         }
         latest.set(new ClientBootDiagnosticsSnapshot(parseInstant(request.reportedAt()), sanitizeText(request.phase()),
                 sanitizeText(request.slowLevel()), sanitizeTimings(request.timings()),
-                sanitizeText(request.userAgent()), sanitizeText(request.language()), sanitizeRoute(request.route())));
+                sanitizeText(request.userAgent()), sanitizeText(request.language()), sanitizeRoute(request.route()),
+                sanitizeText(request.clientVersion())));
     }
 
     /** {@code null} until the client reports its first boot diagnostics. */
@@ -60,7 +61,7 @@ public class ClientBootDiagnosticsService {
         return result;
     }
 
-    private @Nullable String sanitizeText(@Nullable String value) {
+    private static @Nullable String sanitizeText(@Nullable String value) {
         if (value == null) {
             return null;
         }
@@ -75,11 +76,10 @@ public class ClientBootDiagnosticsService {
      * The route as a SvelteKit route id ({@code /mail/[accountId]/[folderName]}),
      * which is what the client sends. Anything else is cut at its first segment
      * that is not shaped like a route id's, so a path with values in it
-     * ({@code /mail/7/<folder>/<message>}) keeps only {@code /mail}: the dump goes
-     * to support, and the name of a folder the user created is what it must not
-     * carry.
+     * ({@code /mail/7/<folder>/<message>}) keeps only {@code /mail}: a boot report
+     * is about the page, and the route id names it the same way in every report.
      */
-    private @Nullable String sanitizeRoute(@Nullable String value) {
+    static @Nullable String sanitizeRoute(@Nullable String value) {
         String route = sanitizeText(value);
         if (route == null) {
             return null;
@@ -109,6 +109,7 @@ public class ClientBootDiagnosticsService {
     }
 
     public record ClientBootDiagnosticsSnapshot(String reportedAt, @Nullable String phase, @Nullable String slowLevel,
-            Map<String, Long> timings, @Nullable String userAgent, @Nullable String language, @Nullable String route) {
+            Map<String, Long> timings, @Nullable String userAgent, @Nullable String language, @Nullable String route,
+            @Nullable String clientVersion) {
     }
 }

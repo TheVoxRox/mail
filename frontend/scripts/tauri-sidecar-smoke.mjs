@@ -380,13 +380,13 @@ async function assertCzechNumberFormatting(session) {
 
 /*
  * RELEASE_CHECKLIST §7 on the shipped artifact. The account above exists by now,
- * so the dump has an address, a username and a password it could leak, and the
- * data directory sits under the user's home, whose name it could leak too. Every
- * entry is scanned, not a list of known ones, so a file added to the dump later
- * is covered the day it appears. DiagnosticDumpPrivacyIT checks the same claim
- * on synced mail under mvn verify; this checks the build a user runs.
+ * so the dump has an address and a password it could leak, and the session's
+ * API key. Every entry is scanned, its copy of the logs included, not a list of
+ * known ones, so a file added to the dump later is covered the day it appears.
+ * DiagnosticDumpPrivacyIT checks the same claim on synced mail under mvn
+ * verify; this checks the build a user runs.
  */
-async function assertDumpHoldsNothingPersonal(session) {
+async function assertDumpHoldsNoSecret(session) {
 	const response = await probe(`${session.baseUrl}/internal/diagnostic-dump`, {
 		origin: WEBVIEW_ORIGIN,
 		apiKey: session.apiKey,
@@ -399,10 +399,9 @@ async function assertDumpHoldsNothingPersonal(session) {
 		);
 	}
 	const entries = readZipEntries(response.bytes);
-	// Paths are JSON strings in the dump, so a Windows home arrives with its
-	// backslashes escaped; the escaped form is the one to look for.
-	const home = JSON.stringify(os.homedir()).slice(1, -1);
-	const secrets = [session.apiKey, SMOKE_ACCOUNT.email, SMOKE_ACCOUNT.password, home];
+	// The home directory is not looked for: the dump's copy of the logs carries
+	// the paths the log on disk does, and so may the bundle a user sends.
+	const secrets = [session.apiKey, SMOKE_ACCOUNT.email, SMOKE_ACCOUNT.password];
 	const leaks = entries.flatMap(({ name, data }) =>
 		findLeaks(data.toString('utf8'), name, { secrets })
 	);
@@ -412,7 +411,7 @@ async function assertDumpHoldsNothingPersonal(session) {
 				leaks.map((leak) => `${leak.file}:${leak.line} ${leak.kind} ${leak.hint}`).join('; ')
 		);
 	}
-	return `${entries.length} entries, nothing personal`;
+	return `${entries.length} entries, no credential, key or full address`;
 }
 
 async function removeWithRetry(dir) {
@@ -461,7 +460,7 @@ try {
 	const endpoints = await assertBootEndpoints(session);
 	const mapped = await assertMappedAccount(session);
 	const localeData = await assertCzechNumberFormatting(session);
-	const dump = await assertDumpHoldsNothingPersonal(session);
+	const dump = await assertDumpHoldsNoSecret(session);
 	console.log(
 		`OK — webview origin ${WEBVIEW_ORIGIN} → ${result.webviewStatus} ` +
 			`(Access-Control-Allow-Origin ${result.allowOriginHeader}); foreign origin → ${result.foreignStatus}.`

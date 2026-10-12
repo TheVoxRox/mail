@@ -789,7 +789,7 @@
 				"apiKey": "Klíč API:",
 				"downloadDump": "Stáhnout diagnostiku",
 				"downloadingDump": "Stahuji…",
-				"dumpHint": "ZIP bez hesel, tokenů a obsahu zpráv."
+				"dumpHint": "ZIP s logy a stavem aplikace pro vývojáře. Bez hesel, tokenů a obsahu zpráv."
 			},
 			"licenses": {
 				"heading": "Licence open-source",

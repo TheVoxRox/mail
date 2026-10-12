@@ -92,9 +92,20 @@ Internal support snapshot:
 GET /api/internal/diagnostic-dump
 ```
 
-The endpoint is protected by the same `X-API-KEY` as the health check and returns a ZIP attachment. It contains `summary.json`, `accounts.json`, `folder-sync-states.json`, `message-counts.json` and `runtime.json`.
+The endpoint is protected by the same `X-API-KEY` as the health check and returns a ZIP attachment. The user gets the same ZIP from **Stáhnout diagnostiku** in Settings → About and on the boot screens. It holds:
 
-The dump deliberately carries no passwords, OAuth tokens, internal API key, message content, message subjects or full email addresses. Accounts are listed with a masked email, the provider, the authentication type, the IMAP/SMTP host/port/SSL configuration, the reauth state and a flag for whether a `last_error` exists.
+- `manifest.json` — what the bundle carries and what it left out: each part's outcome, every log file with its size and whether it went in whole, was cut at the budget or was left out, and how many addresses, tokens and API keys the safety net replaced. Read it first.
+- `summary.json` — versions (app, API, DB schema), counts, the IMAP pool and the number of cached OAuth tokens.
+- `accounts.json` — per account a masked email, the provider, the authentication type, the IMAP/SMTP host/port/SSL configuration, the reauth state and the last error as its code and arguments (`cause` is a `MailFailureCause` name).
+- `folder-sync-states.json`, `message-counts.json` — per folder, under its own name, next to its role.
+- `runtime.json` — data paths with the home directory as `~`, Java and OS versions, heap, the size of `mail.db` and its WAL, free disk space.
+- `client-boot.json`, `startup-timings.json` — the last client boot (with the frontend's version) and the backend's startup phases.
+- `threads.txt` — every thread, virtual ones included, as `jcmd Thread.dump_to_file` would write them. The one to read when something hangs.
+- `logs/` — the logs folder as it is on disk: `mail.log`, `mail-frontend.log` and `audit.log`, then the rotated files from the newest, uncompressed and under their own names, up to 24 MB of text. Folder names, account names and paths stay as the log wrote them. Only what no log may hold is replaced, as a safety net for text the app did not write itself (an SMTP server's `550 <address> unknown`): an unmasked address is masked the way `LogMasker` masks one, a token shape becomes `[token]` and the session API key `[api-key]`. Unpacked, the folder scans as it is: `npm run release:scan-logs -- --logs <unpacked>/logs`.
+
+The dump carries no passwords, OAuth tokens, internal API key, message content or message subjects, and no full address. A dump that cannot read the database (pool exhausted, database locked) still comes back with the runtime, the thread dump and the logs, without accounts and folders, and `manifest.json` names the failure.
+
+Frontend errors reach the bundle through the log: the client posts every uncaught error to `POST /api/internal/client-errors`, which writes one `[CLIENT]` WARN line into `mail.log` — at most twenty a minute, then one line counting what was dropped.
 
 Windows PowerShell:
 
@@ -332,7 +343,7 @@ What happens when a new version starts:
 6. `verifySqlitePragmas` logs the effective PRAGMAs once the application has started.
 7. The `app_started` audit record captures `appVersion`, `dbSchemaVersion` and `previousAppVersion` (derived from the newest backup file).
 
-The Tauri client reads `dbSchemaVersion` from the handshake response and logs it into the diagnostic dump for post-update support.
+The diagnostic dump carries `dbSchemaVersion` in `summary.json`, and the `app_started` records with the checksum in its copy of `audit.log`.
 
 Manual fallback if the Tauri updater fails (network timeout, signature mismatch, disk full): download the current `voxrox-mail-<version>-windows-x64-setup.exe` from GitHub Releases by hand and run it "over" the installation. Data files are preserved. Downgrading with the ordinary installer is forbidden because of the database migrations.
 

@@ -20,7 +20,7 @@ declare global {
 				line?: number;
 				column?: number;
 				context?: Record<string, unknown>;
-			}) => Promise<'sent' | 'disabled' | 'failed'>;
+			}) => Promise<'sent' | 'disabled' | 'repeated' | 'failed'>;
 			resetClientErrorReportingForTests: () => void;
 			showMockUpdateForTests: (
 				version?: string,
