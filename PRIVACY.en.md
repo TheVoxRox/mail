@@ -185,9 +185,11 @@ GitHub, for example), anyone can read what is in it.
 When the app does not start, the diagnostics cannot be downloaded, because the
 app's service prepares them. The screen that reports the failed start
 therefore also has a **Save logs** button: it saves a ZIP to your Downloads
-folder with every file of the `logs/` folder (at most 64 MB, newest first),
-exactly as they are on disk, and a short note with the app's version. This ZIP
-is not sent anywhere by itself either.
+folder with every file of the `logs/` folder (at most 64 MB of text, newest
+first, older `.gz` files unpacked) and a short note with the app's version.
+The logs in it are as they are on disk, with the same safety net as in the
+diagnostic bundle: unmasked e-mail addresses are masked, and tokens and the
+internal API key are replaced. This ZIP is not sent anywhere by itself either.
 
 ## Third parties
 

@@ -179,8 +179,11 @@ jeho obsah kdokoli.
 Když se aplikace nespustí, diagnostiku stáhnout nejde, protože ji připravuje
 služba aplikace. Na obrazovce s chybou spuštění je proto také tlačítko **Uložit
 logy**: uloží do složky Stažené soubory ZIP se všemi soubory ze složky `logs/`
-(nejvýš 64 MB, novější přednostně), přesně tak, jak jsou na disku, a krátkou
-poznámku s verzí aplikace. Ani tento ZIP se nikam neodesílá sám.
+(nejvýš 64 MB textu, novější přednostně, starší soubory `.gz` rozbalené) a
+krátkou poznámku s verzí aplikace. Logy v něm jsou tak, jak jsou na disku, se
+stejnou pojistkou jako v diagnostickém balíčku: nezamaskované e-mailové adresy
+se zamaskují a tokeny a interní API klíč se nahradí. Ani tento ZIP se nikam
+neodesílá sám.
 
 ## Třetí strany
 

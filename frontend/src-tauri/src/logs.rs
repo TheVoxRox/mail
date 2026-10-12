@@ -7,20 +7,31 @@
 //! went to the webview's console, which a release build keeps nowhere, so a
 //! JVM that died before its own log was open left no trace at all. And
 //! `export_logs` packs the logs folder into a ZIP in the user's Downloads
-//! folder, as the files are on disk, without asking the backend for anything.
+//! folder without asking the backend for anything: the files as they are on
+//! disk, rotated `.gz` files unpacked, through the same safety net the
+//! diagnostic dump uses (redact.rs).
 
 use std::fs::{self, File, OpenOptions};
-use std::io::{self, Write};
+use std::io::{self, BufRead, BufReader, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use flate2::read::GzDecoder;
 use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipWriter};
 
-/// Bytes of log files the ZIP takes at most, newest files first. Rotation keeps
+use crate::redact::Redactor;
+
+/// Bytes of log text the ZIP takes at most, newest files first. Rotation keeps
 /// the folder near 100 MB for `mail.log` and lets `audit.log` grow for a year.
 const BUDGET_BYTES: u64 = 64 * 1024 * 1024;
+
+const GZ: &str = ".gz";
+/// A gzip header (10 bytes) and trailer (8 bytes) around an empty body.
+const GZIP_MINIMUM_BYTES: u64 = 18;
+/// The most deflate can shrink data by (zlib technical details: 1032:1).
+const DEFLATE_MAX_RATIO: u64 = 1032;
 
 /// stderr lines of the sidecar written per run of the app; a JVM that loops on
 /// an error must not rotate the shell's own log away.
@@ -74,6 +85,7 @@ pub async fn export_logs(logs: tauri::State<'_, LogsDir>) -> Result<String, Stri
             &destination,
             SystemTime::now(),
             env!("CARGO_PKG_VERSION"),
+            BUDGET_BYTES,
         )
     })
     .await
@@ -92,54 +104,94 @@ fn write_logs_zip(
     destination: &Path,
     now: SystemTime,
     version: &str,
+    budget: u64,
 ) -> io::Result<PathBuf> {
     let stamp = utc_stamp(now);
     let (file, path) = create_unique(destination, &format!("voxrox-mail-logs-{stamp}"))?;
     // A ZIP that fails halfway must not stay in Downloads looking like a result.
-    fill_zip(file, logs_dir, now, version).inspect_err(|_| {
+    fill_zip(file, logs_dir, now, version, budget).inspect_err(|_| {
         let _ = fs::remove_file(&path);
     })?;
     Ok(path)
 }
 
-fn fill_zip(file: File, logs_dir: &Path, now: SystemTime, version: &str) -> io::Result<()> {
+fn fill_zip(
+    file: File,
+    logs_dir: &Path,
+    now: SystemTime,
+    version: &str,
+    budget: u64,
+) -> io::Result<()> {
     let mut zip = ZipWriter::new(file);
     let options = SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
+    let mut redactor = Redactor::new(logs_dir.parent().and_then(session_api_key));
 
     let mut included = Vec::new();
     let mut left_out = Vec::new();
-    let mut total = 0u64;
+    let mut remaining = budget;
+    let mut used_names = std::collections::HashSet::new();
     for (name, file_path, size) in newest_first(logs_dir)? {
-        if total + size > BUDGET_BYTES {
-            left_out.push(format!("{name} ({size} bytes)"));
+        if remaining == 0 {
+            left_out.push(format!("{name} (over the budget)"));
             continue;
         }
+        let gzipped = name.ends_with(GZ);
         // Opened before its entry starts: an unreadable file must not leave an
         // empty entry that reads as an empty log.
-        match File::open(&file_path) {
-            Ok(mut source) => {
-                zip.start_file(format!("logs/{name}"), options)
-                    .map_err(io::Error::other)?;
-                let copied = io::copy(&mut source, &mut zip)?;
-                total += copied;
-                included.push(format!("{name} ({copied} bytes)"));
+        let reader = match open_text(&file_path, gzipped) {
+            Ok(reader) => reader,
+            Err(err) => {
+                left_out.push(format!("{name} (unreadable: {err})"));
+                continue;
             }
-            Err(err) => left_out.push(format!("{name} (unreadable: {err})")),
+        };
+        // A `.gz` goes in unpacked under its name without the suffix, unless a
+        // plain file already took that name: one ZIP cannot hold the same entry
+        // twice, and a duplicate would fail the whole save.
+        let unpacked = name.strip_suffix(GZ).unwrap_or(&name);
+        let entry = if used_names.insert(unpacked.to_string()) {
+            unpacked.to_string()
+        } else {
+            name.clone()
+        };
+        zip.start_file(format!("logs/{entry}"), options)
+            .map_err(io::Error::other)?;
+        let estimate = if gzipped {
+            gzip_text_size(&file_path)
+        } else {
+            Some(size)
+        };
+        let copy = copy_redacted(reader, &mut zip, &mut redactor, estimate, remaining)?;
+        remaining -= copy.written;
+        let state = match (&copy.failure, copy.truncated) {
+            (Some(err), _) => format!(", unreadable after that: {err}"),
+            (None, true) => ", oldest lines left out for the budget".to_string(),
+            (None, false) => String::new(),
+        };
+        included.push(format!("{entry} ({} bytes{state})", copy.written));
+        if copy.truncated {
+            remaining = 0;
         }
     }
 
     zip.start_file("about.txt", options)
         .map_err(io::Error::other)?;
     let mut about = format!(
-        "VoxRox Mail {version}, logs saved {} UTC without the backend.\n\nIncluded:\n",
-        utc_text(now)
+        "VoxRox Mail {version}, logs saved {} UTC without the backend.\n\n\
+         The files are as they are on disk, rotated .gz files unpacked, except \
+         that {} unmasked address(es), {} token(s) and {} copy(ies) of the \
+         session API key were replaced.\n\nIncluded:\n",
+        utc_text(now),
+        redactor.addresses,
+        redactor.tokens,
+        redactor.api_keys
     );
     for line in &included {
         about.push_str(&format!("  {line}\n"));
     }
     if !left_out.is_empty() {
         about.push_str(&format!(
-            "\nLeft out (over {BUDGET_BYTES} bytes, or unreadable):\n"
+            "\nLeft out (over {budget} bytes of text, or unreadable):\n"
         ));
         for line in &left_out {
             about.push_str(&format!("  {line}\n"));
@@ -148,6 +200,102 @@ fn fill_zip(file: File, logs_dir: &Path, now: SystemTime, version: &str) -> io::
     zip.write_all(about.as_bytes())?;
     zip.finish().map_err(io::Error::other)?;
     Ok(())
+}
+
+/// The API key of the backend's last session, from `session.json` next to the
+/// logs folder, so a line that carries it is caught. A key from an earlier
+/// session is not known any more; none is known to reach a log.
+fn session_api_key(data_root: &Path) -> Option<String> {
+    let text = fs::read_to_string(data_root.join("session.json")).ok()?;
+    let session: serde_json::Value = serde_json::from_str(&text).ok()?;
+    session.get("apiKey")?.as_str().map(str::to_string)
+}
+
+fn open_text(path: &Path, gzipped: bool) -> io::Result<Box<dyn BufRead>> {
+    let file = File::open(path)?;
+    Ok(if gzipped {
+        Box::new(BufReader::new(GzDecoder::new(file)))
+    } else {
+        Box::new(BufReader::new(file))
+    })
+}
+
+struct CopyResult {
+    written: u64,
+    truncated: bool,
+    failure: Option<io::Error>,
+}
+
+/// Copies one file's lines through the redactor. A file whose text is larger
+/// than the budget keeps its newest lines: as many of its oldest are skipped as
+/// make it fit, with a tenth of the budget to spare for a line coming out
+/// longer than it went in, and what still does not fit is cut at the end. A
+/// read that fails ends the entry where it got to (a `.gz` Logback is still
+/// compressing ends early) and names the failure; a write that fails fails the
+/// whole ZIP.
+fn copy_redacted(
+    mut reader: Box<dyn BufRead>,
+    zip: &mut ZipWriter<File>,
+    redactor: &mut Redactor,
+    estimate: Option<u64>,
+    budget: u64,
+) -> io::Result<CopyResult> {
+    let mut to_skip = match estimate {
+        Some(size) if size > budget => size - (budget - budget / 10),
+        _ => 0,
+    };
+    let mut truncated = to_skip > 0;
+    let mut written = 0u64;
+    let mut failure = None;
+    let mut raw = Vec::new();
+    loop {
+        raw.clear();
+        match reader.read_until(b'\n', &mut raw) {
+            Ok(0) => break,
+            Ok(read) => {
+                if to_skip > 0 {
+                    to_skip = to_skip.saturating_sub(read as u64);
+                    continue;
+                }
+                let text = String::from_utf8_lossy(&raw);
+                let line = text.trim_end_matches(['\n', '\r']);
+                let out = redactor.redact(line) + "\n";
+                if written + out.len() as u64 > budget {
+                    truncated = true;
+                    break;
+                }
+                zip.write_all(out.as_bytes())?;
+                written += out.len() as u64;
+            }
+            Err(err) => {
+                failure = Some(err);
+                break;
+            }
+        }
+    }
+    Ok(CopyResult {
+        written,
+        truncated,
+        failure,
+    })
+}
+
+/// The size of a `.gz` file's text: the ISIZE field its trailer ends with (RFC
+/// 1952), the uncompressed length mod 2^32 of the one member Logback writes.
+/// A file Logback is still compressing has no trailer yet, and its last four
+/// bytes are compressed data: a length deflate could not have produced from
+/// this many bytes is that, not a length, and reads as unknown.
+fn gzip_text_size(path: &Path) -> Option<u64> {
+    let mut file = File::open(path).ok()?;
+    let size = file.metadata().ok()?.len();
+    if size < GZIP_MINIMUM_BYTES {
+        return None;
+    }
+    file.seek(SeekFrom::End(-4)).ok()?;
+    let mut trailer = [0u8; 4];
+    file.read_exact(&mut trailer).ok()?;
+    let isize = u64::from(u32::from_le_bytes(trailer));
+    (isize >= size / 2 && isize <= size * DEFLATE_MAX_RATIO).then_some(isize)
 }
 
 /// The regular files of the logs folder, newest first. A folder that is not
@@ -264,8 +412,10 @@ fn utc_parts(time: SystemTime) -> (i64, u32, u32, u32, u32, u32) {
 #[cfg(test)]
 mod tests {
     use super::{one_line, utc_stamp, utc_text, write_logs_zip};
+    use flate2::write::GzEncoder;
+    use flate2::Compression;
     use std::fs;
-    use std::io::Read;
+    use std::io::{Read, Write};
     use std::path::PathBuf;
     use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -303,22 +453,46 @@ mod tests {
         assert_eq!(one_line(&long).chars().count(), 2_000 + 3);
     }
 
+    fn gzip(path: &std::path::Path, text: &str) {
+        let mut encoder = GzEncoder::new(fs::File::create(path).unwrap(), Compression::default());
+        encoder.write_all(text.as_bytes()).unwrap();
+        encoder.finish().unwrap();
+    }
+
+    fn entry(archive: &mut zip::ZipArchive<fs::File>, name: &str) -> String {
+        let mut text = String::new();
+        archive
+            .by_name(name)
+            .unwrap()
+            .read_to_string(&mut text)
+            .unwrap();
+        text
+    }
+
     #[test]
-    fn the_zip_carries_every_log_file_as_it_is_and_says_what_it_holds() {
+    fn the_zip_carries_the_logs_as_on_disk_less_what_no_log_may_hold() {
         let root = temp_dir("export");
         let logs = root.join("logs");
         fs::create_dir_all(&logs).unwrap();
         fs::write(
-            logs.join("mail.log"),
-            "line naming the folder Lawyer/Divorce\n",
+            root.join("session.json"),
+            r#"{ "apiKey": "canary-api-key-4417-abcdefghij" }"#,
         )
         .unwrap();
-        fs::write(logs.join("mail.log.2026-10-11.0.gz"), [0x1f, 0x8b, 0x08]).unwrap();
+        fs::write(
+            logs.join("mail.log"),
+            "line naming the folder Lawyer/Divorce\n550 <jane.novak@example.org> unknown\nkey canary-api-key-4417-abcdefghij\n",
+        )
+        .unwrap();
+        gzip(
+            &logs.join("mail.log.2026-10-11.0.gz"),
+            "older line with Bearer abcdefghijklmnopqrstuvwxyz\n",
+        );
         let downloads = root.join("Downloads");
         let now = UNIX_EPOCH + Duration::from_secs(1_791_793_800);
 
-        let first = write_logs_zip(&logs, &downloads, now, "9.8.7").unwrap();
-        let second = write_logs_zip(&logs, &downloads, now, "9.8.7").unwrap();
+        let first = write_logs_zip(&logs, &downloads, now, "9.8.7", 1 << 20).unwrap();
+        let second = write_logs_zip(&logs, &downloads, now, "9.8.7", 1 << 20).unwrap();
 
         assert_eq!(
             first.file_name().unwrap(),
@@ -329,37 +503,54 @@ mod tests {
             "voxrox-mail-logs-20261012-083000-2.zip"
         );
         let mut archive = zip::ZipArchive::new(fs::File::open(&first).unwrap()).unwrap();
-        let mut log = String::new();
-        archive
-            .by_name("logs/mail.log")
-            .unwrap()
-            .read_to_string(&mut log)
-            .unwrap();
-        assert_eq!(log, "line naming the folder Lawyer/Divorce\n");
-        let mut rotated = Vec::new();
-        archive
-            .by_name("logs/mail.log.2026-10-11.0.gz")
-            .unwrap()
-            .read_to_end(&mut rotated)
-            .unwrap();
-        assert_eq!(rotated, vec![0x1f, 0x8b, 0x08]);
-        let mut about = String::new();
-        archive
-            .by_name("about.txt")
-            .unwrap()
-            .read_to_string(&mut about)
-            .unwrap();
+        assert_eq!(
+            entry(&mut archive, "logs/mail.log"),
+            "line naming the folder Lawyer/Divorce\n550 <j***k@example.org> unknown\nkey [api-key]\n"
+        );
+        // Rotated files go in unpacked, under the name without .gz.
+        assert_eq!(
+            entry(&mut archive, "logs/mail.log.2026-10-11.0"),
+            "older line with [token]\n"
+        );
+        let about = entry(&mut archive, "about.txt");
         assert!(about.starts_with(
             "VoxRox Mail 9.8.7, logs saved 2026-10-12 08:30:00 UTC without the backend."
         ));
-        assert!(about.contains("mail.log (38 bytes)"));
+        assert!(about.contains("1 unmasked address(es), 1 token(s) and 1 copy(ies)"));
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_file_over_the_budget_keeps_its_newest_lines() {
+        let root = temp_dir("budget");
+        let logs = root.join("logs");
+        fs::create_dir_all(&logs).unwrap();
+        fs::write(
+            logs.join("mail.log"),
+            "older 1\nolder 2\nolder 3\nolder 4\n",
+        )
+        .unwrap();
+
+        // 32 bytes of text into 24: with a tenth spare, its newest two lines.
+        let zip = write_logs_zip(&logs, &root, SystemTime::now(), "9.8.7", 24).unwrap();
+
+        let mut archive = zip::ZipArchive::new(fs::File::open(&zip).unwrap()).unwrap();
+        assert_eq!(entry(&mut archive, "logs/mail.log"), "older 3\nolder 4\n");
+        assert!(entry(&mut archive, "about.txt").contains("oldest lines left out"));
         let _ = fs::remove_dir_all(&root);
     }
 
     #[test]
     fn a_missing_logs_folder_gives_a_zip_with_only_its_note() {
         let root = temp_dir("missing");
-        let zip = write_logs_zip(&root.join("logs"), &root, SystemTime::now(), "9.8.7").unwrap();
+        let zip = write_logs_zip(
+            &root.join("logs"),
+            &root,
+            SystemTime::now(),
+            "9.8.7",
+            1 << 20,
+        )
+        .unwrap();
 
         let archive = zip::ZipArchive::new(fs::File::open(&zip).unwrap()).unwrap();
         assert_eq!(archive.file_names().collect::<Vec<_>>(), vec!["about.txt"]);
