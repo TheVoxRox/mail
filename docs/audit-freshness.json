@@ -41,6 +41,30 @@
     "Both clocks reset the same way: re-verify the audit, bump `Audited commit`,",
     "and delete the entry from this file."
   ],
+  "docs/API_SURFACE_AUDIT.md": {
+    "reviewedTrees": {
+      "backend/src/main/java/org/voxrox/mailbackend/core/diagnostic": "2f832eb8f280cc887d4cddb443697d9e9b01ed9a",
+      "frontend/src-tauri/src/logs.rs": "8ccc54b6ca27a2c4d86647e605817ecf76bdcb59",
+      "frontend/src-tauri/src/redact.rs": "c6a91390c53516375efb3b8e894657d138afad7c"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-10-12",
+        "note": "A4 fixed and recorded in the audit itself as v1.16; anchor unchanged at 5def679. Under core/diagnostic only a javadoc changes: DiagnosticLogRedactor names its Rust twin, redact.rs. logs.rs passes every line of the Save logs ZIP through redact.rs (unmasked addresses masked as LogMasker masks them, the token shapes of log-scan.mjs, the API key read from session.json next to the logs folder), unpacks rotated .gz files under their names without .gz, budgets text and keeps a file's newest lines, as section 5 says the dump does. No endpoint, filter, DTO, error response or dump entry changes. A4's residual now is section 5's: what the safety net does not catch. The independent pass over the fix is to come (AUDIT_GUIDE section 5). Verdict PASS."
+      }
+    ]
+  },
+  "docs/UPDATER_AUDIT.md": {
+    "reviewedTrees": {
+      "frontend/src-tauri/src": "6f8852166ac87643eb477c2e0d1e8026a674b130"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-10-12",
+        "note": "Under src-tauri/src the Save logs path of section 1 changes (API_SURFACE_AUDIT.md A4, fixed in its v1.16): logs.rs passes each line through the new redact.rs and unpacks rotated .gz files with flate2, and export_logs also reads session.json next to the logs folder for the key to replace; lib.rs gains `mod redact`. The command list is unchanged: export_logs, log_sidecar_stderr and log_sidecar_exit, none taking a path, URL, key or version from the renderer. regex and flate2 were already in the tree, so Cargo.lock gains edges and no crate. check_for_update, download_pending_update, install_pending_update, PendingUpdate, DownloadedUpdate, the channel map and the pubkey are untouched. Verdict stays PASS."
+      }
+    ]
+  },
   "docs/CRYPTO_STORAGE_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/core/init": "6b860914def198938000e51a328137049fffac81",
