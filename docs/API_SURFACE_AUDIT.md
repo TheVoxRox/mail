@@ -634,7 +634,7 @@ not. No token or key is known to reach the logs — the app's own log sites log
 none (the log-hygiene records), and the key of an ended session authorizes
 nothing — so in practice the missing safety net matters for addresses.
 
-**Fix (1.16, #PR).** The owner chose the first of the two ways the 1.15 pass
+**Fix (1.16, #704).** The owner chose the first of the two ways the 1.15 pass
 named. `export_logs` now passes every line through
 [redact.rs](../frontend/src-tauri/src/redact.rs), a Rust port of
 `DiagnosticLogRedactor` with the same rules: an address not already masked
@@ -736,7 +736,7 @@ still to come (AUDIT_GUIDE §5).
 
 ## 9. Change log
 
-- **1.16** (2026-10-12) — **A4 fixed** (#PR) by the author of #701, anchor
+- **1.16** (2026-10-12) — **A4 fixed** (#704) by the author of #701, anchor
   unchanged at `5def679` (the drift is acknowledged in the ledger): the Save
   logs ZIP now passes every line through `redact.rs`, a Rust port of
   `DiagnosticLogRedactor`, unpacks rotated `.gz` files and keeps a file's
