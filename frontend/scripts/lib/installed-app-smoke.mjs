@@ -25,7 +25,7 @@ export const INSTALL_ENTRIES = [
 	'uninstall.exe'
 ];
 
-/** The sections DiagnosticDumpService writes into the ZIP. */
+/** The JSON sections DiagnosticDumpService writes into the ZIP; threads.txt and logs/ are text. */
 export const DUMP_ENTRIES = [
 	'summary.json',
 	'accounts.json',
@@ -33,7 +33,8 @@ export const DUMP_ENTRIES = [
 	'message-counts.json',
 	'runtime.json',
 	'client-boot.json',
-	'startup-timings.json'
+	'startup-timings.json',
+	'manifest.json'
 ];
 
 /** Entries of `expected` absent from `present`, compared the way Windows compares file names. */
