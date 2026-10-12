@@ -127,7 +127,7 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "ff7f8fc27f0325cce769ef6d32ab1b7970224447",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "fe004ef8e3535a476a109bc85296756fda2a333c",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "9529c23f5e6525d047964bbe6f7342c525ddbdca",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/MessageEntity.java": "f3f30cd4be6904739e50a7c4a58212c6d9679cf1",
       "backend/src/main/resources/application.properties": "e32931284645050519fd545b10ab30f24bf048c9"
@@ -148,6 +148,10 @@
       {
         "date": "2026-10-11",
         "note": "Under this audit's paths only application.properties changes: mail.crypto.pbkdf2-iterations=600000 is removed, because the count is now a constant in CryptoService (CRYPTO_STORAGE_AUDIT.md v1.2), and the comment above the crypto keys names it among the format constants. No mail.client.imap.*, mail.client.sync.* or SMTP key moves, so no bound a finding rests on changes. Verdict unchanged."
+      },
+      {
+        "date": "2026-10-12",
+        "note": "Under this audit's paths only FolderListCache changes, for the diagnostic dump: put() also records each listed folderRef in a per-account set that neither expiry nor invalidate() clears, at most 10,000 names an account, and seenFolderRefs() hands a copy to DiagnosticDumpService, which replaces those names in its copy of the logs. No IMAP request, parse, bound, lane or lock moves; the snapshot, its TTL and its invalidation are unchanged. A server listing different names on every LIST grows the new set only up to the cap. Verdict unchanged."
       }
     ]
   },
@@ -157,7 +161,9 @@
       "backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java": "69fc4c0197c480dc39ba3c38dece6874faec8d17",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/controller": "692ba8438145523812508bf00fb95e2a69ca6bc5",
       "backend/src/main/resources/application.properties": "e32931284645050519fd545b10ab30f24bf048c9",
-      "backend/src/main/java/org/voxrox/mailbackend/core/security": "bf06b6c7cf1862d9740043da320004127de2fde0"
+      "backend/src/main/java/org/voxrox/mailbackend/core/security": "bf06b6c7cf1862d9740043da320004127de2fde0",
+      "backend/src/main/java/org/voxrox/mailbackend/core/diagnostic": "595e591731a1c2d0f7df0a66d0d28b9412a7b3c4",
+      "frontend/src/lib/api/clientBootDiagnostics.ts": "9c5e48bc2ef82bf30630b3664073d10828a933e5"
     },
     "acknowledgements": [
       {
@@ -187,6 +193,10 @@
       {
         "date": "2026-10-11",
         "note": "Two paths move, both for the PBKDF2 iteration count becoming a constant in CryptoService (CRYPTO_STORAGE_AUDIT.md v1.2). application.properties loses mail.crypto.pbkdf2-iterations=600000, and the comment above the crypto keys says why. Under core/security only CryptoService.java and CryptoProperties.java change: the count moves from the record into a constant behind an @Autowired constructor, which is the B5 audit's subject; ApiKeyFilter, the chokepoint section 1 rests on, and everything else in the directory are byte-identical to 55f4afa. No key this audit relies on moves (server.address, server.port, the spring.web.error include-* settings, springdoc.*, the actuator exposure); no endpoint, filter or response shape changes. Verdict unchanged."
+      },
+      {
+        "date": "2026-10-12",
+        "note": "The diagnostic dump carries the logs. Under core/diagnostic: the dump gains a copy of the logs folder rewritten by DiagnosticLogRedactor (addresses masked, every folder but INBOX under its pseudonym, account names, display names, logins, the API key, tokens, the home directory and the Windows user name replaced) within a 24 MB budget (DiagnosticLogExport), threads.txt (DiagnosticThreadDump), manifest.json, each account's last error by code and arguments (a folder argument pseudonymised, an argument the code does not name and the stored text left out), the schema version, file sizes and free disk space; a dump that cannot read the database comes back without accounts, folders and logs. One endpoint is added, POST /api/internal/client-errors (ClientErrorReportController), which writes a bounded [CLIENT] WARN line into mail.log: it is not among SecurityConfig.PUBLIC_ENDPOINTS, so anyRequest().hasAuthority(API_CLIENT_AUTHORITY) puts it behind the key like client-boot, it is @Hidden and under springdoc.paths-to-exclude, every field is cut before it is logged, at most 20 reports a minute are written, and the route and a page source are cut by the route sanitizer client-boot uses. clientBootDiagnostics.ts adds the frontend's version to the boot report. Read against sections 1, 3 and 5: no keyless path is added and no error response changes; DiagnosticDumpPrivacyIT scans the logs/ entries for its canaries after a real sync, and tauri:smoke:sidecar's leak scan covers every entry. The verdict does not move on what was read, but sections 1 and 5 now describe a dump without logs and an endpoint list without client-errors, and the copy's residuals (exception text kept with addresses masked; a folder unlisted since start or with a name under three characters keeps it) are new matter for section 5. This is the eighth acknowledgement: the re-verification todo.md plans before the re-cut has to take this change with it."
       }
     ]
   },
