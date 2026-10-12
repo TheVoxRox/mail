@@ -8,7 +8,10 @@ public enum LogCategory {
 
     DATABASE("DATABASE"), IMAP("IMAP"), SMTP("SMTP"), ATTACHMENT("ATTACHMENT"),
 
-    SECURITY("SECURITY"), ERROR("ERROR"), CRITICAL("CRITICAL");
+    SECURITY("SECURITY"), ERROR("ERROR"), CRITICAL("CRITICAL"),
+
+    /** An error the frontend reported from the webview. */
+    CLIENT("CLIENT");
 
     private final String label;
 

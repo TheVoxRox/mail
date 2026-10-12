@@ -47,6 +47,7 @@ import org.voxrox.mailbackend.feature.mail.dto.FolderResponse;
 import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
 import org.voxrox.mailbackend.feature.mail.service.ImapFolderService;
 import org.voxrox.mailbackend.feature.mail.service.MailSyncService;
+import org.voxrox.mailbackend.feature.mail.service.MailboxMaintenanceService;
 import org.voxrox.mailbackend.feature.mail.service.TestTls;
 
 import com.icegreen.greenmail.junit5.GreenMailExtension;
@@ -94,6 +95,9 @@ class DiagnosticDumpPrivacyIT {
     // A folder the user created under a system folder's exact name: without
     // SPECIAL-USE, the one way a user's own folder still gets a role.
     private static final String SYSTEM_NAMED_FOLDER = "Newsletters";
+    // A folder the app lists but never synchronises, as a folder the user only
+    // moves mail into: no sync state knows its name, the log still writes it.
+    private static final String LISTED_ONLY_FOLDER = "Canary Moved Here 4417";
     private static final String SUBJECT = "Canary subject 4417";
     private static final String BODY = "Canary body text 4417";
     private static final String TOKEN = "ya29.canary-access-token-4417-abcdefghijklmnop";
@@ -143,6 +147,8 @@ class DiagnosticDumpPrivacyIT {
     private ObjectMapper objectMapper;
     @Autowired
     private StorageProperties storageProperties;
+    @Autowired
+    private MailboxMaintenanceService mailboxMaintenanceService;
 
     @Test
     @DisplayName("The dump carries no address, credential, token, API key, message content or user-named folder")
@@ -158,6 +164,7 @@ class DiagnosticDumpPrivacyIT {
         appendToFolder(CUSTOM_FOLDER);
         appendToFolder(ROLE_WORD_FOLDER);
         appendToFolder(SYSTEM_NAMED_FOLDER);
+        appendToFolder(LISTED_ONLY_FOLDER);
         assertThat(mailSyncService.performFullSyncCycle(account, "INBOX", FolderRole.INBOX)).isTrue();
         assertThat(mailSyncService.performFullSyncCycle(account, CUSTOM_FOLDER)).isTrue();
         // Each with the role the account pass forwards: the one the folder listing
@@ -170,6 +177,8 @@ class DiagnosticDumpPrivacyIT {
         assertThat(mailSyncService.performFullSyncCycle(account, ROLE_WORD_FOLDER, roleWordRole)).isTrue();
         assertThat(mailSyncService.performFullSyncCycle(account, SYSTEM_NAMED_FOLDER, systemNamedRole)).isTrue();
         cacheToken(account.getId());
+        // Writes the listed-only folder's name into mail.log, as a move into it would.
+        mailboxMaintenanceService.clearLocalCache(account.getId(), LISTED_ONLY_FOLDER);
 
         JsonNode session = objectMapper
                 .readTree(Files.readString(storageProperties.getDataPath().resolve("session.json")));
@@ -184,13 +193,14 @@ class DiagnosticDumpPrivacyIT {
 
         Map<String, String> entries = unzip(response.body());
         assertThat(entries).containsKeys("summary.json", "accounts.json", "folder-sync-states.json",
-                "message-counts.json", "runtime.json", "client-boot.json");
+                "message-counts.json", "runtime.json", "client-boot.json", "threads.txt", "manifest.json",
+                "logs/mail.log", "logs/audit.log");
         String home = System.getProperty("user.home");
         for (Map.Entry<String, String> entry : entries.entrySet()) {
             assertThat(entry.getValue()).as(entry.getKey()).doesNotContain(EMAIL, "canary.owner", LOGIN, PASSWORD,
                     "canary.sender", SUBJECT, BODY, CUSTOM_FOLDER, ENCODED_CUSTOM_FOLDER, "Canary Novak",
-                    "\"" + SYSTEM_NAMED_FOLDER + "\"", TOKEN, apiKey,
-                    objectMapper.writeValueAsString(home).replace("\"", ""));
+                    "\"" + SYSTEM_NAMED_FOLDER + "\"", LISTED_ONLY_FOLDER, "Canary Moved", "Canary account", TOKEN,
+                    apiKey, objectMapper.writeValueAsString(home).replace("\"", ""), home);
         }
 
         // The dump still says what support needs.
@@ -199,6 +209,11 @@ class DiagnosticDumpPrivacyIT {
                 .contains("\"folder-2\"").contains("\"folder-3\"").contains("\"NEWSLETTERS\"");
         assertThat(objectMapper.readTree(entries.get("client-boot.json")).get("route").asString()).isEqualTo("/mail");
         assertThat(objectMapper.readTree(entries.get("summary.json")).get("oauthCachedTokens").asInt()).isEqualTo(1);
+        // The logs went in, and say the same things under the pseudonyms.
+        assertThat(entries.get("logs/mail.log")).containsPattern("Initial sync of folder folder-\\d+")
+                .contains("Creating new account: account-");
+        assertThat(entries.get("logs/mail.log"))
+                .containsPattern("Clearing local cache for account \\d+ and folder folder-\\d+");
     }
 
     /**

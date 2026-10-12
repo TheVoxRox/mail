@@ -92,9 +92,20 @@ Internal support snapshot:
 GET /api/internal/diagnostic-dump
 ```
 
-The endpoint is protected by the same `X-API-KEY` as the health check and returns a ZIP attachment. It contains `summary.json`, `accounts.json`, `folder-sync-states.json`, `message-counts.json` and `runtime.json`.
+The endpoint is protected by the same `X-API-KEY` as the health check and returns a ZIP attachment. The user gets the same ZIP from **Stáhnout diagnostiku** in Settings → About and on the boot screens. It holds:
 
-The dump deliberately carries no passwords, OAuth tokens, internal API key, message content, message subjects or full email addresses. Accounts are listed with a masked email, the provider, the authentication type, the IMAP/SMTP host/port/SSL configuration, the reauth state and a flag for whether a `last_error` exists.
+- `manifest.json` — what the bundle carries and what it left out: each part's outcome, every log file with its size and whether it went in whole, was cut at the budget or was left out, and how many replacements of each kind the redaction made. Read it first.
+- `summary.json` — versions (app, API, DB schema), counts, the IMAP pool and the number of cached OAuth tokens.
+- `accounts.json` — per account a masked email, the provider, the authentication type, the IMAP/SMTP host/port/SSL configuration, the reauth state and the last error as its code and arguments (`cause` is a `MailFailureCause` name, a folder is its pseudonym).
+- `folder-sync-states.json`, `message-counts.json` — per folder; every folder but INBOX is a pseudonym (`folder-3`) next to its role.
+- `runtime.json` — data paths with the home directory as `~`, Java and OS versions, heap, the size of `mail.db` and its WAL, free disk space.
+- `client-boot.json`, `startup-timings.json` — the last client boot (with the frontend's version) and the backend's startup phases.
+- `threads.txt` — every thread, virtual ones included, as `jcmd Thread.dump_to_file` would write them. The one to read when something hangs.
+- `logs/` — a redacted copy of the logs folder: `mail.log`, `mail-frontend.log` and `audit.log`, then the rotated files from the newest, uncompressed and under their own names, up to 24 MB of text. Every address is masked, every folder but INBOX carries the pseudonym `folder-sync-states.json` uses, account names, display names and logins become `account-<id>`, `account-<id>-name` and a masked login, the home directory `~`, the Windows user name `[user]`, tokens and the API key a marker. Unpacked, the folder scans as it is: `npm run release:scan-logs -- --logs <unpacked>/logs`.
+
+The dump carries no passwords, OAuth tokens, internal API key, message content or message subjects. What the log copy keeps is the text of exceptions as a server or a library wrote it, with addresses masked; and it can still name a folder the app has not listed or synced since it started (a folder deleted a few days ago), or one whose name is under three characters or has no letter (the same rule spares a short account or Windows user name); an account name the app derived from the address ("Gmail") or the provider's name is kept, being a word the log uses for the provider. A folder name two accounts share is written with both labels, `folder-2|folder-7`. A dump that cannot read the database (pool exhausted, database locked) still comes back, with the thread dump and the runtime, but without accounts, folders and logs: without the folder names it cannot redact them, and `manifest.json` says so.
+
+Frontend errors reach the bundle through the log: the client posts every uncaught error to `POST /api/internal/client-errors`, which writes one `[CLIENT]` WARN line into `mail.log` — at most twenty a minute, then one line counting what was dropped.
 
 Windows PowerShell:
 
@@ -332,7 +343,7 @@ What happens when a new version starts:
 6. `verifySqlitePragmas` logs the effective PRAGMAs once the application has started.
 7. The `app_started` audit record captures `appVersion`, `dbSchemaVersion` and `previousAppVersion` (derived from the newest backup file).
 
-The Tauri client reads `dbSchemaVersion` from the handshake response and logs it into the diagnostic dump for post-update support.
+The diagnostic dump carries `dbSchemaVersion` in `summary.json`, and the `app_started` records with the checksum in its copy of `audit.log`.
 
 Manual fallback if the Tauri updater fails (network timeout, signature mismatch, disk full): download the current `voxrox-mail-<version>-windows-x64-setup.exe` from GitHub Releases by hand and run it "over" the installation. Data files are preserved. Downgrading with the ordinary installer is forbidden because of the database migrations.
 

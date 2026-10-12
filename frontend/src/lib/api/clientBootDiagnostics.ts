@@ -2,6 +2,7 @@ import { page } from '$app/state';
 import { httpFetch } from './http.js';
 import { requireSession } from '$lib/stores/session.js';
 import type { BootState, BootTimings } from '$lib/stores/boot.js';
+import { CLIENT_VERSION } from '$lib/version.js';
 
 interface ClientBootDiagnosticsPayload {
 	reportedAt: string;
@@ -11,6 +12,7 @@ interface ClientBootDiagnosticsPayload {
 	userAgent: string | null;
 	language: string | null;
 	route: string | null;
+	clientVersion: string;
 }
 
 let disabledUntilReload = false;
@@ -56,6 +58,9 @@ function buildPayload(state: BootState): ClientBootDiagnosticsPayload {
 		 * path carries the account, the name of the folder and the message. The
 		 * backend cuts anything that is not shaped like a route id as well.
 		 */
-		route: page.route.id
+		route: page.route.id,
+		// The dump has the backend's version from the backend itself; this one is
+		// what tells a frontend from one build next to a sidecar from another.
+		clientVersion: CLIENT_VERSION
 	};
 }

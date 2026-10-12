@@ -99,6 +99,23 @@ class FolderListCacheTest {
         assertThat(cache.get(7L)).isEmpty();
     }
 
+    @Test
+    @DisplayName("The folder names seen outlive expiry and invalidate, per account")
+    void seenFolderRefsOutliveExpiryAndInvalidate() {
+        AtomicReference<Instant> now = new AtomicReference<>(T0);
+        FolderListCache cache = new FolderListCache(movingClock(now), TTL);
+        cache.put(7L, FOLDERS);
+        cache.put(7L, List.of(new FolderResponse("Taxes", "Taxes", 0, FolderRole.USER)));
+        cache.put(8L, List.of(new FolderResponse("Archive", "Archive", 9, FolderRole.ARCHIVE)));
+
+        cache.invalidate(7L);
+        now.set(T0.plus(TTL).plus(Duration.ofSeconds(1)));
+
+        assertThat(cache.seenFolderRefs()).containsOnlyKeys(7L, 8L);
+        assertThat(cache.seenFolderRefs().get(7L)).containsExactlyInAnyOrder("INBOX", "Sent", "Taxes");
+        assertThat(cache.seenFolderRefs().get(8L)).containsExactly("Archive");
+    }
+
     /**
      * The javadoc on {@code put} promises the snapshot cannot be mutated through
      * the caller's list. Both halves are asserted, because only the second one

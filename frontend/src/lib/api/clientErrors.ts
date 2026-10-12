@@ -1,5 +1,11 @@
-/** Client-side error reporting baseline for the future backend endpoint. */
+/**
+ * Reports an uncaught client error to the backend, which writes it into
+ * `mail.log` (`POST /api/internal/client-errors`). The webview's console is
+ * kept nowhere in a release build, so this is the only way such an error
+ * reaches the diagnostic bundle.
+ */
 
+import { page } from '$app/state';
 import { ApiError } from './client.js';
 import { toErrorMessage } from './errors.js';
 import { httpFetch } from './http.js';
@@ -40,12 +46,20 @@ interface ClientErrorReportPayload {
 	context?: Record<string, unknown>;
 }
 
-type ClientErrorReportResult = 'sent' | 'disabled' | 'failed';
+type ClientErrorReportResult = 'sent' | 'disabled' | 'repeated' | 'failed';
 
 const MAX_TEXT_LENGTH = 4000;
+/*
+ * An error thrown on every frame or every retry would otherwise post itself
+ * hundreds of times a minute. The backend writes at most twenty a minute
+ * anyway; these two keep the client from sending what it would drop, and keep
+ * one noisy error from crowding out a different one.
+ */
+const MAX_REPORTS_PER_LOAD = 20;
 const CLIENT_ERRORS_PATH = '/internal/client-errors';
 
 let disabledUntilReload = false;
+const reportedSignatures = new Set<string>();
 
 function clientErrorsUrl(baseUrl: string): string {
 	return `${baseUrl.replace(/\/+$/, '')}${CLIENT_ERRORS_PATH}`;
@@ -75,11 +89,6 @@ function errorStack(value: unknown): string | null {
 }
 
 function buildPayload(input: ClientErrorReportInput): ClientErrorReportPayload {
-	const route =
-		typeof window !== 'undefined'
-			? `${window.location.pathname}${window.location.search}${window.location.hash}`
-			: null;
-
 	return {
 		eventId: crypto.randomUUID(),
 		occurredAt: new Date().toISOString(),
@@ -90,7 +99,12 @@ function buildPayload(input: ClientErrorReportInput): ClientErrorReportPayload {
 		source: input.source ? truncate(input.source) : null,
 		line: Number.isFinite(input.line) ? (input.line ?? null) : null,
 		column: Number.isFinite(input.column) ? (input.column ?? null) : null,
-		route,
+		/*
+		 * The route id (`/mail/[accountId]/[folderName]`), not the path, as in
+		 * clientBootDiagnostics.ts: the report goes into the log the diagnostic
+		 * bundle carries, and a path names the account, the folder and the message.
+		 */
+		route: page.route.id,
 		userAgent: typeof navigator !== 'undefined' ? truncate(navigator.userAgent) : null,
 		language: typeof navigator !== 'undefined' ? navigator.language : null,
 		backend: null,
@@ -104,6 +118,14 @@ export async function reportClientError(
 	if (disabledUntilReload) return 'disabled';
 
 	let payload = buildPayload(input);
+	const signature = `${payload.kind}\n${payload.message}\n${payload.stack ?? ''}`;
+	if (reportedSignatures.has(signature) || reportedSignatures.size >= MAX_REPORTS_PER_LOAD) {
+		return 'repeated';
+	}
+	// Taken before the send, so the copies thrown while it is in flight stay
+	// home; given back if it fails, so the next copy tries again: an error first
+	// thrown before the backend is up must not be silenced for the whole load.
+	reportedSignatures.add(signature);
 
 	try {
 		const session = await requireSession();
@@ -138,6 +160,7 @@ export async function reportClientError(
 		}
 		return 'sent';
 	} catch (err) {
+		reportedSignatures.delete(signature);
 		// Reporting must never become another user-facing failure path.
 		if (typeof window !== 'undefined' && window.localStorage.getItem('mail.e2e') === '1') {
 			window.__MAIL_LAST_CLIENT_ERROR_REPORT_FAILURE__ = toErrorMessage(err);
@@ -148,4 +171,5 @@ export async function reportClientError(
 
 export function resetClientErrorReportingForTests(): void {
 	disabledUntilReload = false;
+	reportedSignatures.clear();
 }

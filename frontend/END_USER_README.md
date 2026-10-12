@@ -119,18 +119,15 @@ za jejich nahlášení na **info@voxrox.org**.
 
 ## Soukromí a diagnostika
 
-Aplikace je připravená posílat chyby klienta na **lokální** backend endpoint na
-127.0.0.1:
+Neošetřené chyby rozhraní aplikace zapisuje do svého lokálního logu
+(`logs/mail.log`), nikam je neodesílá.
 
-```text
-POST /api/internal/client-errors
-```
-
-Tento endpoint zatím není implementovaný — klient po prvním neúspěšném pokusu
-(HTTP 404) reportování sám vypne. Až vznikne, půjde jen o loopback zápis do
-lokálních logů; report (technická metadata o chybě, trasa aplikace, jazyk, user
-agent, verze backendu — API klíč se neposílá) **nikdy neopustí vaše zařízení**.
-Podrobnosti viz [PRIVACY.md](../PRIVACY.md).
+Když narazíte na chybu, otevřete **Nastavení → O aplikaci** a stiskněte
+**Stáhnout diagnostiku**. Uloží se ZIP se stavem aplikace a s kopií jejích
+logů, který můžete přiložit k hlášení chyby. Adresy, názvy složek, jména účtů
+a jméno uživatele Windows jsou v něm nahrazené, hesla, tokeny ani obsah zpráv
+v něm nejsou. Co přesně obsahuje a co v něm zůstává, popisuje
+[PRIVACY.md](../PRIVACY.md) v části „Diagnostický balíček“.
 
 Release build také zapisuje lokální data a logy aplikace. Na Windows jsou v:
 

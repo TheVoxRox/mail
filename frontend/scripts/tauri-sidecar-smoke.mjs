@@ -399,10 +399,11 @@ async function assertDumpHoldsNothingPersonal(session) {
 		);
 	}
 	const entries = readZipEntries(response.bytes);
-	// Paths are JSON strings in the dump, so a Windows home arrives with its
-	// backslashes escaped; the escaped form is the one to look for.
+	// Paths are JSON strings in the dump's own files, so a Windows home arrives
+	// there with its backslashes escaped, and as written in its copy of the logs
+	// (logs/); both forms are looked for.
 	const home = JSON.stringify(os.homedir()).slice(1, -1);
-	const secrets = [session.apiKey, SMOKE_ACCOUNT.email, SMOKE_ACCOUNT.password, home];
+	const secrets = [session.apiKey, SMOKE_ACCOUNT.email, SMOKE_ACCOUNT.password, home, os.homedir()];
 	const leaks = entries.flatMap(({ name, data }) =>
 		findLeaks(data.toString('utf8'), name, { secrets })
 	);

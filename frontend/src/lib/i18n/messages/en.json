@@ -789,7 +789,7 @@
 				"apiKey": "API key:",
 				"downloadDump": "Download diagnostics",
 				"downloadingDump": "Downloading…",
-				"dumpHint": "ZIP without passwords, tokens, or message contents."
+				"dumpHint": "ZIP with the app's logs and state, for the developers. No passwords, tokens or message contents; addresses and folder names are replaced."
 			},
 			"licenses": {
 				"heading": "Open-source licenses",

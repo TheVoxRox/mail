@@ -3,8 +3,11 @@ package org.voxrox.mailbackend.feature.mail.service;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.stereotype.Component;
@@ -43,6 +46,7 @@ public class FolderListCache {
     private static final Duration DEFAULT_TTL = Duration.ofSeconds(30);
 
     private final ConcurrentHashMap<Long, Snapshot> snapshots = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Long, Set<String>> seenFolderRefs = new ConcurrentHashMap<>();
     private final Clock clock;
     private final Duration ttl;
 
@@ -78,6 +82,21 @@ public class FolderListCache {
      */
     public void put(long accountId, List<FolderResponse> folders) {
         snapshots.put(accountId, new Snapshot(List.copyOf(folders), clock.instant()));
+        Set<String> seen = seenFolderRefs.computeIfAbsent(accountId, id -> ConcurrentHashMap.newKeySet());
+        folders.forEach(folder -> seen.add(folder.folderRef()));
+    }
+
+    /**
+     * Every folder reference this cache has been given for each account since the
+     * process started, kept past expiry and {@link #invalidate}. The diagnostic
+     * bundle replaces these names in its copy of the logs: a folder the user only
+     * ever moved mail into is named there without ever having been synchronised, so
+     * the sync state alone does not know it.
+     */
+    public Map<Long, Set<String>> seenFolderRefs() {
+        Map<Long, Set<String>> copy = new HashMap<>();
+        seenFolderRefs.forEach((accountId, refs) -> copy.put(accountId, Set.copyOf(refs)));
+        return copy;
     }
 
     /**

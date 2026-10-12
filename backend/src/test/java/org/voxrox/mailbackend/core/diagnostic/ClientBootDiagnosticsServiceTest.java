@@ -16,7 +16,7 @@ class ClientBootDiagnosticsServiceTest {
 
         service.update(new ClientBootDiagnosticsRequest("not-an-instant", "ready\nsecret", "fast",
                 Map.of("appReady", 1234L, "apiKey", 999L, "negative", -1L, "tooLarge", 999999999L), "Browser\tAgent",
-                "cs", "/settings/about?apiKey=secret#token"));
+                "cs", "/settings/about?apiKey=secret#token", " 0.1.0\n"));
 
         ClientBootDiagnosticsService.ClientBootDiagnosticsSnapshot snapshot = service.latest();
 
@@ -27,6 +27,7 @@ class ClientBootDiagnosticsServiceTest {
         assertThat(snapshot.userAgent()).isEqualTo("Browser Agent");
         assertThat(snapshot.language()).isEqualTo("cs");
         assertThat(snapshot.route()).isEqualTo("/settings/about");
+        assertThat(snapshot.clientVersion()).isEqualTo("0.1.0");
     }
 
     @Test
@@ -49,8 +50,8 @@ class ClientBootDiagnosticsServiceTest {
 
     private static String routeOf(String route) {
         ClientBootDiagnosticsService service = new ClientBootDiagnosticsService();
-        service.update(
-                new ClientBootDiagnosticsRequest("2026-09-27T10:00:00Z", "ready", "none", Map.of(), null, null, route));
+        service.update(new ClientBootDiagnosticsRequest("2026-09-27T10:00:00Z", "ready", "none", Map.of(), null, null,
+                route, null));
         return service.latest().route();
     }
 }

@@ -167,16 +167,14 @@ export function classify(entries, auditRecords, { since = null } = {}) {
  * the literal `secrets` (the session API key, a test password). The match
  * itself is never returned, only a masked hint, so the report can be pasted.
  *
- * A folder the user named is deliberately not on that list, although the
- * diagnostic dump replaces it with `folder-<n>`. The two artifacts answer to
- * different rules and the difference is the point: the dump is the one the user
- * exports and sends to support, and PRIVACY.md states what it may contain, so
- * it carries no name the user wrote. The log stays on the machine — the dump
- * records the path of the log directory but bundles no log file — and a folder
- * name is the user's own word for their own mailbox, which is what makes a
- * report about one folder readable at all. Masking it here would cost that and
- * buy no egress. If a future change does send logs anywhere, this is the note
- * that stops being true.
+ * A folder the user named is deliberately not on that list. The log on the
+ * machine keeps it: a folder name is the user's own word for their own mailbox,
+ * which is what makes a report about one folder readable at all, and the log
+ * does not leave the machine as it is. What leaves is the diagnostic dump, and
+ * its copy of the logs has been through DiagnosticLogRedactor, which replaces
+ * each name with the `folder-<n>` the rest of the dump uses — so a scan of an
+ * unpacked dump's `logs/` finds none, and a scan of the live folder is not
+ * asked to.
  */
 export function findLeaks(text, file, { secrets = [] } = {}) {
 	const leaks = [];

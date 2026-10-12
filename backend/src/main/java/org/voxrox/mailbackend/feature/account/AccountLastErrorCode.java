@@ -62,6 +62,11 @@ public enum AccountLastErrorCode {
         return messageKey;
     }
 
+    /** The names of the template's arguments, in its order. */
+    public List<String> argNames() {
+        return argNames;
+    }
+
     /**
      * The template's arguments, in its order. A cause is handed over as the
      * {@link MailFailureCause} itself, which the message source resolves in the

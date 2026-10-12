@@ -213,9 +213,9 @@ the item stayed here.
 
 - [ ] `npm run release:scan-logs` (from `frontend/`) over the installation's logs: every ERROR and WARN group it lists is explained or has an issue. It reads the rotated `.gz` files as well, which a `Select-String` over `mail.log.*` silently does not.
 - [ ] The same scan reports no CRITICAL audit record and no leak — no unmasked address or Message-ID, no token, not the session API key; it exits 1 on any of them.
-- [ ] Generate `/api/internal/diagnostic-dump`.
-- [ ] The ZIP contains `summary.json`, `accounts.json`, `folder-sync-states.json`, `message-counts.json`, `runtime.json`.
-- [ ] The ZIP contains no full email addresses, OAuth tokens, internal API key, message content, names of folders the user created, or the Windows account name. Checked by machine twice — [DiagnosticDumpPrivacyIT](src/test/java/org/voxrox/mailbackend/core/diagnostic/DiagnosticDumpPrivacyIT.java) on synced mail under `mvn verify`, and `tauri:smoke:sidecar` on the packaged sidecar in the signed build — so by hand this is reading the dump of a real installation once.
+- [ ] Generate the dump with **Stáhnout diagnostiku** in Settings → About (or `/api/internal/diagnostic-dump`).
+- [ ] The ZIP contains `manifest.json`, `summary.json`, `accounts.json`, `folder-sync-states.json`, `message-counts.json`, `runtime.json`, `threads.txt` and `logs/` with `mail.log`, `mail-frontend.log` and `audit.log`; `manifest.json` lists every log file of the installation as `complete`, and `logsLeftOutBecause` is `null`.
+- [ ] The ZIP, its `logs/` included, contains no full email addresses, OAuth tokens, internal API key, message content, names of folders the user created, or the Windows account name. Checked by machine twice — [DiagnosticDumpPrivacyIT](src/test/java/org/voxrox/mailbackend/core/diagnostic/DiagnosticDumpPrivacyIT.java) on synced mail under `mvn verify`, and `tauri:smoke:sidecar` on the packaged sidecar in the signed build — so by hand this is reading the dump of a real installation once, and running `npm run release:scan-logs -- --logs <unpacked>/logs` over its `logs/`.
 
 ## 8. Long run
 
