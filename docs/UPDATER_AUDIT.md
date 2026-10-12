@@ -1,14 +1,15 @@
 # VoxRox Mail — Auto-Updater Audit
 
-|                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.17                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| **Date**           | 2026-10-11                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| **Audited commit** | `a2e6d43` (re-verified 2026-09-16, clearing seven acknowledgements; v1.5–1.15 anchor: `0165149`, itself a re-verification on 2026-09-07 clearing five; v1.10/1.11 anchor: `3e71529`; v1.5–v1.9 anchor: `c6744a1`; v1.4 anchor: `cad05cb`, recorded pre-squash as `5799e8b`; v1.2/1.3 anchor: `3162e6a` (#144), v1.0/1.1 baseline: `d55b753`)                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| **Code paths**     | `frontend/src-tauri/src`, `frontend/src-tauri/tauri.conf.json`, `frontend/src-tauri/capabilities`, `frontend/src/lib/updates.ts`, `frontend/src/lib/bootstrap.ts`, `frontend/src/lib/components/boot/BootErrorView.svelte`, `frontend/src/lib/components/UpdatePromptDialog.svelte`, `frontend/src/lib/components/UpdateFailureDialog.svelte`, `frontend/src/lib/components/settings/AboutSettings.svelte`, `.github/workflows/windows-signed-release.yml`, `.github/workflows/beta-channel.yml`, `frontend/scripts/beta-channel-guard.mjs`, `frontend/scripts/generate-tauri-latest-windows.mjs`, `frontend/scripts/verify-updater-signature.mjs`, `frontend/scripts/lib/minisign.mjs`, `frontend/scripts/prepare-tauri-windows-release-config.mjs`, `frontend/scripts/lib/tauri-config.mjs` |
-| **Subsystem**      | Tauri auto-updater — Boundary 6 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| **Verdict**        | **Security: PASS** — nothing in the trust chain, in three audits running. The one finding this audit raised (U-1, workflow script injection, **Low**) is fixed, and so is the HTTPS-only note §6 had carried since v1.0; one procedural note stays open. The v1.5 code changes came from the operational review in `todo.md`, not from this audit.                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+|                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Version**        | 1.18                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| **Date**           | 2026-10-12                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| **Audited commit** | `5def679` (re-verified 2026-10-12, clearing seven acknowledgements; v1.16/1.17 anchor: `a2e6d43`, re-verified 2026-09-16, clearing seven; v1.5–1.15 anchor: `0165149`, itself a re-verification on 2026-09-07 clearing five; v1.10/1.11 anchor: `3e71529`; v1.5–v1.9 anchor: `c6744a1`; v1.4 anchor: `cad05cb`, recorded pre-squash as `5799e8b`; v1.2/1.3 anchor: `3162e6a` (#144), v1.0/1.1 baseline: `d55b753`)                                                                                                                                                                                                                                                                                                                                                                                                               |
+| **Code paths**     | `frontend/src-tauri/src`, `frontend/src-tauri/tauri.conf.json`, `frontend/src-tauri/capabilities`, `frontend/src/lib/updates.ts`, `frontend/src/lib/nativeShell.ts`, `frontend/src/lib/bootstrap.ts`, `frontend/src/lib/components/boot/BootErrorView.svelte`, `frontend/src/lib/components/UpdatePromptDialog.svelte`, `frontend/src/lib/components/UpdateFailureDialog.svelte`, `frontend/src/lib/components/settings/AboutSettings.svelte`, `.github/workflows/windows-signed-release.yml`, `.github/workflows/beta-channel.yml`, `frontend/scripts/beta-channel-guard.mjs`, `frontend/scripts/generate-tauri-latest-windows.mjs`, `frontend/scripts/verify-updater-signature.mjs`, `frontend/scripts/lib/minisign.mjs`, `frontend/scripts/prepare-tauri-windows-release-config.mjs`, `frontend/scripts/lib/tauri-config.mjs` |
+| **Auditor**        | 1.18 re-verified by Claude, an independent agent and not the author of #701; the revisions before it did not record their auditor                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| **Subsystem**      | Tauri auto-updater — Boundary 6 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **Verdict**        | **Security: PASS** — nothing in the trust chain, re-verified against `5def679`. The one finding this audit raised (U-1, workflow script injection, **Low**) is fixed, and so is the HTTPS-only note §6 had carried since v1.0; one procedural note stays open. The v1.5 code changes came from the operational review in `todo.md`, not from this audit.                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 Per-subsystem release audit of the update channel **"GitHub release →
 signature-verified install"**. This is the one path that cannot be fixed after a
@@ -18,6 +19,20 @@ transport, downgrade protection, safe handling of the attacker-controllable
 `latest.json` fields, and graceful failure. Method: static trace of the config,
 the frontend check/install flow, and the CI signing workflow + config-prep
 scripts.
+
+**Method (1.18).** Every file under `Code paths` read in full against
+`5def679` (`git ls-files` on the pathspec lists them), and the delta since
+`a2e6d43` (`git diff a2e6d43 5def679 -- <Code paths>`) read as one change rather
+than as the seven acknowledgements it had been recorded in: the WebView2
+accelerator and context-menu changes for printing, with a test assertion in
+`lib.rs` moved into a const assertion (#502, #527, #530), an `aria-hidden` hint
+and three class changes on the About page (#543, #687), a class on the boot
+error view (#675), the startup check after a failed boot and the manual check
+on the boot error view (#698, v1.17), and the log commands and log rotation of
+#701 together with `hasNativeShell()`. The commands of §1 re-run, `{@html}`
+counted for §4, and U-1's property re-checked over both workflows (§6). Static
+only: nothing was built, run or measured. Where a test is cited, it passed in
+the CI run of `main` at `5def679` (the Rust and frontend unit jobs).
 
 ## 1. Signature verification — no bypass (confirmed)
 
@@ -49,12 +64,42 @@ scripts.
   [webview_defaults.rs](../frontend/src-tauri/src/webview_defaults.rs) attaches
   two WebView2 handlers to the controller Tauri hands out — accelerator keys and
   the context menu — and `lib.rs` builds the window with
-  `disable_drag_drop_handler()`. Neither registers a command: `generate_handler!`
-  still lists the three updater commands, the two preference commands and the
-  three tray commands, and nothing else, so the renderer's reach is the same set
-  it was. Switching Tauri's drag-and-drop handler off removes an event the shell
-  emitted and the frontend never listened for and lets a dropped file reach the
-  page as a `File`, which a file input already did; no updater path reads either.
+  `disable_drag_drop_handler()`. Neither registers a command: at v1.16
+  `generate_handler!` listed the three updater commands, the two preference
+  commands and the three tray commands, and nothing else, so the renderer's
+  reach was the same set it had been. Switching Tauri's drag-and-drop handler
+  off removes an event the shell emitted and the frontend never listened for and
+  lets a dropped file reach the page as a `File`, which a file input already
+  did; no updater path reads either. The handlers' later changes for printing
+  (#502, #527, #530) take a browser accelerator and a context-menu entry away
+  from WebView2 and register nothing.
+- **Three log commands joined the surface in #701, none of them near the
+  updater** (v1.18). [logs.rs](../frontend/src-tauri/src/logs.rs) adds
+  `export_logs()`, `log_sidecar_stderr(line)` and
+  `log_sidecar_exit(code, signal, requested)`; `lib.rs` hands it the logs
+  folder as managed state (`LogsDir`) and gives `tauri-plugin-log` a 1 MB file
+  with two older ones kept. `export_logs` takes nothing from the renderer: on a
+  blocking thread it zips the logs folder into a new file in the Downloads
+  folder (opened with `create_new`, so never one that is already there) and
+  returns that file's path. The other two write one bounded line each into
+  `mail-frontend.log`: a stderr line has its CR/LF replaced and is cut at 2000
+  characters, at most 500 a run; an exit is two optional integers and a
+  boolean, with no count limit, which the log's rotation bounds on disk. None
+  takes a path, URL, key or version, and none reaches `PendingUpdate`,
+  `DownloadedUpdate`, the channel map or the pinned pubkey. A renderer gains by
+  them a way to write bounded lines into the shell's log and to have the shell
+  put one more copy of the logs in the user's Downloads folder, which no `fs:`
+  scope lets the webview read. What that ZIP carries is not an updater question;
+  it is recorded in [API_SURFACE_AUDIT.md](API_SURFACE_AUDIT.md) as A4.
+
+  Regenerate the surface this section enumerates:
+
+  ```sh
+  sed -n '/generate_handler!\[/,/\])/p' frontend/src-tauri/src/lib.rs   # what the renderer may invoke
+  grep -rn -A2 '#\[tauri::command\]' frontend/src-tauri/src | grep 'fn '  # each command's signature
+  grep -c 'updater:' frontend/src-tauri/capabilities/default.json         # 0: no updater permission
+  ```
+
 - **The verified bytes never cross into the renderer.** `download_pending_update`
   verifies the signature inside `Update::download` and parks the package in Rust
   managed state (`DownloadedUpdate`); `install_pending_update` installs from
@@ -219,9 +264,12 @@ renders through `{message}` in a `<span>` — Svelte text interpolation, no
   It is fire-and-forget and **fails silently** (a
   `console.warn`, no dialog) — a transient network error or an
   as-yet-unpublished release must not throw an alarming dialog on every cold
-  start (announced to screen-reader users). Gated on `PROD` + Tauri +
-  `VITE_ENABLE_AUTO_UPDATE_CHECK` + the user's "Check for updates when the
-  application starts" setting in Settings → About (`mail.updateStartupCheck`,
+  start (announced to screen-reader users). Gated on `PROD` + Tauri
+  (`hasNativeShell()` in [nativeShell.ts](../frontend/src/lib/nativeShell.ts)
+  since #701, the expression `updates.ts` held itself before: a browser, a
+  Tauri shell, and not the mocked e2e build; the manual check passes the same
+  test) + `VITE_ENABLE_AUTO_UPDATE_CHECK` + the user's "Check for updates
+  when the application starts" setting in Settings → About (`mail.updateStartupCheck`,
   on by default; v1.13), and **once per process** (v1.11). The installer's
   privacy page asks the same question and records the answer in the registry;
   after the once-per-process guard the function adopts a recorded answer over
@@ -370,6 +418,28 @@ renders through `{message}` in a `<span>` — Svelte text interpolation, no
 
 ## 8. Change log
 
+- **1.18** (2026-10-12) — **re-verified against `5def679`, clearing the seven
+  acknowledgements recorded since 2026-09-16; verdict stays PASS.** Done by an
+  agent that is not the author of #701, at 7 of 8, one acknowledgement short of
+  the cap, together with the API surface audit's re-verification. The delta
+  since `a2e6d43` was read as one change (method above), and every claim
+  re-checked in the tree. Nothing in the trust chain moved: `check_for_update`,
+  `download_pending_update`, `install_pending_update`, `PendingUpdate`,
+  `DownloadedUpdate` and `beta_endpoint_override` are byte-identical to the
+  anchor; `capabilities/` and `tauri.conf.json` (CSP, `allowDowngrades`,
+  `plugins.updater`) are untouched, as are both workflows, the release scripts
+  and the two update dialogs; `{@html}` is still absent from `frontend/src`,
+  and no `${{ }}` sits inside a `run:` block of either workflow. Corrected: §1
+  said
+  `generate_handler!` lists the updater, preference and tray commands and
+  nothing else; #701 added `export_logs`, `log_sidecar_stderr` and
+  `log_sidecar_exit`, which §1 now describes — they take no path, URL, key or
+  version and reach no updater state — with the commands that regenerate the
+  list. §5 names `hasNativeShell()`, to which #701 moved the Tauri test of
+  `updates.ts` unchanged, and `frontend/src/lib/nativeShell.ts` joins
+  `Code paths`. The header gains the `Auditor` row the guide requires. What the
+  Save logs ZIP of `export_logs` carries is a finding of the API surface audit
+  (A4, Low), not of this boundary.
 - **1.17** (2026-10-11) — **an update can now reach a build that does not
   start; no claim in the trust chain moved, verdict stays PASS.** §5: the
   startup check also runs when the boot fails, and the boot error view offers
