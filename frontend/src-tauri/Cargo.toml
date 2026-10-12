@@ -44,6 +44,9 @@ tauri-plugin-shell = "2"
 # window instead of starting a sidecar that exits 78 "already running".
 tauri-plugin-single-instance = "2"
 tauri-plugin-updater = "2"
+# Already in the tree through tauri-plugin-updater, without compression: the
+# logs ZIP stores its files (logs.rs), so no compression crate comes with it.
+zip = { version = "4", default-features = false }
 
 [target.'cfg(windows)'.dependencies]
 # Reads and writes the installer's answer about the startup update check

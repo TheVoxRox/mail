@@ -1,3 +1,4 @@
+mod logs;
 mod tray;
 mod update_preference;
 mod webview_defaults;
@@ -6,7 +7,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use tauri::{Emitter, LogicalSize, WebviewUrl, WebviewWindowBuilder};
-use tauri_plugin_log::{Target, TargetKind};
+use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 use tauri_plugin_updater::UpdaterExt;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -35,6 +36,7 @@ pub fn run() {
         .manage(PendingUpdate(Mutex::new(None)))
         .manage(DownloadedUpdate(Mutex::new(None)))
         .manage(tray::CloseBehavior::default())
+        .manage(logs::LogsDir(log_dir.clone()))
         .invoke_handler(tauri::generate_handler![
             check_for_update,
             download_pending_update,
@@ -43,7 +45,10 @@ pub fn run() {
             update_preference::set_update_startup_check,
             tray::configure_tray,
             tray::set_tray_tooltip,
-            tray::set_close_behavior
+            tray::set_close_behavior,
+            logs::export_logs,
+            logs::log_sidecar_stderr,
+            logs::log_sidecar_exit
         ])
         .on_window_event(tray::handle_window_event)
         .setup(move |app| {
@@ -468,9 +473,14 @@ fn configure_log_plugin<R: tauri::Runtime>(log_dir: PathBuf) -> tauri::plugin::T
         vec![file_log]
     };
 
+    // The plugin's default keeps one 40 kB file and deletes it when full, which
+    // the sidecar's stderr and exits (logs.rs) would run through in one bad
+    // start. Two older files are kept next to the live one.
     tauri_plugin_log::Builder::default()
         .level(log::LevelFilter::Info)
         .targets(targets)
+        .max_file_size(1_000_000)
+        .rotation_strategy(RotationStrategy::KeepSome(2))
         .build()
 }
 

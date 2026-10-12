@@ -1,5 +1,6 @@
 import { browser } from '$app/environment';
-import { invoke, isTauri } from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/core';
+import { hasNativeShell } from '$lib/nativeShell.js';
 import { listen } from '@tauri-apps/api/event';
 import { get, writable } from 'svelte/store';
 import { RELEASES_URL } from '$lib/version.js';
@@ -78,7 +79,7 @@ export const updatePromptState = writable<UpdatePromptState>({ status: 'hidden' 
 export const updateFailureState = writable<UpdateFailureState>({ status: 'hidden' });
 
 function supportsNativeUpdater(): boolean {
-	return browser && isTauri() && import.meta.env.VITE_E2E_MOCK !== '1';
+	return hasNativeShell();
 }
 
 /**

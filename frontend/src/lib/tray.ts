@@ -11,8 +11,8 @@
  * a browser and the Playwright suites never reach an `invoke`.
  */
 
-import { browser } from '$app/environment';
-import { invoke, isTauri } from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/core';
+import { hasNativeShell } from '$lib/nativeShell.js';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { derived, get } from 'svelte/store';
 import { _ } from '$lib/i18n/index.js';
@@ -47,7 +47,7 @@ let lastTooltip: string | null = null;
  * `invoke` happens.
  */
 function trayAvailable(): boolean {
-	return browser && isTauri() && import.meta.env.VITE_E2E_MOCK !== '1';
+	return hasNativeShell();
 }
 
 /**

@@ -52,7 +52,7 @@ Obsah:
 | `attachments/`             | Lokální kopie příloh stažených ze serveru.                                                                                                                                                                        |
 | `logs/mail.log`            | Aplikační log (rotuje, max 7 souborů × 10 MB, celkem cca 100 MB).                                                                                                                                                 |
 | `logs/audit.log`           | Bezpečnostní/auditní log (retenční doba 365 dní, max cca 500 MB).                                                                                                                                                 |
-| `logs/mail-frontend.log`   | Log okna aplikace (max 40 kB, pak se začne psát znovu).                                                                                                                                                           |
+| `logs/mail-frontend.log`   | Log okna aplikace, včetně chybového výstupu a ukončení její služby (soubory po nejvýš 1 MB, vedle aktuálního se uchovávají dva starší).                                                                           |
 | `tmp/`                     | Dočasné soubory (mažou se automaticky).                                                                                                                                                                           |
 
 Mimo tento adresář aplikace zapisuje jedinou hodnotu do registru Windows,
@@ -175,6 +175,12 @@ Balíček **neobsahuje** hesla, OAuth tokeny, obsah zpráv, předměty ani pří
 Než ZIP pošlete, můžete ho otevřít a projít: logy v něm jsou obyčejné textové
 soubory. Pokud ho přikládáte k veřejnému hlášení (například na GitHubu), uvidí
 jeho obsah kdokoli.
+
+Když se aplikace nespustí, diagnostiku stáhnout nejde, protože ji připravuje
+služba aplikace. Na obrazovce s chybou spuštění je proto také tlačítko **Uložit
+logy**: uloží do složky Stažené soubory ZIP se všemi soubory ze složky `logs/`
+(nejvýš 64 MB, novější přednostně), přesně tak, jak jsou na disku, a krátkou
+poznámku s verzí aplikace. Ani tento ZIP se nikam neodesílá sám.
 
 ## Třetí strany
 

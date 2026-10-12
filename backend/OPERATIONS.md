@@ -555,6 +555,8 @@ MICROSOFT_OAUTH_CLIENT_* missing   missing OAuth configuration for Outlook/Excha
 
 When the sidecar exits, the Tauri client restarts it up to three times within a minute and then shows what the exit code means; exits 65 and 70 skip the restarts, since a restart cannot fix them. The backend is restart-idempotent: Flyway is a no-op on a matching schema, the SQLite WAL recovers automatically, and IMAP connections are established again.
 
+What a JVM writes before its own log is open (a launcher that cannot find the runtime, a bad option, an `OutOfMemoryError` on the way out) goes to stderr, and every exit has a code. The client writes both into `logs/mail-frontend.log`, as `Sidecar stderr: …` (at most 500 lines a run) and `Sidecar exited on its own: code …` (or `Sidecar stopped as asked` for a quit or a restart), so a crash shows there even when `mail.log` stops short. With no backend there is no diagnostic dump, so the boot screens offer **Uložit logy**, which the shell handles alone (`src-tauri/src/logs.rs`): a ZIP named `voxrox-mail-logs-<UTC time>.zip` in the user's Downloads folder holding the logs folder as it is on disk, newest files first up to 64 MB, uncompressed, and an `about.txt` with the version and what was left out.
+
 ## Release smoke
 
 The minimal backend verification before a release:
