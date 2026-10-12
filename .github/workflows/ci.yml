@@ -235,6 +235,18 @@ jobs:
       - name: cargo clippy
         run: cargo clippy --no-deps -- -D warnings
 
+      # The one Rust test CI runs. The redactor of the Save logs ZIP must write what
+      # the backend's DiagnosticLogRedactor writes, and both run the vectors in
+      # backend/src/test/resources/diagnostic/redaction-vectors.json: Backend
+      # quality runs the Java half, this the Rust half, so a rule changed in one and
+      # not the other fails here or there (docs/API_SURFACE_AUDIT.md, A4). The other
+      # Rust tests stay local, as before. Building the crate for test costs more than
+      # cargo check on a cold cache; the cache above keeps it once a Cargo.lock
+      # change has saved a cache with it.
+      - name: cargo test (log redactor)
+        # Quoted: a plain scalar ending in ':' reads as a mapping key.
+        run: "cargo test --lib -- redact::"
+
       - name: Cache cargo-audit binary
         id: cargo-audit-cache
         uses: actions/cache@v6

@@ -43,18 +43,18 @@
   ],
   "docs/API_SURFACE_AUDIT.md": {
     "reviewedTrees": {
-      "frontend/src-tauri/src/redact.rs": "bb1643df6f90b202a38acb9b75084c41e33cf874"
+      "frontend/src-tauri/src/redact.rs": "22f0fb867ceb8e70135c79bee6f492c3c28acf7b"
     },
     "acknowledgements": [
       {
         "date": "2026-10-12",
-        "note": "A4 fixed again and recorded in the audit itself as v1.18; anchor unchanged at 66a0377, where the independent pass of v1.17 left it. Only redact.rs moves under Code paths: it now does the Java pattern's lookbehind, lookahead and backtracking by hand around each match (an address that runs on falls back to an earlier dot, latest first; a start after '*' or a local-part character is refused and the next start tried is after its '@'; the lookahead is [\\p{L}\\p{N}_-]), and its token pattern spells out Java's ASCII \\w, \\b and \\s, with the refresh token's lookbehind and Java's word-boundary rule for a non-spacing mark checked by hand. logs.rs, the copy into the ZIP and the key from session.json are unchanged. The shared vectors (backend/src/test/resources/diagnostic/redaction-vectors.json, outside Code paths) run in DiagnosticLogRedactorTest and redact::tests; DiagnosticLogRedactor itself is unchanged, so the dump writes what it wrote. No endpoint, filter, DTO, error response or dump entry changes. The independent pass over v1.18 is to come (AUDIT_GUIDE section 5). Verdict PASS."
+        "note": "Recorded in the audit itself as v1.19, whose independent pass moved the anchor to 2d07187. Only the test module of redact.rs moves under Code paths: the shared-vectors test also asserts each vector's replacement counts (addresses, tokens, api_keys). The redactor's code above the test module is byte-identical, so the pass's measurements stand. The vectors file and DiagnosticLogRedactorTest, outside Code paths, gain the vectors and counts the pass found missing, and .github/workflows/ci.yml runs `cargo test --lib -- redact::` in the Tauri (Rust) job. No endpoint, filter, DTO, error response or dump entry changes. Verdict PASS."
       }
     ]
   },
   "docs/UPDATER_AUDIT.md": {
     "reviewedTrees": {
-      "frontend/src-tauri/src": "0a75ddda4b30b74c09e59c8377664ac63645104d"
+      "frontend/src-tauri/src": "7b461391306118261caa0b55b72d32bcc6eeaff1"
     },
     "acknowledgements": [
       {
@@ -64,6 +64,10 @@
       {
         "date": "2026-10-12",
         "note": "Under src-tauri/src only redact.rs changes (API_SURFACE_AUDIT.md A4, fixed again in its v1.18): the redactor of the Save logs ZIP now writes what DiagnosticLogRedactor writes, the Java lookaround and backtracking done by hand and the token pattern on Java's ASCII classes. It is a pure function of a line, called only from logs.rs, which does not change; the command list, lib.rs and Cargo.toml do not change either, and no crate is added. check_for_update, download_pending_update, install_pending_update, PendingUpdate, DownloadedUpdate, the channel map and the pubkey are untouched. Verdict stays PASS."
+      },
+      {
+        "date": "2026-10-12",
+        "note": "Under src-tauri/src only the test module of redact.rs changes (API_SURFACE_AUDIT.md v1.19): its shared-vectors test also asserts each vector's replacement counts. No code outside #[cfg(test)] moves, so the build the updater ships is the same. Verdict stays PASS."
       }
     ]
   },
