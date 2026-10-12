@@ -2,17 +2,25 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { get } from 'svelte/store';
 
-const { isTauriMock, mailDataDirMock, commandSidecarMock, existsMock, removeMock, joinMock } =
-	vi.hoisted(() => ({
-		isTauriMock: vi.fn<() => boolean>(),
-		mailDataDirMock: vi.fn<() => Promise<string>>(),
-		commandSidecarMock: vi.fn(),
-		existsMock: vi.fn<(path: string) => Promise<boolean>>(),
-		removeMock: vi.fn<(path: string) => Promise<void>>(),
-		joinMock: vi.fn<(...segments: string[]) => Promise<string>>()
-	}));
+const {
+	isTauriMock,
+	invokeMock,
+	mailDataDirMock,
+	commandSidecarMock,
+	existsMock,
+	removeMock,
+	joinMock
+} = vi.hoisted(() => ({
+	isTauriMock: vi.fn<() => boolean>(),
+	invokeMock: vi.fn<(command: string, args?: unknown) => Promise<unknown>>(),
+	mailDataDirMock: vi.fn<() => Promise<string>>(),
+	commandSidecarMock: vi.fn(),
+	existsMock: vi.fn<(path: string) => Promise<boolean>>(),
+	removeMock: vi.fn<(path: string) => Promise<void>>(),
+	joinMock: vi.fn<(...segments: string[]) => Promise<string>>()
+}));
 
-vi.mock('@tauri-apps/api/core', () => ({ isTauri: isTauriMock }));
+vi.mock('@tauri-apps/api/core', () => ({ isTauri: isTauriMock, invoke: invokeMock }));
 vi.mock('@tauri-apps/api/path', () => ({ join: joinMock, localDataDir: async () => '/tmp/test' }));
 vi.mock('@tauri-apps/plugin-shell', () => ({ Command: { sidecar: commandSidecarMock } }));
 vi.mock('@tauri-apps/plugin-fs', () => ({ exists: existsMock, remove: removeMock }));
@@ -103,6 +111,8 @@ beforeEach(() => {
 	existsMock.mockResolvedValue(false);
 	removeMock.mockResolvedValue();
 	commandSidecarMock.mockReset();
+	invokeMock.mockReset();
+	invokeMock.mockResolvedValue(undefined);
 	installLocalStorageStub();
 });
 
@@ -401,6 +411,36 @@ describe('handleUnexpectedExit — exit code → user-readable error message', (
 			expect(commandSidecarMock).toHaveBeenCalledTimes(1);
 		}
 	);
+
+	it('writes what the sidecar puts on stderr and how it exits into the shell log', async () => {
+		const { handle } = await setupSpawned();
+		const onStderr = handle.cmd.stderr.on.mock.calls.find(([event]) => event === 'data')?.[1] as (
+			line: string
+		) => void;
+
+		onStderr('Error: Could not find or load main class');
+		handle.emitClose(1, null);
+		await Promise.resolve();
+
+		expect(invokeMock).toHaveBeenCalledWith('log_sidecar_stderr', {
+			line: 'Error: Could not find or load main class'
+		});
+		expect(invokeMock).toHaveBeenCalledWith('log_sidecar_exit', {
+			code: 1,
+			signal: null,
+			requested: false
+		});
+	});
+
+	it('a shell log that refuses the line does not stop the restart', async () => {
+		invokeMock.mockRejectedValue(new Error('not allowed'));
+		const { mod, handle } = await setupSpawned();
+
+		handle.emitClose(1, null);
+		await Promise.resolve();
+
+		expect(get(mod.backendSidecarState)).toMatchObject({ status: 'restarting' });
+	});
 
 	it('code 74 (storage unavailable) may clear up, so it goes through the restart budget first', async () => {
 		const { mod, handle } = await setupSpawned();

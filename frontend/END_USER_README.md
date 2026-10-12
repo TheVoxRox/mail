@@ -129,6 +129,10 @@ ukládá ve vašem počítači, tedy i s názvy složek a účtů; hesla, tokeny
 zpráv v něm nejsou a e-mailové adresy jsou zamaskované. Co přesně obsahuje,
 popisuje [PRIVACY.md](../PRIVACY.md) v části „Diagnostický balíček“.
 
+Pokud se aplikace nespustí a ukáže chybu, stiskněte na té obrazovce **Uložit
+logy**. Do složky Stažené soubory se uloží ZIP s logy aplikace a aplikace
+oznámí, jak se soubor jmenuje. Ten přiložte k hlášení chyby.
+
 Release build také zapisuje lokální data a logy aplikace. Na Windows jsou v:
 
 ```text

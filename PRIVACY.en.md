@@ -53,7 +53,7 @@ Contents:
 | `attachments/`             | Local copies of attachments downloaded from the server.                                                                                                                                                                      |
 | `logs/mail.log`            | Application log (rotates, max 7 files × 10 MB, total ~100 MB).                                                                                                                                                               |
 | `logs/audit.log`           | Security / audit log (retention 365 days, max ~500 MB).                                                                                                                                                                      |
-| `logs/mail-frontend.log`   | Application window log (max 40 kB, then it starts over).                                                                                                                                                                     |
+| `logs/mail-frontend.log`   | Application window log, including what its service writes to stderr and how it exits (files of at most 1 MB, two older ones kept next to the current one).                                                                   |
 | `tmp/`                     | Temporary files (cleared automatically).                                                                                                                                                                                     |
 
 Outside that directory the application writes a single value to the Windows
@@ -181,6 +181,13 @@ The bundle **does not contain** passwords, OAuth tokens, message bodies,
 subjects or attachments. You can open the ZIP and read it before you send it:
 the logs in it are plain text files. If you attach it to a public report (on
 GitHub, for example), anyone can read what is in it.
+
+When the app does not start, the diagnostics cannot be downloaded, because the
+app's service prepares them. The screen that reports the failed start
+therefore also has a **Save logs** button: it saves a ZIP to your Downloads
+folder with every file of the `logs/` folder (at most 64 MB, newest first),
+exactly as they are on disk, and a short note with the app's version. This ZIP
+is not sent anywhere by itself either.
 
 ## Third parties
 

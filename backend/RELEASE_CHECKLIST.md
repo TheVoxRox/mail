@@ -216,6 +216,7 @@ the item stayed here.
 - [ ] Generate the dump with **Stáhnout diagnostiku** in Settings → About (or `/api/internal/diagnostic-dump`).
 - [ ] The ZIP contains `manifest.json`, `summary.json`, `accounts.json`, `folder-sync-states.json`, `message-counts.json`, `runtime.json`, `threads.txt` and `logs/` with `mail.log`, `mail-frontend.log` and `audit.log`; `manifest.json` lists every log file of the installation as `complete`.
 - [ ] The ZIP, its `logs/` included, contains no full email addresses, OAuth tokens, internal API key or message content. Folder names, account names and paths are expected: the logs go in as they are on disk. Checked by machine twice — [DiagnosticDumpPrivacyIT](src/test/java/org/voxrox/mailbackend/core/diagnostic/DiagnosticDumpPrivacyIT.java) on synced mail under `mvn verify`, and `tauri:smoke:sidecar` on the packaged sidecar in the signed build — so by hand this is reading the dump of a real installation once, and running `npm run release:scan-logs -- --logs <unpacked>/logs` over its `logs/`.
+- [ ] On a start that fails (the damaged DB of §6 is one), the error screen offers **Uložit logy**; it saves `voxrox-mail-logs-<UTC time>.zip` to Downloads with `logs/` and `about.txt`, the screen reader announces the file's name, and `logs/mail-frontend.log` in it holds the `Sidecar stderr:` and `Sidecar exited on its own:` lines of that start.
 
 ## 8. Long run
 

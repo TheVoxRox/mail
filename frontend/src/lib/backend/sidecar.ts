@@ -1,4 +1,4 @@
-import { isTauri } from '@tauri-apps/api/core';
+import { invoke, isTauri } from '@tauri-apps/api/core';
 import { join } from '@tauri-apps/api/path';
 import { Command, type Child } from '@tauri-apps/plugin-shell';
 import { exists, remove } from '@tauri-apps/plugin-fs';
@@ -114,6 +114,22 @@ function resolveRuntime(): BackendSidecarRuntime {
 	// reload on the global — backfill so `++` never produces NaN.
 	global.__MAIL_BACKEND_SIDECAR__.generation ??= 0;
 	return global.__MAIL_BACKEND_SIDECAR__;
+}
+
+/*
+ * The webview's console is kept nowhere in a release build, so what the sidecar
+ * writes to stderr and how it exits also go to the shell's own log
+ * (src-tauri/src/logs.rs), mail-frontend.log, which the logs ZIP and the
+ * diagnostic dump both carry. A JVM that dies before its own log is open leaves
+ * its reason only there. Fire and forget: a line the log cannot take must not
+ * get in the way of supervising the backend.
+ */
+function recordInShellLog(command: string, args: Record<string, unknown>): void {
+	try {
+		void invoke(command, args).catch(() => {});
+	} catch {
+		// invoke itself unavailable: there is no shell to log to.
+	}
 }
 
 export function usesBackendSidecar(): boolean {
@@ -268,8 +284,14 @@ async function spawnBackendSidecar(): Promise<void> {
 		}
 	});
 	command.stdout.on('data', (line) => console.info(`[mail] ${line}`));
-	command.stderr.on('data', (line) => console.warn(`[mail] ${line}`));
+	command.stderr.on('data', (line) => {
+		console.warn(`[mail] ${line}`);
+		recordInShellLog('log_sidecar_stderr', { line });
+	});
 	command.on('close', (payload) => {
+		// Asked for: a stop, or a restart that has already spawned the next child.
+		const requested = runtime.stopRequested || generation !== runtime.generation;
+		recordInShellLog('log_sidecar_exit', { code: payload.code, signal: payload.signal, requested });
 		void handleUnexpectedExit(generation, describeSidecarExit(payload.code, payload.signal));
 	});
 	command.on('error', (message) => {

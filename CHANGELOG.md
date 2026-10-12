@@ -223,6 +223,7 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Tauri / Release
 
+- **When the app does not start, its logs can still be saved, and the reason the backend died is in them (#PR).** The diagnostics ZIP comes from the backend, so it was out of reach exactly when the backend did not start, and what the backend wrote to stderr before its own log was open, and how it exited, went to the webview's console, which an installed app keeps nowhere. Both now go into `mail-frontend.log`, which keeps 1 MB files and two older ones instead of one 40 kB file it deleted when full. And the start error screen has **Uložit logy**, which saves the logs folder as a ZIP to Downloads without the backend and says the file's name.
 - **Tauri 2.12.1 (#617).** It brings wry 0.57, whose fix (tauri-apps/wry#1799) the app has been waiting for: minimizing the window while it was still starting left the app running in the tray with no window and no way to open one. The fix is upstream's; checking it on a release build is still a manual step (`todo.md`). The Tauri plugins move with it on both sides — fs 2.6.0, http 2.8.0, shell 2.4.0, and on the Rust side updater 2.13.1, single-instance 2.5.2 and log 2.10.0 — and `webview2-com` 0.39 and `windows-core` 0.62 are raised by hand to the versions the new wry builds with, since dependabot ignores them and the Ubuntu CI does not compile the Windows-only code that uses them; that was built on Windows.
 
 ### Repo

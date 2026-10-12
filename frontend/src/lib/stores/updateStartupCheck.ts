@@ -11,8 +11,8 @@
  * PRIVACY.md describes both states.
  */
 
-import { browser } from '$app/environment';
-import { invoke, isTauri } from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/core';
+import { hasNativeShell } from '$lib/nativeShell.js';
 import { persistedStore } from './persisted.js';
 
 const STARTUP_CHECK_STATES = ['on', 'off'] as const;
@@ -26,7 +26,7 @@ export const updateStartupCheck = persistedStore<StartupCheckState>(
 
 /** The mocked e2e build runs in a browser with no shell and no registry behind it. */
 function hasShell(): boolean {
-	return browser && isTauri() && import.meta.env.VITE_E2E_MOCK !== '1';
+	return hasNativeShell();
 }
 
 export function setUpdateStartupCheck(enabled: boolean): void {
