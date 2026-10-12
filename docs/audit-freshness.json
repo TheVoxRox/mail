@@ -158,7 +158,7 @@
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/controller": "692ba8438145523812508bf00fb95e2a69ca6bc5",
       "backend/src/main/resources/application.properties": "e32931284645050519fd545b10ab30f24bf048c9",
       "backend/src/main/java/org/voxrox/mailbackend/core/security": "bf06b6c7cf1862d9740043da320004127de2fde0",
-      "backend/src/main/java/org/voxrox/mailbackend/core/diagnostic": "4c812dd69d641602ceb1e9b4c3767f795c1a8d02",
+      "backend/src/main/java/org/voxrox/mailbackend/core/diagnostic": "ca406c8b2d989dea7a1b56d18a41c77d9bda194b",
       "frontend/src/lib/api/clientBootDiagnostics.ts": "0a6707f1ff10d18281be6671f2ca6fead38285c9"
     },
     "acknowledgements": [
