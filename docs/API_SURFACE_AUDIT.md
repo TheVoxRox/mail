@@ -789,7 +789,7 @@ and both ledger notes hold. Three claims of 1.18 did not:
   `DiagnosticLogRedactor`, and length thresholds and an OAuth name in either
   redactor, passed the vectors too.
 
-**Tests and CI (1.19).** The owner decided on 2026-10-12 to close the last two
+**Tests and CI (1.19, #708).** The owner decided on 2026-10-12 to close the last two
 and accept the first for 0.1.0. The vectors now pin each mechanism the pass
 found unpinned, each token shape at its shortest and one character short of
 it, an OAuth name, and the key replaced before the tokens and counted once a
@@ -916,7 +916,7 @@ does not walk back from every position (`todo.md`, after 0.1.0).
 
 ## 9. Change log
 
-- **1.19** (2026-10-12) — **the independent pass over #705**, by an agent
+- **1.19** (2026-10-12) — **the independent pass over #705** (#708), by an agent
   separate from the session that wrote #705, which records it; **anchor moved
   to `2d07187`**, the delta since `66a0377` being #705's `redact.rs`.
   Confirmed: on 1,500,000 lines with no character outside the Basic
