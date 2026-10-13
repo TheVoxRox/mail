@@ -341,7 +341,7 @@ Tester:    machine half automated; §3–§9 are the maintainer's
 | `backend/pom.xml`            | `309b2b7ceabc` |
 | `backend/scripts`            | `9d1ff312168d` |
 | `frontend/src`               | `3eecff0bc527` |
-| `frontend/src-tauri`         | `0a784a094642` |
+| `frontend/src-tauri`         | `8957aebe5267` |
 | `frontend/package.json`      | `1f0a83569d6c` |
 | `frontend/package-lock.json` | `2643dfdc8f43` |
 
@@ -363,6 +363,7 @@ Findings:
 - **Candidates for §9 as accepted risk.** Of the four §6 scenarios no cut had covered, a damaged database, restoring the pre-migration backup and a full disk are code with tests behind them (#517 `DatabaseRecoveryTest` follows the OPERATIONS.md procedure on a real file; #519 `SqliteFullRecoveryTest` plus the soak’s disk-full phase). **Reboot mid-sync** remains, as do §8.2 and the §3a update smoke, which has no previous version to update from on a first ship.
 - **Nothing manual carries from earlier cuts, and this is the eighth.** `v0.1.0` was first tagged on `db11430`; only that first build was taken by hand, and it is gone. The fifth to seventh cuts had nothing manual on them either, which is what made each one free. The reasons for each cut are in `CHANGELOG.md` under 0.1.0.
 - **Every fix goes into 0.1.0 for now (maintainer, 2026-09-21), and the merge freeze stays suspended.** A merge moves `main`, not the tag, so what merges reaches 0.1.0 only through another cut. Each cut costs the machine half (§0–§2, the signed build and the smoke) while nothing from §3 on is ticked, and every ticked manual section after that — which is when this is worth deciding again.
+- **The first signed build from this sheet's tag failed at `makensis`, and the tag moved to the fix (#715).** The build of `8acc628` ([38361007453](https://github.com/TheVoxRox/mail/actions/runs/38361007453)) stopped on `macro named "RestartManager_StartSession" not found`: the installer template is a copy of Tauri's, and `@tauri-apps/cli` 2.12 (#617) checks for a running app through the Restart Manager, which needs an include and a full path the copy lacked. The fix changes `windows/nsis-installer.nsi` only, which none of §0–§2 runs, so they stand; the `frontend/src-tauri` row above is the tree with the fix. A local `tauri:build:with-sidecar` on it produced the installer.
 - **The scheduled vulnerability scan of 2026-10-12 was red without a finding.** Its OWASP job could not resolve `org.owasp:dependency-check-maven:12.2.2` from Maven Central on either attempt; the artifact resolves now, and the failed job was re-run on 2026-10-13 in the same run, [38243096541](https://github.com/TheVoxRox/mail/actions/runs/38243096541). The npm and RustSec jobs were green.
 - **This cut takes everything merged since `d626a9b`:** what the 2026-09-23 sheet listed as waiting, #570 to #709, plus #597 (repo-only: three gates find the repository from a linked worktree), #706 and #707 (the npm production and development groups), #710 (the Tauri crates catch up with #706's JavaScript packages), #712 (Spotless) and #713 (`zip` 9 for the Save logs ZIP, in place of dependabot's #711). **Waiting for the next cut:** nothing yet. Each fix that merges from here adds its number here, and the re-cut that carries it comes **before §3 starts**: manual evidence taken on the current tag would be discarded with it.
 
