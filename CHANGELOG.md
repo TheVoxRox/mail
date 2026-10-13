@@ -1364,16 +1364,18 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 - **The tag `v0.1.0` is cut an eighth time, on the 2026-10-13 candidate sheet, so the release carries everything merged since `d626a9b` (#714).** Nothing manual had been taken on the seventh cut, so no hand-taken evidence goes with it. `regen:licenses:all` ran first and moved into `NOTICE.txt` the versions that the Tauri 2.12 series, Jackson 3.1.7, `quinn-proto` and #706, #707, #710 and #713 carry, and `## Unreleased` is folded into `[0.1.0]` in merge order, now dated 2026-10-13. Its signed build then failed at the installer step, and the tag moves to the fix (#715) on the same sheet, since nothing was built from it.
 
+- **The 2026-10-13 candidate has its manual sections taken, and the known issues are reconciled with §9 (#716).** §3 to §8.1 are ticked on the build of `8728d51`; §9 records no open blocker and waits for the maintainer's approval. The window-minimized-during-start entry leaves the known issues, checked on that build; the missing **Uložit logy** on a start where the service does not come up joins them, left for after the release with two Low findings in `todo.md`, and `OPERATIONS.md` stops saying every boot screen offers it.
+
 ### Known issues
 
-Provisional at the moment of the cut, per [RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) step 2 item 4: §9 of the checklist does not exist until the manual smoke has run, and the smoke runs on the build made from the tag this cut precedes. Reconciled against §9 before publishing, which is a condition in step 6.
+Reconciled with §9 of the 2026-10-13 candidate sheet, per [RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) step 6.
 
 - **A transient IMAP hiccup, `failed to create new store connection`, appears in the log a couple of times a day.** It is wrapped in a bounded retry with backoff and recovers on the next attempt; the release checklist carries a passive log-watch for it in §8.2 rather than a fix, because no escalation past the retry budget has been observed.
 - **Google sign-in works only for accounts on the test list.** The OAuth consent screen stays in `Testing` for this release — a deliberate exception for a closed beta, recorded in `todo.md`. Publishing to a general audience needs Google verification of the restricted scope (CASA), which is not part of v0.1.0.
 
-- **Minimizing the window while the app is still starting could leave it running with no window.** If the window is minimized before WebView2 finishes initializing, wry 0.55.1 treats the failed focus move as a failed webview creation ([wry#1798](https://github.com/tauri-apps/wry/issues/1798)), and the process keeps running with a tray icon that has no menu; a second launch is handed to that process, so only Task Manager ends it. This release carries the fix, Tauri 2.12.1 with wry 0.57 (#617); it leaves this list once it is checked by hand on the release build, which `todo.md` tracks (#512).
-
 - **A mail server that answers with very large or deeply nested responses can run the mail service out of memory, and it restarts.** The limits on what one connection keeps are estimates rather than bounds, and three connections of one account at their limits come to about the service's heap. Accepted for this release, with no data leaving the device; an account-wide bound and a guard against a sync that keeps crashing on the same account are planned after it (IMAP/SMTP audit B1-14 and B1-21).
+
+- **When the mail service does not start at all, the error screen does not offer Uložit logy.** The button is on the start screen and on the error after the service has started, but not on the one shown when the service stops before it is up, as with a damaged database, which is the case it was added for (#701). The logs are still in `%LOCALAPPDATA%\VoxRox\Mail\logs` and can be sent from there. Found in the release candidate's manual check on 2026-10-13 and left for after this release, which `todo.md` tracks.
 
 ### Manual steps
 
