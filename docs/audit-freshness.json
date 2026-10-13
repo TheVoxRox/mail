@@ -43,18 +43,23 @@
   ],
   "docs/API_SURFACE_AUDIT.md": {
     "reviewedTrees": {
-      "frontend/src-tauri/src/redact.rs": "22f0fb867ceb8e70135c79bee6f492c3c28acf7b"
+      "frontend/src-tauri/src/redact.rs": "22f0fb867ceb8e70135c79bee6f492c3c28acf7b",
+      "frontend/src-tauri/src/logs.rs": "0da494433ac1a8f2cb4fc52517d84edba3740ba7"
     },
     "acknowledgements": [
       {
         "date": "2026-10-12",
         "note": "Recorded in the audit itself as v1.19, whose independent pass moved the anchor to 2d07187. Only the test module of redact.rs moves under Code paths: the shared-vectors test also asserts each vector's replacement counts (addresses, tokens, api_keys). The redactor's code above the test module is byte-identical, so the pass's measurements stand. The vectors file and DiagnosticLogRedactorTest, outside Code paths, gain the vectors and counts the pass found missing, and .github/workflows/ci.yml runs `cargo test --lib -- redact::` in the Tauri (Rust) job. No endpoint, filter, DTO, error response or dump entry changes. Verdict PASS."
+      },
+      {
+        "date": "2026-10-13",
+        "note": "Under Code paths only the test module of logs.rs moves, for zip 4 -> 9: from 9 on ZipArchive::file_names() yields Result, so the test listing a ZIP written without logs collects through Result before it compares. The writer code above #[cfg(test)] is byte-identical, and ZipWriter, SimpleFileOptions and CompressionMethod compile unchanged against 9, so the Save logs ZIP is written by the same calls. redact.rs, the command list and the redaction vectors do not change. Verdict PASS."
       }
     ]
   },
   "docs/UPDATER_AUDIT.md": {
     "reviewedTrees": {
-      "frontend/src-tauri/src": "7b461391306118261caa0b55b72d32bcc6eeaff1"
+      "frontend/src-tauri/src": "7ac92fa286b95f3afcb984758f918ffcd8e35d49"
     },
     "acknowledgements": [
       {
@@ -68,6 +73,10 @@
       {
         "date": "2026-10-12",
         "note": "Under src-tauri/src only the test module of redact.rs changes (API_SURFACE_AUDIT.md v1.19): its shared-vectors test also asserts each vector's replacement counts. No code outside #[cfg(test)] moves, so the build the updater ships is the same. Verdict stays PASS."
+      },
+      {
+        "date": "2026-10-13",
+        "note": "Under src-tauri/src only the test module of logs.rs changes, for the zip 4 -> 9 bump: file_names() yields Result from 9 on and the one test that lists entries collects through it. No code outside #[cfg(test)] moves; Cargo.toml and Cargo.lock move zip to 9.0.2 and add typed-path and nix under it, none of them on the update path. check_for_update, download_pending_update, install_pending_update, PendingUpdate, DownloadedUpdate, the channel map and the pubkey are untouched. Verdict stays PASS."
       }
     ]
   },

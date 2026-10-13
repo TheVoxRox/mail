@@ -553,7 +553,8 @@ mod tests {
         .unwrap();
 
         let archive = zip::ZipArchive::new(fs::File::open(&zip).unwrap()).unwrap();
-        assert_eq!(archive.file_names().collect::<Vec<_>>(), vec!["about.txt"]);
+        let names = archive.file_names().collect::<Result<Vec<_>, _>>().unwrap();
+        assert_eq!(names, vec!["about.txt"]);
         let _ = fs::remove_dir_all(&root);
     }
 }
