@@ -935,6 +935,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 - **The shell writes the Save logs ZIP with `zip` 9 instead of 4 (#713).** Nothing changes in what the ZIP holds; the one test that lists its entries reads names as results, which `file_names()` returns from 9 on. Replaces dependabot's #711, whose lockfile no longer applied after #710.
 
+- **The installer builds again with the Tauri 2.12 tooling, and it finds a running VoxRox Mail by its installed file rather than by its process name (#715).** The app's own installer template is a copy of Tauri's, and #617's move of the build tool to 2.12 replaced the check for a running app with one through the Windows Restart Manager, which needs a header and a full path the copy did not have; every installer build since failed, which no pull request build shows, because only the release build makes the installer. The template now takes both from Tauri 2.12.1's own. Closing a running app before an install or uninstall still asks first, as before.
+
 ### Migrations
 
 - `V2__add_modseq.sql` (CONDSTORE `last_known_modseq` column) sloučena zpět do `V1__init.sql`. Bezpečné pře prvním release — projekt nemá produkční data.
@@ -1360,7 +1362,7 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 - **Spotless moves to 3.10.4 with dependabot (#712).** A build plugin, so nothing the jar carries changes.
 
-- **The tag `v0.1.0` is cut an eighth time, on the 2026-10-13 candidate sheet, so the release carries everything merged since `d626a9b` (#714).** Nothing manual had been taken on the seventh cut, so no hand-taken evidence goes with it. `regen:licenses:all` ran first and moved into `NOTICE.txt` the versions that the Tauri 2.12 series, Jackson 3.1.7, `quinn-proto` and #706, #707, #710 and #713 carry, and `## Unreleased` is folded into `[0.1.0]` in merge order, now dated 2026-10-13.
+- **The tag `v0.1.0` is cut an eighth time, on the 2026-10-13 candidate sheet, so the release carries everything merged since `d626a9b` (#714).** Nothing manual had been taken on the seventh cut, so no hand-taken evidence goes with it. `regen:licenses:all` ran first and moved into `NOTICE.txt` the versions that the Tauri 2.12 series, Jackson 3.1.7, `quinn-proto` and #706, #707, #710 and #713 carry, and `## Unreleased` is folded into `[0.1.0]` in merge order, now dated 2026-10-13. Its signed build then failed at the installer step, and the tag moves to the fix (#715) on the same sheet, since nothing was built from it.
 
 ### Known issues
 
