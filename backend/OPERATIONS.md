@@ -289,23 +289,36 @@ be regenerated on every jar rebuild.
 Workflow (when enabled):
 
 1. `package-sidecar-windows.ps1 -EnableAotCache` runs `generate-aot-cache-windows.ps1`
-   after the jpackage app-image step:
-   - phase 1 (record): a JVM with `-XX:AOTMode=record -XX:AOTConfiguration=<file>`,
-     and the env `MAIL_AOT_TRAINING_RUN=1` activates `AotTrainingExitListener`,
-     which calls `System.exit(0)` after `ApplicationReadyEvent`. The JVM writes
-     the config file.
-   - phase 2 (create): a JVM with `-XX:AOTMode=create -XX:AOTConfiguration=<file>
+   after the jpackage app-image step, **through the image's own launcher**, with
+   the training options in `JAVA_TOOL_OPTIONS`:
+   - phase 1 (record): `-XX:AOTMode=record -XX:AOTConfiguration=<file>`, and the
+     env `MAIL_AOT_TRAINING_RUN=1` activates `AotTrainingExitListener`, which
+     calls `System.exit(0)` after `ApplicationReadyEvent`. The JVM writes the
+     config file.
+   - phase 2 (create): `-XX:AOTMode=create -XX:AOTConfiguration=<file>
 -XX:AOTCache=<file>` reads the config and builds the binary cache (~100-200 MB).
-   - the cache is copied to `<install_dir>/app/mail.aot`.
-2. The jpackage launcher then starts production with `--java-options
-"-XX:AOTCache=app\mail.aot"` (a path relative to the install dir).
+   - the cache is moved to `app\mail.aot` in the image.
+2. Only then does the script add `java-options=-XX:AOTCache=$APPDIR\mail.aot` to
+   the launcher's `.cfg`: a `.cfg` that already names a cache stops the record
+   phase. The launcher expands `$APPDIR`, so the cache is found from any working
+   directory.
+3. A packaging step starts the published launcher from another directory with
+   `-XX:AOTMode=on` and fails the build if the JVM does not map the cache.
 
-Manually (experimental, against a `mvn package` jar):
+The cache fits only the runtime it was trained on: the JVM compares the runtime
+image's `lib\modules` and the jar with what it saw while training and, on a
+mismatch, warns and starts without the cache. Training with the system `java`
+therefore yields a cache the app image refuses — which is what every release
+build did until 2026-10-17 ("`runtime\lib\modules` ... size has changed").
+
+Manually, against a `mvn package` jar and the system JDK (what
+`measure-cold-start-windows.ps1` does for itself; such a cache does not fit the
+app image):
 
 ```powershell
 .\scripts\generate-aot-cache-windows.ps1 `
     -JarPath target\mail-backend-0.1.0.jar `
-    -CachePath target\mail.aot
+    -CachePath target\coldstart\mail.aot
 ```
 
 The cache is bound to the exact jar hash + Java version — it must be regenerated
