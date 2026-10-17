@@ -19,6 +19,10 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+### Tauri / Release
+
+- **The updater is built without its `zip` feature, which takes `zip` 4.6.1 and its two extraction advisories out of the app (#720).** RUSTSEC-2026-0367 (SUID/SGID bits kept on extraction) and RUSTSEC-2026-0368 (`ZipArchive::extract` follows a symlink target from the archive) failed `cargo audit` in the required Tauri check on every pull request, and the scheduled scan since 2026-10-15 (#717). On Windows the feature does one thing: it lets the updater unpack a Tauri v1 `.zip` bundle. This release's manifest points at the signed NSIS `setup.exe`, which the plugin runs without unpacking anything, so updates install as before. A `.zip` update is now refused, so moving the release to `v1Compatible` artifacts would first need the feature back in a version users already have. The same check was also failing on four `rustls` advisories of 2026-10-14 (RUSTSEC-2026-0346 to -0349); `rustls` moves from 0.23.45 to 0.23.46, the TLS stack the updater downloads through.
+
 ## [0.1.0] - 2026-10-13
 
 ### Backend

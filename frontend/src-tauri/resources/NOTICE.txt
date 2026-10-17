@@ -8,12 +8,12 @@ attached to the component. The product itself is licensed under
 the terms of the LICENSE file shipped alongside this notice in the
 installation directory.
 
-Total third-party components: 538
+Total third-party components: 537
   npm    113
   maven  106
-  cargo  319
+  cargo  318
 
-Generated: 2026-10-13
+Generated: 2026-10-17
 
 Machine-readable CycloneDX SBOM files for each ecosystem are
 published alongside the installer on the GitHub Releases page.
@@ -688,7 +688,7 @@ Components and their copyright notices:
 
 ------------------------------------------------------------------
 
-## MIT  —  153 component(s)
+## MIT  —  152 component(s)
 
 License text:
 
@@ -1313,10 +1313,6 @@ Components and their copyright notices:
   * zimmerframe 1.1.4  [npm]
       (no author in package.json — see git+https://github.com/sveltejs/zimmerframe.git)
       git+https://github.com/sveltejs/zimmerframe.git
-
-  * zip 4.6.1  [cargo]
-      Mathijs van de Nes <git@mathijs.vd-nes.nl>, Marli Frost <marli@frost.red>, Ryan Levick <ryan.levick@gmail.com>, Chris Hennick <hennickc@amazon.com>
-      https://github.com/zip-rs/zip2.git
 
   * zip 9.0.2  [cargo]
       Mathijs van de Nes <git@mathijs.vd-nes.nl>, Marli Frost <marli@frost.red>, Ryan Levick <ryan.levick@gmail.com>, Chris Hennick <hennickc@amazon.com>
@@ -2436,7 +2432,7 @@ Components and their copyright notices:
       (copyright not declared)
       https://github.com/rustls/hyper-rustls
 
-  * rustls 0.23.45  [cargo]
+  * rustls 0.23.46  [cargo]
       (copyright not declared)
       https://github.com/rustls/rustls
 
