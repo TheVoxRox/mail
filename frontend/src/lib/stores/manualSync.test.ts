@@ -1,7 +1,7 @@
 import { get } from 'svelte/store';
 import { addMessages, init } from 'svelte-i18n';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import csMessages from '$lib/i18n/messages/cs.json';
+import csMessages from '#lib/i18n/messages/cs.json';
 import {
 	abandonManualSync,
 	beginManualSync,

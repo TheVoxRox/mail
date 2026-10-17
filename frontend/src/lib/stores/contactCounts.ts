@@ -8,8 +8,8 @@
  */
 
 import { get, writable } from 'svelte/store';
-import { getContactCounts } from '$lib/api/contacts.js';
-import type { ContactCountsResponse } from '$lib/types.js';
+import { getContactCounts } from '#lib/api/contacts.js';
+import type { ContactCountsResponse } from '#lib/types.js';
 
 export const contactCounts = writable<ContactCountsResponse | null>(null);
 

@@ -1,13 +1,13 @@
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import { invoke } from '@tauri-apps/api/core';
-import { hasNativeShell } from '$lib/nativeShell.js';
+import { hasNativeShell } from '#lib/nativeShell.js';
 import { listen } from '@tauri-apps/api/event';
 import { get, writable } from 'svelte/store';
-import { RELEASES_URL } from '$lib/version.js';
-import { toErrorMessage } from '$lib/api/errors.js';
-import { stopBackendSidecar, usesBackendSidecar } from '$lib/backend/sidecar.js';
-import { updateChannel } from '$lib/stores/updateChannel.js';
-import { loadUpdateStartupCheck, updateStartupCheck } from '$lib/stores/updateStartupCheck.js';
+import { RELEASES_URL } from '#lib/version.js';
+import { toErrorMessage } from '#lib/api/errors.js';
+import { stopBackendSidecar, usesBackendSidecar } from '#lib/backend/sidecar.js';
+import { updateChannel } from '#lib/stores/updateChannel.js';
+import { loadUpdateStartupCheck, updateStartupCheck } from '#lib/stores/updateStartupCheck.js';
 
 const DISMISSED_UPDATE_VERSION_KEY = 'mail.update.dismissedVersion';
 const AUTO_UPDATE_CHECK_ENABLED = import.meta.env.VITE_ENABLE_AUTO_UPDATE_CHECK === '1';
@@ -326,7 +326,7 @@ async function listenForDownloadProgress(): Promise<() => void> {
  */
 async function restartBackendAfterFailedInstall(): Promise<void> {
 	try {
-		const { bootstrap } = await import('$lib/bootstrap.js');
+		const { bootstrap } = await import('#lib/bootstrap.js');
 		await bootstrap({ restartSidecar: true });
 	} catch (err) {
 		// The boot / session stores surface this on their own, and the update

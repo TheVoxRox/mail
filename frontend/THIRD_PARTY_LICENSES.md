@@ -2,9 +2,9 @@
 
 VoxRox Mail bundles or transitively depends on the following npm packages. All listed packages are runtime / production dependencies (npm `dependencies`, not `devDependencies`). Development tooling that does not ship code to end users (vitest, playwright, eslint, etc.) is excluded.
 
-Counts: 117 packages total. 85 MIT, 14 ISC, 6 Apache-2.0, 4 MPL-2.0, 3 MIT OR Apache-2.0, 2 BSD-3-Clause, 1 0BSD, 1 Apache-2.0 OR MIT, 1 MIT*.
+Counts: 115 packages total. 83 MIT, 14 ISC, 6 Apache-2.0, 4 MPL-2.0, 3 MIT OR Apache-2.0, 2 BSD-3-Clause, 1 0BSD, 1 Apache-2.0 OR MIT, 1 MIT*.
 
-## MIT (85)
+## MIT (83)
 
 - **@esbuild/win32-x64** 0.28.1 — [https://github.com/evanw/esbuild](https://github.com/evanw/esbuild)
 - **@floating-ui/core** 1.7.5 — [https://github.com/floating-ui/floating-ui](https://github.com/floating-ui/floating-ui)
@@ -26,20 +26,19 @@ Counts: 117 packages total. 85 MIT, 14 ISC, 6 Apache-2.0, 4 MPL-2.0, 3 MIT OR Ap
 - **@rolldown/pluginutils** 1.0.1 — [https://github.com/rolldown/plugins](https://github.com/rolldown/plugins)
 - **@standard-schema/spec** 1.1.0 — [https://github.com/standard-schema/standard-schema](https://github.com/standard-schema/standard-schema)
 - **@sveltejs/acorn-typescript** 1.0.13 — [https://github.com/sveltejs/acorn-typescript](https://github.com/sveltejs/acorn-typescript)
-- **@sveltejs/kit** 2.70.3 — [https://github.com/sveltejs/kit](https://github.com/sveltejs/kit)
+- **@sveltejs/kit** 3.1.0 — [https://github.com/sveltejs/kit](https://github.com/sveltejs/kit)
 - **@sveltejs/vite-plugin-svelte** 7.3.1 — [https://github.com/sveltejs/vite-plugin-svelte](https://github.com/sveltejs/vite-plugin-svelte)
 - **@tailwindcss/node** 4.3.3 — [https://github.com/tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss)
 - **@tailwindcss/oxide** 4.3.3 — [https://github.com/tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss)
 - **@tailwindcss/oxide-win32-x64-msvc** 4.3.3 — [https://github.com/tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss)
 - **@tailwindcss/vite** 4.3.3 — [https://github.com/tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss)
-- **@types/cookie** 0.6.0 — [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
 - **@types/estree** 1.0.9 — [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
 - **@types/node** 25.9.1 — [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
 - **@typescript-eslint/types** 8.71.1 — [https://github.com/typescript-eslint/typescript-eslint](https://github.com/typescript-eslint/typescript-eslint)
 - **acorn** 8.18.0 — [https://github.com/acornjs/acorn](https://github.com/acornjs/acorn)
 - **bits-ui** 2.19.5 — [https://github.com/huntabyte/bits-ui](https://github.com/huntabyte/bits-ui)
 - **clsx** 2.1.1 — [https://github.com/lukeed/clsx](https://github.com/lukeed/clsx)
-- **cookie** 0.7.2 — [https://github.com/jshttp/cookie](https://github.com/jshttp/cookie)
+- **cookie** 2.0.1 — [https://github.com/jshttp/cookie](https://github.com/jshttp/cookie)
 - **decimal.js** 10.6.0 — [https://github.com/MikeMcl/decimal.js](https://github.com/MikeMcl/decimal.js)
 - **deepmerge** 4.3.1 — [https://github.com/TehShrike/deepmerge](https://github.com/TehShrike/deepmerge)
 - **dequal** 2.0.3 — [https://github.com/lukeed/dequal](https://github.com/lukeed/dequal)
@@ -58,12 +57,12 @@ Counts: 117 packages total. 85 MIT, 14 ISC, 6 Apache-2.0, 4 MPL-2.0, 3 MIT OR Ap
 - **is-promise** 2.2.2 — [https://github.com/then/is-promise](https://github.com/then/is-promise)
 - **is-reference** 3.0.3 — [https://github.com/Rich-Harris/is-reference](https://github.com/Rich-Harris/is-reference)
 - **jiti** 2.7.0 — [https://github.com/unjs/jiti](https://github.com/unjs/jiti)
-- **kleur** 4.1.5 — [https://github.com/lukeed/kleur](https://github.com/lukeed/kleur)
 - **locate-character** 3.0.0 — [git+https://gitlab.com/Rich-Harris/locate-character](git+https://gitlab.com/Rich-Harris/locate-character)
 - **lru-queue** 0.1.0 — [https://github.com/medikoo/lru-queue](https://github.com/medikoo/lru-queue)
 - **lz-string** 1.5.0 — [https://github.com/pieroxy/lz-string](https://github.com/pieroxy/lz-string)
 - **magic-string** 0.30.21 — [https://github.com/Rich-Harris/magic-string](https://github.com/Rich-Harris/magic-string)
 - **magic-string** 1.2.0 — [https://github.com/Rich-Harris/magic-string](https://github.com/Rich-Harris/magic-string)
+- **magic-string** 1.4.3 — [https://github.com/Rich-Harris/magic-string](https://github.com/Rich-Harris/magic-string)
 - **mri** 1.2.0 — [https://github.com/lukeed/mri](https://github.com/lukeed/mri)
 - **mrmime** 2.0.1 — [https://github.com/lukeed/mrmime](https://github.com/lukeed/mrmime)
 - **nanoid** 3.3.20 — [https://github.com/ai/nanoid](https://github.com/ai/nanoid)
@@ -73,7 +72,6 @@ Counts: 117 packages total. 85 MIT, 14 ISC, 6 Apache-2.0, 4 MPL-2.0, 3 MIT OR Ap
 - **rolldown** 1.2.12 — [https://github.com/rolldown/rolldown](https://github.com/rolldown/rolldown)
 - **runed** 0.35.1 — [https://github.com/svecosystem/runed](https://github.com/svecosystem/runed)
 - **sade** 1.8.1 — [https://github.com/lukeed/sade](https://github.com/lukeed/sade)
-- **set-cookie-parser** 3.1.0 — [https://github.com/nfriedly/set-cookie-parser](https://github.com/nfriedly/set-cookie-parser)
 - **sirv** 3.0.2 — [https://github.com/lukeed/sirv](https://github.com/lukeed/sirv)
 - **style-to-object** 1.0.14 — [https://github.com/remarkablemark/style-to-object](https://github.com/remarkablemark/style-to-object)
 - **svelte** 5.57.2 — [https://github.com/sveltejs/svelte](https://github.com/sveltejs/svelte)

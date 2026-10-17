@@ -5,7 +5,7 @@ import { get } from 'svelte/store';
 /*
  * updates.ts reads VITE_ENABLE_AUTO_UPDATE_CHECK at module-load time and gates the
  * startup check on import.meta.env.PROD, so each test stubs the env and re-imports
- * a fresh module (freshModule()). Tauri's invoke + $app/environment are mocked so
+ * a fresh module (freshModule()). Tauri's invoke + $app/env are mocked so
  * no real IPC ever runs; updates go through the shell commands check_for_update
  * / download_pending_update / install_pending_update (see
  * frontend/src-tauri/src/lib.rs). The sidecar and bootstrap modules are mocked
@@ -44,7 +44,7 @@ const {
 	};
 });
 
-vi.mock('$app/environment', () => ({
+vi.mock('$app/env', () => ({
 	get browser() {
 		return browserMock.value;
 	},
@@ -60,11 +60,11 @@ vi.mock('@tauri-apps/api/core', () => ({
 		args[0] === 'get_update_startup_check' ? recordedChoiceMock() : invokeMock(...args)
 }));
 vi.mock('@tauri-apps/api/event', () => ({ listen: listenMock }));
-vi.mock('$lib/backend/sidecar.js', () => ({
+vi.mock('#lib/backend/sidecar.js', () => ({
 	usesBackendSidecar: usesSidecarMock,
 	stopBackendSidecar: stopSidecarMock
 }));
-vi.mock('$lib/bootstrap.js', () => ({ bootstrap: bootstrapMock }));
+vi.mock('#lib/bootstrap.js', () => ({ bootstrap: bootstrapMock }));
 
 type UpdatesModule = typeof import('./updates.js');
 

@@ -3,27 +3,27 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { get } from 'svelte/store';
-	import { accountsState, activeAccountId } from '$lib/stores/accounts.js';
-	import { sendMail } from '$lib/api/mailWrite.js';
-	import { sendDraft } from '$lib/api/drafts.js';
-	import { toErrorMessage } from '$lib/api/errors.js';
-	import { refreshFolders } from '$lib/stores/folders.js';
-	import { registerPendingSend } from '$lib/stores/notifications.js';
-	import { _ } from '$lib/i18n/index.js';
-	import { pushToast, announcePolite } from '$lib/stores/toasts.js';
-	import type { AccountResponse } from '$lib/types.js';
-	import AttachmentPicker from '$lib/components/compose/AttachmentPicker.svelte';
-	import ComposeActionsBar from '$lib/components/compose/ComposeActionsBar.svelte';
-	import RecipientFields from '$lib/components/compose/RecipientFields.svelte';
-	import UnsavedChangesDialog from '$lib/components/compose/UnsavedChangesDialog.svelte';
+	import { accountsState, activeAccountId } from '#lib/stores/accounts.js';
+	import { sendMail } from '#lib/api/mailWrite.js';
+	import { sendDraft } from '#lib/api/drafts.js';
+	import { toErrorMessage } from '#lib/api/errors.js';
+	import { refreshFolders } from '#lib/stores/folders.js';
+	import { registerPendingSend } from '#lib/stores/notifications.js';
+	import { _ } from '#lib/i18n/index.js';
+	import { pushToast, announcePolite } from '#lib/stores/toasts.js';
+	import type { AccountResponse } from '#lib/types.js';
+	import AttachmentPicker from '#lib/components/compose/AttachmentPicker.svelte';
+	import ComposeActionsBar from '#lib/components/compose/ComposeActionsBar.svelte';
+	import RecipientFields from '#lib/components/compose/RecipientFields.svelte';
+	import UnsavedChangesDialog from '#lib/components/compose/UnsavedChangesDialog.svelte';
 	import {
 		handleComposeShortcuts,
 		mapComposePrefill,
 		resolveComposeFromAccount,
 		shouldFocusComposeBody,
 		targetHref
-	} from '$lib/components/compose/controller.js';
-	import { loadComposePrefill } from '$lib/compose/prefill.js';
+	} from '#lib/components/compose/controller.js';
+	import { loadComposePrefill } from '#lib/compose/prefill.js';
 	import {
 		appendSignature,
 		autoSignature,
@@ -31,19 +31,19 @@
 		insertSignatureAt,
 		signatureManagedForKind,
 		swapSignature
-	} from '$lib/compose/signature.js';
+	} from '#lib/compose/signature.js';
 	import {
 		buildMailRequest,
 		type ComposeAttachment,
 		type ComposeDraft
-	} from '$lib/compose/request.js';
-	import { invalidAddressList, parseAddressList } from '$lib/compose/addresses.js';
-	import { mentionsAttachment } from '$lib/compose/attachmentReminder.js';
-	import { confirmAction } from '$lib/stores/confirmDialog.js';
-	import { composeSession, composeSnapshotFingerprint } from '$lib/compose/session.js';
-	import { installLeaveGuard } from '$lib/leaveGuard.js';
-	import { focusRingInset } from '$lib/components/ui/focus-ring/index.js';
-	import { cn } from '$lib/utils.js';
+	} from '#lib/compose/request.js';
+	import { invalidAddressList, parseAddressList } from '#lib/compose/addresses.js';
+	import { mentionsAttachment } from '#lib/compose/attachmentReminder.js';
+	import { confirmAction } from '#lib/stores/confirmDialog.js';
+	import { composeSession, composeSnapshotFingerprint } from '#lib/compose/session.js';
+	import { installLeaveGuard } from '#lib/leaveGuard.js';
+	import { focusRingInset } from '#lib/components/ui/focus-ring/index.js';
+	import { cn } from '#lib/utils.js';
 	import { onDestroy, onMount, tick, untrack } from 'svelte';
 
 	let to = $state('');

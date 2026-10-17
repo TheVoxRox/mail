@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { get } from 'svelte/store';
-import type { MailContentResponse, MailDetailResponse } from '$lib/types.js';
+import type { MailContentResponse, MailDetailResponse } from '#lib/types.js';
 
 const { getMessageDetailMock, getMessageContentMock, reloadCurrentPageMock } = vi.hoisted(() => ({
 	getMessageDetailMock: vi.fn(),
@@ -9,16 +9,16 @@ const { getMessageDetailMock, getMessageContentMock, reloadCurrentPageMock } = v
 	reloadCurrentPageMock: vi.fn()
 }));
 
-vi.mock('$lib/api/mailRead.js', () => ({
+vi.mock('#lib/api/mailRead.js', () => ({
 	getMessageDetail: getMessageDetailMock,
 	getMessageContent: getMessageContentMock
 }));
-vi.mock('$lib/stores/messages.js', () => ({
+vi.mock('#lib/stores/messages.js', () => ({
 	reloadCurrentPage: reloadCurrentPageMock
 }));
 
 // Real ApiError so `err instanceof ApiError` in the store matches.
-import { ApiError } from '$lib/api/client.js';
+import { ApiError } from '#lib/api/client.js';
 import { selectMessage, selectedMessage } from './selectedMessage.js';
 
 function detail(stableId: string): MailDetailResponse {

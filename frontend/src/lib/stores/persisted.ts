@@ -9,7 +9,7 @@
  * chose a value pick up a changed default on upgrade.
  */
 
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import { writable, type Writable } from 'svelte/store';
 
 export function persistedStore<T extends string>(

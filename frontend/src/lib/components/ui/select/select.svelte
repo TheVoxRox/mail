@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	import { cn, tv, type WithElementRef } from '$lib/utils.js';
+	import { cn, tv, type WithElementRef } from '#lib/utils.js';
 	import { focusRing } from '../focus-ring/index.js';
 	import type { Snippet } from 'svelte';
 	import type { HTMLSelectAttributes } from 'svelte/elements';

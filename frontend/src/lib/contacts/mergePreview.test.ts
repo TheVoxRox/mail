@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MAX_EMAILS_PER_CONTACT, buildMergePreview, exceedsEmailLimit } from './mergePreview.js';
-import type { ContactEmailResponse, ContactResponse } from '$lib/types.js';
+import type { ContactEmailResponse, ContactResponse } from '#lib/types.js';
 
 /**
  * The merge preview is the non-trivial part of the contact merge: a

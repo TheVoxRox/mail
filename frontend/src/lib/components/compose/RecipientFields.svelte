@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { _ } from '$lib/i18n/index.js';
-	import AddressTokenField from '$lib/components/compose/AddressTokenField.svelte';
-	import { Select } from '$lib/components/ui/select/index.js';
-	import type { AccountResponse } from '$lib/types.js';
-	import { focusRingInset } from '$lib/components/ui/focus-ring/index.js';
-	import { cn } from '$lib/utils.js';
+	import { _ } from '#lib/i18n/index.js';
+	import AddressTokenField from '#lib/components/compose/AddressTokenField.svelte';
+	import { Select } from '#lib/components/ui/select/index.js';
+	import type { AccountResponse } from '#lib/types.js';
+	import { focusRingInset } from '#lib/components/ui/focus-ring/index.js';
+	import { cn } from '#lib/utils.js';
 
 	interface Props {
 		to: string;

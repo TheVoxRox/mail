@@ -7,7 +7,7 @@ import type {
 	AccountCreateRequest,
 	AccountResponse,
 	AccountUpdateRequest
-} from '$lib/types.js';
+} from '#lib/types.js';
 
 export function listAccounts(): Promise<AccountResponse[]> {
 	return api.get<AccountResponse[]>('/accounts');

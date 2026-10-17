@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	import { cn, tv } from '$lib/utils.js';
+	import { cn, tv } from '#lib/utils.js';
 	import { badgeVariants } from '../badge/index.js';
 	import { focusRing } from '../focus-ring/index.js';
 	import type { Snippet } from 'svelte';

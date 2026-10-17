@@ -6,7 +6,7 @@
  * carries no aria-label at all.
  */
 
-import type { MailSummaryResponse } from '$lib/types.js';
+import type { MailSummaryResponse } from '#lib/types.js';
 
 /**
  * Structurally compatible with `MessageFormatter` from svelte-i18n (`$_` /

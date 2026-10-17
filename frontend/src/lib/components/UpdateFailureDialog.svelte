@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { _ } from '$lib/i18n/index.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { DialogDescription, DialogShell, DialogTitle } from '$lib/components/ui/dialog/index.js';
-	import { dismissUpdateFailure, updateFailureState } from '$lib/updates.js';
+	import { _ } from '#lib/i18n/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { DialogDescription, DialogShell, DialogTitle } from '#lib/components/ui/dialog/index.js';
+	import { dismissUpdateFailure, updateFailureState } from '#lib/updates.js';
 
 	let open = $derived($updateFailureState.status === 'failed');
 	let message = $derived(

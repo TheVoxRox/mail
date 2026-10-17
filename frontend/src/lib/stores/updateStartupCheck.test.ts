@@ -13,7 +13,7 @@ const { isTauriMock, invokeMock } = vi.hoisted(() => ({
 	invokeMock: vi.fn()
 }));
 
-vi.mock('$app/environment', () => ({
+vi.mock('$app/env', () => ({
 	browser: true,
 	dev: false,
 	building: false,

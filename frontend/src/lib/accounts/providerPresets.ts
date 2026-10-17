@@ -12,7 +12,7 @@
  * The order of `KNOWN_PRESETS` drives the order of cards in the wizard.
  */
 
-import type { MailProviderResponse } from '$lib/types.js';
+import type { MailProviderResponse } from '#lib/types.js';
 
 type ProviderFlow = 'oauth' | 'imap';
 

@@ -19,7 +19,7 @@
  * The manual BootErrorView Restart/Retry path re-handshakes on its own and
  * emits 'stopped' → 'starting' (never 'restarting'), so it is not matched here.
  */
-import { invalidateSession } from '$lib/stores/session.js';
+import { invalidateSession } from '#lib/stores/session.js';
 import { backendSidecarState } from './sidecar.js';
 
 async function recoverAfterSidecarRestart(): Promise<void> {
@@ -32,7 +32,7 @@ async function recoverAfterSidecarRestart(): Promise<void> {
 		 * (near-impossible) import failure cannot escape as an unhandled rejection
 		 * from the watcher's `void recover()`.
 		 */
-		const { bootstrap } = await import('$lib/bootstrap.js');
+		const { bootstrap } = await import('#lib/bootstrap.js');
 		await bootstrap({ force: true });
 	} catch {
 		/*

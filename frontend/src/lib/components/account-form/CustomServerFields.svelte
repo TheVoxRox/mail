@@ -7,8 +7,8 @@
 	 * {@link ServerEndpointFields}.
 	 */
 	import ServerEndpointFields from './ServerEndpointFields.svelte';
-	import { _ } from '$lib/i18n/index.js';
-	import type { AccountFieldKey, CustomFieldKey } from '$lib/accounts/accountFormValidation.js';
+	import { _ } from '#lib/i18n/index.js';
+	import type { AccountFieldKey, CustomFieldKey } from '#lib/accounts/accountFormValidation.js';
 
 	interface Props {
 		imapHost: string;

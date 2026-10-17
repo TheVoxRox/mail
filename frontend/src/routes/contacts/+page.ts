@@ -1,7 +1,7 @@
 import { get } from 'svelte/store';
-import type { ContactSort } from '$lib/api/contacts.js';
-import { readContactPrefill, readReturnTo } from '$lib/contacts/prefill.js';
-import { contactSortPreference } from '$lib/stores/contactSort.js';
+import type { ContactSort } from '#lib/api/contacts.js';
+import { readContactPrefill, readReturnTo } from '#lib/contacts/prefill.js';
+import { contactSortPreference } from '#lib/stores/contactSort.js';
 import type { PageLoad } from './$types.js';
 
 const SORT_VALUES: ContactSort[] = ['name', 'surname', 'recent'];

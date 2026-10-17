@@ -6,7 +6,7 @@
  * design tokens from `app.css` react to it and switch the OKLCH variables.
  */
 
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import { type Readable, derived } from 'svelte/store';
 import { persistedStore } from './persisted.js';
 

@@ -11,7 +11,7 @@
  * `currentWorkspaceMode()`; the consumer wraps `loadSidebar` in `$derived`).
  */
 import type { Component } from 'svelte';
-import type { WorkspaceMode } from '$lib/stores/workspaceMode.js';
+import type { WorkspaceMode } from '#lib/stores/workspaceMode.js';
 
 type SidebarModule = Promise<{ default: Component }>;
 

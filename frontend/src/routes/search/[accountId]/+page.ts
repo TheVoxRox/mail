@@ -1,4 +1,4 @@
-import { requireAccountId } from '$lib/routeParams.js';
+import { requireAccountId } from '#lib/routeParams.js';
 import type { PageLoad } from './$types.js';
 
 export const load: PageLoad = ({ params, url }) => {

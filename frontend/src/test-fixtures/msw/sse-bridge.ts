@@ -11,7 +11,7 @@ import type {
 	SyncCycleNotification,
 	SyncNotification,
 	SyncStatusNotification
-} from '$lib/types.js';
+} from '#lib/types.js';
 
 type StreamController = ReadableStreamDefaultController<Uint8Array>;
 

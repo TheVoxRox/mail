@@ -1,7 +1,7 @@
 /** `/api/v1/accounts/{accountId}/drafts` — drafts (async save + sending). */
 
 import { api } from './client.js';
-import type { DraftRequest, DraftSaveAcceptedResponse, SendAcceptedResponse } from '$lib/types.js';
+import type { DraftRequest, DraftSaveAcceptedResponse, SendAcceptedResponse } from '#lib/types.js';
 
 /**
  * Asynchronously saves a draft. If `replaces` is set, the old revision is

@@ -32,7 +32,7 @@
  * would silently break every shortcut) fails the build.
  */
 
-import { ROOT_FONT_SIZE, type TextSize } from '$lib/stores/textSize.js';
+import { ROOT_FONT_SIZE, type TextSize } from '#lib/stores/textSize.js';
 import { REMOTE_IMAGE_ATTR, sanitizeMailHtml } from './content-sanitizer.js';
 
 /**

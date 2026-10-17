@@ -9,7 +9,7 @@
  * `theme` store pattern.
  */
 
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import { persistedStore } from './persisted.js';
 
 export const TEXT_SIZES = ['small', 'medium', 'large'] as const;

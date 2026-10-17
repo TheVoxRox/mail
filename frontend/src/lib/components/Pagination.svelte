@@ -32,10 +32,10 @@
 </script>
 
 <script lang="ts">
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { Input } from '$lib/components/ui/input/index.js';
-	import { _ } from '$lib/i18n/index.js';
-	import { clampPageTarget } from '$lib/paging.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { _ } from '#lib/i18n/index.js';
+	import { clampPageTarget } from '#lib/paging.js';
 
 	interface Props {
 		page: number;

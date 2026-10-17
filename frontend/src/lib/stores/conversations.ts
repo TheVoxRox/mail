@@ -4,10 +4,10 @@
  * `messages` store — the mail layout swaps between the two on the
  * `messageGrouping` preference.
  */
-import { listConversations } from '$lib/api/mailRead.js';
-import { getClientConfigSnapshot } from '$lib/stores/clientConfig.js';
+import { listConversations } from '#lib/api/mailRead.js';
+import { getClientConfigSnapshot } from '#lib/stores/clientConfig.js';
 import { createPagedListStore } from './createPagedListStore.js';
-import type { ConversationSummaryResponse } from '$lib/types.js';
+import type { ConversationSummaryResponse } from '#lib/types.js';
 
 interface ConversationsContext {
 	accountId: number;

@@ -11,7 +11,7 @@ import type {
 	MailSummaryResponse,
 	PagedResponse,
 	ThreadResponse
-} from '$lib/types.js';
+} from '#lib/types.js';
 
 export interface PageParams {
 	page?: number;

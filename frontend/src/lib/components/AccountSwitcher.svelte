@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { accountsState, activeAccount, setActiveAccount } from '$lib/stores/accounts.js';
-	import { accountOptionLabel } from '$lib/accounts/accountLabel.js';
-	import Icon from '$lib/components/Icon.svelte';
-	import { Select } from '$lib/components/ui/select/index.js';
-	import { _ } from '$lib/i18n/index.js';
+	import { accountsState, activeAccount, setActiveAccount } from '#lib/stores/accounts.js';
+	import { accountOptionLabel } from '#lib/accounts/accountLabel.js';
+	import Icon from '#lib/components/Icon.svelte';
+	import { Select } from '#lib/components/ui/select/index.js';
+	import { _ } from '#lib/i18n/index.js';
 
 	const accounts = $derived($accountsState.status === 'ready' ? $accountsState.accounts : []);
 	const current = $derived($activeAccount);
@@ -13,7 +13,7 @@
 
 	async function selectAccountById(id: number): Promise<void> {
 		setActiveAccount(id);
-		await goto(resolve('/'), { replaceState: true });
+		await goto(resolve('/'), { replace: true });
 	}
 
 	function handleChange(event: Event): void {

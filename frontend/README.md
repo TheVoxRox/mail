@@ -2,7 +2,7 @@
 
 [![CI](../../actions/workflows/ci.yml/badge.svg)](../../actions/workflows/ci.yml)
 
-Desktop mail client frontend built with SvelteKit 2 (Svelte 5), Tailwind CSS 4, Playwright, and Tauri 2. Three main workspace modes: `Mail`, `Contacts`, `Settings`. Talks to a backend that runs as a Tauri sidecar; outside Tauri (browser mode) it runs only against the MSW mocks.
+Desktop mail client frontend built with SvelteKit 3 (Svelte 5), Tailwind CSS 4, Playwright, and Tauri 2. Three main workspace modes: `Mail`, `Contacts`, `Settings`. Talks to a backend that runs as a Tauri sidecar; outside Tauri (browser mode) it runs only against the MSW mocks.
 
 Repo-wide overview and the full doc map live in the monorepo root [`../README.md`](../README.md). This file is frontend-specific.
 

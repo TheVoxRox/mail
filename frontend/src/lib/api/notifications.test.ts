@@ -8,7 +8,7 @@ const { buildApiUrlMock, httpFetchMock, invalidateSessionMock } = vi.hoisted(() 
 
 vi.mock('./client.js', () => ({ buildApiUrl: buildApiUrlMock }));
 vi.mock('./http.js', () => ({ httpFetch: httpFetchMock }));
-vi.mock('$lib/stores/session.js', () => ({ invalidateSession: invalidateSessionMock }));
+vi.mock('#lib/stores/session.js', () => ({ invalidateSession: invalidateSessionMock }));
 
 import { SseClient } from './notifications.js';
 

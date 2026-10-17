@@ -1,10 +1,10 @@
-import { setMessageFlag } from '$lib/api/mailAction.js';
-import { markSeenLocally } from '$lib/stores/messages.js';
+import { setMessageFlag } from '#lib/api/mailAction.js';
+import { markSeenLocally } from '#lib/stores/messages.js';
 import {
 	invalidateMessage,
 	patchSelectedMessageDetail,
 	type SelectedMessage
-} from '$lib/stores/selectedMessage.js';
+} from '#lib/stores/selectedMessage.js';
 
 export type MessageSeenTracker = {
 	selectedStableId: string | null;

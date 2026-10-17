@@ -5,7 +5,7 @@
 	 * `Dialog.Title` it needs to wire `aria-labelledby`.
 	 */
 	import { Dialog } from 'bits-ui';
-	import { cn } from '$lib/utils.js';
+	import { cn } from '#lib/utils.js';
 	import type { Snippet } from 'svelte';
 
 	interface Props {

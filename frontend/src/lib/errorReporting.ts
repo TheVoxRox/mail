@@ -1,4 +1,4 @@
-import { reportClientError } from '$lib/api/clientErrors.js';
+import { reportClientError } from '#lib/api/clientErrors.js';
 
 let installed = false;
 

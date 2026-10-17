@@ -11,11 +11,11 @@
  * does not mark anything as read.
  */
 import { get, writable } from 'svelte/store';
-import { getMessageContent, getMessageDetail } from '$lib/api/mailRead.js';
-import { _ } from '$lib/i18n/index.js';
-import { selectedMessage, type SelectedMessage } from '$lib/stores/selectedMessage.js';
-import { announcePolite, pushToast } from '$lib/stores/toasts.js';
-import type { MailContentResponse, MailDetailResponse } from '$lib/types.js';
+import { getMessageContent, getMessageDetail } from '#lib/api/mailRead.js';
+import { _ } from '#lib/i18n/index.js';
+import { selectedMessage, type SelectedMessage } from '#lib/stores/selectedMessage.js';
+import { announcePolite, pushToast } from '#lib/stores/toasts.js';
+import type { MailContentResponse, MailDetailResponse } from '#lib/types.js';
 
 /**
  * Why the open message cannot be printed, as an i18n key, or null when it can.

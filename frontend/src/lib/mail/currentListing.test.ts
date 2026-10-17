@@ -1,19 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('$lib/stores/messages.js', async () => {
+vi.mock('#lib/stores/messages.js', async () => {
 	const { writable } = await import('svelte/store');
 	return { messagesState: writable({ status: 'idle' }) };
 });
 
-vi.mock('$lib/stores/conversations.js', async () => {
+vi.mock('#lib/stores/conversations.js', async () => {
 	const { writable } = await import('svelte/store');
 	return { conversationsState: writable({ status: 'idle' }) };
 });
 
 import { currentFolderHref, currentListingContext, listingContexts } from './currentListing.js';
-import { conversationsState } from '$lib/stores/conversations.js';
-import { messagesState } from '$lib/stores/messages.js';
-import { messageGrouping } from '$lib/stores/uiLayout.js';
+import { conversationsState } from '#lib/stores/conversations.js';
+import { messagesState } from '#lib/stores/messages.js';
+import { messageGrouping } from '#lib/stores/uiLayout.js';
 import type { Writable } from 'svelte/store';
 
 const messagesStore = messagesState as unknown as Writable<unknown>;

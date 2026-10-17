@@ -2,11 +2,11 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { get } from 'svelte/store';
-	import { activeAccount } from '$lib/stores/accounts.js';
-	import { clientConfig } from '$lib/stores/clientConfig.js';
+	import { activeAccount } from '#lib/stores/accounts.js';
+	import { clientConfig } from '#lib/stores/clientConfig.js';
 	import { page } from '$app/state';
-	import { _ } from '$lib/i18n/index.js';
-	import { Input } from '$lib/components/ui/input/index.js';
+	import { _ } from '#lib/i18n/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
 	import { untrack } from 'svelte';
 
 	let query = $state(page.url.searchParams.get('q') ?? '');

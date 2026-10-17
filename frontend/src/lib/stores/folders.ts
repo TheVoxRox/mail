@@ -6,9 +6,9 @@
  */
 
 import { derived, get, writable } from 'svelte/store';
-import { listFolders } from '$lib/api/folders.js';
-import { toError } from '$lib/api/errors.js';
-import type { FolderResponse } from '$lib/types.js';
+import { listFolders } from '#lib/api/folders.js';
+import { toError } from '#lib/api/errors.js';
+import type { FolderResponse } from '#lib/types.js';
 import { resolvedActiveAccountId } from './accounts.js';
 
 type FoldersByAccount = Record<number, FolderResponse[]>;

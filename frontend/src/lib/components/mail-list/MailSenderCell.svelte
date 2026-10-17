@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { focusRingInset } from '$lib/components/ui/focus-ring/index.js';
-	import { cn } from '$lib/utils.js';
-	import type { RovingCellProps } from '$lib/components/grid/rovingGrid.svelte.js';
+	import { focusRingInset } from '#lib/components/ui/focus-ring/index.js';
+	import { cn } from '#lib/utils.js';
+	import type { RovingCellProps } from '#lib/components/grid/rovingGrid.svelte.js';
 
 	/**
 	 * The counterpart cell: who the message is with. Which side that is belongs

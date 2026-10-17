@@ -8,7 +8,7 @@ import {
 	SPLIT_SIZE_KEYS
 } from './listSize.js';
 
-vi.mock('$app/environment', () => ({
+vi.mock('$app/env', () => ({
 	browser: true,
 	dev: false,
 	building: false,

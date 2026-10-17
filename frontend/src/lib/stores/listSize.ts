@@ -10,7 +10,7 @@
  * a later drag simply moves on from there. SplitPane reads its value when the
  * mail view mounts, which is the next time Mail opens after the setting.
  */
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 
 export const LIST_SIZES = ['smaller', 'default', 'larger'] as const;
 export type ListSize = (typeof LIST_SIZES)[number];
@@ -53,6 +53,7 @@ function stored(orientation: SplitOrientation): number {
 export function currentListSize(): ListSize | 'custom' {
 	const right = stored('right');
 	const bottom = stored('bottom');
+
 	return (
 		LIST_SIZES.find(
 			(size) => LIST_SIZE_PERCENT[size].right === right && LIST_SIZE_PERCENT[size].bottom === bottom

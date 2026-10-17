@@ -1,4 +1,4 @@
-import type { ContactResponse } from '$lib/types.js';
+import type { ContactResponse } from '#lib/types.js';
 
 /**
  * Maximum number of e-mail addresses a single contact may hold. The merge

@@ -1,31 +1,31 @@
 <script lang="ts">
-	import { listProviders } from '$lib/api/providers.js';
-	import { testAccountConnection } from '$lib/api/accounts.js';
-	import { presetForProvider, type ProviderPreset } from '$lib/accounts/providerPresets.js';
-	import { createProviderResolver, type ProviderResolver } from '$lib/accounts/providerResolver.js';
+	import { listProviders } from '#lib/api/providers.js';
+	import { testAccountConnection } from '#lib/api/accounts.js';
+	import { presetForProvider, type ProviderPreset } from '#lib/accounts/providerPresets.js';
+	import { createProviderResolver, type ProviderResolver } from '#lib/accounts/providerResolver.js';
 	import {
 		FIELD_INPUT_IDS,
 		validateAccountForm,
 		type AccountFieldError,
 		type AccountFieldKey
-	} from '$lib/accounts/accountFormValidation.js';
-	import AccountAppPasswordNotice from '$lib/components/AccountAppPasswordNotice.svelte';
-	import CustomServerFields from '$lib/components/account-form/CustomServerFields.svelte';
-	import { badgeVariants } from '$lib/components/ui/badge/index.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { Field } from '$lib/components/ui/field/index.js';
-	import { focusRingWithin } from '$lib/components/ui/focus-ring/index.js';
-	import { Input } from '$lib/components/ui/input/index.js';
-	import { Textarea } from '$lib/components/ui/textarea/index.js';
-	import ProviderLogo from '$lib/components/ProviderLogo.svelte';
-	import { Select } from '$lib/components/ui/select/index.js';
-	import { Surface } from '$lib/components/ui/surface/index.js';
-	import { nativeControlClass } from '$lib/components/ui/native-control/index.js';
-	import { ApiError } from '$lib/api/client.js';
-	import { toErrorMessage } from '$lib/api/errors.js';
-	import { _ } from '$lib/i18n/index.js';
-	import { announcePolite } from '$lib/stores/toasts.js';
-	import { cn } from '$lib/utils.js';
+	} from '#lib/accounts/accountFormValidation.js';
+	import AccountAppPasswordNotice from '#lib/components/AccountAppPasswordNotice.svelte';
+	import CustomServerFields from '#lib/components/account-form/CustomServerFields.svelte';
+	import { badgeVariants } from '#lib/components/ui/badge/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Field } from '#lib/components/ui/field/index.js';
+	import { focusRingWithin } from '#lib/components/ui/focus-ring/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { Textarea } from '#lib/components/ui/textarea/index.js';
+	import ProviderLogo from '#lib/components/ProviderLogo.svelte';
+	import { Select } from '#lib/components/ui/select/index.js';
+	import { Surface } from '#lib/components/ui/surface/index.js';
+	import { nativeControlClass } from '#lib/components/ui/native-control/index.js';
+	import { ApiError } from '#lib/api/client.js';
+	import { toErrorMessage } from '#lib/api/errors.js';
+	import { _ } from '#lib/i18n/index.js';
+	import { announcePolite } from '#lib/stores/toasts.js';
+	import { cn } from '#lib/utils.js';
 	import type {
 		AccountCreateRequest,
 		AccountConnectionTestRequest,
@@ -33,7 +33,7 @@
 		AccountUpdateRequest,
 		MailProviderResponse,
 		MailServerSettings
-	} from '$lib/types.js';
+	} from '#lib/types.js';
 	import { onDestroy, onMount, tick } from 'svelte';
 
 	type Mode = 'create' | 'edit';

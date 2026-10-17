@@ -7,11 +7,10 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
 	resolve: {
 		alias: [
-			{ find: /^\$lib\/(.*)$/, replacement: path.resolve(here, './src/lib/$1') },
-			{ find: /^\$lib$/, replacement: path.resolve(here, './src/lib') },
+			{ find: /^#lib\/(.*)$/, replacement: path.resolve(here, './src/lib/$1') },
 			{
-				find: /^\$app\/environment$/,
-				replacement: path.resolve(here, './src/test-stubs/app-environment.ts')
+				find: /^\$app\/env$/,
+				replacement: path.resolve(here, './src/test-stubs/app-env.ts')
 			},
 			{
 				find: /^\$app\/state$/,

@@ -1,19 +1,19 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { goto } from '$app/navigation';
-	import { accountsState } from '$lib/stores/accounts.js';
-	import { confirmAndDeleteAccount } from '$lib/accounts/deleteAccount.js';
-	import { toErrorMessage } from '$lib/api/errors.js';
-	import { startOAuthLogin } from '$lib/api/googleAuth.js';
-	import Icon from '$lib/components/Icon.svelte';
-	import { badgeVariants } from '$lib/components/ui/badge/index.js';
-	import { ListRow } from '$lib/components/ui/list-row/index.js';
-	import { PageShell } from '$lib/components/ui/page-shell/index.js';
-	import { StateMessage } from '$lib/components/ui/state-message/index.js';
-	import { Surface } from '$lib/components/ui/surface/index.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { _ } from '$lib/i18n/index.js';
-	import type { AccountResponse } from '$lib/types.js';
+	import { accountsState } from '#lib/stores/accounts.js';
+	import { confirmAndDeleteAccount } from '#lib/accounts/deleteAccount.js';
+	import { toErrorMessage } from '#lib/api/errors.js';
+	import { startOAuthLogin } from '#lib/api/googleAuth.js';
+	import Icon from '#lib/components/Icon.svelte';
+	import { badgeVariants } from '#lib/components/ui/badge/index.js';
+	import { ListRow } from '#lib/components/ui/list-row/index.js';
+	import { PageShell } from '#lib/components/ui/page-shell/index.js';
+	import { StateMessage } from '#lib/components/ui/state-message/index.js';
+	import { Surface } from '#lib/components/ui/surface/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { _ } from '#lib/i18n/index.js';
+	import type { AccountResponse } from '#lib/types.js';
 
 	let deletingId = $state<number | null>(null);
 	let reauthingId = $state<number | null>(null);
@@ -102,10 +102,9 @@
 	contentClass="max-w-4xl space-y-4"
 >
 	{#snippet actions()}
-		<Button size="sm" onclick={() => goto(resolve('/settings/accounts/new'))}>
-			<Icon name="plus" />
-			{$_('accounts.addAccount')}
-		</Button>
+		<Button size="sm" onclick={() => goto(resolve('settings/accounts/new'))}
+			><Icon name="plus" />{$_('accounts.addAccount')}</Button
+		>
 	{/snippet}
 
 	{#if errorMessage}
@@ -126,7 +125,8 @@
 						<h2 class="text-sm font-semibold text-foreground">{$_('accounts.emptyHeading')}</h2>
 						<p class="max-w-xl text-sm text-muted-foreground">{$_('accounts.emptyDescription')}</p>
 					</div>
-					<Button size="sm" onclick={() => goto(resolve('/settings/accounts/new'))}>
+
+					<Button size="sm" onclick={() => goto(resolve('settings/accounts/new'))}>
 						<Icon name="plus" />
 						{$_('accounts.addFirstAccount')}
 					</Button>

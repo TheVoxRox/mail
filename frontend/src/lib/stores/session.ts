@@ -1,6 +1,6 @@
 import { writable, get } from 'svelte/store';
-import { loadSession, type LoadSessionOptions, type SessionPayload } from '$lib/api/session.js';
-import { toError } from '$lib/api/errors.js';
+import { loadSession, type LoadSessionOptions, type SessionPayload } from '#lib/api/session.js';
+import { toError } from '#lib/api/errors.js';
 
 type SessionState =
 	| { status: 'idle' }

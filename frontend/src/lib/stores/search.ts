@@ -2,10 +2,10 @@
  * Store for full-text search results (`GET /messages/account/{id}/search`).
  * Parallel model to `messages.ts` built on the shared `createPagedListStore`.
  */
-import { searchMessages } from '$lib/api/mailRead.js';
-import { getClientConfigSnapshot } from '$lib/stores/clientConfig.js';
+import { searchMessages } from '#lib/api/mailRead.js';
+import { getClientConfigSnapshot } from '#lib/stores/clientConfig.js';
 import { createPagedListStore } from './createPagedListStore.js';
-import type { MailSummaryResponse } from '$lib/types.js';
+import type { MailSummaryResponse } from '#lib/types.js';
 
 interface SearchContext {
 	accountId: number;

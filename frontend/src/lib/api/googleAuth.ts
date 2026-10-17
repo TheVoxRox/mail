@@ -1,6 +1,6 @@
 /** OAuth2 login flow opened in an external browser via the backend sidecar. */
 
-import { requireSession } from '$lib/stores/session.js';
+import { requireSession } from '#lib/stores/session.js';
 
 /** Builds the absolute URL that starts the OAuth2 flow for a given provider. */
 async function oauthAuthStartUrl(provider: string): Promise<string> {

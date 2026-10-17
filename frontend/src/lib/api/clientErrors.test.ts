@@ -8,7 +8,7 @@ const { requireSessionMock, httpFetchMock, pageMock } = vi.hoisted(() => ({
 }));
 
 vi.mock('$app/state', () => ({ page: pageMock }));
-vi.mock('$lib/stores/session.js', () => ({ requireSession: requireSessionMock }));
+vi.mock('#lib/stores/session.js', () => ({ requireSession: requireSessionMock }));
 vi.mock('./http.js', () => ({ httpFetch: httpFetchMock }));
 
 import { reportClientError, resetClientErrorReportingForTests } from './clientErrors.js';

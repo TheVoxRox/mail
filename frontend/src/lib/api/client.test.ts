@@ -7,7 +7,7 @@ const { requireSessionMock, invalidateSessionMock, httpFetchMock } = vi.hoisted(
 	httpFetchMock: vi.fn()
 }));
 
-vi.mock('$lib/stores/session.js', () => ({
+vi.mock('#lib/stores/session.js', () => ({
 	requireSession: requireSessionMock,
 	invalidateSession: invalidateSessionMock
 }));
@@ -19,7 +19,7 @@ vi.mock('svelte/store', async () => {
 	const actual = (await vi.importActual('svelte/store')) as Record<string, unknown>;
 	return { ...actual, get: () => 'en' };
 });
-vi.mock('$lib/i18n/index.js', () => ({ appLocale: { subscribe: vi.fn() } }));
+vi.mock('#lib/i18n/index.js', () => ({ appLocale: { subscribe: vi.fn() } }));
 
 import { ApiError, api, apiRaw, buildApiUrl } from './client.js';
 

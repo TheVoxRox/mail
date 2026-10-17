@@ -1,21 +1,21 @@
 <script lang="ts">
-	import { _, appLocale } from '$lib/i18n/index.js';
-	import { folders } from '$lib/stores/folders.js';
-	import { folderLabelByRef } from '$lib/mail/folderLabel.js';
-	import { messageStatusLabel } from '$lib/mail/messageStatus.js';
-	import MessageRowActionsMenu from '$lib/components/MessageRowActionsMenu.svelte';
-	import MailActionsCell from '$lib/components/mail-list/MailActionsCell.svelte';
-	import MailDateCell from '$lib/components/mail-list/MailDateCell.svelte';
-	import MailRow from '$lib/components/mail-list/MailRow.svelte';
-	import MailSenderCell from '$lib/components/mail-list/MailSenderCell.svelte';
-	import MailStatusCell from '$lib/components/mail-list/MailStatusCell.svelte';
-	import MailSubjectCell from '$lib/components/mail-list/MailSubjectCell.svelte';
-	import { createRovingGrid } from '$lib/components/grid/rovingGrid.svelte.js';
-	import { isRowBackgroundClick } from '$lib/components/grid/rowActivation.js';
-	import { cn } from '$lib/utils.js';
-	import { formatNumericDate } from '$lib/formatters.js';
-	import type { MailSummaryResponse, PagedResponse } from '$lib/types.js';
-	import { focusRingInset } from '$lib/components/ui/focus-ring/index.js';
+	import { _, appLocale } from '#lib/i18n/index.js';
+	import { folders } from '#lib/stores/folders.js';
+	import { folderLabelByRef } from '#lib/mail/folderLabel.js';
+	import { messageStatusLabel } from '#lib/mail/messageStatus.js';
+	import MessageRowActionsMenu from '#lib/components/MessageRowActionsMenu.svelte';
+	import MailActionsCell from '#lib/components/mail-list/MailActionsCell.svelte';
+	import MailDateCell from '#lib/components/mail-list/MailDateCell.svelte';
+	import MailRow from '#lib/components/mail-list/MailRow.svelte';
+	import MailSenderCell from '#lib/components/mail-list/MailSenderCell.svelte';
+	import MailStatusCell from '#lib/components/mail-list/MailStatusCell.svelte';
+	import MailSubjectCell from '#lib/components/mail-list/MailSubjectCell.svelte';
+	import { createRovingGrid } from '#lib/components/grid/rovingGrid.svelte.js';
+	import { isRowBackgroundClick } from '#lib/components/grid/rowActivation.js';
+	import { cn } from '#lib/utils.js';
+	import { formatNumericDate } from '#lib/formatters.js';
+	import type { MailSummaryResponse, PagedResponse } from '#lib/types.js';
+	import { focusRingInset } from '#lib/components/ui/focus-ring/index.js';
 
 	interface Props {
 		results: PagedResponse<MailSummaryResponse>;

@@ -14,7 +14,7 @@
  * agree on the answer.
  */
 import { resolve } from '$app/paths';
-import type { FolderResponse } from '$lib/types.js';
+import type { FolderResponse } from '#lib/types.js';
 
 /**
  * The folder Mail opens on. `undefined` means the account has no folders at

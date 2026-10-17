@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { _, appLocale } from '$lib/i18n/index.js';
-	import { formatTime } from '$lib/formatters.js';
+	import { _, appLocale } from '#lib/i18n/index.js';
+	import { formatTime } from '#lib/formatters.js';
 
 	interface Props {
 		autosaving: boolean;

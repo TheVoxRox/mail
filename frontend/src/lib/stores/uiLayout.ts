@@ -56,7 +56,7 @@ export type CloseAction = (typeof CLOSE_ACTIONS)[number];
  * background notifications switches it on; whoever closes the window gets what
  * closing a window does everywhere else on the machine.
  *
- * Read by `$lib/tray.ts`, which pushes it to the Rust close handler; outside
+ * Read by `#lib/tray.ts`, which pushes it to the Rust close handler; outside
  * the desktop shell it has no effect.
  */
 export const closeAction = persistedStore<CloseAction>('mail.closeAction', CLOSE_ACTIONS, 'quit');

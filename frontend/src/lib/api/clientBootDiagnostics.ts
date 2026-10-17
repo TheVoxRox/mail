@@ -1,8 +1,8 @@
 import { page } from '$app/state';
 import { httpFetch } from './http.js';
-import { requireSession } from '$lib/stores/session.js';
-import type { BootState, BootTimings } from '$lib/stores/boot.js';
-import { CLIENT_VERSION } from '$lib/version.js';
+import { requireSession } from '#lib/stores/session.js';
+import type { BootState, BootTimings } from '#lib/stores/boot.js';
+import { CLIENT_VERSION } from '#lib/version.js';
 
 interface ClientBootDiagnosticsPayload {
 	reportedAt: string;

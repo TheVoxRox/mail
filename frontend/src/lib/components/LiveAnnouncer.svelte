@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { politeAnnouncements, assertiveAnnouncements } from '$lib/stores/toasts.js';
+	import { politeAnnouncements, assertiveAnnouncements } from '#lib/stores/toasts.js';
 </script>
 
 <!--

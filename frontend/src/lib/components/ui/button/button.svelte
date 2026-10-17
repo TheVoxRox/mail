@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	import { cn, tv, type WithElementRef } from '$lib/utils.js';
+	import { cn, tv, type WithElementRef } from '#lib/utils.js';
 	import { focusRing } from '../focus-ring/index.js';
 	import type { HTMLAnchorAttributes, HTMLButtonAttributes } from 'svelte/elements';
 	import type { VariantProps } from 'tailwind-variants';

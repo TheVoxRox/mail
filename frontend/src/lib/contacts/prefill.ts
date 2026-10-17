@@ -10,7 +10,7 @@
  */
 
 import { resolve } from '$app/paths';
-import { isValidEmailAddress } from '$lib/compose/addresses.js';
+import { isValidEmailAddress } from '#lib/compose/addresses.js';
 
 /** What the form starts with when it was opened from a message. */
 export interface ContactPrefill {
@@ -74,12 +74,12 @@ export function contactCreateHref(prefill: ContactPrefill, returnTo?: string | n
 	if (prefill.name) params.set('name', prefill.name);
 	if (prefill.surname) params.set('surname', prefill.surname);
 	if (returnTo) params.set('returnTo', returnTo);
-	return `${resolve('/contacts')}?${params.toString()}`;
+	return `${resolve('contacts')}?${params.toString()}`;
 }
 
 /** Link to the form of a contact that already exists. */
 export function contactEditHref(contactId: number, returnTo?: string | null): string {
 	const params = new URLSearchParams({ edit: String(contactId) });
 	if (returnTo) params.set('returnTo', returnTo);
-	return `${resolve('/contacts')}?${params.toString()}`;
+	return `${resolve('contacts')}?${params.toString()}`;
 }

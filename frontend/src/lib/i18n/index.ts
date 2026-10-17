@@ -8,21 +8,15 @@
  * language.
  */
 
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import { derived, type Readable } from 'svelte/store';
 import { addMessages, init, locale } from 'svelte-i18n';
 
 type I18nValue = string | I18nDictionary | Array<string | I18nDictionary> | null;
-type I18nDictionary = {
-	[key: string]: I18nValue;
-};
 
+type I18nDictionary = { [key: string]: I18nValue };
 type AppMessages = I18nDictionary & {
-	app: {
-		title: string;
-		localeLabel: string;
-		[key: string]: I18nValue;
-	};
+	app: { title: string; localeLabel: string; [key: string]: I18nValue };
 };
 
 const messageModules = import.meta.glob('./messages/*.json', {
@@ -33,6 +27,7 @@ const messageModules = import.meta.glob('./messages/*.json', {
 const messages = Object.entries(messageModules)
 	.map(([path, value]) => {
 		const match = /\/([^/]+)\.json$/.exec(path);
+
 		if (!match) {
 			throw new Error(`Cannot infer locale from ${path}`);
 		}

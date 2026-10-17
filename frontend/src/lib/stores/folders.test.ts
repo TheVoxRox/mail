@@ -1,11 +1,11 @@
 import { get } from 'svelte/store';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { listFolders } from '$lib/api/folders.js';
+import { listFolders } from '#lib/api/folders.js';
 import { folders, loadFolders, refreshFolders, resetFolderLoads } from './folders.js';
 import { accountsState, activeAccountId } from './accounts.js';
-import type { AccountResponse, FolderResponse } from '$lib/types.js';
+import type { AccountResponse, FolderResponse } from '#lib/types.js';
 
-vi.mock('$lib/api/folders.js', () => ({ listFolders: vi.fn() }));
+vi.mock('#lib/api/folders.js', () => ({ listFolders: vi.fn() }));
 
 const ACCOUNT = 4;
 

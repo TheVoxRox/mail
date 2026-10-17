@@ -23,7 +23,7 @@ import type {
 	ContactResponse,
 	ContactUpdateRequest,
 	PagedResponse
-} from '$lib/types.js';
+} from '#lib/types.js';
 import type { PageParams } from './mailRead.js';
 
 export type ContactSort = 'name' | 'surname' | 'recent';

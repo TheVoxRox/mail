@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { DialogDescription, DialogShell, DialogTitle } from '$lib/components/ui/dialog/index.js';
-	import { confirmDialog, resolveConfirmDialog } from '$lib/stores/confirmDialog.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { DialogDescription, DialogShell, DialogTitle } from '#lib/components/ui/dialog/index.js';
+	import { confirmDialog, resolveConfirmDialog } from '#lib/stores/confirmDialog.js';
 
 	const open = $derived($confirmDialog !== null);
 
