@@ -19,6 +19,10 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+### Tauri / Release
+
+- **The packaged backend starts on its AOT cache, about a quarter faster (#719).** Every release build so far shipped a cache the JVM refused: packaging trained it with the system `java`, whose runtime is not the jlinked one in the app, so the JVM warned and started without it. The cache is now trained through the app's own launcher and found through `$APPDIR` instead of the working directory, and a packaging step fails the build when the JVM cannot start on it; to backend readiness, 4.1 s became 3.0 s. The JVM's own warnings now go to standard error, which the shell writes to `mail-frontend.log`, instead of standard output, which a release build keeps nowhere — the refused cache was in no log anyone had.
+
 ## [0.1.0] - 2026-10-13
 
 ### Backend

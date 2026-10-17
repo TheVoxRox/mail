@@ -22,9 +22,15 @@
       - a median difference alone proves nothing at these effect sizes; the
         Mann-Whitney z below is what decides.
 
+    The variants run on the system `java`, so they need a cache trained on it:
+    the sidecar image's own cache fits only the image's jlinked runtime, and the
+    JVM would refuse it here with a warning and measure a start without it. The
+    script trains one into target\coldstart\ when it is missing, and runs the
+    AOT variants with -XX:AOTMode=on, so a cache that does not fit fails the
+    measurement instead of passing as one.
+
 .EXAMPLE
-    # From backend/, after building the jar and the AOT cache:
-    #   .\package-sidecar-dev-windows.ps1 -SkipTests -EnableAotCache
+    # From backend/, after building the jar (mvn -Paot package):
     .\scripts\measure-cold-start-windows.ps1 -Runs 15
 
 .NOTES
@@ -54,12 +60,12 @@ if (-not $JarPath) {
 }
 
 if (-not $CachePath) {
-    $CachePath = Join-Path $backendDir 'target\sidecar\x86_64-pc-windows-msvc\app\mail.aot'
+    $CachePath = Join-Path $backendDir 'target\coldstart\mail.aot'
 }
 
 if (-not (Test-Path $JarPath)) { throw "Jar not found: $JarPath" }
 if (-not (Test-Path $CachePath)) {
-    throw "AOT cache not found: $CachePath. Build it from backend/: .\package-sidecar-dev-windows.ps1 -SkipTests -EnableAotCache"
+    & (Join-Path $PSScriptRoot 'generate-aot-cache-windows.ps1') -JarPath $JarPath -CachePath $CachePath
 }
 
 $baseFlags = @(
@@ -72,8 +78,8 @@ $baseFlags = @(
 )
 
 $variants = [ordered]@{
-    'AOT + TieredStopAtLevel=1 (shipped)' = $baseFlags + @("-XX:AOTCache=$CachePath", '-XX:TieredStopAtLevel=1')
-    'AOT, full tiered (flag removed)'     = $baseFlags + @("-XX:AOTCache=$CachePath")
+    'AOT + TieredStopAtLevel=1 (shipped)' = $baseFlags + @('-XX:AOTMode=on', "-XX:AOTCache=$CachePath", '-XX:TieredStopAtLevel=1')
+    'AOT, full tiered (flag removed)'     = $baseFlags + @('-XX:AOTMode=on', "-XX:AOTCache=$CachePath")
     'No AOT cache + TieredStopAtLevel=1'  = $baseFlags + @('-XX:TieredStopAtLevel=1')
 }
 

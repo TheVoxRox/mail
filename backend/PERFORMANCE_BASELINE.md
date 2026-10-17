@@ -422,6 +422,37 @@ startup sections above that name no machine carry `Machine: not recorded` as of
 None of this touches the `appReady` breakdown above: it is a ratio within a single
 run, so it does not depend on the speed of the machine.
 
+## Packaged sidecar with a cache it can use — measurement 2026-10-17
+
+**Machine: desktop PC** (AMD Ryzen 9 9900X, 12 cores / 24 threads, 4.4 GHz, 62 GB).
+
+Until this date the packaged sidecar never used its AOT cache. Packaging trained
+the cache with the system `java -jar`, and the JVM checks the runtime it maps a
+cache into against the one it was trained on: the app image's jlinked
+`runtime\lib\modules` is not the JDK's, so every release build warned
+"`runtime\lib\modules` ... size has changed" and started without the cache. The
+headless measurements above (`java -jar` with the cache) are unaffected — there
+the runtime matched. The 2026-09-08 "desktop bundle with the AOT cache" section
+was most likely measured without it, since its sidecar was trained the same way.
+Packaging now trains through the image's own launcher and fails the build when
+`-XX:AOTMode=on` cannot start on the published cache.
+
+The sidecar built by `package-sidecar-windows.ps1 -SkipTests -EnableAotCache
+-AllowPlaceholderOAuth`, its launcher spawned with redirected streams and no
+window from a directory outside the image, a fresh `APP_DATA_DIR` per run; time
+from the spawn to `.ready`. 9 rounds per variant, alternating, the order flipped
+every round; "AOT off" is the same image with `JAVA_TOOL_OPTIONS=-XX:AOTMode=off`.
+
+| Variant   |      Median | Min     | Max     |
+| --------- | ----------: | ------- | ------- |
+| AOT cache | **3019 ms** | 2978 ms | 3055 ms |
+| AOT off   | **4112 ms** | 4076 ms | 4181 ms |
+
+**−1093 ms (−26.6 %)**, and the two ranges do not overlap. The gain is smaller
+than the −42.7 % of the 2026-09-08 `java -jar` section; that one ran on the
+laptop and without the launcher, so the two are not comparable — this section is
+the number for what ships.
+
 ## Correspondent typeahead — measurement 2026-09-08 (synthetic)
 
 **Machine: desktop PC** (AMD Ryzen 9 9900X, 12 cores / 24 threads, 4.4 GHz, 62 GB,
