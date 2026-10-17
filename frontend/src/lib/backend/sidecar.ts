@@ -268,8 +268,24 @@ async function spawnBackendSidecar(): Promise<void> {
 	 * plus an orphaned-but-working process).
 	 */
 	const generation = ++runtime.generation;
+	/*
+	 * Set when the `error` handler below has already taken this process's end,
+	 * so the `close` its kill produces is logged but not handled a second time.
+	 */
+	let endedByError = false;
 
 	const command = Command.sidecar(SIDECAR_PROGRAM, [], {
+		/*
+		 * Named rather than left to the default, which is the same UTF-8 decoded
+		 * strictly: the plugin then turns a line that is not UTF-8 into an `error`
+		 * event instead of a `data` one (`get_event_buffer` in the crate's
+		 * commands.rs). A label goes through encoding_rs, which replaces a bad
+		 * sequence with U+FFFD and keeps the line. The JVM writes some lines
+		 * itself, in the system code page — an AOT cache warning carrying the
+		 * install path is one — so a Windows profile named with diacritics made
+		 * every start look like a crash.
+		 */
+		encoding: 'utf-8',
 		env: {
 			APP_DATA_DIR: dataDir,
 			/*
@@ -289,16 +305,31 @@ async function spawnBackendSidecar(): Promise<void> {
 		recordInShellLog('log_sidecar_stderr', { line });
 	});
 	command.on('close', (payload) => {
-		// Asked for: a stop, or a restart that has already spawned the next child.
-		const requested = runtime.stopRequested || generation !== runtime.generation;
+		// Asked for: a stop, a restart that has already spawned the next child, or
+		// the kill the `error` handler below made.
+		const requested = runtime.stopRequested || generation !== runtime.generation || endedByError;
 		recordInShellLog('log_sidecar_exit', { code: payload.code, signal: payload.signal, requested });
+		if (endedByError) return;
 		void handleUnexpectedExit(generation, describeSidecarExit(payload.code, payload.signal));
 	});
+	/*
+	 * The plugin sends `error` when it fails to read the process's output or to
+	 * wait for it — not when the process ends, and not for a failed spawn, which
+	 * rejects `spawn()` instead. The process may well be running still, so it is
+	 * killed before the restart replaces it: dropping the handle without that
+	 * left a backend on the same database that nothing would ever stop.
+	 */
 	command.on('error', (message) => {
+		recordInShellLog('log_sidecar_stderr', { line: `Shell plugin error: ${message}` });
+		const orphan = generation === runtime.generation ? runtime.child : null;
+		if (orphan) {
+			endedByError = true;
+			void orphan.kill().catch(() => {});
+		}
 		void handleUnexpectedExit(
 			generation,
 			new SidecarExitError(
-				`Failed to start the backend sidecar: ${message}`,
+				`The shell lost track of the backend sidecar: ${message}`,
 				'app.backendExit.spawnFailed',
 				{ detail: message }
 			)
