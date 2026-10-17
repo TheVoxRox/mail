@@ -23,6 +23,10 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 - **The app starts on a Windows profile whose name has diacritics (#718).** On such a profile the JVM writes a line of its own to standard output in the system code page — the AOT cache warning, which carries the install path — and the shell plugin, decoding strictly as UTF-8, reported it as an error instead of a line. The supervisor took that for a crash and started another backend without stopping the first, three times a minute: a closed-beta tester's logs hold up to sixteen backends on one database and an app that never got past its error screen. Output is now decoded leniently, and an error from the plugin stops the process it came from before a restart replaces it.
 
+### Tauri / Release
+
+- **The updater is built without its `zip` feature, which takes `zip` 4.6.1 and its two extraction advisories out of the app (#720).** RUSTSEC-2026-0367 (SUID/SGID bits kept on extraction) and RUSTSEC-2026-0368 (`ZipArchive::extract` follows a symlink target from the archive) failed `cargo audit` in the required Tauri check on every pull request, and the scheduled scan since 2026-10-15 (#717). On Windows the feature does one thing: it lets the updater unpack a Tauri v1 `.zip` bundle. This release's manifest points at the signed NSIS `setup.exe`, which the plugin runs without unpacking anything, so updates install as before. A `.zip` update is now refused, so moving the release to `v1Compatible` artifacts would first need the feature back in a version users already have. The same check was also failing on four `rustls` advisories of 2026-10-14 (RUSTSEC-2026-0346 to -0349); `rustls` moves from 0.23.45 to 0.23.46, the TLS stack the updater downloads through.
+
 ## [0.1.0] - 2026-10-13
 
 ### Backend

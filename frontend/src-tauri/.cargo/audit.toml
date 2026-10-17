@@ -15,6 +15,11 @@
 #   re-accepted, and RUSTSEC-2026-0190 (anyhow, unsound) was answered the same
 #   way: patched in >= 1.0.103, so `cargo update -p anyhow` took 1.0.102 -> 1.0.104
 #   instead of adding an entry here. `cargo audit` now reports nothing at all.
+# Re-reviewed: 2026-10-17 — two vulnerabilities answered without an entry here:
+#   zip 4.6.1 (RUSTSEC-2026-0367, -0368) left the tree when tauri-plugin-updater
+#   was built without its `zip` feature (see the comment in Cargo.toml), and the
+#   four rustls advisories of 2026-10-14 (RUSTSEC-2026-0346 to -0349) by
+#   `cargo update -p rustls`, 0.23.45 -> 0.23.46. The three zbus entries are new.
 # Re-review when a NEW advisory appears (the whole point of the scheduled scan).
 # Check the fixed version before adding an ID: an advisory whose fix is already
 # reachable by `cargo update` does not belong on this list.
@@ -36,6 +41,15 @@ ignore = [
     "RUSTSEC-2024-0419", # gtk3-macros
     "RUSTSEC-2024-0420", # gtk-sys
     "RUSTSEC-2024-0429", # glib — unsound VariantStrIter (same Linux-only GTK stack)
+
+    # --- zbus 5 helper crates: unmaintained (merged into zbus 6) ---
+    # Linux-only: tauri-plugin-single-instance talks D-Bus through zbus 5 there,
+    # and `cargo tree -i zbus --target x86_64-pc-windows-msvc` prints nothing, so
+    # none of them is compiled into the Windows release. No patched version
+    # exists; they go when the plugin moves to zbus 6.
+    "RUSTSEC-2026-0370", # zvariant
+    "RUSTSEC-2026-0371", # zbus_names
+    "RUSTSEC-2026-0372", # zvariant_derive
 
     # --- Other unmaintained transitive deps (no maintained drop-in; not our direct deps) ---
     "RUSTSEC-2024-0370", # proc-macro-error — build-time proc-macro only, not in the runtime binary
