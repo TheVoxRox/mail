@@ -4,7 +4,7 @@ The Tauri runtime that ships with VoxRox Mail compiles in the following Rust cra
 
 Dual-licensed crates (e.g. `MIT OR Apache-2.0`) are listed under their canonical license expression — pick either license when redistributing.
 
-Counts: 296 crates total. 146 MIT OR Apache-2.0, 59 MIT, 29 Apache-2.0 OR MIT, 18 Unicode-3.0, 5 MIT/Apache-2.0, 5 MPL-2.0, 4 Unlicense OR MIT, 3 BSD-3-Clause, 3 MIT OR Apache-2.0 OR Zlib, 2 Apache-2.0, 2 Apache-2.0 OR ISC OR MIT, 2 ISC, 2 MIT OR Zlib OR Apache-2.0, 2 Unlicense/MIT, 2 Zlib, 1 (Apache-2.0 OR MIT) AND BSD-3-Clause, 1 (MIT OR Apache-2.0) AND Unicode-3.0, 1 0BSD OR MIT OR Apache-2.0, 1 Apache-2.0 / MIT, 1 Apache-2.0 AND ISC, 1 Apache-2.0 AND MIT, 1 Apache-2.0 OR BSL-1.0, 1 BSD-3-Clause AND MIT, 1 BSD-3-Clause/MIT, 1 CC0-1.0 OR MIT-0 OR Apache-2.0, 1 CDLA-Permissive-2.0, 1 Zlib OR Apache-2.0 OR MIT.
+Counts: 295 crates total. 146 MIT OR Apache-2.0, 58 MIT, 29 Apache-2.0 OR MIT, 18 Unicode-3.0, 5 MIT/Apache-2.0, 5 MPL-2.0, 4 Unlicense OR MIT, 3 BSD-3-Clause, 3 MIT OR Apache-2.0 OR Zlib, 2 Apache-2.0, 2 Apache-2.0 OR ISC OR MIT, 2 ISC, 2 MIT OR Zlib OR Apache-2.0, 2 Unlicense/MIT, 2 Zlib, 1 (Apache-2.0 OR MIT) AND BSD-3-Clause, 1 (MIT OR Apache-2.0) AND Unicode-3.0, 1 0BSD OR MIT OR Apache-2.0, 1 Apache-2.0 / MIT, 1 Apache-2.0 AND ISC, 1 Apache-2.0 AND MIT, 1 Apache-2.0 OR BSL-1.0, 1 BSD-3-Clause AND MIT, 1 BSD-3-Clause/MIT, 1 CC0-1.0 OR MIT-0 OR Apache-2.0, 1 CDLA-Permissive-2.0, 1 Zlib OR Apache-2.0 OR MIT.
 
 ## MIT OR Apache-2.0 (146)
 
@@ -155,7 +155,7 @@ Counts: 296 crates total. 146 MIT OR Apache-2.0, 59 MIT, 29 Apache-2.0 OR MIT, 1
 - **windows-threading** 0.2.1 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 - **windows-version** 0.1.7 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
-## MIT (59)
+## MIT (58)
 
 - **bytes** 1.11.1 — [https://github.com/tokio-rs/bytes](https://github.com/tokio-rs/bytes)
 - **cargo_metadata** 0.19.2 — [https://github.com/oli-obk/cargo_metadata](https://github.com/oli-obk/cargo_metadata)
@@ -214,7 +214,6 @@ Counts: 296 crates total. 146 MIT OR Apache-2.0, 59 MIT, 29 Apache-2.0 OR MIT, 1
 - **webview2-com-sys** 0.39.1 — [https://github.com/wravery/webview2-rs](https://github.com/wravery/webview2-rs)
 - **winnow** 1.0.1 — [https://github.com/winnow-rs/winnow](https://github.com/winnow-rs/winnow)
 - **zip** 9.0.2 — [https://github.com/zip-rs/zip2](https://github.com/zip-rs/zip2)
-- **zip** 4.6.1 — [https://github.com/zip-rs/zip2.git](https://github.com/zip-rs/zip2.git)
 - **zmij** 1.0.21 — [https://github.com/dtolnay/zmij](https://github.com/dtolnay/zmij)
 
 ## Apache-2.0 OR MIT (29)
@@ -313,7 +312,7 @@ Counts: 296 crates total. 146 MIT OR Apache-2.0, 59 MIT, 29 Apache-2.0 OR MIT, 1
 ## Apache-2.0 OR ISC OR MIT (2)
 
 - **hyper-rustls** 0.27.9 — [https://github.com/rustls/hyper-rustls](https://github.com/rustls/hyper-rustls)
-- **rustls** 0.23.45 — [https://github.com/rustls/rustls](https://github.com/rustls/rustls)
+- **rustls** 0.23.46 — [https://github.com/rustls/rustls](https://github.com/rustls/rustls)
 
 ## ISC (2)
 

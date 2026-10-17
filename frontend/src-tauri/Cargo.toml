@@ -43,9 +43,17 @@ tauri-plugin-shell = "2"
 # directory and the backend port, so a second launch has to surface the running
 # window instead of starting a sidecar that exits 78 "already running".
 tauri-plugin-single-instance = "2"
-tauri-plugin-updater = "2"
-# Already in the tree through tauri-plugin-updater, without compression: the
-# logs ZIP stores its files (logs.rs), so no compression crate comes with it.
+# default-features without "zip": that feature only lets the Windows updater
+# unpack a Tauri v1 `.zip` bundle (extract_zip in the plugin's updater.rs). The
+# release config sets createUpdaterArtifacts: true, not "v1Compatible", so the
+# manifest points at the signed NSIS setup.exe, which the plugin writes to a temp
+# file and runs without unpacking anything. It also brought zip 4, whose
+# extraction carries RUSTSEC-2026-0367 and -0368. An installed copy built this
+# way rejects a `.zip` update as InvalidUpdaterFormat, so switching the release
+# to "v1Compatible" would need this feature back first, in an earlier release.
+tauri-plugin-updater = { version = "2", default-features = false, features = ["rustls-tls", "system-proxy"] }
+# Without compression: the logs ZIP stores its files (logs.rs), so no
+# compression crate comes with it.
 zip = { version = "9", default-features = false }
 # Both already in the tree (regex through tauri-utils and the plugins, flate2
 # through png): redact.rs and the unpacking of rotated .gz logs in logs.rs.
