@@ -8,8 +8,8 @@
 
 import { apiV1Base } from './session.js';
 import { httpFetch } from './http.js';
-import { appLocale } from '$lib/i18n/index.js';
-import { invalidateSession, requireSession } from '$lib/stores/session.js';
+import { appLocale } from '#lib/i18n/index.js';
+import { invalidateSession, requireSession } from '#lib/stores/session.js';
 import { get } from 'svelte/store';
 import type { ProblemDetail } from './generated.js';
 

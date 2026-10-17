@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { get, readable } from 'svelte/store';
 
-vi.mock('$lib/api/mailRead.js', () => ({ getMessageDetail: vi.fn(), getMessageContent: vi.fn() }));
-vi.mock('$lib/i18n/index.js', () => ({ _: readable((key: string) => key) }));
-vi.mock('$lib/stores/toasts.js', () => ({ pushToast: vi.fn(), announcePolite: vi.fn() }));
-vi.mock('$lib/stores/selectedMessage.js', async () => {
+vi.mock('#lib/api/mailRead.js', () => ({ getMessageDetail: vi.fn(), getMessageContent: vi.fn() }));
+vi.mock('#lib/i18n/index.js', () => ({ _: readable((key: string) => key) }));
+vi.mock('#lib/stores/toasts.js', () => ({ pushToast: vi.fn(), announcePolite: vi.fn() }));
+vi.mock('#lib/stores/selectedMessage.js', async () => {
 	const { writable } = await import('svelte/store');
 	return { selectedMessage: writable(null) };
 });
@@ -17,10 +17,10 @@ import {
 	printMessages,
 	printOpenMessage
 } from './printMessages.js';
-import { getMessageContent, getMessageDetail } from '$lib/api/mailRead.js';
-import { selectedMessage, type SelectedMessage } from '$lib/stores/selectedMessage.js';
-import { announcePolite, pushToast } from '$lib/stores/toasts.js';
-import type { MailContentResponse, MailDetailResponse } from '$lib/types.js';
+import { getMessageContent, getMessageDetail } from '#lib/api/mailRead.js';
+import { selectedMessage, type SelectedMessage } from '#lib/stores/selectedMessage.js';
+import { announcePolite, pushToast } from '#lib/stores/toasts.js';
+import type { MailContentResponse, MailDetailResponse } from '#lib/types.js';
 
 const content = (id: string): MailContentResponse => ({
 	content: `<p>${id}</p>`,

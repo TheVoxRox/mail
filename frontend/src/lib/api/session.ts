@@ -8,11 +8,11 @@
  * previous run.
  */
 
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import { exists, readTextFile } from '@tauri-apps/plugin-fs';
 import { join } from '@tauri-apps/api/path';
-import { mailDataDir } from '$lib/backend/data-dir';
-import { delayWithAbort } from '$lib/delay.js';
+import { mailDataDir } from '#lib/backend/data-dir.js';
+import { delayWithAbort } from '#lib/delay.js';
 
 export interface SessionPayload {
 	appName: string;

@@ -1,18 +1,18 @@
 import { derived, writable, type Readable } from 'svelte/store';
-import type { Command } from '$lib/commands/shared.js';
-import { createAccountCommands, createFolderCommands } from '$lib/commands/accountCommands.js';
-import { createMailCommands } from '$lib/commands/mailCommands.js';
-import { printableSelection } from '$lib/mail/printMessages.js';
-import { createViewCommands } from '$lib/commands/viewCommands.js';
-import { createWorkspaceCommands } from '$lib/commands/workspaceCommands.js';
-import { activeAccountId, accountsState } from '$lib/stores/accounts.js';
-import { folders } from '$lib/stores/folders.js';
-import { selectedMessage } from '$lib/stores/selectedMessage.js';
-import { appLocale, _ } from '$lib/i18n/index.js';
-import { folderLabel } from '$lib/mail/folderLabel.js';
-import { themePreference } from '$lib/stores/theme.js';
+import type { Command } from '#lib/commands/shared.js';
+import { createAccountCommands, createFolderCommands } from '#lib/commands/accountCommands.js';
+import { createMailCommands } from '#lib/commands/mailCommands.js';
+import { printableSelection } from '#lib/mail/printMessages.js';
+import { createViewCommands } from '#lib/commands/viewCommands.js';
+import { createWorkspaceCommands } from '#lib/commands/workspaceCommands.js';
+import { activeAccountId, accountsState } from '#lib/stores/accounts.js';
+import { folders } from '#lib/stores/folders.js';
+import { selectedMessage } from '#lib/stores/selectedMessage.js';
+import { appLocale, _ } from '#lib/i18n/index.js';
+import { folderLabel } from '#lib/mail/folderLabel.js';
+import { themePreference } from '#lib/stores/theme.js';
 
-export type { Command } from '$lib/commands/shared.js';
+export type { Command } from '#lib/commands/shared.js';
 
 const registryReady = writable(false);
 

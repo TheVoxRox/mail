@@ -3,24 +3,24 @@
 	import { resolve } from '$app/paths';
 	import { goto } from '$app/navigation';
 	import { get } from 'svelte/store';
-	import { accountsState, activeAccount } from '$lib/stores/accounts.js';
-	import { folders, foldersState } from '$lib/stores/folders.js';
-	import { failingSyncAccounts } from '$lib/stores/syncHealth.js';
-	import { abandonManualSync, beginManualSync, syncingAccountIds } from '$lib/stores/manualSync.js';
-	import { announcePolite, pushToast } from '$lib/stores/toasts.js';
-	import { triggerAccountSync } from '$lib/api/mailAction.js';
-	import { toErrorMessage } from '$lib/api/errors.js';
-	import SearchBar from '$lib/components/SearchBar.svelte';
-	import AccountSwitcher from '$lib/components/AccountSwitcher.svelte';
-	import Icon from '$lib/components/Icon.svelte';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { SidebarNavItem, sidebarNavBadge } from '$lib/components/ui/sidebar-nav-item/index.js';
-	import { SidebarSection } from '$lib/components/ui/sidebar-section/index.js';
-	import { SidebarShell } from '$lib/components/ui/sidebar-shell/index.js';
-	import { Surface } from '$lib/components/ui/surface/index.js';
-	import { _ } from '$lib/i18n/index.js';
-	import { folderLabel } from '$lib/mail/folderLabel.js';
-	import type { FolderResponse } from '$lib/types.js';
+	import { accountsState, activeAccount } from '#lib/stores/accounts.js';
+	import { folders, foldersState } from '#lib/stores/folders.js';
+	import { failingSyncAccounts } from '#lib/stores/syncHealth.js';
+	import { abandonManualSync, beginManualSync, syncingAccountIds } from '#lib/stores/manualSync.js';
+	import { announcePolite, pushToast } from '#lib/stores/toasts.js';
+	import { triggerAccountSync } from '#lib/api/mailAction.js';
+	import { toErrorMessage } from '#lib/api/errors.js';
+	import SearchBar from '#lib/components/SearchBar.svelte';
+	import AccountSwitcher from '#lib/components/AccountSwitcher.svelte';
+	import Icon from '#lib/components/Icon.svelte';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { SidebarNavItem, sidebarNavBadge } from '#lib/components/ui/sidebar-nav-item/index.js';
+	import { SidebarSection } from '#lib/components/ui/sidebar-section/index.js';
+	import { SidebarShell } from '#lib/components/ui/sidebar-shell/index.js';
+	import { Surface } from '#lib/components/ui/surface/index.js';
+	import { _ } from '#lib/i18n/index.js';
+	import { folderLabel } from '#lib/mail/folderLabel.js';
+	import type { FolderResponse } from '#lib/types.js';
 
 	function folderHref(folder: FolderResponse): string {
 		const acc = get(activeAccount);
@@ -79,10 +79,10 @@
 	}
 
 	function openCompose() {
-		void goto(resolve('/compose'));
+		void goto(resolve('compose'));
 	}
 
-	const accountSettingsHref = resolve('/settings/accounts');
+	const accountSettingsHref = resolve('settings/accounts');
 </script>
 
 {#snippet header()}

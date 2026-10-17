@@ -1,27 +1,27 @@
 <script lang="ts">
 	import { get } from 'svelte/store';
-	import { selectedMessage } from '$lib/stores/selectedMessage.js';
-	import { downloadAttachment } from '$lib/api/mailRead.js';
-	import { toErrorMessage } from '$lib/api/errors.js';
-	import { saveBlobAsFile } from '$lib/download.js';
-	import { pushToast } from '$lib/stores/toasts.js';
-	import { _ } from '$lib/i18n/index.js';
-	import { StateMessage } from '$lib/components/ui/state-message/index.js';
-	import { Surface } from '$lib/components/ui/surface/index.js';
-	import AttachmentList from '$lib/components/AttachmentList.svelte';
-	import MessageContent from '$lib/components/message-detail/MessageContent.svelte';
-	import MessageHeaderCard from '$lib/components/message-detail/MessageHeaderCard.svelte';
-	import { isMailHtml } from '$lib/mail/content-sanitizer.js';
-	import { resolvedActiveAccountId } from '$lib/stores/accounts.js';
+	import { selectedMessage } from '#lib/stores/selectedMessage.js';
+	import { downloadAttachment } from '#lib/api/mailRead.js';
+	import { toErrorMessage } from '#lib/api/errors.js';
+	import { saveBlobAsFile } from '#lib/download.js';
+	import { pushToast } from '#lib/stores/toasts.js';
+	import { _ } from '#lib/i18n/index.js';
+	import { StateMessage } from '#lib/components/ui/state-message/index.js';
+	import { Surface } from '#lib/components/ui/surface/index.js';
+	import AttachmentList from '#lib/components/AttachmentList.svelte';
+	import MessageContent from '#lib/components/message-detail/MessageContent.svelte';
+	import MessageHeaderCard from '#lib/components/message-detail/MessageHeaderCard.svelte';
+	import { isMailHtml } from '#lib/mail/content-sanitizer.js';
+	import { resolvedActiveAccountId } from '#lib/stores/accounts.js';
 	import {
 		markMessageSeen,
 		resetSeenTrackerForSelection,
 		shouldMarkSelectedMessageSeen
-	} from '$lib/mail/message-seen.js';
-	import type { AttachmentResponse } from '$lib/types.js';
-	import { closeCurrentMessageDetail } from '$lib/mail/actions.js';
-	import { registerDetailCloser, type DetailCloseContext } from '$lib/mail/detailHost.js';
-	import MailToolbar from '$lib/components/MailToolbar.svelte';
+	} from '#lib/mail/message-seen.js';
+	import type { AttachmentResponse } from '#lib/types.js';
+	import { closeCurrentMessageDetail } from '#lib/mail/actions.js';
+	import { registerDetailCloser, type DetailCloseContext } from '#lib/mail/detailHost.js';
+	import MailToolbar from '#lib/components/MailToolbar.svelte';
 
 	type Props = {
 		/**

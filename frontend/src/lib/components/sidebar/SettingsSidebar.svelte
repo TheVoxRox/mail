@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import Icon from '$lib/components/Icon.svelte';
-	import { SidebarNavItem } from '$lib/components/ui/sidebar-nav-item/index.js';
-	import { SidebarSection } from '$lib/components/ui/sidebar-section/index.js';
-	import { SidebarShell } from '$lib/components/ui/sidebar-shell/index.js';
-	import { _ } from '$lib/i18n/index.js';
+	import Icon from '#lib/components/Icon.svelte';
+	import { SidebarNavItem } from '#lib/components/ui/sidebar-nav-item/index.js';
+	import { SidebarSection } from '#lib/components/ui/sidebar-section/index.js';
+	import { SidebarShell } from '#lib/components/ui/sidebar-shell/index.js';
+	import { _ } from '#lib/i18n/index.js';
 
 	type SettingsItem = {
 		id: 'appearance' | 'language' | 'shortcuts' | 'accounts' | 'about';
@@ -23,19 +23,19 @@
 	const primaryItems: SettingsItem[] = [
 		{
 			id: 'appearance',
-			href: resolve('/settings/appearance'),
+			href: resolve('settings/appearance'),
 			labelKey: 'settings.nav.appearance',
 			icon: 'swatch'
 		},
 		{
 			id: 'language',
-			href: resolve('/settings/language'),
+			href: resolve('settings/language'),
 			labelKey: 'settings.nav.language',
 			icon: 'language'
 		},
 		{
 			id: 'accounts',
-			href: resolve('/settings/accounts'),
+			href: resolve('settings/accounts'),
 			labelKey: 'settings.nav.accounts',
 			icon: 'user-circle'
 		}
@@ -44,13 +44,13 @@
 	const referenceItems: SettingsItem[] = [
 		{
 			id: 'shortcuts',
-			href: resolve('/settings/shortcuts'),
+			href: resolve('settings/shortcuts'),
 			labelKey: 'settings.nav.shortcuts',
 			icon: 'keyboard'
 		},
 		{
 			id: 'about',
-			href: resolve('/settings/about'),
+			href: resolve('settings/about'),
 			labelKey: 'settings.nav.about',
 			icon: 'information-circle'
 		}

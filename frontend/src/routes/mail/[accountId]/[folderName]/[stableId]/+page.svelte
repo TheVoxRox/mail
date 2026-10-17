@@ -1,7 +1,7 @@
 <script lang="ts">
-	import MessageDetail from '$lib/components/MessageDetail.svelte';
-	import { selectMessage, selectedMessage } from '$lib/stores/selectedMessage.js';
-	import { _ } from '$lib/i18n/index.js';
+	import MessageDetail from '#lib/components/MessageDetail.svelte';
+	import { selectMessage, selectedMessage } from '#lib/stores/selectedMessage.js';
+	import { _ } from '#lib/i18n/index.js';
 
 	let { data } = $props();
 

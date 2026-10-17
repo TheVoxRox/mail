@@ -1,62 +1,63 @@
 <script lang="ts">
-	import AppRail from '$lib/components/AppRail.svelte';
-	import LiveAnnouncer from '$lib/components/LiveAnnouncer.svelte';
-	import ToastRegion from '$lib/components/ToastRegion.svelte';
+	import AppRail from '#lib/components/AppRail.svelte';
+	import LiveAnnouncer from '#lib/components/LiveAnnouncer.svelte';
+	import ToastRegion from '#lib/components/ToastRegion.svelte';
 	import { onMount, type Component } from 'svelte';
 	import { afterNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
-	import { bootstrap } from '$lib/bootstrap.js';
-	import { reportClientError, resetClientErrorReportingForTests } from '$lib/api/clientErrors.js';
-	import { downloadDiagnosticDump } from '$lib/api/diagnostics.js';
-	import { toErrorMessage } from '$lib/api/errors.js';
-	import { saveBlobAsFile } from '$lib/download.js';
-	import { initErrorReporting } from '$lib/errorReporting.js';
-	import { sessionState } from '$lib/stores/session.js';
-	import { accountsState } from '$lib/stores/accounts.js';
-	import { backendSidecarState, isSidecarExitError } from '$lib/backend/sidecar.js';
-	import { watchSidecarAutoRestart } from '$lib/backend/sidecarRecovery.js';
-	import { installFileDropGuard } from '$lib/fileDropGuard.js';
-	import { bootState } from '$lib/stores/boot.js';
-	import { setNativeWindowTitle } from '$lib/windowTitle.js';
-	import { _ } from '$lib/i18n/index.js';
-	import { openPalette, paletteOpen } from '$lib/stores/palette.js';
-	import { initThemeSideEffects } from '$lib/stores/theme.js';
-	import { initTextSizeSideEffects } from '$lib/stores/textSize.js';
+	import { bootstrap } from '#lib/bootstrap.js';
+	import { reportClientError, resetClientErrorReportingForTests } from '#lib/api/clientErrors.js';
+	import { downloadDiagnosticDump } from '#lib/api/diagnostics.js';
+	import { toErrorMessage } from '#lib/api/errors.js';
+	import { saveBlobAsFile } from '#lib/download.js';
+	import { initErrorReporting } from '#lib/errorReporting.js';
+	import { sessionState } from '#lib/stores/session.js';
+	import { accountsState } from '#lib/stores/accounts.js';
+	import { backendSidecarState, isSidecarExitError } from '#lib/backend/sidecar.js';
+	import { watchSidecarAutoRestart } from '#lib/backend/sidecarRecovery.js';
+	import { installCurrentPageLinkGuard } from '#lib/currentPageLinkGuard.js';
+	import { installFileDropGuard } from '#lib/fileDropGuard.js';
+	import { bootState } from '#lib/stores/boot.js';
+	import { setNativeWindowTitle } from '#lib/windowTitle.js';
+	import { _ } from '#lib/i18n/index.js';
+	import { openPalette, paletteOpen } from '#lib/stores/palette.js';
+	import { initThemeSideEffects } from '#lib/stores/theme.js';
+	import { initTextSizeSideEffects } from '#lib/stores/textSize.js';
 	import {
 		currentWorkspaceMode,
 		type WorkspaceMode,
 		workspaceHref
-	} from '$lib/stores/workspaceMode.js';
-	import { handleGlobalKeydown } from '$lib/shortcuts/globalShortcuts.js';
+	} from '#lib/stores/workspaceMode.js';
+	import { handleGlobalKeydown } from '#lib/shortcuts/globalShortcuts.js';
 	import {
 		closePane,
 		goToPane,
 		paneFolded,
 		paneOpen,
 		syncPaneToFold
-	} from '$lib/stores/workspacePane.js';
-	import { focusAnchor } from '$lib/shortcuts/focusAnchor.js';
-	import { selectedMessage } from '$lib/stores/selectedMessage.js';
-	import { pushToast } from '$lib/stores/toasts.js';
+	} from '#lib/stores/workspacePane.js';
+	import { focusAnchor } from '#lib/shortcuts/focusAnchor.js';
+	import { selectedMessage } from '#lib/stores/selectedMessage.js';
+	import { pushToast } from '#lib/stores/toasts.js';
 	import {
 		finishPrintJob,
 		printableSelection,
 		printJob,
 		printOpenMessage,
 		type PrintJob
-	} from '$lib/mail/printMessages.js';
-	import { forwardMessage, replyToMessage } from '$lib/mail/actions.js';
-	import { deleteMessages, markMessagesSeen, toggleMessageFlag } from '$lib/mail/mailbox.js';
-	import { loadSidebar } from '$lib/components/sidebar/loader.js';
+	} from '#lib/mail/printMessages.js';
+	import { forwardMessage, replyToMessage } from '#lib/mail/actions.js';
+	import { deleteMessages, markMessagesSeen, toggleMessageFlag } from '#lib/mail/mailbox.js';
+	import { loadSidebar } from '#lib/components/sidebar/loader.js';
 	// Straight from the module, never the sidebar-shell barrel: the barrel
 	// re-exports the component and would pull it out of its lazy chunk.
-	import { SIDEBAR_PANE_FRAME } from '$lib/components/ui/sidebar-shell/frame.js';
-	import { cn } from '$lib/utils.js';
-	import BootErrorView from '$lib/components/boot/BootErrorView.svelte';
-	import BootLoadingView from '$lib/components/boot/BootLoadingView.svelte';
-	import { resetUpdateStateForTests, showMockUpdateForTests } from '$lib/updates.js';
+	import { SIDEBAR_PANE_FRAME } from '#lib/components/ui/sidebar-shell/frame.js';
+	import { cn } from '#lib/utils.js';
+	import BootErrorView from '#lib/components/boot/BootErrorView.svelte';
+	import BootLoadingView from '#lib/components/boot/BootLoadingView.svelte';
+	import { resetUpdateStateForTests, showMockUpdateForTests } from '#lib/updates.js';
 	import '../app.css';
 
 	let { children } = $props();
@@ -80,7 +81,8 @@
 	let PrintSheetComp = $state<Component<{ job: PrintJob; onDone: () => void }> | null>(null);
 	$effect(() => {
 		if (!$printJob || PrintSheetComp) return;
-		void import('$lib/components/message-detail/MessagePrintSheet.svelte').then(
+
+		void import('#lib/components/message-detail/MessagePrintSheet.svelte').then(
 			(m) => (PrintSheetComp = m.default),
 			abandonPrintJob
 		);
@@ -262,7 +264,8 @@
 		main?.focus({ preventScroll: true });
 	}
 
-	afterNavigate(() => {
+	afterNavigate(({ shallow, type }) => {
+		if (shallow && type === 'goto') return;
 		if (typeof window === 'undefined') return;
 		// A folder or page picked in the folded pane closes it, as in Outlook,
 		// and the page's heading then takes focus like after any navigation.
@@ -341,6 +344,7 @@
 		 */
 		const stopSidecarAutoRestartWatch = watchSidecarAutoRestart();
 		const removeFileDropGuard = installFileDropGuard();
+		const removeCurrentPageLinkGuard = installCurrentPageLinkGuard();
 
 		const exposeE2E = window.localStorage.getItem('mail.e2e') === '1';
 		if (exposeE2E) {
@@ -362,24 +366,27 @@
 		 * 1-3 s while each chunk is small, so by the time the user can trigger
 		 * any of these (post-boot), the component is already resolved.
 		 */
-		void import('$lib/components/CommandPalette.svelte').then(
+		void import('#lib/components/CommandPalette.svelte').then(
 			(m) => (CommandPaletteComp = m.default as Component)
 		);
-		void import('$lib/components/ConfirmDialog.svelte').then(
+
+		void import('#lib/components/ConfirmDialog.svelte').then(
 			(m) => (ConfirmDialogComp = m.default as Component)
 		);
-		void import('$lib/components/UpdatePromptDialog.svelte').then(
+		void import('#lib/components/UpdatePromptDialog.svelte').then(
 			(m) => (UpdatePromptDialogComp = m.default as Component)
 		);
-		void import('$lib/components/UpdateFailureDialog.svelte').then(
+		void import('#lib/components/UpdateFailureDialog.svelte').then(
 			(m) => (UpdateFailureDialogComp = m.default as Component)
 		);
+
 		return () => {
 			if (window.__MAIL_E2E__) {
 				delete window.__MAIL_E2E__;
 			}
 			stopSidecarAutoRestartWatch();
 			removeFileDropGuard();
+			removeCurrentPageLinkGuard();
 			cleanupErrorReporting();
 			cleanupTheme();
 			cleanupTextSize();
@@ -423,16 +430,16 @@
 	}
 
 	async function goToCompose() {
-		await goto(resolve('/compose'));
+		await goto(resolve('compose'));
 	}
 
 	async function goToNewContact() {
 		// No account guard: the address book is application-wide, so a new
 		// contact can be written before any mailbox is set up.
-		const params = new SvelteURLSearchParams(page.url.searchParams);
+		const params = new SvelteURLSearchParams(page.url.search);
 		params.set('create', '1');
 		const query = params.toString();
-		await goto(`${resolve('/contacts')}${query ? `?${query}` : ''}`);
+		await goto(`${resolve('contacts')}${query ? `?${query}` : ''}`);
 	}
 
 	async function goToPrimaryNewAction() {
@@ -487,12 +494,8 @@
 	}
 </script>
 
-<svelte:head>
-	<title>{$_('app.title')}</title>
-</svelte:head>
-
+<svelte:head><title>{$_('app.title')}</title></svelte:head>
 <svelte:window onkeydown={handleGlobalKeydownWired} />
-
 <!--
 	Mounted at the root, outside every {#if}, so the screen-reader live regions
 	exist from the first render and never remount across i18n / boot transitions.
@@ -501,9 +504,8 @@
 
 <div class="flex h-screen flex-col bg-background text-foreground antialiased">
 	<a href="#main-content" class="sr-only-focusable">{$_('app.skipToMain')}</a>
-	<a href={resolve('/settings/shortcuts')} class="sr-only-focusable">
-		{$_('app.skipToShortcuts')}
-	</a>
+
+	<a href={resolve('settings/shortcuts')} class="sr-only-focusable">{$_('app.skipToShortcuts')}</a>
 
 	<div class="flex flex-1 overflow-hidden bg-muted/30">
 		{#if $backendSidecarState.status === 'error'}

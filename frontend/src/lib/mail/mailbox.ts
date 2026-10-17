@@ -9,12 +9,12 @@
  */
 import { goto } from '$app/navigation';
 import { get } from 'svelte/store';
-import { deleteMessage, moveMessage, setMessageFlag } from '$lib/api/mailAction.js';
-import { getMessageDetail } from '$lib/api/mailRead.js';
-import { folders as folderList, adjustFolderUnread } from '$lib/stores/folders.js';
-import { searchState } from '$lib/stores/search.js';
-import { conversationsState, reloadCurrentConversationsPage } from '$lib/stores/conversations.js';
-import { confirmAction } from '$lib/stores/confirmDialog.js';
+import { deleteMessage, moveMessage, setMessageFlag } from '#lib/api/mailAction.js';
+import { getMessageDetail } from '#lib/api/mailRead.js';
+import { folders as folderList, adjustFolderUnread } from '#lib/stores/folders.js';
+import { searchState } from '#lib/stores/search.js';
+import { conversationsState, reloadCurrentConversationsPage } from '#lib/stores/conversations.js';
+import { confirmAction } from '#lib/stores/confirmDialog.js';
 import {
 	clearSelection,
 	invalidateMessage,
@@ -24,27 +24,27 @@ import {
 	requestListFocusRestore,
 	selectedMessage,
 	type ListFocusRestore
-} from '$lib/stores/selectedMessage.js';
+} from '#lib/stores/selectedMessage.js';
 import {
 	markSeenLocally,
 	patchMessageLocally,
 	removeMessageLocally,
 	type MessagesState,
 	messagesState
-} from '$lib/stores/messages.js';
-import { setMessageSelection } from '$lib/stores/messageSelection.js';
-import { _ } from '$lib/i18n/index.js';
-import { toErrorMessage } from '$lib/api/errors.js';
+} from '#lib/stores/messages.js';
+import { setMessageSelection } from '#lib/stores/messageSelection.js';
+import { _ } from '#lib/i18n/index.js';
+import { toErrorMessage } from '#lib/api/errors.js';
 import {
 	currentFolderHref,
 	currentListingContext,
 	groupedListingIsShowing,
 	listingContexts
-} from '$lib/mail/currentListing.js';
-import { closeOpenDetail } from '$lib/mail/detailHost.js';
-import { folderLabel } from '$lib/mail/folderLabel.js';
-import { overruleAutoMarkSeen } from '$lib/mail/message-seen.js';
-import { announcePolite, pushToast } from '$lib/stores/toasts.js';
+} from '#lib/mail/currentListing.js';
+import { closeOpenDetail } from '#lib/mail/detailHost.js';
+import { folderLabel } from '#lib/mail/folderLabel.js';
+import { overruleAutoMarkSeen } from '#lib/mail/message-seen.js';
+import { announcePolite, pushToast } from '#lib/stores/toasts.js';
 
 interface BulkResult {
 	succeeded: number;
@@ -295,7 +295,7 @@ async function executeBulkMessageAction(options: ExecuteBulkOptions): Promise<Bu
 			 * the results and the query gone. The fallback keeps the mail
 			 * behaviour for a selection with no detail mounted.
 			 *
-			 * keepFocus mirrors closeCurrentMessageDetail. There the reset
+			 * reset: false mirrors closeCurrentMessageDetail. There the reset
 			 * demonstrably ate the restore; here the list re-renders (the row is
 			 * gone) which gives the restore a second, later attempt, so it lands
 			 * either way — the flag keeps this path from depending on that
@@ -304,7 +304,7 @@ async function executeBulkMessageAction(options: ExecuteBulkOptions): Promise<Bu
 			const handled = await closeOpenDetail({ removedStableId: selected.stableId });
 			if (!handled) {
 				clearSelection();
-				await goto(currentFolderHref(), { keepFocus: true });
+				await goto(currentFolderHref(), { reset: false });
 			}
 		} else if (succeededIds.length === 1) {
 			/*

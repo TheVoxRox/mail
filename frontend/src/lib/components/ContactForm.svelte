@@ -1,27 +1,27 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { _ } from '$lib/i18n/index.js';
-	import { toErrorMessage } from '$lib/api/errors.js';
-	import { isValidEmailAddress } from '$lib/compose/addresses.js';
-	import { confirmAction } from '$lib/stores/confirmDialog.js';
-	import { contactCounts } from '$lib/stores/contactCounts.js';
-	import { announcePolite } from '$lib/stores/toasts.js';
-	import { installLeaveGuard } from '$lib/leaveGuard.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { Field } from '$lib/components/ui/field/index.js';
-	import { Input } from '$lib/components/ui/input/index.js';
-	import { Select } from '$lib/components/ui/select/index.js';
-	import { Surface } from '$lib/components/ui/surface/index.js';
-	import { Textarea } from '$lib/components/ui/textarea/index.js';
-	import { nativeControlClass } from '$lib/components/ui/native-control/index.js';
+	import { _ } from '#lib/i18n/index.js';
+	import { toErrorMessage } from '#lib/api/errors.js';
+	import { isValidEmailAddress } from '#lib/compose/addresses.js';
+	import { confirmAction } from '#lib/stores/confirmDialog.js';
+	import { contactCounts } from '#lib/stores/contactCounts.js';
+	import { announcePolite } from '#lib/stores/toasts.js';
+	import { installLeaveGuard } from '#lib/leaveGuard.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Field } from '#lib/components/ui/field/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { Select } from '#lib/components/ui/select/index.js';
+	import { Surface } from '#lib/components/ui/surface/index.js';
+	import { Textarea } from '#lib/components/ui/textarea/index.js';
+	import { nativeControlClass } from '#lib/components/ui/native-control/index.js';
 	import { onMount, tick } from 'svelte';
 	import type {
 		ContactCreateRequest,
 		ContactEmailRequest,
 		ContactResponse,
 		EmailLabel
-	} from '$lib/types.js';
-	import type { ContactPrefill } from '$lib/contacts/prefill.js';
+	} from '#lib/types.js';
+	import type { ContactPrefill } from '#lib/contacts/prefill.js';
 
 	interface Props {
 		/** When provided the form edits an existing contact; otherwise it creates a new one. */

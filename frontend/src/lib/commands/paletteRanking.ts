@@ -2,8 +2,8 @@
  * Pure ranking logic for the Command Palette — extracted from
  * `CommandPalette.svelte` so the scoring algorithm can be unit-tested.
  */
-import { detectWorkspaceMode } from '$lib/stores/workspaceMode.js';
-import type { Command } from '$lib/stores/commands.js';
+import { detectWorkspaceMode } from '#lib/stores/workspaceMode.js';
+import type { Command } from '#lib/stores/commands.js';
 import type { CommandGroup } from './shared.js';
 
 export interface VisibleCommand {

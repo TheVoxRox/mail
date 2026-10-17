@@ -10,7 +10,7 @@
  * key for navigation and the backend API.
  */
 
-import type { FolderResponse, FolderRole } from '$lib/types.js';
+import type { FolderResponse, FolderRole } from '#lib/types.js';
 
 /**
  * Structurally compatible with `MessageFormatter` from svelte-i18n (`$_` /

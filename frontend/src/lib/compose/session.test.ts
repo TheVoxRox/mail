@@ -4,15 +4,15 @@ import type { Mock } from 'vitest';
 import { composeSnapshotFingerprint, createComposeSession } from './session.js';
 import type { ComposeDraft } from './request.js';
 
-vi.mock('$lib/api/drafts.js', () => ({
+vi.mock('#lib/api/drafts.js', () => ({
 	saveDraft: vi.fn()
 }));
-vi.mock('$lib/api/mailAction.js', () => ({
+vi.mock('#lib/api/mailAction.js', () => ({
 	deleteMessage: vi.fn()
 }));
 
-import { saveDraft } from '$lib/api/drafts.js';
-import { deleteMessage } from '$lib/api/mailAction.js';
+import { saveDraft } from '#lib/api/drafts.js';
+import { deleteMessage } from '#lib/api/mailAction.js';
 
 const saveDraftMock = saveDraft as Mock;
 const deleteMessageMock = deleteMessage as Mock;

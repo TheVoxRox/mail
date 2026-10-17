@@ -1,21 +1,21 @@
-import type { AppLocale } from '$lib/i18n/index.js';
+import type { AppLocale } from '#lib/i18n/index.js';
 import {
 	forwardMessage,
 	goToCompose,
 	goToSearch,
 	replyToMessage,
 	syncCurrentAccount
-} from '$lib/mail/actions.js';
+} from '#lib/mail/actions.js';
 import {
 	deleteMessages,
 	moveMessages,
 	toggleMessageFlag,
 	toggleMessageSeen
-} from '$lib/mail/mailbox.js';
-import { localeKeywords, type Command } from '$lib/commands/shared.js';
-import { printOpenMessage, type PrintableSelection } from '$lib/mail/printMessages.js';
-import { SHORTCUT_LABELS } from '$lib/shortcuts/shortcutLabels.js';
-import type { FolderResponse } from '$lib/types.js';
+} from '#lib/mail/mailbox.js';
+import { localeKeywords, type Command } from '#lib/commands/shared.js';
+import { printOpenMessage, type PrintableSelection } from '#lib/mail/printMessages.js';
+import { SHORTCUT_LABELS } from '#lib/shortcuts/shortcutLabels.js';
+import type { FolderResponse } from '#lib/types.js';
 
 type MessageCommandDetail = {
 	flagged: boolean;

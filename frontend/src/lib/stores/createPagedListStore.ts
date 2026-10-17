@@ -8,8 +8,8 @@
  * switch.
  */
 import { writable, get, type Writable } from 'svelte/store';
-import { toError } from '$lib/api/errors.js';
-import type { PagedResponse } from '$lib/types.js';
+import { toError } from '#lib/api/errors.js';
+import type { PagedResponse } from '#lib/types.js';
 
 export type PagedListState<TContext, TItem> =
 	| { status: 'idle' }

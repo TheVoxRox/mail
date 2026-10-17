@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { moveTargetsFor } from './moveTargets.js';
-import type { FolderResponse } from '$lib/types.js';
+import type { FolderResponse } from '#lib/types.js';
 
 function folder(folderRef: string, displayName = folderRef): FolderResponse {
 	return { displayName, folderRef, unreadCount: 0, role: 'USER' };

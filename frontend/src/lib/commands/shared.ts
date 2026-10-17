@@ -1,6 +1,6 @@
-import type { IconName } from '$lib/components/Icon.svelte';
-import type { AppLocale } from '$lib/i18n/index.js';
-import type { WorkspaceMode } from '$lib/stores/workspaceMode.js';
+import type { IconName } from '#lib/components/Icon.svelte';
+import type { AppLocale } from '#lib/i18n/index.js';
+import type { WorkspaceMode } from '#lib/stores/workspaceMode.js';
 
 export type CommandGroup = 'nav' | 'mail' | 'account' | 'view' | 'other';
 

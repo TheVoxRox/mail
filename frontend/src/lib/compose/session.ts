@@ -21,9 +21,9 @@
  */
 
 import { writable, type Readable } from 'svelte/store';
-import { saveDraft as apiSaveDraft } from '$lib/api/drafts.js';
-import { deleteMessage } from '$lib/api/mailAction.js';
-import { toErrorMessage } from '$lib/api/errors.js';
+import { saveDraft as apiSaveDraft } from '#lib/api/drafts.js';
+import { deleteMessage } from '#lib/api/mailAction.js';
+import { toErrorMessage } from '#lib/api/errors.js';
 import { buildDraftRequest, draftFingerprint, type ComposeDraft } from './request.js';
 
 export type ComposeFlushOutcome = 'saved' | 'skipped' | 'blocked' | 'failed';

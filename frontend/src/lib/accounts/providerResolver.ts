@@ -6,9 +6,9 @@
  * testable without a DOM — the component just registers callbacks and calls
  * `schedule(email)`.
  */
-import { resolveProviderByEmail } from '$lib/api/providers.js';
-import { isValidEmailAddress } from '$lib/compose/addresses.js';
-import type { MailProviderResponse } from '$lib/types.js';
+import { resolveProviderByEmail } from '#lib/api/providers.js';
+import { isValidEmailAddress } from '#lib/compose/addresses.js';
+import type { MailProviderResponse } from '#lib/types.js';
 
 interface ProviderResolverCallbacks {
 	/** Provider was successfully resolved from the given e-mail address. */

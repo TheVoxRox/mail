@@ -3,18 +3,18 @@
 		currentWorkspaceMode,
 		type WorkspaceMode,
 		workspaceHref
-	} from '$lib/stores/workspaceMode.js';
-	import { _ } from '$lib/i18n/index.js';
-	import Icon from '$lib/components/Icon.svelte';
-	import { focusRing } from '$lib/components/ui/focus-ring/index.js';
-	import { SHORTCUT_LABELS } from '$lib/shortcuts/shortcutLabels.js';
+	} from '#lib/stores/workspaceMode.js';
+	import { _ } from '#lib/i18n/index.js';
+	import Icon from '#lib/components/Icon.svelte';
+	import { focusRing } from '#lib/components/ui/focus-ring/index.js';
+	import { SHORTCUT_LABELS } from '#lib/shortcuts/shortcutLabels.js';
 	import {
 		WORKSPACE_PANE_ID,
 		WORKSPACE_PANE_TOGGLE_ID,
 		paneShown,
 		togglePane
-	} from '$lib/stores/workspacePane.js';
-	import { cn } from '$lib/utils.js';
+	} from '#lib/stores/workspacePane.js';
+	import { cn } from '#lib/utils.js';
 
 	type RailItem = {
 		mode: WorkspaceMode;

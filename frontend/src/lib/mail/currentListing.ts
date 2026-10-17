@@ -14,9 +14,9 @@
  */
 import { resolve } from '$app/paths';
 import { get } from 'svelte/store';
-import { conversationsState } from '$lib/stores/conversations.js';
-import { messagesState } from '$lib/stores/messages.js';
-import { messageGrouping } from '$lib/stores/uiLayout.js';
+import { conversationsState } from '#lib/stores/conversations.js';
+import { messagesState } from '#lib/stores/messages.js';
+import { messageGrouping } from '#lib/stores/uiLayout.js';
 
 export interface ListingContext {
 	accountId: number;

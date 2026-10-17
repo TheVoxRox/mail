@@ -1,7 +1,7 @@
-import { goToWorkspaceMode } from '$lib/mail/actions.js';
-import type { AppLocale } from '$lib/i18n/index.js';
-import { localeKeywords, type Command } from '$lib/commands/shared.js';
-import { SHORTCUT_LABELS } from '$lib/shortcuts/shortcutLabels.js';
+import { goToWorkspaceMode } from '#lib/mail/actions.js';
+import type { AppLocale } from '#lib/i18n/index.js';
+import { localeKeywords, type Command } from '#lib/commands/shared.js';
+import { SHORTCUT_LABELS } from '#lib/shortcuts/shortcutLabels.js';
 
 export function createWorkspaceCommands(locale: AppLocale | null): Command[] {
 	return [

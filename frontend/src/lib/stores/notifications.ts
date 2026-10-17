@@ -8,9 +8,9 @@
 
 import { get, writable } from 'svelte/store';
 import { _ } from 'svelte-i18n';
-import { SseClient } from '$lib/api/notifications.js';
-import { triggerAccountSync } from '$lib/api/mailAction.js';
-import { folderLabel } from '$lib/mail/folderLabel.js';
+import { SseClient } from '#lib/api/notifications.js';
+import { triggerAccountSync } from '#lib/api/mailAction.js';
+import { folderLabel } from '#lib/mail/folderLabel.js';
 import type {
 	FolderResponse,
 	SendNotification,
@@ -18,7 +18,7 @@ import type {
 	SyncCycleNotification,
 	SyncNotification,
 	SyncStatusNotification
-} from '$lib/types.js';
+} from '#lib/types.js';
 import { messagesState, reloadCurrentPage } from './messages.js';
 import { conversationsState, reloadCurrentConversationsPage } from './conversations.js';
 import { refreshFolders } from './folders.js';

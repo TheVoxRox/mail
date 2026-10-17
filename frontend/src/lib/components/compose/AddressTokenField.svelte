@@ -1,18 +1,18 @@
 <script lang="ts">
 	import { tick } from 'svelte';
-	import { autocompleteContacts } from '$lib/api/contacts.js';
-	import { chipVariants } from '$lib/components/ui/chip/index.js';
-	import { focusRing, focusRingInset } from '$lib/components/ui/focus-ring/index.js';
-	import { menuContentVariants, menuItemVariants } from '$lib/components/ui/menu/index.js';
-	import { clientConfig } from '$lib/stores/clientConfig.js';
-	import { cn } from '$lib/utils.js';
-	import { _ } from '$lib/i18n/index.js';
+	import { autocompleteContacts } from '#lib/api/contacts.js';
+	import { chipVariants } from '#lib/components/ui/chip/index.js';
+	import { focusRing, focusRingInset } from '#lib/components/ui/focus-ring/index.js';
+	import { menuContentVariants, menuItemVariants } from '#lib/components/ui/menu/index.js';
+	import { clientConfig } from '#lib/stores/clientConfig.js';
+	import { cn } from '#lib/utils.js';
+	import { _ } from '#lib/i18n/index.js';
 	import {
 		isValidEmailAddress,
 		parseAddressList,
 		serializeAddressList
-	} from '$lib/compose/addresses.js';
-	import type { ContactAutocompleteResponse } from '$lib/types.js';
+	} from '#lib/compose/addresses.js';
+	import type { ContactAutocompleteResponse } from '#lib/types.js';
 
 	interface Props {
 		id: string;

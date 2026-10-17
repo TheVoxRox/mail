@@ -1,25 +1,25 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import AccountForm from '$lib/components/AccountForm.svelte';
-	import { getAccount, updateAccount } from '$lib/api/accounts.js';
-	import { confirmAndDeleteAccount } from '$lib/accounts/deleteAccount.js';
-	import { toErrorMessage } from '$lib/api/errors.js';
-	import { getProvider } from '$lib/api/providers.js';
-	import { loadAccounts } from '$lib/stores/accounts.js';
-	import { badgeVariants } from '$lib/components/ui/badge/index.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { PageShell } from '$lib/components/ui/page-shell/index.js';
-	import { StateMessage } from '$lib/components/ui/state-message/index.js';
-	import { Surface } from '$lib/components/ui/surface/index.js';
-	import { _ } from '$lib/i18n/index.js';
-	import { pushToast } from '$lib/stores/toasts.js';
+	import AccountForm from '#lib/components/AccountForm.svelte';
+	import { getAccount, updateAccount } from '#lib/api/accounts.js';
+	import { confirmAndDeleteAccount } from '#lib/accounts/deleteAccount.js';
+	import { toErrorMessage } from '#lib/api/errors.js';
+	import { getProvider } from '#lib/api/providers.js';
+	import { loadAccounts } from '#lib/stores/accounts.js';
+	import { badgeVariants } from '#lib/components/ui/badge/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { PageShell } from '#lib/components/ui/page-shell/index.js';
+	import { StateMessage } from '#lib/components/ui/state-message/index.js';
+	import { Surface } from '#lib/components/ui/surface/index.js';
+	import { _ } from '#lib/i18n/index.js';
+	import { pushToast } from '#lib/stores/toasts.js';
 	import type {
 		AccountCreateRequest,
 		AccountResponse,
 		AccountUpdateRequest,
 		MailProviderResponse
-	} from '$lib/types.js';
+	} from '#lib/types.js';
 	import { onMount } from 'svelte';
 
 	let { data } = $props();
@@ -49,7 +49,7 @@
 		await updateAccount(data.id, payload as AccountUpdateRequest);
 		await loadAccounts();
 		pushToast($_('accounts.savedToast'), { tone: 'success' });
-		await goto(resolve('/settings/accounts'));
+		await goto(resolve('settings/accounts'));
 	}
 
 	async function handleDelete() {
@@ -60,7 +60,7 @@
 			// Only a real delete may leave the route — the account this page is
 			// about still exists when the user backs out of the confirmation.
 			if (await confirmAndDeleteAccount(data.id, account.accountName)) {
-				await goto(resolve('/settings/accounts'));
+				await goto(resolve('settings/accounts'));
 			}
 		} catch (err) {
 			deleteError = toErrorMessage(err);
@@ -82,9 +82,9 @@
 	contentClass="max-w-4xl"
 >
 	{#snippet actions()}
-		<Button variant="link" size="sm" href={resolve('/settings/accounts')}>
-			{$_('accounts.backToList')}
-		</Button>
+		<Button variant="link" size="sm" href={resolve('settings/accounts')}
+			>{$_('accounts.backToList')}</Button
+		>
 	{/snippet}
 
 	{#if loadError}

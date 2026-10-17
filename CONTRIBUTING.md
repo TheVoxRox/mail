@@ -11,7 +11,7 @@ GitHub issues for vulnerabilities.
 
 ```
 backend/      Spring Boot 4.x sidecar (Java 25, Maven)
-frontend/     SvelteKit 2 + Svelte 5 desktop UI (static adapter)
+frontend/     SvelteKit 3 + Svelte 5 desktop UI (static adapter)
 frontend/src-tauri/  Tauri 2 wrapper that bundles the JAR sidecar
 ```
 

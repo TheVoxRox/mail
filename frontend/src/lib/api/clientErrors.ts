@@ -9,7 +9,7 @@ import { page } from '$app/state';
 import { ApiError } from './client.js';
 import { toErrorMessage } from './errors.js';
 import { httpFetch } from './http.js';
-import { requireSession } from '$lib/stores/session.js';
+import { requireSession } from '#lib/stores/session.js';
 
 type ClientErrorKind = 'window_error' | 'unhandled_rejection' | 'manual';
 

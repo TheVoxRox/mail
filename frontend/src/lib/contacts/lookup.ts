@@ -12,8 +12,8 @@
  * query it would save against a database on the same machine.
  */
 
-import { listContacts } from '$lib/api/contacts.js';
-import type { ContactResponse } from '$lib/types.js';
+import { listContacts } from '#lib/api/contacts.js';
+import type { ContactResponse } from '#lib/types.js';
 
 /**
  * Enough rows that the exact match is among them even when the address is a

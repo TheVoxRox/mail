@@ -1,8 +1,8 @@
 <script lang="ts">
-	import BootDiagnosticActions from '$lib/components/boot/BootDiagnosticActions.svelte';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { _ } from '$lib/i18n/index.js';
-	import { checkForUpdateManually } from '$lib/updates.js';
+	import BootDiagnosticActions from '#lib/components/boot/BootDiagnosticActions.svelte';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { _ } from '#lib/i18n/index.js';
+	import { checkForUpdateManually } from '#lib/updates.js';
 
 	interface Props {
 		errorMessage: string;

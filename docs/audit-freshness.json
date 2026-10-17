@@ -44,7 +44,8 @@
   "docs/API_SURFACE_AUDIT.md": {
     "reviewedTrees": {
       "frontend/src-tauri/src/redact.rs": "22f0fb867ceb8e70135c79bee6f492c3c28acf7b",
-      "frontend/src-tauri/src/logs.rs": "0da494433ac1a8f2cb4fc52517d84edba3740ba7"
+      "frontend/src-tauri/src/logs.rs": "0da494433ac1a8f2cb4fc52517d84edba3740ba7",
+      "frontend/src/lib/api/clientBootDiagnostics.ts": "5e76b3e95a63b5f9ff5c9f5b38ff6cad7ae4b7d6"
     },
     "acknowledgements": [
       {
@@ -54,12 +55,23 @@
       {
         "date": "2026-10-13",
         "note": "Under Code paths only the test module of logs.rs moves, for zip 4 -> 9: from 9 on ZipArchive::file_names() yields Result, so the test listing a ZIP written without logs collects through Result before it compares. The writer code above #[cfg(test)] is byte-identical, and ZipWriter, SimpleFileOptions and CompressionMethod compile unchanged against 9, so the Save logs ZIP is written by the same calls. redact.rs, the command list and the redaction vectors do not change. Verdict PASS."
+      },
+      {
+        "date": "2026-10-17",
+        "note": "The SvelteKit 3 migration (#721). Under Code paths only frontend/src/lib/api/clientBootDiagnostics.ts moves, and only in import specifiers: $lib/... became #lib/... (package.json imports, the same files) and $app/environment became $app/env (the same module, renamed). Every changed line under the paths of the four audits this touches was compared after normalising those two renames, and the removed and added lines are identical. What the client sends to /api/internal/client-boot, and when, is unchanged. Verdict unchanged."
       }
     ]
   },
   "docs/UPDATER_AUDIT.md": {
     "reviewedTrees": {
-      "frontend/src-tauri/src": "7ac92fa286b95f3afcb984758f918ffcd8e35d49"
+      "frontend/src-tauri/src": "7ac92fa286b95f3afcb984758f918ffcd8e35d49",
+      "frontend/src/lib/updates.ts": "3f5774f8447b80e3b5355baeed1468ed700acd0d",
+      "frontend/src/lib/nativeShell.ts": "88ad0252ba0c6541fafd92d0576bb011c604e39b",
+      "frontend/src/lib/bootstrap.ts": "c55c02af6bf1b445463387db6c34229efa0d076e",
+      "frontend/src/lib/components/boot/BootErrorView.svelte": "2058801360be6a22656db1e998d5596ec7c94aa2",
+      "frontend/src/lib/components/UpdatePromptDialog.svelte": "2b8ebb25f1f32468f3bfb327acfcaaf100fb8cfc",
+      "frontend/src/lib/components/UpdateFailureDialog.svelte": "f49306c645ca1c4895a9ef609571faa912d498f6",
+      "frontend/src/lib/components/settings/AboutSettings.svelte": "cf846c6b2f0ca70f4e81a901a3509c8a0f03ff59"
     },
     "acknowledgements": [
       {
@@ -77,6 +89,10 @@
       {
         "date": "2026-10-13",
         "note": "Under src-tauri/src only the test module of logs.rs changes, for the zip 4 -> 9 bump: file_names() yields Result from 9 on and the one test that lists entries collects through it. No code outside #[cfg(test)] moves; Cargo.toml and Cargo.lock move zip to 9.0.2 and add typed-path and nix under it, none of them on the update path. check_for_update, download_pending_update, install_pending_update, PendingUpdate, DownloadedUpdate, the channel map and the pubkey are untouched. Verdict stays PASS."
+      },
+      {
+        "date": "2026-10-17",
+        "note": "The SvelteKit 3 migration (#721). Seven frontend paths move (updates.ts, nativeShell.ts, bootstrap.ts, BootErrorView, UpdatePromptDialog, UpdateFailureDialog, AboutSettings), and only in import specifiers: $lib/... became #lib/... (package.json imports, the same files) and $app/environment became $app/env (the same module, renamed). After normalising those two renames the removed and added lines are identical. The startup check, the prompt, skip and postpone, the three-step install with the sidecar stopped in between, and src-tauri/src are untouched. Verdict stays PASS."
       }
     ]
   },
@@ -100,8 +116,8 @@
   "docs/CONTENT_RENDERING_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailContentService.java": "b356d6be05d7986431d3e78c198862baad50edae",
-      "frontend/src/lib/mail/mailFrame.ts": "7155f90df686845c62312749e5012897f4af80d5",
-      "frontend/src/lib/components/message-detail": "0ca74b734243d5be68174599421026b792d0ca6a"
+      "frontend/src/lib/mail/mailFrame.ts": "02867dae73807fdafe343cd56cc950914b188ae3",
+      "frontend/src/lib/components/message-detail": "c7a07ce058b691049a59c93c579846307caa2df7"
     },
     "acknowledgements": [
       {
@@ -123,6 +139,10 @@
       {
         "date": "2026-10-11",
         "note": "The forwarder's preventDefault predicate gains Ctrl+Y, read against section 3 (Frame -- defense in depth). The app claims Ctrl+Y for the workspace pane since #687, and the predicate is meant to mirror what handleGlobalKeydown claims, so the genuine keystroke in the frame is cancelled as Ctrl+R and Ctrl+P are; the letter class /^[kprfqu]$/i became /^[kprfquy]$/i and nothing else in the script moved. Cancelling a default grants the frame nothing: what it posts out is unchanged (every isTrusted keydown was already relayed), and so are the link relay and the height relay. MAIL_FRAME_SCRIPT_SHA256 was recomputed from the new string with SHA-256/base64 and mailFrame.test.ts recomputes it; the CSP still pins script-src to that one hash, the sandbox is still allow-scripts without allow-same-origin. Under message-detail, MessageHeaderCard.svelte adds min-h-0 to the class of the inline address link, a layout change only. No sanitizer or remote-image code changed. Verdict unchanged."
+      },
+      {
+        "date": "2026-10-17",
+        "note": "The SvelteKit 3 migration (#721). mailFrame.ts and the files under message-detail move only in import specifiers: $lib/... became #lib/... (package.json imports, the same files) and $app/environment became $app/env (the same module, renamed). After normalising those two renames the removed and added lines are identical. The frame's CSP and its two pinned hashes, the sandbox, the forwarder script, the link and height relays and the remote-image gate are byte-identical. Verdict unchanged."
       }
     ]
   },
@@ -131,7 +151,8 @@
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "ff7f8fc27f0325cce769ef6d32ab1b7970224447",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "9529c23f5e6525d047964bbe6f7342c525ddbdca",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/MessageEntity.java": "f3f30cd4be6904739e50a7c4a58212c6d9679cf1",
-      "backend/src/main/resources/application.properties": "e32931284645050519fd545b10ab30f24bf048c9"
+      "backend/src/main/resources/application.properties": "e32931284645050519fd545b10ab30f24bf048c9",
+      "frontend/src/lib/contacts/senderContact.ts": "d753e2410fef2ed47808882b3ae066ac9414efd8"
     },
     "acknowledgements": [
       {
@@ -149,6 +170,10 @@
       {
         "date": "2026-10-11",
         "note": "Under this audit's paths only application.properties changes: mail.crypto.pbkdf2-iterations=600000 is removed, because the count is now a constant in CryptoService (CRYPTO_STORAGE_AUDIT.md v1.2), and the comment above the crypto keys names it among the format constants. No mail.client.imap.*, mail.client.sync.* or SMTP key moves, so no bound a finding rests on changes. Verdict unchanged."
+      },
+      {
+        "date": "2026-10-17",
+        "note": "The SvelteKit 3 migration (#721). Under this audit's paths only frontend/src/lib/contacts/senderContact.ts moves, and only in import specifiers: $lib/... became #lib/... (package.json imports, the same files). After normalising the rename the removed and added lines are identical, so B1-11's reading of the address from the last <...> of the label is unchanged. Verdict unchanged."
       }
     ]
   },

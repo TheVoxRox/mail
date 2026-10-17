@@ -18,9 +18,9 @@
 import { buildApiUrl } from './client.js';
 import { httpFetch } from './http.js';
 import { toError } from './errors.js';
-import { delayWithAbort } from '$lib/delay.js';
-import { invalidateSession } from '$lib/stores/session.js';
-import type { StreamNotification } from '$lib/types.js';
+import { delayWithAbort } from '#lib/delay.js';
+import { invalidateSession } from '#lib/stores/session.js';
+import type { StreamNotification } from '#lib/types.js';
 
 type Listener = (event: StreamNotification) => void;
 type ErrorListener = (err: Error) => void;

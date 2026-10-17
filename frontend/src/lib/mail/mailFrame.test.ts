@@ -21,7 +21,7 @@ import {
 	type MailFrameKeyMessage,
 	type MailFrameLinkMessage
 } from './mailFrame.js';
-import { ROOT_FONT_SIZE, TEXT_SIZES } from '$lib/stores/textSize.js';
+import { ROOT_FONT_SIZE, TEXT_SIZES } from '#lib/stores/textSize.js';
 
 // The frame renders with remote images blocked until the user opts in, so the
 // default flag is what the pinned hashes below have to hold for.

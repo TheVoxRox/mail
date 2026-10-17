@@ -3,10 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // The search behind the lookup is substring-based, so the whole point of the
 // module is what it does with the rows that came back — stub the call and drive
 // those rows directly.
-vi.mock('$lib/api/contacts.js', () => ({ listContacts: vi.fn() }));
+vi.mock('#lib/api/contacts.js', () => ({ listContacts: vi.fn() }));
 
-import { listContacts } from '$lib/api/contacts.js';
-import type { ContactResponse, PagedResponse } from '$lib/types.js';
+import { listContacts } from '#lib/api/contacts.js';
+import type { ContactResponse, PagedResponse } from '#lib/types.js';
 import { findContactByEmail } from './lookup.js';
 
 function contact(id: number, ...emails: string[]): ContactResponse {

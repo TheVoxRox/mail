@@ -9,11 +9,11 @@
 	 * because `FIELD_INPUT_IDS` in accountFormValidation.ts focuses them by id
 	 * after validation, and the e2e suite locates them the same way.
 	 */
-	import { Field } from '$lib/components/ui/field/index.js';
-	import { Input } from '$lib/components/ui/input/index.js';
-	import { nativeControlClass } from '$lib/components/ui/native-control/index.js';
-	import { _ } from '$lib/i18n/index.js';
-	import { cn } from '$lib/utils.js';
+	import { Field } from '#lib/components/ui/field/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { nativeControlClass } from '#lib/components/ui/native-control/index.js';
+	import { _ } from '#lib/i18n/index.js';
+	import { cn } from '#lib/utils.js';
 
 	interface Props {
 		/** `acc-imap` or `acc-smtp` — drives the field ids. */

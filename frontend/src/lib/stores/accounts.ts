@@ -7,9 +7,9 @@
  */
 
 import { derived, get, writable } from 'svelte/store';
-import { listAccounts } from '$lib/api/accounts.js';
-import { toError } from '$lib/api/errors.js';
-import type { AccountResponse } from '$lib/types.js';
+import { listAccounts } from '#lib/api/accounts.js';
+import { toError } from '#lib/api/errors.js';
+import type { AccountResponse } from '#lib/types.js';
 
 const ACTIVE_ACCOUNT_KEY = 'mail.activeAccountId';
 

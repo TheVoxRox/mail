@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { focusRingScrollArea } from '$lib/components/ui/focus-ring/index.js';
-	import { cn } from '$lib/utils.js';
+	import { focusRingScrollArea } from '#lib/components/ui/focus-ring/index.js';
+	import { cn } from '#lib/utils.js';
 
 	interface Props {
 		title: string;

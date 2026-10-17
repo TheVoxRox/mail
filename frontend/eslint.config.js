@@ -5,7 +5,9 @@ import svelte from 'eslint-plugin-svelte';
 import { defineConfig } from 'eslint/config';
 import globals from 'globals';
 import ts from 'typescript-eslint';
-import svelteConfig from './svelte.config.js';
+import { loadConfig } from '@sveltejs/load-config';
+
+const svelteConfig = (await loadConfig('./', { traverse: false }))?.config;
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 
@@ -78,7 +80,7 @@ export default defineConfig(
 		}
 	},
 	{
-		// Class merging goes through `$lib/utils.js`, which teaches tailwind-merge
+		// Class merging goes through `#lib/utils.js`, which teaches tailwind-merge
 		// the font sizes app.css adds. A merger imported straight from the
 		// library does not know them and drops `text-caption` before a colour.
 		files: ['src/**/*.{ts,svelte}'],
@@ -90,12 +92,12 @@ export default defineConfig(
 					paths: [
 						{
 							name: 'tailwind-merge',
-							message: "Use cn from '$lib/utils.js', which knows app.css's font sizes."
+							message: "Use cn from '#lib/utils.js', which knows app.css's font sizes."
 						},
 						{
 							name: 'tailwind-variants',
 							importNames: ['tv', 'createTV', 'cn', 'cnMerge'],
-							message: "Use tv or cn from '$lib/utils.js', which know app.css's font sizes."
+							message: "Use tv or cn from '#lib/utils.js', which know app.css's font sizes."
 						}
 					]
 				}

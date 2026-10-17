@@ -20,7 +20,7 @@ const { browserMock } = vi.hoisted(() => ({
 	browserMock: { value: true }
 }));
 
-vi.mock('$app/environment', () => ({
+vi.mock('$app/env', () => ({
 	get browser() {
 		return browserMock.value;
 	},

@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { _ } from '$lib/i18n/index.js';
-	import { focusRingInset } from '$lib/components/ui/focus-ring/index.js';
-	import { cn } from '$lib/utils.js';
-	import type { RovingCellProps } from '$lib/components/grid/rovingGrid.svelte.js';
+	import { _ } from '#lib/i18n/index.js';
+	import { focusRingInset } from '#lib/components/ui/focus-ring/index.js';
+	import { cn } from '#lib/utils.js';
+	import type { RovingCellProps } from '#lib/components/grid/rovingGrid.svelte.js';
 
 	/**
 	 * The subject cell — and the row's one activatable element.

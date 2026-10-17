@@ -1,24 +1,24 @@
 <script lang="ts">
 	import { DropdownMenu } from 'bits-ui';
-	import { buttonVariants } from '$lib/components/ui/button/index.js';
-	import { MenuContent, MenuSubContent, menuItemVariants } from '$lib/components/ui/menu/index.js';
-	import { forwardMessage, replyToMessage } from '$lib/mail/actions.js';
+	import { buttonVariants } from '#lib/components/ui/button/index.js';
+	import { MenuContent, MenuSubContent, menuItemVariants } from '#lib/components/ui/menu/index.js';
+	import { forwardMessage, replyToMessage } from '#lib/mail/actions.js';
 	import {
 		deleteMessages,
 		moveMessages,
 		toggleMessageFlag,
 		toggleMessageSeen
-	} from '$lib/mail/mailbox.js';
-	import { folders } from '$lib/stores/folders.js';
-	import { messagesState } from '$lib/stores/messages.js';
-	import { moveTargetsFor } from '$lib/mail/moveTargets.js';
-	import { _ } from '$lib/i18n/index.js';
-	import Icon from '$lib/components/Icon.svelte';
-	import MoveTargetMenuItems from '$lib/components/MoveTargetMenuItems.svelte';
-	import { cn } from '$lib/utils.js';
-	import type { RowActions } from '$lib/mail/rowActions.js';
-	import type { MailSummaryResponse } from '$lib/types.js';
-	import type { RovingCellProps } from '$lib/components/grid/rovingGrid.svelte.js';
+	} from '#lib/mail/mailbox.js';
+	import { folders } from '#lib/stores/folders.js';
+	import { messagesState } from '#lib/stores/messages.js';
+	import { moveTargetsFor } from '#lib/mail/moveTargets.js';
+	import { _ } from '#lib/i18n/index.js';
+	import Icon from '#lib/components/Icon.svelte';
+	import MoveTargetMenuItems from '#lib/components/MoveTargetMenuItems.svelte';
+	import { cn } from '#lib/utils.js';
+	import type { RowActions } from '#lib/mail/rowActions.js';
+	import type { MailSummaryResponse } from '#lib/types.js';
+	import type { RovingCellProps } from '#lib/components/grid/rovingGrid.svelte.js';
 
 	type Props = {
 		message: MailSummaryResponse;

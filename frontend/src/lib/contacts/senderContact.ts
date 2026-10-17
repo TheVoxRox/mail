@@ -20,8 +20,8 @@
  * be seeded from that.
  */
 
-import { isValidEmailAddress } from '$lib/compose/addresses.js';
-import { splitDisplayName } from '$lib/contacts/displayName.js';
+import { isValidEmailAddress } from '#lib/compose/addresses.js';
+import { splitDisplayName } from '#lib/contacts/displayName.js';
 
 /** Everything a prefilled contact form can learn from a message's sender. */
 export interface SenderContactSeed {

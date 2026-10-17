@@ -14,7 +14,7 @@
  * word is medium. The status tones keep the border the account list gave
  * them; the other tones never had one.
  */
-import { tv } from '$lib/utils.js';
+import { tv } from '#lib/utils.js';
 
 export const badgeVariants = tv({
 	base: 'inline-flex shrink-0 items-center rounded-full py-0.5 text-caption',

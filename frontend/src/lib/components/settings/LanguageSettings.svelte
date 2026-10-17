@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { _, appLocale, setLocale, LOCALE_LABELS, SUPPORTED_LOCALES } from '$lib/i18n/index.js';
-	import { Field } from '$lib/components/ui/field/index.js';
-	import { Select } from '$lib/components/ui/select/index.js';
-	import { Surface } from '$lib/components/ui/surface/index.js';
+	import { _, appLocale, setLocale, LOCALE_LABELS, SUPPORTED_LOCALES } from '#lib/i18n/index.js';
+	import { Field } from '#lib/components/ui/field/index.js';
+	import { Select } from '#lib/components/ui/select/index.js';
+	import { Surface } from '#lib/components/ui/surface/index.js';
 
 	function handleLocaleChange(event: Event) {
 		const value = (event.target as HTMLSelectElement).value;

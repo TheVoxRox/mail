@@ -1,4 +1,4 @@
-import type { AttachmentRequest, DraftRequest, MailRequest } from '$lib/types.js';
+import type { AttachmentRequest, DraftRequest, MailRequest } from '#lib/types.js';
 
 export interface ComposeAttachment extends AttachmentRequest {
 	localId: string;

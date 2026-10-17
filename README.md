@@ -14,7 +14,7 @@ The backend runs as a local Tauri sidecar bound to 127.0.0.1 on a random port. T
 ## Stack
 
 - **Backend:** Java 25, Spring Boot 4, SQLite, IMAP/SMTP, OAuth2 (Google, Microsoft)
-- **Frontend:** SvelteKit 2, Svelte 5, Tailwind CSS 4, Tauri 2
+- **Frontend:** SvelteKit 3, Svelte 5, Tailwind CSS 4, Tauri 2
 - **Tests:** JUnit + Spring Test (backend), Playwright + MSW (frontend)
 
 ## Repository layout

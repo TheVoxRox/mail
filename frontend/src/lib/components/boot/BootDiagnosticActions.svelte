@@ -18,12 +18,12 @@
 	 * `leading` is for; the error view keeps its Retry above, on its own.
 	 */
 	import type { Snippet } from 'svelte';
-	import { _ } from '$lib/i18n/index.js';
-	import { toErrorMessage } from '$lib/api/errors.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { saveLogs } from '$lib/logs.js';
-	import { hasNativeShell } from '$lib/nativeShell.js';
-	import { cn } from '$lib/utils.js';
+	import { _ } from '#lib/i18n/index.js';
+	import { toErrorMessage } from '#lib/api/errors.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { saveLogs } from '#lib/logs.js';
+	import { hasNativeShell } from '#lib/nativeShell.js';
+	import { cn } from '#lib/utils.js';
 
 	interface Props {
 		onRestart: () => void;

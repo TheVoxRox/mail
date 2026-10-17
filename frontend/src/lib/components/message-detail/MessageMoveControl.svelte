@@ -1,16 +1,16 @@
 <script lang="ts">
-	import { folders } from '$lib/stores/folders.js';
-	import { messagesState } from '$lib/stores/messages.js';
-	import { moveMessages } from '$lib/mail/mailbox.js';
-	import { moveTargetsFor } from '$lib/mail/moveTargets.js';
-	import { toErrorMessage } from '$lib/api/errors.js';
-	import { _ } from '$lib/i18n/index.js';
-	import { buttonVariants } from '$lib/components/ui/button/index.js';
+	import { folders } from '#lib/stores/folders.js';
+	import { messagesState } from '#lib/stores/messages.js';
+	import { moveMessages } from '#lib/mail/mailbox.js';
+	import { moveTargetsFor } from '#lib/mail/moveTargets.js';
+	import { toErrorMessage } from '#lib/api/errors.js';
+	import { _ } from '#lib/i18n/index.js';
+	import { buttonVariants } from '#lib/components/ui/button/index.js';
 	import { DropdownMenu } from 'bits-ui';
-	import { MenuContent } from '$lib/components/ui/menu/index.js';
-	import Icon from '$lib/components/Icon.svelte';
-	import MoveTargetMenuItems from '$lib/components/MoveTargetMenuItems.svelte';
-	import { cn } from '$lib/utils.js';
+	import { MenuContent } from '#lib/components/ui/menu/index.js';
+	import Icon from '#lib/components/Icon.svelte';
+	import MoveTargetMenuItems from '#lib/components/MoveTargetMenuItems.svelte';
+	import { cn } from '#lib/utils.js';
 
 	interface Props {
 		stableId: string | null;

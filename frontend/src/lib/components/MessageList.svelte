@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { messagesState, loadPage } from '$lib/stores/messages.js';
-	import { folders } from '$lib/stores/folders.js';
+	import { messagesState, loadPage } from '#lib/stores/messages.js';
+	import { folders } from '#lib/stores/folders.js';
 	import {
 		clearMessageSelection,
 		pruneMessageSelection,
@@ -10,43 +10,43 @@
 		selectedMessageIdSet,
 		setMessageSelection,
 		toggleMessageSelection
-	} from '$lib/stores/messageSelection.js';
+	} from '#lib/stores/messageSelection.js';
 	import {
 		clearListFocusRestore,
 		listFocusRestore,
 		selectedMessage
-	} from '$lib/stores/selectedMessage.js';
-	import { _, appLocale } from '$lib/i18n/index.js';
-	import { toErrorMessage } from '$lib/api/errors.js';
-	import Pagination from '$lib/components/Pagination.svelte';
+	} from '#lib/stores/selectedMessage.js';
+	import { _, appLocale } from '#lib/i18n/index.js';
+	import { toErrorMessage } from '#lib/api/errors.js';
+	import Pagination from '#lib/components/Pagination.svelte';
 	import MailBulkToolbar, {
 		type BulkAction
-	} from '$lib/components/mail-list/MailBulkToolbar.svelte';
-	import MailListState from '$lib/components/mail-list/MailListState.svelte';
-	import { createRovingGrid } from '$lib/components/grid/rovingGrid.svelte.js';
-	import { createBulkAnnouncer } from '$lib/components/grid/bulkAnnouncer.js';
-	import { isRowBackgroundClick } from '$lib/components/grid/rowActivation.js';
-	import { formatMessageListDate } from '$lib/formatters.js';
-	import { moveTargetsFor } from '$lib/mail/moveTargets.js';
-	import { messageStatusLabel } from '$lib/mail/messageStatus.js';
-	import type { FolderResponse, MailSummaryResponse } from '$lib/types.js';
-	import { requestBodyFocus, suppressBodyFocus } from '$lib/mail/bodyFocus.js';
-	import { deleteMessages, markMessagesSeen, moveMessages } from '$lib/mail/mailbox.js';
-	import { messagesPageInfo, olderMailOnServerOnly } from '$lib/mail/pageInfoAnnouncement.js';
-	import { printableSelection, printInProgress, printMessages } from '$lib/mail/printMessages.js';
+	} from '#lib/components/mail-list/MailBulkToolbar.svelte';
+	import MailListState from '#lib/components/mail-list/MailListState.svelte';
+	import { createRovingGrid } from '#lib/components/grid/rovingGrid.svelte.js';
+	import { createBulkAnnouncer } from '#lib/components/grid/bulkAnnouncer.js';
+	import { isRowBackgroundClick } from '#lib/components/grid/rowActivation.js';
+	import { formatMessageListDate } from '#lib/formatters.js';
+	import { moveTargetsFor } from '#lib/mail/moveTargets.js';
+	import { messageStatusLabel } from '#lib/mail/messageStatus.js';
+	import type { FolderResponse, MailSummaryResponse } from '#lib/types.js';
+	import { requestBodyFocus, suppressBodyFocus } from '#lib/mail/bodyFocus.js';
+	import { deleteMessages, markMessagesSeen, moveMessages } from '#lib/mail/mailbox.js';
+	import { messagesPageInfo, olderMailOnServerOnly } from '#lib/mail/pageInfoAnnouncement.js';
+	import { printableSelection, printInProgress, printMessages } from '#lib/mail/printMessages.js';
 	import {
 		EFFECTIVE_READING_PANE_CONTEXT_KEY,
 		type EffectiveReadingPaneContext
-	} from '$lib/mail/readingPaneContext.js';
-	import MessageRowActionsMenu from '$lib/components/MessageRowActionsMenu.svelte';
-	import MailActionsCell from '$lib/components/mail-list/MailActionsCell.svelte';
-	import MailDateCell from '$lib/components/mail-list/MailDateCell.svelte';
-	import MailRow from '$lib/components/mail-list/MailRow.svelte';
-	import MailSenderCell from '$lib/components/mail-list/MailSenderCell.svelte';
-	import MailStatusCell from '$lib/components/mail-list/MailStatusCell.svelte';
-	import MailSubjectCell from '$lib/components/mail-list/MailSubjectCell.svelte';
-	import { announcePolite } from '$lib/stores/toasts.js';
-	import { nativeControlClass } from '$lib/components/ui/native-control/index.js';
+	} from '#lib/mail/readingPaneContext.js';
+	import MessageRowActionsMenu from '#lib/components/MessageRowActionsMenu.svelte';
+	import MailActionsCell from '#lib/components/mail-list/MailActionsCell.svelte';
+	import MailDateCell from '#lib/components/mail-list/MailDateCell.svelte';
+	import MailRow from '#lib/components/mail-list/MailRow.svelte';
+	import MailSenderCell from '#lib/components/mail-list/MailSenderCell.svelte';
+	import MailStatusCell from '#lib/components/mail-list/MailStatusCell.svelte';
+	import MailSubjectCell from '#lib/components/mail-list/MailSubjectCell.svelte';
+	import { announcePolite } from '#lib/stores/toasts.js';
+	import { nativeControlClass } from '#lib/components/ui/native-control/index.js';
 	import { getContext } from 'svelte';
 	import { get } from 'svelte/store';
 
@@ -107,7 +107,7 @@
 	}
 
 	function draftHref(stableId: string): string {
-		return `${resolve('/compose')}?draft=${encodeURIComponent(stableId)}`;
+		return `${resolve('compose')}?draft=${encodeURIComponent(stableId)}`;
 	}
 
 	/**
@@ -145,14 +145,17 @@
 		if (options.focusBody) requestBodyFocus(message.stableId);
 		else suppressBodyFocus(message.stableId);
 		/*
-		 * keepFocus because focus here is ours to place, not SvelteKit's. Without
-		 * it the post-navigation reset drops focus to <body> and the row has to be
-		 * focused a second time — and a screen reader reads it again, so a single
-		 * Arrow press announced the subject twice (measured 2026-09-01, 1 ms
-		 * between the drop and the restore). Opening deliberately still moves the
-		 * reading cursor into the body: that is `requestBodyFocus`, not the reset.
+		 * `reset: false` because focus here is ours to place, not SvelteKit's.
+		 * Without it the post-navigation reset drops focus to <body> and the row
+		 * has to be focused a second time — and a screen reader reads it again, so
+		 * a single Arrow press announced the subject twice (measured 2026-09-01,
+		 * 1 ms between the drop and the restore). Opening deliberately still moves
+		 * the reading cursor into the body: that is `requestBodyFocus`, not the
+		 * reset. SvelteKit 3 folded keepFocus and noScroll into this one flag, so
+		 * the window keeps its scroll too; it has none to keep here, the list
+		 * scrolls in its own container.
 		 */
-		await goto(messageHref(accountId, folderName, message.stableId), { keepFocus: true });
+		await goto(messageHref(accountId, folderName, message.stableId), { reset: false });
 	}
 
 	function handleKeydown(event: KeyboardEvent, message: MailSummaryResponse, rowIndex: number) {
@@ -292,7 +295,7 @@
 	});
 
 	/*
-	 * One focus move, not two: `handleSelect` navigates with `keepFocus`, so
+	 * One focus move, not two: `handleSelect` navigates with `reset: false`, so
 	 * nothing takes focus off the cell and there is no reset to undo afterwards.
 	 * The `.finally` refocus that used to sit here — and the stale-refocus token
 	 * it needed (see grid/rowActivation.ts) — were both compensating for that
@@ -540,6 +543,7 @@
 							cell={grid.cell(rowIndex, COL_DATE)}
 							placement="col-start-4 row-span-2"
 						/>
+
 						<MailActionsCell colIndex={COL_ACTIONS + 1} placement="col-start-5 row-span-2">
 							<MessageRowActionsMenu {message} cell={grid.cell(rowIndex, COL_ACTIONS)} />
 						</MailActionsCell>

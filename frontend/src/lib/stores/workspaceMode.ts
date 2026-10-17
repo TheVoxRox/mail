@@ -26,9 +26,9 @@ export function currentWorkspaceMode(): WorkspaceMode {
 export function workspaceHref(mode: WorkspaceMode): string {
 	switch (mode) {
 		case 'contacts':
-			return resolve('/contacts');
+			return resolve('contacts');
 		case 'settings':
-			return resolve('/settings/appearance');
+			return resolve('settings/appearance');
 		case 'mail':
 		default:
 			return resolve('/');

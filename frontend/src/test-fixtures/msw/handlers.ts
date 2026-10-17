@@ -36,7 +36,7 @@ import type {
 	MailRequest,
 	MoveRequest,
 	PagedResponse
-} from '$lib/types.js';
+} from '#lib/types.js';
 
 type MockResponse = Response;
 

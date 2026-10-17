@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
-	import { cn } from '$lib/utils.js';
-	import { focusRing } from '$lib/components/ui/focus-ring/index.js';
+	import { browser } from '$app/env';
+	import { cn } from '#lib/utils.js';
+	import { focusRing } from '#lib/components/ui/focus-ring/index.js';
 	import type { Snippet } from 'svelte';
 
 	interface Props {

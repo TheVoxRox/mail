@@ -1,31 +1,31 @@
 <script lang="ts">
-	import { downloadDiagnosticDump } from '$lib/api/diagnostics.js';
-	import { toErrorMessage } from '$lib/api/errors.js';
-	import { saveBlobAsFile } from '$lib/download.js';
-	import { sessionState, initSession } from '$lib/stores/session.js';
-	import { loadAccounts } from '$lib/stores/accounts.js';
-	import { folders } from '$lib/stores/folders.js';
-	import { notificationsStatus, lastSync } from '$lib/stores/notifications.js';
-	import { _ } from '$lib/i18n/index.js';
-	import { folderLabel } from '$lib/mail/folderLabel.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { Field } from '$lib/components/ui/field/index.js';
-	import { Select } from '$lib/components/ui/select/index.js';
-	import { StateMessage } from '$lib/components/ui/state-message/index.js';
-	import { Surface } from '$lib/components/ui/surface/index.js';
-	import { nativeControlClass } from '$lib/components/ui/native-control/index.js';
-	import ThirdPartyNotices from '$lib/components/settings/ThirdPartyNotices.svelte';
-	import { checkForUpdateManually } from '$lib/updates.js';
-	import { setUpdateStartupCheck, updateStartupCheck } from '$lib/stores/updateStartupCheck.js';
-	import { cn } from '$lib/utils.js';
+	import { downloadDiagnosticDump } from '#lib/api/diagnostics.js';
+	import { toErrorMessage } from '#lib/api/errors.js';
+	import { saveBlobAsFile } from '#lib/download.js';
+	import { sessionState, initSession } from '#lib/stores/session.js';
+	import { loadAccounts } from '#lib/stores/accounts.js';
+	import { folders } from '#lib/stores/folders.js';
+	import { notificationsStatus, lastSync } from '#lib/stores/notifications.js';
+	import { _ } from '#lib/i18n/index.js';
+	import { folderLabel } from '#lib/mail/folderLabel.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Field } from '#lib/components/ui/field/index.js';
+	import { Select } from '#lib/components/ui/select/index.js';
+	import { StateMessage } from '#lib/components/ui/state-message/index.js';
+	import { Surface } from '#lib/components/ui/surface/index.js';
+	import { nativeControlClass } from '#lib/components/ui/native-control/index.js';
+	import ThirdPartyNotices from '#lib/components/settings/ThirdPartyNotices.svelte';
+	import { checkForUpdateManually } from '#lib/updates.js';
+	import { setUpdateStartupCheck, updateStartupCheck } from '#lib/stores/updateStartupCheck.js';
+	import { cn } from '#lib/utils.js';
 	import {
 		setUpdateChannel,
 		UPDATE_CHANNELS,
 		updateChannel,
 		type UpdateChannel
-	} from '$lib/stores/updateChannel.js';
-	import { CLIENT_VERSION } from '$lib/version.js';
-	import { dev } from '$app/environment';
+	} from '#lib/stores/updateChannel.js';
+	import { CLIENT_VERSION } from '#lib/version.js';
+	import { dev } from '$app/env';
 	import { onMount } from 'svelte';
 
 	function maskKey(key: string): string {

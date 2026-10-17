@@ -2,24 +2,24 @@
 	import { page } from '$app/state';
 	import { tick } from 'svelte';
 	import { Command as BitsCommand } from 'bits-ui';
-	import Icon from '$lib/components/Icon.svelte';
-	import { DialogDescription, DialogShell, DialogTitle } from '$lib/components/ui/dialog/index.js';
-	import { commandsFor, type Command } from '$lib/stores/commands.js';
-	import { closePalette, paletteCloseAutoFocus, paletteOpen } from '$lib/stores/palette.js';
-	import { pushToast } from '$lib/stores/toasts.js';
-	import { toErrorMessage } from '$lib/api/errors.js';
-	import { _ } from '$lib/i18n/index.js';
+	import Icon from '#lib/components/Icon.svelte';
+	import { DialogDescription, DialogShell, DialogTitle } from '#lib/components/ui/dialog/index.js';
+	import { commandsFor, type Command } from '#lib/stores/commands.js';
+	import { closePalette, paletteCloseAutoFocus, paletteOpen } from '#lib/stores/palette.js';
+	import { pushToast } from '#lib/stores/toasts.js';
+	import { toErrorMessage } from '#lib/api/errors.js';
+	import { _ } from '#lib/i18n/index.js';
 	import {
 		matchesAllTokens,
 		normalizeText,
 		sortByRelevance,
 		tokenizeQuery,
 		type VisibleCommand
-	} from '$lib/commands/paletteRanking.js';
-	import type { CommandGroup } from '$lib/commands/shared.js';
-	import { inputVariants } from '$lib/components/ui/input/index.js';
-	import { menuItemVariants } from '$lib/components/ui/menu/index.js';
-	import { cn } from '$lib/utils.js';
+	} from '#lib/commands/paletteRanking.js';
+	import type { CommandGroup } from '#lib/commands/shared.js';
+	import { inputVariants } from '#lib/components/ui/input/index.js';
+	import { menuItemVariants } from '#lib/components/ui/menu/index.js';
+	import { cn } from '#lib/utils.js';
 
 	type PositionedCommand = VisibleCommand & { position: number };
 

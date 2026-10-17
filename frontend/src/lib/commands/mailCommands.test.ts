@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('$lib/mail/actions.js', () => ({
+vi.mock('#lib/mail/actions.js', () => ({
 	forwardMessage: vi.fn(),
 	goToCompose: vi.fn(),
 	goToSearch: vi.fn(),
 	replyToMessage: vi.fn(),
 	syncCurrentAccount: vi.fn()
 }));
-vi.mock('$lib/mail/printMessages.js', () => ({ printOpenMessage: vi.fn() }));
-vi.mock('$lib/mail/mailbox.js', () => ({
+vi.mock('#lib/mail/printMessages.js', () => ({ printOpenMessage: vi.fn() }));
+vi.mock('#lib/mail/mailbox.js', () => ({
 	deleteMessages: vi.fn(),
 	moveMessages: vi.fn(),
 	toggleMessageFlag: vi.fn(),
@@ -16,7 +16,7 @@ vi.mock('$lib/mail/mailbox.js', () => ({
 }));
 
 import { createMailCommands } from './mailCommands.js';
-import type { PrintableSelection } from '$lib/mail/printMessages.js';
+import type { PrintableSelection } from '#lib/mail/printMessages.js';
 
 function commands(
 	overrides: Partial<Parameters<typeof createMailCommands>[0]> = {}

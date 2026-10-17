@@ -4,23 +4,23 @@
  */
 
 import { get } from 'svelte/store';
-import { initSession, invalidateSession, sessionState } from '$lib/stores/session.js';
-import { accountsState, loadAccounts } from '$lib/stores/accounts.js';
-import { loadClientConfig } from '$lib/stores/clientConfig.js';
+import { initSession, invalidateSession, sessionState } from '#lib/stores/session.js';
+import { accountsState, loadAccounts } from '#lib/stores/accounts.js';
+import { loadClientConfig } from '#lib/stores/clientConfig.js';
 import {
 	ensureBackendSidecar,
 	restartBackendSidecar,
 	usesBackendSidecar
-} from '$lib/backend/sidecar.js';
-import { registerDefaultCommands } from '$lib/stores/commands.js';
-import { startNotifications } from '$lib/stores/notifications.js';
-import { startTray } from '$lib/tray.js';
-import { checkForUpdateAndPrompt } from '$lib/updates.js';
-import { waitForBackendReadiness } from '$lib/api/readiness.js';
-import { reportClientBootDiagnostics } from '$lib/api/clientBootDiagnostics.js';
-import { toError } from '$lib/api/errors.js';
-import { announcePolite } from '$lib/stores/toasts.js';
-import { _ } from '$lib/i18n/index.js';
+} from '#lib/backend/sidecar.js';
+import { registerDefaultCommands } from '#lib/stores/commands.js';
+import { startNotifications } from '#lib/stores/notifications.js';
+import { startTray } from '#lib/tray.js';
+import { checkForUpdateAndPrompt } from '#lib/updates.js';
+import { waitForBackendReadiness } from '#lib/api/readiness.js';
+import { reportClientBootDiagnostics } from '#lib/api/clientBootDiagnostics.js';
+import { toError } from '#lib/api/errors.js';
+import { announcePolite } from '#lib/stores/toasts.js';
+import { _ } from '#lib/i18n/index.js';
 import {
 	beginBoot,
 	bootState,
@@ -28,7 +28,7 @@ import {
 	failBoot,
 	markBootTiming,
 	setBootPhase
-} from '$lib/stores/boot.js';
+} from '#lib/stores/boot.js';
 
 let started = false;
 let starting: Promise<void> | null = null;

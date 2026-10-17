@@ -4,7 +4,7 @@
  */
 
 import { api } from './client.js';
-import type { MailFlagType, MoveRequest } from '$lib/types.js';
+import type { MailFlagType, MoveRequest } from '#lib/types.js';
 
 export function setMessageFlag(
 	stableId: string,

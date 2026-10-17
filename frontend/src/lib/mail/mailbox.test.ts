@@ -8,17 +8,17 @@ vi.mock('$app/paths', () => ({
 	resolve: vi.fn((path: string) => path)
 }));
 
-vi.mock('$lib/api/mailAction.js', () => ({
+vi.mock('#lib/api/mailAction.js', () => ({
 	deleteMessage: vi.fn().mockResolvedValue(undefined),
 	moveMessage: vi.fn().mockResolvedValue(undefined),
 	setMessageFlag: vi.fn().mockResolvedValue(undefined)
 }));
 
-vi.mock('$lib/api/mailRead.js', () => ({
+vi.mock('#lib/api/mailRead.js', () => ({
 	getMessageDetail: vi.fn()
 }));
 
-vi.mock('$lib/stores/folders.js', async () => {
+vi.mock('#lib/stores/folders.js', async () => {
 	const { writable } = await import('svelte/store');
 	return {
 		folders: writable([]),
@@ -26,25 +26,25 @@ vi.mock('$lib/stores/folders.js', async () => {
 	};
 });
 
-vi.mock('$lib/stores/search.js', async () => {
+vi.mock('#lib/stores/search.js', async () => {
 	const { writable } = await import('svelte/store');
 	return {
 		searchState: writable({ status: 'idle' })
 	};
 });
 
-vi.mock('$lib/stores/confirmDialog.js', () => ({
+vi.mock('#lib/stores/confirmDialog.js', () => ({
 	confirmAction: vi.fn()
 }));
 
-vi.mock('$lib/stores/accounts.js', async () => {
+vi.mock('#lib/stores/accounts.js', async () => {
 	const { readable } = await import('svelte/store');
 	return {
 		resolvedActiveAccountId: readable(1)
 	};
 });
 
-vi.mock('$lib/stores/selectedMessage.js', async () => {
+vi.mock('#lib/stores/selectedMessage.js', async () => {
 	const { writable } = await import('svelte/store');
 	return {
 		selectedMessage: writable(null),
@@ -57,7 +57,7 @@ vi.mock('$lib/stores/selectedMessage.js', async () => {
 	};
 });
 
-vi.mock('$lib/stores/conversations.js', async () => {
+vi.mock('#lib/stores/conversations.js', async () => {
 	const { writable } = await import('svelte/store');
 	return {
 		conversationsState: writable({ status: 'idle' }),
@@ -65,7 +65,7 @@ vi.mock('$lib/stores/conversations.js', async () => {
 	};
 });
 
-vi.mock('$lib/stores/messages.js', async () => {
+vi.mock('#lib/stores/messages.js', async () => {
 	const { writable } = await import('svelte/store');
 	return {
 		messagesState: writable({ status: 'idle' }),
@@ -75,11 +75,11 @@ vi.mock('$lib/stores/messages.js', async () => {
 	};
 });
 
-vi.mock('$lib/stores/messageSelection.js', () => ({
+vi.mock('#lib/stores/messageSelection.js', () => ({
 	setMessageSelection: vi.fn()
 }));
 
-vi.mock('$lib/i18n/index.js', async () => {
+vi.mock('#lib/i18n/index.js', async () => {
 	const { readable } = await import('svelte/store');
 	return {
 		_: readable((key: string, options?: { values?: Record<string, unknown> }) =>
@@ -88,34 +88,34 @@ vi.mock('$lib/i18n/index.js', async () => {
 	};
 });
 
-vi.mock('$lib/api/errors.js', () => ({
+vi.mock('#lib/api/errors.js', () => ({
 	toErrorMessage: vi.fn((err: unknown) => String(err))
 }));
 
-vi.mock('$lib/mail/folderLabel.js', () => ({
+vi.mock('#lib/mail/folderLabel.js', () => ({
 	folderLabel: vi.fn((folder: { displayName: string }) => folder.displayName)
 }));
 
-vi.mock('$lib/stores/toasts.js', () => ({
+vi.mock('#lib/stores/toasts.js', () => ({
 	announcePolite: vi.fn(),
 	pushToast: vi.fn()
 }));
 
 import { deleteMessages } from './mailbox.js';
-import { deleteMessage } from '$lib/api/mailAction.js';
-import { folders } from '$lib/stores/folders.js';
-import { searchState } from '$lib/stores/search.js';
-import { confirmAction } from '$lib/stores/confirmDialog.js';
-import { messagesState } from '$lib/stores/messages.js';
-import { conversationsState, reloadCurrentConversationsPage } from '$lib/stores/conversations.js';
-import { adjustFolderUnread } from '$lib/stores/folders.js';
+import { deleteMessage } from '#lib/api/mailAction.js';
+import { folders } from '#lib/stores/folders.js';
+import { searchState } from '#lib/stores/search.js';
+import { confirmAction } from '#lib/stores/confirmDialog.js';
+import { messagesState } from '#lib/stores/messages.js';
+import { conversationsState, reloadCurrentConversationsPage } from '#lib/stores/conversations.js';
+import { adjustFolderUnread } from '#lib/stores/folders.js';
 import {
 	requestConversationFocusRestore,
 	requestListFocusRestore
-} from '$lib/stores/selectedMessage.js';
-import { messageGrouping } from '$lib/stores/uiLayout.js';
-import { pushToast } from '$lib/stores/toasts.js';
-import { selectedMessage } from '$lib/stores/selectedMessage.js';
+} from '#lib/stores/selectedMessage.js';
+import { messageGrouping } from '#lib/stores/uiLayout.js';
+import { pushToast } from '#lib/stores/toasts.js';
+import { selectedMessage } from '#lib/stores/selectedMessage.js';
 import type { Writable } from 'svelte/store';
 import type { Mock } from 'vitest';
 

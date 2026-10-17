@@ -4,7 +4,7 @@ import {
 	type ThreadMemberCache,
 	type ThreadMemberContext
 } from './threadMembers.js';
-import type { MailSummaryResponse } from '$lib/types.js';
+import type { MailSummaryResponse } from '#lib/types.js';
 
 /*
  * The races the conversation grid's member cache exists to lose safely. Every

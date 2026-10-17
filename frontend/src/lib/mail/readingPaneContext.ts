@@ -10,7 +10,7 @@
  * user out of the list, so a row change only moves focus and the message
  * opens on Enter/Space.
  */
-import type { ReadingPane } from '$lib/stores/uiLayout.js';
+import type { ReadingPane } from '#lib/stores/uiLayout.js';
 
 export interface EffectiveReadingPaneContext {
 	pane: ReadingPane;

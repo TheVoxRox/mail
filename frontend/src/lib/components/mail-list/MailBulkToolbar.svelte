@@ -21,14 +21,14 @@
 	 * outside reads them.
 	 */
 	import { DropdownMenu } from 'bits-ui';
-	import { MenuContent, menuItemVariants } from '$lib/components/ui/menu/index.js';
-	import Icon from '$lib/components/Icon.svelte';
-	import MoveTargetMenuItems from '$lib/components/MoveTargetMenuItems.svelte';
-	import { Button, buttonVariants } from '$lib/components/ui/button/index.js';
-	import { nativeControlClass } from '$lib/components/ui/native-control/index.js';
-	import { _ } from '$lib/i18n/index.js';
-	import { cn } from '$lib/utils.js';
-	import type { FolderResponse } from '$lib/types.js';
+	import { MenuContent, menuItemVariants } from '#lib/components/ui/menu/index.js';
+	import Icon from '#lib/components/Icon.svelte';
+	import MoveTargetMenuItems from '#lib/components/MoveTargetMenuItems.svelte';
+	import { Button, buttonVariants } from '#lib/components/ui/button/index.js';
+	import { nativeControlClass } from '#lib/components/ui/native-control/index.js';
+	import { _ } from '#lib/i18n/index.js';
+	import { cn } from '#lib/utils.js';
+	import type { FolderResponse } from '#lib/types.js';
 
 	interface Props {
 		/** Every row of the page is selected. */

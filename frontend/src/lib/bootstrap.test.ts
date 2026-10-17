@@ -25,12 +25,12 @@ const {
 	updateCheckMock: vi.fn(async () => {})
 }));
 
-vi.mock('$lib/backend/sidecar.js', () => ({
+vi.mock('#lib/backend/sidecar.js', () => ({
 	ensureBackendSidecar: ensureSidecarMock,
 	restartBackendSidecar: vi.fn(async () => {}),
 	usesBackendSidecar: () => true
 }));
-vi.mock('$lib/stores/session.js', async () => {
+vi.mock('#lib/stores/session.js', async () => {
 	const { writable } = await import('svelte/store');
 	return {
 		sessionState: writable({ status: 'idle' }),
@@ -38,21 +38,21 @@ vi.mock('$lib/stores/session.js', async () => {
 		invalidateSession: vi.fn()
 	};
 });
-vi.mock('$lib/stores/accounts.js', async () => {
+vi.mock('#lib/stores/accounts.js', async () => {
 	const { writable } = await import('svelte/store');
 	return { accountsState: writable({ status: 'idle' }), loadAccounts: loadAccountsMock };
 });
-vi.mock('$lib/stores/clientConfig.js', () => ({ loadClientConfig: loadClientConfigMock }));
-vi.mock('$lib/api/readiness.js', () => ({ waitForBackendReadiness: readinessMock }));
-vi.mock('$lib/api/clientBootDiagnostics.js', () => ({
+vi.mock('#lib/stores/clientConfig.js', () => ({ loadClientConfig: loadClientConfigMock }));
+vi.mock('#lib/api/readiness.js', () => ({ waitForBackendReadiness: readinessMock }));
+vi.mock('#lib/api/clientBootDiagnostics.js', () => ({
 	reportClientBootDiagnostics: vi.fn(async () => {})
 }));
-vi.mock('$lib/stores/commands.js', () => ({ registerDefaultCommands: vi.fn() }));
-vi.mock('$lib/stores/notifications.js', () => ({ startNotifications: vi.fn() }));
-vi.mock('$lib/tray.js', () => ({ startTray: vi.fn() }));
-vi.mock('$lib/updates.js', () => ({ checkForUpdateAndPrompt: updateCheckMock }));
-vi.mock('$lib/stores/toasts.js', () => ({ announcePolite: vi.fn() }));
-vi.mock('$lib/i18n/index.js', async () => {
+vi.mock('#lib/stores/commands.js', () => ({ registerDefaultCommands: vi.fn() }));
+vi.mock('#lib/stores/notifications.js', () => ({ startNotifications: vi.fn() }));
+vi.mock('#lib/tray.js', () => ({ startTray: vi.fn() }));
+vi.mock('#lib/updates.js', () => ({ checkForUpdateAndPrompt: updateCheckMock }));
+vi.mock('#lib/stores/toasts.js', () => ({ announcePolite: vi.fn() }));
+vi.mock('#lib/i18n/index.js', async () => {
 	const { readable } = await import('svelte/store');
 	return { _: readable((key: string) => key) };
 });
@@ -60,7 +60,7 @@ vi.mock('$lib/i18n/index.js', async () => {
 async function freshModules() {
 	vi.resetModules();
 	const bootstrapModule = await import('./bootstrap.js');
-	const bootModule = await import('$lib/stores/boot.js');
+	const bootModule = await import('#lib/stores/boot.js');
 	return { bootstrap: bootstrapModule.bootstrap, bootState: bootModule.bootState };
 }
 

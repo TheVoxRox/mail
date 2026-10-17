@@ -12,7 +12,7 @@
  */
 
 import { invoke } from '@tauri-apps/api/core';
-import { hasNativeShell } from '$lib/nativeShell.js';
+import { hasNativeShell } from '#lib/nativeShell.js';
 import { persistedStore } from './persisted.js';
 
 const STARTUP_CHECK_STATES = ['on', 'off'] as const;

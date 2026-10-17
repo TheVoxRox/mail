@@ -12,12 +12,12 @@
 	 * effects aim `emptyRef` at.
 	 */
 	import type { Snippet } from 'svelte';
-	import { toErrorMessage } from '$lib/api/errors.js';
-	import { StateMessage } from '$lib/components/ui/state-message/index.js';
-	import { Surface } from '$lib/components/ui/surface/index.js';
-	import { _ } from '$lib/i18n/index.js';
-	import type { PagedListState } from '$lib/stores/createPagedListStore.js';
-	import type { PagedResponse } from '$lib/types.js';
+	import { toErrorMessage } from '#lib/api/errors.js';
+	import { StateMessage } from '#lib/components/ui/state-message/index.js';
+	import { Surface } from '#lib/components/ui/surface/index.js';
+	import { _ } from '#lib/i18n/index.js';
+	import type { PagedListState } from '#lib/stores/createPagedListStore.js';
+	import type { PagedResponse } from '#lib/types.js';
 
 	interface Props {
 		/** The list store's state. The context type is irrelevant here. */

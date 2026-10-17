@@ -11,7 +11,7 @@ export interface LeaveGuardOptions {
 	 * prompt). Defaults to comparing pathname + search; pass a custom comparator
 	 * when some query params should not count as a real navigation.
 	 */
-	isSameTarget?: (next: URL, current: URL) => boolean;
+	isSameTarget?: (next: URL, current: Pick<URL, 'pathname' | 'search' | 'hash'>) => boolean;
 }
 
 /**
@@ -29,6 +29,7 @@ export function installLeaveGuard(options: LeaveGuardOptions): void {
 		((next, current) => next.pathname + next.search === current.pathname + current.search);
 
 	beforeNavigate((navigation) => {
+		if (navigation.shallow && navigation.type === 'goto') return;
 		if (!options.shouldGuard()) return;
 		if (navigation.type === 'leave') {
 			navigation.cancel();

@@ -3,10 +3,10 @@
  * state built on `createPagedListStore`; local mutations for optimistic
  * content changes.
  */
-import { listMessages } from '$lib/api/mailRead.js';
-import { getClientConfigSnapshot } from '$lib/stores/clientConfig.js';
+import { listMessages } from '#lib/api/mailRead.js';
+import { getClientConfigSnapshot } from '#lib/stores/clientConfig.js';
 import { createPagedListStore, type PagedListState } from './createPagedListStore.js';
-import type { MailSummaryResponse } from '$lib/types.js';
+import type { MailSummaryResponse } from '#lib/types.js';
 
 interface MessagesContext {
 	accountId: number;

@@ -5,11 +5,11 @@
  */
 
 import { writable } from 'svelte/store';
-import { getMessageContent, getMessageDetail } from '$lib/api/mailRead.js';
-import { ApiError } from '$lib/api/client.js';
-import { toError } from '$lib/api/errors.js';
-import { reloadCurrentPage } from '$lib/stores/messages.js';
-import type { MailContentResponse, MailDetailResponse } from '$lib/types.js';
+import { getMessageContent, getMessageDetail } from '#lib/api/mailRead.js';
+import { ApiError } from '#lib/api/client.js';
+import { toError } from '#lib/api/errors.js';
+import { reloadCurrentPage } from '#lib/stores/messages.js';
+import type { MailContentResponse, MailDetailResponse } from '#lib/types.js';
 
 const CACHE_LIMIT = 30;
 

@@ -7,7 +7,7 @@
  * default and maps to "no explicit sort".
  */
 
-import type { ContactSort } from '$lib/api/contacts.js';
+import type { ContactSort } from '#lib/api/contacts.js';
 import { persistedStore } from './persisted.js';
 
 const CONTACT_SORT_VALUES = ['surname', 'name', 'recent'] as const satisfies readonly ContactSort[];

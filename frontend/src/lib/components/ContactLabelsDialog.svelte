@@ -3,15 +3,15 @@
 		createContactLabel,
 		deleteContactLabel,
 		renameContactLabel
-	} from '$lib/api/contactLabels.js';
-	import { toErrorMessage } from '$lib/api/errors.js';
-	import { _ } from '$lib/i18n/index.js';
-	import { contactCounts, refreshContactCounts } from '$lib/stores/contactCounts.js';
-	import { announcePolite, pushToast } from '$lib/stores/toasts.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { DialogDescription, DialogShell, DialogTitle } from '$lib/components/ui/dialog/index.js';
-	import { Input } from '$lib/components/ui/input/index.js';
-	import { StateMessage } from '$lib/components/ui/state-message/index.js';
+	} from '#lib/api/contactLabels.js';
+	import { toErrorMessage } from '#lib/api/errors.js';
+	import { _ } from '#lib/i18n/index.js';
+	import { contactCounts, refreshContactCounts } from '#lib/stores/contactCounts.js';
+	import { announcePolite, pushToast } from '#lib/stores/toasts.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { DialogDescription, DialogShell, DialogTitle } from '#lib/components/ui/dialog/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { StateMessage } from '#lib/components/ui/state-message/index.js';
 	import { tick } from 'svelte';
 
 	interface Props {

@@ -1,5 +1,5 @@
-import type * as Generated from '$lib/api/generated.js';
-import type * as Local from '$lib/types.js';
+import type * as Generated from '#lib/api/generated.js';
+import type * as Local from '#lib/types.js';
 
 type Assert<T extends true> = T;
 

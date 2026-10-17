@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { DropdownMenu } from 'bits-ui';
-	import { MenuContent, menuItemVariants } from '$lib/components/ui/menu/index.js';
-	import { selectedMessage } from '$lib/stores/selectedMessage.js';
-	import { _ } from '$lib/i18n/index.js';
-	import { forwardMessage, replyToMessage } from '$lib/mail/actions.js';
-	import { printOpenMessage } from '$lib/mail/printMessages.js';
-	import { deleteMessages, toggleMessageFlag, toggleMessageSeen } from '$lib/mail/mailbox.js';
-	import { Button, buttonVariants } from '$lib/components/ui/button/index.js';
-	import Icon, { type IconName } from '$lib/components/Icon.svelte';
-	import MessageMoveControl from '$lib/components/message-detail/MessageMoveControl.svelte';
-	import { cn } from '$lib/utils.js';
+	import { MenuContent, menuItemVariants } from '#lib/components/ui/menu/index.js';
+	import { selectedMessage } from '#lib/stores/selectedMessage.js';
+	import { _ } from '#lib/i18n/index.js';
+	import { forwardMessage, replyToMessage } from '#lib/mail/actions.js';
+	import { printOpenMessage } from '#lib/mail/printMessages.js';
+	import { deleteMessages, toggleMessageFlag, toggleMessageSeen } from '#lib/mail/mailbox.js';
+	import { Button, buttonVariants } from '#lib/components/ui/button/index.js';
+	import Icon, { type IconName } from '#lib/components/Icon.svelte';
+	import MessageMoveControl from '#lib/components/message-detail/MessageMoveControl.svelte';
+	import { cn } from '#lib/utils.js';
 
 	type ToolbarAction = {
 		id: 'reply' | 'replyAll' | 'forward' | 'flag' | 'seen' | 'print' | 'delete';

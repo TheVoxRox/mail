@@ -1,11 +1,11 @@
 <script lang="ts">
-	import BootDiagnosticActions from '$lib/components/boot/BootDiagnosticActions.svelte';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { _ } from '$lib/i18n/index.js';
-	import { SIDEBAR_PANE_FRAME } from '$lib/components/ui/sidebar-shell/frame.js';
-	import { paneCollapsed } from '$lib/stores/workspacePane.js';
-	import { cn } from '$lib/utils.js';
-	import type { BootSlowLevel } from '$lib/stores/boot.js';
+	import BootDiagnosticActions from '#lib/components/boot/BootDiagnosticActions.svelte';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { _ } from '#lib/i18n/index.js';
+	import { SIDEBAR_PANE_FRAME } from '#lib/components/ui/sidebar-shell/frame.js';
+	import { paneCollapsed } from '#lib/stores/workspacePane.js';
+	import { cn } from '#lib/utils.js';
+	import type { BootSlowLevel } from '#lib/stores/boot.js';
 
 	interface Props {
 		statusKey: string;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { resolveComposeFromAccount } from './controller.js';
-import type { AccountResponse } from '$lib/types.js';
+import type { AccountResponse } from '#lib/types.js';
 
 function account(id: number): AccountResponse {
 	return { id } as AccountResponse;

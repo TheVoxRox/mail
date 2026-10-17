@@ -1,8 +1,8 @@
 import { httpFetch } from './http.js';
 import { apiV1Base, type SessionPayload } from './session.js';
 import { toErrorMessage } from './errors.js';
-import { CLIENT_VERSION, SUPPORTED_API_MAJOR } from '$lib/version.js';
-import { delayWithAbort } from '$lib/delay.js';
+import { CLIENT_VERSION, SUPPORTED_API_MAJOR } from '#lib/version.js';
+import { delayWithAbort } from '#lib/delay.js';
 
 type ReadinessPhase = 'READY' | string;
 

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { Surface } from '$lib/components/ui/surface/index.js';
-	import { _ } from '$lib/i18n/index.js';
-	import type { ProviderPreset } from '$lib/accounts/providerPresets.js';
+	import { Surface } from '#lib/components/ui/surface/index.js';
+	import { _ } from '#lib/i18n/index.js';
+	import type { ProviderPreset } from '#lib/accounts/providerPresets.js';
 
 	interface Props {
 		preset: ProviderPreset;
