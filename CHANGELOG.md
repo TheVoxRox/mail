@@ -19,6 +19,10 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+### Frontend
+
+- **The app starts on a Windows profile whose name has diacritics (#718).** On such a profile the JVM writes a line of its own to standard output in the system code page — the AOT cache warning, which carries the install path — and the shell plugin, decoding strictly as UTF-8, reported it as an error instead of a line. The supervisor took that for a crash and started another backend without stopping the first, three times a minute: a closed-beta tester's logs hold up to sixteen backends on one database and an app that never got past its error screen. Output is now decoded leniently, and an error from the plugin stops the process it came from before a restart replaces it.
+
 ## [0.1.0] - 2026-10-13
 
 ### Backend

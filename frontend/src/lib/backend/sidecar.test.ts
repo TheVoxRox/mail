@@ -284,6 +284,7 @@ describe('ensureBackendSidecar — env / lifecycle short-circuits', () => {
 
 		expect(mailDataDirMock).toHaveBeenCalledOnce();
 		expect(commandSidecarMock).toHaveBeenCalledWith('binaries/voxrox-mail-backend', [], {
+			encoding: 'utf-8',
 			env: { APP_DATA_DIR: '/data', MAIL_SIDECAR_WATCH_PARENT: '1' }
 		});
 		expect(handle.cmd.spawn).toHaveBeenCalledOnce();
@@ -497,15 +498,49 @@ describe('handleUnexpectedExit — exit code → user-readable error message', (
 		expect(mod.isSidecarExitError(new Error('x'))).toBe(false);
 	});
 
-	it('error event (process failed to spawn) is surfaced as "Failed to start the backend sidecar"', async () => {
+	it('error events that exhaust the restart budget surface as "lost track of the backend"', async () => {
 		const { mod, handle } = await setupSpawned();
 
-		await emitNTimes(() => handle.emitError('ENOENT'), 4);
+		await emitNTimes(() => handle.emitError('broken pipe'), 4);
 
 		expect(get(mod.backendSidecarState)).toMatchObject({
 			status: 'error',
-			error: expect.objectContaining({ message: expect.stringContaining('Failed to start') })
+			error: expect.objectContaining({
+				message: expect.stringContaining('lost track of the backend sidecar'),
+				messageKey: 'app.backendExit.spawnFailed'
+			})
 		});
+	});
+
+	it('an error event kills the process it came from before the restart replaces it', async () => {
+		const { mod, handle } = await setupSpawned();
+
+		// What the plugin sent for a stdout line that was not UTF-8. The JVM was
+		// running all along, and every restart left one more backend behind.
+		handle.emitError('invalid utf-8 sequence of 1 bytes from index 98');
+		await Promise.resolve();
+
+		expect(handle.child.kill).toHaveBeenCalledOnce();
+		expect(invokeMock).toHaveBeenCalledWith('log_sidecar_stderr', {
+			line: 'Shell plugin error: invalid utf-8 sequence of 1 bytes from index 98'
+		});
+		expect(get(mod.backendSidecarState)).toEqual({ status: 'restarting', attempt: 1 });
+	});
+
+	it('the close that kill produces is logged as asked for and not counted as a second exit', async () => {
+		const { mod, handle } = await setupSpawned();
+
+		handle.emitError('broken pipe');
+		await Promise.resolve();
+		handle.emitClose(1, null);
+		await Promise.resolve();
+
+		expect(invokeMock).toHaveBeenCalledWith('log_sidecar_exit', {
+			code: 1,
+			signal: null,
+			requested: true
+		});
+		expect(get(mod.backendSidecarState)).toEqual({ status: 'restarting', attempt: 1 });
 	});
 });
 
