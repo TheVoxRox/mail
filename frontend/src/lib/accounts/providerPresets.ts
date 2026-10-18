@@ -4,7 +4,8 @@
  * The backend seeds named templates (Google, Seznam, Microsoft). The wizard
  * decides:
  *   - what flow to create the account with (`oauth` vs `imap`),
- *   - whether to show the App Password warning (Google/Microsoft),
+ *   - whether to mention an App Password (always for Google/Microsoft, with
+ *     two-factor authentication only for Seznam),
  *   - how to match the provider from `/accounts/providers` to a preset:
  *     OAuth providers pair on the stable `oauth2RegistrationId`, others
  *     fall back to the template `name`. The display name is never the key.
@@ -25,8 +26,12 @@ export interface ProviderPreset {
 	oauth2RegistrationId?: string;
 	/** How the account is created. `custom` always uses `imap`. */
 	flow: ProviderFlow;
-	/** Requires an App Password (e.g. Gmail/Outlook in IMAP mode). */
-	requiresAppPassword: boolean;
+	/**
+	 * When the account password is not enough for IMAP: `always` (Gmail/Outlook
+	 * in IMAP mode), `twoFactor` (only once two-factor authentication is on —
+	 * Seznam, whose plain accounts sign in with the account password) or `never`.
+	 */
+	appPassword: 'always' | 'twoFactor' | 'never';
 	/** URL of the guide for creating an App Password (anchor in provider docs). */
 	appPasswordHelpUrl?: string;
 }
@@ -37,7 +42,7 @@ export const KNOWN_PRESETS: ProviderPreset[] = [
 		backendName: 'Google',
 		oauth2RegistrationId: 'google',
 		flow: 'oauth',
-		requiresAppPassword: true,
+		appPassword: 'always',
 		appPasswordHelpUrl: 'https://support.google.com/accounts/answer/185833'
 	},
 	{
@@ -45,7 +50,7 @@ export const KNOWN_PRESETS: ProviderPreset[] = [
 		backendName: 'Microsoft',
 		oauth2RegistrationId: 'microsoft',
 		flow: 'oauth',
-		requiresAppPassword: true,
+		appPassword: 'always',
 		appPasswordHelpUrl:
 			'https://support.microsoft.com/en-us/account-billing/5896ed9b-4263-e681-128a-a6f2979a7944'
 	},
@@ -53,14 +58,14 @@ export const KNOWN_PRESETS: ProviderPreset[] = [
 		key: 'seznam',
 		backendName: 'Seznam',
 		flow: 'imap',
-		requiresAppPassword: true,
-		appPasswordHelpUrl: 'https://napoveda.seznam.cz/cz/email/heslo-aplikace/'
+		appPassword: 'twoFactor',
+		appPasswordHelpUrl: 'https://o-seznam.cz/napoveda/ucet/dvoufazove-overeni/postovni-programy/'
 	},
 	{
 		key: 'custom',
 		backendName: null,
 		flow: 'imap',
-		requiresAppPassword: false
+		appPassword: 'never'
 	}
 ];
 

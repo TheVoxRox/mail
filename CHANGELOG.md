@@ -19,6 +19,28 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+### Frontend
+
+- **The provider's servers no longer run into the Username label.** On the
+  account form, browse mode read the line under the provider select and the
+  next field's label as one: "IMAP imap.seznam.cz:993, SMTP
+  smtp.seznam.cz:465 Uživatelské jméno". Chromium drops the divs around the
+  servers line, so nothing separated it from the `<label>` that follows. The
+  line now describes the provider select and is hidden where it stands, the
+  way a field hint is, so it is heard with the select, including when tabbing
+  through the form, where it used to be silent. Covered in
+  [a11y.e2e.ts](frontend/src/routes/a11y.e2e.ts); both assertions seen to
+  fail on the old markup.
+- **The Seznam account form no longer says the account password will not
+  work.** It told every Seznam user "Pro Seznam.cz potřebujete heslo
+  aplikace, ne hlavní heslo k účtu", but Seznam asks for an app password only
+  once two-factor authentication is on; without it the account password signs
+  in, as Seznam's own help says. The note now says
+  that, in a neutral box rather than a warning, and its guide link points at
+  Seznam's page on mail clients with two-factor authentication. The old link
+  redirected to the general mail help. Gmail and Outlook keep the warning,
+  since they need an app password for IMAP regardless.
+
 ## [0.1.0] - 2026-10-18
 
 ### Backend

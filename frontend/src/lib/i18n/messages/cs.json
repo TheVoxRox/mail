@@ -372,6 +372,7 @@
 			"password": "Heslo",
 			"passwordEditHint": "– ponechte prázdné, pokud měnit nechcete",
 			"appPasswordWarning": "Pro {provider} potřebujete heslo aplikace, ne hlavní heslo k účtu.",
+			"appPasswordTwoFactorNote": "Stačí běžné heslo k účtu. Máte-li na {provider} zapnuté dvoufázové ověření, zadejte místo něj heslo aplikace.",
 			"appPasswordHelp": "Otevřít návod",
 			"oauthAvailable": "{provider} umožňuje bezpečné přihlášení, heslo zadávat nemusíte.",
 			"activeCheckbox": "Účet je aktivní (synchronizuje se)",

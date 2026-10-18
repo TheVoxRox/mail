@@ -176,6 +176,15 @@
 	let selectedProvider = $derived(
 		providerId == null ? null : (providers.find((p) => p.id === providerId) ?? null)
 	);
+
+	const PROVIDER_SERVERS_ID = 'acc-provider-servers';
+
+	/** The selected provider's servers first, then whatever Field links (the error). */
+	function providerDescribedBy(fieldIds: string | undefined): string | undefined {
+		const ids = [selectedProvider ? PROVIDER_SERVERS_ID : undefined, fieldIds].filter(Boolean);
+		return ids.length > 0 ? ids.join(' ') : undefined;
+	}
+
 	let activePreset = $derived(
 		preset?.backendName != null ? preset : (presetForProvider(selectedProvider) ?? preset)
 	);
@@ -194,7 +203,8 @@
 			: null
 	);
 	let showAppPasswordWarning = $derived(
-		activePreset?.requiresAppPassword === true &&
+		activePreset != null &&
+			activePreset.appPassword !== 'never' &&
 			(activePreset.flow !== 'oauth' || mode === 'create')
 	);
 	let providerDropdownHidden = $derived(
@@ -731,16 +741,23 @@
 							width="full"
 							onchange={handleProviderChange}
 							{...control}
+							aria-describedby={providerDescribedBy(control['aria-describedby'])}
 						>
 							<option value={null} disabled>{$_('accounts.form.providerPlaceholder')}</option>
 							{#each providers as p (p.id)}
 								<option value={p.id}>{p.name}</option>
 							{/each}
 						</Select>
+						<!--
+							The servers line describes the select and is hidden where it
+							stands, as a Field hint is. Left in the tree it ran into the next
+							field's label: Chromium drops the wrapping divs, so browse mode
+							read "IMAP …, SMTP … Username" as one line.
+						-->
 						{#if selectedProvider}
-							<div class="flex items-center gap-2 text-xs text-muted-foreground">
+							<div class="flex items-center gap-2 text-xs text-muted-foreground" aria-hidden="true">
 								<ProviderLogo keyName={activePreset?.key} size="sm" />
-								<span>
+								<span id={PROVIDER_SERVERS_ID}>
 									IMAP {selectedProvider.imapHost}:{selectedProvider.imapPort}, SMTP
 									{selectedProvider.smtpHost}:{selectedProvider.smtpPort}
 								</span>
