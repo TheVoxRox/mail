@@ -12,7 +12,3 @@ export function resolveProviderByEmail(email: string): Promise<MailProviderRespo
 		params: { email }
 	});
 }
-
-export function getProvider(id: number): Promise<MailProviderResponse> {
-	return api.get<MailProviderResponse>(`/accounts/providers/${id}`);
-}

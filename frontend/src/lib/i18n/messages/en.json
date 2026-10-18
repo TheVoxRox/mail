@@ -321,10 +321,6 @@
 		"deletedToast": "Account removed.",
 		"savedToast": "Account changes saved.",
 		"createdToast": "Account added.",
-		"providerTemplate": {
-			"heading": "Provider template",
-			"domains": "Domains:"
-		},
 		"createSubmitLabel": "Create account",
 		"saveSubmitLabel": "Save changes",
 		"customAccountBadge": "Custom configuration",
