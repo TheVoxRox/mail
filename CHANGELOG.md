@@ -43,7 +43,9 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 - **The frontend's development tools take their patch and minor releases: vitest 5.0.5, eslint 10.13, typescript-eslint 8.71.2, Playwright 1.64.1 (same Chromium build), axe-core 4.14, prettier 3.9.10, msw 3.0.3, jsdom 30.1.3 and svelte-check 4.7.7 (#727).** Nothing in the shipped app changes: no production package moves in the lockfile, and the one non-dev entry that does, `@typescript-eslint/types`, is read by the Svelte compiler at build time and appears nowhere in the built bundle. `@tauri-apps/cli` is left out, as it builds the installer and moves with the rest of Tauri.
 
-- **SpotBugs moves to 4.10.5 and PIT to 1.30.1, both Maven plugins that run only at build time (#723).** Merged from dependabot without an entry, which is added here; mvn clean verify reported no bug instance under the new SpotBugs.
+- **SpotBugs moves to 4.10.5 and PIT to 1.30.1, both Maven plugins that run only at build time (#723).** Merged from dependabot without an entry, which is added here; `mvn clean verify` reported no bug instance under the new SpotBugs.
+
+- **The npm SBOM is generated again under SvelteKit 3 (#731).** SvelteKit 3 writes `node_modules/$app`, which `npm ls` reports as an extraneous package and `cyclonedx-npm` refuses as an invalid name, so the SBOM job of the manual vulnerability scan of 2026-10-18 failed while its three gates passed. `generate-sbom.mjs` sets the folder aside under a name npm skips for the run; the SBOM lists the same 110 components as before.
 
 ## [0.1.0] - 2026-10-13
 

@@ -14,12 +14,34 @@
  */
 
 import { execSync } from 'node:child_process';
+import { existsSync, renameSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const frontendDir = path.resolve(here, '..');
 const outFile = path.join(frontendDir, 'bom.json');
+
+/*
+ * SvelteKit 3 writes `node_modules/$app` itself (`svelte-kit sync`, run by
+ * `prepare`): the `$app/tsconfig` and `$app/types` that tsconfig.json reaches
+ * through node resolution. It is not a package and has no package.json, so
+ * `npm ls` reports it as an extraneous package named "$app", and
+ * cyclonedx-npm stops on it with `Invalid name: "$app"` (4.0.0 and 6.0.1
+ * alike). The SBOM job of vuln-scan.yml failed on exactly that.
+ * `--package-lock-only` would avoid it but lists every optional platform
+ * binary in the lockfile (60 more components on Windows, among them esbuild's
+ * builds for other systems) as if the app shipped them.
+ *
+ * npm skips dot-named directories under node_modules, so the folder is set
+ * aside under such a name for the run and put back afterwards, also when the
+ * run fails. A folder still set aside by a run that was killed is put back
+ * first.
+ */
+const sveltekitDir = path.join(frontendDir, 'node_modules', '$app');
+const asideDir = path.join(frontendDir, 'node_modules', '.sveltekit-app-sbom-aside');
+if (!existsSync(sveltekitDir) && existsSync(asideDir)) renameSync(asideDir, sveltekitDir);
+const setAside = existsSync(sveltekitDir);
 
 const NPM_CYCLONEDX_VERSION = '4.0.0';
 
@@ -38,9 +60,14 @@ const command = [
 ].join(' ');
 
 console.log(`Running @cyclonedx/cyclonedx-npm@${NPM_CYCLONEDX_VERSION} ...`);
-execSync(command, {
-	cwd: frontendDir,
-	stdio: 'inherit'
-});
+if (setAside) renameSync(sveltekitDir, asideDir);
+try {
+	execSync(command, {
+		cwd: frontendDir,
+		stdio: 'inherit'
+	});
+} finally {
+	if (setAside) renameSync(asideDir, sveltekitDir);
+}
 
 console.log(`Wrote ${path.relative(path.resolve(frontendDir, '..'), outFile)}.`);
