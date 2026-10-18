@@ -81,27 +81,4 @@ class MailProviderControllerTest {
         mockMvc.perform(get("/api/v1/accounts/providers/resolve").param("email", ""))
                 .andExpect(status().isBadRequest());
     }
-
-    @Test
-    @DisplayName("GET provider/{id} -> 200")
-    void getByIdFound() throws Exception {
-        when(providerService.getProviderById(1L)).thenReturn(Optional.of(gmail()));
-
-        mockMvc.perform(get("/api/v1/accounts/providers/1")).andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1));
-    }
-
-    @Test
-    @DisplayName("GET provider/{id} - does not exist -> 404")
-    void getByIdNotFound() throws Exception {
-        when(providerService.getProviderById(99L)).thenReturn(Optional.empty());
-
-        mockMvc.perform(get("/api/v1/accounts/providers/99")).andExpect(status().isNotFound());
-    }
-
-    @Test
-    @DisplayName("GET provider/{id} - non-positive ID -> 400")
-    void getByIdInvalid() throws Exception {
-        mockMvc.perform(get("/api/v1/accounts/providers/0")).andExpect(status().isBadRequest());
-    }
 }

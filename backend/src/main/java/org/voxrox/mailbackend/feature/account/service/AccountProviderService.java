@@ -74,11 +74,6 @@ public class AccountProviderService {
         return findProviderEntityByEmail(email).map(this::toDto);
     }
 
-    @Transactional(readOnly = true)
-    public Optional<MailProviderResponse> getProviderById(Long id) {
-        return providerRepository.findById(id).map(this::toDto);
-    }
-
     private Optional<MailProviderEntity> findProviderEntityByEmail(String email) {
         if (email == null || !email.contains("@")) {
             log.warn("{} Invalid e-mail for provider detection: {}", LogCategory.ACCOUNT, LogMasker.maskEmail(email));

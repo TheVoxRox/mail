@@ -365,13 +365,8 @@ function accountRoutes(
 				? HttpResponse.json(provider)
 				: problem(404, 'Provider nenalezen.', 'PROVIDER_NOT_FOUND');
 		}
-		if (segments[2]) {
-			const provider = fixtureState.providers.find((item) => item.id === Number(segments[2]));
-			return provider
-				? HttpResponse.json(provider)
-				: problem(404, 'Provider nenalezen.', 'PROVIDER_NOT_FOUND');
-		}
-		return HttpResponse.json(fixtureState.providers);
+		// Nothing else lives under /providers; any other path is the mock's own 404.
+		return segments.length === 2 ? HttpResponse.json(fixtureState.providers) : null;
 	}
 
 	const accountId = Number(segments[1]);

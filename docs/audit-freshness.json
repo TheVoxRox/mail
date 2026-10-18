@@ -45,7 +45,8 @@
     "reviewedTrees": {
       "frontend/src-tauri/src/redact.rs": "22f0fb867ceb8e70135c79bee6f492c3c28acf7b",
       "frontend/src-tauri/src/logs.rs": "0da494433ac1a8f2cb4fc52517d84edba3740ba7",
-      "frontend/src/lib/api/clientBootDiagnostics.ts": "5e76b3e95a63b5f9ff5c9f5b38ff6cad7ae4b7d6"
+      "frontend/src/lib/api/clientBootDiagnostics.ts": "5e76b3e95a63b5f9ff5c9f5b38ff6cad7ae4b7d6",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/account/controller": "d6f66df6b1e89193b66619a929c10a85fa085dc3"
     },
     "acknowledgements": [
       {
@@ -59,6 +60,10 @@
       {
         "date": "2026-10-17",
         "note": "The SvelteKit 3 migration (#721). Under Code paths only frontend/src/lib/api/clientBootDiagnostics.ts moves, and only in import specifiers: $lib/... became #lib/... (package.json imports, the same files) and $app/environment became $app/env (the same module, renamed). Every changed line under the paths of the four audits this touches was compared after normalising those two renames, and the removed and added lines are identical. What the client sends to /api/internal/client-boot, and when, is unchanged. Verdict unchanged."
+      },
+      {
+        "date": "2026-10-18",
+        "note": "Under Code paths only MailProviderController moves: GET /api/v1/accounts/providers/{id} is removed with its @Positive path variable, and the import that served it. Its only client was the provider template list on the account edit page, removed in #735. The controller keeps its class-level @Validated and the constrained email parameter of /resolve, so §2's twelve @Validated controllers out of 18, each one declaring constrained parameters, still hold; the controller count does not change, and no claim in the audit names the endpoint. Authorization is path-independent (§1), so a path that goes away changes no posture. The OpenAPI snapshot, outside Code paths, drops the operation, which makes its return fail OpenApiSnapshotTest. Verdict unchanged."
       }
     ]
   },
