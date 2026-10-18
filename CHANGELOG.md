@@ -76,7 +76,7 @@ Entries before 2026-09-17 predate that split and are left as written.
 - The sidecar no longer serves `GET /api/v1/accounts/providers/{id}`: its only
   client was the provider template list #735 took off the account edit page.
   The MSW mock, the OpenAPI snapshot and the generated types drop it too, and
-  the API surface audit records the drift without a new verdict.
+  the API surface audit records the drift without a new verdict (#736).
 
 ## [0.1.0] - 2026-10-18
 
