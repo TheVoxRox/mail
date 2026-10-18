@@ -120,7 +120,7 @@ Counts: 106 artifacts total. 84 Apache-2.0, 10 EDL-1.0 (BSD-3-Clause), 5 EPL-2.0
 
 ## BSD-2-Clause (2)
 
-- **commonmark-java core** `org.commonmark:commonmark:0.30.0` — [https://github.com/commonmark/commonmark-java/commonmark](https://github.com/commonmark/commonmark-java/commonmark)
+- **commonmark-java core** `org.commonmark:commonmark:0.30.1` — [https://github.com/commonmark/commonmark-java/commonmark](https://github.com/commonmark/commonmark-java/commonmark)
 - **HdrHistogram** `org.hdrhistogram:HdrHistogram:2.2.2` — [http://hdrhistogram.github.io/HdrHistogram/](http://hdrhistogram.github.io/HdrHistogram/)
 
 ## BSD-3-Clause (2)
