@@ -3,7 +3,13 @@ import { addMessages, init } from 'svelte-i18n';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import csMessages from '#lib/i18n/messages/cs.json';
 import { listAccounts } from '#lib/api/accounts.js';
-import { handleStreamNotification, lastSync, registerPendingSend } from './notifications.js';
+import {
+	announcePausedSyncs,
+	handleStreamNotification,
+	lastSync,
+	registerPendingSend,
+	startNotifications
+} from './notifications.js';
 import { accountsState } from './accounts.js';
 import { failingSyncAccounts, resetSyncHealth } from './syncHealth.js';
 import { beginManualSync, resetManualSync, syncingAccountIds } from './manualSync.js';
@@ -16,6 +22,13 @@ import type {
 } from '#lib/types.js';
 
 vi.mock('#lib/api/accounts.js', () => ({ listAccounts: vi.fn() }));
+// Only startNotifications opens a stream; nothing here needs a real one.
+vi.mock('#lib/api/notifications.js', () => ({
+	SseClient: class {
+		on(): void {}
+		start(): void {}
+	}
+}));
 
 beforeAll(() => {
 	addMessages('cs', csMessages);
@@ -211,6 +224,79 @@ describe('sync status notifications', () => {
 
 		await vi.waitFor(() => expect(get(failingSyncAccounts)).toHaveLength(0));
 		expect(get(toasts).at(-1)?.message).toBe('Synchronizace účtu jana@example.com znovu funguje.');
+	});
+
+	describe('a sync the backend paused while it started', () => {
+		/*
+		 * SyncCrashGuard pauses before the backend takes a request, so no sync_failed
+		 * reaches a stream that is not connected yet; the boot reads it off the
+		 * account instead.
+		 */
+		const pausedDetail =
+			'Sync of this account is paused because the app kept closing while it ran.';
+		const paused: AccountResponse = {
+			...account,
+			lastError: pausedDetail,
+			lastErrorCode: 'MAIL_SYNC_PAUSED_AFTER_CRASHES'
+		};
+
+		it('is announced the way a sync_failed would be, from the list the boot loaded', async () => {
+			accountsState.set({ status: 'ready', accounts: [paused] });
+
+			await announcePausedSyncs(false);
+
+			expect(listAccounts).not.toHaveBeenCalled();
+			const [toast] = get(toasts);
+			expect(toast.message).toContain('jana@example.com');
+			expect(toast.message).toContain(pausedDetail);
+			expect(toast.tone).toBe('error');
+			expect(toast.ttl).toBe(0);
+			expect(get(failingSyncAccounts).map((a) => a.id)).toEqual([4]);
+		});
+
+		it('refetches a list that predates an automatic restart', async () => {
+			vi.mocked(listAccounts).mockClear();
+			vi.mocked(listAccounts).mockResolvedValue([paused]);
+
+			await announcePausedSyncs(true);
+
+			expect(listAccounts).toHaveBeenCalledOnce();
+			expect(get(toasts)).toHaveLength(1);
+		});
+
+		it('is announced once, not again on the next boot of the same page', async () => {
+			accountsState.set({ status: 'ready', accounts: [paused] });
+
+			await announcePausedSyncs(false);
+			await announcePausedSyncs(false);
+
+			expect(get(toasts)).toHaveLength(1);
+		});
+
+		it('is looked for on every boot, with the list refetched once a stream already exists', async () => {
+			accountsState.set({ status: 'ready', accounts: [paused] });
+			vi.mocked(listAccounts).mockClear();
+			vi.mocked(listAccounts).mockResolvedValue([paused]);
+
+			// The first boot of the page: the list was loaded a moment ago.
+			startNotifications();
+			await vi.waitFor(() => expect(get(toasts)).toHaveLength(1));
+			expect(listAccounts).not.toHaveBeenCalled();
+
+			// The boot after an automatic restart keeps the list it had.
+			resetSyncHealth();
+			toasts.set([]);
+			startNotifications();
+			await vi.waitFor(() => expect(get(toasts)).toHaveLength(1));
+			expect(listAccounts).toHaveBeenCalledOnce();
+		});
+
+		it('leaves any other standing error to the event that reported it', async () => {
+			await announcePausedSyncs(false);
+
+			expect(get(toasts)).toHaveLength(0);
+			expect(get(failingSyncAccounts)).toHaveLength(0);
+		});
 	});
 
 	it('does not stack indicators when the same account is reported twice', async () => {

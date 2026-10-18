@@ -90,6 +90,14 @@ interface BackendSidecarRuntime {
 	 * `handleUnexpectedExit`.
 	 */
 	generation: number;
+	/**
+	 * How the last process ended when nobody asked it to, as its exit code, until
+	 * the next spawn hands it to the backend as `MAIL_SIDECAR_PREVIOUS_EXIT`. The
+	 * backend's crash guard (SyncCrashGuard.java) counts a sync the previous
+	 * process died in only when this is set: the shell kills the backend on every
+	 * quit and reload too, and those must not read as crashes.
+	 */
+	previousExit: string | null;
 }
 
 type BackendSidecarGlobal = typeof globalThis & {
@@ -108,11 +116,13 @@ function resolveRuntime(): BackendSidecarRuntime {
 		stopRequested: false,
 		restartTimestamps: [],
 		shutdownHookRegistered: false,
-		generation: 0
+		generation: 0,
+		previousExit: null
 	};
 	// A runtime created before the generation field existed can survive an HMR
 	// reload on the global — backfill so `++` never produces NaN.
 	global.__MAIL_BACKEND_SIDECAR__.generation ??= 0;
+	global.__MAIL_BACKEND_SIDECAR__.previousExit ??= null;
 	return global.__MAIL_BACKEND_SIDECAR__;
 }
 
@@ -296,9 +306,12 @@ async function spawnBackendSidecar(): Promise<void> {
 			 * lingering as an orphaned JVM holding the ephemeral port and the DB.
 			 * See backend core/lifecycle/ParentProcessWatchdog.java.
 			 */
-			MAIL_SIDECAR_WATCH_PARENT: '1'
+			MAIL_SIDECAR_WATCH_PARENT: '1',
+			...(runtime.previousExit === null ? {} : { MAIL_SIDECAR_PREVIOUS_EXIT: runtime.previousExit })
 		}
 	});
+	// Handed over once: it describes the predecessor of the process spawned now.
+	runtime.previousExit = null;
 	command.stdout.on('data', (line) => console.info(`[mail] ${line}`));
 	command.stderr.on('data', (line) => {
 		console.warn(`[mail] ${line}`);
@@ -310,7 +323,11 @@ async function spawnBackendSidecar(): Promise<void> {
 		const requested = runtime.stopRequested || generation !== runtime.generation || endedByError;
 		recordInShellLog('log_sidecar_exit', { code: payload.code, signal: payload.signal, requested });
 		if (endedByError) return;
-		void handleUnexpectedExit(generation, describeSidecarExit(payload.code, payload.signal));
+		void handleUnexpectedExit(
+			generation,
+			describeSidecarExit(payload.code, payload.signal),
+			String(payload.code ?? payload.signal ?? 'unknown')
+		);
 	});
 	/*
 	 * The plugin sends `error` when it fails to read the process's output or to
@@ -332,7 +349,8 @@ async function spawnBackendSidecar(): Promise<void> {
 				`The shell lost track of the backend sidecar: ${message}`,
 				'app.backendExit.spawnFailed',
 				{ detail: message }
-			)
+			),
+			'shell-error'
 		);
 	});
 
@@ -352,7 +370,7 @@ async function spawnBackendSidecar(): Promise<void> {
 	backendSidecarState.set({ status: 'running', pid: runtime.child.pid });
 }
 
-async function handleUnexpectedExit(generation: number, error: Error): Promise<void> {
+async function handleUnexpectedExit(generation: number, error: Error, exit: string): Promise<void> {
 	if (generation !== runtime.generation) {
 		// Stale event from a previous process generation — the child it belongs
 		// to was already replaced, so there is nothing to clean up or restart.
@@ -365,6 +383,10 @@ async function handleUnexpectedExit(generation: number, error: Error): Promise<v
 		backendSidecarState.set({ status: 'stopped' });
 		return;
 	}
+
+	// Kept for whichever spawn comes next: the automatic restart below, or a
+	// Retry from the boot error view once the restart budget is spent.
+	runtime.previousExit = exit;
 
 	// By name, not `instanceof`, for the reason isSidecarExitError carries: a
 	// class identity does not survive HMR or vi.resetModules(), and getting this

@@ -88,6 +88,20 @@ public class AccountEntity {
     @Column(name = "last_error_args")
     private @Nullable String lastErrorArgs;
 
+    /*
+     * The crash guard's three columns (V2__sync_crash_guard.sql). Written only
+     * through the @Modifying queries in AccountRepository, from SyncCrashGuard; see
+     * that class for what each one means.
+     */
+    @Column(name = "sync_started_at")
+    private @Nullable LocalDateTime syncStartedAt;
+
+    @Column(name = "sync_crashes", nullable = false)
+    private int syncCrashes = 0;
+
+    @Column(name = "sync_paused", nullable = false)
+    private boolean syncPaused = false;
+
     @OneToOne(mappedBy = "account", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private AccountCredentialEntity credentials;
 
@@ -251,6 +265,26 @@ public class AccountEntity {
 
     public void setLastErrorArgs(@Nullable String lastErrorArgs) {
         this.lastErrorArgs = lastErrorArgs;
+    }
+
+    public @Nullable LocalDateTime getSyncStartedAt() {
+        return syncStartedAt;
+    }
+
+    public int getSyncCrashes() {
+        return syncCrashes;
+    }
+
+    public void setSyncCrashes(int syncCrashes) {
+        this.syncCrashes = syncCrashes;
+    }
+
+    public boolean isSyncPaused() {
+        return syncPaused;
+    }
+
+    public void setSyncPaused(boolean syncPaused) {
+        this.syncPaused = syncPaused;
     }
 
     public AccountCredentialEntity getCredentials() {

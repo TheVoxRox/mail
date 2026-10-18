@@ -35,6 +35,12 @@ export const lastSync = writable<SyncNotification | null>(null);
 let client: SseClient | null = null;
 
 export function startNotifications(): void {
+	/*
+	 * Every boot calls this, the one after an automatic backend restart too, and
+	 * that later boot keeps the account list it read before the restart — so a
+	 * client that already exists means the list predates the backend now running.
+	 */
+	void announcePausedSyncs(client !== null).catch(() => undefined);
 	if (client) return;
 	notificationsStatus.set('connecting');
 	client = new SseClient({
@@ -155,6 +161,43 @@ async function handleSyncStatus(event: SyncStatusNotification): Promise<void> {
 		? translate('toast.syncFailedDetail', { values: { account: accountLabel, detail } })
 		: translate('toast.syncFailed', { values: { account: accountLabel } });
 	pushToast(message, { tone: 'error', ttl: 0 });
+}
+
+/** The standing error the backend's crash guard writes when it pauses a sync. */
+const SYNC_PAUSED_CODE = 'MAIL_SYNC_PAUSED_AFTER_CRASHES';
+
+/**
+ * Tells the user about a sync the backend paused while it started.
+ *
+ * The pause is decided before the backend takes its first request
+ * (SyncCrashGuard.java), so the `sync_failed` it would send has nobody to
+ * reach: the stream connects later and nothing is replayed. The pause stays
+ * in the account's standing error, so a boot that finds it says so as the
+ * event would have — the toast and the indicator — once until it recovers.
+ *
+ * @param refetch whether the account list predates this backend. A boot after
+ *   an automatic restart keeps the list it had, which was read before the
+ *   pause existed.
+ */
+export async function announcePausedSyncs(refetch: boolean): Promise<void> {
+	const state = get(accountsState);
+	const accounts = refetch
+		? await refreshAccounts()
+		: state.status === 'ready'
+			? state.accounts
+			: [];
+	const translate = get(_);
+	for (const account of accounts) {
+		if (account.lastErrorCode !== SYNC_PAUSED_CODE) continue;
+		if (get(failingSyncAccountIds).includes(account.id)) continue;
+		markSyncFailed(account.id);
+		const message = account.lastError
+			? translate('toast.syncFailedDetail', {
+					values: { account: account.email, detail: account.lastError }
+				})
+			: translate('toast.syncFailed', { values: { account: account.email } });
+		pushToast(message, { tone: 'error', ttl: 0 });
+	}
 }
 
 /*

@@ -25,6 +25,7 @@ public enum AccountLastErrorCode {
     MAIL_SYNC_AUTH_FAILED("account.lastError.mailSyncAuthFailed"),
     MAIL_SYNC_ACCOUNT_FAILED("account.lastError.mailSyncAccountFailed", "cause"),
     MAIL_SYNC_FOLDER_FAILED("account.lastError.mailSyncFolderFailed", "folder", "cause"),
+    MAIL_SYNC_PAUSED_AFTER_CRASHES("account.lastError.mailSyncPausedAfterCrashes"),
     SMTP_SEND_FAILED("account.lastError.smtpSendFailed", "cause"),
     DRAFT_SAVE_FAILED("account.lastError.draftSaveFailed", "cause"),
     DRAFT_SEND_FAILED("account.lastError.draftSendFailed", "cause"),
