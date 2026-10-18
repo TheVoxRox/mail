@@ -21,14 +21,20 @@ const AUDIT_LINE =
 	/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})\.(\d{3}) \[([^\]]*)\] (\w+)\s+(SUCCESS|FAILURE|CRITICAL) action=(\S*) actor=(\S*) (?:detail|reason)=(.*)$/;
 
 /*
- * The transient-IMAP hiccup "D" (#78), as MailSyncService logs it. The three
- * texts are the ones §8.2 of the checklist names; keep them in step with
- * MailSyncService.java, where they are written.
+ * The transient-IMAP hiccup "D" (#78), as MailSyncService logs it. The texts
+ * are the ones §8.2 of the checklist names; keep them in step with
+ * MailSyncService.java, where they are written. A pass retries in two places,
+ * the folder listing it starts with and each folder cycle, so the retried and
+ * the critical state each have a text per place. The exhausted state reads the
+ * same in both.
  */
-const D_RETRIED = 'Transient IMAP error during folder sync';
+const D_RETRIED = [
+	'Transient IMAP error during folder sync',
+	'Transient IMAP error during folder listing'
+];
 const D_EXHAUSTED = 'transient-retry attempt(s)';
 const D_EXHAUSTED_LEAD = 'still failing after';
-const D_CRITICAL = 'Critical error during folder sync';
+const D_CRITICAL = ['Critical error during folder sync', 'Account sync '];
 const D_CAUSE = 'failed to create new store connection';
 
 /*
@@ -125,7 +131,7 @@ export function classify(entries, auditRecords, { since = null } = {}) {
 	for (const entry of entries.filter(inWindow(since))) {
 		if (entry.level !== 'WARN' && entry.level !== 'ERROR') continue;
 		const text = [entry.message, ...entry.detail].join('\n');
-		if (entry.level === 'WARN' && entry.message.includes(D_RETRIED)) {
+		if (entry.level === 'WARN' && D_RETRIED.some((t) => entry.message.includes(t))) {
 			d.retried.push(entry);
 			continue;
 		}
@@ -137,7 +143,11 @@ export function classify(entries, auditRecords, { since = null } = {}) {
 			d.exhausted.push(entry);
 			continue;
 		}
-		if (entry.level === 'ERROR' && entry.message.includes(D_CRITICAL) && text.includes(D_CAUSE)) {
+		if (
+			entry.level === 'ERROR' &&
+			D_CRITICAL.some((t) => entry.message.includes(t)) &&
+			text.includes(D_CAUSE)
+		) {
 			d.classifierMiss.push(entry);
 			continue;
 		}
