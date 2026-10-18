@@ -87,6 +87,38 @@ describe('classify', () => {
 		expect(result.critical).toHaveLength(1);
 	});
 
+	it('counts the folder listing of a pass in the same three D states as a folder cycle', () => {
+		const text = [
+			line(
+				'2026-10-13T14:14:00.000+02:00',
+				'WARN',
+				SYNC,
+				'[SYNC] Transient IMAP error during folder listing of t***t@seznam.cz (attempt 1/3); reconnecting and retrying: Critical IMAP error for account 2'
+			),
+			line(
+				'2026-10-13T14:14:05.000+02:00',
+				'ERROR',
+				SYNC,
+				'[SYNC] Folder listing of t***t@seznam.cz still failing after 3 transient-retry attempt(s); recording it: Critical IMAP error for account 2'
+			),
+			[
+				line(
+					'2026-10-13T14:19:00.000+02:00',
+					'ERROR',
+					SYNC,
+					'[SYNC] Account sync t***t@seznam.cz failed: Critical IMAP error for account 2'
+				),
+				'jakarta.mail.MessagingException: failed to create new store connection'
+			].join('\n')
+		].join('\n');
+		const result = classify(parseMailLog(text, 'mail.log'), []);
+		expect(result.d.retried).toHaveLength(1);
+		expect(result.d.exhausted).toHaveLength(1);
+		expect(result.d.classifierMiss).toHaveLength(1);
+		expect(result.errors).toHaveLength(0);
+		expect(result.warnings).toHaveLength(0);
+	});
+
 	it('keeps a critical sync error with another cause among the ordinary errors', () => {
 		const other = line(
 			'2026-09-16T01:10:00.000+02:00',

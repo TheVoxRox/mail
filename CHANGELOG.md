@@ -19,6 +19,19 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+### Backend
+
+- **A short network drop no longer leaves an account showing a connection
+  error for five minutes.** A sync pass starts by listing the account's
+  folders, and that listing had no retry: when the server had closed the
+  pooled connection since the previous pass, the pass failed and the account
+  kept its connection error (`MAIL_SYNC_CONNECTION_FAILED`) until the next
+  one. Met on seznam.cz at
+  §8.1 of the 2026-10-13 candidate, where Gmail, which met the same drop inside
+  a folder, retried and carried on. The listing now reconnects and retries
+  under the same bound and the same classifier as a folder cycle, and
+  `release:scan-logs` counts its retries with the hiccup D signals.
+
 ### Frontend
 
 - **The provider's servers no longer run into the Username label.** On the

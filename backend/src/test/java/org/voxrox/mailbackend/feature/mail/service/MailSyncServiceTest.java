@@ -23,6 +23,8 @@ import java.util.Optional;
 
 import jakarta.mail.Folder;
 import jakarta.mail.MessagingException;
+import jakarta.mail.Store;
+import jakarta.mail.StoreClosedException;
 import jakarta.mail.UIDFolder;
 import jakarta.mail.event.MailEvent;
 
@@ -246,6 +248,62 @@ class MailSyncServiceTest {
             assertThat(captor.getValue().fallbackMessage()).contains("Account sync failed").contains("RuntimeException")
                     .doesNotContain("boom");
             assertThat(captor.getValue().args()).containsExactly(java.util.Map.entry("cause", "UNEXPECTED"));
+        }
+
+        @Test
+        @DisplayName("A connection the server closed before the listing is rebuilt within the pass")
+        void retriesAListingTheServerClosedTheConnectionUnder() {
+            /*
+             * The shape of 2026-10-13: the pooled connection passed its liveness probe and
+             * the server dropped it under the LIST, so ImapConnectionManager wrapped a
+             * StoreClosedException. The pass used to record MAIL_SYNC_CONNECTION_FAILED and
+             * leave it standing until the next pass, five minutes later.
+             */
+            when(lockManager.tryLock(eq(ACCOUNT_ID), anyBoolean())).thenReturn(true);
+            when(imapFolderService.getFolders(ACCOUNT_ID))
+                    .thenThrow(new MailConnectionException("Critical IMAP error for account 7",
+                            new StoreClosedException(mock(Store.class), "Connection dropped by server?")))
+                    .thenReturn(List.of());
+
+            service.syncAllFolders(account, SyncTrigger.SCHEDULED);
+
+            verify(imapFolderService, times(2)).getFolders(ACCOUNT_ID);
+            verify(imapFolderService).invalidateConnection(ACCOUNT_ID);
+            verify(accountRepository, never()).updateLastError(anyLong(), any(AccountLastError.class), any());
+            verify(accountRepository).clearLastError(eq(ACCOUNT_ID), any(LocalDateTime.class));
+        }
+
+        @Test
+        @DisplayName("A listing that keeps failing transiently is recorded once, when the retries run out")
+        void recordsAListingWhoseRetriesRanOut() {
+            when(lockManager.tryLock(eq(ACCOUNT_ID), anyBoolean())).thenReturn(true);
+            when(imapFolderService.getFolders(ACCOUNT_ID)).thenThrow(new MailConnectionException(
+                    "Critical IMAP error for account 7", new java.net.ConnectException("Connection refused")));
+
+            service.syncAllFolders(account, SyncTrigger.SCHEDULED);
+
+            // RetryProperties in setUp allow three attempts: two reconnects between them.
+            verify(imapFolderService, times(3)).getFolders(ACCOUNT_ID);
+            verify(imapFolderService, times(2)).invalidateConnection(ACCOUNT_ID);
+            ArgumentCaptor<AccountLastError> captor = ArgumentCaptor.forClass(AccountLastError.class);
+            verify(accountRepository).updateLastError(eq(ACCOUNT_ID), captor.capture(), any(LocalDateTime.class));
+            assertThat(captor.getValue().code()).isEqualTo(AccountLastErrorCode.MAIL_SYNC_CONNECTION_FAILED);
+            verify(lockManager).unlock(ACCOUNT_ID);
+        }
+
+        @Test
+        @DisplayName("A listing failure that is not transient is recorded without a retry")
+        void doesNotRetryAPermanentListingFailure() {
+            when(lockManager.tryLock(eq(ACCOUNT_ID), anyBoolean())).thenReturn(true);
+            when(imapFolderService.getFolders(ACCOUNT_ID)).thenThrow(
+                    new IllegalStateException("wrapped", new MailAuthenticationException(new RuntimeException("no"))));
+
+            service.syncAllFolders(account, SyncTrigger.SCHEDULED);
+
+            verify(imapFolderService).getFolders(ACCOUNT_ID);
+            verify(imapFolderService, never()).invalidateConnection(anyLong());
+            verify(accountRepository).updateLastError(eq(ACCOUNT_ID), any(AccountLastError.class),
+                    any(LocalDateTime.class));
         }
 
         @Test

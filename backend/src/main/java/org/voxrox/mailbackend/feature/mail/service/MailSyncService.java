@@ -128,7 +128,10 @@ public class MailSyncService {
 
         try {
             log.info("{} Starting account sync: {}", LogCategory.SYNC, LogMasker.maskEmail(account.getEmail()));
-            List<FolderResponse> folders = imapFolderService.getFolders(account.getId());
+            List<FolderResponse> folders = listFoldersRetryingTransient(account);
+            if (folders == null) {
+                return;
+            }
             reconcileStoredRoles(account, folders);
 
             List<FolderRole> rolesToSync = List.of(FolderRole.INBOX, FolderRole.SENT, FolderRole.DRAFTS,
@@ -189,8 +192,7 @@ public class MailSyncService {
         } catch (Exception e) {
             log.error("{} Account sync {} failed: {}", LogCategory.SYNC, LogMasker.maskEmail(account.getEmail()),
                     e.getMessage(), e);
-            AuditLog.failure("sync_account", LogMasker.maskEmail(account.getEmail()), e.getClass().getSimpleName());
-            accountRepository.updateLastError(account.getId(), buildAccountSyncError(e), LocalDateTime.now());
+            recordAccountSyncFailure(account, e);
         } finally {
             publishErrorStateTransition(account.getId(), errorCodeBeforePass);
             // Release first: the flag the lock carries is the authority on whether
@@ -199,6 +201,62 @@ public class MailSyncService {
                 publishCycleCompletion(account.getId(), newMessagesCount, allFoldersSynced);
             }
         }
+    }
+
+    /**
+     * The pass's folder listing, with the bounded transient retry a folder cycle
+     * has in {@link #runFolderCycle}.
+     *
+     * <p>
+     * The listing is the first IMAP command of a pass, so it is the one that meets
+     * a pooled connection the server closed since the previous pass. Without the
+     * retry that connection failed the whole pass: on 2026-10-13 a short network
+     * drop closed the connections of two accounts at once, Gmail met it inside a
+     * folder cycle and retried, and seznam.cz met it here
+     * ({@code StoreClosedException}) and showed {@code MAIL_SYNC_CONNECTION_FAILED}
+     * until the next pass five minutes later.
+     *
+     * @return the folders, or {@code null} when the retries ran out, which is then
+     *         recorded here as the pass's failure, or when the backoff was
+     *         interrupted. A failure that is not transient propagates to the pass's
+     *         own catch, as it did before the retry.
+     */
+    private @Nullable List<FolderResponse> listFoldersRetryingTransient(AccountEntity account) {
+        int maxAttempts = mailProps.retry().maxAttempts();
+        String maskedEmail = LogMasker.maskEmail(account.getEmail());
+        for (int attempt = 1;; attempt++) {
+            try {
+                return imapFolderService.getFolders(account.getId());
+            } catch (RuntimeException e) {
+                if (!TransientMailErrors.isTransient(e)) {
+                    throw e;
+                }
+                if (attempt >= maxAttempts) {
+                    log.error(
+                            "{} Folder listing of {} still failing after {} transient-retry attempt(s); recording it: {}",
+                            LogCategory.SYNC, maskedEmail, attempt, e.getMessage(), e);
+                    recordAccountSyncFailure(account, e);
+                    return null;
+                }
+                log.warn(
+                        "{} Transient IMAP error during folder listing of {} (attempt {}/{}); reconnecting and retrying: {}",
+                        LogCategory.SYNC, maskedEmail, attempt, maxAttempts, e.getMessage());
+                imapFolderService.invalidateConnection(account.getId());
+                if (!sleepBeforeRetry(attempt)) {
+                    return null;
+                }
+            }
+        }
+    }
+
+    /**
+     * Audits and records a failure of the whole pass. Shared by the pass's catch
+     * and the exhausted listing retry, so both write the same audit record and the
+     * same {@code last_error}.
+     */
+    private void recordAccountSyncFailure(AccountEntity account, Exception e) {
+        AuditLog.failure("sync_account", LogMasker.maskEmail(account.getEmail()), e.getClass().getSimpleName());
+        accountRepository.updateLastError(account.getId(), buildAccountSyncError(e), LocalDateTime.now());
     }
 
     /**
