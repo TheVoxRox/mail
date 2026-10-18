@@ -53,7 +53,7 @@
 <div class="flex flex-col border-b border-border">
 	{#if accounts.length > 1}
 		<div class="flex items-center border-b border-border px-4">
-			<label for="compose-from" class="w-20 shrink-0 text-sm font-medium text-muted-foreground">
+			<label for="compose-from" class="w-20 shrink-0 text-sm font-medium text-foreground">
 				{$_('compose.fieldFrom')}
 			</label>
 			<Select
@@ -102,7 +102,7 @@
 		shortcut="Control+Shift+B"
 	/>
 	<div class="flex items-center px-4">
-		<label for="compose-subject" class="w-20 shrink-0 text-sm font-medium text-muted-foreground">
+		<label for="compose-subject" class="w-20 shrink-0 text-sm font-medium text-foreground">
 			{$_('compose.fieldSubject')}
 		</label>
 		<input
