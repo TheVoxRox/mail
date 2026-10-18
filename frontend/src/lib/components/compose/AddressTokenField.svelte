@@ -185,7 +185,7 @@
 
 <div class="border-b border-border">
 	<div class="flex items-start gap-2 px-4">
-		<label for={id} class="w-20 shrink-0 py-2.5 text-sm font-medium text-muted-foreground">
+		<label for={id} class="w-20 shrink-0 py-2.5 text-sm font-medium text-foreground">
 			{label}
 		</label>
 		<div class="relative flex min-h-10 min-w-0 flex-1 flex-wrap items-center gap-1.5 py-1.5">

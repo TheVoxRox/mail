@@ -64,6 +64,12 @@ Entries before 2026-09-17 predate that split and are left as written.
   says, and the mail domains the provider template covers, which nothing on
   the page acts on. It had been there since the first import with no recorded
   purpose and is gone, along with the request that fetched the template for it.
+- **The compose field labels have the same tone as the message header's.**
+  "Od:", "Komu:", "Kopie:", "Skrytá kopie:" and "Předmět:" were muted while
+  writing and dark in the open message, for the same words in the same column
+  layout. They now use the foreground colour in both places, which also gives
+  them the higher contrast; the text typed into the fields was already in that
+  colour, and the labels stay set apart by weight and their fixed column.
 
 ### Repo
 

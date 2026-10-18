@@ -340,13 +340,13 @@ polozky frontendu padly 2026-08-28.
 
 ---
 
-## Jednotnost textu a formatovani (audit 2026-10-08)
+## Jednotnost textu a formatovani (audit 2026-10-08) — uzavreno
 
-Zbytek auditu, po kterem prisly #674, #675 a #676. Prosly texty v `cs.json`/`en.json` a bundlech backendu a v nahledu (mock) styly podle role na Poste, zprave, psani, Kontaktech, formulari kontaktu, dialogu stitku, vsech strankach Nastaveni, detailu uctu a novem uctu. Body 1-7 hotove v #678, 8 jde zvlast, 9 je doporuceni nechat. Pred zmenou textu grepnout e2e testy, ktere je tvrdi doslova.
+Zbytek auditu, po kterem prisly #674, #675 a #676. Prosly texty v `cs.json`/`en.json` a bundlech backendu a v nahledu (mock) styly podle role na Poste, zprave, psani, Kontaktech, formulari kontaktu, dialogu stitku, vsech strankach Nastaveni, detailu uctu a novem uctu. Body 1-7 hotove v #678, 8 v #688, 9 sjednocen 2026-10-18. Pred zmenou textu grepnout e2e testy, ktere je tvrdi doslova.
 
 - [x] **Body 1-7 — HOTOVO 2026-10-10 (#678):** ceske uvozovky a pomlcky, anglicke uvozovky, titulky oken Klavesovych zkratek a O aplikaci, rez „Vybrat vse", podtitul formulare kontaktu a odznaky (sdilene `badgeVariants` v [ui/badge](frontend/src/lib/components/ui/badge/badge.ts)). Kontrast odznaku poctu na zaskrtnutem radku konverzace prepocitan: 4,73 : 1 svetle, 5,96 : 1 tmave, takze bez upravy. Detail v [CHANGELOG.md](CHANGELOG.md).
 - [x] **8. Tlacitka vypadajici jako odkaz — HOTOVO 2026-10-11 (#688):** vsech osm mist v pruvodci, formulari uctu a detailu uctu pouziva variantu `link` tlacitka (velikost `sm`, v prouzku poskytovatele `xs`); „← Zpet na Ucty" zustava odkaz. Odkazy predmetu v mrizkach jsou skutecne odkazy a zustaly.
-- [ ] **9. „Od:" a „Komu:" — doporuceno nechat:** v detailu zpravy tmave ([MessageHeaderCard.svelte:126](frontend/src/lib/components/message-detail/MessageHeaderCard.svelte:126)), pri psani tlumene ([RecipientFields.svelte:56](frontend/src/lib/components/compose/RecipientFields.svelte:56)). Jiny kontext (metadata proti popisku pole), zavrit jako rozhodnuti, pokud to nevadi.
+- [x] **9. „Od:" a „Komu:" — HOTOVO 2026-10-18:** popisky pri psani maji tmavy ton jako v detailu zpravy, vsech pet (Od, Komu, Kopie, Skryta kopie, Predmet). Detail v [CHANGELOG.md](CHANGELOG.md).
 - [x] **10. Duplicitni nadpis v pruvodci uctem — HOTOVO 2026-10-11 (#684):** legenda skupiny serveru je „Postovni servery", nadpis kroku zustava „Vlastni IMAP/SMTP" (jmenuje volbu jako „Detekovano: Google"). Detail v [CHANGELOG.md](CHANGELOG.md).
 - [x] **11. Skeny jednotlivych obrazovek merily spousteci obrazovku — HOTOVO 2026-10-10 (#679):** hypoteza potvrzena (vsech 14 skenu videlo stejnych 8 prvku „Cekam na bezpecne pripojeni k backendu…"), kazda route ma podminku pripravenosti. Detail v [CHANGELOG.md](CHANGELOG.md).
 
