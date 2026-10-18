@@ -109,19 +109,24 @@ test.describe('Accounts', () => {
 		await expect(page.locator('#acc-imap-host')).toHaveCount(0);
 	});
 
-	test('Seznam e-mail otevře provider flow s app-password varováním a odkazem', async ({
+	test('Seznam e-mail otevře provider flow s poznámkou o hesle aplikace při 2FA a odkazem', async ({
 		page
 	}) => {
+		// Seznam takes the account password unless two-factor authentication is
+		// on; the note used to say an app password was needed regardless.
 		await openApp(page, '/settings/accounts/new');
 
 		await page.locator('#wizard-email').fill('user@seznam.cz');
 		await page.getByRole('button', { name: 'Pokračovat' }).click();
 
 		await expect(page.getByRole('heading', { name: 'Detekováno: Seznam.cz' })).toBeVisible();
-		await expect(page.getByText('Pro Seznam.cz potřebujete heslo aplikace')).toBeVisible();
+		await expect(page.getByRole('note')).toContainText(
+			'Stačí běžné heslo k účtu. Máte-li na Seznam.cz zapnuté dvoufázové ověření, zadejte místo něj heslo aplikace.'
+		);
+		await expect(page.getByText('potřebujete heslo aplikace')).toHaveCount(0);
 		await expect(page.getByRole('link', { name: 'Otevřít návod' })).toHaveAttribute(
 			'href',
-			'https://napoveda.seznam.cz/cz/email/heslo-aplikace/'
+			'https://o-seznam.cz/napoveda/ucet/dvoufazove-overeni/postovni-programy/'
 		);
 		await expect(page.locator('#acc-password')).toBeFocused();
 	});

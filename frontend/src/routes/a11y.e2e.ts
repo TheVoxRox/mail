@@ -1116,6 +1116,23 @@ test.describe('Přístupnost', () => {
 		}
 	});
 
+	test('servery poskytovatele popisují výběr a nesplývají s dalším popiskem', async ({ page }) => {
+		// Chromium drops the divs around the servers line, so left in the tree
+		// it and the next label made one line in browse mode: "IMAP …, SMTP …
+		// Uživatelské jméno". It describes the select instead, as a Field hint
+		// does, and is gone from where it stands.
+		await openApp(page, '/settings/accounts/1');
+		const form = page.getByRole('form', { name: 'Účet' });
+		await expect(form.getByRole('combobox', { name: 'Poskytovatel' })).toHaveAccessibleDescription(
+			'IMAP imap.example.com:993, SMTP smtp.example.com:465'
+		);
+		await expect(form).toMatchAriaSnapshot(`
+			- combobox "Poskytovatel"
+			- text: Uživatelské jméno
+			- textbox "Uživatelské jméno"
+		`);
+	});
+
 	test('odznak účtu s vlastním serverem zní stejně, jak vypadá', async ({ page }) => {
 		// Read from the accessibility tree, which is what a screen reader gets: an
 		// aria-label on the paragraph showed up in the DOM and nowhere else.

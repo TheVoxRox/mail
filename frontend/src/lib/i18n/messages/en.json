@@ -372,6 +372,7 @@
 			"password": "Password",
 			"passwordEditHint": "— leave empty to keep the current one",
 			"appPasswordWarning": "{provider} requires an app password, not your main account password.",
+			"appPasswordTwoFactorNote": "Your account password works. If two-factor authentication is on at {provider}, enter an app password instead.",
 			"appPasswordHelp": "Open guide",
 			"oauthAvailable": "{provider} supports secure sign-in, so you don't need a password.",
 			"activeCheckbox": "Account is active (will sync)",
