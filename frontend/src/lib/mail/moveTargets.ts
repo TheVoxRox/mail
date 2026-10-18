@@ -9,7 +9,7 @@
  * results, which spans folders. The filter is shared here; resolving *which*
  * folder is current stays with the caller, because there is no single answer.
  */
-import type { FolderResponse } from '$lib/types.js';
+import type { FolderResponse } from '#lib/types.js';
 
 /**
  * `currentFolderRef` is the empty string while a listing has not loaded yet.

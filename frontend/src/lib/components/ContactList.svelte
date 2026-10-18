@@ -1,28 +1,28 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { bulkDeleteContacts, deleteContact } from '$lib/api/contacts.js';
-	import { toErrorMessage } from '$lib/api/errors.js';
-	import { _ } from '$lib/i18n/index.js';
-	import { confirmAction } from '$lib/stores/confirmDialog.js';
-	import { contactCounts } from '$lib/stores/contactCounts.js';
-	import { announcePolite, pushToast } from '$lib/stores/toasts.js';
-	import ContactLabelAssignDialog from '$lib/components/ContactLabelAssignDialog.svelte';
-	import ContactMergeDialog from '$lib/components/ContactMergeDialog.svelte';
-	import Icon from '$lib/components/Icon.svelte';
-	import Pagination from '$lib/components/Pagination.svelte';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { Select } from '$lib/components/ui/select/index.js';
-	import { StateMessage } from '$lib/components/ui/state-message/index.js';
-	import { avatarColorClass } from '$lib/components/ui/avatar/index.js';
-	import { nativeControlClass } from '$lib/components/ui/native-control/index.js';
-	import { createRovingGrid } from '$lib/components/grid/rovingGrid.svelte.js';
-	import { createBulkAnnouncer } from '$lib/components/grid/bulkAnnouncer.js';
-	import { isRowBackgroundClick } from '$lib/components/grid/rowActivation.js';
-	import type { ContactResponse, PagedResponse } from '$lib/types.js';
-	import type { ContactSort } from '$lib/api/contacts.js';
-	import { cn } from '$lib/utils.js';
-	import { focusRingInset } from '$lib/components/ui/focus-ring/index.js';
+	import { bulkDeleteContacts, deleteContact } from '#lib/api/contacts.js';
+	import { toErrorMessage } from '#lib/api/errors.js';
+	import { _ } from '#lib/i18n/index.js';
+	import { confirmAction } from '#lib/stores/confirmDialog.js';
+	import { contactCounts } from '#lib/stores/contactCounts.js';
+	import { announcePolite, pushToast } from '#lib/stores/toasts.js';
+	import ContactLabelAssignDialog from '#lib/components/ContactLabelAssignDialog.svelte';
+	import ContactMergeDialog from '#lib/components/ContactMergeDialog.svelte';
+	import Icon from '#lib/components/Icon.svelte';
+	import Pagination from '#lib/components/Pagination.svelte';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Select } from '#lib/components/ui/select/index.js';
+	import { StateMessage } from '#lib/components/ui/state-message/index.js';
+	import { avatarColorClass } from '#lib/components/ui/avatar/index.js';
+	import { nativeControlClass } from '#lib/components/ui/native-control/index.js';
+	import { createRovingGrid } from '#lib/components/grid/rovingGrid.svelte.js';
+	import { createBulkAnnouncer } from '#lib/components/grid/bulkAnnouncer.js';
+	import { isRowBackgroundClick } from '#lib/components/grid/rowActivation.js';
+	import type { ContactResponse, PagedResponse } from '#lib/types.js';
+	import type { ContactSort } from '#lib/api/contacts.js';
+	import { cn } from '#lib/utils.js';
+	import { focusRingInset } from '#lib/components/ui/focus-ring/index.js';
 	import { tick } from 'svelte';
 
 	interface Props {
@@ -288,7 +288,7 @@
 	function handleCompose(c: ContactResponse): void {
 		const email = primaryEmail(c);
 		if (!email) return;
-		void goto(`${resolve('/compose')}?to=${encodeURIComponent(email)}`);
+		void goto(`${resolve('compose')}?to=${encodeURIComponent(email)}`);
 	}
 
 	function toggleSelected(id: number, checked: boolean) {
@@ -458,12 +458,14 @@
 		</label>
 
 		{#if selectedVisibleIds.length > 0}
-			<span class="text-muted-foreground" role="status">
-				{$_('contacts.selectedCount', { values: { count: selectedVisibleIds.length } })}
-			</span>
-			<Button type="button" onclick={clearSelection} variant="ghost" size="xs" disabled={bulkBusy}>
-				{$_('contacts.clearSelection')}
-			</Button>
+			<span class="text-muted-foreground" role="status"
+				>{$_('contacts.selectedCount', { values: { count: selectedVisibleIds.length } })}</span
+			>
+
+			<Button type="button" onclick={clearSelection} variant="ghost" size="xs" disabled={bulkBusy}
+				>{$_('contacts.clearSelection')}</Button
+			>
+
 			<Button
 				type="button"
 				onclick={openLabelDialog}

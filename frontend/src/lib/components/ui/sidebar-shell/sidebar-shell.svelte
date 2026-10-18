@@ -1,6 +1,6 @@
 <script lang="ts" module>
-	import { WORKSPACE_PANE_ID } from '$lib/stores/workspacePane.js';
-	import { cn } from '$lib/utils.js';
+	import { WORKSPACE_PANE_ID } from '#lib/stores/workspacePane.js';
+	import { cn } from '#lib/utils.js';
 	import { SIDEBAR_PANE_FRAME } from './frame.js';
 	import type { Snippet } from 'svelte';
 	import type { HTMLAttributes } from 'svelte/elements';

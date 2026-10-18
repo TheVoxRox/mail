@@ -1,7 +1,7 @@
-import { LOCALE_LABELS, SUPPORTED_LOCALES, type AppLocale } from '$lib/i18n/index.js';
-import { cycleTheme, setReadingPaneMode, switchLanguage } from '$lib/actions/view.js';
-import type { ThemePreference } from '$lib/stores/theme.js';
-import { localeKeywords, type Command } from '$lib/commands/shared.js';
+import { LOCALE_LABELS, SUPPORTED_LOCALES, type AppLocale } from '#lib/i18n/index.js';
+import { cycleTheme, setReadingPaneMode, switchLanguage } from '#lib/actions/view.js';
+import type { ThemePreference } from '#lib/stores/theme.js';
+import { localeKeywords, type Command } from '#lib/commands/shared.js';
 
 const languageCommands: Command[] = SUPPORTED_LOCALES.map((targetLocale) => ({
 	id: `view.locale.${targetLocale}`,

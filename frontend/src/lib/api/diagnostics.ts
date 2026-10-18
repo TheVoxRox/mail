@@ -2,7 +2,7 @@
 
 import { ApiError } from './client.js';
 import { httpFetch } from './http.js';
-import { invalidateSession, requireSession } from '$lib/stores/session.js';
+import { invalidateSession, requireSession } from '#lib/stores/session.js';
 
 interface DiagnosticDumpResult {
 	blob: Blob;

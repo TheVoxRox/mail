@@ -4,9 +4,9 @@
  * only because of a single import path from the command palette; logically
  * they are not mail actions.
  */
-import { setReadingPane, type ReadingPane } from '$lib/stores/uiLayout.js';
-import { setLocale, type AppLocale } from '$lib/i18n/index.js';
-import { setThemePreference, type ThemePreference } from '$lib/stores/theme.js';
+import { setReadingPane, type ReadingPane } from '#lib/stores/uiLayout.js';
+import { setLocale, type AppLocale } from '#lib/i18n/index.js';
+import { setThemePreference, type ThemePreference } from '#lib/stores/theme.js';
 
 function nextThemePreference(current: ThemePreference): ThemePreference {
 	switch (current) {

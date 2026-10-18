@@ -11,7 +11,7 @@ import type {
 	ContactLabelCreateRequest,
 	ContactLabelResponse,
 	ContactLabelUpdateRequest
-} from '$lib/types.js';
+} from '#lib/types.js';
 
 export function listContactLabels(): Promise<ContactLabelResponse[]> {
 	return api.get<ContactLabelResponse[]>(`/contact-labels`);

@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('$lib/api/mailAction.js', () => ({
+vi.mock('#lib/api/mailAction.js', () => ({
 	setMessageFlag: vi.fn().mockResolvedValue(undefined)
 }));
 
-vi.mock('$lib/stores/messages.js', () => ({
+vi.mock('#lib/stores/messages.js', () => ({
 	markSeenLocally: vi.fn()
 }));
 
-vi.mock('$lib/stores/selectedMessage.js', () => ({
+vi.mock('#lib/stores/selectedMessage.js', () => ({
 	invalidateMessage: vi.fn(),
 	patchSelectedMessageDetail: vi.fn()
 }));
@@ -20,13 +20,13 @@ import {
 	shouldMarkSelectedMessageSeen,
 	type MessageSeenTracker
 } from './message-seen.js';
-import { setMessageFlag } from '$lib/api/mailAction.js';
-import { markSeenLocally } from '$lib/stores/messages.js';
+import { setMessageFlag } from '#lib/api/mailAction.js';
+import { markSeenLocally } from '#lib/stores/messages.js';
 import {
 	invalidateMessage,
 	patchSelectedMessageDetail,
 	type SelectedMessage
-} from '$lib/stores/selectedMessage.js';
+} from '#lib/stores/selectedMessage.js';
 
 const idleTracker: MessageSeenTracker = {
 	selectedStableId: null,

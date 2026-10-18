@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { _ } from '$lib/i18n/index.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import AutosaveStatus from '$lib/components/compose/AutosaveStatus.svelte';
+	import { _ } from '#lib/i18n/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import AutosaveStatus from '#lib/components/compose/AutosaveStatus.svelte';
 
 	type BusyAction = 'send' | 'save' | null;
 

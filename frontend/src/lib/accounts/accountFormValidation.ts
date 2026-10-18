@@ -1,14 +1,14 @@
 /**
  * Pure account-form validation — extracted from `AccountForm.svelte`. Returns
  * i18n keys, not translated text, so the logic is not tied to the Svelte
- * store from `$lib/i18n` and can be unit-tested.
+ * store from `#lib/i18n/index.js` and can be unit-tested.
  *
  * Every field the user can get wrong is checked here, before anything goes to
  * the backend. The backend checks the same fields, but its answer is one line
  * naming them by their Java names ("Chyba ve vstupech: accountName: …"), with
  * no field marked invalid and focus left on the button (WCAG 3.3.1).
  */
-import { isValidEmailAddress } from '$lib/compose/addresses.js';
+import { isValidEmailAddress } from '#lib/compose/addresses.js';
 
 export type CustomFieldKey = 'imapHost' | 'imapPort' | 'smtpHost' | 'smtpPort';
 

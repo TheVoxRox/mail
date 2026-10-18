@@ -23,7 +23,7 @@ const { browserMock, isTauriMock, invokeMock, listenMock, foldersStore } = vi.ho
 	};
 });
 
-vi.mock('$app/environment', () => ({
+vi.mock('$app/env', () => ({
 	get browser() {
 		return browserMock.value;
 	},
@@ -33,7 +33,7 @@ vi.mock('$app/environment', () => ({
 }));
 vi.mock('@tauri-apps/api/core', () => ({ isTauri: isTauriMock, invoke: invokeMock }));
 vi.mock('@tauri-apps/api/event', () => ({ listen: listenMock }));
-vi.mock('$lib/stores/folders.js', () => ({ folders: foldersStore }));
+vi.mock('#lib/stores/folders.js', () => ({ folders: foldersStore }));
 
 type TrayModule = typeof import('./tray.js');
 
@@ -98,7 +98,7 @@ describe('startTray', () => {
 
 	it('pushes the close preference to Rust as a boolean', async () => {
 		const tray = await freshModule();
-		const { setCloseAction } = await import('$lib/stores/uiLayout.js');
+		const { setCloseAction } = await import('#lib/stores/uiLayout.js');
 
 		tray.startTray();
 		expect(calls('set_close_behavior')).toEqual([{ hideToTray: false }]);

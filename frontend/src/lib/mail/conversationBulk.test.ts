@@ -5,30 +5,30 @@ import { readable } from 'svelte/store';
 // test isolates the orchestration (esp. the trash permanent-delete confirmation
 // gate — the one data-destructive branch e2e cannot cover without reshaping the
 // shared trash fixtures).
-vi.mock('$lib/api/mailAction.js', () => ({
+vi.mock('#lib/api/mailAction.js', () => ({
 	deleteMessage: vi.fn(() => Promise.resolve()),
 	moveMessage: vi.fn(() => Promise.resolve()),
 	setMessageFlag: vi.fn(() => Promise.resolve())
 }));
-vi.mock('$lib/stores/confirmDialog.js', () => ({ confirmAction: vi.fn() }));
-vi.mock('$lib/stores/conversations.js', () => ({
+vi.mock('#lib/stores/confirmDialog.js', () => ({ confirmAction: vi.fn() }));
+vi.mock('#lib/stores/conversations.js', () => ({
 	reloadCurrentConversationsPage: vi.fn(() => Promise.resolve())
 }));
-vi.mock('$lib/stores/folders.js', () => ({ adjustFolderUnread: vi.fn(), folders: readable([]) }));
-vi.mock('$lib/stores/selectedMessage.js', () => ({
+vi.mock('#lib/stores/folders.js', () => ({ adjustFolderUnread: vi.fn(), folders: readable([]) }));
+vi.mock('#lib/stores/selectedMessage.js', () => ({
 	selectedMessage: readable(null),
 	invalidateMessage: vi.fn()
 }));
-vi.mock('$lib/mail/detailHost.js', () => ({ closeOpenDetail: vi.fn(() => Promise.resolve(true)) }));
-vi.mock('$lib/mail/folderLabel.js', () => ({ folderLabel: () => 'Folder' }));
+vi.mock('#lib/mail/detailHost.js', () => ({ closeOpenDetail: vi.fn(() => Promise.resolve(true)) }));
+vi.mock('#lib/mail/folderLabel.js', () => ({ folderLabel: () => 'Folder' }));
 // The key, plus the values when there are any — what a toast names is part of
 // what these tests assert.
-vi.mock('$lib/i18n/index.js', () => ({
+vi.mock('#lib/i18n/index.js', () => ({
 	_: readable((key: string, options?: { values?: Record<string, unknown> }) =>
 		options?.values ? `${key} ${JSON.stringify(options.values)}` : key
 	)
 }));
-vi.mock('$lib/stores/toasts.js', () => ({ pushToast: vi.fn(), announcePolite: vi.fn() }));
+vi.mock('#lib/stores/toasts.js', () => ({ pushToast: vi.fn(), announcePolite: vi.fn() }));
 
 import {
 	deleteConversationMembers,
@@ -36,11 +36,11 @@ import {
 	moveConversationMembers,
 	type ConversationBulkContext
 } from './conversationBulk.js';
-import { deleteMessage, moveMessage, setMessageFlag } from '$lib/api/mailAction.js';
-import { confirmAction } from '$lib/stores/confirmDialog.js';
-import { reloadCurrentConversationsPage } from '$lib/stores/conversations.js';
-import { invalidateMessage } from '$lib/stores/selectedMessage.js';
-import { announcePolite, pushToast } from '$lib/stores/toasts.js';
+import { deleteMessage, moveMessage, setMessageFlag } from '#lib/api/mailAction.js';
+import { confirmAction } from '#lib/stores/confirmDialog.js';
+import { reloadCurrentConversationsPage } from '#lib/stores/conversations.js';
+import { invalidateMessage } from '#lib/stores/selectedMessage.js';
+import { announcePolite, pushToast } from '#lib/stores/toasts.js';
 
 function ctx(folderRole?: string): ConversationBulkContext {
 	return { accountId: 1, folderName: 'X', folderRole, unreadMemberIds: [] };

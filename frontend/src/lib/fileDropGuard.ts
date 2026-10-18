@@ -1,4 +1,4 @@
-import { dragHasFiles, dragHasUrl, isTextEntryTarget } from '$lib/dragPayload.js';
+import { dragHasFiles, dragHasUrl, isTextEntryTarget } from '#lib/dragPayload.js';
 
 /**
  * Keeps a drop outside any drop zone from replacing the app.

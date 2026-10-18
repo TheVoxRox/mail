@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getContext, tick } from 'svelte';
-	import { _ } from '$lib/i18n/index.js';
+	import { _ } from '#lib/i18n/index.js';
 	import {
 		buildMailFrameSrcdoc,
 		countRemoteImages,
@@ -12,18 +12,18 @@
 		isMailFrameLinkMessage,
 		isOpenableMailLink,
 		mailFrameKeyToEvent
-	} from '$lib/mail/mailFrame.js';
-	import { bodyFocusIntent, clearBodyFocusIntent, shouldFocusBody } from '$lib/mail/bodyFocus.js';
-	import { mailHtmlToPlainText } from '$lib/mail/content-sanitizer.js';
-	import { allowSenderRemoteImages } from '$lib/api/remoteImages.js';
-	import { pushToast } from '$lib/stores/toasts.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { messageBodyView } from '$lib/stores/uiLayout.js';
-	import { textSize } from '$lib/stores/textSize.js';
+	} from '#lib/mail/mailFrame.js';
+	import { bodyFocusIntent, clearBodyFocusIntent, shouldFocusBody } from '#lib/mail/bodyFocus.js';
+	import { mailHtmlToPlainText } from '#lib/mail/content-sanitizer.js';
+	import { allowSenderRemoteImages } from '#lib/api/remoteImages.js';
+	import { pushToast } from '#lib/stores/toasts.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { messageBodyView } from '#lib/stores/uiLayout.js';
+	import { textSize } from '#lib/stores/textSize.js';
 	import {
 		MESSAGE_HEADING_CONTEXT_KEY,
 		type MessageHeadingContext
-	} from '$lib/components/message-detail/messageHeadingContext.js';
+	} from '#lib/components/message-detail/messageHeadingContext.js';
 
 	type Props = {
 		content: string;

@@ -26,9 +26,9 @@
  */
 import { redirect } from '@sveltejs/kit';
 import { get } from 'svelte/store';
-import { accountsState, resolvedActiveAccountId, setActiveAccount } from '$lib/stores/accounts.js';
-import { folders } from '$lib/stores/folders.js';
-import { folderHref, pickEntryFolder } from '$lib/mail/entryFolder.js';
+import { accountsState, resolvedActiveAccountId, setActiveAccount } from '#lib/stores/accounts.js';
+import { folders } from '#lib/stores/folders.js';
+import { folderHref, pickEntryFolder } from '#lib/mail/entryFolder.js';
 import type { PageLoad } from './$types.js';
 
 export const load: PageLoad = () => {

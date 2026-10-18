@@ -13,7 +13,7 @@ import type {
 	ContactEmailRequest as GeneratedContactEmailRequest,
 	FolderResponse as GeneratedFolderResponse,
 	MoveRequest as GeneratedMoveRequest
-} from '$lib/api/generated.js';
+} from '#lib/api/generated.js';
 
 // ─── Common ────────────────────────────────────────────────────────────────
 

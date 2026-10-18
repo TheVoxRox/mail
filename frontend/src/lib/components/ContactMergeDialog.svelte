@@ -1,20 +1,20 @@
 <script lang="ts">
-	import { mergeContacts } from '$lib/api/contacts.js';
-	import { toErrorMessage } from '$lib/api/errors.js';
-	import { _ } from '$lib/i18n/index.js';
-	import { pushToast } from '$lib/stores/toasts.js';
-	import { badgeVariants } from '$lib/components/ui/badge/index.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { DialogDescription, DialogShell, DialogTitle } from '$lib/components/ui/dialog/index.js';
-	import { StateMessage } from '$lib/components/ui/state-message/index.js';
-	import { nativeControlClass } from '$lib/components/ui/native-control/index.js';
-	import { cn } from '$lib/utils.js';
+	import { mergeContacts } from '#lib/api/contacts.js';
+	import { toErrorMessage } from '#lib/api/errors.js';
+	import { _ } from '#lib/i18n/index.js';
+	import { pushToast } from '#lib/stores/toasts.js';
+	import { badgeVariants } from '#lib/components/ui/badge/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { DialogDescription, DialogShell, DialogTitle } from '#lib/components/ui/dialog/index.js';
+	import { StateMessage } from '#lib/components/ui/state-message/index.js';
+	import { nativeControlClass } from '#lib/components/ui/native-control/index.js';
+	import { cn } from '#lib/utils.js';
 	import {
 		MAX_EMAILS_PER_CONTACT,
 		buildMergePreview,
 		exceedsEmailLimit
-	} from '$lib/contacts/mergePreview.js';
-	import type { ContactResponse } from '$lib/types.js';
+	} from '#lib/contacts/mergePreview.js';
+	import type { ContactResponse } from '#lib/types.js';
 
 	interface Props {
 		open: boolean;

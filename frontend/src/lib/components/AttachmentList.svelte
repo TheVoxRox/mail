@@ -1,11 +1,11 @@
 <script lang="ts">
-	import Icon from '$lib/components/Icon.svelte';
-	import { chipVariants } from '$lib/components/ui/chip/index.js';
-	import { focusRing } from '$lib/components/ui/focus-ring/index.js';
-	import { formatSize } from '$lib/formatters.js';
-	import { _, appLocale } from '$lib/i18n/index.js';
-	import { cn } from '$lib/utils.js';
-	import type { AttachmentResponse } from '$lib/types.js';
+	import Icon from '#lib/components/Icon.svelte';
+	import { chipVariants } from '#lib/components/ui/chip/index.js';
+	import { focusRing } from '#lib/components/ui/focus-ring/index.js';
+	import { formatSize } from '#lib/formatters.js';
+	import { _, appLocale } from '#lib/i18n/index.js';
+	import { cn } from '#lib/utils.js';
+	import type { AttachmentResponse } from '#lib/types.js';
 
 	interface Props {
 		attachments: AttachmentResponse[];

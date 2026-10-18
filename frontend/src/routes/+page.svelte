@@ -6,13 +6,13 @@
 		accountsState,
 		resolvedActiveAccountId,
 		setActiveAccount
-	} from '$lib/stores/accounts.js';
-	import { loadFolders } from '$lib/stores/folders.js';
-	import { folderHref, pickEntryFolder } from '$lib/mail/entryFolder.js';
-	import { toErrorMessage } from '$lib/api/errors.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { Surface } from '$lib/components/ui/surface/index.js';
-	import { _ } from '$lib/i18n/index.js';
+	} from '#lib/stores/accounts.js';
+	import { loadFolders } from '#lib/stores/folders.js';
+	import { folderHref, pickEntryFolder } from '#lib/mail/entryFolder.js';
+	import { toErrorMessage } from '#lib/api/errors.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Surface } from '#lib/components/ui/surface/index.js';
+	import { _ } from '#lib/i18n/index.js';
 
 	/*
 	 * The two places Mail can stop for good, which used to share one card: an
@@ -68,7 +68,7 @@
 			return;
 		}
 
-		await goto(folderHref(accountId, entry), { replaceState: true });
+		await goto(folderHref(accountId, entry), { replace: true });
 	}
 
 	$effect(() => {
@@ -123,18 +123,14 @@
 					autofocus
 					aria-describedby="empty-mail-reason"
 					class="mt-4"
-					onclick={() => goto(resolve('/settings/accounts/new'))}
+					onclick={() => goto(resolve('settings/accounts/new'))}>{$_('accounts.addAccount')}</Button
 				>
-					{$_('accounts.addAccount')}
-				</Button>
 			{:else}
 				<Button
 					aria-describedby="empty-mail-reason"
 					class="mt-4"
-					href={resolve('/settings/accounts')}
+					href={resolve('settings/accounts')}>{$_('root.goToAccounts')}</Button
 				>
-					{$_('root.goToAccounts')}
-				</Button>
 			{/if}
 		</div>
 	{:else}

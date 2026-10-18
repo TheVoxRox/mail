@@ -14,16 +14,16 @@
  * store and would miss the confirmation here.
  */
 import { get } from 'svelte/store';
-import { deleteMessage, moveMessage, setMessageFlag } from '$lib/api/mailAction.js';
-import { confirmAction } from '$lib/stores/confirmDialog.js';
-import { reloadCurrentConversationsPage } from '$lib/stores/conversations.js';
-import { adjustFolderUnread, folders as folderList } from '$lib/stores/folders.js';
-import { invalidateMessage, selectedMessage } from '$lib/stores/selectedMessage.js';
-import { closeOpenDetail } from '$lib/mail/detailHost.js';
-import { folderLabel } from '$lib/mail/folderLabel.js';
-import { overruleAutoMarkSeen } from '$lib/mail/message-seen.js';
-import { _ } from '$lib/i18n/index.js';
-import { announcePolite, pushToast } from '$lib/stores/toasts.js';
+import { deleteMessage, moveMessage, setMessageFlag } from '#lib/api/mailAction.js';
+import { confirmAction } from '#lib/stores/confirmDialog.js';
+import { reloadCurrentConversationsPage } from '#lib/stores/conversations.js';
+import { adjustFolderUnread, folders as folderList } from '#lib/stores/folders.js';
+import { invalidateMessage, selectedMessage } from '#lib/stores/selectedMessage.js';
+import { closeOpenDetail } from '#lib/mail/detailHost.js';
+import { folderLabel } from '#lib/mail/folderLabel.js';
+import { overruleAutoMarkSeen } from '#lib/mail/message-seen.js';
+import { _ } from '#lib/i18n/index.js';
+import { announcePolite, pushToast } from '#lib/stores/toasts.js';
 
 export interface ConversationBulkContext {
 	accountId: number;

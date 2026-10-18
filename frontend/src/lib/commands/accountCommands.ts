@@ -1,7 +1,7 @@
-import type { AppLocale } from '$lib/i18n/index.js';
-import { goToAccounts, goToFolder, switchToAccount } from '$lib/mail/actions.js';
-import type { AccountsState } from '$lib/stores/accounts.js';
-import { localeKeywords, type Command } from '$lib/commands/shared.js';
+import type { AppLocale } from '#lib/i18n/index.js';
+import { goToAccounts, goToFolder, switchToAccount } from '#lib/mail/actions.js';
+import type { AccountsState } from '#lib/stores/accounts.js';
+import { localeKeywords, type Command } from '#lib/commands/shared.js';
 
 type FolderCommandSource = {
 	displayName: string;

@@ -6,9 +6,9 @@ import type {
 	MessageGrouping,
 	ReadingPane,
 	ToastDismissal
-} from '$lib/stores/uiLayout.js';
-import type { TextSize } from '$lib/stores/textSize.js';
-import type { ThemePreference } from '$lib/stores/theme.js';
+} from '#lib/stores/uiLayout.js';
+import type { TextSize } from '#lib/stores/textSize.js';
+import type { ThemePreference } from '#lib/stores/theme.js';
 
 /**
  * The layout renders `<main>` only after i18n has loaded, so waiting for it

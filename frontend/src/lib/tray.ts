@@ -12,18 +12,18 @@
  */
 
 import { invoke } from '@tauri-apps/api/core';
-import { hasNativeShell } from '$lib/nativeShell.js';
+import { hasNativeShell } from '#lib/nativeShell.js';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { derived, get } from 'svelte/store';
-import { _ } from '$lib/i18n/index.js';
-import { folders } from '$lib/stores/folders.js';
-import { closeAction } from '$lib/stores/uiLayout.js';
+import { _ } from '#lib/i18n/index.js';
+import { folders } from '#lib/stores/folders.js';
+import { closeAction } from '#lib/stores/uiLayout.js';
 
 const TRAY_ACTION_EVENT = 'tray://action';
 
 /**
  * Structurally compatible with `MessageFormatter` from svelte-i18n (`$_` /
- * `get(_)`) — same narrowing the other pure helpers in `$lib/mail` use.
+ * `get(_)`) — same narrowing the other pure helpers in `#lib/mail` use.
  */
 type TranslateFn = (id: string, options?: { values?: Record<string, number | string> }) => string;
 
@@ -42,7 +42,7 @@ let lastMenuKey: string | null = null;
 let lastTooltip: string | null = null;
 
 /**
- * Mirrors the guard in `$lib/updates.ts`: the Tauri API is importable in every
+ * Mirrors the guard in `#lib/updates.ts`: the Tauri API is importable in every
  * build, so availability — not the import — is what decides whether an
  * `invoke` happens.
  */
@@ -102,7 +102,7 @@ async function applyLabels(labels: TrayLabels): Promise<void> {
 async function runTrayAction(action: string): Promise<void> {
 	// Imported lazily: these pull in the router and the mail stores, which the
 	// boot path should not have to load just to register a tray listener.
-	const { goToCompose, syncCurrentAccount } = await import('$lib/mail/actions.js');
+	const { goToCompose, syncCurrentAccount } = await import('#lib/mail/actions.js');
 	if (action === 'compose') {
 		await goToCompose();
 	} else if (action === 'sync') {

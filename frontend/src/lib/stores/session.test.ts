@@ -3,7 +3,7 @@ import { get } from 'svelte/store';
 
 const { loadSessionMock } = vi.hoisted(() => ({ loadSessionMock: vi.fn() }));
 
-vi.mock('$lib/api/session.js', () => ({ loadSession: loadSessionMock }));
+vi.mock('#lib/api/session.js', () => ({ loadSession: loadSessionMock }));
 
 import { initSession, invalidateSession, requireSession, sessionState } from './session.js';
 

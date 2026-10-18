@@ -4,7 +4,7 @@
  */
 
 import { api } from './client.js';
-import type { MailRequest, SendAcceptedResponse } from '$lib/types.js';
+import type { MailRequest, SendAcceptedResponse } from '#lib/types.js';
 
 /**
  * With `supersedesDraftId`, the draft the message was edited from is

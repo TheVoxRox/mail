@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createProviderResolver } from './providerResolver.js';
-import type { MailProviderResponse } from '$lib/types.js';
+import type { MailProviderResponse } from '#lib/types.js';
 
 const gmail = {
 	id: 1,

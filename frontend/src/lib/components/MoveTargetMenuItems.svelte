@@ -13,10 +13,10 @@
 	 * this a menu instead of a filterable dialog.
 	 */
 	import { DropdownMenu } from 'bits-ui';
-	import { menuItemVariants } from '$lib/components/ui/menu/index.js';
-	import { folderLabel } from '$lib/mail/folderLabel.js';
-	import { _ } from '$lib/i18n/index.js';
-	import type { FolderResponse } from '$lib/types.js';
+	import { menuItemVariants } from '#lib/components/ui/menu/index.js';
+	import { folderLabel } from '#lib/mail/folderLabel.js';
+	import { _ } from '#lib/i18n/index.js';
+	import type { FolderResponse } from '#lib/types.js';
 
 	interface Props {
 		/** Usually `moveTargetsFor($folders, <current folder>)`. */

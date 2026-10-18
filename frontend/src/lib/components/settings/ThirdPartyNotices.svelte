@@ -2,9 +2,9 @@
 	import { isTauri } from '@tauri-apps/api/core';
 	import { resolveResource } from '@tauri-apps/api/path';
 	import { readTextFile } from '@tauri-apps/plugin-fs';
-	import { _ } from '$lib/i18n/index.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { Surface } from '$lib/components/ui/surface/index.js';
+	import { _ } from '#lib/i18n/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Surface } from '#lib/components/ui/surface/index.js';
 
 	/*
 	 * The aggregated third-party NOTICE.txt (~100 KB, all npm/Maven/Cargo

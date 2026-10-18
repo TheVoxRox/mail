@@ -1,7 +1,7 @@
 import { derived, get, writable, type Readable } from 'svelte/store';
-import { getClientConfig } from '$lib/api/clientConfig.js';
-import { toError } from '$lib/api/errors.js';
-import type { ClientConfigResponse } from '$lib/types.js';
+import { getClientConfig } from '#lib/api/clientConfig.js';
+import { toError } from '#lib/api/errors.js';
+import type { ClientConfigResponse } from '#lib/types.js';
 
 const FALLBACK_CLIENT_CONFIG: ClientConfigResponse = {
 	mailDefaultPageSize: 25,

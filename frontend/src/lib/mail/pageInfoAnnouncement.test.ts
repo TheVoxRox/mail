@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { messagesPageInfo, olderMailOnServerOnly } from './pageInfoAnnouncement.js';
-import type { PagedResponse } from '$lib/types.js';
+import type { PagedResponse } from '#lib/types.js';
 
 const translate = (key: string, options?: { values: Record<string, string | number> }) =>
 	options ? `${key}(${Object.values(options.values).join('|')})` : key;

@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import { toError } from '$lib/api/errors.js';
+import { toError } from '#lib/api/errors.js';
 
 type BootPhase =
 	| 'idle'

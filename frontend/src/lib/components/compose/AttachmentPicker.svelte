@@ -1,16 +1,16 @@
 <script lang="ts">
-	import Icon from '$lib/components/Icon.svelte';
-	import { Button } from '$lib/components/ui/button';
-	import { chipVariants } from '$lib/components/ui/chip/index.js';
-	import { focusRingWithin } from '$lib/components/ui/focus-ring/index.js';
-	import { cn } from '$lib/utils.js';
-	import { formatSize } from '$lib/formatters.js';
-	import { dragHasFiles, filesFromDataTransfer } from '$lib/dragPayload.js';
-	import { clientConfig } from '$lib/stores/clientConfig.js';
-	import { confirmAction } from '$lib/stores/confirmDialog.js';
-	import { _, appLocale } from '$lib/i18n/index.js';
-	import { toErrorMessage } from '$lib/api/errors.js';
-	import type { ComposeAttachment } from '$lib/compose/request.js';
+	import Icon from '#lib/components/Icon.svelte';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { chipVariants } from '#lib/components/ui/chip/index.js';
+	import { focusRingWithin } from '#lib/components/ui/focus-ring/index.js';
+	import { cn } from '#lib/utils.js';
+	import { formatSize } from '#lib/formatters.js';
+	import { dragHasFiles, filesFromDataTransfer } from '#lib/dragPayload.js';
+	import { clientConfig } from '#lib/stores/clientConfig.js';
+	import { confirmAction } from '#lib/stores/confirmDialog.js';
+	import { _, appLocale } from '#lib/i18n/index.js';
+	import { toErrorMessage } from '#lib/api/errors.js';
+	import type { ComposeAttachment } from '#lib/compose/request.js';
 	import { onDestroy, onMount } from 'svelte';
 
 	interface Props {

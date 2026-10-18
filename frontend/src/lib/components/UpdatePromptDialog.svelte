@@ -1,15 +1,15 @@
 <script lang="ts">
-	import { _ } from '$lib/i18n/index.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { DialogDescription, DialogShell, DialogTitle } from '$lib/components/ui/dialog/index.js';
-	import { announcePolite } from '$lib/stores/toasts.js';
+	import { _ } from '#lib/i18n/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { DialogDescription, DialogShell, DialogTitle } from '#lib/components/ui/dialog/index.js';
+	import { announcePolite } from '#lib/stores/toasts.js';
 	import {
 		installPromptedUpdate,
 		postponePromptedUpdate,
 		skipPromptedUpdateVersion,
 		updatePromptState,
 		type UpdateInstallPhase
-	} from '$lib/updates.js';
+	} from '#lib/updates.js';
 
 	/**
 	 * Percentage steps that get announced. The bar itself moves in whole

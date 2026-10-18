@@ -1,24 +1,24 @@
 <script lang="ts">
-	import { goto, invalidateAll } from '$app/navigation';
+	import { goto, refreshAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
-	import { exportVCard } from '$lib/api/contacts.js';
-	import { toErrorMessage } from '$lib/api/errors.js';
-	import { importVCardFiles } from '$lib/contacts/importVCards.js';
-	import { saveBlobAsFile } from '$lib/download.js';
-	import { activeAccount, accountsState } from '$lib/stores/accounts.js';
-	import { contactCounts } from '$lib/stores/contactCounts.js';
-	import { pushToast } from '$lib/stores/toasts.js';
-	import AccountSwitcher from '$lib/components/AccountSwitcher.svelte';
-	import ContactLabelsDialog from '$lib/components/ContactLabelsDialog.svelte';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { Input } from '$lib/components/ui/input/index.js';
-	import { SidebarNavItem, sidebarNavBadge } from '$lib/components/ui/sidebar-nav-item/index.js';
-	import { SidebarSection } from '$lib/components/ui/sidebar-section/index.js';
-	import { SidebarShell } from '$lib/components/ui/sidebar-shell/index.js';
-	import Icon from '$lib/components/Icon.svelte';
-	import { _ } from '$lib/i18n/index.js';
+	import { exportVCard } from '#lib/api/contacts.js';
+	import { toErrorMessage } from '#lib/api/errors.js';
+	import { importVCardFiles } from '#lib/contacts/importVCards.js';
+	import { saveBlobAsFile } from '#lib/download.js';
+	import { activeAccount, accountsState } from '#lib/stores/accounts.js';
+	import { contactCounts } from '#lib/stores/contactCounts.js';
+	import { pushToast } from '#lib/stores/toasts.js';
+	import AccountSwitcher from '#lib/components/AccountSwitcher.svelte';
+	import ContactLabelsDialog from '#lib/components/ContactLabelsDialog.svelte';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { SidebarNavItem, sidebarNavBadge } from '#lib/components/ui/sidebar-nav-item/index.js';
+	import { SidebarSection } from '#lib/components/ui/sidebar-section/index.js';
+	import { SidebarShell } from '#lib/components/ui/sidebar-shell/index.js';
+	import Icon from '#lib/components/Icon.svelte';
+	import { _ } from '#lib/i18n/index.js';
 
 	let query = $derived(page.url.searchParams.get('q') ?? '');
 	let exporting = $state(false);
@@ -31,7 +31,7 @@
 		if (options?.create) params.set('create', '1');
 
 		const queryString = params.toString();
-		return `${resolve('/contacts')}${queryString ? `?${queryString}` : ''}`;
+		return `${resolve('contacts')}${queryString ? `?${queryString}` : ''}`;
 	}
 
 	function handleSearch(event: SubmitEvent) {
@@ -56,7 +56,7 @@
 		const params = new SvelteURLSearchParams();
 		if (labelId != null) params.set('labelId', String(labelId));
 		const queryString = params.toString();
-		return `${resolve('/contacts')}${queryString ? `?${queryString}` : ''}`;
+		return `${resolve('contacts')}${queryString ? `?${queryString}` : ''}`;
 	}
 
 	// The counts endpoint is the single source for the sidebar: it lists every
@@ -96,7 +96,7 @@
 			const imported = await importVCardFiles(files, $_);
 			// The page's list load is driven by its `data` prop — re-running the
 			// route load produces a fresh object and re-triggers the list effect.
-			if (imported) await invalidateAll();
+			if (imported) await refreshAll();
 		} finally {
 			importing = false;
 		}
@@ -283,5 +283,5 @@
 <ContactLabelsDialog
 	open={labelsDialogOpen}
 	onOpenChange={(next) => (labelsDialogOpen = next)}
-	onChanged={() => invalidateAll()}
+	onChanged={() => refreshAll()}
 />

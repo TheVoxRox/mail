@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { _ } from '$lib/i18n/index.js';
-	import { Field } from '$lib/components/ui/field/index.js';
-	import { Select } from '$lib/components/ui/select/index.js';
-	import { Surface } from '$lib/components/ui/surface/index.js';
-	import { themePreference, setThemePreference, type ThemePreference } from '$lib/stores/theme.js';
-	import { textSize, setTextSize, type TextSize } from '$lib/stores/textSize.js';
-	import { currentListSize, LIST_SIZES, setListSize, type ListSize } from '$lib/stores/listSize.js';
+	import { _ } from '#lib/i18n/index.js';
+	import { Field } from '#lib/components/ui/field/index.js';
+	import { Select } from '#lib/components/ui/select/index.js';
+	import { Surface } from '#lib/components/ui/surface/index.js';
+	import { themePreference, setThemePreference, type ThemePreference } from '#lib/stores/theme.js';
+	import { textSize, setTextSize, type TextSize } from '#lib/stores/textSize.js';
+	import { currentListSize, LIST_SIZES, setListSize, type ListSize } from '#lib/stores/listSize.js';
 	import {
 		closeAction,
 		messageBodyView,
@@ -22,7 +22,7 @@
 		type ReadingPane,
 		toastDismissal,
 		type ToastDismissal
-	} from '$lib/stores/uiLayout.js';
+	} from '#lib/stores/uiLayout.js';
 
 	const THEME_OPTIONS: ReadonlyArray<ThemePreference> = ['system', 'light', 'dark'];
 	const TEXT_SIZE_OPTIONS: ReadonlyArray<TextSize> = ['small', 'medium', 'large'];

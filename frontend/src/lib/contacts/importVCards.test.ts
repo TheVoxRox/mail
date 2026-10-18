@@ -10,19 +10,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
  * tests pin is the orchestration, not the parser (which has its own suite) or
  * the HTTP layer.
  */
-vi.mock('$lib/api/contacts.js', () => ({ bulkCreateContacts: vi.fn() }));
-vi.mock('$lib/api/contactLabels.js', () => ({
+vi.mock('#lib/api/contacts.js', () => ({ bulkCreateContacts: vi.fn() }));
+vi.mock('#lib/api/contactLabels.js', () => ({
 	listContactLabels: vi.fn(() => Promise.resolve([])),
 	createContactLabel: vi.fn()
 }));
-vi.mock('$lib/api/errors.js', () => ({ toErrorMessage: (err: unknown) => String(err) }));
-vi.mock('$lib/stores/contactCounts.js', () => ({
+vi.mock('#lib/api/errors.js', () => ({ toErrorMessage: (err: unknown) => String(err) }));
+vi.mock('#lib/stores/contactCounts.js', () => ({
 	refreshContactCounts: vi.fn(() => Promise.resolve())
 }));
-vi.mock('$lib/stores/toasts.js', () => ({ pushToast: vi.fn() }));
+vi.mock('#lib/stores/toasts.js', () => ({ pushToast: vi.fn() }));
 
-import { bulkCreateContacts } from '$lib/api/contacts.js';
-import { pushToast } from '$lib/stores/toasts.js';
+import { bulkCreateContacts } from '#lib/api/contacts.js';
+import { pushToast } from '#lib/stores/toasts.js';
 import { importVCardFiles } from './importVCards.js';
 
 /** Mirrors svelte-i18n's `$_`, and records what the outcome message was told. */

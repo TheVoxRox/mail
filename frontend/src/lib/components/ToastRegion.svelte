@@ -6,10 +6,10 @@
 		pauseToastCountdowns,
 		resumeToastCountdowns,
 		type ToastTone
-	} from '$lib/stores/toasts.js';
-	import { _ } from '$lib/i18n/index.js';
-	import { focusRing } from '$lib/components/ui/focus-ring/index.js';
-	import { cn } from '$lib/utils.js';
+	} from '#lib/stores/toasts.js';
+	import { _ } from '#lib/i18n/index.js';
+	import { focusRing } from '#lib/components/ui/focus-ring/index.js';
+	import { cn } from '#lib/utils.js';
 
 	const toneClass: Record<ToastTone, string> = {
 		info: 'border-border bg-popover text-popover-foreground',

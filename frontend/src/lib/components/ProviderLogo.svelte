@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	import type { ProviderPreset } from '$lib/accounts/providerPresets.js';
+	import type { ProviderPreset } from '#lib/accounts/providerPresets.js';
 
 	export type ProviderLogoKey = ProviderPreset['key'];
 
@@ -19,7 +19,7 @@
 </script>
 
 <script lang="ts">
-	import { cn } from '$lib/utils.js';
+	import { cn } from '#lib/utils.js';
 
 	interface Props {
 		keyName?: ProviderLogoKey | null;

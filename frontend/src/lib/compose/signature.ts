@@ -19,7 +19,7 @@ export type ComposeKind = 'reply' | 'forward' | 'draft' | 'mailto' | 'new';
  * {@link loadComposePrefill} (`reply` > `forward` > `to` > `draft`) so the kind
  * always matches the prefill that was actually loaded.
  */
-export function composeKind(params: URLSearchParams): ComposeKind {
+export function composeKind(params: Pick<URLSearchParams, 'has'>): ComposeKind {
 	if (params.has('reply')) return 'reply';
 	if (params.has('forward')) return 'forward';
 	if (params.has('to')) return 'mailto';

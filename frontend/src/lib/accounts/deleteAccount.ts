@@ -11,11 +11,11 @@
  * for the wording — or the tone — to drift apart.
  */
 import { get } from 'svelte/store';
-import { deleteAccount } from '$lib/api/accounts.js';
-import { _ } from '$lib/i18n/index.js';
-import { loadAccounts } from '$lib/stores/accounts.js';
-import { confirmAction } from '$lib/stores/confirmDialog.js';
-import { pushToast } from '$lib/stores/toasts.js';
+import { deleteAccount } from '#lib/api/accounts.js';
+import { _ } from '#lib/i18n/index.js';
+import { loadAccounts } from '#lib/stores/accounts.js';
+import { confirmAction } from '#lib/stores/confirmDialog.js';
+import { pushToast } from '#lib/stores/toasts.js';
 
 /**
  * Asks first, then deletes and refreshes the account list.

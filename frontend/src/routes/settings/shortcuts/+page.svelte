@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { PageShell } from '$lib/components/ui/page-shell/index.js';
-	import { Surface } from '$lib/components/ui/surface/index.js';
-	import { _ } from '$lib/i18n/index.js';
-	import { SHORTCUT_LABELS } from '$lib/shortcuts/shortcutLabels.js';
+	import { PageShell } from '#lib/components/ui/page-shell/index.js';
+	import { Surface } from '#lib/components/ui/surface/index.js';
+	import { _ } from '#lib/i18n/index.js';
+	import { SHORTCUT_LABELS } from '#lib/shortcuts/shortcutLabels.js';
 
 	type Shortcut = {
 		/** Literal key name rendered as-is (Ctrl+1, Delete, …). */

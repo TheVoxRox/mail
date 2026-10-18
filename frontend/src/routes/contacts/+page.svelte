@@ -8,28 +8,28 @@
 		listContacts,
 		updateContact,
 		type ContactSort
-	} from '$lib/api/contacts.js';
-	import { listContactLabels } from '$lib/api/contactLabels.js';
-	import { reportClientError } from '$lib/api/clientErrors.js';
-	import { toError } from '$lib/api/errors.js';
+	} from '#lib/api/contacts.js';
+	import { listContactLabels } from '#lib/api/contactLabels.js';
+	import { reportClientError } from '#lib/api/clientErrors.js';
+	import { toError } from '#lib/api/errors.js';
 	import {
 		contactCounts,
 		ensureContactCounts,
 		refreshContactCounts
-	} from '$lib/stores/contactCounts.js';
-	import { contactSortPreference } from '$lib/stores/contactSort.js';
-	import { getClientConfigSnapshot } from '$lib/stores/clientConfig.js';
-	import { _ } from '$lib/i18n/index.js';
-	import { announcePolite, pushToast } from '$lib/stores/toasts.js';
-	import ContactList from '$lib/components/ContactList.svelte';
-	import ContactForm from '$lib/components/ContactForm.svelte';
-	import { importVCardFiles } from '$lib/contacts/importVCards.js';
-	import { dragHasFiles } from '$lib/dragPayload.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { PageShell } from '$lib/components/ui/page-shell/index.js';
-	import { StateMessage } from '$lib/components/ui/state-message/index.js';
-	import { Surface } from '$lib/components/ui/surface/index.js';
-	import type { ContactCreateRequest, ContactResponse, PagedResponse } from '$lib/types.js';
+	} from '#lib/stores/contactCounts.js';
+	import { contactSortPreference } from '#lib/stores/contactSort.js';
+	import { getClientConfigSnapshot } from '#lib/stores/clientConfig.js';
+	import { _ } from '#lib/i18n/index.js';
+	import { announcePolite, pushToast } from '#lib/stores/toasts.js';
+	import ContactList from '#lib/components/ContactList.svelte';
+	import ContactForm from '#lib/components/ContactForm.svelte';
+	import { importVCardFiles } from '#lib/contacts/importVCards.js';
+	import { dragHasFiles } from '#lib/dragPayload.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { PageShell } from '#lib/components/ui/page-shell/index.js';
+	import { StateMessage } from '#lib/components/ui/state-message/index.js';
+	import { Surface } from '#lib/components/ui/surface/index.js';
+	import type { ContactCreateRequest, ContactResponse, PagedResponse } from '#lib/types.js';
 
 	let { data } = $props();
 
@@ -74,6 +74,7 @@
 			? null
 			: ($contactCounts?.labels.find((item) => item.id === data.labelId)?.name ?? null)
 	);
+
 	const activeLabelName = $derived(
 		data.labelId == null
 			? null
@@ -229,14 +230,14 @@
 		if (labelId != null) params.set('labelId', String(labelId));
 
 		const queryString = params.toString();
-		return `${resolve('/contacts')}${queryString ? `?${queryString}` : ''}`;
+		return `${resolve('contacts')}${queryString ? `?${queryString}` : ''}`;
 	}
 
 	function handleFilterApply(filters: { sort: ContactSort | null; labelId: number | null }) {
 		// Remember the sort as a view preference so sidebar view links (clean
 		// URLs) do not reset it; null means the 'surname' default.
 		contactSortPreference.set(filters.sort ?? 'surname');
-		void goto(contactsHref(filters), { keepFocus: true, noScroll: true });
+		void goto(contactsHref(filters), { reset: false });
 	}
 
 	/*

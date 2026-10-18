@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { presetForProvider } from './providerPresets.js';
-import type { MailProviderResponse } from '$lib/types.js';
+import type { MailProviderResponse } from '#lib/types.js';
 
 function provider(overrides: Partial<MailProviderResponse>): MailProviderResponse {
 	return {

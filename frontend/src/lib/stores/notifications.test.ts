@@ -1,8 +1,8 @@
 import { get } from 'svelte/store';
 import { addMessages, init } from 'svelte-i18n';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import csMessages from '$lib/i18n/messages/cs.json';
-import { listAccounts } from '$lib/api/accounts.js';
+import csMessages from '#lib/i18n/messages/cs.json';
+import { listAccounts } from '#lib/api/accounts.js';
 import { handleStreamNotification, lastSync, registerPendingSend } from './notifications.js';
 import { accountsState } from './accounts.js';
 import { failingSyncAccounts, resetSyncHealth } from './syncHealth.js';
@@ -13,9 +13,9 @@ import type {
 	SendNotification,
 	SyncStatusNotification,
 	ThreadUpdated
-} from '$lib/types.js';
+} from '#lib/types.js';
 
-vi.mock('$lib/api/accounts.js', () => ({ listAccounts: vi.fn() }));
+vi.mock('#lib/api/accounts.js', () => ({ listAccounts: vi.fn() }));
 
 beforeAll(() => {
 	addMessages('cs', csMessages);

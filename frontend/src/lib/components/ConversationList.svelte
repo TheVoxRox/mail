@@ -1,34 +1,34 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { conversationsState, loadConversationsPage } from '$lib/stores/conversations.js';
-	import { folders } from '$lib/stores/folders.js';
-	import { _, appLocale } from '$lib/i18n/index.js';
-	import { toErrorMessage } from '$lib/api/errors.js';
-	import { getThread } from '$lib/api/mailRead.js';
-	import Pagination from '$lib/components/Pagination.svelte';
+	import { conversationsState, loadConversationsPage } from '#lib/stores/conversations.js';
+	import { folders } from '#lib/stores/folders.js';
+	import { _, appLocale } from '#lib/i18n/index.js';
+	import { toErrorMessage } from '#lib/api/errors.js';
+	import { getThread } from '#lib/api/mailRead.js';
+	import Pagination from '#lib/components/Pagination.svelte';
 	import MailBulkToolbar, {
 		type BulkAction
-	} from '$lib/components/mail-list/MailBulkToolbar.svelte';
-	import MailListState from '$lib/components/mail-list/MailListState.svelte';
-	import { createRovingGrid } from '$lib/components/grid/rovingGrid.svelte.js';
-	import { createBulkAnnouncer } from '$lib/components/grid/bulkAnnouncer.js';
+	} from '#lib/components/mail-list/MailBulkToolbar.svelte';
+	import MailListState from '#lib/components/mail-list/MailListState.svelte';
+	import { createRovingGrid } from '#lib/components/grid/rovingGrid.svelte.js';
+	import { createBulkAnnouncer } from '#lib/components/grid/bulkAnnouncer.js';
 	import {
 		createLatestSelection,
 		isRowBackgroundClick
-	} from '$lib/components/grid/rowActivation.js';
+	} from '#lib/components/grid/rowActivation.js';
 
-	import { cn } from '$lib/utils.js';
-	import { formatMessageListDate, formatThreadMemberDate } from '$lib/formatters.js';
-	import { folderLabelByRef } from '$lib/mail/folderLabel.js';
-	import { moveTargetsFor } from '$lib/mail/moveTargets.js';
-	import { messageStatusLabel } from '$lib/mail/messageStatus.js';
-	import { messagesPageInfo } from '$lib/mail/pageInfoAnnouncement.js';
-	import { requestBodyFocus, suppressBodyFocus } from '$lib/mail/bodyFocus.js';
+	import { cn } from '#lib/utils.js';
+	import { formatMessageListDate, formatThreadMemberDate } from '#lib/formatters.js';
+	import { folderLabelByRef } from '#lib/mail/folderLabel.js';
+	import { moveTargetsFor } from '#lib/mail/moveTargets.js';
+	import { messageStatusLabel } from '#lib/mail/messageStatus.js';
+	import { messagesPageInfo } from '#lib/mail/pageInfoAnnouncement.js';
+	import { requestBodyFocus, suppressBodyFocus } from '#lib/mail/bodyFocus.js';
 	import {
 		EFFECTIVE_READING_PANE_CONTEXT_KEY,
 		type EffectiveReadingPaneContext
-	} from '$lib/mail/readingPaneContext.js';
+	} from '#lib/mail/readingPaneContext.js';
 	import {
 		announceBulkActionsAvailable,
 		deleteConversationMembers,
@@ -36,34 +36,34 @@
 		markConversationMembersSeen,
 		moveConversationMembers,
 		type ConversationBulkContext
-	} from '$lib/mail/conversationBulk.js';
+	} from '#lib/mail/conversationBulk.js';
 	import {
 		printableSelection,
 		printInProgress,
 		printMessages,
 		refusePrintWhileBusy
-	} from '$lib/mail/printMessages.js';
-	import { forwardMessage, replyToMessage } from '$lib/mail/actions.js';
-	import { createConversationSelection } from '$lib/mail/conversationSelection.js';
-	import { createThreadMemberCache } from '$lib/mail/threadMembers.js';
-	import type { RowActions } from '$lib/mail/rowActions.js';
-	import Icon from '$lib/components/Icon.svelte';
-	import MessageFlags from '$lib/components/MessageFlags.svelte';
-	import MessageRowActionsMenu from '$lib/components/MessageRowActionsMenu.svelte';
+	} from '#lib/mail/printMessages.js';
+	import { forwardMessage, replyToMessage } from '#lib/mail/actions.js';
+	import { createConversationSelection } from '#lib/mail/conversationSelection.js';
+	import { createThreadMemberCache } from '#lib/mail/threadMembers.js';
+	import type { RowActions } from '#lib/mail/rowActions.js';
+	import Icon from '#lib/components/Icon.svelte';
+	import MessageFlags from '#lib/components/MessageFlags.svelte';
+	import MessageRowActionsMenu from '#lib/components/MessageRowActionsMenu.svelte';
 	import {
 		clearListFocusRestore,
 		listFocusRestore,
 		type ListFocusRestore
-	} from '$lib/stores/selectedMessage.js';
-	import { announcePolite } from '$lib/stores/toasts.js';
-	import { nativeControlClass } from '$lib/components/ui/native-control/index.js';
-	import { focusRingInset } from '$lib/components/ui/focus-ring/index.js';
-	import { badgeVariants } from '$lib/components/ui/badge/index.js';
+	} from '#lib/stores/selectedMessage.js';
+	import { announcePolite } from '#lib/stores/toasts.js';
+	import { nativeControlClass } from '#lib/components/ui/native-control/index.js';
+	import { focusRingInset } from '#lib/components/ui/focus-ring/index.js';
+	import { badgeVariants } from '#lib/components/ui/badge/index.js';
 	import type {
 		ConversationSummaryResponse,
 		FolderResponse,
 		MailSummaryResponse
-	} from '$lib/types.js';
+	} from '#lib/types.js';
 	import { getContext, tick } from 'svelte';
 	import { get } from 'svelte/store';
 
@@ -160,8 +160,8 @@
 	const viewShowsRecipients = $derived(
 		currentFolderRole === 'DRAFTS' || currentFolderRole === 'SENT'
 	);
-	const moveTargets = $derived(moveTargetsFor($folders, currentFolderName));
 
+	const moveTargets = $derived(moveTargetsFor($folders, currentFolderName));
 	const pageConversations = $derived(
 		$conversationsState.status === 'ready' ? $conversationsState.page.content : []
 	);
@@ -209,8 +209,15 @@
 		({ pane: 'off' } satisfies EffectiveReadingPaneContext);
 
 	type VisibleRow =
-		| { kind: 'conversation'; conversation: ConversationSummaryResponse }
-		| { kind: 'member'; threadId: string; message: MailSummaryResponse };
+		| {
+				kind: 'conversation';
+				conversation: ConversationSummaryResponse;
+		  }
+		| {
+				kind: 'member';
+				threadId: string;
+				message: MailSummaryResponse;
+		  };
 
 	/*
 	 * Flattened parent + expanded-children list the roving grid navigates over.
@@ -301,7 +308,7 @@
 	function rowHref(stableId: string, folderName: string): string {
 		if ($conversationsState.status !== 'ready') return '';
 		if (folderRoleByRef.get(folderName) === 'DRAFTS') {
-			return `${resolve('/compose')}?draft=${encodeURIComponent(stableId)}`;
+			return `${resolve('compose')}?draft=${encodeURIComponent(stableId)}`;
 		}
 		return messageHref($conversationsState.context.accountId, folderName, stableId);
 	}
@@ -1496,6 +1503,7 @@
 						>
 							<MessageFlags {message} />
 						</div>
+
 						<!--
 							The subject track, and the two things that make a member row differ
 							from a conversation row.

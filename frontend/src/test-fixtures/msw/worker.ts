@@ -1,6 +1,6 @@
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import { setupWorker } from 'msw/browser';
-import { sessionState } from '$lib/stores/session.js';
+import { sessionState } from '#lib/stores/session.js';
 import {
 	failNextVCardExportOnce,
 	handlers,
@@ -35,7 +35,7 @@ import {
 	seedOAuthAccount,
 	seedTrashThreadMembers
 } from './fixtures.js';
-import type { SessionPayload } from '$lib/api/session.js';
+import type { SessionPayload } from '#lib/api/session.js';
 
 const worker = setupWorker(...handlers);
 let started = false;

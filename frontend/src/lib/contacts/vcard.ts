@@ -1,5 +1,5 @@
-import { splitDisplayName } from '$lib/contacts/displayName.js';
-import type { ContactCreateRequest, EmailLabel } from '$lib/types.js';
+import { splitDisplayName } from '#lib/contacts/displayName.js';
+import type { ContactCreateRequest, EmailLabel } from '#lib/types.js';
 
 const KNOWN_LABELS: readonly EmailLabel[] = ['HOME', 'WORK', 'OTHER'];
 

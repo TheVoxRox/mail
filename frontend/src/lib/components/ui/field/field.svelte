@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { cn } from '$lib/utils.js';
+	import { cn } from '#lib/utils.js';
 	import { fieldControlProps, fieldHintId, type FieldControlProps } from './field.js';
 
 	interface Props {

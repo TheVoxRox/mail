@@ -18,7 +18,7 @@
  * text size. It is the same line as Tailwind's `max-md:`, which the boot
  * skeleton uses for the same pane.
  */
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import { derived, get, readable, writable } from 'svelte/store';
 import { persistedStore } from './persisted.js';
 

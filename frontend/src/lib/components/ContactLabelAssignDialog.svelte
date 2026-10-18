@@ -1,14 +1,14 @@
 <script lang="ts">
-	import { assignContactLabels } from '$lib/api/contactLabels.js';
-	import { toErrorMessage } from '$lib/api/errors.js';
-	import { _ } from '$lib/i18n/index.js';
-	import { contactCounts } from '$lib/stores/contactCounts.js';
-	import { announcePolite, pushToast } from '$lib/stores/toasts.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { DialogDescription, DialogShell, DialogTitle } from '$lib/components/ui/dialog/index.js';
-	import { StateMessage } from '$lib/components/ui/state-message/index.js';
-	import { nativeControlClass } from '$lib/components/ui/native-control/index.js';
-	import type { ContactResponse } from '$lib/types.js';
+	import { assignContactLabels } from '#lib/api/contactLabels.js';
+	import { toErrorMessage } from '#lib/api/errors.js';
+	import { _ } from '#lib/i18n/index.js';
+	import { contactCounts } from '#lib/stores/contactCounts.js';
+	import { announcePolite, pushToast } from '#lib/stores/toasts.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { DialogDescription, DialogShell, DialogTitle } from '#lib/components/ui/dialog/index.js';
+	import { StateMessage } from '#lib/components/ui/state-message/index.js';
+	import { nativeControlClass } from '#lib/components/ui/native-control/index.js';
+	import type { ContactResponse } from '#lib/types.js';
 
 	interface Props {
 		open: boolean;

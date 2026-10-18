@@ -17,11 +17,11 @@
 	 */
 	import { onDestroy } from 'svelte';
 	import { Portal } from 'bits-ui';
-	import { _, appLocale } from '$lib/i18n/index.js';
-	import { formatFullDateTime } from '$lib/formatters.js';
-	import { isMailHtml } from '$lib/mail/content-sanitizer.js';
-	import type { PrintJob } from '$lib/mail/printMessages.js';
-	import { resolvedActiveAccountId } from '$lib/stores/accounts.js';
+	import { _, appLocale } from '#lib/i18n/index.js';
+	import { formatFullDateTime } from '#lib/formatters.js';
+	import { isMailHtml } from '#lib/mail/content-sanitizer.js';
+	import type { PrintJob } from '#lib/mail/printMessages.js';
+	import { resolvedActiveAccountId } from '#lib/stores/accounts.js';
 	import MessageContent from './MessageContent.svelte';
 
 	type Props = {

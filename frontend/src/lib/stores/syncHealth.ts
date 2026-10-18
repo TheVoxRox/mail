@@ -15,7 +15,7 @@
 
 import { derived, writable } from 'svelte/store';
 import { accountsState } from './accounts.js';
-import type { AccountResponse } from '$lib/types.js';
+import type { AccountResponse } from '#lib/types.js';
 
 /** Account ids whose last sync pass reported a failure. */
 export const failingSyncAccountIds = writable<readonly number[]>([]);

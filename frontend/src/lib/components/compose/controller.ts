@@ -1,6 +1,6 @@
-import type { loadComposePrefill } from '$lib/compose/prefill.js';
-import type { ComposeAttachment } from '$lib/compose/request.js';
-import type { AccountResponse } from '$lib/types.js';
+import type { loadComposePrefill } from '#lib/compose/prefill.js';
+import type { ComposeAttachment } from '#lib/compose/request.js';
+import type { AccountResponse } from '#lib/types.js';
 
 export type ComposePrefill = Awaited<ReturnType<typeof loadComposePrefill>>;
 
@@ -40,11 +40,11 @@ export function mapComposePrefill(prefill: ComposePrefill): ComposePrefillValues
 	};
 }
 
-export function shouldFocusComposeBody(searchParams: URLSearchParams): boolean {
+export function shouldFocusComposeBody(searchParams: Pick<URLSearchParams, 'has'>): boolean {
 	return ['reply', 'forward', 'draft'].some((key) => searchParams.has(key));
 }
 
-export function targetHref(url: URL): string {
+export function targetHref(url: Pick<URL, 'pathname' | 'search' | 'hash'>): string {
 	return `${url.pathname}${url.search}${url.hash}`;
 }
 

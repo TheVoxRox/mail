@@ -2,18 +2,18 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
-	import { accountsState, setActiveAccount } from '$lib/stores/accounts.js';
-	import { reloadSearch, runSearch, searchState } from '$lib/stores/search.js';
-	import { selectMessage, selectedMessage, clearSelection } from '$lib/stores/selectedMessage.js';
-	import { announcePolite } from '$lib/stores/toasts.js';
-	import { requestBodyFocus } from '$lib/mail/bodyFocus.js';
-	import type { DetailCloseContext } from '$lib/mail/detailHost.js';
-	import { messagesPageInfo } from '$lib/mail/pageInfoAnnouncement.js';
-	import MessageDetail from '$lib/components/MessageDetail.svelte';
-	import Pagination from '$lib/components/Pagination.svelte';
-	import SearchResultsGrid from '$lib/components/SearchResultsGrid.svelte';
-	import { _ } from '$lib/i18n/index.js';
-	import type { MailSummaryResponse } from '$lib/types.js';
+	import { accountsState, setActiveAccount } from '#lib/stores/accounts.js';
+	import { reloadSearch, runSearch, searchState } from '#lib/stores/search.js';
+	import { selectMessage, selectedMessage, clearSelection } from '#lib/stores/selectedMessage.js';
+	import { announcePolite } from '#lib/stores/toasts.js';
+	import { requestBodyFocus } from '#lib/mail/bodyFocus.js';
+	import type { DetailCloseContext } from '#lib/mail/detailHost.js';
+	import { messagesPageInfo } from '#lib/mail/pageInfoAnnouncement.js';
+	import MessageDetail from '#lib/components/MessageDetail.svelte';
+	import Pagination from '#lib/components/Pagination.svelte';
+	import SearchResultsGrid from '#lib/components/SearchResultsGrid.svelte';
+	import { _ } from '#lib/i18n/index.js';
+	import type { MailSummaryResponse } from '#lib/types.js';
 
 	let { data } = $props();
 
@@ -94,7 +94,7 @@
 				fallbackId
 					? `${resolve('/search/[accountId]', { accountId: String(fallbackId) })}${query}`
 					: resolve('/'),
-				{ replaceState: true }
+				{ replace: true }
 			);
 			return;
 		}
@@ -164,11 +164,11 @@
 		/*
 		 * The URL held the open result, so closing has to take it out of the URL
 		 * — otherwise Back would land straight back on the detail the user just
-		 * left. `keepFocus` because the restore below is ours to do: SvelteKit's
-		 * own focus reset would send focus to the document first, and the
-		 * restore would be racing it rather than taking over from it.
+		 * left. `reset: false` because the restore below is ours to do:
+		 * SvelteKit's own focus reset would send focus to the document first, and
+		 * the restore would be racing it rather than taking over from it.
 		 */
-		await goto(searchHref({ message: null }), { keepFocus: true, noScroll: true });
+		await goto(searchHref({ message: null }), { reset: false });
 		if (!context.removedStableId) {
 			restoreFocusStableId = openStableId;
 			return;

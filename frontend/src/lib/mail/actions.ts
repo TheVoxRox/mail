@@ -5,27 +5,27 @@
 import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
 import { get } from 'svelte/store';
-import { triggerAccountSync } from '$lib/api/mailAction.js';
-import { refreshFolders } from '$lib/stores/folders.js';
-import { resolvedActiveAccountId, setActiveAccount } from '$lib/stores/accounts.js';
+import { triggerAccountSync } from '#lib/api/mailAction.js';
+import { refreshFolders } from '#lib/stores/folders.js';
+import { resolvedActiveAccountId, setActiveAccount } from '#lib/stores/accounts.js';
 import {
 	clearSelection,
 	requestListFocusRestore,
 	selectedMessage
-} from '$lib/stores/selectedMessage.js';
+} from '#lib/stores/selectedMessage.js';
 import {
 	currentWorkspaceMode,
 	workspaceHref,
 	type WorkspaceMode
-} from '$lib/stores/workspaceMode.js';
-import { currentFolderHref } from '$lib/mail/currentListing.js';
+} from '#lib/stores/workspaceMode.js';
+import { currentFolderHref } from '#lib/mail/currentListing.js';
 
 export async function goToWorkspaceMode(mode: WorkspaceMode): Promise<void> {
 	await goto(workspaceHref(mode));
 }
 
 export async function goToAccounts(): Promise<void> {
-	await goto(resolve('/settings/accounts'));
+	await goto(resolve('settings/accounts'));
 }
 
 export async function goToSearch(): Promise<void> {
@@ -35,7 +35,7 @@ export async function goToSearch(): Promise<void> {
 }
 
 export async function goToCompose(): Promise<void> {
-	await goto(resolve('/compose'));
+	await goto(resolve('compose'));
 }
 
 export async function goToFolder(accountId: number, folderName: string): Promise<void> {
@@ -73,20 +73,20 @@ export async function closeCurrentMessageDetail(options?: {
 
 	clearSelection();
 	/*
-	 * keepFocus: the restore above lands on the list row as soon as the store
+	 * reset: false: the restore above lands on the list row as soon as the store
 	 * changes, which with a split reading pane (list already mounted next to
 	 * the detail) happens *before* this navigation settles — SvelteKit's own
 	 * post-navigation focus reset would then drop focus back on <body> and the
 	 * layout's afterNavigate would park it on <main>. Measured: without the
 	 * flag, Esc on a message the roving selection opened ends on <main>.
 	 */
-	await goto(currentFolderHref(), { keepFocus: true });
+	await goto(currentFolderHref(), { reset: false });
 }
 
 export async function replyToMessage(stableId: string, all = false): Promise<void> {
-	await goto(`${resolve('/compose')}?reply=${encodeURIComponent(stableId)}&all=${all ? '1' : '0'}`);
+	await goto(`${resolve('compose')}?reply=${encodeURIComponent(stableId)}&all=${all ? '1' : '0'}`);
 }
 
 export async function forwardMessage(stableId: string): Promise<void> {
-	await goto(`${resolve('/compose')}?forward=${encodeURIComponent(stableId)}`);
+	await goto(`${resolve('compose')}?forward=${encodeURIComponent(stableId)}`);
 }

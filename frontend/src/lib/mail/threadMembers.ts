@@ -28,7 +28,7 @@
  * not reliably reachable by clicking through an e2e run at all.
  */
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
-import type { MailSummaryResponse } from '$lib/types.js';
+import type { MailSummaryResponse } from '#lib/types.js';
 
 /** The view a cached member list belongs to. */
 export interface ThreadMemberContext {

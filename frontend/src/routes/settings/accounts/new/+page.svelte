@@ -1,35 +1,35 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import AccountForm from '$lib/components/AccountForm.svelte';
-	import { createAccount, listAccounts } from '$lib/api/accounts.js';
-	import { toErrorMessage } from '$lib/api/errors.js';
-	import { triggerAccountSync } from '$lib/api/mailAction.js';
-	import { resolveProviderByEmail } from '$lib/api/providers.js';
-	import { loadAccounts, setActiveAccount } from '$lib/stores/accounts.js';
-	import { pushToast } from '$lib/stores/toasts.js';
-	import { startOAuthLogin } from '$lib/api/googleAuth.js';
+	import AccountForm from '#lib/components/AccountForm.svelte';
+	import { createAccount, listAccounts } from '#lib/api/accounts.js';
+	import { toErrorMessage } from '#lib/api/errors.js';
+	import { triggerAccountSync } from '#lib/api/mailAction.js';
+	import { resolveProviderByEmail } from '#lib/api/providers.js';
+	import { loadAccounts, setActiveAccount } from '#lib/stores/accounts.js';
+	import { pushToast } from '#lib/stores/toasts.js';
+	import { startOAuthLogin } from '#lib/api/googleAuth.js';
 	import {
 		isOtherIdentity,
 		pollForOAuthAccount,
 		signedInAccountFor
-	} from '$lib/accounts/oauthPoll.js';
-	import { delayWithAbort } from '$lib/delay.js';
-	import { isValidEmailAddress } from '$lib/compose/addresses.js';
+	} from '#lib/accounts/oauthPoll.js';
+	import { delayWithAbort } from '#lib/delay.js';
+	import { isValidEmailAddress } from '#lib/compose/addresses.js';
 	import {
 		KNOWN_PRESETS,
 		presetForProvider,
 		type ProviderPreset
-	} from '$lib/accounts/providerPresets.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { Field } from '$lib/components/ui/field/index.js';
-	import { Input } from '$lib/components/ui/input/index.js';
-	import { PageShell } from '$lib/components/ui/page-shell/index.js';
-	import ProviderLogo from '$lib/components/ProviderLogo.svelte';
-	import { Surface } from '$lib/components/ui/surface/index.js';
-	import { _ } from '$lib/i18n/index.js';
+	} from '#lib/accounts/providerPresets.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Field } from '#lib/components/ui/field/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { PageShell } from '#lib/components/ui/page-shell/index.js';
+	import ProviderLogo from '#lib/components/ProviderLogo.svelte';
+	import { Surface } from '#lib/components/ui/surface/index.js';
+	import { _ } from '#lib/i18n/index.js';
 	import { onDestroy } from 'svelte';
-	import type { AccountCreateRequest, AccountResponse, AccountUpdateRequest } from '$lib/types.js';
+	import type { AccountCreateRequest, AccountResponse, AccountUpdateRequest } from '#lib/types.js';
 
 	const customPreset = KNOWN_PRESETS.find((p) => p.key === 'custom')!;
 
@@ -158,7 +158,7 @@
 		setActiveAccount(created.id);
 		void triggerInitialSync(created.id);
 		pushToast($_('accounts.createdToast'), { tone: 'success' });
-		await goto(resolve('/settings/accounts'));
+		await goto(resolve('settings/accounts'));
 	}
 
 	async function triggerInitialSync(accountId: number) {
@@ -198,7 +198,7 @@
 					: $_('accounts.createdToast'),
 				{ tone: 'success' }
 			);
-			await goto(resolve('/settings/accounts'));
+			await goto(resolve('settings/accounts'));
 			return;
 		}
 
@@ -264,9 +264,9 @@
 	contentClass="max-w-4xl space-y-4"
 >
 	{#snippet actions()}
-		<Button variant="link" size="sm" href={resolve('/settings/accounts')}>
-			{$_('accounts.backToList')}
-		</Button>
+		<Button variant="link" size="sm" href={resolve('settings/accounts')}
+			>{$_('accounts.backToList')}</Button
+		>
 	{/snippet}
 
 	{#if step.kind === 'email' || step.kind === 'detecting'}

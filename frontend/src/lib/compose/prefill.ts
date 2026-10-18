@@ -1,7 +1,7 @@
-import { prepareForward, prepareReply } from '$lib/api/mailWrite.js';
-import type { MailRequest } from '$lib/types.js';
-import type { ComposeAttachment } from '$lib/compose/request.js';
-import { isMailHtml, mailHtmlToPlainText } from '$lib/mail/content-sanitizer.js';
+import { prepareForward, prepareReply } from '#lib/api/mailWrite.js';
+import type { MailRequest } from '#lib/types.js';
+import type { ComposeAttachment } from '#lib/compose/request.js';
+import { isMailHtml, mailHtmlToPlainText } from '#lib/mail/content-sanitizer.js';
 
 export interface ComposePrefill extends Omit<MailRequest, 'attachments'> {
 	replacesDraftId: string | null;
@@ -39,7 +39,9 @@ function blobToBase64(blob: Blob): Promise<string> {
 	});
 }
 
-export async function loadComposePrefill(params: URLSearchParams): Promise<ComposePrefill | null> {
+export async function loadComposePrefill(
+	params: Pick<URLSearchParams, 'get'>
+): Promise<ComposePrefill | null> {
 	const replyId = params.get('reply');
 	const forwardId = params.get('forward');
 	const draftId = params.get('draft');
@@ -60,7 +62,7 @@ export async function loadComposePrefill(params: URLSearchParams): Promise<Compo
 
 	if (draftId) {
 		const { getMessageDetail, getMessageContent, downloadAttachment } =
-			await import('$lib/api/mailRead.js');
+			await import('#lib/api/mailRead.js');
 		const [detail, content] = await Promise.all([
 			getMessageDetail(draftId),
 			getMessageContent(draftId)

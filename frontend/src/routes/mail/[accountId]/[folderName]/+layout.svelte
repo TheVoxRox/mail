@@ -4,32 +4,32 @@
 	import { resolve } from '$app/paths';
 	import { setContext } from 'svelte';
 	import { get } from 'svelte/store';
-	import MessageList from '$lib/components/MessageList.svelte';
-	import ConversationList from '$lib/components/ConversationList.svelte';
-	import SplitPane from '$lib/components/SplitPane.svelte';
-	import { LIST_SIZE_PERCENT, SPLIT_SIZE_KEYS } from '$lib/stores/listSize.js';
-	import { accountsState, setActiveAccount } from '$lib/stores/accounts.js';
-	import { folders } from '$lib/stores/folders.js';
-	import { loadPage, messagesState } from '$lib/stores/messages.js';
-	import { conversationsState, loadConversationsPage } from '$lib/stores/conversations.js';
-	import { closeCurrentMessageDetail } from '$lib/mail/actions.js';
-	import { clearSelection } from '$lib/stores/selectedMessage.js';
-	import { announcePolite } from '$lib/stores/toasts.js';
-	import { messageGrouping, readingPane } from '$lib/stores/uiLayout.js';
-	import { _ } from '$lib/i18n/index.js';
-	import { folderLabel as toFolderLabel } from '$lib/mail/folderLabel.js';
-	import { messagesPageInfo } from '$lib/mail/pageInfoAnnouncement.js';
+	import MessageList from '#lib/components/MessageList.svelte';
+	import ConversationList from '#lib/components/ConversationList.svelte';
+	import SplitPane from '#lib/components/SplitPane.svelte';
+	import { LIST_SIZE_PERCENT, SPLIT_SIZE_KEYS } from '#lib/stores/listSize.js';
+	import { accountsState, setActiveAccount } from '#lib/stores/accounts.js';
+	import { folders } from '#lib/stores/folders.js';
+	import { loadPage, messagesState } from '#lib/stores/messages.js';
+	import { conversationsState, loadConversationsPage } from '#lib/stores/conversations.js';
+	import { closeCurrentMessageDetail } from '#lib/mail/actions.js';
+	import { clearSelection } from '#lib/stores/selectedMessage.js';
+	import { announcePolite } from '#lib/stores/toasts.js';
+	import { messageGrouping, readingPane } from '#lib/stores/uiLayout.js';
+	import { _ } from '#lib/i18n/index.js';
+	import { folderLabel as toFolderLabel } from '#lib/mail/folderLabel.js';
+	import { messagesPageInfo } from '#lib/mail/pageInfoAnnouncement.js';
 	import {
 		MESSAGE_HEADING_CONTEXT_KEY,
 		type MessageHeadingContext
-	} from '$lib/components/message-detail/messageHeadingContext.js';
+	} from '#lib/components/message-detail/messageHeadingContext.js';
 	import {
 		EFFECTIVE_READING_PANE_CONTEXT_KEY,
 		type EffectiveReadingPaneContext
-	} from '$lib/mail/readingPaneContext.js';
-	import { cn } from '$lib/utils.js';
-	import { badgeVariants } from '$lib/components/ui/badge/index.js';
-	import { buttonVariants } from '$lib/components/ui/button/index.js';
+	} from '#lib/mail/readingPaneContext.js';
+	import { cn } from '#lib/utils.js';
+	import { badgeVariants } from '#lib/components/ui/badge/index.js';
+	import { buttonVariants } from '#lib/components/ui/button/index.js';
 
 	let { children } = $props();
 
@@ -48,7 +48,7 @@
 		if (!Number.isInteger(accountId) || accountId <= 0 || !folderName) return;
 		if ($accountsState.status !== 'ready') return;
 		if (!$accountsState.accounts.some((account) => account.id === accountId)) {
-			void goto(resolve('/'), { replaceState: true });
+			void goto(resolve('/'), { replace: true });
 			return;
 		}
 

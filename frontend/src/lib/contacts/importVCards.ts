@@ -7,13 +7,13 @@
  * a file.
  */
 
-import { createContactLabel, listContactLabels } from '$lib/api/contactLabels.js';
-import { bulkCreateContacts } from '$lib/api/contacts.js';
-import { toErrorMessage } from '$lib/api/errors.js';
-import { parseVCard, type ParsedVCard } from '$lib/contacts/vcard.js';
-import { refreshContactCounts } from '$lib/stores/contactCounts.js';
-import { pushToast } from '$lib/stores/toasts.js';
-import type { ContactCreateRequest } from '$lib/types.js';
+import { createContactLabel, listContactLabels } from '#lib/api/contactLabels.js';
+import { bulkCreateContacts } from '#lib/api/contacts.js';
+import { toErrorMessage } from '#lib/api/errors.js';
+import { parseVCard, type ParsedVCard } from '#lib/contacts/vcard.js';
+import { refreshContactCounts } from '#lib/stores/contactCounts.js';
+import { pushToast } from '#lib/stores/toasts.js';
+import type { ContactCreateRequest } from '#lib/types.js';
 
 /**
  * Structurally compatible with `MessageFormatter` from svelte-i18n (`$_` /

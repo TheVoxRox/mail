@@ -3,8 +3,8 @@ import { join } from '@tauri-apps/api/path';
 import { Command, type Child } from '@tauri-apps/plugin-shell';
 import { exists, remove } from '@tauri-apps/plugin-fs';
 import { writable } from 'svelte/store';
-import { toError } from '$lib/api/errors.js';
-import { delayWithAbort } from '$lib/delay.js';
+import { toError } from '#lib/api/errors.js';
+import { delayWithAbort } from '#lib/delay.js';
 import { mailDataDir } from './data-dir';
 
 const SIDECAR_PROGRAM = 'binaries/voxrox-mail-backend';

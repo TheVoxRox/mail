@@ -1,18 +1,18 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
 	import { page } from '$app/state';
-	import type { ContactResponse, MailDetailResponse } from '$lib/types.js';
-	import { _, appLocale } from '$lib/i18n/index.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { Surface } from '$lib/components/ui/surface/index.js';
-	import { formatFullDateTime } from '$lib/formatters.js';
-	import { contactCreateHref, contactEditHref } from '$lib/contacts/prefill.js';
-	import { findContactByEmail } from '$lib/contacts/lookup.js';
-	import { senderContactSeed } from '$lib/contacts/senderContact.js';
+	import type { ContactResponse, MailDetailResponse } from '#lib/types.js';
+	import { _, appLocale } from '#lib/i18n/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Surface } from '#lib/components/ui/surface/index.js';
+	import { formatFullDateTime } from '#lib/formatters.js';
+	import { contactCreateHref, contactEditHref } from '#lib/contacts/prefill.js';
+	import { findContactByEmail } from '#lib/contacts/lookup.js';
+	import { senderContactSeed } from '#lib/contacts/senderContact.js';
 	import {
 		MESSAGE_HEADING_CONTEXT_KEY,
 		type MessageHeadingContext
-	} from '$lib/components/message-detail/messageHeadingContext.js';
+	} from '#lib/components/message-detail/messageHeadingContext.js';
 
 	type Props = {
 		detail: MailDetailResponse;

@@ -8,11 +8,11 @@ const { requireSessionMock, httpFetchMock, pageMock } = vi.hoisted(() => ({
 }));
 
 vi.mock('$app/state', () => ({ page: pageMock }));
-vi.mock('$lib/stores/session.js', () => ({ requireSession: requireSessionMock }));
+vi.mock('#lib/stores/session.js', () => ({ requireSession: requireSessionMock }));
 vi.mock('./http.js', () => ({ httpFetch: httpFetchMock }));
 
 import { reportClientBootDiagnostics } from './clientBootDiagnostics.js';
-import { CLIENT_VERSION } from '$lib/version.js';
+import { CLIENT_VERSION } from '#lib/version.js';
 
 describe('reportClientBootDiagnostics', () => {
 	it('reports the route id, never the path with the folder and message in it', async () => {

@@ -4,7 +4,7 @@
  * announcement in the mail layout and the search results page so all three
  * read the same.
  */
-import type { PagedResponse } from '$lib/types.js';
+import type { PagedResponse } from '#lib/types.js';
 
 type Translate = (key: string, options?: { values: Record<string, string | number> }) => string;
 

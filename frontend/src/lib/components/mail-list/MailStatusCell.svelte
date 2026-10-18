@@ -1,9 +1,9 @@
 <script lang="ts">
-	import MessageFlags from '$lib/components/MessageFlags.svelte';
-	import { focusRingInset } from '$lib/components/ui/focus-ring/index.js';
-	import { cn } from '$lib/utils.js';
-	import type { RovingCellProps } from '$lib/components/grid/rovingGrid.svelte.js';
-	import type { MailSummaryResponse } from '$lib/types.js';
+	import MessageFlags from '#lib/components/MessageFlags.svelte';
+	import { focusRingInset } from '#lib/components/ui/focus-ring/index.js';
+	import { cn } from '#lib/utils.js';
+	import type { RovingCellProps } from '#lib/components/grid/rovingGrid.svelte.js';
+	import type { MailSummaryResponse } from '#lib/types.js';
 
 	/**
 	 * The status cell: the row's flag icons, named by the label its column
