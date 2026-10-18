@@ -5,7 +5,6 @@
 	import { getAccount, updateAccount } from '#lib/api/accounts.js';
 	import { confirmAndDeleteAccount } from '#lib/accounts/deleteAccount.js';
 	import { toErrorMessage } from '#lib/api/errors.js';
-	import { getProvider } from '#lib/api/providers.js';
 	import { loadAccounts } from '#lib/stores/accounts.js';
 	import { badgeVariants } from '#lib/components/ui/badge/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
@@ -14,12 +13,7 @@
 	import { Surface } from '#lib/components/ui/surface/index.js';
 	import { _ } from '#lib/i18n/index.js';
 	import { pushToast } from '#lib/stores/toasts.js';
-	import type {
-		AccountCreateRequest,
-		AccountResponse,
-		AccountUpdateRequest,
-		MailProviderResponse
-	} from '#lib/types.js';
+	import type { AccountCreateRequest, AccountResponse, AccountUpdateRequest } from '#lib/types.js';
 	import { onMount } from 'svelte';
 
 	let { data } = $props();
@@ -28,18 +22,10 @@
 	let loadError = $state<string | null>(null);
 	let deleting = $state(false);
 	let deleteError = $state<string | null>(null);
-	let provider = $state<MailProviderResponse | null>(null);
 
 	onMount(async () => {
 		try {
 			account = await getAccount(data.id);
-			if (account.providerId != null) {
-				try {
-					provider = await getProvider(account.providerId);
-				} catch {
-					provider = null;
-				}
-			}
 		} catch (err) {
 			loadError = toErrorMessage(err);
 		}
@@ -115,21 +101,6 @@
 				onSubmit={handleSubmit}
 				submitLabel={$_('accounts.saveSubmitLabel')}
 			/>
-			{#if provider}
-				<dl
-					class="mt-4 space-y-1 border-t border-border pt-4 text-xs text-muted-foreground"
-					aria-label={$_('accounts.providerTemplate.heading')}
-				>
-					<div class="flex gap-2">
-						<dt class="font-medium text-foreground">{$_('accounts.providerTemplate.heading')}</dt>
-						<dd>{provider.name}</dd>
-					</div>
-					<div class="flex gap-2">
-						<dt class="font-medium">{$_('accounts.providerTemplate.domains')}</dt>
-						<dd>{provider.domains || '—'}</dd>
-					</div>
-				</dl>
-			{/if}
 			<div class="mt-4 space-y-3 border-t border-border pt-4">
 				<Button variant="destructive" size="sm" onclick={handleDelete} disabled={deleting}>
 					{deleting ? $_('accounts.deleting') : $_('accounts.deleteAccount')}

@@ -321,10 +321,6 @@
 		"deletedToast": "Účet odstraněn.",
 		"savedToast": "Změny účtu uloženy.",
 		"createdToast": "Účet přidán.",
-		"providerTemplate": {
-			"heading": "Šablona poskytovatele",
-			"domains": "Domény:"
-		},
 		"createSubmitLabel": "Vytvořit účet",
 		"saveSubmitLabel": "Uložit změny",
 		"customAccountBadge": "Vlastní konfigurace",

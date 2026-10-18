@@ -58,6 +58,12 @@ Entries before 2026-09-17 predate that split and are left as written.
   Measured on the packaged sidecar, with the codes it must not take in: a JVM
   that cannot be created exits 1, and so does `taskkill /F`, which therefore
   still reads as a failure.
+- **Editing an account no longer ends in a "Šablona poskytovatele" list.**
+  Below the form, after Uložit změny, a screen reader met a definition list of
+  two items: the provider's name, which the Poskytovatel field above already
+  says, and the mail domains the provider template covers, which nothing on
+  the page acts on. It had been there since the first import with no recorded
+  purpose and is gone, along with the request that fetched the template for it.
 
 ### Repo
 
