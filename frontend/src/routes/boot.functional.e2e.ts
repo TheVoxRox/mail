@@ -351,6 +351,15 @@ test.describe('MSW bootstrap', () => {
 			page.getByText('Databáze pošty v tomto počítači je poškozená', { exact: false })
 		).toBeVisible();
 		await expect(page.getByText('exit 65')).toHaveCount(0);
+
+		// The row Save logs sits in: the mocked build has no shell, so the button
+		// itself is BootErrorView.svelte.test.ts's to see. The dump needs the
+		// backend this screen is about, so it says it cannot be had yet.
+		await expect(page.getByRole('button', { name: 'Restartovat službu' })).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Stáhnout diagnostiku' })).toBeDisabled();
+		await expect(
+			page.getByText('Diagnostika bude dostupná, jakmile se načte bezpečné připojení k backendu.')
+		).toBeVisible();
 	});
 
 	test('client error reporter pošle bezpečný payload na interní endpoint', async ({ page }) => {

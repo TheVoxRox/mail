@@ -1,3 +1,4 @@
+import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { defineConfig } from 'vitest/config';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -5,6 +6,21 @@ import { fileURLToPath } from 'node:url';
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
+	/*
+	 * Compiles .svelte files for the few tests that mount a component — the
+	 * check e2e cannot make for anything shown only inside the native shell,
+	 * which the mocked build never has. The same runes rule as vite.config.ts;
+	 * SvelteKit itself stays out, so a mounted component sees the $app stubs
+	 * below rather than the framework.
+	 */
+	plugins: [
+		svelte({
+			compilerOptions: {
+				runes: ({ filename }) =>
+					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
+			}
+		})
+	],
 	resolve: {
 		alias: [
 			{ find: /^#lib\/(.*)$/, replacement: path.resolve(here, './src/lib/$1') },
@@ -41,18 +57,38 @@ export default defineConfig({
 		clearMocks: true,
 		restoreMocks: true,
 		/*
-		 * Two projects only because they need different timeouts. The gate suites
-		 * run their script as a process against a throwaway git repo, so a single
-		 * test is a handful of `git` and `node` spawns: the slowest sit at 2–3 s on
-		 * an idle machine, which the 5 s default survives right up until the machine
-		 * is busy (a parallel e2e run was enough to time out
-		 * check-audit-freshness). Raising it for `src` too would cost the fast fail
-		 * on a genuinely hung unit test, which is worth keeping.
+		 * The gate suites are a project of their own only because they need
+		 * different timeouts. They run their script as a process against a
+		 * throwaway git repo, so a single test is a handful of `git` and `node`
+		 * spawns: the slowest sit at 2–3 s on an idle machine, which the 5 s
+		 * default survives right up until the machine is busy (a parallel e2e run
+		 * was enough to time out check-audit-freshness). Raising it for `src` too
+		 * would cost the fast fail on a genuinely hung unit test, which is worth
+		 * keeping.
+		 *
+		 * The component tests (`*.svelte.test.ts`, Svelte's own naming) are one
+		 * because they need the browser build of Svelte: under Node's conditions
+		 * `mount` resolves to the server build, which refuses to run, and the
+		 * lifecycle functions to its no-ops.
 		 */
 		projects: [
 			{
 				extends: true,
-				test: { name: 'unit', environment: 'node', include: ['src/**/*.test.ts'] }
+				test: {
+					name: 'unit',
+					environment: 'node',
+					include: ['src/**/*.test.ts'],
+					exclude: ['src/**/*.svelte.test.ts']
+				}
+			},
+			{
+				extends: true,
+				resolve: { conditions: ['browser'] },
+				test: {
+					name: 'components',
+					environment: 'jsdom',
+					include: ['src/**/*.svelte.test.ts']
+				}
 			},
 			{
 				extends: true,

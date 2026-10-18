@@ -68,7 +68,7 @@
       "frontend/src/lib/updates.ts": "3f5774f8447b80e3b5355baeed1468ed700acd0d",
       "frontend/src/lib/nativeShell.ts": "88ad0252ba0c6541fafd92d0576bb011c604e39b",
       "frontend/src/lib/bootstrap.ts": "c55c02af6bf1b445463387db6c34229efa0d076e",
-      "frontend/src/lib/components/boot/BootErrorView.svelte": "2058801360be6a22656db1e998d5596ec7c94aa2",
+      "frontend/src/lib/components/boot/BootErrorView.svelte": "97dd8ca6d1342e2de330fae3e99ea69f668c98e2",
       "frontend/src/lib/components/UpdatePromptDialog.svelte": "2b8ebb25f1f32468f3bfb327acfcaaf100fb8cfc",
       "frontend/src/lib/components/UpdateFailureDialog.svelte": "f49306c645ca1c4895a9ef609571faa912d498f6",
       "frontend/src/lib/components/settings/AboutSettings.svelte": "cf846c6b2f0ca70f4e81a901a3509c8a0f03ff59"
@@ -93,6 +93,10 @@
       {
         "date": "2026-10-17",
         "note": "The SvelteKit 3 migration (#721). Seven frontend paths move (updates.ts, nativeShell.ts, bootstrap.ts, BootErrorView, UpdatePromptDialog, UpdateFailureDialog, AboutSettings), and only in import specifiers: $lib/... became #lib/... (package.json imports, the same files) and $app/environment became $app/env (the same module, renamed). After normalising those two renames the removed and added lines are identical. The startup check, the prompt, skip and postpone, the three-step install with the sidecar stopped in between, and src-tauri/src are untouched. Verdict stays PASS."
+      },
+      {
+        "date": "2026-10-18",
+        "note": "Save logs on the error view for a backend that never started (#734). Under Code paths only BootErrorView.svelte moves, and only in the dump's props and the action row: they become required, and BootDiagnosticActions is rendered unconditionally instead of a restart-only fallback. The manual update check this audit covers (its button, handleCheckForUpdates, checkForUpdateManually and the status region) is byte-identical, and no updater request, command or call site is added or removed. Verdict stays PASS."
       }
     ]
   },

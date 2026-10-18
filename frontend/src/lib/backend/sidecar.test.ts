@@ -373,6 +373,28 @@ describe('handleUnexpectedExit — exit code → user-readable error message', (
 		});
 	});
 
+	it('code -1 (Stop-Process on Windows) reads as terminated, not as a failed start', async () => {
+		const { mod, handle } = await setupSpawned();
+
+		await emitNTimes(() => handle.emitClose(-1, null), 4);
+
+		expect(get(mod.backendSidecarState)).toMatchObject({
+			status: 'error',
+			error: { messageKey: 'app.backendExit.terminated', values: { code: -1 } }
+		});
+	});
+
+	it('code 1 stays a failed start: a JVM that cannot be created ends with it, as does taskkill /F', async () => {
+		const { mod, handle } = await setupSpawned();
+
+		await emitNTimes(() => handle.emitClose(1, null), 4);
+
+		expect(get(mod.backendSidecarState)).toMatchObject({
+			status: 'error',
+			error: { messageKey: 'app.backendExit.failed', values: { code: '1' } }
+		});
+	});
+
 	it('code=null + signal=9 → "terminated by signal #9" copy', async () => {
 		const { mod, handle } = await setupSpawned();
 
