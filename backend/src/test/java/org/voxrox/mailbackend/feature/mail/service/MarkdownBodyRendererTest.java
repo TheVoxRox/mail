@@ -107,6 +107,18 @@ class MarkdownBodyRendererTest {
             assertThat(html).contains("Main street 1<br />").contains("Prague<br />");
         }
 
+        /**
+         * commonmark 0.30.0 lost the code spans that follow a run of backticks nobody
+         * closed (commonmark-java #459, fixed in 0.30.1), so the HTML part of such a
+         * message showed backticks where the plain part showed code. The input is
+         * upstream's own regression case.
+         */
+        @Test
+        @DisplayName("Code spans after an unclosed run of backticks still render")
+        void codeSpansAfterUnclosedBackticks() {
+            assertThat(render("`` `a` `c`")).contains("<p>`` <code>a</code> <code>c</code></p>");
+        }
+
         @Test
         @DisplayName("Output is a complete HTML document with a UTF-8 meta charset")
         void wrapsInADocument() {

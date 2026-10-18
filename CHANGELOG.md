@@ -19,6 +19,10 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+### Backend
+
+- **The HTML part of a sent message keeps code spans that follow an unclosed run of backticks (#722).** commonmark 0.30.0 lost them (commonmark-java #459), so where the plain part showed `` `a` `` the HTML part showed the backticks; 0.30.1 fixes it, and `MarkdownBodyRendererTest` now holds upstream's case, which fails on 0.30.0. The release's other change, a faster `MarkdownRenderer`, is in a class the app does not use.
+
 ### Frontend
 
 - **The app starts on a Windows profile whose name has diacritics (#718).** On such a profile the JVM writes a line of its own to standard output in the system code page — the AOT cache warning, which carries the install path — and the shell plugin, decoding strictly as UTF-8, reported it as an error instead of a line. The supervisor took that for a crash and started another backend without stopping the first, three times a minute: a closed-beta tester's logs hold up to sixteen backends on one database and an app that never got past its error screen. Output is now decoded leniently, and an error from the plugin stops the process it came from before a restart replaces it.
@@ -36,6 +40,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 ### Repo
 
 - **The frontend's development tools take their patch and minor releases: vitest 5.0.5, eslint 10.13, typescript-eslint 8.71.2, Playwright 1.64.1 (same Chromium build), axe-core 4.14, prettier 3.9.10, msw 3.0.3, jsdom 30.1.3 and svelte-check 4.7.7 (#727).** Nothing in the shipped app changes: no production package moves in the lockfile, and the one non-dev entry that does, `@typescript-eslint/types`, is read by the Svelte compiler at build time and appears nowhere in the built bundle. `@tauri-apps/cli` is left out, as it builds the installer and moves with the rest of Tauri.
+
+- **SpotBugs moves to 4.10.5 and PIT to 1.30.1, both Maven plugins that run only at build time (#723).** Merged from dependabot without an entry, which is added here; mvn clean verify reported no bug instance under the new SpotBugs.
 
 ## [0.1.0] - 2026-10-13
 
