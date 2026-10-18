@@ -31,6 +31,10 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 - **The packaged backend starts on its AOT cache, about a quarter faster (#719).** Every release build so far shipped a cache the JVM refused: packaging trained it with the system `java`, whose runtime is not the jlinked one in the app, so the JVM warned and started without it. The cache is now trained through the app's own launcher and found through `$APPDIR` instead of the working directory, and a packaging step fails the build when the JVM cannot start on it; to backend readiness, 4.1 s became 3.0 s. The JVM's own warnings now go to standard error, which the shell writes to `mail-frontend.log`, instead of standard output, which a release build keeps nowhere — the refused cache was in no log anyone had.
 
+### Repo
+
+- **The frontend's development tools take their patch and minor releases: vitest 5.0.5, eslint 10.13, typescript-eslint 8.71.2, Playwright 1.64.1 (same Chromium build), axe-core 4.14, prettier 3.9.10, msw 3.0.3, jsdom 30.1.3 and svelte-check 4.7.7 (#727).** Nothing in the shipped app changes: no production package moves in the lockfile, and the one non-dev entry that does, `@typescript-eslint/types`, is read by the Svelte compiler at build time and appears nowhere in the built bundle. `@tauri-apps/cli` is left out, as it builds the installer and moves with the rest of Tauri.
+
 ## [0.1.0] - 2026-10-13
 
 ### Backend
