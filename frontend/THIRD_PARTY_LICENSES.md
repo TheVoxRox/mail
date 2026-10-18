@@ -34,7 +34,7 @@ Counts: 115 packages total. 83 MIT, 14 ISC, 6 Apache-2.0, 4 MPL-2.0, 3 MIT OR Ap
 - **@tailwindcss/vite** 4.3.3 — [https://github.com/tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss)
 - **@types/estree** 1.0.9 — [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
 - **@types/node** 25.9.1 — [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
-- **@typescript-eslint/types** 8.71.1 — [https://github.com/typescript-eslint/typescript-eslint](https://github.com/typescript-eslint/typescript-eslint)
+- **@typescript-eslint/types** 8.71.2 — [https://github.com/typescript-eslint/typescript-eslint](https://github.com/typescript-eslint/typescript-eslint)
 - **acorn** 8.18.0 — [https://github.com/acornjs/acorn](https://github.com/acornjs/acorn)
 - **bits-ui** 2.19.5 — [https://github.com/huntabyte/bits-ui](https://github.com/huntabyte/bits-ui)
 - **clsx** 2.1.1 — [https://github.com/lukeed/clsx](https://github.com/lukeed/clsx)
@@ -125,9 +125,9 @@ Counts: 115 packages total. 83 MIT, 14 ISC, 6 Apache-2.0, 4 MPL-2.0, 3 MIT OR Ap
 
 ## MIT OR Apache-2.0 (3)
 
-- **@tauri-apps/plugin-fs** 2.6.0 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
-- **@tauri-apps/plugin-http** 2.8.1 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
-- **@tauri-apps/plugin-shell** 2.4.1 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
+- **@tauri-apps/plugin-fs** 2.7.1 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
+- **@tauri-apps/plugin-http** 2.8.3 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
+- **@tauri-apps/plugin-shell** 2.5.0 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
 
 ## BSD-3-Clause (2)
 
@@ -140,7 +140,7 @@ Counts: 115 packages total. 83 MIT, 14 ISC, 6 Apache-2.0, 4 MPL-2.0, 3 MIT OR Ap
 
 ## Apache-2.0 OR MIT (1)
 
-- **@tauri-apps/api** 2.12.2 — [https://github.com/tauri-apps/tauri](https://github.com/tauri-apps/tauri)
+- **@tauri-apps/api** 2.12.4 — [https://github.com/tauri-apps/tauri](https://github.com/tauri-apps/tauri)
 
 ## MIT* (1)
 
