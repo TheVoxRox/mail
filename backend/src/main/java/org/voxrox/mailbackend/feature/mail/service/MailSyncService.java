@@ -128,7 +128,7 @@ public class MailSyncService {
 
         try {
             log.info("{} Starting account sync: {}", LogCategory.SYNC, LogMasker.maskEmail(account.getEmail()));
-            List<FolderResponse> folders = listFoldersRetryingTransient(account);
+            List<FolderResponse> folders = listFoldersRetryingClosedConnection(account);
             if (folders == null) {
                 return;
             }
@@ -204,8 +204,8 @@ public class MailSyncService {
     }
 
     /**
-     * The pass's folder listing, with the bounded transient retry a folder cycle
-     * has in {@link #runFolderCycle}.
+     * The pass's folder listing, retried under the bound a folder cycle has in
+     * {@link #runFolderCycle} when the server closed the connection under it.
      *
      * <p>
      * The listing is the first IMAP command of a pass, so it is the one that meets
@@ -216,19 +216,28 @@ public class MailSyncService {
      * ({@code StoreClosedException}) and showed {@code MAIL_SYNC_CONNECTION_FAILED}
      * until the next pass five minutes later.
      *
+     * <p>
+     * Only a closed connection ({@link TransientMailErrors#isClosedConnection}),
+     * not every transient error. A server that cannot be reached fails in the
+     * connect step, which ImapConnectionManager already retries; retrying the
+     * listing on top of it ran out this budget too on every outage, which the
+     * accelerated soak reported as an exhausted retry. The connect that follows a
+     * closed connection is the connect retry's again, so an outage that starts
+     * there fails once.
+     *
      * @return the folders, or {@code null} when the retries ran out, which is then
      *         recorded here as the pass's failure, or when the backoff was
-     *         interrupted. A failure that is not transient propagates to the pass's
-     *         own catch, as it did before the retry.
+     *         interrupted. Any other failure propagates to the pass's own catch, as
+     *         it did before the retry.
      */
-    private @Nullable List<FolderResponse> listFoldersRetryingTransient(AccountEntity account) {
+    private @Nullable List<FolderResponse> listFoldersRetryingClosedConnection(AccountEntity account) {
         int maxAttempts = mailProps.retry().maxAttempts();
         String maskedEmail = LogMasker.maskEmail(account.getEmail());
         for (int attempt = 1;; attempt++) {
             try {
                 return imapFolderService.getFolders(account.getId());
             } catch (RuntimeException e) {
-                if (!TransientMailErrors.isTransient(e)) {
+                if (!TransientMailErrors.isClosedConnection(e)) {
                     throw e;
                 }
                 if (attempt >= maxAttempts) {

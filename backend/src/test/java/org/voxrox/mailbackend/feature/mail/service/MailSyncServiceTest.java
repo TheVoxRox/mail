@@ -274,11 +274,12 @@ class MailSyncServiceTest {
         }
 
         @Test
-        @DisplayName("A listing that keeps failing transiently is recorded once, when the retries run out")
+        @DisplayName("A server that keeps closing the connection under the listing is recorded once, when the retries run out")
         void recordsAListingWhoseRetriesRanOut() {
             when(lockManager.tryLock(eq(ACCOUNT_ID), anyBoolean())).thenReturn(true);
-            when(imapFolderService.getFolders(ACCOUNT_ID)).thenThrow(new MailConnectionException(
-                    "Critical IMAP error for account 7", new java.net.ConnectException("Connection refused")));
+            when(imapFolderService.getFolders(ACCOUNT_ID))
+                    .thenThrow(new MailConnectionException("Critical IMAP error for account 7",
+                            new StoreClosedException(mock(Store.class), "Connection dropped by server?")));
 
             service.syncAllFolders(account, SyncTrigger.SCHEDULED);
 
@@ -289,6 +290,27 @@ class MailSyncServiceTest {
             verify(accountRepository).updateLastError(eq(ACCOUNT_ID), captor.capture(), any(LocalDateTime.class));
             assertThat(captor.getValue().code()).isEqualTo(AccountLastErrorCode.MAIL_SYNC_CONNECTION_FAILED);
             verify(lockManager).unlock(ACCOUNT_ID);
+        }
+
+        @Test
+        @DisplayName("A server that cannot be reached is left to the connect retry, not retried again by the listing")
+        void leavesAnUnreachableServerToTheConnectRetry() {
+            /*
+             * The connect step already went through imapRetryTemplate before this error
+             * arrived. Retrying it here ran out the listing's budget on every outage too —
+             * the accelerated soak on #738 counted it as an exhausted hiccup D.
+             */
+            when(lockManager.tryLock(eq(ACCOUNT_ID), anyBoolean())).thenReturn(true);
+            when(imapFolderService.getFolders(ACCOUNT_ID)).thenThrow(new MailConnectionException(
+                    "Critical IMAP error for account 7", new java.net.ConnectException("Connection refused")));
+
+            service.syncAllFolders(account, SyncTrigger.SCHEDULED);
+
+            verify(imapFolderService).getFolders(ACCOUNT_ID);
+            verify(imapFolderService, never()).invalidateConnection(anyLong());
+            ArgumentCaptor<AccountLastError> captor = ArgumentCaptor.forClass(AccountLastError.class);
+            verify(accountRepository).updateLastError(eq(ACCOUNT_ID), captor.capture(), any(LocalDateTime.class));
+            assertThat(captor.getValue().code()).isEqualTo(AccountLastErrorCode.MAIL_SYNC_CONNECTION_FAILED);
         }
 
         @Test

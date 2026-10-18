@@ -157,7 +157,7 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "42a03db5cc81b9ba60698539f466f884a5b30b7e",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "b887c8651339475ff22b41121f8639a81ee2751f",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "9529c23f5e6525d047964bbe6f7342c525ddbdca",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/MessageEntity.java": "f3f30cd4be6904739e50a7c4a58212c6d9679cf1",
       "backend/src/main/resources/application.properties": "e32931284645050519fd545b10ab30f24bf048c9",
@@ -187,6 +187,10 @@
       {
         "date": "2026-10-18",
         "note": "Recorded in the audit itself as v1.69 (#738); functional, so no claim of a finding moves and the anchor stays at 6ff9ded. Under Code paths only MailSyncService changes: syncAllFolders lists the account's folders through the new listFoldersRetryingTransient, which retries ImapFolderService.getFolders when TransientMailErrors.isTransient holds, up to mail.client.retry.max-attempts, calling invalidateConnection and sleepBeforeRetry between attempts exactly as runFolderCycle does; a failure that is not transient propagates to the pass's catch as before, and an exhausted retry is recorded once through recordAccountSyncFailure, which the pass's catch now also uses (same AuditLog record, same last_error). The connect path, the retry template, the TLS settings, every bound and the lane locks are untouched, and the retry runs before any folder cycle, holding no lane lock, so removeConnection takes the lanes in turn as it does from runFolderCycle. §1's description of the second retry layer is extended to name it. Verdict PASS."
+      },
+      {
+        "date": "2026-10-18",
+        "note": "Recorded in the audit itself as v1.70 (#739); functional, so no claim of a finding moves and the anchor stays at 6ff9ded. Under Code paths two files change. TransientMailErrors gains isClosedConnection: true when the bounded causal chain holds a StoreClosedException or FolderClosedException and no AuthenticationFailedException; isTransient is unchanged and still decides the folder cycle's retry. MailSyncService renames 1.69's listing helper to listFoldersRetryingClosedConnection and has it retry only when isClosedConnection holds, so a failed connect (ConnectException, a read timeout, a reset, already retried by imapRetryTemplate inside ImapConnectionManager) propagates to the pass's catch as it did before 1.69. Fewer attempts on the same bound; the connect path, the TLS settings, the lane locks and every bound are untouched. Verdict PASS."
       }
     ]
   },

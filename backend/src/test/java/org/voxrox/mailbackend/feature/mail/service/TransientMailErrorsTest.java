@@ -90,4 +90,37 @@ class TransientMailErrorsTest {
         assertThat(TransientMailErrors.isTransient(new MessagingException("Unable to load BODYSTRUCTURE"))).isFalse();
         assertThat(TransientMailErrors.isTransient(new MessagingException((String) null))).isFalse();
     }
+
+    @Test
+    @DisplayName("A connection the server closed under a command is a closed connection, also when wrapped")
+    void closedConnection() {
+        assertThat(
+                TransientMailErrors.isClosedConnection(new StoreClosedException(null, "Connection dropped by server?")))
+                .isTrue();
+        assertThat(TransientMailErrors.isClosedConnection(new FolderClosedException(null, "folder closed"))).isTrue();
+        assertThat(TransientMailErrors.isClosedConnection(
+                new IllegalStateException("Critical IMAP error", new StoreClosedException(null, "dropped")))).isTrue();
+    }
+
+    @Test
+    @DisplayName("A connection that could not be opened is not a closed connection: the connect retry has had it")
+    void failedConnectIsNotAClosedConnection() {
+        // What the accelerated soak's unreachable server and silent network produce,
+        // at the connect step, after imapRetryTemplate has already retried them.
+        assertThat(TransientMailErrors.isClosedConnection(new ConnectException("connection refused"))).isFalse();
+        assertThat(TransientMailErrors.isClosedConnection(
+                new MessagingException("Read timed out", new SocketTimeoutException("Read timed out")))).isFalse();
+        assertThat(
+                TransientMailErrors.isClosedConnection(new MessagingException("failed to create new store connection")))
+                .isFalse();
+    }
+
+    @Test
+    @DisplayName("An authentication failure in the chain is never a closed connection")
+    void authenticationWinsOverAClosedConnection() {
+        StoreClosedException closed = new StoreClosedException(null, "closed",
+                new AuthenticationFailedException("bad credentials"));
+
+        assertThat(TransientMailErrors.isClosedConnection(closed)).isFalse();
+    }
 }

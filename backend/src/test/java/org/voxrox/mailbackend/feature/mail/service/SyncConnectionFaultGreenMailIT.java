@@ -156,10 +156,22 @@ class SyncConnectionFaultGreenMailIT {
     void unreachableServerIsRecordedAndRecovered() {
         assertThat(passWithin(HANG_LIMIT)).isNull();
         proxy.refuse();
+        long listingRetriesBefore = logLines("Transient IMAP error during folder listing");
+        long exhaustedBefore = logLines("transient-retry attempt(s)");
 
         assertThat(passWithin(HANG_LIMIT)).as("error while the server is unreachable").isNotNull();
         // A network failure is not a credential failure.
         assertThat(reload().isRequiresReauth()).isFalse();
+        /*
+         * Connecting has its own retry (ImapConnectionManager), so a server that cannot
+         * be reached is one recorded failure of the pass. The listing's retry is for a
+         * connection the server closed under it; retrying an unreachable server on top
+         * of the connect retry ran out the transient budget on every outage, which the
+         * accelerated soak reported against #738.
+         */
+        assertThat(logLines("Transient IMAP error during folder listing")).as("listing retries")
+                .isEqualTo(listingRetriesBefore);
+        assertThat(logLines("transient-retry attempt(s)")).as("exhausted transient retries").isEqualTo(exhaustedBefore);
 
         proxy.restore();
         deliver("After the outage");
@@ -195,6 +207,16 @@ class SyncConnectionFaultGreenMailIT {
         direct.syncAllFolders(reload(), SyncTrigger.SCHEDULED);
         assertThat(Duration.ofNanos(System.nanoTime() - started)).as("time one pass took").isLessThan(limit);
         return accountRepository.findLastErrorCode(account.getId()).orElse(null);
+    }
+
+    /** Lines of the backend's own log that contain {@code text}. */
+    private static long logLines(String text) {
+        Path log = DATA_DIR.resolve("logs").resolve("mail.log");
+        try (var lines = Files.lines(log, java.nio.charset.StandardCharsets.UTF_8)) {
+            return lines.filter(line -> line.contains(text)).count();
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
     }
 
     private long messages() {

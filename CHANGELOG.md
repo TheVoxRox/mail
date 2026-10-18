@@ -28,9 +28,13 @@ Entries before 2026-09-17 predate that split and are left as written.
   kept its connection error (`MAIL_SYNC_CONNECTION_FAILED`) until the next
   one. Met on seznam.cz at
   §8.1 of the 2026-10-13 candidate, where Gmail, which met the same drop inside
-  a folder, retried and carried on. The listing now reconnects and retries
-  under the same bound and the same classifier as a folder cycle, and
-  `release:scan-logs` counts its retries with the hiccup D signals.
+  a folder, retried and carried on. The listing now reconnects and retries,
+  under the same bound as a folder cycle, when the server closed the
+  connection under it; a server that cannot be reached is left to the connect
+  retry, as before, so an outage still fails the pass once rather than running
+  out a second retry on top of the first (the first version of this fix did,
+  and the accelerated soak counted it as an exhausted retry).
+  `release:scan-logs` counts the listing's retries with the hiccup D signals.
 
 ### Frontend
 
